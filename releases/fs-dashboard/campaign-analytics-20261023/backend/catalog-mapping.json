@@ -38,24 +38,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -70,6 +75,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170014917",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -129,24 +148,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -161,6 +185,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170026873",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -220,24 +258,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -252,6 +295,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170014921",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -311,24 +368,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -343,6 +405,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170017881",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -402,24 +478,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -434,6 +515,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170025645",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -493,24 +588,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -525,6 +625,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170017885",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -584,24 +698,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -616,6 +735,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170017889",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -675,24 +808,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -707,6 +845,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170025649",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -766,24 +918,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -798,6 +955,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170017893",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -857,24 +1028,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -889,6 +1065,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170018993",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -948,24 +1138,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -980,6 +1175,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170024773",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -1039,24 +1248,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -1071,6 +1285,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "170018997",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -1130,24 +1358,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -1162,6 +1395,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184101943",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -1221,24 +1468,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -1253,6 +1505,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184101979",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -1312,24 +1578,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -1344,6 +1615,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184102015",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -1403,24 +1688,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -1435,6 +1725,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184102051",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -1494,24 +1798,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -1526,6 +1835,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184102087",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -1585,24 +1908,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -1617,6 +1945,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184102123",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -1676,24 +2018,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -1708,6 +2055,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184102267",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -1767,24 +2128,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -1799,6 +2165,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184102303",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -1858,24 +2238,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -1890,6 +2275,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184102339",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -1949,24 +2348,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -1981,6 +2385,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184557601",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -2040,24 +2458,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -2072,6 +2495,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184557637",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -2131,24 +2568,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -2163,6 +2605,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "184557673",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -2222,24 +2678,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -2254,6 +2715,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185070945",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -2313,24 +2788,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -2345,6 +2825,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185070953",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -2404,24 +2898,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -2436,6 +2935,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185070949",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -2495,24 +3008,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -2527,6 +3045,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185070993",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -2586,24 +3118,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -2618,6 +3155,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185071001",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -2677,24 +3228,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -2709,6 +3265,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185070997",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -2768,24 +3338,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -2800,6 +3375,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185493031",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -2859,24 +3448,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -2891,6 +3485,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185493067",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -2950,24 +3558,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -2982,6 +3595,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185493103",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -3041,24 +3668,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -3073,6 +3705,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185681151",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -3132,24 +3778,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -3164,6 +3815,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185681187",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -3223,24 +3888,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -3255,6 +3925,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185681223",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -3314,17 +3998,23 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
@@ -3332,7 +4022,6 @@
       "missing_reasons": [
         "ORIGINAL_PAGE_STATUS_GUARD_FAILED",
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -3347,6 +4036,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185718875",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -3406,17 +4109,23 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
@@ -3424,7 +4133,6 @@
       "missing_reasons": [
         "ORIGINAL_PAGE_STATUS_GUARD_FAILED",
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -3439,6 +4147,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185718911",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -3498,17 +4220,23 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
@@ -3516,7 +4244,6 @@
       "missing_reasons": [
         "ORIGINAL_PAGE_STATUS_GUARD_FAILED",
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -3531,6 +4258,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185718947",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -3590,24 +4331,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -3622,6 +4368,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185752835",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -3681,24 +4441,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -3713,6 +4478,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185752871",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -3772,24 +4551,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -3804,6 +4588,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185752907",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -3863,24 +4661,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -3895,6 +4698,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185752943",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -3954,24 +4771,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -3986,6 +4808,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185752979",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -4045,24 +4881,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -4077,6 +4918,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185753015",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -4136,24 +4991,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -4168,6 +5028,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185753051",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -4227,24 +5101,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -4259,6 +5138,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185753087",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -4318,24 +5211,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -4350,6 +5248,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185753123",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -4409,24 +5321,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -4441,6 +5358,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185753159",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -4500,24 +5431,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -4532,6 +5468,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185753195",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -4591,24 +5541,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -4623,6 +5578,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185753231",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -4682,17 +5651,23 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
@@ -4700,7 +5675,6 @@
       "missing_reasons": [
         "ORIGINAL_PAGE_STATUS_GUARD_FAILED",
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -4715,6 +5689,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185833159",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -4774,17 +5762,23 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
@@ -4792,7 +5786,6 @@
       "missing_reasons": [
         "ORIGINAL_PAGE_STATUS_GUARD_FAILED",
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -4807,6 +5800,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185833195",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -4866,17 +5873,23 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
@@ -4884,7 +5897,6 @@
       "missing_reasons": [
         "ORIGINAL_PAGE_STATUS_GUARD_FAILED",
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -4899,6 +5911,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185833231",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -4958,24 +5984,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -4990,6 +6021,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185916851",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -5049,24 +6094,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -5081,6 +6131,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185916859",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -5140,24 +6204,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -5172,6 +6241,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185916855",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -5231,24 +6314,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -5263,6 +6351,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185916875",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -5322,24 +6424,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -5354,6 +6461,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185916883",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -5413,24 +6534,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -5445,6 +6571,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185916879",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -5504,24 +6644,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -5536,6 +6681,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185916899",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -5595,24 +6754,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -5627,6 +6791,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185916907",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -5686,24 +6864,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -5718,6 +6901,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "185916903",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -5777,24 +6974,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -5809,6 +7011,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186021743",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -5868,24 +7084,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -5900,6 +7121,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186021779",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -5959,24 +7194,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -5991,6 +7231,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186021815",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -6050,24 +7304,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -6082,6 +7341,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254267",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -6141,24 +7414,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -6173,6 +7451,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254275",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -6232,24 +7524,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -6264,6 +7561,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254271",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -6323,24 +7634,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -6355,6 +7671,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254279",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -6414,24 +7744,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -6446,6 +7781,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254287",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -6505,24 +7854,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -6537,6 +7891,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254283",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -6596,24 +7964,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -6628,6 +8001,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254291",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -6687,24 +8074,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -6719,6 +8111,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254299",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -6778,24 +8184,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -6810,6 +8221,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254295",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -6869,24 +8294,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -6901,6 +8331,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254399",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21587"
+        }
       },
       "observed_platform_attribute_id": "21587",
       "server_id": "7645",
@@ -6960,24 +8404,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -6992,6 +8441,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254407",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21585"
+        }
       },
       "observed_platform_attribute_id": "21585",
       "server_id": "7645",
@@ -7051,24 +8514,29 @@
         "reference_group": "1",
         "step": null,
         "maximum": null,
+        "selection_mode": "fixed_original_choice",
+        "step_required": false,
+        "maximum_required": false,
         "observed_minimum": "1",
         "observed_unit": "",
         "observed_num": "1",
         "meets_observed_minimum": true,
-        "unit_matches": null
+        "unit_matches": null,
+        "original_group_matches_observed_num": true
       },
       "verified_parts": [
         "category_id_identity",
         "empty_selectable_properties_observed",
         "minimum_quantity_observed",
         "model_identity",
+        "original_fc_cart_field_serialization",
+        "original_fc_fixed_selection",
         "platform_attribute_identity",
         "raw_unit_observed",
         "site_game_goods_identity"
       ],
       "missing_reasons": [
         "PUBLIC_PURCHASE_SERIALIZATION_UNVERIFIED",
-        "QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED",
         "SALE_STATE_SEMANTICS_UNVERIFIED"
       ],
       "selection_schema": "empty_selectable_properties",
@@ -7083,6 +8551,20 @@
         "currency_schema_get": "ad103f15cda1e39b23f69f255fa2177727af8145bb4e377bfa7ab88ad6960ea2",
         "original_artifact": "app/catalog.json",
         "original_artifact_sha256": "0bc793bd385f4eaeeca3c745d281528258ec75e51a586e00e15b69c3338c2ccd"
+      },
+      "original_cart_serialization": {
+        "contract": "fc-activity-core-payload-v1",
+        "source_artifact": "app/activity-core.js",
+        "verification_scope": "original_source_only",
+        "current_main_site_verified": false,
+        "fields": {
+          "category": "new_items",
+          "id": "186254403",
+          "group": "1",
+          "num": "1",
+          "attr": "",
+          "aid": "21589"
+        }
       },
       "observed_platform_attribute_id": "21589",
       "server_id": "7645",
@@ -10673,7 +12155,7 @@
       }
     }
   },
-  "mappings_sha256": "9d82a144eebbb5052499e6adedcfefa2d920341b7a84393af7e61d5c026f37e9",
+  "mappings_sha256": "dd94612e46506ca36075c9a22433a7f6efd5011683f8c5ce630b45eec75a92c2",
   "authoritative": false,
   "checkout_enabled": false,
   "evidence_file_hashes": {

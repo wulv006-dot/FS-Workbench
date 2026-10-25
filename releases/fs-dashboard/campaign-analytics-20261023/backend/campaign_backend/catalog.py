@@ -205,6 +205,23 @@ def _mapping_summary(mappings):
         available=0,checkout_enabled=0)
 
 
+def _fc_fixed_serialization(reference, value):
+    """Original activity-core.payload fields only; no current main-site acceptance claim."""
+    if reference['family'] != 'fc':
+        return None
+    quantity, group = positive_id(value), positive_id(reference['expected_quantity'].get('group'))
+    if (reference['game_key'] != 'fc' or reference['source_artifact'] != 'app/catalog.json'
+            or reference['product_ref']['site_id'] != '266' or reference['product_ref']['game_id'] != '1327'
+            or quantity != value or str(reference['expected_quantity']['group']) != group
+            or reference['expected_quantity'].get('source_unit') is not None
+            or max(int(quantity),int(group)) > 9007199254740991):
+        raise ContractError('FC_FIXED_SELECTION_CONTRACT_INVALID')
+    return dict(contract='fc-activity-core-payload-v1',source_artifact='app/activity-core.js',
+        verification_scope='original_source_only',current_main_site_verified=False,
+        fields=dict(category='new_items',id=positive_id(reference['product_ref']['goods_id']),
+            group=group,num=quantity,attr='',aid=positive_id(reference['expected_platform']['attribute_id'])))
+
+
 def build_reference_mappings(seed, evidence, supplement=None):
     """Consume sanitized GET evidence, preserving reference quantities and honest unresolved parts."""
     if seed.get('schema_version') != 1 or not isinstance(seed.get('references'), list):
@@ -241,6 +258,12 @@ def build_reference_mappings(seed, evidence, supplement=None):
             metadata_state='unresolved', available=False, authoritative=False, checkout_enabled=False,
             source_evidence=dict(evidence_hashes, original_artifact=reference['source_artifact'],
                 original_artifact_sha256=seed['source_artifacts'][reference['source_artifact']]))
+        fixed = _fc_fixed_serialization(reference, original_value)
+        if fixed:
+            entry['original_cart_serialization'] = fixed
+            entry['quantity'].update(selection_mode='fixed_original_choice',step_required=False,maximum_required=False)
+            entry['missing_reasons'].remove('QUANTITY_STEP_AND_UPPER_BOUND_UNVERIFIED')
+            entry['verified_parts'] += ['original_fc_fixed_selection','original_fc_cart_field_serialization']
         if not observed or observed.get('status') != 'observed':
             entry['missing_reasons'].append('CURRENT_PRODUCT_METADATA_UNRESOLVED')
             mappings[key] = entry; continue
@@ -276,6 +299,15 @@ def build_reference_mappings(seed, evidence, supplement=None):
             observed_num=str(fields['num']) if type(fields.get('num')) in (str,int) else None,
             meets_observed_minimum=value>=minimum,
             unit_matches=None if expected.get('source_unit') is None else expected['source_unit']==unit)
+        if fixed:
+            try:
+                group_matches = positive_id(fields.get('num')) == fixed['fields']['group']
+                entry['quantity']['original_group_matches_observed_num'] = group_matches
+                if not group_matches:
+                    entry['missing_reasons'].append('ORIGINAL_QUANTITY_GROUP_CONFLICT')
+            except ContractError:
+                entry['quantity']['original_group_matches_observed_num'] = None
+                entry['missing_reasons'].append('ORIGINAL_QUANTITY_GROUP_UNVERIFIED')
         if value<minimum: entry['missing_reasons'].append('ORIGINAL_QUANTITY_BELOW_CURRENT_MINIMUM')
         if expected.get('source_unit') is not None and expected['source_unit']!=unit:
             entry['missing_reasons'].append('ORIGINAL_QUANTITY_UNIT_CONFLICT')
@@ -341,7 +373,7 @@ def read_reference_mapping(artifact, reference_key=None):
     allowed = {'reference_key','family','game_key','product_ref','platform','quantity','verified_parts','missing_reasons',
         'selection_schema','selectable_attributes','sku_options','metadata_state','available','authoritative','checkout_enabled',
         'source_evidence','observed_platform_attribute_id','server_id','category_id','raw_status','original_status_guard_passed',
-        'specification_evidence','quantity_tiers','model_quantity_tiers','public_purchase_evidence'}
+        'specification_evidence','quantity_tiers','model_quantity_tiers','public_purchase_evidence','original_cart_serialization'}
     def check_tree(value):
         if isinstance(value,dict):
             if any(_PRIVATE.search(str(k)) for k in value):
@@ -355,6 +387,20 @@ def read_reference_mapping(artifact, reference_key=None):
         if set(row)-allowed or row.get('reference_key')!=key or any(row.get(k) is not False for k in ('available','authoritative','checkout_enabled')):
             raise ContractError('CATALOG_MAPPING_ARTIFACT_INVALID')
         check_tree(row)
+        if 'original_cart_serialization' in row:
+            try:
+                expected = _fc_fixed_serialization(dict(family=row['family'],game_key=row['game_key'],
+                    source_artifact=row['source_evidence']['original_artifact'],product_ref=row['product_ref'],
+                    expected_platform=row['platform'],expected_quantity=dict(value=row['quantity']['reference_value'],
+                        group=row['quantity']['reference_group'],source_unit=row['quantity']['reference_unit'])),
+                    row['quantity']['reference_value'])
+                if (expected is None or _json_hash(row['original_cart_serialization']) != _json_hash(expected)
+                        or row['quantity'].get('selection_mode') != 'fixed_original_choice'
+                        or row['quantity'].get('step_required') is not False
+                        or row['quantity'].get('maximum_required') is not False):
+                    raise ContractError('FC_FIXED_SELECTION_CONTRACT_INVALID')
+            except (KeyError, TypeError, ContractError):
+                raise ContractError('CATALOG_MAPPING_ARTIFACT_INVALID') from None
     if artifact.get('summary')!=_mapping_summary(mappings):
         raise ContractError('CATALOG_MAPPING_ARTIFACT_INVALID')
     source_evidence=artifact.get('source_evidence',{})
@@ -379,6 +425,9 @@ def validate_purchase_mapping(mapping, selection):
             or mapping.get('original_status_guard_passed') is not True
             or mapping.get('quantity',{}).get('meets_observed_minimum') is not True
             or any('CONFLICT' in r for r in mapping.get('missing_reasons',[]))):
+        raise ContractError('PURCHASE_MAPPING_REQUIRED')
+    if (mapping.get('original_cart_serialization') is not None
+            and mapping['quantity'].get('original_group_matches_observed_num') is not True):
         raise ContractError('PURCHASE_MAPPING_REQUIRED')
     if selection.get('product_ref')!=mapping['product_ref'] or str(selection.get('platform_attribute_id'))!=mapping['observed_platform_attribute_id']:
         raise ContractError('PRODUCT_SCOPE_MISMATCH')
