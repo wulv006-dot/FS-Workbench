@@ -88,7 +88,7 @@ export function projectPreviewProduct(p) {
   const observed=value=>{if(value==null)return null;if(typeof value!=='string'||!/^\d{1,20}(?:\.\d{1,6})?$/.test(value))fail('INVALID_IMPORTED_PRODUCT');return value;};
   if(observation.unit!=null&&(typeof observation.unit!=='string'||observation.unit.length>64||/[<>\u0000-\u001f]/.test(observation.unit)))fail('INVALID_IMPORTED_PRODUCT');
   const title_source=p.title_source??'admin';if(!['admin','identity_fallback'].includes(title_source))fail('INVALID_IMPORTED_PRODUCT');
-  if(title_source==='identity_fallback'&&p.title!=='商品ID '+product_ref.goods_id)fail('INVALID_IMPORTED_PRODUCT');
+  if(title_source==='identity_fallback'&&!['商品ID '+product_ref.goods_id,'Product ID '+product_ref.goods_id].includes(p.title))fail('INVALID_IMPORTED_PRODUCT');
   return {key:id(key),title:text(p.title,200),title_source,product_ref,platform:{code,...(aid==='unknown'?{}:{attribute_id:aid})},
     preview_only:true,available:false,quantity:null,attributes:[],observed_quantity:{minimum:observed(observation.minimum),unit:observation.unit??null,group:observed(observation.group)},preview_reason:'PURCHASE_MAPPING_UNVERIFIED'};
 }

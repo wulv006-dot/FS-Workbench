@@ -29,6 +29,10 @@ test('lookup reports recovered quote and definitive result without permanent unk
 test('known preview integration refusal is not presented as uncertain',async()=>{
   const x=setup({code:'MAIN_INTEGRATION_REQUIRED'});await x.bridge.run('quote',[{id:'fc-1'}],x.report);assert.match(x.messages.at(-1),/Main-site cart integration is still required/);assert.doesNotMatch(x.messages.at(-1),/pending or unknown/);
 });
+test('legacy response status cannot inject an internal language into public messages',async()=>{
+  const x=setup();x.client.select=async()=>({quote:{status:'\u5185\u90e8\u72b6\u6001'}});
+  await x.bridge.run('quote',[{id:'fc-1'}],x.report);assert.match(x.messages.at(-1),/Server response: unknown/);assert.doesNotMatch(x.messages.at(-1),/\p{Script=Han}/u);
+});
 test('known campaign schedule refusals explain quote and prepare failure without suggesting a retry',async()=>{
   for(const [code,message] of [['PROMOTION_NOT_STARTED',/has not started yet/],['PROMOTION_EXPIRED',/is paused or has ended/]]){
     const quote=setup({code});await quote.bridge.run('quote',[{id:'fc-1'}],quote.report);

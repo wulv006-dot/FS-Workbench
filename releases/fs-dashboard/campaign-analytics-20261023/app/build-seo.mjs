@@ -36,13 +36,14 @@ export function seoHead(info,indexable=false){
 <script id="fc-seo-jsonld" type="application/ld+json">${model.json(info.schema)}</script>`;
 }
 export function renderPage(config,view,lang='en',{hub=false}={}){
+ config=model.publicConfig(config);lang='en';
  const content=model.create(config,config.mode==='live'),info=content.page(view,lang),{words,heroes}=content,h=heroes[view],zh=lang==='zh',t=(cn,en)=>zh?cn:en;
  let html=read('page-template.html');
  html=html.replace(/(<([a-z][a-z0-9]*)\b[^>]*\bdata-i18n="([^"]+)"[^>]*>)[\s\S]*?(<\/\2>)/gi,(all,open,tag,key,close)=>words[key]?open+e(words[key][zh?0:1])+close:all);
  html=html.replace(/<html lang="[^"]*">/,'<html lang="'+(zh?'zh-CN':'en')+'">');
  html=html.replace(/<head>[\s\S]*?<\/head>/,'<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n'+seoHead(info)+'\n<link rel="stylesheet" href="activity.css">\n</head>');
  html=attribute(html,'fc-activity','data-view',view);html=attribute(html,'fc-activity','data-default-view',view);html=attribute(html,'fc-activity','data-default-language',lang);
- html=attribute(html,'lang-zh','aria-pressed',String(zh));html=attribute(html,'lang-en','aria-pressed',String(!zh));
+
  const nav=config.pageOrder.map(key=>{const label=content.page(key,lang).name,current=key===view;return hub?`<button type="button" data-view="${key}" aria-pressed="${current}">${e(label)}</button>`:`<a data-view="${key}" href="${e(content.page(key,lang).canonical)}"${current?' aria-current="page"':''}>${e(label)}</a>`;}).join('');
  html=html.replace(/(<div class="fca-container fca-view-nav-inner">)[\s\S]*?(<\/div>)/,(_,open,close)=>open+nav+close);
  html=fill(html,'hero-kicker',e(h.kicker));html=fill(html,'hero-title','<span>'+e(h.title[zh?0:2])+'</span><strong>'+e(h.title[zh?1:3])+'</strong>');

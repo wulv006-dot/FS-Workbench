@@ -4,7 +4,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createCommerce,createIntegrationTestAdapter} from './commerce.mjs';
 import {fail,loadStatic} from './snapshot.mjs';
-import {presentPage,projectFcCatalog} from './presentation.mjs';
+import {presentPage,projectFcCatalog,publicEnglishRelease} from './presentation.mjs';
 
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.xml':'application/xml','.txt':'text/plain; charset=utf-8','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.woff2':'font/woff2'};
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'};
@@ -31,7 +31,7 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
         if (!Object.hasOwn(routes,relative)) return json(req,res,404,{code:'NOT_FOUND'});
         return json(req,res,200,await routes[relative](await body(req)));
       }
-      if (relative==='api/campaign/config') return json(req,res,200,{...commerce.config(),integration_mode:mode,live_checkout:false});
+      if (relative==='api/campaign/config') return json(req,res,200,{...publicEnglishRelease(commerce.config()),integration_mode:mode,live_checkout:false});
       if (relative==='api/campaign/capabilities') return json(req,res,200,commerce.capabilities());
       if (relative.startsWith('api/campaign/intents/request/')) return json(req,res,200,commerce.lookupIntent(relative.slice('api/campaign/intents/request/'.length)));
       if (relative.startsWith('api/campaign/operations/')) return json(req,res,200,await commerce.lookup(relative.slice('api/campaign/operations/'.length)));

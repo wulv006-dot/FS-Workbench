@@ -794,6 +794,8 @@ def main():
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/operations-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/ops-presentation-browser.mjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/fc-published-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/fc-english-only-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/public-english-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/browser-check.cjs")
             continue
         print("affected group:",group,flush=True)

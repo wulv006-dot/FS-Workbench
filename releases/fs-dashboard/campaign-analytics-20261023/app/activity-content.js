@@ -3,7 +3,26 @@
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const json=value=>JSON.stringify(value,null,2).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
 const meta=p=>[p.rating,p.position,p.version].filter(Boolean).join(' · ');
+const hasChinese=value=>/[\u3400-\u9fff\uf900-\ufaff]/u.test(String(value??''));
+const englishText=(value,fallback='')=>typeof value==='string'&&value.trim()&&!hasChinese(value)?value:fallback;
+function publicConfig(input){
+  const config=JSON.parse(JSON.stringify(input));config.defaultLanguage='en';
+  for(const [code,platform] of Object.entries(config.platforms||{}))platform.label=englishText(platform.label,({ps:'PlayStation 4|5',xbox:'Xbox Series X|S',pc:'PC'})[code]||'Platform');
+  config.weekly.edition={en:englishText(config.weekly.edition?.en,'Published player picks')};
+  config.trio.series=englishText(config.trio.series,'Player trio');
+  config.trio.roles=(config.trio.roles||[]).map(role=>({en:englishText(role.en,'Player role')}));
+  for(const route of Object.values(config.sbc.routes||{}))route.label={en:englishText(route.label?.en,'Build your own pairing')};
+  const cleanProduct=(product,fallback)=>{
+    const name=englishText(product.name,englishText(product.title,fallback));product.name=name;product.title=englishText(product.title,name);
+    for(const key of ['version','position','league','club'])product[key]=englishText(product[key]);
+    if(typeof product.rating==='string')product.rating=englishText(product.rating);
+    if(Array.isArray(product.included))product.included.forEach(row=>cleanProduct(row,'Included player'));
+  };
+  for(const product of Object.values(config.products||{}))cleanProduct(product,'Product '+(/^[A-Za-z0-9_.:-]+$/.test(product.key||'')?product.key:'')+' (title unavailable)');
+  return config;
+}
 function create(config,live=false){
+  config=publicConfig(config);
   const words={
     skip:['跳到活动内容','Skip to campaign'],storeNav:['FC 27 商店','FC 27 shop'],campaignNav:['活动','Campaigns'],navWeekly:['每周好卡','Weekly Scout'],navTrio:[config.trio.series+' 三人组',config.trio.series+' Trio'],navSbc:['SBC 核心搭档','SBC Companions'],choosePlatform:['选择你的平台','Choose your platform'],curatedTitle:['为你的阵容而选','PICKED FOR YOUR SQUAD'],chooseCore:['选择你的 SBC 核心','Choose your SBC player'],coreLoading:['正在读取 SBC Players…','Loading SBC Players…'],coreService:['需要我们代做 SBC 吗？','Do you need SBC completion?'],coreOwned:['我已有核心','I already own this player'],coreOwnedHelp:['保留你的球员，只选搭档。','Keep your player. Add companions only.'],coreWithService:['需要 SBC 代做，一起打包','Include SBC completion'],coreWithServiceHelp:['所选 SBC 服务与搭档分别加入清单。','Add the selected SBC service with your companions.'],bundleKicker:['商店现售固定组合','EXISTING PLAYER BUNDLES'],bundleIntro:['这些是已上架的固定球员组合；逐项查看包含的球员，不将卡包概率当作确定球员。','Existing fixed-player bundles. Review the exact included players; these are separate from chance-based packs.'],yourSelection:['你的补强清单','YOUR UPGRADE LIST'],selectedItems:['项商品','selected items'],selectionTotal:['活动价小计（券码／积分前）','Activity subtotal (before coupons / points)'],reviewSelection:['核对并选择购买','Review my lineup'],faqTitle:['购买前，先了解清楚','Know your upgrade'],faqSbcQuestion:['SBC 代做可以和搭档一起选择吗？','Can I include SBC completion with my companions?'],faqSbcAnswer:['可以。选择现售 SBC Players 后，勾选“需要 SBC 代做，一起打包”。清单会分别列出 SBC 服务和两位搭档；服务范围、资源要求及已完成进度，沿用现有 SBC 订单说明，部分已完成请先咨询客服。','Yes. Select a listed SBC player and choose “Include SBC completion”. Your list shows the service and both companions separately. Existing SBC scope and resource requirements apply; contact support first for partially completed challenges.'],faqVersionQuestion:['我会收到哪个球员版本？','Which player version will I receive?'],faqVersionAnswer:['清单会显示完整球员名、评分、版本和平台。本期三人组使用 Star Performer 实际版本；搭配方向不等于满化学保证，最终位置和化学以游戏内阵容为准。','Your list specifies the name, rating, version and platform. The featured trio uses actual Star Performer versions. Pairing ideas do not guarantee full chemistry; confirm positions and chemistry in-game.'],faqOwnedQuestion:['我已经有 SBC 核心，还会收费吗？','Will I pay for a core player I already own?'],faqOwnedAnswer:['选择“我已有核心”即可。核心仅用于搭配展示，不加入购买清单、不计费。只购买你选中的搭档。','Choose “I already own this player”. The core appears for context only and is excluded from the purchase and total. You buy your selected companions.'],reviewTitle:['核对你的补强清单','Review your upgrade list'],previewSelection:['确认这份搭配','Confirm this lineup'],continueCart:['前往原购物车核对','Review the existing cart'],demoFooter:[live?'':'本地体验价 · 未上线／未下单',live?'':'Price preview · Not live · No real orders']
   };
@@ -15,7 +34,7 @@ function create(config,live=false){
 
 for(const pair of Object.values(words))for(let i=0;i<pair.length;i++)pair[i]=pair[i].replaceAll('Star Performer',config.trio.series);
 function page(view,lang='en',idsOverride){
-  const zh=lang==='zh',pick=(cn,en)=>zh?cn:en,products=config.products;
+  lang='en';const zh=false,pick=(cn,en)=>en,products=config.products;
   const ids=idsOverride||(view==='sbc'?[config.sbc.defaultId,...config.sbc.routes[config.sbc.defaultId].picks]:view==='trio'?config.trio.ids:config.weekly.ids);
   const names=ids.map(id=>products[id].name).join(', '),cores=config.sbc.ids.map(id=>products[id].name).join(', ');
   const title=({weekly:pick('FC 27 每周好卡推荐 | MMOEXP','FC 27 Weekly Player Picks & Squad Upgrades | MMOEXP'),trio:'FC 27 '+config.trio.series+pick(' 球员三人组 | MMOEXP',' Players & Trio Builder | MMOEXP'),sbc:pick('FC 27 SBC 球员代做与核心搭档 | MMOEXP','FC 27 SBC Players, Completion & Companions | MMOEXP')})[view];
@@ -38,16 +57,18 @@ function page(view,lang='en',idsOverride){
   return {view,lang,title,name,description,canonical,image,schema,ids,breadcrumbs,guide};
 }
 function card(p,{lang='en',label='',fixed=false,owned=false,picked=false,price='',originalPrice='',discountPercent=0,unavailable=false}={}){
-  const t=(zh,en)=>lang==='zh'?zh:en,id=escape(p.key),stats=[p.league,p.club].filter(Boolean).join(' · ');
+  p=config.products[p.key]||p;label=englishText(label);
+  const t=(zh,en)=>en,id=escape(p.key),stats=[p.league,p.club].filter(Boolean).join(' · ');
   return `<article id="product-${id}" class="fca-card ${picked?'fca-selected':''} ${owned?'fca-core':''}" data-product="${id}"><p class="fca-eyebrow">${escape(label||p.version)}</p><h3>${escape(p.name)}</h3><p class="fca-meta">${escape(meta(p))}</p><img class="fca-card-art" src="${escape(p.image)}" alt="${escape(p.title)}" width="320" height="420" loading="lazy"><p>${escape(stats||t('SBC Players 现售服务','Listed SBC Players service'))}</p>${!owned&&!unavailable&&originalPrice?`<span class="fca-price-origin"><del>${escape(originalPrice)}</del><span>${discountPercent}% OFF</span></span>`:''}<strong class="fca-price">${escape(owned?t('已拥有 · 不计费','Owned · Not charged'):unavailable?t('暂不可用','Unavailable'):price)}</strong>${unavailable&&!owned?`<button class="fca-action" type="button" disabled>${escape(t('暂不可用','Unavailable'))}</button>`:fixed?`<span class="fca-subbadge">${escape(owned?t('不加入购买清单','Excluded from purchase'):t('包含在此组合','Included in your lineup'))}</span>`:`<button id="pick-${id}" type="button" class="${picked?'fca-secondary':'fca-action'}" data-toggle-product="${id}" aria-pressed="${picked}">${escape(picked?t('已选择 · 点击移除','Selected · Remove'):t('加入我的补强','Add to my lineup'))}</button>`}</article>`;
 }
 function bundle(p,{lang='en',price='',originalPrice='',discountPercent=0,checked=false}={}){
-  const t=(zh,en)=>lang==='zh'?zh:en;
+  p=config.products[p.key]||p;
+  const t=(zh,en)=>en;
   return `<article data-product="${escape(p.key)}" class="fca-bundle-card ${checked?'fca-selected':''}"><div><span class="fca-subbadge">${escape(t('固定球员组合','FIXED PLAYER BUNDLE'))}</span><h3>${escape(p.name)}</h3><p>${escape(t('沿用现售组合；包含球员见原商品清单。','Existing bundle. Review its original included-player list.'))}</p>${originalPrice?`<span class="fca-price-origin"><del>${escape(originalPrice)}</del><span>${discountPercent}% OFF</span></span>`:''}<strong class="fca-price">${escape(price)}</strong><button class="${checked?'fca-secondary':'fca-action'}" type="button" id="bundle-${escape(p.key)}" data-toggle-bundle="${escape(p.key)}" aria-pressed="${checked}">${escape(t('查看这套组合','Review this bundle'))}</button><details class="fca-bundle-contents"><summary>${escape(t('固定球员清单','Included players'))}</summary><ul>${p.included.map(player=>`<li>${escape([player.name,player.rating,player.position,player.version].filter(Boolean).join(' · '))}</li>`).join('')}</ul></details><a class="fca-bundle-link" href="${escape(p.listingUrl)}" target="_blank" rel="noopener">${escape(t('查看原商品清单','See the original listing'))}</a></div><img src="${escape(p.image)}" alt="${escape(p.title)}" width="360" height="300" loading="lazy"></article>`;
 }
-function promotionText(lang){const rate=config.activityPricing?.discountPercent;return config.activityPricing?.enabled?(lang==='zh'?'活动页商品额外优惠 '+rate+'% · 可叠加优惠券／优惠码／会员积分':'Extra '+rate+'% off activity-page items · Stack eligible coupons, codes or member points'):'';}
+function promotionText(lang){const rate=config.activityPricing?.discountPercent;return config.activityPricing?.enabled?('Extra '+rate+'% off activity-page items · Stack eligible coupons, codes or member points'):'';}
 return {words,heroes,page,card,bundle,promotionText};
 }
-const api={create,escape,json,meta};
+const api={create,escape,json,meta,publicConfig,englishText};
 if(typeof module==='object'&&module.exports)module.exports=api;else root.FCActivityContent=api;
 })(typeof window==='undefined'?globalThis:window);

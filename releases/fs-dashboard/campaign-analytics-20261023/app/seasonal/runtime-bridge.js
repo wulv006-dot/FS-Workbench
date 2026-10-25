@@ -19,6 +19,7 @@
   function describe(error) {
     return messages[error?.code] || 'The store could not verify this request. No successful checkout is confirmed.';
   }
+  const publicStatus=value=>typeof value==='string'&&/^[a-z][a-z0-9_ -]*$/i.test(value)?value:'unknown';
   function lines(bag) {
     return bag.map((line, i) => {
       const p = window.SeasonalData.products.find(p => p.id === line.id);
@@ -50,8 +51,8 @@
           report('Checking the original request status…');
           const result = await client.lookup();
           if (client.pending?.unknown) report(messages.OPERATION_UNKNOWN);
-          else if (client.pending?.resolved) report(`Original operation resolved: ${result?.status || 'resolved'}. Integration test only; no live cart change is confirmed.`);
-          else report(`Original selection recovered: ${result?.quote?.status || result?.status || 'verified'}. ${client.describe()} Demo discounts and invitation rewards remain simulations.`);
+          else if (client.pending?.resolved) report(`Original operation resolved: ${publicStatus(result?.status)}. Integration test only; no live cart change is confirmed.`);
+          else report(`Original selection recovered: ${publicStatus(result?.quote?.status || result?.status)}. ${client.describe()} Demo discounts and invitation rewards remain simulations.`);
           return;
         }
         report('Checking the published store configuration…');
@@ -59,7 +60,7 @@
         publishTheme(loaded.config);
         if (action === 'prepare') {
           const result = await client.prepare();
-          report(`Integration test result: ${result?.status || 'unknown'}. No live cart, payment, discount or reward is confirmed.`);
+          report(`Integration test result: ${publicStatus(result?.status)}. No live cart, payment, discount or reward is confirmed.`);
           return;
         }
         if (this.pending()) { report(messages.OPERATION_UNKNOWN); return; }
@@ -67,7 +68,7 @@
         report('Validating product quantities and required specifications…');
         const result = await client.select(lines(bag));
         // Test quotes never turn a DEMO draw into an approved discount or reward.
-        report(`Server response: ${result?.quote?.status || 'quote received'}. ${client.describe()} Demo discounts and invitation rewards remain simulations.`);
+        report(`Server response: ${publicStatus(result?.quote?.status)}. ${client.describe()} Demo discounts and invitation rewards remain simulations.`);
       } catch (error) { report(client?.pending?.unknown ? messages.OPERATION_UNKNOWN : describe(error)); }
     }
   };

@@ -1,4 +1,18 @@
 import {presentationFields,fail,projectPreviewProduct,pageDisplayFields} from './snapshot.mjs';
+// Public copy policy only: preserve the management draft and immutable release.
+// Unsupported demo text gets a neutral English identity, never an invented offer.
+const hasHan=value=>typeof value==='string'&&/\p{Script=Han}/u.test(value);
+const pageTitles={'Weekly-Scout.html':'Weekly Player Picks','Sbc-Companions.html':'SBC Companions','Player-Trio.html':'Star Performer Trio','seasonal/index.html':'MMOEXP Seasonal Vault'};
+export function publicEnglishRelease(snapshot){
+ if(!snapshot)return snapshot;
+ const result=structuredClone(snapshot);
+ result.pages=(result.pages||[]).map(page=>({...page,title:hasHan(page.title)?pageTitles[page.path]||'MMOEXP Activity':page.title,
+  ...(hasHan(page.description)?{description:''}:{}),default_language:'en'}));
+ result.products=(result.products||[]).map(product=>({...product,...(hasHan(product.title)?{title:'Product ID '+product.product_ref.goods_id,...(product.preview_only?{title_source:'identity_fallback'}:{})}:{}),
+  ...(product.observed_quantity&&hasHan(product.observed_quantity.unit)?{observed_quantity:{...product.observed_quantity,unit:null}}:{})}));
+ if(result.fc_layout?.routes)for(const row of Object.values(result.fc_layout.routes))if(row.label)row.label={en:hasHan(row.label.en)||!row.label.en?'Companion ideas':row.label.en};
+ return result;
+}
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const routes=new Set(['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','seasonal/index.html']);
 const aliases={'':'Weekly-Scout.html','index.html':'Weekly-Scout.html','seasonal/':'seasonal/index.html'};
@@ -28,7 +42,7 @@ function displayGroups(snapshot,page,source){
     const cards=rows.map(product=>{
       const related=(fields.sbc_companions?.[product.key]||[]).map(key=>products.get(key)).filter(Boolean);
       const pairing=role==='core'?(related.length?`<p>Configured companion previews:</p><ul>${related.map(p=>`<li>${escape(p.title)}</li>`).join('')}</ul>`:'<p>No companions configured. This is not a complete SBC lineup.</p>'):'';
-      return `<article class="fca-card"><h3>${escape(product.title)}</h3>${product.title_source==='identity_fallback'?'<p>Identity display label; original product title is unknown.</p>':''}<p>Product ${escape(product.product_ref.goods_id)} · Model ${escape(product.product_ref.model_id||'not verified')}</p><p>Platform reference: ${escape(product.platform.attribute_id||'not verified')}</p>${pairing}<p>Display role only; no SKU, price or purchase eligibility is implied.</p><p>Price unavailable · Purchase mapping unverified</p></article>`;
+      return `<article class="fca-card"><h3>${escape(product.title)}</h3>${product.title_source==='identity_fallback'?'<p>English product title is unavailable; identity label only.</p>':''}<p>Product ${escape(product.product_ref.goods_id)} · Model ${escape(product.product_ref.model_id||'not verified')}</p><p>Platform reference: ${escape(product.platform.attribute_id||'not verified')}</p>${pairing}<p>Display role only; no SKU, price or purchase eligibility is implied.</p><p>Price unavailable · Purchase mapping unverified</p></article>`;
     }).join('');
     const html=`<section id="${marker}" class="${sectionClass(source)}" data-display-role="${role}"><h2>${titles[role]}</h2><p>Product information only. Specifications, quantities and prices still require verification. Purchasing is not enabled.</p><div class="fca-grid">${cards}</div></section>`;
     const anchor=role==='bundle'?'bundle-grid':role==='core'?'sbc-lineup':role==='companion'?'sbc-options':'product-grid';
@@ -74,6 +88,7 @@ function neutral(source,p,status,label) {
 
 // Call with the current validated published projection; immutable source HTML stays unchanged.
 export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
+  snapshot=publicEnglishRelease(snapshot);
   const target=route(name);
   if(!routes.has(target))return {status:200,body};
   const source=Buffer.isBuffer(body)?body.toString('utf8'):String(body??'');
@@ -101,6 +116,7 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
 }
 
 export function projectFcCatalog(originalCatalog,snapshot) {
+  snapshot=publicEnglishRelease(snapshot);
   const catalog=structuredClone(originalCatalog),products=originalCatalog.products||{};
   const keys=path=>{
     const page=snapshot?.pages?.find(p=>p.active===true&&route(p.path)===path);
