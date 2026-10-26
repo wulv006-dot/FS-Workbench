@@ -11,7 +11,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[4]
 BUILDER = ROOT / 'releases/fc-coins/fc-pricing-v3-20261026/deploy/knowledge/build_stage.py'
-PREFIX = 'fc-pricing-v3-20261026-2/deploy/'
+PREFIX = 'fc-pricing-v3-20261026-3/deploy/'
 
 
 class KnowledgeStageTransportTest(unittest.TestCase):

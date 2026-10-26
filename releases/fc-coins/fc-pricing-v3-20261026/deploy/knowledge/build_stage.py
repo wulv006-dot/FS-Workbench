@@ -59,7 +59,7 @@ def build(checkout, source_commit, output):
     index_bytes = (json.dumps(published, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
     payloads['artifact/index.json'] = index_bytes
     baseline = canonical_source(checkout, checkout / 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md')
-    if sha(baseline) != '50e9a35d028bfd7df708f890fed20203749a980e613015ae622e6dc11df069e1':
+    if sha(baseline) != '027b58bdf2f4403478527eceef0a89660ade6885ba47d3a8f10548562066fdea':
         raise ValueError('approved_full_baseline_sha_mismatch')
     payloads['runtime/business-baseline.md'] = baseline
     with tempfile.TemporaryDirectory(prefix='fc-v3-knowledge-') as temporary:

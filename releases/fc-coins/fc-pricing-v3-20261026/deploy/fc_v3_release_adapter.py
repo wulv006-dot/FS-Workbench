@@ -36,7 +36,7 @@ def checked_manifest(value):
             {r['candidate']: r['target'] for r in rows} != expected:
         raise ValueError('exact_fc_v3_targets_required')
     new_targets=OPERATING_NEW if scope==OPERATING_SCOPE else DELTA_NEW if scope==DELTA_SCOPE else frozenset()
-    if sum(r.get('beforeSha256') is None for r in rows) != (53 if scope==SCOPE else len(new_targets)):
+    if sum(r.get('beforeSha256') is None for r in rows) != (54 if scope==SCOPE else len(new_targets)):
         raise ValueError('fc_v3_new_existing_target_boundary_changed')
     if scope in (OPERATING_SCOPE,DELTA_SCOPE) and {r['candidate'] for r in rows if r.get('beforeSha256') is None}!=new_targets:
         raise ValueError('fc_v3_operating_new_target_identity_changed')

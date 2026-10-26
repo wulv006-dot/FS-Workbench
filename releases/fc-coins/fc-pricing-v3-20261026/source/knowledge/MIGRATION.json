@@ -1,9 +1,9 @@
 {
-  "status": "daily_program_candidate_not_deployed",
+  "status": "daily_history_retirement_candidate_not_deployed",
   "base_commit": "0e2d02efd7c894199ab0f62ca69a9c75ed7c2578",
-  "runtime_baseline_before_raw_sha256": "7b3ca86691a3671c55b7a6095d6bd77253fed4125a6885caddd08a1c5933331e",
-  "baseline_after_utf8_lf_sha256": "50e9a35d028bfd7df708f890fed20203749a980e613015ae622e6dc11df069e1",
-  "teaching_sha256": "85b9254437d5dcc125bbe1dba040f9ef1246dc4474503f7f89708f317581d888",
+  "runtime_baseline_before_raw_sha256": "50e9a35d028bfd7df708f890fed20203749a980e613015ae622e6dc11df069e1",
+  "baseline_after_utf8_lf_sha256": "027b58bdf2f4403478527eceef0a89660ade6885ba47d3a8f10548562066fdea",
+  "teaching_sha256": "9b4f7428991ebceff28e4b2d4205346e43c214f3203fbc91ef860715742ef7e8",
   "changed_sections": [
     "### 尾价偏好（本次用户确认）",
     "### FC金币策略与只读核对（2026-10-21用户明确范围）",
@@ -49,5 +49,5 @@
     "Notion write",
     "RELEASED.json update"
   ],
-  "supersedes_runtime_catalog": "fc-pricing-v3-20261026-1"
+  "supersedes_runtime_catalog": "knowledge-releases/fc-pricing-v3-20261026-2/index.json"
 }
