@@ -1,0 +1,19 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "native:41537c81",
+  "candidate_sha256": "27137857defb141e8e9c2d84e067877e63946a3cbd6835afdec879d38f8e8df3",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "summary_only",
+  "evidence": "当前用户明确批准一次审批对账修复及后续应用归档，并选择既有FC/FS范围自主代码故障修复。两完整单文件技能及当前基线记忆均经原入口completed/success/applied；原生读取与已发布FS索引精确SHA一致，范围外模块过滤为空。原失败完整字节及对账证据保留，未伪造成功；无业务、价格、权限或调度动作。仅归档，不改AGENTS或审核控制规范。",
+  "formal_rule_change": false,
+  "kind": "native",
+  "modules": [
+    "FS",
+    "FC"
+  ],
+  "receipt_sha256": "2755843b259e7b005ee133fa3ca3e8f525eb1b5777d1d3eb2afdeed4fd09fa41",
+  "request_id": "233ad819b7c4189e1f38087d919e7ff6eaa6a3c460883e187403d74fe1b7303a",
+  "runtime_activation": false,
+  "summary": "AUTH-FC-FS-CODE-REPAIR-20261026：本人已明确允许Codex在FC/FS既有授权及现有发布器范围内自主修复代码故障；不新增价格策略、业务参数、权限或调度。已替换原待明确行，既有6小时补PR要求保持。"
+}
