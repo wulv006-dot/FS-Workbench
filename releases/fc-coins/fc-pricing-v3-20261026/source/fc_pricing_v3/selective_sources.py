@@ -142,7 +142,7 @@ def project_cached_history(cache,templates,now):
     return projected
 
 
-def context_from_cache(cache,plan,templates,now,*,backlog=None,monthly=None,ads=None,online=None):
+def context_from_cache(cache,plan,templates,now,*,backlog=None,fulfillment=None,monthly=None,ads=None,online=None):
     replay=project_cached_history(cache,templates,now)
     result=dict(historical_discount_mix=deepcopy(cache['historical_discount_mix']),history_replay=replay,
         demand_model=deepcopy(cache['daily_rollups'].get('demand_model') or {}),
@@ -154,7 +154,7 @@ def context_from_cache(cache,plan,templates,now,*,backlog=None,monthly=None,ads=
     if plan['read_ads_context']:result['demand_model']['advertising_context']=ads or dict(status='gap',reason='same_scope_ads_context_missing')
     else:result['demand_model'].pop('advertising_context',None)
     if plan['refresh_backlog']:
-        capacity=cache['daily_rollups'].get('observed_fulfillment') or {}
+        capacity=fulfillment if fulfillment is not None else cache['daily_rollups'].get('observed_fulfillment') or {}
         result['fulfillment_estimates']=dict(estimated=True,rate_window_hours=6,
             backlog_k=(backlog or {}).get('gross_ordered_delivery_k'),current_backlog_source=backlog or dict(status='gap'),
             capacity_k_per_block=capacity.get('observed_delivered_k_per_block'),observed_capacity_source=capacity,
