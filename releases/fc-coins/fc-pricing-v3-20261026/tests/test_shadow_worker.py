@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 SOURCE = Path(__file__).resolve().parents[1] / 'source'
 sys.path.insert(0, str(SOURCE))
 from fc_pricing_v3 import api, runtime, shadow_worker, simulation
+from fc_pricing_v3 import scheduler
 
 
 def evidence(at):
@@ -33,7 +34,9 @@ def evaluate(*args, **kwargs):
 
 class ShadowWorkerContracts(unittest.TestCase):
     def test_worker_paths_match_runtime_writer_store_and_api_reader(self):
-        self.assertEqual(shadow_worker.PRODUCTION,runtime.STORE/'control.sqlite3')
+        self.assertEqual(shadow_worker.PRODUCTION,scheduler.SHADOW_EXPORT)
+        self.assertEqual(scheduler.SHADOW_EXPORT.parent,runtime.STORE)
+        self.assertNotEqual(shadow_worker.PRODUCTION,runtime.STORE/'control.sqlite3')
         self.assertEqual(shadow_worker.SHADOW,api.SHADOW_DB)
 
     def test_missing_snapshot_failure_duplicate_and_process_restart_keep_one_cursor(self):

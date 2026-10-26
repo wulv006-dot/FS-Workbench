@@ -99,7 +99,7 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
                       'human_authorized_fc_pricing_v3_20261026_inherited_review_and_dual10',restore_sources=[restore_source] if restore_source else [])
             scope=('本任务为自动周期审核，允许核实、核算并recommend程序给出的候选；FC worker正等待，不能另排采集或写价任务。'
                    if mode=='automatic_review' else '用户已授权本次FC金币操作流程；先核capabilities，只能在本任务授予范围内取数、核算、预览和执行。执行后用read_job核后台CONFIRMED，再state核monitor.publication.execution_id为本次操作、写后时间和三平台matched；缺任一项都只能报告未证，不据accepted或会话完成宣称真实生效。')
-            text=('FC27 Pricing V3经营复核，原运行编号'+quote['run_id']+'。'
+            text=(scope+'FC27 Pricing V3经营复核，原运行编号'+quote['run_id']+'。'
                 '只比较daily/acquisition/backlog/flash_sale/revenue_sprint五个目标；保持是动作。'
                 '先读五策略API state/market/region-rules/experiments/shadow，再比较总贡献、首次付款客户、完整交付能力、活动期限和月度净收入目标。'
                 '全球Console共价、PC独立；地区21按PS/Xbox/PC独立系数，英国0.9100保持并重核实际价格。'

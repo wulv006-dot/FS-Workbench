@@ -6,9 +6,11 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+import time
 import types
+import urllib.request
 
-from target_map import DELTA_NAMES, DELTA_SCOPE, targets
+from target_map import DELTA_NAMES, DELTA_SCOPE, SHADOW_NAMES, SHADOW_SCOPE, targets
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
@@ -19,12 +21,47 @@ FC_SHA = 'b811b3adc8d4fd13e53f252b61292f79d30a7e73e0fdac4df83fc8d183ba2f8e'
 SOURCE = HERE.parent / 'candidate/source' if (HERE.parent / 'candidate/source').exists() else HERE.parent / 'source'
 TARGETS = {'source/' + name: path for name, path in targets(SOURCE).items()}
 DELTA_TARGETS = {name: TARGETS[name] for name in DELTA_NAMES}
+SHADOW_TARGETS = {name: TARGETS[name] for name in SHADOW_NAMES}
+
+
+def restart_with_hermes_readiness(base, original_restart, manifest, admission_fence):
+    scope = manifest.get('scope')
+    worker_deadline = time.monotonic() + 60 if scope == base.HERMES_WORKER_SCOPE else None
+    try:
+        return original_restart(manifest, admission_fence)
+    except ValueError as exc:
+        if scope != base.HERMES_WORKER_SCOPE or admission_fence is None or \
+                str(exc) != 'Hermes worker health failed':
+            raise
+        # The frozen publisher probes this same endpoint for about five seconds.
+        # A Docker cold start can take longer; keep its admission fence and
+        # require the same authenticated capabilities contract before release.
+        key_path = base.rooted(admission_fence.root, '/run/fs-hermes-fc/api-key')
+        base.no_target_link(key_path)
+        key = key_path.read_text('ascii').strip()
+        request = urllib.request.Request(
+            'http://127.0.0.1:8941/v1/capabilities',
+            headers={'Authorization': 'Bearer ' + key})
+        while time.monotonic() < worker_deadline:
+            if subprocess.run(['systemctl', 'is-active', '--quiet', 'fs-hermes-fc.service'],
+                              check=False, timeout=10).returncode == 0:
+                try:
+                    with urllib.request.urlopen(request, timeout=1) as response:
+                        raw = response.read(128001)
+                        if len(raw) > 128000 or not isinstance(json.loads(raw), dict):
+                            raise ValueError('Hermes capabilities contract')
+                        return
+                except OSError:
+                    pass
+            time.sleep(min(1, max(0, worker_deadline - time.monotonic())))
+        raise ValueError('Hermes worker health failed after 60s') from exc
 
 
 def checked_manifest(value):
     rows = value.get('files', [])
     scope = value.get('scope')
-    expected = TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else {}
+    expected = (TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else
+                SHADOW_TARGETS if scope == SHADOW_SCOPE else {})
     if not expected or len(rows) != len(expected) or \
             {r['candidate']: r['target'] for r in rows} != expected:
         raise ValueError('exact_fc_v3_targets_required')
@@ -47,7 +84,7 @@ def load_base():
         raise ValueError('frozen_publisher_drift')
     approved = checked_manifest(json.loads((HERE / 'approved-manifest.json').read_text('utf-8')))
     scope = approved['scope']
-    active_targets = TARGETS if scope == SCOPE else DELTA_TARGETS
+    active_targets = TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else SHADOW_TARGETS
     new = frozenset(r['candidate'] for r in approved['files'] if r['beforeSha256'] is None)
     source = raw.decode('utf-8')
     anchor = "r.get('beforeSha256') is None for r in files if not ("
@@ -145,8 +182,8 @@ def load_base():
     original_restart = base.restart_for
 
     def restart(manifest, admission_fence=None):
-        original_restart(manifest, admission_fence)
-        if manifest.get('scope') in (SCOPE, DELTA_SCOPE):
+        restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
+        if manifest.get('scope') in (SCOPE, DELTA_SCOPE, SHADOW_SCOPE):
             subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=30)
             for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service'):
                 subprocess.run(['systemctl', 'restart', name], check=True, timeout=30)

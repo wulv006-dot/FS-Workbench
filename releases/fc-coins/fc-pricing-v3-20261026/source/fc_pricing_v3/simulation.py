@@ -397,11 +397,14 @@ class Shadow:
                     simulation_kind='independent_state_rollforward',model_version=version,policy_version=VERSION,seed=fingerprint([mode,path['started_at']]),
                     last_result=calculation,external_snapshot_id=ident,
                     assumptions='previous action and previous known rates advance elapsed exposure; independent expected cohorts and state; never production labels')
-                db.execute('INSERT INTO paths VALUES (?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body',(mode,json.dumps(path)))
+                encoded=json.dumps(path)
+                if db.execute('UPDATE paths SET body=? WHERE id=?',(encoded,mode)).rowcount==0:
+                    db.execute('INSERT INTO paths VALUES (?,?)',(mode,encoded))
                 key = fingerprint([ident,VERSION,version,'independent_state_rollforward',mode])
                 db.execute('INSERT OR IGNORE INTO runs VALUES (?,?)',(key,json.dumps(path)))
             if cursor is not None:
-                db.execute("INSERT INTO cursor VALUES ('production',?) ON CONFLICT(id) DO UPDATE SET value=excluded.value",(cursor,))
+                if db.execute("UPDATE cursor SET value=? WHERE id='production'",(cursor,)).rowcount==0:
+                    db.execute("INSERT INTO cursor VALUES ('production',?)",(cursor,))
         return records
 
     def consume(self, production_path):
@@ -428,7 +431,8 @@ class Shadow:
                     self.historical(snapshots,kind=body['kind'],simulation_id=body['simulation_id'],
                                     closed_days=body.get('closed_days',7))
                     with self.connect() as db:
-                        db.execute("INSERT INTO cursor VALUES ('production',?) ON CONFLICT(id) DO UPDATE SET value=excluded.value",(sequence,))
+                        if db.execute("UPDATE cursor SET value=? WHERE id='production'",(sequence,)).rowcount==0:
+                            db.execute("INSERT INTO cursor VALUES ('production',?)",(sequence,))
                 processed += 1
                 cursor = sequence
             return dict(events=processed,cursor=cursor,status='processed')

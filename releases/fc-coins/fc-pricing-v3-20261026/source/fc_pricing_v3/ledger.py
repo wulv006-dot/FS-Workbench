@@ -78,8 +78,9 @@ class Ledger:
         if db is None:
             with self.transaction() as conn:
                 return self.put(table, key, body, conn)
-        db.execute('INSERT INTO '+table+' (id,body) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body',
-                   (key, json.dumps(body, ensure_ascii=False, sort_keys=True)))
+        value=json.dumps(body, ensure_ascii=False, sort_keys=True)
+        if db.execute('UPDATE '+table+' SET body=? WHERE id=?',(value,key)).rowcount==0:
+            db.execute('INSERT INTO '+table+' (id,body) VALUES (?,?)',(key,value))
         return body
 
     def all(self, table):
@@ -185,9 +186,10 @@ class Ledger:
             for resource in plan['resources']:
                 if db.execute('SELECT 1 FROM resource_leases WHERE resource=?', (resource,)).fetchone():
                     raise ValueError('pricing_resource_unresolved')
-                db.execute('INSERT INTO plan_ownership VALUES (?,?,?,?) ON CONFLICT(resource) DO UPDATE SET '
-                           'plan_id=excluded.plan_id,revision=excluded.revision,generation=excluded.generation',
-                           (resource, ident, plan['revision'], plan['generation']))
+                if db.execute('UPDATE plan_ownership SET plan_id=?,revision=?,generation=? WHERE resource=?',
+                              (ident,plan['revision'],plan['generation'],resource)).rowcount==0:
+                    db.execute('INSERT INTO plan_ownership VALUES (?,?,?,?)',
+                               (resource,ident,plan['revision'],plan['generation']))
             plan['state'] = 'ACTIVE'
             self.put('pricing_plans', ident, plan, db)
             return plan
