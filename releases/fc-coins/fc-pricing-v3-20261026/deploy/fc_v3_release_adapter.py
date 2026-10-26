@@ -8,7 +8,7 @@ import subprocess
 import sys
 import types
 
-from target_map import targets
+from target_map import DELTA_NAMES, DELTA_SCOPE, targets
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
@@ -18,18 +18,21 @@ FC_PUBLISHER = Path('/var/lib/fc27-cloud/maintenance/local-collection-20261017/p
 FC_SHA = 'b811b3adc8d4fd13e53f252b61292f79d30a7e73e0fdac4df83fc8d183ba2f8e'
 SOURCE = HERE.parent / 'candidate/source' if (HERE.parent / 'candidate/source').exists() else HERE.parent / 'source'
 TARGETS = {'source/' + name: path for name, path in targets(SOURCE).items()}
+DELTA_TARGETS = {name: TARGETS[name] for name in DELTA_NAMES}
 
 
 def checked_manifest(value):
     rows = value.get('files', [])
-    if value.get('scope') != SCOPE or len(rows) != len(TARGETS) or len(rows) != 74 or \
-            {r['candidate']: r['target'] for r in rows} != TARGETS:
+    scope = value.get('scope')
+    expected = TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else {}
+    if not expected or len(rows) != len(expected) or \
+            {r['candidate']: r['target'] for r in rows} != expected:
         raise ValueError('exact_fc_v3_targets_required')
-    if sum(r.get('beforeSha256') is None for r in rows) != 51:
+    if sum(r.get('beforeSha256') is None for r in rows) != (51 if scope == SCOPE else 0):
         raise ValueError('fc_v3_new_existing_target_boundary_changed')
     if any(r.get('owner') != '0:0' or r.get('mode') not in ('0o644', '0o700', '0o750', '0o755') for r in rows):
         raise ValueError('exact_fc_v3_target_metadata_required')
-    if next(r for r in rows if r['candidate'] == 'source/reconcile_price.sh')['mode'] != '0o755':
+    if scope == SCOPE and next(r for r in rows if r['candidate'] == 'source/reconcile_price.sh')['mode'] != '0o755':
         raise ValueError('fc_v3_reconcile_script_must_be_executable')
     if value.get('businessWrites') is not False or value.get('timersChanged') is not False:
         raise ValueError('code_release_does_not_change_business_or_timer_state')
@@ -43,6 +46,8 @@ def load_base():
     if hashlib.sha256(raw).hexdigest() != BASE_SHA:
         raise ValueError('frozen_publisher_drift')
     approved = checked_manifest(json.loads((HERE / 'approved-manifest.json').read_text('utf-8')))
+    scope = approved['scope']
+    active_targets = TARGETS if scope == SCOPE else DELTA_TARGETS
     new = frozenset(r['candidate'] for r in approved['files'] if r['beforeSha256'] is None)
     source = raw.decode('utf-8')
     anchor = "r.get('beforeSha256') is None for r in files if not ("
@@ -54,9 +59,9 @@ def load_base():
     base.__file__ = str(HERE / 'release_navigation_base.py')
     base.V3_NEW = new
     exec(compile(source, base.__file__, 'exec'), base.__dict__)
-    base.HERMES_HISTORY_SCOPE, base.HERMES_HISTORY_TARGETS = SCOPE, TARGETS
-    base.expected_files = lambda m: set(TARGETS) if m.get('scope') == SCOPE else set()
-    base.target_for = lambda relative: TARGETS[relative]
+    base.HERMES_HISTORY_SCOPE, base.HERMES_HISTORY_TARGETS = scope, active_targets
+    base.expected_files = lambda m: set(active_targets) if m.get('scope') == scope else set()
+    base.target_for = lambda relative: active_targets[relative]
     validate = base.validate
 
     def exact_validate(manifest, stage):
@@ -141,7 +146,7 @@ def load_base():
 
     def restart(manifest, admission_fence=None):
         original_restart(manifest, admission_fence)
-        if manifest.get('scope') == SCOPE:
+        if manifest.get('scope') in (SCOPE, DELTA_SCOPE):
             subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=30)
             for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service'):
                 subprocess.run(['systemctl', 'restart', name], check=True, timeout=30)
