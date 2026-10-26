@@ -1,0 +1,13 @@
+const fs=require('node:fs');const path=require('node:path');const assert=require('node:assert/strict');
+const source=path.join(__dirname,'../source');const ui=require(path.join(source,'fc27-quote-cloud.js'));
+const ref={anchor_usd:'20',sources:{ItemD2R:{status:'available',normalized_usd:'18.90',contribution:'0',checked_at:'2026-10-26T06:00:00Z'}},raw_offset:'0',raw_weighted_usd:'20'};
+const lines=ui.referenceLines({reference_adjustment:ref,temporary_itemd2r_parity:true,position_policy_version:'fc-itemd2r-parity-20261026-v1',position_ceiling_usd:'18.90',margin_review:{level:'warning'}},{});
+assert(lines.some(([label,value])=>label==='临时对标规则'&&value.includes('直到你解除')));
+assert(lines.some(([label,value])=>label==='竞价权重'&&value.includes('仅保留观察')));
+assert(lines.some(([label,value])=>label==='平均毛利复核'&&value.includes('40%预警')));
+assert(lines.some(([label,value])=>label==='品牌定位上限'&&value.includes('$18.90')));
+assert(!ui.referenceLines({reference_adjustment:ref},{}).some(([label])=>label==='临时对标规则'));
+assert.equal(ui.pageToUnit('9.20'),'0.0920');
+const html=fs.readFileSync(path.join(source,'fc27-coins.html'),'utf8');assert(html.includes('临时按ItemD2R同平台、同量含赠送单价一致'));
+assert(html.includes('fc27-reference-observer.js?v=eld-20261026-v1'));assert(html.includes('fc27-quote-cloud.js?v=fc-itemd2r-parity-20261026-'));
+console.log('9 temporary parity UI assertions passed');
