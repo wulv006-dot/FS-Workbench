@@ -1,0 +1,15 @@
+# 审核与专用通道已上线，原自然验收接续
+
+PR484 head86b1f864，正式CI40263242264/job121379925623，12tests/0fail/0skip；merge dce0c7c76ecfcb251300c77494754a250e6bfe49。原publisher nav-20261026T031900Z于11:22:54–58发布四文件，84保护SHA保持。首次经营collector锁忙零写入，原collector11:14自然结束后同ID发布，未停止任务或绕锁。
+
+Linux实际依赖导入、36工具全部精确别名、原flock独立通道验证通过。FS与task worker按原空闲门禁重载，root desktop及FC API/worker未重启；模型/完整知识/预算/原账本/原ID和120分钟保持。真实目标SHA见SOURCE-MAP，原发布journal与readback在本机忽略目录及服务器同名stage。
+
+用户随后要求与Hermes看价格，唯一只读请求fc_operator_price_analysis_20261026_1103_v1、conversation b09d2d6b288b4aa183f8b009e443c1d6、turn0e295349708045b1a14ece698479e228、task3e9831815018838fbafbac39f150aac8、run_c72118b6c82949a0a89f3c16768c9b1f已completed。automatic_review授予原run只读/核算建议，未recommend、无新采集/预览/写价工单；真实工具成功。不是自然审核或长期稳定验收。
+
+Hermes支持原7.39/8.99并指出单轮人工意图不继承，但其分析把未优惠/最深优惠条件与平均经营毛利混用，且误称09:51失败审核为有效建议；原答保留，不能据此称理解力完美。用户其后明确新上限覆盖该旧建议，PC8.99必须重新核验。原07:47拒绝名称历史未保存，不捏造具体alias；新映射/诊断/下一自然实际审核分别验。
+
+后续PR485已另按用户明确新规则上线，bridge等对应源以fc-owner-pricing-20261026为准，PR484四核心通道源码仍活动。原11:51:48自然周期验收待实际发生，不新派模型、采集或价格单。FC/RPG故障内存跟踪继续暂停。
+
+## 12:30接续
+
+原11:51常规459363d8已完成有效Hermes审核，taske97444039d8571d21a4cd7c616324b91/run_e372c7477dc344ca9d60c9653c3d8eed，无fallback，PC真实变价及原ALL/cache/public确认，见../fc-owner-pricing-20261026/NATURAL-ACCEPTANCE.md。本轮证明新通道/命名合同的正常自然路径成功，不证明未来高并发长期零故障，也不补造07:47历史未保存的具体拒绝名称。
