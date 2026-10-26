@@ -47,7 +47,7 @@ def _public_matches(observed,region_id,platform,product,factor):
 
 def collect_context(evidence):
     done=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.sources'],
-        input=json.dumps(dict(storefront=evidence['storefront'],arab_ut_status=evidence.get('arab_ut_status'),price_windows=evidence.get('price_windows',[]))),capture_output=True,text=True,
+        input=json.dumps(dict(storefront=evidence['storefront'],arab_ut_status=evidence.get('arab_ut_status'),price_windows=evidence.get('price_windows',[]),active_mode=evidence.get('active_mode'),scope=evidence.get('active_scope'),history_cache=evidence.get('history_cache'),history_signature=evidence.get('history_signature'),online_context=evidence.get('online_context'))),capture_output=True,text=True,
         timeout=240,cwd='/opt/fc27-cloud-browser')
     try:
         value=json.loads(done.stdout)
@@ -58,9 +58,9 @@ def collect_context(evidence):
     return value
 
 
-def shared_context(storefront,arab_ut_status=None,price_windows=None):
+def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mode=None,scope=None,history_cache=None,history_signature=None,online_context=None):
     from .market_registry import arab_normal
-    try:arab=arab_ut_status if isinstance(arab_ut_status,dict) else arab_normal()
+    try:arab=(arab_ut_status if isinstance(arab_ut_status,dict) else arab_normal()) if active_mode is None else dict(status='not_required',offers=[])
     except Exception as exc:arab=dict(status='unavailable',reason=type(exc).__name__,offers=[])
     sys.path.insert(0,'/opt/fs-hermes-fc')
     from channel_source import pages,COLLECTOR
@@ -78,9 +78,24 @@ def shared_context(storefront,arab_ut_status=None,price_windows=None):
         wanted=','.join(str(row['sku_id']) for row in storefront['rows'].values())
         products=pages(session,'/admin/goods.Goods/index',[('id','IN',wanted)])
         from .business_source import collect as collect_business
-        business=collect_business(session,pages,storefront,products,price_windows=price_windows)
+        selective_plan=None
+        if active_mode is None:
+            business=collect_business(session,pages,storefront,products,price_windows=price_windows)
+        else:
+            from .selective_sources import source_plan
+            from .business_source import collect_selective_business
+            native_scopes=_admin_product_scopes(storefront,products)
+            requested_platforms=(scope or {}).get('platforms',['PS','XBOX','PC'])
+            known_regions={r['lang_region_id'] for r in rules if r['status']==1 and any(_rule_matches_product(r,p) for key,p in native_scopes.items() if key in requested_platforms)}
+            selective_plan=source_plan(active_mode,scope,known_region_ids=known_regions)
+            business_envelope=collect_selective_business(session,pages,storefront,products,active_mode=active_mode,scope=scope,
+                history_cache=history_cache,source_signature=history_signature,online_context=online_context)
+            business=business_envelope['context']
     finally:
         session.close()
+    if active_mode is not None and 'ArabUT' in selective_plan['required_markets']:
+        try:arab=arab_ut_status if isinstance(arab_ut_status,dict) else arab_normal()
+        except Exception as exc:arab=dict(status='unavailable',reason=type(exc).__name__,offers=[])
     aids={'PS':21587,'XBOX':21585,'PC':21589}
     product_scopes=_admin_product_scopes(storefront,products)
     matched=[]
@@ -88,14 +103,16 @@ def shared_context(storefront,arab_ut_status=None,price_windows=None):
     from concurrent.futures import ThreadPoolExecutor
     public={}
     with ThreadPoolExecutor(max_workers=2) as pool:
-        futures={rid:pool.submit(public_region,code,rid,expected_products=product_scopes) for code,rid in (('uk',39),('ar',21))}
+        public_scopes=(('uk',39),('ar',21)) if active_mode is None else [(code,rid) for code,rid in (('uk',39),('ar',21)) if rid in selective_plan['region_ids']]
+        public_options={} if active_mode is None else dict(platforms=selective_plan['platforms'])
+        futures={rid:pool.submit(public_region,code,rid,expected_products=product_scopes,**public_options) for code,rid in public_scopes}
         for rid,future in futures.items():
             try:public[rid]=future.result()
             except Exception as exc:public[rid]=dict(status='unavailable',reason=type(exc).__name__,region_id=rid)
     for rule in rules:
         if rule['status']!=1:
             continue
-        platforms=[p for p in aids if _rule_matches_product(rule,product_scopes[p])]
+        platforms=[p for p in aids if (active_mode is None or p in selective_plan['platforms']) and _rule_matches_product(rule,product_scopes[p])]
         if not platforms:
             continue
         matching=[r for r in matched if r['region_id']==rule['lang_region_id'] and set(r['platforms'])&set(platforms)]
@@ -117,6 +134,7 @@ def shared_context(storefront,arab_ut_status=None,price_windows=None):
                   checked_at=datetime.now(timezone.utc).isoformat(),unique_current_matches=True)
     controls=[]
     for p,aid in aids.items():
+        if active_mode is not None and p not in selective_plan['platforms']:continue
         current=next((r for r in matched if r['region_id']==21 and p in r['platforms']),None)
         observed=(public.get(21,{}).get('offers') or {}).get(p)
         scope=dict(site_id=266,lang_region_id=21,goods_id=0,gid=1327,top_cid=1,cid=0,sid=7645,aid=aid)
@@ -132,15 +150,19 @@ def shared_context(storefront,arab_ut_status=None,price_windows=None):
             history=current['history'] if current else dict(basis='historical_eligibility_current_terms_projected',basis_lower_bound_sufficient=replay.get('basis_lower_bound_sufficient'),replay_paths=replay.get('paths') if replay.get('status') in ('verified','available') else None,
                          source_sha256=replay.get('source_sha256'),source_scope=replay.get('source_scope'),original_basis_reconciliation=replay.get('original_basis_reconciliation')),public_rule_trace=observed,
             expected_rule_set_sha256=fingerprint(rules)))
-    return dict(business,region_rules=matched,regional_controls=controls,region_contract=contract,
+    result=dict(business,region_rules=matched,regional_controls=controls,region_contract=contract,
                 region_contract_sha256=fingerprint(contract),admin_products=products,
                 regional_public_readback=public,arab_ut_quotes=arab['offers'],arab_ut_status=arab)
+    if active_mode is None:return result
+    from .selective_sources import lightweight_snapshot
+    result['source_plan']=selective_plan
+    return dict(context=lightweight_snapshot(result),private_updates=business_envelope['private_updates'],source_plan=selective_plan)
 
 
 if __name__=='__main__':
     try:
         data=json.load(sys.stdin)
-        print(json.dumps(shared_context(data['storefront'],data.get('arab_ut_status'),data.get('price_windows')),ensure_ascii=False))
+        print(json.dumps(shared_context(data['storefront'],data.get('arab_ut_status'),data.get('price_windows'),active_mode=data.get('active_mode'),scope=data.get('scope'),history_cache=data.get('history_cache'),history_signature=data.get('history_signature'),online_context=data.get('online_context')),ensure_ascii=False))
     except Exception as exc:
         print(json.dumps(dict(error=str(exc) if isinstance(exc,ValueError) else type(exc).__name__)))
         raise SystemExit(1)

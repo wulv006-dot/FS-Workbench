@@ -10,6 +10,17 @@ SHADOW_NAMES = tuple(prefix + 'fc_pricing_v3/' + name for prefix in ('source/', 
 SHADOW_NAMES += ('source/hermes_pricing_bridge.py',)
 
 
+OPERATING_SCOPE='fc-pricing-v3-daily-program-20261026'
+OPERATING_NAMES=tuple('source/'+name for name in (
+    'automation_policy.py','fc27_cloud_worker.py','hermes_pricing_bridge.py','pricing_operations.py',
+    'server_quote_job.py','snapshot_layer.py','conversation_service.py','conversation_http.py',
+    'fc27-coins.html','fc-pricing-v3.js','systemd/fc-pricing-v3-shadow.service'))
+OPERATING_NAMES+=tuple(prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in (
+    '__init__.py','api.py','business_source.py','ledger.py','monitoring.py','observations.py','regional_public.py',
+    'runtime.py','scheduler.py','shadow_worker.py','simulation.py','sources.py','selective_sources.py','daily.py'))
+OPERATING_NEW=frozenset(prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in ('selective_sources.py','daily.py'))
+
+
 def targets(source):
     source = Path(source)
     rows = {}
@@ -18,10 +29,12 @@ def targets(source):
                  'fc27_cloud_api.py', 'fc27_cloud_worker.py', 'fc27_quote_engine.py',
                  'hermes_pricing_bridge.py', 'price_writer.py', 'pricing_state.py',
                  'pricing_v2.py', 'reconcile_original.py', 'reconcile_price.sh',
-                 'repricing_logic.js', 'restore_price.sh', 'server_quote_job.py'):
+                 'repricing_logic.js', 'restore_price.sh', 'server_quote_job.py', 'snapshot_layer.py'):
         rows[name] = '/opt/fc27-cloud-browser/' + name
     for name in ('pricing_operations.py', 'pricing_simulation.py', 'strategy_tools.py'):
         rows[name] = '/opt/fs-hermes-fc/' + name
+    rows['conversation_service.py'] = '/opt/fs-hermes-fc/conversation_service.py'
+    rows['conversation_http.py'] = '/opt/fs-exact-range-20261001/conversation_http.py'
     for name in ('probe_worker.py', 'read_only_status.py'):
         rows[name] = '/opt/fc-ops-readonly-monitor/' + name
     for name in ('fc27-coins.html', 'fc27-quote-cloud.js', 'fc-pricing-v3.js'):

@@ -31,7 +31,7 @@ FC27经营报告先按[字段使用与呈现规则](docs/planning/fc27-daily-tea
 <!-- fc-v3-current-20261026 -->
 ## FC27 V3统一定价与长期影子
 
-本轮用户授权P0–P4开发、PR/CI、受控发布、真实试验及旧机制退役。当前业务合同为docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md，活动源与真实上线状态须核同目录SOURCE-MAP和DELIVERY。五策略采用真实经营输入，Hermes负责候选选择和审核；v15双10%红线、Console共同基价/成本、PC独立、原操作ID/UNKNOWN与公开读回保持。沙特地区及三平台系数使用真实Admin规则，兼容英国0.9100。积压仅Admin11/21/31与Order1/2正常订单交集，暂停/问题单及其余状态排除。
+本轮用户授权P0–P4开发、PR/CI、受控发布、真实试验及旧机制退役。当前业务合同为docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md，活动源与真实上线状态须核同目录SOURCE-MAP和DELIVERY。五策略采用真实经营输入，正常每轮仅程序计算当前策略；默认120分钟且可配置；Hermes每日一次只读效果评估与建议，专用定价存储/队列/provider slot，前期不自动切策略。每日五策略影子仅用保存时段快照，不补采竞品。Lootbar无券、冲额ItemD2R、Saudi Arab-UT普通发货；退役ELD/U4GM/IGGM/U7Buy自动采集与旧观察UI。最新合同SIMPLIFIED-OPERATING-CONTRACT.md覆盖旧逐轮模型审核；v15双10%红线、Console共同基价/成本、PC独立、原操作ID/UNKNOWN与公开读回保持。沙特地区及三平台系数使用真实Admin规则，兼容英国0.9100。积压仅Admin11/21/31与Order1/2正常订单交集，暂停/问题单及其余状态排除。
 
 旧加权、临时ItemD2R钉价、旧baseline/hold/parity、尾价回摆及被替代调度不得保留生产控制。PR425/426等旧证据移作历史和隔离只读回放，不用于恢复旧控制权。切换与退役只有实际回执才算完成，不由本条推定已部署。原共享服务、其他游戏和未替代采集能力保持。详细参数基数、真实预测与长期学习方法按V3合同，Git知识候选、生产实际加载和Hermes独立运用分别验证。
 

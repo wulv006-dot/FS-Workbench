@@ -9,6 +9,7 @@ import uuid
 from decimal import Decimal
 
 from .financial import fingerprint, instant, number
+from . import PROGRAM_CONTRACT
 
 TABLES = ('pricing_plans', 'pricing_snapshots', 'strategy_decisions', 'financial_proofs',
           'market_comparisons', 'experiment_assignments', 'actual_price_windows',
@@ -162,7 +163,7 @@ class Ledger:
                     state='SCHEDULED' if start > now else 'DRAFT', actor=actor,
                     daily_budget=str(number(daily_budget, zero=True)), manual_locked=manual_locked,
                     parameters=parameters,request_hash=request_hash,
-                    created_at=now.isoformat(), review_contract='inherited_hermes_review_with_explicit_v3_deterministic_path',
+                    created_at=now.isoformat(), review_contract=PROGRAM_CONTRACT,
                     total_budget=str(number(daily_budget, zero=True)*Decimal(str((end-start).total_seconds()))/86400) if end else None)
         with self.transaction() as db:
             self.put('pricing_plans', ident, plan, db)
@@ -489,6 +490,20 @@ class Ledger:
             plan = self.get('pricing_plans', plan_id, db)
             if not plan or plan['revision'] != revision:
                 return {'status':'superseded'}
+            if plan['state']=='ENDED':
+                return plan
+            if plan['state']=='SUSPENDED' or plan.get('deadline_pending_while_suspended'):
+                pending=any(json.loads(row[0]).get('plan_id')==plan_id and
+                            json.loads(row[0]).get('status') in PENDING|{'KNOWN_PARTIAL_PUBLIC_PENDING','KNOWN_PARTIAL_EXIT_PENDING'}
+                            for row in db.execute('SELECT body FROM operations'))
+                if pending:
+                    plan['deadline_pending_while_suspended']=True
+                    self.put('pricing_plans',plan_id,plan,db)
+                    return dict(status='suspended_deadline_original_reconciliation_pending',plan_id=plan_id)
+                db.execute('DELETE FROM plan_ownership WHERE plan_id=? AND revision=?',(plan_id,revision))
+                plan.update(state='ENDED',ended_at=clock().isoformat(),exit_reason='suspended_deadline_no_new_price')
+                self.put('pricing_plans',plan_id,plan,db)
+                return plan
             plan['state'] = 'ENDING'
             self.put('pricing_plans', plan_id, plan, db)
             owned = [r[0] for r in db.execute('SELECT resource FROM plan_ownership WHERE plan_id=? AND revision=?', (plan_id, revision))]

@@ -70,7 +70,7 @@ def selection_context(html,final_url,code,region_id):
                 landing_sha256=hashlib.sha256(html.encode()).hexdigest())
 
 
-def collect(code,region_id,expected_products=None):
+def collect(code,region_id,expected_products=None,platforms=None):
     if (code,region_id) not in (('uk',39),('ar',21)):
         raise ValueError('pricing_public_region_scope_invalid')
     origin='https://www.mmoexp.com'
@@ -82,8 +82,11 @@ def collect(code,region_id,expected_products=None):
         final_url=response.geturl()
     context=selection_context(html,final_url,code,region_id)
     expected_products=expected_products if expected_products is not None else canonical_products()
+    requested=list(PLATFORMS) if platforms is None else list(platforms)
+    if not requested or set(requested)-set(PLATFORMS):raise ValueError('pricing_public_platform_scope_invalid')
     offers={}
     for platform,aid in PLATFORMS.items():
+        if platform not in requested:continue
         form=urlencode(dict(Game_id=1327,top_cid=1,aid=aid,cid=9623,site_id=266)).encode()
         request=Request(origin+'/ajax/goods',data=form,headers=dict(headers,**{
             'Content-Type':'application/x-www-form-urlencoded','X-Requested-With':'XMLHttpRequest'}))

@@ -36,11 +36,15 @@ def shadow_progress(db,root,now):
         return dict(status='event_time_unverified',latest_event_id=latest,cursor=cursor,
                     pending=pending,lag_seconds=None,first_pending_event_id=first[0])
     age=(now-datetime.fromisoformat(created_at.replace('Z','+00:00'))).total_seconds()
-    return dict(status='stalled' if age>180 else 'catching_up',latest_event_id=latest,cursor=cursor,
-                pending=pending,lag_seconds=round(age),first_pending_event_id=first[0])
+    from .daily import LOCAL
+    captured=datetime.fromisoformat(created_at.replace('Z','+00:00')).astimezone(LOCAL)
+    due=(captured+timedelta(days=1)).replace(hour=2,minute=20,second=0,microsecond=0)
+    return dict(status='scheduled_daily' if now<due else 'stalled' if now>due+timedelta(minutes=5) else 'catching_up',
+                latest_event_id=latest,cursor=cursor,pending=pending,lag_seconds=round(age),
+                first_pending_event_id=first[0],next_daily_at=due.isoformat(),cadence='daily')
 
 
-def source_coverage(snapshots,plans,now):
+def source_coverage(snapshots,plans,now,interval_minutes=120):
     """Validate the last real owned snapshot per plan, within that plan's sampling interval."""
     from .financial import number,instant,required_history_ratio,envelope_ratio,fingerprint
     from .engine import market_quote
@@ -56,7 +60,7 @@ def source_coverage(snapshots,plans,now):
         else:
             evidence=snapshot.get('evidence') or {};receipt=snapshot.get('result',{}).get('decision_receipt',{})
             mode=(plan or {}).get('mode',receipt.get('mode'))
-            interval=10 if mode=='revenue_sprint' else 30 if mode=='flash_sale' else 120
+            interval=interval_minutes
             try:
                 as_of=instant(snapshot['created_at'])
                 if not -5<=(now-instant(evidence['checked_at'])).total_seconds()<=interval*60+900:
@@ -107,6 +111,7 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
         db.execute('PRAGMA query_only=ON')
         plans=[json.loads(row[0]) for row in db.execute('SELECT body FROM pricing_plans')]
         active=[p for p in plans if p['state'] in ('ACTIVE','ENDING')]
+        owned=[p for p in plans if p['state'] in ('ACTIVE','ENDING','SUSPENDED')]
         operations=[json.loads(row[0]) for row in db.execute('SELECT body FROM operations')]
         snapshots=[]
         for plan in active:
@@ -117,11 +122,20 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
                 if row:snapshots.append(json.loads(row[0]))
         jobs=[dict(id=row[0],kind=row[1],due_at=row[2],state=row[3],body=json.loads(row[4])) for row in db.execute("SELECT id,kind,due_at,state,body FROM durable_jobs WHERE state IN ('queued','running')")]
         shadow=shadow_progress(db,root,now)
+        from .scheduler import next_cycle_at
+        last_cycles=[p['last_cycle_at'] for p in owned if p.get('last_cycle_at')]
+        last_cycles += [o['completed_at'] for o in operations if o.get('plan_id') in {p['plan_id'] for p in owned}
+                        and o.get('status') in ('COMPLETED','NO_CHANGE') and o.get('completed_at')]
+        latest_summary=db.execute("SELECT body FROM metadata WHERE id='latest_snapshot_summary'").fetchone()
+        latest_summary=json.loads(latest_summary[0]) if latest_summary else {}
     if shadow['status'] in ('stalled','cursor_unreadable','event_unverified','event_time_unverified'):
         issues.append(dict(level='warning',code='coin_v3_shadow_'+shadow['status']))
     policy_path=root/'config/automation.json'
-    operator_enabled=json.loads(policy_path.read_text()).get('system_enabled') if policy_path.exists() else True
-    coverage=source_coverage(snapshots,active if operator_enabled else [],now)
+    policy=json.loads(policy_path.read_text()) if policy_path.exists() else {'system_enabled':False,'interval_minutes':120}
+    operator_enabled=policy.get('system_enabled')
+    with closing(sqlite3.connect('file:'+str(root/'v3/control.sqlite3')+'?mode=ro',uri=True,timeout=2)) as conn:
+        cycle_times=[next_cycle_at(conn,p,policy).isoformat() for p in owned if p['state']=='ACTIVE']
+    coverage=source_coverage(snapshots,active if operator_enabled else [],now,policy['interval_minutes'])
     issues.extend(coverage['issues'])
     for job in jobs:
         if job['kind'] in ('cycle','postwrite_refresh') and job['body'].get('error'):
@@ -129,10 +143,19 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
     pending=[op for op in operations if op['status'] not in ('COMPLETED','NO_CHANGE','REJECTED_PREWRITE','CANCELLED_NOT_SENT','SUPERSEDED','KNOWN_PARTIAL_EXITED')]
     for op in pending:
         if op['status'] in ('UNKNOWN','PARTIALLY_APPLIED'):issues.append(dict(level='critical',code='coin_v3_original_operation_'+op['status'].lower()+':'+op['operation_id']))
-    next_at=min((j['due_at'] for j in jobs),default=None)
-    status='unknown' if not checked else 'needs_reconcile' if pending else 'waiting' if active else 'no_active_plan'
+    next_at=min(cycle_times,default=None)
+    background_next_at=min((j['due_at'] for j in jobs if j['kind']!='cycle'),default=None)
+    state=owned[0]['state'] if len(owned)==1 else 'MULTIPLE' if owned else 'NONE'
+    latest_source=max((row.get('evidence',{}).get('checked_at') for row in snapshots if row.get('evidence',{}).get('checked_at')),default=None)
+    if not latest_source and latest_summary.get('plan_id') in {p['plan_id'] for p in owned}:
+        latest_source=latest_summary.get('source_checked_at')
+    status='unknown' if not checked else 'needs_reconcile' if pending else 'paused' if state=='SUSPENDED' else 'waiting' if active else 'no_active_plan'
     return dict(enabled=True,scheduler='single_fc_v3',checked_at=heartbeat.get('checked_at'),generation=heartbeat.get('generation'),
                 active_plans=[{k:p.get(k) for k in ('plan_id','revision','mode','state','resources','ends_at')} for p in active],
-                schedule=dict(status=status,next_at=next_at,collection_status='v3_durable_due_queue'),
+                schedule=dict(status=status,next_at=next_at,next_cycle_at=next_at,cycle_interval_minutes=policy['interval_minutes'],
+                              last_cycle_at=max(last_cycles,default=None),last_snapshot_at=latest_summary.get('created_at'),
+                              last_source_checked_at=latest_source,last_execution_stage=next((o['status'] for o in sorted(operations,key=lambda row:row.get('created_at',''),reverse=True) if o.get('plan_id') in {p['plan_id'] for p in owned}),None),
+                              active_plan_state=state,background_next_at=background_next_at,
+                              collection_status='v3_durable_due_queue'),
                 pending_operations=[dict(operation_id=o['operation_id'],status=o['status'],plan_id=o.get('plan_id')) for o in pending],
                 issues=issues,source_coverage=coverage,shadow=shadow,pending_count=len(pending),read_only=True)

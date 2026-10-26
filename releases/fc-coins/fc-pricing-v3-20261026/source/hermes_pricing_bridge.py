@@ -34,8 +34,9 @@ def save(path,value):
     atomic_json(path,value);os.chmod(path,0o640);os.chown(path,0,11028)
 
 
-def turn_state(conversation,request_id,owner):
-    with closing(sqlite3.connect((FS/'conversations/conversations.db').as_uri()+'?mode=ro',uri=True,timeout=2)) as db:
+def turn_state(conversation,request_id,owner,channel='conversation'):
+    store='pricing-reviews' if channel=='pricing_review_v3' else 'conversations'
+    with closing(sqlite3.connect((FS/store/'conversations.db').as_uri()+'?mode=ro',uri=True,timeout=2)) as db:
         db.row_factory=sqlite3.Row
         row=db.execute('SELECT t.id,t.state,t.task_id,t.run_id FROM turns t JOIN conversations c ON c.id=t.conversation_id WHERE t.conversation_id=? AND t.request_id=? AND c.owner=?',(conversation,request_id,owner)).fetchone()
         turn=dict(row) if row else None
@@ -52,40 +53,24 @@ def turn_state(conversation,request_id,owner):
     return turn
 
 
-def recommendation(conversation,owner,turn,quote):
-    with closing(sqlite3.connect((FS/'tasks.sqlite3').as_uri()+'?mode=ro',uri=True,timeout=2)) as db:
-        exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='pricing_recommendations'").fetchone()
-        rows=db.execute('SELECT content FROM pricing_recommendations WHERE conversation=? AND owner=? AND task=? AND run_id=? ORDER BY rowid DESC',(conversation,owner,turn['task_id'],quote['run_id'])).fetchall() if exists else []
-    expected=hashlib.sha256(json.dumps(quote,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-    for row in rows:
-        value=json.loads(row[0])
-        if value.get('quote_sha256')==expected and value.get('source') in {'v3_program_confirmed_assignment'}:return value
-    return None
-
-
-def review_text(quote,mode):
-    scope=('本任务为自动周期审核，允许核实、核算并recommend程序给出的候选；FC worker正等待，不能另排采集或写价任务。'
-           if mode=='automatic_review' else '用户已授权本次FC金币操作流程；先核capabilities，只能在本任务授予范围内取数、核算、预览和执行。执行后用read_job核后台CONFIRMED，再state核monitor.publication.execution_id为本次操作、写后时间和三平台matched；缺任一项都只能报告未证，不据accepted或会话完成宣称真实生效。')
-    text=(scope+'FC27 Pricing V3经营复核，原运行编号'+quote['run_id']+'。'
-        '只比较daily/acquisition/backlog/flash_sale/revenue_sprint五个目标；保持是动作。'
-        '先读五策略API state/market/region-rules/experiments/shadow，再比较总贡献、首次付款客户、完整交付能力、活动期限和月度净收入目标。'
-        '全球Console共价、PC独立；地区21按PS/Xbox/PC独立系数，英国0.9100保持并重核实际价格。'
-        '未优惠与近7完整日真实优惠金额加权平均采购毛利均至少10%，包含所有赠送、档位/整数K和真实舍入；合法单笔优惠仍可亏损。'
-        '冲额仅用新鲜Lootbar/ItemD2R最低可比价98%~100%，Arab普通发货仅在真实平台覆盖和地区证明齐全时进入对应范围。'
-        '原80/15/5、临时ItemD2R钉价、baseline/hold/parity、尾价与旧fallback均已退役，不得调用旧recommend/evaluated执行。'
-        '金额和候选由程序负责。影子和预测不称实绩；目标未配置保持空，不编造流量、收入或归因。'
-        '所有写入只能通过V3计划/授权/原操作接口；UNKNOWN按原ID只读对账，不能改ID重放。'
-        'Hermes负责当前经营目标的业务选价与审核：从同一run、同一模式已通过财务/市场/预算的候选中选动作，解释参数、真实基数、假设和反证并实际recommend。程序保留所有硬检查与唯一writer。只有无有效模型建议时才用明确V3程序路径并标示未经模型审核，不能把超时写成通过。'
-        '本轮fs.pricing.control recommend参数用当前run_id、bundle_sha256、action_sha256、request_key、reason、evidence_refs；evidence_refs包含pricing:'+quote['result']['decision_receipt']['sha256']+'。选择当前模式已验证候选的action_sha256；有效差异建议会记录原分配偏离并重新验证，不能改写原随机记录。换模式须另建计划。'
-        '当前run_id:'+quote['run_id']+'；当前bundle_sha256:'+quote['result']['decision_receipt']['sha256']+'。'
-        '请从V3 strategy-decisions按此run读取同一模式的全部候选摘要，需要完整证明时按action_sha256读取candidate_detail；原始完整报价和历史订单只在私库，勿要求模型读取逐单附件。')
-    if len(text)>12000:
-        raise ValueError('pricing_hermes_prompt_too_long')
+def daily_review_text(quote):
+    report=dict(quote['daily_report'])
+    report['actual']={k:v for k,v in (report.get('actual') or {}).items() if k!='hourly'}
+    text=('FC27每日一次经营效果复盘。你负责效果判断和方案建议；正常每轮由程序定价，不等待你审核。'
+        '本任务只读，不推荐待执行价格、不调用recommend、不创建/执行/切换计划、不补采竞品。'
+        '按附带真实六小时时段订单与收入分布比较低估期和高峰期，说明预测与实绩差异及其数据覆盖。'
+        '前期先追踪；影子与真实样本成熟后才建议何时切策略，本次没有自动切换授权。'
+        '说明当前策略参数、基数如何核算，哪些是实际、哪些是初始弹性等假设，下一日如何追踪和反证。'
+        '双10%采购毛利底线、赠送/优惠/地区/舍入由程序每轮校验，不能豁免。目标未设就说明收入优化试验。'
+        '输出一次简明中文复盘：效果判断、分时段比较、基数与假设、建议及次日观察。模拟收益不能叫真实增收。'
+        '实际及影子摘要：'+json.dumps(report,ensure_ascii=False,separators=(',',':')))
+    if len(text)>12000:raise ValueError('pricing_daily_prompt_too_long')
     return text
 
 
 def review(job,quote,*,mode='automatic_review',wait_seconds=180):
-    owner='wulv' if mode=='automatic_review' else job['actor']
+    if mode!='daily_review':raise ValueError('pricing_per_cycle_model_review_retired')
+    owner='wulv'
     restore_source=job.get('request',{}).get('restore_source_execution_id')
     if restore_source:
         if mode!='operator_workflow':raise ValueError('pricing_restore_grant_scope')
@@ -96,7 +81,7 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
     request_id='fc_pricing_'+job['job_id'].replace('-','')
     path=ROOT/'evidence'/('hermes-pricing-'+job['job_id']+'.json')
     created=datetime.now(timezone.utc)
-    text=review_text(quote,mode)
+    text=daily_review_text(quote)
     if path.exists():
         record=json.loads(path.read_text('utf-8'))
         if record.get('owner')!=owner or record.get('run_id')!=quote['run_id'] or record.get('mode')!=mode or record.get('restore_source_execution_id')!=restore_source:
@@ -106,24 +91,26 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
             record.update(phase='unknown',reason='original_create_receipt_required');save(path,record);return record
     else:
         record=dict(owner=owner,mode=mode,job_id=job['job_id'],run_id=quote['run_id'],request_id=request_id,
+                    channel='pricing_review_v3',
                     phase='creating',created_at=created.isoformat(),price_write_performed=False,restore_source_execution_id=restore_source)
         # O_EXCL reserves the intent before an FS call that may create or bill work.
         with path.open('x',encoding='utf-8') as stream:
             json.dump(record,stream,ensure_ascii=False);stream.flush();os.fsync(stream.fileno())
         os.chmod(path,0o640);os.chown(path,0,11028)
         try:
-            result=request(owner,'/api/hermes/conversations',{})
+            result=request(owner,'/api/hermes/conversations/pricing-reviews',{})
             conversation=result['conversation_id'];record.update(conversation_id=conversation,phase='created');save(path,record)
             sys.path.insert(0,'/opt/fs-hermes-fc')
             from pricing_operations import grant
             with closing(sqlite3.connect(FS/'tasks.sqlite3',timeout=5)) as db,db:
                 grant(db,owner,conversation,quote['run_id'],mode,(created+timedelta(hours=1)).isoformat(),
-                      'human_authorized_fc_pricing_v3_20261026_inherited_review_and_dual10',restore_sources=[restore_source] if restore_source else [])
+                      'human_authorized_fc_pricing_v3_daily_effect_review_readonly' if mode=='daily_review' else 'human_authorized_fc_pricing_v3_20261026_inherited_review_and_dual10',restore_sources=[restore_source] if restore_source else [])
             record.update(phase='submitting',input_sha256=hashlib.sha256(text.encode()).hexdigest());save(path,record)
-            submitted=request(owner,'/api/hermes/conversations/'+conversation+'/turns',{'text':text,'client_request_id':request_id})
+            submitted=request(owner,'/api/hermes/conversations/pricing-reviews/'+conversation+'/turns',
+                              {'text':text,'client_request_id':request_id,'run_id':quote['run_id']})
             record.update(phase='submitted',turn_id=submitted['turn_id']);save(path,record)
         except Exception as exc:
-            existing=turn_state(record['conversation_id'],request_id,owner) if record.get('conversation_id') else None
+            existing=turn_state(record['conversation_id'],request_id,owner,record.get('channel','conversation')) if record.get('conversation_id') else None
             if existing:
                 record.update(phase='submitted',turn_id=existing['id'],submission_reconciled_from_original_request=True)
                 save(path,record)
@@ -131,13 +118,16 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
                 record.update(phase='unknown',reason=type(exc).__name__,do_not_replay=True);save(path,record);return record
     deadline=time.monotonic()+wait_seconds
     while True:
-        turn=turn_state(record['conversation_id'],request_id,owner)
+        turn=turn_state(record['conversation_id'],request_id,owner,record.get('channel','conversation'))
         if turn:
             record.update(turn=turn,task_id=turn.get('task_id'),run_id=quote['run_id'])
             if turn['state'] in {'completed','failed','cancelled','interrupted'}:
-                selected=recommendation(record['conversation_id'],owner,turn,quote) if turn['state']=='completed' else None
+                selected=None
                 record.update(phase='completed' if turn['state']=='completed' else 'failed',recommendation=selected,
                               completed_at=datetime.now(timezone.utc).isoformat(),applied=False)
+                if mode=='daily_review' and turn['state']=='completed':
+                    detail=request(owner,'/api/hermes/conversations/pricing-reviews/'+record['conversation_id'])
+                    record['evaluation']=detail
                 if turn.get('dispatch_failure'):
                     record.update(failure=turn['dispatch_failure'],reason=turn['dispatch_failure']['reason_code'])
                 save(path,record);return record

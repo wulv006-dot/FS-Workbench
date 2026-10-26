@@ -12,9 +12,9 @@ from release import PREFIX, RELEASE, RUNTIME, SCOPE, load_base, targets
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
 FS_ROOT = Path('/var/lib/fs-hermes-fc/fs')
-OLD_BASELINE_SHA = 'c0b867d19e5316e77d3042d1437724c30742723a85f8355e11ac7e143f423a56'
-NEW_BASELINE_SHA = '7b3ca86691a3671c55b7a6095d6bd77253fed4125a6885caddd08a1c5933331e'
-OLD_POLICY_SHA = 'f69639cd822d96719ad0c9178334b8e2cb45e9a7d49237e9b4c784adacb2b147'
+OLD_BASELINE_SHA = '7b3ca86691a3671c55b7a6095d6bd77253fed4125a6885caddd08a1c5933331e'
+NEW_BASELINE_SHA = '50e9a35d028bfd7df708f890fed20203749a980e613015ae622e6dc11df069e1'
+OLD_POLICY_SHA = 'c08d526495127b8349f5848e24211052ccd86a85ab7bc6b8cda8f9b7c2f0d355'
 
 
 def sha(path):
@@ -84,12 +84,12 @@ def prepare():
             {'mode': 'retain_full_baseline', 'sha256': OLD_BASELINE_SHA}:
         raise ValueError('existing_catalog_or_full_baseline_binding_drift')
     old_ids = route.get('entry_ids')
-    if not isinstance(old_ids, list) or len(old_ids) != 12 or len(set(old_ids)) != 12 or \
-            'fc.pricing.v3' in old_ids:
+    if not isinstance(old_ids, list) or len(old_ids) != 13 or len(set(old_ids)) != 13 or \
+            'fc.pricing.v3' not in old_ids:
         raise ValueError('exact_existing_route_entries_required')
     route['catalog'] = 'knowledge-releases/' + RELEASE + '/index.json'
     route['sha256'] = manifest_source['catalogSha256']
-    route['entry_ids'] = old_ids + ['fc.pricing.v3']
+    route['entry_ids'] = old_ids
     route['baseline_compatibility']['sha256'] = NEW_BASELINE_SHA
     expected = copy.deepcopy(before)
     old = next(row for row in expected['task_routes']['routes'] if

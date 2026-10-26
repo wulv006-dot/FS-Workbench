@@ -39,7 +39,7 @@ def tables(db):
 
 
 def grant(db,owner,conversation,run,mode,expires,source,restore_sources=()):
-    if mode not in ('automatic_review','operator_workflow') or not re.fullmatch('[a-f0-9]{32}',conversation):
+    if mode!='daily_review' or not re.fullmatch('[a-f0-9]{32}',conversation):
         raise ValueError('pricing_grant_scope')
     uuid.UUID(run)
     if len(restore_sources)>1 or restore_sources and mode!='operator_workflow':raise ValueError('pricing_restore_grant_scope')
@@ -79,12 +79,18 @@ def quote_view(quote):
 
 def authorization(scope,owner,task,now):
     root=Path(scope.tasks.path).parent
-    with closing(sqlite3.connect((root/'conversations/conversations.db').as_uri()+'?mode=ro',uri=True,timeout=2)) as db:
-        row=db.execute('SELECT t.conversation_id FROM turns t JOIN conversations c ON c.id=t.conversation_id WHERE t.task_id=? AND c.owner=?',(task,owner)).fetchone()
-    if row is None:return None
+    bindings=[]
+    for store in ('pricing-reviews','conversations'):
+        path=root/store/'conversations.db'
+        if not path.is_file():continue
+        with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=2)) as db:
+            row=db.execute('SELECT t.conversation_id FROM turns t JOIN conversations c ON c.id=t.conversation_id WHERE t.task_id=? AND c.owner=?',(task,owner)).fetchone()
+        if row:bindings.append(row[0])
+    if not bindings:return None
+    if len(bindings)!=1:raise ValueError('pricing_task_binding_conflict')
     with scope.tasks.db() as db:
         tables(db);db.row_factory=sqlite3.Row
-        r=db.execute('SELECT * FROM pricing_grants WHERE conversation=? AND owner=?',(row[0],owner)).fetchone()
+        r=db.execute('SELECT * FROM pricing_grants WHERE conversation=? AND owner=?',(bindings[0],owner)).fetchone()
     if r is None:return None
     value=dict(r)
     if datetime.fromisoformat(value['expires_at'])<=now:return None
@@ -99,7 +105,7 @@ def call(scope,owner,task,lease,args,request=native):
     if action not in ACTIONS or set(args)!=FIELDS[action]:
         raise ValueError('pricing_tool_fields')
     auth=authorization(scope,owner,task,scope.clock())
-    allowed=list(AUTO if auth and auth['mode']=='automatic_review' else ACTIONS if auth else
+    allowed=list(set(ACTIONS)-MUTATING if auth and auth['mode']=='daily_review' else AUTO if auth and auth['mode']=='automatic_review' else ACTIONS if auth else
                  set(ACTIONS)-MUTATING)
     if action not in allowed:
         raise PermissionError('pricing_task_not_authorized')
@@ -111,7 +117,7 @@ def call(scope,owner,task,lease,args,request=native):
     if action=='state':
         return state
     if action=='compare_strategies':
-        if auth and auth['mode']=='automatic_review':
+        if auth and auth['mode'] in ('automatic_review','daily_review'):
             if len(auth['runs'])!=1:
                 raise ValueError('pricing_review_run_scope_invalid')
             run=auth['runs'][0]

@@ -137,7 +137,9 @@ def read(path):
                     regional_controls=(snapshot or {}).get('evidence',{}).get('regional_controls',[]),
                     current_prices=(snapshot or {}).get('result',{}).get('rows',[]),
                     latest_market_observations=recent_market_observations(db),
-                    retirement=db.all('retirement_inventory'),effect_status='long_term_business_effect_not_established')
+                    daily_review=db.get('metadata','latest_daily_review'),retirement=db.all('retirement_inventory'),effect_status='long_term_business_effect_not_established')
+    if path=='daily-review':
+        return db.get('metadata','latest_daily_review') or dict(status='not_started',schedule='daily_02:20_Asia_Shanghai',per_cycle_model_required=False)
     if path=='strategies':
         return dict(version=VERSION,strategies=POLICIES)
     if path.startswith('strategy-decisions/'):
@@ -223,6 +225,16 @@ def read(path):
 
 
 def post(path,data,actor):
+    if path=='interval':
+        if not isinstance(data,dict) or set(data)!={'interval_minutes','expected_revision'}:
+            raise ValueError('pricing_interval_request_invalid')
+        from automation_policy import load_policy,save_policy
+        current=load_policy()
+        settings={key:current[key] for key in ('system_enabled','mode','interval_minutes','platforms','minimum_gross_margin_pct')}
+        settings['interval_minutes']=data['interval_minutes']
+        updated=save_policy(settings,actor,data['expected_revision'])
+        return dict(interval_minutes=updated['interval_minutes'],revision=updated['revision'],updated_at=updated['updated_at'],
+                    plan_state=(ledger().active_plan() or {}).get('state'),write_performed=False)
     db=ledger()
     snapshot=latest(db) if path in ('plans','evaluate','preview','manual-previews') else None
     if path=='plans':
@@ -294,6 +306,8 @@ def post(path,data,actor):
             plan=db.get('pricing_plans',ident)
             if not plan:
                 raise ValueError('pricing_plan_missing')
+            if action=='resume' and plan.get('ends_at') and clock()>=instant(plan['ends_at']):
+                raise ValueError('pricing_plan_expired')
             desired='SUSPENDED' if action=='pause' else 'ACTIVE'
             if plan['state']==desired:
                 return plan
@@ -302,6 +316,11 @@ def post(path,data,actor):
             with db.connect() as conn:
                 db.owns(plan,plan['resources'],conn)
             plan['state']=desired
+            if action=='resume':
+                plan['resume_count']=plan.get('resume_count',0)+1
+                plan['resumed_at']=clock().isoformat()
+            else:
+                plan['paused_at']=clock().isoformat()
             db.put('pricing_plans',ident,plan)
             return plan
     if path in ('evaluate','preview'):

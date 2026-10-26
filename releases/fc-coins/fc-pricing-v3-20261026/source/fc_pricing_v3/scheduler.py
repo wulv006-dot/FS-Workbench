@@ -12,16 +12,56 @@ import time
 import uuid
 
 from .engine import POLICIES
-from .financial import instant
+from .financial import fingerprint, instant
 from .ledger import clock
 from .runtime import ledger, ROOT, STORE, execute_run, reconcile
 
-PRIORITY={'deadline':0,'exit':1,'reconcile':2,'start':3,'postwrite_refresh':3,'cycle':4,'observe':5}
+PRIORITY={'deadline':0,'exit':1,'reconcile':2,'start':3,'postwrite_refresh':3,'cycle':4,'observe':5,'daily':5}
 BACKOFF=(5,15,30,60)
 SHADOW_EXPORT=STORE/'shadow-readonly.sqlite3'
 
+def cycle_interval(policy=None):
+    from automation_policy import load_policy
+    value=(policy or load_policy())['interval_minutes']
+    if type(value) is not int or not 1 <= value <= 9999:
+        raise ValueError('automation_interval_invalid')
+    return timedelta(minutes=value)
 
-def export_shadow_snapshot(db, target=SHADOW_EXPORT):
+
+def next_cycle_at(db,plan,policy=None):
+    """One configured clock per plan, without replaying paused or old due slots."""
+    anchor=plan.get('last_cycle_at')
+    if not anchor:
+        def completed_times(conn):
+            completed=[]
+            for row in conn.execute('SELECT body FROM operations'):
+                op=json.loads(row[0])
+                if op.get('plan_id')==plan['plan_id'] and op.get('status') in ('COMPLETED','NO_CHANGE') and op.get('completed_at'):
+                    completed.append(instant(op['completed_at']))
+            return completed
+        if isinstance(db,sqlite3.Connection):
+            completed=completed_times(db)
+        else:
+            with db.connect() as conn:completed=completed_times(conn)
+        if completed:anchor=max(completed).isoformat()
+    anchors=[instant(anchor or plan['starts_at'])]
+    if plan.get('resumed_at'):anchors.append(instant(plan['resumed_at']))
+    if policy is None:
+        from automation_policy import load_policy
+        policy=load_policy()
+    if policy.get('updated_at'):anchors.append(instant(policy['updated_at']))
+    return max(anchors)+cycle_interval(policy)
+
+
+def finish_cycle(db,conn,body,result,at):
+    if result.get('status')=='superseded':return
+    plan=db.get('pricing_plans',body.get('plan_id'),conn) if body.get('plan_id') else None
+    if plan:
+        plan['last_cycle_at']=at
+        db.put('pricing_plans',plan['plan_id'],plan,conn)
+
+
+def export_shadow_snapshot(db, target=SHADOW_EXPORT, *, force=False):
     """Publish one consistent, read-only SQLite snapshot for the isolated consumer.
 
     CentOS SQLite 3.7 cannot open the live WAL from a read-only mount.  The
@@ -34,7 +74,7 @@ def export_shadow_snapshot(db, target=SHADOW_EXPORT):
         if target.exists():
             with closing(sqlite3.connect('file:'+str(target.resolve())+'?mode=ro',uri=True)) as published:
                 old=published.execute('SELECT coalesce(max(id),0) FROM event_outbox').fetchone()[0]
-            if old==current:
+            if old==current and not force:
                 return dict(status='current',cursor=current)
         fd,name=tempfile.mkstemp(prefix='.shadow-export-',suffix='.sqlite3',dir=str(target.parent))
         os.close(fd)
@@ -128,21 +168,8 @@ def cycle(body=None):
             db.put('strategy_decisions','before-manual:'+quote['result']['decision_receipt']['decision_bundle_id'],quote['result']['decision_receipt'])
             quote['result']=calculate(quote['evidence'],quote.get('edits'),selected_action=checked['selected']['action'],override_reason=manual['reason'],operation_id=manual['operation_id'])
             write_json(ROOT/'quotes'/(collected['run_id']+'.json'),quote)
-        from hermes_pricing_bridge import review as hermes_review
-        try:
-            review=hermes_review(job,quote)
-        except Exception as exc:
-            review=dict(phase='unknown',reason=type(exc).__name__,do_not_replay=True,applied=False)
-        job['hermes_review']=review
+        job['decision_source']='program_current_strategy'
         worker.save_job(job)
-        recommendation=review.get('recommendation') if review.get('phase')=='completed' else None
-        if not body.get('manual_preview_id') and recommendation and recommendation.get('action_vector') and recommendation['action_vector']!=quote['result']['decision_receipt']['action']:
-            from .runtime import calculate,write_json
-            db.put('strategy_decisions','before-model:'+quote['result']['decision_receipt']['decision_bundle_id'],quote['result']['decision_receipt'])
-            quote['result']=calculate(quote['evidence'],quote.get('edits'),selected_action=recommendation['action_vector'],override_reason='valid_hermes_current_candidate:'+recommendation['operation_id'],operation_id=operation_id)
-            write_json(ROOT/'quotes'/(collected['run_id']+'.json'),quote)
-        from .runtime import attach_review
-        attach_review(collected['run_id'],review)
         outcome=execute_run(collected['run_id'])
         plan=db.get('pricing_plans',outcome.get('plan_id') or quote['result']['decision_receipt']['plan_id'])
         if plan and plan.get('parent_plan_id') and outcome.get('status') in ('COMPLETED','NO_CHANGE'):
@@ -223,6 +250,8 @@ def exit_plan(body):
         old['state']='ENDED'
         db.put('pricing_plans',old['plan_id'],old)
         return old
+    if old['state']=='SUSPENDED' or old.get('deadline_pending_while_suspended'):
+        return dict(status='suspended_no_exit_price',plan_id=old['plan_id'])
     # New EXIT lineage has its own current proof/authority; old deadline or spend cannot block it.
     next_plan=db.get('pricing_plans',old['exit_plan_id']) if old.get('exit_plan_id') else None
     if not next_plan:
@@ -231,11 +260,15 @@ def exit_plan(body):
                                  plan_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc-v3-exit:'+old['plan_id']+':'+str(old['revision']))))
         next_plan['parent_plan_id']=old['plan_id']
         next_plan['transition_reason']='EXIT'
+        from automation_policy import load_policy
+        policy=load_policy()
+        next_plan['last_cycle_at']=(next_cycle_at(db,old,policy)-cycle_interval(policy)).isoformat()
         db.put('pricing_plans',next_plan['plan_id'],next_plan)
         old.update(state='ENDING',exit_plan_id=next_plan['plan_id'],exit_status='EXIT_PENDING')
         db.put('pricing_plans',old['plan_id'],old)
     db.activate_plan(next_plan['plan_id'])
-    db.enqueue('cycle','exit-cycle:'+next_plan['plan_id'],clock(),dict(plan_id=next_plan['plan_id']))
+    due_at=max(clock(),next_cycle_at(db,next_plan))
+    db.enqueue('cycle','exit-cycle:'+next_plan['plan_id'],due_at,dict(plan_id=next_plan['plan_id']))
     return next_plan
 
 
@@ -256,12 +289,18 @@ def run_job(job):
             result=reconcile(body['operation_id'])
         elif kind=='postwrite_refresh':
             result=refresh_postwrite(body)
+        elif kind=='daily':
+            from .daily import run as daily_run
+            result=daily_run(body)
         elif kind=='observe':
             from .observations import observe
             result=observe(body['snapshot_id'])
         else:
             result=cycle(body)
         with db.transaction() as conn:
+            completed_at=clock().isoformat()
+            if kind=='cycle':finish_cycle(db,conn,body,result,completed_at)
+            body['completed_at']=completed_at
             conn.execute('UPDATE durable_jobs SET state=\'done\',body=? WHERE id=?',
                          (json.dumps(dict(body,result=result)),job['id']))
     except Exception as exc:
@@ -272,6 +311,8 @@ def run_job(job):
                 db.deadline(plan['plan_id'],plan['revision'])
             with db.transaction() as conn:
                 body['result']=dict(status='BUDGET_EXHAUSTED',reason=code)
+                body['completed_at']=clock().isoformat()
+                if kind=='cycle':finish_cycle(db,conn,body,body['result'],body['completed_at'])
                 conn.execute('UPDATE durable_jobs SET state=\'done\',body=? WHERE id=?',(json.dumps(body),job['id']))
             return
         terminal=('INFEASIBLE','CAPACITY_UNRESOLVED','pricing_generation_retired','pricing_resource_taken_over',
@@ -279,6 +320,8 @@ def run_job(job):
         if any(t.lower() in code.lower() for t in terminal):
             with db.transaction() as conn:
                 body.update(result=dict(status='INFEASIBLE' if 'INFEASIBLE' in code or 'CAPACITY_UNRESOLVED' in code else 'REJECTED_PREWRITE',reason=code))
+                body['completed_at']=clock().isoformat()
+                if kind=='cycle':finish_cycle(db,conn,body,body['result'],body['completed_at'])
                 conn.execute('UPDATE durable_jobs SET state=\'done\',body=? WHERE id=?',(json.dumps(body),job['id']))
             return
         attempt=job['attempt']+1
@@ -299,16 +342,26 @@ def tick(executors, running):
         if future.done():
             future.result()
             del running[key]
+    from .daily import due_date
+    date=due_date(now)
+    if date:db.enqueue('daily','daily:'+date,now,dict(local_date=date))
+    plans=db.active_plans()
+    for plan in plans:
+        if plan and plan.get('deadline_pending_while_suspended') and plan.get('ends_at') and now>=instant(plan['ends_at']):
+            db.deadline(plan['plan_id'],plan['revision'])
+    from .daily import due_date
+    date=due_date(now)
+    if date:db.enqueue('daily','daily:'+date,now,dict(local_date=date))
     plans=db.active_plans()
     for plan in plans:
       if plan and plan['state']=='ACTIVE':
-        interval=10 if plan['mode']=='revenue_sprint' else 30 if plan['mode']=='flash_sale' else 120
-        bucket=int(now.timestamp())//(interval*60)
+        due_at=next_cycle_at(db,plan)
         with db.connect() as conn:
             pending=any(json.loads(row[0]).get('plan_id')==plan['plan_id'] for row in
                         conn.execute('SELECT body FROM durable_jobs WHERE kind=\'cycle\' AND state IN (\'queued\',\'running\')'))
-        if not pending:
-            db.enqueue('cycle','cycle:'+plan['plan_id']+':'+str(bucket),now,dict(plan_id=plan['plan_id'],revision=plan['revision']))
+        if not pending and now>=due_at:
+            key='cycle:'+plan['plan_id']+':'+str(int(due_at.timestamp()))+':r'+str(plan.get('resume_count',0))
+            db.enqueue('cycle',key,now,dict(plan_id=plan['plan_id'],revision=plan['revision']))
     for op in db.all('operations'):
         if op['status'] in ('DISPATCHED','UNKNOWN','PARTIALLY_APPLIED','BACKEND_CONFIRMED','CACHE_CONFIRMED','PUBLIC_PENDING','KNOWN_PARTIAL_PUBLIC_PENDING'):
             with db.connect() as conn:
@@ -333,7 +386,7 @@ def tick(executors, running):
         due=[dict(row) for row in conn.execute('SELECT * FROM durable_jobs WHERE state=\'queued\' AND due_at<=?',(now.isoformat(),))]
 
     for job in sorted(due,key=lambda j:(PRIORITY[j['kind']],j['due_at'])):
-        lane='observation' if job['kind']=='observe' else 'collection' if job['kind'] in ('cycle','postwrite_refresh') else 'control'
+        lane='observation' if job['kind'] in ('observe','daily') else 'collection' if job['kind'] in ('cycle','postwrite_refresh') else 'control'
         if lane in running:
             continue
         with db.transaction() as conn:

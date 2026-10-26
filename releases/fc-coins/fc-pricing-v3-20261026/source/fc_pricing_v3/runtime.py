@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import uuid
 
-from . import VERSION
+from . import VERSION, PROGRAM_CONTRACT
 from .engine import evaluate, financial, competition, commit_path, impacted_regions, proof_regions, GROUPS, PLATFORMS
 from .financial import fingerprint, number, instant, MARGIN_BASIS
 from .ledger import Ledger, clock
@@ -35,18 +35,39 @@ def public_snapshot_summary(snapshot):
     for key in ('region_rules','regional_controls'):
         fields[key]=[dict(row,history={k:v for k,v in (row.get('history') or {}).items() if k!='replay_paths'})
                      for row in evidence.get(key,[])]
-    return dict(snapshot_id=snapshot['snapshot_id'],created_at=snapshot['created_at'],evidence=fields,
+    return dict(snapshot_id=snapshot['snapshot_id'],created_at=snapshot['created_at'],
+                plan_id=(snapshot.get('result',{}).get('decision_receipt') or {}).get('plan_id'),
+                source_checked_at=evidence.get('checked_at'),evidence=fields,
                 result={'rows':snapshot['result']['rows']})
+
+
+def collection_scope(db,run_id):
+    job_path=ROOT/'jobs'/(run_id+'.json')
+    job=json.loads(job_path.read_text()) if job_path.exists() else {}
+    plan_id=(job.get('request') or {}).get('v3_plan_id')
+    plan=db.get('pricing_plans',plan_id) if plan_id else db.active_plan()
+    resources=(plan or {}).get('resources',[])
+    regions=sorted({int(r.split(':')[1]) for r in resources if r.startswith('region:')})
+    from automation_policy import load_policy
+    return dict(active_mode=(plan or {}).get('mode','revenue_sprint'),scope=dict(
+        platforms=list(PLATFORMS),region_ids=regions,interval_minutes=load_policy()['interval_minutes']))
 
 
 def context(evidence):
     """Source results are attached once to the immutable quote snapshot."""
     from .sources import collect_context
     db=ledger()
-    result=dict(evidence,**collect_context(dict(evidence,price_windows=db.all('actual_price_windows'))))
+    scope=collection_scope(db,evidence['run_id'])
+    envelope=collect_context(dict(evidence,price_windows=db.all('actual_price_windows'),
+        active_mode=scope['active_mode'],active_scope=scope['scope'],
+        history_cache=db.get('metadata','seven_day_history_cache'),online_context=db.get('metadata','daily_online_context')))
+    for key,value in envelope['private_updates'].items():
+        if key!='history_cache':raise ValueError('pricing_private_source_update_invalid')
+        db.put('metadata','seven_day_history_cache',value)
+    result=dict(evidence,**envelope['context'])
     enrich_segments(result)
     target=db.get('monthly_targets','current')
-    if target:
+    if target and 'monthly_target' in result:
         if target['target_scope']!=result['monthly_target']['target_scope'] or target['target_basis']!=result['monthly_target']['target_basis']:
             raise ValueError('pricing_monthly_target_scope_mismatch')
         result['monthly_target']=dict(result['monthly_target'],amount=target['amount'],target_source='user_configured_exact_scope',target_version=target.get('version'))
@@ -111,7 +132,7 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
     if plan:
         evidence['budget_snapshot']=db.budget_usage(plan,now)
         evidence['budget_existing_assignment']=db.get('experiment_assignments',fingerprint([plan['plan_id'],plan['revision'],int(now.timestamp())//(6*3600)]))
-    evaluations = {m:evaluate(evidence,m,plan=plan,now=now) for m in ('daily','acquisition','backlog','flash_sale','revenue_sprint')}
+    evaluations = {mode:evaluate(evidence,mode,plan=plan,now=now)}
     evaluation = evaluations[mode]
     if not evaluation['candidates']:
         db.put('strategy_decisions',evidence['run_id'],evaluations)
@@ -162,7 +183,9 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         budget_reservation={g:dict(concession=s['concession'] or '0',negative_contribution=s['negative_contribution'] or '0')
                             for g,s in selected['score']['groups'].items()},
         budget_kind='soft_known_orders_and_quotes' if selected['score']['absolute_forecast_available'] else 'fixed_initial_exploration_soft_budget_prediction_pending',
-        execution_authorized=bool(plan),review_contract=(plan or {}).get('review_contract'),
+        execution_authorized=bool(plan and plan.get('state')=='ACTIVE'),review_contract=PROGRAM_CONTRACT,
+        decision_source='program_current_strategy',per_cycle_model_required=False,
+        hermes_role='daily_effect_review_and_strategy_suggestions',
         legacy_policy_execution=False,margin_basis=MARGIN_BASIS)
     bundle['sha256'] = fingerprint(bundle)
     result=render_result(evidence,selected,bundle,mode)
@@ -189,7 +212,7 @@ def render_result(evidence,selected,bundle,mode):
         own=evidence['storefront']['rows'][p]
         target=number(action['base_prices'][group])
         public_anchor=evidence['offers'][p]['Lootbar']
-        offers=[dict(source=s,**(evidence['offers'][p].get(s) or {'status':'missing'})) for s in ('Lootbar','U4GM','IGGM','U7Buy')]
+        offers=[dict(source=s,**value) for s,value in evidence['offers'][p].items()]
         rows.append(dict(platform=p,proposal=str(target/100),auto_proposal=str(target/100),
             raw_cost_cny=cost['cny_per_1k'],cost_cny=cost['cny_per_1k'],raw_cost_record_id=cost['record_id'],
             raw_cost_trade_at=cost['trade_at'],cost_record_id=cost['record_id'],cost_trade_at=cost['trade_at'],
@@ -329,10 +352,16 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         control=json.loads((ROOT/'config/v3-control.json').read_text())
         if control['generation']!=receipt['engine_generation'] or not control.get('enabled'):
             raise ValueError('pricing_generation_retired')
-        if receipt['review_contract']!='inherited_hermes_review_with_explicit_v3_deterministic_path':
-            raise ValueError('pricing_review_pending')
-        if receipt.get('review_receipt') is None:
-            raise ValueError('pricing_hermes_review_attempt_required')
+        if purpose=='original_unsent_ALL_steps_only':
+            if receipt.get('review_contract') not in (PROGRAM_CONTRACT,'inherited_hermes_review_with_explicit_v3_deterministic_path'):
+                raise ValueError('pricing_original_contract_unknown')
+            if receipt['review_contract']!=PROGRAM_CONTRACT and receipt.get('review_receipt') is None:
+                raise ValueError('pricing_original_review_receipt_missing')
+        elif receipt.get('review_contract')==PROGRAM_CONTRACT:
+            if receipt.get('per_cycle_model_required') is not False or receipt.get('decision_source')!='program_current_strategy':
+                raise ValueError('pricing_program_contract_changed')
+        else:
+            raise ValueError('pricing_review_contract_retired')
     return receipt
 
 

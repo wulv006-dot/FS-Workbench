@@ -10,7 +10,7 @@ import time
 import types
 import urllib.request
 
-from target_map import DELTA_NAMES, DELTA_SCOPE, SHADOW_NAMES, SHADOW_SCOPE, targets
+from target_map import DELTA_NAMES, DELTA_SCOPE, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, targets
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
@@ -22,6 +22,7 @@ SOURCE = HERE.parent / 'candidate/source' if (HERE.parent / 'candidate/source').
 TARGETS = {'source/' + name: path for name, path in targets(SOURCE).items()}
 DELTA_TARGETS = {name: TARGETS[name] for name in DELTA_NAMES}
 SHADOW_TARGETS = {name: TARGETS[name] for name in SHADOW_NAMES}
+OPERATING_TARGETS={name:TARGETS[name] for name in OPERATING_NAMES}
 
 
 def restart_with_hermes_readiness(base, original_restart, manifest, admission_fence):
@@ -61,12 +62,14 @@ def checked_manifest(value):
     rows = value.get('files', [])
     scope = value.get('scope')
     expected = (TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else
-                SHADOW_TARGETS if scope == SHADOW_SCOPE else {})
+                SHADOW_TARGETS if scope == SHADOW_SCOPE else OPERATING_TARGETS if scope==OPERATING_SCOPE else {})
     if not expected or len(rows) != len(expected) or \
             {r['candidate']: r['target'] for r in rows} != expected:
         raise ValueError('exact_fc_v3_targets_required')
-    if sum(r.get('beforeSha256') is None for r in rows) != (51 if scope == SCOPE else 0):
+    if sum(r.get('beforeSha256') is None for r in rows) != (51 if scope==SCOPE else len(OPERATING_NEW) if scope==OPERATING_SCOPE else 0):
         raise ValueError('fc_v3_new_existing_target_boundary_changed')
+    if scope==OPERATING_SCOPE and {r['candidate'] for r in rows if r.get('beforeSha256') is None}!=OPERATING_NEW:
+        raise ValueError('fc_v3_operating_new_target_identity_changed')
     if any(r.get('owner') != '0:0' or r.get('mode') not in ('0o644', '0o700', '0o750', '0o755') for r in rows):
         raise ValueError('exact_fc_v3_target_metadata_required')
     if scope == SCOPE and next(r for r in rows if r['candidate'] == 'source/reconcile_price.sh')['mode'] != '0o755':
@@ -84,7 +87,7 @@ def load_base():
         raise ValueError('frozen_publisher_drift')
     approved = checked_manifest(json.loads((HERE / 'approved-manifest.json').read_text('utf-8')))
     scope = approved['scope']
-    active_targets = TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else SHADOW_TARGETS
+    active_targets = TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else OPERATING_TARGETS if scope==OPERATING_SCOPE else SHADOW_TARGETS
     new = frozenset(r['candidate'] for r in approved['files'] if r['beforeSha256'] is None)
     source = raw.decode('utf-8')
     anchor = "r.get('beforeSha256') is None for r in files if not ("
@@ -119,7 +122,7 @@ def load_base():
              "SELECT count(*) FROM scan_jobs WHERE state='pending'"),
             ('/var/lib/fs-hermes-fc/fs/customer-tracking/tracking.db',
              "SELECT count(*) FROM milestones WHERE state IN ('claimed','creating','dispatch_unknown','queued','running')")):
-            database = base.rooted(root, path)
+            database = base.rooted(root,path)
             base.no_target_link(database)
             with closing(sqlite3.connect(database.as_uri() + '?mode=ro', uri=True, timeout=2)) as db:
                 if db.execute(query).fetchone()[0]:
@@ -183,7 +186,7 @@ def load_base():
 
     def restart(manifest, admission_fence=None):
         restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
-        if manifest.get('scope') in (SCOPE, DELTA_SCOPE, SHADOW_SCOPE):
+        if manifest.get('scope') in (SCOPE,DELTA_SCOPE,SHADOW_SCOPE,OPERATING_SCOPE):
             subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=30)
             for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service'):
                 subprocess.run(['systemctl', 'restart', name], check=True, timeout=30)
