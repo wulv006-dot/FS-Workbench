@@ -13,7 +13,8 @@ RELEASE = 'fc-pricing-v3-20261026-1'
 PREFIX = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + RELEASE + '/'
 RUNTIME = {'runtime/business-baseline.md': '/opt/fs-hermes-fc/business-baseline.md',
            'runtime/knowledge-load-policy.json': '/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'}
-BASE_SHA = '1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de'
+# Exact Git LF normalization of the frozen original publisher (raw CRLF SHA 1d070ee8...).
+BASE_SHA = '57f4baf8db15fc791375b641fb618ef87a867901643bc0aa33f10804b8fcb840'
 
 
 def targets(manifest):

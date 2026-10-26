@@ -12,7 +12,8 @@ from target_map import targets
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
-BASE_SHA = '1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de'
+# Exact Git LF normalization of the frozen original publisher (raw CRLF SHA 1d070ee8...).
+BASE_SHA = '57f4baf8db15fc791375b641fb618ef87a867901643bc0aa33f10804b8fcb840'
 FC_PUBLISHER = Path('/var/lib/fc27-cloud/maintenance/local-collection-20261017/publish.py')
 FC_SHA = 'b811b3adc8d4fd13e53f252b61292f79d30a7e73e0fdac4df83fc8d183ba2f8e'
 SOURCE = HERE.parent / 'candidate/source' if (HERE.parent / 'candidate/source').exists() else HERE.parent / 'source'

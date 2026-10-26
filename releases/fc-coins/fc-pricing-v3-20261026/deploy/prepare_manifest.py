@@ -32,7 +32,7 @@ def regular(path, existing=True):
 
 def load_base():
     path = HERE / 'release_navigation_base.py'
-    if sha(path) != '1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de':
+    if sha(path) != '57f4baf8db15fc791375b641fb618ef87a867901643bc0aa33f10804b8fcb840':
         raise ValueError('frozen_publisher_drift')
     spec = importlib.util.spec_from_file_location('fc_v3_original_base', path)
     base = importlib.util.module_from_spec(spec)
