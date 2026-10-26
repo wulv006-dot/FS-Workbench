@@ -2,7 +2,7 @@
 from pathlib import Path
 
 DELTA_SCOPE='fc-pricing-v3-preview-source-contract-20261027'
-DELTA_NAMES=('source/repricing_logic.js',)
+DELTA_NAMES=('source/repricing_logic.js','source/fc_pricing_v3/runtime.py','source/hermes-copy/fc_pricing_v3/runtime.py')
 DELTA_NEW=frozenset()
 SHADOW_SCOPE = 'fc-pricing-v3-sqlite-shadow-20261026'
 SHADOW_NAMES = tuple(prefix + 'fc_pricing_v3/' + name for prefix in ('source/', 'source/hermes-copy/')

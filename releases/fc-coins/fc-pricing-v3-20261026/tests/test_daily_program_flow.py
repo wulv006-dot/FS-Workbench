@@ -36,15 +36,19 @@ class DailyProgramFlow(unittest.TestCase):
     def test_backend_preview_accepts_only_current_sources_and_still_rejects_missing_cost_or_market(self):
         with tempfile.TemporaryDirectory() as folder:
             db=Ledger(Path(folder)/'control.db');evidence=fixture()[0]
+            evidence['run_id']='00000000-0000-4000-8000-000000000099'
+            for cost in evidence['costs'].values():cost['cny_per_1k']=str(runtime.number(cost['cny_per_1k']))
+            evidence['storefront']['status']='ok'
+            for platform,row in evidence['storefront']['rows'].items():row.update(status='ok',platform=platform,base_k='100',checked_at=NOW.isoformat())
             evidence['offers']={p:{'Lootbar':rows['Lootbar']} for p,rows in evidence['offers'].items()}
             with patch.object(runtime,'ledger',return_value=db),patch.object(runtime,'ROOT',Path(folder)),patch.object(runtime,'clock',return_value=NOW):
                 result=runtime.calculate(evidence)
             payload=dict(evidence=evidence,result=result)
             script="const fs=require('node:fs'),logic=require(process.argv[1]),data=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(logic.buildPreview(data.payload,Date.parse(data.now))));"
             def preview(value):
-                return subprocess.run(['node','-e',script,str(SOURCE/'repricing_logic.js')],input=json.dumps(dict(payload=value,now=NOW.isoformat())),text=True,capture_output=True,timeout=15)
+                return subprocess.run(['node','-e',script,str(SOURCE/'repricing_logic.js')],input=json.dumps(dict(payload=value,now=NOW.isoformat())),text=True,encoding='utf-8',capture_output=True,timeout=15)
             valid=preview(payload)
-            self.assertEqual(valid.returncode,0,valid.stderr)
+            self.assertEqual(valid.returncode,0,valid.stderr+valid.stdout)
             self.assertEqual([r['platform'] for r in json.loads(valid.stdout)['targets']],['PS','XBOX','PC'])
             for change in ('market','cost'):
                 invalid=json.loads(json.dumps(payload))
