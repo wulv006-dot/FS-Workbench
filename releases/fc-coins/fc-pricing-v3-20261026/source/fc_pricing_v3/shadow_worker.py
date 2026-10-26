@@ -65,23 +65,6 @@ def single_consumer(path):
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
-def run(production_path=PRODUCTION, shadow_path=SHADOW, interval=15, sleep=time.sleep):
-    validate_shadow_state(shadow_path)
-    with single_consumer(Path(shadow_path).parent / 'worker.lock'):
-        shadow = Shadow(shadow_path)
-        last_maintenance = None
-        while True:
-            try:
-                result, last_maintenance = tick(shadow, production_path, datetime.now(timezone.utc), last_maintenance)
-                if result['status'] != 'processed':
-                    LOG.warning('shadow consumption deferred: %s', result)
-                if result['events'] == 100:
-                    continue
-            except Exception:
-                LOG.exception('shadow consumption failed; durable cursor retained for retry')
-            sleep(interval)
-
-
 def run_daily(production_path=PRODUCTION,shadow_path=SHADOW,date=None):
     validate_shadow_state(shadow_path)
     date=date or json.loads((Path(shadow_path).parent/'request.json').read_text())['local_date']
@@ -93,7 +76,7 @@ def run_daily(production_path=PRODUCTION,shadow_path=SHADOW,date=None):
     with single_consumer(Path(shadow_path).parent/'worker.lock'):
         shadow=Shadow(shadow_path)
         while True:
-            result=shadow.consume(production_path,through=stop)
+            result=shadow.consume(production_path,through=stop,include_histories=False)
             if result['status']!='processed':raise ValueError(result['status'])
             if result['events']<100:break
         records=[]
@@ -127,18 +110,34 @@ def run_daily(production_path=PRODUCTION,shadow_path=SHADOW,date=None):
         return report
 
 
+def run_historical(production_path,shadow_path,request_id):
+    validate_shadow_state(shadow_path)
+    output=Path(shadow_path).parent/('history-'+request_id+'.json')
+    if output.exists():return json.loads(output.read_text())
+    with single_consumer(Path(shadow_path).parent/'worker.lock'):
+        shadow=Shadow(shadow_path)
+        while True:
+            result=shadow.consume(production_path,historical_only=True)
+            if result['status']!='processed':raise ValueError(result['status'])
+            if result['events']<100:break
+        with shadow.connect() as db:
+            if not db.execute('SELECT 1 FROM history WHERE id=?',(request_id,)).fetchone():
+                raise ValueError('shadow_original_history_result_missing')
+        result.update(request_id=request_id,production_write_performed=False,external_collection_performed=False)
+        temporary=output.with_suffix('.tmp');temporary.write_text(json.dumps(result),encoding='utf-8');temporary.replace(output)
+        return result
+
+
 def main():
     parser = argparse.ArgumentParser(description='FC Pricing V3 read-only shadow consumer')
     parser.add_argument('--production-db', type=Path, default=PRODUCTION)
     parser.add_argument('--shadow-db', type=Path, default=SHADOW)
-    parser.add_argument('--interval', type=int, default=15)
     parser.add_argument('--once',action='store_true')
     args = parser.parse_args()
-    if not 1 <= args.interval <= 300:
-        parser.error('interval must be 1 to 300 seconds')
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-    if args.once:run_daily(args.production_db,args.shadow_db)
-    else:run(args.production_db,args.shadow_db,args.interval)
+    logging.basicConfig(level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s')
+    request=json.loads((args.shadow_db.parent/'request.json').read_text())
+    if request.get('kind')=='historical':run_historical(args.production_db,args.shadow_db,request['request_id'])
+    else:run_daily(args.production_db,args.shadow_db,request['local_date'])
 
 
 if __name__ == '__main__':

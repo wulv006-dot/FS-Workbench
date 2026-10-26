@@ -16,7 +16,7 @@ TABLES = ('pricing_plans', 'pricing_snapshots', 'strategy_decisions', 'financial
           'operations', 'readback_receipts', 'budget_references', 'reservations',
           'settlements', 'monthly_targets', 'target_adjustments', 'incidents',
           'recovery_actions', 'model_versions', 'retirement_inventory', 'engine_generations')
-TABLES=TABLES+('manual_previews','market_observations')
+TABLES=TABLES+('manual_previews','market_observations','historical_inputs')
 PENDING = {'PREPARED', 'AUTHORIZED', 'DISPATCHED', 'UNKNOWN', 'PARTIALLY_APPLIED',
            'BACKEND_CONFIRMED', 'CACHE_CONFIRMED', 'PUBLIC_CONFIRMED'}
 

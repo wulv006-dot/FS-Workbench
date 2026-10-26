@@ -10,7 +10,7 @@ import types
 
 from release_readiness import restart_with_hermes_readiness
 
-from target_map import DELTA_NAMES, DELTA_SCOPE, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, targets
+from target_map import DELTA_NAMES, DELTA_SCOPE, DELTA_NEW, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, targets
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
@@ -35,9 +35,10 @@ def checked_manifest(value):
     if not expected or len(rows) != len(expected) or \
             {r['candidate']: r['target'] for r in rows} != expected:
         raise ValueError('exact_fc_v3_targets_required')
-    if sum(r.get('beforeSha256') is None for r in rows) != (51 if scope==SCOPE else len(OPERATING_NEW) if scope==OPERATING_SCOPE else 0):
+    new_targets=OPERATING_NEW if scope==OPERATING_SCOPE else DELTA_NEW if scope==DELTA_SCOPE else frozenset()
+    if sum(r.get('beforeSha256') is None for r in rows) != (53 if scope==SCOPE else len(new_targets)):
         raise ValueError('fc_v3_new_existing_target_boundary_changed')
-    if scope==OPERATING_SCOPE and {r['candidate'] for r in rows if r.get('beforeSha256') is None}!=OPERATING_NEW:
+    if scope in (OPERATING_SCOPE,DELTA_SCOPE) and {r['candidate'] for r in rows if r.get('beforeSha256') is None}!=new_targets:
         raise ValueError('fc_v3_operating_new_target_identity_changed')
     if any(r.get('owner') != '0:0' or r.get('mode') not in ('0o644', '0o700', '0o750', '0o755') for r in rows):
         raise ValueError('exact_fc_v3_target_metadata_required')

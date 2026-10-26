@@ -1,4 +1,4 @@
-"""Real Coins aggregates and anonymous promotion scenarios; no writes or identities returned."""
+"""Real Coins evidence; private historical rows stay behind aggregate API projections."""
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -1197,3 +1197,212 @@ def collect_selective_business(session,pages,storefront,products,*,active_mode,s
             target_scope='site266_FC27_Coins',target_basis='net_paid_USD',status='target_not_configured')
     context=context_from_cache(cache,plan,current_templates,now,backlog=backlog,monthly=monthly,ads=ads,online=online_context)
     return dict(context=context,private_updates=dict(history_cache=update) if update else {},source_plan=plan)
+
+def _historical_provider_now():
+    return datetime.now(timezone.utc)
+
+
+def historical_period(period, *, now=None):
+    """Resolve a closed payment window in the existing business timezone."""
+    from datetime import date
+    reference = now or _historical_provider_now()
+    if reference.tzinfo is None:
+        raise ValueError('historical_provider_timezone_missing')
+    today = reference.astimezone(TZ).date()
+    aliases = {'7d_closed': '7d', '14d_closed': '14d', '28d_closed': '28d',
+               'previous_calendar_month': 'last_complete_month', 'month': 'last_complete_month'}
+    selector = str(period) + 'd' if type(period) is int and period in (7, 14, 28) else period
+    if isinstance(selector, str):
+        selector = aliases.get(selector, selector)
+        if selector in ('7d', '14d', '28d'):
+            end_exclusive = today
+            start = today - timedelta(days=int(selector[:-1]))
+        elif selector == 'last_complete_month':
+            end_exclusive = today.replace(day=1)
+            start = (end_exclusive - timedelta(days=1)).replace(day=1)
+        else:
+            raise ValueError('historical_provider_period_invalid')
+    elif isinstance(period, dict) and set(period) == {'start', 'end'}:
+        start, end = (date.fromisoformat(period[key]) for key in ('start', 'end'))
+        if start.isoformat() != period['start'] or end.isoformat() != period['end']:
+            raise ValueError('historical_provider_period_invalid')
+        end_exclusive, selector = end + timedelta(days=1), 'explicit_closed_period'
+    else:
+        raise ValueError('historical_provider_period_invalid')
+    if not 1 <= (end_exclusive - start).days <= 31 or end_exclusive > today:
+        raise ValueError('historical_provider_period_not_closed_or_too_large')
+    lower = datetime.combine(start, datetime.min.time(), TZ)
+    upper = datetime.combine(end_exclusive, datetime.min.time(), TZ)
+    return dict(period_selector=selector, period=dict(start=start.isoformat(), end=(end_exclusive - timedelta(days=1)).isoformat()),
+                paid_window=dict(start=start.isoformat(), end_exclusive=end_exclusive.isoformat(), timezone='Asia/Shanghai'),
+                paid_window_start=lower.isoformat(), paid_window_end_exclusive=upper.isoformat(), timezone='Asia/Shanghai')
+
+
+def _historical_existing_day_blocks(period):
+    """File existence only; original reader remains responsible for archive validation."""
+    from pathlib import Path
+    from coins_evidence import CoinsEvidence
+    root = Path(CoinsEvidence().channel_root) / 'days'
+    current = datetime.fromisoformat(period['start']).date()
+    stop = datetime.fromisoformat(period['end']).date()
+    blocks, missing, begin, previous = [], [], None, None
+    while current <= stop:
+        if (root / (current.isoformat() + '.json')).is_file():
+            if begin is None:begin = current
+            previous = current
+        else:
+            missing.append(current.isoformat())
+            if begin is not None:
+                blocks.append(dict(start=begin.isoformat(), end=previous.isoformat()))
+                begin = None
+        current += timedelta(days=1)
+    if begin is not None:blocks.append(dict(start=begin.isoformat(), end=previous.isoformat()))
+    return blocks, missing
+
+
+def _historical_existing_ES_coverage(period):
+    """Existing manifests/XLSX only; never launches an export or an Admin request."""
+    from coins_evidence import CoinsEvidence, es_metadata, GOLD
+    reader = CoinsEvidence()
+    metadata, coverage = es_metadata(period['start'], period['end'], reader.archive)
+    return dict(status='complete' if coverage.get('complete') else 'partial',
+        source_sha256=coverage.get('source_sha256'), captured_at=coverage.get('captured_at'),
+        parsed_files=coverage.get('files'), identified_Gold_orders=sum(value.get('product') == GOLD for value in metadata.values()),
+        scope='ES product identity coverage, not Admin-qualified eligible orders or proof that missing canonical days have zero orders')
+
+
+def _historical_provider_reason(error):
+    reason = str(error)
+    prefixes = ('historical_', 'history_', 'canonical_', 'coins_', 'admin_', 'invalid_', 'incomplete_', 'duplicate_', 'day_', 'native_', 'pricing_')
+    return reason if reason.startswith(prefixes) and re.fullmatch(r'[a-zA-Z0-9_.:-]{1,100}', reason) else type(error).__name__
+
+
+def collect_historical_attachment(period, session, pages, *, observed_at=None):
+    """One explicit private historical input; no writes, retries, public rows or live collect hook.
+
+    observed_at is a source-controlled clock hint, never a user's historical as-of.
+    It cannot backdate facts read by this invocation. Preserve each returned version
+    in the private input store; consumers select versions by available_at.
+    """
+    from .financial import instant
+    started = _historical_provider_now()
+    clock_hint = observed_at or started
+    if not isinstance(clock_hint, datetime) or clock_hint.tzinfo is None:
+        raise ValueError('historical_provider_timezone_missing')
+    window = historical_period(period, now=started)
+    target = window['period']
+    lower, upper = instant(window['paid_window_start']), instant(window['paid_window_end_exclusive'])
+    source_parts, selected, gaps, selection = [], {}, Counter(), Counter()
+    missing_days, failed_periods, ES = [], [], None
+    try:
+        initial, provenance = _period_population(target)
+    except (ValueError, OSError) as error:
+        initial, provenance = None, dict(status='unavailable', reason=_historical_provider_reason(error))
+        gaps['canonical_source_read_failed'] += 1
+    if initial is not None:
+        candidates = [(target, initial, provenance)]
+        ES = dict(status='complete' if provenance.get('ES_complete') else 'partial',
+                  source_sha256=provenance.get('ES_source_sha256'), scope='same-period ES join already checked by original population reader')
+    else:
+        try:
+            blocks, missing_days = _historical_existing_day_blocks(target)
+        except (ValueError, OSError) as error:
+            blocks, missing_days = [], None
+            gaps['canonical_day_inventory_unavailable'] += 1
+        candidates = []
+        for block in blocks:
+            if block == target:
+                population, proof = None, provenance  # Do not repeat the same failed exact-range read.
+            else:
+                try:
+                    population, proof = _period_population(block)
+                except (ValueError, OSError) as error:
+                    population, proof = None, dict(status='unavailable', reason=_historical_provider_reason(error))
+            if population is None:
+                failed_periods.append(dict(period=block, reason=proof.get('reason', 'canonical_period_cache_missing')))
+            else:
+                candidates.append((block, population, proof))
+        try:
+            ES = _historical_existing_ES_coverage(target)
+        except (ValueError, OSError) as error:
+            ES = dict(status='unavailable', reason=_historical_provider_reason(error))
+            gaps['existing_ES_read_failed'] += 1
+    if missing_days:gaps['canonical_days_missing'] += len(missing_days)
+    if failed_periods:gaps['canonical_periods_unavailable'] += len(failed_periods)
+    for block, population, proof in candidates:
+        source_parts.append(dict(period=block, **{key:proof.get(key) for key in
+            ('status', 'canonical_archive_sha256', 'ES_source_sha256', 'source_generated_at', 'ES_complete', 'missing_product_identity')}))
+        for identity, pair in population.items():
+            selection['canonical_eligible_observations'] += 1
+            try:
+                paid = instant(pair[0]['paidAt'])
+            except (KeyError, ValueError):
+                gaps['canonical_paid_at_unknown'] += 1
+                continue
+            if not lower <= paid < upper:
+                selection['excluded_outside_paid_window'] += 1
+                continue
+            if identity in selected:
+                raise ValueError('historical_provider_duplicate_canonical_identity')
+            selected[identity] = pair
+    selection['eligible_known_in_paid_window'] = len(selected)
+    if selection['excluded_outside_paid_window']:gaps['canonical_paid_window_disagreement'] += selection['excluded_outside_paid_window']
+    if any(part['status'] != 'complete' for part in source_parts):gaps['canonical_or_ES_population_partial'] += 1
+    orders, logs = {}, {}
+    trace_failures = []
+    current = datetime.fromisoformat(target['start']).date()
+    stop = datetime.fromisoformat(target['end']).date()
+    while current <= stop:
+        end = min(current + timedelta(days=27), stop)
+        part = dict(start=current.isoformat(), end=end.isoformat())
+        part_lower = datetime.combine(current, datetime.min.time(), TZ)
+        part_upper = datetime.combine(end + timedelta(days=1), datetime.min.time(), TZ)
+        needed = {key:pair for key,pair in selected.items() if part_lower <= instant(pair[0]['paidAt']) < part_upper}
+        if needed:
+            try:
+                native, used, _ = _live_traces(session, pages, part, needed)
+                orders.update(native)
+                for key, value in used.items():
+                    if key in logs and logs[key] != value:raise ValueError('historical_provider_coupon_trace_conflict')
+                    logs[key] = value
+            except (ValueError, OSError) as error:
+                trace_failures.append(dict(period=part, reason=_historical_provider_reason(error)))
+                gaps['native_trace_read_failed'] += 1
+                break  # No retry or repeated full scan on the same failure.
+        current = end + timedelta(days=1)
+    ready = {key:pair for key,pair in selected.items() if key in orders}
+    selection['eligible_with_native_traces'] = len(ready)
+    selection['eligible_without_native_traces'] = len(selected) - len(ready)
+    if len(ready) < len(selected):gaps['eligible_native_trace_missing'] += len(selected) - len(ready)
+    complete = (bool(source_parts) and missing_days == [] and not failed_periods and not trace_failures
+                and all(part['status'] == 'complete' for part in source_parts) and ES.get('status') == 'complete'
+                and not gaps['canonical_paid_at_unknown'] and not gaps['canonical_paid_window_disagreement'] and len(ready) == len(selected))
+    aggregate_proof = dict(period=target, status='complete' if complete else 'partial', eligible_count=len(ready),
+        canonical_archive_sha256=source_parts[0]['canonical_archive_sha256'] if len(source_parts) == 1 else fingerprint(source_parts),
+        ES_source_sha256=ES.get('source_sha256') or fingerprint(ES), ES_complete=ES.get('status') == 'complete',
+        source_generated_at=min((part['source_generated_at'] for part in source_parts if part.get('source_generated_at')), default=None),
+        missing_product_identity=sum(part.get('missing_product_identity') or 0 for part in source_parts))
+    verified_at = max(_historical_provider_now(), clock_hint)
+    rows, metadata = historical_attachment(ready, orders, logs, aggregate_proof, verified_at)
+    metadata.update(window)
+    metadata.update(as_of=verified_at.isoformat(), available_at=verified_at.isoformat(),
+        population_status='complete' if complete else 'partial' if source_parts else 'unavailable', window_complete=complete,
+        population_selection=dict(selection), canonical_missing_days=missing_days,
+        canonical_failed_periods=failed_periods, native_trace_failures=trace_failures, source_parts=source_parts,
+        existing_ES_coverage=ES, request_is_independent_of_production_collect=True,
+        population_scope='original Admin-qualified paid nonrefund nonfraud nontest site266 FC27 Coins cohort',
+        refund_revision_coverage='not_collected_by_original_population_reader; later refunded orders are excluded, not fabricated as zero refund reversals',
+        version_policy='append immutable source versions in private historical_inputs; latest available_at<=asof wins, never overwrite old revisions',
+        longer_window_coverage='this exact paid window only; no relabelling another-period attachment')
+    metadata['gaps'] = dict(Counter(metadata.get('gaps') or {}) + gaps)
+    metadata['gaps']['historical_refund_revision_chain_not_collected'] = 1
+    metadata['status'] = 'unavailable' if not source_parts else 'partial' if metadata['gaps'] or not complete else 'complete'
+    metadata['source_sha256'] = fingerprint(dict(rows=rows, coverage={key:value for key,value in metadata.items() if key != 'source_sha256'}))
+    return dict(period_selector=window['period_selector'], period=target, paid_window=window['paid_window'],
+        as_of=verified_at.isoformat(), available_at=verified_at.isoformat(), source_sha256=metadata['source_sha256'],
+        historical_orders=rows, historical_orders_coverage=metadata)
+
+
+def historical_attachment_summary(private_input):
+    """Only this aggregate projection may cross the public/API boundary."""
+    return json.loads(json.dumps(private_input['historical_orders_coverage']))

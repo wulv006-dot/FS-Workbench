@@ -61,9 +61,13 @@ def history_view(result):
             value['gaps']=[gap.get('reason','unavailable') if isinstance(gap,dict) else gap for gap in row['gaps']]
         records.append(value)
     view={key:result[key] for key in ('simulation_id','simulation_kind','rule_mode','created_at','execution_authorized','training_eligible')} | {'records':records}
+    for key in ('requested_closed_days','paid_window','coverage'):
+        if key in result:
+            view[key]=result[key]
     if result.get('reconciled_actual'):
         view['reconciled_actual']=result['reconciled_actual']
     return view
+
 
 
 def latest(db, public=False):
@@ -108,6 +112,19 @@ def strategy_summary(decisions):
         result[mode]['candidates']=candidates
         result[mode]['selected']=selected
     return result
+
+
+def shadow_projection(row):
+    fields=('snapshot_id','external_snapshot_id','as_of','last_as_of','policy','sequence','revenue','contribution',
+            'paid_orders','new_customers','delivered_k','backlog_k','effective_mode','simulation_kind','model_version',
+            'policy_version','assumptions','status','reason')
+    value={key:row[key] for key in fields if key in row}
+    decision=row.get('result') or row.get('last_result') or {}
+    selected=decision.get('selected') or {}
+    value.update(result=dict(status=decision.get('status'),action=selected.get('action'),score=selected.get('score'),
+                 candidate_count=len(decision.get('candidates',[]))),gaps=row.get('gaps',[])[-10:],
+                 original_record_sha256=fingerprint(row),execution_authorized=False,training_eligible=False)
+    return value
 
 
 def read(path):
@@ -189,8 +206,9 @@ def read(path):
         if conn is None:
             return dict(status='not_started',mode='shadow')
         try:
-            return dict(status='running',mode='shadow',paths=[json.loads(r[0]) for r in conn.execute('SELECT body FROM paths')],
-                        comparisons=[json.loads(r[0]) for r in conn.execute('SELECT body FROM runs ORDER BY rowid DESC LIMIT 10')])
+            paths=[shadow_projection(json.loads(r[0])) for r in conn.execute('SELECT body FROM paths')]
+            return dict(status='available' if paths else 'not_started',mode='shadow',cadence='daily_saved_snapshots',paths=paths,
+                        comparisons=[shadow_projection(json.loads(r[0])) for r in conn.execute('SELECT body FROM runs ORDER BY rowid DESC LIMIT 10')])
         finally:
             conn.close()
     if path=='shadow/summary':
@@ -205,12 +223,16 @@ def read(path):
         ident=path.split('/')[-1]
         if not re.fullmatch(r'[0-9a-f-]{36}',ident):
             raise ValueError('pricing_simulation_id_invalid')
+        request=db.get('metadata','simulation:'+ident)
+        pending=dict(status=(request or {}).get('phase','queued_or_missing'),simulation_id=ident,
+            paid_window=(request or {}).get('paid_window'),coverage=(request or {}).get('coverage'),
+            original_shadow_request=(request or {}).get('shadow'),execution_authorized=False)
         conn=shadow_database()
         if conn is None:
-            return dict(status='not_started',simulation_id=ident)
+            return pending
         try:
             row=conn.execute('SELECT body FROM history WHERE id=?',(ident,)).fetchone()
-            return history_view(json.loads(row[0])) if row else dict(status='queued_or_missing',simulation_id=ident)
+            return history_view(json.loads(row[0])) if row else pending
         finally:
             conn.close()
     if path.startswith('manual-previews/'):
@@ -403,17 +425,17 @@ def post(path,data,actor):
         db.enqueue('reconcile',key,clock(),dict(operation_id=ident))
         return dict(status='queued',operation_id=ident)
     if path=='simulations':
-        # Work is queued; this endpoint never invokes a production evaluator with historic evidence.
         if data.get('kind') not in ('actual_reconstruction','fixed_orders_reprice','demand_counterfactual','causal_evaluation') or data.get('closed_days',7) not in (7,14,28,'month'):
             raise ValueError('pricing_simulation_request_invalid')
-        ident=request_id(actor,data,'simulation')
+        from .simulation import historical_window
+        ident=request_id(actor,data,'simulation');requested=clock().isoformat()
         with db.transaction() as conn:
             old=db.get('metadata','simulation:'+ident,conn)
-            if old and old['request_sha256']!=fingerprint(data):
-                raise ValueError('pricing_simulation_payload_conflict')
+            if old and old['request_sha256']!=fingerprint(data):raise ValueError('pricing_simulation_payload_conflict')
             if not old:
-                db.put('metadata','simulation:'+ident,dict(request_sha256=fingerprint(data)),conn)
-            conn.execute('INSERT OR IGNORE INTO event_outbox(event_key,kind,body) VALUES (?,?,?)',
-                         ('simulation:'+ident,'simulation_requested',json.dumps(dict(simulation_id=ident,kind=data['kind'],closed_days=data.get('closed_days',7),requested_at=clock().isoformat()))))
-        return dict(status='queued',simulation_id=ident,execution_authorized=False)
+                old=dict(request_sha256=fingerprint(data),simulation_id=ident,kind=data['kind'],closed_days=data.get('closed_days',7),
+                    requested_at=requested,actor=actor,phase='queued',**historical_window(data.get('closed_days',7),requested))
+                db.put('metadata','simulation:'+ident,old,conn)
+                db.enqueue('history','history:'+ident,clock(),dict(simulation_id=ident),conn)
+        return dict(status=old['phase'],simulation_id=ident,paid_window=old['paid_window'],execution_authorized=False)
     raise ValueError('pricing_v3_route_missing')

@@ -67,6 +67,26 @@ class DailyProgramFlow(unittest.TestCase):
         self.assertIn('每日一次',prompt)
         self.assertIn('不调用recommend',prompt);self.assertLess(len(prompt),12000)
 
+    def test_daily_capabilities_use_saved_review_instead_of_wrong_run_compare(self):
+        scope=Mock();scope.clock.return_value=NOW
+        with patch.object(pricing_operations,'authorization',return_value=dict(mode='daily_review',runs=['daily-id'])):
+            result=pricing_operations.call(scope,'wulv','t','l',dict(action='capabilities'),Mock())
+        self.assertIn('state',result['allowed_actions'])
+        self.assertNotIn('compare_strategies',result['allowed_actions'])
+
+    def test_daily_failed_model_records_original_incident_and_exposes_prepared_context(self):
+        from fc_pricing_v3 import history
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.db');date='2026-10-26'
+            db.put('metadata','daily:'+date,dict(local_date=date,request_id='original',phase='created',actual={'status':'partial'},decision_basis={}))
+            def model(*args,**kwargs):
+                self.assertEqual(db.get('metadata','latest_daily_review')['phase'],'review_prepared')
+                return dict(phase='failed')
+            with patch.object(runtime,'ledger',return_value=db),patch.object(scheduler,'export_shadow_snapshot'),patch.object(history,'ensure_shadow',return_value=dict(status='completed',result={})),patch.object(hermes_pricing_bridge,'review',side_effect=model):
+                result=daily.run(dict(local_date=date))
+            self.assertEqual(result['phase'],'failed')
+            self.assertEqual(db.all('incidents')[0]['error'],'original_request_id:original')
+
     def test_daily_context_does_not_attribute_pretrial_day_to_V3(self):
         window=dict(origin='confirmed_public_price_window',mode='production',opened_at='2026-10-26T14:36:00+00:00',operation_id='original',mutable_resources=['base:console'])
         result=daily.exposure_scope([window],'2026-10-26')
