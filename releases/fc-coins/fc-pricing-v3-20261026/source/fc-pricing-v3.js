@@ -144,7 +144,8 @@
     const daily=state.daily_review;
     $('v3-daily-status').textContent=daily?`${daily.local_date} · ${statusText(daily.phase)} · 专用定价通道；不会自动切换策略`:'尚无每日结果；每天 02:20 复盘前一日，保存的分时段输入不足会列为缺项。';
     const replies=(daily?.hermes?.evaluation?.turns||[]).map(t=>t.reply).filter(Boolean);
-    $('v3-daily-result').textContent=replies.join('\n\n')|| (daily?`实际数据：${daily.actual?.status||'待核'}；影子：${daily.shadow?.status||'待运行'}；Hermes：${daily.hermes?.phase||'待提交'}`:'');
+    const historyNote=daily&&current.plan?.financial_contract_version==='fc27_dual20_v1'&&daily.decision_basis?.financial_contract_version!=='fc27_dual20_v1'?'此复盘使用补丁前的历史快照和规则，原文中的旧预算或双10仅描述当时；当前执行为双20、无预算。\n\n':'';
+    $('v3-daily-result').textContent=historyNote+(replies.join('\n\n')|| (daily?`实际数据：${daily.actual?.status||'待核'}；影子：${daily.shadow?.status||'待运行'}；Hermes：${daily.hermes?.phase||'待提交'}`:''));
 
     $('collect').disabled=!canWrite||acting||!!collectPending;
   }
@@ -166,12 +167,14 @@
     }catch(error){output.textContent=`来源暂无法读取：${errorText(error)}。已保留已读回的决策和财务状态。`;}
   }
   function render(state){
+    const firstRender=!current;
     current=state;
     const plans=state.plans||[],list=$('v3-plan-select');
     list.replaceChildren();for(const p of plans){const option=node('option',`${names[p.mode]} · ${p.plan_id} · ${p.state}`);option.value=p.plan_id;list.append(option);}
     if(!plans.some(p=>p.plan_id===selectedPlanId))selectedPlanId=state.active_plans?.[0]?.plan_id||plans[0]?.plan_id||null;
     list.value=selectedPlanId||'';
     const plan=chosenPlan(),active=(state.active_plans||[]).find(p=>p.plan_id===selectedPlanId)||state.active_plans?.[0]||state.plan;
+    if(firstRender&&active?.mode&&names[active.mode]){$('v3-mode').value=active.mode;displayedMode=active.mode;setMode(active.mode);}
     $('v3-state').textContent=(active?`${names[active.mode]} · ${statusText(active.state)} · 数据 ${state.captured_at||'尚未取得'} · ${state.generation?'统一控制权已登记':'尚未切换'}`:'无活动计划；历史价格与原操作保留')+
       (permissionKnown?(canWrite?' · 当前账户可操作':' · 当前账户仅可查看'):' · 操作权限待核');
     $('v3-target').textContent=targetText(state.target||{});

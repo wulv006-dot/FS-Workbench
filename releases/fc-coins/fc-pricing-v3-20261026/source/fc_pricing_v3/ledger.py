@@ -354,6 +354,7 @@ class Ledger:
         return value
 
     def prepare(self, plan, bundle, *, operation_id=None, now=None,dispatch_context=None):
+        from .uk_retirement import authority_resources
         now = now or clock()
         operation_id = operation_id or bundle['decision_bundle_id']
         with self.transaction() as db:
@@ -362,7 +363,7 @@ class Ledger:
                 if fingerprint(old['bundle']) != fingerprint(bundle):
                     raise ValueError('pricing_operation_payload_conflict')
                 return old
-            self.owns(plan, bundle.get('mutable_resources',bundle['resources']), db)
+            self.owns(plan, authority_resources(bundle), db)
             if now >= instant(bundle['valid_until']):
                 raise ValueError('pricing_authorization_expired')
             if plan['ends_at'] and now >= instant(plan['ends_at']):
@@ -381,11 +382,12 @@ class Ledger:
             return op
 
     def claim_dispatch(self, operation_id, step_id, *, now=None):
+        from .uk_retirement import authority_resources
         now = now or clock()
         with self.transaction() as db:
             op = self.get('operations', operation_id, db)
             plan = self.get('pricing_plans', op['plan_id'], db)
-            self.owns(plan, op['bundle'].get('mutable_resources',op['resources']), db)
+            self.owns(plan, authority_resources(op['bundle']), db)
             step = next(s for s in op['steps'] if s['step_id'] == step_id)
             if step.get('dispatched_at'):
                 return None

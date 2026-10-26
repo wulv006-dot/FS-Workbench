@@ -9,6 +9,7 @@ def operation_step(operation_id,step_id,*,write=False):
     from .runtime import ledger,ROOT
     from .financial import fingerprint
     from .region_source import read_rules,exact_scope,save_rule
+    from .uk_retirement import authority_resources
     db=ledger()
     with db.transaction() as conn:
         op=db.get('operations',operation_id,conn)
@@ -20,7 +21,7 @@ def operation_step(operation_id,step_id,*,write=False):
             if not control['enabled'] or control['generation']!=op['generation']:
                 raise ValueError('pricing_generation_retired')
             plan=db.get('pricing_plans',op['plan_id'],conn)
-            db.owns(plan,op['bundle']['mutable_resources'],conn)
+            db.owns(plan,authority_resources(op['bundle']),conn)
             if step.get('transport_claimed_at'):
                 return dict(status='UNKNOWN',reason='original_region_transport_already_claimed')
             if step.get('state')!='DISPATCHED':raise ValueError('pricing_region_step_not_claimed')
@@ -47,7 +48,7 @@ def operation_step(operation_id,step_id,*,write=False):
                     active=json.loads((ROOT/'config/v3-control.json').read_text())
                     if not active['enabled'] or active['generation']!=original['generation']:raise ValueError('pricing_generation_retired')
                     plan=db.get('pricing_plans',original['plan_id'],conn)
-                    db.owns(plan,original['bundle']['mutable_resources'],conn)
+                    db.owns(plan,authority_resources(original['bundle']),conn)
                     now=datetime.now(timezone.utc)
                     if plan['state']!='ACTIVE' or now>=instant(original['bundle']['valid_until']):raise ValueError('pricing_authorization_expired')
                     claimed.update(transport_claimed_at=now.isoformat(),transport_payload_sha256=fingerprint(dict(path=path,payload=payload)))
@@ -62,7 +63,7 @@ def operation_step(operation_id,step_id,*,write=False):
 
         rules=read_rules(session,pages)
         found=exact_scope(rules,step['scope'])
-        if len(found)==1 and Decimal(str(found[0]['factor']))==Decimal(str(step['value'])) and found[0]['status']==1:
+        if len(found)==1 and (step.get('rule_id') is None or found[0]['id']==step['rule_id']) and Decimal(str(found[0]['factor']))==Decimal(str(step['value'])) and found[0]['status']==step.get('target_status',1):
             return dict(status='CONFIRMED',rule_id=found[0]['id'],scope=step['scope'],factor=str(found[0]['factor']),rule_set_sha256=fingerprint(rules),
                         checked_at=datetime.now(timezone.utc).isoformat(),original_operation_id=operation_id,write_performed=False)
         return dict(status='UNKNOWN',scope=step['scope'],reason='original_region_value_not_confirmed',write_performed=False)

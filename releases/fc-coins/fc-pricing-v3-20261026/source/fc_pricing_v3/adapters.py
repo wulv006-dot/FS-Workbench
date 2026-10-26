@@ -102,7 +102,7 @@ def reconcile_postwrite(operation,audit):
     regional=verify_regions(operation)
     if regional['status']!='verified':return dict(status='CACHE_CONFIRMED',public=public,regions=regional,execution_id=operation_id)
     return dict(status='PUBLIC_CONFIRMED',public=public,regions=regional['regions'],cache=saved['cache_receipt'],
-                execution_id=operation_id,uk_coefficient_preserved=True)
+                execution_id=operation_id,uk_rule_verified=True,uk_discount_retired=regional.get('uk_discount_retired',False))
 
 
 def verify_known_partial(operation,actual_action):
@@ -153,8 +153,13 @@ def verify_regions(operation):
     operation_id=operation['operation_id']
     try:
         rules=region_step(operation_id,None)
-        current_uk=next((r for r in rules.get('rules',[]) if r['id']==1),None)
-        if not current_uk or number(current_uk['factor'])!=number('.9100') or current_uk['status']!=1:
+        from .region_source import rule_expectations
+        expected_uk=operation['bundle'].get('uk_rule_expectations')
+        if expected_uk is None:
+            from .runtime import ROOT
+            quote=json.loads((ROOT/'quotes'/(operation['bundle']['snapshot_id']+'.json')).read_text())
+            expected_uk=rule_expectations(quote['evidence']['region_contract']['rules'])
+        if rule_expectations(rules.get('rules',[]))!=expected_uk:
             raise ValueError('pricing_uk_rule_changed')
         from .regional_public import collect
         regions={};proof=operation['bundle']['financial_proof']['prices']
@@ -168,6 +173,7 @@ def verify_regions(operation):
                 if number(actual['regular_usd'])!=number(value['price']['regular_usd']) or number(actual['coefficient'])!=number(value['coefficient']):
                     raise ValueError('pricing_regional_public_price_mismatch')
             regions[str(region_id)]=observed
-        return dict(status='verified',regions=regions,uk_coefficient_preserved=True)
+        return dict(status='verified',regions=regions,uk_rule_verified=True,
+                    uk_discount_retired=any(r['id']==1 and r['status']==0 for r in expected_uk))
     except Exception as exc:
         return dict(status='pending',reason=str(exc) if isinstance(exc,ValueError) else type(exc).__name__,original_operation_id=operation_id)

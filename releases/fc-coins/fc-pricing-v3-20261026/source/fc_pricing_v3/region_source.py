@@ -5,6 +5,11 @@ CONTROLLER = '/admin/GoodsRegionPrice/'
 SCOPE_FIELDS = ('site_id', 'lang_region_id', 'goods_id', 'gid', 'top_cid', 'cid', 'sid', 'aid')
 
 
+def rule_expectations(rows):
+    return sorted([{k:r[k] for k in ('id','status')+SCOPE_FIELDS} | {'factor':format(Decimal(str(r['factor'])),'.4f')}
+                   for r in rows if r['lang_region_id']==39],key=lambda r:r['id'])
+
+
 def read_rules(session, pages):
     # Generic site/game rules must be included before resolving exact FC scopes.
     rows = pages(session, CONTROLLER + 'index')
@@ -37,7 +42,12 @@ def save_rule(session,pages,step,before_send=None):
     """One claimed request. Unknown callers reconcile the exact scope instead of resending."""
     from .financial import fingerprint
     scope=step['scope']
-    if (scope['site_id']!=266 or scope['gid']!=1327 or scope['lang_region_id']!=21 or
+    retirement=step.get('intent')=='retire_uk_discount_v1'
+    if retirement:
+        from .uk_retirement import SCOPE
+        if scope!=SCOPE or step.get('rule_id')!=1 or step.get('target_status')!=0 or Decimal(str(step['value']))!=Decimal('.91'):
+            raise ValueError('pricing_region_write_scope_invalid')
+    elif (scope['site_id']!=266 or scope['gid']!=1327 or scope['lang_region_id']!=21 or
             scope['top_cid']!=1 or scope['sid']!=7645 or scope['aid'] not in (21587,21585,21589)):
         raise ValueError('pricing_region_write_scope_invalid')
     factor=Decimal(str(step['value']))
@@ -49,7 +59,10 @@ def save_rule(session,pages,step,before_send=None):
     matches=exact_scope(current,scope)
     if len(matches)>1:
         raise ValueError('pricing_region_scope_ambiguous')
-    payload=dict(scope,factor=str(factor),status=1)
+    if retirement and (len(matches)!=1 or matches[0]['id']!=1 or matches[0]['status']!=1 or Decimal(str(matches[0]['factor']))!=Decimal('.91')):
+        raise ValueError('pricing_uk_retirement_rule_changed')
+    target_status=0 if retirement else 1
+    payload=dict(scope,factor=str(factor),status=target_status)
     action='edit' if matches else 'add'
     if matches:
         payload['id']=matches[0]['id']
@@ -58,7 +71,7 @@ def save_rule(session,pages,step,before_send=None):
     if status!=200 or body.get('code')!=1:
         return dict(status='UNKNOWN',http_status=status,backend_code=body.get('code'),scope=scope)
     found=exact_scope(read_rules(session,pages),scope)
-    if len(found)!=1 or Decimal(str(found[0]['factor']))!=factor or found[0]['status']!=1:
+    if len(found)!=1 or retirement and found[0]['id']!=1 or Decimal(str(found[0]['factor']))!=factor or found[0]['status']!=target_status:
         return dict(status='UNKNOWN',scope=scope,reply_received=True)
     return dict(status='CONFIRMED',rule_id=found[0]['id'],scope=scope,factor=str(factor),
                 rule_set_sha256=fingerprint(read_rules(session,pages)))
