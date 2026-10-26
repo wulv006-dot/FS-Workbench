@@ -1,5 +1,6 @@
 import {projectPreviewProduct,fail} from '../runtime/snapshot.mjs';
 import {modelVariants,projectModels} from '../runtime/model-cards.mjs';
+import {projectAdminPrices} from '../runtime/admin-price-projection.mjs';
 
 // Call only with the product_read detail obtained by the trusted management route.
 // No raw response, price, URL or purchase capability is copied into the draft.
@@ -33,7 +34,7 @@ export function addImportedProduct(draft,pageId,detail,seed){
 }
 
 // Original accepted product references are retained for preview, never promoted to verified sale SKUs.
-export function centerSeed(fc,seasonal){
+export function centerSeed(fc,seasonal,{adminObservations=[],now=Date.now()}={}){
  const products=[],byOriginal={};
  for(const p of Object.values(fc.products)){
   if(p.preview_only&&p.model_id)continue;
@@ -51,8 +52,17 @@ export function centerSeed(fc,seasonal){
   products.push({key:'seasonal-'+p.id,title:p.name,product_ref:{site_id:String(s.siteId),game_id:String(s.gid),goods_id:String(s.goodsId)},
    platform:{code:'area-'+s.aid,attribute_id:String(s.aid)},quantity:{min:quantity,max:quantity,step:'1',unit:s.unit||'item'},available:false,attributes:[]});
  }
+ const seasonal_model_contracts={},admin_projection_status=[];
+ // Server-owned observations and verified policy only; not read from draft fields.
+ for(const entry of adminObservations){
+  const projected=projectAdminPrices(entry.observation,entry.policy,{now});
+  admin_projection_status.push({model_id:entry.policy?.model_ref?.model_id??null,status:projected.status,reason:projected.reason??null});
+  if(projected.status!=='reference_price_ready_not_checkout')continue;
+  for(const product of projected.products){if(products.some(p=>p.key===product.key))fail('DUPLICATE_PROVIDER_PRODUCT');products.push(product);}
+  for(const [id,contract] of Object.entries(projected.model_contracts)){if(seasonal_model_contracts[id])fail('DUPLICATE_PROVIDER_MODEL');seasonal_model_contracts[id]=contract;}
+ }
  const keys=ids=>[...new Set(ids.flatMap(id=>byOriginal[id]||[]))];
- return {seedProducts:products,...(Object.keys(fc_models).length?{fc_models}:{}),fc_layout:{weekly:[...fc.weekly.ids],trio:[...fc.trio.ids],bundles:[...fc.bundles.ids],sbc:[...fc.sbc.ids],defaultCore:fc.sbc.defaultId??null,
+ return {seedProducts:products,...(Object.keys(seasonal_model_contracts).length?{seasonal_model_contracts}:{}),admin_projection_status,...(Object.keys(fc_models).length?{fc_models}:{}),fc_layout:{weekly:[...fc.weekly.ids],trio:[...fc.trio.ids],bundles:[...fc.bundles.ids],sbc:[...fc.sbc.ids],defaultCore:fc.sbc.defaultId??null,
   routes:Object.fromEntries(Object.entries(fc.sbc.routes).map(([key,r])=>[key,{picks:[...r.picks],alternatives:[...(r.alternatives||[])],...(r.label?{label:structuredClone(r.label)}:{})}]))},pageProductKeys:{
   'fc27-weekly':keys(fc.weekly.ids),
   'fc27-sbc':keys([...fc.sbc.ids,...Object.values(fc.sbc.routes).flatMap(r=>[...r.picks,...r.alternatives])]),

@@ -24,7 +24,7 @@
   }
   const publicStatus=value=>typeof value==='string'&&/^[a-z][a-z0-9_ -]*$/i.test(value)?value:'unknown';
   function selectionFor(id) {
-    const contract=client?.config?.seasonal_model_contracts?.['seasonal-'+id];
+    const contract=client?.config?.seasonal_model_contracts?.[String(id)]??client?.config?.seasonal_model_contracts?.['seasonal-'+id];
     if(!contract||!window.SeasonalModelSelection)throw Object.assign(new Error(),{code:'MODEL_OPTIONS_UNAVAILABLE'});
     return window.SeasonalModelSelection.create(contract);
   }
@@ -43,7 +43,7 @@
     window.dispatchEvent(new CustomEvent('seasonal-published-catalog', {detail:config}));
     if (publishedThemeApplied) return;
     const publishedTheme = config?.seasonal_theme;
-    if (Object.hasOwn(window.SeasonalData.themes, publishedTheme)) {
+    if (Object.hasOwn(window.SeasonalData?.themes||{}, publishedTheme)) {
       publishedThemeApplied = true;
       window.dispatchEvent(new CustomEvent('seasonal-published-theme', {detail:publishedTheme}));
     }
@@ -94,6 +94,45 @@
       } catch (error) { report(client?.pending?.unknown ? messages.OPERATION_UNKNOWN : describe(error)); }
     }
   };
+  // The new four-game page uses this one selection bridge. Missing verified
+  // catalog data is visible; no fabricated region or snapshot SKU can substitute.
+  window.addEventListener('seasonal:model-buy',event=>{
+    const host=document.getElementById('dialog-content');if(!host)return;
+    const detail=event.detail||{},contract=client?.config?.seasonal_model_contracts?.[String(detail.model_id)];
+    const message=value=>{const p=document.createElement('p');p.textContent=value;return p;};
+    host.replaceChildren();
+    if(window.SeasonalCommerce.pending()){host.append(message(messages.OPERATION_UNKNOWN));return;}
+    let selection;
+    try{
+      if(!contract||contract.model_ref?.site_id!=='266'||contract.model_ref?.model_id!==String(detail.model_id)||contract.model_ref?.game_id!==String(detail.game_id))throw Error();
+      selection=selectionFor(detail.model_id);
+    }catch{host.append(message(messages.MODEL_OPTIONS_UNAVAILABLE));return;}
+    const english=(value,fallback)=>typeof value==='string'&&value.trim()&&!/\p{Script=Han}/u.test(value)?value:fallback;
+    const fields=document.createElement('div'),price=message('Choose all required options to see the current reference price.'),status=message('The main store confirms the final price and applies the discount code before payment. Coupons and points cannot be combined with this code.');
+    const buy=document.createElement('button');buy.type='button';buy.disabled=true;buy.textContent='Store handoff not connected';
+    host.append(fields,price,status,buy);
+    function render(){
+      fields.replaceChildren();
+      for(const field of selection.fields()){
+        const label=document.createElement('label'),select=document.createElement('select');label.textContent=english(field.label,english(field.id,'Option'));
+        const empty=document.createElement('option');empty.value='';empty.textContent='Choose '+english(field.label,english(field.id,'option'));select.append(empty);
+        for(const item of selection.options(field.id)){const option=document.createElement('option');option.value=item.id;option.textContent=english(item.label,'Option '+(select.options.length));select.append(option);}
+        select.value=selection.choices()[field.id]||'';select.disabled=select.options.length===1;
+        select.addEventListener('change',()=>{selection.select(field.id,select.value);window.SeasonalCommerce.invalidate();render();});label.append(select);fields.append(label);
+      }
+      const limits=selection.quantity();
+      if(limits){const label=document.createElement('label'),input=document.createElement('input');label.textContent='Quantity ('+english(limits.unit,'units')+')';input.type='number';input.min=limits.min;input.max=limits.max;input.step=limits.step;input.value=limits.min;
+        selection.setQuantity(input.value);input.addEventListener('input',()=>{selection.setQuantity(input.value);window.SeasonalCommerce.invalidate();showPrice();});label.append(input);fields.append(label);}
+      showPrice();
+    }
+    function showPrice(){
+      buy.disabled=true;
+      try{const value=window.SeasonalModelSelection.selectedPrice(contract,selection,detail.off_percent),format=n=>new Intl.NumberFormat('en',{style:'currency',currency:value.currency}).format(n/10**value.minor_unit_scale);
+        price.textContent=format(value.base_minor)+' → '+format(value.indicative_discounted_minor)+' ('+detail.off_percent+'% OFF). Reference for your selected combination; not a checkout quote.';
+      }catch{price.textContent=selection.ready()?'A current price for this exact combination and quantity is unavailable. No checkout is enabled.':'Choose all required options and a valid quantity.';}
+    }
+    render();
+  });
   if (window.SeasonalCommerce.available()) {
     try {
       client = sdk.create({element:document.documentElement, pageId:'seasonal-vault', activityId:'mmoexp-seasonal'});
