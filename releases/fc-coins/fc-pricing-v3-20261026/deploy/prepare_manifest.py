@@ -9,7 +9,7 @@ import re
 import stat
 import subprocess
 
-from target_map import DELTA_NAMES, DELTA_SCOPE, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, targets
+from target_map import DELTA_NAMES, DELTA_SCOPE, DELTA_NEW, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, targets
 
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
@@ -48,10 +48,11 @@ def prepare(delta=False, shadow=False, operating=False):
         raise ValueError('source_commit_required')
     source = STAGE / 'candidate/source'
     all_expected = {'source/' + name: target for name, target in targets(source).items()}
-    if len(all_expected) != 81 or provenance.get('files') != {
+    if len(all_expected) != 83 or provenance.get('files') != {
             name: sha(STAGE / 'candidate' / name) for name in sorted(all_expected)}:
         raise ValueError('staged_payload_differs_from_git_source_manifest')
     selected = OPERATING_NAMES if operating else SHADOW_NAMES if shadow else DELTA_NAMES if delta else None
+    new_targets=OPERATING_NEW if operating else DELTA_NEW if delta else frozenset()
     expected = {name: all_expected[name] for name in selected} if selected else all_expected
     base = load_base()
     changed = set(expected.values())
@@ -69,7 +70,7 @@ def prepare(delta=False, shadow=False, operating=False):
     rows = []
     for name, target in sorted(expected.items()):
         current = Path(target)
-        regular(current, existing=bool(selected) and name not in OPERATING_NEW)
+        regular(current, existing=bool(selected) and name not in new_targets)
         if current.exists():
             info = current.stat()
             if info.st_uid != 0 or info.st_gid != 0:
@@ -81,7 +82,7 @@ def prepare(delta=False, shadow=False, operating=False):
             before = None
         rows.append(dict(candidate=name, target=target, sha256=provenance['files'][name],
                          beforeSha256=before, owner='0:0', mode=mode))
-    if sum(row['beforeSha256'] is None for row in rows) != (len(OPERATING_NEW) if operating else 0 if selected else 51):
+    if sum(row['beforeSha256'] is None for row in rows) != (len(new_targets) if selected else 53):
         raise ValueError('new_target_count_drift')
     required = []
     for target in sorted(protected):
@@ -116,7 +117,7 @@ def prepare(delta=False, shadow=False, operating=False):
         runtime_path.unlink(missing_ok=True)
         raise
     return dict(manifestSha256=hashlib.sha256(raw).hexdigest(), sourceCommit=source_commit,
-        files=len(rows), existing=len(rows)-len(OPERATING_NEW) if operating else len(rows) if selected else 23, new=len(OPERATING_NEW) if operating else 0 if selected else 51,
+        files=len(rows), existing=len(rows)-len(new_targets) if selected else 30, new=len(new_targets) if selected else 53,
         protected=len(required), inspect=result)
 
 

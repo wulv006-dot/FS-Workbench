@@ -8,7 +8,7 @@ import sqlite3
 
 def shadow_progress(db,root,now):
     """Read the original outbox sequence and the independent shadow cursor."""
-    event=db.execute("SELECT id,kind,body FROM event_outbox WHERE kind IN ('snapshot_ready','simulation_requested') ORDER BY id DESC LIMIT 1").fetchone()
+    event=db.execute("SELECT id,kind,body FROM event_outbox WHERE kind='snapshot_ready' ORDER BY id DESC LIMIT 1").fetchone()
     latest=event[0] if event else 0
     path=(Path('/var/lib/fc-pricing-v3-shadow/shadow.sqlite3') if root==Path('/var/lib/fc27-cloud')
           else root/'shadow.sqlite3')
@@ -24,8 +24,8 @@ def shadow_progress(db,root,now):
     if latest<=cursor:
         return dict(status='current' if latest else 'idle',latest_event_id=latest,cursor=cursor,
                     pending=0,lag_seconds=0)
-    first=db.execute("SELECT id,kind,body FROM event_outbox WHERE kind IN ('snapshot_ready','simulation_requested') AND id>? ORDER BY id LIMIT 1",(cursor,)).fetchone()
-    pending=db.execute("SELECT count(*) FROM event_outbox WHERE kind IN ('snapshot_ready','simulation_requested') AND id>?",(cursor,)).fetchone()[0]
+    first=db.execute("SELECT id,kind,body FROM event_outbox WHERE kind='snapshot_ready' AND id>? ORDER BY id LIMIT 1",(cursor,)).fetchone()
+    pending=db.execute("SELECT count(*) FROM event_outbox WHERE kind='snapshot_ready' AND id>?",(cursor,)).fetchone()[0]
     if not first:
         return dict(status='event_unverified',latest_event_id=latest,cursor=cursor,pending=None,lag_seconds=None)
     body=json.loads(first[2]);created_at=body.get('requested_at') if first[1]=='simulation_requested' else None

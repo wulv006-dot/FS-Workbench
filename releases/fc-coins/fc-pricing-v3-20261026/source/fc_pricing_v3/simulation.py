@@ -39,6 +39,21 @@ def month(value):
     return value.astimezone(LOCAL).strftime('%Y-%m')
 
 
+def historical_window(period, requested_at):
+    end = instant(requested_at).astimezone(LOCAL).replace(hour=0,minute=0,second=0,microsecond=0)
+    if period == 'month':
+        end = end.replace(day=1)
+        start = (end-timedelta(days=1)).replace(day=1)
+        name = 'last_complete_month'
+    elif period in (7,14,28):
+        start = end-timedelta(days=period)
+        name = str(period)+'d'
+    else:
+        raise ValueError('pricing_historical_window_invalid')
+    return dict(period_selector=name,paid_window=dict(start=start.date().isoformat(),
+        end_exclusive=end.date().isoformat(),timezone='Asia/Shanghai'))
+
+
 def sprint_window(now):
     local = now.astimezone(LOCAL)
     next_month = (local.replace(day=28)+timedelta(days=4)).replace(day=1,hour=0,minute=0,second=0,microsecond=0)
@@ -415,13 +430,15 @@ class Shadow:
                     db.execute("INSERT INTO cursor VALUES ('production',?)",(cursor,))
         return records
 
-    def consume(self, production_path, *, through=None):
+    def consume(self, production_path, *, through=None, include_histories=True, historical_only=False):
+        cursor_id='historical' if historical_only else 'production'
+        kinds="'simulation_requested'" if historical_only else "'snapshot_ready','simulation_requested'" if include_histories else "'snapshot_ready'"
         with self.connect() as db:
-            row = db.execute("SELECT value FROM cursor WHERE id='production'").fetchone()
+            row=db.execute('SELECT value FROM cursor WHERE id=?',(cursor_id,)).fetchone()
             cursor = row[0] if row else 0
         source = sqlite3.connect('file:'+str(Path(production_path).resolve())+'?mode=ro',uri=True)
         try:
-            events = source.execute("SELECT id,kind,body FROM event_outbox WHERE kind IN ('snapshot_ready','simulation_requested') AND id>? ORDER BY id LIMIT 100",(cursor,)).fetchall()
+            events=source.execute('SELECT id,kind,body FROM event_outbox WHERE kind IN ('+kinds+') AND id>? ORDER BY id LIMIT 100',(cursor,)).fetchall()
             processed = 0
             for sequence,kind,raw in events:
                 body = json.loads(raw)
@@ -438,18 +455,45 @@ class Shadow:
                         with self.connect() as db:
                             gap=dict(snapshot_id=body['snapshot_id'],as_of=snapshot.get('created_at'),status='INPUT_GAP',reason=str(error),mode='shadow',training_eligible=False)
                             db.execute('INSERT OR IGNORE INTO runs VALUES (?,?)',(fingerprint(['input_gap',body['snapshot_id']]),json.dumps(gap)))
-                            if db.execute("UPDATE cursor SET value=? WHERE id='production'",(sequence,)).rowcount==0:db.execute("INSERT INTO cursor VALUES ('production',?)",(sequence,))
+                            if db.execute('UPDATE cursor SET value=? WHERE id=?',(sequence,cursor_id)).rowcount==0:db.execute('INSERT INTO cursor VALUES (?,?)',(cursor_id,sequence))
                 else:
                     now = instant(body['requested_at']) if body.get('requested_at') else datetime.now(timezone.utc)
-                    end = datetime.combine(day(now),datetime.min.time(),LOCAL)
-                    start = end.replace(day=1) if body.get('closed_days') in ('month','current_month') else end-timedelta(days=int(body.get('closed_days',7)))
-                    snapshots = [json.loads(r[0]) for r in source.execute('SELECT body FROM pricing_snapshots')]
-                    snapshots = sorted((s for s in snapshots if start<=instant(s['evidence']['checked_at'])<end),key=lambda s:instant(s['evidence']['checked_at']))
+                    window = historical_window(body.get('closed_days',7),now)
+                    if body.get('period_selector') not in (None,window['period_selector']) or body.get('paid_window') not in (None,window['paid_window']):
+                        raise ValueError('pricing_historical_request_window_changed')
+                    snapshots = []
+                    coverage = None
+                    if body.get('historical_input_id'):
+                        row = source.execute('SELECT body FROM historical_inputs WHERE id=?',(body['historical_input_id'],)).fetchone()
+                        if not row:
+                            return dict(events=processed,cursor=cursor,status='source_historical_input_missing',historical_input_id=body['historical_input_id'])
+                        historical_input=json.loads(row[0])
+                        if (historical_input.get('schema_version')!='fc-pricing-v3-history-input-v1' or
+                                historical_input.get('period_selector')!=window['period_selector'] or
+                                historical_input.get('paid_window')!=window['paid_window']):
+                            raise ValueError('pricing_historical_input_window_mismatch')
+                        coverage=historical_input['historical_orders_coverage']
+                        if (coverage.get('period_selector')!=window['period_selector'] or
+                                str(coverage.get('paid_window_start',''))[:10]!=window['paid_window']['start'] or
+                                str(coverage.get('paid_window_end_exclusive',''))[:10]!=window['paid_window']['end_exclusive']):
+                            raise ValueError('pricing_historical_coverage_window_mismatch')
+                        for ident in historical_input.get('snapshot_ids',[]):
+                            observed=source.execute('SELECT body FROM pricing_snapshots WHERE id=?',(ident,)).fetchone()
+                            if not observed:
+                                return dict(events=processed,cursor=cursor,status='source_snapshot_missing',snapshot_id=ident)
+                            snapshots.append(json.loads(observed[0]))
+                        if body['kind']=='actual_reconstruction':
+                            snapshots.append(dict(snapshot_id=body['historical_input_id'],origin='verified_historical_attachment',
+                                available_at=historical_input['as_of'],evidence=dict(checked_at=historical_input['as_of']),
+                                historical_orders=historical_input['historical_orders'],
+                                historical_orders_coverage=historical_input['historical_orders_coverage']))
+                    else:
+                        snapshots = [json.loads(r[0]) for r in source.execute('SELECT body FROM pricing_snapshots')]
                     self.historical(snapshots,kind=body['kind'],simulation_id=body['simulation_id'],
-                                    closed_days=body.get('closed_days',7))
+                                    closed_days=body.get('closed_days',7),paid_window=window,coverage=coverage)
                     with self.connect() as db:
-                        if db.execute("UPDATE cursor SET value=? WHERE id='production'",(sequence,)).rowcount==0:
-                            db.execute("INSERT INTO cursor VALUES ('production',?)",(sequence,))
+                        if db.execute('UPDATE cursor SET value=? WHERE id=?',(sequence,cursor_id)).rowcount==0:
+                            db.execute('INSERT INTO cursor VALUES (?,?)',(cursor_id,sequence))
                 processed += 1
                 cursor = sequence
             return dict(events=processed,cursor=cursor,status='processed')
@@ -474,12 +518,12 @@ class Shadow:
             results[name] = dict(value,read_only=True,execution_authorized=False,training_eligible=False)
         return results
 
-    def historical(self, snapshots, *, kind='actual_reconstruction', rule_mode='historical_asof', simulation_id=None, closed_days=None):
+    def historical(self, snapshots, *, kind='actual_reconstruction', rule_mode='historical_asof', simulation_id=None, closed_days=None, paid_window=None, coverage=None):
         if kind not in ('actual_reconstruction','fixed_orders_reprice','demand_counterfactual','causal_evaluation'):
             raise ValueError('pricing_historical_kind_invalid')
         if rule_mode not in ('historical_asof','common_guard_benchmark'):
             raise ValueError('pricing_historical_rule_mode_invalid')
-        request_hash = fingerprint([snapshots,kind,rule_mode])
+        request_hash = fingerprint([snapshots,kind,rule_mode,paid_window])
         if simulation_id:
             with self.connect() as db:
                 old = db.execute('SELECT body FROM history WHERE id=?',(simulation_id,)).fetchone()
@@ -487,15 +531,28 @@ class Shadow:
                 value = json.loads(old[0])
                 if (value['simulation_kind']!=kind or value['rule_mode']!=rule_mode or
                         value.get('requested_closed_days')!=closed_days or
+                        value.get('paid_window')!=paid_window or
                         closed_days is None and value['request_sha256']!=request_hash):
                     raise ValueError('simulation_request_payload_conflict')
                 return value
         records,eligible,seen_orders = [],[],set()
         latest_orders,revised_keys = {},set()
+        latest_actual_asof = None
         for original in sorted(snapshots,key=lambda s:instant(s['evidence']['checked_at'])):
             snapshot = deepcopy(original)
-            asof = instant(snapshot['evidence']['checked_at'])
-            if instant(snapshot.get('available_at',snapshot['evidence']['checked_at']))>asof or future_sources(snapshot['evidence'],asof):
+            reconciliation_only = snapshot.get('origin')=='verified_historical_attachment'
+            asof = instant(snapshot.get('available_at',snapshot['evidence']['checked_at'])) if reconciliation_only else instant(snapshot['evidence']['checked_at'])
+            if reconciliation_only and kind!='actual_reconstruction':
+                continue
+            if paid_window and not reconciliation_only:
+                start=datetime.fromisoformat(paid_window['paid_window']['start']+'T00:00:00+08:00')
+                end=datetime.fromisoformat(paid_window['paid_window']['end_exclusive']+'T00:00:00+08:00')
+                if not start<=asof<end:
+                    continue
+            decision_evidence={k:v for k,v in snapshot['evidence'].items()
+                               if k not in ('historical_orders','historical_orders_coverage')}
+            if (not reconciliation_only and (instant(snapshot.get('available_at',snapshot['evidence']['checked_at']))>asof or
+                    future_sources(decision_evidence,asof))):
                 records.append(dict(snapshot_id=snapshot['snapshot_id'],status='missing_at_historical_asof'))
                 continue
             if rule_mode=='common_guard_benchmark':
@@ -503,8 +560,9 @@ class Shadow:
                     records.append(dict(snapshot_id=snapshot['snapshot_id'],status='common_guard_contract_missing'))
                     continue
                 snapshot['evidence']['promotion_envelope'] = snapshot['common_guard_rules']['promotion_envelope']
-            eligible.append(snapshot)
-            orders,gaps = historical_orders(snapshot,asof)
+            if not reconciliation_only:
+                eligible.append(snapshot)
+            orders,gaps = historical_orders(snapshot,asof,paid_window)
             if kind=='actual_reconstruction':
                 revised=0
                 for order in orders:
@@ -522,7 +580,11 @@ class Shadow:
             observed_orders=orders
             orders = [order for order in orders if order['order_key'] not in seen_orders]
             seen_orders.update(order['order_key'] for order in orders)
-            if not observed_orders and gaps and kind in ('actual_reconstruction','fixed_orders_reprice'):
+            source_rows=snapshot.get('historical_orders',snapshot['evidence'].get('historical_orders'))
+            source_coverage=snapshot.get('historical_orders_coverage') or snapshot['evidence'].get('historical_orders_coverage') or {}
+            verified_empty=(kind=='actual_reconstruction' and paid_window and source_rows==[] and
+                            source_coverage.get('window_complete') is True)
+            if not observed_orders and gaps and kind in ('actual_reconstruction','fixed_orders_reprice') and not verified_empty:
                 record=dict(snapshot_id=snapshot['snapshot_id'],status='historical_orders_missing',gaps=gaps,
                             order_window='incremental_unique_across_snapshots')
                 if kind=='actual_reconstruction':
@@ -544,6 +606,7 @@ class Shadow:
                     as_of=asof.isoformat(),order_window='no_future_terms_from_later_order_revisions'))
                 continue
             if kind=='actual_reconstruction':
+                latest_actual_asof=asof
                 records.append(dict(snapshot_id=snapshot['snapshot_id'],status='partial' if gaps else 'available',actual=order_totals(orders),orders=orders,gaps=gaps,
                     revised_order_count=revised,cumulative_actual=order_totals(list(latest_orders.values())),
                     as_of=asof.isoformat(),order_window='incremental_unique_across_snapshots_with_later_revisions'))
@@ -559,6 +622,13 @@ class Shadow:
                                                as_of=legacy.get('as_of')) if legacy.get('action') else legacy)
                 records.append(dict(snapshot_id=snapshot['snapshot_id'],status='partial' if gaps or any(alternatives[m]['status']!='available' for m in POLICIES) else 'available',fixed_order_count=len(orders),gaps=gaps,alternatives=alternatives,
                     order_window='incremental_unique_across_snapshots'))
+        if paid_window and not records:
+            missing=dict(status='historical_price_window_missing' if kind=='fixed_orders_reprice' else 'historical_orders_missing' if kind=='actual_reconstruction' else 'historical_snapshot_missing',
+                         gaps=[dict(reason='original_asof_snapshot_or_attachment_missing')])
+            if kind=='fixed_orders_reprice':missing['fixed_order_count']=None
+            if kind=='actual_reconstruction':missing['actual']=dict(order_count=None,net_revenue_usd=None,
+                procurement_contribution_usd=None,delivered_k=None)
+            records.append(missing)
         if kind=='demand_counterfactual':
             with tempfile.TemporaryDirectory() as folder:
                 replay = Shadow(Path(folder)/'counterfactual.sqlite3')
@@ -571,15 +641,27 @@ class Shadow:
         result = dict(simulation_id=simulation_id or request_hash,request_sha256=request_hash,created_at=datetime.now(timezone.utc).isoformat(),
             mode='shadow',origin='simulation',simulation_kind=kind,rule_mode=rule_mode,policy_version=VERSION,records=records,
             requested_closed_days=closed_days,
+            paid_window=paid_window,
             write_performed=False,execution_authorized=False,training_eligible=False,
             historical_gaps='only observations available at each as_of; missing quantity, paths and frozen legacy evidence retained')
-        if kind=='actual_reconstruction' and eligible:
-            result['reconciled_actual']=dict(as_of=instant(eligible[-1]['evidence']['checked_at']).isoformat(),
+        if coverage:
+            result['coverage']={key:coverage.get(key) for key in ('period_selector','paid_window_start','paid_window_end_exclusive',
+                'population_status','window_complete','status','available_at','source_sha256')}
+            coverage_gaps=coverage.get('gaps') or {}
+            if isinstance(coverage_gaps,dict):
+                result['coverage']['gaps']=[dict(reason=reason,count=count) for reason,count in sorted(coverage_gaps.items())]
+            else:
+                result['coverage']['gaps']=[{key:gap.get(key) for key in ('reason','count','date') if key in gap}
+                                            if isinstance(gap,dict) else {'reason':str(gap)} for gap in coverage_gaps]
+        if kind=='actual_reconstruction' and latest_actual_asof is not None:
+            result['reconciled_actual']=dict(as_of=latest_actual_asof.isoformat(),
                 revised_order_count=len(revised_keys),actual=order_totals(list(latest_orders.values())),
-                basis='latest_available_revision_per_original_order_within_selected_snapshots; earlier_asof_records_not_rewritten')
+                basis='latest_available_revision_per_original_order_within_requested_paid_window; earlier_asof_records_not_rewritten',
+                population_complete=coverage.get('window_complete') if coverage else None)
         with self.connect() as db:
             db.execute('INSERT OR IGNORE INTO history VALUES (?,?)',(result['simulation_id'],json.dumps(result)))
         return result
+
 
     def summary(self, as_of=None):
         now = as_of or datetime.now(timezone.utc)
@@ -636,17 +718,40 @@ def future_sources(value, asof):
     return False
 
 
-def historical_orders(snapshot, asof):
+def historical_orders(snapshot, asof, paid_window=None):
     rows,gaps,seen = [],[],set()
     source = snapshot.get('historical_orders')
     if source is None:
+        source = snapshot.get('evidence',{}).get('historical_orders')
+    if source is None:
         return [],[dict(reason='historical_orders_missing')]
-    required = ('order_key','paid_usd','available_at')
+    coverage = snapshot.get('historical_orders_coverage') or snapshot.get('evidence',{}).get('historical_orders_coverage')
+    if paid_window:
+        if not coverage:
+            gaps.append(dict(reason='historical_orders_coverage_missing'))
+        else:
+            if (coverage.get('period_selector')!=paid_window['period_selector'] or
+                    str(coverage.get('paid_window_start',''))[:10]!=paid_window['paid_window']['start'] or
+                    str(coverage.get('paid_window_end_exclusive',''))[:10]!=paid_window['paid_window']['end_exclusive']):
+                gaps.append(dict(reason='historical_orders_window_mismatch'))
+            if coverage.get('window_complete') is not True:
+                gaps.append(dict(reason='historical_orders_population_partial',
+                                 status=coverage.get('population_status')))
+            if coverage.get('status')!='complete':
+                gaps.append(dict(reason='historical_attachment_partial_fields'))
+    required = ('order_key','paid_usd','available_at')+(('paid_at',) if paid_window else ())
     optional = ('base_k','bonus_k','cost_usd')
+    start = datetime.fromisoformat(paid_window['paid_window']['start']+'T00:00:00+08:00') if paid_window else None
+    end = datetime.fromisoformat(paid_window['paid_window']['end_exclusive']+'T00:00:00+08:00') if paid_window else None
     for order in source:
         missing = [key for key in required if order.get(key) is None]
         if missing:
             gaps.append(dict(order_key=order.get('order_key'),reason='historical_order_fields_missing',fields=missing))
+            continue
+        if paid_window and not start<=instant(order['paid_at'])<end:
+            continue
+        if paid_window and instant(order['paid_at'])>asof:
+            gaps.append(dict(order_key=order['order_key'],reason='order_paid_after_asof'))
             continue
         if instant(order['available_at'])>asof:
             gaps.append(dict(order_key=order['order_key'],reason='order_not_available_at_asof'))
@@ -661,6 +766,7 @@ def historical_orders(snapshot, asof):
                 gaps.append(dict(order_key=order['order_key'],reason='historical_order_partial_fields',fields=missing))
             rows.append(deepcopy(order))
     return rows,gaps
+
 
 
 def order_totals(orders):

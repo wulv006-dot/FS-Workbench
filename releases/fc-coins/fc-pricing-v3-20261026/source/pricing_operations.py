@@ -105,7 +105,7 @@ def call(scope,owner,task,lease,args,request=native):
     if action not in ACTIONS or set(args)!=FIELDS[action]:
         raise ValueError('pricing_tool_fields')
     auth=authorization(scope,owner,task,scope.clock())
-    allowed=list(set(ACTIONS)-MUTATING if auth and auth['mode']=='daily_review' else AUTO if auth and auth['mode']=='automatic_review' else ACTIONS if auth else
+    allowed=list(set(ACTIONS)-MUTATING-{'compare_strategies'} if auth and auth['mode']=='daily_review' else AUTO if auth and auth['mode']=='automatic_review' else ACTIONS if auth else
                  set(ACTIONS)-MUTATING)
     if action not in allowed:
         raise PermissionError('pricing_task_not_authorized')

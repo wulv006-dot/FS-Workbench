@@ -159,9 +159,24 @@ def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mo
     return dict(context=lightweight_snapshot(result),private_updates=business_envelope['private_updates'],source_plan=selective_plan)
 
 
+def collect_historical_source(data):
+    sys.path.insert(0,'/opt/fs-hermes-fc')
+    from channel_source import pages,COLLECTOR
+    sys.path.insert(0,COLLECTOR)
+    import p2pah_auth as auth
+    from .business_source import collect_historical_attachment
+    session=auth.Session();token,_=auth.admin_token_from_service()
+    if not token:raise ValueError('historical_shared_admin_unavailable')
+    session.bind_admin_token(token);del token
+    try:return collect_historical_attachment(data['period'],session,pages)
+    finally:session.close()
+
+
 if __name__=='__main__':
     try:
         data=json.load(sys.stdin)
+        if data.get('action')=='historical':
+            print(json.dumps(collect_historical_source(data),ensure_ascii=False));raise SystemExit(0)
         print(json.dumps(shared_context(data['storefront'],data.get('arab_ut_status'),data.get('price_windows'),active_mode=data.get('active_mode'),scope=data.get('scope'),history_cache=data.get('history_cache'),history_signature=data.get('history_signature'),online_context=data.get('online_context')),ensure_ascii=False))
     except Exception as exc:
         print(json.dumps(dict(error=str(exc) if isinstance(exc,ValueError) else type(exc).__name__)))

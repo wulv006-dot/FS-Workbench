@@ -103,17 +103,14 @@ def run(body):
         record['learning_coverage']=outcomes['online'].get('learning_coverage')
         db.put('metadata',key,record)
     export_shadow_snapshot(db,force=True)
-    result_path=STATE/('daily-'+date+'.json')
-    if not result_path.exists():
-        active=subprocess.run(['systemctl','is-active','--quiet','fc-pricing-v3-shadow.service'],timeout=10).returncode==0
-        if not active:
-            write_json(STATE/'request.json',dict(local_date=date,request_id=record['request_id']))
-            started=subprocess.run(['systemctl','start','--no-block','fc-pricing-v3-shadow.service'],capture_output=True,timeout=15)
-            if started.returncode:raise ValueError('pricing_daily_shadow_start_failed')
-        raise ValueError('pricing_daily_shadow_pending')
-    shadow=json.loads(result_path.read_text())
-    if shadow.get('local_date')!=date:raise ValueError('pricing_daily_shadow_date_mismatch')
-    record['shadow']=shadow
+    from .history import ensure_shadow
+    dispatched=ensure_shadow(db,'daily',record['request_id'],date)
+    if dispatched['status']=='pending':raise ValueError('pricing_daily_shadow_pending')
+    if dispatched['status']=='unknown':
+        record.update(phase='unknown',shadow=dispatched)
+        db.put('metadata',key,record);db.put('metadata','latest_daily_review',record)
+        return record
+    record['shadow']=dispatched.get('result') or dispatched
     if 'decision_basis' not in record:
         with db.connect() as conn:
             row=conn.execute('SELECT body FROM pricing_snapshots ORDER BY rowid DESC LIMIT 1').fetchone()
@@ -129,13 +126,15 @@ def run(body):
             source_plan=evidence.get('source_plan'),basis_is_latest_saved_input=True)
     report={k:record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
     quote=dict(run_id=record['request_id'],daily_report=report,result=dict(decision_receipt=dict(sha256=fingerprint(report))))
+    record['phase']='review_prepared'
+    db.put('metadata',key,record);db.put('metadata','latest_daily_review',record)
     receipt=bridge.review(dict(job_id=record['request_id'],actor='wulv'),quote,mode='daily_review',wait_seconds=0)
     record['hermes']=receipt
     record['phase']='completed' if receipt['phase']=='completed' else receipt['phase']
     db.put('metadata',key,record)
     db.put('metadata','latest_daily_review',record)
     if receipt['phase'] in ('unknown','failed','timeout'):
-        db.incident('pricing_daily_hermes_'+receipt['phase'],'daily_effect_review',['FC27'],original_request_id=record['request_id'])
+        db.incident('pricing_daily_hermes_'+receipt['phase'],'daily_effect_review',['FC27'],phase='daily_review',error='original_request_id:'+record['request_id'])
         return record
     if receipt['phase']!='completed':raise ValueError('pricing_daily_hermes_pending')
     return record

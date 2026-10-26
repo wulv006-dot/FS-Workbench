@@ -13,6 +13,8 @@
     COMPLETED:'公开核验完成',NO_CHANGE:'核算后无需改价',OPEN:'待处理',available:'数据可用',partial:'部分数据可用',
     legacy_replay_gap:'旧版证据不足',legacy_source_version_mismatch:'旧版源码版本不符',no_feasible_price:'无可行价格',
     queued:'已登记待处理',queued_or_missing:'排队中或结果尚未生成',scenario_projection:'需求情景预测',
+    submitted:'已提交，等待原任务回执',completed:'已完成',failed:'执行失败，保留原编号',unknown:'结果未知，按原编号核对',
+    review_prepared:'效果数据已准备',input_ready:'历史数据已准备',pending:'原任务处理中',
     causal_identification_unavailable:'缺少可识别的实验依据',identified_randomized_estimate:'实验估计可用',
     missing_at_historical_asof:'当时尚不可得',common_guard_contract_missing:'统一护栏证据缺失',
     baseline_pending_no_simulated_orders_fabricated:'缺少绝对需求基线，未虚构订单',
@@ -60,7 +62,7 @@
     return `${goal} · ${progress} · ${target.target_scope||'site266 FC27 Coins'}`;
   }
   function historySummary(result){
-    if(!result.records)return `任务 ${result.simulation_id} 仍在处理或来源缺失。`;
+    if(!result.records)return `任务 ${result.simulation_id} · ${statusText(result.status)}${result.paid_window?` · ${result.paid_window.start} 至 ${result.paid_window.end_exclusive}（结束日不含）`:''}。失败或结果未知时按此编号核对，勿重新登记。`;
     const rows=result.records.map(r=>{
       if(r.status==='historical_orders_missing')return `${r.snapshot_id} · ${statusText(r.status)} · ${(r.gaps||[]).join('；')}`;
       if(r.status==='late_order_revision_not_repriced')return `${r.snapshot_id} · ${statusText(r.status)} · 修订原单 ${r.revised_order_count} 个`;
