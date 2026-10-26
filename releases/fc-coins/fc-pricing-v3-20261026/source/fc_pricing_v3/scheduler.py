@@ -192,6 +192,11 @@ def cycle(body=None):
                 job['player_sync']=dict(status='pending',reason=type(exc).__name__,original_coin_execution_id=outcome['operation_id'])
     except Exception as exc:
         code=str(exc) if isinstance(exc,ValueError) else type(exc).__name__
+        if isinstance(exc,ValueError) and code.lower().startswith(('pricing_v3_infeasible:','pricing_v3_capacity_unresolved:')):
+            result=dict(status='INFEASIBLE',reason=code)
+            job.update(status='ready',result=result,completed_at=clock().isoformat())
+            worker.save_job(job)
+            return result
         job.update(status='failed',error=code[:400],completed_at=clock().isoformat())
         if not any(word in code.lower() for word in ('infeasible','capacity_unresolved')):
             db.incident(code.split(':')[0],'collection_or_execution',['FC27'],error=type(exc).__name__)
@@ -315,7 +320,7 @@ def run_job(job):
                   'pricing_plan_expired','pricing_plan_scope','pricing_competitive_band','pricing_review_pending')
         if any(t.lower() in code.lower() for t in terminal):
             with db.transaction() as conn:
-                body.update(result=dict(status='INFEASIBLE' if 'INFEASIBLE' in code or 'CAPACITY_UNRESOLVED' in code else 'REJECTED_PREWRITE',reason=code))
+                body.update(result=dict(status='INFEASIBLE' if 'INFEASIBLE' in code.upper() or 'CAPACITY_UNRESOLVED' in code.upper() else 'REJECTED_PREWRITE',reason=code))
                 body['completed_at']=clock().isoformat()
                 if kind=='cycle':finish_cycle(db,conn,body,body['result'],body['completed_at'])
                 conn.execute('UPDATE durable_jobs SET state=\'done\',body=? WHERE id=?',(json.dumps(body),job['id']))
