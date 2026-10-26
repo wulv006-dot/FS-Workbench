@@ -1,0 +1,52 @@
+{
+  "status": "candidate_not_deployed",
+  "base_commit": "0e2d02efd7c894199ab0f62ca69a9c75ed7c2578",
+  "runtime_baseline_before_raw_sha256": "c0b867d19e5316e77d3042d1437724c30742723a85f8355e11ac7e143f423a56",
+  "baseline_after_utf8_lf_sha256": "7b3ca86691a3671c55b7a6095d6bd77253fed4125a6885caddd08a1c5933331e",
+  "teaching_sha256": "306fc37447cedccbb86f4e9086223b1726b2a1327ac9a101e355457166e91c0c",
+  "changed_sections": [
+    "### 尾价偏好（本次用户确认）",
+    "### FC金币策略与只读核对（2026-10-21用户明确范围）",
+    "## Astra FC Coins 固定决策流程（v8，2026-10-22）",
+    "## FC Coins受控自动决策与执行（v11，2026-10-22用户明确授权）",
+    "<!-- fc-reference-weighting-20261024-v2 -->"
+  ],
+  "repointed_registry_entries": [
+    "fs.data.sources",
+    "fs.data.currency",
+    "fs.customer.identity",
+    "fs.finance.procurement",
+    "fc.marketing.attribution",
+    "fs.procurement.inputs",
+    "fs.pricing.parameter-identity",
+    "fs.product.identity",
+    "fs.customer.lifecycle",
+    "fs.learning.methods"
+  ],
+  "preserved_sections": [
+    "1 data sources",
+    "2 order details",
+    "3 ES/customer",
+    "4 procurement",
+    "5 Order statistics",
+    "7 attribution including Aion2/PMax corrections",
+    "8 product identity",
+    "9 customer lifecycle",
+    "v10 financial facts",
+    "v12 discounts",
+    "management all websites"
+  ],
+  "publication_required": [
+    "original publisher CAS",
+    "wulv/FS/fs compatibility hashes",
+    "derived immutable published index",
+    "actual worker reload and loaded source proof",
+    "Hermes holdout cases"
+  ],
+  "not_performed": [
+    "Git mutation",
+    "production publication",
+    "Notion write",
+    "RELEASED.json update"
+  ]
+}

@@ -209,6 +209,8 @@ def selfcheck():
         raise RuntimeError("game_monitor_sop_checks_missing")
     if select(["releases/fc-coins/fc-pricing-v2-20261022/source/pricing_v2.py"]) != ["fc-pricing-v2"]:
         raise RuntimeError("fc_pricing_v2_checks_missing")
+    if select(["releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/runtime.py"]) != ["fc-pricing-v3"]:
+        raise RuntimeError("fc_pricing_v3_checks_missing")
     if select(['releases/fc-coins/fc-pricing-v2-20261022/source/conversation_service.py']) != ['fc-pricing-v2','hermes-conversation']:
         raise RuntimeError('fc_conversation_consumers_missing')
     if select(["releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py"]) != ["hermes-server-unify"]:
@@ -621,6 +623,8 @@ def select(paths):
             groups.add("fs-on-demand");continue
         if name.startswith("releases/fc-coins/lock-gate-hardening-20261013/"):
             groups.add("fc-lock-gate-hardening");continue
+        if name.startswith("releases/fc-coins/fc-pricing-v3-20261026/"):
+            groups.add("fc-pricing-v3");continue
         if name.startswith("releases/fc-coins/gate-cycle-20261014/"):
             groups.add("fc-cycle-gate");continue
         if name.startswith("releases/fc-coins/order-public-acceptance-20261013/"):
@@ -1143,6 +1147,10 @@ def main():
             units("mlb_admin_import_20261012/tests",["test_admin_write_channel"])
         elif group=="fc-lock-gate-hardening":
             units("releases/fc-coins/lock-gate-hardening-20261013",["test_hardening"])
+        elif group=="fc-pricing-v3":
+            subprocess.run([sys.executable,"-I","-B","-m","unittest","discover","-s",
+                str(ROOT/"releases/fc-coins/fc-pricing-v3-20261026/tests"),"-p","test_*.py"],
+                check=True,timeout=120,cwd=ROOT)
         elif group=="fc-cycle-gate":
             units("releases/fc-coins/gate-cycle-20261014",["test_cycle_gate","test_publisher"])
         elif group=="fc-order-public":

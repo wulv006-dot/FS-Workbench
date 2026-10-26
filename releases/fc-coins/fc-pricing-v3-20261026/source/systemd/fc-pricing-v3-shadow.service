@@ -1,0 +1,27 @@
+[Unit]
+Description=FC Pricing V3 independent read-only shadow consumer
+After=local-fs.target
+
+[Service]
+Type=simple
+User=nobody
+Group=fc27cloud
+UMask=0027
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/python39/bin/python3 -I /opt/fs-hermes-fc/fc_pricing_v3/shadow_worker.py
+Restart=on-failure
+RestartSec=10s
+CPUQuota=25%
+MemoryLimit=512M
+PrivateNetwork=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+ReadOnlyDirectories=/var/lib/fc27-cloud
+ReadWriteDirectories=/var/lib/fc-pricing-v3-shadow
+InaccessibleDirectories=-/run/fs-order-session -/run/secrets -/etc/fc27-cloud -/opt/fs-order-session -/opt/fc27-cloud-browser
+
+[Install]
+WantedBy=multi-user.target
