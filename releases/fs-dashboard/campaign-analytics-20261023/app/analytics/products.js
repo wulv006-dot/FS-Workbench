@@ -4,14 +4,15 @@
   const publicPrefix=document.documentElement.dataset.campaignPublicPrefix||'/events/',publicPrefixValid=/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(publicPrefix);
   const storageKey='fs-center-pending:'+location.pathname.replace(/products\.html$/, 'center.html');
   let modelPreviewPlatform='ps';
+  let stagedModels=[],stagedProducts=[],previewSignature=null,halloweenDirty=false,halloweenShown=new Map();
   let savedDraft=null,state=null,catalog=[],busy=false,dirty=false,pending=null,discovered=[],discoveredGame=null,selectedPage='fc27-weekly',modelDetail=null,modelSearchKind=null,uploadRecord=null,searchPage=1,hasMore=false,inspected=null;
   try{pending=JSON.parse(sessionStorage.getItem(storageKey)||'null');}catch{$('center-error').textContent='无法读取原操作记录；请保留当前会话并联系维护人员核对。';return;}
   const stable=v=>JSON.stringify(v,(_k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.keys(x).sort().map(k=>[k,x[k]])):x);
   const same=(a,b)=>stable(a)===stable(b);
-  function acceptedState(value){state=value;if(uploadRecord?.page_id){if(state.draft.pages.some(p=>p.page_id===uploadRecord.page_id))selectedPage=uploadRecord.page_id;else $('media-status').textContent='原上传目标页不存在，已保留原操作与文件，请联系维护核对；未绑定到其他页。';}savedDraft=structuredClone(value.draft);dirty=false;if($('restore-review'))$('restore-review').hidden=true;}
+  function acceptedState(value){stagedModels=[];stagedProducts=[];halloweenDirty=false;state=value;if(uploadRecord?.page_id){if(state.draft.pages.some(p=>p.page_id===uploadRecord.page_id))selectedPage=uploadRecord.page_id;else $('media-status').textContent='原上传目标页不存在，已保留原操作与文件，请联系维护核对；未绑定到其他页。';}savedDraft=structuredClone(value.draft);dirty=false;if($('restore-review'))$('restore-review').hidden=true;}
   function persist(value){sessionStorage.setItem(storageKey,JSON.stringify(value));pending=value;}
-  async function request(path,body){const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...(body?{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':state.csrf},body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{throw Object.assign(Error('响应无法确认，请核对原操作。'),{status:response.status});}if(!response.ok)throw Object.assign(Error(data.message||data.code||'请求失败'),{status:response.status});return data;}
-  function lock(){ $('page-select').disabled=busy||Boolean(pending)||Boolean(uploadRecord);$('upload-media').disabled=busy||!state?.canEdit||Boolean(pending)||Boolean(uploadRecord);$('recover-upload').hidden=!uploadRecord?.unknown;dirty=Boolean(state&&savedDraft&&!same(state.draft,savedDraft));renderChanges();$('restore-draft').disabled=busy||Boolean(pending)||!state?.canEdit||dirty||!state?.restore_candidate;$('confirm-restore').disabled=$('restore-draft').disabled; $('center-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('read-benefits').disabled=busy||!state?.canEdit||Boolean(pending);$('publish-center').disabled=dirty;$('read-published').disabled=busy||!state?.published||Boolean(pending);$('discovery-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('discover-search').disabled=busy;$('discover-product').disabled=!discoveredGame;$('inspect-product').disabled=busy||!discoveredGame||!$('discover-product').value;$('add-product').disabled=busy||!inspected||!state?.canEdit||Boolean(pending);$('discovery-prev').disabled=busy||searchPage<=1;$('discovery-next').disabled=busy||!hasMore; }
+  async function request(path,body){const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...(body?{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':state.csrf},body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{throw Object.assign(Error('响应无法确认，请核对原操作。'),path==='api/center/backend-read'||path==='api/center/preview'?{status:response.status}:{});}if(!response.ok)throw Object.assign(Error(data.message||data.code||'请求失败'),{status:response.status});return data;}
+  function lock(){ $('page-select').disabled=busy||Boolean(pending)||Boolean(uploadRecord);$('upload-media').disabled=busy||!state?.canEdit||Boolean(pending)||Boolean(uploadRecord);$('recover-upload').hidden=!uploadRecord?.unknown;dirty=Boolean(state&&savedDraft&&!same(state.draft,savedDraft))||halloweenDirty;if(previewSignature&&(halloweenDirty||previewSignature!==stable({page_id:selectedPage,draft:state?.draft,model_imports:modelImports(),product_imports:productImports()}))){$('draft-preview').hidden=true;$('preview-status').textContent='配置已变化，请重新整页预览。';previewSignature=null;}renderChanges();$('restore-draft').disabled=busy||Boolean(pending)||!state?.canEdit||dirty||!state?.restore_candidate;$('confirm-restore').disabled=$('restore-draft').disabled; $('center-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('read-benefits').disabled=busy||!state?.canEdit||Boolean(pending);$('publish-center').disabled=Boolean(uploadRecord?.unknown);$('preview-draft').disabled=busy||Boolean(pending)||!state?.canEdit||Boolean(uploadRecord?.unknown);$('read-published').disabled=busy||!state?.published||Boolean(pending);$('discovery-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('discover-search').disabled=busy;$('discover-product').disabled=!discoveredGame;$('inspect-product').disabled=busy||!discoveredGame||!$('discover-product').value;$('add-product').disabled=busy||!inspected||!state?.canEdit||Boolean(pending);$('discovery-prev').disabled=busy||searchPage<=1;$('discovery-next').disabled=busy||!hasMore; }
   function local(value){return value?new Date(value).toISOString().slice(0,16):'';}
   function benefitLabel(ref){const item=catalog.find(x=>x.kind===ref.kind&&x.native_id===ref.native_id);return (ref.kind==='coupon'?'优惠券':'折扣')+' · '+(item?.title||ref.native_id)+(item?' · 原始状态 '+String(item.raw_status??'未知'):' · 尚未核验');}
   function bindings(page,i){return '<ul class="bindings">'+(page.benefit_refs||[]).map((ref,j)=>'<li><span>'+escape(benefitLabel(ref))+'</span><button class="fs-btn" type="button" data-remove="'+i+':'+j+'">移除绑定</button></li>').join('')+'</ul><label for="benefit-'+i+'">选择后台优惠<select id="benefit-'+i+'" data-benefit="'+i+'"><option value="">请选择原生优惠</option>'+catalog.map((ref,j)=>'<option value="'+j+'">'+escape(benefitLabel(ref))+'</option>').join('')+'</select></label><button class="fs-btn" type="button" data-add="'+i+'">添加绑定</button>';}
@@ -23,7 +24,7 @@
   };
   function presentationControls(page,i){
     const seasonal=page.page_id==='seasonal-vault',language=page.default_language||'original',image=page.social_image||'original';
-    return '<div class="config-grid"><label for="language-'+i+'">公开页面语言（固定英文）<select id="language-'+i+'" name="default_language" required>'+[['original','保留原配置（对外英文）'],['en','English'],...(language==='zh'?[['zh','历史演示中文（对外固定英文）']]:[])].map(([value,label])=>'<option value="'+value+'" '+(value===language?'selected':'')+(value==='zh'?' disabled':'')+'>'+label+'</option>').join('')+'</select></label><label for="share-image-'+i+'">社交分享图（已接受素材）<select id="share-image-'+i+'" name="social_image" required>'+['original',...(imageChoices[page.page_id]||[])].map(value=>'<option value="'+value+'" '+(value===image?'selected':'')+'>'+escape(value==='original'?'保留原分享图':value)+'</option>').join('')+'</select></label></div><p class="muted">原主视觉来源：'+escape(seasonal?'已有四套主题 hero，随限定活动主题消费':(imageChoices[page.page_id]||[]).join(' / '))+'。素材替换在上方槽位上传、预览和确认后，再普通保存。</p>';
+    return '<div class="config-grid"><label for="language-'+i+'">公开页面语言（固定英文）<select id="language-'+i+'" name="default_language" required>'+[['original','保留原配置（对外英文）'],['en','English'],...(language==='zh'?[['zh','历史演示中文（对外固定英文）']]:[])].map(([value,label])=>'<option value="'+value+'" '+(value===language?'selected':'')+(value==='zh'?' disabled':'')+'>'+label+'</option>').join('')+'</select></label><label for="share-image-'+i+'">社交分享图（已接受素材）<select id="share-image-'+i+'" name="social_image" required>'+['original',...(imageChoices[page.page_id]||[])].map(value=>'<option value="'+value+'" '+(value===image?'selected':'')+'>'+escape(value==='original'?'保留原分享图':value)+'</option>').join('')+'</select></label></div><p class="muted">原主视觉来源：'+escape(seasonal?'已有四套主题 hero，随限定活动主题消费':(imageChoices[page.page_id]||[]).join(' / '))+'。可在上方替换素材，填写英文说明并确认后统一整页预览或发布。</p>';
   }
   function publicationSummary(){
     const p=state.published;$('published-readback').textContent='尚未核对当前发布版本的公开运行时；保存记录不等于部署或真实交易启用。';
@@ -36,9 +37,10 @@
     link.hidden=!route||!publicPrefixValid;
     if(!route||!publicPrefixValid){link.removeAttribute('href');return;}
     link.href=publicPrefix+route;
-    link.textContent='体验 '+(page()?.title||selectedPage)+' ↗';
+    link.textContent='查看已发布页面 ↗';
   }
   function render(){
+    if(halloweenDirty&&!collectHalloween()){$('center-error').textContent=$('halloween-status').textContent;return;}
     $('draft-state').textContent='修订 '+state.revision;$('publish-state').textContent=state.published?'已有预览发布':'尚未发布';
     $('page-select').innerHTML=state.draft.pages.map(p=>'<option value="'+escape(p.page_id)+'" '+(p.page_id===selectedPage?'selected':'')+'>'+escape(p.title||p.page_id)+'</option>').join('');
     $('seasonal-theme-label').hidden=selectedPage!=='seasonal-vault';$('fc-business').hidden=selectedPage==='seasonal-vault';$('discovery-fields').closest('section').hidden=selectedPage!=='seasonal-vault';
@@ -77,12 +79,18 @@
     };
     compare(savedDraft,state.draft,'');
     for(const page of state.draft.pages)compare(savedDraft.pages.find(p=>p.page_id===page.page_id)||{},page,(page.title||page.page_id)+' · ');
-    $('draft-changes').innerHTML=rows.length?'<strong>本次保存变化（尚未保存）</strong><ul>'+rows.map(x=>'<li>'+escape(x)+'</li>').join('')+'</ul><p>未修改字段保持原有缺省与继承；保存不会发布。</p>':'未修改配置；切换页面不会固定继承数据。';
+    $('draft-changes').innerHTML=rows.length?'<strong>整页未保存修改</strong><ul>'+rows.map(x=>'<li>'+escape(x)+'</li>').join('')+'</ul><p>统一预览可检查所有修改；保存仅保留配置，发布整页时一次验证全部修改。</p>':'未修改配置；切换页面不会固定继承数据。';
   }
   async function load(){busy=true;lock();state=null;try{acceptedState(await request('api/center'));render();if(pending){$('center-status').textContent='已重读服务器状态，正在用原操作 ID 核对结果。';await resolve();}else $('center-status').textContent=state.canEdit?'已读取服务器配置。':'当前账号为只读。';}catch(error){$('center-error').textContent=error.message;}finally{busy=false;lock();}}
   async function resolve(){const receipt=await request(pending.path,pending.body);const refreshed=await request('api/center');persist(null);acceptedState(refreshed);render();$('center-status').textContent='原操作已确认，已重新读取服务器状态。';return receipt;}
-  async function mutate(path,draft,extra={}){if(busy||pending||!state?.canEdit)return;busy=true;lock();$('center-error').textContent='';$('center-status').textContent='正在执行本次草稿操作，请等待原操作结果。';try{persist({path,body:{revision:state.revision,operation_id:crypto.randomUUID(),...(draft?{draft}:{}),...extra}});await resolve();$('center-status').textContent=path.endsWith('/publish')?'预览配置已发布；主站交易仍待接入。':path.endsWith('/restore')?'已恢复上一份草稿的原始字段与继承；未改变公开预览。':'草稿已保存；尚未发布预览。';}catch(error){if([400,403,409,422].includes(error.status)){persist(null);state=null;acceptedState(await request('api/center'));render();}$('center-error').textContent=error.message+(pending?' 原操作记录已保留；请点击重新读取核对，勿新建操作。':' 已重新读取服务器状态，请核对后修改。');}finally{busy=false;lock();}}
-  $('center-form').addEventListener('submit',event=>{event.preventDefault();const draft=readForm();if(!$('center-form').reportValidity())return;if(same(draft,savedDraft)){$('center-status').textContent='没有配置变化，未提交保存。';return;}mutate('api/center',draft);});
+  async function mutate(path,draft,extra={}){if(busy||pending||!state?.canEdit)return;busy=true;lock();$('center-error').textContent='';$('center-status').textContent='正在执行本次草稿操作，请等待原操作结果。';try{persist({path,body:{revision:state.revision,operation_id:crypto.randomUUID(),...(draft?{draft}:{}),...extra}});await resolve();$('center-status').textContent=path.endsWith('/publish')?'预览配置已发布；主站交易仍待接入。':path.endsWith('/restore')?'已恢复上一份草稿的原始字段与继承；未改变公开预览。':'草稿已保存；尚未发布预览。';}catch(error){if([400,403,409,422].includes(error.status)){persist(null);const fresh=await request('api/center');if(fresh.revision===state.revision&&same(fresh.draft,savedDraft)){state.csrf=fresh.csrf;state.canEdit=fresh.canEdit;}else{acceptedState(fresh);render();}}$('center-error').textContent=error.message+(pending?' 原操作记录已保留；请点击重新读取核对，勿新建操作。':' 已重新读取服务器状态，请核对后修改。');}finally{busy=false;lock();}}
+  function collectPage(){
+    $('center-error').textContent='';state.draft=readForm();if(!$('center-form').reportValidity())return null;
+    try{if(!collectHalloween())throw Error($('halloween-status').textContent);applyPendingMedia();lock();return structuredClone(state.draft);}catch(error){$('center-error').textContent=error.message;return null;}
+  }
+  function modelImports(){return stagedModels.filter(m=>state?.draft.pages.find(p=>p.page_id===m.page_id)?.product_keys?.some(key=>key.startsWith('fc-model-266-1327-'+m.model_id+'-')));}
+  function productImports(){return stagedProducts.filter(m=>state?.draft.pages.find(p=>p.page_id===m.page_id)?.product_keys?.includes(m.key)).map(({page_id,product_ref})=>({page_id,product_ref}));}
+  $('center-form').addEventListener('submit',event=>{event.preventDefault();const draft=collectPage();if(!draft)return;if(same(draft,savedDraft)){$('center-status').textContent='没有配置变化，未提交保存。';return;}mutate('api/center',draft,{model_imports:modelImports(),product_imports:productImports()});});
   $('restore-draft').addEventListener('click',()=>{
     const candidate=state?.restore_candidate;if(!candidate||dirty||busy||pending)return;
     $('restore-summary').textContent='恢复到修订 '+candidate.revision+' 的原始草稿字段（包含缺省继承）。涉及页面：'+(candidate.changed_pages||[]).join('、')+'；配置：'+(candidate.changed_fields||[]).map(k=>fieldNames[k]||k).join('、')+'。仅恢复草稿，保留全部历史，不回退公开发布。';
@@ -90,7 +98,18 @@
   });
   $('cancel-restore').addEventListener('click',()=>{$('restore-review').hidden=true;});
   $('confirm-restore').addEventListener('click',()=>{if(!state?.restore_candidate||dirty)return;mutate('api/center/restore',null,{restore_revision:state.restore_candidate.revision});});
-  $('publish-center').addEventListener('click',()=>mutate('api/center/publish'));
+  $('publish-center').addEventListener('click',()=>{const draft=collectPage();if(draft)mutate('api/center/publish',draft,{model_imports:modelImports(),product_imports:productImports()});});
+  $('preview-draft').addEventListener('click',async()=>{
+    if(busy||pending||!state?.canEdit)return;const draft=collectPage();if(!draft)return;
+    busy=true;lock();$('preview-status').textContent='正在生成整页预览；不会保存或发布。';
+    try{
+      const body={revision:state.revision,draft,page_id:selectedPage,model_imports:modelImports(),product_imports:productImports()},result=await request('api/center/preview',body),url=new URL(result.preview_url,location.href);
+      if(url.origin!==location.origin||!url.pathname.startsWith(new URL('preview/',location.href).pathname))throw Error('整页预览地址未通过同源校验。');
+      previewSignature=stable({page_id:selectedPage,draft,model_imports:body.model_imports,product_imports:body.product_imports});$('draft-preview-frame').src=url.href;$('draft-preview').hidden=false;
+      $('preview-status').textContent='当前整页未发布预览：包含本页素材、模型编排与优惠配置；交易未启用。预览到期后可重新打开。';
+    }catch(error){$('draft-preview').hidden=true;$('preview-status').textContent=error.message+' 未保存或发布任何配置。';}finally{busy=false;lock();}
+  });
+  window.addEventListener('beforeunload',event=>{if(dirty||stagedModels.length||stagedProducts.length||uploadRecord){event.preventDefault();event.returnValue='';}});
   $('reload-center').addEventListener('click',()=>{if(!busy)load();});
   for(const type of ['input','change'])$('center-form').addEventListener(type,event=>{if(event.target.id==='page-select'||event.target.closest('#page-products')||event.target.closest('#fc-layout'))return;state.draft=readForm();lock();});
   $('center-pages').addEventListener('click',event=>{const add=event.target.closest('[data-add]'),remove=event.target.closest('[data-remove]');if(!add&&!remove)return;state.draft=readForm();if(add){const i=Number(add.dataset.add),select=$('benefit-'+i);if(!select.value){select.setCustomValidity('请选择后台目录中的原生优惠。');select.reportValidity();select.setCustomValidity('');return;}const ref=catalog[Number(select.value)],refs=state.draft.pages[i].benefit_refs||=[];if(!refs.some(x=>x.kind===ref.kind&&x.native_id===ref.native_id))refs.push({kind:ref.kind,native_id:ref.native_id});}else{const [i,j]=remove.dataset.remove.split(':').map(Number);state.draft.pages[i].benefit_refs.splice(j,1);}dirty=true;render();});
@@ -116,8 +135,8 @@
       const options='<option value="">尚未配置</option>'+models.map(p=>'<option value="'+escape(p.product_ref.model_id)+'" '+(p.product_ref.model_id===g.fixed_model?'selected':'')+'>'+escape(p.title)+' · 模型 '+escape(p.product_ref.model_id)+'</option>').join('');
       const source=g.random_source||{mode:'models',category_id:null,snapshot_complete:false};
       return '<fieldset><legend>'+escape(g.label)+'</legend>'+ (g.id==='fc'?'<p>固定商品业务量：1000K Coins。尚须核实模型及实际购买单位换算，不能用任意SKU代替。</p>':'')+'<label>随机池来源<select data-h-source="'+index+'">'+[['models','指定模型'],['category_snapshot','类目批量快照（本次明确模型列表）'],['category_dynamic','类目动态全可售（抽取前服务端读取）']].map(([v,label])=>'<option value="'+v+'" '+(source.mode===v?'selected':'')+'>'+label+'</option>').join('')+'</select></label><label>Admin 类目 ID<input data-h-category="'+index+'" value="'+escape(source.category_id||'')+'" inputmode="numeric"></label><p>快照不随新增/下架自动扩展；动态规则不会把当前分页当完整目录。实际可售、去重及排除固定项在抽取前重新核验，不足两款保持不可抽取。</p><label>Admin 游戏 ID（须按真实目录核对）<input data-h-game="'+index+'" inputmode="numeric" value="'+escape(g.admin_game_id||'')+'" '+(['fc','aion'].includes(g.id)?'readonly':'')+'></label><label>固定模型<select data-h-fixed="'+index+'">'+options+'</select></label><label>固定模型优惠<select data-h-off="'+index+'"><option value="">尚未配置</option>'+[8,15,10].map(v=>'<option value="'+v+'" '+(v===g.fixed_off_percent?'selected':'')+'>'+v+'% OFF / Admin '+(100-v)+'</option>').join('')+'</select></label><p>随机池（每次由服务端选择两款，不能与固定模型重复）</p>'+models.filter(p=>p.product_ref.model_id!==g.fixed_model).map(p=>'<label class="check"><input type="checkbox" data-h-pool="'+index+'" value="'+escape(p.product_ref.model_id)+'" '+(g.random_models.includes(p.product_ref.model_id)?'checked':'')+'>'+escape(p.title)+' · 模型 '+escape(p.product_ref.model_id)+'</label>').join('')+'<p>这里只选模型，关联产品保留用于规格解析；不是把某个SKU当模型价格。请先在真实商品检索区核对并导入相关模型的关联产品。未核游戏ID和未取得目录不会虚构选项。</p></fieldset>';
-    }).join('')+'<fieldset><legend>抽取档位（万分比权重，总和10000；留空未配置）</legend>'+[8,15,10].map(off=>'<label>'+off+'% OFF<input data-h-weight="'+off+'" type="number" min="0" max="10000" step="1" value="'+escape(h.probabilities?.find(r=>r.off_percent===off)?.weight??'')+'"></label>').join('')+'<label>档位与商品关系<select id="h-binding"><option value="">尚未确定</option><option value="independent" '+(h.tier_product_binding==='independent'?'selected':'')+'>已确认独立抽取（需运营明确选择）</option></select></label><label>万圣节开始时间（含时区ISO格式）<input id="h-start" value="'+escape(h.starts_at||'')+'" placeholder="未配置，不套用FC时间"></label><label>万圣节结束时间（含时区ISO格式）<input id="h-end" value="'+escape(h.ends_at||'')+'"></label><button type="button" id="h-apply" class="fs-btn">确认这些槽位到本地草稿</button></fieldset>';
-    addHalloweenReadControls();
+    }).join('')+'<fieldset><legend>抽取档位（万分比权重，总和10000；留空未配置）</legend>'+[8,15,10].map(off=>'<label>'+off+'% OFF<input data-h-weight="'+off+'" type="number" min="0" max="10000" step="1" value="'+escape(h.probabilities?.find(r=>r.off_percent===off)?.weight??'')+'"></label>').join('')+'<label>档位与商品关系<select id="h-binding"><option value="">尚未确定</option><option value="independent" '+(h.tier_product_binding==='independent'?'selected':'')+'>已确认独立抽取（需运营明确选择）</option></select></label><label>万圣节开始时间（含时区ISO格式）<input id="h-start" value="'+escape(h.starts_at||'')+'" placeholder="未配置，不套用FC时间"></label><label>万圣节结束时间（含时区ISO格式）<input id="h-end" value="'+escape(h.ends_at||'')+'"></label><p class="muted">这些字段随整页预览、保存或发布统一校验，无需逐项确认。</p></fieldset>';
+    addHalloweenReadControls();halloweenShown=new Map([...document.querySelectorAll('#halloween-fields input,#halloween-fields select')].map(el=>[el,el.type==='checkbox'?el.checked:el.value]));
   }
   function addHalloweenReadControls(){
     document.querySelectorAll('#halloween-fields [data-h-fixed]').forEach(select=>{
@@ -129,6 +148,7 @@
       const output=document.createElement('pre');output.dataset.hObservation=index;output.style.whiteSpace='pre-wrap';output.style.overflowWrap='anywhere';output.setAttribute('role','status');box.append(output);
     });
   }
+  $('halloween-business')?.addEventListener('input',()=>{halloweenDirty=true;lock();});
   // Reads remain in the sole editor and never mutate the draft or publish data.
   $('halloween-business')?.addEventListener('click',async event=>{
     const mode=event.target.dataset.hRead,index=event.target.dataset.hIndex;
@@ -148,35 +168,38 @@
     }catch(error){output.textContent='读取未完成：'+error.message+'；不会用空结果替代原配置。';}
     finally{busy=false;lock();}
   });
-  $('halloween-business')?.addEventListener('click',event=>{
-    if(event.target.id!=='h-apply'||busy||pending||!state?.canEdit)return;
-    const h=structuredClone(state.draft.halloween??state.effective_halloween);if(!h)return;
+  function collectHalloween(){
+    if(!halloweenDirty||selectedPage!=='seasonal-vault'||!document.querySelector('[data-h-fixed]'))return true;
+    const original=state.draft.halloween??state.effective_halloween,h=structuredClone(original);if(!h)return true;
+    const changed=el=>halloweenShown.get(el)!==(el.type==='checkbox'?el.checked:el.value),field=(name,i)=>document.querySelector('[data-h-'+name+'="'+i+'"]');
+    const invalid=message=>{$('halloween-status').textContent=message;return false;};
     for(let i=0;i<h.games.length;i++){
-      const g=h.games[i],gid=document.querySelector('[data-h-game="'+i+'"]').value.trim();
-      if(gid&&!/^[1-9]\d{0,19}$/.test(gid)){$('halloween-status').textContent='游戏ID须为已核实的数字ID。';return;}
-      if(gid!==(g.admin_game_id||'')){
-        if(g.fixed_model||g.random_models.length){$('halloween-status').textContent='改变游戏范围前请先明确清除原模型选择，防止串游戏。';return;}
-        g.admin_game_id=gid||null;
+      const g=h.games[i],game=field('game',i),fixed=field('fixed',i),off=field('off',i),source=field('source',i),category=field('category',i),pool=[...document.querySelectorAll('[data-h-pool="'+i+'"]')];
+      if(changed(game)){const id=game.value.trim();if(id&&!/^[1-9]\d{0,19}$/.test(id))return invalid('游戏ID须为已核实的数字ID。');if(g.fixed_model||g.random_models.length)return invalid('改变游戏范围前请先明确清除原模型选择，防止串游戏。');g.admin_game_id=id||null;}
+      if(changed(fixed))g.fixed_model=fixed.value||null;
+      if(changed(off))g.fixed_off_percent=off.value?Number(off.value):null;
+      if(pool.some(changed))g.random_models=pool.filter(el=>el.checked).map(el=>el.value);
+      if(changed(source)||changed(category)){
+        const mode=source.value,id=category.value.trim();if(mode!=='models'&&!/^[1-9]\d{0,19}$/.test(id))return invalid('类目来源须填写已核实的 Admin 类目 ID；不猜类目。');
+        g.random_source={...(g.random_source||{}),mode,category_id:mode==='models'?null:id,snapshot_complete:false};
       }
-      g.fixed_model=document.querySelector('[data-h-fixed="'+i+'"]').value||null;
-      g.fixed_off_percent=Number(document.querySelector('[data-h-off="'+i+'"]').value)||null;
-      g.random_models=[...document.querySelectorAll('[data-h-pool="'+i+'"]:checked')].map(el=>el.value);
-      const mode=document.querySelector('[data-h-source="'+i+'"]').value,category=document.querySelector('[data-h-category="'+i+'"]').value.trim();
-      if(mode!=='models'&&!/^[1-9]\d{0,19}$/.test(category)){$('halloween-status').textContent='类目来源须填写已核实的 Admin 类目 ID；不猜类目。';return;}
-      if(mode==='category_dynamic'&&g.random_models.length){$('halloween-status').textContent='动态类目不能混合静态勾选模型，请明确取消本地列表后再应用。';return;}
-      g.random_source={mode,category_id:mode==='models'?null:category,snapshot_complete:false};
-      if(g.id==='fc')g.fixed_quantity={value:'1000',unit:'K',conversion_verified:false};
-
-      if(g.random_models.includes(g.fixed_model)){$('halloween-status').textContent='固定模型不能同时进入随机池。';return;}
+      if(g.random_source?.mode==='category_dynamic'&&g.random_models.length)return invalid('动态类目不能混合静态勾选模型，请明确取消本地列表。');
+      if(g.fixed_model&&g.random_models.includes(g.fixed_model))return invalid('固定模型不能同时进入随机池。');
     }
     const weights=[...document.querySelectorAll('[data-h-weight]')];
-    if(weights.every(el=>el.value===''))h.probabilities=null;
-    else {if(weights.some(el=>el.value===''||!Number.isInteger(Number(el.value))||Number(el.value)<0)||weights.reduce((sum,el)=>sum+Number(el.value),0)!==10000){$('halloween-status').textContent='三个权重必须同时配置为非负整数，合计10000；不会默认等概率。';return;}h.probabilities=weights.map(el=>({off_percent:Number(el.dataset.hWeight),weight:Number(el.value)}));}
-    h.tier_product_binding=$('h-binding').value||null;
-    for(const [key,id] of [['starts_at','h-start'],['ends_at','h-end']]){const v=$(id).value.trim();if(v&&(!/(Z|[+-]\d{2}:\d{2})$/.test(v)||!Number.isFinite(Date.parse(v)))){$('halloween-status').textContent='时间须含明确时区；留空保持未配置。';return;}h[key]=v||null;}
-    if(h.starts_at&&h.ends_at&&Date.parse(h.starts_at)>=Date.parse(h.ends_at)){$('halloween-status').textContent='截止时间必须晚于开始时间。';return;}
-    state.draft=readForm();state.draft.halloween=h;renderHalloween();renderMaterials();lock();$('halloween-status').textContent='已更新本地槽位，尚未保存或发布；真实抽取与购买仍受门禁控制。';
-  });
+    if(weights.some(changed)){
+      if(weights.every(el=>el.value===''))h.probabilities=null;
+      else{
+        if(weights.some(el=>el.value===''||!Number.isInteger(Number(el.value))||Number(el.value)<0)||weights.reduce((sum,el)=>sum+Number(el.value),0)!==10000)return invalid('三个权重必须同时配置为非负整数，合计10000；不会默认等概率。');
+        const values=new Map(weights.map(el=>[Number(el.dataset.hWeight),Number(el.value)])),order=h.probabilities?.map(row=>row.off_percent)||weights.map(el=>Number(el.dataset.hWeight));
+        h.probabilities=order.map(off_percent=>({off_percent,weight:values.get(off_percent)}));
+      }
+    }
+    if(changed($('h-binding')))h.tier_product_binding=$('h-binding').value||null;
+    for(const [key,id] of [['starts_at','h-start'],['ends_at','h-end']])if(changed($(id))){const v=$(id).value.trim();if(v&&(!/(Z|[+-]\d{2}:\d{2})$/.test(v)||!Number.isFinite(Date.parse(v))))return invalid('时间须含明确时区；留空保持未配置。');h[key]=v||null;}
+    if(h.starts_at&&h.ends_at&&Date.parse(h.starts_at)>=Date.parse(h.ends_at))return invalid('截止时间必须晚于开始时间。');
+    if(!same(original,h))state.draft.halloween=h;halloweenDirty=false;halloweenShown=new Map([...halloweenShown.keys()].map(el=>[el,el.type==='checkbox'?el.checked:el.value]));return true;
+  }
 
   const roleOptions={'seasonal-vault':['preview','pool','fixed','both']};
   const roleLabels={preview:'资料预览 / 未分配',player:'球员展示',bundle:'固定组合展示',core:'SBC 核心展示',companion:'搭档展示',pool:'随机池',fixed:'固定区',both:'随机池及固定区'};
@@ -188,7 +211,7 @@
   }
 
   function prunePairs(page){if(!page.sbc_companions)return;const keys=new Set(pageKeys(page));page.sbc_companions=Object.fromEntries(Object.entries(page.sbc_companions).filter(([key])=>keys.has(key)&&page.product_roles?.[key]==='core').map(([key,values])=>[key,values.filter(k=>keys.has(k)&&page.product_roles?.[k]==='companion')]));}
-  $('page-select').addEventListener('change',()=>{state.draft=readForm();selectedPage=$('page-select').value;inspected=null;modelDetail=null;render();});
+  $('page-select').addEventListener('change',()=>{state.draft=readForm();if(!collectHalloween()){$('page-select').value=selectedPage;$('center-error').textContent=$('halloween-status').textContent;return;}selectedPage=$('page-select').value;inspected=null;modelDetail=null;render();});
   $('page-products').addEventListener('click',event=>{const up=event.target.closest('[data-product-up]'),remove=event.target.closest('[data-product-remove]');if(!up&&!remove||busy||pending)return;state.draft=readForm();const page=state.draft.pages.find(p=>p.page_id===selectedPage);page.product_keys=[...pageKeys(page)];const i=Number(up?up.dataset.productUp:remove.dataset.productRemove);if(up&&i>0)[page.product_keys[i-1],page.product_keys[i]]=[page.product_keys[i],page.product_keys[i-1]];else if(remove){const [key]=page.product_keys.splice(i,1);if(page.product_roles)delete page.product_roles[key];prunePairs(page);}dirty=true;renderPageProducts();lock();});
   $('page-products').addEventListener('change',event=>{if(!event.target.dataset.roleKey||busy||pending)return;state.draft=readForm();const page=state.draft.pages.find(p=>p.page_id===selectedPage);page.product_keys=[...pageKeys(page)];page.product_roles||={};if(event.target.value)page.product_roles[event.target.dataset.roleKey]=event.target.value;else delete page.product_roles[event.target.dataset.roleKey];prunePairs(page);dirty=true;renderPageProducts();lock();});
   $('page-products').addEventListener('click',event=>{if(event.target.id!=='add-existing-product'||busy||pending)return;const key=$('existing-product').value;if(!key)return;state.draft=readForm();const page=state.draft.pages.find(p=>p.page_id===selectedPage);page.product_keys=[...pageKeys(page)];if(!page.product_keys.includes(key))page.product_keys.push(key);dirty=true;renderPageProducts();lock();});
@@ -271,7 +294,7 @@
     if(busy||pending)return;busy=true;lock();modelDetail=null;$('model-detail').hidden=true;
     try{const result=await request('api/center/backend-read',{action:'model_resolve',site_id:'266',game_id:'1327',kind:modelKind(),model_id:id});modelDetail=result.data?.model;if(!modelDetail||modelDetail.model_id!==id)throw Error('模型回执 ID 不匹配。');
       const normalized={...modelDetail,version:modelDetail.version_label,image:modelDetail.image_url,preview_only:true};
-      $('model-detail').innerHTML='<h4>'+escape(modelDetail.title||'模型标题未知')+'</h4><p>模型 '+escape(id)+' · '+escape(modelDetail.version_label||'版本未验证')+'</p><div class="fc-activity" id="resolved-preview">'+window.FCActivityContent.previewCard(normalized,{platform:modelPreviewPlatform})+'</div><p>这份回执只核对身份和平台，不是报价或成交。</p>'+(modelKind()==='sbc'?[0,1].map(i=>'<label>新核心搭档 '+(i+1)+'<select id="new-core-pick-'+i+'"><option value="">请选择已有 Player 版本</option>'+Object.values(state.fc_catalog.products).filter(p=>p.kind==='player').map(p=>'<option value="'+escape(p.key)+'">'+escape(p.title||p.name)+'</option>').join('')+'</select></label>').join(''):'')+'<button id="choose-model" class="fs-btn" type="button">'+(selectedPage==='fc27-weekly'?'添加到推荐首位':'加入当前业务位置')+(matchingKey(modelDetail)!==modelDetail.key?'（复用原卡，需普通保存）':'并保存草稿')+'</button>';$('model-detail').hidden=false;
+      $('model-detail').innerHTML='<h4>'+escape(modelDetail.title||'模型标题未知')+'</h4><p>模型 '+escape(id)+' · '+escape(modelDetail.version_label||'版本未验证')+'</p><div class="fc-activity" id="resolved-preview">'+window.FCActivityContent.previewCard(normalized,{platform:modelPreviewPlatform})+'</div><p>这份回执只核对身份和平台，不是报价或成交。</p>'+(modelKind()==='sbc'?[0,1].map(i=>'<label>新核心搭档 '+(i+1)+'<select id="new-core-pick-'+i+'"><option value="">请选择已有 Player 版本</option>'+Object.values(state.fc_catalog.products).filter(p=>p.kind==='player').map(p=>'<option value="'+escape(p.key)+'">'+escape(p.title||p.name)+'</option>').join('')+'</select></label>').join(''):'')+'<button id="choose-model" class="fs-btn" type="button">'+(selectedPage==='fc27-weekly'?'添加到推荐首位':'加入当前业务位置')+(matchingKey(modelDetail)!==modelDetail.key?'（复用原卡）':'（未保存）')+'</button>';$('model-detail').hidden=false;
       $('model-status').textContent=matchingKey(modelDetail)!==modelDetail.key?'三平台商品与已接受卡精确相同，将复用原卡，避免重复。':'请核对完整版本与三平台状态；缺图须上传本版本素材。';
     }catch(error){$('model-status').textContent=modelError(error);}finally{busy=false;lock();}
   }
@@ -293,7 +316,11 @@
     try{state.draft=readForm();const previous=structuredClone(layout()),key=matchingKey(modelDetail),d=targetLayout(structuredClone(previous),key);if(layoutIds(previous).includes(key)&&same(previous,d)&&selectedPlatforms(key).length===3&&!refsFor(key).some(ref=>page().product_roles?.[ref]==='preview')){$('model-status').textContent='同一模型版本已在本页该结构内，未重复添加或改变旧平台选择。';return;}
       const draft=structuredClone(state.draft);state.draft=draft;state.draft.fc_layout=d;syncLayoutSelection(page(),d,previous,[key]);
       if(productFor(key)&&!key.startsWith('model-')){modelDetail=null;render();return;}
-      await mutate('api/center/import-model',state.draft,{page_id:selectedPage,model_id:modelDetail.model_id,kind:modelKind()});modelDetail=null;render();
+      if(!productFor(key)){
+        stagedModels.push({page_id:selectedPage,model_id:modelDetail.model_id,kind:modelKind()});
+        state.fc_catalog.products[key]={...modelDetail,version:modelDetail.version_label,image:modelDetail.image_url,preview_only:true};
+      }else if(key.startsWith('model-')&&!state.draft.fc_models?.[key]&&!stagedModels.some(m=>m.model_id===modelDetail.model_id&&m.page_id===selectedPage))stagedModels.push({page_id:selectedPage,model_id:modelDetail.model_id,kind:modelKind()});
+      modelDetail=null;render();$('model-status').textContent='已加入本页未保存配置；可继续配置素材与优惠，统一预览或发布。';
     }catch(error){$('model-status').textContent=modelError(error);}
   });
   const uploadStorageKey='fs-media-upload:'+location.pathname;
@@ -316,11 +343,16 @@
   $('upload-media').addEventListener('click',async()=>{if(busy||pending||uploadRecord||!state?.canEdit)return;const file=$('media-file').files[0];if(!file||!['image/png','image/jpeg','image/webp'].includes(file.type)){$('media-status').textContent='请选择 PNG、JPEG 或 WebP 图片。';return;}try{const id=crypto.randomUUID();await uploadBytes(id,file);retainUpload({id,page_id:selectedPage,target:$('media-target').value,unknown:true});await sendUpload();}catch(error){$('media-status').textContent=error.message;}});
   $('recover-upload').addEventListener('click',sendUpload);
   $('cancel-media').addEventListener('click',async()=>{if(uploadRecord?.unknown){$('media-status').textContent='原上传结果未知；请先核对原操作，不更换 ID。';return;}if(uploadRecord)await uploadBytes(uploadRecord.id,null,true);retainUpload(null);$('media-candidate').hidden=true;$('media-preview').hidden=false;$('media-file').value='';$('media-status').textContent='已取消素材绑定，草稿保持原形。';});
-  $('bind-media').addEventListener('click',()=>{
-    if(!uploadRecord?.asset||uploadRecord.unknown||busy||pending||!state?.canEdit)return;if(selectedPage!==uploadRecord.page_id){$('media-status').textContent='请回到原目标页 '+uploadRecord.page_id+' 再确认绑定，未改变任何页面。';return;}const alt=$('media-alt').value.trim();if(!$('media-confirm').checked||!alt||/[<>\u0000-\u001f]|\p{Script=Han}/u.test(alt)){$('media-status').textContent='请先预览图片、确认没有中文，并填写英文说明。';return;}
-    state.draft=readForm();const p=state.draft.pages.find(p=>p.page_id===uploadRecord.page_id);p.media||={};const ref={asset_id:uploadRecord.asset.asset_id,alt,public_english_confirmed:true};if(uploadRecord.target.startsWith('card:')){p.media.cards||={};p.media.cards[uploadRecord.target.slice(5)]=ref;}else p.media[uploadRecord.target]=ref;
-    retainUpload(null);$('media-candidate').hidden=true;renderMaterials();lock();$('media-status').textContent='已应用到本页未保存草稿；请普通保存，不会自动发布。';
-  });
+  function applyPendingMedia(){
+    if(!uploadRecord)return true;
+    if(uploadRecord.unknown||uploadRecord.rejected||!uploadRecord.asset)throw Error('素材上传尚未确认，请核对原上传或取消已拒绝的文件。');
+    if(selectedPage!==uploadRecord.page_id)throw Error('请返回原素材目标页后继续，未改变其他页面。');
+    const alt=$('media-alt').value.trim();
+    if(!$('media-confirm').checked||!alt||/[<>\u0000-\u001f]|\p{Script=Han}/u.test(alt))throw Error('请预览素材，确认没有中文，并填写英文图片说明。');
+    const p=page(),ref={asset_id:uploadRecord.asset.asset_id,alt,public_english_confirmed:true};p.media||={};
+    if(uploadRecord.target.startsWith('card:')){p.media.cards||={};p.media.cards[uploadRecord.target.slice(5)]=ref;}else p.media[uploadRecord.target]=ref;
+    retainUpload(null);$('media-candidate').hidden=true;renderMaterials();return true;
+  }
   $('page-materials').addEventListener('click',event=>{const button=event.target.closest('[data-clear-media]');if(!button||busy||pending)return;state.draft=readForm();const key=button.dataset.clearMedia;if(key.startsWith('card:')){delete page().media.cards[key.slice(5)];if(!Object.keys(page().media.cards).length)delete page().media.cards;}else delete page().media[key];if(!Object.keys(page().media).length)delete page().media;renderMaterials();lock();});
   try{uploadRecord=JSON.parse(sessionStorage.getItem(uploadStorageKey)||'null');if(uploadRecord?.asset)showUpload();else if(uploadRecord?.rejected){$('media-candidate').hidden=false;$('media-preview').hidden=true;$('media-status').textContent='原上传已明确拒绝，可取消后选择其他文件。';}}catch{$('media-status').textContent='原上传记录不可读，请保留会话并核对。';}
 
@@ -371,11 +403,12 @@
   $('discover-products').addEventListener('click',()=>search(1));
   $('discovery-prev').addEventListener('click',()=>search(searchPage-1));
   $('discovery-next').addEventListener('click',()=>search(searchPage+1));
-  $('add-product').addEventListener('click',async()=>{
-    if(busy||pending||!inspected||!state?.canEdit)return;
-    const draft=readForm();if(!$('center-form').reportValidity())return;
-    busy=true;lock();try{persist({path:'api/center/import-product',body:{revision:state.revision,operation_id:crypto.randomUUID(),draft,page_id:selectedPage,product_ref:inspected.product_ref}});await resolve();$('center-status').textContent='商品已核验并选入本页草稿；未发布，未开放购买。';}
-    catch(error){if([400,403,409,422].includes(error.status)){persist(null);acceptedState(await request('api/center'));render();}$('center-error').textContent=error.message+(pending?' 原操作已保留，请核对原操作；不要重复选入。':' 请求未接受，已重读配置，请核对后再编辑。');}finally{busy=false;lock();}
+  $('add-product').addEventListener('click',()=>{
+    if(busy||pending||!inspected||!state?.canEdit)return;state.draft=readForm();if(!collectHalloween()){$('center-error').textContent=$('halloween-status').textContent;return;}
+    const ref=inspected.product_ref,aid=inspected.platform_attribute_id&&inspected.platform_attribute_id!=='0'?inspected.platform_attribute_id:'unknown',key='admin-'+[ref.site_id,ref.game_id,ref.goods_id,aid].join('-')+(ref.sku_id?'-sku-'+ref.sku_id:'');
+    if(!pageKeys(page()).includes(key)){page().product_keys=[...pageKeys(page()),key];stagedProducts.push({page_id:selectedPage,product_ref:structuredClone(ref),key});}
+    if(!state.catalog_products.some(p=>p.key===key))state.catalog_products.push({key,title:inspected.title,product_ref:structuredClone(ref),preview_only:true,available:false,quantity:null,platform:{...(aid==='unknown'?{}:{attribute_id:aid})}});
+    renderPageProducts();renderHalloween();lock();$('center-status').textContent='商品已选入本页未保存配置；统一预览或发布时重新核验，不会立即保存。';
   });
   $('inspect-product').addEventListener('click',async()=>{
     if(busy||pending||!state?.canEdit||!discoveredGame)return;

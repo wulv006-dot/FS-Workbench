@@ -53,6 +53,33 @@ class Release(unittest.TestCase):
    p.m.rollback_credentials(stage,dict(manifest=manifest,files=rows,approvedManifestSha256=sha),sha)
    (stage/'candidate/app/index.html').write_text('changed')
    with self.assertRaises(ValueError):p.validate(manifest,stage)
+ def test_provider_exact_target_and_original_cas_without_other_backend_admission(self):
+  name='backend/campaign_backend/provider.py'
+  self.assertEqual(p.target(name),'/opt/fs-campaign-dashboard/'+name)
+  for invalid in ['backend/campaign_backend/provider_extra.py','backend/campaign_backend/provider.pyc',
+   'backend/campaign_backend/./provider.py','backend/campaign_backend/x/../provider.py',
+   'backend/campaign_backend/../provider.py','backend\\campaign_backend\\provider.py',
+   '/backend/campaign_backend/provider.py','backend//campaign_backend/provider.py']:
+   with self.subTest(invalid=invalid),self.assertRaises(ValueError):p.target(invalid)
+  with tempfile.TemporaryDirectory() as tmp:
+   stage=Path(tmp)/'stage';root=Path(tmp)/'root';rows=[]
+   for candidate in sorted(p.REQUIRED_SPECIAL)+[name]:
+    file=stage/'candidate'/candidate;file.parent.mkdir(parents=True,exist_ok=True)
+    file.write_bytes((Path(__file__).parent/name).read_bytes() if candidate==name else b'candidate fixture')
+    target=p.target(candidate);before=p.m.rooted(root,target);before.parent.mkdir(parents=True,exist_ok=True);before.write_bytes(b'accepted baseline')
+    rows.append(dict(candidate=candidate,target=target,sha256=p.m.digest(file),beforeSha256=p.m.digest(before)))
+   guard_rows=[]
+   for target in ['/opt/auth-portal/auth_portal.py','/opt/fs-access-policy/rbac.py']:
+    file=p.m.rooted(root,target);file.parent.mkdir(parents=True,exist_ok=True);file.write_bytes(b'unchanged guard')
+    guard_rows.append(dict(path=target,sha256=p.m.digest(file)))
+   manifest=dict(schemaVersion=1,scope=p.SCOPE,releaseReady=False,targets={r['candidate']:r['target'] for r in rows},files=rows,unchangedRequired=guard_rows)
+   # Only unrelated host retirement checks are mocked; real adapter validate/guards/CAS run on fixtures.
+   with patch.object(p.m,'retirement'):
+    self.assertEqual(p.m.inspect(manifest,stage,root)['sourceCAS'],'passed')
+    p.m.rooted(root,p.target(name)).write_bytes(b'drift after review')
+    with self.assertRaisesRegex(ValueError,'target baseline drift'):p.m.inspect(manifest,stage,root)
+   provider=rows[-1];provider['target']='/opt/fs-campaign-dashboard/backend/other.py';manifest['targets'][name]=provider['target']
+   with self.assertRaisesRegex(ValueError,'target changed'):p.validate(manifest,stage)
  def test_pinned_base_and_optional_runtime_pair(self):
   self.assertEqual(hashlib.sha256(p.base.read_bytes()).hexdigest(),p.BASE_SHA)
   with tempfile.TemporaryDirectory() as tmp:

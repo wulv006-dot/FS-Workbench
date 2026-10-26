@@ -122,12 +122,17 @@ class PackagingTests(unittest.TestCase):
             self.assertIn(setting, env)
 
     def test_static_manifest_exact_whitelist_excludes_internal_data_tests_and_nested_assets(self):
+        native = (Path(__file__).parent / 'app/native-code-handoff.js').read_bytes()
+        self.write('app/native-code-handoff.js', native)
         for name in ('catalog.json', 'analytics/private.json', 'tests/test.cjs', 'docs/notes.md',
                      'assets/nested/hidden.png', 'raw.json'):
             self.write('app/' + name, b'private')
         self.prepare()
         static = json.loads((self.output / 'candidate/app/runtime/static-manifest.json').read_text())
         self.assertIn('seasonal/index.html', static)
+        self.assertEqual(static['native-code-handoff.js'], package.sha(native))
+        self.assertIn('app/native-code-handoff.js', self.manifest()['targets'])
+        self.assertEqual((self.output / 'candidate/app/native-code-handoff.js').read_bytes(), native)
         self.assertIn('seasonal/assets/hero.webp', static)
         self.assertNotIn('catalog.json', static)
         self.assertFalse(any('private' in name or 'nested' in name or name.startswith(('tests/', 'docs/')) for name in static))

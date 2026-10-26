@@ -91,7 +91,7 @@ function preserveDraftShape(input,options){
  return structuredClone(input);
 }
 
-export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pageProductKeys={},fc_layout,seedProvider,validateFcLayout,checkpoint=()=>{}}){
+export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pageProductKeys={},fc_layout,seedProvider,validateFcLayout,nativeCheckoutProvider=()=>({status:'unconfigured'}),checkpoint=()=>{}}){
  const stateFile=path.join(dir,'state.json'),pendingFile=path.join(dir,'pending.json');
  const rawRead=()=>fs.existsSync(stateFile)?JSON.parse(fs.readFileSync(stateFile,'utf8')):{revision:0,draft:initialCenterDraft(),updated_at:null,updated_by:null,published:null};
  const readJSON=file=>JSON.parse(fs.readFileSync(file,'utf8'));
@@ -100,7 +100,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
  const draftOf=input=>validateDraft(input,{validateFcLayout});
  const storedDraft=input=>preserveDraftShape(input,{validateFcLayout});
  const requestHash=(request,kind)=>digest(canonical({kind,revision:request.revision,draft:request.draft??null,
-  ...(kind==='import'?{page_id:request.page_id,product_ref:request.product_ref}: {}),...(kind==='model-import'?{page_id:request.page_id,model_id:request.model_id,model_kind:request.kind}:{}),...(kind==='restore'?{restore_revision:request.restore_revision}:{})}));
+  ...(kind==='import'?{page_id:request.page_id,product_ref:request.product_ref}: {}),...(kind==='model-import'?{page_id:request.page_id,model_id:request.model_id,model_kind:request.kind}:{}),...(kind==='restore'?{restore_revision:request.restore_revision}:{}),...(Object.hasOwn(request,'model_imports')?{model_imports:request.model_imports}:{}),...(Object.hasOwn(request,'product_imports')?{product_imports:request.product_imports}:{})}));
  function preserveImports(current,draft){
   if(canonical(current.draft.imported_products||[])!==canonical(draft?.imported_products||[]))fail('IMPORTED_PRODUCTS_SERVER_OWNED');
   if(Object.hasOwn(current.draft,'fc_models')!==Object.hasOwn(draft||{},'fc_models')||canonical(current.draft.fc_models)!==canonical(draft?.fc_models))fail('MODELS_SERVER_OWNED');
@@ -165,16 +165,72 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
   const operation_id=uuid(request.operation_id),opFile=path.join(dir,'operations',operation_id+'.json'),hash=requestHash(request,kind);
   const current=read();if(request.revision!==current.revision)fail('REVISION_CONFLICT',409);
   const {result,snapshot}=action(current);
-  result.last_operation={operation_id,hash,kind,...(kind==='restore'?{restore_revision:request.restore_revision}:{})};result.updated_by=user;result.updated_at=new Date().toISOString();
+  result.last_operation={operation_id,hash,kind,...(kind==='restore'?{restore_revision:request.restore_revision}:{}),...(Object.hasOwn(request,'model_imports')?{model_imports:request.model_imports}:{})};result.updated_by=user;result.updated_at=new Date().toISOString();
   const plan={operation_id,hash,previous:current,result,...(snapshot?{snapshot}:{})};
   // Freeze the exact payload and release before any externally visible publication step.
   atomic(pendingFile,plan);checkpoint('prepared');return finish(plan);
  }
  function recover(request,kind){uuid(request.operation_id);read();const file=path.join(dir,'operations',request.operation_id+'.json'),hash=requestHash(request,kind);if(fs.existsSync(file)){const prior=readJSON(file);if(prior.hash!==hash)fail('REQUEST_CONFLICT',409);return prior.result;}return null;}
- return {read,recoverImport:request=>recover(request,'import'),recoverModel:request=>recover(request,'model-import'),restoreCandidate:state=>previousDraft(state||read())?.summary||null,
+ function candidate(current,request,details=[],productDetails=[]){
+  preserveImports(current,request.draft);const draft=structuredClone(request.draft),imports=Object.hasOwn(request,'model_imports')?request.model_imports:[];
+  if(!Array.isArray(imports)||imports.length>30||details.length!==imports.length)fail('INVALID_MODEL_IMPORTS');
+  const seen=new Set();for(let i=0;i<imports.length;i++){
+   const entry=imports[i],model=projectModelCard(details[i]);if(!entry)fail('INVALID_MODEL_IMPORTS');const scope=entry.page_id+':'+entry.model_id;
+   if(Object.keys(entry).some(k=>!['page_id','model_id','kind'].includes(k))||!['fc27-weekly','fc27-sbc','fc27-trio'].includes(entry.page_id)||entry.model_id!==model.model_id||entry.kind!==model.kind||seen.has(scope))fail('INVALID_MODEL_IMPORTS');seen.add(scope);
+   const prior=draft.fc_models?.[model.key];if(prior&&canonical(prior)!==canonical(model))fail('MODEL_BINDING_CHANGED',409);
+   const layout=draft.fc_layout,keys=entry.page_id==='fc27-weekly'?layout?.weekly:entry.page_id==='fc27-trio'?[...(layout?.trio||[]),...(layout?.bundles||[])]:[...(layout?.sbc||[]),...Object.values(layout?.routes||{}).flatMap(row=>[...(row.picks||[]),...(row.alternatives||[])])];
+   if(!keys?.includes(model.key))fail('MODEL_TARGET_SELECTION_REQUIRED');
+   draft.fc_models={...(draft.fc_models||{}),[model.key]:model};
+  }
+  const productImports=Object.hasOwn(request,'product_imports')?request.product_imports:[];
+  if(!Array.isArray(productImports)||productImports.length>30||productDetails.length!==productImports.length)fail('INVALID_PRODUCT_IMPORTS');
+  const seenProducts=new Set();for(let i=0;i<productImports.length;i++){
+   const entry=productImports[i],product=projectImportedProduct(productDetails[i]),ref=entry?.product_ref,page=draft.pages?.find(p=>p.page_id===entry?.page_id);
+   if(!entry||Object.keys(entry).some(k=>!['page_id','product_ref'].includes(k))||!page||!ref||typeof ref!=='object'||Array.isArray(ref)||Object.keys(ref).some(k=>!['site_id','game_id','goods_id','model_id','sku_id'].includes(k))
+    ||['site_id','game_id','goods_id'].some(k=>ref[k]!==product.product_ref[k])||['model_id','sku_id'].some(k=>Object.hasOwn(ref,k)&&ref[k]!==product.product_ref[k]))fail('IMPORTED_PRODUCT_IDENTITY_MISMATCH');
+   const scope=entry.page_id+':'+product.key;if(seenProducts.has(scope))fail('INVALID_PRODUCT_IMPORTS');seenProducts.add(scope);
+   if(!page.product_keys?.includes(product.key))fail('PRODUCT_TARGET_SELECTION_REQUIRED');
+   const prior=draft.imported_products?.find(p=>p.key===product.key);if(prior&&canonical(prior)!==canonical(product))fail('IMPORTED_BINDING_CHANGED',409);
+   if(!prior)(draft.imported_products||=[]).push(product);
+  }
+  const stored=storedDraft(draft);selectionScope(draftOf(stored),seedNow(stored));return stored;
+ }
+ function snapshotFor(draft,revision,native_checkout){
+  const release_id='campaign-preview-'+revision;
+   const seed=seedNow(draft);selectionScope(draft,seed);
+   const selected=Object.fromEntries(draft.pages.map(p=>[p.page_id,Object.hasOwn(p,'product_keys')?p.product_keys:seed.pageProductKeys[p.page_id]||[]]));
+   if(draft.halloween)selected['seasonal-vault']=[...new Set([...selected['seasonal-vault'],...halloweenProductKeys(draft.halloween,[...seed.seedProducts,...(draft.imported_products||[])])])];
+   const used=new Set(Object.values(selected).flat());
+   const products=seed.seedProducts.map(p=>({...p,available:false}));
+   for(const imported of (draft.imported_products||[]).filter(p=>used.has(p.key))){
+    const index=products.findIndex(p=>p.key===imported.key);
+    if(index<0){products.push(imported);continue;}
+    const trusted=products[index];
+    if(canonical(trusted.product_ref)!==canonical(imported.product_ref)||canonical(trusted.platform)!==canonical(imported.platform))fail('PROVIDER_IMPORT_IDENTITY_CONFLICT');
+    // Upgrade only the publication projection. Preserve the stored draft's raw
+    // shape/history; no preview-only null quantity overwrites trusted options.
+    if(typeof imported.title==='string'&&!/[\u3400-\u9fff]/u.test(imported.title))products[index]={...trusted,title:imported.title};
+   }
+   const seasonalKeys=new Set(selected['seasonal-vault']);
+   const scopedOptions=seed.seasonal_model_contracts?Object.fromEntries(Object.entries(seed.seasonal_model_contracts).flatMap(([id,source])=>{
+    const combinations=source.combinations.filter(c=>seasonalKeys.has(c.product_key));
+    if(!combinations.length)return [];
+    // Legacy per-product selection may intentionally omit a platform. Do not
+    // expose its price or reinterpret the remaining row as the original default.
+    return [[id,{...source,combinations,ordering_verified:source.ordering_verified===true&&combinations.length===source.combinations.length}]];
+   })):null;
+   const modelOptions=scopedOptions?projectModelOptions(scopedOptions,products):null;
+   return createSnapshot({schema_version:1,publication_status:'published',release_id,source_revision:sourceRevision,
+    config_hash:digest(canonical({draft,products,native_checkout,pageProductKeys:selected,fc_layout:seed.fc_layout??null,...(modelOptions?{seasonal_model_contracts:modelOptions}:{})})),native_checkout,rule_hash:digest(canonical(draft.halloween?{benefits:draft.pages.map(p=>p.benefit_refs),halloween:draft.halloween}:draft.pages.map(p=>p.benefit_refs))),products,...(modelOptions?{seasonal_model_contracts:modelOptions}:{}),...(draft.halloween?{halloween:draft.halloween}:{}),seasonal_theme:draft.seasonal_theme,...(seed.fc_layout?{fc_layout:seed.fc_layout}:{}),...(seed.fc_models?{fc_models:seed.fc_models}:{}),media_assets:assets.manifest(draft),
+    pages:draft.pages.map(p=>({activity_id:p.activity_id,page_id:p.page_id,path:p.path,title:p.title,
+     description:p.description,default_language:p.default_language,social_image:p.social_image,...(Object.hasOwn(p,'media')?{media:p.media}:{}),rule_version:'preview-'+revision,benefit_binding_version:'unverified-'+revision,product_keys:selected[p.page_id],...pageDisplayFields({...p,product_keys:selected[p.page_id]}),
+     active:p.preview_enabled,...(p.starts_at?{starts_at:p.starts_at}:{}),...(p.ends_at?{ends_at:p.ends_at}:{})}))});
+ }
+ return {read,recoverSave:request=>recover(request,'save'),recoverPublish:request=>recover(request,'publish'),recoverImport:request=>recover(request,'import'),recoverModel:request=>recover(request,'model-import'),restoreCandidate:state=>previousDraft(state||read())?.summary||null,
   uploadAsset:(operationId,bytes,mime,user)=>assets.stage(operationId,bytes,mime,user),readAsset:assetId=>assets.read(assetId),
-  save(request,user){return recover(request,'save')||operation(request,'save',user,current=>{
-   preserveImports(current,request.draft);const draft=storedDraft(request.draft);selectionScope(draftOf(draft),seedNow(draft));
+  preview(request,details=[],productDetails=[]){if(fs.existsSync(pendingFile))fail('PENDING_OPERATION_RECOVERY_REQUIRED',409);const current=rawRead();if(request.revision!==current.revision)fail('REVISION_CONFLICT',409);const draft=draftOf(candidate(current,request,details,productDetails));return snapshotFor(draft,current.revision+1,{status:'unconfigured'});},
+  save(request,user,details=[],productDetails=[]){return recover(request,'save')||operation(request,'save',user,current=>{
+   const draft=candidate(current,request,details,productDetails);
    return {result:{...current,revision:current.revision+1,draft}};
   });},
   importModel(request,user,detail){return recover(request,'model-import')||operation(request,'model-import',user,current=>{
@@ -205,37 +261,11 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
     return {result:{...current,revision:current.revision+1,draft:previous.draft}};
    });
   },
-  publish(request,user){return recover(request,'publish')||operation(request,'publish',user,current=>{
-   const draft=draftOf(current.draft),revision=current.revision+1,release_id='campaign-preview-'+revision;
-   const seed=seedNow(draft);selectionScope(draft,seed);
-   const selected=Object.fromEntries(draft.pages.map(p=>[p.page_id,Object.hasOwn(p,'product_keys')?p.product_keys:seed.pageProductKeys[p.page_id]||[]]));
-   if(draft.halloween)selected['seasonal-vault']=[...new Set([...selected['seasonal-vault'],...halloweenProductKeys(draft.halloween,[...seed.seedProducts,...(draft.imported_products||[])])])];
-   const used=new Set(Object.values(selected).flat());
-   const products=seed.seedProducts.map(p=>({...p,available:false}));
-   for(const imported of (draft.imported_products||[]).filter(p=>used.has(p.key))){
-    const index=products.findIndex(p=>p.key===imported.key);
-    if(index<0){products.push(imported);continue;}
-    const trusted=products[index];
-    if(canonical(trusted.product_ref)!==canonical(imported.product_ref)||canonical(trusted.platform)!==canonical(imported.platform))fail('PROVIDER_IMPORT_IDENTITY_CONFLICT');
-    // Upgrade only the publication projection. Preserve the stored draft's raw
-    // shape/history; no preview-only null quantity overwrites trusted options.
-    if(typeof imported.title==='string'&&!/[\u3400-\u9fff]/u.test(imported.title))products[index]={...trusted,title:imported.title};
-   }
-   const seasonalKeys=new Set(selected['seasonal-vault']);
-   const scopedOptions=seed.seasonal_model_contracts?Object.fromEntries(Object.entries(seed.seasonal_model_contracts).flatMap(([id,source])=>{
-    const combinations=source.combinations.filter(c=>seasonalKeys.has(c.product_key));
-    if(!combinations.length)return [];
-    // Legacy per-product selection may intentionally omit a platform. Do not
-    // expose its price or reinterpret the remaining row as the original default.
-    return [[id,{...source,combinations,ordering_verified:source.ordering_verified===true&&combinations.length===source.combinations.length}]];
-   })):null;
-   const modelOptions=scopedOptions?projectModelOptions(scopedOptions,products):null;
-   const snapshot=createSnapshot({schema_version:1,publication_status:'published',release_id,source_revision:sourceRevision,
-    config_hash:digest(canonical({draft,products,pageProductKeys:selected,fc_layout:seed.fc_layout??null,...(modelOptions?{seasonal_model_contracts:modelOptions}:{})})),rule_hash:digest(canonical(draft.halloween?{benefits:draft.pages.map(p=>p.benefit_refs),halloween:draft.halloween}:draft.pages.map(p=>p.benefit_refs))),products,...(modelOptions?{seasonal_model_contracts:modelOptions}:{}),...(draft.halloween?{halloween:draft.halloween}:{}),seasonal_theme:draft.seasonal_theme,...(seed.fc_layout?{fc_layout:seed.fc_layout}:{}),...(seed.fc_models?{fc_models:seed.fc_models}:{}),media_assets:assets.manifest(draft),
-    pages:draft.pages.map(p=>({activity_id:p.activity_id,page_id:p.page_id,path:p.path,title:p.title,
-     description:p.description,default_language:p.default_language,social_image:p.social_image,...(Object.hasOwn(p,'media')?{media:p.media}:{}),rule_version:'preview-'+revision,benefit_binding_version:'unverified-'+revision,product_keys:selected[p.page_id],...pageDisplayFields({...p,product_keys:selected[p.page_id]}),
-     active:p.preview_enabled,...(p.starts_at?{starts_at:p.starts_at}:{}),...(p.ends_at?{ends_at:p.ends_at}:{})}))});
-   return {snapshot,result:{...current,revision,draft:current.draft,published:{release_id,config_hash:snapshot.config_hash,rule_hash:snapshot.rule_hash,mode:'preview',live_checkout:false,published_at:new Date().toISOString(),source_revision:sourceRevision,seasonal_theme:draft.seasonal_theme,pages:draft.pages.map(p=>({...p}))}}};
+  publish(request,user,details=[],productDetails=[]){return recover(request,'publish')||operation(request,'publish',user,current=>{
+   const stored=Object.hasOwn(request,'draft')?candidate(current,request,details,productDetails):current.draft;
+   if(!Object.hasOwn(request,'draft')&&(request.model_imports?.length||request.product_imports?.length))fail('INVALID_PENDING_IMPORTS');
+   const draft=draftOf(stored),revision=current.revision+1,release_id='campaign-preview-'+revision,snapshot=snapshotFor(draft,revision,nativeCheckoutProvider());
+   return {snapshot,result:{...current,revision,draft:stored,published:{release_id,config_hash:snapshot.config_hash,rule_hash:snapshot.rule_hash,mode:'preview',live_checkout:false,published_at:new Date().toISOString(),source_revision:sourceRevision,seasonal_theme:draft.seasonal_theme,pages:draft.pages.map(p=>({...p}))}}};
   })}
  };
 }
