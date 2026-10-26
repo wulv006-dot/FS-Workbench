@@ -410,6 +410,8 @@ def select(paths):
             groups.add("fc-cost-timeout");continue
         if name.startswith("releases/fc-coins/fc-cost-live-recovery-20261025/"):
             groups.add("fc-cost-live-recovery");continue
+        if name.startswith("releases/fc-coins/fc-review-channel-20261026/"):
+            groups.add("fc-review-channel");continue
         if name.startswith("releases/fc-coins/fc-review-u4gm-recovery-20261025/"):
             groups.add("fc-review-u4gm-recovery");continue
         if name.startswith("releases/fc-players/history-five-20261024/"):
@@ -780,6 +782,9 @@ def main():
             continue
         if group=="fc-cost-live-recovery":
             units("releases/fc-coins/fc-cost-live-recovery-20261025/tests",["test_recovery","test_cost_context"])
+            continue
+        if group=="fc-review-channel":
+            units("releases/fc-coins/fc-review-channel-20261026/tests",["test_channel"])
             continue
         if group=="fc-review-u4gm-recovery":
             units("releases/fc-coins/fc-review-u4gm-recovery-20261025/tests",["test_recovery"])
