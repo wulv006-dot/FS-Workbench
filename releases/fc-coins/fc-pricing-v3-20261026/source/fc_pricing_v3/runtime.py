@@ -213,7 +213,7 @@ def render_result(evidence,selected,bundle,mode):
         target=number(action['base_prices'][group])
         public_anchor=evidence['offers'][p]['Lootbar']
         offers=[dict(source=s,**value) for s,value in evidence['offers'][p].items()]
-        rows.append(dict(platform=p,proposal=str(target/100),auto_proposal=str(target/100),
+        rows.append(dict(platform=p,proposal=format(target/100,'.4f'),auto_proposal=format(target/100,'.4f'),
             raw_cost_cny=cost['cny_per_1k'],cost_cny=cost['cny_per_1k'],raw_cost_record_id=cost['record_id'],
             raw_cost_trade_at=cost['trade_at'],cost_record_id=cost['record_id'],cost_trade_at=cost['trade_at'],
             target_page_usd=str(target),floor_usd_per_1k=fp['catalog']['minimum_unit_usd'],

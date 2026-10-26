@@ -368,7 +368,7 @@
       if (rows.length !== 1) fail(`${platform} 报价结果重复或缺失`);
       const row = rows[0];
       if (row.status === '缺成本' || row.missing?.length || !Array.isArray(row.offers) ||
-          row.offers.length !== SITES.length || !row.proposal)
+          row.offers.length !== Object.keys(evidence.offers?.[platform] || {}).length || !row.proposal)
         fail(`${platform} 报价存在缺项，停止改价`);
       if (!sameMoney(row.raw_cost_cny, sourceCost.cny_per_1k, 6))
         fail(`${platform} 当前计算引用的原始成本与本轮采集不一致`);
