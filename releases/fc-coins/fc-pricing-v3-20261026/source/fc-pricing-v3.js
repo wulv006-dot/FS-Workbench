@@ -118,7 +118,7 @@
         card.append(node('p',`${scope} ${platform} · 每 100K 实际交付 ${usd(position.actual_unit_100k)} · 相对竞品 ${differences} · ${position.competitive_band_met?'达到 5–10% 区间':'未达到竞争区间'}`));
       }
     }
-    else if(r?.failures?.length)card.append(node('p',`当前不可执行：${r.failures.map(f=>statusText(f.code)).join('；')}`));
+    else if(r?.failures?.length)card.append(node('p',`当前不可执行：${[...new Set(r.failures.map(f=>statusText(f.code)))].join('；')}`));
     if(r?.status==='INFEASIBLE')card.append(node('p','本次未写价；已启用计划按正常周期重新评估。最近公开价仍以上方实际读回为准。'));
     cards.append(card);
     $('v3-decision-basis').textContent=`本轮快照 ${state.snapshot_id||'尚无'} · ${names[mode]} · ${r?.selected?'已形成候选；执行前仍需新鲜财务与市场重证':'当前没有可执行的同策略候选'}。`;
@@ -256,7 +256,7 @@
   $('v3-execute').addEventListener('click',()=>action(()=>request('execute',{request_key:'cycle-'+current.snapshot_id+'-'+chosenPlan().plan_id,plan_id:chosenPlan().plan_id})));
   $('v3-preview').addEventListener('click',()=>action(async()=>{
     const result=await request('preview',{mode:$('v3-mode').value});
-    $('v3-preview-output').textContent=Object.entries(result.results).map(([m,r])=>`${names[m]}：${statusText(r.status)}；${r.selected?`Console ${usd(r.selected.action.base_prices.console)} / PC ${usd(r.selected.action.base_prices.pc)}`:`技术原因 ${(r.failures||[]).map(f=>f.code).join('；')}`}`).join('\n');
+    $('v3-preview-output').textContent=Object.entries(result.results).map(([m,r])=>`${names[m]}：${statusText(r.status)}；${r.selected?`Console ${usd(r.selected.action.base_prices.console)} / PC ${usd(r.selected.action.base_prices.pc)}`:`当前不可执行 ${[...new Set((r.failures||[]).map(f=>statusText(f.code)))].join('；')}`}`).join('\n');
   }));
   $('v3-manual-form').addEventListener('submit',event=>{event.preventDefault();action(async()=>{
     const restore=$('v3-restore-id').value.trim();
