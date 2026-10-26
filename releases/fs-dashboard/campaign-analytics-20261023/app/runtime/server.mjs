@@ -3,10 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createCommerce,createIntegrationTestAdapter} from './commerce.mjs';
-import {fail,loadStatic} from './snapshot.mjs';
+import {fail,loadStatic,projectRelease} from './snapshot.mjs';
 import {presentPage,projectFcCatalog,publicEnglishRelease} from './presentation.mjs';
 import {readPublishedMedia} from './published-media.mjs';
 import {pageMedia} from './media-contract.mjs';
+import {applyPublicPriceCache,readPublicPriceCache} from './admin-price-cache.mjs';
 
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.xml':'application/xml','.txt':'text/plain; charset=utf-8','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.woff2':'font/woff2'};
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'};
@@ -15,11 +16,13 @@ async function body(req) {
   let raw='';for await (const chunk of req) {raw+=chunk;if (Buffer.byteLength(raw)>64000) fail('REQUEST_TOO_LARGE',413);}
   try {return JSON.parse(raw);} catch {fail('INVALID_REQUEST');}
 }
-export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotProvider,publishedDir,dir,mode='preview',origin,prefix='/events/',testAdapter,now}={}) {
+export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotProvider,priceCacheProvider,publishedDir,dir,mode='preview',origin,prefix='/events/',testAdapter,now}={}) {
   const parsed=new URL(origin);
   if (parsed.origin!==origin || (parsed.protocol!=='https:' && !(parsed.protocol==='http:'&&['127.0.0.1','localhost'].includes(parsed.hostname)))) fail('INVALID_ORIGIN');
   if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(prefix)) fail('INVALID_PUBLIC_PATH');
-  const files=loadStatic(assetRoot,staticManifest),commerce=createCommerce({snapshot,snapshotProvider,dir,mode,testAdapter,now});
+  const frozen=snapshotProvider?null:{publication_status:'published',...projectRelease(snapshot)};
+  const source=snapshotProvider||(()=>frozen),cache=priceCacheProvider||(()=>publishedDir?readPublicPriceCache(path.join(publishedDir,'admin-reference-prices.json')):null);
+  const files=loadStatic(assetRoot,staticManifest),commerce=createCommerce({snapshotProvider:()=>applyPublicPriceCache(source(),cache(),{now:(now||Date.now)()}),dir,mode,testAdapter,now});
   const server=http.createServer(async(req,res)=>{
     try {
       if (!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(req.socket.remoteAddress)) return json(req,res,403,{code:'LOOPBACK_REQUIRED'});

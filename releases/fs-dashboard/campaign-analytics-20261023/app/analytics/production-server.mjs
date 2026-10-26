@@ -12,16 +12,19 @@ import {centerSeed,effectivePageBindings} from './center-seed.mjs';
 import {backendRead,backendMutate} from './backend-client.mjs';
 import {effectiveFcCatalog} from '../runtime/model-cards.mjs';
 import {mediaLimits} from '../runtime/media-contract.mjs';
+import {makeAdminPriceProvider,readAdminPricePolicy} from './admin-price-provider.mjs';
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),box={window:{}};
 vm.runInNewContext(fs.readFileSync(path.join(base,'analytics-config.js'),'utf8'),box);
 const cfg=box.window.FC_ANALYTICS_CONFIG,catalog=JSON.parse(fs.readFileSync(path.join(base,'catalog.json'),'utf8'));
 const prefix=process.env.CAMPAIGN_PREFIX||'/dashboard/analytics/campaigns/',origin=process.env.CAMPAIGN_ORIGIN||'https://47.85.224.112',dir=process.env.CAMPAIGN_DATA||'/var/lib/fs-campaign-dashboard';
 const store=makeStore(dir,catalog,cfg.registry),secretFile=path.join(dir,'posthog-secret.json'),csrf=randomBytes(32).toString('hex');
 const seasonalBox={};vm.runInNewContext(fs.readFileSync(path.join(base,'seasonal/campaign-data.js'),'utf8'),seasonalBox);
+const publicDir=process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public';
+const adminPrices=makeAdminPriceProvider({publicDir,readPolicy:()=>readAdminPricePolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))});
 const validateFcLayout=(layout,models={})=>validateLayout(layout,effectiveFcCatalog(catalog,models));
-const center=makeCenterStore({dir:path.join(dir,'center'),publicDir:process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public',sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',validateFcLayout,
- seedProvider:(layout,models={})=>centerSeed(previewCatalog(effectiveFcCatalog(catalog,models),layout??store.read().layout),seasonalBox.SeasonalData)});
-const centerState=s=>{const effective=effectiveFcCatalog(catalog,s.draft.fc_models||{}),layout=validateFcLayout(s.draft.fc_layout??store.read().layout,s.draft.fc_models||{}),seed=centerSeed(previewCatalog(effective,layout),seasonalBox.SeasonalData);return {revision:s.revision,draft:s.draft,effective_halloween:s.draft.halloween??emptyHalloween(),effective_fc_layout:layout,restore_candidate:center.restoreCandidate(s),published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,
+const center=makeCenterStore({dir:path.join(dir,'center'),publicDir,sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',validateFcLayout,
+ seedProvider:(layout,models={})=>centerSeed(previewCatalog(effectiveFcCatalog(catalog,models),layout??store.read().layout),seasonalBox.SeasonalData,adminPrices.seedOptions())});
+const centerState=s=>{const effective=effectiveFcCatalog(catalog,s.draft.fc_models||{}),layout=validateFcLayout(s.draft.fc_layout??store.read().layout,s.draft.fc_models||{}),seed=centerSeed(previewCatalog(effective,layout),seasonalBox.SeasonalData,adminPrices.seedOptions());return {revision:s.revision,draft:s.draft,effective_halloween:s.draft.halloween??emptyHalloween(),effective_fc_layout:layout,restore_candidate:center.restoreCandidate(s),published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,admin_provider_status:adminPrices.status(),
  fc_catalog:{products:Object.fromEntries(Object.entries(effective.products).map(([key,p])=>[key,{key:p.key,title:p.title,name:p.name,kind:p.kind,version:p.version,...(p.preview_only?{preview_only:true,model_id:p.model_id,image:p.image,platforms:p.platforms}:{})}])),trio:{series:catalog.trio.series},sbc:{fallbackPicks:catalog.sbc.fallbackPicks}},
  catalog_products:seed.seedProducts.map(p=>{const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(p.key);return {...p,display_kind:match?effective.products[match[1]]?.kind:'seasonal'};}),page_product_keys:seed.pageProductKeys,
  page_bindings:Object.fromEntries(s.draft.pages.map(p=>[p.page_id,effectivePageBindings(s.draft,seed,p.page_id)])),media_limits:mediaLimits,
@@ -42,6 +45,7 @@ export const server=http.createServer(async(req,res)=>{
   const auth=await authorize(req);if(auth.status!==200||!auth.user)return json(res,auth.status===401?401:403,{message:'请使用 FS 原有登录及权限'});
   const url=new URL(req.url,'http://localhost');if(!url.pathname.startsWith(prefix))return json(res,404,{message:'Not found'});
   const relative=decodeURIComponent(url.pathname.slice(prefix.length));
+  if(['GET','HEAD','POST'].includes(req.method)&&['analytics/api/center','analytics/api/center/publish'].includes(relative))await adminPrices.refresh();
   if(req.method!=='GET'&&req.method!=='HEAD'){
    if(req.method!=='POST'||!auth.admin)return json(res,403,{message:'仅现有管理员可保存配置'});
    if(req.headers.origin!==origin||req.headers['x-csrf-token']!==csrf)return json(res,403,{message:'请求来源或会话校验失败，请刷新页面'});
@@ -98,4 +102,7 @@ export const server=http.createServer(async(req,res)=>{
   res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'});res.end(req.method==='HEAD'?undefined:body);
  }catch(error){json(res,error.status||502,{status:'error',message:error.name==='SyntaxError'?'配置格式无效':error.message});}
 });
-if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))server.listen(Number(process.env.PORT||8948),'127.0.0.1',()=>console.log('FS campaign service listening on loopback'));
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+ void adminPrices.start().catch(()=>{});server.on('close',()=>adminPrices.stop());
+ server.listen(Number(process.env.PORT||8948),'127.0.0.1',()=>console.log('FS campaign service listening on loopback'));
+}
