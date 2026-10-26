@@ -3,7 +3,6 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-import shutil
 import subprocess
 import tarfile
 import tempfile
@@ -13,6 +12,11 @@ from target_map import targets
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git_blob(checkout, path):
+    relative = path.relative_to(checkout).as_posix()
+    return subprocess.check_output(['git', 'show', 'HEAD:' + relative], cwd=checkout)
 
 
 def build(checkout, output):
@@ -35,12 +39,15 @@ def build(checkout, output):
             original = source / name.removeprefix('hermes-copy/')
             destination = candidate / name
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(original, destination)
+            payload = git_blob(checkout, original)
+            if original.suffix == '.sh' and (not payload.startswith(b'#!/bin/sh\n') or b'\r' in payload):
+                raise ValueError('committed_shell_line_endings_invalid:' + name)
+            destination.write_bytes(payload)
         deployment = stage / 'deploy'
         deployment.mkdir()
         for name in ('target_map.py', 'release_navigation_base.py', 'fc_v3_release_adapter.py',
                      'prepare_manifest.py'):
-            shutil.copyfile(release / 'deploy' / name, deployment / name)
+            (deployment / name).write_bytes(git_blob(checkout, release / 'deploy' / name))
         provenance = {'sourceCommit': commit,
                       'files': {'source/' + name: digest(candidate / name) for name in sorted(mapping)}}
         (stage / 'source-manifest.json').write_text(
