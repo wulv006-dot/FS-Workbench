@@ -1,10 +1,9 @@
 """Exact V3 code targets; the knowledge catalog has a separate immutable release."""
 from pathlib import Path
 
-DELTA_SCOPE='fc-pricing-v3-uk-player-followup-20261027'
-DELTA_NAMES=('source/conversation_service.py', 'source/fc-pricing-v3.js', 'source/fc27-coins.html', 'source/fc_pricing_v3/adapters.py', 'source/fc_pricing_v3/api.py', 'source/fc_pricing_v3/daily.py', 'source/fc_pricing_v3/ledger.py', 'source/fc_pricing_v3/region_adapter.py', 'source/fc_pricing_v3/region_source.py', 'source/fc_pricing_v3/runtime.py', 'source/fc_pricing_v3/scheduler.py', 'source/fc_pricing_v3/uk_retirement.py', 'source/hermes-copy/fc_pricing_v3/adapters.py', 'source/hermes-copy/fc_pricing_v3/api.py', 'source/hermes-copy/fc_pricing_v3/daily.py', 'source/hermes-copy/fc_pricing_v3/ledger.py', 'source/hermes-copy/fc_pricing_v3/region_adapter.py', 'source/hermes-copy/fc_pricing_v3/region_source.py', 'source/hermes-copy/fc_pricing_v3/runtime.py', 'source/hermes-copy/fc_pricing_v3/scheduler.py', 'source/hermes-copy/fc_pricing_v3/uk_retirement.py', 'source/pricing_operations.py')
-DELTA_NAMES+=('source/player_sync_job.py',)
-DELTA_NEW=frozenset(('source/fc_pricing_v3/uk_retirement.py', 'source/hermes-copy/fc_pricing_v3/uk_retirement.py'))
+DELTA_SCOPE='fc-pricing-v3-worker-queue-yield-20261027'
+DELTA_NAMES=('source/fc27_cloud_worker.py','source/fc-pricing-v3.js')
+DELTA_NEW=frozenset()
 SHADOW_SCOPE = 'fc-pricing-v3-sqlite-shadow-20261026'
 SHADOW_NAMES = tuple(prefix + 'fc_pricing_v3/' + name for prefix in ('source/', 'source/hermes-copy/')
                      for name in ('ledger.py', 'scheduler.py', 'simulation.py', 'shadow_worker.py'))
