@@ -193,9 +193,15 @@ class BusinessSourceTest(unittest.TestCase):
         self.assertEqual(value['lines'][0]['multiplier'], 2)
         self.assertIsNone(source._quantity(dict(content='<span class="item">Player card 500 x 1 = $20</span>')))
 
-    def test_platform_prefers_native_aid_and_accepts_only_verified_old_xbox_alias(self):
+    def test_platform_prefers_native_aid_and_accepts_verified_old_native_server_labels(self):
         self.assertEqual(source._platform(dict(aid=21589, content='Xbox Series X|S')), 'PC')
         self.assertEqual(source._platform(dict(content='[Xbox Series X|S]')), 'XBOX')
+        self.assertEqual(source._platform(dict(content='FC 27 >>> [PlayStation 5]')), 'PS')
+        self.assertEqual(source._platform(dict(aid=21589,content='[PlayStation 5]')), 'PC')
+        self.assertIsNone(source._platform(dict(content='[PlayStation 5] [PC Platform]')))
+        self.assertIsNone(source._platform(dict(content='PS5 account for sale')))
+        self.assertIsNone(source._platform(dict(content='PlayStation 5 account for sale')))
+        self.assertEqual(source._platform(dict(content='[<span>PlayStation 5</span>]')), 'PS')
         self.assertIsNone(source._platform(dict(content='unknown platform')))
 
     def test_ads_fixed_context_never_divides_project_spend_by_coins_customers(self):

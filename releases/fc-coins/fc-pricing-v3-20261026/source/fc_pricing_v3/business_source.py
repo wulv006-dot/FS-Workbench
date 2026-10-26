@@ -325,6 +325,9 @@ def _platform(order):
     # Old Xbox label was checked against native product pid163329277/aid21585.
     text = str(order.get('content') or '') + ' ' + str(order.get('show_game_pro') or '')
     found = [p for p, label in PLATFORMS.items() if label in text]
+    # Earlier native orders used this server label before the PlayStation 4|5 rename.
+    if '[PlayStation 5]' in html.unescape(re.sub(r'<[^>]*>', '', text)):
+        found.append('PS')
     if 'Xbox Series X|S' in text:
         found.append('XBOX')
     found = list(set(found))
