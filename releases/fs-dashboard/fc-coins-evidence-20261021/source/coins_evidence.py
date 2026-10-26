@@ -12,7 +12,7 @@ GOLD='货币(Gold)'
 
 def baseline_identity():
     raw=Path(__file__).with_name('business-baseline.md').read_bytes()
-    match=re.search(r'business-baseline-\d+-v\d+',raw.decode('utf-8'))
+    match=re.search(r'business-baseline-(?:\d+-v\d+|fc-v\d+-\d+)',raw.decode('utf-8'))
     if not match:raise ValueError('coins_business_baseline_version')
     return {'version':match[0],'sha256':hashlib.sha256(raw).hexdigest()}
 
