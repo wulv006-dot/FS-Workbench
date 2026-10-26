@@ -1,0 +1,19 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "native:3ef295ad",
+  "candidate_sha256": "eede66b32221684e80fa19e4ac78b7d5b1a9bbc28484a839968ba670eb9daeea",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "summary_only",
+  "evidence": "Codex按本线程直接委托，实际回读原飞书消息并核sender类型、ID类型和已验证本人绑定；新候选绑定当前基线，原审批completed且success/applied为真，前值及原候选保留。只归档脱敏结论，不复制私人记忆或完整共享上下文。",
+  "formal_rule_change": false,
+  "kind": "native",
+  "modules": [
+    "FS",
+    "FC"
+  ],
+  "receipt_sha256": "f80536488fd609033a850cf0531db9625313cc4a119c3d38583e94f6762b9293",
+  "request_id": "c3ba4b97c735651d2e264055b20ffbd8001c358498cca0c24ca97f2ba88e2fbf",
+  "runtime_activation": false,
+  "summary": "已核本人原消息并记录已有发布顺序：在实际已批准范围内允许先修生产，上线后6小时补PR。长期授权的具体操作范围仍待明确，不因记忆落档授予新权限。"
+}
