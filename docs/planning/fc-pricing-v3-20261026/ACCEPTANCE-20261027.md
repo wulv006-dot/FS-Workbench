@@ -4,7 +4,7 @@
 
 ## 当前版本与计划
 
-- 当前代码：`723b84b9eb43a97ec5cb3c71e384c50ca95ecc15`，[PR524](https://github.com/wulv006-dot/FS-Workbench/pull/524)。正式CI run40406842532/job121866688596，216项FC V3检查通过。实际91/91目标SHA匹配，见[SOURCE-MAP](SOURCE-MAP.json)。PR520–523分别修复积压缓存吞吐、默认地区层底价舍入、业务无解分类及每轮快照保存，完整发布链见[接续核验](NATURAL-AND-FAULT-ACCEPTANCE.md)。
+- 当前代码：`fbf8c88ad4cc8c35a0b661359822cd2a3eec5c20`，[PR526](https://github.com/wulv006-dot/FS-Workbench/pull/526)。正式CI run40409341334/job121875469004，216项FC V3检查通过，页面200项重复原因回归及真实去重展示通过。实际91/91目标SHA匹配，见[SOURCE-MAP](SOURCE-MAP.json)。PR520–523分别修复积压缓存吞吐、默认地区层底价舍入、业务无解分类及每轮快照保存，完整发布链见[接续核验](NATURAL-AND-FAULT-ACCEPTANCE.md)。
 - 双20/冲量/无预算：[PR515](https://github.com/wulv006-dot/FS-Workbench/pull/515)，merge89086d090809d70dd8899f3e57a6a466f18d2ac3；正式196项FC及87项知识检查通过。
 - 英国专项与完整指南：[PR516](https://github.com/wulv006-dot/FS-Workbench/pull/516)，merge3fa60c797259a82c59925ac52899afd20f0a028f；202项检查通过。原编号类别联动兼容：[PR517](https://github.com/wulv006-dot/FS-Workbench/pull/517)，merge5120b4e70aa6a0ed6e69e136bcec032374ade249；206项检查通过。
 - 原计划`15010688-bf97-5dd8-a33e-b4ae3c360403`：revision2/ACTIVE，`fc27_dual20_v1`、`budget_policy=none`，有效daily_budget/total_budget字段已移除，迁移前记录保留。政策revision41、ON/auto、120分钟、三平台、最低毛利20%。
@@ -48,9 +48,13 @@
 
 界面实查：当前冲额、ACTIVE、120分钟、07:12下轮、最新公开8.72/8.72/8.80，无预算输入，五策略说明及[完整使用指南](USER-GUIDE.md)入口可读。[工作台](https://47.85.224.112/dashboard/fc27-coins.html)；[Notion业务规则](https://app.notion.com/p/3ff9a8a79c4e81bc8a4feb15aab87a5a)同一同步编号已更新预算、英国和退役真实状态。
 
-## 当前真实入口阻碍
+## 共享会话恢复后的真实入口核验
 
-PR524修复实际worker不支持HTTPS却直采Arab-UT的问题，复用原共享取数进程，未新增服务。上线后原只读任务1dd781a6-75f4-479f-8cb4-86b00cb42eb4于05:47因共享Admin会话不可用停止，未写价。05:50–05:51原8767会话入口HTTP503、ready=false，具体为captcha_ocr_failed:captcha_http_502；缺当前优惠/地区证据，完整报价和新无解快照的在线复验尚未通过。页面仍是03:09历史候选，不能当新报价。四次原只读编号、诊断与准确影响见[接续核验](NATURAL-AND-FAULT-ACCEPTANCE.md)。
+05:50–05:51原8767共享会话入口曾HTTP503，具体captcha_ocr_failed:captcha_http_502；原四次只读失败完整保留。05:55:45该入口已沿自身流程恢复HTTP200，没有盲重启、改账号或导出令牌。
+
+恢复后原只读任务`99a13d4c-10ed-442c-81e2-ea1cf60e4231`于05:57:56完成，ready/error为空、业务结果INFEASIBLE。Lootbar、ItemD2R、Arab-UT所需覆盖ready、无缺项，Arab普通报价available，成本、优惠、汇率和地区上下文已进入完整pricing_snapshot，输入SHA为`c55644a524fd74839f3602140131810742bc813dc6bcdc6759836a3c486d4d14`。唯一snapshot_ready事件1条，回执execution_authorized=false、无可执行动作。生产operations仍3条、分配仍3条，计划ACTIVE、下轮07:12:35不变。
+
+真实页面已显示同一最新快照和INFEASIBLE，不再展示03:09旧候选；PR526把重复的逐候选原因归并为三项不同原因，原明细保留。此轮证明HTTPS取数、完整无解记录与页面恢复，不是新的写价成功。Arab-UT PC普通报价仍未提供、地区竞争带及当前共同写入顺序限制真实保留；详细时点及原失败见[接续核验](NATURAL-AND-FAULT-ACCEPTANCE.md)。
 
 ## 真实数据与未验范围
 
@@ -62,4 +66,4 @@ PR524修复实际worker不支持HTTPS却直采Arab-UT的问题，复用原共享
 - Watchdog/恢复回归含原ID、UNKNOWN不重发、去重、服务冷启动、只读影子隔离及队列错误退避；现场已对账NOT_SENT、原失败和发布健康等待。未做破坏性生产浏览器故障注入，也未声称全部故障路径都在线注入通过。
 - 05:10首个新合同自然周期已实际完成，无新写入、无技术重试，按正常周期继续；随后更多周期无重复写入/旧策略回摆/无限重启和下次跨日影子仍待真实时点逐轮核证。现场隔离影子损坏输入、恢复、重复消费及并发锁测试已通过，未向生产浏览器注入破坏性故障。
 
-私有原样证据保留在本任务`.agent_runtime/fc-pricing-v3-20261026/`：first-dual20-acceptance.json、uk-retirement-acceptance.json、legacy-retirement-acceptance.json、current-source-723b84b.json及原发布日志。完整订单、会话和后台载荷未上传Git或Notion。
+私有原样证据保留在本任务`.agent_runtime/fc-pricing-v3-20261026/`：first-dual20-acceptance.json、uk-retirement-acceptance.json、legacy-retirement-acceptance.json、current-source-fbf8c88.json及原发布日志。完整订单、会话和后台载荷未上传Git或Notion。
