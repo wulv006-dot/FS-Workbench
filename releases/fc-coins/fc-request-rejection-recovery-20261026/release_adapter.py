@@ -1,5 +1,6 @@
 """Two exact static files through the existing FC CAS publisher."""
 import importlib.util
+from contextlib import contextmanager
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -20,6 +21,16 @@ def load_base():
     adapter.TARGETS = TARGETS
     adapter.NEW = frozenset()
     base = adapter.load_base()
+
+    # The base aliases this scope to Hermes history for manifest validation;
+    # its transaction collector lock does not guard these two FC static files.
+    @contextmanager
+    def static_live_lock(manifest, root):
+        if manifest.get('scope') != SCOPE or {r['target'] for r in manifest['files']} != set(TARGETS.values()):
+            raise ValueError('exact_static_scope_required')
+        yield
+
+    base.live_lock = static_live_lock
 
     def no_restart(manifest, admission_fence=None):
         if manifest.get('scope') != SCOPE:
