@@ -1,23 +1,25 @@
-# 旧机制退役与共享保护
+# FC Coins 旧机制退役与保留范围
 
-状态：调查/迁移清单；本文件不表示已停用。退役发生在新链通过相关验收并获得控制权之后，执行者须填实际版本、时间和读回。
+2026-10-27 04:17北京时间核验。实际版本和原编号见[验收记录](ACCEPTANCE-20261027.md)；原调查清单在Git历史保留。
 
-| 入口/行为 | 当前依据 | V3处理 | 当前退役状态 |
-| --- | --- | --- | --- |
-| pricing_v2旧加权selector/临时ItemD2R parity/position上限 | 活动源码待逐SHA核定，附件及PR489/490合同 | 生产只留五策略入口；财务抽取，旧算法仅隔离历史回放 | 未执行 |
-| 旧.99尾价/隐式额外降价 | 原pricing_v2 ending及调用方 | 新选定动作不再二次隐式改价 | 未执行 |
-| worker apply_program_fallback | 活动worker及调用方待核 | 显式V3确定性路径或当前计划保持；不回旧selector | 未执行 |
-| automation_tick.service/timer | 16:21运行，现源为automation_tick.py，每分钟due检查 | 受控切换为唯一V3协调服务，停用被替代旧timer/service；保留原采集与其他游戏调度 | 未执行 |
-| price-observer.path/service | 16:21 active path；单元监听jobs目录 | 迁为耐久完成事件与游标；保留已证实的防重复修复及来源数据 | 未执行 |
-| ItemD2R/ELD观察采集 | 旧独立观察来源 | 统一source registry，保留市场观察能力 | 未执行 |
-| pricing_probe owner版本硬编码 | 活动pricing_probe.py待核 | 读稳定语义状态；保留共享RPG分支 | 未执行 |
-| watch.py/repair hooks/browser lifecycle | AST已核watch写请求/通知；common当前SHA01e3e04f…435bf2，仅brain-theme/monitor-health固定修复配方；浏览器实际调用继续单核 | 同一incident/恢复责任，保留共享通知/夜间/界面修复，继承displayfd与共享会话保护 | 未执行 |
-| 旧quote/preview/manual intent | 原账本与dispatch状态待核 | 禁新派发；未决原ID读回及迟到回执保留 | 未执行 |
-| 旧策略知识/提示词/模式菜单 | 旧release及活动工具分别清查 | 当前入口指向V3；历史保留SUPERSEDED指向 | 未执行 |
-| 自动回滚旧控制权 | 发布器/恢复合同待核 | 代码可回退已验V3；epoch/退役状态不倒退 | 未执行 |
+| 旧入口/行为 | 现行替代职责 | 实际状态 |
+| --- | --- | --- |
+| 80/15/5加权、临时ItemD2R钉价、baseline/hold/parity、尾价及回摆 | V3当前策略/原财务/显式分配 | 当前生产入口委托V3，旧代际不得新派发；旧算法仅隔离只读历史回放 |
+| 逐轮Hermes审核及失联旧算法兜底 | 程序逐轮执行、Hermes每日效果建议 | 正常报价不调用模型；教材-4实际加载。旧审核保留当时来源 |
+| 定价预算、预占、耗尽退出及机会成本硬限 | 实际折让/贡献追踪 | 原计划rev2有效额度删除，新首轮reservation0条；旧账本保留不控制新执行 |
+| fc27-automation-tick.timer/service | 唯一fc-pricing-v3.service | 04:10:02已移出/etc/systemd/system并归档；均not-found/inactive |
+| fc27-price-observer.path/service | 原耐久事件/游标及每日影子 | 同次归档原单元，均not-found/inactive，无第二套触发器 |
+| /opt/fc27-price-observer四个py及缓存 | 当前必要来源及独立ItemD2R reader | 整目录移入可恢复备份，旧代码无当前消费者；原数据只读视图保留 |
+| ELD/U4GM/IGGM/U7Buy的FC自动采集与旧观察UI | Lootbar无券、冲额ItemD2R、沙特Arab-UT普通 | 当前按策略采必要来源；旧页面脚本不再加载。历史与其他游戏保留 |
+| 英国临时ID1/0.9100有效规则 | 三平台继承全球 | status1→0，04:07:37后台/缓存/公开确认；原行保留审计，其他英国规则不删 |
+| 旧quote/迟到任务/旧generation | revision/epoch、资源所有权及原ID对账 | 旧代际新dispatch被拒绝；失败/UNKNOWN不清除。多自然周期无回摆待验 |
+| 旧监控schedule/job语义 | V3薄投影及统一故障分类 | 共享监控读取当前V3状态，RPG/宿主/夜间/通知职责保留 |
+| worker队列错误空转 | 原异常路径两秒退避 | PR518已发布，错误不删记录、不自动重发；207项回归含冲突控制流 |
 
-保护范围：共享FS/RPG监控与通知、订单/报价/故障历史、已有优惠承诺、有效会话、SBC/Players/Packs原固定公式自动联动、Evolutions等其他FC业务、其他游戏及无关页面。只停止被V3明确替代的Coins控制分支，不按名称包含FC就批量停服务。
+备份`/var/backups/fc27-v3-retired-20261027/`的journal保存八文件原路径/SHA、移动与最终单元状态，四代码加四单元逐字节核实。历史`/var/lib/fc27-price-observer`、订单/报价/故障/UNKNOWN保留。清理没有重启业务服务。
 
-每项最终凭据须包含：源/目标、消费者、替代职责、停用方式、现场状态、历史保留位置、恢复办法。UNKNOWN及已派发资源不能因进程死亡、TTL或换generation释放。
+回退先核当前generation、原操作、资源所有权和财务政策。精确备份可以恢复文件，但不自动重新启用旧定时器或授旧策略新写入权；代码回退沿原publisher对应release journal，不能整包盖回旧控制系统。
 
-共享告警的 `common.assess` 当前读取 `snapshot.coin.schedule/job` 及 `health.incomplete_executions`。V3须接通这些语义状态或明确迁移其FC消费者，不能只停旧tick而让共享探针持续读旧状态；也不能因旧字段不再适用而整体关闭监测。
+automation_tick.py保留现行队列锁与原ID恢复能力，pricing_v2.py保留V3兼容入口，reference_observer_view.py只读历史；不按文件名批量删除。SBC/Players/Packs原公式联动、Evolutions、其他游戏、共享会话及通知保留，球员售价日常抽查不恢复。
+
+更多自然周期零重复、全部浏览器故障现场注入、长期收益及模型独立掌握仍待各自真实证据，不由本表推定。
