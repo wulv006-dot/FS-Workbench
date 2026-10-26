@@ -41,6 +41,7 @@ const automation = { revision: 3, can_manage_v3: true, v3: { schedule: { cycle_i
 const monitor = { storefront: { rows: { PS: { package_usd: 8.51, checked_at: '2026-10-26T13:07:00+08:00' },
   XBOX: { package_usd: 8.51 }, PC: { package_usd: 8.59 } } }, publication: { status: 'matched' } };
 const fetch = async (url, options = {}) => ({ ok: true, json: async () => url.endsWith('/pricing/v3/interval') ? (intervalBody = JSON.parse(options.body), { revision: 4 })
+  : url.endsWith('/pricing/collect') ? {job_id:'collect-test'} : url.endsWith('/jobs/collect-test') ? {status:'ready',result:{status:'INFEASIBLE'}}
   : url.endsWith('/pricing/v3/state') ? state : url.endsWith('/automation') ? { ...automation, can_manage_v3: canWrite }
   : url.endsWith('/monitor') ? monitor : url.endsWith('/player-sync') ? { enabled: true, revision: 1 } : {} });
 vm.runInNewContext(script, { document, fetch, sessionStorage, crypto: { randomUUID: () => 'new-id' }, AbortSignal: { timeout: () => null },
@@ -82,5 +83,15 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(elements['v3-execute'].disabled, true);
   assert.equal(elements['collect'].disabled, true);
   assert.match(elements['v3-state'].textContent, /仅可查看/);
+  state.snapshot_id='fresh-infeasible-snapshot';
+  state.strategies.revenue_sprint={status:'INFEASIBLE',candidates:[],selected:null,failures:[{code:'NO_SAFE_COMMIT_PATH'}]};
+  await elements['v3-refresh'].events.click();
+  assert.match(elements['v3-decision-basis'].textContent,/fresh-infeasible-snapshot/);
+  assert.match(JSON.stringify(elements['v3-strategies'].children),/本次未写价/);
+  assert.match(JSON.stringify(elements['v3-strategies'].children),/没有可证的当前写入顺序/);
+  assert.doesNotMatch(JSON.stringify(elements['v3-strategies'].children),/已有可行方案/);
+  canWrite=true;await elements['v3-refresh'].events.click();await elements.collect.events.click();
+  assert.match(elements['v3-result'].textContent,/采集已完成；当前策略无可执行报价，未写价/);
+  assert.equal(sessionStorage.getItem('fc-v3-collect-job'),null);
   console.log('UI contract and state smoke passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

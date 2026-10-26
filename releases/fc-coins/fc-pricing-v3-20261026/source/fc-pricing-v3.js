@@ -19,7 +19,11 @@
     missing_at_historical_asof:'当时尚不可得',common_guard_contract_missing:'统一护栏证据缺失',
     baseline_pending_no_simulated_orders_fabricated:'缺少绝对需求基线，未虚构订单',
     historical_orders_missing:'缺少真实历史订单或成本证据，金额未核算',
-    late_order_revision_not_repriced:'原订单后来修订；不以未来条款倒算旧窗口'};
+    late_order_revision_not_repriced:'原订单后来修订；不以未来条款倒算旧窗口',
+    NO_SAFE_COMMIT_PATH:'基础价与地区系数没有可证的当前写入顺序',
+    pricing_regional_competitive_band:'地区价格舍入后未达到本轮竞争区间',
+    'pricing_required_market_missing:ArabUT:PC':'Arab-UT 未提供可核的 PC 普通发货价',
+    pricing_capacity_data_pending:'缺少可核供应能力或正常交付队列基数'};
   function statusText(raw){return raw==null?'待核':statuses[raw]||names[raw]||`待核（${raw}）`;}
   function errorText(error){
     const code=error.message||String(error);
@@ -115,6 +119,7 @@
       }
     }
     else if(r?.failures?.length)card.append(node('p',`当前不可执行：${r.failures.map(f=>statusText(f.code)).join('；')}`));
+    if(r?.status==='INFEASIBLE')card.append(node('p','本次未写价；已启用计划按正常周期重新评估。最近公开价仍以上方实际读回为准。'));
     cards.append(card);
     $('v3-decision-basis').textContent=`本轮快照 ${state.snapshot_id||'尚无'} · ${names[mode]} · ${r?.selected?'已形成候选；执行前仍需新鲜财务与市场重证':'当前没有可执行的同策略候选'}。`;
   }
@@ -209,7 +214,7 @@
       $('v3-error').textContent=permissionKnown?'':'操作权限暂时无法核对，写入入口已停用；只读状态仍可查看。';
       $('v3-error').hidden=permissionKnown;
       $('version').textContent=`V3 状态读取 ${when(new Date())} · 快照 ${state.snapshot_id||'尚无'} · 下轮时间以统一调度实际回执为准`;
-      if(collectPending){const job=await cloud('jobs/'+collectPending).catch(()=>null);if(job&&['ready','failed'].includes(job.status)){$('v3-result').textContent=`只读采集任务 ${collectPending}：${statusText(job.status)}；本轮报价需另经 V3 证明。`;collectPending=null;sessionStorage.removeItem('fc-v3-collect-job');clearKey('collect');}}}
+      if(collectPending){const job=await cloud('jobs/'+collectPending).catch(()=>null);if(job&&['ready','failed'].includes(job.status)){$('v3-result').textContent=job.result?.status==='INFEASIBLE'?`只读采集任务 ${collectPending}：采集已完成；当前策略无可执行报价，未写价。`:`只读采集任务 ${collectPending}：${statusText(job.status)}；本轮报价需另经 V3 证明。`;collectPending=null;sessionStorage.removeItem('fc-v3-collect-job');clearKey('collect');}}}
     catch(error){$('v3-error').textContent=`未完成：${errorText(error)}。旧值保留其原时点。`;$('v3-error').hidden=false;}
     finally{loading=false;$('v3-refresh').disabled=false;$('v3-refresh').textContent='更新统一状态';$('v3-panel').removeAttribute('aria-busy');}
   }
