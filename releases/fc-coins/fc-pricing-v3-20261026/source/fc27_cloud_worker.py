@@ -148,7 +148,7 @@ def collect_quote(job):
     job["quote"] = quote
     if code or quote.get("status") not in {"ready_for_preview", "margin_review_required"}:
         job["error_detail"] = quote.get("reason") or "quote_failed"
-        raise ValueError("quote_not_ready")
+        raise ValueError(job["error_detail"])
     return {"run_id": run_id, "quote_status": quote["status"]}
 
 
