@@ -120,7 +120,7 @@ def run(body):
         plan=db.active_plan() or {}
         mix=evidence.get('historical_discount_mix') or {}
         record['decision_basis']=dict(snapshot_id=snapshot.get('snapshot_id'),mode=plan.get('mode'),plan_state=plan.get('state'),
-            parameters=plan.get('parameters'),daily_budget_usd=plan.get('daily_budget'),
+            parameters=plan.get('parameters'),budget_policy='none',
             history={k:mix.get(k) for k in ('period','net_order_usd','discount_usd','undiscounted_order_usd','retained_ratio','sha256')},
             demand_model={k:model.get(k) for k in ('status','elasticity','groups','observed_window_hours','rate_window_hours')},
             source_plan=evidence.get('source_plan'),basis_is_latest_saved_input=True)

@@ -1,9 +1,9 @@
 """Exact V3 code targets; the knowledge catalog has a separate immutable release."""
 from pathlib import Path
 
-DELTA_SCOPE='fc-pricing-v3-preview-source-contract-20261027'
-DELTA_NAMES=('source/repricing_logic.js','source/fc_pricing_v3/runtime.py','source/hermes-copy/fc_pricing_v3/runtime.py')
-DELTA_NEW=frozenset()
+DELTA_SCOPE='fc-pricing-v3-dual20-sprint-no-budget-20261027'
+DELTA_NAMES=('source/automation_policy.py', 'source/fc-pricing-v3.js', 'source/fc27-coins.html', 'source/fc_pricing_v3/api.py', 'source/fc_pricing_v3/daily.py', 'source/fc_pricing_v3/engine.py', 'source/fc_pricing_v3/financial.py', 'source/fc_pricing_v3/ledger.py', 'source/fc_pricing_v3/legacy_simulation/__init__.py', 'source/fc_pricing_v3/legacy_simulation/dual10_engine.py', 'source/fc_pricing_v3/legacy_simulation/dual10_financial.py', 'source/fc_pricing_v3/runtime.py', 'source/fc_pricing_v3/scheduler.py', 'source/fc_pricing_v3/simulation.py', 'source/hermes-copy/fc_pricing_v3/api.py', 'source/hermes-copy/fc_pricing_v3/daily.py', 'source/hermes-copy/fc_pricing_v3/engine.py', 'source/hermes-copy/fc_pricing_v3/financial.py', 'source/hermes-copy/fc_pricing_v3/ledger.py', 'source/hermes-copy/fc_pricing_v3/legacy_simulation/__init__.py', 'source/hermes-copy/fc_pricing_v3/legacy_simulation/dual10_engine.py', 'source/hermes-copy/fc_pricing_v3/legacy_simulation/dual10_financial.py', 'source/hermes-copy/fc_pricing_v3/runtime.py', 'source/hermes-copy/fc_pricing_v3/scheduler.py', 'source/hermes-copy/fc_pricing_v3/simulation.py', 'source/hermes_pricing_bridge.py', 'source/pricing_operations.py', 'source/pricing_simulation.py', 'source/pricing_state.py', 'source/reconcile_original.py', 'source/server_quote_job.py')
+DELTA_NEW=frozenset(('source/fc_pricing_v3/legacy_simulation/dual10_engine.py', 'source/fc_pricing_v3/legacy_simulation/dual10_financial.py', 'source/hermes-copy/fc_pricing_v3/legacy_simulation/dual10_engine.py', 'source/hermes-copy/fc_pricing_v3/legacy_simulation/dual10_financial.py'))
 SHADOW_SCOPE = 'fc-pricing-v3-sqlite-shadow-20261026'
 SHADOW_NAMES = tuple(prefix + 'fc_pricing_v3/' + name for prefix in ('source/', 'source/hermes-copy/')
                      for name in ('ledger.py', 'scheduler.py', 'simulation.py', 'shadow_worker.py'))

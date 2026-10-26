@@ -140,7 +140,7 @@ class OriginalReconciliation(unittest.TestCase):
              patch.object(all_sync,'verify_dispatch_readback'),\
              patch('fc_pricing_v3.runtime.verify_quote',return_value=quote['result']['decision_receipt']) as verify:
             result=all_sync.drive(object(),audit,{},steps,record,lambda value:None,
-                                  lambda value:None,lambda: dict(minimum_gross_margin_pct='10'),
+                                  lambda value:None,lambda: dict(minimum_gross_margin_pct='20'),
                                   current_quote=lambda:quote)
         self.assertEqual(result['status'],'confirmed')
         self.assertEqual(posts,['/admin/goods.Goods/edit?id='+str(all_sync.PRODUCTS['PS'][0])])
@@ -328,7 +328,7 @@ class OriginalReconciliation(unittest.TestCase):
                           authorizes='original_unsent_ALL_steps_only')
                 (root/'v3'/'postwrite-authorizations').mkdir()
                 (root/'v3'/'postwrite-authorizations'/(OPERATION+'.json')).write_text(json.dumps(auth))
-                with patch.object(recovery,'load_policy',return_value=dict(minimum_gross_margin_pct='10')):
+                with patch.object(recovery,'load_policy',return_value=dict(minimum_gross_margin_pct='20')):
                     self.assertEqual(recovery.postwrite_quote(OPERATION,audit,root)(),quote)
                 reservation=db.get('reservations',OPERATION)
                 reservation['state']='SETTLED'
@@ -337,6 +337,9 @@ class OriginalReconciliation(unittest.TestCase):
                     recovery.postwrite_quote(OPERATION,audit,root)
                 reservation['state']='RESERVED'
                 db.put('reservations',OPERATION,reservation)
+                op['bundle']['budget_policy']='none'
+                db.put('operations',OPERATION,op)
+                with db.transaction() as conn:conn.execute('DELETE FROM reservations WHERE id=?',(OPERATION,))
                 with patch('fc_pricing_v3.ledger.clock',return_value=NOW):
                     successor=db.create_plan('daily',plan['resources'],anchor,
                                              starts_at=NOW.isoformat(),daily_budget='100')
@@ -350,7 +353,7 @@ class OriginalReconciliation(unittest.TestCase):
                 auth.update(authorizing_plan_id=successor['plan_id'],revision=successor['revision'],
                             quote_sha256=receipt['sha256'])
                 (root/'v3'/'postwrite-authorizations'/(OPERATION+'.json')).write_text(json.dumps(auth))
-                with patch.object(recovery,'load_policy',return_value=dict(minimum_gross_margin_pct='10')):
+                with patch.object(recovery,'load_policy',return_value=dict(minimum_gross_margin_pct='20')):
                     self.assertEqual(recovery.postwrite_quote(OPERATION,audit,root)(),quote)
 
     def test_partial_order_readback_preserves_original_unknown_state(self):

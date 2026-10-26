@@ -1,4 +1,4 @@
-"""Durable FC ownership, allocation, budgets and original-operation recovery."""
+"""Durable FC ownership, allocation, outcome accounting and original-operation recovery."""
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 import json
@@ -117,13 +117,14 @@ class Ledger:
                    (key, kind, due.isoformat() if isinstance(due, datetime) else due, json.dumps(body)))
 
     def create_plan(self, mode, resources, anchor, *, starts_at=None, ends_at=None,
-                    daily_budget='100', actor='wulv', manual_locked=True, generation=None,plan_id=None,parameters=None):
-        from .engine import POLICIES
+                    daily_budget=None, actor='wulv', manual_locked=True, generation=None,plan_id=None,parameters=None):
+        from .engine import POLICIES,sprint_parameters
+        from .financial import FINANCIAL_CONTRACT_VERSION
         if mode not in POLICIES or not resources:
             raise ValueError('pricing_plan_scope_invalid')
         now = clock()
-        parameters=parameters or {}
-        if set(parameters)-{'offsets_pct','allocation','capacity_reserve_ratio','preferred_undercut_pct'}:
+        parameters=dict(parameters or {})
+        if set(parameters)-{'offsets_pct','allocation','capacity_reserve_ratio','preferred_undercut_pct','sprint_policy_version'}:
             raise ValueError('pricing_plan_parameters_invalid')
         allocation=parameters.get('allocation')
         if allocation and (set(allocation)!={'control','exploit','explore'} or sum(number(v,zero=True) for v in allocation.values())!=1):
@@ -132,10 +133,11 @@ class Ledger:
             raise ValueError('pricing_offsets_invalid')
         if parameters.get('capacity_reserve_ratio') is not None and not 0<=number(parameters['capacity_reserve_ratio'],zero=True)<1:
             raise ValueError('pricing_capacity_reserve_invalid')
-        if parameters.get('preferred_undercut_pct') is not None and not 0<=number(parameters['preferred_undercut_pct'],zero=True)<=2:
-            raise ValueError('pricing_competitive_preference_invalid')
+        if mode=='revenue_sprint':
+            resolved=sprint_parameters(dict(parameters=parameters))
+            parameters.update(sprint_policy_version=resolved['sprint_policy_version'],preferred_undercut_pct=resolved['preferred_undercut_pct'])
         request_hash=fingerprint(dict(mode=mode,resources=sorted(set(resources)),anchor=anchor,starts_at=starts_at,
-                                     ends_at=ends_at,daily_budget=str(daily_budget),actor=actor,parameters=parameters))
+                                     ends_at=ends_at,actor=actor,parameters=parameters))
         start = instant(starts_at) if starts_at else now
         end = instant(ends_at) if ends_at else None
         if end is None and mode in ('acquisition','flash_sale','revenue_sprint'):
@@ -161,10 +163,9 @@ class Ledger:
                     resources=sorted(set(resources)), price_anchor=anchor,
                     starts_at=start.isoformat(), ends_at=end.isoformat() if end else None,
                     state='SCHEDULED' if start > now else 'DRAFT', actor=actor,
-                    daily_budget=str(number(daily_budget, zero=True)), manual_locked=manual_locked,
+                    budget_policy='none', manual_locked=manual_locked,
                     parameters=parameters,request_hash=request_hash,
-                    created_at=now.isoformat(), review_contract=PROGRAM_CONTRACT,
-                    total_budget=str(number(daily_budget, zero=True)*Decimal(str((end-start).total_seconds()))/86400) if end else None)
+                    created_at=now.isoformat(), review_contract=PROGRAM_CONTRACT,financial_contract_version=FINANCIAL_CONTRACT_VERSION)
         with self.transaction() as db:
             self.put('pricing_plans', ident, plan, db)
             if end:
@@ -172,12 +173,47 @@ class Ledger:
             self.enqueue('start', 'start:'+ident+':1', start, dict(plan_id=ident, revision=1), db)
         return plan
 
+    def migrate_financial_contract(self,ident,expected_revision,actor):
+        from .financial import FINANCIAL_CONTRACT_VERSION
+        from .engine import SPRINT_POLICY_VERSION
+        now=clock();key='financial-plan-migration:'+ident+':'+str(expected_revision)
+        with self.transaction() as db:
+            old=self.get('metadata',key,db)
+            if old:
+                if old['actor']!=actor:raise ValueError('pricing_migration_actor_conflict')
+                return self.get('pricing_plans',ident,db)
+            plan=self.get('pricing_plans',ident,db)
+            if not plan or type(expected_revision) is not int or plan['revision']!=expected_revision:raise ValueError('pricing_plan_revision_changed')
+            if plan.get('financial_contract_version')==FINANCIAL_CONTRACT_VERSION and plan.get('budget_policy')=='none' and (plan['mode']!='revenue_sprint' or plan.get('parameters',{}).get('sprint_policy_version')==SPRINT_POLICY_VERSION):return plan
+            if plan['state'] not in ('SUSPENDED','DRAFT'):raise ValueError('pricing_migration_requires_paused_plan')
+            if plan.get('ends_at') and now>=instant(plan['ends_at']):raise ValueError('pricing_plan_expired')
+            for row in db.execute('SELECT body FROM operations'):
+                op=json.loads(row[0])
+                if op['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT') and set(op['resources'])&set(plan['resources']):raise ValueError('pricing_resource_unresolved')
+            before=json.loads(json.dumps(plan));plan['revision']+=1
+            plan['financial_contract_version']=FINANCIAL_CONTRACT_VERSION
+            plan.pop('daily_budget',None);plan.pop('total_budget',None);plan['budget_policy']='none'
+            if plan['mode']=='revenue_sprint':plan.setdefault('parameters',{}).update(sprint_policy_version=SPRINT_POLICY_VERSION,preferred_undercut_pct='7.5')
+            plan['financial_migration_id']=key
+            self.put('pricing_plans',ident,plan,db)
+            db.execute('UPDATE plan_ownership SET revision=? WHERE plan_id=? AND revision=?',(plan['revision'],ident,expected_revision))
+            block=int(now.timestamp())//(6*3600)
+            prior=self.get('experiment_assignments',fingerprint([ident,expected_revision,block]),db)
+            if prior:self.put('experiment_assignments',fingerprint([ident,plan['revision'],block]),prior,db)
+            if plan.get('ends_at'):self.enqueue('deadline','deadline:'+ident+':'+str(plan['revision']),plan['ends_at'],dict(plan_id=ident,revision=plan['revision']),db)
+            self.put('metadata',key,dict(actor=actor,created_at=now.isoformat(),before=before,after=plan,allocation_carried=bool(prior),budget_limits_removed=True,deadline_and_original_records_preserved=True),db)
+            return plan
+
     def activate_plan(self, ident, *, now=None):
+        from .financial import FINANCIAL_CONTRACT_VERSION
+        from .engine import sprint_parameters
         now = now or clock()
         with self.transaction() as db:
             plan = self.get('pricing_plans', ident, db)
             if not plan:
                 raise ValueError('pricing_plan_missing')
+            if plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:raise ValueError('pricing_financial_plan_migration_required')
+            if plan['mode']=='revenue_sprint':sprint_parameters(plan)
             if instant(plan['starts_at']) > now:
                 return plan
             if plan['ends_at'] and now >= instant(plan['ends_at']):
@@ -238,8 +274,8 @@ class Ledger:
                     h = fingerprint(c['action'])
                     probabilities[h] = probabilities.get(h, 0) + allocation/len(pool)
                     labels.setdefault(h, []).append(label)
-            seed = fingerprint([key, previous and previous['assignment_id'], model_version])
-            draw = random.Random(seed).random()
+            seed = previous['seed'] if previous else fingerprint([key, None, model_version])
+            draw = previous['draw'] if previous else random.Random(seed).random()
             cumulative = 0
             selected = next(iter(probabilities))
             for h, probability in probabilities.items():
@@ -300,15 +336,7 @@ class Ledger:
     def reserve(self, operation_id, group_amounts, plan, now, db,assignment_id=None):
         existing=self.get('reservations',operation_id,db)
         if existing:return existing
-        usage=self.budget_usage(plan,now,db)
-        credit=usage['assignment_usage'].get(assignment_id,{}) if assignment_id else {}
-        for kind in ('concession','negative_contribution'):
-            incremental={g:max(Decimal(0),number(a.get(kind) or '0',zero=True)-number(credit.get(g,{}).get(kind,'0'),zero=True)) for g,a in group_amounts.items()}
-            if plan.get('total_budget') is not None and number(usage['plan_total'][kind],zero=True)+sum(incremental.values())>number(plan['total_budget'],zero=True):
-                raise ValueError('pricing_total_budget_exhausted')
-            for group,amount in incremental.items():
-                if number(usage['groups'].get(group,{}).get(kind,'0'),zero=True)+amount>number(plan['daily_budget'],zero=True):
-                    raise ValueError('pricing_budget_exhausted')
+        # Historical accounting compatibility; new executions do not reserve or enforce budgets.
         value=dict(operation_id=operation_id,assignment_id=assignment_id,groups=group_amounts,state='RESERVED',plan_id=plan['plan_id'],
                    created_at=now.isoformat(),budget_kind='soft_known_orders_and_quotes')
         return self.put('reservations',operation_id,value,db)
@@ -345,7 +373,6 @@ class Ledger:
                 if db.execute('SELECT 1 FROM resource_leases WHERE resource=?', (resource,)).fetchone():
                     raise ValueError('pricing_resource_unresolved')
                 db.execute('INSERT INTO resource_leases VALUES (?,?)', (resource, operation_id))
-            self.reserve(operation_id,bundle.get('budget_reservation',{}),plan,now,db,assignment_id=bundle.get('assignment_id'))
             op = dict(operation_id=operation_id, plan_id=plan['plan_id'], revision=plan['revision'],
                       generation=plan['generation'], status='AUTHORIZED', resources=bundle['resources'],
                       bundle=bundle, steps=bundle['steps'], created_at=now.isoformat())

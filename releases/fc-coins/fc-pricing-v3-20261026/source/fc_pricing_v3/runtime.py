@@ -9,8 +9,8 @@ from pathlib import Path
 import uuid
 
 from . import VERSION, PROGRAM_CONTRACT
-from .engine import evaluate, financial, competition, commit_path, impacted_regions, proof_regions, GROUPS, PLATFORMS
-from .financial import fingerprint, number, instant, MARGIN_BASIS
+from .engine import evaluate, financial, competition, commit_path, impacted_regions, proof_regions, GROUPS, PLATFORMS, market_quote, sprint_parameters, SPRINT_POLICY_VERSION
+from .financial import fingerprint, number, instant, MARGIN_BASIS, HARD_MARGIN, FINANCIAL_CONTRACT_VERSION
 from .ledger import Ledger, clock
 
 ROOT = Path(os.environ.get('FC27_V3_ROOT','/var/lib/fc27-cloud'))
@@ -116,6 +116,32 @@ def enrich_segments(evidence):
     return evidence
 
 
+def sprint_anchor_context(db,plan,now):
+    """One common saved baseline, plus the original entry basis during a cost response."""
+    baseline=None
+    for snapshot in sorted(db.all('pricing_snapshots'),key=lambda s:s.get('created_at','')):
+        at=instant(snapshot.get('created_at') or snapshot['evidence']['checked_at'])
+        if not 0<(now-at).total_seconds()<=21600:continue
+        old=snapshot['evidence']
+        try:
+            from .financial import common_cost
+            pooled,_=common_cost(old)
+            quotes={p:{s:market_quote(old,p,s,at) for s in ('Lootbar','ItemD2R')} for p in PLATFORMS}
+            costs={p:str((pooled if p!='PC' else number(old['costs']['PC']['cny_per_1k']))/number(old['fx']['cny_per_usd'])) for p in PLATFORMS}
+        except (ValueError,KeyError):continue
+        baseline=dict(snapshot_id=snapshot['snapshot_id'],created_at=at.isoformat(),quotes=quotes,costs=costs,source_sha256=fingerprint(old))
+        break
+    previous=max((r for r in db.all('market_comparisons') if r.get('plan_id')==(plan or {}).get('plan_id') and r.get('sprint_policy_version')==SPRINT_POLICY_VERSION),key=lambda r:r['created_at'],default={})
+    if plan and plan.get('paused_at') and previous and instant(previous['created_at'])<=instant(plan['paused_at']):previous={}
+    context={}
+    for p in PLATFORMS:
+        group='pc' if p=='PC' else 'console'
+        prior=((previous.get('groups') or {}).get(group) or {}).get('anchors',{}).get(p)
+        base=dict(snapshot_id=baseline['snapshot_id'],created_at=baseline['created_at'],quotes=baseline['quotes'][p],cost_usd_per_k=baseline['costs'][p],source_sha256=baseline['source_sha256']) if baseline else None
+        context[p]=dict(baseline=base,previous=prior)
+    return context
+
+
 def calculate(evidence, edits=None, *, selected_action=None,override_reason=None,operation_id=None):
     edits = edits or {}
     if edits.get('costs') or edits.get('offers') or edits.get('quotes'):
@@ -129,9 +155,9 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         return calculate_postwrite(evidence,job,db)
     mode = plan['mode'] if plan else 'revenue_sprint'
     now = clock()
-    if plan:
-        evidence['budget_snapshot']=db.budget_usage(plan,now)
-        evidence['budget_existing_assignment']=db.get('experiment_assignments',fingerprint([plan['plan_id'],plan['revision'],int(now.timestamp())//(6*3600)]))
+    if plan and plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:
+        raise ValueError('pricing_financial_plan_migration_required')
+    if mode=='revenue_sprint':evidence['sprint_anchor_context']=sprint_anchor_context(db,plan,now)
     evaluations = {mode:evaluate(evidence,mode,plan=plan,now=now)}
     evaluation = evaluations[mode]
     if not evaluation['candidates']:
@@ -179,10 +205,12 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         assignment_probability=allocation.get('probabilities',{}).get(fingerprint(action),1),
         randomization_verified=bool(allocation.get('probabilities') and len(allocation['probabilities'])>1 and not allocation.get('effective_choice')),
         financial_proof=selected['financial_proof'],market_comparison=selected['market_comparison'],regional_market_comparison=selected.get('regional_market_comparison',{}),
+        financial_contract_version=FINANCIAL_CONTRACT_VERSION,sprint_policy_version=SPRINT_POLICY_VERSION if mode=='revenue_sprint' else None,
+        strategy_parameters=sprint_parameters(plan) if mode=='revenue_sprint' else (plan or {}).get('parameters',{}),
+        authorized_resources=(plan or {}).get('resources',[]),decision_type=selected.get('decision_type'),decision_reason=selected.get('decision_reason'),
+        market_position=selected.get('market_position'),minimum_legal_price_proof=selected.get('minimum_legal_price_proof'),
         strategy_decision=selected['score'],allocation=allocation,
-        budget_reservation={g:dict(concession=s['concession'] or '0',negative_contribution=s['negative_contribution'] or '0')
-                            for g,s in selected['score']['groups'].items()},
-        budget_kind='soft_known_orders_and_quotes' if selected['score']['absolute_forecast_available'] else 'fixed_initial_exploration_soft_budget_prediction_pending',
+        budget_policy='none',
         execution_authorized=bool(plan and plan.get('state')=='ACTIVE'),review_contract=PROGRAM_CONTRACT,
         decision_source='program_current_strategy',per_cycle_model_required=False,
         hermes_role='daily_effect_review_and_strategy_suggestions',
@@ -197,6 +225,7 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         if plan:
             db.put('metadata','latest_snapshot:'+plan['plan_id'],dict(snapshot_id=evidence['run_id'],plan_id=plan['plan_id']),conn)
         db.put('strategy_decisions',evidence['run_id'],evaluations,conn)
+        if mode=='revenue_sprint':db.put('market_comparisons',evidence['run_id'],dict(created_at=now.isoformat(),plan_id=(plan or {}).get('plan_id'),sprint_policy_version=SPRINT_POLICY_VERSION,groups=selected['market_comparison'],regions=selected.get('regional_market_comparison',{})),conn)
         conn.execute('INSERT OR IGNORE INTO event_outbox(event_key,kind,body) VALUES (?,?,?)',
                      ('snapshot:'+evidence['run_id'],'snapshot_ready',json.dumps(dict(snapshot_id=evidence['run_id']))))
     return result
@@ -219,17 +248,18 @@ def render_result(evidence,selected,bundle,mode):
             target_page_usd=str(target),floor_usd_per_1k=fp['catalog']['minimum_unit_usd'],
             offers=offers,missing=[],proof=dict(fp['proof'],catalog=fp['catalog']),
             estimated_average_margin=fp['average'],margin_basis=MARGIN_BASIS,
-            minimum_gross_margin_pct='10',margin_below_minimum=False,auto_blocked_reason=None,
+            minimum_gross_margin_pct=str(HARD_MARGIN),margin_below_minimum=False,auto_blocked_reason=None,
+            decision_type=selected.get('decision_type'),financial_contract_version=FINANCIAL_CONTRACT_VERSION,
             gross_margin_pct=fp['proof']['procurement_margin_pct'],pricing_mode=mode,pricing_tier=None,
             requested_discount_pct=None,profit_floor_applied=False,pricing_basis='page_total_100k',
             strategy_version=VERSION,quote_manual=False,own_bonus_k=own['bonus_k'],
-            decision_reason=mode+'_objective',ending_reason='v3_exact_no_hidden_adjustment',
+            decision_reason=selected.get('decision_reason') or mode+'_objective',ending_reason='v3_exact_no_hidden_adjustment',
             pricing_quantity_basis='both_sides_actual_delivered_quantity',
             lootbar_page_usd=public_anchor['usd_price'],
             lootbar_usd_per_1k=str(number(public_anchor['usd_price'])/(number(public_anchor['base_k'])+number(public_anchor.get('bonus_k','0'),zero=True))),
             change_pct=str((target/number(own['package_usd'])-1)*100),
-            warning='双10%红线；单笔合法优惠仍可亏损。预测不是实绩。',status='五策略引擎核算通过 · 待执行'))
-    result=dict(checked_at=evidence['checked_at'],fx=evidence['fx'],minimum_gross_margin_pct='10',
+            warning='双20%红线；单笔合法优惠仍可亏损。预测不是实绩。',status='财务底价兜底 · 未达到竞争降幅' if selected.get('decision_type')=='floor_fallback' else '五策略引擎核算通过 · 待执行'))
+    result=dict(checked_at=evidence['checked_at'],fx=evidence['fx'],minimum_gross_margin_pct=str(HARD_MARGIN),
                 rows=rows,decision_receipt=bundle,strategy_version=VERSION)
     return result
 
@@ -260,7 +290,7 @@ def calculate_postwrite(evidence,job,db):
     if not op:raise ValueError('pricing_postwrite_original_operation_required')
     plan=postwrite_owner(db,op)
     reservation=db.get('reservations',operation_id)
-    if not reservation or reservation.get('state')!='RESERVED' or reservation.get('operation_id')!=operation_id or reservation.get('plan_id')!=op['plan_id']:
+    if op['bundle'].get('budget_policy')!='none' and (not reservation or reservation.get('state')!='RESERVED' or reservation.get('operation_id')!=operation_id or reservation.get('plan_id')!=op['plan_id']):
         raise ValueError('pricing_postwrite_original_reservation_required')
     audit=json.loads((ROOT/'executions'/(operation_id+'.json')).read_text())
     if audit.get('execution_id')!=operation_id or audit.get('sync_confirmed') is not True:
@@ -279,8 +309,9 @@ def calculate_postwrite(evidence,job,db):
         original_operation_id=operation_id,snapshot_id=evidence['run_id'],snapshot_sha256=fingerprint(evidence),mode='postwrite_completion',
         plan_id=plan['plan_id'],revision=plan['revision'],engine_generation=plan['generation'],assignment_id=op['bundle'].get('assignment_id'),
         action=action,before_action=action,resources=op['resources'],mutable_resources=op['bundle'].get('mutable_resources',op['resources']),
-        steps=[],created_at=now.isoformat(),valid_until=(now+timedelta(minutes=15)).isoformat(),financial_proof=proof,
+        steps=[],created_at=now.isoformat(),valid_until=(now+timedelta(minutes=15)).isoformat(),financial_proof=proof,financial_contract_version=FINANCIAL_CONTRACT_VERSION,
         market_comparison={},regional_market_comparison={},catalog=evidence['promotion_envelope']['packages'],
+        budget_policy=op['bundle'].get('budget_policy','historical_reservation'),
         budget_reservation=op['bundle'].get('budget_reservation',{}),budget_kind='original_reservation_no_new_price_or_concession',
         execution_authorized=True,review_contract=op['bundle']['review_contract'],review_receipt=op['bundle'].get('review_receipt'),
         review_approved=False,decision_source='original_business_decision_fresh_financial_revalidation_for_ALL_only',
@@ -321,8 +352,10 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         raise ValueError('pricing_snapshot_changed')
     if not selected or set(selected)-set(PLATFORMS) or set(selected)&{'PS','XBOX'} and not {'PS','XBOX'}<=set(selected):
         raise ValueError('pricing_common_console_scope_required')
-    if number(policy['minimum_gross_margin_pct'])!=10:
+    if number(policy['minimum_gross_margin_pct'])!=HARD_MARGIN:
         raise ValueError('pricing_margin_contract_changed')
+    if receipt.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:
+        raise ValueError('pricing_financial_quote_migration_required')
     proof=financial(quote['evidence'],receipt['action'],now,regions=(quote['evidence'].get('region_rules',[]) if purpose=='original_unsent_ALL_steps_only' else proof_regions(quote['evidence'],receipt['before_action'],receipt['action'],promised_regions=receipt.get('regional_market_comparison',{}))))
     if proof!=receipt['financial_proof']:
         raise ValueError('pricing_financial_proof_changed')
@@ -331,21 +364,29 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         if number(row['proposal'])*100!=number(receipt['action']['base_prices'][group]):
             raise ValueError('pricing_action_row_changed')
     if receipt['mode']=='revenue_sprint':
+        market_plan=dict(mode='revenue_sprint',resources=receipt['authorized_resources'],parameters=receipt['strategy_parameters']) if receipt.get('plan_id') else None
+        markets={}
         for group in receipt['market_comparison']:
             ps=GROUPS[group]
-            market=competition(quote['evidence'],ps,now)
+            market=competition(quote['evidence'],ps,now,plan=market_plan)
+            markets[group]=market
             if market!=receipt['market_comparison'][group]:
                 raise ValueError('pricing_market_proof_changed')
             target=number(receipt['action']['base_prices'][group])
-            if any(not number(t['total_low'])<=target<=number(t['total_high']) for t in market['targets'].values()):
+            if market['decision_type']=='floor_fallback':
+                if receipt.get('decision_type')!='floor_fallback' or target!=number(market['minimum_legal_base_total']):raise ValueError('pricing_fallback_not_minimum_legal_price')
+            elif any(not number(t['total_low'])<=target<=number(t['total_high']) for t in market['targets'].values()):
                 raise ValueError('pricing_competitive_band')
         for key,prior in receipt.get('regional_market_comparison',{}).items():
             platform=key.split(':')[1]
-            market=competition(quote['evidence'],[platform],now,region=21)
+            group='pc' if platform=='PC' else 'console'
+            market=competition(quote['evidence'],[platform],now,region=21,plan=market_plan,resolved_global=markets[group],base_total=receipt['action']['base_prices'][group])
             if market!=prior:raise ValueError('pricing_regional_market_proof_changed')
             price=number(proof['prices'][key]['price']['delivered_unit_100k'])
             limits=market['targets'][platform]
-            if not number(limits['unit_low'])<=price<=number(limits['unit_high']):raise ValueError('pricing_regional_competitive_band')
+            if market['decision_type']=='floor_fallback':
+                if receipt.get('decision_type')!='floor_fallback' or receipt['action']['region_coefficients'][key] not in market['legal_coefficients']:raise ValueError('pricing_regional_fallback_not_minimum_legal_price')
+            elif not number(limits['unit_low'])<=price<=number(limits['unit_high']):raise ValueError('pricing_regional_competitive_band')
     if for_execution:
         if now>=instant(receipt['valid_until']) or not receipt['execution_authorized']:
             raise ValueError('pricing_authorization_expired_or_unowned')

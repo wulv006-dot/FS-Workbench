@@ -14,7 +14,7 @@ ROOT = Path("/var/lib/fc27-cloud")
 POLICY_FILE = Path(os.environ.get("FC27_AUTOMATION_POLICY", str(ROOT / "config" / "automation.json")))
 PLATFORMS = ("PS", "XBOX", "PC")
 MAX_INTERVAL_MINUTES = 9999
-DEFAULT_GROSS_MARGIN_PCT = Decimal("10")
+DEFAULT_GROSS_MARGIN_PCT = Decimal("20")
 PRICE_STEP = Decimal("0.0001")
 
 
@@ -60,7 +60,7 @@ def normalize_policy(value, *, stored=False):
     if bool(set(platforms)&{'PS','XBOX'}) and not {'PS','XBOX'}<=set(platforms):
         raise ValueError('pricing_common_console_scope_required')
     minimum = decimal_value(value["minimum_gross_margin_pct"], "minimum_margin", 2)
-    if not DEFAULT_GROSS_MARGIN_PCT <= minimum < 100:
+    if not (Decimal("10") if stored else DEFAULT_GROSS_MARGIN_PCT) <= minimum < 100:
         raise ValueError("minimum_margin_invalid")
     clean = {"system_enabled": value["system_enabled"], "mode": value["mode"],
              "interval_minutes": value["interval_minutes"],

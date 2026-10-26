@@ -1,10 +1,11 @@
-"""Original v15 financial contract, extracted unchanged from the active 2026-10-26 source."""
+"""Current dual20 threshold over the original full financial algorithm; dual10 is archived for replay."""
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_DOWN
 import hashlib
 import json
 MARGIN_BASIS = 'undiscounted_and_historical_average_v2'
-HARD_MARGIN = Decimal('10')
+FINANCIAL_CONTRACT_VERSION = 'fc27_dual20_v1'
+HARD_MARGIN = Decimal('20')
 CENT = Decimal('.01')
 STEP = Decimal('.0001')
 CONSOLE = ('PS', 'XBOX')
@@ -83,10 +84,10 @@ def envelope_ratio(envelope, now):
     return ratio
 
 
-def hard_floor(cost_cny, fx, delivered_per_base, retained_ratio, minimum='10'):
+def hard_floor(cost_cny, fx, delivered_per_base, retained_ratio, minimum=HARD_MARGIN):
     margin = number(minimum, zero=True)
     if margin < HARD_MARGIN or margin >= 100:
-        raise ValueError('pricing_hard_margin_minimum_10')
+        raise ValueError('pricing_hard_margin_minimum_20')
     cost = number(cost_cny) / number(fx) * number(delivered_per_base)
     ratio = number(retained_ratio, zero=True)
     if ratio > 1:
@@ -94,7 +95,7 @@ def hard_floor(cost_cny, fx, delivered_per_base, retained_ratio, minimum='10'):
     return (cost / (1 - margin / 100)).quantize(STEP, rounding=ROUND_CEILING)
 
 
-def prove_price(unit, cost_cny, fx, delivered_k, base_k, ratio, minimum='10'):
+def prove_price(unit, cost_cny, fx, delivered_k, base_k, ratio, minimum=HARD_MARGIN):
     base, delivered = number(base_k), number(delivered_k)
     if delivered < base:
         raise ValueError('pricing_package_invalid')

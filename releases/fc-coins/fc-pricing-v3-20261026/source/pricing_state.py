@@ -80,7 +80,7 @@ def state(root=ROOT,owner=None):
         recent.append({k:item.get(k) for k in ('job_id','kind','actor','status','created_at','completed_at','error','error_detail','result','public_page_readback','cache_refresh','blocked_platforms','reconciliation')})
         if len(recent)>=30:break
     ready=bool(valid and quote['evidence']['promotion_envelope'].get('coupon_other_benefits_contract') in {'not_applicable','verified_mutually_exclusive','verified_included_in_envelope'})
-    return dict(version=VERSION,observed_at=now.isoformat(),hard_minimum_margin_pct='10',margin_basis=MARGIN_BASIS,
+    return dict(version=VERSION,observed_at=now.isoformat(),hard_minimum_margin_pct='20',margin_basis=MARGIN_BASIS,
                 execution_ready=ready,execution_block_reason=None if ready else ('本轮优惠适用合同未核定，不能执行。' if valid else reason+'，须重新采集核算，不能执行。'),
                 quote=quote,quote_usable=valid,quote_status=reason,recent=recent,hermes_review=owned_review(root,owner),
                 execution_authority='original_writer_locks_CAS_UNKNOWN_and_hard_floor',

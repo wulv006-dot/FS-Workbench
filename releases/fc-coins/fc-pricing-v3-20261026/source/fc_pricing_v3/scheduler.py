@@ -193,7 +193,7 @@ def cycle(body=None):
     except Exception as exc:
         code=str(exc) if isinstance(exc,ValueError) else type(exc).__name__
         job.update(status='failed',error=code[:400],completed_at=clock().isoformat())
-        if not any(word in code.lower() for word in ('infeasible','capacity_unresolved','budget_exhausted')):
+        if not any(word in code.lower() for word in ('infeasible','capacity_unresolved')):
             db.incident(code.split(':')[0],'collection_or_execution',['FC27'],error=type(exc).__name__)
         worker.save_job(job)
         raise
@@ -255,7 +255,7 @@ def exit_plan(body):
     # New EXIT lineage has its own current proof/authority; old deadline or spend cannot block it.
     next_plan=db.get('pricing_plans',old['exit_plan_id']) if old.get('exit_plan_id') else None
     if not next_plan:
-        next_plan=db.create_plan('daily',owned,old['price_anchor'],daily_budget=old['daily_budget'],
+        next_plan=db.create_plan('daily',owned,old['price_anchor'],
                                  actor=old['actor'],manual_locked=False,
                                  plan_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc-v3-exit:'+old['plan_id']+':'+str(old['revision']))))
         next_plan['parent_plan_id']=old['plan_id']
@@ -308,16 +308,6 @@ def run_job(job):
                          (json.dumps(dict(body,result=result)),job['id']))
     except Exception as exc:
         code=str(exc)
-        if 'budget_exhausted' in code.lower():
-            plan=db.get('pricing_plans',body.get('plan_id')) if body.get('plan_id') else db.active_plan()
-            if plan and plan['mode'] in ('acquisition','flash_sale','revenue_sprint'):
-                db.deadline(plan['plan_id'],plan['revision'])
-            with db.transaction() as conn:
-                body['result']=dict(status='BUDGET_EXHAUSTED',reason=code)
-                body['completed_at']=clock().isoformat()
-                if kind=='cycle':finish_cycle(db,conn,body,body['result'],body['completed_at'])
-                conn.execute('UPDATE durable_jobs SET state=\'done\',body=? WHERE id=?',(json.dumps(body),job['id']))
-            return
         terminal=('INFEASIBLE','CAPACITY_UNRESOLVED','pricing_generation_retired','pricing_resource_taken_over',
                   'pricing_plan_expired','pricing_plan_scope','pricing_competitive_band','pricing_review_pending')
         if any(t.lower() in code.lower() for t in terminal):
