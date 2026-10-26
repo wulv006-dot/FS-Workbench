@@ -1,0 +1,24 @@
+{
+  "scope": "fc-request-rejection-recovery-20261026",
+  "runtime_files": [
+    {
+      "candidate": "source/fc27-quote-cloud.js",
+      "target": "/var/www/dashboard/fc27-quote-cloud.js",
+      "beforeSha256": "ed91b35e2347454ab5e1594742483fbd4ae18e6e6a35737aeab9b6eb503d03c6",
+      "sha256": "7e0461ec603c9fd27ea2e3a3978ddb7f7ae169be4baed9129bf8e6e1b2e9cbed",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/fc27-coins.html",
+      "target": "/var/www/dashboard/fc27-coins.html",
+      "beforeSha256": "005c62ab6b9be827189d4137989fabb5d38e75c565106a179570f3f3fbcc594f",
+      "sha256": "946b42c16bfc3e5f3b3ddf4cfa645e89b33491e8d69f1ee519958b9c84d12e26",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "businessWrites": false,
+  "timersChanged": false,
+  "authorization": "user_authorized_price_operation_and_incident_recovery"
+}
