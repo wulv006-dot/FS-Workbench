@@ -5,15 +5,21 @@ import hashlib
 import json
 from pathlib import Path
 import re
-import shutil
+import subprocess
 import tarfile
 import tempfile
 
 from release import PREFIX, RELEASE
 
 
-def lf(path):
-    return path.read_bytes().replace(b'\r\n', b'\n')
+def blob(checkout, path):
+    relative = path.relative_to(checkout).as_posix()
+    return subprocess.check_output(['git', 'show', 'HEAD:' + relative], cwd=checkout)
+
+
+def canonical_source(checkout, path):
+    # The catalog pins LF-normalized Markdown, including legacy Git -text files.
+    return blob(checkout, path).replace(b'\r\n', b'\n')
 
 
 def sha(raw):
@@ -24,7 +30,9 @@ def build(checkout, source_commit, output):
     checkout = Path(checkout).resolve()
     if not re.fullmatch('[a-f0-9]{40}', source_commit):
         raise ValueError('merged_source_commit_required')
-    raw_index = lf(checkout / 'knowledge/index.json')
+    if subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=checkout, text=True).strip() != source_commit:
+        raise ValueError('source_commit_must_match_checkout')
+    raw_index = blob(checkout, checkout / 'knowledge/index.json')
     index = json.loads(raw_index)
     if index.get('contract') != 'fs-knowledge-index-v1' or index.get('release_state') != 'candidate' or \
             index.get('source_commit') is not None or len(index.get('entries', [])) != 25:
@@ -44,13 +52,13 @@ def build(checkout, source_commit, output):
         relative = row['source']['path']
         if Path(relative).is_absolute() or '..' in Path(relative).parts or '\\' in relative:
             raise ValueError('source_path_escaped_git_root')
-        data = lf(checkout / relative)
+        data = canonical_source(checkout, checkout / relative)
         if sha(data) != row['source']['sha256']:
             raise ValueError('source_sha_mismatch:' + relative)
         payloads['artifact/sources/' + relative] = data
     index_bytes = (json.dumps(published, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
     payloads['artifact/index.json'] = index_bytes
-    baseline = lf(checkout / 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md')
+    baseline = canonical_source(checkout, checkout / 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md')
     if sha(baseline) != '7b3ca86691a3671c55b7a6095d6bd77253fed4125a6885caddd08a1c5933331e':
         raise ValueError('approved_full_baseline_sha_mismatch')
     payloads['runtime/business-baseline.md'] = baseline
@@ -63,7 +71,7 @@ def build(checkout, source_commit, output):
         deployment = stage / 'deploy'
         deployment.mkdir()
         for name in ('release.py', 'prepare_manifest.py', 'release_navigation_base.py'):
-            shutil.copyfile(Path(__file__).parent / name, deployment / name)
+            (deployment / name).write_bytes(blob(checkout, checkout / 'releases/fc-coins/fc-pricing-v3-20261026/deploy/knowledge' / name))
         manifest = dict(sourceCommit=source_commit, catalogSha256=sha(index_bytes),
                         payloadSha256={name: sha(data) for name, data in sorted(payloads.items())})
         (stage / 'source-manifest.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n', encoding='utf-8')
