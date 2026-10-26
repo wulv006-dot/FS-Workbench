@@ -164,7 +164,11 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
     evaluations = {mode:evaluate(evidence,mode,plan=plan,now=now)}
     evaluation = evaluations[mode]
     if not evaluation['candidates']:
-        db.put('strategy_decisions',evidence['run_id'],evaluations)
+        result=dict(checked_at=evidence['checked_at'],rows=[],strategy_version=VERSION,status=evaluation['status'],
+            execution_authorized=False,decision_receipt=dict(schema_version=VERSION,mode=mode,plan_id=(plan or {}).get('plan_id'),
+                financial_contract_version=FINANCIAL_CONTRACT_VERSION,review_contract=PROGRAM_CONTRACT,
+                decision_source='program_current_strategy_infeasible',per_cycle_model_required=False,execution_authorized=False,status=evaluation['status']))
+        publish_snapshot(db,evidence,result,evaluations,plan,now)
         raise ValueError('pricing_v3_'+evaluation['status'].lower()+':'+','.join(sorted({e['code'] for e in evaluation['failures']}))[:250])
     if selected_action is not None:
         selected=next((c for c in evaluation['candidates'] if c['action']==selected_action),None)
@@ -222,6 +226,13 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
     bundle['uk_rule_expectations']=rule_expectations((evidence.get('region_contract') or {}).get('rules',[]))
     bundle['sha256'] = fingerprint(bundle)
     result=render_result(evidence,selected,bundle,mode)
+    publish_snapshot(db,evidence,result,evaluations,plan,now,selected)
+    return result
+
+
+def publish_snapshot(db,evidence,result,evaluations,plan,now,selected=None):
+    """Keep every current-strategy calculation for the page, audit and daily read-only replay."""
+    mode=next(iter(evaluations))
     snapshot=dict(snapshot_id=evidence['run_id'],origin='live_collector',mode='production',evidence=evidence,result=result,
                   policy_version=VERSION,created_at=now.isoformat())
     with db.transaction() as conn:
@@ -230,10 +241,9 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         if plan:
             db.put('metadata','latest_snapshot:'+plan['plan_id'],dict(snapshot_id=evidence['run_id'],plan_id=plan['plan_id']),conn)
         db.put('strategy_decisions',evidence['run_id'],evaluations,conn)
-        if mode=='revenue_sprint':db.put('market_comparisons',evidence['run_id'],dict(created_at=now.isoformat(),plan_id=(plan or {}).get('plan_id'),sprint_policy_version=SPRINT_POLICY_VERSION,groups=selected['market_comparison'],regions=selected.get('regional_market_comparison',{})),conn)
+        if mode=='revenue_sprint' and selected:db.put('market_comparisons',evidence['run_id'],dict(created_at=now.isoformat(),plan_id=(plan or {}).get('plan_id'),sprint_policy_version=SPRINT_POLICY_VERSION,groups=selected['market_comparison'],regions=selected.get('regional_market_comparison',{})),conn)
         conn.execute('INSERT OR IGNORE INTO event_outbox(event_key,kind,body) VALUES (?,?,?)',
                      ('snapshot:'+evidence['run_id'],'snapshot_ready',json.dumps(dict(snapshot_id=evidence['run_id']))))
-    return result
 
 
 def render_result(evidence,selected,bundle,mode):

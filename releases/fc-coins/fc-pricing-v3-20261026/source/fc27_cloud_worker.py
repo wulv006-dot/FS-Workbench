@@ -694,8 +694,11 @@ def main():
                 job["result"] = handle(job)
                 job["status"] = "ready"
             except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
-                job["status"] = "failed"
-                job["error"] = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+                reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+                if job['kind']=='collect' and isinstance(exc,ValueError) and reason.lower().startswith(('pricing_v3_infeasible:','pricing_v3_capacity_unresolved:')):
+                    job.update(status='ready',result=dict(status='INFEASIBLE',reason=reason,run_id=job['job_id']))
+                else:
+                    job.update(status='failed',error=reason)
             if job['kind']=='collect' and 'storefront' not in job:
                 job['storefront']=refresh_storefront(job)
             job['completed_at']=datetime.now(timezone.utc).isoformat()
