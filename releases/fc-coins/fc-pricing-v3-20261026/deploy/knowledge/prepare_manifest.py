@@ -149,15 +149,19 @@ def prepare():
         runtimeRequired=runtime, unchangedRequired=guarded, files=rows)
     targets(manifest)
     approved = HERE / 'approved-manifest.json'
-    if approved.exists():
+    runtime_path = STAGE / 'approved-manifest.json'
+    if approved.exists() or runtime_path.exists():
         raise ValueError('existing_knowledge_manifest_must_be_reconciled')
     bytes_ = (json.dumps(manifest, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
     approved.write_bytes(bytes_)
     os.chmod(approved, 0o600)
     try:
         inspected = load_base().inspect(manifest, STAGE)
+        runtime_path.write_bytes(bytes_)
+        os.chmod(runtime_path, 0o600)
     except Exception:
         approved.unlink()
+        runtime_path.unlink(missing_ok=True)
         raise
     return dict(sourceCommit=source_commit, catalogSha256=manifest_source['catalogSha256'],
                 manifestSha256=hashlib.sha256(bytes_).hexdigest(), files=len(rows),
