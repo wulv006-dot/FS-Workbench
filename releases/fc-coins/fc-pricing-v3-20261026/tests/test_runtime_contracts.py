@@ -386,7 +386,8 @@ class RuntimeContracts(unittest.TestCase):
             def request(path,owner):
                 if path.endswith('/versions'):return remote
                 if path.endswith('/simulations/'+old_run):return dict(simulation_id=old_run,execution_authorized=False,records=[])
-                if path.endswith('/quotes/'+old_run):return dict(run_id=old_run,evidence=dict(checked_at='historical'))
+                if path.endswith('/legacy-replay/'+old_run+'/legacy_80_15_5'):
+                    return dict(snapshot_id=old_run,legacy_policy='legacy_80_15_5',status='available',read_only=True,execution_authorized=False)
                 return dict(snapshot_id='current')
             bridge=pricing_simulation.SimulationBridge(root=folder,code=source,request=request)
             self.assertEqual(bridge.versions()['engine_sha256'],hashes['engine_sha256'])
@@ -399,12 +400,34 @@ class RuntimeContracts(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'legacy_bands_retired'):
                 bridge.rules(None,dict(pricing_rules=dict(bands={})),[])
             self.assertEqual(bridge.historical_result(old_run)['simulation_id'],old_run)
-            with patch('fc_pricing_v3.legacy_simulation.replay',return_value=dict(status='available')):
-                self.assertEqual(bridge.legacy_replay(old_run,'legacy_80_15_5')['status'],'available')
+            self.assertEqual(bridge.legacy_replay(old_run,'legacy_80_15_5')['status'],'available')
+            with patch.object(bridge,'request',return_value=dict(snapshot_id=old_run,legacy_policy='legacy_80_15_5',read_only=True,execution_authorized=True)),patch.object(bridge,'versions'):
+                with self.assertRaisesRegex(ValueError,'legacy_reply_scope_invalid'):
+                    bridge.legacy_replay(old_run,'legacy_80_15_5')
             unmounted=pricing_simulation.SimulationBridge(root=Path(folder)/'not-mounted',code=source,request=request)
             self.assertEqual(unmounted.capabilities()['baseline_policy']['status'],'legacy_policy_not_mounted')
             with self.assertRaisesRegex(ValueError,'runtime_version_changed'):
                 pricing_simulation.SimulationBridge(code=source,request=lambda path,owner:dict(remote,engine_sha256='0'*64)).versions()
+
+    def test_legacy_api_replays_saved_snapshot_without_quote_or_writes(self):
+        ident='00000000-0000-4000-8000-000000000052'
+        evidence=json.loads(Path(__file__).with_name('legacy-replay-fixture.json').read_text(encoding='utf-8'))
+        started=datetime.fromisoformat(evidence['checked_at'].replace('Z','+00:00'))
+        evidence['fx']['checked_at']=(started+timedelta(seconds=30)).isoformat()
+        snapshot=dict(snapshot_id=ident,created_at=(started+timedelta(seconds=60)).isoformat(),evidence=evidence)
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.sqlite3');db.put('pricing_snapshots',ident,snapshot)
+            with patch.object(api,'ledger',return_value=db):
+                result=api.read('legacy-replay/'+ident+'/legacy_80_15_5')
+                self.assertEqual(result['status'],'available')
+                self.assertEqual(result['as_of'],snapshot['created_at'])
+                self.assertEqual(result['snapshot_id'],ident)
+                self.assertNotIn('evidence',result)
+                self.assertFalse(result['execution_authorized'])
+                for path in ('legacy-replay/bad/legacy_80_15_5','legacy-replay/'+ident+'/unknown','legacy-replay/00000000-0000-4000-8000-000000000053/legacy_80_15_5'):
+                    with self.assertRaises(ValueError):api.read(path)
+            self.assertEqual(db.get('pricing_snapshots',ident),snapshot)
+            self.assertEqual(db.all('operations'),[])
 
     def test_v3_ui_controls_have_real_elements(self):
         html=(SOURCE / 'fc27-coins.html').read_text(encoding='utf-8')

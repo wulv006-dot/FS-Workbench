@@ -31,7 +31,8 @@ def replay(snapshot, name):
         return dict(status='legacy_source_version_mismatch', source_sha256=expected)
     evidence = deepcopy(snapshot.get('evidence') or {})
     try:
-        as_of = datetime.fromisoformat(evidence['checked_at'].replace('Z', '+00:00'))
+        # A source collected after the job started can still precede its saved decision.
+        as_of = datetime.fromisoformat((snapshot.get('created_at') or evidence['checked_at']).replace('Z', '+00:00'))
         if as_of.tzinfo is None:
             raise ValueError('historical_asof_timezone_missing')
         spec = importlib.util.spec_from_file_location('frozen_' + name, source)

@@ -182,6 +182,14 @@ def read(path):
                 raise ValueError('pricing_strategy_candidate_missing')
             return dict(result,candidate=candidate,mode=mode)
         return dict(result,results=strategy_summary(decisions))
+    if path.startswith('legacy-replay/'):
+        from .legacy_simulation import replay, SOURCES
+        parts=path.split('/')
+        if len(parts)!=3 or not re.fullmatch(r'[0-9a-f-]{36}',parts[1]) or parts[2] not in SOURCES:
+            raise ValueError('pricing_legacy_replay_request_invalid')
+        original=db.get('pricing_snapshots',parts[1])
+        if original is None:raise ValueError('pricing_legacy_replay_snapshot_missing')
+        return dict(replay(original,parts[2]),snapshot_id=parts[1],legacy_policy=parts[2],read_only=True,execution_authorized=False)
     if path=='plans':
         return dict(plans=sorted(db.all('pricing_plans'),key=lambda p:p['created_at'],reverse=True))
     if path=='region-rules':
