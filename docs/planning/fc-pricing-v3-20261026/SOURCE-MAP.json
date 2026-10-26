@@ -1,6 +1,6 @@
 {
-  "source_commit": "ad8675eb3edb06ca64a55989e5d101eb8163e016",
-  "checked_at": "2026-10-26T22:52:26.648312+00:00",
+  "source_commit": "e303bd267677dd7e7f01e04dad4ec2aac3aefa9d",
+  "checked_at": "2026-10-26T23:25:24.072219+00:00",
   "total": 91,
   "matched": 91,
   "files": [
@@ -80,8 +80,8 @@
       "source": "releases/fc-coins/fc-pricing-v3-20261026/source/fc27-coins.html",
       "candidate": "source/fc27-coins.html",
       "target": "/var/www/dashboard/fc27-coins.html",
-      "sha256": "88a944bd51aa5664cf44d9e8b6a9fef8de419623bc4cb4dd9b8bc380276833d8",
-      "actual_sha256": "88a944bd51aa5664cf44d9e8b6a9fef8de419623bc4cb4dd9b8bc380276833d8",
+      "sha256": "6d32384e6f6c8457a2bde3fd1fbc331a357d5a3471c6b4e81911292ad7e152e3",
+      "actual_sha256": "6d32384e6f6c8457a2bde3fd1fbc331a357d5a3471c6b4e81911292ad7e152e3",
       "matches": true
     },
     {
