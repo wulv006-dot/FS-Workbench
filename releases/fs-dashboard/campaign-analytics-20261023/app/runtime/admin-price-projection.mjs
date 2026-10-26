@@ -28,10 +28,14 @@ export function projectAdminPrices(observation,policy,{now=Date.now()}={}){
  if(typeof policy.quantity_value!=='string'||!/^\d+(?:\.\d{1,6})?$/.test(policy.quantity_value)||typeof policy.quantity_unit!=='string'||!policy.quantity_unit)return blocked('EXACT_QUANTITY_REQUIRED');
  const guard=row=>[1,'1'].includes(row.raw_state?.status)&&[0,'0'].includes(row.raw_state?.auto_off);
  if(!guard(model))return blocked('MODEL_UNAVAILABLE');
+ const subset=policy.verified_goods_ids;
+ if(subset!==undefined&&(!Array.isArray(subset)||!subset.length||subset.some(x=>!id(x))||new Set(subset).size!==subset.length))return blocked('VERIFIED_GOODS_REQUIRED');
  const products=[],combinations=[],seen=new Set(),platforms=new Set(),regions=new Set();
  try{for(const row of observation.products){
    const r=row.product_ref;
-   if(!r||Object.entries(ref).some(([k,v])=>r[k]!==v)||!id(r.goods_id)||seen.has(r.goods_id))throw Error('PRODUCT_SCOPE_MISMATCH');seen.add(r.goods_id);
+   if(!r||Object.entries(ref).some(([k,v])=>r[k]!==v)||!id(r.goods_id))throw Error('PRODUCT_SCOPE_MISMATCH');
+   if(subset&&!subset.includes(r.goods_id))continue;
+   if(seen.has(r.goods_id))throw Error('PRODUCT_SCOPE_MISMATCH');seen.add(r.goods_id);
    // Do not silently remove the original default product if it is unavailable.
    if(!guard(row)||!id(row.platform_attribute_id)||!id(row.region_id))throw Error('PRODUCT_UNAVAILABLE_OR_OPTIONS_UNKNOWN');
    if(!row.specification||typeof row.specification!=='object'||Array.isArray(row.specification))throw Error('SPECIFICATION_MAPPING_REQUIRED');
@@ -48,7 +52,7 @@ export function projectAdminPrices(observation,policy,{now=Date.now()}={}){
    products.push({key,title:'Model '+ref.model_id,product_ref:{...ref,goods_id:r.goods_id},platform:{code:known[row.platform_attribute_id]||'area-'+row.platform_attribute_id,attribute_id:row.platform_attribute_id},quantity,attributes:[],available:false});
    platforms.add(row.platform_attribute_id);regions.add(row.region_id);
    combinations.push({product_key:key,choices:{platform:row.platform_attribute_id,region:row.region_id},quantity,attributes:[],price:{source:'admin_current',base_minor:minor(tier.source_price,policy.minor_unit_scale),currency:policy.currency,minor_unit_scale:policy.minor_unit_scale,quantity_value:policy.quantity_value,expires_at:new Date(at+policy.max_age_ms).toISOString()}});
- }}catch(error){return blocked(error.message);}
+ }if(subset&&subset.some(x=>!seen.has(x)))throw Error('VERIFIED_GOODS_NOT_OBSERVED');}catch(error){return blocked(error.message);}
  const order=policy.ordered_goods_ids,ordered=Array.isArray(order)&&order.length===seen.size&&new Set(order).size===seen.size&&order.every(x=>seen.has(x))&&typeof policy.ordering_evidence==='string'&&policy.ordering_evidence.length>0;
  if(ordered)combinations.sort((a,b)=>order.indexOf(products.find(p=>p.key===a.product_key).product_ref.goods_id)-order.indexOf(products.find(p=>p.key===b.product_key).product_ref.goods_id));
  const raw={schema_version:1,verified:true,catalog_version:'admin-'+new Date(at).toISOString(),model_ref:{...ref},fields:[{id:'platform',label:'Platform',depends_on:[],values:[...platforms].map(x=>({id:x,label:'Platform '+x}))},{id:'region',label:'Server',depends_on:['platform'],values:[...regions].map(x=>({id:x,label:'Server '+x}))}],combinations,ordering_verified:Boolean(ordered),...(ordered?{ordering_evidence:policy.ordering_evidence}:{})};
