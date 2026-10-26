@@ -6,7 +6,9 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+import time
 import types
+import urllib.request
 
 from target_map import DELTA_NAMES, DELTA_SCOPE, SHADOW_NAMES, SHADOW_SCOPE, targets
 
@@ -147,7 +149,36 @@ def load_base():
     original_restart = base.restart_for
 
     def restart(manifest, admission_fence=None):
-        original_restart(manifest, admission_fence)
+        scope = manifest.get('scope')
+        worker_deadline = time.monotonic() + 60 if scope == base.HERMES_WORKER_SCOPE else None
+        try:
+            original_restart(manifest, admission_fence)
+        except ValueError as exc:
+            if scope != base.HERMES_WORKER_SCOPE or admission_fence is None or \
+                    str(exc) != 'Hermes worker health failed':
+                raise
+            # The frozen publisher probes this same endpoint for about five seconds.
+            # A Docker cold start can take longer; keep its admission fence and
+            # require the same authenticated capabilities contract before release.
+            key_path = base.rooted(admission_fence.root, '/run/fs-hermes-fc/api-key')
+            base.no_target_link(key_path)
+            key = key_path.read_text('ascii').strip()
+            request = urllib.request.Request(
+                'http://127.0.0.1:8941/v1/capabilities',
+                headers={'Authorization': 'Bearer ' + key})
+            while time.monotonic() < worker_deadline:
+                if subprocess.run(['systemctl', 'is-active', '--quiet', 'fs-hermes-fc.service'],
+                                  check=False, timeout=10).returncode == 0:
+                    try:
+                        with urllib.request.urlopen(request, timeout=1) as response:
+                            raw = response.read(128001)
+                            if len(raw) > 128000 or not isinstance(json.loads(raw), dict):
+                                raise ValueError('Hermes capabilities contract')
+                            return
+                    except OSError:
+                        pass
+                time.sleep(min(1, max(0, worker_deadline - time.monotonic())))
+            raise ValueError('Hermes worker health failed after 60s') from exc
         if manifest.get('scope') in (SCOPE, DELTA_SCOPE, SHADOW_SCOPE):
             subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=30)
             for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service'):
