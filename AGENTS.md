@@ -1,7 +1,7 @@
 <!-- business-filter-layout-current-20261025 -->
 ## 经营面板范围与游戏筛选（2026-10-25）
 
-PR470/474已合并并沿原publisher分11+1目标发布；本次12个目标的源码与生成路由精确清单见SOURCE-MAP，源码沿releases/fs-dashboard/dashboard-refresh-20261025/source/维护，其他文件保持各自活动源。网站范围→分组游戏→时间，RS三站锁RS；旧summary未传网站仍取原全站，毛利独立缓存兼容，FC明细网站联动。当前合同、逐链路影响、活动SHA和实际验收见docs/planning/business-filter-layout-20261025/。原成本/权限/会话/调度及v15/80-15-5不变；不把Git候选目录或文件装配当新模型/自然周期验收。
+PR470/474已合并并沿原publisher分11+1目标发布；本次12个目标的源码与生成路由精确清单见SOURCE-MAP，源码沿releases/fs-dashboard/dashboard-refresh-20261025/source/维护，其他文件保持各自活动源。网站范围→分组游戏→时间，RS三站锁RS；旧summary未传网站仍取原全站，毛利独立缓存兼容，FC明细网站联动。当前合同、逐链路影响、活动SHA和实际验收见docs/planning/business-filter-layout-20261025/。原成本/权限/会话/调度及v15双红线与本轮V3定价合同不变；不把Git候选目录或文件装配当新模型/自然周期验收。
 
 <!-- operator-report-core-current-20261025 -->
 ## 所有报告的生成与审核核心（2026-10-25用户明确纠正）
@@ -11,12 +11,12 @@ Hermes及Codex/ChatGPT产出、指导或审核任何报告、文字分析，优�
 <!-- dashboard-refresh-current-20261025 -->
 ## 经营看板八主卡与刷新（2026-10-25）
 
-用户已确认同范围旧值先展示、顶部提示刷新并替换；默认销售额、订单数、毛利、毛利率、新客人数、复购率、新客占比、客单价八卡，其他收起。来源、历史更正核验、当前积压与未支付来源缺口，见 `docs/planning/business-dashboard-refresh-20261025/CONTRACT.md`；活动源码与正式发布/验收见同目录SOURCE-MAP和ACCEPTANCE。不改变逐单毛利公式、权限、会话、调度、v15或80/15/5；Git候选知识不冒充生产目录或真实模型应用。
+用户已确认同范围旧值先展示、顶部提示刷新并替换；默认销售额、订单数、毛利、毛利率、新客人数、复购率、新客占比、客单价八卡，其他收起。来源、历史更正核验、当前积压与未支付来源缺口，见 `docs/planning/business-dashboard-refresh-20261025/CONTRACT.md`；活动源码与正式发布/验收见同目录SOURCE-MAP和ACCEPTANCE。不改变逐单毛利公式、权限、会话、调度、v15双红线与本轮V3定价合同；Git候选知识不冒充生产目录或真实模型应用。
 
 <!-- dashboard-actual-profit-current-20261024 -->
 ## 经营看板利润主展示（2026-10-24）
 
-用户已授权用逐单实际成本毛利、毛利率和覆盖情况替换发货利润卡与每日曲线。有效合同见`docs/planning/business-actual-profit-20261024/CONTRACT.md`；新活动源及上线状态见同目录SOURCE-MAP与ACCEPTANCE。Admin同批付款完成订单整单CNY收入减同网站同订单Order实际历史成本，覆盖单不外推全体；未完成、缺收入/成本和失败明确展示。每日按同批付款日期分组；发货统计主展示及自动读取退役，原Hermes按需查询保留。RS筛选保持，FC未核细分不显示整游戏利润。不改FC v15/80-15-5、调度、权限与UNKNOWN。本段覆盖旧看板shipping主展示规则，旧证据保留。服务器业务基准仅追加本规则，并仅更新原wulv/FS/fs完整基准兼容SHA；不把Git候选目录声称为已发布知识目录或真实模型验收。
+用户已授权用逐单实际成本毛利、毛利率和覆盖情况替换发货利润卡与每日曲线。有效合同见`docs/planning/business-actual-profit-20261024/CONTRACT.md`；新活动源及上线状态见同目录SOURCE-MAP与ACCEPTANCE。Admin同批付款完成订单整单CNY收入减同网站同订单Order实际历史成本，覆盖单不外推全体；未完成、缺收入/成本和失败明确展示。每日按同批付款日期分组；发货统计主展示及自动读取退役，原Hermes按需查询保留。RS筛选保持，FC未核细分不显示整游戏利润。不改FC v15双红线与本轮V3定价合同、调度、权限与UNKNOWN。本段覆盖旧看板shipping主展示规则，旧证据保留。服务器业务基准仅追加本规则，并仅更新原wulv/FS/fs完整基准兼容SHA；不把Git候选目录声称为已发布知识目录或真实模型验收。
 
 <!-- business-shipping-profit-current-20261024 -->
 ## 经营看板利润计算规则（2026-10-24）
@@ -28,12 +28,12 @@ Hermes及Codex/ChatGPT产出、指导或审核任何报告、文字分析，优�
 
 FC27经营报告先按[字段使用与呈现规则](docs/planning/fc27-daily-teaching-20261024/REPORT-RULES.md)定位相关教材：逐字段核来源、范围、单位、分母、计算、允许结论及主动补查；日期和数字是历史实例，新任务重取证。可比数据优先图表，多维指标按需切换；Ads/流量提高分析权重并置于发货履约之前，本次日报默认04获客、05利润目标、06履约。详细界面设计仍由Hermes自主，不扩为FS全站UI要求，不改预算或业务执行权。Git追溯、项目入口、正式技能、任务实际加载和长期应用分别验收；只入Git不等于服务器自动生效。Admin优先/Order补缺、现行业务基准、v15及原调度/权限保持。
 
-<!-- fc-reference-weighting-deployed-20261024 -->
-FC Coins 80/15/5 has been deployed through PR425/426. Exact current sources and runtime hashes, baseline compatibility correction, CI and actual model/readback evidence: docs/planning/fc-competitor-weighting-20261024/DELIVERY.md and SOURCE-MAP.json. Preserve original fallback/v15/pool/120min/UNKNOWN and incident writer fixes. The published 12-entry learning route remains; do not claim the new Git entry was separately deployed as a 13-entry catalog. Natural-cycle and profit acceptance remain separate.
+<!-- fc-v3-current-20261026 -->
+## FC27 V3统一定价与长期影子
 
-<!-- fc-reference-weighting-approved-20261024 -->
-## FC Coins 80/15/5 本轮实施规则
-用户已确认fc-reference-weighting-20261024-v2并授权Sol施工。正式合同见docs/planning/fc-competitor-weighting-20261024/CONTRACT.md：Lootbar80/ItemD2R15/U7Buy5、各价差截断±5%、缺项不分摊、第三梯队直接0但保留分析；原模型失联兜底/v15/共同池/PC独立/120分钟/原ID与UNKNOWN保持。仅该获批版本覆盖原纯定性/实验不生产限制，其他实验及旧80/10/10仍不生产。代码、正式CI、部署、实际模型与自然周期分别按交付读回；PR421/422/423事故修复不得旧包覆盖。
+本轮用户授权P0–P4开发、PR/CI、受控发布、真实试验及旧机制退役。当前业务合同为docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md，活动源与真实上线状态须核同目录SOURCE-MAP和DELIVERY。五策略采用真实经营输入，Hermes负责候选选择和审核；v15双10%红线、Console共同基价/成本、PC独立、原操作ID/UNKNOWN与公开读回保持。沙特地区及三平台系数使用真实Admin规则，兼容英国0.9100。积压仅Admin11/21/31与Order1/2正常订单交集，暂停/问题单及其余状态排除。
+
+旧加权、临时ItemD2R钉价、旧baseline/hold/parity、尾价回摆及被替代调度不得保留生产控制。PR425/426等旧证据移作历史和隔离只读回放，不用于恢复旧控制权。切换与退役只有实际回执才算完成，不由本条推定已部署。原共享服务、其他游戏和未替代采集能力保持。详细参数基数、真实预测与长期学习方法按V3合同，Git知识候选、生产实际加载和Hermes独立运用分别验证。
 
 # AI 执行入口
 

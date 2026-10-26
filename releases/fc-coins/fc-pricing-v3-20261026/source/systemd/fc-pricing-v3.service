@@ -1,0 +1,23 @@
+[Unit]
+Description=FC Pricing V3 single durable coordinator
+After=fc27-cloud-api.service fc27-cloud-worker.service
+
+[Service]
+Type=simple
+User=root
+Group=fc27cloud
+WorkingDirectory=/opt/fc27-cloud-browser
+UMask=0027
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/python39/bin/python3 -B -m fc_pricing_v3.scheduler
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=full
+MemoryLimit=768M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

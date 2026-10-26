@@ -1,0 +1,341 @@
+{
+  "now": "2026-10-21T18:20:00+00:00",
+  "fixture": [
+    {
+      "game": "FC27",
+      "product": "Game Coins",
+      "checked_at": "2026-10-21T18:20:00+00:00",
+      "fx": {
+        "cny_per_usd": "7",
+        "checked_at": "2026-10-21T18:20:00+00:00"
+      },
+      "storefront": {
+        "rows": {
+          "PS": {
+            "platform": "PS",
+            "sku_id": "100",
+            "base_k": "100",
+            "bonus_k": "5",
+            "package_usd": "20.00",
+            "status": "ok",
+            "checked_at": "2026-10-21T18:20:00+00:00"
+          },
+          "XBOX": {
+            "platform": "XBOX",
+            "sku_id": "101",
+            "base_k": "100",
+            "bonus_k": "5",
+            "package_usd": "20.00",
+            "status": "ok",
+            "checked_at": "2026-10-21T18:20:00+00:00"
+          },
+          "PC": {
+            "platform": "PC",
+            "sku_id": "102",
+            "base_k": "100",
+            "bonus_k": "5",
+            "package_usd": "20.00",
+            "status": "ok",
+            "checked_at": "2026-10-21T18:20:00+00:00"
+          }
+        }
+      },
+      "promotion_envelope": {
+        "contract": "fc-coins-promotion-envelope-v1",
+        "status": "verified",
+        "site_id": 266,
+        "game_id": 1327,
+        "coupon_other_benefits_contract": "not_applicable",
+        "minimum_retained_ratio": "0.90",
+        "code_count": 0,
+        "coupon_count": 0,
+        "codes_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "coupons": [],
+        "packages": {
+          "PS": {
+            "sku_id": "100",
+            "model_id": "99",
+            "tiers": [
+              {
+                "base_k": "10",
+                "bonus_k": "0",
+                "retained_ratio": "1"
+              },
+              {
+                "base_k": "100",
+                "bonus_k": "5",
+                "retained_ratio": "1"
+              },
+              {
+                "base_k": "1000",
+                "bonus_k": "50",
+                "retained_ratio": "1"
+              }
+            ],
+            "min_custom_k": "10",
+            "max_delivered_ratio": "1.05",
+            "minimum_package_retained_ratio": "1",
+            "source": "Admin product quantity/gift/discount configuration, checked against same-run public 100K",
+            "custom_basis": "existing integer-K custom amount, minimum published tier; no formula changes"
+          },
+          "XBOX": {
+            "sku_id": "101",
+            "model_id": "99",
+            "tiers": [
+              {
+                "base_k": "10",
+                "bonus_k": "0",
+                "retained_ratio": "1"
+              },
+              {
+                "base_k": "100",
+                "bonus_k": "5",
+                "retained_ratio": "1"
+              },
+              {
+                "base_k": "1000",
+                "bonus_k": "50",
+                "retained_ratio": "1"
+              }
+            ],
+            "min_custom_k": "10",
+            "max_delivered_ratio": "1.05",
+            "minimum_package_retained_ratio": "1",
+            "source": "Admin product quantity/gift/discount configuration, checked against same-run public 100K",
+            "custom_basis": "existing integer-K custom amount, minimum published tier; no formula changes"
+          },
+          "PC": {
+            "sku_id": "102",
+            "model_id": "99",
+            "tiers": [
+              {
+                "base_k": "10",
+                "bonus_k": "0",
+                "retained_ratio": "1"
+              },
+              {
+                "base_k": "100",
+                "bonus_k": "5",
+                "retained_ratio": "1"
+              },
+              {
+                "base_k": "1000",
+                "bonus_k": "50",
+                "retained_ratio": "1"
+              }
+            ],
+            "min_custom_k": "10",
+            "max_delivered_ratio": "1.05",
+            "minimum_package_retained_ratio": "1",
+            "source": "Admin product quantity/gift/discount configuration, checked against same-run public 100K",
+            "custom_basis": "existing integer-K custom amount, minimum published tier; no formula changes"
+          }
+        },
+        "unissued_directed_templates": [],
+        "after_sales_compensation": [],
+        "vip_contract": {
+          "url": "https://www.mmoexp.com/Vip.html",
+          "verified_date": "2026-10-22",
+          "automatic_discount_max_pct": "5",
+          "points_max_pct": "10",
+          "regular_code_exclusive": true,
+          "coupon_points_exclusive": true,
+          "coupon_vip_allowance_pct": "0",
+          "combination": "VIP_points_code_coupon_mutually_exclusive",
+          "cart_source_url": "https://www.mmoexp.com/Cart.html",
+          "cart_source_sha256": "605a07a7bec2cde23b5201a30d147b94ed01c5c24a4e41ecb0a989880191a93f",
+          "verification": "human explicitly confirmed all four mutually exclusive 2026-10-22; supersedes earlier Cart inference; backend transaction not placed"
+        },
+        "custom_contract": {
+          "url": "https://www.mmoexp.com/mmoexp-v250528/js/goods/mlb26-landing.min.js",
+          "sha256": "ad92c2d1c36bfd4d0de8fe4c6cb566be3957209aec86cb3f64fcd9299074c10d",
+          "integer_k": true,
+          "minimum": "minimum_public_tier",
+          "non_tier_gifts": "0",
+          "tier_discount_bound": "minimum_configured_discount",
+          "unit_bound": "custom uses max(current unit, derived tier unit)",
+          "verified_date": "2026-10-22",
+          "verification": "workstation public source inspection; fixed formula retained by user, not a per-cycle remote fetch"
+        },
+        "scope": "ordinary sales; mutually exclusive benefits; after-sales compensation accounted separately; ignored caps/eligibility only overestimate discounts",
+        "sha256": "93babfffee7d4979f147b6d51db96b8690caf24d6711d27693aa297581c3c4cc",
+        "checked_at": "2026-10-21T18:20:00+00:00"
+      },
+      "costs": {
+        "PS": {
+          "platform": "PS",
+          "game": "FC27",
+          "product": "Game Coins",
+          "record_id": "1",
+          "trade_at": "26-10-22 02:10:00",
+          "checked_at": "2026-10-21T18:20:00+00:00",
+          "cny_per_1k": ".7"
+        },
+        "XBOX": {
+          "platform": "XBOX",
+          "game": "FC27",
+          "product": "Game Coins",
+          "record_id": "2",
+          "trade_at": "26-10-22 02:10:00",
+          "checked_at": "2026-10-21T18:20:00+00:00",
+          "cny_per_1k": ".7"
+        },
+        "PC": {
+          "platform": "PC",
+          "game": "FC27",
+          "product": "Game Coins",
+          "record_id": "3",
+          "trade_at": "26-10-22 02:10:00",
+          "checked_at": "2026-10-21T18:20:00+00:00",
+          "cny_per_1k": ".7"
+        }
+      },
+      "offers": {
+        "PS": {
+          "Lootbar": {
+            "usd_price": "20",
+            "base_k": "100",
+            "bonus_k": "5",
+            "checked_at": "2026-10-21T18:20:00+00:00",
+            "conditional": false,
+            "comparable": true
+          }
+        },
+        "XBOX": {
+          "Lootbar": {
+            "usd_price": "20",
+            "base_k": "100",
+            "bonus_k": "5",
+            "checked_at": "2026-10-21T18:20:00+00:00",
+            "conditional": false,
+            "comparable": true
+          }
+        },
+        "PC": {
+          "Lootbar": {
+            "usd_price": "20",
+            "base_k": "100",
+            "bonus_k": "5",
+            "checked_at": "2026-10-21T18:20:00+00:00",
+            "conditional": false,
+            "comparable": true
+          }
+        }
+      },
+      "historical_discount_mix": {
+        "status": "available",
+        "period": {
+          "start": "2026-10-15",
+          "end": "2026-10-21"
+        },
+        "observed_orders": 10,
+        "eligible_orders": 10,
+        "net_order_usd": "90",
+        "actual_discount_usd": "10",
+        "undiscounted_order_usd": "100",
+        "retained_ratio": ".9",
+        "sha256": "2c9dc49b00838cfdb1dbed9d10f5ad13179b7618eee1bfd230987d5994bb6714"
+      }
+    },
+    [
+      {
+        "platform": "PS",
+        "cost_cny": ".7"
+      },
+      {
+        "platform": "XBOX",
+        "cost_cny": ".7"
+      },
+      {
+        "platform": "PC",
+        "cost_cny": ".7"
+      }
+    ],
+    [
+      {
+        "id": 100,
+        "site_id": 266,
+        "gid": 1327,
+        "top_cid": 1,
+        "unit": "K",
+        "status": 1,
+        "mid": 99,
+        "discount": "100",
+        "unit_price": ".20",
+        "more": {
+          "gold": [
+            10,
+            100,
+            1000
+          ],
+          "give": [
+            0,
+            5,
+            50
+          ],
+          "discount": [
+            100,
+            100,
+            100
+          ]
+        }
+      },
+      {
+        "id": 101,
+        "site_id": 266,
+        "gid": 1327,
+        "top_cid": 1,
+        "unit": "K",
+        "status": 1,
+        "mid": 99,
+        "discount": "100",
+        "unit_price": ".20",
+        "more": {
+          "gold": [
+            10,
+            100,
+            1000
+          ],
+          "give": [
+            0,
+            5,
+            50
+          ],
+          "discount": [
+            100,
+            100,
+            100
+          ]
+        }
+      },
+      {
+        "id": 102,
+        "site_id": 266,
+        "gid": 1327,
+        "top_cid": 1,
+        "unit": "K",
+        "status": 1,
+        "mid": 99,
+        "discount": "100",
+        "unit_price": ".20",
+        "more": {
+          "gold": [
+            10,
+            100,
+            1000
+          ],
+          "give": [
+            0,
+            5,
+            50
+          ],
+          "discount": [
+            100,
+            100,
+            100
+          ]
+        }
+      }
+    ]
+  ]
+}

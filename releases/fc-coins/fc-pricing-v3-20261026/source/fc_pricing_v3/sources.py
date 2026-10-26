@@ -1,0 +1,146 @@
+"""One shared-session source snapshot; no credentials leave the existing broker."""
+from datetime import datetime, timezone
+from decimal import Decimal
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+from .financial import fingerprint
+
+
+def _admin_product_scopes(storefront,products):
+    from .regional_public import canonical_products,SCOPE_FIELDS
+    expected=canonical_products()
+    for platform,scope in expected.items():
+        sku=int(storefront['rows'][platform]['sku_id'])
+        rows=[row for row in products if int(row['id'])==sku]
+        if len(rows)!=1:
+            raise ValueError('pricing_region_admin_product_scope_ambiguous:'+platform)
+        scope['id']=sku
+        if any(str(rows[0].get(field))!=str(scope[field]) for field in SCOPE_FIELDS):
+            raise ValueError('pricing_region_admin_product_scope_mismatch:'+platform)
+        expected[platform]={field:rows[0][field] for field in SCOPE_FIELDS}
+    return expected
+
+
+def _rule_matches_product(rule,product):
+    fields=dict(site_id='site_id',gid='gid',top_cid='top_cid',cid='cid',sid='sid',aid='aid',goods_id='id')
+    return all(rule[field] in (0,int(product[native])) for field,native in fields.items())
+
+
+def _public_matches(observed,region_id,platform,product,factor):
+    """A control cannot turn a failed public/backend reconciliation into trusted evidence."""
+    code={39:'uk',21:'ar'}.get(region_id)
+    offer=(observed.get('offers') or {}).get(platform) or {}
+    context=offer.get('selection_context') or {}
+    if (not code or observed.get('status')!='verified' or observed.get('region_id')!=region_id or
+            observed.get('code')!=code or offer.get('selection_verified') is not True or
+            offer.get('region_id')!=region_id or offer.get('platform')!=platform or offer.get('currency')!='USD' or
+            any(context.get(k)!=v for k,v in dict(code=code,region_id=region_id,currency='USD',currency_rate='1',selected_header=code.upper()+' | USD').items()) or
+            not context.get('landing_sha256') or observed.get('selection_context')!=context or
+            any(str((offer.get('product_scope') or {}).get(k))!=str(v) for k,v in product.items()) or
+            str(offer.get('sku_id'))!=str(product['id']) or offer.get('aid')!=int(product['aid'])):
+        return False
+    return Decimal(offer['coefficient'])==Decimal(str(factor))
+
+
+def collect_context(evidence):
+    done=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.sources'],
+        input=json.dumps(dict(storefront=evidence['storefront'],arab_ut_status=evidence.get('arab_ut_status'),price_windows=evidence.get('price_windows',[]))),capture_output=True,text=True,
+        timeout=240,cwd='/opt/fc27-cloud-browser')
+    try:
+        value=json.loads(done.stdout)
+    except ValueError:
+        raise ValueError('pricing_v3_source_reply_invalid') from None
+    if done.returncode:
+        raise ValueError(value.get('error','pricing_v3_shared_source_unavailable'))
+    return value
+
+
+def shared_context(storefront,arab_ut_status=None,price_windows=None):
+    from .market_registry import arab_normal
+    try:arab=arab_ut_status if isinstance(arab_ut_status,dict) else arab_normal()
+    except Exception as exc:arab=dict(status='unavailable',reason=type(exc).__name__,offers=[])
+    sys.path.insert(0,'/opt/fs-hermes-fc')
+    from channel_source import pages,COLLECTOR
+    sys.path.insert(0,COLLECTOR)
+    import p2pah_auth as auth
+    from .region_source import read_rules
+    session=auth.Session()
+    token,reason=auth.admin_token_from_service()
+    if not token:
+        raise ValueError('pricing_admin_shared_source_unavailable')
+    session.bind_admin_token(token)
+    del token
+    try:
+        rules=read_rules(session,pages)
+        wanted=','.join(str(row['sku_id']) for row in storefront['rows'].values())
+        products=pages(session,'/admin/goods.Goods/index',[('id','IN',wanted)])
+        from .business_source import collect as collect_business
+        business=collect_business(session,pages,storefront,products,price_windows=price_windows)
+    finally:
+        session.close()
+    aids={'PS':21587,'XBOX':21585,'PC':21589}
+    product_scopes=_admin_product_scopes(storefront,products)
+    matched=[]
+    from .regional_public import collect as public_region
+    from concurrent.futures import ThreadPoolExecutor
+    public={}
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures={rid:pool.submit(public_region,code,rid,expected_products=product_scopes) for code,rid in (('uk',39),('ar',21))}
+        for rid,future in futures.items():
+            try:public[rid]=future.result()
+            except Exception as exc:public[rid]=dict(status='unavailable',reason=type(exc).__name__,region_id=rid)
+    for rule in rules:
+        if rule['status']!=1:
+            continue
+        platforms=[p for p in aids if _rule_matches_product(rule,product_scopes[p])]
+        if not platforms:
+            continue
+        matching=[r for r in matched if r['region_id']==rule['lang_region_id'] and set(r['platforms'])&set(platforms)]
+        if matching:
+            raise ValueError('pricing_region_overlapping_rule_priority_pending')
+        observed=public.get(rule['lang_region_id'],{})
+        verified=all(_public_matches(observed,rule['lang_region_id'],p,product_scopes[p],rule['factor']) for p in platforms)
+        replay=business.get('history_replay') or {}
+        replay=(replay.get('region_layers') or {}).get(str(rule['lang_region_id']),replay)
+        matched.append(dict(rule,region_id=rule['lang_region_id'],platforms=platforms,
+            factor=rule['factor'],price_semantics='regional_regular_multiplicative',
+            verified=verified,rounding='half_up_cent',history=dict(basis='historical_eligibility_current_terms_projected',basis_lower_bound_sufficient=replay.get('basis_lower_bound_sufficient'),
+                replay_paths=replay.get('paths') if replay.get('status') in ('verified','available') else None,
+                source_sha256=replay.get('source_sha256'),source_scope=replay.get('source_scope'),original_basis_reconciliation=replay.get('original_basis_reconciliation'),coverage=replay.get('coverage')),
+            resource='region_rule:'+str(rule['id']),public_rule_trace=observed,
+            verification_status='public_factor_and_unique_backend_rule_verified' if verified else 'regional_public_pending'))
+    contract=dict(schema_version='fc27-region-observed-20261026-v1',rules=rules,
+                  rule_set_sha256=fingerprint(rules),admin_product_scopes=product_scopes,
+                  checked_at=datetime.now(timezone.utc).isoformat(),unique_current_matches=True)
+    controls=[]
+    for p,aid in aids.items():
+        current=next((r for r in matched if r['region_id']==21 and p in r['platforms']),None)
+        observed=(public.get(21,{}).get('offers') or {}).get(p)
+        scope=dict(site_id=266,lang_region_id=21,goods_id=0,gid=1327,top_cid=1,cid=0,sid=7645,aid=aid)
+        if current:
+            scope={field:current[field] for field in scope}
+        factor=(current or {}).get('factor','1')
+        verified=(current['verified'] if current else _public_matches(public.get(21,{}),21,p,product_scopes[p],'1'))
+        replay=business.get('history_replay') or {}
+        controls.append(dict(id=(current or {}).get('id'),resource='region:21:'+p,region_id=21,platforms=[p],
+            factor=factor,scope=scope,price_semantics='regional_regular_multiplicative',
+            verified=verified,rounding='half_up_cent',
+            verification_status=('unique_backend_rule_and_public_scope_verified' if current else 'no_matching_backend_rule_and_public_factor_one_verified') if verified else 'regional_public_pending',
+            history=current['history'] if current else dict(basis='historical_eligibility_current_terms_projected',basis_lower_bound_sufficient=replay.get('basis_lower_bound_sufficient'),replay_paths=replay.get('paths') if replay.get('status') in ('verified','available') else None,
+                         source_sha256=replay.get('source_sha256'),source_scope=replay.get('source_scope'),original_basis_reconciliation=replay.get('original_basis_reconciliation')),public_rule_trace=observed,
+            expected_rule_set_sha256=fingerprint(rules)))
+    return dict(business,region_rules=matched,regional_controls=controls,region_contract=contract,
+                region_contract_sha256=fingerprint(contract),admin_products=products,
+                regional_public_readback=public,arab_ut_quotes=arab['offers'],arab_ut_status=arab)
+
+
+if __name__=='__main__':
+    try:
+        data=json.load(sys.stdin)
+        print(json.dumps(shared_context(data['storefront'],data.get('arab_ut_status'),data.get('price_windows')),ensure_ascii=False))
+    except Exception as exc:
+        print(json.dumps(dict(error=str(exc) if isinstance(exc,ValueError) else type(exc).__name__)))
+        raise SystemExit(1)

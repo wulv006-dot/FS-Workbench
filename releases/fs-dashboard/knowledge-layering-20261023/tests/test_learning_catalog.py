@@ -21,13 +21,13 @@ sys.path[:0] = [str(SOURCE), str(ROOT / 'releases/fs-dashboard/hermes-fc-pilot-2
 import knowledge_catalog as kc
 import business_context as bc
 
-BASE = '6a0f424ac020694e67f8ae5d825ce871d1a7faf1'
-BASELINE = 'releases/fs-dashboard/dashboard-refresh-20261025/source/business-baseline.md'
+BASE = '0e2d02efd7c894199ab0f62ca69a9c75ed7c2578'
+BASELINE = 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'
 HISTORY = 'knowledge/history/fc-business-baseline-before-aion2-20261023.md'
 CURRENT_IDS = {'fs.data.sources', 'fs.data.currency', 'fs.customer.identity', 'fc.marketing.attribution',
                'fs.finance.procurement', 'fc.pricing.constraints', 'fs.procurement.inputs',
                'fs.pricing.parameter-identity', 'fs.product.identity', 'fs.customer.lifecycle',
-               'fs.learning.methods', 'fs.project.execution', 'fc.pricing.reference-weighting',
+               'fs.learning.methods', 'fs.project.execution', 'fc.pricing.v3',
                'fs.dashboard.shipping-profit'}
 
 
@@ -245,16 +245,18 @@ class LearningCatalog(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'source_version'):
             kc.validate(value)
 
-    def test_fourteen_current_entries_cover_rules_and_twenty_four_preserve_history(self):
+    def test_fourteen_current_entries_cover_rules_and_twenty_five_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 24)
+        self.assertEqual(len(entries), 25)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 24)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 25)
 
     def test_user_approved_reference_rule_is_indexed_without_changing_margin_constraints(self):
         entries = catalog()['entries']
         row = next(r for r in entries if r['id']=='fc.pricing.reference-weighting')
         self.assertEqual(row['revision'], 'fc-reference-weighting-20261024-v2')
+        self.assertEqual((row['layer'], row['status']), ('archive', 'retired'))
+        self.assertEqual(len([r for r in entries if r['id']=='fc.pricing.v3' and r['layer']=='current' and r['status']=='effective']), 1)
         text = lf(ROOT/row['source']['path']).decode('utf-8')
         for required in ('80%', '15%', '5%', '缺项贡献为0', 'model_unavailable_fallback_usd', 'v15'):
             self.assertIn(required, text)
@@ -296,7 +298,9 @@ class LearningCatalog(unittest.TestCase):
         self.assertEqual(hashlib.sha256(lf(ROOT/HISTORY)).hexdigest(), '1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb')
 
     def test_existing_contract_index_dates_do_not_invent_original_policy_effective_dates(self):
-        rows = [r for r in catalog()['entries'] if r['revision']=='existing-contract-20261023']
+        rows = [r for r in catalog()['entries'] if r['id'] in {
+            'fs.procurement.inputs', 'fs.pricing.parameter-identity', 'fs.product.identity',
+            'fs.customer.lifecycle', 'fs.learning.methods', 'fs.project.execution'}]
         self.assertEqual(len(rows), 6)
         for row in rows:
             self.assertEqual(row['effective_at'], '2026-10-23')
@@ -307,7 +311,7 @@ class LearningCatalog(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(lf(path)).hexdigest()
         current = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.marketing.attribution'], preview=True)
-        self.assertEqual(current['entries'][0]['revision'], 'v15-pmax-aion2-20261023')
+        self.assertEqual(current['entries'][0]['revision'], 'fc-v3-20261026')
         self.assertIn('优惠码 `Aion2` 由 TikTok 改归**分销**', current['entries'][0]['content'])
         old = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.marketing.attribution'],
                         revision='v15-pmax-20261022', history=True, preview=True)
