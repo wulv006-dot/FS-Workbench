@@ -1,14 +1,14 @@
 # FC27 V3 真实验收记录｜2026-10-27 自然周期接续
 
-当前双20、无预算代码已上线，真实首轮、英国折扣退出和原编号类别联动已完成。首个新合同自然周期已完成为INFEASIBLE、未写价；更多连续周期和长期经营效果尚未验收，不能将本记录称为P0–P4全部完成。后续候选、修复及隔离故障注入见[NATURAL-AND-FAULT-ACCEPTANCE](NATURAL-AND-FAULT-ACCEPTANCE.md)。
+当前双20、无预算代码已上线，真实首轮、英国折扣退出和原编号类别联动已完成。两个新合同自然周期已分别完成为INFEASIBLE、未写价、无技术重试；更多连续周期和长期经营效果尚未验收，不能将本记录称为P0–P4全部完成。后续候选、修复及隔离故障注入见[NATURAL-AND-FAULT-ACCEPTANCE](NATURAL-AND-FAULT-ACCEPTANCE.md)。
 
 ## 当前版本与计划
 
-- 当前代码：`ad8675eb3edb06ca64a55989e5d101eb8163e016`，[PR530](https://github.com/wulv006-dot/FS-Workbench/pull/530)。正式CI run40415052550/job121895140445，221项FC V3检查通过。PR529修复已核历史PlayStation原生标签，PR530沿原Admin/ES补齐指定历史缺日；真实结果见[历史覆盖核验](HISTORICAL-COVERAGE-20261027.md)。PR526页面重复原因去重及真实展示验收保留。实际91/91目标SHA匹配，见[SOURCE-MAP](SOURCE-MAP.json)。PR520–523分别修复积压缓存吞吐、默认地区层底价舍入、业务无解分类及每轮快照保存，完整发布链见[接续核验](NATURAL-AND-FAULT-ACCEPTANCE.md)。
+- 当前代码：`e303bd267677dd7e7f01e04dad4ec2aac3aefa9d`，[PR532](https://github.com/wulv006-dot/FS-Workbench/pull/532)。正式CI run40417508667/job121903384121，221项FC V3检查通过；仅修正页面遗留00:20为实际每日02:20。PR530后端与历史补齐版本ad8675e继续保持。PR529修复已核历史PlayStation原生标签，PR530沿原Admin/ES补齐指定历史缺日；真实结果见[历史覆盖核验](HISTORICAL-COVERAGE-20261027.md)。PR526页面重复原因去重及真实展示验收保留。实际91/91目标SHA匹配，见[SOURCE-MAP](SOURCE-MAP.json)。PR520–523分别修复积压缓存吞吐、默认地区层底价舍入、业务无解分类及每轮快照保存，完整发布链见[接续核验](NATURAL-AND-FAULT-ACCEPTANCE.md)。
 - 双20/冲量/无预算：[PR515](https://github.com/wulv006-dot/FS-Workbench/pull/515)，merge89086d090809d70dd8899f3e57a6a466f18d2ac3；正式196项FC及87项知识检查通过。
 - 英国专项与完整指南：[PR516](https://github.com/wulv006-dot/FS-Workbench/pull/516)，merge3fa60c797259a82c59925ac52899afd20f0a028f；202项检查通过。原编号类别联动兼容：[PR517](https://github.com/wulv006-dot/FS-Workbench/pull/517)，merge5120b4e70aa6a0ed6e69e136bcec032374ade249；206项检查通过。
 - 原计划`15010688-bf97-5dd8-a33e-b4ae3c360403`：revision2/ACTIVE，`fc27_dual20_v1`、`budget_policy=none`，有效daily_budget/total_budget字段已移除，迁移前记录保留。政策revision41、ON/auto、120分钟、三平台、最低毛利20%。
-- 原截止仍为2026-10-27 22:30北京时间；没有延长试验。首轮真实程序写价完成03:10:25；05:12:35自然轮正常完成为INFEASIBLE、未写价、attempt0，下轮07:12:35。英国专项、只读核验和代码发布未重置间隔。
+- 原截止仍为2026-10-27 22:30北京时间；没有延长试验。首轮真实程序写价完成03:10:25；05:12:35与07:14:52两个自然轮均正常完成为INFEASIBLE、未写价、attempt0，下轮09:14:52。英国专项、只读核验和代码发布未重置间隔。
 
 ## 首轮真实程序执行
 
@@ -66,4 +66,4 @@
 - Watchdog/恢复回归含原ID、UNKNOWN不重发、去重、服务冷启动、只读影子隔离及队列错误退避；现场已对账NOT_SENT、原失败和发布健康等待。未做破坏性生产浏览器故障注入，也未声称全部故障路径都在线注入通过。
 - 05:10首个新合同自然周期已实际完成，无新写入、无技术重试，按正常周期继续；随后更多周期无重复写入/旧策略回摆/无限重启和下次跨日影子仍待真实时点逐轮核证。现场隔离影子损坏输入、恢复、重复消费及并发锁测试已通过，未向生产浏览器注入破坏性故障。
 
-私有原样证据保留在本任务`.agent_runtime/fc-pricing-v3-20261026/`：first-dual20-acceptance.json、uk-retirement-acceptance.json、legacy-retirement-acceptance.json、current-source-ad8675e.json及原发布日志。完整订单、会话和后台载荷未上传Git或Notion。
+私有原样证据保留在本任务`.agent_runtime/fc-pricing-v3-20261026/`：first-dual20-acceptance.json、uk-retirement-acceptance.json、legacy-retirement-acceptance.json、current-source-e303bd2.json及原发布日志。完整订单、会话和后台载荷未上传Git或Notion。
