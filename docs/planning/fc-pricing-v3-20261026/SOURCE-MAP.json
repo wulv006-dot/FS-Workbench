@@ -1,6 +1,6 @@
 {
-  "source_commit": "e303bd267677dd7e7f01e04dad4ec2aac3aefa9d",
-  "checked_at": "2026-10-26T23:25:24.072219+00:00",
+  "source_commit": "d0f588be34ab3bbcb243e1d54888ee6d5ecc280a",
+  "checked_at": "2026-10-26T23:36:29.345521+00:00",
   "total": 91,
   "matched": 91,
   "files": [
@@ -136,8 +136,8 @@
       "source": "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/api.py",
       "candidate": "source/fc_pricing_v3/api.py",
       "target": "/opt/fc27-cloud-browser/fc_pricing_v3/api.py",
-      "sha256": "c89d81e72446150d71125e536cf192388fd0a9c6fca0e5a87b565b5371854f06",
-      "actual_sha256": "c89d81e72446150d71125e536cf192388fd0a9c6fca0e5a87b565b5371854f06",
+      "sha256": "4a529f8dd319d0a64337909b1b5a4f5ae81f3f625fbfc0fa6f7f597e52bd1f70",
+      "actual_sha256": "4a529f8dd319d0a64337909b1b5a4f5ae81f3f625fbfc0fa6f7f597e52bd1f70",
       "matches": true
     },
     {
@@ -208,8 +208,8 @@
       "source": "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/legacy_simulation/__init__.py",
       "candidate": "source/fc_pricing_v3/legacy_simulation/__init__.py",
       "target": "/opt/fc27-cloud-browser/fc_pricing_v3/legacy_simulation/__init__.py",
-      "sha256": "d0861652ffb4e1b8c9720cfed29ae1b8d6af65d98f07095328b9809897f013ea",
-      "actual_sha256": "d0861652ffb4e1b8c9720cfed29ae1b8d6af65d98f07095328b9809897f013ea",
+      "sha256": "7c84a52a9394487b0bcbe43d714ba599867b43b36e9ee67b8c7c11a8a537e8a9",
+      "actual_sha256": "7c84a52a9394487b0bcbe43d714ba599867b43b36e9ee67b8c7c11a8a537e8a9",
       "matches": true
     },
     {
@@ -368,8 +368,8 @@
       "source": "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/api.py",
       "candidate": "source/hermes-copy/fc_pricing_v3/api.py",
       "target": "/opt/fs-hermes-fc/fc_pricing_v3/api.py",
-      "sha256": "c89d81e72446150d71125e536cf192388fd0a9c6fca0e5a87b565b5371854f06",
-      "actual_sha256": "c89d81e72446150d71125e536cf192388fd0a9c6fca0e5a87b565b5371854f06",
+      "sha256": "4a529f8dd319d0a64337909b1b5a4f5ae81f3f625fbfc0fa6f7f597e52bd1f70",
+      "actual_sha256": "4a529f8dd319d0a64337909b1b5a4f5ae81f3f625fbfc0fa6f7f597e52bd1f70",
       "matches": true
     },
     {
@@ -440,8 +440,8 @@
       "source": "releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/legacy_simulation/__init__.py",
       "candidate": "source/hermes-copy/fc_pricing_v3/legacy_simulation/__init__.py",
       "target": "/opt/fs-hermes-fc/fc_pricing_v3/legacy_simulation/__init__.py",
-      "sha256": "d0861652ffb4e1b8c9720cfed29ae1b8d6af65d98f07095328b9809897f013ea",
-      "actual_sha256": "d0861652ffb4e1b8c9720cfed29ae1b8d6af65d98f07095328b9809897f013ea",
+      "sha256": "7c84a52a9394487b0bcbe43d714ba599867b43b36e9ee67b8c7c11a8a537e8a9",
+      "actual_sha256": "7c84a52a9394487b0bcbe43d714ba599867b43b36e9ee67b8c7c11a8a537e8a9",
       "matches": true
     },
     {
@@ -624,8 +624,8 @@
       "source": "releases/fc-coins/fc-pricing-v3-20261026/source/pricing_simulation.py",
       "candidate": "source/pricing_simulation.py",
       "target": "/opt/fs-hermes-fc/pricing_simulation.py",
-      "sha256": "4fd3727ed9f21158e9680b634d72f784eafbb8802eed0ead11b0cad85d72e435",
-      "actual_sha256": "4fd3727ed9f21158e9680b634d72f784eafbb8802eed0ead11b0cad85d72e435",
+      "sha256": "be245c6f6a63b13a5c3746ce909062481f998b822ac3006501fb92fc18410eab",
+      "actual_sha256": "be245c6f6a63b13a5c3746ce909062481f998b822ac3006501fb92fc18410eab",
       "matches": true
     },
     {
