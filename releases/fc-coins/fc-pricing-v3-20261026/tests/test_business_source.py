@@ -293,6 +293,29 @@ class BusinessSourceTest(unittest.TestCase):
         self.assertEqual(result['training_observations'][0]['paid_orders'], 1)
         self.assertEqual(result['learning_coverage']['gaps']['budget_reference_cash_residual_unresolved'], 1)
 
+    def test_known_console_price_gap_does_not_discard_independent_pc_learning(self):
+        now, order, window = self.window_fixture()
+        window.update(platforms=['PS','PC'],mutable_resources=['base:console','base:pc'])
+        window['action']['base_prices']['pc']='8.68'
+        window['budget_reference']['base_prices']['pc']='10'
+        window['catalog']['PC']=window['catalog']['PS']
+        wrong_console=dict(order,before_discount='9.99')
+        pc=dict(order,order_no='private-pc-order',aid=21589)
+        result=source.bind_price_windows([wrong_console,pc],[window],now)
+        self.assertEqual([(r['price_group'],r['paid_orders']) for r in result['training_observations']],[('pc',1)])
+        self.assertEqual(result['learning_coverage']['gaps']['actual_regular_price_not_window_price'],1)
+        unknown=dict(order,aid=0)
+        self.assertEqual(source.bind_price_windows([unknown,pc],[window],now)['training_observations'],[])
+
+    def test_inherited_factor_one_does_not_fabricate_a_zero_order_region(self):
+        now,order,window=self.window_fixture()
+        window['action']['region_coefficients']={'21:PS':'1'}
+        result=source.bind_price_windows([order],[window],now)
+        self.assertEqual([r['price_group'] for r in result['training_observations']],['console'])
+        window['mutable_resources'].append('region:21:PS')
+        result=source.bind_price_windows([order],[window],now)
+        self.assertEqual([r['price_group'] for r in result['training_observations']],['21:PS','console'])
+
     def test_pc_only_change_keeps_original_console_exposure_open(self):
         now, order, old = self.window_fixture()
         old.update(platforms=['PS', 'PC'], mutable_resources=['base:console', 'base:pc'],

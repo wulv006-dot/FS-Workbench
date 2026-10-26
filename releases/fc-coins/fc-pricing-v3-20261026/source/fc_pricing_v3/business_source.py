@@ -856,6 +856,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
     coverage = Counter()
     failures = Counter()
     blocked_windows = set()
+    blocked_groups = set()
     counts = Counter()
     settlements = []
     source = fingerprint(dict(orders=orders, windows=valid, coupon_logs=coupon_logs, as_of=now.isoformat()))
@@ -891,13 +892,13 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
                     matches.append((window, group, regular))
                 else:
                     failures['actual_regular_price_not_window_price'] += 1
-                    blocked_windows.add(window['operation_id'])
+                    blocked_groups.add((window['operation_id'],group))
             except (ValueError, KeyError, TypeError, InvalidOperation) as error:
                 failures[str(error) if isinstance(error, ValueError) else type(error).__name__] += 1
-                blocked_windows.add(window['operation_id'])
+                blocked_groups.add((window['operation_id'],group))
         if len(matches) != 1:
             coverage['unbound_or_ambiguous_orders'] += 1
-            blocked_windows.update(w['operation_id'] for w, _, _ in matches)
+            blocked_groups.update((w['operation_id'],group) for w,group,_ in matches)
             continue
         window, group, regular = matches[0]
         if str(order.get('pay_status')) != '1' or str(order.get('status_format') or '').startswith('已退款'):
@@ -962,9 +963,13 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
         for key in window['action'].get('region_coefficients', {}):
             platform = key.split(':')[-1]
             base_group = 'pc' if platform == 'PC' else 'console'
-            if platform in window.get('platforms', []) and 'base:' + base_group in window.get('mutable_resources', []):
+            regional_identity=(Decimal(window['action']['region_coefficients'][key])!=1 or
+                               'region:'+key in window.get('mutable_resources',[]) or counts[(operation,key)]>0)
+            if regional_identity and platform in window.get('platforms', []) and 'base:' + base_group in window.get('mutable_resources', []):
                 groups.add(key)
         for group in sorted(groups):
+            if (operation,group) in blocked_groups:
+                continue
             end = _window_end(window, group, valid, now)
             hours = Decimal(str((end - _window_instant(window['opened_at'])).total_seconds())) / 3600
             if hours <= 0:
@@ -982,6 +987,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
     return dict(budget_settlements=settlements, training_observations=training,
         learning_coverage=dict(status='available' if training else 'price_binding_coverage_pending',
             price_windows=len(valid), counts=dict(coverage), gaps=dict(failures), source_sha256=source,
+            observed_at=now.isoformat(),blocked_price_groups=[dict(price_window_id=op,price_group=group) for op,group in sorted(blocked_groups)],
             query_complete=query_complete, binding='native_creation_epoch_and_display plus actual_regular_price; never payment_time_assignment',
             source_rows_returned=False, customer_identifiers_returned=False))
 
