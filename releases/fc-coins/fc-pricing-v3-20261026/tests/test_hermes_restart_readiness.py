@@ -10,7 +10,7 @@ from unittest import mock
 
 DEPLOY = Path(__file__).resolve().parents[1] / 'deploy'
 sys.path.insert(0, str(DEPLOY))
-import fc_v3_release_adapter as adapter  # noqa: E402
+import release_readiness as adapter  # noqa: E402
 
 
 class Response:

@@ -72,6 +72,7 @@ def build(checkout, source_commit, output):
         deployment.mkdir()
         for name in ('release.py', 'prepare_manifest.py', 'release_navigation_base.py'):
             (deployment / name).write_bytes(blob(checkout, checkout / 'releases/fc-coins/fc-pricing-v3-20261026/deploy/knowledge' / name))
+        (deployment/'release_readiness.py').write_bytes(blob(checkout,checkout/'releases/fc-coins/fc-pricing-v3-20261026/deploy/release_readiness.py'))
         manifest = dict(sourceCommit=source_commit, catalogSha256=sha(index_bytes),
                         payloadSha256={name: sha(data) for name, data in sorted(payloads.items())})
         (stage / 'source-manifest.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n', encoding='utf-8')

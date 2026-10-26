@@ -67,6 +67,13 @@ class DailyProgramFlow(unittest.TestCase):
         self.assertIn('每日一次',prompt)
         self.assertIn('不调用recommend',prompt);self.assertLess(len(prompt),12000)
 
+    def test_daily_context_does_not_attribute_pretrial_day_to_V3(self):
+        window=dict(origin='confirmed_public_price_window',mode='production',opened_at='2026-10-26T14:36:00+00:00',operation_id='original',mutable_resources=['base:console'])
+        result=daily.exposure_scope([window],'2026-10-26')
+        self.assertEqual(result['first_exposure_at'],'2026-10-26T14:36:00+00:00')
+        self.assertEqual(result['confirmed_operation_count'],1)
+        self.assertEqual(daily.exposure_scope([window],'2026-10-25')['status'],'no_confirmed_exposure')
+
     def test_pricing_turn_route_validates_real_id_not_literal_turns(self):
         body=dict(text='daily',client_request_id='fc_pricing_daily',run_id='00000000-0000-4000-8000-000000000099')
         raw=json.dumps(body).encode();headers=Message()
@@ -123,6 +130,21 @@ class DailyProgramFlow(unittest.TestCase):
 
     def test_page_interaction_contract(self):
         subprocess.run(['node',str(Path(__file__).with_name('test_ui_contract.cjs'))],check=True,capture_output=True,timeout=20)
+
+    def test_paused_plan_keeps_last_real_source_timestamp_without_new_collection(self):
+        from fc_pricing_v3 import monitoring
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);db=Ledger(root/'v3/control.sqlite3')
+            plan=dict(plan_id='p',state='SUSPENDED',mode='daily',resources=['base:pc'],starts_at=NOW.isoformat())
+            db.put('pricing_plans','p',plan)
+            db.put('metadata','latest_snapshot:p',dict(snapshot_id='snapshot'))
+            db.put('pricing_snapshots','snapshot',dict(snapshot_id='snapshot',created_at=NOW.isoformat(),evidence=dict(checked_at=NOW.isoformat())))
+            (root/'config').mkdir();(root/'config/v3-control.json').write_text('{"enabled":true}')
+            (root/'v3/heartbeat.json').write_text(json.dumps(dict(checked_at=NOW.isoformat())))
+            state=monitoring.projection(root,NOW)
+            self.assertEqual(state['schedule']['last_source_checked_at'],NOW.isoformat())
+            self.assertIsNone(state['schedule']['next_cycle_at'])
+            self.assertEqual(state['source_coverage']['status'],'not_required_without_active_plan')
 
 
 if __name__=='__main__':unittest.main()

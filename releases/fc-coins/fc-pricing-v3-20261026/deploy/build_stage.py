@@ -46,7 +46,7 @@ def build(checkout, output):
         deployment = stage / 'deploy'
         deployment.mkdir()
         for name in ('target_map.py', 'release_navigation_base.py', 'fc_v3_release_adapter.py',
-                     'prepare_manifest.py'):
+                     'prepare_manifest.py','release_readiness.py'):
             (deployment / name).write_bytes(git_blob(checkout, release / 'deploy' / name))
         provenance = {'sourceCommit': commit,
                       'files': {'source/' + name: digest(candidate / name) for name in sorted(mapping)}}

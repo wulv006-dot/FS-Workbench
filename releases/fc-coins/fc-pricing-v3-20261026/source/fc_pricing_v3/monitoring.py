@@ -114,7 +114,7 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
         owned=[p for p in plans if p['state'] in ('ACTIVE','ENDING','SUSPENDED')]
         operations=[json.loads(row[0]) for row in db.execute('SELECT body FROM operations')]
         snapshots=[]
-        for plan in active:
+        for plan in owned:
             pointer=db.execute('SELECT body FROM metadata WHERE id=?',('latest_snapshot:'+plan['plan_id'],)).fetchone()
             if pointer:
                 snapshot_id=json.loads(pointer[0])['snapshot_id']

@@ -131,7 +131,7 @@
     const reviewLabel=receipt.review_contract==='program_pricing_with_daily_hermes_review_v3'?'当前规则：程序逐轮定价，Hermes 每日效果复盘':(source==='v3_model_reviewed_this_cycle'||source==='v3_reviewed_assignment')&&receipt.review_approved===true?'本轮 Hermes 实际选择并审核':
       source==='v3_model_reviewed_this_cycle'?'模型选择回执与批准状态不一致，待核':
       source==='v3_inherited_reviewed_business_strategy'?'沿用先前已审经营策略，本轮程序重证':
-      source==='v3_explicit_deterministic_feasible_assignment'||receipt.review_approved===false?'程序可行路径，本轮未经模型审核':'审核来源待核';
+      source==='v3_explicit_deterministic_feasible_assignment'||receipt.review_approved===false?'历史原操作当时使用程序路径，未获模型审核；当前规则无需逐轮审核':'审核来源待核';
     $('v3-review-source').textContent=latest?`最近原操作 ${latest.operation_id}：${statusText(latest.status)}。${reviewLabel}；真实生效以后台、缓存及公开读回为准。`:'尚无 V3 原操作。程序负责正常定价，Hermes 每日提供效果评估。';
     const daily=state.daily_review;
     $('v3-daily-status').textContent=daily?`${daily.local_date} · ${statusText(daily.phase)} · 专用定价通道；不会自动切换策略`:'尚无每日结果；每天 02:20 复盘前一日，保存的分时段输入不足会列为缺项。';
