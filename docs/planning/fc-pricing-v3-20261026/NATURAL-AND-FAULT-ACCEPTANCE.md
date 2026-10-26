@@ -63,14 +63,15 @@
 | [522](https://github.com/wulv006-dot/FS-Workbench/pull/522) | a6eb3fb2c1d10224404ba9996a736cadfdc459e8 | 212 | nav-20261026T205800Z / 3 |
 | [523](https://github.com/wulv006-dot/FS-Workbench/pull/523) | 05afa96cca5ae43aef5a9756cd540e7fb188a7e5 | 214 | nav-20261026T213200Z / 4 |
 | [524](https://github.com/wulv006-dot/FS-Workbench/pull/524) | 723b84b9eb43a97ec5cb3c71e384c50ca95ecc15 | 216 | nav-20261026T214800Z / 1 |
+| [526](https://github.com/wulv006-dot/FS-Workbench/pull/526) | fbf8c88ad4cc8c35a0b661359822cd2a3eec5c20 | 216及页面回归 | nav-20261026T220600Z / 1 |
 
 四次发布清单SHA依次为`4196bc4e607bc9a6b96d042dedc9496c126ed696a1e7d5e40556a559816cbe8c`、`a836cb0312446d3ee7af0a9cacb71a3d88ae424660860989d905d8c0e1b83dc3`、`c829de3e531a97b8e4d90059c9d2143d34582f45b3bd769c9fa70e9bb1ee2ec6`、`0d20b36038865fc7068c8993f435e8b4467ae389e5133a912fc0a50312e34104`。最新CI run40403997175/job121856922552。原publisher备份、清单和journal位于`/var/backups/fs-navigation-20261006/<发布编号>/`；回退保留DB、generation、业务政策、原操作与失败，不恢复旧定时器或旧双10。
 
-PR524发布清单SHA为`3d4dc424c020a57ecf1bb82911d243427e1a72684735b59b3440994217fe4677`，正式CI run40406842532/job121866688596。最新代码91/91生产目标SHA已实际核对一致，见[SOURCE-MAP](SOURCE-MAP.json)。engine SHA为`9331e0dfc65f1df82a2b6407ad8df3f860e45d9af0d7756d6a3da482ca39e320`，完整财务算法SHA仍`a76b155cb673c50ecacd878eb2e2eceb1efbcd15355b674a92f0487b9ee016d1`。发布只更换本次明确目标，未写业务价、未改变下一自然时间。
+PR524发布清单SHA为`3d4dc424c020a57ecf1bb82911d243427e1a72684735b59b3440994217fe4677`，正式CI run40406842532/job121866688596。PR526清单SHA为`39d6e71e0fd2a9b403768e1a2184d464f173850899e26f14d44de49129fe42c4`，正式CI run40409341334/job121875469004。最新代码91/91生产目标SHA已实际核对一致，见[SOURCE-MAP](SOURCE-MAP.json)。engine SHA为`9331e0dfc65f1df82a2b6407ad8df3f860e45d9af0d7756d6a3da482ca39e320`，完整财务算法SHA仍`a76b155cb673c50ecacd878eb2e2eceb1efbcd15355b674a92f0487b9ee016d1`。发布只更换本次明确目标，未写业务价、未改变下一自然时间。
 
-## 修复后的真实入口核验与当前外部阻碍
+## 修复后的原失败、来源阻碍与恢复
 
-四次均从真实页面提交只读采集，各用自己的原编号，未点击执行、未新增生产operation；原三条operations仍全部COMPLETED，experiment_assignments仍3条，原计划及07:12下轮未改变。
+前四次均从真实页面提交只读采集，各用自己的原编号，未点击执行、未新增生产operation；原三条operations仍全部COMPLETED，experiment_assignments仍3条，原计划及07:12下轮未改变。
 
 | 只读任务 | 完成时间 | 实际结果 |
 | --- | --- | --- |
@@ -83,7 +84,19 @@ PR524发布清单SHA为`3d4dc424c020a57ecf1bb82911d243427e1a72684735b59b34409942
 
 后台优惠分项诊断曾实际返回Discount1405行/9.261秒、Coupon151行/0.428秒、Goods3行/0.500秒。随后05:50–05:51共享Admin入口`127.0.0.1:8767/session/admin-token`返回HTTP503、ready=false，具体状态`captcha_ocr_failed:captcha_http_502`。端口由现有Docker服务提供；没有据一个猜测的systemd名称inactive就判断服务已停，也未盲目重启、换账号或导出令牌。
 
-当前影响：后台共享登录续期的上游识别接口502，缺当前优惠及地区证据，完整报价核验停在候选计算之前。四个原run、任务及失败都已保留，但它们不构成新的完整pricing_snapshot，也不构成PR523无解快照修复的真实入口成功。页面仍显示03:09历史候选，报价已过期，不能作当前可执行价。PR523/524的本地与正式CI及实际部署已通过，修复后完整在线结果仍待共享会话恢复后验证；不以模拟或独立来源检查替代。
+05:51时的影响：后台共享登录续期的上游识别接口502，缺当前优惠及地区证据，完整报价核验停在候选计算之前。四个原run、任务及失败都已保留，但它们不构成新的完整pricing_snapshot，也不构成PR523无解快照修复的真实入口成功。当时页面仍显示03:09历史候选，报价已过期，不能作当前可执行价。PR523/524的本地与正式CI及实际部署已通过，当时完整在线复验仍受阻；随后恢复后的实际结果如下，不以模拟或独立来源检查替代。
+
+## 05:57共享会话恢复后的完整在线复验
+
+05:55:45原共享令牌入口已HTTP200，原服务自行恢复，未做额外重启、改凭据或人工验证码处理。真实页面新登记只读任务`99a13d4c-10ed-442c-81e2-ea1cf60e4231`，05:56:22开始、05:57:56完成，status=ready、error=null、业务结果INFEASIBLE。
+
+- 必要来源Lootbar/ItemD2R/Arab-UT覆盖ready、missing/gaps均空，Arab普通报价available；PC普通缺口仍按原范围列明，不复制PS。
+- 完整pricing_snapshot存在，当前API及页面均指向99a13d4c，captured_at为05:57:41。原完整上下文含当前成本/汇率/优惠、历史金额结构、地区、需求及来源计划。
+- 输入SHA：`c55644a524fd74839f3602140131810742bc813dc6bcdc6759836a3c486d4d14`，唯一snapshot_ready事件1条。无解回执execution_authorized=false，无可执行动作与伪造财务通过。
+- operations仍原3条且全部COMPLETED、experiment_assignments仍3条，未新增写价；计划ACTIVE，下一自然07:12:35不变。
+- 真实页面展示当前无可行报价、未写价、正常周期续算；原始失败明细保留。PR526修复数百候选相同原因刷屏，主卡和按需比较只显示不同原因一次，200项回归先失败67次再通过1次，线上实查为三项原因。
+
+这证明修复后的完整来源、无解快照和页面已在线恢复；它不是第二次生产写价或长期稳定性证明。首个自然轮原缺失全上下文仍保留缺口，没有把本新编号回填成原历史。
 
 ## 尚待自然时点
 

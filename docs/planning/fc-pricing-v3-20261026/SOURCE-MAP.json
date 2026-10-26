@@ -1,6 +1,6 @@
 {
-  "source_commit": "723b84b9eb43a97ec5cb3c71e384c50ca95ecc15",
-  "checked_at": "2026-10-26T21:46:37.733447+00:00",
+  "source_commit": "fbf8c88ad4cc8c35a0b661359822cd2a3eec5c20",
+  "checked_at": "2026-10-26T22:05:11.901320+00:00",
   "total": 91,
   "matched": 91,
   "files": [
@@ -72,8 +72,8 @@
       "source": "releases/fc-coins/fc-pricing-v3-20261026/source/fc-pricing-v3.js",
       "candidate": "source/fc-pricing-v3.js",
       "target": "/var/www/dashboard/fc-pricing-v3.js",
-      "sha256": "27645e269fe8caeb0725f1f391f9bbd1c2865c00fa004da4317897b44b2e48c5",
-      "actual_sha256": "27645e269fe8caeb0725f1f391f9bbd1c2865c00fa004da4317897b44b2e48c5",
+      "sha256": "01ea2a2b2a87981a1a28b46c731dac8b547f37f468b9b95d2d9f6c1bfd86ffab",
+      "actual_sha256": "01ea2a2b2a87981a1a28b46c731dac8b547f37f468b9b95d2d9f6c1bfd86ffab",
       "matches": true
     },
     {
