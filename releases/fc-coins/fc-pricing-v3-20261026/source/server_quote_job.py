@@ -79,8 +79,8 @@ def validate_edits(edits):
     if not isinstance(edits, dict) or set(edits) - {"costs", "offers", "quotes", "minimum_gross_margin_pct", "reason"}:
         raise ValueError("edits_invalid")
     clean = {}
-    margin = edits.get("minimum_gross_margin_pct", "10")
-    if not 10 <= nonnegative(margin, "最低毛利率") < 100:
+    margin = edits.get("minimum_gross_margin_pct", "20")
+    if not 20 <= nonnegative(margin, "最低毛利率") < 100:
         raise ValueError("margin_invalid")
     clean["minimum_gross_margin_pct"] = str(margin)
     for name in ("costs", "quotes"):
@@ -156,7 +156,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
     if not persist:
         if type(expected_revision) is not int or policy["revision"] != expected_revision:
             raise ValueError("automation_revision_changed")
-        if Decimal(policy["minimum_gross_margin_pct"]) < 10:
+        if Decimal(policy["minimum_gross_margin_pct"]) < 20:
             raise ValueError("automation_discount_margin_floor_invalid")
     if draft_rules is not None:raise ValueError('pricing_legacy_bands_retired_use_v3_parameters')
     if policy["minimum_gross_margin_pct"] is not None:

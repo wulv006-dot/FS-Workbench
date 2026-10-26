@@ -9,8 +9,8 @@ from pricing_operations import native
 
 
 V3_VERSION = 'fc-pricing-v3-20261026'
-ENGINE_SHA = 'f31761c6693d0d403b8cb9d595a3077a88f4416032a04721f01d2a4f49079845'
-FINANCIAL_SHA = '6ed1df03da6d3e667c154b76c9ab9f01d6e82bf62e91e3d0ccc9d26f4d6cd730'
+ENGINE_SHA = '6b15b87ac41da86eb602cc7fb209b8083aea15908302e067a441940eb8545375'
+FINANCIAL_SHA = 'a76b155cb673c50ecacd878eb2e2eceb1efbcd15355b674a92f0487b9ee016d1'
 LEGACY_SHA = {
     'legacy_80_15_5': '91f8d143e21e05544b17442bd8a20d3735f62caa4aa5b182584a4fd4c4ec993a',
     'legacy_itemd2r_parity': 'f68459feb07ff59690a4a6b716e9760a7c556e74b92b7e02dfa4c57d23eb0a42',
@@ -58,7 +58,7 @@ class SimulationBridge:
                     baseline_policy_role='historical_source_identity_only',
                     engine_sha256=versions['engine_sha256'], financial_sha256=versions['financial_sha256'],
                     legacy_sources=versions['legacy_sources'], snapshot_id=state.get('snapshot_id'),
-                    pricing_rules=None, pricing_rules_status='legacy_bands_retired_for_v3_decisions', minimum_gross_margin_pct='10',
+                    pricing_rules=None, pricing_rules_status='legacy_bands_retired_for_v3_decisions', minimum_gross_margin_pct='20',
                     granularity='global_console_and_pc_plus_verified_regional_rules',
                     rule_ideas_supported=False, candidate_evaluator='v3_five_strategy_current_evaluate',
                     candidate_evaluator_sha256=versions['engine_sha256'],

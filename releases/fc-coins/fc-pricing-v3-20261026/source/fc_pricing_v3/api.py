@@ -1,6 +1,7 @@
 """V3 endpoints behind the existing FS authentication and writer roles."""
 from datetime import datetime, timezone, timedelta
 from contextlib import closing
+from collections import Counter
 import hashlib
 import json
 from pathlib import Path
@@ -58,7 +59,8 @@ def history_view(result):
             path=row['path']
             value['path']={key:path.get(key) for key in ('policy','last_as_of','revenue','contribution','paid_orders','new_customers','backlog_k','effective_mode')}
         if row.get('gaps'):
-            value['gaps']=[gap.get('reason','unavailable') if isinstance(gap,dict) else gap for gap in row['gaps']]
+            counts=Counter(gap.get('reason','unavailable') if isinstance(gap,dict) else gap for gap in row['gaps'])
+            value['gaps']=[reason+(' ('+str(count)+')' if count>1 else '') for reason,count in counts.items()]
         records.append(value)
     view={key:result[key] for key in ('simulation_id','simulation_kind','rule_mode','created_at','execution_authorized','training_eligible')} | {'records':records}
     for key in ('requested_closed_days','paid_window','coverage'):
@@ -260,6 +262,8 @@ def post(path,data,actor):
     db=ledger()
     snapshot=latest(db) if path in ('plans','evaluate','preview','manual-previews') else None
     if path=='plans':
+        if set(data)-{'request_key','mode','resources','parameters','starts_at','ends_at'}:
+            raise ValueError('pricing_plan_fields_invalid')
         mode=data['mode']
         if mode not in POLICIES:
             raise ValueError('pricing_strategy_unknown')
@@ -284,10 +288,10 @@ def post(path,data,actor):
         if existing:
             resources,anchor=existing['resources'],existing['price_anchor']
         parameters=data.get('parameters') or {}
-        if not isinstance(parameters,dict) or set(parameters)-({'allocation','offsets_pct','capacity_reserve_ratio'} if mode=='backlog' else {'allocation','preferred_undercut_pct'} if mode=='revenue_sprint' else {'allocation','offsets_pct'}):
+        if not isinstance(parameters,dict) or set(parameters)-({'allocation','offsets_pct','capacity_reserve_ratio'} if mode=='backlog' else {'allocation','preferred_undercut_pct','sprint_policy_version'} if mode=='revenue_sprint' else {'allocation','offsets_pct'}):
             raise ValueError('pricing_plan_parameters_invalid')
         plan=db.create_plan(mode,resources,anchor,starts_at=data.get('starts_at'),ends_at=data.get('ends_at'),
-                            daily_budget=data.get('daily_budget',POLICIES[mode]['floor']),actor=actor,parameters=parameters,plan_id=ident)
+                            actor=actor,parameters=parameters,plan_id=ident)
         if plan.get('client_request_sha256')!=client_hash:
             plan['client_request_sha256']=client_hash
             db.put('pricing_plans',ident,plan)
@@ -315,6 +319,9 @@ def post(path,data,actor):
         return value
     if path.startswith('plans/'):
         _,ident,action=path.split('/')
+        if action=='migrate-financial-contract':
+            if set(data)!={'expected_revision'}:raise ValueError('pricing_migration_fields_invalid')
+            return db.migrate_financial_contract(ident,data['expected_revision'],actor)
         if action=='activate':
             result=db.activate_plan(ident)
             db.enqueue('cycle','initial:'+ident,clock(),dict(plan_id=ident,revision=result['revision']))
@@ -330,6 +337,11 @@ def post(path,data,actor):
                 raise ValueError('pricing_plan_missing')
             if action=='resume' and plan.get('ends_at') and clock()>=instant(plan['ends_at']):
                 raise ValueError('pricing_plan_expired')
+            if action=='resume':
+                from .financial import FINANCIAL_CONTRACT_VERSION
+                from .engine import sprint_parameters
+                if plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:raise ValueError('pricing_financial_plan_migration_required')
+                if plan['mode']=='revenue_sprint':sprint_parameters(plan)
             desired='SUSPENDED' if action=='pause' else 'ACTIVE'
             if plan['state']==desired:
                 return plan

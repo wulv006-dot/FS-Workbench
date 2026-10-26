@@ -29,7 +29,8 @@ class RuntimeContracts(unittest.TestCase):
             root=Path(folder)
             db=Ledger(root/'v3/control.sqlite3')
             plan=dict(plan_id='plan',revision=1,generation='g',resources=['base:pc'],
-                      starts_at=start.isoformat(),state='SUSPENDED',mode='revenue_sprint')
+                      starts_at=start.isoformat(),state='SUSPENDED',mode='revenue_sprint',
+                      financial_contract_version='fc27_dual20_v1')
             db.put('metadata','generation',dict(id='g'))
             db.put('pricing_plans','plan',plan)
             db.put('operations','original',dict(plan_id='plan',status='COMPLETED',
@@ -110,7 +111,7 @@ class RuntimeContracts(unittest.TestCase):
             db.put('metadata','generation',dict(id='g'))
             old=dict(plan_id='plan',revision=1,generation='g',resources=['base:pc'],
                      starts_at=(now-timedelta(hours=1)).isoformat(),state='ENDING',mode='flash_sale',
-                     price_anchor=dict(base_prices=dict(pc='8.59')),daily_budget='100',actor='wulv',
+                     price_anchor=dict(base_prices=dict(pc='8.59')),actor='wulv',
                      last_cycle_at=last.isoformat())
             db.put('pricing_plans','plan',old)
             with db.transaction() as conn:
@@ -120,6 +121,8 @@ class RuntimeContracts(unittest.TestCase):
             with db.connect() as conn:
                 row=conn.execute("SELECT due_at FROM durable_jobs WHERE id=?",('exit-cycle:'+successor['plan_id'],)).fetchone()
             self.assertEqual(row['due_at'],(last+timedelta(hours=2)).isoformat())
+            self.assertEqual(successor['budget_policy'],'none')
+            self.assertNotIn('daily_budget',successor)
 
     def test_per_cycle_hermes_review_is_retired_before_any_submission(self):
         with patch.object(hermes_pricing_bridge,'request') as submit:
@@ -449,14 +452,16 @@ class RuntimeContracts(unittest.TestCase):
                 return dict(snapshot_id=ident,created_at=ident,evidence=dict(storefront=dict(rows={p:dict(package_usd=price) for p in ('PS','XBOX','PC')}),
                     region_rules=[dict(id=1,region_id=39,platforms=['PS','XBOX','PC'],factor='.91')],regional_controls=[]))
             db.put('pricing_snapshots','1',snapshot('1','10'))
-            data=dict(request_key='same-plan',mode='daily',resources=['base:console'],daily_budget='20',parameters=dict(offsets_pct=['-8','0','8']))
+            data=dict(request_key='same-plan',mode='daily',resources=['base:console'],parameters=dict(offsets_pct=['-8','0','8']))
             with patch.object(api,'ledger',return_value=db):
+                with self.assertRaisesRegex(ValueError,'pricing_plan_fields_invalid'):
+                    api.post('plans',dict(data,daily_budget='0'),'wulv')
                 first=api.post('plans',data,'wulv')
                 db.put('pricing_snapshots','2',snapshot('2','11'))
                 second=api.post('plans',data,'wulv')
                 pc=api.post('plans',dict(data,request_key='pc-plan',resources=['base:pc']),'wulv')
                 with self.assertRaisesRegex(ValueError,'pricing_plan_payload_conflict'):
-                    api.post('plans',dict(data,daily_budget='30'),'wulv')
+                    api.post('plans',dict(data,parameters=dict(offsets_pct=['-4','0','4'])),'wulv')
                 with db.transaction() as conn:
                     conn.execute('DELETE FROM pricing_snapshots')
                 self.assertEqual(api.post('plans',data,'wulv')['plan_id'],first['plan_id'])

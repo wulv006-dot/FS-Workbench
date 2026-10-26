@@ -30,12 +30,20 @@ class PostwriteCompletion(unittest.TestCase):
             with patch.object(runtime,'ROOT',root),patch.object(runtime,'clock',return_value=NOW):
                 result=runtime.calculate_postwrite(evidence,job,db)
                 quote=dict(evidence=evidence,result=result)
-                receipt=runtime.verify_quote(quote,dict(minimum_gross_margin_pct='10'),['PS','XBOX','PC'],now=NOW,for_execution=True,purpose='original_unsent_ALL_steps_only')
+                receipt=runtime.verify_quote(quote,dict(minimum_gross_margin_pct='20'),['PS','XBOX','PC'],now=NOW,for_execution=True,purpose='original_unsent_ALL_steps_only')
                 self.assertEqual(receipt['action']['base_prices'],action['base_prices'])
                 self.assertEqual(receipt['budget_reservation'],bundle['budget_reservation'])
                 self.assertEqual(receipt['budget_kind'],'original_reservation_no_new_price_or_concession')
                 with self.assertRaisesRegex(ValueError,'purpose_mismatch'):
-                    runtime.verify_quote(quote,dict(minimum_gross_margin_pct='10'),['PS','XBOX','PC'],now=NOW,for_execution=True)
+                    runtime.verify_quote(quote,dict(minimum_gross_margin_pct='20'),['PS','XBOX','PC'],now=NOW,for_execution=True)
                 self.assertEqual(db.get('pricing_plans',plan['plan_id'])['state'],'ENDING')
+                with self.assertRaisesRegex(ValueError,'pricing_margin_contract_changed'):
+                    runtime.verify_quote(quote,dict(minimum_gross_margin_pct='10'),['PS','XBOX','PC'],now=NOW,for_execution=True,purpose='original_unsent_ALL_steps_only')
+                op['bundle']['budget_policy']='none'
+                db.put('operations','original',op)
+                with db.transaction() as conn:conn.execute("DELETE FROM reservations WHERE id='original'")
+                new_result=runtime.calculate_postwrite(evidence,job,db)
+                new_receipt=runtime.verify_quote(dict(evidence=evidence,result=new_result),dict(minimum_gross_margin_pct='20'),['PS','XBOX','PC'],now=NOW,for_execution=True,purpose='original_unsent_ALL_steps_only')
+                self.assertEqual(new_receipt['budget_policy'],'none')
 
 if __name__=='__main__':unittest.main()

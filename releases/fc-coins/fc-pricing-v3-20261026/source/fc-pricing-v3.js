@@ -2,11 +2,11 @@
   'use strict';
   const base='/api/fc27/cloud/pricing/v3';
   const names={daily:'日常经营',acquisition:'拉新增长',backlog:'交付积压（已支付新单 / 验证通过 / 发货中）',flash_sale:'限时促销',revenue_sprint:'冲销售额'};
-  const purposes={daily:'平衡收入与采购贡献，适合常态经营。',acquisition:'在预算内探索拉新需求；新客效果以真实证据复核。',backlog:'只根据已支付新单、验证通过、发货中的可交付队列调整。',flash_sale:'在明确期限和预算内测试短期销售。',revenue_sprint:'围绕已核月净实付目标、Lootbar 无券与 ItemD2R 可比价冲额；沙特增加 Arab-UT 普通发货。'};
+  const purposes={daily:'平衡收入与采购贡献，适合常态经营。',acquisition:'探索有效新客增长；新客与获客成本以真实证据复核。',backlog:'只根据已支付新单、验证通过、发货中的可交付队列调整。',flash_sale:'在明确活动期限内优化短期经营收益。',revenue_sprint:'按有效锚点低 5–10% 冲额，默认偏好 7.5%；成本变化时可由 ItemD2R 接替，沙特额外比较 Arab-UT 普通发货。'};
   const $=id=>document.getElementById(id);
   let current,loading=false,acting=false,manualPreview=null,selectedPlanId=null,displayedMode='daily',canWrite=false,permissionKnown=false,playerRevision=null,playerDirty=false,collectPending=sessionStorage.getItem('fc-v3-collect-job'),automationRevision=null,lastAutomation=null,lastMonitor=null;
   const statuses={DRAFT:'待启用',SCHEDULED:'等待开始',ACTIVE:'执行中',SUSPENDED:'已暂停新写入',ENDING:'正在退出',ENDED:'已结束',
-    READY:'已有可行方案',INFEASIBLE:'当前证据下无可行报价',DATA_PENDING:'数据待补齐',BUDGET_EXHAUSTED:'预算已用尽',
+    READY:'已有可行方案',INFEASIBLE:'当前证据下无可行报价',DATA_PENDING:'数据待补齐',
     AUTHORIZED:'已授权待执行',DISPATCHED:'已发出请求',RUNNING:'执行中',CONFIRMED:'后台已确认',FAILED:'执行失败，保留原编号',CANCELLED:'已取消',SUPERSEDED:'已由更新计划接替',
     UNKNOWN:'结果未知，按原编号核对',PARTIALLY_APPLIED:'部分已应用，待原编号核对',KNOWN_PARTIAL_EXITED:'部分已应用，已退出新写入',PUBLIC_CONFIRMED:'公开已核实',
     BACKEND_CONFIRMED:'后台已确认，待后续核验',CACHE_CONFIRMED:'缓存已确认，待公开核验',PUBLIC_PENDING:'公开价格待核',
@@ -29,7 +29,7 @@
       pricing_operation_missing:'未找到该原操作编号',state_unavailable:'状态暂时无法读取'};
     return known[code]||(/^pricing_[a-z_]+(?::.*)?$/.test(code)?`操作未完成；请核对当前状态和原编号。技术原因：${code}`:code);
   }
-  const modeDefaults={daily:{offsets:'-8,-4,0,4,8',allocation:['0.2','0.6','0.2']},acquisition:{offsets:'-20,-15,-10,-5,0,5',allocation:['0.2','0.4','0.4']},backlog:{offsets:'0,5,10,15,20',allocation:['0','1','0'],reserve:'0.1'},flash_sale:{offsets:'-25,-20,-15,-10,-5,0',allocation:['0.1','0.6','0.3']},revenue_sprint:{allocation:['0.1','0.7','0.2'],undercut:'1'}};
+  const modeDefaults={daily:{offsets:'-8,-4,0,4,8',allocation:['0.2','0.6','0.2']},acquisition:{offsets:'-20,-15,-10,-5,0,5',allocation:['0.2','0.4','0.4']},backlog:{offsets:'0,5,10,15,20',allocation:['0','1','0'],reserve:'0.1'},flash_sale:{offsets:'-25,-20,-15,-10,-5,0',allocation:['0.1','0.6','0.3']},revenue_sprint:{allocation:['0.1','0.7','0.2'],undercut:'7.5'}};
   const modeDrafts={};
   function requestKey(kind){const name='fc-v3-'+kind;let key=sessionStorage.getItem(name);if(!key){key=crypto.randomUUID();sessionStorage.setItem(name,key);}return key;}
   function clearKey(kind){sessionStorage.removeItem('fc-v3-'+kind);}
@@ -39,13 +39,13 @@
     const allocation=Object.fromEntries(['control','exploit','explore'].map(k=>[k,$('v3-alloc-'+k).value]));
     if(Math.abs(Object.values(allocation).reduce((n,v)=>n+Number(v),0)-1)>1e-9)throw Error('对照、优选、探索分配之和必须为1');
     const parameters={allocation};
-    if(mode==='revenue_sprint')parameters.preferred_undercut_pct=$('v3-undercut').value;
+    if(mode==='revenue_sprint'){parameters.preferred_undercut_pct=$('v3-undercut').value;parameters.sprint_policy_version='sprint_5_10_itemd2r_floor20_v2';}
     else{parameters.offsets_pct=$('v3-offsets').value.split(',').map(v=>v.trim());if(parameters.offsets_pct.some(v=>v===''||!Number.isFinite(Number(v))))throw Error('候选偏移须为逗号分隔的数字');}
     if(mode==='backlog')parameters.capacity_reserve_ratio=$('v3-reserve').value;
     return parameters;
   }
   function saveModeDraft(){modeDrafts[displayedMode]={offsets:$('v3-offsets').value,allocation:['control','exploit','explore'].map(k=>$('v3-alloc-'+k).value),reserve:$('v3-reserve').value,undercut:$('v3-undercut').value};}
-  function setMode(mode){const draft=modeDrafts[mode]||modeDefaults[mode];$('v3-offsets').value=draft.offsets||'';['control','exploit','explore'].forEach((k,i)=>$('v3-alloc-'+k).value=draft.allocation[i]);$('v3-reserve').value=draft.reserve||'0.1';$('v3-undercut').value=draft.undercut||'1';$('v3-offsets-field').hidden=mode==='revenue_sprint';$('v3-reserve-field').hidden=mode!=='backlog';$('v3-undercut-field').hidden=mode!=='revenue_sprint';$('v3-target-section').hidden=mode!=='revenue_sprint';$('v3-mode-purpose').textContent=purposes[mode];$('v3-end').required=['flash_sale','revenue_sprint'].includes(mode);$('v3-end-help').textContent=$('v3-end').required?'此策略必须设置结束时间。':'可选；留空持续到主动暂停或结束。';if(current)renderDecision(current);}
+  function setMode(mode){const draft=modeDrafts[mode]||modeDefaults[mode];$('v3-offsets').value=draft.offsets||'';['control','exploit','explore'].forEach((k,i)=>$('v3-alloc-'+k).value=draft.allocation[i]);$('v3-reserve').value=draft.reserve||'0.1';$('v3-undercut').value=draft.undercut||'7.5';$('v3-offsets-field').hidden=mode==='revenue_sprint';$('v3-reserve-field').hidden=mode!=='backlog';$('v3-undercut-field').hidden=mode!=='revenue_sprint';$('v3-target-section').hidden=mode!=='revenue_sprint';$('v3-mode-purpose').textContent=purposes[mode];$('v3-end').required=['flash_sale','revenue_sprint'].includes(mode);$('v3-end-help').textContent=$('v3-end').required?'此策略必须设置结束时间。':'可选；留空持续到主动暂停或结束。';if(current)renderDecision(current);}
   function node(tag,text){const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;}
   function value(v){return v==null?'待配置 / 待核':String(v);}
   function usd(v){return v==null?'待核':`$${Number(v).toFixed(2)}`;}
@@ -107,7 +107,13 @@
   function renderDecision(state){
     const mode=$('v3-mode').value,r=state.strategies?.[mode],cards=$('v3-strategies');cards.replaceChildren();
     const card=node('article');card.className='panel';card.append(node('h3',names[mode]),node('p',r?.status?statusText(r.status):'尚无本轮同策略决策'));
-    if(r?.selected){const s=r.selected;card.append(node('p',`候选 100K：Console ${usd(s.action?.base_prices?.console)} · PC ${usd(s.action?.base_prices?.pc)}`),node('p',s.score?.absolute_forecast_available?`同轮预测收入 ${usd(s.score.revenue)} · 采购贡献 ${usd(s.score.contribution)}`:'只有相对需求情景；绝对收入与新客效果待真实基线核证'));}
+    if(r?.selected){const s=r.selected;card.append(node('p',`候选 100K：Console ${usd(s.action?.base_prices?.console)} · PC ${usd(s.action?.base_prices?.pc)}`),node('p',s.score?.absolute_forecast_available?`同轮预测收入 ${usd(s.score.revenue)} · 采购贡献 ${usd(s.score.contribution)}`:'只有相对需求情景；绝对收入与新客效果待真实基线核证'));
+      if(s.decision_type==='floor_fallback')card.append(node('p','财务底价兜底：竞争区间与双 20% 红线无交集；执行最低可写合法底价，不能视为已达到竞争降幅。'));
+      for(const [scope,platforms] of Object.entries(s.market_position||{}))for(const [platform,position] of Object.entries(platforms)){
+        const differences=Object.entries(position.difference_pct||{}).map(([name,pct])=>`${name} ${Number(pct)>0?'+':''}${Number(pct).toFixed(2)}%`).join('；');
+        card.append(node('p',`${scope} ${platform} · 每 100K 实际交付 ${usd(position.actual_unit_100k)} · 相对竞品 ${differences} · ${position.competitive_band_met?'达到 5–10% 区间':'未达到竞争区间'}`));
+      }
+    }
     else if(r?.failures?.length)card.append(node('p',`当前不可执行：${r.failures.map(f=>statusText(f.code)).join('；')}`));
     cards.append(card);
     $('v3-decision-basis').textContent=`本轮快照 ${state.snapshot_id||'尚无'} · ${names[mode]} · ${r?.selected?'已形成候选；执行前仍需新鲜财务与市场重证':'当前没有可执行的同策略候选'}。`;
@@ -179,7 +185,7 @@
     table('v3-regions',matrix);
     table('v3-operations',(state.operations||[]).map(o=>[o.created_at,names[o.bundle?.mode]||'待核',statusText(o.status),o.operation_id,statusText(o.readback?.public?.status),statusText(o.cache_receipt?.status)]));
     table('v3-incidents',(state.incidents||[]).map(i=>[i.code,i.dependency,statusText(i.state),i.first_seen,i.last_seen,i.attempt]));
-    $('v3-proof-notes').textContent=`双红线：未优惠及近七日真实优惠结构估算平均采购毛利都至少 10%。24 小时折让及负贡献预算独立。全球核心参考 Lootbar 与 ItemD2R；Saudi Arabia 另核 Arab 普通报价。英国 0.9100 保留原系数。${matrix.length?'下表展示已获得的地区证明；缺项保持待核。':'本轮地区证明尚未取得。'}`;
+    $('v3-proof-notes').textContent=`双红线：未优惠及近七日真实优惠结构估算平均采购毛利都至少 20%。不设让利或负贡献预算额度。全球核心参考 Lootbar 与 ItemD2R；Saudi Arabia 另核 Arab 普通报价。英国临时优惠退出与实际读回单独留档，历史不改。${matrix.length?'下表展示已获得的地区证明；缺项保持待核。':'本轮地区证明尚未取得。'}`;
     writeControls();
     list.disabled=!plans.length;
     $('v3-plan-stop').disabled=!canWrite||!plan||['ENDED','ENDING'].includes(plan.state);
@@ -228,7 +234,7 @@
   $('v3-target-form').addEventListener('submit',event=>{event.preventDefault();action(async()=>{await request('monthly-target',{request_key:requestKey('target'),amount:$('v3-target-amount').value||null});clearKey('target');});});
   $('v3-plan-form').addEventListener('submit',event=>{
     event.preventDefault();action(async()=>{
-      const data={request_key:requestKey('plan'),mode:$('v3-mode').value,daily_budget:$('v3-budget').value,resources:[],parameters:formParameters()};
+      const data={request_key:requestKey('plan'),mode:$('v3-mode').value,resources:[],parameters:formParameters()};
       if($('v3-console').checked)data.resources.push('base:console');if($('v3-pc').checked)data.resources.push('base:pc');
       for(const input of $('v3-region-scopes').querySelectorAll('input:checked'))data.resources.push(input.value);
       if(!data.resources.length)throw Error('至少选择一个基础价或Saudi Arabia范围');

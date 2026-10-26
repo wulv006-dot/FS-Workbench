@@ -8,12 +8,18 @@ import sqlite3
 import tempfile
 
 from . import VERSION
-from .engine import evaluate, POLICIES, render, replay_promotion, demand
+from .engine import evaluate as evaluate_current, POLICIES, render, replay_promotion, demand
 from .financial import fingerprint, instant
 
 LOCAL = timezone(timedelta(hours=8))
 ZERO = Decimal(0)
 LEGACY_NAMES = ('legacy_80_15_5', 'legacy_itemd2r_parity')
+
+def evaluate(evidence,mode,**kwargs):
+    if evidence.get('_historical_financial_contract')=='dual10':
+        from .legacy_simulation import evaluate_dual10
+        return evaluate_dual10(evidence,mode,**kwargs)
+    return evaluate_current(evidence,mode,**kwargs)
 
 
 class Connection(sqlite3.Connection):
@@ -105,13 +111,11 @@ def initial_path(mode, evidence, now):
     buckets = [dict(day=r['day'],net_usd=str(r['net_usd']),list_usd=str(r['list_usd']),origin='actual_seed') for r in daily] if daily else [
         dict(day=(day(now)-timedelta(days=i)).isoformat(),net_usd=str(dec(mix['net_order_usd'])/7),
              list_usd=str(dec(mix['undiscounted_order_usd'])/7),origin='equal_daily_seed_scenario') for i in range(1,8)]
-    limits = {g:str(max(dec(POLICIES[mode]['floor']),dec(v)*dec(POLICIES[mode]['revenue_ratio']))) if v is not None else POLICIES[mode]['floor']
-              for g in ('console','pc') for v in [(evidence.get('daily_net_revenue_7d') or {}).get(g)]}
     end = plan_end(mode,now)
     return dict(policy=mode,started_at=now.isoformat(),last_as_of=None,action=None,price_anchor=action,
-        budget_reference=reference_prices(evidence,action),budget_limits=limits,budget_entries=[],budget_used='0',negative_budget_used='0',
-        budget_initial_fixed=not bool(evidence.get('daily_net_revenue_7d')),
-        finite_total_budget={g:str(dec(v)*dec((end-now).total_seconds())/86400) if end else None for g,v in limits.items()},
+        budget_reference=reference_prices(evidence,action),budget_limits={},budget_policy='none',budget_entries=[],budget_used='0',negative_budget_used='0',
+
+        finite_total_budget={},
         revenue='0',contribution='0',paid_orders='0',new_customers='0',delivered_k='0',backlog_k=evidence.get('backlog_k'),
         monthly_revenue={month(now):str(evidence['monthly_target']['mtd']) if (evidence.get('monthly_target') or {}).get('mtd') is not None else None},
         discount_net_usd='0',discount_list_usd='0',discount_days=buckets,
@@ -186,19 +190,6 @@ def components(candidate, evidence, reference):
     return result
 
 
-def budget_fits(path, rows, now, mode):
-    for group,limit in path['budget_limits'].items():
-        for kind in ('concession','negative_contribution'):
-            amount = sum((dec(r[kind]) for r in rows if r['group']==group),ZERO)
-            recent = sum((dec(r[kind]) for r in path['budget_entries'] if r['group']==group and instant(r['at'])>now-timedelta(hours=24)),ZERO)
-            lifetime = sum((dec(r[kind]) for r in path['budget_entries'] if r['group']==group and
-                            (not path.get('window_started_at') or instant(r['at'])>instant(path['window_started_at']))),ZERO)
-            total = path['finite_total_budget'].get(group) if mode==path['policy'] else None
-            if amount and (recent+amount>dec(limit) or total is not None and lifetime+amount>dec(total)):
-                return False
-    return True
-
-
 def decide(path, evidence, now):
     own = own_evidence(path,evidence,now)
     mode = calendar_mode(path['policy'],now,instant(path['started_at']))
@@ -208,9 +199,7 @@ def decide(path, evidence, now):
     own['shadow_retained_ratio'] = context['retained_ratio']
     plan = dict(price_anchor=path['price_anchor'],resources=['base:console','base:pc'],ends_at=path['active_deadline'] if mode==path['policy'] else None)
     result = evaluate(own,mode,plan=plan,now=now,evaluation_context=context)
-    candidates = [c for c in result['candidates'] if not c['score']['absolute_forecast_available'] or budget_fits(path,components(c,own,path['budget_reference']),now,mode)]
-    if not candidates and result['status']=='READY':
-        result.update(status='BUDGET_EXHAUSTED',failures=result['failures']+[dict(code='path_rolling_or_finite_budget_exhausted')])
+    candidates=result['candidates']
     result.update(candidates=candidates,selected=candidates[0] if candidates else None,simulation_context=context,execution_authorized=False)
     return result,own
 
@@ -344,19 +333,8 @@ def renew_sprint_window(path, evidence, now):
     path['window_started_at'],path['active_deadline']=window[0].isoformat(),window[1].isoformat()
     path['price_anchor']=deepcopy(path['action'] or path['price_anchor'])
     path['budget_reference']=reference_prices(evidence,path['price_anchor'])
-    first=day(now)-timedelta(days=7)
-    batches=[b for b in path['order_batches'] if first.isoformat()<=day(instant(b['opened_at'])).isoformat()<day(now).isoformat()]
-    coverage={}
-    for batch in batches:
-        key=day(instant(batch['opened_at']))
-        coverage[key]=coverage.get(key,0)+(instant(batch['closed_at'])-instant(batch['opened_at'])).total_seconds()
-    complete=all(coverage.get(first+timedelta(days=i))==86400 for i in range(7)) and all('revenue_by_group' in b for b in batches)
-    for group in ('console','pc'):
-        daily=sum((dec(b['revenue_by_group'].get(group,'0')) for b in batches),ZERO)/7 if complete and all('revenue_by_group' in b for b in batches) else None
-        path['budget_limits'][group]=str(max(dec(POLICIES['revenue_sprint']['floor']),daily*dec(POLICIES['revenue_sprint']['revenue_ratio']))) if daily is not None else POLICIES['revenue_sprint']['floor']
-        path['finite_total_budget'][group]=str(dec(path['budget_limits'][group])*dec((window[1]-now).total_seconds())/86400)
-    path['budget_initial_fixed']=not complete
-    path['window_history']=path.get('window_history',[])+[dict(start=path['window_started_at'],end=path['active_deadline'],budget_limits=deepcopy(path['budget_limits']),budget_basis='own_seven_closed_days' if complete else 'fixed_initial')]
+    path['budget_limits']={};path['finite_total_budget']={};path['budget_policy']='none'
+    path['window_history']=path.get('window_history',[])+[dict(start=path['window_started_at'],end=path['active_deadline'],budget_policy='none')]
 
 
 class Shadow:
@@ -538,10 +516,12 @@ class Shadow:
         records,eligible,seen_orders = [],[],set()
         latest_orders,revised_keys = {},set()
         latest_actual_asof = None
-        for original in sorted(snapshots,key=lambda s:instant(s['evidence']['checked_at'])):
+        for original in sorted(snapshots,key=lambda s:instant(s.get('created_at') or s['evidence']['checked_at'])):
             snapshot = deepcopy(original)
             reconciliation_only = snapshot.get('origin')=='verified_historical_attachment'
-            asof = instant(snapshot.get('available_at',snapshot['evidence']['checked_at'])) if reconciliation_only else instant(snapshot['evidence']['checked_at'])
+            asof = instant(snapshot.get('available_at',snapshot['evidence']['checked_at'])) if reconciliation_only else instant(snapshot.get('created_at') or snapshot['evidence']['checked_at'])
+            receipt=(snapshot.get('result') or {}).get('decision_receipt') or {}
+            if rule_mode=='historical_asof' and receipt.get('financial_contract_version')!='fc27_dual20_v1':snapshot['evidence']['_historical_financial_contract']='dual10'
             if reconciliation_only and kind!='actual_reconstruction':
                 continue
             if paid_window and not reconciliation_only:
@@ -551,7 +531,7 @@ class Shadow:
                     continue
             decision_evidence={k:v for k,v in snapshot['evidence'].items()
                                if k not in ('historical_orders','historical_orders_coverage')}
-            if (not reconciliation_only and (instant(snapshot.get('available_at',snapshot['evidence']['checked_at']))>asof or
+            if (not reconciliation_only and (instant(snapshot.get('available_at') or asof)>asof or
                     future_sources(decision_evidence,asof))):
                 records.append(dict(snapshot_id=snapshot['snapshot_id'],status='missing_at_historical_asof'))
                 continue
@@ -682,7 +662,7 @@ class Shadow:
                         model_version=path['model_version'],policy_version=path['policy_version'],
                         revenue=str(sum((dec(b['net_usd']) for b in batches),ZERO)),contribution=str(sum((dec(b['contribution_usd']) for b in batches),ZERO)),
                         orders=str(sum((dec(b['orders']) for b in batches),ZERO)),new_customers=str(sum((dec(b['new_customers']) for b in batches),ZERO)) if all(b['new_customers'] is not None for b in batches) else None,
-                        backlog_k=path['backlog_k'],budget_used=path['budget_used'],matured_repurchase=matured,gaps=path['gaps'],training_eligible=False,assumptions=path['assumptions'])
+                        backlog_k=path['backlog_k'],estimated_concession_usd=path['budget_used'],budget_policy='none',matured_repurchase=matured,gaps=path['gaps'],training_eligible=False,assumptions=path['assumptions'])
                     db.execute('INSERT OR REPLACE INTO summaries VALUES (?,?)',(fingerprint([path['policy'],label,now.isoformat()]),json.dumps(row)))
                     results.append(row)
         return results
@@ -709,7 +689,7 @@ class Shadow:
 def future_sources(value, asof):
     if isinstance(value, dict):
         for key, item in value.items():
-            if key in ('available_at','checked_at') and item is not None and instant(item)>asof:
+            if key in ('available_at','checked_at','captured_at') and item is not None and instant(item)>asof:
                 return True
             if future_sources(item,asof):
                 return True

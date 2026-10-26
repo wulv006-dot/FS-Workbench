@@ -12,6 +12,16 @@ SOURCES = {
     'legacy_itemd2r_parity': ('itemd2r_parity.py', 'f68459feb07ff59690a4a6b716e9760a7c556e74b92b7e02dfa4c57d23eb0a42'),
 }
 
+DUAL10_PINS = {'dual10_financial.py':'6ed1df03da6d3e667c154b76c9ab9f01d6e82bf62e91e3d0ccc9d26f4d6cd730',
+               'dual10_engine.py':'f5483cd185cfbc016f445ada1682aeef2aa3d886e58a548fc26de0f671076ff6'}
+
+def evaluate_dual10(evidence,mode,**kwargs):
+    for name,expected in DUAL10_PINS.items():
+        if hashlib.sha256((Path(__file__).parent/name).read_bytes()).hexdigest()!=expected:raise ValueError('simulation_dual10_archive_changed')
+    from .dual10_engine import evaluate
+    result=evaluate(evidence,mode,**kwargs)
+    return dict(result,financial_contract_version='fc27_dual10_archived_v15',execution_authorized=False)
+
 
 def replay(snapshot, name):
     """Return a frozen action or an explicit gap; never a production decision ID."""

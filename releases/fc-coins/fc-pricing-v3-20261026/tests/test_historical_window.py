@@ -31,6 +31,27 @@ def order(key, paid_at, available_at, paid_usd='10', **extra):
 
 
 class HistoricalWindow(unittest.TestCase):
+    def test_historical_asof_uses_completed_snapshot_time_and_rejects_later_facts(self):
+        snapshot=dict(snapshot_id='snapshot',created_at='2026-10-26T16:05:00+00:00',
+            evidence=dict(checked_at='2026-10-26T16:00:00+00:00',market=dict(captured_at='2026-10-26T16:03:00+00:00')),
+            historical_orders=[order('private','2026-10-26T15:00:00+00:00','2026-10-26T16:04:00+00:00')])
+        with tempfile.TemporaryDirectory() as folder:
+            shadow=simulation.Shadow(Path(folder)/'shadow.db')
+            result=shadow.historical([snapshot],kind='actual_reconstruction')
+            self.assertEqual(result['reconciled_actual']['actual']['order_count'],1)
+            self.assertEqual(result['reconciled_actual']['as_of'],snapshot['created_at'])
+            snapshot['evidence']['market']['captured_at']='2026-10-26T16:06:00+00:00'
+            later=shadow.historical([snapshot],kind='actual_reconstruction')
+            self.assertEqual(later['records'][0]['status'],'missing_at_historical_asof')
+
+    def test_public_history_counts_repeated_gaps_without_order_identity_or_long_output(self):
+        raw=dict(simulation_id='original',simulation_kind='actual_reconstruction',rule_mode='historical_asof',created_at='now',execution_authorized=False,training_eligible=False,
+            records=[dict(status='partial',gaps=[dict(reason='historical_FX_missing',order_key='private-'+str(i)) for i in range(10000)])])
+        public=api.history_view(raw)
+        self.assertEqual(public['records'][0]['gaps'],['historical_FX_missing (10000)'])
+        self.assertLess(len(json.dumps(public)),1000)
+        self.assertNotIn('private-',json.dumps(public))
+
     def test_14_28_and_previous_complete_month_are_distinct_closed_windows(self):
         now=datetime.fromisoformat('2026-10-26T21:00:00+08:00')
         self.assertEqual(simulation.historical_window(14,now)['paid_window'],

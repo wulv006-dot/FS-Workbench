@@ -145,7 +145,7 @@ def postwrite_quote(operation_id, audit, root=ROOT):
             if owner!=(plan['plan_id'],plan['revision'],plan['generation']):
                 raise ValueError('original_postwrite_resource_taken_over')
         reservation=body('reservations',operation_id)
-        if (not reservation or reservation.get('operation_id')!=operation_id or
+        if operation['bundle'].get('budget_policy')!='none' and (not reservation or reservation.get('operation_id')!=operation_id or
                 reservation.get('plan_id')!=operation['plan_id'] or reservation.get('state')!='RESERVED'):
             raise ValueError('original_postwrite_budget_reservation_missing')
     run_id=str(uuid.UUID(postwrite['quote_run_id'] if postwrite else audit['run_id']))
