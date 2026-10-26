@@ -93,13 +93,13 @@ class SimulationBridge:
 
     def legacy_replay(self, snapshot_id, name):
         self.versions()
-        from fc_pricing_v3.legacy_simulation import replay
         if name not in LEGACY_SHA or not re.fullmatch(r'[0-9a-f-]{36}', snapshot_id):
             raise ValueError('simulation_legacy_request_invalid')
-        quote = self.request('/quotes/'+snapshot_id,'wulv')
-        if quote.get('run_id') != snapshot_id or not quote.get('evidence'):
-            raise ValueError('simulation_legacy_quote_scope_invalid')
-        return replay(dict(evidence=quote['evidence']), name)
+        result=self.request('/pricing/v3/legacy-replay/'+snapshot_id+'/'+name,'wulv')
+        if (result.get('snapshot_id')!=snapshot_id or result.get('legacy_policy')!=name or
+                result.get('read_only') is not True or result.get('execution_authorized') is not False):
+            raise ValueError('simulation_legacy_reply_scope_invalid')
+        return result
 
     def simulate(self, draft, snapshot_id, expected_policy):
         # The old shared-band numerical tool was already retired before V3.
