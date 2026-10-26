@@ -12,7 +12,7 @@ from . import VERSION
 from .engine import evaluate, POLICIES
 from .financial import fingerprint, instant, number
 from .ledger import clock
-from .runtime import ledger, STORE
+from .runtime import ledger, STORE, public_snapshot_summary
 
 SHADOW_DB=Path('/var/lib/fc-pricing-v3-shadow/shadow.sqlite3')
 
@@ -66,9 +66,20 @@ def history_view(result):
     return view
 
 
-def latest(db):
-    snapshots=db.all('pricing_snapshots')
-    return max(snapshots,key=lambda s:s['created_at']) if snapshots else None
+def latest(db, public=False):
+    if public:
+        summary=db.get('metadata','latest_snapshot_summary')
+        if summary:
+            return summary
+    with closing(db.connect()) as conn:
+        for row in conn.execute('SELECT body FROM pricing_snapshots ORDER BY rowid DESC'):
+            snapshot=json.loads(row[0])
+            if snapshot.get('authorization_purpose')=='original_unsent_ALL_steps_only':
+                continue
+            if not public:
+                return snapshot
+            return public_snapshot_summary(dict(snapshot,result=snapshot.get('result') or {'rows':[]}))
+    return None
 
 
 def recent_market_observations(db):
@@ -87,7 +98,7 @@ def read(path):
                                     for name,(filename,_) in SOURCES.items()},
                     execution_authorized=False)
     db=ledger()
-    snapshot=latest(db)
+    snapshot=latest(db,public=True) if path in ('state','','region-rules','market') else None
     if path in ('state',''):
         target=(snapshot or {}).get('evidence',{}).get('monthly_target') or {}
         configured=db.get('monthly_targets','current')
@@ -179,7 +190,7 @@ def read(path):
 
 def post(path,data,actor):
     db=ledger()
-    snapshot=latest(db)
+    snapshot=latest(db) if path in ('plans','evaluate','preview','manual-previews') else None
     if path=='plans':
         mode=data['mode']
         if mode not in POLICIES:

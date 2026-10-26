@@ -32,6 +32,43 @@ class RuntimeContracts(unittest.TestCase):
         self.assertNotIn('replay_paths',summary['evidence']['regional_controls'][0]['history'])
         self.assertEqual(snapshot['evidence']['historical_orders'],private)
 
+    def test_state_uses_thin_summary_for_large_historical_snapshot(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.db')
+            orders=[dict(order_key=str(i),paid_usd='12',private_note='x'*520) for i in range(2352)]
+            snapshot=dict(snapshot_id='large',created_at='2026-10-26T12:00:00+00:00',
+                evidence=dict(historical_orders=orders,monthly_target=dict(mtd='412'),
+                    region_rules=[dict(region_id=39,history=dict(replay_paths=orders,source_sha256='a'))],
+                    regional_controls=[dict(region_id=21,resource='region:21:PS',history=dict(replay_paths=orders))]),
+                result=dict(rows=[dict(platform='PS',package_usd='10')]))
+            db.put('pricing_snapshots','large',snapshot)
+            db.put('metadata','latest_snapshot_summary',runtime.public_snapshot_summary(snapshot))
+            self.assertGreater(len(json.dumps(snapshot).encode()),1024*1024)
+            with patch.object(api,'ledger',return_value=db),patch.object(db,'all',wraps=db.all) as all_rows:
+                state=api.read('state')
+                market=api.read('market')
+            self.assertFalse(any(call.args==('pricing_snapshots',) for call in all_rows.call_args_list))
+            self.assertEqual(state['snapshot_id'],'large')
+            self.assertEqual(state['target']['mtd'],'412')
+            self.assertNotIn('private_note',json.dumps(state))
+            self.assertNotIn('replay_paths',json.dumps(state))
+            self.assertLess(len(json.dumps(state).encode()),1024*1024)
+            self.assertEqual(market['snapshot_id'],'large')
+
+    def test_latest_fallback_uses_rowid_and_skips_postwrite_snapshot(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.db')
+            db.put('pricing_snapshots','old',dict(snapshot_id='old',created_at='2099-01-01',
+                evidence=dict(monthly_target=dict(mtd='1')),result=dict(rows=[])))
+            db.put('pricing_snapshots','new',dict(snapshot_id='new',created_at='2026-10-26',
+                evidence=dict(monthly_target=dict(mtd='2')),result=dict(rows=[])))
+            db.put('pricing_snapshots','postwrite',dict(snapshot_id='postwrite',created_at='2026-10-27',
+                authorization_purpose='original_unsent_ALL_steps_only',evidence={},result=dict(rows=[])))
+            with patch.object(api,'ledger',return_value=db):
+                state=api.read('state')
+            self.assertEqual(state['snapshot_id'],'new')
+            self.assertEqual(state['target']['mtd'],'2')
+
     def test_backlog_exit_requires_fresh_complete_zero_normal_queue(self):
         now=datetime.now(timezone.utc)
         queue=dict(status='normal_delivery_gross_quantity_upper_estimate', checked_at=now.isoformat(),
@@ -102,6 +139,7 @@ class RuntimeContracts(unittest.TestCase):
                     mode='daily',action=assigned)
         bundle['sha256']=hashlib.sha256(json.dumps(bundle,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
         quote=dict(run_id=run,result=dict(decision_receipt=bundle))
+        quote['original_quote_sha256']=hashlib.sha256(json.dumps(quote,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
         decisions=dict(snapshot_id=run,snapshot_sha256='c'*64,strategy_version=bundle['schema_version'],
                        results={'daily':dict(candidates=[dict(action=action)])})
         calls=[]
@@ -126,9 +164,15 @@ class RuntimeContracts(unittest.TestCase):
             with patch.object(pricing_operations,'authorization',return_value=auth):
                 result=pricing_operations.call(scope,'wulv','task','lease',args,request)
                 same=pricing_operations.call(scope,'wulv','task','lease',args,request)
+                original_request_count=calls.count('/quotes/'+run)
+                original_sha=quote.pop('original_quote_sha256')
+                with self.assertRaisesRegex(ValueError,'pricing_original_quote_sha256_missing'):
+                    pricing_operations.call(scope,'wulv','task','lease',dict(args,request_key='recommend-two'),request)
         self.assertEqual(result,same)
-        self.assertEqual(calls.count('/quotes/'+run),1)
+        self.assertEqual(original_request_count,1)
+        self.assertEqual(calls.count('/quotes/'+run),2)
         self.assertEqual(result['action_vector'],action)
+        self.assertEqual(result['quote_sha256'],original_sha)
         self.assertNotEqual(result['action_vector'],assigned)
 
     def test_simulation_bridge_pins_local_and_runtime_pure_versions(self):

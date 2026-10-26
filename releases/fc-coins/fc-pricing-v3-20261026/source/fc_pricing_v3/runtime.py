@@ -31,7 +31,7 @@ def write_json(path, value):
 
 def public_snapshot_summary(snapshot):
     evidence=snapshot['evidence']
-    fields={key:evidence.get(key) for key in ('monthly_target','offers','reference_market','arab_ut_quotes')}
+    fields={key:evidence.get(key) for key in ('monthly_target','offers','reference_market','arab_ut_quotes','region_contract')}
     for key in ('region_rules','regional_controls'):
         fields[key]=[dict(row,history={k:v for k,v in (row.get('history') or {}).items() if k!='replay_paths'})
                      for row in evidence.get(key,[])]

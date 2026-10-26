@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -34,10 +35,30 @@ WRITERS = {name.strip() for name in os.environ.get("FC27_CLOUD_WRITERS", "wulv,c
 ID_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
-def public_artifact(payload):
+def _without_replay_paths(value):
+    if isinstance(value, dict):
+        return {key: _without_replay_paths(item) for key, item in value.items() if key not in {"paths", "replay_paths"}}
+    if isinstance(value, list):
+        return [_without_replay_paths(item) for item in value]
+    return value
+
+
+def public_artifact(payload, include_quote_sha=False):
     evidence = payload.get("evidence") if isinstance(payload, dict) else None
-    if isinstance(evidence, dict) and "historical_orders" in evidence:
-        return dict(payload, evidence={key: value for key, value in evidence.items() if key != "historical_orders"})
+    if isinstance(evidence, dict):
+        safe = {key: value for key, value in evidence.items() if key != "historical_orders"}
+        if isinstance(safe.get("history_replay"), dict):
+            safe["history_replay"] = _without_replay_paths(safe["history_replay"])
+        for collection in ("region_rules", "regional_controls"):
+            if isinstance(safe.get(collection), list):
+                safe[collection] = [dict(row, history={key: value for key, value in row["history"].items() if key != "replay_paths"})
+                    if isinstance(row, dict) and isinstance(row.get("history"), dict) else row
+                    for row in safe[collection]]
+        result = dict(payload, evidence=safe)
+        if include_quote_sha:
+            result["original_quote_sha256"] = hashlib.sha256(json.dumps(payload, ensure_ascii=False,
+                sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+        return result
     return payload
 
 
@@ -671,7 +692,7 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 payload = read_json(path)
                 if parts[0] in {"quotes", "snapshots"}:
-                    payload = public_artifact(payload)
+                    payload = public_artifact(payload, include_quote_sha=parts[0] == "quotes")
                 self.respond(200, payload)
                 return
             self.respond(404, {"error": "not_found"})

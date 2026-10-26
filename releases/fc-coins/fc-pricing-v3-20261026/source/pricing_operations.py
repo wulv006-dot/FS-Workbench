@@ -161,7 +161,9 @@ def call(scope,owner,task,lease,args,request=native):
             raise ValueError('pricing_recommendation_basis_changed')
         if 'pricing:'+bundle['sha256'] not in args['evidence_refs'] or len(args['reason'].strip())<4:
             raise ValueError('pricing_recommendation_evidence_required')
-        canonical=hashlib.sha256(json.dumps(quote,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        canonical=quote.get('original_quote_sha256')
+        if not isinstance(canonical,str) or not re.fullmatch('[a-f0-9]{64}',canonical):
+            raise ValueError('pricing_original_quote_sha256_missing')
         decisions=request('/pricing/v3/strategy-decisions/'+run,owner)
         if (decisions['snapshot_id']!=bundle.get('snapshot_id') or
                 decisions['snapshot_sha256']!=bundle.get('snapshot_sha256') or
