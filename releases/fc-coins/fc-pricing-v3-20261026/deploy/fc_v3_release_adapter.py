@@ -35,9 +35,8 @@ def restart_with_hermes_readiness(base, original_restart, manifest, admission_fe
         expected_error='range health failed' if range_scope else 'Hermes worker health failed'
         if (not range_scope and (scope!=base.HERMES_WORKER_SCOPE or admission_fence is None)) or str(exc)!=expected_error:
             raise
-        # The frozen publisher probes this same endpoint for about five seconds.
-        # A Docker cold start can take longer; keep its admission fence and
-        # require the same authenticated capabilities contract before release.
+        # Docker startup can exceed the frozen probe window; retain its fence
+        # and require the original service's health contract within 60 seconds.
         if range_scope:
             request=urllib.request.Request('http://127.0.0.1:8931/health')
         else:
