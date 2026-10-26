@@ -6,7 +6,7 @@
   "entries": [
     {
       "id": "fs.data.sources",
-      "revision": "fc-v3-daily-program-20261026",
+      "revision": "fc-v3-20261026",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -75,7 +75,7 @@
     },
     {
       "id": "fs.data.currency",
-      "revision": "fc-v3-daily-program-20261026",
+      "revision": "fc-v3-20261026",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -142,7 +142,7 @@
     },
     {
       "id": "fs.customer.identity",
-      "revision": "fc-v3-daily-program-20261026",
+      "revision": "fc-v3-20261026",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -265,7 +265,7 @@
     },
     {
       "id": "fs.finance.procurement",
-      "revision": "fc-v3-daily-program-20261026",
+      "revision": "fc-v3-20261026",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -570,7 +570,7 @@
     },
     {
       "id": "fc.marketing.attribution",
-      "revision": "fc-v3-daily-program-20261026",
+      "revision": "fc-v3-20261026",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -638,7 +638,7 @@
     },
     {
       "id": "fs.procurement.inputs",
-      "revision": "fc-v3-daily-program-20261026",
+      "revision": "fc-v3-20261026",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -692,7 +692,7 @@
     },
     {
       "id": "fs.pricing.parameter-identity",
-      "revision": "fc-v3-daily-program-20261026",
+      "revision": "fc-v3-20261026",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -746,7 +746,7 @@
     },
     {
       "id": "fs.product.identity",
-      "revision": "fc-v3-daily-program-20261026",
+      "revision": "fc-v3-20261026",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -800,7 +800,7 @@
     },
     {
       "id": "fs.customer.lifecycle",
-      "revision": "fc-v3-daily-program-20261026",
+      "revision": "fc-v3-20261026",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -854,7 +854,7 @@
     },
     {
       "id": "fs.learning.methods",
-      "revision": "fc-v3-daily-program-20261026",
+      "revision": "fc-v3-20261026",
       "layer": "current",
       "status": "effective",
       "modules": [
