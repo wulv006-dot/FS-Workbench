@@ -22,3 +22,5 @@
 
 /* Disabled card backs stay opaque; the product face appears only after the edge crosses. */
 .product-source{font-size:9px;color:#b4a6bd;line-height:1.6;margin:0 0 12px;overflow-wrap:anywhere}.source-price{font:9px Arial;color:#c3b4ca;display:block;width:100%;line-height:1.7}.source-details{font-size:11px;line-height:1.8;border-top:1px solid var(--line);padding-top:16px}.source-details dt{color:var(--accent);margin-top:10px}.source-details dd{margin:0;color:#c3b3cb;overflow-wrap:anywhere}
+
+.wishing-pool{display:flex;align-items:center;justify-content:space-between;gap:1.5rem;margin:1.5rem 0;padding:1.25rem;border:1px solid var(--accent);border-radius:12px}.wishing-pool h3{margin:0 0 .5rem}.wishing-pool p{margin:0;max-width:60ch}.model-options select,.model-options input{display:block;width:100%;min-height:48px;font-size:1rem;margin-bottom:1rem}.model-options label{font-size:1rem}.model-options{min-width:0}@media(max-width:700px){.wishing-pool{align-items:stretch;flex-direction:column}.wishing-pool button{min-height:48px}}
