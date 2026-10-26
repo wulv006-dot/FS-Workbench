@@ -1,6 +1,9 @@
 """Exact V3 code targets; the knowledge catalog has a separate immutable release."""
 from pathlib import Path
 
+DELTA_SCOPE = 'fc-pricing-v3-ui-permission-20261026'
+DELTA_NAMES = ('source/fc27_cloud_api.py', 'source/fc-pricing-v3.js', 'source/fc27-coins.html')
+
 
 def targets(source):
     source = Path(source)

@@ -191,7 +191,7 @@ def health():
 
 
 def automation_view(policy, actor=None):
-    policy={**policy,'can_edit_discount_rules':False}
+    policy={**policy,'can_edit_discount_rules':False,'can_manage_v3':actor in WRITERS}
     from fc_pricing_v3.monitoring import projection
     v3=projection(ROOT)
     if v3['enabled']:return dict(policy,schedule=v3['schedule'],v3=v3)
