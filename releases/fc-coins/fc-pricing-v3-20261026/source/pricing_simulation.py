@@ -9,7 +9,7 @@ from pricing_operations import native
 
 
 V3_VERSION = 'fc-pricing-v3-20261026'
-ENGINE_SHA = '6b15b87ac41da86eb602cc7fb209b8083aea15908302e067a441940eb8545375'
+ENGINE_SHA = '9331e0dfc65f1df82a2b6407ad8df3f860e45d9af0d7756d6a3da482ca39e320'
 FINANCIAL_SHA = 'a76b155cb673c50ecacd878eb2e2eceb1efbcd15355b674a92f0487b9ee016d1'
 LEGACY_SHA = {
     'legacy_80_15_5': '91f8d143e21e05544b17442bd8a20d3735f62caa4aa5b182584a4fd4c4ec993a',
