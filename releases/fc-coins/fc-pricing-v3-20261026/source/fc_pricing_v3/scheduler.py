@@ -45,8 +45,11 @@ def export_shadow_snapshot(db, target=SHADOW_EXPORT):
                     raise ValueError('shadow_export_delete_journal_required')
                 exported=destination.execute('SELECT coalesce(max(id),0) FROM event_outbox').fetchone()[0]
             if os.name=='posix':
-                os.chown(name,0,11028)
                 os.chmod(name,0o640)
+                if target==SHADOW_EXPORT:
+                    if os.geteuid()!=0:
+                        raise ValueError('production_shadow_export_requires_root')
+                    os.chown(name,0,11028)
             os.replace(name,target)
             if os.name=='posix':
                 directory=os.open(str(target.parent),os.O_RDONLY|os.O_DIRECTORY)
