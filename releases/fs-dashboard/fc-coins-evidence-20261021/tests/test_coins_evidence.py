@@ -35,6 +35,23 @@ class EvidenceTests(unittest.TestCase):
         data,meta,cov=fixture
         with patch.object(self.reader,'channel_data',return_value=deepcopy(data)),patch('coins_evidence.es_metadata',return_value=(meta,cov)):
             return self.reader(self.q)
+    def test_baseline_identity_accepts_legacy_and_fc_v3_without_rewriting(self):
+        for version in ('business-baseline-20261021-v9','business-baseline-fc-v3-20261026'):
+            raw=('版本：'+version+'；现行业务合同保持。\n').encode('utf-8')
+            with self.subTest(version=version),patch('coins_evidence.Path.read_bytes',return_value=raw):
+                self.assertEqual(baseline_identity(),{'version':version,'sha256':hashlib.sha256(raw).hexdigest()})
+        for raw in (b'',b'business-baseline-fc-vx-20261026',b'business-baseline-fc-v3-date'):
+            with self.subTest(raw=raw),patch('coins_evidence.Path.read_bytes',return_value=raw),self.assertRaisesRegex(ValueError,'coins_business_baseline_version'):
+                baseline_identity()
+
+    def test_fc_v3_readiness_preserves_missing_costs(self):
+        raw=b'business-baseline-fc-v3-20261026'
+        with patch('coins_evidence.Path.read_bytes',return_value=raw),patch.object(self.reader,'costs',return_value={'status':'not_available'}),patch.object(self.reader,'history',return_value={'coverage':{},'status_counts':{}}):
+            value=self.reader(self.q|{'kind':'readiness'})
+        self.assertEqual(value['business_baseline'],{'version':raw.decode(),'sha256':hashlib.sha256(raw).hexdigest()})
+        self.assertEqual((value['status'],value['cost_status']),('partial','not_available'))
+        self.assertFalse(value['collection_triggered']);self.assertFalse(value['business_writes'])
+
     def test_closed_scope(self):
         for extra in ({'profile':'ALL'},{'kind':'write'},{'url':'https://example.com'},{'page':True},{'start':'2026-10-21','end':'2026-10-20'}):
             with self.assertRaises((ValueError,TypeError)):checked_query(self.q|extra)
