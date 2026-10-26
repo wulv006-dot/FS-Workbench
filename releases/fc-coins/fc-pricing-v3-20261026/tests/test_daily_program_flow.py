@@ -124,5 +124,20 @@ class DailyProgramFlow(unittest.TestCase):
     def test_page_interaction_contract(self):
         subprocess.run(['node',str(Path(__file__).with_name('test_ui_contract.cjs'))],check=True,capture_output=True,timeout=20)
 
+    def test_paused_plan_keeps_last_real_source_timestamp_without_new_collection(self):
+        from fc_pricing_v3 import monitoring
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);db=Ledger(root/'v3/control.sqlite3')
+            plan=dict(plan_id='p',state='SUSPENDED',mode='daily',resources=['base:pc'],starts_at=NOW.isoformat())
+            db.put('pricing_plans','p',plan)
+            db.put('metadata','latest_snapshot:p',dict(snapshot_id='snapshot'))
+            db.put('pricing_snapshots','snapshot',dict(snapshot_id='snapshot',created_at=NOW.isoformat(),evidence=dict(checked_at=NOW.isoformat())))
+            (root/'config').mkdir();(root/'config/v3-control.json').write_text('{"enabled":true}')
+            (root/'v3/heartbeat.json').write_text(json.dumps(dict(checked_at=NOW.isoformat())))
+            state=monitoring.projection(root,NOW)
+            self.assertEqual(state['schedule']['last_source_checked_at'],NOW.isoformat())
+            self.assertIsNone(state['schedule']['next_cycle_at'])
+            self.assertEqual(state['source_coverage']['status'],'not_required_without_active_plan')
+
 
 if __name__=='__main__':unittest.main()

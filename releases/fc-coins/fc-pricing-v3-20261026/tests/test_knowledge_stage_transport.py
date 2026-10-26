@@ -29,6 +29,8 @@ class KnowledgeStageTransportTest(unittest.TestCase):
                     committed = subprocess.check_output(['git', 'show', 'HEAD:' + relative], cwd=ROOT)
                     staged = bundle.extractfile(PREFIX + name).read()
                     self.assertEqual(staged, committed, name)
+                helper='releases/fc-coins/fc-pricing-v3-20261026/deploy/release_readiness.py'
+                self.assertEqual(bundle.extractfile(PREFIX+'release_readiness.py').read(),subprocess.check_output(['git','show','HEAD:'+helper],cwd=ROOT))
                 frozen = bundle.extractfile(PREFIX + 'release_navigation_base.py').read()
                 self.assertEqual(hashlib.sha256(frozen).hexdigest(),
                                  '57f4baf8db15fc791375b641fb618ef87a867901643bc0aa33f10804b8fcb840')

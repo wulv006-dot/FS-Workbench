@@ -103,13 +103,14 @@ def load_base():
     original_restart = base.restart_for
 
     def restart(manifest, admission_fence=None):
+        from release_readiness import restart_with_hermes_readiness
         if manifest.get('scope') != SCOPE:
             return original_restart(manifest, admission_fence)
         if admission_fence is None:
             raise ValueError('original_Hermes_admission_fence_required')
         admission_fence.stop_then_unlock_database()
-        original_restart(dict(manifest, scope=base.HERMES_WORKER_SCOPE), admission_fence)
-        original_restart(dict(manifest, scope=base.DEEP_SCOPE), admission_fence)
+        restart_with_hermes_readiness(base,original_restart,dict(manifest,scope=base.HERMES_WORKER_SCOPE),admission_fence)
+        restart_with_hermes_readiness(base,original_restart,dict(manifest,scope=base.DEEP_SCOPE),admission_fence)
 
     base.restart_for = restart
     return base
