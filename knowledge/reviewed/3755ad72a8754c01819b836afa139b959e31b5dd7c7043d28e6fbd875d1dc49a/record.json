@@ -1,0 +1,34 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "skill:79bb2e18",
+  "candidate_sha256": "0a487f2b52203bafd49619284836992f88110b4b618f5a595e4427c9b891f69d",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "reusable",
+  "evidence": "当前用户明确批准一次审批对账修复及后续应用归档，并选择既有FC/FS范围自主代码故障修复。两完整单文件技能及当前基线记忆均经原入口completed/success/applied；原生读取与已发布FS索引精确SHA一致，范围外模块过滤为空。原失败完整字节及对账证据保留，未伪造成功；无业务、价格、权限或调度动作。仅归档，不改AGENTS或审核控制规范。",
+  "formal_rule_change": false,
+  "kind": "skill",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "packages": [
+    {
+      "exists": true,
+      "files": [
+        {
+          "mode": 420,
+          "path": "SKILL.md",
+          "sha256": "01b41ccddf8664119d1807c04447c39d9d2d0f0426c735de5b323fb2128deb61"
+        }
+      ],
+      "path": "fs-operations/fs-business-context-rulings",
+      "sha256": "b6d8ee78f7d3d3056274b475ecb774885ce151221ce281f061a5e9f047102af8"
+    }
+  ],
+  "receipt_sha256": "8681ed1cb68b04267070e65d3889ba87f0d36c22a65893747c4f54b7fc477318",
+  "request_id": "3755ad72a8754c01819b836afa139b959e31b5dd7c7043d28e6fbd875d1dc49a",
+  "runtime_activation": false,
+  "summary": "已审裁定落档技能1.1.0：移除直接写共享记忆的旧指引，复用原候选入口、完整字段及统一审阅方法；保存候选不等于生效。"
+}

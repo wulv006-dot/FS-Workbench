@@ -1,0 +1,34 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "skill:c260ae42",
+  "candidate_sha256": "ffbfcbcc7164a92ec32fb3765ef4a2d1cc5544fa430ce7c57faa469a667d344f",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "reusable",
+  "evidence": "当前用户明确批准一次审批对账修复及后续应用归档，并选择既有FC/FS范围自主代码故障修复。两完整单文件技能及当前基线记忆均经原入口completed/success/applied；原生读取与已发布FS索引精确SHA一致，范围外模块过滤为空。原失败完整字节及对账证据保留，未伪造成功；无业务、价格、权限或调度动作。仅归档，不改AGENTS或审核控制规范。",
+  "formal_rule_change": false,
+  "kind": "skill",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "packages": [
+    {
+      "exists": true,
+      "files": [
+        {
+          "mode": 420,
+          "path": "SKILL.md",
+          "sha256": "08ab541a22bf5c09ecb6e0c0c0e808c4196f7c0c72b1b0822a6af7ab241c1e4a"
+        }
+      ],
+      "path": "fs-operations/fs-evidence-reconciliation",
+      "sha256": "95187933b420420566dbf018d6b7ffe21333748f2245f4f6a1360a1f34fa0dd2"
+    }
+  ],
+  "receipt_sha256": "78ed3b4a045108751180dda51b289f393f7fc62da207c758e2db377d4b6fef3f",
+  "request_id": "d2af32fe35366546c5f125edd694c7bcacef32e93d9ff1a8996e350b038ef597",
+  "runtime_activation": false,
+  "summary": "已审证据对账技能1.0.2：按单条原消息与已验证绑定核身份；长期裁定走候选审核；少重复提醒不扩大凭据或业务权限。完整保留原方法。"
+}
