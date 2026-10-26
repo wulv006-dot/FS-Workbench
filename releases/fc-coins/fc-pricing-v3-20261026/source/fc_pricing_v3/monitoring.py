@@ -6,6 +6,40 @@ from pathlib import Path
 import sqlite3
 
 
+def shadow_progress(db,root,now):
+    """Read the original outbox sequence and the independent shadow cursor."""
+    event=db.execute("SELECT id,kind,body FROM event_outbox WHERE kind IN ('snapshot_ready','simulation_requested') ORDER BY id DESC LIMIT 1").fetchone()
+    latest=event[0] if event else 0
+    path=(Path('/var/lib/fc-pricing-v3-shadow/shadow.sqlite3') if root==Path('/var/lib/fc27-cloud')
+          else root/'shadow.sqlite3')
+    cursor=0
+    if path.exists():
+        try:
+            with closing(sqlite3.connect('file:'+str(path)+'?mode=ro',uri=True,timeout=2)) as shadow:
+                row=shadow.execute("SELECT value FROM cursor WHERE id='production'").fetchone()
+                cursor=row[0] if row else 0
+        except (OSError,sqlite3.Error):
+            return dict(status='cursor_unreadable',latest_event_id=latest,cursor=None,
+                        pending=None,lag_seconds=None)
+    if latest<=cursor:
+        return dict(status='current' if latest else 'idle',latest_event_id=latest,cursor=cursor,
+                    pending=0,lag_seconds=0)
+    first=db.execute("SELECT id,kind,body FROM event_outbox WHERE kind IN ('snapshot_ready','simulation_requested') AND id>? ORDER BY id LIMIT 1",(cursor,)).fetchone()
+    pending=db.execute("SELECT count(*) FROM event_outbox WHERE kind IN ('snapshot_ready','simulation_requested') AND id>?",(cursor,)).fetchone()[0]
+    if not first:
+        return dict(status='event_unverified',latest_event_id=latest,cursor=cursor,pending=None,lag_seconds=None)
+    body=json.loads(first[2]);created_at=body.get('requested_at') if first[1]=='simulation_requested' else None
+    if first[1]=='snapshot_ready':
+        row=db.execute('SELECT body FROM pricing_snapshots WHERE id=?',(body['snapshot_id'],)).fetchone()
+        if row:created_at=json.loads(row[0]).get('created_at')
+    if not created_at:
+        return dict(status='event_time_unverified',latest_event_id=latest,cursor=cursor,
+                    pending=pending,lag_seconds=None,first_pending_event_id=first[0])
+    age=(now-datetime.fromisoformat(created_at.replace('Z','+00:00'))).total_seconds()
+    return dict(status='stalled' if age>180 else 'catching_up',latest_event_id=latest,cursor=cursor,
+                pending=pending,lag_seconds=round(age),first_pending_event_id=first[0])
+
+
 def source_coverage(snapshots,plans,now):
     """Validate the last real owned snapshot per plan, within that plan's sampling interval."""
     from .financial import number,instant,required_history_ratio,envelope_ratio,fingerprint
@@ -82,6 +116,9 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
                 row=db.execute('SELECT body FROM pricing_snapshots WHERE id=?',(snapshot_id,)).fetchone()
                 if row:snapshots.append(json.loads(row[0]))
         jobs=[dict(id=row[0],kind=row[1],due_at=row[2],state=row[3],body=json.loads(row[4])) for row in db.execute("SELECT id,kind,due_at,state,body FROM durable_jobs WHERE state IN ('queued','running')")]
+        shadow=shadow_progress(db,root,now)
+    if shadow['status'] in ('stalled','cursor_unreadable','event_unverified','event_time_unverified'):
+        issues.append(dict(level='warning',code='coin_v3_shadow_'+shadow['status']))
     policy_path=root/'config/automation.json'
     operator_enabled=json.loads(policy_path.read_text()).get('system_enabled') if policy_path.exists() else True
     coverage=source_coverage(snapshots,active if operator_enabled else [],now)
@@ -98,4 +135,4 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
                 active_plans=[{k:p.get(k) for k in ('plan_id','revision','mode','state','resources','ends_at')} for p in active],
                 schedule=dict(status=status,next_at=next_at,collection_status='v3_durable_due_queue'),
                 pending_operations=[dict(operation_id=o['operation_id'],status=o['status'],plan_id=o.get('plan_id')) for o in pending],
-                issues=issues,source_coverage=coverage,pending_count=len(pending),read_only=True)
+                issues=issues,source_coverage=coverage,shadow=shadow,pending_count=len(pending),read_only=True)
