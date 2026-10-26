@@ -96,15 +96,19 @@ def prepare():
         runtimeRequired=runtime, unchangedRequired=required, files=rows)
     raw = (json.dumps(manifest, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
     path = HERE / 'approved-manifest.json'
-    if path.exists():
+    runtime_path = STAGE / 'approved-manifest.json'
+    if path.exists() or runtime_path.exists():
         raise ValueError('existing_manifest_must_be_reconciled')
     path.write_bytes(raw)
     os.chmod(path, 0o600)
     try:
         from fc_v3_release_adapter import load_base as load_adapter
         result = load_adapter().inspect(manifest, STAGE)
+        runtime_path.write_bytes(raw)
+        os.chmod(runtime_path, 0o600)
     except Exception:
         path.unlink()
+        runtime_path.unlink(missing_ok=True)
         raise
     return dict(manifestSha256=hashlib.sha256(raw).hexdigest(), sourceCommit=source_commit,
         files=len(rows), existing=23, new=51, protected=len(required), inspect=result)
