@@ -873,7 +873,8 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             failures[str(error)] += 1
             blocked_windows.update(w['operation_id'] for w in valid)
             continue
-        active = [w for w in valid if _window_instant(w['opened_at']) <= created < now]
+        active = [w for w in valid if _window_instant(w['opened_at']) <= created < now
+                  and (not w.get('closed_at') or created < _window_instant(w['closed_at']))]
         if not active:
             coverage['created_outside_price_windows'] += 1
             continue

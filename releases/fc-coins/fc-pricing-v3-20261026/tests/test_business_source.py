@@ -316,6 +316,15 @@ class BusinessSourceTest(unittest.TestCase):
         result=source.bind_price_windows([order],[window],now)
         self.assertEqual([r['price_group'] for r in result['training_observations']],['21:PS','console'])
 
+    def test_unknown_platform_does_not_block_an_already_closed_window(self):
+        now,order,old=self.window_fixture()
+        old['closed_at']='2026-10-26T02:00:00+00:00'
+        new=dict(old,operation_id='new',opened_at=old['closed_at'],closed_at=None)
+        unknown=dict(order,order_no='private-unknown',aid=0,
+                     timestamp=int(datetime(2026,10,26,3,tzinfo=timezone.utc).timestamp()),timestamp_format='2026-10-26 11:00:00')
+        result=source.bind_price_windows([order,unknown],[old,new],now)
+        self.assertEqual([(r['price_window_id'],r['paid_orders'],r['exposure']) for r in result['training_observations']],[('op',1,'2.0')])
+
     def test_pc_only_change_keeps_original_console_exposure_open(self):
         now, order, old = self.window_fixture()
         old.update(platforms=['PS', 'PC'], mutable_resources=['base:console', 'base:pc'],
