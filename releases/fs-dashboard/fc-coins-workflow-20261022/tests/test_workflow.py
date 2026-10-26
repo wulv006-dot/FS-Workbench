@@ -100,6 +100,32 @@ class Sources(unittest.TestCase):
   self.assertEqual(b['receipt_sha256'],digest({k:v for k,v in b.items() if k!='receipt_sha256'}));n=len(self.calls);self.assertEqual(self.flow(self.q),b);self.assertEqual(len(self.calls),n)
   self.assertFalse(b['execution_authorized']);self.assertFalse(b['existing_automation_changed']);self.assertIsNone(b['ad_after_contribution']['value'])
   self.assertIsNotNone(datetime.fromisoformat(b['captured_at']).tzinfo);self.assertEqual(len(b['workflow_sha256']),64)
+ def test_v3_removed_load_returns_retired_receipt_without_triggering_evaluation(self):
+  self.pending=False;read=self.book.call
+  def call(name,args):
+   row=read(name,args)
+   if name=='fc.query_market_snapshot':self.book.evidence[row['evidence_id']]['data']['storefront']={'collection_run_id':'saved-snapshot'}
+   return row
+  self.book.call=call
+  self.flow.bridge.evaluate=lambda *a: self.fail('must not start another evaluation')
+  value=self.flow(self.q)
+  self.assertEqual(value['original_engine_baseline'],{'status':'not_available','reason':'legacy_engine_baseline_retired_use_v3_pricing_control'})
+  self.assertEqual(value['status'],'partial');self.assertFalse(value['write_performed']);self.assertFalse(value['execution_authorized'])
+  self.assertTrue(value['source_refs']['market'])
+ def test_isolated_legacy_bridge_load_contract_is_preserved(self):
+  self.pending=False;read=self.book.call;calls=[]
+  def call(name,args):
+   row=read(name,args)
+   if name=='fc.query_market_snapshot':self.book.evidence[row['evidence_id']]['data']['storefront']={'collection_run_id':'saved-snapshot'}
+   return row
+  self.book.call=call
+  def load(*args):
+   calls.append(args);return None,{'historical':'isolated'},['original-ref']
+  self.flow.bridge.load=load
+  value=self.flow(self.q)
+  self.assertEqual(len(calls),1);self.assertEqual(calls[0][0],'saved-snapshot')
+  self.assertEqual(value['original_engine_baseline']['status'],'available')
+  self.assertEqual(value['original_engine_baseline']['calculation'],{'historical':'isolated'})
  def test_strict_tool_boundary(self):
   for q in (dict(self.q,url='http://bad'),dict(self.q,action='write'),dict(self.q,case=case()),dict(self.q,action='scenario'),dict(self.q,profile='ALL')):
    with self.assertRaises(ValueError):self.flow(q)
