@@ -1,9 +1,13 @@
 """Single durable FC due scheduler; recovery/deadlines never wait for collection."""
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import timedelta
 import json
+import os
 from pathlib import Path
 import signal
+import sqlite3
+import tempfile
 import time
 import uuid
 
@@ -14,6 +18,46 @@ from .runtime import ledger, ROOT, STORE, execute_run, reconcile
 
 PRIORITY={'deadline':0,'exit':1,'reconcile':2,'start':3,'postwrite_refresh':3,'cycle':4,'observe':5}
 BACKOFF=(5,15,30,60)
+SHADOW_EXPORT=STORE/'shadow-readonly.sqlite3'
+
+
+def export_shadow_snapshot(db, target=SHADOW_EXPORT):
+    """Publish one consistent, read-only SQLite snapshot for the isolated consumer.
+
+    CentOS SQLite 3.7 cannot open the live WAL from a read-only mount.  The
+    coordinator already owns this database; its online backup preserves the
+    outbox sequence without granting the shadow process production write access.
+    """
+    target=Path(target)
+    with db.connect() as source:
+        current=source.execute('SELECT coalesce(max(id),0) FROM event_outbox').fetchone()[0]
+        if target.exists():
+            with closing(sqlite3.connect('file:'+str(target.resolve())+'?mode=ro',uri=True)) as published:
+                old=published.execute('SELECT coalesce(max(id),0) FROM event_outbox').fetchone()[0]
+            if old==current:
+                return dict(status='current',cursor=current)
+        fd,name=tempfile.mkstemp(prefix='.shadow-export-',suffix='.sqlite3',dir=str(target.parent))
+        os.close(fd)
+        try:
+            with closing(sqlite3.connect(name)) as destination:
+                source.backup(destination)
+                if destination.execute('PRAGMA journal_mode=DELETE').fetchone()[0].lower()!='delete':
+                    raise ValueError('shadow_export_delete_journal_required')
+                exported=destination.execute('SELECT coalesce(max(id),0) FROM event_outbox').fetchone()[0]
+            if os.name=='posix':
+                os.chmod(name,0o640)
+                if target==SHADOW_EXPORT:
+                    if os.geteuid()!=0:
+                        raise ValueError('production_shadow_export_requires_root')
+                    os.chown(name,0,11028)
+            os.replace(name,target)
+            if os.name=='posix':
+                directory=os.open(str(target.parent),os.O_RDONLY|os.O_DIRECTORY)
+                try:os.fsync(directory)
+                finally:os.close(directory)
+            return dict(status='published',cursor=exported)
+        finally:
+            Path(name).unlink(missing_ok=True)
 
 
 def backlog_cleared(evidence, now):
@@ -283,7 +327,8 @@ def tick(executors, running):
                 job=json.loads(job_path.read_text()) if job_path.exists() else {}
                 if job.get('status') in ('queued','running'):break
                 db.enqueue('observe','observe:'+snapshot_id,now,dict(snapshot_id=snapshot_id),conn)
-            conn.execute("INSERT INTO consumer_cursors VALUES ('external_market_observer',?) ON CONFLICT(id) DO UPDATE SET value=excluded.value",(event['id'],))
+            if conn.execute("UPDATE consumer_cursors SET value=? WHERE id='external_market_observer'",(event['id'],)).rowcount==0:
+                conn.execute("INSERT INTO consumer_cursors VALUES ('external_market_observer',?)",(event['id'],))
     with db.connect() as conn:
         due=[dict(row) for row in conn.execute('SELECT * FROM durable_jobs WHERE state=\'queued\' AND due_at<=?',(now.isoformat(),))]
 
@@ -295,6 +340,7 @@ def tick(executors, running):
             if conn.execute('UPDATE durable_jobs SET state=\'running\' WHERE id=? AND state=\'queued\'',(job['id'],)).rowcount!=1:
                 continue
         running[lane]=executors[lane].submit(run_job,job)
+    export_shadow_snapshot(db)
     from .runtime import write_json
     write_json(STORE/'heartbeat.json',dict(checked_at=now.isoformat(),generation=db.generation(),
                active_plans=plans,running=list(running),due_jobs=len(due),scheduler='single_fc_v3'))

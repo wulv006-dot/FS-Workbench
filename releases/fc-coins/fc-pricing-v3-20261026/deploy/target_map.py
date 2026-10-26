@@ -3,6 +3,10 @@ from pathlib import Path
 
 DELTA_SCOPE = 'fc-pricing-v3-ui-permission-20261026'
 DELTA_NAMES = ('source/fc27_cloud_api.py', 'source/fc-pricing-v3.js', 'source/fc27-coins.html')
+SHADOW_SCOPE = 'fc-pricing-v3-sqlite-shadow-20261026'
+SHADOW_NAMES = tuple(prefix + 'fc_pricing_v3/' + name for prefix in ('source/', 'source/hermes-copy/')
+                     for name in ('ledger.py', 'scheduler.py', 'simulation.py', 'shadow_worker.py'))
+SHADOW_NAMES += ('source/hermes_pricing_bridge.py',)
 
 
 def targets(source):
