@@ -59,6 +59,7 @@
     if(item?.preview_only)return {text:'Price unavailable',amount:null,currency:'USD'};
     if(!item)return {text:t('暂不可用','Unavailable'),amount:null,currency:'USD'};
     if(currentDisplays.has(item.offer.id))return currentDisplays.get(item.offer.id);
+    if(config.activityPricing?.strategy==='native_discount_code')return {text:'Price confirmed at checkout',amount:null,currency:'USD'};
     if(live)return {text:t('现价确认中','Checking current price'),amount:null,currency:'USD'};
     const price=core.activityPrice(item.amount,config);
     return {...price,text:money(price.amount),originalText:price.discountAmount?money(price.baseAmount):'',currency:'USD'};
@@ -108,7 +109,7 @@
     const focusId=document.activeElement?.id;
     renderStatic();if(standalone&&pageState(state.view)!=='active'){neutral();return;}
     if(standalone){const cores=scoped(config.sbc.ids,'sbc');if(!cores.includes(state.core)){state.core=cores[0]||null;state.companions=[...route(state.core).picks];}state.companions=scoped(state.companions,'sbc');}
-    $('activity-offer').textContent=content.promotionText(state.lang);$('activity-offer').hidden=!config.activityPricing?.enabled;root.dataset.view=state.view;const h=heroes[state.view];
+    $('activity-offer').textContent=content.promotionText(state.lang);$('activity-offer').hidden=!content.promotionText(state.lang);root.dataset.view=state.view;const h=heroes[state.view];
     $('hero-kicker').textContent=h.kicker;$('hero-title').innerHTML=`<span>${escape(h.title[state.lang==='zh'?0:2])}</span><strong>${escape(h.title[state.lang==='zh'?1:3])}</strong>`;$('hero-body').textContent=t(...h.body);$('hero-cta').textContent=t(...h.cta);$('view-heading').textContent=t(...h.heading);$('view-intro').textContent=t(...h.intro);
     const media=currentMedia(),image=$('hero-image');image.src=media.hero_desktop?.url||(state.view==='trio'?config.trio.hero:'assets/'+h.image+'-hero.webp');if(media.hero_desktop?.alt)image.alt=window.FCActivityContent.englishText(media.hero_desktop.alt,'Campaign artwork');let source=image.parentElement.querySelector('source');if(!source){source=document.createElement('source');source.media='(max-width: 700px)';image.before(source);}source.srcset=media.hero_mobile?.url||(state.view==='trio'?(config.trio.heroMobile||config.trio.hero):'assets/'+h.image+'-hero-mobile.webp');
     const sbc=state.view==='sbc';$('sbc-controls').hidden=!sbc;$('sbc-lineup').hidden=!sbc;$('sbc-options').hidden=!sbc;$('product-grid').hidden=sbc;
@@ -124,13 +125,13 @@
     $('bundle-grid').innerHTML=scoped(config.bundles.ids).map(key=>content.bundle(product(key),{lang:state.lang,price:display(offer(key)).text,originalPrice:display(offer(key)).originalText,discountPercent:config.activityPricing?.discountPercent,checked:state.bundles.has(key),platform:state.platform,...imageOptions(key)})).join('');
     const items=selected(),snapshotDate=new Intl.DateTimeFormat(state.lang==='zh'?'zh-CN':'en-GB',{year:'numeric',month:'short',day:'numeric',timeZone:'Asia/Shanghai'}).format(new Date(config.capturedAt));$('summary-count').textContent=String(items.length);$('summary-total').textContent=total(items);$('summary-note').textContent=t('精确商品分别列出，已有核心不重复购买；当前展示为 '+snapshotDate+' 公开价格快照。','Exact items are listed separately. Owned cores are excluded. Public price snapshot: '+snapshotDate+'.');$('review-selection').disabled=!items.length||state.busy||state.submitted;
     $('summary-savings').innerHTML=savings(items);
-    if(config.activityPricing?.enabled)$('summary-note').textContent=t('活动价按 '+snapshotDate+' 现售价快照额外优惠 '+config.activityPricing.discountPercent+'% 预览；优惠券／码／会员积分可按原规则在结算时继续使用。','Activity price preview: '+config.activityPricing.discountPercent+'% off the '+snapshotDate+' listed-price snapshot. Eligible coupons, codes or member points apply later at checkout.');
+    if(config.activityPricing?.strategy==='native_discount_code')$('summary-note').textContent='Select the exact items and platform. Campaign offer not configured. Any code must be accepted by the main-site checkout before payment; coupons and member points cannot be combined.';
     if(unavailableSelection)$('summary-note').textContent=t('当前选择含暂不可用商品，请更换平台或搭档后再核对。','Your selection includes an unavailable item. Change platform or companions before continuing.');
     if(live&&!unavailableSelection)$('summary-note').textContent=t('价格来自现售商品，购买前再次确认。原购物车优惠及交付要求继续适用。','Current listed items are rechecked before purchase. Existing cart discounts and delivery requirements apply.');
     $('mobile-summary-total').textContent=items.length+' '+t('项','items')+' · '+total(items);$('mobile-review').textContent=t('核对方案','Review lineup');$('mobile-review').disabled=!items.length||state.busy||state.submitted;
     root.querySelectorAll('input,select,button[data-view],button[data-toggle-product],button[data-toggle-bundle]').forEach(el=>el.disabled=state.busy||state.submitted||(el.dataset.toggleBundle!==undefined&&!offer(el.dataset.toggleBundle)));
     renderSeo();guards();
-    if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Standalone preview: main-site integration pending. Prices and benefits are snapshots.');}
+    if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
     signal('render');
     if(focusId&&$(focusId)&&document.activeElement!==$(focusId))$(focusId).focus({preventScroll:true});
   }
@@ -151,7 +152,7 @@
     if(state.busy||state.submitted)return;
     if(standalone){state.busy=true;render();await publishedConfig();state.busy=false;if(pageState(state.view)!=='active'){render();return;}}
     priceGeneration++;state.busy=true;render();
-    try{const items=Array.isArray(override)?override:selected();review=await freshReview(standalone?items.filter(item=>item&&scoped([item.key]).length):items);if(!review.length)return;reviewFingerprint=fingerprint(review);renderReview();$('continue-cart').hidden=true;$('submit-selection').hidden=false;$('submit-selection').disabled=review.some(item=>item.preview_only);status(review.some(item=>item.preview_only)?'Preview only. Price, quantity and purchase mapping require verification.':live?t('商品与现价已重新确认。分别加入原购物车，原结算和交付说明继续适用。','Availability and prices refreshed. Items go into the existing cart with the original checkout and delivery requirements.'):t('本地体验价：按你指定的活动9折规则计算，尚未加购、下单或付款；券码与积分的抵扣需在原结算中核算。','Activity price preview: the configured 10% discount is applied. No cart, order or payment is created. Coupons and points are calculated by the existing checkout.'));$('review-dialog').showModal();signal('review',{ids:review.map(item=>item.offer.id),includeSbc:review.some(item=>item.kind==='sbc')});}
+    try{const items=Array.isArray(override)?override:selected();review=await freshReview(standalone?items.filter(item=>item&&scoped([item.key]).length):items);if(!review.length)return;reviewFingerprint=fingerprint(review);renderReview();$('continue-cart').hidden=true;$('submit-selection').hidden=false;$('submit-selection').disabled=config.activityPricing?.strategy==='native_discount_code'||review.some(item=>item.preview_only);status(review.some(item=>item.preview_only)?'Preview only. Price, quantity and purchase mapping require verification.':live?t('商品与现价已重新确认。分别加入原购物车，原结算和交付说明继续适用。','Availability and prices refreshed. Items go into the existing cart with the original checkout and delivery requirements.'):t('本地体验价：按你指定的活动9折规则计算，尚未加购、下单或付款；券码与积分的抵扣需在原结算中核算。','No price or discount is confirmed. Campaign checkout is not connected; nothing has been added to the cart.'));$('review-dialog').showModal();signal('review',{ids:review.map(item=>item.offer.id),includeSbc:review.some(item=>item.kind==='sbc')});}
     catch(error){$('activity-message').hidden=false;$('activity-message').textContent=t('暂时无法确认当前商品，请到原商店核对后再试。','Unable to confirm the current items. Check the original shop before trying again.');}
     finally{state.busy=false;render();}
   }
@@ -168,6 +169,7 @@
   async function submit(){
     if(standalone&&(pageState(state.view)!=='active'||!selected().length)){render();return;}
     if(state.busy||state.submitted)return;
+    if(config.activityPricing?.strategy==='native_discount_code'){status('Campaign checkout is not connected. No cart or discount-code request was sent.');return;}
     if(review.some(item=>item.preview_only)){status('Preview only. No quote or purchase is available.');return;}
     if(standalone){
       state.busy=true;render();
@@ -222,7 +224,7 @@
   });
   $('review-selection').addEventListener('click',openReview);$('mobile-review').addEventListener('click',openReview);$('submit-selection').addEventListener('click',submit);
   root.querySelector('[data-close-dialog]').addEventListener('click',()=>{if(!state.busy)$('review-dialog').close();});$('review-dialog').addEventListener('cancel',event=>{if(state.busy)event.preventDefault();});
-  if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Standalone preview: main-site integration pending. Prices and benefits are snapshots.');}
+  if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
   document.querySelectorAll('.fca-language,#lang-zh,#lang-en').forEach(element=>element.remove());
   document.documentElement.lang='en';root.dataset.defaultLanguage='en';
   render();if(standalone)publishedConfig().then(()=>{render();signal('view');});else{warmPrices();signal('view');}

@@ -9,7 +9,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  fs.writeFileSync(statePath,JSON.stringify({revision:2,draft:original,published:null,updated_by:'fixture',updated_at:'2026-10-01T00:00:00Z'}));
  global.fetch=async(url,options)=>String(url).includes(':8895/verify')?new Response('',{status:200,headers:{'x-auth-user':'fixture','x-auth-role':'admin'}}):real(url,options);
  const {server}=await import('../analytics/production-server.mjs');await new Promise(r=>server.listen(8524,'127.0.0.1',r));
- const browser=await chromium.launch({headless:true}),page=await browser.newPage(),base='http://127.0.0.1:8524/dashboard/analytics/campaigns/analytics/',writes=[],errors=[];
+ const browser=await chromium.launch({headless:true,...(process.env.FC_TEST_BROWSER_CHANNEL?{channel:process.env.FC_TEST_BROWSER_CHANNEL}:{})}),page=await browser.newPage(),base='http://127.0.0.1:8524/dashboard/analytics/campaigns/analytics/',writes=[],errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()==='POST')writes.push({path:new URL(r.url()).pathname,body:r.postDataJSON()});});
  const read=()=>JSON.parse(fs.readFileSync(statePath));const wait=txt=>page.waitForFunction(t=>document.querySelector('#center-status').textContent.includes(t),txt);
  let dropSave=false,dropRestore=false;

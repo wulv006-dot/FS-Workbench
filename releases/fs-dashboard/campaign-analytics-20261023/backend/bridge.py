@@ -20,6 +20,7 @@ from campaign_backend.catalog import (CatalogMapping, field, project_product, po
                                       discover_product, read_product_metadata)
 from campaign_backend.core import ContractError, source_identity
 from campaign_backend.models import request_scope, project_model, resolve_model, historical_image
+from campaign_backend.provider import scope as provider_scope, model_provider, category_pool, resolve_category_pool
 
 
 def model_image(model):
@@ -71,6 +72,25 @@ def handle(request, reader_factory=AdminRead.from_shared_session, services=None)
     action = request.get('action')
     if action == 'capabilities':
         return capabilities()
+    if action in ('model_provider_read','model_category_pool'):
+        args=provider_scope(request,pool=action=='model_category_pool')
+        fixed=set()
+        if action=='model_category_pool':
+            # Fixed accepted references are server-owned, never supplied by an HTTP client.
+            from campaign_backend.catalog import read_reference_mapping
+            try:
+                artifact=read_reference_mapping(json.loads((Path(__file__).parent/'catalog-mapping.json').read_text('utf-8')))
+                fixed={positive_id(row['product_ref']['model_id']) for row in artifact['mappings'].values()
+                    if row['product_ref']['site_id']==args['site_id'] and row['product_ref']['game_id']==args['game_id']}
+            except (OSError,ValueError,TypeError,KeyError):
+                raise ContractError('CATALOG_FIXED_REFERENCES_UNAVAILABLE') from None
+        reader=reader_factory()
+        try:
+            if action=='model_category_pool' and args['resolve_associations']:
+                return resolve_category_pool(reader,args,fixed)
+            reader.begin_catalog_read()
+            return category_pool(reader,args,fixed) if action=='model_category_pool' else model_provider(reader,args)
+        finally:reader.close()
     if action in ('model_search','model_resolve'):
         args=request_scope(request,resolve=action=='model_resolve')
         reader=reader_factory()

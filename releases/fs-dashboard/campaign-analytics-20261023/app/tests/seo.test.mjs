@@ -46,6 +46,6 @@ test('SBC selection and activity-source eligibility follow the configuration, wi
  const out=buildOutputs(next),html=out[next.seo.pages.sbc.path.split('/').at(-1)],schema=extract(html);
  assert.equal(schema['@graph'][2].itemListElement[0].item.name,next.products[next.sbc.defaultId].title);
  assert.deepEqual([...html.matchAll(/<a data-view="([^"]+)"/g)].map(x=>x[1]),['weekly','sbc','trio']);
- const policy=JSON.parse(out['promotion-policy.json']);assert.equal(policy.discountPercent,10);assert.equal(policy.eligibility,'activity_sourced_cart_lines');
+ const policy=JSON.parse(out['promotion-policy.json']);assert.equal(policy.discountPercent,10);assert.equal(policy.strategy,'native_discount_code');assert.equal(policy.enabled,false);assert.deepEqual(policy.stackWith,[]);assert.deepEqual(policy.mutuallyExclusiveWith,['coupon','points']);
  assert(policy.eligible.some(x=>x.id===next.products[next.sbc.defaultId].platforms.ps.id));assert(policy.eligible.every(x=>x.aid!==undefined));
 });

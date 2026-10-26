@@ -9,11 +9,10 @@ test('real catalog preserves goods identity, exact package price and included bo
   assert(products.filter(x=>x.game==='diablo').every(x=>x.amount.includes('M Gold')));
   assert.equal(products.find(x=>x.id==='poe-1').amount,'200 + 10 free Divine Orbs');
 });
-test('card flip keeps its sealed face opaque and its product hidden until crossing the edge',()=>{
+test('current four-game fixed cards retain safe flip semantics while random slots require the server',()=>{
   const css=fs.readFileSync(path.join(root,'event.css'),'utf8'),js=fs.readFileSync(path.join(root,'event.js'),'utf8');
-  assert(css.includes('.card-back:disabled{opacity:1}'));
-  assert(css.includes('.product[data-mystery]>.card-face{visibility:hidden;transform:rotateY(-180deg)}'));
-  assert(css.includes('77.49%{visibility:hidden}77.5%{transform:rotateY(-90deg);visibility:visible}'));
-  assert(!css.includes('.is-opening .card-back,.is-opening .card-face{animation:seal-turn'));
-  assert(js.includes("const reduced=document.querySelector('#skip-animation').checked||matchMedia('(prefers-reduced-motion: reduce)').matches"));
+  assert(css.includes('backface-visibility:hidden'));assert(css.includes('.flip-card.is-revealed{transform:rotateY(180deg)}'));
+  assert(css.includes('.card-front{transform:rotateY(180deg)'));assert(css.includes('@media(prefers-reduced-motion:reduce)'));
+  assert(js.includes('Server-confirmed draw unavailable'));assert(js.includes('data-fixed-reveal'));assert(!js.includes('Math.random'));
+  assert.deepEqual(Array.from(context.SeasonalHalloweenData.games,g=>g.id),['fc','aion','wow','maplestory']);
 });

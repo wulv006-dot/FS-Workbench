@@ -1,3 +1,5 @@
+import {projectModelOptions} from './model-options.mjs';
+import {projectHalloween,halloweenProductKeys} from './halloween-contract.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
@@ -132,6 +134,8 @@ export function projectRelease(input) {
   if(media.some(key=>!Object.hasOwn(manifest,key))||Object.keys(manifest).some(key=>!media.includes(key)))fail('INVALID_MEDIA_MANIFEST');
   if (new Set(result.products.map(p=>p.key)).size !== result.products.length || new Set(result.pages.map(p=>p.page_id)).size !== result.pages.length || result.pages.some(p=>p.product_keys.some(k=>!result.products.some(r=>r.key===k)))) fail('INVALID_RELEASE');
   if(input.seasonal_theme!=null){if(!['halloween','thanksgiving','christmas','black-friday'].includes(input.seasonal_theme))fail('INVALID_RELEASE');result.seasonal_theme=input.seasonal_theme;}
+  if(input.halloween!=null){result.halloween=projectHalloween(input.halloween);const keys=halloweenProductKeys(result.halloween,result.products);const page=result.pages.find(p=>p.page_id==='seasonal-vault');if(!page||keys.some(k=>!page.product_keys.includes(k)))fail('INVALID_HALLOWEEN_CONFIG');}
+  if(input.seasonal_model_contracts!=null){result.seasonal_model_contracts=projectModelOptions(input.seasonal_model_contracts,result.products);const allowed=new Set(result.pages.find(p=>p.page_id==='seasonal-vault')?.product_keys||[]);if(Object.values(result.seasonal_model_contracts).some(c=>c.combinations.some(x=>!allowed.has(x.product_key))))fail('INVALID_MODEL_OPTIONS');}
   if(input.fc_layout!=null)result.fc_layout=projectFcLayout(input.fc_layout,result.products);
   if(result.pages.some(p=>p.starts_at&&p.ends_at&&p.starts_at>=p.ends_at))fail('INVALID_RELEASE');
   return JSON.parse(JSON.stringify(result));
