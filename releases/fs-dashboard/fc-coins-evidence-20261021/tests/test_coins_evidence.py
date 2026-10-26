@@ -52,6 +52,24 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual((value['status'],value['cost_status']),('partial','not_available'))
         self.assertFalse(value['collection_triggered']);self.assertFalse(value['business_writes'])
 
+    def test_reader_only_reload_preserves_existing_guards_and_fence(self):
+        calls=[]
+        base=SimpleNamespace(HERMES_UPDATE_SCOPE='existing-reader-update',restart_for=lambda m,f:calls.append((m,f)),guards=object(),locks=object())
+        adapter=SimpleNamespace(SCOPE='existing-history-update',load_base=lambda:base)
+        spec=importlib.util.spec_from_file_location('reader_reload',HERE/'deploy/reload_reader.py')
+        module=importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules,history_receipt=SimpleNamespace(adapter=adapter)):
+            spec.loader.exec_module(module)
+        self.assertIs(module.load_base(),base)
+        guards,locks=base.guards,base.locks
+        fence=object();manifest={'scope':adapter.SCOPE,'businessWrites':False,'timersChanged':False}
+        base.restart_for(manifest,fence)
+        self.assertEqual(calls,[({'scope':'existing-reader-update','businessWrites':False,'timersChanged':False},fence)])
+        self.assertEqual(manifest['scope'],adapter.SCOPE)
+        self.assertIs(base.guards,guards);self.assertIs(base.locks,locks)
+        base.restart_for({'scope':'other'},fence)
+        self.assertEqual(calls[-1],({'scope':'other'},fence))
+
     def test_closed_scope(self):
         for extra in ({'profile':'ALL'},{'kind':'write'},{'url':'https://example.com'},{'page':True},{'start':'2026-10-21','end':'2026-10-20'}):
             with self.assertRaises((ValueError,TypeError)):checked_query(self.q|extra)
