@@ -1,0 +1,55 @@
+{
+  "scope": "fc-eld-monitor-20261026",
+  "runtime_files": [
+    {
+      "candidate": "source/observe.py",
+      "target": "/opt/fc27-price-observer/observe.py",
+      "beforeSha256": "fb03640079b5977f23b26952aec38c0cde39bcf58d2b2f19f557cc5d2272dde4",
+      "sha256": "261c816a1a747fd6d8dc5c8478e9e3e6100a390dd0dd5bc5c81295ca42193504",
+      "mode": "0o600",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/eldorado.py",
+      "target": "/opt/fc27-price-observer/eldorado.py",
+      "beforeSha256": null,
+      "sha256": "5e7ea33d3a332c6ecf84a0d3328b912f4d6e23eb9c6e98fc3860f4d15232e2a9",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/reference_observer_view.py",
+      "target": "/opt/fc27-cloud-browser/reference_observer_view.py",
+      "beforeSha256": "96950e7b581df71543b3a65bc7902457564ad35e46d86f7cb93a650aa6ec54b8",
+      "sha256": "e00963c6c5039c0a40de9f35072ead11ec63d3946ff1ca668a96128b8fc4165e",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/fc27-reference-observer.js",
+      "target": "/var/www/dashboard/fc27-reference-observer.js",
+      "beforeSha256": "6984083f638b33d032a981b9b92e9082b8a90cb37711b7d19bec06eb35406d7b",
+      "sha256": "099c7cbf2cdf98a5284ed6ceccf8e0b07a3ffda4fbd9aad0ab8027f1aeaa2d49",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/fc27-coins.html",
+      "target": "/var/www/dashboard/fc27-coins.html",
+      "beforeSha256": "b6b613ee34e2884161ad7e61ebdd642b5b6036b0926221198f9f8ceb099437ac",
+      "sha256": "505a11e9f0dc261f87918d950980f15a30c4fd6f8be4d90b0b1e142b7e68b93e",
+      "mode": "0o644",
+      "owner": "0:0"
+    }
+  ],
+  "businessWrites": false,
+  "timersChanged": false,
+  "initial_observation": {
+    "operation_id": "e21b902e-79bc-4a11-a210-91d7e3d1529a",
+    "kind": "user_requested_initial_public_observation",
+    "source": "/opt/fs-release-stage/fc-eld-monitor-20261026/initial-observation-v2.json",
+    "target": "/var/lib/fc27-price-observer/eldorado-initial.json",
+    "not_a_natural_sample": true,
+    "direct_pricing_weight": "0"
+  }
+}

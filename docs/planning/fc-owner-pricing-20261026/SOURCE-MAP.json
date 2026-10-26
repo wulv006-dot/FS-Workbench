@@ -1,0 +1,71 @@
+{
+  "scope": "fc-owner-pricing-20261026",
+  "runtime_files": [
+    {
+      "candidate": "source/pricing_v2.py",
+      "target": "/opt/fc27-cloud-browser/pricing_v2.py",
+      "beforeSha256": "91f8d143e21e05544b17442bd8a20d3735f62caa4aa5b182584a4fd4c4ec993a",
+      "sha256": "d2f1fa78487b3fc787aa51d061a572e94f4fff5176a98c06da7888a428526422",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/server_quote_job.py",
+      "target": "/opt/fc27-cloud-browser/server_quote_job.py",
+      "beforeSha256": "ca0ca599f134b511ab49e9b266874a9191a2939b1f8a329d111fe621bacd4f31",
+      "sha256": "58c79ec40eb0a49995c5465d49c2abb77ccd45cb40325444847a02cd635d11d6",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/pricing_state.py",
+      "target": "/opt/fc27-cloud-browser/pricing_state.py",
+      "beforeSha256": "63572be3b09af4b3d1fb90fcf19f85528bc3834971129b29f2d8d8b83565d74c",
+      "sha256": "ede85eec06fddfb2b72c9af4833bfeca661efc54db7ced4e44efad009cb926b6",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/hermes_pricing_bridge.py",
+      "target": "/opt/fc27-cloud-browser/hermes_pricing_bridge.py",
+      "beforeSha256": "501de3cb9def4aad15941239ee5a0238b755f66851a7168f746d6a44c4ae51c3",
+      "sha256": "db6feaec1fb69127b8354763ca78994fac22bb1b702ab687f210d01fd6af693e",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/pricing_simulation.py",
+      "target": "/opt/fs-hermes-fc/pricing_simulation.py",
+      "beforeSha256": "df588981db2128510e10ddbdbd90a4ac2b5ec996855a697f9af43abc8c7dacfc",
+      "sha256": "e2c9337634501672a0ca95970aed9df6a8e5de07253bf91aed8c80d30e2ab80a",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/pricing_probe.py",
+      "target": "/opt/fs-pricing-alerts/pricing_probe.py",
+      "beforeSha256": "06eb02254af3f8864feec788e8d7efb23ae0f76547caf911a3ba5990699e9f1d",
+      "sha256": "3d993fe92fead352d1c0ef2372741dc3ab10bfb657c2286502d379104f43ee15",
+      "mode": "0o600",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/fc27-quote-cloud.js",
+      "target": "/var/www/dashboard/fc27-quote-cloud.js",
+      "beforeSha256": "78aa62c6b3711f6283d0282e010e977bce677e327fdd2e2efbf62fe99d8f58a8",
+      "sha256": "135e13af08f7cf657c8cdb1bc92b7e246b8800c49f88711c7f7194115365de55",
+      "mode": "0o644",
+      "owner": "0:0"
+    },
+    {
+      "candidate": "source/fc27-coins.html",
+      "target": "/var/www/dashboard/fc27-coins.html",
+      "beforeSha256": "3c35f60cb09bb567941133f48f1d37c4aace5676bb6368bbdffe4774c78c6bc1",
+      "sha256": "b6b613ee34e2884161ad7e61ebdd642b5b6036b0926221198f9f8ceb099437ac",
+      "mode": "0o644",
+      "owner": "0:0"
+    }
+  ],
+  "businessWrites": false,
+  "timersChanged": false
+}

@@ -1,0 +1,39 @@
+{
+  "scope": "fc-review-channel-20261026",
+  "runtime_files": [
+    {
+      "candidate": "source/proxy_gateway.py",
+      "target": "/opt/fs-hermes-fc/proxy_gateway.py",
+      "beforeSha256": "d64690cf8428bd98abcdb007e0f40eb57d00207f26c7fb86af9d2b8643905ab4",
+      "sha256": "784257f2e99340128c8163d92f8c2cf79c3229ebe952ff821687e9655705d3ff",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/fs_inprocess.py",
+      "target": "/opt/fs-hermes-fc/fs_inprocess.py",
+      "beforeSha256": "6e9dcee7ca003a31ec6a65c15e500e3c25c4cbc1cfc651dac5e2681fe8326dfd",
+      "sha256": "a99c99f8d892bfbd500529fb6089a6b716f6873345c7a53eb3dc9a08d52f4da7",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/conversation_service.py",
+      "target": "/opt/fs-hermes-fc/conversation_service.py",
+      "beforeSha256": "8b661b0dde74d2bcc0c2c94a6dc1edb8beaf6a3c3ed606a654cc1206a520e29c",
+      "sha256": "bb52dd1be438cfa37af346d968c7f781c6ab5af41e72573f5bf183d7af3ce44f",
+      "owner": "0:0",
+      "mode": "0o644"
+    },
+    {
+      "candidate": "source/hermes_worker.py",
+      "target": "/opt/fs-hermes-fc/hermes_worker.py",
+      "beforeSha256": "27a1c87f18a621739a83c048c68f22090426f1e24bad9c13d492c8fe38561a00",
+      "sha256": "8c377abb19da520df2f92e02e0523430dd53fc1be2f1eac8c47c3f6de35854e9",
+      "owner": "0:0",
+      "mode": "0o644"
+    }
+  ],
+  "businessWrites": false,
+  "timersChanged": false
+}
