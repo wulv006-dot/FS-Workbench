@@ -34,7 +34,7 @@ class HermesRestartReadinessTest(unittest.TestCase):
         key_path = Path(self.temporary.name) / 'api-key'
         key_path.write_text('test-key', encoding='ascii')
         self.base = types.SimpleNamespace(
-            HERMES_WORKER_SCOPE='worker', rooted=lambda _root, _path: key_path,
+            HERMES_WORKER_SCOPE='worker',DEEP_SCOPE='range', rooted=lambda _root, _path: key_path,
             no_target_link=lambda _path: None)
         self.fence = types.SimpleNamespace(root=Path(self.temporary.name))
         self.manifest = {'scope': 'worker'}
@@ -78,6 +78,26 @@ class HermesRestartReadinessTest(unittest.TestCase):
                 mock.patch.object(adapter.urllib.request, 'urlopen') as http:
             with self.assertRaisesRegex(ValueError, 'after 60s'):
                 adapter.restart_with_hermes_readiness(self.base, original, self.manifest, self.fence)
+        http.assert_not_called()
+
+    def test_range_cold_start_requires_original_ok_true_health(self):
+        original=mock.Mock(side_effect=ValueError('range health failed'))
+        with mock.patch.object(adapter.subprocess,'run',return_value=types.SimpleNamespace(returncode=0)),mock.patch.object(adapter.time,'sleep'),mock.patch.object(adapter.urllib.request,'urlopen',side_effect=[OSError('starting'),Response(b'{"ok":true}')]) as http:
+            adapter.restart_with_hermes_readiness(self.base,original,{'scope':'range'},None)
+        self.assertEqual(http.call_count,2)
+        self.assertEqual(http.call_args.args[0].full_url,'http://127.0.0.1:8931/health')
+
+    def test_range_response_without_ok_true_cannot_pass(self):
+        original=mock.Mock(side_effect=ValueError('range health failed'))
+        with mock.patch.object(adapter.subprocess,'run',return_value=types.SimpleNamespace(returncode=0)),mock.patch.object(adapter.urllib.request,'urlopen',return_value=Response(b'{"ok":false}')):
+            with self.assertRaisesRegex(ValueError,'range health contract'):
+                adapter.restart_with_hermes_readiness(self.base,original,{'scope':'range'},None)
+
+    def test_range_health_wait_is_bounded(self):
+        original=mock.Mock(side_effect=ValueError('range health failed'))
+        with mock.patch.object(adapter.time,'monotonic',side_effect=[0,60]),mock.patch.object(adapter.urllib.request,'urlopen') as http:
+            with self.assertRaisesRegex(ValueError,'range health failed after 60s'):
+                adapter.restart_with_hermes_readiness(self.base,original,{'scope':'range'},None)
         http.assert_not_called()
 
 
