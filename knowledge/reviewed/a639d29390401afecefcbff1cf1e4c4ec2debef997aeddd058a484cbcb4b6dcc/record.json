@@ -1,0 +1,34 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "skill:ead91ec9",
+  "candidate_sha256": "9d89f3ffea370ff7fe1cdeb87eac821319f5f473dc9987879ecb59db91025c45",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "reusable",
+  "evidence": "2026-10-27原日审委托；27候选完整operations及3包15文件已inspect，原包字节与前次一致。隔离真实SQLite复现同cursor假零并核fetchall后4列和正确命中；完整单文件经原审批completed/success/applied，原生与FS已审模块读取SHA一致，范围外过滤0。仅方法，不变更现行FC V3或业务。",
+  "formal_rule_change": false,
+  "kind": "skill",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "packages": [
+    {
+      "exists": true,
+      "files": [
+        {
+          "mode": 420,
+          "path": "SKILL.md",
+          "sha256": "c26d2fdf6b8a971ff1eedd5dcb4c479aa6e7b54aec7b08d8e78796c345ed8286"
+        }
+      ],
+      "path": "fs-operations/fs-evidence-reconciliation",
+      "sha256": "498ada81ff6d987a1bdcd65199e6953b1f96bcbb5b91efdf6e7c975c9ee2774f"
+    }
+  ],
+  "receipt_sha256": "03d90cbff24f18745b61def62da531ac74a517e8589fe3023b286ba24f2e900b",
+  "request_id": "a639d29390401afecefcbff1cf1e4c4ec2debef997aeddd058a484cbcb4b6dcc",
+  "runtime_activation": false,
+  "summary": "已审证据对账方法1.0.3：补齐SQLite游标覆盖核验、错误映射与历史根因分层、同一原请求的运行准入取证；完整保留1.0.2方法。不固化旧FC参数、窗口或新通知/恢复权限。"
+}
