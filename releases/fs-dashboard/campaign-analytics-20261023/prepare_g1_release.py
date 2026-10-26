@@ -19,7 +19,7 @@ activity.css activity.js activity-core.js activity-content.js host-adapter.js st
 activity-analytics.js analytics-config.js catalog.js sitemap.xml robots.txt
 seasonal/index.html seasonal/creative-kit.html seasonal/event.js seasonal/event.css seasonal/vault-core.js
 seasonal/campaign-data.js seasonal/kit.js seasonal/kit.css seasonal/vault-analytics.js
-seasonal/activity-analytics.js seasonal/analytics-config.js seasonal/runtime-bridge.js'''.split())
+seasonal/activity-analytics.js seasonal/analytics-config.js seasonal/runtime-bridge.js seasonal/model-selection.js'''.split())
 PUBLIC_REQUIRED = {'index.html', 'Weekly-Scout.html', 'Sbc-Companions.html', 'Player-Trio.html', 'seasonal/index.html'}
 PUBLIC_ASSET = re.compile(r'^(?:seasonal/)?assets/[A-Za-z0-9_.-]+\.(?:webp|png|svg|jpg|jpeg|gif|woff2)$')
 HASH = re.compile(r'^[a-f0-9]{64}$')

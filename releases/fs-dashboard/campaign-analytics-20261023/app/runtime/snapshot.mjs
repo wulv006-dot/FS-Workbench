@@ -143,7 +143,7 @@ export function createSnapshot(publishedRelease) {
 }
 
 const allowedNames = new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','standalone-adapter.js','activity-analytics.js','analytics-config.js','catalog.js','sitemap.xml','robots.txt',
-  'seasonal/index.html','seasonal/creative-kit.html','seasonal/event.js','seasonal/event.css','seasonal/vault-core.js','seasonal/campaign-data.js','seasonal/kit.js','seasonal/kit.css','seasonal/vault-analytics.js','seasonal/activity-analytics.js','seasonal/analytics-config.js','seasonal/runtime-bridge.js']);
+  'seasonal/index.html','seasonal/creative-kit.html','seasonal/event.js','seasonal/event.css','seasonal/vault-core.js','seasonal/campaign-data.js','seasonal/kit.js','seasonal/kit.css','seasonal/vault-analytics.js','seasonal/activity-analytics.js','seasonal/analytics-config.js','seasonal/runtime-bridge.js','seasonal/model-selection.js']);
 export function loadStatic(root, manifest) {
   const realRoot=fs.realpathSync(root), files=new Map();
   if (fs.lstatSync(root).isSymbolicLink()) fail('INVALID_PUBLIC_PATH');

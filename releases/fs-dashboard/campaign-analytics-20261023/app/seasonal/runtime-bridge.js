@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const sdk = window.CampaignStandalone;
-  let client, publishedThemeApplied = false;
+  let client, publishedThemeApplied = false, selectionRevision=0, quoteContext=null;
   const messages = {
     MAIN_INTEGRATION_REQUIRED: 'Preview only. Main-site cart integration is still required; no cart, discount or reward was changed.',
     SPEC_REQUIRED: 'The store requires product specifications. Open the original product to choose them; nothing has been ordered.',
@@ -15,17 +15,27 @@
     OPERATION_UNKNOWN: 'The original operation is pending or unknown. Check its status; do not submit it again.',
     PRICE_CHANGED: 'The store price changed. Review a new quote before continuing.',
     QUOTE_EXPIRED: 'This quote expired. Review your selection again.'
+    ,MODEL_OPTIONS_UNAVAILABLE: 'Model options are not connected. Platform, server, specifications, quantity and authoritative pricing remain unavailable.'
+    ,QUANTITY_INVALID: 'Choose a quantity within the verified limits for this combination.'
+    ,SELECTION_CHANGED: 'Your selection changed. Discard the old quote and request a new one.'
   };
   function describe(error) {
     return messages[error?.code] || 'The store could not verify this request. No successful checkout is confirmed.';
   }
   const publicStatus=value=>typeof value==='string'&&/^[a-z][a-z0-9_ -]*$/i.test(value)?value:'unknown';
+  function selectionFor(id) {
+    const contract=client?.config?.seasonal_model_contracts?.['seasonal-'+id];
+    if(!contract||!window.SeasonalModelSelection)throw Object.assign(new Error(),{code:'MODEL_OPTIONS_UNAVAILABLE'});
+    return window.SeasonalModelSelection.create(contract);
+  }
   function lines(bag) {
-    return bag.map((line, i) => {
-      const p = window.SeasonalData.products.find(p => p.id === line.id);
-      if (!p || !Number.isFinite(p.source.quantity) || p.source.quantity <= 0) throw Object.assign(new Error(), {code:'SPEC_INVALID'});
-      return {line_key:`seasonal-line-${i + 1}`, product_key:`seasonal-${p.id}`,
-        quantity:{value:String(p.source.quantity), unit:p.source.unit}, attributes:[]};
+    return bag.map((item,i)=>{
+      const selected=selectionFor(item.id),saved=item.selection;
+      if(!saved||saved.catalog_version!==selected.contractVersion)throw Object.assign(new Error(),{code:'MODEL_OPTIONS_UNAVAILABLE'});
+      for(const field of selected.fields())selected.select(field.id,saved.choices?.[field.id]);
+      if(JSON.stringify(saved.model_ref)!==JSON.stringify(selected.modelRef))throw Object.assign(new Error(),{code:'MODEL_OPTIONS_UNAVAILABLE'});
+      selected.setQuantity(saved.quantity);
+      return {line_key:`seasonal-line-${i+1}`,...selected.line()};
     });
   }
   function publishTheme(config) {
@@ -41,7 +51,11 @@
   window.SeasonalCommerce = {
     available: () => Boolean(sdk?.enabled(document.documentElement)),
     pending: () => Boolean(client?.pending?.unknown || client?.pending?.stage === 'prepare'),
-    canPrepare: () => client?.capabilities?.integration_mode === 'integration_test' && client?.capabilities?.test_capabilities?.prepare_checkout === true && client?.pending?.stage === 'quoted' && !client?.pending?.unknown,
+    // Existing runtime remains preview/test only; no browser contract grants live permission.
+    canPrepare: () => Boolean(quoteContext&&quoteContext.revision===selectionRevision&&Date.parse(quoteContext.expires_at)>Date.now()&&client?.capabilities?.integration_mode==='integration_test'&&client?.capabilities?.test_capabilities?.prepare_checkout===true&&client?.pending?.stage==='quoted'&&!client?.pending?.unknown),
+    selectionFor,
+    invalidate(){selectionRevision++;quoteContext=null;},
+    canQuote(bag){try{return Boolean(bag.length&&!this.pending()&&lines(bag).length);}catch{return false;}},
     lines,
     async run(action, bag, report) {
       if (!this.available()) { report(messages.MAIN_INTEGRATION_REQUIRED); return; }
@@ -59,6 +73,9 @@
         const loaded = await client.load();
         publishTheme(loaded.config);
         if (action === 'prepare') {
+          if(this.pending())throw Object.assign(new Error(),{code:'OPERATION_UNKNOWN'});
+          if(quoteContext&&Date.parse(quoteContext.expires_at)<=Date.now()){quoteContext=null;throw Object.assign(new Error(),{code:'QUOTE_EXPIRED'});}
+          if(!this.canPrepare())throw Object.assign(new Error(),{code:'SELECTION_CHANGED'});
           const result = await client.prepare();
           report(`Integration test result: ${publicStatus(result?.status)}. No live cart, payment, discount or reward is confirmed.`);
           return;
@@ -66,7 +83,12 @@
         if (this.pending()) { report(messages.OPERATION_UNKNOWN); return; }
         if (!bag.length) { report('Choose a product before checking with the store.'); return; }
         report('Validating product quantities and required specifications…');
-        const result = await client.select(lines(bag));
+        const revision=selectionRevision,selection=lines(bag),signature=JSON.stringify(selection);
+        const result = await client.select(selection);
+        if(revision!==selectionRevision||signature!==JSON.stringify(lines(bag)))throw Object.assign(new Error(),{code:'SELECTION_CHANGED'});
+        quoteContext=null;
+        // Existing integration-test quotes are never authoritative display prices.
+        if(result?.quote?.authoritative===true&&result.quote.test_only!==true&&result.quote.intent_id===result.intent?.intent_id&&result.quote.quote_id&&result.quote.currency==='USD'&&Number.isSafeInteger(result.quote.total_minor)&&result.quote.total_minor>=0&&Date.parse(result.quote.expires_at)>Date.now())quoteContext={revision,expires_at:result.quote.expires_at};
         // Test quotes never turn a DEMO draw into an approved discount or reward.
         report(`Server response: ${publicStatus(result?.quote?.status)}. ${client.describe()} Demo discounts and invitation rewards remain simulations.`);
       } catch (error) { report(client?.pending?.unknown ? messages.OPERATION_UNKNOWN : describe(error)); }

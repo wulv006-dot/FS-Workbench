@@ -815,6 +815,7 @@ def main():
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/draft-compat-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/products-model-media-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/preview-entry-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/page-catalog-seasonal-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/operations-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/ops-presentation-browser.mjs")
@@ -822,6 +823,7 @@ def main():
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/fc-english-only-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/public-english-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/browser-check.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/model-browser-check.cjs")
             continue
         print("affected group:",group,flush=True)
         if group == 'hermes-review-archive':

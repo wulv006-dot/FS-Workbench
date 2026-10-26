@@ -1,3 +1,4 @@
+const modelFixture=require('./model-fixture.cjs');
 // Local browser evidence with explicit test fixtures, never a production transaction.
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
@@ -17,9 +18,9 @@ const server=http.createServer((req,res)=>{
     const quoteIntents=[];
     await page.route('**/api/campaign/**',async route=>{
       const url=route.request().url(),request=route.request();let body,status=200;
-      if(url.endsWith('/config'))body={release_id:'synthetic-all-original-products',seasonal_theme:'christmas',pages:[{page_id:'seasonal-vault',activity_id:'mmoexp-seasonal',rule_version:'r1',benefit_binding_version:'b1',product_keys:publishedKeys}],products:[{key:'seasonal-fc-1',available:true,quantity:{unit:'K',min:'100'}}]};
+      if(url.endsWith('/config'))body={release_id:'synthetic-all-original-products',seasonal_theme:'christmas',seasonal_model_contracts:{'seasonal-fc-1':modelFixture()},pages:[{page_id:'seasonal-vault',activity_id:'mmoexp-seasonal',rule_version:'r1',benefit_binding_version:'b1',product_keys:[...publishedKeys,'fixture-console-east']}],products:[{key:'fixture-console-east',available:true,quantity:{unit:'fixture-unit',min:'10'}}]};
       else if(url.endsWith('/capabilities'))body={integration_mode:mode,live_checkout:false,test_capabilities:{prepare_checkout:mode==='integration_test'}};
-      else if(url.endsWith('/intents')){intents++;assert.equal(request.postDataJSON().lines[0].quantity.value,'100');if(failure==='SPEC_REQUIRED'){status=422;body={code:failure};}else body={intent_id:'intent-original',operation_id:'operation-original'};}
+      else if(url.endsWith('/intents')){intents++;assert.equal(request.postDataJSON().lines[0].quantity.value,'20');if(failure==='SPEC_REQUIRED'){status=422;body={code:failure};}else body={intent_id:'intent-original',operation_id:'operation-original'};}
       else if(url.endsWith('/quote')){quotes++;quoteIntents.push(request.postDataJSON().intent_id);if(failure){status=503;body={code:failure};}else body={quote_id:'quote-original',status:'integration_test_quoted'};}
       else if(url.endsWith('/prepare_checkout')){prepares++;body={operation_id:'operation-original',status:'unknown'};}
       else if(url.endsWith('/operations/operation-original')){lookup++;body={operation_id:'operation-original',status:'integration_test_result',lines:[{status:'confirmed'}]};}
@@ -34,7 +35,7 @@ const server=http.createServer((req,res)=>{
     await page.locator('[data-keep]').first().click();assert.match(await page.locator('#kept-count').innerText(),/^1 kept/);
     await page.click('[data-action=invite]');await page.click('details.simulation summary');await page.click('[data-demo-receipt=DEMO-1]');assert.equal(await page.locator('#key-count').innerText(),'1');await page.click('[data-action=close]');
     await page.click('[data-action=refresh]');await page.click('[data-action=confirm-refresh]');assert.equal(await page.locator('#key-count').innerText(),'0');assert.equal(await page.locator('#kept-count').innerText(),'1 kept');
-    await page.locator('#fixed-products [data-product=fc-1]').click();await page.click('[data-bag-add=fc-1]');
+    await page.locator('#fixed-products [data-product=fc-1]').click();await page.selectOption('#model-option-platform','console');await page.selectOption('#model-option-server','east');await page.selectOption('#model-option-spec','normal');await page.fill('#model-quantity','20');await page.click('[data-bag-add=fc-1]');
     await page.click('[data-action=store-quote]');await page.waitForFunction(()=>document.querySelector('#store-status').textContent.includes('Main-site cart integration'));
     assert.equal(await page.locator('[data-action=store-prepare]').isVisible(),false);
     failure='SPEC_REQUIRED';await page.click('[data-action=store-quote]');await page.waitForFunction(()=>document.querySelector('#store-status').textContent.includes('requires product specifications'));
@@ -42,13 +43,7 @@ const server=http.createServer((req,res)=>{
     let before=intents;await page.click('[data-action=store-quote]');assert.equal(intents,before);
     const beforeQuotes=quotes;failure='MAIN_INTEGRATION_REQUIRED';await page.click('[data-action=store-lookup]');await page.waitForFunction(()=>document.querySelector('#store-status').textContent.includes('Main-site cart integration'));
     assert.equal(quotes,beforeQuotes+1);assert.equal(intents,before);assert.equal(lookup,0);assert.equal(quoteIntents.at(-1),quoteIntents.at(-2));
-    // A dispatched uncertain checkout recovers only by original operation lookup.
-    mode='integration_test';failure=null;await page.click('[data-action=store-quote]');await page.waitForFunction(()=>!document.querySelector('[data-action=store-prepare]').hidden);
-    await page.click('[data-action=store-prepare]');await page.waitForFunction(()=>document.querySelector('#store-status').textContent.includes('unknown'));
-    before=intents;await page.click('[data-action=store-quote]');assert.equal(intents,before);assert.equal(prepares,1);
-    await page.click('[data-action=store-lookup]');await page.waitForFunction(()=>document.querySelector('#store-status').textContent.includes('Original operation resolved'));
-    assert.equal(lookup,1);assert.equal(prepares,1);assert.equal(await page.locator('[data-action=store-prepare]').isVisible(),false);
-    await page.click('[data-action=store-quote]');await page.waitForFunction(()=>!document.querySelector('[data-action=store-prepare]').hidden);assert.equal(intents,before+1);assert.deepEqual(errors,[]);
-    console.log('PASS browser: published schedule survives all themes; original demo interactions; preview/spec failures; same-intent quote recovery; uncertain checkout original-ID lookup, resolved state and no resend; no page errors.');
+    mode='integration_test';failure=null;await page.click('[data-action=store-quote]');await page.waitForFunction(()=>document.querySelector('#store-status').textContent.includes('integration_test_quoted'));assert.equal(await page.locator('[data-action=store-prepare]').isVisible(),false);assert.equal(prepares,0);assert.equal(lookup,0);assert.deepEqual(errors,[]);
+    console.log('PASS browser: published schedule survives all themes; original demo interactions; preview/spec failures; same-intent quote recovery; nonauthoritative fixture quote cannot enable prepare; no page errors.');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
