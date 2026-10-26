@@ -14,7 +14,7 @@ if __package__ in (None, ''):
 from fc_pricing_v3.simulation import LOCAL, Shadow
 
 
-PRODUCTION = Path('/var/lib/fc27-cloud/v3/control.sqlite3')
+PRODUCTION = Path('/var/lib/fc27-cloud/v3/shadow-readonly.sqlite3')
 SHADOW = Path('/var/lib/fc-pricing-v3-shadow/shadow.sqlite3')
 LOG = logging.getLogger('fc_pricing_v3.shadow')
 

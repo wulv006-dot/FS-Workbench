@@ -9,7 +9,7 @@ import re
 import stat
 import subprocess
 
-from target_map import DELTA_NAMES, DELTA_SCOPE, targets
+from target_map import DELTA_NAMES, DELTA_SCOPE, SHADOW_NAMES, SHADOW_SCOPE, targets
 
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
@@ -41,7 +41,7 @@ def load_base():
     return base
 
 
-def prepare(delta=False):
+def prepare(delta=False, shadow=False):
     provenance = json.loads((STAGE / 'source-manifest.json').read_text(encoding='utf-8'))
     source_commit = provenance.get('sourceCommit')
     if not re.fullmatch('[a-f0-9]{40}', source_commit or ''):
@@ -51,7 +51,8 @@ def prepare(delta=False):
     if len(all_expected) != 74 or provenance.get('files') != {
             name: sha(STAGE / 'candidate' / name) for name in sorted(all_expected)}:
         raise ValueError('staged_payload_differs_from_git_source_manifest')
-    expected = {name: all_expected[name] for name in DELTA_NAMES} if delta else all_expected
+    selected = SHADOW_NAMES if shadow else DELTA_NAMES if delta else None
+    expected = {name: all_expected[name] for name in selected} if selected else all_expected
     base = load_base()
     changed = set(expected.values())
     protected = {'/opt/fs-exact-range-20261001/' + name for name in (
@@ -63,12 +64,12 @@ def prepare(delta=False):
     protected.update(set(base.HERMES_TARGETS.values()) - changed)
     protected.update((set(base.HERMES_CAPABILITY_TARGETS.values()) | set(base.CAP_PROTECTED_SESSION)) - changed)
     protected.update(set(base.HERMES_DIRECT_TARGETS.values()) - changed)
-    if delta:
+    if selected:
         protected.update(set(all_expected.values()) - changed)
     rows = []
     for name, target in sorted(expected.items()):
         current = Path(target)
-        regular(current, existing=delta)
+        regular(current, existing=bool(selected))
         if current.exists():
             info = current.stat()
             if info.st_uid != 0 or info.st_gid != 0:
@@ -80,7 +81,7 @@ def prepare(delta=False):
             before = None
         rows.append(dict(candidate=name, target=target, sha256=provenance['files'][name],
                          beforeSha256=before, owner='0:0', mode=mode))
-    if sum(row['beforeSha256'] is None for row in rows) != (0 if delta else 51):
+    if sum(row['beforeSha256'] is None for row in rows) != (0 if selected else 51):
         raise ValueError('new_target_count_drift')
     required = []
     for target in sorted(protected):
@@ -95,7 +96,7 @@ def prepare(delta=False):
         if state != 'ActiveState=active':
             raise ValueError('required_service_not_active:' + unit)
         runtime[unit] = {'ActiveState': 'active'}
-    manifest = dict(schemaVersion=1, scope=DELTA_SCOPE if delta else SCOPE, sourceCommit=source_commit,
+    manifest = dict(schemaVersion=1, scope=SHADOW_SCOPE if shadow else DELTA_SCOPE if delta else SCOPE, sourceCommit=source_commit,
         releaseReady=True, businessWrites=False, timersChanged=False, imageId=IMAGE_ID,
         runtimeRequired=runtime, unchangedRequired=required, files=rows)
     raw = (json.dumps(manifest, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
@@ -115,11 +116,14 @@ def prepare(delta=False):
         runtime_path.unlink(missing_ok=True)
         raise
     return dict(manifestSha256=hashlib.sha256(raw).hexdigest(), sourceCommit=source_commit,
-        files=len(rows), existing=len(rows) if delta else 23, new=0 if delta else 51,
+        files=len(rows), existing=len(rows) if selected else 23, new=0 if selected else 51,
         protected=len(required), inspect=result)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--delta', action='store_true')
-    print(json.dumps(prepare(parser.parse_args().delta), sort_keys=True))
+    kind = parser.add_mutually_exclusive_group()
+    kind.add_argument('--delta', action='store_true')
+    kind.add_argument('--shadow', action='store_true')
+    args = parser.parse_args()
+    print(json.dumps(prepare(args.delta, args.shadow), sort_keys=True))
