@@ -5,6 +5,22 @@ import time
 import urllib.request
 
 
+def fc_release_quiescent(tick,api):
+    """A proven preflight refusal is a failed follow-up, not an in-flight POST."""
+    if api.health()['incomplete_executions']!=0:return False
+    guard=tick.retry_guard()
+    if guard=='ready':return True
+    if guard!='player_sync_unconfirmed':return False
+    config=tick.load_player_sync_policy()
+    jobs=[tick.read_record(p) for p in (tick.ROOT/'jobs').glob('*.json')]
+    jobs=[r for r in jobs if r.get('kind')=='player_sync' and r.get('request',{}).get('config_revision')==config['revision']]
+    if not jobs:return False
+    latest=max(jobs,key=lambda r:r['created_at'])
+    return (latest.get('status')=='failed' and latest.get('error')=='player_sync_not_confirmed' and
+            latest.get('sync_result')=={'status':'blocked_before_write','reason':'player_sync_preflight_changed'} and
+            not (tick.ROOT/'player-sync'/(latest['job_id']+'.json')).exists())
+
+
 def restart_with_hermes_readiness(base, original_restart, manifest, admission_fence):
     scope = manifest.get('scope')
     range_scope=scope==getattr(base,'DEEP_SCOPE',None)

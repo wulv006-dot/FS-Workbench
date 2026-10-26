@@ -8,7 +8,7 @@ import subprocess
 import sys
 import types
 
-from release_readiness import restart_with_hermes_readiness
+from release_readiness import restart_with_hermes_readiness,fc_release_quiescent
 
 from target_map import DELTA_NAMES, DELTA_SCOPE, DELTA_NEW, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, targets
 
@@ -134,7 +134,7 @@ def load_base():
 
     def guards(manifest, root, reader_stopped=False):
         original_guards(manifest, root, reader_stopped)
-        if fc.tick.retry_guard() != 'ready' or fc.api.health()['incomplete_executions'] != 0:
+        if not fc_release_quiescent(fc.tick,fc.api):
             raise ValueError('original_fc_execution_not_quiescent')
         for row in manifest['files']:
             path = base.rooted(root, row['target'])
