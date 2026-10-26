@@ -27,6 +27,23 @@ class BusinessOutcome(unittest.TestCase):
             with patch.object(runtime,'ledger'),patch.object(runtime,'collection_scope',return_value=dict(active_mode='daily',scope={})),self.assertRaisesRegex(ValueError,reason):scope['collect_quote'](dict(job_id=ident))
             self.assertEqual(scope['run'].call_count,2)
 
+    def test_sprint_worker_leaves_Arab_https_to_existing_shared_source_runtime(self):
+        from urllib.error import URLError
+        from fc_pricing_v3 import market_registry
+        source=SOURCE/'fc27_cloud_worker.py'
+        fn=next(n for n in ast.parse(source.read_text()).body if isinstance(n,ast.FunctionDef) and n.name=='collect_quote')
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'runs').mkdir();(root/'monitor').mkdir();ident='original'
+            (root/'runs/original.json').write_text(json.dumps(dict(run_id=ident,status='ready_for_quote')))
+            (root/'monitor/storefront.json').write_text(json.dumps(dict(collection_run_id=ident,status='ok',rows={p:dict(status='ok') for p in ('PS','XBOX','PC')})))
+            scope=dict(ROOT=root,APP=Path('/fixture'),PLATFORMS=('PS','XBOX','PC'),local_collection=SimpleNamespace(pin=lambda _:dict(mode='server')),save_job=Mock(),run=Mock(side_effect=[(0,dict(status='ready_for_quote')),(0,dict(status='ready_for_preview'))]),refresh_storefront=Mock(return_value=dict(status='ok')),collect_reference_market=Mock(return_value={'status':'captured','offers':[]}),atomic_json=Mock(),os=SimpleNamespace(chown=Mock(),chmod=Mock()),json=json,datetime=datetime,timezone=timezone)
+            exec(compile(ast.Module(body=[fn],type_ignores=[]),str(source),'exec'),scope)
+            with patch.object(runtime,'ledger'),patch.object(runtime,'collection_scope',return_value=dict(active_mode='revenue_sprint',scope=dict(region_ids=[21]))),patch.object(market_registry,'arab_normal',side_effect=URLError('unknown url type: https')) as local_Arab:
+                result=scope['collect_quote'](dict(job_id=ident))
+            local_Arab.assert_not_called()
+            self.assertNotIn('arab_ut_status',scope['atomic_json'].call_args[0][1])
+            self.assertEqual(result['quote_status'],'ready_for_preview')
+
     def test_business_infeasible_finishes_normally_but_technical_failure_still_raises(self):
         plan=dict(plan_id='p',state='ACTIVE',revision=2,resources=['base:console','base:pc'])
         for reason,business in [('pricing_v3_infeasible:NO_SAFE_COMMIT_PATH',True),('storefront_incomplete',False),('UNKNOWN',False)]:

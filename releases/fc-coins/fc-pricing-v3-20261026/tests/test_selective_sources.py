@@ -219,6 +219,22 @@ class SelectiveSourceTest(unittest.TestCase):
             (root/'days/2026-10-19.json').write_text('{"actual_source_changed":true}')
             self.assertNotEqual(first,business.selective_history_signature(PERIOD,channel_root=root,ES_root=es))
 
+    def test_shared_runtime_collects_missing_sprint_Arab_once_and_returns_actual_quotes(self):
+        from test_regional_sources import products,SKUS
+        from fc_pricing_v3 import region_source,market_registry
+        storefront=dict(rows={p:dict(sku_id=str(sku)) for p,sku in SKUS.items()})
+        auth=SimpleNamespace(Session=Mock,admin_token_from_service=lambda:('fixture','ok'))
+        channel=SimpleNamespace(pages=lambda *a:list(products().values()),COLLECTOR='/fixture')
+        cache,_,_,_=cache_fixture()
+        context=selective.context_from_cache(cache,selective.source_plan('revenue_sprint',dict(region_ids=[21])),{},NOW)
+        envelope=dict(context=context,private_updates={})
+        actual=dict(status='available',offers=[dict(source='ArabUT',platform='PS',delivery='normal')])
+        with patch.dict(sys.modules,{'channel_source':channel,'p2pah_auth':auth}),patch.object(region_source,'read_rules',return_value=[]),patch.object(business,'collect_selective_business',return_value=envelope),patch.object(regional,'collect',return_value=dict(offers={})),patch.object(market_registry,'arab_normal',return_value=actual) as arab:
+            result=sources.shared_context(storefront,active_mode='revenue_sprint',scope=dict(region_ids=[21]))
+        arab.assert_called_once_with()
+        self.assertEqual(result['context']['arab_ut_status'],actual)
+        self.assertEqual(result['context']['arab_ut_quotes'],actual['offers'])
+
     def test_shared_selective_context_reads_only_affected_region_platform_and_never_Arab_for_daily(self):
         sys.path.insert(0,str(HERE))
         from test_regional_sources import products,PublicOpener,InlinePool,SKUS
