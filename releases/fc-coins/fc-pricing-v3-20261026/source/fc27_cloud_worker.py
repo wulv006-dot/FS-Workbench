@@ -701,8 +701,6 @@ def main():
             job['completed_at']=datetime.now(timezone.utc).isoformat()
             save_job(job)
         except (OSError, ValueError):
-                    pass
-        except (OSError, ValueError):
             time.sleep(2)
 
 
