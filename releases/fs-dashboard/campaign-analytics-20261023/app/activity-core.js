@@ -38,6 +38,14 @@
   function payload(item) {
     return {category:'new_items',id:String(item.offer.id),group:String(item.offer.group),num:String(item.offer.quantity),attr:'',aid:String(item.offer.aid)};
   }
+  // Read-only native browser evidence COINS-CONTRACT57. This is serialization
+  // only, not a live cart capability or permission to reuse it for other SKUs.
+  function coinsPayload(selection) {
+    if(selection?.origin!=='https://www.mmoexp.com'||selection.region!=='us'||selection.currency!=='USD'
+      ||selection.model_id!=='41217957'||selection.goods_id!=='163329311'||selection.platform!=='ps'
+      ||selection.quantity!=='1000'||selection.unit!=='K')throw new Error('Coins selection contract unverified');
+    return {category:'new_gold',id:'163329311',group:'1000',num:'1',attr:'',aid:''};
+  }
   function result(response) {
     const value=response?.data?.cart?.add||response?.cart?.add;
     if(response?.code===0||response?.status===false||value?.status===false) return {ok:false,message:String(value?.msg||response?.msg||'Cart rejected this item')};
@@ -86,6 +94,6 @@
       return [...outcomes];
     }};
   }
-  const api={discountFromPayPercent,minor,line,activityPrice,selection,payload,result,catalogForm,refreshLine,createBatch};
+  const api={discountFromPayPercent,minor,line,activityPrice,selection,payload,coinsPayload,result,catalogForm,refreshLine,createBatch};
   if(typeof module==='object'&&module.exports)module.exports=api;else root.FCActivityCore=api;
 })(typeof window==='undefined'?globalThis:window);
