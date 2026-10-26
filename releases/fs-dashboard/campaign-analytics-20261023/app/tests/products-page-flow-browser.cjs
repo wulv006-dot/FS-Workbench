@@ -71,4 +71,3 @@ print(json.dumps({'status':'ok','data':d}))
   function initialKey(){return accepted.weekly.ids[0];}
  }finally{if(publicServer)await new Promise(r=>publicServer.close(r));await browser.close();await new Promise(r=>server.close(r));global.fetch=real;fs.rmSync(dir,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exit(1)});
-
