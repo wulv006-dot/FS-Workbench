@@ -17,9 +17,37 @@ from fc_pricing_v3.scheduler import backlog_cleared
 from fc_pricing_v3.ledger import Ledger
 import pricing_operations
 import pricing_simulation
+import hermes_pricing_bridge
 
 
 class RuntimeContracts(unittest.TestCase):
+    def test_hermes_prompt_keeps_scope_and_reference_below_real_12000_character_limit(self):
+        run='00000000-0000-4000-8000-000000000071'
+        quote=dict(run_id=run,result=dict(decision_receipt=dict(sha256='a'*64,
+            financial_proof='private-history-and-proofs-'*10000)))
+        prompt=hermes_pricing_bridge.review_text(quote,'automatic_review')
+        self.assertLessEqual(len(prompt),12000)
+        self.assertIn('不能另排采集或写价任务',prompt)
+        self.assertIn(run,prompt)
+        self.assertIn('a'*64,prompt)
+        self.assertNotIn('private-history-and-proofs',prompt)
+
+    def test_automatic_hermes_compare_uses_scoped_original_run_without_new_evaluation(self):
+        run='00000000-0000-4000-8000-000000000072'
+        original=dict(status='READY',candidates=[dict(action_sha256='b'*64)],selected=dict(action_sha256='b'*64))
+        paths=[]
+        def request(path,owner,body=None):
+            paths.append((path,body))
+            return dict(snapshot_id=run,results=dict(revenue_sprint=original),execution_authorized=False)
+        scope=Mock();scope.clock.return_value=datetime.now(timezone.utc)
+        auth=dict(mode='automatic_review',runs=[run],conversation='a'*32)
+        with patch.object(pricing_operations,'authorization',return_value=auth):
+            result=pricing_operations.call(scope,'wulv','task','lease',
+                dict(action='compare_strategies',mode='revenue_sprint'),request)
+        self.assertEqual(result['results']['revenue_sprint'],original)
+        self.assertEqual(result['snapshot_id'],run)
+        self.assertEqual(paths,[('/pricing/v3/strategy-decisions/'+run,None)])
+
     def test_shadow_monitor_uses_real_outbox_cursor_and_oldest_pending_age(self):
         now=datetime(2026,10,26,14,tzinfo=timezone.utc)
         with tempfile.TemporaryDirectory() as folder:

@@ -111,6 +111,15 @@ def call(scope,owner,task,lease,args,request=native):
     if action=='state':
         return state
     if action=='compare_strategies':
+        if auth and auth['mode']=='automatic_review':
+            if len(auth['runs'])!=1:
+                raise ValueError('pricing_review_run_scope_invalid')
+            run=auth['runs'][0]
+            decisions=request('/pricing/v3/strategy-decisions/'+run,owner)
+            if decisions.get('snapshot_id')!=run or args['mode'] not in decisions.get('results',{}):
+                raise ValueError('pricing_review_run_basis_changed')
+            return dict(snapshot_id=run,results={args['mode']:decisions['results'][args['mode']]},
+                        execution_authorized=False,source='original_run_strategy_decisions')
         return request('/pricing/v3/evaluate',owner,dict(mode=args['mode']))
     if action=='region_impact':
         return request('/pricing/v3/region-rules',owner)
