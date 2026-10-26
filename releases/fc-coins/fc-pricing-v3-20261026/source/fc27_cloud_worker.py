@@ -138,9 +138,7 @@ def collect_quote(job):
     run_snapshot['source_plan']=planned
     if cfg['mode']=='server' and 'ItemD2R' in planned['required_markets']:
         run_snapshot['reference_competitors']=collect_reference_market(run_id)
-    from fc_pricing_v3.market_registry import arab_normal
-    try:run_snapshot['arab_ut_status']=arab_normal() if 'ArabUT' in planned['required_markets'] else dict(status='not_required',offers=[])
-    except Exception as exc:run_snapshot['arab_ut_status']=dict(status='unavailable',offers=[],reason=type(exc).__name__)
+    # The existing shared source runtime owns HTTPS reads; worker Python has no ssl.
     atomic_json(run_path, run_snapshot)
     os.chown(run_path, -1, 11028)
     os.chmod(run_path, 0o640)
