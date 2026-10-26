@@ -48,7 +48,7 @@ def prepare(delta=False, shadow=False, operating=False):
         raise ValueError('source_commit_required')
     source = STAGE / 'candidate/source'
     all_expected = {'source/' + name: target for name, target in targets(source).items()}
-    if len(all_expected) != 83 or provenance.get('files') != {
+    if len(all_expected) != 84 or provenance.get('files') != {
             name: sha(STAGE / 'candidate' / name) for name in sorted(all_expected)}:
         raise ValueError('staged_payload_differs_from_git_source_manifest')
     selected = OPERATING_NAMES if operating else SHADOW_NAMES if shadow else DELTA_NAMES if delta else None
@@ -82,7 +82,7 @@ def prepare(delta=False, shadow=False, operating=False):
             before = None
         rows.append(dict(candidate=name, target=target, sha256=provenance['files'][name],
                          beforeSha256=before, owner='0:0', mode=mode))
-    if sum(row['beforeSha256'] is None for row in rows) != (len(new_targets) if selected else 53):
+    if sum(row['beforeSha256'] is None for row in rows) != (len(new_targets) if selected else 54):
         raise ValueError('new_target_count_drift')
     required = []
     for target in sorted(protected):
@@ -117,7 +117,7 @@ def prepare(delta=False, shadow=False, operating=False):
         runtime_path.unlink(missing_ok=True)
         raise
     return dict(manifestSha256=hashlib.sha256(raw).hexdigest(), sourceCommit=source_commit,
-        files=len(rows), existing=len(rows)-len(new_targets) if selected else 30, new=len(new_targets) if selected else 53,
+        files=len(rows), existing=len(rows)-len(new_targets) if selected else 30, new=len(new_targets) if selected else 54,
         protected=len(required), inspect=result)
 
 

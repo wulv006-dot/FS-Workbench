@@ -60,12 +60,9 @@ def run_writer_request(job, script, request, timeout):
 
 def collect_reference_market(run_id):
     """Reuse the existing ItemD2R reader once, before this run's model decision."""
-    import importlib.util
+    from itemd2r_reader import public_read
     try:
-        spec = importlib.util.spec_from_file_location('fc_reference_reader', '/opt/fc27-price-observer/observe.py')
-        reader = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(reader)
-        offers = reader.public_read()
+        offers = public_read()
         if [r.get('platform') for r in offers] != ['PS','XBOX','PC']:
             raise ValueError('reference_platform_coverage_invalid')
         return dict(status='captured',run_id=run_id,offers=[dict(r,run_id=run_id) for r in offers])

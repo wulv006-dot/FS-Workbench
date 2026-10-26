@@ -1,12 +1,9 @@
 """Exact V3 code targets; the knowledge catalog has a separate immutable release."""
 from pathlib import Path
 
-DELTA_SCOPE='fc-pricing-v3-durable-history-20261027'
-DELTA_NAMES=('source/fc-pricing-v3.js','source/pricing_operations.py')+tuple(
-    prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in (
-        'api.py','business_source.py','daily.py','history.py','ledger.py','monitoring.py',
-        'scheduler.py','shadow_worker.py','simulation.py','sources.py'))
-DELTA_NEW=frozenset(prefix+'fc_pricing_v3/history.py' for prefix in ('source/','source/hermes-copy/'))
+DELTA_SCOPE='fc-pricing-v3-retire-observer-dependency-20261027'
+DELTA_NAMES=('source/fc27_cloud_worker.py','source/itemd2r_reader.py')
+DELTA_NEW=frozenset(('source/itemd2r_reader.py',))
 SHADOW_SCOPE = 'fc-pricing-v3-sqlite-shadow-20261026'
 SHADOW_NAMES = tuple(prefix + 'fc_pricing_v3/' + name for prefix in ('source/', 'source/hermes-copy/')
                      for name in ('ledger.py', 'scheduler.py', 'simulation.py', 'shadow_worker.py'))
@@ -30,7 +27,7 @@ def targets(source):
     for name in ('automation_policy.py', 'automation_tick.py', 'clear_cache_after_write.py',
                  'clear_cache_after_write.sh', 'coin_all_sync_job.py', 'execute_price.sh',
                  'fc27_cloud_api.py', 'fc27_cloud_worker.py', 'fc27_quote_engine.py',
-                 'hermes_pricing_bridge.py', 'price_writer.py', 'pricing_state.py',
+                 'hermes_pricing_bridge.py', 'itemd2r_reader.py', 'price_writer.py', 'pricing_state.py',
                  'pricing_v2.py', 'reconcile_original.py', 'reconcile_price.sh',
                  'repricing_logic.js', 'restore_price.sh', 'server_quote_job.py', 'snapshot_layer.py'):
         rows[name] = '/opt/fc27-cloud-browser/' + name
