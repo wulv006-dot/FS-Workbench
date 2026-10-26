@@ -410,6 +410,10 @@ def select(paths):
             groups.add("fc-cost-timeout");continue
         if name.startswith("releases/fc-coins/fc-cost-live-recovery-20261025/"):
             groups.add("fc-cost-live-recovery");continue
+        if name.startswith("releases/fc-coins/fc-request-rejection-recovery-20261026/"):
+            groups.add("fc-request-rejection-recovery");continue
+        if name.startswith("releases/fc-coins/fc-itemd2r-parity-20261026/"):
+            groups.add("fc-itemd2r-parity");continue
         if name.startswith("releases/fc-coins/fc-eld-monitor-20261026/"):
             groups.add("fc-eld-monitor");continue
         if name.startswith("releases/fc-coins/fc-owner-pricing-20261026/"):
@@ -786,6 +790,13 @@ def main():
             continue
         if group=="fc-cost-live-recovery":
             units("releases/fc-coins/fc-cost-live-recovery-20261025/tests",["test_recovery","test_cost_context"])
+            continue
+        if group=="fc-request-rejection-recovery":
+            node("releases/fc-coins/fc-request-rejection-recovery-20261026/tests/test_rejected.cjs")
+            continue
+        if group=="fc-itemd2r-parity":
+            units("releases/fc-coins/fc-itemd2r-parity-20261026/tests",["test_parity"])
+            node("releases/fc-coins/fc-itemd2r-parity-20261026/tests/test_ui.cjs")
             continue
         if group=="fc-eld-monitor":
             units("releases/fc-coins/fc-eld-monitor-20261026/tests",["test_eldorado","test_observer_eld"])
