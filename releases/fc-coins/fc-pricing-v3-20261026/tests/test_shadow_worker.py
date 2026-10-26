@@ -33,6 +33,27 @@ def evaluate(*args, **kwargs):
 
 
 class ShadowWorkerContracts(unittest.TestCase):
+    def test_live_snapshot_uses_final_creation_asof_after_later_sources(self):
+        at=datetime(2026,10,26,tzinfo=timezone.utc)
+        final=at+timedelta(minutes=3)
+        observed=evidence(at)
+        observed['fx']=dict(checked_at=(at+timedelta(minutes=2)).isoformat())
+        observed['historical_orders_coverage']=dict(available_at=(at+timedelta(minutes=2,seconds=55)).isoformat())
+        snapshot=dict(snapshot_id='live',origin='live_collector',created_at=final.isoformat(),evidence=observed)
+        with tempfile.TemporaryDirectory() as folder, patch.object(simulation,'evaluate',side_effect=evaluate):
+            shadow=simulation.Shadow(Path(folder)/'shadow.db')
+            shadow.snapshot(snapshot,cursor=1)
+            with shadow.connect() as db:
+                rows=[json.loads(item[0]) for item in db.execute('SELECT body FROM runs')]
+                row=next(item for item in rows if item.get('simulation_kind')=='same_real_snapshot')
+                cursor=db.execute("SELECT value FROM cursor WHERE id='production'").fetchone()[0]
+            self.assertEqual(row['as_of'],final.isoformat())
+            self.assertEqual(cursor,1)
+            with self.assertRaisesRegex(ValueError,'pricing_shadow_snapshot_before_history_available'):
+                shadow.snapshot(dict(snapshot,created_at=(at+timedelta(minutes=2)).isoformat()),cursor=2)
+            with shadow.connect() as db:
+                self.assertEqual(db.execute("SELECT value FROM cursor WHERE id='production'").fetchone()[0],1)
+
     def test_worker_paths_match_runtime_writer_store_and_api_reader(self):
         self.assertEqual(shadow_worker.PRODUCTION,scheduler.SHADOW_EXPORT)
         self.assertEqual(scheduler.SHADOW_EXPORT.parent,runtime.STORE)

@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 SOURCE = Path(__file__).resolve().parents[1] / 'source'
 sys.path.insert(0, str(SOURCE))
-from fc_pricing_v3 import api, runtime
+from fc_pricing_v3 import api, runtime, monitoring
 from fc_pricing_v3.scheduler import backlog_cleared
 from fc_pricing_v3.ledger import Ledger
 import pricing_operations
@@ -20,6 +20,24 @@ import pricing_simulation
 
 
 class RuntimeContracts(unittest.TestCase):
+    def test_shadow_monitor_uses_real_outbox_cursor_and_oldest_pending_age(self):
+        now=datetime(2026,10,26,14,tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            db=Ledger(root/'control.db')
+            db.put('pricing_snapshots','one',dict(snapshot_id='one',created_at=(now-timedelta(minutes=4)).isoformat()))
+            with closing(db.connect()) as conn, conn:
+                conn.execute("INSERT INTO event_outbox(event_key,kind,body) VALUES (?,?,?)",
+                             ('one','snapshot_ready',json.dumps(dict(snapshot_id='one'))))
+                stalled=monitoring.shadow_progress(conn,root,now)
+            self.assertEqual((stalled['status'],stalled['cursor'],stalled['pending']),('stalled',0,1))
+            with closing(sqlite3.connect(root/'shadow.sqlite3')) as shadow, shadow:
+                shadow.execute('CREATE TABLE cursor(id TEXT PRIMARY KEY,value INTEGER NOT NULL)')
+                shadow.execute("INSERT INTO cursor VALUES ('production',1)")
+            with closing(db.connect()) as conn, conn:
+                current=monitoring.shadow_progress(conn,root,now)
+            self.assertEqual((current['status'],current['cursor'],current['pending']),('current',1,0))
+
     def test_strategy_summary_keeps_all_action_hashes_and_selected_proof_under_native_limit(self):
         actions=[]
         candidates=[]

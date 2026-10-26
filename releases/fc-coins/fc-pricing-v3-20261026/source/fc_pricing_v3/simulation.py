@@ -362,7 +362,15 @@ class Shadow:
 
     def snapshot(self, snapshot, *, cursor=None):
         evidence,ident = snapshot['evidence'],snapshot['snapshot_id']
-        now = instant(evidence['checked_at'])
+        # The collector records checked_at before its later FX, cost, public and
+        # historical reads. The immutable snapshot creation is the first as-of
+        # that can contain every source used by the original decision.
+        if snapshot.get('origin')=='live_collector' and not snapshot.get('created_at'):
+            raise ValueError('pricing_shadow_snapshot_time_missing')
+        now = instant(snapshot.get('created_at') or evidence['checked_at'])
+        history_available=(evidence.get('historical_orders_coverage') or {}).get('available_at')
+        if history_available and instant(history_available)>now:
+            raise ValueError('pricing_shadow_snapshot_before_history_available')
         version = (evidence.get('demand_model') or {}).get('version','central-prior-e2')
         records = []
         with self.connect() as db:
