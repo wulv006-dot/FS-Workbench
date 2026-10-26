@@ -80,7 +80,7 @@
   async function writePermission(){
     const response=await fetch('/api/fc27/cloud/automation',{credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(20000)});
     if(!response.ok)throw Error('操作权限读取失败');
-    return (await response.json()).can_edit_discount_rules===true;
+    return (await response.json()).can_manage_v3===true;
   }
   function writeControls(){
     for(const id of ['v3-target-form','v3-plan-form','v3-manual-form','v3-reconcile-form'])
