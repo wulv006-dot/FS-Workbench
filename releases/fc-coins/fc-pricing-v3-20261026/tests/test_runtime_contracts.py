@@ -20,6 +20,25 @@ import pricing_simulation
 
 
 class RuntimeContracts(unittest.TestCase):
+    def test_strategy_summary_keeps_all_action_hashes_and_selected_proof_under_native_limit(self):
+        actions=[]
+        candidates=[]
+        for index in range(100):
+            action=dict(base_prices=dict(console=str(index),pc='8.51'),region_coefficients={})
+            actions.append(action)
+            candidates.append(dict(action=action,action_sha256=hashlib.sha256(json.dumps(action,
+                sort_keys=True,separators=(',',':')).encode()).hexdigest(),
+                score=dict(objective=str(index),absolute_forecast_available=True,revenue='100'),
+                financial_proof=dict(pass_all=True,minimum_pct='10',prices={'global:PS':dict(
+                    catalog=dict(minimum_estimated_average_margin_pct='12',minimum_undiscounted_margin_pct='20'),
+                    repeated_proof='x'*12000)})))
+        decisions={'daily':dict(status='READY',candidates=candidates,selected=candidates[0],failures=[])}
+        summary=api.strategy_summary(decisions)
+        self.assertEqual([item['action'] for item in summary['daily']['candidates']],actions)
+        self.assertEqual(summary['daily']['selected']['financial_proof'],candidates[0]['financial_proof'])
+        self.assertLess(len(json.dumps(summary).encode()),1024*1024)
+        self.assertGreater(len(json.dumps(decisions).encode()),1024*1024)
+
     def test_state_summary_excludes_private_orders_and_regional_replay_rows(self):
         private=[dict(order_key='private-order')]
         snapshot=dict(snapshot_id='one',created_at='now',result=dict(rows=[]),evidence=dict(
@@ -94,6 +113,41 @@ class RuntimeContracts(unittest.TestCase):
                 result=api.read('strategy-decisions/'+first)
         self.assertEqual(result['snapshot_id'],first)
         self.assertEqual(result['results']['daily']['candidates'][0]['action'],first)
+
+    def test_candidate_detail_uses_original_run_and_action_sha(self):
+        ident='00000000-0000-4000-8000-000000000052'
+        action=dict(base_prices=dict(console='8.51',pc='8.51'),region_coefficients={})
+        action_sha=hashlib.sha256(json.dumps(action,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        candidate=dict(action=action,action_sha256=action_sha,financial_proof=dict(pass_all=True,
+            original_detail='x'*5000),score=dict(objective='1'))
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.db')
+            db.put('pricing_snapshots',ident,dict(snapshot_id=ident,origin='live_collector',
+                evidence=dict(run_id=ident),policy_version='fc-pricing-v3-20261026'))
+            db.put('strategy_decisions',ident,dict(daily=dict(candidates=[candidate],selected=candidate)))
+            with patch.object(api,'ledger',return_value=db):
+                summary=api.read('strategy-decisions/'+ident)
+                detail=api.read('strategy-decisions/'+ident+'/daily/'+action_sha)
+                with self.assertRaisesRegex(ValueError,'pricing_strategy_candidate_missing'):
+                    api.read('strategy-decisions/'+ident+'/daily/'+'f'*64)
+        self.assertNotIn('original_detail',json.dumps(summary['results']['daily']['candidates']))
+        self.assertEqual(detail['candidate'],candidate)
+
+    def test_hermes_candidate_detail_reads_exact_original_candidate(self):
+        run='00000000-0000-4000-8000-000000000053'
+        action_sha='a'*64
+        expected=dict(snapshot_id=run,mode='daily',candidate=dict(action_sha256=action_sha,
+            financial_proof=dict(pass_all=True)))
+        seen=[]
+        def request(path,owner,body=None):
+            seen.append(path)
+            return expected
+        scope=Mock()
+        with patch.object(pricing_operations,'authorization',return_value=None):
+            result=pricing_operations.call(scope,'wulv','task','lease',dict(action='candidate_detail',
+                run_id=run,mode='daily',action_sha256=action_sha),request)
+        self.assertEqual(result,expected)
+        self.assertEqual(seen,['/pricing/v3/strategy-decisions/'+run+'/daily/'+action_sha])
 
     def test_hermes_simulate_proposal_and_multi_plan_execution_use_v3_contract(self):
         run='00000000-0000-4000-8000-000000000030'

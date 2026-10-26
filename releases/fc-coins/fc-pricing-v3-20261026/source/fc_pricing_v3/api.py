@@ -88,6 +88,28 @@ def recent_market_observations(db):
             'SELECT body FROM market_observations ORDER BY rowid DESC LIMIT 5')]
 
 
+def strategy_summary(decisions):
+    """Keep every selectable action while leaving repeated proofs in the private ledger."""
+    result={}
+    for mode,decision in (decisions or {}).items():
+        candidates=[]
+        for candidate in decision.get('candidates',[]):
+            proof=candidate.get('financial_proof') or {}
+            prices=proof.get('prices') or {}
+            margins={key:{field:value for field,value in (row.get('catalog') or {}).items()
+                          if field in ('minimum_estimated_average_margin_pct','minimum_undiscounted_margin_pct')}
+                     for key,row in prices.items()}
+            candidates.append(dict(action=candidate.get('action'),action_sha256=candidate.get('action_sha256'),
+                                   score=candidate.get('score'),financial_proof=dict(pass_all=proof.get('pass_all'),
+                                   minimum_pct=proof.get('minimum_pct'),margins=margins)))
+        selected=decision.get('selected')
+        result[mode]={key:value for key,value in decision.items()
+                      if key not in ('candidates','selected')}
+        result[mode]['candidates']=candidates
+        result[mode]['selected']=selected
+    return result
+
+
 def read(path):
     if path=='versions':
         folder=Path(__file__).parent
@@ -108,7 +130,7 @@ def read(path):
                     plans=sorted(db.all('pricing_plans'),key=lambda p:p['created_at'],reverse=True),active_plans=db.active_plans(),
                     snapshot_id=snapshot['snapshot_id'] if snapshot else None,
                     captured_at=snapshot['created_at'] if snapshot else None,
-                    strategies=db.get('strategy_decisions',snapshot['snapshot_id']) if snapshot else {},
+                    strategies=strategy_summary(db.get('strategy_decisions',snapshot['snapshot_id'])) if snapshot else {},
                     operations=sorted(db.all('operations'),key=lambda o:o['created_at'],reverse=True)[:30],
                     incidents=db.all('incidents'),target=target,
                     region_rules=(snapshot or {}).get('evidence',{}).get('region_rules',[]),
@@ -119,14 +141,26 @@ def read(path):
     if path=='strategies':
         return dict(version=VERSION,strategies=POLICIES)
     if path.startswith('strategy-decisions/'):
-        ident=str(uuid.UUID(path.split('/')[-1]))
+        parts=path.split('/')
+        if len(parts) not in (2,4):
+            raise ValueError('pricing_strategy_decision_path_invalid')
+        ident=str(uuid.UUID(parts[1]))
         decisions=db.get('strategy_decisions',ident)
         observed=db.get('pricing_snapshots',ident)
         if not decisions or not observed or observed.get('origin')!='live_collector':
             raise ValueError('pricing_strategy_decision_missing')
-        return dict(snapshot_id=ident,snapshot_sha256=fingerprint(observed['evidence']),
-                    strategy_version=observed.get('policy_version'),results=decisions,
-                    execution_authorized=False)
+        result=dict(snapshot_id=ident,snapshot_sha256=fingerprint(observed['evidence']),
+                    strategy_version=observed.get('policy_version'),execution_authorized=False)
+        if len(parts)==4:
+            mode,action_sha=parts[2:]
+            if mode not in POLICIES or not re.fullmatch('[a-f0-9]{64}',action_sha):
+                raise ValueError('pricing_strategy_candidate_invalid')
+            candidate=next((item for item in decisions.get(mode,{}).get('candidates',[])
+                            if item.get('action_sha256')==action_sha),None)
+            if candidate is None:
+                raise ValueError('pricing_strategy_candidate_missing')
+            return dict(result,candidate=candidate,mode=mode)
+        return dict(result,results=strategy_summary(decisions))
     if path=='plans':
         return dict(plans=sorted(db.all('pricing_plans'),key=lambda p:p['created_at'],reverse=True))
     if path=='region-rules':
