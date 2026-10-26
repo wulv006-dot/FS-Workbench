@@ -157,6 +157,11 @@ def required_base_bound(evidence,platform,now,plan=None,evaluation_context=None)
         if platform not in region['platforms']:continue
         key=str(region['region_id'])+':'+platform
         mutable=any(c['region_id']==region['region_id'] and platform in c['platforms'] for c in evidence.get('regional_controls',[])) and (not plan or plan.get('mode','revenue_sprint')=='revenue_sprint' and 'region:'+key in plan['resources'])
+        if region.get('id') is None and number(region['factor'])==1:
+            # An uncreated, unchanged default control has no extra regional rounding layer.
+            if not mutable:continue
+            try:market_quote(evidence,platform,'ArabUT',now,region['region_id'])
+            except ValueError:continue
         factor=Decimal(1) if mutable else number(region['factor'])
         bound=max(bound,required_unit_bound(evidence,platform,now,region,evaluation_context)/factor)
     return (bound*100).quantize(CENT,rounding=ROUND_UP)

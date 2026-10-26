@@ -161,6 +161,20 @@ class Dual20Sprint(unittest.TestCase):
         self.assertTrue(all(c['decision_type']=='competitive' for c in result['candidates']))
         self.assertTrue(all(Decimal('9')<=Decimal(c['action']['base_prices']['console'])<=Decimal('9.5') for c in result['candidates']))
 
+    def test_uncreated_unchanged_default_region_does_not_inflate_global_floor_without_normal_quote(self):
+        data=source(cost='.56');base=engine.required_base_bound(data,'PC',NOW)
+        control=dict(id=None,region_id=21,platforms=['PC'],factor='1',resource='region:21:PC',verified=True,
+            price_semantics='regional_regular_multiplicative',history=dict(basis='pooled_other_promotions_excluding_region_verified'))
+        data['regional_controls']=[control]
+        self.assertEqual(engine.required_base_bound(data,'PC',NOW),base)
+        result=engine.evaluate(data,'revenue_sprint',now=NOW)
+        self.assertEqual(result['status'],'READY')
+        self.assertEqual(result['selected']['action']['region_coefficients']['21:PC'],'1')
+        self.assertTrue(result['selected']['financial_proof']['pass_all'])
+        self.assertTrue(any(f['code']=='pricing_required_market_missing:ArabUT:PC' for f in result['failures']))
+        control['id']=99
+        self.assertGreater(engine.required_base_bound(data,'PC',NOW),base)
+
     def test_T15_T31_missing_or_stale_source_is_never_a_floor_fallback(self):
         for change in ('missing','stale'):
             data=source(cost='.56')
