@@ -1285,6 +1285,55 @@ def _historical_provider_reason(error):
     return reason if reason.startswith(prefixes) and re.fullmatch(r'[a-zA-Z0-9_.:-]{1,100}', reason) else type(error).__name__
 
 
+def _historical_native_population(period, session, pages):
+    """Fill only explicitly requested missing days using the original accounting and ES identity."""
+    from pathlib import Path
+    import channel_source as channel
+    from channel_effects import accounting_row, fraud
+    from coins_evidence import CoinsEvidence, es_metadata, GOLD
+    start, end = period['start']+' 00:00:00', period['end']+' 23:59:59'
+    native = pages(session, '/admin/order.Order/index', [('site_id','=','266'), ('gid','=','1327'),
+                   ('paytime','RANGE',start+','+end)], 100)
+    if any(str(r.get('site_id'))!='266' or str(r.get('gid'))!='1327' or not start<=str(r.get('paytime'))<=end for r in native):
+        raise ValueError('historical_native_paid_scope_not_honored')
+    reader = CoinsEvidence()
+    meta, ES = es_metadata(period['start'], period['end'], reader.archive)
+    normalized, logs, accounting = [], [], channel.apply_cost_overrides(dict(sources={}))
+    cost_source = None
+    if native:
+        discounts = pages(session, '/admin/market.Discount/index')
+        templates = pages(session, '/admin/market.Coupon/index')
+        names = sorted({str(r['order_no']) for r in native})
+        for offset in range(0,len(names),100):
+            group = names[offset:offset+100]
+            batch = pages(session, '/admin/user.MemberCouponLog/index', [('site_id','=','266'), ('order_no','IN',','.join(group))])
+            if any(str(r.get('site_id'))!='266' or str(r.get('order_no')) not in group for r in batch):
+                raise ValueError('historical_native_coupon_scope_not_honored')
+            logs.extend(batch)
+        deliveries, cost_source = channel.load_costs()
+        mapping = json.loads(Path(channel.__file__).with_name('channel_mapping.json').read_text('utf-8'))
+        directory_path = channel.SALES/'promoter_dir.json'
+        directory = json.loads(directory_path.read_text('utf-8')) if directory_path.is_file() else {}
+        normalized = channel.normalize(native,discounts,logs,templates,deliveries,directory,mapping)
+    selected, missing, missing_usd = {}, 0, Decimal(0)
+    for raw in normalized:
+        row = accounting_row(raw,accounting.get('costOverrides',{}),accounting.get('testOrders',{}),admin_revenue=True)
+        if row.get('testOrder') or fraud(row) or row.get('refunded') or str(row.get('payStatus'))!='1':
+            continue
+        info = meta.get(hashlib.sha256(raw['orderNo'].encode()).hexdigest())
+        if info is None:
+            missing += 1
+            missing_usd += amount(row.get('salesUsd')) or Decimal(0)
+        elif info['product']==GOLD:
+            selected[raw['orderNo']] = (row,info)
+    proof = dict(period=period,status='complete' if ES['complete'] and not missing else 'partial',
+        canonical_archive_sha256=fingerprint(dict(native=native,normalized=normalized,cost_source=cost_source,accounting=accounting['sources']['accounting'])),
+        ES_source_sha256=ES['source_sha256'],ES_complete=ES['complete'],missing_product_identity=missing,
+        unclassified_paid_FC_usd=str(missing_usd),source_generated_at=_historical_provider_now().isoformat(),
+        source_kind='native_Admin_backfill_original_accounting_existing_ES_no_shared_archive_write',native_rows=len(native))
+    return selected, proof, {r['order_no']:r for r in native if r['order_no'] in selected}, {str(r['id']):r for r in logs}
+
+
 def collect_historical_attachment(period, session, pages, *, observed_at=None):
     """One explicit private historical input; no writes, retries, public rows or live collect hook.
 
@@ -1302,6 +1351,7 @@ def collect_historical_attachment(period, session, pages, *, observed_at=None):
     lower, upper = instant(window['paid_window_start']), instant(window['paid_window_end_exclusive'])
     source_parts, selected, gaps, selection = [], {}, Counter(), Counter()
     missing_days, failed_periods, ES = [], [], None
+    preloaded_orders, preloaded_logs, native_backfills = {}, {}, []
     try:
         initial, provenance = _period_population(target)
     except (ValueError, OSError) as error:
@@ -1335,11 +1385,29 @@ def collect_historical_attachment(period, session, pages, *, observed_at=None):
         except (ValueError, OSError) as error:
             ES = dict(status='unavailable', reason=_historical_provider_reason(error))
             gaps['existing_ES_read_failed'] += 1
-    if missing_days:gaps['canonical_days_missing'] += len(missing_days)
+        blocks = []
+        for day in missing_days or []:
+            previous = datetime.fromisoformat(blocks[-1]['end']).date() if blocks else None
+            current = datetime.fromisoformat(day).date()
+            if previous and current==previous+timedelta(days=1) and (current-datetime.fromisoformat(blocks[-1]['start']).date()).days<28:
+                blocks[-1]['end'] = day
+            else:
+                blocks.append(dict(start=day,end=day))
+        for block in blocks:
+            try:
+                population, proof, native, used = _historical_native_population(block,session,pages)
+                candidates.append((block,population,proof))
+                preloaded_orders.update(native);preloaded_logs.update(used)
+                native_backfills.append(dict(period=block,source_sha256=proof['canonical_archive_sha256'],status=proof['status']))
+            except (ValueError,OSError,KeyError,TypeError) as error:
+                failed_periods.append(dict(period=block,reason=_historical_provider_reason(error)))
+                gaps['native_population_backfill_failed'] += 1
+    unresolved_days = [day for day in missing_days or [] if not any(b['period']['start']<=day<=b['period']['end'] for b in native_backfills)]
+    if unresolved_days:gaps['canonical_days_missing'] += len(unresolved_days)
     if failed_periods:gaps['canonical_periods_unavailable'] += len(failed_periods)
     for block, population, proof in candidates:
         source_parts.append(dict(period=block, **{key:proof.get(key) for key in
-            ('status', 'canonical_archive_sha256', 'ES_source_sha256', 'source_generated_at', 'ES_complete', 'missing_product_identity')}))
+            ('status', 'canonical_archive_sha256', 'ES_source_sha256', 'source_generated_at', 'ES_complete', 'missing_product_identity', 'source_kind', 'unclassified_paid_FC_usd')}))
         for identity, pair in population.items():
             selection['canonical_eligible_observations'] += 1
             try:
@@ -1356,7 +1424,7 @@ def collect_historical_attachment(period, session, pages, *, observed_at=None):
     selection['eligible_known_in_paid_window'] = len(selected)
     if selection['excluded_outside_paid_window']:gaps['canonical_paid_window_disagreement'] += selection['excluded_outside_paid_window']
     if any(part['status'] != 'complete' for part in source_parts):gaps['canonical_or_ES_population_partial'] += 1
-    orders, logs = {}, {}
+    orders, logs = dict(preloaded_orders), dict(preloaded_logs)
     trace_failures = []
     current = datetime.fromisoformat(target['start']).date()
     stop = datetime.fromisoformat(target['end']).date()
@@ -1365,7 +1433,7 @@ def collect_historical_attachment(period, session, pages, *, observed_at=None):
         part = dict(start=current.isoformat(), end=end.isoformat())
         part_lower = datetime.combine(current, datetime.min.time(), TZ)
         part_upper = datetime.combine(end + timedelta(days=1), datetime.min.time(), TZ)
-        needed = {key:pair for key,pair in selected.items() if part_lower <= instant(pair[0]['paidAt']) < part_upper}
+        needed = {key:pair for key,pair in selected.items() if key not in orders and part_lower <= instant(pair[0]['paidAt']) < part_upper}
         if needed:
             try:
                 native, used, _ = _live_traces(session, pages, part, needed)
@@ -1382,7 +1450,7 @@ def collect_historical_attachment(period, session, pages, *, observed_at=None):
     selection['eligible_with_native_traces'] = len(ready)
     selection['eligible_without_native_traces'] = len(selected) - len(ready)
     if len(ready) < len(selected):gaps['eligible_native_trace_missing'] += len(selected) - len(ready)
-    complete = (bool(source_parts) and missing_days == [] and not failed_periods and not trace_failures
+    complete = (bool(source_parts) and missing_days is not None and not unresolved_days and not failed_periods and not trace_failures
                 and all(part['status'] == 'complete' for part in source_parts) and ES.get('status') == 'complete'
                 and not gaps['canonical_paid_at_unknown'] and not gaps['canonical_paid_window_disagreement'] and len(ready) == len(selected))
     aggregate_proof = dict(period=target, status='complete' if complete else 'partial', eligible_count=len(ready),
@@ -1396,6 +1464,7 @@ def collect_historical_attachment(period, session, pages, *, observed_at=None):
     metadata.update(as_of=verified_at.isoformat(), available_at=verified_at.isoformat(),
         population_status='complete' if complete else 'partial' if source_parts else 'unavailable', window_complete=complete,
         population_selection=dict(selection), canonical_missing_days=missing_days,
+        unresolved_population_days=unresolved_days,native_backfills=native_backfills,
         canonical_failed_periods=failed_periods, native_trace_failures=trace_failures, source_parts=source_parts,
         existing_ES_coverage=ES, request_is_independent_of_production_collect=True,
         population_scope='original Admin-qualified paid nonrefund nonfraud nontest site266 FC27 Coins cohort',

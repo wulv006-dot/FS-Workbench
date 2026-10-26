@@ -1,12 +1,14 @@
 """Isolated candidate tests: real current business helpers, no network or business writes."""
+import hashlib
 import json
+import tempfile
 from copy import deepcopy
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import sys
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 HERE=Path(__file__).resolve().parent
 SOURCE=HERE.parent/'source'
@@ -95,7 +97,7 @@ class HistoricalProviderTest(unittest.TestCase):
         block=dict(start='2026-09-17',end='2026-09-30')
         selected=population('2026-09-20 10:00:00')
         missing=['2026-09-'+str(day).zfill(2) for day in range(1,17)]
-        with patch.object(candidate,'_period_population',side_effect=[(None,dict(status='unavailable',reason='canonical_period_cache_missing')),(selected,provenance(block))]),patch.object(candidate,'_historical_existing_day_blocks',return_value=([block],missing)),patch.object(candidate,'_historical_existing_ES_coverage',return_value=dict(status='complete',source_sha256='e'*64,identified_Gold_orders=50)),patch.object(candidate,'_live_traces',side_effect=native_traces):
+        with patch.object(candidate,'_period_population',side_effect=[(None,dict(status='unavailable',reason='canonical_period_cache_missing')),(selected,provenance(block))]),patch.object(candidate,'_historical_existing_day_blocks',return_value=([block],missing)),patch.object(candidate,'_historical_existing_ES_coverage',return_value=dict(status='complete',source_sha256='e'*64,identified_Gold_orders=50)),patch.object(candidate,'_live_traces',side_effect=native_traces),patch.object(candidate,'_historical_native_population',side_effect=ValueError('admin_native_unavailable')):
             result=candidate.collect_historical_attachment('last_complete_month',None,None)
         coverage=result['historical_orders_coverage']
         self.assertEqual(coverage['period'],target)
@@ -106,13 +108,79 @@ class HistoricalProviderTest(unittest.TestCase):
         self.assertEqual(len(result['historical_orders']),1)
 
     def test_missing_all_canonical_is_unknown_not_zero_even_with_existing_ES(self):
-        with patch.object(candidate,'_period_population',return_value=(None,dict(status='unavailable'))),patch.object(candidate,'_historical_existing_day_blocks',return_value=([],['2026-09-01'])),patch.object(candidate,'_historical_existing_ES_coverage',return_value=dict(status='complete',source_sha256='e'*64,identified_Gold_orders=50)),patch.object(candidate,'_live_traces') as traces:
+        with patch.object(candidate,'_period_population',return_value=(None,dict(status='unavailable'))),patch.object(candidate,'_historical_existing_day_blocks',return_value=([],['2026-09-01'])),patch.object(candidate,'_historical_existing_ES_coverage',return_value=dict(status='complete',source_sha256='e'*64,identified_Gold_orders=50)),patch.object(candidate,'_live_traces') as traces,patch.object(candidate,'_historical_native_population',side_effect=ValueError('admin_native_unavailable')):
             result=candidate.collect_historical_attachment('last_complete_month',None,None)
         coverage=result['historical_orders_coverage']
         self.assertEqual(coverage['population_status'],'unavailable')
         self.assertNotIn('net_paid_usd',coverage['totals'])
         self.assertFalse(coverage['window_complete'])
         traces.assert_not_called()
+
+    def test_missing_month_days_are_filled_once_by_native_source_without_requerying_them(self):
+        block=dict(start='2026-09-17',end='2026-09-30');missing=['2026-09-'+str(day).zfill(2) for day in range(1,17)]
+        cached=population('2026-09-20 10:00:00')
+        old=population('2026-09-10 10:00:00');backfilled={'native-order':old['private-0']}
+        native,used,_=native_traces(None,None,dict(start=missing[0],end=missing[-1]),backfilled)
+        proof=provenance(dict(start=missing[0],end=missing[-1]));proof['source_kind']='native_Admin_backfill'
+        with patch.object(candidate,'_period_population',side_effect=[(None,dict(status='unavailable')),(cached,provenance(block))]),patch.object(candidate,'_historical_existing_day_blocks',return_value=([block],missing)),patch.object(candidate,'_historical_existing_ES_coverage',return_value=dict(status='complete',source_sha256='e'*64)),patch.object(candidate,'_historical_native_population',return_value=(backfilled,proof,native,used)) as backfill,patch.object(candidate,'_live_traces',side_effect=native_traces) as traces:
+            result=candidate.collect_historical_attachment('last_complete_month',None,None)
+        coverage=result['historical_orders_coverage']
+        self.assertEqual(len(result['historical_orders']),2)
+        self.assertEqual(coverage['totals']['net_paid_usd'],'20')
+        self.assertEqual(coverage['canonical_missing_days'],missing)
+        self.assertEqual(coverage['unresolved_population_days'],[])
+        self.assertTrue(coverage['window_complete'])
+        self.assertEqual(len(coverage['native_backfills']),1)
+        backfill.assert_called_once_with(dict(start=missing[0],end=missing[-1]),None,None)
+        self.assertTrue(all('native-order' not in call.args[3] for call in traces.call_args_list))
+        self.assertNotIn('native-order',json.dumps(candidate.historical_attachment_summary(result)))
+
+    def test_native_backfill_partial_ES_does_not_claim_complete_population(self):
+        missing=['2026-09-01'];proof=provenance(dict(start=missing[0],end=missing[0]),status='partial')
+        with patch.object(candidate,'_period_population',return_value=(None,dict(status='unavailable'))),patch.object(candidate,'_historical_existing_day_blocks',return_value=([],missing)),patch.object(candidate,'_historical_existing_ES_coverage',return_value=dict(status='complete',source_sha256='e'*64)),patch.object(candidate,'_historical_native_population',return_value=({},proof,{},{})):
+            result=candidate.collect_historical_attachment('last_complete_month',None,None)
+        coverage=result['historical_orders_coverage']
+        self.assertEqual(coverage['population_status'],'partial')
+        self.assertFalse(coverage['window_complete'])
+        self.assertEqual(coverage['unresolved_population_days'],[])
+        self.assertIn('canonical_or_ES_population_partial',coverage['gaps'])
+
+    def test_native_helper_uses_original_accounting_ES_identity_and_bounded_scope(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'channel_mapping.json').write_text('{}')
+            raw=[dict(order_no=n,site_id=266,gid=1327,paytime='2026-09-10 12:00:00') for n in ('gold','item','refund','unknown','test')]
+            normalized=[dict(orderNo=r['order_no'],gid='1327',status='已完成',salesUsd='2',payStatus='1',refunded=r['order_no']=='refund',testOrder=r['order_no']=='test') for r in raw]
+            meta={hashlib.sha256(n.encode()).hexdigest():dict(product='Gold' if n!='item' else 'Items') for n in ('gold','item','refund','test')}
+            channel=types.SimpleNamespace(__file__=str(root/'channel_source.py'),SALES=root,load_costs=Mock(return_value=([],{'status':'available'})),normalize=Mock(return_value=normalized),apply_cost_overrides=lambda _:dict(sources=dict(accounting={'status':'available'}),costOverrides={},testOrders={}))
+            accounting=types.SimpleNamespace(accounting_row=Mock(side_effect=lambda row,*a,**k:row),fraud=lambda row:False)
+            ES=types.SimpleNamespace(CoinsEvidence=lambda:types.SimpleNamespace(archive=root),GOLD='Gold',es_metadata=lambda *a:(meta,dict(complete=True,source_sha256='e'*64)))
+            def read(session,path,*args):
+                return raw if path.endswith('order.Order/index') else [dict(id='used',site_id=266,order_no='gold')] if path.endswith('MemberCouponLog/index') else []
+            pages=Mock(side_effect=read);period=dict(start='2026-09-01',end='2026-09-16')
+            with patch.dict(sys.modules,dict(channel_source=channel,channel_effects=accounting,coins_evidence=ES)):
+                selected,proof,native,logs=candidate._historical_native_population(period,'session',pages)
+            self.assertEqual(set(selected),{'gold'});self.assertEqual(set(native),{'gold'});self.assertEqual(set(logs),{'used'})
+            self.assertEqual(proof['status'],'partial');self.assertEqual(proof['missing_product_identity'],1)
+            self.assertEqual(proof['unclassified_paid_FC_usd'],'2');self.assertEqual(proof['native_rows'],5)
+            self.assertEqual(pages.call_count,4);self.assertIn(('gid','=','1327'),pages.call_args_list[0].args[2])
+            self.assertTrue(all(call.kwargs==dict(admin_revenue=True) for call in accounting.accounting_row.call_args_list))
+            channel.load_costs.assert_called_once();channel.normalize.assert_called_once()
+
+    def test_native_zero_orders_requires_an_actual_bounded_query_and_no_extra_reads(self):
+        channel=types.SimpleNamespace(apply_cost_overrides=lambda _:dict(sources=dict(accounting={'status':'available'})))
+        modules=dict(channel_source=channel,channel_effects=types.SimpleNamespace(accounting_row=None,fraud=None),coins_evidence=types.SimpleNamespace(CoinsEvidence=lambda:types.SimpleNamespace(archive='fixture'),es_metadata=lambda *a:({},dict(complete=True,source_sha256='e'*64)),GOLD='Gold'))
+        pages=Mock(return_value=[])
+        with patch.dict(sys.modules,modules):
+            selected,proof,native,logs=candidate._historical_native_population(dict(start='2026-09-01',end='2026-09-01'),None,pages)
+        self.assertEqual((selected,native,logs),({},{},{}));self.assertEqual(proof['status'],'complete')
+        self.assertEqual(proof['native_rows'],0);self.assertEqual(pages.call_count,1)
+
+    def test_native_helper_rejects_wrong_scope_before_reading_more_sources(self):
+        modules=dict(channel_source=types.SimpleNamespace(),channel_effects=types.SimpleNamespace(accounting_row=None,fraud=None),coins_evidence=types.SimpleNamespace(CoinsEvidence=None,es_metadata=None,GOLD='Gold'))
+        pages=Mock(return_value=[dict(site_id=999,gid=1327,paytime='2026-09-10 12:00:00')])
+        with patch.dict(sys.modules,modules),self.assertRaisesRegex(ValueError,'historical_native_paid_scope_not_honored'):
+            candidate._historical_native_population(dict(start='2026-09-01',end='2026-09-16'),None,pages)
+        self.assertEqual(pages.call_count,1)
 
     def test_native_failure_is_not_retried_and_public_projection_contains_no_private_rows(self):
         period=candidate.historical_period('14d')['period']
