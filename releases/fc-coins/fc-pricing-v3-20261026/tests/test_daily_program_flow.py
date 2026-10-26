@@ -33,6 +33,25 @@ class DailyProgramFlow(unittest.TestCase):
             self.assertEqual(receipt['hermes_role'],'daily_effect_review_and_strategy_suggestions')
             self.assertTrue(receipt['financial_proof']['pass_all'])
 
+    def test_backend_preview_accepts_only_current_sources_and_still_rejects_missing_cost_or_market(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.db');evidence=fixture()[0]
+            evidence['offers']={p:{'Lootbar':rows['Lootbar']} for p,rows in evidence['offers'].items()}
+            with patch.object(runtime,'ledger',return_value=db),patch.object(runtime,'ROOT',Path(folder)),patch.object(runtime,'clock',return_value=NOW):
+                result=runtime.calculate(evidence)
+            payload=dict(evidence=evidence,result=result)
+            script="const fs=require('node:fs'),logic=require(process.argv[1]),data=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(logic.buildPreview(data.payload,Date.parse(data.now))));"
+            def preview(value):
+                return subprocess.run(['node','-e',script,str(SOURCE/'repricing_logic.js')],input=json.dumps(dict(payload=value,now=NOW.isoformat())),text=True,capture_output=True,timeout=15)
+            valid=preview(payload)
+            self.assertEqual(valid.returncode,0,valid.stderr)
+            self.assertEqual([r['platform'] for r in json.loads(valid.stdout)['targets']],['PS','XBOX','PC'])
+            for change in ('market','cost'):
+                invalid=json.loads(json.dumps(payload))
+                if change=='market':invalid['evidence']['offers']['PS']={}
+                else:invalid['result']['rows'][0]['raw_cost_cny']='999'
+                self.assertNotEqual(preview(invalid).returncode,0)
+
     def test_configurable_interval_does_not_resume_paused_plan_or_change_switches(self):
         from fc_pricing_v3 import api
         policy=automation_policy.initial_policy();policy.update(system_enabled=False,mode='manual')

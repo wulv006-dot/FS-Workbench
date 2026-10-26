@@ -155,6 +155,8 @@ def load_base():
     original_restart = base.restart_for
 
     def restart(manifest, admission_fence=None):
+        if {r['target'] for r in manifest['files']}=={'/opt/fc27-cloud-browser/repricing_logic.js'}:
+            return  # Each preview/writer mounts this file afresh; no host process imports it.
         restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
         if manifest.get('scope') in (SCOPE,DELTA_SCOPE,SHADOW_SCOPE,OPERATING_SCOPE):
             subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=30)
