@@ -31,5 +31,28 @@
       refreshHeader(){if(typeof root.syncHeaderCartBadge==='function')root.syncHeaderCartBadge();}
     };
   }
-  root.FCActivityHost={create};
+  function createNative(snapshot,selection){
+    const approved=root.CampaignNativeCodeHandoff.publishedPlan(snapshot,selection,{origin:root.location.origin});
+    const items=approved.items;
+    return {batch(){let started=false;return {async run(sent,progress=()=>{}){
+      if(started)throw Error('Original native operation already started');started=true;
+      if(JSON.stringify(sent)!==JSON.stringify(items))throw Error('Native selection changed');const outcomes=[];
+      for(const item of items){let state='unknown';
+        try{
+          const body=item.native_payload;
+          if(body.category==='new_gold'){
+            const expected=root.FCActivityCore.coinsPayload({origin:root.location.origin,region:'us',currency:'USD',model_id:'41217957',goods_id:String(body.id),platform:'ps',quantity:'1000',unit:'K'});
+            if(JSON.stringify(expected)!==JSON.stringify(body))throw Error('Coins serialization changed');
+          }
+          const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+          try{
+            const response=await root.fetch('/Cart/add.html',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams(body),signal:controller.signal});
+            if(!response.ok)throw Error('Native cart response unavailable');const receipt=root.FCActivityCore.result(await response.json());state=receipt.ok?'confirmed':receipt.unknown?'unknown':'rejected';
+          }finally{clearTimeout(timer);}
+        }catch{/* An uncertain POST is never retried. */}
+        outcomes.push({id:item.offer.id,state});progress([...outcomes]);if(state!=='confirmed')break;
+      }return outcomes;
+    }}}};
+  }
+  root.FCActivityHost={create,createNative};
 })(window);

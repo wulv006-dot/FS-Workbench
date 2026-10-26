@@ -11,7 +11,9 @@ import {makeCenterStore} from './center-store.mjs';
 import {centerSeed,effectivePageBindings} from './center-seed.mjs';
 import {backendRead,backendMutate} from './backend-client.mjs';
 import {effectiveFcCatalog} from '../runtime/model-cards.mjs';
-import {mediaLimits} from '../runtime/media-contract.mjs';
+import {mediaLimits,pageMedia} from '../runtime/media-contract.mjs';
+import {digest,loadStatic} from '../runtime/snapshot.mjs';
+import {presentPage,projectFcCatalog,publicEnglishRelease} from '../runtime/presentation.mjs';
 import {makeAdminPriceProvider,readAdminPricePolicy} from './admin-price-provider.mjs';
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),box={window:{}};
 vm.runInNewContext(fs.readFileSync(path.join(base,'analytics-config.js'),'utf8'),box);
@@ -22,7 +24,12 @@ const seasonalBox={};vm.runInNewContext(fs.readFileSync(path.join(base,'seasonal
 const publicDir=process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public';
 const adminPrices=makeAdminPriceProvider({publicDir,readPolicy:()=>readAdminPricePolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))});
 const validateFcLayout=(layout,models={})=>validateLayout(layout,effectiveFcCatalog(catalog,models));
-const center=makeCenterStore({dir:path.join(dir,'center'),publicDir,sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',validateFcLayout,
+export function readNativeCheckoutPolicy(stateDir){
+ const file=path.join(stateDir,'policy.json');if(!fs.existsSync(file))return {status:'unconfigured'};
+ const d=fs.lstatSync(stateDir),s=fs.lstatSync(file);if(d.isSymbolicLink()||!d.isDirectory()||s.isSymbolicLink()||!s.isFile()||s.size>250000||process.platform!=='win32'&&((d.mode&0o077)!==0||(s.mode&0o077)!==0))throw Error('PRIVATE_NATIVE_POLICY_REQUIRED');
+ return JSON.parse(fs.readFileSync(file,'utf8')).native_checkout??{status:'unconfigured'};
+}
+const center=makeCenterStore({dir:path.join(dir,'center'),publicDir,nativeCheckoutProvider:()=>readNativeCheckoutPolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend')),sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',validateFcLayout,
  seedProvider:(layout,models={})=>centerSeed(previewCatalog(effectiveFcCatalog(catalog,models),layout??store.read().layout),seasonalBox.SeasonalData,adminPrices.seedOptions())});
 const centerState=s=>{const effective=effectiveFcCatalog(catalog,s.draft.fc_models||{}),layout=validateFcLayout(s.draft.fc_layout??store.read().layout,s.draft.fc_models||{}),seed=centerSeed(previewCatalog(effective,layout),seasonalBox.SeasonalData,adminPrices.seedOptions());return {revision:s.revision,draft:s.draft,effective_halloween:s.draft.halloween??emptyHalloween(),effective_fc_layout:layout,restore_candidate:center.restoreCandidate(s),published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,admin_provider_status:adminPrices.status(),
  fc_catalog:{products:Object.fromEntries(Object.entries(effective.products).map(([key,p])=>[key,{key:p.key,title:p.title,name:p.name,kind:p.kind,version:p.version,...(p.preview_only?{preview_only:true,model_id:p.model_id,image:p.image,platforms:p.platforms}:{})}])),trio:{series:catalog.trio.series},sbc:{fallbackPicks:catalog.sbc.fallbackPicks}},
@@ -33,8 +40,29 @@ const centerState=s=>{const effective=effectiveFcCatalog(catalog,s.draft.fc_mode
 const secret=()=>fs.existsSync(secretFile)?JSON.parse(fs.readFileSync(secretFile,'utf8')).key:null;
 const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
 const publicState=s=>({revision:s.revision,registry:s.registry,layout:s.layout,updatedAt:s.updatedAt,updatedBy:s.updatedBy});
-const publicNames=new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','activity-analytics.js','ANALYTICS-INTEGRATION.md','MATCHDAY-ANALYTICS-PLAN.md','analytics/index.html','analytics/connect.html','analytics/connect.js','analytics/dashboard.js','analytics/dashboard.css','analytics/fs-tokens.css','analytics/fs-ui.css','analytics/funnel-core.cjs','analytics/demo-data.js','analytics/server-client.js','analytics/products.html','analytics/products.js']);
+const publicNames=new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','native-code-handoff.js','activity-analytics.js','ANALYTICS-INTEGRATION.md','MATCHDAY-ANALYTICS-PLAN.md','analytics/index.html','analytics/connect.html','analytics/connect.js','analytics/dashboard.js','analytics/dashboard.css','analytics/fs-tokens.css','analytics/fs-ui.css','analytics/funnel-core.cjs','analytics/demo-data.js','analytics/server-client.js','analytics/products.html','analytics/products.js']);
 publicNames.add('analytics/operations.html');publicNames.add('analytics/operations.js');
+const previews=new Map();let previewFiles=null;
+function filesForPreview(){
+ if(previewFiles)return previewFiles;
+ const names=['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','catalog.js','activity.js','activity-core.js','activity-content.js','activity.css','host-adapter.js','native-code-handoff.js','standalone-adapter.js','analytics-config.js','activity-analytics.js','seasonal/index.html','seasonal/event.js','seasonal/event.css','seasonal/model-selection.js','seasonal/runtime-bridge.js','seasonal/campaign-data.js'];
+ for(const folder of ['assets','seasonal/assets'])for(const name of fs.readdirSync(path.join(base,folder)))if(/\.(png|webp|svg|jpg|jpeg|woff2)$/.test(name))names.push(folder+'/'+name);
+ previewFiles=loadStatic(base,Object.fromEntries(names.map(name=>[name,digest(fs.readFileSync(path.join(base,name)))])));return previewFiles;
+}
+async function pendingModelDetails(body){
+ const entries=Object.hasOwn(body,'model_imports')?body.model_imports:[];if(!Array.isArray(entries)||entries.length>30)throw Object.assign(Error('INVALID_MODEL_IMPORTS'),{status:400});const details=[],cache=new Map();
+ for(const entry of entries){if(!entry||Object.keys(entry).some(k=>!['page_id','model_id','kind'].includes(k))||!['fc27-weekly','fc27-sbc','fc27-trio'].includes(entry.page_id)||!['player','sbc','bundle'].includes(entry.kind)||typeof entry.model_id!=='string'||!/^[1-9]\d{0,19}$/.test(entry.model_id))throw Object.assign(Error('INVALID_MODEL_IMPORTS'),{status:400});
+  const key=entry.kind+':'+entry.model_id;if(!cache.has(key))cache.set(key,(await backendRead({action:'model_resolve',site_id:'266',game_id:'1327',kind:entry.kind,model_id:entry.model_id})).model);details.push(cache.get(key));
+ }return details;
+}
+async function pendingProductDetails(body){
+ const entries=Object.hasOwn(body,'product_imports')?body.product_imports:[];if(!Array.isArray(entries)||entries.length>30)throw Object.assign(Error('INVALID_PRODUCT_IMPORTS'),{status:400});const details=[],cache=new Map();
+ for(const entry of entries){const ref=entry?.product_ref;
+  if(!entry||Object.keys(entry).some(k=>!['page_id','product_ref'].includes(k))||!['fc27-weekly','fc27-sbc','fc27-trio','seasonal-vault'].includes(entry.page_id)||!ref||typeof ref!=='object'||Array.isArray(ref)||Object.keys(ref).some(k=>!['site_id','game_id','goods_id','model_id','sku_id'].includes(k))
+   ||ref.site_id!=='266'||!['1327','1329','1309','456','552','891'].includes(ref.game_id)||['goods_id',...['model_id','sku_id'].filter(k=>Object.hasOwn(ref,k))].some(k=>typeof ref[k]!=='string'||!(/^[1-9]\d{0,19}$/).test(ref[k])))throw Object.assign(Error('INVALID_PRODUCT_IMPORTS'),{status:400});
+  const key=[ref.site_id,ref.game_id,ref.goods_id].join(':');if(!cache.has(key))cache.set(key,(await backendRead({action:'product_read',site_id:ref.site_id,game_id:ref.game_id,goods_id:ref.goods_id})).product);details.push(cache.get(key));
+ }return details;
+}
 export async function authorize(req){
  const r=await fetch('http://127.0.0.1:8895/verify?group=dashboard',{headers:{Cookie:req.headers.cookie||'','X-Original-Method':req.method,'X-Original-URI':req.url},signal:AbortSignal.timeout(5000),redirect:'manual'});
  return {status:r.status,user:r.headers.get('x-auth-user'),admin:r.headers.get('x-auth-role')==='admin'};
@@ -56,8 +84,13 @@ export const server=http.createServer(async(req,res)=>{
    }
    if(req.headers['content-type']!=='application/json')return json(res,403,{message:'请求来源或会话校验失败，请刷新页面'});
    let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>300000)return json(res,413,{message:'配置过大'});}const body=JSON.parse(raw);
-   if(relative==='analytics/api/center')return json(res,200,{...centerState(center.save(body,auth.user)),csrf,canEdit:true});
-   if(relative==='analytics/api/center/publish')return json(res,200,{...centerState(center.publish(body,auth.user)),csrf,canEdit:true});
+   if(relative==='analytics/api/center'){const prior=center.recoverSave(body);return json(res,200,{...centerState(prior||center.save(body,auth.user,await pendingModelDetails(body),await pendingProductDetails(body))),csrf,canEdit:true});}
+   if(relative==='analytics/api/center/publish'){const prior=center.recoverPublish(body);return json(res,200,{...centerState(prior||center.publish(body,auth.user,await pendingModelDetails(body),await pendingProductDetails(body))),csrf,canEdit:true});}
+   if(relative==='analytics/api/center/preview'){
+    const snapshot=center.preview(body,await pendingModelDetails(body),await pendingProductDetails(body)),page=snapshot.pages.find(p=>p.page_id===body.page_id);if(!page)return json(res,400,{message:'INVALID_CAMPAIGN_PAGE'});
+    for(const [key,value] of previews)if(value.expires<=Date.now())previews.delete(key);if(previews.size>=20)return json(res,429,{message:'PREVIEW_LIMIT'});
+    const token=randomBytes(24).toString('hex'),expires=Date.now()+10*60*1000;previews.set(token,{snapshot,expires,user:auth.user});return json(res,200,{preview_url:prefix+'analytics/preview/'+token+'/'+page.path,expires_at:new Date(expires).toISOString()});
+   }
    if(relative==='analytics/api/center/restore')return json(res,200,{...centerState(center.restoreDraft(body,auth.user)),csrf,canEdit:true});
    if(relative==='analytics/api/center/import-model'){
     const prior=center.recoverModel(body);if(prior)return json(res,200,{...centerState(prior),csrf,canEdit:true});
@@ -79,6 +112,17 @@ export const server=http.createServer(async(req,res)=>{
     atomic(secretFile,{key:body.key,updatedAt:new Date().toISOString(),updatedBy:auth.user});return json(res,200,{status:'configured',message:'只读查询通过，密钥已保存在服务器'});
    }
    return json(res,404,{message:'Not found'});
+  }
+  if(relative.startsWith('analytics/preview/')){
+   const match=/^analytics\/preview\/([a-f0-9]{48})\/(.*)$/.exec(relative),preview=match&&previews.get(match[1]);if(!preview||preview.expires<=Date.now()||preview.user!==auth.user)return json(res,404,{message:'PREVIEW_UNAVAILABLE'});
+   const name=match[2]==='seasonal/'?'seasonal/index.html':match[2],previewPrefix=prefix+'analytics/preview/'+match[1]+'/',snapshot=publicEnglishRelease(preview.snapshot);
+   if(name==='api/campaign/config')return json(res,200,{...snapshot,page_media:pageMedia(snapshot.pages,previewPrefix),integration_mode:'preview',live_checkout:false});
+   if(name==='api/campaign/capabilities')return json(res,200,{integration_mode:'preview',live_checkout:false});
+   if(name.startsWith('media/')){const id=name.slice(6);if(!Object.hasOwn(snapshot.media_assets||{},id))return json(res,404,{message:'MEDIA_NOT_FOUND'});const {info,bytes}=center.readAsset(id);res.writeHead(200,{'Content-Type':info.mime,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(req.method==='HEAD'?undefined:bytes);}
+   let body=filesForPreview().get(name),status=200;if(!body)return json(res,404,{message:'Not found'});
+   if(name==='catalog.js'){const selected=projectFcCatalog(catalog,snapshot);selected.page_media=pageMedia(snapshot.pages,previewPrefix);body='window.FC_ACTIVITY_CONFIG='+JSON.stringify(selected).replace(/</g,'\\u003c')+';';}
+   else if(name.endsWith('.html')){const rendered=presentPage({name,body,snapshot,publicBase:new URL(previewPrefix,origin).href});status=rendered.status;body=rendered.body.replace(/<html\b[^>]*>/i,tag=>tag.replace(/\sdata-campaign-runtime="[^"]*"/g,'').replace(/>$/,' data-campaign-runtime="'+previewPrefix+'">')).replace(/<body([^>]*)>/i,'<body$1><p role="status">Unsaved draft preview. Nothing has been published. Purchasing is disabled.</p>');}
+   const type=({'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.woff2':'font/woff2'})[path.extname(name)];res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'SAMEORIGIN','X-Robots-Tag':'noindex, nofollow'});return res.end(req.method==='HEAD'?undefined:body);
   }
   if(relative==='analytics/api/connection')return json(res,200,{configured:!!secret(),csrf:auth.admin?csrf:null,canEdit:auth.admin,storage:'server-persistent',projectId:cfg.projectId});
   if(relative==='analytics/api/center')return json(res,200,{...centerState(center.read()),csrf:auth.admin?csrf:null,canEdit:auth.admin});

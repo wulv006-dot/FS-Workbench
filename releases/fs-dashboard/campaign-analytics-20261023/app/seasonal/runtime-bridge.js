@@ -53,6 +53,11 @@
     pending: () => Boolean(client?.pending?.unknown || client?.pending?.stage === 'prepare'),
     // Existing runtime remains preview/test only; no browser contract grants live permission.
     canPrepare: () => Boolean(quoteContext&&quoteContext.revision===selectionRevision&&Date.parse(quoteContext.expires_at)>Date.now()&&client?.capabilities?.integration_mode==='integration_test'&&client?.capabilities?.test_capabilities?.prepare_checkout===true&&client?.pending?.stage==='quoted'&&!client?.pending?.unknown),
+    nativeFixed(game){
+      try{const c=client?.config?.seasonal_model_contracts?.[game.fixed_model];if(!c)return false;const selected=selectionFor(game.fixed_model),combo=c.combinations[0];for(const field of selected.fields())selected.select(field.id,combo.choices[field.id]);selected.setQuantity(combo.quantity.min);
+        window.CampaignNativeCodeHandoff.publishedPlan(client.config,{activity_id:'mmoexp-seasonal',page_id:'seasonal-vault',model_id:game.fixed_model,slot:'fixed',off_percent:game.fixed_off_percent,lines:[selected.line()]},{origin:window.location.origin});return true;
+      }catch{return false;}
+    },
     selectionFor,
     invalidate(){selectionRevision++;quoteContext=null;},
     canQuote(bag){try{return Boolean(bag.length&&!this.pending()&&lines(bag).length);}catch{return false;}},
@@ -109,6 +114,8 @@
     }catch{host.append(message(messages.MODEL_OPTIONS_UNAVAILABLE));return;}
     const english=(value,fallback)=>typeof value==='string'&&value.trim()&&!/\p{Script=Han}/u.test(value)?value:fallback;
     const fields=document.createElement('div'),price=message('Choose all required options to see the current reference price.'),status=message('The main store confirms the final price and applies the discount code before payment. Coupons and points cannot be combined with this code.');
+    let nativeReview=null,buying=false;
+    const nativeSelection=()=>({activity_id:'mmoexp-seasonal',page_id:'seasonal-vault',model_id:String(detail.model_id),slot:detail.slot,off_percent:detail.off_percent,lines:[selection.line()]});
     const buy=document.createElement('button');buy.type='button';buy.disabled=true;buy.textContent='Store handoff not connected';
     host.append(fields,price,status,buy);
     function render(){
@@ -126,11 +133,22 @@
       showPrice();
     }
     function showPrice(){
-      buy.disabled=true;
+      buy.disabled=true;nativeReview=null;
+      try{nativeReview=window.CampaignNativeCodeHandoff.publishedPlan(client.config,nativeSelection(),{origin:window.location.origin});}catch{}
+      if(nativeReview&&!buying){buy.disabled=false;buy.textContent='Continue to native cart';}else buy.textContent='Store handoff not connected';
       try{const value=window.SeasonalModelSelection.selectedPrice(contract,selection,detail.off_percent),format=n=>new Intl.NumberFormat('en',{style:'currency',currency:value.currency}).format(n/10**value.minor_unit_scale);
         price.textContent=format(value.base_minor)+' → '+format(value.indicative_discounted_minor)+' ('+detail.off_percent+'% OFF). Reference for your selected combination; not a checkout quote.';
-      }catch{price.textContent=selection.ready()?'A current price for this exact combination and quantity is unavailable. No checkout is enabled.':'Choose all required options and a valid quantity.';}
+      }catch{price.textContent=selection.ready()?(nativeReview?'Current price unavailable. The native cart confirms final prices and code eligibility.':'A current price for this exact combination and quantity is unavailable. No checkout is enabled.'):'Choose all required options and a valid quantity.';}
     }
+    buy.addEventListener('click',async()=>{
+      if(buying||!nativeReview)return;buying=true;buy.disabled=true;fields.querySelectorAll('input,select').forEach(el=>el.disabled=true);
+      try{const before=nativeReview.signature;await client.load();publishTheme(client.config);const approved=window.CampaignNativeCodeHandoff.publishedPlan(client.config,nativeSelection(),{origin:window.location.origin});
+        if(before!==approved.signature)throw Object.assign(Error('Published selection changed. Reopen this offer before continuing.'),{code:'NATIVE_SCOPE_CHANGED'});
+        const selected=nativeSelection(),host=window.FCActivityHost.createNative(client.config,selected);
+        const result=await window.CampaignNativeCodeHandoff.checkoutPublished({snapshot:client.config,selection:selected,storage:window.sessionStorage,host,origin:window.location.origin,navigate:url=>window.location.assign(url)});
+        status.textContent=result.state==='navigation_attempted_not_applied'?'Native cart navigation attempted. Apply and final totals remain unconfirmed here.':'Original native operation requires inspection. Do not submit again; inspect the original cart.';
+      }catch(error){status.textContent=(error.code||error.message||'Native handoff unavailable')+'. No successful checkout is confirmed.';}
+    });
     render();
   });
   if (window.SeasonalCommerce.available()) {

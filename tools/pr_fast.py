@@ -835,6 +835,8 @@ def main():
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/operations-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/ops-presentation-browser.mjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/fc-published-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/native-page59-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/products-page-flow-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/fc-english-only-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/halloween52-browser.cjs")
             continue
