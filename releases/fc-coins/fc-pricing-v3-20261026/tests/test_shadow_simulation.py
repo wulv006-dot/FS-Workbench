@@ -100,6 +100,26 @@ class ShadowBehavior(unittest.TestCase):
         with patch.dict(legacy_simulation.SOURCES,{'legacy_80_15_5':('weighted_80_15_5.py','0'*64)}):
             self.assertEqual(legacy_simulation.replay(dict(evidence=actual),'legacy_80_15_5')['status'],'legacy_source_version_mismatch')
 
+    def test_legacy_replay_uses_saved_decision_time_after_sources_finish(self):
+        actual, _, _ = actual_financial_fixture()
+        started = datetime.fromisoformat(actual['checked_at'].replace('Z', '+00:00'))
+        actual['fx']['checked_at'] = (started + timedelta(seconds=30)).isoformat()
+        captured = (started + timedelta(seconds=60)).isoformat()
+        for name in legacy_simulation.SOURCES:
+            result = legacy_simulation.replay(dict(evidence=actual, created_at=captured), name)
+            self.assertEqual(result['status'], 'available')
+            self.assertEqual(result['as_of'], captured)
+            self.assertFalse(result['execution_authorized'])
+
+    def test_legacy_replay_cannot_move_asof_forward_to_include_future_sources(self):
+        actual, _, _ = actual_financial_fixture()
+        started = datetime.fromisoformat(actual['checked_at'].replace('Z', '+00:00'))
+        actual['fx']['checked_at'] = (started + timedelta(seconds=90)).isoformat()
+        for name in legacy_simulation.SOURCES:
+            result = legacy_simulation.replay(dict(evidence=actual, created_at=(started + timedelta(seconds=60)).isoformat()), name)
+            self.assertEqual(result['status'], 'legacy_replay_gap')
+            self.assertEqual(result['reason'], 'pricing_source_stale')
+
     def test_real_engine_missing_baseline_does_not_crash_shadow(self):
         actual, _, _ = actual_financial_fixture()
         actual.pop('demand_model', None)
