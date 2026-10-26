@@ -151,6 +151,9 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
     job=json.loads(job_path.read_text()) if job_path.exists() else {}
     plan_id=(job.get('request') or {}).get('v3_plan_id')
     plan = db.get('pricing_plans',plan_id) if plan_id else db.active_plan()
+    from .uk_retirement import PURPOSE as UK_RETIREMENT,calculate as calculate_uk_retirement
+    if (job.get('request') or {}).get('v3_authorization_purpose')==UK_RETIREMENT:
+        return calculate_uk_retirement(evidence,job,db)
     if (job.get('request') or {}).get('v3_authorization_purpose')=='original_unsent_ALL_steps_only':
         return calculate_postwrite(evidence,job,db)
     mode = plan['mode'] if plan else 'revenue_sprint'
@@ -215,6 +218,8 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         decision_source='program_current_strategy',per_cycle_model_required=False,
         hermes_role='daily_effect_review_and_strategy_suggestions',
         legacy_policy_execution=False,margin_basis=MARGIN_BASIS)
+    from .region_source import rule_expectations
+    bundle['uk_rule_expectations']=rule_expectations((evidence.get('region_contract') or {}).get('rules',[]))
     bundle['sha256'] = fingerprint(bundle)
     result=render_result(evidence,selected,bundle,mode)
     snapshot=dict(snapshot_id=evidence['run_id'],origin='live_collector',mode='production',evidence=evidence,result=result,
@@ -356,7 +361,16 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         raise ValueError('pricing_margin_contract_changed')
     if receipt.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:
         raise ValueError('pricing_financial_quote_migration_required')
-    proof=financial(quote['evidence'],receipt['action'],now,regions=(quote['evidence'].get('region_rules',[]) if purpose=='original_unsent_ALL_steps_only' else proof_regions(quote['evidence'],receipt['before_action'],receipt['action'],promised_regions=receipt.get('regional_market_comparison',{}))))
+    from .uk_retirement import PURPOSE as UK_RETIREMENT,authority_resources
+    maintenance=receipt.get('maintenance_purpose')==UK_RETIREMENT
+    regions=quote['evidence'].get('region_rules',[])
+    if maintenance:
+        authority_resources(receipt)
+        regions=regions+quote['evidence'].get('regional_controls',[])
+        if financial(quote['evidence'],receipt['before_action'],now,regions=regions)!=receipt['before_financial_proof']:
+            raise ValueError('pricing_uk_retirement_before_proof_changed')
+    elif purpose!='original_unsent_ALL_steps_only':regions=proof_regions(quote['evidence'],receipt['before_action'],receipt['action'],promised_regions=receipt.get('regional_market_comparison',{}))
+    proof=financial(quote['evidence'],receipt['action'],now,regions=regions)
     if proof!=receipt['financial_proof']:
         raise ValueError('pricing_financial_proof_changed')
     for row in quote['result']['rows']:
@@ -398,6 +412,8 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
                 raise ValueError('pricing_original_contract_unknown')
             if receipt['review_contract']!=PROGRAM_CONTRACT and receipt.get('review_receipt') is None:
                 raise ValueError('pricing_original_review_receipt_missing')
+        elif maintenance:
+            if receipt.get('review_contract')!=UK_RETIREMENT or receipt.get('decision_source')!='user_authorized_uk_discount_retirement':raise ValueError('pricing_uk_retirement_contract_changed')
         elif receipt.get('review_contract')==PROGRAM_CONTRACT:
             if receipt.get('per_cycle_model_required') is not False or receipt.get('decision_source')!='program_current_strategy':
                 raise ValueError('pricing_program_contract_changed')

@@ -29,7 +29,7 @@ def build(checkout, output):
     if dirty:
         raise ValueError('source_tree_has_uncommitted_changes')
     mapping = targets(source)
-    if len(mapping) != 88:
+    if len(mapping) != 90:
         raise ValueError('exact_target_count_required')
     with tempfile.TemporaryDirectory(prefix='fc-v3-stage-') as temporary:
         stage = Path(temporary) / 'fc-pricing-v3-20261026'

@@ -80,7 +80,7 @@ def latest(db, public=False):
     with closing(db.connect()) as conn:
         for row in conn.execute('SELECT body FROM pricing_snapshots ORDER BY rowid DESC'):
             snapshot=json.loads(row[0])
-            if snapshot.get('authorization_purpose')=='original_unsent_ALL_steps_only':
+            if snapshot.get('authorization_purpose') in ('original_unsent_ALL_steps_only','retire_uk_discount_v1'):
                 continue
             if not public:
                 return snapshot
@@ -260,6 +260,21 @@ def post(path,data,actor):
         return dict(interval_minutes=updated['interval_minutes'],revision=updated['revision'],updated_at=updated['updated_at'],
                     plan_state=(ledger().active_plan() or {}).get('state'),write_performed=False)
     db=ledger()
+    if path=='retire-uk-discount':
+        if set(data)!={'request_key','plan_id'}:raise ValueError('pricing_uk_retirement_fields_invalid')
+        ident=request_id(actor,data,'retire-uk-discount');key='uk-retirement:'+ident
+        saved=db.get('metadata',key)
+        if saved:
+            if saved['request_sha256']!=fingerprint(data):raise ValueError('pricing_uk_retirement_payload_conflict')
+            return saved['response']
+        plan=db.get('pricing_plans',data['plan_id'])
+        if not plan or plan['state']!='ACTIVE':raise ValueError('pricing_uk_retirement_plan_inactive')
+        with db.transaction() as conn:
+            db.owns(plan,['base:console','base:pc'],conn)
+            response=dict(status='queued',job_key=key,operation_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc-v3-uk-retirement:'+key)))
+            db.put('metadata',key,dict(request_sha256=fingerprint(data),response=response),conn)
+            db.enqueue('uk_retirement',key,clock(),dict(plan_id=plan['plan_id'],revision=plan['revision'],actor=actor),conn)
+        return response
     snapshot=latest(db) if path in ('plans','evaluate','preview','manual-previews') else None
     if path=='plans':
         if set(data)-{'request_key','mode','resources','parameters','starts_at','ends_at'}:

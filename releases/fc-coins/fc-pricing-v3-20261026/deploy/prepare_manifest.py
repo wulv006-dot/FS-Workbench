@@ -48,7 +48,7 @@ def prepare(delta=False, shadow=False, operating=False):
         raise ValueError('source_commit_required')
     source = STAGE / 'candidate/source'
     all_expected = {'source/' + name: target for name, target in targets(source).items()}
-    if len(all_expected) != 88 or provenance.get('files') != {
+    if len(all_expected) != 90 or provenance.get('files') != {
             name: sha(STAGE / 'candidate' / name) for name in sorted(all_expected)}:
         raise ValueError('staged_payload_differs_from_git_source_manifest')
     selected = OPERATING_NAMES if operating else SHADOW_NAMES if shadow else DELTA_NAMES if delta else None

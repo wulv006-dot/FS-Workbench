@@ -16,7 +16,7 @@ from .financial import fingerprint, instant
 from .ledger import clock
 from .runtime import ledger, ROOT, STORE, execute_run, reconcile
 
-PRIORITY={'deadline':0,'exit':1,'reconcile':2,'start':3,'postwrite_refresh':3,'cycle':4,'observe':5,'daily':5,'history':5}
+PRIORITY={'deadline':0,'exit':1,'reconcile':2,'start':3,'postwrite_refresh':3,'uk_retirement':3,'cycle':4,'observe':5,'daily':5,'history':5}
 BACKOFF=(5,15,30,60)
 SHADOW_EXPORT=STORE/'shadow-readonly.sqlite3'
 
@@ -289,6 +289,9 @@ def run_job(job):
             result=reconcile(body['operation_id'])
         elif kind=='postwrite_refresh':
             result=refresh_postwrite(body)
+        elif kind=='uk_retirement':
+            from .uk_retirement import run as retire_uk
+            result=retire_uk(body)
         elif kind=='history':
             from .history import run as historical_run
             result=historical_run(body)
@@ -379,7 +382,7 @@ def tick(executors, running):
         due=[dict(row) for row in conn.execute('SELECT * FROM durable_jobs WHERE state=\'queued\' AND due_at<=?',(now.isoformat(),))]
 
     for job in sorted(due,key=lambda j:(PRIORITY[j['kind']],j['due_at'])):
-        lane='observation' if job['kind'] in ('observe','daily','history') else 'collection' if job['kind'] in ('cycle','postwrite_refresh') else 'control'
+        lane='observation' if job['kind'] in ('observe','daily','history') else 'collection' if job['kind'] in ('cycle','postwrite_refresh','uk_retirement') else 'control'
         if lane in running:
             continue
         with db.transaction() as conn:
