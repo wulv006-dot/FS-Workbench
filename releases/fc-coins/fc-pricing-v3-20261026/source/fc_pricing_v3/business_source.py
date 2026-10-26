@@ -1073,3 +1073,127 @@ def collect(session, pages, storefront, products, price_windows=None):
     return dict(monthly_target=monthly, demand_model=model, history_replay=replay, historical_discount_mix=mix,
         historical_orders=historical, historical_orders_coverage=historical_coverage,
         fulfillment_estimates=fulfillment_estimates, **online)
+
+
+# Append-only candidate adapters. Existing collect() remains unchanged until owner switches caller.
+
+def selective_history_signature(period, *, channel_root=None, ES_root=None):
+    """Cheap change detector; it never asserts a new content hash or reads order payloads."""
+    from pathlib import Path
+    channel_root=Path(channel_root or '/var/lib/fs-channel-effects')
+    ES_root=Path(ES_root or '/var/lib/fc27-es-exports')
+    paths=[channel_root/'accounting-overrides.json']
+    day=datetime.fromisoformat(period['start']).date()
+    stop=datetime.fromisoformat(period['end']).date()
+    manifests=[]
+    for path in ES_root.glob('*.json'):
+        if path.stat().st_size>2*1024*1024:continue
+        value=json.loads(path.read_text())
+        query=value.get('query') if isinstance(value,dict) else None
+        if isinstance(query,dict) and query.get('start') and query.get('end'):
+            manifests.append((path,value))
+    chosen={}
+    while day<=stop:
+        text=day.isoformat();paths.append(channel_root/'days'/(text+'.json'))
+        options=[item for item in manifests if item[1]['query']['start']<=text<=item[1]['query']['end']]
+        if not options:raise ValueError('selective_history_ES_manifest_missing')
+        path,value=max(options,key=lambda item:(item[1].get('captured_at') or '',item[1]['query']['end']))
+        chosen[path]=value
+        day+=timedelta(days=1)
+    for path,value in chosen.items():
+        paths.append(path)
+        for digest in value.get('file_sha256',[]):
+            if not re.fullmatch('[a-f0-9]{64}',str(digest)):raise ValueError('selective_history_ES_digest_invalid')
+            paths.append(ES_root/(digest+'.xlsx'))
+    signature=[]
+    for path in sorted(set(paths)):
+        if not path.exists():
+            if path.name=='accounting-overrides.json':signature.append([str(path),'absent']);continue
+            raise ValueError('selective_history_source_file_missing')
+        stat=path.stat()
+        signature.append([str(path),stat.st_dev,stat.st_ino,stat.st_size,stat.st_mtime_ns])
+    # Delivery costs are deliberately excluded: v15 N/D does not change merely because an old cost arrives.
+    return fingerprint(dict(period=period,files=signature,contract='seven_day_amount_and_discount_sources_v1'))
+
+
+def build_shared_history_cache(session,pages,storefront,products,source_signature,now,*,include_fulfillment=False):
+    from .selective_sources import history_period,seal_history_cache
+    period=history_period(now)
+    selected,provenance=_period_population(period)
+    if selected is None or provenance.get('status')!='complete' or not selected:
+        raise ValueError('pricing_v3_business_history_source_incomplete')
+    orders,logs,templates=_live_traces(session,pages,period,selected)
+    from pricing_sources import active
+    templates={key:dict(value,_current_active=active(value,now,coupon=True)) for key,value in templates.items()}
+    replay=build_replay(selected,orders,logs,templates,provenance)
+    mix=historical_mix(selected,provenance);replay['original_mix_sha256']=mix['sha256']
+    grouped={}
+    for identity,(archived,es) in selected.items():
+        order=orders[identity]
+        used=[logs[str(c['id'])] for c in archived.get('coupons',[])]
+        scenario=dict(code_retained_ratio=str(amount(order['discount'])/100),
+            points_credit_usd=str(amount(order['points'])/POINTS_PER_USD),
+            coupon_template_ids=[str(log['coupon_id']) for log in used],
+            region_id=int(order['region_price_lang_region_id']) if str(order.get('is_region_price'))=='1' else 0)
+        key=fingerprint(scenario)
+        item=grouped.setdefault(key,dict(scenario,weight_usd='0',orders=0))
+        item['weight_usd']=str(Decimal(item['weight_usd'])+amount(archived['salesUsd'])+amount(es['discount_usd']))
+        item['orders']+=1
+    rollups=dict(demand_model=demand_snapshot(selected,orders,storefront,replay['provenance']))
+    if include_fulfillment:rollups['observed_fulfillment']=fulfillment_context(selected,orders,provenance)
+    return seal_history_cache(mix,replay,[grouped[k] for k in sorted(grouped)],rollups,source_signature,now),templates
+
+
+def _selective_closed_month_rollup(now):
+    today=now.astimezone(TZ).date()
+    period=dict(start=today.replace(day=1).isoformat(),end=(today-timedelta(days=1)).isoformat())
+    if period['end']<period['start']:return dict(status='no_closed_days_this_month',period=period,lower_bound=None,upper_bound=None)
+    rows,source=_period_population(period)
+    metrics=summarize(rows) if rows is not None else None
+    known=(metrics or {}).get('net_paid_usd')
+    upper=str(Decimal(known)+Decimal(source.get('unclassified_paid_FC_usd','0'))) if known is not None and source.get('ES_complete') else None
+    return dict(status=source.get('status','unavailable'),period=period,lower_bound=known,upper_bound=upper,
+        metrics=metrics,source_sha256=fingerprint(source),as_of=now.isoformat())
+
+
+def collect_selective_business(session,pages,storefront,products,*,active_mode,scope=None,history_cache=None,
+                               source_signature=None,current_templates=None,online_context=None,now=None):
+    from .selective_sources import source_plan,history_period,checked_history_cache,context_from_cache,seal_history_cache
+    now=now or datetime.now(timezone.utc)
+    plan=source_plan(active_mode,scope)
+    signature=selective_history_signature(history_period(now))
+    if source_signature is not None and source_signature!=signature:
+        raise ValueError('selective_history_source_signature_changed')
+    update=None
+    try:cache=checked_history_cache(history_cache,signature,now)
+    except ValueError:
+        cache,current_templates=build_shared_history_cache(session,pages,storefront,products,signature,now,
+            include_fulfillment=plan['refresh_backlog'])
+        update=cache
+    if current_templates is None:
+        current_templates={str(row['id']):row for row in pages(session,'/admin/market.Coupon/index')}
+    from pricing_sources import active
+    current_templates={str(key):dict(row,_current_active=active(row,now,coupon=True)) for key,row in current_templates.items()}
+    backlog=active_backlog_context(session,pages) if plan['refresh_backlog'] else None
+    ads=marketing_context(cache['period']) if plan['read_ads_context'] else None
+    monthly=None
+    if plan['refresh_monthly_target']:
+        closed=cache['daily_rollups'].get('closed_month')
+        today=now.astimezone(TZ).date()
+        expected=dict(start=today.replace(day=1).isoformat(),end=(today-timedelta(days=1)).isoformat())
+        if not closed or closed['period']!=expected:
+            closed=_selective_closed_month_rollup(now)
+            rollups=dict(cache['daily_rollups'],closed_month=closed)
+            cache=seal_history_cache(cache['historical_discount_mix'],cache['original_history_replay'],cache['promotion_scenarios'],rollups,signature,datetime.fromisoformat(cache['created_at']))
+            update=cache
+        try:current=_today_summary(session,pages,now)
+        except (ValueError,OSError) as error:current=dict(status='unavailable',net_paid_usd=None,reason=type(error).__name__)
+        lower,upper=closed.get('lower_bound'),closed.get('upper_bound')
+        complete_today=current.get('status')=='complete' and current.get('net_paid_usd') is not None
+        mtd=str(Decimal(lower)+Decimal(current['net_paid_usd'])) if lower is not None and complete_today else lower
+        monthly=dict(amount=None,mtd=mtd,mtd_exact=mtd if closed['status']=='complete' and complete_today else None,
+            mtd_lower_bound=mtd,mtd_upper_bound=str(Decimal(upper)+Decimal(current['net_paid_usd'])) if upper is not None and complete_today else upper,
+            through_date=today.isoformat() if complete_today else expected['end'],today=current,closed_day_rollup=closed,
+            target_scope='site266_FC27_Coins',target_basis='net_paid_USD',status='target_not_configured')
+    context=context_from_cache(cache,plan,current_templates,now,backlog=backlog,monthly=monthly,ads=ads,online=online_context)
+    return dict(context=context,private_updates=dict(history_cache=update) if update else {},source_plan=plan)

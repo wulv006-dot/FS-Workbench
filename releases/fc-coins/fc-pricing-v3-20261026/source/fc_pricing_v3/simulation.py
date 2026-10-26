@@ -415,7 +415,7 @@ class Shadow:
                     db.execute("INSERT INTO cursor VALUES ('production',?)",(cursor,))
         return records
 
-    def consume(self, production_path):
+    def consume(self, production_path, *, through=None):
         with self.connect() as db:
             row = db.execute("SELECT value FROM cursor WHERE id='production'").fetchone()
             cursor = row[0] if row else 0
@@ -429,7 +429,16 @@ class Shadow:
                     row = source.execute('SELECT body FROM pricing_snapshots WHERE id=?',(body['snapshot_id'],)).fetchone()
                     if not row:
                         return dict(events=processed,cursor=cursor,status='source_snapshot_missing',snapshot_id=body['snapshot_id'])
-                    self.snapshot(json.loads(row[0]),cursor=sequence)
+                    snapshot=json.loads(row[0])
+                    if through is not None and instant(snapshot.get('created_at') or snapshot['evidence']['checked_at'])>=through:break
+                    try:self.snapshot(snapshot,cursor=sequence)
+                    except ValueError as error:
+                        if through is None:raise
+                        # A malformed historical input stays a gap; it must not block all later days.
+                        with self.connect() as db:
+                            gap=dict(snapshot_id=body['snapshot_id'],as_of=snapshot.get('created_at'),status='INPUT_GAP',reason=str(error),mode='shadow',training_eligible=False)
+                            db.execute('INSERT OR IGNORE INTO runs VALUES (?,?)',(fingerprint(['input_gap',body['snapshot_id']]),json.dumps(gap)))
+                            if db.execute("UPDATE cursor SET value=? WHERE id='production'",(sequence,)).rowcount==0:db.execute("INSERT INTO cursor VALUES ('production',?)",(sequence,))
                 else:
                     now = instant(body['requested_at']) if body.get('requested_at') else datetime.now(timezone.utc)
                     end = datetime.combine(day(now),datetime.min.time(),LOCAL)

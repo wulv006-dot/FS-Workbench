@@ -1,0 +1,78 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const folder = path.join(__dirname,'../source');
+const html = fs.readFileSync(path.join(folder, 'fc27-coins.html'), 'utf8');
+const script = fs.readFileSync(path.join(folder, 'fc-pricing-v3.js'), 'utf8');
+const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
+assert.equal(new Set(ids).size, ids.length, 'HTML IDs must be unique');
+for (const [, id] of script.matchAll(/\$\('([^']+)'\)/g)) assert(ids.includes(id), `missing #${id}`);
+assert(!html.includes('/dashboard/fc27-quote-cloud.js'));
+assert(!html.includes('/dashboard/fc27-reference-observer.js'));
+assert(html.includes('/dashboard/fc27-local-client.js'));
+assert(!html.includes('ELD 独立'));
+
+class Element {
+  constructor() { this.value = ''; this.textContent = ''; this.children = []; this.events = {}; this.hidden = false; this.disabled = false; this.dataset = {}; }
+  addEventListener(name, fn) { this.events[name] = fn; }
+  querySelectorAll() { return []; }
+  querySelector() { return new Element(); }
+  replaceChildren(...items) { this.children = items; }
+  append(...items) { this.children.push(...items); }
+  setAttribute() {}
+  removeAttribute() {}
+  focus() {}
+}
+const elements = Object.fromEntries(ids.map(id => [id, new Element()]));
+elements['v3-mode'].value = 'daily';
+const document = { getElementById: id => elements[id], createElement: () => new Element(), activeElement: null, hidden: false };
+const store = new Map();
+const sessionStorage = { getItem: key => store.get(key) || null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) };
+const plan = { plan_id: 'plan-1', mode: 'daily', state: 'SUSPENDED' };
+const state = { plans: [plan], active_plans: [plan], plan, generation: 'g', captured_at: '2026-10-26T13:00:00+08:00', snapshot_id: 'snapshot-1',
+  strategies: { daily: { status: 'READY', selected: { action: { base_prices: { console: '8.51', pc: '8.59' } }, score: { absolute_forecast_available: false } } }, acquisition: { status: 'DATA_PENDING' } },
+  operations: [{ operation_id: 'op-1', status: 'COMPLETED', created_at: '2026-10-26T13:05:00+08:00', bundle: { mode: 'daily', review_approved: false, decision_source: 'v3_explicit_deterministic_feasible_assignment' } }],
+  target: { mtd_lower_bound: '666454.13', mtd_upper_bound: '666464.47', through_date: '2026-10-25', today: { status: 'unavailable' } }, region_rules: [], regional_controls: [], incidents: [] };
+let canWrite = true, intervalBody;
+const automation = { revision: 3, can_manage_v3: true, v3: { schedule: { cycle_interval_minutes: 120, active_plan_state: 'SUSPENDED', next_cycle_at: null,
+  last_cycle_at: '2026-10-26T13:00:00+08:00', last_source_checked_at: null, last_execution_stage: 'COMPLETED' } } };
+const monitor = { storefront: { rows: { PS: { package_usd: 8.51, checked_at: '2026-10-26T13:07:00+08:00' },
+  XBOX: { package_usd: 8.51 }, PC: { package_usd: 8.59 } } }, publication: { status: 'matched' } };
+const fetch = async (url, options = {}) => ({ ok: true, json: async () => url.endsWith('/pricing/v3/interval') ? (intervalBody = JSON.parse(options.body), { revision: 4 })
+  : url.endsWith('/pricing/v3/state') ? state : url.endsWith('/automation') ? { ...automation, can_manage_v3: canWrite }
+  : url.endsWith('/monitor') ? monitor : url.endsWith('/player-sync') ? { enabled: true, revision: 1 } : {} });
+vm.runInNewContext(script, { document, fetch, sessionStorage, crypto: { randomUUID: () => 'new-id' }, AbortSignal: { timeout: () => null },
+  setInterval: () => {}, Intl, Date, console });
+const tick = () => new Promise(resolve => setTimeout(resolve, 5));
+(async () => {
+  await tick();
+  assert.match(elements['v3-current-plan'].textContent, /已暂停/);
+  assert.match(elements['v3-next-cycle'].textContent, /已暂停，无下一自然写价轮/);
+  assert.match(elements['v3-review-source'].textContent, /程序可行路径，本轮未经模型审核/);
+  assert.equal(elements['v3-price-pc'].textContent, '$8.59');
+  assert.match(elements['v3-source-time'].textContent, /待核/);
+  assert.equal(elements['v3-strategies'].children.length, 1, 'only selected strategy is shown');
+  assert.equal(elements['v3-interval-minutes'].value, 120);
+  elements['v3-interval-minutes'].value = '180';
+  await elements['v3-interval-form'].events.submit({ preventDefault() {} }); await tick();
+  assert.deepEqual(intervalBody, { interval_minutes: 180, expected_revision: 3 });
+  state.operations[0].bundle.decision_source = 'v3_inherited_reviewed_business_strategy';
+  await elements['v3-refresh'].events.click();
+  assert.match(elements['v3-review-source'].textContent, /沿用先前已审经营策略/);
+  state.operations[0].bundle.decision_source = 'v3_model_reviewed_this_cycle';
+  state.operations[0].bundle.review_approved = true;
+  await elements['v3-refresh'].events.click();
+  assert.match(elements['v3-review-source'].textContent, /本轮 Hermes 实际选择/);
+  elements['v3-mode'].value = 'acquisition'; elements['v3-mode'].events.change();
+  assert.equal(elements['v3-strategies'].children.length, 1);
+  assert.equal(elements['v3-target-section'].hidden, true);
+  elements['v3-mode'].value = 'revenue_sprint'; elements['v3-mode'].events.change();
+  assert.equal(elements['v3-target-section'].hidden, false);
+  canWrite = false; await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-execute'].disabled, true);
+  assert.equal(elements['collect'].disabled, true);
+  assert.match(elements['v3-state'].textContent, /仅可查看/);
+  console.log('UI contract and state smoke passed');
+})().catch(error => { console.error(error); process.exitCode = 1; });

@@ -12,14 +12,137 @@ from unittest.mock import Mock, patch
 
 SOURCE = Path(__file__).resolve().parents[1] / 'source'
 sys.path.insert(0, str(SOURCE))
-from fc_pricing_v3 import api, runtime, monitoring
-from fc_pricing_v3.scheduler import backlog_cleared
+from fc_pricing_v3 import api, runtime, monitoring, scheduler
+from fc_pricing_v3.scheduler import backlog_cleared, next_cycle_at
 from fc_pricing_v3.ledger import Ledger
+import fc_pricing_v3.ledger as ledger_module
 import pricing_operations
 import pricing_simulation
+import hermes_pricing_bridge
 
 
 class RuntimeContracts(unittest.TestCase):
+    def test_two_hour_cycle_resume_uses_last_completed_operation_once(self):
+        start=datetime(2026,10,26,14,tzinfo=timezone.utc)
+        completed=start+timedelta(minutes=37)
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            db=Ledger(root/'v3/control.sqlite3')
+            plan=dict(plan_id='plan',revision=1,generation='g',resources=['base:pc'],
+                      starts_at=start.isoformat(),state='SUSPENDED',mode='revenue_sprint')
+            db.put('metadata','generation',dict(id='g'))
+            db.put('pricing_plans','plan',plan)
+            db.put('operations','original',dict(plan_id='plan',status='COMPLETED',
+                    completed_at=completed.isoformat(),created_at=start.isoformat()))
+            with db.transaction() as conn:
+                conn.execute("INSERT INTO plan_ownership VALUES ('base:pc','plan',1,'g')")
+            self.assertEqual(next_cycle_at(db,plan),completed+timedelta(hours=2))
+            with patch.object(api,'ledger',return_value=db):
+                with patch.object(api,'clock',return_value=completed):
+                    resumed=api.post('plans/plan/resume',{},'wulv')
+                    repeated=api.post('plans/plan/resume',{},'wulv')
+            self.assertEqual(resumed['resume_count'],1)
+            self.assertEqual(repeated['resume_count'],1)
+            self.assertEqual(next_cycle_at(db,resumed),completed+timedelta(hours=2))
+            (root/'config').mkdir()
+            (root/'config/v3-control.json').write_text('{"enabled":true}')
+            (root/'v3/heartbeat.json').write_text(json.dumps(dict(checked_at=(completed+timedelta(minutes=1)).isoformat())))
+            view=monitoring.projection(root,completed+timedelta(minutes=1))
+            self.assertEqual(view['schedule']['cycle_interval_minutes'],120)
+            self.assertEqual(view['schedule']['next_cycle_at'],(completed+timedelta(hours=2)).isoformat())
+            self.assertEqual(view['schedule']['active_plan_state'],'ACTIVE')
+
+    def test_two_hour_tick_does_not_enqueue_early_or_duplicate_due_cycle(self):
+        start=datetime(2026,10,26,14,tzinfo=timezone.utc)
+        completed=start+timedelta(minutes=37)
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.sqlite3')
+            plan=dict(plan_id='plan',revision=1,generation='g',resources=['base:pc'],
+                      starts_at=start.isoformat(),state='ACTIVE',mode='flash_sale',resume_count=1)
+            db.put('metadata','generation',dict(id='g'))
+            db.put('pricing_plans','plan',plan)
+            db.put('operations','original',dict(plan_id='plan',status='COMPLETED',completed_at=completed.isoformat()))
+            with db.transaction() as conn:
+                conn.execute("INSERT INTO plan_ownership VALUES ('base:pc','plan',1,'g')")
+            future=Mock();future.done.return_value=False
+            executors={lane:Mock() for lane in ('collection','control','observation')}
+            executors['collection'].submit.return_value=future
+            running={}
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'export_shadow_snapshot'),patch.object(runtime,'write_json'):
+                with patch.object(scheduler,'clock',return_value=completed+timedelta(minutes=119)):
+                    scheduler.tick(executors,running)
+                with db.connect() as conn:
+                    self.assertEqual(conn.execute("SELECT count(*) FROM durable_jobs WHERE kind='cycle'").fetchone()[0],0)
+                with patch.object(scheduler,'clock',return_value=completed+timedelta(minutes=120)):
+                    scheduler.tick(executors,running)
+                    scheduler.tick(executors,running)
+            with db.connect() as conn:
+                rows=conn.execute("SELECT id,state FROM durable_jobs WHERE kind='cycle'").fetchall()
+            self.assertEqual(len(rows),1)
+            self.assertEqual(rows[0]['state'],'running')
+            self.assertTrue(rows[0]['id'].endswith(':r1'))
+
+    def test_suspended_deadline_waits_for_original_then_ends_without_new_price(self):
+        now=datetime(2026,10,26,14,tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.sqlite3')
+            plan=dict(plan_id='plan',revision=1,generation='g',resources=['base:pc'],
+                      starts_at=now.isoformat(),state='SUSPENDED',mode='revenue_sprint')
+            db.put('pricing_plans','plan',plan)
+            db.put('operations','original',dict(plan_id='plan',status='UNKNOWN'))
+            with db.transaction() as conn:
+                conn.execute("INSERT INTO plan_ownership VALUES ('base:pc','plan',1,'g')")
+            held=db.deadline('plan',1)
+            self.assertEqual(held['status'],'suspended_deadline_original_reconciliation_pending')
+            self.assertEqual(db.active_plan()['state'],'SUSPENDED')
+            db.put('operations','original',dict(plan_id='plan',status='COMPLETED'))
+            ended=db.deadline('plan',1)
+            self.assertEqual((ended['state'],ended['exit_reason']),('ENDED','suspended_deadline_no_new_price'))
+            self.assertIsNone(db.active_plan())
+            with db.connect() as conn:
+                self.assertEqual(conn.execute("SELECT count(*) FROM durable_jobs WHERE kind='cycle'").fetchone()[0],0)
+
+    def test_deadline_exit_price_waits_for_two_hour_cycle(self):
+        now=datetime(2026,10,26,14,40,tzinfo=timezone.utc)
+        last=now-timedelta(minutes=3)
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.sqlite3')
+            db.put('metadata','generation',dict(id='g'))
+            old=dict(plan_id='plan',revision=1,generation='g',resources=['base:pc'],
+                     starts_at=(now-timedelta(hours=1)).isoformat(),state='ENDING',mode='flash_sale',
+                     price_anchor=dict(base_prices=dict(pc='8.59')),daily_budget='100',actor='wulv',
+                     last_cycle_at=last.isoformat())
+            db.put('pricing_plans','plan',old)
+            with db.transaction() as conn:
+                conn.execute("INSERT INTO plan_ownership VALUES ('base:pc','plan',1,'g')")
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'clock',return_value=now),patch.object(ledger_module,'clock',return_value=now):
+                successor=scheduler.exit_plan(dict(plan_id='plan',revision=1))
+            with db.connect() as conn:
+                row=conn.execute("SELECT due_at FROM durable_jobs WHERE id=?",('exit-cycle:'+successor['plan_id'],)).fetchone()
+            self.assertEqual(row['due_at'],(last+timedelta(hours=2)).isoformat())
+
+    def test_per_cycle_hermes_review_is_retired_before_any_submission(self):
+        with patch.object(hermes_pricing_bridge,'request') as submit:
+            with self.assertRaisesRegex(ValueError,'per_cycle_model_review_retired'):
+                hermes_pricing_bridge.review({}, {},mode='automatic_review')
+        submit.assert_not_called()
+
+    def test_automatic_hermes_compare_uses_scoped_original_run_without_new_evaluation(self):
+        run='00000000-0000-4000-8000-000000000072'
+        original=dict(status='READY',candidates=[dict(action_sha256='b'*64)],selected=dict(action_sha256='b'*64))
+        paths=[]
+        def request(path,owner,body=None):
+            paths.append((path,body))
+            return dict(snapshot_id=run,results=dict(revenue_sprint=original),execution_authorized=False)
+        scope=Mock();scope.clock.return_value=datetime.now(timezone.utc)
+        auth=dict(mode='automatic_review',runs=[run],conversation='a'*32)
+        with patch.object(pricing_operations,'authorization',return_value=auth):
+            result=pricing_operations.call(scope,'wulv','task','lease',
+                dict(action='compare_strategies',mode='revenue_sprint'),request)
+        self.assertEqual(result['results']['revenue_sprint'],original)
+        self.assertEqual(result['snapshot_id'],run)
+        self.assertEqual(paths,[('/pricing/v3/strategy-decisions/'+run,None)])
+
     def test_shadow_monitor_uses_real_outbox_cursor_and_oldest_pending_age(self):
         now=datetime(2026,10,26,14,tzinfo=timezone.utc)
         with tempfile.TemporaryDirectory() as folder:
@@ -30,7 +153,8 @@ class RuntimeContracts(unittest.TestCase):
                 conn.execute("INSERT INTO event_outbox(event_key,kind,body) VALUES (?,?,?)",
                              ('one','snapshot_ready',json.dumps(dict(snapshot_id='one'))))
                 stalled=monitoring.shadow_progress(conn,root,now)
-            self.assertEqual((stalled['status'],stalled['cursor'],stalled['pending']),('stalled',0,1))
+            self.assertEqual((stalled['status'],stalled['cursor'],stalled['pending']),('scheduled_daily',0,1))
+            self.assertEqual(stalled['next_daily_at'],'2026-10-27T02:20:00+08:00')
             with closing(sqlite3.connect(root/'shadow.sqlite3')) as shadow, shadow:
                 shadow.execute('CREATE TABLE cursor(id TEXT PRIMARY KEY,value INTEGER NOT NULL)')
                 shadow.execute("INSERT INTO cursor VALUES ('production',1)")
@@ -285,12 +409,12 @@ class RuntimeContracts(unittest.TestCase):
         ids=set(re.findall(r'id="([^"]+)"',html))
         used=set(re.findall(r"\$\('([^']+)'\)",script))
         self.assertFalse(used-ids,used-ids)
-        self.assertRegex(html,r'id="hermes-review"[^>]*\bhidden\b')
-        self.assertIn('提交 Hermes 决策审核并执行',html)
-        self.assertIn("'hermes-review'",script)
+        self.assertNotIn('id="hermes-review"',html)
+        self.assertIn('立即运行当前策略',html)
+        self.assertIn('id="v3-daily-result"',html)
         self.assertIn("request('execute',{request_key:'cycle-'",script)
-        self.assertIn('最低已观察 100K',html)
-        self.assertIn("table('v3-eld-platforms'",script)
+        self.assertIn('Lootbar',html)
+        self.assertNotIn("table('v3-eld-platforms'",script)
 
     def test_state_reads_only_latest_five_independent_market_observations(self):
         with tempfile.TemporaryDirectory() as folder:

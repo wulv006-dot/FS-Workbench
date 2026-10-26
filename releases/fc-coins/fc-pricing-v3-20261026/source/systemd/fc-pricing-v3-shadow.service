@@ -3,13 +3,14 @@ Description=FC Pricing V3 independent read-only shadow consumer
 After=local-fs.target
 
 [Service]
-Type=simple
+Type=oneshot
+TimeoutStartSec=300
 User=nobody
 Group=fc27cloud
 UMask=0027
 Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/opt/python39/bin/python3 -I /opt/fs-hermes-fc/fc_pricing_v3/shadow_worker.py
-Restart=on-failure
+ExecStart=/opt/python39/bin/python3 -I /opt/fs-hermes-fc/fc_pricing_v3/shadow_worker.py --once
+Restart=no
 RestartSec=10s
 CPUQuota=25%
 MemoryLimit=512M

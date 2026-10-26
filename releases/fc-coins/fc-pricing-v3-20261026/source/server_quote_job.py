@@ -187,8 +187,12 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
                 or not cost.get("trade_at") or Decimal(str(cost["cny_per_1k"])) <= 0):
             raise ValueError("cost_contract_invalid")
         costs[platform] = cost
-    coverage = source_coverage(snapshot["competitors"])
+    from fc_pricing_v3.runtime import collection_scope,ledger
+    from fc_pricing_v3.selective_sources import source_plan,planned_source_coverage
+    selection=collection_scope(ledger(),run_id)
+    planned=source_plan(selection['active_mode'],selection['scope'])
     for offer in snapshot["competitors"]:
+        if offer.get("source") not in planned["required_markets"]:continue
         platform, site = offer.get("platform"), offer.get("source")
         if platform not in PLATFORMS or site not in SITES or site in offers[platform]:
             raise ValueError("competitor_invalid")
@@ -205,9 +209,9 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
             "comparable": offer.get("comparable", True), "url": offer["url"],
             "checked_at": offer["captured_at"], "status": "已核对",
         }
-    if set(costs) != set(PLATFORMS) or not coverage["ready"]:
+    if set(costs) != set(PLATFORMS):
         raise ValueError("coverage_incomplete")
-    reference_market = reference_context(snapshot, now)
+    reference_market = reference_context(snapshot, now) if 'ItemD2R' in planned['required_markets'] else dict(status='not_required',offers=[])
     fx = snapshot.get("fx") or {}
     if fx.get("status") != "valid" or not age_ok(fx["checked_at"], now):
         raise ValueError("fx_missing_or_stale")
@@ -237,11 +241,13 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
                 "costs": costs, "offers": offers, "fx": fx,
                 "storefront": storefront, "reference_market": reference_market,
                 "arab_ut_status": snapshot.get('arab_ut_status')}
-    from pricing_sources import collect as collect_pricing_constraints, historical_mix
+    from pricing_sources import collect as collect_pricing_constraints
     evidence['promotion_envelope']=collect_pricing_constraints(storefront,persist=persist)
-    evidence['historical_discount_mix']=historical_mix()
     from fc_pricing_v3.runtime import context
     evidence=context(evidence)
+    coverage=planned_source_coverage(dict(snapshot,arab_ut_status=evidence['arab_ut_status']),evidence['source_plan'],datetime.now(timezone.utc),reference_market=reference_market)
+    if not coverage['ready']:raise ValueError('coverage_incomplete')
+    evidence['source_coverage']=coverage
     result = calculate(evidence, edits)
     if [row.get("platform") for row in result["rows"]] != list(PLATFORMS):
         raise ValueError("quote_platform_invalid")
