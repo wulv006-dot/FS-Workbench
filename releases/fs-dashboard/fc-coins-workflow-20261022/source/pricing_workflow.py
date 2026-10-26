@@ -188,6 +188,7 @@ class Workflow:
             snapshot=(market.get('storefront') or {}).get('collection_run_id')
             try:
                 if not snapshot:raise ValueError('current_collection_identity_missing')
+                if not hasattr(self.bridge,'load'):raise ValueError('legacy_engine_baseline_retired_use_v3_pricing_control')
                 _,original,original_refs=self.bridge.load(snapshot,engine,policy,identity)
                 result['original_engine_baseline']={'status':'available','calculation':original,'source_refs':original_refs,'snapshot_id':snapshot,'rule':'original-engine baseline, not actual storefront or execution'}
             except (ValueError,FileNotFoundError) as error:
