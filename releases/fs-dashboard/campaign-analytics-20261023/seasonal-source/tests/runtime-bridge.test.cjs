@@ -4,7 +4,7 @@ function chosenBag(){return [{id:'fc-1',selection:{catalog_version:'synthetic-v1
 function setup({enabled=true,code,unknown=false}={}){
   const config={seasonal_theme:'christmas',seasonal_model_contracts:{'seasonal-fc-1':fixture()}};
   const calls=[],messages=[],client={pending:unknown?{unknown:true,operation_id:'original-id'}:null,config,capabilities:{integration_mode:'preview'},load:async()=>({config}),describe:()=> 'Preview only',select:async lines=>{calls.push(lines);if(code)throw {code};return {quote:{status:'integration_test_quoted'}};},lookup:async()=>{calls.push('lookup-original-id');return {status:'unknown'};},prepare:async()=>{throw {code:'MAIN_INTEGRATION_REQUIRED'};}};
-  const context={window:{CampaignStandalone:{enabled:()=>enabled,create:()=>client},dispatchEvent:()=>{}},document:{documentElement:{}},CustomEvent:class {constructor(type,opts){this.type=type;this.detail=opts.detail;}}};
+  const context={window:{CampaignStandalone:{enabled:()=>enabled,create:()=>client},dispatchEvent:()=>{},addEventListener:()=>{}},document:{documentElement:{}},CustomEvent:class {constructor(type,opts){this.type=type;this.detail=opts.detail;}}};
   vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(root,'campaign-data.js'),'utf8'),context);context.window.SeasonalData=context.SeasonalData;
   vm.runInContext(fs.readFileSync(path.join(root,'model-selection.js'),'utf8'),context);context.window.SeasonalModelSelection=context.SeasonalModelSelection;
   vm.runInContext(fs.readFileSync(path.join(root,'runtime-bridge.js'),'utf8'),context);

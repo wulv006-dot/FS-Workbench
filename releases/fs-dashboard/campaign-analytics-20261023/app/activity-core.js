@@ -1,5 +1,14 @@
 (function (root) {
   'use strict';
+  function discountFromPayPercent(value) {
+    // Admin price-discount field is the percentage paid, not percentage saved.
+    // Fractional values are not yet verified; do not silently round them.
+    const text=String(value);
+    if((typeof value!=='number'&&typeof value!=='string')||!/^\d{1,3}$/.test(text))throw new Error('Unverified discount percentage');
+    const paid=Number(text);
+    if(!Number.isInteger(paid)||paid<1||paid>100)throw new Error('Unverified discount percentage');
+    return {payPercent:paid,offPercent:100-paid};
+  }
   function minor(value) {
     const text=String(value);
     if(!/^\d{1,8}(?:\.\d{1,2})?$/.test(text)) throw new Error('Invalid display price');
@@ -77,6 +86,6 @@
       return [...outcomes];
     }};
   }
-  const api={minor,line,activityPrice,selection,payload,result,catalogForm,refreshLine,createBatch};
+  const api={discountFromPayPercent,minor,line,activityPrice,selection,payload,result,catalogForm,refreshLine,createBatch};
   if(typeof module==='object'&&module.exports)module.exports=api;else root.FCActivityCore=api;
 })(typeof window==='undefined'?globalThis:window);

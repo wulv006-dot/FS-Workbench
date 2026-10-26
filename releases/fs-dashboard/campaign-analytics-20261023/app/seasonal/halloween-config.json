@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "status": "unconfigured",
+  "site_id": "266",
+  "promoter_uid": "739116",
+  "off_percent_tiers": [
+    8,
+    15,
+    10
+  ],
+  "probabilities": null,
+  "tier_product_binding": null,
+  "starts_at": null,
+  "ends_at": null,
+  "wishing_pool": false,
+  "games": [
+    {
+      "id": "fc",
+      "label": "FC27",
+      "admin_game_id": "1327",
+      "fixed_model": null,
+      "fixed_off_percent": null,
+      "fixed_quantity": {
+        "value": "1000",
+        "unit": "K",
+        "conversion_verified": false
+      },
+      "random_source": {
+        "mode": "models",
+        "category_id": null,
+        "snapshot_complete": false
+      },
+      "random_models": [],
+      "random_count": 2
+    },
+    {
+      "id": "aion",
+      "label": "Aion2",
+      "admin_game_id": "891",
+      "fixed_model": null,
+      "fixed_off_percent": null,
+      "fixed_quantity": null,
+      "random_source": {
+        "mode": "models",
+        "category_id": null,
+        "snapshot_complete": false
+      },
+      "random_models": [],
+      "random_count": 2
+    },
+    {
+      "id": "wow",
+      "label": "World of Warcraft",
+      "admin_game_id": null,
+      "fixed_model": null,
+      "fixed_off_percent": null,
+      "fixed_quantity": null,
+      "random_source": {
+        "mode": "models",
+        "category_id": null,
+        "snapshot_complete": false
+      },
+      "random_models": [],
+      "random_count": 2
+    },
+    {
+      "id": "maplestory",
+      "label": "MapleStory",
+      "admin_game_id": null,
+      "fixed_model": null,
+      "fixed_off_percent": null,
+      "fixed_quantity": null,
+      "random_source": {
+        "mode": "models",
+        "category_id": null,
+        "snapshot_complete": false
+      },
+      "random_models": [],
+      "random_count": 2
+    }
+  ]
+}

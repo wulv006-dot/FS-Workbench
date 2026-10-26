@@ -42,11 +42,11 @@
     $('draft-state').textContent='修订 '+state.revision;$('publish-state').textContent=state.published?'已有预览发布':'尚未发布';
     $('page-select').innerHTML=state.draft.pages.map(p=>'<option value="'+escape(p.page_id)+'" '+(p.page_id===selectedPage?'selected':'')+'>'+escape(p.title||p.page_id)+'</option>').join('');
     $('seasonal-theme-label').hidden=selectedPage!=='seasonal-vault';$('fc-business').hidden=selectedPage==='seasonal-vault';$('discovery-fields').closest('section').hidden=selectedPage!=='seasonal-vault';
-    $('page-guidance').textContent=selectedPage==='seasonal-vault'?'限定活动：独立主题、跨游戏商品池；演示抽奖/邀请规则保持原稿，真实奖励未启用。':'FC 页面：保留原球员、SBC搭档、三人组与捆绑包编排；新增未适配商品仅展示资料，不自动变成可买卡或组合。';
+    $('page-guidance').textContent=selectedPage==='seasonal-vault'?'万圣节：四款游戏，每游戏固定模型 + 两个随机商品槽；未配置概率、商品或有效期时保持不可抽取。旧配置记录保留，不自动迁移。':'FC 页面：保留原球员、SBC搭档、三人组与捆绑包编排；新增未适配商品仅展示资料，不自动变成可买卡或组合。';
     $('center-pages').innerHTML=state.draft.pages.map((p,i)=>'<fieldset '+(p.page_id===selectedPage?'':'hidden ')+'data-page="'+i+'"><legend>'+escape(p.title||p.page_id)+'</legend><p class="muted">'+escape(p.activity_id+' / '+p.page_id+' · '+p.path)+'</p><div class="config-grid"><label for="title-'+i+'">页面标题<input id="title-'+i+'" name="title" required maxlength="160" value="'+escape(p.title)+'"></label><label class="check"><input name="preview_enabled" type="checkbox" '+(p.preview_enabled?'checked':'')+'>允许预览</label><label for="start-'+i+'">开始时间 (UTC)<input id="start-'+i+'" name="starts_at" type="datetime-local" value="'+local(p.starts_at)+'" aria-errormessage="date-error-'+i+'"><span class="error-msg" id="date-error-'+i+'">结束时间必须晚于开始时间。</span></label><label for="end-'+i+'">结束时间 (UTC)<input id="end-'+i+'" name="ends_at" type="datetime-local" value="'+local(p.ends_at)+'" aria-errormessage="end-error-'+i+'"><span class="error-msg" id="end-error-'+i+'">结束时间必须晚于开始时间。</span></label></div><label for="description-'+i+'">SEO 描述<textarea id="description-'+i+'" name="description" maxlength="320">'+escape(p.description)+'</textarea></label>'+presentationControls(p,i)+'<div data-bindings="'+i+'">'+bindings(p,i)+'</div></fieldset>').join('');
     const theme=$('seasonal-theme'),value=state.draft.seasonal_theme||'halloween';
     if(typeof value==='string'){if(![...theme.options].some(o=>o.value===value))theme.add(new Option(value,value));theme.value=value;}else theme.disabled=true;
-    renderPageProducts();renderFcLayout();renderMaterials();renderPreview();publicationSummary();lock();
+    renderPageProducts();renderFcLayout();renderHalloween();renderMaterials();renderPreview();publicationSummary();lock();
   }
   function readForm(){
     const draft=structuredClone(state.draft);
@@ -65,7 +65,7 @@
     }
     return draft;
   }
-  const fieldNames={product_keys:'商品选择与顺序',product_roles:'商品展示位置',sbc_companions:'SBC搭档',fc_layout:'FC编排',title:'标题',description:'说明',preview_enabled:'预览开关',starts_at:'开始时间',ends_at:'结束时间',default_language:'默认语言',social_image:'分享图',benefit_refs:'优惠绑定',seasonal_theme:'限定活动主题'};
+  const fieldNames={product_keys:'商品选择与顺序',product_roles:'商品展示位置',sbc_companions:'SBC搭档',fc_layout:'FC编排',title:'标题',description:'说明',preview_enabled:'预览开关',starts_at:'开始时间',ends_at:'结束时间',default_language:'默认语言',social_image:'分享图',benefit_refs:'优惠绑定',halloween:'万圣节四游戏槽位',seasonal_theme:'限定活动主题'};
   function renderChanges(){
     if(!$('draft-changes')||!state||!savedDraft)return;
     const rows=[],compare=(before,after,label)=>{
@@ -106,6 +106,78 @@
     }catch(error){$('published-readback').textContent=error.message+' 保存记录不代表运行时已生效。';}finally{busy=false;lock();}
   });
   function pageKeys(page){return page.product_keys??state.page_product_keys?.[page.page_id]??[];}
+  function renderHalloween(){
+    const box=$('halloween-business');if(!box)return;box.hidden=selectedPage!=='seasonal-vault';if(box.hidden)return;
+    const h=state.draft.halloween??state.effective_halloween;
+    if(!h){$('halloween-fields').textContent='服务器尚未提供四游戏配置合同；未改旧配置。';return;}
+    const products=[...(state.catalog_products||[]),...(state.draft.imported_products||[])];
+    $('halloween-fields').innerHTML=h.games.map((g,index)=>{
+      const rows=products.filter(p=>p.product_ref?.site_id==='266'&&p.product_ref?.game_id===g.admin_game_id&&p.product_ref?.model_id),models=[...new Map(rows.map(p=>[p.product_ref.model_id,p])).values()];
+      const options='<option value="">尚未配置</option>'+models.map(p=>'<option value="'+escape(p.product_ref.model_id)+'" '+(p.product_ref.model_id===g.fixed_model?'selected':'')+'>'+escape(p.title)+' · 模型 '+escape(p.product_ref.model_id)+'</option>').join('');
+      const source=g.random_source||{mode:'models',category_id:null,snapshot_complete:false};
+      return '<fieldset><legend>'+escape(g.label)+'</legend>'+ (g.id==='fc'?'<p>固定商品业务量：1000K Coins。尚须核实模型及实际购买单位换算，不能用任意SKU代替。</p>':'')+'<label>随机池来源<select data-h-source="'+index+'">'+[['models','指定模型'],['category_snapshot','类目批量快照（本次明确模型列表）'],['category_dynamic','类目动态全可售（抽取前服务端读取）']].map(([v,label])=>'<option value="'+v+'" '+(source.mode===v?'selected':'')+'>'+label+'</option>').join('')+'</select></label><label>Admin 类目 ID<input data-h-category="'+index+'" value="'+escape(source.category_id||'')+'" inputmode="numeric"></label><p>快照不随新增/下架自动扩展；动态规则不会把当前分页当完整目录。实际可售、去重及排除固定项在抽取前重新核验，不足两款保持不可抽取。</p><label>Admin 游戏 ID（须按真实目录核对）<input data-h-game="'+index+'" inputmode="numeric" value="'+escape(g.admin_game_id||'')+'" '+(['fc','aion'].includes(g.id)?'readonly':'')+'></label><label>固定模型<select data-h-fixed="'+index+'">'+options+'</select></label><label>固定模型优惠<select data-h-off="'+index+'"><option value="">尚未配置</option>'+[8,15,10].map(v=>'<option value="'+v+'" '+(v===g.fixed_off_percent?'selected':'')+'>'+v+'% OFF / Admin '+(100-v)+'</option>').join('')+'</select></label><p>随机池（每次由服务端选择两款，不能与固定模型重复）</p>'+models.filter(p=>p.product_ref.model_id!==g.fixed_model).map(p=>'<label class="check"><input type="checkbox" data-h-pool="'+index+'" value="'+escape(p.product_ref.model_id)+'" '+(g.random_models.includes(p.product_ref.model_id)?'checked':'')+'>'+escape(p.title)+' · 模型 '+escape(p.product_ref.model_id)+'</label>').join('')+'<p>这里只选模型，关联产品保留用于规格解析；不是把某个SKU当模型价格。请先在真实商品检索区核对并导入相关模型的关联产品。未核游戏ID和未取得目录不会虚构选项。</p></fieldset>';
+    }).join('')+'<fieldset><legend>抽取档位（万分比权重，总和10000；留空未配置）</legend>'+[8,15,10].map(off=>'<label>'+off+'% OFF<input data-h-weight="'+off+'" type="number" min="0" max="10000" step="1" value="'+escape(h.probabilities?.find(r=>r.off_percent===off)?.weight??'')+'"></label>').join('')+'<label>档位与商品关系<select id="h-binding"><option value="">尚未确定</option><option value="independent" '+(h.tier_product_binding==='independent'?'selected':'')+'>已确认独立抽取（需运营明确选择）</option></select></label><label>万圣节开始时间（含时区ISO格式）<input id="h-start" value="'+escape(h.starts_at||'')+'" placeholder="未配置，不套用FC时间"></label><label>万圣节结束时间（含时区ISO格式）<input id="h-end" value="'+escape(h.ends_at||'')+'"></label><button type="button" id="h-apply" class="fs-btn">确认这些槽位到本地草稿</button></fieldset>';
+    addHalloweenReadControls();
+  }
+  function addHalloweenReadControls(){
+    document.querySelectorAll('#halloween-fields [data-h-fixed]').forEach(select=>{
+      const index=select.dataset.hFixed,box=select.closest('fieldset');
+      if(box.querySelector('[data-h-observation]'))return;
+      for(const [mode,label] of [['model','只读核对固定模型关联产品与档位'],['pool','只读核对类目第一页及最多3个模型关联']]){
+        const button=document.createElement('button');button.type='button';button.className='fs-btn';button.dataset.hRead=mode;button.dataset.hIndex=index;button.textContent=label;box.append(button);
+      }
+      const output=document.createElement('pre');output.dataset.hObservation=index;output.style.whiteSpace='pre-wrap';output.style.overflowWrap='anywhere';output.setAttribute('role','status');box.append(output);
+    });
+  }
+  // Reads remain in the sole editor and never mutate the draft or publish data.
+  $('halloween-business')?.addEventListener('click',async event=>{
+    const mode=event.target.dataset.hRead,index=event.target.dataset.hIndex;
+    if(!mode||busy||pending||!state?.canEdit)return;
+    const field=name=>document.querySelector('[data-h-'+name+'="'+index+'"]');
+    const output=document.querySelector('[data-h-observation="'+index+'"]');
+    const game_id=field('game').value.trim(),category_id=field('category').value.trim(),model_id=field('fixed').value;
+    if(!/^[1-9]\d{0,19}$/.test(game_id)||!/^[1-9]\d{0,19}$/.test(category_id)||(mode==='model'&&!model_id)){output.textContent='请先选择真实游戏、类目及需要核对的模型。';return;}
+    busy=true;lock();output.textContent='正在只读核对 Admin；不会保存或改变活动配置。';
+    try{
+      const query={action:mode==='model'?'model_provider_read':'model_category_pool',site_id:'266',game_id,category_id,...(mode==='model'?{model_id}:{max_pages:1,page_size:10,resolve_associations:true,exclude_model_ids:model_id?[model_id]:[]})};
+      const {data}=await request('api/center/backend-read',query);
+      // Explicit source fields only; no raw response HTML or customer data.
+      const summary=mode==='model'?{observed_at:data.observed_at,source:data.source,model:data.model,products:data.products,coverage:data.coverage,currency:data.currency,authoritative:false,checkout_enabled:false}
+        :{observed_at:data.observed_at,source:data.source,items:data.items,coverage:data.coverage,association_coverage:data.association_coverage,available:false,checkout_enabled:false};
+      output.textContent='只读观测（不是已核权威售价或可售权益池）：\n'+JSON.stringify(summary,null,2);
+    }catch(error){output.textContent='读取未完成：'+error.message+'；不会用空结果替代原配置。';}
+    finally{busy=false;lock();}
+  });
+  $('halloween-business')?.addEventListener('click',event=>{
+    if(event.target.id!=='h-apply'||busy||pending||!state?.canEdit)return;
+    const h=structuredClone(state.draft.halloween??state.effective_halloween);if(!h)return;
+    for(let i=0;i<h.games.length;i++){
+      const g=h.games[i],gid=document.querySelector('[data-h-game="'+i+'"]').value.trim();
+      if(gid&&!/^[1-9]\d{0,19}$/.test(gid)){$('halloween-status').textContent='游戏ID须为已核实的数字ID。';return;}
+      if(gid!==(g.admin_game_id||'')){
+        if(g.fixed_model||g.random_models.length){$('halloween-status').textContent='改变游戏范围前请先明确清除原模型选择，防止串游戏。';return;}
+        g.admin_game_id=gid||null;
+      }
+      g.fixed_model=document.querySelector('[data-h-fixed="'+i+'"]').value||null;
+      g.fixed_off_percent=Number(document.querySelector('[data-h-off="'+i+'"]').value)||null;
+      g.random_models=[...document.querySelectorAll('[data-h-pool="'+i+'"]:checked')].map(el=>el.value);
+      const mode=document.querySelector('[data-h-source="'+i+'"]').value,category=document.querySelector('[data-h-category="'+i+'"]').value.trim();
+      if(mode!=='models'&&!/^[1-9]\d{0,19}$/.test(category)){$('halloween-status').textContent='类目来源须填写已核实的 Admin 类目 ID；不猜类目。';return;}
+      if(mode==='category_dynamic'&&g.random_models.length){$('halloween-status').textContent='动态类目不能混合静态勾选模型，请明确取消本地列表后再应用。';return;}
+      g.random_source={mode,category_id:mode==='models'?null:category,snapshot_complete:false};
+      if(g.id==='fc')g.fixed_quantity={value:'1000',unit:'K',conversion_verified:false};
+
+      if(g.random_models.includes(g.fixed_model)){$('halloween-status').textContent='固定模型不能同时进入随机池。';return;}
+    }
+    const weights=[...document.querySelectorAll('[data-h-weight]')];
+    if(weights.every(el=>el.value===''))h.probabilities=null;
+    else {if(weights.some(el=>el.value===''||!Number.isInteger(Number(el.value))||Number(el.value)<0)||weights.reduce((sum,el)=>sum+Number(el.value),0)!==10000){$('halloween-status').textContent='三个权重必须同时配置为非负整数，合计10000；不会默认等概率。';return;}h.probabilities=weights.map(el=>({off_percent:Number(el.dataset.hWeight),weight:Number(el.value)}));}
+    h.tier_product_binding=$('h-binding').value||null;
+    for(const [key,id] of [['starts_at','h-start'],['ends_at','h-end']]){const v=$(id).value.trim();if(v&&(!/(Z|[+-]\d{2}:\d{2})$/.test(v)||!Number.isFinite(Date.parse(v)))){$('halloween-status').textContent='时间须含明确时区；留空保持未配置。';return;}h[key]=v||null;}
+    if(h.starts_at&&h.ends_at&&Date.parse(h.starts_at)>=Date.parse(h.ends_at)){$('halloween-status').textContent='截止时间必须晚于开始时间。';return;}
+    state.draft=readForm();state.draft.halloween=h;renderHalloween();renderMaterials();lock();$('halloween-status').textContent='已更新本地槽位，尚未保存或发布；真实抽取与购买仍受门禁控制。';
+  });
+
   const roleOptions={'seasonal-vault':['preview','pool','fixed','both']};
   const roleLabels={preview:'资料预览 / 未分配',player:'球员展示',bundle:'固定组合展示',core:'SBC 核心展示',companion:'搭档展示',pool:'随机池',fixed:'固定区',both:'随机池及固定区'};
   function renderPageProducts(){
@@ -229,9 +301,9 @@
   async function uploadBytes(id,value,remove=false){const db=await uploadDB();return new Promise((resolve,reject)=>{const transaction=db.transaction('bytes',value||remove?'readwrite':'readonly'),store=transaction.objectStore('bytes'),request=remove?store.delete(id):value?store.put(value,id):store.get(id);let result;request.onsuccess=()=>{result=request.result;};request.onerror=()=>reject(Error('无法保留原始上传文件。'));transaction.oncomplete=()=>{db.close();resolve(result);};transaction.onerror=()=>reject(Error('无法保留原始上传文件。'));});}
   function retainUpload(record){sessionStorage.setItem(uploadStorageKey,JSON.stringify(record));uploadRecord=record;lock();}
   function mediaRef(target){return target.startsWith('card:')?page().media?.cards?.[target.slice(5)]:page().media?.[target];}
-  function originalMaterial(target){if(target.startsWith('card:')){const image=productFor(target.slice(5))?.image;return image?(image.startsWith('https://')?image:'../'+image):null;}const choices=imageChoices[selectedPage]||[],seasonal=selectedPage==='seasonal-vault';if(seasonal)return '../seasonal/assets/hero-'+(state.draft.seasonal_theme||'halloween')+'.webp';if(target==='share'&&page().social_image&&page().social_image!=='original')return '../'+page().social_image;return choices.length?'../'+choices[target==='hero_mobile'?1:0]:null;}
+  function originalMaterial(target){if(selectedPage==='seasonal-vault'&&target.startsWith('card:game:')){const n=['fc','aion','wow','maplestory'].indexOf(target.slice(10));return n<0?null:'../seasonal/assets/game-'+(n+1)+'.png';}if(target.startsWith('card:')){const image=productFor(target.slice(5))?.image;return image?(image.startsWith('https://')?image:'../'+image):null;}const choices=imageChoices[selectedPage]||[],seasonal=selectedPage==='seasonal-vault';if(seasonal)return '../seasonal/assets/hero-'+(state.draft.seasonal_theme||'halloween')+'.webp';if(target==='share'&&page().social_image&&page().social_image!=='original')return '../'+page().social_image;return choices.length?'../'+choices[target==='hero_mobile'?1:0]:null;}
   function renderMaterials(){
-    const d=layout(),keys=selectedPage.startsWith('fc27-')&&d?[...new Set(layoutIds(d))]:selectedPage==='seasonal-vault'?[...pageKeys(page())]:[],slots=[['hero_desktop','主视觉 · 桌面'],['hero_mobile','主视觉 · 手机'],['share','社交分享图'],...keys.map(key=>['card:'+key,'卡图 · '+(productFor(key)?.title||key)])],old=$('media-target').value;
+    const d=layout(),keys=selectedPage.startsWith('fc27-')&&d?[...new Set(layoutIds(d))]:selectedPage==='seasonal-vault'?['game:fc','game:aion','game:wow','game:maplestory',...pageKeys(page())]:[],slots=[['hero_desktop','主视觉 · 桌面'],['hero_mobile','主视觉 · 手机'],['share','社交分享图'],...keys.map(key=>['card:'+key,'卡图 · '+(productFor(key)?.title||key)])],old=$('media-target').value;
     $('media-target').innerHTML=slots.map(([key,label])=>'<option value="'+escape(key)+'">'+escape(label)+'</option>').join('');if(slots.some(x=>x[0]===old))$('media-target').value=old;
     $('page-materials').innerHTML=slots.map(([key,label])=>{const ref=mediaRef(key),original=originalMaterial(key);return '<div><h4>'+escape(label)+'</h4>'+(ref?'<img class="material-thumb" src="api/center/assets/'+escape(ref.asset_id)+'" alt="'+escape(ref.alt)+'"><p>已绑定草稿素材 · '+escape(ref.asset_id)+'</p><button class="fs-btn" type="button" data-clear-media="'+escape(key)+'">清除本页覆盖，沿用原图</button>':(original?'<img class="material-thumb" src="'+escape(original)+'" alt="Original material preview"><p>沿用原页面 / 本版本原图；未添加覆盖。</p>':'<div class="image-placeholder">本版本缺图，待上传；不拿其他版本替代。</div>'))+'</div>';}).join('');
   }

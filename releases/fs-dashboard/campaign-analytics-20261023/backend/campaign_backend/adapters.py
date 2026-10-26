@@ -138,7 +138,11 @@ class AdminRead:
         game_id, category_id = positive_id(game_id), positive_id(category_id)
         if type(page) is not int or not 1<=page<=500 or type(limit) is not int or not 1<=limit<=20:
             raise ContractError('INVALID_CATALOG_PAGE')
-        filters = [('gid','=',game_id),('cid','=',category_id),('title','LIKE',keyword)]
+        if keyword is not None and (not isinstance(keyword,str) or not 2<=len(keyword.strip())<=80
+                or any(ord(c)<32 for c in keyword)):
+            raise ContractError('INVALID_CATALOG_KEYWORD')
+        filters = [('gid','=',game_id),('cid','=',category_id)]
+        if keyword is not None:filters.append(('title','LIKE',keyword))
         data = self._get_catalog_once(LIST_ROUTES['models'],page=page,limit=limit,order='id,desc',**search(filters))
         rows,total = data.get('list'),data.get('total')
         if isinstance(total,str) and total.isascii() and total.isdecimal():total=int(total)
@@ -148,7 +152,8 @@ class AdminRead:
         seen=set()
         for row in rows:
             if (not isinstance(row,dict) or positive_id(row.get('gid'))!=game_id or positive_id(row.get('cid'))!=category_id
-                    or not isinstance(row.get('title'),str) or keyword.casefold() not in row['title'].casefold()):
+                    or not isinstance(row.get('title'),str)
+                    or keyword is not None and keyword.casefold() not in row['title'].casefold()):
                 raise ContractError('MODEL_SEARCH_SCOPE_MISMATCH')
             rid=positive_id(row.get('id'))
             if rid in seen:raise ContractError('DUPLICATE_PAGE')

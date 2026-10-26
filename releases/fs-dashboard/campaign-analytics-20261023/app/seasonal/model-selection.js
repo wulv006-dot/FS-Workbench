@@ -56,5 +56,26 @@
       contractVersion:contract.catalog_version,modelRef:clone(contract.model_ref)
     };return api;
   }
-  const api={create};if(typeof module==='object'&&module.exports)module.exports=api;else root.SeasonalModelSelection=api;
+  // Admin catalog prices are indicative, never a checkout authorization. Keep the
+  // source ordering: a missing first combination must not silently pick another.
+  function defaultPrice(input,offPercent,{now=Date.now}={}){
+    if(![8,15,10].includes(offPercent))throw fail('OFFER_NOT_CONFIGURED');
+    create(input,{now});
+    if(input.ordering_verified!==true||typeof input.ordering_evidence!=='string'||!input.ordering_evidence)throw fail('DEFAULT_ORDER_UNVERIFIED');
+    const combo=input.combinations[0],price=combo?.price;
+    if(!price||price.source!=='admin_current'||!Number.isSafeInteger(price.base_minor)||price.base_minor<0||!Number.isInteger(price.minor_unit_scale)||price.minor_unit_scale<0||price.minor_unit_scale>4||!(/^[A-Z]{3}$/).test(price.currency)||!Number.isFinite(Date.parse(price.expires_at))||Date.parse(price.expires_at)<=now()||!price.quantity_value)throw fail('DEFAULT_PRICE_UNAVAILABLE');
+    const selected=create(input,{now});for(const field of selected.fields())selected.select(field.id,combo.choices[field.id]);selected.setQuantity(price.quantity_value);selected.line();
+    const discounted=(BigInt(price.base_minor)*BigInt(100-offPercent)+50n)/100n;
+    return {product_key:combo.product_key,choices:clone(combo.choices),quantity:selected.line().quantity,base_minor:price.base_minor,indicative_discounted_minor:Number(discounted),currency:price.currency,minor_unit_scale:price.minor_unit_scale,off_percent:offPercent,authoritative:false,source:'admin_current',expires_at:price.expires_at,label:'Default server combination; final price confirmed before payment'};
+  }
+  function selectedPrice(input,selection,offPercent,options={}){
+    const saved=selection.serialize();
+    if(saved.catalog_version!==input.catalog_version||JSON.stringify(saved.model_ref)!==JSON.stringify(input.model_ref))throw fail('MODEL_OPTIONS_UNAVAILABLE');
+    const matches=input.combinations.filter(c=>Object.keys(saved.choices).length===Object.keys(c.choices).length&&Object.entries(saved.choices).every(([k,v])=>c.choices[k]===v));
+    if(matches.length!==1||matches[0].price?.quantity_value!==saved.quantity)throw fail('CURRENT_PRICE_UNAVAILABLE');
+    // No multiplying a quantity-tier price. Only the exact observed combination
+    // and quantity can be shown; a different quantity requires a fresh source.
+    return defaultPrice({...input,ordering_verified:true,ordering_evidence:'explicit-user-selection',combinations:matches},offPercent,options);
+  }
+  const api={create,defaultPrice,selectedPrice};if(typeof module==='object'&&module.exports)module.exports=api;else root.SeasonalModelSelection=api;
 })(typeof globalThis==='undefined'?this:globalThis);

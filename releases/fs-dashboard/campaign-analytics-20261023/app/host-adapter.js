@@ -2,6 +2,7 @@
   'use strict';
   function create(config) {
     if(root.location.origin!=='https://www.mmoexp.com')throw new Error('Live cart requires the existing MMOEXP origin');
+    if(config.activityPricing?.strategy==='native_discount_code')throw new Error('Native discount-code handoff requires verification before live use');
     if(config.activityPricing?.enabled)throw new Error('Activity-source discount and stacked-margin checkout must be integrated before live use');
     const path=value=>typeof root.langPageUrl==='function'?root.langPageUrl(value):value;
     async function post(url,data) {
