@@ -42,6 +42,25 @@ def hourly_actual(selected,coverage,date):
         source_sha256=fingerprint(coverage),profit_status='actual_cost_coverage_required_not_inferred_from_USD_revenue')
 
 
+def exposure_scope(windows,date):
+    from .business_source import _window_end
+    start=datetime.fromisoformat(date).replace(tzinfo=LOCAL);stop=start+timedelta(days=1)
+    periods=[]
+    valid=[w for w in windows if w.get('origin')=='confirmed_public_price_window' and w.get('mode')=='production']
+    for window in valid:
+        opened=instant(window['opened_at'])
+        for resource in window.get('mutable_resources',[]):
+            group=resource.removeprefix('base:') if resource.startswith('base:') else resource.removeprefix('region:')
+            if not resource.startswith(('base:','region:')):continue
+            end=_window_end(window,group,valid,stop)
+            if max(start,opened)<min(stop,end):periods.append((max(start,opened),min(stop,end),window['operation_id']))
+    return dict(status='confirmed_windows_available' if periods else 'no_confirmed_exposure',
+        first_exposure_at=min((p[0] for p in periods),default=None).isoformat() if periods else None,
+        last_observed_through=max((p[1] for p in periods),default=None).isoformat() if periods else None,
+        confirmed_operation_count=len({p[2] for p in periods}),source_sha256=fingerprint(windows),
+        attribution='only_orders_bound_by_creation_and_actual_price_are_effect_samples; full_day_orders_are_business_context; range_is_not_continuous_coverage_proof')
+
+
 def collect_outcomes(date,windows):
     """Admin/Order business reads only; no competitor, public price or write endpoint."""
     import sys
@@ -78,6 +97,7 @@ def run(body):
         if process.returncode:raise ValueError('pricing_daily_outcome_collection_failed')
         outcomes=json.loads(process.stdout)
         record['actual']=outcomes['actual']
+        record['price_exposure']=exposure_scope(db.all('actual_price_windows'),date)
         db.put('metadata','daily_online_context',outcomes['online'])
         for settlement in outcomes['online'].get('budget_settlements',[]):db.settle_order(settlement)
         record['learning_coverage']=outcomes['online'].get('learning_coverage')
@@ -107,7 +127,7 @@ def run(body):
             history={k:mix.get(k) for k in ('period','net_order_usd','discount_usd','undiscounted_order_usd','retained_ratio','sha256')},
             demand_model={k:model.get(k) for k in ('status','elasticity','groups','observed_window_hours','rate_window_hours')},
             source_plan=evidence.get('source_plan'),basis_is_latest_saved_input=True)
-    report={k:record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis')}
+    report={k:record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
     quote=dict(run_id=record['request_id'],daily_report=report,result=dict(decision_receipt=dict(sha256=fingerprint(report))))
     receipt=bridge.review(dict(job_id=record['request_id'],actor='wulv'),quote,mode='daily_review',wait_seconds=0)
     record['hermes']=receipt

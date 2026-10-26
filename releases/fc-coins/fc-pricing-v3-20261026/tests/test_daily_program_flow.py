@@ -67,6 +67,13 @@ class DailyProgramFlow(unittest.TestCase):
         self.assertIn('每日一次',prompt)
         self.assertIn('不调用recommend',prompt);self.assertLess(len(prompt),12000)
 
+    def test_daily_context_does_not_attribute_pretrial_day_to_V3(self):
+        window=dict(origin='confirmed_public_price_window',mode='production',opened_at='2026-10-26T14:36:00+00:00',operation_id='original',mutable_resources=['base:console'])
+        result=daily.exposure_scope([window],'2026-10-26')
+        self.assertEqual(result['first_exposure_at'],'2026-10-26T14:36:00+00:00')
+        self.assertEqual(result['confirmed_operation_count'],1)
+        self.assertEqual(daily.exposure_scope([window],'2026-10-25')['status'],'no_confirmed_exposure')
+
     def test_pricing_turn_route_validates_real_id_not_literal_turns(self):
         body=dict(text='daily',client_request_id='fc_pricing_daily',run_id='00000000-0000-4000-8000-000000000099')
         raw=json.dumps(body).encode();headers=Message()
