@@ -1,4 +1,5 @@
 import {projectModelOptions} from './model-options.mjs';
+import nativeHandoff from '../native-code-handoff.js';
 import {projectHalloween,halloweenProductKeys} from './halloween-contract.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -136,6 +137,7 @@ export function projectRelease(input) {
   if(input.seasonal_theme!=null){if(!['halloween','thanksgiving','christmas','black-friday'].includes(input.seasonal_theme))fail('INVALID_RELEASE');result.seasonal_theme=input.seasonal_theme;}
   if(input.halloween!=null){result.halloween=projectHalloween(input.halloween);const keys=halloweenProductKeys(result.halloween,result.products);const page=result.pages.find(p=>p.page_id==='seasonal-vault');if(!page||keys.some(k=>!page.product_keys.includes(k)))fail('INVALID_HALLOWEEN_CONFIG');}
   if(input.seasonal_model_contracts!=null){result.seasonal_model_contracts=projectModelOptions(input.seasonal_model_contracts,result.products);const allowed=new Set(result.pages.find(p=>p.page_id==='seasonal-vault')?.product_keys||[]);if(Object.values(result.seasonal_model_contracts).some(c=>c.combinations.some(x=>!allowed.has(x.product_key))))fail('INVALID_MODEL_OPTIONS');}
+  if(input.native_checkout!=null){try{result.native_checkout=nativeHandoff.projectConfiguration(input.native_checkout,result.pages,result.products);}catch{fail('NATIVE_CONFIGURATION_INVALID');}}
   if(input.fc_layout!=null)result.fc_layout=projectFcLayout(input.fc_layout,result.products);
   if(result.pages.some(p=>p.starts_at&&p.ends_at&&p.starts_at>=p.ends_at))fail('INVALID_RELEASE');
   return JSON.parse(JSON.stringify(result));
@@ -146,7 +148,7 @@ export function createSnapshot(publishedRelease) {
   return {publication_status:'published',...projectRelease(publishedRelease)};
 }
 
-const allowedNames = new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','standalone-adapter.js','activity-analytics.js','analytics-config.js','catalog.js','sitemap.xml','robots.txt',
+const allowedNames = new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','native-code-handoff.js','standalone-adapter.js','activity-analytics.js','analytics-config.js','catalog.js','sitemap.xml','robots.txt',
   'seasonal/index.html','seasonal/creative-kit.html','seasonal/event.js','seasonal/event.css','seasonal/vault-core.js','seasonal/campaign-data.js','seasonal/kit.js','seasonal/kit.css','seasonal/vault-analytics.js','seasonal/activity-analytics.js','seasonal/analytics-config.js','seasonal/runtime-bridge.js','seasonal/model-selection.js']);
 export function loadStatic(root, manifest) {
   const realRoot=fs.realpathSync(root), files=new Map();

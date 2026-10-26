@@ -15,7 +15,7 @@ import sys
 from pathlib import Path, PurePosixPath
 
 PUBLIC_NAMES = set('''index.html Weekly-Scout.html Sbc-Companions.html Player-Trio.html
-activity.css activity.js activity-core.js activity-content.js host-adapter.js standalone-adapter.js
+activity.css activity.js activity-core.js activity-content.js host-adapter.js standalone-adapter.js native-code-handoff.js
 activity-analytics.js analytics-config.js catalog.js sitemap.xml robots.txt
 seasonal/index.html seasonal/creative-kit.html seasonal/event.js seasonal/event.css seasonal/vault-core.js
 seasonal/campaign-data.js seasonal/kit.js seasonal/kit.css seasonal/vault-analytics.js

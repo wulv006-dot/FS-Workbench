@@ -5,7 +5,7 @@
   const $=id=>document.getElementById(id),escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const t=(zh,en)=>en,product=key=>config.products[key],route=key=>config.sbc.routes[key]||{picks:config.sbc.fallbackPicks,alternatives:[],label:{zh:'自选搭配方向',en:'Build your own pairing'}};
   const state={lang:'en',view:root.dataset.defaultView||config.defaultView||'sbc',platform:'ps',core:config.sbc.defaultId,coreMode:'owned',companions:[...route(config.sbc.defaultId).picks],weekly:new Set(config.weekly.ids.slice(0,1)),bundles:new Set(),busy:false,submitted:false};
-  const standalone=window.CampaignStandalone?.enabled(document.documentElement),live=config.mode==='live'&&!standalone;let runtimeClient=null,published=null,publishedReady=!standalone;let pageTimer;let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false;const currentDisplays=new Map();
+  const standalone=window.CampaignStandalone?.enabled(document.documentElement),live=config.mode==='live'&&!standalone;let runtimeClient=null,published=null,publishedReady=!standalone;let pageTimer;let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false,nativeReview=null;const currentDisplays=new Map();
   const content=window.FCActivityContent.create(config,live),{words,heroes}=content;
   function pageState(view){
     if(!standalone)return 'active';if(!publishedReady)return 'loading';
@@ -147,12 +147,14 @@
   }
   function status(text){$('review-status').textContent=window.FCActivityContent.englishText(text,'The request could not be verified. No successful checkout is confirmed.');}
   function signal(name,detail={}){root.dispatchEvent(new CustomEvent('fcactivity:'+name,{bubbles:true,detail:{view:state.view,platform:state.platform,preview:!live,language:state.lang,...detail}}));}
+  function nativeSelection(items){return {activity_id:'fc27-season2',page_id:'fc27-'+state.view,off_percent:10,lines:items.map(item=>({product_key:'fc-'+item.key+'-'+state.platform,quantity:{value:String(item.offer.quantity),unit:'item'},attributes:[]}))};}
+  function nativePlan(items){return window.CampaignNativeCodeHandoff.publishedPlan(published,nativeSelection(items),{origin:window.location.origin});}
   async function openReview(override){
     if(standalone&&pageState(state.view)!=='active'){render();return;}
     if(state.busy||state.submitted)return;
     if(standalone){state.busy=true;render();await publishedConfig();state.busy=false;if(pageState(state.view)!=='active'){render();return;}}
     priceGeneration++;state.busy=true;render();
-    try{const items=Array.isArray(override)?override:selected();review=await freshReview(standalone?items.filter(item=>item&&scoped([item.key]).length):items);if(!review.length)return;reviewFingerprint=fingerprint(review);renderReview();$('continue-cart').hidden=true;$('submit-selection').hidden=false;$('submit-selection').disabled=config.activityPricing?.strategy==='native_discount_code'||review.some(item=>item.preview_only);status(review.some(item=>item.preview_only)?'Preview only. Price, quantity and purchase mapping require verification.':live?t('商品与现价已重新确认。分别加入原购物车，原结算和交付说明继续适用。','Availability and prices refreshed. Items go into the existing cart with the original checkout and delivery requirements.'):t('本地体验价：按你指定的活动9折规则计算，尚未加购、下单或付款；券码与积分的抵扣需在原结算中核算。','No price or discount is confirmed. Campaign checkout is not connected; nothing has been added to the cart.'));$('review-dialog').showModal();signal('review',{ids:review.map(item=>item.offer.id),includeSbc:review.some(item=>item.kind==='sbc')});}
+    try{const items=Array.isArray(override)?override:selected();review=await freshReview(standalone?items.filter(item=>item&&scoped([item.key]).length):items);if(!review.length)return;reviewFingerprint=fingerprint(review);renderReview();$('continue-cart').hidden=true;$('submit-selection').hidden=false;nativeReview=null;try{if(standalone&&!review.some(item=>item.preview_only))nativeReview=nativePlan(review);}catch{}$('submit-selection').disabled=(config.activityPricing?.strategy==='native_discount_code'&&!nativeReview)||review.some(item=>item.preview_only);status(nativeReview?'Continue adds these exact items to the native cart and carries the configured code. The cart may automatically Apply it; final eligibility and totals are confirmed there. Coupons and points cannot be combined.':review.some(item=>item.preview_only)?'Preview only. Price, quantity and purchase mapping require verification.':live?t('商品与现价已重新确认。分别加入原购物车，原结算和交付说明继续适用。','Availability and prices refreshed. Items go into the existing cart with the original checkout and delivery requirements.'):t('本地体验价：按你指定的活动9折规则计算，尚未加购、下单或付款；券码与积分的抵扣需在原结算中核算。','No price or discount is confirmed. Campaign checkout is not connected; nothing has been added to the cart.'));$('review-dialog').showModal();signal('review',{ids:review.map(item=>item.offer.id),includeSbc:review.some(item=>item.kind==='sbc')});}
     catch(error){$('activity-message').hidden=false;$('activity-message').textContent=t('暂时无法确认当前商品，请到原商店核对后再试。','Unable to confirm the current items. Check the original shop before trying again.');}
     finally{state.busy=false;render();}
   }
@@ -169,6 +171,18 @@
   async function submit(){
     if(standalone&&(pageState(state.view)!=='active'||!selected().length)){render();return;}
     if(state.busy||state.submitted)return;
+    if(standalone&&nativeReview){
+      state.busy=true;render();
+      try{
+        await publishedConfig();const fresh=nativePlan(review);
+        if(fresh.signature!==nativeReview.signature){nativeReview=null;status('Published configuration changed. Close this review and check the selection again. No cart request was sent.');return;}
+        const selection=nativeSelection(review),host=window.FCActivityHost.createNative(published,selection);
+        const result=await window.CampaignNativeCodeHandoff.checkoutPublished({snapshot:published,selection,storage:window.sessionStorage,host,origin:window.location.origin,navigate:url=>window.location.assign(url)});
+        state.submitted=true;status(result.state==='navigation_attempted_not_applied'?'Native cart handoff attempted. Discount Apply and final totals are not confirmed by this page.':'The original native operation requires inspection. Do not submit again; check the original cart.');
+      }catch(error){status((error.code||error.message||'NATIVE_HANDOFF_UNAVAILABLE')+'. No successful checkout is confirmed. Inspect the original operation before another attempt.');}
+      finally{state.busy=false;render();}
+      return;
+    }
     if(config.activityPricing?.strategy==='native_discount_code'){status('Campaign checkout is not connected. No cart or discount-code request was sent.');return;}
     if(review.some(item=>item.preview_only)){status('Preview only. No quote or purchase is available.');return;}
     if(standalone){
