@@ -11,12 +11,12 @@ from urllib.error import HTTPError
 from urllib.request import Request,build_opener,HTTPRedirectHandler
 
 NAME='fs.pricing.control'
-ACTIONS=('capabilities','state','read_quote','compare_strategies','region_impact','sprint_target','simulate','simulation_read','plan_propose','plan_execute_authorized','operation_read','incident_read','recommend')
+ACTIONS=('capabilities','state','read_quote','candidate_detail','compare_strategies','region_impact','sprint_target','simulate','simulation_read','plan_propose','plan_execute_authorized','operation_read','incident_read','recommend')
 MUTATING=frozenset(('simulate','plan_propose','plan_execute_authorized','recommend'))
-AUTO=('capabilities','state','read_quote','compare_strategies','region_impact','sprint_target','simulation_read','operation_read','incident_read','recommend')
+AUTO=('capabilities','state','read_quote','candidate_detail','compare_strategies','region_impact','sprint_target','simulation_read','operation_read','incident_read','recommend')
 ROOT=Path('/var/lib/fs-hermes-fc/fs')
 FIELDS={a:{'action'} for a in ACTIONS}
-FIELDS.update(read_quote={'action','run_id','path'},compare_strategies={'action','mode'},region_impact={'action'},sprint_target={'action'},simulate={'action','request_key','kind'},simulation_read={'action','simulation_id'},plan_propose={'action','request_key','mode'},plan_execute_authorized={'action','request_key','plan_id'},operation_read={'action','operation_id'},recommend={'action','request_key','run_id','bundle_sha256','action_sha256','reason','evidence_refs'})
+FIELDS.update(read_quote={'action','run_id','path'},candidate_detail={'action','run_id','mode','action_sha256'},compare_strategies={'action','mode'},region_impact={'action'},sprint_target={'action'},simulate={'action','request_key','kind'},simulation_read={'action','simulation_id'},plan_propose={'action','request_key','mode'},plan_execute_authorized={'action','request_key','plan_id'},operation_read={'action','operation_id'},recommend={'action','request_key','run_id','bundle_sha256','action_sha256','reason','evidence_refs'})
 
 
 
@@ -28,7 +28,7 @@ def schema():
     props['reason']['description']='Explain why this candidate serves the chosen objective, its actual order/AOV/cost and competitor basis, tradeoffs against alternatives, and missing evidence.'
     props['evidence_refs']={'type':'array','items':{'type':'string'},'description':'Include pricing:<bundle_sha256> and any inspected same-run evidence references.'}
     props['simulation_id']['description']='Original ID returned by simulate; read the result with simulation_read.'
-    return {'type':'function','function':{'name':'mcp__fcro__fs_pricing_control','description':'FC27 Pricing V3 review and decision tool. Use state, compare_strategies and the same-run quote receipt to inspect all five objectives, real paid-order/AOV and delivered-K units, dual 10% proofs, scope, budget and missing evidence. Hermes may choose any feasible candidate from that run through recommend with its exact action hash and a substantive reason; the later V3 cycle recollects and rechecks before execution and records any departure from the original assignment. Use operation_read and simulation_read for outcomes and historical review. Old 80/15/5 and parity are read-only historical replays, never current pricing rules. UNKNOWN must reconcile the original operation ID. Shadow projections are estimates, never observed profit or execution authority.','parameters':{'type':'object','properties':props,'required':['action'],'additionalProperties':False}}}
+    return {'type':'function','function':{'name':'mcp__fcro__fs_pricing_control','description':'FC27 Pricing V3 review and decision tool. Use state, compare_strategies and the same-run quote receipt to inspect all five objectives, real paid-order/AOV and delivered-K units, dual 10% proofs, scope, budget and missing evidence. State lists every action and its hash with compact score and margins; use candidate_detail with the exact run, mode and action hash for its full original proof. Hermes may choose any feasible candidate from that run through recommend with its exact action hash and a substantive reason; the later V3 cycle recollects and rechecks before execution and records any departure from the original assignment. Use operation_read and simulation_read for outcomes and historical review. Old 80/15/5 and parity are read-only historical replays, never current pricing rules. UNKNOWN must reconcile the original operation ID. Shadow projections are estimates, never observed profit or execution authority.','parameters':{'type':'object','properties':props,'required':['action'],'additionalProperties':False}}}
 
 
 
@@ -131,6 +131,13 @@ def call(scope,owner,task,lease,args,request=native):
         for key in args['path'].strip('/').split('/'):
             value=value[int(key)] if isinstance(value,list) else value[key]
         return dict(run_id=run,path=args['path'],value=value,execution_authorized=False)
+    if action=='candidate_detail':
+        run=str(uuid.UUID(args['run_id']))
+        mode=args['mode']
+        action_sha=args['action_sha256']
+        if mode not in ('daily','acquisition','backlog','flash_sale','revenue_sprint') or not re.fullmatch('[a-f0-9]{64}',action_sha):
+            raise ValueError('pricing_strategy_candidate_invalid')
+        return request('/pricing/v3/strategy-decisions/'+run+'/'+mode+'/'+action_sha,owner)
     key=args.get('request_key')
     if not re.fullmatch('[A-Za-z0-9_-]{1,48}',str(key or '')):
         raise ValueError('pricing_request_key_invalid')

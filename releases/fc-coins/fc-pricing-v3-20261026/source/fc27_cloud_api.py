@@ -652,7 +652,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if parts == ['pricing','state']:
                 from pricing_state import state
-                self.respond(200,state(owner=actor))
+                view=state(owner=actor)
+                if isinstance(view.get('quote'),dict):
+                    view['quote']=public_artifact(view['quote'],include_quote_sha=True)
+                self.respond(200,view)
                 return
             if parts == ["health"]:
                 self.respond(200, health())
