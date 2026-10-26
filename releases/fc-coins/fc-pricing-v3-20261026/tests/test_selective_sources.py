@@ -96,13 +96,33 @@ class SelectiveSourceTest(unittest.TestCase):
         same_terms_later=selective.project_cached_history(cache,terms,NOW+timedelta(hours=2))
         self.assertEqual(third['source_sha256'],same_terms_later['source_sha256'])
 
-    def test_backlog_refresh_is_only_current_normal_queue_not_seven_day_rescan(self):
-        cache,_,_,_=cache_fixture()
-        with patch.object(business,'selective_history_signature',return_value='source-v1'),patch.object(business,'_period_population') as population,patch.object(business,'_live_traces') as traces,patch.object(business,'active_backlog_context',return_value=dict(gross_ordered_delivery_k='4950',status='complete')) as backlog,patch.dict(sys.modules,{'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
+    def test_backlog_refreshes_local_throughput_without_remote_historical_traces_or_changing_financial_cache(self):
+        cache,selected,_,provenance=cache_fixture();before=deepcopy(cache)
+        capacity=dict(status='observed_paid_cohort_throughput',observed_delivered_k_per_block='500',source_sha256='deliveries-v1')
+        with patch.object(business,'selective_history_signature',return_value='source-v1'),patch.object(business,'_period_population',return_value=(selected,provenance)) as population,patch.object(business,'fulfillment_context',return_value=capacity) as fulfillment,patch.object(business,'_live_traces') as traces,patch.object(business,'active_backlog_context',return_value=dict(gross_ordered_delivery_k='4950',status='complete')) as backlog,patch.dict(sys.modules,{'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
             result=business.collect_selective_business(None,None,{},[],active_mode='backlog',history_cache=cache,source_signature='source-v1',current_templates={},now=NOW)
-        population.assert_not_called();traces.assert_not_called();backlog.assert_called_once()
+            capacity.update(observed_delivered_k_per_block='600',source_sha256='deliveries-v2')
+            later=business.collect_selective_business(None,None,{},[],active_mode='backlog',history_cache=cache,source_signature='source-v1',current_templates={},now=NOW+timedelta(hours=2))
+        self.assertEqual(population.call_count,2);traces.assert_not_called();self.assertEqual(backlog.call_count,2)
+        fulfillment.assert_called_with(selected,{},provenance)
         self.assertEqual(result['context']['fulfillment_estimates']['backlog_k'],'4950')
-        self.assertIsNone(result['context']['fulfillment_estimates']['capacity_k_per_block'])
+        self.assertEqual(result['context']['fulfillment_estimates']['capacity_k_per_block'],'500')
+        self.assertEqual(later['context']['fulfillment_estimates']['capacity_k_per_block'],'600')
+        self.assertTrue(later['context']['fulfillment_estimates']['estimated'])
+        self.assertEqual(cache,before);self.assertEqual(result['private_updates'],{})
+        self.assertEqual(result['context']['history_replay']['source_sha256'],later['context']['history_replay']['source_sha256'])
+
+    def test_missing_local_capacity_population_remains_a_gap_and_never_uses_stale_cached_capacity(self):
+        cache,_,_,_=cache_fixture()
+        body={k:deepcopy(v) for k,v in cache.items() if k!='cache_sha256'}
+        body['daily_rollups']['observed_fulfillment']=dict(observed_delivered_k_per_block='999')
+        cache=dict(body,cache_sha256=selective.fingerprint(body))
+        with patch.object(business,'selective_history_signature',return_value='source-v1'),patch.object(business,'_period_population',return_value=(None,dict(status='unavailable',reason='canonical_period_cache_missing'))),patch.object(business,'fulfillment_context') as fulfillment,patch.object(business,'active_backlog_context',return_value=dict(gross_ordered_delivery_k='4950')),patch.dict(sys.modules,{'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
+            result=business.collect_selective_business(None,None,{},[],active_mode='backlog',history_cache=cache,source_signature='source-v1',current_templates={},now=NOW)
+        fulfillment.assert_not_called()
+        estimate=result['context']['fulfillment_estimates']
+        self.assertIsNone(estimate['capacity_k_per_block'])
+        self.assertEqual(estimate['observed_capacity_source']['reason'],'canonical_period_cache_missing')
 
     def test_cache_hit_never_waives_current_hard_input_freshness(self):
         plan=selective.source_plan('daily')
