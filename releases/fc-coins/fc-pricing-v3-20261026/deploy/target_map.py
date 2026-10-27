@@ -1,9 +1,8 @@
 """Exact V3 code targets; the knowledge catalog has a separate immutable release."""
 from pathlib import Path
 
-DELTA_SCOPE='fc-pricing-v3-two-mode-simple-20261027'
-DELTA_NAMES=tuple('source/'+name for name in ('fc27-coins.html','fc-pricing-v3.js','fc27-quote-cloud.js','repricing_logic.js','pricing_operations.py','pricing_simulation.py','strategy_tools.py'))
-DELTA_NAMES+=tuple(prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in ('api.py','business_source.py','engine.py','ledger.py','monitoring.py','runtime.py','scheduler.py','selective_sources.py','shadow_worker.py','simulation.py'))
+DELTA_SCOPE='fc-pricing-v3-two-mode-shadow-reply-20261027'
+DELTA_NAMES=tuple(prefix+'fc_pricing_v3/history.py' for prefix in ('source/','source/hermes-copy/'))
 DELTA_NEW=frozenset()
 SHADOW_SCOPE = 'fc-pricing-v3-sqlite-shadow-20261026'
 SHADOW_NAMES = tuple(prefix + 'fc_pricing_v3/' + name for prefix in ('source/', 'source/hermes-copy/')

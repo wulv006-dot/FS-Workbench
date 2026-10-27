@@ -16,7 +16,7 @@ UNIT='fc-pricing-v3-shadow.service'
 def ensure_shadow(db,kind,request_id,local_date=None):
     payload=dict(kind=kind,request_id=request_id)
     if kind=='daily':payload['local_date']=local_date
-    output=STATE/(('daily-'+local_date if kind=='daily' else 'history-'+request_id)+'.json')
+    output=STATE/(('daily-'+local_date+'-two-mode' if kind=='daily' else 'history-'+request_id)+'.json')
     if output.exists():
         result=json.loads(output.read_text())
         if result.get('local_date' if kind=='daily' else 'request_id')!=(local_date if kind=='daily' else request_id):raise ValueError('shadow_original_reply_mismatch')
