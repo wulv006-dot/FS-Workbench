@@ -155,21 +155,38 @@
     $('collect').disabled=!canWrite||acting||!!collectPending;
   }
   async function renderMarketEvidence(){
-    const output=$('v3-market-evidence');output.textContent='正在读取最近快照的可比来源…';
+    const output=$('v3-market-cards'),summary=$('v3-market-status');output.setAttribute('aria-busy','true');
     try{
       const market=await request('market');
-      if(!market.snapshot_id||market.snapshot_id!==current?.snapshot_id){output.textContent='来源快照与本轮决策不一致，暂不展示为同轮依据。';return;}
-      const lines=[];
+      output.replaceChildren();
+      if(!market.snapshot_id){summary.textContent='尚无采集快照，等待下一次来源采集。';return;}
+      if(market.snapshot_id!==current?.snapshot_id){summary.textContent='来源快照与本轮决策不一致，等待统一状态更新。';return;}
       for(const platform of ['PS','XBOX','PC']){
+        const column=node('article');column.className='market-platform';column.append(node('h3',platform==='XBOX'?'Xbox':platform));
         const loot=market.global_offers?.[platform]?.Lootbar;
-        lines.push(`${platform} Lootbar：${loot?.usd_price!=null?usd(loot.usd_price):'缺项'} · 购买/赠送 ${loot?.base_k??'?'} / ${loot?.bonus_k??'?'} K · ${when(loot?.checked_at)}`);
         const item=(market.reference?.offers||[]).find(row=>row.platform===platform);
-        if($('v3-mode').value==='revenue_sprint')lines.push(`${platform} ItemD2R：${item?.gross_usd!=null?usd(item.gross_usd):'缺项'} · ${item?.status==='valid'?'本轮可比报价':statusText(item?.status)} · ${when(item?.captured_at)}`);
         const arab=(market.arab||[]).find(row=>row.platform===platform);
-        lines.push(`${platform} Saudi Arabia Arab-UT 普通交付：${arab?.total_usd!=null?usd(arab.total_usd):'缺项'} · ${arab?.selection_verified?'官方规格已核':'不能作为已核可比价'} · ${when(arab?.captured_at)}`);
+        for(const [name,row,price,purchase,bonus,stamp,verified,method] of [
+          ['Lootbar',loot,loot?.usd_price,loot?.base_k,loot?.bonus_k,loot?.checked_at,loot?.comparable!==false,'无优惠券报价'],
+          ['ItemD2R',item,item?.gross_usd,item?.purchase_k,item?.bonus_k,item?.captured_at,item?.status==='valid',item?.delivery_method||'交付方式待核'],
+          ['Arab-UT',arab,arab?.total_usd,arab?.purchase_k,arab?.bonus_k,arab?.captured_at,arab?.selection_verified===true,'Saudi Arabia · 普通发货']]){
+          const card=node('section');card.className='market-quote';
+          const available=price!=null&&Number.isFinite(Number(price))&&Number(price)>0;
+          const age=stamp?Date.now()-Date.parse(stamp):NaN;
+          const stale=Number.isFinite(age)&&age>15*60000;
+          card.dataset.state=!available?'missing':stale?'stale':'observed';
+          const header=node('div');header.className='head';const badge=node('span',!available?'缺项':!verified?'规格待核':stale?'已过 15 分钟':!Number.isFinite(age)||age<0?'时点待核':'最近已采');badge.className='market-badge';header.append(node('h4',name),badge);card.append(header);
+          const total=node('p',available?usd(price):'暂无报价');total.className='market-price';card.append(total);
+          const delivered=purchase!=null&&bonus!=null?Number(purchase)+Number(bonus):NaN;
+          const unit=node('p',available&&verified&&Number.isFinite(delivered)&&delivered>0?`${usd(Number(price)/delivered*100)} / 100K 实际交付`:'同口径单价待核');unit.className='market-unit';card.append(unit);
+          card.append(node('p',row?`购买 ${purchase??'待核'}K + 赠送 ${bonus??'待核'}K${Number.isFinite(delivered)?` · 交付 ${delivered}K`:''}`:'本轮未取得可核报价'),node('p',method));
+          const time=node('p',`采集 ${when(stamp)} · USD`);time.className='footnote';card.append(time);column.append(card);
+        }
+        output.append(column);
       }
-      output.textContent=`快照 ${market.snapshot_id}；来源时点仅代表当时证据，执行前重新核证。\n${lines.join('\n')}`;
-    }catch(error){output.textContent=`来源暂无法读取：${errorText(error)}。已保留已读回的决策和财务状态。`;}
+      summary.textContent=`快照 ${market.snapshot_id} · 采集时间均为北京时间。卡片展示保存的来源证据，不表示当前可直接执行。`;
+    }catch(error){output.replaceChildren();summary.textContent=`竞品价格暂无法读取：${errorText(error)}；下次更新重试。`;}
+    finally{output.removeAttribute('aria-busy');}
   }
   function render(state){
     const firstRender=!current;
@@ -209,7 +226,7 @@
     try{const [state,permission,automation,monitor,player]=await Promise.all([
       request('state'),writePermission().then(value=>({known:true,value})).catch(()=>({known:false,value:false})),
       cloud('automation').catch(()=>null),cloud('monitor').catch(()=>null),cloud('player-sync').catch(()=>null)]);
-      permissionKnown=permission.known;canWrite=permission.value;lastAutomation=automation;lastMonitor=monitor;render(state);renderOverview(state,automation,monitor);
+      permissionKnown=permission.known;canWrite=permission.value;lastAutomation=automation;lastMonitor=monitor;render(state);renderOverview(state,automation,monitor);await renderMarketEvidence();
       if(player){playerRevision=player.revision;if(!playerDirty)$('player-enabled').checked=Boolean(player.enabled);}
       $('v3-error').textContent=permissionKnown?'':'操作权限暂时无法核对，写入入口已停用；只读状态仍可查看。';
       $('v3-error').hidden=permissionKnown;
@@ -226,7 +243,6 @@
   }
   $('v3-mode').addEventListener('change',()=>{saveModeDraft();displayedMode=$('v3-mode').value;setMode(displayedMode);});setMode(displayedMode);
   $('v3-plan-select').addEventListener('change',()=>{selectedPlanId=$('v3-plan-select').value;manualPreview=null;render(current);renderOverview(current,lastAutomation,lastMonitor);});
-  $('v3-proof-details').addEventListener('toggle',()=>{if($('v3-proof-details').open)renderMarketEvidence();});
   $('player-form').addEventListener('input',()=>{playerDirty=true;});
   $('player-form').addEventListener('submit',event=>{event.preventDefault();action(async()=>{if(playerRevision==null)throw Error('联动配置尚未读取');const saved=await cloud('player-sync',{enabled:$('player-enabled').checked,expected_revision:playerRevision});playerRevision=saved.revision;playerDirty=false;$('player-state').textContent='联动配置已保存并读回。';});});
   $('v3-interval-form').addEventListener('submit',event=>{event.preventDefault();action(async()=>{

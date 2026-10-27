@@ -40,7 +40,10 @@ const automation = { revision: 3, can_manage_v3: true, v3: { schedule: { cycle_i
   last_cycle_at: '2026-10-26T13:00:00+08:00', last_source_checked_at: null, last_execution_stage: 'COMPLETED' } } };
 const monitor = { storefront: { rows: { PS: { package_usd: 8.51, checked_at: '2026-10-26T13:07:00+08:00' },
   XBOX: { package_usd: 8.51 }, PC: { package_usd: 8.59 } } }, publication: { status: 'matched' } };
+let marketError=false;
+const market={snapshot_id:'snapshot-1',global_offers:{PS:{Lootbar:{usd_price:'9.18',base_k:'100',bonus_k:'5',checked_at:new Date().toISOString()}}},reference:{offers:[{platform:'PS',gross_usd:'8.14',purchase_k:'100',bonus_k:'0',status:'valid',captured_at:'2000-01-01T00:00:00Z'}]},arab:[]};
 const fetch = async (url, options = {}) => ({ ok: true, json: async () => url.endsWith('/pricing/v3/interval') ? (intervalBody = JSON.parse(options.body), { revision: 4 })
+  : url.endsWith('/pricing/v3/market') ? (marketError?Promise.reject(Error('fixture unavailable')):market)
   : url.endsWith('/pricing/collect') ? {job_id:'collect-test'} : url.endsWith('/jobs/collect-test') ? {status:'ready',result:{status:'INFEASIBLE'}}
   : url.endsWith('/pricing/v3/state') ? state : url.endsWith('/automation') ? { ...automation, can_manage_v3: canWrite }
   : url.endsWith('/monitor') ? monitor : url.endsWith('/player-sync') ? { enabled: true, revision: 1 } : {} });
@@ -56,6 +59,21 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(elements['v3-source-time'].textContent, /待核/);
   assert.equal(elements['v3-strategies'].children.length, 1, 'only selected strategy is shown');
   assert.equal(elements['v3-interval-minutes'].value, 120);
+  assert(html.indexOf('id="v3-market-title"')<html.indexOf('id="plan-title"'),'competitor module precedes strategy');
+  assert.equal(elements['v3-market-cards'].children.length,3);
+  const marketText=JSON.stringify(elements['v3-market-cards'].children);
+  assert.match(marketText,/\$8.74 \/ 100K 实际交付/,'normalize with all 105K delivered');
+  assert.match(marketText,/ItemD2R/,'saved sprint reference remains visible under daily strategy');
+  assert.match(marketText,/已过 15 分钟/);
+  assert.match(marketText,/暂无报价/);
+  assert(!html.includes('<pre id="v3-daily-result"'),'prose must not inherit the shared code-block no-wrap style');
+  marketError=true;await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-market-cards'].children.length,0);
+  assert.match(elements['v3-market-status'].textContent,/暂无法读取/);
+  marketError=false;market.snapshot_id='different-snapshot';await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-market-cards'].children.length,0);
+  assert.match(elements['v3-market-status'].textContent,/不一致/);
+  market.snapshot_id=state.snapshot_id;await elements['v3-refresh'].events.click();
   elements['v3-interval-minutes'].value = '180';
   await elements['v3-interval-form'].events.submit({ preventDefault() {} }); await tick();
   assert.deepEqual(intervalBody, { interval_minutes: 180, expected_revision: 3 });
