@@ -15,15 +15,6 @@ def validate_dispatch(operation_id,preview_id,selected):
     preview=json.loads((ROOT/'previews'/(preview_id+'.json')).read_text())
     quote=json.loads((ROOT/'quotes'/(preview['run_id']+'.json')).read_text())
     bundle=quote['result']['decision_receipt']
-    reference=auth.get('v3_execution_step')
-    if reference:
-        from .runtime import read_operation
-        from .adapters import base_execution_id
-        op=read_operation(reference['operation_id'])
-        step=next((s for s in (op or {}).get('steps',[]) if s['step_id']==reference['step_id']),None)
-        if (not step or step['state'] not in ('DISPATCHED','UNKNOWN') or step['kind']!='base' or
-                base_execution_id(op,step)!=operation_id or preview.get('v3_execution_step')!=reference or op['bundle']['sha256']!=bundle['sha256']):
-            raise ValueError('pricing_base_step_dispatch_changed')
     if (not control.get('enabled') or control['generation']!=auth['generation'] or
             auth['operation_id']!=operation_id or auth['run_id']!=preview['run_id'] or
             auth['selected']!=selected or auth['bundle_sha256']!=bundle['sha256'] or

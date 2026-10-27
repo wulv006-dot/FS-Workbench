@@ -28,6 +28,26 @@ def source(loot='10',item='11',cost='.35',bonus='0'):
 
 
 class Dual20Sprint(unittest.TestCase):
+    def test_single_base_path_allows_temporary_lower_price_with_full_financial_proof(self):
+        data=source(loot='9.18',item='8.14',cost='.32',bonus='5')
+        data['offers']['PS']['Lootbar']['bonus_k']='5'
+        rule=dict(id=3,region_id=21,platforms=['PS'],factor='.9055',verified=True,price_semantics='regional_regular_multiplicative',history=dict(basis='pooled_other_promotions_excluding_region_verified'))
+        data['region_rules']=[rule]
+        data['regional_controls']=[dict(rule,resource='region:21:PS')]
+        data['arab_ut_quotes']=[dict(platform='PS',region_id=21,price_usd='8.27',purchase_k='100',bonus_k='0',captured_at=NOW.isoformat(),delivery='normal',selection_verified=True,currency='USD')]
+        before=dict(base_prices=dict(console='8.72',pc='8.80'),region_coefficients={'21:PS':'.9055'})
+        after=dict(base_prices=dict(console='8.04',pc='7.89'),region_coefficients={'21:PS':'.9995'})
+        markets={'console':engine.competition(data,['PS','XBOX'],NOW)}
+        regional={'21:PS':engine.competition(data,['PS'],NOW,region=21,resolved_global=markets['console'],base_total='8.04')}
+        def transition(a,b):engine.preserve_competitive_state(data,a,b,markets,regional)
+        steps=engine.commit_path(before,after,lambda action:engine.financial(data,action,NOW,regions=[rule]),transition)
+        self.assertEqual(sum(s['kind']=='base' for s in steps),1)
+        self.assertEqual(len(steps),2)
+        self.assertEqual(steps[-1]['intermediate'],after)
+        for step in steps:self.assertTrue(engine.financial(data,step['intermediate'],NOW,regions=[rule])['pass_all'])
+        too_expensive=deepcopy(before);too_expensive['region_coefficients']['21:PS']='1'
+        with self.assertRaisesRegex(ValueError,'competitive_commitment_lost'):transition(before,too_expensive)
+
     def test_all_five_strategies_ignore_retired_zero_and_exhausted_budgets(self):
         data=source(cost='.10');data.update(backlog_k='0',capacity_k_per_block='9999999',
             demand_model=dict(groups={g:dict(orders_per_block='1',reference_regular_usd='20',target_revenue_per_order_usd='20',delivered_k_per_order='100') for g in engine.GROUPS}))

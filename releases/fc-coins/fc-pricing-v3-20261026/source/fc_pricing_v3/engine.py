@@ -713,7 +713,7 @@ def impacted_regions(evidence,before,after,promised_regions=()):
 
 
 def preserve_competitive_state(evidence,before,after,markets,regional_markets):
-    """A new transition cannot lose an already attained same-source competitive band."""
+    """Final targets satisfy the band; transitions cannot become more expensive than its ceiling."""
     scopes=[(p,None,t) for market in markets.values() if market.get('decision_type')!='floor_fallback' for p,t in market['targets'].items()]
     scopes += [(key.split(':')[1],key,t) for key,market in regional_markets.items() if market.get('decision_type') not in ('floor_fallback','regional_follow_global') for t in market['targets'].values()]
     packages=evidence['promotion_envelope']['packages']
@@ -725,7 +725,7 @@ def preserve_competitive_state(evidence,before,after,markets,regional_markets):
             factor=action.get('region_coefficients',{}).get(region_key,'1') if region_key else '1'
             prices.append(number(render(number(action['base_prices'][group])/100,tier,factor)['delivered_unit_100k']))
         low,high=number(target['unit_low']),number(target['unit_high'])
-        if low<=prices[0]<=high and not low<=prices[1]<=high:
+        if prices[0]<=high and prices[1]>high:
             raise ValueError('pricing_intermediate_competitive_commitment_lost')
 
 
@@ -764,29 +764,5 @@ def commit_path(before, after, validate,transition=None):
         except ValueError:
             continue
     if changes:
-        # Narrow coupled price/coefficient changes without crossing either proof boundary.
-        state=deepcopy(before);steps=[]
-        for _ in range(24):
-            if state==after:return steps
-            progress=False
-            for section,key in changes:
-                keys=list(after[section]) if key=='all' else [key]
-                for denominator in (1,2,4,8,16,32,64):
-                    trial=deepcopy(state)
-                    for name in keys:
-                        old=number(state[section][name]);target=number(after[section][name])
-                        precision=CENT if section=='base_prices' else Decimal('.0001')
-                        value=(old+(target-old)/denominator).quantize(precision,rounding=ROUND_HALF_UP)
-                        trial[section][name]=after[section][name] if value==target else str(value)
-                    if all(number(trial[section][name])==number(state[section][name]) for name in keys):continue
-                    try:
-                        validate(trial)
-                        if transition:transition(state,trial)
-                    except ValueError:continue
-                    steps.append(dict(step_id=section+':'+key+':'+str(len(steps)),kind='base' if section=='base_prices' else 'region',
-                                      key=key,value=deepcopy(trial[section] if key=='all' else trial[section][key]),state='PREPARED',intermediate=deepcopy(trial)))
-                    state=trial;progress=True;break
-            if not progress:break
-        if state==after:return steps
         raise ValueError('NO_SAFE_COMMIT_PATH')
     return []

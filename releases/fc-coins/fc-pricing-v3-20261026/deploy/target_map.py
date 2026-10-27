@@ -1,8 +1,9 @@
 """Exact V3 code targets; the knowledge catalog has a separate immutable release."""
 from pathlib import Path
 
-DELTA_SCOPE='fc-pricing-v3-original-preview-step-20261027'
-DELTA_NAMES=('source/fc_pricing_v3/adapters.py','source/hermes-copy/fc_pricing_v3/adapters.py')
+DELTA_SCOPE='fc-pricing-v3-single-price-final-band-20261027'
+DELTA_NAMES=('source/price_writer.py','source/pricing_simulation.py')
+DELTA_NAMES+=tuple(prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in ('engine.py','runtime.py','adapters.py','dispatch.py'))
 DELTA_NEW=frozenset()
 SHADOW_SCOPE = 'fc-pricing-v3-sqlite-shadow-20261026'
 SHADOW_NAMES = tuple(prefix + 'fc_pricing_v3/' + name for prefix in ('source/', 'source/hermes-copy/')

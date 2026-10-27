@@ -21,14 +21,6 @@ def ledger():
     return Ledger(STORE/'control.sqlite3')
 
 
-def read_operation(ident):
-    from contextlib import closing
-    import sqlite3
-    with closing(sqlite3.connect('file:'+str(STORE/'control.sqlite3')+'?mode=ro',uri=True)) as db:
-        row=db.execute('SELECT body FROM operations WHERE id=?',(ident,)).fetchone()
-    return json.loads(row[0]) if row else None
-
-
 def current_history_mix(now):
     """Use the same reconciled cohort at collection and the last write boundary."""
     from contextlib import closing
@@ -374,37 +366,7 @@ def override_quote(evidence,explicit_prices,reason,restore_source_execution_id=N
                 restore_source_execution_id=restore_source_execution_id,execution_authorized=False)
 
 
-def project_base_step(quote,reference,*,now=None):
-    """Project one immutable parent step for the existing mechanical writer."""
-    now=now or clock()
-    op=read_operation(reference['operation_id'])
-    if not op or op['bundle']['sha256']!=quote['result']['decision_receipt']['sha256']:
-        raise ValueError('pricing_base_step_parent_changed')
-    step=next((s for s in op['steps'] if s['step_id']==reference['step_id']),None)
-    if not step or step['kind']!='base' or step['state'] not in ('DISPATCHED','UNKNOWN','CONFIRMED'):
-        raise ValueError('pricing_base_step_not_claimed')
-    if any(s['state']!='CONFIRMED' for s in op['steps'][:op['steps'].index(step)]):
-        raise ValueError('pricing_previous_step_unresolved')
-    receipt=op['bundle'];evidence=quote['evidence']
-    regions=proof_regions(evidence,receipt['before_action'],receipt['action'],promised_regions=receipt.get('regional_market_comparison',{}))
-    from .engine import preserve_competitive_state
-    before=receipt['before_action']
-    for item in op['steps'][:op['steps'].index(step)+1]:
-        proof=financial(evidence,item['intermediate'],now,regions=regions)
-        preserve_competitive_state(evidence,before,item['intermediate'],receipt.get('market_comparison',{}),receipt.get('regional_market_comparison',{}))
-        before=item['intermediate']
-    value=deepcopy(quote)
-    value['result']=render_result(evidence,dict(action=step['intermediate'],financial_proof=proof),receipt,receipt['mode'])
-    value['v3_execution_step']=dict(reference)
-    return value
-
-
 def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpose=None):
-    if quote.get('v3_execution_step'):
-        original=json.loads((ROOT/'quotes'/(quote['run_id']+'.json')).read_text())
-        receipt=verify_quote(original,policy,selected,now=now,for_execution=for_execution,purpose=purpose)
-        if quote!=project_base_step(original,quote['v3_execution_step'],now=now):raise ValueError('pricing_base_step_projection_changed')
-        return receipt
     now=now or clock()
     receipt=quote['result'].get('decision_receipt') or {}
     if receipt.get('authorization_purpose')!=purpose:
@@ -591,60 +553,6 @@ def stop_unissued_and_exit(op,reason):
     return result
 
 
-def reconcile_base_steps(operation):
-    """Reconcile each original subrequest before completing its one business operation."""
-    from .adapters import base_execution_id,dispatch_base,reconcile_base,region_step,reconcile_postwrite
-    from .dispatch import proven_not_sent
-    from automation_policy import load_policy
-    db=ledger();ident=operation['operation_id']
-    for original in operation['steps']:
-        op=db.get('operations',ident)
-        step=next(s for s in op['steps'] if s['step_id']==original['step_id'])
-        if step['state']=='CONFIRMED':continue
-        quote=json.loads((ROOT/'quotes'/(op['bundle']['snapshot_id']+'.json')).read_text())
-        if not step.get('dispatched_at'):
-            try:verify_quote(quote,load_policy(),list(PLATFORMS),for_execution=True)
-            except ValueError as exc:return stop_unissued_and_exit(op,str(exc))
-            return drive_steps(op,quote)
-        if step['kind']=='base':
-            child=base_execution_id(op,step);path=ROOT/'executions'/(child+'.json')
-            audit=json.loads(path.read_text()) if path.exists() else None
-            if audit and audit.get('status')=='CONFIRMED' and audit.get('sync_confirmed') is True and audit.get('all_baseline',{}).get('status')=='confirmed':
-                result=dict(status='CONFIRMED',execution_id=child,confirmation_scope='Order_Admin_ALL')
-            elif step.get('receipt',{}).get('status')=='NOT_SENT' or proven_not_sent(audit):
-                try:verify_quote(quote,load_policy(),list(PLATFORMS),for_execution=True)
-                except ValueError as exc:return stop_unissued_and_exit(op,str(exc))
-                result=dispatch_base(op)
-            elif audit:
-                result=reconcile_base(dict(op,operation_id=child))
-                if path.exists():
-                    audit=json.loads(path.read_text())
-                    if audit.get('status')=='CONFIRMED' and audit.get('sync_confirmed') is True and audit.get('all_baseline',{}).get('status')=='confirmed':result=dict(result,status='CONFIRMED',execution_id=child)
-            else:return op
-        else:
-            result=region_step(ident,step['step_id'])
-            if result.get('status')!='CONFIRMED' and step.get('receipt',{}).get('status')=='NOT_SENT' and not step.get('transport_claimed_at'):
-                try:verify_quote(quote,load_policy(),list(PLATFORMS),for_execution=True)
-                except ValueError as exc:return stop_unissued_and_exit(op,str(exc))
-                result=region_step(ident,step['step_id'],write=True)
-        if result.get('status')!='CONFIRMED':
-            return db.step_result(ident,step['step_id'],'UNKNOWN',result)
-        db.step_result(ident,step['step_id'],'CONFIRMED',result)
-    op=db.get('operations',ident)
-    audits=[json.loads((ROOT/'executions'/(base_execution_id(op,s)+'.json')).read_text()) for s in op['steps'] if s['kind']=='base']
-    if not all(a.get('status')=='CONFIRMED' and a.get('sync_confirmed') is True and a.get('all_baseline',{}).get('status')=='confirmed' for a in audits):raise ValueError('pricing_base_step_audit_unconfirmed')
-    aggregate=deepcopy(audits[-1])
-    aggregate.update(execution_id=ident,before=audits[0]['before'],created_at=audits[0]['created_at'],
-                     mechanical_execution_kind='audited_step_aggregate',child_execution_ids=[a['execution_id'] for a in audits])
-    path=ROOT/'executions'/(ident+'.json')
-    if path.exists():
-        if json.loads(path.read_text())!=aggregate:raise ValueError('pricing_original_aggregate_changed')
-    else:write_json(path,aggregate)
-    post=reconcile_postwrite(op,aggregate)
-    if post['status']=='PUBLIC_CONFIRMED':return db.finish(ident,post)
-    op.update(status=post['status'],readback=post);return db.put('operations',ident,op)
-
-
 def reconcile(operation_id):
     """Never repeat a base save or sync; recover only original post-write stages."""
     db=ledger()
@@ -653,7 +561,6 @@ def reconcile(operation_id):
         raise ValueError('pricing_operation_missing')
     if op['status'] in ('COMPLETED','NO_CHANGE','CANCELLED_NOT_SENT','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED'):return op
     if op['status']=='KNOWN_PARTIAL_PUBLIC_PENDING':return stop_unissued_and_exit(op,op['stop_unissued_reason'])
-    if sum(s['kind']=='base' for s in op['steps'])>1:return reconcile_base_steps(op)
     if not op['steps'] and op['status']=='PUBLIC_PENDING':
         from .adapters import verify_nochange
         receipt=verify_nochange(op,op.get('readback',{}).get('preview',{}))
