@@ -3,6 +3,24 @@
   const IDS=['fc','aion','wow','maplestory'],LABELS={fc:'FC27',aion:'Aion2',wow:'World of Warcraft',maplestory:'MapleStory'},TIERS=[8,15,10];
   const english=(value,fallback)=>typeof value==='string'&&value.trim()&&!/\p{Script=Han}/u.test(value)?value:fallback;
   const identifier=value=>typeof value==='string'&&value.trim()&&!/[\x00-\x20]/.test(value)?value:null;
+  // The event ends and the daily picks reset at midnight US Eastern, so the page
+  // and the draw agree on which day it is.
+  const NY_ZONE='America/New_York';
+  function nyOffset(ts){
+    const parts=new Intl.DateTimeFormat('en-US',{timeZone:NY_ZONE,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).formatToParts(new Date(ts));
+    const p={};for(const x of parts)p[x.type]=x.value;
+    return Date.UTC(+p.year,+p.month-1,+p.day,(+p.hour)%24,+p.minute,+p.second)-Math.floor(ts/1000)*1000;
+  }
+  function nextNyMidnight(ts){
+    const offset=nyOffset(ts),local=new Date(ts+offset);
+    return Date.UTC(local.getUTCFullYear(),local.getUTCMonth(),local.getUTCDate()+1,0,0,0,0)-offset;
+  }
+  function clock(ms){
+    if(!Number.isFinite(ms)||ms<=0)return '00:00:00';
+    const total=Math.floor(ms/1000),d=Math.floor(total/86400),h=Math.floor(total%86400/3600),m=Math.floor(total%3600/60),s=total%60;
+    const pad=n=>String(n).padStart(2,'0');
+    return (d?d+'d ':'')+pad(h)+':'+pad(m)+':'+pad(s);
+  }
   function project(config){
     const source=config?.halloween?.schema_version===1&&String(config.halloween.site_id)==='266'?config.halloween:{};
     const rows=Array.isArray(source.games)?source.games:[];
@@ -98,11 +116,23 @@
     if(Number.isFinite(nextExpiry))referenceTimer=setTimeout(()=>{renderSlots();root.SeasonalCommerce?.refresh().catch(()=>status('Prices could not be refreshed. Please use Refresh prices before continuing.'));},Math.max(1,Math.min(2147483647,nextExpiry-Date.now()+1)));
 
   }
+  let countdownTimer=null;
+  function startCountdown(){
+    const end=view.ends_at?Date.parse(view.ends_at):null;
+    const paint=()=>{
+      const now=Date.now(),hero=doc.querySelector('#event-countdown'),refresh=doc.querySelector('#offers-refresh');
+      if(hero)hero.textContent=end&&end>now?'ENDS IN '+clock(end-now):'';
+      if(refresh)refresh.textContent='Daily reset in '+clock(nextNyMidnight(now)-now)+' — new picks and discounts every day';
+    };
+    paint();
+    if(!countdownTimer)countdownTimer=setInterval(paint,1000);
+  }
   function renderConfiguration(){
     const missing=[];if(!view.probabilities)missing.push('discount probabilities');if(!view.binding)missing.push('offer allocation');if(!view.starts_at||!view.ends_at)missing.push('event dates');if(view.games.some(g=>!g.fixed_model||!['category_dynamic','quantity_tiers'].includes(g.random_source)&&g.random_models.length<2||g.fixed_off_percent===null))missing.push('product models and offer bindings');
     doc.querySelector('.offer-availability').hidden=missing.length===0;
     doc.querySelector('#configuration-title').textContent='Offers are not available yet';
     doc.querySelector('#configuration-summary').textContent=missing.length?'Please check back soon. You can still explore the games in our main store.':'Published settings are available. Mystery slots still require a server-confirmed draw; final prices and eligibility require store confirmation.';
+    startCountdown();
   }
   function update(input){
     if(!input||typeof input!=='object')return;
@@ -119,6 +149,10 @@
     const random=event.target.closest('[data-random-reveal]');
     if(random&&!random.disabled){
       const game=view.games.find(g=>g.id===activeGame),slot=random.dataset.randomReveal;if(!game||drawing.has(game.id))return;
+      // A revealed card stays revealed: re-clicking must not replay the flip or
+      // ask the store for a second draw.
+      const prior=receipts.get(game.id);
+      if(prior&&revealed.has(prior.request_id+':'+slot))return;
       drawing.add(game.id);renderSlots();let flipped=false;
       try{const receipt=await root.SeasonalCommerce.reveal(game.id);
         if(receipt.release_id!==config.release_id||receipt.config_hash!==config.config_hash)throw Error('RULE_VERSION_CONFLICT');

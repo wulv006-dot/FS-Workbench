@@ -895,3 +895,12 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
   .offer-slots { gap: 18px; }
   .flip-card { height: 295px; }
 }
+
+/* V8: the discount badge moves off the artwork logo into the top-right corner and
+   takes the event's gold-on-glass treatment instead of a solid store orange. */
+.game-badge { top: 12px; right: 12px; left: auto; padding: 5px 10px; border: 1px solid rgba(255,199,122,.5); border-radius: 999px; background: rgba(21,13,33,.68); backdrop-filter: blur(8px); color: #ffd08a; font-size: 9px; font-weight: 800; letter-spacing: .5px; box-shadow: 0 4px 14px rgba(0,0,0,.32); }
+.game-badge.orange { background: rgba(21,13,33,.68); color: #ffd08a; border-color: rgba(255,199,122,.5); }
+.story-bottom .event-meta i { background: #ffd08a; }
+#event-countdown { color: #ffd08a; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+.offers-refresh { margin: 7px 0 0; color: #b6a4cd; font-size: 11px; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
+.offers-refresh:empty { display: none; }
