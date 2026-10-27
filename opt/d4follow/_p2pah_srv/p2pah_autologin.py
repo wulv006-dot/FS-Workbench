@@ -38,6 +38,14 @@
 凭据存放：同目录 `_accounts.json`（**明文，仅限本机**）；缺失时回退读 config.json 的
 `p2pah.账号`，再回退内置默认（与 config 一致）。
 """
+
+import sys as _order_sys
+from pathlib import Path as _OrderPath
+for _order_root in ('/opt/fs-order-session', '/opt/fc27-collector', '/opt/madden-workbench', '/srv'):
+    if _OrderPath(_order_root, 'fs_order_client.py').is_file():
+        _order_sys.path.insert(0, _order_root)
+        break
+import fs_order_client as _global_order
 import base64
 import io
 import json
@@ -81,16 +89,63 @@ def ocr():
     return _OCR
 
 
+_OCR_BETA = None
+
+
+def ocr_beta():
+    """ddddocr 的 beta 模型（懒加载）。
+
+    2026-10-22 实测：admin 验证码（深橄榄粗体 4 位数字 + 浅色干扰字）上
+    默认模型会把 5891 认成 `6只91`，beta 模型在 8384 / 5891 两份已知样本上
+    2/2 全对 ⇒ admin 侧优先用 beta。
+    """
+    global _OCR_BETA
+    if _OCR_BETA is None:
+        import ddddocr
+        _OCR_BETA = ddddocr.DdddOcr(show_ad=False, beta=True)
+    return _OCR_BETA
+
+
+def _digits_only(s):
+    """admin 这个码固定 4 位纯数字；带字母的结果基本是干扰字被认进来了。"""
+    s = re.sub(r"[^0-9]", "", s or "")
+    return s if len(s) == 4 else ""
+
+
 def solve(png):
-    """PNG bytes → 验证码文本。只保留字母数字（'*' '?' 这类识别噪声直接剔除，
-    长度不够会被上层判成「这次不算」并换一张图重试）。"""
+    """PNG bytes → 验证码文本（4 位数字）。
+
+    2026-10-22：改为 **beta 模型优先 + 双模型交叉校验**。
+      · 两个模型都给出 4 位数字且一致  → 采用（高可信）
+      · 只有 beta 给出 4 位数字         → 采用
+      · 两个都给但**不一致**            → 返回 ""（上层换一张新图重试；
+        宁可多等一轮，也不要把错答案提交上去白烧一次尝试）
+      · 都认不出 4 位数字               → 返回 ""
+    长度不够/为空时上层会判成「这次不算」并重新取图，逻辑不变。
+    """
     if not png:
         return ""
+    a = b = ""
     try:
-        s = ocr().classification(png)
+        a = _digits_only(ocr().classification(png))
+    except Exception:
+        a = ""
+    try:
+        b = _digits_only(ocr_beta().classification(png))
+    except Exception:
+        b = ""
+    if b and a and a != b:
+        return ""
+    if b:
+        return b
+    if a:
+        return a
+    # 两份模型都没给出 4 位数字时，退回「宽松取字母数字」的老行为，
+    # 让上层按长度判定换图（保持与历史行为兼容）。
+    try:
+        return re.sub(r"[^0-9A-Za-z]", "", ocr().classification(png) or "")
     except Exception:
         return ""
-    return re.sub(r"[^0-9A-Za-z]", "", s or "")
 
 
 def solve_dataurl(d):
@@ -154,69 +209,10 @@ _WAIT_IMG_JS = ("()=>{const i=document.querySelector('img.captcha');"
                 "return (i&&i.complete)?i.naturalWidth:0}")
 
 
-def login_order_in(pg, user, pw, tries=8, log=log_default, site=ORDER_SITE):
-    """在**已经打开的页面**上用账号密码 + 自动验证码登录 order。
-
-    刻意不新开浏览器：执行器（p2pah_local.Session）正持有 `_edge_p2pah` 这个
-    user-data-dir，Chromium 互斥，另开一个必然起不来。就地重登还能顺手把
-    新 cookie 留在同一个上下文里（后续请求直接复用）。
-
-    成功 → True；tries 次都没过 → False（调用方再退人工）。
-    """
-    login_url = site + "/admin"
-
-    def reload():
-        try:
-            pg.goto(login_url, wait_until="domcontentloaded", timeout=60000)
-            pg.wait_for_timeout(1200)
-        except Exception as e:
-            log("   [自动登录] 打开登录页异常：%r" % e)
-
-    for i in range(1, tries + 1):
-        if "login.html" not in (pg.url or ""):
-            reload()
-            if "login.html" not in pg.url:
-                log("   [自动登录] 已是登录态（无需重登）")
-                return True
-        w = 0
-        for _ in range(25):
-            try:
-                w = pg.evaluate(_WAIT_IMG_JS)
-            except Exception:
-                w = 0
-            if w:
-                break
-            pg.wait_for_timeout(200)
-        if not w:
-            log("   [自动登录] 第%d/%d 次：验证码图没出来，换一张" % (i, tries))
-            reload()
-            continue
-        try:
-            ans = solve_dataurl(pg.evaluate(_IMG_JS, "img.captcha"))
-        except Exception as e:
-            log("   [自动登录] 取图异常：%r" % e)
-            reload()
-            continue
-        if len(ans) != 4:
-            log("   [自动登录] 第%d/%d 次：识别=%r（长度不足，换一张）" % (i, tries, ans))
-            reload()
-            continue
-        log("   [自动登录] 第%d/%d 次 识别=%r" % (i, tries, ans))
-        try:
-            pg.fill("input[name=username]", user, timeout=8000)
-            pg.fill("input[name=password]", pw, timeout=8000)
-            pg.fill("input[name=captcha]", ans, timeout=8000)
-            pg.click("button.js-ajax-submit", timeout=8000)
-        except Exception as e:
-            log("   [自动登录] 填表/提交异常：%r" % e)
-            break
-        pg.wait_for_timeout(3500)
-        if "login.html" not in (pg.url or ""):
-            log("   [自动登录] ✅ order 重登成功（第 %d 次，识别=%s）" % (i, ans))
-            return True
-        reload()
-    log("   [自动登录] ✗ order %d 次内未成功（可退人工：p2pah_local.py login）" % tries)
-    return False
+def login_order_in(pg, user=None, pw=None, tries=1, log=log_default, site=ORDER_SITE):
+    _global_order.apply(pg.context)
+    response = pg.goto(ORDER_SITE + '/admin/index/index.html', wait_until='domcontentloaded', timeout=45000)
+    return response is not None and response.status == 200 and 'login' not in pg.url.lower()
 
 
 # ------------------------------------------------------------------ admin 页内登录
@@ -277,12 +273,15 @@ def login_admin_in(pg, user, pw, tries=6, log=log_default, site=ADMIN_SITE,
                 # 改成 reload() 后立刻拿到新图（1599B）。
                 # 修法：只要还停在本站上，就用 **reload() 强制重新加载文档**，
                 # 保证每轮都有一张与前端 captcha id 对应的新验证码图。
-                _host = site.split("://", 1)[-1].split("/", 1)[0]
-                if _host and _host in (pg.url or ""):
-                    pg.reload(wait_until="domcontentloaded", timeout=90000)
-                else:
-                    pg.goto(site + "/#/admin/login", wait_until="domcontentloaded",
-                            timeout=90000)
+                # 2026-10-22 修复：admin.p2pah.cn 根路由 "/" 在容器 chromium 里会停在
+                # "Loading..." 永不挂载（实测 body 文本长度 0）；10-12 那次修复是在 "/"
+                # 上 reload，于是永远抓不到验证码图 ⇒ 6 次全失败 ⇒ 主后台清缓存自
+                # 2026-10-21 11:25 起从未成功。登录页 hash 路由能正常挂载，且**必须真正
+                # 重载文档**才会重新请求验证码（同 hash 的 goto 属同文档导航，不新发
+                # 请求）⇒ 先 about:blank 再进登录路由。
+                pg.goto("about:blank", wait_until="domcontentloaded", timeout=30000)
+                pg.goto(site + "/#/admin/login", wait_until="domcontentloaded",
+                        timeout=90000)
             except Exception as e:
                 log("   [自动登录] admin 打开登录页异常：%r" % e)
                 continue
@@ -291,10 +290,23 @@ def login_admin_in(pg, user, pw, tries=6, log=log_default, site=ADMIN_SITE,
             if tok:
                 log("   [自动登录] admin 已是登录态")
                 return tok
-            for _ in range(25):
+            for _ in range(75):          # 最多 15 秒：SPA 挂载 + 首屏脚本较慢
                 if cap["b"]:
                     break
                 pg.wait_for_timeout(200)
+            if not cap["b"]:
+                # 响应没抓到（跨域 / 命中浏览器缓存）时退回「把验证码 <img> 画进 canvas
+                # 取 PNG」。注意站方已把 <img> 的 class 由 captcha 改为 captcha-img。
+                for sel in ("img.captcha-img", "img.captcha",
+                            "img[src*='common/captcha']"):
+                    try:
+                        uri = pg.evaluate(_IMG_JS, sel)
+                    except Exception:
+                        uri = None
+                    if uri and "," in uri:
+                        import base64
+                        cap["b"] = base64.b64decode(uri.split(",", 1)[1])
+                        break
             if not cap["b"]:
                 log("   [自动登录] admin 第%d/%d 次：没截获到验证码图" % (i, tries))
                 continue
