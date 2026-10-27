@@ -12,7 +12,8 @@ from unittest.mock import patch,Mock
 
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE.parent/'source'))
-from fc_pricing_v3 import business_source as business,selective_sources as selective,regional_public as regional,sources
+from fc_pricing_v3 import business_source as business,selective_sources as selective,regional_public as regional,sources,runtime
+from fc_pricing_v3.ledger import Ledger
 NOW=datetime(2026,10,26,13,tzinfo=timezone.utc)
 PERIOD=dict(start='2026-10-19',end='2026-10-25')
 
@@ -28,6 +29,16 @@ def cache_fixture():
 
 
 class SelectiveSourceTest(unittest.TestCase):
+    def test_write_boundary_uses_exact_reconciled_mix_and_rejects_changed_archive(self):
+        cache,*_=cache_fixture()
+        with tempfile.TemporaryDirectory() as folder:
+            store=Path(folder);db=Ledger(store/'control.sqlite3')
+            db.put('metadata','seven_day_history_cache',cache)
+            with patch.object(runtime,'STORE',store),patch.object(business,'selective_history_signature',return_value='source-v1'):
+                self.assertEqual(runtime.current_history_mix(NOW),cache['historical_discount_mix'])
+            with patch.object(runtime,'STORE',store),patch.object(business,'selective_history_signature',return_value='archive-changed'):
+                with self.assertRaisesRegex(ValueError,'source_or_window_changed'):runtime.current_history_mix(NOW)
+
     def test_changed_payment_state_rebuilds_exact_cohort_from_native_accounting(self):
         _,selected,orders,provenance=cache_fixture()
         native=dict(provenance,canonical_archive_sha256='c'*64)

@@ -29,6 +29,20 @@ def read_operation(ident):
     return json.loads(row[0]) if row else None
 
 
+def current_history_mix(now):
+    """Use the same reconciled cohort at collection and the last write boundary."""
+    from contextlib import closing
+    import sqlite3
+    import sys
+    sys.path.insert(0,'/opt/fs-hermes-fc')
+    from .business_source import selective_history_signature
+    from .selective_sources import checked_history_cache,history_period
+    with closing(sqlite3.connect('file:'+str(STORE/'control.sqlite3')+'?mode=ro',uri=True)) as db:
+        row=db.execute("SELECT body FROM metadata WHERE id='seven_day_history_cache'").fetchone()
+    cache=json.loads(row[0]) if row else None
+    return checked_history_cache(cache,selective_history_signature(history_period(now)),now)['historical_discount_mix']
+
+
 def write_json(path, value):
     from snapshot_layer import atomic_json
     atomic_json(path,value)
