@@ -14,6 +14,7 @@ if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fc_pricing_v3.simulation import LOCAL, Shadow
+from fc_pricing_v3.engine import POLICIES
 from fc_pricing_v3.financial import fingerprint,instant
 
 
@@ -71,7 +72,7 @@ def run_daily(production_path=PRODUCTION,shadow_path=SHADOW,date=None):
     start=datetime.fromisoformat(date).replace(tzinfo=LOCAL)
     stop=start+timedelta(days=1)
     if stop>datetime.now(timezone.utc):raise ValueError('shadow_day_not_closed')
-    output=Path(shadow_path).parent/('daily-'+date+'.json')
+    output=Path(shadow_path).parent/('daily-'+date+'-two-mode.json')
     if output.exists():return json.loads(output.read_text())
     with single_consumer(Path(shadow_path).parent/'worker.lock'):
         shadow=Shadow(shadow_path)
@@ -83,7 +84,7 @@ def run_daily(production_path=PRODUCTION,shadow_path=SHADOW,date=None):
         with shadow.connect() as db:
             for raw, in db.execute('SELECT body FROM runs'):
                 row=json.loads(raw)
-                if row.get('as_of') and start<=instant(row['as_of'])<stop:
+                if row.get('policy') in POLICIES and row.get('as_of') and start<=instant(row['as_of'])<stop:
                     decision=row.get('result') or row.get('last_result') or {}
                     chosen=decision.get('selected') or {}
                     records.append(dict(snapshot_id=row.get('snapshot_id') or row.get('external_snapshot_id'),
@@ -99,7 +100,7 @@ def run_daily(production_path=PRODUCTION,shadow_path=SHADOW,date=None):
         for first in range(0,24,6):
             rows=[r for r in records if first<=instant(r['as_of']).astimezone(LOCAL).hour<first+6]
             by_period.append(dict(start_hour=first,end_hour=first+6,snapshots=len({r['snapshot_id'] for r in rows}),
-                results={mode:policy_summary(rows,mode) for mode in ('daily','acquisition','backlog','flash_sale','revenue_sprint')}))
+                results={mode:policy_summary(rows,mode) for mode in POLICIES}))
         report=dict(local_date=date,timezone='Asia/Shanghai',status='available' if records else 'no_stored_snapshots',
             periods=by_period,record_count=len(records),input_gaps=[r for r in records if r['status']=='INPUT_GAP'],
             production_write_performed=False,external_collection_performed=False,training_eligible=False,

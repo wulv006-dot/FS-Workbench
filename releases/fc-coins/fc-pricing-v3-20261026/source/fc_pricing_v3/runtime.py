@@ -21,6 +21,20 @@ def ledger():
     return Ledger(STORE/'control.sqlite3')
 
 
+def current_history_mix(now):
+    """Use the same reconciled cohort at collection and the last write boundary."""
+    from contextlib import closing
+    import sqlite3
+    import sys
+    sys.path.insert(0,'/opt/fs-hermes-fc')
+    from .business_source import selective_history_signature
+    from .selective_sources import checked_history_cache,history_period
+    with closing(sqlite3.connect('file:'+str(STORE/'control.sqlite3')+'?mode=ro',uri=True)) as db:
+        row=db.execute("SELECT body FROM metadata WHERE id='seven_day_history_cache'").fetchone()
+    cache=json.loads(row[0]) if row else None
+    return checked_history_cache(cache,selective_history_signature(history_period(now)),now)['historical_discount_mix']
+
+
 def write_json(path, value):
     from snapshot_layer import atomic_json
     atomic_json(path,value)
@@ -273,7 +287,7 @@ def render_result(evidence,selected,bundle,mode):
             lootbar_page_usd=public_anchor['usd_price'],
             lootbar_usd_per_1k=str(number(public_anchor['usd_price'])/(number(public_anchor['base_k'])+number(public_anchor.get('bonus_k','0'),zero=True))),
             change_pct=str((target/number(own['package_usd'])-1)*100),
-            warning='双20%红线；单笔合法优惠仍可亏损。预测不是实绩。',status='财务底价兜底 · 未达到竞争降幅' if selected.get('decision_type')=='floor_fallback' else '五策略引擎核算通过 · 待执行'))
+            warning='双20%红线；单笔合法优惠仍可亏损。预测不是实绩。',status='财务底价兜底 · 未达到竞争降幅' if selected.get('decision_type')=='floor_fallback' else '双模式引擎核算通过 · 待执行'))
     result=dict(checked_at=evidence['checked_at'],fx=evidence['fx'],minimum_gross_margin_pct=str(HARD_MARGIN),
                 rows=rows,decision_receipt=bundle,strategy_version=VERSION)
     return result

@@ -98,6 +98,7 @@ def strategy_summary(decisions):
     """Keep every selectable action while leaving repeated proofs in the private ledger."""
     result={}
     for mode,decision in (decisions or {}).items():
+        if mode not in POLICIES:continue
         candidates=[]
         for candidate in decision.get('candidates',[]):
             proof=candidate.get('financial_proof') or {}
@@ -222,7 +223,7 @@ def read(path):
         if conn is None:
             return dict(status='not_started',mode='shadow')
         try:
-            paths=[shadow_projection(json.loads(r[0])) for r in conn.execute('SELECT body FROM paths')]
+            paths=[shadow_projection(json.loads(r[0])) for r in conn.execute('SELECT body FROM paths') if json.loads(r[0]).get('policy') in POLICIES]
             return dict(status='available' if paths else 'not_started',mode='shadow',cadence='daily_saved_snapshots',paths=paths,
                         comparisons=[shadow_projection(json.loads(r[0])) for r in conn.execute('SELECT body FROM runs ORDER BY rowid DESC LIMIT 10')])
         finally:
@@ -317,7 +318,7 @@ def post(path,data,actor):
         if existing:
             resources,anchor=existing['resources'],existing['price_anchor']
         parameters=data.get('parameters') or {}
-        if not isinstance(parameters,dict) or set(parameters)-({'allocation','offsets_pct','capacity_reserve_ratio'} if mode=='backlog' else {'allocation','preferred_undercut_pct','sprint_policy_version'} if mode=='revenue_sprint' else {'allocation','offsets_pct'}):
+        if not isinstance(parameters,dict) or set(parameters)-({'allocation','preferred_undercut_pct','sprint_policy_version'} if mode=='revenue_sprint' else {'allocation','offsets_pct'}):
             raise ValueError('pricing_plan_parameters_invalid')
         plan=db.create_plan(mode,resources,anchor,starts_at=data.get('starts_at'),ends_at=data.get('ends_at'),
                             actor=actor,parameters=parameters,plan_id=ident)

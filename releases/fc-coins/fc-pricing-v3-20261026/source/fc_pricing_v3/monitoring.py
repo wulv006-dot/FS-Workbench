@@ -89,7 +89,8 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
                         except ValueError as exc:failures.append(str(exc)+':'+platform)
                 required_history_ratio(evidence,as_of);envelope_ratio(evidence['promotion_envelope'],as_of)
                 proof=receipt.get('financial_proof') or {}
-                if proof.get('pass_all') is not True or proof.get('execution_eligible') is not True:failures.append('financial_proof_missing')
+                infeasible=(snapshot.get('result',{}).get('status')=='INFEASIBLE' and receipt.get('status')=='INFEASIBLE' and receipt.get('execution_authorized') is False)
+                if not infeasible and (proof.get('pass_all') is not True or proof.get('execution_eligible') is not True):failures.append('financial_proof_missing')
                 if snapshot.get('snapshot_id')!=evidence.get('run_id') or receipt.get('snapshot_id')!=evidence.get('run_id'):
                     failures.append('snapshot_identity_mismatch')
             except (ValueError,KeyError,TypeError,StopIteration):failures.append('source_fields_unverified')
@@ -113,6 +114,7 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
         active=[p for p in plans if p['state'] in ('ACTIVE','ENDING')]
         owned=[p for p in plans if p['state'] in ('ACTIVE','ENDING','SUSPENDED')]
         operations=[json.loads(row[0]) for row in db.execute('SELECT body FROM operations')]
+        completed_cycles=[json.loads(row[0]) for row in db.execute("SELECT body FROM durable_jobs WHERE kind='cycle' AND state='done'")]
         snapshots=[]
         for plan in owned:
             pointer=db.execute('SELECT body FROM metadata WHERE id=?',('latest_snapshot:'+plan['plan_id'],)).fetchone()
@@ -150,11 +152,18 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
     if not latest_source and latest_summary.get('plan_id') in {p['plan_id'] for p in owned}:
         latest_source=latest_summary.get('source_checked_at')
     status='unknown' if not checked else 'needs_reconcile' if pending else 'paused' if state=='SUSPENDED' else 'waiting' if active else 'no_active_plan'
+    owned_ids={p['plan_id'] for p in owned}
+    last_operation=max((o for o in operations if o.get('plan_id') in owned_ids),key=lambda o:o.get('created_at',''),default={})
+    last_cycle=max((c for c in completed_cycles if c.get('plan_id') in owned_ids),key=lambda c:c.get('completed_at',''),default={})
+    last_stage=last_operation.get('status')
+    if last_cycle.get('completed_at','')>last_operation.get('completed_at',last_operation.get('created_at','')):
+        result_status=(last_cycle.get('result') or {}).get('status')
+        last_stage={'confirmed':'COMPLETED','no_price_change':'NO_CHANGE'}.get(result_status,result_status)
     return dict(enabled=True,scheduler='single_fc_v3',checked_at=heartbeat.get('checked_at'),generation=heartbeat.get('generation'),
                 active_plans=[{k:p.get(k) for k in ('plan_id','revision','mode','state','resources','ends_at')} for p in active],
                 schedule=dict(status=status,next_at=next_at,next_cycle_at=next_at,cycle_interval_minutes=policy['interval_minutes'],
                               last_cycle_at=max(last_cycles,default=None),last_snapshot_at=latest_summary.get('created_at'),
-                              last_source_checked_at=latest_source,last_execution_stage=next((o['status'] for o in sorted(operations,key=lambda row:row.get('created_at',''),reverse=True) if o.get('plan_id') in {p['plan_id'] for p in owned}),None),
+                              last_source_checked_at=latest_source,last_execution_stage=last_stage,
                               active_plan_state=state,background_next_at=background_next_at,
                               collection_status='v3_durable_due_queue'),
                 pending_operations=[dict(operation_id=o['operation_id'],status=o['status'],plan_id=o.get('plan_id')) for o in pending],

@@ -9,7 +9,7 @@ from pricing_operations import native
 
 
 V3_VERSION = 'fc-pricing-v3-20261026'
-ENGINE_SHA = '9fa145530040588918768a4acfeb8716cae3bf57ad9712b49a7095a973b07a01'
+ENGINE_SHA = '4eca376c3a6197ee6208f05ff680bc3d3b76d13db5877cdc400feb7ed19cf7b3'
 FINANCIAL_SHA = 'a76b155cb673c50ecacd878eb2e2eceb1efbcd15355b674a92f0487b9ee016d1'
 LEGACY_SHA = {
     'legacy_80_15_5': '91f8d143e21e05544b17442bd8a20d3735f62caa4aa5b182584a4fd4c4ec993a',
@@ -60,7 +60,7 @@ class SimulationBridge:
                     legacy_sources=versions['legacy_sources'], snapshot_id=state.get('snapshot_id'),
                     pricing_rules=None, pricing_rules_status='legacy_bands_retired_for_v3_decisions', minimum_gross_margin_pct='20',
                     granularity='global_console_and_pc_plus_verified_regional_rules',
-                    rule_ideas_supported=False, candidate_evaluator='v3_five_strategy_current_evaluate',
+                    rule_ideas_supported=False, candidate_evaluator='v3_two_strategy_current_evaluate',
                     candidate_evaluator_sha256=versions['engine_sha256'],
                     platforms=['PS', 'XBOX', 'PC'],
                     unsupported=['legacy_band_numerical_simulation', 'new_products'],

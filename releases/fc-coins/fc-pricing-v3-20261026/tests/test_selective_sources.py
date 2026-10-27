@@ -12,7 +12,8 @@ from unittest.mock import patch,Mock
 
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE.parent/'source'))
-from fc_pricing_v3 import business_source as business,selective_sources as selective,regional_public as regional,sources
+from fc_pricing_v3 import business_source as business,selective_sources as selective,regional_public as regional,sources,runtime
+from fc_pricing_v3.ledger import Ledger
 NOW=datetime(2026,10,26,13,tzinfo=timezone.utc)
 PERIOD=dict(start='2026-10-19',end='2026-10-25')
 
@@ -28,6 +29,16 @@ def cache_fixture():
 
 
 class SelectiveSourceTest(unittest.TestCase):
+    def test_write_boundary_uses_exact_reconciled_mix_and_rejects_changed_archive(self):
+        cache,*_=cache_fixture()
+        with tempfile.TemporaryDirectory() as folder:
+            store=Path(folder);db=Ledger(store/'control.sqlite3')
+            db.put('metadata','seven_day_history_cache',cache)
+            with patch.object(runtime,'STORE',store),patch.object(business,'selective_history_signature',return_value='source-v1'):
+                self.assertEqual(runtime.current_history_mix(NOW),cache['historical_discount_mix'])
+            with patch.object(runtime,'STORE',store),patch.object(business,'selective_history_signature',return_value='archive-changed'):
+                with self.assertRaisesRegex(ValueError,'source_or_window_changed'):runtime.current_history_mix(NOW)
+
     def test_changed_payment_state_rebuilds_exact_cohort_from_native_accounting(self):
         _,selected,orders,provenance=cache_fixture()
         native=dict(provenance,canonical_archive_sha256='c'*64)
@@ -56,7 +67,7 @@ class SelectiveSourceTest(unittest.TestCase):
     def test_source_plan_keeps_only_required_sources_and_fixed_interval(self):
         for mode in selective.MODES:
             plan=selective.source_plan(mode)
-            self.assertEqual(plan['price_interval_minutes'],120)
+            self.assertEqual(plan['price_interval_minutes'],60)
             self.assertEqual(plan['quote_validity_seconds'],900)
             self.assertFalse(set(plan['required_markets'])&set(selective.RETIRED))
             self.assertEqual(plan['required_markets'],['Lootbar','ItemD2R'] if mode=='revenue_sprint' else ['Lootbar'])
@@ -112,33 +123,23 @@ class SelectiveSourceTest(unittest.TestCase):
         same_terms_later=selective.project_cached_history(cache,terms,NOW+timedelta(hours=2))
         self.assertEqual(third['source_sha256'],same_terms_later['source_sha256'])
 
-    def test_backlog_refreshes_local_throughput_without_remote_historical_traces_or_changing_financial_cache(self):
-        cache,selected,_,provenance=cache_fixture();before=deepcopy(cache)
-        capacity=dict(status='observed_paid_cohort_throughput',observed_delivered_k_per_block='500',source_sha256='deliveries-v1')
-        with patch.object(business,'selective_history_signature',return_value='source-v1'),patch.object(business,'_period_population',return_value=(selected,provenance)) as population,patch.object(business,'fulfillment_context',return_value=capacity) as fulfillment,patch.object(business,'_live_traces') as traces,patch.object(business,'active_backlog_context',return_value=dict(gross_ordered_delivery_k='4950',status='complete')) as backlog,patch.dict(sys.modules,{'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
-            result=business.collect_selective_business(None,None,{},[],active_mode='backlog',history_cache=cache,source_signature='source-v1',current_templates={},now=NOW)
-            capacity.update(observed_delivered_k_per_block='600',source_sha256='deliveries-v2')
-            later=business.collect_selective_business(None,None,{},[],active_mode='backlog',history_cache=cache,source_signature='source-v1',current_templates={},now=NOW+timedelta(hours=2))
-        self.assertEqual(population.call_count,2);traces.assert_not_called();self.assertEqual(backlog.call_count,2)
-        fulfillment.assert_called_with(selected,{},provenance)
-        self.assertEqual(result['context']['fulfillment_estimates']['backlog_k'],'4950')
-        self.assertEqual(result['context']['fulfillment_estimates']['capacity_k_per_block'],'500')
-        self.assertEqual(later['context']['fulfillment_estimates']['capacity_k_per_block'],'600')
-        self.assertTrue(later['context']['fulfillment_estimates']['estimated'])
-        self.assertEqual(cache,before);self.assertEqual(result['private_updates'],{})
-        self.assertEqual(result['context']['history_replay']['source_sha256'],later['context']['history_replay']['source_sha256'])
+    def test_retired_modes_never_collect_inactive_context(self):
+        cache,*_=cache_fixture()
+        with patch.object(business,'selective_history_signature') as signature,patch.object(business,'active_backlog_context') as backlog,patch.object(business,'marketing_context') as ads:
+            for mode in ('acquisition','backlog','flash_sale'):
+                with self.assertRaisesRegex(ValueError,'selective_active_mode_invalid'):
+                    business.collect_selective_business(None,None,{},[],active_mode=mode,history_cache=cache,now=NOW)
+            signature.assert_not_called();backlog.assert_not_called();ads.assert_not_called()
 
-    def test_missing_local_capacity_population_remains_a_gap_and_never_uses_stale_cached_capacity(self):
-        cache,_,_,_=cache_fixture()
+    def test_supported_modes_ignore_retired_capacity_cache_without_collecting_it(self):
+        cache,*_=cache_fixture()
         body={k:deepcopy(v) for k,v in cache.items() if k!='cache_sha256'}
-        body['daily_rollups']['observed_fulfillment']=dict(observed_delivered_k_per_block='999')
+        body['daily_rollups']['observed_fulfillment']=dict(observed_delivered_k_per_block=None)
         cache=dict(body,cache_sha256=selective.fingerprint(body))
-        with patch.object(business,'selective_history_signature',return_value='source-v1'),patch.object(business,'_period_population',return_value=(None,dict(status='unavailable',reason='canonical_period_cache_missing'))),patch.object(business,'fulfillment_context') as fulfillment,patch.object(business,'active_backlog_context',return_value=dict(gross_ordered_delivery_k='4950')),patch.dict(sys.modules,{'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
-            result=business.collect_selective_business(None,None,{},[],active_mode='backlog',history_cache=cache,source_signature='source-v1',current_templates={},now=NOW)
-        fulfillment.assert_not_called()
-        estimate=result['context']['fulfillment_estimates']
-        self.assertIsNone(estimate['capacity_k_per_block'])
-        self.assertEqual(estimate['observed_capacity_source']['reason'],'canonical_period_cache_missing')
+        with patch.object(business,'selective_history_signature',return_value='source-v1'),patch.object(business,'fulfillment_context') as fulfillment,patch.object(business,'active_backlog_context') as backlog,patch.dict(sys.modules,{'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
+            result=business.collect_selective_business(None,None,{},[],active_mode='daily',history_cache=cache,source_signature='source-v1',current_templates={},now=NOW)
+        fulfillment.assert_not_called();backlog.assert_not_called()
+        self.assertNotIn('fulfillment_estimates',result['context'])
 
     def test_cache_hit_never_waives_current_hard_input_freshness(self):
         plan=selective.source_plan('daily')
@@ -163,22 +164,22 @@ class SelectiveSourceTest(unittest.TestCase):
         self.assertFalse(selective.planned_source_coverage(snapshot,plan,NOW)['ready'])
         self.assertTrue(selective.planned_source_coverage(snapshot,plan,NOW,reference_market=dict(offers=[dict(base,source='ItemD2R')]))['ready'])
 
-    def test_daily_replay_uses_only_same_day_immutable_stored_snapshots_and_five_pure_calls(self):
+    def test_daily_replay_uses_only_same_day_immutable_stored_snapshots_and_two_pure_calls(self):
         snapshot=dict(snapshot_id='actual-stored',origin='live_collector',mode='production',evidence=dict(checked_at=NOW.isoformat(),historical_ref={'cache_sha256':'cache'}))
         request=selective.daily_shadow_request('2026-10-26',[snapshot,dict(snapshot,snapshot_id='old',evidence=dict(checked_at=(NOW-timedelta(days=1)).isoformat()))])
         self.assertEqual(len(request['snapshot_refs']),1)
         self.assertFalse(request['coverage']['full_day_input_slots_covered'])
         self.assertEqual(request['coverage']['observed_slots'],1)
-        self.assertEqual(request['expected_dispatch_at'],'2026-10-27T00:20:00+08:00')
+        self.assertEqual(request['expected_dispatch_at'],'2026-10-27T02:20:00+08:00')
         calls=[]
         def pure(saved,mode,**kwargs):
             calls.append((mode,kwargs['as_of']))
-            if mode=='backlog':raise KeyError('inactive_capacity_missing')
+            if mode=='daily':raise KeyError('required_baseline_missing')
             saved['evidence']['mutated']=True
             return dict(value='explicit_initial_assumption',execution_authorized=False)
         result=selective.replay_daily_stored(request,[snapshot],pure)
-        self.assertEqual(len(calls),5)
-        self.assertEqual([r['strategy'] for r in result['records'] if r['status']=='gap'],['backlog'])
+        self.assertEqual(len(calls),2)
+        self.assertEqual([r['strategy'] for r in result['records'] if r['status']=='gap'],['daily'])
         self.assertNotIn('mutated',snapshot['evidence'])
         self.assertFalse(result['external_collection_performed']);self.assertFalse(result['training_eligible'])
 
@@ -191,7 +192,7 @@ class SelectiveSourceTest(unittest.TestCase):
         result=selective.replay_daily_stored(request,[snapshot,failed],evaluator)
         self.assertEqual(request['coverage']['failed_snapshot_count'],1)
         self.assertEqual(evaluator.call_args.kwargs['as_of'],decision)
-        self.assertEqual(evaluator.call_count,5)
+        self.assertEqual(evaluator.call_count,2)
         self.assertEqual(sum(row['status']=='gap' for row in result['records']),1)
         configured=selective.daily_shadow_request('2026-10-26',[snapshot],interval_minutes=180)
         self.assertEqual(configured['coverage']['expected_input_slots'],8)

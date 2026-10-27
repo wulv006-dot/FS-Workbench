@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 SOURCE = Path(__file__).resolve().parents[1] / 'source'
 sys.path.insert(0, str(SOURCE))
 from fc_pricing_v3 import api, runtime, monitoring, scheduler
-from fc_pricing_v3.scheduler import backlog_cleared, next_cycle_at
+from fc_pricing_v3.scheduler import next_cycle_at
 from fc_pricing_v3.ledger import Ledger
 import fc_pricing_v3.ledger as ledger_module
 import pricing_operations
@@ -60,7 +60,7 @@ class RuntimeContracts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             db=Ledger(Path(folder)/'control.sqlite3')
             plan=dict(plan_id='plan',revision=1,generation='g',resources=['base:pc'],
-                      starts_at=start.isoformat(),state='ACTIVE',mode='flash_sale',resume_count=1)
+                      starts_at=start.isoformat(),state='ACTIVE',mode='daily',resume_count=1)
             db.put('metadata','generation',dict(id='g'))
             db.put('pricing_plans','plan',plan)
             db.put('operations','original',dict(plan_id='plan',status='COMPLETED',completed_at=completed.isoformat()))
@@ -111,7 +111,7 @@ class RuntimeContracts(unittest.TestCase):
             db=Ledger(Path(folder)/'control.sqlite3')
             db.put('metadata','generation',dict(id='g'))
             old=dict(plan_id='plan',revision=1,generation='g',resources=['base:pc'],
-                     starts_at=(now-timedelta(hours=1)).isoformat(),state='ENDING',mode='flash_sale',
+                     starts_at=(now-timedelta(hours=1)).isoformat(),state='ENDING',mode='daily',
                      price_anchor=dict(base_prices=dict(pc='8.59')),actor='wulv',
                      last_cycle_at=last.isoformat())
             db.put('pricing_plans','plan',old)
@@ -234,17 +234,25 @@ class RuntimeContracts(unittest.TestCase):
             self.assertEqual(state['snapshot_id'],'new')
             self.assertEqual(state['target']['mtd'],'2')
 
-    def test_backlog_exit_requires_fresh_complete_zero_normal_queue(self):
-        now=datetime.now(timezone.utc)
-        queue=dict(status='normal_delivery_gross_quantity_upper_estimate', checked_at=now.isoformat(),
-                   gross_ordered_delivery_k='0', counts=dict(active_Coins_orders=0), source_sha256='a'*64,
-                   order_status_intersection=dict(status='native_Order_status_1_2_verified'))
-        evidence=dict(fulfillment_estimates=dict(current_backlog_source=queue))
-        self.assertTrue(backlog_cleared(evidence,now))
-        self.assertFalse(backlog_cleared({},now))
-        self.assertFalse(backlog_cleared(dict(fulfillment_estimates=dict(current_backlog_source=dict(queue,gross_ordered_delivery_k=None))),now))
-        self.assertFalse(backlog_cleared(dict(fulfillment_estimates=dict(current_backlog_source=dict(queue,checked_at=(now-timedelta(minutes=16)).isoformat()))),now))
-        self.assertFalse(backlog_cleared(dict(fulfillment_estimates=dict(current_backlog_source=dict(queue,order_status_intersection=dict(status='unavailable')))),now))
+    def test_retired_modes_cannot_create_new_plans(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'retired.db')
+            for mode in ('acquisition','backlog','flash_sale'):
+                with self.assertRaisesRegex(ValueError,'pricing_plan_scope_invalid'):
+                    db.create_plan(mode,['base:console'],dict(base_prices=dict(console='10',pc='10'),region_coefficients={}))
+
+    def test_two_modes_allow_open_end_and_keep_explicit_deadline(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'optional-end.db');db.activate_generation('g',[])
+            anchor=dict(base_prices=dict(console='10',pc='10'),region_coefficients={})
+            for mode in ('daily','revenue_sprint'):
+                plan=db.create_plan(mode,['base:console'],anchor)
+                self.assertIsNone(plan['ends_at'])
+                start=datetime.now(timezone.utc);end=start+timedelta(hours=3)
+                explicit=db.create_plan(mode,['base:console'],anchor,starts_at=start.isoformat(),ends_at=end.isoformat())
+                self.assertEqual(explicit['ends_at'],end.isoformat())
+            old=db.create_plan('daily',['base:pc'],anchor);old['mode']='backlog';db.put('pricing_plans',old['plan_id'],old)
+            with self.assertRaisesRegex(ValueError,'pricing_strategy_retired'):db.activate_plan(old['plan_id'])
 
     def test_strategy_decisions_route_keeps_requested_run_when_newer_snapshot_exists(self):
         first='00000000-0000-4000-8000-000000000050'

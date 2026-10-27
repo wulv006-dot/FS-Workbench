@@ -1198,14 +1198,6 @@ def collect_selective_business(session,pages,storefront,products,*,active_mode,s
         current_templates={str(row['id']):row for row in pages(session,'/admin/market.Coupon/index')}
     from pricing_sources import active
     current_templates={str(key):dict(row,_current_active=active(row,now,coupon=True)) for key,row in current_templates.items()}
-    backlog=active_backlog_context(session,pages) if plan['refresh_backlog'] else None
-    fulfillment=None
-    if plan['refresh_backlog']:
-        # Delivery arrivals change independently of the frozen seven-day discount evidence.
-        selected,provenance=_period_population(cache['period'])
-        observation=fulfillment_context(selected,{},provenance) if selected is not None else dict(status='unavailable',reason=provenance.get('reason','paid_cohort_unavailable'))
-        fulfillment=dict(observation,checked_at=now.isoformat())
-    ads=marketing_context(cache['period']) if plan['read_ads_context'] else None
     monthly=None
     if plan['refresh_monthly_target']:
         closed=cache['daily_rollups'].get('closed_month')
@@ -1225,7 +1217,7 @@ def collect_selective_business(session,pages,storefront,products,*,active_mode,s
             mtd_lower_bound=mtd,mtd_upper_bound=str(Decimal(upper)+Decimal(current['net_paid_usd'])) if upper is not None and complete_today else upper,
             through_date=today.isoformat() if complete_today else expected['end'],today=current,closed_day_rollup=closed,
             target_scope='site266_FC27_Coins',target_basis='net_paid_USD',status='target_not_configured')
-    context=context_from_cache(cache,plan,current_templates,now,backlog=backlog,fulfillment=fulfillment,monthly=monthly,ads=ads,online=online_context)
+    context=context_from_cache(cache,plan,current_templates,now,monthly=monthly,online=online_context)
     return dict(context=context,private_updates=dict(history_cache=update) if update else {},source_plan=plan)
 
 def _historical_provider_now():

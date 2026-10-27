@@ -13,6 +13,7 @@ assert(!html.includes('/dashboard/fc27-quote-cloud.js'));
 assert(!html.includes('/dashboard/fc27-reference-observer.js'));
 assert(html.includes('/dashboard/fc27-local-client.js'));
 assert(!html.includes('ELD 独立'));
+assert(!/value="(?:acquisition|backlog|flash_sale)"/.test(html));
 
 class Element {
   constructor() { this.value = ''; this.textContent = ''; this.children = []; this.events = {}; this.hidden = false; this.disabled = false; this.dataset = {}; }
@@ -32,7 +33,7 @@ const store = new Map();
 const sessionStorage = { getItem: key => store.get(key) || null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) };
 const plan = { plan_id: 'plan-1', mode: 'daily', state: 'SUSPENDED' };
 const state = { plans: [plan], active_plans: [plan], plan, generation: 'g', captured_at: '2026-10-26T13:00:00+08:00', snapshot_id: 'snapshot-1',
-  strategies: { daily: { status: 'READY', selected: { action: { base_prices: { console: '8.51', pc: '8.59' } }, score: { absolute_forecast_available: false } } }, acquisition: { status: 'DATA_PENDING' } },
+  strategies: { daily: { status: 'READY', selected: { action: { base_prices: { console: '8.51', pc: '8.59' } }, score: { absolute_forecast_available: false } } }, revenue_sprint: { status: 'DATA_PENDING' } },
   operations: [{ operation_id: 'op-1', status: 'COMPLETED', created_at: '2026-10-26T13:05:00+08:00', bundle: { mode: 'daily', review_approved: false, decision_source: 'v3_explicit_deterministic_feasible_assignment' } }],
   target: { mtd_lower_bound: '666454.13', mtd_upper_bound: '666464.47', through_date: '2026-10-25', today: { status: 'unavailable' } }, region_rules: [], regional_controls: [], incidents: [] };
 let canWrite = true, intervalBody;
@@ -43,7 +44,7 @@ const monitor = { storefront: { rows: { PS: { package_usd: 8.51, checked_at: '20
 let marketError=false;
 const market={snapshot_id:'snapshot-1',global_offers:{PS:{Lootbar:{usd_price:'9.18',base_k:'100',bonus_k:'5',checked_at:new Date().toISOString()}}},reference:{offers:[{platform:'PS',gross_usd:'8.14',purchase_k:'100',bonus_k:'0',status:'valid',captured_at:'2000-01-01T00:00:00Z'}]},arab:[]};
 market.saudi_missing_price_policy='follow_global';
-market.price_basis={rows:{PS:{cost_usd_per_1k:'.04',cost_cny_per_1k:'.28',package_cost_usd:'4.2',delivered_k:'105',regular_floor_usd:'5.30',average_floor_usd:'5.80',current_regular_margin_pct:'40',current_average_margin_pct:'30',cost_checked_at:'2026-10-27T00:00:00Z'}}};
+market.price_basis={historical_retained_ratio:'.9',rows:{PS:{cost_usd_per_1k:'.04',cost_cny_per_1k:'.28',package_cost_usd:'4.2',delivered_k:'105',regular_floor_usd:'5.30',average_floor_usd:'5.80',current_regular_margin_pct:'40',current_average_margin_pct:'30',cost_checked_at:'2026-10-27T00:00:00Z'}}};
 
 const fetch = async (url, options = {}) => ({ ok: true, json: async () => url.endsWith('/pricing/v3/interval') ? (intervalBody = JSON.parse(options.body), { revision: 4 })
   : url.endsWith('/pricing/v3/market') ? (marketError?Promise.reject(Error('fixture unavailable')):market)
@@ -73,8 +74,10 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(marketText,/\$8.14 \/ 100K 实际交付/);
   assert.match(marketText,/缺价 · 跟随全球/);
   assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/采购成本.*0.0400/);
-  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/未优惠红线.*5.30.*当前40.0%/);
-  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/七日平均红线.*5.80.*当前30.0%/);
+  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/未优惠红线.*5.30.*当前50.6%/);
+  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/七日平均红线.*5.80.*当前45.2%/);
+  monitor.storefront.rows.PS.package_usd='7.00';await elements['v3-refresh'].events.click();
+  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/未优惠红线.*当前40.0%/,'current margin must follow the public readback, not the pre-write snapshot price');
   assert(!html.includes('<pre id="v3-daily-result"'),'prose must not inherit the shared code-block no-wrap style');
   marketError=true;await elements['v3-refresh'].events.click();
   assert.equal(elements['v3-market-cards'].children.length,0);
@@ -93,7 +96,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   state.operations[0].bundle.review_approved = true;
   await elements['v3-refresh'].events.click();
   assert.match(elements['v3-review-source'].textContent, /本轮 Hermes 实际选择/);
-  elements['v3-mode'].value = 'acquisition'; elements['v3-mode'].events.change();
+  elements['v3-mode'].value = 'revenue_sprint'; elements['v3-mode'].events.change();
   assert.equal(elements['v3-strategies'].children.length, 1);
   state.operations[0].bundle.review_contract='program_pricing_with_daily_hermes_review_v3';
   state.operations[0].bundle.review_approved=false;
@@ -103,7 +106,8 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   await elements['v3-refresh'].events.click();
   assert.match(elements['v3-review-source'].textContent,/用户授权英国临时折扣退出/);
   assert.doesNotMatch(elements['v3-review-source'].textContent,/待核/);
-  assert.equal(elements['v3-target-section'].hidden, true);
+  assert.equal(elements['v3-end'].required,false);
+  assert.match(elements['v3-end-help'].textContent,/留空持续运行/);
   elements['v3-mode'].value = 'revenue_sprint'; elements['v3-mode'].events.change();
   assert.equal(elements['v3-target-section'].hidden, false);
   canWrite = false; await elements['v3-refresh'].events.click();

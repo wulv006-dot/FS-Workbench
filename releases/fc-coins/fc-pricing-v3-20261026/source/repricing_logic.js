@@ -340,7 +340,7 @@
     decimal(evidence.fx?.cny_per_usd, '本轮汇率');
     // Server V2 receipts are re-proved with Decimal immediately before each write.
     const result = payload.result?.strategy_version === 'fc-pricing-v3-20261026'
-      ? payload.result : fail('旧报价已退役，请使用五策略引擎');
+      ? payload.result : fail('旧报价已退役，请使用当前定价引擎');
 
     const targets = [];
     for (const platform of Object.keys(PLATFORMS)) {
