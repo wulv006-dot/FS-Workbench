@@ -2085,36 +2085,36 @@ window.FC_ACTIVITY_CONFIG = {
     "routes": {
       "186413755": {
         "picks": [
-          "170015245",
-          "185916899"
+          "185070993",
+          "185916875"
         ],
         "alternatives": [
-          "170015221",
-          "186432623"
+          "185070945",
+          "186254291"
         ],
         "label": {
-          "zh": "198cm支点的传中服务",
-          "en": "Crossing service for a 198cm target"
+          "zh": "意甲同联赛强链",
+          "en": "Serie A link block"
         }
       },
       "186475859": {
         "picks": [
-          "170015221",
-          "185916899"
+          "170014917",
+          "170017881"
         ],
         "alternatives": [
-          "170015245",
-          "186432623"
+          "186254291",
+          "185916851"
         ],
         "label": {
-          "zh": "支点+内切边锋",
-          "en": "Target man + inside forward"
+          "zh": "英超同联赛强链",
+          "en": "Premier League link block"
         }
       }
     },
     "fallbackPicks": [
-      "170015221",
-      "185916899"
+      "185070993",
+      "185916875"
     ],
     "allListedIds": [
       "186475859",

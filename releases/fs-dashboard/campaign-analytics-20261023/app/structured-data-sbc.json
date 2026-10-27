@@ -71,11 +71,11 @@
           "position": 2,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170015221",
-            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170015221",
-            "name": "Harry Kane/90/ST++/Gold Non Rare",
-            "description": "90 · ST++ · Gold Non Rare",
-            "image": "https://assets.mmoexp.com/player/fc27/55.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170014917",
+            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170014917",
+            "name": "Erling Haaland/91/ST++/Gold Non Rare",
+            "description": "91 · ST++ · Gold Non Rare",
+            "image": "https://assets.mmoexp.com/player/fc27/1.png"
           }
         },
         {
@@ -83,11 +83,11 @@
           "position": 3,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-185916899",
-            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-185916899",
-            "name": "Bradley Barcola/86/LW++/Star Performer",
-            "description": "86 · LW++ · Star Performer",
-            "image": "https://assets.mmoexp.com/images/202610/d85706bc2ab0f85b22560c0da86d1bfd423076de.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170017881",
+            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170017881",
+            "name": "Declan Rice/88/CDM++/Gold Non Rare",
+            "description": "88 · CDM++ · Gold Non Rare",
+            "image": "https://assets.mmoexp.com/player/fc27/91.png"
           }
         }
       ]
