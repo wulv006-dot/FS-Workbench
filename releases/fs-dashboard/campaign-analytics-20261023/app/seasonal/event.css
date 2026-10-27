@@ -904,3 +904,24 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
 #event-countdown { color: #ffd08a; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
 .offers-refresh { margin: 7px 0 0; color: #b6a4cd; font-size: 11px; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
 .offers-refresh:empty { display: none; }
+
+/* V9: the countdown reads as a small clock widget instead of a sentence, and the
+   offer detail waits for the card to finish turning. */
+.countdown { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+.countdown-label { margin-right: 4px; font-size: 9px; letter-spacing: 1.4px; color: #b9a6d2; text-transform: uppercase; white-space: nowrap; }
+.countdown-seg { display: inline-flex; align-items: baseline; gap: 2px; min-width: 34px; padding: 4px 6px 3px; border: 1px solid rgba(255,199,122,.34); border-radius: 7px; background: linear-gradient(180deg, rgba(58,34,84,.86), rgba(28,16,44,.9)); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 3px 10px rgba(0,0,0,.34); }
+.countdown-seg b { font-size: 17px; line-height: 1; color: #ffd08a; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+.countdown-seg small { font-size: 8px; letter-spacing: .6px; color: #b08fc6; }
+.countdown-sep { color: #7d639a; font-size: 15px; line-height: 1; }
+.offers-refresh .countdown { margin-top: 2px; }
+.offers-refresh .countdown-label { font-size: 10px; letter-spacing: 1.2px; color: #cbb7e2; }
+.offers-refresh .countdown-seg { min-width: 44px; padding: 6px 8px 5px; }
+.offers-refresh .countdown-seg b { font-size: 22px; }
+.slot-detail.is-pending { opacity: 0; transform: translateY(8px); pointer-events: none; }
+.slot-detail { transition: opacity .38s ease, transform .38s ease; }
+.game-badge { padding: 8px 15px; font-size: 12px; letter-spacing: .4px; border-radius: 999px; }
+@media (max-width: 640px) {
+  .countdown-seg { min-width: 32px; padding: 4px 5px 3px; }
+  .countdown-seg b { font-size: 16px; }
+  .game-badge { padding: 6px 11px; font-size: 10px; }
+}

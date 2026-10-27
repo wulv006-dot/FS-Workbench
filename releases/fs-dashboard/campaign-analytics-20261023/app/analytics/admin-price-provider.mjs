@@ -78,10 +78,25 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
   const promise=(async()=>{
    try{
     const products=[],raw={},observations=[],reads=new Map();
+    // Warm every distinct model read concurrently. The projection below stays
+    // sequential, so ordering and the generation checks are unchanged; only the
+    // Admin round trips overlap. Without this a 44-model pool cannot finish
+    // inside one refresh window.
+    const warmEntries=new Map();
     for(const p of current.config.entries){
      const readKey=canonical([p.model_ref,p.category_id]);
-     if(!reads.has(readKey))reads.set(readKey,await call({action:'model_provider_read',...p.model_ref,category_id:p.category_id},{timeout:25000}));
-     const observation=reads.get(readKey);
+     if(!warmEntries.has(readKey))warmEntries.set(readKey,p);
+    }
+    const warmList=[...warmEntries.entries()];
+    // Cache the promise, not the value: a failure surfaces exactly once in the
+    // sequential pass below instead of being retried by it.
+    for(const [readKey,p] of warmList){
+      if(!reads.has(readKey))reads.set(readKey,call({action:'model_provider_read',...p.model_ref,category_id:p.category_id},{timeout:25000}));
+    }
+    await Promise.allSettled([...reads.values()]);
+    for(const p of current.config.entries){
+     const readKey=canonical([p.model_ref,p.category_id]);
+     const observation=await reads.get(readKey);
      if(generation!==admitted)return status;
      const latest=context();
      if(latest.key!==current.key){key=latest.key;generation++;unavailable(latest.release,'PRIVATE_POLICY_OR_RELEASE_CHANGED');return status;}

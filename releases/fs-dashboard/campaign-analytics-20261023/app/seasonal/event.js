@@ -15,11 +15,16 @@
     const offset=nyOffset(ts),local=new Date(ts+offset);
     return Date.UTC(local.getUTCFullYear(),local.getUTCMonth(),local.getUTCDate()+1,0,0,0,0)-offset;
   }
-  function clock(ms){
-    if(!Number.isFinite(ms)||ms<=0)return '00:00:00';
+  // A small clock widget instead of a sentence: segmented tiles make the moment
+  // read as an upcoming drop rather than as body copy.
+  function clockWidget(ms,label){
+    if(!Number.isFinite(ms)||ms<=0)return '';
     const total=Math.floor(ms/1000),d=Math.floor(total/86400),h=Math.floor(total%86400/3600),m=Math.floor(total%3600/60),s=total%60;
     const pad=n=>String(n).padStart(2,'0');
-    return (d?d+'d ':'')+pad(h)+':'+pad(m)+':'+pad(s);
+    const seg=(value,unit)=>'<span class="countdown-seg"><b>'+pad(value)+'</b><small>'+unit+'</small></span>';
+    const sep='<span class="countdown-sep" aria-hidden="true">:</span>';
+    return '<span class="countdown" role="timer"><span class="countdown-label">'+label+'</span>'
+      +(d?seg(d,'D')+sep:'')+seg(h,'H')+sep+seg(m,'M')+sep+seg(s,'S')+'</span>';
   }
   function project(config){
     const source=config?.halloween?.schema_version===1&&String(config.halloween.site_id)==='266'?config.halloween:{};
@@ -37,18 +42,33 @@
   if(!root.document)return;
   const doc=root.document,esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let config={},view=project(config),activeGame=null,media={},lastGameButton=null,referenceTimer=null;
-  const revealed=new Set(),dialog=doc.querySelector('#event-dialog');
+  const revealed=new Set(),animatingSlots=new Set(),dialog=doc.querySelector('#event-dialog');
   const receipts=new Map(),drawing=new Set();
   const fixedOffer=game=>({slot:'fixed',model_id:game.fixed_model,off_percent:game.fixed_off_percent,...(game.random_source==='quantity_tiers'?{quantity:{value:game.fixed_quantity.value,unit:game.fixed_quantity.unit}}:{})});
   const slotOffer=(game,slot)=>{if(slot==='fixed')return fixedOffer(game);const receipt=receipts.get(game.id),row=receipt?.slots.find(row=>row.slot===slot);return row?{...row,reveal_request_id:receipt.request_id}:null;};
   const status=message=>{doc.querySelector('#event-status').textContent=message;};
   function animateFlip(card){
-    if(!card)return;card.focus({preventScroll:true});
-    if(root.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
-    // One controlled charge, then the edge crosses. The face swap is driven by
-    // visibility inside the keyframes, so a mirrored face is never painted.
-    card.classList.add('is-revealed','just-revealed');
-    setTimeout(()=>{if(card.isConnected)card.classList.remove('just-revealed');},1500);
+    if(!card)return;
+    const slot=card.closest('[data-offer-slot]')?.dataset.offerSlot||null;
+    const selector='[data-offer-slot="'+(slot||'fixed')+'"] .flip-card';
+    if(root.matchMedia?.('(prefers-reduced-motion: reduce)').matches){
+      if(slot)animatingSlots.delete(slot);
+      renderSlots();
+      return;
+    }
+    // The detail block stays hidden until the edge has crossed and the sweep has
+    // finished, so the price never appears while the card is still turning.
+    if(slot)animatingSlots.add(slot);
+    renderSlots();
+    const fresh=doc.querySelector(selector);
+    if(!fresh){if(slot)animatingSlots.delete(slot);return;}
+    fresh.focus({preventScroll:true});
+    fresh.classList.add('is-revealed','just-revealed');
+    setTimeout(()=>{
+      if(slot)animatingSlots.delete(slot);
+      renderSlots();
+      doc.querySelector(selector)?.focus({preventScroll:true});
+    },1500);
   }
   // An anonymous visitor keeps the same draw across reloads and tabs. The durable
   // request id and receipt live in the runtime adapter; this view only replays it.
@@ -104,12 +124,12 @@
     if(reference)nextExpiry=Math.min(nextExpiry,Date.parse(reference.expires_at));
     const title=english(model?.title,game.label+' model'),businessAmount=game.fixed_quantity?'<p class="business-quantity">'+esc(game.fixed_quantity.label)+'</p>':'';
     const price=reference?'<div class="reference-price"><span>Default combination reference</span><div class="price-line"><strong>'+format(reference.indicative_discounted_minor,reference.currency,reference.minor_unit_scale)+'</strong><del>'+format(reference.base_minor,reference.currency,reference.minor_unit_scale)+'</del></div></div>':'<p class="unavailable-price">'+(game.id==='fc'?(root.SeasonalCommerce?.nativeFixed(game)?'The published native binding covers PS 1000K Coins. Final price and code eligibility are confirmed in the native cart.':'1000K Coins purchase-unit conversion is not verified. Reference price and purchasing are unavailable.'):'Default combination reference unavailable')+'</p>';
-    const fixed='<article class="offer-slot fixed-slot" data-offer-slot="fixed"><span class="slot-label">FIXED SELECTION</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-fixed-reveal aria-expanded="'+open+'" '+(!configured?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="vault-symbol" aria-hidden="true">✦</span><strong>'+(configured?'Your fixed pick':'Awaiting configuration')+'</strong>'+businessAmount+'<small>'+(configured?'Flip to reveal your offer':'Product model and offer binding unavailable')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'><small>'+game.label+'</small><strong>'+esc(title)+'</strong>'+businessAmount+'<b>'+(game.fixed_off_percent===null?'Offer unavailable':game.fixed_off_percent+'% OFF')+'</b><small>Choose your server to continue</small></span><span class="reveal-rays" aria-hidden="true"></span></button><div class="slot-detail" '+(!open?'hidden':'')+'>'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(game.fixed_model||'')+'" '+(!buyReady(game)?'disabled':'')+'>Buy Now</button>'+(contractFor(game)?'':'<p class="slot-note">Verified model options are not connected. Purchasing is unavailable.</p>')+'</div></article>';
+    const fixed='<article class="offer-slot fixed-slot" data-offer-slot="fixed"><span class="slot-label">FIXED SELECTION</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-fixed-reveal aria-expanded="'+open+'" '+(!configured?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="vault-symbol" aria-hidden="true">✦</span><strong>'+(configured?'Your fixed pick':'Awaiting configuration')+'</strong>'+businessAmount+'<small>'+(configured?'Flip to reveal your offer':'Product model and offer binding unavailable')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'><small>'+game.label+'</small><strong>'+esc(title)+'</strong>'+businessAmount+'<b>'+(game.fixed_off_percent===null?'Offer unavailable':game.fixed_off_percent+'% OFF')+'</b><small>Choose your server to continue</small></span><span class="reveal-rays" aria-hidden="true"></span></button><div class="slot-detail'+(open&&animatingSlots.has('fixed')?' is-pending':'')+'" '+(!open?'hidden':'')+'>'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(game.fixed_model||'')+'" '+(!buyReady(game)?'disabled':'')+'>Buy Now</button>'+(contractFor(game)?'':'<p class="slot-note">Verified model options are not connected. Purchasing is unavailable.</p>')+'</div></article>';
     const random=[1,2].map(n=>{
       const slot='random-'+n,offer=slotOffer(game,slot),receipt=receipts.get(game.id),token=receipt?.request_id+':'+slot,open=offer&&revealed.has(token),product=offer&&resolveModel(config,game,offer.model_id)[0],reference=offer&&referenceFor(game,offer);
       if(reference)nextExpiry=Math.min(nextExpiry,Date.parse(reference.expires_at));
       const price=reference?'<div class="reference-price"><span>Default combination reference</span><div class="price-line"><strong>'+format(reference.indicative_discounted_minor,reference.currency,reference.minor_unit_scale)+'</strong><del>'+format(reference.base_minor,reference.currency,reference.minor_unit_scale)+'</del></div></div>':'<p class="unavailable-price">Current reference price unavailable. Select your options to check the native store.</p>';
-      const detail=open?'<div class="slot-detail">'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(offer.model_id)+'" data-buy-slot="'+slot+'" '+(!buyReady(game,offer)?'disabled':'')+'>Buy Now</button></div>':'';
+      const detail=open?'<div class="slot-detail'+(animatingSlots.has(slot)?' is-pending':'')+'">'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(offer.model_id)+'" data-buy-slot="'+slot+'" '+(!buyReady(game,offer)?'disabled':'')+'>Buy Now</button></div>':'';
       return '<article class="offer-slot random-slot" data-offer-slot="'+slot+'"><span class="slot-label">MYSTERY PICK 0'+n+'</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-random-reveal="'+slot+'" aria-expanded="'+Boolean(open)+'" '+(!eventConfigured()||drawing.has(game.id)?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(drawing.has(game.id)?'Opening your collection…':'Reveal your surprise')+'</strong><small>'+(eventConfigured()?'Tap to turn your card':'Offer probabilities and dates are not configured')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'><small>'+game.label+'</small><strong>'+esc((offer?.quantity?offer.quantity.value+' '+offer.quantity.unit+' ':'')+english(product?.title,'Mystery selection'))+'</strong><b>'+(offer?offer.off_percent+'% OFF':'')+'</b></span><span class="reveal-rays" aria-hidden="true"></span></button>'+detail+'</article>';
     }).join('');
     doc.querySelector('#offer-slots').innerHTML=fixed+random;
@@ -123,8 +143,8 @@
       // published configuration arrives.
       const now=Date.now(),end=view.ends_at?Date.parse(view.ends_at):null;
       const hero=doc.querySelector('#event-countdown'),refresh=doc.querySelector('#offers-refresh');
-      if(hero)hero.textContent=Number.isFinite(end)&&end>now?'ENDS IN '+clock(end-now):'';
-      if(refresh)refresh.textContent='Daily reset in '+clock(nextNyMidnight(now)-now)+' — new picks and discounts every day';
+      if(hero)hero.innerHTML=Number.isFinite(end)&&end>now?clockWidget(end-now,'Ends in'):'';
+      if(refresh)refresh.innerHTML=clockWidget(nextNyMidnight(now)-now,'Daily reset in');
     };
     paint();
     if(!countdownTimer)countdownTimer=setInterval(paint,1000);
