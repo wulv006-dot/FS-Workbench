@@ -14,6 +14,18 @@ from fixtures import NOW
 
 
 class BusinessOutcome(unittest.TestCase):
+    def test_infeasible_source_snapshot_is_not_a_failed_execution_or_missing_market(self):
+        from test_dual20_sprint import source,NOW
+        from fc_pricing_v3 import monitoring
+        from fc_pricing_v3.financial import fingerprint
+        data=source();ident=data['run_id']
+        receipt=dict(status='INFEASIBLE',execution_authorized=False,snapshot_sha256=fingerprint(data),snapshot_id=ident)
+        snapshot=dict(snapshot_id=ident,origin='live_collector',mode='production',created_at=NOW.isoformat(),evidence=data,result=dict(status='INFEASIBLE',decision_receipt=receipt))
+        plan=dict(plan_id='p',mode='daily',resources=['base:console','base:pc']);receipt['plan_id']='p'
+        self.assertEqual(monitoring.source_coverage([snapshot],[plan],NOW)['status'],'verified')
+        data['costs'].pop('PC');receipt['snapshot_sha256']=fingerprint(data)
+        self.assertEqual(monitoring.source_coverage([snapshot],[plan],NOW)['status'],'unverified')
+
     def test_worker_preserves_original_quote_reason_before_any_execution(self):
         source=SOURCE/'fc27_cloud_worker.py'
         fn=next(n for n in ast.parse(source.read_text()).body if isinstance(n,ast.FunctionDef) and n.name=='collect_quote')
@@ -45,7 +57,7 @@ class BusinessOutcome(unittest.TestCase):
             self.assertEqual(result['quote_status'],'ready_for_preview')
 
     def test_business_infeasible_finishes_normally_but_technical_failure_still_raises(self):
-        plan=dict(plan_id='p',state='ACTIVE',revision=2,resources=['base:console','base:pc'])
+        plan=dict(mode='revenue_sprint',plan_id='p',state='ACTIVE',revision=2,resources=['base:console','base:pc'])
         for reason,business in [('pricing_v3_infeasible:NO_SAFE_COMMIT_PATH',True),('storefront_incomplete',False),('UNKNOWN',False)]:
             with self.subTest(reason=reason):
                 db=Mock();db.active_plan.return_value=plan;db.get.return_value=None;db.all.return_value=[];db.generation.return_value=dict(id='g')

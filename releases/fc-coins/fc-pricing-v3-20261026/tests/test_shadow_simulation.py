@@ -128,7 +128,7 @@ class ShadowBehavior(unittest.TestCase):
             shadow.snapshot(dict(snapshot_id='no-baseline', evidence=actual))
             with shadow.connect() as db:
                 paths = [json.loads(raw) for raw, in db.execute('SELECT body FROM paths')]
-            self.assertEqual(len(paths), 5)
+            self.assertEqual(len(paths), 2)
             self.assertTrue(all(not p.get('last_components') for p in paths))
             self.assertTrue(all(Decimal(p['revenue']) == 0 for p in paths))
 
@@ -293,7 +293,7 @@ class ShadowBehavior(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, patch.object(simulation, 'evaluate', side_effect=fake_evaluate):
             result = simulation.Shadow(Path(folder) / 'shadow.db').historical(snapshots, kind='demand_counterfactual')
         self.assertEqual(result['simulation_kind'], 'demand_counterfactual')
-        self.assertEqual(len(result['records']), 5)
+        self.assertEqual(len(result['records']), 2)
         self.assertTrue(all(r['status'] == 'scenario_projection' for r in result['records']))
         self.assertTrue(all(Decimal(r['path']['revenue']) == Decimal(20) for r in result['records']))
 
@@ -357,7 +357,7 @@ class ShadowBehavior(unittest.TestCase):
         self.assertEqual(Decimal(estimate['effect_usd']), Decimal(150))
         self.assertEqual(estimate['propensity_basis'], 'treatment_probability_for_both_arms')
 
-    def test_sprint_reopens_each_calendar_window_with_own_budget(self):
+    def test_sprint_stays_continuous_without_implicit_calendar_deadlines(self):
         times = [datetime(2026, 10, 31, 15, tzinfo=timezone.utc),
                  datetime(2026, 10, 31, 16, tzinfo=timezone.utc),
                  datetime(2026, 11, 5, 16, tzinfo=timezone.utc),
@@ -369,15 +369,11 @@ class ShadowBehavior(unittest.TestCase):
                 shadow.snapshot(dict(snapshot_id=f'sprint-{i}', evidence=evidence(at, '999')))
                 with shadow.connect() as db:
                     paths.append(json.loads(db.execute("SELECT body FROM paths WHERE id='revenue_sprint'").fetchone()[0]))
-        self.assertEqual(paths[0]['active_deadline'][:10], '2026-11-01')
-        self.assertEqual(paths[1]['window_started_at'][:10], '2026-11-01')
-        self.assertEqual(paths[1]['active_deadline'][:10], '2026-11-06')
+        self.assertTrue(all(p['active_deadline'] is None for p in paths))
+        self.assertTrue(all(p['effective_mode']=='revenue_sprint' for p in paths))
+        self.assertTrue(all(p['window_started_at']==paths[0]['window_started_at'] for p in paths))
         self.assertEqual(paths[1]['monthly_revenue']['2026-11'], '0')
-        self.assertEqual(paths[2]['effective_mode'], 'daily')
-        self.assertEqual(paths[3]['effective_mode'], 'revenue_sprint')
-        self.assertEqual(paths[3]['window_started_at'][:10], '2026-11-24')
-        self.assertEqual(paths[3]['active_deadline'][:10], '2026-12-01')
-        self.assertEqual(len(paths[3]['window_history']), 2)
+        self.assertNotIn('window_history',paths[3])
 
 
 if __name__ == '__main__':

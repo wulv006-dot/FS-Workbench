@@ -16,7 +16,7 @@ class PostwriteCompletion(unittest.TestCase):
             db=Ledger(root/'control.db');db.activate_generation('g',[])
             anchor=dict(base_prices=dict(console='30',pc='30'),region_coefficients={})
             with patch('fc_pricing_v3.ledger.clock',return_value=NOW):
-                plan=db.create_plan('flash_sale',['base:console','base:pc'],anchor,starts_at=NOW.isoformat(),daily_budget='100')
+                plan=db.create_plan('daily',['base:console','base:pc'],anchor,starts_at=NOW.isoformat(),daily_budget='100')
                 db.activate_plan(plan['plan_id'])
             plan.update(state='ENDING',ends_at=NOW.isoformat());db.put('pricing_plans',plan['plan_id'],plan)
             action=dict(base_prices=dict(console='20',pc='20'),region_coefficients={})

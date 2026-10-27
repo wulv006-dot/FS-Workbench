@@ -1,4 +1,4 @@
-"""Five objectives over one exact price/financial contract; no legacy selector."""
+"""Two objectives over one exact price/financial contract; no legacy selector."""
 from copy import deepcopy
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, ROUND_DOWN, ROUND_UP, ROUND_HALF_UP
@@ -14,9 +14,6 @@ GROUPS = {'console':('PS','XBOX'), 'pc':('PC',)}
 SPRINT_POLICY_VERSION = 'sprint_5_10_itemd2r_floor20_v2'
 POLICIES = {
     'daily':dict(offsets=(-8,-4,0,4,8), allocation=(.2,.6,.2)),
-    'acquisition':dict(offsets=(-20,-15,-10,-5,0,5), allocation=(.2,.4,.4)),
-    'backlog':dict(offsets=(0,5,10,15,20), allocation=(0,1,0)),
-    'flash_sale':dict(offsets=(-25,-20,-15,-10,-5,0), allocation=(.1,.6,.3)),
     'revenue_sprint':dict(offsets=(-5,-6.25,-7.5,-8.75,-10), allocation=(.1,.7,.2))}
 
 
@@ -151,12 +148,9 @@ def price_basis(evidence,now):
         rules=evidence['promotion_envelope']['packages'][platform]
         tier=next(t for t in rules['tiers'] if number(t['base_k'])==100)
         delivered=number(tier['base_k'])+number(tier['bonus_k'],zero=True)
-        current=number(evidence['storefront']['rows'][platform]['package_usd'])
         package_cost=delivered*cost/fx
         rows[platform]=dict(cost_cny_per_1k=str(cost),cost_usd_per_1k=str(cost/fx),
             package_cost_usd=str(package_cost),delivered_k=str(delivered),
-            current_regular_usd=str(current),current_regular_margin_pct=str((current-package_cost)/current*100),
-            current_average_margin_pct=str((current*average-package_cost)/(current*average)*100),
             regular_floor_usd=str(catalog_floor(cost,fx,ratio,HARD_MARGIN,rules)*100),
             average_floor_usd=str(catalog_floor(cost,fx,ratio,HARD_MARGIN,rules,average_ratio=average)*100),
             cost_checked_at=evidence['costs'][platform]['checked_at'])
@@ -420,7 +414,6 @@ def score(mode, action, evidence, financial_proof, anchor, evaluation_context=No
     rows = {}
     objective = revenue = contribution = Decimal(0)
     absolute = True
-    projected_delivery_k=Decimal(0)
     for group in GROUPS:
         price = number(action['base_prices'][group])
         reference = number(anchor['base_prices'][group])
@@ -444,15 +437,7 @@ def score(mode, action, evidence, financial_proof, anchor, evaluation_context=No
             current_cost=pooled if group=='console' else number(evidence['costs']['PC']['cny_per_1k'])
             per_cost=number(baseline['delivered_k_per_order'])*current_cost/number(evidence['fx']['cny_per_usd'])
         group_contribution = group_revenue-orders*per_cost
-        if mode=='backlog':
-            capacity = evidence.get('capacity_k_per_block')
-            backlog = evidence.get('backlog_k')
-            delivered = baseline.get('delivered_k_per_order')
-            if capacity is None or backlog is None or delivered is None or not has_baseline:
-                raise ValueError('pricing_capacity_data_pending')
-            reserve=number((parameters or {}).get('capacity_reserve_ratio','.10'),zero=True)
-            projected_delivery_k+=orders*number(delivered)
-        group_objective = group_revenue if mode=='revenue_sprint' else orders*number(baseline['new_customer_ratio'],zero=True) if mode=='acquisition' and baseline.get('new_customer_ratio') is not None else group_contribution
+        group_objective = group_revenue if mode=='revenue_sprint' else group_contribution
         budget_reference=number((evidence.get('budget_reference') or {}).get('base_prices',{}).get(group,anchor['base_prices'][group]))
         concession_per_order=max(Decimal(0),budget_reference-price)
         if baseline.get('target_revenue_per_order_usd') is not None:
@@ -485,7 +470,7 @@ def score(mode, action, evidence, financial_proof, anchor, evaluation_context=No
             absolute=False
         profit=income-orders*cost
         new_ratio=segment.get('new_customer_ratio')
-        objective += income if mode=='revenue_sprint' else orders*number(new_ratio,zero=True) if mode=='acquisition' and new_ratio is not None else profit
+        objective += income if mode=='revenue_sprint' else profit
         revenue += income
         contribution += profit
         group='pc' if segment['platform']=='PC' else 'console'
@@ -499,24 +484,7 @@ def score(mode, action, evidence, financial_proof, anchor, evaluation_context=No
         if rows[group]['negative_contribution'] is not None:rows[group]['negative_contribution']=str(Decimal(rows[group]['negative_contribution'])+max(Decimal(0),-profit))
         regional_predictions.append(dict(key=key,orders=str(orders),revenue=str(income),contribution=str(profit),
                                          concession=str(concession),negative_contribution=str(max(Decimal(0),-profit))))
-        if mode=='backlog':
-            if segment.get('delivered_k_per_order') is None:raise ValueError('pricing_capacity_segment_quantity_pending')
-            projected_delivery_k+=orders*number(segment['delivered_k_per_order'])
     queue_projection=None
-    if mode=='backlog':
-        reserve=number((parameters or {}).get('capacity_reserve_ratio','.10'),zero=True)
-        usable=number(evidence['capacity_k_per_block'],zero=True)*(1-reserve)
-        remaining=max(Decimal(0),number(evidence['backlog_k'],zero=True)+projected_delivery_k-usable)
-        estimated=evidence.get('capacity_is_estimate') is True
-        due=evidence.get('due_committed_backlog_k')
-        if not estimated and projected_delivery_k+number(evidence['backlog_k'] if due is None else due,zero=True)>usable:
-            raise ValueError('CAPACITY_UNRESOLVED_BY_PRICE')
-        if due is not None and projected_delivery_k+number(due,zero=True)>usable and not estimated:
-            raise ValueError('CAPACITY_UNRESOLVED_BY_PRICE')
-        queue_projection=dict(new_delivery_k=str(projected_delivery_k),usable_capacity_k=str(usable),
-            opening_backlog_upper_bound_k=str(evidence['backlog_k']),remaining_backlog_upper_bound_k=str(remaining),
-            due_committed_backlog_k=due,status='initial_queue_evolution_estimate_not_SLA_proof' if estimated else 'verified_capacity_constraint')
-        if estimated:objective=-remaining
     sensitivity = {e:{g:str(demand(action['base_prices'][g],((model.get('groups') or {}).get(g,{}) or {}).get('reference_regular_usd') or anchor['base_prices'][g],
                     ((model.get('groups') or {}).get(g,{}) or {}).get('orders_per_block')
                     if ((model.get('groups') or {}).get(g,{}) or {}).get('orders_per_block') is not None else '1',e)) for g in GROUPS} for e in ('.5','1','2','4')}

@@ -287,7 +287,7 @@ def render_result(evidence,selected,bundle,mode):
             lootbar_page_usd=public_anchor['usd_price'],
             lootbar_usd_per_1k=str(number(public_anchor['usd_price'])/(number(public_anchor['base_k'])+number(public_anchor.get('bonus_k','0'),zero=True))),
             change_pct=str((target/number(own['package_usd'])-1)*100),
-            warning='双20%红线；单笔合法优惠仍可亏损。预测不是实绩。',status='财务底价兜底 · 未达到竞争降幅' if selected.get('decision_type')=='floor_fallback' else '五策略引擎核算通过 · 待执行'))
+            warning='双20%红线；单笔合法优惠仍可亏损。预测不是实绩。',status='财务底价兜底 · 未达到竞争降幅' if selected.get('decision_type')=='floor_fallback' else '双模式引擎核算通过 · 待执行'))
     result=dict(checked_at=evidence['checked_at'],fx=evidence['fx'],minimum_gross_margin_pct=str(HARD_MARGIN),
                 rows=rows,decision_receipt=bundle,strategy_version=VERSION)
     return result

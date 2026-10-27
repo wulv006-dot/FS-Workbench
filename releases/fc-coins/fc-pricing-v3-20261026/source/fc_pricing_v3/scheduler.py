@@ -100,27 +100,13 @@ def export_shadow_snapshot(db, target=SHADOW_EXPORT, *, force=False):
             Path(name).unlink(missing_ok=True)
 
 
-def backlog_cleared(evidence, now):
-    queue=(evidence.get('fulfillment_estimates') or {}).get('current_backlog_source') or {}
-    order=queue.get('order_status_intersection') or {}
-    try:
-        return (queue.get('status')=='normal_delivery_gross_quantity_upper_estimate' and
-                order.get('status')=='native_Order_status_1_2_verified' and
-                bool(queue.get('source_sha256')) and
-                int((queue.get('counts') or {})['active_Coins_orders'])==0 and
-                float(queue['gross_ordered_delivery_k'])==0 and
-                0<=(now-instant(queue['checked_at'])).total_seconds()<=900)
-    except (KeyError,TypeError,ValueError):
-        return False
-
-
 def cycle(body=None):
     import fc27_cloud_worker as worker
     from automation_policy import load_policy
     db=ledger()
     body=body or {}
     requested=db.get('pricing_plans',body['plan_id']) if body.get('plan_id') else db.active_plan()
-    if not requested or requested['state']!='ACTIVE' or body.get('revision',requested['revision'])!=requested['revision']:
+    if not requested or requested['mode'] not in POLICIES or requested['state']!='ACTIVE' or body.get('revision',requested['revision'])!=requested['revision']:
         return dict(status='superseded')
     with db.connect() as conn:
         try:db.owns(requested,requested['resources'],conn)
@@ -152,11 +138,6 @@ def cycle(body=None):
     try:
         collected=worker.collect_quote(job)
         quote=json.loads((ROOT/'quotes'/(collected['run_id']+'.json')).read_text())
-        if requested['mode']=='backlog' and backlog_cleared(quote['evidence'],clock()):
-            db.deadline(requested['plan_id'],requested['revision'])
-            job.update(status='ready',result=dict(status='backlog_cleared_exit_pending',plan_id=requested['plan_id']),completed_at=clock().isoformat())
-            worker.save_job(job)
-            return job['result']
         if body.get('manual_preview_id'):
             manual=db.get('manual_previews',body['manual_preview_id'])
             if not manual or manual['actor']!=body.get('actor') or manual['plan_id']!=requested['plan_id'] or manual['revision']!=requested['revision']:

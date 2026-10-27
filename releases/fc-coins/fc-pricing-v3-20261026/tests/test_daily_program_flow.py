@@ -168,7 +168,7 @@ class DailyProgramFlow(unittest.TestCase):
             self.assertEqual(first,repeated);self.assertEqual(first['cursor'],1)
             self.assertFalse(first['production_write_performed']);self.assertFalse(first['external_collection_performed'])
             self.assertEqual(len(first['periods']),4)
-            self.assertEqual(set(first['periods'][0]['results']),set(('daily','acquisition','backlog','flash_sale','revenue_sprint')))
+            self.assertEqual(set(first['periods'][0]['results']),set(('daily','revenue_sprint')))
             with closing(sqlite3.connect(production)) as conn:self.assertEqual(conn.execute('SELECT count(*) FROM event_outbox').fetchone()[0],2)
 
     def test_page_interaction_contract(self):

@@ -24,7 +24,7 @@ def schemas():
     experience={'type':'object','properties':{'kind':{'enum':['experience','method_diff']},'lesson':text,'applies_to':text,'evidence_refs':{'type':'array','items':text},'counterexample':text,'expires_at':text,'base_manifest_sha256':text,'lesson_diff':text},'required':['kind'],'additionalProperties':False}
     definitions=(
         ({},'Read current V3 research capability and source versions. V3 candidate calculation, review and historical simulation use fs.pricing.control; retired discount bands are historical only.'),
-        (proposal,'Save a V3 snapshot-bound, evidence-backed future rule idea for review. This draft does not change the five active modes, calculate a price, create a plan or authorize execution. For current feasible candidates use fs.pricing.control compare_strategies and recommend.'),
+        (proposal,'Save a V3 snapshot-bound, evidence-backed future rule idea for review. This draft does not change the two active modes, calculate a price, create a plan or authorize execution. For current feasible candidates use fs.pricing.control compare_strategies and recommend.'),
         ({'decision_id':text,'start':text,'end':text},'Read existing research drafts and frozen human action history. Use fs.pricing.control operation_read and simulation_read for V3 execution and historical results. Human notes alone do not prove an executed write.'),
         ({'source':text,'candidate':experience},'Propose an experience or current-method diff from an owned completed report or conversation turn. Service assigns risk. Method differences require matching base manifest and human review; no publication permission.'))
     from pricing_operations import schema as pricing_schema

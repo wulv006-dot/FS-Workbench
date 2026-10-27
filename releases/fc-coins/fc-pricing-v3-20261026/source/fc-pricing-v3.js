@@ -1,13 +1,13 @@
 (() => {
   'use strict';
   const base='/api/fc27/cloud/pricing/v3';
-  const names={daily:'日常经营',acquisition:'拉新增长',backlog:'交付积压（已支付新单 / 验证通过 / 发货中）',flash_sale:'限时促销',revenue_sprint:'冲销售额'};
-  const purposes={daily:'平衡收入与采购贡献，适合常态经营。',acquisition:'探索有效新客增长；新客与获客成本以真实证据复核。',backlog:'只根据已支付新单、验证通过、发货中的可交付队列调整。',flash_sale:'在明确活动期限内优化短期经营收益。',revenue_sprint:'按有效锚点低 5–10% 冲额，默认偏好 7.5%；成本变化时可由 ItemD2R 接替，沙特额外比较 Arab-UT 普通发货。'};
+  const names={daily:'日常运营',revenue_sprint:'冲销售额'};
+  const purposes={daily:'平衡收入与采购贡献，适合常态经营。',revenue_sprint:'按有效锚点低 5–10% 冲额，默认偏好 7.5%；成本变化时可由 ItemD2R 接替，沙特额外比较 Arab-UT 普通发货。'};
   const $=id=>document.getElementById(id);
   let current,loading=false,acting=false,manualPreview=null,selectedPlanId=null,displayedMode='daily',canWrite=false,permissionKnown=false,playerRevision=null,playerDirty=false,collectPending=sessionStorage.getItem('fc-v3-collect-job'),automationRevision=null,lastAutomation=null,lastMonitor=null;
   const statuses={DRAFT:'待启用',SCHEDULED:'等待开始',ACTIVE:'执行中',SUSPENDED:'已暂停新写入',ENDING:'正在退出',ENDED:'已结束',
     READY:'已有可行方案',INFEASIBLE:'当前证据下无可行报价',DATA_PENDING:'数据待补齐',
-    AUTHORIZED:'已授权待执行',DISPATCHED:'已发出请求',RUNNING:'执行中',CONFIRMED:'后台已确认',FAILED:'执行失败，保留原编号',CANCELLED:'已取消',SUPERSEDED:'已由更新计划接替',
+    AUTHORIZED:'已授权待执行',DISPATCHED:'已发出请求',RUNNING:'执行中',CONFIRMED:'后台已确认',FAILED:'执行失败，保留原编号',CANCELLED:'已取消',CANCELLED_NOT_SENT:'已核实未发送并取消',SUPERSEDED:'已由更新计划接替',
     UNKNOWN:'结果未知，按原编号核对',PARTIALLY_APPLIED:'部分已应用，待原编号核对',KNOWN_PARTIAL_EXITED:'部分已应用，已退出新写入',PUBLIC_CONFIRMED:'公开已核实',
     BACKEND_CONFIRMED:'后台已确认，待后续核验',CACHE_CONFIRMED:'缓存已确认，待公开核验',PUBLIC_PENDING:'公开价格待核',
     COMPLETED:'公开核验完成',NO_CHANGE:'核算后无需改价',OPEN:'待处理',available:'数据可用',partial:'部分数据可用',
@@ -33,7 +33,7 @@
       pricing_operation_missing:'未找到该原操作编号',state_unavailable:'状态暂时无法读取'};
     return known[code]||(/^pricing_[a-z_]+(?::.*)?$/.test(code)?`操作未完成；请核对当前状态和原编号。技术原因：${code}`:code);
   }
-  const modeDefaults={daily:{offsets:'-8,-4,0,4,8',allocation:['0.2','0.6','0.2']},acquisition:{offsets:'-20,-15,-10,-5,0,5',allocation:['0.2','0.4','0.4']},backlog:{offsets:'0,5,10,15,20',allocation:['0','1','0'],reserve:'0.1'},flash_sale:{offsets:'-25,-20,-15,-10,-5,0',allocation:['0.1','0.6','0.3']},revenue_sprint:{allocation:['0.1','0.7','0.2'],undercut:'7.5'}};
+  const modeDefaults={daily:{offsets:'-8,-4,0,4,8',allocation:['0.2','0.6','0.2']},revenue_sprint:{allocation:['0.1','0.7','0.2'],undercut:'7.5'}};
   const modeDrafts={};
   function requestKey(kind){const name='fc-v3-'+kind;let key=sessionStorage.getItem(name);if(!key){key=crypto.randomUUID();sessionStorage.setItem(name,key);}return key;}
   function clearKey(kind){sessionStorage.removeItem('fc-v3-'+kind);}
@@ -45,11 +45,10 @@
     const parameters={allocation};
     if(mode==='revenue_sprint'){parameters.preferred_undercut_pct=$('v3-undercut').value;parameters.sprint_policy_version='sprint_5_10_itemd2r_floor20_v2';}
     else{parameters.offsets_pct=$('v3-offsets').value.split(',').map(v=>v.trim());if(parameters.offsets_pct.some(v=>v===''||!Number.isFinite(Number(v))))throw Error('候选偏移须为逗号分隔的数字');}
-    if(mode==='backlog')parameters.capacity_reserve_ratio=$('v3-reserve').value;
     return parameters;
   }
-  function saveModeDraft(){modeDrafts[displayedMode]={offsets:$('v3-offsets').value,allocation:['control','exploit','explore'].map(k=>$('v3-alloc-'+k).value),reserve:$('v3-reserve').value,undercut:$('v3-undercut').value};}
-  function setMode(mode){const draft=modeDrafts[mode]||modeDefaults[mode];$('v3-offsets').value=draft.offsets||'';['control','exploit','explore'].forEach((k,i)=>$('v3-alloc-'+k).value=draft.allocation[i]);$('v3-reserve').value=draft.reserve||'0.1';$('v3-undercut').value=draft.undercut||'7.5';$('v3-offsets-field').hidden=mode==='revenue_sprint';$('v3-reserve-field').hidden=mode!=='backlog';$('v3-undercut-field').hidden=mode!=='revenue_sprint';$('v3-target-section').hidden=mode!=='revenue_sprint';$('v3-mode-purpose').textContent=purposes[mode];$('v3-end').required=['flash_sale','revenue_sprint'].includes(mode);$('v3-end-help').textContent=$('v3-end').required?'此策略必须设置结束时间。':'可选；留空持续到主动暂停或结束。';if(current)renderDecision(current);}
+  function saveModeDraft(){modeDrafts[displayedMode]={offsets:$('v3-offsets').value,allocation:['control','exploit','explore'].map(k=>$('v3-alloc-'+k).value),undercut:$('v3-undercut').value};}
+  function setMode(mode){const draft=modeDrafts[mode]||modeDefaults[mode];$('v3-offsets').value=draft.offsets||'';['control','exploit','explore'].forEach((k,i)=>$('v3-alloc-'+k).value=draft.allocation[i]);$('v3-undercut').value=draft.undercut||'7.5';$('v3-offsets-field').hidden=mode==='revenue_sprint';$('v3-undercut-field').hidden=mode!=='revenue_sprint';$('v3-target-section').hidden=mode!=='revenue_sprint';$('v3-mode-purpose').textContent=purposes[mode];$('v3-end').required=false;$('v3-end-help').textContent='可选；留空持续运行，填写后按该时间结束。';if(current)renderDecision(current);}
   function node(tag,text){const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;}
   function value(v){return v==null?'待配置 / 待核':String(v);}
   function usd(v){return v==null?'待核':`$${Number(v).toFixed(2)}`;}
@@ -126,7 +125,7 @@
   function renderOverview(state,automation,monitor){
     const schedule=automation?.v3?.schedule||automation?.schedule||{},active=state.active_plans||[],plan=active.find(p=>p.plan_id===selectedPlanId)||active[0]||state.plan;
     const interval=schedule.cycle_interval_minutes??automation?.interval_minutes;
-    $('v3-cycle').textContent=interval!=null?`五策略自动间隔：${interval} 分钟`:'自动改价间隔待核（默认 60 分钟）';
+    $('v3-cycle').textContent=interval!=null?`自动改价间隔：${interval} 分钟`:'自动改价间隔待核（默认 60 分钟）';
     automationRevision=automation?.revision??null;
     if(document.activeElement!==$('v3-interval-minutes'))$('v3-interval-minutes').value=interval??'';
     $('v3-interval-save').disabled=!canWrite||automationRevision==null;
@@ -149,7 +148,7 @@
     const daily=state.daily_review;
     $('v3-daily-status').textContent=daily?`${daily.local_date} · ${statusText(daily.phase)} · 专用定价通道；不会自动切换策略`:'尚无每日结果；每天 02:20 复盘前一日，保存的分时段输入不足会列为缺项。';
     const replies=(daily?.hermes?.evaluation?.turns||[]).map(t=>t.reply).filter(Boolean);
-    const historyNote=daily&&current.plan?.financial_contract_version==='fc27_dual20_v1'&&daily.decision_basis?.financial_contract_version!=='fc27_dual20_v1'?'此复盘使用补丁前的历史快照和规则，原文中的旧预算或双10仅描述当时；当前执行为双20、无预算。\n\n':'';
+    const historyNote=daily&&current.plan?.financial_contract_version==='fc27_dual20_v1'&&daily.decision_basis?.financial_contract_version!=='fc27_dual20_v1'?'此为历史复盘，原文中的旧策略、预算、双10和赠品假设不代表当前规则；当前只保留日常运营与冲销售额、双20、无预算，ItemD2R按原100K核算。\n\n':'';
     $('v3-daily-result').textContent=historyNote+(replies.join('\n\n')|| (daily?`实际数据：${daily.actual?.status||'待核'}；影子：${daily.shadow?.status||'待运行'}；Hermes：${daily.hermes?.phase||'待提交'}`:''));
 
     $('collect').disabled=!canWrite||acting||!!collectPending;
@@ -165,10 +164,13 @@
       for(const platform of ['PS','XBOX','PC']){
         const details=$('v3-price-basis-'+platform.toLowerCase()),basis=market.price_basis?.rows?.[platform];details.replaceChildren();
         if(!basis){details.textContent='采购成本 / 双红线待核';continue;}
+        const publicPrice=lastMonitor?.storefront?.rows?.[platform]?.package_usd,cost=Number(basis.package_cost_usd),retained=Number(market.price_basis.historical_retained_ratio);
+        const currentMargin=publicPrice>0&&Number.isFinite(cost)?((Number(publicPrice)-cost)/Number(publicPrice)*100).toFixed(1)+'%':'待核';
+        const averageMargin=publicPrice>0&&retained>0&&Number.isFinite(cost)?((Number(publicPrice)*retained-cost)/(Number(publicPrice)*retained)*100).toFixed(1)+'%':'待核';
         details.append(node('p',`采购成本 $${Number(basis.cost_usd_per_1k).toFixed(4)} / 1K（¥${Number(basis.cost_cny_per_1k).toFixed(4)}）`),
           node('p',`${basis.delivered_k}K 含赠套餐成本 ${usd(basis.package_cost_usd)}`),
-          node('p',`未优惠红线 ${usd(basis.regular_floor_usd)} · 当前${basis.current_regular_margin_pct==null?'待核':Number(basis.current_regular_margin_pct).toFixed(1)+'%'}`),node('p',`七日平均红线 ${usd(basis.average_floor_usd)} · 当前${basis.current_average_margin_pct==null?'待核':Number(basis.current_average_margin_pct).toFixed(1)+'%'}`),
-          node('p',`成本采集 ${when(basis.cost_checked_at)}；全球基价下限，地区另核。`));
+          node('p',`未优惠红线 ${usd(basis.regular_floor_usd)} · 当前${currentMargin}`),node('p',`七日平均红线 ${usd(basis.average_floor_usd)} · 当前${averageMargin}`),
+          node('p',`成本采集 ${when(basis.cost_checked_at)}；当前利润按上方公开价与含赠套餐成本计算，底价覆盖全目录，地区另核。`));
       }
       for(const platform of ['PS','XBOX','PC']){
         const column=node('article');column.className='market-platform';column.append(node('h3',platform==='XBOX'?'Xbox':platform));

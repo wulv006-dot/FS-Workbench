@@ -252,9 +252,7 @@ class Dual20Sprint(unittest.TestCase):
             self.assertEqual(Decimal(row['delivered_k']),105)
             self.assertEqual(Decimal(row['package_cost_usd']),105*Decimal(row['cost_usd_per_1k']))
             self.assertGreaterEqual(Decimal(row['average_floor_usd']),Decimal(row['regular_floor_usd']))
-            current=Decimal(data['storefront']['rows'][platform]['package_usd']);cost=Decimal(row['package_cost_usd']);retained=Decimal(basis['historical_retained_ratio'])
-            self.assertEqual(Decimal(row['current_regular_margin_pct']),(current-cost)/current*100)
-            self.assertEqual(Decimal(row['current_average_margin_pct']),(current*retained-cost)/(current*retained)*100)
+            self.assertNotIn('current_regular_margin_pct',row)
             self.assertEqual(Decimal(row['regular_floor_usd']),engine.catalog_floor(row['cost_cny_per_1k'],data['fx']['cny_per_usd'],engine.envelope_ratio(data['promotion_envelope'],NOW),engine.HARD_MARGIN,data['promotion_envelope']['packages'][platform])*100)
         self.assertFalse(basis['execution_authorized'])
 

@@ -140,14 +140,6 @@ class Ledger:
                                      ends_at=ends_at,actor=actor,parameters=parameters))
         start = instant(starts_at) if starts_at else now
         end = instant(ends_at) if ends_at else None
-        if end is None and mode in ('acquisition','flash_sale','revenue_sprint'):
-            if mode=='acquisition':
-                end=start+timedelta(days=7)
-            elif mode=='flash_sale':
-                end=start+timedelta(hours=72)
-            else:
-                local=start.astimezone(timezone(timedelta(hours=8)))
-                end=(local.replace(day=28)+timedelta(days=4)).replace(day=1,hour=0,minute=0,second=0,microsecond=0)
         if end and end <= start:
             raise ValueError('pricing_plan_deadline_invalid')
         generation = generation or (self.generation() or {}).get('id')
@@ -206,12 +198,13 @@ class Ledger:
 
     def activate_plan(self, ident, *, now=None):
         from .financial import FINANCIAL_CONTRACT_VERSION
-        from .engine import sprint_parameters
+        from .engine import sprint_parameters,POLICIES
         now = now or clock()
         with self.transaction() as db:
             plan = self.get('pricing_plans', ident, db)
             if not plan:
                 raise ValueError('pricing_plan_missing')
+            if plan['mode'] not in POLICIES:raise ValueError('pricing_strategy_retired')
             if plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:raise ValueError('pricing_financial_plan_migration_required')
             if plan['mode']=='revenue_sprint':sprint_parameters(plan)
             if instant(plan['starts_at']) > now:

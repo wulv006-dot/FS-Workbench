@@ -6,12 +6,12 @@ from decimal import Decimal
 from .financial import fingerprint, required_history_ratio, fresh
 
 VERSION='fc27-selective-source-v1'
-MODES=('daily','acquisition','backlog','flash_sale','revenue_sprint')
+MODES=('daily','revenue_sprint')
 RETIRED=('ELD','U4GM','IGGM','U7Buy')
 TZ=timezone(timedelta(hours=8))
 
 
-def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minutes=120):
+def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minutes=60):
     if active_mode not in MODES:raise ValueError('selective_active_mode_invalid')
     scope=scope or {}
     interval_minutes=scope.get('interval_minutes',interval_minutes)
@@ -27,8 +27,7 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
         retired_automatic_sources=list(RETIRED),price_interval_minutes=interval_minutes,
         quote_validity_seconds=900,hard_evidence=['current_cost','current_FX','current_promotion_envelope','current_public_price','affected_region_contract'],
         history='same_seven_closed_days_and_original_hash_cache',
-        refresh_backlog=active_mode=='backlog',refresh_monthly_target=active_mode=='revenue_sprint',
-        read_ads_context=active_mode=='acquisition',online_observation_job='preserved_separate_incremental_pipeline',
+        refresh_monthly_target=active_mode=='revenue_sprint',online_observation_job='preserved_separate_incremental_pipeline',
         historical_orders_in_quote=False,long_window_collection=False)
 
 
@@ -142,7 +141,7 @@ def project_cached_history(cache,templates,now):
     return projected
 
 
-def context_from_cache(cache,plan,templates,now,*,backlog=None,fulfillment=None,monthly=None,ads=None,online=None):
+def context_from_cache(cache,plan,templates,now,*,monthly=None,online=None):
     replay=project_cached_history(cache,templates,now)
     result=dict(historical_discount_mix=deepcopy(cache['historical_discount_mix']),history_replay=replay,
         demand_model=deepcopy(cache['daily_rollups'].get('demand_model') or {}),
@@ -151,14 +150,7 @@ def context_from_cache(cache,plan,templates,now,*,backlog=None,fulfillment=None,
         source_plan=deepcopy(plan))
     # These contexts are estimates/observations, never substitutes for current hard evidence.
     result['demand_model']['history_observed_at']=cache['created_at']
-    if plan['read_ads_context']:result['demand_model']['advertising_context']=ads or dict(status='gap',reason='same_scope_ads_context_missing')
-    else:result['demand_model'].pop('advertising_context',None)
-    if plan['refresh_backlog']:
-        capacity=fulfillment if fulfillment is not None else cache['daily_rollups'].get('observed_fulfillment') or {}
-        result['fulfillment_estimates']=dict(estimated=True,rate_window_hours=6,
-            backlog_k=(backlog or {}).get('gross_ordered_delivery_k'),current_backlog_source=backlog or dict(status='gap'),
-            capacity_k_per_block=capacity.get('observed_delivered_k_per_block'),observed_capacity_source=capacity,
-            capacity_basis='initial_estimate_from_stored_observed_throughput_not_promised_supply')
+    result['demand_model'].pop('advertising_context',None)
     if plan['refresh_monthly_target']:result['monthly_target']=monthly or dict(status='gap',mtd=None,amount=None,reason='monthly_target_context_missing')
     if online:result.update(deepcopy(online))
     else:result['learning_coverage']=dict(status='separate_incremental_pipeline_required',automation_disabled=False)
@@ -175,7 +167,7 @@ def validate_current_hard_evidence(evidence,now,*,cost_seconds=3600,market_secon
     return True
 
 
-def daily_shadow_request(local_date,snapshots,*,interval_minutes=120):
+def daily_shadow_request(local_date,snapshots,*,interval_minutes=60):
     """Pure request over references already captured that day. Never collects missing sources."""
     selected=[]
     for snapshot in snapshots:
@@ -200,9 +192,9 @@ def daily_shadow_request(local_date,snapshots,*,interval_minutes=120):
         failed_snapshot_count=sum(ref['source_status']=='failed' for ref in selected),
         missing_slot_starts=[(day+timedelta(minutes=slot*interval_minutes)).isoformat() for slot in range(expected_slots) if slot not in slots],
         scope='stored_decision_inputs_under_supplied_interval_only; changed_intraday_schedule_needs_its_actual_trace; not_continuous_exposure_or_realized_outcome_coverage')
-    return dict(kind='daily_five_strategy_stored_snapshot_replay',local_date=local_date,timezone='Asia/Shanghai',
+    return dict(kind='daily_two_strategy_stored_snapshot_replay',local_date=local_date,timezone='Asia/Shanghai',
         strategies=list(MODES),snapshot_refs=selected,origin='simulation',mode='shadow',training_eligible=False,
-        coverage=coverage,expected_dispatch_at=(day+timedelta(days=1,minutes=20)).isoformat(),dedupe_key='daily-shadow:'+local_date,
+        coverage=coverage,expected_dispatch_at=(day+timedelta(days=1,hours=2,minutes=20)).isoformat(),dedupe_key='daily-shadow:'+local_date,
         external_collection_allowed=False,production_write_allowed=False,missing_inputs='gap_or_explicit_initial_assumption; never_zero',
         request_sha256=fingerprint([local_date,selected,list(MODES)]))
 

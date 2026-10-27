@@ -28,7 +28,7 @@ def schema():
     props['reason']['description']='Explain why this candidate serves the chosen objective, its actual order/AOV/cost and competitor basis, tradeoffs against alternatives, and missing evidence.'
     props['evidence_refs']={'type':'array','items':{'type':'string'},'description':'Include pricing:<bundle_sha256> and any inspected same-run evidence references.'}
     props['simulation_id']['description']='Original ID returned by simulate; read the result with simulation_read.'
-    return {'type':'function','function':{'name':'mcp__fcro__fs_pricing_control','description':'FC27 Pricing V3 review and decision tool. Use state, compare_strategies and the same-run quote receipt to inspect all five objectives, real paid-order/AOV and delivered-K units, dual 20% proofs, scope and missing evidence. State lists every action and its hash with compact score and margins; use candidate_detail with the exact run, mode and action hash for its full original proof. Hermes reviews effects once daily without recommend or price approval. Only separately authorized strategy research may record a candidate recommendation with its exact action hash and substantive reason. Routine cycles choose and reprove candidates in the program without waiting for Hermes. There are no pricing budgets or spending caps. Use operation_read and simulation_read for outcomes and historical review. Old 80/15/5 and parity are read-only historical replays, never current pricing rules. UNKNOWN must reconcile the original operation ID. Shadow projections are estimates, never observed profit or execution authority.','parameters':{'type':'object','properties':props,'required':['action'],'additionalProperties':False}}}
+    return {'type':'function','function':{'name':'mcp__fcro__fs_pricing_control','description':'FC27 Pricing V3 review and decision tool. Use state, compare_strategies and the same-run quote receipt to inspect daily operations and revenue sprint, real paid-order/AOV and delivered-K units, dual 20% proofs, scope and missing evidence. State lists every action and its hash with compact score and margins; use candidate_detail with the exact run, mode and action hash for its full original proof. Hermes reviews effects once daily without recommend or price approval. Only separately authorized strategy research may record a candidate recommendation with its exact action hash and substantive reason. Routine cycles choose and reprove candidates in the program without waiting for Hermes. There are no pricing budgets or spending caps. Use operation_read and simulation_read for outcomes and historical review. Old 80/15/5 and parity are read-only historical replays, never current pricing rules. UNKNOWN must reconcile the original operation ID. Shadow projections are estimates, never observed profit or execution authority.','parameters':{'type':'object','properties':props,'required':['action'],'additionalProperties':False}}}
 
 
 
@@ -150,7 +150,7 @@ def call(scope,owner,task,lease,args,request=native):
         run=str(uuid.UUID(args['run_id']))
         mode=args['mode']
         action_sha=args['action_sha256']
-        if mode not in ('daily','acquisition','backlog','flash_sale','revenue_sprint') or not re.fullmatch('[a-f0-9]{64}',action_sha):
+        if mode not in ('daily','revenue_sprint') or not re.fullmatch('[a-f0-9]{64}',action_sha):
             raise ValueError('pricing_strategy_candidate_invalid')
         return request('/pricing/v3/strategy-decisions/'+run+'/'+mode+'/'+action_sha,owner)
     key=args.get('request_key')

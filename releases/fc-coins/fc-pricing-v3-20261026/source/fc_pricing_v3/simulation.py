@@ -60,30 +60,11 @@ def historical_window(period, requested_at):
         end_exclusive=end.date().isoformat(),timezone='Asia/Shanghai'))
 
 
-def sprint_window(now):
-    local = now.astimezone(LOCAL)
-    next_month = (local.replace(day=28)+timedelta(days=4)).replace(day=1,hour=0,minute=0,second=0,microsecond=0)
-    if local.day <= 5:
-        return local.replace(day=1,hour=0,minute=0,second=0,microsecond=0),local.replace(day=6,hour=0,minute=0,second=0,microsecond=0)
-    if local >= next_month-timedelta(days=7):
-        return next_month-timedelta(days=7),next_month
-    return None
-
-
 def calendar_mode(mode, now, started):
-    if mode == 'flash_sale' and now >= started+timedelta(hours=72) or mode == 'acquisition' and now >= started+timedelta(days=7):
-        return 'daily'
-    if mode == 'revenue_sprint' and sprint_window(now) is None:
-        return 'daily'
     return mode
 
 
 def plan_end(mode, started):
-    if mode in ('flash_sale','acquisition'):
-        return started+timedelta(hours=72 if mode=='flash_sale' else 168)
-    if mode == 'revenue_sprint':
-        window = sprint_window(started)
-        return window[1] if window else None
     return None
 
 
@@ -122,7 +103,7 @@ def initial_path(mode, evidence, now):
         discount_seed_basis='observed_daily_seed' if daily else 'equal_daily_seed_scenario_not_observed_daily_distribution',
         simulated_customer_cohorts=[],order_batches=[],commitments=deepcopy(evidence.get('quote_commitments',[])),applied_adjustments=[],
         sequence=0,gaps=[],origin='simulation',mode='shadow',training_eligible=False,active_deadline=end.isoformat() if end else None,
-        window_started_at=sprint_window(now)[0].isoformat() if mode=='revenue_sprint' and sprint_window(now) else None,
+        window_started_at=now.isoformat(),
         customer_assumption='expected new-customer cohorts; returning orders allocated FIFO before unidentified initial customers')
 
 
@@ -324,19 +305,6 @@ def apply_adjustments(path, snapshot, now):
     path['commitments'] = [q for q in path['commitments'] if not q.get('expires_at') or instant(q['expires_at'])>now]
 
 
-def renew_sprint_window(path, evidence, now):
-    if path['policy']!='revenue_sprint':
-        return
-    window=sprint_window(now)
-    if not window or path.get('window_started_at')==window[0].isoformat():
-        return
-    path['window_started_at'],path['active_deadline']=window[0].isoformat(),window[1].isoformat()
-    path['price_anchor']=deepcopy(path['action'] or path['price_anchor'])
-    path['budget_reference']=reference_prices(evidence,path['price_anchor'])
-    path['budget_limits']={};path['finite_total_budget']={};path['budget_policy']='none'
-    path['window_history']=path.get('window_history',[])+[dict(start=path['window_started_at'],end=path['active_deadline'],budget_policy='none')]
-
-
 class Shadow:
     def __init__(self, path):
         self.path = Path(path)
@@ -379,11 +347,11 @@ class Shadow:
                     records.append(row)
                 old = db.execute('SELECT body FROM paths WHERE id=?',(mode,)).fetchone()
                 path = json.loads(old[0]) if old else initial_path(mode,evidence,now)
+                path['active_deadline']=None
                 if path['last_as_of'] and now<=instant(path['last_as_of']):
                     continue
                 advance(path,now)
                 apply_adjustments(path,snapshot,now)
-                renew_sprint_window(path,evidence,now)
                 calculation,own = decide(path,evidence,now)
                 chosen = calculation['selected']
                 if chosen:
@@ -615,7 +583,7 @@ class Shadow:
                 for snapshot in eligible:
                     replay.snapshot(snapshot)
                 with replay.connect() as db:
-                    records += [dict(status='scenario_projection',path=json.loads(r[0])) for r in db.execute('SELECT body FROM paths')]
+                    records += [dict(status='scenario_projection',path=json.loads(r[0])) for r in db.execute('SELECT body FROM paths') if json.loads(r[0]).get('policy') in POLICIES]
         elif kind=='causal_evaluation':
             records += [causal_estimate(eligible)]
         result = dict(simulation_id=simulation_id or request_hash,request_sha256=request_hash,created_at=datetime.now(timezone.utc).isoformat(),
@@ -649,6 +617,7 @@ class Shadow:
         with self.connect() as db:
             for raw, in db.execute('SELECT body FROM paths').fetchall():
                 path = json.loads(raw)
+                if path['policy'] not in POLICIES:continue
                 for label,days in (('daily',1),('7d',7),('14d',14),('30d',30),('monthly',None)):
                     start = datetime.combine(day(now),datetime.min.time(),LOCAL).replace(day=1) if days is None else now-timedelta(days=days)
                     batches = [b for b in path['order_batches'] if start<instant(b['closed_at'])<=now]
