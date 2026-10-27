@@ -44,7 +44,7 @@ def shadow_progress(db,root,now):
                 first_pending_event_id=first[0],next_daily_at=due.isoformat(),cadence='daily')
 
 
-def source_coverage(snapshots,plans,now,interval_minutes=120):
+def source_coverage(snapshots,plans,now,interval_minutes=60):
     """Validate the last real owned snapshot per plan, within that plan's sampling interval."""
     from .financial import number,instant,required_history_ratio,envelope_ratio,fingerprint
     from .engine import market_quote
@@ -131,7 +131,7 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
     if shadow['status'] in ('stalled','cursor_unreadable','event_unverified','event_time_unverified'):
         issues.append(dict(level='warning',code='coin_v3_shadow_'+shadow['status']))
     policy_path=root/'config/automation.json'
-    policy=json.loads(policy_path.read_text()) if policy_path.exists() else {'system_enabled':False,'interval_minutes':120}
+    policy=json.loads(policy_path.read_text()) if policy_path.exists() else {'system_enabled':False,'interval_minutes':60}
     operator_enabled=policy.get('system_enabled')
     with closing(sqlite3.connect('file:'+str(root/'v3/control.sqlite3')+'?mode=ro',uri=True,timeout=2)) as conn:
         cycle_times=[next_cycle_at(conn,p,policy).isoformat() for p in owned if p['state']=='ACTIVE']

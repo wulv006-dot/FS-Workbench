@@ -126,7 +126,7 @@
   function renderOverview(state,automation,monitor){
     const schedule=automation?.v3?.schedule||automation?.schedule||{},active=state.active_plans||[],plan=active.find(p=>p.plan_id===selectedPlanId)||active[0]||state.plan;
     const interval=schedule.cycle_interval_minutes??automation?.interval_minutes;
-    $('v3-cycle').textContent=interval!=null?`五策略自动间隔：${interval} 分钟`:'自动改价间隔待核（默认 120 分钟）';
+    $('v3-cycle').textContent=interval!=null?`五策略自动间隔：${interval} 分钟`:'自动改价间隔待核（默认 60 分钟）';
     automationRevision=automation?.revision??null;
     if(document.activeElement!==$('v3-interval-minutes'))$('v3-interval-minutes').value=interval??'';
     $('v3-interval-save').disabled=!canWrite||automationRevision==null;
@@ -156,11 +156,20 @@
   }
   async function renderMarketEvidence(){
     const output=$('v3-market-cards'),summary=$('v3-market-status');output.setAttribute('aria-busy','true');
+    for(const platform of ['ps','xbox','pc'])$('v3-price-basis-'+platform).textContent='采购成本 / 双红线待核';
     try{
       const market=await request('market');
       output.replaceChildren();
       if(!market.snapshot_id){summary.textContent='尚无采集快照，等待下一次来源采集。';return;}
       if(market.snapshot_id!==current?.snapshot_id){summary.textContent='来源快照与本轮决策不一致，等待统一状态更新。';return;}
+      for(const platform of ['PS','XBOX','PC']){
+        const details=$('v3-price-basis-'+platform.toLowerCase()),basis=market.price_basis?.rows?.[platform];details.replaceChildren();
+        if(!basis){details.textContent='采购成本 / 双红线待核';continue;}
+        details.append(node('p',`采购成本 $${Number(basis.cost_usd_per_1k).toFixed(4)} / 1K（¥${Number(basis.cost_cny_per_1k).toFixed(4)}）`),
+          node('p',`${basis.delivered_k}K 含赠套餐成本 ${usd(basis.package_cost_usd)}`),
+          node('p',`未优惠红线 ${usd(basis.regular_floor_usd)} · 20%`),node('p',`七日平均红线 ${usd(basis.average_floor_usd)} · 20%`),
+          node('p',`成本采集 ${when(basis.cost_checked_at)}；全球基价下限，地区另核。`));
+      }
       for(const platform of ['PS','XBOX','PC']){
         const column=node('article');column.className='market-platform';column.append(node('h3',platform==='XBOX'?'Xbox':platform));
         const loot=market.global_offers?.[platform]?.Lootbar;
@@ -175,11 +184,12 @@
           const age=stamp?Date.now()-Date.parse(stamp):NaN;
           const stale=Number.isFinite(age)&&age>15*60000;
           card.dataset.state=!available?'missing':stale?'stale':'observed';
-          const header=node('div');header.className='head';const badge=node('span',!available?'缺项':!verified?'规格待核':stale?'已过 15 分钟':!Number.isFinite(age)||age<0?'时点待核':'最近已采');badge.className='market-badge';header.append(node('h4',name),badge);card.append(header);
+          const followGlobal=name==='Arab-UT'&&!available&&market.saudi_missing_price_policy==='follow_global';
+          const header=node('div');header.className='head';const badge=node('span',followGlobal?'缺价 · 跟随全球':!available?'缺项':!verified?'规格待核':stale?'已过 15 分钟':!Number.isFinite(age)||age<0?'时点待核':'最近已采');badge.className='market-badge';header.append(node('h4',name),badge);card.append(header);
           const total=node('p',available?usd(price):'暂无报价');total.className='market-price';card.append(total);
           const delivered=purchase!=null&&bonus!=null?Number(purchase)+Number(bonus):NaN;
-          const unit=node('p',available&&verified&&Number.isFinite(delivered)&&delivered>0?`${usd(Number(price)/delivered*100)} / 100K 实际交付`:'同口径单价待核');unit.className='market-unit';card.append(unit);
-          card.append(node('p',row?`购买 ${purchase??'待核'}K + 赠送 ${bonus??'待核'}K${Number.isFinite(delivered)?` · 交付 ${delivered}K`:''}`:'本轮未取得可核报价'),node('p',method));
+          const unit=node('p',available&&verified&&Number.isFinite(delivered)&&delivered>0?`${usd(Number(price)/delivered*100)} / ${row?.gift_equivalence_assumed?'100K 金币等值（含礼包估算）':'100K 实际交付'}`:'同口径单价待核');unit.className='market-unit';card.append(unit);
+          card.append(node('p',row?.gift_equivalence_assumed?`购买 ${purchase}K + 赠品等值 ${bonus}K（估算） · 折算 ${delivered}K`:row?`购买 ${purchase??'待核'}K + 赠送 ${bonus??'待核'}K${Number.isFinite(delivered)?` · 交付 ${delivered}K`:''}`:'本轮未取得可核报价'),node('p',method));
           const time=node('p',`采集 ${when(stamp)} · USD`);time.className='footnote';card.append(time);column.append(card);
         }
         output.append(column);
