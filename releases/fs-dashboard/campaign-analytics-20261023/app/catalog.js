@@ -1662,7 +1662,7 @@ window.FC_ACTIVITY_CONFIG = {
       "coupon",
       "points"
     ],
-    "promoterUid": "739116",
+    "promoterUid": "0",
     "backendStatus": "handoff_unverified",
     "plannedValidity": {"timezone":"Asia/Shanghai","startDate":"2026-10-26","durationYears":1,"endInclusive":true,"startsAt":null,"endsAt":null}
   }

@@ -98,7 +98,7 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
   if(!p||p.active!==true)return neutral(source,null,404,'This activity is not available.');
   const start=date(p.starts_at),end=date(p.ends_at),clock=Number(new Date(typeof now==='function'?now():now));
   if(!Number.isFinite(clock)||(start!==null&&!Number.isFinite(start))||(end!==null&&!Number.isFinite(end))||(start!==null&&end!==null&&start>=end))return neutral(source,null,404,'This activity is not available.');
-  if(end!==null&&end<=clock)return neutral(source,p,410,'This activity has ended.');
+  if(end!==null&&end<clock)return neutral(source,p,410,'This activity has ended.');
   if(start!==null&&start>clock)return neutral(source,p,200,'Upcoming activity — the published start time has not arrived.');
   let html=source.replace(/<section\b[^>]*\bid=["']campaign-published-details["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
   html=html.replace(/<section\b[^>]*\bid=["']campaign-imported-products(?:-[a-z]+)?["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
@@ -108,7 +108,6 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
     if(p.media.hero_desktop)html=html.replace(/<img\b[^>]*\bid=["']hero-image["'][^>]*>/i,tag=>tag.replace(/\s+(?:src|alt)=["'][^"']*["']/gi,'').replace(/>$/,` src="${escape(url(p.media.hero_desktop))}" alt="${escape(p.media.hero_desktop.alt)}" data-published-media="true">`));
     if(p.media.hero_mobile)html=html.replace(/<source\b[^>]*\bid=["']hero-mobile-source["'][^>]*>/i,tag=>tag.replace(/\s+srcset=["'][^"']*["']/gi,'').replace(/>$/,` srcset="${escape(url(p.media.hero_mobile))}" data-published-media="true">`));
   }
-  const banner=`<section id="campaign-published-details" class="${sectionClass(source)}" aria-labelledby="campaign-published-title"><h2 id="campaign-published-title">${escape(p.title)}</h2>${p.description?.trim()?`<p>${escape(p.description)}</p>`:''}<p>Published activity: active</p><p>Published schedule (UTC): ${windowHtml(p)}</p></section>`;
   let fallback='';
   if(!target.startsWith('seasonal/'))for(const group of displayGroups(snapshot,p,source)){
     // Use stable siblings of the actual original layout containers. The original
@@ -116,7 +115,7 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
     const anchor=new RegExp('<div\\b[^>]*\\bid=["\']'+group.anchor+'["\'][^>]*>','i');
     if(anchor.test(html))html=html.replace(anchor,tag=>group.html+tag);else fallback+=group.html;
   }
-  html=html.replace(/<body\b[^>]*>/i,tag=>tag+banner+fallback);
+  if(fallback)html=html.replace(/<body\b[^>]*>/i,tag=>tag+fallback);
   // Replace the Seasonal source's illustrative caption; its client must retain this published value too.
   html=html.replace(/(<([a-z][a-z0-9]*)\b[^>]*\bid=["']campaign-date["'][^>]*>)[\s\S]*?(<\/\2\s*>)/gi,(all,open,tag,close)=>open.replace(/>$/,' data-published-schedule="true">')+escape(windowText(p))+close);
   return {status:200,body:html};

@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const sdk = window.CampaignStandalone;
-  let client, publishedThemeApplied = false, selectionRevision=0, quoteContext=null;
+  let client, refreshFlight=null, dialogRefreshHandler=null, publishedThemeApplied = false, selectionRevision=0, quoteContext=null;
   const messages = {
     MAIN_INTEGRATION_REQUIRED: 'Preview only. Main-site cart integration is still required; no cart, discount or reward was changed.',
     SPEC_REQUIRED: 'The store requires product specifications. Open the original product to choose them; nothing has been ordered.',
@@ -23,10 +23,11 @@
     return messages[error?.code] || 'The store could not verify this request. No successful checkout is confirmed.';
   }
   const publicStatus=value=>typeof value==='string'&&/^[a-z][a-z0-9_ -]*$/i.test(value)?value:'unknown';
-  function selectionFor(id) {
+  function selectionFor(id,quantity) {
     const contract=client?.config?.seasonal_model_contracts?.[String(id)]??client?.config?.seasonal_model_contracts?.['seasonal-'+id];
     if(!contract||!window.SeasonalModelSelection)throw Object.assign(new Error(),{code:'MODEL_OPTIONS_UNAVAILABLE'});
-    return window.SeasonalModelSelection.create(contract);
+    const scoped=quantity?{...contract,combinations:contract.combinations.filter(c=>c.quantity.min===quantity.value&&c.quantity.max===quantity.value&&c.quantity.unit===quantity.unit)}:contract;
+    return window.SeasonalModelSelection.create(scoped);
   }
   function lines(bag) {
     return bag.map((item,i)=>{
@@ -54,10 +55,21 @@
     // Existing runtime remains preview/test only; no browser contract grants live permission.
     canPrepare: () => Boolean(quoteContext&&quoteContext.revision===selectionRevision&&Date.parse(quoteContext.expires_at)>Date.now()&&client?.capabilities?.integration_mode==='integration_test'&&client?.capabilities?.test_capabilities?.prepare_checkout===true&&client?.pending?.stage==='quoted'&&!client?.pending?.unknown),
     nativeFixed(game){
-      try{const c=client?.config?.seasonal_model_contracts?.[game.fixed_model];if(!c)return false;const selected=selectionFor(game.fixed_model),combo=c.combinations[0];for(const field of selected.fields())selected.select(field.id,combo.choices[field.id]);selected.setQuantity(combo.quantity.min);
-        window.CampaignNativeCodeHandoff.publishedPlan(client.config,{activity_id:'mmoexp-seasonal',page_id:'seasonal-vault',model_id:game.fixed_model,slot:'fixed',off_percent:game.fixed_off_percent,lines:[selected.line()]},{origin:window.location.origin});return true;
+      return this.nativeOffer(game,{model_id:game.fixed_model,slot:'fixed',off_percent:game.fixed_off_percent});
+    },
+    nativeOffer(game,offer){
+      try{const c=client?.config?.seasonal_model_contracts?.[offer.model_id];if(!c)return false;
+        return c.combinations.some(combo=>{try{const selected=selectionFor(offer.model_id);for(const field of selected.fields())selected.select(field.id,combo.choices[field.id]);selected.setQuantity(combo.quantity.min);
+          window.CampaignNativeCodeHandoff.publishedPlan(client.config,{activity_id:'mmoexp-seasonal',page_id:'seasonal-vault',game_id:game.admin_game_id,...offer,lines:[selected.line()]},{origin:window.location.origin});return true;
+        }catch{return false;}});
       }catch{return false;}
     },
+    async refresh(){
+      if(!client)throw Object.assign(Error(),{code:'MODEL_OPTIONS_UNAVAILABLE'});
+      if(!refreshFlight)refreshFlight=client.load().then(({config})=>{publishTheme(config);return config;}).finally(()=>{refreshFlight=null;});
+      return refreshFlight;
+    },
+    async reveal(gameId){if(!client)throw Object.assign(Error(),{code:'HALLOWEEN_NOT_CONFIGURED'});return client.reveal(gameId);},
     selectionFor,
     invalidate(){selectionRevision++;quoteContext=null;},
     canQuote(bag){try{return Boolean(bag.length&&!this.pending()&&lines(bag).length);}catch{return false;}},
@@ -103,24 +115,27 @@
   // catalog data is visible; no fabricated region or snapshot SKU can substitute.
   window.addEventListener('seasonal:model-buy',event=>{
     const host=document.getElementById('dialog-content');if(!host)return;
-    const detail=event.detail||{},contract=client?.config?.seasonal_model_contracts?.[String(detail.model_id)];
+    const detail=event.detail||{};let contract=client?.config?.seasonal_model_contracts?.[String(detail.model_id)];
+    if(dialogRefreshHandler){window.removeEventListener('seasonal-published-catalog',dialogRefreshHandler);dialogRefreshHandler=null;}
     const message=value=>{const p=document.createElement('p');p.textContent=value;return p;};
     host.replaceChildren();
     if(window.SeasonalCommerce.pending()){host.append(message(messages.OPERATION_UNKNOWN));return;}
     let selection;
     try{
       if(!contract||contract.model_ref?.site_id!=='266'||contract.model_ref?.model_id!==String(detail.model_id)||contract.model_ref?.game_id!==String(detail.game_id))throw Error();
-      selection=selectionFor(detail.model_id);
+      selection=selectionFor(detail.model_id,detail.quantity);
     }catch{host.append(message(messages.MODEL_OPTIONS_UNAVAILABLE));return;}
     const english=(value,fallback)=>typeof value==='string'&&value.trim()&&!/\p{Script=Han}/u.test(value)?value:fallback;
     const fields=document.createElement('div'),price=message('Choose all required options to see the current reference price.'),status=message('The main store confirms the final price and applies the discount code before payment. Coupons and points cannot be combined with this code.');
     let nativeReview=null,buying=false;
-    const nativeSelection=()=>({activity_id:'mmoexp-seasonal',page_id:'seasonal-vault',model_id:String(detail.model_id),slot:detail.slot,off_percent:detail.off_percent,lines:[selection.line()]});
-    const buy=document.createElement('button');buy.type='button';buy.disabled=true;buy.textContent='Store handoff not connected';
+    const nativeSelection=()=>({activity_id:'mmoexp-seasonal',page_id:'seasonal-vault',game_id:String(detail.game_id),model_id:String(detail.model_id),slot:detail.slot,off_percent:detail.off_percent,...(detail.quantity?{quantity:detail.quantity}:{}),...(detail.reveal_request_id?{reveal_request_id:detail.reveal_request_id}:{}),lines:[selection.line()]});
+    const buy=document.createElement('button');buy.type='button';buy.disabled=true;buy.textContent='Checkout unavailable';
     host.append(fields,price,status,buy);
     function render(){
       fields.replaceChildren();
+      if(detail.quantity&&selection.fields().some(f=>f.id==='quantity_tier'))selection.select('quantity_tier',detail.quantity.value);
       for(const field of selection.fields()){
+        if(detail.quantity&&field.id==='quantity_tier')continue;
         const label=document.createElement('label'),select=document.createElement('select');label.textContent=english(field.label,english(field.id,'Option'));
         const empty=document.createElement('option');empty.value='';empty.textContent='Choose '+english(field.label,english(field.id,'option'));select.append(empty);
         for(const item of selection.options(field.id)){const option=document.createElement('option');option.value=item.id;option.textContent=english(item.label,'Option '+(select.options.length));select.append(option);}
@@ -128,14 +143,15 @@
         select.addEventListener('change',()=>{selection.select(field.id,select.value);window.SeasonalCommerce.invalidate();render();});label.append(select);fields.append(label);
       }
       const limits=selection.quantity();
-      if(limits){const label=document.createElement('label'),input=document.createElement('input');label.textContent='Quantity ('+english(limits.unit,'units')+')';input.type='number';input.min=limits.min;input.max=limits.max;input.step=limits.step;input.value=limits.min;
+      if(limits){const label=document.createElement('label'),input=document.createElement('input');label.textContent='Quantity ('+english(limits.unit,'units')+')';input.type='number';input.min=limits.min;input.max=limits.max;input.step=limits.step;input.value=detail.quantity?.value||limits.min;input.readOnly=Boolean(detail.quantity);
         selection.setQuantity(input.value);input.addEventListener('input',()=>{selection.setQuantity(input.value);window.SeasonalCommerce.invalidate();showPrice();});label.append(input);fields.append(label);}
       showPrice();
     }
     function showPrice(){
+      contract=client?.config?.seasonal_model_contracts?.[String(detail.model_id)];
       buy.disabled=true;nativeReview=null;
       try{nativeReview=window.CampaignNativeCodeHandoff.publishedPlan(client.config,nativeSelection(),{origin:window.location.origin});}catch{}
-      if(nativeReview&&!buying){buy.disabled=false;buy.textContent='Continue to native cart';}else buy.textContent='Store handoff not connected';
+      if(nativeReview&&!buying){buy.disabled=false;buy.textContent='Go to cart';}else buy.textContent='Checkout unavailable';
       try{const value=window.SeasonalModelSelection.selectedPrice(contract,selection,detail.off_percent),format=n=>new Intl.NumberFormat('en',{style:'currency',currency:value.currency}).format(n/10**value.minor_unit_scale);
         price.textContent=format(value.base_minor)+' → '+format(value.indicative_discounted_minor)+' ('+detail.off_percent+'% OFF). Reference for your selected combination; not a checkout quote.';
       }catch{price.textContent=selection.ready()?(nativeReview?'Current price unavailable. The native cart confirms final prices and code eligibility.':'A current price for this exact combination and quantity is unavailable. No checkout is enabled.'):'Choose all required options and a valid quantity.';}
@@ -150,6 +166,9 @@
       }catch(error){status.textContent=(error.code||error.message||'Native handoff unavailable')+'. No successful checkout is confirmed.';}
     });
     render();
+    const onRefresh=()=>{if(document.getElementById('event-dialog')?.open)showPrice();};
+    dialogRefreshHandler=onRefresh;window.addEventListener('seasonal-published-catalog',onRefresh);
+    document.getElementById('event-dialog')?.addEventListener('close',()=>{window.removeEventListener('seasonal-published-catalog',onRefresh);if(dialogRefreshHandler===onRefresh)dialogRefreshHandler=null;},{once:true});
   });
   if (window.SeasonalCommerce.available()) {
     try {

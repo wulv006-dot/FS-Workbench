@@ -15,7 +15,7 @@ export function projectAdminPrices(observation,policy,{now=Date.now()}={}){
  // Standard reference prices are US/USD; regional promotions need a separate
  // main-site checkout response and must not silently become the base anchor.
  if(policy?.baseline_region!=='us'||policy?.currency!=='USD'||policy?.regional_adjustment!=='none_verified')return blocked('US_USD_BASELINE_REQUIRED');
- if(!policy||policy.source_field!=='more.price'||policy.price_semantics!=='current_tier_total'
+ if(!policy||!((policy.source_field==='more.price'&&policy.price_semantics==='current_tier_total')||(policy.source_field==='full_price_format'&&policy.price_semantics==='current_item_display_total'&&policy.quantity_value==='1'&&policy.quantity_unit==='item'))
    ||!policy.evidence_ref||typeof policy.evidence_ref!=='string'||!/^[-a-zA-Z0-9_./:]{1,200}$/.test(policy.evidence_ref)
    ||!(/^[A-Z]{3}$/).test(policy.currency)||!Number.isInteger(policy.minor_unit_scale)||policy.minor_unit_scale<0||policy.minor_unit_scale>4)
    return blocked('PRICE_CURRENCY_SEMANTICS_UNVERIFIED');
@@ -39,19 +39,28 @@ export function projectAdminPrices(observation,policy,{now=Date.now()}={}){
    // Do not silently remove the original default product if it is unavailable.
    if(!guard(row)||!id(row.platform_attribute_id)||!id(row.region_id))throw Error('PRODUCT_UNAVAILABLE_OR_OPTIONS_UNKNOWN');
    if(!row.specification||typeof row.specification!=='object'||Array.isArray(row.specification))throw Error('SPECIFICATION_MAPPING_REQUIRED');
-   for(const s of Object.values(row.specification)){
+   for(const [field,s] of Object.entries(row.specification)){
+    if(field==='baseprop'&&policy.descriptive_baseprop===true&&policy.source_field==='full_price_format')continue;
     if(!s||typeof s.present!=='boolean')throw Error('SPECIFICATION_MAPPING_REQUIRED');
     if(s.present&&(s.observed===null||typeof s.observed!=='object'||Object.keys(s.observed).length!==0))throw Error('SPECIFICATION_MAPPING_REQUIRED');
    }
-   const tiers=(row.tiers||[]).filter(t=>t.quantity===policy.quantity_value&&t.unit===policy.quantity_unit);
-   if(tiers.length!==1)throw Error('EXACT_TIER_UNAVAILABLE');
-   const tier=tiers[0],key='admin-'+[r.site_id,r.game_id,r.goods_id,row.platform_attribute_id].join('-');
+   let base_minor;
+   if(policy.source_field==='more.price'){
+    const tiers=(row.tiers||[]).filter(t=>t.quantity===policy.quantity_value&&t.unit===policy.quantity_unit);
+    if(tiers.length!==1)throw Error('EXACT_TIER_UNAVAILABLE');base_minor=minor(tiers[0].source_price,policy.minor_unit_scale);
+   }else{
+    // Use the observed formatted one-item total; do not infer the native
+    // formatter's rounding or multiply a raw high-precision unit price.
+    if(row.quantity?.unit&&row.quantity.unit!=='item')throw Error('QUANTITY_UNIT_UNVERIFIED');
+    base_minor=minor(row.source_display_price,policy.minor_unit_scale);
+   }
+   const key='admin-'+[r.site_id,r.game_id,r.goods_id,row.platform_attribute_id].join('-');
    const quantity={min:policy.quantity_value,max:policy.quantity_value,step:'1',unit:policy.quantity_unit};
    // group is deliberately absent: an Admin num is not a proved cart encoding.
    const known=ref.game_id==='1327'?{'21587':'ps','21585':'xbox','21589':'pc'}:{};
    products.push({key,title:'Model '+ref.model_id,product_ref:{...ref,goods_id:r.goods_id},platform:{code:known[row.platform_attribute_id]||'area-'+row.platform_attribute_id,attribute_id:row.platform_attribute_id},quantity,attributes:[],available:false});
    platforms.add(row.platform_attribute_id);regions.add(row.region_id);
-   combinations.push({product_key:key,choices:{platform:row.platform_attribute_id,region:row.region_id},quantity,attributes:[],price:{source:'admin_current',base_minor:minor(tier.source_price,policy.minor_unit_scale),currency:policy.currency,minor_unit_scale:policy.minor_unit_scale,quantity_value:policy.quantity_value,expires_at:new Date(at+policy.max_age_ms).toISOString()}});
+   combinations.push({product_key:key,choices:{platform:row.platform_attribute_id,region:row.region_id},quantity,attributes:[],price:{source:'admin_current',base_minor,currency:policy.currency,minor_unit_scale:policy.minor_unit_scale,quantity_value:policy.quantity_value,expires_at:new Date(at+policy.max_age_ms).toISOString()}});
  }if(subset&&subset.some(x=>!seen.has(x)))throw Error('VERIFIED_GOODS_NOT_OBSERVED');}catch(error){return blocked(error.message);}
  const order=policy.ordered_goods_ids,ordered=Array.isArray(order)&&order.length===seen.size&&new Set(order).size===seen.size&&order.every(x=>seen.has(x))&&typeof policy.ordering_evidence==='string'&&policy.ordering_evidence.length>0;
  if(ordered)combinations.sort((a,b)=>order.indexOf(products.find(p=>p.key===a.product_key).product_ref.goods_id)-order.indexOf(products.find(p=>p.key===b.product_key).product_ref.goods_id));

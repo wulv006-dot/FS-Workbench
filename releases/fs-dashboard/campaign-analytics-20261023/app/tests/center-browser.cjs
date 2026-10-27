@@ -29,7 +29,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  await page.reload();await page.waitForFunction(()=>document.querySelector('#center-status').textContent.includes('原操作已确认'));assert.equal(saveIds.length,2);assert.equal(saveIds[0],saveIds[1]);assert.equal(state.draft.pages[0].title,'Updated title');assert.deepEqual(state.draft.pages[0].benefit_refs,[{kind:'coupon',native_id:'native-123'}]);assert.equal(state.draft.integration_mode,'preview');
  await page.locator('#publish-center').click();await page.waitForFunction(()=>document.querySelector('#center-status').textContent.includes('预览配置已发布'));assert.match(await page.locator('#publish-state').innerText(),/已有预览/);
  const draftBeforeDiscovery=JSON.stringify(state.draft),saveCountBefore=saveIds.length;await page.locator('#page-select').selectOption('seasonal-vault');assert.equal(await page.locator('#fc-business').isVisible(),false);
- assert.deepEqual(await page.locator('#discover-game option').evaluateAll(options=>options.map(o=>o.value)),['1327','1329','1309','456','552','891']);
+ assert.deepEqual(await page.locator('#discover-game option').evaluateAll(options=>options.map(o=>o.value)),['1327','1329','1309','456','552','891','1367','1333']);
  await page.locator('#discover-search').fill('Native');await page.locator('#discover-products').click();await page.waitForFunction(()=>document.querySelector('#discovery-status').textContent.includes('本页 1 项'));
  assert.equal(backendReads.at(-1).action,'catalog_search');assert.equal(backendReads.at(-1).page_size,20);
  const beforeSearchWrites=saveIds.length;

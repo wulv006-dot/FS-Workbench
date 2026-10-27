@@ -16,13 +16,13 @@ async function body(req) {
   let raw='';for await (const chunk of req) {raw+=chunk;if (Buffer.byteLength(raw)>64000) fail('REQUEST_TOO_LARGE',413);}
   try {return JSON.parse(raw);} catch {fail('INVALID_REQUEST');}
 }
-export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotProvider,priceCacheProvider,publishedDir,dir,mode='preview',origin,prefix='/events/',testAdapter,now}={}) {
+export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotProvider,priceCacheProvider,publishedDir,dir,mode='preview',origin,prefix='/events/',testAdapter,now,halloweenCatalogProvider}={}) {
   const parsed=new URL(origin);
   if (parsed.origin!==origin || (parsed.protocol!=='https:' && !(parsed.protocol==='http:'&&['127.0.0.1','localhost'].includes(parsed.hostname)))) fail('INVALID_ORIGIN');
   if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(prefix)) fail('INVALID_PUBLIC_PATH');
   const frozen=snapshotProvider?null:{publication_status:'published',...projectRelease(snapshot)};
   const source=snapshotProvider||(()=>frozen),cache=priceCacheProvider||(()=>publishedDir?readPublicPriceCache(path.join(publishedDir,'admin-reference-prices.json')):null);
-  const files=loadStatic(assetRoot,staticManifest),commerce=createCommerce({snapshotProvider:()=>applyPublicPriceCache(source(),cache(),{now:(now||Date.now)()}),dir,mode,testAdapter,now});
+  const files=loadStatic(assetRoot,staticManifest),commerce=createCommerce({snapshotProvider:()=>applyPublicPriceCache(source(),cache(),{now:(now||Date.now)()}),dir,mode,testAdapter,now,halloweenCatalogProvider});
   const server=http.createServer(async(req,res)=>{
     try {
       if (!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(req.socket.remoteAddress)) return json(req,res,403,{code:'LOOPBACK_REQUIRED'});
@@ -32,12 +32,24 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
       if (!read) {
         if (req.method!=='POST') return json(req,res,405,{code:'METHOD_NOT_ALLOWED'});
         if (req.headers.origin!==origin || req.headers['content-type']!=='application/json' || req.headers['sec-fetch-site']==='cross-site') return json(req,res,403,{code:'ORIGIN_REQUIRED'});
-        const routes={'api/campaign/intents':b=>commerce.intent(b),'api/campaign/quote':b=>commerce.quote(b),'api/campaign/prepare_checkout':b=>commerce.prepare(b)};
+        const routes={'api/campaign/native_plan':b=>commerce.nativePlan(b),'api/campaign/intents':b=>commerce.intent(b),'api/campaign/quote':b=>commerce.quote(b),'api/campaign/prepare_checkout':b=>commerce.prepare(b),
+          'api/campaign/halloween/reveal':b=>commerce.halloweenReveal(b),'api/campaign/halloween/resolve':b=>commerce.halloweenResolve(b)};
         if (!Object.hasOwn(routes,relative)) return json(req,res,404,{code:'NOT_FOUND'});
         return json(req,res,200,await routes[relative](await body(req)));
       }
-      if (relative==='api/campaign/config'){const config=publicEnglishRelease(commerce.config());return json(req,res,200,{...config,page_media:pageMedia(config.pages,prefix),integration_mode:mode,live_checkout:false});}
+      if (relative==='api/campaign/config'){
+        const config=publicEnglishRelease(commerce.config());
+        // Bulk configuration contains eligibility only, never every game's codes.
+        // The selected code is returned only after the server verifies its scope
+        // and, for a random card, the original persisted reveal receipt.
+        if(config.native_checkout?.status==='configured'){
+          config.native_checkout={...config.native_checkout,bindings:config.native_checkout.bindings.map(b=>({...b,code:'CLAIM_REQUIRED'}))};
+          config.native_checkout_claim_required=true;
+        }
+        return json(req,res,200,{...config,page_media:pageMedia(config.pages,prefix),integration_mode:mode,live_checkout:false});
+      }
       if (relative==='api/campaign/capabilities') return json(req,res,200,commerce.capabilities());
+      if(relative.startsWith('api/campaign/halloween/reveals/'))return json(req,res,200,commerce.halloweenRead(relative.slice('api/campaign/halloween/reveals/'.length)));
       if (relative.startsWith('api/campaign/intents/request/')) return json(req,res,200,commerce.lookupIntent(relative.slice('api/campaign/intents/request/'.length)));
       if (relative.startsWith('api/campaign/operations/')) return json(req,res,200,await commerce.lookup(relative.slice('api/campaign/operations/'.length)));
       if(relative.startsWith('media/')){
