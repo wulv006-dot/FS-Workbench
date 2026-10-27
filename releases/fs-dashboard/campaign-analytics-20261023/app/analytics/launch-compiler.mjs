@@ -6,11 +6,15 @@ import {canonical} from '../runtime/snapshot.mjs';
 import {compileDiscountPlan} from './discount-plan.mjs';
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const ids=v=>Array.isArray(v)?v.map(String).sort():[];
+// Native Admin returns integer percentages/zero thresholds as fixed decimals.
+// Accept only redundant zero decimals, never round a substantive difference.
+const nativeInteger=v=>/^(0|[1-9]\d*)(?:\.0+)?$/.test(String(v))?String(v).split('.')[0]:null;
 export function verifyDiscountReadbacks(plans,receipt){
  if(receipt?.status!=='readback_verified'||!Array.isArray(receipt.records)||typeof receipt.evidence_ref!=='string'||!receipt.evidence_ref)fail('DISCOUNT_READBACK_REQUIRED');
  for(const plan of plans){
   const matches=receipt.records.filter(r=>r.code===plan.fields.code);if(matches.length!==1)fail('DISCOUNT_READBACK_AMBIGUOUS');const row=matches[0],expected=plan.fields;
-  for(const key of ['site_id','type','discount','repeat_qty','uid','status','attain'])if(String(row[key])!==String(expected[key]))fail('DISCOUNT_READBACK_SCOPE_MISMATCH');
+  for(const key of ['site_id','type','repeat_qty','uid','status'])if(String(row[key])!==String(expected[key]))fail('DISCOUNT_READBACK_SCOPE_MISMATCH');
+  for(const key of ['discount','attain'])if(nativeInteger(row[key])!==String(expected[key]))fail('DISCOUNT_READBACK_SCOPE_MISMATCH');
   for(const key of ['gid','exclude_gids','cid'])if(JSON.stringify(ids(row[key]))!==JSON.stringify(ids(expected[key])))fail('DISCOUNT_READBACK_SCOPE_MISMATCH');
   if(row.timestart!==expected.timestart||row.timeend!==expected.timeend||row.aid!=null&&String(row.aid)!=='0')fail('DISCOUNT_READBACK_SCOPE_MISMATCH');
  }

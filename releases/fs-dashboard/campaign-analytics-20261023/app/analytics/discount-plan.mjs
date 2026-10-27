@@ -23,7 +23,7 @@ export function compileDiscountPlan(input,{existingCodes=[]}={}){
  if(collisions.length)fail('DISCOUNT_CODE_EXISTS_RECONCILE');
  return {schema_version:1,activity_id:input.activity_id,operation:'create_candidate_not_executed',
   controller:'/admin/market.Discount/',method:'POST',action:'add',
-  fields:{site_id:266,code:input.code,type:1,attain:'0',discount:String(100-input.off_percent),repeat_qty:input.repeat_qty,gid:[...input.game_ids],exclude_gids:[],...(input.game_ids.length===1?{aid:0}:{}),cid:[-1],uid:739116,timestart:input.starts_at,timeend:input.ends_at,status:1},
+  fields:{site_id:266,code:input.code,type:1,attain:'0',discount:String(100-input.off_percent),repeat_qty:input.repeat_qty,gid:[...input.game_ids],exclude_gids:[],...(input.game_ids.length===1?{aid:0}:{}),cid:[-1],uid:0,timestart:input.starts_at,timeend:input.ends_at,status:1},
   validation:{timezone:'Asia/Shanghai',end_inclusive:true,server_timezone_verified:false,server_end_inclusive_verified:false,duplicate_lookup_complete:false,created:false,readback_verified:false},
   required_checks:['Exact code lookup before creation','Verify Admin timezone and inclusive cutoff','Use native save response, then GET edit/index readback','If outcome is unknown, look up this same code; never create another','Verify site, games, payable percentage, UID, limits and dates','Verify native Cart Apply business success and payable amount without payment']};
 }
