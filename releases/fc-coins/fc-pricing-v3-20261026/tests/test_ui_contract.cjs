@@ -43,8 +43,8 @@ const monitor = { storefront: { rows: { PS: { package_usd: 8.51, checked_at: '20
 let marketError=false;
 const market={snapshot_id:'snapshot-1',global_offers:{PS:{Lootbar:{usd_price:'9.18',base_k:'100',bonus_k:'5',checked_at:new Date().toISOString()}}},reference:{offers:[{platform:'PS',gross_usd:'8.14',purchase_k:'100',bonus_k:'0',status:'valid',captured_at:'2000-01-01T00:00:00Z'}]},arab:[]};
 market.saudi_missing_price_policy='follow_global';
-market.price_basis={rows:{PS:{cost_usd_per_1k:'.04',cost_cny_per_1k:'.28',package_cost_usd:'4.2',delivered_k:'105',regular_floor_usd:'5.30',average_floor_usd:'5.80',cost_checked_at:'2026-10-27T00:00:00Z'}}};
-Object.assign(market.reference.offers[0],{bonus_k:'5',gift_equivalence_assumed:true});
+market.price_basis={rows:{PS:{cost_usd_per_1k:'.04',cost_cny_per_1k:'.28',package_cost_usd:'4.2',delivered_k:'105',regular_floor_usd:'5.30',average_floor_usd:'5.80',current_regular_margin_pct:'40',current_average_margin_pct:'30',cost_checked_at:'2026-10-27T00:00:00Z'}}};
+
 const fetch = async (url, options = {}) => ({ ok: true, json: async () => url.endsWith('/pricing/v3/interval') ? (intervalBody = JSON.parse(options.body), { revision: 4 })
   : url.endsWith('/pricing/v3/market') ? (marketError?Promise.reject(Error('fixture unavailable')):market)
   : url.endsWith('/pricing/collect') ? {job_id:'collect-test'} : url.endsWith('/jobs/collect-test') ? {status:'ready',result:{status:'INFEASIBLE'}}
@@ -69,12 +69,12 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(marketText,/ItemD2R/,'saved sprint reference remains visible under daily strategy');
   assert.match(marketText,/已过 15 分钟/);
   assert.match(marketText,/暂无报价/);
-  assert.match(marketText,/赠品等值 5K（估算）/);
-  assert.match(marketText,/\$7.75 \/ 100K 金币等值/);
+  assert.doesNotMatch(marketText,/赠品等值|礼包估算/);
+  assert.match(marketText,/\$8.14 \/ 100K 实际交付/);
   assert.match(marketText,/缺价 · 跟随全球/);
   assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/采购成本.*0.0400/);
-  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/未优惠红线.*5.30/);
-  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/七日平均红线.*5.80/);
+  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/未优惠红线.*5.30.*当前40.0%/);
+  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/七日平均红线.*5.80.*当前30.0%/);
   assert(!html.includes('<pre id="v3-daily-result"'),'prose must not inherit the shared code-block no-wrap style');
   marketError=true;await elements['v3-refresh'].events.click();
   assert.equal(elements['v3-market-cards'].children.length,0);

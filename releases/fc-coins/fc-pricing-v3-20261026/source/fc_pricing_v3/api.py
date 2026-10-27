@@ -196,16 +196,11 @@ def read(path):
         return dict(rules=(snapshot or {}).get('evidence',{}).get('region_rules',[]),
                     contract=(snapshot or {}).get('evidence',{}).get('region_contract'))
     if path=='market':
-        from .engine import price_basis,market_quote
+        from .engine import price_basis
         original=db.get('pricing_snapshots',snapshot['snapshot_id']) if snapshot else None
         try:basis=price_basis(original['evidence'],instant(original['created_at'])) if original else dict(status='unavailable')
         except (ValueError,KeyError,TypeError) as error:basis=dict(status='unavailable',reason=str(error) if isinstance(error,ValueError) else type(error).__name__)
         reference=dict((snapshot or {}).get('evidence',{}).get('reference_market') or {})
-        normalized=[]
-        for row in reference.get('offers',[]):
-            try:normalized.append(market_quote(original['evidence'],row['platform'],'ItemD2R',instant(original['created_at'])))
-            except (ValueError,KeyError,TypeError):normalized.append(dict(row,status='gift_equivalence_or_source_pending'))
-        reference['offers']=normalized
         return dict(snapshot_id=(snapshot or {}).get('snapshot_id'),
                     global_offers=(snapshot or {}).get('evidence',{}).get('offers'),
                     reference=reference,

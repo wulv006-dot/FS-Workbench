@@ -167,7 +167,7 @@
         if(!basis){details.textContent='采购成本 / 双红线待核';continue;}
         details.append(node('p',`采购成本 $${Number(basis.cost_usd_per_1k).toFixed(4)} / 1K（¥${Number(basis.cost_cny_per_1k).toFixed(4)}）`),
           node('p',`${basis.delivered_k}K 含赠套餐成本 ${usd(basis.package_cost_usd)}`),
-          node('p',`未优惠红线 ${usd(basis.regular_floor_usd)} · 20%`),node('p',`七日平均红线 ${usd(basis.average_floor_usd)} · 20%`),
+          node('p',`未优惠红线 ${usd(basis.regular_floor_usd)} · 当前${basis.current_regular_margin_pct==null?'待核':Number(basis.current_regular_margin_pct).toFixed(1)+'%'}`),node('p',`七日平均红线 ${usd(basis.average_floor_usd)} · 当前${basis.current_average_margin_pct==null?'待核':Number(basis.current_average_margin_pct).toFixed(1)+'%'}`),
           node('p',`成本采集 ${when(basis.cost_checked_at)}；全球基价下限，地区另核。`));
       }
       for(const platform of ['PS','XBOX','PC']){
@@ -188,8 +188,8 @@
           const header=node('div');header.className='head';const badge=node('span',followGlobal?'缺价 · 跟随全球':!available?'缺项':!verified?'规格待核':stale?'已过 15 分钟':!Number.isFinite(age)||age<0?'时点待核':'最近已采');badge.className='market-badge';header.append(node('h4',name),badge);card.append(header);
           const total=node('p',available?usd(price):'暂无报价');total.className='market-price';card.append(total);
           const delivered=purchase!=null&&bonus!=null?Number(purchase)+Number(bonus):NaN;
-          const unit=node('p',available&&verified&&Number.isFinite(delivered)&&delivered>0?`${usd(Number(price)/delivered*100)} / ${row?.gift_equivalence_assumed?'100K 金币等值（含礼包估算）':'100K 实际交付'}`:'同口径单价待核');unit.className='market-unit';card.append(unit);
-          card.append(node('p',row?.gift_equivalence_assumed?`购买 ${purchase}K + 赠品等值 ${bonus}K（估算） · 折算 ${delivered}K`:row?`购买 ${purchase??'待核'}K + 赠送 ${bonus??'待核'}K${Number.isFinite(delivered)?` · 交付 ${delivered}K`:''}`:'本轮未取得可核报价'),node('p',method));
+          const unit=node('p',available&&verified&&Number.isFinite(delivered)&&delivered>0?`${usd(Number(price)/delivered*100)} / 100K 实际交付`:'同口径单价待核');unit.className='market-unit';card.append(unit);
+          card.append(node('p',row?`购买 ${purchase??'待核'}K + 赠送 ${bonus??'待核'}K${Number.isFinite(delivered)?` · 交付 ${delivered}K`:''}`:'本轮未取得可核报价'),node('p',method));
           const time=node('p',`采集 ${when(stamp)} · USD`);time.className='footnote';card.append(time);column.append(card);
         }
         output.append(column);
@@ -241,7 +241,7 @@
       $('v3-error').textContent=permissionKnown?'':'操作权限暂时无法核对，写入入口已停用；只读状态仍可查看。';
       $('v3-error').hidden=permissionKnown;
       $('version').textContent=`V3 状态读取 ${when(new Date())} · 快照 ${state.snapshot_id||'尚无'} · 下轮时间以统一调度实际回执为准`;
-      if(collectPending){const job=await cloud('jobs/'+collectPending).catch(()=>null);if(job&&['ready','failed'].includes(job.status)){$('v3-result').textContent=job.result?.status==='INFEASIBLE'?`只读采集任务 ${collectPending}：采集已完成；当前策略无可执行报价，未写价。`:`只读采集任务 ${collectPending}：${statusText(job.status)}；本轮报价需另经 V3 证明。`;collectPending=null;sessionStorage.removeItem('fc-v3-collect-job');clearKey('collect');}}}
+      if(collectPending){const job=await cloud('jobs/'+collectPending).catch(()=>null);if(job&&['ready','failed'].includes(job.status)){$('v3-result').textContent=job.result?.status==='INFEASIBLE'?`只读采集任务 ${collectPending}：采集已完成；当前策略无可执行报价，未写价。`:job.status==='failed'?`只读采集任务 ${collectPending}：采集失败（${errorText({message:job.error_detail||job.error||'原因待核'})}）；竞品卡片保留原采集时间，不是已刷新。`:`只读采集任务 ${collectPending}：${statusText(job.status)}；本轮报价需另经 V3 证明。`;collectPending=null;sessionStorage.removeItem('fc-v3-collect-job');clearKey('collect');}}}
     catch(error){$('v3-error').textContent=`未完成：${errorText(error)}。旧值保留其原时点。`;$('v3-error').hidden=false;}
     finally{loading=false;$('v3-refresh').disabled=false;$('v3-refresh').textContent='更新统一状态';$('v3-panel').removeAttribute('aria-busy');}
   }

@@ -114,14 +114,6 @@ def market_quote(evidence, platform, source, now, region=None):
                 row['delivered_k'] = str(number(row.get('purchase_k',row.get('base_k','100')))+number(row.get('bonus_k','0'), zero=True))
     if not row:
         raise ValueError('pricing_required_market_missing:'+source+':'+platform)
-    if source=='ItemD2R' and number(row.get('bonus_k','0'),zero=True)==0:
-        gift_basis=evidence.get('offers',{}).get(platform,{}).get('Lootbar') or {}
-        if number(gift_basis.get('base_k'))!=number(row.get('purchase_k','100')):
-            raise ValueError('pricing_item_gift_basis_missing')
-        equivalent=number(gift_basis.get('bonus_k','0'),zero=True)
-        row.update(actual_coin_bonus_k='0',bonus_k=str(equivalent),
-                   delivered_k=str(number(row.get('purchase_k','100'))+equivalent),
-                   gift_equivalence_version='user_lootbar_same_tier_v1',gift_equivalence_assumed=True)
     fresh(row['captured_at'], now, 900)
     if (row.get('conditional') or row.get('comparable') is False or
             number(row.get('purchase_k',row.get('base_k','100'))) != 100):
@@ -159,8 +151,12 @@ def price_basis(evidence,now):
         rules=evidence['promotion_envelope']['packages'][platform]
         tier=next(t for t in rules['tiers'] if number(t['base_k'])==100)
         delivered=number(tier['base_k'])+number(tier['bonus_k'],zero=True)
+        current=number(evidence['storefront']['rows'][platform]['package_usd'])
+        package_cost=delivered*cost/fx
         rows[platform]=dict(cost_cny_per_1k=str(cost),cost_usd_per_1k=str(cost/fx),
-            package_cost_usd=str(delivered*cost/fx),delivered_k=str(delivered),
+            package_cost_usd=str(package_cost),delivered_k=str(delivered),
+            current_regular_usd=str(current),current_regular_margin_pct=str((current-package_cost)/current*100),
+            current_average_margin_pct=str((current*average-package_cost)/(current*average)*100),
             regular_floor_usd=str(catalog_floor(cost,fx,ratio,HARD_MARGIN,rules)*100),
             average_floor_usd=str(catalog_floor(cost,fx,ratio,HARD_MARGIN,rules,average_ratio=average)*100),
             cost_checked_at=evidence['costs'][platform]['checked_at'])
@@ -199,7 +195,7 @@ def required_base_bound(evidence,platform,now,plan=None,evaluation_context=None)
 
 
 def quote_identity(row):
-    return tuple(row.get(k) for k in ('source','platform','purchase_k','delivered_k','delivery','delivery_method','price_basis','coupon_excluded','conditional','gift_equivalence_version'))
+    return tuple(row.get(k) for k in ('source','platform','purchase_k','delivered_k','delivery','delivery_method','price_basis','coupon_excluded','conditional'))
 
 def base_limits(public_low,public_high,retained):
     retained=number(retained)
