@@ -14,23 +14,64 @@ def region_step(operation_id,step_id,*,write=False):
     except ValueError:return dict(status='UNKNOWN',reason='original_region_transport_reply_unavailable',exit_code=done.returncode)
 
 
+def base_execution_id(operation,step):
+    import uuid
+    return str(uuid.uuid5(uuid.UUID(operation['operation_id']),step['step_id'])) if sum(s['kind']=='base' for s in operation['steps'])>1 else operation['operation_id']
+
+
+def base_step_context(operation,step):
+    from copy import deepcopy
+    from decimal import Decimal
+    import uuid
+    from .runtime import ROOT,write_json,project_base_step
+    context=deepcopy(operation['dispatch_context'])
+    reference=dict(operation_id=operation['operation_id'],step_id=step['step_id'])
+    quote=json.loads((ROOT/'quotes'/(operation['bundle']['snapshot_id']+'.json')).read_text())
+    projected=project_base_step(quote,reference)
+    preview=deepcopy(context['preview'])
+    preview['preview_id']=str(uuid.uuid5(uuid.UUID(operation['operation_id']),'preview:'+step['step_id']))
+    preview['v3_execution_step']=reference
+    previous=[s for s in operation['steps'][:operation['steps'].index(step)] if s['kind']=='base']
+    if previous:
+        audit=json.loads((ROOT/'executions'/(base_execution_id(operation,previous[-1])+'.json')).read_text())
+        if audit.get('status')!='CONFIRMED' or audit.get('all_baseline',{}).get('status')!='confirmed':raise ValueError('pricing_previous_base_unconfirmed')
+        preview['backend_before']=audit['after']
+    by={r['platform']:r for r in projected['result']['rows']}
+    for target in preview['targets']:
+        row=by[target['platform']]
+        target.update(quote=row['proposal'],targetCost=format(Decimal(row['proposal'])*Decimal('5.32'),'.6f'),
+                      targetPageUsd=row['target_page_usd'],actualGrossMargin=row['gross_margin_pct'])
+    path=ROOT/'previews'/(preview['preview_id']+'.json')
+    if path.exists():
+        if json.loads(path.read_text())!=preview:raise ValueError('pricing_base_step_preview_changed')
+    else:write_json(path,preview)
+    context['preview']=preview
+    return context,reference
+
+
 def dispatch_base(operation):
     from .runtime import ROOT,STORE,write_json
     import fc27_cloud_worker as worker
-    context=operation['dispatch_context']
-    request=dict(preview_id=context['preview']['preview_id'],execution_id=operation['operation_id'],
+    context=operation['dispatch_context'];reference=None;execution_id=operation['operation_id']
+    if sum(s['kind']=='base' for s in operation['steps'])>1:
+        step=next(s for s in operation['steps'] if s['kind']=='base' and s['state']!='CONFIRMED')
+        try:context,reference=base_step_context(operation,step)
+        except (OSError,ValueError,KeyError) as exc:return dict(status='NOT_SENT',reason=str(exc) if isinstance(exc,ValueError) else type(exc).__name__)
+        execution_id=base_execution_id(operation,step)
+    request=dict(preview_id=context['preview']['preview_id'],execution_id=execution_id,
                  actor=context['actor'],platforms=context['selected'],margin_confirmed_platforms=[],
                  margin_exception_reason='',policy_revision=context['policy_revision'],automatic=context['automatic'],
                  v3_operation_id=operation['operation_id'],engine_generation=operation['generation'])
-    request_path=ROOT/'requests'/(operation['operation_id']+'.json')
+    request_path=ROOT/'requests'/(execution_id+'.json')
     if request_path.exists():
         if json.loads(request_path.read_text())!=request:raise ValueError('pricing_operation_payload_conflict')
     else:write_json(request_path,request)
-    auth=STORE/'authorizations'/(operation['operation_id']+'.json')
+    auth=STORE/'authorizations'/(execution_id+'.json')
     auth.parent.mkdir(parents=True,exist_ok=True)
-    authorization=dict(operation_id=operation['operation_id'],bundle_sha256=operation['bundle']['sha256'],
+    authorization=dict(operation_id=execution_id,bundle_sha256=operation['bundle']['sha256'],
                         generation=operation['generation'],run_id=operation['bundle']['snapshot_id'],selected=context['selected'])
-    audit_path=ROOT/'executions'/(operation['operation_id']+'.json')
+    if reference:authorization['v3_execution_step']=reference
+    audit_path=ROOT/'executions'/(execution_id+'.json')
     if audit_path.exists():
         from .dispatch import proven_not_sent
         previous=json.loads(audit_path.read_text())

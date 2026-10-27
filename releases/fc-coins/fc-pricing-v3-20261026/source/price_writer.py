@@ -114,6 +114,9 @@ def load_authorized(preview_id):
     newest = max((p for p in (ROOT / "runs").glob("*.json")), key=lambda p: p.stat().st_mtime)
     if newest != run_path:
         raise ValueError("newer_run_exists")
+    if preview.get('v3_execution_step'):
+        from fc_pricing_v3.runtime import project_base_step
+        quote=project_base_step(quote,preview['v3_execution_step'])
     return preview, quote
 
 
@@ -309,7 +312,8 @@ def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, ch
                 return {"status": "CHECK_ONLY", "preview_id": preview_id,
                         "platforms": selected, "backend_same": True}
             # One server collection run may produce multiple previews, but may write only once.
-            marker = ROOT / "executions" / f"run-{preview['run_id']}.used"
+            marker_key=execution_id if preview.get('v3_execution_step') else preview['run_id']
+            marker = ROOT / "executions" / f"run-{marker_key}.used"
             if marker.exists():
                 from fc_pricing_v3.dispatch import proven_not_sent
                 if not proven_not_sent(previous) or previous.get('run_id')!=preview['run_id']:raise ValueError('pricing_original_run_used')

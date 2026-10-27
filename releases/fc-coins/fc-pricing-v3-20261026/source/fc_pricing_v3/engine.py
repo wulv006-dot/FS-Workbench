@@ -764,5 +764,29 @@ def commit_path(before, after, validate,transition=None):
         except ValueError:
             continue
     if changes:
+        # Narrow coupled price/coefficient changes without crossing either proof boundary.
+        state=deepcopy(before);steps=[]
+        for _ in range(24):
+            if state==after:return steps
+            progress=False
+            for section,key in changes:
+                keys=list(after[section]) if key=='all' else [key]
+                for denominator in (1,2,4,8,16,32,64):
+                    trial=deepcopy(state)
+                    for name in keys:
+                        old=number(state[section][name]);target=number(after[section][name])
+                        precision=CENT if section=='base_prices' else Decimal('.0001')
+                        value=(old+(target-old)/denominator).quantize(precision,rounding=ROUND_HALF_UP)
+                        trial[section][name]=after[section][name] if value==target else str(value)
+                    if all(number(trial[section][name])==number(state[section][name]) for name in keys):continue
+                    try:
+                        validate(trial)
+                        if transition:transition(state,trial)
+                    except ValueError:continue
+                    steps.append(dict(step_id=section+':'+key+':'+str(len(steps)),kind='base' if section=='base_prices' else 'region',
+                                      key=key,value=deepcopy(trial[section] if key=='all' else trial[section][key]),state='PREPARED',intermediate=deepcopy(trial)))
+                    state=trial;progress=True;break
+            if not progress:break
+        if state==after:return steps
         raise ValueError('NO_SAFE_COMMIT_PATH')
     return []
