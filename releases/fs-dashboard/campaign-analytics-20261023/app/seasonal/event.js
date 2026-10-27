@@ -62,7 +62,7 @@
   const doc=root.document,esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let config={},view=project(config),activeGame=null,media={},lastGameButton=null,referenceTimer=null;
   const revealed=new Set(),animatingSlots=new Set(),dialog=doc.querySelector('#event-dialog');
-  let currentDay=nyDay();
+  let currentDay=nyDay(),lastSlotHtml=null;
   const receipts=new Map(),drawing=new Set();
   const fixedOffer=game=>({slot:'fixed',model_id:game.fixed_model,off_percent:game.fixed_off_percent,...(game.random_source==='quantity_tiers'?{quantity:{value:game.fixed_quantity.value,unit:game.fixed_quantity.unit}}:{})});
   const slotOffer=(game,slot)=>{if(slot==='fixed')return fixedOffer(game);const receipt=receipts.get(game.id),row=receipt?.slots.find(row=>row.slot===slot);return row?{...row,reveal_request_id:receipt.request_id}:null;};
@@ -159,8 +159,14 @@
       const detail=open?'<div class="slot-detail'+(animatingSlots.has(slot)?' is-pending':'')+'">'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(offer.model_id)+'" data-buy-slot="'+slot+'" '+(!buyReady(game,offer)?'disabled':'')+'>Buy Now</button></div>':'';
       return '<article class="offer-slot random-slot" data-offer-slot="'+slot+'"><span class="slot-label">MYSTERY PICK 0'+(n+1)+'</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-random-reveal="'+slot+'" aria-expanded="'+Boolean(open)+'" '+(!eventConfigured()||drawing.has(game.id)?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(drawing.has(game.id)?'Opening your collection…':'Reveal your surprise')+'</strong><small>'+(eventConfigured()?'Tap to turn your card':'Offer probabilities and dates are not configured')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'>'+faceContent({label:game.label,title:tp.main,attrs:tp.attrs,off:offer?.off_percent,image:product?.image,qty:qtyPrefix})+'</span><span class="reveal-rays" aria-hidden="true"></span></button>'+detail+'</article>';
     }).join('');
-    doc.querySelector('#offer-slots').innerHTML=fixed+random;
-    if(Number.isFinite(nextExpiry))referenceTimer=setTimeout(()=>{renderSlots();root.SeasonalCommerce?.refresh().catch(()=>status('Prices could not be refreshed. Please use Refresh prices before continuing.'));},Math.max(1,Math.min(2147483647,nextExpiry-Date.now()+1)));
+    // Rebuilding identical markup resets focus and can replay transitions, so
+    // only touch the DOM when the offers actually changed.
+    const html=fixed+random;
+    if(html!==lastSlotHtml){doc.querySelector('#offer-slots').innerHTML=html;lastSlotHtml=html;}
+    // An expired price refreshes promptly, but never faster than every 5s. The
+    // old 1ms floor spun the whole card list whenever the feed was failing.
+    const delay=Number.isFinite(nextExpiry)?Math.max(5000,nextExpiry-Date.now()+1):60000;
+    referenceTimer=setTimeout(()=>{renderSlots();root.SeasonalCommerce?.refresh().catch(()=>status('Prices could not be refreshed. Please use Refresh prices before continuing.'));},Math.min(2147483647,delay));
 
   }
   let countdownTimer=null;
