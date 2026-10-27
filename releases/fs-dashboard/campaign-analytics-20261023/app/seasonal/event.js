@@ -118,10 +118,12 @@
   }
   let countdownTimer=null;
   function startCountdown(){
-    const end=view.ends_at?Date.parse(view.ends_at):null;
     const paint=()=>{
-      const now=Date.now(),hero=doc.querySelector('#event-countdown'),refresh=doc.querySelector('#offers-refresh');
-      if(hero)hero.textContent=end&&end>now?'ENDS IN '+clock(end-now):'';
+      // Read the window on every tick: the first paint can happen before the
+      // published configuration arrives.
+      const now=Date.now(),end=view.ends_at?Date.parse(view.ends_at):null;
+      const hero=doc.querySelector('#event-countdown'),refresh=doc.querySelector('#offers-refresh');
+      if(hero)hero.textContent=Number.isFinite(end)&&end>now?'ENDS IN '+clock(end-now):'';
       if(refresh)refresh.textContent='Daily reset in '+clock(nextNyMidnight(now)-now)+' — new picks and discounts every day';
     };
     paint();
