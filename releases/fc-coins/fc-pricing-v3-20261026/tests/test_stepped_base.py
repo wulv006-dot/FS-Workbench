@@ -61,7 +61,8 @@ class SteppedBase(unittest.TestCase):
                     p=row['platform'];old=Decimal(anchor['base_prices']['pc' if p=='PC' else 'console'])/100
                     preview['backend_before']['rows'].append(dict(platform=p,b2c=str(old),costPrice=str(old*Decimal('5.32'))))
                     preview['targets'].append(dict(platform=p,quote=row['proposal']))
-                op=db.prepare(plan,bundle,dispatch_context=dict(preview=preview,selected=list(engine.PLATFORMS),actor='system-automation',policy_revision=42,automatic=True))
+                (root/'previews'/(preview['preview_id']+'.json')).write_text(json.dumps(preview))
+                op=db.prepare(plan,bundle,dispatch_context=dict(preview=dict(preview_id=preview['preview_id'],status='review_only'),selected=list(engine.PLATFORMS),actor='system-automation',policy_revision=42,automatic=True))
                 calls=[];unknown=[]
                 def writer(command,*args):
                     request=json.loads(Path(command[1]).read_text());child=request['execution_id']

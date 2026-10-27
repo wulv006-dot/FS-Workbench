@@ -28,7 +28,10 @@ def base_step_context(operation,step):
     reference=dict(operation_id=operation['operation_id'],step_id=step['step_id'])
     quote=json.loads((ROOT/'quotes'/(operation['bundle']['snapshot_id']+'.json')).read_text())
     projected=project_base_step(quote,reference)
-    preview=deepcopy(context['preview'])
+    preview_id=context['preview']['preview_id']
+    preview=json.loads((ROOT/'previews'/(preview_id+'.json')).read_text())
+    if preview.get('preview_id')!=preview_id or preview.get('run_id')!=operation['bundle']['snapshot_id']:
+        raise ValueError('pricing_base_step_preview_scope_changed')
     preview['preview_id']=str(uuid.uuid5(uuid.UUID(operation['operation_id']),'preview:'+step['step_id']))
     preview['v3_execution_step']=reference
     previous=[s for s in operation['steps'][:operation['steps'].index(step)] if s['kind']=='base']
