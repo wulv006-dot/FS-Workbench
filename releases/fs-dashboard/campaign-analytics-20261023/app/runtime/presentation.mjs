@@ -88,8 +88,23 @@ function neutral(source,p,status,label) {
   return {status,body:`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escape(title)}</title><meta property="og:title" content="${escape(title)}">${p?.description?`<meta name="description" content="${escape(p.description)}"><meta property="og:description" content="${escape(p.description)}">`:''}${styles}</head><body><main class="${sectionClass(source)}"><h1>${escape(title)}</h1><p>${escape(label)}</p>${p?.description?`<p>${escape(p.description)}</p>`:''}${p?`<p>Published schedule (UTC): ${windowHtml(p)}</p>`:''}</main></body></html>`};
 }
 
+function versionAssets(html,target,assetVersion){
+ if(typeof assetVersion!=='function')return html;
+ const base=new URL('https://campaign-assets.invalid/'+target);
+ return html.replace(/<(?:script|link)\b[^>]*>/gi,tag=>{
+  const script=/^<script/i.test(tag);if(!script&&attr(tag,'rel')?.toLowerCase()!=='stylesheet')return tag;
+  const ref=attr(tag,script?'src':'href');if(!ref)return tag;
+  let url;try{url=new URL(ref,base);}catch{return tag;}
+  if(url.origin!==base.origin)return tag;
+  const version=assetVersion(url.pathname.slice(1));
+  if(typeof version!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(version))return tag;
+  url.searchParams.set('v',version);
+  return tag.replace(ref,ref.split(/[?#]/)[0]+url.search+url.hash);
+ });
+}
+
 // Call with the current validated published projection; immutable source HTML stays unchanged.
-export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
+export function presentPage({name,body,snapshot,now=Date.now(),publicBase,assetVersion}={}) {
   snapshot=publicEnglishRelease(snapshot);
   const target=route(name);
   if(!routes.has(target))return {status:200,body};
@@ -103,6 +118,7 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase}={}) {
   let html=source.replace(/<section\b[^>]*\bid=["']campaign-published-details["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
   html=html.replace(/<section\b[^>]*\bid=["']campaign-imported-products(?:-[a-z]+)?["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
   html=metadata(html,p,publicBase);
+  html=versionAssets(html,target,assetVersion);
   if(p.media?.hero_desktop||p.media?.hero_mobile){
     const url=ref=>{let base;try{base=new URL(publicBase);}catch{fail('INVALID_PUBLIC_BASE',503);}if(base.username||base.password||base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname)))fail('INVALID_PUBLIC_BASE',503);return new URL('media/'+ref.asset_id,base).href;};
     if(p.media.hero_desktop)html=html.replace(/<img\b[^>]*\bid=["']hero-image["'][^>]*>/i,tag=>tag.replace(/\s+(?:src|alt)=["'][^"']*["']/gi,'').replace(/>$/,` src="${escape(url(p.media.hero_desktop))}" alt="${escape(p.media.hero_desktop.alt)}" data-published-media="true">`));

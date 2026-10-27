@@ -156,6 +156,17 @@ test('published configuration controls actual HTML and pinned catalog response a
  delete current.pages[0].ends_at;current.pages[0].title='Republished exact';assert.match(await(await fetch(base+'Weekly-Scout.html')).text(),/<title>Republished exact<\/title>/);
 });
 
+test('HTTP HTML uses manifest asset hashes and the live catalog config hash',async t=>{
+ const root=temp(t),html='<html><head><link rel="stylesheet" href="activity.css"></head><body><script src="catalog.js"></script><script src="activity.js"></script></body></html>',script='window.FC_ACTIVITY_CONFIG='+fs.readFileSync(new URL('../../catalog.js',import.meta.url),'utf8').replace(/^\s*window\.FC_ACTIVITY_CONFIG\s*=\s*/,''),client='void 0',css='body{}';
+ for(const [name,body] of Object.entries({'Weekly-Scout.html':html,'catalog.js':script,'activity.js':client,'activity.css':css}))fs.writeFileSync(path.join(root,name),body);
+ let current=snapshot();current.pages[0].path='Weekly-Scout.html';current.pages[0].product_keys=[];
+ const manifest=Object.fromEntries(Object.entries({'Weekly-Scout.html':html,'catalog.js':script,'activity.js':client,'activity.css':css}).map(([name,body])=>[name,digest(body)]));
+ const server=createPublicServer({assetRoot:root,staticManifest:manifest,snapshotProvider:()=>current,dir:temp(t),origin:'http://127.0.0.1'});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
+ const url='http://127.0.0.1:'+server.address().port+'/events/Weekly-Scout.html';let body=await(await fetch(url)).text();
+ assert.match(body,/activity\.css\?v=/);assert.match(body,new RegExp('activity\\.js\\?v='+manifest['activity.js']));assert.match(body,new RegExp('catalog\\.js\\?v='+current.config_hash));
+ current={...current,release_id:'release-2',config_hash:'c'.repeat(64)};body=await(await fetch(url)).text();assert.match(body,new RegExp('catalog\\.js\\?v='+current.config_hash));assert.match(body,new RegExp('activity\\.js\\?v='+manifest['activity.js']));
+});
+
  test('fresh service waits fail-closed for first publication without inventing a snapshot',t=>{
  let published=null;const c=createCommerce({snapshotProvider:()=>{if(!published)throw Error('not published');return published;},dir:temp(t)});
  assert.throws(()=>c.config());published=snapshot();assert.equal(c.config().release_id,'release-1');published=null;assert.throws(()=>c.config());
