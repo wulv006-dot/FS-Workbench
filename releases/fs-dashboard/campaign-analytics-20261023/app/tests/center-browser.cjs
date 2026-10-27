@@ -66,7 +66,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  await page.waitForFunction(()=>document.querySelector('#review-dialog').open&&!document.querySelector('#review-selection').disabled);
  assert.equal(await page.locator('#submit-selection').isDisabled(),true);
  await page.locator('#submit-selection').evaluate(el=>el.dispatchEvent(new MouseEvent('click',{bubbles:true})));
- await page.waitForFunction(()=>document.querySelector('#review-status').textContent.includes('Campaign checkout is not connected. No cart or discount-code request was sent.'));
+ await page.waitForFunction(()=>document.querySelector('#review-status').textContent.includes('no published native offer for the current platform'));
  assert.equal(await page.locator('#continue-cart').isVisible(),false);assert.deepEqual(checkoutWrites,[]);
  assert.deepEqual(errors,[]);console.log('PASS center forms/date/bindings/recovery/publish/readonly; page selection/draft isolation/roles; bounded catalog search/detail/spec gaps/escaped metadata/import/readonly; FC original preview flow');
  }finally{await browser.close();}
