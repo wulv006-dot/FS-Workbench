@@ -48,6 +48,14 @@ POST /game/admin_game_price/goodsEdit     Content-Type: application/json
 **是否真的发出写请求**由 `apply_price.py`（CLI，四道闸）与
 `app.py::task_apply`（控制台，总开关闸 + 确认短语闸）决定。
 """
+
+import sys as _order_sys
+from pathlib import Path as _OrderPath
+for _order_root in ('/opt/fs-order-session', '/opt/fc27-collector', '/opt/madden-workbench', '/srv'):
+    if _OrderPath(_order_root, 'fs_order_client.py').is_file():
+        _order_sys.path.insert(0, _order_root)
+        break
+import fs_order_client as _global_order
 import base64
 import http.cookiejar
 import json
@@ -145,6 +153,7 @@ class P2PAHClient(object):
 
     def request(self, path, data=None, json_body=None, method=None, headers=None,
                 referer=None, decode=True):
+        _global_order.fill_jar(self.jar)
         url = self._url(path)
         hd = dict(headers or {})
         if json_body is not None:
@@ -184,40 +193,11 @@ class P2PAHClient(object):
         return {c.name: c.value for c in self.jar}
 
     def _load_session(self, path):
-        """把落盘的 cookie 灌回 cookie jar（跨进程也能续用登录态）"""
-        if not path or not os.path.exists(path):
-            return False
-        try:
-            d = json.load(open(path, encoding="utf-8"))
-        except Exception:
-            return False
-        ck = d.get("cookies") or {}
-        # ⚠ domain 不能带前导点、secure 要跟实际一致，否则 cookiejar 不会把 cookie 发出去
-        #   （踩过：写成 ".order.p2pah.cn" + secure=True，jar 里有值但请求头里没有）
-        secure = self.base.startswith("https")
-        for k, v in ck.items():
-            self.jar.set_cookie(http.cookiejar.Cookie(
-                version=0, name=k, value=str(v), port=None, port_specified=False,
-                domain=self.host, domain_specified=True, domain_initial_dot=False,
-                path="/", path_specified=True, secure=secure, expires=None,
-                discard=False, comment=None, comment_url=None, rest={}, rfc2109=False))
-        return bool(ck)
+        _global_order.fill_jar(self.jar)
+        return True
 
     def _save(self, path, extra=None):
-        ck = self._cookie_dict()
-        need = [c for c in (self.p.get("会话", {}) or {}).get("cookie",
-                ["PHPSESSID", "user", "admin_username"]) if c in ck]
-        d = {"base": self.base, "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"), "cookies": ck}
-        if extra:
-            d.update(extra)
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(d, f, ensure_ascii=False, indent=1)
-        try:
-            os.chmod(path, 0o600)
-        except Exception:
-            pass
-        return need
+        return None
 
     def session_info(self):
         """不联网，只看本地会话状态（给控制台用）"""
@@ -237,73 +217,15 @@ class P2PAHClient(object):
 
     # ------------------------------------------------------------ 验证码 + 登录
     def fetch_captcha(self, save_to=None, keep=False):
-        """取一张新验证码（同时下发 PHPSESSID）。
-
-        ⚠ 必须用它返回的这张图去换 captcha 字符串，并**紧接着**调 login()，
-        因为验证码绑在这条会话上。keep=True 时不覆盖 session.json。
-        """
-        path = save_to or self.captcha_path
-        cpath = (self.p.get("验证码") or "/new_captcha.html?height=32&width=150&font_size=18")
-        raw = self.request(cpath, decode=False, headers={"Accept": "image/avif,image/webp,image/*,*/*;q=0.8"})
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        with open(path, "wb") as f:
-            f.write(raw)
-        # 把「还没登录」的会话连同 PHPSESSID 一起暂存，供下一步 login() 使用
-        self._save(self.pending_path, extra={"stage": "captcha"})
-        return {"path": path, "b64": base64.b64encode(raw).decode("ascii"),
-                "bytes": len(raw), "cookie": self._cookie_dict().get("PHPSESSID", "")}
+        raise RuntimeError('order_login_managed_by_global_service')
 
     def login(self, captcha=None):
-        """登录。captcha 为空则先试会话复用；会话失效且没给验证码 → 返回 False。"""
-        if not self.acc.get("username"):
-            self.log("  [p2pah] 未配置后台账号，无法登录")
-            return False
-        # ① 会话复用：本地已有完整 cookie，先探一下还活着没
-        if not captcha:
-            if self.session_info()["ok"]:
-                if self.probe():
-                    self.logged_in = True
-                    self.log("  [p2pah] 复用已有会话（%s）" % (self.session_info().get("saved_at") or "?"))
-                    return True
-                self.log("  [p2pah] 本地会话已失效，需要重新过验证码")
-            else:
-                self.log("  [p2pah] 本地没有可用会话，需要先取验证码")
-            return False
-        # ② 真登录：补上验证码阶段暂存的 cookie，再 POST
-        if not self._cookie_dict().get("PHPSESSID") and os.path.exists(self.pending_path):
-            self._load_session(self.pending_path)
-        captcha = str(captcha).strip()
         try:
-            raw = self.request(self.p.get("登录接口") or "/admin/public/dologin.html",
-                               data=urllib.parse.urlencode({
-                                   "username": self.acc.get("username", ""),
-                                   "password": self.acc.get("password", ""),
-                                   "captcha": captcha,
-                               }).encode("utf-8"),
-                               headers={"Content-Type": "application/x-www-form-urlencoded",
-                                        "X-Requested-With": "XMLHttpRequest"},
-                               referer="/admin")
-        except Exception as e:
-            self.log("  [p2pah] 登录请求异常：%r" % e)
-            return False
-        try:
-            j = json.loads(raw)
-        except Exception:
-            self.log("  [p2pah] 登录响应不是 JSON（验证码可能已过期）：%s" % raw[:160].replace("\n", " "))
-            return False
-        if int(j.get("code") or 0) != 1:
-            self.log("  [p2pah] 登录失败：%s" % (j.get("msg") or j))
-            return False
-        need = self._save(self.session_path)
-        if len(need) < 3:
-            self.log("  [p2pah] ⚠ 登录返回成功，但 cookie 不全（只有 %s）—— 后续请求可能被判未登录" % need)
-        self.logged_in = True
-        try:
-            os.remove(self.pending_path)
-        except Exception:
-            pass
-        self.log("  [p2pah] 登录成功，会话已存（%s）" % os.path.basename(self.session_path))
-        return True
+            _global_order.fill_jar(self.jar)
+            self.logged_in = True
+        except RuntimeError:
+            self.logged_in = False
+        return self.logged_in
 
     def logout_local(self):
         """清掉本地会话（换账号 / 强制重登时用）"""
@@ -542,8 +464,9 @@ class CacheRefresher(object):
         self.base = str(host or "").rstrip("/")
         self.acc = {"username": user or "", "password": pw or ""}
         self.log = log or (lambda *a: None)
+        self.jar = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
+            urllib.request.HTTPCookieProcessor(self.jar),
             urllib.request.HTTPSHandler(context=self._ctx()))
         self.opener.addheaders = [("User-Agent", UA)]
 
@@ -555,6 +478,8 @@ class CacheRefresher(object):
         return ctx
 
     def _get(self, path, data=None):
+        if "order.p2pah.cn" in self.base:
+            _global_order.fill_jar(self.jar)
         url = self.base + (path if str(path).startswith("/") else "/" + str(path))
         req = urllib.request.Request(url, data=data,
                                      headers={"X-Requested-With": "XMLHttpRequest"})

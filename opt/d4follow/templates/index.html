@@ -489,6 +489,8 @@ th{background:#fafafa}
    现在整段默认 collapsed：只留标题行（带行数计数），点标题展开 / 收起；
    任务一启动（subscribe）自动展开 —— 「用的时候出来，不用的时候叠起来」。 */
 .panel.collapsed>.logbox{display:none}
+/* 2026-10-27 · ④ 执行器也整段折叠：它的正文在 .pad 里（与③ 的 .logbox 不同） */
+.panel.collapsed>.pad{display:none}
 /* 展开但还没日志时不要留一个 420px 的大空盒子 */
 .logbox:empty{height:104px;display:flex;align-items:center}
 .logbox:empty::before{content:"暂无日志 —— 点上方「立即采集 / 重算看板」等按钮，运行过程会实时输出到这里。";
@@ -657,13 +659,26 @@ th{background:#fafafa}
         <span class="caret" id="logCaret">▾</span>
       </span>
     </h2>
+    <!-- 2026-10-27 · 改动记录 = 对 order.p2pah.cn 的所有改动（谁/何时/改没改成），
+         数据源 = 执行器回填的 local_job；下面 logbox 只是任务过程输出（运行日志）。 -->
+    <div class="pad">
+      <div style="display:flex;align-items:center;gap:9px;margin:2px 0 6px">
+        <b>平台改动记录</b>
+        <span class="small">谁 / 何时 / 改了什么 / 改没改成（近 7 天）</span>
+        <button class="btn ghost" style="margin-left:auto;padding:3px 10px;font-size:11.5px"
+                onclick="refreshChangeList()">刷新</button>
+      </div>
+      <div id="changeList"></div>
+    </div>
     <div class="logbox" id="log"></div>
   </section>
 
-  <section class="panel" id="sec-local">
-    <h2>④ 执行器（服务器 / 本机）
+  <section class="panel collapsed" id="sec-local">
+    <h2 class="h2click" onclick="toggleLocal()"
+        title="执行器默认收起；点这里展开 / 收起（任务运行时自动展开）">④ 执行器（服务器 / 本机）
       <span class="badge off" id="localBadge"><span class="dot"></span><span id="localSt">读取中…</span></span>
       <span class="hint" id="localTs"></span>
+      <span class="caret" id="localCaret">▾</span>
     </h2>
     <div class="pad">
       <div id="execMode"></div>
@@ -769,18 +784,16 @@ const TOGGLES = [
   {p:'前端.服务器直连',             t:'服务器直连抓我方价', d:'开：服务器每次采集自己抓我方价'},
   {p:'千岛.服务器抓取',             t:'服务器直连抓千岛',   d:'开：成本快照过期时服务器自己抓'}
 ];
+/* 2026-10-27 · 运行参数只留「对所有游戏生效」的通用项。
+   D4 专属参数（价格小数位 / 取整到 / 后台折扣 / 千岛对标区服）已下沉为 D4 默认值，
+   不再在此展示 —— 它们的 config 值引擎照旧读，只是不在控制台给所有人改。 */
 const PARAMS = [
   {p:'跟价.跟随策略.让价百分比', t:'让价 (%)', type:'num', step:1,
    d:'我方前端价（客户实付）= IGGM 当前价 ×(1−该%)。5 = 始终比竞品低 5%'},
   {p:'金币.让价百分比', t:'金币让价 (%)', type:'num', step:1,
    d:'金币同理：我方前端每M价 = IGGM 每M价 ×(1−该%)'},
   {p:'跟价.跟随策略.最低毛利率', t:'成本地板 · 最低毛利 (%)', type:'num', step:1, scale:100, d:'跌破就拦下，不许亏本跟'},
-  {p:'跟价.跟随策略.价格小数位', t:'价格小数位', type:'num', step:1, d:'前端显示精度'},
-  {p:'跟价.跟随策略.取整到', t:'取整到', type:'num', step:0.0001, d:'如 0.0001'},
   {p:'汇率.USDCNY', t:'汇率 CNY/USD', type:'num', step:0.01, d:'你指定固定 6.65'},
-  {p:'前端.后台折扣', t:'后台折扣 (%)', type:'num', step:1,
-   d:'前端价 = 标价 × 该折扣，与 order 后台商品列表的「折扣」列保持一致'},
-  {p:'千岛.对标区服', t:'千岛对标区服', type:'text', wide:true, d:'进货成本取这个服的最低价'},
   {p:'运行.采集间隔分钟', t:'采集间隔（分钟）', type:'num', step:5, d:'定时任务参考值'}
 ];
 /* 2026-09-24 第十五轮：原「偏离纠正阈值 (%)」输入框已移除
@@ -1476,6 +1489,14 @@ function setLogOpen(v){
   if(LOG_OPEN){ const box=$('#log'); if(box) box.scrollTop=box.scrollHeight; }
 }
 function toggleLog(){ setLogOpen(!LOG_OPEN); }
+/* 2026-10-27 · ④ 执行器：默认收起，任务一跑自动展开；点标题可手动切换（与③同款）。 */
+let LOCAL_OPEN = false;
+function setLocalOpen(v){
+  LOCAL_OPEN = !!v;
+  const s=$('#sec-local'); if(s) s.classList.toggle('collapsed', !LOCAL_OPEN);
+  const car=$('#localCaret'); if(car) car.textContent = LOCAL_OPEN ? '▴' : '▾';
+}
+function toggleLocal(){ setLocalOpen(!LOCAL_OPEN); }
 function logLine(txt,cls){
   const box=$('#log');
   const d=document.createElement('div');
@@ -1506,6 +1527,7 @@ function subscribe(tid,title){
   $('#logMeta').textContent=tid;
   $('#logSt').className='st run';
   setLogOpen(true);                              // 任务一跑就把「改动记录」展开
+  setLocalOpen(true);                            // ④ 执行器一并展开（派单/执行状态可见）
   logLine('──── 任务启动：'+title+' ('+tid+') ────','hi');
   setBusy(true);
   ES=new EventSource('api/logs/'+tid);
@@ -2551,6 +2573,13 @@ async function showGoldHistory(key, title){
 const LJ_ST = {pending:['排队中','var(--yellow)'], dispatched:['执行中','var(--blue)'],
                done:['成功','var(--green)'], failed:['失败','var(--red)'],
                canceled:['已取消','var(--ov0)']};
+function executionLabel(j){
+  let q={}; try{q=JSON.parse(j.result_json||'{}')||{};}catch(e){}
+  if(q.write_state==='unknown') return ['写入待核','var(--yellow)'];
+  if(q.write_state==='partial') return ['部分写入待核','var(--yellow)'];
+  if(q.publication_status==='cache_failed') return ['已写入·缓存未刷新','var(--yellow)'];
+  return LJ_ST[j.status]||[j.status,'var(--ov0)'];
+}
 const SRV_ST = {running:'执行中', idle:'空闲待命', standby:'待命（已切本机执行）',
                 off:'急停', error:'异常', stopped:'已停止', starting:'启动中',
                 missing:'未运行'};
@@ -2603,7 +2632,7 @@ async function renderLocal(pre){
       const lr = srv.last_result;
       if(lr){
         h += '<div class="small" style="margin-top:4px">最近一单：'
-           + '<b style="color:'+(lr.ok?'var(--green)':'var(--red)')+'">'+(lr.ok?'成功':'失败')+'</b>'
+           + '<b style="color:'+executionLabel({status:lr.ok?'done':'failed',result_json:JSON.stringify(lr)})[1]+'">'+executionLabel({status:lr.ok?'done':'failed',result_json:JSON.stringify(lr)})[0]+'</b>'
            + ' ｜ '+esc(lr.job||'')+'（'+(lr.kind==='writegold'?'金币':'物品')+'）'
            + (lr.sec!=null?(' ｜ 耗时 '+lr.sec+'s'):'')
            + (lr.clearcache_ok!=null?(' ｜ 清缓存 '+(lr.clearcache_ok?'成功':'未成功')):'')
@@ -2656,10 +2685,10 @@ async function renderLocal(pre){
     /* ④ 工单表 */
     if(!js.length){ $('#localJobs').innerHTML='<div class="small">还没有派过单。</div>'; return; }
     let t='<div class="scroll"><table class="histtable"><thead><tr>'
-      + '<th>派单时间</th><th>类型</th><th>执行方</th><th>状态</th><th>标题</th><th>耗时</th><th>结果</th><th></th>'
+      + '<th>派单时间</th><th>类型</th><th>执行方</th><th>用户</th><th>状态</th><th>标题</th><th>耗时</th><th>结果</th><th></th>'
       + '</tr></thead><tbody>';
     for(const j of js){
-      const s = LJ_ST[j.status] || [j.status,'var(--ov0)'];
+      const s = executionLabel(j);
       const rowSrv = (j.exec_mode==='server');
       let res='';
       try{ const q=JSON.parse(j.result_json||'null');
@@ -2680,6 +2709,7 @@ async function renderLocal(pre){
         + '<td>'+(j.kind==='writegold'?'金币':'物品')+'</td>'
         + '<td class="small">'+(rowSrv?'服务器':'本机')
         +   (j.agent?'<br><span style="color:var(--ov0)">'+esc(j.agent)+'</span>':'')+'</td>'
+        + '<td class="small"><b>'+esc(j.actor||'--')+'</b></td>'
         + '<td style="color:'+s[1]+'"><b>'+s[0]+'</b></td>'
         + '<td class="small">'+esc(j.title||'')
         +   '<div style="color:var(--ov0);font-family:ui-monospace,Consolas,monospace">'
@@ -2866,10 +2896,10 @@ async function jobHistLoad(){
       return;
     }
     let t = '<table class="histtable jh-table"><thead><tr>'
-      + '<th>派单时间</th><th>类型</th><th>执行方</th><th>状态</th><th>耗时</th>'
+      + '<th>派单时间</th><th>类型</th><th>执行方</th><th>用户</th><th>状态</th><th>耗时</th>'
       + '<th>标题</th><th>结果</th><th>失败原因</th><th></th></tr></thead><tbody>';
     JH.rows.forEach(j=>{
-      const st = LJ_ST[j.status] || [j.status,'var(--ov0)'];
+      const st = executionLabel(j);
       const t0 = new Date(j.started_at||j.created_at||j.ts||0).getTime();
       const t1 = j.finished_at ? new Date(j.finished_at).getTime() : null;
       const dur = (t1 && t0) ? (((t1-t0)/1000).toFixed(0)+'s')
@@ -2885,6 +2915,7 @@ async function jobHistLoad(){
         + '<td>'+(j.kind==='writegold'?'金币':'物品')+'</td>'
         + '<td class="small">'+((j.exec_mode==='server')?'服务器':'本机')
         +   (j.agent?'<br><span style="color:var(--ov0)">'+esc(j.agent)+'</span>':'')+'</td>'
+        + '<td class="small"><b>'+esc(j.actor||'--')+'</b></td>'
         + '<td style="color:'+st[1]+';white-space:nowrap"><b>'+st[0]+'</b></td>'
         + '<td class="small" style="white-space:nowrap">'+dur+'</td>'
         + '<td class="small">'+esc(j.title||'')
@@ -2918,7 +2949,7 @@ async function jobHistDetail(id){
     const r = await api('api/local/job?id='+encodeURIComponent(id));
     const j = r.job||{};
     const who = (j.agent==='srv-exec') ? '服务器执行器' : (j.agent||'--');
-    const st = LJ_ST[j.status] || [j.status,'var(--ov0)'];
+    const st = executionLabel(j);
     $('#histTitle').textContent = '执行日志 · '+id;
     $('#histSub').textContent = (j.kind==='writegold'?'金币改价':'物品改价')
       + ' ｜ '+st[0]
@@ -2948,7 +2979,7 @@ async function jobHistCsv(){
   const head = ['派单时间','单号','类型','执行方','执行器','状态','耗时(s)','标题','结果','失败原因'];
   const lines = [head.join(',')];
   all.forEach(j=>{
-    const b = LJ_ST[j.status]||[j.status];
+    const b = executionLabel(j);
     const t0 = new Date(j.started_at||j.created_at||j.ts||0).getTime();
     const t1 = j.finished_at ? new Date(j.finished_at).getTime() : null;
     lines.push([ String(j.ts||'').replace('T',' '), j.id,
@@ -2998,6 +3029,41 @@ function tocInit(){
   sync();
 }
 
+/* 2026-10-27 · ③ 改动记录：把「平台所有改动」从 local_job 捞出来展示。
+   数据源 = 执行器回填的 local_job（actor=用户名 / status=成败 / result_json=明细），
+   与④ 执行器、详细改价日志同一张表 —— 这里按时间倒序给一份精简视图。 */
+async function refreshChangeList(){
+  const box=$('#changeList'); if(!box) return;
+  box.innerHTML='<div class="small" style="padding:8px">读取中…</div>';
+  try{
+    const r=await api('api/local/jobs/history?days=7&size=30');
+    const rows=r.rows||[];
+    if(!rows.length){ box.innerHTML='<div class="small" style="padding:8px">还没有任何改动记录。</div>'; return; }
+    let t='<div class="scroll"><table class="histtable"><thead><tr>'
+      + '<th>时间</th><th>用户</th><th>类型</th><th>执行方</th><th>结果</th><th>标题</th><th>失败原因</th>'
+      + '</tr></thead><tbody>';
+    rows.forEach(j=>{
+      const st=LJ_ST[j.status]||[j.status,'var(--ov0)'];
+      let res='';
+      try{ const q=JSON.parse(j.result_json||'null');
+           if(q) res=(q.ok?('成功 '+q.ok):'')+(q.fail?(' / 失败 '+q.fail):'')
+                      +((q.mismatch&&q.mismatch.length)?(' / 复核不符 '+q.mismatch.length):'');
+      }catch(e){}
+      t+='<tr>'
+        +'<td class="small" style="white-space:nowrap">'+esc(jhFmt(j.ts||j.created_at))+'</td>'
+        +'<td class="small"><b>'+esc(j.actor||'--')+'</b></td>'
+        +'<td>'+(j.kind==='writegold'?'金币':'物品')+'</td>'
+        +'<td class="small">'+((j.exec_mode==='server')?'服务器':'本机')+'</td>'
+        +'<td style="color:'+st[1]+';white-space:nowrap"><b>'+st[0]+'</b></td>'
+        +'<td class="small">'+esc(j.title||'')
+        +  '<div style="color:var(--ov0);font-family:ui-monospace,Consolas,monospace">'+esc(j.id||'')+'</div></td>'
+        +'<td class="small jh-err">'+esc(j.error_hint||'')+'</td>'
+        +'</tr>';
+    });
+    box.innerHTML=t+'</tbody></table></div>';
+  }catch(e){ box.innerHTML='<div class="small" style="padding:8px;color:var(--red)">'+esc(e.message)+'</div>'; }
+}
+
 /* ---------- 加载 ---------- */
 async function loadState(){
   /* 2026-09-29 性能优化：三个接口并行发起。
@@ -3016,6 +3082,7 @@ async function loadState(){
     renderGates(); renderGdHead();   // 采集周期已并入游戏卡，renderGates 一并重绘
     renderTable(STATE.rows);
     renderGold(pGold); renderLocal(pLocal); renderShelfBar();
+    refreshChangeList();   // ③ 改动记录（local_job 写价结果，含用户名/成败）
     for(const k in D) delete D[k];
   }catch(e){ toast('加载失败：'+e.message,'err'); }
 }

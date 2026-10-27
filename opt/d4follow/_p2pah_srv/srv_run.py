@@ -26,6 +26,7 @@
   宿主侧的 srv_exec.py 已保证串行执行。
 """
 import os
+import json
 import sys
 import time
 
@@ -41,6 +42,46 @@ except Exception:
 sys.path.insert(0, "/srv")
 
 import p2pah_local as P  # noqa: E402
+
+
+
+EXECUTION = {"job_id": os.environ.get("FS_RPG_JOB_ID"), "write_attempts": 0, "finished": False}
+
+
+def save_execution():
+    path = os.environ.get("FS_RPG_EXECUTION_RECEIPT")
+    if not path:
+        raise RuntimeError("execution_receipt_required")
+    temporary = path + ".tmp"
+    with open(temporary, "w", encoding="utf-8") as stream:
+        json.dump(EXECUTION, stream)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+
+
+def before_write():
+    EXECUTION["write_attempts"] += 1
+    save_execution()
+
+
+def run_job():
+    path = os.environ.get("FS_RPG_EXECUTION_RECEIPT")
+    if not path and (len(sys.argv) < 2 or sys.argv[1] not in ("write", "writegold")):
+        return P.main()
+    if not path or not EXECUTION["job_id"]:
+        raise RuntimeError("execution_identity_required")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as stream:
+            previous = json.load(stream)
+        if previous.get("job_id") != EXECUTION["job_id"] or previous.get("write_attempts", 0):
+            raise RuntimeError("reconcile_original_execution_before_retry")
+    save_execution()
+    try:
+        return P.main()
+    finally:
+        EXECUTION["finished"] = True
+        save_execution()
 
 
 class SrvSession(P.Session):
@@ -65,7 +106,16 @@ class SrvSession(P.Session):
             self.user = self.pw = ""
 
 
+    def write_rows(self, rows):
+        before_write()
+        return super().write_rows(rows)
+
+    def set_gold_cost(self, row_id, value):
+        before_write()
+        return super().set_gold_cost(row_id, value)
+
+
 P.Session = SrvSession
 
 if __name__ == "__main__":
-    sys.exit(P.main())
+    sys.exit(run_job())
