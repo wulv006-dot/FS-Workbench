@@ -1138,7 +1138,16 @@ def build_shared_history_cache(session,pages,storefront,products,source_signatur
     selected,provenance=_period_population(period)
     if selected is None or provenance.get('status')!='complete' or not selected:
         raise ValueError('pricing_v3_business_history_source_incomplete')
-    orders,logs,templates=_live_traces(session,pages,period,selected)
+    try:
+        orders,logs,templates=_live_traces(session,pages,period,selected)
+    except ValueError as error:
+        if str(error)!='history_order_state_changed_since_archive':raise
+        archived_source=provenance['canonical_archive_sha256']
+        selected,provenance,orders,logs=_historical_native_population(period,session,pages)
+        if provenance.get('status')!='complete' or not selected:
+            raise ValueError('pricing_history_payment_reconciliation_incomplete')
+        provenance=dict(provenance,reconciliation='current_Admin_payment_state',prior_archive_sha256=archived_source)
+        templates={str(t['id']):t for t in pages(session,'/admin/market.Coupon/index')}
     from pricing_sources import active
     templates={key:dict(value,_current_active=active(value,now,coupon=True)) for key,value in templates.items()}
     replay=build_replay(selected,orders,logs,templates,provenance)

@@ -207,16 +207,14 @@ class Dual20Sprint(unittest.TestCase):
         self.assertEqual(missing['regional_fallbacks']['PC']['reason'],'pricing_required_market_missing:ArabUT:PC')
         self.assertFalse(any(q['source']=='ArabUT' for q in missing['quotes']))
 
-    def test_user_item_gift_equivalence_uses_same_lootbar_tier_without_mutating_source(self):
+    def test_item_uses_actual_100k_without_lootbar_gift_assumption(self):
         data=source(loot='10',item='9')
         data['offers']['PS']['Lootbar']['bonus_k']='5'
         quote=engine.market_quote(data,'PS','ItemD2R',NOW)
-        self.assertEqual((quote['actual_coin_bonus_k'],quote['bonus_k'],quote['delivered_k']),('0','5','105'))
-        self.assertEqual(Decimal(quote['unit_100k']),Decimal('9')/105*100)
-        self.assertTrue(quote['gift_equivalence_assumed'])
+        self.assertEqual((quote['bonus_k'],quote['delivered_k']),('0','100'))
+        self.assertEqual(Decimal(quote['unit_100k']),Decimal('9'))
+        self.assertNotIn('gift_equivalence_assumed',quote)
         self.assertEqual(data['reference_market']['offers'][0]['bonus_k'],'0')
-        raw=dict(quote,delivered_k='100');raw.pop('gift_equivalence_version')
-        self.assertNotEqual(engine.quote_identity(raw),engine.quote_identity(quote))
 
     def test_stale_saudi_quote_follows_global_but_missing_global_quote_still_blocks(self):
         data=source();data['arab_ut_quotes']=[dict(platform='PS',region_id=21,price_usd='8',purchase_k='100',bonus_k='0',captured_at=(NOW-timedelta(minutes=16)).isoformat(),delivery='normal',selection_verified=True,currency='USD')]
@@ -234,6 +232,9 @@ class Dual20Sprint(unittest.TestCase):
             self.assertEqual(Decimal(row['delivered_k']),105)
             self.assertEqual(Decimal(row['package_cost_usd']),105*Decimal(row['cost_usd_per_1k']))
             self.assertGreaterEqual(Decimal(row['average_floor_usd']),Decimal(row['regular_floor_usd']))
+            current=Decimal(data['storefront']['rows'][platform]['package_usd']);cost=Decimal(row['package_cost_usd']);retained=Decimal(basis['historical_retained_ratio'])
+            self.assertEqual(Decimal(row['current_regular_margin_pct']),(current-cost)/current*100)
+            self.assertEqual(Decimal(row['current_average_margin_pct']),(current*retained-cost)/(current*retained)*100)
             self.assertEqual(Decimal(row['regular_floor_usd']),engine.catalog_floor(row['cost_cny_per_1k'],data['fx']['cny_per_usd'],engine.envelope_ratio(data['promotion_envelope'],NOW),engine.HARD_MARGIN,data['promotion_envelope']['packages'][platform])*100)
         self.assertFalse(basis['execution_authorized'])
 
@@ -254,8 +255,8 @@ class Dual20Sprint(unittest.TestCase):
             with patch.object(api,'ledger',return_value=db):market=api.read('market')
             self.assertEqual(market['saudi_missing_price_policy'],'follow_global')
             self.assertEqual(market['price_basis']['status'],'available')
-            self.assertTrue(market['reference']['offers'][0]['gift_equivalence_assumed'])
-            self.assertEqual(market['reference']['offers'][0]['delivered_k'],'105')
+            self.assertNotIn('gift_equivalence_assumed',market['reference']['offers'][0])
+            self.assertEqual(market['reference']['offers'][0]['bonus_k'],'0')
             self.assertFalse(market['price_basis']['execution_authorized'])
 
     def test_T20_T24_fallback_cannot_be_changed_into_an_arbitrary_higher_price(self):

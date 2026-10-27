@@ -28,6 +28,22 @@ def cache_fixture():
 
 
 class SelectiveSourceTest(unittest.TestCase):
+    def test_changed_payment_state_rebuilds_exact_cohort_from_native_accounting(self):
+        _,selected,orders,provenance=cache_fixture()
+        native=dict(provenance,canonical_archive_sha256='c'*64)
+        storefront=dict(rows={p:dict(package_usd='10') for p in ('PS','XBOX','PC')})
+        with patch.object(business,'_period_population',return_value=(selected,provenance)),patch.object(business,'_live_traces',side_effect=ValueError('history_order_state_changed_since_archive')),patch.object(business,'_historical_native_population',return_value=(selected,native,orders,{})) as refresh,patch.dict(sys.modules,{'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
+            cache,_=business.build_shared_history_cache(None,lambda *a,**k:[],storefront,[],'source-v1',NOW)
+        refresh.assert_called_once_with(PERIOD,None,unittest.mock.ANY)
+        self.assertEqual(cache['historical_discount_mix']['observed_orders'],1)
+        self.assertEqual(cache['original_history_replay']['provenance']['prior_archive_sha256'],'a'*64)
+        self.assertEqual(cache['original_history_replay']['original_mix_sha256'],cache['historical_discount_mix']['sha256'])
+        self.assertNotIn('private-raw-order',json.dumps(cache))
+        with patch.object(business,'_period_population',return_value=(selected,provenance)),patch.object(business,'_live_traces',side_effect=ValueError('history_live_order_coverage')),patch.object(business,'_historical_native_population') as refresh:
+            with self.assertRaisesRegex(ValueError,'history_live_order_coverage'):
+                business.build_shared_history_cache(None,None,storefront,[],'source-v1',NOW)
+            refresh.assert_not_called()
+
     def test_cold_build_preserves_real_hash_and_anonymous_weights(self):
         _,selected,orders,provenance=cache_fixture()
         storefront=dict(rows={p:dict(package_usd='10') for p in ('PS','XBOX','PC')})
