@@ -338,13 +338,15 @@ def _quantity(order):
     """Strict native K-coins item titles, checked against getOrderAdd.quantity (gift included)."""
     text = html.unescape(str(order.get('content') or ''))
     items = re.findall(r'<span\s+class=[\"\']?item[\"\']?\s*>(.*?)</span>', text, re.I | re.S)
+    items = [line for item in items for line in re.split(r'<br\s*/?>', item, flags=re.I)
+             if re.sub(r'<[^>]*>', '', line).strip()]
     if not items:
         return None
     totals = dict(purchase_k=Decimal(0), bonus_k=Decimal(0), delivered_k=Decimal(0))
     lines = []
     for item in items:
         title = re.sub(r'<[^>]*>', '', item).strip()
-        match = re.fullmatch(r'[\s☑]*([\d,]+(?:\.\d+)?)\s*K\s+coins(?:\s*\+\s*([\d,]+(?:\.\d+)?)\s*K\s+Free)?\s*[x×]\s*(\d+)\s*=[^<]*', title, re.I)
+        match = re.fullmatch(r'[\s☑]*([\d,]+(?:\.\d+)?)\s*K\s+coins(?:\s*\+\s*([\d,]+(?:\.\d+)?)\s*K\s+Free)?\s*[x×]\s*(\d+)\s*=[^=]*', title, re.I)
         if not match:
             return None
         purchase = amount(match[1])
@@ -863,10 +865,9 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
     for order in orders:
         quantity = _quantity(order)
         if quantity is None:
-            if 'coins' in str(order.get('content') or '').lower():
-                failures['native_Coins_quantity_missing'] += 1
-                blocked_windows.update(w['operation_id'] for w in valid)
-            continue
+            if 'coins' not in str(order.get('content') or '').lower():
+                continue
+            failures['native_Coins_quantity_missing'] += 1
         try:
             created = _native_created_at(order)
         except ValueError as error:
@@ -887,6 +888,9 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             group = _window_group(window, order, platform)
             if group is None or created >= _window_end(window, group, valid, now):
                 continue
+            if quantity is None:
+                blocked_groups.add((window['operation_id'], group))
+                continue
             try:
                 regular = _window_regular(window, window['action'], order, platform, quantity)
                 if abs(regular - amount(order.get('before_discount'))) <= Decimal('.01'):
@@ -897,6 +901,8 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             except (ValueError, KeyError, TypeError, InvalidOperation) as error:
                 failures[str(error) if isinstance(error, ValueError) else type(error).__name__] += 1
                 blocked_groups.add((window['operation_id'],group))
+        if quantity is None:
+            continue
         if len(matches) != 1:
             coverage['unbound_or_ambiguous_orders'] += 1
             blocked_groups.update((w['operation_id'],group) for w,group,_ in matches)
@@ -1123,7 +1129,7 @@ def selective_history_signature(period, *, channel_root=None, ES_root=None):
         stat=path.stat()
         signature.append([str(path),stat.st_dev,stat.st_ino,stat.st_size,stat.st_mtime_ns])
     # Delivery costs are deliberately excluded: v15 N/D does not change merely because an old cost arrives.
-    return fingerprint(dict(period=period,files=signature,contract='seven_day_amount_and_discount_sources_v1'))
+    return fingerprint(dict(period=period,files=signature,contract='seven_day_amount_and_discount_sources_v2_native_multiline_quantity'))
 
 
 def build_shared_history_cache(session,pages,storefront,products,source_signature,now,*,include_fulfillment=False):

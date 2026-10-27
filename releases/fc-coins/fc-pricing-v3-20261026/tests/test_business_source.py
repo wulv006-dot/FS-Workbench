@@ -204,6 +204,19 @@ class BusinessSourceTest(unittest.TestCase):
         self.assertEqual(source._platform(dict(content='[<span>PlayStation 5</span>]')), 'PS')
         self.assertIsNone(source._platform(dict(content='unknown platform')))
 
+    def test_same_native_item_span_counts_every_product_line_and_gift(self):
+        for separator in ('<br>', '<BR>', '<br/>', '<br />'):
+            with self.subTest(separator=separator):
+                value=source._quantity(dict(content='<span class="item">'+separator+'☑100 K coins+5K Free x 1 = $8.54, '+separator+'☑1,000 K coins+50K Free x 2 = $170.86, '+separator+'</span>'))
+                self.assertEqual((value['purchase_k'],value['bonus_k'],value['delivered_k']),('2100','105','2205'))
+                self.assertEqual([line['multiplier'] for line in value['lines']],[1,2])
+
+    def test_native_quantity_does_not_swallow_mixed_or_unseparated_products(self):
+        for suffix in ('<br>Player card x 1 = $20', ' 300 K coins x 1 = $25.53'):
+            with self.subTest(suffix=suffix):
+                self.assertIsNone(source._quantity(dict(content='<span class="item">100 K coins+5K Free x 1 = $8.51,'+suffix+'</span>')))
+        self.assertIsNone(source._quantity(dict(content='<span class="item"><br> </span>')))
+
     def test_ads_fixed_context_never_divides_project_spend_by_coins_customers(self):
         projected = dict(ads_accounts=[dict(coverage=dict(query_range_complete=True), campaigns=dict(calculation_complete=True, rejected_rows=0, rows=[
             dict(game_target='FC27', campaign_scope='project', metrics=dict(cost='10')),
@@ -315,6 +328,22 @@ class BusinessSourceTest(unittest.TestCase):
         window['mutable_resources'].append('region:21:PS')
         result=source.bind_price_windows([order],[window],now)
         self.assertEqual([r['price_group'] for r in result['training_observations']],['21:PS','console'])
+
+    def test_unknown_quantity_only_blocks_its_known_group_and_open_window(self):
+        now,order,window=self.window_fixture()
+        window.update(platforms=['PS','PC'],mutable_resources=['base:console','base:pc'])
+        window['action']['base_prices']['pc']='8.68'
+        window['budget_reference']['base_prices']['pc']='10'
+        window['catalog']['PC']=window['catalog']['PS']
+        mixed=dict(order,content=order['content'].replace('</span>','<br>Player card x 1 = $20</span>'))
+        pc=dict(order,order_no='private-pc',aid=21589)
+        result=source.bind_price_windows([mixed,pc],[window],now)
+        self.assertEqual([(r['price_group'],r['paid_orders']) for r in result['training_observations']],[('pc',1)])
+        self.assertEqual(result['learning_coverage']['gaps']['native_Coins_quantity_missing'],1)
+        self.assertEqual(source.bind_price_windows([dict(mixed,aid=0),pc],[window],now)['training_observations'],[])
+        old=dict(window,operation_id='closed',closed_at='2026-10-26T00:15:00+00:00')
+        result=source.bind_price_windows([mixed,pc],[old,window],now)
+        self.assertEqual(len([r for r in result['training_observations'] if r['price_window_id']=='closed']),2)
 
     def test_unknown_platform_does_not_block_an_already_closed_window(self):
         now,order,old=self.window_fixture()
