@@ -40,14 +40,31 @@
       async reveal(game_id){
         if(pageId!=='seasonal-vault'||activityId!=='mmoexp-seasonal')throw failure('PAGE_UNAVAILABLE');
         if(!snapshot)await client.load();
+        // A draw belongs to the visitor, not to one tab or one page load. Keep the
+        // request id durably so a reload, a new tab or a reopened browser asks the
+        // server for the same receipt instead of rolling a new one.
+        const durable=(()=>{try{return root.localStorage||storage}catch{return storage}})();
         const revealKey='campaign-reveal:'+base+':'+snapshot.release_id+':'+snapshot.config_hash+':'+game_id;
-        let saved;try{saved=JSON.parse(storage.getItem(revealKey)||'null');}catch{throw failure('OPERATION_STORAGE_INVALID');}
-        if(!saved){saved={request_id:root.crypto.randomUUID(),game_id};const raw=JSON.stringify(saved);storage.setItem(revealKey,raw);if(storage.getItem(revealKey)!==raw)throw failure('OPERATION_STORAGE_REQUIRED');}
+        let saved;try{saved=JSON.parse(durable.getItem(revealKey)||'null');}catch{throw failure('OPERATION_STORAGE_INVALID');}
+        if(!saved){saved={request_id:root.crypto.randomUUID(),game_id};const raw=JSON.stringify(saved);durable.setItem(revealKey,raw);if(durable.getItem(revealKey)!==raw)throw failure('OPERATION_STORAGE_REQUIRED');}
         if(saved.game_id!==game_id)throw failure('REQUEST_CONFLICT');
         // Same UUID on every retry: lost responses/reloads cannot reroll.
         const receipt=await api('halloween/reveal',saved);
+        try{durable.setItem('campaign-receipt:'+base+':'+snapshot.release_id+':'+snapshot.config_hash+':'+game_id,JSON.stringify(receipt));}catch{ /* a read-only store keeps the in-memory draw */ }
         if(receipt.status!=='revealed'||receipt.request_id!==saved.request_id||receipt.game_id!==game_id||receipt.release_id!==snapshot.release_id||receipt.config_hash!==snapshot.config_hash)throw failure('HALLOWEEN_REVEAL_MISMATCH');
         return receipt;
+      },
+      // The durable receipt lets a reload paint the same draw instead of a blank card.
+      cachedReveal(game_id){
+        try{
+          if(!snapshot)return null;
+          const durable=(()=>{try{return root.localStorage||storage}catch{return storage}})();
+          const raw=durable.getItem('campaign-receipt:'+base+':'+snapshot.release_id+':'+snapshot.config_hash+':'+game_id);
+          const receipt=raw?JSON.parse(raw):null;
+          if(!receipt||!receipt.request_id||receipt.game_id!==game_id||receipt.release_id!==snapshot.release_id||receipt.config_hash!==snapshot.config_hash)return null;
+          if(receipt.status!=='revealed'||!Array.isArray(receipt.slots))return null;
+          return receipt;
+        }catch{return null;}
       },
       async select(lines){
         if(pending?.unknown)throw failure('OPERATION_UNKNOWN');

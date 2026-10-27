@@ -82,6 +82,7 @@
       return refreshFlight;
     },
     async reveal(gameId){if(!client)throw Object.assign(Error(),{code:'HALLOWEEN_NOT_CONFIGURED'});return client.reveal(gameId);},
+    cachedReveal(gameId){try{return client?.cachedReveal?.(gameId)||null;}catch{return null;}},
     selectionFor,
     invalidate(){selectionRevision++;quoteContext=null;},
     canQuote(bag){try{return Boolean(bag.length&&!this.pending()&&lines(bag).length);}catch{return false;}},

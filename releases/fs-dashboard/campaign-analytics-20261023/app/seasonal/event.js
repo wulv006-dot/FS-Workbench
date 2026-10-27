@@ -27,8 +27,20 @@
   function animateFlip(card){
     if(!card)return;card.focus({preventScroll:true});
     if(root.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
-    card.classList.remove('is-revealed');void card.offsetWidth;
-    root.requestAnimationFrame(()=>{if(card.isConnected)card.classList.add('is-revealed');});
+    // One controlled charge, then the edge crosses. The face swap is driven by
+    // visibility inside the keyframes, so a mirrored face is never painted.
+    card.classList.add('is-revealed','just-revealed');
+    setTimeout(()=>{if(card.isConnected)card.classList.remove('just-revealed');},1500);
+  }
+  // An anonymous visitor keeps the same draw across reloads and tabs. The durable
+  // request id and receipt live in the runtime adapter; this view only replays it.
+  function restoreReceipts(){
+    for(const game of view.games){
+      const receipt=root.SeasonalCommerce?.cachedReveal?.(game.id);
+      if(!receipt||receipts.has(game.id))continue;
+      receipts.set(game.id,receipt);
+      for(const slot of receipt.slots||[])if(slot.slot!=='fixed')revealed.add(receipt.request_id+':'+slot.slot);
+    }
   }
 
   const fixedToken=game=>[game.id,game.fixed_model,game.fixed_off_percent,game.fixed_quantity?.value].join(':');
@@ -73,14 +85,14 @@
     doc.querySelector('#game-offers-note').textContent='One fixed pick. Two surprise offers. Flip a card to explore.';
     if(reference)nextExpiry=Math.min(nextExpiry,Date.parse(reference.expires_at));
     const title=english(model?.title,game.label+' model'),businessAmount=game.fixed_quantity?'<p class="business-quantity">'+esc(game.fixed_quantity.label)+'</p>':'';
-    const price=reference?'<div class="reference-price"><span>Default combination reference</span><strong>'+format(reference.indicative_discounted_minor,reference.currency,reference.minor_unit_scale)+'</strong><small>Before offer: '+format(reference.base_minor,reference.currency,reference.minor_unit_scale)+'</small><p>First available store combination only. Your actual options require a new current quote.</p></div>':'<p class="unavailable-price">'+(game.id==='fc'?(root.SeasonalCommerce?.nativeFixed(game)?'The published native binding covers PS 1000K Coins. Final price and code eligibility are confirmed in the native cart.':'1000K Coins purchase-unit conversion is not verified. Reference price and purchasing are unavailable.'):'Default combination reference unavailable')+'</p>';
-    const fixed='<article class="offer-slot fixed-slot" data-offer-slot="fixed"><span class="slot-label">FIXED SELECTION</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-fixed-reveal aria-expanded="'+open+'" '+(!configured?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="vault-symbol" aria-hidden="true">✦</span><strong>'+(configured?'Your fixed pick':'Awaiting configuration')+'</strong>'+businessAmount+'<small>'+(configured?'Flip to reveal your offer':'Product model and offer binding unavailable')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'><small>'+game.label+'</small><strong>'+esc(title)+'</strong>'+businessAmount+'<b>'+(game.fixed_off_percent===null?'Offer unavailable':game.fixed_off_percent+'% OFF')+'</b><small>Choose your server to continue</small></span></button><div class="slot-detail" '+(!open?'hidden':'')+'>'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(game.fixed_model||'')+'" '+(!buyReady(game)?'disabled':'')+'>Buy Now</button><p class="slot-note">'+(contractFor(game)?'Platform, server, specifications and quantity are selected before a final quote.':'Verified model options are not connected. Purchasing is unavailable.')+'</p></div></article>';
+    const price=reference?'<div class="reference-price"><span>Default combination reference</span><div class="price-line"><strong>'+format(reference.indicative_discounted_minor,reference.currency,reference.minor_unit_scale)+'</strong><del>'+format(reference.base_minor,reference.currency,reference.minor_unit_scale)+'</del></div></div>':'<p class="unavailable-price">'+(game.id==='fc'?(root.SeasonalCommerce?.nativeFixed(game)?'The published native binding covers PS 1000K Coins. Final price and code eligibility are confirmed in the native cart.':'1000K Coins purchase-unit conversion is not verified. Reference price and purchasing are unavailable.'):'Default combination reference unavailable')+'</p>';
+    const fixed='<article class="offer-slot fixed-slot" data-offer-slot="fixed"><span class="slot-label">FIXED SELECTION</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-fixed-reveal aria-expanded="'+open+'" '+(!configured?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="vault-symbol" aria-hidden="true">✦</span><strong>'+(configured?'Your fixed pick':'Awaiting configuration')+'</strong>'+businessAmount+'<small>'+(configured?'Flip to reveal your offer':'Product model and offer binding unavailable')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'><small>'+game.label+'</small><strong>'+esc(title)+'</strong>'+businessAmount+'<b>'+(game.fixed_off_percent===null?'Offer unavailable':game.fixed_off_percent+'% OFF')+'</b><small>Choose your server to continue</small></span><span class="reveal-rays" aria-hidden="true"></span></button><div class="slot-detail" '+(!open?'hidden':'')+'>'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(game.fixed_model||'')+'" '+(!buyReady(game)?'disabled':'')+'>Buy Now</button>'+(contractFor(game)?'':'<p class="slot-note">Verified model options are not connected. Purchasing is unavailable.</p>')+'</div></article>';
     const random=[1,2].map(n=>{
       const slot='random-'+n,offer=slotOffer(game,slot),receipt=receipts.get(game.id),token=receipt?.request_id+':'+slot,open=offer&&revealed.has(token),product=offer&&resolveModel(config,game,offer.model_id)[0],reference=offer&&referenceFor(game,offer);
       if(reference)nextExpiry=Math.min(nextExpiry,Date.parse(reference.expires_at));
-      const price=reference?'<div class="reference-price"><span>Default combination reference</span><strong>'+format(reference.indicative_discounted_minor,reference.currency,reference.minor_unit_scale)+'</strong><small>Before offer: '+format(reference.base_minor,reference.currency,reference.minor_unit_scale)+'</small></div>':'<p class="unavailable-price">Current reference price unavailable. Select your options to check the native store.</p>';
+      const price=reference?'<div class="reference-price"><span>Default combination reference</span><div class="price-line"><strong>'+format(reference.indicative_discounted_minor,reference.currency,reference.minor_unit_scale)+'</strong><del>'+format(reference.base_minor,reference.currency,reference.minor_unit_scale)+'</del></div></div>':'<p class="unavailable-price">Current reference price unavailable. Select your options to check the native store.</p>';
       const detail=open?'<div class="slot-detail">'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(offer.model_id)+'" data-buy-slot="'+slot+'" '+(!buyReady(game,offer)?'disabled':'')+'>Buy Now</button></div>':'';
-      return '<article class="offer-slot random-slot" data-offer-slot="'+slot+'"><span class="slot-label">MYSTERY PICK 0'+n+'</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-random-reveal="'+slot+'" aria-expanded="'+Boolean(open)+'" '+(!eventConfigured()||drawing.has(game.id)?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(drawing.has(game.id)?'Opening your collection…':'Reveal your surprise')+'</strong><small>'+(eventConfigured()?'Tap to turn your card':'Offer probabilities and dates are not configured')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'><small>'+game.label+'</small><strong>'+esc((offer?.quantity?offer.quantity.value+' '+offer.quantity.unit+' ':'')+english(product?.title,'Mystery selection'))+'</strong><b>'+(offer?offer.off_percent+'% OFF':'')+'</b></span></button>'+detail+'</article>';
+      return '<article class="offer-slot random-slot" data-offer-slot="'+slot+'"><span class="slot-label">MYSTERY PICK 0'+n+'</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-random-reveal="'+slot+'" aria-expanded="'+Boolean(open)+'" '+(!eventConfigured()||drawing.has(game.id)?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(drawing.has(game.id)?'Opening your collection…':'Reveal your surprise')+'</strong><small>'+(eventConfigured()?'Tap to turn your card':'Offer probabilities and dates are not configured')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'><small>'+game.label+'</small><strong>'+esc((offer?.quantity?offer.quantity.value+' '+offer.quantity.unit+' ':'')+english(product?.title,'Mystery selection'))+'</strong><b>'+(offer?offer.off_percent+'% OFF':'')+'</b></span><span class="reveal-rays" aria-hidden="true"></span></button>'+detail+'</article>';
     }).join('');
     doc.querySelector('#offer-slots').innerHTML=fixed+random;
     if(Number.isFinite(nextExpiry))referenceTimer=setTimeout(()=>{renderSlots();root.SeasonalCommerce?.refresh().catch(()=>status('Prices could not be refreshed. Please use Refresh prices before continuing.'));},Math.max(1,Math.min(2147483647,nextExpiry-Date.now()+1)));
@@ -94,8 +106,9 @@
   }
   function update(input){
     if(!input||typeof input!=='object')return;
-    if(config.release_id!==input.release_id||config.config_hash!==input.config_hash)receipts.clear();
+    if(config.release_id!==input.release_id||config.config_hash!==input.config_hash){receipts.clear();revealed.clear();}
     config=input;view=project(config);media=config.page_media?.['seasonal-vault']||media;
+    restoreReceipts();
     renderHero();renderGames();renderSlots();renderConfiguration();
   }
   doc.addEventListener('click',async event=>{
