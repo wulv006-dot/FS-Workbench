@@ -1,5 +1,11 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {verifyDiscountReadbacks} from '../analytics/launch-compiler.mjs';import {compileDiscountPlan} from '../analytics/discount-plan.mjs';
+import {emptyHalloween,projectHalloween} from '../runtime/halloween-contract.mjs';
 const plan=compileDiscountPlan({activity_id:'synthetic',code:'TESTCODE10',game_ids:['1327'],off_percent:10,starts_at:'2026-10-27 00:00:00',ends_at:'2026-11-10 23:59:59',repeat_qty:0});
+test('new Halloween configuration uses system UID0 without rewriting legacy metadata',()=>{
+ const current=emptyHalloween();assert.equal(current.promoter_uid,'0');assert.equal(projectHalloween(current).promoter_uid,'0');
+ const legacy={...current,promoter_uid:'739116'};assert.equal(projectHalloween(legacy).promoter_uid,'739116');assert.equal(legacy.promoter_uid,'739116');
+ for(const uid of [0,'1','00','0.0',null])assert.throws(()=>projectHalloween({...current,promoter_uid:uid}),{code:'INVALID_HALLOWEEN_CONFIG'});
+});
 test('launch assembly requires one matching independently read-back native code per plan',()=>{
  assert.throws(()=>verifyDiscountReadbacks([plan],null),{code:'DISCOUNT_READBACK_REQUIRED'});
  const receipt={status:'readback_verified',evidence_ref:'synthetic-only',records:[structuredClone(plan.fields)]};assert.doesNotThrow(()=>verifyDiscountReadbacks([plan],receipt));

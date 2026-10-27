@@ -3,10 +3,12 @@ const games=[['fc','FC27','1327'],['aion','Aion2','891'],['wow','World of Warcra
 const error=()=>{throw Object.assign(Error('INVALID_HALLOWEEN_CONFIG'),{code:'INVALID_HALLOWEEN_CONFIG',status:400});};
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>keys.includes(k));
 const numeric=v=>typeof v==='string'&&/^[1-9]\d{0,19}$/.test(v);
-export function emptyHalloween(){return {schema_version:1,status:'unconfigured',site_id:'266',promoter_uid:'739116',off_percent_tiers:[8,15,10],probabilities:null,tier_product_binding:null,starts_at:null,ends_at:null,wishing_pool:false,games:games.map(([id,label,admin_game_id])=>({id,label,admin_game_id,fixed_model:null,fixed_off_percent:null,fixed_quantity:id==='fc'?{value:'1000',unit:'K',conversion_verified:false}:null,random_source:{mode:'models',category_id:null,snapshot_complete:false},random_models:[],random_count:2}))};}
+export function emptyHalloween(){return {schema_version:1,status:'unconfigured',site_id:'266',promoter_uid:'0',off_percent_tiers:[8,15,10],probabilities:null,tier_product_binding:null,starts_at:null,ends_at:null,wishing_pool:false,games:games.map(([id,label,admin_game_id])=>({id,label,admin_game_id,fixed_model:null,fixed_off_percent:null,fixed_quantity:id==='fc'?{value:'1000',unit:'K',conversion_verified:false}:null,random_source:{mode:'models',category_id:null,snapshot_complete:false},random_models:[],random_count:2}))};}
 export function projectHalloween(value){
- if(!exact(value,Object.keys(emptyHalloween()))||value.schema_version!==1||!['unconfigured','configured'].includes(value.status)||value.site_id!=='266'||value.promoter_uid!=='739116'||value.wishing_pool!==false||JSON.stringify(value.off_percent_tiers)!=='[8,15,10]'||!Array.isArray(value.games)||value.games.length!==4)error();
- const out=emptyHalloween();
+ if(!exact(value,Object.keys(emptyHalloween()))||value.schema_version!==1||!['unconfigured','configured'].includes(value.status)||value.site_id!=='266'||!['0','739116'].includes(value.promoter_uid)||value.wishing_pool!==false||JSON.stringify(value.off_percent_tiers)!=='[8,15,10]'||!Array.isArray(value.games)||value.games.length!==4)error();
+ // Preserve historical metadata on reads; new launch input uses system UID0.
+ // This display contract never grants promoter attribution or code eligibility.
+ const out=emptyHalloween();out.promoter_uid=value.promoter_uid;
  for(const key of ['starts_at','ends_at']){const v=value[key];if(v!==null&&(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(v)||!Number.isFinite(Date.parse(v))))error();out[key]=v;}
  if(out.starts_at&&out.ends_at&&Date.parse(out.starts_at)>=Date.parse(out.ends_at))error();
  if(value.tier_product_binding!==null&&value.tier_product_binding!=='independent')error();out.tier_product_binding=value.tier_product_binding;
