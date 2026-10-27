@@ -15,6 +15,12 @@
     const [whole,fraction='']=text.split('.');
     return Number(whole)*100+Number(fraction.padEnd(2,'0'));
   }
+  // A live listing may legitimately be retitled (rating or promo suffix) while the
+  // pinned identity stays the same. The player-name segment must still match.
+  function sameListing(current,expected) {
+    const name=value=>String(value??'').split('/')[0].trim().toLowerCase();
+    return String(current)===String(expected)||name(current)!==''&&name(current)===name(expected);
+  }
   function line(product,platform) {
     const offer=product?.platforms?.[platform];
     if(!offer||!Number.isSafeInteger(offer.id)||offer.id<=0||offer.status!==1||offer.autoOff!==0||minor(offer.price)<=0) throw new Error('Product unavailable for selected platform');
@@ -65,7 +71,7 @@
       if(!index||!Array.isArray(index.list))throw new Error('Catalog response unavailable');
       const raw=index.list.find(row=>Number(row.id)===item.offer.id);
       if(raw) {
-        if(Number(raw.aid)!==item.offer.aid||Number(raw.cid)!==Number(item.cid)||Number(raw.gid)!==config.gameId||String(raw.title)!==item.title||Number(raw.status)!==1||Number(raw.auto_off)!==0||raw.has_sku||Object.keys(raw.saleprop||{}).length)throw new Error('Product scope or availability changed');
+        if(Number(raw.aid)!==item.offer.aid||Number(raw.cid)!==Number(item.cid)||Number(raw.gid)!==config.gameId||!sameListing(raw.title,item.title)||Number(raw.status)!==1||Number(raw.auto_off)!==0||raw.has_sku||Object.keys(raw.saleprop||{}).length)throw new Error('Product scope or availability changed');
         const quantity=Number(raw.min_qty),group=Number(raw.num),price=String(raw.price_discount_format);
         if(!Number.isSafeInteger(quantity)||quantity<1||!Number.isSafeInteger(group)||group<1||minor(price)<=0)throw new Error('Invalid current offer');
         return {...item,offer:{...item.offer,quantity,group,price},amount:minor(price)*quantity,currentRaw:raw};

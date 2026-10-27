@@ -35,7 +35,11 @@ const handoff=require('../native-code-handoff.js');
    // HTML rendering. Only the browser transport is mapped to loopback here.
    if(!url.pathname.startsWith('/events/'))return route.abort();const response=await fetch(local+url.pathname+url.search,{method:request.method(),...(request.method()==='POST'?{body:request.postData(),headers:{Origin:origin,'Content-Type':'application/json'}}:{})});return route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:Buffer.from(await response.arrayBuffer())});
   });
-  const open=async name=>{await page.goto(origin+'/events/'+name);await page.waitForFunction(()=>window.FC_ACTIVITY_CONFIG&&document.querySelector('#product-grid .fca-card, #sbc-lineup .fca-card'));await page.locator('#review-selection').click();await page.locator('#review-dialog[open]').waitFor();};
+  const open=async name=>{await page.goto(origin+'/events/'+name);await page.waitForFunction(()=>window.FC_ACTIVITY_CONFIG&&document.querySelector('#product-grid .fca-card, #sbc-lineup .fca-card'));
+   // This fixture blocks the main-site catalog route, so the published snapshot
+   // price must take over instead of leaving an unresolved price state.
+   await page.waitForFunction(()=>/\$/.test(document.querySelector('#summary-total')?.textContent||''),null,{timeout:5000}).catch(()=>{});
+   await page.locator('#review-selection').click();await page.locator('#review-dialog[open]').waitFor();};
   return {context,page,posts,applies,open};
  }
  try{
@@ -47,7 +51,7 @@ const handoff=require('../native-code-handoff.js');
   assert.doesNotThrow(()=>handoff.publishedPlan(snapshot,selection,{origin:policy.origin,now:Date.parse(policy.valid_until)}));assert.throws(()=>handoff.publishedPlan(snapshot,selection,{origin:policy.origin,now:Date.parse(policy.valid_until)+1}),/EXPIRED/);
   for(const field of ['step','attributes']){const changed=structuredClone(snapshot);const p=changed.products.find(p=>p.key===bindings[0].product_key);if(field==='step'){p.quantity.min='0';p.quantity.step='2';p.quantity.max='10';}else p.attributes=[{attribute_id:'999',required:true,values:['1']}];assert.throws(()=>handoff.projectConfiguration(changed.native_checkout,changed.pages,changed.products));}
   for(const [name,count,apply] of [['Weekly-Scout.html',1,true],['Sbc-Companions.html',2,false],['Player-Trio.html',3,true]]){
-   f=await fixture({apply});await f.open(name);if(name==='Weekly-Scout.html')await f.page.evaluate(()=>{document.querySelector('#submit-selection').click();document.querySelector('#submit-selection').click();});else await f.page.locator('#submit-selection').click();await f.page.waitForURL('**/Cart.html');await f.page.waitForFunction(()=>document.querySelector('#result')?.textContent.startsWith('SIMULATED APPLY'));
+   f=await fixture({apply});await f.open(name);assert.match(await f.page.locator('#summary-total').textContent(),/\$/);assert.match(await f.page.locator('#review-total').textContent(),/\$/);if(name==='Weekly-Scout.html')await f.page.evaluate(()=>{document.querySelector('#submit-selection').click();document.querySelector('#submit-selection').click();});else await f.page.locator('#submit-selection').click();await f.page.waitForURL('**/Cart.html');await f.page.waitForFunction(()=>document.querySelector('#result')?.textContent.startsWith('SIMULATED APPLY'));
    assert.equal(f.posts.length,count);assert.equal(f.applies.length,1);assert.equal(await f.page.locator('#result').textContent(),apply?'SIMULATED APPLY ACCEPTED':'SIMULATED APPLY REJECTED');assert(f.posts.every(p=>p.category==='new_items'));
    await f.open(name);await f.page.locator('#submit-selection').click();await f.page.waitForFunction(()=>document.querySelector('#review-status')?.textContent.includes('handoff attempted'));assert.equal(f.posts.length,count);assert.equal(f.applies.length,1);assert.equal(await f.page.evaluate(()=>sessionStorage.getItem('pending_discount_code')),null);await f.context.close();
   }
