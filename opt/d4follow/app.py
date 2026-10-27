@@ -377,6 +377,94 @@ def detect_manual_override(cfg, con, ts, log=None):
             "解除": len(rel)}
 
 
+def _gold_actual_map():
+    """读 srv_exec 空转对账落下的「后台采购成本现值」→ {key: ￥/M}（2026-10-23 裁定 B/D）。
+
+    数据源 `data/gold_actual.json`，由执行器每 20 分钟只读读一次后台得到。
+    没有这个文件 / 读失败 ⇒ 返回 {}，定价退回只用 gold_state（原行为）。
+    """
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gold_actual.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for k, v in ((d or {}).get("rows") or {}).items():
+        try:
+            out[str(k)] = float((v or {}).get("现值"))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _gold_manual_guard(cfg, con, log=None):
+    """金币侧「人工改价保护」表（2026-10-23 大超裁定 D）。
+
+    交易对手是同事的手：他会手动调一部分服务区的采购成本（MSCW 0.42 那次）。
+    链路原来没有任何保护，算法下一轮就把它写回自己的目标值。
+
+    判据发生在**执行器现场**（p2pah_local.py writegold）：
+      后台现值 ≠ 本链路上次写入值 ⇒ 判定人工改价 ⇒ 该区本轮不写，
+      并把判定结果回传，由 srv_exec 落到 data/gold_manual.json。
+
+    这里做的是**派单侧的闸 + 解除**：
+      · IGGM 每M 与登记时的锚一样 ⇒ 保护继续，本轮不派单（不重复覆盖、不刷空单）
+      · IGGM 变了 ⇒ 解除保护（用户口径「ARC 是跟 IGGM 的」，IGGM 一动就该跟）
+      · 登记时没有锚（少数仓促单）⇒ 现在能取到就解除
+
+    返回 {key: rec}（仍在保护中的）。
+    """
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gold_manual.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            cur = json.load(f)
+        if not isinstance(cur, dict) or not cur:
+            return {}
+    except (OSError, ValueError):
+        return {}
+    rows, gts = store.gold_latest(con)
+    ig = {str(r.get("key")): r.get("iggm_per_m") for r in (rows or [])}
+    keep_, rel = {}, []
+    for k, v in cur.items():
+        _anchor = v.get("iggm锚") if isinstance(v, dict) else None
+        _now = ig.get(str(k))
+        if _anchor is None:
+            if _now is not None:
+                rel.append(k)            # 登记时没锚，现在有 ⇒ 可以正常跟随
+            else:
+                keep_[k] = v
+            continue
+        if _now is None:
+            keep_[k] = v                 # 本轮抓不到 IGGM ⇒ 不动（宁可不派单）
+            continue
+        try:
+            if abs(float(_now) - float(_anchor)) > max(1e-9, abs(float(_anchor)) * 1e-6):
+                rel.append(k)            # IGGM 变价 ⇒ 解除保护
+            else:
+                keep_[k] = v
+        except (TypeError, ValueError):
+            keep_[k] = v
+    if rel:
+        for k in rel:
+            cur.pop(k, None)
+        try:
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(cur, f, ensure_ascii=False, indent=1)
+            os.replace(tmp, path)
+        except Exception as e:                 # noqa: BLE001
+            if log:
+                log("  ⚠ [人工改价保护] 写回失败：%r" % e)
+        if log:
+            log("  ▶ [人工改价保护] 解除 %d 个服务区（IGGM 已变价 → 恢复正常跟随）：%s"
+                % (len(rel), "、".join(sorted(rel)[:8])))
+    if keep_ and log:
+        log("  ⏸ [人工改价保护] %d 个服务区在保护中（人工价等着，IGGM 未变不覆盖）：%s"
+            % (len(keep_), "、".join(sorted(keep_)[:8])))
+    return keep_
+
+
 def line_pending_map(cfg, con, log=None):
     """「按行 pending 闩」数据源：{key: {bid_new, front_new, ts, job, status, age_h}}
 
@@ -1694,8 +1782,56 @@ def _auto_dispatch(t, cfg, con):
     #   同一时刻只有一张单在跑，后续单排队等待 ⇒ 天然串行、不并发写后台。
     # ══════════════════════════════════════════════════════════════════
     _dispatched = []
+    # ══════════════════════════════════════════════════════════════════
+    # 幂等闸（2026-10-23 大超裁定 A · 只在决策快照变化时才自动派单）
+    #
+    #   病根：自动派单每小时跑一次，而决策快照只在「需要变价」时才更新 ⇒
+    #   价没变也会把同一份快照重放一遍。实测近三天 1244 个 item 行里 787 行
+    #   （63.3%）是重放，且重放单带的 old 100% 是过期值 —— 一旦期间有人工
+    #   改价，下一次重放就把它覆盖回去（10-20 18:33、10-23 15:53 各一次）。
+    #   这里按「同一快照只派一次」掐掉源头；有失败单则仍允许重派（不牺牲重试）。
+    #   ⚠ 人工在控制台点「生成改价工单」不走这里，想派多少次都可以。
+    # ══════════════════════════════════════════════════════════════════
+    _SNAP_FILE = os.path.join(ROOT, "data", "auto_dispatch_state.json")
+    try:
+        with open(_SNAP_FILE, encoding="utf-8") as _f:
+            _dstate = json.load(_f) or {}
+    except Exception:
+        _dstate = {}
+    _snaps = {}
+    for _k, _tbl in (("write", "decisions"), ("writegold", "gold_price")):
+        try:
+            _snaps[_k] = latest_ts(con, _tbl)
+        except Exception:
+            _snaps[_k] = None
+
+    def _mark_disp(_k, _ts):
+        if not _ts:
+            return
+        _dstate[_k] = {"ts": _ts,
+                       "at": dt.datetime.now().isoformat(timespec="seconds")}
+        try:
+            _tmp = _SNAP_FILE + ".tmp"
+            with open(_tmp, "w", encoding="utf-8") as _f:
+                json.dump(_dstate, _f, ensure_ascii=False, indent=1)
+            os.replace(_tmp, _SNAP_FILE)
+        except Exception:
+            pass
+
     for kind, fn, label in (("write", task_apply, "物品"),
                             ("writegold", task_gold_apply, "金币")):
+        _s = _snaps.get(kind)
+        _d = _dstate.get(kind) or {}
+        if _s and _d.get("ts") == _s:
+            _bad = con.execute(
+                "SELECT COUNT(*) FROM local_job WHERE kind=? AND status='failed'"
+                " AND COALESCE(created_at,'')>=?", (kind, _d.get("at") or "")).fetchone()[0]
+            if not _bad:
+                t.log("    [%s] 决策快照 %s 未变化 —— 幂等跳过，本轮不重复派单"
+                      % (label, _s))
+                continue
+            t.log("    [%s] 快照 %s 已派过，但期间有 %d 张失败单 —— 允许重派"
+                  % (label, _s, _bad))
         try:
             # confirm 短语由程序提供：用户在控制台打开「自动跟价」＝ 已授权自动执行。
             # task_apply / task_gold_apply 内部仍会自己复查总开关与账号配置。
@@ -1709,6 +1845,7 @@ def _auto_dispatch(t, cfg, con):
                          ("（跨 %d 个游戏 → 拆成 %d 张单，执行器不接受混游戏单）"
                           % (len(r.get("games") or []), _nk)) if _nk > 1 else ""))
                 _dispatched.append((label, r["count"], _nk))
+                _mark_disp(kind, _s)
             else:
                 t.log("    [%s] 无可执行的改价（竞品本轮持平 / 全被闸门拦下）" % label)
         except Exception as e:
@@ -2227,7 +2364,8 @@ def task_collect(t, opts):
         try:
             gp = core_gold.build_plan(cfg, log=t.log,
                                       known=store.gold_state_map(con),
-                                      dd373_costs=_dd_costs)
+                                      dd373_costs=_dd_costs,
+                                      actual=_gold_actual_map())
             store.save_gold(con, ts, gp)
             # 2026-10-19：IGGM 取不到价 ⇒ 冒险岛这类「只跟 IGGM」的区会直接 hold，
             # 表现出来就是"改价莫名其妙不动"。这里必须告警，否则没人知道是被 CF 拦了。
@@ -2868,6 +3006,8 @@ def task_gold_apply(t, opts):
     _svs = core_gold.servers_of(cfg)
     on = {sv.get("key"): (sv.get("跟价", True) is not False) for sv in _svs}
     detect_only = {sv.get("key") for sv in _svs if sv.get("仅检测")}
+    # 2026-10-23（裁定 D）：金币侧人工改价保护（读 data/gold_manual.json）
+    _gm_guard = _gold_manual_guard(cfg, con, log=t.log)
     keep, skipped = [], []
     for r in rows:
         act = str(r.get("action") or "hold")
@@ -2876,6 +3016,13 @@ def task_gold_apply(t, opts):
             continue
         if r.get("key") in detect_only:
             skipped.append((r, "仅检测（不自动改价）"))
+            continue
+        # ── 人工改价保护（2026-10-23 大超裁定 D）──────────────────────
+        # 同事手动调过的服务区：IGGM 没变价之前不派单（不覆盖人工价）。
+        _mp = _gm_guard.get(str(r.get("key")))
+        if _mp:
+            skipped.append((r, "人工改价保护中（后台 ￥%s，IGGM 未变价 → 不覆盖）"
+                            % _mp.get("现值")))
             continue
         if act not in ("follow_up", "follow_down"):
             # patch7：区分「真持平」与「算出来能改、但前端显示价无差别」（无效果闸）
@@ -2887,6 +3034,19 @@ def task_gold_apply(t, opts):
         if r.get("cost_target") is None:
             skipped.append((r, "缺目标采购成本"))
             continue
+        # ── 幂等闸（2026-10-23 大超裁定 A · 金币侧）────────────────────
+        # 采购成本「已经是目标值」就不要派单。实测 18:11 那批单里 MSCW 的
+        # 旧=新=0.340513 仍被派出去，靠执行端「无效果闸」才拦下 —— 而执行端
+        # 跳过清缓存后回执是 clearcache_wanted=true / clearcache_ok=null，
+        # 外部巡检把它当「缓存未确认」转发，20+ 条假告警就是这么来的。
+        # 在派单侧掐掉，比在回执侧解释便宜得多。
+        _co, _ct = r.get("cost_old"), r.get("cost_target")
+        try:
+            if _co is not None and abs(float(_co) - float(_ct)) <= max(1e-12, abs(float(_ct)) * 1e-4):
+                skipped.append((r, "采购成本已是目标值（幂等）"))
+                continue
+        except (TypeError, ValueError):
+            pass
         keep.append(r)
 
     t.log("依据金币快照 %s（共 %d 个服务区）" % (gts, len(rows)))
@@ -3083,12 +3243,11 @@ def api_gold():
     #   且叠加 MMOEXP 前端 5~15 分钟推送延迟 → 页面显示「已改价但售价没变」。
     #   gold_action 仍保留在 /api/gold_action 供对账/审计。
     #
-    #   🔴 divisor 必须**按游戏**取（AION2=5.32，暗黑4=5.054，MSCW=4.655）：
-    #      成本除数 = 汇率 ×(1−利润率)÷ 前台系数，而**利润率与前台系数都按游戏覆盖**
-    #      （AION2 利润率 0.20/前台系数 1.0；暗黑4 利润率 0.20/前台系数 1.0526；
-    #        MSCW 利润率 **0.30**/前台系数 1.0 ⇒ 4.655）。
-    #      ⚠ 2026-10-08 起改用 cost_divisor_for_game —— 它会去服务区条目里读该游戏的利润率；
-    #        旧写法把利润率硬编码 0.20，MSCW 会被算成 5.32（页面「已生效售价」虚低 12.5%）。
+    #   🔴 divisor 必须**按游戏**取（AION2=5.32，暗黑4=5.054，MSCW=5.60）：
+    #      成本除数 = 汇率 × 0.80 ÷ 前台系数（写价利润率恒 20%，前台系数按游戏覆盖：
+    #      AION2 前台系数 1.0；暗黑4 前台系数 1.0526；MSCW 前台系数 0.95 ⇒ 5.60）。
+    #      ⚠ 2026-10-27 起 cost_divisor_for_game 写价除数统一 0.80（后台字段全游戏 20%），
+    #        不再按游戏读「利润率」——那个字段是后台写死的 20% 换算系数，不是真实利润率。
     _tk = {}
     _games = sorted(set(g for g in _u_cache.keys() if g))
     for _gm in _games:
@@ -3158,9 +3317,9 @@ def api_gold():
         "unit": int(core_gold.PER_100K),
         "unitByGame": {k: v for k, v in _u_cache.items() if k is not None},
         "frontFactor": core_gold.front_factor_of(cfg),
-        # 🔴 成本除数**按游戏给**（AION2=5.32 / 暗黑4=5.054 / MSCW=4.655，差异来自利润率+前台系数）。
+        # 🔴 成本除数**按游戏给**（AION2=5.32 / 暗黑4=5.054 / MSCW=5.60，差异来自前台系数）。
         #   api_gold 是多游戏接口，不能用单一除数，也不能漏传 game（会拿到全局值 5.054）。
-        #   2026-10-08：统一走 cost_divisor_for_game（按游戏读服务区条目的利润率）。
+        #   2026-10-27：cost_divisor_for_game 写价利润率恒 0.20，只按游戏取前台系数。
         "divisorByGame": {_gm: core_gold.cost_divisor_for_game(cfg, _gm)
                           for _gm in _games},
         "divisor": core_gold.cost_divisor_for_game(
@@ -3380,7 +3539,7 @@ def api_gold_cost():
         })
     # 2026-10-02 用户要求：售价要和 MMOEXP 前台一致、不滞后。
     #   gold_state 是执行器回填的**后台采购成本真值**（工单写完立刻更新），
-    #   除以**成本除数**（AION2=5.32 / MSCW=4.655，来自 core_gold.cost_divisor_for_game）即为前台每 M 价。
+    #   除以**成本除数**（AION2=5.32 / MSCW=5.60，来自 core_gold.cost_divisor_for_game）即为前台每 M 价。
     #   ⚠ 绝不能用「汇率 6.65」换算 —— 那是后台美元成本口径，
     #     会把 5.04 算成 0.76，而前台真实价是 0.95（差 25%）。
     #   注：用户已要求页面不显示「前台已生效」列，这里只保留接口字段供对账/排障。
@@ -3732,11 +3891,39 @@ def api_switch():
     return jsonify({"ok": True, "name": name, "switches": st})
 
 
+def _request_user():
+    """当前登录用户名 —— nginx 经 auth_request 注入的 X-Authenticated-User / X-Remote-User。
+
+    改动记录要带「谁改的」，手动点「生成改价工单」时把登录身份注入 local_job.actor。
+    兼容多套头名（bot-console 用 X-Auth-User、deploy-hub 用 X-Remote-User、本机现役
+    iggm-web.conf 用 X-Authenticated-User），最后回落到 Basic Auth / remote_user。"""
+    for h in ("X-Authenticated-User", "X-Remote-User", "X-Auth-User"):
+        v = (request.headers.get(h) or "").strip()
+        if v:
+            return v
+    try:
+        a = request.authorization
+        if a and a.username:
+            return a.username
+    except Exception:
+        pass
+    return ""
+
+
 @app.route("/api/task", methods=["POST"])
 def api_task():
     body = request.get_json(force=True, silent=True) or {}
     kind = str(body.get("kind") or "")
     opts = body.get("opts") or {}
+    if not isinstance(opts, dict):
+        opts = {}
+    # 2026-10-27：改动记录要带用户名 —— 手动派单时注入登录身份；
+    # 自动跟价（actor=auto:定时采集）等已有 actor 的调用不受影响。
+    if not str(opts.get("actor") or "").strip():
+        _u = _request_user()
+        if _u:
+            opts = dict(opts)
+            opts["actor"] = _u
     if kind not in TASK_DISPATCH:
         return jsonify({"ok": False, "error": "未知任务类型"}), 400
     title, fn = TASK_DISPATCH[kind]

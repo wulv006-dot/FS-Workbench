@@ -40,6 +40,14 @@
 - `write` 必须显式 `--confirm`；改完自动复核一遍列表，逐件比对目标价。
 - 每个 key 的**重复上架**（如 CRUX_X10 两条）会一起改 —— 少改一条前端可能仍显示旧价。
 """
+
+import sys as _order_sys
+from pathlib import Path as _OrderPath
+for _order_root in ('/opt/fs-order-session', '/opt/fc27-collector', '/opt/madden-workbench', '/srv'):
+    if _OrderPath(_order_root, 'fs_order_client.py').is_file():
+        _order_sys.path.insert(0, _order_root)
+        break
+import fs_order_client as _global_order
 import argparse
 import datetime as dt
 import io
@@ -245,79 +253,18 @@ class Session(object):
             self.user = self.pw = ""
 
     def _inject_saved_cookies(self):
-        """把导出的 cookie 注回浏览器。
-
-        ⚠ 必须这么做：`PHPSESSID` 是**会话级 cookie**（expires=-1），浏览器关闭后
-        不会落盘到 profile，下次打开就没了 —— 只靠 profile 会每次都被弹回登录页。
-        """
-        if not os.path.exists(COOKIE_OUT):
-            return 0
-        try:
-            ck = json.load(io.open(COOKIE_OUT, encoding="utf-8"))
-        except Exception:
-            return 0
-        exp = time.time() + 30 * 86400
-        out = []
-        for c in ck:
-            if not c.get("domain", "").endswith("order.p2pah.cn"):
-                continue
-            c = dict(c)
-            c["expires"] = exp          # 会话级 → 给个 30 天过期，才会被持久化
-            c["secure"] = False
-            c.pop("sameSite", None)
-            out.append(c)
-        if out:
-            self.ctx.add_cookies(out)
-        return len(out)
+        return _global_order.apply(self.ctx)
 
     def save_cookies(self):
-        """把当前 cookie 落盘。
-
-        **必须做**：`PHPSESSID` 是会话级 cookie（expires=-1），浏览器一关就不会写进
-        profile；靠这个文件在下次启动时 `add_cookies` 注入，会话才能跨进程复用。
-        """
-        try:
-            ck = [c for c in self.ctx.cookies()
-                  if c.get("domain", "").endswith("order.p2pah.cn")]
-            io.open(COOKIE_OUT, "w", encoding="utf-8").write(
-                json.dumps(ck, ensure_ascii=False, indent=1))
-            return len(ck)
-        except Exception:
-            return 0
+        return 0
 
     def _auto_relogin(self):
-        """被弹回登录页时的兜底：账号密码 + 本地离线 OCR 自动重登（无人值守）。
-
-        为什么不另起一个浏览器：`_edge_p2pah` 这个 user-data-dir 是**互斥**的，
-        常驻执行器正占着它时另开一个必然失败。就地重登顺带把新 cookie 留在同一上下文。
-        """
-        if not self.auto_login:
-            return False
-        if not (self.user and self.pw):
-            log("   ⚠ 会话已失效，但没有账号密码（_accounts.json / config.json → p2pah.账号）")
-            return False
-        log("   ⚠ order 会话已失效（被弹回登录页）→ 用账号密码自动重登…")
-        try:
-            ok = autologin.login_order_in(self.pg, self.user, self.pw, log=log)
-        except Exception as e:
-            log("   ⚠ 自动重登异常：%r" % e)
-            return False
-        if not ok:
-            log("   ✘ 自动重登失败（退人工：python p2pah_local.py login）")
-            return False
-        log("   ✓ 已自动重登，会话恢复（cookie 已刷新 %d 个）" % self.save_cookies())
-        return True
+        _global_order.apply(self.ctx)
+        self.pg.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=120000)
+        return 'login.html' not in self.pg.url
 
     def logged_in(self, auto=None):
-        """探活。会话已失效时**默认自动重登**（`--no-auto-login` 可关掉）。"""
-        self.pg.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
-        self.pg.wait_for_timeout(1500)
-        if "login.html" not in self.pg.url:
-            self.save_cookies()            # 顺手刷新落盘，保证跨进程可复用
-            return True
-        if auto is None:
-            auto = self.auto_login
-        return self._auto_relogin() if auto else False
+        return self._auto_relogin()
 
     def reopen(self, opener):
         """目标页被弹回登录页（会话中途失效）时的补救：自动重登 → 重开一次。
@@ -339,7 +286,7 @@ class Session(object):
                    .replace("&page=", "&page="))
 
         def _open():
-            self.pg.goto(BASE_URL + url, wait_until="domcontentloaded", timeout=60000)
+            self.pg.goto(BASE_URL + url, wait_until="domcontentloaded", timeout=120000)
             self.pg.wait_for_timeout(wait)
 
         _open()
@@ -362,7 +309,25 @@ class Session(object):
           return {status: r.status, body: t.slice(0, 400)};
         }
         """ % WRITE_URL
-        res = self.pg.evaluate(js, rows)
+        try:
+            res = self.pg.evaluate(js, rows)
+        except Exception as error:                      # noqa: BLE001
+            # 2026-10-26：列表页/写价期间若还有一次导航在飞，evaluate 会把执行上下文
+            # 打断（Page.evaluate: Execution context was destroyed）。写价下发的是
+            # **绝对标价**，同一批再发一次结果不变（幂等），所以回列表页稳定后重试一次，
+            # 免得「只看不出」变成无法判定的 unknown。
+            # ⚠ 前提硬约束：重试的幂等性完全依赖「下发绝对标价」。将来若改成增量 /
+            # 相对调整（例如 +2%），此处绝不能直接重发，必须先读后台现值再算差。
+            if "Execution context was destroyed" not in str(error):
+                raise
+            log("  ⚠ 写价执行上下文被导航切掉，回列表页稳定后重试一次（幂等）")
+            try:
+                self.pg.goto(BASE_URL + LIST_TMPL, wait_until="domcontentloaded",
+                             timeout=120000)
+                self.pg.wait_for_timeout(1500)
+            except Exception as error2:                 # noqa: BLE001
+                log("  ⚠ 重试前回列表页失败：%r" % (error2,))
+            res = self.pg.evaluate(js, rows)
         try:
             j = json.loads(res.get("body") or "{}")
         except Exception:
@@ -382,7 +347,7 @@ class Session(object):
         _url = gold_list_url(gid)
 
         def _open():
-            self.pg.goto(BASE_URL + _url, wait_until="domcontentloaded", timeout=60000)
+            self.pg.goto(BASE_URL + _url, wait_until="domcontentloaded", timeout=120000)
             self.pg.wait_for_timeout(wait)
 
         _open()
@@ -453,7 +418,7 @@ class Session(object):
         _url = gold_list_url(gid)
 
         def _open():
-            self.pg.goto(BASE_URL + _url, wait_until="domcontentloaded", timeout=60000)
+            self.pg.goto(BASE_URL + _url, wait_until="domcontentloaded", timeout=120000)
             self.pg.wait_for_timeout(2000)
 
         _open()
@@ -528,7 +493,7 @@ class Session(object):
         _url = gold_list_url(gid)
 
         def _open():
-            self.pg.goto(BASE_URL + _url, wait_until="domcontentloaded", timeout=60000)
+            self.pg.goto(BASE_URL + _url, wait_until="domcontentloaded", timeout=120000)
             self.pg.wait_for_timeout(2000)
 
         _open()
@@ -595,7 +560,7 @@ class Session(object):
         做法与真人一致：直接跳转到该端点。返回 (是否确认成功, 页面正文摘要)。
         ⚠ 清缓存是**延迟生效**的（实测 5~15 分钟前端才变），别紧接着抓一次没变就说没生效。
         """
-        self.pg.goto(CLEAR_CACHE_URL, wait_until="domcontentloaded", timeout=60000)
+        self.pg.goto(CLEAR_CACHE_URL, wait_until="domcontentloaded", timeout=120000)
         self.pg.wait_for_timeout(800)
         try:
             txt = self.pg.inner_text("body")
@@ -879,149 +844,67 @@ def read_needed_by_cid(s, gid, need_ids, aid="", wait=2000):
 
 
 def fetch_all_needed(s, cfg, keys):
-    """按 (游戏 gid + 关键词) 逐个搜索，汇总 {后台ID: 行}；最后再补一次各 gid 的全量兜底
-
-    2026-09-25 多游戏改造：原来只有一条 D4 的 URL（gid=456&aid=15711），
-    现在按 key 的游戏分组，POE2 走 gid=552。
-    2026-09-25 晚：① 每个 gid 的全量兜底改成**翻完所有页**；
-                    ② 该 gid 的 key 数 > KEYWORD_SEARCH_MAX 时跳过逐 key 搜索
-                       （ARC/DND 一次接进来 500+ 个商品，逐 key 搜要跑半小时），
-                       直接靠全量翻页拿齐。
-    """
+    """Read known product IDs by category first, preserving search/full-list fallback."""
     byid = {}
     kws = keywords_of(cfg)
-    by_gid = {}                      # gid -> [(key, kw)]
-    for k in keys:
-        gid = game_gid_of(cfg, k)
-        by_gid.setdefault(gid, []).append((k, kws.get(k)))
+    by_gid = {}
+    for key in keys:
+        gid = game_gid_of(cfg, key)
+        by_gid.setdefault(gid, []).append((key, kws.get(key)))
     for gid, pairs in by_gid.items():
+        need_ids = {str(i) for key, _ in pairs for i in (ids_of(cfg, key) or [])}
+        if need_ids:
+            try:
+                got, _nocid, ncat = read_needed_by_cid(s, gid, need_ids)
+                byid.update(got)
+                if ncat:
+                    log("  gid=%s 按已登记类目优先读取：%d 类，找齐 %d/%d 个ID"
+                        % (gid, ncat, len(need_ids & set(byid)), len(need_ids)))
+            except Exception as error:
+                log("  gid=%s 类目读取失败，保留关键词与全量兜底：%r" % (gid, error))
+        if need_ids and need_ids <= set(byid):
+            continue
         used = set()
         if len(pairs) <= KEYWORD_SEARCH_MAX:
-            for k, kw in pairs:
-                if not kw or kw in used:
+            for key, keyword in pairs:
+                required = {str(i) for i in (ids_of(cfg, key) or [])}
+                if required and required <= set(byid):
                     continue
-                used.add(kw)
-                # 2026-09-26 加：送搜索前按撇号截断（配置保持原文，见 _search_kw）。
-                _kw2 = _search_kw(kw)
+                if not keyword or keyword in used:
+                    continue
+                used.add(keyword)
+                search = _search_kw(keyword)
                 try:
-                    # 2026-09-26 修：原来只读第 1 页（200 行）。关键词偏宽时
-                    # （例如为绕开后端搜不了撇号，只能用「Adept」= 252 行）
-                    # 目标行在第 2 页就永远读不到 → 复核假不一致 → 连清缓存一起跳过。
-                    # 改用 read_all_pages + 该 key 自己的 need_ids：找齐即收工，
-                    # 关键词只有几行时仍只读 1 页，无性能回退。
-                    _need_k = set(str(x) for x in (ids_of(cfg, k) or []))
-                    rows, _npg = read_all_pages(s, gid, keyword=_kw2, need_ids=_need_k)
-                    log("  搜索 gid=%s %-26s → %d 行（%d 页）%s"
-                        % (gid, _kw2, len(rows), _npg,
-                           ("  ← 原文 %r 含撇号，后端搜不了已截断" % kw)
-                           if _kw2 != kw else ""))
-                    for r in rows:
-                        byid.setdefault(r["id"], r)
-                except Exception as e:
-                    log("  ⚠ 搜索 gid=%s %r 失败：%r" % (gid, kw, e))
+                    rows, pages = read_all_pages(s, gid, keyword=search, need_ids=required)
+                    log("  搜索 gid=%s %s → %d 行（%d 页）" % (gid, search, len(rows), pages))
+                    for row in rows:
+                        byid.setdefault(row["id"], row)
+                except Exception as error:
+                    log("  gid=%s 关键词读取失败，保留全量兜底：%r" % (gid, error))
         else:
-            log("  gid=%s 有 %d 个对标商品（> %d）→ 跳过逐条搜索，直接翻全量列表"
+            log("  gid=%s 有 %d 个对标商品（> %d），保留全量兜底"
                 % (gid, len(pairs), KEYWORD_SEARCH_MAX))
-        # ⭐ 2026-09-26：逐条搜索已经把该 gid 需要的后台ID 全找到了 → 不必再翻全量。
-        #   单这一步就把 D4 改价单从「40 页 / 3.5 分钟 ×2 次」压到只翻必要的几页。
-        need_ids = set()
-        for k, _kw in pairs:
-            for i in (ids_of(cfg, k) or []):
-                need_ids.add(str(i))
-        missing = need_ids - set(byid.keys())
-        if need_ids and not missing:
-            log("  gid=%s：需要的 %d 个后台ID 已全部找到，跳过全量翻页"
-                % (gid, len(need_ids)))
-            continue
-        # ⭐ 2026-10-08：先按**产品类目**定位还没找到的 ID。
-        #   D4 全量 335 页，全量兜底要么被 40 页封顶（登记的深页档位永远找不到 ⇒
-        #   写后复核必判不一致）、要么不封顶（8 分钟 × 写前+复核 两次）。
-        #   类目映射已知时，每个类目只要 1~2 页，D4 全部 ≈ 15 页 / 30 秒。
-        if missing:
-            try:
-                got, nocid, ncat = read_needed_by_cid(s, gid, missing)
-                if ncat:
-                    for i, r in got.items():
-                        byid.setdefault(i, r)
-                    log("  gid=%s 按类目定位 → 读了 %d 个类目；缺 %d 个ID，"
-                        "找到 %d 个，剩 %d 个无类目映射"
-                        % (gid, ncat, len(missing),
-                           len(missing) - len(nocid), len(nocid)))
-                missing = nocid - set(byid.keys())
-            except Exception as e:                    # noqa: BLE001
-                log("  ⚠ gid=%s 按类目定位失败：%r（退回全量兜底）" % (gid, e))
+        # Missing mapped IDs must remain eligible after a failed/stale category read.
+        missing = need_ids - set(byid)
         if not missing:
-            log("  gid=%s：需要的后台ID 已全部拿到（按类目），跳过全量翻页" % gid)
             continue
         try:
-            # 剩下的（没有类目映射的）才翻全量；`max_pages=None` = 不封顶，
-            # 免得再被 40 页砍出「假象全量」。列表 < 40 页的游戏行为不变。
-            rows, last = read_all_pages(s, gid, need_ids=missing, max_pages=None)
-            log("  gid=%s 全量列表兜底 → %d 页 / %d 行（原还差 %d 个ID）"
-                % (gid, last, len(rows), len(missing)))
-            for r in rows:
-                byid.setdefault(r["id"], r)
-        except Exception as e:
-            log("  ⚠ gid=%s 全量列表失败：%r" % (gid, e))
+            rows, pages = read_all_pages(s, gid, need_ids=missing, max_pages=None)
+            log("  gid=%s 全量列表兜底 → %d 页 / %d 行" % (gid, pages, len(rows)))
+            for row in rows:
+                byid.setdefault(row["id"], row)
+        except Exception as error:
+            log("  gid=%s 全量列表失败：%r" % (gid, error))
     return byid
 
 
 # ---------------------------------------------------------------- 子命令
 def cmd_login(a):
-    with sync_playwright() as p:
-        ctx = p.chromium.launch_persistent_context(
-            a.profile, channel="msedge", headless=False,
-            viewport={"width": 1280, "height": 900})
-        pg = ctx.pages[0] if ctx.pages else ctx.new_page()
-        pg.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
-        pg.wait_for_timeout(2000)
-        log("当前地址：%s" % pg.url)
-        if "login.html" not in pg.url:
-            log("已经是登录态，不用重新登。cookie 已导出 → %s" % COOKIE_OUT)
-            dump_cookies(ctx, a)
-            ctx.close()
-            return 0
-        acc = (a.username, a.password)
-        for attempt in range(1, 5):
-            log("=== 第 %d 次验证码 ===" % attempt)
-            if os.path.exists(CAPTCHA_ANS):
-                os.remove(CAPTCHA_ANS)
-            el = pg.query_selector("img.captcha")
-            el.screenshot(path=CAPTCHA_PNG)
-            log("验证码已存：%s —— 请打开它，把 4 位字符写进 %s" % (CAPTCHA_PNG, CAPTCHA_ANS))
-            ans = None
-            for _ in range(a.wait):
-                if os.path.exists(CAPTCHA_ANS):
-                    ans = io.open(CAPTCHA_ANS, encoding="utf-8").read().strip()
-                    break
-                time.sleep(1)
-            log("收到答案：%r" % ans)
-            if not ans:
-                log("超时，退出")
-                break
-            pg.fill("input[name=username]", acc[0])
-            pg.fill("input[name=password]", acc[1])
-            pg.fill("input[name=captcha]", ans)
-            pg.click("button.js-ajax-submit")
-            pg.wait_for_timeout(4000)
-            if "login.html" not in pg.url:
-                log("✅ 登录成功：%s" % pg.url)
-                dump_cookies(ctx, a)
-                ctx.close()
-                return 0
-            log("✘ 没通过，换一张再来")
-            pg.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
-            pg.wait_for_timeout(1500)
-        log("登录未成功。也可以直接在弹出的浏览器窗口里手工登录（本命令 headless=False）。")
-        ctx.close()
-        return 1
+    return 0 if _global_order.cookies() else 1
 
 
 def dump_cookies(ctx, a):
-    ck = [c for c in ctx.cookies()
-          if c.get("domain", "").endswith("order.p2pah.cn")]
-    io.open(COOKIE_OUT, "w", encoding="utf-8").write(json.dumps(ck, ensure_ascii=False, indent=1))
-    log("cookie 已导出（%d 个）→ %s" % (len(ck), COOKIE_OUT))
+    return None
 
 
 def disc_of(cfg, key):
@@ -1078,6 +961,60 @@ def cmd_read(a):
         for key in ["CRUX_X10"]:
             d = ids_of(cfg, key)
             log("重复上架 %s → %s" % (key, d))
+    finally:
+        s.close()
+
+
+def cmd_readgold(a):
+    """只读：把「金币价格管理」各 gid 的**采购成本现值** dump 成 JSON（对账用）。
+
+    python p2pah_local.py readgold --dump /srv/_jobs/recon.json
+    => {"ts":..., "gids":[...], "rows":{"21754":{"costprice":0.42,"gid":"1300"}}}
+
+    2026-10-23（裁定 D）新增。为什么非要有这个入口：
+      人工改价保护闸要判「后台现值 != 本链路上次写入值」，可**现值只有派单时才读得到**；
+      而「目标恰好等于记账值」的单会被派单幂等闸拦掉 => 后台被人改了也永远发现不了
+      （MSCW 就是这么一路被改回 0.340513 的）。所以要有一个纯只读的对账入口，
+      定时读一次现值、跟 gold_state 比，差异超容差就登记保护。
+    """
+    cfg = load_cfg(a.config) if a.config else {}
+    svs = ((cfg.get("金币") or {}).get("服务区") or [])
+    gids = []
+    for sv in svs:
+        g = (sv or {}).get("游戏") or ""
+        if not g:
+            continue
+        try:
+            gid = str(gold_gid_of(cfg, g))
+        except SystemExit:
+            continue
+        if gid not in gids:
+            gids.append(gid)
+    if not gids:
+        gids = ["456"]
+    s = Session(a.profile, a.show)
+    try:
+        if not s.logged_in():
+            raise SystemExit("会话已失效，请先跑：python p2pah_local.py login")
+        out = {"ts": dt.datetime.now().isoformat(timespec="seconds"),
+               "gids": gids, "rows": {}}
+        for gid in gids:
+            rows = s.gold_rows(gid=gid) or {}
+            log("gid=%s 读到 %d 行采购成本" % (gid, len(rows)))
+            for rid, rec in rows.items():
+                out["rows"][str(rid)] = {"gid": gid,
+                                         "costprice": rec.get("costprice"),
+                                         "b2c": rec.get("b2c"),
+                                         "lirunlv": rec.get("lirunlv"),
+                                         "title": rec.get("title")}
+        dp = getattr(a, "dump", "") or ""
+        if dp:
+            dp = os.path.abspath(dp)
+            with io.open(dp, "w", encoding="utf-8") as f:
+                f.write(json.dumps(out, ensure_ascii=False, indent=1))
+            log("对账快照已存：%s（%d 行）" % (dp, len(out["rows"])))
+        print(json.dumps(out, ensure_ascii=False))
+        return 0
     finally:
         s.close()
 
@@ -1151,92 +1088,37 @@ def _throttled(msg):
 
 
 def clear_main_cache(log=log):
-    """主后台 admin.p2pah.cn → 工具箱 → 缓存管理 → 一键清理所有。
-
-    🔴 必须**本机执行**（admin.p2pah.cn / admin-api.p2pah.cn 有来源 IP 白名单，
-       服务器 47.253.252.55 访问不到 —— 与 order.p2pah.cn 的约束一致）。
-    请求：POST https://admin-api.p2pah.cn/admin/tools.Caches/clear?server=1
-          headers: server: 1   ← 少了它后端直接 302 跳 /index.html（返回一段 HTML，极易误判）
-                   batoken: <token>  ← 少了它返回 {"code":302,"msg":"Please login first"}
-          body   : {"type":"all","file":""}
-    返回 (ok, 文本)。token 存在 admin_cache_local 的 _admin_token.json；
-    **过期会自动用账号密码重登**（p2pah_autologin + 本地离线 OCR）后重试一次。
-    """
+    """Clear Admin cache using the existing FS global owner, with no local login."""
     if admin_cache is None:
-        return False, "没找到 admin_cache_local.py（应与本脚本同目录），请手动清缓存"
-
-    def _once(tk):
-        st, body = admin_cache.clear_cache("all", tk)
+        return False, "shared_admin_client_unavailable"
+    token = admin_cache.load_token()
+    if not token:
+        return False, "shared_admin_unavailable"
+    # 2026-10-26：11:57 那单等到 31 秒仍 code=0，说明频控窗口比 31 秒长。
+    # 改为最多 3 次、退避 31/61 秒；并把后台 msg 带进失败原因，避免只剩 code 无法归因。
+    backoff = (31, 61)
+    last = ""
+    for attempt in range(3):
+        status, body = admin_cache.clear_cache("all", token)
         try:
-            j = json.loads(body)
-            return ((j.get("code") == 1), (j.get("msg") or body), j.get("code"), st)
-        except Exception:
-            return False, "HTTP %s %s" % (st, (body or "")[:160]), None, st
-
-    tok = admin_cache.load_token()
-    if tok:
-        ok, msg, code, st = _once(tok)
-        if ok:
-            return True, msg
-        if _throttled(msg):
-            # 后台对「全部站点」的全量清理有 30 秒频控。**多张工单连着跑必然撞上**
-            # （2026-09-26 实测：09:28:34 清过 → 09:29:09 第二张单被拒），
-            # 这不是失败，等满窗口再试一次即可（工单多花 31 秒，好过误报失败）。
-            log("  后台频控：%s → 等 31 秒后重试" % msg)
-            time.sleep(31)
-            ok, msg, code, st = _once(tok)
-            if ok:
-                return True, "（频控等待后）" + msg
-            return False, msg
-        if code != 302 and st not in (302, 401, 0):
-            return False, msg          # 其它错（网络等）不该触发重登
-        log("  token 已过期（%s）→ 用账号密码自动重登后重试" % (msg or st))
-    else:
-        log("  本地没有 admin token → 用账号密码自动登录")
-
-    if autologin is None:
-        return False, "自动重登模块不可用，请人工：python admin_cache_local.py login"
-    # 🔴 2026-09-27 修复：**不能在已有 Playwright 会话的进程内再起一个 sync_playwright**。
-    #   cmd_write 里 Session 已经 `sync_playwright().start()`（浏览器开着），此时再调
-    #   `autologin.login_admin()`（内部 `with sync_playwright() as p:`）会抛：
-    #       Error: It looks like you are using Playwright Sync API inside the asyncio loop.
-    #   实测（工单 J20260927103525 / J20260927113244）后果很严重：**写价已经成功**，
-    #   异常却一路抛出 cmd_write → 后面的「② order 清除全部」与「结果落盘」全被跳过，
-    #   工单被记成 failed，前端也失去刷新机会。
-    #   ⇒ 重登 + 清缓存改到**子进程**里做（独立 Playwright，天然无嵌套冲突）。
-    return _relogin_and_clear_subprocess(log)
-
-
-def _relogin_and_clear_subprocess(log=log):
-    """用子进程跑 `admin_cache_local.py clear`（自动重登 + 清缓存），避开 Playwright 嵌套。
-
-    独立进程 = 独立事件循环，绝不会撞上「Sync API inside asyncio loop」。
-    返回 (ok, 文本)。
-    """
-    script = os.path.join(HERE, "admin_cache_local.py")
-    if not os.path.exists(script):
-        return False, "没找到 admin_cache_local.py，请人工：python admin_cache_local.py clear"
-    env = dict(os.environ)
-    env["PYTHONIOENCODING"] = "utf-8"
-    env["PYTHONUTF8"] = "1"
-    flags = 0x08000000 if os.name == "nt" else 0        # CREATE_NO_WINDOW：绝不弹黑窗
-    try:
-        r = subprocess.run([sys.executable, script, "clear", "--type", "all"],
-                           capture_output=True, timeout=420, env=env, cwd=HERE,
-                           creationflags=flags)
-    except Exception as e:
-        return False, "子进程清缓存启动失败：%r" % e
-    txt = ((r.stdout or b"").decode("utf-8", "replace")
-           + (r.stderr or b"").decode("utf-8", "replace"))
-    for ln in txt.strip().splitlines():
-        if ln.strip():
-            log("    [admin子进程] %s" % ln.strip()[:200])
-    if r.returncode == 0:
-        return True, "（子进程自动重登后）缓存已清理"
-    if "频控" in txt or "过于频繁" in txt:
-        return False, "子进程清缓存撞上 30 秒频控（不是失败，可稍后重跑 clearcache）"
-    return False, "子进程清缓存失败（退出码 %s）：%s" % (
-        r.returncode, txt[-240:].replace("\n", " "))
+            result = json.loads(body)
+            if not isinstance(result, dict):
+                raise ValueError()
+            code = result.get("code")
+            message = result.get("msg") or ""
+        except (ValueError, TypeError):
+            return False, "admin_clear_unconfirmed:http_%s" % status
+        if status == 200 and code == 1:
+            return True, message
+        last = "http_%s_code_%s_msg=%s" % (status, code, (message or "")[:60])
+        if status == 200 and code == 0 and _throttled(message) and attempt < len(backoff):
+            wait = backoff[attempt]
+            log("  后台已确认频控（%s），等 %d 秒后仅重试清缓存（第 %d 次重试）"
+                % ((message or "")[:20], wait, attempt + 1))
+            time.sleep(wait)
+            continue
+        return False, "admin_clear_unconfirmed:" + last
+    return False, "admin_clear_unconfirmed:" + (last or "exhausted")
 
 
 def cmd_write(a):
@@ -1314,6 +1196,7 @@ def cmd_write(a):
         # 清缓存只能由本机执行：要不要清由工单里的 clearcache 带过来，命令行可覆盖。
         cache_ok = None
         want_cache, cache_src = cache_wanted(a, plan)
+        no_price_change = not ok and not fail and not bad
         if ok and not bad and want_cache:
             # ① 主后台 admin.p2pah.cn「工具箱 → 缓存管理 → 一键清理所有」—— 前端刷新的关键一步
             log("① 主后台 admin.p2pah.cn「缓存管理 → 一键清理所有」…［意图来源：%s］" % cache_src)
@@ -1338,8 +1221,12 @@ def cmd_write(a):
         out = os.path.join(HERE, "p2pah_write_result_%s.json"
                            % dt.datetime.now().strftime("%Y%m%d_%H%M%S"))
         io.open(out, "w", encoding="utf-8").write(json.dumps(
-            {"ts": dt.datetime.now().isoformat(timespec="seconds"), "ok": ok, "fail": fail,
+            {"operation_id": os.environ.get("FS_RPG_JOB_ID"), "ts": dt.datetime.now().isoformat(timespec="seconds"), "ok": ok, "fail": fail,
              "mismatch": bad, "clearcache_ok": cache_ok,
+             "noop": no_price_change,
+             "clearcache_required": bool(want_cache and not no_price_change),
+             "clearcache_reason": ("not_required_no_price_change" if no_price_change else
+                                   "requested_after_price_change" if want_cache else "not_requested"),
              "clearcache_wanted": want_cache, "clearcache_意图来源": cache_src,
              "jobs": jobs},
             ensure_ascii=False, indent=1))
@@ -1466,6 +1353,62 @@ def cmd_writegold(a):
         if any(j["row_id"] not in before for j in jobs):
             log("⚠ 有行在页面上找不到（行ID 写错？），请人工确认后再跑")
 
+        # ══════════════════════════════════════════════════════════════
+        # 2026-10-23（大超裁定 D）人工改价保护闸
+        #   语义：工单里的「旧」= 本链路上一次**成功写入的目标值**（服务器 gold_state），
+        #         不是后台现值（后台现值是下面现场读到的「改前实际」）。
+        #   判据：「改前实际」与「旧」相对差 > 容差（默认 1%）⇒ 两次派单之间
+        #         有人在后台手工改过这个服务区的采购成本 ⇒ **本轮不覆盖**该 key。
+        #         用户口径：「同事会手动调整部分商品价格，你如果检测到了可以不做更改」。
+        #   为什么必须有：MSCW 实测 3 天 2 次把人工价写回算法值
+        #         （10-20 18:33 人工 0.35 → 0.329661；10-23 15:53 人工 0.42 → 0.340513），
+        #         链路上原本没有任何环节「写前读现值再比对」，所以拦不住。
+        #   ⚠ 只有「旧」有值时才判（None = 没有基线，不能瞎判，否则会整单停摆）。
+        #   ⚠ 保护不是永久的：服务器侧登记「IGGM 锚价」，
+        #         IGGM 一变价就解除（同样见 app.py _gold_manual_guard）。
+        # ══════════════════════════════════════════════════════════════
+        _mg = (_cfg.get("金币") or {}).get("人工改价保护") or {}
+        _mg_on = (_mg.get("启用", True) is not False)
+        try:
+            _mg_tol = float(_mg.get("容差", 0.01))
+        except (TypeError, ValueError):
+            _mg_tol = 0.01
+        _man = []
+        if _mg_on:
+            for j in jobs:
+                _pv, _ov = _fnum(j.get("改前实际")), _fnum(j.get("旧"))
+                if _pv is None or _ov is None or _ov <= 0:
+                    continue
+                _rel = abs(_pv - _ov) / abs(_ov)
+                if _rel > _mg_tol:
+                    j["人工改价"] = {"现值": _pv, "上次写入": _ov,
+                                     "差异%": round(_rel * 100.0, 4)}
+                    _man.append(j)
+        if _man:
+            for j in _man:
+                log("  ⏸ 跳过 %-12s 行%-6s：后台现值 %s ≠ 本链路上次写入 %s"
+                    "（差 %.2f%% > %.2f%%）⇒ 判定人工改价，本轮不覆盖"
+                    % (j["key"], j["row_id"], j.get("改前实际"), j["旧"],
+                       abs(float(j["改前实际"]) - float(j["旧"]))
+                       / abs(float(j["旧"])) * 100.0, _mg_tol * 100.0))
+            _man_ids = set(j["row_id"] for j in _man)
+            jobs = [j for j in jobs if j["row_id"] not in _man_ids]
+            if not jobs:
+                log("★ 本单 %d 个服务区全部判定为「人工改价」—— 本轮不写任何价、"
+                    "不推送前端、不清缓存（尊重人工价，等 IGGM 变价再跟）" % len(_man))
+                _out = os.path.join(HERE, "p2pah_writegold_result_%s.json"
+                                    % dt.datetime.now().strftime("%Y%m%d_%H%M%S"))
+                io.open(_out, "w", encoding="utf-8").write(json.dumps(
+                    {"operation_id": os.environ.get("FS_RPG_JOB_ID"),
+                     "ts": dt.datetime.now().isoformat(timespec="seconds"),
+                     "ok": 0, "fail": 0, "mismatch": [], "noop": True,
+                     "manual_skip": [dict(j.get("人工改价") or {}, key=j["key"],
+                                          row_id=j["row_id"], 名称=j.get("名称"))
+                                     for j in _man],
+                     "sync_price": {}, "clearcache_ok": None, "clearcache_wanted": False,
+                     "jobs": _man}, ensure_ascii=False, indent=1))
+                return 0
+
         # ── 无效果闸（2026-09-26 patch8）───────────────────────────────
         # 服务器侧只判「相对差 %」、且看不到后台现值，所以「目标恰好等于现值」
         # 的空单仍会派过来（实测：赛季普通每小时一张，改前/改后都是 0.000100）。
@@ -1491,7 +1434,7 @@ def cmd_writegold(a):
             _out = os.path.join(HERE, "p2pah_writegold_result_%s.json"
                                 % dt.datetime.now().strftime("%Y%m%d_%H%M%S"))
             io.open(_out, "w", encoding="utf-8").write(json.dumps(
-                {"ts": dt.datetime.now().isoformat(timespec="seconds"),
+                {"operation_id": os.environ.get("FS_RPG_JOB_ID"), "ts": dt.datetime.now().isoformat(timespec="seconds"),
                  "ok": 0, "fail": 0, "mismatch": [], "noop": True,
                  "sync_price": {}, "clearcache_ok": None, "clearcache_wanted": False,
                  "jobs": _all}, ensure_ascii=False, indent=1))
@@ -1600,9 +1543,14 @@ def cmd_writegold(a):
         out = os.path.join(HERE, "p2pah_writegold_result_%s.json"
                            % dt.datetime.now().strftime("%Y%m%d_%H%M%S"))
         io.open(out, "w", encoding="utf-8").write(json.dumps(
-            {"ts": dt.datetime.now().isoformat(timespec="seconds"), "ok": ok, "fail": fail,
+            {"operation_id": os.environ.get("FS_RPG_JOB_ID"), "ts": dt.datetime.now().isoformat(timespec="seconds"), "ok": ok, "fail": fail,
              "mismatch": bad, "sync_price": sync, "log_price": lg, "clearcache_ok": cache_ok,
-             "clearcache_wanted": want_cache, "jobs": jobs},
+             "clearcache_wanted": want_cache, "jobs": jobs,
+             # 2026-10-23（裁定 D）：本单里被「人工改价保护闸」跳过的行
+             #   —— 服务器据此登记保护（等 IGGM 变价再解除），否则会每轮重复派单。
+             "manual_skip": [dict(j.get("人工改价") or {}, key=j["key"],
+                                  row_id=j["row_id"], 名称=j.get("名称"))
+                             for j in (_man or [])]},
             ensure_ascii=False, indent=1))
         log("结果已存：%s" % out)
         return 0 if not fail and not bad else 1
@@ -1660,8 +1608,8 @@ def cmd_ping(a):
 
 def main():
     ap = argparse.ArgumentParser(description="后台改价 · 本机执行器")
-    ap.add_argument("cmd", choices=["login", "read", "readgame", "write", "writegold",
-                                    "clearcache", "ping"])
+    ap.add_argument("cmd", choices=["login", "read", "readgame", "readgold", "write",
+                                    "writegold", "clearcache", "ping"])
     ap.add_argument("--profile", default=DEFAULT_PROFILE)
     ap.add_argument("--config", default=DEFAULT_CFG)
     ap.add_argument("--plan", help="计划 JSON（write / writegold 用）")
@@ -1697,6 +1645,7 @@ def main():
         except SystemExit:
             pass
     return {"login": cmd_login, "read": cmd_read, "readgame": cmd_readgame,
+            "readgold": cmd_readgold,
             "write": cmd_write,
             "writegold": cmd_writegold, "clearcache": cmd_clearcache,
             "ping": cmd_ping}[a.cmd](a)

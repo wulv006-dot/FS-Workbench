@@ -287,8 +287,14 @@ CREATE TABLE IF NOT EXISTS manual_override (
 
 def connect(data_dir):
     os.makedirs(data_dir, exist_ok=True)
-    con = sqlite3.connect(os.path.join(data_dir, "iggm_follow.db"))
+    # 2026-10-26：显式等锁时间。库已切 WAL（journal_mode=wal），读者不再被写锁挡住；
+    # 但写者之间仍互斥，原来是 python 默认 5s，遇外部长事务就每轮报 database is locked。
+    con = sqlite3.connect(os.path.join(data_dir, "iggm_follow.db"), timeout=10)
     con.row_factory = sqlite3.Row
+    try:
+        con.execute("PRAGMA busy_timeout=10000")
+    except Exception:                            # noqa: BLE001
+        pass
     con.executescript(SCHEMA)
     _migrate(con)
     return con

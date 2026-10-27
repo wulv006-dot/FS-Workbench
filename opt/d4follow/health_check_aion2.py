@@ -191,11 +191,14 @@ def check_rounds(con, fix=False):
             add_problem("最新一轮只有 %d 个区落库（阈值 %d）—— 可能整轮采集失败"
                         % (tot, MIN_ROWS))
         if tot and t3 == tot:
-            add_big("全部 %d 个区都掉到第 3 级（固定 9.9$/M 兜底）—— "
+            add_big("全部 %d 个区都掉到第 3 级（兜底价）—— "
                     "说明 DD373 与 G2G 双双无数据，需要人工看" % tot)
         elif t3 > 0:
-            add_info("第 3 级（9.9$/M 固定兜底）命中 %d 个区：%s"
-                     % (t3, tier3_keys(con, ts)))
+            # ⚠ 第 3 级的实际售价随定价模式而变：dd373_markup=9.9 固定价，
+            #    g2g_cheapold=12.99（条数不足）/19.9（无货兜底）。这里直接读真实值，
+            #    避免文案与实际价不符（2026-10-21 修复）。
+            add_info("第 3 级（兜底价）命中 %d 个区，实际售价分布：%s ｜ 样例：%s"
+                     % (t3, tier3_prices(con, ts), tier3_keys(con, ts)))
         if t2 / max(1, tot) > 0.5:
             add_info("超过一半的区在用第 2 级（G2G 兜底）—— DD373 报价覆盖率偏低")
         return ts
@@ -213,6 +216,22 @@ def tier3_keys(con, ts):
         return "(读不到)"
 
 
+def tier3_prices(con, ts):
+    """第 3 级各区**实际售价**的分布（$/M）—— 不同模式兜底价不同，别写死。"""
+    try:
+        d = {}
+        for r in con.execute(
+                "SELECT our_per_m v, count(*) n FROM gold_price "
+                "WHERE %s AND ts=? AND price_tier=3 GROUP BY our_per_m" % GAME_WHERE,
+                (ts,)):
+            if r["v"] is None:
+                continue
+            d["$%.2f" % r["v"]] = r["n"]
+        return ", ".join("%s×%d" % (k, d[k]) for k in sorted(d)) or "(无)"
+    except Exception:
+        return "(读不到)"
+
+
 # ---------------------------------------------------------------- 4. 定价链
 def check_pricing(con, ts):
     print("\n[4] 定价链与价格合理性")
@@ -220,13 +239,14 @@ def check_pricing(con, ts):
         return
     try:
         rows = con.execute(
-            "SELECT key, our_per_m, price_tier, comp_min, gap_comp_pct "
+            "SELECT key, our_per_m, price_tier, comp_min, gap_comp_pct, src_fallb "
             "FROM gold_price WHERE %s AND ts=?" % GAME_WHERE, (ts,)).fetchall()
     except Exception as e:
         add_big("读定价失败：%s" % e)
         return
     bad_price = []
     no_comp = 0
+    no_comp_with_fallb = 0
     for r in rows:
         p = r["our_per_m"]
         if p is None:
@@ -235,35 +255,122 @@ def check_pricing(con, ts):
             bad_price.append("%s=$%s" % (r["key"], p))
         if r["comp_min"] is None:
             no_comp += 1
+            if r["src_fallb"]:
+                no_comp_with_fallb += 1
     print("  有目标价 %d 个区 · 无目标价 %d 个区"
           % (len([r for r in rows if r["our_per_m"] is not None]),
              len([r for r in rows if r["our_per_m"] is None])))
     if bad_price:
         add_big("售价超出合理区间 [%.2f, %.2f] $/M：%s"
                 % (PRICE_LO, PRICE_HI, ", ".join(bad_price[:5])))
+    # comp_min 为空 ≠ 采集故障：它只让看板的「竞品对比」列空。
+    # 判据（经验 #128）：空值区与 src_fallb（同大区均价兜底）区**一一对应** ⇒ 三源本就无数据，
+    # 属正常态，不影响定价（core_gold.py 对 comp_min 0 处引用）⇒ 只作信息提示。
     if no_comp > len(rows) * 0.5:
-        add_problem("超过一半的区没有竞品最低价（comp_min 为空）"
-                    " —— 差距对比列会空")
+        if no_comp_with_fallb == no_comp:
+            add_info("超过一半的区没有竞品最低价（comp_min 为空）—— "
+                     "但 %d/%d 个都与同大区均价兜底(src_fallb)一一对应 ⇒ "
+                     "三源本就无数据，属正常态，**不影响定价**，仅看板对比列空"
+                     % (no_comp_with_fallb, no_comp))
+        else:
+            add_problem("超过一半的区没有竞品最低价（comp_min 为空）—— "
+                        "其中 %d/%d 个有 src_fallb 兜底、%d 个无兜底，"
+                        "需查采集侧是否真断供"
+                        % (no_comp_with_fallb, no_comp, no_comp - no_comp_with_fallb))
+
+    # ── 利润率下限 15% 是否真的生效（2026-10-21 新增）────────────────────
+    #   判据：**用本轮 reason 里的「目标 $X/M」算利润率**，而不是用 gold_price.our_per_m。
+    #   our_per_m 是「本轮计划价 / 上轮已落地价」，改价工单还没落地前它仍偏低于目标价，
+    #   直接拿它比会误报成「20 个区跌破 15% 下限」（经验 #143 的老疑问）。
+    #   正确口径：(目标价 − 真实成本 usd_per_m) ÷ 目标价 ≥ 15%。
+    #   ⚠ 目标价在 reason 里**只保留 2~4 位小数**，回算利润率会带 ±0.005%~±0.4% 的
+    #   截断误差（正好卡在 15% 线上时会误报）。故按显示位数推算容差：
+    #   |Δmargin| ≈ (成本/目标²) × 0.5×10^-decimals。
+    #   🔴 2026-10-27 修复永久误报：**货源闸固定价行不吃利润闸**，判据与
+    #     core_gold.py 的排除条件保持一致（基准来源 src_base ∈ {无货兜底, 薄区挂单价}）：
+    #       · 薄区 $4.99 —— 2026-10-22 老板定案「$4.99/M 是挂单价、不是成本」，
+    #         可买量 < 薄区阈值 ⇒ 统一挂 $4.99，本行**不吃**成本兜底、
+    #         也**不吃**利润率上下限闸 ⇒ 成本高于 $4.99 时利润率本就是负的，
+    #         属**设计内**（例：SA_ARIEL_E 成本 $7.52 挂 $4.99）；
+    #       · 无货兜底 $19.9 —— 老板口径「没挂单的统一调 19.9」= 严格统一，
+    #         同样不吃成本兜底 / 利润率下限。
+    #     这两类按通用 15% 判据核查会**每轮永久误报**（本次即 SA_ARIEL_E）
+    #     ⇒ 排除出「跌破下限」计数，另作信息项列出（不隐藏，豁免量透明化）。
+    try:
+        rr = con.execute(
+            "SELECT p.key k, p.our_per_m o, p.reason rs, p.src_base sb, c.usd_per_m cost "
+            "FROM gold_price p JOIN gold_cost c ON c.key=p.key AND c.ts=p.ts "
+            "WHERE p.key LIKE 'AION2_%%' AND p.ts=? AND c.usd_per_m>0 AND c.ok=1",
+            (ts,)).fetchall()
+        tgt = re.compile(r"目标\s*\$([0-9.]+)/M")
+        # 货源闸固定价：不吃利润闸（与 core_gold.py 排除条件一致）
+        GATE_EXEMPT = ("无货兜底", "薄区挂单价")
+        n_cmp = 0
+        n_exempt = 0
+        below_tgt = []
+        below_now = 0
+        exempt_rows = []
+        for x in rr:
+            m = tgt.search(x["rs"] or "")
+            if not m:
+                continue
+            n_cmp += 1
+            txt = m.group(1)
+            t = float(txt)
+            if t <= 0:
+                continue
+            dec = len(txt.split(".")[1]) if "." in txt else 0
+            tol = (x["cost"] / (t * t)) * (0.5 * (10 ** -dec))   # 显示截断容差
+            mg = (t - x["cost"]) / t
+            sb = (x["sb"] or "")
+            if sb in GATE_EXEMPT:
+                # 固定价行：低利润率是设计内 ⇒ 不计入跌破计数，转信息项
+                n_exempt += 1
+                exempt_rows.append("%s(%s 目标$%s 成本$%.4f 利润率%.2f%%)"
+                                   % (x["k"], sb, txt, x["cost"], mg * 100))
+                continue
+            if mg < 0.15 - tol:
+                below_tgt.append("%s(目标$%s 成本$%.4f 利润率%.2f%%)"
+                                 % (x["k"], txt, x["cost"], mg * 100))
+            if x["o"] and (x["o"] - x["cost"]) / x["o"] < 0.15:
+                below_now += 1
+        if n_cmp:
+            print("  利润下限核对：可比 %d 区 · 目标价口径跌破 15%% 的 %d 区"
+                  " · 现价口径跌破 15%% 的 %d 区（改价工单未落地，属正常）"
+                  % (n_cmp, len(below_tgt), below_now))
+        if n_exempt:
+            print("  [信息] 货源闸固定价 %d 区（不吃利润闸，不参与 15%% 下限核对）：%s"
+                  % (n_exempt, ", ".join(exempt_rows[:5])))
+            add_info("货源闸固定价 %d 区不吃利润闸（薄区 $4.99 / 无货兜底 $19.9），"
+                     "已排除出 15%% 下限核对" % n_exempt)
+        if below_tgt:
+            add_problem("有 %d 个区按**目标价**算利润率仍低于 15%% 下限：%s"
+                        % (len(below_tgt), ", ".join(below_tgt[:5])))
+    except Exception as e:
+        add_info("利润下限核对跳过：%s" % e)
 
     # 第 2 级的口径问题（此前遗留待确认：G2G 加价 2% vs 老板字面「直接用 G2G 价」）
     try:
         cfg = json.load(open(os.path.join(ROOT, "config.json"), encoding="utf-8"))
         p = (cfg.get("金币") or {}).get("定价策略") or {}
-        print("  定价策略：模式=%s 加价=%s 次源=%s 次源加价=%s 默认=%s"
+        print("  定价策略：模式=%s 加价=%s 次源=%s 次源利润率=%s 默认=%s"
               % (p.get("模式"), p.get("加价比例"), p.get("次源"),
-                 p.get("次源加价"), p.get("默认售价_USD每M")))
+                 p.get("次源利润率"), p.get("默认售价_USD每M")))
         if p.get("模式") != "dd373_markup":
             add_info("当前不是 DD373 定价模式（模式=%s）" % p.get("模式"))
         # ⚠ 次源加价 2% 已于 2026-10-02 由老板拍板保留
         #   （老板原话「直接用 G2G 的价格」，但实现时加了 2% 避免贴竞品打，
         #    询问后确认「就按你说的这样可以」= 保留 2%）。
         #   → 这里只做**一致性核对**，不再每次都提示待确认。
-        sec = float(p.get("次源加价") or 0.0)
+        # ⚠ config 里的键名是「次源利润率」（core_gold.py 同名读取），
+        #    不是「次源加价」—— 读错键会永远拿到 None→0.0 → 恒判 ≠0.02（已误报 43 次）。
+        #    「次源加价」只存在于 dd373_markup 模式的归档段里。
+        sec = float(p.get("次源利润率") or p.get("次源加价") or 0.0)
         if abs(sec - 0.02) < 1e-9:
             print("  第 2 级：G2G × %.2f（已确认保留 +2%%，非待确认项）" % (1 + sec))
         else:
             add_info("第 2 级 G2G 加价 = %.4f（≠0.02）—— "
-                     "若要改回 0.02 改 config 的 次源加价 再 restart" % sec)
+                     "若要改回 0.02 改 config 的 次源利润率 再 restart" % sec)
     except Exception as e:
         add_problem("读 config.json 的定价策略失败：%s" % e)
 
@@ -286,12 +393,25 @@ def check_dd373(con, fix=False):
             add_big("DD373 最新一轮有 %d 个区撞上风控（滑块页）—— 需要人工处理"
                     % blk["n"])
         # 单位口径 —— 换算错会全盘错价
+        # ⚠ 必须按 game='AION2' 过滤：gold_cost 是**多游戏共表**（AION2 + MSCW 等），
+        #    MSCW 的单位是「万金」不是「万基纳」。不过滤就会把 MSCW 的正常行
+        #    算成 AION2 的口径错 —— 已连续 31 次误报（2026-10-21 修复）。
+        #    注：gold_price 无 game 列（靠 key 前缀），但 gold_cost **有** game 列。
         badunit = con.execute(
-            "SELECT count(*) n FROM gold_cost WHERE ts=? AND unit IS NOT NULL "
-            "AND unit NOT LIKE '%%万基纳%%'", (r["t"],)).fetchone()
+            "SELECT count(*) n FROM gold_cost WHERE ts=? AND game='AION2' "
+            "AND unit IS NOT NULL AND unit NOT LIKE '%%万基纳%%'", (r["t"],)).fetchone()
         if badunit and badunit["n"] > 0:
             add_big("DD373 最新一轮有 %d 条单位不是「万基纳」—— 换算会错，"
                     "本轮成本不可用" % badunit["n"])
+        else:
+            # 非 AION2 游戏的单位口径不同（MSCW=万金），属正常，只作信息提示
+            other = con.execute(
+                "SELECT count(*) n FROM gold_cost WHERE ts=? AND game<>'AION2' "
+                "AND unit IS NOT NULL AND unit NOT LIKE '%%万基纳%%'",
+                (r["t"],)).fetchone()
+            if other and other["n"] > 0:
+                add_info("另有 %d 条非 AION2 记录用了别的单位口径（如 MSCW=万金）"
+                         " —— 不影响 AION2 定价" % other["n"])
         # 最新一轮里 AION2 有效成本条数
         ok = con.execute(
             "SELECT count(*) n FROM gold_cost WHERE ts=? AND ok=1",
