@@ -378,6 +378,156 @@ window.FC_ACTIVITY_CONFIG = {
         }
       }
     },
+    "170019049": {
+      "key": "170019049",
+      "title": "Jamal Musiala/87/CAM++/Gold Non Rare",
+      "name": "Jamal Musiala",
+      "kind": "player",
+      "cid": 9627,
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Jamal Musiala",
+      "platforms": {
+        "ps": {
+          "id": 170019049,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "0.63",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 170024801,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "0.63",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 170019053,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "0.64",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      },
+      "rating": "87",
+      "position": "CAM++",
+      "version": "Gold Non Rare",
+      "league": "Bundesliga",
+      "club": "FC Bayern München",
+      "nation": "Germany"
+    },
+    "170019065": {
+      "key": "170019065",
+      "title": "Lautaro Martínez/87/ST++/Gold Non Rare",
+      "name": "Lautaro Martínez",
+      "kind": "player",
+      "cid": 9627,
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Lautaro Martínez",
+      "platforms": {
+        "ps": {
+          "id": 170019065,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "0.63",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 170024809,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "0.63",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 170019069,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "0.63",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      },
+      "rating": "87",
+      "position": "ST++",
+      "version": "Gold Non Rare",
+      "league": "Serie A Enilive",
+      "club": "Inter",
+      "nation": "Argentina"
+    },
+    "170020445": {
+      "key": "170020445",
+      "title": "Marcus Thuram/86/ST++/Team of the Week",
+      "name": "Marcus Thuram",
+      "kind": "player",
+      "cid": 9627,
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Marcus Thuram",
+      "platforms": {
+        "ps": {
+          "id": 170020445,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "4.70",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 170022493,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "0.23",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 170020745,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "0.25",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      },
+      "rating": "86",
+      "position": "ST++",
+      "version": "Team of the Week",
+      "league": "Serie A Enilive",
+      "club": "Inter",
+      "nation": "France"
+    },
     "184101943": {
       "key": "184101943",
       "title": "LALIGA POTM September",
@@ -1994,6 +2144,56 @@ window.FC_ACTIVITY_CONFIG = {
       "position": "LW++",
       "version": "Ultimate Scream"
     },
+    "186432719": {
+      "key": "186432719",
+      "title": "Hakan Çalhanoğlu/86/CAM++/Ultimate Scream",
+      "name": "Hakan Çalhanoğlu",
+      "kind": "player",
+      "cid": 9627,
+      "listingUrl": "https://www.mmoexp.com/Fc-27/Players.html",
+      "search": "Hakan Çalhanoğlu",
+      "platforms": {
+        "ps": {
+          "id": 186432719,
+          "aid": 21587,
+          "group": 1,
+          "quantity": 1,
+          "price": "21.73",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "xbox": {
+          "id": 186432907,
+          "aid": 21585,
+          "group": 1,
+          "quantity": 1,
+          "price": "25.49",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        },
+        "pc": {
+          "id": 186432903,
+          "aid": 21589,
+          "group": 1,
+          "quantity": 1,
+          "price": "24.51",
+          "status": 1,
+          "autoOff": 0,
+          "hasSku": false,
+          "hasAttr": true
+        }
+      },
+      "rating": "86",
+      "position": "CAM++",
+      "version": "Ultimate Scream",
+      "league": "Serie A Enilive",
+      "club": "Inter",
+      "nation": "Turkey"
+    },
     "186475859": {
       "key": "186475859",
       "title": "Emre Mor",
@@ -2085,36 +2285,36 @@ window.FC_ACTIVITY_CONFIG = {
     "routes": {
       "186413755": {
         "picks": [
-          "185070993",
-          "185916875"
+          "170019049",
+          "170020445"
         ],
         "alternatives": [
-          "185070945",
-          "186254291"
+          "186432719",
+          "170019065"
         ],
         "label": {
-          "zh": "意甲同联赛强链",
-          "en": "Serie A link block"
+          "zh": "德国国家队 + 意甲链接",
+          "en": "Germany nation + Serie A link"
         }
       },
       "186475859": {
         "picks": [
-          "170014917",
-          "170017881"
+          "186432719",
+          "170019065"
         ],
         "alternatives": [
-          "186254291",
-          "185916851"
+          "170019049",
+          "170020445"
         ],
         "label": {
-          "zh": "英超同联赛强链",
-          "en": "Premier League link block"
+          "zh": "土耳其国家队 + 国米强链",
+          "en": "Turkey nation + Inter club links"
         }
       }
     },
     "fallbackPicks": [
-      "185070993",
-      "185916875"
+      "170019049",
+      "170020445"
     ],
     "allListedIds": [
       "186475859",

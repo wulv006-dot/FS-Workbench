@@ -71,11 +71,10 @@
           "position": 2,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170014917",
-            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170014917",
-            "name": "Erling Haaland/91/ST++/Gold Non Rare",
-            "description": "91 · ST++ · Gold Non Rare",
-            "image": "https://assets.mmoexp.com/player/fc27/1.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-186432719",
+            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-186432719",
+            "name": "Hakan Çalhanoğlu/86/CAM++/Ultimate Scream",
+            "description": "86 · CAM++ · Ultimate Scream"
           }
         },
         {
@@ -83,11 +82,10 @@
           "position": 3,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170017881",
-            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170017881",
-            "name": "Declan Rice/88/CDM++/Gold Non Rare",
-            "description": "88 · CDM++ · Gold Non Rare",
-            "image": "https://assets.mmoexp.com/player/fc27/91.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170019065",
+            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170019065",
+            "name": "Lautaro Martínez/87/ST++/Gold Non Rare",
+            "description": "87 · ST++ · Gold Non Rare"
           }
         }
       ]

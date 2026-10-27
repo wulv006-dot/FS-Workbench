@@ -19,7 +19,7 @@ test('real seed tool extracts all original references and hashes current source 
   assert.equal(new Set(refs.map(r=>r.reference_key)).size,126);
   assert.equal(new Set(refs.map(r=>JSON.stringify([r.product_ref.site_id,r.product_ref.game_id,r.product_ref.goods_id]))).size,116);
   assert.equal(new Set(refs.map(r=>r.game_key)).size,6);
-  assert.deepEqual([seed.reference_count,seed.unique_goods_count,seed.game_count],[126,116,6]);
+  assert(seed.reference_count>=126&&seed.unique_goods_count>=116&&seed.game_count===6);
   // 该 handoff 是历史回执；随周更校验结构不变量，而不是把它冻结成当前目录的镜像。
   assert(refs.every(r=>r.reference_key&&r.product_ref.site_id==="266"&&r.expected_platform.attribute_id&&r.public_path.startsWith("/Fc-27/")||r.family==="seasonal"));
   assert.equal(new Set(refs.map(r=>r.reference_key)).size,refs.length);
