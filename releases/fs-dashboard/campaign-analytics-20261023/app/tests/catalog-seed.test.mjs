@@ -15,11 +15,11 @@ test('real seed tool extracts all original references and hashes current source 
   const output=execFileSync(python,[path.join(root,'tools/campaign_catalog_seed.py'),'--module',moduleRoot],
     {cwd:root,encoding:'utf8',timeout:15000,env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});
   const seed=JSON.parse(output),refs=seed.references;
-  assert.equal(refs.length,96);
-  assert.equal(new Set(refs.map(r=>r.reference_key)).size,96);
-  assert.equal(new Set(refs.map(r=>JSON.stringify([r.product_ref.site_id,r.product_ref.game_id,r.product_ref.goods_id]))).size,86);
+  assert.equal(refs.length,126);
+  assert.equal(new Set(refs.map(r=>r.reference_key)).size,126);
+  assert.equal(new Set(refs.map(r=>JSON.stringify([r.product_ref.site_id,r.product_ref.game_id,r.product_ref.goods_id]))).size,116);
   assert.equal(new Set(refs.map(r=>r.game_key)).size,6);
-  assert.deepEqual([seed.reference_count,seed.unique_goods_count,seed.game_count],[96,86,6]);
+  assert.deepEqual([seed.reference_count,seed.unique_goods_count,seed.game_count],[126,116,6]);
   assert.deepEqual(refs,fixture.references);
   assert.deepEqual(Object.keys(seed.source_artifacts).sort(),['app/catalog.json','app/seasonal/campaign-data.js']);
   // Fixture provenance describes captured bytes; current checkout hashes can differ with CRLF/LF.

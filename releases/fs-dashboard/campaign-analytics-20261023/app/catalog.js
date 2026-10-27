@@ -1981,7 +1981,7 @@ window.FC_ACTIVITY_CONFIG = {
           "aid": 21589,
           "group": 1,
           "quantity": 1,
-          "price": "1,017.72",
+          "price": "1017.72",
           "status": 1,
           "autoOff": 0,
           "hasSku": false,

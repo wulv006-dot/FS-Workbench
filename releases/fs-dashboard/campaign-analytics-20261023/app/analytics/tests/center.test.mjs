@@ -28,7 +28,7 @@ test('draft CAS, persistent same-id replay, public projection and original runti
   assert.throws(()=>store.save({...save,operation_id:randomUUID()},'admin'),e=>e.code==='REVISION_CONFLICT');
   const publish={revision:1,operation_id:randomUUID()};assert.equal(store.publish(publish,'admin').revision,2);assert.equal(store.publish(publish,'admin').revision,2);
   const snapshot=JSON.parse(fs.readFileSync(path.join(tmp,'public/current.json'),'utf8'));
-  assert.equal(snapshot.publication_status,'published');assert.equal(snapshot.products.length,96);assert.equal(snapshot.updated_by,undefined);assert.equal(snapshot.pages[0].benefit_refs,undefined);
+  assert.equal(snapshot.publication_status,'published');assert.equal(snapshot.products.length,126);assert.equal(snapshot.updated_by,undefined);assert.equal(snapshot.pages[0].benefit_refs,undefined);
   const commerce=createCommerce({snapshotProvider:()=>JSON.parse(fs.readFileSync(path.join(tmp,'public/current.json'),'utf8')),snapshot,dir:path.join(tmp,'ops')});
   assert.equal(commerce.config().release_id,'campaign-preview-2');assert.equal(commerce.capabilities().live_checkout,false);
   assert.throws(()=>commerce.intent({activity_id:'fc27-season2',page_id:'fc27-weekly',rule_version:'preview-2',benefit_binding_version:'unverified-2',currency:'USD',lines:[{line_key:'a',product_key:snapshot.pages[0].product_keys[0],quantity:{value:'1',unit:'item',group:'1'}}]}),e=>e.code==='PRODUCT_UNAVAILABLE');

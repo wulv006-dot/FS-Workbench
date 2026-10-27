@@ -2,7 +2,19 @@
 (() => {
   'use strict';
   const sdk = window.CampaignStandalone;
+  const LIVE_ORIGIN='https://www.mmoexp.com';
   let client, refreshFlight=null, dialogRefreshHandler=null, publishedThemeApplied = false, selectionRevision=0, quoteContext=null;
+  // The live cart is rendered by the storefront and reads its own session cookies.
+  // A visitor who lands on this event page directly has no storefront session yet,
+  // so the cart POST creates one that the cart page then cannot see. A bare HEAD
+  // establishes the same cookies as the storefront without downloading it.
+  async function ensureStoreSession(){
+    try{
+      if(window.location.origin!==LIVE_ORIGIN)return;
+      if(/(?:^|;\s*)PHPSESSID=/.test(document.cookie))return;
+      await fetch('/',{method:'HEAD',credentials:'same-origin',cache:'no-store'});
+    }catch{ /* The cart call still reports its own failure. */ }
+  }
   const messages = {
     MAIN_INTEGRATION_REQUIRED: 'Preview only. Main-site cart integration is still required; no cart, discount or reward was changed.',
     SPEC_REQUIRED: 'The store requires product specifications. Open the original product to choose them; nothing has been ordered.',
@@ -126,7 +138,6 @@
       selection=selectionFor(detail.model_id,detail.quantity);
     }catch{host.append(message(messages.MODEL_OPTIONS_UNAVAILABLE));return;}
     const english=(value,fallback)=>typeof value==='string'&&value.trim()&&!/\p{Script=Han}/u.test(value)?value:fallback;
-    const LIVE_ORIGIN='https://www.mmoexp.com';
     const CART_NOTE='The main store confirms the final price and applies the discount code before payment. Coupons and points cannot be combined with this code.';
     const fields=document.createElement('div'),price=message('Choose all required options to see the current reference price.'),status=message(CART_NOTE);
     let nativeReview=null,buying=false;
@@ -173,6 +184,8 @@
     }
     buy.addEventListener('click',async()=>{
       if(buying||!nativeReview)return;buying=true;buy.disabled=true;fields.querySelectorAll('input,select').forEach(el=>el.disabled=true);
+      buy.textContent='Preparing your cart…';
+      await ensureStoreSession();
       try{const before=nativeReview.signature;await client.load();publishTheme(client.config);const approved=window.CampaignNativeCodeHandoff.publishedPlan(client.config,nativeSelection(),{origin:window.location.origin});
         if(before!==approved.signature)throw Object.assign(Error('Published selection changed. Reopen this offer before continuing.'),{code:'NATIVE_SCOPE_CHANGED'});
         const selected=nativeSelection(),host=window.FCActivityHost.createNative(client.config,selected);
@@ -186,6 +199,7 @@
     document.getElementById('event-dialog')?.addEventListener('close',()=>{window.removeEventListener('seasonal-published-catalog',onRefresh);if(dialogRefreshHandler===onRefresh)dialogRefreshHandler=null;},{once:true});
   });
   if (window.SeasonalCommerce.available()) {
+    ensureStoreSession();
     try {
       client = sdk.create({element:document.documentElement, pageId:'seasonal-vault', activityId:'mmoexp-seasonal'});
       client.load().then(({config})=>publishTheme(config)).catch(()=>{});
