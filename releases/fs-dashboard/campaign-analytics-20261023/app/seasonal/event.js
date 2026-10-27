@@ -114,7 +114,7 @@
     }).join('');
     games.hidden=Boolean(activeGame);
     doc.querySelector('#picker-title').textContent=activeGame?view.games.find(g=>g.id===activeGame).label+' offers':'Choose your game';
-    doc.querySelector('#store-count').hidden=Boolean(activeGame);doc.querySelector('[data-action=all-games]').hidden=!activeGame;
+    doc.querySelector('#store-count').hidden=Boolean(activeGame);doc.querySelector('#event-countdown').hidden=Boolean(activeGame);doc.querySelector('[data-action=all-games]').hidden=!activeGame;
   }
   function renderSlots(){
     clearTimeout(referenceTimer);let nextExpiry=Infinity;const region=doc.querySelector('#game-offers');region.hidden=!activeGame;if(!activeGame)return;
