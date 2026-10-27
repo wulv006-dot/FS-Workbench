@@ -1,16 +1,14 @@
 # FC27 自主定价 V3
 
-当前规则为[双20、冲量5–10与无预算合同](DUAL20-NO-BUDGET-CHANGE.md)，覆盖原附件冲突条款。[完整使用说明](USER-GUIDE.md)面向日常操作；参数、基数和验证条件见[Hermes经营合同](HERMES-OPERATING-CONTRACT.md)。
+当前只保留**日常运营**和**冲销售额**，每小时采集改价，可配置；结束时间可选、无预算、正常周期不等Hermes。每轮只选一套价格方案，基础价最多更新一次，地区系数各必要更新一次。全目录未优惠与七日真实优惠平均采购毛利双20保持。
 
-当前已上线代码5695cb5，实际91/91 SHA匹配。首轮后台/ALL/缓存/全球与受影响地区公开核验通过；原ID类别联动、英国临时0.91退出和旧服务代码归档完成。05:12与07:14两个自然轮均正常完成为INFEASIBLE、未写价且无技术重试，用户09:04改为每60分钟后的下轮10:04:33；四个其他策略已用同一真实快照形成完整双20候选。05:57新只读快照和页面INFEASIBLE已完整核验、未写价；更多连续自然周期和完整长期效果尚未验收，见[自然与故障核验](NATURAL-AND-FAULT-ACCEPTANCE.md)。历史月度输入已补齐9月1–16日，现覆盖5308笔；仍有4笔商品类型及历史成本/汇率等缺口，见[历史覆盖核验](HISTORICAL-COVERAGE-20261027.md)。两个旧策略的原快照只读回放和真实研究入口已核，见[旧策略回放验收](LEGACY-REPLAY-ACCEPTANCE-20261027.md)。独立价格组的学习覆盖已恢复并接回原缓存，观测日期和剩余缺口见[学习覆盖验收](LEARNING-COVERAGE-ACCEPTANCE-20261027.md)。竞品可视化与Hermes全文换行已上线，详[页面核验](MARKET-UI-ACCEPTANCE-20261027.md)。最新一小时、沙特缺价与礼包等值见[本轮验收](HOURLY-SA-GIFT-ACCEPTANCE-20261027.md)。精确版本、操作编号与限制见[真实验收](ACCEPTANCE-20261027.md)、[来源映射](SOURCE-MAP.json)、[退役清单](RETIREMENT-MATRIX.md)。
+ItemD2R按实际100K，无礼包估算；Lootbar无券，Saudi只比Arab-UT普通发货，对应平台缺价时授权系数1跟全球。每日02:20影子只运行这两模式，不补采、不写价。英国唯一临时0.91已停用；旧加权、钉价、回摆与重复tick/observer退出生产，历史证据保留。
 
-- 程序每轮只算当前策略，每60分钟、可配置，独立完成来源、财务和写后核验。Hermes每日一次专用定价通道复盘并提建议，本阶段不逐轮审批、不自动切策略。
-- 五策略不设日额、24小时/活动总额、负贡献或机会成本硬限，不作预算预占/耗尽退出。实际折让和贡献仍追踪；旧账本保留审计。
-- 沿原v15算法执行未优惠及七完整日真实优惠结构平均双20，覆盖套餐、赠送、自定义整数K、地区和舍入，所有执行入口一致。
-- Lootbar无券与冲额ItemD2R为全球可比来源；Saudi Arabia额外Arab-UT普通发货，PC缺项不编造。冲量5–10%、偏好7.5%，ItemD2R接替及最低合法底价回退按当前合同，冲突准确列明。
-- PS/Xbox共基价及成本池，PC独立；Saudi21精确平台规则联合核算。英国指定临时ID1已停用，公开三平台系数1继承全球；其他优惠保留。
-- 积压只含Admin11/21/31∩Order1/2正常已支付新单、验证通过、发货中，暂停/问题单和其他状态排除。缺容量显式列缺，不补0。
-- 每日02:20五策略只读影子使用保存时段快照；历史、情景和真实因果效果分开。影子不补采竞品、不写生产、不把模拟订单用于真实训练。
-- 唯一generation和原操作ID控制派发；UNKNOWN先核原请求，不换ID、不清记录重放。SBC/Players/Packs既有公式联动、其他游戏和共享会话保持，球员售价日常抽查不恢复。
+代码3153b4a已受控发布，92/92活动目标实际匹配；239项本地检查与页面合同通过，统一PR正式CI另核。10:42真实操作88d2d6ea已完成后台/ALL/缓存/全球与Saudi公开读回：全球8.02/8.02/8.12美元，Saudi8.02/7.92/8.12美元。原计划ACTIVE、60分钟、下一自然11:42:26、原22:30截止保留。自然轮、跨日影子及长期效果不由该人工程序轮替代。
 
-[运行分工](SIMPLIFIED-OPERATING-CONTRACT.md) · [历史与每日合同](HISTORY-DAILY-CONTRACT.md) · [施工历史](DELIVERY.md) · [原始设计附件（历史）](IMPLEMENTATION-SPEC.md) · [冲量补丁原附件（历史）](SPRINT-DUAL20-SPEC-v1.2.md)。原附件的预算、双10、逐轮Hermes或英国永久保留条款已被后续决定取代，不再作为执行入口。
+- [完整使用说明](USER-GUIDE.md)：如何建计划、看竞品/成本/红线、暂停与核验。
+- [当前业务合同](DUAL20-NO-BUDGET-CHANGE.md)、[参数和Hermes职责](HERMES-OPERATING-CONTRACT.md)、[运行分工](SIMPLIFIED-OPERATING-CONTRACT.md)。
+- [最新实际验收](TWO-MODE-SIMPLE-ACCEPTANCE-20261027.md)、[逐文件活动源](SOURCE-MAP.json)、[退役清单](RETIREMENT-MATRIX.md)。
+- [历史与每日合同](HISTORY-DAILY-CONTRACT.md)、[历史覆盖](HISTORICAL-COVERAGE-20261027.md)、[学习覆盖](LEARNING-COVERAGE-ACCEPTANCE-20261027.md)、[自然与故障证据](NATURAL-AND-FAULT-ACCEPTANCE.md)。
+
+原附件和施工过程见IMPLEMENTATION-SPEC.md、SPRINT-DUAL20-SPEC-v1.2.md及DELIVERY.md，只作历史。冲突五策略、预算、礼包等值、双10或逐轮Hermes规则已失效。当前教材6为发布候选，生产实际装载与统一PR正式CI另留回执；不把Git文件存在当作Hermes已学会。
