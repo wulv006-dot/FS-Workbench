@@ -109,6 +109,7 @@ def project_source(row,args,model=False):
         game_id=args['game_id'],category_id=args['category_id'],region_id=optional_id(row,'sid'),
         platform_attribute_id=optional_id(row,'aid'),raw_state=raw_state(row),quantity=observed_quantity(row),
         tiers=tiers,source_unit_price=decimal_observation(row.get('unit_price')) if not model else None,
+        source_display_price=decimal_observation(row.get('full_price_format')),
         source_price=decimal_observation(row.get('price')),source_discount=decimal_observation(row.get('discount')),
         specification=specification(row),currency=None,authoritative=False,available=False,checkout_enabled=False,
         warnings=[warning] if warning else [],verification_scope='observed_admin_fields_not_cart_serialization')
@@ -150,8 +151,22 @@ def bounded_pages(fetch,max_pages,size):
 def model_provider(reader,args):
     model=reader.catalog_model(args['model_id']);projected=project_source(model,args,True)
     rows,coverage=bounded_pages(lambda page:reader.search_goods_page(args['site_id'],args['game_id'],
-        model_id=args['model_id'],category_id=args['category_id'],page=page,limit=20),3,20)
-    products=[project_source(row,args) for row in rows]
+        model_id=args['model_id'],category_id=args['category_id'],page=page,limit=50),4,50)
+    # Admin's association LIST omits formatted one-item totals. Read the
+    # existing detail endpoint only for bounded rows which actually need it;
+    # never infer rounding from a raw high-precision unit price.
+    detail_rows=[];detail_count=0
+    for row in rows:
+        tiers,_=tier_observations(row)
+        if not tiers and decimal_observation(row.get('full_price_format')) is None:
+            detail_count+=1
+            if detail_count>12:raise ContractError('ASSOCIATION_DETAIL_LIMIT')
+            rid=identity(row,args)
+            current=reader.catalog_goods(rid)
+            if identity(current,args)!=rid:raise ContractError('DETAIL_ID_MISMATCH')
+            row=current
+        detail_rows.append(row)
+    products=[project_source(row,args) for row in detail_rows]
     warnings=['CURRENCY_MAPPING_REQUIRED','CART_SERIALIZATION_UNVERIFIED','SELLABILITY_UNVERIFIED']
     if not coverage['complete']:warnings.append('ASSOCIATION_INCOMPLETE')
     if not rows:warnings.append('SITE_ASSOCIATION_NOT_OBSERVED')

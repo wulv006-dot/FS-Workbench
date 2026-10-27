@@ -13,6 +13,6 @@ test('current four-game fixed cards retain safe flip semantics while random slot
   const css=fs.readFileSync(path.join(root,'event.css'),'utf8'),js=fs.readFileSync(path.join(root,'event.js'),'utf8');
   assert(css.includes('backface-visibility:hidden'));assert(css.includes('.flip-card.is-revealed{transform:rotateY(180deg)}'));
   assert(css.includes('.card-front{transform:rotateY(180deg)'));assert(css.includes('@media(prefers-reduced-motion:reduce)'));
-  assert(js.includes('Server-confirmed draw unavailable'));assert(js.includes('data-fixed-reveal'));assert(!js.includes('Math.random'));
+  assert(js.includes('Your collection could not be verified. Please try again to check the same request.'));assert(js.includes('data-fixed-reveal'));assert(!js.includes('Math.random'));
   assert.deepEqual(Array.from(context.SeasonalHalloweenData.games,g=>g.id),['fc','aion','wow','maplestory']);
 });

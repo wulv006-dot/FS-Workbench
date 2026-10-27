@@ -49,7 +49,7 @@ class ProviderTests(unittest.TestCase):
         params=session.calls[1][1]
         self.assertEqual([(params['search[%d][field]'%i],params['search[%d][val]'%i]) for i in range(4)],
             [('site_id','266'),('gid','1327'),('mid','500'),('cid','9623')])
-        self.assertEqual(params['limit'],20);self.assertTrue(result['coverage']['complete'])
+        self.assertEqual(params['limit'],50);self.assertTrue(result['coverage']['complete'])
         self.assertEqual([p['platform_attribute_id'] for p in result['products']],['21589','21587','21585'])
         product=result['products'][1]
         self.assertEqual(product['product_ref'],dict(site_id='266',game_id='1327',model_id='500',goods_id='1002'))
@@ -63,6 +63,17 @@ class ProviderTests(unittest.TestCase):
             self.assertIsNone(row['currency']);self.assertFalse(row['available']);self.assertFalse(row['checkout_enabled'])
         self.assertNotIn('PRIVATE_',json.dumps(result));self.assertNotIn('sku_id',product['product_ref'])
         self.assertEqual(product['specification']['saleprop']['observed'][0]['options'][0],dict(id=21,name='Option'))
+
+    def test_item_list_without_formatted_price_reads_scoped_details(self):
+        item_model=model(unit='',more=dict(saleprop=[],skuTableSet=[],baseprop=[]))
+        rows=[goods(1003,21589,unit='',more=dict(saleprop=[],skuTableSet=[],baseprop=[])),goods(1002,21587,unit='',more=dict(saleprop=[],skuTableSet=[],baseprop=[]))]
+        details=[dict(row,full_price_format='5.43') for row in rows]
+        result,session=self.invoke(self.request(),[detail(item_model),response(rows,2)]+[detail(row) for row in details])
+        self.assertEqual(len(session.calls),4)
+        self.assertEqual([row['source_display_price'] for row in result['products']],['5.43','5.43'])
+        self.assertEqual([call[1]['id'] for call in session.calls[-2:]],['1003','1002'])
+        with self.assertRaisesRegex(ContractError,'PROVIDER_SCOPE_MISMATCH'):
+            self.invoke(self.request(),[detail(item_model),response(rows,2),detail(dict(details[0],mid=501))])
 
     def test_no_products_or_missing_tables_return_honest_observations(self):
         result,_=self.invoke(self.request(),[detail(model(more={})),response([],0)])
@@ -87,14 +98,22 @@ class ProviderTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError,'PROVIDER_SCOPE_MISMATCH'):
             self.invoke(self.request(),[detail(model(cid=1))])
 
-    def test_per_model_three_page_limit_retains_partial_status_and_rechecks_anchor(self):
-        rows=[goods(rid) for rid in range(1060,1000,-1)]
-        result,session=self.invoke(self.request(),[detail(model()),response(rows[:20],61),response(rows[20:40],61),
-            response(rows[40:],61),response(rows[:20],61)])
-        self.assertEqual(len(result['products']),60);self.assertEqual(len(session.calls),5)
+    def test_per_model_bounded_200_rows_retains_partial_status_and_rechecks_anchor(self):
+        rows=[goods(rid) for rid in range(1200,1000,-1)]
+        pages=[response(rows[n:n+50],201) for n in range(0,200,50)]
+        result,session=self.invoke(self.request(),[detail(model())]+pages+[pages[0]])
+        self.assertEqual(len(result['products']),200);self.assertEqual(len(session.calls),6)
         self.assertFalse(result['coverage']['complete']);self.assertEqual(result['coverage']['reason'],'PAGE_LIMIT_REACHED')
-        self.assertEqual(result['coverage']['row_limit'],60);self.assertTrue(result['coverage']['anchor_rechecked'])
+        self.assertEqual(result['coverage']['row_limit'],200);self.assertTrue(result['coverage']['anchor_rechecked'])
         self.assertIn('ASSOCIATION_INCOMPLETE',result['warnings'])
+
+    def test_189_server_associations_are_complete_but_not_distinct_models(self):
+        rows=[goods(rid) for rid in range(1189,1000,-1)]
+        pages=[response(rows[n:n+50],189) for n in range(0,189,50)]
+        result,session=self.invoke(self.request(),[detail(model())]+pages+[pages[0]])
+        self.assertEqual(len(result['products']),189);self.assertTrue(result['coverage']['complete'])
+        self.assertEqual({p['product_ref']['model_id'] for p in result['products']},{'500'})
+        self.assertTrue(result['coverage']['anchor_rechecked'])
 
     def test_pagination_changed_total_short_page_and_changed_first_anchor_are_rejected(self):
         rows=[model(700),model(600),model(500)]

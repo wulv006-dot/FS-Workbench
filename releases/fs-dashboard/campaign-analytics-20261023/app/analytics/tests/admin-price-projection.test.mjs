@@ -56,3 +56,12 @@ test('import first then trusted provider publishes once without rewriting raw dr
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
  }
 });
+
+test('observed one-item display totals avoid guessing high-precision native rounding and keep SKU fields guarded',()=>{
+ const f=fixture();Object.assign(f.policy,{source_field:'full_price_format',price_semantics:'current_item_display_total',descriptive_baseprop:true,quantity_value:'1',quantity_unit:'item'});
+ for(const row of f.observation.products){row.quantity={unit:null};row.source_display_price='5.43';row.source_unit_price='5.42938000';row.specification.baseprop={present:true,observed:[{name:'Version'}]};}
+ let out=projectAdminPrices(f.observation,f.policy,{now});assert.equal(out.status,'reference_price_ready_not_checkout');assert.equal(out.model_contracts['123'].combinations[0].price.base_minor,543);
+ f.observation.products[0].source_display_price='1.005';assert.equal(projectAdminPrices(f.observation,f.policy,{now}).reason,'PRICE_PRECISION_UNVERIFIED');
+ f.observation.products[0].source_display_price='5.43';f.observation.products[0].specification.saleprop={present:true,observed:[{id:'purchase-option'}]};assert.equal(projectAdminPrices(f.observation,f.policy,{now}).reason,'SPECIFICATION_MAPPING_REQUIRED');
+ f.policy.quantity_value='2';assert.equal(projectAdminPrices(f.observation,f.policy,{now}).status,'blocked');
+});
