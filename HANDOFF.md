@@ -140,3 +140,21 @@ PR278/280/281均正式CI通过并合并，最终功能head d641ff9eb7cabc2651361
 ## 2026-10-25 所有报告的核心逻辑纠偏
 
 用户明确要求Hermes生成和Codex/ChatGPT自身指导、审核共用核心：先回答最重要的问题，给有主次的全局判断、方向性推断和取舍，再用关键事实支持并落到行动。语言通俗，图表/HTML按需；只对会改变方向的问题继续深查。正式规则、落实计划及真实验收见[报告核心逻辑目录](docs/planning/operator-report-review-20261025/PLAN.md)。PR472已正式CI合并；服务器两个正式报告方法已原生更新、实际读取解释并用于24号重做，旧稿保留。用户另已批准每天08:10只读抽查首份自然日报/周报/月报，覆盖完成即结束、最多两周；目前自然0/3，不恢复原暂停的价格跟踪。具体成品与验收以同目录ACCEPTANCE及SOURCE-MAP为准。
+
+## 2026-10-27 万圣节 Mystery Store 整轮改造（活动模块 campaign-analytics-20261023）
+
+用户要求把 187 上的万圣节活动页从"能开"推到"能卖且好看"：奖池扩到全量球员、价格实时但不闪断、倒计时做成时钟组件、4K 不空、卡片改成"商品图+名称+折扣徽章"、翻转可恢复。全部改动只在活动模块内，未碰认证、经营看板、采集计划或 FC 三页。
+
+发布序列（均为原 publisher `inspect` → `apply --approved-manifest-sha`，回退点在 `/var/backups/fs-navigation-20261006/` 同名目录）：`nav-20261027T101723Z`（PR #562 倒计时右上角）、`nav-20261027T103401Z`（PR #563 4K 视口）、`nav-20261027T111052Z`（PR #564 卡片化+FAQ）、`nav-20261027T135337Z`（PR #567 价格不消失/三卡统一/翻转可恢复，合并 `a34c9845`）、`nav-20261027T143508Z`（PR #568 过期价不再空转，合并 `02b6dafa`）、`nav-20261027T173601Z`（PR #570 去游戏小字+游戏卡提亮，合并 `a4761cf6`，CI run `40550894894`）。
+
+奖池与价格：`MAX_PRICE_ENTRIES` 20→80（#560）后策略写入 42 模型 / 126 商品 / 378 binding，公开配置 `campaign-preview-10`，池 44 模型、价格覆盖 49 合约 / 247 商品、43 个可抽，连抽 5 轮 5 个不同球员。`admin-price-provider.mjs` 原为逐个 `await`，模型一多就撞 20s 总超时 → `CATALOG_SEARCH_TIMEOUT` → 整份缓存 unavailable；改为缓存 Promise 再 `Promise.allSettled`（#561），整轮 53 条从超时降到 6 秒。模型 `43042209` 的 PC 行数量与已发布 contract 不一致，已在价格清单 SKIP（仍在池内但无价，故抽不到）。
+
+必须记住的六个坑：① `PUBLIC_OPTIONS_CONFLICT` 是**整份缓存**失效，provider 拿 Admin 实时行与 contract 的 `quantity`/`attributes`/`product_ref` 逐项比对；② 诊断脚本临时构造 entry 必须补齐 `baseline_region/currency/regional_adjustment/source_field/price_semantics/max_age_ms/rounding_contract`，否则一律报 `US_USD_BASELINE_REQUIRED`；③ policy 落盘后必须 `chmod 600`，`os.replace` 会把 mode 改成 644 并触发 `PRIVATE_PRICE_POLICY_REQUIRED`；④ 改任何 `app/` 静态资源都必须同一次发布里更新 `runtime/static-manifest.json`，否则 runtime 启动即 `STATIC_HASH_MISMATCH`、`/events/` 502；⑤ 用文本替换改 `current.json` 的时间戳会导致 `RUNTIME_UNAVAILABLE`（HTTP 500），必须结构化改单一 JSON 路径；⑥ 删死代码前 grep 全部调用点——删 `clock()` 时把 `nyDay()` 一起删掉，整页白屏。
+
+价格呈现口径（用户明确接受）：**保留旧值展示 + 结算按实时价**，不允许中途变成"无参考价"提示。`lastPrices` 按 `game:model:off:qty` 缓存最后一次成功价；同时把刷新定时器加了 5 秒下限（过期价格立刻刷新的既有行为保留），`#offer-slots` 的 innerHTML 只在内容变化时写，实测 12 秒内 DOM 变更 0 次。
+
+固定池不对外区分：三张卡标签统一 `MYSTERY PICK 01/02/03`，固定卡背面同样从 `? Reveal your surprise` 翻过来；跨日（America/New_York）清 `revealed`/`receipts`/`lastPrices` 并合上重翻。
+
+四张游戏卡偏暗不是本轮改的：根因是同日 15:18 的 `fb533e7` 给 `.game-art` 加了 `filter: saturate(.78) brightness(.8)`，`.game-shade` 又压到纯黑 `#0b0717`。PR #570 改为 `saturate(1.04) brightness(1.12) contrast(1.02)`、遮罩顶部 .42→.10 / 中部 .26→.06 / 底部保持 .9，标题仍压在近不透明带上。
+
+交接给下一手：商品图与折扣 icon 仍是占位（`✦` 与 CSS 徽章），用户将提供素材替换，替换后必须重走"改 app → pr_fast → PR → CI → 合并 → make_manifest/inspect/static-manifest/apply → 浏览器读回"。未做付款/下单/退款验收、未等自然跨日、未做移动端实机读回；这些缺口与本次证据同见模块 `DELIVERY.md` §11 与 `ACCEPTANCE.md` §G/§H。

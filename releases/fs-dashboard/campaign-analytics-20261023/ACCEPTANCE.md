@@ -90,3 +90,33 @@
 2. 万圣节随机档在 TTL 上限仍会 409（`HALLOWEEN_FIXED_MAPPING_REQUIRED` / `CURRENT_PRICE_UNAVAILABLE`），只是窗口从 5 分钟拉长到 15 分钟，根因（刷新失败时整层拒绝）未消除。
 3. FC 三页无"区服"维度（球员卡只有 PS/Xbox/PC），属商品结构，不是缺口。
 4. 未做付款、订单、退款与长期自然周期验收。
+
+
+## G. 万圣节活动页 UI 与价格呈现（2026-10-27 晚，`nav-20261027T173601Z` / PR #570）
+
+### G.1 静态资源与运行时
+
+- `/opt/fs-campaign-dashboard/seasonal/event.js` SHA256 `f98f31f40f6f7a9a0928f479cdfec0db95066922e0836298844562cd0d0717b3`；`event.css` `8bf8aebfad5aeb13422959efcc6688d05d66f410fc07bbf1123cf88b79836bd4`。
+- `runtime/static-manifest.json` 97 键不变，两个 seasonal 键已同步；旧件备份 `runtime/static-manifest.before-nav86.json`。
+- `fs-campaign-dashboard` / `fs-campaign-runtime` / `nginx` / `auth-portal` 均 `active`；`fs-campaign-runtime` 重启后日志无 `STATIC_HASH_MISMATCH`（近 3 分钟计数 0）。
+
+### G.2 浏览器实际读回（1600×1000，`https://47.85.224.112/events/seasonal/`）
+
+- 四张游戏卡 `.game-art` 计算样式 `filter: saturate(1.04) brightness(1.12) contrast(1.02)`；`.game-shade` 顶部 `rgba(31,18,50,.10)`、中部 `rgba(27,16,44,.06)`、底部 `rgba(11,7,23,.9)`。
+- 第一张游戏卡原图平均亮度 118/255（未取改动前同口径样本，不作前后对比声明）。
+- 卡正面 innerText 为 `10% OFF ✦ coins 1000K Coins`——**不含游戏名**；三槽标签仍 `MYSTERY PICK 01/02/03`（固定池身份不对外区分）。
+- 价格区：`$71.91` / `$79.90` 原价 / `Limited-Time Price`；`.unavailable-price` 计数 0。
+- `/events/seasonal/` HTTP 200。
+
+### G.3 未执行
+
+- 未做付款、下单、退款验收；未等待自然跨日（America/New_York）验证重置；未做移动端实机读回。
+- 商品图与折扣 Icon 仍为占位（`✦` 与 CSS 徽章），等素材替换后需重新走一次本流程。
+
+---
+
+## H. 本次会话的测试面（2026-10-27 晚）
+
+- `pr_fast.py` 受影响组 `campaign-analytics` 离线通过（含 `halloween52-browser` / `halloween61-browser` / `catalog.test.cjs`）。
+- 三处断言按新行为更新，不是回退产品：`catalog.test.cjs` 的失败文案、`ops-presentation-browser.mjs` 与 `halloween52-browser.cjs` 的 `/1000K Coins/`（固定池数量不再公开）与「价格缺失即 unavailable」。
+- CI 有一次 `ops-presentation-browser.mjs` 报 `Cannot read properties of null`，本地连跑两次 PASS、CI 重跑 PASS，判为时序 flaky。

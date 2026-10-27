@@ -50,6 +50,57 @@
 - 依据与边界：TTL 是"刷新连续失败时的容忍窗口"，不是日常价格年龄（实测 12 个模型同一轮 3 秒内取完、60 秒一轮）；硬上限 1 小时（`max_age_ms<=3600000` 且缓存校验 `expires_at-generated_at<=3600000`），超出会被 policy 校验拒绝、缓存不可用。
 - 回退：把 12 条改回 `300000` 并恢复备份文件即可，无需重启。
 
+### 5. 万圣节奖池扩容与价格并发（PR #560 / #561，policy + 代码）
+
+- 来源：分支 `codex/seasonal-countdown-widget80`；#560 合并后 `MAX_PRICE_ENTRIES` 20 → 80；#561 把 `admin-price-provider.mjs` 的逐个 `await` 改成先缓存 Promise 再 `Promise.allSettled`。
+- 池子写入（policy，非代码发布）：42 个模型 / 126 个商品 / 378 条 binding 增量，`valid_until` 一年；`set_end_only.py` 结构化只改 `halloween.ends_at = 2026-11-08T23:59:59-05:00`（文本替换会导致 `RUNTIME_UNAVAILABLE`）。
+- 结果：公开配置 `campaign-preview-10`，池 44 个模型、价格覆盖 49 个合约 / 247 个商品、43 个可抽；连抽 5 轮得到 5 个不同球员。
+- 排除项：模型 `43042209` 的 PC 行数量与已发布 contract 不一致（`admin-266-1327-169757277-21589`），已在价格清单 SKIP——它仍在池内但无价，因此抽不到。
+- 已知坑：`PUBLIC_OPTIONS_CONFLICT` 是**整份缓存**失效（provider 拿 Admin 实时行与 contract 的 `quantity`/`attributes`/`product_ref` 逐项比对，任一条不一致即全灭）；policy 落盘后必须 `chmod 600`，`os.replace` 会改成 644 触发 `PRIVATE_PRICE_POLICY_REQUIRED`。
+
+### 6. `nav-20261027T101723Z`（PR #562：倒计时移到右上角）
+
+- 目标：`seasonal/index.html` + `event.js` + `event.css`。
+- hero 的 `ENDS IN` 从角色脚下 `.story-bottom .event-meta` 移到 `.game-picker .picker-actions`（右上角，与 `04 STORES` 同排）。
+- 进游戏后 `#event-countdown.hidden = !!activeGame`，专区页只保留每日刷新倒计时；移动端 `.picker-actions` 改 `flex-wrap` 让倒计时独占一行。
+
+### 7. `nav-20261027T103401Z`（PR #563：4K 视口空白）
+
+- 目标：`event.css`。
+- 原因：`.hero` / `.hero-inner` 固定 `min-height:608px`，4K 下内容只到 608，下方全空。
+- 修法：`@media(min-height:780px)` 下 `body{min-height:100vh;display:flex;flex-direction:column}` + `main/.hero{flex:1}` + `.hero-inner{align-content:center}`；超宽屏 `@media(min-width:2000px){--content:1760px}`。
+- 实测 3840×2160：`document.scrollHeight=2160` 与视口等高；1600×1000 仍 1380px。
+
+### 8. `nav-20261027T111052Z`（PR #564：卡片化与版式适配）
+
+- 目标：`event.css` + `event.js` + `index.html`。
+- 三列 offer 改为完整商品卡（价格与 Buy Now 进卡内）；卡高 `clamp(300px,32vh,540px)`；球员标题拆主标题 + 副属性行；新增 About/FAQ 区块（4 条）填充高视口。
+- 口径依据：内容列限宽 1200–1440px（宽屏可适度放大但有上限），`clamp()` 流式排版，超宽屏靠"限宽 + 放大主体 + 真实内容区"而不是无限拉宽。
+
+### 9. `nav-20261027T135337Z`（PR #567：价格不消失 + 三卡统一 + 翻转可恢复）
+
+- 目标 97 键静态清单内的 3 个 seasonal 文件（`event.js` / `event.css` / `index.html`）。
+- 价格保留：`lastPrices` Map 按 `game:model:off:qty` 缓存，`referenceFor` 取价失败时回退到最后一次成功值；文案 `Limited-Time Price`；删除 `Choose your server to continue` 与 native binding 提示。**结算仍按实时价**（用户明确接受的折中）。
+- 三卡统一：`faceContent()` 统一正面（商品图 + 名称 + 右上角折扣徽章），固定卡背面也改为 `? Reveal your surprise`，标签统一 `MYSTERY PICK 01/02/03`——固定池身份不再对外暴露。商品图当时为占位 `✦`。
+- 翻转卡死：`standalone-adapter` 的 fetch 原本无超时，挂起时卡片永久禁用；已加 `AbortSignal.timeout(15000)` + reveal 重试一次（复用同一 request_id，不会重抽）。
+- 跨天重置：`nyDay()`（America/New_York）变化时清 `revealed`/`receipts`/`lastPrices`，卡片合上重新翻。
+
+### 10. `nav-20261027T143508Z`（PR #568：过期价格不再空转刷新）
+
+- 目标：`event.js`。
+- 风险属实：`lastPrices` 保留了过期的 `expires_at` → `nextExpiry` 是过去时间 → 定时器延迟被钳成 1ms → 每 1ms 重建卡片并调 `refresh()`。
+- 修法：定时器加 5 秒下限；`#offer-slots` 的 innerHTML 只在内容变化时写。实测 12 秒内 DOM 变更 0 次（修复前每 1ms 一次），价格仍保持显示、过期后仍能及时刷新。
+
+### 11. `nav-20261027T173601Z`（PR #570：去掉卡片游戏小字 + 游戏卡提亮）
+
+- 来源：分支 `codex/seasonal-card-polish86`，合并 `a4761cf664379498c4de0adb4e13d939768199b1`；CI run `40550894894` success。
+- 目标 6 个 / 实际变化 2 个（`seasonal/event.js` + `seasonal/event.css`）；manifest `b9c7d7ceb71b396a40cf21fee89ae1c4e4f4e1af04f8a5aad8b52a2980529e50`。
+- ① 用户要求去掉商品卡正面的游戏小字（FC27 / Aion2）：`faceContent()` 不再输出 `<small>` 游戏名，正面只剩徽章 + 商品图 + 标题 + 属性行。
+- ② 四张游戏卡偏暗的根因是同日 15:18 的提交 `fb533e7`（PR #554 "seasonal page polish and reachable live checkout"），给 `.game-art` 加了 `filter: saturate(.78) brightness(.8)`，`.game-shade` 又叠了一层压到纯黑 `#0b0717` 的紫色遮罩。本次改为 `saturate(1.04) brightness(1.12) contrast(1.02)`，遮罩顶部 .42→.10、中部 .26→.06、底部保持 .9（标题仍压在近不透明区）。
+- `runtime/static-manifest.json` 两个键同步：`seasonal/event.js` `f98f31f4…`、`seasonal/event.css` `8bf8aebf…`；旧清单备份 `runtime/static-manifest.before-nav86.json`。
+- 上线读回：四个服务 `active`、`STATIC_HASH_MISMATCH` 0 次、`/events/seasonal/` 200；卡正面 innerText 为 `10% OFF ✦ coins 1000K Coins`（无游戏名）、槽位仍 `MYSTERY PICK 01/02/03`、价格 `$71.91` / `Limited-Time Price` / `unavailable-price` 0 个；第一张游戏卡原图平均亮度实测 118/255（改动前的数值未在同一会话取样，不作对比声明）。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261027T173601Z`。
+
 ---
 
 ## 回退与边界
