@@ -426,7 +426,9 @@
       "version": "Gold Non Rare",
       "league": "Bundesliga",
       "club": "FC Bayern München",
-      "nation": "Germany"
+      "nation": "Germany",
+      "image": "assets/product-170019049.webp",
+      "imageSource": "https://assets.mmoexp.com/player/fc27/346.png"
     },
     "170019065": {
       "key": "170019065",
@@ -476,7 +478,9 @@
       "version": "Gold Non Rare",
       "league": "Serie A Enilive",
       "club": "Inter",
-      "nation": "Argentina"
+      "nation": "Argentina",
+      "image": "assets/product-170019065.webp",
+      "imageSource": "https://assets.mmoexp.com/player/fc27/454.png"
     },
     "170020445": {
       "key": "170020445",
@@ -526,7 +530,9 @@
       "version": "Team of the Week",
       "league": "Serie A Enilive",
       "club": "Inter",
-      "nation": "France"
+      "nation": "France",
+      "image": "assets/product-170020445.webp",
+      "imageSource": "https://assets.mmoexp.com/player/fc27/22769.png"
     },
     "184101943": {
       "key": "184101943",
@@ -2192,7 +2198,9 @@
       "version": "Ultimate Scream",
       "league": "Serie A Enilive",
       "club": "Inter",
-      "nation": "Turkey"
+      "nation": "Turkey",
+      "image": "assets/product-186432719.webp",
+      "imageSource": "https://assets.mmoexp.com/images/202610/d095101a6ebde41efc2b76ff577e07351a60beab.png"
     },
     "186475859": {
       "key": "186475859",
