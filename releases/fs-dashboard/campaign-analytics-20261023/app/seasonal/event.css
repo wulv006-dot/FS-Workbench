@@ -930,7 +930,69 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
   :root { --content: 1760px; }
 }
 @media (min-width: 3000px) {
-  :root { --content: 2200px; }
+  :root { --content: 1760px; }
+}
+
+/* V13: a real content section closes the page. On tall monitors this is what
+   fills the space below the hero, instead of an empty band. */
+.event-faq { background: linear-gradient(180deg, #0b1423, #0a101d); border-top: 1px solid rgba(182,132,225,.16); padding: 54px 0 58px; }
+.faq-inner { width: min(var(--content), calc(100% - 64px)); margin: 0 auto; }
+.faq-inner h2 { margin: 0 0 12px; font-size: clamp(20px, 1.6vw, 30px); letter-spacing: -.3px; color: #f2e9ff; }
+.faq-intro { margin: 0 0 30px; max-width: 760px; color: #a8b2c9; font-size: clamp(12px, 1vw, 15px); line-height: 1.8; }
+.faq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 40px; }
+.faq-item { padding: 20px 22px; border: 1px solid rgba(182,132,225,.18); border-radius: 12px; background: rgba(34,20,52,.34); }
+.faq-item h3 { margin: 0 0 9px; font-size: clamp(13px, 1.1vw, 17px); color: #ffd08a; letter-spacing: .1px; }
+.faq-item p { margin: 0; color: #a8b2c9; font-size: clamp(11px, .95vw, 14px); line-height: 1.85; }
+@media (max-width: 900px) {
+  .faq-grid { grid-template-columns: 1fr; gap: 16px; }
+  .event-faq { padding: 36px 0 40px; }
+  .faq-inner { width: calc(100% - 40px); }
+}
+
+/* V12: each offer reads as one product card rather than a floating tile with a
+   detached price strip. Heights and type scale with the viewport so tall
+   monitors get a balanced composition instead of small content in empty space. */
+@media (min-width: 901px) {
+  .hero-inner { gap: 44px; }
+  .offer-slots { gap: 22px; }
+  .offer-slot {
+    min-height: calc(clamp(300px, 32vh, 540px) + 160px);
+    border: 1px solid rgba(182,132,225,.26);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(48,26,70,.42), rgba(28,15,42,.6));
+    box-shadow: 0 12px 30px rgba(0,0,0,.24);
+    overflow: hidden;
+  }
+  .offer-slot .slot-label { margin: 0; padding: 13px 10px 0; font-size: 10px; letter-spacing: 1.8px; }
+  .offer-slot .flip-card { height: clamp(300px, 32vh, 540px); margin: 12px 12px 0; width: calc(100% - 24px); }
+  .offer-slot .card-back, .offer-slot .card-front { border-radius: 14px; }
+  .offer-slot .slot-detail { margin: 0; padding: 14px 18px 16px; border: 0; border-top: 1px solid rgba(183,133,213,.2); border-radius: 0; background: transparent; min-height: 118px; }
+  .offer-slot .reference-price strong { font-size: clamp(26px, 1.8vw, 34px); }
+  .offer-slot .buy-button { min-height: 42px; font-size: 14px; }
+  .card-front { gap: 12px; padding: 24px 16px; }
+  .card-front > strong { font-size: clamp(17px, 1.1vw, 22px); line-height: 1.45; max-width: 100%; overflow-wrap: anywhere; }
+  .card-front .card-attrs { display: block; margin-top: 3px; font-size: .68em; font-weight: 500; letter-spacing: .2px; color: #bfa6d8; line-height: 1.5; }
+  .card-front > b { font-size: clamp(30px, 2vw, 40px); line-height: 1.1; white-space: nowrap; }
+  .card-back > strong { font-size: 20px; }
+  .offers-heading h2, .picker-heading h2 { letter-spacing: -.2px; }
+  .picker-heading h2 { font-size: clamp(24px, 1.7vw, 32px); }
+  .game-offers-note { font-size: 13px; }
+}
+@media (min-width: 2000px) {
+  .hero-inner { gap: 60px; }
+  .offer-slots { gap: 26px; }
+  .offers-refresh .countdown-seg b { font-size: 24px; }
+  .picker-heading h2 { font-size: 34px; }
+  .card-front > strong { font-size: 26px; }
+  .card-front > b { font-size: 46px; }
+  .card-back > strong { font-size: 26px; }
+  .card-back > small, .card-front > small { font-size: 15px; }
+  .offer-slot .reference-price strong { font-size: 40px; }
+  .offer-slot .reference-price > span { font-size: 13px; }
+  .offer-slot .buy-button { font-size: 17px; min-height: 48px; }
+  .offer-slot .slot-label { font-size: 12px; }
+  .game-offers-note { font-size: 16px; }
+  .hero-clock .countdown-seg b { font-size: 26px; }
 }
 .offers-refresh { margin: 7px 0 0; color: #b6a4cd; font-size: 11px; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
 .offers-refresh:empty { display: none; }
