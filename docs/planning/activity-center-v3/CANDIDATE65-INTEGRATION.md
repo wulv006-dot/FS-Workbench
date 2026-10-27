@@ -4,7 +4,7 @@ Original input: `libfile_d147c2b4fa24819185df6312c0ceea39`, ZIP SHA256 `a9719d1a
 
 Applied as a patch to main `6e42c1f9b5e01ee0b7ef67da118fde0304cfe793`; no intervening activity-module or pr-fast delta. Other main changes retained. Existing independent review of the exact input is reused; no new review tier.
 
-Local integration delta: restore the existing preview robots tag and regenerate CollectionPage/ItemList via the unchanged `seasonal-source/build-seo.cjs`; update one obsolete static failure-message assertion to the current same-request retry wording. No cart/pricing/business semantics changed by this delta. Public metadata contains no invented Offer prices or category URLs.
+Local integration delta: restore the existing preview robots tag and regenerate CollectionPage/ItemList via the unchanged `seasonal-source/build-seo.cjs`; update one obsolete static failure-message assertion to the current same-request retry wording and include the now-supported WoW/Maple IDs in the editor game-option assertion. No cart/pricing/business semantics changed by this delta. Public metadata contains no invented Offer prices or category URLs.
 
 Local Windows checks: 231 affected Node tests, 209 backend tests, native-page59-browser, halloween61-browser, products-page-flow-browser and halloween52-browser passed. Browser native-add and Apply responses are explicitly simulated. Required Linux PR CI remains authoritative for POSIX publisher checks; local isolated success is not evidence of production purchase or discount application.
 
