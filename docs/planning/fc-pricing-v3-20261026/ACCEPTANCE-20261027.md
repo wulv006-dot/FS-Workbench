@@ -4,11 +4,11 @@
 
 ## 当前版本与计划
 
-- 当前代码：`a9385fcbae2b794c0e299a36d6f76957361b0750`，[PR536](https://github.com/wulv006-dot/FS-Workbench/pull/536)。正式CI run40422926986/job121921506043，227项FC V3检查通过。局部价格组缺口不再冻结无关样本，真实PC30笔对应的两个曝光观察已接回原学习缓存，见[学习覆盖验收](LEARNING-COVERAGE-ACCEPTANCE-20261027.md)。PR534的原快照旧策略回放、Hermes只读桥和登录后的实际入口已核，见[回放验收](LEGACY-REPLAY-ACCEPTANCE-20261027.md)。PR532页面遗留00:20已对齐实际02:20，真实展示保持。PR530历史补齐逻辑保持，实际源码SHA以当前SOURCE-MAP为准。PR529修复已核历史PlayStation原生标签，PR530沿原Admin/ES补齐指定历史缺日；真实结果见[历史覆盖核验](HISTORICAL-COVERAGE-20261027.md)。PR526页面重复原因去重及真实展示验收保留。实际91/91目标SHA匹配，见[SOURCE-MAP](SOURCE-MAP.json)。PR520–523分别修复积压缓存吞吐、默认地区层底价舍入、业务无解分类及每轮快照保存，完整发布链见[接续核验](NATURAL-AND-FAULT-ACCEPTANCE.md)。
+- 当前代码：`7ca8b90ccec88ae8026267fb4b5495741b074cb2`，[PR540](https://github.com/wulv006-dot/FS-Workbench/pull/540)。正式CI run40426795918/job121934454028，230项FC V3检查通过。竞品卡片、Hermes全文换行及实际页面验收见[页面核验](MARKET-UI-ACCEPTANCE-20261027.md)。PR538多商品行购买/赠送K修复已部署并回接原缓存。局部价格组缺口不再冻结无关样本，真实PC30笔对应的两个曝光观察已接回原学习缓存，见[学习覆盖验收](LEARNING-COVERAGE-ACCEPTANCE-20261027.md)。PR534的原快照旧策略回放、Hermes只读桥和登录后的实际入口已核，见[回放验收](LEGACY-REPLAY-ACCEPTANCE-20261027.md)。PR532页面遗留00:20已对齐实际02:20，真实展示保持。PR530历史补齐逻辑保持，实际源码SHA以当前SOURCE-MAP为准。PR529修复已核历史PlayStation原生标签，PR530沿原Admin/ES补齐指定历史缺日；真实结果见[历史覆盖核验](HISTORICAL-COVERAGE-20261027.md)。PR526页面重复原因去重及真实展示验收保留。实际91/91目标SHA匹配，见[SOURCE-MAP](SOURCE-MAP.json)。PR520–523分别修复积压缓存吞吐、默认地区层底价舍入、业务无解分类及每轮快照保存，完整发布链见[接续核验](NATURAL-AND-FAULT-ACCEPTANCE.md)。
 - 双20/冲量/无预算：[PR515](https://github.com/wulv006-dot/FS-Workbench/pull/515)，merge89086d090809d70dd8899f3e57a6a466f18d2ac3；正式196项FC及87项知识检查通过。
 - 英国专项与完整指南：[PR516](https://github.com/wulv006-dot/FS-Workbench/pull/516)，merge3fa60c797259a82c59925ac52899afd20f0a028f；202项检查通过。原编号类别联动兼容：[PR517](https://github.com/wulv006-dot/FS-Workbench/pull/517)，merge5120b4e70aa6a0ed6e69e136bcec032374ade249；206项检查通过。
 - 原计划`15010688-bf97-5dd8-a33e-b4ae3c360403`：revision2/ACTIVE，`fc27_dual20_v1`、`budget_policy=none`，有效daily_budget/total_budget字段已移除，迁移前记录保留。政策revision41、ON/auto、120分钟、三平台、最低毛利20%。
-- 原截止仍为2026-10-27 22:30北京时间；没有延长试验。首轮真实程序写价完成03:10:25；05:12:35与07:14:52两个自然轮均正常完成为INFEASIBLE、未写价、attempt0，下轮09:14:52。英国专项、只读核验和代码发布未重置间隔。
+- 原截止仍为2026-10-27 22:30北京时间；没有延长试验。首轮真实程序写价完成03:10:25；05:12:35与07:14:52两个自然轮均正常完成为INFEASIBLE、未写价、attempt0，当时下轮09:14:52。08:20:58收到已登录Chrome页面暂停请求，用户确认非本人主动暂停并授权恢复；08:26:23恢复原计划后下一轮为10:26:23，间隔仍120分钟。代码发布未重置间隔。
 
 ## 首轮真实程序执行
 
@@ -66,4 +66,4 @@
 - Watchdog/恢复回归含原ID、UNKNOWN不重发、去重、服务冷启动、只读影子隔离及队列错误退避；现场已对账NOT_SENT、原失败和发布健康等待。未做破坏性生产浏览器故障注入，也未声称全部故障路径都在线注入通过。
 - 05:10首个新合同自然周期已实际完成，无新写入、无技术重试，按正常周期继续；随后更多周期无重复写入/旧策略回摆/无限重启和下次跨日影子仍待真实时点逐轮核证。现场隔离影子损坏输入、恢复、重复消费及并发锁测试已通过，未向生产浏览器注入破坏性故障。
 
-私有原样证据保留在本任务`.agent_runtime/fc-pricing-v3-20261026/`：first-dual20-acceptance.json、uk-retirement-acceptance.json、legacy-retirement-acceptance.json、current-source-a9385fc.json及原发布日志。完整订单、会话和后台载荷未上传Git或Notion。
+私有原样证据保留在本任务`.agent_runtime/fc-pricing-v3-20261026/`：first-dual20-acceptance.json、uk-retirement-acceptance.json、legacy-retirement-acceptance.json、current-source-7ca8b90.json及原发布日志。完整订单、会话和后台载荷未上传Git或Notion。
