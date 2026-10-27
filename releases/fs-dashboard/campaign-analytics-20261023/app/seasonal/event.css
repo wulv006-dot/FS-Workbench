@@ -912,6 +912,26 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
   .picker-actions .hero-clock { order: 3; flex-basis: 100%; margin-right: 0; }
   .hero-clock .countdown-seg b { font-size: 17px; }
 }
+
+/* V10: on very tall viewports the page used to stop at a 608px hero and leave a
+   large empty band underneath. Let the event fill the viewport instead, with the
+   two-column content centred inside it. */
+@media (min-height: 780px) {
+  body { display: flex; flex-direction: column; min-height: 100vh; }
+  main { flex: 1; display: flex; flex-direction: column; }
+  .hero { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .hero-inner { flex: 1; align-content: center; min-height: 0; }
+  .hero-story { justify-content: center; }
+}
+
+/* V11: ultra-wide monitors get a wider content column instead of a 1380px strip
+   surrounded by empty space. */
+@media (min-width: 2000px) {
+  :root { --content: 1760px; }
+}
+@media (min-width: 3000px) {
+  :root { --content: 2200px; }
+}
 .offers-refresh { margin: 7px 0 0; color: #b6a4cd; font-size: 11px; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
 .offers-refresh:empty { display: none; }
 
