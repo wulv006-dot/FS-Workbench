@@ -20,28 +20,36 @@ p2pah 新后台 (admin-api.p2pah.cn) API 助手
   python p2pah_api.py edit <id>             # 打印编辑表单(只读)
 """
 import json
+import math
 import os
 import subprocess
 import sys
 import time
 import uuid
+import tempfile
+from write_contract import serialized, execute_bound_plan
+from pathlib import Path
 
-def _fs_shared_admin_token():
-    import importlib.util
-    spec = importlib.util.spec_from_file_location('fs_shared_admin', '/opt/fs-shared-session/shared_admin.py')
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    token, _ = module.admin_token_from_service()
-    if not token:
-        raise RuntimeError('FS_SHARED_SESSION_UNAVAILABLE')
-    return token
-
-
-BASE = "http://127.0.0.1:8911"
+BASE = "http://127.0.0.1:8911"   # 2026-10-27 admin 域切数据中台 HMAC 本地签名代理
 DIR = os.path.dirname(os.path.abspath(__file__))
-TOKEN_FILE = os.path.join(DIR, "_token.txt")
-CK_FILE = os.path.join(DIR, "_ck.txt")
-CRED = {}
+DATA_DIR = str(Path(os.environ.get("NBA_DATA_DIR") or (Path.home()/".local"/"state"/"fs-nba-reprice")).resolve())
+if Path(DATA_DIR).is_relative_to(Path(DIR).resolve().parent):
+    raise RuntimeError("NBA_DATA_DIR_MUST_BE_OUTSIDE_SOURCE")
+TOKEN_FILE = os.path.join(DATA_DIR, "_token.txt")
+CK_FILE = os.path.join(DATA_DIR, "_ck.txt")
+
+def prepare_runtime():
+    os.makedirs(DATA_DIR, mode=0o700, exist_ok=True)
+
+def private_write(path, value):
+    prepare_runtime()
+    fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(value)
+CRED = {
+    "username": os.environ.get("P2PAH_ADMIN_USERNAME", ""),
+    "password": os.environ.get("P2PAH_ADMIN_PASSWORD", ""),
+}
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36")
@@ -53,13 +61,23 @@ TARGET_GID = "1329"
 AID_MAP = {"21595": "PlayStation 5", "21591": "Xbox Series X|S", "21597": "PC Platform"}
 
 
-_TMP_BODY = os.path.join(DIR, "_api_body.tmp")
+_runtime_serialized = serialized(DATA_DIR)
 
 
+@_runtime_serialized
 def _curl(method, url, headers=None, data=None, out_file=None, timeout=40,
           cookie_jar=True):
     """返回 (http_code, bytes)。out_file 非空时把响应体写到该文件。"""
-    dst = out_file or _TMP_BODY
+    prepare_runtime()
+    if out_file:
+        dst=out_file
+    else:
+        fd,dst=tempfile.mkstemp(dir=DATA_DIR,prefix=".api-response-")
+        os.close(fd)
+    # Precreate outputs privately before curl overwrites them.
+    private_write(dst, "")
+    if cookie_jar and not os.path.exists(CK_FILE):
+        private_write(CK_FILE, "")
     cmd = ["curl", "-sS", "-g", "-o", dst, "-w", "%{http_code}",
            "--max-time", str(timeout), "-X", method,
            "-H", f"User-Agent: {UA}",
@@ -81,18 +99,20 @@ def _curl(method, url, headers=None, data=None, out_file=None, timeout=40,
     if cookie_jar and os.path.exists(CK_FILE):
         cmd += ["-b", CK_FILE, "-c", CK_FILE]
     cmd.append(url)
-    r = subprocess.run(cmd, capture_output=True)
-    code = r.stdout.decode("utf-8", "ignore").strip()
-    body = open(dst, "rb").read() if os.path.exists(dst) else b""
-    return code, body
+    try:
+        r = subprocess.run(cmd, capture_output=True)
+        code = r.stdout.decode("utf-8", "ignore").strip()
+        body = open(dst, "rb").read() if os.path.exists(dst) else b""
+        return code, body
+    finally:
+        if not out_file and os.path.exists(dst):
+            os.unlink(dst)
 
 
 def api(method, path, data=None, token=True):
-    if path in ('/admin/index/login', '/api/common/refreshToken'):
-        raise RuntimeError('FS_SHARED_AUTH_ONLY')
     hdr = {}
     if token:
-        tk = _fs_shared_admin_token()
+        tk = open(TOKEN_FILE, encoding="utf-8").read().strip() if os.path.exists(TOKEN_FILE) else ""
         if tk:
             hdr["batoken"] = tk
     code, body = _curl(method, BASE + path, hdr, data)
@@ -102,8 +122,32 @@ def api(method, path, data=None, token=True):
         return code, body.decode("utf-8", "ignore")
 
 
+@_runtime_serialized
 def login():
-    return _fs_shared_admin_token()
+    captcha_id = str(uuid.uuid4())
+    png = os.path.join(DATA_DIR, "_adm_cap.png")
+    _curl("GET", f"{BASE}/api/common/captcha?server=1&id={captcha_id}",
+          {"Accept": "image/avif,image/webp,*/*"}, out_file=png, cookie_jar=True)
+    ocr = os.path.join(DIR, "ocr_captcha.py")
+    if os.environ.get("PYTHON"):
+        env_py = os.environ["PYTHON"]
+    elif os.name == "nt":
+        env_py = r"C:\Users\Administrator\.workbuddy\binaries\python\envs\default\Scripts\python.exe"
+    else:
+        env_py = "python3"
+    r = subprocess.run([env_py, ocr, png], capture_output=True)
+    code = r.stdout.decode("utf-8", "ignore").strip()
+    print("[captcha] recognition completed")
+    body = {"username": CRED["username"], "password": CRED["password"],
+            "captcha": code, "captcha_id": captcha_id, "keep": True, "loading": False}
+    status, js = api("POST", "/admin/login", body, token=False)
+    print("[login] completed")
+    if isinstance(js, dict) and js.get("code") == 1:
+        tk = js["data"]["token"]
+        private_write(TOKEN_FILE, tk)
+        print("[login] session saved")
+        return tk
+    return None
 
 
 def find_vc():
@@ -146,12 +190,19 @@ TARGETS = [
 def read_one(tid):
     code, js = api("GET", f"/admin/goods.Goods/edit?id={tid}")
     if not isinstance(js, dict) or js.get("code") != 1:
-        raise RuntimeError(f"读取 {tid} 失败: {js}")
+        raise RuntimeError("UPSTREAM_PRODUCT_READ_FAILED")
     return js["data"]["row"]
 
 
+@_runtime_serialized
 def write_one(tid, unit_price):
     """把 unit_price 写回指定产品, 返回 (ok, msg, old)"""
+    if os.environ.get("WRITE_READY") != "true":
+        raise RuntimeError("WRITE_DISABLED")
+    if type(unit_price) not in (int, float) or not math.isfinite(unit_price) or unit_price <= 0:
+        raise ValueError("INVALID_PRICE")
+    if tid not in {t["id"] for t in TARGETS}:
+        raise ValueError("INVALID_PRODUCT")
     row = read_one(tid)
     old = row.get("unit_price")
     row["unit_price"] = unit_price
@@ -159,10 +210,11 @@ def write_one(tid, unit_price):
         row.pop(k, None)
     code, js = api("POST", "/admin/goods.Goods/edit", row)
     ok = isinstance(js, dict) and js.get("code") == 1
-    msg = js.get("msg") if isinstance(js, dict) else str(js)[:200]
+    msg = "UPSTREAM_WRITE_CONFIRMED" if ok else "UPSTREAM_WRITE_FAILED"
     return ok, msg, old
 
 
+@_runtime_serialized
 def apply_prices(price_map):
     """price_map: {'PlayStation 5':0.1504, 'Xbox Series X|S':0.1504, 'PC Platform':0.0859}"""
     print("=== 写入前 ===")
@@ -186,16 +238,21 @@ def apply_prices(price_map):
 
 
 def ensure_token():
-    return bool(_fs_shared_admin_token())
+    """探测 token 是否有效, 失效则重新登录"""
+    code, js = api("GET", "/admin/goods.Goods/index?page=1&limit=1")
+    if isinstance(js, dict) and js.get("code") == 1:
+        return True
+    print("[ensure_token] token 失效, 重新登录...", file=sys.stderr)
+    return login() is not None
 
 
-def write_from_file(path_in):
+def _write_prices(data):
     """从 JSON 文件读价格并写入; 打印一行 JSON 结果"""
-    data = json.load(open(path_in, encoding="utf-8"))
+    if os.environ.get("WRITE_READY") != "true" or not isinstance(data, dict) or data.get("confirm") != "NBA_PRICE_APPLY":
+        return {"ok":False,"error":"WRITE_DISABLED_OR_UNCONFIRMED"}
     prices = data.get("prices") if isinstance(data, dict) else None
     if not prices:
-        print(json.dumps({"ok": False, "error": "缺少 prices"}, ensure_ascii=False))
-        return
+        return {"ok": False, "error": "缺少 prices"}
     area2key = {"PS": "PlayStation 5", "PlayStation 5": "PlayStation 5",
                 "Xbox": "Xbox Series X|S", "XBOX": "Xbox Series X|S",
                 "Xbox Series X|S": "Xbox Series X|S",
@@ -204,14 +261,13 @@ def write_from_file(path_in):
     for k, v in prices.items():
         key = area2key.get(str(k))
         if not key:
-            print(json.dumps({"ok": False, "error": f"未知平台 {k}"}, ensure_ascii=False))
-            return
-        if not (float(v) > 0):
-            print(json.dumps({"ok": False, "error": f"{key} 售价非法: {v}"}, ensure_ascii=False))
-            return
+            return {"ok": False, "error": f"未知平台 {k}"}
+        if type(v) not in (int, float) or not math.isfinite(v) or not 0 < v <= 9007199254740991:
+            return {"ok": False, "error": f"{key} 售价非法: {v}"}
         pmap[key] = round(float(v), 4)
 
-    ensure_token()
+    if not ensure_token():
+        return {"ok":False,"error":"UPSTREAM_LOGIN_FAILED"}
     results, verify = [], {}
     for t in TARGETS:
         if t["key"] not in pmap:
@@ -219,7 +275,7 @@ def write_from_file(path_in):
         try:
             ok, msg, old = write_one(t["id"], pmap[t["key"]])
         except Exception as e:
-            ok, msg, old = False, str(e), None
+            ok, msg, old = False, "UPSTREAM_WRITE_FAILED", None
         results.append({"platform": t["key"], "area": {"PlayStation 5": "PS", "Xbox Series X|S": "Xbox",
                                                        "PC Platform": "PC"}[t["key"]],
                         "id": t["id"], "aid": t["aid"], "old": old,
@@ -235,7 +291,21 @@ def write_from_file(path_in):
         verify[t["key"]] = {"current": cur, "expect": pmap[t["key"]],
                             "match": cur is not None and abs(cur - pmap[t["key"]]) < 1e-6}
     allok = all(r["ok"] for r in results) and all(v["match"] for v in verify.values())
-    print(json.dumps({"ok": allok, "results": results, "verify": verify}, ensure_ascii=False))
+    return {"ok": allok, "results": results, "verify": verify}
+
+
+
+def write_from_file(path_in):
+    try:
+        if os.environ.get("WRITE_READY") != "true":
+            raise RuntimeError("WRITE_DISABLED")
+        with open(path_in, encoding="utf-8") as source:
+            envelope=json.load(source)
+        result=execute_bound_plan(DATA_DIR,envelope,_write_prices)
+    except (ValueError,RuntimeError,OSError):
+        # No raw file, credential, upstream response or exception text in output.
+        result={"ok":False,"error":"BOUND_WRITE_REFUSED"}
+    print(json.dumps(result,ensure_ascii=False))
 
 
 if __name__ == "__main__":
