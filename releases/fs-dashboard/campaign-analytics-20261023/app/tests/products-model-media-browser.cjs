@@ -12,7 +12,7 @@ if mid!='990001':
  for i,code in enumerate(['ps','xbox','pc']): m['platforms'][code]['product_ref'].update(model_id=mid,goods_id=str(int(mid)*10+i))
 if r['kind']=='sbc': m.update(title='Fixture SBC completion service',version_label=None)
 if r['kind']=='bundle': m.update(title='Fixture original fixed bundle',version_label=None)
-if mid=='990031': m.update(title='Fixture '+SERIES+' player',version_label=SERIES)
+if mid=='990031': m.update(title='Fixture '+${JSON.stringify(SERIES)}+' player',version_label=${JSON.stringify(SERIES)})
 if mid=='990032': m.update(title='Fixture Gold Rare player',version_label='Gold Rare')
 if r['action']=='model_resolve': d={'model':m,'resolution_complete':True}
 else:
