@@ -6,7 +6,7 @@
       "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#webpage",
       "url": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html",
       "name": "FC 27 Weekly Player Picks & Squad Upgrades | MMOEXP",
-      "description": "Explore FC 27 player picks, including Luis Díaz. Compare exact card versions and positions, choose your platform, and review your squad upgrades. Review the exact platform and items. Any campaign code must be validated before payment and cannot be combined with coupons or member points.",
+      "description": "Explore FC 27 player picks, including Lamine Yamal. Compare exact card versions and positions, choose your platform, and review your squad upgrades. Review the exact platform and items. Any campaign code must be validated before payment and cannot be combined with coupons or member points.",
       "inLanguage": "en",
       "dateModified": "2026-10-22T13:08:02.101028+00:00",
       "image": "https://www.mmoexp.com/Fc-27/assets/weekly-hero.webp",
@@ -59,11 +59,11 @@
           "position": 1,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-186254399",
-            "url": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-186254399",
-            "name": "Luis Díaz/89/LM++/Team of the Week",
-            "description": "89 · LM++ · Team of the Week",
-            "image": "https://assets.mmoexp.com/images/202610/786cfbb20a243fa9ab4fe4b40c1d8fe0983abb93.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170015245",
+            "url": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170015245",
+            "name": "Lamine Yamal /90/RW++/Gold Non Rare",
+            "description": "90 · RW++ · Gold Non Rare",
+            "image": "https://assets.mmoexp.com/images/202610/da32dd5c4f1bcf484071f64dae22c0fcb283178f.png"
           }
         },
         {
@@ -71,11 +71,11 @@
           "position": 2,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-186254279",
-            "url": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-186254279",
-            "name": "Mikel Oyarzabal Ugarte/85/ST++/Team of the Week",
-            "description": "85 · ST++ · Team of the Week",
-            "image": "https://assets.mmoexp.com/images/202610/bba4b1e017c94b20d49791c02ba0942f75082bc0.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170015221",
+            "url": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170015221",
+            "name": "Harry Kane/90/ST++/Gold Non Rare",
+            "description": "90 · ST++ · Gold Non Rare",
+            "image": "https://assets.mmoexp.com/player/fc27/55.png"
           }
         },
         {
@@ -83,11 +83,11 @@
           "position": 3,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-186254291",
-            "url": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-186254291",
-            "name": "Pedro Lomba Neto/83/RM++/Team of the Week",
-            "description": "83 · RM++ · Team of the Week",
-            "image": "https://assets.mmoexp.com/images/202610/56629294988ea04c38aee3352160de7496cef69b.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170014925",
+            "url": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170014925",
+            "name": "Alexia Putellas Segura/91/CM++/Gold Non Rare",
+            "description": "91 · CM++ · Gold Non Rare",
+            "image": "https://assets.mmoexp.com/player/fc27/5.png"
           }
         }
       ]

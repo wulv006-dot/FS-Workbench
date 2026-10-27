@@ -102,7 +102,7 @@ test('page roles and explicit core/companion associations persist and render bes
 });
 
 test('published original FC structure carries edited SBC picks, default core and trio ordering instead of reverting to source',t=>{
- const {options,dir}=fixture(t),fc=structuredClone(original),core='186021743';
+ const {options,dir}=fixture(t),fc=structuredClone(original),core=fc.sbc.ids[0];
  fc.sbc.routes[core].picks=['170014917','185070945'];fc.sbc.defaultId=core;fc.trio.ids.reverse();
  const changedSeed=centerSeed(fc,{products:[]}),store=makeCenterStore({...options,...changedSeed});
  store.save({revision:0,operation_id:randomUUID(),draft:initialCenterDraft()},'fixture');store.publish({revision:1,operation_id:randomUUID()},'fixture');

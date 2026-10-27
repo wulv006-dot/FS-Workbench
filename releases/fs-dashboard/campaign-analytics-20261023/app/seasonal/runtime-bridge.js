@@ -126,11 +126,22 @@
       selection=selectionFor(detail.model_id,detail.quantity);
     }catch{host.append(message(messages.MODEL_OPTIONS_UNAVAILABLE));return;}
     const english=(value,fallback)=>typeof value==='string'&&value.trim()&&!/\p{Script=Han}/u.test(value)?value:fallback;
-    const fields=document.createElement('div'),price=message('Choose all required options to see the current reference price.'),status=message('The main store confirms the final price and applies the discount code before payment. Coupons and points cannot be combined with this code.');
+    const LIVE_ORIGIN='https://www.mmoexp.com';
+    const CART_NOTE='The main store confirms the final price and applies the discount code before payment. Coupons and points cannot be combined with this code.';
+    const fields=document.createElement('div'),price=message('Choose all required options to see the current reference price.'),status=message(CART_NOTE);
     let nativeReview=null,buying=false;
     const nativeSelection=()=>({activity_id:'mmoexp-seasonal',page_id:'seasonal-vault',game_id:String(detail.game_id),model_id:String(detail.model_id),slot:detail.slot,off_percent:detail.off_percent,...(detail.quantity?{quantity:detail.quantity}:{}),...(detail.reveal_request_id?{reveal_request_id:detail.reveal_request_id}:{}),lines:[selection.line()]});
     const buy=document.createElement('button');buy.type='button';buy.disabled=true;buy.textContent='Checkout unavailable';
     host.append(fields,price,status,buy);
+    // The live cart is pinned to the storefront origin. Say why the button is not
+    // usable instead of leaving a single opaque label on every failure path.
+    function blockedReason(code){
+      if(code==='HANDOFF_ORIGIN_UNVERIFIED'||window.location.origin!==LIVE_ORIGIN)return 'This address cannot open the live cart. Open the event on '+LIVE_ORIGIN.replace('https://','')+' to check out.';
+      if(!selection.ready())return 'Select every option and a valid quantity to continue.';
+      if(code==='NATIVE_CONFIGURATION_EXPIRED')return 'This offer window has closed. Reopen the event page to continue.';
+      if(code==='NATIVE_SCOPE_MISMATCH'||code==='NATIVE_CHECKOUT_UNCONFIGURED'||code==='HALLOWEEN_REVEAL_REQUIRED')return 'This exact combination is not enabled for the live cart. Choose another option or reopen the offer.';
+      return 'The live cart cannot be prepared right now. Reopen the offer and try again.';
+    }
     function render(){
       fields.replaceChildren();
       if(detail.quantity&&selection.fields().some(f=>f.id==='quantity_tier'))selection.select('quantity_tier',detail.quantity.value);
@@ -150,8 +161,12 @@
     function showPrice(){
       contract=client?.config?.seasonal_model_contracts?.[String(detail.model_id)];
       buy.disabled=true;nativeReview=null;
-      try{nativeReview=window.CampaignNativeCodeHandoff.publishedPlan(client.config,nativeSelection(),{origin:window.location.origin});}catch{}
-      if(nativeReview&&!buying){buy.disabled=false;buy.textContent='Go to cart';}else buy.textContent='Checkout unavailable';
+      let blocked=null;
+      try{nativeReview=window.CampaignNativeCodeHandoff.publishedPlan(client.config,nativeSelection(),{origin:window.location.origin});}
+      catch(error){blocked=error?.code||error?.message||null;}
+      if(nativeReview&&!buying){buy.disabled=false;buy.textContent='Go to cart';status.textContent=CART_NOTE;}
+      else if(nativeReview&&buying)buy.textContent='Preparing your cart…';
+      else{buy.textContent=blocked==='HANDOFF_ORIGIN_UNVERIFIED'||window.location.origin!==LIVE_ORIGIN?'Open on mmoexp.com to check out':selection.ready()?'Checkout unavailable':'Select all options to continue';status.textContent=blockedReason(blocked);}
       try{const value=window.SeasonalModelSelection.selectedPrice(contract,selection,detail.off_percent),format=n=>new Intl.NumberFormat('en',{style:'currency',currency:value.currency}).format(n/10**value.minor_unit_scale);
         price.textContent=format(value.base_minor)+' → '+format(value.indicative_discounted_minor)+' ('+detail.off_percent+'% OFF). Reference for your selected combination; not a checkout quote.';
       }catch{price.textContent=selection.ready()?(nativeReview?'Current price unavailable. The native cart confirms final prices and code eligibility.':'A current price for this exact combination and quantity is unavailable. No checkout is enabled.'):'Choose all required options and a valid quantity.';}
