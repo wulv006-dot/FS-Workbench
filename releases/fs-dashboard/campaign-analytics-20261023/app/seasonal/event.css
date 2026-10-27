@@ -902,6 +902,16 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
 .game-badge.orange { background: rgba(21,13,33,.68); color: #ffd08a; border-color: rgba(255,199,122,.5); }
 .story-bottom .event-meta i { background: #ffd08a; }
 #event-countdown { color: #ffd08a; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+.hero-clock { display: inline-flex; align-items: center; margin-right: 4px; }
+.hero-clock[hidden] { display: none; }
+.hero-clock .countdown-seg { min-width: 40px; padding: 6px 8px 5px; }
+.hero-clock .countdown-seg b { font-size: 20px; }
+@media (max-width: 640px) {
+  .picker-heading { height: auto; min-height: 58px; flex-wrap: wrap; row-gap: 10px; }
+  .picker-actions { width: auto; flex-basis: auto; flex-wrap: wrap; gap: 8px; }
+  .picker-actions .hero-clock { order: 3; flex-basis: 100%; margin-right: 0; }
+  .hero-clock .countdown-seg b { font-size: 17px; }
+}
 .offers-refresh { margin: 7px 0 0; color: #b6a4cd; font-size: 11px; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
 .offers-refresh:empty { display: none; }
 
