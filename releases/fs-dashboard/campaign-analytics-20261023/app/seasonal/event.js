@@ -2,6 +2,14 @@
   'use strict';
   const IDS=['fc','aion','wow','maplestory'],LABELS={fc:'FC27',aion:'Aion2',wow:'World of Warcraft',maplestory:'MapleStory'},TIERS=[8,15,10];
   const english=(value,fallback)=>typeof value==='string'&&value.trim()&&!/\p{Script=Han}/u.test(value)?value:fallback;
+  // Player titles arrive as "Name/89/LB++/Gold Non Rare". Show the name as the
+  // headline and the attributes as a quiet second line instead of a ragged wrap.
+  function titleParts(text){
+    const raw=String(text||'').trim();
+    const parts=raw.split('/').map(part=>part.trim()).filter(Boolean);
+    if(parts.length<2)return {main:raw,attrs:''};
+    return {main:parts[0],attrs:parts.slice(1).join(' · ')};
+  }
   const identifier=value=>typeof value==='string'&&value.trim()&&!/[\x00-\x20]/.test(value)?value:null;
   // The event ends and the daily picks reset at midnight US Eastern, so the page
   // and the draw agree on which day it is.
@@ -129,8 +137,10 @@
       const slot='random-'+n,offer=slotOffer(game,slot),receipt=receipts.get(game.id),token=receipt?.request_id+':'+slot,open=offer&&revealed.has(token),product=offer&&resolveModel(config,game,offer.model_id)[0],reference=offer&&referenceFor(game,offer);
       if(reference)nextExpiry=Math.min(nextExpiry,Date.parse(reference.expires_at));
       const price=reference?'<div class="reference-price"><span>Default combination reference</span><div class="price-line"><strong>'+format(reference.indicative_discounted_minor,reference.currency,reference.minor_unit_scale)+'</strong><del>'+format(reference.base_minor,reference.currency,reference.minor_unit_scale)+'</del></div></div>':'<p class="unavailable-price">Current reference price unavailable. Select your options to check the native store.</p>';
+      const tp=titleParts(english(product?.title,'Mystery selection'));
+      const qtyPrefix=offer?.quantity?offer.quantity.value+' '+offer.quantity.unit+' ':'';
       const detail=open?'<div class="slot-detail'+(animatingSlots.has(slot)?' is-pending':'')+'">'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(offer.model_id)+'" data-buy-slot="'+slot+'" '+(!buyReady(game,offer)?'disabled':'')+'>Buy Now</button></div>':'';
-      return '<article class="offer-slot random-slot" data-offer-slot="'+slot+'"><span class="slot-label">MYSTERY PICK 0'+n+'</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-random-reveal="'+slot+'" aria-expanded="'+Boolean(open)+'" '+(!eventConfigured()||drawing.has(game.id)?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(drawing.has(game.id)?'Opening your collection…':'Reveal your surprise')+'</strong><small>'+(eventConfigured()?'Tap to turn your card':'Offer probabilities and dates are not configured')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'><small>'+game.label+'</small><strong>'+esc((offer?.quantity?offer.quantity.value+' '+offer.quantity.unit+' ':'')+english(product?.title,'Mystery selection'))+'</strong><b>'+(offer?offer.off_percent+'% OFF':'')+'</b></span><span class="reveal-rays" aria-hidden="true"></span></button>'+detail+'</article>';
+      return '<article class="offer-slot random-slot" data-offer-slot="'+slot+'"><span class="slot-label">MYSTERY PICK 0'+n+'</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-random-reveal="'+slot+'" aria-expanded="'+Boolean(open)+'" '+(!eventConfigured()||drawing.has(game.id)?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(drawing.has(game.id)?'Opening your collection…':'Reveal your surprise')+'</strong><small>'+(eventConfigured()?'Tap to turn your card':'Offer probabilities and dates are not configured')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'><small>'+game.label+'</small><strong>'+esc(qtyPrefix+tp.main)+'</strong>'+(tp.attrs?'<span class="card-attrs">'+esc(tp.attrs)+'</span>':'')+'<b>'+(offer?offer.off_percent+'% OFF':'')+'</b></span><span class="reveal-rays" aria-hidden="true"></span></button>'+detail+'</article>';
     }).join('');
     doc.querySelector('#offer-slots').innerHTML=fixed+random;
     if(Number.isFinite(nextExpiry))referenceTimer=setTimeout(()=>{renderSlots();root.SeasonalCommerce?.refresh().catch(()=>status('Prices could not be refreshed. Please use Refresh prices before continuing.'));},Math.max(1,Math.min(2147483647,nextExpiry-Date.now()+1)));
