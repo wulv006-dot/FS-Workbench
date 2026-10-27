@@ -50,6 +50,18 @@
 - 依据与边界：TTL 是"刷新连续失败时的容忍窗口"，不是日常价格年龄（实测 12 个模型同一轮 3 秒内取完、60 秒一轮）；硬上限 1 小时（`max_age_ms<=3600000` 且缓存校验 `expires_at-generated_at<=3600000`），超出会被 policy 校验拒绝、缓存不可用。
 - 回退：把 12 条改回 `300000` 并恢复备份文件即可，无需重启。
 
+### 5. `nav-20261027T190500Z`（PR #573：游戏卡提亮 + 翻牌卡面去掉游戏小字）
+
+- 来源：分支 `codex/seasonal-bright-label89`，提交 `a0295230abe09a035bc89c828ae4481f764f2fbc`，合并 `16c330c6fdc534cd8482b5495bed5e2184ca080f`；CI run `40565155327` success。
+- 目标 6 个 / 实际变化 2 个（`app/seasonal/event.js`、`app/seasonal/event.css`）；manifest `dff9dd2a27de38da497959f90a0cbd7770da71bdb5848197e33c126374e42ede`。
+- 内容（只这两项，翻牌逻辑、布局、文案均未动）：
+  1. `faceContent()` 去掉 `label` 参数与卡面 `<small>`，翻牌卡正面不再打印 `FC27` / `Aion2` 这类游戏名；两处调用点同步不再传参。卡面高 320px 不变。
+  2. `.game-art` 由 `saturate(.78) brightness(.8) contrast(1.04)` 改为 `saturate(.95) brightness(1.14) contrast(1.02)`；`.game-shade` 紫色压层减薄，只在标题所在底条接近不透明，标题对比度不变。四张游戏卡实测滤镜一致、高 267px 不变。
+- 静态清单：`seasonal/event.js` → `cb4909581417…`、`seasonal/event.css` → `d754645594f5…`；备份 `runtime/static-manifest.before-nav89.json`。
+- 读回（正式域名 `www.mmoexp.com`）：页面 / js / css 均 200；四卡滤镜为新区间；三张翻牌正面为 `10% OFF / coins / 1000K Coins`、`10% OFF / Marcos Llorente Moreno`、`10% OFF / Pedri`，`card-front small` 计数 0；翻完刷新后三张全部保持翻开；无 JS 报错。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261027T190500Z`。
+
+
 ---
 
 ## 回退与边界
