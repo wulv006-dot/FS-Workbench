@@ -15,9 +15,10 @@ test('real seed tool extracts all original references and hashes current source 
   const output=execFileSync(python,[path.join(root,'tools/campaign_catalog_seed.py'),'--module',moduleRoot],
     {cwd:root,encoding:'utf8',timeout:15000,env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});
   const seed=JSON.parse(output),refs=seed.references;
-  assert.equal(refs.length,126);
-  assert.equal(new Set(refs.map(r=>r.reference_key)).size,126);
-  assert.equal(new Set(refs.map(r=>JSON.stringify([r.product_ref.site_id,r.product_ref.game_id,r.product_ref.goods_id]))).size,116);
+  const P=JSON.parse(fs.readFileSync(new URL('../catalog.json',import.meta.url),'utf8')).products,PN=Object.keys(P).length,SEASONAL=18,EXPECTED=PN*3+SEASONAL;
+  assert.equal(refs.length,EXPECTED);                      // 每件商品三平台 + 限定活动固定条目
+  assert.equal(new Set(refs.map(r=>r.reference_key)).size,EXPECTED);
+  assert(seed.unique_goods_count>=PN&&seed.unique_goods_count<=EXPECTED);
   assert.equal(new Set(refs.map(r=>r.game_key)).size,6);
   assert(seed.reference_count>=126&&seed.unique_goods_count>=116&&seed.game_count===6);
   // 该 handoff 是历史回执；随周更校验结构不变量，而不是把它冻结成当前目录的镜像。
