@@ -3,13 +3,15 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {atomic} from '../analytics/store.mjs';
 import {canonical,digest,fail,id,projectRelease} from './snapshot.mjs';
+import {createHalloweenReveals} from './halloween-reveal.mjs';
+import nativeHandoff from '../native-code-handoff.js';
 
 const uuid = value => {if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '')) fail('INVALID_REQUEST'); return value;};
 const exact = (value, keys) => {if (!value || Array.isArray(value) || typeof value !== 'object' || Object.keys(value).some(k=>!keys.includes(k))) fail('INVALID_REQUEST');};
 const read = file => fs.existsSync(file) ? JSON.parse(fs.readFileSync(file,'utf8')) : null;
 const decimal = value => {if (typeof value!=='string' || !/^\d{1,12}(\.\d{1,6})?$/.test(value)) fail('INVALID_QUANTITY'); return BigInt(value.split('.')[0])*1000000n+BigInt((value.split('.')[1]||'').padEnd(6,'0'));};
 
-export function createCommerce({snapshot,snapshotProvider,dir,mode='preview',now=Date.now,testAdapter}={}) {
+export function createCommerce({snapshot,snapshotProvider,dir,mode='preview',now=Date.now,testAdapter,halloweenCatalogProvider}={}) {
   if (!['preview','integration_test','live'].includes(mode)) fail('INVALID_MODE');
   if (testAdapter && mode!=='integration_test') fail('INVALID_MODE');
   if (snapshotProvider && typeof snapshotProvider!=='function') fail('INVALID_RELEASE');
@@ -17,6 +19,7 @@ export function createCommerce({snapshot,snapshotProvider,dir,mode='preview',now
   // business read still validates the provider and fails closed until it exists.
   const initial=snapshotProvider?null:projectRelease(snapshot),base=path.join(dir,mode), test=mode==='integration_test';
   const current=()=>snapshotProvider?projectRelease(snapshotProvider()):initial;
+  const reveals=createHalloweenReveals({dir:base,current,now,catalogProvider:halloweenCatalogProvider});
   fs.mkdirSync(base,{recursive:true,mode:0o700});
   const location=(kind,key)=>path.join(base,kind,uuid(key)+'.json');
   const result=(body)=>({...body,integration_mode:mode,live_checkout:false,...(test?{test_only:true}: {})});
@@ -26,7 +29,7 @@ export function createCommerce({snapshot,snapshotProvider,dir,mode='preview',now
     const page=release.pages.find(p=>p.page_id===intent.page_id&&p.activity_id===intent.activity_id);
     if (!page || page.rule_version!==intent.rule_version || page.benefit_binding_version!==intent.benefit_binding_version) fail('RULE_VERSION_CONFLICT',409);
     if (page.starts_at && Date.parse(page.starts_at)>now()) fail('PROMOTION_NOT_STARTED',409);
-    if (!page.active || page.ends_at && Date.parse(page.ends_at)<=now()) fail('PROMOTION_EXPIRED',409);
+    if (!page.active || page.ends_at && Date.parse(page.ends_at)<now()) fail('PROMOTION_EXPIRED',409);
     return page;
   };
   function amounts(intent) {
@@ -58,6 +61,20 @@ export function createCommerce({snapshot,snapshotProvider,dir,mode='preview',now
   };
   const intentResult=value=>{const {request_hash,...publicValue}=value;return result({status:'intent_saved',...publicValue});};
   return {
+    halloweenReveal:reveals.reveal,halloweenRead:reveals.read,halloweenResolve:reveals.resolve,
+    nativePlan(selection){
+      const release=current(),approved=nativeHandoff.publishedPlan(release,selection,{origin:release.native_checkout?.origin,now:now()});
+      if(approved.reveal_request)reveals.resolve(approved.reveal_request);
+      if(selection.page_id==='seasonal-vault')for(const line of selection.lines){
+        const product=release.products.find(p=>p.key===line.product_key),contract=release.seasonal_model_contracts?.[product?.product_ref?.model_id];
+        if(!contract?.combinations.some(c=>c.product_key===line.product_key&&c.quantity.min===line.quantity.value&&c.quantity.max===line.quantity.value&&c.quantity.unit===line.quantity.unit&&canonical(c.attributes)===canonical(line.attributes||[])&&c.price?.source==='admin_current'&&c.price.base_minor>0&&c.price.quantity_value===line.quantity.value&&Date.parse(c.price.expires_at)>now()))fail('CURRENT_PRICE_UNAVAILABLE',409);
+      }
+
+      const bindings=release.native_checkout.bindings.filter(b=>b.activity_id===selection.activity_id&&b.page_id===selection.page_id&&b.off_percent===selection.off_percent&&selection.lines.some(line=>line.product_key===b.product_key&&line.quantity?.value===b.quantity.value&&line.quantity?.unit===b.quantity.unit&&canonical(line.attributes||[])===canonical(b.attributes)));
+      if(bindings.length!==selection.lines.length)fail('NATIVE_SCOPE_MISMATCH',409);
+      return {status:'native_selection_prepared',release_id:release.release_id,config_hash:release.config_hash,rule_hash:release.rule_hash,native_checkout:{...release.native_checkout,bindings}};
+    },
+
     config:()=>structuredClone(current()),
     capabilities:()=>{current();return result({adapter_version:'fs-standalone-v1',verified_at:null,catalog_source:'published_snapshot',catalog_authoritative:false,
       capabilities:{catalog_read:true,live_catalog_read:false,authoritative_quote:false,campaign_discount:false,stacked_discounts:false,cart_handoff:false,member_identity:false,coupon_management:false,order_discount_readback:false},

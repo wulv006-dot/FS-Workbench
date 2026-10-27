@@ -8,7 +8,7 @@ const english=(v,fallback)=>safe(v)&&!/[\u3400-\u9fff]/u.test(v)?v:fallback;
 export function projectModelOptions(input,products){
  if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length>100)bad();const out={};
  for(const [id,source] of Object.entries(input)){
-  if(!numeric(id)||!source||source.model_ref?.model_id!==id||source.model_ref?.site_id!=='266'||!numeric(source.model_ref?.game_id)||source.verified!==true||!safe(source.catalog_version,100)||!Array.isArray(source.fields)||source.fields.length>12||!Array.isArray(source.combinations)||source.combinations.length>500)bad();
+  if(!numeric(id)||!source||source.model_ref?.model_id!==id||source.model_ref?.site_id!=='266'||!numeric(source.model_ref?.game_id)||source.verified!==true||!safe(source.catalog_version,100)||!Array.isArray(source.fields)||source.fields.length>12||!Array.isArray(source.combinations)||source.combinations.length>1000)bad();
   const model_ref={site_id:'266',game_id:source.model_ref.game_id,model_id:id};
   const fields=source.fields.map((f,i)=>{if(!safe(f.id,64)||!Array.isArray(f.depends_on)||!Array.isArray(f.values)||f.values.length>200)bad();return {id:f.id,label:english(f.label,'Option '+(i+1)),depends_on:[...f.depends_on],values:f.values.map((v,n)=>{if(!safe(v.id,100))bad();return {id:v.id,label:english(v.label,'Option '+(n+1))};})};});
   const combinations=source.combinations.map(c=>{

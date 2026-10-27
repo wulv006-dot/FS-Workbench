@@ -15,6 +15,7 @@ import {mediaLimits,pageMedia} from '../runtime/media-contract.mjs';
 import {digest,loadStatic} from '../runtime/snapshot.mjs';
 import {presentPage,projectFcCatalog,publicEnglishRelease} from '../runtime/presentation.mjs';
 import {makeAdminPriceProvider,readAdminPricePolicy} from './admin-price-provider.mjs';
+import {mergeNativeCatalog,readNativeLaunchPolicy} from './native-catalog.mjs';
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),box={window:{}};
 vm.runInNewContext(fs.readFileSync(path.join(base,'analytics-config.js'),'utf8'),box);
 const cfg=box.window.FC_ANALYTICS_CONFIG,catalog=JSON.parse(fs.readFileSync(path.join(base,'catalog.json'),'utf8'));
@@ -25,13 +26,12 @@ const publicDir=process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-p
 const adminPrices=makeAdminPriceProvider({publicDir,readPolicy:()=>readAdminPricePolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))});
 const validateFcLayout=(layout,models={})=>validateLayout(layout,effectiveFcCatalog(catalog,models));
 export function readNativeCheckoutPolicy(stateDir){
- const file=path.join(stateDir,'policy.json');if(!fs.existsSync(file))return {status:'unconfigured'};
- const d=fs.lstatSync(stateDir),s=fs.lstatSync(file);if(d.isSymbolicLink()||!d.isDirectory()||s.isSymbolicLink()||!s.isFile()||s.size>250000||process.platform!=='win32'&&((d.mode&0o077)!==0||(s.mode&0o077)!==0))throw Error('PRIVATE_NATIVE_POLICY_REQUIRED');
- return JSON.parse(fs.readFileSync(file,'utf8')).native_checkout??{status:'unconfigured'};
+ return readNativeLaunchPolicy(stateDir).checkout;
 }
+const pageSeed=(layout,models={})=>mergeNativeCatalog(centerSeed(previewCatalog(effectiveFcCatalog(catalog,models),layout??store.read().layout),seasonalBox.SeasonalData,adminPrices.seedOptions()),readNativeLaunchPolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend')).catalog);
 const center=makeCenterStore({dir:path.join(dir,'center'),publicDir,nativeCheckoutProvider:()=>readNativeCheckoutPolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend')),sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',validateFcLayout,
- seedProvider:(layout,models={})=>centerSeed(previewCatalog(effectiveFcCatalog(catalog,models),layout??store.read().layout),seasonalBox.SeasonalData,adminPrices.seedOptions())});
-const centerState=s=>{const effective=effectiveFcCatalog(catalog,s.draft.fc_models||{}),layout=validateFcLayout(s.draft.fc_layout??store.read().layout,s.draft.fc_models||{}),seed=centerSeed(previewCatalog(effective,layout),seasonalBox.SeasonalData,adminPrices.seedOptions());return {revision:s.revision,draft:s.draft,effective_halloween:s.draft.halloween??emptyHalloween(),effective_fc_layout:layout,restore_candidate:center.restoreCandidate(s),published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,admin_provider_status:adminPrices.status(),
+ seedProvider:pageSeed});
+const centerState=s=>{const effective=effectiveFcCatalog(catalog,s.draft.fc_models||{}),layout=validateFcLayout(s.draft.fc_layout??store.read().layout,s.draft.fc_models||{}),seed=pageSeed(layout,s.draft.fc_models||{});return {revision:s.revision,draft:s.draft,effective_halloween:s.draft.halloween??emptyHalloween(),effective_fc_layout:layout,restore_candidate:center.restoreCandidate(s),published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,admin_provider_status:adminPrices.status(),
  fc_catalog:{products:Object.fromEntries(Object.entries(effective.products).map(([key,p])=>[key,{key:p.key,title:p.title,name:p.name,kind:p.kind,version:p.version,...(p.preview_only?{preview_only:true,model_id:p.model_id,image:p.image,platforms:p.platforms}:{})}])),trio:{series:catalog.trio.series},sbc:{fallbackPicks:catalog.sbc.fallbackPicks}},
  catalog_products:seed.seedProducts.map(p=>{const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(p.key);return {...p,display_kind:match?effective.products[match[1]]?.kind:'seasonal'};}),page_product_keys:seed.pageProductKeys,
  page_bindings:Object.fromEntries(s.draft.pages.map(p=>[p.page_id,effectivePageBindings(s.draft,seed,p.page_id)])),media_limits:mediaLimits,
@@ -59,7 +59,7 @@ async function pendingProductDetails(body){
  const entries=Object.hasOwn(body,'product_imports')?body.product_imports:[];if(!Array.isArray(entries)||entries.length>30)throw Object.assign(Error('INVALID_PRODUCT_IMPORTS'),{status:400});const details=[],cache=new Map();
  for(const entry of entries){const ref=entry?.product_ref;
   if(!entry||Object.keys(entry).some(k=>!['page_id','product_ref'].includes(k))||!['fc27-weekly','fc27-sbc','fc27-trio','seasonal-vault'].includes(entry.page_id)||!ref||typeof ref!=='object'||Array.isArray(ref)||Object.keys(ref).some(k=>!['site_id','game_id','goods_id','model_id','sku_id'].includes(k))
-   ||ref.site_id!=='266'||!['1327','1329','1309','456','552','891'].includes(ref.game_id)||['goods_id',...['model_id','sku_id'].filter(k=>Object.hasOwn(ref,k))].some(k=>typeof ref[k]!=='string'||!(/^[1-9]\d{0,19}$/).test(ref[k])))throw Object.assign(Error('INVALID_PRODUCT_IMPORTS'),{status:400});
+   ||ref.site_id!=='266'||!['1327','1329','1309','456','552','891','1367','1333'].includes(ref.game_id)||['goods_id',...['model_id','sku_id'].filter(k=>Object.hasOwn(ref,k))].some(k=>typeof ref[k]!=='string'||!(/^[1-9]\d{0,19}$/).test(ref[k])))throw Object.assign(Error('INVALID_PRODUCT_IMPORTS'),{status:400});
   const key=[ref.site_id,ref.game_id,ref.goods_id].join(':');if(!cache.has(key))cache.set(key,(await backendRead({action:'product_read',site_id:ref.site_id,game_id:ref.game_id,goods_id:ref.goods_id})).product);details.push(cache.get(key));
  }return details;
 }

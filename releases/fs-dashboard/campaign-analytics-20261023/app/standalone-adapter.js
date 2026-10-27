@@ -37,6 +37,18 @@
       get config(){return snapshot;},get capabilities(){return capabilities;},get pending(){return pending&&structuredClone(pending);},
       describe(){return capabilities?.integration_mode==='integration_test'?'Integration test only — no live cart or payment.':'Preview — main-site integration pending. Prices and benefits are snapshots; no live cart or payment.';},
       async load(){[snapshot,capabilities]=await Promise.all([api('config'),api('capabilities')]);page();return {config:snapshot,capabilities};},
+      async reveal(game_id){
+        if(pageId!=='seasonal-vault'||activityId!=='mmoexp-seasonal')throw failure('PAGE_UNAVAILABLE');
+        if(!snapshot)await client.load();
+        const revealKey='campaign-reveal:'+base+':'+snapshot.release_id+':'+snapshot.config_hash+':'+game_id;
+        let saved;try{saved=JSON.parse(storage.getItem(revealKey)||'null');}catch{throw failure('OPERATION_STORAGE_INVALID');}
+        if(!saved){saved={request_id:root.crypto.randomUUID(),game_id};const raw=JSON.stringify(saved);storage.setItem(revealKey,raw);if(storage.getItem(revealKey)!==raw)throw failure('OPERATION_STORAGE_REQUIRED');}
+        if(saved.game_id!==game_id)throw failure('REQUEST_CONFLICT');
+        // Same UUID on every retry: lost responses/reloads cannot reroll.
+        const receipt=await api('halloween/reveal',saved);
+        if(receipt.status!=='revealed'||receipt.request_id!==saved.request_id||receipt.game_id!==game_id||receipt.release_id!==snapshot.release_id||receipt.config_hash!==snapshot.config_hash)throw failure('HALLOWEEN_REVEAL_MISMATCH');
+        return receipt;
+      },
       async select(lines){
         if(pending?.unknown)throw failure('OPERATION_UNKNOWN');
         if(!snapshot)await client.load();const p=page();

@@ -34,13 +34,23 @@
   function createNative(snapshot,selection){
     const approved=root.CampaignNativeCodeHandoff.publishedPlan(snapshot,selection,{origin:root.location.origin});
     const items=approved.items;
-    return {batch(){let started=false;return {async run(sent,progress=()=>{}){
+    return {async claimSelection(body){
+      const prefix=root.document?.documentElement?.dataset.campaignRuntime||'/events/';
+      if(!/^\/(?:[A-Za-z0-9_-]+\/)+$/.test(prefix))throw Error('INVALID_PUBLIC_PATH');
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+      try{const response=await root.fetch(prefix+'api/campaign/native_plan',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});const receipt=await response.json();if(!response.ok)throw Error(receipt.code||'NATIVE_SELECTION_UNAVAILABLE');return receipt;}finally{clearTimeout(timer);}
+    },async verifySelection(body){
+      const prefix=root.document?.documentElement?.dataset.campaignRuntime||'/events/';
+      if(!/^\/(?:[A-Za-z0-9_-]+\/)+$/.test(prefix))throw Error('INVALID_PUBLIC_PATH');
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+      try{const response=await root.fetch(prefix+'api/campaign/halloween/resolve',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});const receipt=await response.json();if(!response.ok)throw Error(receipt.code||'HALLOWEEN_REVEAL_UNAVAILABLE');return receipt;}finally{clearTimeout(timer);}
+    },batch(){let started=false;return {async run(sent,progress=()=>{}){
       if(started)throw Error('Original native operation already started');started=true;
       if(JSON.stringify(sent)!==JSON.stringify(items))throw Error('Native selection changed');const outcomes=[];
       for(const item of items){let state='unknown';
         try{
           const body=item.native_payload;
-          if(body.category==='new_gold'){
+          if(body.category==='new_gold'&&!item.observed_serialization){
             const expected=root.FCActivityCore.coinsPayload({origin:root.location.origin,region:'us',currency:'USD',model_id:'41217957',goods_id:String(body.id),platform:'ps',quantity:'1000',unit:'K'});
             if(JSON.stringify(expected)!==JSON.stringify(body))throw Error('Coins serialization changed');
           }
