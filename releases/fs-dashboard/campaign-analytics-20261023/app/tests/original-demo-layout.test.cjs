@@ -8,7 +8,10 @@ test('original split hero, mascot and four game region replace the redesigned st
  assert.equal((html.match(/<h1\b/g)||[]).length,1);assert.match(css,/\.game-cards\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s);
 });
 test('every runtime hook and asset exists; no fake search/login/navigation controls',()=>{
- for(const id of ['games','game-offers','game-offers-title','game-offers-note','offer-slots','event-dialog','dialog-title','dialog-content','event-status','hero-image','hero-mobile-source','configuration-title','configuration-summary','campaign-date'])assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
+ for(const id of ['games','game-offers','game-offers-title','game-offers-note','offer-slots','event-dialog','dialog-title','dialog-content','event-status','hero-image','hero-mobile-source','configuration-title','configuration-summary'])assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
+ // The event window is no longer printed in the hero, and no manual refresh or
+ // detail trigger is offered; prices and offers refresh on their own.
+ assert.doesNotMatch(html,/campaign-date/);assert.doesNotMatch(html,/offer-tools|data-action="refresh-prices"|data-action="rules"/);
  assert.doesNotMatch(html,/placeholder="Search your game"|>Log In<|>Help center<|class="utility-bar"/);
  for(const match of html.matchAll(/(?:src|href)="([^"#]+)"/g)){const ref=match[1];if(!/^https?:/.test(ref))assert(fs.existsSync(path.resolve(root,ref)),ref);}
  assert.match(css,/prefers-reduced-motion/);assert.match(html,/aria-live="polite"/);
