@@ -895,3 +895,135 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
   .offer-slots { gap: 18px; }
   .flip-card { height: 295px; }
 }
+
+/* V8: the discount badge moves off the artwork logo into the top-right corner and
+   takes the event's gold-on-glass treatment instead of a solid store orange. */
+.game-badge { top: 12px; right: 12px; left: auto; padding: 5px 10px; border: 1px solid rgba(255,199,122,.5); border-radius: 999px; background: rgba(21,13,33,.68); backdrop-filter: blur(8px); color: #ffd08a; font-size: 9px; font-weight: 800; letter-spacing: .5px; box-shadow: 0 4px 14px rgba(0,0,0,.32); }
+.game-badge.orange { background: rgba(21,13,33,.68); color: #ffd08a; border-color: rgba(255,199,122,.5); }
+.story-bottom .event-meta i { background: #ffd08a; }
+#event-countdown { color: #ffd08a; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+.hero-clock { display: inline-flex; align-items: center; margin-right: 4px; }
+.hero-clock[hidden] { display: none; }
+.hero-clock .countdown-seg { min-width: 40px; padding: 6px 8px 5px; }
+.hero-clock .countdown-seg b { font-size: 20px; }
+@media (max-width: 640px) {
+  .picker-heading { height: auto; min-height: 58px; flex-wrap: wrap; row-gap: 10px; }
+  .picker-actions { width: auto; flex-basis: auto; flex-wrap: wrap; gap: 8px; }
+  .picker-actions .hero-clock { order: 3; flex-basis: 100%; margin-right: 0; }
+  .hero-clock .countdown-seg b { font-size: 17px; }
+}
+
+/* V10: on very tall viewports the page used to stop at a 608px hero and leave a
+   large empty band underneath. Let the event fill the viewport instead, with the
+   two-column content centred inside it. */
+@media (min-height: 780px) {
+  body { display: flex; flex-direction: column; min-height: 100vh; }
+  main { flex: 1; display: flex; flex-direction: column; }
+  .hero { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .hero-inner { flex: 1; align-content: center; min-height: 0; }
+  .hero-story { justify-content: center; }
+}
+
+/* V11: ultra-wide monitors get a wider content column instead of a 1380px strip
+   surrounded by empty space. */
+@media (min-width: 2000px) {
+  :root { --content: 1760px; }
+}
+@media (min-width: 3000px) {
+  :root { --content: 1760px; }
+}
+
+/* V14: one card design for every slot - artwork, name and a corner discount. */
+.offer-badge { position: absolute; top: 14px; right: 14px; z-index: 3; padding: 6px 11px; border-radius: 999px; background: linear-gradient(135deg, #ffd08a, #ff9d45); color: #2a1608; font-size: 15px; font-weight: 800; letter-spacing: .2px; box-shadow: 0 4px 14px rgba(255,157,69,.34); }
+.product-art { display: flex; align-items: center; justify-content: center; width: 100%; height: 150px; margin-bottom: 14px; border-radius: 12px; background: radial-gradient(ellipse at 50% 40%, rgba(212,164,245,.2), transparent 70%); overflow: hidden; }
+.product-art.is-empty { font-size: 52px; color: #d4a4f5; text-shadow: 0 0 26px rgba(191,126,246,.5); }
+.product-art.has-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.card-front { position: relative; }
+.card-front > small { letter-spacing: 1px; opacity: .8; }
+.card-front .business-quantity { margin: 4px 0 0; color: var(--gold); font-size: 15px; font-weight: 600; }
+@media (min-width: 2000px) {
+  .product-art { height: 150px; }
+  .offer-badge { font-size: 18px; padding: 7px 13px; }
+}
+.event-faq { background: linear-gradient(180deg, #0b1423, #0a101d); border-top: 1px solid rgba(182,132,225,.16); padding: 54px 0 58px; }
+.faq-inner { width: min(var(--content), calc(100% - 64px)); margin: 0 auto; }
+.faq-inner h2 { margin: 0 0 12px; font-size: clamp(20px, 1.6vw, 30px); letter-spacing: -.3px; color: #f2e9ff; }
+.faq-intro { margin: 0 0 30px; max-width: 760px; color: #a8b2c9; font-size: clamp(12px, 1vw, 15px); line-height: 1.8; }
+.faq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 40px; }
+.faq-item { padding: 20px 22px; border: 1px solid rgba(182,132,225,.18); border-radius: 12px; background: rgba(34,20,52,.34); }
+.faq-item h3 { margin: 0 0 9px; font-size: clamp(13px, 1.1vw, 17px); color: #ffd08a; letter-spacing: .1px; }
+.faq-item p { margin: 0; color: #a8b2c9; font-size: clamp(11px, .95vw, 14px); line-height: 1.85; }
+@media (max-width: 900px) {
+  .faq-grid { grid-template-columns: 1fr; gap: 16px; }
+  .event-faq { padding: 36px 0 40px; }
+  .faq-inner { width: calc(100% - 40px); }
+}
+
+/* V12: each offer reads as one product card rather than a floating tile with a
+   detached price strip. Heights and type scale with the viewport so tall
+   monitors get a balanced composition instead of small content in empty space. */
+@media (min-width: 901px) {
+  .hero-inner { gap: 44px; }
+  .offer-slots { gap: 22px; }
+  .offer-slot {
+    min-height: calc(clamp(300px, 32vh, 540px) + 160px);
+    border: 1px solid rgba(182,132,225,.26);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(48,26,70,.42), rgba(28,15,42,.6));
+    box-shadow: 0 12px 30px rgba(0,0,0,.24);
+    overflow: hidden;
+  }
+  .offer-slot .slot-label { margin: 0; padding: 13px 10px 0; font-size: 10px; letter-spacing: 1.8px; }
+  .offer-slot .flip-card { height: clamp(300px, 32vh, 540px); margin: 12px 12px 0; width: calc(100% - 24px); }
+  .offer-slot .card-back, .offer-slot .card-front { border-radius: 14px; }
+  .offer-slot .slot-detail { margin: 0; padding: 14px 18px 16px; border: 0; border-top: 1px solid rgba(183,133,213,.2); border-radius: 0; background: transparent; min-height: 118px; }
+  .offer-slot .reference-price strong { font-size: clamp(26px, 1.8vw, 34px); }
+  .offer-slot .buy-button { min-height: 42px; font-size: 14px; }
+  .card-front { gap: 12px; padding: 24px 16px; }
+  .card-front > strong { font-size: clamp(17px, 1.1vw, 22px); line-height: 1.45; max-width: 100%; overflow-wrap: anywhere; }
+  .card-front .card-attrs { display: block; margin-top: 3px; font-size: .68em; font-weight: 500; letter-spacing: .2px; color: #bfa6d8; line-height: 1.5; }
+  .card-front > b { font-size: clamp(30px, 2vw, 40px); line-height: 1.1; white-space: nowrap; }
+  .card-back > strong { font-size: 20px; }
+  .offers-heading h2, .picker-heading h2 { letter-spacing: -.2px; }
+  .picker-heading h2 { font-size: clamp(24px, 1.7vw, 32px); }
+  .game-offers-note { font-size: 13px; }
+}
+@media (min-width: 2000px) {
+  .hero-inner { gap: 60px; }
+  .offer-slots { gap: 26px; }
+  .offers-refresh .countdown-seg b { font-size: 24px; }
+  .picker-heading h2 { font-size: 34px; }
+  .card-front > strong { font-size: 26px; }
+  .card-front > b { font-size: 46px; }
+  .card-back > strong { font-size: 26px; }
+  .card-back > small, .card-front > small { font-size: 15px; }
+  .offer-slot .reference-price strong { font-size: 40px; }
+  .offer-slot .reference-price > span { font-size: 13px; }
+  .offer-slot .buy-button { font-size: 17px; min-height: 48px; }
+  .offer-slot .slot-label { font-size: 12px; }
+  .game-offers-note { font-size: 16px; }
+  .hero-clock .countdown-seg b { font-size: 26px; }
+}
+.offers-refresh { margin: 7px 0 0; color: #b6a4cd; font-size: 11px; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
+.offers-refresh:empty { display: none; }
+
+/* V9: the countdown reads as a small clock widget instead of a sentence, and the
+   offer detail waits for the card to finish turning. */
+.countdown { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+.countdown-label { margin-right: 4px; font-size: 9px; letter-spacing: 1.4px; color: #b9a6d2; text-transform: uppercase; white-space: nowrap; }
+.countdown-seg { display: inline-flex; align-items: baseline; gap: 2px; min-width: 34px; padding: 4px 6px 3px; border: 1px solid rgba(255,199,122,.34); border-radius: 7px; background: linear-gradient(180deg, rgba(58,34,84,.86), rgba(28,16,44,.9)); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 3px 10px rgba(0,0,0,.34); }
+.countdown-seg b { font-size: 17px; line-height: 1; color: #ffd08a; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+.countdown-seg small { font-size: 8px; letter-spacing: .6px; color: #b08fc6; }
+.countdown-sep { color: #7d639a; font-size: 15px; line-height: 1; }
+.offers-refresh .countdown { margin-top: 2px; }
+.offers-refresh .countdown-label { font-size: 10px; letter-spacing: 1.2px; color: #cbb7e2; }
+.offers-refresh .countdown-seg { min-width: 44px; padding: 6px 8px 5px; }
+.offers-refresh .countdown-seg b { font-size: 22px; }
+.slot-detail.is-pending { opacity: 0; transform: translateY(8px); pointer-events: none; }
+.slot-detail { transition: opacity .38s ease, transform .38s ease; }
+.game-badge { padding: 8px 15px; font-size: 12px; letter-spacing: .4px; border-radius: 999px; }
+@media (max-width: 640px) {
+  .countdown-seg { min-width: 32px; padding: 4px 5px 3px; }
+  .countdown-seg b { font-size: 16px; }
+  .game-badge { padding: 6px 11px; font-size: 10px; }
+}

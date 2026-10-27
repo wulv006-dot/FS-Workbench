@@ -1,6 +1,14 @@
 (function(root){
   'use strict';
   const failure=(code)=>Object.assign(new Error(code),{code});
+  // Picks reset at midnight US Eastern. The day is part of the draw identity, so
+  // the same visitor keeps one draw per day and gets a fresh one tomorrow.
+  const NY_ZONE='America/New_York';
+  function nyDay(now=Date.now()){
+    try{return new Intl.DateTimeFormat('en-CA',{timeZone:NY_ZONE,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));}
+    catch{return new Date(now).toISOString().slice(0,10);}
+  }
+  const durableStore=()=>{try{return root.localStorage||null}catch{return null;}};
   function prefix(element,location=root.location){
     const value=element?.dataset?.campaignRuntime;
     if(value && /^\/(?:[A-Za-z0-9_-]+\/)+$/.test(value))return value;
@@ -13,7 +21,10 @@
     try{pending=JSON.parse(storage?.getItem(key)||'null');}catch{throw failure('OPERATION_STORAGE_INVALID');}
     function retain(value){pending=value;try{if(!storage)throw failure('OPERATION_STORAGE_REQUIRED');storage.setItem(key,JSON.stringify(value));}catch{throw failure('OPERATION_STORAGE_REQUIRED');}}
     async function api(route,body){
-      let response;try{response=await request(base+'api/campaign/'+route,{credentials:'same-origin',cache:'no-store',...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});}catch{throw failure('NETWORK_UNKNOWN');}
+      // A hung request must not leave the card disabled forever. Fifteen seconds
+      // is well above a normal draw but short enough to let the visitor retry.
+      const timeout=typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(15000):undefined;
+      let response;try{response=await request(base+'api/campaign/'+route,{credentials:'same-origin',cache:'no-store',signal:timeout,...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});}catch{throw failure('NETWORK_UNKNOWN');}
       let value;try{value=await response.json();}catch{throw failure('NETWORK_UNKNOWN');}
       if(!response.ok)throw Object.assign(failure(value.code||'RUNTIME_UNAVAILABLE'),{status:response.status,dispatch_state:value.dispatch_state});return value;
     }
@@ -40,17 +51,24 @@
       async reveal(game_id){
         if(pageId!=='seasonal-vault'||activityId!=='mmoexp-seasonal')throw failure('PAGE_UNAVAILABLE');
         if(!snapshot)await client.load();
-        // A draw belongs to the visitor, not to one tab or one page load. Keep the
-        // request id durably so a reload, a new tab or a reopened browser asks the
-        // server for the same receipt instead of rolling a new one.
-        const durable=(()=>{try{return root.localStorage||storage}catch{return storage}})();
-        const revealKey='campaign-reveal:'+base+':'+snapshot.release_id+':'+snapshot.config_hash+':'+game_id;
+        // A draw belongs to the visitor and to one day. The request id is kept in
+        // durable storage under the current US Eastern day, so a reload or a new
+        // tab asks for the same receipt while tomorrow asks for a new draw.
+        const durable=durableStore()||storage;
+        const day=nyDay();
+        const scope=base+':'+snapshot.release_id+':'+snapshot.config_hash+':'+game_id;
+        const revealKey='campaign-reveal:'+scope+':'+day;
         let saved;try{saved=JSON.parse(durable.getItem(revealKey)||'null');}catch{throw failure('OPERATION_STORAGE_INVALID');}
-        if(!saved){saved={request_id:root.crypto.randomUUID(),game_id};const raw=JSON.stringify(saved);durable.setItem(revealKey,raw);if(durable.getItem(revealKey)!==raw)throw failure('OPERATION_STORAGE_REQUIRED');}
+        if(!saved||typeof saved.request_id!=='string'){
+          // The server accepts exactly request_id and game_id, so the day lives
+          // only in the storage key, never in the request body.
+          saved={request_id:root.crypto.randomUUID(),game_id};
+          const raw=JSON.stringify(saved);durable.setItem(revealKey,raw);if(durable.getItem(revealKey)!==raw)throw failure('OPERATION_STORAGE_REQUIRED');
+        }
         if(saved.game_id!==game_id)throw failure('REQUEST_CONFLICT');
-        // Same UUID on every retry: lost responses/reloads cannot reroll.
+        // Same UUID on every retry today: lost responses/reloads cannot reroll.
         const receipt=await api('halloween/reveal',saved);
-        try{durable.setItem('campaign-receipt:'+base+':'+snapshot.release_id+':'+snapshot.config_hash+':'+game_id,JSON.stringify(receipt));}catch{ /* a read-only store keeps the in-memory draw */ }
+        try{durable.setItem('campaign-receipt:'+scope+':'+day,JSON.stringify(receipt));}catch{ /* a read-only store keeps the in-memory draw */ }
         if(receipt.status!=='revealed'||receipt.request_id!==saved.request_id||receipt.game_id!==game_id||receipt.release_id!==snapshot.release_id||receipt.config_hash!==snapshot.config_hash)throw failure('HALLOWEEN_REVEAL_MISMATCH');
         return receipt;
       },
@@ -58,8 +76,9 @@
       cachedReveal(game_id){
         try{
           if(!snapshot)return null;
-          const durable=(()=>{try{return root.localStorage||storage}catch{return storage}})();
-          const raw=durable.getItem('campaign-receipt:'+base+':'+snapshot.release_id+':'+snapshot.config_hash+':'+game_id);
+          const durable=durableStore()||storage;
+          const scope=base+':'+snapshot.release_id+':'+snapshot.config_hash+':'+game_id;
+          const raw=durable.getItem('campaign-receipt:'+scope+':'+nyDay());
           const receipt=raw?JSON.parse(raw):null;
           if(!receipt||!receipt.request_id||receipt.game_id!==game_id||receipt.release_id!==snapshot.release_id||receipt.config_hash!==snapshot.config_hash)return null;
           if(receipt.status!=='revealed'||!Array.isArray(receipt.slots))return null;

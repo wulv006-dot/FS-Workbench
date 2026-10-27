@@ -43,7 +43,9 @@ try{
  assert.equal(await page.locator('meta[property="og:image"]').getAttribute('content'),origin+'/events/seasonal/assets/hero-christmas.webp');assert.equal(await page.locator('html').getAttribute('lang'),'en');
  assert.deepEqual(await page.locator('[data-game-card]').evaluateAll(nodes=>nodes.map(node=>node.dataset.gameCard)),['fc','aion','wow','maplestory']);
  const title=await page.title();await page.locator('[data-game-card=fc]').click();assert.equal(await page.locator('[data-offer-slot]').count(),3);assert.equal(await page.locator('[data-fixed-reveal]').isDisabled(),true);assert.equal(await page.locator('[data-model-buy]').isDisabled(),true);assert.equal(await page.locator('[data-offer-slot^=random-] .flip-card:disabled').count(),2);
- assert.match(await page.locator('#offer-slots').innerText(),/1000K Coins/);assert.doesNotMatch(await page.locator('#offer-slots').innerText(),/\$|SIMULATED/);assert.equal(await page.title(),title);assert(!/\p{Script=Han}/u.test(await page.locator('body').innerText()));
+ // All three slots present the same mystery back to visitors; the fixed pool's
+ // quantity is only shown after the card is flipped, never advertised up front.
+ assert.match(await page.locator('#offer-slots').innerText(),/MYSTERY PICK 01/);assert.doesNotMatch(await page.locator('#offer-slots').innerText(),/\$|SIMULATED/);assert.equal(await page.title(),title);assert(!/\p{Script=Han}/u.test(await page.locator('body').innerText()));
  assert.deepEqual(store.read().draft,preservedDraft);assert.deepEqual(publicWrites,[]);
  assert(publicReads>=4);assert.deepEqual(errors,[]);console.log('PASS real FS save/reload/publish/readback; FC English public policy/legacy configuration preservation/async protection/share metadata/original hero/SBC; Seasonal legacy draft and share metadata retained, four-game unconfigured public page, query cannot grant local offers, zero public writes');
 }finally{queued.splice(0).forEach(send=>send());await browser.close();await new Promise(resolve=>server.close(resolve));fs.rmSync(tmp,{recursive:true,force:true});}

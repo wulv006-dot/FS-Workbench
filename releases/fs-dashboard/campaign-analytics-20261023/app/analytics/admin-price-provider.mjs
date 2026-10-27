@@ -15,10 +15,14 @@ export function readAdminPricePolicy(stateDir){
    ||process.platform!=='win32'&&((d.mode&0o077)!==0||(s.mode&0o077)!==0))throw Error('PRIVATE_PRICE_POLICY_REQUIRED');
  return JSON.parse(fs.readFileSync(file,'utf8')).admin_reference_prices??null;
 }
+// One entry per drawable model. The event pool grew past the original cap of 20,
+// so the ceiling follows the catalogue: the refresh stays inside one 60s cycle
+// because each entry is a single bounded read.
+const MAX_PRICE_ENTRIES=80;
 function configuration(value,now){
  if(!value||![1,2].includes(value.schema_version)||Object.keys(value).some(k=>!['schema_version','refresh_interval_ms','entries'].includes(k))
    ||!Number.isSafeInteger(value.refresh_interval_ms)||value.refresh_interval_ms<60000||value.refresh_interval_ms>300000
-   ||!Array.isArray(value.entries)||!value.entries.length||value.entries.length>20)return null;
+   ||!Array.isArray(value.entries)||!value.entries.length||value.entries.length>MAX_PRICE_ENTRIES)return null;
  const fields=['category_id','model_ref','baseline_region','regional_adjustment','currency','minor_unit_scale','source_field','price_semantics','rounding_contract','evidence_ref','max_age_ms','quantity_value','quantity_unit','verified_goods_ids','ordered_goods_ids','ordering_evidence','descriptive_baseprop'];
  const seen=new Set(),numeric=x=>typeof x==='string'&&/^[1-9]\d{0,19}$/.test(x);
  for(const p of value.entries){
@@ -74,10 +78,25 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
   const promise=(async()=>{
    try{
     const products=[],raw={},observations=[],reads=new Map();
+    // Warm every distinct model read concurrently. The projection below stays
+    // sequential, so ordering and the generation checks are unchanged; only the
+    // Admin round trips overlap. Without this a 44-model pool cannot finish
+    // inside one refresh window.
+    const warmEntries=new Map();
     for(const p of current.config.entries){
      const readKey=canonical([p.model_ref,p.category_id]);
-     if(!reads.has(readKey))reads.set(readKey,await call({action:'model_provider_read',...p.model_ref,category_id:p.category_id},{timeout:25000}));
-     const observation=reads.get(readKey);
+     if(!warmEntries.has(readKey))warmEntries.set(readKey,p);
+    }
+    const warmList=[...warmEntries.entries()];
+    // Cache the promise, not the value: a failure surfaces exactly once in the
+    // sequential pass below instead of being retried by it.
+    for(const [readKey,p] of warmList){
+      if(!reads.has(readKey))reads.set(readKey,call({action:'model_provider_read',...p.model_ref,category_id:p.category_id},{timeout:25000}));
+    }
+    await Promise.allSettled([...reads.values()]);
+    for(const p of current.config.entries){
+     const readKey=canonical([p.model_ref,p.category_id]);
+     const observation=await reads.get(readKey);
      if(generation!==admitted)return status;
      const latest=context();
      if(latest.key!==current.key){key=latest.key;generation++;unavailable(latest.release,'PRIVATE_POLICY_OR_RELEASE_CHANGED');return status;}
