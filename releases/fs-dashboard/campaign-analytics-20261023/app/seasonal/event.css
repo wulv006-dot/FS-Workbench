@@ -835,13 +835,18 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
   object-fit: cover;
   object-position: center top;
   transform: none;
-  filter: saturate(.78) brightness(.8) contrast(1.04);
+  /* The artwork was dimmed to .8 brightness when this palette landed, which made
+     all four cards read as dark placeholders. Lift it back to roughly its native
+     exposure and lean on the shade below for text contrast instead. */
+  filter: saturate(1.04) brightness(1.12) contrast(1.02);
 }
 .game-card:hover .game-art { transform: scale(1.03); }
 .game-shade {
+  /* Only the bottom third has to carry the title, so it stays near-opaque while
+     the subject band keeps most of the artwork's own light. */
   background:
-    linear-gradient(180deg, rgba(31,18,50,.42) 0%, rgba(27,16,44,.26) 30%, rgba(19,11,32,.66) 68%, #0b0717 100%),
-    linear-gradient(135deg, rgba(104,56,160,.34) 0%, rgba(58,30,96,.22) 52%, rgba(132,66,190,.2) 100%);
+    linear-gradient(180deg, rgba(31,18,50,.10) 0%, rgba(27,16,44,.06) 34%, rgba(19,11,32,.52) 72%, rgba(11,7,23,.9) 100%),
+    linear-gradient(135deg, rgba(104,56,160,.16) 0%, rgba(58,30,96,.08) 52%, rgba(132,66,190,.12) 100%);
 }
 .game-badge.orange { background: rgba(255,138,29,.92); color: #241204; }
 .game-info h3 { text-shadow: 0 2px 10px rgba(8,4,16,.7); }
