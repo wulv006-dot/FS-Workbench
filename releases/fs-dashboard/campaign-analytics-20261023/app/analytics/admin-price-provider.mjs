@@ -15,10 +15,14 @@ export function readAdminPricePolicy(stateDir){
    ||process.platform!=='win32'&&((d.mode&0o077)!==0||(s.mode&0o077)!==0))throw Error('PRIVATE_PRICE_POLICY_REQUIRED');
  return JSON.parse(fs.readFileSync(file,'utf8')).admin_reference_prices??null;
 }
+// One entry per drawable model. The event pool grew past the original cap of 20,
+// so the ceiling follows the catalogue: the refresh stays inside one 60s cycle
+// because each entry is a single bounded read.
+const MAX_PRICE_ENTRIES=80;
 function configuration(value,now){
  if(!value||![1,2].includes(value.schema_version)||Object.keys(value).some(k=>!['schema_version','refresh_interval_ms','entries'].includes(k))
    ||!Number.isSafeInteger(value.refresh_interval_ms)||value.refresh_interval_ms<60000||value.refresh_interval_ms>300000
-   ||!Array.isArray(value.entries)||!value.entries.length||value.entries.length>20)return null;
+   ||!Array.isArray(value.entries)||!value.entries.length||value.entries.length>MAX_PRICE_ENTRIES)return null;
  const fields=['category_id','model_ref','baseline_region','regional_adjustment','currency','minor_unit_scale','source_field','price_semantics','rounding_contract','evidence_ref','max_age_ms','quantity_value','quantity_unit','verified_goods_ids','ordered_goods_ids','ordering_evidence','descriptive_baseprop'];
  const seen=new Set(),numeric=x=>typeof x==='string'&&/^[1-9]\d{0,19}$/.test(x);
  for(const p of value.entries){
