@@ -1,3 +1,4 @@
+const SERIES=require('../catalog.json').trio.series;
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{createHash}=require('node:crypto'),{deflateSync}=require('node:zlib');
 (async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'products-page-flow-')),app=path.resolve(__dirname,'..'),real=global.fetch;
@@ -16,7 +17,7 @@ if mid!='990001':
  for i,code in enumerate(['ps','xbox','pc']): m['platforms'][code]['product_ref'].update(model_id=mid,goods_id=str(int(mid)*10+i))
 if r['kind']=='sbc': m.update(title='Fixture SBC completion service',version_label=None)
 if r['kind']=='bundle': m.update(title='Fixture original fixed bundle',version_label=None)
-if mid=='990031': m.update(title='Fixture Star Performer player',version_label='Star Performer')
+if mid=='990031': m.update(title='Fixture '+SERIES+' player',version_label=SERIES)
 if mid=='990032': m.update(title='Fixture Gold Rare player',version_label='Gold Rare')
 if r['action']=='model_resolve': d={'model':m,'resolution_complete':True}
 else:
