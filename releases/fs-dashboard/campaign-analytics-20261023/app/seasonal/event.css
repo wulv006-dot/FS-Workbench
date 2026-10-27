@@ -818,4 +818,30 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
 @media(max-width:640px){.offer-slots{grid-template-columns:1fr}.flip-card{height:250px}.brand-row{gap:14px}.brand-row>a:not(.brand){font-size:12px}.brand img{width:120px}.slot-detail{text-align:center}.game-cards{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,220px)}.game-info{inset:auto 0 0;padding:14px}.game-art{width:100%}.game-shade{background:linear-gradient(0deg,#0a111e,transparent)}.game-info h3{font-size:16px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
-.offer-tools{display:flex;justify-content:center;gap:22px}.game-picker .offers-heading .sr-only{margin:0}.picker-heading .back-button{white-space:nowrap}
+.game-picker .offers-heading .sr-only{margin:0}.picker-heading .back-button{white-space:nowrap}
+
+/* V6: seasonal game cards — the source artwork is square with the subject in the
+   upper band, so anchor it to the top instead of cropping around the centre, and
+   pull the saturated store backdrop into the event palette. */
+.game-card {
+  background: radial-gradient(140% 100% at 50% 6%, #37224f 0%, #1b1129 52%, #0d0818 100%);
+  border-color: rgba(206,170,246,.18);
+  box-shadow: 0 14px 30px rgba(6,3,14,.5);
+}
+.game-card:hover { border-color: rgba(255,176,67,.72); box-shadow: 0 18px 38px rgba(6,3,14,.62); }
+.game-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  transform: none;
+  filter: saturate(.78) brightness(.8) contrast(1.04);
+}
+.game-card:hover .game-art { transform: scale(1.03); }
+.game-shade {
+  background:
+    linear-gradient(180deg, rgba(31,18,50,.42) 0%, rgba(27,16,44,.26) 30%, rgba(19,11,32,.66) 68%, #0b0717 100%),
+    linear-gradient(135deg, rgba(104,56,160,.34) 0%, rgba(58,30,96,.22) 52%, rgba(132,66,190,.2) 100%);
+}
+.game-badge.orange { background: rgba(255,138,29,.92); color: #241204; }
+.game-info h3 { text-shadow: 0 2px 10px rgba(8,4,16,.7); }

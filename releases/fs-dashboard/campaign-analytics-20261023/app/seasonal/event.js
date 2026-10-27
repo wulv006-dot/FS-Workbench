@@ -91,7 +91,6 @@
     doc.querySelector('.offer-availability').hidden=missing.length===0;
     doc.querySelector('#configuration-title').textContent='Offers are not available yet';
     doc.querySelector('#configuration-summary').textContent=missing.length?'Please check back soon. You can still explore the games in our main store.':'Published settings are available. Mystery slots still require a server-confirmed draw; final prices and eligibility require store confirmation.';
-    doc.querySelector('#campaign-date').textContent=view.starts_at&&view.ends_at?new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',month:'short',day:'numeric'}).format(new Date(view.starts_at))+' – '+new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',month:'short',day:'numeric',year:'numeric'}).format(new Date(view.ends_at))+' · UTC+8':'SEASONAL OFFERS';
   }
   function update(input){
     if(!input||typeof input!=='object')return;
@@ -121,11 +120,6 @@
     }
     const action=event.target.closest('[data-action]')?.dataset.action;
     if(action==='close')dialog.close();
-    if(action==='refresh-prices'){status('Refreshing current prices…');try{await root.SeasonalCommerce.refresh();status('Current offers refreshed.');}catch{status('Prices are temporarily unavailable. Please try again.');}return;}
-    if(action==='rules'){
-      const probability=view.probabilities?view.probabilities.map(p=>p.off_percent+'% OFF: '+(p.weight/100)+'%').join(' · '):'Not configured';
-      showDialog('Event details','<p>Planned discount tiers: 8% OFF, 15% OFF and 10% OFF. No tier is assigned to a mystery slot in this browser.</p><dl><dt>Discount probabilities</dt><dd>'+esc(probability)+'</dd><dt>Offer allocation</dt><dd>'+(view.binding?'Independently configured':'Not configured')+'</dd><dt>Event window</dt><dd>'+esc(view.starts_at&&view.ends_at?view.starts_at+' to '+view.ends_at:'Not configured')+'</dd></dl><p>Random offers require a server-confirmed result. Existing coupons, member points, cart contents and final eligibility are governed by the verified store integration.</p><p>No referral reward, refresh credit or local draw is granted by this page.</p>');
-    }
   });
   root.addEventListener('seasonal-published-catalog',event=>update(event.detail));
   root.addEventListener('seasonal-published-media',event=>{media=event.detail||{};renderHero();renderGames();renderSlots();});
