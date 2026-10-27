@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
 from fixtures import fixture,NOW
-from fc_pricing_v3 import engine,financial,runtime
+from fc_pricing_v3 import engine,financial,runtime,api
 from fc_pricing_v3.ledger import Ledger
 from fc_pricing_v3.legacy_simulation import dual10_financial
 
@@ -171,7 +171,8 @@ class Dual20Sprint(unittest.TestCase):
         self.assertEqual(result['status'],'READY')
         self.assertEqual(result['selected']['action']['region_coefficients']['21:PC'],'1')
         self.assertTrue(result['selected']['financial_proof']['pass_all'])
-        self.assertTrue(any(f['code']=='pricing_required_market_missing:ArabUT:PC' for f in result['failures']))
+        self.assertEqual(result['selected']['regional_market_comparison']['21:PC']['decision_type'],'regional_follow_global')
+        self.assertEqual(result['selected']['financial_proof']['prices']['21:PC']['catalog']['extra_region_rounding_bound_per_k'],'0')
         control['id']=99
         self.assertGreater(engine.required_base_bound(data,'PC',NOW),base)
 
@@ -200,8 +201,62 @@ class Dual20Sprint(unittest.TestCase):
         data['arab_ut_quotes']=[dict(platform='PS',region_id=21,price_usd='13',purchase_k='100',bonus_k='0',captured_at=NOW.isoformat(),delivery='normal',selection_verified=True,currency='USD')]
         local=engine.competition(data,['PS'],NOW,region=21,resolved_global=global_market)
         self.assertEqual(Decimal(local['targets']['PS']['anchor_unit_100k']),Decimal('13'))
-        with self.assertRaisesRegex(ValueError,'pricing_required_market_missing:ArabUT:PC'):
-            engine.competition(data,['PC'],NOW,region=21)
+        missing=engine.competition(data,['PC'],NOW,region=21,base_total='10')
+        self.assertEqual(missing['decision_type'],'regional_follow_global')
+        self.assertEqual(missing['legal_coefficients'],['1'])
+        self.assertEqual(missing['regional_fallbacks']['PC']['reason'],'pricing_required_market_missing:ArabUT:PC')
+        self.assertFalse(any(q['source']=='ArabUT' for q in missing['quotes']))
+
+    def test_user_item_gift_equivalence_uses_same_lootbar_tier_without_mutating_source(self):
+        data=source(loot='10',item='9')
+        data['offers']['PS']['Lootbar']['bonus_k']='5'
+        quote=engine.market_quote(data,'PS','ItemD2R',NOW)
+        self.assertEqual((quote['actual_coin_bonus_k'],quote['bonus_k'],quote['delivered_k']),('0','5','105'))
+        self.assertEqual(Decimal(quote['unit_100k']),Decimal('9')/105*100)
+        self.assertTrue(quote['gift_equivalence_assumed'])
+        self.assertEqual(data['reference_market']['offers'][0]['bonus_k'],'0')
+        raw=dict(quote,delivered_k='100');raw.pop('gift_equivalence_version')
+        self.assertNotEqual(engine.quote_identity(raw),engine.quote_identity(quote))
+
+    def test_stale_saudi_quote_follows_global_but_missing_global_quote_still_blocks(self):
+        data=source();data['arab_ut_quotes']=[dict(platform='PS',region_id=21,price_usd='8',purchase_k='100',bonus_k='0',captured_at=(NOW-timedelta(minutes=16)).isoformat(),delivery='normal',selection_verified=True,currency='USD')]
+        local=engine.competition(data,['PS'],NOW,region=21,base_total='9')
+        self.assertEqual(local['decision_type'],'regional_follow_global')
+        self.assertEqual(local['legal_coefficients'],['1'])
+        data['reference_market']['offers']=[]
+        with self.assertRaisesRegex(ValueError,'pricing_required_market_missing:ItemD2R:PS'):
+            engine.competition(data,['PS'],NOW,region=21,base_total='9')
+
+    def test_price_basis_uses_original_catalog_gift_pool_and_actual_history(self):
+        data=source(bonus='5')
+        basis=engine.price_basis(data,NOW)
+        for platform,row in basis['rows'].items():
+            self.assertEqual(Decimal(row['delivered_k']),105)
+            self.assertEqual(Decimal(row['package_cost_usd']),105*Decimal(row['cost_usd_per_1k']))
+            self.assertGreaterEqual(Decimal(row['average_floor_usd']),Decimal(row['regular_floor_usd']))
+            self.assertEqual(Decimal(row['regular_floor_usd']),engine.catalog_floor(row['cost_cny_per_1k'],data['fx']['cny_per_usd'],engine.envelope_ratio(data['promotion_envelope'],NOW),engine.HARD_MARGIN,data['promotion_envelope']['packages'][platform])*100)
+        self.assertFalse(basis['execution_authorized'])
+
+    def test_missing_saudi_follow_global_survives_runtime_revalidation_and_public_projection(self):
+        with tempfile.TemporaryDirectory() as folder,patch('fc_pricing_v3.ledger.clock',return_value=NOW):
+            root=Path(folder);db=Ledger(root/'control.db');db.activate_generation('g',[])
+            plan=db.create_plan('revenue_sprint',['base:console','base:pc','region:21:PC','region:21:PS'],dict(base_prices=dict(console='20',pc='20'),region_coefficients={'21:PC':'1','21:PS':'.91'}),ends_at=(NOW+timedelta(hours=3)).isoformat())
+            db.activate_plan(plan['plan_id']);data=source(cost='.56',bonus='5')
+            for platform in engine.PLATFORMS:data['offers'][platform]['Lootbar']['bonus_k']='5'
+            data['regional_controls']=[dict(id=None,region_id=21,platforms=['PC'],factor='1',resource='region:21:PC',verified=True,price_semantics='regional_regular_multiplicative',history=dict(basis='pooled_other_promotions_excluding_region_verified'),scope={})]
+            data['regional_controls'].append(dict(data['regional_controls'][0],id=3,platforms=['PS'],factor='.91',resource='region:21:PS'))
+            with patch.object(runtime,'ledger',return_value=db),patch.object(runtime,'ROOT',root),patch.object(runtime,'clock',return_value=NOW):
+                result=runtime.calculate(data)
+                runtime.verify_quote(dict(evidence=data,result=result),dict(minimum_gross_margin_pct='20'),list(engine.PLATFORMS),now=NOW)
+            self.assertEqual(result['decision_receipt']['action']['region_coefficients']['21:PC'],'1')
+            self.assertEqual(result['decision_receipt']['action']['region_coefficients']['21:PS'],'1')
+            self.assertTrue(any(s['kind']=='region' and s['key']=='21:PS' for s in result['decision_receipt']['steps']))
+            with patch.object(api,'ledger',return_value=db):market=api.read('market')
+            self.assertEqual(market['saudi_missing_price_policy'],'follow_global')
+            self.assertEqual(market['price_basis']['status'],'available')
+            self.assertTrue(market['reference']['offers'][0]['gift_equivalence_assumed'])
+            self.assertEqual(market['reference']['offers'][0]['delivered_k'],'105')
+            self.assertFalse(market['price_basis']['execution_authorized'])
 
     def test_T20_T24_fallback_cannot_be_changed_into_an_arbitrary_higher_price(self):
         with tempfile.TemporaryDirectory() as folder:
