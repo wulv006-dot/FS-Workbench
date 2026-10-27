@@ -24,6 +24,16 @@ PR542 merge5695cb53beceb7906c789b58ca960abfef3737dd，正式CI40432627081/job121
 
 Item原套餐$8.14/$8.15按100K+5K礼包等值分别显示约$7.75/$7.76每100K金币等值，并明确“含礼包估算”。PC Arab卡显示缺价跟随全球，没有假价。页面实际60分钟、下一10:04，无错误。原Hermes全文换行与深浅主题修复保持；窄屏设备实测仍未完成。
 
-## 仍待验收
+## Hermes正式教材5与实际加载
+
+PR543合并62072935eb080f6e1e858da802deefb3ba6d9620，最终head824ea1908d8f52e54b4af2c4004ad434239c5414；CI run40434119135/job121958760329，234项FC及87项知识检查通过。原publisher nav-20261027T014800Z发布17个明确目标，17/17实际SHA一致，businessWorkerTimerActions=0，未新增业务写价。
+
+发布manifest SHA `bc0ec49eaf8aca4fb945eb7361f0a429d6f133c66695687d79a6e65bdbb3bf1b`；目录 `knowledge-releases/fc-pricing-v3-20261026-5/index.json` SHA `d551167fb46ae698d0ef01d637c1c0d88689261b9a42fd9b7f8f00e7ea5a99f6`；完整基准 `490229771a5949a35108b842007667fb5cc414763cedcd26123ce0d2dbcf3654`，加载政策 `8e7d124c4736d2da83d485a39f8f63c155e7d4bc600f4a4cadc044972af93cc2`。
+
+正式wulv/FS/fs数据任务实际选择available、13条、26724字符、含fc.pricing.v3，选择SHA `f61ba98eb503a9056213b1dbc2fc60af8fe778d7baf3eb18368d7bb5df3e7e6b`。原13条路由及其他模块规则保留；教材包含60分钟、Saudi缺价跟全球、ItemD2R礼包等值估算和成本/双红线说明。Notion原页3ff9a8a7-9c4e-81bc-8a4f-eb15aab87a5a、同同步编号FCV3-RULESYNC-20261027-01已定点更新且无警告。实际装载不是模型已完成新规则复盘，今日没有追加第二次模型。
+
+以上凭据私有保存于apply-knowledge5-6207293.log、knowledge5-current-live.json、knowledge5-selection-live.json；原发布回退journal及目标备份位于 `/var/backups/fs-navigation-20261006/nav-20261027T014800Z/`。
+
+## 自然轮仍待验收
 
 10:04自然轮的新鲜采价、候选、实际后台执行、缓存及公开读回须单独取得，不把本页或READY当写价成功。Hermes新教材和规则同步使用下一知识版本独立记录，不调用第二次今日模型。首轮03:10、UK04:07、原失败/UNKNOWN、两个旧自然INFEASIBLE及历史现金/地区/成本缺口均保留。
