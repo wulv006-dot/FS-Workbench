@@ -65,3 +65,13 @@ test('observed one-item display totals avoid guessing high-precision native roun
  f.observation.products[0].source_display_price='5.43';f.observation.products[0].specification.saleprop={present:true,observed:[{id:'purchase-option'}]};assert.equal(projectAdminPrices(f.observation,f.policy,{now}).reason,'SPECIFICATION_MAPPING_REQUIRED');
  f.policy.quantity_value='2';assert.equal(projectAdminPrices(f.observation,f.policy,{now}).status,'blocked');
 });
+
+test('explicit observed native one-item formatter handles missing formatted field without inventing it',()=>{
+ const f=fixture();Object.assign(f.policy,{source_field:'unit_price',price_semantics:'native_item_display_total',rounding_contract:'native-js-number-format-tofixed-2',descriptive_baseprop:true,quantity_value:'1',quantity_unit:'item'});
+ for(const row of f.observation.products){row.quantity={unit:'',group:'1'};row.source_display_price=null;row.specification.baseprop={present:true,observed:[{name:'Version'}]};}
+ for(const [raw,cents] of [['5.61132',561],['1.15104',115],['34.9',3490],['105',10500],['2.675',267]]){
+  f.observation.products[0].source_unit_price=raw;f.observation.products[1].source_unit_price='999';
+  const out=projectAdminPrices(f.observation,f.policy,{now});assert.equal(out.status,'reference_price_ready_not_checkout');assert.deepEqual(new Set(out.model_contracts['123'].combinations.map(x=>x.price.base_minor)),new Set([cents,99900]));assert.equal(f.observation.products[0].source_display_price,null);
+ }
+ for(const mutate of [x=>delete x.policy.rounding_contract,x=>x.policy.rounding_contract='guess',x=>x.policy.quantity_value='2',x=>x.policy.minor_unit_scale=3,x=>x.observation.products[0].source_unit_price='1e2',x=>x.observation.products[0].source_unit_price=' 1',x=>x.observation.products[0].quantity.group='2',x=>x.observation.products[0].specification.saleprop={present:true,observed:[{id:'sku'}]}]){const x=structuredClone(f);mutate(x);assert.equal(projectAdminPrices(x.observation,x.policy,{now}).status,'blocked');}
+});

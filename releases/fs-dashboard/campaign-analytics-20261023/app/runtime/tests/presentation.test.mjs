@@ -17,6 +17,18 @@ test('published config renders exact visible copy and metadata while retaining a
   assert.ok(next.includes('"name":"Next $& title"'));assert.ok(next.includes('"description":"Next published description"'));
   assert.match(next,/<link rel="canonical" href="https:\/\/www.mmoexp.com\/original">/);
 });
+test('published HTML fingerprints owned JS/CSS and binds catalog to the published config',()=>{
+ const s=snapshot(),hashes={'activity.css':'a'.repeat(64),'activity.js':'b'.repeat(64),'activity-core.js':'d'.repeat(64),'seasonal/event.css':'e'.repeat(64),'seasonal/event.js':'f'.repeat(64)};
+ s.config_hash='c'.repeat(64);
+ const body=presentPage({name:paths[0],body:source.replace('<script src="activity.js">','<script src="catalog.js"></script><script src="activity.js">'),snapshot:s,now:'2026-10-24T10:00:00Z',assetVersion:name=>name==='catalog.js'?s.config_hash:hashes[name]}).body;
+ assert.match(body,/href="activity\.css\?v=a{64}"/);assert.match(body,/src="catalog\.js\?v=c{64}"/);assert.match(body,/src="activity\.js\?v=b{64}"/);
+ s.config_hash='1'.repeat(64);const next=presentPage({name:paths[0],body:source.replace('<script src="activity.js">','<script src="catalog.js"></script><script src="activity.js">'),snapshot:s,now:'2026-10-24T10:00:00Z',assetVersion:name=>name==='catalog.js'?s.config_hash:hashes[name]}).body;
+ assert.match(next,/src="catalog\.js\?v=1{64}"/);assert.match(next,/src="activity\.js\?v=b{64}"/);
+ const seasonal='<link rel="stylesheet" href="event.css"><script src="../activity-core.js"></script><script src="event.js"></script><script src="https://cdn.invalid/unchanged.js"></script>';
+ const vault=presentPage({name:paths[3],body:seasonal,snapshot:s,now:'2026-10-24T10:00:00Z',assetVersion:name=>name==='catalog.js'?s.config_hash:hashes[name]}).body;
+ assert.match(vault,/href="event\.css\?v=e{64}"/);assert.match(vault,/src="\.\.\/activity-core\.js\?v=d{64}"/);assert.match(vault,/src="event\.js\?v=f{64}"/);assert.match(vault,/src="https:\/\/cdn\.invalid\/unchanged\.js"/);
+});
+
 test('UTC time labels replace illustrative dates and aliases resolve the published page',()=>{
   const s=snapshot();s.pages[0].starts_at='2026-10-24T17:00:00+08:00';
   const body=render(s,'index.html').body;assert.match(body,/2026-10-24 09:00:00\.000 UTC/);assert.doesNotMatch(body,/campaign-published-details/);assert.ok(!body.includes('CONCEPT — OCT 24'));
