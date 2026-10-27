@@ -21,7 +21,10 @@
     try{pending=JSON.parse(storage?.getItem(key)||'null');}catch{throw failure('OPERATION_STORAGE_INVALID');}
     function retain(value){pending=value;try{if(!storage)throw failure('OPERATION_STORAGE_REQUIRED');storage.setItem(key,JSON.stringify(value));}catch{throw failure('OPERATION_STORAGE_REQUIRED');}}
     async function api(route,body){
-      let response;try{response=await request(base+'api/campaign/'+route,{credentials:'same-origin',cache:'no-store',...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});}catch{throw failure('NETWORK_UNKNOWN');}
+      // A hung request must not leave the card disabled forever. Fifteen seconds
+      // is well above a normal draw but short enough to let the visitor retry.
+      const timeout=typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(15000):undefined;
+      let response;try{response=await request(base+'api/campaign/'+route,{credentials:'same-origin',cache:'no-store',signal:timeout,...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});}catch{throw failure('NETWORK_UNKNOWN');}
       let value;try{value=await response.json();}catch{throw failure('NETWORK_UNKNOWN');}
       if(!response.ok)throw Object.assign(failure(value.code||'RUNTIME_UNAVAILABLE'),{status:response.status,dispatch_state:value.dispatch_state});return value;
     }
