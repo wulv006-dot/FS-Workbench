@@ -835,13 +835,18 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
   object-fit: cover;
   object-position: center top;
   transform: none;
-  filter: saturate(.78) brightness(.8) contrast(1.04);
+  /* The artwork was knocked down to .8 brightness when this palette landed and all
+     four cards read as dark placeholders. Lift it back near its native exposure
+     and let the shade below carry the contrast instead. */
+  filter: saturate(.95) brightness(1.14) contrast(1.02);
 }
 .game-card:hover .game-art { transform: scale(1.03); }
 .game-shade {
+  /* Thinner wash over the subject band; only the bottom strip that holds the
+     title stays close to opaque so the label keeps its contrast. */
   background:
-    linear-gradient(180deg, rgba(31,18,50,.42) 0%, rgba(27,16,44,.26) 30%, rgba(19,11,32,.66) 68%, #0b0717 100%),
-    linear-gradient(135deg, rgba(104,56,160,.34) 0%, rgba(58,30,96,.22) 52%, rgba(132,66,190,.2) 100%);
+    linear-gradient(180deg, rgba(31,18,50,.26) 0%, rgba(27,16,44,.16) 30%, rgba(19,11,32,.58) 68%, rgba(11,7,23,.96) 100%),
+    linear-gradient(135deg, rgba(104,56,160,.26) 0%, rgba(58,30,96,.16) 52%, rgba(132,66,190,.15) 100%);
 }
 .game-badge.orange { background: rgba(255,138,29,.92); color: #241204; }
 .game-info h3 { text-shadow: 0 2px 10px rgba(8,4,16,.7); }
