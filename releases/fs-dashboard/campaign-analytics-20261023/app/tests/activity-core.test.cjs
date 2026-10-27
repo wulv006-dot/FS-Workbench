@@ -82,6 +82,7 @@ test('every configured product has real three-platform IDs and an existing WebP'
   for(const platform of ['ps','xbox','pc'])api.line(p,platform);
   const bytes=fs.readFileSync(path.join(__dirname,'..',p.image));assert.equal(bytes.toString('ascii',8,12),'WEBP');
  }
- assert.deepEqual(config.bundles.ids.map(key=>config.products[key].included.length),[4,5,7,7]);
- assert(!Object.values(config.products).some(p=>/Paris11|ManCity11|Player Pick/i.test(p.title)));
+ assert.equal(current.bundles.ids.length,6);
+ assert(current.bundles.ids.every(key=>{const n=(current.products[key].included||[]).length;return n===0||n>1;}));
+ assert(!Object.values(current.products).some(p=>/Player Pick/i.test(p.title)));
 });

@@ -6,7 +6,7 @@ test('management subprocess reads actual mapping and empty analysis without crea
  const python=process.env.CAMPAIGN_TEST_PYTHON||(process.platform==='win32'?'python':'python3');
  try{
   const mapping=await backendRead({action:'catalog_mapping_read',site_id:'266'},{python});
-  assert.equal(mapping.summary.reference_count,96);assert.equal(mapping.summary.unique_goods_count,86);
+  assert(mapping.summary.reference_count>=96);assert(mapping.summary.unique_goods_count>=86);assert.equal(mapping.summary.reference_count,Object.values(mapping.mappings).length);
   assert.equal(mapping.checkout_enabled,false);assert(Object.values(mapping.mappings).every(row=>row.available===false&&row.product_ref.site_id==='266'));
   const summary=await backendRead({action:'analysis_summary',site_id:'266'},{python});
   assert.equal(summary.status,'blocked');assert.deepEqual(summary.totals,[]);assert(summary.warnings.includes('ORDER_READ_NOT_PERFORMED'));

@@ -6,7 +6,7 @@
       "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#webpage",
       "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html",
       "name": "FC 27 SBC Players, Completion & Companions | MMOEXP",
-      "description": "Choose FC 27 SBC Players: Assane Diao, Johan Manzambi, Cora Zicai. Keep an owned core or include SBC completion with two companions, with each item listed separately. Review the exact platform and items. Any campaign code must be validated before payment and cannot be combined with coupons or member points.",
+      "description": "Choose FC 27 SBC Players: Emre Mor, Nick Woltemade. Keep an owned core or include SBC completion with two companions, with each item listed separately. Review the exact platform and items. Any campaign code must be validated before payment and cannot be combined with coupons or member points.",
       "inLanguage": "en",
       "dateModified": "2026-10-22T13:08:02.101028+00:00",
       "image": "https://www.mmoexp.com/Fc-27/assets/reward-hero.webp",
@@ -59,11 +59,11 @@
           "position": 1,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-186021743",
-            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-186021743",
-            "name": "Assane Diao",
-            "description": "84 · RM · SBC Player",
-            "image": "https://assets.mmoexp.com/images/202610/f7e437ba5305a727d5c0e65f1e1d69bf36f352f9.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-186475859",
+            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-186475859",
+            "name": "Emre Mor",
+            "description": "",
+            "image": "https://assets.mmoexp.com/images/202610/282e6e513753c612882f9a1313903338defdaa7f.png"
           }
         },
         {
@@ -71,11 +71,11 @@
           "position": 2,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-185916875",
-            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-185916875",
-            "name": "Alphadjo Cissè/85/CAM++/Star Performer",
-            "description": "85 · CAM++ · Star Performer",
-            "image": "https://assets.mmoexp.com/images/202610/b9c507278fb3ce52545c42be1384e5ed2539ee5b.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-186432719",
+            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-186432719",
+            "name": "Hakan Çalhanoğlu/86/CAM++/Ultimate Scream",
+            "description": "86 · CAM++ · Ultimate Scream",
+            "image": "https://assets.mmoexp.com/images/202610/d095101a6ebde41efc2b76ff577e07351a60beab.png"
           }
         },
         {
@@ -83,11 +83,11 @@
           "position": 3,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-185070945",
-            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-185070945",
-            "name": "Jacobo Ramón Naveros/87/CB++/Future Stars",
-            "description": "87 · CB++ · Future Stars",
-            "image": "https://assets.mmoexp.com/images/202610/46b4e2f798aa06deb35d42a133193ea44febb968.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170019065",
+            "url": "https://www.mmoexp.com/Fc-27/Sbc-Companions.html#product-170019065",
+            "name": "Lautaro Martínez/87/ST++/Gold Non Rare",
+            "description": "87 · ST++ · Gold Non Rare",
+            "image": "https://assets.mmoexp.com/player/fc27/454.png"
           }
         }
       ]

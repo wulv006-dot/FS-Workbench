@@ -5,8 +5,8 @@
       "@type": "CollectionPage",
       "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#webpage",
       "url": "https://www.mmoexp.com/Fc-27/Player-Trio.html",
-      "name": "FC 27 Star Performer Players & Trio Builder | MMOEXP",
-      "description": "Build your FC 27 Star Performer trio with Bradley Barcola, Alphadjo Cissè, Noah Sadiki. Compare exact player versions, roles and platform choices before you review. Review the exact platform and items. Any campaign code must be validated before payment and cannot be combined with coupons or member points.",
+      "name": "FC 27 Ultimate Scream Players & Trio Builder | MMOEXP",
+      "description": "Build your FC 27 Ultimate Scream trio with C. Ronaldo, Cole Palmer, Castello Lukeba. Compare exact player versions, roles and platform choices before you review. Review the exact platform and items. Any campaign code must be validated before payment and cannot be combined with coupons or member points.",
       "inLanguage": "en",
       "dateModified": "2026-10-22T13:08:02.101028+00:00",
       "image": "https://www.mmoexp.com/Fc-27/assets/scream-hero.webp",
@@ -42,7 +42,7 @@
         {
           "@type": "ListItem",
           "position": 3,
-          "name": "Star Performer Trio",
+          "name": "Ultimate Scream Trio",
           "item": "https://www.mmoexp.com/Fc-27/Player-Trio.html"
         }
       ]
@@ -59,11 +59,11 @@
           "position": 1,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916899",
-            "url": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916899",
-            "name": "Bradley Barcola/86/LW++/Star Performer",
-            "description": "86 · LW++ · Star Performer",
-            "image": "https://assets.mmoexp.com/images/202610/d85706bc2ab0f85b22560c0da86d1bfd423076de.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-186432683",
+            "url": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-186432683",
+            "name": "C. Ronaldo /89/LW++/Ultimate Scream",
+            "description": "89 · LW++ · Ultimate Scream",
+            "image": "https://assets.mmoexp.com/images/202610/7c0b841cf4c3331c8619bc3d56e82d73a3eb92bd.png"
           }
         },
         {
@@ -71,11 +71,11 @@
           "position": 2,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916875",
-            "url": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916875",
-            "name": "Alphadjo Cissè/85/CAM++/Star Performer",
-            "description": "85 · CAM++ · Star Performer",
-            "image": "https://assets.mmoexp.com/images/202610/b9c507278fb3ce52545c42be1384e5ed2539ee5b.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-186432623",
+            "url": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-186432623",
+            "name": "Cole Palmer/87/RW++/Ultimate Scream",
+            "description": "87 · RW++ · Ultimate Scream",
+            "image": "https://assets.mmoexp.com/images/202610/a8be349862b18feb8c5dc5f76b85a3c212d58a68.png"
           }
         },
         {
@@ -83,11 +83,11 @@
           "position": 3,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916851",
-            "url": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-185916851",
-            "name": "Noah Sadiki/85/CDM++/Star Performer",
-            "description": "85 · CDM++ · Star Performer",
-            "image": "https://assets.mmoexp.com/images/202610/5dfa8a103caafa652ce28b69545b267f68dd3989.png"
+            "@id": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-186432635",
+            "url": "https://www.mmoexp.com/Fc-27/Player-Trio.html#product-186432635",
+            "name": "Castello Lukeba/85/LB++/Ultimate Scream",
+            "description": "85 · LB++ · Ultimate Scream",
+            "image": "https://assets.mmoexp.com/images/202610/f2b8c17230d70f04b8481efec17d78ca4594e092.png"
           }
         }
       ]

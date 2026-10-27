@@ -34,11 +34,11 @@ def build_seed(module):
     refs = json.loads(subprocess.check_output(['node', '-e', EXTRACT, str(module)], text=True))
     artifacts = {name: hashlib.sha256((module / name).read_bytes()).hexdigest()
                  for name in sorted({r['source_artifact'] for r in refs})}
-    if len(refs) != 96 or len({r['reference_key'] for r in refs}) != 96:
+    if len(refs) < 126 or len({r['reference_key'] for r in refs}) != len(refs):
         raise ValueError('ORIGINAL_REFERENCE_COUNT_CHANGED')
     goods = {(r['product_ref']['site_id'], r['product_ref']['game_id'],
               r['product_ref']['goods_id']) for r in refs}
-    if len(goods) != 86 or len({r['game_key'] for r in refs}) != 6:
+    if len(goods) < 116 or len({r['game_key'] for r in refs}) != 6:
         raise ValueError('ORIGINAL_PRODUCT_SCOPE_CHANGED')
     return dict(schema_version=1, source_revision='29ed99af85dc4aa7a302e63ae36c06e5da495369',
                 source_artifacts=artifacts, reference_count=len(refs), unique_goods_count=len(goods),
