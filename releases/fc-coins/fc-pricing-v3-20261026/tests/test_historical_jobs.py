@@ -15,6 +15,23 @@ NOW=datetime(2026,10,26,15,59,tzinfo=timezone.utc)
 
 
 class HistoricalJobs(unittest.TestCase):
+    def test_daily_dispatch_reads_actual_two_mode_worker_reply_and_ignores_legacy_report(self):
+        date=(datetime.now(timezone.utc)-timedelta(days=3)).date().isoformat()
+        for legacy_exists in (False,True):
+          with self.subTest(legacy_exists=legacy_exists),tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);db=Ledger(root/'control.db')
+            if legacy_exists:
+                (root/('daily-'+date+'.json')).write_text(json.dumps(dict(local_date=date,legacy_five=True)))
+            result=shadow_worker.run_daily(root/'control.db',root/'shadow.db',date)
+            self.assertTrue(all(set(p['results'])=={'daily','revenue_sprint'} for p in result['periods']))
+            with patch.object(history,'STATE',root),patch.object(history.subprocess,'run') as commands:
+                received=history.ensure_shadow(db,'daily','original',date)
+                repeated=history.ensure_shadow(db,'daily','original',date)
+            self.assertEqual(received,dict(status='completed',result=result))
+            self.assertEqual(repeated,received)
+            commands.assert_not_called()
+            self.assertEqual(db.all('operations'),[])
+
     def test_request_reused_across_midnight_freezes_original_paid_window(self):
         with tempfile.TemporaryDirectory() as folder:
             db=Ledger(Path(folder)/'control.db')
