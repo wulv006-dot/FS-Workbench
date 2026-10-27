@@ -114,6 +114,14 @@ def market_quote(evidence, platform, source, now, region=None):
                 row['delivered_k'] = str(number(row.get('purchase_k',row.get('base_k','100')))+number(row.get('bonus_k','0'), zero=True))
     if not row:
         raise ValueError('pricing_required_market_missing:'+source+':'+platform)
+    if source=='ItemD2R' and number(row.get('bonus_k','0'),zero=True)==0:
+        gift_basis=evidence.get('offers',{}).get(platform,{}).get('Lootbar') or {}
+        if number(gift_basis.get('base_k'))!=number(row.get('purchase_k','100')):
+            raise ValueError('pricing_item_gift_basis_missing')
+        equivalent=number(gift_basis.get('bonus_k','0'),zero=True)
+        row.update(actual_coin_bonus_k='0',bonus_k=str(equivalent),
+                   delivered_k=str(number(row.get('purchase_k','100'))+equivalent),
+                   gift_equivalence_version='user_lootbar_same_tier_v1',gift_equivalence_assumed=True)
     fresh(row['captured_at'], now, 900)
     if (row.get('conditional') or row.get('comparable') is False or
             number(row.get('purchase_k',row.get('base_k','100'))) != 100):
@@ -135,6 +143,29 @@ def sprint_parameters(plan=None):
     if not 5<=preferred<=10:raise ValueError('pricing_competitive_preference_invalid')
     return dict(sprint_policy_version=SPRINT_POLICY_VERSION,financial_contract_version=FINANCIAL_CONTRACT_VERSION,
                 min_undercut_pct='5',max_undercut_pct='10',undercut_candidates_pct=['5','6.25','7.5','8.75','10'],preferred_undercut_pct=str(preferred))
+
+
+def price_basis(evidence,now):
+    """Saved-source global catalog bounds for display, never a write authorization."""
+    pooled,_=common_cost(evidence)
+    fresh(evidence['fx']['checked_at'],now)
+    fx=number(evidence['fx']['cny_per_usd'])
+    ratio=envelope_ratio(evidence['promotion_envelope'],now)
+    average=history_ratio(evidence,now)
+    rows={}
+    for platform in PLATFORMS:
+        fresh(evidence['costs'][platform]['checked_at'],now)
+        cost=pooled if platform!='PC' else number(evidence['costs'][platform]['cny_per_1k'])
+        rules=evidence['promotion_envelope']['packages'][platform]
+        tier=next(t for t in rules['tiers'] if number(t['base_k'])==100)
+        delivered=number(tier['base_k'])+number(tier['bonus_k'],zero=True)
+        rows[platform]=dict(cost_cny_per_1k=str(cost),cost_usd_per_1k=str(cost/fx),
+            package_cost_usd=str(delivered*cost/fx),delivered_k=str(delivered),
+            regular_floor_usd=str(catalog_floor(cost,fx,ratio,HARD_MARGIN,rules)*100),
+            average_floor_usd=str(catalog_floor(cost,fx,ratio,HARD_MARGIN,rules,average_ratio=average)*100),
+            cost_checked_at=evidence['costs'][platform]['checked_at'])
+    return dict(status='available',rows=rows,as_of=now.isoformat(),scope='global_catalog_base_100k',
+                historical_retained_ratio=str(average),minimum_margin_pct=str(HARD_MARGIN),execution_authorized=False)
 
 
 def required_unit_bound(evidence,platform,now,region=None,evaluation_context=None):
@@ -168,7 +199,7 @@ def required_base_bound(evidence,platform,now,plan=None,evaluation_context=None)
 
 
 def quote_identity(row):
-    return tuple(row.get(k) for k in ('source','platform','purchase_k','delivered_k','delivery','delivery_method','price_basis','coupon_excluded','conditional'))
+    return tuple(row.get(k) for k in ('source','platform','purchase_k','delivered_k','delivery','delivery_method','price_basis','coupon_excluded','conditional','gift_equivalence_version'))
 
 def base_limits(public_low,public_high,retained):
     retained=number(retained)
@@ -206,8 +237,12 @@ def resolve_anchor(evidence,platform,quotes,now):
 
 def competition(evidence, platforms, now, region=None, *, plan=None, resolved_global=None,evaluation_context=None,base_total=None):
     sprint_parameters(plan)
-    quotes = [market_quote(evidence,p,s,now,region) for p in platforms
-              for s in (('Lootbar','ItemD2R','ArabUT') if region == 21 else ('Lootbar','ItemD2R'))]
+    quotes = [market_quote(evidence,p,s,now,region) for p in platforms for s in ('Lootbar','ItemD2R')]
+    regional_fallbacks={}
+    if region==21:
+        for p in platforms:
+            try:quotes.append(market_quote(evidence,p,'ArabUT',now,region))
+            except ValueError as error:regional_fallbacks[p]=dict(mode='follow_global',reason=str(error))
     times = [instant(q['captured_at']) for q in quotes]
     if (max(times)-min(times)).total_seconds() > 300:
         raise ValueError('pricing_market_capture_span')
@@ -217,8 +252,8 @@ def competition(evidence, platforms, now, region=None, *, plan=None, resolved_gl
       for p in platforms:
         target=number(choices[p]['unit_100k'])
         if region==21:
-            arab=next(q for q in quotes if q['source']=='ArabUT' and q['platform']==p)
-            if number(arab['unit_100k'])<target:
+            arab=next((q for q in quotes if q['source']=='ArabUT' and q['platform']==p),None)
+            if arab and number(arab['unit_100k'])<target:
                 target=number(arab['unit_100k'])
                 choices[p].update(local_source='ArabUT',local_reason='ARABUT_LOWER_NORMAL_QUOTE')
         own = evidence['storefront']['rows'][p]
@@ -234,7 +269,7 @@ def competition(evidence, platforms, now, region=None, *, plan=None, resolved_gl
                           total_low=str(low),total_high=str(high))
       return targets
     targets=limits(anchors)
-    attempts=[];decision_type='competitive';minimum_base=None;coefficients=None
+    attempts=[];decision_type='regional_follow_global' if region==21 and regional_fallbacks else 'competitive';minimum_base=None;coefficients=['1'] if decision_type=='regional_follow_global' else None
     if region is None:
         floor=max(required_base_bound(evidence,p,now,plan,evaluation_context) for p in platforms)
         minimum_base=str(floor)
@@ -251,18 +286,21 @@ def competition(evidence, platforms, now, region=None, *, plan=None, resolved_gl
         if not feasible(targets):decision_type='floor_fallback'
     elif base_total is not None:
         p=platforms[0]
-        region_rule=next(r for r in evidence['regional_controls'] if r['region_id']==region and p in r['platforms'])
-        floor_factor=(required_unit_bound(evidence,p,now,region_rule,evaluation_context)*100/number(base_total)).quantize(Decimal('.0001'),rounding=ROUND_UP)
-        if floor_factor>1:raise ValueError('INFEASIBLE_REGION_FINANCIAL_AND_BASE_PRICE')
-        target=targets[p];delivered=100+number(evidence['storefront']['rows'][p]['bonus_k'],zero=True)
-        tier=next(t for t in evidence['promotion_envelope']['packages'][p]['tiers'] if number(t['base_k'])==100)
-        before_region=render(number(base_total)/100,tier)['before_region_usd']
-        coefficients=[str(f) for f in solve_coefficient(before_region,target['unit_low'],target['unit_high'],delivered,minimum_factor=str(max(Decimal('.0001'),floor_factor)))]
-        if not coefficients:
-            coefficients=[str(max(Decimal('.0001'),floor_factor))];decision_type='floor_fallback'
+        if p in regional_fallbacks:
+            coefficients=['1'];decision_type='regional_follow_global'
+        else:
+            region_rule=next(r for r in evidence['regional_controls'] if r['region_id']==region and p in r['platforms'])
+            floor_factor=(required_unit_bound(evidence,p,now,region_rule,evaluation_context)*100/number(base_total)).quantize(Decimal('.0001'),rounding=ROUND_UP)
+            if floor_factor>1:raise ValueError('INFEASIBLE_REGION_FINANCIAL_AND_BASE_PRICE')
+            target=targets[p];delivered=100+number(evidence['storefront']['rows'][p]['bonus_k'],zero=True)
+            tier=next(t for t in evidence['promotion_envelope']['packages'][p]['tiers'] if number(t['base_k'])==100)
+            before_region=render(number(base_total)/100,tier)['before_region_usd']
+            coefficients=[str(f) for f in solve_coefficient(before_region,target['unit_low'],target['unit_high'],delivered,minimum_factor=str(max(Decimal('.0001'),floor_factor)))]
+            if not coefficients:
+                coefficients=[str(max(Decimal('.0001'),floor_factor))];decision_type='floor_fallback'
     return dict(quotes=quotes, targets=targets, valid_until=(min(times)+timedelta(seconds=900)).isoformat(),
-                anchors=anchors,anchor_attempts=attempts,sprint_policy_version=SPRINT_POLICY_VERSION,financial_contract_version=FINANCIAL_CONTRACT_VERSION,
-                decision_type=decision_type,reason='MARGIN_FLOOR_FALLBACK_20' if decision_type=='floor_fallback' else 'VERIFIED_COMPETITIVE_BAND',
+                anchors=anchors,anchor_attempts=attempts,regional_fallbacks=regional_fallbacks,sprint_policy_version=SPRINT_POLICY_VERSION,financial_contract_version=FINANCIAL_CONTRACT_VERSION,
+                decision_type=decision_type,reason='SAUDI_MISSING_QUOTE_FOLLOW_GLOBAL' if decision_type=='regional_follow_global' else 'MARGIN_FLOOR_FALLBACK_20' if decision_type=='floor_fallback' else 'VERIFIED_COMPETITIVE_BAND',
                 minimum_legal_base_total=minimum_base,legal_coefficients=coefficients,
                 scope='100K anchor only; complete financial catalog separately proven')
 
@@ -304,6 +342,13 @@ def financial(evidence, action, now, *, regions=None,evaluation_context=None):
             coefficient = action.get('region_coefficients',{}).get(str(region['region_id'])+':'+p,region['factor'])
             if region.get('price_semantics') != 'regional_regular_multiplicative' or region.get('verified') is not True:
                 raise ValueError('pricing_region_contract_unverified:'+str(region['region_id']))
+            if region.get('id') is None and number(coefficient)==1:
+                inherited=deepcopy(results['global:'+p])
+                inherited['catalog']['extra_region_rounding_bound_per_k']='0'
+                inherited.update(coefficient='1',rule_id=None,status='inherited_global',
+                    history_basis='global_actual_mix_no_independent_region_rule',application_scope='region_'+str(region['region_id']))
+                results[str(region['region_id'])+':'+p]=inherited
+                continue
             regional_unit = unit*number(coefficient)
             # The exact replay basis is pinned by the source contract, never inferred from averages.
             history = region.get('history') or {}
@@ -318,7 +363,7 @@ def financial(evidence, action, now, *, regions=None,evaluation_context=None):
             else:
                 raise ValueError('pricing_region_history_basis_unknown:'+str(region['region_id']))
             # One extra region rounding can lose at most one cent for any allowed integer-K.
-            region_rounding_bound = CENT/number(packages[p]['min_custom_k'])
+            region_rounding_bound = Decimal(0) if region.get('id') is None and number(coefficient)==1 else CENT/number(packages[p]['min_custom_k'])
             regional_catalog = prove_catalog(regional_unit-region_rounding_bound,c,fx,ratio,HARD_MARGIN,packages[p],average_ratio=regional_average)
             regional_catalog['extra_region_rounding_bound_per_k'] = str(region_rounding_bound)
             for regional_tier in packages[p]['tiers']:
@@ -596,7 +641,9 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
             for key,market in region_markets.items():
                 actual=number(proof['prices'][key]['price']['delivered_unit_100k']) if key in proof['prices'] else number(evidence['storefront']['rows'][key.split(':')[1]]['package_usd'])/105*100
                 target=market['targets'][key.split(':')[1]]
-                if market['decision_type']!='floor_fallback' and not number(target['unit_low'])<=actual<=number(target['unit_high']):raise ValueError('pricing_regional_competitive_band')
+                if market['decision_type']=='regional_follow_global':
+                    if number(action['region_coefficients'][key])!=1:raise ValueError('pricing_saudi_missing_quote_must_follow_global')
+                elif market['decision_type']!='floor_fallback' and not number(target['unit_low'])<=actual<=number(target['unit_high']):raise ValueError('pricing_regional_competitive_band')
             path=commit_path(current,action,lambda state:financial(evidence,state,now,regions=affected_regions,evaluation_context=evaluation_context),
                              transition=lambda old,new:preserve_competitive_state(evidence,old,new,comparisons,region_markets))
             rating = score(mode,action,evidence,proof,anchor,evaluation_context,(plan or {}).get('parameters'))
@@ -672,7 +719,7 @@ def impacted_regions(evidence,before,after,promised_regions=()):
 def preserve_competitive_state(evidence,before,after,markets,regional_markets):
     """A new transition cannot lose an already attained same-source competitive band."""
     scopes=[(p,None,t) for market in markets.values() if market.get('decision_type')!='floor_fallback' for p,t in market['targets'].items()]
-    scopes += [(key.split(':')[1],key,t) for key,market in regional_markets.items() if market.get('decision_type')!='floor_fallback' for t in market['targets'].values()]
+    scopes += [(key.split(':')[1],key,t) for key,market in regional_markets.items() if market.get('decision_type') not in ('floor_fallback','regional_follow_global') for t in market['targets'].values()]
     packages=evidence['promotion_envelope']['packages']
     for platform,region_key,target in scopes:
         group='pc' if platform=='PC' else 'console'

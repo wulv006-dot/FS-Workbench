@@ -22,7 +22,7 @@ import hermes_pricing_bridge
 
 
 class RuntimeContracts(unittest.TestCase):
-    def test_two_hour_cycle_resume_uses_last_completed_operation_once(self):
+    def test_one_hour_cycle_resume_uses_last_completed_operation_once(self):
         start=datetime(2026,10,26,14,tzinfo=timezone.utc)
         completed=start+timedelta(minutes=37)
         with tempfile.TemporaryDirectory() as folder:
@@ -37,23 +37,24 @@ class RuntimeContracts(unittest.TestCase):
                     completed_at=completed.isoformat(),created_at=start.isoformat()))
             with db.transaction() as conn:
                 conn.execute("INSERT INTO plan_ownership VALUES ('base:pc','plan',1,'g')")
-            self.assertEqual(next_cycle_at(db,plan),completed+timedelta(hours=2))
+            self.assertEqual(next_cycle_at(db,plan),completed+timedelta(hours=1))
+            self.assertEqual(next_cycle_at(db,plan,dict(interval_minutes=120)),completed+timedelta(hours=2))
             with patch.object(api,'ledger',return_value=db):
                 with patch.object(api,'clock',return_value=completed):
                     resumed=api.post('plans/plan/resume',{},'wulv')
                     repeated=api.post('plans/plan/resume',{},'wulv')
             self.assertEqual(resumed['resume_count'],1)
             self.assertEqual(repeated['resume_count'],1)
-            self.assertEqual(next_cycle_at(db,resumed),completed+timedelta(hours=2))
+            self.assertEqual(next_cycle_at(db,resumed),completed+timedelta(hours=1))
             (root/'config').mkdir()
             (root/'config/v3-control.json').write_text('{"enabled":true}')
             (root/'v3/heartbeat.json').write_text(json.dumps(dict(checked_at=(completed+timedelta(minutes=1)).isoformat())))
             view=monitoring.projection(root,completed+timedelta(minutes=1))
-            self.assertEqual(view['schedule']['cycle_interval_minutes'],120)
-            self.assertEqual(view['schedule']['next_cycle_at'],(completed+timedelta(hours=2)).isoformat())
+            self.assertEqual(view['schedule']['cycle_interval_minutes'],60)
+            self.assertEqual(view['schedule']['next_cycle_at'],(completed+timedelta(hours=1)).isoformat())
             self.assertEqual(view['schedule']['active_plan_state'],'ACTIVE')
 
-    def test_two_hour_tick_does_not_enqueue_early_or_duplicate_due_cycle(self):
+    def test_one_hour_tick_does_not_enqueue_early_or_duplicate_due_cycle(self):
         start=datetime(2026,10,26,14,tzinfo=timezone.utc)
         completed=start+timedelta(minutes=37)
         with tempfile.TemporaryDirectory() as folder:
@@ -70,11 +71,11 @@ class RuntimeContracts(unittest.TestCase):
             executors['collection'].submit.return_value=future
             running={}
             with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'export_shadow_snapshot'),patch.object(runtime,'write_json'):
-                with patch.object(scheduler,'clock',return_value=completed+timedelta(minutes=119)):
+                with patch.object(scheduler,'clock',return_value=completed+timedelta(minutes=59)):
                     scheduler.tick(executors,running)
                 with db.connect() as conn:
                     self.assertEqual(conn.execute("SELECT count(*) FROM durable_jobs WHERE kind='cycle'").fetchone()[0],0)
-                with patch.object(scheduler,'clock',return_value=completed+timedelta(minutes=120)):
+                with patch.object(scheduler,'clock',return_value=completed+timedelta(minutes=60)):
                     scheduler.tick(executors,running)
                     scheduler.tick(executors,running)
             with db.connect() as conn:
@@ -103,7 +104,7 @@ class RuntimeContracts(unittest.TestCase):
             with db.connect() as conn:
                 self.assertEqual(conn.execute("SELECT count(*) FROM durable_jobs WHERE kind='cycle'").fetchone()[0],0)
 
-    def test_deadline_exit_price_waits_for_two_hour_cycle(self):
+    def test_deadline_exit_price_waits_for_one_hour_cycle(self):
         now=datetime(2026,10,26,14,40,tzinfo=timezone.utc)
         last=now-timedelta(minutes=3)
         with tempfile.TemporaryDirectory() as folder:
@@ -120,7 +121,7 @@ class RuntimeContracts(unittest.TestCase):
                 successor=scheduler.exit_plan(dict(plan_id='plan',revision=1))
             with db.connect() as conn:
                 row=conn.execute("SELECT due_at FROM durable_jobs WHERE id=?",('exit-cycle:'+successor['plan_id'],)).fetchone()
-            self.assertEqual(row['due_at'],(last+timedelta(hours=2)).isoformat())
+            self.assertEqual(row['due_at'],(last+timedelta(hours=1)).isoformat())
             self.assertEqual(successor['budget_policy'],'none')
             self.assertNotIn('daily_budget',successor)
 

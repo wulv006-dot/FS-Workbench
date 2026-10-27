@@ -20,7 +20,7 @@ PRICE_STEP = Decimal("0.0001")
 
 def initial_policy():
     return {"revision": 0, "system_enabled": False, "mode": "manual",
-            "interval_minutes": 120, "platforms": list(PLATFORMS),
+            "interval_minutes": 60, "platforms": list(PLATFORMS),
             "minimum_gross_margin_pct": str(DEFAULT_GROSS_MARGIN_PCT),
             "updated_at": None, "updated_by": None}
 
