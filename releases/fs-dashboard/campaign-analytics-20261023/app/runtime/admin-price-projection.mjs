@@ -15,7 +15,8 @@ export function projectAdminPrices(observation,policy,{now=Date.now()}={}){
  // Standard reference prices are US/USD; regional promotions need a separate
  // main-site checkout response and must not silently become the base anchor.
  if(policy?.baseline_region!=='us'||policy?.currency!=='USD'||policy?.regional_adjustment!=='none_verified')return blocked('US_USD_BASELINE_REQUIRED');
- if(!policy||!((policy.source_field==='more.price'&&policy.price_semantics==='current_tier_total')||(policy.source_field==='full_price_format'&&policy.price_semantics==='current_item_display_total'&&policy.quantity_value==='1'&&policy.quantity_unit==='item'))
+ const nativeItem=policy?.source_field==='unit_price'&&policy.price_semantics==='native_item_display_total'&&policy.rounding_contract==='native-js-number-format-tofixed-2'&&policy.minor_unit_scale===2&&policy.quantity_value==='1'&&policy.quantity_unit==='item';
+ if(!policy||!((policy.source_field==='more.price'&&policy.price_semantics==='current_tier_total')||(policy.source_field==='full_price_format'&&policy.price_semantics==='current_item_display_total'&&policy.quantity_value==='1'&&policy.quantity_unit==='item')||nativeItem)
    ||!policy.evidence_ref||typeof policy.evidence_ref!=='string'||!/^[-a-zA-Z0-9_./:]{1,200}$/.test(policy.evidence_ref)
    ||!(/^[A-Z]{3}$/).test(policy.currency)||!Number.isInteger(policy.minor_unit_scale)||policy.minor_unit_scale<0||policy.minor_unit_scale>4)
    return blocked('PRICE_CURRENCY_SEMANTICS_UNVERIFIED');
@@ -40,7 +41,7 @@ export function projectAdminPrices(observation,policy,{now=Date.now()}={}){
    if(!guard(row)||!id(row.platform_attribute_id)||!id(row.region_id))throw Error('PRODUCT_UNAVAILABLE_OR_OPTIONS_UNKNOWN');
    if(!row.specification||typeof row.specification!=='object'||Array.isArray(row.specification))throw Error('SPECIFICATION_MAPPING_REQUIRED');
    for(const [field,s] of Object.entries(row.specification)){
-    if(field==='baseprop'&&policy.descriptive_baseprop===true&&policy.source_field==='full_price_format')continue;
+    if(field==='baseprop'&&policy.descriptive_baseprop===true&&(policy.source_field==='full_price_format'||nativeItem))continue;
     if(!s||typeof s.present!=='boolean')throw Error('SPECIFICATION_MAPPING_REQUIRED');
     if(s.present&&(s.observed===null||typeof s.observed!=='object'||Object.keys(s.observed).length!==0))throw Error('SPECIFICATION_MAPPING_REQUIRED');
    }
@@ -48,6 +49,13 @@ export function projectAdminPrices(observation,policy,{now=Date.now()}={}){
    if(policy.source_field==='more.price'){
     const tiers=(row.tiers||[]).filter(t=>t.quantity===policy.quantity_value&&t.unit===policy.quantity_unit);
     if(tiers.length!==1)throw Error('EXACT_TIER_UNAVAILABLE');base_minor=minor(tiers[0].source_price,policy.minor_unit_scale);
+   }else if(nativeItem){
+    // Observed MMOEXP js_number_format uses Number.toFixed(2). This is a
+    // one-item US/USD display rule, not a general settlement rounding rule.
+    if(row.quantity?.group!=='1'||row.quantity?.unit&&row.quantity.unit!=='item')throw Error('QUANTITY_UNIT_UNVERIFIED');
+    const raw=row.source_unit_price;
+    if(typeof raw!=='string'||!/^\d{1,15}(?:\.\d{1,12})?$/.test(raw))throw Error('PRICE_FORMAT_UNVERIFIED');
+    base_minor=minor(Number(raw).toFixed(2),2);
    }else{
     // Use the observed formatted one-item total; do not infer the native
     // formatter's rounding or multiply a raw high-precision unit price.

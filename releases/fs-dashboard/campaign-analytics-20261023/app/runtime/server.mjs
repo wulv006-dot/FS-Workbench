@@ -64,7 +64,7 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
         const config=commerce.config(),catalog=projectFcCatalog(JSON.parse(match[1].replace(/;\s*$/,'')),config);catalog.page_media=pageMedia(config.pages,prefix);
         content='window.FC_ACTIVITY_CONFIG='+JSON.stringify(catalog).replace(/</g,'\\u003c')+';';
       }else if(name.endsWith('.html')){
-        const rendered=presentPage({name,body:content,snapshot:commerce.config(),now:now||Date.now,publicBase:new URL(prefix,origin).href});content=rendered.body;status=rendered.status;
+        const rendered=presentPage({name,body:content,snapshot:commerce.config(),now:now||Date.now,publicBase:new URL(prefix,origin).href,assetVersion:asset=>asset==='catalog.js'?commerce.config().config_hash:staticManifest[asset]});content=rendered.body;status=rendered.status;
       }
       res.writeHead(status,{...headers,'Content-Type':types[path.extname(name)],'X-Robots-Tag':'noindex, nofollow'});res.end(req.method==='HEAD'?undefined:content);
     } catch(error) {
