@@ -9,7 +9,7 @@ import types
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-knowledge-20261026'
-RELEASE = 'fc-pricing-v3-20261026-6'
+RELEASE = 'fc-pricing-v3-20261026-7'
 PREFIX = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + RELEASE + '/'
 RUNTIME = {'runtime/business-baseline.md': '/opt/fs-hermes-fc/business-baseline.md',
            'runtime/knowledge-load-policy.json': '/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'}
