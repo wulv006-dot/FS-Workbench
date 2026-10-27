@@ -243,7 +243,7 @@ class Dual20Sprint(unittest.TestCase):
             plan=db.create_plan('revenue_sprint',['base:console','base:pc','region:21:PC','region:21:PS'],dict(base_prices=dict(console='20',pc='20'),region_coefficients={'21:PC':'1','21:PS':'.91'}),ends_at=(NOW+timedelta(hours=3)).isoformat())
             db.activate_plan(plan['plan_id']);data=source(cost='.56',bonus='5')
             for platform in engine.PLATFORMS:data['offers'][platform]['Lootbar']['bonus_k']='5'
-            data['regional_controls']=[dict(id=None,region_id=21,platforms=['PC'],factor='1',resource='region:21:PC',verified=True,price_semantics='regional_regular_multiplicative',history=dict(basis='pooled_other_promotions_excluding_region_verified'),scope={})]
+            data['regional_controls']=[dict(id=None,region_id=21,platforms=['PC'],factor='1',resource='region:21:PC',verified=True,price_semantics='regional_regular_multiplicative',history=dict(basis='pooled_other_promotions_excluding_region_verified'),scope={},expected_rule_set_sha256='a'*64)]
             data['regional_controls'].append(dict(data['regional_controls'][0],id=3,platforms=['PS'],factor='.91',resource='region:21:PS'))
             with patch.object(runtime,'ledger',return_value=db),patch.object(runtime,'ROOT',root),patch.object(runtime,'clock',return_value=NOW):
                 result=runtime.calculate(data)
