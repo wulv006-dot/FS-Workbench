@@ -64,5 +64,31 @@
       }return outcomes;
     }}}};
   }
-  root.FCActivityHost={create,createNative};
+  // Read the current main-store price for the exact pinned listings and project
+  // the published activity price. Same-origin only: no cross-origin catalog, no
+  // currency helpers from the legacy page. The original cart remains the
+  // authority for the final payable amount and code eligibility.
+  function createLivePrice(config){
+    if(root.location?.origin!=='https://www.mmoexp.com')throw new Error('Live price requires the existing MMOEXP origin');
+    if(typeof config?.api?.catalog!=='string'||!config.api.catalog.startsWith('/'))throw new Error('Live price requires a same-origin catalog route');
+    if(!Number.isInteger(config?.activityPricing?.discountPercent))throw new Error('Activity pricing is not configured');
+    const format=amount=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(amount/100);
+    async function post(url,data){
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+      try{
+        const response=await root.fetch(url,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams(data),signal:controller.signal});
+        if(!response.ok)throw new Error('HTTP '+response.status);
+        return await response.json();
+      } finally {clearTimeout(timer);}
+    }
+    return {
+      source:'main_catalog',
+      quote(items){return Promise.all(items.map(item=>root.FCActivityCore.refreshLine(config,item,post)));},
+      display(item){
+        const price=root.FCActivityCore.activityPrice(item.amount,config);
+        return {text:format(price.amount),amount:price.amount,baseAmount:price.baseAmount,discountAmount:price.discountAmount,currency:'USD'};
+      }
+    };
+  }
+  root.FCActivityHost={create,createNative,createLivePrice};
 })(window);

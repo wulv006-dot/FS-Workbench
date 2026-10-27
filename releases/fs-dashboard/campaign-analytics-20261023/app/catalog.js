@@ -1653,9 +1653,9 @@ window.FC_ACTIVITY_CONFIG = {
     "trio"
   ],
   "activityPricing": {
-    "enabled": false,
+    "enabled": true,
     "strategy": "native_discount_code",
-    "status": "unconfigured",
+    "status": "configured",
     "discountPercent": 10,
     "stackWith": [],
     "mutuallyExclusiveWith": [
@@ -1663,7 +1663,7 @@ window.FC_ACTIVITY_CONFIG = {
       "points"
     ],
     "promoterUid": "0",
-    "backendStatus": "handoff_unverified",
+    "backendStatus": "native_code_live",
     "plannedValidity": {"timezone":"Asia/Shanghai","startDate":"2026-10-26","durationYears":1,"endInclusive":true,"startsAt":null,"endsAt":null}
   }
 };

@@ -9,7 +9,7 @@ test('Admin payable percent is never inverted; unverified boundaries fail closed
 });
 test('Unconfigured phase1 has no invented benefit and cannot unlock legacy live adapter',()=>{
  const config=JSON.parse(fs.readFileSync(path.join(app,'catalog.json'),'utf8'));
- assert.equal(config.activityPricing.discountPercent,10);assert.equal(config.activityPricing.enabled,false);
+ assert.equal(config.activityPricing.discountPercent,10);assert.equal(config.activityPricing.enabled,true);
  assert.deepEqual(config.activityPricing.stackWith,[]);
  const window={location:{origin:'https://www.mmoexp.com'}};
  vm.runInNewContext(fs.readFileSync(path.join(app,'host-adapter.js'),'utf8'),{window});
@@ -22,9 +22,9 @@ test('Unconfigured phase1 has no invented benefit and cannot unlock legacy live 
 test('Generated public pages and metadata never advertise legacy stacking or snapshot prices',async()=>{
  const {buildOutputs,loadConfig}=await import('../build-seo.mjs');const outputs=buildOutputs(loadConfig());
  for(const name of ['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html']){
-  const html=outputs[name];assert.match(html,/Campaign offer not configured/);
+  const html=outputs[name];assert.match(html,/10% OFF at checkout with the activity code\./);assert.doesNotMatch(html,/Campaign offer not configured/);
   assert.match(html,/cannot be combined with coupons or member points/);
-  assert.doesNotMatch(html,/Stack eligible|stack eligible|Activity price preview|Public price snapshot|\$\d/);
+  assert.match(html,/\$\d+\.\d{2}/);assert.doesNotMatch(html,/Stack eligible|stack eligible|Activity price preview|Public price snapshot/);
   assert.match(html,/<button[^>]+id="submit-selection"[^>]+disabled/);
  }
 });

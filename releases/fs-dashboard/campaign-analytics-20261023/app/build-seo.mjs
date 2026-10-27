@@ -52,8 +52,8 @@ export function renderPage(config,view,lang='en',{hub=false}={}){
  const hero=view==='trio'?config.trio.hero:'assets/'+h.image+'-hero.webp',mobile=view==='trio'?config.trio.heroMobile:'assets/'+h.image+'-hero-mobile.webp';
  html=attribute(html,'hero-image','src',hero);html=html.replace(/(<picture class="fca-hero-art">)/,`$1<source media="(max-width: 700px)" srcset="${e(mobile||hero)}">`);
  const sbc=view==='sbc';for(const id of ['sbc-controls','sbc-lineup','sbc-options'])html=attribute(html,id,'hidden',sbc?null:true);html=attribute(html,'product-grid','hidden',sbc?true:null);
- const p=key=>config.products[key],money=amount=>new Intl.NumberFormat(zh?'zh-CN':'en-US',{style:'currency',currency:'USD'}).format(amount/100),amount=key=>core.activityPrice(core.line(p(key),'ps').amount,config),price=key=>config.activityPricing?.strategy==='native_discount_code'?'Price confirmed at checkout':config.mode==='live'?t('现价确认中','Checking current price'):money(amount(key).amount);
- const pricing=key=>({price:price(key),originalPrice:config.mode==='live'||!amount(key).discountAmount?'':money(amount(key).baseAmount),discountPercent:config.activityPricing?.discountPercent});
+ const p=key=>config.products[key],money=amount=>new Intl.NumberFormat(zh?'zh-CN':'en-US',{style:'currency',currency:'USD'}).format(amount/100),amount=key=>core.activityPrice(core.line(p(key),'ps').amount,config),priced=config.activityPricing?.enabled===true,price=key=>priced?money(amount(key).amount):config.activityPricing?.strategy==='native_discount_code'?'Price confirmed at checkout':config.mode==='live'?t('现价确认中','Checking current price'):money(amount(key).amount);
+ const pricing=key=>({price:price(key),originalPrice:priced&&amount(key).discountAmount?money(amount(key).baseAmount):'','discountPercent':config.activityPricing?.discountPercent});
  const card=(key,opts={})=>content.card(p(key),{lang,...pricing(key),...opts});
  html=fill(html,'core-select',config.sbc.ids.map(key=>`<option value="${e(key)}"${key===config.sbc.defaultId?' selected':''}>${e(p(key).title)}</option>`).join(''));
  html=fill(html,'core-mode-help',e(t('核心不加入购买清单，也不计入金额。你只购买两位搭档。','Your owned core is excluded from the purchase and total. You buy the two companions only.')));
@@ -62,15 +62,19 @@ export function renderPage(config,view,lang='en',{hub=false}={}){
  html=fill(html,'sbc-options',sbc?route.picks.map((key,i)=>`<div class="fca-companion-picker"><label for="companion-${i}">${e(t('搭档 '+(i+1)+' · '+route.label.zh,'Companion '+(i+1)+' · '+route.label.en))}</label><select id="companion-${i}" name="companion${i+1}" data-companion-slot="${i}">${pool.map(id=>`<option value="${e(id)}"${id===key?' selected':''}${id===route.picks[1-i]?' disabled':''}>${e(p(id).title)}</option>`).join('')}</select></div>`).join('')+`<p class="fca-inline-note fca-pairing-note">${e(t('这是搭配灵感，不承诺满化学。请核对游戏内位置、联赛与现有阵容。','Pairing ideas do not guarantee full chemistry. Check in-game positions, leagues and your existing lineup.'))}</p>`:'');
  html=fill(html,'product-grid',sbc?'':info.ids.map((key,i)=>card(key,{label:view==='trio'?config.trio.roles[i][lang]:config.weekly.edition[lang],fixed:view==='trio',picked:view==='trio'||i===0})).join(''));
  html=fill(html,'bundle-heading',e(t('也可以选商店现有阵容包。','Or start with an existing player bundle.')));html=fill(html,'bundle-grid',config.bundles.ids.map(key=>content.bundle(p(key),{lang,...pricing(key)})).join(''));
- const selected=sbc?route.picks:view==='trio'?config.trio.ids:[config.weekly.ids[0]],total=config.activityPricing?.strategy==='native_discount_code'?'Confirmed at checkout':config.mode==='live'?t('点击核对现价','Check current total'):money(selected.reduce((n,key)=>n+amount(key).amount,0));
+ const selected=sbc?route.picks:view==='trio'?config.trio.ids:[config.weekly.ids[0]],total=priced?money(selected.reduce((n,key)=>n+amount(key).amount,0)):config.activityPricing?.strategy==='native_discount_code'?'Confirmed at checkout':config.mode==='live'?t('点击核对现价','Check current total'):money(selected.reduce((n,key)=>n+amount(key).amount,0));
  html=fill(html,'summary-count',String(selected.length));html=fill(html,'summary-total',e(total));html=fill(html,'mobile-summary-total',e(selected.length+' '+t('项','items')+' · '+total));html=fill(html,'mobile-review',e(t('核对方案','Review lineup')));
  const date=new Intl.DateTimeFormat(zh?'zh-CN':'en-GB',{year:'numeric',month:'short',day:'numeric',timeZone:'Asia/Shanghai'}).format(new Date(config.capturedAt));
  html=fill(html,'summary-note',e(t('精确商品分别列出，已有核心不重复购买；当前展示为 '+date+' 公开价格快照。','Exact items are listed separately. Owned cores are excluded. Public price snapshot: '+date+'.')));
- if(config.activityPricing?.strategy==='native_discount_code'){
+ if(priced){
+  // Static value is the PlayStation snapshot; the page re-reads the current price for the chosen platform.
+  html=fill(html,'summary-note','Choose your platform to read the current store price. The original cart applies the activity code; coupons and member points cannot be combined.');
+ }else if(config.activityPricing?.strategy==='native_discount_code'){
   html=fill(html,'summary-note','Select the exact items and platform. Campaign offer not configured. Any code must be accepted by the main-site checkout before payment; coupons and member points cannot be combined.');
   html=fill(html,'summary-savings','');
-  html=attribute(html,'submit-selection','disabled',true);
  }
+ // Static HTML never submits: the page enables it only after a native review.
+ html=attribute(html,'submit-selection','disabled',true);
  html=fill(html,'activity-breadcrumb','<ol>'+info.breadcrumbs.map((x,i)=>'<li>'+(i<2?'<a href="'+e(x.url)+'">'+e(x.name)+'</a>':'<span aria-current="page">'+e(x.name)+'</span>')+'</li>').join('')+'</ol>');
  html=fill(html,'activity-guide',info.guide);
  if(!zh)html=html.replace('请启用 JavaScript 体验活动，或直接前往商店选购。','Enable JavaScript to build your lineup, or browse the original shop.');

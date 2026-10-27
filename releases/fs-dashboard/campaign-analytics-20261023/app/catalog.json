@@ -1653,17 +1653,17 @@
     "trio"
   ],
   "activityPricing": {
-    "enabled": false,
+    "enabled": true,
     "strategy": "native_discount_code",
-    "status": "unconfigured",
+    "status": "configured",
     "discountPercent": 10,
     "stackWith": [],
     "mutuallyExclusiveWith": [
       "coupon",
       "points"
     ],
-    "promoterUid": "739116",
-    "backendStatus": "handoff_unverified",
+    "promoterUid": "0",
+    "backendStatus": "native_code_live",
     "plannedValidity": {
       "timezone": "Asia/Shanghai",
       "startDate": "2026-10-26",

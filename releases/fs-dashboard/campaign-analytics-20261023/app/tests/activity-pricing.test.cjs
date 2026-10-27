@@ -3,9 +3,9 @@ const assert=require('node:assert/strict');
 const core=require('../activity-core.js');
 const config=require('../catalog.json');
 const baseline=require('./fixtures/catalog-baseline.json');
-test('formal native code is 10 percent off but cannot be locally applied before verified integration',()=>{
- assert.equal(config.activityPricing.discountPercent,10);assert.deepEqual(config.activityPricing.stackWith,[]);assert.deepEqual(config.activityPricing.mutuallyExclusiveWith,['coupon','points']);assert.equal(config.activityPricing.enabled,false);
- assert.deepEqual(core.activityPrice(801,config),{amount:801,baseAmount:801,discountAmount:0,percent:0});
+test('published native code pricing shows the 10 percent activity price and never stacks',()=>{
+ assert.equal(config.activityPricing.discountPercent,10);assert.deepEqual(config.activityPricing.stackWith,[]);assert.deepEqual(config.activityPricing.mutuallyExclusiveWith,['coupon','points']);assert.equal(config.activityPricing.enabled,true);assert.equal(config.activityPricing.status,'configured');assert.equal(config.activityPricing.promoterUid,'0');
+ assert.deepEqual(core.activityPrice(801,config),{amount:721,baseAmount:801,discountAmount:80,percent:10});
  const fixture={activityPricing:{enabled:true,discountPercent:10}};
  for(const value of [1,5,15,68,624,2728,16316])assert.equal(core.activityPrice(value,fixture).amount,Math.floor((value*90+50)/100));
 });

@@ -6,6 +6,7 @@
   const t=(zh,en)=>en,product=key=>config.products[key],route=key=>config.sbc.routes[key]||{picks:config.sbc.fallbackPicks,alternatives:[],label:{zh:'自选搭配方向',en:'Build your own pairing'}};
   const state={lang:'en',view:root.dataset.defaultView||config.defaultView||'sbc',platform:'ps',core:config.sbc.defaultId,coreMode:'owned',companions:[...route(config.sbc.defaultId).picks],weekly:new Set(config.weekly.ids.slice(0,1)),bundles:new Set(),busy:false,submitted:false};
   const standalone=window.CampaignStandalone?.enabled(document.documentElement),live=config.mode==='live'&&!standalone;let runtimeClient=null,published=null,publishedReady=!standalone;let pageTimer;let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false,nativeReview=null;const currentDisplays=new Map();
+  const pricing=config.activityPricing||{},priced=pricing.enabled===true;let liveQuoter;
   const content=window.FCActivityContent.create(config,live),{words,heroes}=content;
   function pageState(view){
     if(!standalone)return 'active';if(!publishedReady)return 'loading';
@@ -59,7 +60,7 @@
     if(item?.preview_only)return {text:'Price unavailable',amount:null,currency:'USD'};
     if(!item)return {text:t('暂不可用','Unavailable'),amount:null,currency:'USD'};
     if(currentDisplays.has(item.offer.id))return currentDisplays.get(item.offer.id);
-    if(config.activityPricing?.strategy==='native_discount_code')return {text:'Price confirmed at checkout',amount:null,currency:'USD'};
+    if(!priced&&pricing.strategy==='native_discount_code')return {text:'Price confirmed at checkout',amount:null,currency:'USD'};
     if(live)return {text:t('现价确认中','Checking current price'),amount:null,currency:'USD'};
     const price=core.activityPrice(item.amount,config);
     return {...price,text:money(price.amount),originalText:price.discountAmount?money(price.baseAmount):'',currency:'USD'};
@@ -125,13 +126,14 @@
     $('bundle-grid').innerHTML=scoped(config.bundles.ids).map(key=>content.bundle(product(key),{lang:state.lang,price:display(offer(key)).text,originalPrice:display(offer(key)).originalText,discountPercent:config.activityPricing?.discountPercent,checked:state.bundles.has(key),platform:state.platform,...imageOptions(key)})).join('');
     const items=selected(),snapshotDate=new Intl.DateTimeFormat(state.lang==='zh'?'zh-CN':'en-GB',{year:'numeric',month:'short',day:'numeric',timeZone:'Asia/Shanghai'}).format(new Date(config.capturedAt));$('summary-count').textContent=String(items.length);$('summary-total').textContent=total(items);$('summary-note').textContent=t('精确商品分别列出，已有核心不重复购买；当前展示为 '+snapshotDate+' 公开价格快照。','Exact items are listed separately. Owned cores are excluded. Public price snapshot: '+snapshotDate+'.');$('review-selection').disabled=!items.length||state.busy||state.submitted;
     $('summary-savings').innerHTML=savings(items);
-    if(config.activityPricing?.strategy==='native_discount_code')$('summary-note').textContent='Select the exact items and platform. Campaign offer not configured. Any code must be accepted by the main-site checkout before payment; coupons and member points cannot be combined.';
+    if(priced&&standalone&&!unavailableSelection)$('summary-note').textContent=t('价格按所选平台从主站实时读取；活动优惠码由原购物车自动应用，券与积分不可叠加。','Prices are read from the main store for the selected platform. The activity code is applied by the original cart; coupons and points cannot be combined.');
+    if(!priced&&pricing.strategy==='native_discount_code')$('summary-note').textContent='Select the exact items and platform. Campaign offer not configured. Any code must be accepted by the main-site checkout before payment; coupons and member points cannot be combined.';
     if(unavailableSelection)$('summary-note').textContent=t('当前选择含暂不可用商品，请更换平台或搭档后再核对。','Your selection includes an unavailable item. Change platform or companions before continuing.');
     if(live&&!unavailableSelection)$('summary-note').textContent=t('价格来自现售商品，购买前再次确认。原购物车优惠及交付要求继续适用。','Current listed items are rechecked before purchase. Existing cart discounts and delivery requirements apply.');
     $('mobile-summary-total').textContent=items.length+' '+t('项','items')+' · '+total(items);$('mobile-review').textContent=t('核对方案','Review lineup');$('mobile-review').disabled=!items.length||state.busy||state.submitted;
     root.querySelectorAll('input,select,button[data-view],button[data-toggle-product],button[data-toggle-bundle]').forEach(el=>el.disabled=state.busy||state.submitted||(el.dataset.toggleBundle!==undefined&&!offer(el.dataset.toggleBundle)));
     renderSeo();guards();
-    if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
+    if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=priced?t('价格按所选平台实时读取；结算在原购物车完成，活动优惠码由购物车自动应用。','Prices are read live for the selected platform. Checkout continues in the original cart, which applies the activity code; coupons and points cannot be combined.'):t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
     signal('render');
     if(focusId&&$(focusId)&&document.activeElement!==$(focusId))$(focusId).focus({preventScroll:true});
   }
@@ -139,11 +141,21 @@
     $('review-items').innerHTML=review.map(item=>`<div class="fca-row">${(imageOptions(item.key).image||item.image)?`<img src="${escape(imageOptions(item.key).image||item.image)}" alt="" width="65" height="90">`:'<span>Image unavailable</span>'}<div><h3>${escape(item.name)}</h3><p>${escape(meta(item))}<br>${escape(config.platforms[state.platform].label)} · ${escape(item.kind==='sbc'?t('SBC 代做服务','SBC completion service'):item.kind==='bundle'?t('固定球员组合','Fixed player bundle'):t('球员商品','Player item'))}</p>${item.included?`<p class="fca-review-includes">${escape(t('包含：','Includes: ')+item.included.map(x=>[x.name,x.rating,x.position,x.version].filter(Boolean).join(' · ')).join('; '))}</p>`:''}</div><strong class="fca-price">${display(item).originalText?'<del>'+escape(display(item).originalText)+'</del>':''}${escape(display(item).text)}</strong></div>`).join('');$('review-total').textContent=total(review);$('review-savings').innerHTML=savings(review);
   }
   function fingerprint(items){return JSON.stringify(items.map(item=>[item.offer.id,item.offer.group,item.offer.quantity,item.amount,display(item)]));}
+  function priceQuoter(){
+    if(live){try{return adapter||=window.FCActivityHost.create(config);}catch{return null;}}
+    if(!standalone||!priced)return null;
+    if(liveQuoter!==undefined)return liveQuoter;
+    try{liveQuoter=window.FCActivityHost.createLivePrice(config);}catch{liveQuoter=null;}
+    return liveQuoter;
+  }
   async function freshReview(items){
-    if(!live)return items;
-    adapter||=window.FCActivityHost.create(config);const quoted=await adapter.quote(items);
-    for(const item of quoted)currentDisplays.set(item.offer.id,adapter.display(item));
-    return quoted;
+    const quoter=priceQuoter();if(!quoter)return items;
+    // Per-item best effort: a listing whose live price cannot be read keeps its
+    // published snapshot value and never blocks the reviewed checkout.
+    return Promise.all(items.map(async item=>{
+      try{const quoted=(await quoter.quote([item]))[0];currentDisplays.set(quoted.offer.id,quoter.display(quoted));return quoted;}
+      catch{return item;}
+    }));
   }
   function status(text){$('review-status').textContent=window.FCActivityContent.englishText(text,'The request could not be verified. No successful checkout is confirmed.');}
   function signal(name,detail={}){root.dispatchEvent(new CustomEvent('fcactivity:'+name,{bubbles:true,detail:{view:state.view,platform:state.platform,preview:!live,language:state.lang,...detail}}));}
@@ -159,14 +171,16 @@
     finally{state.busy=false;render();}
   }
   async function warmPrices(){
-    if(!live)return;
+    const quoter=priceQuoter();
+    if(!quoter)return;
     const generation=++priceGeneration;
-    try{
-      adapter||=window.FCActivityHost.create(config);
-      const keys=state.view==='sbc'?[state.core,...state.companions]:state.view==='trio'?config.trio.ids:config.weekly.ids;
-      await Promise.allSettled([...new Set([...keys,...config.bundles.ids])].map(async key=>{const item=(await adapter.quote([offer(key)]))[0];if(generation===priceGeneration)currentDisplays.set(item.offer.id,adapter.display(item));}));
-      if(generation===priceGeneration&&!state.busy)render();
-    }catch(error){/* Current prices remain unconfirmed until a successful catalog read. */}
+    const keys=state.view==='sbc'?[state.core,...state.companions]:state.view==='trio'?config.trio.ids:config.weekly.ids;
+    await Promise.allSettled([...new Set([...keys,...config.bundles.ids])].map(async key=>{
+      let item;try{item=offer(key);}catch{return;}
+      try{const quoted=(await quoter.quote([item]))[0];if(generation===priceGeneration)currentDisplays.set(quoted.offer.id,quoter.display(quoted));}catch{}
+    }));
+    if(generation!==priceGeneration)return;
+    if(!state.busy)render();
   }
   async function submit(){
     if(standalone&&(pageState(state.view)!=='active'||!selected().length)){render();return;}
@@ -183,7 +197,8 @@
       finally{state.busy=false;render();}
       return;
     }
-    if(config.activityPricing?.strategy==='native_discount_code'){status('Campaign checkout is not connected. No cart or discount-code request was sent.');return;}
+    if(priced){status('This selection has no published native offer for the current platform. No cart or discount-code request was sent; recheck the selection and the published scope before retrying.');return;}
+    if(pricing.strategy==='native_discount_code'){status('Campaign checkout is not connected. No cart or discount-code request was sent.');return;}
     if(review.some(item=>item.preview_only)){status('Preview only. No quote or purchase is available.');return;}
     if(standalone){
       state.busy=true;render();
@@ -238,8 +253,8 @@
   });
   $('review-selection').addEventListener('click',openReview);$('mobile-review').addEventListener('click',openReview);$('submit-selection').addEventListener('click',submit);
   root.querySelector('[data-close-dialog]').addEventListener('click',()=>{if(!state.busy)$('review-dialog').close();});$('review-dialog').addEventListener('cancel',event=>{if(state.busy)event.preventDefault();});
-  if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
+  if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=priced?t('价格按所选平台实时读取；结算在原购物车完成，活动优惠码由购物车自动应用。','Prices are read live for the selected platform. Checkout continues in the original cart, which applies the activity code; coupons and points cannot be combined.'):t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
   document.querySelectorAll('.fca-language,#lang-zh,#lang-en').forEach(element=>element.remove());
   document.documentElement.lang='en';root.dataset.defaultLanguage='en';
-  render();if(standalone)publishedConfig().then(()=>{render();signal('view');});else{warmPrices();signal('view');}
+  render();if(standalone)publishedConfig().then(()=>{render();warmPrices();signal('view');});else{warmPrices();signal('view');}
 })();
