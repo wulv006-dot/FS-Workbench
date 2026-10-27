@@ -6,7 +6,7 @@
   const t=(zh,en)=>en,product=key=>config.products[key],route=key=>config.sbc.routes[key]||{picks:config.sbc.fallbackPicks,alternatives:[],label:{zh:'自选搭配方向',en:'Build your own pairing'}};
   const state={lang:'en',view:root.dataset.defaultView||config.defaultView||'sbc',platform:'ps',core:config.sbc.defaultId,coreMode:'owned',companions:[...route(config.sbc.defaultId).picks],weekly:new Set(config.weekly.ids.slice(0,1)),bundles:new Set(),busy:false,submitted:false};
   const standalone=window.CampaignStandalone?.enabled(document.documentElement),live=config.mode==='live'&&!standalone;let runtimeClient=null,published=null,publishedReady=!standalone;let pageTimer;let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false,nativeReview=null;const currentDisplays=new Map();
-  const pricing=config.activityPricing||{},priced=pricing.enabled===true;let liveQuoter,livePriceFailed=false;
+  const pricing=config.activityPricing||{},priced=pricing.enabled===true;let liveQuoter;
   const content=window.FCActivityContent.create(config,live),{words,heroes}=content;
   function pageState(view){
     if(!standalone)return 'active';if(!publishedReady)return 'loading';
@@ -60,7 +60,6 @@
     if(item?.preview_only)return {text:'Price unavailable',amount:null,currency:'USD'};
     if(!item)return {text:t('暂不可用','Unavailable'),amount:null,currency:'USD'};
     if(currentDisplays.has(item.offer.id))return currentDisplays.get(item.offer.id);
-    if(priced&&standalone&&!livePriceFailed)return {text:t('正在读取现价','Checking current price'),amount:null,currency:'USD'};
     if(!priced&&pricing.strategy==='native_discount_code')return {text:'Price confirmed at checkout',amount:null,currency:'USD'};
     if(live)return {text:t('现价确认中','Checking current price'),amount:null,currency:'USD'};
     const price=core.activityPrice(item.amount,config);
@@ -173,17 +172,14 @@
   }
   async function warmPrices(){
     const quoter=priceQuoter();
-    if(!quoter){if(priced&&standalone)livePriceFailed=true;return;}
+    if(!quoter)return;
     const generation=++priceGeneration;
     const keys=state.view==='sbc'?[state.core,...state.companions]:state.view==='trio'?config.trio.ids:config.weekly.ids;
-    let confirmed=0,failed=0;
     await Promise.allSettled([...new Set([...keys,...config.bundles.ids])].map(async key=>{
-      let item;try{item=offer(key);}catch{failed++;return;}
-      try{const quoted=(await quoter.quote([item]))[0],shown=quoter.display(quoted);confirmed++;if(generation===priceGeneration)currentDisplays.set(quoted.offer.id,shown);}
-      catch{failed++;}
+      let item;try{item=offer(key);}catch{return;}
+      try{const quoted=(await quoter.quote([item]))[0];if(generation===priceGeneration)currentDisplays.set(quoted.offer.id,quoter.display(quoted));}catch{}
     }));
     if(generation!==priceGeneration)return;
-    livePriceFailed=confirmed===0&&failed>0;
     if(!state.busy)render();
   }
   async function submit(){
