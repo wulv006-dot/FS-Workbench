@@ -126,3 +126,18 @@ HTML is rendered from the current validated snapshot: published title/descriptio
 Actual187 Node is /usr/local/bin/node v18.20.8. New service stays preview; no port exposure, identity forwarding or payment capability is inferred from deployment.
 
 Actual host is CentOS7/systemd219 with no www-data account. The unit uses existing nobody99, PermissionsStartOnly and exact install-d-m0700 preparation for its own state directory; ProtectSystem=full is compatible; /var/lib is outside its read-only mounts, and the new directory is owned only by nobody with mode0700. No new account or shared permission change is required. The public sanitized directory is root0755/files0644; original management remains root0700. Unit verification and service-user readback are deployment evidence, not assumed from source.
+
+## Reference price freshness (Campaign-FC-LIVE-20261027)
+
+Current prices for the seasonal model options come from the management-side reference-price producer, which writes `/var/lib/fs-campaign-public/admin-reference-prices.json` atomically. The producer re-reads the private policy on every cycle, so a policy edit takes effect on the next cycle without a restart. Per-entry policy fields:
+
+| Field | Meaning | Accepted range |
+| --- | --- | --- |
+| `refresh_interval_ms` | Producer cycle | 60000–300000 |
+| `max_age_ms` | How long one observation stays usable; `expires_at = observed_at + max_age_ms` | `>= refresh_interval_ms`, `<= 3600000` |
+
+The cache is rejected as a whole when its `release_id`/`config_hash` no longer match the published release, when any `expires_at <= now`, or when `expires_at - generated_at > 3600000`. The public runtime then omits those prices and fails closed (rejecting checkouts with `CURRENT_PRICE_UNAVAILABLE`, and random reveals whose mapping needs a priced option) instead of serving a stale number.
+
+`max_age_ms` is therefore a **tolerance for consecutive producer failures**, not the everyday age of a displayed price: the producer refreshes every 60 s and observes the whole model set within a few seconds, so a healthy system shows prices no older than one cycle. Raising the value widens the outage window that stays "open" and lengthens the worst-case difference between a displayed reference price and the cart; it cannot create a pricing loss because the campaign benefit is a percentage applied by the original cart, which remains authoritative for the payable amount. Values above the one-hour cap are rejected by policy validation and make the cache unavailable, which is worse than failing closed later.
+
+Production value since 2026-10-27: `refresh_interval_ms=60000`, `max_age_ms=900000` (12 entries). FC pages do not read this cache: they read the selected platform's current store price from the same-origin `/ajax/goods` route on every platform change.

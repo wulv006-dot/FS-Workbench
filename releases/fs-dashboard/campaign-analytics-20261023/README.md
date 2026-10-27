@@ -26,4 +26,4 @@ Node18+标准库，无新收费服务/定时任务。`fs-campaign-dashboard.serv
 
 发布适配器按精确SHA复用 menu-cache 冻结publisher，保留全局锁、CAS、原ID日志、备份/回退。仅 app、独立systemd单元、导航两JSON与当前Nginx片段追加路由；不重启认证/经营/采集服务。暂存包须含原publisher精确字节、候选、当前基线manifest，运行 inspect 后以同manifestSHA apply。真实入口、匿名拒绝、管理员保存、只读账号、密钥真实回读及服务重启恢复分别记录；未验项不得称已完成。
 
-上线状态以本次实际回执为准，本说明不是部署证明。
+上线状态以本次实际回执为准，本说明不是部署证明。投放与验收记录见 `DELIVERY.md` / `ACCEPTANCE.md`；价格新鲜度与失败关闭合同见 `runtime-contract.md`。
