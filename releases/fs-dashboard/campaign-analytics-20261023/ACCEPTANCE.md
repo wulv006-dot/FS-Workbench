@@ -90,3 +90,12 @@
 2. 万圣节随机档在 TTL 上限仍会 409（`HALLOWEEN_FIXED_MAPPING_REQUIRED` / `CURRENT_PRICE_UNAVAILABLE`），只是窗口从 5 分钟拉长到 15 分钟，根因（刷新失败时整层拒绝）未消除。
 3. FC 三页无"区服"维度（球员卡只有 PS/Xbox/PC），属商品结构，不是缺口。
 4. 未做付款、订单、退款与长期自然周期验收。
+
+### 2026-10-27 `nav-20261027T190500Z`（PR #573）读回
+
+- 范围：`app/seasonal/event.js` + `app/seasonal/event.css`，共 2 个文件。
+- 游戏卡：四张 `.game-art` 计算样式均为 `saturate(0.95) brightness(1.14) contrast(1.02)`；卡片高度 267px 未变。
+- 翻牌卡：三张正面 `card-front small` 计数 0（游戏小字已移除）；卡高 320px 未变；正面文案与价格正常。
+- 翻牌与状态：三张翻完后 `is-revealed` 全 true；`reload()` 后重新进入游戏页，三张仍为 true（固定卡持久化在 PR #572 修复后保持）。
+- 控制台：无 pageerror、无 console error。
+- 未执行：未改 policy / 公开配置 / 优惠码 / 派生价格缓存；未重启服务（清单先更新、文件后落盘，顺序保证无 `STATIC_HASH_MISMATCH`）。

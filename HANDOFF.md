@@ -140,3 +140,15 @@ PR278/280/281均正式CI通过并合并，最终功能head d641ff9eb7cabc2651361
 ## 2026-10-25 所有报告的核心逻辑纠偏
 
 用户明确要求Hermes生成和Codex/ChatGPT自身指导、审核共用核心：先回答最重要的问题，给有主次的全局判断、方向性推断和取舍，再用关键事实支持并落到行动。语言通俗，图表/HTML按需；只对会改变方向的问题继续深查。正式规则、落实计划及真实验收见[报告核心逻辑目录](docs/planning/operator-report-review-20261025/PLAN.md)。PR472已正式CI合并；服务器两个正式报告方法已原生更新、实际读取解释并用于24号重做，旧稿保留。用户另已批准每天08:10只读抽查首份自然日报/周报/月报，覆盖完成即结束、最多两周；目前自然0/3，不恢复原暂停的价格跟踪。具体成品与验收以同目录ACCEPTANCE及SOURCE-MAP为准。
+
+## 2026-10-27 万圣节活动页：翻牌卡状态、卡面与游戏卡亮度
+
+本Work处理万圣节 Mystery Store（`/events/seasonal/`）的三处线上问题，全部走原流程：本地改动 → `pr_fast.py` 离线 affected 组 → PR → 正式 CI → 合并 → 原 publisher（`/var/tmp/fs-campaign-release70-candidate/publish.py`）`inspect` → 更新 `runtime/static-manifest.json` → `apply` → 真实域名读回。
+
+1. **固定卡刷新后丢失**（PR #572，合并 `3bbc7e2`，发布 `nav-20261027T184803Z`）：`runtime/halloween-reveal.mjs` 本就把 `slot:'fixed'` 写进同一份抽取记录，但前端 `restoreReceipts()` 恢复时显式 `if(slot.slot!=='fixed')` 跳过它，导致刷新/重进后随机卡恢复、固定卡被合上。改为 `revealed.add(slot.slot==='fixed'?fixedToken(game):receipt.request_id+':'+slot.slot)`，一行。曾试 `localStorage` 被测试 #219 挡住（活动页前端禁止任何本地存储），故沿用服务端 receipt 通道。
+2. **游戏卡偏暗**（PR #573）：`.game-art` 由 `saturate(.78) brightness(.8)` 抬到 `saturate(.95) brightness(1.14) contrast(1.02)`，`.game-shade` 紫色压层减薄，仅标题底条接近不透明。
+3. **翻牌卡面游戏小字**（同 PR #573）：`faceContent()` 去掉 `label` 参数与 `<small>`，正面不再打印 `FC27`/`Aion2`。
+
+发布 `nav-20261027T190500Z`（manifest `dff9dd2a…`，静态清单备份 `static-manifest.before-nav89.json`），正式域名读回：四卡滤镜一致、高 267px；三卡正面 `card-front small` 计数 0、高 320px；三张翻完后 `reload()` 仍全为 `is-revealed`；无 JS 报错。未改 policy / 公开配置 / 优惠码 / 价格缓存，未重启服务。回退点 `/var/backups/fs-navigation-20261006/nav-20261027T190500Z`。
+
+过程教训：期间一次误发布（PR #570）把用户当晚 22:28 刚调好的卡面覆盖成去小字+提亮版并紧急回滚，根因是误判用户"样式不对"的指代，且发布前未确认线上那版是否就是用户最新版。此后确立：动活动页 CSS/JS 前先与用户确认要改哪一项，发布后用正式域名（而非 IP 直连，IP 会 403 `ORIGIN_REQUIRED`）读回。
