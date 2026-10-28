@@ -340,8 +340,8 @@ def tick(executors, running):
       if plan and plan['state']=='ACTIVE':
         due_at=next_cycle_at(db,plan)
         with db.connect() as conn:
-            pending=any(json.loads(row[0]).get('plan_id')==plan['plan_id'] for row in
-                        conn.execute('SELECT body FROM durable_jobs WHERE kind=\'cycle\' AND state IN (\'queued\',\'running\')'))
+            pending=any(body.get('plan_id')==plan['plan_id'] and body.get('revision')==plan['revision'] for body in
+                        (json.loads(row[0]) for row in conn.execute('SELECT body FROM durable_jobs WHERE kind=\'cycle\' AND state IN (\'queued\',\'running\')')))
         if not pending and now>=due_at:
             key='cycle:'+plan['plan_id']+':'+str(int(due_at.timestamp()))+':r'+str(plan.get('resume_count',0))
             db.enqueue('cycle',key,now,dict(plan_id=plan['plan_id'],revision=plan['revision']))

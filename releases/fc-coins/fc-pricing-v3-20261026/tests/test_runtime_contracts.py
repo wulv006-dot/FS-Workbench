@@ -84,6 +84,59 @@ class RuntimeContracts(unittest.TestCase):
             self.assertEqual(rows[0]['state'],'running')
             self.assertTrue(rows[0]['id'].endswith(':r1'))
 
+    def test_future_old_revision_cycle_does_not_block_current_natural_cycle(self):
+        from types import SimpleNamespace
+        now=datetime(2026,10,29,17,tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.sqlite3')
+            plan=dict(plan_id='original-plan',revision=5,generation='g',resources=['base:pc'],
+                      starts_at=(now-timedelta(hours=2)).isoformat(),last_cycle_at=(now-timedelta(hours=1)).isoformat(),
+                      state='ACTIVE',mode='daily',resume_count=7)
+            db.put('metadata','generation',dict(id='g'));db.put('pricing_plans',plan['plan_id'],plan)
+            db.enqueue('cycle','original-rev4-retry',now+timedelta(hours=1),dict(plan_id=plan['plan_id'],revision=4))
+            with db.transaction() as conn:
+                conn.execute("INSERT INTO plan_ownership VALUES ('base:pc','original-plan',5,'g')")
+                conn.execute("UPDATE durable_jobs SET attempt=4 WHERE id='original-rev4-retry'")
+            with db.connect() as conn:old=dict(conn.execute("SELECT * FROM durable_jobs WHERE id='original-rev4-retry'").fetchone())
+            future=Mock();future.done.return_value=False
+            executors={lane:Mock() for lane in ('collection','control','observation')}
+            executors['collection'].submit.return_value=future;running={}
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'clock',return_value=now),patch.object(scheduler,'export_shadow_snapshot'),patch.object(runtime,'write_json'),patch('automation_policy.load_policy',return_value=dict(interval_minutes=60)):
+                scheduler.tick(executors,running);scheduler.tick(executors,running)
+            with db.connect() as conn:
+                self.assertEqual(dict(conn.execute("SELECT * FROM durable_jobs WHERE id='original-rev4-retry'").fetchone()),old)
+                current=[dict(row) for row in conn.execute("SELECT * FROM durable_jobs WHERE kind='cycle'") if json.loads(row['body'])['revision']==5]
+            self.assertEqual(len(current),1);self.assertTrue(current[0]['id'].endswith(':r7'))
+            self.assertEqual(current[0]['state'],'running');executors['collection'].submit.assert_called_once()
+            # The original ID is not rewritten by tick. When its original time is
+            # reached, the existing cycle/run_job path naturally closes it.
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'clock',return_value=now+timedelta(hours=1)),patch.dict(sys.modules,{'fc27_cloud_worker':SimpleNamespace()}):
+                scheduler.run_job(old)
+            with db.connect() as conn:finished=dict(conn.execute("SELECT * FROM durable_jobs WHERE id='original-rev4-retry'").fetchone())
+            self.assertEqual(finished['state'],'done');self.assertEqual(json.loads(finished['body'])['result']['status'],'superseded')
+            self.assertEqual((finished['id'],finished['attempt'],finished['due_at']),(old['id'],old['attempt'],old['due_at']))
+            self.assertEqual(db.get('pricing_plans',plan['plan_id'])['last_cycle_at'],plan['last_cycle_at'])
+
+    def test_current_revision_pending_cycle_still_blocks_duplicate_cycle(self):
+        now=datetime(2026,10,29,17,tzinfo=timezone.utc)
+        for state in ('queued','running'):
+          with self.subTest(state=state),tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.sqlite3')
+            plan=dict(plan_id='original-plan',revision=5,generation='g',resources=['base:pc'],
+                      starts_at=(now-timedelta(hours=2)).isoformat(),state='ACTIVE',mode='daily',resume_count=7)
+            db.put('metadata','generation',dict(id='g'));db.put('pricing_plans',plan['plan_id'],plan)
+            db.enqueue('cycle','original-current-retry',now+timedelta(hours=1),dict(plan_id=plan['plan_id'],revision=5))
+            with db.transaction() as conn:
+                conn.execute("INSERT INTO plan_ownership VALUES ('base:pc','original-plan',5,'g')")
+                conn.execute('UPDATE durable_jobs SET state=? WHERE id=?',(state,'original-current-retry'))
+            with db.connect() as conn:before=dict(conn.execute("SELECT * FROM durable_jobs WHERE id='original-current-retry'").fetchone())
+            executors={lane:Mock() for lane in ('collection','control','observation')}
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'clock',return_value=now),patch.object(scheduler,'export_shadow_snapshot'),patch.object(runtime,'write_json'),patch('automation_policy.load_policy',return_value=dict(interval_minutes=60)):
+                scheduler.tick(executors,{});scheduler.tick(executors,{})
+            with db.connect() as conn:
+                rows=[dict(row) for row in conn.execute("SELECT * FROM durable_jobs WHERE kind='cycle'")]
+            self.assertEqual(rows,[before]);executors['collection'].submit.assert_not_called()
+
     def test_suspended_deadline_waits_for_original_then_ends_without_new_price(self):
         now=datetime(2026,10,26,14,tzinfo=timezone.utc)
         with tempfile.TemporaryDirectory() as folder:
