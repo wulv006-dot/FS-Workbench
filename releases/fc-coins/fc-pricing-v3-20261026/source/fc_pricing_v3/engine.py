@@ -15,7 +15,7 @@ from .selective_sources import (input_ratio as envelope_ratio, input_catalog_flo
 
 PLATFORMS = ('PS','XBOX','PC')
 GROUPS = {'console':('PS','XBOX'), 'pc':('PC',)}
-SPRINT_POLICY_VERSION = 'sprint_5_10_itemd2r_floor20_v2'
+SPRINT_POLICY_VERSION = 'sprint_5_10_lower_quote_floor20_v3'
 POLICIES = {
     'daily':dict(offsets=(-8,-4,0,4,8), allocation=(.2,.6,.2)),
     'revenue_sprint':dict(offsets=(-5,-6.25,-7.5,-8.75,-10), allocation=(.1,.7,.2))}
@@ -192,9 +192,6 @@ def required_base_bound(evidence,platform,now,plan=None,evaluation_context=None)
     return (bound*100).quantize(CENT,rounding=ROUND_UP)
 
 
-def quote_identity(row):
-    return tuple(row.get(k) for k in ('source','platform','purchase_k','delivered_k','delivery','delivery_method','price_basis','coupon_excluded','conditional'))
-
 def base_limits(public_low,public_high,retained):
     retained=number(retained)
     low=((public_low-CENT/2)/retained).quantize(CENT,rounding=ROUND_UP)
@@ -205,28 +202,7 @@ def base_limits(public_low,public_high,retained):
 def resolve_anchor(evidence,platform,quotes,now):
     lootbar,item=(next(q for q in quotes if q['source']==source and q['platform']==platform) for source in ('Lootbar','ItemD2R'))
     chosen=item if number(item['unit_100k'])<=number(lootbar['unit_100k']) else lootbar
-    result=dict(source=chosen['source'],unit_100k=chosen['unit_100k'],reason='ITEMD2R_LOWER_VALID_QUOTE' if chosen is item else 'LOOTBAR_LOWER_VALID_QUOTE')
-    if chosen is item:return result
-    context=(evidence.get('sprint_anchor_context') or {}).get(platform,{})
-    previous=context.get('previous') or {}
-    continuing=previous.get('reason')=='ITEMD2R_COST_RESPONSE'
-    baseline=previous.get('baseline') if continuing else context.get('baseline')
-    if not baseline:return result
-    old=baseline.get('quotes') or {}
-    if set(old)!={'Lootbar','ItemD2R'} or any(quote_identity(old[s])!=quote_identity(q) for s,q in (('Lootbar',lootbar),('ItemD2R',item))):return result
-    if instant(baseline['created_at'])>now or not continuing and (now-instant(baseline['created_at'])).total_seconds()>21600:return result
-    pooled,_=common_cost(evidence)
-    cny=pooled if platform!='PC' else number(evidence['costs']['PC']['cny_per_1k'])
-    cost=cny/number(evidence['fx']['cny_per_usd'])
-    dc=cost/number(baseline['cost_usd_per_k'])-1
-    di=number(item['unit_100k'])/number(old['ItemD2R']['unit_100k'])-1
-    dl=number(lootbar['unit_100k'])/number(old['Lootbar']['unit_100k'])-1
-    gap=number(item['unit_100k'])/number(lootbar['unit_100k'])-1
-    matched=(dc>0 and di>0 and gap>Decimal('.02')) if continuing else dc>=Decimal('.05') and di>=Decimal('.05') and abs(dl)<=Decimal('.02') and gap>=Decimal('.05')
-    if matched:result.update(source='ItemD2R',unit_100k=item['unit_100k'],reason='ITEMD2R_COST_RESPONSE',baseline=baseline,
-        changes_pct=dict(cost=str(dc*100),itemd2r=str(di*100),lootbar=str(dl*100),gap=str(gap*100)),continuing=continuing,
-        cost_components=dict(cny_per_k=str(cny),fx_cny_per_usd=evidence['fx']['cny_per_usd']))
-    return result
+    return dict(source=chosen['source'],unit_100k=chosen['unit_100k'],reason='ITEMD2R_LOWER_VALID_QUOTE' if chosen is item else 'LOOTBAR_LOWER_VALID_QUOTE')
 
 
 def competition(evidence, platforms, now, region=None, *, plan=None, resolved_global=None,evaluation_context=None,base_total=None):
@@ -269,14 +245,6 @@ def competition(evidence, platforms, now, region=None, *, plan=None, resolved_gl
         minimum_base=str(floor)
         def feasible(values):return max([floor]+[number(t['total_low']) for t in values.values()])<=min(number(t['total_high']) for t in values.values())
         attempts.append(dict(anchors=deepcopy(anchors),targets=deepcopy(targets),financial_interval_feasible=feasible(targets)))
-        if not feasible(targets):
-            options=[[anchors[p]]+([dict(source='ItemD2R',unit_100k=next(q['unit_100k'] for q in quotes if q['source']=='ItemD2R' and q['platform']==p),reason='ITEMD2R_CURRENT_COST_CONFLICT')]
-                     if anchors[p]['source']=='Lootbar' else []) for p in platforms]
-            for choice in itertools.product(*options):
-                alternative=dict(zip(platforms,deepcopy(choice)));candidate=limits(alternative)
-                if alternative==anchors:continue
-                attempts.append(dict(anchors=deepcopy(alternative),targets=deepcopy(candidate),financial_interval_feasible=feasible(candidate)))
-                if feasible(candidate):anchors,targets=alternative,candidate;break
         if not feasible(targets):decision_type='floor_fallback'
     elif base_total is not None:
         p=platforms[0]

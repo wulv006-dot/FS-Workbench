@@ -137,32 +137,6 @@ def enrich_segments(evidence):
     return evidence
 
 
-def sprint_anchor_context(db,plan,now):
-    """One common saved baseline, plus the original entry basis during a cost response."""
-    baseline=None
-    for snapshot in sorted(db.all('pricing_snapshots'),key=lambda s:s.get('created_at','')):
-        at=instant(snapshot.get('created_at') or snapshot['evidence']['checked_at'])
-        if not 0<(now-at).total_seconds()<=21600:continue
-        old=snapshot['evidence']
-        try:
-            from .financial import common_cost
-            pooled,_=common_cost(old)
-            quotes={p:{s:market_quote(old,p,s,at) for s in ('Lootbar','ItemD2R')} for p in PLATFORMS}
-            costs={p:str((pooled if p!='PC' else number(old['costs']['PC']['cny_per_1k']))/number(old['fx']['cny_per_usd'])) for p in PLATFORMS}
-        except (ValueError,KeyError):continue
-        baseline=dict(snapshot_id=snapshot['snapshot_id'],created_at=at.isoformat(),quotes=quotes,costs=costs,source_sha256=fingerprint(old))
-        break
-    previous=max((r for r in db.all('market_comparisons') if r.get('plan_id')==(plan or {}).get('plan_id') and r.get('sprint_policy_version')==SPRINT_POLICY_VERSION),key=lambda r:r['created_at'],default={})
-    if plan and plan.get('paused_at') and previous and instant(previous['created_at'])<=instant(plan['paused_at']):previous={}
-    context={}
-    for p in PLATFORMS:
-        group='pc' if p=='PC' else 'console'
-        prior=((previous.get('groups') or {}).get(group) or {}).get('anchors',{}).get(p)
-        base=dict(snapshot_id=baseline['snapshot_id'],created_at=baseline['created_at'],quotes=baseline['quotes'][p],cost_usd_per_k=baseline['costs'][p],source_sha256=baseline['source_sha256']) if baseline else None
-        context[p]=dict(baseline=base,previous=prior)
-    return context
-
-
 def calculate(evidence, edits=None, *, selected_action=None,override_reason=None,operation_id=None):
     edits = edits or {}
     if edits.get('costs') or edits.get('offers') or edits.get('quotes'):
@@ -181,7 +155,6 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
     now = clock()
     if plan and plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:
         raise ValueError('pricing_financial_plan_migration_required')
-    if mode=='revenue_sprint':evidence['sprint_anchor_context']=sprint_anchor_context(db,plan,now)
     evaluations = {mode:evaluate(evidence,mode,plan=plan,now=now)}
     evaluation = evaluations[mode]
     if not evaluation['candidates']:
