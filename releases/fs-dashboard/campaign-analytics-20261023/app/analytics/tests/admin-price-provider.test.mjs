@@ -31,7 +31,7 @@ function fixture(){
  const original=fs.readFileSync(path.join(publicDir,'current.json'),'utf8'),originalDraft=structuredClone(store.read().draft);
  const options={publicDir,readPolicy:()=>config,now:()=>clock,
   readSnapshot:()=>JSON.parse(fs.readFileSync(path.join(publicDir,'current.json'),'utf8')),
-  call:async(req,opts)=>{calls++;assert.deepEqual(req,{action:'model_provider_read',...REF,category_id:'9623'});assert.equal(opts.timeout,25000);
+  call:async(req,opts)=>{calls++;assert.deepEqual(req,{action:'model_provider_read',...REF,category_id:'9623'});assert.equal(opts.timeout,60000);
    if(extraCall)return extraCall();if(fail)throw Error('upstream PRIVATE_SENTINEL');return observe();}};
  provider=makeAdminPriceProvider(options);
  return {tmp,publicDir,store,provider,options,original,originalDraft,observe,

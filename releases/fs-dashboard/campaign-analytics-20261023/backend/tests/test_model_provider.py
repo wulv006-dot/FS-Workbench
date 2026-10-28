@@ -202,7 +202,9 @@ class ProviderTests(unittest.TestCase):
 
     def test_resolution_deadline_is_shared_with_initial_category_read_not_reset_per_model(self):
         session=Session([response([model(700)],1)])
-        with patch('campaign_backend.adapters.time.monotonic',side_effect=[0,0,21]):
+        # Second tick sits one second past the 45s aggregate catalogue budget, so the
+        # child read must be refused instead of getting a fresh window per model.
+        with patch('campaign_backend.adapters.time.monotonic',side_effect=[0,0,46]):
             result=handle(self.pool(resolve_associations=True),lambda:AdminRead(session,catalog_get_once=session.get_admin))
         self.assertEqual(len(session.calls),1);self.assertTrue(session.closed)
         self.assertEqual(result['association_coverage']['reason'],'CATALOG_SEARCH_TIMEOUT')
