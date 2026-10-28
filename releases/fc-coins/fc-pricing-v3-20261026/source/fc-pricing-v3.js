@@ -2,7 +2,7 @@
   'use strict';
   const base='/api/fc27/cloud/pricing/v3';
   const names={daily:'日常运营',revenue_sprint:'冲销售额'};
-  const purposes={daily:'平衡收入与采购贡献，适合常态经营。',revenue_sprint:'按有效锚点低 5–10% 冲额，默认偏好 7.5%；成本变化时可由 ItemD2R 接替，沙特额外比较 Arab-UT 普通发货。'};
+  const purposes={daily:'平衡收入与采购贡献，适合常态经营。',revenue_sprint:'取 Lootbar 与 ItemD2R 较低有效价，低 5–10% 冲额，默认偏好 7.5%；低价带不合双20时用最低合法价，沙特额外比较 Arab-UT 普通发货。'};
   const $=id=>document.getElementById(id);
   let current,loading=false,acting=false,manualPreview=null,selectedPlanId=null,displayedMode='daily',canWrite=false,permissionKnown=false,playerRevision=null,playerDirty=false,collectPending=sessionStorage.getItem('fc-v3-collect-job'),automationRevision=null,lastAutomation=null,lastMonitor=null;
   const statuses={DRAFT:'待启用',SCHEDULED:'等待开始',ACTIVE:'执行中',SUSPENDED:'已暂停新写入',ENDING:'正在退出',ENDED:'已结束',
@@ -43,7 +43,7 @@
     const allocation=Object.fromEntries(['control','exploit','explore'].map(k=>[k,$('v3-alloc-'+k).value]));
     if(Math.abs(Object.values(allocation).reduce((n,v)=>n+Number(v),0)-1)>1e-9)throw Error('对照、优选、探索分配之和必须为1');
     const parameters={allocation};
-    if(mode==='revenue_sprint'){parameters.preferred_undercut_pct=$('v3-undercut').value;parameters.sprint_policy_version='sprint_5_10_itemd2r_floor20_v2';}
+    if(mode==='revenue_sprint'){parameters.preferred_undercut_pct=$('v3-undercut').value;parameters.sprint_policy_version='sprint_5_10_lower_quote_floor20_v3';}
     else{parameters.offsets_pct=$('v3-offsets').value.split(',').map(v=>v.trim());if(parameters.offsets_pct.some(v=>v===''||!Number.isFinite(Number(v))))throw Error('候选偏移须为逗号分隔的数字');}
     return parameters;
   }
@@ -132,19 +132,21 @@
     $('v3-current-plan').textContent=plan?`${active.length>1?`${active.length} 个受控计划 · 当前查看 `:''}${names[plan.mode]||plan.mode} · ${statusText(plan.state)}`:'无活动计划';
     $('v3-next-cycle').textContent=schedule.next_cycle_at?when(schedule.next_cycle_at):(schedule.active_plan_state==='SUSPENDED'||plan?.state==='SUSPENDED'?'已暂停，无下一自然写价轮':'暂无已排定自然轮');
     $('v3-source-time').textContent=schedule.last_source_checked_at?when(schedule.last_source_checked_at):'当前计划来源待核';
-    $('v3-stage').textContent=`${statusText(schedule.last_execution_stage||state.operations?.[0]?.status)}${schedule.last_cycle_at?` · ${when(schedule.last_cycle_at)}`:''}`;
+    const latest=state.operations?.[0],orderAdminLabel=latest?.status==='COMPLETED'&&latest?.order_close?.reason==='order_write_confirmed_admin_price_matched'?'Order与Admin已确认':null;
+    const stageLabel=orderAdminLabel&&(!schedule.last_execution_stage||schedule.last_execution_stage==='COMPLETED')?orderAdminLabel:statusText(schedule.last_execution_stage||latest?.status);
+    $('v3-stage').textContent=`${stageLabel}${schedule.last_cycle_at?` · ${when(schedule.last_cycle_at)}`:''}`;
     const rows=monitor?.storefront?.rows||{};
     for(const [platform,id] of [['PS','v3-price-ps'],['XBOX','v3-price-xbox'],['PC','v3-price-pc']]){
       const publicRow=rows[platform];$(id).textContent=publicRow?.package_usd!=null?usd(publicRow.package_usd):'公开价待核';
     }
     const publication=monitor?.publication?.status;
     $('v3-public-status').textContent=`公开读回：${publication==='matched'?'已核实':publication?statusText(publication):'待核'}。上述为最近公开采样，时点 ${when(rows.PS?.checked_at||rows.PC?.checked_at)}；不以候选报价代替。`;
-    const latest=state.operations?.[0],receipt=latest?.bundle||{},source=receipt.decision_source;
+    const receipt=latest?.bundle||{},source=receipt.decision_source;
     const reviewLabel=receipt.maintenance_purpose==='retire_uk_discount_v1'?'用户授权英国临时折扣退出；程序已核财务与地区规则':receipt.review_contract==='program_pricing_with_daily_hermes_review_v3'?'当前规则：程序逐轮定价，Hermes 每日效果复盘':(source==='v3_model_reviewed_this_cycle'||source==='v3_reviewed_assignment')&&receipt.review_approved===true?'本轮 Hermes 实际选择并审核':
       source==='v3_model_reviewed_this_cycle'?'模型选择回执与批准状态不一致，待核':
       source==='v3_inherited_reviewed_business_strategy'?'沿用先前已审经营策略，本轮程序重证':
       source==='v3_explicit_deterministic_feasible_assignment'||receipt.review_approved===false?'历史原操作当时使用程序路径，未获模型审核；当前规则无需逐轮审核':'审核来源待核';
-    $('v3-review-source').textContent=latest?`最近原操作 ${latest.operation_id}：${statusText(latest.status)}。${reviewLabel}；真实生效以后台、缓存及公开读回为准。`:'尚无 V3 原操作。程序负责正常定价，Hermes 每日提供效果评估。';
+    $('v3-review-source').textContent=latest?`最近原操作 ${latest.operation_id}：${orderAdminLabel||statusText(latest.status)}。${reviewLabel}；${orderAdminLabel?'公开读回状态单独列示':'真实生效以后台、缓存及公开读回为准'}。`:'尚无 V3 原操作。程序负责正常定价，Hermes 每日提供效果评估。';
     const daily=state.daily_review;
     $('v3-daily-status').textContent=daily?`${daily.local_date} · ${statusText(daily.phase)} · 专用定价通道；不会自动切换策略`:'尚无每日结果；每天 02:20 复盘前一日，保存的分时段输入不足会列为缺项。';
     const replies=(daily?.hermes?.evaluation?.turns||[]).map(t=>t.reply).filter(Boolean);

@@ -1,5 +1,5 @@
 from copy import deepcopy
-from datetime import timedelta
+from datetime import datetime,timedelta
 from decimal import Decimal,ROUND_UP
 import json,sys,tempfile,unittest
 from pathlib import Path
@@ -140,26 +140,67 @@ class Dual20Sprint(unittest.TestCase):
         for loot,item,chosen in [('10','9','ItemD2R'),('9','10','Lootbar')]:
             self.assertEqual(engine.competition(source(loot,item),['PS'],NOW)['anchors']['PS']['source'],chosen)
 
-    def test_T06_T07_T19_common_cost_basis_and_hysteresis(self):
+    def test_cost_response_history_cannot_raise_the_lower_quote_anchor(self):
         data=source(loot='10',item='11',cost='.385')
         old=source(loot='10',item='10',cost='.35');at=NOW-timedelta(hours=1)
         for p in engine.PLATFORMS:
             quotes={s:engine.market_quote(old,p,s,NOW) for s in ('Lootbar','ItemD2R')}
             data.setdefault('sprint_anchor_context',{})[p]=dict(baseline=dict(snapshot_id='one-common-basis',created_at=at.isoformat(),quotes=quotes,cost_usd_per_k='.05'))
         selected=engine.competition(data,['PS'],NOW)['anchors']['PS']
-        self.assertEqual(selected['reason'],'ITEMD2R_COST_RESPONSE')
-        data['sprint_anchor_context']['PS']['previous']=selected
+        self.assertEqual(selected['reason'],'LOOTBAR_LOWER_VALID_QUOTE')
+        self.assertEqual(Decimal(selected['unit_100k']),Decimal('10'))
+        data['sprint_anchor_context']['PS']['previous']=dict(reason='ITEMD2R_COST_RESPONSE',baseline=data['sprint_anchor_context']['PS']['baseline'])
         data['offers']['PS']['Lootbar']['usd_price']='10.8'
         self.assertEqual(engine.competition(data,['PS'],NOW)['anchors']['PS']['source'],'Lootbar')
         data['offers']['PS']['Lootbar']['usd_price']='10'
         data['costs']['PS']['cny_per_1k']=data['costs']['XBOX']['cny_per_1k']='.35'
         self.assertEqual(engine.competition(data,['PS'],NOW)['anchors']['PS']['source'],'Lootbar')
 
-    def test_T08_current_cost_conflict_uses_itemd2r_without_trend_claim(self):
+    def test_cost_conflict_uses_legal_floor_without_switching_to_higher_itemd2r(self):
         market=engine.competition(source(loot='10',item='14',cost='.56'),['PS','XBOX'],NOW)
-        self.assertEqual(market['decision_type'],'competitive')
-        self.assertEqual(market['anchors']['PS']['reason'],'ITEMD2R_CURRENT_COST_CONFLICT')
+        self.assertEqual(market['decision_type'],'floor_fallback')
+        self.assertEqual(market['anchors']['PS']['reason'],'LOOTBAR_LOWER_VALID_QUOTE')
+        self.assertEqual(len(market['anchor_attempts']),1)
         self.assertNotIn('baseline',market['anchors']['PS'])
+
+    def test_d8_saved_amounts_choose_minimum_legal_catalog_with_saudi_proof(self):
+        saved=json.loads((Path(__file__).parent/'fixtures/d8-lowest-anchor.json').read_text(encoding='utf-8'))
+        data=saved['evidence'];plan=saved['plan']
+        plan['parameters']['sprint_policy_version']=engine.SPRINT_POLICY_VERSION
+        result=engine.evaluate(data,'revenue_sprint',plan=plan,now=datetime.fromisoformat(saved['provenance']['as_of']))
+        self.assertEqual(saved['previous_action']['base_prices'],dict(console='8.12',pc='7.71'))
+        self.assertEqual(result['status'],'READY')
+        chosen=result['selected']
+        self.assertEqual(chosen['action']['base_prices'],dict(console='7.20',pc='7.46'))
+        self.assertEqual(chosen['decision_type'],'floor_fallback')
+        self.assertEqual(chosen['minimum_legal_price_proof']['console']['previous_cent'],'7.19')
+        self.assertEqual(chosen['minimum_legal_price_proof']['pc']['previous_cent'],'7.45')
+        self.assertTrue(chosen['financial_proof']['pass_all'])
+        for group in chosen['market_comparison'].values():
+            self.assertTrue(all(a['source']=='Lootbar' for a in group['anchors'].values()))
+        prices=chosen['financial_proof']['prices']
+        self.assertTrue({'global:PS','global:XBOX','global:PC','21:PS','21:XBOX'}<=set(prices))
+        for key,proof in prices.items():
+            self.assertEqual(proof['catalog']['published_packages'],len(data['promotion_envelope']['packages'][key.split(':')[1]]['tiers']))
+            self.assertGreaterEqual(Decimal(proof['catalog']['minimum_estimated_average_margin_pct']),20)
+
+    def test_paused_sprint_version_migration_preserves_id_open_end_and_original_records(self):
+        with tempfile.TemporaryDirectory() as folder,patch('fc_pricing_v3.ledger.clock',return_value=NOW):
+            db=Ledger(Path(folder)/'control.db');db.activate_generation('g',[])
+            plan=db.create_plan('revenue_sprint',['base:console','base:pc'],dict(base_prices=dict(console='20',pc='20'),region_coefficients={}))
+            db.activate_plan(plan['plan_id'])
+            plan.update(state='SUSPENDED');plan['parameters']['sprint_policy_version']='sprint_5_10_itemd2r_floor20_v2'
+            db.put('pricing_plans',plan['plan_id'],plan)
+            with self.assertRaisesRegex(ValueError,'sprint_plan_migration_required'):engine.sprint_parameters(plan)
+            migrated=db.migrate_financial_contract(plan['plan_id'],plan['revision'],'wulv')
+            self.assertEqual(migrated['plan_id'],plan['plan_id'])
+            self.assertEqual(migrated['revision'],plan['revision']+1)
+            self.assertEqual(migrated['state'],'SUSPENDED')
+            self.assertIsNone(migrated['ends_at'])
+            self.assertEqual(migrated['parameters']['preferred_undercut_pct'],'7.5')
+            self.assertEqual(migrated['parameters']['sprint_policy_version'],engine.SPRINT_POLICY_VERSION)
+            with db.connect() as conn:
+                self.assertEqual({r['revision'] for r in conn.execute('SELECT revision FROM plan_ownership WHERE plan_id=?',(plan['plan_id'],))},{migrated['revision']})
 
     def test_T10_T12_T25_T27_T28_minimum_floor_keeps_full_dual20_proof(self):
         data=source(loot='10',item='11',cost='.56')
@@ -215,12 +256,15 @@ class Dual20Sprint(unittest.TestCase):
         data['region_rules']=[]
         self.assertGreater(before,engine.required_base_bound(data,'PS',NOW))
 
-    def test_T18_saudi_does_not_reintroduce_excluded_lootbar_and_PC_gap_is_real(self):
+    def test_saudi_keeps_lower_global_anchor_compares_lower_arab_and_pc_gap_is_real(self):
         data=source(loot='10',item='14',cost='.56')
         global_market=engine.competition(data,['PS','XBOX'],NOW)
         data['arab_ut_quotes']=[dict(platform='PS',region_id=21,price_usd='13',purchase_k='100',bonus_k='0',captured_at=NOW.isoformat(),delivery='normal',selection_verified=True,currency='USD')]
         local=engine.competition(data,['PS'],NOW,region=21,resolved_global=global_market)
-        self.assertEqual(Decimal(local['targets']['PS']['anchor_unit_100k']),Decimal('13'))
+        self.assertEqual(Decimal(local['targets']['PS']['anchor_unit_100k']),Decimal('10'))
+        data['arab_ut_quotes'][0]['price_usd']='9'
+        local=engine.competition(data,['PS'],NOW,region=21,resolved_global=global_market)
+        self.assertEqual(Decimal(local['targets']['PS']['anchor_unit_100k']),Decimal('9'))
         missing=engine.competition(data,['PC'],NOW,region=21,base_total='10')
         self.assertEqual(missing['decision_type'],'regional_follow_global')
         self.assertEqual(missing['legal_coefficients'],['1'])
