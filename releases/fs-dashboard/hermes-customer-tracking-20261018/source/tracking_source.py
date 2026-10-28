@@ -18,6 +18,8 @@ from customer_tracking import EMAIL, candidate_rows, checked_config, game_scope,
 MAX_FILE = 32*1024*1024
 MAX_ROWS = 200000
 MAX_PAGES = 300
+DAY_PAGE_SIZE = 20
+DAY_MAX_PAGES = MAX_PAGES * 100 // DAY_PAGE_SIZE  # Keep the original 30,000-row ceiling.
 ARCHIVE = Path('/var/lib/fc27-es-exports')
 
 
@@ -77,12 +79,12 @@ def admin_paid_day(request,day,profile,wanted):
         if type(value) is int and 0<=value<10**10:return value
         if isinstance(value,str) and re.fullmatch(r'[0-9]{1,10}',value):return int(value)
         raise ValueError('admin_day_scope')
-    for page in range(1,MAX_PAGES+1):
+    for page in range(1,DAY_MAX_PAGES+1):
         remaining=deadline-time.monotonic()
         if remaining<=0:break
         filters=[('gid',gid,'='),('site_id',266,'='),('pay_status',1,'='),
                  ('paytime',day+' 00:00:00,'+day+' 23:59:59','RANGE')]
-        params={'page':page,'limit':100,'order':'id,desc'}
+        params={'page':page,'limit':DAY_PAGE_SIZE,'order':'id,desc'}
         for index,(field,value,operator) in enumerate(filters):
             params.update({f'search[{index}][field]':field,f'search[{index}][val]':value,
                 f'search[{index}][operator]':operator})
@@ -94,7 +96,7 @@ def admin_paid_day(request,day,profile,wanted):
         if not isinstance(data,dict) or type(data.get('total')) is not int or not isinstance(data.get('list'),list):
             raise ValueError('admin_day_contract')
         total=data['total'];batch=data['list']
-        if total<0 or len(batch)>100 or expected is not None and total!=expected:raise ValueError('admin_day_pagination')
+        if total<0 or len(batch)>DAY_PAGE_SIZE or expected is not None and total!=expected:raise ValueError('admin_day_pagination')
         if expected is None:expected=total
         ids=[]
         for row in batch:

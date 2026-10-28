@@ -1,7 +1,31 @@
-"""Adapters reuse the existing containers; no credential or raw customer reads."""
-import json, subprocess
+"""Direct Admin API and existing isolated Order readers; no credential reads."""
+import os, urllib.error, urllib.request
 from urllib.parse import urlencode
 from live_summary import SummaryCache
+
+DC_PROXY = os.environ.get('FS_DC_PROXY_BASE', 'http://127.0.0.1:8912')
+
+
+def dc_encode(payload):
+    pairs = []
+    for key, value in payload.items():
+        if isinstance(value, (list, tuple)):
+            for index, item in enumerate(value):
+                pairs.append(('%s[%d]' % (key, index), str(item)))
+        else:
+            pairs.append((key, str(value)))
+    return urlencode(pairs)
+
+
+def dc_request(endpoint, data=None, method='POST'):
+    body = dc_encode(data).encode() if data else None
+    request = urllib.request.Request(DC_PROXY + endpoint, data=body, method=method,
+                                     headers={'Content-Type': 'application/x-www-form-urlencoded'} if body else {})
+    try:
+        with urllib.request.urlopen(request, timeout=85) as response:
+            return response.status, response.read()
+    except urllib.error.HTTPError as error:
+        return error.code, error.read()
 
 def build(profiles, order_call, dimension_map, web):
     def admin(q):
@@ -12,22 +36,8 @@ def build(profiles, order_call, dimension_map, web):
             from site_summary import collect
             return collect(q, profiles[q['profile']])
         game = profiles[q['profile']][3]
-        query = urlencode({'game': game, **q['period']})
-        program = ('import urllib.request,urllib.error,json\n'
-                   'try:\n'
-                   ' r=urllib.request.urlopen(' + repr('http://127.0.0.1:8767/business/summary?' + query) + ',timeout=85)\n'
-                   ' print(json.dumps({"code":r.status,"body":json.load(r)}))\n'
-                   'except urllib.error.HTTPError as e:\n print(json.dumps({"code":e.code}))\n')
-        result = subprocess.run(['docker', 'exec', '-i', 'fc27-p2pah-session', 'python3', '-'],
-                                input=program.encode(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
-        if result.returncode:
-            raise OSError('admin_summary_transport')
-        envelope = json.loads(result.stdout)
-        if envelope['code'] in (401, 403):
-            raise PermissionError('admin_summary_denied')
-        if envelope['code'] != 200:
-            raise OSError('admin_summary_unavailable')
-        return envelope['body']
+        from admin_summary import collect as dc_collect
+        return dc_collect(dc_request, str(game), q['period']['start'], q['period']['end'])
 
     def order(q):
         import fcntl

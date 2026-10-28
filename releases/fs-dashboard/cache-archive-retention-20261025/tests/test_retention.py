@@ -12,7 +12,7 @@ import tempfile
 import threading
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock,patch
 
 SOURCE=Path(__file__).resolve().parents[1]/'source'
 sys.path.insert(0,str(SOURCE))
@@ -95,6 +95,19 @@ class Cache(unittest.TestCase):
         import source_snapshots
         store=source_snapshots.SnapshotStore(self.root)
         value=store.read(p);self.assertEqual(value,json.loads(raw));self.assertEqual(p.read_bytes(),raw)
+    def test_native_archive_lookup_is_versioned_before_read_or_live_cache(self):
+        import source_snapshots
+        store=source_snapshots.SnapshotStore(self.root)
+        old_query=dict(profile='FC27',start='2026-10-24',end='2026-10-24')
+        new_value={'status':'available','orders':2};old_value={'status':'available','orders':1}
+        archive=types.SimpleNamespace(read=Mock(side_effect=lambda family,q:old_value if q==old_query else None),save=Mock())
+        store.get_live=Mock(return_value=new_value)
+        with patch.dict(sys.modules,daily_archive=archive):
+            self.assertEqual(store.get('native-statistics',old_query,lambda:None,lambda v:True),new_value)
+        query=archive.read.call_args.args[1]
+        self.assertEqual(query['admin_summary_contract'],'admin-paid-order-labelled-supplement-v2')
+        self.assertEqual(store.get_live.call_args.args[1],query);self.assertEqual(archive.save.call_args.args[1],query)
+        self.assertNotIn('admin_summary_contract',old_query)
 
     def test_active_tasks_defer_and_bad_ledger_fails_closed(self):
         _,p,_=self.snapshot()

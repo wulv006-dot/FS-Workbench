@@ -5,8 +5,8 @@ import unittest
 from urllib.parse import urlsplit, parse_qs
 
 PACKAGE=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(PACKAGE/'source'))
 sys.path.insert(0,str(PACKAGE.parent/'admin-data-tools-20261018/candidate/hermes'))
+sys.path.insert(0,str(PACKAGE/'source'))
 sys.path.insert(0,str(PACKAGE.parents[2]/'mmoexp_google_data/details'))
 import es_order_structure as es
 import admin_product_orders as product

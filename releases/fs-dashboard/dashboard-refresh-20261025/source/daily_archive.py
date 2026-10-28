@@ -196,6 +196,9 @@ def summary_key(query):
 def native_key(query, definition=None):
     result = {k: query[k] for k in ('profile', 'start', 'end', 'grain', 'analysis') if k in query}
     result['contract'] = 'native-closed-v2'
+    if definition is not None and len(definition)>4 and definition[4]=='rpg' and not query.get('analysis'):
+        if 'period' in query and query.get('adminCohort')!='paid-all-status-v2':raise ValueError('native_paid_cohort_unverified')
+        result['adminCohort']='paid-all-status-v2'
     if definition is not None: result['profileDefinition'] = hashlib.sha256(encoded(definition)).hexdigest()
     return result
 
@@ -222,6 +225,11 @@ def complete_native(value):
         extension = value.get('fc27ProductRankings') or value.get('fc27Analytics') or {}
         return extension.get('status') in ('available', 'empty') and extension.get('coverage', {}).get('complete') is True
     if value.get('scopeContractId') != 'all-websites-order-primary-admin-supplement-v1': return False
+    # Retain old completed-only evidence without seeding it under a current paid-cohort key.
+    if str(value.get('profile',{}).get('supplement',{}).get('filters',{}).get('order_status',''))=='101':return False
+    if value['query'].get('adminCohort')=='paid-all-status-v2':
+        filters=value.get('profile',{}).get('supplement',{}).get('filters',{})
+        if filters.get('order_status')!='' or str(filters.get('pay_status'))!='1':return False
     return all(value.get('profile', {}).get(k, {}).get('status') == 'available' for k in ('primary', 'supplement'))
 
 

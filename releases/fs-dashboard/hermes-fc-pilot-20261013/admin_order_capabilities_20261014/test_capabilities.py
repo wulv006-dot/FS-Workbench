@@ -7,6 +7,8 @@ import threading
 import hashlib
 import unittest
 import io
+import sys
+from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 from urllib.error import HTTPError
@@ -60,7 +62,7 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(q['ttl_seconds'],7200)
         q=checked_query(dict(NATIVE,start='2026-10-14',end='2026-10-14'),CONFIG,NOW)
         self.assertEqual(q['period']['end'],'2026-10-14 08:30:00')
-        self.assertEqual(q['ttl_seconds'],900)
+        self.assertEqual(q['ttl_seconds'],600)
 
     def test_closed_fields_and_mapping(self):
         for extra in ({'url':'https://example.com'},{'role':'admin'},{'token':'x'},{'page':True}):
@@ -106,46 +108,44 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(out['reason'],'source_contract_or_read_failed')
         self.assertNotIn('not-for-model',json.dumps(out))
 
-    def test_loopback_failure_preserves_projected_reason_for_provider(self):
-        for status,kind,reason in ((503,'not_available','native_shape'),):
-            projected=collect_admin(lambda *_:(200,json.dumps({'code':403})),NATIVE,CONFIG,NOW)
-            projected.update(status=kind,reason=reason)
-            error=HTTPError('http://127.0.0.1:8767/business/fc-capability',status,'fixed-local',{},io.BytesIO(json.dumps(projected).encode()))
-            with patch('admin_order_capabilities_20261014.fs_reader.build_opener') as opener:
-                opener.return_value.open.side_effect=error
-                out=admin_read(NATIVE)
-            self.assertEqual(out,projected)
-            provider=CapabilityProvider(dict(CONFIG),ImmediatePool(),lambda _:out,None,TASK_A,date_clock=lambda:NOW)
-            provider.get(NATIVE);self.assertEqual(provider.get(NATIVE)['reason'],reason)
+    def direct_reply(self,status,body):
+        from unittest.mock import Mock
+        client=Mock();client.post_admin.return_value=(status,body)
+        with patch.dict(sys.modules,p2pah_auth=SimpleNamespace(Session=lambda:client)):
+            value=admin_read(NATIVE)
+        client.close.assert_called_once()
+        client.post_admin.assert_called_once()
+        return value
 
-    def test_loopback403_never_revives_good_cache_for_any_body(self):
+    def test_direct_failure_preserves_projected_reason_for_provider(self):
+        payload=native();payload['data']['data']['game_rank']=[]
+        out=self.direct_reply(200,payload)
+        self.assertEqual(out['reason'],'native_shape')
+        provider=CapabilityProvider(dict(CONFIG),ImmediatePool(),lambda _:out,None,TASK_A,date_clock=lambda:NOW)
+        provider.get(NATIVE);self.assertEqual(provider.get(NATIVE)['reason'],'native_shape')
+
+    def test_direct403_never_revives_good_cache_for_any_body(self):
         good=collect_admin(lambda *_:(200,json.dumps(native())),NATIVE,CONFIG,NOW)
         for body in (b'{"status":"denied"}',b'{',b'x'*1000001,json.dumps(good).encode()):
             clock=[0];calls=[0]
             def read(args):
                 calls[0]+=1
                 if calls[0]==1:return good
-                error=HTTPError('http://127.0.0.1:8767/business/fc-capability',403,'fixed-local',{},io.BytesIO(body))
-                with patch('admin_order_capabilities_20261014.fs_reader.build_opener') as opener:
-                    opener.return_value.open.side_effect=error
-                    return admin_read(args)
+                return self.direct_reply(403,body.decode(errors='replace'))
             provider=CapabilityProvider(dict(CONFIG),ImmediatePool(),read,None,TASK_A,lambda:clock[0],lambda:NOW)
             provider.get(NATIVE);self.assertEqual(provider.get(NATIVE)['status'],'available')
             clock[0]=7201;provider.get(NATIVE);out=provider.get(NATIVE)
             self.assertEqual(out['status'],'denied');self.assertNotIn('source_amount_usd',out)
             self.assertNotIn('stale',out)
 
-    def test_loopback503_cannot_become_a_fresh_success(self):
+    def test_direct503_cannot_become_a_fresh_success(self):
         good=collect_admin(lambda *_:(200,json.dumps(native())),NATIVE,CONFIG,NOW)
         for body in (json.dumps(good).encode(),b'{"status":"partial"}',b'{',b'x'*1000001):
             clock=[0];calls=[0]
             def read(args):
                 calls[0]+=1
                 if calls[0]==1:return good
-                error=HTTPError('http://127.0.0.1:8767/business/fc-capability',503,'fixed-local',{},io.BytesIO(body))
-                with patch('admin_order_capabilities_20261014.fs_reader.build_opener') as opener:
-                    opener.return_value.open.side_effect=error
-                    return admin_read(args)
+                return self.direct_reply(503,body.decode(errors='replace'))
             provider=CapabilityProvider(dict(CONFIG),ImmediatePool(),read,None,TASK_A,lambda:clock[0],lambda:NOW)
             provider.get(NATIVE);self.assertEqual(provider.get(NATIVE)['status'],'available')
             clock[0]=7201;provider.get(NATIVE);out=provider.get(NATIVE)

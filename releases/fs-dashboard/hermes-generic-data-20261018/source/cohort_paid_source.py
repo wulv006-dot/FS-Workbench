@@ -5,7 +5,6 @@ import json
 import re
 import time
 from urllib.parse import urlencode
-from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 GAME_IDS={'FC27':1327,'D4':456,'AION2':891,'POE2':552,'NBA2K27':1329,
     'NFL27':1309,'MLB26':927,'CFB27':1307,'RS':506,'ARC_RAIDERS':925,
@@ -81,15 +80,17 @@ def collect(request,args):
 
 
 def read_service(args):
-    class NoRedirect(HTTPRedirectHandler):
-        def redirect_request(self,*a,**kw):return None
+    import sys
+    sys.path.insert(0,'/opt/sales-dashboard/collector')
+    import p2pah_auth as auth
     q=checked_query(args)
-    with build_opener(NoRedirect).open(Request('http://127.0.0.1:8767/business/fc-capability',
-        data=json.dumps(dict(q,kind='cohort_paid_orders')).encode(),
-        headers={'Content-Type':'application/json'},method='POST'),timeout=900) as response:
-        raw=response.read(16*1024*1024+1)
-    if len(raw)>16*1024*1024:raise ValueError('cohort_paid_response_size')
-    value=json.loads(raw)
+    client=auth.Session()
+    def request(path,timeout):
+        response=client.admin.get(auth.ADMIN_API+path,timeout=timeout)
+        return response.status_code,response.content
+    try:value=collect(request,q)
+    finally:client.close()
+    if len(json.dumps(value).encode())>16*1024*1024:raise ValueError('cohort_paid_response_size')
     if value.get('kind')!='cohort_paid_orders' or value.get('query')!=q:
         raise ValueError('cohort_paid_response_contract')
     return value

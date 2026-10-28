@@ -1,4 +1,13 @@
 """Authenticated, bounded native range reads using existing server sessions only."""
+# 2026-10-28: 预加载 lxml，避免常驻服务多线程首次 import 时 etree 初始化竞争
+try:
+    import lxml.etree  # noqa: F401
+    import lxml.html   # noqa: F401
+    _lxml_preloaded = True
+except Exception:
+    _lxml_preloaded = False
+
+
 from pathlib import Path
 from datetime import datetime,timedelta,date,timezone
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
@@ -71,21 +80,19 @@ def query(params,d):
   stop=until
  result={'profile':key,'start':start,'end':end,'grain':grain,'baseSnapshotId':d['snapshotId'],
          'period':{'start':begin.strftime('%Y-%m-%d %H:%M'),'end':stop.strftime('%Y-%m-%d %H:%M')}}
+ if 'analysis' not in p and PROFILE_MAP[key][4]=='rpg':result['adminCohort']='paid-all-status-v2'
  if 'analysis' in p:result['analysis']=p['analysis']
  if 'until' in p:result['until']=p['until']
  return result
 
 
 def capture(q,jobid):
- lock=None
  try:
-  # The shared source lock remains; no periodic collector is required.
-  lock=(WEB/'collector.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   _,name,gid,game,group=PROFILE_MAP[q['profile']];period=q['period']
   if q.get('analysis')=='fc27-products':
    base=snapshot()
    if base['snapshotId']!=q['baseSnapshotId']:raise RuntimeError('base_snapshot_changed')
-   records=existing_call('fc27-p2pah-session','fc_product_reader.py',[{'key':'range',**period}],75)
+   records=existing_call(None,'fc_product_reader.py',[{'key':'range',**period}],75)
    extension=records.get('range') or {}
    if extension.get('contractId')!=PRODUCT_CONTRACT or extension.get('status') not in ('available','empty') or extension.get('period')!=period or not extension.get('coverage',{}).get('complete'):raise RuntimeError('native_product_read_failed')
    if snapshot()['snapshotId']!=q['baseSnapshotId']:raise RuntimeError('base_snapshot_changed')
@@ -99,7 +106,9 @@ def capture(q,jobid):
    if base['snapshotId']!=q['baseSnapshotId']:raise RuntimeError('base_snapshot_changed')
    requests=[{'key':'all','gid':1322,'tid':'','batchBudgetSeconds':170,**period}]
    requests.extend({'key':key,'gid':1322,'tid':tid,**period} for key,tid,_ in TYPES)
-   records=existing_call('fc27-cloud-browser','fc_category_reader.py',requests,200)
+   with (WEB/'collector.lock').open('a+b') as lock:
+    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    records=existing_call('fc27-cloud-browser','fc_category_reader.py',requests,200)
    if not all(records.get(k,{}).get('status')=='available' for k in ['all']+[v[0] for v in TYPES]):raise RuntimeError('native_category_read_failed')
    if any(v.get('period')!=period for v in records.values()):raise RuntimeError('source_period_mismatch')
    extension=analysis(records['all'],records,{key:key for key,_,_ in TYPES},period,{})
@@ -110,10 +119,14 @@ def capture(q,jobid):
    publish_cache(jobid,data)
    return
   order={'key':'range','gid':gid,'status':'3' if group=='rpg' else '',**period}
-  admin={'key':'range','game':game,'status':'101' if group=='rpg' else '',**period}
+  admin={'key':'range','game':game,'status':'',**period}
+  def primary_read():
+   with (WEB/'collector.lock').open('a+b') as lock:
+    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    return call('fc27-cloud-browser','primary_reader.py',[order],210)
   with ThreadPoolExecutor(max_workers=2) as pool:
-   pf=pool.submit(call,'fc27-cloud-browser','primary_reader.py',[order],210)
-   af=pool.submit(call,'fc27-p2pah-session','supplement_reader.py',[admin],90)
+   pf=pool.submit(primary_read)
+   af=pool.submit(call,None,'supplement_reader.py',[admin],90)
    primary=pf.result()['range'];supplement=af.result()['range']
   if primary['period']!=period or supplement['period']!=period:raise RuntimeError('source_period_mismatch')
   profile=profile_record(q['profile'],name,primary,supplement);profile['dimensions']=dimensions(primary)
@@ -128,19 +141,17 @@ def capture(q,jobid):
   safe={'scheduled_collection_due','timer_schedule_unavailable','source_period_mismatch','base_snapshot_changed','native_category_read_failed','native_product_read_failed'}
   code=str(exc) if str(exc) in safe else 'collector_busy' if isinstance(exc,BlockingIOError) else 'native_range_read_failed'
   with LOCK:JOBS[jobid]={'status':'unavailable','error':code,'retryAfter':30,'failedAt':time.monotonic()}
- finally:
-  if lock:lock.close()
 
 def publish_cache(jobid,data):
  from daily_archive import save,native_key,complete_native
  if complete_native(data):
   save('native',native_key(data['query'],PROFILE_MAP[data['query']['profile']]),data)
  body=encoded(data);data['resultSha256']=hashlib.sha256(body).hexdigest()
- target=CACHE/(jobid+'.json');tmp=target.with_suffix('.tmp');tmp.write_bytes(encoded(data));os.chmod(tmp,0o600);os.replace(tmp,target)
- files=sorted(CACHE.glob('*.json'),key=lambda p:p.stat().st_mtime)
- for old in files[:-2048]:
-  if re.fullmatch(r'[a-f0-9]{64}\.json',old.name) and not old.is_symlink():old.unlink()
  with LOCK:
+  target=CACHE/(jobid+'.json');tmp=target.with_suffix('.tmp');tmp.write_bytes(encoded(data));os.chmod(tmp,0o600);os.replace(tmp,target)
+  files=sorted(CACHE.glob('*.json'),key=lambda p:p.stat().st_mtime)
+  for old in files[:-2048]:
+   if re.fullmatch(r'[a-f0-9]{64}\.json',old.name) and not old.is_symlink():old.unlink()
   JOBS[jobid]={'status':'available'}
   if len(JOBS)>256:
    for key in list(JOBS):
@@ -227,7 +238,9 @@ def get_range_live(params,force=False):
   active=sum(1 for v in JOBS.values() if v['status']=='pending')
   now=time.monotonic();STARTS[:]=[v for v in STARTS if now-v<60]
   if active>=4 or len(STARTS)>=6:return 429,{'status':'busy','retryAfter':10}
-  STARTS.append(now);JOBS[jobid]={'status':'pending'};POOL.submit(capture,q,jobid)
+  STARTS.append(now);JOBS[jobid]={'status':'pending'}
+  pool=SUMMARY.pools['Admin'] if q.get('analysis')=='fc27-products' else POOL
+  pool.submit(capture,q,jobid)
   return 202,{'schemaVersion':1,'status':'pending','rangeId':jobid,'baseSnapshotId':d['snapshotId'],'retryAfter':2}
 
 from ai_advisor import Advisor
@@ -290,7 +303,11 @@ class Handler(BaseHTTPRequestHandler):
     service=ACTUAL_PROFITS if params.get('mode')==['actual-profit'] else CHANNELS
     status,data=service.get(params,self.headers.get('X-Auth-User'));self.reply(status,data)
    except (ValueError,LookupError):self.reply(422,{'error':'invalid_channel_request'})
-   except Exception:self.reply(503,{'error':'channels_unavailable'})
+   except Exception as exc:
+    try:
+     import sys as _s2;_s2.stderr.write('[channels] %s: %s\n'%(type(exc).__name__,str(exc)[:200]))
+    except Exception:pass
+    self.reply(503,{'error':'channels_unavailable'})
    return
   if uri.path=='/advisor' and parse_qs(uri.query).get('structure')==['customer_tracking']:
    if CUSTOMER_TRACKING is None:self.reply(503,{'error':'tracking_not_enabled'});return

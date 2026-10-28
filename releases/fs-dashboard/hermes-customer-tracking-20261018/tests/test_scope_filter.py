@@ -31,6 +31,21 @@ def source(rows,page_size=None):
 
 
 class ScopeFilterTests(unittest.TestCase):
+    def test_small_pages_keep_complete_coverage_beyond_old_300_page_count(self):
+        from tracking_source import DAY_PAGE_SIZE,DAY_MAX_PAGES,MAX_PAGES
+        self.assertEqual(DAY_PAGE_SIZE*DAY_MAX_PAGES,MAX_PAGES*100)
+        total=6001;calls=[]
+        def request(path,timeout):
+            query=parse_qs(urlsplit(path).query);page=int(query['page'][0]);size=int(query['limit'][0])
+            self.assertEqual(size,20);self.assertLessEqual(timeout,10);calls.append(page)
+            batch=[order(total-index) for index in range((page-1)*size,min(page*size,total))]
+            return 200,json.dumps({'code':1,'data':{'total':total,'list':batch}}).encode()
+        result=admin_paid_day(request,'2026-09-30','FC27',{'ORDER-1'})
+        self.assertEqual(result['status'],'available');self.assertEqual(len(calls),301)
+        self.assertEqual(result['coverage']['received'],total)
+        self.assertEqual(result['coverage']['unique_source_ids'],total)
+        self.assertEqual(set(result['orders']),{'ORDER-1'})
+
     def test_full_upstream_pages_keep_only_exact_paid_fc_main_site(self):
         rows=[order(4,gid=891),order(3,site_id=222),
               order(2,pay_status=2),order(1)]

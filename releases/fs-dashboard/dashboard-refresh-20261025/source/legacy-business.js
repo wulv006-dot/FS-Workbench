@@ -3,7 +3,7 @@ function fsPeriodPolicy(){
  const shift=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
  const selection=(mode,custom,min,max,anchor=day())=>custom?{...custom,grain:'day'}:mode==='today'?{start:anchor,end:anchor,grain:'day'}:mode==='yesterday'?{start:shift(anchor,-1),end:shift(anchor,-1),grain:'day'}:+mode>0?{start:shift(anchor,-Number(mode)),end:shift(anchor,-1),grain:'day'}:{start:min,end:max<anchor?max:shift(anchor,-1),grain:'day'};
  const active=(s,now=Date.now())=>!!s?.end&&s.end.slice(0,10)>=day(now);
- return {day,shift,selection,active,ttl:(s,now=Date.now())=>active(s,now)?900:7200};
+ return {day,shift,selection,active,ttl:(s,now=Date.now())=>active(s,now)?600:7200};
 }
 export function mount(scope){
 const {window,document,fetch,URL,setTimeout,setInterval,clearTimeout,clearInterval,requestAnimationFrame,cancelAnimationFrame,MutationObserver,ResizeObserver,addEventListener,matchMedia}=scope;
@@ -41,7 +41,7 @@ function fsActualMetrics(profile,all=false){
 function fsProcurementNote(state){
  if(!state?.data)return state?.phase==='denied'?'逐单成本来源无权访问；毛利暂不可用，未填零。':state?.phase==='failed'?'逐单采购毛利读取失败；可用更新视图重试，未填零。':'正在复用原日归档核对逐单收入和实际成本…';
  const m=state.data;
- return '已完成覆盖 '+m.coveredOrders+'/'+m.completedOrders+' 单；'+(m.missingCostOrders?'收入或成本待补 '+m.missingCostOrders+' 单；':'')+'未完成 '+m.pendingOrders+' 单暂不核利润。'+(m.coveredOrders?'覆盖单收入 ¥'+m.saleCny+'；实际成本 ¥'+m.costCny+'。':m.orders?'暂无可核完成单。':'本期无经营订单。')+'Admin订单读取 '+m.capturedAt+'；成本读取 '+(m.costCapturedAt||'见原逐单回执')+(state.phase==='failed'?'；本次补核等待未完成，保留已核值，可更新视图重试':m.refreshing?'；原来源正在补核':m.costError?'；成本补核失败，保留已核值':m.stale?'；保留来源读取时点':'')+'。';
+ return '实际成本口径：已付且未退款。已完成覆盖 '+m.coveredOrders+'/'+m.completedOrders+' 单；'+(m.missingCostOrders?'收入或成本待补 '+m.missingCostOrders+' 单；':'')+'未完成 '+m.pendingOrders+' 单暂不核利润。'+(m.coveredOrders?'覆盖单收入 ¥'+m.saleCny+'；实际成本 ¥'+m.costCny+'。':m.orders?'暂无可核完成单。':'本期无经营订单。')+'Admin订单读取 '+m.capturedAt+'；成本读取 '+(m.costCapturedAt||'见原逐单回执')+(state.phase==='failed'?'；本次补核等待未完成，保留已核值，可更新视图重试':m.refreshing?'；原来源正在补核':m.costError?'；成本补核失败，保留已核值':m.stale?'；保留来源读取时点':'')+'。';
 }
 let procurementTimer;
 function fsClearProcurement(force=false){clearTimeout(procurementTimer);procurementRead?.abort.abort();procurementRead=null;procurementForce=force;}
@@ -220,8 +220,8 @@ function fsMainSite(profile,all=false){
  }
  }else if(mainMetrics.orders.value!==null&&(!Number.isSafeInteger(mainMetrics.orders.value)||mainMetrics.orders.value<0)){mainMetrics.orders=missing('Admin','全部网站');}
  for(const key of ['profitMarginPct','averageOrderUsd','averageCustomerUsd','minOrderAmountUsd','maxOrderAmountUsd','fulfillmentRatePct']){
-  if(mainMetrics[key]?.value!=null)continue;
-  mainMetrics[key]=same&&order?.status==='available'&&order.currency==='USD'?take(order.metrics?.[key],'Order',all?'后台全部网站参考；与 Admin 网站集合可能不同':'后台全站参考；与 Admin 主站口径不同'):missing('Order','后台全站参考');
+  if(mainMetrics[key]?.value!=null||['orders','revenueUsd','newCustomers','payingCustomers','repeatRatePct','newCustomerSharePct','averageCustomerUsd'].includes(key))continue;
+  mainMetrics[key]=same&&order?.status==='available'&&order.currency==='USD'?take(order.metrics?.[key],'Order',(String(order.filters?.status)==='3'?'已完成订单 · ':'')+(all?'后台全部网站参考；与 Admin 网站集合可能不同':'后台全站参考；与 Admin 主站口径不同')):missing('Order','后台全站参考');
  }
  if(profile?.key==='FC27'&&fcDetailState.data?.coverage.paid_complete&&fcDetailState.data.query.start===currentSelection().start&&fcDetailState.data.query.end===currentSelection().end){
   const t=fcDetailState.data.totals;for(const [key,value]of [['orders',t.orders],['revenueUsd',t.unpriced_orders?null:t.revenue_usd]])mainMetrics[key]={value,status:value===null?'not_provided':'available',source:'Admin订单明细',scope:fcDetailState.data.scope_label+' · 当前筛选',stale:fcDetailState.data.stale};
@@ -229,7 +229,7 @@ function fsMainSite(profile,all=false){
  Object.assign(mainMetrics,fsActualMetrics(profile,all));
  mainMetrics.estimatedProfitUsd={value:null,status:'not_provided',source:'Order发货统计',scope:'利润使用人民币原值'};
  return {metrics:mainMetrics,period:admin?.period,adminCapturedAt:admin?.capturedAt,orderCapturedAt:order?.capturedAt,onlyMain,
-  site:all?'全部网站':'MMOEXP',policy:'admin-main-order-labelled-supplement-v1'};
+  site:all?'全部网站':'MMOEXP',policy:'admin-paid-order-labelled-supplement-v2'};
 }
 
 function fsOrderLabel(source){return ({available:'读取完成',queued:'排队中',reading:'读取中',deferred:'采集繁忙，稍后重试',failed:'读取失败',pending:'读取中',unavailable:'读取失败'}[source?.phase||source?.status]||'尚未读取')+(source?.stale&&source?.capturedAt?' · 已过期':'');}
@@ -325,7 +325,7 @@ function peek(d,key,s){const v=!deniedStatus&&s?cache.get(keyOf(d,key,s)):null;c
 function selected(d,key,s,result){const v=FSBusinessRange.select(d,s),profiles={...v.profiles};
  for(const pkey of Object.keys(profiles)){const exact=pkey===key?result:peek(d,pkey,s);if(exact)profiles[pkey]={...exact.profile,rangeSelected:true,rangeExact:true,rangeCovered:true,exactRangeGeneration:exact.rangeId};}
  if(result)profiles[key]={...result.profile,rangeSelected:true,rangeExact:true,rangeCovered:true};return {...v,profiles,exactRange:result};}
-function renderExact(host,d,key,s,result){scope.summary=result;scheduleSummaryRefresh(result);renderBase(host,selected(d,key,s,result),key);const label=host.querySelector('.fsi-heading p');if(label)label.textContent=(result.profile.name||key)+' · '+s.start+' 至 '+s.end+' · 北京时间（所选结束日包含在内）';const hint=[...host.querySelectorAll('.fsi-note')].find(e=>e.textContent.startsWith('所选区间：订单和金额'));if(hint)hint.textContent='订单与美元销售取Admin付款统计；主展示为同批已核完成订单人民币收入减实际采购成本及加权毛利率。缺成本、未完成单单列，非净利润。';}
+function renderExact(host,d,key,s,result){scope.summary=result;scheduleSummaryRefresh(result);renderBase(host,selected(d,key,s,result),key);const label=host.querySelector('.fsi-heading p');if(label)label.textContent=(result.profile.name||key)+' · '+s.start+' 至 '+s.end+' · 北京时间（所选结束日包含在内）';const hint=[...host.querySelectorAll('.fsi-note')].find(e=>e.textContent.startsWith('所选区间：订单和金额'));if(hint)hint.textContent='订单与美元销售取Admin已付款全部订单（含未完成）；主展示为同批已核完成订单人民币收入减实际采购成本及加权毛利率。缺成本、未完成单单列，非净利润。';}
 function note(host,state,result){const p=document.createElement('p');p.className=state==='loading'?'fsi-note':'fsi-empty';p.dataset.exactRangeStatus=state;
  p.textContent=state==='loading'?(result?.message||'正在读取后台准确区间聚合…'):state==='available'?'准确区间聚合 · Admin 主站 / Order 补充参考 · 支付时间截至 '+result.profile.period.end+'（结束边界不含） · 数据生成 '+new Date(result.generatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+' 北京时间 · 目录版本 '+result.baseSnapshotId:
  '准确区间读取失败，可重试；不会按日估算人数或利润率。'+(result?.message||'可切换区间或检查新版本后重试。');if(state==='available'&&result.sources){p.textContent=(result.stale&&result.cachePolicy!=='historical'?'⚠ 已过期故障兜底 · ':'')+'Admin主站/Order补充 · 查询截至 '+result.profile.period.end+' 北京时间 · Admin读取 '+result.sources.Admin.capturedAt+' · 上游统计水位 '+(result.sources.Admin.sourceDataAsOf||'未提供')+' · Order '+fsOrderLabel({...result.sources.Order,stale:result.cachePolicy!=='historical'&&result.sources.Order.stale})+' · 共享缓存 '+(result.refreshSeconds||fsPeriodPolicy().ttl(result.query))+'秒';}if(state==='available'&&result.profile.primary.seriesGranularity==='upstream-undated')p.textContent+=' · 按日图表仍采用已发布日数据，区间指标采用后台准确汇总。';host.prepend(p);}
@@ -388,7 +388,7 @@ async function load(d,key,s,signal,onWait,onResult,followOrder=true){
  const query=new URLSearchParams({profile:key,start:s.start,end:s.end,grain:s.grain||'day',mode:'summary',profit_basis:'actual',...(key==='RS'?rsChecked(s):shippingFields(key,s))}),started=Date.now();
  do {
   const data=await requestRange(query,signal,Math.max(1,100000-(Date.now()-started)),onWait);if(signal.aborted)throw new DOMException('Aborted','AbortError');
-  if(!['available','stale'].includes(data.status)||data.scopeContractId!=='admin-main-order-labelled-supplement-v1'||data.profile?.key!==key||!same(data.query,s)||key==='RS'&&!Object.keys(rsOptions).every(k=>data.query?.[k]===s[k])||key!=='RS'&&!shippingSame(key,data.query,s))throw Error('汇总数据合同错误');
+  if(!['available','stale'].includes(data.status)||data.scopeContractId!=='admin-paid-order-labelled-supplement-v2'||data.profile?.key!==key||!same(data.query,s)||key==='RS'&&!Object.keys(rsOptions).every(k=>data.query?.[k]===s[k])||key!=='RS'&&!shippingSame(key,data.query,s))throw Error('汇总数据合同错误');
   const pending=data.sources?.Admin?.status==='pending'||followOrder&&data.sources?.Order?.status==='pending';
   // A deferred Order read is temporary contention, not a completed source omission.
   // Follow it only inside this explicit read's existing 100-second budget. Closed
@@ -536,7 +536,7 @@ function baseSelection(){
  return {start:shiftHour(end,-((HRANGE||24)-1)),end,grain:'hour'};
 }
 function queriedRows(hour){
- const r=scope.summary,q=currentSelection(),p=KEY==='RS'||businessSite==='mmoexp'?r?.profile?.supplement:r?.profile?.primary;
+ const r=scope.summary,q=currentSelection(),p=r?.profile?.supplement;
  if(exactPermissionDenied()||KEY==='RS'&&!rsSame(r?.query,q)||r?.profile?.key!==KEY||!['start','end','grain'].every(k=>r.query?.[k]===q[k])||p?.status!=='available'||p.seriesGranularity!=='day-or-hour'||p.labelsVerified!==true)return [];
  const rows=new Map();
  for(const row of p.rows||[]){
@@ -1941,18 +1941,18 @@ let transactionInitialised=false;let dailyQuery=null;
 scope.signal.addEventListener('abort',()=>dailyQuery?.abort.abort(),{once:true});
 const transactionWatcher=new FSBusinessSnapshots('/dashboard/fs-home/transactions/',data=>{
  INSIGHTS_SNAPSHOT=data;Object.keys(PROFILES).forEach(k=>delete PROFILES[k]);Object.assign(PROFILES,data.dashboard.profiles);if(PROFILES.MMOEXP)PROFILES.MMOEXP={...PROFILES.MMOEXP,name:'MMOEXP主站'};
- GROUPS.splice(0,GROUPS.length,...data.dashboard.groups);Object.assign(DATA,{snapshotId:data.snapshotId,generatedAt:data.generatedAtShanghai});
+ GROUPS.splice(0,GROUPS.length,...data.dashboard.groups.map(g=>g.key==='rpg'?{...g,label:'RPG'}:g));Object.assign(DATA,{snapshotId:data.snapshotId,generatedAt:data.generatedAtShanghai});
  // Registered entries share date queries; the catalog contains no business values.
  for(const [key,name,group] of [["RS","RS","general"],["MAPLESTORY_CLASSIC","MapleStory Classic World","general"],["ARC_RAIDERS","ARC Raiders","general"],["DARK_AND_DARKER","Dark and Darker","rpg"],["WOW_FOREVER","WoW Forever","rpg"],["ARENA_BREAKOUT_INFINITE","暗区突围无限","general"],["COD_BO7","CoD BO7","general"]]) {
   if(!PROFILES[key])PROFILES[key]={name,series:[],hourly:[]};
-  let g=GROUPS.find(g=>g.key===group);if(!g){g={key:group,label:group==='general'?'综合游戏 · 全部状态':'RPG · 已完成',profiles:[]};GROUPS.push(g);}
+  let g=GROUPS.find(g=>g.key===group);if(!g){g={key:group,label:group==='general'?'综合游戏 · 全部状态':'RPG',profiles:[]};GROUPS.push(g);}
   if(!g.profiles.includes(key))g.profiles.push(key);
  }
  if(!transactionInitialised){GROUP=GROUPS[0].key;KEY=GROUPS[0].profiles[0];transactionInitialised=true;init();}else if(fsPeriodPolicy().active(currentSelection())){renderTabs();renderAll();}
 },state=>{
  const meta=document.getElementById('meta');
  const note=document.getElementById('transaction-status')||document.createElement('div');note.id='transaction-status';note.textContent=(state.status==='fresh'?'':'⚠ 数据过期/不可用 · ')+
-  '按需查询 · 今日缓存15分钟，历史区间缓存2小时；历史页面进入或重查时检查 · 读取时间见各来源 · 目录 '+(state.catalogId||'—');
+  '按需查询 · 今日缓存10分钟，历史区间缓存2小时；历史页面进入或重查时检查 · 读取时间见各来源 · 目录 '+(state.catalogId||'—');
  meta.append(note);scope.snapshotState=state;scope.checkedAt=new Date().toISOString();workspaceSync();
 });transactionWatcher.start();let summaryRefreshTimer;function refreshTodayAnchor(){if(RANGE==='today'&&!CUSTOM&&selectionAnchor!==todayStr()){selectionAnchor=todayStr();return true;}return false;}function scheduleSummaryRefresh(data){clearTimeout(summaryRefreshTimer);if(scope.summaryPolling)return;const pending=Object.values(data.sources||{}).some(x=>x.status==='pending');const seconds=pending?30:Math.max(1,((data.clientExpiresAt||Date.now()+900000)-Date.now())/1000+1);summaryRefreshTimer=setTimeout(()=>{if(document.hidden||scope.signal.aborted)return;refreshTodayAnchor();window.FSExactRange.force();workspaceClearRanges();renderAll();},seconds*1000);}scope.signal.addEventListener('abort',()=>clearTimeout(summaryRefreshTimer),{once:true});
 window.addEventListener('fs-exact-permission-denied',renderExactPermissionFailure);
@@ -1966,16 +1966,15 @@ window.addEventListener('pageshow', e=>{ if(e.persisted){ location.reload(); } }
   if(key!=='AION2')return {state:'hidden',text:''};
   if(phase==='loading')return {state:'loading',text:'Aion2 所选区间正在读取，请稍候。'};
   if(phase==='error')return {state:'error',text:'Aion2 所选区间读取失败，请使用现有重试按钮重试。'};
-  const p=record?.primary,f=p?.filters;
+  const p=record?.supplement,f=p?.filters;
   if(!record||!p||p.status!=='available')return {state:'unavailable',text:'Aion2 所选区间数据尚不可用。'};
-  if(p.system!=='order.p2pah.cn'||String(f?.gid)!=='826'||String(f?.status)!=='3'||
-     (record.supplement?.status==='available'&&String(record.supplement.filters?.game)!=='891'))
+  if(p.system!=='admin.p2pah.cn'||String(f?.game)!=='891'||String(f?.pay_status)!=='1'||f?.order_status!=='')
    return {state:'unverified',text:'Aion2 数据来源核验未通过，请稍后重试。'};
   const s=p.period,selectedStart=selection?.start?.slice(0,10),selectedEnd=selection?.end?.slice(0,10);
   if(!s||s.start.slice(0,10)!==selectedStart||s.end.slice(0,10)<selectedEnd)return {state:'loading',text:'Aion2 所选区间正在读取，请稍候。'};
-  if(!Number.isFinite(p.orders)||!Number.isFinite(p.revenueUsd))return {state:'unavailable',text:'Aion2 所选区间数据尚不可用。'};
-  const scope='所有网站 · 已完成 · Order 游戏 826 / Admin 游戏 891';
-  if(p.orders===0&&p.revenueUsd===0)return {state:'empty',text:'所选区间暂无 Aion2 已完成交易。'+scope+'；缺失指标显示“未提供”。'};
+  if(!Number.isFinite(p.metrics?.orders?.value)||!Number.isFinite(p.metrics?.revenueUsd?.value))return {state:'unavailable',text:'Aion2 所选区间数据尚不可用。'};
+  const scope=(String(f.site)==='266'?'MMOEXP 主站':'全部网站')+' · 已付款全部订单 · Admin 游戏 891';
+  if(p.metrics.orders.value===0&&p.metrics.revenueUsd.value===0)return {state:'empty',text:'所选区间暂无 Aion2 已付款交易。'+scope+'；缺失指标显示“未提供”。'};
   return {state:'available',text:scope+' · 支付时间 '+s.start+' 至 '+s.end+'（结束边界不含）'};
  }
  root.FSAion2Status={classify};

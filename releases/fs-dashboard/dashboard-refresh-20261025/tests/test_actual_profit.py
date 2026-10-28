@@ -1,5 +1,5 @@
 """Fictional orders: one paid cohort, whole-order income, exact site and daily sums."""
-import copy,json,os,sys,tempfile,threading,time,unittest
+import copy,hashlib,json,os,sys,tempfile,threading,time,unittest
 from datetime import datetime,timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,7 +8,7 @@ from unittest.mock import Mock,patch
 SOURCE=Path(__file__).resolve().parents[1]/'source'
 sys.path.insert(0,str(SOURCE));sys.path.append(str(Path(__file__).parent/'fixtures'))
 if os.name=='nt':sys.modules['fcntl']=SimpleNamespace(LOCK_EX=2,LOCK_NB=4,flock=lambda *args:None)
-from actual_profit import ActualProfitService,selection,normalized,order_rows,main_scope
+from actual_profit import ActualProfitService,selection,normalized,order_rows,main_scope,_closed_complete
 from channel_effects import profit_view,view,Attribution,normalize,ChannelService
 from live_summary import SummaryCache,query,key_of
 from daily_archive import complete_summary,summary_key
@@ -23,10 +23,10 @@ def data(rows=None,costs=None):
     return dict(period={'start':'2026-10-20','end':'2026-10-21'},generatedAt=datetime.now(timezone.utc).isoformat(),orders=normalized(rows if rows is not None else [raw()],costs if costs is not None else [delivery()]),sources={'orders':{'status':'complete'},'cost':{'status':'complete'}},costOverrides={},testOrders={})
 class Pool:
     def __init__(self):self.jobs=[]
-    def submit(self,fn,*args):self.jobs.append((fn,args))
+    def submit(self,fn,*args,**kwargs):self.jobs.append((fn,args,kwargs))
     def drain(self):
         while self.jobs:
-            fn,args=self.jobs.pop(0);fn(*args)
+            fn,args,kwargs=self.jobs.pop(0);fn(*args,**kwargs)
 
 class ActualProfit(unittest.TestCase):
     def test_native_cost_reader_passes_distinct_order_game_and_exact_website(self):
@@ -64,6 +64,15 @@ class ActualProfit(unittest.TestCase):
         m=profit_view(data([],[]),{})['denominator'];self.assertEqual(m['profitCny'],0);self.assertIsNone(m['margin'])
         m=profit_view(data([raw(amount_rmb_format='0')]),{})['denominator'];self.assertEqual(m['profitCny'],-35);self.assertIsNone(m['margin'])
         m=profit_view(data(costs=[delivery(cost_total='100')]),{})['denominator'];self.assertEqual(m['profitCny'],-30)
+    def test_only_closed_complete_sources_can_freeze(self):
+        old={'data':data()};q={'end':'2026-10-21'}
+        self.assertTrue(_closed_complete(old,q))
+        for source in ('orders','cost'):
+            partial=copy.deepcopy(old);partial['data']['sources'][source]['status']='pending'
+            self.assertFalse(_closed_complete(partial,q))
+        self.assertTrue(_closed_complete({'data':data([],[])},q))
+        from channel_effects import TZ
+        self.assertFalse(_closed_complete(old,{'end':datetime.now(TZ).date().isoformat()}))
     def test_only_matching_site_and_order_cost_can_join(self):
         m=profit_view(data(costs=[delivery(source='www.mmoexp.com')]),{})['denominator'];self.assertEqual(m['coveredOrders'],0)
         with self.assertRaises(ValueError):normalized([raw()],[delivery(),delivery()])
@@ -124,7 +133,9 @@ class Service(unittest.TestCase):
         self.channels=ChannelService(Path(self.tmp.name),lambda user:user=='admin',source=lambda p:data());self.channels.pool.shutdown();self.pool=Pool();self.channels.pool=self.pool
         self.now=0
         def reader(q,p,root):return dict(data(),actualPeriod=q['period'])
-        self.service=ActualProfitService(self.channels,PROFILES,reader,lambda d,*args:d,clock=lambda:self.now)
+        def costs(d,*args):
+            d['sources']['cost']['status']='complete';return d
+        self.service=ActualProfitService(self.channels,PROFILES,reader,costs,clock=lambda:self.now)
     def test_async_same_scope_and_permission_no_public_order_leak(self):
         self.assertEqual(self.service.get(BASE,'guest')[0],403);self.assertEqual(len(self.pool.jobs),0)
         self.assertEqual(self.service.get(BASE,'admin')[0],202);self.service.get(BASE,'admin');self.assertEqual(len(self.pool.jobs),1);self.pool.drain()
@@ -132,6 +143,30 @@ class Service(unittest.TestCase):
         files=list((Path(self.tmp.name)/'actual-profit').glob('*.json'));self.assertEqual(len(files),1)
         if os.name!='nt':self.assertEqual(files[0].stat().st_mode&0o077,0)
         self.assertEqual(self.service.get({**BASE,'rs_site':['rsmalls']},'admin')[0],202)
+    def test_summary_contract_change_reuses_original_actual_profit_cache_target(self):
+        q=selection(BASE,PROFILES);legacy=dict(q,contractId='admin-main-order-labelled-supplement-v1')
+        key=hashlib.sha256(json.dumps({k:v for k,v in legacy.items() if k not in ('period','refresh')},sort_keys=True).encode()).hexdigest()
+        self.service.root.mkdir();target=self.service.root/(key+'.json')
+        self.channels.publish(dict(data=dict(data(),actualPeriod=q['period']),query=legacy,capturedAt=time.time()-3600),target)
+        with patch('live_summary.CONTRACT','summary-version-next'):
+            self.assertEqual(selection(BASE,PROFILES),q)
+            self.assertEqual(self.service.get(BASE,'admin')[1]['denominator']['profitCny'],35)
+            self.assertFalse(self.pool.jobs)
+            self.service.get({**BASE,'refresh':['1']},'admin')
+        self.assertEqual(self.pool.jobs[0][1][:2],(key,target));self.assertEqual(len(list(self.service.root.glob('*.json'))),1)
+        with self.assertRaises(ValueError):self.service.get({**BASE,'contractId':['caller-contract']},'admin')
+    def test_closed_zero_order_cache_reuses_complete_sources_but_retries_unavailable_cost(self):
+        q=selection(BASE,PROFILES)
+        key=hashlib.sha256(json.dumps({k:v for k,v in q.items() if k not in ('period','refresh')},sort_keys=True).encode()).hexdigest()
+        self.service.root.mkdir();target=self.service.root/(key+'.json')
+        empty=dict(data([],[]),actualPeriod=q['period'])
+        self.channels.publish(dict(data=empty,query=q,capturedAt=time.time()-3600),target)
+        value=self.service.get(BASE,'admin')[1]
+        self.assertEqual(value['denominator']['orders'],0);self.assertFalse(value['stale']);self.assertFalse(self.pool.jobs)
+        empty['sources']['cost']['status']='unavailable'
+        self.channels.publish(dict(data=empty,query=q,capturedAt=time.time()-3600),target)
+        value=self.service.get(BASE,'admin')[1]
+        self.assertTrue(value['refreshing']);self.assertTrue(value['stale']);self.assertEqual(len(self.pool.jobs),1)
     def test_denial_hides_previous_cache_and_can_recover_original_session(self):
         self.service.get(BASE,'admin');self.pool.drain();self.now=61
         self.service.cost_reader=Mock(side_effect=PermissionError('denied'));self.service.get({**BASE,'refresh':['1']},'admin');self.pool.drain();self.assertEqual(self.service.get(BASE,'admin')[0],403)
@@ -152,6 +187,79 @@ class Service(unittest.TestCase):
         self.service.get(BASE,'admin');self.pool.drain();self.now=61
         self.service.cost_reader=Mock(side_effect=OSError('failed'));self.service.get({**BASE,'refresh':['1']},'admin');self.pool.drain()
         code,v=self.service.get(BASE,'admin');self.assertEqual(code,200);self.assertTrue(v['costError']);self.assertEqual(v['denominator']['profitCny'],35)
+    def test_interrupted_new_cohort_does_not_inherit_complete_cost_source(self):
+        self.service.get(BASE,'admin');self.pool.drain();self.now=61
+        self.service.reader=lambda q,*args:dict(data([raw(),raw('B',id=4)],[]),actualPeriod=q['period'])
+        self.service.cost_reader=Mock(side_effect=OSError('cost interrupted'))
+        self.service.get({**BASE,'refresh':['1']},'admin');self.pool.drain()
+        target=next(self.service.root.glob('*.json'));stored=json.loads(target.read_text('utf-8'))
+        self.assertEqual(stored['data']['sources']['cost']['status'],'pending')
+        self.assertFalse(_closed_complete(stored,selection(BASE,PROFILES)))
+        self.assertEqual([r['costCny'] for r in stored['data']['orders']],[35,None])
+        self.service.jobs.clear();self.now=122
+        with patch('actual_profit.time.time',return_value=stored['capturedAt']+601):self.service.get(BASE,'admin')
+        self.assertEqual(len(self.pool.jobs),1)
+    def test_closed_channel_cost_gap_reuses_orders_and_retries_only_cost(self):
+        d=data();stamp=datetime.fromtimestamp(time.time()-3600,timezone.utc).isoformat()
+        d['generatedAt']=stamp;d['sources']['cost']={'status':'unavailable','generatedAt':stamp}
+        self.channels.source=None
+        request={k:[v] for k,v in d['period'].items()};request['mode']=['profit']
+        def enrich(value,force=False):value['sources']['cost']['status']='complete';return value
+        with patch('channel_cache.compose',return_value=d),patch('channel_cache.collect_period') as orders,patch('channel_cache.store_days'),patch('channel_source.enrich',side_effect=enrich) as costs,patch('channel_cache.apply_delivery_cache',side_effect=lambda value,*args:value),patch('channel_source.apply_customer_types',side_effect=lambda value:value),patch('channel_source.apply_cost_overrides',side_effect=lambda value:value):
+            code,value=self.channels.get(request,'admin')
+            self.assertEqual(code,200);self.assertTrue(value['refreshing']);self.assertTrue(self.pool.jobs[0][2]['cost_only'])
+            costs.side_effect=OSError('Order temporarily unavailable');self.pool.drain()
+            self.assertEqual(set(self.channels.jobs.values()),{'cost_failed'})
+            self.channels.starts.clear();self.channels.get(request,'admin')
+            self.assertTrue(self.pool.jobs[0][2]['cost_only']);costs.side_effect=enrich;self.pool.drain()
+            orders.assert_not_called();self.assertEqual(costs.call_count,2)
+            self.assertFalse(self.channels.get(request,'admin')[1]['refreshing']);self.assertFalse(self.pool.jobs)
+            self.channels.get({**request,'refresh':['1']},'admin')
+            # Explicit refresh keeps the original cooldown and then refreshes membership too.
+            self.channels.starts.clear();self.channels.get({**request,'refresh':['1']},'admin')
+            self.assertFalse(self.pool.jobs[0][2]['cost_only'])
+    def test_existing_complete_delivery_day_proof_keeps_closed_cache_fresh(self):
+        from channel_cache import compose,cache_day
+        d=data(costs=[]);stamp=datetime.fromtimestamp(time.time()-3600,timezone.utc).isoformat()
+        day='2026-10-20';d.update(period={'start':day,'end':day},generatedAt=stamp,mapping={},contract='channel-day-v1')
+        d['sources'].update(cost={'status':'unavailable','generatedAt':None},coupons={'status':'complete'},customer={'status':'complete'})
+        root=self.channels.root;target=root/'days'/f'{day}.json';target.parent.mkdir();target.write_text(json.dumps(d),encoding='utf-8')
+        receipt=root/'delivery-days'/f'{day}.json';receipt.parent.mkdir()
+        cost=dict(contract='channel-order-deliveries-v1',complete=True,period=d['period'],generatedAt=stamp,rows=[])
+        receipt.write_text(json.dumps(cost),encoding='utf-8');self.channels.source=None
+        with patch.dict(sys.modules,{'p2pah_auth':SimpleNamespace()}):cache_day(day,root)
+        persisted=json.loads(target.read_text('utf-8'));self.assertEqual(persisted['sources']['cost']['status'],'complete')
+        self.assertEqual(persisted['sources']['cost']['generatedAt'],stamp)
+        request={k:[v] for k,v in d['period'].items()};request['mode']=['profit']
+        with patch('channel_cache.apply_delivery_cache',side_effect=lambda value,*args:value),patch('channel_source.apply_customer_types',side_effect=lambda value:value),patch('channel_source.apply_cost_overrides',side_effect=lambda value:value):
+            value=self.channels.get(request,'admin')[1]
+            self.assertFalse(value['refreshing']);self.assertFalse(value['stale']);self.assertFalse(self.pool.jobs)
+            self.assertEqual(value['denominator']['missingCostOrders'],1);self.assertIsNone(value['denominator']['profitCny'])
+        cost['complete']=False;receipt.write_text(json.dumps(cost),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'invalid_delivery_day_cache'):compose(d['period'],root)
+        cost.update(complete=True,period={'start':'2026-10-19','end':'2026-10-19'});receipt.write_text(json.dumps(cost),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'invalid_delivery_day_cache'):compose(d['period'],root)
+    def test_composed_cost_source_cannot_inherit_last_day_completeness(self):
+        from channel_cache import compose
+        root=self.channels.root;folder=root/'days';folder.mkdir()
+        for day,status in (('2026-10-20','unavailable'),('2026-10-21','complete')):
+            d=data();d.update(period={'start':day,'end':day},mapping={},contract='channel-day-v1')
+            for row in d['orders']:row.update(day=day,orderNo=day)
+            d['sources'].update(coupons={'status':'complete'},cost={'status':status,'generatedAt':d['generatedAt']})
+            (folder/f'{day}.json').write_text(json.dumps(d),encoding='utf-8')
+        source=compose({'start':'2026-10-20','end':'2026-10-21'},root)['sources']['cost']
+        self.assertEqual(source['status'],'partial');self.assertEqual(source['coverage']['completeDays'],1)
+    def test_today_channel_cache_expires_at_600_seconds(self):
+        from channel_effects import TZ
+        today=datetime.now(TZ).date().isoformat();d=data();d['period']={'start':today,'end':today}
+        for row in d['orders']:row['day']=today
+        request={'start':[today],'end':[today],'mode':['profit']}
+        self.channels.get(request,'admin');target=self.pool.jobs.pop()[1][2]
+        self.channels.jobs.clear();self.channels.starts.clear()
+        d['generatedAt']=datetime.fromtimestamp(time.time()-599,timezone.utc).isoformat();self.channels.publish(d,target)
+        self.assertFalse(self.channels.get(request,'admin')[1]['refreshing']);self.assertFalse(self.pool.jobs)
+        d['generatedAt']=datetime.fromtimestamp(time.time()-601,timezone.utc).isoformat();self.channels.publish(d,target)
+        self.assertTrue(self.channels.get(request,'admin')[1]['refreshing']);self.assertEqual(len(self.pool.jobs),1)
     def test_default_reader_applies_site_scoped_test_and_zero_rules_before_cost_failure(self):
         from actual_profit import collect_orders
         rows=[raw('A',id=3,site_id=266,site={'full_title':'www.mmoexp.com'}),raw('B',id=2),raw('C',id=1,site_id=266,site={'full_title':'www.mmoexp.com'})]

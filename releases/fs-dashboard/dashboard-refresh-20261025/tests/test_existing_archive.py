@@ -89,6 +89,55 @@ class Store(unittest.TestCase):
         self.assertEqual(first,self.store.put('summary',self.query,dict(generatedAt='2026-10-21T01:00:00Z')))
         self.assertEqual(len(list(self.root.rglob('*.gz'))),1)
 
+    def test_rpg_paid_native_key_preserves_old_archive_and_non_rpg_identity(self):
+        rpg=('AION2','Aion 2',826,891,'rpg')
+        q=dict(self.query,profile='AION2',grain='day')
+        paid=archive.native_key(q,rpg);legacy={k:v for k,v in paid.items() if k!='adminCohort'}
+        self.assertEqual(paid['contract'],'native-closed-v2')
+        self.assertEqual(paid['adminCohort'],'paid-all-status-v2')
+        self.store.put('native',legacy,{'orders':181})
+        self.assertIsNone(self.store.get('native',paid))
+        self.store.put('native',paid,{'orders':186})
+        self.assertEqual(self.store.get('native',legacy)['orders'],181)
+        self.assertEqual(self.store.get('native',paid)['orders'],186)
+        sports=('FC27','FC27',1322,1327,'sports')
+        key=archive.native_key(dict(q,profile='FC27'),sports)
+        expected={k:q[k] for k in ('start','end','grain')};expected.update(profile='FC27',contract='native-closed-v2',profileDefinition=archive.hashlib.sha256(archive.encoded(sports)).hexdigest())
+        self.assertEqual(key,expected)
+
+    def test_completed_only_native_capture_cannot_seed_current_paid_archive(self):
+        q=dict(self.query,profile='AION2',period=dict(start='2026-10-20 00:00',end='2026-10-21 00:00'))
+        value=dict(status='available',query=q,scopeContractId='all-websites-order-primary-admin-supplement-v1',profile=dict(primary=dict(status='available'),supplement=dict(status='available',filters=dict(order_status='101'))))
+        self.assertFalse(archive.complete_native(value))
+        value['profile']['supplement']['filters']['order_status']=''
+        self.assertTrue(archive.complete_native(value))
+
+    def test_actual_seed_preserves_181_and_only_imports_proved_paid_186(self):
+        import ast,copy
+        script=Path(__file__).resolve().parents[4]/'releases/fs-dashboard/nightly-pipeline-20261023/source/archive_jobs.py'
+        function=next(n for n in ast.parse(script.read_text(encoding='utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='import_existing')
+        rpg=('AION2','Aion 2',826,891,'rpg')
+        q=dict(self.query,profile='AION2',grain='day',period=dict(start='2026-10-20 00:00',end='2026-10-21 00:00'))
+        old=dict(status='available',scopeContractId='all-websites-order-primary-admin-supplement-v1',query=q,orders=181,profile=dict(primary=dict(status='available',filters=dict(gid=826)),supplement=dict(status='available',filters=dict(order_status='101',pay_status=1))))
+        selector={k:v for k,v in q.items() if k!='period'}
+        legacy={k:v for k,v in archive.native_key(selector,rpg).items() if k!='adminCohort'}
+        original=self.store.put('native',legacy,old)
+        missing=copy.deepcopy(old);missing['profile']['supplement']['filters']={}
+        paid=copy.deepcopy(old);paid.update(orders=186);paid['query']['adminCohort']='paid-all-status-v2';paid['profile']['supplement']['filters']['order_status']=''
+        inputs=self.root/'seed-input';inputs.mkdir()
+        for name,value in [('old',old),('missing-proof',missing),('paid',paid)]:
+            (inputs/(name+'.json')).write_text(json.dumps(value),encoding='utf-8')
+        namespace=dict(Path=lambda path:inputs if str(path)=='/var/lib/fs-business-ranges' else self.root/'empty',json=json,profiles=lambda:{'AION2':rpg},complete_native=archive.complete_native,native_key=archive.native_key)
+        exec(compile(ast.Module(body=[function],type_ignores=[]),'actual-archive-seed','exec'),namespace)
+        result=namespace['import_existing'](self.store)
+        self.assertEqual(result['native'],1)
+        self.assertEqual(self.store.get('native',legacy)['archive']['version'],original)
+        self.assertEqual(self.store.get('native',legacy)['orders'],181)
+        key=archive.native_key(paid['query'],rpg)
+        self.assertEqual(self.store.get('native',key)['orders'],186)
+        paid['profile']['supplement']['filters']={}
+        self.assertFalse(archive.complete_native(paid))
+
 
 class Consumers(unittest.TestCase):
     def setUp(self):

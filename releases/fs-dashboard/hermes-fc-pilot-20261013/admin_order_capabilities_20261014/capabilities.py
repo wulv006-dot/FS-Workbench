@@ -71,7 +71,7 @@ def checked_query(args, config, now=None):
         stop = min(datetime.combine(hi, time(23, 59, 59), SHANGHAI), now.replace(microsecond=0))
         q['period'] = {'start':begin.strftime('%Y-%m-%d %H:%M:%S'), 'end':stop.strftime('%Y-%m-%d %H:%M:%S')}
         q['date_utc'] = [x.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z') for x in (begin, stop)]
-        q['ttl_seconds'] = 900 if hi == now.date() else 7200
+        q['ttl_seconds'] = 600 if hi == now.date() else 7200
     if kind == 'product_sales':
         for key, default, upper in (('page', 1, 1000), ('pages', 1, 3), ('page_size', 10, 100)):
             value = q.get(key, default)

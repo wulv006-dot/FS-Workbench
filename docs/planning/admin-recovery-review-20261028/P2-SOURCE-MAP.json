@@ -1,0 +1,187 @@
+{
+  "scope": "admin-recovery-paid-dashboard-20261028",
+  "status": "candidate_not_deployed",
+  "maintenancePackage": "releases/fs-dashboard/dashboard-refresh-20261025",
+  "frontendVersion": "admin-recovery-paid-20261028-d2a3b51d8144",
+  "files": [
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/admin_summary.py",
+      "candidate": "source/admin_summary.py",
+      "activeTarget": "/opt/fs-exact-range-20261001/admin_summary.py",
+      "beforeSha256": "8e333b97cb55387acf35b467788a5fab02baaf43b095b00a1d37b24ad121d64d",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "f13c93ff0fdb4177ec2a494224ccff985a8f3c1b433b5e6b63d7fcf72837b8de",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/opt/fs-exact-range-20261001/admin_summary.py",
+      "newTarget": false
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/business.js",
+      "candidate": "source/business.js",
+      "activeTarget": "/var/lib/fs-navigation-formal-static/business-filter-layout-20261025-cad1dca27f17/business.js",
+      "beforeSha256": "a5233aa1bc7a67915a5b85a0a522582d658764bf6ece1f6e9a13529c951d7ee0",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "bb52764df9656db7986e3534b7c65ec73ac21486c439fdc55f5ddccec87264dd",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/var/lib/fs-navigation-formal-static/admin-recovery-paid-20261028-d2a3b51d8144/business.js",
+      "newTarget": true,
+      "activeRoute": "/dashboard/workspace-assets/workspace-native-20261006-8b7908ecad30/business.js"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/catalog.py",
+      "candidate": "source/catalog.py",
+      "activeTarget": "/opt/fs-exact-range-20261001/catalog.py",
+      "beforeSha256": "8ad7720c7aee4fb2238651a4a652fbbd94072eba6e69ebb5ae7c382df74dc618",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "21d0e5f4a122f71c4a9b7342381be8cc578c4b3fbb59ccaf103aeac277ae790f",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/opt/fs-exact-range-20261001/catalog.py",
+      "newTarget": false
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/collector.py",
+      "candidate": "source/collector.py",
+      "activeTarget": "/opt/fs-transaction-snapshot/collector.py",
+      "beforeSha256": "891990d1dd6a21d15eea6bfae619192205e5f689651c6b37a1bca3eca57d9e8e",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "2652833d26e8532ff3167f2f4a37830e3877fa19f739e0ee094b7a334da05523",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/opt/fs-transaction-snapshot/collector.py",
+      "newTarget": false
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/daily_archive.py",
+      "candidate": "source/daily_archive.py",
+      "activeTarget": "/opt/fs-exact-range-20261001/daily_archive.py",
+      "beforeSha256": "0652062c39e3bede009d24c31811ab5e1a937f1a572d7193b9d0b12ede87452e",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "0bb00e3b5ffea4073d80f4691c999a90d8cda5b12862847ce6c274b66259bd84",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/opt/fs-exact-range-20261001/daily_archive.py",
+      "newTarget": false
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/fc_product_reader.py",
+      "candidate": "source/fc_product_reader.py",
+      "activeTarget": "/opt/fs-transaction-snapshot/fc_product_reader.py",
+      "beforeSha256": "86356f8f940626925177aea582a441562e8e21c9a28ef353c16374bc283bfc57",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "bb47ef8d20b0674e083c8135129e8b5664780faf2e5f0fcf00fcea9400a72687",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/opt/fs-transaction-snapshot/fc_product_reader.py",
+      "newTarget": false
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/home-business.js",
+      "candidate": "source/home-business.js",
+      "activeTarget": "/var/lib/fs-navigation-formal-static/business-filter-layout-20261025-cad1dca27f17/home-business.js",
+      "beforeSha256": "cdf33989aaca298fc777b1238fed0c3e83b50c22e9740c4665972a6615a360b6",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "93279aead4fb5f0811beccfadcb981ec333a8827332d9b379add4870e4bf9cc7",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/var/lib/fs-navigation-formal-static/admin-recovery-paid-20261028-d2a3b51d8144/home-business.js",
+      "newTarget": true,
+      "activeRoute": "/dashboard/workspace-assets/workspace-native-20261006-72d7ba0dbca8/business.js"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/legacy-business.js",
+      "candidate": "source/legacy-business.js",
+      "activeTarget": "/var/lib/fs-navigation-formal-static/business-filter-layout-20261025-cad1dca27f17/legacy-business.js",
+      "beforeSha256": "798ebc005da42a6e0caca7430ee4db5e8094e5585d0079ccaee450e5c2da6d0a",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "1d563624434b4e9a8b3af997139f7d662ce458cb142b6d976efb62d0ab1f36da",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/var/lib/fs-navigation-formal-static/admin-recovery-paid-20261028-d2a3b51d8144/legacy-business.js",
+      "newTarget": true,
+      "activeRoute": "/dashboard/workspace-assets/workspace-native-20261006-fd4cfd0a70aa/business.js"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/live_summary.py",
+      "candidate": "source/live_summary.py",
+      "activeTarget": "/opt/fs-exact-range-20261001/live_summary.py",
+      "beforeSha256": "a5086eae67da36b92d8b0bfcca5685cbf659280ab972634e12b071b1ac417bd3",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "6271dc6e2d969441c311180d42e99811ba028153ab9e69dfd614bee8f37f03e9",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/opt/fs-exact-range-20261001/live_summary.py",
+      "newTarget": false
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py",
+      "candidate": "source/range_api.py",
+      "activeTarget": "/opt/fs-exact-range-20261001/range_api.py",
+      "beforeSha256": "22bc75b8b479efc4b389ddc5c69dd25851c31d841ba3497ff53125cdc8eb27d5",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "545ca478d291de87a41fc8bc94b0ba00745cd98eef597161eed2bbc3960d794a",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "newTarget": false
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/shell.js",
+      "candidate": "source/shell.js",
+      "activeTarget": "/var/lib/fs-navigation-formal-static/business-filter-layout-20261025-cad1dca27f17/shell.js",
+      "beforeSha256": "eea4125f12dfe079cb847a36ed51af515e3f8a4dc3cfb55ba2a91f7ae3e8e006",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "b7609b923af682faf420704631ad552f1ee50a8da247741bd6f789251b800edf",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/var/lib/fs-navigation-formal-static/admin-recovery-paid-20261028-d2a3b51d8144/shell.js",
+      "newTarget": true,
+      "activeRoute": "/dashboard/workspace-assets/workspace-native-20261006-8b7908ecad30/shell.js"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/site_summary.py",
+      "candidate": "source/site_summary.py",
+      "activeTarget": "/opt/fs-exact-range-20261001/site_summary.py",
+      "beforeSha256": "f9ef7f1fcf55d150c2fe48c3664cd8eeb72e233afa548a40b8872d1afbd25cd5",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "d5bd6516fc903d2b2776403bb4363f8610f0c31e0940b5c00b0d80a35c01f0aa",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/opt/fs-exact-range-20261001/site_summary.py",
+      "newTarget": false
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/summary_bridge.py",
+      "candidate": "source/summary_bridge.py",
+      "activeTarget": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "beforeSha256": "ebaf0e4de15941c5c756a5f943e5e37148690e4915f7b0e424c047bae3d2175c",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "a409be5fb466a271d992d5d8ab304c6b4534c3fe705b3445ee0a5066c48098dd",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/opt/fs-exact-range-20261001/summary_bridge.py",
+      "newTarget": false
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/supplement_reader.py",
+      "candidate": "source/supplement_reader.py",
+      "activeTarget": "/opt/fs-transaction-snapshot/supplement_reader.py",
+      "beforeSha256": "83ddbddbc4a901037ef8cfe86ee6ba7fbecc59eb6add40b5175829f30fef2ee2",
+      "beforeEvidence": "p2_mapping_readonly_evidence.jsonl",
+      "candidateSha256": "faf71755cfb470195f80f110b6b35a5d634dd0d9902a08b3e269af632a0422cb",
+      "candidateState": "uncommitted_final_P1_P2_P4_pending_commit",
+      "target": "/opt/fs-transaction-snapshot/supplement_reader.py",
+      "newTarget": false
+    }
+  ],
+  "generated": {
+    "candidate": "generated/navigation.conf",
+    "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+    "source": "current server file with ONLY four active aliases replaced by new target paths",
+    "beforeSha256": null,
+    "beforeShaStatus": "original_prepare_CAS_must_capture_current_file"
+  },
+  "publish": {
+    "existingRemoteAdapter": "/opt/fs-release-stage/business-filter-layout-20261025-v1/filter_release.py",
+    "existingLocalAdapter": "releases/fs-dashboard/dashboard-refresh-20261025/deploy/filter_release.py",
+    "newFrontendFiles": 4,
+    "existingBackendFiles": 10,
+    "generatedNavigationFiles": 1,
+    "restart": "range service only when host modules change; preserve timer/model-worker state"
+  },
+  "exclusions": [
+    "fc27-p2pah-session.service",
+    "Hermes compatibility daily_archive.py",
+    "P1 files tracked in their own exact mapping",
+    "All candidate hashes must be refreshed from the final committed blob; P4 range/live_summary and P1 UI clarifications included."
+  ]
+}
