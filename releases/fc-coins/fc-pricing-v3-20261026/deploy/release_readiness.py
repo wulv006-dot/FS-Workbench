@@ -5,11 +5,55 @@ import time
 import urllib.request
 
 
-def fc_release_quiescent(tick,api):
+def paused_code_release(tick,health,*,locks_held=False):
+    """Allow code repair while paused; leave all business reconciliation gates intact."""
+    from contextlib import closing,ExitStack
+    import os,sqlite3,stat
+    root=tick.ROOT
+    def paused_and_idle():
+        if health.get('queue_depth')!=0:return False
+        if any(not (root/name).is_dir() or (root/name).is_symlink() for name in ('queue','jobs','executions')):return False
+        if any((root/'queue').glob('*.json')):return False
+        if any(tick.read_record(p).get('status')=='running' for p in (root/'jobs').glob('*.json')):return False
+        if any(not tick.resolved_execution(tick.read_record(p)) for p in (root/'executions').glob('*.json')):return False
+        path=root/'v3/control.sqlite3'
+        if not path.is_file() or path.is_symlink():return False
+        with closing(sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True,timeout=2)) as db:
+            db.execute('PRAGMA query_only=ON')
+            row=db.execute("SELECT body FROM metadata WHERE id='generation'").fetchone()
+            generation=json.loads(row[0]).get('id') if row else None
+            if not generation:return False
+            owners=db.execute('SELECT DISTINCT plan_id,revision,generation FROM plan_ownership WHERE generation=?',(generation,)).fetchall()
+            if not owners:return False
+            for ident,revision,owner_generation in owners:
+                row=db.execute('SELECT body FROM pricing_plans WHERE id=?',(ident,)).fetchone()
+                plan=json.loads(row[0]) if row else {}
+                if (plan.get('state')!='SUSPENDED' or plan.get('plan_id')!=ident
+                        or plan.get('revision')!=revision or plan.get('generation')!=owner_generation):return False
+        return True
+    try:
+        if locks_held:return paused_and_idle()
+        import fcntl
+        with tick.queue_mutation(),ExitStack() as stack:
+            for name in tick.RETRY_LOCKS:
+                path=root/'state'/name
+                if path.is_symlink():return False
+                stream=stack.enter_context(path.open('rb'))
+                info=os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.geteuid() or info.st_nlink!=1:return False
+                fcntl.flock(stream,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            return paused_and_idle()
+    except (OSError,ValueError,KeyError,TypeError,AttributeError,RuntimeError,ImportError,sqlite3.Error):
+        return False
+
+
+def fc_release_quiescent(tick,api,*,locks_held=False):
     """A proven preflight refusal is a failed follow-up, not an in-flight POST."""
-    if api.health()['incomplete_executions']!=0:return False
+    health=api.health()
+    if health['incomplete_executions']!=0:return False
     guard=tick.retry_guard()
     if guard=='ready':return True
+    if guard in ('all_sync_unconfirmed','player_sync_unconfirmed') and paused_code_release(tick,health,locks_held=locks_held):return True
     if guard!='player_sync_unconfirmed':return False
     config=tick.load_player_sync_policy()
     jobs=[tick.read_record(p) for p in (tick.ROOT/'jobs').glob('*.json')]

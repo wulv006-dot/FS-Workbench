@@ -1,5 +1,7 @@
 """Exercise the original publisher guard functions against a real read-only ledger."""
-import ast,json,sqlite3,sys,tempfile,unittest
+import ast,json,sqlite3,sys,tempfile,unittest,os,re,shutil,urllib.request
+from contextlib import contextmanager,ExitStack
+from datetime import datetime,timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -7,6 +9,7 @@ from unittest.mock import patch
 SOURCE=Path(__file__).resolve().parents[1]/'source'
 sys.path.insert(0,str(SOURCE))
 from fc_pricing_v3.order_close import TERMINAL_LEDGER_STATUS
+from fc_pricing_v3.order_close import execution_is_unresolved,ledger_operation_status
 
 def function(path,name,scope):
     node=next(n for n in ast.parse(path.read_text('utf-8')).body if isinstance(n,ast.FunctionDef) and n.name==name)
@@ -49,5 +52,155 @@ class PublisherOrderCloseGuard(unittest.TestCase):
             self.assertTrue(self.resolved({'status':status}))
         self.assertTrue(self.resolved({'status':'FAILED_BEFORE_WRITE','changed':False}))
         self.assertFalse(self.resolved({'status':'FAILED_BEFORE_WRITE','changed':True}))
+
+    def test_public_compatibility_requires_original_completed_operation_and_close_reason(self):
+        good=dict(operation_id=self.execution,status='COMPLETED',order_close={'reason':'order_write_confirmed_admin_price_matched'})
+        for changes,wanted in (({},True),({'operation_id':'other'},False),({'status':'UNKNOWN'},False),
+                               ({'status':'RUNNING'},False),({'order_close':{}},False),
+                               ({'order_close':{'reason':'public_price_matched'}},False)):
+            with self.subTest(changes=changes):
+                body=dict(good,**changes)
+                self.db.execute('INSERT OR REPLACE INTO operations VALUES(?,?)',(self.execution,json.dumps(body)));self.db.commit()
+                state=self.audit(status='PUBLIC_CONFIRMED')
+                self.assertEqual(self.resolved(state),wanted)
+                terminal=ledger_operation_status(self.execution,root=self.root,require_order_admin_close=True)
+                self.assertEqual(execution_is_unresolved(state,terminal),not wanted)
+        self.assertFalse(self.resolved(self.audit(status='PUBLIC_CONFIRMED',ledger_status='UNKNOWN')))
+        self.assertFalse(self.resolved(self.audit(status='PUBLIC_CONFIRMED',execution_id='other')))
+
+    def test_real_writer_preflight_blocks_public_unknown_before_any_backend_hook(self):
+        from unittest.mock import Mock
+        from fc_pricing_v3 import dispatch
+        (self.root/'executions').mkdir()
+        state=self.audit(status='PUBLIC_CONFIRMED')
+        (self.root/'executions'/(self.execution+'.json')).write_text(json.dumps(state))
+        hook=Mock(side_effect=ValueError('next_guard_reached'))
+        ns=dict(ROOT=self.root,Path=Path,json=json,re=re,PLATFORMS=('PS','XBOX','PC'),parse_uuid=lambda value:value,
+                read_json=lambda p:json.loads(p.read_text()),load_authorized=lambda _:({},{}),load_policy=lambda:{'revision':1},
+                check_write=lambda *a,**k:[],hooks_before_write=hook,execution_is_unresolved=execution_is_unresolved,
+                ledger_operation_status=lambda ident,**kw:ledger_operation_status(ident,root=self.root,**kw))
+        execute=function(SOURCE/'price_writer.py','execute',ns)
+        for status,reason in (('UNKNOWN','unresolved_execution_exists'),('COMPLETED','next_guard_reached')):
+            body=dict(operation_id=self.execution,status=status,order_close={'reason':'order_write_confirmed_admin_price_matched'})
+            self.db.execute('INSERT OR REPLACE INTO operations VALUES(?,?)',(self.execution,json.dumps(body)));self.db.commit()
+            hook.reset_mock()
+            with patch.object(dispatch,'validate_dispatch'),self.assertRaisesRegex(ValueError,reason):
+                execute('preview','new-operation','wulv',['PS'],policy_revision=1)
+            self.assertEqual(hook.call_count,int(status=='COMPLETED'))
+
+    def test_candidate_health_reads_same_sqlite_without_browser_writer_import(self):
+        (self.root/'executions').mkdir();(self.root/'queue').mkdir();(self.root/'runs').mkdir()
+        path=self.root/'executions'/(self.execution+'.json')
+        path.write_text(json.dumps(self.audit(status='PUBLIC_CONFIRMED')))
+        ns=dict(ROOT=self.root,os=os,datetime=datetime,timezone=timezone,urllib=__import__('urllib'),shutil=shutil,
+                writer_status=lambda:'ready',certificate_health=lambda:{},valid_id=lambda _:False,
+                read_json=lambda p:json.loads(p.read_text()))
+        health=function(SOURCE/'fc27_cloud_api.py','health',ns)
+        for status,count in (('COMPLETED',0),('UNKNOWN',1)):
+            body=dict(operation_id=self.execution,status=status,order_close={'reason':'order_write_confirmed_admin_price_matched'})
+            self.db.execute('INSERT OR REPLACE INTO operations VALUES(?,?)',(self.execution,json.dumps(body)));self.db.commit()
+            with patch('urllib.request.urlopen',side_effect=OSError('isolated_no_network')):
+                self.assertEqual(health()['incomplete_executions'],count)
+        path.write_text(json.dumps(self.audit(status='PUBLIC_CONFIRMED',execution_id='other')))
+        with patch('urllib.request.urlopen',side_effect=OSError('isolated_no_network')):
+            self.assertEqual(health()['incomplete_executions'],1)
+
+
+class PausedCodePublish(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
+        for name in ('v3','queue','jobs','executions','all-coin-sync','player-sync','state'):(self.root/name).mkdir()
+        self.db=sqlite3.connect(self.root/'v3/control.sqlite3');self.addCleanup(self.db.close)
+        self.db.executescript('CREATE TABLE operations(id TEXT PRIMARY KEY,body TEXT); CREATE TABLE metadata(id TEXT PRIMARY KEY,body TEXT); CREATE TABLE pricing_plans(id TEXT PRIMARY KEY,body TEXT); CREATE TABLE plan_ownership(resource TEXT PRIMARY KEY,plan_id TEXT,revision INTEGER,generation TEXT);')
+        self.db.execute('INSERT INTO metadata VALUES(?,?)',('generation',json.dumps({'id':'current'})))
+        self.plan('one','SUSPENDED')
+        self.ns=dict(ROOT=self.root,read_record=lambda p:json.loads(p.read_text()),
+                     resolved_execution=function(SOURCE/'automation_tick.py','resolved_execution',dict(ROOT=self.root)),
+                     player_sync_gate=lambda:'needs_reconcile')
+        self.guard=function(SOURCE/'automation_tick.py','retry_guard',self.ns)
+        self.tick=SimpleNamespace(ROOT=self.root,retry_guard=self.guard,read_record=self.ns['read_record'],
+            resolved_execution=self.ns['resolved_execution'],load_player_sync_policy=lambda:{'revision':10},
+            RETRY_LOCKS=('price-writer.lock','restore.lock'),queue_mutation=self.queue_mutation)
+        for name in self.tick.RETRY_LOCKS:(self.root/'state'/name).touch()
+        self.health={'incomplete_executions':0,'queue_depth':0};self.api=SimpleNamespace(health=lambda:self.health)
+        scope={'json':json}
+        self.paused=function(SOURCE.parent/'deploy/release_readiness.py','paused_code_release',scope)
+        self.ready=function(SOURCE.parent/'deploy/release_readiness.py','fc_release_quiescent',scope)
+        self.all_path=self.root/'all-coin-sync/pending.json';self.all_path.write_text(json.dumps({'status':'needs_reconcile','steps':[{'platform':'PC','status':'pending'}]}))
+        self.old_all=self.all_path.read_bytes()
+    def plan(self,ident,state,revision=3,generation='current'):
+        plan=dict(plan_id=ident,state=state,revision=revision,generation=generation)
+        self.db.execute('INSERT OR REPLACE INTO pricing_plans VALUES(?,?)',(ident,json.dumps(plan)))
+        self.db.execute('INSERT OR REPLACE INTO plan_ownership VALUES(?,?,?,?)',(ident,ident,revision,generation));self.db.commit()
+    @contextmanager
+    def queue_mutation(self):
+        yield
+    def test_paused_publication_preserves_all_and_player_business_gates(self):
+        self.assertEqual(self.guard(),'all_sync_unconfirmed')
+        self.assertTrue(self.ready(self.tick,self.api,locks_held=True))
+        self.assertEqual(self.all_path.read_bytes(),self.old_all)
+        self.assertEqual(self.guard(),'all_sync_unconfirmed')
+        self.all_path.unlink()
+        self.assertEqual(self.guard(),'player_sync_unconfirmed')
+        self.assertTrue(self.ready(self.tick,self.api,locks_held=True))
+        self.assertEqual(self.guard(),'player_sync_unconfirmed')
+    def test_every_current_owner_must_be_suspended_and_match_revision(self):
+        self.plan('two','ACTIVE')
+        self.assertFalse(self.ready(self.tick,self.api,locks_held=True))
+        self.plan('two','SUSPENDED')
+        self.assertTrue(self.ready(self.tick,self.api,locks_held=True))
+        self.db.execute("UPDATE plan_ownership SET revision=99 WHERE plan_id='two'");self.db.commit()
+        self.assertFalse(self.ready(self.tick,self.api,locks_held=True))
+    def test_old_generation_does_not_replace_current_ownership_proof(self):
+        self.plan('old','ACTIVE',generation='retired')
+        self.assertTrue(self.ready(self.tick,self.api,locks_held=True))
+        self.db.execute("DELETE FROM plan_ownership WHERE generation='current'");self.db.commit()
+        self.assertFalse(self.ready(self.tick,self.api,locks_held=True))
+    def test_queue_running_and_unknown_price_still_block_code_publication(self):
+        for folder,body in (('queue',{'status':'queued'}),('jobs',{'status':'running'}),('executions',{'status':'UNCERTAIN'})):
+            with self.subTest(folder=folder):
+                path=self.root/folder/'active.json';path.write_text(json.dumps(body))
+                self.assertFalse(self.ready(self.tick,self.api,locks_held=True));path.unlink()
+        self.health['incomplete_executions']=1
+        self.assertFalse(self.ready(self.tick,self.api,locks_held=True))
+    def test_missing_generation_or_malformed_ledger_is_not_paused_proof(self):
+        self.db.execute("UPDATE metadata SET body='{}'");self.db.commit()
+        self.assertFalse(self.ready(self.tick,self.api,locks_held=True))
+    @unittest.skipUnless(os.name=='posix','requires real Linux flock')
+    def test_real_retry_lock_contention_blocks_and_unlock_allows_same_readonly_check(self):
+        import fcntl
+        path=self.root/'state'/self.tick.RETRY_LOCKS[0]
+        with path.open('rb') as held:
+            fcntl.flock(held,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            self.assertFalse(self.ready(self.tick,self.api))
+        self.assertTrue(self.ready(self.tick,self.api))
+        self.assertEqual(self.guard(),'all_sync_unconfirmed')
+    @unittest.skipUnless(os.name=='posix','requires actual adapter Linux lock scope')
+    def test_adapter_only_passes_held_flag_inside_actual_combined_locks(self):
+        from unittest.mock import Mock
+        import fcntl
+        text=(SOURCE.parent/'deploy/fc_v3_release_adapter.py').read_text('utf-8');tree=ast.parse(text)
+        load=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
+        selected=[n for n in load.body if (isinstance(n,ast.Assign) and isinstance(n.targets[0],ast.Name) and n.targets[0].id=='holding_fc_locks') or isinstance(n,ast.FunctionDef) and n.name in ('combined_locks','guards')]
+        selected.append(ast.parse('return combined_locks,guards').body[0])
+        factory=ast.FunctionDef(name='factory',args=ast.arguments(posonlyargs=[],args=[],kwonlyargs=[],kw_defaults=[],defaults=[]),body=selected,decorator_list=[])
+        module=ast.fix_missing_locations(ast.Module(body=[factory],type_ignores=[]))
+        ready=Mock(return_value=True)
+        fc=SimpleNamespace(ROOT=self.root,tick=self.tick,api=SimpleNamespace(queue_mutation=self.queue_mutation))
+        def no_target_link(path):
+            path.relative_to(self.root)
+            if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('fixture_target_link')
+        base=SimpleNamespace(no_target_link=no_target_link,rooted=lambda _root,path:self.root/path.lstrip('/'))
+        scope=dict(contextmanager=contextmanager,ExitStack=ExitStack,Path=Path,fc=fc,original_locks=lambda _:self.queue_mutation(),
+                   original_guards=lambda *a:None,fc_release_quiescent=ready,base=base)
+        exec(compile(module,'original-adapter-lock-scope','exec'),scope)
+        locks,guards=scope['factory']()
+        manifest={'files':[]};guards(manifest,Path('/'))
+        self.assertFalse(ready.call_args.kwargs['locks_held'])
+        with locks(Path('/')):
+            guards(manifest,Path('/'));self.assertTrue(ready.call_args.kwargs['locks_held'])
+            with (self.root/'state'/self.tick.RETRY_LOCKS[0]).open('rb') as other:
+                with self.assertRaises(BlockingIOError):fcntl.flock(other,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        guards(manifest,Path('/'));self.assertFalse(ready.call_args.kwargs['locks_held'])
 
 if __name__=='__main__':unittest.main()

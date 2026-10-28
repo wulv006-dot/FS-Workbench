@@ -37,22 +37,15 @@ try:
     from fc_pricing_v3.order_close import execution_is_unresolved
 except Exception:  # pragma: no cover
     def execution_is_unresolved(state, ledger_status=None):
-        return isinstance(state, dict) and state.get("status") in {"RUNNING", "UNCERTAIN", "PARTIAL"}
+        return isinstance(state, dict) and state.get("status") in {"RUNNING", "UNCERTAIN", "PARTIAL", "PUBLIC_CONFIRMED"}
 
 
-def ledger_operation_status(operation_id, *, root=None):
+def ledger_operation_status(operation_id, *, root=None, require_order_admin_close=False):
     """读账本里该操作的终态；读不到返回 None（调用方按未收敛处理）。"""
-    import sqlite3
-    path = (ROOT if root is None else Path(root)) / "v3" / "control.sqlite3"
-    if not path.exists():
-        return None
     try:
-        db = sqlite3.connect("file:" + str(path) + "?mode=ro", uri=True, timeout=2)
-        try:
-            row = db.execute("SELECT body FROM operations WHERE id=?", (operation_id,)).fetchone()
-        finally:
-            db.close()
-        return json.loads(row[0]).get("status") if row else None
+        from fc_pricing_v3.order_close import ledger_operation_status as read_operation
+        return read_operation(operation_id,root=ROOT if root is None else root,
+                              require_order_admin_close=require_order_admin_close)
     except Exception:
         return None
 
@@ -295,7 +288,10 @@ def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, ch
     if not check_only:
         for path in (ROOT / "executions").glob("*.json"):
             state = read_json(path)
-            if execution_is_unresolved(state, ledger_operation_status(path.stem)):
+            status = ledger_operation_status(path.stem, require_order_admin_close=state.get('status')=='PUBLIC_CONFIRMED')
+            if state.get('status')=='PUBLIC_CONFIRMED' and state.get('execution_id')!=path.stem:
+                raise ValueError("unresolved_execution_exists")
+            if execution_is_unresolved(state, status):
                 raise ValueError("unresolved_execution_exists")
     if not check_only:
         hooks_before_write(load_policy(), selected, automatic,
