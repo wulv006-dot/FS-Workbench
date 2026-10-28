@@ -54,6 +54,19 @@
     try{const keys=state.view==='sbc'?[...(state.coreMode==='service'?[state.core]:[]),...state.companions]:state.view==='trio'?config.trio.ids:[...state.weekly];const ids=[...new Set([...keys,...state.bundles])];const items=scoped(ids).map(key=>offer(key));unavailableSelection=items.some(item=>!item);return items.filter(Boolean);}catch(error){unavailableSelection=true;return [];}
   }
   function currentMedia(){return config.page_media?.['fc27-'+state.view]||published?.page_media?.['fc27-'+state.view]||{};}
+  // The published page config carries operator-edited hero copy. Hero text is
+  // built before that config arrives, so overlay it per render instead of
+  // rebuilding the whole content object.
+  function hero(view){
+    const base=heroes[view],copy=published?.pages?.find(page=>page.page_id==='fc27-'+view&&page.activity_id==='fc27-season2')?.copy;
+    if(!copy||typeof copy!=='object')return base;
+    const applied={...base};
+    for(const key of ['heading','intro','body']){
+      const value=typeof copy[key]==='string'?copy[key].trim():'';
+      if(value)applied[key]=[value,value];
+    }
+    return applied;
+  }
   function imageOptions(key){const ref=currentMedia().cards?.[key];return ref?.url?{image:ref.url,alt:ref.alt}:{};}
   function money(amount,currency='USD'){return new Intl.NumberFormat(state.lang==='zh'?'zh-CN':'en-US',{style:'currency',currency}).format(amount/100);}
   function display(item){
@@ -110,7 +123,7 @@
     const focusId=document.activeElement?.id;
     renderStatic();if(standalone&&pageState(state.view)!=='active'){neutral();return;}
     if(standalone){const cores=scoped(config.sbc.ids,'sbc');if(!cores.includes(state.core)){state.core=cores[0]||null;state.companions=[...route(state.core).picks];}state.companions=scoped(state.companions,'sbc');}
-    $('activity-offer').textContent=content.promotionText(state.lang);$('activity-offer').hidden=!content.promotionText(state.lang);root.dataset.view=state.view;const h=heroes[state.view];
+    $('activity-offer').textContent=content.promotionText(state.lang);$('activity-offer').hidden=!content.promotionText(state.lang);root.dataset.view=state.view;const h=hero(state.view);
     $('hero-kicker').textContent=h.kicker;$('hero-title').innerHTML=`<span>${escape(h.title[state.lang==='zh'?0:2])}</span><strong>${escape(h.title[state.lang==='zh'?1:3])}</strong>`;$('hero-body').textContent=t(...h.body);$('hero-cta').textContent=t(...h.cta);$('view-heading').textContent=t(...h.heading);$('view-intro').textContent=t(...h.intro);
     const media=currentMedia(),image=$('hero-image');image.src=media.hero_desktop?.url||(state.view==='trio'?config.trio.hero:'assets/'+h.image+'-hero.webp');if(media.hero_desktop?.alt)image.alt=window.FCActivityContent.englishText(media.hero_desktop.alt,'Campaign artwork');let source=image.parentElement.querySelector('source');if(!source){source=document.createElement('source');source.media='(max-width: 700px)';image.before(source);}source.srcset=media.hero_mobile?.url||(state.view==='trio'?(config.trio.heroMobile||config.trio.hero):'assets/'+h.image+'-hero-mobile.webp');
     const sbc=state.view==='sbc';$('sbc-controls').hidden=!sbc;$('sbc-lineup').hidden=!sbc;$('sbc-options').hidden=!sbc;$('product-grid').hidden=sbc;

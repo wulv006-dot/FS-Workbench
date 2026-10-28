@@ -3,7 +3,7 @@ import {projectHalloween,halloweenProductKeys} from '../runtime/halloween-contra
 import fs from 'node:fs';
 import path from 'node:path';
 import {atomic} from './store.mjs';
-import {canonical,digest,createSnapshot,fail,presentationFields,projectPreviewProduct,id,pageDisplayFields} from '../runtime/snapshot.mjs';
+import {canonical,digest,createSnapshot,fail,presentationFields,projectPreviewProduct,id,pageDisplayFields,pageCopyFields,COPY_FIELDS} from '../runtime/snapshot.mjs';
 import {addImportedProduct,projectImportedProduct} from './center-seed.mjs';
 import {projectModels,projectModelCard} from '../runtime/model-cards.mjs';
 import {projectMedia} from '../runtime/media-contract.mjs';
@@ -30,7 +30,7 @@ function validateDraft(input,{validateFcLayout}={}) {
    selection={product_keys:p.product_keys.map(id)};
   }
   return {page_id,activity_id,path:route,title:safeText(p.title||title,160),description:safeText(p.description||'',320),
-   ...selection,...pageDisplayFields({...p,path:route}),...(Object.hasOwn(p,'media')?{media:projectMedia(p.media)}:{}),
+   ...selection,...pageDisplayFields({...p,path:route}),...pageCopyFields({...p,path:route}),...(Object.hasOwn(p,'media')?{media:projectMedia(p.media)}:{}),
    preview_enabled:p.preview_enabled===true,starts_at,ends_at,...presentationFields({...p,path:route}),
    // Native benefits are references for review. They cannot activate checkout or issue coupons.
    benefit_refs:Array.isArray(p.benefit_refs)?p.benefit_refs.map(b=>{
@@ -63,13 +63,14 @@ function preserveDraftShape(input,options){
  if(!record(input,['pages','seasonal_theme','integration_mode','fc_layout','fc_models','imported_products','halloween'])||!Array.isArray(input.pages))fail('INVALID_CAMPAIGN_CONFIG');
  if(Object.hasOwn(input,'integration_mode')&&input.integration_mode!=='preview')fail('INVALID_CAMPAIGN_CONFIG');
  for(const page of input.pages){
-  if(!record(page,['page_id','activity_id','path','title','description','preview_enabled','starts_at','ends_at','benefit_refs','default_language','social_image','product_keys','product_roles','sbc_companions','media']))fail('INVALID_CAMPAIGN_CONFIG');
+  if(!record(page,['page_id','activity_id','path','title','description','preview_enabled','starts_at','ends_at','benefit_refs','default_language','social_image','product_keys','product_roles','sbc_companions','media','copy']))fail('INVALID_CAMPAIGN_CONFIG');
   const expected=pages.find(row=>row[0]===page.page_id);if(!expected)fail('INVALID_CAMPAIGN_CONFIG');
   if(Object.hasOwn(page,'activity_id')&&page.activity_id!==expected[1]||Object.hasOwn(page,'path')&&page.path!==expected[2])fail('INVALID_CAMPAIGN_CONFIG');
   for(const key of ['title','description'])if(Object.hasOwn(page,key))safeText(page[key],key==='title'?160:320);
   if(Object.hasOwn(page,'preview_enabled')&&typeof page.preview_enabled!=='boolean')fail('INVALID_CAMPAIGN_CONFIG');
   for(const key of ['starts_at','ends_at'])if(Object.hasOwn(page,key)&&page[key]!==null&&typeof page[key]!=='string')fail('INVALID_CAMPAIGN_DATES');
   for(const key of ['default_language','social_image'])if(Object.hasOwn(page,key)&&typeof page[key]!=='string')fail('INVALID_PRESENTATION_CONFIG');
+  if(Object.hasOwn(page,'copy'))pageCopyFields({...page,path:expected[2]});
   if(Object.hasOwn(page,'benefit_refs')&&(!Array.isArray(page.benefit_refs)||page.benefit_refs.length>20||page.benefit_refs.some(ref=>!record(ref,['kind','native_id'])||typeof ref.native_id!=='string')))fail('INVALID_BENEFIT_REFERENCE');
  }
  if(Object.hasOwn(input,'fc_layout')){
@@ -223,7 +224,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
    return createSnapshot({schema_version:1,publication_status:'published',release_id,source_revision:sourceRevision,
     config_hash:digest(canonical({draft,products,native_checkout,pageProductKeys:selected,fc_layout:seed.fc_layout??null,...(modelOptions?{seasonal_model_contracts:modelOptions}:{})})),native_checkout,rule_hash:digest(canonical(draft.halloween?{benefits:draft.pages.map(p=>p.benefit_refs),halloween:draft.halloween}:draft.pages.map(p=>p.benefit_refs))),products,...(modelOptions?{seasonal_model_contracts:modelOptions}:{}),...(draft.halloween?{halloween:draft.halloween}:{}),seasonal_theme:draft.seasonal_theme,...(seed.fc_layout?{fc_layout:seed.fc_layout}:{}),...(seed.fc_models?{fc_models:seed.fc_models}:{}),media_assets:assets.manifest(draft),
     pages:draft.pages.map(p=>({activity_id:p.activity_id,page_id:p.page_id,path:p.path,title:p.title,
-     description:p.description,default_language:p.default_language,social_image:p.social_image,...(Object.hasOwn(p,'media')?{media:p.media}:{}),rule_version:'preview-'+revision,benefit_binding_version:'unverified-'+revision,product_keys:selected[p.page_id],...pageDisplayFields({...p,product_keys:selected[p.page_id]}),
+     description:p.description,default_language:p.default_language,social_image:p.social_image,...(Object.hasOwn(p,'media')?{media:p.media}:{}),...pageCopyFields({...p,product_keys:selected[p.page_id]}),rule_version:'preview-'+revision,benefit_binding_version:'unverified-'+revision,product_keys:selected[p.page_id],...pageDisplayFields({...p,product_keys:selected[p.page_id]}),
      active:p.preview_enabled,...(p.starts_at?{starts_at:p.starts_at}:{}),...(p.ends_at?{ends_at:p.ends_at}:{})}))});
  }
  return {read,recoverSave:request=>recover(request,'save'),recoverPublish:request=>recover(request,'publish'),recoverImport:request=>recover(request,'import'),recoverModel:request=>recover(request,'model-import'),restoreCandidate:state=>previousDraft(state||read())?.summary||null,

@@ -37,6 +37,16 @@ function create(config,live=false){
     sbc:{image:'reward',kicker:'SBC PLAYERS · COMPANIONS',title:['核心，按你需要。','搭档，一起配好。','YOUR SBC STAR.','Their perfect support.'],body:['Emre Mor 与 Nick Woltemade 是本期 Ultimate Scream SBC 核心；搭档按化学配：Mor 配恰尔汗奥卢与劳塔罗，沃尔特马德配穆夏拉与图拉姆。',"Emre Mor and Nick Woltemade headline the Ultimate Scream SBCs. Add chemistry-matched companions — Turkey and Inter links for Mor, Germany and Serie A links for Woltemade."],cta:['搭配我的核心','Build around my SBC'],heading:['SBC 核心与化学搭档','Your SBC core. Companions that actually link.'],intro:['已有核心就只买搭档：Mor 用恰尔汗奥卢+劳塔罗，沃尔特马德用穆夏拉+图拉姆。','Own the core? Buy companions only. Mor pairs with Çalhanoğlu and Lautaro, Woltemade with Musiala and Thuram.']}
   };
 
+// Operator-editable hero copy from the published page config. Public pages are
+// English-only, so the override fills both language slots with the same string.
+for(const [view,copy] of Object.entries(config.copy||{})){
+  const hero=heroes[view];if(!hero||!copy||typeof copy!=='object')continue;
+  for(const key of ['heading','intro','body']){
+    const value=typeof copy[key]==='string'?copy[key].trim():'';
+    if(value)hero[key]=[value,value];
+  }
+}
+
 for(const pair of Object.values(words))for(let i=0;i<pair.length;i++)pair[i]=pair[i].replaceAll('Star Performer',config.trio.series);
 function page(view,lang='en',idsOverride){
   lang='en';const zh=false,pick=(cn,en)=>en,products=config.products;
