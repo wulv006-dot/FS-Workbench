@@ -78,26 +78,31 @@ POST http://127.0.0.1:8911/admin/<controller>.<action>     # 备用（chenchaoap
 - 旧的“浏览器点后台”作为**主写入通道**。浏览器只保留为**API 不可用时的应急人工兜底**，且必须单独说明原因。
 - 规则上：任何新任务不得再以“账号能登录”为前提设计采集或写入。
 
-## 7. 筛选参数语法（2026-10-28 实测，最容易踩的坑）
+## 7. 筛选参数语法（2026-10-28 实测，含一次误判的纠正）
 
-同一条 `/admin/...` 接口，**筛选写法按类型区分，写错不报错、只返回全站数据**：
-
-| 写法 | 结果 | 用途 |
+| 写法 | 结果 | 说明 |
 |---|---|---|
-| `search[i][field]=paytime&search[i][operator]=RANGE&search[i][val]=<start>,<end>&search[i][render]=datetime` | ✅ 有效 | **时间范围**（唯一可靠的 search 形式） |
-| 简单参数 `site_id=266&gid=1327` | ✅ 有效 | **等值筛选** |
-| `search[i][operator]=` / `eq` / `EQ` / `in` / `LIKE` | ❌ 被无视，返回全站 | 不可用 |
-| `paytime[0]=…&paytime[1]=…` | ❌ 返回全站 | 不可用 |
-| `start_time=…&end_time=…` | ❌ 返回全站 | 不可用 |
-| `paytime=<start>,<end>`（整串） | ❌ 返回全站 | 不可用 |
-| `search[i][val][0]/[val][1]`（数组） | ❌ HTTP 500 | 不可用 |
+| `search[i][field]=gid&search[i][operator]=%3D&search[i][val]=1327` | ✅ **有效** | 返回行 `gid` 纯净，只有 1327 |
+| `search[i][field]=paytime&search[i][operator]=RANGE&search[i][val]=<start>,<end>&search[i][render]=datetime` | ✅ **有效** | 时间范围标准形式 |
+| 简单参数 `site_id=266&gid=1327` | ❌ **看似有效、实际无效** | 返回的是接口**默认范围**，不是筛选结果 |
+| `paytime[0]=…&paytime[1]=…` | ❌ 无效 | — |
+| `start_time=…&end_time=…` | ❌ 无效 | — |
+| `paytime=<start>,<end>`（整串） | ❌ 无效 | — |
+| `search[i][val][0]/[val][1]`（数组） | ❌ HTTP 500 | — |
 
-**危险点**：等值筛选失效时接口仍返回 `code:1`，只是把全站数据当结果给出。
-`chenchao` 会话账号因站点/游戏范围受限，历史上掩盖了这个问题；换成不受限的 API 账号后立刻暴露
-（`site_id/gid` 失效 → 14834 单而不是 1355 单）。
-**任何新查询都必须核对 total 是否符合预期量级，不能只看 `code:1`。**
+**最危险的陷阱是"简单参数"**：它不报错、`total` 量级看着也合理，但只是默认范围，会**静默漏数据**
+——实测同一查询（今日 FC27）简单参数只得 **69 单**，真实为 **194 单**。
 
-`channel_source.search()` 已按上表实现：等值 → 简单参数；RANGE → search 语法（含 `render=datetime`）。
+**判定筛选是否真的生效，必须检查返回行的字段值是否纯净，不能只看 total 大小。**
+
+### 一次误判记录（供后人避坑）
+
+2026-10-28 上午用 `site_id` 字段测等值 search，得到全站量级，据此误判"search 等值语法无效"，
+把 `channel_source.search()` 改成简单参数，导致 40 分钟内查询结果残缺（今日 194 → 69 单）；
+后改用 `gid` 字段并校验返回行 `gid` 纯净度，才确认等值 search 本来有效，随即回滚。
+根因：**`site_id` 不是该接口的可筛字段**，不能用它的表现推断整个等值语法失效。
+`channel_source.search()` 现维持**原始 search 语法**（等值 + RANGE 都走它也有效）。
+
 
 ## 8. 分页容错（2026-10-28）
 
