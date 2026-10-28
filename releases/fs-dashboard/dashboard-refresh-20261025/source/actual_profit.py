@@ -164,25 +164,24 @@ class ActualProfitService:
         stage='orders'
         try:
             self.root.mkdir(mode=0o700,parents=True,exist_ok=True)
-            with (self.channels.root/'collector.lock').open('a+b') as lock:
-                fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            with self.channels.capture_lock(target):
                 data=self.reader(q,self.profiles[q['profile']],self.channels.root)
-            # Publish complete revenue membership first; missing cost remains unknown.
-            if previous and previous.get('data'):
-                old={r['orderNo']:r for r in previous['data']['orders']}
-                for row in data['orders']:
-                    p=old.get(row['orderNo'])
-                    if p and p.get('site')==row.get('site'):row.update({k:p.get(k) for k in ('costCny','deliveryRows')})
-                data['sources']['cost']=previous['data']['sources']['cost']
-            # Retained costs do not prove that the refreshed order cohort was costed.
-            data['sources']['cost']=dict(data['sources']['cost'],status='pending')
-            snapshot={k:v for k,v in data.items() if k!='rawMembership'}
-            self.channels.publish(dict(data=snapshot,query=q,capturedAt=time.time()),target)
-            stage='cost'
-            with self.channels.lock:self.jobs[key]='cost_pending'
-            data=self.cost_reader(data,q,self.profiles[q['profile']],self.channels.root)
-            profit_view(data,{'mode':'profit'})
-            self.channels.publish(dict(data=data,query=q,capturedAt=time.time()),target)
+                # Publish complete revenue membership first; missing cost remains unknown.
+                if previous and previous.get('data'):
+                    old={r['orderNo']:r for r in previous['data']['orders']}
+                    for row in data['orders']:
+                        p=old.get(row['orderNo'])
+                        if p and p.get('site')==row.get('site'):row.update({k:p.get(k) for k in ('costCny','deliveryRows')})
+                    data['sources']['cost']=previous['data']['sources']['cost']
+                # Retained costs do not prove that the refreshed order cohort was costed.
+                data['sources']['cost']=dict(data['sources']['cost'],status='pending')
+                snapshot={k:v for k,v in data.items() if k!='rawMembership'}
+                self.channels.publish(dict(data=snapshot,query=q,capturedAt=time.time()),target)
+                stage='cost'
+                with self.channels.lock:self.jobs[key]='cost_pending'
+                data=self.cost_reader(data,q,self.profiles[q['profile']],self.channels.root)
+                profit_view(data,{'mode':'profit'})
+                self.channels.publish(dict(data=data,query=q,capturedAt=time.time()),target)
             with self.channels.lock:self.jobs[key]='available';self.denied.pop(key,None)
         except Exception as error:
             with self.channels.lock:
@@ -220,8 +219,11 @@ class ActualProfitService:
                     victim=next((k for k,v in self.jobs.items() if v not in ('pending','cost_pending')),None)
                     if victim is None:return 429,{'status':'busy','retryAfter':10}
                     self.jobs.pop(victim);self.starts.pop(victim,None);self.denied.pop(victim,None)
-                self.starts[key]=self.clock();self.jobs[key]='pending';state='pending'
-                self.channels.pool.submit(self.capture,key,target,copy.deepcopy(q),old)
+                try:
+                    with self.channels.admission():
+                        self.starts[key]=self.clock();self.jobs[key]='pending';state='pending'
+                        self.channels.pool.submit(self.capture,key,target,copy.deepcopy(q),old)
+                except BlockingIOError:state='deferred'
         if not old or denied:return (503 if state in ('orders_failed','cost_failed') else 202),{'status':state or 'pending','retryAfter':3}
         from channel_effects import profit_view
         value=profit_view(old['data'],{'mode':'profit'});value.update(status='available',refreshing=state in ('pending','cost_pending','deferred'),costRefreshing=state=='cost_pending',costError=state=='cost_failed',sourceError=state=='orders_failed',stale=not fresh)

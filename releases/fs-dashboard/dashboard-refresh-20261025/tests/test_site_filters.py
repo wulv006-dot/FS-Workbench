@@ -81,7 +81,7 @@ class SiteFilters(unittest.TestCase):
         self.assertEqual([r['status'] for r in values['admin']],['',''])
         self.assertEqual([r['status'] for r in values['order']],['3','3','',''])
         tree=ast.parse((ROOT/'source/range_api.py').read_text(encoding='utf-8'))
-        capture=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='capture')
+        capture=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_capture')
         assignments=[n for n in ast.walk(capture) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in ('admin','order') for t in n.targets)]
         for definition in definitions:
             values=dict(gid=definition[2],game=definition[3],group=definition[4],period=PERIOD)

@@ -21,6 +21,30 @@ GUARD=threading.RLock()
 OWNED=threading.local()
 
 
+@contextmanager
+def maintenance_reader(root=Path('/var/lib/fs-hermes-fc/fs')):
+    """Share the original Hermes admission inode; publication owns its exclusive lease."""
+    path=Path(root)/'admission.lock'
+    if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('maintenance_admission_link')
+    fd=os.open(path,os.O_RDWR|os.O_CREAT|getattr(os,'O_NOFOLLOW',0),0o600)
+    try:
+        info=os.fstat(fd);current=private(path)
+        if (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino):raise ValueError('maintenance_admission_changed')
+        try:
+            if os.name=='posix':
+                import fcntl
+                fcntl.flock(fd,fcntl.LOCK_SH|fcntl.LOCK_NB)
+            else:
+                import msvcrt
+                msvcrt.locking(fd,msvcrt.LK_NBLCK,1)
+        except OSError as error:
+            import errno
+            if error.errno not in (errno.EACCES,errno.EAGAIN,errno.EDEADLK):raise
+            raise BlockingIOError('maintenance_in_progress') from None
+        yield
+    finally:os.close(fd)
+
+
 def private(path, directory=False):
     path=Path(path)
     if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('retention_symlink')

@@ -46,7 +46,7 @@ class RefreshTest(unittest.TestCase):
             self.assertEqual(sum(len(p.jobs) for p in c.pools.values()),0)
     def test_force_preserves_rate_limit(self):
         c=self.cache();q=query(PARAMS,PROFILES,NOW);c.get(q);self.drain(c)
-        c.starts[:]=[0]*6
+        for starts in c.starts.values():starts[:]=[0]*6
         self.assertEqual(c.get({**q,'refresh':True})[0],429)
         self.assertEqual(sum(len(p.jobs) for p in c.pools.values()),0)
     def test_today_refreshes_at_ten_minutes_and_history_keeps_its_policy(self):
