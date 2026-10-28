@@ -694,21 +694,23 @@ class RuntimeContracts(unittest.TestCase):
         operation = dict(operation_id=operation_id, status='UNKNOWN',
                          steps=[dict(kind='base', step_id='base',state='DISPATCHED',
                                      dispatched_at='2026-10-26T00:00:00+00:00')])
-        db = Mock()
-        db.get.return_value = operation
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
+            db = Ledger(root/'v3/control.sqlite3')
+            db.put('operations',operation_id,operation)
             (root / 'executions').mkdir()
             (root / 'executions' / (operation_id + '.json')).write_text(
                 json.dumps(dict(status='CONFIRMED', sync_confirmed=False)), encoding='utf-8')
             with patch.object(runtime, 'ROOT', root), patch.object(runtime, 'ledger', return_value=db), \
+                    patch.object(db,'step_result',wraps=db.step_result) as step_result, \
+                    patch.object(db,'finish',wraps=db.finish) as finish, \
                     patch('fc_pricing_v3.adapters.reconcile_base', return_value={'status':'UNKNOWN'}) as base, \
                     patch('fc_pricing_v3.adapters.reconcile_postwrite') as postwrite:
                 runtime.reconcile(operation_id)
         base.assert_called_once()
-        db.step_result.assert_not_called()
+        step_result.assert_not_called()
         postwrite.assert_not_called()
-        db.finish.assert_not_called()
+        finish.assert_not_called()
 
     def test_restore_container_includes_v3_adapter_dependency(self):
         script = SOURCE / 'restore_price.sh'

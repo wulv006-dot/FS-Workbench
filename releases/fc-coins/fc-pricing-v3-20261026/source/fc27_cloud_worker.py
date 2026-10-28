@@ -16,7 +16,7 @@ from snapshot_layer import ROOT, PLATFORMS, SITES, atomic_json
 from server_quote_job import quote_for_run, age_ok
 from automation_policy import load_policy, check_write
 from player_sync_policy import load_policy as load_player_sync_policy
-from automation_tick import player_sync_gate, queue_mutation, QueueBusy, sync_directory, superseded_basis, supersession_bytes, supersession_receipt, utc
+from automation_tick import player_sync_gate, queue_mutation, QueueBusy, sync_directory, exclusive_json, superseded_basis, supersession_bytes, supersession_receipt, utc
 from fc27_cloud_api import writer_status
 import local_collection
 from automation_tick import resolved_execution
@@ -607,6 +607,7 @@ def handle(job):
                 request['automatic_basis']=current
         code, result = run_writer_request(job, "sync_players.sh", request, 3700)
         if code or result.get("status") != "confirmed":
+            job["sync_exit_code"] = code
             job["sync_result"] = result
             job["error_detail"] = result.get("reason") or result.get("status") or "player_sync_failed"
             raise ValueError("player_sync_not_confirmed")
@@ -654,10 +655,70 @@ def retry_player_followups():
         _retry_player_followups_locked()
 
 
+def _player_writer_available():
+    import fcntl,stat
+    path=ROOT/'state/price-writer.lock'
+    descriptor=os.open(path,os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+    try:
+        info=os.fstat(descriptor);current=path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino):
+            raise ValueError('player_writer_lock_changed')
+        try:fcntl.flock(descriptor,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:return False
+        return True
+    finally:os.close(descriptor)
+
+
+def _player_queue_expired(job):
+    # Bound queue wait by the existing writer allowance, without extending it on retry.
+    return (datetime.now(timezone.utc)-utc(job['created_at'])).total_seconds()>=3700
+
+
+def _player_not_sent_busy(job):
+    try:
+        if str(uuid.UUID(job.get('job_id','')))!=job.get('job_id'):return False
+    except (ValueError,TypeError,AttributeError):return False
+    if (job.get('kind')!='player_sync' or job.get('actor')!='system-automation' or job.get('status')!='failed'
+            or job.get('error')!='player_sync_not_confirmed' or job.get('error_detail')!='busy'
+            or type(job.get('sync_exit_code')) is not int or job['sync_exit_code']!=75
+            or job.get('sync_result')!={'status':'busy'} or job.get('result') or 'post_response' in job):return False
+    for folder in ('player-sync','requests'):
+        path=ROOT/folder/(job['job_id']+'.json')
+        if path.exists() or path.is_symlink():return False
+    return True
+
+
+def _player_busy_retry_matches(job,raw):
+    old=json.loads(raw);retry=job.get('writer_lock_retry') or {}
+    return (job.get('status')=='queued' and type(retry.get('attempt')) is int
+            and retry==dict(attempt=1,failed_job_sha256=hashlib.sha256(raw).hexdigest())
+            and _player_not_sent_busy(old) and not old.get('writer_lock_retry')
+            and all(job.get(key)==old.get(key) for key in ('job_id','kind','actor','request','created_at')))
+
+
+def _retry_player_lock_busy_locked(job,path):
+    if not _player_not_sent_busy(job):return
+    if path.name!=job['job_id']+'.json':raise ValueError('player_busy_job_identity_changed')
+    queued=QUEUE/(job['job_id']+'.json');raw=path.read_bytes()
+    if json.loads(raw)!=job:raise ValueError('player_busy_job_changed')
+    if queued.exists():
+        if not _player_busy_retry_matches(json.loads(queued.read_text()),raw):raise ValueError('queue_claim_needs_reconcile')
+        return
+    if job.get('writer_lock_retry') or _player_queue_expired(job):
+        job['error_detail']='player_writer_lock_retry_exhausted' if job.get('writer_lock_retry') else 'player_writer_queue_timeout'
+        save_job(job);return
+    record=dict(job,status='queued',writer_lock_retry=dict(attempt=1,failed_job_sha256=hashlib.sha256(raw).hexdigest()))
+    record['writer_lock_failures']=list(job.get('writer_lock_failures') or [])+[dict(previous_job=json.loads(raw),failed_job_sha256=hashlib.sha256(raw).hexdigest(),classification='NOT_SENT_writer_lock_busy')]
+    exclusive_json(queued,record);os.chown(queued,0,11028)
+
+
 def _retry_player_followups_locked():
     for path in JOBS.glob("*.json"):
         try:
             job = json.loads(path.read_text(encoding="utf-8"))
+            if job.get('kind')=='player_sync':
+                _retry_player_lock_busy_locked(job,path)
+                continue
             intent = job.get("player_sync_intent") or {}
             if (job.get("kind") not in ("auto_cycle","v3_cycle") or job.get("status") != "ready"
                     or not ((job.get("result") or {}).get("status")=="confirmed" or ((job.get("result") or {}).get("status")=="no_price_change" and job.get("player_sync_basis")))
@@ -673,24 +734,29 @@ def _retry_player_followups_locked():
 def claim_next_job():
     with queue_mutation():
         queued = sorted(QUEUE.glob("*.json"), key=lambda p: p.stat().st_mtime)
-        if not queued:
-            return None
-        path = queued[0]
-        job = json.loads(path.read_text(encoding="utf-8"))
-        if job.get("status") != "queued" or job.get("job_id") != path.stem:
-            path.rename(path.with_suffix(".invalid"))
-            return None
-        if (JOBS / (path.stem + '.json')).exists():
-            # A previous claim may have persisted running before unlink failed.
-            # Preserve both records; never replay uncertain accepted work.
-            raise ValueError('queue_claim_needs_reconcile')
-        job["status"] = "running"
-        job["started_at"] = datetime.now(timezone.utc).isoformat()
-        save_job(job)
-        sync_directory(JOBS)
-        path.unlink()
-        sync_directory(QUEUE)
-        return job
+        for path in queued:
+            job = json.loads(path.read_text(encoding="utf-8"))
+            if job.get("status") != "queued" or job.get("job_id") != path.stem:
+                path.rename(path.with_suffix(".invalid"))
+                return None
+            prior=JOBS/(path.stem+'.json')
+            if prior.is_symlink() or (prior.exists() and not (job.get('kind')=='player_sync' and _player_busy_retry_matches(job,prior.read_bytes()))):
+                # Only an exact unsent lock-busy receipt admits this same-ID retry.
+                raise ValueError('queue_claim_needs_reconcile')
+            if job.get('kind')=='player_sync':
+                if _player_queue_expired(job):
+                    job.update(status='failed',error='player_sync_not_confirmed',error_detail='player_writer_queue_timeout',completed_at=datetime.now(timezone.utc).isoformat())
+                    save_job(job);sync_directory(JOBS);path.unlink();sync_directory(QUEUE)
+                    continue
+                if not _player_writer_available():continue
+            job["status"] = "running"
+            job["started_at"] = datetime.now(timezone.utc).isoformat()
+            save_job(job)
+            sync_directory(JOBS)
+            path.unlink()
+            sync_directory(QUEUE)
+            return job
+        return None
 
 
 def main():

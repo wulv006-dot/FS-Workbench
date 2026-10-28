@@ -204,7 +204,7 @@ class NightlyScheduler:
             preparation = getattr(self.service, 'source_preparation', None)
             if preparation and preparation.thread and preparation.thread.is_alive():
                 warnings=warnings+['nightly_preparation_still_running']
-            from nightly_data import report_note
+            from nightly_data import report_note,report_context
             management_question=None
             if item['kind'] in {'management','management_weekly'}:
                 from management_context import scheduled_question,scheduled_weekly_question
@@ -217,10 +217,10 @@ class NightlyScheduler:
                     management_question='经营管理台全项目事实未准备完成。本次仅发布全项目经营建议缺数说明：列明已核缺口、正在补采及后续追加条件；禁止把FC数据当全项目数据，禁止编造全盘数字或目标判断。'
                     warnings=warnings+['management_facts_not_ready']
             body = {'kind': 'hermes_report', 'request_id': item['request_id'], 'start': item['start'], 'end': item['end'],
-                    'question': (management_question or QUESTIONS[item['kind']]) + report_note(now,item['kind']) + (' 数据准备缺口：'+','.join(warnings) if warnings else '') + ' 缺失数据不阻塞本次发布。有可比趋势及已核相关证据才可推算；逐项标注“预估，真实数据暂未提供”，说明依据、方法、假设、范围和不确定性。无依据则保留未知。预估与真实数值分开，不能写回真实归档；回看此前估计，取得同范围真实值后核对误差并追加修订，保留原稿，不重放旧任务。',
+                    'question': (management_question or QUESTIONS[item['kind']]) + report_note(now,item['kind']),
                     'mode': 'kpi' if item['kind']=='management' else 'daily' if item['kind'] == 'daily' else 'investigation'}
             try:
-                code, job = self.service.submit_scheduled(body)
+                code, job = self.service.submit_scheduled(body,context=report_context(now,item['kind'],warnings))
             except ValueError as error:
                 # Reconcile the original ID before retrying or allowing a later report.
                 job = self.service.get_job(owner, key)

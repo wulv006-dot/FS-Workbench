@@ -383,9 +383,11 @@ class Ledger:
         now = now or clock()
         with self.transaction() as db:
             op = self.get('operations', operation_id, db)
+            step = next(s for s in op['steps'] if s['step_id'] == step_id)
+            if op['status'] in ('COMPLETED','NO_CHANGE','CANCELLED_NOT_SENT','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED') or step['state']=='CANCELLED_NOT_SENT':
+                return None
             plan = self.get('pricing_plans', op['plan_id'], db)
             self.owns(plan, authority_resources(op['bundle']), db)
-            step = next(s for s in op['steps'] if s['step_id'] == step_id)
             if step.get('dispatched_at'):
                 return None
             if plan['state'] != 'ACTIVE':
