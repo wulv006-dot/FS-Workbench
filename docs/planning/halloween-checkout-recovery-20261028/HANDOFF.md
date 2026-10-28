@@ -23,6 +23,7 @@ Exact Admin GET lookups through the current HMAC channel returned zero rows for 
 - Retain the actual previous observation when using the existing freshness fallback, rather than replacing it with a failed/null observation.
 - Public overlay drops expired prices per combination, while retaining validation of release, identities, choices, currency and quantity.
 - Editor GET/HEAD starts a refresh without waiting for the multi-minute Admin batch. Mutation/publish behavior remains awaited.
+- The open page's last-reference cache only bridges a same-publication refresh until the original expiry. Release/hash changes clear it, and an expiry timer removes the visible reference at its deadline. Existing independently verified native-cart fallback remains unchanged; a stale cached price cannot itself enable Buy Now. The browser regression covers same-context reuse, expiry without a fresh feed, and independent release/hash changes.
 
 ## Pending production work and acceptance
 

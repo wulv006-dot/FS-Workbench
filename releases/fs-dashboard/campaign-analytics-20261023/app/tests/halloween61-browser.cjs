@@ -47,6 +47,37 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   await page.waitForFunction(()=>document.querySelector('#dialog-content').textContent.includes('$10.80'));
   assert.equal(await page.locator('#dialog-content input').inputValue(),'10');assert.equal(await page.locator('#dialog-content select').inputValue(),'1');assert.equal(posts.length,4);assert.equal(applies.length,4);
 
+  // A same-version refresh may reuse a still-fresh reference, never an expired one;
+  // changing publication context also drops a reference that has not expired.
+  await page.locator('[data-action="close"]').click();
+  await page.evaluate(()=>{
+   window.SeasonalCommerce.nativeOffer=()=>false;window.SeasonalCommerce.cachedReveal=()=>null;
+   window.SeasonalCommerce.refresh=async()=>{};
+   const input=structuredClone(window.SeasonalPublishedConfig);
+   for(const contract of Object.values(input.seasonal_model_contracts))for(const row of contract.combinations)if(row.price)row.price.expires_at=new Date(Date.now()+800).toISOString();
+   window.dispatchEvent(new CustomEvent('seasonal-published-catalog',{detail:input}));
+   window.__priceFallbackFixture=input;
+   const missing=structuredClone(input);for(const contract of Object.values(missing.seasonal_model_contracts))for(const row of contract.combinations)delete row.price;
+   window.dispatchEvent(new CustomEvent('seasonal-published-catalog',{detail:missing}));
+  });
+  assert.equal(await page.locator('[data-offer-slot="fixed"] .reference-price').count(),1);
+  await page.waitForFunction(()=>!document.querySelector('[data-offer-slot="fixed"] .reference-price'));
+  assert.equal(await page.locator('[data-offer-slot="fixed"] [data-model-buy]').isDisabled(),true);
+  for(const field of ['release_id','config_hash']){
+   await page.evaluate(field=>{
+    const input=structuredClone(window.__priceFallbackFixture);
+    for(const contract of Object.values(input.seasonal_model_contracts))for(const row of contract.combinations)if(row.price)row.price.expires_at=new Date(Date.now()+60000).toISOString();
+    window.dispatchEvent(new CustomEvent('seasonal-published-catalog',{detail:input}));
+    const missing=structuredClone(input);for(const contract of Object.values(missing.seasonal_model_contracts))for(const row of contract.combinations)delete row.price;
+    missing[field]=field==='config_hash'?'c'.repeat(64):'synthetic-new-release';
+    window.dispatchEvent(new CustomEvent('seasonal-published-catalog',{detail:missing}));
+   },field);
+   await page.locator('[data-fixed-reveal]').click();
+   assert.equal(await page.locator('[data-offer-slot="fixed"] .reference-price').count(),0);
+   assert.equal(await page.locator('[data-offer-slot="fixed"] [data-model-buy]').isDisabled(),true);
+  }
+  assert.equal(posts.length,4);assert.equal(applies.length,4);
+
   console.log('PASS Halloween61: four actual game pages -> distinct server mystery cards or quantity tiers -> exact option/quantity/native payload -> same-tab synthetic Cart + accepted/rejected Apply; reload never reposts; no live calls.');
  }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));fs.rmSync(dir,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

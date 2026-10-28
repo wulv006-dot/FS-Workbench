@@ -148,17 +148,17 @@
       return contract;
     }catch{return null;}
   }
-  // Keep the last known price. The feed refreshes in the background, so a price
-  // must never be replaced by an "unavailable" notice between user actions.
+  // Bridge a background refresh only until the original price expires.
   const lastPrices=new Map();
   function referenceFor(game,offer=fixedOffer(game)){
     const contract=contractFor(game,offer);if(!contract||offer.off_percent===null)return null;
     const key=game.id+':'+offer.model_id+':'+offer.off_percent+':'+(offer.quantity?.value||'');
+    const previous=()=>{const price=lastPrices.get(key);if(Date.parse(price?.expires_at)>Date.now())return price;lastPrices.delete(key);return null;};
     try{const priced=offer.quantity?{...contract,combinations:contract.combinations.filter(c=>c.quantity.min===offer.quantity.value&&c.quantity.max===offer.quantity.value&&c.quantity.unit===offer.quantity.unit)}:contract;const price=root.SeasonalModelSelection.defaultPrice(priced,offer.off_percent);
-      if(game.id==='fc'&&offer.slot==='fixed'&&(price.quantity.value!=='1000'||price.quantity.unit!=='K'))return lastPrices.get(key)||null;
+      if(game.id==='fc'&&offer.slot==='fixed'&&(price.quantity.value!=='1000'||price.quantity.unit!=='K'))return previous();
       lastPrices.set(key,price);
       return price;
-    }catch{return lastPrices.get(key)||null;}
+    }catch{return previous();}
   }
   function format(value,currency,scale){try{return new Intl.NumberFormat('en-US',{style:'currency',currency}).format(value/10**scale);}catch{return 'Reference price unavailable';}}
   function eventConfigured(){return view.status==='configured'&&view.probabilities&&view.binding&&view.starts_at&&view.ends_at&&Date.parse(view.starts_at)<=Date.now()&&Date.parse(view.ends_at)>=Date.now();}
@@ -201,9 +201,9 @@
     // only touch the DOM when the offers actually changed.
     const html=fixed+random;
     if(html!==lastSlotHtml){doc.querySelector('#offer-slots').innerHTML=html;lastSlotHtml=html;}
-    // An expired price refreshes promptly, but never faster than every 5s. The
-    // old 1ms floor spun the whole card list whenever the feed was failing.
-    const delay=Number.isFinite(nextExpiry)?Math.max(5000,nextExpiry-Date.now()+1):60000;
+    // Remove a visible price at its own expiry. A missing price polls at 60s,
+    // rather than looping on the expired timestamp of a previous reference.
+    const delay=Number.isFinite(nextExpiry)?Math.max(1,nextExpiry-Date.now()+1):60000;
     referenceTimer=setTimeout(()=>{renderSlots();root.SeasonalCommerce?.refresh().catch(()=>status('Prices could not be refreshed. Please use Refresh prices before continuing.'));},Math.min(2147483647,delay));
 
   }
@@ -232,7 +232,7 @@
     // A new US Eastern day closes every card again so it can be flipped afresh.
     const today=nyDay();
     if(today!==currentDay){currentDay=today;revealed.clear();receipts.clear();lastPrices.clear();}
-    if(config.release_id!==input.release_id||config.config_hash!==input.config_hash){receipts.clear();revealed.clear();}
+    if(config.release_id!==input.release_id||config.config_hash!==input.config_hash){receipts.clear();revealed.clear();lastPrices.clear();}
     config=input;view=project(config);media=config.page_media?.['seasonal-vault']||media;
     restoreReceipts();
     renderHero();renderGames();renderSlots();renderConfiguration();
