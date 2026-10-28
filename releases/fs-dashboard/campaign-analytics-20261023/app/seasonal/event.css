@@ -1032,3 +1032,11 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
   .countdown-seg b { font-size: 16px; }
   .game-badge { padding: 6px 11px; font-size: 10px; }
 }
+
+/* V15: the corner discount is a gold badge drawing, and every card shows one
+   shared artwork per game and product type instead of the shop photo. */
+.offer-badge { top: 6px; right: 6px; width: 56px; height: 56px; padding: 0; border-radius: 0; background: none; box-shadow: none; }
+.offer-badge img { display: block; width: 100%; height: 100%; filter: drop-shadow(0 3px 10px rgba(0,0,0,.5)); }
+@media (max-width: 640px) {
+  .offer-badge { top: 4px; right: 4px; width: 46px; height: 46px; }
+}

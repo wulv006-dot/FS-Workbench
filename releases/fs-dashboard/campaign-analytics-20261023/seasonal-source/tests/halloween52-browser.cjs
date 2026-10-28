@@ -21,7 +21,10 @@ unknown.products=[{key:'fixture-preview',title:'Synthetic <img src=x onerror=ale
 await page.evaluate(c=>window.dispatchEvent(new CustomEvent('seasonal-published-catalog',{detail:c})),unknown);
 await page.click('[data-game-card=aion]');await page.click('[data-fixed-reveal]');
 assert.match(await page.locator('#offer-slots').innerText(),/Synthetic <img src=x onerror=alert\(1\)> goods/);
-assert.equal(await page.locator('#offer-slots img').count(),0);assert.equal(await page.locator('.reference-price').count(),0);assert.equal(await page.locator('[data-model-buy]').isDisabled(),true);
+// Card artwork now comes from the published game/category drawing, not from the
+// imported product record, so an unknown import still shows a face. What must
+// stay true is that no image element can take its source from that record.
+assert.equal(await page.locator('#offer-slots img:not([src^="assets/"])').count(),0);assert.equal(await page.locator('#offer-slots img[src="x"]').count(),0);assert.equal(await page.locator('.reference-price').count(),0);assert.equal(await page.locator('[data-model-buy]').isDisabled(),true);
 // A subsequent empty/unconfigured publication cannot retain the previous offer or price.
 await page.evaluate(c=>window.dispatchEvent(new CustomEvent('seasonal-published-catalog',{detail:c})),config());
 assert.equal(await page.locator('[data-fixed-reveal]').isDisabled(),true);assert.equal(await page.locator('[data-model-buy]').isDisabled(),true);assert.doesNotMatch(await page.locator('#offer-slots').innerText(),/Synthetic <img|\$/);
