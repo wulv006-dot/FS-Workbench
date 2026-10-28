@@ -1,5 +1,6 @@
 """Legacy import adapter: finance retained, all production selection is FC Pricing V3."""
 from fc_pricing_v3.financial import *
+from fc_pricing_v3.selective_sources import input_ratio as envelope_ratio
 from fc_pricing_v3 import VERSION
 from fc_pricing_v3.runtime import verify_quote
 POSITION_VERSION = VERSION

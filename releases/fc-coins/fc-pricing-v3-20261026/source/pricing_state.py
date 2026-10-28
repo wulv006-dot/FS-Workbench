@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from pricing_v2 import VERSION,MARGIN_BASIS,POSITION_VERSION,fresh
+from fc_pricing_v3.selective_sources import CATALOG_CONTRACT,input_ratio
 
 ROOT=Path('/var/lib/fc27-cloud')
 
@@ -67,7 +68,9 @@ def state(root=ROOT,owner=None):
             for platform in ('PS','XBOX','PC'):
                 fresh(quote['evidence']['costs'][platform]['checked_at'],now)
                 fresh(quote['evidence']['storefront']['rows'][platform]['checked_at'],now)
-            fresh(quote['evidence']['promotion_envelope']['checked_at'],now,900)
+            if quote['evidence']['promotion_envelope'].get('contract')==CATALOG_CONTRACT:
+                input_ratio(quote['evidence']['promotion_envelope'],now)
+            else:fresh(quote['evidence']['promotion_envelope']['checked_at'],now,900)
             valid=(quote['result'].get('strategy_version')==VERSION and
                    (quote['result'].get('decision_receipt') or {}).get('margin_basis')==MARGIN_BASIS and
                    (quote['result'].get('decision_receipt') or {}).get('schema_version')==VERSION)
@@ -79,7 +82,8 @@ def state(root=ROOT,owner=None):
         if item.get('kind') not in {'auto_cycle','collect','execute','restore','recalculate','preview','hermes_review'}:continue
         recent.append({k:item.get(k) for k in ('job_id','kind','actor','status','created_at','completed_at','error','error_detail','result','public_page_readback','cache_refresh','blocked_platforms','reconciliation')})
         if len(recent)>=30:break
-    ready=bool(valid and quote['evidence']['promotion_envelope'].get('coupon_other_benefits_contract') in {'not_applicable','verified_mutually_exclusive','verified_included_in_envelope'})
+    ready=bool(valid and (quote['evidence']['promotion_envelope'].get('contract')==CATALOG_CONTRACT or
+        quote['evidence']['promotion_envelope'].get('coupon_other_benefits_contract') in {'not_applicable','verified_mutually_exclusive','verified_included_in_envelope'}))
     return dict(version=VERSION,observed_at=now.isoformat(),hard_minimum_margin_pct='20',margin_basis=MARGIN_BASIS,
                 execution_ready=ready,execution_block_reason=None if ready else ('本轮优惠适用合同未核定，不能执行。' if valid else reason+'，须重新采集核算，不能执行。'),
                 quote=quote,quote_usable=valid,quote_status=reason,recent=recent,hermes_review=owned_review(root,owner),
