@@ -15,7 +15,8 @@ export function projectAdminPrices(observation,policy,{now=Date.now()}={}){
  // Standard reference prices are US/USD; regional promotions need a separate
  // main-site checkout response and must not silently become the base anchor.
  if(policy?.baseline_region!=='us'||policy?.currency!=='USD'||policy?.regional_adjustment!=='none_verified')return blocked('US_USD_BASELINE_REQUIRED');
- const nativeItem=policy?.source_field==='unit_price'&&policy.price_semantics==='native_item_display_total'&&policy.rounding_contract==='native-js-number-format-tofixed-2'&&policy.minor_unit_scale===2&&policy.quantity_value==='1'&&policy.quantity_unit==='item';
+ const discountedD4Item=policy?.model_ref?.game_id==='456'&&policy.source_field==='unit_price'&&policy.price_semantics==='native_discounted_item_display_total';
+ const nativeItem=policy?.source_field==='unit_price'&&(policy.price_semantics==='native_item_display_total'||discountedD4Item)&&policy.rounding_contract==='native-js-number-format-tofixed-2'&&policy.minor_unit_scale===2&&policy.quantity_value==='1'&&policy.quantity_unit==='item';
  if(!policy||!((policy.source_field==='more.price'&&policy.price_semantics==='current_tier_total')||(policy.source_field==='full_price_format'&&policy.price_semantics==='current_item_display_total'&&policy.quantity_value==='1'&&policy.quantity_unit==='item')||nativeItem)
    ||!policy.evidence_ref||typeof policy.evidence_ref!=='string'||!/^[-a-zA-Z0-9_./:]{1,200}$/.test(policy.evidence_ref)
    ||!(/^[A-Z]{3}$/).test(policy.currency)||!Number.isInteger(policy.minor_unit_scale)||policy.minor_unit_scale<0||policy.minor_unit_scale>4)
@@ -55,7 +56,15 @@ export function projectAdminPrices(observation,policy,{now=Date.now()}={}){
     if(row.quantity?.group!=='1'||row.quantity?.unit&&row.quantity.unit!=='item')throw Error('QUANTITY_UNIT_UNVERIFIED');
     const raw=row.source_unit_price;
     if(typeof raw!=='string'||!/^\d{1,15}(?:\.\d{1,12})?$/.test(raw))throw Error('PRICE_FORMAT_UNVERIFIED');
-    base_minor=minor(Number(raw).toFixed(2),2);
+    let payable=Number(raw);
+    if(discountedD4Item){
+     // D4 item-d4.js passes unit price and the product's payable percentage to
+     // js_rate; US/USD js_rate divides that percentage by100 before toFixed(2).
+     const discount=row.source_discount;
+     if(typeof discount!=='string'||!/^\d{1,3}(?:\.\d{1,12})?$/.test(discount)||Number(discount)<=0||Number(discount)>100)throw Error('NATIVE_PRODUCT_DISCOUNT_UNVERIFIED');
+     payable*=Number(discount)/100;
+    }
+    base_minor=minor(payable.toFixed(2),2);
    }else{
     // Use the observed formatted one-item total; do not infer the native
     // formatter's rounding or multiply a raw high-precision unit price.
