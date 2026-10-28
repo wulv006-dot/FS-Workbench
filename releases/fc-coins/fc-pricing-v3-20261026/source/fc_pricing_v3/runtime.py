@@ -147,14 +147,15 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
     plan_id=(job.get('request') or {}).get('v3_plan_id')
     plan = db.get('pricing_plans',plan_id) if plan_id else db.active_plan()
     now = clock()
+    if (job.get('request') or {}).get('v3_authorization_purpose')=='original_unsent_ALL_steps_only':
+        required_history_ratio(evidence,now,require_current=True)
+        return calculate_postwrite(evidence,job,db)
     if plan and plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:
         raise ValueError('pricing_financial_plan_migration_required')
     required_history_ratio(evidence,now,require_current=True)
     from .uk_retirement import PURPOSE as UK_RETIREMENT,calculate as calculate_uk_retirement
     if (job.get('request') or {}).get('v3_authorization_purpose')==UK_RETIREMENT:
         return calculate_uk_retirement(evidence,job,db)
-    if (job.get('request') or {}).get('v3_authorization_purpose')=='original_unsent_ALL_steps_only':
-        return calculate_postwrite(evidence,job,db)
     mode = plan['mode'] if plan else 'revenue_sprint'
     evaluations = {mode:evaluate(evidence,mode,plan=plan,now=now)}
     evaluation = evaluations[mode]
