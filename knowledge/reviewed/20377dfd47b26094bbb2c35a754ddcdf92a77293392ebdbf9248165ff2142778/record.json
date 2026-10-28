@@ -1,0 +1,20 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "native:d2ec18ec",
+  "candidate_sha256": "31a4fd48d7c98e344c52254786b025abd776e586f4dc6fa7110e85234f250288",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "summary_only",
+  "evidence": "Original completed approve receipt with applied=true. Codex verified complete before/after bytes, original human task-scoped source and isolated actual candidate counterexamples. No new runtime permission, credentials, business action, notification or scheduler change.",
+  "formal_rule_change": false,
+  "kind": "native",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "receipt_sha256": "573174f660a93e71d4424156d40a3b764135bf12e88829037334d3c69c017dbf",
+  "request_id": "20377dfd47b26094bbb2c35a754ddcdf92a77293392ebdbf9248165ff2142778",
+  "runtime_activation": false,
+  "summary": "A short memory records an existing human instruction: FS networking requires explicit permission in that task or conversation and stays within that scope. No tool, network configuration, credentials or business-writing capability was enabled; transient tool status was omitted. Private memory text and original messages are not exported."
+}
