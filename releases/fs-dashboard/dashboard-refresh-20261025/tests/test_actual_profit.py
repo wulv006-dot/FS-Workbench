@@ -73,6 +73,21 @@ class ActualProfit(unittest.TestCase):
         self.assertTrue(_closed_complete({'data':data([],[])},q))
         from channel_effects import TZ
         self.assertFalse(_closed_complete(old,{'end':datetime.now(TZ).date().isoformat()}))
+    def test_closed_cache_needs_persisted_terminal_states_not_runtime_denominator(self):
+        q={'end':'2026-10-21'}
+        for status in ('问题订单','暂停发货','待发货','发货中','处理中','失败','状态未提供'):
+            with self.subTest(status=status):
+                old={'data':data([raw(status_format=status)],[]),'denominator':{'pendingOrders':0}}
+                self.assertFalse(_closed_complete(old,q))
+        for field in ('orders','status','refunded'):
+            with self.subTest(missing=field):
+                old={'data':data()}
+                if field=='orders':old['data'].pop(field)
+                else:old['data']['orders'][0].pop(field)
+                self.assertFalse(_closed_complete(old,q))
+        for status,pay in (('已完成',1),('已退款',2),('验证·未通过',1)):
+            with self.subTest(existing_terminal=status):
+                self.assertTrue(_closed_complete({'data':data([raw(status_format=status,pay_status=pay)],[])},q))
     def test_only_matching_site_and_order_cost_can_join(self):
         m=profit_view(data(costs=[delivery(source='www.mmoexp.com')]),{})['denominator'];self.assertEqual(m['coveredOrders'],0)
         with self.assertRaises(ValueError):normalized([raw()],[delivery(),delivery()])
@@ -167,6 +182,44 @@ class Service(unittest.TestCase):
         self.channels.publish(dict(data=empty,query=q,capturedAt=time.time()-3600),target)
         value=self.service.get(BASE,'admin')[1]
         self.assertTrue(value['refreshing']);self.assertTrue(value['stale']);self.assertEqual(len(self.pool.jobs),1)
+    def test_existing_all_site_unfinished_cache_reuses_values_then_refreshes_same_target(self):
+        params={'mode':['actual-profit'],'profile':['FC27'],'start':['2026-10-20'],'end':['2026-10-21'],'profit_site':['all']}
+        q=selection(params,PROFILES)
+        legacy=dict(q,contractId='admin-main-order-labelled-supplement-v1')
+        key=hashlib.sha256(json.dumps({k:v for k,v in legacy.items() if k not in ('period','refresh')},sort_keys=True).encode()).hexdigest()
+        self.service.root.mkdir();target=self.service.root/(key+'.json')
+        rows=[raw(str(i),id=i,gid=1327) for i in range(189)]+[raw('p'+str(i),id=200+i,gid=1327,status_format='问题订单') for i in range(3)]
+        d=dict(data(rows,[]),actualPeriod=q['period'])
+        captured=time.time()
+        self.channels.publish(dict(data=d,query=legacy,capturedAt=captured),target)
+        with patch('actual_profit.time.time',return_value=captured+599):
+            value=self.service.get(params,'admin')[1]
+        self.assertFalse(value['stale']);self.assertFalse(self.pool.jobs)
+        self.assertEqual((value['denominator']['completedOrders'],value['denominator']['pendingOrders']),(189,3))
+        with patch('actual_profit.time.time',return_value=captured+601):
+            value=self.service.get(params,'admin')[1]
+            self.service.get(params,'admin')
+        self.assertTrue(value['stale']);self.assertTrue(value['refreshing']);self.assertEqual(len(self.pool.jobs),1)
+        self.assertEqual(self.pool.jobs[0][1][:2],(key,target))
+        self.assertEqual(len(list(self.service.root.glob('*.json'))),1)
+        persisted=json.loads(target.read_text('utf-8'))
+        self.assertNotIn('denominator',persisted['data']);self.assertEqual(len(persisted['data']['orders']),192)
+    def test_actual_today_keeps_600_second_ttl_and_explicit_refresh(self):
+        from channel_effects import TZ
+        today=datetime.now(TZ).date().isoformat()
+        params={**BASE,'start':[today],'end':[today]};q=selection(params,PROFILES)
+        key=hashlib.sha256(json.dumps({k:v for k,v in q.items() if k not in ('period','refresh')},sort_keys=True).encode()).hexdigest()
+        self.service.root.mkdir();target=self.service.root/(key+'.json')
+        d=data([raw(paytime=today+' 00:00:00')]);d.update(period={'start':today,'end':today},actualPeriod=q['period'])
+        captured=time.time();self.channels.publish(dict(data=d,query=q,capturedAt=captured),target)
+        with patch('actual_profit.time.time',return_value=captured+599):
+            self.assertFalse(self.service.get(params,'admin')[1]['refreshing'])
+            self.service.get({**params,'refresh':['1']},'admin')
+        self.assertEqual(len(self.pool.jobs),1)
+        self.pool.jobs.clear();self.service.jobs.clear();self.service.starts.clear()
+        with patch('actual_profit.time.time',return_value=captured+601):
+            self.assertTrue(self.service.get(params,'admin')[1]['refreshing'])
+        self.assertEqual(len(self.pool.jobs),1)
     def test_denial_hides_previous_cache_and_can_recover_original_session(self):
         self.service.get(BASE,'admin');self.pool.drain();self.now=61
         self.service.cost_reader=Mock(side_effect=PermissionError('denied'));self.service.get({**BASE,'refresh':['1']},'admin');self.pool.drain();self.assertEqual(self.service.get(BASE,'admin')[0],403)
