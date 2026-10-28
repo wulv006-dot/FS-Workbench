@@ -145,7 +145,8 @@ class AdminDcTests(unittest.TestCase):
                 self.assertNotIn('fs-global-admin.json', text)
                 self.assertIn('src=/opt/fc27-cloud-browser/fc_shared_admin.py,dst=/usr/local/bin/p2pah_session_service.py', text)
                 self.assertNotIn('src=/opt/fs-order-session/fc_shared_admin.py,', text)
-                self.assertIn('flock -n 9', text) if name != 'clear_cache_after_write.sh' else None
+                if name != 'clear_cache_after_write.sh':
+                    self.assertIn('flock -w 20 9' if name == 'sync_players.sh' else 'flock -n 9', text)
                 base = admin.API_BASES[0] if '--network host' in text else admin.API_BASES[2]
                 self.assertIn('FS_ADMIN_API_BASE=' + base, text)
 
@@ -210,6 +211,105 @@ class AdminDcTests(unittest.TestCase):
         self.assertEqual(result['admin_dc'], 'reachable')
         self.assertEqual(result['admin_identity'], 'missing')
         self.assertEqual(result['p2pah_session'], 'missing')
+
+
+@unittest.skipUnless(os.name == 'posix' and shutil.which('flock') and shutil.which('timeout'), 'Linux flock contract')
+class PlayerWriterLockShellTests(unittest.TestCase):
+    def fixture(self, folder, recovery=False):
+        root = Path(folder) / 'state-root'
+        for name in ('requests', 'executions', 'config', 'state', 'player-sync', 'all-coin-sync'):
+            (root / name).mkdir(parents=True)
+        job = '00000000-0000-4000-8000-000000000091'
+        coin = '00000000-0000-4000-8000-000000000092'
+        request = root / 'requests' / (job + '.json')
+        request.write_text(json.dumps(dict(job_id=job, coin_execution_id=coin, recovery_preflight=recovery)))
+        for path in (root / 'executions' / (coin + '.json'), root / 'all-coin-sync' / (coin + '.json'), root / 'config/player-sync.json'):
+            path.write_text('{}')
+        shell = Path(folder) / 'sync_players.sh'
+        # Execute the complete original shell; only production paths and docker are isolated.
+        shell.write_text((SOURCE / 'sync_players.sh').read_text().replace('/var/lib/fc27-cloud', str(root)).replace('/opt/fc27-cloud-browser', str(Path(folder) / 'app')))
+        shell.chmod(0o700)
+        commands = Path(folder) / 'bin'; commands.mkdir()
+        (commands / 'python3').symlink_to(sys.executable)
+        docker = commands / 'docker'
+        docker.write_text('#!/bin/sh\nprintf "%s\\n" dispatch >> "$PLAYER_LOCK_TEST_MARKER"\nprintf "%s\\n" "{\\"status\\":\\"confirmed\\"}"\n')
+        docker.chmod(0o700)
+        marker = Path(folder) / 'dispatches'
+        waiting = Path(folder) / 'waiting'
+        flock = commands / 'flock'
+        flock.write_text('#!/bin/sh\n: > "$PLAYER_LOCK_TEST_WAITING"\nexec ' + shutil.which('flock') + ' "$@"\n')
+        flock.chmod(0o700)
+        env = dict(os.environ, PATH=str(commands) + os.pathsep + os.environ['PATH'], PLAYER_LOCK_TEST_MARKER=str(marker), PLAYER_LOCK_TEST_WAITING=str(waiting))
+        return root, shell, request, marker, env
+
+    def waiting(self, process, env):
+        import time
+        deadline = time.monotonic() + 5
+        while not Path(env['PLAYER_LOCK_TEST_WAITING']).exists() and process.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(Path(env['PLAYER_LOCK_TEST_WAITING']).exists(), 'original shell did not reach real flock')
+        self.assertIsNone(process.poll())
+
+    def test_wait_budget_fits_normal_and_readonly_probe_deadlines(self):
+        source = (SOURCE / 'sync_players.sh').read_text()
+        worker = ast.parse((SOURCE / 'fc27_cloud_worker.py').read_text())
+        timeouts = {n.args[-1].value for n in ast.walk(worker) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'run_writer_request' and len(n.args) == 4 and isinstance(n.args[1], ast.Constant) and n.args[1].value == 'sync_players.sh'}
+        self.assertEqual(timeouts, {180, 3700})
+        self.assertIn('limit=3600', source); self.assertIn('limit=150', source)
+        self.assertLess(20 + 3600, 3700); self.assertLess(20 + 150, 180)
+        self.assertLess(source.index('flock -w 20 9'), source.index('timeout "$limit"s docker run'))
+
+    def test_original_shell_waits_then_dispatches_exactly_once_for_both_paths(self):
+        import fcntl, subprocess, time
+        for recovery in (False, True):
+            with self.subTest(recovery=recovery), tempfile.TemporaryDirectory() as folder:
+                root, shell, request, marker, env = self.fixture(folder, recovery)
+                with (root / 'state/price-writer.lock').open('a') as lock:
+                    fcntl.flock(lock, fcntl.LOCK_EX)
+                    process = subprocess.Popen([str(shell), str(request)], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    try:
+                        self.waiting(process, env); self.assertFalse(marker.exists())
+                    finally:
+                        fcntl.flock(lock, fcntl.LOCK_UN)
+                    output, error = process.communicate(timeout=10)
+                self.assertEqual(process.returncode, 0, error)
+                self.assertEqual(marker.read_text().splitlines(), ['dispatch'])
+                self.assertEqual(json.loads(output)['status'], 'confirmed')
+
+    def test_original_shell_wait_timeout_is_busy_with_zero_docker_dispatch(self):
+        import fcntl, subprocess, time
+        with tempfile.TemporaryDirectory() as folder:
+            root, shell, request, marker, env = self.fixture(folder)
+            with (root / 'state/price-writer.lock').open('a') as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                started = time.monotonic()
+                process = subprocess.Popen([str(shell), str(request)], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                try:
+                    output, error = process.communicate(timeout=25)
+                finally:
+                    fcntl.flock(lock, fcntl.LOCK_UN)
+                    if process.poll() is None:process.kill(); process.communicate(timeout=5)
+            self.assertEqual(process.returncode, 75, error)
+            self.assertEqual(json.loads(output), {'status': 'busy'})
+            self.assertFalse(marker.exists()); self.assertGreaterEqual(time.monotonic() - started, 19)
+            self.assertLess(time.monotonic() - started, 25)
+
+    def test_killed_waiter_never_dispatches_and_inherited_lock_is_released(self):
+        import fcntl, subprocess, time
+        with tempfile.TemporaryDirectory() as folder:
+            root, shell, request, marker, env = self.fixture(folder)
+            with (root / 'state/price-writer.lock').open('a') as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                process = subprocess.Popen([str(shell), str(request)], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                try:
+                    self.waiting(process, env); self.assertFalse(marker.exists())
+                    process.terminate()
+                finally:
+                    fcntl.flock(lock, fcntl.LOCK_UN)
+                process.communicate(timeout=5)
+                self.assertNotEqual(process.returncode, 0); self.assertFalse(marker.exists())
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 if __name__ == '__main__':
