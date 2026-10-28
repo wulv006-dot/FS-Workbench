@@ -4,11 +4,55 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from .financial import fingerprint, required_history_ratio, fresh
+from . import financial as _math
 
 VERSION='fc27-selective-source-v1'
 MODES=('daily','revenue_sprint')
 RETIRED=('ELD','U4GM','IGGM','U7Buy')
 TZ=timezone(timedelta(hours=8))
+
+
+CATALOG_CONTRACT='fc-coins-catalog-dual20-v1'
+
+
+def input_ratio(envelope,now):
+    """Old promotion evidence is unchanged; V3 catalog makes no worst-offer claim."""
+    if not isinstance(envelope,dict) or envelope.get('contract')!=CATALOG_CONTRACT:
+        return _math.envelope_ratio(envelope,now)
+    if envelope.get('status')!='verified' or envelope.get('site_id')!=266 or envelope.get('game_id')!=1327:
+        raise ValueError('pricing_catalog_unverified')
+    if envelope.get('worst_status')!='unknown' or 'minimum_retained_ratio' in envelope:
+        raise ValueError('pricing_catalog_promotional_claim')
+    fresh(envelope.get('checked_at'),now,900)
+    if envelope.get('sha256')!=fingerprint({k:v for k,v in envelope.items() if k not in ('sha256','checked_at')}):
+        raise ValueError('pricing_catalog_hash_changed')
+    if not isinstance(envelope.get('packages'),dict) or set(envelope['packages'])!={'PS','XBOX','PC'}:
+        raise ValueError('pricing_catalog_scope_invalid')
+    return None
+
+
+def _math_ratio(ratio):
+    # The frozen dual20 formulas do not use this legacy argument for a hard or
+    # historical-average floor. Zero is internal numeric compatibility only;
+    # it is never stored/returned as an observed promotion or fresh envelope.
+    return 0 if ratio is None else ratio
+
+
+def input_catalog_floor(cost,fx,ratio,minimum,rules,*,average_ratio=None):
+    return _math.catalog_floor(cost,fx,_math_ratio(ratio),minimum,rules,average_ratio=average_ratio)
+
+
+def input_prove_catalog(unit,cost,fx,ratio,minimum,rules,*,average_ratio=None):
+    return _math.prove_catalog(unit,cost,fx,_math_ratio(ratio),minimum,rules,average_ratio=average_ratio)
+
+
+def input_prove_price(unit,cost_cny,fx,delivered_k,base_k,ratio,minimum=_math.HARD_MARGIN):
+    result=_math.prove_price(unit,cost_cny,fx,delivered_k,base_k,_math_ratio(ratio),minimum)
+    if ratio is None:
+        for key in ('worst_net_usd','promotional_net_usd','promotional_gross_usd','promotional_margin_pct','rounding_reserve_usd'):
+            result[key]=None
+        result['promotional_status']='unknown'
+    return result
 
 
 def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minutes=60):
@@ -25,9 +69,9 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
     return dict(version=VERSION,active_mode=active_mode,platforms=list(platforms),region_ids=regions,
         required_markets=markets,market_platforms={name:([p for p in platforms if p in ('PS','XBOX')] if name=='ArabUT' else list(platforms)) for name in markets},
         retired_automatic_sources=list(RETIRED),price_interval_minutes=interval_minutes,
-        quote_validity_seconds=900,hard_evidence=['current_cost','current_FX','current_promotion_envelope','current_public_price','affected_region_contract'],
+        quote_validity_seconds=900,hard_evidence=['current_cost','current_FX','current_catalog' if scope.get('catalog_only') is True else 'current_promotion_envelope','current_public_price','affected_region_contract'],
         history='same_seven_closed_days_and_original_hash_cache',
-        refresh_monthly_target=active_mode=='revenue_sprint',online_observation_job='preserved_separate_incremental_pipeline',
+        refresh_monthly_target=active_mode=='revenue_sprint' and scope.get('catalog_only') is not True,online_observation_job='preserved_separate_incremental_pipeline',
         historical_orders_in_quote=False,long_window_collection=False)
 
 
@@ -160,6 +204,8 @@ def context_from_cache(cache,plan,templates,now,*,monthly=None,online=None):
 def validate_current_hard_evidence(evidence,now,*,cost_seconds=3600,market_seconds=900):
     """No cache-hit freshness exemption. Consumer still performs full financial/scope proof."""
     fresh(evidence['fx']['checked_at'],now,cost_seconds)
+    if evidence['promotion_envelope'].get('contract')==CATALOG_CONTRACT:
+        input_ratio(evidence['promotion_envelope'],now)
     fresh(evidence['promotion_envelope']['checked_at'],now,market_seconds)
     for platform in evidence['source_plan']['platforms']:
         fresh(evidence['costs'][platform]['checked_at'],now,cost_seconds)

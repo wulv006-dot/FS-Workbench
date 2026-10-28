@@ -46,7 +46,8 @@ def shadow_progress(db,root,now):
 
 def source_coverage(snapshots,plans,now,interval_minutes=60):
     """Validate the last real owned snapshot per plan, within that plan's sampling interval."""
-    from .financial import number,instant,required_history_ratio,envelope_ratio,fingerprint
+    from .financial import number,instant,required_history_ratio,fingerprint
+    from .selective_sources import input_ratio as envelope_ratio
     from .engine import market_quote
     if not plans:return dict(status='not_required_without_active_plan',plans=[],issues=[])
     checks=[];issues=[]

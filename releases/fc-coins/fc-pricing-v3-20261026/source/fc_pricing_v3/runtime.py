@@ -21,7 +21,7 @@ def ledger():
     return Ledger(STORE/'control.sqlite3')
 
 
-def current_history_mix(now):
+def current_history_cache(now):
     """Use the same reconciled cohort at collection and the last write boundary."""
     from contextlib import closing
     import sqlite3
@@ -32,7 +32,11 @@ def current_history_mix(now):
     with closing(sqlite3.connect('file:'+str(STORE/'control.sqlite3')+'?mode=ro',uri=True)) as db:
         row=db.execute("SELECT body FROM metadata WHERE id='seven_day_history_cache'").fetchone()
     cache=json.loads(row[0]) if row else None
-    return checked_history_cache(cache,selective_history_signature(history_period(now)),now)['historical_discount_mix']
+    return checked_history_cache(cache,selective_history_signature(history_period(now)),now)
+
+
+def current_history_mix(now):
+    return current_history_cache(now)['historical_discount_mix']
 
 
 def write_json(path, value):
@@ -72,6 +76,9 @@ def context(evidence):
     from .sources import collect_context
     db=ledger()
     scope=collection_scope(db,evidence['run_id'])
+    from .selective_sources import CATALOG_CONTRACT
+    if (evidence.get('promotion_envelope') or {}).get('contract')==CATALOG_CONTRACT:
+        scope['scope']=dict(scope['scope'],catalog_only=True)
     envelope=collect_context(dict(evidence,price_windows=db.all('actual_price_windows'),
         active_mode=scope['active_mode'],active_scope=scope['scope'],
         history_cache=db.get('metadata','seven_day_history_cache'),online_context=db.get('metadata','daily_online_context')))
