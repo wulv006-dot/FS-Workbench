@@ -119,7 +119,11 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
     }
     for(const p of current.config.entries){
      const readKey=canonical([p.model_ref,p.category_id]);
-     const observation=await reads.get(readKey);
+     // A failed read is not fatal on its own: the entry's own freshness window decides
+     // whether the last good observation may still stand in for it. Awaiting the rejected
+     // promise here used to throw straight to the outer catch and void every other price.
+     let observation=null;
+     try{observation=await reads.get(readKey);}catch{observation=null;}
      if(generation!==admitted)return status;
      const latest=context();
      if(latest.key!==current.key){key=latest.key;generation++;unavailable(latest.release,'PRIVATE_POLICY_OR_RELEASE_CHANGED');return status;}
