@@ -20,8 +20,8 @@ class PublisherOrderCloseGuard(unittest.TestCase):
         self.db=sqlite3.connect(self.root/'v3/control.sqlite3');self.addCleanup(self.db.close)
         self.db.execute('CREATE TABLE operations(id TEXT PRIMARY KEY, body TEXT)')
         self.execution='5cf3f55c-0305-4c1d-a169-a6e259a83536'
-        self.read=function(SOURCE/'price_writer.py','ledger_operation_status',dict(ROOT=self.root,json=json))
-        self.resolved=function(SOURCE/'automation_tick.py','resolved_execution',{})
+        self.read=function(SOURCE/'price_writer.py','ledger_operation_status',dict(ROOT=self.root/'missing-container-root',Path=Path,json=json))
+        self.resolved=function(SOURCE/'automation_tick.py','resolved_execution',dict(ROOT=self.root))
         self.module=patch.dict(sys.modules,price_writer=SimpleNamespace(ledger_operation_status=self.read));self.module.start();self.addCleanup(self.module.stop)
     def ledger(self,status):
         self.db.execute('INSERT OR REPLACE INTO operations VALUES(?,?)',(self.execution,json.dumps({'status':status})));self.db.commit()
@@ -31,6 +31,12 @@ class PublisherOrderCloseGuard(unittest.TestCase):
         for status in TERMINAL_LEDGER_STATUS:
             with self.subTest(status=status):
                 self.ledger(status);self.assertTrue(self.resolved(self.audit(ledger_status=status)))
+    def test_explicit_host_root_reads_ledger_without_changing_container_default(self):
+        self.ledger('COMPLETED')
+        self.assertIsNone(self.read(self.execution))
+        self.assertIsNone(self.read(self.execution,root=self.root/'wrong-host-root'))
+        self.assertEqual(self.read(self.execution,root=self.root),'COMPLETED')
+        self.assertTrue(self.resolved(self.audit()))
     def test_missing_or_conflicting_ledger_and_unknown_audit_still_block(self):
         self.assertFalse(self.resolved(self.audit()))
         for status in ('UNKNOWN','RUNNING','NO_CHANGE'):
