@@ -36,6 +36,32 @@ check('three UI variants use the paid Admin cohort for all-site cards and trends
  assert.match(c.FSAion2Status.classify('AION2','available',profile,q).text,/已付款全部订单/);
  admin.filters.order_status='101';assert.equal(c.FSAion2Status.classify('AION2','available',profile,q).state,'unverified');
 }});
+check('paid order AOV is same-scope revenue/orders; native customer ARPU and customer fields stay unchanged',()=>{
+ for(const name of ['business.js','home-business.js','legacy-business.js','shell.js']){
+  const s=fs.readFileSync(path.join(root,'source',name),'utf8'),c=vm.createContext({fsActualMetrics:()=>({})});
+  vm.runInContext(s.slice(s.indexOf('function fsMainSite('),s.indexOf('function fsOrderLabel(')),c);
+  const metric=value=>({value,status:'available'}),period={start:'2026-10-27 00:00',end:'2026-10-28 00:00'};
+  const make=(orders,revenue,arpu,all=false)=>({key:'AION2',supplement:{status:'available',normalisedScope:all?'all-websites':'main-website',filters:{site:all?'':266},period,metrics:{orders:metric(orders),revenueUsd:metric(revenue),averageCustomerUsd:metric(arpu),newCustomers:metric(23),newCustomerSharePct:metric(23/orders*100),repeatRatePct:metric(61.97)},dimensions:{channels:all?[{name:'www.mmoexp.com',orders:186,revenueUsd:17689.92},{name:'satellite',orders:6,revenueUsd:424.35}]:[{name:'www.mmoexp.com',orders,revenueUsd:revenue}]}},primary:{status:'available',period,currency:'USD',metrics:{averageOrderUsd:metric(999)}}});
+  const main=make(186,17689.92,124.58),before=JSON.stringify(main),m=c.fsMainSite(main,false).metrics;
+  assert.ok(Math.abs(m.averageOrderUsd.value-17689.92/186)<1e-10,name);assert.equal(m.averageCustomerUsd.value,124.58);
+  assert.equal(m.newCustomerSharePct.value,23/186*100);assert.equal(m.repeatRatePct.value,61.97);assert.equal(JSON.stringify(main),before);
+  const all=make(192,18114.27,124.07,true);
+  assert.ok(Math.abs(c.fsMainSite(all,true).metrics.averageOrderUsd.value-18114.27/192)<1e-10,name);
+  assert.ok(Math.abs(c.fsMainSite(all,false).metrics.averageOrderUsd.value-17689.92/186)<1e-10,name);
+  const month=make(40340,1793798.75,95.26,true);assert.equal(c.fsMainSite(month,true).metrics.averageOrderUsd.value.toFixed(2),'44.47');
+  const empty=c.fsMainSite(make(0,0,0),false).metrics.averageOrderUsd;assert.equal(empty.value,null);assert.equal(empty.status,'not_computable');
+  const missing=make(3,30,10);delete missing.supplement.metrics.revenueUsd;missing.supplement.dimensions={channels:[]};assert.equal(c.fsMainSite(missing,true).metrics.averageOrderUsd.value,null);
+  const short=make(2,30,20);short.supplement.period={start:'2026-10-27 12:00',end:'2026-10-27 18:00'};assert.equal(c.fsMainSite(short,false).metrics.averageOrderUsd.value,15);
+  assert.equal(c.fsPaidOrderAverage({orders:{...metric(2),source:'Order',scope:'all'},revenueUsd:{...metric(30),source:'Admin',scope:'main'}}).value,null);
+  if(name!=='shell.js'){
+   assert.ok(s.includes("['客单价','averageOrderUsd',money]"));assert.ok(s.includes("['付费客户均额（ARPU）','averageCustomerUsd',money]"));
+   assert.equal(s.split("['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageOrderUsd']").length-1,3);
+   c.rsFilters={};c.rsScope=()=> 'RS';
+   vm.runInContext(s.slice(s.indexOf('function rsProjection('),s.indexOf('function rsShippingDays(')),c);
+   const rs=make(2,30,20);rs.key='RS';assert.equal(c.fsMainSite(rs).metrics.averageOrderUsd.value,15);
+  }
+ }
+});
 check('business cache version only; Google/retry unchanged',()=>{const shell=fs.readFileSync(path.join(root,'source/shell.js'),'utf8'),code=shell.slice(shell.indexOf('  const moduleURL='),shell.indexOf('  const [markup,stylesheet,module]='));for(const mode of ['business','google'])for(const retried of [false,true]){const url=vm.runInNewContext(code+';moduleURL.href',{URL,state:{mode},retried,base:new URL('https://fixture.test/dashboard/workspace-assets/current/'),location:{origin:'https://fixture.test'}}),q=new URL(url);assert.equal(q.searchParams.get('v'),mode==='business'?'admin-paid-cohort-20261028':null);assert.equal(q.searchParams.get('retry'),retried?'1':null);}});
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{

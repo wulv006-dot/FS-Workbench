@@ -332,12 +332,14 @@ def proven_prewrite_timeout(job, revision):
 def resolved_execution(record):
     if record.get("status") in {"CONFIRMED", "RESTORED", "CHECK_ONLY"}:
         return True
-    if record.get("status") == "ORDER_ADMIN_CONFIRMED":
+    if record.get("status") in {"ORDER_ADMIN_CONFIRMED", "PUBLIC_CONFIRMED"}:
         try:
-            from fc_pricing_v3.order_close import TERMINAL_LEDGER_STATUS
-            from price_writer import ledger_operation_status
+            from fc_pricing_v3.order_close import TERMINAL_LEDGER_STATUS,ledger_operation_status
+            compatibility = record['status']=='PUBLIC_CONFIRMED'
+            if compatibility and record.get('ledger_status')!='COMPLETED':return False
             return bool(record.get('ledger_status') in TERMINAL_LEDGER_STATUS and record.get('execution_id')
-                        and ledger_operation_status(record['execution_id'], root=ROOT) == record['ledger_status'])
+                        and ledger_operation_status(record['execution_id'], root=ROOT,
+                            **({'require_order_admin_close':True} if compatibility else {})) == record['ledger_status'])
         except (ImportError, OSError, ValueError, TypeError):
             return False
     if record.get("status") == "FAILED_BEFORE_WRITE":

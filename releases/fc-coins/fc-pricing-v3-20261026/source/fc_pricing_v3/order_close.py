@@ -227,6 +227,25 @@ def closed_audit_state(audit, receipt, ledger_status, closed_at):
     return updated
 
 
+def ledger_operation_status(operation_id, *, root, require_order_admin_close=False):
+    """Read the original operation without importing browser writer dependencies."""
+    import json,sqlite3
+    from pathlib import Path
+    path=Path(root)/'v3/control.sqlite3'
+    if not path.exists():return None
+    try:
+        db=sqlite3.connect('file:'+str(path)+'?mode=ro',uri=True,timeout=2)
+        try:row=db.execute('SELECT body FROM operations WHERE id=?',(operation_id,)).fetchone()
+        finally:db.close()
+        operation=json.loads(row[0]) if row else None
+        if require_order_admin_close and (not operation or operation.get('operation_id')!=operation_id
+                or operation.get('status')!='COMPLETED'
+                or (operation.get('order_close') or {}).get('reason')!='order_write_confirmed_admin_price_matched'):
+            return None
+        return operation.get('status') if operation else None
+    except Exception:return None
+
+
 def execution_is_unresolved(state, ledger_status=None):
     """writer 扫描判据：审计状态未收敛 **且** 账本没有给出终态。
 
@@ -235,6 +254,9 @@ def execution_is_unresolved(state, ledger_status=None):
     """
     if not isinstance(state, dict):
         return False
+    if state.get('status') == 'PUBLIC_CONFIRMED':
+        # Callers obtain this status with the same-operation Order/Admin proof.
+        return state.get('ledger_status') != 'COMPLETED' or ledger_status != 'COMPLETED'
     if state.get('status') not in UNRESOLVED_AUDIT_STATUS:
         return False
     return ledger_status not in TERMINAL_LEDGER_STATUS
