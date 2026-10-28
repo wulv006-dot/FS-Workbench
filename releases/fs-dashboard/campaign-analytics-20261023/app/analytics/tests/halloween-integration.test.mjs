@@ -14,6 +14,18 @@ test('Restore removes newly added Halloween property exactly; stale changes and 
  store.restoreDraft({revision:2,operation_id:randomUUID(),restore_revision:1},'synthetic');assert.deepEqual(store.read().draft,before);
  assert.throws(()=>store.save({revision:2,operation_id:randomUUID(),draft:next},'synthetic'),e=>e.code==='REVISION_CONFLICT');next.halloween.games[0].fixed_model='99999';assert.throws(()=>store.save({revision:3,operation_id:randomUUID(),draft:next},'synthetic'),e=>e.code==='HALLOWEEN_MODEL_NOT_IN_CATALOG');
 }finally{fs.rmSync(dir,{recursive:true,force:true});}});
+test('A release saved before the roster change still projects instead of failing the whole campaign',()=>{
+ // server.mjs serves every campaign page through one projectRelease(), so refusing the
+ // roster an existing release was written with would take FC down too.
+ const h=emptyHalloween();
+ h.games[2]={...h.games[2],id:'wow',label:'World of Warcraft',admin_game_id:null};
+ const projected=projectHalloween(h);
+ assert.deepEqual(projected.games.map(g=>g.id),['fc','aion','wow','maplestory']);
+ assert.equal(projected.games[2].label,'World of Warcraft');
+ // A roster the contract has never shipped is still rejected.
+ const foreign=structuredClone(h);foreign.games[2].id='eso';
+ assert.throws(()=>projectHalloween(foreign),e=>e.code==='INVALID_HALLOWEEN_CONFIG');
+});
 test('No implicit odds, wrong scope or accidental activation',()=>{for(const mutate of [h=>h.status='active',h=>h.games[0].admin_game_id='891',h=>h.games[0].fixed_off_percent=20,h=>h.probabilities=[{off_percent:8,weight:1},{off_percent:10,weight:1},{off_percent:15,weight:1}],h=>h.wishing_pool=true]){const h=emptyHalloween();mutate(h);assert.throws(()=>projectHalloween(h));}});
 test('FC fixed 1000K is a business amount, category modes stay distinct and pool eligibility never duplicates',async()=>{
  const {eligibleHalloweenPool}=await import('../../runtime/halloween-contract.mjs');const h=emptyHalloween();assert.deepEqual(h.games[0].fixed_quantity,{value:'1000',unit:'K',conversion_verified:false});

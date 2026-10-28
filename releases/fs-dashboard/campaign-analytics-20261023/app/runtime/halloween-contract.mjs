@@ -1,5 +1,11 @@
 // One draft/public contract. Missing historical field stays missing on save.
 const games=[['fc','FC27','1327'],['aion','Aion2','891'],['diablo','Diablo IV','456'],['maplestory','MapleStory',null]];
+// Configurations written before the fourth game was replaced still name WoW. They must
+// keep projecting: server.mjs serves every campaign page (FC included) through one
+// projectRelease(), so refusing an old roster would take the whole campaign offline
+// until someone hand-edits the stored draft. Reads accept either roster; new drafts are
+// created from the current one, and the first save migrates the record.
+const legacyGames=[['fc','FC27','1327'],['aion','Aion2','891'],['wow','World of Warcraft',null],['maplestory','MapleStory',null]];
 const error=()=>{throw Object.assign(Error('INVALID_HALLOWEEN_CONFIG'),{code:'INVALID_HALLOWEEN_CONFIG',status:400});};
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>keys.includes(k));
 const numeric=v=>typeof v==='string'&&/^[1-9]\d{0,19}$/.test(v);
@@ -16,7 +22,12 @@ export function projectHalloween(value){
   const rows=value.probabilities;if(!Array.isArray(rows)||rows.length!==3||new Set(rows.map(r=>r.off_percent)).size!==3||rows.some(r=>!exact(r,['off_percent','weight'])||![8,15,10].includes(r.off_percent)||!Number.isInteger(r.weight)||r.weight<0||r.weight>10000)||rows.reduce((s,r)=>s+r.weight,0)!==10000)error();
   out.probabilities=rows.map(r=>({off_percent:r.off_percent,weight:r.weight}));
  }
- out.games=games.map(([id,label,known])=>{
+ // Accept the roster this record was written with, so a code deploy cannot invalidate a
+ // live release. The current roster wins whenever it matches.
+ const roster=games.every(([id])=>value.games.some(g=>g.id===id))?games
+   :legacyGames.every(([id])=>value.games.some(g=>g.id===id))?legacyGames:null;
+ if(!roster)error();
+ out.games=roster.map(([id,label,known])=>{
   const rows=value.games.filter(g=>g.id===id);if(rows.length!==1)error();const g=rows[0];
   if(!exact(g,['id','label','admin_game_id','fixed_model','fixed_off_percent','fixed_quantity','random_quantities','random_source','random_models','random_count'])||g.label!==label||g.random_count!==2||g.admin_game_id!==null&&!numeric(g.admin_game_id)||known&&g.admin_game_id!==known||g.fixed_model!==null&&!numeric(g.fixed_model)||g.fixed_off_percent!==null&&![8,15,10].includes(g.fixed_off_percent)||!Array.isArray(g.random_models)||g.random_models.length>100||new Set(g.random_models).size!==g.random_models.length||g.random_models.some(k=>!numeric(k)||k===g.fixed_model))error();
   const source=g.random_source??{mode:'models',category_id:null,snapshot_complete:false};
