@@ -40,5 +40,16 @@
     "candidateSha256": "3d64968fa415549bb1a504f389123cf2118c8937cad77e4800a1cf7beaa0697b",
     "contract": "newer paid-cohort/summary contracts; separate maintenance source"
   },
-  "candidateHashBasis": "Final Git blob LF bytes; Windows worktree CRLF hash is not the deployment digest"
+  "candidateHashBasis": "Final Git blob LF bytes; Windows worktree CRLF hash is not the deployment digest",
+  "marketingApi": {
+    "source": "releases/fs-dashboard/daily-archive-20261021/source/marketing_range_api.py",
+    "target": "/opt/mmoexp-marketing/custom-range/range_api.py",
+    "candidate": "source/marketing-range_api.py",
+    "beforeSha256": "20118da302c9127cc5c2a1f6582252c8a2ce9f6c227ab7e86885a58e4d203499",
+    "candidateSha256": "adf53a334cfb22e35ba7d923aa101075ec1922f43e6a1d04f1f2f217064a3e74",
+    "owner": "0:0",
+    "mode": "0644",
+    "scope": "Preserve current run_links direct API hotfix; relative to current server bytes only change today TTL900 to600; historical86400/refresh unchanged",
+    "reload": "fs-marketing-range.service"
+  }
 }

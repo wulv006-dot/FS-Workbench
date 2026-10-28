@@ -51,3 +51,7 @@ Admin 全部使用现有 8912 API。`summary_bridge`、native collector、supple
 候选文件名分别为 `source/daily_archive.py`、`source/marketing-daily_archive.py`、`source/hermes-daily_archive.py`，同一旧源只复制到后两处。原发布适配器保留CAS、锁、fence、未知任务及回滚，nav精确目标保留既有0600，其余目标继续644断言。营销沿原重载链额外重载已活动 `fs-marketing-range.service`；原8935端口 `/range` 无X-Auth-User必在query前返回401，此只读契约已核，可用于重载后监听/鉴权读回，不能冒称经营采集验收。Hermes模型worker不为本补丁重启。
 
 本候选源提交/正式CI、暂存检查和实际发布分开。FC日期代码不属于数据34，已由主代理通过独立2目标发布；最终数据baseline必须在该发布后重取全部保护SHA，不能沿用旧manifest。
+
+## 营销当日600秒必要补项（最终35目标候选）
+
+当前营销 `/opt/mmoexp-marketing/custom-range/range_api.py` SHA `20118da3…` 相对旧维护源只多现场 `run_links` 直API热修。候选先精确保留这三行热修，再将当日TTL900改为600；相对现场只有该一行差异，历史86400与refresh原路径保持。该文件作为第35个已有目标、独立candidate `source/marketing-range_api.py`，最终35目标、NEW仍6，营销重载已在原适配链中。精确before/after及维护源见 `COMPAT-ARCHIVE-TARGETS.json`，不能使用旧8767版覆盖现场。
