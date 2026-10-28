@@ -107,6 +107,28 @@
 
 ---
 
+### 2026-10-28 价格 provider 批量扫描改造（PR #600/#602/#603/#604/#606，直接部署，未经 publisher）
+
+> 本节不是 publisher 发布：没有 `nav-*` release-id、没有 manifest、没有 `operations/` 回执。做法是从合并提交取 LF 原文，`install -m 644` 覆盖 `/opt/fs-campaign-dashboard` 下运行时文件后 `systemctl restart fs-campaign-dashboard`。`current.json` 的 `release_id` 仍 `campaign-preview-10`、`config_hash` 未重算，`state.published` 仍 `campaign-preview-11`。
+
+- 触发：`/events/seasonal/` 四游戏商品全站无价，`admin-reference-prices.json` 常驻 `status: unavailable` / `products: []`。
+- 定位：Admin 列表接口 `goods.Goods/index` 偶发卡 40–70 秒（同一参数在同一分钟内实测 130ms 与 70s），而 provider 是「任一条失败 → 整份作废」。原实现每模型 1 次 detail + 1–4 次 list + ≤12 次 detail，49 个模型约 120+ 次请求，在 1/3 卡顿率下全成功概率趋近于零。
+- 反证：19:45 已把上午 11:00 的基线逐字节还原（`adapters.py` `f77b96c7`、`admin-price-provider.mjs` `08678896`、`policy.json` `6751db1f`），连续多轮仍 `unavailable` — 与代码版本无关。
+- 实现：`adapters.search()` 原有 `IN` 操作符首次用于商品列表。`AdminRead.prefetch_goods()` 按游戏一次 `mid IN (...)` 扫描，按 `mid` 分组缓存；`search_goods_page()` 命中缓存时本地切片，页码 / 去重 / scope 校验完全保留；新增 `model_provider_batch`（`provider.py` 实现 + `bridge.py` 动作分发 + `backend-client.mjs` 读白名单），`admin-price-provider.mjs` 从 49 次单模型调用改为按游戏 4 次批量、逐游戏串行。
+- 五个坎（均实测确认后才改，每个都走 PR + `pr-fast` 全套）：
+  1. #600 批量本身：请求数 49→4，但 1327 组扫描吃满整份 45s 预算。
+  2. #602 `limit=50` 分页反而更慢（1327 三次分页累计 7.4s），改 `limit=200` 单页 240ms 取全 132 行；新增 `reset_catalog_budget()`，让扫描与详情各用各的窗口。
+  3. #603 44 次模型详情共用一个 45s 窗口仍不够（15 成 / 29 败），改为每模型独立预算；`await reads.get()` 的 rejected promise 改为逐条降级 `observation=null`，使 `sticky` 跨轮兜底首次真正生效。
+  4. #604 全部成功但整组 196s，超过子进程 180s 上限被 kill，放宽到 300s。
+  5. #606 1327 组稳定 42/44，2 条 `CATALOG_SEARCH_HTTP_REJECTED` 瞬时失败且永远进不了 sticky，改为扫描后对失败模型在原缓存上重试一次。
+- 数据一致性（改代码前只读验证）：44 个 FC27 模型一次 `IN` 取全 132 行 / 3 页 / 503ms、无缺失；抽样 3 个 `mid` 与单查（带 `cid`）逐 `id` 比对完全一致（`only_in_IN=0 only_in_single=0`）。
+- 请求量：列表查询约 110 次 → 9 次；bridge 子进程 49 个 → 4 个。
+- 配置：`policy.json` 的 `admin_reference_prices.refresh_interval_ms` 60000 → 300000（实测单轮约 190s，60s 间隔等于连轴打上游）；`entries` 53 条 / 49 唯一模型、`max_age_ms` 900000 均未动。
+- 回退点：`/var/backups/fs-campaign-batch-20261028/`（改造前 5 个文件）、`/var/backups/fs-campaign-price-timeout-20261028/`、`/var/backups/fs-campaign-price-current-20261028T1945/`。
+- 遗留：单轮约 190s 主要耗在 44 次模型详情（约 4s/次，历史 0.3s），组内并发可提速，本轮未做；`release_id` / `state.published` 未随本次部署更新；D4 替换 WoW 未上线。
+
+---
+
 ## 回退与边界
 
 - 代码回滚不放回 policy、公开配置、优惠码或派生价格缓存；数据与账本保留在原位置。
