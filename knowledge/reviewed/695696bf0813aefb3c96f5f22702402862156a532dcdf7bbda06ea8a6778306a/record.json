@@ -1,0 +1,34 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "skill:2cf9cca7",
+  "candidate_sha256": "7d387941552e4d1ebdc77885fb6fd6fc1a243378416b82ac30ec8321593fef62",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "reusable",
+  "evidence": "Original completed approve receipt with applied=true. Codex verified complete before/after bytes, original human task-scoped source and isolated actual candidate counterexamples. No new runtime permission, credentials, business action, notification or scheduler change.",
+  "formal_rule_change": false,
+  "kind": "skill",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "packages": [
+    {
+      "exists": true,
+      "files": [
+        {
+          "mode": 420,
+          "path": "SKILL.md",
+          "sha256": "7e6e96489e5bc70d53d173ad95e55fe056d5057b3722c34b8ae5d4776497db16"
+        }
+      ],
+      "path": "fs-operations/fs-evidence-reconciliation",
+      "sha256": "2219ceb83be7c1ce0729267776ffa98cd46752b2c084ac6a4c3e65c0f1aa13f3"
+    }
+  ],
+  "receipt_sha256": "c11ceed07a4234c6cb1160d22b16dc2b7aeec05f7ac290bcede0ec57d6a5e8e0",
+  "request_id": "695696bf0813aefb3c96f5f22702402862156a532dcdf7bbda06ea8a6778306a",
+  "runtime_activation": false,
+  "summary": "fs-evidence-reconciliation 1.0.4 preserves prior methods and consolidates usage/cost evidence checks: actual versus missing cache usage, per-call windows, rate provenance, original request attribution and missingness-preserving summaries. No fixed prices or new business rules."
+}
