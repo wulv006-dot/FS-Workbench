@@ -40,10 +40,10 @@ except Exception:  # pragma: no cover
         return isinstance(state, dict) and state.get("status") in {"RUNNING", "UNCERTAIN", "PARTIAL"}
 
 
-def ledger_operation_status(operation_id):
+def ledger_operation_status(operation_id, *, root=None):
     """读账本里该操作的终态；读不到返回 None（调用方按未收敛处理）。"""
     import sqlite3
-    path = ROOT / "v3" / "control.sqlite3"
+    path = (ROOT if root is None else Path(root)) / "v3" / "control.sqlite3"
     if not path.exists():
         return None
     try:
