@@ -210,6 +210,13 @@ class ESReader:
         if self.config.get('enabled') is not True:return unavailable(q,'fc_detail_disabled')
         try:
             bundle=future.result()
+            permission_failure=bundle.get('reason')=='es_export_permission_denied' or any(
+                item.get('value',{}).get('quality',{}).get('last_attempt_reason')=='es_export_permission_denied' for item in bundle.get('snapshots',[]))
+            if permission_failure and _permission_recovered(q):
+                with self.lock:
+                    if self.jobs.get(key) is future:
+                        self.created[key]=time.monotonic();self.jobs[key]=self.pool.submit(self.reader,dict(q))
+                return dict(unavailable(q,'es_source_running'),status='pending',reason='es_source_running',retryAfter=3)
             if bundle.get('status')=='pending' or bundle.get('refresh_pending'):
                 if time.monotonic()-started>=bundle.get('retryAfter',3):
                     with self.lock:
@@ -240,10 +247,10 @@ def export_bundle(manager,args,headers,download,archive=None,deadline=None,priva
     remaining=deadline-time.monotonic()
     if remaining<=0:return {'status':'unavailable','reason':'es_deadline_before_generation','retryable':True,'stage':'not_generated'}
     status,raw=manager.request(path,token=token,timeout=min(90,remaining))
-    if status in (401,403):return {'status':'unavailable','reason':'es_export_permission_denied','retryable':True,'stage':'not_generated'}
+    if status in (401,403):return {'status':'unavailable','reason':'es_export_permission_denied','retryable':False,'stage':'not_generated'}
     if status!=200 or len(raw)>1024*1024:return {'status':'unavailable','reason':'es_export_request_failed_or_unknown','retryable':False,'stage':'export_sent'}
     payload=json.loads(raw)
-    if payload.get('code') in (401,403):return {'status':'unavailable','reason':'es_export_permission_denied','retryable':True,'stage':'not_generated'}
+    if payload.get('code') in (401,403):return {'status':'unavailable','reason':'es_export_permission_denied','retryable':False,'stage':'not_generated'}
     urls=(payload.get('data') or {}).get('urls')
     if payload.get('code')!=1 or not isinstance(urls,list) or not 1<=len(urls)<=20 or len(set(urls))!=len(urls):return {'status':'unavailable','reason':'es_export_manifest_invalid','retryable':False,'stage':'export_sent'}
     files=[];failed=0
@@ -517,19 +524,58 @@ def reclaim_projection_slot(root,read):
     return False
 
 
-def _server_bundle(args,root,source):
+def _permission_denial(value):
+    return isinstance(value,dict) and value.get('reason')=='es_export_permission_denied' and value.get('stage')=='not_generated'
+
+
+def _receipt_paths(args,root):
+    key=hashlib.sha256(json.dumps({'query':args,'rule':RULE_VERSION},sort_keys=True).encode()).hexdigest()
+    period=hashlib.sha256(json.dumps({'start':args['start'],'end':args['end']},sort_keys=True).encode()).hexdigest()
+    legacy=hashlib.sha256(json.dumps({k:args[k] if k!='profile' else 'FC27' for k in ('profile','start','end')},sort_keys=True).encode()).hexdigest()
+    return root/(key+'.json'),root/(period+'.attempt'),root/(legacy+'.attempt')
+
+
+def _read_receipt(path):
+    import os,stat
+    info=path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size>8*1024*1024:raise ValueError('es_cache_file')
+    if os.name=='posix' and (info.st_uid!=os.geteuid() or info.st_mode&0o077):raise ValueError('es_cache_file_permissions')
+    raw=path.read_bytes()
+    return json.loads(raw),hashlib.sha256(raw).hexdigest()
+
+
+def _permission_recovered(args,root=Path('/var/lib/fs-hermes-fc/fs/es-structures')):
+    # A long-lived reader may still hold the old failure after an operator restores this receipt.
+    try:
+        root=Path(root)
+        if any(p.is_symlink() for p in (root,*root.parents)):return False
+        index,attempt,legacy=_receipt_paths(args,root)
+        saved,_=_read_receipt(index);value=saved.get('value') or {}
+        return (not saved.get('last_attempt') and value.get('status')=='available'
+            and not any(p.exists() or p.is_symlink() for p in (attempt,legacy)))
+    except (OSError,ValueError,TypeError):return False
+
+
+def recheck_permission(args,expected_receipt_sha,root=Path('/var/lib/fs-hermes-fc/fs/es-structures'),source=None):
+    """Operator-only same-receipt retry after permission repair; never an HTTP force option."""
+    if not isinstance(expected_receipt_sha,str) or not re.fullmatch('[a-f0-9]{64}',expected_receipt_sha):raise ValueError('es_recheck_receipt_sha')
+    with SERVER_LOCK:return _server_bundle(checked_query(args),root,source,expected_receipt_sha)
+
+
+def _server_bundle(args,root,source,recheck_sha=None):
     """Original durable attempt owns the direct API export; unknown never regenerates."""
     import os,stat,tempfile
     args=checked_query(args);root=Path(root)
     if any(p.is_symlink() for p in (root,*root.parents)):raise ValueError('es_cache_symlink')
     root.mkdir(mode=0o700,parents=True,exist_ok=True)
     if os.name=='posix' and (root.stat().st_uid!=os.geteuid() or root.stat().st_mode&0o077):raise ValueError('es_cache_permissions')
-    key=hashlib.sha256(json.dumps({'query':args,'rule':RULE_VERSION},sort_keys=True).encode()).hexdigest();index=root/(key+'.json');period_key=hashlib.sha256(json.dumps({'start':args['start'],'end':args['end']},sort_keys=True).encode()).hexdigest();attempt=root/(period_key+'.attempt')
-    def read(path):
-        info=path.lstat()
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size>8*1024*1024:raise ValueError('es_cache_file')
-        if os.name=='posix' and (info.st_uid!=os.geteuid() or info.st_mode&0o077):raise ValueError('es_cache_file_permissions')
-        return json.loads(path.read_text('utf-8'))
+    index,attempt,legacy_attempt=_receipt_paths(args,root)
+    def read(path):return _read_receipt(path)[0]
+    def release_unsent():
+        if created_attempt is None or not attempt.exists():return
+        info=attempt.lstat()
+        if not stat.S_ISREG(info.st_mode) or created_attempt!=(info.st_dev,info.st_ino):raise ValueError('es_original_attempt_changed')
+        attempt.unlink()
     def save(value):
         fd,name=tempfile.mkstemp(prefix='.es-',dir=root)
         try:
@@ -537,17 +583,35 @@ def _server_bundle(args,root,source):
             os.replace(name,index)
         finally:
             if os.path.exists(name):os.unlink(name)
-    saved=read(index) if index.exists() or index.is_symlink() else None
+    saved,receipt_sha=_read_receipt(index) if index.exists() or index.is_symlink() else (None,None)
     previous=saved.get('value') if saved else None;now=time.time()
-    if saved:
+    refusal=None
+    if saved and saved.get('last_attempt') in (None,'es_export_permission_denied'):
+        refusal=next((value for value in (saved.get('last_attempt_result'),previous) if _permission_denial(value)),None)
+    legacy_good=bool(saved and previous and previous.get('status')=='available'
+        and saved.get('last_attempt')=='es_export_permission_denied' and not saved.get('last_attempt_result')
+        and previous.get('reason') in (None,'es_export_permission_denied') and previous.get('stage') in (None,'not_generated'))
+    pending_attempt=any(p.exists() or p.is_symlink() for p in (attempt,legacy_attempt))
+    if recheck_sha is not None:
+        if receipt_sha!=recheck_sha:raise ValueError('es_recheck_receipt_changed')
+        if (refusal is None and not legacy_good) or pending_attempt:raise ValueError('es_recheck_original_not_definitely_unsent')
+    elif saved and (refusal or saved.get('last_attempt')=='es_export_permission_denied' or (previous or {}).get('reason')=='es_export_permission_denied'):
+        if pending_attempt:return retained_bundle(previous,'es_export_previous_attempt_unknown_requires_reconcile')
+        if refusal is None:
+            return dict(retained_bundle(previous,'es_export_permission_denied'),reason='es_export_permission_denied',retryable=False)
+        refusal={k:refusal[k] for k in ('status','reason','stage') if k in refusal};refusal['retryable']=False
+        upgraded=dict(saved,retryable=False,next_retry_at=0,last_attempt='es_export_permission_denied',last_attempt_result=refusal)
+        if _permission_denial(previous):upgraded['value']=dict(previous,retryable=False)
+        if upgraded!=saved:save(upgraded)
+        return dict(retained_bundle(previous,'es_export_permission_denied'),reason='es_export_permission_denied',stage='not_generated',retryable=False)
+    if saved and recheck_sha is None:
         if saved.get('next_retry_at',0)>now:
             out=retained_bundle(previous,saved['last_attempt']) if previous and previous.get('status')=='available' else dict(previous or {},retryable=saved.get('retryable',False))
             if saved.get('retryable'):out.update(refresh_pending=True,retryAfter=max(3,saved['next_retry_at']-now))
             return out
         if previous and previous.get('status')=='available' and 0<=now-saved['saved_at']<cache_seconds(args['end']) and not saved.get('last_attempt'):return previous
         if previous and previous.get('status')!='available' and not saved.get('retryable'):return previous
-    legacy_key=hashlib.sha256(json.dumps({k:args[k] if k!='profile' else 'FC27' for k in ('profile','start','end')},sort_keys=True).encode()).hexdigest()
-    legacy_attempt=root/(legacy_key+'.attempt')
+    created_attempt=None
     poll_only=attempt.exists() or attempt.is_symlink() or legacy_attempt.exists()
     if poll_only:read(attempt if attempt.exists() else legacy_attempt)
     else:
@@ -556,7 +620,22 @@ def _server_bundle(args,root,source):
         try:fd=os.open(str(attempt),os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
         except FileExistsError:poll_only=True
         else:
+            info=os.fstat(fd);created_attempt=(info.st_dev,info.st_ino)
             with os.fdopen(fd,'w',encoding='utf-8') as stream:json.dump({'query':args,'started_at':datetime.now(timezone.utc).isoformat()},stream);stream.flush();os.fsync(stream.fileno())
+    if recheck_sha is not None and not poll_only:
+        try:
+            if _read_receipt(index)[1]!=recheck_sha:raise ValueError('es_recheck_receipt_changed')
+            info=attempt.lstat()
+            if (legacy_attempt.exists() or legacy_attempt.is_symlink() or not stat.S_ISREG(info.st_mode)
+                    or created_attempt!=(info.st_dev,info.st_ino)):
+                raise ValueError('es_recheck_original_not_definitely_unsent')
+        except Exception:
+            release_unsent();raise
+    denial_history=saved.get('permission_denial') if saved else None
+    if recheck_sha is not None:
+        # Retain the original refusal even when this same index later becomes successful/unknown.
+        denial_history=denial_history or {'receipt_sha256':receipt_sha,'saved_at':saved.get('saved_at'),
+            'result':{k:refusal[k] for k in ('status','reason','stage','retryable') if k in refusal} if refusal else {'reason':'es_export_permission_denied'}}
     try:
         if poll_only:
             value={'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_export_previous_attempt_unknown_requires_reconcile','retryable':False}
@@ -574,14 +653,19 @@ def _server_bundle(args,root,source):
             for item in value['snapshots']:
                 q=checked_query(item['query']);projection=item['value']
                 if q!=args or projection.get('kind')!='es_order_structure' or projection.get('source_version') is not None and not re.fullmatch('[a-f0-9]{64}',projection['source_version']):raise ValueError('es_response_contract')
-            save({'saved_at':now,'value':value});
+            save(dict(saved_at=now,value=value,**({'permission_denial':denial_history} if denial_history else {})));
             if attempt.exists():attempt.unlink()
             return value
-        retry=value.get('retryable') is True and value.get('stage')=='not_generated'
+        denied=_permission_denial(value)
+        retry=not denied and value.get('retryable') is True and value.get('stage')=='not_generated'
         reason=value.get('reason','es_source_unavailable')
-        save({'saved_at':saved['saved_at'] if saved and previous and previous.get('status')=='available' else now,'value':previous if previous and previous.get('status')=='available' else value,'last_attempt':reason,'next_retry_at':now+(30 if retry else 21600),'retryable':retry})
-        if retry and attempt.exists():attempt.unlink()
+        record={'saved_at':saved['saved_at'] if saved and previous and previous.get('status')=='available' else now,'value':previous if previous and previous.get('status')=='available' else value,'last_attempt':reason,'next_retry_at':now+(30 if retry else 21600),'retryable':retry}
+        if denied:record['last_attempt_result']={k:value[k] for k in ('status','reason','stage','retryable') if k in value}
+        if denial_history:record['permission_denial']=denial_history
+        save(record)
+        if retry or denied:release_unsent()
         out=retained_bundle(previous,reason)
+        if denied:out.update(reason=reason,stage='not_generated',retryable=False)
         if retry:out.update(retryable=True,refresh_pending=True,retryAfter=30)
         return out
     except Exception:return retained_bundle(previous,'es_export_result_unknown_poll_only',True)

@@ -906,7 +906,7 @@ def main():
             units("releases/fs-dashboard/fc-coins-workflow-20261022/tests",["test_workflow"])
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="cache-archive-retention":
-            units("releases/fs-dashboard/cache-archive-retention-20261025/tests",["test_retention","test_admin_sharing"])
+            units("releases/fs-dashboard/cache-archive-retention-20261025/tests",["test_retention","test_admin_sharing","test_direct_es_api"])
         elif group=="fc-coins-evidence":
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="daily-archive":
@@ -1241,6 +1241,7 @@ def main():
             units("releases/fs-dashboard/fc-order-wait-sort-20261020/tests",["test_wait_sort"])
         elif group=="customer-lifecycle":
             units("releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests",["test_lifecycle"])
+            units("releases/fs-dashboard/hermes-customer-tracking-20261018/tests",["test_private_tracking"])
         elif group=="hermes-navigation-range":
             units("releases/fs-dashboard/hermes-navigation-range-20261019/tests",["test_contract"])
             node("releases/fs-dashboard/hermes-navigation-range-20261019/tests/range.cjs")

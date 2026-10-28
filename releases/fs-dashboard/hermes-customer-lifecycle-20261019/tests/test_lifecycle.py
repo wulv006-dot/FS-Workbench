@@ -1,6 +1,9 @@
-import sys,json,tempfile,unittest
+import sys,json,tempfile,unittest,hashlib,ast,re,time,threading,types
+from concurrent.futures import Future
+from copy import deepcopy
+from unittest.mock import patch,Mock
 from pathlib import Path
-from datetime import datetime,timezone,timedelta
+from datetime import date,datetime,timezone,timedelta
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
 from customer_tracking import Store,lifecycle_clock,AdminService
 from pool_reports import PoolReports,pool_evidence
@@ -90,4 +93,127 @@ class Tests(unittest.TestCase):
   code,r=c.get('tester',{'mode':['hermes'],'structure':['customer_tracking'],'view':['pool_reports']});self.assertEqual(r['items'][0]['state'],'completed')
   c.post('tester',{'kind':'hermes_customer_tracking','action':'stop','tracking_id':self.id,'request_id':'d'*32})
   self.assertEqual(c._poll_history(self.id),'stopped');c._queue_reports();self.assertEqual(f.calls,1)
+class PermissionRecovery(unittest.TestCase):
+ def setUp(self):
+  import tracking_controller as controller
+  from customer_tracking import DEFAULT_CONFIG,scan_job_sha256
+  self.module=controller;self.config=deepcopy(DEFAULT_CONFIG);self.day='2026-10-28';self.rid='1'*32
+  self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);self.esroot=self.root/'es';self.esroot.mkdir(mode=0o700)
+  source=Path(__file__).resolve().parents[2]/'cache-archive-retention-20261025/source/es_order_structure.py'
+  tree=ast.parse(source.read_text('utf-8'));self.es=types.ModuleType('es_order_structure')
+  self.es.__dict__.update(Path=Path,hashlib=hashlib,json=json,re=re,time=time,date=date,datetime=datetime,timezone=timezone,timedelta=timedelta,
+   GAME_LABELS={'FC27':'FC 27'},GROUPS=('game','source_game','product','country','payment','new_customer','status'),DISCOUNT_GROUPS=(),
+   RULE_VERSION='original-contract',SHANGHAI=timezone(timedelta(hours=8)),SERVER_LOCK=threading.RLock())
+  names={'checked_query','_receipt_paths','_read_receipt','_permission_denial','_server_bundle','cache_seconds','retained_bundle'}
+  exec(compile(ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in names],type_ignores=[]),str(source),'exec'),self.es.__dict__)
+  self.patches=[patch.dict(sys.modules,es_order_structure=self.es),patch('customer_tracking.game_scope',return_value=(1327,'FC 27'))]
+  for p in self.patches:p.start()
+  self.client=Mock();self.client.read.return_value={'status':'pending'}
+  self.c=controller.TrackingController(self.root/'tracking',lambda user:user=='admin',self.client,auto_start=False)
+  self.c.store.begin_scan(self.day,self.rid)
+  self.c.store.finish_scan(self.day,1,dict(status='unavailable',reason='es_export_permission_denied',retryable=True,stage='not_generated'))
+  with self.c.store.db() as db:
+   db.execute("UPDATE scan_jobs SET updated_at='2026-10-28T10:00:00+00:00'")
+  self.job_sha=scan_job_sha256(self.c.store.scan_job(self.day))
+  q=self.es.checked_query(dict(profile='ALL',start=self.day,end=self.day))
+  self.index,self.attempt,self.legacy=self.es._receipt_paths(q,self.esroot)
+  self.saved=dict(saved_at=time.time(),permission_denial=dict(receipt_sha256='e'*64,result=dict(reason='es_export_permission_denied')),
+    value=dict(kind='es_order_structure_bundle',status='available',snapshots=[dict(query=q,value=dict(kind='es_order_structure',status='available',
+     source_version='f'*64,captured_at=datetime.now(timezone.utc).isoformat(),quality=dict(file_set_complete=True,parse_failures=0,failed_files=0,declared_files=1,read_files=1)))]))
+  self.save_receipt()
+ def tearDown(self):
+  if getattr(self,'reads',None):self.reads.pool.shutdown()
+  for p in reversed(self.patches):p.stop()
+  self.tmp.cleanup()
+ def save_receipt(self):
+  self.index.write_text(json.dumps(self.saved));self.index.chmod(0o600);self.es_sha=hashlib.sha256(self.index.read_bytes()).hexdigest()
+ def daily_once(self):
+  class Clock(datetime):
+   @classmethod
+   def now(cls,tz=None):return datetime(2026,10,29,2,tzinfo=timezone(timedelta(hours=8))).astimezone(tz or timezone.utc)
+  with patch('tracking_controller.datetime',Clock),patch('tracking_controller.time.sleep',side_effect=StopIteration):
+   with self.assertRaises(StopIteration):self.c._daily_loop()
+ def test_definite_denial_new_and_legacy_sixty_stop_only_original_daily(self):
+  self.assertIsNone(self.c.store.scan_job(self.day)['retry_after'])
+  for retry in (None,60):
+   with self.c.store.db() as db:db.execute('UPDATE scan_jobs SET retry_after=?',(retry,))
+   before=self.c.store.scan_job(self.day);self.daily_once()
+   self.assertEqual(self.c.store.scan_job(self.day),before);self.client.read.assert_not_called()
+   value=self.c.store.candidates(self.day);self.assertEqual(value['status'],'failed');self.assertFalse(value['retryable']);self.assertIsNone(value['retry_after'])
+  code,value=self.c.post('admin',dict(kind='hermes_customer_tracking',action='scan',day=self.day,request_id=self.rid))
+  self.assertEqual(value['status'],'failed');self.client.read.assert_not_called()
+ def test_other_failures_new_day_new_config_and_histories_keep_original_behaviour(self):
+  self.c.store.finish_scan(self.day,1,dict(status='unavailable',reason='private_source_timeout'))
+  with self.c.store.db() as db:db.execute("UPDATE scan_jobs SET updated_at='2026-10-28T10:00:00+00:00'")
+  with patch.object(self.c.store,'due_histories',return_value=['a'*32]),patch.object(self.c,'_poll_history') as history:self.daily_once()
+  self.assertNotEqual(self.c.store.scan_job(self.day)['request_id'],self.rid);self.client.read.assert_called_once();history.assert_called_once()
+  self.c.store.finish_scan(self.day,1,dict(status='unavailable',reason='es_export_permission_denied'))
+  with self.c.store.db() as db:db.execute("UPDATE scan_jobs SET day='2026-10-27'")
+  self.client.reset_mock();self.daily_once();self.client.read.assert_called_once();self.assertEqual(self.c.store.scan_job(self.day)['state'],'pending')
+  self.c.store.save_config(self.config,1,'b'*32);self.client.reset_mock();self.daily_once()
+  self.assertEqual(self.c.store.scan_job(self.day)['config_version'],2);self.client.read.assert_called_once()
+ def original_private_client(self,result=None,observed=True,pending=False):
+  sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'hermes-customer-tracking-20261018/source'))
+  import tracking_private_session as private
+  key=self.root/'key';key.write_bytes(b'a'*64+b'\n');key.chmod(0o600)
+  self.reads=private.PrivateReads(types.SimpleNamespace(lock=threading.RLock(),token=None,identity_ok=lambda *a,**k:True,request=Mock(side_effect=AssertionError('no HTTP'))),key)
+  body=dict(action='scan',day=self.day,config=self.config);fingerprint=hashlib.sha256(json.dumps(body,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+  old=Future()
+  if not pending:old.set_result(result or dict(status='unavailable',reason='es_export_permission_denied'))
+  self.reads.jobs[fingerprint]=dict(future=old,finished=time.monotonic(),status=None if pending else 'unavailable',observed=observed)
+  client=self.module.PrivateClient(key);client.reads=self.reads;self.c.client=client
+  return private,body,fingerprint,old
+ def resume(self,**values):
+  return self.c.resume_permission_scan(values.pop('user','admin'),self.day,values.pop('version',1),values.pop('rid',self.rid),
+   expected_job_sha256=values.pop('job_sha',self.job_sha),es_receipt_sha256=values.pop('es_sha',self.es_sha),es_root=self.esroot,**values)
+ def test_same_original_private_future_recovery_runs_real_client_scan_and_finish(self):
+  private,body,key,old=self.original_private_client()
+  self.es.server_bundle=lambda args:self.es._server_bundle(args,self.esroot,Mock(side_effect=AssertionError('no export')))
+  import tracking_source
+  archive=dict(status='available',rows=[],source_version='f'*64,captured_at=datetime.now(timezone.utc).isoformat(),coverage=dict(file_set_complete=True))
+  with patch.object(tracking_source,'private_es_day',return_value=archive):
+   result=self.resume()
+   for _ in range(100):
+    if self.c.store.scan_job(self.day)['state']!='pending':break
+    self.c._poll_scan(self.day);time.sleep(.002)
+  final=self.c.store.scan_job(self.day);self.assertEqual((final['state'],final['request_id'],final['config_version']),('available',self.rid,1))
+  self.assertIs(self.c.client.reads,self.reads);self.assertIsNot(self.reads.jobs[key]['future'],old)
+  receipt=self.c.store.request(self.rid)['result'];self.assertEqual(receipt['permission_recovery']['prior_failure']['reason'],'es_export_permission_denied')
+  with self.c.store.db() as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM requests').fetchone()[0],1)
+  future=self.reads.jobs[key]['future'];self.resume();self.assertIs(self.reads.jobs[key]['future'],future)
+  self.assertEqual(self.c.store.request(self.rid)['result'],receipt)
+ def test_unknown_active_or_unobserved_future_not_deleted_or_marked_pending(self):
+  for result,observed,pending in ((dict(status='unknown',reason='export_sent'),True,False),
+    (dict(status='unknown',reason='es_export_permission_denied'),True,False),
+    (dict(status='unavailable',reason='es_export_permission_denied',stage='export_sent'),True,False),
+    (None,True,True),(None,False,False)):
+   if getattr(self,'reads',None):self.reads.pool.shutdown()
+   _,body,key,old=self.original_private_client(result,observed,pending);before=self.c.store.scan_job(self.day)
+   with self.assertRaises(ValueError):self.resume()
+   self.assertEqual(self.c.store.scan_job(self.day),before);self.assertIs(self.reads.jobs[key]['future'],old)
+ def test_store_cas_failure_keeps_original_completed_future_and_request(self):
+  _,body,key,old=self.original_private_client();before=self.c.store.scan_job(self.day);request=self.c.store.request(self.rid)
+  original=self.c.store.resume_permission_scan
+  def changed(*args,**kwargs):
+   with self.c.store.db() as db:db.execute("UPDATE scan_jobs SET updated_at='2026-10-28T10:01:00+00:00'")
+   return original(*args,**kwargs)
+  with patch.object(self.c.store,'resume_permission_scan',side_effect=changed):
+   with self.assertRaisesRegex(ValueError,'job_changed'):self.resume()
+  self.assertEqual(self.c.store.scan_job(self.day)['state'],'failed');self.assertIs(self.reads.jobs[key]['future'],old)
+  self.assertEqual(self.c.store.request(self.rid),request)
+ def test_recovery_refuses_wrong_actor_id_config_cas_or_es_unknown_without_client_mutation(self):
+  before=self.c.store.scan_job(self.day)
+  for changes in (dict(user='other'),dict(rid='a'*32),dict(version=2),dict(job_sha='0'*64),dict(es_sha='0'*64)):
+   with self.assertRaises((ValueError,PermissionError)):self.resume(**changes)
+   self.assertEqual(self.c.store.scan_job(self.day),before)
+  for attempt in (self.attempt,self.legacy):
+   attempt.write_text('{}');attempt.chmod(0o600)
+   with self.assertRaisesRegex(ValueError,'es_attempt_unknown'):self.resume()
+   attempt.unlink();self.assertEqual(self.c.store.scan_job(self.day),before)
+  self.saved['last_attempt']='es_export_permission_denied';self.save_receipt()
+  with self.assertRaisesRegex(ValueError,'es_not_rechecked'):self.resume()
+  self.saved.pop('last_attempt');self.saved['value']['snapshots'][0]['value']['quality']['file_set_complete']=False;self.save_receipt()
+  with self.assertRaisesRegex(ValueError,'es_incomplete'):self.resume()
+  self.client.permission_scan_recovery.assert_not_called()
+
 if __name__=='__main__':unittest.main()
