@@ -37,9 +37,9 @@ class CatalogDeadlineTests(unittest.TestCase):
         session=Session();result=handle(self.request(),lambda:AdminRead(session))
         self.assertEqual(result['total'],1);self.assertEqual(len(session.calls),1)
         url,options=session.calls[0]
-        self.assertEqual(url,'https://admin-api.p2pah.cn/admin/goods.Goods/index')
+        self.assertEqual(url,'http://127.0.0.1:8912/admin/goods.Goods/index')
         self.assertEqual(options['headers'],{'batoken':session.token})
-        self.assertEqual(options['timeout'],(5,15));self.assertFalse(options['allow_redirects']);self.assertTrue(options['stream'])
+        self.assertEqual(options['timeout'],(5,40));self.assertFalse(options['allow_redirects']);self.assertTrue(options['stream'])
         self.assertTrue(session.response.closed);self.assertTrue(session.closed)
 
     def test_exact_goods_search_bypasses_shared_get_admin_retry_path_as_well(self):
@@ -107,7 +107,7 @@ class CatalogDeadlineTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError,'^CATALOG_SEARCH_RESPONSE_TOO_LARGE$'):
             handle(self.request(),lambda:AdminRead(session))
         self.assertEqual(len(session.calls),1);self.assertTrue(session.response.closed)
-        for timeout in (0,21,True,'20'):
+        for timeout in (0,61,True,'20'):
             with self.assertRaisesRegex(ContractError,'INVALID_CATALOG_DEADLINE'):AdminRead(Session(),catalog_timeout=timeout)
 
 

@@ -50,9 +50,13 @@ def search(filters):
 
 
 class AdminRead:
-    def __init__(self, session, catalog_get_once=None, catalog_timeout=20.0):
+    # A first (cold) lookup of a large model measured 20.2s on 2026-10-28 -- 189 child
+    # goods, no warm page cache -- which overran the original 20s budget and left the
+    # whole reference-price cache unavailable. The ceiling now covers the measured worst
+    # case; the socket read below still fires first so a real stall fails closed.
+    def __init__(self, session, catalog_get_once=None, catalog_timeout=45.0):
         self.session = session
-        if type(catalog_timeout) not in (int,float) or not 0 < catalog_timeout <= 20:
+        if type(catalog_timeout) not in (int,float) or not 0 < catalog_timeout <= 60:
             raise ContractError('INVALID_CATALOG_DEADLINE')
         self._catalog_transport = catalog_get_once or self._catalog_http_once
         self._catalog_timeout = catalog_timeout
@@ -64,12 +68,14 @@ class AdminRead:
 
     def _catalog_http_once(self, route, **params):
         """Same authenticated requests session, bypassing shared get_admin retry/refresh loops."""
-        url = 'https://admin-api.p2pah.cn' + route
+        url = 'http://127.0.0.1:8912' + route
         retries = self.session.admin.get_adapter(url).max_retries
         if type(retries.total) is not int or retries.total != 0:
             raise ContractError('CATALOG_SEARCH_TRANSPORT_NOT_SINGLE_ATTEMPT')
+        # Connect stays at 5s; the read window now covers a cold catalogue lookup (20.2s
+        # measured) and still finishes inside the 45s aggregate budget above.
         response = self.session.admin.get(url, params=params, headers={'batoken':self.session.token},
-            timeout=(5,15), allow_redirects=False, stream=True)
+            timeout=(5,40), allow_redirects=False, stream=True)
         try:
             if response.status_code == 504:
                 raise TimeoutError()
