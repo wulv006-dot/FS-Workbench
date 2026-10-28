@@ -97,22 +97,40 @@ def api(manager, path, *, payload=None):
     return result.get("data")
 
 
-def recalculate_category(manager):
+def recalculate_category(manager, *, observer=None):
     """Submit the admin page's category action once with a bulk sized timeout."""
     headers = {**HEADERS, "Content-Type": "application/json", "batoken": manager.token}
     body = json.dumps({"gid": GID, "cid": CID, "id": []}).encode("utf-8")
     request = urllib.request.Request(
         manager.config["P2PAH_API_BASE"] + "/admin/goods.GoodsMould/recalcFc27Price",
         data=body, headers=headers, method="POST")
+    receipt = {"path": "/admin/goods.GoodsMould/recalcFc27Price", "started_at": now()}
     try:
-        with urllib.request.urlopen(request, timeout=300) as response:
-            status, raw = response.status, response.read()
-    except urllib.error.HTTPError as exc:
-        status, raw = exc.code, exc.read()
+        try:
+            with urllib.request.urlopen(request, timeout=300) as response:
+                receipt["http_status"] = response.status
+                status, raw = response.status, response.read()
+        except urllib.error.HTTPError as exc:
+            receipt["http_status"] = exc.code
+            status, raw = exc.code, exc.read()
+    except Exception as exc:
+        receipt.update(received_at=now(), transport_error=type(exc).__name__)
+        if observer:
+            observer(receipt)
+        raise
+    receipt.update(received_at=now(), response_code=None,
+                   response_sha256=hashlib.sha256(raw).hexdigest())
     try:
         result = json.loads(raw)
     except (ValueError, UnicodeDecodeError):
+        if observer:
+            observer(receipt)
         raise ValueError("backend_response_invalid") from None
+    code = result.get("code") if isinstance(result, dict) else None
+    if type(code) is int:
+        receipt["response_code"] = code
+    if observer:
+        observer(receipt)
     if status != 200 or result.get("code") != 1:
         raise ValueError("backend_request_rejected")
     return result.get("data")
@@ -504,6 +522,9 @@ def bulk_main():
               "verified_count": 0,
               "active_model_id": None}
     atomic(ledger_path, ledger)
+    def observed(response):
+        ledger["post_response"] = response
+        atomic(ledger_path, ledger)
     try:
         current_policy = read(POLICY)
         if not current_policy.get("enabled") or current_policy.get("revision") != request["config_revision"]:
@@ -512,7 +533,7 @@ def bulk_main():
         ledger.update({"stage": "category_dispatch_intent", "updated_at": now()})
         atomic(ledger_path, ledger)
         # The live admin button submits an empty selection to recalculate gid/cid in one call.
-        recalculate_category(manager)
+        recalculate_category(manager, observer=observed)
         verified = set()
         ledger["category_response"] = "accepted"
         ledger.update({"status": "confirmed", "stage": "complete", "completed_at": now()})
@@ -521,7 +542,7 @@ def bulk_main():
                           "model_count": len(models), "sample_count": len(samples),
                           "price_verification": "disabled", "category_response": "accepted",
                           "sample_verified_count": len(verified),
-                          "coin_execution_id": coin_id}))
+                          "coin_execution_id": coin_id, "post_response": ledger.get("post_response")}))
     except Exception as exc:
         reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
         ledger.update({"status": "needs_reconcile", "stage": "stopped",
@@ -530,7 +551,8 @@ def bulk_main():
         print(json.dumps({"status": "needs_reconcile", "reason": reason[:90],
                           "mode": "category_all", "sample_verified_count": len(verified)
                           if "verified" in locals() else 0,
-                          "active_model_id": ledger["active_model_id"]}))
+                          "active_model_id": ledger["active_model_id"],
+                          "post_response": ledger.get("post_response")}))
         raise SystemExit(2)
 
 

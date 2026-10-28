@@ -2,7 +2,7 @@ from copy import deepcopy
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import ModuleType,SimpleNamespace
-from unittest.mock import Mock,patch
+from unittest.mock import ANY,Mock,patch
 from contextlib import redirect_stdout
 import ast,importlib.util,io,json,os,sys,unittest,uuid
 
@@ -80,7 +80,8 @@ class PlayerV3Followup(unittest.TestCase):
                 public=deepcopy(current);public['status']=public['close_receipt']['status']='PUBLIC_CONFIRMED'
                 public_proof=deepcopy(proof);public_proof['readback']['status']='PUBLIC_CONFIRMED'
                 self.assertTrue(players.verified_v3_coin_execution(public,public_proof))
-                category=Mock();manager=Mock();manager.ensure.return_value=True;requests=[]
+                receipt={'path':'/admin/goods.GoodsMould/recalcFc27Price','http_status':200,'response_code':1,'response_sha256':'a'*64}
+                category=Mock(side_effect=lambda manager,observer:observer(deepcopy(receipt)));manager=Mock();manager.ensure.return_value=True;requests=[]
                 def dispatch(job,script,request,timeout):
                     requests.append(deepcopy(request));records={players.REQUEST:request,players.EXECUTION:json.loads((root/'executions'/(coin+'.json')).read_text(encoding='utf-8')),players.POLICY:config}
                     output=io.StringIO()
@@ -92,10 +93,10 @@ class PlayerV3Followup(unittest.TestCase):
                 job=json.loads((root/'queue'/(follow+'.json')).read_text(encoding='utf-8'))
                 job['request']['v3_completion']={'status':'forged-client-proof'}
                 with self.assertRaisesRegex(ValueError,'player_sync_original_job_mismatch'):namespace['handle'](dict(job,job_id=parent))
-                self.assertEqual(namespace['handle'](job)['status'],'confirmed')
+                result=namespace['handle'](job);self.assertEqual(result['status'],'confirmed');self.assertEqual(result['post_response'],receipt)
                 self.assertEqual(requests[0]['v3_completion']['operation_id'],coin)
                 with self.assertRaisesRegex(ValueError,'player_sync_not_confirmed'):namespace['handle'](job)
-                category.assert_called_once_with(manager)
+                category.assert_called_once_with(manager,observer=ANY)
                 written=json.loads((root/'player-sync'/(follow+'.json')).read_text(encoding='utf-8'))
                 self.assertEqual(written['price_verification'],'disabled');self.assertEqual(written['sample_count'],0)
                 db.put('operations',coin,dict(closed,status='UNKNOWN'))
@@ -129,7 +130,7 @@ class PlayerV3Followup(unittest.TestCase):
             ledger=json.loads((Path(folder)/(JOB+'.json')).read_text())
             self.assertEqual(ledger['status'],'confirmed');self.assertEqual(ledger['sample_count'],0);self.assertEqual(ledger['price_verification'],'disabled')
             with self.assertRaisesRegex(ValueError,'already_started'):players.bulk_main()
-            post.assert_called_once_with(manager)
+            post.assert_called_once_with(manager,observer=ANY)
 
     def test_missing_program_proof_is_rejected_before_session_or_category_request(self):
         audit=execution();audit.pop('pricing_decision_receipt')
@@ -152,6 +153,88 @@ class PlayerV3Followup(unittest.TestCase):
             self.assertFalse(readiness.fc_release_quiescent(tick,api))
             tick.retry_guard.return_value='queue_busy';self.assertFalse(readiness.fc_release_quiescent(tick,api))
             tick.retry_guard.return_value='ready';api.health.return_value=dict(incomplete_executions=1);self.assertFalse(readiness.fc_release_quiescent(tick,api))
+
+
+    def test_category_receipt_preserves_http_parse_business_and_transport_boundaries(self):
+        import hashlib
+        manager=SimpleNamespace(token='private-token',config={'P2PAH_API_BASE':'http://127.0.0.1:8912'})
+        cases=[
+            (502,b'<html>private body</html>',None,'backend_response_invalid'),
+            (200,b'not JSON private body',None,'backend_response_invalid'),
+            (200,b'{"code":401,"msg":"private message"}',401,'backend_request_rejected'),
+            (200,b'{"code":"1","msg":"private message"}',None,'backend_request_rejected'),
+            (502,b'{"code":0,"msg":"private message"}',0,'backend_request_rejected'),
+            (200,b'{"code":1,"data":{"accepted":true}}',1,None),
+        ]
+        for status,raw,code,error in cases:
+            with self.subTest(status=status,code=code,error=error):
+                response=Mock();response.status=status;response.read.return_value=raw
+                response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False)
+                outcome=players.urllib.error.HTTPError('http://private-url',status,'private message',{},io.BytesIO(raw)) if status!=200 else response
+                receipts=[]
+                with patch.object(players.urllib.request,'urlopen',side_effect=[outcome]) as post:
+                    if error:
+                        with self.assertRaisesRegex(ValueError,error):players.recalculate_category(manager,observer=receipts.append)
+                    else:self.assertEqual(players.recalculate_category(manager,observer=receipts.append),{'accepted':True})
+                if status!=200:outcome.close()
+                self.assertEqual(post.call_count,1);self.assertEqual(post.call_args.kwargs,{'timeout':300})
+                request=post.call_args.args[0]
+                self.assertEqual(request.method,'POST');self.assertEqual(json.loads(request.data),{'gid':1327,'cid':9627,'id':[]})
+                self.assertEqual(len(receipts),1);receipt=receipts[0]
+                self.assertEqual(set(receipt),{'path','started_at','received_at','http_status','response_code','response_sha256'})
+                self.assertEqual(receipt['http_status'],status);self.assertEqual(receipt['response_code'],code)
+                self.assertEqual(receipt['response_sha256'],hashlib.sha256(raw).hexdigest())
+                self.assertNotIn('private',json.dumps(receipt));self.assertEqual(receipt['path'],'/admin/goods.GoodsMould/recalcFc27Price')
+        receipts=[]
+        with patch.object(players.urllib.request,'urlopen',side_effect=players.urllib.error.URLError('private error')) as post:
+            with self.assertRaises(players.urllib.error.URLError):players.recalculate_category(manager,observer=receipts.append)
+        self.assertEqual(post.call_count,1);self.assertEqual(receipts[0]['transport_error'],'URLError')
+        self.assertEqual(set(receipts[0]),{'path','started_at','received_at','transport_error'})
+        self.assertNotIn('private',json.dumps(receipts))
+
+    def test_bulk_persists_same_receipt_in_ledger_and_worker_result_without_replay(self):
+        for status,raw in [(502,b'private non JSON'),(200,b'{"code":401}'),(200,b'{"code":1,"data":{}}'),(None,b'')]:
+            with self.subTest(status=status,raw=raw),TemporaryDirectory() as folder:
+                records={players.REQUEST:dict(job_id=JOB,coin_execution_id=COIN,config_revision=10),players.EXECUTION:execution(),players.POLICY:dict(enabled=True,revision=10)}
+                manager=Mock();manager.ensure.return_value=True;manager.token='private-token';manager.config={'P2PAH_API_BASE':'http://127.0.0.1:8912'}
+                response=Mock();response.status=status;response.read.return_value=raw;response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False)
+                outcome=players.urllib.error.URLError('private transport') if status is None else players.urllib.error.HTTPError('private-url',status,'private',{},io.BytesIO(raw)) if status!=200 else response
+                output=io.StringIO();path=Path(folder)/(JOB+'.json')
+                with patch.object(players,'ROOT',Path(folder)),patch.object(players,'read',side_effect=lambda p:deepcopy(records[p])),patch.object(players,'SessionManager',return_value=manager),patch.object(players,'api',return_value={'adminInfo':{'username':'wulv'}}),patch.object(players,'list_models',return_value=[{'id':1}]),patch.object(players.urllib.request,'urlopen',side_effect=[outcome]) as post,redirect_stdout(output):
+                    if status==200 and b'"code":1,' in raw:players.bulk_main()
+                    else:
+                        with self.assertRaises(SystemExit) as stopped:players.bulk_main()
+                        self.assertEqual(stopped.exception.code,2)
+                    if status!=200 and status is not None:outcome.close()
+                    ledger=json.loads(path.read_text());result=json.loads(output.getvalue())
+                    self.assertEqual(ledger['post_response'],result['post_response'])
+                    if status is None:self.assertEqual(result['post_response']['transport_error'],'URLError')
+                    self.assertEqual(ledger['status'],result['status']);self.assertEqual(ledger['job_id'],JOB)
+                    self.assertEqual(ledger['status'],'confirmed' if b'"code":1,' in raw else 'needs_reconcile')
+                    self.assertNotIn('private',json.dumps(ledger));self.assertNotIn('private',output.getvalue())
+                    before=path.read_bytes()
+                    with self.assertRaisesRegex(ValueError,'already_started'):players.bulk_main()
+                    self.assertEqual(path.read_bytes(),before);self.assertEqual(post.call_count,1)
+
+    def test_category_body_read_error_keeps_received_http_status_and_still_sends_once(self):
+        manager=SimpleNamespace(token='private-token',config={'P2PAH_API_BASE':'http://127.0.0.1:8912'})
+        response=Mock();response.status=200;response.read.side_effect=OSError('private body error')
+        response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False)
+        receipts=[]
+        with patch.object(players.urllib.request,'urlopen',return_value=response) as post:
+            with self.assertRaises(OSError):players.recalculate_category(manager,observer=receipts.append)
+        self.assertEqual(post.call_count,1);self.assertEqual(receipts[0]['http_status'],200)
+        self.assertEqual(receipts[0]['transport_error'],'OSError');self.assertNotIn('private',json.dumps(receipts))
+        self.assertNotIn('response_sha256',receipts[0])
+
+    def test_receipt_persistence_failure_does_not_send_category_again(self):
+        manager=SimpleNamespace(token='private-token',config={'P2PAH_API_BASE':'http://127.0.0.1:8912'})
+        response=Mock();response.status=200;response.read.return_value=b'{"code":1}'
+        response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False)
+        observer=Mock(side_effect=OSError('ledger unavailable'))
+        with patch.object(players.urllib.request,'urlopen',return_value=response) as post:
+            with self.assertRaises(OSError):players.recalculate_category(manager,observer=observer)
+        self.assertEqual(post.call_count,1);self.assertEqual(observer.call_count,1)
 
 
 if __name__=='__main__':unittest.main()
