@@ -92,10 +92,18 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
     // sequential pass below instead of being retried by it.
     // The bridge may legitimately spend up to 45s inside one cold catalogue read, so the
     // child-process budget stays above that instead of cutting the read short.
-    for(const [readKey,p] of warmList){
-      if(!reads.has(readKey))reads.set(readKey,call({action:'model_provider_read',...p.model_ref,category_id:p.category_id},{timeout:60000}));
+    // One read at a time costs about a second; the same reads issued all at once pushed
+    // every model past 40s and the whole cache to unavailable (2026-10-28). Start them in
+    // small waves so the Admin catalogue is never asked for 49 lookups simultaneously.
+    const READ_WAVE=6;
+    for(let i=0;i<warmList.length;i+=READ_WAVE){
+      const started=[];
+      for(const [readKey,p] of warmList.slice(i,i+READ_WAVE)){
+        if(!reads.has(readKey))reads.set(readKey,call({action:'model_provider_read',...p.model_ref,category_id:p.category_id},{timeout:60000}));
+        started.push(reads.get(readKey));
+      }
+      await Promise.allSettled(started);
     }
-    await Promise.allSettled([...reads.values()]);
     for(const p of current.config.entries){
      const readKey=canonical([p.model_ref,p.category_id]);
      const observation=await reads.get(readKey);
