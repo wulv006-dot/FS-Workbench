@@ -1,5 +1,6 @@
 """One FC coordinator, using the existing collection and mechanical writer adapters."""
 from copy import deepcopy
+from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 import hashlib
@@ -19,6 +20,31 @@ STORE = ROOT/'v3'
 
 def ledger():
     return Ledger(STORE/'control.sqlite3')
+
+
+@contextmanager
+def operation_execution(operation_id):
+    """One original operation across drive/reconcile; unrelated operations stay free."""
+    import errno
+    path=ledger().path.parent/'operation-locks'/(fingerprint(operation_id)+'.lock')
+    if any(item.is_symlink() for item in (path,*path.parents)):raise ValueError('pricing_operation_lock_symlink')
+    path.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
+    with path.open('a+b') as lock:
+        if os.name=='nt':
+            import msvcrt
+            if lock.tell()==0:lock.write(b'\0');lock.flush()
+            lock.seek(0)
+        else:import fcntl
+        try:
+            if os.name=='nt':msvcrt.locking(lock.fileno(),msvcrt.LK_NBLCK,1)
+            else:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except OSError as error:
+            if error.errno not in (errno.EACCES,errno.EAGAIN):raise
+            raise ValueError('pricing_operation_busy') from None
+        try:yield
+        finally:
+            if os.name=='nt':lock.seek(0);msvcrt.locking(lock.fileno(),msvcrt.LK_UNLCK,1)
+            else:fcntl.flock(lock,fcntl.LOCK_UN)
 
 
 def current_history_cache(now):
@@ -474,28 +500,42 @@ def execute_run(run_id):
     operation=db.prepare(plan,bundle,dispatch_context=dict(preview=preview,selected=selected,automatic=automatic,
                          actor=job['actor'] if not automatic else 'system-automation',policy_revision=load_policy()['revision']))
     if not bundle['steps']:
-        from .adapters import verify_nochange
-        receipt=verify_nochange(operation,preview)
-        if receipt['status']!='PUBLIC_CONFIRMED':
-            operation.update(status='PUBLIC_PENDING',readback=receipt)
-            db.put('operations',operation['operation_id'],operation)
-            return operation
-        return db.finish(operation['operation_id'],receipt,no_change=True)
+        with operation_execution(operation['operation_id']):
+            return _verify_nochange(operation,preview)
     return drive_steps(operation,quote)
 
 
+def _verify_nochange(operation,preview):
+    from .adapters import verify_nochange
+    db=ledger();operation=db.get('operations',operation['operation_id'])
+    if operation['status'] in TERMINAL_CLOSE_STATUS:return complete_player_followup(operation)
+    receipt=verify_nochange(operation,preview)
+    if receipt['status']!='PUBLIC_CONFIRMED':
+        operation.update(status='PUBLIC_PENDING',readback=receipt)
+        db.put('operations',operation['operation_id'],operation)
+        return operation
+    return db.finish(operation['operation_id'],receipt,no_change=True)
+
+
 def drive_steps(operation,quote):
+    with operation_execution(operation['operation_id']):
+        return _drive_steps(operation,quote)
+
+
+def _drive_steps(operation,quote):
     from automation_policy import load_policy
     from .adapters import region_step,dispatch_base
     db=ledger()
     operation_id=operation['operation_id']
+    if db.get('operations',operation_id)['status'] in TERMINAL_CLOSE_STATUS:
+        return _reconcile(operation_id)
     for original in operation['steps']:
         current=db.get('operations',operation_id)
         step=next(s for s in current['steps'] if s['step_id']==original['step_id'])
         if step['state']=='CONFIRMED':
             continue
         if step.get('dispatched_at'):
-            return reconcile(operation_id)
+            return _reconcile(operation_id)
         verify_quote(quote,load_policy(),list(PLATFORMS),for_execution=True)
         if step['kind']=='region':
             previous=[s for s in current['steps'][:current['steps'].index(step)] if s['kind']=='region' and s['state']=='CONFIRMED']
@@ -503,11 +543,11 @@ def drive_steps(operation,quote):
                 step['expected_rule_set_sha256']=previous[-1]['receipt']['rule_set_sha256']
                 db.put('operations',operation_id,current)
         claimed=db.claim_dispatch(operation_id,step['step_id'])
-        if claimed is None:return reconcile(operation_id)
+        if claimed is None:return _reconcile(operation_id)
         result=dispatch_base(db.get('operations',operation_id)) if step['kind']=='base' else region_step(operation_id,step['step_id'],write=True)
         db.step_result(operation_id,step['step_id'],'CONFIRMED' if result.get('status')=='CONFIRMED' else 'UNKNOWN',result)
         if result.get('status')!='CONFIRMED':return db.get('operations',operation_id)
-    return reconcile(operation_id)
+    return _reconcile(operation_id)
 
 
 def stop_unissued_and_exit(op,reason):
@@ -712,6 +752,11 @@ def exit_or_close(op,audit,reason):
 
 
 def reconcile(operation_id):
+    with operation_execution(operation_id):
+        return _reconcile(operation_id)
+
+
+def _reconcile(operation_id):
     """Never repeat a base save or sync; recover only original post-write stages."""
     db=ledger()
     op=db.get('operations',operation_id)
@@ -721,10 +766,8 @@ def reconcile(operation_id):
     audit_path=ROOT/'executions'/(operation_id+'.json')
     audit=json.loads(audit_path.read_text()) if audit_path.exists() else None
     if op['status']=='KNOWN_PARTIAL_PUBLIC_PENDING':return exit_or_close(op,audit,op['stop_unissued_reason'])
-    if not op['steps'] and op['status']=='PUBLIC_PENDING':
-        from .adapters import verify_nochange
-        receipt=verify_nochange(op,op.get('readback',{}).get('preview',{}))
-        return db.finish(operation_id,receipt,no_change=True) if receipt['status']=='PUBLIC_CONFIRMED' else op
+    if not op['steps']:
+        return _verify_nochange(op,op.get('readback',{}).get('preview') or op.get('dispatch_context',{}).get('preview',{}))
     from .adapters import region_step,dispatch_base,reconcile_base
     for step in op['steps']:
         if step['kind']=='base' and step.get('dispatched_at') and step['state']!='CONFIRMED':
@@ -801,6 +844,6 @@ def reconcile(operation_id):
         try:verify_quote(quote,load_policy(),list(PLATFORMS),for_execution=True)
         except ValueError as exc:
             return exit_or_close(op,audit,str(exc))
-        return drive_steps(op,quote)
+        return _drive_steps(op,quote)
     # An uncertain original mechanical request is not converted to a fresh execution.
     return db.get('operations',operation_id)

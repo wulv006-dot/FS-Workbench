@@ -45,7 +45,7 @@ class SelectiveSourceTest(unittest.TestCase):
         pages=Mock(side_effect=lambda session,path,*a:list(orders.values()) if path.endswith('order.Order/index') else [])
         with patch.object(business,'_period_population',return_value=(selected,provenance)),patch.object(business,'_historical_native_population',return_value=(native_selected,native,orders,{})) as refresh,patch.dict(sys.modules,{'coins_evidence':ES,'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
             cache,_=business.build_shared_history_cache(None,pages,storefront,[],'source-v1',NOW)
-        refresh.assert_called_once_with(PERIOD,None,pages)
+        refresh.assert_called_once_with(PERIOD,None,pages,native_rows=tuple(orders.values()))
         self.assertEqual(cache['historical_discount_mix']['retained_ratio'],'0.75')
         self.assertEqual(cache['historical_discount_mix']['observed_orders'],2)
         self.assertEqual(cache['original_history_replay']['original_mix_sha256'],cache['historical_discount_mix']['sha256'])

@@ -174,6 +174,11 @@ def read_used_templates(session,pages,identities):
 def _live_traces(session, pages, period, selected, *, reconcile_population=False, used_templates_only=False):
     rows = pages(session, '/admin/order.Order/index', [('site_id', '=', '266'), ('gid', '=', '1327'),
                  ('paytime', 'RANGE', period['start'] + ' 00:00:00,' + period['end'] + ' 23:59:59')], 100)
+    def changed_population():
+        error=ValueError('history_order_state_changed_since_archive')
+        # In-process handoff only; the accounting rebuild rechecks the original scope.
+        error.native_rows=tuple(rows)
+        raise error
     if reconcile_population:
         new_paid = [row for row in rows if str(row.get('order_no')) not in selected
                     and str(row.get('site_id')) == '266' and str(row.get('gid')) == '1327'
@@ -186,7 +191,7 @@ def _live_traces(session, pages, period, selected, *, reconcile_population=False
                 if not info or info.get('product') in (None, '', 'unknown', 'ambiguous'):
                     raise ValueError('history_new_paid_product_identity_missing')
                 if info['product'] == GOLD:
-                    raise ValueError('history_order_state_changed_since_archive')
+                    changed_population()
     orders = {}
     for row in rows:
         sn = str(row.get('order_no'))
@@ -195,7 +200,7 @@ def _live_traces(session, pages, period, selected, *, reconcile_population=False
         if str(row.get('site_id')) != '266' or str(row.get('gid')) != '1327' or sn in orders:
             raise ValueError('history_live_order_scope')
         if str(row.get('pay_status')) != '1':
-            raise ValueError('history_order_state_changed_since_archive')
+            changed_population()
         orders[sn] = row
     if set(orders) != set(selected):
         raise ValueError('history_live_order_coverage')
@@ -1244,7 +1249,8 @@ def build_shared_history_cache(session,pages,storefront,products,source_signatur
         if str(error)!='history_order_state_changed_since_archive':raise
         archived_source=provenance['canonical_archive_sha256']
         selected,provenance,orders,logs=_historical_native_population(period,session,pages,
-            **(dict(pricing_only=True) if used_templates_only else {}))
+            **(dict(pricing_only=True) if used_templates_only else {}),
+            **(dict(native_rows=error.native_rows) if hasattr(error,'native_rows') else {}))
         if provenance.get('status')!='complete' or not selected:
             raise ValueError('pricing_history_payment_reconciliation_incomplete')
         provenance=dict(provenance,reconciliation='current_Admin_payment_state',prior_archive_sha256=archived_source)
@@ -1416,14 +1422,14 @@ def _historical_provider_reason(error):
     return reason if reason.startswith(prefixes) and re.fullmatch(r'[a-zA-Z0-9_.:-]{1,100}', reason) else type(error).__name__
 
 
-def _historical_native_population(period, session, pages, *, pricing_only=False):
+def _historical_native_population(period, session, pages, *, pricing_only=False, native_rows=None):
     """Fill only explicitly requested missing days using the original accounting and ES identity."""
     from pathlib import Path
     import channel_source as channel
     from channel_effects import accounting_row, fraud
     from coins_evidence import CoinsEvidence, es_metadata, GOLD
     start, end = period['start']+' 00:00:00', period['end']+' 23:59:59'
-    native = pages(session, '/admin/order.Order/index', [('site_id','=','266'), ('gid','=','1327'),
+    native = list(native_rows) if native_rows is not None else pages(session, '/admin/order.Order/index', [('site_id','=','266'), ('gid','=','1327'),
                    ('paytime','RANGE',start+','+end)], 100)
     if any(str(r.get('site_id'))!='266' or str(r.get('gid'))!='1327' or not start<=str(r.get('paytime'))<=end for r in native):
         raise ValueError('historical_native_paid_scope_not_honored')

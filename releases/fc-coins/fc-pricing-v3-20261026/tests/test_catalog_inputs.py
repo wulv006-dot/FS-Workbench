@@ -241,6 +241,72 @@ class CatalogInputs(unittest.TestCase):
             self.assertEqual(mix['actual_discount_usd'], '2')
             channel.load_costs.assert_not_called()
 
+    def test_changed_population_reuses_complete_native_pages_and_preserves_financial_mix(self):
+        from fc_pricing_v3.ledger import Ledger
+        spec=importlib.util.spec_from_file_location('reused_native_accounting',SOURCE.parents[2]/'fs-dashboard/channel-effects-20261021/source/channel_effects.py')
+        effects=importlib.util.module_from_spec(spec);spec.loader.exec_module(effects)
+        period=inputs.history_period(NOW)
+        raw=[dict(id=str(i),order_no=name,site_id=266,gid=1327,paytime=period['end']+' 12:00:00',
+            amount_usd_format='$18.00',amount_rmb_format='120',status_format=status,pay_status=paid,
+            game_format='FC27',discount_code='',recommend_uid=0,before_discount='20',discount='100',points='0',is_region_price=0)
+            for i,(name,status,paid) in enumerate((('old','已完成','1'),('new','已完成','1'),
+                ('refund','已退款','2'),('fraud','验证未通过','1'),('test','已完成','1'),('item','已完成','1')),1)]
+        logs=[dict(id=str(i),coupon_id='15',site_id=266,order_no=name,use_time=period['end']+' 12:00:00',status=1,discount_amount='2') for i,name in ((7,'old'),(8,'new'))]
+        template=dict(id='15',site_id=266,game_id=1327,status=1,product_type=1,time_effect=2,
+            mode_type=1,reduce='2',attain='0',max_reduce='0',is_open=1)
+        metadata={hashlib.sha256(row['order_no'].encode()).hexdigest():dict(product='Items' if row['order_no']=='item' else 'Gold',discount_usd='2') for row in raw}
+        class Session:
+            def __init__(self):self.calls=[]
+            def get_admin(self,path,**params):
+                self.calls.append((path,params))
+                if path.endswith('order.Order/index'):rows,size=raw,2
+                elif path.endswith('MemberCouponLog/index'):rows,size=logs,1
+                elif path.endswith('market.Coupon/index'):rows,size=[template],1
+                else:raise AssertionError('unexpected_source_read')
+                offset=(params['page']-1)*size
+                return 200,dict(code=1,data=dict(total=len(rows),list=rows[offset:offset+size]))
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);pages=actual_pages();session=Session()
+            channel=SimpleNamespace(__file__=str(root/'channel_source.py'),SALES=root,normalize=effects.normalize,
+                load_costs=Mock(side_effect=AssertionError('history_cost_not_required')),apply_cost_overrides=lambda _:dict(sources=dict(accounting={}),costOverrides={},testOrders={'test':dict(gid=1327,salesUsd='18')}))
+            es=SimpleNamespace(CoinsEvidence=lambda:SimpleNamespace(archive=root),GOLD='Gold',es_metadata=lambda *a:(metadata,dict(complete=True,source_sha256='e'*64)))
+            prior={'old':(dict(salesUsd='18',coupons=[dict(id='7',templateId='15')]),dict(discount_usd='2'))}
+            provenance=dict(status='complete',period=period,canonical_archive_sha256='a'*64,ES_source_sha256='e'*64,ES_complete=True,missing_product_identity=0)
+            with patch.dict(sys.modules,dict(channel_source=channel,channel_effects=effects,coins_evidence=es)),patch.object(business_source,'_period_population',return_value=(prior,provenance)),patch.object(business_source,'_historical_provider_now',return_value=NOW):
+                cache,_=business_source.build_shared_history_cache(session,pages,{},[],'fixture-source',NOW,used_templates_only=True)
+                reference_session=Session()
+                reference,reference_proof,_,_=business_source._historical_native_population(period,reference_session,pages,pricing_only=True)
+                reference_mix=business_source.historical_mix(reference,reference_proof,history_window_contract=financial.HISTORY_WINDOW_CONTRACT)
+            orders=[call for call in session.calls if call[0].endswith('order.Order/index')]
+            self.assertEqual(len(orders),3,'one complete three-page native read; changed population must not repeat it')
+            self.assertEqual([p['page'] for _,p in orders],[1,2,3])
+            coupon_calls=[call for call in session.calls if call[0].endswith('MemberCouponLog/index')]
+            self.assertEqual(len(coupon_calls),2,'all original used-coupon log pages remain required')
+            self.assertEqual(len(session.calls),6)
+            mix=cache['historical_discount_mix'];self.assertEqual(mix['observed_orders'],2);self.assertEqual(mix['eligible_orders'],2)
+            for field in ('period','status','observed_orders','eligible_orders','net_order_usd','actual_discount_usd','undiscounted_order_usd','retained_ratio'):
+                self.assertEqual(mix[field],reference_mix[field])
+            self.assertEqual((mix['net_order_usd'],mix['actual_discount_usd'],mix['retained_ratio']),('36.0','4','0.9'))
+            replay=cache['original_history_replay'];self.assertEqual(replay['status'],'verified')
+            self.assertEqual((replay['original_net_usd'],replay['original_discount_usd']),('36.00','4'))
+            self.assertEqual(sum(row['orders'] for row in cache['promotion_scenarios']),2)
+            channel.load_costs.assert_not_called()
+            store=root/'v3';db=Ledger(store/'control.sqlite3');db.put('metadata','seven_day_history_cache',cache)
+            with patch.object(runtime,'STORE',store),patch.object(business_source,'selective_history_signature',return_value='fixture-source'):
+                self.assertEqual(runtime.current_history_mix(NOW),mix)
+
+    def test_reused_native_rows_keep_original_scope_checks_and_do_not_fallback_to_http(self):
+        period=inputs.history_period(NOW)
+        valid=dict(site_id=266,gid=1327,paytime=period['end']+' 12:00:00')
+        pages=Mock(side_effect=AssertionError('reused_rows_must_not_trigger_second_order_query'))
+        modules=dict(channel_source=SimpleNamespace(),channel_effects=SimpleNamespace(accounting_row=None,fraud=None),
+                     coins_evidence=SimpleNamespace(CoinsEvidence=None,es_metadata=None,GOLD='Gold'))
+        for change in (dict(site_id=267),dict(gid=1),dict(paytime='2000-01-01 00:00:00')):
+            with self.subTest(change=change),patch.dict(sys.modules,modules):
+                with self.assertRaisesRegex(ValueError,'historical_native_paid_scope_not_honored'):
+                    business_source._historical_native_population(period,None,pages,pricing_only=True,native_rows=[dict(valid,**change)])
+        pages.assert_not_called()
+
     def test_check_write_and_state_accept_only_verified_catalog_without_worst_claim(self):
         data = source()
         data['promotion_envelope'] = catalog(data)

@@ -442,7 +442,7 @@ class HermesService:
             except Exception:self.update(job['id'],error='stop_ack_unknown')
         return 202,self.get_job(user,job['id'])
 
-    def submit_scheduled(self,body):
+    def submit_scheduled(self,body,context=None):
         # Private process entry. Public POST never accepts a trigger/deadline/owner.
         owner='wulv';key=digest({'owner':owner,'request_id':body['request_id']})[:32]
         deadline=self.nightly.deadline(key)
@@ -454,7 +454,7 @@ class HermesService:
             result=self._submit_report(body,owner,defer_submit=True)
         if len(result)==3:
             key,owner,value=result[2]
-            self.pool.submit(self.execute,key,owner,value)
+            self.pool.submit(self.execute,key,owner,value,scheduled_context=context)
             return result[0],self.get_job(owner,key)
         return result
 
@@ -618,7 +618,7 @@ class HermesService:
                     'next_before':rows[-1]['cursor'] if more else None,'nightly':nightly,
                     'business_acceptance':'user_review_required','default_entry_replaced':False,'reasoning_policy':'analysis high; investigation/pricing max; no none fallback'}
 
-    def execute(self,key,owner,body):
+    def execute(self,key,owner,body,scheduled_context=None):
         task=None;token=None;session_id=None;completed_stopped=False;deadline=None
         try:
             design_text,design_receipt=html_design_context(body['question'])
@@ -680,6 +680,8 @@ class HermesService:
             admission={'session_id':session_id,'token':token,'model':item_gateway.budget.policy['model'],'reasoning_effort':effort,'ready':False,
                        'report_mode':body['mode'],'prompt':body['question']+'\n目标区间：'+body['start']+' 至 '+body['end']+'；快照：'+book.capture_id+'\n'+('' if design_receipt else FORMAT)}
             report_kind=request_report_kind(body)
+            if deadline is not None and scheduled_context is not None:
+                admission['prompt']+='\n服务端夜间数据准备观察（不是区间完整性证明）：\n'+encoded(scheduled_context)
             if management:admission['prompt']+='\n'+management_context.task_prompt(management['facts'],management['evidence']['evidence_id'],weekly=management_context.is_weekly(body),period={'start':body['start'],'end':body['end']})
             if prepared:admission['prompt']+='\nFS已准备并注册的本期事实（无需重复取数，缺项再查）：\n'+encoded(prepared)
             admission['skill_question']=body['question']

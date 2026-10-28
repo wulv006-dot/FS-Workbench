@@ -1,6 +1,7 @@
-import ast,hashlib,importlib.util,json,re,sqlite3,sys,tempfile,traceback,types,unittest
+import ast,hashlib,importlib.util,json,os,re,secrets,sqlite3,stat,sys,tempfile,threading,traceback,types,unittest
+from contextlib import contextmanager
 from pathlib import Path
-from datetime import datetime,timedelta
+from datetime import date,datetime,timedelta
 from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -14,14 +15,15 @@ import nightly_ops
 
 class Service:
     def __init__(self,now):
-        self.now=now;self.jobs={};self.calls=[];self.failure=None;self.after_admission=False
+        self.now=now;self.jobs={};self.calls=[];self.contexts={};self.failure=None;self.after_admission=False
         self.connection=sqlite3.connect(':memory:');self.connection.row_factory=sqlite3.Row
         self.connection.execute('CREATE TABLE requests(id TEXT PRIMARY KEY,state TEXT)')
         self.tasks=types.SimpleNamespace(db=lambda:self.connection)
     def clock(self):return self.now
     def get_job(self,owner,key):return self.jobs.get(key)
-    def submit_scheduled(self,body):
+    def submit_scheduled(self,body,context=None):
         self.calls.append(body['request_id'])
+        self.contexts[body['request_id']]=context
         key=hashlib.sha256(encoded({'owner':'wulv','request_id':body['request_id']}).encode()).hexdigest()[:32]
         if self.after_admission:
             self.jobs[key]={'state':'DISPATCH_UNKNOWN','error':'original_receipt_required'}
@@ -94,13 +96,16 @@ class Scheduling(unittest.TestCase):
         s,n=self.scheduler(self.at(2,15))
         s.source_preparation=types.SimpleNamespace(thread=types.SimpleNamespace(is_alive=lambda:True))
         original=s.submit_scheduled;questions=[]
-        def submit(body):
-            questions.append(body['question']);return original(body)
+        def submit(body,context=None):
+            questions.append(body['question']);return original(body,context=context)
         s.submit_scheduled=submit
         n.tick()
         self.assertEqual(s.calls,['night_daily_20261102'])
-        self.assertIn('nightly_preparation_still_running',questions[0])
-        self.assertIn('归档分项观察',questions[0]);self.assertIn('未知不填零',questions[0])
+        self.assertLessEqual(len(questions[0]),600)
+        context=s.contexts['night_daily_20261102']
+        self.assertIn('nightly_preparation_still_running',context['preparation_gaps'])
+        self.assertIn('archive_status',context);self.assertIn('未知不填零',context['rule'])
+        self.assertIn('真实数据暂未提供',context['rule']);self.assertIn('核对误差',context['rule'])
     def test_early_fallback_preserves_gap_labels(self):
         with patch.object(nightly,'source_status',return_value=(True,['marketing_partial'])),patch.object(nightly_data,'preparation_gaps',return_value=['source_gap']):
             self.assertFalse(nightly.preparation_status(self.at(1,59))[0])
@@ -163,6 +168,116 @@ class Scheduling(unittest.TestCase):
             self.assertEqual(release.load_base().HERMES_HISTORY_SCOPE,release.SCOPE)
             p.write_bytes(frozen+b'\n# unexpected content\n')
             with self.assertRaisesRegex(ValueError,'frozen_publisher_drift'):release.load_base()
+
+class RealScheduledAdmission(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.folder=Path(self.temp.name);self.now=datetime(2026,11,2,2,45,tzinfo=nightly.SHANGHAI)
+        self.db=sqlite3.connect(':memory:');self.db.row_factory=sqlite3.Row;self.addCleanup(self.db.close)
+        self.db.executescript('CREATE TABLE requests(id TEXT PRIMARY KEY,owner TEXT,request_id TEXT,body TEXT,state TEXT,task_id TEXT,error TEXT,result TEXT);CREATE TABLE request_knowledge(id TEXT PRIMARY KEY,version TEXT);')
+        tree=ast.parse((ROOT/'source/controller.py').read_text(encoding='utf-8'))
+        cls=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='HermesService')
+        methods=[n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name in ('submit_scheduled','_submit_report','execute')]
+        functions=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in ('clean_hermes_question','admission_guard')]
+        self.knowledge=dict(version='frozen-test',skills={'version':'skills','sha256':'e'*64},text='frozen rules',
+            identity={'knowledge_sha256':'d'*64},files=[],memory_path=None,native_skip_reason=None)
+        self.writes=[];self.remote_inputs=[];self.queued=[];self.task=None
+        namespace=dict(Path=Path,date=date,datetime=datetime,timedelta=timedelta,SHANGHAI=nightly.SHANGHAI,
+            re=re,json=json,os=os,stat=stat,secrets=secrets,contextmanager=contextmanager,
+            digest=sys.modules['pilot'].digest,encoded=encoded,load_bundle=lambda *a,**k:{},
+            freeze_learning=lambda *a,**k:self.knowledge,loaded_learning=lambda *a:self.knowledge,
+            spending_hold=lambda *a:None,html_design_context=lambda q:('',None),
+            request_report_kind=lambda b:'daily',build_book=lambda *a,**k:types.SimpleNamespace(capture_id='snapshot',evidence={}),
+            attach_owner_history=lambda *a:None,gateway=lambda *a,**k:types.SimpleNamespace(budget=types.SimpleNamespace(policy={'model':'fixture'})),
+            submission=lambda t:{'body':{'session_id':'fc_fixture','input':'protocol'},'headers':{'Idempotency-Key':'original'}},
+            FORMAT='format',POLICY_ID='policy',data_request_context=lambda b:'',
+            atomic=lambda p,v,**k:self.writes.append((Path(p),json.loads(json.dumps(v)))))
+        self.namespace=namespace
+        exec(compile(ast.Module(body=functions+methods,type_ignores=[]),str(ROOT/'source/controller.py'),'exec'),namespace)
+        @contextmanager
+        def database():
+            with self.db:yield self.db
+        def get_job(owner,key):
+            row=self.db.execute('SELECT * FROM requests WHERE owner=? AND id=?',(owner,key)).fetchone()
+            return dict(row) if row else None
+        def update(key,**fields):
+            self.db.execute('UPDATE requests SET '+','.join(k+'=?' for k in fields)+' WHERE id=?',(*fields.values(),key))
+        def create(owner,spec):
+            self.task={'id':'a'*32,'state':'QUEUED','spec':spec};return self.task
+        def reserve(*a):self.task['state']='DISPATCH_UNKNOWN'
+        service=types.SimpleNamespace(root=self.folder,source_root=ROOT,run_root=self.folder/'run',clock=lambda:self.now,
+            tasks=types.SimpleNamespace(db=database,create=create,reserve_dispatch=reserve,get=lambda *a:self.task),
+            authorizer=lambda owner:owner=='wulv',proxy=types.SimpleNamespace(background={}),daily=None,
+            matching_report=lambda *a:None,get_job=get_job,update=update,
+            pool=types.SimpleNamespace(submit=lambda *a,**k:self.queued.append((a,k))),
+            detail=None,read_range=None,diagnostics=None,lock=threading.RLock(),action_history=lambda owner:[],
+            grants=types.SimpleNamespace(mint=lambda *a,**k:'fixture-token',revoke=lambda *a:None),tokens={},books={},gateways={})
+        for name in ('_submit_report','submit_scheduled','execute'):setattr(service,name,types.MethodType(namespace[name],service))
+        self.service=service
+        service.nightly=Scheduler(service,readiness=lambda now:(True,['marketing_preparation_missing']))
+        self.registry=types.SimpleNamespace(manifest=lambda *a:{'experiences':[]},record_use=lambda *a:None)
+        self.catalog=types.SimpleNamespace(report_selection=lambda *a,**k:{'entries':[]})
+        self.observed={'status':'partial','coverage_complete':None,'missingCount':16,'blocks_publication':False,
+            'missing':[{'status':'failed','reason':'es_export_permission_denied','retryable':False,'query':{'profile':'FC27','start':'2026-11-01','end':'2026-11-01'}} for _ in range(16)]}
+
+    def patches(self):
+        from contextlib import ExitStack
+        stack=ExitStack()
+        stack.enter_context(patch.dict(sys.modules,{'learning_registry':self.registry,'knowledge_catalog':self.catalog,
+            'management_context':types.SimpleNamespace(scheduled_question=lambda n:'经营管理台全项目经营复盘',scheduled_weekly_question=lambda n:'经营管理台全项目自然周复盘'),
+            'background':types.SimpleNamespace(task_context=lambda *a:('',{'context_sha256':'c'*64}))}))
+        stack.enter_context(patch('source_snapshots.archive_status',return_value=self.observed))
+        stack.enter_context(patch('source_snapshots.prepared_brief',return_value={'status':'partial'}))
+        return stack
+
+    def test_real_controller_boundary_accepts_large_gap_context_and_keeps_original_id(self):
+        with self.patches():self.service.nightly.tick()
+        self.assertEqual(len(self.queued),1)
+        args,kwargs=self.queued[0];key,owner,body=args[1:]
+        self.assertEqual(body['request_id'],'night_daily_20261102')
+        self.assertLessEqual(len(body['question']),600)
+        self.assertNotIn('es_export_permission_denied',body['question'])
+        context=kwargs['scheduled_context']
+        self.assertGreater(len(encoded(context)),600)
+        self.assertEqual(context['archive_status'],self.observed)
+        self.assertEqual(context['preparation_gaps'],['marketing_preparation_missing'])
+        self.assertIn('真实数据暂未提供',context['rule'])
+        self.assertEqual(self.service.get_job(owner,key)['state'],'PREPARING')
+        with self.patches():self.assertEqual(self.service._submit_report(body,owner,True)[0],200)
+        self.assertEqual(len(self.queued),1)
+        # Invoke the real execute method until the first network-dispatch boundary.
+        class DispatchProbe(BaseException):pass
+        def remote(method,path,value,*a,**kw):
+            self.remote_inputs.append(value);raise DispatchProbe()
+        self.service.remote=remote
+        self.namespace['management_context']=types.SimpleNamespace(request_snapshot=lambda b:False,attach=lambda *a:None)
+        with self.patches(),self.assertRaises(DispatchProbe):args[0](*args[1:],**kwargs)
+        admissions=[value for path,value in self.writes if path.parent.name=='admissions']
+        self.assertEqual(len(admissions),1)
+        self.assertIn(encoded(context),admissions[0]['prompt'])
+        self.assertIn(encoded(context),self.remote_inputs[0]['input'])
+        self.assertEqual(admissions[0]['skill_question'],body['question'])
+
+    def test_actual_question_limit_and_public_fields_are_not_relaxed(self):
+        body=dict(kind='hermes_report',request_id='manual_fixture',start='2026-11-01',end='2026-11-01',mode='daily',question='x'*601)
+        self.assertEqual(self.service._submit_report(body,'wulv',True),(422,{'error':'invalid_period_or_question'}))
+        body['question']='检查经营变化'
+        self.assertEqual(self.service._submit_report(dict(body,scheduled_context=self.observed),'wulv',True),(422,{'error':'report_fields'}))
+        self.assertEqual(self.queued,[])
+
+    def test_all_original_report_kinds_use_bounded_questions_and_preserve_scope(self):
+        with self.patches():
+            for kind in ('daily','weekly','monthly','management','management_weekly'):
+                with self.subTest(kind=kind):
+                    self.db.execute('DELETE FROM requests');self.db.execute('DELETE FROM request_knowledge');self.db.execute('DELETE FROM nightly_requests');self.queued.clear()
+                    start,end=nightly.closed_period(self.now.date(),kind)
+                    item=dict(kind=kind,request_id='night_'+kind+'_20261102',start=start,end=end,deadline=self.now.replace(hour=7,minute=49).isoformat())
+                    with patch.object(nightly,'due',return_value=[item]):self.service.nightly.tick()
+                    self.assertEqual(len(self.queued),1)
+                    args,kwargs=self.queued[0];self.assertLessEqual(len(args[-1]['question']),600)
+                    self.assertEqual(args[-1]['start'],start);self.assertEqual(args[-1]['end'],end)
+                    self.assertEqual(kwargs['scheduled_context']['archive_status'],self.observed)
+
 
 class KnowledgeEnvelope(unittest.TestCase):
     def bundle(self,context,source_bytes=220000):
