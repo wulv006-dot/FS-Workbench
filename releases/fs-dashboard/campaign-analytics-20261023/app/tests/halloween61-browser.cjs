@@ -25,6 +25,12 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   const open=async game=>{await page.goto('https://www.mmoexp.com/events/seasonal/');await page.locator('[data-game-card="'+game+'"]').click();};
   for(const game of snapshot.halloween.games){
    await open(game.id);assert.equal(await page.locator('#campaign-published-details').count(),0);
+   if(game.id==='diablo'){
+    assert.equal(await page.locator('[data-game-card="diablo"] .game-art').getAttribute('src'),'assets/game-diablo-background.png');
+    assert.equal(await page.locator('[data-game-card="diablo"] .game-logo').getAttribute('src'),'assets/game-diablo-logo.png');
+    const shades=await page.locator('.game-card').evaluateAll(cards=>cards.map(card=>({count:card.querySelectorAll('.game-shade').length,background:getComputedStyle(card.querySelector('.game-shade')).backgroundImage})));
+    assert(shades.every(s=>s.count===1&&s.background===shades[0].background));
+   }
    await page.locator('[data-random-reveal="random-1"]').click();await page.waitForSelector('[data-offer-slot="random-1"] .is-revealed');
    const model=await page.locator('[data-buy-slot="random-1"]').getAttribute('data-model-buy');if(game.random_source.mode==='quantity_tiers')assert.equal(model,game.fixed_model);else{assert(game.random_models.includes(model));assert.notEqual(model,game.fixed_model);}
    await page.locator('[data-buy-slot="random-1"]').click();await page.locator('#dialog-content select').selectOption('1');assert.equal(await page.locator('#dialog-content button').isEnabled(),true);

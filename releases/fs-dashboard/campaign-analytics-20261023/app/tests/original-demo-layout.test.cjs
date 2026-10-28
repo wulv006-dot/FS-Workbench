@@ -13,6 +13,6 @@ test('every runtime hook and asset exists; no fake search/login/navigation contr
  // detail trigger is offered; prices and offers refresh on their own.
  assert.doesNotMatch(html,/campaign-date/);assert.doesNotMatch(html,/offer-tools|data-action="refresh-prices"|data-action="rules"/);
  assert.doesNotMatch(html,/placeholder="Search your game"|>Log In<|>Help center<|class="utility-bar"/);
- for(const match of html.matchAll(/(?:src|href)="([^"#]+)"/g)){const ref=match[1];if(!/^https?:/.test(ref))assert(fs.existsSync(path.resolve(root,ref)),ref);}
+ for(const match of html.matchAll(/(?:src|href)="([^"#]+)"/g)){const ref=match[1];if(!/^https?:/.test(ref))assert(fs.existsSync(path.resolve(root,ref.split(/[?#]/)[0])),ref);}
  assert.match(css,/prefers-reduced-motion/);assert.match(html,/aria-live="polite"/);
 });

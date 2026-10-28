@@ -31,3 +31,9 @@ This checkpoint is source work only. Required CI and independent review must com
 Next: reconcile D4 three tier codes and native form serialization; correct verified server labels in the original catalog; publish current draft through the existing center with an operation receipt, preserving FC choices; then verify a clean isolated visitor session through game/reveal/options/native add/cart automatic Apply and payable amount to the payment-information screen. Do not submit an order or payment. Unknown writes require original-operation reconciliation.
 
 FC model43042209 is excluded before drawing when it lacks a valid price/binding; the old handoff's `1/44` claim is incorrect. Its pack quantity must be verified against the native store before adding any price entry.
+
+## Requested D4 artwork increment
+
+The card background is the user's unmodified `Desktop/FC素材/D4/游戏卡片背景.png`, copied as `app/seasonal/assets/game-diablo-background.png`. The separate transparent wordmark derives from the official MMOEXP homepage card image `https://assets.mmoexp.com/images/202609/6dd0c1101c6e6e84bd6aa18bf50c428f181aa233.png` using the built-in ImageGen extraction tool; the original source remains recorded, and this is not a claim of pixel-exact cropping.
+
+The page reads the existing static game-art configuration for the D4 background/logo, uses one unchanged `.game-shade` per game card, and keeps the logo decorative. Desktop and390px mobile screenshots were inspected; mobile has no horizontal overflow. Versioned script/style references prevent an existing month-long browser cache from retaining the previous card. The existing Halloween browser regression also checks the asset URLs and equal single-mask styling. The deployment candidate must update the existing live static manifest, preserving all unrelated entries, before restarting the runtime. No production artwork is changed by this commit.
