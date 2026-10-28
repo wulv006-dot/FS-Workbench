@@ -5,6 +5,8 @@ import os
 import re
 import tempfile
 import time
+import stat
+from contextlib import contextmanager, nullcontext
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
@@ -390,6 +392,26 @@ class ChannelService:
     def __init__(self, root, authorizer, source=None):
         self.root, self.authorizer, self.source = Path(root), authorizer, source
         self.pool, self.lock, self.jobs, self.starts = ThreadPoolExecutor(max_workers=2), RLock(), {}, {}
+        self.admission = nullcontext
+
+    @contextmanager
+    def capture_lock(self,target):
+        with self.admission(),self._capture_lock(target):yield
+
+    @contextmanager
+    def _capture_lock(self,target):
+        # Stable target locks protect one publication, not unrelated Admin network reads.
+        import fcntl
+        path=Path(target).with_name('.capture-'+Path(target).stem+'.lock')
+        if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('channel_capture_lock_link')
+        fd=os.open(path,os.O_RDWR|os.O_CREAT|getattr(os,'O_NOFOLLOW',0),0o600)
+        try:
+            info=os.fstat(fd);current=path.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino):
+                raise ValueError('channel_capture_lock_changed')
+            fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            yield
+        finally:os.close(fd)
 
     def publish(self, data, target):
         fd, temp = tempfile.mkstemp(dir=self.root, prefix='channel-')
@@ -407,8 +429,7 @@ class ChannelService:
             import fcntl
             self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
             os.chmod(self.root, 0o700)
-            with (self.root / 'collector.lock').open('a+b') as lock:
-                fcntl.flock(lock, fcntl.LOCK_EX)
+            with self.capture_lock(target):
                 if self.source is None:
                     from channel_cache import collect_period, compose
                     source = (lambda p: compose(p, self.root)) if cost_only else (lambda p: collect_period(p, self.root, force=force))
@@ -421,14 +442,16 @@ class ChannelService:
                 if self.source is None:
                     from channel_cache import store_days
                     store_days(data, self.root)
-            if self.source is None:
-                from channel_source import enrich
-                cost_phase = True
-                with self.lock: self.jobs[key] = 'cost_pending'
-                data = enrich(data, force=force)
-                self.publish(data, target)
-                store_days(data, self.root)
+                if self.source is None:
+                    from channel_source import enrich
+                    cost_phase = True
+                    with self.lock: self.jobs[key] = 'cost_pending'
+                    data = enrich(data, force=force)
+                    self.publish(data, target)
+                    store_days(data, self.root)
             with self.lock: self.jobs[key] = 'available'
+        except BlockingIOError:
+            with self.lock:self.jobs[key]='deferred'
         except Exception:
             with self.lock: self.jobs[key] = 'cost_failed' if cost_phase else 'source_failed'
 
@@ -464,16 +487,19 @@ class ChannelService:
                         if not data or fresh: return 429, {'status': 'busy', 'retryAfter': 10}
                         state = 'deferred'
                     else:
-                        self.starts[key] = time.monotonic(); self.jobs[key] = 'pending'; state = 'pending'
-                        self.pool.submit(self.capture, period, key, target, force=bool(query.get('refresh') or data is not None and membership_age>=7200),
-                                         cost_only=bool(fixed and not query.get('refresh')))
-            if data:
-                if self.source is None:
-                    from channel_source import apply_customer_types, apply_cost_overrides
-                    from channel_cache import apply_delivery_cache
-                    data = apply_delivery_cache(data, self.root)
-                    data = apply_cost_overrides(apply_customer_types(data))
-                result = view(data, query)
-                result.update(status='available', refreshing=state in ('pending','cost_pending','deferred'), costRefreshing=state == 'cost_pending', costError=state == 'cost_failed', stale=not bool(fresh), sourceError=state == 'source_failed')
-                return 200, result
-            return (503 if state == 'source_failed' else 202), dict(status=state or 'pending', retryAfter=3)
+                        try:
+                            with self.admission():
+                                self.starts[key] = time.monotonic(); self.jobs[key] = 'pending'; state = 'pending'
+                                self.pool.submit(self.capture, period, key, target, force=bool(query.get('refresh') or data is not None and membership_age>=7200),
+                                                 cost_only=bool(fixed and not query.get('refresh')))
+                        except BlockingIOError:state='deferred'
+        if data:
+            if self.source is None:
+                from channel_source import apply_customer_types, apply_cost_overrides
+                from channel_cache import apply_delivery_cache
+                data = apply_delivery_cache(data, self.root)
+                data = apply_cost_overrides(apply_customer_types(data))
+            result = view(data, query)
+            result.update(status='available', refreshing=state in ('pending','cost_pending','deferred'), costRefreshing=state == 'cost_pending', costError=state == 'cost_failed', stale=not bool(fresh), sourceError=state == 'source_failed')
+            return 200, result
+        return (503 if state == 'source_failed' else 202), dict(status=state or 'pending', retryAfter=3)

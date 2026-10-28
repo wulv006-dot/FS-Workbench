@@ -34,6 +34,153 @@ class Release(unittest.TestCase):
    self.assertEqual(base.approved_daily_group({'scope':release.SCOPE},Path('/'),Path('/var/lib/fs-hermes-fc'),types.SimpleNamespace(st_uid=uid,st_gid=gid,st_mode=mode)),expected)
   self.assertFalse(base.approved_daily_group({'scope':'other'},Path('/'),Path('/var/lib/fs-hermes-fc'),types.SimpleNamespace(st_uid=0,st_gid=9876,st_mode=0o750)))
 
+class ConcurrentPublisher(unittest.TestCase):
+ def manifest(self,module,states):
+  return dict(scope=module.SCOPE,runtimeRequired={module.RANGE:{'ActiveState':'active'},'fs-hermes-fc.service':{'ActiveState':'active'}},
+   maintenanceBefore={u:{k:states[u][k] for k in ('ActiveState','UnitFileState')} for u in (*module.TIMERS,module.RANGE)})
+ def module(self):
+  spec=importlib.util.spec_from_file_location('p4_release_contract',R/'deploy/concurrent_release.py')
+  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+ def setup(self):
+  from contextlib import contextmanager
+  import copy
+  module=self.module();actions=[];states={}
+  def value(active='inactive',enabled='static',pid='0'):
+   return dict(LoadState='loaded',ActiveState=active,SubState='running' if active=='active' else 'dead',MainPID=pid,ControlPID='0',UnitFileState=enabled)
+  for unit in module.SOURCES:states[unit]=value()
+  for unit in module.TIMERS:states[unit]=value(enabled='disabled')
+  states[module.TIMERS[0]]=value('active','enabled');states[module.RANGE]=value('active','enabled','101')
+  states['fs-hermes-fc.service']=value('active','disabled','499')
+  outer=self
+  class Control(module.SystemControl):
+   def __init__(self,root):self.before={};self.paused=[]
+   def state(self,unit):return dict(states[unit])
+   def idle(self):
+    if any(states[u]['MainPID']!='0' or states[u]['ActiveState'] not in ('inactive','failed') for u in module.SOURCES):raise ValueError('p4_source_still_running')
+  control=Control(Path('/'))
+  def command(args,**kwargs):
+   actions.append(tuple(args));verb,unit=args[1:3]
+   if verb=='stop':states[unit].update(ActiveState='inactive',MainPID='0',ControlPID='0')
+   elif verb=='start':states[unit].update(ActiveState='active',MainPID='202' if unit==module.RANGE else '0')
+   else:outer.fail('unexpected system action')
+   return types.SimpleNamespace(returncode=0)
+  self.addCleanup(patch.stopall);patch.object(module.subprocess,'run',side_effect=command).start()
+  @contextmanager
+  def file_lease(base,root,path):actions.append(('lease',path));yield
+  patch.object(module,'lease',file_lease).start()
+  class Fence:
+   modified=False;confirmed=False
+   def unlock_database(self):actions.append(('original-database-unlock',))
+  # Execute the existing publisher's actual stop method, rather than handwave a stopped flag.
+  raw=R.parents[0]/'channel-effects-20261021/deploy/release_navigation_base.py'
+  import ast
+  cls=next(n for n in ast.parse(raw.read_text()).body if isinstance(n,ast.ClassDef) and n.name=='HermesAdmissionFence')
+  node=next(n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=='stop_then_unlock_database')
+  namespace=dict(subprocess=module.subprocess);exec(compile(ast.Module(body=[node],type_ignores=[]),'original-stop-method','exec'),namespace)
+  Fence.stop_then_unlock_database=namespace['stop_then_unlock_database'];fence=Fence()
+  @contextmanager
+  def admission(m,root):actions.append(('admission-enter',));yield fence;actions.append(('admission-exit',))
+  @contextmanager
+  def web(m,root):actions.append(('snapshot-then-web',));yield
+  seen=[]
+  def guards(m,root,stopped=False):
+   if stopped:raise ValueError('invalid controlled reader stop')
+   seen.append(copy.deepcopy(m))
+   for unit,expected in m['runtimeRequired'].items():
+    if any(states[unit][k]!=v for k,v in expected.items()):raise ValueError('protected unit changed')
+  base=types.SimpleNamespace(HERMES_HISTORY_SCOPE=module.SCOPE,live_lock=web,hermes_admission_fence=admission,
+   guards=guards,inspect=lambda m,s,r:guards(m,r),rollback_journal=lambda b,j,r:actions.append(('original-rollback',)),
+   rooted=lambda root,path:Path(root)/path.lstrip('/'),no_target_link=lambda p:None,apply=object())
+  original_apply=base.apply;base=module.extend(base,lambda root:control)
+  return module,base,control,fence,states,actions,seen,original_apply
+ def test_exact_existing_targets_and_original_apply_unchanged(self):
+  module,base,*rest=self.setup();self.assertEqual(len(module.TARGETS),7);self.assertFalse(module.NEW)
+  self.assertIs(base.apply,rest[-1]);self.assertFalse(any('user_' in path or path.endswith('.db') for path in module.TARGETS.values()))
+  self.assertEqual(module.TARGETS['source/cache_retention.py'],'/opt/fs-hermes-fc/cache_retention.py')
+ def test_real_frozen_validate_keeps_exact_runtime_fields_and_accepts_separate_maintenance_record(self):
+  import copy,hashlib,tempfile
+  module,_,_,_,states,*_=self.setup()
+  path=R.parent/'channel-effects-20261021/deploy/release_navigation_base.py';raw=path.read_bytes()
+  self.assertEqual(hashlib.sha256(raw).hexdigest(),'1d070ee806caf850ffbbd4f4a884acd2d98a39b6f464f562c1fbb3548707f2de')
+  base=types.ModuleType('original_frozen_validate_contract');base.__file__=str(path)
+  exec(compile(raw,str(path),'exec'),base.__dict__)
+  base.HERMES_HISTORY_SCOPE,base.HERMES_HISTORY_TARGETS=module.SCOPE,module.TARGETS
+  base.expected_files=lambda manifest:set(module.TARGETS);base.target_for=lambda relative:module.TARGETS[relative]
+  protected={*base.HERMES_TARGETS.values(),*('/opt/fs-exact-range-20261001/'+name for name in
+   ('boss_insights.py','fc_deep_model.py','fc_daily.py','fc_daily_model.py','fc_detail.py','fc_detail_model.py','fc_detail_reader.py','fc_detail_config.json','fc_deep_sources.py','summary_bridge.py')),
+   '/var/www/dashboard/index.html','/var/www/dashboard/fs-home/index.html','/var/www/dashboard/fs-home/navigation.js','/opt/fs-access-policy/access_policy.py'}-set(module.TARGETS.values())
+  with tempfile.TemporaryDirectory() as folder:
+   stage=Path(folder);rows=[]
+   for relative,target in module.TARGETS.items():
+    candidate=stage/'candidate'/relative;candidate.parent.mkdir(parents=True,exist_ok=True);candidate.write_bytes(b'# synthetic publisher fixture\n')
+    rows.append(dict(candidate=relative,target=target,sha256=hashlib.sha256(candidate.read_bytes()).hexdigest(),beforeSha256='a'*64,owner='0:0',mode='0o644'))
+   manifest=dict(self.manifest(module,states),schemaVersion=1,files=rows,businessWrites=False,timersChanged=False,
+    imageId='sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544',
+    unchangedRequired=[dict(path=name,sha256='b'*64) for name in protected])
+   self.assertEqual(len(base.validate(manifest,stage)),7)
+   bad=copy.deepcopy(manifest);bad['runtimeRequired'][module.RANGE]['UnitFileState']='enabled'
+   with self.assertRaisesRegex(ValueError,'active Hermes update services required'):base.validate(bad,stage)
+   self.assertEqual(len(base.validate(manifest,stage)),7)
+ def test_inspect_is_readonly_and_external_stopped_flag_cannot_bypass_guard(self):
+  module,base,control,fence,states,actions,seen,_=self.setup()
+  manifest=self.manifest(module,states)
+  base.inspect(manifest,Path('/fixture'),Path('/fixture'))
+  self.assertFalse(any(action[0]=='systemctl' for action in actions))
+  self.assertEqual(actions[0],('lease',module.ADMISSION));self.assertFalse(fence.modified)
+  with self.assertRaisesRegex(ValueError,'invalid controlled reader stop'):base.guards(manifest,Path('/fixture'),True)
+ def test_apply_real_stop_precedes_controlled_guards_restore_only_original_active_state(self):
+  module,base,control,fence,states,actions,seen,_=self.setup()
+  manifest=self.manifest(module,states)
+  with base.live_lock(manifest,Path('/fixture')):
+   self.assertEqual(states[module.RANGE]['MainPID'],'0')
+   with base.hermes_admission_fence(manifest,Path('/fixture')) as reused:self.assertIs(reused,fence)
+   base.guards(manifest,Path('/fixture'))
+   self.assertEqual(seen[-1]['runtimeRequired'][module.RANGE],{'ActiveState':'inactive'})
+   self.assertEqual(manifest['runtimeRequired'][module.RANGE],{'ActiveState':'active'})
+   self.assertEqual(manifest['maintenanceBefore'][module.RANGE]['UnitFileState'],'enabled')
+   states[module.RANGE].update(ActiveState='inactive',MainPID='999')
+   with self.assertRaisesRegex(ValueError,'stop_not_confirmed'):base.guards(manifest,Path('/fixture'))
+   states[module.RANGE]['MainPID']='0'
+  self.assertEqual(states[module.RANGE]['ActiveState'],'active')
+  self.assertEqual(states[module.TIMERS[0]]['ActiveState'],'active')
+  self.assertTrue(all(states[u]['ActiveState']=='inactive' for u in module.TIMERS[1:]))
+  commands=[a for a in actions if a[0]=='systemctl']
+  self.assertEqual(commands,[('systemctl','stop',module.TIMERS[0]),('systemctl','stop',module.RANGE),('systemctl','start',module.RANGE),('systemctl','start',module.TIMERS[0])])
+  self.assertLess(actions.index(('admission-enter',)),actions.index(('systemctl','stop',module.TIMERS[0])))
+  self.assertLess(actions.index(('snapshot-then-web',)),actions.index(('systemctl','stop',module.RANGE)))
+ def test_old_source_busy_defers_before_reader_stop_and_restores_timer(self):
+  module,base,control,fence,states,actions,*_=self.setup()
+  states[module.SOURCES[0]].update(ActiveState='active',MainPID='303')
+  with self.assertRaisesRegex(ValueError,'source_still_running'):
+   with base.live_lock(self.manifest(module,states),Path('/fixture')):self.fail('writer reached')
+  self.assertNotIn(('systemctl','stop',module.RANGE),actions)
+  self.assertEqual(states[module.TIMERS[0]]['ActiveState'],'active')
+ def test_rollback_stops_reader_before_original_restore_and_unconfirmed_never_auto_starts_bad_code(self):
+  module,base,control,fence,states,actions,*_=self.setup();manifest=self.manifest(module,states)
+  with base.live_lock(manifest,Path('/fixture')):
+   states[module.RANGE].update(ActiveState='active',MainPID='202')
+   base.rollback_journal(Path('/backup'),dict(manifest=manifest),Path('/fixture'))
+   self.assertEqual(states[module.RANGE]['MainPID'],'0');self.assertEqual(actions[-1],('original-rollback',))
+   fence.modified=True
+  self.assertEqual(states[module.RANGE]['ActiveState'],'inactive')
+  self.assertNotIn(('systemctl','start',module.RANGE),actions)
+  self.assertEqual(states[module.TIMERS[0]]['ActiveState'],'inactive')
+ def test_restore_failure_does_not_skip_api_or_other_original_active_timers(self):
+  module,base,control,fence,states,actions,*_=self.setup()
+  states[module.TIMERS[1]].update(ActiveState='active',UnitFileState='enabled')
+  control.pause(self.manifest(module,states));states[module.RANGE].update(ActiveState='inactive',MainPID='0')
+  run=module.subprocess.run.side_effect
+  def fail_first_timer(args,**kwargs):
+   if args==['systemctl','start',module.TIMERS[0]]:actions.append(tuple(args));raise OSError('fixture timer start failure')
+   return run(args,**kwargs)
+  module.subprocess.run.side_effect=fail_first_timer
+  with self.assertRaisesRegex(ValueError,'restore_incomplete'):control.restore(True)
+  self.assertEqual(states[module.RANGE]['ActiveState'],'active')
+  self.assertEqual(states[module.TIMERS[1]]['ActiveState'],'active')
+  starts=[a for a in actions if a[:2]==('systemctl','start')]
+  self.assertEqual(starts,[('systemctl','start',module.RANGE),('systemctl','start',module.TIMERS[0]),('systemctl','start',module.TIMERS[1])])
+
+
 class TransactionPublisher(unittest.TestCase):
  def module(self):
   spec=importlib.util.spec_from_file_location('transaction_release_contract',R/'deploy/transaction_release.py')

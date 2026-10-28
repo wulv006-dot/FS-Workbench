@@ -1,5 +1,6 @@
 """Real HTTP threads and Linux file locks exercise independent range readers."""
 import ast
+from contextlib import nullcontext
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -38,8 +39,10 @@ def encoded(value):
 
 def function(name, namespace):
     tree = ast.parse((SOURCE / 'range_api.py').read_text(encoding='utf8'))
-    node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name)
-    exec(compile(ast.Module(body=[node], type_ignores=[]), name, 'exec'), namespace)
+    names={name,'_capture'} if name=='capture' else {name}
+    nodes=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in names]
+    namespace.setdefault('maintenance_admission',nullcontext)
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), name, 'exec'), namespace)
     return namespace[name]
 
 
@@ -55,6 +58,73 @@ def record(q):
 
 
 class ConcurrentRanges(unittest.TestCase):
+    def test_slow_order_queue_does_not_block_fifth_cold_admin_scope(self):
+        release=Event();admin_done=[Event() for _ in range(5)];calls=[]
+        def admin(q):
+            calls.append(q['profile']);return record(q)
+        def order(q):
+            release.wait(5);return record(q)
+        cache=SummaryCache(admin,order,{str(i):(str(i),str(i)) for i in range(5)})
+        cache.persist_complete=lambda q:admin_done[int(q['profile'])].set()
+        try:
+            for i in range(4):
+                cache.get_live(query(str(i)));self.assertTrue(admin_done[i].wait(1))
+            cache.get_live(query('4'))
+            self.assertTrue(admin_done[4].wait(1),'Order-only pending scopes blocked an independent Admin cold read')
+            code,value=cache.get_live(query('4'));self.assertEqual(code,200)
+            self.assertEqual(value['sources']['Order']['status'],'unavailable')
+            self.assertEqual(value['sources']['Order']['phase'],'deferred')
+            self.assertEqual(calls.count('4'),1)
+            self.assertLessEqual(sum(any(s['state']=='pending' for n,s in e.items() if n!='Admin') for e in cache.entries.values()),4)
+        finally:release.set();cache.close()
+
+    def test_source_rate_and_pending_budgets_are_independent_and_bounded(self):
+        class Pool:
+            def __init__(self):self.jobs=[]
+            def submit(self,*args):self.jobs.append(args)
+        cache=SummaryCache(record,record,{'0':('0','0')},clock=lambda:0)
+        cache.close();cache.pools={name:Pool() for name in cache.readers};cache.persist_complete=lambda q:None
+        cache.starts['Order'][:]=[0]*6
+        code,_=cache.get_live(query('0'));self.assertEqual(code,202)
+        self.assertEqual(len(cache.pools['Admin'].jobs),1);self.assertFalse(cache.pools['Order'].jobs)
+        for i in range(1,5):
+            cache.profiles[str(i)]=(str(i),str(i));cache.get_live(query(str(i)))
+        self.assertEqual(len(cache.pools['Admin'].jobs),4)
+        self.assertEqual(cache.get_live(query('4'))[0],429)
+        self.assertFalse(cache.pools['Order'].jobs)
+
+    @unittest.skipIf(fcntl is None, 'requires real Linux flock')
+    def test_profit_target_lock_is_nonblocking_process_shared_stable_and_failure_safe(self):
+        from channel_effects import ChannelService
+        import select
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);target=root/('a'*24+'.json');other=root/('b'*24+'.json')
+            service=ChannelService(root,lambda user:True);service.pool.shutdown()
+            ready_r,ready_w=os.pipe();release_r,release_w=os.pipe();pid=os.fork()
+            if pid==0:
+                try:
+                    os.close(ready_r);os.close(release_w)
+                    with service.capture_lock(target):
+                        os.write(ready_w,b'1');os.read(release_r,1)
+                    os._exit(0)
+                except BaseException:os._exit(2)
+            os.close(ready_w);os.close(release_r)
+            try:
+                self.assertTrue(select.select([ready_r],[],[],2)[0]);self.assertEqual(os.read(ready_r,1),b'1')
+                before=time.monotonic()
+                with self.assertRaises(BlockingIOError):
+                    with service.capture_lock(target):self.fail('same target reader duplicated')
+                self.assertLess(time.monotonic()-before,.2)
+                with service.capture_lock(other):pass
+                path=root/('.capture-'+target.stem+'.lock');inode=path.stat().st_ino
+            finally:
+                os.write(release_w,b'1');os.close(release_w);os.close(ready_r)
+                _,status=os.waitpid(pid,0);self.assertEqual(status,0)
+            with self.assertRaisesRegex(ValueError,'fixture read failed'):
+                with service.capture_lock(target):raise ValueError('fixture read failed')
+            with service.capture_lock(target):self.assertEqual(path.stat().st_ino,inode)
+            self.assertFalse(target.exists())
+
     def test_two_cold_admin_scopes_use_parallel_upstream_and_cached_http_stays_fast(self):
         release = Event()
         both_started = Event()
@@ -166,8 +236,10 @@ class ConcurrentRanges(unittest.TestCase):
                              hashlib=hashlib, encoded=encoded, json=json, LOCK=RLock(), JOBS={}, STARTS=[],
                              time=time, capture=Mock(), POOL=order_pool, SUMMARY=SimpleNamespace(pools={'Admin': admin_pool}))
             get = function('get_range_live', namespace)
-            self.assertEqual(get({})[0], 202)
-            self.assertEqual(get({})[0], 202)
+            first=get({});second=get({})
+            self.assertEqual((first[0],second[0]),(202,202))
+            self.assertEqual((first[1]['retryAfter'],second[1]['retryAfter']),(2,2))
+            self.assertEqual(first[1]['rangeId'],second[1]['rangeId'])
             admin_pool.submit.assert_called_once()
             order_pool.submit.assert_not_called()
 
@@ -235,6 +307,124 @@ class ConcurrentRanges(unittest.TestCase):
                 finally:
                     release.set(); future.result(timeout=2)
             namespace['publish_cache'].assert_called_once()
+
+
+class MaintenanceGateTests(unittest.TestCase):
+    def gate(self):
+        path=SOURCE.parents[1]/'cache-archive-retention-20261025/source/cache_retention.py'
+        spec=importlib.util.spec_from_file_location('maintenance_cache_contract',path)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+
+    def test_maintenance_rejects_new_summary_and_native_work_but_keeps_native_warm_status_fast(self):
+        from contextlib import contextmanager
+        @contextmanager
+        def closed():raise BlockingIOError('maintenance_in_progress');yield
+        reader=Mock();cache=SummaryCache(reader,reader,{'FC27':('FC27','FC27')});cache.admission=closed
+        try:
+            code,value=cache.get_live(query('FC27'));self.assertEqual(code,429)
+            self.assertTrue(all(s['error']=='maintenance_in_progress' for s in value['sources'].values()))
+            reader.assert_not_called();self.assertFalse(any(cache.starts.values()))
+        finally:cache.close()
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);q=dict(query('FC27'),baseSnapshotId='catalog')
+            ident=hashlib.sha256(encoded(q)).hexdigest();jobs={};starts=[]
+            namespace=dict(CACHE=root,snapshot=lambda:dict(snapshotId='catalog'),query=lambda p,d:q,
+                hashlib=hashlib,encoded=encoded,json=json,datetime=datetime,timezone=timezone,time=time,
+                LOCK=RLock(),JOBS=jobs,STARTS=starts,SUMMARY=SimpleNamespace(pools={'Admin':Mock()}),POOL=Mock(),
+                maintenance_admission=closed,capture=Mock())
+            get=function('get_range_live',namespace)
+            self.assertEqual(get({})[0],503);self.assertFalse(jobs);self.assertFalse(starts)
+            jobs[ident]=dict(status='pending');self.assertEqual(get({})[0],202);jobs.clear()
+            (root/(ident+'.json')).write_text(json.dumps(dict(generatedAt=datetime.now(timezone.utc).isoformat(),value='old-complete')))
+            self.assertEqual(get({})[1]['value'],'old-complete');namespace['capture'].assert_not_called()
+
+    def test_unavailable_maintenance_lease_marks_capture_failed_instead_of_permanent_pending(self):
+        from contextlib import contextmanager
+        @contextmanager
+        def broken():raise ValueError('fixture unsafe inode');yield
+        reader=Mock();cache=SummaryCache(reader,reader,{'FC27':('FC27','FC27')});cache.admission=broken
+        try:
+            slot=dict(state='pending');cache.capture('Admin',query('FC27'),slot)
+            self.assertEqual((slot['state'],slot['phase'],slot['error']),('unavailable','failed','source_read_failed'))
+            reader.assert_not_called()
+        finally:cache.close()
+
+    def test_complete_warm_summary_and_native_survive_deferred_archive_write(self):
+        from contextlib import contextmanager
+        @contextmanager
+        def closed():raise BlockingIOError('maintenance_in_progress');yield
+        warm=dict(status='available',metrics={'orders':7});save=Mock()
+        archive=SimpleNamespace(read=lambda *args:None,save=save,summary_key=lambda q:{},native_key=lambda *args:{},
+            complete_summary=lambda v:True,complete_native=lambda v:True,derive_summary=lambda q:None,rebind_native=lambda v,q:v)
+        cache=SummaryCache(record,record,{'FC27':('FC27','FC27')});cache.admission=closed
+        try:
+            with patch.dict(sys.modules,daily_archive=archive),patch.object(cache,'get_live',return_value=(200,dict(warm))):
+                code,value=cache.get(query('FC27'))
+                self.assertEqual((code,value['status'],value['metrics']),(200,'available',{'orders':7}))
+                self.assertTrue(value['archive']['refreshDeferred'])
+                namespace=dict(maintenance_admission=closed,query=lambda *args:query('FC27'),snapshot=lambda:{},
+                    PROFILE_MAP={'FC27':('FC27','FC27')},get_range_live=lambda *args,**kwargs:(200,dict(warm)))
+                native=function('get_range',namespace)
+                code,value=native({})
+                self.assertEqual((code,value['status'],value['metrics']),(200,'available',{'orders':7}))
+                self.assertTrue(value['archive']['refreshDeferred']);save.assert_not_called()
+        finally:cache.close()
+
+    @unittest.skipIf(fcntl is None,'requires real Linux shared maintenance lease')
+    def test_shared_reads_and_existing_controller_submit_coexist_exclusive_blocks_new_keys(self):
+        import stat
+        from contextlib import contextmanager
+        gate=self.gate()
+        path=SOURCE.parents[1]/'fc-coins-workflow-20261022/source/controller.py'
+        node=next(n for n in ast.parse(path.read_text()).body if isinstance(n,ast.FunctionDef) and n.name=='admission_guard')
+        namespace=dict(contextmanager=contextmanager,Path=Path,os=os,stat=stat)
+        exec(compile(ast.Module(body=[node],type_ignores=[]),'existing-admission-guard','exec'),namespace)
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            with gate.maintenance_reader(root),gate.maintenance_reader(root),namespace['admission_guard'](root/'admission.lock') as accepted:
+                self.assertTrue(accepted)
+                with (root/'admission.lock').open('a+b') as writer:
+                    with self.assertRaises(BlockingIOError):fcntl.flock(writer,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            inode=(root/'admission.lock').stat().st_ino
+            with (root/'admission.lock').open('a+b') as writer:
+                fcntl.flock(writer,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                before=time.monotonic()
+                with self.assertRaisesRegex(BlockingIOError,'maintenance_in_progress'):
+                    with gate.maintenance_reader(root):self.fail('new key admitted during publication')
+                with namespace['admission_guard'](root/'admission.lock') as accepted:self.assertFalse(accepted)
+                self.assertLess(time.monotonic()-before,.2)
+            self.assertEqual((root/'admission.lock').stat().st_ino,inode)
+
+    @unittest.skipIf(fcntl is None,'requires real Linux fork and lock ordering')
+    def test_legacy_outer_global_owner_releases_on_nonblocking_maintenance_gate(self):
+        import select
+        gate=self.gate()
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            with gate.maintenance_reader(root):pass
+            ready_r,ready_w=os.pipe();go_r,go_w=os.pipe();done_r,done_w=os.pipe();pid=os.fork()
+            if pid==0:
+                try:
+                    os.close(ready_r);os.close(go_w);os.close(done_r)
+                    with (root/'collector.lock').open('a+b') as outer:
+                        fcntl.flock(outer,fcntl.LOCK_EX|fcntl.LOCK_NB);os.write(ready_w,b'1');os.read(go_r,1)
+                        try:
+                            with gate.maintenance_reader(root):result=b'bad'
+                        except BlockingIOError:result=b'busy'
+                    os.write(done_w,result);os._exit(0)
+                except BaseException:os._exit(2)
+            os.close(ready_w);os.close(go_r);os.close(done_w)
+            writer=(root/'admission.lock').open('a+b')
+            try:
+                self.assertTrue(select.select([ready_r],[],[],2)[0]);self.assertEqual(os.read(ready_r,1),b'1')
+                fcntl.flock(writer,fcntl.LOCK_EX|fcntl.LOCK_NB);os.write(go_w,b'1')
+                self.assertTrue(select.select([done_r],[],[],1)[0],'outer global and maintenance gate formed a wait cycle')
+                self.assertEqual(os.read(done_r,4),b'busy')
+                with (root/'collector.lock').open('a+b') as outer:fcntl.flock(outer,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            finally:
+                writer.close()
+                for fd in (ready_r,go_w,done_r):os.close(fd)
+                _,status=os.waitpid(pid,0);self.assertEqual(status,0)
 
 
 class TransactionLockScopeTests(unittest.TestCase):

@@ -26,6 +26,11 @@ WEB=Path('/var/www/dashboard/fs-home/transactions');CACHE=Path('/var/lib/fs-busi
 POOL=ThreadPoolExecutor(max_workers=1);LOCK=RLock();JOBS={};STARTS=[]
 PROFILE_MAP={r[0]:r for r in PROFILES}
 
+
+def maintenance_admission():
+ from cache_retention import maintenance_reader
+ return maintenance_reader()
+
 def call(container,script,requests,timeout):
  if script=='order_shipping':
   from business_shipping import collect
@@ -87,6 +92,14 @@ def query(params,d):
 
 
 def capture(q,jobid):
+ try:
+  with maintenance_admission():return _capture(q,jobid)
+ except Exception as error:
+  code='maintenance_in_progress' if isinstance(error,BlockingIOError) else 'native_range_read_failed'
+  with LOCK:JOBS[jobid]={'status':'unavailable','error':code,'retryAfter':3,'failedAt':time.monotonic()}
+
+
+def _capture(q,jobid):
  try:
   _,name,gid,game,group=PROFILE_MAP[q['profile']];period=q['period']
   if q.get('analysis')=='fc27-products':
@@ -161,6 +174,7 @@ def publish_cache(jobid,data):
 from live_summary import query as summary_query
 from summary_bridge import build as build_summary
 SUMMARY=build_summary(PROFILE_MAP,call,dimensions,WEB)
+SUMMARY.admission=maintenance_admission
 from profit_queries import ProfitQueries
 RS_PROFITS={}
 SHIPPING_PROFITS={}
@@ -188,7 +202,10 @@ def get_range(params):
  if archived is not None:
   return 200,rebind_native(archived,q)
  code,value=get_range_live(params,force=force)
- if code==200 and complete_native(value):save('native',selector,value)
+ if code==200 and complete_native(value):
+  try:
+   with maintenance_admission():save('native',selector,value)
+  except BlockingIOError:value['archive']={**(value.get('archive') or {}),'refreshDeferred':True,'reason':'maintenance_in_progress'}
  return code,value
 
 def get_range_live(params,force=False):
@@ -234,13 +251,16 @@ def get_range_live(params,force=False):
   job=JOBS.get(jobid)
   if job and job['status']=='available':job=None
   if job and job['status']=='unavailable' and time.monotonic()-job['failedAt']>=60:job=None
-  if job:return (202 if job['status']=='pending' else 503),{'schemaVersion':1,'rangeId':jobid,'baseSnapshotId':d['snapshotId'],**{k:v for k,v in job.items() if k!='failedAt'}}
+  if job:return (202 if job['status']=='pending' else 503),{'schemaVersion':1,'rangeId':jobid,'baseSnapshotId':d['snapshotId'],**({'retryAfter':2} if job['status']=='pending' else {}),**{k:v for k,v in job.items() if k!='failedAt'}}
   active=sum(1 for v in JOBS.values() if v['status']=='pending')
   now=time.monotonic();STARTS[:]=[v for v in STARTS if now-v<60]
   if active>=4 or len(STARTS)>=6:return 429,{'status':'busy','retryAfter':10}
-  STARTS.append(now);JOBS[jobid]={'status':'pending'}
-  pool=SUMMARY.pools['Admin'] if q.get('analysis')=='fc27-products' else POOL
-  pool.submit(capture,q,jobid)
+  try:
+   with maintenance_admission():
+    STARTS.append(now);JOBS[jobid]={'status':'pending'}
+    pool=SUMMARY.pools['Admin'] if q.get('analysis')=='fc27-products' else POOL
+    pool.submit(capture,q,jobid)
+  except BlockingIOError:return 503,{'status':'busy','error':'maintenance_in_progress','rangeId':jobid,'retryAfter':3}
   return 202,{'schemaVersion':1,'status':'pending','rangeId':jobid,'baseSnapshotId':d['snapshotId'],'retryAfter':2}
 
 from ai_advisor import Advisor
@@ -269,6 +289,7 @@ ACTUAL_PROFITS=None
 if HERMES is not None:
  from channel_effects import ChannelService
  CHANNELS=ChannelService('/var/lib/fs-channel-effects',hermes_authorizer)
+ CHANNELS.admission=maintenance_admission
  from actual_profit import ActualProfitService
  ACTUAL_PROFITS=ActualProfitService(CHANNELS,PROFILE_MAP)
 ADVISOR=Advisor(snapshot,get_range,FC_DAILY,CACHE/'advisor',deep=DEEP)

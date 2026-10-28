@@ -1,5 +1,6 @@
 """Shared, bounded summary cache. The existing authenticated range route is its only caller."""
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from datetime import datetime, date, timedelta, timezone
 from threading import RLock
 import copy, hashlib, json, time
@@ -77,7 +78,8 @@ class SummaryCache:
         if shipping_read:
             self.readers={'Admin':admin_read,'Shipping':shipping_read,'Order':order_read}
             self.pools['Shipping']=self.pools['Order']
-        self.lock, self.entries, self.starts = RLock(), {}, []
+        self.lock, self.entries, self.starts = RLock(), {}, {'Admin': [], 'Order': []}
+        self.admission = nullcontext
         self.coherent = {}
 
     def close(self):
@@ -85,6 +87,16 @@ class SummaryCache:
             pool.shutdown(wait=True)
 
     def capture(self, name, q, slot):
+        try:
+            with self.admission():return self._capture(name,q,slot)
+        except BlockingIOError:
+            with self.lock:
+                slot.update(at=self.clock(),finishedAt=self.clock(),state='unavailable',phase='deferred',error='maintenance_in_progress')
+        except Exception:
+            with self.lock:
+                slot.update(at=self.clock(),finishedAt=self.clock(),state='unavailable',phase='failed',error='source_read_failed')
+
+    def _capture(self, name, q, slot):
         with self.lock:
             slot.update(startedAt=self.clock(), phase='reading')
         try:
@@ -142,7 +154,11 @@ class SummaryCache:
         derived = derive_summary(selector) if not q.get('refresh') else None
         if derived is not None: derived['query'] = copy.deepcopy(q)
         code, value = self.get_live(q)
-        if code == 200 and complete_summary(value): save('summary', selector, value)
+        if code == 200 and complete_summary(value):
+            try:
+                with self.admission():save('summary',selector,value)
+            except BlockingIOError:
+                value['archive']={**(value.get('archive') or {}),'refreshDeferred':True,'reason':'maintenance_in_progress'}
         elif archived is not None and code != 403:
             archived.update(stale=True,refreshing=code in (202,429),expiresInSeconds=0,
                 refreshSeconds=q.get('cacheSeconds',TTL))
@@ -191,16 +207,32 @@ class SummaryCache:
             elif 'Admin' in due and entry['Order']['value'] is not None and entry['Order']['value']['period'] != q['period'] and 'Order' not in due:
                 due.append('Order')
             if 'Shipping' in entry and entry['Shipping']['value'] is not None and entry['Shipping']['value']['period']!=read_query['period'] and 'Shipping' not in due and entry['Shipping']['state']!='pending':due.append('Shipping')
-            self.starts[:] = [t for t in self.starts if now - t < 60]
-            active = sum(any(s['state'] == 'pending' for s in e.values()) for e in self.entries.values())
-            throttled = bool(due) and (active >= 4 or len(self.starts) >= 6)
-            if due and not throttled:
-                self.starts.append(now)
-                # Each source has its own worker; a slow/failing Order cannot hold Admin.
-                for name in due:
-                    slot = entry[name]
-                    slot.update(state='pending', phase='queued', queuedAt=self.clock(), startedAt=None, finishedAt=None, error=None, requestPeriod=read_query['period'])
-                    self.pools[name].submit(self.capture, name, copy.deepcopy(read_query), slot)
+            blocked=set()
+            for lane in ('Admin','Order'):
+                names=[n for n in due if ('Admin' if n=='Admin' else 'Order')==lane]
+                starts=self.starts[lane];starts[:]=[t for t in starts if now-t<60]
+                active=sum(any(s['state']=='pending' for n,s in e.items() if ('Admin' if n=='Admin' else 'Order')==lane) for e in self.entries.values())
+                if not names:continue
+                if active>=4 or len(starts)>=6:
+                    blocked.update(names)
+                    for name in names:
+                        if entry[name]['state']=='new':entry[name]['state']='unavailable'
+                        entry[name].update(phase='deferred',error='source_capacity_busy')
+                    continue
+                try:
+                    with self.admission():
+                        starts.append(now)
+                        # Keep the original four-scope bound per resource; Order cannot occupy Admin admission.
+                        for name in names:
+                            slot = entry[name]
+                            slot.update(state='pending', phase='queued', queuedAt=self.clock(), startedAt=None, finishedAt=None, error=None, requestPeriod=read_query['period'])
+                            self.pools[name].submit(self.capture, name, copy.deepcopy(read_query), slot)
+                except BlockingIOError:
+                    blocked.update(names)
+                    for name in names:
+                        if entry[name]['state']=='new':entry[name]['state']='unavailable'
+                        entry[name].update(phase='deferred',error='maintenance_in_progress')
+            throttled='Admin' in blocked
             if q.get('refresh') and throttled:
                 return 429, {'status': 'busy', 'retryAfter': 10}
             admin, order = entry['Admin'], entry['Order']
@@ -226,7 +258,7 @@ class SummaryCache:
                                 'query': q, 'rangeId': key, 'retryAfter': 2 if status == 202 else 10,
                                 'sources': {n: {'status': s['state'], **self.progress(s)} for n, s in entry.items()}}
             order_age = now - order.get('valueAt', order['at'])
-            refreshing = order['state'] in ('pending', 'unavailable') or throttled
+            refreshing = order['state'] in ('pending', 'unavailable') or bool(blocked)
             # Retain one bounded, coherent pair during refresh; never blend cutoffs.
             previous = self.coherent.get(key)
             if origin == 'live-cache' and o is not None and o.get('period') == a['period'] and admin['state'] == order['state'] == 'available':

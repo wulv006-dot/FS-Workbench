@@ -1,5 +1,6 @@
 """Fictional orders: one paid cohort, whole-order income, exact site and daily sums."""
 import copy,hashlib,json,os,sys,tempfile,threading,time,unittest
+from contextlib import nullcontext
 from datetime import datetime,timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -151,6 +152,83 @@ class Service(unittest.TestCase):
         def costs(d,*args):
             d['sources']['cost']['status']='complete';return d
         self.service=ActualProfitService(self.channels,PROFILES,reader,costs,clock=lambda:self.now)
+    def test_distinct_actual_cold_admin_scopes_do_not_take_global_collector_lock(self):
+        from concurrent.futures import ThreadPoolExecutor
+        started=[threading.Event(),threading.Event()];release=threading.Event()
+        def reader(q,profile,root):
+            started[0 if q['rs_site']=='rsorders' else 1].set()
+            if not release.wait(2):raise TimeoutError('fixture deadline')
+            return dict(data(),actualPeriod=q['period'])
+        self.service.reader=reader
+        self.service.get(BASE,'admin');self.service.get({**BASE,'rs_site':['rsmalls']},'admin')
+        global_lock=Path(self.tmp.name)/'collector.lock';global_lock.touch();identity=global_lock.stat().st_ino
+        def fence(fd,operation):
+            if os.fstat(fd).st_ino==identity:raise BlockingIOError('global collector owned by another task')
+        pool=ThreadPoolExecutor(max_workers=2)
+        held=global_lock.open('a+b')
+        if os.name=='posix':
+            import fcntl
+            fcntl.flock(held,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        try:
+            with patch('actual_profit.fcntl.flock',side_effect=fence) if os.name=='nt' else nullcontext():
+                futures=[pool.submit(fn,*args,**kw) for fn,args,kw in self.pool.jobs]
+                self.assertTrue(all(event.wait(1) for event in started),'cold Admin reads still depend on the global collector')
+                release.set()
+                for future in futures:future.result(2)
+            self.assertEqual(set(self.service.jobs.values()),{'available'})
+        finally:release.set();held.close();pool.shutdown()
+
+    def test_main_scope_cold_periods_do_not_take_global_collector_lock(self):
+        from concurrent.futures import ThreadPoolExecutor
+        started=[threading.Event(),threading.Event()];release=threading.Event()
+        def reader(period):
+            started[0 if period['start']=='2026-10-20' else 1].set()
+            if not release.wait(2):raise TimeoutError('fixture deadline')
+            return dict(data(),period=period)
+        self.channels.source=reader
+        for day in ('2026-10-20','2026-10-21'):
+            self.service.get({**BASE,'rs_site':['mmoexp'],'start':[day],'end':[day]},'admin')
+        global_lock=Path(self.tmp.name)/'collector.lock';global_lock.touch();identity=global_lock.stat().st_ino
+        def fence(fd,operation):
+            if os.fstat(fd).st_ino==identity:raise BlockingIOError('global collector owned by another task')
+        pool=ThreadPoolExecutor(max_workers=2)
+        held=global_lock.open('a+b')
+        if os.name=='posix':
+            import fcntl
+            fcntl.flock(held,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        try:
+            with patch('actual_profit.fcntl.flock',side_effect=fence) if os.name=='nt' else nullcontext():
+                futures=[pool.submit(fn,*args,**kw) for fn,args,kw in self.pool.jobs]
+                self.assertTrue(all(event.wait(1) for event in started),'main-scope Admin reads still hold the global collector')
+                release.set()
+                for future in futures:future.result(2)
+            self.assertEqual(set(self.channels.jobs.values()),{'available'})
+        finally:release.set();held.close();pool.shutdown()
+
+    def test_main_scope_warm_projection_does_not_hold_other_scope_metadata_lock(self):
+        from concurrent.futures import ThreadPoolExecutor
+        entered=threading.Event();release=threading.Event();second_done=threading.Event()
+        def cached(period,*args):
+            value=dict(data(),period=period)
+            for row in value['orders']:row.update(day=period['start'],paidAt=period['start']+' 12:00:00')
+            value['sources']['cost']['generatedAt']=value['generatedAt']
+            return value
+        def delivery(value,*args):
+            if value['period']['start']=='2026-10-20':
+                entered.set();release.wait(2)
+            return value
+        self.channels.source=None
+        def read(day):return self.channels.get(dict(mode=['profit'],start=[day],end=[day]),'admin')
+        def other():
+            result=read('2026-10-21');second_done.set();return result
+        pool=ThreadPoolExecutor(max_workers=2)
+        try:
+            with patch('channel_cache.compose',side_effect=cached),patch('channel_cache.apply_delivery_cache',side_effect=delivery),patch('channel_source.apply_customer_types',side_effect=lambda value:value),patch('channel_source.apply_cost_overrides',side_effect=lambda value:value):
+                first=pool.submit(read,'2026-10-20');self.assertTrue(entered.wait(1));second=pool.submit(other)
+                self.assertTrue(second_done.wait(.5),'one warm projection holds the shared job metadata lock')
+                release.set();self.assertEqual(first.result(2)[0],200);self.assertEqual(second.result(2)[0],200)
+        finally:release.set();pool.shutdown()
+
     def test_async_same_scope_and_permission_no_public_order_leak(self):
         self.assertEqual(self.service.get(BASE,'guest')[0],403);self.assertEqual(len(self.pool.jobs),0)
         self.assertEqual(self.service.get(BASE,'admin')[0],202);self.service.get(BASE,'admin');self.assertEqual(len(self.pool.jobs),1);self.pool.drain()

@@ -79,8 +79,10 @@ class DirectAdmin(unittest.TestCase):
     def test_cold_category_capture_reaches_actual_collector_order_dispatch(self):
         def actual_function(file,name,namespace):
             tree=ast.parse((ROOT/'source'/file).read_text(encoding='utf-8'))
-            node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name==name)
-            exec(compile(ast.Module(body=[node],type_ignores=[]),file,'exec'),namespace)
+            names={name,'_capture'} if file=='range_api.py' and name=='capture' else {name}
+            nodes=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in names]
+            namespace.setdefault('maintenance_admission',contextlib.nullcontext)
+            exec(compile(ast.Module(body=nodes,type_ignores=[]),file,'exec'),namespace)
             return namespace[name]
         period=dict(start='2026-10-27 00:00',end='2026-10-28 00:00')
         kinds=(('coins','1','Coins'),('items','2','Items'),('boosting','4','Boosting'))
