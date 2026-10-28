@@ -40,6 +40,23 @@ print(json.dumps({'status':'ok','data':d}))
   await page.route('**/api/center/publish',async route=>{publishIds.push(JSON.parse(route.request().postData()).operation_id);if(dropModel){dropModel=false;await route.fetch();return route.abort();}return route.continue();});
   await page.goto(base+'products.html');await wait('已读取');const original=structuredClone(read());await page.locator('#page-select').selectOption('seasonal-vault');await page.locator('#title-3').fill('Temporary local title');await page.locator('#page-select').selectOption('fc27-weekly');await page.locator('#page-select').selectOption('seasonal-vault');await page.locator('#title-3').fill(original.draft.pages[3].title);await page.locator('#page-select').selectOption('fc27-weekly');assert.deepEqual(read(),original,'switching or editing title never normalizes historical Halloween fields');
   await page.locator('[data-layout-remove="weekly:'+initialKey()+'"]').click();
+  // Visible hero copy: the operator edits heading/intro/body for FC pages, blank keeps the built-in default.
+  const beforeCopy=structuredClone(read().draft.pages[0]),captureCopy=async()=>{
+    let captured=null;const handler=async route=>{captured=JSON.parse(route.request().postData()).draft;await route.continue();};
+    await page.route('**/api/center/preview',handler);
+    await page.locator('#preview-draft').click();
+    for(let i=0;i<60&&!captured;i++)await page.waitForTimeout(100);
+    await page.unroute('**/api/center/preview',handler);
+    assert(captured,'preview posted the draft');
+    return captured.pages[0];
+  };
+  await page.locator('#copy-heading-0').fill('Admin edited shortlist');
+  await page.locator('#copy-intro-0').fill('Operator intro line.');
+  const filled=await captureCopy();
+  assert.equal(filled.copy.heading,'Admin edited shortlist','English copy is submitted with the draft');
+  assert.equal(filled.copy.intro,'Operator intro line.');
+  await page.locator('#copy-heading-0').fill('');await page.locator('#copy-intro-0').fill('');
+  assert.equal('copy' in (await captureCopy()),false,'blank copy is removed instead of stored as an empty string');
   await page.locator('#model-query').fill('990001');await page.locator('#search-model').click();await page.waitForSelector('#choose-model');await page.locator('#choose-model').click();
   assert.deepEqual(read(),original,'choosing a model must not save any server draft');
   assert.match(await page.locator('[data-model-card="'+model.key+'"]').innerText(),/950001/);

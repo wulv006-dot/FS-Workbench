@@ -62,6 +62,16 @@
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261027T190500Z`。
 
 
+### 2026-10-28 `nav-20261028T020826Z`（PR #577）可见文案可配置
+
+- 代码：PR #577（head `ccad71a7f2`，CI success）合并 `fb70be54105c20a4cd1d9c8727bcfa8f1f91597c`。
+- 目标：12 个（5 个代码/模块 + 6 个边界文件 + `runtime/static-manifest.json`），变更 9 个；`inspect` 报 `sourceCAS/protectedCAS passed`、`mutations:false`；apply 回执 `all_match=true`、`failed:[]`。
+- 变更文件：`app/activity.js`、`app/activity-content.js`、`app/runtime/snapshot.mjs`、`app/analytics/products.js`、`app/analytics/center-store.mjs`。
+- 边界：`CAMPAIGN_SOURCE_REVISION=fb70be5…`（runtime.env + 两个 unit）；`current.json` 与 `policy.json` 由 `preservedBusinessState` 保护且未变。
+- 静态清单：97 键不变，其中 `activity.js`、`activity-content.js` 两条哈希更新；`runtime/snapshot.mjs` 与 `analytics/*.mjs` 属模块代码，不进静态清单（塞进去会 `INVALID_PUBLIC_PATH`）。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261028T020826Z`。
+
+
 ---
 
 ## 回退与边界
