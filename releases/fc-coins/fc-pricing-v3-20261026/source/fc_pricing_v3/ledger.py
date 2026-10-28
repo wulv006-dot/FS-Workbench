@@ -492,7 +492,9 @@ class Ledger:
             if op['status']=='KNOWN_PARTIAL_EXIT_PENDING':return op
             if not any(s['state']=='CONFIRMED' for s in op['steps']) or any(s['state'] not in ('CONFIRMED','CANCELLED_NOT_SENT') for s in op['steps']):
                 raise ValueError('pricing_partial_actual_state_unresolved')
-            if receipt.get('status')!='PUBLIC_CONFIRMED':raise ValueError('pricing_partial_public_unconfirmed')
+            # 2026-10-28: 「Order 写成功 + Admin 单价核对一致」也算已确认，
+            # 不再强制等公开页（DECOUPLE-DESIGN §6.3）。释放条件与终态白名单均未改变。
+            if receipt.get('status') not in ('PUBLIC_CONFIRMED','ORDER_ADMIN_CONFIRMED'):raise ValueError('pricing_partial_public_unconfirmed')
             op.update(status='KNOWN_PARTIAL_EXIT_PENDING',actual_action=actual_action,readback=receipt,
                       target_not_completed=True,exit_reason=reason,actual_state_confirmed_at=clock().isoformat())
             self.put('operations',operation_id,op,db)

@@ -31,6 +31,31 @@ PRICE_URL = "https://order.p2pah.cn/game/admin_game_price/index.html?gid=1322"
 PLATFORMS = ("PS", "XBOX", "PC")
 BUSINESS_DISPATCH_STARTED=False
 
+# 2026-10-28: 账本收尾后审计文件可能仍是 PARTIAL，扫描必须能识别同一操作的终态。
+# 导入失败时退回原有的更严格判据（只看审计状态），不影响写入保护。
+try:
+    from fc_pricing_v3.order_close import execution_is_unresolved
+except Exception:  # pragma: no cover
+    def execution_is_unresolved(state, ledger_status=None):
+        return isinstance(state, dict) and state.get("status") in {"RUNNING", "UNCERTAIN", "PARTIAL"}
+
+
+def ledger_operation_status(operation_id):
+    """读账本里该操作的终态；读不到返回 None（调用方按未收敛处理）。"""
+    import sqlite3
+    path = ROOT / "v3" / "control.sqlite3"
+    if not path.exists():
+        return None
+    try:
+        db = sqlite3.connect("file:" + str(path) + "?mode=ro", uri=True, timeout=2)
+        try:
+            row = db.execute("SELECT body FROM operations WHERE id=?", (operation_id,)).fetchone()
+        finally:
+            db.close()
+        return json.loads(row[0]).get("status") if row else None
+    except Exception:
+        return None
+
 
 def parse_uuid(value):
     if str(uuid.UUID(value)) != value:
@@ -270,7 +295,7 @@ def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, ch
     if not check_only:
         for path in (ROOT / "executions").glob("*.json"):
             state = read_json(path)
-            if state.get("status") in {"RUNNING", "UNCERTAIN", "PARTIAL"}:
+            if execution_is_unresolved(state, ledger_operation_status(path.stem)):
                 raise ValueError("unresolved_execution_exists")
     if not check_only:
         hooks_before_write(load_policy(), selected, automatic,
