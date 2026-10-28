@@ -561,11 +561,27 @@ def _admin_observed_prices():
     return read_admin_unit_prices(auth.Session(),pages=admin_pages)
 
 
+def _close_execution_audit(operation_id,audit,receipt,ledger_status):
+    """把 executions/<id>.json 推到与账本同一终态（PR #588 review #3）。
+
+    只收尾账本会让 price_writer 的 `unresolved_execution_exists` 扫描继续拦截下一轮。
+    """
+    from .order_close import closed_audit_state
+    path=ROOT/'executions'/(operation_id+'.json')
+    try:
+        state=json.loads(path.read_text()) if path.exists() else dict(audit or {})
+        write_json(path,closed_audit_state(state,receipt,ledger_status,clock().isoformat()))
+        return dict(status='written',ledger_status=ledger_status)
+    except Exception as exc:
+        return dict(status='audit_write_failed',error=type(exc).__name__)
+
+
 def close_on_order_admin(op,audit):
     """用「Order 成功反馈 + Admin 单价核对」收尾已发出的操作。
 
     只调用现有收尾函数（``finish`` / ``finish_known_partial``），不新增释放路径。
     证据不足时保持 UNKNOWN：不动租约、不新建操作、不重复下发。
+    收尾后同步推进执行审计文件，避免只释放账本一侧。
     """
     from .order_close import build_receipt,evaluate_close,order_write_confirmed
     db=ledger();ident=op['operation_id']
@@ -592,24 +608,44 @@ def close_on_order_admin(op,audit):
         latest['order_close']=dict(decision,detail=note)
         db.put('operations',ident,latest,conn)
     latest=db.get('operations',ident)
-    postwrite=None
-    try:
-        from .adapters import reconcile_postwrite
-        postwrite=reconcile_postwrite(latest,audit)
-    except Exception as exc:
-        postwrite=dict(status='postwrite_failed',error=type(exc).__name__)
+    # 公开页/缓存刷新只做尽力而为：已有的结果直接复用，不重复调用
+    postwrite=latest.get('postwrite_receipt')
+    if not postwrite:
+        try:
+            from .adapters import reconcile_postwrite
+            postwrite=reconcile_postwrite(latest,audit)
+        except Exception as exc:
+            postwrite=dict(status='postwrite_failed',error=type(exc).__name__)
     if (postwrite or {}).get('status')=='PUBLIC_CONFIRMED' and not decision['cancelled']:
-        return db.finish(ident,postwrite)
-    receipt=build_receipt(latest,audit,observed,decision,postwrite)
-    if not decision['cancelled']:
-        return db.finish(ident,receipt)
-    actual=deepcopy(latest['bundle']['before_action'])
-    for step in latest['steps']:
-        if step['state']=='CONFIRMED':actual=deepcopy(step['intermediate'])
-    result=db.finish_known_partial(ident,receipt,actual,decision['reason'])
-    if result.get('plan_id') and result.get('revision') is not None:
-        db.deadline(result['plan_id'],result['revision'])
+        result=db.finish(ident,postwrite);receipt=postwrite
+    elif not decision['cancelled']:
+        receipt=build_receipt(latest,audit,observed,decision,postwrite)
+        result=db.finish(ident,receipt)
+    else:
+        receipt=build_receipt(latest,audit,observed,decision,postwrite)
+        actual=deepcopy(latest['bundle']['before_action'])
+        for step in latest['steps']:
+            if step['state']=='CONFIRMED':actual=deepcopy(step['intermediate'])
+        result=db.finish_known_partial(ident,receipt,actual,decision['reason'])
+        if result.get('plan_id') and result.get('revision') is not None:
+            db.deadline(result['plan_id'],result['revision'])
+    audit_close=_close_execution_audit(ident,audit,receipt,result.get('status'))
+    if audit_close.get('status')!='written':
+        result=dict(result,execution_audit_close=audit_close)
     return result
+
+
+def unified_close_entry(op,audit):
+    """Order+Admin 统一收尾入口。
+
+    不看旧的 ``all_baseline`` / 公开页状态：只要拿到 Order 成功反馈就尝试收尾，
+    公开页仅作为回执里的记录。这样「Order 与 ALL 都成功但公开页没确认」也能收尾
+    （PR #588 review #2）。
+    """
+    from .order_close import order_write_confirmed
+    if not audit or not order_write_confirmed(audit):
+        return None
+    return close_on_order_admin(op,audit)
 
 
 def reconcile(operation_id):
@@ -674,7 +710,7 @@ def reconcile(operation_id):
         if post['status']=='PUBLIC_CONFIRMED':
             return db.finish(operation_id,post)
         op=db.get('operations',operation_id)
-        op.update(status=post['status'],readback=post)
+        op.update(status=post['status'],readback=post,postwrite_receipt=post)
         db.put('operations',operation_id,op)
     elif not any(s['kind']=='base' for s in op['steps']) and all(s['state']=='CONFIRMED' for s in op['steps']):
         from .adapters import reconcile_postwrite
@@ -682,16 +718,14 @@ def reconcile(operation_id):
         if post['status']=='PUBLIC_CONFIRMED':return db.finish(operation_id,post)
         op.update(status=post['status'],readback=post)
         db.put('operations',operation_id,op)
-    # 2026-10-28: 「Order 写成功 + Admin 单价核对一致」的收尾入口（DECOUPLE-DESIGN §6.4）。
-    # 仅在旧的公开页路径未能收尾时尝试；旧的公开页路径行为完全不变。
-    if audit:
-        from .order_close import order_write_confirmed
-        legacy=audit.get('status')=='CONFIRMED' and audit.get('sync_confirmed') is True and audit.get('all_baseline',{}).get('status')=='confirmed'
-        if order_write_confirmed(audit) and not legacy:
-            closed=close_on_order_admin(op,audit)
-            if closed.get('status') in ('COMPLETED','NO_CHANGE','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED','CANCELLED_NOT_SENT'):
-                return closed
-            op=closed
+    # 2026-10-28: Order+Admin 统一收尾入口（DECOUPLE-DESIGN §6.4）。
+    # 不再排除旧的「audit 全绿」路径：Order 与 ALL 都成功、只有公开页没确认时也要能收尾。
+    op=db.get('operations',operation_id)
+    closed=unified_close_entry(op,audit)
+    if closed is not None:
+        if closed.get('status') in ('COMPLETED','NO_CHANGE','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED','CANCELLED_NOT_SENT'):
+            return closed
+        op=closed
     op=db.get('operations',operation_id)
     if any(not s.get('dispatched_at') for s in op['steps']) and all(s['state']=='CONFIRMED' for s in op['steps'] if s.get('dispatched_at')):
         path=ROOT/'quotes'/(op['bundle']['snapshot_id']+'.json')
