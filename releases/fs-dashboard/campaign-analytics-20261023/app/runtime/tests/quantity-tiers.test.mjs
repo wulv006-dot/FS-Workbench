@@ -3,7 +3,7 @@ import {halloweenFixture} from './halloween-fixture.mjs';import {createCommerce}
 import {quantityFixture} from './quantity-fixture.mjs';
 test('Aion/WoW use one model and three distinct amounts; replay and wrong quantity checks hold',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'quantity-reveal-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const snapshot=quantityFixture(),c=createCommerce({snapshot,dir});
- for(const id of ['aion','wow']){
+ for(const id of ['aion','diablo']){
   const receipt=c.halloweenReveal({request_id:randomUUID(),game_id:id});assert.equal(new Set(receipt.slots.map(x=>x.model_id)).size,1);assert.deepEqual(receipt.slots.map(x=>Number(x.quantity.value)).sort((a,b)=>a-b),[10,30,100]);assert.deepEqual(c.halloweenRead(receipt.request_id),receipt);
   const slot=receipt.slots[1],g=snapshot.halloween.games.find(g=>g.id===id),p=snapshot.products.find(p=>p.product_ref.model_id===g.fixed_model),query={request_id:receipt.request_id,game_id:id,...slot};
   assert.equal(c.halloweenResolve(query).status,'selection_confirmed');assert.throws(()=>c.halloweenResolve({...query,quantity:{...slot.quantity,value:'10'}}),{code:'HALLOWEEN_REVEAL_MISMATCH'});
