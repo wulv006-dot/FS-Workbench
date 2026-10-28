@@ -270,10 +270,12 @@ class LearningCatalog(unittest.TestCase):
         self.assertEqual(result['status'], 'available_preview')
         rows = {r['id']: r for r in result['entries']}
         rule = rows['fs.dashboard.shipping-profit']
-        self.assertEqual(rule['revision'], 'dashboard-refresh-20261025-v3')
-        self.assertEqual(rule['source_commit'], '34ebc6903b705ebd2418b879e40364e1b50b9a33')
+        self.assertEqual(rule['revision'], 'dashboard-refresh-paid-aov-state-20261028-v4')
+        self.assertEqual(rule['source_commit'], '5825115b3f0b17562371163edf9a88cb9c1d6021')
         for required in ('逐单实际成本毛利', '付款时间', '不平均订单/游戏/每日比例', '缺成本',
                          'FC客户', '逐日金额和数量加总须等于区间值', 'Hermes按需能力保留', '八张大卡', '权限拒绝', '2 小时', '独立5分钟缓存'):
+            self.assertIn(required, rule['content'])
+        for required in ('订单客单价（AOV）','付款客户均额（ARPU）','持久订单均满足现有 `final_order_statuses`','问题、暂停、处理中','原600秒 TTL','主站委托 channel-effects 的历史7天/当日600秒合同保持'):
             self.assertIn(required, rule['content'])
         self.assertIn('逐单实际成本毛利', rows['fs.data.sources']['content'])
         historical = kc.select(ROOT, 'knowledge/index.json', hashlib.sha256(lf(path)).hexdigest(),

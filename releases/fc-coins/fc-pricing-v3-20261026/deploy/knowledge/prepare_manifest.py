@@ -12,9 +12,9 @@ from release import PREFIX, RELEASE, RUNTIME, SCOPE, load_base, targets
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
 FS_ROOT = Path('/var/lib/fs-hermes-fc/fs')
-OLD_BASELINE_SHA = 'aceaad48603957f655ad259c484c02128096eb0b7c2504d0c882730fa873eb8d'
+OLD_BASELINE_SHA = '6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8'
 NEW_BASELINE_SHA = '6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8'
-OLD_POLICY_SHA = '4c9ca730d342fd6b33d618a552cb210da4d81f7541b2e196bf97e485a275020d'
+OLD_POLICY_SHA = '5d006cc7d751b37bddcefafb77be0eae6fa233b5de61a550b59e6ec52b4bf386'
 
 
 def sha(path):
