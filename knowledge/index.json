@@ -1,6 +1,6 @@
 {
   "contract": "fs-knowledge-index-v1",
-  "release": "fc-pricing-v3-20261026-8",
+  "release": "fc-pricing-v3-20261026-9",
   "release_state": "candidate",
   "source_commit": null,
   "entries": [
@@ -1070,7 +1070,7 @@
     },
     {
       "id": "fs.dashboard.shipping-profit",
-      "revision": "dashboard-refresh-20261025-v3",
+      "revision": "dashboard-refresh-paid-aov-state-20261028-v4",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1078,20 +1078,21 @@
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-10-25",
+      "effective_at": "2026-10-28",
       "owner": "吴律；原经营看板维护者",
       "authority": "git",
-      "source_commit": "34ebc6903b705ebd2418b879e40364e1b50b9a33",
+      "source_commit": "5825115b3f0b17562371163edf9a88cb9c1d6021",
       "source": {
         "path": "docs/planning/business-dashboard-refresh-20261025/CONTRACT.md",
-        "sha256": "c548a4d794554e9943cafea9bf5c51dc62074cb936c8099419c790d82635c043",
+        "sha256": "4edff42a203ea0134b5f682f94d35df25302026b8a44e11f024ce38a07d65780",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "# 经营看板展示与刷新规则"
         }
       },
       "supersedes": [
-        "fs.dashboard.shipping-profit@same-order-actual-profit-20261024-v2"
+        "fs.dashboard.shipping-profit@same-order-actual-profit-20261024-v2",
+        "fs.dashboard.shipping-profit@dashboard-refresh-20261025-v3"
       ],
       "provenance": [
         {
@@ -1105,6 +1106,10 @@
         {
           "kind": "direct_user_dashboard_cards_refresh_current_backlog",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/34ebc6903b705ebd2418b879e40364e1b50b9a33/docs/planning/business-dashboard-refresh-20261025/CONTRACT.md"
+        },
+        {
+          "kind": "confirmed_order_aov_and_unfinished_profit_refresh",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/pull/613"
         }
       ],
       "consumers": [

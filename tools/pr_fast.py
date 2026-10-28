@@ -180,6 +180,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['docs/planning/business-dashboard-refresh-20261025/CONTRACT.md']) != ['fc-pricing-v3','knowledge-layering']:
+        raise RuntimeError('dashboard_contract_knowledge_pin_coverage_missing')
     if select(['releases/ops/shared-admin-direct-20261028/source/fc_shared_admin.py']) != ['shared-admin-direct']:
         raise RuntimeError('shared_admin_direct_mapping_missing')
     if select(['releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh']) != ['fc-cost-timeout']:
@@ -410,6 +412,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name == 'docs/planning/business-dashboard-refresh-20261025/CONTRACT.md':
+            groups.update(('knowledge-layering','fc-pricing-v3'));continue
         if name.startswith('releases/ops/shared-admin-direct-20261028/'):
             groups.add('shared-admin-direct');continue
         if name.startswith("releases/fc-coins/cost-timeout-20261025/"):
