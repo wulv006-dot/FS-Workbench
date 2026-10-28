@@ -39,6 +39,51 @@ def active(row, now, *, coupon=False):
     return True
 
 
+def normalize_packages(goods,storefront):
+    packages={};by_id={str(r['id']):r for r in goods}
+    for platform,own in storefront['rows'].items():
+        row=by_id.get(str(own['sku_id']))
+        if not row or str(row.get('site_id'))!='266' or str(row.get('gid'))!='1327' or str(row.get('top_cid'))!='1' or row.get('unit')!='K' or str(row.get('status'))!='1':
+            raise ValueError('pricing_catalog_scope_invalid')
+        more=row.get('more') or {}
+        if isinstance(more,str):more=json.loads(more)
+        quantities,gifts,reductions=more.get('gold'),more.get('give'),more.get('discount')
+        if not isinstance(quantities,list) or not 1<=len(quantities)<=100 or not isinstance(gifts,list) or not isinstance(reductions,list) or len({len(quantities),len(gifts),len(reductions)})!=1:
+            raise ValueError('pricing_catalog_package_contract')
+        product_ratio=number(row.get('discount'))/100
+        if product_ratio>1:raise ValueError('pricing_catalog_discount')
+        tiers=[]
+        for q,g,d in zip(quantities,gifts,reductions):
+            q,g,d=number(q),number(g,zero=True),number(d)/100*product_ratio
+            if d>1 or g>q:raise ValueError('pricing_catalog_package_invalid')
+            tiers.append(dict(base_k=str(q),bonus_k=str(g),retained_ratio=str(d)))
+        matching=[v for v in tiers if number(v['base_k'])==100]
+        if len(matching)!=1 or number(matching[0]['bonus_k'],zero=True)!=number(own['bonus_k'],zero=True):
+            raise ValueError('pricing_catalog_public_bonus_mismatch')
+        if number(matching[0]['retained_ratio'])!=1:
+            raise ValueError('pricing_catalog_base_discount_changed')
+        unit=number(row['unit_price'])
+        observed=number(own['package_usd'])
+        # Source agreement within the site's cent display; no stale Admin price replaces public.
+        if abs(unit*100*number(matching[0]['retained_ratio'])-observed)>Decimal('.01'):
+            raise ValueError('pricing_catalog_public_price_mismatch')
+        packages[platform]=dict(sku_id=str(row['id']),model_id=str(row['mid']),tiers=tiers,
+            min_custom_k=str(min(number(t['base_k']) for t in tiers)),
+            max_delivered_ratio=str(max((number(t['base_k'])+number(t['bonus_k'],zero=True))/number(t['base_k']) for t in tiers)),
+            minimum_package_retained_ratio=str(min(number(t['retained_ratio']) for t in tiers)),
+            source='Admin product quantity/gift/discount configuration, checked against same-run public 100K',
+            custom_basis='existing integer-K custom amount, minimum published tier; no formula changes')
+    return packages
+
+
+def normalize_catalog(goods,storefront,*,now=None):
+    """Current V3 hard evidence only; no claim about current worst promotions."""
+    now=now or datetime.now(timezone.utc)
+    body=dict(contract='fc-coins-catalog-dual20-v1',status='verified',site_id=266,game_id=1327,
+              packages=normalize_packages(goods,storefront),worst_status='unknown')
+    return dict(body,sha256=fingerprint(body),checked_at=now.isoformat())
+
+
 def normalize(discounts, coupons, goods, storefront, *, now=None):
     now = now or datetime.now(timezone.utc)
     codes=[];vouchers=[];unissued_directed=[];compensation=[]
@@ -77,39 +122,7 @@ def normalize(discounts, coupons, goods, storefront, *, now=None):
     # exclusive with regular codes. Both are dominated by the observed FC 30% coupon.
     vip_ratio=Decimal('.90')
     minimum=min([code_min,vip_ratio]+[number(r['retained_ratio']) for r in vouchers])
-    packages={};by_id={str(r['id']):r for r in goods}
-    for platform,own in storefront['rows'].items():
-        row=by_id.get(str(own['sku_id']))
-        if not row or str(row.get('site_id'))!='266' or str(row.get('gid'))!='1327' or str(row.get('top_cid'))!='1' or row.get('unit')!='K' or str(row.get('status'))!='1':
-            raise ValueError('pricing_catalog_scope_invalid')
-        more=row.get('more') or {}
-        if isinstance(more,str):more=json.loads(more)
-        quantities,gifts,reductions=more.get('gold'),more.get('give'),more.get('discount')
-        if not isinstance(quantities,list) or not 1<=len(quantities)<=100 or not isinstance(gifts,list) or not isinstance(reductions,list) or len({len(quantities),len(gifts),len(reductions)})!=1:
-            raise ValueError('pricing_catalog_package_contract')
-        product_ratio=number(row.get('discount'))/100
-        if product_ratio>1:raise ValueError('pricing_catalog_discount')
-        tiers=[]
-        for q,g,d in zip(quantities,gifts,reductions):
-            q,g,d=number(q),number(g,zero=True),number(d)/100*product_ratio
-            if d>1 or g>q:raise ValueError('pricing_catalog_package_invalid')
-            tiers.append(dict(base_k=str(q),bonus_k=str(g),retained_ratio=str(d)))
-        matching=[v for v in tiers if number(v['base_k'])==100]
-        if len(matching)!=1 or number(matching[0]['bonus_k'],zero=True)!=number(own['bonus_k'],zero=True):
-            raise ValueError('pricing_catalog_public_bonus_mismatch')
-        if number(matching[0]['retained_ratio'])!=1:
-            raise ValueError('pricing_catalog_base_discount_changed')
-        unit=number(row['unit_price'])
-        observed=number(own['package_usd'])
-        # Source agreement within the site's cent display; no stale Admin price replaces public.
-        if abs(unit*100*number(matching[0]['retained_ratio'])-observed)>Decimal('.01'):
-            raise ValueError('pricing_catalog_public_price_mismatch')
-        packages[platform]=dict(sku_id=str(row['id']),model_id=str(row['mid']),tiers=tiers,
-            min_custom_k=str(min(number(t['base_k']) for t in tiers)),
-            max_delivered_ratio=str(max((number(t['base_k'])+number(t['bonus_k'],zero=True))/number(t['base_k']) for t in tiers)),
-            minimum_package_retained_ratio=str(min(number(t['retained_ratio']) for t in tiers)),
-            source='Admin product quantity/gift/discount configuration, checked against same-run public 100K',
-            custom_basis='existing integer-K custom amount, minimum published tier; no formula changes')
+    packages=normalize_packages(goods,storefront)
     body=dict(contract='fc-coins-promotion-envelope-v1',status='verified',site_id=266,game_id=1327,
         coupon_other_benefits_contract='verified_mutually_exclusive' if vouchers else 'not_applicable',
         minimum_retained_ratio=str(minimum),code_count=len(codes),coupon_count=len(vouchers),
@@ -129,7 +142,7 @@ def normalize(discounts, coupons, goods, storefront, *, now=None):
     return dict(body,sha256=fingerprint(body),checked_at=now.isoformat())
 
 
-def _collect_shared_admin(storefront, *, persist=True):
+def _collect_shared_admin(storefront, *, persist=True, catalog_only=False):
     sys.path.insert(0,'/opt/fs-hermes-fc')
     from channel_source import pages, COLLECTOR
     sys.path.insert(0,COLLECTOR)
@@ -138,12 +151,13 @@ def _collect_shared_admin(storefront, *, persist=True):
     if not token:raise ValueError('pricing_admin_shared_source_unavailable')
     session.bind_admin_token(token);del token
     try:
-        discounts=pages(session,'/admin/market.Discount/index',[('status','=','1'),('site_id','IN','0,266')])
-        coupons=pages(session,'/admin/market.Coupon/index',[('status','=','1'),('site_id','IN','0,266')])
+        if not catalog_only:
+            discounts=pages(session,'/admin/market.Discount/index')
+            coupons=pages(session,'/admin/market.Coupon/index')
         wanted=','.join(str(r['sku_id']) for r in storefront['rows'].values())
         goods=pages(session,'/admin/goods.Goods/index',[('id','IN',wanted)])
     finally:session.close()
-    result=normalize(discounts,coupons,goods,storefront)
+    result=normalize_catalog(goods,storefront) if catalog_only else normalize(discounts,coupons,goods,storefront)
     if persist:
         from snapshot_layer import atomic_json
         atomic_json(FILE,result)
@@ -152,12 +166,14 @@ def _collect_shared_admin(storefront, *, persist=True):
     return result
 
 
-def collect(storefront, *, persist=True):
+def collect(storefront, *, persist=True, catalog_only=False):
     # FC's system Python is stdlib-only; keep the existing authenticated client in its runtime.
     import subprocess
+    payload=dict(storefront=storefront,persist=persist)
+    if catalog_only:payload['catalog_only']=True
     try:
         done=subprocess.run(['/opt/python39/bin/python3','-B',str(Path(__file__).resolve()),'collect'],
-            input=json.dumps(dict(storefront=storefront,persist=persist)),stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+            input=json.dumps(payload),stdout=subprocess.PIPE,stderr=subprocess.PIPE,
             universal_newlines=True,timeout=40)
     except subprocess.TimeoutExpired:raise ValueError('pricing_admin_shared_source_timeout') from None
     try:value=json.loads(done.stdout)
@@ -192,6 +208,24 @@ def read_historical_mix(now=None):
     return dict(body,sha256=fingerprint(body))
 
 
+def current_template_projection(cache,now):
+    """Recheck only original cohort template IDs, including currently inactive rows."""
+    sys.path.insert(0,'/opt/fs-hermes-fc')
+    from channel_source import pages,COLLECTOR
+    sys.path.insert(0,COLLECTOR)
+    import p2pah_auth as auth
+    from fc_pricing_v3.business_source import read_used_templates
+    from fc_pricing_v3.selective_sources import project_cached_history
+    session=auth.Session();token,_=auth.admin_token_from_service()
+    if not token:raise ValueError('pricing_admin_shared_source_unavailable')
+    session.bind_admin_token(token)
+    try:
+        templates=read_used_templates(session,pages,[identity for scenario in cache['promotion_scenarios'] for identity in scenario['coupon_template_ids']])
+    finally:session.close()
+    templates={key:dict(row,_current_active=active(row,now,coupon=True)) for key,row in templates.items()}
+    return project_cached_history(cache,templates,now)
+
+
 def refresh_before_write(request,root=ROOT):
     from pricing_v2 import verify_quote,fresh,required_history_ratio
     from automation_policy import load_policy
@@ -212,14 +246,29 @@ def refresh_before_write(request,root=ROOT):
         fresh(row['checked_at'],datetime.now(timezone.utc),seconds=900)
         if row.get('platform')!=platform or row.get('status')!='ok' or number(row['base_k'])!=100 or row['sku_id']!=quote['evidence']['storefront']['rows'][platform]['sku_id']:
             raise ValueError('pricing_current_public_required')
-    current=collect(public,persist=True)
+    from fc_pricing_v3.selective_sources import CATALOG_CONTRACT
+    catalog_only=quote['evidence']['promotion_envelope'].get('contract')==CATALOG_CONTRACT
+    current=collect(public,persist=True,**(dict(catalog_only=True) if catalog_only else {}))
     if current['sha256']!=quote['evidence']['promotion_envelope']['sha256']:
         raise ValueError('pricing_promotions_changed_since_quote')
-    from fc_pricing_v3.runtime import current_history_mix
-    now=datetime.now(timezone.utc);history=current_history_mix(now)
+    from fc_pricing_v3.runtime import current_history_mix,current_history_cache
+    now=datetime.now(timezone.utc)
+    if catalog_only:
+        cache=current_history_cache(now);history=cache['historical_discount_mix']
+        if history['sha256']!=quote['evidence']['historical_discount_mix']['sha256'] or cache['source_signature']!=(quote['evidence'].get('historical_ref') or {}).get('source_signature'):
+            raise ValueError('pricing_average_history_changed_since_quote')
+        projection=current_template_projection(cache,now)
+        quoted=quote['evidence']['history_replay']
+        if (any(projection[key]!=quoted[key] for key in ('current_coupon_terms_sha256','paths_sha256')) or
+                {k:v['paths_sha256'] for k,v in projection.get('region_layers',{}).items()}!=
+                {k:v['paths_sha256'] for k,v in quoted.get('region_layers',{}).items()}):
+            raise ValueError('pricing_historical_coupon_terms_changed_since_quote')
+    else:history=current_history_mix(now)
     if required_history_ratio(dict(historical_discount_mix=history),now)!=required_history_ratio(quote['evidence'],now):
         raise ValueError('pricing_average_history_changed_since_quote')
-    return dict(status='current_promotions_rechecked',promotion_sha256=current['sha256'],checked_at=current['checked_at'],historical_mix_sha256=history['sha256'],price_write_performed=False)
+    result=dict(status='current_catalog_rechecked' if catalog_only else 'current_promotions_rechecked',promotion_sha256=current['sha256'],checked_at=current['checked_at'],historical_mix_sha256=history['sha256'],price_write_performed=False)
+    if catalog_only:result.update(current_coupon_terms_sha256=projection['current_coupon_terms_sha256'],worst_status='unknown')
+    return result
 
 
 if __name__=='__main__':
@@ -228,8 +277,8 @@ if __name__=='__main__':
             result=read_historical_mix()
         elif sys.argv[1]=='collect':
             data=json.load(sys.stdin)
-            if set(data)!={'storefront','persist'} or type(data['persist']) is not bool:raise ValueError('pricing_source_fields')
-            result=_collect_shared_admin(data['storefront'],persist=data['persist'])
+            if set(data) not in ({'storefront','persist'},{'storefront','persist','catalog_only'}) or type(data['persist']) is not bool or type(data.get('catalog_only',False)) is not bool:raise ValueError('pricing_source_fields')
+            result=_collect_shared_admin(data['storefront'],persist=data['persist'],catalog_only=data.get('catalog_only',False))
         else:
             request=json.loads(Path(sys.argv[1]).read_text('utf-8'));result=refresh_before_write(request)
         print(json.dumps(result))

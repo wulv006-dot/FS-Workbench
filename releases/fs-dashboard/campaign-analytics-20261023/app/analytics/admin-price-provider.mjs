@@ -90,24 +90,43 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
     const warmList=[...warmEntries.entries()];
     // Cache the promise, not the value: a failure surfaces exactly once in the
     // sequential pass below instead of being retried by it.
-    // The bridge may legitimately spend up to 45s inside one cold catalogue read, so the
-    // child-process budget stays above that instead of cutting the read short.
-    // One read at a time costs about a second; the same reads issued together push every
-    // model past 40s and the whole cache to unavailable (2026-10-28: 49 concurrent -> all
-    // timed out, 6 at a time -> still 40s+). The Admin catalogue degrades superlinearly
-    // with fan-out, so the reads run one per wave: serial is the fast path here.
-    const READ_WAVE=1;
-    for(let i=0;i<warmList.length;i+=READ_WAVE){
+    // One Admin sweep per game replaces one sweep per model. The list route is the call
+    // that stalls for 40-70s on roughly a third of attempts (2026-10-28: the same query
+    // measured 130ms and 70s within one minute), so 49 independent sweeps could never all
+    // finish inside one window. Games are read one after another, and a game's failure
+    // stays with its own models, so a stalled game no longer voids every other price.
+    const games=new Map();
+    for(const [readKey,p] of warmList){
+      const gameKey=canonical([p.model_ref.site_id,p.model_ref.game_id]);
+      if(!games.has(gameKey))games.set(gameKey,[]);
+      games.get(gameKey).push([readKey,p]);
+    }
+    for(const members of games.values()){
+      const items=members.map(([readKey,p])=>({key:readKey,site_id:p.model_ref.site_id,
+        game_id:p.model_ref.game_id,model_id:p.model_ref.model_id,category_id:p.category_id}));
       const started=[];
-      for(const [readKey,p] of warmList.slice(i,i+READ_WAVE)){
-        if(!reads.has(readKey))reads.set(readKey,call({action:'model_provider_read',...p.model_ref,category_id:p.category_id},{timeout:60000}));
-        started.push(reads.get(readKey));
+      let readings=null,failure=null;
+      // A full 44-model sweep with its own per-model detail reads measured 196s on
+      // 2026-10-28; the child budget has to sit above that or the whole game is killed
+      // mid-flight and reported as a failure that never happened.
+      try{readings=(await call({action:'model_provider_batch',site_id:'266',items},{timeout:300000}))?.readings||null;}
+      catch(error){failure=error;}
+      for(const [readKey] of members){
+        const reading=readings?.[readKey];
+        const pending=reading?.status==='ok'?Promise.resolve(reading.data)
+          :Promise.reject(failure||Object.assign(new Error(reading?.error||'BATCH_READING_MISSING'),{status:502}));
+        pending.catch(()=>{});
+        reads.set(readKey,pending);started.push(pending);
       }
       await Promise.allSettled(started);
     }
     for(const p of current.config.entries){
      const readKey=canonical([p.model_ref,p.category_id]);
-     const observation=await reads.get(readKey);
+     // A failed read is not fatal on its own: the entry's own freshness window decides
+     // whether the last good observation may still stand in for it. Awaiting the rejected
+     // promise here used to throw straight to the outer catch and void every other price.
+     let observation=null;
+     try{observation=await reads.get(readKey);}catch{observation=null;}
      if(generation!==admitted)return status;
      const latest=context();
      if(latest.key!==current.key){key=latest.key;generation++;unavailable(latest.release,'PRIVATE_POLICY_OR_RELEASE_CHANGED');return status;}

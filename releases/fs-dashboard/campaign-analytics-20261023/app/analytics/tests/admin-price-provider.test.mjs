@@ -31,8 +31,15 @@ function fixture(){
  const original=fs.readFileSync(path.join(publicDir,'current.json'),'utf8'),originalDraft=structuredClone(store.read().draft);
  const options={publicDir,readPolicy:()=>config,now:()=>clock,
   readSnapshot:()=>JSON.parse(fs.readFileSync(path.join(publicDir,'current.json'),'utf8')),
-  call:async(req,opts)=>{calls++;assert.deepEqual(req,{action:'model_provider_read',...REF,category_id:'9623'});assert.equal(opts.timeout,60000);
-   if(extraCall)return extraCall();if(fail)throw Error('upstream PRIVATE_SENTINEL');return observe();}};
+  call:async(req,opts)=>{calls++;assert.equal(req.action,'model_provider_batch');assert.equal(req.site_id,'266');
+   assert.equal(opts.timeout,300000);assert.equal(req.items.length,1);
+   const [item]=req.items;assert.equal(item.site_id,REF.site_id);assert.equal(item.game_id,REF.game_id);
+   assert.equal(item.model_id,REF.model_id);assert.equal(item.category_id,'9623');
+   const readings={};
+   try{const value=extraCall?await extraCall():(fail?(()=>{throw Error('upstream PRIVATE_SENTINEL');})():observe());
+    for(const row of req.items)readings[row.key]={status:'ok',data:value};}
+   catch{for(const row of req.items)readings[row.key]={status:'error',error:'UPSTREAM_UNAVAILABLE'};}
+   return {readings};}};
  provider=makeAdminPriceProvider(options);
  return {tmp,publicDir,store,provider,options,original,originalDraft,observe,
   get config(){return config;},set config(v){config=v;},get calls(){return calls;},set fail(v){fail=v;},set extraCall(v){extraCall=v;},

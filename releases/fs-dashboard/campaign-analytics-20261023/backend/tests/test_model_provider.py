@@ -40,6 +40,44 @@ class ProviderTests(unittest.TestCase):
         finally:self.assertTrue(session.closed)
         return result,session
 
+    def batch(self,items,results):
+        session=Session(results)
+        try:result=handle(dict(action='model_provider_batch',site_id='266',items=items),
+            lambda:AdminRead(session,catalog_get_once=session.get_admin))
+        finally:self.assertTrue(session.closed)
+        return result,session
+
+    def test_batch_read_sweeps_the_catalogue_once_for_all_models_of_a_game(self):
+        rows=[goods(1001,21587),goods(1002,21587,mid=501)]
+        result,session=self.batch([dict(key='a',site_id='266',game_id='1327',model_id='500',category_id='9623'),
+            dict(key='b',site_id='266',game_id='1327',model_id='501',category_id='9623')],
+            [response(rows,2),detail(model()),detail(model(501))])
+        # One IN sweep replaces the per-model child lookup; only the model details remain.
+        self.assertEqual([call[0] for call in session.calls],
+            ['/admin/goods.Goods/index','/admin/goods.GoodsMould/edit','/admin/goods.GoodsMould/edit'])
+        sweep=session.calls[0][1]
+        self.assertEqual((sweep['search[2][field]'],sweep['search[2][operator]'],sweep['search[2][val]']),
+            ('mid','IN','500,501'))
+        self.assertEqual([result['readings'][key]['status'] for key in ('a','b')],['ok','ok'])
+        self.assertEqual([[row['product_ref']['goods_id'] for row in result['readings'][key]['data']['products']]
+            for key in ('a','b')],[['1001'],['1002']])
+
+    def test_batch_read_reports_a_failed_game_without_dropping_the_other_games(self):
+        class Stalling(Session):
+            def get_admin(self,route,**params):
+                self.calls.append((route,params))
+                if params.get('search[1][val]')=='891':raise TimeoutError()
+                return next(self.responses)
+        session=Stalling([response([goods(1001,21587)],1),detail(model())])
+        request=dict(action='model_provider_batch',site_id='266',items=[
+            dict(key='fc',site_id='266',game_id='1327',model_id='500',category_id='9623'),
+            dict(key='aion',site_id='266',game_id='891',model_id='700',category_id='6527')])
+        try:result=handle(request,lambda:AdminRead(session,catalog_get_once=session.get_admin))
+        finally:self.assertTrue(session.closed)
+        self.assertEqual(result['readings']['fc']['status'],'ok')
+        self.assertEqual(result['readings']['aion'],dict(status='error',error='CATALOG_SEARCH_TIMEOUT'))
+        self.assertEqual([row['product_ref']['goods_id'] for row in result['readings']['fc']['data']['products']],['1001'])
+
     def test_real_adapter_and_bridge_project_observed_tiers_without_currency_or_item_conversion(self):
         rows=[goods(1003,21589),goods(1002,21587),goods(1001,21585)]
         result,session=self.invoke(self.request(),[detail(model()),response(rows,3)])

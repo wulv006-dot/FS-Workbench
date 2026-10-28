@@ -142,7 +142,36 @@ def promotion_path(order, es_discount, coupon_logs, templates):
     return paths[0] if len(paths) == 1 else dict(kind='sequence', paths=paths)
 
 
-def _live_traces(session, pages, period, selected, *, reconcile_population=False):
+def _used_coupon_template_ids(selected,logs):
+    identities=set()
+    for archived,_ in selected.values():
+        for coupon in archived.get('coupons',[]):
+            log=logs.get(str(coupon['id']))
+            if not log or not log.get('coupon_id'):
+                raise ValueError('history_coupon_log_amount_missing')
+            identities.add(str(log['coupon_id']))
+    return identities
+
+
+def read_used_templates(session,pages,identities):
+    """Complete original template rows for observed coupon IDs; inactive rows matter."""
+    wanted=sorted(set(str(identity) for identity in identities))
+    if any(not identity.isdigit() for identity in wanted):
+        raise ValueError('selective_current_coupon_template_identity')
+    result={}
+    for offset in range(0,len(wanted),100):
+        group=wanted[offset:offset+100]
+        for row in pages(session,'/admin/market.Coupon/index',[('id','IN',','.join(group))]):
+            identity=str(row.get('id'))
+            if identity not in group or identity in result:
+                raise ValueError('selective_current_coupon_template_scope')
+            result[identity]=row
+    if set(result)!=set(wanted):
+        raise ValueError('selective_current_coupon_template_missing')
+    return result
+
+
+def _live_traces(session, pages, period, selected, *, reconcile_population=False, used_templates_only=False):
     rows = pages(session, '/admin/order.Order/index', [('site_id', '=', '266'), ('gid', '=', '1327'),
                  ('paytime', 'RANGE', period['start'] + ' 00:00:00,' + period['end'] + ' 23:59:59')], 100)
     if reconcile_population:
@@ -179,7 +208,8 @@ def _live_traces(session, pages, period, selected, *, reconcile_population=False
             if str(log.get('site_id')) != '266' or str(log.get('order_no')) not in group or str(log['id']) in logs:
                 raise ValueError('history_coupon_log_scope')
             logs[str(log['id'])] = log
-    templates = {str(t['id']): t for t in pages(session, '/admin/market.Coupon/index')}
+    templates = (read_used_templates(session,pages,_used_coupon_template_ids(selected,logs)) if used_templates_only
+                 else {str(t['id']): t for t in pages(session, '/admin/market.Coupon/index')})
     return orders, logs, templates
 
 
@@ -1159,22 +1189,25 @@ def selective_history_signature(period, *, channel_root=None, ES_root=None):
     return fingerprint(dict(period=period,files=signature,contract='seven_day_amount_and_discount_sources_v2_native_multiline_quantity'))
 
 
-def build_shared_history_cache(session,pages,storefront,products,source_signature,now,*,include_fulfillment=False):
+def build_shared_history_cache(session,pages,storefront,products,source_signature,now,*,include_fulfillment=False,used_templates_only=False):
     from .selective_sources import history_period,seal_history_cache
     period=history_period(now)
     selected,provenance=_period_population(period)
     if selected is None or provenance.get('status')!='complete' or not selected:
         raise ValueError('pricing_v3_business_history_source_incomplete')
     try:
-        orders,logs,templates=_live_traces(session,pages,period,selected,reconcile_population=True)
+        orders,logs,templates=_live_traces(session,pages,period,selected,reconcile_population=True,
+            **(dict(used_templates_only=True) if used_templates_only else {}))
     except ValueError as error:
         if str(error)!='history_order_state_changed_since_archive':raise
         archived_source=provenance['canonical_archive_sha256']
-        selected,provenance,orders,logs=_historical_native_population(period,session,pages)
+        selected,provenance,orders,logs=_historical_native_population(period,session,pages,
+            **(dict(pricing_only=True) if used_templates_only else {}))
         if provenance.get('status')!='complete' or not selected:
             raise ValueError('pricing_history_payment_reconciliation_incomplete')
         provenance=dict(provenance,reconciliation='current_Admin_payment_state',prior_archive_sha256=archived_source)
-        templates={str(t['id']):t for t in pages(session,'/admin/market.Coupon/index')}
+        templates=(read_used_templates(session,pages,_used_coupon_template_ids(selected,logs)) if used_templates_only
+                   else {str(t['id']):t for t in pages(session,'/admin/market.Coupon/index')})
     from pricing_sources import active
     templates={key:dict(value,_current_active=active(value,now,coupon=True)) for key,value in templates.items()}
     replay=build_replay(selected,orders,logs,templates,provenance)
@@ -1213,16 +1246,20 @@ def collect_selective_business(session,pages,storefront,products,*,active_mode,s
     from .selective_sources import source_plan,history_period,checked_history_cache,context_from_cache,seal_history_cache
     now=now or datetime.now(timezone.utc)
     plan=source_plan(active_mode,scope)
+    core_only=(scope or {}).get('catalog_only') is True
     signature=selective_history_signature(history_period(now))
     if source_signature is not None and source_signature!=signature:
         raise ValueError('selective_history_source_signature_changed')
     update=None
     try:cache=checked_history_cache(history_cache,signature,now)
     except ValueError:
-        cache,current_templates=build_shared_history_cache(session,pages,storefront,products,signature,now)
+        cache,current_templates=build_shared_history_cache(session,pages,storefront,products,signature,now,
+            **(dict(used_templates_only=True) if core_only else {}))
         update=cache
     if current_templates is None:
-        current_templates={str(row['id']):row for row in pages(session,'/admin/market.Coupon/index')}
+        current_templates=(read_used_templates(session,pages,
+            [identity for scenario in cache['promotion_scenarios'] for identity in scenario['coupon_template_ids']]) if core_only
+            else {str(row['id']):row for row in pages(session,'/admin/market.Coupon/index')})
     from pricing_sources import active
     current_templates={str(key):dict(row,_current_active=active(row,now,coupon=True)) for key,row in current_templates.items()}
     monthly=None
@@ -1326,7 +1363,7 @@ def _historical_provider_reason(error):
     return reason if reason.startswith(prefixes) and re.fullmatch(r'[a-zA-Z0-9_.:-]{1,100}', reason) else type(error).__name__
 
 
-def _historical_native_population(period, session, pages):
+def _historical_native_population(period, session, pages, *, pricing_only=False):
     """Fill only explicitly requested missing days using the original accounting and ES identity."""
     from pathlib import Path
     import channel_source as channel
@@ -1342,8 +1379,8 @@ def _historical_native_population(period, session, pages):
     normalized, logs, accounting = [], [], channel.apply_cost_overrides(dict(sources={}))
     cost_source = None
     if native:
-        discounts = pages(session, '/admin/market.Discount/index')
-        templates = pages(session, '/admin/market.Coupon/index')
+        discounts = [] if pricing_only else pages(session, '/admin/market.Discount/index')
+        templates = [] if pricing_only else pages(session, '/admin/market.Coupon/index')
         names = sorted({str(r['order_no']) for r in native})
         for offset in range(0,len(names),100):
             group = names[offset:offset+100]
@@ -1351,11 +1388,20 @@ def _historical_native_population(period, session, pages):
             if any(str(r.get('site_id'))!='266' or str(r.get('order_no')) not in group for r in batch):
                 raise ValueError('historical_native_coupon_scope_not_honored')
             logs.extend(batch)
-        deliveries, cost_source = channel.load_costs()
-        mapping = json.loads(Path(channel.__file__).with_name('channel_mapping.json').read_text('utf-8'))
-        directory_path = channel.SALES/'promoter_dir.json'
-        directory = json.loads(directory_path.read_text('utf-8')) if directory_path.is_file() else {}
+        if pricing_only:
+            # These lookups only label attribution/cost coverage in the original
+            # normalizer. Paid USD, status and real coupon-log identities remain
+            # original; actual discount USD comes from the matched ES row below.
+            deliveries,directory,mapping=[],{},dict(entries=[])
+            cost_source=dict(status='not_collected',reason='historical_CNY_cost_and_attribution_not_required_for_pricing_USD_mix')
+        else:
+            deliveries, cost_source = channel.load_costs()
+            mapping = json.loads(Path(channel.__file__).with_name('channel_mapping.json').read_text('utf-8'))
+            directory_path = channel.SALES/'promoter_dir.json'
+            directory = json.loads(directory_path.read_text('utf-8')) if directory_path.is_file() else {}
         normalized = channel.normalize(native,discounts,logs,templates,deliveries,directory,mapping)
+        if pricing_only:
+            for row in normalized:row['marketingDefinitionStatus']='not_collected_for_pricing'
     selected, missing, missing_usd = {}, 0, Decimal(0)
     for raw in normalized:
         row = accounting_row(raw,accounting.get('costOverrides',{}),accounting.get('testOrders',{}),admin_revenue=True)
