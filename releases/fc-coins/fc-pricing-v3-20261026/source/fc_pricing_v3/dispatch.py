@@ -3,6 +3,22 @@ import json
 from pathlib import Path
 
 
+def prewrite_refusal(raw):
+    """Only the shell's branch before Docker may emit this refusal receipt."""
+    safe = {'pricing_admin_shared_source_timeout', 'pricing_admin_shared_source_unavailable',
+            'pricing_current_public_required', 'pricing_promotions_changed_since_quote',
+            'pricing_average_history_changed_since_quote', 'restore_current_cost_quote_required',
+            'pricing_live_constraints_unavailable', 'pricing_authorization_expired',
+            'pricing_authorization_expired_or_unowned', 'TimeoutError', 'TimeoutExpired',
+            'OSError', 'PermissionError', 'FileNotFoundError', 'JSONDecodeError', 'KeyError', 'TypeError'}
+    try:
+        value=json.loads(raw.splitlines()[-1]);reason=value.get('reason')
+    except (IndexError,ValueError,TypeError,AttributeError):reason=None
+    return dict(status='NOT_SENT',stage='prewrite_source_guard',
+                reason=reason if isinstance(reason,str) and reason in safe else 'pricing_live_constraints_unavailable',
+                price_post_attempted=False,business_dispatch_started=False,writer_started=False)
+
+
 def proven_not_sent(audit):
     return bool(audit and audit.get('status')=='FAILED_BEFORE_WRITE' and audit.get('changed')==[] and
                 audit.get('sync_confirmed') is False and audit.get('business_dispatch_started') is False)

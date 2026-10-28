@@ -9,7 +9,7 @@ exec 9>"$state/price-writer.lock"
 flock -n 9 || { printf '%s\n' '{"status":"busy"}'; exit 75; }
 if guard_result=$(timeout 45s /opt/python39/bin/python3 -B /opt/fc27-cloud-browser/pricing_sources.py "$request"); then :
 else
-  if [ -n "$guard_result" ]; then printf '%s\n' "$guard_result"; else printf '%s\n' '{"status":"FAILED","reason":"pricing_live_constraints_unavailable"}'; fi
+  printf '%s\n' "$guard_result" | /opt/python39/bin/python3 -B -c 'import json,sys; sys.path.insert(0,"/opt/fc27-cloud-browser"); from fc_pricing_v3.dispatch import prewrite_refusal; print(json.dumps(prewrite_refusal(sys.stdin.read())))'
   exit 1
 fi
 timeout 120s docker run --rm --init --memory 2g --memory-swap 2g --env PYTHONPATH=/opt:/opt/fs-order-session --mount type=bind,src=/opt/fc27-cloud-browser/isolated_backend.py,dst=/opt/isolated_backend.py,readonly --network host --read-only \

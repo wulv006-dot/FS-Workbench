@@ -436,6 +436,7 @@ def v3_player_completion(coin_id,parent_id=None):
     from fc_pricing_v3.runtime import ledger
     operation=ledger().get('operations',coin_id)
     if not operation or operation.get('operation_id')!=coin_id or operation.get('status')!='COMPLETED':raise ValueError('player_sync_coin_not_confirmed')
+    if operation.get('target_not_completed') and not any(s.get('kind')=='base' and s.get('state')=='CONFIRMED' for s in operation.get('steps',[])):raise ValueError('player_sync_base_not_confirmed')
     bundle=operation['bundle']
     if parent_id is not None and bundle.get('snapshot_id')!=parent_id:raise ValueError('player_sync_parent_mismatch')
     receipt=operation.get('readback') or {}
