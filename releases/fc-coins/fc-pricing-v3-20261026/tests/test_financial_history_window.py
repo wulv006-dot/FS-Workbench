@@ -27,7 +27,7 @@ class FinancialHistoryWindow(unittest.TestCase):
             period=f.history_period(datetime.fromisoformat(at))
             self.assertEqual(period,dict(start=start,end=end))
             self.assertEqual((datetime.fromisoformat(end)-datetime.fromisoformat(start)).days+1,8)
-        self.assertEqual(f.history_period(datetime.fromisoformat('2026-10-28T16:00:00Z')),dict(start='2026-10-20',end='2026-10-27'))
+        self.assertEqual(f.history_period(datetime.fromisoformat('2026-10-28T16:00:00+00:00')),dict(start='2026-10-20',end='2026-10-27'))
 
     def test_legacy_seven_day_mix_is_readable_but_cannot_authorize_new_price(self):
         legacy=fixture(legacy=True)[0];legacy['run_id']='legacy-snapshot'
@@ -89,12 +89,13 @@ class FinancialHistoryWindow(unittest.TestCase):
         self.assertEqual(model['forecast_basis'],'relative_100k_price_prior_not_observed_orders')
 
     def test_financial_numerical_functions_unchanged_from_frozen_dual20_baseline(self):
-        # Approved pre-window dual20 AST; excludes source-window validators and metadata.
-        names=('number','hard_floor','prove_price','catalog_floor','prove_catalog','average_margin')
-        current=ast.parse((SOURCE/'fc_pricing_v3/financial.py').read_text())
-        functions={n.name:ast.dump(n,include_attributes=False) for n in current.body if isinstance(n,ast.FunctionDef) and n.name in names}
-        self.assertEqual(len(functions),len(names))
-        self.assertEqual(hashlib.sha256(json.dumps(functions,sort_keys=True).encode()).hexdigest(),'794048839c44d152f7bc5069803cc463bc7a0be172426bbf9a44fd8dcdfff1c7')
+        # Frozen LF function source from d1b17e57e24d61ea65069bbfc5cc5f0d4825527b.
+        # Source segments avoid version-dependent ast.dump fields on Python 3.9/3.11+.
+        expected={'number': '6e76e6794cfbc2633384c17ac2ad2bea52c0e00de15f4d6c68261a43681d5375', 'hard_floor': '1895d936edcb076cd64a05150cc67ed3b506b4a3221c93a251577516f156956e', 'prove_price': '2e731227d5bd1eb1cacf6453b144e31d463423ae0385d040ff93e654aab63797', 'catalog_floor': '093a7ffcffb583a5d5a482214d1d9c9429cb2f4401d3a0404be62bfb395308b4', 'prove_catalog': '71cd8bca441930475df55db0216e61623abb23798c94a2733134647a9060c46d', 'average_margin': 'c9804b8c250b835bd0d15aafae289fcc26a2d868cce2c464e7d1bd51f99841a9'}
+        source=(SOURCE/'fc_pricing_v3/financial.py').read_text(encoding='utf-8').replace('\r\n','\n')
+        functions={node.name:hashlib.sha256(ast.get_source_segment(source,node).encode('utf-8')).hexdigest()
+                   for node in ast.parse(source).body if isinstance(node,ast.FunctionDef) and node.name in expected}
+        self.assertEqual(functions,expected)
 
 
 class ESPrecollectionGate(unittest.TestCase):
