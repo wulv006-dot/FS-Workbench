@@ -18,6 +18,8 @@ SITE_MAIN = '266'          # www.mmoexp.com
 GID_FC27 = '1327'
 MID_FC27_COINS = '41217957'  # 产品模型的 mid（金币）
 
+READBACK_PATH = '/admin/goods.Goods/index'
+
 
 def _money(value):
     try:
@@ -28,17 +30,22 @@ def _money(value):
 
 
 def read_admin_unit_prices(session, *, gid=GID_FC27, mid=MID_FC27_COINS,
-                           site_id=SITE_MAIN, platform_aid=None):
+                           site_id=SITE_MAIN, platform_aid=None, pages=None):
     """读回当前各平台 unit_price。
+
+    ``pages`` 传入时使用调用方已有的分页通道
+    （``channel_source.pages(session, path, filters)``），与 v3 其他读取保持一致；
+    不传则退回本模块的极简分页。
 
     返回 {'PC': Decimal, 'PS': Decimal, 'XBOX': Decimal}，读不到的键不出现。
     异常一律向上抛，由调用方决定是否视为"未知"。
     """
     platform_aid = platform_aid or PLATFORM_AID
+    reader = pages or _pages
     result = {}
     for platform, aid in platform_aid.items():
-        filters = [('gid', '=', gid), ('mid', '=', mid), ('site_id', '=', site_id), ('aid', '=', aid)]
-        rows = _pages(session, '/admin/goods.Goods/index', filters)
+        filters = (('gid', '=', gid), ('mid', '=', mid), ('site_id', '=', site_id), ('aid', '=', aid))
+        rows = reader(session, READBACK_PATH, filters)
         if not rows:
             continue
         # 同 (site,gid,mid,aid) 可能有多行（不同 cid），取 unit_price 唯一值
