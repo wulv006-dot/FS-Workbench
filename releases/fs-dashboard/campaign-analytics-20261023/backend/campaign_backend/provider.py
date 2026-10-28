@@ -200,7 +200,7 @@ def model_provider_batch(reader,items):
             code=code if re.fullmatch(r'[A-Z][A-Z0-9_]{0,79}',code) else 'ASSOCIATION_READ_FAILED'
             for item in group:readings[item['key']]=dict(status='error',error=code)
             continue
-        for item in group:
+        def read_one(item):
             args=dict(site_id=site_id,game_id=game_id,category_id=item['category_id'],model_id=item['model_id'])
             try:
                 # Each model detail gets its own window. Sharing one window across 44 models
@@ -212,6 +212,11 @@ def model_provider_batch(reader,items):
                 code=str(error)
                 readings[item['key']]=dict(status='error',
                     error=code if re.fullmatch(r'[A-Z][A-Z0-9_]{0,79}',code) else 'ASSOCIATION_READ_FAILED')
+        for item in group:read_one(item)
+        # A rejected or stalled read is usually a transient upstream hiccup. One retry keeps
+        # two bad reads from voiding a whole game, and the sweep is still in memory so the
+        # retry only repeats the model detail.
+        for item in [row for row in group if readings[row['key']]['status']!='ok']:read_one(item)
     return dict(readings=readings)
 
 
