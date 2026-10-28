@@ -22,6 +22,13 @@
     'fc27-trio':['assets/scream-hero.webp','assets/scream-hero-mobile.webp'],
     'seasonal-vault':['halloween','thanksgiving','christmas','black-friday'].map(theme=>'seasonal/assets/hero-'+theme+'.webp')
   };
+  function copyControls(page,i){
+    if(!['fc27-weekly','fc27-sbc','fc27-trio'].includes(page.page_id))return '';
+    const copy=page.copy||{};
+    return '<fieldset data-copy-block><legend>可见文案（英文）</legend><p class="muted">这三个字段直接决定页面上的推荐位标题、导语和主视觉说明，改完保存并发布即生效，不用改代码。留空表示沿用默认文案。只接受英文（公开页面固定英文），长度上限 120 / 320 / 400 字符。</p>'
+      +[['heading','推荐位大标题',120],['intro','导语',320],['body','主视觉说明',400]].map(([key,label,max])=>'<label for="copy-'+key+'-'+i+'">'+label+'<textarea id="copy-'+key+'-'+i+'" name="copy_'+key+'" maxlength="'+max+'" data-copy="'+key+'" rows="2">'+escape(copy[key]||'')+'</textarea><span class="error-msg" data-copy-error="'+key+'">公开页面只接受英文，不能含尖括号或控制字符。</span></label>').join('')
+      +'</fieldset>';
+  }
   function presentationControls(page,i){
     const seasonal=page.page_id==='seasonal-vault',language=page.default_language||'original',image=page.social_image||'original';
     return '<div class="config-grid"><label for="language-'+i+'">公开页面语言（固定英文）<select id="language-'+i+'" name="default_language" required>'+[['original','保留原配置（对外英文）'],['en','English'],...(language==='zh'?[['zh','历史演示中文（对外固定英文）']]:[])].map(([value,label])=>'<option value="'+value+'" '+(value===language?'selected':'')+(value==='zh'?' disabled':'')+'>'+label+'</option>').join('')+'</select></label><label for="share-image-'+i+'">社交分享图（已接受素材）<select id="share-image-'+i+'" name="social_image" required>'+['original',...(imageChoices[page.page_id]||[])].map(value=>'<option value="'+value+'" '+(value===image?'selected':'')+'>'+escape(value==='original'?'保留原分享图':value)+'</option>').join('')+'</select></label></div><p class="muted">原主视觉来源：'+escape(seasonal?'已有四套主题 hero，随限定活动主题消费':(imageChoices[page.page_id]||[]).join(' / '))+'。可在上方替换素材，填写英文说明并确认后统一整页预览或发布。</p>';
@@ -45,7 +52,7 @@
     $('page-select').innerHTML=state.draft.pages.map(p=>'<option value="'+escape(p.page_id)+'" '+(p.page_id===selectedPage?'selected':'')+'>'+escape(p.title||p.page_id)+'</option>').join('');
     $('seasonal-theme-label').hidden=selectedPage!=='seasonal-vault';$('fc-business').hidden=selectedPage==='seasonal-vault';$('discovery-fields').closest('section').hidden=selectedPage!=='seasonal-vault';
     $('page-guidance').textContent=selectedPage==='seasonal-vault'?'万圣节：四款游戏，每游戏固定模型 + 两个随机商品槽；未配置概率、商品或有效期时保持不可抽取。旧配置记录保留，不自动迁移。':'FC 页面：保留原球员、SBC搭档、三人组与捆绑包编排；新增未适配商品仅展示资料，不自动变成可买卡或组合。';
-    $('center-pages').innerHTML=state.draft.pages.map((p,i)=>'<fieldset '+(p.page_id===selectedPage?'':'hidden ')+'data-page="'+i+'"><legend>'+escape(p.title||p.page_id)+'</legend><p class="muted">'+escape(p.activity_id+' / '+p.page_id+' · '+p.path)+'</p><div class="config-grid"><label for="title-'+i+'">页面标题<input id="title-'+i+'" name="title" required maxlength="160" value="'+escape(p.title)+'"></label><label class="check"><input name="preview_enabled" type="checkbox" '+(p.preview_enabled?'checked':'')+'>允许预览</label><label for="start-'+i+'">开始时间 (UTC)<input id="start-'+i+'" name="starts_at" type="datetime-local" value="'+local(p.starts_at)+'" aria-errormessage="date-error-'+i+'"><span class="error-msg" id="date-error-'+i+'">结束时间必须晚于开始时间。</span></label><label for="end-'+i+'">结束时间 (UTC)<input id="end-'+i+'" name="ends_at" type="datetime-local" value="'+local(p.ends_at)+'" aria-errormessage="end-error-'+i+'"><span class="error-msg" id="end-error-'+i+'">结束时间必须晚于开始时间。</span></label></div><label for="description-'+i+'">SEO 描述<textarea id="description-'+i+'" name="description" maxlength="320">'+escape(p.description)+'</textarea></label>'+presentationControls(p,i)+'<div data-bindings="'+i+'">'+bindings(p,i)+'</div></fieldset>').join('');
+    $('center-pages').innerHTML=state.draft.pages.map((p,i)=>'<fieldset '+(p.page_id===selectedPage?'':'hidden ')+'data-page="'+i+'"><legend>'+escape(p.title||p.page_id)+'</legend><p class="muted">'+escape(p.activity_id+' / '+p.page_id+' · '+p.path)+'</p><div class="config-grid"><label for="title-'+i+'">页面标题<input id="title-'+i+'" name="title" required maxlength="160" value="'+escape(p.title)+'"></label><label class="check"><input name="preview_enabled" type="checkbox" '+(p.preview_enabled?'checked':'')+'>允许预览</label><label for="start-'+i+'">开始时间 (UTC)<input id="start-'+i+'" name="starts_at" type="datetime-local" value="'+local(p.starts_at)+'" aria-errormessage="date-error-'+i+'"><span class="error-msg" id="date-error-'+i+'">结束时间必须晚于开始时间。</span></label><label for="end-'+i+'">结束时间 (UTC)<input id="end-'+i+'" name="ends_at" type="datetime-local" value="'+local(p.ends_at)+'" aria-errormessage="end-error-'+i+'"><span class="error-msg" id="end-error-'+i+'">结束时间必须晚于开始时间。</span></label></div><label for="description-'+i+'">SEO 描述<textarea id="description-'+i+'" name="description" maxlength="320">'+escape(p.description)+'</textarea></label>'+copyControls(p,i)+presentationControls(p,i)+'<div data-bindings="'+i+'">'+bindings(p,i)+'</div></fieldset>').join('');
     const theme=$('seasonal-theme'),value=state.draft.seasonal_theme||'halloween';
     if(typeof value==='string'){if(![...theme.options].some(o=>o.value===value))theme.add(new Option(value,value));theme.value=value;}else theme.disabled=true;
     renderPageProducts();renderFcLayout();renderHalloween();renderMaterials();renderPreview();publicationSummary();lock();
@@ -61,13 +68,23 @@
         get(key).setCustomValidity(/[<>\u0000-\u001f]/.test(value)?'不能含尖括号或控制字符。':'');
       }
       for(const key of ['default_language','social_image'])assign(key,get(key).value,p[key]??'original');
+      // Visible hero copy: blank means "keep the built-in default", so the field
+      // is removed from the draft instead of being stored as an empty string.
+      const copy={};
+      for(const key of ['heading','intro','body']){
+        const field=get('copy_'+key);if(!field)continue;
+        const value=field.value.trim();
+        field.setCustomValidity(/[<>\u0000-\u001f]/.test(value)?'不能含尖括号或控制字符。':(/\p{Script=Han}/u.test(value)?'公开页面只接受英文，请填英文文案。':''));
+        if(value)copy[key]=value;
+      }
+      if(!same(copy,p.copy||{})){if(Object.keys(copy).length)p.copy=copy;else delete p.copy;}
       assign('preview_enabled',get('preview_enabled').checked,p.preview_enabled===true);
       for(const key of ['starts_at','ends_at'])if(get(key).value!==local(p[key]))p[key]=get(key).value?new Date(get(key).value+'Z').toISOString():null;
       get('ends_at').setCustomValidity(p.starts_at&&p.ends_at&&Date.parse(p.starts_at)>=Date.parse(p.ends_at)?'结束时间必须晚于开始时间。':'');
     }
     return draft;
   }
-  const fieldNames={product_keys:'商品选择与顺序',product_roles:'商品展示位置',sbc_companions:'SBC搭档',fc_layout:'FC编排',title:'标题',description:'说明',preview_enabled:'预览开关',starts_at:'开始时间',ends_at:'结束时间',default_language:'默认语言',social_image:'分享图',benefit_refs:'优惠绑定',halloween:'万圣节四游戏槽位',seasonal_theme:'限定活动主题'};
+  const fieldNames={product_keys:'商品选择与顺序',product_roles:'商品展示位置',sbc_companions:'SBC搭档',fc_layout:'FC编排',title:'标题',description:'说明',copy:'可见文案',preview_enabled:'预览开关',starts_at:'开始时间',ends_at:'结束时间',default_language:'默认语言',social_image:'分享图',benefit_refs:'优惠绑定',halloween:'万圣节四游戏槽位',seasonal_theme:'限定活动主题'};
   function renderChanges(){
     if(!$('draft-changes')||!state||!savedDraft)return;
     const rows=[],compare=(before,after,label)=>{

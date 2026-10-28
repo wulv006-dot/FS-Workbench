@@ -42,6 +42,25 @@ const hash = value => { if (!/^[a-f0-9]{64}$/.test(value || '')) fail('INVALID_R
 export const pageRoleOptions=Object.freeze({'fc27-weekly':['preview','player'],'fc27-trio':['preview','player','bundle'],
   'fc27-sbc':['preview','core','companion'],'seasonal-vault':['preview','pool','fixed','both']});
 const rolePageByPath={'Weekly-Scout.html':'fc27-weekly','Player-Trio.html':'fc27-trio','Sbc-Companions.html':'fc27-sbc','seasonal/index.html':'seasonal-vault'};
+// Visible hero copy (heading / intro / body) is operator-editable so a weekly
+// refresh no longer needs a code change. Public pages are English-only, so the
+// contract rejects markup, control characters and Han text instead of silently
+// publishing something the runtime would then have to strip.
+export const COPY_FIELDS=Object.freeze({heading:120,intro:320,body:400});
+export const COPY_PAGES=Object.freeze(['fc27-weekly','fc27-sbc','fc27-trio']);
+export function pageCopyFields(page){
+  if(!Object.hasOwn(page,'copy'))return {};
+  const copy=page.copy;
+  const pageId=rolePageByPath[page.path]||page.page_id;
+  if(!copy||typeof copy!=='object'||Array.isArray(copy)||!COPY_PAGES.includes(pageId))fail('INVALID_PAGE_COPY');
+  const result={};
+  for(const [key,value] of Object.entries(copy)){
+    if(!Object.hasOwn(COPY_FIELDS,key))fail('INVALID_PAGE_COPY');
+    if(typeof value!=='string'||!value.trim()||value.length>COPY_FIELDS[key]||/[\u0000-\u001f<>]/.test(value)||/\p{Script=Han}/u.test(value))fail('INVALID_PAGE_COPY');
+    result[key]=value.trim();
+  }
+  return Object.keys(result).length?{copy:result}:{};
+}
 export function pageDisplayFields(page){
   const own=(key)=>Object.hasOwn(page,key),result={},selected=new Set(page.product_keys||[]),pageId=rolePageByPath[page.path]||page.page_id;
   const record=value=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length<=500;
@@ -123,7 +142,7 @@ export function projectRelease(input) {
   const originalModels=projectModels(input.fc_models||{}),models=publicModels(originalModels),variants=new Map(modelVariants(originalModels).map(p=>[p.key,p])),publicVariants=new Map(modelVariants(models).map(p=>[p.key,p]));
   const result={schema_version:1, release_id:id(input.release_id), source_revision:id(input.source_revision), config_hash:hash(input.config_hash), rule_hash:hash(input.rule_hash),
     pages:input.pages.map(p => ({activity_id:id(p.activity_id), page_id:id(p.page_id), rule_version:id(p.rule_version), benefit_binding_version:id(p.benefit_binding_version),
-      path:localPath(p.path), title:text(p.title), product_keys:p.product_keys.map(id),...pageDisplayFields(p),...(Object.hasOwn(p,'media')?{media:projectMedia(p.media)}:{}),
+      path:localPath(p.path), title:text(p.title), product_keys:p.product_keys.map(id),...pageDisplayFields(p),...pageCopyFields(p),...(Object.hasOwn(p,'media')?{media:projectMedia(p.media)}:{}),
       ...(p.description ? {description:text(p.description,320)} : {}),
       ...((p.default_language!=null||p.social_image!=null)?presentationFields(p):{}),
       ...(p.starts_at ? {starts_at:new Date(p.starts_at).toISOString()} : {}),
