@@ -10,7 +10,7 @@ import uuid
 
 from . import VERSION, PROGRAM_CONTRACT
 from .engine import evaluate, financial, competition, commit_path, impacted_regions, proof_regions, GROUPS, PLATFORMS, market_quote, sprint_parameters, SPRINT_POLICY_VERSION
-from .financial import fingerprint, number, instant, MARGIN_BASIS, HARD_MARGIN, FINANCIAL_CONTRACT_VERSION
+from .financial import fingerprint, number, instant, MARGIN_BASIS, HARD_MARGIN, FINANCIAL_CONTRACT_VERSION, LEGACY_FINANCIAL_CONTRACT_VERSION, HISTORY_WINDOW_CONTRACT, required_history_ratio
 from .ledger import Ledger, clock
 
 ROOT = Path(os.environ.get('FC27_V3_ROOT','/var/lib/fc27-cloud'))
@@ -146,15 +146,16 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
     job=json.loads(job_path.read_text()) if job_path.exists() else {}
     plan_id=(job.get('request') or {}).get('v3_plan_id')
     plan = db.get('pricing_plans',plan_id) if plan_id else db.active_plan()
+    now = clock()
+    if plan and plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:
+        raise ValueError('pricing_financial_plan_migration_required')
+    required_history_ratio(evidence,now,require_current=True)
     from .uk_retirement import PURPOSE as UK_RETIREMENT,calculate as calculate_uk_retirement
     if (job.get('request') or {}).get('v3_authorization_purpose')==UK_RETIREMENT:
         return calculate_uk_retirement(evidence,job,db)
     if (job.get('request') or {}).get('v3_authorization_purpose')=='original_unsent_ALL_steps_only':
         return calculate_postwrite(evidence,job,db)
     mode = plan['mode'] if plan else 'revenue_sprint'
-    now = clock()
-    if plan and plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:
-        raise ValueError('pricing_financial_plan_migration_required')
     evaluations = {mode:evaluate(evidence,mode,plan=plan,now=now)}
     evaluation = evaluations[mode]
     if not evaluation['candidates']:
@@ -206,7 +207,7 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         assignment_probability=allocation.get('probabilities',{}).get(fingerprint(action),1),
         randomization_verified=bool(allocation.get('probabilities') and len(allocation['probabilities'])>1 and not allocation.get('effective_choice')),
         financial_proof=selected['financial_proof'],market_comparison=selected['market_comparison'],regional_market_comparison=selected.get('regional_market_comparison',{}),
-        financial_contract_version=FINANCIAL_CONTRACT_VERSION,sprint_policy_version=SPRINT_POLICY_VERSION if mode=='revenue_sprint' else None,
+        financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT,sprint_policy_version=SPRINT_POLICY_VERSION if mode=='revenue_sprint' else None,
         strategy_parameters=sprint_parameters(plan) if mode=='revenue_sprint' else (plan or {}).get('parameters',{}),
         authorized_resources=(plan or {}).get('resources',[]),decision_type=selected.get('decision_type'),decision_reason=selected.get('decision_reason'),
         market_position=selected.get('market_position'),minimum_legal_price_proof=selected.get('minimum_legal_price_proof'),
@@ -363,7 +364,12 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         raise ValueError('pricing_common_console_scope_required')
     if number(policy['minimum_gross_margin_pct'])!=HARD_MARGIN:
         raise ValueError('pricing_margin_contract_changed')
-    if receipt.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:
+    version=receipt.get('financial_contract_version')
+    if version==FINANCIAL_CONTRACT_VERSION:
+        required_history_ratio(quote['evidence'],now,require_current=True)
+    elif not for_execution and version==LEGACY_FINANCIAL_CONTRACT_VERSION and quote['evidence']['historical_discount_mix'].get('history_window_contract') is None:
+        required_history_ratio(quote['evidence'],now)
+    else:
         raise ValueError('pricing_financial_quote_migration_required')
     from .uk_retirement import PURPOSE as UK_RETIREMENT,authority_resources
     maintenance=receipt.get('maintenance_purpose')==UK_RETIREMENT

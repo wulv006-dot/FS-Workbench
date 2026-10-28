@@ -119,7 +119,7 @@ class Ledger:
     def create_plan(self, mode, resources, anchor, *, starts_at=None, ends_at=None,
                     daily_budget=None, actor='wulv', manual_locked=True, generation=None,plan_id=None,parameters=None):
         from .engine import POLICIES,sprint_parameters
-        from .financial import FINANCIAL_CONTRACT_VERSION
+        from .financial import FINANCIAL_CONTRACT_VERSION,HISTORY_WINDOW_CONTRACT
         if mode not in POLICIES or not resources:
             raise ValueError('pricing_plan_scope_invalid')
         now = clock()
@@ -157,7 +157,7 @@ class Ledger:
                     state='SCHEDULED' if start > now else 'DRAFT', actor=actor,
                     budget_policy='none', manual_locked=manual_locked,
                     parameters=parameters,request_hash=request_hash,
-                    created_at=now.isoformat(), review_contract=PROGRAM_CONTRACT,financial_contract_version=FINANCIAL_CONTRACT_VERSION)
+                    created_at=now.isoformat(), review_contract=PROGRAM_CONTRACT,financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT)
         with self.transaction() as db:
             self.put('pricing_plans', ident, plan, db)
             if end:
@@ -166,8 +166,8 @@ class Ledger:
         return plan
 
     def migrate_financial_contract(self,ident,expected_revision,actor):
-        from .financial import FINANCIAL_CONTRACT_VERSION
-        from .engine import SPRINT_POLICY_VERSION
+        from .financial import FINANCIAL_CONTRACT_VERSION,HISTORY_WINDOW_CONTRACT
+        from .engine import SPRINT_POLICY_VERSION,sprint_parameters
         now=clock();key='financial-plan-migration:'+ident+':'+str(expected_revision)
         with self.transaction() as db:
             old=self.get('metadata',key,db)
@@ -176,7 +176,7 @@ class Ledger:
                 return self.get('pricing_plans',ident,db)
             plan=self.get('pricing_plans',ident,db)
             if not plan or type(expected_revision) is not int or plan['revision']!=expected_revision:raise ValueError('pricing_plan_revision_changed')
-            if plan.get('financial_contract_version')==FINANCIAL_CONTRACT_VERSION and plan.get('budget_policy')=='none' and (plan['mode']!='revenue_sprint' or plan.get('parameters',{}).get('sprint_policy_version')==SPRINT_POLICY_VERSION):return plan
+            if plan.get('financial_contract_version')==FINANCIAL_CONTRACT_VERSION and plan.get('history_window_contract')==HISTORY_WINDOW_CONTRACT and plan.get('budget_policy')=='none' and (plan['mode']!='revenue_sprint' or plan.get('parameters',{}).get('sprint_policy_version')==SPRINT_POLICY_VERSION):return plan
             if plan['state'] not in ('SUSPENDED','DRAFT'):raise ValueError('pricing_migration_requires_paused_plan')
             if plan.get('ends_at') and now>=instant(plan['ends_at']):raise ValueError('pricing_plan_expired')
             for row in db.execute('SELECT body FROM operations'):
@@ -184,8 +184,12 @@ class Ledger:
                 if op['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT') and set(op['resources'])&set(plan['resources']):raise ValueError('pricing_resource_unresolved')
             before=json.loads(json.dumps(plan));plan['revision']+=1
             plan['financial_contract_version']=FINANCIAL_CONTRACT_VERSION
+            plan['history_window_contract']=HISTORY_WINDOW_CONTRACT
             plan.pop('daily_budget',None);plan.pop('total_budget',None);plan['budget_policy']='none'
-            if plan['mode']=='revenue_sprint':plan.setdefault('parameters',{}).update(sprint_policy_version=SPRINT_POLICY_VERSION,preferred_undercut_pct='7.5')
+            if plan['mode']=='revenue_sprint':
+                try:preferred=sprint_parameters(plan)['preferred_undercut_pct']
+                except ValueError:preferred='7.5'
+                plan.setdefault('parameters',{}).update(sprint_policy_version=SPRINT_POLICY_VERSION,preferred_undercut_pct=preferred)
             plan['financial_migration_id']=key
             self.put('pricing_plans',ident,plan,db)
             db.execute('UPDATE plan_ownership SET revision=? WHERE plan_id=? AND revision=?',(plan['revision'],ident,expected_revision))

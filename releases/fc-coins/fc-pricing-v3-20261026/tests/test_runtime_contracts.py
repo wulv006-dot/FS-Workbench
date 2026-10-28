@@ -30,7 +30,7 @@ class RuntimeContracts(unittest.TestCase):
             db=Ledger(root/'v3/control.sqlite3')
             plan=dict(plan_id='plan',revision=1,generation='g',resources=['base:pc'],
                       starts_at=start.isoformat(),state='SUSPENDED',mode='revenue_sprint',
-                      financial_contract_version='fc27_dual20_v1')
+                      financial_contract_version=runtime.FINANCIAL_CONTRACT_VERSION)
             db.put('metadata','generation',dict(id='g'))
             db.put('pricing_plans','plan',plan)
             db.put('operations','original',dict(plan_id='plan',status='COMPLETED',

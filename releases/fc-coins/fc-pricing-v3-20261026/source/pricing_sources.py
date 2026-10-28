@@ -198,13 +198,14 @@ def historical_mix():
 def read_historical_mix(now=None):
     sys.path.insert(0,'/opt/fs-hermes-fc')
     from coins_evidence import CoinsEvidence
-    today=(now or datetime.now(timezone.utc)).astimezone(timezone(timedelta(hours=8))).date()
-    period=dict(start=(today-timedelta(days=7)).isoformat(),end=(today-timedelta(days=1)).isoformat())
+    from fc_pricing_v3.financial import history_period,HISTORY_WINDOW_CONTRACT
+    period=history_period(now or datetime.now(timezone.utc))
     source=CoinsEvidence()(dict(profile='FC27',kind='order_costs',**period))
     mix=source.get('historical_discount_mix')
     if not mix:return dict(status='not_available',reason=source.get('reason','historical_discount_fields_missing'),period=period)
-    body=dict(mix,period=period,source_times=source.get('source_times'),source_coverage=source.get('coverage'),
+    body=dict(mix,period=period,history_window_contract=HISTORY_WINDOW_CONTRACT,source_times=source.get('source_times'),source_coverage=source.get('coverage'),
               historical_capture='existing FS archives only; no collection or export triggered')
+    body.pop('sha256',None)
     return dict(body,sha256=fingerprint(body))
 
 

@@ -13,8 +13,8 @@ HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
 FS_ROOT = Path('/var/lib/fs-hermes-fc/fs')
 OLD_BASELINE_SHA = '6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8'
-NEW_BASELINE_SHA = '6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8'
-OLD_POLICY_SHA = '5d006cc7d751b37bddcefafb77be0eae6fa233b5de61a550b59e6ec52b4bf386'
+NEW_BASELINE_SHA = '2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a'
+OLD_POLICY_SHA = 'd504f83bfd02b8ade1379358344e45c881bacbad0959ee1e10385e7208c7d3ce'
 
 
 def sha(path):

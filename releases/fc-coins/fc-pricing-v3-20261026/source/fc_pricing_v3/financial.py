@@ -4,7 +4,9 @@ from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_DOWN
 import hashlib
 import json
 MARGIN_BASIS = 'undiscounted_and_historical_average_v2'
-FINANCIAL_CONTRACT_VERSION = 'fc27_dual20_v1'
+LEGACY_FINANCIAL_CONTRACT_VERSION = 'fc27_dual20_v1'
+FINANCIAL_CONTRACT_VERSION = 'fc27_dual20_d9_d2_v2'
+HISTORY_WINDOW_CONTRACT = 'd9_d2_eight_closed_days_v1'
 HARD_MARGIN = Decimal('20')
 CENT = Decimal('.01')
 STEP = Decimal('.0001')
@@ -168,13 +170,22 @@ def average_margin(public_usd, delivered_cost_usd, mix):
                 assumptions='same historical discount intensity at candidate price; current delivery cost incl gifts; unknown demand, package mix, Ads and refund settlement')
 
 
-def required_history_ratio(evidence,now):
+def history_period(now):
+    today=now.astimezone(timezone(timedelta(hours=8))).date()
+    return dict(start=(today-timedelta(days=9)).isoformat(),end=(today-timedelta(days=2)).isoformat())
+
+
+def required_history_ratio(evidence,now,*,require_current=False):
     mix=evidence.get('historical_discount_mix')
     if not isinstance(mix,dict) or mix.get('status') not in ('available','partial'):
         raise ValueError('pricing_average_history_required')
     if mix.get('sha256')!=fingerprint({k:v for k,v in mix.items() if k!='sha256'}):raise ValueError('pricing_historical_mix_hash_changed')
     today=now.astimezone(timezone(timedelta(hours=8))).date()
-    if mix.get('period')!={'start':(today-timedelta(days=7)).isoformat(),'end':(today-timedelta(days=1)).isoformat()}:
+    window=mix.get('history_window_contract')
+    if require_current and window!=HISTORY_WINDOW_CONTRACT:raise ValueError('pricing_average_history_window_migration_required')
+    if window not in (None,HISTORY_WINDOW_CONTRACT):raise ValueError('pricing_average_history_window_invalid')
+    expected=history_period(now) if window==HISTORY_WINDOW_CONTRACT else {'start':(today-timedelta(days=7)).isoformat(),'end':(today-timedelta(days=1)).isoformat()}
+    if mix.get('period')!=expected:
         raise ValueError('pricing_average_history_period')
     observed,eligible=mix.get('observed_orders'),mix.get('eligible_orders')
     if type(observed) is not int or type(eligible) is not int or observed<=0 or observed!=eligible:
