@@ -16,13 +16,13 @@ sys.path.insert(0,str(HERE.parent/'source'))
 from fc_pricing_v3 import business_source as business,selective_sources as selective,regional_public as regional,sources,runtime
 from fc_pricing_v3.ledger import Ledger
 NOW=datetime(2026,10,26,13,tzinfo=timezone.utc)
-PERIOD=dict(start='2026-10-19',end='2026-10-25')
+PERIOD=selective.history_period(NOW)
 
 def cache_fixture():
     selected={'private-raw-order':(dict(salesUsd='9.50',coupons=[],customerType='新客',status='已完成',costCny='30',saleCny='65'),dict(discount_usd='.50'))}
     orders={'private-raw-order':dict(before_discount='10',discount='95',points=0,amount_usd_format='$9.50',is_region_price=0,region_price_factor=0,discount_code='private-code')}
     provenance=dict(status='complete',period=PERIOD,canonical_archive_sha256='a'*64,ES_source_sha256='b'*64,ES_complete=True,missing_product_identity=0)
-    mix=business.historical_mix(selected,provenance)
+    mix=business.historical_mix(selected,provenance,history_window_contract=selective.HISTORY_WINDOW_CONTRACT)
     replay=business.build_replay(selected,orders,{}, {},provenance);replay['original_mix_sha256']=mix['sha256']
     scenarios=[dict(code_retained_ratio='.95',points_credit_usd='0',coupon_template_ids=[],region_id=0,weight_usd='10.00',orders=1)]
     cache=selective.seal_history_cache(mix,replay,scenarios,dict(demand_model={}), 'source-v1',NOW)
@@ -278,15 +278,15 @@ class SelectiveSourceTest(unittest.TestCase):
     def test_history_change_signature_ignores_delivery_cost_updates_but_detects_history_change(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)/'channel';es=Path(tmp)/'es';(root/'days').mkdir(parents=True);es.mkdir()
-            for offset in range(7):
-                day=(datetime(2026,10,19)+timedelta(days=offset)).date().isoformat()
+            for offset in range(8):
+                day=(datetime.fromisoformat(PERIOD['start'])+timedelta(days=offset)).date().isoformat()
                 (root/'days'/(day+'.json')).write_text('{}')
             (es/'manifest.json').write_text(json.dumps(dict(query=PERIOD,captured_at=NOW.isoformat(),file_sha256=['a'*64])))
             (es/('a'*64+'.xlsx')).write_bytes(b'original existing file')
             first=business.selective_history_signature(PERIOD,channel_root=root,ES_root=es)
             (root/'order-deliveries.json').write_text('{"new_cost_arrived":true}')
             self.assertEqual(first,business.selective_history_signature(PERIOD,channel_root=root,ES_root=es))
-            (root/'days/2026-10-19.json').write_text('{"actual_source_changed":true}')
+            (root/'days'/(PERIOD['start']+'.json')).write_text('{"actual_source_changed":true}')
             self.assertNotEqual(first,business.selective_history_signature(PERIOD,channel_root=root,ES_root=es))
 
     def test_shared_runtime_collects_missing_sprint_Arab_once_and_returns_actual_quotes(self):

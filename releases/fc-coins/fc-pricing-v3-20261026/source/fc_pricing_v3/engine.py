@@ -7,7 +7,8 @@ import itertools
 from . import VERSION
 from .financial import (number, fingerprint, fresh, instant, common_cost, envelope_ratio,
                         required_history_ratio, catalog_floor, prove_catalog, prove_price,
-                        average_margin, MARGIN_BASIS, CENT, HARD_MARGIN, FINANCIAL_CONTRACT_VERSION)
+                        average_margin, MARGIN_BASIS, CENT, HARD_MARGIN, FINANCIAL_CONTRACT_VERSION,
+                        LEGACY_FINANCIAL_CONTRACT_VERSION, HISTORY_WINDOW_CONTRACT)
 
 # Catalog adapters preserve frozen financial math and all legacy-envelope outputs.
 from .selective_sources import (input_ratio as envelope_ratio, input_catalog_floor as catalog_floor,
@@ -159,7 +160,7 @@ def price_basis(evidence,now):
             average_floor_usd=str(catalog_floor(cost,fx,ratio,HARD_MARGIN,rules,average_ratio=average)*100),
             cost_checked_at=evidence['costs'][platform]['checked_at'])
     return dict(status='available',rows=rows,as_of=now.isoformat(),scope='global_catalog_base_100k',
-                historical_retained_ratio=str(average),minimum_margin_pct=str(HARD_MARGIN),execution_authorized=False)
+                historical_retained_ratio=str(average),history_window_contract=evidence['historical_discount_mix'].get('history_window_contract'),history_period=evidence['historical_discount_mix']['period'],minimum_margin_pct=str(HARD_MARGIN),execution_authorized=False)
 
 
 def required_unit_bound(evidence,platform,now,region=None,evaluation_context=None):
@@ -261,7 +262,7 @@ def competition(evidence, platforms, now, region=None, *, plan=None, resolved_gl
             if not coefficients:
                 coefficients=[str(max(Decimal('.0001'),floor_factor))];decision_type='floor_fallback'
     return dict(quotes=quotes, targets=targets, valid_until=(min(times)+timedelta(seconds=900)).isoformat(),
-                anchors=anchors,anchor_attempts=attempts,regional_fallbacks=regional_fallbacks,sprint_policy_version=SPRINT_POLICY_VERSION,financial_contract_version=FINANCIAL_CONTRACT_VERSION,
+                anchors=anchors,anchor_attempts=attempts,regional_fallbacks=regional_fallbacks,sprint_policy_version=SPRINT_POLICY_VERSION,financial_contract_version=FINANCIAL_CONTRACT_VERSION if evidence['historical_discount_mix'].get('history_window_contract')==HISTORY_WINDOW_CONTRACT else LEGACY_FINANCIAL_CONTRACT_VERSION,
                 decision_type=decision_type,reason='SAUDI_MISSING_QUOTE_FOLLOW_GLOBAL' if decision_type=='regional_follow_global' else 'MARGIN_FLOOR_FALLBACK_20' if decision_type=='floor_fallback' else 'VERIFIED_COMPETITIVE_BAND',
                 minimum_legal_base_total=minimum_base,legal_coefficients=coefficients,
                 scope='100K anchor only; complete financial catalog separately proven')
@@ -343,8 +344,9 @@ def financial(evidence, action, now, *, regions=None,evaluation_context=None):
                  history_source_sha256=history.get('source_sha256'),original_basis_reconciliation=history.get('original_basis_reconciliation'),
                  status='regional_projection', source_scope=history.get('source_scope','global_pooled_actual_mix'),
                  application_scope='region_'+str(region['region_id']))
-    return dict(pass_all=True, margin_basis=MARGIN_BASIS, minimum_pct=str(HARD_MARGIN), financial_contract_version=FINANCIAL_CONTRACT_VERSION, common_console_cost=pool,
-                proof_kind='actual_seven_day_mix' if evaluation_context is None else 'shadow_simulated_projection',
+    current_window=evidence['historical_discount_mix'].get('history_window_contract')==HISTORY_WINDOW_CONTRACT
+    return dict(pass_all=True, margin_basis=MARGIN_BASIS, minimum_pct=str(HARD_MARGIN), financial_contract_version=FINANCIAL_CONTRACT_VERSION if current_window else LEGACY_FINANCIAL_CONTRACT_VERSION, common_console_cost=pool,
+                proof_kind=('actual_eight_day_lagged_mix' if current_window else 'actual_seven_day_mix') if evaluation_context is None else 'shadow_simulated_projection',
                 execution_eligible=evaluation_context is None,
                 historical_mix_sha256=evidence['historical_discount_mix']['sha256'], prices=results)
 
@@ -607,7 +609,7 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                                  minimum_legal_price_proof=minimum_proofs,market_position=positions,
                                  decision_type='floor_fallback' if fallback else 'competitive' if mode=='revenue_sprint' else 'objective',
                                  decision_reason='MARGIN_FLOOR_FALLBACK_20' if fallback else mode+'_objective',
-                                 sprint_policy_version=SPRINT_POLICY_VERSION if mode=='revenue_sprint' else None,financial_contract_version=FINANCIAL_CONTRACT_VERSION,
+                                 sprint_policy_version=SPRINT_POLICY_VERSION if mode=='revenue_sprint' else None,financial_contract_version=proof['financial_contract_version'],
                                  control=action==current))
           except ValueError as exc:
             failures.append(dict(scope='joint',code=str(exc)))

@@ -73,6 +73,18 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert(html.indexOf('id="v3-market-title"')<html.indexOf('id="plan-title"'),'competitor module precedes strategy');
   assert.equal(elements['v3-market-cards'].children.length,3);
   const marketText=JSON.stringify(elements['v3-market-cards'].children);
+  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/历史七日平均红线/);
+  market.price_basis.history_window_contract='d9_d2_eight_closed_days_v1';
+  await elements['v3-refresh'].events.click();
+  assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/D-9至D-2八日平均红线/);
+  assert.match(elements['v3-proof-notes'].textContent,/八个完整日/);
+  state.operations[0].bundle.financial_contract_version='fc27_dual20_v1';
+  await elements['v3-refresh'].events.click();
+  assert.match(elements['v3-proof-notes'].textContent,/当时七日证明/);
+  delete state.operations[0].bundle.financial_contract_version;
+  delete market.price_basis.history_window_contract;
+  await elements['v3-refresh'].events.click();
+
   assert.match(marketText,/\$8.74 \/ 100K 实际交付/,'normalize with all 105K delivered');
   assert.match(marketText,/ItemD2R/,'saved sprint reference remains visible under daily strategy');
   assert.match(marketText,/已过 15 分钟/);

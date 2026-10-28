@@ -46,8 +46,10 @@ class Knowledge(unittest.TestCase):
         path = ROOT / 'knowledge/index.json'
         sha = hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest()
         v = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.pricing.constraints'], preview=True)
-        self.assertEqual(v['entries'][0]['revision'], 'v15')
-        self.assertIn('单笔合法优惠仍允许', v['entries'][0]['content'])
+        self.assertEqual(v['entries'][0]['revision'], 'fc27_dual20_d9_d2_v2')
+        self.assertIn('合法单笔优惠仍可低毛利或亏损', v['entries'][0]['content'])
+        for value in ('D-9至D-2的8个完整日','d9_d2_eight_closed_days_v1','不按每日率等权','未优惠实际采购毛利≥20%'):
+            self.assertIn(value,v['entries'][0]['content'])
         self.assertNotIn('18:21最新自然验收', v['entries'][0]['content'])
         self.assertEqual(kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'])['status'], 'not_published')
 

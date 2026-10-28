@@ -1,6 +1,6 @@
 {
   "contract": "fs-knowledge-index-v1",
-  "release": "fc-pricing-v3-20261026-9",
+  "release": "fc-pricing-v3-20261026-10",
   "release_state": "candidate",
   "source_commit": null,
   "entries": [
@@ -19,7 +19,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8",
+        "sha256": "2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -88,7 +88,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8",
+        "sha256": "2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -155,7 +155,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8",
+        "sha256": "2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -278,7 +278,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8",
+        "sha256": "2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正（v10，2026-10-22）",
@@ -332,33 +332,38 @@
     },
     {
       "id": "fc.pricing.constraints",
-      "revision": "v15",
+      "revision": "fc27_dual20_d9_d2_v2",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-10-22",
+      "effective_at": "2026-10-29",
       "owner": "吴律；原模块维护者",
       "authority": "git",
-      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
+      "source_commit": null,
       "source": {
-        "path": "docs/planning/fc-pricing-v2-20261022/MARGIN-REDLINES.md",
-        "sha256": "663c5b9613d6e58d3cd8dc227715c6fb25488c7619489b4099ea23805cb38740",
+        "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
+        "sha256": "64a9f67bcb5f82d932bdcdd00c4350fbc4e5e64d33738751e22ae133bfbb106b",
         "hash_basis": "utf8_lf",
         "selector": {
-          "start": "# FC Coins 当前双红线（v15）",
-          "end": "\n当前验收："
+          "start": "## 财务、竞品和地区",
+          "end": "## 执行、恢复和学习验证"
         }
       },
       "supersedes": [
         "fc.pricing.constraints@v13",
-        "fc.pricing.constraints@v14"
+        "fc.pricing.constraints@v14",
+        "fc.pricing.constraints@v15"
       ],
       "provenance": [
         {
           "kind": "existing_confirmed_document",
           "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fc-pricing-v2-20261022/MARGIN-REDLINES.md"
+        },
+        {
+          "kind": "direct_user_eight_day_lag1_margin_contract",
+          "date": "2026-10-29"
         }
       ],
       "consumers": [
@@ -582,7 +587,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8",
+        "sha256": "2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -652,7 +657,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8",
+        "sha256": "2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -706,7 +711,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8",
+        "sha256": "2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -760,7 +765,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8",
+        "sha256": "2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -814,7 +819,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8",
+        "sha256": "2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 9. 客户追踪与按需查证",
@@ -868,7 +873,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8",
+        "sha256": "2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -1120,20 +1125,20 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "fc-v3-lower-anchor-floor20-20261028",
+      "revision": "fc-v3-lag1-eight-day-20261029",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-10-26",
+      "effective_at": "2026-10-29",
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "89f5d6a602c538b033aec8ee77ee78f12a5ea056f6565144615f37c2554af91b",
+        "sha256": "64a9f67bcb5f82d932bdcdd00c4350fbc4e5e64d33738751e22ae133bfbb106b",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1144,6 +1149,10 @@
           "kind": "direct_user_authorized_v3_refactor",
           "date": "2026-10-26",
           "decision": "docs/planning/fc-pricing-v3-20261026/IMPLEMENTATION-SPEC.md"
+        },
+        {
+          "kind": "direct_user_eight_day_lag1_margin_and_archive_continuation",
+          "date": "2026-10-29"
         }
       ],
       "consumers": [

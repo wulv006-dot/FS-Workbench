@@ -657,7 +657,7 @@ def demand_snapshot(selected, orders, storefront, provenance):
         forecast_basis='actual_paid_order_rate_and_mixed_order_AOV_plus_delivery_K; current_100K_price_anchor; elasticity_prior_not_causal_fit')
 
 
-def historical_mix(selected, provenance):
+def historical_mix(selected, provenance, *, history_window_contract=None):
     pairs = [(amount(r.get('salesUsd')), amount(es.get('discount_usd'))) for r, es in selected.values()]
     known = [(n, d) for n, d in pairs if n is not None and d is not None and n >= 0 and d >= 0]
     net, discount = (sum((p[i] for p in known), Decimal(0)) for i in (0, 1))
@@ -670,6 +670,7 @@ def historical_mix(selected, provenance):
         population='identified main-site Coins paid nonrefund nonfraud nontest orders; all platforms combined',
         formula='sum(Admin order USD) / sum(Admin order USD + matched ES actual discount USD)',
         canonical_archive_sha256=provenance.get('canonical_archive_sha256'), ES_source_sha256=provenance.get('ES_source_sha256'))
+    if history_window_contract is not None:body['history_window_contract']=history_window_contract
     return dict(body, sha256=fingerprint(body))
 
 
@@ -1150,6 +1151,46 @@ def collect(session, pages, storefront, products, price_windows=None):
 
 # Append-only candidate adapters. Existing collect() remains unchanged until owner switches caller.
 
+def history_ES_blocker(period, *, ES_root=None, receipt_root=None):
+    """Observe existing export evidence before collection; never requests an export."""
+    from pathlib import Path
+    ES_root=Path(ES_root or '/var/lib/fc27-es-exports')
+    receipt_root=Path(receipt_root or '/var/lib/fs-hermes-fc/fs/es-structures')
+    if not receipt_root.is_dir():return None
+    manifests=[]
+    for path in ES_root.glob('*.json'):
+        if path.stat().st_size>2*1024*1024:continue
+        value=json.loads(path.read_text());query=value.get('query') if isinstance(value,dict) else None
+        if isinstance(query,dict) and query.get('start') and query.get('end'):manifests.append(query)
+    missing=[];day=datetime.fromisoformat(period['start']).date();stop=datetime.fromisoformat(period['end']).date()
+    while day<=stop:
+        text=day.isoformat()
+        if not any(q['start']<=text<=q['end'] for q in manifests):missing.append(text)
+        day+=timedelta(days=1)
+    if not missing:return None
+    # Any original in-flight/unknown window is reconciled separately, never called a permission refusal.
+    for path in receipt_root.glob('*.attempt'):
+        value=json.loads(path.read_text());query=value.get('query') or {}
+        if any(query.get('start','')<=day<=query.get('end','') for day in missing):
+            return dict(reason='es_export_previous_attempt_unknown_requires_reconcile',period=period,missing_days=missing,original_attempt=str(path))
+    import sys
+    sys.path.insert(0,'/opt/fs-hermes-fc')
+    from es_order_structure import checked_query,RULE_VERSION
+    for day in missing:
+        for profile in ('ALL','FC27'):
+            query=checked_query(dict(profile=profile,start=day,end=day))
+            key=hashlib.sha256(json.dumps(dict(query=query,rule=RULE_VERSION),sort_keys=True).encode()).hexdigest()
+            path=receipt_root/(key+'.json')
+            if not path.is_file():continue
+            value=json.loads(path.read_text());result=value.get('value') or {}
+            unknown=('es_export_previous_attempt_unknown_requires_reconcile','es_export_result_unknown_poll_only','es_export_request_failed_or_unknown','es_export_manifest_invalid','es_archive_not_saved_capacity_or_io')
+            if result.get('stage')=='export_sent' or result.get('reason') in unknown or value.get('last_attempt') in unknown:
+                return dict(reason='es_export_previous_attempt_unknown_requires_reconcile',period=period,missing_days=missing,original_receipt=str(path))
+            if result.get('reason')=='es_export_permission_denied' and result.get('stage')=='not_generated' and not path.with_suffix('.attempt').exists():
+                return dict(reason='selective_history_ES_permission_denied',period=period,missing_days=missing,original_receipt=str(path),stage='not_generated')
+    return None
+
+
 def selective_history_signature(period, *, channel_root=None, ES_root=None):
     """Cheap change detector; it never asserts a new content hash or reads order payloads."""
     from pathlib import Path
@@ -1186,11 +1227,12 @@ def selective_history_signature(period, *, channel_root=None, ES_root=None):
         stat=path.stat()
         signature.append([str(path),stat.st_dev,stat.st_ino,stat.st_size,stat.st_mtime_ns])
     # Delivery costs are deliberately excluded: v15 N/D does not change merely because an old cost arrives.
-    return fingerprint(dict(period=period,files=signature,contract='seven_day_amount_and_discount_sources_v2_native_multiline_quantity'))
+    return fingerprint(dict(period=period,files=signature,contract='amount_and_discount_sources_v3_d9_d2_eight_days_native_multiline_quantity'))
 
 
-def build_shared_history_cache(session,pages,storefront,products,source_signature,now,*,include_fulfillment=False,used_templates_only=False):
-    from .selective_sources import history_period,seal_history_cache
+def build_shared_history_cache(session,pages,storefront,products,source_signature,now,*,include_fulfillment=False,used_templates_only=False,prior_cache=None):
+    from copy import deepcopy
+    from .selective_sources import history_period,seal_history_cache,HISTORY_WINDOW_CONTRACT
     period=history_period(now)
     selected,provenance=_period_population(period)
     if selected is None or provenance.get('status')!='complete' or not selected:
@@ -1211,7 +1253,9 @@ def build_shared_history_cache(session,pages,storefront,products,source_signatur
     from pricing_sources import active
     templates={key:dict(value,_current_active=active(value,now,coupon=True)) for key,value in templates.items()}
     replay=build_replay(selected,orders,logs,templates,provenance)
-    mix=historical_mix(selected,provenance);replay['original_mix_sha256']=mix['sha256']
+    replay['points_contract']['basis']='actual_d9_d2_eight_day_points_identity_and_existing_cart_cap'
+    replay['history_window_contract']=HISTORY_WINDOW_CONTRACT
+    mix=historical_mix(selected,provenance,history_window_contract=HISTORY_WINDOW_CONTRACT);replay['original_mix_sha256']=mix['sha256']
     grouped={}
     for identity,(archived,es) in selected.items():
         order=orders[identity]
@@ -1224,7 +1268,16 @@ def build_shared_history_cache(session,pages,storefront,products,source_signatur
         item=grouped.setdefault(key,dict(scenario,weight_usd='0',orders=0))
         item['weight_usd']=str(Decimal(item['weight_usd'])+amount(archived['salesUsd'])+amount(es['discount_usd']))
         item['orders']+=1
-    rollups=dict(demand_model=demand_snapshot(selected,orders,storefront,replay['provenance']))
+    # The new financial window does not redefine the independent seven-day demand baseline.
+    old_model=None
+    if isinstance(prior_cache,dict) and prior_cache.get('cache_sha256')==fingerprint({k:v for k,v in prior_cache.items() if k!='cache_sha256'}):
+        old_model=(prior_cache.get('daily_rollups') or {}).get('demand_model')
+    if old_model:
+        model=deepcopy(old_model);model.setdefault('history_observed_at',prior_cache['created_at'])
+    else:
+        model=dict(status='not_collected_for_pricing',groups={},segments=[],observed_segments=[],history_observed_at=None,
+                   missing_context=['seven_day_demand_baseline_not_collected'],forecast_basis='relative_100k_price_prior_not_observed_orders')
+    rollups=dict(demand_model=model)
     if include_fulfillment:rollups['observed_fulfillment']=fulfillment_context(selected,orders,provenance)
     return seal_history_cache(mix,replay,[grouped[k] for k in sorted(grouped)],rollups,source_signature,now),templates
 
@@ -1254,7 +1307,7 @@ def collect_selective_business(session,pages,storefront,products,*,active_mode,s
     try:cache=checked_history_cache(history_cache,signature,now)
     except ValueError:
         cache,current_templates=build_shared_history_cache(session,pages,storefront,products,signature,now,
-            **(dict(used_templates_only=True) if core_only else {}))
+            **(dict(used_templates_only=True) if core_only else {}),**(dict(prior_cache=history_cache) if history_cache is not None else {}))
         update=cache
     if current_templates is None:
         current_templates=(read_used_templates(session,pages,

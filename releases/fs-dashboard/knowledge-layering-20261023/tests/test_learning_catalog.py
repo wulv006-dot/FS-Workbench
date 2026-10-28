@@ -261,7 +261,8 @@ class LearningCatalog(unittest.TestCase):
         for required in ('80%', '15%', '5%', '缺项贡献为0', 'model_unavailable_fallback_usd', 'v15'):
             self.assertIn(required, text)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
-        self.assertEqual(margin['revision'], 'v15')
+        self.assertEqual(margin['revision'], 'fc27_dual20_d9_d2_v2')
+        self.assertEqual(margin['source']['path'],'docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md')
 
     def test_actual_profit_replaces_shipping_primary_and_preserves_on_demand_history(self):
         path = ROOT / 'knowledge/index.json'

@@ -169,9 +169,10 @@
         const publicPrice=lastMonitor?.storefront?.rows?.[platform]?.package_usd,cost=Number(basis.package_cost_usd),retained=Number(market.price_basis.historical_retained_ratio);
         const currentMargin=publicPrice>0&&Number.isFinite(cost)?((Number(publicPrice)-cost)/Number(publicPrice)*100).toFixed(1)+'%':'待核';
         const averageMargin=publicPrice>0&&retained>0&&Number.isFinite(cost)?((Number(publicPrice)*retained-cost)/(Number(publicPrice)*retained)*100).toFixed(1)+'%':'待核';
+        const averageWindow=market.price_basis.history_window_contract==='d9_d2_eight_closed_days_v1'?'D-9至D-2八日平均红线':'历史七日平均红线';
         details.append(node('p',`采购成本 $${Number(basis.cost_usd_per_1k).toFixed(4)} / 1K（¥${Number(basis.cost_cny_per_1k).toFixed(4)}）`),
           node('p',`${basis.delivered_k}K 含赠套餐成本 ${usd(basis.package_cost_usd)}`),
-          node('p',`未优惠红线 ${usd(basis.regular_floor_usd)} · 当前${currentMargin}`),node('p',`七日平均红线 ${usd(basis.average_floor_usd)} · 当前${averageMargin}`),
+          node('p',`未优惠红线 ${usd(basis.regular_floor_usd)} · 当前${currentMargin}`),node('p',`${averageWindow} ${usd(basis.average_floor_usd)} · 当前${averageMargin}`),
           node('p',`成本采集 ${when(basis.cost_checked_at)}；当前利润按上方公开价与含赠套餐成本计算，底价覆盖全目录，地区另核。`));
       }
       for(const platform of ['PS','XBOX','PC']){
@@ -224,7 +225,7 @@
     table('v3-regions',matrix);
     table('v3-operations',(state.operations||[]).map(o=>[o.created_at,names[o.bundle?.mode]||(o.bundle?.maintenance_purpose==='retire_uk_discount_v1'?'英国临时折扣退出':'待核'),statusText(o.status),o.operation_id,statusText(o.readback?.public?.status),statusText(o.cache_receipt?.status)]));
     table('v3-incidents',(state.incidents||[]).map(i=>[i.code,i.dependency,statusText(i.state),i.first_seen,i.last_seen,i.attempt]));
-    $('v3-proof-notes').textContent=`双红线：未优惠及近七日真实优惠结构估算平均采购毛利都至少 20%。不设让利或负贡献预算额度。全球核心参考 Lootbar 与 ItemD2R；Saudi Arabia 另核 Arab 普通报价。英国临时优惠退出与实际读回单独留档，历史不改。${matrix.length?'下表展示已获得的地区证明；缺项保持待核。':'本轮地区证明尚未取得。'}`;
+    $('v3-proof-notes').textContent=`双红线：未优惠及D-9至D-2八个完整日真实优惠金额结构估算平均采购毛利都至少 20%。成本、竞品及汇率取本轮。不设让利或负贡献预算额度。全球核心参考 Lootbar 与 ItemD2R；Saudi Arabia 另核 Arab 普通报价。英国临时优惠退出与实际读回单独留档，历史不改。${latest?.bundle?.financial_contract_version==='fc27_dual20_v1'?'当前展示的原操作仍为当时七日证明，不代表新八日验收。':''}${matrix.length?'下表展示已获得的地区证明；缺项保持待核。':'本轮地区证明尚未取得。'}`;
     writeControls();
     list.disabled=!plans.length;
     $('v3-plan-stop').disabled=!canWrite||!plan||['ENDED','ENDING'].includes(plan.state);
@@ -296,7 +297,8 @@
     manualPreview=await request('manual-previews',data);clearKey('manual-preview');
     const action=manualPreview.selected?.action?.base_prices||manualPreview.explicit_prices;
     const regions=Object.entries(manualPreview.selected?.action?.region_coefficients||{}).map(([key,factor])=>`${key} 系数 ${factor}`).join('；');
-    const proof=Object.entries(manualPreview.selected?.financial_proof?.prices||{}).map(([key,row])=>`${key}：未优惠 ${value(row.catalog?.worst_published_margin_pct)}% / 七日结构 ${value(row.catalog?.minimum_estimated_average_margin_pct)}%`).join('；');
+    const averageWindow=manualPreview.selected?.financial_proof?.financial_contract_version==='fc27_dual20_d9_d2_v2'?'八日金额结构':'历史七日结构';
+    const proof=Object.entries(manualPreview.selected?.financial_proof?.prices||{}).map(([key,row])=>`${key}：未优惠 ${value(row.catalog?.worst_published_margin_pct)}% / ${averageWindow} ${value(row.catalog?.minimum_estimated_average_margin_pct)}%`).join('；');
     $('v3-manual-result').textContent=`只读财务与市场重证已完成：Console ${usd(action.console)} / PC ${usd(action.pc)}。${regions}。${proof}。预览 ${manualPreview.manual_preview_id}；有效至 ${manualPreview.valid_until}。确认后由同一新鲜采集链再次核准。`;
   });});
   $('v3-manual-execute').addEventListener('click',()=>action(async()=>{

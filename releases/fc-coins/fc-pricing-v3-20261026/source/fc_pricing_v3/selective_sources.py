@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from .financial import fingerprint, required_history_ratio, fresh
+from .financial import fingerprint, required_history_ratio, fresh, history_period as financial_history_period, HISTORY_WINDOW_CONTRACT
 from . import financial as _math
 
 VERSION='fc27-selective-source-v1'
@@ -70,7 +70,7 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
         required_markets=markets,market_platforms={name:([p for p in platforms if p in ('PS','XBOX')] if name=='ArabUT' else list(platforms)) for name in markets},
         retired_automatic_sources=list(RETIRED),price_interval_minutes=interval_minutes,
         quote_validity_seconds=900,hard_evidence=['current_cost','current_FX','current_catalog' if scope.get('catalog_only') is True else 'current_promotion_envelope','current_public_price','affected_region_contract'],
-        history='same_seven_closed_days_and_original_hash_cache',
+        history='D_minus_9_through_D_minus_2_eight_closed_days_and_original_hash_cache',
         refresh_monthly_target=active_mode=='revenue_sprint' and scope.get('catalog_only') is not True,online_observation_job='preserved_separate_incremental_pipeline',
         historical_orders_in_quote=False,long_window_collection=False)
 
@@ -109,19 +109,18 @@ def planned_source_coverage(snapshot,plan,now,*,reference_market=None):
 
 
 def history_period(now):
-    today=now.astimezone(TZ).date()
-    return dict(start=(today-timedelta(days=7)).isoformat(),end=(today-timedelta(days=1)).isoformat())
+    return financial_history_period(now)
 
 
 def seal_history_cache(mix,replay,scenarios,rollups,source_signature,now):
-    required_history_ratio(dict(historical_discount_mix=mix),now)
+    required_history_ratio(dict(historical_discount_mix=mix),now,require_current=True)
     if replay.get('status')!='verified' or replay.get('basis_lower_bound_sufficient') is not True:
         raise ValueError('selective_region_history_not_verified')
     if replay.get('original_mix_sha256')!=mix['sha256']:
         raise ValueError('selective_history_population_mismatch')
     if sum((Decimal(s['weight_usd']) for s in scenarios),Decimal(0))!=Decimal(mix['undiscounted_order_usd']):
         raise ValueError('selective_history_scenario_weight_mismatch')
-    body=dict(version=VERSION,period=mix['period'],created_at=now.isoformat(),source_signature=source_signature,
+    body=dict(version=VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT,period=mix['period'],created_at=now.isoformat(),source_signature=source_signature,
         historical_discount_mix=deepcopy(mix),original_history_replay=deepcopy(replay),
         promotion_scenarios=deepcopy(scenarios),daily_rollups=deepcopy(rollups),
         privacy='anonymous aggregate scenarios only; no raw orders, customer identifiers or historical cost payload')
@@ -135,7 +134,7 @@ def checked_history_cache(cache,source_signature,now):
         raise ValueError('selective_history_cache_hash_changed')
     if cache.get('source_signature')!=source_signature or cache.get('period')!=history_period(now):
         raise ValueError('selective_history_cache_source_or_window_changed')
-    required_history_ratio(dict(historical_discount_mix=cache['historical_discount_mix']),now)
+    required_history_ratio(dict(historical_discount_mix=cache['historical_discount_mix']),now,require_current=True)
     return cache
 
 
@@ -189,11 +188,11 @@ def context_from_cache(cache,plan,templates,now,*,monthly=None,online=None):
     replay=project_cached_history(cache,templates,now)
     result=dict(historical_discount_mix=deepcopy(cache['historical_discount_mix']),history_replay=replay,
         demand_model=deepcopy(cache['daily_rollups'].get('demand_model') or {}),
-        historical_ref=dict(kind='seven_closed_day_promotion_cache',cache_sha256=cache['cache_sha256'],period=cache['period'],
+        historical_ref=dict(kind='d9_d2_eight_closed_day_promotion_cache',history_window_contract=HISTORY_WINDOW_CONTRACT,cache_sha256=cache['cache_sha256'],period=cache['period'],
             original_mix_sha256=cache['historical_discount_mix']['sha256'],source_signature=cache['source_signature'],created_at=cache['created_at']),
         source_plan=deepcopy(plan))
     # These contexts are estimates/observations, never substitutes for current hard evidence.
-    result['demand_model']['history_observed_at']=cache['created_at']
+    result['demand_model'].setdefault('history_observed_at',cache['created_at'])
     result['demand_model'].pop('advertising_context',None)
     if plan['refresh_monthly_target']:result['monthly_target']=monthly or dict(status='gap',mtd=None,amount=None,reason='monthly_target_context_missing')
     if online:result.update(deepcopy(online))

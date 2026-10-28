@@ -129,6 +129,12 @@ def cycle(body=None):
     policy=load_policy()
     if not policy['system_enabled'] or not body.get('manual_requested') and policy['mode']!='auto':
         return dict(status='operator_paused')
+    from .business_source import history_ES_blocker
+    from .selective_sources import history_period
+    blocked=history_ES_blocker(history_period(clock()))
+    if blocked:
+        db.incident(blocked['reason'],'ES_export',['FC27'],phase='source_precheck',error=blocked['reason'])
+        raise ValueError(blocked['reason'])
     ident=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc-v3-collection:'+root_key+':'+str(body.get('_attempt',0))))
     job=dict(job_id=ident,kind='v3_cycle',actor='system-automation',status='running',
              created_at=clock().isoformat(),request=dict(policy_revision=policy['revision'],v3_plan_id=requested['plan_id'],
