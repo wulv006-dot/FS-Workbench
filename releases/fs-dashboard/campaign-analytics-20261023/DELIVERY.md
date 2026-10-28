@@ -96,6 +96,15 @@
 - 静态清单：105 → 106 键；`seasonal/event.js` → `de35383cf064…`、清单本体 `375efb554f07…`。
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261028T030250Z`。
 
+### 2026-10-28 `nav-20261028T030905Z`（PR #584）10% 折扣徽章换图
+
+- 来源：用户补来带百分号的 `Polished Gold -10% Discount Badge`（1361×1156 RGBA，圆心 693/581.5、直径 ~1005，与另两枚同一套构图）；分支 `buddy/seasonal-item-docs-20261028`（提交 `d69c2474e2`，CI `pr-fast` success）合并 `c4b3bb3048618a67637669beb0d536f0544fcf26`。
+- 目标 6 个（`app/seasonal/assets/badge-10.webp`、`app/runtime/static-manifest.json` + 4 个边界文件）；`inspect` 报 `sourceCAS/protectedCAS passed`、`mutations:false`。
+- 处理：沿用与 8%/15% 完全相同的裁框（中心 693/583、边长 1146）归一后缩放 176×176 webp；三档并排核对大小与描边一致。
+- 静态清单：106 键不变，`seasonal/assets/badge-10.webp` 哈希更新 `deb0a8ec` → `12351b79`；清单本体 `1b186d0d8693…`。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261028T030905Z`。
+- 遗留：`/events/` 静态资源带 `Cache-Control: public, max-age=2678400`（31 天）且文件名无内容指纹，换图后老访客浏览器仍用旧图，需要强刷才更新；根治要给素材 URL 加版本参数或文件名带哈希，已在 `HANDOFF.md` 记为待办。
+
 ---
 
 ## 回退与边界
