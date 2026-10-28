@@ -553,6 +553,65 @@ def stop_unissued_and_exit(op,reason):
     return result
 
 
+def _admin_observed_prices():
+    """§6.3 条件 2 的取数：Admin 各平台 unit_price（每 K）。异常由调用方视为未知。"""
+    from channel_source import pages as admin_pages
+    import p2pah_auth as auth
+    from .admin_readback import read_admin_unit_prices
+    return read_admin_unit_prices(auth.Session(),pages=admin_pages)
+
+
+def close_on_order_admin(op,audit):
+    """用「Order 成功反馈 + Admin 单价核对」收尾已发出的操作。
+
+    只调用现有收尾函数（``finish`` / ``finish_known_partial``），不新增释放路径。
+    证据不足时保持 UNKNOWN：不动租约、不新建操作、不重复下发。
+    """
+    from .order_close import build_receipt,evaluate_close,order_write_confirmed
+    db=ledger();ident=op['operation_id']
+    if not order_write_confirmed(audit):return op
+    note=None
+    try:
+        observed=_admin_observed_prices()
+    except Exception as exc:
+        observed={};note='admin_readback_unavailable:'+type(exc).__name__
+    decision=evaluate_close(op,audit,observed)
+    if decision['action']=='keep':
+        op['order_close']=dict(decision,detail=note)
+        db.put('operations',ident,op)
+        return op
+    with db.transaction() as conn:
+        latest=db.get('operations',ident,conn)
+        for step in latest['steps']:
+            if step['step_id']==decision['confirmed']:
+                step.setdefault('receipt_history',[]).append(dict(state=step.get('state'),receipt=step.get('receipt'),recorded_at=clock().isoformat()))
+                step.update(state='CONFIRMED',receipt=dict(execution_id=ident,status='CONFIRMED',confirmation_scope='Order_Admin'))
+            elif step['step_id'] in decision['cancelled']:
+                step.setdefault('receipt_history',[]).append(dict(state=step.get('state'),receipt=step.get('receipt'),recorded_at=clock().isoformat()))
+                step.update(state='CANCELLED_NOT_SENT',cancellation_reason=decision['reason'])
+        latest['order_close']=dict(decision,detail=note)
+        db.put('operations',ident,latest,conn)
+    latest=db.get('operations',ident)
+    postwrite=None
+    try:
+        from .adapters import reconcile_postwrite
+        postwrite=reconcile_postwrite(latest,audit)
+    except Exception as exc:
+        postwrite=dict(status='postwrite_failed',error=type(exc).__name__)
+    if (postwrite or {}).get('status')=='PUBLIC_CONFIRMED' and not decision['cancelled']:
+        return db.finish(ident,postwrite)
+    receipt=build_receipt(latest,audit,observed,decision,postwrite)
+    if not decision['cancelled']:
+        return db.finish(ident,receipt)
+    actual=deepcopy(latest['bundle']['before_action'])
+    for step in latest['steps']:
+        if step['state']=='CONFIRMED':actual=deepcopy(step['intermediate'])
+    result=db.finish_known_partial(ident,receipt,actual,decision['reason'])
+    if result.get('plan_id') and result.get('revision') is not None:
+        db.deadline(result['plan_id'],result['revision'])
+    return result
+
+
 def reconcile(operation_id):
     """Never repeat a base save or sync; recover only original post-write stages."""
     db=ledger()
@@ -623,6 +682,16 @@ def reconcile(operation_id):
         if post['status']=='PUBLIC_CONFIRMED':return db.finish(operation_id,post)
         op.update(status=post['status'],readback=post)
         db.put('operations',operation_id,op)
+    # 2026-10-28: 「Order 写成功 + Admin 单价核对一致」的收尾入口（DECOUPLE-DESIGN §6.4）。
+    # 仅在旧的公开页路径未能收尾时尝试；旧的公开页路径行为完全不变。
+    if audit:
+        from .order_close import order_write_confirmed
+        legacy=audit.get('status')=='CONFIRMED' and audit.get('sync_confirmed') is True and audit.get('all_baseline',{}).get('status')=='confirmed'
+        if order_write_confirmed(audit) and not legacy:
+            closed=close_on_order_admin(op,audit)
+            if closed.get('status') in ('COMPLETED','NO_CHANGE','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED','CANCELLED_NOT_SENT'):
+                return closed
+            op=closed
     op=db.get('operations',operation_id)
     if any(not s.get('dispatched_at') for s in op['steps']) and all(s['state']=='CONFIRMED' for s in op['steps'] if s.get('dispatched_at')):
         path=ROOT/'quotes'/(op['bundle']['snapshot_id']+'.json')
