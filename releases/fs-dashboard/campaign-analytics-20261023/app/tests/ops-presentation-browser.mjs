@@ -41,7 +41,7 @@ try{
  assert.equal(await page.locator('html').getAttribute('data-theme'),'halloween');assert.equal(await page.locator('#theme-select').count(),0);
  assert.equal(store.read().draft.seasonal_theme,'christmas');assert.equal(snapshot().seasonal_theme,'christmas');assert.equal(Object.hasOwn(store.read().draft,'halloween'),false);
  assert.equal(await page.locator('meta[property="og:image"]').getAttribute('content'),origin+'/events/seasonal/assets/hero-christmas.webp');assert.equal(await page.locator('html').getAttribute('lang'),'en');
- assert.deepEqual(await page.locator('[data-game-card]').evaluateAll(nodes=>nodes.map(node=>node.dataset.gameCard)),['fc','aion','wow','maplestory']);
+ assert.deepEqual(await page.locator('[data-game-card]').evaluateAll(nodes=>nodes.map(node=>node.dataset.gameCard)),['fc','aion','diablo','maplestory']);
  const title=await page.title();await page.locator('[data-game-card=fc]').click();assert.equal(await page.locator('[data-offer-slot]').count(),3);assert.equal(await page.locator('[data-fixed-reveal]').isDisabled(),true);assert.equal(await page.locator('[data-model-buy]').isDisabled(),true);assert.equal(await page.locator('[data-offer-slot^=random-] .flip-card:disabled').count(),2);
  // All three slots present the same mystery back to visitors; the fixed pool's
  // quantity is only shown after the card is flipped, never advertised up front.
