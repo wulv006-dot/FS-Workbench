@@ -186,9 +186,13 @@ def health():
     except (OSError, ValueError):
         pass
     result["disk_free_gb"] = round(shutil.disk_usage(ROOT).free / (1024 ** 3), 2)
+    from fc_pricing_v3.order_close import execution_is_unresolved, ledger_operation_status
     for path in (ROOT / "executions").glob("*.json"):
         try:
-            if read_json(path).get("status") in {"RUNNING", "UNCERTAIN", "PARTIAL"}:
+            state=read_json(path)
+            status=ledger_operation_status(path.stem, root=ROOT,
+                require_order_admin_close=state.get('status')=='PUBLIC_CONFIRMED')
+            if (state.get('status')=='PUBLIC_CONFIRMED' and state.get('execution_id')!=path.stem) or execution_is_unresolved(state,status):
                 result["incomplete_executions"] += 1
         except (OSError, ValueError):
             result["incomplete_executions"] += 1
