@@ -61,10 +61,14 @@ class AdminRead:
         self._catalog_transport = catalog_get_once or self._catalog_http_once
         self._catalog_timeout = catalog_timeout
         self._catalog_deadline = None
+        self._goods_prefetch = None
 
     def begin_catalog_read(self):
         """One aggregate budget for a model detail + scoped child lookup."""
         self._catalog_deadline = time.monotonic() + self._catalog_timeout
+        # A sweep only describes the models it was asked for, so it never outlives the
+        # read that requested it.
+        self._goods_prefetch = None
 
     def _catalog_http_once(self, route, **params):
         """Same authenticated requests session, bypassing shared get_admin retry/refresh loops."""
@@ -270,6 +274,49 @@ class AdminRead:
             validate=lambda row: positive_id(row.get('site_id')) == site_id
             and positive_id(row.get('gid')) == game_id)
 
+    def prefetch_goods(self, site_id, game_id, model_ids):
+        """Read every child row for a whole model set with one IN query per page.
+
+        Admin's list route stalls for 40-70s on roughly a third of individual calls
+        (2026-10-28: the same query measured 130ms and 70s inside one minute), and the
+        reference-price provider needs all of its models or none of them. Asking once
+        for the whole set instead of once per model cuts the request count by an order
+        of magnitude, so one stall no longer discards every price.
+        """
+        site_id, game_id = positive_id(site_id), positive_id(game_id)
+        if site_id != '266':
+            raise ContractError('PROJECT_SITE_REQUIRED')
+        models = sorted({positive_id(m) for m in model_ids})
+        if not models:
+            raise ContractError('CATALOG_QUERY_REQUIRED')
+        scoped = [('site_id', '=', site_id), ('gid', '=', game_id), ('mid', 'IN', ','.join(models))]
+        rows, page = [], 1
+        while True:
+            params = dict(page=page, limit=50, order='id,desc', **search(scoped))
+            data = self._get_catalog_once(LIST_ROUTES['goods'], **params)
+            batch, total = data.get('list'), data.get('total')
+            if isinstance(total, str) and total.isascii() and total.isdecimal():
+                total = int(total)
+            if not isinstance(batch, list) or type(total) is not int or not 0 <= total <= 100000 or len(batch) > 50:
+                raise ContractError('INVALID_PAGE')
+            for row in batch:
+                if not isinstance(row, dict):
+                    raise ContractError('INVALID_ROW')
+                if (positive_id(row.get('site_id')) != site_id or positive_id(row.get('gid')) != game_id
+                        or positive_id(row.get('mid')) not in models):
+                    raise ContractError('UPSTREAM_SCOPE_MISMATCH')
+            rows.extend(batch)
+            if len(batch) < 50 or page * 50 >= total:
+                break
+            page += 1
+            if page > 500:
+                raise ContractError('INVALID_CATALOG_PAGE')
+        prefetched = {}
+        for row in rows:
+            prefetched.setdefault(positive_id(row.get('mid')), []).append(row)
+        self._goods_prefetch = prefetched
+        return dict(models=len(prefetched), rows=len(rows))
+
     def search_goods_page(self, site_id, game_id, *, keyword=None, model_id=None,
                           category_id=None, platform_attribute_id=None, page=1, limit=20):
         """One scoped GET only. Field names/order are server-owned, never supplied by the client."""
@@ -287,11 +334,21 @@ class AdminRead:
             if value is not None:
                 expected[field] = positive_id(value)
                 filters.append((field, '=', expected[field]))
-        params = dict(page=page,limit=limit,order='id,desc',**search(filters))
-        if keyword is not None:
-            params['quick_search'] = keyword.strip()
-        data = self._get_catalog_once(LIST_ROUTES['goods'], **params)
-        rows, total = data.get('list'), data.get('total')
+        cached = (self._goods_prefetch or {}).get(expected.get('mid')) if keyword is None else None
+        if cached is not None:
+            # The sweep already holds every child row of this model. Slicing it here keeps
+            # the scoped filters and the page contract identical to a direct read, so the
+            # caller cannot tell whether the rows came from one IN query or many.
+            selected = [row for row in cached if all(positive_id(row.get(field)) == value
+                for field, value in expected.items() if field in ('cid', 'aid'))]
+            total = len(selected)
+            rows = selected[(page-1)*limit:page*limit]
+        else:
+            params = dict(page=page,limit=limit,order='id,desc',**search(filters))
+            if keyword is not None:
+                params['quick_search'] = keyword.strip()
+            data = self._get_catalog_once(LIST_ROUTES['goods'], **params)
+            rows, total = data.get('list'), data.get('total')
         if isinstance(total, str) and total.isascii() and total.isdecimal():
             total = int(total)
         if (not isinstance(rows,list) or type(total) is not int or not 0 <= total <= 100000
