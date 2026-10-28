@@ -1,5 +1,5 @@
 // One draft/public contract. Missing historical field stays missing on save.
-const games=[['fc','FC27','1327'],['aion','Aion2','891'],['wow','World of Warcraft',null],['maplestory','MapleStory',null]];
+const games=[['fc','FC27','1327'],['aion','Aion2','891'],['diablo','Diablo IV','456'],['maplestory','MapleStory',null]];
 const error=()=>{throw Object.assign(Error('INVALID_HALLOWEEN_CONFIG'),{code:'INVALID_HALLOWEEN_CONFIG',status:400});};
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>keys.includes(k));
 const numeric=v=>typeof v==='string'&&/^[1-9]\d{0,19}$/.test(v);
@@ -27,7 +27,7 @@ export function projectHalloween(value){
   if(!g.admin_game_id&&(g.fixed_model||g.random_models.length))error();
   let random_quantities;
   if(source.mode==='quantity_tiers'){
-   if(!['aion','wow'].includes(id)||!quantity||g.random_models.length||!Array.isArray(g.random_quantities)||g.random_quantities.length!==2)error();
+   if(!['aion','diablo'].includes(id)||!quantity||g.random_models.length||!Array.isArray(g.random_quantities)||g.random_quantities.length!==2)error();
    random_quantities=g.random_quantities.map(q=>{if(!exact(q,['value','unit'])||typeof q.value!=='string'||!/^\d+(?:\.\d{1,6})?$/.test(q.value)||Number(q.value)<=0||q.unit!==quantity.unit)error();return {value:q.value,unit:q.unit};});
    if(new Set([quantity.value,...random_quantities.map(q=>q.value)].map(Number)).size!==3)error();
   }else if(g.random_quantities!==undefined&&g.random_quantities.length)error();

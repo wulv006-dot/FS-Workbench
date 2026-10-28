@@ -110,9 +110,11 @@ def load_base():
     fc.__file__ = str(FC_PUBLISHER)
     exec(compile(FC_PUBLISHER.read_bytes(), str(FC_PUBLISHER), 'exec'), fc.__dict__)
     original_locks = base.locks
+    holding_fc_locks = False
 
     @contextmanager
     def combined_locks(root):
+        nonlocal holding_fc_locks
         if root != Path('/'):
             raise ValueError('real_existing_release_locks_required')
         with original_locks(root), ExitStack() as stack:
@@ -127,14 +129,18 @@ def load_base():
                 if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1:
                     raise ValueError('unsafe_original_fc_lock')
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            yield
+            holding_fc_locks = True
+            try:
+                yield
+            finally:
+                holding_fc_locks = False
 
     base.locks = combined_locks
     original_guards = base.guards
 
     def guards(manifest, root, reader_stopped=False):
         original_guards(manifest, root, reader_stopped)
-        if not fc_release_quiescent(fc.tick,fc.api):
+        if not fc_release_quiescent(fc.tick,fc.api,locks_held=holding_fc_locks):
             raise ValueError('original_fc_execution_not_quiescent')
         for row in manifest['files']:
             path = base.rooted(root, row['target'])

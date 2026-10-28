@@ -1,6 +1,6 @@
 (function(root){
   'use strict';
-  const IDS=['fc','aion','wow','maplestory'],LABELS={fc:'FC27',aion:'Aion2',wow:'World of Warcraft',maplestory:'MapleStory'},TIERS=[8,15,10];
+  const IDS=['fc','aion','diablo','maplestory'],LABELS={fc:'FC27',aion:'Aion2',diablo:'Diablo IV',maplestory:'MapleStory'},TIERS=[8,15,10];
   const english=(value,fallback)=>typeof value==='string'&&value.trim()&&!/\p{Script=Han}/u.test(value)?value:fallback;
   // Player titles arrive as "Name/89/LB++/Gold Non Rare". Show the name as the
   // headline and the attributes as a quiet second line instead of a ragged wrap.
@@ -26,7 +26,7 @@
   const CATEGORY_ART={
     fc:{coins:'assets/product-fc-coins.webp',pack:'assets/product-fc-set.webp',player:'assets/product-fc-set.webp'},
     aion:{coins:'assets/product-aion-coins.webp'},
-    wow:{coins:'assets/product-wow-coins.webp'},
+    diablo:{coins:'assets/product-diablo-coins.webp',item:'assets/product-diablo-item.webp'},
     maplestory:{coins:'assets/product-maplestory-coins.webp',item:'assets/product-maplestory-item.webp'}
   };
   const PACK_HINT=/\b(pack|packs|bundle|bundles|potm|evo|upgrade|stash|xi|cornucopia|mayhem|supernova|scream)\b/i;
@@ -35,7 +35,10 @@
     // MapleStory sells two things in this event: Mesos and gear. Only the
     // currency title gets the coin drawing, everything else is an item.
     if(gameId==='maplestory')return /\bmesos?\b/i.test(title)?'coins':'item';
-    if(gameId!=='fc')return 'coins';
+    // Diablo IV sells gold and gear side by side: only the currency title gets the
+  // coin drawing, the named items get the relic drawing.
+  if(gameId==='diablo')return /\bgold\b/i.test(title)?'coins':'item';
+  if(gameId!=='fc')return 'coins';
     if(/\bcoins?\b/i.test(title))return 'coins';
     // FC player titles lead with a name, packs and SBC bundles carry a product
     // word, so the word decides which drawing the face gets.

@@ -1,7 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),{publicURL}=require('./public-url.cjs');
 const root=path.resolve(__dirname,'../app/seasonal'),box={};vm.runInNewContext(fs.readFileSync(path.join(root,'campaign-data.js'),'utf8'),box);
 const games=box.SeasonalHalloweenData?.games;if(!Array.isArray(games)||games.length!==4)throw new Error('Current four-game Halloween identity is missing');
-const url=publicURL(process.env),title='MMOEXP Halloween Collection',description='Explore FC27, Aion2, World of Warcraft and MapleStory. One fixed selection and two mystery slots per game; offer allocation, probabilities and event dates await verified configuration.';
+const url=publicURL(process.env),title='MMOEXP Halloween Collection',description='Explore FC27, Aion2, Diablo IV and MapleStory. One fixed selection and two mystery slots per game; offer allocation, probabilities and event dates await verified configuration.';
 const graph={'@context':'https://schema.org','@graph':[{'@type':'CollectionPage',name:title,description,inLanguage:'en',...(url?{url,'@id':url+'#page'}:{})},{'@type':'ItemList',name:'Halloween game collections',itemListElement:games.map((g,i)=>({'@type':'ListItem',position:i+1,name:g.label}))}]};
 const head='<!-- SEO-HEAD-BEGIN -->'+(url?'<link rel="canonical" href="'+url+'"><meta property="og:url" content="'+url+'">':'')+'<meta property="og:type" content="website"><meta property="og:title" content="'+title+'"><meta property="og:description" content="'+description+'"><meta name="twitter:card" content="summary"><script type="application/ld+json">'+JSON.stringify(graph).replace(/</g,'\\u003c')+'</script><!-- SEO-HEAD-END -->';
 const file=path.join(root,'index.html'),old=fs.readFileSync(file,'utf8');

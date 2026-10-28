@@ -4,7 +4,7 @@ const config=require('../seasonal/halloween-config.json');
 const now=()=>1000;
 function catalog(){return {schema_version:1,verified:true,catalog_version:'synthetic-v1',model_ref:{site_id:'266',game_id:'test-game',model_id:'test-model'},ordering_verified:true,ordering_evidence:'synthetic-only',fields:[{id:'server',depends_on:[],values:[{id:'first'},{id:'second'}]}],combinations:['first','second'].map((server,i)=>({product_key:'synthetic-'+server,attributes:[],choices:{server},quantity:{min:'1',max:'10',step:'1',unit:'item'},price:{source:'admin_current',base_minor:10000+i*5000,currency:'USD',minor_unit_scale:2,quantity_value:'1',expires_at:'2099-01-01T00:00:00Z'}}))};}
 test('Four games, one fixed plus two random, no invented odds/products/window',()=>{
- assert.deepEqual(config.games.map(g=>g.id),['fc','aion','wow','maplestory']);
+ assert.deepEqual(config.games.map(g=>g.id),['fc','aion','diablo','maplestory']);
  assert.deepEqual(config.off_percent_tiers,[8,15,10]);assert.equal(config.wishing_pool,false);
  assert.equal(config.probabilities,null);assert.equal(config.tier_product_binding,null);assert.equal(config.starts_at,null);assert.equal(config.ends_at,null);
  for(const game of config.games){assert.equal(game.fixed_model,null);assert.deepEqual(game.random_models,[]);assert.equal(game.random_count,2);}
