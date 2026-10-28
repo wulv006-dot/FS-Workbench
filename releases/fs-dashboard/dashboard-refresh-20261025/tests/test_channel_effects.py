@@ -321,7 +321,7 @@ class Effects(unittest.TestCase):
                 target = Path(root)/'fixed.json'
                 initial = self.data()
                 def enrich(data, force=False):
-                    self.assertEqual(json.loads(target.read_text())['orders'], initial['orders'])
+                    self.assertEqual(json.loads(target.read_text('utf-8'))['orders'], initial['orders'])
                     if fail_cost: raise ValueError('shared_order_unavailable')
                     data['sources']['cost_enriched'] = True; return data
                 fake = SimpleNamespace(collect=lambda period:deepcopy(initial),enrich=enrich)
@@ -329,7 +329,7 @@ class Effects(unittest.TestCase):
                 with patch.dict(sys.modules, {'fcntl':SimpleNamespace(flock=lambda *args: None, LOCK_EX=1, LOCK_NB=2),'channel_source':fake}):
                     service.capture(self.period,'fixed',target)
                 self.assertEqual(service.jobs['fixed'], 'cost_failed' if fail_cost else 'available')
-                self.assertEqual(json.loads(target.read_text())['orders'], initial['orders'])
+                self.assertEqual(json.loads(target.read_text('utf-8'))['orders'], initial['orders'])
                 service.pool.shutdown()
 
     def test_recent_complete_cost_range_is_reused_without_another_order_read(self):

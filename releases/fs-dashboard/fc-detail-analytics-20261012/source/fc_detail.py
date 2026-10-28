@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 from threading import RLock
 from urllib.parse import urlencode
-import csv, hashlib, io, json, os, subprocess, tempfile, time
+import csv, hashlib, io, json, os, subprocess, sys, tempfile, time
 from fc_detail_model import aggregate, selected, CONTRACT
 
 HERE = Path(__file__).resolve().parent
@@ -32,11 +32,8 @@ def query(params, now=None):
     return values
 
 def read_source(q, config):
-    model = (HERE / 'fc_detail_model.py').read_text('utf-8')
-    reader = (HERE / 'fc_detail_reader.py').read_text('utf-8')
-    prefix = 'import types,sys\nm=types.ModuleType("fc_detail_model")\nexec(%r,m.__dict__)\nsys.modules["fc_detail_model"]=m\n' % model
-    result = subprocess.run(['docker', 'exec', '-i', 'fc27-p2pah-session', 'python3', '-',
-                             json.dumps({'query': q, 'config': config})], input=(prefix + reader).encode(),
+    result = subprocess.run([sys.executable, str(HERE / 'fc_detail_reader.py'),
+                             json.dumps({'query': q, 'config': config})],
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=900)
     if result.returncode: raise OSError('fc_source_read_failed')
     data = json.loads(result.stdout)
@@ -61,12 +58,14 @@ class FCDetails:
 
     def capture(self, key, q):
         try:
+            with self.lock: self.jobs[key]['phase'] = 'reading'
             data = self.reader(q, self.config)
             if data['coverage']['period'] != q['period']: raise ValueError('fc_source_period')
             atomic(self.cache / (key + '.json'), data)
             with self.lock: self.jobs.pop(key, None)
-        except Exception:
-            with self.lock: self.jobs[key] = {'state': 'failed', 'at': time.monotonic()}
+        except Exception as error:
+            code = 'fc_source_timeout' if isinstance(error, subprocess.TimeoutExpired) else 'fc_source_read_failed'
+            with self.lock: self.jobs[key] = {'state': 'failed', 'at': time.monotonic(), 'error': code}
 
     def get(self, params):
         q = query(params)
@@ -91,7 +90,7 @@ class FCDetails:
                     if len(self.starts) >= 3 or sum(j['state'] == 'pending' for j in self.jobs.values()) >= 2:
                         if data is None: return 429, {'data_status': 'pending', 'retryAfter': 10}
                     else:
-                        self.starts.append(now); self.jobs[key] = job = {'state': 'pending', 'at': now}
+                        self.starts.append(now); self.jobs[key] = job = {'state': 'pending', 'at': now, 'phase': 'queued'}
                         self.pool.submit(self.capture, key, source_q)
                 if data is None: return (503 if job and job['state'] == 'failed' else 202), {'contractId': CONTRACT, 'data_status': 'unavailable' if job and job['state'] == 'failed' else 'pending', 'retryAfter': 2}
                 if q.get('refresh') == 'true': return (202 if job and job['state'] == 'pending' else 429), {'data_status': 'pending', 'retryAfter': 2}
@@ -100,6 +99,9 @@ class FCDetails:
         if result['stale']: result['data_status'] = 'partial'
         result['refreshing'] = self.jobs.get(key, {}).get('state') == 'pending'
         result['refresh_error'] = self.jobs.get(key, {}).get('state') == 'failed'
+        result['refresh_phase'] = self.jobs.get(key, {}).get('phase')
+        result['refreshSeconds'] = ttl
+        result['refresh_error_code'] = self.jobs.get(key, {}).get('error')
         if q.get('format') == 'csv':
             current = q.get('pool', 'paid') == 'current'
             rows = result['orders']

@@ -1,34 +1,21 @@
 """FS-only source clients; the model supplies only checked capability arguments."""
 from pathlib import Path
-import json,subprocess
-from urllib.request import Request,build_opener,HTTPRedirectHandler
-from urllib.error import HTTPError
-from .capabilities import checked_query,result
-
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self,req,fp,code,msg,headers,newurl):return None
+import json,subprocess,sys
+from .capabilities import checked_query,result,collect_admin
 
 def admin_read(args):
     raw=json.dumps(args,separators=(',',':')).encode()
     if len(raw)>4096:raise ValueError('capability_body')
-    req=Request('http://127.0.0.1:8767/business/fc-capability',data=raw,headers={'Content-Type':'application/json'},method='POST')
-    try:
-        with build_opener(NoRedirect).open(req,timeout=60) as response:data=response.read(1000001)
-    except HTTPError as error:
-        if error.code != 503:
-            error.close()
-            raise
-        # 403 always keeps its denial barrier, even when its body is bare or malformed.
-        # 503 carries this service's projected failure; the provider validates its envelope.
-        try:data=error.read(1000001)
-        finally:error.close()
-        if len(data)>1000000:raise error
-        try:value=json.loads(data)
-        except (ValueError,TypeError):raise error
-        if not isinstance(value,dict) or value.get('status')!='not_available':raise error
-        return value
-    if len(data)>1000000:raise ValueError('projected_response_size')
-    return json.loads(data)
+    sys.path.insert(0,'/opt/sales-dashboard/collector')
+    from p2pah_auth import Session
+    client=Session()
+    def request(path,body):
+        status,value=client.get_admin(path) if body is None else client.post_admin(path,payload=body)
+        return status,json.dumps(value).encode('utf-8')
+    try:value=collect_admin(request,args,{'enabled':True,'game_id':1327,'main_site_id':266})
+    finally:client.close()
+    if len(json.dumps(value).encode())>1000000:raise ValueError('projected_response_size')
+    return value
 
 def order_read(q,config,web,source_root=Path('/opt/fs-exact-range-20261001'),timeout=120):
     import fcntl

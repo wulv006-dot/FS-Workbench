@@ -16,6 +16,7 @@ def selection(params,profiles):
     q=summary_query(values,profiles)
     # Admin summary metadata must not invalidate the independent profit archive.
     q.pop('admin_site',None)
+    q['contractId']=CONTRACT
     if q['profile']!='RS':q['site']='www.mmoexp.com'
     if q['profile']!='RS' and q['profit_category']!='-1':raise ValueError('shipping_category_is_not_actual_cost_scope')
     return q
@@ -26,6 +27,8 @@ def public(data,q):
     result['selection']={k:q[k] for k in ('profile','start','end','grain','rs_site','rs_server','rs_category','profit_site') if k in q}
     result['actualPeriod']=result.get('actualPeriod',q['period'])
     result['period']={k:q[k] for k in ('start','end')}
+    result['membershipBasis']='paid_non_refunded_subset'
+    result['definition']='实际成本覆盖仅含已付且未退款订单；Admin同订单人民币收入减Order实际采购成本；非净利润。付款记录保留，退款单列，不与原生付款统计拼接分母。'
     return result
 
 def main_scope(q):
@@ -132,6 +135,20 @@ def fill_costs(data,q,profile,root):
     stamp=datetime.now(timezone.utc).isoformat();data['sources']['cost']=dict(status='complete',source='Order订单发货记录，同网站及订单号实际成本',generatedAt=stamp,until=cutoff.isoformat(),unassignedSourceRows=sum(not r['source'] for r in costs))
     return scoped_accounting(data)
 
+def _closed_complete(old, q):
+    """2026-10-28: 已封账日（end 早于今天）且成本已采全的结果永久复用。
+    原先统一 600 秒 TTL，导致 30 天区间每次访问都重算一遍（约 5-8 分钟）。
+    用户点刷新（refresh=1）仍可强制重算。"""
+    if not old:
+        return False
+    from channel_effects import TZ
+    if q.get('end', '') >= datetime.now(TZ).date().isoformat():
+        return False
+    data = old.get('data') or {}
+    sources = data.get('sources') or {}
+    return (sources.get('orders') or {}).get('status') == 'complete' and (sources.get('cost') or {}).get('status') == 'complete'
+
+
 class ActualProfitService:
     def __init__(self,channels,profiles,reader=collect_orders,cost_reader=fill_costs,clock=time.monotonic):
         self.channels,self.profiles,self.reader,self.cost_reader,self.clock=channels,profiles,reader,cost_reader,clock
@@ -152,6 +169,8 @@ class ActualProfitService:
                     p=old.get(row['orderNo'])
                     if p and p.get('site')==row.get('site'):row.update({k:p.get(k) for k in ('costCny','deliveryRows')})
                 data['sources']['cost']=previous['data']['sources']['cost']
+            # Retained costs do not prove that the refreshed order cohort was costed.
+            data['sources']['cost']=dict(data['sources']['cost'],status='pending')
             snapshot={k:v for k,v in data.items() if k!='rawMembership'}
             self.channels.publish(dict(data=snapshot,query=q,capturedAt=time.time()),target)
             stage='cost'
@@ -177,9 +196,15 @@ class ActualProfitService:
         key=hashlib.sha256(json.dumps({k:v for k,v in q.items() if k not in ('period','refresh')},sort_keys=True).encode()).hexdigest()
         target=self.root/(key+'.json')
         if any(p.is_symlink() for p in (target,self.root,*self.root.parents)):raise ValueError('actual_cache_link')
+        if not target.is_file():
+            # The actual-profit cohort is unchanged; only the old summary label was part of its key.
+            legacy=hashlib.sha256(json.dumps({k:v for k,v in dict(q,contractId='admin-main-order-labelled-supplement-v1').items() if k not in ('period','refresh')},sort_keys=True).encode()).hexdigest()
+            previous=self.root/(legacy+'.json')
+            if previous.is_symlink():raise ValueError('actual_cache_link')
+            if previous.is_file():key,target=legacy,previous
         old=json.loads(target.read_text('utf-8')) if target.is_file() else None
         with self.channels.lock:
-            state=self.jobs.get(key);fresh=bool(old and 0<=time.time()-old['capturedAt']<600)
+            state=self.jobs.get(key);fresh=bool(old and (0<=time.time()-old['capturedAt']<600 or _closed_complete(old,q)))
             denied=key in self.denied
             if denied and self.clock()-self.denied[key]<30:return 403,{'status':'denied','error':'actual_source_permission_denied'}
             if denied:fresh=False

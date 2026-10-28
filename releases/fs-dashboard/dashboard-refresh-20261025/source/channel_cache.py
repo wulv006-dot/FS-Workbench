@@ -68,6 +68,13 @@ def compose(period, root=ROOT):
         if any(value['sources'][name]['status'] != 'complete' for name in ('orders', 'coupons')):
             raise ValueError('incomplete_day_cache')
         if any(r['day'] != day for r in value['orders']): raise ValueError('day_cache_range_mismatch')
+        cost_path = root / 'delivery-days' / (day + '.json')
+        if cost_path.is_file():
+            cost = json.loads(cost_path.read_text('utf-8'))
+            if cost.get('contract') != 'channel-order-deliveries-v1' or cost.get('complete') is not True or cost.get('period') != value['period']:
+                raise ValueError('invalid_delivery_day_cache')
+            value['sources']['cost'] = dict(value['sources'].get('cost', {}), status='complete', generatedAt=cost['generatedAt'],
+                source='Order完整分页日归档', coverage=dict(contract=cost['contract'], period=cost['period'], deliveryRows=len(cost['rows'])))
         captures.append(value)
     if not captures: return None
     if any(v['mapping'] != captures[0]['mapping'] for v in captures): return None
@@ -77,6 +84,11 @@ def compose(period, root=ROOT):
     sources = dict(captures[-1]['sources'])
     sources['orders'] = dict(sources['orders'], rows=len(rows))
     sources['coupons'] = dict(sources['coupons'], rows=sum(len(r['coupons']) for r in rows))
+    costs = [v['sources'].get('cost', {}) for v in captures]
+    complete_costs = [c for c in costs if c.get('status') == 'complete']
+    sources['cost'] = dict(sources.get('cost', {}), status='complete' if len(complete_costs) == len(costs) else 'partial' if complete_costs else 'unavailable',
+        generatedAt=min((c['generatedAt'] for c in complete_costs), key=lambda s: datetime.fromisoformat(s).timestamp()) if complete_costs else None,
+        coverage=dict(days=len(costs), completeDays=len(complete_costs), period=period))
     sources['cache'] = dict(source='已校验的逐日归档', days=len(captures), oldest=oldest,
                             newest=max(v['generatedAt'] for v in captures),
                             deliveryDayComplete=all(v.get('deliveryDayComplete') for v in captures),

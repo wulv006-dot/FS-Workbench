@@ -1,3 +1,8 @@
+<!-- admin-api-direct-takeover-20261028 -->
+## 本轮接管与直接 API（2026-10-28 用户确认）
+
+本轮以[当前修复合同](docs/planning/admin-recovery-review-20261028/CONTRACT.md)为准：Admin 默认全部直接 HMAC API，只有经证明的极特殊例外才可用8767绑定DC，否则最终退役8767；这覆盖下方旧会话/OCR和保留封装回退条款。FC保留原Order writer，Admin读取/同步/核价走API；Price原价展示保持，实际单价核unit_price。看板销售统一全部已付款，毛利仍已核完成子集。P0→P3优先推进，另补P4多人并发，保护原ID、双20及自动化能力，不新增无依据的防御门禁。WorkBuddy已停止这些模块施工，由本轮Codex接管。
+
 <!-- fc-v3-dual20-no-budget-current-20261027 -->
 ## FC27 V3 当前有效规则（2026-10-27，覆盖冲突旧条款）
 

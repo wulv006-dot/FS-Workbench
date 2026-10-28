@@ -1,10 +1,8 @@
 """Join existing private ES flags to normalized paid orders; no customer data to UI."""
 from datetime import datetime, timedelta, timezone
 import hashlib
-import inspect
 import json
 import re
-import subprocess
 
 
 def project_dataset(dataset, query):
@@ -32,13 +30,10 @@ def project_dataset(dataset, query):
 
 
 def read_archive(query):
-    """Existing container safely parses its archive; only pseudonymous flags leave it."""
-    prefix='import sys,json,hashlib,re\nfrom datetime import datetime\nsys.path.insert(0,"/usr/local/bin")\nfrom es_order_structure import archived_dataset, GAME_LABELS\n'
-    script=prefix+inspect.getsource(project_dataset)+'\nq=json.loads(sys.argv[1])\nprint(json.dumps(project_dataset(archived_dataset(q),q),ensure_ascii=False))\n'
-    result=subprocess.run(['docker','exec','-i','fc27-p2pah-session','python3','-',json.dumps({'profile':query['profile'],'start':query['start'],'end':query['end']})],input=script.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=180)
-    if result.returncode or len(result.stdout)>8*1024*1024:raise ValueError('cohort_es_archive_unavailable_or_size')
-    value=json.loads(result.stdout)
-    if value.get('status') not in ('available','partial','missing'):raise ValueError('cohort_es_archive_contract')
+    """Project the same private host archive; only pseudonymous flags leave it."""
+    from es_order_structure import archived_dataset
+    value=project_dataset(archived_dataset(query),query)
+    if len(json.dumps(value,ensure_ascii=False).encode())>8*1024*1024:raise ValueError('cohort_es_archive_unavailable_or_size')
     return value
 
 

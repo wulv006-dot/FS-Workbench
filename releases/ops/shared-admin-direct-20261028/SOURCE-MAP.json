@@ -1,0 +1,22 @@
+{
+  "status": "CANDIDATE_NOT_DEPLOYED",
+  "source": "releases/ops/shared-admin-direct-20261028/source/fc_shared_admin.py",
+  "target": "/opt/fs-order-session/fc_shared_admin.py",
+  "before_sha256": "a676388f0011b5f0ca116b0bfb2a1d428c8782e5538f8402e8734a5405beaa42",
+  "after_sha256": "c6eaf37907ef350459a3e980f8e8c8611db3e36c37755965e38d987e3f6a0327",
+  "previous_maintenance": "order_global_session_20261021/fc_shared_admin.py",
+  "reused_transport": "releases/fc-coins/fc-pricing-v3-20261026/source/fc_shared_admin.py",
+  "protected_independent_target": "/opt/fc27-cloud-browser/fc_shared_admin.py",
+  "default_host_base": "http://127.0.0.1:8912",
+  "default_docker_base": "http://172.20.0.1:8913",
+  "explicit_backup_base": "http://127.0.0.1:8911",
+  "identity_accounts": ["wulvapi", "chenchaoapi"],
+  "ensure_timeout_seconds": 8,
+  "request_timeout_seconds": 15,
+  "transport_attempts_per_request": 1,
+  "tests": "python -X utf8 -B -m unittest discover -s releases/ops/shared-admin-direct-20261028/tests",
+  "local_tests_passed": 9,
+  "business_writes_executed": 0,
+  "deployment_executed": false,
+  "loading_boundary": "New host subprocesses and newly mounted RPG containers import the replacement. Existing imports and bind-mounted old inodes must be audited before final 8767 retirement. No RPG scheduling or business changes."
+}

@@ -1,0 +1,17 @@
+{
+  "srv_exec_sha256": "444b88195c65ff062bf17ecf153758c09658c9a2a45b726da2805fcdf49bc95c",
+  "commands": [
+    {
+      "function": "_recon_readgold",
+      "line": 292,
+      "expression": "[DOCKER, 'run', '--rm', '--init', '--memory', '3g', '--memory-swap', '3g', '--cpus', '2', '--network', 'fc27-cloud-net', '-e', 'FS_ADMIN_SESSION_URL=http://fc27-p2pah-session:8767', '--mount', 'type=bind,src=/opt/fs-order-session/fc_shared_admin.py,dst=/srv/fc_shared_admin.py,readonly', '-v', '%s:/srv' % SRV, '-w', '/srv', '--shm-size=1g', '--memory=3g', '-e', 'P2PAH_CHANNEL=', IMAGE, 'python', '/srv/srv_run.py', 'readgold', '--dump', '/srv/_jobs/_gold_recon.json', '--config', '/srv/_cfg/config.json', '--profile', '/srv/_srv_profile']"
+    },
+    {
+      "function": "run_once",
+      "line": 614,
+      "expression": "[DOCKER, 'run', '--rm', '--init', '--memory', '3g', '--memory-swap', '3g', '--cpus', '2', '--network', 'fc27-cloud-net', '-e', 'FS_ADMIN_SESSION_URL=http://fc27-p2pah-session:8767', '-e', 'FS_RPG_JOB_ID=' + jid, '-e', 'FS_RPG_EXECUTION_RECEIPT=/srv/_jobs/' + jid + '.execution.json', '--mount', 'type=bind,src=/opt/fs-order-session/fc_shared_admin.py,dst=/srv/fc_shared_admin.py,readonly', '-v', '%s:/srv' % SRV, '-w', '/srv', '--shm-size=1g', '--memory=3g', '-e', 'P2PAH_CHANNEL=', IMAGE, 'python', '/srv/srv_run.py', 'writegold' if kind == 'writegold' else 'write', '--plan', '/srv/_jobs/%s.json' % jid, '--confirm', '--config', '/srv/_cfg/config.json', '--profile', '/srv/_srv_profile']"
+    }
+  ],
+  "reader_sha256": "52a3ccee95131e3bc80e4ba4d970ef33a60173516e6a004d80fbe26e1e5b05a1",
+  "reader_class": "class SrvSession(P.Session):\n    \"\"\"容器版会话：只改「浏览器怎么起」，业务逻辑一行没改。\"\"\"\n\n    def __init__(self, profile, show=False):\n        self._p = P.sync_playwright().start()\n        self.ctx = self._p.chromium.launch_persistent_context(\n            profile,\n            headless=not show,\n            viewport={\"width\": 1400, \"height\": 950},\n            args=[\"--no-sandbox\", \"--disable-dev-shm-usage\",\n                  \"--disable-gpu\", \"--no-zygote\"])\n        self.pg = self.ctx.pages[0] if self.ctx.pages else self.ctx.new_page()\n        self._inject_saved_cookies()\n        self.auto_login = bool(P.AUTO_LOGIN[0]) and (P.autologin is not None)\n        try:\n            _a = P.autologin.accounts()[\"order\"]\n            self.user = _a.get(\"username\") or \"\"\n            self.pw = _a.get(\"password\") or \"\"\n        except Exception:\n            self.user = self.pw = \"\"\n\n\n    def write_rows(self, rows):\n        before_write()\n        return super().write_rows(rows)\n\n    def set_gold_cost(self, row_id, value):\n        before_write()\n        return super().set_gold_cost(row_id, value)"
+}

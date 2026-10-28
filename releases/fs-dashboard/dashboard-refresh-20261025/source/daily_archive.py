@@ -23,11 +23,15 @@ def encoded(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
 
 
-def cutoff(today=None):
+def cutoff(today=None, months=3):
     today = today or datetime.now(TZ).date()
-    year, month = divmod(today.year * 12 + today.month - 4, 12)
+    year, month = divmod(today.year * 12 + today.month - months - 1, 12)
     month += 1
     return date(year, month, min(today.day, monthrange(year, month)[1]))
+
+
+def retention_cutoff(today=None):
+    return cutoff(today, months=12)
 
 
 def closed(query, today=None):
@@ -89,7 +93,7 @@ class Archive:
     def put(self, family, query, value, source_at=None):
         key = self.identity(family, query)
         if not closed(query, self.today()): return None
-        if self.retention_basis()=='business_date' and date.fromisoformat(query['start'])<cutoff(self.today()):return None
+        if self.retention_basis()=='business_date' and date.fromisoformat(query['start'])<retention_cutoff(self.today()):return None
         saved = datetime.now(timezone.utc).isoformat()
         source_at = source_at or value.get('generatedAt') or value.get('captured_at') or saved
         source_at = datetime.fromisoformat(source_at.replace('Z', '+00:00')).astimezone(timezone.utc).isoformat()
@@ -122,7 +126,7 @@ class Archive:
         key = self.identity(family, query)
         if not closed(query, self.today()): return None
         basis=self.retention_basis()
-        if basis=='business_date' and date.fromisoformat(query['start'])<cutoff(self.today()):return None
+        if basis=='business_date' and date.fromisoformat(query['start'])<retention_cutoff(self.today()):return None
         db = self.database()
         if db is None: return None
         with closing(db):
@@ -140,7 +144,7 @@ class Archive:
         if result['query'] != query or result['family'] != family: raise ValueError('archive_identity')
         value = result['value']
         value['archive'] = {'version': row['version'], 'savedAt': row['saved'], 'start': row['start'], 'end': row['end'],
-                            'sourceCapturedAt': row['source_at'], 'read': 'exact_complete_archive', 'sourceTimesUnchanged': True, 'retentionMonths': 3}
+                            'sourceCapturedAt': row['source_at'], 'read': 'exact_complete_archive', 'sourceTimesUnchanged': True, 'retentionMonths': 12}
         return value
 
     def catalog(self):
@@ -166,7 +170,7 @@ class Archive:
         basis=self.retention_basis()
         db = self.database()
         if db is None: return {'objects': 0, 'bytes': 0, 'dryRun': dry_run}
-        threshold=cutoff(self.today()).isoformat()
+        threshold=retention_cutoff(self.today()).isoformat()
         with closing(db): rows = db.execute('SELECT * FROM versions WHERE start<?', (threshold,)).fetchall()
         total = sum(row['bytes'] for row in rows)
         if not dry_run:
@@ -179,7 +183,7 @@ class Archive:
                     db.execute('DELETE FROM latest WHERE version=?', (row['version'],))
                     db.execute('DELETE FROM versions WHERE version=?', (row['version'],))
                     path.unlink(missing_ok=True)
-        result={'objects': len(rows), 'bytes': total, 'dryRun': dry_run, 'cutoff': cutoff(self.today()).isoformat(),'basis':basis}
+        result={'objects': len(rows), 'bytes': total, 'dryRun': dry_run, 'cutoff': retention_cutoff(self.today()).isoformat(),'basis':basis}
         if not dry_run:
             receipts=self.root/'cleanup-receipts';receipts.mkdir(mode=0o700,exist_ok=True)
             path=receipts/(datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')+'.json')
@@ -196,6 +200,9 @@ def summary_key(query):
 def native_key(query, definition=None):
     result = {k: query[k] for k in ('profile', 'start', 'end', 'grain', 'analysis') if k in query}
     result['contract'] = 'native-closed-v2'
+    if definition is not None and len(definition)>4 and definition[4]=='rpg' and not query.get('analysis'):
+        if 'period' in query and query.get('adminCohort')!='paid-all-status-v2':raise ValueError('native_paid_cohort_unverified')
+        result['adminCohort']='paid-all-status-v2'
     if definition is not None: result['profileDefinition'] = hashlib.sha256(encoded(definition)).hexdigest()
     return result
 
@@ -222,6 +229,11 @@ def complete_native(value):
         extension = value.get('fc27ProductRankings') or value.get('fc27Analytics') or {}
         return extension.get('status') in ('available', 'empty') and extension.get('coverage', {}).get('complete') is True
     if value.get('scopeContractId') != 'all-websites-order-primary-admin-supplement-v1': return False
+    # Retain old completed-only evidence without seeding it under a current paid-cohort key.
+    if str(value.get('profile',{}).get('supplement',{}).get('filters',{}).get('order_status',''))=='101':return False
+    if value['query'].get('adminCohort')=='paid-all-status-v2':
+        filters=value.get('profile',{}).get('supplement',{}).get('filters',{})
+        if filters.get('order_status')!='' or str(filters.get('pay_status'))!='1':return False
     return all(value.get('profile', {}).get(k, {}).get('status') == 'available' for k in ('primary', 'supplement'))
 
 

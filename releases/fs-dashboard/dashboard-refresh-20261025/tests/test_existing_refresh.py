@@ -49,11 +49,18 @@ class RefreshTest(unittest.TestCase):
         c.starts[:]=[0]*6
         self.assertEqual(c.get({**q,'refresh':True})[0],429)
         self.assertEqual(sum(len(p.jobs) for p in c.pools.values()),0)
+    def test_today_refreshes_at_ten_minutes_and_history_keeps_its_policy(self):
+        c=self.cache();q=query(PARAMS,PROFILES,NOW);c.get(q);self.drain(c)
+        self.now=599;self.assertFalse(c.get(q)[1]['stale'])
+        self.assertEqual(sum(len(p.jobs) for p in c.pools.values()),0)
+        self.now=600;self.assertTrue(c.get(q)[1]['stale'])
+        self.assertEqual(sum(len(p.jobs) for p in c.pools.values()),2)
+        self.assertEqual(query(PARAMS,PROFILES,NOW.replace(day=16))['cacheSeconds'],7200)
     def test_invalid_refresh_and_unchanged_other_scope(self):
         for refresh in (['false'],['1'],['true','true']):
             with self.assertRaises(ValueError):query({**PARAMS,'refresh':refresh},PROFILES,NOW)
         with self.assertRaises(ValueError):query({**PARAMS,'profile':['D4']},PROFILES,NOW)
         q=query(PARAMS,PROFILES,NOW)
-        self.assertNotIn('refresh',q);self.assertEqual(q['cacheSeconds'],900)
+        self.assertNotIn('refresh',q);self.assertEqual(q['cacheSeconds'],600)
 
 if __name__=='__main__':unittest.main()

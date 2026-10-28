@@ -28,7 +28,7 @@ class SiteFilters(unittest.TestCase):
         with patch.dict(sys.modules,{'p2pah_auth':self.auth,'supplement_fields':self.fields}):return site_summary.collect(q,definition)
 
     def test_main_native_site_and_registered_game_status_and_hourly_rows(self):
-        for group,status in [('sports',''),('rpg','101')]:
+        for group,status in [('sports',''),('rpg','')]:
             q=self.make();definition=(*PROFILE[:4],group);result=self.run_read(q,definition)
             args=self.session.admin.request.call_args
             self.assertEqual(args.args,('POST','https://fixture.test'+site_summary.ENDPOINT))
@@ -43,6 +43,64 @@ class SiteFilters(unittest.TestCase):
             q=self.make();self.mapped['dimensions']['channels']=channels
             with self.assertRaisesRegex(ValueError,'filter_not_applied'):self.run_read(q)
             self.session.close.assert_called_once()
+
+    def test_all_site_paid_orders_and_native_trend_share_totals(self):
+        import json
+        self.make()
+        with patch.dict(sys.modules,{'supplement_fields':self.fields}):
+            import admin_summary
+        read=Mock(return_value=(200,json.dumps(dict(code=1,data=self.raw))))
+        result=admin_summary.collect(read,'891',PERIOD['start'],PERIOD['end'])
+        self.assertTrue(all(value=='' for value in admin_summary.GAMES.values()))
+        self.assertEqual(set(admin_summary.GAMES),{'','552','456','891','1327','1329','1309','927','1307','833','506','1333','925','589','1367','897','859'})
+        filters=read.call_args.kwargs['data']
+        self.assertEqual((filters['game'],filters['site'],filters['pay_status'],filters['order_status']),('891','',1,''))
+        self.assertTrue(result['labelsVerified']);self.assertEqual(result['currency'],'USD')
+        self.assertEqual(result['rows'],[dict(date='2026-10-23 00:00',orders=2,amount=100.0)])
+        self.raw['chart_sales_arr']['date']=['upstream unknown label']
+        read.return_value=(200,json.dumps(dict(code=1,data=self.raw)))
+        result=admin_summary.collect(read,'891',PERIOD['start'],PERIOD['end'])
+        self.assertEqual(result['metrics']['orders']['value'],2)
+        self.assertFalse(result['labelsVerified']);self.assertEqual(result['rows'],[])
+
+    def test_paid_cohort_cache_does_not_reuse_completed_only_archive(self):
+        args=dict(mode=['summary'],profile=['FC27'],start=['2026-10-23'],end=['2026-10-23'])
+        paid=query(args,{'FC27':PROFILE},datetime(2026,10,25,12,tzinfo=SHANGHAI))
+        old=dict(paid,contractId='admin-main-order-labelled-supplement-v1')
+        self.assertNotEqual(key_of(paid),key_of(old))
+        self.assertNotEqual(summary_key(paid),summary_key(old))
+
+    def test_native_callers_use_paid_admin_and_keep_order_completion_reference(self):
+        import ast
+        definitions=[('AION2','Aion 2',826,891,'rpg'),PROFILE]
+        tree=ast.parse((ROOT/'source/collector.py').read_text(encoding='utf-8'))
+        collect=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='collect')
+        loop=next(n for n in collect.body if isinstance(n,ast.For) and isinstance(n.iter,ast.Name) and n.iter.id=='PROFILES')
+        values=dict(PROFILES=definitions,order=[],admin=[],start=PERIOD['start'],cutoff=PERIOD['end'],history='2026-09-01 00:00')
+        exec(compile(ast.Module(body=[loop],type_ignores=[]),'collector-requests','exec'),values)
+        self.assertEqual([r['status'] for r in values['admin']],['',''])
+        self.assertEqual([r['status'] for r in values['order']],['3','3','',''])
+        tree=ast.parse((ROOT/'source/range_api.py').read_text(encoding='utf-8'))
+        capture=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='capture')
+        assignments=[n for n in ast.walk(capture) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in ('admin','order') for t in n.targets)]
+        for definition in definitions:
+            values=dict(gid=definition[2],game=definition[3],group=definition[4],period=PERIOD)
+            exec(compile(ast.Module(body=assignments,type_ignores=[]),'range-requests','exec'),values)
+            self.assertEqual(values['admin']['status'],'')
+            self.assertEqual(values['order']['status'],'3' if definition[4]=='rpg' else '')
+
+    def test_rpg_native_job_id_isolated_without_changing_non_rpg_cache_query(self):
+        import ast,re
+        from datetime import date,timedelta
+        tree=ast.parse((ROOT/'source/range_api.py').read_text(encoding='utf-8'))
+        function=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='query')
+        definitions={'AION2':('AION2','Aion 2',826,891,'rpg'),'FC27':PROFILE}
+        namespace=dict(PROFILE_MAP=definitions,datetime=datetime,date=date,timedelta=timedelta,SHANGHAI=SHANGHAI,re=re)
+        exec(compile(ast.Module(body=[function],type_ignores=[]),'range-query','exec'),namespace)
+        metadata=dict(catalogId='fixture',snapshotId='fixture')
+        def selection(profile):return namespace['query']({k:[v] for k,v in dict(profile=profile,start='2026-10-23',end='2026-10-23',snapshotId='fixture').items()},metadata)
+        rpg=selection('AION2');self.assertEqual(rpg['adminCohort'],'paid-all-status-v2')
+        self.assertNotIn('adminCohort',selection('FC27'))
 
     def test_zero_and_permission_failure_and_missing_session(self):
         q=self.make();self.raw.update(total='0',amount='0',chart_sales_arr=dict(date=[],n=[],amount=[]));self.mapped['dimensions']['channels']=[]
@@ -67,26 +125,28 @@ class SiteFilters(unittest.TestCase):
         self.assertEqual(summary_key(omitted),summary_key(legacy))
 
     def test_actual_profit_keeps_its_original_site_cache_identity(self):
-        from actual_profit import selection
+        from actual_profit import selection,CONTRACT
         profiles={'FC27':PROFILE}
         for site in ('main','all'):
             args=dict(mode=['actual-profit'],profile=['FC27'],start=['2026-10-23'],end=['2026-10-23'],profit_site=[site])
             actual=selection(args,profiles)
             old=query({**args,'mode':['summary']},profiles)
             old.pop('admin_site',None);old['site']='www.mmoexp.com'
-            self.assertNotIn('admin_site',actual);self.assertEqual(key_of(actual),key_of(old))
+            self.assertNotIn('admin_site',actual);self.assertEqual(actual['contractId'],CONTRACT)
+            self.assertEqual({k:v for k,v in actual.items() if k!='contractId'},{k:v for k,v in old.items() if k!='contractId'})
             self.assertEqual(actual['profit_site'],site)
 
-    def test_bridge_reuses_old_all_endpoint_and_new_filtered_main(self):
+    def test_bridge_uses_direct_admin_even_with_retired_channel_setting(self):
         import summary_bridge
         q=self.make();factory=Mock()
         with patch.object(summary_bridge,'SummaryCache',factory):summary_bridge.build({'FC27':PROFILE},Mock(),Mock(),Path('/unused'))
         admin=factory.call_args.args[0]
         with patch.object(site_summary,'collect',return_value={'fixture':'main'}) as read:
             self.assertEqual(admin(q),{'fixture':'main'});read.assert_called_once_with(q,PROFILE)
-        with patch.object(summary_bridge.subprocess,'run',return_value=types.SimpleNamespace(returncode=0,stdout=b'{"code":200,"body":{"fixture":"all"}}')) as call:
+        read=Mock(return_value={'fixture':'all'})
+        with patch.dict(sys.modules,{'admin_summary':types.SimpleNamespace(collect=read)}),patch.dict('os.environ',{'FS_SUMMARY_ADMIN_CHANNEL':'session'}):
             self.assertEqual(admin({**q,'profit_site':'all','admin_site':'all'}),{'fixture':'all'})
             self.assertEqual(admin({k:v for k,v in q.items() if k!='admin_site'}),{'fixture':'all'})
-            self.assertIn('/business/summary?',call.call_args.kwargs['input'].decode())
+            self.assertEqual(read.call_args.args,(summary_bridge.dc_request,'1327',PERIOD['start'],PERIOD['end']))
 
 if __name__=='__main__':unittest.main()

@@ -38,7 +38,7 @@ class Store(unittest.TestCase):
         self.assertIsNone(self.store.get('summary', self.query))
 
     def test_today_hourly_and_outside_retention_do_not_enter_archives(self):
-        for change in (dict(start='2026-10-21', end='2026-10-21'),dict(grain='hour'),dict(start='2026-07-20')):
+        for change in (dict(start='2026-10-21', end='2026-10-21'),dict(grain='hour'),dict(start='2025-10-20')):
             q = dict(self.query, **change)
             self.assertIsNone(self.store.put('summary', q, {}))
         self.assertFalse(list(self.root.rglob('*.gz')))
@@ -54,12 +54,26 @@ class Store(unittest.TestCase):
         self.store.put('summary',dict(self.query,start='2026-08-20',end='2026-08-20'),{})
         self.store.put('summary',self.query,{})
         unrelated=self.root/'report.json';unrelated.write_text('retained')
-        self.today=date(2027,1,2)
+        self.today=date(2027,9,2)
         self.assertEqual(self.store.prune()['objects'],1)
         self.assertEqual(len(list(self.root.rglob('*.gz'))),2)
         self.store.prune(False)
         self.assertEqual(len(list(self.root.rglob('*.gz'))),1)
         self.assertEqual(unrelated.read_text(),'retained')
+
+    def test_compatibility_consumers_reuse_one_year_but_backfill_stays_three_months(self):
+        self.assertEqual(archive.cutoff(self.today), date(2026,7,21))
+        self.assertEqual(archive.retention_cutoff(date(2028,2,29)), date(2027,2,28))
+        boundary=dict(self.query,start='2025-10-21',end='2025-10-21')
+        for family in ('marketing','native-statistics'):
+            self.assertIsNotNone(self.store.put(family,boundary,{'generatedAt':'2026-10-20T01:00:00Z'}))
+            value=self.store.get(family,boundary)
+            self.assertEqual(value['archive']['retentionMonths'],12)
+            self.assertEqual(value['generatedAt'],'2026-10-20T01:00:00Z')
+        self.assertEqual(self.store.prune()['objects'],0)
+        self.today=date(2026,10,22)
+        self.assertIsNone(self.store.get('marketing',boundary))
+        self.assertEqual(self.store.prune()['objects'],2)
 
     def test_private_path_cannot_follow_a_link(self):
         if os.name != 'posix': return  # Symlink creation needs a separate Windows privilege.

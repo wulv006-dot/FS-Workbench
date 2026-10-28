@@ -21,7 +21,7 @@ def cache_path(start,end):
 
 def ttl(end):
  today=datetime.now(SHANGHAI).date().isoformat()
- return 900 if end>=today else 86400
+ return 600 if end>=today else 86400
 
 
 def project_cached_content(value,start,end):
@@ -141,7 +141,9 @@ def run(start,end):
  except (OSError,ValueError,subprocess.TimeoutExpired):return retained(start,end)
 def run_links(start,end):
  try:
-  with urllib.request.urlopen('http://127.0.0.1:8767/marketing/summary?'+urllib.parse.urlencode({'start':start,'end':end}),timeout=75) as response:return json.load(response)
+  from dc_admin import request as dc_request
+  from admin_links import collect as admin_links_collect
+  return admin_links_collect(dc_request,start,end)
  except (OSError,ValueError):return {'status':'unavailable','start':start,'end':end}
 
 def query(start,end,submit=POOL.submit,kind='range',refresh=False):

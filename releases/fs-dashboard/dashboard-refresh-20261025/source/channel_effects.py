@@ -449,10 +449,16 @@ class ChannelService:
             coverage=(data or {}).get('sources',{}).get('cache',{})
             revenue_ready=bool(data is not None and all('adminSaleCny' in r for r in data['orders']))
             membership_age=time.time()-datetime.fromisoformat(data['generatedAt']).timestamp() if data else float('inf')
-            fixed=bool(archived and revenue_ready and 0<=membership_age<7200 and coverage.get('deliveryDayComplete') and coverage.get('customerDayComplete') and final_order_statuses(data))
+            closed_day = period['end'] < datetime.now(TZ).date().isoformat()
+            fixed=bool(archived and revenue_ready and (closed_day and 0<=membership_age<604800 and data['sources'].get('orders',{}).get('status')=='complete' or
+                0<=membership_age<7200 and coverage.get('deliveryDayComplete') and coverage.get('customerDayComplete') and final_order_statuses(data)))
             stamp = data['sources'].get('cost',{}).get('generatedAt') if fixed else (data or {}).get('generatedAt')
-            fresh = bool(revenue_ready and stamp and 0 <= time.time() - datetime.fromisoformat(stamp).timestamp() < 600)
-            if (not fresh or query.get('refresh')) and state not in ('pending','cost_pending'):
+            # 2026-10-28: 当日必须实时（600 秒），已封账日（end 早于今天）用长 TTL。
+            # 原统一 600 秒导致历史数据每 10 分钟重采，归档任务抢不到 collector 锁而判 busy。
+            cache_ttl = 604800 if closed_day else 600
+            cost_complete=bool(data and data['sources'].get('cost',{}).get('status')=='complete')
+            fresh = bool(revenue_ready and cost_complete and stamp and 0 <= time.time() - datetime.fromisoformat(stamp).timestamp() < cache_ttl)
+            if (not fresh or query.get('refresh') or state=='cost_failed') and state not in ('pending','cost_pending'):
                 if time.monotonic() - self.starts.get(key, -1000) >= 60:
                     if sum(v in ('pending','cost_pending') for v in self.jobs.values()) + sum(v in ('pending','cost_pending') for v in getattr(self,'actual_jobs',{}).values()) >= 2:
                         if not data or fresh: return 429, {'status': 'busy', 'retryAfter': 10}

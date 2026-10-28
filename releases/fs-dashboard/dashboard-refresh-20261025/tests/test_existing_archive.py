@@ -39,7 +39,7 @@ class Store(unittest.TestCase):
         self.assertIsNone(self.store.get('summary', self.query))
 
     def test_today_hourly_and_outside_retention_do_not_enter_archives(self):
-        for change in (dict(start='2026-10-21', end='2026-10-21'),dict(grain='hour'),dict(start='2026-07-20')):
+        for change in (dict(start='2026-10-21', end='2026-10-21'),dict(grain='hour'),dict(start='2025-10-20')):
             q = dict(self.query, **change)
             self.assertIsNone(self.store.put('summary', q, {}))
         self.assertFalse(list(self.root.rglob('*.gz')))
@@ -55,12 +55,37 @@ class Store(unittest.TestCase):
         self.store.put('summary',dict(self.query,start='2026-08-20',end='2026-08-20'),{})
         self.store.put('summary',self.query,{})
         unrelated=self.root/'report.json';unrelated.write_text('retained')
-        self.today=date(2027,1,2)
+        self.today=date(2027,9,2)
         self.assertEqual(self.store.prune()['objects'],1)
         self.assertEqual(len(list(self.root.rglob('*.gz'))),2)
         self.store.prune(False)
         self.assertEqual(len(list(self.root.rglob('*.gz'))),1)
         self.assertEqual(unrelated.read_text(),'retained')
+
+    def test_one_year_boundary_leap_day_and_three_month_backfill_are_separate(self):
+        self.assertEqual(archive.retention_cutoff(date(2028,2,29)),date(2027,2,28))
+        self.assertEqual(archive.retention_cutoff(date(2027,3,31)),date(2026,3,31))
+        self.assertEqual(archive.cutoff(date(2028,5,31)),date(2028,2,29))
+        boundary=dict(self.query,start='2025-10-21',end='2025-10-21')
+        self.assertIsNotNone(self.store.put('summary',boundary,{}))
+        self.assertEqual(self.store.get('summary',boundary)['archive']['retentionMonths'],12)
+        self.assertIsNone(self.store.put('summary',dict(boundary,start='2025-10-20',end='2025-10-20'),{}))
+        self.assertEqual(self.store.prune()['objects'],0)
+        self.today=date(2026,10,22)
+        self.assertIsNone(self.store.get('summary',boundary))
+        self.assertEqual(self.store.prune()['objects'],1)
+
+    def test_real_history_candidates_keep_three_month_limit(self):
+        import ast
+        path=Path(__file__).resolve().parents[4]/'releases/fs-dashboard/nightly-pipeline-20261023/source/archive_jobs.py'
+        node=next(n for n in ast.parse(path.read_text(encoding='utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='candidates')
+        namespace=dict(date=date,timedelta=timedelta,cutoff=archive.cutoff)
+        exec(compile(ast.Module(body=[node],type_ignores=[]),str(path),'exec'),namespace)
+        today=date(2027,5,31)
+        values=list(namespace['candidates'](today,{'FC27':None},False))
+        self.assertEqual(min(v['start'] for v in values),'2027-02-28')
+        self.assertEqual(max(v['end'] for v in values),'2027-05-30')
+        self.assertTrue(all(v['start']==v['end'] for v in values))
 
     def test_private_path_cannot_follow_a_link(self):
         if os.name != 'posix': return  # Symlink creation needs a separate Windows privilege.
@@ -88,6 +113,55 @@ class Store(unittest.TestCase):
         first=self.store.put('summary',self.query,dict(generatedAt='2026-10-21T01:00:00Z'))
         self.assertEqual(first,self.store.put('summary',self.query,dict(generatedAt='2026-10-21T01:00:00Z')))
         self.assertEqual(len(list(self.root.rglob('*.gz'))),1)
+
+    def test_rpg_paid_native_key_preserves_old_archive_and_non_rpg_identity(self):
+        rpg=('AION2','Aion 2',826,891,'rpg')
+        q=dict(self.query,profile='AION2',grain='day')
+        paid=archive.native_key(q,rpg);legacy={k:v for k,v in paid.items() if k!='adminCohort'}
+        self.assertEqual(paid['contract'],'native-closed-v2')
+        self.assertEqual(paid['adminCohort'],'paid-all-status-v2')
+        self.store.put('native',legacy,{'orders':181})
+        self.assertIsNone(self.store.get('native',paid))
+        self.store.put('native',paid,{'orders':186})
+        self.assertEqual(self.store.get('native',legacy)['orders'],181)
+        self.assertEqual(self.store.get('native',paid)['orders'],186)
+        sports=('FC27','FC27',1322,1327,'sports')
+        key=archive.native_key(dict(q,profile='FC27'),sports)
+        expected={k:q[k] for k in ('start','end','grain')};expected.update(profile='FC27',contract='native-closed-v2',profileDefinition=archive.hashlib.sha256(archive.encoded(sports)).hexdigest())
+        self.assertEqual(key,expected)
+
+    def test_completed_only_native_capture_cannot_seed_current_paid_archive(self):
+        q=dict(self.query,profile='AION2',period=dict(start='2026-10-20 00:00',end='2026-10-21 00:00'))
+        value=dict(status='available',query=q,scopeContractId='all-websites-order-primary-admin-supplement-v1',profile=dict(primary=dict(status='available'),supplement=dict(status='available',filters=dict(order_status='101'))))
+        self.assertFalse(archive.complete_native(value))
+        value['profile']['supplement']['filters']['order_status']=''
+        self.assertTrue(archive.complete_native(value))
+
+    def test_actual_seed_preserves_181_and_only_imports_proved_paid_186(self):
+        import ast,copy
+        script=Path(__file__).resolve().parents[4]/'releases/fs-dashboard/nightly-pipeline-20261023/source/archive_jobs.py'
+        function=next(n for n in ast.parse(script.read_text(encoding='utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='import_existing')
+        rpg=('AION2','Aion 2',826,891,'rpg')
+        q=dict(self.query,profile='AION2',grain='day',period=dict(start='2026-10-20 00:00',end='2026-10-21 00:00'))
+        old=dict(status='available',scopeContractId='all-websites-order-primary-admin-supplement-v1',query=q,orders=181,profile=dict(primary=dict(status='available',filters=dict(gid=826)),supplement=dict(status='available',filters=dict(order_status='101',pay_status=1))))
+        selector={k:v for k,v in q.items() if k!='period'}
+        legacy={k:v for k,v in archive.native_key(selector,rpg).items() if k!='adminCohort'}
+        original=self.store.put('native',legacy,old)
+        missing=copy.deepcopy(old);missing['profile']['supplement']['filters']={}
+        paid=copy.deepcopy(old);paid.update(orders=186);paid['query']['adminCohort']='paid-all-status-v2';paid['profile']['supplement']['filters']['order_status']=''
+        inputs=self.root/'seed-input';inputs.mkdir()
+        for name,value in [('old',old),('missing-proof',missing),('paid',paid)]:
+            (inputs/(name+'.json')).write_text(json.dumps(value),encoding='utf-8')
+        namespace=dict(Path=lambda path:inputs if str(path)=='/var/lib/fs-business-ranges' else self.root/'empty',json=json,profiles=lambda:{'AION2':rpg},complete_native=archive.complete_native,native_key=archive.native_key)
+        exec(compile(ast.Module(body=[function],type_ignores=[]),'actual-archive-seed','exec'),namespace)
+        result=namespace['import_existing'](self.store)
+        self.assertEqual(result['native'],1)
+        self.assertEqual(self.store.get('native',legacy)['archive']['version'],original)
+        self.assertEqual(self.store.get('native',legacy)['orders'],181)
+        key=archive.native_key(paid['query'],rpg)
+        self.assertEqual(self.store.get('native',key)['orders'],186)
+        paid['profile']['supplement']['filters']={}
+        self.assertFalse(archive.complete_native(paid))
 
 
 class Consumers(unittest.TestCase):
