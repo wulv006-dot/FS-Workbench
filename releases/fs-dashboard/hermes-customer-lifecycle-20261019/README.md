@@ -19,7 +19,7 @@
 
 ## 明确 ES 拒权后的原请求恢复
 
-仅适用于原 `scan_jobs` 已失败且 `reason=es_export_permission_denied` 的同一天、当前配置版本。此项停止当日自动15分钟重排，旧 `retry_after=60` 也按不自动重试展示；其他失败、历史观察及以后日期保持原行为。当前外部权限仍未开通，以下是受控恢复操作合同，尚非真实补权成功验收。
+仅适用于原 `scan_jobs` 已失败且 `reason=es_export_permission_denied` 的同一天、当前配置版本。此项停止当日自动15分钟重排，旧 `retry_after=60` 也按不自动重试展示；其他失败、历史观察及以后日期保持原行为。目前尚无补权后的成功证据，以下是受控恢复操作合同，尚非真实补权成功验收。
 
 1. **只读预览**：以 SQLite `mode=ro` 读取原 `scan_jobs` 全行、对应 `requests` 和当前 `config.version`，确认原 `day/config_version/request_id`，并用 `scan_job_sha256(dict(row))` 计算原任务 SHA。只保留状态、编号、版本和 SHA；不输出客户资料。原请求必须为该日的 `scan`，原任务必须明确拒权失败。当前配置已变、UNKNOWN 或仍在途均延期，不能换编号或清状态。
 2. **先恢复原 ES 回执**：技术补权后，由操作者沿 ES 模块 `recheck_permission` 对同 query、同 durable root、原拒绝回执 SHA 受控验证一次；这一步可能生成导出，必须有相应授权，不用普通查询代替。成功后记录新 canonical index 的原始文件 SHA。使用 `recovered_es_receipt(day, new_es_receipt_sha, original_es_root)` 只读复核同日 ALL query、完整文件集合、原拒绝历史、无 current/legacy attempt、无 `last_attempt`。旧拒绝缺 stage 可以保留原样，不能补造历史事实；旧 good 带拒权 latch、pending/UNKNOWN 或不完整结果均不算恢复。
