@@ -114,7 +114,28 @@ POST http://127.0.0.1:8911/admin/<controller>.<action>     # 备用（chenchaoap
 代价是可能漏掉极少数新插入行，对统计类用途可忽略；**不允许**用于要求绝对完整的逐单核对场景。
 按日期窗口查询（几十~几百单）本身稳定，全量历史翻页才会抖。
 
-## 9. 需要技术补的菜单（只读/写入按最小集）
+## 10. ⚠️ 生产热修登记（2026-10-28，尚未同步私库维护源）
+
+以下改动**直接落在生产机**，私库 `releases/...` 下的维护源码**仍是旧行为**。
+**发布前必须先同步这三个文件，或明确保留现场，否则整包发布会回退修复。**
+
+| 生产文件 | 改动内容 | 生产 SHA256 | 备份 |
+|---|---|---|---|
+| `/opt/fs-hermes-fc/channel_source.py` | 仅 `pages()` 增加两处容错：total 增长时接受并抬高、行位移重复跳过。**`search()` 已回滚为原始 search 语法**（等值仍走 search，不用简单参数） | `ce01980e11158b1ff11617b8229957ed3b5ae7065df75b12b37f9661b6bfe3ea` | `.bak-20261028T1010`、`.bak-rollback-20261028T1010` |
+| `/opt/fs-hermes-fc/channel_cost_source.py` | `collect()` 内 `from lxml import html` 改为 `_lxml_html()` 单例 + 模块加载时预加载；修复常驻服务多线程首次 import lxml 时报 `cannot import name getfullargspec`，导致成本恒为 0 | `416aa286ca50fd2fdcccc490ae616a75d7736f49dcf0bfb3da7064b7793c7393` | `.bak-20261028T1115` |
+| `/opt/fs-exact-range-20261001/range_api.py` | 入口预加载 `lxml.etree` / `lxml.html`，避免运行期并发首次导入竞争 | `22bc75b8b479efc4b389ddc5c69dd25851c31d841ba3497ff53125cdc8eb27d5` | `.bak-20261028T1145` |
+
+**验证证据（2026-10-28 实测，均从真实接口读回）**：
+
+- 昨日 FC27 `mode=actual-profit`：`orders 373 / completedOrders 324 / deliveryRows 324 / costCoveragePct 100.0 / profitCny 56552.91`
+- 今日 FC27：`194 单`，返回行 `gid` 纯净（仅 1327）
+- 看板六卡 `mode=summary`：`Admin available`、`Order available`
+- `channel_cost_source.collect` 单测：`get_order` 返回 200 / 254KB，页面无 password 输入
+
+**未覆盖**：近 30 天 × 全部游戏（`profile=MMOEXP`）在 90~150 秒内仍返回 `202 pending`，
+属数据量导致的采集耗时问题（非崩溃），需单独做分批/缓存优化或在前端给出等待预期。
+
+## 11. 需要技术补的菜单（只读/写入按最小集）
 
 | 菜单 | 用途 | 影响面 |
 |---|---|---|
