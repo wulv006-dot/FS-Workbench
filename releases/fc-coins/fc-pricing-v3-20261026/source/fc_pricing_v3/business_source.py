@@ -142,9 +142,22 @@ def promotion_path(order, es_discount, coupon_logs, templates):
     return paths[0] if len(paths) == 1 else dict(kind='sequence', paths=paths)
 
 
-def _live_traces(session, pages, period, selected):
+def _live_traces(session, pages, period, selected, *, reconcile_population=False):
     rows = pages(session, '/admin/order.Order/index', [('site_id', '=', '266'), ('gid', '=', '1327'),
                  ('paytime', 'RANGE', period['start'] + ' 00:00:00,' + period['end'] + ' 23:59:59')], 100)
+    if reconcile_population:
+        new_paid = [row for row in rows if str(row.get('order_no')) not in selected
+                    and str(row.get('site_id')) == '266' and str(row.get('gid')) == '1327'
+                    and str(row.get('pay_status')) == '1']
+        if new_paid:
+            from coins_evidence import CoinsEvidence, es_metadata, GOLD
+            metadata, _ = es_metadata(period['start'], period['end'], CoinsEvidence().archive)
+            for row in new_paid:
+                info = metadata.get(hashlib.sha256(str(row['order_no']).encode()).hexdigest())
+                if not info or info.get('product') in (None, '', 'unknown', 'ambiguous'):
+                    raise ValueError('history_new_paid_product_identity_missing')
+                if info['product'] == GOLD:
+                    raise ValueError('history_order_state_changed_since_archive')
     orders = {}
     for row in rows:
         sn = str(row.get('order_no'))
@@ -1139,7 +1152,7 @@ def build_shared_history_cache(session,pages,storefront,products,source_signatur
     if selected is None or provenance.get('status')!='complete' or not selected:
         raise ValueError('pricing_v3_business_history_source_incomplete')
     try:
-        orders,logs,templates=_live_traces(session,pages,period,selected)
+        orders,logs,templates=_live_traces(session,pages,period,selected,reconcile_population=True)
     except ValueError as error:
         if str(error)!='history_order_state_changed_since_archive':raise
         archived_source=provenance['canonical_archive_sha256']

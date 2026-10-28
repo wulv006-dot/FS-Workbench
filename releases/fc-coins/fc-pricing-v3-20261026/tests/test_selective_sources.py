@@ -3,6 +3,7 @@ from copy import deepcopy
 from datetime import datetime,timezone,timedelta
 from decimal import Decimal
 import json
+import hashlib
 from pathlib import Path
 import sys
 import tempfile
@@ -29,6 +30,58 @@ def cache_fixture():
 
 
 class SelectiveSourceTest(unittest.TestCase):
+    def test_new_paid_coins_rebuilds_same_window_mix_and_write_boundary(self):
+        selected={'old':(dict(salesUsd='100',coupons=[]),dict(discount_usd='0'))}
+        native_selected=dict(selected,new=(dict(salesUsd='50',coupons=[]),dict(discount_usd='50')))
+        orders={key:dict(order_no=key,site_id=266,gid=1327,pay_status=1,
+            before_discount='100',discount=percent,points=0,amount_usd_format=net,
+            is_region_price=0,discount_code='code' if percent==50 else '')
+            for key,percent,net in [('old',100,'100'),('new',50,'50')]}
+        _,_,_,provenance=cache_fixture()
+        native=dict(provenance,canonical_archive_sha256='c'*64)
+        ES=SimpleNamespace(CoinsEvidence=lambda:SimpleNamespace(archive=None),GOLD='Gold',
+            es_metadata=lambda *a:({hashlib.sha256(b'new').hexdigest():dict(product='Gold')},dict(complete=True)))
+        storefront=dict(rows={p:dict(package_usd='100') for p in ('PS','XBOX','PC')})
+        pages=Mock(side_effect=lambda session,path,*a:list(orders.values()) if path.endswith('order.Order/index') else [])
+        with patch.object(business,'_period_population',return_value=(selected,provenance)),patch.object(business,'_historical_native_population',return_value=(native_selected,native,orders,{})) as refresh,patch.dict(sys.modules,{'coins_evidence':ES,'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
+            cache,_=business.build_shared_history_cache(None,pages,storefront,[],'source-v1',NOW)
+        refresh.assert_called_once_with(PERIOD,None,pages)
+        self.assertEqual(cache['historical_discount_mix']['retained_ratio'],'0.75')
+        self.assertEqual(cache['historical_discount_mix']['observed_orders'],2)
+        self.assertEqual(cache['original_history_replay']['original_mix_sha256'],cache['historical_discount_mix']['sha256'])
+        with tempfile.TemporaryDirectory() as folder:
+            store=Path(folder);db=Ledger(store/'control.sqlite3')
+            db.put('metadata','seven_day_history_cache',cache)
+            with patch.object(runtime,'STORE',store),patch.object(business,'selective_history_signature',return_value='source-v1'):
+                self.assertEqual(runtime.current_history_mix(NOW)['retained_ratio'],'0.75')
+
+    def test_new_other_products_unpaid_and_other_sites_do_not_rebuild_coins(self):
+        selected={'old':(dict(coupons=[]),{})}
+        rows=[dict(order_no=key,site_id=site,gid=1327,pay_status=paid)
+              for key,site,paid in [('old',266,1),('item',266,1),('unpaid',266,0),('other-site',267,1)]]
+        metadata={hashlib.sha256(b'item').hexdigest():dict(product='Items')}
+        ES=SimpleNamespace(CoinsEvidence=lambda:SimpleNamespace(archive=None),GOLD='Gold',
+            es_metadata=Mock(return_value=(metadata,dict(complete=True))))
+        pages=Mock(side_effect=lambda session,path,*a:rows if path.endswith('order.Order/index') else [])
+        with patch.dict(sys.modules,{'coins_evidence':ES}):
+            orders,_,_=business._live_traces(None,pages,PERIOD,selected,reconcile_population=True)
+        self.assertEqual(set(orders),{'old'})
+        ES.es_metadata.assert_called_once_with(PERIOD['start'],PERIOD['end'],None)
+        ES.es_metadata.reset_mock()
+        rows.remove(rows[1])
+        with patch.dict(sys.modules,{'coins_evidence':ES}):
+            business._live_traces(None,pages,PERIOD,selected,reconcile_population=True)
+        ES.es_metadata.assert_not_called()
+
+    def test_new_paid_unknown_product_cannot_silently_keep_old_mix(self):
+        rows=[dict(order_no='new',site_id=266,gid=1327,pay_status=1)]
+        for product in (None,'unknown','ambiguous'):
+            metadata={} if product is None else {hashlib.sha256(b'new').hexdigest():dict(product=product)}
+            ES=SimpleNamespace(CoinsEvidence=lambda:SimpleNamespace(archive=None),GOLD='Gold',
+                es_metadata=lambda *a:(metadata,dict(complete=True)))
+            with self.subTest(product=product),patch.dict(sys.modules,{'coins_evidence':ES}),self.assertRaisesRegex(ValueError,'history_new_paid_product_identity_missing'):
+                business._live_traces(None,lambda *a:rows,PERIOD,{},reconcile_population=True)
+
     def test_write_boundary_uses_exact_reconciled_mix_and_rejects_changed_archive(self):
         cache,*_=cache_fixture()
         with tempfile.TemporaryDirectory() as folder:

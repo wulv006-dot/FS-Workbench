@@ -38,7 +38,7 @@ def _operation():
         'steps': [
             {'step_id': 'base_prices:all', 'kind': 'base', 'state': 'CONFIRMED',
              'intermediate': {'base_prices': dict(BUNDLE['action']['base_prices']),
-                              'region_coefficients': dict(BUNDLE['action']['region_coefficients'])}},
+                              'region_coefficients': dict(BUNDLE['before_action']['region_coefficients'])}},
             {'step_id': 'region_coefficients:21:PS', 'kind': 'region', 'state': 'CANCELLED_NOT_SENT'},
         ],
     }
@@ -77,6 +77,22 @@ class FinishKnownPartialTest(unittest.TestCase):
         op = self.db.finish_known_partial('op-1', {'status': 'PUBLIC_CONFIRMED'},
                                           dict(BUNDLE['action']), 'partial')
         self.assertEqual(op['status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+
+    def test_continue_partial_records_actual_prices_once_without_exit_state(self):
+        self._seed()
+        actual = _operation()['steps'][0]['intermediate']
+        receipt = dict(status='ORDER_ADMIN_CONFIRMED')
+        op = self.db.finish_known_partial('op-1',receipt,actual,'confirmed_partial',exit_pending=False)
+        self.assertEqual(op['status'], 'COMPLETED')
+        self.assertTrue(op['target_not_completed'])
+        self.assertEqual(op['actual_action'], actual)
+        self.assertEqual(op['completed_at'],op['actual_state_confirmed_at'])
+        window = self.db.get('actual_price_windows','op-1')
+        self.assertEqual(window['action'], actual)
+        self.assertEqual(set(window['resources']), {'base:pc','base:console'})
+        self.assertEqual(self._leases(), [])
+        self.assertEqual(self.db.finish_known_partial('op-1',receipt,actual,'retry',exit_pending=False),op)
+        self.assertEqual(self.db.get('actual_price_windows','op-1'),window)
 
     def test_rejects_unknown_receipt_status(self):
         self._seed()

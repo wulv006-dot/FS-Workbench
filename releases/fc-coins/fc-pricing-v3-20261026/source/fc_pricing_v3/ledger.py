@@ -486,17 +486,18 @@ class Ledger:
                  opened_at=opened,no_change=no_change), db)
 
 
-    def finish_known_partial(self,operation_id,receipt,actual_action,reason):
+    def finish_known_partial(self,operation_id,receipt,actual_action,reason,*,exit_pending=True):
         with self.transaction() as db:
             op=self.get('operations',operation_id,db)
-            if op['status']=='KNOWN_PARTIAL_EXIT_PENDING':return op
+            if op['status'] in ('KNOWN_PARTIAL_EXIT_PENDING','COMPLETED'):return op
             if not any(s['state']=='CONFIRMED' for s in op['steps']) or any(s['state'] not in ('CONFIRMED','CANCELLED_NOT_SENT') for s in op['steps']):
                 raise ValueError('pricing_partial_actual_state_unresolved')
             # 2026-10-28: 「Order 写成功 + Admin 单价核对一致」也算已确认，
             # 不再强制等公开页（DECOUPLE-DESIGN §6.3）。释放条件与终态白名单均未改变。
             if receipt.get('status') not in ('PUBLIC_CONFIRMED','ORDER_ADMIN_CONFIRMED'):raise ValueError('pricing_partial_public_unconfirmed')
-            op.update(status='KNOWN_PARTIAL_EXIT_PENDING',actual_action=actual_action,readback=receipt,
+            op.update(status='KNOWN_PARTIAL_EXIT_PENDING' if exit_pending else 'COMPLETED',actual_action=actual_action,readback=receipt,
                       target_not_completed=True,exit_reason=reason,actual_state_confirmed_at=clock().isoformat())
+            if not exit_pending:op['completed_at']=op['actual_state_confirmed_at']
             self.put('operations',operation_id,op,db)
             self.put('readback_receipts',operation_id,receipt,db)
             actual_resources=[]
