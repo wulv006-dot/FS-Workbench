@@ -92,10 +92,11 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
     // sequential pass below instead of being retried by it.
     // The bridge may legitimately spend up to 45s inside one cold catalogue read, so the
     // child-process budget stays above that instead of cutting the read short.
-    // One read at a time costs about a second; the same reads issued all at once pushed
-    // every model past 40s and the whole cache to unavailable (2026-10-28). Start them in
-    // small waves so the Admin catalogue is never asked for 49 lookups simultaneously.
-    const READ_WAVE=6;
+    // One read at a time costs about a second; the same reads issued together push every
+    // model past 40s and the whole cache to unavailable (2026-10-28: 49 concurrent -> all
+    // timed out, 6 at a time -> still 40s+). The Admin catalogue degrades superlinearly
+    // with fan-out, so the reads run one per wave: serial is the fast path here.
+    const READ_WAVE=1;
     for(let i=0;i<warmList.length;i+=READ_WAVE){
       const started=[];
       for(const [readKey,p] of warmList.slice(i,i+READ_WAVE)){
