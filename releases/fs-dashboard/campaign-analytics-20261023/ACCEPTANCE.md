@@ -118,3 +118,11 @@
 - 品类判定：FC 固定卡标题 `coins` 落到金币图；Aion2 `Kina`、WoW `gold`、MapleStory `MapleStory Classic World Mesos` 均判定为金币品类。
 - 未执行：未改 policy / 公开配置 / 优惠码 / 派生价格缓存；未做随机卡真实抽卡（避免产生抽卡回执），随机卡与固定卡共用同一 `faceContent()` 渲染路径，已在 CI 与候选注入验证中覆盖。
 
+### 2026-10-28 `nav-20261028T030250Z`（PR #583）读回：MapleStory 物品图
+
+- 落盘核对：`seasonal/event.js` `de35383cf064a09c1d5535b7eb8dd58c2b267cb7b29d3d23099cc63230a7d90e`、`seasonal/assets/product-maplestory-item.webp` `a1d4b2556b39fc6cb85eb097bf2f83c061cd9e9d957a7b7996593b562f98c93d`（219328 字节）、`runtime/static-manifest.json` `375efb554f07…`（106 键，含 item 条目）。
+- 服务：`fs-campaign-runtime` / `fs-campaign-dashboard` 均 active。
+- HTTP：`/events/seasonal/assets/product-maplestory-item.webp` 200 `image/webp` 219328 字节。
+- 真实页面（DOM 注入两张装备卡面以观察渲染，未改任何数据）：`product-maplestory-item.webp` 自然宽 > 0，渲染 193×103；同页 Mesos 固定卡仍为 `product-maplestory-coins.webp`（193×96）；`/events/` 下无 4xx。
+- 未执行：未真实抽随机卡（避免产生抽卡回执）；未改 policy / 公开配置 / 优惠码 / 派生价格缓存。
+
