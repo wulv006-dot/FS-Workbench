@@ -25,3 +25,21 @@ Admin 全部使用现有 8912 API。`summary_bridge`、native collector、supple
 原本机清单生成脚本实际位于 `E:/WorkBuddy/大超服务器/business_dashboard_refresh_20261025/stage/prepare.py`：读取 `baseline/current.json` 与此前 `approved-manifest.json`，生成候选 SHA、beforeSHA、保护清单、四静态 alias 替换、适配器与 zip。这是旧日期/范围的硬编码生成脚本，不能原样执行覆盖旧包；本次应复用其现有清单格式与生成步骤，套入本次已提交的精确文件列表。原 filter 阶段本机可核目录为 `.agent_runtime/business-filter-layout-20261025/.agent_runtime/release-stage-v1/`，包含完整既有适配器、候选和 approved-manifest；`filter-stage-inspect.py` 为其既有验证入口，不是 prepare。
 
 本次未重新实现 publisher。宿主 range 模块导入只需对应 range reader 更新，不重启 Hermes 模型 worker，不改原 timer。`fc27-p2pah-session.service` 临时恢复候选不在 P2 清单内，最终退役由主代理单列验收。
+
+## 数据暂存的 observer 保护路径
+
+现场 `/opt/fc27-cloud-browser/fc_observer.py` 是独立只读身份使用的账本投影模块，SHA `f53ec6e199dd6e1592d3e50151d859ffb9a1d7a3a97ec51e83eebd89a696de84`，继续按正存在哈希保护。它不是被退役的旧价格观察器，不能删掉或误设为负存在。
+
+原退役合同在 `fc-pricing-v3-20261026/RETIREMENT-MATRIX.md`：真正的旧路径是 `/opt/fc27-price-observer`，以及 `fc27-price-observer.path / fc27-price-observer.service` 两个原单元文件。2026-10-28 已只读确认这三处均不存在且不是链接；数据发布适配器在原全部 guards 后追加这些负存在检查。只读投影仍在正保护中；没有复活或删除任何 observer 文件。
+
+`ef208b1` 的 31 目标暂存包已通过原 publisher inspect（sourceCAS/protectedCAS/退休检查，mutations=false），尚未 apply。最终计划为 32 目标、6 NEW：第 32 项仅是兼容包 `releases/ops/shared-admin-direct-20261028/source/fc_shared_admin.py` 到原 `/opt/fs-order-session/fc_shared_admin.py`，把既有 RPG Admin 缓存传输切到同一 API；before `a676388f…`，after `c6eaf379…`，原 owner/mode 保持 root:root/0644。FC 独立 adapter 不在此发布目标中。共享分页性能方案未通过实测，已撤回；`channel_source.py` 仍以现场 SHA `ce01980e11158b1ff11617b8229957ed3b5ae7065df75b12b37f9661b6bfe3ea` 正保护，不发布或覆盖其两处现场热修。
+
+原 31 目标 manifest 的保护集合还包含 FC 的 execute/restore、worker、pricing_sources、runtime/dispatch 两份副本及独立 helper。后续 FC 修复发布会改变这些保护 SHA；数据包不得沿用旧基线盲放行。须在 FC 部署后重新读取当前 CAS，以最终提交引用原 30 个数据源码及新增单个共享 adapter 的 Git blob，重生成数据 manifest，再通过原 inspect。FC 专属源码不属于数据包的发布目标。既有 RPG 容器仍可能持有旧 inode，待其自然退出并核实无旧加载后再退役 8767，不为本包中断或重启 RPG。当前候选、正式检查、发布状态由主代理最终交付记录更新。
+
+## 日期与归档保留候选（尚未发布）
+
+逐笔月限修复仅涉及 `order.Order/index`：cohort长窗口复用现有28日窗口并逐片分页；FCDetails长窗口直接走已有按日路径；FC历史价格窗口候选按同样窗口保留秒边界。原生汇总继续整窗，未缩减客户指标或界面日期选择。新 `test_order_date_windows.py` 已确认未被Git忽略，10项离线检查通过，包含3项FC调用组合；正式检查需与这些源码共同提交。
+
+现场 `daily_archive.py` SHA `0652062c39e3bede009d24c31811ab5e1a937f1a572d7193b9d0b12ede87452e` 原写入/读取/清理均受三个月业务日期截止限制；`archive_jobs.py` SHA `de24cb028101cfcd6a615dbb9f5fb7500c508a612ab75c380035fb516b9bbf22` 的 scheduled 分支真实调用 `prune(False)`。10月28日03:37/03:44 UTC已有清理回执，截止7月28日、删除对象0；索引最早native/summary/marketing为8月1日，不能据此推断更早档案曾被删除。
+
+用户已授权修复为一年保留。候选复用原日期函数，保留默认三个月 `cutoff` 供自动补采，新 `retention_cutoff` 只用于归档写入/读取/清理及回执元数据。已有对象/索引/来源时间原样，不执行清理、不自动补采十二个月。离线新增一年边界、闰日及真实history候选保持三个月的组合检查；当日600秒和完整源归档规则保持。当前仅源码候选，本轮未在服务器运行prune或发布此修改。

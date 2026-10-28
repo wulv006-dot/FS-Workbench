@@ -56,12 +56,13 @@ def collect(request, query, config):
     paid, missing_days = [], []
     cursor = datetime.strptime(query['period']['start'], '%Y-%m-%d %H:%M')
     stop = datetime.strptime(query['period']['end'], '%Y-%m-%d %H:%M')
-    try:
-        paid = pages(base + [('paytime', cursor.strftime('%Y-%m-%d %H:%M:%S') + ',' + stop.strftime('%Y-%m-%d %H:%M:%S'), 'RANGE')], 'paid')
-        cursor = stop
-    except (PermissionError, FCContractError): raise
-    except (ValueError, OSError):
-        if __name__ == '__main__': print('FC full range unavailable; retry by natural day', file=sys.stderr, flush=True)
+    if stop - cursor <= timedelta(days=28):
+        try:
+            paid = pages(base + [('paytime', cursor.strftime('%Y-%m-%d %H:%M:%S') + ',' + stop.strftime('%Y-%m-%d %H:%M:%S'), 'RANGE')], 'paid')
+            cursor = stop
+        except (PermissionError, FCContractError): raise
+        except (ValueError, OSError):
+            if __name__ == '__main__': print('FC full range unavailable; retry by natural day', file=sys.stderr, flush=True)
     while cursor < stop:
         end = min(cursor.replace(hour=0,minute=0)+timedelta(days=1),stop)
         try:

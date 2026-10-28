@@ -39,7 +39,7 @@ class Store(unittest.TestCase):
         self.assertIsNone(self.store.get('summary', self.query))
 
     def test_today_hourly_and_outside_retention_do_not_enter_archives(self):
-        for change in (dict(start='2026-10-21', end='2026-10-21'),dict(grain='hour'),dict(start='2026-07-20')):
+        for change in (dict(start='2026-10-21', end='2026-10-21'),dict(grain='hour'),dict(start='2025-10-20')):
             q = dict(self.query, **change)
             self.assertIsNone(self.store.put('summary', q, {}))
         self.assertFalse(list(self.root.rglob('*.gz')))
@@ -55,12 +55,37 @@ class Store(unittest.TestCase):
         self.store.put('summary',dict(self.query,start='2026-08-20',end='2026-08-20'),{})
         self.store.put('summary',self.query,{})
         unrelated=self.root/'report.json';unrelated.write_text('retained')
-        self.today=date(2027,1,2)
+        self.today=date(2027,9,2)
         self.assertEqual(self.store.prune()['objects'],1)
         self.assertEqual(len(list(self.root.rglob('*.gz'))),2)
         self.store.prune(False)
         self.assertEqual(len(list(self.root.rglob('*.gz'))),1)
         self.assertEqual(unrelated.read_text(),'retained')
+
+    def test_one_year_boundary_leap_day_and_three_month_backfill_are_separate(self):
+        self.assertEqual(archive.retention_cutoff(date(2028,2,29)),date(2027,2,28))
+        self.assertEqual(archive.retention_cutoff(date(2027,3,31)),date(2026,3,31))
+        self.assertEqual(archive.cutoff(date(2028,5,31)),date(2028,2,29))
+        boundary=dict(self.query,start='2025-10-21',end='2025-10-21')
+        self.assertIsNotNone(self.store.put('summary',boundary,{}))
+        self.assertEqual(self.store.get('summary',boundary)['archive']['retentionMonths'],12)
+        self.assertIsNone(self.store.put('summary',dict(boundary,start='2025-10-20',end='2025-10-20'),{}))
+        self.assertEqual(self.store.prune()['objects'],0)
+        self.today=date(2026,10,22)
+        self.assertIsNone(self.store.get('summary',boundary))
+        self.assertEqual(self.store.prune()['objects'],1)
+
+    def test_real_history_candidates_keep_three_month_limit(self):
+        import ast
+        path=Path(__file__).resolve().parents[4]/'releases/fs-dashboard/nightly-pipeline-20261023/source/archive_jobs.py'
+        node=next(n for n in ast.parse(path.read_text(encoding='utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='candidates')
+        namespace=dict(date=date,timedelta=timedelta,cutoff=archive.cutoff)
+        exec(compile(ast.Module(body=[node],type_ignores=[]),str(path),'exec'),namespace)
+        today=date(2027,5,31)
+        values=list(namespace['candidates'](today,{'FC27':None},False))
+        self.assertEqual(min(v['start'] for v in values),'2027-02-28')
+        self.assertEqual(max(v['end'] for v in values),'2027-05-30')
+        self.assertTrue(all(v['start']==v['end'] for v in values))
 
     def test_private_path_cannot_follow_a_link(self):
         if os.name != 'posix': return  # Symlink creation needs a separate Windows privilege.

@@ -1249,7 +1249,7 @@ def main():
             generic="releases/fs-dashboard/hermes-generic-data-20261018"
             workspace="releases/fs-dashboard/hermes-data-workspace-20261018"
             admin="releases/fs-dashboard/admin-data-tools-20261018"
-            units(generic+"/tests",["test_http_queries","test_cohort_paid_source","test_admin_product_orders","test_direct_bridges"])
+            units(generic+"/tests",["test_http_queries","test_cohort_paid_source","test_admin_product_orders","test_direct_bridges","test_order_date_windows"])
             units(generic+"/deploy",["test_session_image_lifecycle"])
             units(admin,["test_admin_data_tools","test_publisher_boundary"])
             units(workspace+"/tests",["test_tool_chain","test_cohort_reader","test_cohort_observation","test_cohort_es_source"])

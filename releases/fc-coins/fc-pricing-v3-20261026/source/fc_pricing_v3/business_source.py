@@ -1021,8 +1021,22 @@ def online_window_context(session, pages, windows, now, archived):
             raise ValueError('no_confirmed_public_price_window')
         start = min(_window_instant(w['opened_at']) for w in valid).astimezone(TZ)
         # Payment time only bounds candidate retrieval; actual assignment below uses independent creation time.
-        rows = pages(session, '/admin/order.Order/index', [('site_id', '=', '266'), ('gid', '=', '1327'),
-                     ('paytime', 'RANGE', start.strftime('%Y-%m-%d %H:%M:%S') + ',' + now.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S'))], 100)
+        from channel_source import windows as range_windows
+        begin, end = start.strftime('%Y-%m-%d %H:%M:%S'), now.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S')
+        rows, seen = [], {}
+        for lower, upper in range_windows(dict(start=begin[:10], end=end[:10])):
+            lower, upper = max(lower, begin), min(upper, end)
+            batch = pages(session, '/admin/order.Order/index', [('site_id', '=', '266'), ('gid', '=', '1327'),
+                          ('paytime', 'RANGE', lower + ',' + upper)], 100)
+            for row in batch:
+                identity = str(row.get('id') or '')
+                if not identity or not lower <= str(row.get('paytime')) <= upper:
+                    raise ValueError('window_candidate_range_invalid')
+                if identity in seen:
+                    if seen[identity] != row: raise ValueError('window_candidate_conflict')
+                    continue
+                seen[identity] = row
+                rows.append(row)
         if any(str(r.get('site_id')) != '266' or str(r.get('gid')) != '1327' for r in rows):
             raise ValueError('window_candidate_scope_invalid')
         from channel_source import apply_cost_overrides
