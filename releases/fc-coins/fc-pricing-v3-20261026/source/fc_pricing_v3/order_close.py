@@ -7,14 +7,24 @@
 
 本模块只做**纯判定**与**收尾材料构造**，不写库、不发请求；
 落库由 runtime 用现有收尾函数（finish / finish_known_partial）完成。
+
+⚠️ 两个状态消费者必须一致（PR #588 review #3）：
+    账本（SQLite operations）收尾后，执行审计文件 ``executions/<id>.json``
+    仍是 PARTIAL 时，下一轮 ``price_writer.execute`` 的
+    ``unresolved_execution_exists`` 扫描会继续拦截。
+    本模块提供 ``closed_audit_state()`` 与 ``execution_is_unresolved()``
+    让两侧识别同一终态。
 """
 
 from .admin_readback import matches_targets
 
-# price_writer.stage(**fields) 之后长期保留的 Order 成功反馈字段。
-# 注意：不能读 record['stage']（每次 stage() 都会覆盖它），
-# 也不能读 record['status']（要等 ALL 收尾才 CONFIRMED，中途是 PARTIAL）。
-ORDER_FEEDBACK_FIELDS = ('sync_message', 'sync_recipient_readback')
+# §6.3 条件 1：只有 clickSync 真正返回的反馈才算 Order 成功。
+# price_writer.py 只在 `feedback['success'] and feedback['message']` 成立时写这个字段。
+ORDER_FEEDBACK_FIELD = 'sync_message'
+
+# 不能当作成功证据：这是 confirm_sync_recipient() 用两次 Admin 读价稳定一致推断出来的，
+# 判据与 §6.3 条件 2 完全相同。一旦接受它，「价格碰巧已是目标价」就会被误当成 Order 成功。
+PRICE_INFERENCE_FIELD = 'sync_recipient_readback'
 
 # 平台 -> bundle['action']['base_prices'] 的键（console 覆盖 PS 与 XBOX）
 BASE_PRICE_KEY = {'PC': 'pc', 'PS': 'console', 'XBOX': 'console'}
@@ -22,26 +32,41 @@ ALL_PLATFORMS = ('PS', 'XBOX', 'PC')
 
 RECEIPT_STATUS = 'ORDER_ADMIN_CONFIRMED'
 
+# price_writer.execute() 会因这些审计状态拒绝新一轮写入
+UNRESOLVED_AUDIT_STATUS = frozenset({'RUNNING', 'UNCERTAIN', 'PARTIAL'})
 
-def order_write_confirmed(audit):
-    """§6.3 条件 1：本次 Order 操作保存的成功反馈。
+# 账本侧已收尾的状态：审计文件即便残留 PARTIAL，也不应再阻挡下一轮
+TERMINAL_LEDGER_STATUS = frozenset({
+    'COMPLETED', 'NO_CHANGE', 'CANCELLED_NOT_SENT',
+    'KNOWN_PARTIAL_EXIT_PENDING', 'KNOWN_PARTIAL_EXITED', 'FAILED_BEFORE_WRITE',
+})
 
-    正常路径 `stage(record, 'sync_feedback', sync_message=...)`
-    兜底路径 `stage(record, 'sync_recipient_confirmed', sync_recipient_readback=receipt)`
 
-    任一字段有内容即视为拿到 Order 侧成功反馈。
+def order_feedback_state(audit):
+    """返回 Order 成功反馈的**证据等级**。
+
+    ``sync_feedback``            真有 clickSync 成功反馈（唯一可作为条件 1 的证据）
+    ``price_inference_only``     只有两次读价一致推断（等同条件 2，不得当成功）
+    ``missing``                  两者都没有
     """
     if not isinstance(audit, dict):
-        return False
-    for field in ORDER_FEEDBACK_FIELDS:
-        value = audit.get(field)
-        if isinstance(value, str) and value.strip():
-            return True
-        if isinstance(value, dict) and value:
-            return True
-        if isinstance(value, (list, tuple)) and len(value) > 0:
-            return True
-    return False
+        return 'missing'
+    message = audit.get(ORDER_FEEDBACK_FIELD)
+    if isinstance(message, str) and message.strip():
+        return 'sync_feedback'
+    if audit.get(PRICE_INFERENCE_FIELD):
+        return 'price_inference_only'
+    return 'missing'
+
+
+def order_write_confirmed(audit):
+    """§6.3 条件 1：**本次 Order 操作**保存的成功反馈。
+
+    只认 ``sync_message``（clickSync 返回 success + message）。
+    不认 ``sync_recipient_readback``：那是读价推断，会与条件 2 混为一谈。
+    不读 ``status``（要等 ALL 收尾）、不读 ``stage``（每次 stage() 都会覆盖）。
+    """
+    return order_feedback_state(audit) == 'sync_feedback'
 
 
 def proven_never_dispatched(step):
@@ -59,7 +84,7 @@ def proven_never_dispatched(step):
     （本次事故里两个区域步骤是 ``PREPARED``、``receipt`` 为空）。若要求回执必须存在，
     对这类步骤永远无法成立，卡死会原样复现。
 
-    因此这里的判定是：``dispatched_at`` 与 ``transport_claimed_at`` 同时缺席 ⇒ 从未尝试发送
+    因此：``dispatched_at`` 与 ``transport_claimed_at`` 同时缺席 ⇒ 从未尝试发送
     ⇒ 不可能有回执，此时 ``receipt is None`` 视为未发出。
 
     反之，只要有任何一条传输痕迹（已 dispatch，或已 claim），无论回执写什么，
@@ -115,8 +140,10 @@ def evaluate_close(operation, audit, observed_prices):
         ``finish``        所有 step 均确认 → 交给 ``finish()``
         ``finish_partial``部分确认 + 其余确定未发出 → 交给 ``finish_known_partial()``
     """
-    if not order_write_confirmed(audit):
-        return _keep(operation, 'order_success_feedback_missing')
+    feedback = order_feedback_state(audit)
+    if feedback != 'sync_feedback':
+        return _keep(operation, 'order_success_feedback_missing'
+                     if feedback == 'missing' else 'order_feedback_is_price_inference_only')
 
     targets = admin_targets(operation)
     if not targets:
@@ -152,15 +179,62 @@ def build_receipt(operation, audit, observed_prices, decision, postwrite=None):
 
     status 用 ``ORDER_ADMIN_CONFIRMED``，不冒充 ``PUBLIC_CONFIRMED``；
     公开页核对结果放在 ``public_verification`` 里，只作事后补充。
+    读价推断字段单独留在 ``price_inference``，表明它**没有**被当作成功证据。
     """
-    feedback = {k: audit.get(k) for k in ORDER_FEEDBACK_FIELDS if audit.get(k)} if isinstance(audit, dict) else {}
+    feedback = {}
+    if isinstance(audit, dict) and audit.get(ORDER_FEEDBACK_FIELD):
+        feedback[ORDER_FEEDBACK_FIELD] = audit.get(ORDER_FEEDBACK_FIELD)
+    inference = None
+    if isinstance(audit, dict) and audit.get(PRICE_INFERENCE_FIELD):
+        inference = dict(field=PRICE_INFERENCE_FIELD, usable_as_proof=False,
+                         basis=(audit.get(PRICE_INFERENCE_FIELD) or {}).get('basis')
+                         if isinstance(audit.get(PRICE_INFERENCE_FIELD), dict) else None)
     observed = {}
     for platform, value in sorted((observed_prices or {}).items()):
         observed[platform] = str(value)
     return dict(status=RECEIPT_STATUS, confirmation_scope='Order_Admin',
                 operation_id=operation.get('operation_id'),
-                order_feedback=feedback, admin_unit_prices=observed,
+                order_feedback=feedback, price_inference=inference,
+                admin_unit_prices=observed,
                 targets=decision.get('targets') or [],
                 confirmed_step=decision.get('confirmed'),
                 cancelled_steps=decision.get('cancelled') or [],
                 public_verification=postwrite or dict(status='not_required'))
+
+
+def closed_audit_state(audit, receipt, ledger_status, closed_at):
+    """把执行审计文件推进到与账本同一个终态（PR #588 review #3）。
+
+    ``price_writer.execute()`` 开跑前会扫 ``executions/*.json``，见到
+    ``RUNNING / UNCERTAIN / PARTIAL`` 就抛 ``unresolved_execution_exists``。
+    只收尾账本会让下一轮继续被拦，所以两侧必须写同一个终态。
+    """
+    updated = dict(audit or {})
+    updated.update(
+        status=receipt.get('status') or RECEIPT_STATUS,
+        ledger_status=ledger_status,
+        operation_id=receipt.get('operation_id'),
+        confirmation_scope='Order_Admin',
+        closed_at=closed_at,
+        sync_confirmed=True,
+        close_receipt=dict(
+            status=receipt.get('status'),
+            admin_unit_prices=receipt.get('admin_unit_prices') or {},
+            targets=receipt.get('targets') or [],
+            public_verification=receipt.get('public_verification'),
+        ),
+    )
+    return updated
+
+
+def execution_is_unresolved(state, ledger_status=None):
+    """writer 扫描判据：审计状态未收敛 **且** 账本没有给出终态。
+
+    ``ledger_status`` 为 None（读不到 / 无此操作）时按未收敛处理（fail-closed），
+    避免读账本失败被当成「已收尾」而放过双重写入。
+    """
+    if not isinstance(state, dict):
+        return False
+    if state.get('status') not in UNRESOLVED_AUDIT_STATUS:
+        return False
+    return ledger_status not in TERMINAL_LEDGER_STATUS
