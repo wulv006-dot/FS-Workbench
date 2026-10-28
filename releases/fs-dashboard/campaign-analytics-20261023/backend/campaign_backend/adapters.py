@@ -70,6 +70,14 @@ class AdminRead:
         # read that requested it.
         self._goods_prefetch = None
 
+    def reset_catalog_budget(self):
+        """Start a fresh aggregate window while keeping the sweep already in memory.
+
+        The sweep and the per-model detail reads are separate phases; without this the
+        detail reads inherit whatever the sweep spent and the whole game reports timeouts.
+        """
+        self._catalog_deadline = time.monotonic() + self._catalog_timeout
+
     def _catalog_http_once(self, route, **params):
         """Same authenticated requests session, bypassing shared get_admin retry/refresh loops."""
         url = 'http://127.0.0.1:8912' + route
@@ -292,12 +300,15 @@ class AdminRead:
         scoped = [('site_id', '=', site_id), ('gid', '=', game_id), ('mid', 'IN', ','.join(models))]
         rows, page = [], 1
         while True:
-            params = dict(page=page, limit=50, order='id,desc', **search(scoped))
+            # Ask for a whole game at once. The same sweep at limit=50 took 7.4s and needed
+            # three pages, while limit=200 returned all 132 rows in 240ms: the per-page
+            # COUNT and filesort dominate, not the row count.
+            params = dict(page=page, limit=200, order='id,desc', **search(scoped))
             data = self._get_catalog_once(LIST_ROUTES['goods'], **params)
             batch, total = data.get('list'), data.get('total')
             if isinstance(total, str) and total.isascii() and total.isdecimal():
                 total = int(total)
-            if not isinstance(batch, list) or type(total) is not int or not 0 <= total <= 100000 or len(batch) > 50:
+            if not isinstance(batch, list) or type(total) is not int or not 0 <= total <= 100000 or len(batch) > 200:
                 raise ContractError('INVALID_PAGE')
             for row in batch:
                 if not isinstance(row, dict):
@@ -306,7 +317,7 @@ class AdminRead:
                         or positive_id(row.get('mid')) not in models):
                     raise ContractError('UPSTREAM_SCOPE_MISMATCH')
             rows.extend(batch)
-            if len(batch) < 50 or page * 50 >= total:
+            if len(batch) < 200 or page * 200 >= total:
                 break
             page += 1
             if page > 500:
