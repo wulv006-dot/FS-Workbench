@@ -1,0 +1,158 @@
+"""Order 侧成功反馈 + Admin unit_price 读回的收尾判定。
+
+设计依据：docs/planning/fc-pricing-ops-20261028/DECOUPLE-DESIGN.md
+    §6.1 严格发送证明
+    §6.3 改价成功判定 = Order 操作保存的成功反馈 + 随后 Admin unit_price 核对
+    §6.4 在 reconcile 补的唯一入口
+
+本模块只做**纯判定**与**收尾材料构造**，不写库、不发请求；
+落库由 runtime 用现有收尾函数（finish / finish_known_partial）完成。
+"""
+
+from .admin_readback import matches_targets
+
+# price_writer.stage(**fields) 之后长期保留的 Order 成功反馈字段。
+# 注意：不能读 record['stage']（每次 stage() 都会覆盖它），
+# 也不能读 record['status']（要等 ALL 收尾才 CONFIRMED，中途是 PARTIAL）。
+ORDER_FEEDBACK_FIELDS = ('sync_message', 'sync_recipient_readback')
+
+# 平台 -> bundle['action']['base_prices'] 的键（console 覆盖 PS 与 XBOX）
+BASE_PRICE_KEY = {'PC': 'pc', 'PS': 'console', 'XBOX': 'console'}
+ALL_PLATFORMS = ('PS', 'XBOX', 'PC')
+
+RECEIPT_STATUS = 'ORDER_ADMIN_CONFIRMED'
+
+
+def order_write_confirmed(audit):
+    """§6.3 条件 1：本次 Order 操作保存的成功反馈。
+
+    正常路径 `stage(record, 'sync_feedback', sync_message=...)`
+    兜底路径 `stage(record, 'sync_recipient_confirmed', sync_recipient_readback=receipt)`
+
+    任一字段有内容即视为拿到 Order 侧成功反馈。
+    """
+    if not isinstance(audit, dict):
+        return False
+    for field in ORDER_FEEDBACK_FIELDS:
+        value = audit.get(field)
+        if isinstance(value, str) and value.strip():
+            return True
+        if isinstance(value, dict) and value:
+            return True
+        if isinstance(value, (list, tuple)) and len(value) > 0:
+            return True
+    return False
+
+
+def proven_never_dispatched(step):
+    """§6.1 严格发送证明：三条同时满足才算「确定未发出」。
+
+    1. 无 ``dispatched_at``
+    2. ``transport_claimed_at`` 为空
+    3. ``receipt`` 不存在或 ``receipt.status == 'NOT_SENT'``
+
+    第 3 条允许 receipt 缺失，理由：``claim_dispatch()`` 会在真正发送前写入
+    ``transport_claimed_at``；它与 ``dispatched_at`` 同时缺席说明从未尝试发送，
+    此时不可能存在回执。任一条件不满足 → 视为「已发出 / 未知」，**不得**当成未发送。
+
+    严禁用「价格没变」来推断未发送。
+    """
+    if not isinstance(step, dict):
+        return False
+    if step.get('dispatched_at'):
+        return False
+    if step.get('transport_claimed_at'):
+        return False
+    status = (step.get('receipt') or {}).get('status')
+    return status in (None, 'NOT_SENT')
+
+
+def target_platforms(operation):
+    """本次写价覆盖的平台。
+
+    base step 为 ``base_prices:all`` 时覆盖全部平台；否则取 dispatch 实际选择的平台。
+    """
+    steps = operation.get('steps') or []
+    base_ids = [str(s.get('step_id')) for s in steps if s.get('kind') == 'base']
+    if any(step_id.endswith(':all') for step_id in base_ids):
+        return list(ALL_PLATFORMS)
+    selected = ((operation.get('dispatch_context') or {}).get('selected') or [])
+    ordered = [p for p in ALL_PLATFORMS if p in set(selected)]
+    return ordered or list(ALL_PLATFORMS)
+
+
+def admin_targets(operation):
+    """把 bundle 目标价整理成 Admin 核对目标（Order 每 100K 口径）。"""
+    action = ((operation.get('bundle') or {}).get('action') or {})
+    base_prices = action.get('base_prices') or {}
+    targets = []
+    for platform in target_platforms(operation):
+        key = BASE_PRICE_KEY.get(platform)
+        if key is None or key not in base_prices:
+            continue
+        targets.append({'platform': platform, 'quote': str(base_prices[key])})
+    return targets
+
+
+def _keep(operation, reason):
+    return dict(action='keep', reason=reason, confirmed=None, cancelled=[],
+                targets=admin_targets(operation))
+
+
+def evaluate_close(operation, audit, observed_prices):
+    """纯判定收尾动作。
+
+    action:
+        ``keep``          证据不足 → 保持 UNKNOWN，不释放锁、不新建操作
+        ``finish``        所有 step 均确认 → 交给 ``finish()``
+        ``finish_partial``部分确认 + 其余确定未发出 → 交给 ``finish_known_partial()``
+    """
+    if not order_write_confirmed(audit):
+        return _keep(operation, 'order_success_feedback_missing')
+
+    targets = admin_targets(operation)
+    if not targets:
+        return _keep(operation, 'admin_targets_unavailable')
+    if not matches_targets(observed_prices or {}, targets):
+        return _keep(operation, 'admin_unit_price_mismatch')
+
+    steps = list(operation.get('steps') or [])
+    unconfirmed = [s for s in steps if s.get('state') != 'CONFIRMED']
+    base_unconfirmed = [s for s in unconfirmed if s.get('kind') == 'base']
+    if len(base_unconfirmed) > 1:
+        return _keep(operation, 'base_step_ambiguous')
+
+    confirm_step = base_unconfirmed[0]['step_id'] if base_unconfirmed else None
+    if confirm_step is None and not any(s.get('state') == 'CONFIRMED' for s in steps):
+        return _keep(operation, 'no_confirmed_step')
+
+    cancelled = []
+    for step in unconfirmed:
+        if confirm_step is not None and step['step_id'] == confirm_step:
+            continue
+        if not proven_never_dispatched(step):
+            return _keep(operation, 'step_transport_unresolved:' + str(step.get('step_id')))
+        cancelled.append(step['step_id'])
+
+    action = 'finish' if not cancelled else 'finish_partial'
+    return dict(action=action, reason='order_write_confirmed_admin_price_matched',
+                confirmed=confirm_step, cancelled=cancelled, targets=targets)
+
+
+def build_receipt(operation, audit, observed_prices, decision, postwrite=None):
+    """构造写进账本的回执。
+
+    status 用 ``ORDER_ADMIN_CONFIRMED``，不冒充 ``PUBLIC_CONFIRMED``；
+    公开页核对结果放在 ``public_verification`` 里，只作事后补充。
+    """
+    feedback = {k: audit.get(k) for k in ORDER_FEEDBACK_FIELDS if audit.get(k)} if isinstance(audit, dict) else {}
+    observed = {}
+    for platform, value in sorted((observed_prices or {}).items()):
+        observed[platform] = str(value)
+    return dict(status=RECEIPT_STATUS, confirmation_scope='Order_Admin',
+                operation_id=operation.get('operation_id'),
+                order_feedback=feedback, admin_unit_prices=observed,
+                targets=decision.get('targets') or [],
+                confirmed_step=decision.get('confirmed'),
+                cancelled_steps=decision.get('cancelled') or [],
+                public_verification=postwrite or dict(status='not_required'))
