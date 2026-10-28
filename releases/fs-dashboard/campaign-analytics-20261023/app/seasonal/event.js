@@ -7,7 +7,9 @@
   // The card already sits inside that game's own section, so the game name is not
   // repeated on the face. Keeping it out also keeps the product name on one line.
   function faceContent({title,attrs='',off,image,qty=''}){
-    const badge=off===null||off===undefined?'':'<span class="offer-badge">'+off+'% OFF</span>';
+    // The corner discount is a gold badge drawing now: one file per tier, so the
+    // face keeps the artwork look instead of a CSS pill.
+    const badge=off===null||off===undefined?'':'<span class="offer-badge"><img src="assets/badge-'+off+'.webp" alt="'+off+'% OFF" loading="lazy"></span>';
     const art=image?'<span class="product-art has-image"><img src="'+esc(image)+'" alt="" loading="lazy"></span>':'<span class="product-art is-empty" aria-hidden="true">✦</span>';
     return badge+art+'<strong>'+esc(qty+title)+'</strong>'+(attrs?'<span class="card-attrs">'+esc(attrs)+'</span>':'');
   }
@@ -16,6 +18,30 @@
     const parts=raw.split('/').map(part=>part.trim()).filter(Boolean);
     if(parts.length<2)return {main:raw,attrs:''};
     return {main:parts[0],attrs:parts.slice(1).join(' · ')};
+  }
+  // One shared drawing per game and product type. The feed only publishes shop
+  // photos for FC players, and those photos sit at the wrong relative path for
+  // this page, so cards used to come up empty. A game-and-type drawing keeps
+  // every card consistent regardless of which model the draw picked.
+  const CATEGORY_ART={
+    fc:{coins:'assets/product-fc-coins.webp',pack:'assets/product-fc-set.webp',player:'assets/product-fc-set.webp'},
+    aion:{coins:'assets/product-aion-coins.webp'},
+    wow:{coins:'assets/product-wow-coins.webp'},
+    maplestory:{coins:'assets/product-maplestory-coins.webp'}
+  };
+  const PACK_HINT=/\b(pack|packs|bundle|bundles|potm|evo|upgrade|stash|xi|cornucopia|mayhem|supernova|scream)\b/i;
+  function artCategory(gameId,text){
+    const title=String(text||'').trim();
+    if(gameId!=='fc')return 'coins';
+    if(/\bcoins?\b/i.test(title))return 'coins';
+    // FC player titles lead with a name, packs and SBC bundles carry a product
+    // word, so the word decides which drawing the face gets.
+    return PACK_HINT.test(title)?'pack':'player';
+  }
+  function categoryArt(gameId,text,fallback){
+    const table=CATEGORY_ART[gameId];
+    if(!table)return fallback||null;
+    return table[artCategory(gameId,text)]||table.coins||fallback||null;
   }
   const identifier=value=>typeof value==='string'&&value.trim()&&!/[\x00-\x20]/.test(value)?value:null;
   // The event ends and the daily picks reset at midnight US Eastern, so the page
@@ -154,7 +180,7 @@
     if(reference)nextExpiry=Math.min(nextExpiry,Date.parse(reference.expires_at));
     const title=english(model?.title,game.label+' model'),businessAmount=game.fixed_quantity?'<p class="business-quantity">'+esc(game.fixed_quantity.label)+'</p>':'';
     const price=reference?'<div class="reference-price"><span>Limited-Time Price</span><div class="price-line"><strong>'+format(reference.indicative_discounted_minor,reference.currency,reference.minor_unit_scale)+'</strong><del>'+format(reference.base_minor,reference.currency,reference.minor_unit_scale)+'</del></div></div>':'';
-    const fixed='<article class="offer-slot fixed-slot" data-offer-slot="fixed"><span class="slot-label">MYSTERY PICK 01</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-fixed-reveal aria-expanded="'+open+'" '+(!configured?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(configured?'Reveal your surprise':'Awaiting configuration')+'</strong><small>'+(configured?'Tap to turn your card':'Product model and offer binding unavailable')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'>'+faceContent({title,off:game.fixed_off_percent,image:model?.image})+businessAmount+'</span><span class="reveal-rays" aria-hidden="true"></span></button><div class="slot-detail'+(open&&animatingSlots.has('fixed')?' is-pending':'')+'" '+(!open?'hidden':'')+'>'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(game.fixed_model||'')+'" '+(!buyReady(game)?'disabled':'')+'>Buy Now</button>'+(contractFor(game)?'':'<p class="slot-note">Verified model options are not connected. Purchasing is unavailable.</p>')+'</div></article>';
+    const fixed='<article class="offer-slot fixed-slot" data-offer-slot="fixed"><span class="slot-label">MYSTERY PICK 01</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-fixed-reveal aria-expanded="'+open+'" '+(!configured?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(configured?'Reveal your surprise':'Awaiting configuration')+'</strong><small>'+(configured?'Tap to turn your card':'Product model and offer binding unavailable')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'>'+faceContent({title,off:game.fixed_off_percent,image:categoryArt(game.id,model?.title,model?.image)})+businessAmount+'</span><span class="reveal-rays" aria-hidden="true"></span></button><div class="slot-detail'+(open&&animatingSlots.has('fixed')?' is-pending':'')+'" '+(!open?'hidden':'')+'>'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(game.fixed_model||'')+'" '+(!buyReady(game)?'disabled':'')+'>Buy Now</button>'+(contractFor(game)?'':'<p class="slot-note">Verified model options are not connected. Purchasing is unavailable.</p>')+'</div></article>';
     const random=[1,2].map(n=>{
       const slot='random-'+n,offer=slotOffer(game,slot),receipt=receipts.get(game.id),token=receipt?.request_id+':'+slot,open=offer&&revealed.has(token),product=offer&&resolveModel(config,game,offer.model_id)[0],reference=offer&&referenceFor(game,offer);
       if(reference)nextExpiry=Math.min(nextExpiry,Date.parse(reference.expires_at));
@@ -162,7 +188,7 @@
       const tp=titleParts(english(product?.title,'Mystery selection'));
       const qtyPrefix=offer?.quantity?offer.quantity.value+' '+offer.quantity.unit+' ':'';
       const detail=open?'<div class="slot-detail'+(animatingSlots.has(slot)?' is-pending':'')+'">'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(offer.model_id)+'" data-buy-slot="'+slot+'" '+(!buyReady(game,offer)?'disabled':'')+'>Buy Now</button></div>':'';
-      return '<article class="offer-slot random-slot" data-offer-slot="'+slot+'"><span class="slot-label">MYSTERY PICK 0'+(n+1)+'</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-random-reveal="'+slot+'" aria-expanded="'+Boolean(open)+'" '+(!eventConfigured()||drawing.has(game.id)?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(drawing.has(game.id)?'Opening your collection…':'Reveal your surprise')+'</strong><small>'+(eventConfigured()?'Tap to turn your card':'Offer probabilities and dates are not configured')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'>'+faceContent({title:tp.main,attrs:tp.attrs,off:offer?.off_percent,image:product?.image,qty:qtyPrefix})+'</span><span class="reveal-rays" aria-hidden="true"></span></button>'+detail+'</article>';
+      return '<article class="offer-slot random-slot" data-offer-slot="'+slot+'"><span class="slot-label">MYSTERY PICK 0'+(n+1)+'</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-random-reveal="'+slot+'" aria-expanded="'+Boolean(open)+'" '+(!eventConfigured()||drawing.has(game.id)?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(drawing.has(game.id)?'Opening your collection…':'Reveal your surprise')+'</strong><small>'+(eventConfigured()?'Tap to turn your card':'Offer probabilities and dates are not configured')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'>'+faceContent({title:tp.main,attrs:tp.attrs,off:offer?.off_percent,image:categoryArt(game.id,product?.title,product?.image),qty:qtyPrefix})+'</span><span class="reveal-rays" aria-hidden="true"></span></button>'+detail+'</article>';
     }).join('');
     // Rebuilding identical markup resets focus and can replay transitions, so
     // only touch the DOM when the offers actually changed.
