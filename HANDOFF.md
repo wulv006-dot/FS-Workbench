@@ -168,3 +168,7 @@ PR278/280/281均正式CI通过并合并，最终功能head d641ff9eb7cabc2651361
 未做：`-10%` 徽章素材本身缺百分号（另两张有），按原样上线待换图；MapleStory 物品通用图仍在制作，暂由金币图兜底；首页四张游戏卡图（`game-1..4.png`）未动。回退点 `/var/backups/fs-navigation-20261006/nav-20261028T024922Z`。
 
 补充（同日 `nav-20261028T030250Z`，PR #583）：用户补来 MapleStory 物品通用图（白底 JPG），`artCategory()` 对 MapleStory 拆成 Mesos→金币图、其余装备→`product-maplestory-item.webp`。抠底用「四边泛洪标记背景连通区 + 区内按亮度映射 alpha + 0.8px 高斯软化」，物品内部白色与银色不受影响。发布 7 目标，静态清单 105→106 键；读回 item 图 200/`image/webp`/219328 字节，真实页面渲染 193×103，Mesos 卡仍走金币图。仍未做：`-10%` 徽章缺百分号，用户会补新图。
+
+补充（同日 `nav-20261028T030905Z`，PR #584）：用户补来带百分号的 `Polished Gold -10% Discount Badge`（1361x1156 RGBA，圆心 693/581.5、直径 ~1005，与 8%/15% 同一套构图）。按既有裁框（中心 693/583、边长 1146）归一后缩 176x176 webp，三档并排核对大小与描边一致。发布 6 目标，静态清单 106 键不变、仅 `seasonal/assets/badge-10.webp` 哈希 `deb0a8ec` -> `12351b79`。读回：服务端落盘 `12351b79c982…`、HTTP 200 `image/webp` 11702 字节、`cf-cache-status: BYPASS`；真实页面（Playwright）徽章 naturalWidth 176x176，页内 `fetch(cache:'no-store')` 取回字节 sha256 与落盘一致，截图确认显示 `-10%`。回退点 `/var/backups/fs-navigation-20261006/nav-20261028T030905Z`。
+
+遗留待办（缓存）：`/events/` 静态资源响应头是 `Cache-Control: public, max-age=2678400`（31 天），文件名又不带内容指纹 —— 换图只对首次访问者生效，发布前访问过的老访客会继续用浏览器里的旧图，必须强刷才更新。今天三次换图（徽章 + 四游戏插图 + 物品图）全部受此影响。根治方案：素材 URL 加版本查询参数，或文件名带内容哈希后再发布；本轮未做，等排期。

@@ -126,3 +126,11 @@
 - 真实页面（DOM 注入两张装备卡面以观察渲染，未改任何数据）：`product-maplestory-item.webp` 自然宽 > 0，渲染 193×103；同页 Mesos 固定卡仍为 `product-maplestory-coins.webp`（193×96）；`/events/` 下无 4xx。
 - 未执行：未真实抽随机卡（避免产生抽卡回执）；未改 policy / 公开配置 / 优惠码 / 派生价格缓存。
 
+### 2026-10-28 `nav-20261028T030905Z`（PR #584）读回：10% 徽章换图
+
+- 落盘：`seasonal/assets/badge-10.webp` `12351b79c982c6fba9fc37fa744a083fa31ee87940994d032458b4b1c243b1b5`、`runtime/static-manifest.json` `1b186d0d8693…`（106 键）。
+- HTTP：`/events/seasonal/assets/badge-10.webp` 200 `image/webp` 11702 字节，`cf-cache-status: BYPASS`（不走 CF 边缘缓存）。
+- 真实页面（Playwright，无本地缓存）：翻 FC 固定卡，徽章 `naturalWidth` 176×176，页内 `fetch(cache:'no-store')` 取回的字节 sha256 = `12351b79…`，与服务器落盘一致；截图确认徽章为 `-10%`（带百分号）。
+- 注意：服务端已生效，但该资源响应头 `Cache-Control: public, max-age=2678400`，用户浏览器若在发布前访问过会继续用旧图 31 天，需强刷验证。
+- 未执行：未改逻辑、未改 policy / 公开配置 / 价格缓存。
+
