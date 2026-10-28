@@ -176,6 +176,39 @@ def model_provider(reader,args):
         checkout_enabled=False,warnings=warnings,verification_scope='observed_admin_provider_only')
 
 
+def model_provider_batch(reader,items):
+    """Observe several models with one catalogue sweep per game.
+
+    The list route is the slow, occasionally stalling call, so one sweep per game
+    replaces one sweep per model. Failures stay per model and per game, mirroring the
+    single-model action: a stalled game is reported for its own models only instead of
+    taking every other game's prices down with it.
+    """
+    groups={}
+    for item in items:
+        groups.setdefault((item['site_id'],item['game_id']),[]).append(item)
+    readings={}
+    for (site_id,game_id),group in sorted(groups.items()):
+        try:
+            reader.begin_catalog_read()
+            reader.prefetch_goods(site_id,game_id,[item['model_id'] for item in group])
+        except ContractError as error:
+            code=str(error)
+            code=code if re.fullmatch(r'[A-Z][A-Z0-9_]{0,79}',code) else 'ASSOCIATION_READ_FAILED'
+            for item in group:readings[item['key']]=dict(status='error',error=code)
+            continue
+        for item in group:
+            args=dict(site_id=site_id,game_id=game_id,category_id=item['category_id'],model_id=item['model_id'])
+            try:
+                readings[item['key']]=dict(status='ok',data=model_provider(reader,args))
+            except ContractError as error:
+                # Only fixed project codes cross the process boundary, never upstream text.
+                code=str(error)
+                readings[item['key']]=dict(status='error',
+                    error=code if re.fullmatch(r'[A-Z][A-Z0-9_]{0,79}',code) else 'ASSOCIATION_READ_FAILED')
+    return dict(readings=readings)
+
+
 def category_pool(reader,args,fixed_ids):
     rows,coverage=bounded_pages(lambda page:reader.search_models_page(args['game_id'],args['category_id'],
         args['keyword'],page,args['page_size']),args['max_pages'],args['page_size'])
