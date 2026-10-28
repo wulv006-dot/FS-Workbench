@@ -76,6 +76,7 @@ function fsMainSite(profile,all=false){
   if(mainMetrics[key]?.value!=null||key==='averageCustomerUsd')continue;
   mainMetrics[key]=same&&order?.status==='available'&&order.currency==='USD'?take(order.metrics?.[key],'Order',(String(order.filters?.status)==='3'?'已完成订单 · ':'')+(all?'后台全部网站参考；与 Admin 网站集合可能不同':'后台全站参考；与 Admin 主站口径不同')):missing('Order','后台全站参考');
  }
+ mainMetrics.averageOrderUsd=fsPaidOrderAverage(mainMetrics);
  const revenue=mainMetrics.revenueUsd.value,rate=mainMetrics.profitMarginPct.value;
  const raw=revenue!==null&&rate!==null?Math.round(Math.round(revenue*100)*Math.round(rate*100)/10000)/100:null;
  mainMetrics.estimatedProfitUsd={value:numeric(raw)?raw:null,status:numeric(raw)?'available':'not_provided',source:'Admin × Order',scope:'预估：'+(all?'全部网站':'MMOEXP')+'销售额 × Order利润率；不是后台实结利润'};
@@ -87,8 +88,16 @@ function fsMainSite(profile,all=false){
   site:all?'全部网站':'MMOEXP',policy:'admin-paid-order-labelled-supplement-v2'};
 }
 
+function fsPaidOrderAverage(metrics){
+ const revenue=metrics.revenueUsd,orders=metrics.orders;
+ const known=m=>m?.status==='available'&&typeof m.value==='number'&&Number.isFinite(m.value)&&String(m.source).startsWith('Admin');
+ const same=known(revenue)&&known(orders)&&revenue.scope===orders.scope&&Number.isSafeInteger(orders.value)&&orders.value>=0;
+ return {value:same&&orders.value>0?revenue.value/orders.value:null,status:same?(orders.value>0?'available':'not_computable'):'not_provided',source:'Admin',scope:revenue?.scope||orders?.scope,unit:'USD',field:'amount / total',definition:'同范围已付款销售额 ÷ 已付款订单数；退款另列',stale:!!(revenue?.stale||orders?.stale)};
+}
+
 function fsOrderLabel(source){return ({available:'读取完成',queued:'排队中',reading:'读取中',deferred:'采集繁忙，稍后重试',failed:'读取失败',pending:'读取中',unavailable:'读取失败'}[source?.phase||source?.status]||'尚未读取')+(source?.stale&&source?.capturedAt?' · 已过期':'');}
 function fsMetricText(item,format){
+ if(item?.field==='amount / total'&&item?.status==='not_computable')return '无订单，不计算';
  if(item?.value!=null)return format(item.value)+(item.stale?'（已过期，更新中）':'');
  return {queued:'Order 排队中',reading:'Order 读取中',deferred:'Order 暂忙，稍后重试',failed:'Order 读取失败','period-mismatch':'Order 日期待对齐'}[item?.pendingPhase]||'源未提供';
 }
