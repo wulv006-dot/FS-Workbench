@@ -97,6 +97,28 @@ class ConcurrentPublisher(unittest.TestCase):
   module,base,*rest=self.setup();self.assertEqual(len(module.TARGETS),7);self.assertFalse(module.NEW)
   self.assertIs(base.apply,rest[-1]);self.assertFalse(any('user_' in path or path.endswith('.db') for path in module.TARGETS.values()))
   self.assertEqual(module.TARGETS['source/cache_retention.py'],'/opt/fs-hermes-fc/cache_retention.py')
+ def test_legacy_centos_timer_show_projects_full_metadata_without_requesting_pid_properties(self):
+  module=self.module();control=module.SystemControl.__new__(module.SystemControl)
+  import subprocess
+  def legacy(args,**kwargs):
+   if '-p' in args:raise subprocess.CalledProcessError(1,args)
+   self.assertEqual(args,['systemctl','show',module.TIMERS[0],'--no-pager'])
+   return 'LoadState=loaded\nActiveState=active\nSubState=waiting\nUnitFileState=enabled\nEnvironment=synthetic_not_for_output\nExecStart=synthetic_not_for_output\n'
+  with patch.object(module.subprocess,'check_output',side_effect=legacy) as show:
+   value=control.state(module.TIMERS[0]);show.assert_called_once()
+  self.assertEqual(value,dict(LoadState='loaded',ActiveState='active',SubState='waiting',UnitFileState='enabled'))
+  self.assertNotIn('MainPID',value);self.assertNotIn('ControlPID',value)
+
+ def test_full_service_metadata_keeps_real_pids_and_rejects_missing_or_unknown_state(self):
+  module=self.module();control=module.SystemControl.__new__(module.SystemControl)
+  raw='LoadState=loaded\nActiveState=inactive\nSubState=dead\nMainPID=0\nControlPID=0\nUnitFileState=static\nExecStart=synthetic_not_for_output\n'
+  with patch.object(module.subprocess,'check_output',return_value=raw) as show:
+   value=control.state(module.SOURCES[0])
+  self.assertEqual(show.call_args.args[0],['systemctl','show',module.SOURCES[0],'--no-pager'])
+  self.assertEqual((value['MainPID'],value['ControlPID']),('0','0'));self.assertNotIn('ExecStart',value)
+  for bad in (raw.replace('MainPID=0\n',''),raw.replace('ControlPID=0\n',''),raw.replace('MainPID=0','MainPID=unknown'),raw.replace('LoadState=loaded','LoadState=not-found'),raw.replace('ActiveState=inactive\n','')):
+   with self.subTest(metadata=bad.splitlines()[:1]),patch.object(module.subprocess,'check_output',return_value=bad):
+    with self.assertRaisesRegex(ValueError,'p4_source_unit_unavailable'):control.state(module.SOURCES[0])
  def test_real_frozen_validate_keeps_exact_runtime_fields_and_accepts_separate_maintenance_record(self):
   import copy,hashlib,tempfile
   module,_,_,_,states,*_=self.setup()
