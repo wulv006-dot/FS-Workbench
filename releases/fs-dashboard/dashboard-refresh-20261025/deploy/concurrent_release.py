@@ -176,7 +176,11 @@ def extend(base,control_factory=SystemControl):
                 # Bootstrap may interrupt retryable pure reads; no live writer owns these leases.
                 fence.stop_then_unlock_database();control.stopped()
                 for folder in QUERY_ROOTS:
-                    directory=base.rooted(root,folder);base.no_target_link(directory)
+                    directory=base.rooted(root,folder)
+                    # Preserve the original parent-chain link check, with a directory type contract.
+                    for path in (directory,*directory.parents):
+                        if path.is_symlink():raise ValueError('target or parent is a symlink: '+str(path))
+                    if directory.exists() and not directory.is_dir():raise ValueError('p4_query_root_not_directory')
                     if directory.exists():
                         for path in sorted(directory.glob('.capture-*.lock')):
                             stack.enter_context(lease(base,root,'/'+str(path.relative_to(Path(root)))))

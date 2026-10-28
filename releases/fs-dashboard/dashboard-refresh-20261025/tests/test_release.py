@@ -74,6 +74,8 @@ class ConcurrentPublisher(unittest.TestCase):
   # Execute the existing publisher's actual stop method, rather than handwave a stopped flag.
   raw=R.parents[0]/'channel-effects-20261021/deploy/release_navigation_base.py'
   import ast
+  frozen=types.ModuleType('original_path_contract');frozen.__file__=str(raw)
+  exec(compile(raw.read_bytes(),str(raw),'exec'),frozen.__dict__)
   cls=next(n for n in ast.parse(raw.read_text()).body if isinstance(n,ast.ClassDef) and n.name=='HermesAdmissionFence')
   node=next(n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=='stop_then_unlock_database')
   namespace=dict(subprocess=module.subprocess);exec(compile(ast.Module(body=[node],type_ignores=[]),'original-stop-method','exec'),namespace)
@@ -90,7 +92,7 @@ class ConcurrentPublisher(unittest.TestCase):
     if any(states[unit][k]!=v for k,v in expected.items()):raise ValueError('protected unit changed')
   base=types.SimpleNamespace(HERMES_HISTORY_SCOPE=module.SCOPE,live_lock=web,hermes_admission_fence=admission,
    guards=guards,inspect=lambda m,s,r:guards(m,r),rollback_journal=lambda b,j,r:actions.append(('original-rollback',)),
-   rooted=lambda root,path:Path(root)/path.lstrip('/'),no_target_link=lambda p:None,apply=object())
+   rooted=lambda root,path:Path(root)/path.lstrip('/'),no_target_link=frozen.no_target_link,apply=object())
   original_apply=base.apply;base=module.extend(base,lambda root:control)
   return module,base,control,fence,states,actions,seen,original_apply
  def test_exact_existing_targets_and_original_apply_unchanged(self):
@@ -239,6 +241,42 @@ class ConcurrentPublisher(unittest.TestCase):
    with base.live_lock(self.manifest(module,states),Path('/fixture')):self.fail('writer reached')
   self.assertNotIn(('systemctl','stop',module.RANGE),actions)
   self.assertEqual(states[module.TIMERS[0]]['ActiveState'],'active')
+ def check_live_query_root(self,kind):
+  import tempfile,os
+  from contextlib import contextmanager
+  module,base,control,fence,states,actions,*_=self.setup()
+  with tempfile.TemporaryDirectory() as folder:
+   root=Path(folder)
+   for name in module.QUERY_ROOTS:
+    directory=base.rooted(root,name);directory.mkdir(parents=True,exist_ok=True)
+    (directory/'.capture-fixture.lock').write_bytes(b'')
+   directory=base.rooted(root,module.QUERY_ROOTS[0 if kind=='parent-symlink' else 1])
+   if kind!='directory':
+    saved=directory.with_name(directory.name+'-original');directory.rename(saved)
+    if kind=='file':directory.write_bytes(b'not a cache directory')
+    else:os.symlink(saved,directory,target_is_directory=True)
+   @contextmanager
+   def checked_lease(base,root,name):
+    base.no_target_link(base.rooted(root,name));actions.append(('lease',name));yield
+   with patch.object(module,'lease',checked_lease):
+    if kind=='directory':
+     with base.live_lock(self.manifest(module,states),root):
+      self.assertEqual(states[module.RANGE]['MainPID'],'0')
+      leased=[base.rooted(root,action[1]) for action in actions if action[0]=='lease']
+      for name in module.QUERY_ROOTS:self.assertIn(base.rooted(root,name)/'.capture-fixture.lock',leased)
+    else:
+     with self.assertRaisesRegex(ValueError,'symlink' if kind.endswith('symlink') else 'not.*directory'):
+      with base.live_lock(self.manifest(module,states),root):self.fail('unsafe query root reached publisher')
+   self.assertEqual(states[module.RANGE]['ActiveState'],'active')
+   self.assertEqual(states[module.TIMERS[0]]['ActiveState'],'active')
+ def test_live_lock_accepts_cache_directories_and_rejects_file_substitution_with_frozen_file_contract(self):
+  for kind in ('directory','file'):
+   with self.subTest(kind=kind):self.check_live_query_root(kind)
+ @unittest.skipUnless(__import__('os').name=='posix','real directory symlinks')
+ def test_live_lock_rejects_query_root_or_parent_symlink_with_frozen_file_contract(self):
+  for kind in ('symlink','parent-symlink'):
+   with self.subTest(kind=kind):self.check_live_query_root(kind)
+
  def test_rollback_stops_reader_before_original_restore_and_unconfirmed_never_auto_starts_bad_code(self):
   module,base,control,fence,states,actions,*_=self.setup();manifest=self.manifest(module,states)
   with base.live_lock(manifest,Path('/fixture')):
