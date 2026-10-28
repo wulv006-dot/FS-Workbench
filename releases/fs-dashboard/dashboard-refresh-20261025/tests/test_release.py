@@ -160,6 +160,27 @@ class ConcurrentPublisher(unittest.TestCase):
   with patch.object(module.subprocess,'check_output') as jobs:
    with self.assertRaisesRegex(ValueError,'p4_source_still_running'):control.idle()
    jobs.assert_not_called()
+ def test_idle_reads_real_cmdline_bytes_and_rejects_legacy_source_scripts(self):
+  import tempfile
+  module=self.module();control=module.SystemControl.__new__(module.SystemControl)
+  control.state=lambda unit:dict(ActiveState='inactive',MainPID='0',ControlPID='0')
+  command=['busctl','call','org.freedesktop.systemd1','/org/freedesktop/systemd1','org.freedesktop.systemd1.Manager','ListJobs']
+  scripts=('/opt/fs-hermes-fc/channel_cache.py','/opt/fs-exact-range-20261001/archive_jobs.py',
+   '/opt/fs-transaction-snapshot/collector.py','/opt/fs-hermes-fc/user_jobs.py')
+  with tempfile.TemporaryDirectory() as directory:
+   process=Path(directory)/'123';process.mkdir()
+   original_iterdir=module.Path.iterdir
+   def processes(path):return iter((process,)) if path==Path('/proc') else original_iterdir(path)
+   cases=[(b'/opt/python39/bin/python3\0-B\0/opt/unrelated.py\0',False),
+    (b'/usr/bin/unrelated\0',False)]+[(b'/opt/python39/bin/python3\0-B\0'+script.encode()+b'\0',True) for script in scripts]
+   for raw,blocked in cases:
+    with self.subTest(cmdline=raw),patch.object(module.Path,'iterdir',processes),patch.object(module.subprocess,'check_output',return_value='a(usssoo) 0') as jobs:
+     (process/'cmdline').write_bytes(raw)
+     if blocked:
+      with self.assertRaisesRegex(ValueError,'p4_legacy_source_process_running'):control.idle()
+     else:self.assertIsNone(control.idle())
+     jobs.assert_called_once_with(command,text=True)
+
  def test_real_frozen_validate_keeps_exact_runtime_fields_and_accepts_separate_maintenance_record(self):
   import copy,hashlib,tempfile
   module,_,_,_,states,*_=self.setup()
