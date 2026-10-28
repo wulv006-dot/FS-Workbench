@@ -46,7 +46,7 @@ Admin 全部使用现有 8912 API。`summary_bridge`、native collector、supple
 
 ## 三份活动归档模块与最终34目标候选
 
-最终数据候选为34目标、6 NEW：原32目标追加营销 `/opt/mmoexp-marketing/custom-range/daily_archive.py` 与独立Hermes `/opt/fs-hermes-fc/daily_archive.py` 两个已有文件。它们当前同SHA `aa33c6fb…`，仅使用旧 `daily-archive-20261021/source/daily_archive.py` 的18行保留期局部补丁，候选SHA `28374ee3…`；新版range仍使用 `dashboard-refresh-20261025/source/daily_archive.py`，不能互相覆盖。精确三份映射及各进程证据见 `COMPAT-ARCHIVE-TARGETS.json`；没有新增archive_jobs目标。
+最终数据候选为34目标、6 NEW：原32目标追加营销 `/opt/mmoexp-marketing/custom-range/daily_archive.py` 与独立Hermes `/opt/fs-hermes-fc/daily_archive.py` 两个已有文件。它们当前同SHA `aa33c6fb…`，仅使用旧 `daily-archive-20261021/source/daily_archive.py` 的18行保留期局部补丁，候选Git blob LF SHA `631cc57c…`；新版range仍使用 `dashboard-refresh-20261025/source/daily_archive.py`，不能互相覆盖。精确三份映射及各进程证据见 `COMPAT-ARCHIVE-TARGETS.json`；没有新增archive_jobs目标。
 
 候选文件名分别为 `source/daily_archive.py`、`source/marketing-daily_archive.py`、`source/hermes-daily_archive.py`，同一旧源只复制到后两处。原发布适配器保留CAS、锁、fence、未知任务及回滚，nav精确目标保留既有0600，其余目标继续644断言。营销沿原重载链额外重载已活动 `fs-marketing-range.service`；原8935端口 `/range` 无X-Auth-User必在query前返回401，此只读契约已核，可用于重载后监听/鉴权读回，不能冒称经营采集验收。Hermes模型worker不为本补丁重启。
 

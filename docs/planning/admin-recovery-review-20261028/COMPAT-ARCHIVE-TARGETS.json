@@ -1,7 +1,7 @@
 {
   "status": "candidate_not_published",
   "source": "releases/fs-dashboard/daily-archive-20261021/source/daily_archive.py",
-  "candidateSha256": "28374ee3b1d998f74efdce1dd84e07e3ca6eea692a589ec8e709a9e507ce19b4",
+  "candidateSha256": "631cc57c1c950731f03a4d3e669bf6588fa9d0d3398f317ebaf82840543ef348",
   "change": "Only separate twelve-month archive retention from unchanged default three-month backfill cutoff; preserve each compatibility module's original source contracts.",
   "targets": [
     {
@@ -39,5 +39,6 @@
     "target": "/opt/fs-exact-range-20261001/daily_archive.py",
     "candidateSha256": "3d64968fa415549bb1a504f389123cf2118c8937cad77e4800a1cf7beaa0697b",
     "contract": "newer paid-cohort/summary contracts; separate maintenance source"
-  }
+  },
+  "candidateHashBasis": "Final Git blob LF bytes; Windows worktree CRLF hash is not the deployment digest"
 }
