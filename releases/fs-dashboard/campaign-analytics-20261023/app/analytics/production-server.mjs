@@ -73,7 +73,10 @@ export const server=http.createServer(async(req,res)=>{
   const auth=await authorize(req);if(auth.status!==200||!auth.user)return json(res,auth.status===401?401:403,{message:'请使用 FS 原有登录及权限'});
   const url=new URL(req.url,'http://localhost');if(!url.pathname.startsWith(prefix))return json(res,404,{message:'Not found'});
   const relative=decodeURIComponent(url.pathname.slice(prefix.length));
-  if(['GET','HEAD','POST'].includes(req.method)&&['analytics/api/center','analytics/api/center/publish'].includes(relative))await adminPrices.refresh();
+  if(['GET','HEAD','POST'].includes(req.method)&&['analytics/api/center','analytics/api/center/publish'].includes(relative)){
+   if(req.method==='POST')await adminPrices.refresh();
+   else void adminPrices.refresh().catch(()=>{});
+  }
   if(req.method!=='GET'&&req.method!=='HEAD'){
    if(req.method!=='POST'||!auth.admin)return json(res,403,{message:'仅现有管理员可保存配置'});
    if(req.headers.origin!==origin||req.headers['x-csrf-token']!==csrf)return json(res,403,{message:'请求来源或会话校验失败，请刷新页面'});

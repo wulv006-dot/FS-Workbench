@@ -68,16 +68,17 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
    if(current.config.schema_version===2&&!current.release.seasonal_model_contracts?.[p.model_ref.model_id]){unavailable(current.release,'PRIVATE_NATIVE_CATALOG_REQUIRED');return status;}
    selectedByModel.set(p.model_ref.model_id,selected);
   }
-  if(memory.length===current.config.entries.length&&memory.every(x=>now()-Date.parse(x.observation.observed_at)>=0&&now()-Date.parse(x.observation.observed_at)<x.policy.max_age_ms))return status;
+  // Start the next read before prices expire; a full catalogue sweep takes minutes.
+  if(memory.length===current.config.entries.length&&memory.every(x=>now()-Date.parse(x.observation.observed_at)>=0&&now()-Date.parse(x.observation.observed_at)<x.policy.max_age_ms-current.config.refresh_interval_ms))return status;
   if(flight?.key===current.key)return flight.promise;
   if(attemptKey===current.key&&attemptedAt!==null&&now()-attemptedAt<current.config.refresh_interval_ms)return status;
   attemptKey=current.key;attemptedAt=now();
   const admitted=generation;
-  // Publish invalidation before awaiting Admin; public reads cannot use stale success during refresh.
-  unavailable(current.release,'REFERENCE_PRICE_REFRESHING');
+  // The public overlay checks each price's expiry while the next read is in flight.
+  if(!memory.length)unavailable(current.release,'REFERENCE_PRICE_REFRESHING');
   const promise=(async()=>{
    try{
-    const products=[],raw={},observations=[],reads=new Map();
+    const products=[],raw={},observations=[],reads=new Map(),missing=[];
     // Warm every distinct model read concurrently. The projection below stays
     // sequential, so ordering and the generation checks are unchanged; only the
     // Admin round trips overlap. Without this a 44-model pool cannot finish
@@ -138,9 +139,9 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
       // observation while it is still inside max_age_ms instead of throwing away every
       // other model's price because one read was slow.
       const prior=sticky.get(canonical(p));
-      if(prior)projected=projectAdminPrices(prior.observation,p,{now:now()});
+      if(prior){projected=projectAdminPrices(prior.observation,p,{now:now()});if(projected.status==='reference_price_ready_not_checkout')observation=prior.observation;}
      }
-     if(projected.status!=='reference_price_ready_not_checkout'){unavailable(current.release,projected.reason);return status;}
+     if(projected.status!=='reference_price_ready_not_checkout'){missing.push(code(projected.reason));continue;}
      if(current.config.schema_version===1&&(projected.products.length!==1||projected.products[0].platform.attribute_id!=='21587'||projected.model_contracts[p.model_ref.model_id].combinations.some(row=>row.choices.platform!=='21587'||row.choices.region!=='7645')))throw Error('PUBLIC_OPTIONS_CONFLICT');
      const selected=selectedByModel.get(p.model_ref.model_id),remap=new Map(projected.products.map(x=>[x.key,selected.find(s=>s.product_ref.goods_id===x.product_ref.goods_id)?.key]));
      if([...remap.values()].some(x=>!x))throw Error('PUBLISHED_SELECTION_REQUIRED');
@@ -175,10 +176,11 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
      // converge while the upstream keeps stalling.
      sticky.set(canonical(p),{observation,policy:p});
     }
+    if(!products.length){unavailable(current.release,missing[0]||'ADMIN_PRICE_UNAVAILABLE');return status;}
     if(products.length>1000)throw Error('PUBLIC_CATALOG_LIMIT');
     safeWrite({schema_version:1,status:'ready',release_id:current.release.release_id,config_hash:current.release.config_hash,
      generated_at:new Date(now()).toISOString(),products,model_contracts:projectModelOptions(raw,products)});
-    memory=observations;status={status:'reference_price_ready_not_checkout',reason:null};return status;
+    memory=observations;status={status:missing.length?'reference_price_partial_not_checkout':'reference_price_ready_not_checkout',reason:missing[0]||null};return status;
    }catch(error){if(generation===admitted)unavailable(current.release,code(error.code||error.message));return status;}
   })();
   flight={key:current.key,promise};try{return await promise;}finally{if(flight?.promise===promise)flight=null;}
@@ -186,6 +188,6 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
  return {refresh,start:()=>{started=true;return refresh();},stop:()=>{started=false;if(timer)clearTimer(timer);timer=null;interval=null;},
   seedOptions:()=>{const c=context();if(c.key!==key){generation++;key=c.key;unavailable(c.release,'PRIVATE_POLICY_OR_RELEASE_CHANGED');}
    const valid=memory.filter(x=>projectAdminPrices(x.observation,x.policy,{now:now()}).status==='reference_price_ready_not_checkout');
-   if(valid.length!==memory.length)unavailable(c.release,'CATALOG_STALE');return {adminObservations:c.config?.schema_version===2?[]:structuredClone(valid),now:now()};},
+   if(memory.length&&!valid.length)unavailable(c.release,'CATALOG_STALE');return {adminObservations:c.config?.schema_version===2?[]:structuredClone(valid),now:now()};},
   status:()=>structuredClone(status),cacheFile};
 }

@@ -28,16 +28,17 @@ export function applyPublicPriceCache(snapshot,cache,{now=Date.now()}={}){
    const existing=result.seasonal_model_contracts?.[id];
    if(existing&&(canonical(existing.model_ref)!==canonical(c.model_ref)||canonical(existing.fields)!==canonical(c.fields)))return result;
    for(const row of c.combinations){
-    const p=row.price;if(!p||p.source!=='admin_current'||p.currency!=='USD'||p.minor_unit_scale!==2||Date.parse(p.expires_at)<=now||Date.parse(p.expires_at)-Date.parse(cache.generated_at)>3600000||p.quantity_value!==row.quantity.min||row.quantity.min!==row.quantity.max)return result;
+    const p=row.price;if(!p||p.source!=='admin_current'||p.currency!=='USD'||p.minor_unit_scale!==2||Date.parse(p.expires_at)-Date.parse(cache.generated_at)>3600000||p.quantity_value!==row.quantity.min||row.quantity.min!==row.quantity.max)return result;
     if(existing&&!existing.combinations.some(old=>old.product_key===row.product_key&&canonical(old.choices)===canonical(row.choices)&&canonical(old.attributes)===canonical(row.attributes)&&canonical(old.quantity)===canonical(row.quantity)))return result;
    }
   }
   const merged=structuredClone(result.seasonal_model_contracts||{});
   for(const [id,c] of Object.entries(contracts)){
-   if(!merged[id]){merged[id]=c;continue;}
+   if(!merged[id]){const fresh=c.combinations.filter(row=>Date.parse(row.price.expires_at)>now);if(fresh.length)merged[id]={...c,combinations:fresh};continue;}
    // A partial fresh price read never deletes other verified server choices.
-   for(const row of c.combinations){const target=merged[id].combinations.find(old=>old.product_key===row.product_key&&canonical(old.choices)===canonical(row.choices)&&canonical(old.attributes)===canonical(row.attributes)&&canonical(old.quantity)===canonical(row.quantity));target.price=row.price;}
+   for(const row of c.combinations){if(Date.parse(row.price.expires_at)<=now)continue;const target=merged[id].combinations.find(old=>old.product_key===row.product_key&&canonical(old.choices)===canonical(row.choices)&&canonical(old.attributes)===canonical(row.attributes)&&canonical(old.quantity)===canonical(row.quantity));target.price=row.price;}
   }
+  if(!Object.keys(merged).length)return result;
   const candidate={...result,products:result.products.map(p=>products.find(x=>x.key===p.key)||p),seasonal_model_contracts:merged};
   return {publication_status:'published',...projectRelease(candidate)};
  }catch{return result;}
