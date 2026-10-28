@@ -404,20 +404,29 @@ class SnapshotConcurrency(unittest.TestCase):
 
     @unittest.skipUnless(os.name=='posix','real cross-process Linux file lock')
     def test_other_process_key_owner_returns_busy_without_waiting_or_duplicate_reader(self):
-        import select,subprocess,time
+        import fcntl,select,time
         self.get();self.clock[0]+=timedelta(days=1);lock=next(self.root.glob('.refresh-*.lock'))
-        program='import fcntl,os,sys;fd=os.open(sys.argv[1],os.O_RDWR);fcntl.flock(fd,fcntl.LOCK_EX);print("READY",flush=True);sys.stdin.read(1);os.close(fd)'
-        process=subprocess.Popen([sys.executable,'-B','-c',program,str(lock)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        ready_read,ready_write=os.pipe();release_read,release_write=os.pipe()
+        child=os.fork()
+        if child==0:
+            os.close(ready_read);os.close(release_write);fd=None;code=1
+            try:
+                fd=os.open(lock,os.O_RDWR);fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                os.write(ready_write,b'R')
+                if select.select([release_read],[],[],2)[0]:
+                    os.read(release_read,1);code=0
+            finally:
+                if fd is not None:os.close(fd)
+                os.close(ready_write);os.close(release_read);os._exit(code)
+        os.close(ready_write);os.close(release_read)
         try:
-            self.assertTrue(select.select([process.stdout],[],[],2)[0]);self.assertEqual(process.stdout.readline().strip(),'READY')
+            self.assertTrue(select.select([ready_read],[],[],2)[0]);self.assertEqual(os.read(ready_read,1),b'R')
             reader=Mock(side_effect=AssertionError('cross-process duplicate source'))
             started=time.monotonic();value=self.get(reader=reader)
             self.assertLess(time.monotonic()-started,.5);self.assertEqual(value['status'],'busy');reader.assert_not_called()
         finally:
-            if process.poll() is None:
-                process.stdin.write('x');process.stdin.flush()
-            try:process.communicate(timeout=2)
-            except subprocess.TimeoutExpired:process.kill();process.communicate(timeout=2)
+            os.close(release_write);os.close(ready_read)
+            waited,status=os.waitpid(child,0);self.assertEqual(waited,child);self.assertEqual(status,0)
         self.assertEqual(self.get(reader=lambda:self.value(2))['marker'],2)
 
     @unittest.skipUnless(os.name=='posix','real lock inode replacement')
