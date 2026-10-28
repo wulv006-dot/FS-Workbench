@@ -209,6 +209,25 @@ class CloseOnOrderAdminTest(unittest.TestCase):
         self.assertNotEqual(receipt['status'], 'PUBLIC_CONFIRMED')
         self.assertEqual(receipt['confirmation_scope'], 'Order_Admin')
 
+    def test_public_receipt_reuses_order_admin_evidence_without_extra_read(self):
+        runtime._admin_observed_prices = lambda: ADMIN_OK
+        op = self.ledger.get('operations', 'op-1')
+        op['steps'] = op['steps'][:1]
+        self.ledger.put('operations', 'op-1', op)
+        with patch.object(runtime, '_admin_observed_prices', return_value=ADMIN_OK) as readback, \
+                patch.object(adapters, 'reconcile_postwrite', return_value={'status': 'PUBLIC_CONFIRMED', 'public': {'platforms': ['PS','XBOX','PC']}}) as public:
+            closed = runtime.close_on_order_admin(op, _audit())
+        self.assertEqual(closed['status'], 'COMPLETED')
+        receipt = self.ledger.get('readback_receipts', 'op-1')
+        self.assertEqual(receipt['status'], 'PUBLIC_CONFIRMED')
+        self.assertEqual(receipt['confirmation_scope'], 'Order_Admin')
+        self.assertEqual(receipt['operation_id'], 'op-1')
+        self.assertEqual(receipt['order_feedback']['sync_message'], '同步成功')
+        self.assertEqual(set(receipt['admin_unit_prices']), {'PS','XBOX','PC'})
+        self.assertEqual(set(r['platform'] for r in receipt['targets']), {'PS','XBOX','PC'})
+        self.assertEqual(self._read_audit()['close_receipt'], {k: receipt[k] for k in ('status','admin_unit_prices','targets','public_verification')})
+        readback.assert_called_once_with();public.assert_called_once()
+
     # ---- review #1：读价推断不能当成功 ----
 
     def test_price_inference_only_cannot_close(self):
