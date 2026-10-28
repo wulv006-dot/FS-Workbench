@@ -180,6 +180,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['releases/ops/shared-admin-direct-20261028/source/fc_shared_admin.py']) != ['shared-admin-direct']:
+        raise RuntimeError('shared_admin_direct_mapping_missing')
     if select(['releases/fc-coins/cost-timeout-20261025/source/collect_p2pah_cost.sh']) != ['fc-cost-timeout']:
         raise RuntimeError('fc_cost_timeout_mapping_missing')
     if select(['releases/fc-coins/fc-cost-live-recovery-20261025/source/collect_p2pah_cost.py']) != ['fc-cost-live-recovery']:
@@ -408,6 +410,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('releases/ops/shared-admin-direct-20261028/'):
+            groups.add('shared-admin-direct');continue
         if name.startswith("releases/fc-coins/cost-timeout-20261025/"):
             groups.add("fc-cost-timeout");continue
         if name.startswith("releases/fc-coins/fc-cost-live-recovery-20261025/"):
@@ -842,6 +846,9 @@ def main():
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/halloween52-browser.cjs")
             continue
         print("affected group:",group,flush=True)
+        if group == 'shared-admin-direct':
+            units('releases/ops/shared-admin-direct-20261028/tests', ['test_shared_admin'])
+            continue
         if group == 'hermes-review-archive':
             units('releases/fs-dashboard/hermes-review-archive-20261024', ['test_archive'])
             continue
@@ -1242,7 +1249,7 @@ def main():
             generic="releases/fs-dashboard/hermes-generic-data-20261018"
             workspace="releases/fs-dashboard/hermes-data-workspace-20261018"
             admin="releases/fs-dashboard/admin-data-tools-20261018"
-            units(generic+"/tests",["test_http_queries","test_cohort_paid_source","test_admin_product_orders"])
+            units(generic+"/tests",["test_http_queries","test_cohort_paid_source","test_admin_product_orders","test_direct_bridges"])
             units(generic+"/deploy",["test_session_image_lifecycle"])
             units(admin,["test_admin_data_tools","test_publisher_boundary"])
             units(workspace+"/tests",["test_tool_chain","test_cohort_reader","test_cohort_observation","test_cohort_es_source"])

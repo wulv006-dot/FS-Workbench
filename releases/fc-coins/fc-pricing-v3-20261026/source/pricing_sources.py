@@ -138,8 +138,8 @@ def _collect_shared_admin(storefront, *, persist=True):
     if not token:raise ValueError('pricing_admin_shared_source_unavailable')
     session.bind_admin_token(token);del token
     try:
-        discounts=pages(session,'/admin/market.Discount/index')
-        coupons=pages(session,'/admin/market.Coupon/index')
+        discounts=pages(session,'/admin/market.Discount/index',[('status','=','1'),('site_id','IN','0,266')])
+        coupons=pages(session,'/admin/market.Coupon/index',[('status','=','1'),('site_id','IN','0,266')])
         wanted=','.join(str(r['sku_id']) for r in storefront['rows'].values())
         goods=pages(session,'/admin/goods.Goods/index',[('id','IN',wanted)])
     finally:session.close()
