@@ -136,17 +136,22 @@ def fill_costs(data,q,profile,root):
     return scoped_accounting(data)
 
 def _closed_complete(old, q):
-    """2026-10-28: 已封账日（end 早于今天）且成本已采全的结果永久复用。
+    """2026-10-28: 历史日期、来源完整且业务订单均为已知终态才永久复用。
     原先统一 600 秒 TTL，导致 30 天区间每次访问都重算一遍（约 5-8 分钟）。
     用户点刷新（refresh=1）仍可强制重算。"""
     if not old:
         return False
-    from channel_effects import TZ
+    from channel_effects import TZ,final_order_statuses
     if q.get('end', '') >= datetime.now(TZ).date().isoformat():
         return False
     data = old.get('data') or {}
     sources = data.get('sources') or {}
-    return (sources.get('orders') or {}).get('status') == 'complete' and (sources.get('cost') or {}).get('status') == 'complete'
+    orders = data.get('orders')
+    # Source completeness proves pagination, not completion of the paid orders.
+    # Old snapshots without persisted state proof remain eligible for normal refresh.
+    states_known = isinstance(orders,list) and all(isinstance(row,dict) and isinstance(row.get('status'),str) and type(row.get('refunded')) is bool for row in orders)
+    return ((sources.get('orders') or {}).get('status') == 'complete' and (sources.get('cost') or {}).get('status') == 'complete'
+            and states_known and final_order_statuses(data))
 
 
 class ActualProfitService:
