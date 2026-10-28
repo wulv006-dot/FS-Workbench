@@ -106,7 +106,10 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
         game_id:p.model_ref.game_id,model_id:p.model_ref.model_id,category_id:p.category_id}));
       const started=[];
       let readings=null,failure=null;
-      try{readings=(await call({action:'model_provider_batch',site_id:'266',items},{timeout:180000}))?.readings||null;}
+      // A full 44-model sweep with its own per-model detail reads measured 196s on
+      // 2026-10-28; the child budget has to sit above that or the whole game is killed
+      // mid-flight and reported as a failure that never happened.
+      try{readings=(await call({action:'model_provider_batch',site_id:'266',items},{timeout:300000}))?.readings||null;}
       catch(error){failure=error;}
       for(const [readKey] of members){
         const reading=readings?.[readKey];

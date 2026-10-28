@@ -32,7 +32,7 @@ function fixture(){
  const options={publicDir,readPolicy:()=>config,now:()=>clock,
   readSnapshot:()=>JSON.parse(fs.readFileSync(path.join(publicDir,'current.json'),'utf8')),
   call:async(req,opts)=>{calls++;assert.equal(req.action,'model_provider_batch');assert.equal(req.site_id,'266');
-   assert.equal(opts.timeout,180000);assert.equal(req.items.length,1);
+   assert.equal(opts.timeout,300000);assert.equal(req.items.length,1);
    const [item]=req.items;assert.equal(item.site_id,REF.site_id);assert.equal(item.game_id,REF.game_id);
    assert.equal(item.model_id,REF.model_id);assert.equal(item.category_id,'9623');
    const readings={};
