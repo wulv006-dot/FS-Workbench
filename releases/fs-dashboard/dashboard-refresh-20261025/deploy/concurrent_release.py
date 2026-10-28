@@ -29,10 +29,12 @@ class SystemControl:
         self.before={};self.paused=[]
 
     def state(self,unit):
-        raw=subprocess.check_output(['systemctl','show',unit,'--no-pager','-p','LoadState',
-            '-p','ActiveState','-p','SubState','-p','MainPID','-p','ControlPID','-p','UnitFileState'],text=True)
-        value=dict(line.split('=',1) for line in raw.splitlines() if '=' in line)
-        if value.get('LoadState')!='loaded' or not value.get('UnitFileState'):raise ValueError('p4_source_unit_unavailable')
+        raw=subprocess.check_output(['systemctl','show',unit,'--no-pager'],text=True)
+        allowed={'LoadState','ActiveState','SubState','MainPID','ControlPID','UnitFileState'}
+        value={key:val for line in raw.splitlines() if '=' in line for key,val in (line.split('=',1),) if key in allowed}
+        if (value.get('LoadState')!='loaded' or not all(value.get(key) for key in ('ActiveState','SubState','UnitFileState'))
+                or unit.endswith('.service') and not all(value.get(key,'').isascii() and value.get(key,'').isdecimal() for key in ('MainPID','ControlPID'))):
+            raise ValueError('p4_source_unit_unavailable')
         return value
 
     def idle(self):
