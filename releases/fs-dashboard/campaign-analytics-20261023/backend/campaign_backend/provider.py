@@ -203,6 +203,9 @@ def model_provider_batch(reader,items):
         for item in group:
             args=dict(site_id=site_id,game_id=game_id,category_id=item['category_id'],model_id=item['model_id'])
             try:
+                # Each model detail gets its own window. Sharing one window across 44 models
+                # made the last ones time out purely because the earlier ones spent it.
+                reader.reset_catalog_budget()
                 readings[item['key']]=dict(status='ok',data=model_provider(reader,args))
             except ContractError as error:
                 # Only fixed project codes cross the process boundary, never upstream text.
