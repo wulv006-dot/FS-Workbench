@@ -27,11 +27,14 @@
     fc:{coins:'assets/product-fc-coins.webp',pack:'assets/product-fc-set.webp',player:'assets/product-fc-set.webp'},
     aion:{coins:'assets/product-aion-coins.webp'},
     wow:{coins:'assets/product-wow-coins.webp'},
-    maplestory:{coins:'assets/product-maplestory-coins.webp'}
+    maplestory:{coins:'assets/product-maplestory-coins.webp',item:'assets/product-maplestory-item.webp'}
   };
   const PACK_HINT=/\b(pack|packs|bundle|bundles|potm|evo|upgrade|stash|xi|cornucopia|mayhem|supernova|scream)\b/i;
   function artCategory(gameId,text){
     const title=String(text||'').trim();
+    // MapleStory sells two things in this event: Mesos and gear. Only the
+    // currency title gets the coin drawing, everything else is an item.
+    if(gameId==='maplestory')return /\bmesos?\b/i.test(title)?'coins':'item';
     if(gameId!=='fc')return 'coins';
     if(/\bcoins?\b/i.test(title))return 'coins';
     // FC player titles lead with a name, packs and SBC bundles carry a product
