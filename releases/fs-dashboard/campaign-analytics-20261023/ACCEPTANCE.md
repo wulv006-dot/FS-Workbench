@@ -134,3 +134,20 @@
 - 注意：服务端已生效，但该资源响应头 `Cache-Control: public, max-age=2678400`，用户浏览器若在发布前访问过会继续用旧图 31 天，需强刷验证。
 - 未执行：未改逻辑、未改 policy / 公开配置 / 价格缓存。
 
+
+### 2026-10-28 价格 provider 批量扫描改造（PR #600–#606）读回：全站价格恢复
+
+- 落盘（`install -m 644` 后 sha256）：`backend/campaign_backend/adapters.py` `85d4c589fa43…`、`backend/campaign_backend/provider.py` `4c34c51f211d…`、`backend/bridge.py` `049118a5666e…`、`analytics/backend-client.mjs` `1de17f03f8b1…`、`analytics/admin-price-provider.mjs` `512b8f8335dc…`。
+- 价格缓存：`/var/lib/fs-campaign-public/admin-reference-prices.json` → `status: ready`、**247 products / 49 model_contracts**、267792 字节；21:17:48 自动刷新（非人工触发的冻结文件）。
+- 公开接口：`/events/api/campaign/config` 200，`seasonal_model_contracts` 50 条中 **49 条带 `source: admin_current` 价格**（`41217957` = 7380 minor / 1000K、`17815737` = 7821 / 100M、`43167385` = 503 / 1、`41914685` = 1640 / 300、`43167389` = 25978 / 1）。
+- 真实页面（Playwright，正式域名 `https://www.mmoexp.com/events/seasonal/`，四游戏逐个进入并翻开全部卡片）：
+  - FC27 `$73.08 / $81.20`、`$20.91 / $22.73`、`$3.97 / $4.67`
+  - Aion2 `$70.39 / $78.21`、`$287.81 / $312.84`、`$143.91 / $156.42`
+  - World of Warcraft `$33.80 / $37.56`、`$86.38 / $93.89`、`$159.61 / $187.78`
+  - MapleStory `$14.76 / $16.40`、`$29.67 / $34.90`、`$89.25 / $105.00`
+  - 每页 3 张卡 / 3 个 `MYSTERY PICK`；徽章 `assets/badge-10.webp` 正常；`brokenImages: 0`；`pageerror: none`。
+- 翻牌接口：`/events/seasonal/halloween/reveal` 由改造前 **409** 变为 **200**（连续两次调用均 200）。
+- 服务与负载：`fs-campaign-dashboard` / `fs-campaign-runtime` 均 active；1 分钟负载 2.02。
+- 自然周期：改造后连续多轮保持 `ready`（20:52:55 / 20:58:06 / 21:17:48），价格随刷新变化（FC27 固定卡 `$66.42` → `$73.08`），可排除读取冻结文件。**长期效果未验**。
+- 未执行：未走 publisher、未走 center 发布通道，`operations/` 无回执；`release_id` 仍 `campaign-preview-10`、`config_hash` 未重算；未改 D4 草稿与公开配置。
+
