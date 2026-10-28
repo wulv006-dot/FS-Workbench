@@ -176,11 +176,11 @@
     "newFrontendFiles": 4,
     "existingBackendFiles": 10,
     "generatedNavigationFiles": 1,
-    "restart": "range service only when host modules change; preserve timer/model-worker state"
+    "restart": "Original range + nginx chain; additionally restart the existing marketing range service for its independent archive module; no Hermes model-worker restart"
   },
   "exclusions": [
     "fc27-p2pah-session.service",
-    "Hermes compatibility daily_archive.py",
+    "Independent marketing/Hermes compatibility daily_archive.py are separately listed in COMPAT-ARCHIVE-TARGETS.json; do not replace them with the range source",
     "P1 files tracked in their own exact mapping",
     "All candidate hashes must be refreshed from the final committed blob; P4 range/live_summary and P1 UI clarifications included."
   ]

@@ -43,3 +43,11 @@ Admin 全部使用现有 8912 API。`summary_bridge`、native collector、supple
 现场 `daily_archive.py` SHA `0652062c39e3bede009d24c31811ab5e1a937f1a572d7193b9d0b12ede87452e` 原写入/读取/清理均受三个月业务日期截止限制；`archive_jobs.py` SHA `de24cb028101cfcd6a615dbb9f5fb7500c508a612ab75c380035fb516b9bbf22` 的 scheduled 分支真实调用 `prune(False)`。10月28日03:37/03:44 UTC已有清理回执，截止7月28日、删除对象0；索引最早native/summary/marketing为8月1日，不能据此推断更早档案曾被删除。
 
 用户已授权修复为一年保留。候选复用原日期函数，保留默认三个月 `cutoff` 供自动补采，新 `retention_cutoff` 只用于归档写入/读取/清理及回执元数据。已有对象/索引/来源时间原样，不执行清理、不自动补采十二个月。离线新增一年边界、闰日及真实history候选保持三个月的组合检查；当日600秒和完整源归档规则保持。当前仅源码候选，本轮未在服务器运行prune或发布此修改。
+
+## 三份活动归档模块与最终34目标候选
+
+最终数据候选为34目标、6 NEW：原32目标追加营销 `/opt/mmoexp-marketing/custom-range/daily_archive.py` 与独立Hermes `/opt/fs-hermes-fc/daily_archive.py` 两个已有文件。它们当前同SHA `aa33c6fb…`，仅使用旧 `daily-archive-20261021/source/daily_archive.py` 的18行保留期局部补丁，候选SHA `28374ee3…`；新版range仍使用 `dashboard-refresh-20261025/source/daily_archive.py`，不能互相覆盖。精确三份映射及各进程证据见 `COMPAT-ARCHIVE-TARGETS.json`；没有新增archive_jobs目标。
+
+候选文件名分别为 `source/daily_archive.py`、`source/marketing-daily_archive.py`、`source/hermes-daily_archive.py`，同一旧源只复制到后两处。原发布适配器保留CAS、锁、fence、未知任务及回滚，nav精确目标保留既有0600，其余目标继续644断言。营销沿原重载链额外重载已活动 `fs-marketing-range.service`；原8935端口 `/range` 无X-Auth-User必在query前返回401，此只读契约已核，可用于重载后监听/鉴权读回，不能冒称经营采集验收。Hermes模型worker不为本补丁重启。
+
+本候选源提交/正式CI、暂存检查和实际发布分开。FC日期代码不属于数据34，已由主代理通过独立2目标发布；最终数据baseline必须在该发布后重取全部保护SHA，不能沿用旧manifest。
