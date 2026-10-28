@@ -39,7 +39,7 @@ function configuration(value,now){
 }
 export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JSON.parse(fs.readFileSync(path.join(publicDir,'current.json'),'utf8')),
  call=backendRead,now=Date.now,setTimer=setInterval,clearTimer=clearInterval}={}){
- const cacheFile=path.join(publicDir,'admin-reference-prices.json');let memory=[],flight=null,generation=0,key=null,timer=null,interval=null,started=false,attemptKey=null,attemptedAt=null;
+ const cacheFile=path.join(publicDir,'admin-reference-prices.json');let memory=[],sticky=new Map(),flight=null,generation=0,key=null,timer=null,interval=null,started=false,attemptKey=null,attemptedAt=null;
  let status={status:'blocked',reason:'PRIVATE_PRICE_POLICY_REQUIRED'};
  const clear=reason=>{memory=[];status={status:'blocked',reason:code(reason)};};
  const schedule=config=>{if(!started)return;const next=config?.refresh_interval_ms??null;if(next===interval)return;
@@ -58,7 +58,7 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
  }
  async function refresh(){
   const current=context();
-  if(current.key!==key){key=current.key;generation++;memory=[];}
+  if(current.key!==key){key=current.key;generation++;memory=[];sticky=new Map();}
   if(!current.config||!current.release){unavailable(current.release,!current.config?'PRIVATE_PRICE_POLICY_REQUIRED':'PUBLISHED_SELECTION_REQUIRED');return status;}
   const allowed=new Set(current.release.pages.find(x=>x.page_id==='seasonal-vault')?.product_keys||[]);
   const selectedByModel=new Map();
@@ -111,7 +111,16 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
      if(generation!==admitted)return status;
      const latest=context();
      if(latest.key!==current.key){key=latest.key;generation++;unavailable(latest.release,'PRIVATE_POLICY_OR_RELEASE_CHANGED');return status;}
-     const projected=projectAdminPrices(observation,p,{now:now()});
+     let projected=projectAdminPrices(observation,p,{now:now()});
+     if(projected.status!=='reference_price_ready_not_checkout'){
+      // The Admin catalogue stalls for up to a minute on a single read now and then (the
+      // same query measured 130ms and 70s within one minute on 2026-10-28). Every entry
+      // already carries a freshness window, so fall back to this entry's last good
+      // observation while it is still inside max_age_ms instead of throwing away every
+      // other model's price because one read was slow.
+      const prior=sticky.get(canonical(p));
+      if(prior)projected=projectAdminPrices(prior.observation,p,{now:now()});
+     }
      if(projected.status!=='reference_price_ready_not_checkout'){unavailable(current.release,projected.reason);return status;}
      if(current.config.schema_version===1&&(projected.products.length!==1||projected.products[0].platform.attribute_id!=='21587'||projected.model_contracts[p.model_ref.model_id].combinations.some(row=>row.choices.platform!=='21587'||row.choices.region!=='7645')))throw Error('PUBLIC_OPTIONS_CONFLICT');
      const selected=selectedByModel.get(p.model_ref.model_id),remap=new Map(projected.products.map(x=>[x.key,selected.find(s=>s.product_ref.goods_id===x.product_ref.goods_id)?.key]));
@@ -142,6 +151,10 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
       else for(const row of c.combinations){if(raw[model].combinations.some(old=>canonical(old.choices)===canonical(row.choices)))throw Error('DUPLICATE_PRICE_TIER');raw[model].combinations.push(row);}
      }
      observations.push({observation,policy:p});
+     // Keep each good read across cycles: one slow model later in the same cycle must not
+     // erase a model that was read successfully a minute ago, otherwise a cycle can never
+     // converge while the upstream keeps stalling.
+     sticky.set(canonical(p),{observation,policy:p});
     }
     if(products.length>1000)throw Error('PUBLIC_CATALOG_LIMIT');
     safeWrite({schema_version:1,status:'ready',release_id:current.release.release_id,config_hash:current.release.config_hash,
