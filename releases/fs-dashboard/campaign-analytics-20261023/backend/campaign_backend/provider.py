@@ -192,6 +192,9 @@ def model_provider_batch(reader,items):
         try:
             reader.begin_catalog_read()
             reader.prefetch_goods(site_id,game_id,[item['model_id'] for item in group])
+            # The sweep gets its own window; the per-model details below must not inherit
+            # a budget the sweep already spent.
+            reader.reset_catalog_budget()
         except ContractError as error:
             code=str(error)
             code=code if re.fullmatch(r'[A-Z][A-Z0-9_]{0,79}',code) else 'ASSOCIATION_READ_FAILED'
