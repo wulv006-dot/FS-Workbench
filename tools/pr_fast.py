@@ -1305,7 +1305,7 @@ def main():
             units("releases/fs-dashboard/traffic-hermes-20261017/learning",["test_learning","test_learning_bridge"])
             node("releases/fs-dashboard/traffic-hermes-20261017/tests/check_frontend.cjs")
         elif group=="nightly-pipeline":
-            units("releases/fs-dashboard/nightly-pipeline-20261023/tests",["test_pipeline"])
+            units("releases/fs-dashboard/nightly-pipeline-20261023/tests",["test_pipeline","test_archive_jobs"])
         elif group=="nightly-reschedule":
             units("releases/fs-dashboard/nightly-reschedule-20261025/tests",["test_reschedule"])
         elif group=="hermes-learning-loop":

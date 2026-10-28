@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -12,9 +13,9 @@ import sys
 import tempfile
 from threading import Event, Lock, RLock, Thread
 import time
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import urllib.error
 import urllib.request
 from urllib.parse import parse_qs, urlsplit
@@ -234,6 +235,153 @@ class ConcurrentRanges(unittest.TestCase):
                 finally:
                     release.set(); future.result(timeout=2)
             namespace['publish_cache'].assert_called_once()
+
+
+class TransactionLockScopeTests(unittest.TestCase):
+    def atomic(self):
+        # Import-only dependencies are not exercised by a non-profit snapshot fixture.
+        def unused(*args, **kwargs):
+            raise AssertionError('profit history is outside the lock fixture')
+        daily = ModuleType('profit_daily'); daily.validate_history = unused
+        adapter = ModuleType('profit_reader_adapter'); adapter.contracts_from_snapshot = unused
+        spec = importlib.util.spec_from_file_location('atomic_lock_contract', SOURCE / 'atomic_snapshot.py')
+        module = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {'profit_daily': daily, 'profit_reader_adapter': adapter}):
+            spec.loader.exec_module(module)
+        return module
+
+    def value(self):
+        period = {'start': '2026-10-27 00:00', 'end': '2026-10-28 00:00'}
+        primary = dict(system='order.p2pah.cn', status='available', period=period,
+                       filters={'gid': '826'}, capturedAt='2026-10-28T00:00:00+00:00')
+        return dict(timezone='Asia/Shanghai', currency='USD', scopeApproved=True,
+                    scopeContractId='lock-contract', requiredProfiles=['AION2'],
+                    profiles={'AION2': dict(period=period, primary=primary,
+                        metrics={'orders': {'value': 1, 'source': 'primary'},
+                                 'revenueUsd': {'value': 5, 'source': 'primary'}})})
+
+    def order(self, root, reader, atomic=None):
+        text = (SOURCE / 'collector.py').read_text(encoding='utf8')
+        node = next(n for n in ast.parse(text).body if isinstance(n, ast.FunctionDef) and n.name == 'order_call')
+        namespace = {'WEB': root, 'call': reader, 'OrderSourceBusy': (atomic or self.atomic()).OrderSourceBusy}
+        exec(compile(ast.Module(body=[node], type_ignores=[]), 'actual-collector-order-call', 'exec'), namespace)
+        return namespace['order_call']
+
+    def test_original_live_publish_validation_and_atomic_functions_are_unchanged(self):
+        text = (SOURCE / 'atomic_snapshot.py').read_text(encoding='utf8')
+        tree = ast.parse(text)
+        expected = {'encoded': 'e3a6eebb31055e93e35a3e5ae9f39af8fcc2b823d4f0a7c10889774036d0c5af',
+                    'atomic_write': '8c4333e0444d4e8afbeb81381e165d7820ac5d10d51733d0d75705585a917287',
+                    'validate': '3ce217f7c3b82ae88825a470e4fb7aac2ff70a1f037acd51af5aa6954edf3532',
+                    'publish': '28d8cd5d904bdae7bee072bdd7c553ab6b18ed3f520aeb680edb6a352437a0df'}
+        for name, digest in expected.items():
+            node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name)
+            self.assertEqual(hashlib.sha256(ast.get_source_segment(text, node).encode()).hexdigest(), digest)
+
+    def test_transaction_selects_snapshot_lock_and_only_real_order_calls_use_browser_lock(self):
+        tree = ast.parse((SOURCE / 'collector.py').read_text(encoding='utf8'))
+        calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)]
+        entry = next(n for n in calls if n.func.id == 'run_once')
+        self.assertEqual({k.arg: ast.literal_eval(k.value) for k in entry.keywords}, {'lock_name': 'transaction-snapshot.lock'})
+        self.assertEqual({n.args[0].value for n in calls if n.func.id == 'order_call'},
+                         {'primary_reader.py', 'fc_category_reader.py', 'profit_daily_reader.py'})
+        self.assertEqual({n.args[1].value for n in calls if n.func.id == 'call' and isinstance(n.args[1], ast.Constant)},
+                         {'supplement_reader.py', 'fc_product_reader.py'})
+
+    @unittest.skipIf(fcntl is None, 'requires real Linux flock')
+    def test_blocked_admin_releases_browser_but_same_snapshot_writer_stays_exclusive(self):
+        atomic = self.atomic(); started = Event(); release = Event()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); reader = Mock(return_value={}); order = self.order(root, reader, atomic)
+            def collect():
+                order('primary_reader.py', [{'key': 'original'}], 900)
+                started.set()
+                if not release.wait(3):raise TimeoutError('fixture_admin_timeout')
+                return self.value()
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(atomic.run_once, root, collect, lock_name='transaction-snapshot.lock')
+                try:
+                    self.assertTrue(started.wait(1))
+                    with (root / 'collector.lock').open('a+b') as browser:
+                        fcntl.flock(browser, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    second = Mock(return_value=self.value())
+                    self.assertEqual(atomic.run_once(root, second, lock_name='transaction-snapshot.lock'),
+                                     {'status': 'skipped', 'reason': 'already_running'})
+                    second.assert_not_called(); self.assertFalse((root / 'current.json').exists())
+                finally:
+                    release.set(); manifest = future.result(timeout=2)
+            reader.assert_called_once_with('fs-order-browser', 'primary_reader.py', [{'key': 'original'}], 900)
+            self.assertEqual(json.loads((root / 'current.json').read_text())['snapshotId'], manifest['snapshotId'])
+            self.assertEqual(json.loads((root / 'attempt.json').read_text())['status'], 'success')
+
+    @unittest.skipIf(fcntl is None, 'requires real Linux flock')
+    def test_default_caller_still_holds_old_browser_lock_and_preserves_failure_semantics(self):
+        atomic = self.atomic(); entered = Event(); release = Event()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            def collect():
+                entered.set()
+                if not release.wait(3):raise TimeoutError('fixture_timeout')
+                return self.value()
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(atomic.run_once, root, collect)
+                try:
+                    self.assertTrue(entered.wait(1))
+                    with (root / 'collector.lock').open('a+b') as lock:
+                        with self.assertRaises(BlockingIOError):fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                finally:release.set(); future.result(timeout=2)
+            def busy():raise BlockingIOError('original_default_failure')
+            with self.assertRaises(BlockingIOError):atomic.run_once(root, busy)
+            self.assertEqual(json.loads((root / 'attempt.json').read_text())['status'], 'failed')
+            with self.assertRaisesRegex(ValueError, 'unknown_snapshot_lock'):
+                atomic.run_once(root, Mock(), lock_name='../other.lock')
+
+    @unittest.skipIf(fcntl is None, 'requires real Linux flock')
+    def test_order_same_session_excludes_second_batch_and_releases_lock(self):
+        entered = Event(); release = Event()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            def read(*args):
+                entered.set()
+                if not release.wait(3):raise TimeoutError('fixture_order_timeout')
+                return {'original': True}
+            reader = Mock(side_effect=read); order = self.order(root, reader)
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                first = pool.submit(order, 'primary_reader.py', [], 900)
+                try:
+                    self.assertTrue(entered.wait(1))
+                    with self.assertRaises(BlockingIOError):order('fc_category_reader.py', [], 600)
+                    self.assertEqual(reader.call_count, 1)
+                finally:release.set(); self.assertEqual(first.result(timeout=2), {'original': True})
+            with (root / 'collector.lock').open('a+b') as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            for script in ('supplement_reader.py', 'fc_product_reader.py'):
+                with self.assertRaisesRegex(ValueError, 'order_reader_required'):order(script, [], 600)
+            self.assertEqual(reader.call_count, 1)
+
+    @unittest.skipIf(fcntl is None, 'requires real Linux flock')
+    def test_source_busy_is_deferred_and_read_failure_keeps_original_history_and_unlocks(self):
+        atomic = self.atomic()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); previous = atomic.publish(root, self.value())
+            original = (root / 'current.json').read_bytes()
+            body = (root / previous['path']).read_bytes()
+            reader = Mock(); order = self.order(root, reader, atomic)
+            with (root / 'collector.lock').open('a+b') as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                result = atomic.run_once(root, lambda: order('primary_reader.py', [], 900), lock_name='transaction-snapshot.lock')
+                self.assertEqual(result, {'status': 'skipped', 'reason': 'collector_busy'})
+                reader.assert_not_called()
+            self.assertEqual(json.loads((root / 'attempt.json').read_text())['status'], 'deferred')
+            for error in (TimeoutError('fixture_read_failed'), BlockingIOError('unrelated_reader_io_failure')):
+                reader.side_effect = error
+                with self.assertRaises(type(error)):
+                    atomic.run_once(root, lambda: order('primary_reader.py', [], 900), lock_name='transaction-snapshot.lock')
+                self.assertEqual(json.loads((root / 'attempt.json').read_text())['status'], 'failed')
+            self.assertEqual((root / 'current.json').read_bytes(), original)
+            self.assertEqual((root / previous['path']).read_bytes(), body)
+            for name in ('collector.lock', 'transaction-snapshot.lock'):
+                with (root / name).open('a+b') as lock:fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 
 if __name__ == '__main__':

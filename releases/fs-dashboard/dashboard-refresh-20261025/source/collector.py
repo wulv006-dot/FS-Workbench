@@ -2,7 +2,7 @@
 from pathlib import Path
 from datetime import datetime,timezone,timedelta,date
 import json,subprocess,sys,copy,hashlib,time
-from atomic_snapshot import run_once,atomic_write,encoded,SHANGHAI
+from atomic_snapshot import run_once,atomic_write,encoded,SHANGHAI,OrderSourceBusy
 from fc_category_contract import cycle_requests,cycle_analysis,CONTRACT
 from fc_product_contract import requests as product_requests,cycle as product_cycle
 from profit_reader_adapter import expected_contracts, daily_requests, adapt_reader, failed_attempt
@@ -31,6 +31,17 @@ PROFILES=[('MMOEXP','所有网站合计',0,'','mmoexp'),('POE2','Path Of Exile 2
  ('WOW_FOREVER', 'WoW Forever', 1364, 1367, 'rpg'),
  ('ARENA_BREAKOUT_INFINITE', '暗区突围无限', 836, 897, 'general'),
  ('COD_BO7', 'CoD BO7', 838, 859, 'general')]
+
+def order_call(script,requests,timeout):
+    """Hold the existing browser mutex only for a real Order batch."""
+    import fcntl
+    if script not in ('primary_reader.py','fc_category_reader.py','profit_daily_reader.py'):
+        raise ValueError('order_reader_required')
+    with (WEB/'collector.lock').open('a+b') as lock:
+        try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:raise OrderSourceBusy('collector_busy') from None
+        return call('fs-order-browser',script,requests,timeout)
+
 
 def call(container,script,requests,timeout):
     program=(HERE/script).read_bytes()
@@ -101,10 +112,13 @@ def collect_profit_history(today,previous_data):
             profit_read_status='skipped_remaining_budget'
         else:
             try:
-                profit_reads=call('fs-order-browser','profit_daily_reader.py',
+                profit_reads=order_call('profit_daily_reader.py',
                     {'requests':profit_wanted,'budgetSeconds':profit_timeout},profit_timeout)
                 profit_records,read_audit=apply_results(profit_wanted,profit_reads,profit_contracts)
                 profit_read_status='unavailable' if read_audit.get('batchProgressUnknown') else 'partial' if read_audit['failed'] or read_audit['deferred'] or read_audit['rejected'] else 'available'
+            except OrderSourceBusy:
+                profit_read_status='deferred'
+                read_audit['stopReason']='collector_busy'
             except (OSError,RuntimeError,subprocess.TimeoutExpired,ValueError,KeyError,TypeError,AttributeError,OverflowError):
                 # Unknown batch progress cannot manufacture per-day attempt timestamps.
                 # Existing valid values remain; explicit collection failure records the limit.
@@ -166,12 +180,12 @@ def collect(backfill=None):
         if d>=today:continue
         for suffix,target,game in [('now',d,1327),('prior',d.replace(year=d.year-1),833)]:
             admin.append({'key':'fc-customer:'+day+':'+suffix,'game':game,'start':target.isoformat()+' 00:00','end':(target+timedelta(days=1)).isoformat()+' 00:00'})
-    primary=call('fs-order-browser','primary_reader.py',order,900)
+    primary=order_call('primary_reader.py',order,900)
     supplements=call(None,'supplement_reader.py',admin,600)
     # FC aggregate extension only. No new timer, price reads/writes or customer allocation.
     # Category failure never discards the successful legacy transaction snapshot.
-    try:extra=call('fs-order-browser','fc_category_reader.py',cycle_requests(today,history,cutoff,previous_analytics),600)
-    except (RuntimeError,subprocess.TimeoutExpired,ValueError):extra={}
+    try:extra=order_call('fc_category_reader.py',cycle_requests(today,history,cutoff,previous_analytics),600)
+    except (OrderSourceBusy,RuntimeError,subprocess.TimeoutExpired,ValueError):extra={}
     fc_analytics=cycle_analysis(primary,extra,today,previous_analytics)
     profiles={};dashboard={};range_meta={}
     for key,name,gid,game,group in PROFILES:
@@ -263,5 +277,5 @@ def fc_rows(primary,supplements,today,backfill=None):
 
 if __name__=='__main__':
     backfill=sys.argv[2] if len(sys.argv)==3 and sys.argv[1]=='--backfill' else None
-    manifest=run_once(WEB,lambda:collect(backfill))
+    manifest=run_once(WEB,lambda:collect(backfill),lock_name="transaction-snapshot.lock")
     print(json.dumps({'status':'success' if 'snapshotId' in manifest else manifest.get('status'),'snapshotId':manifest.get('snapshotId')}),flush=True)

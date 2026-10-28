@@ -86,7 +86,10 @@ class PrivateReads:
         with self.lock:
             now=time.monotonic()
             for key,job in list(self.jobs.items()):
-                if job['finished'] is not None and (job['status']=='pending' or now-job['finished']>(900 if job['status']=='available' else 60)):
+                # A delayed poll must receive a completed failure before TTL eviction.
+                if job['finished'] is not None and (job['status']=='pending' or
+                        now-job['finished']>(900 if job['status']=='available' else 60) and
+                        (job['status']=='available' or job['observed'])):
                     del self.jobs[key]
             job=self.jobs.get(fingerprint)
             if job is None:
@@ -112,7 +115,7 @@ class PrivateReads:
                         return scan_day(request,*args)
                     return admin_email_history(request,*args)
                 future=self.pool.submit(run)
-                job={'future':future,'finished':None,'status':None}
+                job={'future':future,'finished':None,'status':None,'observed':False}
                 self.jobs[fingerprint]=job
                 def finish(done):
                     with self.lock:
@@ -121,7 +124,8 @@ class PrivateReads:
                         except Exception:job['status']='unavailable'
                 future.add_done_callback(finish)
             future=job['future']
-        if not future.done():return {'status':'pending','retryAfter':5}
+            if not future.done():return {'status':'pending','retryAfter':5}
+            job['observed']=True
         try:return future.result()
         except Exception as error:return {'status':'unavailable','reason':safe_source_failure(error)}
 
