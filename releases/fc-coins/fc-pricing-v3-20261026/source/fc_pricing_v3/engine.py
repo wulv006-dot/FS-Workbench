@@ -9,6 +9,10 @@ from .financial import (number, fingerprint, fresh, instant, common_cost, envelo
                         required_history_ratio, catalog_floor, prove_catalog, prove_price,
                         average_margin, MARGIN_BASIS, CENT, HARD_MARGIN, FINANCIAL_CONTRACT_VERSION)
 
+# Catalog adapters preserve frozen financial math and all legacy-envelope outputs.
+from .selective_sources import (input_ratio as envelope_ratio, input_catalog_floor as catalog_floor,
+                                input_prove_catalog as prove_catalog, input_prove_price as prove_price)
+
 PLATFORMS = ('PS','XBOX','PC')
 GROUPS = {'console':('PS','XBOX'), 'pc':('PC',)}
 SPRINT_POLICY_VERSION = 'sprint_5_10_itemd2r_floor20_v2'

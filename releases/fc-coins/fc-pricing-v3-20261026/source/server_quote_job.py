@@ -190,6 +190,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
     from fc_pricing_v3.runtime import collection_scope,ledger
     from fc_pricing_v3.selective_sources import source_plan,planned_source_coverage
     selection=collection_scope(ledger(),run_id)
+    selection['scope']=dict(selection['scope'],catalog_only=True)
     planned=source_plan(selection['active_mode'],selection['scope'])
     for offer in snapshot["competitors"]:
         if offer.get("source") not in planned["required_markets"]:continue
@@ -242,7 +243,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
                 "storefront": storefront, "reference_market": reference_market,
                 "arab_ut_status": snapshot.get('arab_ut_status')}
     from pricing_sources import collect as collect_pricing_constraints
-    evidence['promotion_envelope']=collect_pricing_constraints(storefront,persist=persist)
+    evidence['promotion_envelope']=collect_pricing_constraints(storefront,persist=persist,catalog_only=True)
     from fc_pricing_v3.runtime import context
     evidence=context(evidence)
     coverage=planned_source_coverage(dict(snapshot,arab_ut_status=evidence['arab_ut_status']),evidence['source_plan'],datetime.now(timezone.utc),reference_market=reference_market)
