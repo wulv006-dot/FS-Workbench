@@ -247,5 +247,89 @@ class CloseOnOrderAdminTest(unittest.TestCase):
         self.assertEqual(closed['execution_audit_close']['status'], 'audit_write_failed')
 
 
+class ExitOrCloseTest(unittest.TestCase):
+    """review #4：授权过期 / 公开页异常不得让已成功的操作走取消路径。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        (self.root / 'executions').mkdir(parents=True, exist_ok=True)
+        self.ledger = Ledger(self.root / 'v3' / 'control.sqlite3')
+        self.ledger.put('operations', 'op-1', _operation())
+        with self.ledger.transaction() as conn:
+            for resource in BUNDLE['mutable_resources']:
+                conn.execute('INSERT OR REPLACE INTO resource_leases (resource,operation_id) VALUES (?,?)',
+                             (resource, 'op-1'))
+        self._orig = (runtime.ledger, runtime._admin_observed_prices, runtime.ROOT,
+                      runtime.write_json, runtime.stop_unissued_and_exit)
+        runtime.ledger = lambda: self.ledger
+        runtime.ROOT = self.root
+        runtime.write_json = lambda path, value: Path(path).write_text(
+            json.dumps(value, ensure_ascii=False), encoding='utf-8')
+        runtime.stop_unissued_and_exit = lambda op, reason: {'status': 'CANCELLED_NOT_SENT',
+                                                             'cancel_reason': reason, 'sentinel': True}
+        adapters.reconcile_postwrite = lambda op, audit: {'status': 'BACKEND_CONFIRMED'}
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        runtime.ledger, runtime._admin_observed_prices, runtime.ROOT, \
+            runtime.write_json, runtime.stop_unissued_and_exit = self._orig
+
+    def _leases(self):
+        with self.ledger.connect() as conn:
+            return [r[0] for r in conn.execute('SELECT resource FROM resource_leases')]
+
+    def test_expired_authorization_does_not_block_verified_close(self):
+        runtime._admin_observed_prices = lambda: ADMIN_OK
+        op = self.ledger.get('operations', 'op-1')
+        op['bundle']['valid_until'] = '2026-10-28T04:16:39+00:00'   # 早已过期
+        self.ledger.put('operations', 'op-1', op)
+
+        result = runtime.exit_or_close(op, _audit(), 'pricing_authorization_expired')
+        self.assertEqual(result['status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        self.assertNotIn('sentinel', result)      # 没走取消路径
+        self.assertEqual(self._leases(), [])
+
+    def test_public_page_exception_still_closes(self):
+        runtime._admin_observed_prices = lambda: ADMIN_OK
+
+        def boom(op, audit):
+            raise RuntimeError('storefront_down')
+        adapters.reconcile_postwrite = boom
+
+        op = self.ledger.get('operations', 'op-1')
+        result = runtime.exit_or_close(op, _audit(), 'pricing_authorization_expired')
+        self.assertEqual(result['status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        receipt = self.ledger.get('readback_receipts', 'op-1')
+        self.assertEqual(receipt['public_verification']['status'], 'postwrite_failed')
+
+    def test_falls_back_to_cancel_when_no_order_evidence(self):
+        runtime._admin_observed_prices = lambda: ADMIN_OK
+        op = self.ledger.get('operations', 'op-1')
+        result = runtime.exit_or_close(op, {'status': 'PARTIAL'}, 'pricing_authorization_expired')
+        self.assertTrue(result.get('sentinel'))
+        self.assertEqual(result['status'], 'CANCELLED_NOT_SENT')
+        self.assertEqual(len(self._leases()), 4)
+
+    def test_falls_back_to_cancel_when_admin_mismatch(self):
+        runtime._admin_observed_prices = lambda: {'PC': Decimal('0.0799'),
+                                                  'PS': Decimal('0.0799'),
+                                                  'XBOX': Decimal('0.0799')}
+        op = self.ledger.get('operations', 'op-1')
+        result = runtime.exit_or_close(op, _audit(), 'pricing_authorization_expired')
+        self.assertTrue(result.get('sentinel'))
+        self.assertEqual(len(self._leases()), 4)
+
+    def test_close_error_does_not_lose_the_exit_path(self):
+        def boom():
+            raise ValueError('admin_unreachable')
+        runtime._admin_observed_prices = boom
+        op = self.ledger.get('operations', 'op-1')
+        result = runtime.exit_or_close(op, _audit(), 'pricing_authorization_expired')
+        self.assertTrue(result.get('sentinel'))
+        self.assertEqual(len(self._leases()), 4)
+
+
 if __name__ == '__main__':
     unittest.main()
