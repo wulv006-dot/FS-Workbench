@@ -648,6 +648,27 @@ def unified_close_entry(op,audit):
     return close_on_order_admin(op,audit)
 
 
+TERMINAL_CLOSE_STATUS = ('COMPLETED','NO_CHANGE','CANCELLED_NOT_SENT',
+                         'KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED')
+
+
+def exit_or_close(op,audit,reason):
+    """退出前先尝试 Order+Admin 收尾。
+
+    授权过期（``pricing_authorization_expired``）、复算失败、公开页异常这类
+    「事后才发现的坏消息」都不应该让**已经写成功**的操作走取消路径：
+    先按 Order 反馈 + Admin 单价核对收尾，收不了才退回原有退出流程。
+    收尾只记录既成事实，不授权任何新的写入。
+    """
+    try:
+        closed=unified_close_entry(op,audit)
+    except Exception:
+        closed=None
+    if closed is not None and closed.get('status') in TERMINAL_CLOSE_STATUS:
+        return closed
+    return stop_unissued_and_exit(op,reason)
+
+
 def reconcile(operation_id):
     """Never repeat a base save or sync; recover only original post-write stages."""
     db=ledger()
@@ -655,13 +676,13 @@ def reconcile(operation_id):
     if not op:
         raise ValueError('pricing_operation_missing')
     if op['status'] in ('COMPLETED','NO_CHANGE','CANCELLED_NOT_SENT','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED'):return op
-    if op['status']=='KNOWN_PARTIAL_PUBLIC_PENDING':return stop_unissued_and_exit(op,op['stop_unissued_reason'])
+    audit_path=ROOT/'executions'/(operation_id+'.json')
+    audit=json.loads(audit_path.read_text()) if audit_path.exists() else None
+    if op['status']=='KNOWN_PARTIAL_PUBLIC_PENDING':return exit_or_close(op,audit,op['stop_unissued_reason'])
     if not op['steps'] and op['status']=='PUBLIC_PENDING':
         from .adapters import verify_nochange
         receipt=verify_nochange(op,op.get('readback',{}).get('preview',{}))
         return db.finish(operation_id,receipt,no_change=True) if receipt['status']=='PUBLIC_CONFIRMED' else op
-    audit_path=ROOT/'executions'/(operation_id+'.json')
-    audit=json.loads(audit_path.read_text()) if audit_path.exists() else None
     from .adapters import region_step,dispatch_base,reconcile_base
     for step in op['steps']:
         if step['kind']=='base' and step.get('dispatched_at') and step['state']!='CONFIRMED':
@@ -671,7 +692,7 @@ def reconcile(operation_id):
                 from automation_policy import load_policy
                 try:verify_quote(json.loads(path.read_text()),load_policy(),list(PLATFORMS),for_execution=True)
                 except ValueError as exc:
-                    return stop_unissued_and_exit(op,str(exc))
+                    return exit_or_close(op,audit,str(exc))
                 result=dispatch_base(op)
                 db.step_result(operation_id,step['step_id'],'CONFIRMED' if result.get('status')=='CONFIRMED' else 'UNKNOWN',result)
     op=db.get('operations',operation_id)
@@ -694,19 +715,23 @@ def reconcile(operation_id):
                 from automation_policy import load_policy
                 try:verify_quote(json.loads((ROOT/'quotes'/(op['bundle']['snapshot_id']+'.json')).read_text()),load_policy(),list(PLATFORMS),for_execution=True)
                 except ValueError as exc:
-                    return stop_unissued_and_exit(op,str(exc))
+                    return exit_or_close(op,audit,str(exc))
                 result=region_step(operation_id,step['step_id'],write=True)
             if result.get('status')=='CONFIRMED':
                 db.step_result(operation_id,step['step_id'],'CONFIRMED',result)
     op=db.get('operations',operation_id)
     if any(s['state']!='CONFIRMED' for s in op['steps']) and any(s['state']=='CONFIRMED' for s in op['steps']):
-        if clock()>=instant(op['bundle']['valid_until']):return stop_unissued_and_exit(op,'pricing_authorization_expired')
+        if clock()>=instant(op['bundle']['valid_until']):return exit_or_close(op,audit,'pricing_authorization_expired')
     if audit and audit.get('status')=='CONFIRMED' and audit.get('sync_confirmed') is True and audit.get('all_baseline',{}).get('status')=='confirmed':
         for step in op['steps']:
             if step['kind']=='base':
                 db.step_result(operation_id,step['step_id'],'CONFIRMED',dict(execution_id=operation_id,status='CONFIRMED',confirmation_scope='Order_Admin_ALL'))
         from .adapters import reconcile_postwrite
-        post=reconcile_postwrite(op,audit)
+        # 公开页/缓存异常不应中断收尾：记下来交给后面的统一收尾判据
+        try:
+            post=reconcile_postwrite(op,audit)
+        except Exception as exc:
+            post=dict(status='postwrite_failed',error=type(exc).__name__)
         if post['status']=='PUBLIC_CONFIRMED':
             return db.finish(operation_id,post)
         op=db.get('operations',operation_id)
@@ -723,7 +748,7 @@ def reconcile(operation_id):
     op=db.get('operations',operation_id)
     closed=unified_close_entry(op,audit)
     if closed is not None:
-        if closed.get('status') in ('COMPLETED','NO_CHANGE','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED','CANCELLED_NOT_SENT'):
+        if closed.get('status') in TERMINAL_CLOSE_STATUS:
             return closed
         op=closed
     op=db.get('operations',operation_id)
@@ -733,7 +758,7 @@ def reconcile(operation_id):
         from automation_policy import load_policy
         try:verify_quote(quote,load_policy(),list(PLATFORMS),for_execution=True)
         except ValueError as exc:
-            return stop_unissued_and_exit(op,str(exc))
+            return exit_or_close(op,audit,str(exc))
         return drive_steps(op,quote)
     # An uncertain original mechanical request is not converted to a fresh execution.
     return db.get('operations',operation_id)
