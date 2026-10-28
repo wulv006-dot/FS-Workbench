@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 
@@ -48,7 +49,7 @@ def _operation():
              'dispatched_at': '2026-10-28T04:04:54+00:00',
              'receipt': {'status': 'UNKNOWN'},
              'intermediate': {'base_prices': dict(BUNDLE['action']['base_prices']),
-                              'region_coefficients': dict(BUNDLE['action']['region_coefficients'])}},
+                              'region_coefficients': dict(BUNDLE['before_action']['region_coefficients'])}},
             {'step_id': 'region_coefficients:21:PS', 'kind': 'region', 'state': 'PREPARED'},
             {'step_id': 'region_coefficients:21:XBOX', 'kind': 'region', 'state': 'PREPARED'},
         ],
@@ -106,11 +107,54 @@ class CloseOnOrderAdminTest(unittest.TestCase):
         runtime._admin_observed_prices = lambda: ADMIN_OK
         op = self.ledger.get('operations', 'op-1')
         closed = runtime.close_on_order_admin(op, _audit())
-        self.assertEqual(closed['status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        self.assertEqual(closed['status'], 'COMPLETED')
         self.assertEqual(self._leases(), [])
         states = {s['step_id']: s['state'] for s in closed['steps']}
         self.assertEqual(states['base_prices:all'], 'CONFIRMED')
         self.assertEqual(states['region_coefficients:21:PS'], 'CANCELLED_NOT_SENT')
+
+    def test_partial_close_keeps_active_plan_and_actual_region_prices(self):
+        from fc_pricing_v3.scheduler import next_cycle_at
+        from fc_pricing_v3.financial import instant
+        from datetime import timedelta
+        runtime._admin_observed_prices = lambda: ADMIN_OK
+        op = self.ledger.get('operations', 'op-1')
+        op['revision'] = 1
+        self.ledger.put('operations', 'op-1', op)
+        plan = dict(plan_id='plan-1', revision=1, state='ACTIVE', ends_at=None,
+                    starts_at='2026-10-28T00:00:00+00:00', resources=list(BUNDLE['mutable_resources']))
+        self.ledger.put('pricing_plans', 'plan-1', plan)
+        with self.ledger.transaction() as conn:
+            for resource in plan['resources']:
+                conn.execute('INSERT INTO plan_ownership VALUES (?,?,?,?)', (resource,'plan-1',1,'1'))
+        closed = runtime.close_on_order_admin(op, _audit())
+        self.assertEqual(closed['status'], 'COMPLETED')
+        self.assertTrue(closed['target_not_completed'])
+        self.assertEqual(self.ledger.get('pricing_plans', 'plan-1'), plan)
+        self.assertEqual(closed['actual_action']['region_coefficients'], BUNDLE['before_action']['region_coefficients'])
+        window = self.ledger.get('actual_price_windows', 'op-1')
+        self.assertEqual(window['action'], closed['actual_action'])
+        self.assertEqual(set(window['resources']), {'base:pc','base:console'})
+        with self.ledger.connect() as conn:
+            self.assertEqual(conn.execute("SELECT count(*) FROM durable_jobs WHERE kind='exit'").fetchone()[0], 0)
+            self.assertEqual(conn.execute('SELECT count(*) FROM plan_ownership').fetchone()[0], 4)
+            self.assertEqual(next_cycle_at(conn,plan,dict(interval_minutes=60)), instant(closed['completed_at'])+timedelta(minutes=60))
+        self.assertEqual(self._leases(), [])
+
+    def test_explicit_partial_exit_still_ends_plan_and_enqueues_exit(self):
+        op = self.ledger.get('operations', 'op-1')
+        op.update(revision=1)
+        op['steps'][0]['state'] = 'CONFIRMED'
+        self.ledger.put('operations', 'op-1', op)
+        self.ledger.put('pricing_plans', 'plan-1', dict(plan_id='plan-1',revision=1,state='ENDING',ends_at='2026-10-28T00:00:00+00:00'))
+        with self.ledger.transaction() as conn:
+            conn.execute('INSERT INTO plan_ownership VALUES (?,?,?,?)', ('base:pc','plan-1',1,'1'))
+        with patch.object(adapters,'verify_known_partial',return_value=dict(status='PUBLIC_CONFIRMED')):
+            closed = runtime.stop_unissued_and_exit(op, 'plan_deadline')
+        self.assertEqual(closed['status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        self.assertEqual(self.ledger.get('pricing_plans','plan-1')['state'], 'ENDING')
+        with self.ledger.connect() as conn:
+            self.assertEqual(conn.execute("SELECT count(*) FROM durable_jobs WHERE kind='exit'").fetchone()[0], 1)
 
     def test_keeps_unknown_and_leases_when_price_mismatch(self):
         runtime._admin_observed_prices = lambda: {'PC': Decimal('0.0799'),
@@ -150,7 +194,7 @@ class CloseOnOrderAdminTest(unittest.TestCase):
         adapters.reconcile_postwrite = failing
         op = self.ledger.get('operations', 'op-1')
         closed = runtime.close_on_order_admin(op, _audit())
-        self.assertEqual(closed['status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        self.assertEqual(closed['status'], 'COMPLETED')
         receipt = self.ledger.get('readback_receipts', 'op-1')
         self.assertEqual(receipt['status'], RECEIPT_STATUS)
         self.assertEqual(receipt['public_verification']['status'], 'postwrite_failed')
@@ -202,7 +246,7 @@ class CloseOnOrderAdminTest(unittest.TestCase):
 
         closed = runtime.close_on_order_admin(self.ledger.get('operations', 'op-1'),
                                               self._read_audit())
-        self.assertEqual(closed['status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        self.assertEqual(closed['status'], 'COMPLETED')
         receipt = self.ledger.get('readback_receipts', 'op-1')
         self.assertEqual(receipt['status'], RECEIPT_STATUS)
         self.assertEqual(receipt['public_verification']['status'], 'CACHE_CONFIRMED')
@@ -216,7 +260,7 @@ class CloseOnOrderAdminTest(unittest.TestCase):
                  'all_baseline': {'status': 'confirmed'}}
         closed = runtime.unified_close_entry(self.ledger.get('operations', 'op-1'), audit)
         self.assertIsNotNone(closed)
-        self.assertEqual(closed['status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        self.assertEqual(closed['status'], 'COMPLETED')
 
     # ---- review #3：下一轮不被拦 ----
 
@@ -229,10 +273,10 @@ class CloseOnOrderAdminTest(unittest.TestCase):
 
         state = self._read_audit()
         self.assertEqual(state['status'], RECEIPT_STATUS)
-        self.assertEqual(state['ledger_status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        self.assertEqual(state['ledger_status'], 'COMPLETED')
         self.assertEqual(state['changed'], ['PC'])          # 原有审计内容保留
         self.assertFalse(execution_is_unresolved(state, None))
-        self.assertFalse(execution_is_unresolved(state, 'KNOWN_PARTIAL_EXIT_PENDING'))
+        self.assertFalse(execution_is_unresolved(state, 'COMPLETED'))
 
     def test_audit_write_failure_is_reported_not_hidden(self):
         runtime._admin_observed_prices = lambda: ADMIN_OK
@@ -243,7 +287,7 @@ class CloseOnOrderAdminTest(unittest.TestCase):
         op = self.ledger.get('operations', 'op-1')
         closed = runtime.close_on_order_admin(op, _audit())
         # 账本仍已收尾（不能回滚），但失败要显式可见
-        self.assertEqual(closed['status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        self.assertEqual(closed['status'], 'COMPLETED')
         self.assertEqual(closed['execution_audit_close']['status'], 'audit_write_failed')
 
 
@@ -287,7 +331,7 @@ class ExitOrCloseTest(unittest.TestCase):
         self.ledger.put('operations', 'op-1', op)
 
         result = runtime.exit_or_close(op, _audit(), 'pricing_authorization_expired')
-        self.assertEqual(result['status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        self.assertEqual(result['status'], 'COMPLETED')
         self.assertNotIn('sentinel', result)      # 没走取消路径
         self.assertEqual(self._leases(), [])
 
@@ -300,7 +344,7 @@ class ExitOrCloseTest(unittest.TestCase):
 
         op = self.ledger.get('operations', 'op-1')
         result = runtime.exit_or_close(op, _audit(), 'pricing_authorization_expired')
-        self.assertEqual(result['status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        self.assertEqual(result['status'], 'COMPLETED')
         receipt = self.ledger.get('readback_receipts', 'op-1')
         self.assertEqual(receipt['public_verification']['status'], 'postwrite_failed')
 
