@@ -121,7 +121,7 @@ def writer_status():
 
 def health():
     result = {"api": "ok", "worker": "missing", "browser": "missing",
-              "p2pah_session": "missing", "last_run": None,
+              "p2pah_session": "missing", "admin_dc": "missing", "admin_identity": "missing", "last_run": None,
               "price_writer": writer_status(),
               "https_certificate": certificate_health(),
               "queue_depth": 0, "tab_count": None, "disk_free_gb": None,
@@ -137,15 +137,22 @@ def health():
         except (OSError, ValueError, KeyError):
             pass
     for key, url in (("browser", "http://127.0.0.1:9225/json/version"),
-                     ("p2pah_session", "http://127.0.0.1:8767/health")):
+                     ("p2pah_session", "http://127.0.0.1:8912/admin/index/index")):
         try:
-            with urllib.request.urlopen(url, timeout=2) as response:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=2) as response:
                 payload = json.load(response)
                 if key == "p2pah_session":
-                    result[key] = "ok" if payload.get("ready") else "missing"
+                    result["admin_dc"] = "reachable"
+                    identity = (payload.get("data") or {}).get("adminInfo") or {}
+                    valid = payload.get("code") == 1 and identity.get("username") in ("wulvapi", "chenchaoapi")
+                    result["admin_identity"] = "ok" if valid else "missing"
+                    result[key] = result["admin_identity"]
                 else:
                     result[key] = "ok" if payload.get("Browser") else "missing"
-        except (OSError, ValueError):
+        except urllib.error.HTTPError:
+            if key == "p2pah_session":
+                result["admin_dc"] = "reachable"
+        except (OSError, ValueError, TypeError, AttributeError):
             pass
     result['order_session'] = 'missing'
     try:
@@ -154,8 +161,6 @@ def health():
                 result['order_session'] = 'ok'
     except (OSError, ValueError):
         pass
-    if result['order_session'] != 'ok':
-        result['p2pah_session'] = 'missing'
     runs = [path for path in (ROOT / "runs").glob("*.json") if valid_id(path.stem)]
     if runs:
         last = max(runs, key=lambda p: p.stat().st_mtime)

@@ -11,7 +11,8 @@ class ShellTransportTest(unittest.TestCase):
     def test_published_shell_scripts_are_lf_and_parse_on_linux(self):
         scripts = sorted(SOURCE.glob('*.sh'))
         self.assertEqual({script.name for script in scripts}, {
-            'clear_cache_after_write.sh', 'execute_price.sh', 'reconcile_price.sh', 'restore_price.sh'})
+            'clear_cache_after_write.sh', 'execute_price.sh', 'reconcile_price.sh', 'restore_price.sh',
+            'sync_players.sh'})
         for script in scripts:
             with self.subTest(script=script.name):
                 body = script.read_bytes()
