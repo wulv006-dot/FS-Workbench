@@ -61,6 +61,17 @@ def finish_cycle(db,conn,body,result,at):
         db.put('pricing_plans',plan['plan_id'],plan,conn)
 
 
+def cycle_matches_plan(db,plan,body,ident,conn=None):
+    if body.get('plan_id')!=plan['plan_id']:return False
+    if 'revision' in body:return body['revision']==plan['revision']
+    # The old exit producer created revision 1 and one exact durable ID. No
+    # other revisionless cycle carries evidence of its originating revision.
+    if (ident!='exit-cycle:'+plan['plan_id'] or plan['revision']!=1
+            or plan.get('transition_reason')!='EXIT' or not plan.get('parent_plan_id')):return False
+    parent=db.get('pricing_plans',plan['parent_plan_id'],conn)
+    return bool(parent and parent.get('exit_plan_id')==plan['plan_id'])
+
+
 def export_shadow_snapshot(db, target=SHADOW_EXPORT, *, force=False):
     """Publish one consistent, read-only SQLite snapshot for the isolated consumer.
 
@@ -107,6 +118,8 @@ def cycle(body=None):
     body=body or {}
     requested=db.get('pricing_plans',body['plan_id']) if body.get('plan_id') else db.active_plan()
     if not requested or requested['mode'] not in POLICIES or requested['state']!='ACTIVE' or body.get('revision',requested['revision'])!=requested['revision']:
+        return dict(status='superseded')
+    if body.get('_durable_job_id') and not cycle_matches_plan(db,requested,body,body['_durable_job_id']):
         return dict(status='superseded')
     with db.connect() as conn:
         try:db.owns(requested,requested['resources'],conn)
@@ -255,7 +268,7 @@ def exit_plan(body):
         db.put('pricing_plans',old['plan_id'],old)
     db.activate_plan(next_plan['plan_id'])
     due_at=max(clock(),next_cycle_at(db,next_plan))
-    db.enqueue('cycle','exit-cycle:'+next_plan['plan_id'],due_at,dict(plan_id=next_plan['plan_id']))
+    db.enqueue('cycle','exit-cycle:'+next_plan['plan_id'],due_at,dict(plan_id=next_plan['plan_id'],revision=next_plan['revision']))
     return next_plan
 
 
@@ -340,8 +353,8 @@ def tick(executors, running):
       if plan and plan['state']=='ACTIVE':
         due_at=next_cycle_at(db,plan)
         with db.connect() as conn:
-            pending=any(body.get('plan_id')==plan['plan_id'] and body.get('revision')==plan['revision'] for body in
-                        (json.loads(row[0]) for row in conn.execute('SELECT body FROM durable_jobs WHERE kind=\'cycle\' AND state IN (\'queued\',\'running\')')))
+            pending=any(cycle_matches_plan(db,plan,json.loads(row['body']),row['id'],conn) for row in
+                        conn.execute('SELECT id,body FROM durable_jobs WHERE kind=\'cycle\' AND state IN (\'queued\',\'running\')'))
         if not pending and now>=due_at:
             key='cycle:'+plan['plan_id']+':'+str(int(due_at.timestamp()))+':r'+str(plan.get('resume_count',0))
             db.enqueue('cycle',key,now,dict(plan_id=plan['plan_id'],revision=plan['revision']))

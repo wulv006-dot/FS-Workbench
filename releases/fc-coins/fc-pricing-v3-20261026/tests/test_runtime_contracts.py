@@ -157,6 +157,85 @@ class RuntimeContracts(unittest.TestCase):
             with db.connect() as conn:
                 self.assertEqual(conn.execute("SELECT count(*) FROM durable_jobs WHERE kind='cycle'").fetchone()[0],0)
 
+    def test_exit_cycle_owns_one_period_with_explicit_or_original_revisionless_body(self):
+        from types import SimpleNamespace
+        now=datetime(2026,10,29,17,tzinfo=timezone.utc)
+        for legacy_body in (False,True):
+          with self.subTest(legacy_body=legacy_body),tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'quotes').mkdir();db=Ledger(root/'control.sqlite3')
+            old=dict(plan_id='original-parent',revision=1,generation='g',resources=['base:pc'],
+                     starts_at=(now-timedelta(hours=2)).isoformat(),state='ENDING',mode='daily',actor='wulv',
+                     price_anchor=dict(base_prices=dict(pc='8.59')),last_cycle_at=(now-timedelta(hours=1)).isoformat())
+            db.put('metadata','generation',dict(id='g'));db.put('pricing_plans',old['plan_id'],old)
+            with db.transaction() as conn:conn.execute("INSERT INTO plan_ownership VALUES ('base:pc','original-parent',1,'g')")
+            policy=dict(interval_minutes=60,system_enabled=True,mode='auto',revision=1)
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'clock',return_value=now),patch.object(ledger_module,'clock',return_value=now),patch('automation_policy.load_policy',return_value=policy):
+                child=scheduler.exit_plan(dict(plan_id=old['plan_id'],revision=1))
+            ident='exit-cycle:'+child['plan_id']
+            with db.transaction() as conn:
+                original=dict(conn.execute('SELECT * FROM durable_jobs WHERE id=?',(ident,)).fetchone())
+                body=json.loads(original['body']);self.assertEqual(body['revision'],child['revision'])
+                if legacy_body:body.pop('revision')  # Exact old producer's persisted body, same original ID/lineage.
+                conn.execute('UPDATE durable_jobs SET body=?,due_at=?,attempt=4 WHERE id=?',
+                             (json.dumps(body),(now+timedelta(hours=1)).isoformat(),ident))
+            with db.connect() as conn:before=dict(conn.execute('SELECT * FROM durable_jobs WHERE id=?',(ident,)).fetchone())
+            executors={lane:Mock() for lane in ('collection','control','observation')}
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'clock',return_value=now),patch.object(scheduler,'export_shadow_snapshot'),patch.object(runtime,'write_json'),patch('automation_policy.load_policy',return_value=policy):
+                scheduler.tick(executors,{});scheduler.tick(executors,{})
+            with db.connect() as conn:
+                self.assertEqual(dict(conn.execute('SELECT * FROM durable_jobs WHERE id=?',(ident,)).fetchone()),before)
+                self.assertEqual(conn.execute("SELECT count(*) FROM durable_jobs WHERE kind='cycle'").fetchone()[0],1)
+            executors['collection'].submit.assert_not_called()
+            run='00000000-0000-4000-8000-000000000707';operations=[]
+            def collect(job):
+                operations.append(job['request']['v3_operation_id'])
+                (root/'quotes'/(run+'.json')).write_text(json.dumps(dict(result=dict(decision_receipt=dict(plan_id=child['plan_id'])))))
+                return dict(run_id=run)
+            def execute(run_id):
+                result=dict(operation_id=operations[-1],plan_id=child['plan_id'],status='NO_CHANGE',resources=child['resources'],completed_at=(now+timedelta(hours=1)).isoformat())
+                db.put('operations',result['operation_id'],result);return result
+            worker=SimpleNamespace(save_job=Mock(),collect_quote=Mock(side_effect=collect))
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'ROOT',root),patch.object(scheduler,'clock',return_value=now+timedelta(hours=1)),patch('automation_policy.load_policy',return_value=policy),patch('fc_pricing_v3.business_source.history_ES_blocker',return_value=None),patch.dict(sys.modules,{'fc27_cloud_worker':worker}),patch.object(scheduler,'execute_run',side_effect=execute):
+                scheduler.run_job(before)
+            worker.collect_quote.assert_called_once();self.assertEqual(len(db.all('operations')),1)
+            self.assertEqual(db.get('pricing_plans',old['plan_id'])['state'],'ENDED')
+            with db.connect() as conn:self.assertEqual(conn.execute('SELECT state FROM durable_jobs WHERE id=?',(ident,)).fetchone()[0],'done')
+            self.assertEqual(db.get('pricing_plans',child['plan_id'])['last_cycle_at'],(now+timedelta(hours=1)).isoformat())
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'export_shadow_snapshot'),patch.object(runtime,'write_json'),patch('automation_policy.load_policy',return_value=policy):
+                with patch.object(scheduler,'clock',return_value=now+timedelta(hours=1,minutes=59)):scheduler.tick(executors,{})
+                executors['collection'].submit.assert_not_called()
+                with patch.object(scheduler,'clock',return_value=now+timedelta(hours=2)):scheduler.tick(executors,{})
+            executors['collection'].submit.assert_called_once();self.assertEqual(len(db.all('operations')),1)
+
+    def test_unproven_revisionless_cycle_does_not_block_or_execute_current_plan(self):
+        from types import SimpleNamespace
+        now=datetime(2026,10,29,17,tzinfo=timezone.utc)
+        for ident in ('legacy-ordinary-cycle','exit-cycle:current-plan'):
+          with self.subTest(ident=ident),tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.sqlite3')
+            plan=dict(plan_id='current-plan',revision=5,generation='g',resources=['base:pc'],
+                      starts_at=(now-timedelta(hours=2)).isoformat(),state='ACTIVE',mode='daily',resume_count=7)
+            db.put('metadata','generation',dict(id='g'));db.put('pricing_plans',plan['plan_id'],plan)
+            with db.transaction() as conn:conn.execute("INSERT INTO plan_ownership VALUES ('base:pc','current-plan',5,'g')")
+            db.enqueue('cycle',ident,now+timedelta(hours=1),dict(plan_id=plan['plan_id']))
+            operation_id=str(scheduler.uuid.uuid5(scheduler.uuid.NAMESPACE_URL,'fc-v3-operation:'+ident))
+            unknown=dict(operation_id=operation_id,plan_id=plan['plan_id'],resources=plan['resources'],status='UNKNOWN')
+            db.put('operations',operation_id,unknown)
+            with db.connect() as conn:before=dict(conn.execute('SELECT * FROM durable_jobs WHERE id=?',(ident,)).fetchone())
+            executors={lane:Mock() for lane in ('collection','control','observation')}
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'clock',return_value=now),patch.object(scheduler,'export_shadow_snapshot'),patch.object(runtime,'write_json'),patch('automation_policy.load_policy',return_value=dict(interval_minutes=60)):
+                scheduler.tick(executors,{})
+            with db.connect() as conn:
+                self.assertEqual(dict(conn.execute('SELECT * FROM durable_jobs WHERE id=?',(ident,)).fetchone()),before)
+                reconciliations=[json.loads(row[0]) for row in conn.execute("SELECT body FROM durable_jobs WHERE kind='reconcile'")]
+            self.assertEqual([body['operation_id'] for body in reconciliations],[operation_id])
+            executors['collection'].submit.assert_called_once()
+            worker=SimpleNamespace(collect_quote=Mock(),save_job=Mock())
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler,'clock',return_value=now+timedelta(hours=1)),patch.dict(sys.modules,{'fc27_cloud_worker':worker}):scheduler.run_job(before)
+            worker.collect_quote.assert_not_called();worker.save_job.assert_not_called()
+            self.assertNotIn('last_cycle_at',db.get('pricing_plans',plan['plan_id']))
+            self.assertEqual(db.get('operations',operation_id),unknown)
+
     def test_deadline_exit_price_waits_for_one_hour_cycle(self):
         now=datetime(2026,10,26,14,40,tzinfo=timezone.utc)
         last=now-timedelta(minutes=3)
