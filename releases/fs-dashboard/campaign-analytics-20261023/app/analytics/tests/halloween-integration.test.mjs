@@ -22,6 +22,17 @@ test('A release saved before the roster change still projects instead of failing
  const projected=projectHalloween(h);
  assert.deepEqual(projected.games.map(g=>g.id),['fc','aion','wow','maplestory']);
  assert.equal(projected.games[2].label,'World of Warcraft');
+ // Real historical WoW releases use three amounts of one gold model.
+ h.games[2]={...h.games[2],admin_game_id:'1367',fixed_model:'90003',fixed_off_percent:10,
+  fixed_quantity:{value:'100',unit:'K',conversion_verified:false},
+  random_source:{mode:'quantity_tiers',category_id:null,snapshot_complete:false},
+  random_quantities:[{value:'200',unit:'K'},{value:'400',unit:'K'}]};
+ assert.deepEqual(projectHalloween(h).games[2],h.games[2]);
+ const invalid=structuredClone(h);invalid.games[2].random_quantities[0].unit='M';
+ assert.throws(()=>projectHalloween(invalid),e=>e.code==='INVALID_HALLOWEEN_CONFIG');
+ const wrongGame=structuredClone(h);wrongGame.games[0]={...wrongGame.games[0],
+  random_source:h.games[2].random_source,random_quantities:h.games[2].random_quantities};
+ assert.throws(()=>projectHalloween(wrongGame),e=>e.code==='INVALID_HALLOWEEN_CONFIG');
  // A roster the contract has never shipped is still rejected.
  const foreign=structuredClone(h);foreign.games[2].id='eso';
  assert.throws(()=>projectHalloween(foreign),e=>e.code==='INVALID_HALLOWEEN_CONFIG');
