@@ -10,11 +10,9 @@ import stat
 import threading
 import time
 from urllib.error import HTTPError
-from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 from customer_tracking import AdminService, Store, ID
 
-SESSION_URL='http://127.0.0.1:8767/business/customer-tracking-private'
 KEY_FILE=Path(os.environ.get('FS_CUSTOMER_TRACKING_KEY_FILE','/var/lib/fs-hermes-fc/private/customer-tracking.key'))
 SHANGHAI=timezone(timedelta(hours=8))
 
@@ -32,9 +30,6 @@ def safe_client_failure(error):
     if isinstance(error,OSError):return 'private_client_transport_unavailable'
     return 'private_client_unavailable'
 
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self,*args,**kwargs):return None
-
 def private_key(path=KEY_FILE):
     info=Path(path).lstat()
     if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size!=65:raise PermissionError('tracking_key_integrity')
@@ -44,18 +39,20 @@ def private_key(path=KEY_FILE):
     return value
 
 class PrivateClient:
-    def __init__(self,url=SESSION_URL,key_file=KEY_FILE):
-        if url!=SESSION_URL:raise ValueError('private_session_url')
-        self.url=url;self.key_file=key_file
+    def __init__(self,key_file=KEY_FILE):
+        self.key_file=key_file;self.reads=None;self.lock=threading.RLock()
     def read(self,body):
         raw=json.dumps(body,ensure_ascii=False,allow_nan=False).encode()
         if len(raw)>4096:raise ValueError('private_query_size')
-        request=Request(self.url,data=raw,method='POST',headers={
-            'Content-Type':'application/json','X-FS-Customer-Tracking-Key':private_key(self.key_file)})
-        with build_opener(NoRedirect()).open(request,timeout=12) as response:
-            data=response.read(4*1024*1024+1)
-            if len(data)>4*1024*1024:raise ValueError('private_result_size')
-            return json.loads(data)
+        key=private_key(self.key_file)
+        with self.lock:
+            if self.reads is None:
+                from tracking_private_session import direct_reads
+                self.reads=direct_reads(self.key_file)
+        if not self.reads.authorized(key):raise PermissionError('tracking_key_integrity')
+        value=self.reads.execute(body)
+        if len(json.dumps(value,ensure_ascii=False,allow_nan=False).encode())>4*1024*1024:raise ValueError('private_result_size')
+        return value
 
 class TrackingController:
     def __init__(self,root,authorizer,client=None,auto_start=True,conversation=None):

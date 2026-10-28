@@ -5,12 +5,12 @@ from threading import RLock
 import copy, hashlib, json, time
 
 SHANGHAI = timezone(timedelta(hours=8))
-TTL = 900
+TTL = 600
 HISTORY_TTL = 7200
 CAPTURE_MAX_AGE = 120
 STALE_GRACE = 180
 STALE_LIMIT = TTL + STALE_GRACE
-CONTRACT = 'admin-main-order-labelled-supplement-v1'
+CONTRACT = 'admin-paid-order-labelled-supplement-v2'
 SITE = 'www.mmoexp.com'
 
 def query(params, profiles, now=None):
@@ -72,7 +72,8 @@ class SummaryCache:
     def __init__(self, admin_read, order_read, profiles, fallback=None, clock=time.monotonic, shipping_read=None):
         self.readers = {'Admin': admin_read, 'Order': order_read}
         self.profiles, self.fallback, self.clock = profiles, fallback, clock
-        self.pools = {name: ThreadPoolExecutor(max_workers=1) for name in self.readers}
+        # Direct Admin reads are independent; the shared Order browser stays serial.
+        self.pools = {name: ThreadPoolExecutor(max_workers=4 if name == 'Admin' else 1) for name in self.readers}
         if shipping_read:
             self.readers={'Admin':admin_read,'Shipping':shipping_read,'Order':order_read}
             self.pools['Shipping']=self.pools['Order']

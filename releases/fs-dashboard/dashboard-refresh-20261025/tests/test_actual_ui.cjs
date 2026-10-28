@@ -16,7 +16,27 @@ check('RS dimensions retained',()=>{const q=ctx.fsProcurementQuery({key:'RS'},tr
 check('FC subfilters cannot show whole-game margin',()=>{ctx.fcFilters.platform='PS';assert.equal(ctx.fsProcurementQuery({key:'FC27'},false,selection),null);ctx.fcFilters.platform='all';ctx.fcFilters.site_group='satellite';assert.equal(ctx.fsProcurementQuery({key:'FC27'},false,selection),null);ctx.fcFilters.site_group='main';});
 check('FC all-sites follows parent scope without disabling the full-game actual margin',()=>{ctx.fcFilters.site_group='all';assert.equal(ctx.fsProcurementQuery({key:'FC27'},true,selection).profit_site,'all');assert.equal(ctx.fsProcurementQuery({key:'FC27'},false,selection),null);ctx.fcFilters.site_group='main';});
 check('three UI variants promote actual and stop shipping reads',()=>{for(const name of ['business.js','home-business.js','legacy-business.js']){const s=fs.readFileSync(path.join(root,'source',name),'utf8');assert.ok(s.includes('Object.assign(mainMetrics,fsActualMetrics(profile,all))'));assert.ok(!s.includes("separate.dataset.procurementIndependent='true'"));assert.ok(s.includes("profit_basis:'actual'"));assert.ok(s.includes('function requestDailyProfit(){}'));assert.ok(s.includes('已完成成本覆盖'));}});
-check('business cache version only; Google/retry unchanged',()=>{const shell=fs.readFileSync(path.join(root,'source/shell.js'),'utf8'),code=shell.slice(shell.indexOf('  const moduleURL='),shell.indexOf('  const [markup,stylesheet,module]='));for(const mode of ['business','google'])for(const retried of [false,true]){const url=vm.runInNewContext(code+';moduleURL.href',{URL,state:{mode},retried,base:new URL('https://fixture.test/dashboard/workspace-assets/current/'),location:{origin:'https://fixture.test'}}),q=new URL(url);assert.equal(q.searchParams.get('v'),mode==='business'?'business-filter-layout-20261025':null);assert.equal(q.searchParams.get('retry'),retried?'1':null);}});
+check('three UI variants use the paid Admin cohort for all-site cards and trends',()=>{for(const name of ['business.js','home-business.js','legacy-business.js']){
+ const s=fs.readFileSync(path.join(root,'source',name),'utf8'),period={start:'2026-10-23 00:00',end:'2026-10-24 00:00'},metric=value=>({value,status:'available'});
+ const admin={system:'admin.p2pah.cn',status:'available',normalisedScope:'all-websites',period,filters:{game:891,pay_status:1,order_status:'',site:''},metrics:{orders:metric(2),revenueUsd:metric(100)},dimensions:{},rows:[{date:'2026-10-23 01:00',orders:2,amount:100}],seriesGranularity:'day-or-hour',labelsVerified:true};
+ const profile={key:'AION2',supplement:admin,primary:{status:'available',period,currency:'USD',metrics:{orders:metric(9),revenueUsd:metric(900),newCustomers:metric(7)},rows:[{date:'2026-10-23 01:00',orders:9,amount:900}],seriesGranularity:'day-or-hour',labelsVerified:true}};
+ const q={start:'2026-10-23',end:'2026-10-23',grain:'day'},c=vm.createContext({fsActualMetrics:()=>({}),scope:{summary:{query:q,profile}},KEY:'AION2',currentSelection:()=>q,exactPermissionDenied:()=>false});
+ vm.runInContext(s.slice(0,s.indexOf('export function mount')),c);
+ assert.equal(c.fsPeriodPolicy().ttl(q,Date.parse('2026-10-23T08:00:00Z')),600);assert.equal(c.fsPeriodPolicy().ttl(q,Date.parse('2026-10-24T08:00:00Z')),7200);
+ c.GROUPS=[];c.data={dashboard:{groups:[{key:'rpg',label:'RPG · 已完成',profiles:['AION2']}]}};
+ vm.runInContext(s.slice(s.indexOf('GROUPS.splice(0,GROUPS.length'),s.indexOf(';Object.assign(DATA,',s.indexOf('GROUPS.splice(0,GROUPS.length'))),c);
+ assert.equal(c.GROUPS[0].label,'RPG');
+ vm.runInContext(s.slice(s.indexOf('function fsMainSite('),s.indexOf('function fsOrderLabel(')),c);
+ assert.equal(c.fsMainSite(profile,true).metrics.revenueUsd.value,100);assert.equal(c.fsMainSite(profile,true).metrics.newCustomers.value,null);
+ vm.runInContext(s.slice(s.indexOf('function queriedRows('),s.indexOf('function exactPermissionDenied(')),c);
+ assert.equal(c.queriedRows(false)[0].amount,100);assert.equal(c.queriedRows(true)[0].orders,2);
+ admin.labelsVerified=false;assert.equal(c.queriedRows(false).length,0);admin.labelsVerified=true;
+ vm.runInContext(s.slice(s.indexOf('/* Aion2 consumes'),s.indexOf('// Only presentation and valid view selections')),c);
+ assert.equal(c.FSAion2Status.classify('AION2','available',profile,q).state,'available');
+ assert.match(c.FSAion2Status.classify('AION2','available',profile,q).text,/已付款全部订单/);
+ admin.filters.order_status='101';assert.equal(c.FSAion2Status.classify('AION2','available',profile,q).state,'unverified');
+}});
+check('business cache version only; Google/retry unchanged',()=>{const shell=fs.readFileSync(path.join(root,'source/shell.js'),'utf8'),code=shell.slice(shell.indexOf('  const moduleURL='),shell.indexOf('  const [markup,stylesheet,module]='));for(const mode of ['business','google'])for(const retried of [false,true]){const url=vm.runInNewContext(code+';moduleURL.href',{URL,state:{mode},retried,base:new URL('https://fixture.test/dashboard/workspace-assets/current/'),location:{origin:'https://fixture.test'}}),q=new URL(url);assert.equal(q.searchParams.get('v'),mode==='business'?'admin-paid-cohort-20261028':null);assert.equal(q.searchParams.get('retry'),retried?'1':null);}});
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  const first=ctx.fsEnsureProcurement({key:'FC27'}),second=ctx.fsEnsureProcurement({key:'NBA2K27'});check('switch cancels former request',()=>assert.ok(first.abort.signal.aborted));

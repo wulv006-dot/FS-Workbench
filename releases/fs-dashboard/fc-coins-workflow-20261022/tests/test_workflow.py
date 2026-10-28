@@ -194,6 +194,17 @@ class Learning(unittest.TestCase):
   self.assertEqual(status,409);self.assertEqual(result['error'],'experience_business_baseline_conflict');self.assertEqual(registry.manifest(self.db,'wulv','FS',self.now)['experiences'],[])
 
 class Wiring(unittest.TestCase):
+ def test_native_reader_accepts_paid_contract_and_rejects_completed_only_summary(self):
+  tree=ast.parse((HERE/'source/fs_evidence.py').read_text('utf8'))
+  ns=dict(datetime=datetime,timezone=timezone,authoritative_native_fields=lambda *args:{'orders':{'value':2}})
+  exec(compile(ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='live_native_statistics'],type_ignores=[]),'native-contract-test','exec'),ns)
+  for contract in ('admin-paid-order-labelled-supplement-v2','admin-main-order-labelled-supplement-v1'):
+   read=lambda params:(200,dict(scopeContractId=contract,status='available',profile={},sources={}))
+   if contract.endswith('v2'):
+    value=ns['live_native_statistics'](read,{'profile':'FC27','start':'2026-10-27','end':'2026-10-27'})
+    self.assertEqual(value['source_contract'],contract);self.assertEqual(value['authoritative_fields']['orders']['value'],2)
+   else:
+    with self.assertRaisesRegex(ValueError,'native_source_contract'):ns['live_native_statistics'](read,{})
  def test_archived_cost_tool_does_not_start_live_paid_read(self):
   tree=ast.parse((HERE/'source/fs_evidence.py').read_text('utf8'));calls=[];paid=[]
   ns={'AsyncRead':lambda reader:SimpleNamespace(get=lambda:paid.append('read') or {'status':'pending','reason':'source_read_running'})}

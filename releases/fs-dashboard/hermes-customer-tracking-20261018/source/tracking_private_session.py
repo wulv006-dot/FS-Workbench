@@ -102,10 +102,9 @@ class PrivateReads:
                 def run():
                     request=lambda path,timeout:self.manager.request(path,token=token,timeout=min(timeout,10))
                     if action=='scan':
-                        from es_order_structure import session_bundle
-                        from p2pah_session_service import HEADERS
+                        from es_order_structure import server_bundle
                         day=args[0]
-                        source=session_bundle(self.manager,{'profile':'ALL','start':day,'end':day},HEADERS)
+                        source=server_bundle({'profile':'ALL','start':day,'end':day})
                         if source.get('status')!='available':
                             return {'status':source.get('status','unavailable'),
                                     'reason':source.get('reason','es_daily_export_not_ready'),
@@ -125,3 +124,20 @@ class PrivateReads:
         if not future.done():return {'status':'pending','retryAfter':5}
         try:return future.result()
         except Exception as error:return {'status':'unavailable','reason':safe_source_failure(error)}
+
+
+def direct_reads(key_file):
+    """Keep the original private job/validation boundary on the shared Admin API."""
+    import sys
+    from types import SimpleNamespace
+    sys.path.insert(0,'/opt/sales-dashboard/collector')
+    import p2pah_auth as auth
+    client=auth.Session()
+    def request(path,token=None,timeout=10):
+        response=client.admin.get(auth.ADMIN_API+path,timeout=timeout)
+        return response.status_code,response.content
+    def identity_ok(token,timeout=10):
+        status,raw=request('/admin/index/index',timeout=timeout)
+        return status==200 and json.loads(raw).get('code')==1
+    manager=SimpleNamespace(lock=threading.RLock(),token=None,identity_ok=identity_ok,request=request)
+    return PrivateReads(manager,key_file)

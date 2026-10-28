@@ -1,0 +1,117 @@
+{
+  "status": "candidate_not_published",
+  "targets": [
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/channel_cache.py",
+      "target": "/opt/fs-hermes-fc/channel_cache.py",
+      "sha256": "24ff9257cf26e8fe4da6a7980518216869113336cdecc7080da58b6725560c72",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/channel_effects.py",
+      "target": "/opt/fs-hermes-fc/channel_effects.py",
+      "sha256": "755384eb1a23957613a8bc70bef8940dd151cf0a2c8d34604ac7797dca24e500",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/actual_profit.py",
+      "target": "/opt/fs-exact-range-20261001/actual_profit.py",
+      "sha256": "01713eb4fa17dc371841c50c7af6cd2408b06bb710c02e38b05a69d8e6bb54fe",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail.py",
+      "target": "/opt/fs-exact-range-20261001/fc_detail.py",
+      "sha256": "bba4387f3ff3d1634ae185ed0b23ea3dca68a22e25239d979991206cd555f382",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail_reader.py",
+      "target": "/opt/fs-exact-range-20261001/fc_detail_reader.py",
+      "sha256": "1790596f29322c3a9a8e6c2268d4f824c9aaf6b4a3a41c47ad47c1fd94170c6f",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/cache-archive-retention-20261025/source/source_snapshots.py",
+      "target": "/opt/fs-hermes-fc/source_snapshots.py",
+      "sha256": "76105ce8e2f36c9a87bc2a4b7d40d8718a5e8470eb4de8aa4c46d7fbefa8b713",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/cache-archive-retention-20261025/source/es_order_structure.py",
+      "target": "/opt/fs-hermes-fc/es_order_structure.py",
+      "sha256": "958698493f929d364ecbddac4495cf72b13cf411c2604d682de19e396ff66161",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/fc-coins-workflow-20261022/source/fs_evidence.py",
+      "target": "/opt/fs-hermes-fc/fs_evidence.py",
+      "sha256": "328d65c66eb45e8cfb69d293cc8fc1d75b2f2fa2d64bf4120585e45171464b2d",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-data-workspace-20261018/source/cohort_es_source.py",
+      "target": "/opt/fs-hermes-fc/cohort_es_source.py",
+      "sha256": "e3e6edf5145c3fc2027fd4365810b6e654a099b99aba7ead7eb5e902ed536d52",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/tracking_controller.py",
+      "target": "/opt/fs-hermes-fc/tracking_controller.py",
+      "sha256": "3f877ce768e1ef2345581e0ef70a2bdb354b5745d2429d909df4092713719774",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-customer-tracking-20261018/source/tracking_private_session.py",
+      "target": "/opt/fs-hermes-fc/tracking_private_session.py",
+      "sha256": "2f54f2941f7f933df17d6bf3aad59efe6a216eb2398eef5d6af611d15a3497d4",
+      "reload": "fs-business-range.service",
+      "note": "新宿主读取模块；保留原私有key/范围合同"
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-customer-tracking-20261018/source/tracking_source.py",
+      "target": "/opt/fs-hermes-fc/tracking_source.py",
+      "sha256": "57f48a2da12361fbcc356488d02effb63d30a79c11ecaa351cac7537230be00f",
+      "reload": "fs-business-range.service",
+      "note": "新宿主读取模块；保留原私有key/范围合同"
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-generic-data-20261018/source/admin_product_orders.py",
+      "target": "/opt/fs-hermes-fc/admin_product_orders.py",
+      "sha256": "385daaa3fbc0de678fe381890d66a89f62d83c3bd1840adaa03309415992be5e",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-generic-data-20261018/source/cohort_paid_source.py",
+      "target": "/opt/fs-hermes-fc/cohort_paid_source.py",
+      "sha256": "365be2e5f07c661935f23a0163b04b1374568e886eb4c0d9a84dbbe919bd806f",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-fc-pilot-20261013/admin_order_capabilities_20261014/capabilities.py",
+      "target": "/opt/fs-hermes-fc/admin_order_capabilities_20261014/capabilities.py",
+      "sha256": "10c4d5e58e30b41008100c1ffefbaa8a086fc346a8f85e3d1c29beba3cb06624",
+      "reload": "fs-business-range.service",
+      "note": ""
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-fc-pilot-20261013/admin_order_capabilities_20261014/fs_reader.py",
+      "target": "/opt/fs-hermes-fc/admin_order_capabilities_20261014/fs_reader.py",
+      "sha256": "4005322c3fa9b121d2eb799e2da99cdb98897e4089e9b56890313ff79b1b81cf",
+      "reload": "fs-business-range.service",
+      "note": ""
+    }
+  ]
+}

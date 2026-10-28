@@ -98,14 +98,11 @@ class ESJoinTests(unittest.TestCase):
 
     def test_archive_read_passes_selected_game_without_new_export(self):
         calls=[]
-        def run(argv,**kwargs):
-            calls.append((argv,kwargs))
-            return SimpleNamespace(returncode=0,stdout=b'{"status":"available","rows":[]}')
+        def archive(q):calls.append(q);return self.dataset()
         q=dict(self.q,profile='D4')
-        with patch('cohort_es_source.subprocess.run',side_effect=run):
+        with patch.dict(sys.modules,es_order_structure=SimpleNamespace(archived_dataset=archive,GAME_LABELS={'D4':'Diablo 4'})):
             self.assertEqual(read_archive(q)['status'],'available')
-        self.assertEqual(__import__('json').loads(calls[0][0][-1])['profile'],'D4')
-        self.assertIn(b'GAME_LABELS',calls[0][1]['input'])
+        self.assertEqual(calls,[q])
 
 
 if __name__=='__main__':unittest.main()

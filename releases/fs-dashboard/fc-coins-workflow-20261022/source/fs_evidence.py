@@ -14,7 +14,7 @@ from research import ResearchBook, label
 from skill_bundle import load_bundle
 
 
-NATIVE_CACHE_CONTRACT='admin-first-main-website-zero-valid-20261017-v2'
+NATIVE_CACHE_CONTRACT='admin-first-paid-order-zero-valid-20261028-v3'
 
 def native_cache_query(args,config):
     from traffic_contract import RULE_VERSION
@@ -263,7 +263,7 @@ def attach_owner_history(book,tasks,owner):
 def live_native_statistics(read_range,args):
     params={k:[v] for k,v in dict(mode='summary',grain='day',**args).items()}
     status,raw=read_range(params)
-    if raw.get('scopeContractId') not in (None,'admin-main-order-labelled-supplement-v1'):raise ValueError('native_source_contract')
+    if raw.get('scopeContractId') not in (None,'admin-paid-order-labelled-supplement-v2'):raise ValueError('native_source_contract')
     profile=raw.get('profile') or {}
     records={k:{field:profile[k][field] for field in ('system','status','period','currency','orders','revenueUsd','metrics','dimensions','capturedAt','sourceDataAsOf','stale','dimensions','normalisedScope','filters') if field in profile[k]} for k in ('primary','supplement') if isinstance(profile.get(k),dict)}
     return {'http_status':status,'status':raw.get('status'),'query':args,'source_contract':raw.get('scopeContractId'),

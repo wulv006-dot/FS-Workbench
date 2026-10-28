@@ -432,14 +432,17 @@ LOCK=threading.RLock()
 CACHE={}
 
 def server_read(args):
-    from urllib.request import Request, build_opener, HTTPRedirectHandler
-    class NoRedirect(HTTPRedirectHandler):
-        def redirect_request(self,*args,**kwargs): return None
+    import sys
+    sys.path.insert(0,'/opt/sales-dashboard/collector')
+    import p2pah_auth as auth
     q=checked_query(args)
-    with build_opener(NoRedirect).open(Request('http://127.0.0.1:8767/business/fc-capability',data=json.dumps(dict(q,kind='product_orders')).encode(),headers={'Content-Type':'application/json'},method='POST'),timeout=28) as response:
-        raw=response.read(1024*1024+1)
-    if len(raw)>1024*1024:raise ValueError('product_response_size')
-    value=json.loads(raw)
+    client=auth.Session()
+    def request(path,timeout):
+        response=client.admin.get(auth.ADMIN_API+path,timeout=timeout)
+        return response.status_code,response.content
+    try:value=collect(request,q,model_seconds=540)
+    finally:client.close()
+    if len(json.dumps(value).encode())>1024*1024:raise ValueError('product_response_size')
     if value.get('kind')!='admin_product_orders' or value.get('query')!=q:raise ValueError('product_response_contract')
     return value
 
@@ -452,7 +455,7 @@ def read(args):
             if f.done():
                 try:
                     status=f.result().get('status')
-                    ttl=900 if status=='available' else 3 if status=='pending' else 60
+                    ttl=(600 if json.loads(old)['end']>=datetime.now(SHANGHAI).date().isoformat() else 900) if status=='available' else 3 if status=='pending' else 60
                 except Exception:ttl=60
                 if now-started>ttl:CACHE.pop(old)
         if key not in CACHE:

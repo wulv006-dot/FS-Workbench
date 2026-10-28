@@ -1,10 +1,8 @@
-"""Runs inside the existing Admin session container, using its existing auth helper."""
+"""Run the existing bounded reader through the shared direct Admin API client."""
 import hashlib, json, sys, time
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urlencode
 from urllib.error import URLError
-sys.path.insert(0, '/usr/local/bin')
-from p2pah_session_service import SessionManager, read_private_config
 from fc_detail_model import normalize, deduplicate
 
 class FCContractError(ValueError):
@@ -58,12 +56,13 @@ def collect(request, query, config):
     paid, missing_days = [], []
     cursor = datetime.strptime(query['period']['start'], '%Y-%m-%d %H:%M')
     stop = datetime.strptime(query['period']['end'], '%Y-%m-%d %H:%M')
-    try:
-        paid = pages(base + [('paytime', cursor.strftime('%Y-%m-%d %H:%M:%S') + ',' + stop.strftime('%Y-%m-%d %H:%M:%S'), 'RANGE')], 'paid')
-        cursor = stop
-    except (PermissionError, FCContractError): raise
-    except (ValueError, OSError):
-        if __name__ == '__main__': print('FC full range unavailable; retry by natural day', file=sys.stderr, flush=True)
+    if stop - cursor <= timedelta(days=28):
+        try:
+            paid = pages(base + [('paytime', cursor.strftime('%Y-%m-%d %H:%M:%S') + ',' + stop.strftime('%Y-%m-%d %H:%M:%S'), 'RANGE')], 'paid')
+            cursor = stop
+        except (PermissionError, FCContractError): raise
+        except (ValueError, OSError):
+            if __name__ == '__main__': print('FC full range unavailable; retry by natural day', file=sys.stderr, flush=True)
     while cursor < stop:
         end = min(cursor.replace(hour=0,minute=0)+timedelta(days=1),stop)
         try:
@@ -101,8 +100,12 @@ def collect(request, query, config):
     return content
 
 if __name__ == '__main__':
-    args = json.loads(sys.argv[1]); manager = SessionManager(read_private_config())
-    if not manager.ensure(): raise RuntimeError('existing_auth_unavailable')
-    with manager.lock:
-        result = collect(lambda path: manager.request(path, token=manager.token), args['query'], args['config'])
+    sys.path.insert(0, '/opt/sales-dashboard/collector')
+    from p2pah_auth import Session
+    args = json.loads(sys.argv[1]); session = Session()
+    def request(path):
+        status, value = session.get_admin(path)
+        return status, json.dumps(value).encode('utf-8')
+    try:result = collect(request, args['query'], args['config'])
+    finally:session.close()
     print(json.dumps(result, ensure_ascii=False))

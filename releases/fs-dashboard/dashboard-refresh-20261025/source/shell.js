@@ -3,7 +3,7 @@ function fsPeriodPolicy(){
  const shift=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
  const selection=(mode,custom,min,max,anchor=day())=>custom?{...custom,grain:'day'}:mode==='today'?{start:anchor,end:anchor,grain:'day'}:mode==='yesterday'?{start:shift(anchor,-1),end:shift(anchor,-1),grain:'day'}:+mode>0?{start:shift(anchor,-Number(mode)),end:shift(anchor,-1),grain:'day'}:{start:min,end:max<anchor?max:shift(anchor,-1),grain:'day'};
  const active=(s,now=Date.now())=>!!s?.end&&s.end.slice(0,10)>=day(now);
- return {day,shift,selection,active,ttl:(s,now=Date.now())=>active(s,now)?900:7200};
+ return {day,shift,selection,active,ttl:(s,now=Date.now())=>active(s,now)?600:7200};
 }
 class LiveSummary {
  constructor(selection,update,state){this.selection=selection;this.update=update;this.state=state;this.pending=null;this.current=null;this.epoch=0;this.key=null;}
@@ -22,10 +22,10 @@ class LiveSummary {
     const data=await r.json();
     if(epoch!==this.epoch)return;
     if(r.status===202||r.status===429){this.state({phase:'loading',message:'后台正在读取或队列繁忙；尚无新结果。'});await new Promise(resolve=>setTimeout(resolve,2000));continue;}
-    if(!r.ok||!['available','stale'].includes(data.status)||data.scopeContractId!=='admin-main-order-labelled-supplement-v1'||data.profile?.key!==selection.profile||data.query?.start!==selection.start||data.query?.end!==selection.end)throw Error('summary_unavailable');
-    this.current=data;this.nextRefreshAt=Date.now()+((Object.values(data.sources||{}).some(x=>x.status==='pending')?900:Math.max(1,(data.expiresInSeconds??900)+1))*1000);this.update(data);this.state({phase:'available'});
+    if(!r.ok||!['available','stale'].includes(data.status)||data.scopeContractId!=='admin-paid-order-labelled-supplement-v2'||data.profile?.key!==selection.profile||data.query?.start!==selection.start||data.query?.end!==selection.end)throw Error('summary_unavailable');
+    this.current=data;this.nextRefreshAt=Date.now()+((Object.values(data.sources||{}).some(x=>x.status==='pending')?600:Math.max(1,(data.expiresInSeconds??600)+1))*1000);this.update(data);this.state({phase:'available'});
     // Retry temporary Order contention only inside the initial read budget;
-    // do not wait a whole 15-minute cache cycle after a short lock conflict.
+    // do not wait a whole 10-minute cache cycle after a short lock conflict.
     const pending=data.sources?.Admin?.status==='pending'||data.sources?.Order?.status==='pending';
     const order=data.sources?.Order;
     const deferred=order?.phase==='deferred'&&['collector_busy','scheduled_collection_due'].includes(order.error);
@@ -40,7 +40,7 @@ class LiveSummary {
    if(this.current){this.current={...this.current,stale:true,status:'stale'};this.update(this.current);}
    this.state({phase:this.current?'stale':'unavailable',message:this.current?'⚠ 检查失败，保留已过期值；读取时间见来源。':'经营指标暂不可用；缺失没有填零。'});
   }})();
-  promise.finally(()=>{if(this.pending===promise){this.pending=null;if(this.running){clearTimeout(this.timer);this.timer=setTimeout(()=>this.check(),Math.max(1000,(this.nextRefreshAt||Date.now()+900000)-Date.now()));}}});
+  promise.finally(()=>{if(this.pending===promise){this.pending=null;if(this.running){clearTimeout(this.timer);this.timer=setTimeout(()=>this.check(),Math.max(1000,(this.nextRefreshAt||Date.now()+600000)-Date.now()));}}});
   this.pending=promise;return promise;
  }
  start(){if(this.running)return;this.running=true;this.check();}
@@ -73,8 +73,8 @@ function fsMainSite(profile,all=false){
  }
  }else if(mainMetrics.orders.value!==null&&(!Number.isSafeInteger(mainMetrics.orders.value)||mainMetrics.orders.value<0)){mainMetrics.orders=missing('Admin','全部网站');}
  for(const key of ['profitMarginPct','averageOrderUsd','averageCustomerUsd','minOrderAmountUsd','maxOrderAmountUsd','fulfillmentRatePct']){
-  if(mainMetrics[key]?.value!=null)continue;
-  mainMetrics[key]=same&&order?.status==='available'&&order.currency==='USD'?take(order.metrics?.[key],'Order',all?'后台全部网站参考；与 Admin 网站集合可能不同':'后台全站参考；与 Admin 主站口径不同'):missing('Order','后台全站参考');
+  if(mainMetrics[key]?.value!=null||key==='averageCustomerUsd')continue;
+  mainMetrics[key]=same&&order?.status==='available'&&order.currency==='USD'?take(order.metrics?.[key],'Order',(String(order.filters?.status)==='3'?'已完成订单 · ':'')+(all?'后台全部网站参考；与 Admin 网站集合可能不同':'后台全站参考；与 Admin 主站口径不同')):missing('Order','后台全站参考');
  }
  const revenue=mainMetrics.revenueUsd.value,rate=mainMetrics.profitMarginPct.value;
  const raw=revenue!==null&&rate!==null?Math.round(Math.round(revenue*100)*Math.round(rate*100)/10000)/100:null;
@@ -84,7 +84,7 @@ function fsMainSite(profile,all=false){
  for(const item of Object.values(mainMetrics)){if(item.source==='Order'&&item.value!==null&&order?.stale&&profile?.cachePolicy!=='historical')item.stale=true;}
  mainMetrics.estimatedProfitUsd.stale=!!(mainMetrics.profitMarginPct.stale&&mainMetrics.estimatedProfitUsd.value!==null);
  return {metrics:mainMetrics,period:admin?.period,adminCapturedAt:admin?.capturedAt,orderCapturedAt:order?.capturedAt,onlyMain,
-  site:all?'全部网站':'MMOEXP',policy:'admin-main-order-labelled-supplement-v1'};
+  site:all?'全部网站':'MMOEXP',policy:'admin-paid-order-labelled-supplement-v2'};
 }
 
 function fsOrderLabel(source){return ({available:'读取完成',queued:'排队中',reading:'读取中',deferred:'采集繁忙，稍后重试',failed:'读取失败',pending:'读取中',unavailable:'读取失败'}[source?.phase||source?.status]||'尚未读取')+(source?.stale&&source?.capturedAt?' · 已过期':'');}
@@ -123,7 +123,7 @@ async function nativeLoad(retried=false){
  const scope=lifecycle(host,capture,halt);scope.seed={...state};active={host,scope,api:null};$('status').textContent='正在读取'+(state.mode==='business'?'经营分析':'Google 运营')+'…';
  try{
   const moduleURL=new URL(state.mode+'.js',state.mode==='google'?new URL('/dashboard/workspace-assets/workspace-native-20261019-traffic-v3/',location.origin):base);
-  if(state.mode==='business')moduleURL.searchParams.set('v','business-filter-layout-20261025');
+  if(state.mode==='business')moduleURL.searchParams.set('v','admin-paid-cohort-20261028');
   if(retried)moduleURL.searchParams.set('retry','1');
   const [markup,stylesheet,module]=await Promise.all([readonly(new URL(state.mode+'.html',logicBase),'text/html','GET',scopeSignal()),readonly(new URL(state.mode+'.css',state.mode==='google'?new URL('/dashboard/workspace-assets/workspace-native-20261019-traffic-v3/',location.origin):new URL('/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/',location.origin)),'text/css','GET',scopeSignal()),import(moduleURL.href)]);
   if(id!==epoch)return;for(const name of ['fs-ui.css','native-alias.css']){const shared=document.createElement('link');shared.rel='stylesheet';shared.href=new URL('ui/'+name,new URL('/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/',location.origin));scope.root.append(shared);}const style=document.createElement('style');style.textContent=await stylesheet.text();scope.root.append(style);const template=document.createElement('template');template.innerHTML=await markup.text();scope.root.append(template.content);
@@ -158,7 +158,7 @@ function homeData(){
    $('label-'+k).textContent='今日MMOEXP '+{orders:'订单数',revenueUsd:'销售额',newCustomers:'预估利润'}[k];
   }
   $('status').dataset.state=data.stale?'error':'available';
-  $('status').textContent=(data.stale?'⚠ 已过期，保留故障兜底 · ':'')+'Admin主站 · 查询截至 '+p.period.end+' 北京时间 · Admin读取 '+(data.sources.Admin.capturedAt||'—')+' · 上游统计水位 '+(data.sources.Admin.sourceDataAsOf||'未提供')+' · Order '+fsOrderLabel(data.sources.Order)+' · 共享缓存 '+(data.refreshSeconds||900)+'秒';
+  $('status').textContent=(data.stale?'⚠ 已过期，保留故障兜底 · ':'')+'Admin主站 · 查询截至 '+p.period.end+' 北京时间 · Admin读取 '+(data.sources.Admin.capturedAt||'—')+' · 上游统计水位 '+(data.sources.Admin.sourceDataAsOf||'未提供')+' · Order '+fsOrderLabel(data.sources.Order)+' · 共享缓存 '+(data.refreshSeconds||600)+'秒';
  },state=>{if(id!==epoch||!identity)return;if(state.clear)for(const k of ['orders','revenueUsd','newCustomers'])$(k).textContent='—';if(state.status===401||state.status===403){halt(state.status);return;}if(state.phase!=='available'){$('status').dataset.state='error';$('status').textContent=state.message;}});
  watcher.read=path=>readonly(path,'application/json','GET',homeController.signal);watcher.start();$('refresh').disabled=false;
 }

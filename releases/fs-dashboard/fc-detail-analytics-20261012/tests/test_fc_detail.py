@@ -1,11 +1,14 @@
 import copy, importlib.util, json, sys, tempfile, unittest
+import contextlib,io,runpy
+from types import SimpleNamespace
+from unittest.mock import Mock,patch
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'source'))
 from fc_detail_model import normalize, deduplicate, aggregate, amount_bucket
-from fc_detail import query, FCDetails
+from fc_detail import query, FCDetails,read_source
 CFG = json.loads((ROOT / 'source/fc_detail_config.json').read_text())
 CFG['trust_customer_flag']=True
 
@@ -27,6 +30,19 @@ def data(rows, backlog=None):
 Q={'start':'2026-10-11','end':'2026-10-11','pool':'paid','page':'1'}
 
 class FactsTest(unittest.TestCase):
+    def test_reader_cli_uses_direct_api_and_closes_without_session_service(self):
+        client=Mock()
+        client.get_admin.side_effect=lambda path:(200,{'code':1,'data':{'list':[{'id':266}]}}) if 'siteList' in path else (200,{'code':1,'data':{'total':1,'list':[raw(1)]}})
+        output=io.StringIO();args={'query':{'period':{'start':'2026-10-11 00:00','end':'2026-10-12 00:00'}},'config':CFG}
+        with patch.dict(sys.modules,p2pah_auth=SimpleNamespace(Session=lambda:client)),patch.object(sys,'argv',['reader',json.dumps(args)]),patch.object(sys,'path',list(sys.path)),contextlib.redirect_stdout(output):
+            runpy.run_path(str(ROOT/'source/fc_detail_reader.py'),run_name='__main__')
+        value=json.loads(output.getvalue());self.assertTrue(value['coverage']['paid_complete']);client.close.assert_called_once()
+        self.assertEqual(client.get_admin.call_count,11)
+    def test_source_runner_is_original_host_reader_not_a_container(self):
+        result=SimpleNamespace(returncode=0,stdout=json.dumps(data([])).encode())
+        with patch('fc_detail.subprocess.run',return_value=result) as run:
+            self.assertEqual(read_source({},CFG)['snapshot_id'],'fc-detail-test')
+        self.assertEqual(run.call_args.args[0][:2],[sys.executable,str(ROOT/'source/fc_detail_reader.py')])
     def risk_data(self, rows, complete=True):
         value=data([],rows)
         value['as_of']='2026-10-14T12:00:00+08:00'

@@ -18,7 +18,7 @@ def collect(q, definition):
         token,error=auth.admin_token_from_service()
         if error:raise OSError(error)
         session.bind_admin_token(token);del token
-        payload=dict(order_status='101' if definition[4]=='rpg' else '',pay_status=1,game=definition[3],site=266,
+        payload=dict(order_status='',pay_status=1,game=definition[3],site=266,
             country_code='',client='',date=[q['period']['start'],q['period']['end']],pay_type='',time_unit=1,cid='',discount_code='',product_type='')
         response=session.admin.request('POST',auth.ADMIN_API+ENDPOINT,json=payload,headers={'batoken':session.token},timeout=85,allow_redirects=False)
         if response.status_code in (301,302,401,403):raise PermissionError('main_site_admin_denied')

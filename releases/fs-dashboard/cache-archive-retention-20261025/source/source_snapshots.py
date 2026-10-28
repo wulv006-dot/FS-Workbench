@@ -52,6 +52,7 @@ class SnapshotStore:
         from daily_archive import read,save
         managed=family=='native-statistics' and bool(query.get('profile'))
         if managed:
+            query=dict(query,admin_summary_contract='admin-paid-order-labelled-supplement-v2')
             value=read(family,query)
             if value is not None and valid(value):return value
         value=self.get_live(family,query,reader,valid,enabled=enabled)

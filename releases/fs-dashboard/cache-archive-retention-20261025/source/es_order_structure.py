@@ -240,8 +240,10 @@ def export_bundle(manager,args,headers,download,archive=None,deadline=None,priva
     remaining=deadline-time.monotonic()
     if remaining<=0:return {'status':'unavailable','reason':'es_deadline_before_generation','retryable':True,'stage':'not_generated'}
     status,raw=manager.request(path,token=token,timeout=min(90,remaining))
+    if status in (401,403):return {'status':'unavailable','reason':'es_export_permission_denied','retryable':True,'stage':'not_generated'}
     if status!=200 or len(raw)>1024*1024:return {'status':'unavailable','reason':'es_export_request_failed_or_unknown','retryable':False,'stage':'export_sent'}
     payload=json.loads(raw)
+    if payload.get('code') in (401,403):return {'status':'unavailable','reason':'es_export_permission_denied','retryable':True,'stage':'not_generated'}
     urls=(payload.get('data') or {}).get('urls')
     if payload.get('code')!=1 or not isinstance(urls,list) or not 1<=len(urls)<=20 or len(set(urls))!=len(urls):return {'status':'unavailable','reason':'es_export_manifest_invalid','retryable':False,'stage':'export_sent'}
     files=[];failed=0
@@ -251,7 +253,7 @@ def export_bundle(manager,args,headers,download,archive=None,deadline=None,priva
         if parts.scheme!='https' or parts.hostname!='admin-api.p2pah.cn' or parts.port not in (None,443) or parts.username or parts.password or parts.fragment or not parts.path.lower().endswith('.xlsx'):
             failed+=1;continue
         try:
-            raw=download(url,{**headers,'batoken':token})
+            raw=download(url,{**headers,**({'batoken':token} if token else {})})
             if len(raw)>MAX_FILE or not raw.startswith(b'PK') or sum(len(v) for v in files)+len(raw)>128*1024*1024:raise ValueError('es_download_format')
             files.append(raw)
         except Exception:failed+=1
@@ -308,7 +310,7 @@ def archive_files(files,args,root=Path('/var/lib/fc27-es-exports')):
 
 
 def cache_seconds(end):
-    return 900 if end>=datetime.now(SHANGHAI).date().isoformat() else 21600
+    return 600 if end>=datetime.now(SHANGHAI).date().isoformat() else 21600
 
 
 def trusted_download(url,headers,deadline=None):
@@ -365,6 +367,9 @@ def _archived_dataset(args,root):
         if (q.get('start'),q.get('end'))==(args['start'],args['end']):matches.append(value)
     if not matches:return None
     value=max(matches,key=lambda v:v.get('captured_at',''));files=[]
+    if args['end']>=datetime.now(SHANGHAI).date().isoformat():
+        age=(datetime.now(timezone.utc)-datetime.fromisoformat(value['captured_at'])).total_seconds()
+        if not 0<=age<600:return None
     for digest in value.get('file_sha256',[]):
         if not re.fullmatch('[a-f0-9]{64}',digest):raise ValueError('es_archive_integrity')
         path=excel_path(root,digest)
@@ -456,7 +461,28 @@ def retained_bundle(previous,reason,pending=False):
     return {'kind':'es_order_structure_bundle','status':'pending' if pending else 'unavailable','reason':reason,'retryAfter':3}
 
 
-def server_bundle(args,root=Path('/var/lib/fs-hermes-fc/fs/es-structures'),opener=None):
+def api_dataset(args,deadline):
+    """Use the existing API client, sending export generation once only."""
+    import sys
+    from types import SimpleNamespace
+    sys.path.insert(0,'/opt/sales-dashboard/collector')
+    try:
+        import p2pah_auth as auth
+        client=auth.Session()
+    except (ImportError,OSError):
+        return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'admin_api_client_unavailable','retryable':True,'stage':'not_generated'}
+    def request(path,token=None,timeout=90):
+        response=client.admin.get(auth.ADMIN_API+path,timeout=timeout)
+        return response.status_code,response.content
+    def identity_ok(_):
+        status,raw=request('/admin/index/index',timeout=8)
+        return status==200 and json.loads(raw).get('code')==1
+    manager=SimpleNamespace(lock=threading.RLock(),token=None,identity_ok=identity_ok,request=request)
+    try:return dict(export_dataset(manager,args,{'User-Agent':auth.UA},deadline),kind='es_order_structure_bundle')
+    finally:client.close()
+
+
+def server_bundle(args,root=Path('/var/lib/fs-hermes-fc/fs/es-structures'),source=None):
     with SERVER_LOCK:
         query=checked_query(args)
         # Reproject retained exports with the current rules; the session may still run an older parser.
@@ -468,12 +494,32 @@ def server_bundle(args,root=Path('/var/lib/fs-hermes-fc/fs/es-structures'),opene
             return {'kind':'es_order_structure_bundle','status':'available','snapshots':[{'query':query,'value':value}]}
         if query['group_by']=='discount_channel':
             return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'coupon_period_export_unavailable','retryable':False}
-        return _server_bundle(query,root,opener)
+        return _server_bundle(query,root,source)
 
-def _server_bundle(args,root,opener):
-    """Existing session endpoint; persistent attempt switches all later reads to poll-only."""
+
+def reclaim_projection_slot(root,read):
+    unresolved={(q['start'],q['end']) for p in root.glob('*.attempt') for q in [read(p)['query']]}
+    candidates=[]
+    for path in root.glob('*.json'):
+        cached=read(path);value=cached.get('value') or {};snapshots=value.get('snapshots') or []
+        if value.get('status')!='available' or cached.get('last_attempt') or not snapshots:continue
+        windows={(r.get('query',{}).get('start'),r.get('query',{}).get('end')) for r in snapshots}
+        if len(windows)==1 and next(iter(windows)) not in unresolved:
+            candidates.append((cached.get('saved_at') or float('inf'),path,cached,snapshots[0]['query']))
+    for _,path,cached,query in sorted(candidates):
+        try:dataset=archived_dataset(query)
+        except (OSError,ValueError,KeyError,TypeError):continue
+        if (dataset and dataset.get('status')=='available' and dataset.get('hashes')
+                and not(dataset.get('parse_failures') or dataset.get('failed_files'))
+                and dataset.get('declared_files')==len(dataset['hashes']) and read(path)==cached
+                and not any((read(p)['query']['start'],read(p)['query']['end'])==(query['start'],query['end']) for p in root.glob('*.attempt'))):
+            path.unlink();return True
+    return False
+
+
+def _server_bundle(args,root,source):
+    """Original durable attempt owns the direct API export; unknown never regenerates."""
     import os,stat,tempfile
-    from urllib.request import Request,build_opener,HTTPRedirectHandler
     args=checked_query(args);root=Path(root)
     if any(p.is_symlink() for p in (root,*root.parents)):raise ValueError('es_cache_symlink')
     root.mkdir(mode=0o700,parents=True,exist_ok=True)
@@ -505,18 +551,22 @@ def _server_bundle(args,root,opener):
     poll_only=attempt.exists() or attempt.is_symlink() or legacy_attempt.exists()
     if poll_only:read(attempt if attempt.exists() else legacy_attempt)
     else:
-        if not index.exists() and len(list(root.glob('*.json')))+len(list(root.glob('*.attempt')))>=128:return {'status':'unavailable','reason':'es_durable_cache_capacity_requires_review'}
+        while not index.exists() and len(list(root.glob('*.json')))+len(list(root.glob('*.attempt')))>=128:
+            if not reclaim_projection_slot(root,read):return {'status':'unavailable','reason':'es_durable_cache_capacity_requires_review'}
         try:fd=os.open(str(attempt),os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
         except FileExistsError:poll_only=True
         else:
             with os.fdopen(fd,'w',encoding='utf-8') as stream:json.dump({'query':args,'started_at':datetime.now(timezone.utc).isoformat()},stream);stream.flush();os.fsync(stream.fileno())
-    class NoRedirect(HTTPRedirectHandler):
-        def redirect_request(self,*args,**kwargs):return None
-    opener=opener or build_opener(NoRedirect);body=json.dumps(dict(args,kind='es_structure',poll_only=poll_only),separators=(',',':')).encode()
     try:
-        with opener.open(Request('http://127.0.0.1:8767/business/fc-capability',data=body,headers={'Content-Type':'application/json'},method='POST'),timeout=30) as response:raw=response.read(8*1024*1024+1)
-        if len(raw)>8*1024*1024:raise ValueError('es_response_size')
-        value=json.loads(raw)
+        if poll_only:
+            value={'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_export_previous_attempt_unknown_requires_reconcile','retryable':False}
+        else:
+            value=(source or api_dataset)(args,time.monotonic()+150)
+            if value.get('_private_dataset'):
+                projection=aggregate_rows(value['rows'],value['hashes'],value['parse_failures'],args,value['declared_files'],value['failed_files'])
+                projection['captured_at']=value.get('captured_at')
+                projection['quality'].update(source_origin=value.get('origin'),archived_capture_time=value.get('captured_at'))
+                value={'kind':'es_order_structure_bundle','status':'available','snapshots':[{'query':args,'value':projection}]}
         if not isinstance(value,dict) or value.get('kind')!='es_order_structure_bundle' or value.get('status') not in ('available','pending','unavailable'):raise ValueError('es_response_contract')
         if value['status']=='pending':return retained_bundle(previous,value.get('reason','es_source_running'),True)
         if value['status']=='available':

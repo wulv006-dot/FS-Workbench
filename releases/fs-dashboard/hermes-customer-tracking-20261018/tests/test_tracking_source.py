@@ -59,8 +59,9 @@ class SourceTests(unittest.TestCase):
     def test_verified_full_day_admin_exact_match_and_uid_zero(self):
         seen=[]
         def request(path,timeout):
-            self.assertLessEqual(timeout,10);seen.append(path)
+            self.assertEqual(timeout,10);seen.append(path)
             params=parse_qs(urlsplit(path).query)
+            self.assertEqual(params['limit'],['20'])
             self.assertEqual(params['order'],['id,desc'])
             self.assertEqual(params['search[0][val]'],['1327'])
             self.assertEqual(params['search[1][val]'],['266'])
