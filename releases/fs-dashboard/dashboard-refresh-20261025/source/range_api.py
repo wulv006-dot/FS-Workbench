@@ -108,7 +108,7 @@ def capture(q,jobid):
    requests.extend({'key':key,'gid':1322,'tid':tid,**period} for key,tid,_ in TYPES)
    with (WEB/'collector.lock').open('a+b') as lock:
     fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    records=existing_call('fc27-cloud-browser','fc_category_reader.py',requests,200)
+    records=existing_call('fs-order-browser','fc_category_reader.py',requests,200)
    if not all(records.get(k,{}).get('status')=='available' for k in ['all']+[v[0] for v in TYPES]):raise RuntimeError('native_category_read_failed')
    if any(v.get('period')!=period for v in records.values()):raise RuntimeError('source_period_mismatch')
    extension=analysis(records['all'],records,{key:key for key,_,_ in TYPES},period,{})

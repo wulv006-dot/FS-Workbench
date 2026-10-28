@@ -1,6 +1,8 @@
 """Existing aggregate readers use the direct API without the retired session container."""
-import ast,contextlib,io,json,runpy,sys,tempfile,types,unittest
+import ast,contextlib,io,json,runpy,sys,tempfile,time,types,unittest
+from datetime import datetime,timezone
 from pathlib import Path
+from threading import RLock
 from unittest.mock import Mock,patch
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -73,5 +75,44 @@ class DirectAdmin(unittest.TestCase):
                 self.assertEqual(namespace['call']('fs-order-browser','primary_reader.py',[],30),{'fixture':1})
             runner.assert_called_once();process.run.assert_not_called()
             with self.assertRaisesRegex(ValueError,'order_reader_isolation_required'):namespace['call']('other','primary_reader.py',[],30)
+
+    def test_cold_category_capture_reaches_actual_collector_order_dispatch(self):
+        def actual_function(file,name,namespace):
+            tree=ast.parse((ROOT/'source'/file).read_text(encoding='utf-8'))
+            node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name==name)
+            exec(compile(ast.Module(body=[node],type_ignores=[]),file,'exec'),namespace)
+            return namespace[name]
+        period=dict(start='2026-10-27 00:00',end='2026-10-28 00:00')
+        kinds=(('coins','1','Coins'),('items','2','Items'),('boosting','4','Boosting'))
+        records={key:dict(status='available',period=period) for key in ('all','coins','items','boosting')}
+        result=types.SimpleNamespace(returncode=0,stdout=json.dumps(records).encode())
+        process=types.SimpleNamespace(run=Mock(),PIPE=-1)
+        runner=Mock(return_value=result)
+        with tempfile.TemporaryDirectory() as folder:
+            here=Path(folder)
+            for name in ('fc_category_reader.py','primary_fields.py'):(here/name).write_text('# reader fixture\n')
+            collector=dict(HERE=here,json=json,subprocess=process,sys=sys)
+            existing_call=actual_function('collector.py','call',collector)
+            published=[];jobs={};flock=Mock()
+            namespace=dict(WEB=here,LOCK=RLock(),JOBS=jobs,PROFILE_MAP={'FC27':('FC27','FC 27',1322,1327,'sports')},
+                           snapshot=lambda:dict(snapshotId='catalog'),existing_call=existing_call,TYPES=kinds,
+                           fcntl=types.SimpleNamespace(flock=flock,LOCK_EX=2,LOCK_NB=4),datetime=datetime,timezone=timezone,time=time,
+                           analysis=lambda total,rows,labels,scope,extra:dict(period=scope,records=rows),
+                           publish_cache=lambda key,data:published.append((key,data)))
+            capture=actual_function('range_api.py','capture',namespace)
+            with patch.dict(sys.modules,{'order_reader_runner':types.SimpleNamespace(run=runner)}):
+                capture(dict(profile='FC27',analysis='fc27-categories',period=period,baseSnapshotId='catalog'),'cold-category')
+                with self.assertRaisesRegex(ValueError,'order_reader_isolation_required'):
+                    existing_call('fc27-cloud-browser','fc_category_reader.py',[],200)
+            self.assertEqual(len(published),1,jobs)
+            self.assertEqual(published[0][0],'cold-category')
+            self.assertEqual(published[0][1]['fc27Analytics']['records'],records)
+            self.assertNotIn('cold-category',jobs)
+            runner.assert_called_once();process.run.assert_not_called();flock.assert_called_once()
+            program,requests,timeout=runner.call_args.args
+            self.assertIn(b'sys.modules[\'primary_fields\']',program)
+            self.assertEqual(timeout,200)
+            self.assertEqual(requests,[dict(key='all',gid=1322,tid='',batchBudgetSeconds=170,**period),
+                                       *[dict(key=key,gid=1322,tid=tid,**period) for key,tid,_ in kinds]])
 
 if __name__=='__main__':unittest.main()
