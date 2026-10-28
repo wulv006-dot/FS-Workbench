@@ -546,10 +546,14 @@ def stop_unissued_and_exit(op,reason):
     receipt=verify_known_partial(latest,actual)
     if receipt['status']!='PUBLIC_CONFIRMED':
         latest['partial_readback']=receipt;db.put('operations',ident,latest);return latest
-    result=db.finish_known_partial(ident,receipt,actual,reason)
-    db.deadline(result['plan_id'],result['revision'])
-    with db.transaction() as conn:
-        conn.execute("UPDATE durable_jobs SET due_at=? WHERE id=? AND state='queued'",(clock().isoformat(),'exit:'+result['plan_id']+':'+str(result['revision'])))
+    plan=db.get('pricing_plans',latest['plan_id'])
+    continuing=bool(plan and plan.get('state')=='ACTIVE' and
+                    (not plan.get('ends_at') or clock()<instant(plan['ends_at'])))
+    result=db.finish_known_partial(ident,receipt,actual,reason,exit_pending=not continuing)
+    if not continuing:
+        db.deadline(result['plan_id'],result['revision'])
+        with db.transaction() as conn:
+            conn.execute("UPDATE durable_jobs SET due_at=? WHERE id=? AND state='queued'",(clock().isoformat(),'exit:'+result['plan_id']+':'+str(result['revision'])))
     return result
 
 
@@ -602,6 +606,7 @@ def complete_player_followup(operation,job=None):
     """Reuse the original V3 parent and deterministic Players follow-up after any completion path."""
     bundle=operation.get('bundle') or {}
     if operation.get('status')!='COMPLETED' or bundle.get('schema_version')!=VERSION or bundle.get('maintenance_purpose'):return operation
+    if operation.get('target_not_completed') and not any(s.get('kind')=='base' and s.get('state')=='CONFIRMED' for s in operation.get('steps',[])):return operation
     try:
         original=ledger().get('operations',operation['operation_id'])
         if not original or original.get('status')!='COMPLETED':raise ValueError('player_sync_coin_not_confirmed')
