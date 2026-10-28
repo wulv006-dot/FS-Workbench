@@ -60,9 +60,16 @@ def preparation_gaps(now, kind, source_root, root=ROOT):
         return ['nightly_evidence_missing_or_invalid']
 
 
-def report_note(now):
+def report_note(now,kind='daily'):
+    from nightly import closed_period
+    from source_snapshots import archive_status
     day = now.astimezone(TZ).date().isoformat()
+    start,end=closed_period(now.astimezone(TZ).date(),kind)
+    query=dict(start=start,end=end,**({} if kind in ('management','management_weekly') else {'profile':'FC27'}))
+    observed=archive_status(query)
     return (' 服务器固定归档入口：/fs/nightly-data/' + day +
             '/；按报告种类读取指针及其SHA对应的不可变证据。FS研究任务使用已注册的同区间证据与计算工具；'
             '服务器原生聊天可直接读该目录。先复用，再自主调用现有只读工具补缺及计算；'
-            '不得将准备完成等同于所有指标最终稳定，不改原始事实、价格或业务状态。')
+            '不得将准备完成等同于所有指标最终稳定，不改原始事实、价格或业务状态。'
+            ' 归档分项观察（不代表区间完整、无需等待整轮归档）：'+json.dumps(observed,ensure_ascii=False,separators=(',',':'))+
+            ' 继续使用已存可用证据，按分项说明缺失、原因、重试时间或明确停止；未知不填零，不重复启动正在进行或结果未知的采集。')

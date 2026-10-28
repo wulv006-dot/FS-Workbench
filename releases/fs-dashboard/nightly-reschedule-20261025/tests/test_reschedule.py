@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'source'))
+sys.path.append(str(ROOT.parents[0]/'cache-archive-retention-20261025/source'))
 encoded=lambda v:json.dumps(v,ensure_ascii=False,sort_keys=True,separators=(',',':'))
 sys.modules.setdefault('pilot',types.SimpleNamespace(encoded=encoded,digest=lambda v:hashlib.sha256(encoded(v).encode()).hexdigest()))
 import nightly
@@ -89,6 +90,17 @@ class Scheduling(unittest.TestCase):
     def test_running_global_request_keeps_serial(self):
         s,n=self.scheduler(self.at(2,45));s.connection.execute("INSERT INTO requests VALUES('case','RUNNING')");n.tick()
         self.assertEqual(s.calls,[])
+    def test_running_source_preparation_does_not_block_ready_report(self):
+        s,n=self.scheduler(self.at(2,15))
+        s.source_preparation=types.SimpleNamespace(thread=types.SimpleNamespace(is_alive=lambda:True))
+        original=s.submit_scheduled;questions=[]
+        def submit(body):
+            questions.append(body['question']);return original(body)
+        s.submit_scheduled=submit
+        n.tick()
+        self.assertEqual(s.calls,['night_daily_20261102'])
+        self.assertIn('nightly_preparation_still_running',questions[0])
+        self.assertIn('归档分项观察',questions[0]);self.assertIn('未知不填零',questions[0])
     def test_early_fallback_preserves_gap_labels(self):
         with patch.object(nightly,'source_status',return_value=(True,['marketing_partial'])),patch.object(nightly_data,'preparation_gaps',return_value=['source_gap']):
             self.assertFalse(nightly.preparation_status(self.at(1,59))[0])

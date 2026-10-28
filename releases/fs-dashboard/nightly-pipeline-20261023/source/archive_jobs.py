@@ -4,6 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, build_opener, ProxyHandler
 from urllib.error import HTTPError, URLError
+from http.client import IncompleteRead, BadStatusLine
 import argparse
 import ast
 import hashlib
@@ -67,18 +68,46 @@ def atomic(path,value):
     publish(path,value)
 
 
-def read_route(params,port=8931,path='/range'):
+def read_route(params,port=8931,path='/range',timeout=10):
     request=Request('http://127.0.0.1:'+str(port)+path+'?'+urlencode(params),headers={'X-Auth-User':'wulv'})
     try:
-        with build_opener(ProxyHandler({})).open(request,timeout=10) as response:
-            raw=response.read(16*1024*1024+1)
-            if len(raw)>16*1024*1024:raise ValueError('archive_route_size')
-            return response.status,json.loads(raw)
-    except HTTPError as error:
-        if error.code not in (403,409,429,500,502,503,504):raise
-        return error.code,{'status':'denied' if error.code==403 else 'busy' if error.code==429 else 'unavailable'}
-    except (URLError,TimeoutError,ConnectionError):
+        try:response=build_opener(ProxyHandler({})).open(request,timeout=timeout)
+        except HTTPError as error:response=error
+        with response:
+            raw=response.read(16*1024*1024+1) or b''
+            code=response.status
+        if len(raw)>16*1024*1024:return code,dict(status='unavailable',reason='archive_route_size',retryable=False)
+        try:value=json.loads(raw)
+        except (ValueError,UnicodeError):value=None
+        if not isinstance(value,dict):
+            return code,dict(status='unavailable',reason='archive_response_schema_invalid',retryable=code>=500)
+        return code,value
+    except (URLError,TimeoutError,ConnectionError,IncompleteRead,BadStatusLine):
         return 503,{'status':'unavailable','reason':'local_route_temporarily_unavailable'}
+
+
+def unavailable(code,value):
+    reasons=[value.get(k) for k in ('reason','error','lastError')]
+    sources=value.get('sources') or {}
+    reasons += [s.get('error') for s in sources.values() if isinstance(s,dict)] if isinstance(sources,dict) else []
+    if code in (401,403) or value.get('status')=='denied' or any(r in ('permission_denied','source_permission_denied') for r in reasons):
+        return 'failed','permission_denied',False
+    if code in (400,405,413,415,422):return 'failed','invalid_archive_arguments',False
+    schema=('archive_route_size','archive_response_schema_invalid','source_period_or_status','source_period_mismatch','native_source_contract')
+    if value.get('retryable') is False or any(isinstance(r,str) and (r.startswith(('invalid_','schema_')) or r in schema and not (r=='archive_response_schema_invalid' and value.get('retryable') is True)) for r in reasons):
+        return 'failed',next((r for r in reasons if r in schema),'source_schema_invalid'),False
+    if code==429 or (value.get('archive') or {}).get('refreshDeferred') or 'collector_busy' in reasons or value.get('status')=='busy':
+        return 'busy','collector_busy' if 'collector_busy' in reasons else 'source_busy',True
+    if code==409:return 'unavailable','catalog_changed',True
+    if code in (500,502,503,504):
+        return 'unavailable','local_route_temporarily_unavailable' if 'local_route_temporarily_unavailable' in reasons else 'source_http_'+str(code),True
+    records=list(sources.values()) if isinstance(sources,dict) else []
+    records += list((value.get('profile') or {}).get(k,{}) for k in ('primary','supplement'))
+    if code==202 or value.get('status')=='pending' or any(isinstance(s,dict) and s.get('status') in ('pending','new') for s in records):
+        return 'pending','source_pending',True
+    if value.get('status') in ('unavailable','stale') or any(isinstance(s,dict) and s.get('status')=='unavailable' for s in records):
+        return 'unavailable','source_read_failed',True
+    return 'failed','source_schema_invalid',False
 
 
 def candidates(today,definitions,daily):
@@ -109,54 +138,89 @@ def candidates(today,definitions,daily):
 
 def run_once(daily=False,budget=480):
     now=datetime.now(TZ);store=Archive();store.safe(True)
-    if not daily and not 1<=now.hour<7:return {'status':'outside_idle_window'}
     state_path=ROOT/'scheduler-state.json'
     state=json.loads(state_path.read_text()) if state_path.is_file() else {}
-    completed=0;begin=time.monotonic();definition=profiles();blocked={}
-    for args in candidates(now.date(),definition,daily):
-        if time.monotonic()-begin>=budget or not daily and datetime.now(TZ).hour>=7:break
-        marketing=args['profile']=='marketing';key=hashlib.sha256(encoded({'cadence':'daily' if daily else 'history','query':args})).hexdigest()
+    completed=0;reused=0;begin=time.monotonic();definition=profiles();deferred={};catalog_reply=None
+    cadence='daily' if daily else 'history'
+    work=[(hashlib.sha256(encoded({'cadence':cadence,'query':args})).hexdigest(),args) for args in candidates(now.date(),definition,daily)]
+    def oldest(item):
+        prior=state.get(item[0],{})
+        try:stamp=datetime.fromisoformat(prior.get('lastObservedAt') or prior.get('at') or '').timestamp()
+        except (ValueError,TypeError):stamp=0
+        rank=0 if not prior else 3 if prior.get('status')=='complete' else 2 if prior.get('retryAfter',0)>time.time() or prior.get('retryable') is False else 1
+        return rank,stamp
+    # The same state rotates due work; a slow first marketing item cannot starve business profiles.
+    work.sort(key=oldest)
+    for key,args in work:
+        if time.monotonic()-begin>=budget:break
+        marketing=args['profile']=='marketing';native=args.get('archiveFamily')=='native'
+        family='marketing' if marketing else 'native' if native else 'summary'
         port=8935 if marketing else 8931
-        if port in blocked:continue
         prior=state.get(key,{})
-        if prior.get('retryAfter',0)>time.time():continue
-        if daily and prior.get('status')=='complete' and prior.get('at','')[:10]==now.date().isoformat():continue
-        native=args.get('archiveFamily')=='native'
+        correction_day=prior.get('correctionDay') or prior.get('at','')[:10]
+        if daily and prior.get('status')=='complete' and correction_day==now.date().isoformat():continue
+        if prior.get('status')=='failed' and prior.get('retryable') is False and prior.get('reason')=='invalid_archive_arguments':continue
+        requested=prior.get('requestedAt') or datetime.now(timezone.utc).isoformat()
+        base=dict(prior,query=args,cadence=cadence,family=family,requestedAt=requested)
         if not marketing:
             from live_summary import query
-            selector=native_key(dict(args,grain='day'),definition[args['profile']]) if native else summary_key(query({k:[v] for k,v in args.items()},definition))
-            if store.get('native' if native else 'summary',selector) is not None:continue
+            try:selector=native_key(dict(args,grain='day'),definition[args['profile']]) if native else summary_key(query({k:[v] for k,v in args.items()},definition))
+            except (ValueError,KeyError,TypeError):
+                state[key]=dict(base,status='failed',reason='invalid_archive_arguments',retryable=False,failures=prior.get('failures',0)+1,retryAfter=0,at=now.isoformat(),lastObservedAt=datetime.now(timezone.utc).isoformat())
+                atomic(state_path,state);deferred[port]='failed';continue
+            try:
+                cached=store.get(family,selector)
+                cached_complete=cached is not None and (complete_native(cached) if native else complete_summary(cached))
+            except (ValueError,KeyError,TypeError):
+                if prior.get('status')=='failed' and prior.get('retryable') is False:continue
+                state[key]=dict(base,status='failed',reason='invalid_archived_source',retryable=False,failures=prior.get('failures',0)+1,retryAfter=0,at=now.isoformat(),lastObservedAt=datetime.now(timezone.utc).isoformat())
+                atomic(state_path,state);deferred[port]='failed';continue
+            if cached_complete:
+                if prior.get('status')!='complete':
+                    state[key]=dict(base,status='complete',reason='existing_complete_archive',retryable=False,failures=0,retryAfter=0,at=now.isoformat(),lastObservedAt=datetime.now(timezone.utc).isoformat())
+                    atomic(state_path,state)
+                reused+=1;continue
+        if prior.get('retryable') is False and prior.get('status')=='failed':continue
+        if prior.get('retryAfter',0)>time.time():continue
         params={k:v for k,v in args.items() if k!='archiveFamily' and (not marketing or k!='profile')}
+        catalog_failed=None
         if native:
-            code,catalog=read_route({'mode':'catalog'})
-            if code!=200:return {'status':'deferred','reason':'catalog_unavailable','completed':completed}
-            params['snapshotId']=catalog['catalogId']
-        requested=prior.get('requestedAt') or datetime.now(timezone.utc).isoformat()
-        attempt_at=prior.get('attemptStartedAt',requested) if prior.get('status')=='pending' else datetime.now(timezone.utc).isoformat()
-        if daily and marketing and prior.get('status')!='pending':params['refresh']='true'
-        state[key]=dict(query=args,status='pending',requestedAt=requested,attemptStartedAt=attempt_at,failures=prior.get('failures',0));atomic(state_path,state)
-        deadline=min(begin+budget,time.monotonic()+90);outcome='pending'
-        while time.monotonic()<deadline:
-            code,value=read_route(params,port)
-            params.pop('refresh',None)
-            if code in (403,429):outcome=value['status'];break
-            if (value.get('archive') or {}).get('refreshDeferred'):
-                outcome='busy';break
-            valid=(value.get('status')=='available') if marketing else code==200 and (complete_native(value) if native else complete_summary(value))
+            if catalog_reply is None:catalog_reply=read_route({'mode':'catalog'},timeout=min(10,max(.01,begin+budget-time.monotonic())))
+            code,catalog=catalog_reply
+            if code!=200:catalog_failed=(code,catalog)
+            elif not isinstance(catalog.get('catalogId'),str):catalog_failed=(200,dict(status='unavailable',retryable=False))
+            else:params['snapshotId']=catalog['catalogId']
+        continuation=prior.get('status')=='pending' or daily and marketing and correction_day==now.date().isoformat()
+        attempt_at=prior.get('attemptStartedAt',requested) if continuation else datetime.now(timezone.utc).isoformat()
+        # One refresh per daily correction; a lost reply still resumes the existing job/cache.
+        if daily and marketing and prior.get('status')!='pending' and correction_day!=now.date().isoformat():
+            params['refresh']='true';correction_day=now.date().isoformat();attempt_at=datetime.now(timezone.utc).isoformat()
+        elif daily and marketing and prior.get('refreshPending') is True:params['refresh']='true'
+        if time.monotonic()-begin>=budget:break
+        state[key]=dict(base,status='pending',reason='source_pending',retryable=True,retryAfter=0,correctionDay=correction_day,refreshPending=False,attemptStartedAt=attempt_at,failures=prior.get('failures',0));atomic(state_path,state)
+        code,value=catalog_failed if catalog_failed is not None else read_route(params,port,timeout=min(10,begin+budget-time.monotonic()))
+        try:
+            valid=code==200 and value.get('status')=='available' if marketing else code==200 and (complete_native(value) if native else complete_summary(value))
+            deferred_refresh=(value.get('archive') or {}).get('refreshDeferred') is True
+            if daily and marketing and (deferred_refresh or code==429):state[key]['refreshPending']=True
+            if deferred_refresh:valid=False
             capture=(value.get('archive') or {}).get('sourceCapturedAt') or value.get('generatedAt') or ''
             fresh=False
             try:fresh=datetime.fromisoformat(capture.replace('Z','+00:00'))>=datetime.fromisoformat(attempt_at)-timedelta(seconds=60)
             except (ValueError,TypeError):pass
-            if valid and (not (daily and marketing) or fresh):outcome='complete';break
-            if code in (500,502,503,504):outcome='unavailable';break
-            time.sleep(2)
-        failures=0 if outcome=='complete' else prior.get('failures',0)+1
-        state[key].update(status=outcome,failures=failures,at=datetime.now(TZ).isoformat(),retryAfter=time.time()+(0 if not failures else min(14400,300*2**min(failures-1,6))))
+            outcome,reason,retryable=('complete','complete',False) if valid and (not (daily and marketing) or fresh) else ('pending','correction_pending',True) if valid else unavailable(code,value)
+        except (ValueError,KeyError,TypeError):outcome,reason,retryable='failed','source_schema_invalid',False
+        failures=0 if outcome=='complete' else prior.get('failures',0)+(outcome!='pending')
+        retry=0 if not retryable else 2 if outcome=='pending' else min(14400,300*2**min(failures-1,6))
+        state[key].update(status=outcome,reason=reason,retryable=retryable,httpStatus=code,failures=failures,at=datetime.now(TZ).isoformat(),lastObservedAt=datetime.now(timezone.utc).isoformat(),retryAfter=time.time()+retry if retry else 0)
         atomic(state_path,state)
         if outcome=='complete':completed+=1
-        if outcome in ('busy','denied'):blocked[port]=outcome
-    if blocked:return {'status':'deferred','reason':next(iter(blocked.values())),'completed':completed,'deferredSources':blocked}
-    return {'status':'budget_finished','completed':completed,'seconds':round(time.monotonic()-begin,3)}
+        else:deferred[port]=outcome
+    missing=[{k:state[key].get(k) for k in ('query','family','status','reason','retryable','failures','retryAfter')} for key,args in work if key in state and state[key].get('status')!='complete']
+    unobserved=sum(key not in state for key,args in work)
+    result=dict(status='deferred' if missing or unobserved else 'budget_finished',completed=completed,reused=reused,seconds=round(time.monotonic()-begin,3),missingCount=len(missing),unobservedCount=unobserved,terminalCount=sum(v.get('retryable') is False for v in missing),repeatedFailureCount=sum(v.get('failures',0)>=3 for v in missing),missing=missing[:64],stateFile=str(state_path))
+    if deferred:result.update(reason=next(iter(deferred.values())),deferredSources=deferred)
+    return result
 
 
 def main():
@@ -170,8 +234,7 @@ def main():
         elif args.scheduled:
             now=datetime.now(TZ)
             if now.hour==0:result={'daily':run_once(True,480)}
-            elif 1<=now.hour<7:result={'daily':run_once(True,120),'history':run_once(False,360)}
-            else:result={'status':'outside_idle_window'}
+            else:result={'daily':run_once(True,120),'history':run_once(False,360)}
             result['cleanup']=store.prune(False)
         else:result=run_once(args.daily)
         atomic(ROOT/'job-status.json',dict(result,at=datetime.now(TZ).isoformat()))

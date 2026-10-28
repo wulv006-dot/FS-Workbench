@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import Future
 import http.client
 import importlib.util
 from pathlib import Path
@@ -25,7 +26,95 @@ class Manager:
     def request(self,path,token=None,timeout=10):return 200,b'{}'
 
 
+class ControlledPool:
+    def __init__(self,immediate=None):self.futures=[];self.immediate=immediate
+    def submit(self,*args):
+        future=Future();self.futures.append(future)
+        if self.immediate is not None:future.set_result(self.immediate)
+        return future
+
+
 class PrivateTests(unittest.TestCase):
+    def test_failure_completed_before_first_pending_is_observed(self):
+        pool=ControlledPool({'status':'unavailable','reason':'es_export_permission_denied'})
+        with patch('tracking_private_session.ThreadPoolExecutor',return_value=pool):
+            reads=PrivateReads(Manager())
+            result=reads.execute({'action':'scan','day':'2026-10-28','config':dict(DEFAULT_CONFIG)})
+        self.assertEqual(result['reason'],'es_export_permission_denied')
+        self.assertEqual(result['status'],'unavailable')
+        self.assertTrue(next(iter(reads.jobs.values()))['observed'])
+        self.assertEqual(len(pool.futures),1)
+
+    def test_delayed_original_scan_consumes_failed_future_before_ttl_reuse(self):
+        # Load the active lifecycle consumer, without starting its daily loop.
+        path=ROOT/'releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/tracking_controller.py'
+        spec=importlib.util.spec_from_file_location('current_tracking_consumer',path)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        clock=[0.0];pool=ControlledPool()
+        with tempfile.TemporaryDirectory() as dirname,\
+             patch('tracking_private_session.ThreadPoolExecutor',return_value=pool),\
+             patch('tracking_private_session.time',types.SimpleNamespace(monotonic=lambda:clock[0])):
+            reads=PrivateReads(Manager())
+            service=module.TrackingController.__new__(module.TrackingController)
+            service.store=module.Store(dirname)
+            service.client=types.SimpleNamespace(read=reads.execute)
+            day='2026-10-28';request_id='a'*32
+            receipt=service.store.begin_scan(day,request_id)
+            service._poll_scan(day)
+            self.assertEqual(service.store.scan_job(day)['state'],'pending')
+            clock[0]=.1
+            pool.futures[0].set_result({'status':'unavailable','reason':'es_export_permission_denied'})
+            clock[0]=61
+            service._poll_scan(day)
+            job=service.store.scan_job(day)
+            self.assertEqual((job['state'],job['reason'],job['request_id']),
+                ('failed','es_export_permission_denied',request_id))
+            self.assertEqual(job['config_version'],receipt['config_version'])
+            self.assertEqual(len(pool.futures),1)
+            # Observation does not start a new TTL: the original expired result is reclaimable.
+            query={'action':'scan','day':day,'config':dict(DEFAULT_CONFIG)}
+            self.assertEqual(reads.execute(query)['status'],'pending')
+            self.assertEqual(len(pool.futures),2)
+            self.assertEqual(len(reads.jobs),1)
+
+    def test_delayed_exception_is_returned_once_and_active_future_is_not_reissued(self):
+        clock=[0.0];pool=ControlledPool()
+        with patch('tracking_private_session.ThreadPoolExecutor',return_value=pool),\
+             patch('tracking_private_session.time',types.SimpleNamespace(monotonic=lambda:clock[0])):
+            reads=PrivateReads(Manager())
+            query={'action':'scan','day':'2026-10-28','config':dict(DEFAULT_CONFIG)}
+            self.assertEqual(reads.execute(query)['status'],'pending')
+            clock[0]=1000
+            self.assertEqual(reads.execute(query)['status'],'pending')
+            self.assertEqual(len(pool.futures),1)
+            pool.futures[0].set_exception(TimeoutError())
+            clock[0]=1061
+            self.assertEqual(reads.execute(query),{'status':'unavailable','reason':'private_source_timeout'})
+            self.assertEqual(len(pool.futures),1)
+            self.assertEqual(reads.execute(query)['status'],'pending')
+            self.assertEqual(len(pool.futures),2)
+
+    def test_success_ttl_and_existing_eight_slot_capacity_are_unchanged(self):
+        clock=[0.0];pool=ControlledPool()
+        with patch('tracking_private_session.ThreadPoolExecutor',return_value=pool),\
+             patch('tracking_private_session.time',types.SimpleNamespace(monotonic=lambda:clock[0])):
+            reads=PrivateReads(Manager())
+            query=lambda day:{'action':'scan','day':day,'config':dict(DEFAULT_CONFIG)}
+            reads.execute(query('2026-10-01'))
+            pool.futures[0].set_result({'status':'available','items':[]})
+            clock[0]=901
+            self.assertEqual(reads.execute(query('2026-10-01'))['status'],'pending')
+            self.assertEqual(len(pool.futures),2)
+            pool.futures[-1].set_result({'status':'unavailable','reason':'es_export_permission_denied'})
+            for number in range(2,9):
+                reads.execute(query('2026-10-'+str(number).zfill(2)))
+                pool.futures[-1].set_result({'status':'unavailable','reason':'es_export_permission_denied'})
+            self.assertEqual(len(reads.jobs),8)
+            clock[0]=1000
+            reads.execute(query('2026-10-09'))
+            self.assertEqual(len(reads.jobs),8)
+            self.assertEqual(reads.active(),1)
+
     def test_disabling_daily_scan_does_not_stop_existing_tracking(self):
         with tempfile.TemporaryDirectory() as dirname:
             service=TrackingController(dirname,lambda user:user=='admin',client=object(),auto_start=False)

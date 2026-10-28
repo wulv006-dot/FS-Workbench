@@ -18,6 +18,32 @@ def encoded(value):
     return json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode('utf8')
 
 
+def archive_status(query,root=Path('/var/lib/fs-data-archive')):
+    """Expose observed item gaps without waiting for a whole archive run or collecting."""
+    path=Path(root)/'scheduler-state.json'
+    result=dict(stateFile=str(path),coverage_complete=None,blocks_publication=False)
+    try:
+        if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('archive_state_link')
+        state=json.loads(path.read_text('utf-8'))
+        if not isinstance(state,dict):raise ValueError('archive_state_shape')
+    except (OSError,ValueError):
+        return dict(result,status='unavailable',reason='archive_observations_unavailable',missingCount=None,missing=[])
+    rows=[]
+    for row in state.values():
+        if not isinstance(row,dict) or not isinstance(row.get('query'),dict):continue
+        q=row['query']
+        if query.get('profile') and q.get('profile')!=query['profile']:continue
+        if not q.get('start') or not q.get('end'):continue
+        if q['end'][:10]<query['start'][:10] or q['start'][:10]>query['end'][:10]:continue
+        if any(key in query and q.get(key)!=query[key] for key in ('rs_site','rs_server','rs_category','profit_site','profit_category')):continue
+        rows.append(row)
+    missing=[{key:row.get(key) for key in ('query','family','cadence','status','reason','retryable','failures','retryAfter','lastObservedAt')} for row in rows if row.get('status')!='complete']
+    return dict(result,status='partial' if missing else 'no_recorded_gaps' if rows else 'unobserved',
+        observedCount=len(rows),missingCount=len(missing) if rows else None,
+        terminalCount=sum(row.get('status')=='failed' and row.get('retryable') is False for row in missing),missing=missing[:16],
+        limitation='Observed item states only; absent observations are unknown, not zero or proof of complete period coverage.')
+
+
 def atomic(path,value):
     fd,name=tempfile.mkstemp(prefix='.snapshot-',dir=str(path.parent))
     try:
@@ -51,41 +77,109 @@ class SnapshotStore:
         if not enabled:raise PermissionError('source_disabled')
         from daily_archive import read,save
         managed=family=='native-statistics' and bool(query.get('profile'))
+        def stale(value):
+            cached=value.get('source_cache') or {}
+            return bool(value.get('stale') or cached.get('stale') or cached.get('status') in ('busy','pending','stale'))
+        def complete(value):
+            return value.get('status')=='available' and not stale(value) and valid(value)
+        predicate=complete if managed else valid
         if managed:
             query=dict(query,admin_summary_contract='admin-paid-order-labelled-supplement-v2')
             value=read(family,query)
-            if value is not None and valid(value):return value
-        value=self.get_live(family,query,reader,valid,enabled=enabled)
-        if managed and valid(value):save(family,query,value,source_at=(value.get('source_cache') or {}).get('saved_at'))
+            if value is not None and complete(value) and query.get('refresh') not in (True,1,'1'):return value
+        value=self.get_live(family,query,reader,predicate,enabled=enabled)
+        if managed and complete(value):save(family,query,value,source_at=(value.get('source_cache') or {}).get('saved_at'))
+        elif managed:
+            if value.get('status')=='available' and stale(value):value=dict(value,status='stale',stale=True,reason=value.get('reason') or 'source_stale')
+            value=dict(value,archive_status=archive_status(query))
         return value
 
     def get_live(self,family,query,reader,valid,*,enabled=True):
         if not enabled:raise PermissionError('source_disabled')
         if family not in ('paid-detail','native-statistics','native-loss','official-index','published-source'):raise ValueError('snapshot_family')
         now=self.clock();day=now.astimezone(SHANGHAI).date()
-        # Open business days stay on the existing live source contract.
+        # Open days retain the original live reader and its upstream freshness policy.
         if family not in ('official-index','published-source') and query['end']>=day.isoformat():return reader()
         max_age=7200 if family=='native-loss' else 21600 if family=='official-index' else 86400
-        key=hashlib.sha256(encoded({'family':family,'query':query,'contract':1})).hexdigest()
-        from cache_retention import cache_lock
-        self.directory()
+        identity=encoded({'family':family,'query':query,'contract':1})
+        key=hashlib.sha256(identity).hexdigest();pinned_query=json.loads(encoded(query))
+        refresh=query.get('refresh') in (True,1,'1')
+        from cache_retention import cache_lock,private
+        self.directory();index=self.root/(key+'.json')
+
+        def scope_current():
+            if encoded({'family':family,'query':query,'contract':1})!=identity:raise ValueError('snapshot_query_changed')
+
+        def lookup():
+            scope_current();self.directory()
+            if not (index.exists() or index.is_symlink()):return None
+            pointer=self.read(index);version=pointer.get('version','')
+            if len(version)!=64 or any(c not in '0123456789abcdef' for c in version):raise ValueError('snapshot_version')
+            saved=self.read(self.root/(version+'.data.json'))
+            if (hashlib.sha256(encoded(saved)).hexdigest()!=version or saved.get('key')!=key
+                    or saved.get('contract')!=1 or saved.get('family')!=family or encoded(saved.get('query'))!=encoded(pinned_query)):
+                raise ValueError('snapshot_integrity')
+            at=datetime.fromisoformat(saved['saved_at']);current=self.clock();age=(current-at).total_seconds()
+            fresh=0<=age<max_age and at.astimezone(SHANGHAI).date()==current.astimezone(SHANGHAI).date() and valid(saved['value'])
+            return saved,version,fresh
+
+        def reused(cached):
+            scope_current()
+            return self.label(cached[0]['value'],cached[1],cached[0]['saved_at'],True,max_age)
+
         with LOCK,cache_lock(self.root):
-            self.directory();index=self.root/(key+'.json')
-            if index.exists() or index.is_symlink():
-                pointer=self.read(index);version=pointer.get('version','')
-                if len(version)!=64 or any(c not in '0123456789abcdef' for c in version):raise ValueError('snapshot_version')
-                saved=self.read(self.root/(version+'.data.json'))
-                if hashlib.sha256(encoded(saved)).hexdigest()!=version or saved.get('key')!=key:raise ValueError('snapshot_integrity')
-                at=datetime.fromisoformat(saved['saved_at']);age=(now-at).total_seconds()
-                if 0<=age<max_age and at.astimezone(SHANGHAI).date()==day and valid(saved['value']):
-                    return self.label(saved['value'],version,saved['saved_at'],True,max_age)
+            previous=lookup()
+            if previous and previous[2] and not refresh:return reused(previous)
+        initial_version=previous[1] if previous else None
+        # Stable per-query files are deliberately never unlinked: waiters must share one inode.
+        lock_path=self.root/('.refresh-'+key+'.lock')
+        fd=os.open(str(lock_path),os.O_RDWR|os.O_CREAT|getattr(os,'O_NOFOLLOW',0),0o600)
+        try:
+            info=os.fstat(fd);current=private(lock_path)
+            if (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino):raise ValueError('snapshot_refresh_lock_changed')
+            try:
+                if os.name=='posix':
+                    import fcntl
+                    fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                else:
+                    import msvcrt
+                    msvcrt.locking(fd,msvcrt.LK_NBLCK,1)
+            except OSError as error:
+                import errno
+                if not isinstance(error,BlockingIOError) and not (os.name=='nt' and error.errno in (errno.EACCES,errno.EAGAIN,errno.EDEADLK)):raise
+                scope_current()
+                usable=previous is not None and valid(previous[0]['value'])
+                value=self.label(previous[0]['value'] if usable else {},previous[1] if usable else None,
+                    previous[0]['saved_at'] if usable else None,usable,max_age)
+                value.update(status='busy',stale=True,reason='source_refresh_in_progress')
+                value['source_cache'].update(status='stale' if usable else 'pending',stale=True)
+                return value
+            with LOCK,cache_lock(self.root):
+                previous=lookup()
+                if previous and previous[2] and (not refresh or previous[1]!=initial_version):return reused(previous)
+            prior_version=previous[1] if previous else None
+            previous=None  # Do not retain an old large reply while the independent reader runs.
             value=reader()
+            scope_current()
+            if family=='published-source' and pinned_query.get('source_version'):
+                actual=value.get('source_sha256') or value.get('source_snapshot_id') or value.get('shared_snapshot_id')
+                if actual!=pinned_query['source_version']:raise ValueError('snapshot_source_changed')
             if not valid(value):return value
-            saved={'contract':1,'key':key,'family':family,'query':query,'saved_at':self.clock().isoformat(),'value':value}
-            version=hashlib.sha256(encoded(saved)).hexdigest();path=self.root/(version+'.data.json')
-            if not path.exists():atomic(path,saved)
-            atomic(index,{'version':version})
-            return self.label(value,version,saved['saved_at'],False,max_age)
+            with LOCK,cache_lock(self.root):
+                scope_current();self.directory();current=private(lock_path)
+                if (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino):raise ValueError('snapshot_refresh_lock_changed')
+                pointer=self.read(index) if index.exists() or index.is_symlink() else {}
+                if pointer.get('version')!=prior_version:
+                    newer=lookup()
+                    if newer and newer[2]:return reused(newer)
+                if not valid(value):return value
+                scope_current()
+                saved={'contract':1,'key':key,'family':family,'query':pinned_query,'saved_at':self.clock().isoformat(),'value':value}
+                version=hashlib.sha256(encoded(saved)).hexdigest();path=self.root/(version+'.data.json')
+                if not path.exists():atomic(path,saved)
+                atomic(index,{'version':version})
+                return self.label(value,version,saved['saved_at'],False,max_age)
+        finally:os.close(fd)
 
     @staticmethod
     def label(value,version,saved_at,reused,max_age=86400):
@@ -192,7 +286,7 @@ def prepared_brief(book,start,end,weekly=False):
         rows.append({'evidence_id':result['evidence_id'],'query':query,
             'authoritative_fact_table':result.get('authoritative_fact_table',[]),
             'preparation_status':'ready' if native_cacheable(result['data']) else 'partial',
-            'data':{k:v for k,v in result['data'].items() if k in ('status','selected_totals','selected_derived','authoritative_fields','native_customer_comparison','source_cache','reason')}})
+            'data':{k:v for k,v in result['data'].items() if k in ('status','selected_totals','selected_derived','authoritative_fields','native_customer_comparison','source_cache','reason','archive_status')}})
     supplements=prepare_supplements(book,start,end,weekly)
     gaps=[{'tool':'fc.query_native_statistics','query':r['query'],'evidence_id':r['evidence_id'],'status':r['preparation_status']} for r in rows if r['preparation_status']!='ready']
     gaps += [r for r in supplements if r['status'] not in ('available','empty')]
