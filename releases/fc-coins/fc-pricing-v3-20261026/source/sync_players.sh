@@ -12,7 +12,7 @@ policy=/var/lib/fc27-cloud/config/player-sync.json
 [ -f "$policy" ] && [ ! -L "$policy" ] || exit 2
 state=/var/lib/fc27-cloud/state
 exec 9>>"$state/price-writer.lock"
-flock -n 9 || { printf '%s\n' '{"status":"busy"}'; exit 75; }
+flock -w 20 9 || { printf '%s\n' '{"status":"busy"}'; exit 75; }
 ledger=/var/lib/fc27-cloud/player-sync
 install -d -o root -g 11028 -m 2770 "$ledger"
 set --
