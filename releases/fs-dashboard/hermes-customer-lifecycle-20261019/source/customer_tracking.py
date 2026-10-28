@@ -25,6 +25,15 @@ UTC = timezone.utc
 FC_PRODUCT_LABELS = {'Coins':'货币(Gold)','Items':'物品(Items)'}
 
 
+def scan_permission_denied(job):
+    # Older failed rows used retry_after=60 for the same explicit pre-generation denial.
+    return bool(job and job['state']=='failed' and job.get('reason')=='es_export_permission_denied')
+
+
+def scan_job_sha256(job):
+    return hashlib.sha256(json.dumps(job,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+
+
 def payment_moment(value):
     if not isinstance(value,str):return None
     try:
@@ -290,7 +299,9 @@ class Store:
             job=db.execute('SELECT state,reason,retry_after FROM scan_jobs WHERE day=? AND config_version=?',(day,version)).fetchone()
         if job and job['state'] in ('pending','failed'):
             return {'status':job['state'],'date':day,'config_version':version,'items':[],
-                'captured_at':None,'coverage':{},'reason':job['reason'],'retry_after':job['retry_after']}
+                'captured_at':None,'coverage':{},'reason':job['reason'],
+                'retry_after':None if scan_permission_denied(dict(job)) else job['retry_after'],
+                **({'retryable':False} if scan_permission_denied(dict(job)) else {})}
         return {'status':'available' if scan else 'unavailable','date':day,
             'config_version':version,'items':[dict(json.loads(row['body']),candidate_id=row['candidate_id']) for row in rows],
             'captured_at':scan['captured_at'] if scan else None,
@@ -339,10 +350,47 @@ class Store:
             self.save_candidates(day,result['items'],coverage,version)
             state,reason,retry='available',None,None
         elif result.get('status')=='pending':return
-        else:state,reason,retry='failed',str(result.get('reason') or 'scan_source_unavailable')[:80],60
+        else:
+            state,reason,retry='failed',str(result.get('reason') or 'scan_source_unavailable')[:80],60
+            if reason=='es_export_permission_denied':retry=None
         with self.db() as db:
             db.execute('UPDATE scan_jobs SET state=?,updated_at=?,reason=?,retry_after=? WHERE day=? AND config_version=?',
                 (state,datetime.now(UTC).isoformat(),reason,retry,day,version))
+
+    def permission_scan(self,day,version,request_id,expected_sha,es_receipt_sha,db=None):
+        if (date.fromisoformat(day).isoformat()!=day or type(version) is not int or not ID.fullmatch(request_id)
+                or not all(isinstance(v,str) and re.fullmatch('[a-f0-9]{64}',v) for v in (expected_sha,es_receipt_sha))):
+            raise ValueError('scan_recovery_request')
+        if db is None:
+            with self.db() as conn:return self.permission_scan(day,version,request_id,expected_sha,es_receipt_sha,conn)
+        if db.execute('SELECT version FROM config WHERE id=1').fetchone()['version']!=version:raise ValueError('scan_config_changed')
+        row=db.execute('SELECT * FROM scan_jobs WHERE day=? AND config_version=?',(day,version)).fetchone()
+        request=db.execute('SELECT * FROM requests WHERE request_id=?',(request_id,)).fetchone()
+        if row is None or row['request_id']!=request_id or request is None or request['action']!='scan' or request['fingerprint']!=day:
+            raise ValueError('scan_recovery_original_request')
+        job=dict(row);receipt=json.loads(request['result']);previous=receipt.get('permission_recovery')
+        if previous:
+            if (previous['expected_job_sha256']!=expected_sha or previous['es_receipt_sha256']!=es_receipt_sha
+                    or job['state'] not in ('pending','available')):raise ValueError('scan_recovery_already_observed')
+            return job,True
+        if not scan_permission_denied(job):raise ValueError('scan_recovery_not_permission_denied')
+        if scan_job_sha256(job)!=expected_sha:raise ValueError('scan_recovery_job_changed')
+        if receipt.get('config_version')!=version:raise ValueError('scan_recovery_original_config')
+        return job,False
+
+    def resume_permission_scan(self,day,version,request_id,expected_sha,proof,user):
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            job,reused=self.permission_scan(day,version,request_id,expected_sha,proof['receipt_sha256'],db)
+            if reused:return dict(job,reused=True)
+            row=db.execute('SELECT result FROM requests WHERE request_id=?',(request_id,)).fetchone()
+            receipt=json.loads(row['result'])
+            receipt['permission_recovery']=dict(expected_job_sha256=expected_sha,es_receipt_sha256=proof['receipt_sha256'],
+                prior_failure=job,proof=proof,actor=user,resumed_at=datetime.now(UTC).isoformat())
+            db.execute('UPDATE requests SET result=? WHERE request_id=?',(json.dumps(receipt),request_id))
+            db.execute("UPDATE scan_jobs SET state='pending',updated_at=?,reason=NULL,retry_after=5 WHERE day=? AND config_version=?",
+                (datetime.now(UTC).isoformat(),day,version))
+        return dict(job,state='pending',reason=None,retry_after=5,reused=False)
 
     def track(self,candidate_id,request_id,now=None,owner='admin'):
         if not ID.fullmatch(candidate_id) or not ID.fullmatch(request_id):raise ValueError('tracking_request')

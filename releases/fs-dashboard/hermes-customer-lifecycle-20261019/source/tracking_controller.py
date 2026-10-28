@@ -1,6 +1,7 @@
 """Administrator-only FS adapter for a private Admin-session read capability."""
 from datetime import date, datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -15,6 +16,10 @@ from customer_tracking import AdminService, Store, ID
 
 KEY_FILE=Path(os.environ.get('FS_CUSTOMER_TRACKING_KEY_FILE','/var/lib/fs-hermes-fc/private/customer-tracking.key'))
 SHANGHAI=timezone(timedelta(hours=8))
+
+
+def scan_permission_denied(job):
+    return bool(job and job['state']=='failed' and job.get('reason')=='es_export_permission_denied')
 
 
 def safe_client_failure(error):
@@ -53,6 +58,60 @@ class PrivateClient:
         value=self.reads.execute(body)
         if len(json.dumps(value,ensure_ascii=False,allow_nan=False).encode())>4*1024*1024:raise ValueError('private_result_size')
         return value
+
+    @contextmanager
+    def permission_scan_recovery(self,body):
+        key=private_key(self.key_file)
+        with self.lock:
+            reads=self.reads
+            if reads is None:
+                yield lambda:None
+                return
+            with reads.lock:
+                if not reads.authorized(key):raise PermissionError('tracking_key_integrity')
+                fingerprint=hashlib.sha256(json.dumps(body,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+                job=reads.jobs.get(fingerprint)
+                if job is None:
+                    yield lambda:None
+                    return
+                if not job['future'].done() or not job.get('observed'):raise ValueError('private_scan_recovery_unobserved')
+                try:result=job['future'].result()
+                except Exception:raise ValueError('private_scan_recovery_not_permission_denied') from None
+                if (result.get('reason')!='es_export_permission_denied' or result.get('status') not in ('unavailable','failed')
+                        or result.get('stage','not_generated')!='not_generated'):
+                    raise ValueError('private_scan_recovery_not_permission_denied')
+                yield lambda:reads.jobs.pop(fingerprint)
+
+
+def recovered_es_receipt(day,expected_sha,root):
+    from es_order_structure import checked_query,_receipt_paths,_read_receipt,SERVER_LOCK
+    if not isinstance(expected_sha,str) or not re.fullmatch('[a-f0-9]{64}',expected_sha):raise ValueError('scan_recovery_es_sha')
+    root=Path(root)
+    if any(p.is_symlink() for p in (root,*root.parents)):raise ValueError('es_cache_symlink')
+    query=checked_query({'profile':'ALL','start':day,'end':day})
+    with SERVER_LOCK:
+        index,attempt,legacy=_receipt_paths(query,root)
+        record,actual_sha=_read_receipt(index)
+        if actual_sha!=expected_sha:raise ValueError('scan_recovery_es_receipt_changed')
+        if any(p.exists() or p.is_symlink() for p in (attempt,legacy)):raise ValueError('scan_recovery_es_attempt_unknown')
+        value=record.get('value') or {};denial=record.get('permission_denial') or {}
+        original=denial.get('result') or {}
+        if (record.get('last_attempt') or value.get('status')!='available' or original.get('reason')!='es_export_permission_denied'
+                or original.get('stage') not in (None,'not_generated')
+                or not re.fullmatch('[a-f0-9]{64}',str(denial.get('receipt_sha256','')))):
+            raise ValueError('scan_recovery_es_not_rechecked')
+        snapshots=value.get('snapshots')
+        if not isinstance(snapshots,list) or len(snapshots)!=1 or checked_query(snapshots[0]['query'])!=query:
+            raise ValueError('scan_recovery_es_query')
+        projection=snapshots[0]['value'];quality=projection.get('quality') or {}
+        if (value.get('kind')!='es_order_structure_bundle' or projection.get('kind')!='es_order_structure'
+                or projection.get('status')!='available' or quality.get('file_set_complete') is not True
+                or quality.get('parse_failures')!=0 or quality.get('failed_files')!=0
+                or type(quality.get('declared_files')) is not int or quality['declared_files']!=quality.get('read_files')
+                or not re.fullmatch('[a-f0-9]{64}',str(projection.get('source_version','')))):
+            raise ValueError('scan_recovery_es_incomplete')
+        return dict(receipt_sha256=actual_sha,query=query,original_denial_sha256=denial['receipt_sha256'],
+                    source_version=projection['source_version'],captured_at=projection.get('captured_at'))
 
 class TrackingController:
     def __init__(self,root,authorizer,client=None,auto_start=True,conversation=None):
@@ -102,6 +161,21 @@ class TrackingController:
             result={'status':'unavailable','reason':safe_client_failure(error)}
         self.store.finish_scan(day,job['config_version'],result)
 
+    def resume_permission_scan(self,user,day,config_version,request_id,*,expected_job_sha256,es_receipt_sha256,
+                               es_root=Path('/var/lib/fs-hermes-fc/fs/es-structures')):
+        """Operator-only after the original ES receipt was successfully rechecked."""
+        self.admin._admin(user)
+        _,reused=self.store.permission_scan(day,config_version,request_id,expected_job_sha256,es_receipt_sha256)
+        proof=recovered_es_receipt(day,es_receipt_sha256,es_root)
+        if not reused:
+            config=self.store.config()
+            body={'action':'scan','day':day,'config':{k:v for k,v in config.items() if k not in ('version','last_request_id','enabled_profiles')}}
+            with self.client.permission_scan_recovery(body) as discard_original_failure:
+                self.store.resume_permission_scan(day,config_version,request_id,expected_job_sha256,proof,user)
+                discard_original_failure()
+        self._poll_scan(day)
+        return self.store.scan_job(day)
+
     def _poll_history(self,tracking_id,max_age_seconds=900):
         detail=self.store.detail(tracking_id)
         if detail['status']!='active':return 'stopped'
@@ -133,7 +207,7 @@ class TrackingController:
                     if job is None:
                         request_id=hashlib.sha256(f'auto:{day}:{config["version"]}'.encode()).hexdigest()[:32]
                         self.store.begin_scan(day,request_id)
-                    elif job['state']=='failed':
+                    elif job['state']=='failed' and not scan_permission_denied(job):
                         due=datetime.fromisoformat(job['updated_at'])+timedelta(minutes=15)
                         if datetime.now(timezone.utc)>=due:
                             request_id=hashlib.sha256(f'auto:{day}:{config["version"]}:{int(time.time()//900)}'.encode()).hexdigest()[:32]
