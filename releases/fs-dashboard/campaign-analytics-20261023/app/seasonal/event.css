@@ -1040,3 +1040,15 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
 @media (max-width: 640px) {
   .offer-badge { top: 4px; right: 4px; width: 46px; height: 46px; }
 }
+
+/* V16: keep long product names readable on phones. The later three-column
+   desktop shelf must not override the original single-column mobile layout. */
+@media (max-width: 640px) {
+  .offer-slots { grid-template-columns: 1fr; gap: 22px; }
+  .offer-slot { border: 1px solid rgba(182,132,225,.26); border-radius: 18px; background: linear-gradient(180deg, rgba(48,26,70,.42), rgba(28,15,42,.6)); overflow: hidden; }
+  .offer-slot .slot-label { margin: 0; padding: 13px 10px 0; }
+  .offer-slot .flip-card { height: 290px; margin: 12px 12px 0; width: calc(100% - 24px); }
+  .offer-slot .card-front > strong { max-width: 100%; font-size: 20px; line-height: 1.4; overflow-wrap: anywhere; }
+  .offer-slot .slot-detail { min-height: 118px; margin: 0; padding: 14px 18px 16px; border: 0; border-top: 1px solid rgba(183,133,213,.2); border-radius: 0; }
+  .offer-slot .slot-detail .buy-button { width: 100%; min-height: 42px; font-size: 14px; white-space: nowrap; }
+}

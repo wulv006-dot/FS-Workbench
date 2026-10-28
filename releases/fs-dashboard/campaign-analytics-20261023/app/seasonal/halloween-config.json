@@ -49,9 +49,9 @@
       "random_count": 2
     },
     {
-      "id": "wow",
-      "label": "World of Warcraft",
-      "admin_game_id": null,
+      "id": "diablo",
+      "label": "Diablo IV",
+      "admin_game_id": "456",
       "fixed_model": null,
       "fixed_off_percent": null,
       "fixed_quantity": null,
