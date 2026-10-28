@@ -21,8 +21,8 @@ timeout 180s docker run --rm --init --memory 2g --memory-swap 2g --env PYTHONPAT
   --mount type=bind,src=/opt/fc27-cloud-browser/fc_pricing_v3,dst=/opt/fc_pricing_v3,readonly \
   --mount type=bind,src=/var/lib/fc27-cloud/v3,dst=/run/fc27/v3,readonly \
   --mount type=bind,src=/var/lib/fc27-cloud/config,dst=/run/fc27/config,readonly \
-  --mount type=bind,src=/opt/fs-order-session/fc_shared_admin.py,dst=/usr/local/bin/p2pah_session_service.py,readonly \
-  --mount type=bind,src=/etc/fc27-cloud/global-admin-principal.json,dst=/run/secrets/fs-global-admin.json,readonly \
+  --mount type=bind,src=/opt/fc27-cloud-browser/fc_shared_admin.py,dst=/usr/local/bin/p2pah_session_service.py,readonly \
+  -e FS_ADMIN_API_BASE=http://127.0.0.1:8912 \
   --mount type=bind,src="$all_dir",dst=/run/fc27/all-coin-sync \
   --mount type=bind,src=/var/lib/fc27-cloud/runs,dst=/run/fc27/runs,readonly \
   --mount type=bind,src=/var/lib/fc27-cloud/quotes,dst=/run/fc27/quotes,readonly \

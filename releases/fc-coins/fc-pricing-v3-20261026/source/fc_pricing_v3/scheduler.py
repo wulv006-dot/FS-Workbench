@@ -14,7 +14,7 @@ import uuid
 from .engine import POLICIES
 from .financial import fingerprint, instant
 from .ledger import clock
-from .runtime import ledger, ROOT, STORE, execute_run, reconcile
+from .runtime import ledger, ROOT, STORE, execute_run, reconcile, complete_player_followup
 
 PRIORITY={'deadline':0,'exit':1,'reconcile':2,'start':3,'postwrite_refresh':3,'uk_retirement':3,'cycle':4,'observe':5,'daily':5,'history':5}
 BACKOFF=(5,15,30,60)
@@ -115,12 +115,12 @@ def cycle(body=None):
     operation_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc-v3-operation:'+root_key))
     existing=db.get('operations',operation_id)
     if existing:
-        return existing if existing['status'] in ('COMPLETED','NO_CHANGE') else reconcile(operation_id)
+        return complete_player_followup(existing) if existing['status'] in ('COMPLETED','NO_CHANGE') else reconcile(operation_id)
     if body.get('manual_preview_id'):
         original=db.get('manual_previews',body['manual_preview_id'])
         existing=db.get('operations',original['operation_id']) if original else None
         if existing:
-            return reconcile(existing['operation_id']) if existing['status'] not in ('COMPLETED','NO_CHANGE') else existing
+            return reconcile(existing['operation_id']) if existing['status'] not in ('COMPLETED','NO_CHANGE') else complete_player_followup(existing)
     pending=[o for o in db.all('operations') if o['status'] in ('DISPATCHED','UNKNOWN','PARTIALLY_APPLIED','BACKEND_CONFIRMED','CACHE_CONFIRMED','PUBLIC_PENDING','KNOWN_PARTIAL_PUBLIC_PENDING') and set(o['resources'])&set(requested['resources'])]
     for op in pending:
         reconcile(op['operation_id'])
@@ -165,12 +165,7 @@ def cycle(body=None):
                         db.put('operations',row['id'],original,conn)
         job.update(status='ready',v3_outcome=outcome,result=dict(status='confirmed' if outcome.get('status')=='COMPLETED' else 'no_price_change' if outcome.get('status')=='NO_CHANGE' else outcome.get('status'),execution_id=outcome.get('operation_id'),platforms=outcome.get('readback',{}).get('public',{}).get('platforms',[])),completed_at=clock().isoformat())
         if outcome.get('status')=='COMPLETED':
-            config=worker.load_player_sync_policy()
-            job['player_sync_intent']={'enabled':config['enabled'],'revision':config['revision']}
-            worker.save_job(job)
-            try:job['player_sync']=worker.enqueue_player_sync(job,config)
-            except (OSError,ValueError) as exc:
-                job['player_sync']=dict(status='pending',reason=type(exc).__name__,original_coin_execution_id=outcome['operation_id'])
+            complete_player_followup(outcome,job)
     except Exception as exc:
         code=str(exc) if isinstance(exc,ValueError) else type(exc).__name__
         if isinstance(exc,ValueError) and code.lower().startswith(('pricing_v3_infeasible:','pricing_v3_capacity_unresolved:')):

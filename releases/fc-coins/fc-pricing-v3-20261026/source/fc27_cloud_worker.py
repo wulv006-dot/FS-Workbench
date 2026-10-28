@@ -409,6 +409,9 @@ def _enqueue_player_sync_locked(coin_job, config=None):
     nochange=(coin_job.get('result') or {}).get('status')=='no_price_change' and bool(coin_job.get('player_sync_basis'))
     coin_id=coin_job['player_sync_basis']['coin_execution_id'] if nochange else (coin_job.get('v3_outcome') or {}).get('operation_id',coin_job['job_id'])
     if coin_job.get('kind') not in ('auto_cycle','v3_cycle') or (not nochange and (coin_job.get('result') or {}).get('status')!='confirmed'):raise ValueError('player_sync_coin_not_confirmed')
+    if coin_job.get('kind')=='v3_cycle':
+        if (coin_job.get('request') or {}).get('v3_operation_id')!=coin_id:raise ValueError('player_sync_parent_mismatch')
+        v3_player_completion(coin_id,coin_job['job_id'])
     job_id = recovery_job_id(coin_job['job_id']) if nochange and coin_job['player_sync_basis'].get('kind')=='prewrite_auth_recovery' else str(uuid.uuid5(uuid.NAMESPACE_URL, "fc27-player-sync:" + coin_id))
     path = QUEUE / (job_id + ".json")
     if path.exists() or (JOBS / (job_id + ".json")).exists():
@@ -426,6 +429,20 @@ def _enqueue_player_sync_locked(coin_job, config=None):
     os.chown(path, 0, 11028)
     sync_directory(QUEUE)
     return {"status": "queued", "job_id": job_id}
+
+
+def v3_player_completion(coin_id,parent_id=None):
+    """Read terminal proof from the original ledger, never from a submitted request."""
+    from fc_pricing_v3.runtime import ledger
+    operation=ledger().get('operations',coin_id)
+    if not operation or operation.get('operation_id')!=coin_id or operation.get('status')!='COMPLETED':raise ValueError('player_sync_coin_not_confirmed')
+    bundle=operation['bundle']
+    if parent_id is not None and bundle.get('snapshot_id')!=parent_id:raise ValueError('player_sync_parent_mismatch')
+    receipt=operation.get('readback') or {}
+    return dict(operation_id=coin_id,status=operation['status'],snapshot_id=bundle.get('snapshot_id'),bundle_sha256=bundle.get('sha256'),
+                base_prices=(operation.get('actual_action') or bundle['action'])['base_prices'],
+                confirmed_at=operation.get('actual_state_confirmed_at') or operation.get('completed_at'),
+                readback={k:receipt.get(k) for k in ('status','operation_id','confirmation_scope','order_feedback','admin_unit_prices','targets')})
 
 
 def recovery_job_id(parent_id):
@@ -576,6 +593,10 @@ def handle(job):
         request = {"job_id": job["job_id"], "coin_execution_id": coin_id,
                    "config_revision": config["revision"],
                    "resume": job["request"].get("resume") is True}
+        execution=json.loads((ROOT/'executions'/(coin_id+'.json')).read_text(encoding='utf-8'))
+        if execution.get('status') in ('ORDER_ADMIN_CONFIRMED','PUBLIC_CONFIRMED'):
+            if not job['request'].get('automatic_basis') and job['job_id']!=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc27-player-sync:'+coin_id)):raise ValueError('player_sync_original_job_mismatch')
+            request['v3_completion']=v3_player_completion(coin_id)
         if job['request'].get('automatic_basis'):
             with queue_mutation():
                 parent_id=job['request']['automatic_basis']['parent_id']
@@ -637,7 +658,7 @@ def _retry_player_followups_locked():
         try:
             job = json.loads(path.read_text(encoding="utf-8"))
             intent = job.get("player_sync_intent") or {}
-            if (job.get("kind") != "auto_cycle" or job.get("status") != "ready"
+            if (job.get("kind") not in ("auto_cycle","v3_cycle") or job.get("status") != "ready"
                     or not ((job.get("result") or {}).get("status")=="confirmed" or ((job.get("result") or {}).get("status")=="no_price_change" and job.get("player_sync_basis")))
                     or not intent.get("enabled")
                     or (job.get("player_sync") or {}).get("status") in {"queued", "already_queued"}):

@@ -15,7 +15,8 @@ import time
 import uuid
 
 sys.path.insert(0, "/usr/local/bin")
-from p2pah_session_service import allowed_admin_usernames, SessionManager, read_private_config
+if sys.argv[1:2] != ['--host-receipt']:
+    from p2pah_session_service import allowed_admin_usernames, SessionManager, read_private_config
 
 
 AUDIT = Path("/run/coin-execution.json")
@@ -138,8 +139,31 @@ def clear_confirmed_write(execution_id, audit, manager):
     raise CacheClearError(reason, responses)
 
 
+def host_receipt(execution_id, raw):
+    """Normalize the existing host fallback into the worker's container receipt contract."""
+    if str(uuid.UUID(execution_id)) != execution_id or len(raw) > 16384:
+        raise ValueError('cache_host_receipt_invalid')
+    body, separator, status = raw.rpartition(b'\n')
+    if not separator:
+        body, status = raw, b'0'
+    details = response_details(int(status) if status.isdigit() else 0, body)
+    cleared = details['http_status'] == 200 and details['api_code'] == 1
+    result = dict(status='cleared' if cleared else 'unconfirmed', scope='all', attempts=1,
+                  host_fallback=True, responses=[dict(action='clear', **details)],
+                  checked_at=datetime.now(timezone.utc).isoformat())
+    if not cleared:
+        result['reason'] = 'cache_clear_rejected'
+    return result
+
+
 def main():
     try:
+        if sys.argv[1] == '--host-receipt':
+            result = host_receipt(sys.argv[2], sys.stdin.buffer.read(16385))
+            print(json.dumps(result))
+            if result['status'] != 'cleared':
+                raise SystemExit(2)
+            return
         execution_id = sys.argv[1]
         audit = json.loads(AUDIT.read_text(encoding="utf-8"))
         result = clear_confirmed_write(execution_id, audit,

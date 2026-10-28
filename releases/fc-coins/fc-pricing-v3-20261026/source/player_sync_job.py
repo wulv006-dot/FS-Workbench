@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 import urllib.error
 import urllib.request
 from urllib.parse import urlencode
@@ -413,10 +414,31 @@ def current_automatic_basis(request,execution,policy,manager=None):
     if manager is not None:validate_basis_prices(manager,current,ledger,backend_only=operational)
 
 
-def verified_v3_coin_execution(execution):
+def verified_closed_coin(execution,completion):
+    """Accept the same bound Order/Admin proof and terminal ledger snapshot supplied by the worker."""
+    try:
+        original=execution['pricing_decision_receipt'];close=execution['close_receipt'];proof=completion or {};readback=proof['readback'];ident=execution['execution_id']
+        if (execution.get('status') not in ('ORDER_ADMIN_CONFIRMED','PUBLIC_CONFIRMED') or execution.get('ledger_status')!='COMPLETED' or
+                execution.get('operation_id')!=ident or execution.get('confirmation_scope')!='Order_Admin' or
+                proof.get('operation_id')!=ident or proof.get('status')!='COMPLETED' or
+                not original.get('sha256') or proof.get('bundle_sha256')!=original['sha256'] or
+                not original.get('snapshot_id') or proof.get('snapshot_id')!=original['snapshot_id'] or
+                readback.get('operation_id')!=ident or readback.get('confirmation_scope')!='Order_Admin' or
+                readback.get('status')!=execution['status'] or close.get('status')!=execution['status'] or
+                not isinstance(execution.get('sync_message'),str) or not execution['sync_message'].strip() or
+                (readback.get('order_feedback') or {}).get('sync_message')!=execution['sync_message']):return False
+        prices=readback['admin_unit_prices'];saved=close['admin_unit_prices'];targets={r['platform']:r['quote'] for r in readback['targets']}
+        rates={r['platform']:decimal(r['b2c'],'coin_sale_price') for r in execution['after']['rows']}
+        if set(rates)!=set(prices) or set(rates)!=set(saved) or set(rates)!=set(targets) or set(rates)!={'PS','XBOX','PC'}:return False
+        return all(decimal(prices[p],'admin_price')==decimal(saved[p],'admin_price')==rates[p] and
+                   decimal(targets[p],'target')==rates[p]*100==decimal(proof['base_prices']['pc' if p=='PC' else 'console'],'base') for p in rates)
+    except (KeyError,ValueError,TypeError,OverflowError):return False
+
+
+def verified_v3_coin_execution(execution,completion=None):
     """An operator-triggered program cycle retains the same proven V3 authority."""
     receipt=execution.get('pricing_decision_receipt') or {};proof=receipt.get('financial_proof') or {}
-    if not (execution.get('status')=='CONFIRMED' and receipt.get('schema_version')=='fc-pricing-v3-20261026' and
+    if not ((execution.get('status')=='CONFIRMED' or verified_closed_coin(execution,completion)) and receipt.get('schema_version')=='fc-pricing-v3-20261026' and
             receipt.get('decision_bundle_id')==execution.get('execution_id') and
             receipt.get('review_contract')=='program_pricing_with_daily_hermes_review_v3' and
             receipt.get('decision_source')=='program_current_strategy' and receipt.get('execution_authorized') is True and
@@ -434,11 +456,14 @@ def bulk_main():
     request, execution, policy = read(REQUEST), read(EXECUTION), read(POLICY)
     job_id, coin_id = request["job_id"], request["coin_execution_id"]
     dry_run = request.get("dry_run") is True
+    verified_v3=verified_v3_coin_execution(execution,request.get('v3_completion'))
+    if execution.get('status') in ('ORDER_ADMIN_CONFIRMED','PUBLIC_CONFIRMED') and not request.get('automatic_basis') and job_id!=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc27-player-sync:'+coin_id)):
+        raise ValueError('player_sync_original_job_mismatch')
     if ((not policy.get("enabled") and not dry_run)
             or policy.get("revision") != request.get("config_revision")
             or execution.get("execution_id") != coin_id
-            or execution.get("status") != "CONFIRMED"
-            or (execution.get("automatic") is not True and not request.get("automatic_basis") and not verified_v3_coin_execution(execution))):
+            or (execution.get("status") != "CONFIRMED" and not verified_v3)
+            or (execution.get("automatic") is not True and not request.get("automatic_basis") and not verified_v3)):
         raise ValueError("player_sync_preflight_changed")
     if request.get('automatic_basis'):current_automatic_basis(request,execution,policy)
     rate_rows = execution.get("after", {}).get("rows") or []

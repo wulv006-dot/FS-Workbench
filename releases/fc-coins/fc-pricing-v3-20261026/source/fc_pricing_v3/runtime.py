@@ -475,7 +475,7 @@ def execute_run(run_id):
     plan=db.get('pricing_plans',bundle['plan_id'])
     existing=db.get('operations',bundle['decision_bundle_id'])
     if existing:
-        return existing if existing['status'] in ('COMPLETED','NO_CHANGE') else reconcile(existing['operation_id'])
+        return complete_player_followup(existing) if existing['status'] in ('COMPLETED','NO_CHANGE') else reconcile(existing['operation_id'])
     code,preview=worker.run([str(worker.APP/'preview_backend.sh'),run_id],85)
     if code or preview.get('status')!='review_only':
         raise ValueError('pricing_backend_preview_failed')
@@ -598,6 +598,35 @@ def _close_execution_audit(operation_id,audit,receipt,ledger_status):
         return dict(status='audit_write_failed',error=type(exc).__name__)
 
 
+def complete_player_followup(operation,job=None):
+    """Reuse the original V3 parent and deterministic Players follow-up after any completion path."""
+    bundle=operation.get('bundle') or {}
+    if operation.get('status')!='COMPLETED' or bundle.get('schema_version')!=VERSION or bundle.get('maintenance_purpose'):return operation
+    try:
+        original=ledger().get('operations',operation['operation_id'])
+        if not original or original.get('status')!='COMPLETED':raise ValueError('player_sync_coin_not_confirmed')
+        parent_id=original['bundle']['snapshot_id']
+        if job is None:job=json.loads((ROOT/'jobs'/(parent_id+'.json')).read_text())
+        if (job.get('job_id')!=parent_id or job.get('kind')!='v3_cycle' or
+                (job.get('request') or {}).get('v3_operation_id')!=original['operation_id']):raise ValueError('player_sync_parent_mismatch')
+        import fc27_cloud_worker as worker
+        config=worker.load_player_sync_policy()
+        job.update(status='ready',v3_outcome=original,result=dict(status='confirmed',execution_id=original['operation_id'],
+                   platforms=original.get('readback',{}).get('public',{}).get('platforms',[])))
+        job.setdefault('completed_at',clock().isoformat())
+        intent=job.setdefault('player_sync_intent',dict(enabled=config['enabled'],revision=config['revision']))
+        worker.save_job(job)
+        if intent.get('enabled') and config['enabled'] and intent.get('revision')==config['revision']:
+            try:job['player_sync']=worker.enqueue_player_sync(job,config)
+            except (OSError,ValueError) as exc:
+                job['player_sync']=dict(status='pending',reason=type(exc).__name__,original_coin_execution_id=original['operation_id'])
+            worker.save_job(job)
+    except (OSError,ValueError,KeyError,TypeError) as exc:
+        # Coins has already completed; a Players persistence error must not invoke the old cancellation path.
+        return dict(operation,player_sync_followup=dict(status='pending',reason=str(exc) if isinstance(exc,ValueError) else type(exc).__name__))
+    return operation
+
+
 def close_on_order_admin(op,audit):
     """用「Order 成功反馈 + Admin 单价核对」收尾已发出的操作。
 
@@ -639,7 +668,8 @@ def close_on_order_admin(op,audit):
         except Exception as exc:
             postwrite=dict(status='postwrite_failed',error=type(exc).__name__)
     if (postwrite or {}).get('status')=='PUBLIC_CONFIRMED' and not decision['cancelled']:
-        result=db.finish(ident,postwrite);receipt=postwrite
+        receipt=dict(postwrite,**{k:v for k,v in build_receipt(latest,audit,observed,decision,postwrite).items() if k!='status'})
+        result=db.finish(ident,receipt)
     elif not decision['cancelled']:
         receipt=build_receipt(latest,audit,observed,decision,postwrite)
         result=db.finish(ident,receipt)
@@ -652,7 +682,7 @@ def close_on_order_admin(op,audit):
     audit_close=_close_execution_audit(ident,audit,receipt,result.get('status'))
     if audit_close.get('status')!='written':
         result=dict(result,execution_audit_close=audit_close)
-    return result
+    return complete_player_followup(result) if audit_close.get('status')=='written' else result
 
 
 def unified_close_entry(op,audit):
@@ -695,7 +725,7 @@ def reconcile(operation_id):
     op=db.get('operations',operation_id)
     if not op:
         raise ValueError('pricing_operation_missing')
-    if op['status'] in ('COMPLETED','NO_CHANGE','CANCELLED_NOT_SENT','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED'):return op
+    if op['status'] in ('COMPLETED','NO_CHANGE','CANCELLED_NOT_SENT','KNOWN_PARTIAL_EXIT_PENDING','KNOWN_PARTIAL_EXITED'):return complete_player_followup(op)
     audit_path=ROOT/'executions'/(operation_id+'.json')
     audit=json.loads(audit_path.read_text()) if audit_path.exists() else None
     if op['status']=='KNOWN_PARTIAL_PUBLIC_PENDING':return exit_or_close(op,audit,op['stop_unissued_reason'])
@@ -753,14 +783,14 @@ def reconcile(operation_id):
         except Exception as exc:
             post=dict(status='postwrite_failed',error=type(exc).__name__)
         if post['status']=='PUBLIC_CONFIRMED':
-            return db.finish(operation_id,post)
+            return complete_player_followup(db.finish(operation_id,post))
         op=db.get('operations',operation_id)
         op.update(status=post['status'],readback=post,postwrite_receipt=post)
         db.put('operations',operation_id,op)
     elif not any(s['kind']=='base' for s in op['steps']) and all(s['state']=='CONFIRMED' for s in op['steps']):
         from .adapters import reconcile_postwrite
         post=reconcile_postwrite(op,None)
-        if post['status']=='PUBLIC_CONFIRMED':return db.finish(operation_id,post)
+        if post['status']=='PUBLIC_CONFIRMED':return complete_player_followup(db.finish(operation_id,post))
         op.update(status=post['status'],readback=post)
         db.put('operations',operation_id,op)
     # 2026-10-28: Order+Admin 统一收尾入口（DECOUPLE-DESIGN §6.4）。

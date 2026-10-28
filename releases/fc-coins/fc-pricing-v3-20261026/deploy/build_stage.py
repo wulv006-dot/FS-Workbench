@@ -7,7 +7,7 @@ import subprocess
 import tarfile
 import tempfile
 
-from target_map import targets
+from target_map import TARGET_COUNT, targets
 
 
 def digest(path):
@@ -29,7 +29,7 @@ def build(checkout, output):
     if dirty:
         raise ValueError('source_tree_has_uncommitted_changes')
     mapping = targets(source)
-    if len(mapping) != 96:
+    if len(mapping) != TARGET_COUNT:
         raise ValueError('exact_target_count_required')
     with tempfile.TemporaryDirectory(prefix='fc-v3-stage-') as temporary:
         stage = Path(temporary) / 'fc-pricing-v3-20261026'

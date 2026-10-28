@@ -1,6 +1,8 @@
 """Exact V3 code targets; the knowledge catalog has a separate immutable release."""
 from pathlib import Path
 
+TARGET_COUNT = 98
+
 DELTA_SCOPE='fc-pricing-v3-two-mode-shadow-reply-20261027'
 DELTA_NAMES=tuple(prefix+'fc_pricing_v3/history.py' for prefix in ('source/','source/hermes-copy/'))
 DELTA_NEW=frozenset()
@@ -29,8 +31,9 @@ def targets(source):
                  'fc27_cloud_api.py', 'fc27_cloud_worker.py', 'fc27_quote_engine.py',
                  'hermes_pricing_bridge.py', 'itemd2r_reader.py', 'player_sync_job.py', 'price_writer.py', 'pricing_state.py',
                  'pricing_v2.py', 'pricing_sources.py', 'reconcile_original.py', 'reconcile_price.sh',
-                 'repricing_logic.js', 'restore_price.sh', 'server_quote_job.py', 'snapshot_layer.py'):
+                 'repricing_logic.js', 'restore_price.sh', 'sync_players.sh', 'server_quote_job.py', 'snapshot_layer.py'):
         rows[name] = '/opt/fc27-cloud-browser/' + name
+    rows['fc_shared_admin.py'] = '/opt/fc27-cloud-browser/fc_shared_admin.py'
     for name in ('pricing_operations.py', 'pricing_simulation.py', 'strategy_tools.py'):
         rows[name] = '/opt/fs-hermes-fc/' + name
     rows['conversation_service.py'] = '/opt/fs-hermes-fc/conversation_service.py'
