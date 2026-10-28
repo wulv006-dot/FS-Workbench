@@ -51,11 +51,19 @@ def proven_never_dispatched(step):
     2. ``transport_claimed_at`` 为空
     3. ``receipt`` 不存在或 ``receipt.status == 'NOT_SENT'``
 
-    第 3 条允许 receipt 缺失，理由：``claim_dispatch()`` 会在真正发送前写入
-    ``transport_claimed_at``；它与 ``dispatched_at`` 同时缺席说明从未尝试发送，
-    此时不可能存在回执。任一条件不满足 → 视为「已发出 / 未知」，**不得**当成未发送。
+    三条是 AND 关系，任一不满足 → 视为「已发出 / 未知」，**不得**当成未发送。
 
-    严禁用「价格没变」来推断未发送。
+    第 3 条对 ``receipt`` 缺失的落地解释
+    ------------------------------------
+    §6.1 原文写 ``receipt.status == 'NOT_SENT'``，但**从未派发的步骤根本没有回执**
+    （本次事故里两个区域步骤是 ``PREPARED``、``receipt`` 为空）。若要求回执必须存在，
+    对这类步骤永远无法成立，卡死会原样复现。
+
+    因此这里的判定是：``dispatched_at`` 与 ``transport_claimed_at`` 同时缺席 ⇒ 从未尝试发送
+    ⇒ 不可能有回执，此时 ``receipt is None`` 视为未发出。
+
+    反之，只要有任何一条传输痕迹（已 dispatch，或已 claim），无论回执写什么，
+    都必须继续核对，不能用「价格没变」「intermediate 已更新」来推断未发送。
     """
     if not isinstance(step, dict):
         return False
