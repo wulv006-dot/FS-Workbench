@@ -152,3 +152,17 @@ PR278/280/281均正式CI通过并合并，最终功能head d641ff9eb7cabc2651361
 发布 `nav-20261027T190500Z`（manifest `dff9dd2a…`，静态清单备份 `static-manifest.before-nav89.json`），正式域名读回：四卡滤镜一致、高 267px；三卡正面 `card-front small` 计数 0、高 320px；三张翻完后 `reload()` 仍全为 `is-revealed`；无 JS 报错。未改 policy / 公开配置 / 优惠码 / 价格缓存，未重启服务。回退点 `/var/backups/fs-navigation-20261006/nav-20261027T190500Z`。
 
 过程教训：期间一次误发布（PR #570）把用户当晚 22:28 刚调好的卡面覆盖成去小字+提亮版并紧急回滚，根因是误判用户"样式不对"的指代，且发布前未确认线上那版是否就是用户最新版。此后确立：动活动页 CSS/JS 前先与用户确认要改哪一项，发布后用正式域名（而非 IP 直连，IP 会 403 `ORIGIN_REQUIRED`）读回。
+
+## 2026-10-28 万圣节活动页：商品卡换成游戏通用图 + 金色折扣徽章
+
+用户提供了一批素材（`桌面/FC素材/金币` 四款游戏金币图 + FC 的 Pack/Player 通用图，`桌面/FC素材/优惠` 8%/10%/15% 三枚金色折扣徽章），要求换到 `/events/seasonal/`。PR #581（head `ebe88dd945`，CI `pr-fast` success）合并 `c3ff16c05c`，发布 `nav-20261028T024922Z`。
+
+做法：`event.js` 新增 `CATEGORY_ART` / `artCategory()` / `categoryArt()`，卡面插图改为按「游戏 + 品类」取一张通用图 —— FC 金币 `product-fc-coins.webp`、FC 球员与 Pack/Bundle/POTM/EVO 一律 `product-fc-set.webp`，Aion2 / WoW / MapleStory 金币各一张；角标折扣由 CSS 文字 pill 改为 `assets/badge-<档位>.webp`（56px，移动端 46px）。8 个 webp 合计约 460KB。
+
+顺带修掉一个旧缺陷：商品记录里的 `image` 是相对路径 `assets/product-*.webp`，页面在 `/events/seasonal/` 下会请求 `/events/seasonal/assets/...` → 404；其余三游戏 `image` 本来为空 —— 所以此前翻牌卡面一直是 `✦` 占位。改成按游戏/品类取图后这条链路不再依赖商品记录。
+
+测试侧改了一条断言：`halloween52-browser.cjs` 原要求「未知导入商品在卡面不产生 img」，现在插图与导入记录无关，改为「卡面 img 的 src 必须来自 `assets/`」，防注入语义不变且更严。
+
+发布清单 15 个（10 个 seasonal 资源 + `runtime/static-manifest.json` + 4 个边界文件），静态清单 97 → 105 键。读回：8 个新资源全 200/`image/webp`，`event.js` 200/24871、`event.css` 200/65640；真实页面四游戏固定卡徽章与插图均自然宽 > 0、渲染 56×56 与 193×96，无 `pageerror`、无业务 4xx。随机卡未真实抽卡（避免产生回执），其渲染与固定卡共用 `faceContent()`，已在 CI 与候选注入覆盖。
+
+未做：`-10%` 徽章素材本身缺百分号（另两张有），按原样上线待换图；MapleStory 物品通用图仍在制作，暂由金币图兜底；首页四张游戏卡图（`game-1..4.png`）未动。回退点 `/var/backups/fs-navigation-20261006/nav-20261028T024922Z`。

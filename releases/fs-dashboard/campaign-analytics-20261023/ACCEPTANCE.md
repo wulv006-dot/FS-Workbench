@@ -109,3 +109,12 @@
 - 合同：`pageCopyFields()` 只接受 FC 三页的 `heading/intro/body`（120/320/400），拒绝尖括号、控制字符与中文；草稿保存与发布两处都校验（`INVALID_PAGE_COPY`）。
 - 未执行：未改任何线上 `copy`（当前仍沿用代码默认文案），未改商品、价格、绑定与 policy；未做付款/订单验收。
 
+### 2026-10-28 `nav-20261028T024922Z`（PR #581）读回：游戏通用图与金色折扣徽章
+
+- 服务：`fs-campaign-runtime` / `fs-campaign-dashboard` 均 active，`nginx -t` 通过。
+- 落盘核对（服务器 `sha256sum` 对上本地与清单）：`seasonal/event.js` `aecb4fc3…`、`seasonal/event.css` `c9ebca70…`、`runtime/static-manifest.json` `bf1da57b…`（105 键）、`assets/badge-8.webp` `3a2c3e90…`、`assets/product-fc-coins.webp` `fa8ec44f…`、`assets/product-fc-set.webp` `ed904610…`。
+- HTTP 读回（正式域名 `www.mmoexp.com`）：8 个新 `assets/*.webp` 全部 200 且 `image/webp`；`seasonal/event.js` 200/24871 字节、`event.css` 200/65640 字节。
+- 真实页面（Playwright，未注入任何内容）：FC / Aion2 / WoW / MapleStory 固定卡翻牌后 `badge-10.webp` 均加载成功（自然宽 > 0，渲染 56×56），插图分别为 `product-fc-coins` / `product-aion-coins` / `product-wow-coins` / `product-maplestory-coins`（渲染 193×96，自然宽 > 0）；页面无 `pageerror`，业务资源无 4xx（仅 Google/DoubleClick 追踪像素被拦截）。
+- 品类判定：FC 固定卡标题 `coins` 落到金币图；Aion2 `Kina`、WoW `gold`、MapleStory `MapleStory Classic World Mesos` 均判定为金币品类。
+- 未执行：未改 policy / 公开配置 / 优惠码 / 派生价格缓存；未做随机卡真实抽卡（避免产生抽卡回执），随机卡与固定卡共用同一 `faceContent()` 渲染路径，已在 CI 与候选注入验证中覆盖。
+
