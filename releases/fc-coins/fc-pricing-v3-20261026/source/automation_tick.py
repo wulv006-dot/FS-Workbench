@@ -332,6 +332,14 @@ def proven_prewrite_timeout(job, revision):
 def resolved_execution(record):
     if record.get("status") in {"CONFIRMED", "RESTORED", "CHECK_ONLY"}:
         return True
+    if record.get("status") == "ORDER_ADMIN_CONFIRMED":
+        try:
+            from fc_pricing_v3.order_close import TERMINAL_LEDGER_STATUS
+            from price_writer import ledger_operation_status
+            return bool(record.get('ledger_status') in TERMINAL_LEDGER_STATUS and record.get('execution_id')
+                        and ledger_operation_status(record['execution_id']) == record['ledger_status'])
+        except (ImportError, OSError, ValueError, TypeError):
+            return False
     if record.get("status") == "FAILED_BEFORE_WRITE":
         return not record.get("changed")
     # These are audited maintenance contracts, not generic status exemptions.
