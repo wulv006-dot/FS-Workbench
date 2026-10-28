@@ -99,3 +99,13 @@
 - 翻牌与状态：三张翻完后 `is-revealed` 全 true；`reload()` 后重新进入游戏页，三张仍为 true（固定卡持久化在 PR #572 修复后保持）。
 - 控制台：无 pageerror、无 console error。
 - 未执行：未改 policy / 公开配置 / 优惠码 / 派生价格缓存；未重启服务（清单先更新、文件后落盘，顺序保证无 `STATIC_HASH_MISMATCH`）。
+
+### 2026-10-28 `nav-20261028T020826Z`（PR #577）读回：可见文案可配置
+
+- 服务：`fs-campaign-runtime` / `fs-campaign-dashboard` / `nginx` 全 active；`/events/`、Weekly、Trio、SBC 均 200。
+- 落盘核对：`activity.js` 含 `hero(state.view)`（1 处）、`runtime/snapshot.mjs` 含 `pageCopyFields`（2 处）、`analytics/products.js` 含 `copyControls`（2 处）；`CAMPAIGN_SOURCE_REVISION=fb70be54105c20a4cd1d9c8727bcfa8f1f91597c`。
+- 渲染链路（只读验证，未改线上配置）：在浏览器拦截 `/events/api/campaign/config` 响应、仅给 `fc27-weekly` 注入 `copy:{heading,body}`，线上页面 `#view-heading` / `#hero-body` 即显示注入文案，无 JS 报错 —— 证明"发布配置里的 copy 会被公开页消费"。
+- 编辑器：`products-page-flow-browser.cjs` 在真实页面里填写英文 heading/intro，拦截 `api/center/preview` 断言提交体 `page.copy` 与输入一致；清空后 `copy` 键被整体移除（不写空串）。
+- 合同：`pageCopyFields()` 只接受 FC 三页的 `heading/intro/body`（120/320/400），拒绝尖括号、控制字符与中文；草稿保存与发布两处都校验（`INVALID_PAGE_COPY`）。
+- 未执行：未改任何线上 `copy`（当前仍沿用代码默认文案），未改商品、价格、绑定与 policy；未做付款/订单验收。
+
