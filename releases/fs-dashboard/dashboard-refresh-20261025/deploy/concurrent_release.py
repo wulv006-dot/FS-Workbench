@@ -3,6 +3,8 @@ from contextlib import contextmanager, ExitStack
 import importlib.util
 import os
 from pathlib import Path
+import re
+import shlex
 import stat
 import subprocess
 import threading
@@ -43,9 +45,27 @@ class SystemControl:
             if (value.get('MainPID')!='0' or value.get('ControlPID')!='0'
                     or value.get('ActiveState') not in ('inactive','failed')):
                 raise ValueError('p4_source_still_running')
-        jobs=subprocess.check_output(['systemctl','list-jobs','--no-pager','--no-legend'],text=True)
-        if any(unit in line.split() for line in jobs.splitlines() for unit in SOURCES):
-            raise ValueError('p4_source_job_pending')
+        jobs=subprocess.check_output(['busctl','call','org.freedesktop.systemd1','/org/freedesktop/systemd1',
+            'org.freedesktop.systemd1.Manager','ListJobs'],text=True)
+        try:
+            if not isinstance(jobs,str):raise ValueError()
+            fields=shlex.split(jobs)
+            def unsigned(value):
+                if not value.isascii() or not value.isdecimal() or int(value)>4294967295:raise ValueError()
+                return int(value)
+            if len(fields)<2 or fields[0]!='a(usssoo)':raise ValueError()
+            count=unsigned(fields[1])
+            if len(fields)!=2+6*count:raise ValueError()
+            pending=False;seen=set()
+            for offset in range(2,len(fields),6):
+                ident,unit,kind,state,job_path,unit_path=fields[offset:offset+6]
+                ident=unsigned(ident)
+                if (not ident or ident in seen or any(not value or any(c.isspace() or ord(c)<32 for c in value) for value in (unit,kind,state))
+                        or job_path!='/org/freedesktop/systemd1/job/'+str(ident)
+                        or re.fullmatch(r'/org/freedesktop/systemd1/unit/[A-Za-z0-9_]+',unit_path) is None):raise ValueError()
+                seen.add(ident);pending=pending or unit in SOURCES
+        except (ValueError,TypeError):raise ValueError('p4_source_jobs_invalid') from None
+        if pending:raise ValueError('p4_source_job_pending')
         # Read only the interpreter/script prefix; never read later business arguments.
         scripts={'/opt/fs-hermes-fc/channel_cache.py','/opt/fs-exact-range-20261001/archive_jobs.py',
                  '/opt/fs-transaction-snapshot/collector.py','/opt/fs-hermes-fc/user_jobs.py'}

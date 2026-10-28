@@ -119,6 +119,47 @@ class ConcurrentPublisher(unittest.TestCase):
   for bad in (raw.replace('MainPID=0\n',''),raw.replace('ControlPID=0\n',''),raw.replace('MainPID=0','MainPID=unknown'),raw.replace('LoadState=loaded','LoadState=not-found'),raw.replace('ActiveState=inactive\n','')):
    with self.subTest(metadata=bad.splitlines()[:1]),patch.object(module.subprocess,'check_output',return_value=bad):
     with self.assertRaisesRegex(ValueError,'p4_source_unit_unavailable'):control.state(module.SOURCES[0])
+
+ def idle_with_jobs(self,raw):
+  module=self.module();control=module.SystemControl.__new__(module.SystemControl)
+  control.state=lambda unit:dict(ActiveState='inactive',MainPID='0',ControlPID='0')
+  command=['busctl','call','org.freedesktop.systemd1','/org/freedesktop/systemd1','org.freedesktop.systemd1.Manager','ListJobs']
+  def read(args,**kwargs):
+   if args!=command:
+    raise module.subprocess.CalledProcessError(1,args,output='legacy systemctl list-jobs fails even with real rows')
+   return raw
+  with patch.object(module.subprocess,'check_output',side_effect=read) as jobs,patch.object(module.Path,'iterdir',return_value=[]):
+   result=control.idle();jobs.assert_called_once_with(command,text=True)
+  return result
+
+ def test_real_systemd219_typed_six_jobs_cannot_be_misclassified_as_empty(self):
+  rows=[(21384922,'fs-pricing-alerts.service','fs_2dpricing_2dalerts_2eservice'),
+   (21377981,'sales-dashboard-sync.service','sales_2ddashboard_2dsync_2eservice'),
+   (21384829,'fs-channel-backfill.service','fs_2dchannel_2dbackfill_2eservice'),
+   (21383621,'fs-transaction-collect.service','fs_2dtransaction_2dcollect_2eservice'),
+   (21384458,'aion2-watch.service','aion2_2dwatch_2eservice'),
+   (21384736,'fs-data-archive.service','fs_2ddata_2darchive_2eservice')]
+  raw='a(usssoo) 6 '+ ' '.join(f'{ident} "{unit}" "start" "running" "/org/freedesktop/systemd1/job/{ident}" "/org/freedesktop/systemd1/unit/{path}"' for ident,unit,path in rows)
+  with self.assertRaisesRegex(ValueError,'p4_source_job_pending'):self.idle_with_jobs(raw)
+
+ def test_typed_empty_or_unrelated_jobs_continue_but_invalid_or_failed_transport_never_does(self):
+  self.assertIsNone(self.idle_with_jobs('a(usssoo) 0\n'))
+  row='1 "unrelated.service" "start" "running" "/org/freedesktop/systemd1/job/1" "/org/freedesktop/systemd1/unit/unrelated_2eservice"'
+  self.assertIsNone(self.idle_with_jobs('a(usssoo) 1 '+row))
+  for raw in (None,'','a(ssssoo) 0','a(usssoo) -1','a(usssoo) one','a(usssoo) 2 '+row,'a(usssoo) 0 extra',
+   'a(usssoo) 1 '+row.rsplit(' ',1)[0],'a(usssoo) 1 '+row.replace('1 ', 'bad ',1),
+   'a(usssoo) 1 '+row.replace('/job/1','/job/2'),'a(usssoo) 1 '+row.replace('/unit/unrelated_2eservice','/unit/not-valid'),
+   'a(usssoo) 1 '+row.replace('"unrelated.service"','""'),'a(usssoo) 1 '+row.replace('"start"','""'),
+   'a(usssoo) 1 '+row.replace('"running"','""'),'a(usssoo) 1 '+row[:-1]):
+   with self.subTest(typed=str(raw)[:24]),self.assertRaisesRegex(ValueError,'p4_source_jobs_invalid'):self.idle_with_jobs(raw)
+  module=self.module();control=module.SystemControl.__new__(module.SystemControl)
+  control.state=lambda unit:dict(ActiveState='inactive',MainPID='0',ControlPID='0')
+  with patch.object(module.subprocess,'check_output',side_effect=module.subprocess.CalledProcessError(1,['busctl'],output='a(usssoo) 0')):
+   with self.assertRaises(module.subprocess.CalledProcessError):control.idle()
+  control.state=lambda unit:dict(ActiveState='active',MainPID='99',ControlPID='0')
+  with patch.object(module.subprocess,'check_output') as jobs:
+   with self.assertRaisesRegex(ValueError,'p4_source_still_running'):control.idle()
+   jobs.assert_not_called()
  def test_real_frozen_validate_keeps_exact_runtime_fields_and_accepts_separate_maintenance_record(self):
   import copy,hashlib,tempfile
   module,_,_,_,states,*_=self.setup()
