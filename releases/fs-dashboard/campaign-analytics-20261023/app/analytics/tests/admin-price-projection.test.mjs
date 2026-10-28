@@ -75,3 +75,15 @@ test('explicit observed native one-item formatter handles missing formatted fiel
  }
  for(const mutate of [x=>delete x.policy.rounding_contract,x=>x.policy.rounding_contract='guess',x=>x.policy.quantity_value='2',x=>x.policy.minor_unit_scale=3,x=>x.observation.products[0].source_unit_price='1e2',x=>x.observation.products[0].source_unit_price=' 1',x=>x.observation.products[0].quantity.group='2',x=>x.observation.products[0].specification.saleprop={present:true,observed:[{id:'sku'}]}]){const x=structuredClone(f);mutate(x);assert.equal(projectAdminPrices(x.observation,x.policy,{now}).status,'blocked');}
 });
+
+test('explicit D4 native product discount precedes the event discount without changing other item policies',()=>{
+ const f=fixture();f.policy.model_ref.game_id='456';f.observation.model.game_id='456';
+ Object.assign(f.policy,{source_field:'unit_price',price_semantics:'native_discounted_item_display_total',rounding_contract:'native-js-number-format-tofixed-2',quantity_value:'1',quantity_unit:'item'});
+ for(const row of f.observation.products){row.product_ref.game_id='456';row.quantity={unit:'item',group:'1'};row.source_unit_price='7.49';row.source_discount='90.00';}
+ let out=projectAdminPrices(f.observation,f.policy,{now});assert.equal(out.status,'reference_price_ready_not_checkout');
+ const contract=out.model_contracts['123'];assert.equal(selection.defaultPrice(contract,10,{now:()=>now}).base_minor,674);assert.equal(selection.defaultPrice(contract,10,{now:()=>now}).indicative_discounted_minor,607);
+ f.observation.products[0].source_discount='100';out=projectAdminPrices(f.observation,f.policy,{now});assert.deepEqual(new Set(out.model_contracts['123'].combinations.map(x=>x.price.base_minor)),new Set([674,749]));
+ const legacy=structuredClone(f);legacy.policy.price_semantics='native_item_display_total';assert(projectAdminPrices(legacy.observation,legacy.policy,{now}).model_contracts['123'].combinations.every(x=>x.price.base_minor===749));
+ for(const value of [undefined,null,'0','-1','101','NaN','90x']){const bad=structuredClone(f);bad.observation.products[0].source_discount=value;assert.equal(projectAdminPrices(bad.observation,bad.policy,{now}).reason,'NATIVE_PRODUCT_DISCOUNT_UNVERIFIED');}
+ const other=structuredClone(f);other.policy.model_ref.game_id='1327';assert.equal(projectAdminPrices(other.observation,other.policy,{now}).reason,'PRICE_CURRENCY_SEMANTICS_UNVERIFIED');
+});
