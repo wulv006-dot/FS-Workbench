@@ -28,7 +28,7 @@ test('incomplete pool, no observed serialization, unconfigured or ended event ca
  }
 });
 test('unknown reservation never rerolls; changed publication does not reuse old receipt',t=>{
- const f=setup(t),c=f.create(),body={request_id:randomUUID(),game_id:'wow'},receipt=c.halloweenReveal(body),file=path.join(f.dir,'preview/halloween-reveals',body.request_id+'.json');
+ const f=setup(t),c=f.create(),body={request_id:randomUUID(),game_id:'diablo'},receipt=c.halloweenReveal(body),file=path.join(f.dir,'preview/halloween-reveals',body.request_id+'.json');
  const original=fs.readFileSync(file);fs.writeFileSync(file,'{"status":"unknown"}');assert.throws(()=>c.halloweenReveal(body),{code:'HALLOWEEN_REVEAL_UNKNOWN'});assert.equal(fs.readFileSync(file,'utf8'),'{"status":"unknown"}');
  fs.writeFileSync(file,original);f.snapshot.config_hash='c'.repeat(64);assert.throws(()=>c.halloweenRead(receipt.request_id),{code:'RULE_VERSION_CONFLICT'});
 });
@@ -41,7 +41,7 @@ test('dynamic mode requires a fresh complete trusted observation and excludes du
  observation.complete=true;observation.expires_at='2020-01-01T00:00:00Z';assert.throws(()=>c.halloweenReveal({request_id:randomUUID(),game_id:game.id}),{code:'HALLOWEEN_CATALOG_STALE'});
 });
 test('random checkout checks server receipt before any native mutation; observed quantity/spec fields stay exact',async t=>{
- const f=setup(t),c=f.create(),receipt=c.halloweenReveal({request_id:randomUUID(),game_id:'wow'}),slot=receipt.slots.find(s=>s.model_id===f.snapshot.halloween.games[2].random_models[0]),product=f.snapshot.products.find(p=>p.product_ref.model_id===slot.model_id),binding=f.snapshot.native_checkout.bindings.find(b=>b.product_key===product.key&&b.off_percent===slot.off_percent),snapshot=projectRelease(f.snapshot);
+ const f=setup(t),c=f.create(),receipt=c.halloweenReveal({request_id:randomUUID(),game_id:'diablo'}),slot=receipt.slots.find(s=>s.model_id===f.snapshot.halloween.games[2].random_models[0]),product=f.snapshot.products.find(p=>p.product_ref.model_id===slot.model_id),binding=f.snapshot.native_checkout.bindings.find(b=>b.product_key===product.key&&b.off_percent===slot.off_percent),snapshot=projectRelease(f.snapshot);
  const selection={activity_id:'mmoexp-seasonal',page_id:'seasonal-vault',game_id:product.product_ref.game_id,...slot,reveal_request_id:receipt.request_id,lines:[{product_key:product.key,quantity:{...binding.quantity},attributes:binding.attributes}]},data=new Map(),storage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};let calls=0;
  const host={verifySelection:async b=>c.halloweenResolve(b),batch:()=>({run:async items=>{calls++;assert.deepEqual(items[0].native_payload,binding.native);return [{id:Number(binding.native.id),state:'confirmed'}];}})};
  await assert.rejects(handoff.checkoutPublished({snapshot,selection:{...selection,slot:selection.slot==='random-1'?'random-2':'random-1'},storage,host,origin:snapshot.native_checkout.origin,navigate:()=>{}}),/HALLOWEEN_REVEAL_MISMATCH/);assert.equal(calls,0);assert.equal(data.size,0);

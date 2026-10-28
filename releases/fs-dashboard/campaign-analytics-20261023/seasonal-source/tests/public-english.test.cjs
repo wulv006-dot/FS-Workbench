@@ -7,7 +7,7 @@ test('current four-game entry and regenerated collection metadata stay English',
   assert(!fs.readFileSync(path.join(root,'kit.js'),'utf8').includes('theme.labelZh'));
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),graph=JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
   assert.match(html,/<html lang="en"/);assert.match(html,/noindex,nofollow/);
-  assert.deepEqual(graph['@graph'][1].itemListElement.map(item=>item.name),['FC27','Aion2','World of Warcraft','MapleStory']);
+  assert.deepEqual(graph['@graph'][1].itemListElement.map(item=>item.name),['FC27','Aion2','Diablo IV','MapleStory']);
   assert(!graph['@graph'].some(item=>['Product','Offer'].includes(item['@type'])));assert(graph['@graph'][1].itemListElement.every(item=>!item.url));
   cp.execFileSync(process.execPath,[path.resolve(__dirname,'../build-seo.cjs'),'--check'],{env:{...process.env,CAMPAIGN_PUBLIC_ORIGIN:'',CAMPAIGN_PUBLIC_PREFIX:''}});
 });

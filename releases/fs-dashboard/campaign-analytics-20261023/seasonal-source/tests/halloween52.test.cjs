@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{project,resolveModel}=require('../../app/seasonal/event.js');
-const base=()=>({halloween:{schema_version:1,site_id:266,status:'unconfigured',off_percent_tiers:[8,15,10],probabilities:null,tier_product_binding:null,starts_at:null,ends_at:null,games:[{id:'fc',admin_game_id:'1327',fixed_model:null,random_models:[]},{id:'aion',admin_game_id:'891'},{id:'wow',admin_game_id:null},{id:'maplestory',admin_game_id:null}]}});
+const base=()=>({halloween:{schema_version:1,site_id:266,status:'unconfigured',off_percent_tiers:[8,15,10],probabilities:null,tier_product_binding:null,starts_at:null,ends_at:null,games:[{id:'fc',admin_game_id:'1327',fixed_model:null,random_models:[]},{id:'aion',admin_game_id:'891'},{id:'diablo',admin_game_id:'456'},{id:'maplestory',admin_game_id:null}]}});
 test('unconfigured public identity always has four games and exactly two mystery slots without invented bindings',()=>{
- const state=project(base());assert.deepEqual(state.games.map(g=>g.id),['fc','aion','wow','maplestory']);assert(state.games.every(g=>g.random_count===2&&g.fixed_model===null&&g.fixed_off_percent===null));assert.equal(state.probabilities,null);assert.equal(state.binding,null);assert.equal(state.starts_at,null);assert.equal(state.games[2].admin_game_id,null);
+ const state=project(base());assert.deepEqual(state.games.map(g=>g.id),['fc','aion','diablo','maplestory']);assert(state.games.every(g=>g.random_count===2&&g.fixed_model===null&&g.fixed_off_percent===null));assert.equal(state.probabilities,null);assert.equal(state.binding,null);assert.equal(state.starts_at,null);assert.equal(state.games[2].admin_game_id,'456');
  assert.deepEqual(project({}).games.map(g=>g.id),state.games.map(g=>g.id));
 });
 test('invalid probability data is not converted to equal odds or normalized by the browser',()=>{

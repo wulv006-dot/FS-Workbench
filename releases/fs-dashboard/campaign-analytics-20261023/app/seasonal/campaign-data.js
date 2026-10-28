@@ -525,4 +525,4 @@ globalThis.SeasonalData.products = [
 ];
 
 /* Current public Halloween identity. Historical SeasonalData above is not an offer source. */
-globalThis.SeasonalHalloweenData = Object.freeze({schema_version:1,site_id:'266',off_percent_tiers:[8,15,10],games:[{id:'fc',label:'FC27',asset:'assets/game-1.png'},{id:'aion',label:'Aion2',asset:'assets/game-2.png'},{id:'wow',label:'World of Warcraft',asset:'assets/game-3.png'},{id:'maplestory',label:'MapleStory',asset:'assets/game-4.png'}]});
+globalThis.SeasonalHalloweenData = Object.freeze({schema_version:1,site_id:'266',off_percent_tiers:[8,15,10],games:[{id:'fc',label:'FC27',asset:'assets/game-1.png'},{id:'aion',label:'Aion2',asset:'assets/game-2.png'},{id:'diablo',label:'Diablo IV',asset:'assets/game-3.png'},{id:'maplestory',label:'MapleStory',asset:'assets/game-4.png'}]});
