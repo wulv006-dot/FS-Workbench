@@ -14,7 +14,10 @@ from fc_pricing_v3.order_close import (  # noqa: E402
     RECEIPT_STATUS,
     admin_targets,
     build_receipt,
+    closed_audit_state,
     evaluate_close,
+    execution_is_unresolved,
+    order_feedback_state,
     order_write_confirmed,
     proven_never_dispatched,
     target_platforms,
@@ -59,14 +62,22 @@ def _audit(**extra):
 
 
 class OrderFeedbackTest(unittest.TestCase):
-    """§6.3 条件 1：只认 Order 自己的成功反馈字段。"""
+    """§6.3 条件 1：只认 clickSync 的真实成功反馈。"""
 
     def test_accepts_sync_message(self):
         self.assertTrue(order_write_confirmed(_audit()))
 
-    def test_accepts_fallback_recipient_readback(self):
-        audit = _audit(sync_message='', sync_recipient_readback={'status': 'CONFIRMED'})
-        self.assertTrue(order_write_confirmed(audit))
+    def test_rejects_price_inference_only(self):
+        # sync_recipient_readback 只是两次 Admin 读价一致，等同条件 2，不得当成功
+        audit = _audit(sync_message=None, sync_recipient_readback={
+            'basis': 'two_stable_original_admin_recipient_reads'})
+        self.assertFalse(order_write_confirmed(audit))
+        self.assertEqual(order_feedback_state(audit), 'price_inference_only')
+
+    def test_blank_sync_message_falls_back_to_inference(self):
+        audit = _audit(sync_message='   ', sync_recipient_readback={'basis': 'x'})
+        self.assertFalse(order_write_confirmed(audit))
+        self.assertEqual(order_feedback_state(audit), 'price_inference_only')
 
     def test_rejects_blank_sync_message(self):
         self.assertFalse(order_write_confirmed(_audit(sync_message='   ')))
@@ -85,6 +96,7 @@ class OrderFeedbackTest(unittest.TestCase):
 
     def test_rejects_none(self):
         self.assertFalse(order_write_confirmed(None))
+        self.assertEqual(order_feedback_state(None), 'missing')
 
 
 class SendProofTest(unittest.TestCase):
@@ -259,6 +271,65 @@ class TargetMappingTest(unittest.TestCase):
         self.assertEqual(quotes['PS'], '7.38')
         self.assertEqual(quotes['XBOX'], '7.38')
         self.assertEqual(quotes['PC'], '7.46')
+
+
+class ExecutionAuditStateTest(unittest.TestCase):
+    """PR #588 review #3：账本与执行审计文件必须识别同一终态。"""
+
+    def test_partial_audit_blocks_when_ledger_unknown(self):
+        self.assertTrue(execution_is_unresolved({'status': 'PARTIAL'}, None))
+
+    def test_partial_audit_blocks_when_ledger_missing(self):
+        self.assertTrue(execution_is_unresolved({'status': 'PARTIAL'}, 'UNKNOWN'))
+
+    def test_partial_audit_released_by_terminal_ledger(self):
+        for status in ('COMPLETED', 'NO_CHANGE', 'CANCELLED_NOT_SENT',
+                       'KNOWN_PARTIAL_EXIT_PENDING', 'KNOWN_PARTIAL_EXITED'):
+            self.assertFalse(execution_is_unresolved({'status': 'PARTIAL'}, status), status)
+
+    def test_confirmed_audit_never_blocks(self):
+        self.assertFalse(execution_is_unresolved({'status': 'CONFIRMED'}, None))
+        self.assertFalse(execution_is_unresolved({'status': 'FAILED_BEFORE_WRITE'}, None))
+
+    def test_unresolved_statuses_still_block(self):
+        for status in ('RUNNING', 'UNCERTAIN', 'PARTIAL'):
+            self.assertTrue(execution_is_unresolved({'status': status}, None), status)
+
+    def test_closed_audit_state_carries_terminal_status(self):
+        receipt = {'status': RECEIPT_STATUS, 'operation_id': 'op-1',
+                   'admin_unit_prices': {'PC': '0.0746'}, 'targets': [], 'public_verification': None}
+        state = closed_audit_state({'status': 'PARTIAL', 'changed': ['PC']},
+                                   receipt, 'KNOWN_PARTIAL_EXIT_PENDING', '2026-10-28T07:00:00+00:00')
+        self.assertEqual(state['status'], RECEIPT_STATUS)
+        self.assertEqual(state['ledger_status'], 'KNOWN_PARTIAL_EXIT_PENDING')
+        self.assertEqual(state['operation_id'], 'op-1')
+        self.assertEqual(state['close_receipt']['admin_unit_prices'], {'PC': '0.0746'})
+        # 原有审计内容不丢
+        self.assertEqual(state['changed'], ['PC'])
+        # 收尾后 writer 扫描不再拦
+        self.assertFalse(execution_is_unresolved(state, 'KNOWN_PARTIAL_EXIT_PENDING'))
+
+
+class PriceInferenceReceiptTest(unittest.TestCase):
+    """读价推断可以记录，但回执必须标它不能作为证据。"""
+
+    def test_receipt_marks_inference_unusable(self):
+        op = _operation([_step('base_prices:all', 'base', 'UNKNOWN',
+                               dispatched='2026-10-28T04:04:54+00:00')])
+        audit = _audit(sync_message=None,
+                       sync_recipient_readback={'basis': 'two_stable_original_admin_recipient_reads'})
+        decision = evaluate_close(op, audit, ADMIN_OK)
+        receipt = build_receipt(op, audit, ADMIN_OK, decision)
+        self.assertEqual(receipt['price_inference']['usable_as_proof'], False)
+        self.assertEqual(receipt['order_feedback'], {})
+
+    def test_receipt_keeps_genuine_feedback(self):
+        op = _operation([_step('base_prices:all', 'base', 'UNKNOWN',
+                               dispatched='2026-10-28T04:04:54+00:00')])
+        decision = evaluate_close(op, _audit(), ADMIN_OK)
+        receipt = build_receipt(op, _audit(), ADMIN_OK, decision)
+        self.assertEqual(receipt['order_feedback'], {'sync_message': '同步成功'})
+        self.assertIsNone(receipt['price_inference'])
 
 
 if __name__ == '__main__':
