@@ -87,6 +87,15 @@
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261028T024922Z`。
 - 未做：`-10%` 徽章素材本身没有百分号（另两张有），按原样上线待换图；MapleStory 物品通用图待补；首页四张游戏卡图（`game-1..4.png`）本次未动。
 
+### 2026-10-28 `nav-20261028T030250Z`（PR #583）MapleStory 物品通用图
+
+- 来源：分支 `buddy/seasonal-item-art-20261028`，提交 `831314b3d3ea6b26723e93ded0522ccb8471f8ee`，CI `pr-fast` success；合并 `a0149159b759fc5e7d065dd02e5565cf054f2367`。
+- 目标 7 个（`app/seasonal/event.js`、`app/seasonal/assets/product-maplestory-item.webp`、`app/runtime/static-manifest.json` + 4 个边界文件）；`inspect` 报 `sourceCAS/protectedCAS passed`、`mutations:false`；apply 回执 `staticFiles:7`。
+- 内容：`artCategory()` 对 MapleStory 拆成两类 —— 标题含 `Meso(s)` 走 `product-maplestory-coins.webp`，其余（`Wooden Top` / `Tobi Throwing Stars` 这类装备）走新增的 `product-maplestory-item.webp`；`CATEGORY_ART.maplestory.item` 一条映射，其余游戏与 FC 的三类判定不变。
+- 素材处理：原图 1857×847 纯白底 JPG（无 alpha）。四边泛洪标记背景连通区（阈值 62）→ 区内按亮度映射 alpha（≥250 全清、≤205 保留、中间线性）→ alpha 0.8px 高斯软化 → 裁 bbox → webp 1445×774/214KB。抠掉 884831/1572879 像素；物品内部白色与银色（钻石、银爪、银镖）与背景不连通，全部保留，紫色光晕自然淡出。
+- 静态清单：105 → 106 键；`seasonal/event.js` → `de35383cf064…`、清单本体 `375efb554f07…`。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261028T030250Z`。
+
 ---
 
 ## 回退与边界

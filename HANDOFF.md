@@ -166,3 +166,5 @@ PR278/280/281均正式CI通过并合并，最终功能head d641ff9eb7cabc2651361
 发布清单 15 个（10 个 seasonal 资源 + `runtime/static-manifest.json` + 4 个边界文件），静态清单 97 → 105 键。读回：8 个新资源全 200/`image/webp`，`event.js` 200/24871、`event.css` 200/65640；真实页面四游戏固定卡徽章与插图均自然宽 > 0、渲染 56×56 与 193×96，无 `pageerror`、无业务 4xx。随机卡未真实抽卡（避免产生回执），其渲染与固定卡共用 `faceContent()`，已在 CI 与候选注入覆盖。
 
 未做：`-10%` 徽章素材本身缺百分号（另两张有），按原样上线待换图；MapleStory 物品通用图仍在制作，暂由金币图兜底；首页四张游戏卡图（`game-1..4.png`）未动。回退点 `/var/backups/fs-navigation-20261006/nav-20261028T024922Z`。
+
+补充（同日 `nav-20261028T030250Z`，PR #583）：用户补来 MapleStory 物品通用图（白底 JPG），`artCategory()` 对 MapleStory 拆成 Mesos→金币图、其余装备→`product-maplestory-item.webp`。抠底用「四边泛洪标记背景连通区 + 区内按亮度映射 alpha + 0.8px 高斯软化」，物品内部白色与银色不受影响。发布 7 目标，静态清单 105→106 键；读回 item 图 200/`image/webp`/219328 字节，真实页面渲染 193×103，Mesos 卡仍走金币图。仍未做：`-10%` 徽章缺百分号，用户会补新图。
