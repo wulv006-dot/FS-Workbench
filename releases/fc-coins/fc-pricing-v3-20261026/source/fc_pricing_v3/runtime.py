@@ -554,11 +554,33 @@ def stop_unissued_and_exit(op,reason):
 
 
 def _admin_observed_prices():
-    """§6.3 条件 2 的取数：Admin 各平台 unit_price（每 K）。异常由调用方视为未知。"""
-    from channel_source import pages as admin_pages
+    """§6.3 条件 2 的取数：Admin 各平台 unit_price（每 K）。异常由调用方视为未知。
+
+    ⚠️ 必须与 ``daily.collect_outcomes`` / ``sources.shared_context`` 走**同一条**
+    共享 Admin 通道：``channel_source`` 与 ``p2pah_auth`` 都不在本仓库目录下，
+    要先挂 ``/opt/fs-hermes-fc``，再挂 ``COLLECTOR``，并用服务端 token 绑定会话。
+
+    缺任一步的后果（2026-10-28 上线实测）：``from channel_source import ...``
+    直接 ``ModuleNotFoundError`` → 观测值恒为空 → 条件 2 永远
+    ``admin_unit_price_mismatch`` → 已写成功、``sync_message`` 齐全的操作
+    被反复判 ``keep``，租约不释放，后续改价全部排队。
+    """
+    import sys
+    sys.path.insert(0,'/opt/fs-hermes-fc')
+    from channel_source import pages as admin_pages,COLLECTOR
+    sys.path.insert(0,COLLECTOR)
     import p2pah_auth as auth
     from .admin_readback import read_admin_unit_prices
-    return read_admin_unit_prices(auth.Session(),pages=admin_pages)
+    session=auth.Session()
+    token,_=auth.admin_token_from_service()
+    if not token:
+        session.close()
+        raise ValueError('pricing_admin_readback_token_unavailable')
+    session.bind_admin_token(token);del token
+    try:
+        return read_admin_unit_prices(session,pages=admin_pages)
+    finally:
+        session.close()
 
 
 def _close_execution_audit(operation_id,audit,receipt,ledger_status):
