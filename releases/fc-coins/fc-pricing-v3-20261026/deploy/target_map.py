@@ -33,7 +33,7 @@ def targets(source):
                  'pricing_v2.py', 'pricing_sources.py', 'reconcile_original.py', 'reconcile_price.sh',
                  'repricing_logic.js', 'restore_price.sh', 'sync_players.sh', 'server_quote_job.py', 'snapshot_layer.py'):
         rows[name] = '/opt/fc27-cloud-browser/' + name
-    rows['fc_shared_admin.py'] = '/opt/fs-order-session/fc_shared_admin.py'
+    rows['fc_shared_admin.py'] = '/opt/fc27-cloud-browser/fc_shared_admin.py'
     for name in ('pricing_operations.py', 'pricing_simulation.py', 'strategy_tools.py'):
         rows[name] = '/opt/fs-hermes-fc/' + name
     rows['conversation_service.py'] = '/opt/fs-hermes-fc/conversation_service.py'

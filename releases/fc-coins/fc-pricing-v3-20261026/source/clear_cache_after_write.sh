@@ -15,7 +15,7 @@ rc=0
 timeout 160s docker run --rm --network fc27-cloud-net --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges --group-add 11028 \
-  --mount type=bind,src=/opt/fs-order-session/fc_shared_admin.py,dst=/usr/local/bin/p2pah_session_service.py,readonly \
+  --mount type=bind,src=/opt/fc27-cloud-browser/fc_shared_admin.py,dst=/usr/local/bin/p2pah_session_service.py,readonly \
   -e FS_ADMIN_API_BASE=http://172.20.0.1:8913 \
   --mount type=bind,src="$audit",dst=/run/coin-execution.json,readonly \
   --mount type=bind,src=/opt/fc27-cloud-browser/clear_cache_after_write.py,dst=/opt/clear_cache_after_write.py,readonly \
@@ -26,10 +26,10 @@ if [ "$rc" -eq 0 ]; then
 fi
 
 echo "[clear_cache] 容器路径失败 rc=$rc → 改走宿主机 dc-proxy 补清（执行 $execution_id）" >&2
-body=$(curl -s --max-time 40 -X POST "http://127.0.0.1:8912/admin/tools.Caches/clear?server=1" \
+body=$(curl -s --max-time 40 -w '\n%{http_code}' -X POST "http://127.0.0.1:8912/admin/tools.Caches/clear?server=1" \
         -H 'Content-Type: application/json' -d '{"type":"all","file":""}') || body=""
 echo "[clear_cache] dc-proxy 回执已收取" >&2
-case "$body" in
-  *'"code":1'*) exit 0 ;;
-  *) exit "$rc" ;;
-esac
+if printf '%s' "$body" | /opt/python39/bin/python3 -B /opt/fc27-cloud-browser/clear_cache_after_write.py --host-receipt "$execution_id"; then
+  exit 0
+fi
+exit "$rc"

@@ -1,4 +1,5 @@
 import ast
+import hashlib
 from datetime import datetime, timezone
 import importlib.util
 import io
@@ -142,6 +143,8 @@ class AdminDcTests(unittest.TestCase):
                 self.assertEqual(text.count('dst=/usr/local/bin/p2pah_session_service.py'), 1)
                 self.assertNotIn('8767', text)
                 self.assertNotIn('fs-global-admin.json', text)
+                self.assertIn('src=/opt/fc27-cloud-browser/fc_shared_admin.py,dst=/usr/local/bin/p2pah_session_service.py', text)
+                self.assertNotIn('src=/opt/fs-order-session/fc_shared_admin.py,', text)
                 self.assertIn('flock -n 9', text) if name != 'clear_cache_after_write.sh' else None
                 base = admin.API_BASES[0] if '--network host' in text else admin.API_BASES[2]
                 self.assertIn('FS_ADMIN_API_BASE=' + base, text)
@@ -153,11 +156,22 @@ class AdminDcTests(unittest.TestCase):
         mapping = targets.targets(SOURCE)
         self.assertEqual(targets.TARGET_COUNT, 98)
         self.assertEqual(len(mapping), targets.TARGET_COUNT)
-        self.assertEqual(mapping['fc_shared_admin.py'], '/opt/fs-order-session/fc_shared_admin.py')
+        self.assertEqual(mapping['fc_shared_admin.py'], '/opt/fc27-cloud-browser/fc_shared_admin.py')
+        self.assertNotIn('/opt/fs-order-session/fc_shared_admin.py', mapping.values())
         self.assertEqual(mapping['sync_players.sh'], '/opt/fc27-cloud-browser/sync_players.sh')
         for name in ['build_stage.py', 'prepare_manifest.py']:
             text = (SOURCE.parent / 'deploy' / name).read_text(encoding='utf8')
             self.assertIn('!= TARGET_COUNT', text)
+
+    def test_existing_rpg_empty_and_https_configs_keep_the_original_shared_adapter(self):
+        # Production /opt/d4follow/_p2pah_srv/admin_cache_local.py uses these two configs.
+        path = Path(__file__).parent / 'fixtures/legacy_shared_admin.py'
+        raw = path.read_bytes().replace(b'\r\n', b'\n')
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), 'a676388f0011b5f0ca116b0bfb2a1d428c8782e5538f8402e8734a5405beaa42')
+        namespace = {}
+        exec(compile(raw, str(path), 'exec'), namespace)
+        for config in [{}, {'P2PAH_API_BASE': 'https://admin-api.p2pah.cn'}]:
+            self.assertEqual(namespace['SessionManager'](config).config, config)
 
     def health(self, admin_payload):
         tree = ast.parse((SOURCE / 'fc27_cloud_api.py').read_text(encoding='utf8'))

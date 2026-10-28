@@ -40,7 +40,7 @@ fi
 timeout "$limit"s docker run --rm --network fc27-cloud-net --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges --group-add 11028 \
-  --mount type=bind,src=/opt/fs-order-session/fc_shared_admin.py,dst=/usr/local/bin/p2pah_session_service.py,readonly \
+  --mount type=bind,src=/opt/fc27-cloud-browser/fc_shared_admin.py,dst=/usr/local/bin/p2pah_session_service.py,readonly \
   -e FS_ADMIN_API_BASE=http://172.20.0.1:8913 \
   --mount type=bind,src=/var/lib/fc27-cloud/config,dst=/run/config,readonly \
   --mount type=bind,src="$audit",dst=/run/coin-execution.json,readonly \

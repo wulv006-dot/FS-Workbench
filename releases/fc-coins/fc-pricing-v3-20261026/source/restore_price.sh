@@ -14,7 +14,7 @@ else
 fi
 timeout 120s docker run --rm --init --memory 2g --memory-swap 2g --env PYTHONPATH=/opt:/opt/fs-order-session --mount type=bind,src=/opt/fc27-cloud-browser/isolated_backend.py,dst=/opt/isolated_backend.py,readonly --network host --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=256m \
-  --mount type=bind,src=/opt/fs-order-session/fc_shared_admin.py,dst=/usr/local/bin/p2pah_session_service.py,readonly \
+  --mount type=bind,src=/opt/fc27-cloud-browser/fc_shared_admin.py,dst=/usr/local/bin/p2pah_session_service.py,readonly \
   -e FS_ADMIN_API_BASE=http://127.0.0.1:8912 \
   --mount type=bind,src=/opt/fs-order-session,dst=/opt/fs-order-session,readonly \
   --mount type=bind,src=/run/fs-order-session,dst=/run/fs-order-session,readonly \
