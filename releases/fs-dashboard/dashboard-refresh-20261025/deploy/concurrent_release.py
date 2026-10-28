@@ -79,7 +79,7 @@ class SystemControl:
                             char=stream.read(1)
                             if char in (b'',b'\0'):break
                             word.extend(char)
-                        arg=os.fsdecode(word)
+                        arg=os.fsdecode(bytes(word))
                         if index==0 and not Path(arg).name.startswith('python'):break
                         if not arg or arg in ('-c','-m'):break
                         if arg.endswith('.py'):
