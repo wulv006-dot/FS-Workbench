@@ -20,7 +20,8 @@ from campaign_backend.catalog import (CatalogMapping, field, project_product, po
                                       discover_product, read_product_metadata)
 from campaign_backend.core import ContractError, source_identity
 from campaign_backend.models import request_scope, project_model, resolve_model, historical_image
-from campaign_backend.provider import scope as provider_scope, model_provider, category_pool, resolve_category_pool
+from campaign_backend.provider import (scope as provider_scope, model_provider, model_provider_batch,
+                                      category_pool, resolve_category_pool)
 
 
 def model_image(model):
@@ -72,6 +73,35 @@ def handle(request, reader_factory=AdminRead.from_shared_session, services=None)
     action = request.get('action')
     if action == 'capabilities':
         return capabilities()
+    if action == 'model_provider_batch':
+        # Same observed-only semantics as model_provider_read, but the caller may ask for
+        # a whole game's models in one process so the catalogue is swept once, not once
+        # per model.
+        if set(request) - {'action', 'items', 'site_id'}:
+            raise ContractError('REQUEST_FIELDS_NOT_ALLOWED')
+        if positive_id(request.get('site_id')) != '266':
+            raise ContractError('PROJECT_SITE_REQUIRED')
+        items = request.get('items')
+        if not isinstance(items, list) or not 1 <= len(items) <= 200:
+            raise ContractError('INVALID_BATCH_ITEMS')
+        parsed = []
+        for item in items:
+            if not isinstance(item, dict) or set(item) - {'key', 'site_id', 'game_id', 'model_id', 'category_id'}:
+                raise ContractError('INVALID_BATCH_ITEMS')
+            key = item.get('key')
+            if not isinstance(key, str) or not 1 <= len(key) <= 200:
+                raise ContractError('INVALID_BATCH_ITEMS')
+            site_id, game_id, model_id, category_id = (positive_id(item.get(name))
+                for name in ('site_id', 'game_id', 'model_id', 'category_id'))
+            if site_id != '266':
+                raise ContractError('PROJECT_SITE_REQUIRED')
+            parsed.append(dict(key=key, site_id=site_id, game_id=game_id, model_id=model_id,
+                category_id=category_id))
+        reader = reader_factory()
+        try:
+            return model_provider_batch(reader, parsed)
+        finally:
+            reader.close()
     if action in ('model_provider_read','model_category_pool'):
         args=provider_scope(request,pool=action=='model_category_pool')
         fixed=set()
