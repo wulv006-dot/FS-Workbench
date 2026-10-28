@@ -72,6 +72,21 @@
 - 回退点：`/var/backups/fs-navigation-20261006/nav-20261028T020826Z`。
 
 
+### 2026-10-28 `nav-20261028T024922Z`（PR #581）活动卡素材换成游戏通用图 + 金色折扣徽章
+
+- 来源：分支 `buddy/seasonal-card-art-20261028`，提交 `ebe88dd9450f7bbad2cd150e1babb77bb6eaeccb`，CI `pr-fast` success；合并 `c3ff16c05c6124923824a5fdfc732368882ab487`。
+- 目标 15 个（10 个 seasonal 资源 + `app/runtime/static-manifest.json` + 4 个边界文件：`navigation.conf` / `navigation.json` / `module-registry.json` / `fs-campaign-dashboard.service`）；`inspect` 报 `sourceCAS/protectedCAS passed`、`mutations:false`；apply 回执 `applied-awaiting-actual-http-role-acceptance`、`staticFiles:15`。
+- 内容：
+  1. `event.js` 新增 `CATEGORY_ART` / `artCategory()` / `categoryArt()`：卡面插图改为按「游戏 + 品类」取一张通用图 —— FC 金币 `product-fc-coins.webp`、FC 球员与 Pack/Bundle/POTM/EVO 一律 `product-fc-set.webp`；Aion2 / WoW / MapleStory 金币各用一张。MapleStory 物品图仍在制作，暂由金币图兜底。
+  2. 角标折扣由 CSS 文字 pill 改为金色徽章图 `assets/badge-<档位>.webp`（56px，≤640px 时 46px）。
+  3. 顺带消除旧缺陷：商品记录里的 `image` 是相对路径 `assets/product-*.webp`，页面在 `/events/seasonal/` 下会请求 `/events/seasonal/assets/...` → 404，其余三游戏 `image` 本来就是空，所以此前卡面全是 `✦` 占位。
+  4. `seasonal-source/tests/halloween52-browser.cjs` 原断言「未知导入商品在卡面不产生 img」改为「卡面 img 的 src 必须来自 `assets/`」，防注入语义不变且更严。
+- 新增素材：`seasonal/assets/` 下 8 个 webp（`badge-8/10/15`、`product-fc-coins`、`product-fc-set`、`product-aion-coins`、`product-wow-coins`、`product-maplestory-coins`），合计约 460KB。
+- 静态清单：97 → 105 键（新增 8 条）；`seasonal/event.js` → `aecb4fc34d79…`、`seasonal/event.css` → `c9ebca709a50…`；清单本体 `bf1da57b6693…`。
+- 边界：`current.json`、`policy.json` 由 `preservedBusinessState` 保护且未变；runtime 模式、公开配置、共享配置均未改。
+- 回退点：`/var/backups/fs-navigation-20261006/nav-20261028T024922Z`。
+- 未做：`-10%` 徽章素材本身没有百分号（另两张有），按原样上线待换图；MapleStory 物品通用图待补；首页四张游戏卡图（`game-1..4.png`）本次未动。
+
 ---
 
 ## 回退与边界
