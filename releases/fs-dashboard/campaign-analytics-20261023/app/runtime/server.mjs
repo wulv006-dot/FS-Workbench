@@ -8,6 +8,7 @@ import {presentPage,projectFcCatalog,publicEnglishRelease} from './presentation.
 import {readPublishedMedia} from './published-media.mjs';
 import {pageMedia} from './media-contract.mjs';
 import {applyPublicPriceCache,readPublicPriceCache} from './admin-price-cache.mjs';
+import {publicConfigCache,referenceDeadline} from './public-config-cache.mjs';
 
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.xml':'application/xml','.txt':'text/plain; charset=utf-8','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.woff2':'font/woff2'};
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'};
@@ -16,13 +17,24 @@ async function body(req) {
   let raw='';for await (const chunk of req) {raw+=chunk;if (Buffer.byteLength(raw)>64000) fail('REQUEST_TOO_LARGE',413);}
   try {return JSON.parse(raw);} catch {fail('INVALID_REQUEST');}
 }
-export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotProvider,priceCacheProvider,publishedDir,dir,mode='preview',origin,prefix='/events/',testAdapter,now,halloweenCatalogProvider}={}) {
+export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotProvider,priceCacheProvider,publishedDir,releaseFile,configCacheMs=0,configStampProvider,staticCacheEnabled=false,dir,mode='preview',origin,prefix='/events/',testAdapter,now,halloweenCatalogProvider}={}) {
   const parsed=new URL(origin);
   if (parsed.origin!==origin || (parsed.protocol!=='https:' && !(parsed.protocol==='http:'&&['127.0.0.1','localhost'].includes(parsed.hostname)))) fail('INVALID_ORIGIN');
   if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(prefix)) fail('INVALID_PUBLIC_PATH');
   const frozen=snapshotProvider?null:{publication_status:'published',...projectRelease(snapshot)};
   const source=snapshotProvider||(()=>frozen),cache=priceCacheProvider||(()=>publishedDir?readPublicPriceCache(path.join(publishedDir,'admin-reference-prices.json')):null);
   const files=loadStatic(assetRoot,staticManifest),commerce=createCommerce({snapshotProvider:()=>applyPublicPriceCache(source(),cache(),{now:(now||Date.now)()}),dir,mode,testAdapter,now,halloweenCatalogProvider});
+  const fileStamp=file=>{try{const s=fs.statSync(file,{bigint:true});return [String(s.ino),String(s.size),String(s.mtimeNs)].join(':');}catch(error){if(error.code==='ENOENT')return 'absent';throw error;}};
+  const stamp=configStampProvider||(releaseFile&&publishedDir?()=>fileStamp(releaseFile)+'|'+fileStamp(path.join(publishedDir,'admin-reference-prices.json')):null);
+  const configBody=publicConfigCache({ttlMs:configCacheMs,now:now||Date.now,stamp,render:()=>{
+    const config=publicEnglishRelease(commerce.config());
+    // Cache only the masked public response; selected codes still need a fresh
+    // server claim and all POST/receipt paths retain their original validation.
+    if(config.native_checkout?.status==='configured'){
+      config.native_checkout={...config.native_checkout,bindings:config.native_checkout.bindings.map(b=>({...b,code:'CLAIM_REQUIRED'}))};config.native_checkout_claim_required=true;
+    }
+    return {body:JSON.stringify({...config,page_media:pageMedia(config.pages,prefix),integration_mode:mode,live_checkout:false}),expiresAt:referenceDeadline(config)};
+  }});
   const server=http.createServer(async(req,res)=>{
     try {
       if (!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(req.socket.remoteAddress)) return json(req,res,403,{code:'LOOPBACK_REQUIRED'});
@@ -38,15 +50,7 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
         return json(req,res,200,await routes[relative](await body(req)));
       }
       if (relative==='api/campaign/config'){
-        const config=publicEnglishRelease(commerce.config());
-        // Bulk configuration contains eligibility only, never every game's codes.
-        // The selected code is returned only after the server verifies its scope
-        // and, for a random card, the original persisted reveal receipt.
-        if(config.native_checkout?.status==='configured'){
-          config.native_checkout={...config.native_checkout,bindings:config.native_checkout.bindings.map(b=>({...b,code:'CLAIM_REQUIRED'}))};
-          config.native_checkout_claim_required=true;
-        }
-        return json(req,res,200,{...config,page_media:pageMedia(config.pages,prefix),integration_mode:mode,live_checkout:false});
+        const content=configBody();res.writeHead(200,{...headers,'Content-Type':'application/json; charset=utf-8'});return res.end(req.method==='HEAD'?undefined:content);
       }
       if (relative==='api/campaign/capabilities') return json(req,res,200,commerce.capabilities());
       if(relative.startsWith('api/campaign/halloween/reveals/'))return json(req,res,200,commerce.halloweenRead(relative.slice('api/campaign/halloween/reveals/'.length)));
@@ -66,7 +70,14 @@ export function createPublicServer({assetRoot,staticManifest,snapshot,snapshotPr
       }else if(name.endsWith('.html')){
         const rendered=presentPage({name,body:content,snapshot:commerce.config(),now:now||Date.now,publicBase:new URL(prefix,origin).href,assetVersion:asset=>asset==='catalog.js'?commerce.config().config_hash:staticManifest[asset]});content=rendered.body;status=rendered.status;
       }
-      res.writeHead(status,{...headers,'Content-Type':types[path.extname(name)],'X-Robots-Tag':'noindex, nofollow'});res.end(req.method==='HEAD'?undefined:content);
+      const responseHeaders={...headers,'Content-Type':types[path.extname(name)],'X-Robots-Tag':'noindex, nofollow'};
+      if(staticCacheEnabled&&name!=='catalog.js'&&/\.(?:js|css|webp|png|svg|jpg|jpeg|gif|woff2)$/.test(name)){
+        const query=new URL(req.url,origin).searchParams,version=query.getAll('v'),etag='"'+staticManifest[name]+'"';
+        const immutable=version.length===1&&version[0]===staticManifest[name]&&[...query.keys()].every(k=>k==='v');
+        responseHeaders['Cache-Control']=immutable?'public, max-age=31536000, immutable':'no-cache';responseHeaders.ETag=etag;
+        if(req.headers['if-none-match']?.split(',').map(x=>x.trim()).some(x=>x===etag||x==='*')){res.writeHead(304,responseHeaders);return res.end();}
+      }
+      res.writeHead(status,responseHeaders);res.end(req.method==='HEAD'?undefined:content);
     } catch(error) {
       json(req,res,error.status||500,{code:error.status?error.code:'RUNTIME_UNAVAILABLE',...(error.dispatch_state==='not_started'?{dispatch_state:'not_started'}:{}),integration_mode:mode,live_checkout:false});
     }
@@ -81,6 +92,7 @@ if (process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.u
   const server=createPublicServer({assetRoot:process.env.CAMPAIGN_PUBLIC_ROOT||path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),
     staticManifest:readJSON(process.env.CAMPAIGN_PUBLIC_MANIFEST),snapshotProvider:()=>readJSON(process.env.CAMPAIGN_PUBLIC_RELEASE),
     publishedDir:process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||path.dirname(process.env.CAMPAIGN_PUBLIC_RELEASE),
+    releaseFile:process.env.CAMPAIGN_PUBLIC_RELEASE,configCacheMs:Number(process.env.CAMPAIGN_PUBLIC_CONFIG_CACHE_MS||0),staticCacheEnabled:process.env.CAMPAIGN_PUBLIC_STATIC_CACHE==='1',
     dir:process.env.CAMPAIGN_RUNTIME_DATA||'/var/lib/fs-campaign-runtime',mode,origin:process.env.CAMPAIGN_PUBLIC_ORIGIN,
     prefix:process.env.CAMPAIGN_PUBLIC_PREFIX||'/events/',
     ...(mode==='integration_test'&&process.env.CAMPAIGN_TEST_PRICES?{testAdapter:createIntegrationTestAdapter(readJSON(process.env.CAMPAIGN_TEST_PRICES))}:{})});
