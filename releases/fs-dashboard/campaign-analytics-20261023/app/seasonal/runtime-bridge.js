@@ -4,6 +4,22 @@
   const sdk = window.CampaignStandalone;
   const LIVE_ORIGIN='https://www.mmoexp.com';
   let client, refreshFlight=null, dialogRefreshHandler=null, publishedThemeApplied = false, selectionRevision=0, quoteContext=null;
+  let nativeCartGuard,cartState={state:'untracked'},cartFlight=null,cartDirty=false;
+  const guard=()=>nativeCartGuard ||= window.CampaignNativeCodeHandoff.createCartGuard();
+  const paintCart=()=>window.dispatchEvent(new CustomEvent('seasonal-cart-state',{detail:structuredClone(cartState)}));
+  async function refreshCart(force=false){
+    if(window.location.origin!==LIVE_ORIGIN)return cartState;
+    if(cartFlight){cartDirty=true;return cartFlight;}
+    try{if(!force&&!guard().known()&&['untracked','empty'].includes(cartState.state))return cartState;}catch{cartState={state:'unavailable'};paintCart();return cartState;}
+    cartState={state:'checking'};paintCart();
+    cartFlight=guard().inspect(()=>window.FCActivityHost.readNativeCart()).then(value=>{cartState=value;paintCart();return value;}).catch(()=>{cartState={state:'unavailable'};paintCart();return cartState;}).finally(()=>{cartFlight=null;if(cartDirty){cartDirty=false;void refreshCart(true);}});
+    return cartFlight;
+  }
+  function canOffer(game,offer){
+    if(['untracked','empty'].includes(cartState.state))return true;
+    const chosen=cartState.selection;
+    return ['selected','recoverable'].includes(cartState.state)&&chosen&&String(game.admin_game_id)===chosen.game_id&&offer.model_id===chosen.model_id&&offer.slot===chosen.slot&&offer.off_percent===chosen.off_percent&&(offer.quantity?.value||null)===(chosen.quantity?.value||null)&&(offer.quantity?.unit||null)===(chosen.quantity?.unit||null);
+  }
   // The live cart is rendered by the storefront and reads its own session cookies.
   // A visitor who lands on this event page directly has no storefront session yet,
   // so the cart POST creates one that the cart page then cannot see. A bare HEAD
@@ -62,6 +78,7 @@
     }
   }
   window.SeasonalCommerce = {
+    cartState:()=>structuredClone(cartState),refreshCart,canOffer,
     available: () => Boolean(sdk?.enabled(document.documentElement)),
     pending: () => Boolean(client?.pending?.unknown || client?.pending?.stage === 'prepare'),
     // Existing runtime remains preview/test only; no browser contract grants live permission.
@@ -139,14 +156,15 @@
       selection=selectionFor(detail.model_id,detail.quantity);
     }catch{host.append(message(messages.MODEL_OPTIONS_UNAVAILABLE));return;}
     const english=(value,fallback)=>typeof value==='string'&&value.trim()&&!/\p{Script=Han}/u.test(value)?value:fallback;
-    const CART_NOTE='The main store confirms the final price and applies the discount code before payment. Coupons and points cannot be combined with this code.';
+    const CART_NOTE='Reveal all three offers, then use one event offer per cart, across all games. Finish the current checkout or remove its items before choosing another offer. There is no daily purchase limit. Coupons and points cannot be combined with an event code.';
     const fields=document.createElement('div'),price=message('Choose all required options to see the current reference price.'),status=message(CART_NOTE);
     let nativeReview=null,buying=false,lastTrackedSelection=null;
     const trackingFields=plan=>({game_id:String(detail.game_id),model_id:String(detail.model_id),slot:detail.slot,off_percent:detail.off_percent,product_id:String(plan.items[0].native_payload.id),server_id:String(plan.items[0].native_payload.aid||''),discount_code:plan.options.code,quantity_value:selection.line().quantity.value,quantity_unit:selection.line().quantity.unit});
     const track=(action,plan)=>{try{window.FCActivityAnalytics?.offer(action,trackingFields(plan));}catch{/* Never alter the checkout outcome for analytics. */}};
     const nativeSelection=()=>({activity_id:'mmoexp-seasonal',page_id:'seasonal-vault',game_id:String(detail.game_id),model_id:String(detail.model_id),slot:detail.slot,off_percent:detail.off_percent,...(detail.quantity?{quantity:detail.quantity}:{}),...(detail.reveal_request_id?{reveal_request_id:detail.reveal_request_id}:{}),lines:[selection.line()]});
     const buy=document.createElement('button');buy.type='button';buy.disabled=true;buy.textContent='Checkout unavailable';
-    host.append(fields,price,status,buy);
+    const cartLink=document.createElement('a');cartLink.href='/Cart.html';cartLink.textContent='Review your current cart';
+    host.append(fields,price,status,buy,cartLink);
     // The live cart is pinned to the storefront origin. Say why the button is not
     // usable instead of leaving a single opaque label on every failure path.
     function blockedReason(code){
@@ -178,7 +196,8 @@
       let blocked=null;
       try{nativeReview=window.CampaignNativeCodeHandoff.publishedPlan(client.config,nativeSelection(),{origin:window.location.origin});}
       catch(error){blocked=error?.code||error?.message||null;}
-      if(nativeReview&&!buying){buy.disabled=false;buy.textContent='Go to cart';status.textContent=CART_NOTE;if(lastTrackedSelection!==nativeReview.signature){lastTrackedSelection=nativeReview.signature;track('options_ready',nativeReview);}}
+      if(nativeReview&&!canOffer({admin_game_id:detail.game_id},detail)){buy.textContent='Review current cart first';status.textContent='This cart is reserved for another offer, or its status needs checking. Review your cart or check its status on the event page before choosing this offer.';}
+      else if(nativeReview&&!buying){buy.disabled=false;buy.textContent='Go to cart';status.textContent=CART_NOTE;if(lastTrackedSelection!==nativeReview.signature){lastTrackedSelection=nativeReview.signature;track('options_ready',nativeReview);}}
       else if(nativeReview&&buying)buy.textContent='Preparing your cart…';
       else{buy.textContent=blocked==='HANDOFF_ORIGIN_UNVERIFIED'||window.location.origin!==LIVE_ORIGIN?'Open on mmoexp.com to check out':selection.ready()?'Checkout unavailable':'Select all options to continue';status.textContent=blockedReason(blocked);}
       try{const value=window.SeasonalModelSelection.selectedPrice(contract,selection,detail.off_percent),format=n=>new Intl.NumberFormat('en',{style:'currency',currency:value.currency}).format(n/10**value.minor_unit_scale);
@@ -188,25 +207,33 @@
     buy.addEventListener('click',async()=>{
       if(buying||!nativeReview)return;buying=true;buy.disabled=true;fields.querySelectorAll('input,select').forEach(el=>el.disabled=true);
       buy.textContent='Preparing your cart…';
-      await ensureStoreSession();
-      try{const before=nativeReview.signature;await client.load();publishTheme(client.config);const approved=window.CampaignNativeCodeHandoff.publishedPlan(client.config,nativeSelection(),{origin:window.location.origin});
+      let outcomeMessage=null,navigating=false;
+      try{await ensureStoreSession();const before=nativeReview.signature;await client.load();publishTheme(client.config);const approved=window.CampaignNativeCodeHandoff.publishedPlan(client.config,nativeSelection(),{origin:window.location.origin});
         if(before!==approved.signature)throw Object.assign(Error('Published selection changed. Reopen this offer before continuing.'),{code:'NATIVE_SCOPE_CHANGED'});
         const selected=nativeSelection(),host=window.FCActivityHost.createNative(client.config,selected);
-        const result=await window.CampaignNativeCodeHandoff.checkoutPublished({snapshot:client.config,selection:selected,storage:window.sessionStorage,host,origin:window.location.origin,onCartConfirmed:({code,items})=>track('cart_confirmed',{options:{code},items}),navigate:url=>window.location.assign(url)});
-        if(result.state!=='navigation_attempted_not_applied')track('cart_unconfirmed',approved);
-        status.textContent=result.state==='navigation_attempted_not_applied'?'Native cart navigation attempted. Apply and final totals remain unconfirmed here.':'Original native operation requires inspection. Do not submit again; inspect the original cart.';
-      }catch(error){status.textContent=(error.code||error.message||'Native handoff unavailable')+'. No successful checkout is confirmed.';}
+        const result=await window.CampaignNativeCodeHandoff.checkoutPublished({snapshot:client.config,selection:selected,storage:window.sessionStorage,host,cartGuard:guard(),origin:window.location.origin,onCartConfirmed:({code,items})=>track('cart_confirmed',{options:{code},items}),navigate:url=>window.location.assign(url)});navigating=result.state==='navigation_attempted_not_applied';
+        if(result.state!=='navigation_attempted_not_applied'&&!result.suppressAnalytics)track('cart_unconfirmed',approved);
+        const notes={cart_offer_conflict:'This cart already contains another event offer. Complete that checkout, or remove its items yourself, before choosing a different offer. No items or codes were changed.',cart_code_conflict:'Your cart has another offer or discount. Complete that checkout, or remove its items yourself, before starting a separate checkout. No items or codes were changed.',cart_quantity_changed:'This item is already in your cart with a different quantity. Review or change its quantity in the cart; it was not added again.',cart_busy_inspect_original:'Another event checkout is in progress in this browser. Review the current cart before trying again.',cart_unknown_inspect_original:'The previous add could not be confirmed. Review your cart; do not submit again while its result is unknown. If the cart is empty, contact support.'};
+        outcomeMessage=notes[result.state]||(result.state==='navigation_attempted_not_applied'?'Opening your current cart. Final totals and code eligibility are confirmed there.':result.outcomes?.length===1&&result.outcomes[0].state==='rejected'?'The store rejected this add. Nothing was added by this request; you may check your options and try again.':'The add result is uncertain. Review your cart before trying again; no automatic retry will be sent.');
+      }catch(error){outcomeMessage=['CART_SYNC_UNAVAILABLE','CART_JOURNAL_UNAVAILABLE'].includes(error.code||error.message)?'This browser cannot safely coordinate event checkout. Enable site storage and use a current browser, then reopen the offer. No add was attempted.':(error.message==='NATIVE_CART_READ_UNAVAILABLE'||error.name==='AbortError')?'Your cart could not be checked. Review the current cart and try again after the connection recovers. No new add was attempted.':(error.code||error.message||'Native handoff unavailable')+'. Review the current cart before trying again.';}
+      finally{buying=false;if(!navigating)await refreshCart(true);if(document.getElementById('event-dialog')?.open){render();if(outcomeMessage)status.textContent=outcomeMessage;}}
     });
     render();
     const onRefresh=()=>{if(document.getElementById('event-dialog')?.open)showPrice();};
     dialogRefreshHandler=onRefresh;window.addEventListener('seasonal-published-catalog',onRefresh);
-    document.getElementById('event-dialog')?.addEventListener('close',()=>{window.removeEventListener('seasonal-published-catalog',onRefresh);if(dialogRefreshHandler===onRefresh)dialogRefreshHandler=null;},{once:true});
+    window.addEventListener('seasonal-cart-state',onRefresh);
+    const onReturn=()=>{buying=false;if(document.getElementById('event-dialog')?.open){render();status.textContent='Your cart will be checked before any add. An existing item opens the cart; a removed item can be added again.';}};
+    window.addEventListener('pageshow',onReturn);
+    document.getElementById('event-dialog')?.addEventListener('close',()=>{window.removeEventListener('pageshow',onReturn);window.removeEventListener('seasonal-cart-state',onRefresh);window.removeEventListener('seasonal-published-catalog',onRefresh);if(dialogRefreshHandler===onRefresh)dialogRefreshHandler=null;},{once:true});
   });
   if (window.SeasonalCommerce.available()) {
     ensureStoreSession();
     try {
       client = sdk.create({element:document.documentElement, pageId:'seasonal-vault', activityId:'mmoexp-seasonal'});
-      client.load().then(({config})=>publishTheme(config)).catch(()=>{});
+      client.load().then(({config})=>{void refreshCart();publishTheme(config);}).catch(()=>{});
     } catch { /* Invalid operation storage stays blocked and is reported on interaction. */ }
   }
+  window.addEventListener('storage',event=>{if(event.key==='fs-seasonal-native-cart-v1')void refreshCart(true);});
+  window.addEventListener('pageshow',()=>{if(client)void refreshCart();});
+  document.addEventListener('visibilitychange',()=>{if(client&&document.visibilityState==='visible')void refreshCart();});
 })();

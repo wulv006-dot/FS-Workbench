@@ -83,7 +83,7 @@
     return {options,items:bindings.map(b=>({product_key:b.product_key,native_payload:{...b.native},...(b.observed_serialization?{observed_serialization:true}:{}),offer:{id:Number(b.native.id),group:Number(b.native.group),quantity:Number(b.native.num),aid:b.native.aid?Number(b.native.aid):null}})),
       signature:stable([snapshot.release_id,snapshot.config_hash,{verification_ref:config.verification_ref,valid_from:config.valid_from,valid_until:config.valid_until,origin:config.origin,cart_path:config.cart_path,consumer_behavior_confirmed:config.consumer_behavior_confirmed},bindings,selection]),page_id:selection.page_id,activity_id:selection.activity_id,...(reveal_request?{reveal_request}:{})};
   }
-  async function checkoutPublished({snapshot,selection,storage,host,navigate,origin,onCartConfirmed}){
+  async function checkoutPublished({snapshot,selection,storage,host,navigate,origin,onCartConfirmed,cartGuard}){
     if(snapshot?.native_checkout_claim_required){
       if(typeof host?.claimSelection!=='function')fail('NATIVE_SELECTION_CLAIM_REQUIRED');
       const receipt=await host.claimSelection(selection);
@@ -98,6 +98,7 @@
       const verified=await host.verifySelection(approved.reveal_request);
       if(verified?.status!=='selection_confirmed'||verified.release_id!==snapshot.release_id||verified.config_hash!==snapshot.config_hash||Object.entries(approved.reveal_request).some(([key,value])=>stable(verified[key])!==stable(value)))fail('HALLOWEEN_REVEAL_MISMATCH');
     }
+    if(cartGuard&&selection.page_id==='seasonal-vault')return cartGuard.checkout({snapshot,selection,approved,storage,host,navigate,onCartConfirmed});
     let operation;try{operation=JSON.parse(storage.getItem(key)||'null');}catch{fail('OPERATION_RECORD_UNREADABLE');}
     if(operation&&operation.signature!==approved.signature)fail('OPERATION_CONFLICT');
     if(!operation){operation={id:root.crypto.randomUUID(),signature:approved.signature};const text=JSON.stringify(operation);storage.setItem(key,text);if(storage.getItem(key)!==text)fail('OPERATION_RECORD_UNCONFIRMED');}
@@ -187,5 +188,68 @@
       return {id:operationId,state:'unknown',replayed:false,error:'INSPECT_ORIGINAL_CART_AND_OPERATION'};
     }
   }
-  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
+  // This journal coordinates this browser's native cart, not a daily/person limit
+  // or an authority for coupon eligibility. The original native claim stays required.
+  function createCartGuard({storage,locks=root.navigator?.locks,now=Date.now}={}){
+    try{storage ||= root.localStorage;}catch{fail('CART_JOURNAL_UNAVAILABLE');}
+    const key='fs-seasonal-native-cart-v1',lockName='fs-seasonal-native-cart';
+    const read=()=>{let v;try{v=JSON.parse(storage.getItem(key)||'null');}catch{fail('CART_JOURNAL_UNAVAILABLE');}
+      if(v&&(!['idle','confirmed','unknown'].includes(v.state)||!Array.isArray(v.items)||!Array.isArray(v.history)||v.state==='unknown'&&(!v.attempt?.id||!Array.isArray(v.attempt.items))))fail('CART_JOURNAL_UNAVAILABLE');return v;};
+    const save=v=>{try{const raw=JSON.stringify(v);storage.setItem(key,raw);if(storage.getItem(key)!==raw)fail('CART_JOURNAL_UNAVAILABLE');}catch{fail('CART_JOURNAL_UNAVAILABLE');}};
+    const identity=item=>({category:item.native_payload.category,id:item.native_payload.id,num:item.native_payload.num,...(item.native_payload.category==='new_gold'?{group:item.native_payload.group}:{})});
+    const sameLine=(a,b)=>a.category===b.category&&a.id===b.id&&(a.group||null)===(b.group||null);
+    const matches=(rows,items)=>rows.length===items.length&&items.every(x=>rows.filter(r=>sameLine(r,x)&&r.num===x.num).length===1);
+    const blocked=(state,cartUrl)=>({state,cartUrl,suppressAnalytics:true});
+    return {known(){return read();},async inspect(readCart){
+      const cart=await readCart();if(cart?.status!=='native_cart_read'||!Array.isArray(cart.items))fail('NATIVE_CART_READ_UNAVAILABLE');
+      const journal=read();
+      if(journal?.state==='unknown')return {state:matches(cart.items,[...journal.items,...journal.attempt.items])?'recoverable':'unknown',selection:journal.selection};
+      if(!cart.items.length)return {state:'empty'};
+      return journal?.state==='confirmed'&&matches(cart.items,journal.items)?{state:'selected',selection:journal.selection}:{state:'occupied'};
+    },async checkout({snapshot,selection,approved,storage:session,host,navigate,onCartConfirmed}){
+      if(!locks?.request)fail('CART_SYNC_UNAVAILABLE');
+      if(typeof host.readCart!=='function')fail('NATIVE_CART_READ_REQUIRED');
+      if(approved.items.length!==1)fail('CART_SELECTION_UNSUPPORTED');
+      return locks.request(lockName,{mode:'exclusive',ifAvailable:true},async lock=>{
+        if(!lock)return blocked('cart_busy_inspect_original',approved.options.cartUrl);
+        const cart=await host.readCart();if(cart?.status!=='native_cart_read'||!Array.isArray(cart.items))fail('NATIVE_CART_READ_UNAVAILABLE');
+        let journal=read();const wanted=approved.items.map(identity),rows=cart.items;
+        if(journal?.state==='unknown'){
+          const expected=[...journal.items,...journal.attempt.items];
+          // Presence of every exact new line can reconcile success. Empty is not
+          // proof that a timed-out native POST will never complete.
+          if(!matches(rows,expected))return blocked('cart_unknown_inspect_original',approved.options.cartUrl);
+          journal={...journal,state:'confirmed',items:expected,history:[...journal.history,{id:journal.attempt.id,state:'confirmed_by_cart_read',at:now()}].slice(-20),attempt:null};save(journal);
+        }
+        if(rows.length){
+          if(!journal||journal.state!=='confirmed'||!matches(rows,journal.items)||journal.code!==approved.options.code||journal.release!==snapshot.release_id||journal.hash!==snapshot.config_hash)return blocked('cart_code_conflict',approved.options.cartUrl);
+          if(stable(journal.selection)!==stable(selection))return blocked('cart_offer_conflict',approved.options.cartUrl);
+          if(wanted.some(w=>rows.some(r=>sameLine(r,w)))){
+            if(!matches(rows.filter(r=>wanted.some(w=>sameLine(w,r))),wanted))return blocked('cart_quantity_changed',approved.options.cartUrl);
+            // A deliberate return to an existing confirmed line only opens the
+            // cart; it never repeats Cart/add. Restage this same verified code.
+            stageDurable(session,approved.options,root.crypto.randomUUID());navigate(plan(approved.options).cartUrl);
+            return {state:'navigation_attempted_not_applied',existingCart:true};
+          }
+          return blocked('cart_offer_conflict',approved.options.cartUrl);
+        }else{
+          journal={state:'idle',items:[],history:journal?.history||[]};
+        }
+        const previous=journal||{state:'idle',items:[],history:[]},operationId=root.crypto.randomUUID();
+        const context={code:approved.options.code,release:snapshot.release_id,hash:snapshot.config_hash,...(selection?{selection:structuredClone(selection)}:{})};
+        let dispatched=false,settled=false;
+        const record=()=>({...previous,...context,state:'unknown',attempt:{id:operationId,items:wanted,at:now()}});
+        // Commit UNKNOWN before the actual native POST, across reloads/tabs.
+        save(record());
+        const wrapped={...host,batch(){const batch=host.batch();return {async run(items,progress){dispatched=true;const outcomes=await batch.run(items,progress);
+          if(outcomes.length===items.length&&outcomes.every(r=>r.state==='confirmed')){save({...previous,...context,state:'confirmed',items:[...previous.items,...wanted],attempt:null,history:[...previous.history,{id:operationId,state:'confirmed',at:now()}].slice(-20)});settled=true;}
+          else if(outcomes.length===1&&outcomes[0].state==='rejected'){save({...previous,history:[...previous.history,{id:operationId,state:'rejected',at:now()}].slice(-20)});settled=true;}
+          return outcomes;
+        }};}};
+        try{return await checkout({storage:session,options:approved.options,operationId,items:approved.items,host:wrapped,navigate,onCartConfirmed,liveVerified:true});}
+        finally{if(!dispatched&&!settled)save({...previous,history:[...previous.history,{id:operationId,state:'not_dispatched',at:now()}].slice(-20)});}
+      });
+    }};
+  }
+  const api={plan,stage,stageDurable,checkout,projectConfiguration,publishedPlan,checkoutPublished,createCartGuard};if(typeof module==='object'&&module.exports)module.exports=api;else root.CampaignNativeCodeHandoff=api;
 })(typeof globalThis==='undefined'?this:globalThis);
