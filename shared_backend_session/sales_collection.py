@@ -47,9 +47,11 @@ SLICE_DAYS = 7       # 回填切片：接口允许 ≤1 个月，但窗口越短
 RECENT_DAYS = 1      # 分段缓存的"最近一段"（仅回填路径使用）
 FULL_REFRESH_HOURS = 168   # 每 168 小时做一次「7 天重扫」，覆盖退款/状态变更
 
-ORDER_LOOKBACK_HOURS = 6     # 订单增量回看（相对水位；晚付单由每周 7 天重扫兜住）
-DELIVERY_OVERLAP_HOURS = 2   # 发货增量重叠（相对水位）
+ORDER_LOOKBACK_HOURS = 24    # 订单增量回看（相对水位；窗口开大不吃亏，见 _should_stop）
+DELIVERY_OVERLAP_HOURS = 12  # 发货增量重叠（相对水位）
 DEEP_DAYS = 7                # 每周重扫窗口
+MAX_ORDER_PAGES = 200        # 翻页失控保护（正常 1–3 页，burst 十几页）
+MAX_DELIVERY_PAGES = 400
 
 DEFAULT_START = "2026-09-17"
 
@@ -149,29 +151,6 @@ def _order_page(s, page, lo, hi):
     return d.get("list") or [], int(d.get("total") or 0)
 
 
-def fetch_orders_range(s, lo, hi):
-    first, total = _order_page(s, 1, lo, hi)
-    rows = list(first)
-    npages = (total + PAGE_SIZE - 1) // PAGE_SIZE
-    print("   %s→%s 订单 %d 页 / %d 单" % (lo, hi, npages, total), flush=True)
-    bad = 0
-    for p in range(2, npages + 1):
-        try:
-            lst, _ = _order_page(s, p, lo, hi)
-        except Exception as e:
-            bad += 1
-            print("   ⚠ 订单第%d页失败：%r" % (p, e), flush=True)
-            if bad >= 3:
-                raise RuntimeError("订单分页连续失败 %d 页（停在 p=%d），中止以免推出残数据" % (bad, p))
-            time.sleep(1.5)
-            continue
-        bad = 0
-        rows.extend(lst)
-        if p % 5 == 0 or p == npages:
-            print("   订单 %d/%d 页，累计 %d/%d" % (p, npages, len(rows), total), flush=True)
-    return rows
-
-
 def _crawl_orders(s, start, end):
     """老路径：按窗口整段翻页。只在回填 / --full 时走。"""
     today = datetime.strptime(end, "%Y-%m-%d").date()
@@ -229,6 +208,38 @@ def _fmt(dt_obj):
     return dt_obj.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _should_stop(batch, id_key, known):
+    """翻页终止判断，实现在 history_db（那边无外部依赖，可离线单测）。"""
+    return HDB.should_stop(batch, id_key, known)
+
+
+def fetch_orders_range(s, lo, hi, known=None):
+    """翻 [lo, hi] 区间的订单，直到空页 / 整页已知 / 不足一页 / 触到页上限。
+
+    注意：任何一页失败都直接抛，不再"跳过这一页继续" —— 增量模式下跳过一页
+    会连同水位一起推进，那页数据就永久丢了（只有周重扫能补回来）。
+    """
+    rows, page = [], 1
+    while page <= MAX_ORDER_PAGES:
+        try:
+            lst, total = _order_page(s, page, lo, hi)
+        except Exception as e:
+            raise RuntimeError("订单第 %d 页失败，整轮中止（不推进水位）：%r" % (page, e))
+        if not lst:
+            break
+        rows.extend(lst)
+        if _should_stop(lst, "id", known):
+            print("   订单第 %d 页全是已入库数据，停止翻页" % page, flush=True)
+            break
+        if len(lst) < PAGE_SIZE:
+            break
+        page += 1
+    else:
+        raise RuntimeError("订单翻页超过 %d 页上限，整轮中止（疑似后台异常）" % MAX_ORDER_PAGES)
+    print("   %s→%s 订单翻 %d 页 / %d 条" % (lo, hi, page, len(rows)), flush=True)
+    return rows
+
+
 def fetch_orders(s, start, end, full=False):
     conn = db()
     st = HDB.get_state(conn, "orders")
@@ -254,13 +265,15 @@ def fetch_orders(s, start, end, full=False):
         lo = _delta_lo(conn, "orders", DEEP_DAYS * 24 if deep else ORDER_LOOKBACK_HOURS)
         hi = datetime.now()
         before = have
-        rows = fetch_orders_range(s, _fmt(lo), _fmt(hi))
+        lo_s, hi_s = _fmt(lo), _fmt(hi)
+        known = HDB.ids_in_range(conn, "orders", lo_s, hi_s)
+        rows = fetch_orders_range(s, lo_s, hi_s, known)
         HDB.upsert_orders(conn, rows)
         HDB.bump_watermark(conn, "orders", rows)
         if deep:
             HDB.set_state(conn, "orders", last_deep=_today_str())
         print("   订单增量 %s→%s：取 %d 条%s，库内 %d（+%d）"
-              % (_fmt(lo), _fmt(hi), len(rows), "（7 天重扫）" if deep else "",
+              % (lo_s, hi_s, len(rows), "（7 天重扫）" if deep else "",
                  HDB.count(conn, "orders"), HDB.count(conn, "orders") - before), flush=True)
     HDB.set_state(conn, "orders", last_run=_today_str(), rows=HDB.count(conn, "orders"))
     out = HDB.load_orders(conn, start, end)
@@ -390,12 +403,17 @@ def _delivery_page(s, page, lo, hi, gid, genre):
     return _parse_delivery(txt, page)
 
 
-def fetch_deliveries_range(s, lo, hi, gid=ORDER_GID, genre=GENRE_ORDER_SHIP):
-    rows = []
-    maxpage = None
-    page = 1
+def fetch_deliveries_range(s, lo, hi, gid=ORDER_GID, genre=GENRE_ORDER_SHIP, known=None):
+    """翻 [lo, hi] 区间的发货记录，直到空页 / 整页已知 / 触到页上限。
+
+    不再用「分页控件报的最大页码」当终止条件：那个数字既可能只显示前几页
+    （少翻 → 漏），也可能把"共 N 条"当成页码（多翻几百页 → 就是同事看到的
+    600 多页）。改由实际数据判断，页数只用于日志。
+    """
+    rows, page, declared = [], 1, None
     t0 = time.time()
-    while maxpage is None or page <= maxpage:
+    while page <= MAX_DELIVERY_PAGES:
+        batch = None
         for attempt in range(3):
             try:
                 batch, reported_max = _delivery_page(s, page, lo, hi, gid, genre)
@@ -406,15 +424,22 @@ def fetch_deliveries_range(s, lo, hi, gid=ORDER_GID, genre=GENRE_ORDER_SHIP):
                 print('   delivery page %d unavailable; retry same page after %ds' % (page, delay), flush=True)
                 time.sleep(delay)
             else:
+                if declared is None:
+                    declared = reported_max or 1
+                    print('   %s->%s delivery 控件报 %d 页' % (lo, hi, declared), flush=True)
                 break
-        if maxpage is None:
-            maxpage = reported_max or 1
-            print('   %s->%s delivery %d pages' % (lo, hi, maxpage), flush=True)
+        if not batch:
+            break
         rows.extend(batch)
-        if page % 20 == 0 or page == maxpage:
-            elapsed = time.time() - t0
-            print('   delivery %d/%d pages, rows=%d (%.1f min)' % (page, maxpage, len(rows), elapsed / 60), flush=True)
+        if _should_stop(batch, "delivery_id", known):
+            print("   delivery 第 %d 页全是已入库数据，停止翻页" % page, flush=True)
+            break
+        if page % 20 == 0:
+            print('   delivery %d pages, rows=%d (%.1f min)' % (page, len(rows), (time.time() - t0) / 60), flush=True)
         page += 1
+    else:
+        raise RuntimeError("发货翻页超过 %d 页上限，整轮中止（疑似后台异常）" % MAX_DELIVERY_PAGES)
+    print("   %s→%s 发货翻 %d 页 / %d 条" % (lo, hi, page, len(rows)), flush=True)
     return rows
 
 
@@ -461,13 +486,15 @@ def fetch_deliveries(s, start, end, full=False, gid=ORDER_GID, genre=GENRE_ORDER
         lo = _delta_lo(conn, "deliveries", DEEP_DAYS * 24 if deep else DELIVERY_OVERLAP_HOURS)
         hi = datetime.now()
         before = have
-        rows = fetch_deliveries_range(s, _fmt(lo), _fmt(hi), gid, genre)
+        lo_s, hi_s = _fmt(lo), _fmt(hi)
+        known = HDB.ids_in_range(conn, "deliveries", lo_s, hi_s)
+        rows = fetch_deliveries_range(s, lo_s, hi_s, gid, genre, known)
         HDB.upsert_deliveries(conn, rows, gid)
         HDB.bump_watermark(conn, "deliveries", rows)
         if deep:
             HDB.set_state(conn, "deliveries", last_deep=_today_str())
         print("   发货增量 %s→%s：取 %d 条%s，库内 %d（+%d）"
-              % (_fmt(lo), _fmt(hi), len(rows), "（7 天重扫）" if deep else "",
+              % (lo_s, hi_s, len(rows), "（7 天重扫）" if deep else "",
                  HDB.count(conn, "deliveries"), HDB.count(conn, "deliveries") - before), flush=True)
     HDB.set_state(conn, "deliveries", last_run=_today_str(), rows=HDB.count(conn, "deliveries"))
     out = HDB.load_deliveries(conn, start, end)
