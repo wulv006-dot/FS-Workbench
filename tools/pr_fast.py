@@ -26,6 +26,7 @@ import unittest.mock
 from pathlib import Path
 root=Path(sys.argv[1]);sys.path[:0]=[str(root/sys.argv[2]),str(root)]
 sys.path.append(str(root/'releases/fs-dashboard/user-analytics-20261022/source'))
+sys.path.append(str(root/'releases/fs-dashboard/cache-archive-retention-20261025/source'))
 real=socket.socket.connect
 def local(self,address):
     if isinstance(address,tuple) and address[0] not in ('127.0.0.1','localhost','::1'):
@@ -233,7 +234,7 @@ def selfcheck():
         raise RuntimeError('hermes_learning_fs_producer_checks_missing')
     if select(["releases/fs-dashboard/fc-coins-workflow-20261022/source/pricing_workflow.py"]) != ["fc-coins-workflow"]:
         raise RuntimeError("coins_workflow_checks_missing")
-    if select(["releases/fs-dashboard/cache-archive-retention-20261025/source/cache_retention.py"]) != ["cache-archive-retention"]:
+    if select(["releases/fs-dashboard/cache-archive-retention-20261025/source/cache_retention.py"]) != ["business-dashboard-refresh","cache-archive-retention","hermes-server-unify","knowledge-layering"]:
         raise RuntimeError("cache_retention_checks_missing")
     if select(['releases/fs-dashboard/fs-revision-20261015/cleanup/candidate/fs_cleanup.py']) != ['fs-revision-20261015']:
         raise RuntimeError('cleanup_existing_checks_missing')
@@ -485,7 +486,9 @@ def select(paths):
         if name.startswith("releases/fs-dashboard/fc-coins-workflow-20261022/"):
             groups.add("fc-coins-workflow");continue
         if name.startswith("releases/fs-dashboard/cache-archive-retention-20261025/"):
-            groups.add("cache-archive-retention");continue
+            groups.add("cache-archive-retention")
+            if name.endswith('/source/cache_retention.py'):groups.update(('business-dashboard-refresh','hermes-server-unify','knowledge-layering'))
+            continue
         if name.startswith("releases/fs-dashboard/fc-coins-evidence-20261021/"):
             groups.add("fc-coins-evidence");continue
         if name.startswith("releases/fs-dashboard/daily-archive-20261021/"):
@@ -933,7 +936,7 @@ def main():
         elif group=="daily-archive":
             units("releases/fs-dashboard/daily-archive-20261021/tests",["test_archive","test_jobs","test_release","test_report_readiness","test_marketing_ttl"])
         elif group=="business-dashboard-refresh":
-            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness","test_site_filters","test_direct_admin","test_concurrent_ranges"])
+            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness","test_site_filters","test_direct_admin","test_concurrent_ranges","test_admission_fairness"])
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_actual_ui.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_browsers.cjs")
         elif group=="business-actual-profit":

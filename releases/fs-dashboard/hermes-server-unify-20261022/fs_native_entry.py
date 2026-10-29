@@ -1,8 +1,10 @@
 """Constructor seam for the pinned native FS gateway, never a model-facing tool."""
 import importlib.util
 import hashlib
+import sys
 from functools import wraps
 from pathlib import Path
+FS_SOURCE=Path('/fs-source')
 
 
 def adapter():
@@ -96,9 +98,9 @@ def construct_fs_agent(factory, **options):
 
         @wraps(factory.run_conversation)
         def run_conversation(self, *args, **kwargs):
-            import fcntl
-            with (knowledge.root / 'admission.lock').open('rb') as gate:
-                fcntl.flock(gate.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
+            sys.path.insert(0,str(FS_SOURCE))
+            from cache_retention import maintenance_reader
+            with maintenance_reader(knowledge.root, create=False, session=True):
                 if test:
                     import inspect
                     call = inspect.signature(super().run_conversation).bind(*args, **kwargs)

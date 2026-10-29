@@ -43,6 +43,24 @@ class Entry(unittest.TestCase):
     save_index = fixtures.Native.save_index
     save_policy = fixtures.Native.save_policy
 
+    def test_native_admission_loads_shared_helper_without_plugin_preload(self):
+        import importlib
+        agent=self.construct()
+        source=Path(__file__).resolve().parents[3]/'releases/fs-dashboard/cache-archive-retention-20261025/source'
+        old_path=list(sys.path)
+        removed={name:module for name,module in list(sys.modules.items()) if name=='cache_retention' or name=='fs_readonly' or name.startswith('fs_readonly.')}
+        try:
+            for name in removed:sys.modules.pop(name,None)
+            sys.path[:]=[p for p in sys.path if str(source) not in p and 'fs-readonly' not in p]
+            with patch.object(entry,'FS_SOURCE',source):
+                self.assertEqual(agent.run_conversation('fixture',task_id='existing-turn'),'existing-turn')
+            self.assertEqual(Path(sys.modules['cache_retention'].__file__).resolve(),source/'cache_retention.py')
+        finally:
+            sys.path[:]=old_path
+            for name in list(sys.modules):
+                if name=='cache_retention' or name=='fs_readonly' or name.startswith('fs_readonly.'):sys.modules.pop(name,None)
+            sys.modules.update(removed)
+
     def construct(self, **options):
         defaults = dict(session_id=self.info['session_id'], platform=self.info['platform'],
                         enabled_toolsets=['terminal', 'fs_readonly'], disabled_toolsets=[],

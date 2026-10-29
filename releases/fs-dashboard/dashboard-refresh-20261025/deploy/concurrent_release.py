@@ -8,6 +8,7 @@ import shlex
 import stat
 import subprocess
 import threading
+import time
 
 SCOPE='business-reader-concurrency-20261029'
 TARGETS={**{'source/'+name:'/opt/fs-exact-range-20261001/'+name for name in
@@ -21,6 +22,10 @@ TIMERS=('fs-channel-cache.timer','fs-channel-backfill.timer','fs-data-archive.ti
 SOURCES=tuple(name.replace('.timer','.service') for name in TIMERS)
 LEGACY_LOCKS=('/var/lib/fs-channel-effects/collector.lock','/var/lib/fs-channel-effects/order-deliveries.lock')
 ADMISSION='/var/lib/fs-hermes-fc/fs/admission.lock'
+PUBLICATION='/var/lib/fs-hermes-fc/fs/publication.lock'
+READER_ENTRY='/var/lib/fs-hermes-fc/fs/reader-entry.lock'
+RELEASE_LOCKS=('/var/lock/fs-navigation-release.lock','/var/lock/fs-dashboard-release.lock')
+DRAIN_SECONDS=3600
 QUERY_ROOTS=('/var/lib/fs-channel-effects','/var/lib/fs-channel-effects/actual-profit')
 
 
@@ -133,19 +138,42 @@ class SystemControl:
 
 
 @contextmanager
-def lease(base,root,name):
+def lease(base,root,name,create=False):
     import fcntl
-    path=base.rooted(root,name);base.no_target_link(path)
-    fd=os.open(path,os.O_RDWR|getattr(os,'O_NOFOLLOW',0))
+    path=base.rooted(root,name)
+    if name in RELEASE_LOCKS:
+        # CentOS' original /var/lock -> /run/lock alias names the same stable locks.
+        alias=base.rooted(root,'/var/lock')
+        if path.is_symlink() or any(p.is_symlink() and not (p==alias and p.resolve()==base.rooted(root,'/run/lock')) for p in path.parents):
+            raise ValueError('p4_release_lock_link')
+    else:base.no_target_link(path)
+    if create and name not in (PUBLICATION,READER_ENTRY):raise ValueError('p4_only_publication_gate_may_initialize')
+    fd=os.open(path,os.O_RDWR|(os.O_CREAT if create else 0)|getattr(os,'O_NOFOLLOW',0),0o600)
     try:
         info=os.fstat(fd);current=path.stat()
         if (not stat.S_ISREG(info.st_mode) or info.st_uid!=os.geteuid() or info.st_nlink!=1
-                or info.st_mode&0o022 or (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino)):
+                or info.st_mode&(0o077 if name in (PUBLICATION,READER_ENTRY) else 0o022) or (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino)):
             raise ValueError('p4_unsafe_source_lock')
         try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:raise ValueError('p4_source_or_query_busy') from None
         yield
     finally:os.close(fd)
+
+
+@contextmanager
+def drain(acquire,deadline):
+    """Retry acquisition only; never replay a publisher body that raises busy."""
+    while True:
+        stack=ExitStack()
+        try:
+            value=stack.enter_context(acquire())
+        except (BlockingIOError,ValueError) as error:
+            stack.close()
+            if not isinstance(error,BlockingIOError) and str(error)!='p4_source_or_query_busy':raise
+            if time.monotonic()>=deadline:raise ValueError('p4_admission_drain_timeout') from None
+            time.sleep(.1)
+        else:break
+    with stack:yield value
 
 
 def extend(base,control_factory=SystemControl):
@@ -163,10 +191,11 @@ def extend(base,control_factory=SystemControl):
         if manifest.get('scope')!=SCOPE:
             with original_live(manifest,root):yield
             return
-        control=control_factory(root);fence=None
+        control=control_factory(root);fence=None;reader_stop_requested=False
         try:
             control.remember(manifest)
-            with original_admission(manifest,root) as fence,ExitStack() as stack:
+            deadline=time.monotonic()+DRAIN_SECONDS
+            with drain(lambda:lease(base,root,PUBLICATION,create=True),deadline),drain(lambda:lease(base,root,READER_ENTRY,create=True),deadline),drain(lambda:original_admission(manifest,root),deadline) as fence,ExitStack() as stack:
                 if fence is None:raise ValueError('p4_original_admission_fence_required')
                 control.pause(manifest)
                 for path in LEGACY_LOCKS:stack.enter_context(lease(base,root,path))
@@ -174,6 +203,7 @@ def extend(base,control_factory=SystemControl):
                 stack.enter_context(original_live(manifest,root))
                 control.idle()
                 # Bootstrap may interrupt retryable pure reads; no live writer owns these leases.
+                reader_stop_requested=True
                 fence.stop_then_unlock_database();control.stopped()
                 for folder in QUERY_ROOTS:
                     directory=base.rooted(root,folder)
@@ -188,7 +218,8 @@ def extend(base,control_factory=SystemControl):
                 try:yield
                 finally:owned.root=owned.fence=owned.control=None
         finally:
-            control.restore(fence is None or not fence.modified or fence.confirmed)
+            if control.paused or reader_stop_requested:
+                control.restore(fence is None or not fence.modified or fence.confirmed)
 
     @contextmanager
     def admission(manifest,root):
@@ -217,7 +248,19 @@ def extend(base,control_factory=SystemControl):
         control_factory(root).preview(manifest)
         # Read-only leases only: no timer/service/signal changes in prepare or inspect.
         with ExitStack() as stack:
-            stack.enter_context(lease(base,root,ADMISSION))
+            for name in RELEASE_LOCKS:stack.enter_context(lease(base,root,name))
+            deadline=time.monotonic()+DRAIN_SECONDS
+            pending=base.rooted(root,PUBLICATION)
+            if pending.exists() or pending.is_symlink():
+                stack.enter_context(drain(lambda:lease(base,root,PUBLICATION),deadline))
+            entry=base.rooted(root,READER_ENTRY)
+            if entry.exists() or entry.is_symlink():
+                stack.enter_context(drain(lambda:lease(base,root,READER_ENTRY),deadline))
+                stack.enter_context(drain(lambda:lease(base,root,ADMISSION),deadline))
+            else:
+                # Old processes do not participate until their reviewed first upgrade.
+                stack.enter_context(lease(base,root,ADMISSION))
+            control_factory(root).idle()
             for path in LEGACY_LOCKS:stack.enter_context(lease(base,root,path))
             return original_inspect(manifest,stage,root)
 
