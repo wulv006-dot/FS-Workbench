@@ -59,6 +59,7 @@ class Contracts(unittest.TestCase):
         def git(args):
             calls.append(args)
             if args[-2]=='rev-parse':return b'1'*40+b'\n'
+            if '--format=%ct' in args:return b'1793248870\n'
             self.assertEqual(args[-2],'show')
             return (repo/args[-1].split(':',1)[1]).read_text(encoding='utf-8').encode('utf-8')
         with tempfile.TemporaryDirectory() as temporary,patch.object(S.subprocess,'check_output',side_effect=git):
@@ -67,10 +68,28 @@ class Contracts(unittest.TestCase):
             A.validate_manifest(json.loads((stage/'manifest.json').read_text(encoding='utf-8')))
             with tarfile.open(stage/'delta.tar.gz') as archive:
                 self.assertEqual({item.name for item in archive.getmembers()},set(A.FILES))
+                self.assertTrue(all(item.mtime==1793248870 for item in archive.getmembers()),'Git timestamp prevents unchanged size/zero-mtime VERSION reuse')
                 for name,value in A.FILES.items():self.assertEqual(S.digest(archive.extractfile(name).read()),value)
             with self.assertRaisesRegex(RuntimeError,'already exists'):S.prepare(repo,'HEAD',stage)
             self.assertEqual(receipt,json.loads((stage/'stage-receipt.json').read_text(encoding='utf-8')))
-            self.assertTrue(all(call[-2] in ('rev-parse','show') for call in calls))
+            self.assertTrue(all(call[3] in ('rev-parse','show') for call in calls))
+
+    def test_version_is_explicitly_copied_and_build_check_rejects_old_same_length_content(self):
+        dockerfile=(HERE/'Dockerfile').read_text(encoding='utf-8')
+        P.validate_dockerfile(dockerfile)
+        self.assertIn('\nCOPY VERSION /app/VERSION\n',dockerfile)
+        check=json.loads(dockerfile.splitlines()[-1].removeprefix('RUN '))
+        self.assertEqual(check[:3],['python3','-B','-c'])
+        with tempfile.TemporaryDirectory() as temporary:
+            path=Path(temporary)/'VERSION'
+            script=check[3].replace("'/app/VERSION'",repr(str(path)))
+            path.write_bytes(b'2026.10.29-cloud.15\n')
+            with self.assertRaises(AssertionError):exec(script,{})
+            path.write_bytes(b'2026.10.29-cloud.16\n');exec(script,{})
+        for wrong in (dockerfile.replace('COPY VERSION /app/VERSION','COPY VERSION /app/'),
+                      '\n'.join(dockerfile.splitlines()[:-1])+'\n',
+                      dockerfile.replace(A.FILES['VERSION'],'0'*64)):
+            with self.assertRaises(RuntimeError):P.validate_dockerfile(wrong)
 
     def test_exact_three_targets_and_all_51_baselines_are_required(self):
         self.assertEqual(len(A.BASELINE), 51)

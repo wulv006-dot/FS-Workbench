@@ -22,6 +22,8 @@ def digest(data):return hashlib.sha256(data).hexdigest()
 def prepare(repo, commit, stage):
     def git(*args):return subprocess.check_output(['git','-C',str(repo),*args])
     revision=git('rev-parse',commit+'^{commit}').decode().strip()
+    source_epoch=int(git('show','-s','--format=%ct',revision).decode().strip())
+    if source_epoch <= 0:raise RuntimeError('Committed source timestamp required')
     def blob(path):return git('show',revision+':'+path)
     contract_bytes=blob(PREFIX+'tag-labels/SOURCE-MAP.json')
     contract=json.loads(contract_bytes)
@@ -40,7 +42,7 @@ def prepare(repo, commit, stage):
         (stage/target).write_bytes(blob(PREFIX+source))
     with (stage/'delta.tar.gz').open('xb') as raw,gzip.GzipFile(fileobj=raw,mode='wb',filename='',mtime=0) as zipped,tarfile.open(fileobj=zipped,mode='w') as archive:
         for name,data in sorted(contents.items()):
-            info=tarfile.TarInfo(name);info.size=len(data);info.mode=0o644;info.mtime=0
+            info=tarfile.TarInfo(name);info.size=len(data);info.mode=0o644;info.mtime=source_epoch
             archive.addfile(info,io.BytesIO(data))
     manifest={'version':contract['version'],'base_version':contract['base_version'],
               'base_image_id':contract['base_image_id'],'manual_flag':'FS_SHARED_BACKEND_SESSION',
@@ -48,7 +50,8 @@ def prepare(repo, commit, stage):
               'files':{name:digest(data) for name,data in contents.items()},**CONFIG_SHA,
               'base_source_manifest_sha256':contract['base_source_manifest_sha256'],
               'archive_sha256':digest((stage/'delta.tar.gz').read_bytes()),
-              'dockerfile_sha256':digest((stage/'Dockerfile').read_bytes()),'git_revision':revision}
+              'dockerfile_sha256':digest((stage/'Dockerfile').read_bytes()),'git_revision':revision,
+              'source_epoch':source_epoch}
     (stage/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     receipt={'prepared_only':True,'applied':False,'git_revision':revision,
              'files':{path.name:digest(path.read_bytes()) for path in sorted(stage.iterdir())}}

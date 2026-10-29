@@ -79,6 +79,20 @@ P.validate_manifest = validate_manifest
 P.db_state = db_state
 
 
+def validate_dockerfile(text):
+    version_check = "import hashlib; from pathlib import Path; assert hashlib.sha256(Path('/app/VERSION').read_bytes()).hexdigest() == '" + FILES['VERSION'] + "'"
+    expected = ['FROM '+P.BASE_IMAGE, 'USER root', 'WORKDIR /app',
+                'COPY player_web /app/player_web',
+                'COPY ["球员维护工具", "/app/球员维护工具"]',
+                'COPY VERSION /app/VERSION',
+                'RUN '+json.dumps(['python3', '-B', '-c', version_check])]
+    if text.splitlines() != expected:
+        raise RuntimeError('Only explicit VERSION copy and exact Git-byte build assertion are allowed')
+
+
+P.validate_dockerfile = validate_dockerfile
+
+
 def main():
     # Original lock/CAS/config/backup/rollback flow. No alternative deployment path.
     with open(P.ROOT / 'deployment.lock', 'a') as handle:
