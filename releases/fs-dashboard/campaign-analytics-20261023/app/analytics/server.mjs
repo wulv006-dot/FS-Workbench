@@ -19,22 +19,23 @@ export async function report(params,options={}){
  const validDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(v||'')&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
  if(!validDate(filter.from)||!validDate(filter.to)||filter.from>filter.to||Date.parse(filter.to)-Date.parse(filter.from)>30*86400000)return {status:400,body:{status:'invalid',message:'日期必须有效，且最多查询 31 天'}};
  const environment=filter.mode==='test'?'test':'production';
+ if(filter.testRunId&&(environment!=='test'||!/^[a-f0-9-]{36}$/i.test(filter.testRunId)))return {status:400,body:{status:'invalid',message:'Invalid marked test run'}};
  const key=JSON.stringify([filter,ids,options.revision||0]),cached=cache.get(key);if(cached&&Date.now()-cached.time<(environment==='test'?3000:300000))return cached.value;
  if(pending)return {status:503,body:{status:'busy',message:'已有查询进行中，请稍后重试'}};
  pending=true;
  try{
   const hours=Number(filter.windowHours)||(filter.template==='reward'?720:24);if(!Number.isInteger(hours)||hours<1||hours>720||filter.template&&!core.templates[filter.template])throw Error('Invalid funnel configuration');
-  const end=new Date(Date.parse(filter.to)+(1+Math.ceil(hours/24))*86400000).toISOString().slice(0,10),names=[...new Set(Object.values(core.templates).flatMap(t=>t.steps)),'activity_engaged','activity_click','activity_selection','activity_review'];
+  const end=new Date(Date.parse(filter.to)+(1+Math.ceil(hours/24))*86400000).toISOString().slice(0,10),names=[...new Set(Object.values(core.templates).flatMap(t=>t.steps)),'activity_engaged','activity_click','activity_selection','activity_review','activity_cart_result'];
   // Bounded raw extraction; refuse capped results rather than display partial counts as complete.
-  const fields=['distinct_id','activity_id','activity_visit_id','activity_session_id','source','device','platform','event_id','product_id','product_ids','active_seconds','include_sbc','order_key','currency','activity_paid_minor','match_id','reward_journey_id'];
-  const query=`SELECT event, timestamp, ${fields.map(k=>k==='distinct_id'?'distinct_id':'properties.'+k).join(', ')} FROM events WHERE timestamp >= toDateTime('${filter.from} 00:00:00') AND timestamp < toDateTime('${end} 00:00:00') AND properties.environment = '${environment}' AND properties.activity_id IN (${ids.map(x=>"'"+x+"'").join(',')}) AND event IN (${names.map(x=>"'"+x+"'").join(',')}) ORDER BY timestamp LIMIT 50000`;
+  const fields=['distinct_id','activity_id','activity_visit_id','activity_session_id','source','device','platform','event_id','product_id','product_ids','active_seconds','include_sbc','order_key','currency','activity_paid_minor','match_id','reward_journey_id','game_id','model_id','off_percent','discount_code','slot','release_id','config_hash','server_id','quantity_value','quantity_unit','test_run_id','action','target','complete','confirmed_ids','failed_count','page_id'];
+  const query=`SELECT event, timestamp, ${fields.map(k=>k==='distinct_id'?'distinct_id':'properties.'+k).join(', ')} FROM events WHERE timestamp >= toDateTime('${filter.from} 00:00:00') AND timestamp < toDateTime('${end} 00:00:00') AND properties.environment = '${environment}' ${filter.testRunId?"AND properties.test_run_id = '"+filter.testRunId+"'":''} AND properties.activity_id IN (${ids.map(x=>"'"+x+"'").join(',')}) AND event IN (${names.map(x=>"'"+x+"'").join(',')}) ORDER BY timestamp LIMIT 50000`;
   const response=await fetch(`${host}/api/projects/${project}/query/`,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query:{kind:'HogQLQuery',query},refresh:'force_blocking'}),signal:AbortSignal.timeout(15000)});
   if(!response.ok)throw Error('PostHog query returned '+response.status);
   const data=await response.json();if(!Array.isArray(data.results))throw Error('Unexpected query response');
   if(data.results.length>=50000||data.hasMore||data.has_more||data.error)throw Error('Query incomplete or exceeds 50,000 events; narrow the date range');
   const events=data.results.map(row=>({event:row[0],timestamp:row[1].replace(' ','T')+(/Z$|[+-]\d\d:\d\d$/.test(row[1])?'':'Z'),properties:Object.fromEntries(fields.map((k,i)=>[k,row[i+2]]))}));
-  for(const e of events){const p=e.properties;for(const k of ['product_ids','include_sbc','active_seconds','activity_paid_minor'])if(typeof p[k]==='string'){try{p[k]=JSON.parse(p[k]);}catch{p[k]=null;}}if(!Array.isArray(p.product_ids))p.product_ids=[];p.include_sbc=p.include_sbc===true;}
-  const value={status:200,body:{status:'available',eventCount:events.length,eventTypes:[...new Set(events.map(e=>e.event))],generatedAt:new Date().toISOString(),coverage:'有界查询完成；浏览器拦截与未授权流量不在覆盖内',report:core.summarize(events,filter)}};
+  for(const e of events){const p=e.properties;for(const k of ['product_ids','confirmed_ids','include_sbc','complete','off_percent','active_seconds','activity_paid_minor'])if(typeof p[k]==='string'){try{p[k]=JSON.parse(p[k]);}catch{p[k]=null;}}if(!Array.isArray(p.product_ids))p.product_ids=[];p.include_sbc=p.include_sbc===true;}
+  const value={status:200,body:{status:'available',eventCount:events.length,eventTypes:[...new Set(events.map(e=>e.event))],generatedAt:new Date().toISOString(),coverage:'有界查询完成；浏览器拦截与未授权流量不在覆盖内',...(environment==='test'&&filter.testRunId?{testRun:{id:filter.testRunId,eventIds:[...new Set(events.map(e=>e.properties.event_id).filter(Boolean))]}}:{}),report:core.summarize(events,filter)}};
   if(cache.size>30)cache.clear();cache.set(key,{time:Date.now(),value});return value;
  }finally{pending=null;}
 }

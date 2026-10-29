@@ -83,7 +83,7 @@
     return {options,items:bindings.map(b=>({product_key:b.product_key,native_payload:{...b.native},...(b.observed_serialization?{observed_serialization:true}:{}),offer:{id:Number(b.native.id),group:Number(b.native.group),quantity:Number(b.native.num),aid:b.native.aid?Number(b.native.aid):null}})),
       signature:stable([snapshot.release_id,snapshot.config_hash,{verification_ref:config.verification_ref,valid_from:config.valid_from,valid_until:config.valid_until,origin:config.origin,cart_path:config.cart_path,consumer_behavior_confirmed:config.consumer_behavior_confirmed},bindings,selection]),page_id:selection.page_id,activity_id:selection.activity_id,...(reveal_request?{reveal_request}:{})};
   }
-  async function checkoutPublished({snapshot,selection,storage,host,navigate,origin}){
+  async function checkoutPublished({snapshot,selection,storage,host,navigate,origin,onCartConfirmed}){
     if(snapshot?.native_checkout_claim_required){
       if(typeof host?.claimSelection!=='function')fail('NATIVE_SELECTION_CLAIM_REQUIRED');
       const receipt=await host.claimSelection(selection);
@@ -101,7 +101,7 @@
     let operation;try{operation=JSON.parse(storage.getItem(key)||'null');}catch{fail('OPERATION_RECORD_UNREADABLE');}
     if(operation&&operation.signature!==approved.signature)fail('OPERATION_CONFLICT');
     if(!operation){operation={id:root.crypto.randomUUID(),signature:approved.signature};const text=JSON.stringify(operation);storage.setItem(key,text);if(storage.getItem(key)!==text)fail('OPERATION_RECORD_UNCONFIRMED');}
-    return checkout({storage,options:approved.options,operationId:operation.id,items:approved.items,host,navigate,liveVerified:true});
+    return checkout({storage,options:approved.options,operationId:operation.id,items:approved.items,host,navigate,onCartConfirmed,liveVerified:true});
   }
   function plan({origin,cartUrl,sameTab,code,consumerBehaviorConfirmed=false}){
     if(typeof cartUrl!=='string')throw new Error('HANDOFF_ORIGIN_UNVERIFIED');
@@ -142,7 +142,7 @@
   }
   // Compose the existing native batch and native code consumer. The caller must
   // supply current, validated native lines; this does not enable a live gate.
-  async function checkout({storage,options,operationId,items,host,navigate,liveVerified=false}){
+  async function checkout({storage,options,operationId,items,host,navigate,onCartConfirmed,liveVerified=false}){
     if(liveVerified!==true)throw new Error('NATIVE_CHECKOUT_NOT_VERIFIED');
     // The UI may change while a native POST is pending. Freeze this operation's
     // source values before any await; its journal must describe every sent line.
@@ -177,6 +177,9 @@
       if(staged.state!=='staged_not_applied')return persist({...record,state:'code_unknown_inspect_original'});
       // Never claim Apply succeeded: the original cart owns the response/amount.
       record=persist({...record,state:'navigation_attempted_not_applied'});
+      // Optional observation after confirmed Cart/add and code staging; never
+      // grant eligibility, change transport, retry, or claim Apply/payment.
+      try{if(typeof onCartConfirmed==='function')onCartConfirmed({code:handoff.value,items:structuredClone(items)});}catch{}
       navigate(handoff.cartUrl);
       return record;
     }catch(error){

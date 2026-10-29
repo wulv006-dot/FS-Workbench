@@ -201,6 +201,7 @@
     // only touch the DOM when the offers actually changed.
     const html=fixed+random;
     if(html!==lastSlotHtml){doc.querySelector('#offer-slots').innerHTML=html;lastSlotHtml=html;}
+    for(const slot of ['fixed','random-1','random-2'])if(doc.querySelector('[data-offer-slot="'+slot+'"] .flip-card[aria-expanded="true"]'))track('exposure',game,slotOffer(game,slot));
     // Remove a visible price at its own expiry. A missing price polls at 60s,
     // rather than looping on the expired timestamp of a previous reference.
     const delay=Number.isFinite(nextExpiry)?Math.max(1,nextExpiry-Date.now()+1):60000;
@@ -227,6 +228,7 @@
     doc.querySelector('#configuration-summary').textContent=missing.length?'Please check back soon. You can still explore the games in our main store.':'Published settings are available. Mystery slots still require a server-confirmed draw; final prices and eligibility require store confirmation.';
     startCountdown();
   }
+  function track(action,game,offer={}){try{root.FCActivityAnalytics?.offer(action,{game_id:String(game?.admin_game_id||''),...offer});}catch{/* Analytics must never block offers. */}}
   function update(input){
     if(!input||typeof input!=='object')return;
     // A new US Eastern day closes every card again so it can be flipped afresh.
@@ -239,9 +241,9 @@
   }
   doc.addEventListener('click',async event=>{
     const gameButton=event.target.closest('[data-game-card]');
-    if(gameButton){lastGameButton=gameButton.dataset.gameCard;activeGame=lastGameButton;renderGames();renderSlots();doc.querySelector('[data-action=all-games]').focus();return;}
+    if(gameButton){lastGameButton=gameButton.dataset.gameCard;activeGame=lastGameButton;track('game_select',view.games.find(g=>g.id===activeGame));renderGames();renderSlots();doc.querySelector('[data-action=all-games]').focus();return;}
     if(event.target.closest('[data-action=all-games]')){activeGame=null;renderGames();renderSlots();doc.querySelector('[data-game-card="'+lastGameButton+'"]').focus();return;}
-    if(event.target.closest('[data-fixed-reveal]')){const game=view.games.find(g=>g.id===activeGame);if(!game||!resolveModel(config,game).length||game.fixed_off_percent===null)return;if(revealed.has(fixedToken(game)))return;revealed.add(fixedToken(game));renderSlots();animateFlip(doc.querySelector('[data-fixed-reveal]'));status('Your fixed offer is ready. Choose your options to continue.');return;}
+    if(event.target.closest('[data-fixed-reveal]')){const game=view.games.find(g=>g.id===activeGame);if(!game||!resolveModel(config,game).length||game.fixed_off_percent===null)return;if(revealed.has(fixedToken(game)))return;revealed.add(fixedToken(game));renderSlots();animateFlip(doc.querySelector('[data-fixed-reveal]'));status('Your fixed offer is ready. Choose your options to continue.');track('offer_reveal',game,fixedOffer(game));return;}
     const random=event.target.closest('[data-random-reveal]');
     if(random&&!random.disabled){
       const game=view.games.find(g=>g.id===activeGame),slot=random.dataset.randomReveal;if(!game||drawing.has(game.id))return;
@@ -262,7 +264,7 @@
         if(receipt.release_id!==config.release_id||receipt.config_hash!==config.config_hash)throw Error('RULE_VERSION_CONFLICT');
         receipts.set(game.id,receipt);revealed.add(receipt.request_id+':'+slot);flipped=true;status('Your mystery card is ready.');
       }catch(error){const message='This card did not open. Tap it to try again.';status(message);doc.querySelector('.draw-status').textContent=message;}
-      finally{drawing.delete(game.id);renderSlots();if(flipped&&activeGame===game.id)animateFlip(doc.querySelector('[data-random-reveal="'+slot+'"]'));}return;
+      finally{drawing.delete(game.id);renderSlots();if(flipped&&activeGame===game.id){animateFlip(doc.querySelector('[data-random-reveal="'+slot+'"]'));track('offer_reveal',game,slotOffer(game,slot));}}return;
     }
     const buy=event.target.closest('[data-model-buy]');if(buy&&!buy.disabled){
       const game=view.games.find(g=>g.id===activeGame),offer=slotOffer(game,buy.dataset.buySlot||'fixed');if(!game||!offer||!buyReady(game,offer))return;
