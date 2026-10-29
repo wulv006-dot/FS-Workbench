@@ -150,6 +150,41 @@ class SixCost(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'cost_time_window_filter_unverified'):
                 self.collector.collect()
 
+    def empty_page(self, *, ready='complete'):
+        return dict(login=False,ready=ready,page='1',game='1322',area='21942',product='1',genre='1',
+                    typeHeader='交货类型',table=True,hasDataRows=False,empty=False,deliveryRowCount=0,rows=[],
+                    start=self.now.strftime('%Y-%m-%d %H:%M'),end=(self.now+timedelta(hours=1)).strftime('%Y-%m-%d %H:%M'))
+
+    def test_real_ps_page_reader_accepts_verified_zero_rows_without_empty_text(self):
+        data=self.empty_page()
+        page=types.SimpleNamespace(goto=lambda *a,**k:types.SimpleNamespace(status=200),evaluate=lambda _:data,
+                                   wait_for_timeout=lambda _:self.fail('verified empty PS page should not wait'))
+        window=dict(start=self.now,end=self.now+timedelta(hours=1))
+        self.assertEqual(self.collector.read_page(page,1,[],window=window),data)
+
+    def test_ps_empty_page_waits_for_document_parsing_and_pc_gate_is_unchanged(self):
+        values=iter([self.empty_page(ready='loading'),self.empty_page()]);waits=[]
+        page=types.SimpleNamespace(goto=lambda *a,**k:types.SimpleNamespace(status=200),evaluate=lambda _:next(values),
+                                   wait_for_timeout=waits.append)
+        self.collector.read_page(page,1,[],window=dict(start=self.now,end=self.now+timedelta(hours=1)))
+        self.assertEqual(waits,[500])
+        page.evaluate=lambda _:self.empty_page()
+        with self.assertRaisesRegex(self.collector.CostPageError,'filter_or_rows_unverified:1'):
+            self.collector.read_page(page,1,[])
+
+    def test_completely_empty_hour_expands_to_two_hours(self):
+        windows=[]
+        def read(tab,number,observations=None,window=None):
+            if window is None:
+                return self.data(self.rows if number==1 else [])
+            hours=(window['end']-window['start']).total_seconds()/3600
+            if number==1:windows.append(hours)
+            return self.data(self.rows[:6] if hours==2 and number==1 else [])
+        with patch.object(self.collector,'read_page',side_effect=read):
+            result=self.collector.collect()
+        self.assertEqual(windows,[1,2])
+        self.assertEqual(result['costs'][0]['record_id'],'102')
+
     def test_sample_exactly_at_window_end_is_accepted(self):
         result=self.run_collect()
         costs={row['platform']:row for row in result['costs']}
