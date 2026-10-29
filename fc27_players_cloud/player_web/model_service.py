@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import replace
 from typing import Any, Mapping, Sequence
 
 from 球员维护工具.admin_adapter import AdminAdapter, build_existing_model_map
@@ -33,7 +34,7 @@ def refresh_models(settings: Settings, repository: Repository, client: Any, owne
                for row in tag_rows if row.get("id") is not None}
     safe = [{"model_id": row.model_id, "futbin_id": row.futbin_id,
              "title": row.title, "is_rec": row.is_rec, "tag_ids": list(row.tag_ids),
-             "tag_names": list(row.tag_names), "status": row.status,
+             "tag_names": [catalog.get(tag_id, "") for tag_id in row.tag_ids], "status": row.status,
              "auto_off": row.auto_off} for row in normalized]
     result = repository.save_model_snapshot(owner, safe, catalog)
     repository.audit(owner, "model_snapshot_complete", result["snapshot_id"],
@@ -51,15 +52,16 @@ def query_models(repository: Repository, owner: str, snapshot_id: str,
     if set(criteria) - allowed:
         raise StateError("模型筛选字段不在白名单")
     tag_catalog = {int(key): str(value) for key, value in snapshot["tag_catalog"].items()}
+    # Old snapshots may contain one comma-joined label; IDs and the catalog are authoritative.
+    rows = [replace(row, tag_names=tuple(tag_catalog.get(tag_id, "") for tag_id in row.tag_ids))
+            for row in rows]
     matched = filter_model_rows(rows, ExistingModelFilter(**criteria), tag_catalog=tag_catalog)
     start = (page - 1) * per_page
     visible = matched[start:start + per_page]
     def item(row: ExistingModelRow) -> dict[str, Any]:
-        names = tuple(dict.fromkeys((*row.tag_names,
-                                     *(tag_catalog.get(tag_id, "") for tag_id in row.tag_ids))))
         return {"model_id": row.model_id, "futbin_id": row.futbin_id, "title": row.title,
                 "is_rec": row.is_rec, "tag_ids": list(row.tag_ids),
-                "tag_names": [name for name in names if name],
+                "tag_names": list(row.tag_names),
                 "status": row.status, "auto_off": row.auto_off}
     return {**{key: value for key, value in snapshot.items() if key != "tag_catalog"},
             "page": page, "per_page": per_page, "filtered_total": len(matched),

@@ -182,6 +182,8 @@ def rename_source_selfcheck():
 def selfcheck():
     if select(['releases/fc-players/direct-json-20261029/source/direct_model_import.py']) != ['fc-players-direct-json']:
         raise RuntimeError('fc_players_direct_json_mapping_missing')
+    if select(['fc27_players_cloud/player_web/model_service.py']) != ['fc-players-direct-json']:
+        raise RuntimeError('fc_players_model_service_mapping_missing')
     if select(['docs/planning/business-dashboard-refresh-20261025/CONTRACT.md']) != ['fc-pricing-v3','knowledge-layering']:
         raise RuntimeError('dashboard_contract_knowledge_pin_coverage_missing')
     if select(['releases/ops/shared-admin-direct-20261028/source/fc_shared_admin.py']) != ['shared-admin-direct']:
@@ -420,7 +422,7 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
-        if name.startswith('releases/fc-players/direct-json-20261029/'):
+        if name.startswith('releases/fc-players/direct-json-20261029/') or name == 'fc27_players_cloud/player_web/model_service.py':
             groups.add('fc-players-direct-json');continue
         if name in ('releases/fs-dashboard/dashboard-refresh-20261025/source/daily_archive.py',
                     'releases/fs-dashboard/shipping-profit-20261024/source/profit_queries.py'):
@@ -864,9 +866,11 @@ def main():
             continue
         print("affected group:",group,flush=True)
         if group == 'fc-players-direct-json':
-            units('releases/fc-players/direct-json-20261029/tests', ['test_payload','test_client','test_direct_import','test_resume'])
+            units('releases/fc-players/direct-json-20261029/tests', ['test_payload','test_client','test_direct_import','test_resume','test_model_labels'])
             units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
+            units('releases/fc-players/direct-json-20261029/tag-labels', ['test_upgrade_tag_labels'])
             node('releases/fc-players/direct-json-20261029/tests/check_resume.cjs')
+            node('releases/fc-players/direct-json-20261029/tests/check_model_labels.cjs')
         elif group == 'shared-admin-direct':
             units('releases/ops/shared-admin-direct-20261028/tests', ['test_shared_admin'])
             continue
