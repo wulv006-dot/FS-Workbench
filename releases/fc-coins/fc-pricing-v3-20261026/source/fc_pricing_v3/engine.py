@@ -163,7 +163,7 @@ def price_basis(evidence,now):
                 historical_retained_ratio=str(average),history_window_contract=evidence['historical_discount_mix'].get('history_window_contract'),history_period=evidence['historical_discount_mix']['period'],minimum_margin_pct=str(HARD_MARGIN),execution_authorized=False)
 
 
-def required_unit_bound(evidence,platform,now,region=None,evaluation_context=None):
+def required_unit_bound(evidence,platform,now,region=None,evaluation_context=None,*,average_minimum=HARD_MARGIN):
     pooled,_=common_cost(evidence)
     cost=pooled if platform!='PC' else number(evidence['costs']['PC']['cny_per_1k'])
     average=history_ratio(evidence,now,evaluation_context)
@@ -173,17 +173,17 @@ def required_unit_bound(evidence,platform,now,region=None,evaluation_context=Non
         if history.get('replay_paths'):
             number(mixed_ratio_lower_bound(history))
             tier=package_100k(rules)
-            required=cost/number(evidence['fx']['cny_per_usd'])*(100+number(tier['bonus_k'],zero=True))/(1-HARD_MARGIN/100)
+            required=cost/number(evidence['fx']['cny_per_usd'])*(100+number(tier['bonus_k'],zero=True))/(1-number(average_minimum)/100)
             regular=required.quantize(CENT,rounding=ROUND_UP)
             while regular*replay_history(regular,history)<required:regular+=CENT
             return ((regular-CENT/2)/number(tier['retained_ratio'])).quantize(CENT,rounding=ROUND_UP)/100
         elif history.get('basis')!='pooled_other_promotions_excluding_region_verified':
             raise ValueError('pricing_region_history_basis_unknown:'+str(region['region_id']))
-    return catalog_floor(cost,evidence['fx']['cny_per_usd'],envelope_ratio(evidence['promotion_envelope'],now),HARD_MARGIN,rules,average_ratio=average)
+    return catalog_floor(cost,evidence['fx']['cny_per_usd'],envelope_ratio(evidence['promotion_envelope'],now),average_minimum,rules,average_ratio=average)
 
 
-def required_base_bound(evidence,platform,now,plan=None,evaluation_context=None):
-    bound=required_unit_bound(evidence,platform,now,evaluation_context=evaluation_context)
+def required_base_bound(evidence,platform,now,plan=None,evaluation_context=None,*,average_minimum=HARD_MARGIN):
+    bound=required_unit_bound(evidence,platform,now,evaluation_context=evaluation_context,average_minimum=average_minimum)
     for region in evidence.get('region_rules',[])+evidence.get('regional_controls',[]):
         if platform not in region['platforms']:continue
         key=str(region['region_id'])+':'+platform
@@ -195,7 +195,7 @@ def required_base_bound(evidence,platform,now,plan=None,evaluation_context=None)
             except ValueError:continue
         factor=Decimal(1) if mutable else number(region['factor'])
         tier=package_100k(evidence['promotion_envelope']['packages'][platform])
-        regional_floor=required_unit_bound(evidence,platform,now,region,evaluation_context)*100*number(tier['retained_ratio'])
+        regional_floor=required_unit_bound(evidence,platform,now,region,evaluation_context,average_minimum=average_minimum)*100*number(tier['retained_ratio'])
         before=((regional_floor-(CENT/2 if region.get('rounding')=='half_up_cent' else 0))/factor).quantize(CENT,rounding=ROUND_UP)
         base=((before-CENT/2)/number(tier['retained_ratio'])).quantize(CENT,rounding=ROUND_UP)/100
         bound=max(bound,base)
@@ -210,26 +210,68 @@ def base_limits(public_low,public_high,retained):
 
 
 def resolve_anchor(evidence,platform,quotes,now):
-    lootbar,item=(next(q for q in quotes if q['source']==source and q['platform']==platform) for source in ('Lootbar','ItemD2R'))
-    chosen=item if number(item['unit_100k'])<=number(lootbar['unit_100k']) else lootbar
-    return dict(source=chosen['source'],unit_100k=chosen['unit_100k'],reason='ITEMD2R_LOWER_VALID_QUOTE' if chosen is item else 'LOOTBAR_LOWER_VALID_QUOTE')
+    available=[q for q in quotes if q['source'] in ('Lootbar','ItemD2R') and q['platform']==platform]
+    if not available:return dict(source=None,unit_100k=None,reason='BOTH_COMPETITOR_QUOTES_MISSING')
+    chosen=min(available,key=lambda q:(number(q['unit_100k']),q['source']!='ItemD2R'))
+    return dict(source=chosen['source'],unit_100k=chosen['unit_100k'],reason='SINGLE_VALID_CURRENT_QUOTE' if len(available)==1 else 'ITEMD2R_LOWER_VALID_QUOTE' if chosen['source']=='ItemD2R' else 'LOOTBAR_LOWER_VALID_QUOTE')
+
+
+def current_market_quotes(evidence,platforms,now,region=None):
+    quotes=[];source_gaps=[]
+    for p in platforms:
+        for source in ('Lootbar','ItemD2R'):
+            try:quotes.append(market_quote(evidence,p,source,now,region))
+            except (ValueError,KeyError,TypeError) as error:
+                reference=evidence.get('reference_market') or {}
+                source_gaps.append(dict(platform=p,source=source,reason=(reference.get('reason') or str(error)) if source=='ItemD2R' and not reference.get('offers') else str(error) if isinstance(error,ValueError) else 'pricing_market_contract_invalid'))
+    return quotes,source_gaps
+
+
+def daily_reference(evidence,platforms,now):
+    quotes,gaps=current_market_quotes(evidence,platforms,now)
+    result={}
+    for p in platforms:
+        available=[q for q in quotes if q['platform']==p]
+        chosen=next((q for q in available if q['source']=='Lootbar'),available[0] if available else None)
+        result[p]=dict(source=chosen['source'] if chosen else None,unit_100k=chosen['unit_100k'] if chosen else None,
+            captured_at=chosen['captured_at'] if chosen else None,source_gaps=[g for g in gaps if g['platform']==p],
+            average_margin_target_pct=None if chosen else '30')
+    return result
+
+
+def daily_average_target_proof(evidence,proof,platforms):
+    result={}
+    for p in platforms:
+        cost=number(proof['prices']['global:'+p]['proof']['delivered_cost_usd'])
+        scopes={}
+        for scope,row in proof['prices'].items():
+            if not scope.endswith(':'+p):continue
+            regular=number(row['price']['regular_usd'])
+            retained=number(row['catalog']['historical_retained_ratio'])
+            net=regular*retained
+            margin=(net-cost)/net*100
+            if margin<30:raise ValueError('pricing_daily_missing_market_average_30')
+            scopes[scope]=dict(public_usd=str(regular),delivered_cost_usd=str(cost),retained_ratio=str(retained),estimated_net_usd=str(net),estimated_average_margin_pct=str(margin))
+        result[p]=dict(target_pct='30',historical_mix_sha256=evidence['historical_discount_mix']['sha256'],scopes=scopes)
+    return result
 
 
 def competition(evidence, platforms, now, region=None, *, plan=None, resolved_global=None,evaluation_context=None,base_total=None):
     sprint_parameters(plan)
-    quotes = [market_quote(evidence,p,s,now,region) for p in platforms for s in ('Lootbar','ItemD2R')]
+    quotes,source_gaps=current_market_quotes(evidence,platforms,now,region)
     regional_fallbacks={}
     if region==21:
         for p in platforms:
             try:quotes.append(market_quote(evidence,p,'ArabUT',now,region))
             except ValueError as error:regional_fallbacks[p]=dict(mode='follow_global',reason=str(error))
     times = [instant(q['captured_at']) for q in quotes]
-    if (max(times)-min(times)).total_seconds() > 300:
+    if times and (max(times)-min(times)).total_seconds() > 300:
         raise ValueError('pricing_market_capture_span')
     anchors={p:deepcopy(resolved_global['anchors'][p]) if resolved_global else resolve_anchor(evidence,p,quotes,now) for p in platforms}
     def limits(choices):
       targets={}
       for p in platforms:
+        if choices[p].get('unit_100k') is None:continue
         target=number(choices[p]['unit_100k'])
         if region==21:
             arab=next((q for q in quotes if q['source']=='ArabUT' and q['platform']==p),None)
@@ -254,7 +296,7 @@ def competition(evidence, platforms, now, region=None, *, plan=None, resolved_gl
     if region is None:
         floor=max(required_base_bound(evidence,p,now,plan,evaluation_context) for p in platforms)
         minimum_base=str(floor)
-        def feasible(values):return max([floor]+[number(t['total_low']) for t in values.values()])<=min(number(t['total_high']) for t in values.values())
+        def feasible(values):return bool(values) and max([floor]+[number(t['total_low']) for t in values.values()])<=min(number(t['total_high']) for t in values.values())
         attempts.append(dict(anchors=deepcopy(anchors),targets=deepcopy(targets),financial_interval_feasible=feasible(targets)))
         if not feasible(targets):decision_type='floor_fallback'
     elif base_total is not None:
@@ -273,9 +315,11 @@ def competition(evidence, platforms, now, region=None, *, plan=None, resolved_gl
             coefficients=[str(f) for f in solve_coefficient(before_region,target['unit_low'],target['unit_high'],delivered,minimum_factor=str(max(Decimal('.0001'),floor_factor)))]
             if not coefficients:
                 coefficients=['1'];decision_type='regional_follow_global';saudi_floor_follow_global=True
-    return dict(quotes=quotes, targets=targets, valid_until=(min(times)+timedelta(seconds=900)).isoformat(),
+    return dict(quotes=quotes, targets=targets, valid_until=((min(times) if times else instant(evidence['checked_at']))+timedelta(seconds=900)).isoformat(),
+                source_gaps=source_gaps,source_policy='current_available_quote_or_100k_margin_floor',
+                competition_available={p:anchors[p].get('unit_100k') is not None for p in platforms},
                 anchors=anchors,anchor_attempts=attempts,regional_fallbacks=regional_fallbacks,sprint_policy_version=SPRINT_POLICY_VERSION,financial_contract_version=FINANCIAL_CONTRACT_VERSION if evidence['historical_discount_mix'].get('history_window_contract')==HISTORY_WINDOW_CONTRACT else LEGACY_FINANCIAL_CONTRACT_VERSION,
-                decision_type=decision_type,reason='SAUDI_MARGIN_FLOOR_FOLLOW_GLOBAL' if saudi_floor_follow_global else 'SAUDI_MISSING_QUOTE_FOLLOW_GLOBAL' if decision_type=='regional_follow_global' else 'MARGIN_FLOOR_FALLBACK_20' if decision_type=='floor_fallback' else 'VERIFIED_COMPETITIVE_BAND',
+                decision_type=decision_type,reason='SAUDI_MARGIN_FLOOR_FOLLOW_GLOBAL' if saudi_floor_follow_global else 'SAUDI_MISSING_QUOTE_FOLLOW_GLOBAL' if decision_type=='regional_follow_global' else 'BOTH_COMPETITOR_QUOTES_MISSING_USE_MARGIN_FLOOR' if not targets else 'MARGIN_FLOOR_FALLBACK_20' if decision_type=='floor_fallback' else 'VERIFIED_COMPETITIVE_BAND',
                 minimum_legal_base_total=minimum_base,legal_coefficients=coefficients,
                 pricing_scope=PRICING_SCOPE,scope='100K actual package and gifts; other sizes are outside the hard pricing floor')
 
@@ -489,6 +533,9 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
     options = {}
     comparisons = {}
     failures = []
+    daily_inputs=daily_reference(evidence,PLATFORMS,now) if mode=='daily' else {}
+    average30_platforms=[p for group,ps in GROUPS.items() if not plan or 'base:'+group in plan['resources']
+                         for p in ps if daily_inputs.get(p,{}).get('average_margin_target_pct')=='30']
     avg = history_ratio(evidence,now,evaluation_context)
     ratio = envelope_ratio(evidence['promotion_envelope'],now)
     pooled,_ = common_cost(evidence)
@@ -499,13 +546,14 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
             continue
         c = pooled if group=='console' else number(evidence['costs']['PC']['cny_per_1k'])
         bound_plan=plan or dict(mode=mode,resources=[])
-        floor = max(required_base_bound(evidence,p,now,bound_plan if mode!='revenue_sprint' else plan,evaluation_context) for p in platforms)
+        floor = max(required_base_bound(evidence,p,now,bound_plan if mode!='revenue_sprint' else plan,evaluation_context,
+                    average_minimum='30' if daily_inputs.get(p,{}).get('average_margin_target_pct')=='30' else HARD_MARGIN) for p in platforms)
         if mode == 'revenue_sprint':
             try:
                 market = competition(evidence,platforms,now,plan=plan,evaluation_context=evaluation_context)
                 comparisons[group] = market
-                low = max(number(market['targets'][p]['total_low']) for p in platforms)
-                high = min(number(market['targets'][p]['total_high']) for p in platforms)
+                low = max([floor]+[number(t['total_low']) for t in market['targets'].values()])
+                high = min([number(t['total_high']) for t in market['targets'].values()] or [floor])
                 low = max(low,floor)
                 if low > high:
                     values={floor}
@@ -517,6 +565,8 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                 failures.append(dict(scope=group,code=str(exc)))
                 values = {number(current['base_prices'][group])}
                 comparisons.pop(group,None)
+        elif any(daily_inputs[p]['average_margin_target_pct']=='30' for p in platforms):
+            values={floor}
         else:
             anchor_price = number(anchor['base_prices'][group])
             offsets=(plan or {}).get('parameters',{}).get('offsets_pct',POLICIES[mode]['offsets'])
@@ -563,9 +613,21 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
         for combination in itertools.product(*(coefficient_options[k] for k in keys)):
           action=dict(base_prices=bases,region_coefficients=dict(zip(keys,map(str,combination))))
           try:
-            affected_regions=proof_regions(evidence,current,action,promised_regions=region_markets)
+            affected_regions=proof_regions(evidence,current,action,promised_regions=region_markets,minimum_average_platforms=average30_platforms)
             proof = financial(evidence,action,now,regions=affected_regions,evaluation_context=evaluation_context)
+            average30_proof=daily_average_target_proof(evidence,proof,average30_platforms)
             minimum_proofs={}
+            for group,ps in GROUPS.items():
+                targeted=[p for p in ps if p in average30_platforms]
+                if not targeted:continue
+                lower=deepcopy(action);lower['base_prices'][group]=str(number(bases[group])-CENT)
+                try:
+                    previous=financial(evidence,lower,now,regions=affected_regions,evaluation_context=evaluation_context)
+                    daily_average_target_proof(evidence,previous,targeted)
+                except ValueError as exc:
+                    if str(exc) not in ('pricing_daily_missing_market_average_30','pricing_hard_margin_floor','pricing_average_catalog_margin_floor'):raise
+                    minimum_proofs[group]=dict(previous_cent=lower['base_prices'][group],rejected_by=str(exc),average_margin_target_pct='30')
+                else:raise ValueError('pricing_daily_minimum_average_30_not_established')
             for group,market in comparisons.items():
                 if market['decision_type']!='floor_fallback':continue
                 lower=deepcopy(action);lower['base_prices'][group]=str(number(bases[group])-CENT)
@@ -580,10 +642,11 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                 else:raise ValueError('pricing_floor_minimality_not_established')
             for key,market in region_markets.items():
                 actual=number(proof['prices'][key]['price']['delivered_unit_100k']) if key in proof['prices'] else number(evidence['storefront']['rows'][key.split(':')[1]]['package_usd'])/105*100
-                target=market['targets'][key.split(':')[1]]
                 if market['decision_type']=='regional_follow_global':
                     if number(action['region_coefficients'][key])!=1:raise ValueError('pricing_saudi_follow_global_factor_must_be_one')
-                elif market['decision_type']!='floor_fallback' and not number(target['unit_low'])<=actual<=number(target['unit_high']):raise ValueError('pricing_regional_competitive_band')
+                elif market['decision_type']!='floor_fallback':
+                    target=market['targets'][key.split(':')[1]]
+                    if not number(target['unit_low'])<=actual<=number(target['unit_high']):raise ValueError('pricing_regional_competitive_band')
             path=commit_path(current,action,lambda state:financial(evidence,state,now,regions=affected_regions,evaluation_context=evaluation_context),
                              transition=lambda old,new:preserve_competitive_state(evidence,old,new,comparisons,region_markets))
             rating = score(mode,action,evidence,proof,anchor,evaluation_context,(plan or {}).get('parameters'))
@@ -594,7 +657,7 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                 regional_index+=demand(actual,ref,'1')*actual/ref
             rating['regional_prior_revenue_index']=str(regional_index)
             preference=number((plan or {}).get('parameters',{}).get('preferred_undercut_pct','7.5'),zero=True)
-            preference_distance=sum(abs(number(bases[g])-min(number(t['undiscounted_total']) for t in market['targets'].values())*(1-preference/100)) for g,market in comparisons.items())
+            preference_distance=sum(abs(number(bases[g])-min(number(t['undiscounted_total']) for t in market['targets'].values())*(1-preference/100)) for g,market in comparisons.items() if market['targets'])
             rating['preferred_undercut_pct']=str(preference)
             rating['preference_distance']=str(preference_distance)
             fallback=any(m['decision_type']=='floor_fallback' or m.get('reason')=='SAUDI_MARGIN_FLOOR_FOLLOW_GLOBAL' for m in list(comparisons.values())+list(region_markets.values()))
@@ -607,10 +670,14 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                         actual_undercut_pct=str((1-actual/number(target['anchor_unit_100k']))*100),
                         difference_pct={q['source']:str((actual/number(q['unit_100k'])-1)*100) for q in market['quotes'] if q['platform']==p},
                         competitive_band_met=number(target['unit_low'])<=actual<=number(target['unit_high']))
+                for p,available in market['competition_available'].items():
+                    if not available:positions[scope][p]=dict(competition_available=False,competitive_band_met=False,reason='BOTH_COMPETITOR_QUOTES_MISSING')
             feasible.append(dict(action=action,action_sha256=fingerprint(action),steps=path,financial_proof=proof,market_comparison=deepcopy(comparisons),regional_market_comparison=region_markets,score=rating,
+                                 daily_reference=deepcopy(daily_inputs),
+                                 daily_average_target_proof=average30_proof,
                                  minimum_legal_price_proof=minimum_proofs,market_position=positions,
                                  decision_type='floor_fallback' if fallback else 'competitive' if mode=='revenue_sprint' else 'objective',
-                                 decision_reason='MARGIN_FLOOR_FALLBACK_20' if fallback else mode+'_objective',
+                                 decision_reason='MARGIN_FLOOR_FALLBACK_20' if fallback else 'DAILY_MISSING_REFERENCE_AVERAGE_MARGIN_30' if average30_platforms else mode+'_objective',
                                  sprint_policy_version=SPRINT_POLICY_VERSION if mode=='revenue_sprint' else None,financial_contract_version=proof['financial_contract_version'],
                                  control=action==current))
           except ValueError as exc:
@@ -631,9 +698,12 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                     (evidence.get('monthly_target') or {}).get('mtd'),now,(plan or {}).get('ends_at'),metadata=evidence.get('monthly_target')))
 
 
-def proof_regions(evidence,before,after,promised_regions=()):
+def proof_regions(evidence,before,after,promised_regions=(),minimum_average_platforms=()):
     """Proof also supplies scored hold prices; write leases use impacted_regions only."""
     result=impacted_regions(evidence,before,after,promised_regions)
+    for region in evidence.get('region_rules',[])+evidence.get('regional_controls',[]):
+        key=(region['region_id'],tuple(region['platforms']))
+        if not any((r['region_id'],tuple(r['platforms']))==key for r in result) and set(region['platforms'])&set(minimum_average_platforms):result.append(region)
     for region in evidence.get('region_rules',[]):
         if region not in result and any(seg['region_id']==region['region_id'] and seg['platform'] in region['platforms']
                 for seg in (evidence.get('demand_model') or {}).get('segments',[])):

@@ -6,6 +6,7 @@ from decimal import Decimal
 import json
 import hashlib
 import os
+import re
 from pathlib import Path
 import subprocess
 import threading
@@ -68,7 +69,11 @@ def collect_reference_market(run_id):
         return dict(status='captured',run_id=run_id,offers=[dict(r,run_id=run_id) for r in offers])
     except Exception as exc:
         # Optional reference failure remains visible; it cannot disable the original source chain.
-        return dict(status='unavailable',run_id=run_id,offers=[],reason=type(exc).__name__)
+        reason=str(exc) if isinstance(exc,ValueError) and re.fullmatch(r'itemd2r_[a-zA-Z0-9_:]{1,100}',str(exc)) else type(exc).__name__
+        failed=dict(status='unavailable',run_id=run_id,offers=[],reason=reason,captured_at=datetime.now(timezone.utc).isoformat())
+        if reason=='itemd2r_cloudflare_403':
+            failed.update(status='blocked',http_status=403,blocked_by='cloudflare',captured_at=datetime.now(timezone.utc).isoformat())
+        return failed
 
 
 def collect_quote(job):
@@ -108,6 +113,20 @@ def collect_quote(job):
                               'quote_status': 'PENDING', 'collection_location': 'local'}
     else:
         code, snapshot = run(["python3", str(APP / "snapshot_layer.py"), run_id], 440)
+    from fc_pricing_v3.runtime import collection_scope,ledger
+    from fc_pricing_v3.selective_sources import source_plan
+    selection=collection_scope(ledger(),run_id)
+    planned=source_plan(selection['active_mode'],selection['scope'])
+    if cfg['mode']=='server' and 'ItemD2R' in planned['required_markets']:
+        reference=collect_reference_market(run_id)
+        job['reference_competitors']=reference
+        run_path=ROOT/'runs'/(run_id+'.json')
+        if run_path.is_file():
+            run_snapshot=json.loads(run_path.read_text(encoding='utf-8'))
+            if run_snapshot.get('run_id')!=run_id:raise ValueError('snapshot_changed_before_quote')
+            run_snapshot['reference_competitors']=reference
+            atomic_json(run_path,run_snapshot)
+            os.chown(run_path,-1,11028);os.chmod(run_path,0o640)
     job["snapshot"] = snapshot
     save_job(job)
     if code or snapshot.get("status") != "ready_for_quote":
@@ -131,13 +150,7 @@ def collect_quote(job):
         raise ValueError("snapshot_changed_before_quote")
     run_snapshot["storefront"] = state
     run_snapshot["collection_mode"] = cfg
-    from fc_pricing_v3.runtime import collection_scope,ledger
-    from fc_pricing_v3.selective_sources import source_plan
-    selection=collection_scope(ledger(),run_id)
-    planned=source_plan(selection['active_mode'],selection['scope'])
     run_snapshot['source_plan']=planned
-    if cfg['mode']=='server' and 'ItemD2R' in planned['required_markets']:
-        run_snapshot['reference_competitors']=collect_reference_market(run_id)
     # The existing shared source runtime owns HTTPS reads; worker Python has no ssl.
     atomic_json(run_path, run_snapshot)
     os.chown(run_path, -1, 11028)

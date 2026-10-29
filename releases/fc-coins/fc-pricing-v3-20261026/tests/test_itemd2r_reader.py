@@ -2,12 +2,24 @@ from copy import deepcopy
 from pathlib import Path
 import json,sys,unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch,Mock
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
 import itemd2r_reader as reader
 
 
 class ItemD2RReader(unittest.TestCase):
+    def test_cloudflare_403_is_distinct_from_other_http_and_browser_errors(self):
+        for status,headers,expected in [(403,{'server':'cloudflare'},'itemd2r_cloudflare_403'),(403,{'cf-ray':'test'},'itemd2r_cloudflare_403'),(403,{},'itemd2r_http_403'),(500,{},'itemd2r_http_500')]:
+            page=Mock();page.goto.return_value=SimpleNamespace(status=status,headers=headers)
+            with self.subTest(status=status,headers=headers),self.assertRaisesRegex(ValueError,'^'+expected+'$'):
+                reader.collect(SimpleNamespace(new_page=lambda:page))
+            page.close.assert_called_once()
+        payload=dict(source='ItemD2R',status='error',reason='itemd2r_cloudflare_403',offers=[])
+        with patch.object(reader.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=json.dumps(payload))),self.assertRaisesRegex(ValueError,'^itemd2r_cloudflare_403$'):
+            reader.public_read()
+        with patch.object(reader.subprocess,'run',return_value=SimpleNamespace(returncode=1,stdout='')),self.assertRaisesRegex(ValueError,'^itemd2r_public_read_failed$'):
+            reader.public_read()
+
     def test_offer_keeps_real_delivered_quantity_and_currency(self):
         data=dict(device='2',quantity='100000',tier='100000',tier_label='100 K',delivered='100',method='ai-automatic',
             method_selected=True,usd=True,busy=False,price='8.50',total='8.50',unit='.000085',fee='0')

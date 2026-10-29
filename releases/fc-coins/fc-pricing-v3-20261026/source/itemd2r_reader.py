@@ -49,8 +49,12 @@ def collect(context):
     page=context.new_page()
     try:
         response=page.goto(URL,wait_until='domcontentloaded',timeout=35000)
+        if response is not None and response.status==403:
+            headers=response.headers
+            if 'cloudflare' in headers.get('server','').lower() or headers.get('cf-ray'):
+                raise ValueError('itemd2r_cloudflare_403')
         if response is None or response.status!=200:
-            raise ValueError('itemd2r_http_blocked')
+            raise ValueError('itemd2r_http_'+str(response.status) if response is not None else 'itemd2r_http_response_missing')
         if page.url.rstrip('/')!=URL or not re.search(r'FC\s*27\s*Coins',page.title(),re.I):
             raise ValueError('itemd2r_product_mismatch')
         rows=[]
@@ -87,12 +91,23 @@ from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
  b=p.chromium.connect_over_cdp('http://127.0.0.1:9225',timeout=8000,no_defaults=True)
  if len(b.contexts)!=1:raise ValueError('itemd2r_context_ambiguous')
- print(json.dumps({'source':'ItemD2R','status':'valid','offers':collect(b.contexts[0])}))
+ try:
+  offers=collect(b.contexts[0])
+ except ValueError as error:
+  reason=str(error)
+  if not re.fullmatch(r'itemd2r_[a-zA-Z0-9_:]{1,100}',reason):raise
+  print(json.dumps({'source':'ItemD2R','status':'error','reason':reason,'offers':[]}))
+ else:
+  print(json.dumps({'source':'ItemD2R','status':'valid','offers':offers}))
 '''
     result=subprocess.run(['docker','exec','-i','-u','fc27chrome','fc27-cloud-browser','timeout','--signal=TERM','--kill-after=5s','50s','python3','-'],input=code,text=True,capture_output=True,timeout=60)
     if result.returncode:
         raise ValueError('itemd2r_public_read_failed')
     payload=json.loads(result.stdout)
+    if payload.get('source')=='ItemD2R' and payload.get('status')=='error':
+        reason=payload.get('reason')
+        if isinstance(reason,str) and re.fullmatch(r'itemd2r_[a-zA-Z0-9_:]{1,100}',reason):
+            raise ValueError(reason)
     if payload.get('source')!='ItemD2R' or payload.get('status')!='valid' or [r.get('platform') for r in payload.get('offers',[])]!=['PS','XBOX','PC']:
         raise ValueError('itemd2r_platform_coverage_invalid')
     return payload['offers']

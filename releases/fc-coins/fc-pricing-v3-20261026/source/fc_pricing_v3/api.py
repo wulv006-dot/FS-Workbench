@@ -205,6 +205,8 @@ def read(path):
         return dict(snapshot_id=(snapshot or {}).get('snapshot_id'),
                     global_offers=(snapshot or {}).get('evidence',{}).get('offers'),
                     reference=reference,
+                    competitor_diagnostics=(snapshot or {}).get('evidence',{}).get('competitor_diagnostics',[]),
+                    competitor_missing_policy='available_current_quote_or_100k_margin_floor',
                     arab=(snapshot or {}).get('evidence',{}).get('arab_ut_quotes',[]),price_basis=basis,
                     saudi_missing_price_policy='follow_global')
     if path=='experiments':

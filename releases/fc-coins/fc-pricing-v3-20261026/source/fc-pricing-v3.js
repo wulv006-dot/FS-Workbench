@@ -2,7 +2,7 @@
   'use strict';
   const base='/api/fc27/cloud/pricing/v3';
   const names={daily:'日常运营',revenue_sprint:'冲销售额'};
-  const purposes={daily:'平衡收入与采购贡献，适合常态经营。',revenue_sprint:'取 Lootbar 与 ItemD2R 较低有效价，低 5–10% 冲额，默认偏好 7.5%；低价带不合双20时用最低合法价，沙特额外比较 Arab-UT 普通发货。'};
+  const purposes={daily:'正常保留计划锚点与采购贡献目标；竞品参考Lootbar优先、缺价用ItemD2R，两家均缺的平台按八日实际优惠后平均30%求最低价，双20硬线不减。',revenue_sprint:'两家有效取较低价，一家缺价用另一家；两家均缺则无竞争目标，按100K双20最低合法价。竞争锚低5–10%冲额，默认偏好7.5%；沙特额外比较Arab-UT普通发货。'};
   const $=id=>document.getElementById(id);
   let current,loading=false,acting=false,manualPreview=null,selectedPlanId=null,displayedMode='daily',canWrite=false,permissionKnown=false,playerRevision=null,playerDirty=false,collectPending=sessionStorage.getItem('fc-v3-collect-job'),automationRevision=null,lastAutomation=null,lastMonitor=null;
   const statuses={DRAFT:'待启用',SCHEDULED:'等待开始',ACTIVE:'执行中',SUSPENDED:'已暂停新写入',ENDING:'正在退出',ENDED:'已结束',
@@ -194,11 +194,13 @@
           const stale=Number.isFinite(age)&&age>15*60000;
           card.dataset.state=!available?'missing':stale?'stale':'observed';
           const followGlobal=name==='Arab-UT'&&!available&&market.saudi_missing_price_policy==='follow_global';
-          const header=node('div');header.className='head';const badge=node('span',followGlobal?'缺价 · 跟随全球':!available?'缺项':!verified?'规格待核':stale?'已过 15 分钟':!Number.isFinite(age)||age<0?'时点待核':'最近已采');badge.className='market-badge';header.append(node('h4',name),badge);card.append(header);
+          const missingReason=name==='ItemD2R'?market.reference?.reason:name==='Lootbar'?(market.competitor_diagnostics||[]).find(reason=>reason.startsWith('Lootbar:')):null;
+          const header=node('div');header.className='head';const badge=node('span',followGlobal?'缺价 · 跟随全球':!available&&missingReason==='itemd2r_cloudflare_403'?'Cloudflare 403 · 缺价':!available?'缺项':!verified?'规格待核':stale?'已过 15 分钟':!Number.isFinite(age)||age<0?'时点待核':'最近已采');badge.className='market-badge';header.append(node('h4',name),badge);card.append(header);
           const total=node('p',available?usd(price):'暂无报价');total.className='market-price';card.append(total);
           const delivered=purchase!=null&&bonus!=null?Number(purchase)+Number(bonus):NaN;
           const unit=node('p',available&&verified&&Number.isFinite(delivered)&&delivered>0?`${usd(Number(price)/delivered*100)} / 100K 实际交付`:'同口径单价待核');unit.className='market-unit';card.append(unit);
           card.append(node('p',row?`购买 ${purchase??'待核'}K + 赠送 ${bonus??'待核'}K${Number.isFinite(delivered)?` · 交付 ${delivered}K`:''}`:'本轮未取得可核报价'),node('p',method));
+          if(!available&&name!=='Arab-UT')card.append(node('p',`冲额：另一家有效则用另一家；双缺取双20最低合法价，竞争目标未达。日常：Lootbar优先、缺价用ItemD2R；双缺的平台按八日平均30%最低价。原因：${missingReason||'本轮无有效报价'}`));
           const time=node('p',`采集 ${when(stamp)} · USD`);time.className='footnote';card.append(time);column.append(card);
         }
         output.append(column);

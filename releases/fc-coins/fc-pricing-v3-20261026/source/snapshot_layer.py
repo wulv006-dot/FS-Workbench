@@ -253,9 +253,10 @@ def collect_once(run_id=None):
         fx = {"status": "missing", "reason": "fx_collector_failed"}
     valid_count = sum(x["status"] == "valid" for x in snapshots)
     cost_count = sum(x["status"] == "valid" for x in costs)
-    coverage = dict(ready=all(any(r['source']=='Lootbar' and r['platform']==p and r['status']=='valid' for r in snapshots) for p in PLATFORMS),required_sources=['Lootbar'])
+    coverage = dict(ready=True,required_sources=[],optional_sources=['Lootbar'],
+                    pricing_source_policy='current_available_quote_or_100k_margin_floor')
     source_warnings = [failure for failure in failures
-                       if failure.split(":", 1)[0] in ("IGGM", "U4GM", "U7Buy")]
+                       if failure.split(":", 1)[0] in ("Lootbar", "IGGM", "U4GM", "U7Buy")]
     for row in snapshots:
         if row["status"] == "missing":
             row["reason"] = next((failure for failure in failures

@@ -234,6 +234,8 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         assignment_probability=allocation.get('probabilities',{}).get(fingerprint(action),1),
         randomization_verified=bool(allocation.get('probabilities') and len(allocation['probabilities'])>1 and not allocation.get('effective_choice')),
         financial_proof=selected['financial_proof'],market_comparison=selected['market_comparison'],regional_market_comparison=selected.get('regional_market_comparison',{}),
+        daily_reference=selected.get('daily_reference',{}),
+        daily_average_target_proof=selected.get('daily_average_target_proof',{}),
         financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT,sprint_policy_version=SPRINT_POLICY_VERSION if mode=='revenue_sprint' else None,
         strategy_parameters=sprint_parameters(plan) if mode=='revenue_sprint' else (plan or {}).get('parameters',{}),
         authorized_resources=(plan or {}).get('resources',[]),decision_type=selected.get('decision_type'),decision_reason=selected.get('decision_reason'),
@@ -277,7 +279,10 @@ def render_result(evidence,selected,bundle,mode):
         cost=evidence['costs'][p]
         own=evidence['storefront']['rows'][p]
         target=number(action['base_prices'][group])
-        public_anchor=evidence['offers'][p]['Lootbar']
+        public_anchor=evidence['offers'][p].get('Lootbar')
+        try:market_quote(evidence,p,'Lootbar',instant(evidence['checked_at']))
+        except (ValueError,KeyError,TypeError):public_anchor=None
+        market=selected.get('market_comparison',{}).get(group,{})
         offers=[dict(source=s,**value) for s,value in evidence['offers'][p].items()]
         rows.append(dict(platform=p,proposal=format(target/100,'.4f'),auto_proposal=format(target/100,'.4f'),
             raw_cost_cny=cost['cny_per_1k'],cost_cny=cost['cny_per_1k'],raw_cost_record_id=cost['record_id'],
@@ -292,8 +297,11 @@ def render_result(evidence,selected,bundle,mode):
             strategy_version=VERSION,quote_manual=False,own_bonus_k=own['bonus_k'],
             decision_reason=selected.get('decision_reason') or mode+'_objective',ending_reason='v3_exact_no_hidden_adjustment',
             pricing_quantity_basis='both_sides_actual_delivered_quantity',
-            lootbar_page_usd=public_anchor['usd_price'],
-            lootbar_usd_per_1k=str(number(public_anchor['usd_price'])/(number(public_anchor['base_k'])+number(public_anchor.get('bonus_k','0'),zero=True))),
+            lootbar_page_usd=public_anchor['usd_price'] if public_anchor else None,
+            lootbar_usd_per_1k=str(number(public_anchor['usd_price'])/(number(public_anchor['base_k'])+number(public_anchor.get('bonus_k','0'),zero=True))) if public_anchor else None,
+            competition_available=market.get('competition_available',{}).get(p),
+            source_gaps=[gap for gap in market.get('source_gaps',[]) if gap['platform']==p],
+            daily_reference=selected.get('daily_reference',{}).get(p),
             change_pct=str((target/number(own['package_usd'])-1)*100),
             warning='双20%红线；单笔合法优惠仍可亏损。预测不是实绩。',status='财务底价兜底 · 未达到竞争降幅' if selected.get('decision_type')=='floor_fallback' else '双模式引擎核算通过 · 待执行'))
     result=dict(checked_at=evidence['checked_at'],fx=evidence['fx'],minimum_gross_margin_pct=str(HARD_MARGIN),
@@ -406,7 +414,10 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         regions=regions+quote['evidence'].get('regional_controls',[])
         if financial(quote['evidence'],receipt['before_action'],now,regions=regions)!=receipt['before_financial_proof']:
             raise ValueError('pricing_uk_retirement_before_proof_changed')
-    elif purpose!='original_unsent_ALL_steps_only':regions=proof_regions(quote['evidence'],receipt['before_action'],receipt['action'],promised_regions=receipt.get('regional_market_comparison',{}))
+    elif purpose!='original_unsent_ALL_steps_only':
+        targeted=[p for g,ps in GROUPS.items() if not receipt.get('plan_id') or 'base:'+g in receipt['authorized_resources'] for p in ps
+                  if receipt.get('mode')=='daily' and receipt.get('daily_reference',{}).get(p,{}).get('average_margin_target_pct')=='30']
+        regions=proof_regions(quote['evidence'],receipt['before_action'],receipt['action'],promised_regions=receipt.get('regional_market_comparison',{}),minimum_average_platforms=targeted)
     proof=financial(quote['evidence'],receipt['action'],now,regions=regions)
     if proof!=receipt['financial_proof']:
         raise ValueError('pricing_financial_proof_changed')
@@ -414,6 +425,18 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         group='pc' if row['platform']=='PC' else 'console'
         if number(row['proposal'])*100!=number(receipt['action']['base_prices'][group]):
             raise ValueError('pricing_action_row_changed')
+    if receipt['mode']=='daily' and not maintenance and purpose!='original_unsent_ALL_steps_only':
+        from .engine import daily_reference,required_base_bound,daily_average_target_proof
+        references=daily_reference(quote['evidence'],PLATFORMS,now)
+        if references!=receipt.get('daily_reference'):raise ValueError('pricing_daily_reference_changed')
+        targets=[p for g,ps in GROUPS.items() if not receipt.get('plan_id') or 'base:'+g in receipt['authorized_resources'] for p in ps if references[p]['average_margin_target_pct']=='30']
+        if daily_average_target_proof(quote['evidence'],proof,targets)!=receipt.get('daily_average_target_proof'):raise ValueError('pricing_daily_average_target_proof_changed')
+        daily_plan=dict(mode='daily',resources=receipt['authorized_resources'])
+        for group,platforms in GROUPS.items():
+            if 'base:'+group not in receipt['authorized_resources']:continue
+            if any(references[p]['average_margin_target_pct']=='30' for p in platforms):
+                target=max(required_base_bound(quote['evidence'],p,now,daily_plan,average_minimum='30' if references[p]['average_margin_target_pct']=='30' else HARD_MARGIN) for p in platforms)
+                if number(receipt['action']['base_prices'][group])!=target:raise ValueError('pricing_daily_missing_market_not_minimum_average_30')
     if receipt['mode']=='revenue_sprint':
         market_plan=dict(mode='revenue_sprint',resources=receipt['authorized_resources'],parameters=receipt['strategy_parameters']) if receipt.get('plan_id') else None
         markets={}
@@ -434,12 +457,13 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
             market=competition(quote['evidence'],[platform],now,region=21,plan=market_plan,resolved_global=markets[group],base_total=receipt['action']['base_prices'][group])
             if market!=prior:raise ValueError('pricing_regional_market_proof_changed')
             price=number(proof['prices'][key]['price']['delivered_unit_100k'])
-            limits=market['targets'][platform]
             if market['decision_type']=='floor_fallback':
                 if receipt.get('decision_type')!='floor_fallback' or receipt['action']['region_coefficients'][key] not in market['legal_coefficients']:raise ValueError('pricing_regional_fallback_not_minimum_legal_price')
             elif market['decision_type']=='regional_follow_global':
                 if number(receipt['action']['region_coefficients'][key])!=1:raise ValueError('pricing_saudi_follow_global_factor_must_be_one')
-            elif not number(limits['unit_low'])<=price<=number(limits['unit_high']):raise ValueError('pricing_regional_competitive_band')
+            else:
+                limits=market['targets'][platform]
+                if not number(limits['unit_low'])<=price<=number(limits['unit_high']):raise ValueError('pricing_regional_competitive_band')
     if for_execution:
         if now>=instant(receipt['valid_until']) or not receipt['execution_authorized']:
             raise ValueError('pricing_authorization_expired_or_unowned')
