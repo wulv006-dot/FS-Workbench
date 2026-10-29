@@ -161,7 +161,7 @@ class AdminDcTests(unittest.TestCase):
         self.assertNotIn('/opt/fs-order-session/fc_shared_admin.py', mapping.values())
         self.assertEqual(mapping['sync_players.sh'], '/opt/fc27-cloud-browser/sync_players.sh')
         self.assertEqual(mapping['collect_p2pah_cost.py'], '/opt/fc27-cloud-browser/collect_p2pah_cost.py')
-        self.assertEqual(len(targets.DELTA_NAMES),5)
+        self.assertEqual(set(targets.DELTA_NAMES),{'source/fc27-coins.html','source/fc-pricing-v3.js'})
         self.assertEqual(targets.DELTA_NEW,frozenset())
         for name in ['build_stage.py', 'prepare_manifest.py']:
             text = (SOURCE.parent / 'deploy' / name).read_text(encoding='utf8')

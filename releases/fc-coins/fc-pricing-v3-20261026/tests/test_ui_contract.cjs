@@ -14,6 +14,14 @@ assert(!html.includes('/dashboard/fc27-reference-observer.js'));
 assert(html.includes('/dashboard/fc27-local-client.js'));
 assert(!html.includes('ELD 独立'));
 assert(!/value="(?:acquisition|backlog|flash_sale)"/.test(html));
+const hero=html.match(/<header class="hero">[\s\S]*?<\/header>/)[0];
+assert.match(hero,/id="v3-execute-now"[^>]*>立即执行一轮改价/);
+assert.match(hero,/id="collect"[^>]*>刷新采集价格/);
+assert.match(html,/刷新采集价格只采集来源，不写价/);
+assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
+assert.match(html,/fc-pricing-v3\.js\?v=20261029-top-actions/);
+assert.match(script,/sprint_policy_version='sprint_5_10_lower_quote_floor20_v3'/,'preserve the live lower-anchor business parameter');
+assert.match(script,/D-9至D-2八个完整日真实优惠金额结构/,'preserve the live eight-day financial wording');
 
 class Element {
   constructor() { this.value = ''; this.textContent = ''; this.children = []; this.events = {}; this.hidden = false; this.disabled = false; this.dataset = {}; }
@@ -46,12 +54,24 @@ const market={snapshot_id:'snapshot-1',global_offers:{PS:{Lootbar:{usd_price:'9.
 market.saudi_missing_price_policy='follow_global';
 market.price_basis={historical_retained_ratio:'.9',rows:{PS:{cost_usd_per_1k:'.04',cost_cny_per_1k:'.28',package_cost_usd:'4.2',delivered_k:'105',regular_floor_usd:'5.30',average_floor_usd:'5.80',current_regular_margin_pct:'40',current_average_margin_pct:'30',cost_checked_at:'2026-10-27T00:00:00Z'}}};
 
-const fetch = async (url, options = {}) => ({ ok: true, json: async () => url.endsWith('/pricing/v3/interval') ? (intervalBody = JSON.parse(options.body), { revision: 4 })
+const normalFetch = async (url, options = {}) => ({ ok: true, json: async () => url.endsWith('/pricing/v3/interval') ? (intervalBody = JSON.parse(options.body), { revision: 4 })
   : url.endsWith('/pricing/v3/market') ? (marketError?Promise.reject(Error('fixture unavailable')):market)
   : url.endsWith('/pricing/collect') ? {job_id:'collect-test'} : url.endsWith('/jobs/collect-test') ? {status:'ready',result:{status:'INFEASIBLE'}}
   : url.endsWith('/pricing/v3/state') ? state : url.endsWith('/automation') ? { ...automation, can_manage_v3: canWrite }
   : url.endsWith('/monitor') ? monitor : url.endsWith('/player-sync') ? { enabled: true, revision: 1 } : {} });
-vm.runInNewContext(script, { document, fetch, sessionStorage, crypto: { randomUUID: () => 'new-id' }, AbortSignal: { timeout: () => null },
+const executeBodies=[];
+let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,executeStatus='queued',idSequence=0;
+const fetch=async (url,options={})=>{
+  if(url.endsWith('/pricing/v3/execute')){
+    const body=JSON.parse(options.body);executeBodies.push(body);
+    if(executeGate)await executeGate;
+    if(executeFailure)throw Error('fixture network result unknown');
+    if(executeReject)return {ok:false,status:executeReject.status,json:async()=>({error:executeReject.error})};
+    return {ok:true,json:async()=>executeReplyMissing?{status:'queued'}:({status:executeStatus,job_key:'manual:'+body.request_key})};
+  }
+  return normalFetch(url,options);
+};
+vm.runInNewContext(script, { document, fetch, sessionStorage, crypto: { randomUUID: () => 'new-id-'+(++idSequence) }, AbortSignal: { timeout: () => null },
   setInterval: () => {}, Intl, Date, console });
 const tick = () => new Promise(resolve => setTimeout(resolve, 5));
 (async () => {
@@ -60,6 +80,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(elements['v3-next-cycle'].textContent, /已暂停，无下一自然写价轮/);
   assert.match(elements['v3-review-source'].textContent, /历史原操作.*未获模型审核.*当前规则无需逐轮审核/);
   assert.equal(elements['v3-price-pc'].textContent, '$8.59');
+  assert.equal(elements['v3-execute-now'].disabled,true,'top execute requires an active plan');
   state.operations[0].order_close={reason:'order_write_confirmed_admin_price_matched'};
   monitor.publication.status='mismatch';await elements['v3-refresh'].events.click();
   assert.match(elements['v3-stage'].textContent,/^Order与Admin已确认/);
@@ -131,6 +152,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(elements['v3-target-section'].hidden, false);
   canWrite = false; await elements['v3-refresh'].events.click();
   assert.equal(elements['v3-execute'].disabled, true);
+  assert.equal(elements['v3-execute-now'].disabled,true,'top execute follows writer permission');
   assert.equal(elements['collect'].disabled, true);
   assert.match(elements['v3-state'].textContent, /仅可查看/);
   state.snapshot_id='fresh-infeasible-snapshot';
@@ -144,5 +166,69 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   canWrite=true;await elements['v3-refresh'].events.click();await elements.collect.events.click();
   assert.match(elements['v3-result'].textContent,/采集已完成；当前策略无可执行报价，未写价/);
   assert.equal(sessionStorage.getItem('fc-v3-collect-job'),null);
+  plan.state='ACTIVE';await elements['v3-refresh'].events.click();
+  assert.equal(elements['v3-execute-now'].disabled,false);
+  executeGate=new Promise(resolve=>{releaseExecution=resolve;});
+  const firstExecute=elements['v3-execute-now'].events.click();
+  assert.equal(elements['v3-execute-now'].disabled,true);
+  assert.equal(elements['v3-execute'].disabled,true,'both execution buttons share busy state');
+  assert.equal(elements.collect.disabled,true,'collection cannot double-submit during an action');
+  await elements['v3-execute'].events.click();
+  assert.equal(executeBodies.length,1,'rapid clicks across both buttons produce one request');
+  releaseExecution();await firstExecute;executeGate=null;
+  assert.match(elements['v3-result'].textContent,/改价任务已登记.*manual:/);
+  assert.match(elements['v3-result'].textContent,/实际结果以执行状态和读回为准/);
+  assert.equal(elements['v3-execute-now'].disabled,false);
+  assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),null,'confirmed acknowledgement ends this request intent');
+  await elements['v3-execute'].events.click();
+  assert.equal(executeBodies[1].plan_id,'plan-1');
+  assert.notEqual(executeBodies[0].request_key,executeBodies[1].request_key,'a later action uses a new key even with the same snapshot');
+  executeFailure=true;await elements['v3-execute-now'].events.click();
+  const unknownKey=executeBodies[2].request_key;
+  assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),unknownKey);
+  assert.match(elements['v3-result'].textContent,/尚未确认.*更新统一状态.*沿用该请求编号/);
+  executeFailure=false;await elements['v3-execute'].events.click();
+  assert.equal(executeBodies[3].request_key,unknownKey,'unknown results reuse the original key');
+  await elements['v3-execute-now'].events.click();
+  assert.notEqual(executeBodies[4].request_key,unknownKey,'the next confirmed intent is unique');
+  executeReplyMissing=true;await elements['v3-execute-now'].events.click();
+  const missingReceiptKey=executeBodies.at(-1).request_key;
+  assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),missingReceiptKey);
+  assert.match(elements['v3-error'].textContent,/回执缺少编号/);
+  executeReplyMissing=false;await elements['v3-execute-now'].events.click();
+  assert.equal(executeBodies.at(-1).request_key,missingReceiptKey,'missing receipt identities also reuse the same intent');
+  executeReject={status:400,error:'pricing_plan_required'};await elements['v3-execute-now'].events.click();
+  const rejectedKey=executeBodies.at(-1).request_key;
+  assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),null,'an explicit pre-enqueue refusal ends this unused request key');
+  assert.match(elements['v3-result'].textContent,/被拒绝.*当前没有可执行.*未登记新任务/);
+  assert.doesNotMatch(elements['v3-result'].textContent,/尚未确认/);
+  executeReject=null;await elements['v3-execute-now'].events.click();
+  assert.notEqual(executeBodies.at(-1).request_key,rejectedKey);
+  executeReject={status:503,error:'queue_unavailable'};await elements['v3-execute-now'].events.click();
+  const serverUnknownKey=executeBodies.at(-1).request_key;
+  assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),serverUnknownKey,'a server failure does not prove the write was rejected');
+  executeReject={status:400,error:'pricing_execute_payload_conflict'};await elements['v3-execute-now'].events.click();
+  assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),serverUnknownKey,'a conflict identifies an existing original request');
+  executeReject=null;
+  await elements['v3-execute-now'].events.click();
+  executeFailure=true;await elements['v3-execute-now'].events.click();
+  const unauthorizedUnknownKey=executeBodies.at(-1).request_key;
+  assert.equal(sessionStorage.getItem('fc-v3-execute-unknown-plan-1'),unauthorizedUnknownKey);
+  executeFailure=false;executeReject={status:403,error:'writer_required'};
+  await elements['v3-execute'].events.click();
+  assert.equal(executeBodies.at(-1).request_key,unauthorizedUnknownKey);
+  assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),unauthorizedUnknownKey,'a later 403 cannot erase an earlier unknown write');
+  assert.match(elements['v3-result'].textContent,/尚未确认/);
+  assert.doesNotMatch(elements['v3-result'].textContent,/未登记新任务/);
+  executeReject=null;await elements['v3-execute-now'].events.click();
+  assert.equal(executeBodies.at(-1).request_key,unauthorizedUnknownKey,'permission recovery reconciles the same request');
+  assert.equal(sessionStorage.getItem('fc-v3-execute-unknown-plan-1'),null);
+  await elements['v3-execute-now'].events.click();
+  assert.notEqual(executeBodies.at(-1).request_key,unauthorizedUnknownKey);
+  executeStatus='confirmation_pending';await elements['v3-execute-now'].events.click();
+  const pendingStatusKey=executeBodies.at(-1).request_key;
+  assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),pendingStatusKey,'a job key with unknown state is not a confirmed receipt');
+  executeStatus='queued';await elements['v3-execute-now'].events.click();
+  assert.equal(executeBodies.at(-1).request_key,pendingStatusKey);
   console.log('UI contract and state smoke passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });
