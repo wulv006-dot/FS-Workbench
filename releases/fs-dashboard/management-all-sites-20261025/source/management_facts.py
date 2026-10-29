@@ -8,6 +8,7 @@ from pathlib import Path
 SH=timezone(timedelta(hours=8))
 CONTRACT='fs-management-daily-v2'
 DATA_SCOPE='all-websites-v1'
+SOURCE_CONTRACT='admin-paid-order-labelled-supplement-v2'
 METRICS=('rev','ord','prof','new','aov','rep','ful','mar')
 def numeric(v):return type(v) in (int,float) and v==v and abs(v)<1e15
 def round2(v):return float(Decimal(str(v)).quantize(Decimal('.01'),rounding=ROUND_HALF_UP)) if numeric(v) else None
@@ -20,7 +21,7 @@ def metric(source,key):
 def project_summary(raw,profile,start,end):
  q=raw.get('query') or {};p=raw.get('profile') or {};a=p.get('supplement') or {};o=p.get('primary') or {}
  period={'start':start+' 00:00','end':(date.fromisoformat(end)+timedelta(days=1)).isoformat()+' 00:00'}
- if raw.get('scopeContractId')!='admin-main-order-labelled-supplement-v1' or p.get('key')!=profile or q.get('start')!=start or q.get('end')!=end or q.get('timezone')!='Asia/Shanghai' or q.get('profile')!=profile or q.get('period')!=period:raise ValueError('source_contract_mismatch')
+ if raw.get('scopeContractId')!=SOURCE_CONTRACT or p.get('key')!=profile or q.get('start')!=start or q.get('end')!=end or q.get('timezone')!='Asia/Shanghai' or q.get('profile')!=profile or q.get('period')!=period:raise ValueError('source_contract_mismatch')
  result=dict.fromkeys(METRICS);notes={};sources={}
  for name,src in [('Admin',a),('Order',o)]:
   meta=(raw.get('sources') or {}).get(name) or {}
@@ -34,7 +35,7 @@ def project_summary(raw,profile,start,end):
   return profile=='RS' and src.get('normalisedScope')=='rs-selected' and src.get('rsSelection')==dict(rs_site='all',rs_server='all',rs_category='all')
  if valid(a,'Admin'):
   filters=a.get('filters') or {}
-  if not all_sites(a) or filters.get('site')!='' or filters.get('date')!=[period['start'],period['end']] or ((a.get('metrics') or {}).get('revenueUsd') or {}).get('unit')!='USD':raise ValueError('admin_all_sites_contract_mismatch')
+  if not all_sites(a) or filters.get('site')!='' or filters.get('date')!=[period['start'],period['end']] or filters.get('pay_status')!=1 or filters.get('order_status')!='' or ((a.get('metrics') or {}).get('revenueUsd') or {}).get('unit')!='USD':raise ValueError('admin_all_sites_contract_mismatch')
   result.update(rev=metric(a,'revenueUsd'),ord=metric(a,'orders'))
   if not numeric(result['rev']) or result['rev']<0:result['rev']=None
   if type(result['ord']) is not int or result['ord']<0:result['ord']=None
@@ -48,7 +49,7 @@ def project_summary(raw,profile,start,end):
   if o.get('currency')=='USD' or native_rs:result['mar']=metric(o,'profitMarginPct')
  if numeric(result['rev']) and numeric(result['ord']) and result['ord']>0:result['aov']=round2(result['rev']/result['ord'])
  if numeric(result['rev']) and numeric(result['mar']):result['prof']=round2(result['rev']*result['mar']/100)
- notes.update(rev='Admin 全站销售额（USD）',ord='Admin 全站订单',aov='Admin 全站销售额÷订单',mar='Order 全站发货统计参考率' if profile=='RS' else 'Order 全站订单统计参考率',prof='Admin 全站销售额×Order 参考利润率；USD预估非实结，不是逐单实际成本毛利')
+ notes.update(rev='Admin 全站已付款销售额（USD）；付款后退款保留付款记录',ord='Admin 全站已付款订单；付款后退款保留付款记录',aov='Admin 全站已付款销售额÷已付款订单',mar='Order 全站发货统计参考率' if profile=='RS' else 'Order 全站订单统计参考率',prof='Admin 全站销售额×Order 参考利润率；USD预估非实结，不是逐单实际成本毛利')
  retained=any(src.get('capturedAt') and (raw.get('status')=='stale' or raw.get('stale') or src.get('stale') or src.get('status')=='pending') for src in sources.values())
  return {'dataScope':DATA_SCOPE,'freshness':'retained' if retained else 'fresh','values':result,'notes':notes,'sources':sources,'period':{'start':start,'end':end},'status':'available' if all(numeric(result[k]) for k in ('rev','ord','prof')) else 'partial' if any(numeric(v) for v in result.values()) else 'unavailable'}
 
@@ -99,14 +100,16 @@ def collect(at,targets,reader,*,cache=None,deadline_seconds=1800):
  at=at.astimezone(SH);day=at.date();period=periods(day,targets['period']);deadline=time.monotonic()+deadline_seconds
  cache=cache if cache is not None else {};errors=[]
  def query(profile,start,end,pin=False,required=('rev','ord','prof')):
-  key=fingerprint([profile,start,end,'admin-main-order-labelled-supplement-v1',DATA_SCOPE])
+  key=fingerprint([profile,start,end,SOURCE_CONTRACT,DATA_SCOPE])
   if pin and key in cache and cache[key].get('cacheCheckedOn')==day.isoformat() and all(numeric(cache[key]['values'].get(k)) for k in required):return cache[key]
   if time.monotonic()>=deadline:return {'values':dict.fromkeys(METRICS),'status':'unavailable','error':'collection_deadline'}
   try:
    row=read_query(reader,profile,start,end,deadline,required=required)
    if pin and row['status']=='available' and row['freshness']=='fresh':cache[key]=dict(row,cacheCheckedOn=day.isoformat())
    return row
-  except (ValueError,TimeoutError,OSError):return {'values':dict.fromkeys(METRICS),'status':'unavailable','error':'source_unavailable','period':{'start':start,'end':end}}
+  except (ValueError,TimeoutError,OSError) as error:
+   code=str(error) if isinstance(error,ValueError) and str(error) in ('source_contract_mismatch','admin_all_sites_contract_mismatch','source_denied') else 'source_unavailable'
+   return {'values':dict.fromkeys(METRICS),'status':'unavailable','error':code,'period':{'start':start,'end':end}}
  games=targets['overview']['games']
  def mapped(fn,items):
   with ThreadPoolExecutor(max_workers=2) as pool:return list(pool.map(fn,items))
