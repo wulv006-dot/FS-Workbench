@@ -812,7 +812,7 @@
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-10-29",
+      "effective_at": "2026-10-23",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
