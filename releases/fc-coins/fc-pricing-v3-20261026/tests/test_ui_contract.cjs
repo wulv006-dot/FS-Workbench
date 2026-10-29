@@ -60,14 +60,14 @@ const normalFetch = async (url, options = {}) => ({ ok: true, json: async () => 
   : url.endsWith('/pricing/v3/state') ? state : url.endsWith('/automation') ? { ...automation, can_manage_v3: canWrite }
   : url.endsWith('/monitor') ? monitor : url.endsWith('/player-sync') ? { enabled: true, revision: 1 } : {} });
 const executeBodies=[];
-let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,idSequence=0;
+let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,executeStatus='queued',idSequence=0;
 const fetch=async (url,options={})=>{
   if(url.endsWith('/pricing/v3/execute')){
     const body=JSON.parse(options.body);executeBodies.push(body);
     if(executeGate)await executeGate;
     if(executeFailure)throw Error('fixture network result unknown');
     if(executeReject)return {ok:false,status:executeReject.status,json:async()=>({error:executeReject.error})};
-    return {ok:true,json:async()=>executeReplyMissing?{status:'queued'}:({status:'queued',job_key:'manual:'+body.request_key})};
+    return {ok:true,json:async()=>executeReplyMissing?{status:'queued'}:({status:executeStatus,job_key:'manual:'+body.request_key})};
   }
   return normalFetch(url,options);
 };
@@ -210,5 +210,25 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   executeReject={status:400,error:'pricing_execute_payload_conflict'};await elements['v3-execute-now'].events.click();
   assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),serverUnknownKey,'a conflict identifies an existing original request');
   executeReject=null;
+  await elements['v3-execute-now'].events.click();
+  executeFailure=true;await elements['v3-execute-now'].events.click();
+  const unauthorizedUnknownKey=executeBodies.at(-1).request_key;
+  assert.equal(sessionStorage.getItem('fc-v3-execute-unknown-plan-1'),unauthorizedUnknownKey);
+  executeFailure=false;executeReject={status:403,error:'writer_required'};
+  await elements['v3-execute'].events.click();
+  assert.equal(executeBodies.at(-1).request_key,unauthorizedUnknownKey);
+  assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),unauthorizedUnknownKey,'a later 403 cannot erase an earlier unknown write');
+  assert.match(elements['v3-result'].textContent,/尚未确认/);
+  assert.doesNotMatch(elements['v3-result'].textContent,/未登记新任务/);
+  executeReject=null;await elements['v3-execute-now'].events.click();
+  assert.equal(executeBodies.at(-1).request_key,unauthorizedUnknownKey,'permission recovery reconciles the same request');
+  assert.equal(sessionStorage.getItem('fc-v3-execute-unknown-plan-1'),null);
+  await elements['v3-execute-now'].events.click();
+  assert.notEqual(executeBodies.at(-1).request_key,unauthorizedUnknownKey);
+  executeStatus='confirmation_pending';await elements['v3-execute-now'].events.click();
+  const pendingStatusKey=executeBodies.at(-1).request_key;
+  assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),pendingStatusKey,'a job key with unknown state is not a confirmed receipt');
+  executeStatus='queued';await elements['v3-execute-now'].events.click();
+  assert.equal(executeBodies.at(-1).request_key,pendingStatusKey);
   console.log('UI contract and state smoke passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

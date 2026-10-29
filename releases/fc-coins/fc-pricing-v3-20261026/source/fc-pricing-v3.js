@@ -292,17 +292,21 @@
     return action(async()=>{
       const plan=chosenPlan();
       if(!canWrite||!plan||plan.state!=='ACTIVE')throw Error('当前没有可执行的活动计划或操作权限');
-      const kind='execute-'+plan.plan_id,key=requestKey(kind);
+      const kind='execute-'+plan.plan_id,key=requestKey(kind),unknownKey='fc-v3-execute-unknown-'+plan.plan_id;
       try{
         const result=await request('execute',{request_key:key,plan_id:plan.plan_id});
         if(!result.job_key)throw Error('改价任务回执缺少编号，请按原请求核对');
-        clearKey(kind);
+        if(!['queued','running','done','failed'].includes(result.status))throw Error('原改价任务状态尚未确认，请按原请求核对');
+        clearKey(kind);sessionStorage.removeItem(unknownKey);
         $('v3-result').textContent=`改价任务已登记，编号 ${result.job_key}（${statusText(result.status)}）。按当前计划重新采集、核算并按规则改价；实际结果以执行状态和读回为准。`;
       }catch(error){
-        if(error.httpStatus>=400&&error.httpStatus<500&&error.httpStatus!==408&&error.message!=='pricing_execute_payload_conflict'){
+        if(sessionStorage.getItem(unknownKey)!==key&&error.httpStatus>=400&&error.httpStatus<500&&error.httpStatus!==408&&error.message!=='pricing_execute_payload_conflict'){
           clearKey(kind);
           $('v3-result').textContent=`本次改价请求被拒绝：${errorText(error)}。未登记新任务，修正后可重新执行。`;
-        }else $('v3-result').textContent=`改价请求 ${key} 尚未确认；请先更新统一状态核对。再次点击将沿用该请求编号，不重复登记。`;
+        }else{
+          sessionStorage.setItem(unknownKey,key);
+          $('v3-result').textContent=`改价请求 ${key} 尚未确认；请先更新统一状态核对。再次点击将沿用该请求编号，不重复登记。`;
+        }
         throw error;
       }
     });
