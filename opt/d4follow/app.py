@@ -2044,7 +2044,14 @@ def _iggm_source_decide(cfg, log=None, dry=False):
     why         中文说明（写日志/下发前端）
     """
     m = _iggm_source_mode(cfg)
-    local = _iggm_local_recent()
+    # 「本机在线」的判定窗口必须走 config（2026-10-29 修）：
+    # 原来这里调 _iggm_local_recent() 不传参，吃的是函数默认 4200 秒，
+    # config.iggm.本机推送有效分钟 改了等于没改（默认值恰好也是 70 分钟，一直没暴露）。
+    try:
+        _vm = float(cfg_get(cfg, "iggm.本机推送有效分钟", 70) or 70)
+    except Exception:
+        _vm = 70.0
+    local = _iggm_local_recent(max_age_s=max(60.0, _vm * 60.0))
     age_txt = ("本机 %.0f 分钟前推过 %d 条"
                % (local["age_s"] / 60.0, int(local.get("saved") or 0))) if local else "本机无新鲜推送"
     d = {"mode": m, "label": IGGM_SOURCE_LABELS[m], "local": local,
