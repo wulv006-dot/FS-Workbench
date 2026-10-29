@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
+import {isDeepStrictEqual} from 'node:util';
 import core from './funnel-core.cjs';
 export function atomic(file,value){
  fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});
@@ -25,7 +26,10 @@ export function makeStore(dir,catalog,registry){
  const read=()=>fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{revision:0,registry:core.validateRegistry(registry),layout:initialLayout(catalog),operations:[],updatedAt:null,updatedBy:null};
  return {read,save({revision,operationId,registry:next,layout},user){
   if(!/^[a-f0-9-]{36}$/.test(operationId||''))throw Error('操作 ID 无效');
-  const current=read(),payload={registry:core.validateRegistry(next),layout:validateLayout(layout,catalog)};
+  const current=read();
+  // A registry-only save must preserve the server's accepted layout across catalog version changes.
+  const retained=current.revision>0&&isDeepStrictEqual(layout,current.layout);
+  const payload={registry:core.validateRegistry(next),layout:retained?structuredClone(current.layout):validateLayout(layout,catalog)};
   const hash=createHash('sha256').update(JSON.stringify(payload)).digest('hex'),prior=current.operations.find(o=>o.id===operationId);
   if(prior){if(prior.hash!==hash)throw Error('操作 ID 已用于另一份配置');return current;}
   if(revision!==current.revision){const e=Error('配置已被其他人更新，请重新加载后再保存');e.status=409;throw e;}
