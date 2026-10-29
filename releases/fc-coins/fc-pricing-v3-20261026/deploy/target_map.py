@@ -1,10 +1,11 @@
 """Exact V3 code targets; the knowledge catalog has a separate immutable release."""
 from pathlib import Path
 
-TARGET_COUNT = 98
+TARGET_COUNT = 99
 
-DELTA_SCOPE='fc-pricing-v3-two-mode-shadow-reply-20261027'
-DELTA_NAMES=tuple(prefix+'fc_pricing_v3/history.py' for prefix in ('source/','source/hermes-copy/'))
+DELTA_SCOPE='fc-pricing-v3-ps-latest-six-cost-20261029'
+DELTA_NAMES=('source/collect_p2pah_cost.py','source/snapshot_layer.py','source/pricing_simulation.py',
+             'source/fc_pricing_v3/financial.py','source/hermes-copy/fc_pricing_v3/financial.py')
 DELTA_NEW=frozenset()
 SHADOW_SCOPE = 'fc-pricing-v3-sqlite-shadow-20261026'
 SHADOW_NAMES = tuple(prefix + 'fc_pricing_v3/' + name for prefix in ('source/', 'source/hermes-copy/')
@@ -26,7 +27,7 @@ OPERATING_NEW=frozenset(prefix+'fc_pricing_v3/'+name for prefix in ('source/','s
 def targets(source):
     source = Path(source)
     rows = {}
-    for name in ('automation_policy.py', 'automation_tick.py', 'clear_cache_after_write.py',
+    for name in ('collect_p2pah_cost.py', 'automation_policy.py', 'automation_tick.py', 'clear_cache_after_write.py',
                  'clear_cache_after_write.sh', 'coin_all_sync_job.py', 'execute_price.sh',
                  'fc27_cloud_api.py', 'fc27_cloud_worker.py', 'fc27_quote_engine.py',
                  'hermes_pricing_bridge.py', 'itemd2r_reader.py', 'player_sync_job.py', 'price_writer.py', 'pricing_state.py',

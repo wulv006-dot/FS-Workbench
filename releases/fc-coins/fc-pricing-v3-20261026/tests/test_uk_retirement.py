@@ -6,7 +6,7 @@ from unittest.mock import Mock,patch
 import json,sys,unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
-from fixtures import fixture,NOW
+from fixtures import fixture,NOW,set_console_cost
 from fc_pricing_v3 import api,adapters,runtime,region_source,uk_retirement as uk
 from fc_pricing_v3.financial import fingerprint
 from fc_pricing_v3.ledger import Ledger
@@ -18,6 +18,7 @@ def evidence():
     data=fixture()[0];data['run_id']=RUN
     for p in ('PS','XBOX','PC'):
         data['costs'][p]['cny_per_1k']='0.10';data['storefront']['rows'][p]['package_usd']='20'
+    set_console_cost(data)
     data['regional_controls']=[]
     data['region_rules']=[dict(id=1,region_id=39,platforms=['PS','XBOX','PC'],factor='.9100',verified=True,
         price_semantics='regional_regular_multiplicative',rounding='half_up_cent',
@@ -71,6 +72,7 @@ class UKRetirement(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'rule_changed'):self.calculate(db,plan,data)
             data=evidence()
             for p in ('PS','XBOX','PC'):data['costs'][p]['cny_per_1k']='100'
+            set_console_cost(data)
             with self.assertRaises(ValueError):self.calculate(db,plan,data)
 
     def test_transport_disables_one_exact_row_and_retains_its_value_and_other_rules(self):

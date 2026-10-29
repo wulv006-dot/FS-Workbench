@@ -140,6 +140,8 @@ def cost_snapshots(run_id: str, payload: dict) -> list[dict]:
         if checked.tzinfo is None or abs((datetime.now(timezone.utc) - checked).total_seconds()) > 3600:
             raise ValueError("cost_capture_stale")
         result.append({**row, "run_id": run_id})
+    from fc_pricing_v3.financial import common_cost
+    common_cost({'costs': {row['platform']: row for row in result}})
     return result
 
 

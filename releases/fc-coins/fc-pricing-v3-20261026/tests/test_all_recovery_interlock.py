@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
-from fixtures import fixture,NOW
+from fixtures import fixture,NOW,set_console_cost
 from fc_pricing_v3 import runtime,adapters,uk_retirement
 from fc_pricing_v3.ledger import Ledger
 from fc_pricing_v3.financial import LEGACY_FINANCIAL_CONTRACT_VERSION
@@ -99,6 +99,7 @@ class ALLRecoveryInterlock(unittest.TestCase):
         data=deepcopy(self.data);data['costs'].pop('PC');cases.append((data,None))
         data=deepcopy(self.data)
         for p in runtime.PLATFORMS:data['costs'][p]['cny_per_1k']='100'
+        set_console_cost(data)
         cases.append((data,None))
         for data,reason in cases:
             with self.subTest(reason=reason):
