@@ -1,25 +1,24 @@
+<!-- fc-100k-package-current-20261029 -->
+## 2026-10-29 FC自动定价最终有效补充（覆盖后文冲突旧规则）
+
+2026-10-29 用户最终确认：`daily`与`revenue_sprint`统一以购买100K、另赠5K（实际交付105K）这一档作为双20财务基准。小额、其他档位及全整数K不再作为当前自动定价的硬门槛；原商品、数量、赠送与诊断能力保留。成本、八日优惠金额结构、汇率、地区及分币舍入仍须真实核算。旧全目录门槛仅保留历史用途，不得从旧文档或相同版本标签恢复。
+
+冲销售额仍比较同轮Lootbar无券与ItemD2R较低的实际交付单价，目标低5–10%；该区间不合本档双20时，自动取100K档最低合法价并明确竞争目标未达，不切换更高竞品锚点。Saudi原优惠系数若使100K购买+赠5K档的任一20%红线失守，自动归1并继承全球；对应平台缺有效Arab-UT普通价时仍归1。Saudi按实际平台独立核验，不复制PS报价给PC，不为保留破线旧系数抬高全球价。英国旧ID1/0.9100已取消，当前系数1继承全球，原历史行和回执保留。
+
+财务合同版本仍为fc27_dual20_d9_d2_v2，八日窗口D-9至D-2、原计划/ID/60分钟及writer/锁/CAS/UNKNOWN保持；新证明必须显式pricing_scope=100k_package_only，同名v2标签不能恢复旧full-catalog门槛。旧数量门槛已退出本文件执行正文，历史副本不能恢复为指令。代码、合并、部署、首次真实写价及自然周期分别验收，不拿规则文档当新scope已生效。详细规则见[现行合同](docs/planning/fc-pricing-v3-20261026/DUAL20-NO-BUDGET-CHANGE.md)。
+
 <!-- admin-api-direct-takeover-20261028 -->
 ## 本轮接管与直接 API（2026-10-28 用户确认）
 
 本轮以[当前修复合同](docs/planning/admin-recovery-review-20261028/CONTRACT.md)为准：Admin 默认全部直接 HMAC API，只有经证明的极特殊例外才可用8767绑定DC，否则最终退役8767；这覆盖下方旧会话/OCR和保留封装回退条款。FC保留原Order writer，Admin读取/同步/核价走API；Price原价展示保持，实际单价核unit_price。看板销售统一全部已付款，毛利仍已核完成子集。P0→P3优先推进，另补P4多人并发，保护原ID、双20及自动化能力，不新增无依据的防御门禁。WorkBuddy已停止这些模块施工，由本轮Codex接管。
 
-<!-- fc-v3-dual20-no-budget-current-20261027 -->
-## FC27 V3 当前有效规则（2026-10-27，覆盖冲突旧条款）
-
-只启用 `daily` 日常运营与 `revenue_sprint` 冲销售额；拉新、积压、限时促销退出计划入口、生产决策、自动取数和每日影子。程序每60分钟采集并执行当前策略，间隔可配置；结束时间可空，留空持续运行，既有计划原期限不自动延长。不设预算、预占、耗尽暂停或逐轮Hermes审批。Hermes每日一次专用定价通道只读效果复盘和建议，本阶段不自动切策略或写价；每日02:20只用已存时段快照运行两模式影子，不补采、不写价、不用模拟订单训练。
-
-Lootbar无券与ItemD2R按实际平台、实际金币数量、普通配送/原报价口径归一；ItemD2R按原100K计算，取消5K礼包等值估算。Saudi21有同轮Arab-UT普通价时比较；对应平台缺价时明确标缺、授权系数1跟全球，不拿PS填PC。ELD/U4GM/IGGM/U7Buy仅FC自动采集退役，其他游戏与历史证据保留。英国唯一临时ID1/0.9100已停用，三平台继承全球，其他优惠不删。
-
-沿原全目录财务算法执行未优惠及七完整日真实优惠金额结构平均双20，含赠送、整数K、地区和舍入。历史付款状态变化按同窗口原生Admin/ES重建同一群体，采集与写前核一致；不跳过财务证明。冲量锚点低5–10%、偏好7.5%，ItemD2R接替和明确标注的合法底价按专项合同。每轮只选一套最终方案，基础价最多更新一次、必要地区系数各一次；所有中间状态守双20，最终核竞争区间，中间允许暂时更便宜但不得越过竞争价格上限。不得恢复多次基础价过渡、旧加权/钉价/回摆或重复调度。UNKNOWN先核原ID，不换ID盲重放。
-
-当前活动代码以SOURCE-MAP逐文件读回为准，影子接收修复源642e579已受控发布，92/92实际目标匹配。主改动PR547及共享规则清理PR548已合并并通过正式239项FC/87项知识检查；本次修复240项本地FC检查与服务器两场景隔离测试通过，正式CI另记。10:42真实改价完成；11:42自然轮已于11:45:56完成NO_CHANGE、双20及全球/Saudi公开核实，后台步骤0、无重复写入。当前ACTIVE、60分钟，下轮12:45:56，原22:30截止不变。最终教材7已发布17目标，原13条真实装载。新两模式跨日影子及长期效果仍待自然时点。
-
-规则、参数和完整用法见 `docs/planning/fc-pricing-v3-20261026/{DUAL20-NO-BUDGET-CHANGE,HERMES-OPERATING-CONTRACT,SIMPLIFIED-OPERATING-CONTRACT,USER-GUIDE}.md`；当前源及验收见同目录SOURCE-MAP与TWO-MODE-SIMPLE-ACCEPTANCE-20261027。下方冲突五策略、双10、旧预算、礼包估算和逐轮Hermes规则均仅作历史，不能恢复生产控制。
+<!-- fc-v3-historical-rules-archived-20261029 -->
+旧FC定价规则已移至[历史记录](docs/planning/fc-pricing-v3-20261026/history/AGENTS-FC-RULES-BEFORE-100K-20261029.md)，不属于执行指令；当前仅使用本文件顶部100K基准及链接的现行合同。
 
 <!-- business-filter-layout-current-20261025 -->
 ## 经营面板范围与游戏筛选（2026-10-25）
 
-PR470/474已合并并沿原publisher分11+1目标发布；本次12个目标的源码与生成路由精确清单见SOURCE-MAP，源码沿releases/fs-dashboard/dashboard-refresh-20261025/source/维护，其他文件保持各自活动源。网站范围→分组游戏→时间，RS三站锁RS；旧summary未传网站仍取原全站，毛利独立缓存兼容，FC明细网站联动。当前合同、逐链路影响、活动SHA和实际验收见docs/planning/business-filter-layout-20261025/。原成本/权限/会话/调度及v15双红线与本轮V3定价合同不变；不把Git候选目录或文件装配当新模型/自然周期验收。
+PR470/474已合并并沿原publisher分11+1目标发布；本次12个目标的源码与生成路由精确清单见SOURCE-MAP，源码沿releases/fs-dashboard/dashboard-refresh-20261025/source/维护，其他文件保持各自活动源。网站范围→分组游戏→时间，RS三站锁RS；旧summary未传网站仍取原全站，毛利独立缓存兼容，FC明细网站联动。当前合同、逐链路影响、活动SHA和实际验收见docs/planning/business-filter-layout-20261025/。原成本/权限/会话/调度及当前FC定价合同保持；不把Git候选目录或文件装配当新模型/自然周期验收。
 
 <!-- operator-report-core-current-20261025 -->
 ## 所有报告的生成与审核核心（2026-10-25用户明确纠正）
@@ -29,22 +28,22 @@ Hermes及Codex/ChatGPT产出、指导或审核任何报告、文字分析，优�
 <!-- dashboard-refresh-current-20261025 -->
 ## 经营看板八主卡与刷新（2026-10-25）
 
-用户已确认同范围旧值先展示、顶部提示刷新并替换；默认销售额、订单数、毛利、毛利率、新客人数、复购率、新客占比、客单价八卡，其他收起。来源、历史更正核验、当前积压与未支付来源缺口，见 `docs/planning/business-dashboard-refresh-20261025/CONTRACT.md`；活动源码与正式发布/验收见同目录SOURCE-MAP和ACCEPTANCE。不改变逐单毛利公式、权限、会话、调度、v15双红线与本轮V3定价合同；Git候选知识不冒充生产目录或真实模型应用。
+用户已确认同范围旧值先展示、顶部提示刷新并替换；默认销售额、订单数、毛利、毛利率、新客人数、复购率、新客占比、客单价八卡，其他收起。来源、历史更正核验、当前积压与未支付来源缺口，见 `docs/planning/business-dashboard-refresh-20261025/CONTRACT.md`；活动源码与正式发布/验收见同目录SOURCE-MAP和ACCEPTANCE。不改变逐单毛利公式、权限、会话、调度、当前FC定价合同；Git候选知识不冒充生产目录或真实模型应用。
 
 <!-- dashboard-actual-profit-current-20261024 -->
 ## 经营看板利润主展示（2026-10-24）
 
-用户已授权用逐单实际成本毛利、毛利率和覆盖情况替换发货利润卡与每日曲线。有效合同见`docs/planning/business-actual-profit-20261024/CONTRACT.md`；新活动源及上线状态见同目录SOURCE-MAP与ACCEPTANCE。Admin同批付款完成订单整单CNY收入减同网站同订单Order实际历史成本，覆盖单不外推全体；未完成、缺收入/成本和失败明确展示。每日按同批付款日期分组；发货统计主展示及自动读取退役，原Hermes按需查询保留。RS筛选保持，FC未核细分不显示整游戏利润。不改FC v15双红线与本轮V3定价合同、调度、权限与UNKNOWN。本段覆盖旧看板shipping主展示规则，旧证据保留。服务器业务基准仅追加本规则，并仅更新原wulv/FS/fs完整基准兼容SHA；不把Git候选目录声称为已发布知识目录或真实模型验收。
+用户已授权用逐单实际成本毛利、毛利率和覆盖情况替换发货利润卡与每日曲线。有效合同见`docs/planning/business-actual-profit-20261024/CONTRACT.md`；新活动源及上线状态见同目录SOURCE-MAP与ACCEPTANCE。Admin同批付款完成订单整单CNY收入减同网站同订单Order实际历史成本，覆盖单不外推全体；未完成、缺收入/成本和失败明确展示。每日按同批付款日期分组；发货统计主展示及自动读取退役，原Hermes按需查询保留。RS筛选保持，FC未核细分不显示整游戏利润。不改FC 当前FC定价合同、调度、权限与UNKNOWN。本段覆盖旧看板shipping主展示规则，旧证据保留。服务器业务基准仅追加本规则，并仅更新原wulv/FS/fs完整基准兼容SHA；不把Git候选目录声称为已发布知识目录或真实模型验收。
 
 <!-- business-shipping-profit-current-20261024 -->
 ## 经营看板利润计算规则（2026-10-24）
 
-全局/分游戏主利润与每日曲线按Order“统计管理→发货统计”同网站、游戏、原生类目、交易时间取人民币销售减采购；分游戏原生率、全局总利润÷总销售，不再用Admin付款USD乘参考率。零分母率不适用，未知不补零，负利润保留，非净利润；同订单Admin整单人民币收入减Order实际成本及覆盖证明独立展示。规则见[业务基准专项补充](docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md#看板发货利润2026-10-24用户确认并上线)及[计算合同](docs/planning/business-shipping-profit-20261024/CONTRACT.md)。PR435/436已上线，活动源见[交付与版本](docs/planning/business-shipping-profit-20261024/DELIVERY.md)。仅看板Shipping字段迁移；旧primary兼容、Hermes其他报告、定价v15、权限/会话/调度和原UNKNOWN保持。Git文档/候选知识与生产装入、模型实际使用分别验收。
+全局/分游戏主利润与每日曲线按Order“统计管理→发货统计”同网站、游戏、原生类目、交易时间取人民币销售减采购；分游戏原生率、全局总利润÷总销售，不再用Admin付款USD乘参考率。零分母率不适用，未知不补零，负利润保留，非净利润；同订单Admin整单人民币收入减Order实际成本及覆盖证明独立展示。规则见[业务基准专项补充](docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md#看板发货利润2026-10-24用户确认并上线)及[计算合同](docs/planning/business-shipping-profit-20261024/CONTRACT.md)。PR435/436已上线，活动源见[交付与版本](docs/planning/business-shipping-profit-20261024/DELIVERY.md)。仅看板Shipping字段迁移；旧primary兼容、Hermes其他报告、当前FC定价合同、权限/会话/调度和原UNKNOWN保持。Git文档/候选知识与生产装入、模型实际使用分别验收。
 
 <!-- fc27-report-method-current-20261024 -->
 ## FC27经营报告字段与呈现
 
-FC27经营报告先按[字段使用与呈现规则](docs/planning/fc27-daily-teaching-20261024/REPORT-RULES.md)定位相关教材：逐字段核来源、范围、单位、分母、计算、允许结论及主动补查；日期和数字是历史实例，新任务重取证。可比数据优先图表，多维指标按需切换；Ads/流量提高分析权重并置于发货履约之前，本次日报默认04获客、05利润目标、06履约。详细界面设计仍由Hermes自主，不扩为FS全站UI要求，不改预算或业务执行权。Git追溯、项目入口、正式技能、任务实际加载和长期应用分别验收；只入Git不等于服务器自动生效。Admin优先/Order补缺、现行业务基准、v15及原调度/权限保持。
+FC27经营报告先按[字段使用与呈现规则](docs/planning/fc27-daily-teaching-20261024/REPORT-RULES.md)定位相关教材：逐字段核来源、范围、单位、分母、计算、允许结论及主动补查；日期和数字是历史实例，新任务重取证。可比数据优先图表，多维指标按需切换；Ads/流量提高分析权重并置于发货履约之前，本次日报默认04获客、05利润目标、06履约。详细界面设计仍由Hermes自主，不扩为FS全站UI要求，不改预算或业务执行权。Git追溯、项目入口、正式技能、任务实际加载和长期应用分别验收；只入Git不等于服务器自动生效。Admin优先/Order补缺、现行业务基准、当前FC财务scope及原调度/权限保持。
 
 <!-- fc-v3-current-20261026 -->
 现行FC规则以本文件顶部双模式合同为准；旧五策略、旧加权与预算不得覆盖新规则。

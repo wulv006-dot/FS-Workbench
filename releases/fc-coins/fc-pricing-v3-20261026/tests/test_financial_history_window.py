@@ -88,10 +88,13 @@ class FinancialHistoryWindow(unittest.TestCase):
         self.assertEqual(model['groups'],{});self.assertIsNone(model['history_observed_at'])
         self.assertEqual(model['forecast_basis'],'relative_100k_price_prior_not_observed_orders')
 
-    def test_financial_numerical_functions_unchanged_from_frozen_dual20_baseline(self):
+    def test_money_functions_frozen_with_authorized_100k_catalog_scope(self):
         # Frozen LF function source from d1b17e57e24d61ea65069bbfc5cc5f0d4825527b.
         # Source segments avoid version-dependent ast.dump fields on Python 3.9/3.11+.
         expected={'number': '6e76e6794cfbc2633384c17ac2ad2bea52c0e00de15f4d6c68261a43681d5375', 'hard_floor': '1895d936edcb076cd64a05150cc67ed3b506b4a3221c93a251577516f156956e', 'prove_price': '2e731227d5bd1eb1cacf6453b144e31d463423ae0385d040ff93e654aab63797', 'catalog_floor': '093a7ffcffb583a5d5a482214d1d9c9429cb2f4401d3a0404be62bfb395308b4', 'prove_catalog': '71cd8bca441930475df55db0216e61623abb23798c94a2733134647a9060c46d', 'average_margin': 'c9804b8c250b835bd0d15aafae289fcc26a2d868cce2c464e7d1bd51f99841a9'}
+        # Only the authorized 100K floor/proof replace the frozen catalog functions.
+        expected.update(catalog_floor='581a016f029ceffb2693155bd05eb068644d9fd21275472ff20360f537c7537a',
+                        prove_catalog='73c90316b2aed65864a31575c23e286d6ce764dd5cb623a1a4501240a5835763')
         source=(SOURCE/'fc_pricing_v3/financial.py').read_text(encoding='utf-8').replace('\r\n','\n')
         functions={node.name:hashlib.sha256(ast.get_source_segment(source,node).encode('utf-8')).hexdigest()
                    for node in ast.parse(source).body if isinstance(node,ast.FunctionDef) and node.name in expected}

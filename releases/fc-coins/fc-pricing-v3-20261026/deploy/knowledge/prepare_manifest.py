@@ -12,11 +12,11 @@ from release import PREFIX, RELEASE, RUNTIME, SCOPE, load_base, targets
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
 FS_ROOT = Path('/var/lib/fs-hermes-fc/fs')
-OLD_BASELINE_SHA = 'adc370f6c173f82e9b34179b31827e4569bfd9e8c5310ec4ed40bdfeb25776da'
-NEW_BASELINE_SHA = '4ee3c766966f0eaee05c59d3a01d0186fa34a4c93923403ad3841a2adea6b633'
-OLD_POLICY_SHA = 'd44bfe4b2dce0603643c6f47190c81aa3df2281e68f76bb6fbec62c15f08938d'
-OLD_CATALOG = 'knowledge-releases/users-storage-20261029-1/index.json'
-OLD_CATALOG_SHA = 'a34d5ff0962d93397d1d08e5def81380356a9d3d9e2df87e7ea3e4936a031cd0'
+OLD_BASELINE_SHA = '4ee3c766966f0eaee05c59d3a01d0186fa34a4c93923403ad3841a2adea6b633'
+NEW_BASELINE_SHA = '6d150c129ad1302f18879f00b22033530ca42d666b0c650c5baab18352585880'
+OLD_POLICY_SHA = '5dfeae7efd57b25b8f738f217f02ece9a06aabb0afc195924f8e3b2d7ba1dbbe'
+OLD_CATALOG = 'knowledge-releases/fc-pricing-v3-20261026-11/index.json'
+OLD_CATALOG_SHA = '41202a8f6adbd64cc628fcc3c981e4e4db250f530c5e4d1b8e7b010f79b7789b'
 
 
 def sha(path):

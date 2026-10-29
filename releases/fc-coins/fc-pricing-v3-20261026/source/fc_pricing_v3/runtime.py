@@ -438,7 +438,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
             if market['decision_type']=='floor_fallback':
                 if receipt.get('decision_type')!='floor_fallback' or receipt['action']['region_coefficients'][key] not in market['legal_coefficients']:raise ValueError('pricing_regional_fallback_not_minimum_legal_price')
             elif market['decision_type']=='regional_follow_global':
-                if number(receipt['action']['region_coefficients'][key])!=1:raise ValueError('pricing_saudi_missing_quote_must_follow_global')
+                if number(receipt['action']['region_coefficients'][key])!=1:raise ValueError('pricing_saudi_follow_global_factor_must_be_one')
             elif not number(limits['unit_low'])<=price<=number(limits['unit_high']):raise ValueError('pricing_regional_competitive_band')
     if for_execution:
         if now>=instant(receipt['valid_until']) or not receipt['execution_authorized']:

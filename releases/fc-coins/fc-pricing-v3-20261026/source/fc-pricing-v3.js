@@ -177,7 +177,7 @@
         details.append(node('p',`采购成本 $${Number(basis.cost_usd_per_1k).toFixed(4)} / 1K（¥${Number(basis.cost_cny_per_1k).toFixed(4)}）`),
           node('p',`${basis.delivered_k}K 含赠套餐成本 ${usd(basis.package_cost_usd)}`),
           node('p',`未优惠红线 ${usd(basis.regular_floor_usd)} · 当前${currentMargin}`),node('p',`${averageWindow} ${usd(basis.average_floor_usd)} · 当前${averageMargin}`),
-          node('p',`成本采集 ${when(basis.cost_checked_at)}；当前利润按上方公开价与含赠套餐成本计算，底价覆盖全目录，地区另核。`));
+          node('p',`成本采集 ${when(basis.cost_checked_at)}；${market.price_basis.pricing_scope==='100k_package_only'?'双20只按购买100K、赠送5K这一档核算，地区实际售价另核。':'此为旧范围成本快照，等待100K新口径采集。'}`));
       }
       for(const platform of ['PS','XBOX','PC']){
         const column=node('article');column.className='market-platform';column.append(node('h3',platform==='XBOX'?'Xbox':platform));
@@ -229,7 +229,7 @@
     table('v3-regions',matrix);
     table('v3-operations',(state.operations||[]).map(o=>[o.created_at,names[o.bundle?.mode]||(o.bundle?.maintenance_purpose==='retire_uk_discount_v1'?'英国临时折扣退出':'待核'),statusText(o.status),o.operation_id,statusText(o.readback?.public?.status),statusText(o.cache_receipt?.status)]));
     table('v3-incidents',(state.incidents||[]).map(i=>[i.code,i.dependency,statusText(i.state),i.first_seen,i.last_seen,i.attempt]));
-    $('v3-proof-notes').textContent=`双红线：未优惠及D-9至D-2八个完整日真实优惠金额结构估算平均采购毛利都至少 20%。成本、竞品及汇率取本轮。不设让利或负贡献预算额度。全球核心参考 Lootbar 与 ItemD2R；Saudi Arabia 另核 Arab 普通报价。英国临时优惠退出与实际读回单独留档，历史不改。${latest?.bundle?.financial_contract_version==='fc27_dual20_v1'?'当前展示的原操作仍为当时七日证明，不代表新八日验收。':''}${matrix.length?'下表展示已获得的地区证明；缺项保持待核。':'本轮地区证明尚未取得。'}`;
+    $('v3-proof-notes').textContent=`双红线：购买100K、赠送5K档未优惠及D-9至D-2八个完整日真实优惠金额结构估算平均采购毛利都至少 20%。成本、竞品及汇率取本轮。小额与其他档位不作为自动定价硬门槛。全球核心参考 Lootbar 与 ItemD2R；Saudi Arabia 另核 Arab 普通报价，破线时系数归1；英国系数1。${latest?.bundle?.financial_proof?.pricing_scope!=='100k_package_only'&&latest?'下表最近原操作为旧口径历史证明，不代表100K新口径验收。':''}${matrix.length?'下表展示已获得的地区证明；缺项保持待核。':'本轮地区证明尚未取得。'}`;
     writeControls();
     list.disabled=!plans.length;
     $('v3-plan-stop').disabled=!canWrite||!plan||['ENDED','ENDING'].includes(plan.state);

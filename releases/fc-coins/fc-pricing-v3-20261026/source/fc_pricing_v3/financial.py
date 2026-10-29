@@ -1,6 +1,6 @@
-"""Current dual20 threshold over the original full financial algorithm; dual10 is archived for replay."""
+"""Dual20 on the actual 100K package and gifts; other sizes are outside the hard pricing floor."""
 from datetime import datetime, timezone, timedelta
-from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_DOWN
+from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_DOWN, ROUND_HALF_UP
 import hashlib
 import json
 MARGIN_BASIS = 'undiscounted_and_historical_average_v2'
@@ -13,6 +13,7 @@ STEP = Decimal('.0001')
 CONSOLE = ('PS', 'XBOX')
 CONSOLE_COST_CONTRACT = 'ps_latest_six_valid_order_delivery_max_v1'
 ROUNDING_RESERVE = Decimal('.02')
+PRICING_SCOPE = '100k_package_only'
 def number(value, *, zero=False):
     if value is None or isinstance(value, bool):
         raise ValueError('pricing_number_invalid')
@@ -149,37 +150,38 @@ def prove_price(unit, cost_cny, fx, delivered_k, base_k, ratio, minimum=HARD_MAR
                 procurement_margin_pct=str((gross-cost)/gross*100), minimum_margin_pct=str(minimum))
 
 
+def package_100k(rules):
+    tiers=[tier for tier in rules['tiers'] if number(tier['base_k'])==100]
+    if len(tiers)!=1:raise ValueError('pricing_100k_package_required')
+    tier=tiers[0]
+    if number(tier['retained_ratio'])>1 or number(tier['bonus_k'],zero=True)>100:
+        raise ValueError('pricing_package_invalid')
+    return tier
+
+
 def catalog_floor(cost, fx, ratio, minimum, rules, *, average_ratio=None):
     margin=number(minimum,zero=True)
     hard_floor(cost,fx,1,ratio,minimum)
-    qty=number(rules['min_custom_k'])
-    retained=number(rules['minimum_package_retained_ratio'])
-    delivered=number(rules['max_delivered_ratio'])
-    if qty<1 or qty!=qty.to_integral_value() or retained>1 or not 1<=delivered<=2:
-        raise ValueError('pricing_catalog_bounds_invalid')
-    # At any q >= minimum, two downward cent roundings cost less than this bound.
-    settlement=2*CENT/qty
+    tier=package_100k(rules)
     historical=number(average_ratio) if average_ratio is not None else Decimal(1)
     if historical>1:raise ValueError('pricing_historical_mix_ratio_invalid')
-    unit=(number(cost)/number(fx)*delivered/(historical*(1-margin/100))+settlement)/retained
-    return unit.quantize(STEP,rounding=ROUND_CEILING)
+    required=(number(cost)/number(fx)*(100+number(tier['bonus_k'],zero=True))/(historical*(1-margin/100))).quantize(CENT,rounding=ROUND_CEILING)
+    return ((required-CENT/2)/number(tier['retained_ratio'])).quantize(CENT,rounding=ROUND_CEILING)/100
 
 
 def prove_catalog(unit,cost,fx,ratio,minimum,rules, *, average_ratio=None):
-    if number(unit)<catalog_floor(cost,fx,ratio,minimum,rules):raise ValueError('pricing_catalog_hard_margin_floor')
+    tier=package_100k(rules)
+    public=(number(unit)*100*number(tier['retained_ratio'])).quantize(CENT,rounding=ROUND_HALF_UP)
+    proof=prove_price(public/100,cost,fx,100+number(tier['bonus_k'],zero=True),100,ratio,minimum)
     floor=catalog_floor(cost,fx,ratio,minimum,rules,average_ratio=average_ratio)
-    if number(unit)<floor:
-        raise ValueError('pricing_average_catalog_margin_floor' if average_ratio is not None else 'pricing_catalog_hard_margin_floor')
-    tiers=[prove_price(number(unit)*number(t['retained_ratio']),cost,fx,
-                       number(t['base_k'])+number(t['bonus_k'],zero=True),
-                       t['base_k'],ratio,minimum) for t in rules['tiers']]
-    average_margins=[(number(t['public_usd'])*number(average_ratio)-number(t['delivered_cost_usd']))/(number(t['public_usd'])*number(average_ratio))*100 for t in tiers] if average_ratio is not None else []
-    if average_margins and min(average_margins)<number(minimum):raise ValueError('pricing_average_margin_floor')
-    return dict(minimum_unit_usd=str(floor),minimum_custom_k=rules['min_custom_k'],margin_basis=MARGIN_BASIS,
-                all_integer_custom_quantities_covered=True,published_packages=len(tiers),
+    average_net=public*number(average_ratio) if average_ratio is not None else None
+    average_margin=(average_net-number(proof['delivered_cost_usd']))/average_net*100 if average_net else None
+    if average_margin is not None and average_margin<number(minimum):raise ValueError('pricing_average_catalog_margin_floor')
+    return dict(minimum_unit_usd=str(floor),pricing_scope=PRICING_SCOPE,purchase_k='100',delivered_k=proof['delivered_k'],margin_basis=MARGIN_BASIS,
+                all_integer_custom_quantities_covered=False,published_packages=1,
                 historical_retained_ratio=str(average_ratio) if average_ratio is not None else None,
-                minimum_estimated_average_margin_pct=str(min(average_margins)) if average_margins else None,
-                worst_published_margin_pct=str(min(number(t['procurement_margin_pct']) for t in tiers)))
+                minimum_estimated_average_margin_pct=str(average_margin) if average_margin is not None else None,
+                worst_published_margin_pct=proof['procurement_margin_pct'])
 
 
 def average_margin(public_usd, delivered_cost_usd, mix):
