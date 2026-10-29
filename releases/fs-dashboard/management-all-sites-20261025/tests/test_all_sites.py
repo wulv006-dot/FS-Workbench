@@ -15,7 +15,7 @@ import management_facts as m
 def sample(profile='FC27',start='2026-10-01',end='2026-10-24'):
     period={'start':start+' 00:00','end':(date.fromisoformat(end)+timedelta(days=1)).isoformat()+' 00:00'}
     field=lambda value,unit:{'status':'available','value':value,'unit':unit}
-    admin={'status':'available','period':period,'normalisedScope':'all-websites','filters':{'site':'','date':list(period.values())},
+    admin={'status':'available','period':period,'normalisedScope':'all-websites','filters':{'site':'','date':list(period.values()),'pay_status':1,'order_status':''},
            'metrics':{'revenueUsd':field(1200,'USD'),'orders':field(12,'orders'),'newCustomers':field(3,'people'),'repeatRatePct':field(70,'percent'),'fulfillmentRatePct':field(90,'percent')},
            'dimensions':{'channels':[{'code':'www.mmoexp.com','revenueUsd':10,'orders':1},{'code':'satellite','revenueUsd':1190,'orders':11}]}}
     order={'status':'available','period':period,'currency':'USD','normalisedScope':'all-websites','metrics':{'profitMarginPct':field(25,'percent')}}
@@ -23,10 +23,19 @@ def sample(profile='FC27',start='2026-10-01',end='2026-10-24'):
         selection=dict(rs_site='all',rs_server='all',rs_category='all')
         admin.update(normalisedScope='rs-selected',rsSelection=selection)
         order.update(currency='CNY',sourceContract='order-shipping-rs-v1',rsSelection=selection,filters={'source[]':''})
-    return {'status':'available','scopeContractId':'admin-main-order-labelled-supplement-v1','query':{'start':start,'end':end,'site':'全部网站' if profile=='RS' else 'www.mmoexp.com','period':period,'profile':profile,'timezone':'Asia/Shanghai'},
+    return {'status':'available','scopeContractId':'admin-paid-order-labelled-supplement-v2','query':{'start':start,'end':end,'site':'全部网站' if profile=='RS' else 'www.mmoexp.com','period':period,'profile':profile,'timezone':'Asia/Shanghai'},
             'sources':{'Admin':{'status':'available'},'Order':{'status':'available'}},'profile':{'key':profile,'supplement':admin,'primary':order}}
 
 class AllSites(unittest.TestCase):
+    def test_old_contract_and_unpaid_or_completed_only_results_are_rejected(self):
+        d=sample();d['scopeContractId']='admin-main-order-labelled-supplement-v1'
+        with self.assertRaisesRegex(ValueError,'source_contract_mismatch'):
+            m.project_summary(d,'FC27','2026-10-01','2026-10-24')
+        for field,value in [('pay_status',None),('pay_status',0),('order_status','21,31')]:
+            d=sample();d['profile']['supplement']['filters'][field]=value
+            with self.assertRaisesRegex(ValueError,'admin_all_sites_contract_mismatch'):
+                m.project_summary(d,'FC27','2026-10-01','2026-10-24')
+
     def test_native_totals_replace_main_channel_for_every_game(self):
         for profile in ('FC27','RS','D4','MMOEXP'):
             row=m.project_summary(sample(profile),profile,'2026-10-01','2026-10-24')
@@ -75,11 +84,24 @@ class AllSites(unittest.TestCase):
             q={k:v[0] for k,v in parse_qs(urlsplit(path).query).items()};calls.append(q)
             return {'http_status':200,'body':sample(q['profile'],q['start'],q['end'])}
         targets={'period':'2026-10','overview':{'games':[dict(profile='RS',name='RuneScape',grp='综合',owner='原负责人')]},'models':{'RS':{'l1':[dict(id='rev',val=5000)],'l2':[],'weeks':[]}}}
-        original=copy.deepcopy(targets);cache={m.fingerprint(['RS','2026-10-01','2026-10-01','admin-main-order-labelled-supplement-v1']):{'values':dict(rev=1)}}
+        original=copy.deepcopy(targets)
+        old={'values':dict(rev=1,ord=1,prof=1),'cacheCheckedOn':'2026-10-02'}
+        cache={m.fingerprint(['RS','2026-10-01','2026-10-01','admin-main-order-labelled-supplement-v1']):old,
+               m.fingerprint(['RS','2026-10-01','2026-10-01','admin-main-order-labelled-supplement-v1',m.DATA_SCOPE]):old}
         data=m.collect(datetime(2026,10,2,15,tzinfo=m.SH),targets,reader,cache=cache)
         self.assertEqual(data['projects'][0]['yesterday']['values']['rev'],1200)
         self.assertEqual(data['projects'][0]['owner'],'原负责人');self.assertEqual(targets,original)
         self.assertEqual(data['dataScope'],m.DATA_SCOPE)
+        self.assertIn(m.fingerprint(['RS','2026-10-01','2026-10-01',m.SOURCE_CONTRACT,m.DATA_SCOPE]),cache)
+
+    def test_contract_failure_is_reported_without_turning_missing_into_zero(self):
+        d=sample('RS','2026-10-01','2026-10-01');d['scopeContractId']='unexpected-v3'
+        targets={'period':'2026-10','overview':{'games':[dict(profile='RS',name='RuneScape',grp='综合',owner='原负责人')]},'models':{'RS':{'l1':[dict(id='rev',val=5000)],'l2':[],'weeks':[]}}}
+        data=m.collect(datetime(2026,10,2,15,tzinfo=m.SH),targets,lambda path:{'http_status':200,'body':d})
+        row=data['projects'][0]
+        self.assertEqual(row['month']['error'],'source_contract_mismatch')
+        self.assertIsNone(row['month']['values']['rev']);self.assertIsNone(row['completion']['rev'])
+        self.assertEqual(row['targets']['rev'],5000);self.assertEqual(row['owner'],'原负责人')
 
     def test_transport_keeps_partial_but_permission_revocation_clears_it(self):
         d=sample();d['profile']['primary']['status']='pending'
