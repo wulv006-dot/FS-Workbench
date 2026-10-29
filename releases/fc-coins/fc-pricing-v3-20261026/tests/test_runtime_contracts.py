@@ -607,7 +607,10 @@ class RuntimeContracts(unittest.TestCase):
         self.assertNotIn('id="hermes-review"',html)
         self.assertIn('立即运行当前策略',html)
         self.assertIn('id="v3-daily-result"',html)
-        self.assertIn("request('execute',{request_key:'cycle-'",script)
+        self.assertIn("function executeCurrentPlan()",script)
+        self.assertIn("request('execute',{request_key:key,plan_id:plan.plan_id})",script)
+        self.assertIn("for(const id of ['v3-execute-now','v3-execute'])$(id).addEventListener('click',executeCurrentPlan)",script)
+        self.assertNotIn("request_key:'cycle-'+current.snapshot_id",script)
         self.assertIn('Lootbar',html)
         self.assertNotIn("table('v3-eld-platforms'",script)
 
