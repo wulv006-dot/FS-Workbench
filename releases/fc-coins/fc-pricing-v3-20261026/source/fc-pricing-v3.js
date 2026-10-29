@@ -194,7 +194,7 @@
           const stale=Number.isFinite(age)&&age>15*60000;
           card.dataset.state=!available?'missing':stale?'stale':'observed';
           const followGlobal=name==='Arab-UT'&&!available&&market.saudi_missing_price_policy==='follow_global';
-          const missingReason=name==='ItemD2R'?market.reference?.reason:name==='Lootbar'?(market.competitor_diagnostics||[]).find(reason=>reason.startsWith('Lootbar:')):null;
+          const missingReason=name==='ItemD2R'?(market.reference?.missing||[]).find(gap=>gap.platform===platform)?.reason||market.reference?.reason:name==='Lootbar'?(market.competitor_diagnostics||[]).find(reason=>reason.startsWith('Lootbar:')):null;
           const header=node('div');header.className='head';const badge=node('span',followGlobal?'缺价 · 跟随全球':!available&&missingReason==='itemd2r_cloudflare_403'?'Cloudflare 403 · 缺价':!available?'缺项':!verified?'规格待核':stale?'已过 15 分钟':!Number.isFinite(age)||age<0?'时点待核':'最近已采');badge.className='market-badge';header.append(node('h4',name),badge);card.append(header);
           const total=node('p',available?usd(price):'暂无报价');total.className='market-price';card.append(total);
           const delivered=purchase!=null&&bonus!=null?Number(purchase)+Number(bonus):NaN;

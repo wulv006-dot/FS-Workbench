@@ -48,7 +48,7 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
     """Validate the last real owned snapshot per plan, within that plan's sampling interval."""
     from .financial import number,instant,required_history_ratio,fingerprint
     from .selective_sources import input_ratio as envelope_ratio
-    from .engine import market_quote
+    from .engine import current_market_quotes
     if not plans:return dict(status='not_required_without_active_plan',plans=[],issues=[])
     checks=[];issues=[]
     for plan in plans:
@@ -82,10 +82,8 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
                     if not str(cost.get('record_id','')).isdigit():failures.append('cost_identity_missing:'+platform)
                     if abs((as_of-instant(cost['checked_at'])).total_seconds())>3600:failures.append('cost_stale:'+platform)
                     if abs((as_of-instant(own['checked_at'])).total_seconds())>3600:failures.append('public_stale:'+platform)
-                    available=[];missing=[]
-                    for source in ('Lootbar','ItemD2R'):
-                        try:market_quote(evidence,platform,source,as_of);available.append(source)
-                        except (ValueError,KeyError,TypeError) as error:missing.append(dict(source=source,reason=str(error) if isinstance(error,ValueError) else 'pricing_market_contract_invalid'))
+                    quotes,missing=current_market_quotes(evidence,[platform],as_of)
+                    available=[quote['source'] for quote in quotes]
                     competitive_sources[platform]=dict(available=available,missing=missing,margin_floor_only=not available,
                         average_margin_target_pct='30' if mode=='daily' and not available else '20')
                     if mode=='daily' and not available and (receipt.get('daily_reference') or {}).get(platform,{}).get('average_margin_target_pct')!='30':

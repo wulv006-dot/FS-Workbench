@@ -64,8 +64,9 @@ def collect_reference_market(run_id):
     from itemd2r_reader import public_read
     try:
         offers = public_read()
-        if [r.get('platform') for r in offers] != ['PS','XBOX','PC']:
-            raise ValueError('reference_platform_coverage_invalid')
+        if (not isinstance(offers,list) or any(not isinstance(r,dict) or r.get('platform') not in ('PS','XBOX','PC') for r in offers)
+                or len({r['platform'] for r in offers})!=len(offers)):
+            raise ValueError('itemd2r_platform_coverage_invalid')
         return dict(status='captured',run_id=run_id,offers=[dict(r,run_id=run_id) for r in offers])
     except Exception as exc:
         # Optional reference failure remains visible; it cannot disable the original source chain.

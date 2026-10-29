@@ -106,12 +106,14 @@ def planned_source_coverage(snapshot,plan,now,*,reference_market=None):
         times.append(datetime.fromisoformat(captured.replace('Z','+00:00')))
     if times and (max(times)-min(times)).total_seconds()>300:raise ValueError('selective_competitor_capture_span')
     missing=expected-set(found)
+    for gap in (reference_market or {}).get('missing',[]):
+        if (gap.get('platform'),'ItemD2R') in missing:gaps.append(dict(gap,source='ItemD2R'))
     hard_missing=set()
     optional=list(plan['required_markets'])
     return dict(ready=not hard_missing,required_sources=[s for s in plan['required_markets'] if s not in optional],optional_sources=optional,
         pricing_source_policy='current_available_quote_or_100k_margin_floor',
         missing=[dict(platform=p,source=s) for p,s in sorted(hard_missing)],optional_missing=[dict(platform=p,source=s) for p,s in sorted(missing-hard_missing)],gaps=gaps,
-        retired_automatic_sources=list(RETIRED),reference_sources={p:[s for s in plan['required_markets'] if s!='Lootbar' and p in required[s]] for p in plan['platforms']})
+        retired_automatic_sources=list(RETIRED),reference_sources={p:[s for s in plan['required_markets'] if s!='Lootbar' and (p,s) in found] for p in plan['platforms']})
 
 
 def history_period(now):

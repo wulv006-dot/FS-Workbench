@@ -4,7 +4,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock,patch
 SOURCE=Path(__file__).resolve().parents[1]/'source';sys.path.insert(0,str(SOURCE))
-from fc_pricing_v3 import runtime,selective_sources
+from fc_pricing_v3 import runtime,selective_sources,engine,monitoring,api
+from fc_pricing_v3.ledger import Ledger
+import itemd2r_reader as reader
+from test_dual20_sprint import source
 from fixtures import NOW
 
 
@@ -15,6 +18,75 @@ def function(name,file,scope):
 
 
 class OptionalCollection(unittest.TestCase):
+    def test_partial_reader_through_worker_quote_api_and_monitor_keeps_each_platform(self):
+        page=Mock();page.url=reader.URL;page.goto.return_value=SimpleNamespace(status=200,headers={});page.title.return_value='FC 27 Coins'
+        selected={'device':None}
+        def locator(selector):
+            loc=Mock()
+            if selector=='.platform-list li':
+                def filtered(*,has_text):
+                    item=Mock()
+                    item.click.side_effect=lambda **kw:selected.update(device=next(device for _,device,label in reader.DEVICES if has_text.fullmatch(label)))
+                    return item
+                loc.filter.side_effect=filtered
+            return loc
+        page.locator.side_effect=locator
+        def current(_):
+            return dict(device=selected['device'],quantity='100000',tier='100000',tier_label='100 K',delivered='100',method='ai-automatic',
+                method_selected=True,usd=True,busy=False,price='invalid' if selected['device']=='1' else '8.00',total='8.00',unit='.00008',fee='0')
+        page.evaluate.side_effect=current
+        with patch.object(reader,'datetime',SimpleNamespace(now=lambda _:NOW)):
+            collected=reader.collect(SimpleNamespace(new_page=lambda:page))
+        self.assertEqual([r['status'] for r in collected],['valid','valid','missing'])
+        self.assertEqual(collected[2]['reason'],'itemd2r_price_invalid:PC')
+        page.close.assert_called_once()
+        payload=dict(source='ItemD2R',status='partial',offers=collected)
+        collect=function('collect_reference_market','fc27_cloud_worker.py',dict(re=re,datetime=datetime,timezone=timezone))
+        with patch.object(reader.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=json.dumps(payload))):
+            raw=collect('same-run')
+        ref=function('reference_context','server_quote_job.py',dict(PLATFORMS=engine.PLATFORMS,re=re))
+        context=ref(dict(run_id='same-run',competitors=[],reference_competitors=raw),NOW)
+        self.assertEqual(context['status'],'partial')
+        self.assertEqual([r['platform'] for r in context['offers']],['PS','XBOX'])
+        self.assertEqual(context['missing'],[dict(platform='PC',source='ItemD2R',reason='itemd2r_price_invalid:PC')])
+        data=source();data['run_id']='same-run';data['reference_market']=context
+        result=engine.evaluate(data,'revenue_sprint',now=NOW)
+        self.assertEqual(result['selected']['market_comparison']['console']['anchors']['PS']['source'],'ItemD2R')
+        self.assertEqual(result['selected']['market_comparison']['console']['anchors']['XBOX']['source'],'ItemD2R')
+        self.assertEqual(result['selected']['market_comparison']['pc']['anchors']['PC']['source'],'Lootbar')
+        plan=selective_sources.source_plan('revenue_sprint')
+        coverage=selective_sources.planned_source_coverage(dict(run_id='same-run',competitors=[]),plan,NOW,reference_market=context)
+        self.assertNotIn(dict(platform='PS',source='ItemD2R'),coverage['optional_missing'])
+        self.assertEqual(coverage['reference_sources']['PS'],['ItemD2R'])
+        self.assertEqual(coverage['reference_sources']['PC'],[])
+        self.assertIn(dict(platform='PC',source='ItemD2R',reason='itemd2r_price_invalid:PC'),coverage['gaps'])
+        receipt=dict(plan_id='p',snapshot_id='same-run',snapshot_sha256=engine.fingerprint(data),financial_proof=result['selected']['financial_proof'])
+        snapshot=dict(snapshot_id='same-run',origin='live_collector',mode='production',created_at=NOW.isoformat(),evidence=data,result=dict(decision_receipt=receipt))
+        monitored=monitoring.source_coverage([snapshot],[dict(plan_id='p',mode='revenue_sprint',resources=['base:console','base:pc'])],NOW)
+        self.assertEqual(monitored['status'],'verified',monitored)
+        self.assertEqual(monitored['plans'][0]['competitive_sources']['PS']['missing'],[])
+        self.assertIn(dict(platform='PC',source='ItemD2R',reason='itemd2r_price_invalid:PC'),monitored['plans'][0]['competitive_sources']['PC']['missing'])
+        with tempfile.TemporaryDirectory() as folder,patch('fc_pricing_v3.ledger.clock',return_value=NOW):
+            root=Path(folder);db=Ledger(root/'control.db')
+            with patch.object(runtime,'ledger',return_value=db),patch.object(runtime,'ROOT',root),patch.object(runtime,'clock',return_value=NOW):runtime.calculate(data)
+            with patch.object(api,'ledger',return_value=db):market=api.read('market')
+        self.assertEqual(market['reference']['offers'],context['offers'])
+        self.assertEqual(market['reference']['missing'],context['missing'])
+
+    def test_partial_reference_rejects_bad_single_row_without_losing_other_platforms(self):
+        ref=function('reference_context','server_quote_job.py',dict(PLATFORMS=engine.PLATFORMS,re=re))
+        base=dict(source='ItemD2R',run_id='same',url=reader.URL,status='valid',currency='USD',conditional=False,comparable=True,purchase_k='100',bonus_k='0',gross_usd='8',captured_at=NOW.isoformat())
+        for update in (dict(run_id='old'),dict(currency='EUR'),dict(gross_usd='0'),dict(purchase_k='5'),dict(captured_at=(NOW-timedelta(seconds=901)).isoformat())):
+            rows=[dict(base,platform='PS'),dict(base,platform='XBOX'),dict(base,platform='PC',**update)]
+            with self.subTest(update=update):
+                result=ref(dict(run_id='same',competitors=[],reference_competitors=dict(status='captured',run_id='same',offers=rows)),NOW)
+                self.assertEqual([r['platform'] for r in result['offers']],['PS','XBOX'])
+                self.assertEqual(result['missing'][0]['platform'],'PC')
+        rows=[dict(base,platform='PS'),dict(base,platform='XBOX',captured_at=(NOW-timedelta(seconds=301)).isoformat())]
+        result=ref(dict(run_id='same',competitors=[],reference_competitors=dict(status='captured',run_id='same',offers=rows)),NOW)
+        self.assertEqual(result['offers'],[])
+        self.assertEqual(result['reason'],'itemd2r_reference_capture_span_over_300_seconds')
+
     def test_worker_collects_item_even_when_loot_or_hard_snapshot_failed(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);(root/'runs').mkdir();ident='original'

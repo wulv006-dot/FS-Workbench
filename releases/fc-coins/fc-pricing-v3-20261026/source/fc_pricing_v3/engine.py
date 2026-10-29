@@ -223,7 +223,8 @@ def current_market_quotes(evidence,platforms,now,region=None):
             try:quotes.append(market_quote(evidence,p,source,now,region))
             except (ValueError,KeyError,TypeError) as error:
                 reference=evidence.get('reference_market') or {}
-                source_gaps.append(dict(platform=p,source=source,reason=(reference.get('reason') or str(error)) if source=='ItemD2R' and not reference.get('offers') else str(error) if isinstance(error,ValueError) else 'pricing_market_contract_invalid'))
+                platform_gap=next((gap for gap in reference.get('missing',[]) if gap.get('platform')==p),{}) if source=='ItemD2R' else {}
+                source_gaps.append(dict(platform=p,source=source,reason=platform_gap.get('reason') or ((reference.get('reason') or str(error)) if source=='ItemD2R' and not reference.get('offers') else str(error) if isinstance(error,ValueError) else 'pricing_market_contract_invalid')))
     return quotes,source_gaps
 
 

@@ -8,6 +8,30 @@ import itemd2r_reader as reader
 
 
 class ItemD2RReader(unittest.TestCase):
+    def test_middle_platform_timeout_preserves_prior_and_later_current_quotes(self):
+        for reason,expected in [('one_platform_timeout',['valid','missing','valid']),('itemd2r_read_budget',['valid','missing','missing'])]:
+            page=Mock();page.url=reader.URL;page.goto.return_value=SimpleNamespace(status=200,headers={});page.title.return_value='FC27 Coins'
+            selected={'device':None}
+            def locator(selector):
+                loc=Mock()
+                if selector=='.platform-list li':
+                    def filtered(*,has_text):
+                        item=Mock()
+                        if has_text.fullmatch('XBOX ONE'):item.click.side_effect=TimeoutError(reason)
+                        return item
+                    loc.filter.side_effect=filtered
+                return loc
+            page.locator.side_effect=locator
+            page.wait_for_function.side_effect=lambda *a,arg,**kw:selected.update(device=arg)
+            page.evaluate.side_effect=lambda _:dict(device=selected['device'],quantity='100000',tier='100000',tier_label='100 K',delivered='100',method='ai-automatic',
+                method_selected=True,usd=True,busy=False,price='8.00',total='8.00',unit='.00008',fee='0')
+            with self.subTest(reason=reason):
+                rows=reader.collect(SimpleNamespace(new_page=lambda:page))
+                self.assertEqual([r['status'] for r in rows],expected)
+                self.assertEqual(rows[1]['reason'],'itemd2r_read_budget' if reason=='itemd2r_read_budget' else 'itemd2r_TimeoutError')
+                self.assertNotIn('gross_usd',rows[1])
+                if rows[2]['status']=='valid':self.assertEqual(rows[2]['platform'],'PC')
+
     def test_cloudflare_403_is_distinct_from_other_http_and_browser_errors(self):
         for status,headers,expected in [(403,{'server':'cloudflare'},'itemd2r_cloudflare_403'),(403,{'cf-ray':'test'},'itemd2r_cloudflare_403'),(403,{},'itemd2r_http_403'),(500,{},'itemd2r_http_500')]:
             page=Mock();page.goto.return_value=SimpleNamespace(status=status,headers=headers)
