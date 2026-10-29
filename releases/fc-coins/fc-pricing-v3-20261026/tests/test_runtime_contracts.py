@@ -22,6 +22,34 @@ import hermes_pricing_bridge
 
 
 class RuntimeContracts(unittest.TestCase):
+    def test_replaced_partial_plan_and_later_superseded_cycle_do_not_hide_real_completion(self):
+        now=datetime(2026,10,29,12,tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);db=Ledger(root/'v3/control.sqlite3')
+            old=dict(plan_id='old',revision=1,generation='g',resources=['base:pc','region:21:PC'],
+                     starts_at=(now-timedelta(hours=3)).isoformat(),state='ACTIVE',mode='revenue_sprint')
+            new=dict(plan_id='new',revision=1,generation='g',resources=['base:pc'],
+                     starts_at=(now-timedelta(minutes=5)).isoformat(),state='ACTIVE',mode='revenue_sprint')
+            db.put('metadata','generation',dict(id='g'))
+            db.put('pricing_plans','old',old);db.put('pricing_plans','new',new)
+            with db.transaction() as conn:
+                conn.execute("INSERT INTO plan_ownership VALUES ('base:pc','new',1,'g')")
+                conn.execute("INSERT INTO plan_ownership VALUES ('region:21:PC','old',1,'g')")
+            db.put('operations','original',dict(plan_id='new',status='COMPLETED',created_at=(now-timedelta(minutes=2)).isoformat(),completed_at=now.isoformat()))
+            db.enqueue('cycle','old-cycle',now,dict(plan_id='old',completed_at=(now+timedelta(seconds=1)).isoformat(),result=dict(status='superseded')))
+            db.enqueue('cycle','new-stale-cycle',now,dict(plan_id='new',completed_at=(now+timedelta(seconds=2)).isoformat(),result=dict(status='superseded')))
+            with db.transaction() as conn:conn.execute("UPDATE durable_jobs SET state='done'")
+            (root/'config').mkdir();(root/'config/v3-control.json').write_text('{"enabled":true}')
+            (root/'v3/heartbeat.json').write_text(json.dumps(dict(checked_at=now.isoformat())))
+            self.assertEqual([p['plan_id'] for p in db.active_plans()],['new'])
+            before=db.get('pricing_plans','old')
+            view=monitoring.projection(root,now)
+            self.assertEqual(view['schedule']['last_execution_stage'],'COMPLETED')
+            self.assertEqual(view['schedule']['next_cycle_at'],(now+timedelta(hours=1)).isoformat())
+            self.assertEqual(db.get('pricing_plans','old'),before)
+            with db.connect() as conn:
+                self.assertEqual(conn.execute("SELECT plan_id FROM plan_ownership WHERE resource='region:21:PC'").fetchone()[0],'old')
+
     def test_one_hour_cycle_resume_uses_last_completed_operation_once(self):
         start=datetime(2026,10,26,14,tzinfo=timezone.utc)
         completed=start+timedelta(minutes=37)
