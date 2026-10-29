@@ -12,9 +12,11 @@ from release import PREFIX, RELEASE, RUNTIME, SCOPE, load_base, targets
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
 FS_ROOT = Path('/var/lib/fs-hermes-fc/fs')
-OLD_BASELINE_SHA = '6f418d35c37d8fadd44b78fb4e1090afce3c90901cc3912fbde2d0afc56058e8'
-NEW_BASELINE_SHA = '2914912d667ece60ad3ac5a06585f9edfd4e82af95d6dc827a32ac5a62f7332a'
-OLD_POLICY_SHA = 'd504f83bfd02b8ade1379358344e45c881bacbad0959ee1e10385e7208c7d3ce'
+OLD_BASELINE_SHA = 'adc370f6c173f82e9b34179b31827e4569bfd9e8c5310ec4ed40bdfeb25776da'
+NEW_BASELINE_SHA = '4ee3c766966f0eaee05c59d3a01d0186fa34a4c93923403ad3841a2adea6b633'
+OLD_POLICY_SHA = 'd44bfe4b2dce0603643c6f47190c81aa3df2281e68f76bb6fbec62c15f08938d'
+OLD_CATALOG = 'knowledge-releases/users-storage-20261029-1/index.json'
+OLD_CATALOG_SHA = 'a34d5ff0962d93397d1d08e5def81380356a9d3d9e2df87e7ea3e4936a031cd0'
 
 
 def sha(path):
@@ -75,8 +77,7 @@ def prepare():
         raise ValueError('one_original_FS_route_required')
     route = matching[0]
     old_catalog = route.get('catalog')
-    if not isinstance(old_catalog, str) or not old_catalog.startswith('knowledge-releases/') or \
-            '..' in Path(old_catalog).parts:
+    if old_catalog != OLD_CATALOG or route.get('sha256') != OLD_CATALOG_SHA:
         raise ValueError('existing_catalog_binding_invalid')
     old_path = FS_ROOT / old_catalog
     safe(old_path)
