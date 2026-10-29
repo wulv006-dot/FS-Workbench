@@ -42,10 +42,10 @@
     },
     {
       "target": "/opt/fs-hermes-fc/user_jobs.py",
-      "sha256": "db331636f2999c2adfe35b99da22a860896a8750c9349fa25b932eec645b75e8",
+      "sha256": "2c280beae9e6f7c21b3030262fb3ed40ee94517937eacec22ca3c44f5eb8eea5",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_jobs.py",
       "kind": "exact_source",
-      "release_id": "nav-20261023T024225Z"
+      "release_id": "nav-20261029T114203Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_lifecycle.py",
@@ -56,10 +56,10 @@
     },
     {
       "target": "/opt/fs-hermes-fc/user_query.py",
-      "sha256": "d3d0529a790e79e333cd2bcd8766832d27a90e1a73abafdbb49e868cef86146e",
+      "sha256": "16280a604ab58c3599db8fb818d738a5835f5e84d8e7c3a501d72d7d097e7716",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_query.py",
       "kind": "exact_source",
-      "release_id": "nav-20261025T080257Z"
+      "release_id": "nav-20261029T073710Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_runtime.py",
@@ -70,17 +70,17 @@
     },
     {
       "target": "/opt/fs-hermes-fc/user_source.py",
-      "sha256": "218e2e6425a0ed6aeafdf761441fcec8b6a12f7f36931feeed45529ba20352cb",
+      "sha256": "6d9ce4cefcd4c68fe07936798b1a57780e1879da77bbb812ac37e4e62f9b9244",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_source.py",
       "kind": "exact_source",
-      "release_id": "nav-20261023T005425Z"
+      "release_id": "nav-20261029T125628Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_store.py",
-      "sha256": "c40718a2ff123f4b736847c4d53ed0e5b61407a2f9a3a07224a4238907f498b5",
+      "sha256": "908775f04fec60052f05f11506ae2454e50811f2291e20ac9e8a1a47f8645d5b",
       "source": "releases/fs-dashboard/user-analytics-20261022/source/user_store.py",
       "kind": "exact_source",
-      "release_id": "nav-20261023T065100Z"
+      "release_id": "nav-20261029T114203Z"
     },
     {
       "target": "/opt/fs-hermes-fc/user_tools.py",
@@ -565,5 +565,232 @@
     ],
     "scope": "Only these eight mappings are updated; untouched shared paths continue to follow their own latest module source maps.",
     "natural_or_long_term_effect": "not_claimed"
+  },
+  "storage_governance_20261029": {
+    "tiered_pr": 653,
+    "head": "d99754735d9fa9103e49022f62ded45725790edf",
+    "production_applied": true,
+    "backup_cleanup_completed": true,
+    "source_sha256": {
+      "user_store.py": "908775f04fec60052f05f11506ae2454e50811f2291e20ac9e8a1a47f8645d5b",
+      "user_source.py": "ddc543ad4197c32d6ec38925725a581879727ed1ed236ef84741bdb2b2228158",
+      "user_jobs.py": "2c280beae9e6f7c21b3030262fb3ed40ee94517937eacec22ca3c44f5eb8eea5"
+    },
+    "actual_publication": {
+      "utc": 1793274239.1316342,
+      "releaseId": "nav-20261029T114203Z",
+      "sourceCommit": "d99754735d9fa9103e49022f62ded45725790edf",
+      "mergeCommit": "8c56e2fd3e90bffc5f923ba5b173dba3d3179837",
+      "manifestSha256": "b6e80432923f095e7449635049e11f6cc9f9dc0d82ccf812b2123bfb8344c070",
+      "checks": {
+        "journal_exact_manifest": true,
+        "journal_applied": true,
+        "range_loaded": true,
+        "/opt/fs-hermes-fc/user_store.py": true,
+        "/opt/fs-hermes-fc/user_source.py": true,
+        "/opt/fs-hermes-fc/user_jobs.py": true,
+        "protected_706": true,
+        "negative_3": true,
+        "range_new_pid": true,
+        "five_unrelated_pids_unchanged": true,
+        "six_maintenance_states": true,
+        "retired_8767": true,
+        "admission.lock_same_private_inode": true,
+        "publication.lock_same_private_inode": true,
+        "reader-entry.lock_same_private_inode": true,
+        "range_health": true,
+        "actual_frozen_public_summary": true,
+        "actual_hermes_tool_read": true,
+        "anonymous_summary_denied": true,
+        "anonymous_private_denied": true,
+        "native_image_preserved": true
+      },
+      "currentUnits": {
+        "fs-business-range.service": {
+          "MainPID": "1701",
+          "ActiveState": "active",
+          "UnitFileState": "enabled"
+        },
+        "fs-hermes-fc.service": {
+          "MainPID": "499",
+          "ActiveState": "active",
+          "UnitFileState": "disabled"
+        },
+        "fc-pricing-v3.service": {
+          "MainPID": "5004",
+          "ActiveState": "active",
+          "UnitFileState": "enabled"
+        },
+        "fs-hermes-desktop.service": {
+          "MainPID": "16714",
+          "ActiveState": "active",
+          "UnitFileState": "enabled"
+        },
+        "hermes-dingtalk.service": {
+          "MainPID": "16775",
+          "ActiveState": "active",
+          "UnitFileState": "enabled"
+        },
+        "nginx.service": {
+          "MainPID": "31780",
+          "ActiveState": "active",
+          "UnitFileState": "enabled"
+        }
+      },
+      "locks": {
+        "admission.lock": {
+          "device": 66305,
+          "inode": 6298779,
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o600",
+          "nlink": 1,
+          "size": 0
+        },
+        "publication.lock": {
+          "device": 66305,
+          "inode": 6301101,
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o600",
+          "nlink": 1,
+          "size": 0
+        },
+        "reader-entry.lock": {
+          "device": 66305,
+          "inode": 6301234,
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o600",
+          "nlink": 1,
+          "size": 0
+        }
+      },
+      "snapshot_id": "us_f128778b4346b59d405c83328cc5a24d",
+      "protected_count": 706,
+      "production_database_writes": 0,
+      "source_collection": false,
+      "model_calls": 0,
+      "first_natural_tiered_run_observed": false,
+      "production_accepted": true
+    },
+    "cleanup_receipt": {
+      "status": "approved_cleanup_completed_readback",
+      "plan_sha256": "1c11e5138a7150657ed6ffb060086aa6cc72f96f225b739125d8dabc367b2000",
+      "deleted_files": 16,
+      "removed_directories": 4,
+      "deleted_logical_bytes": 44924296011,
+      "deleted_file_allocated_bytes": 44924366848,
+      "removed_directory_allocated_bytes": 16384,
+      "filesystem_free_before": 64683573248,
+      "filesystem_free_after": 109607972864,
+      "filesystem_free_delta": 44924399616,
+      "retained_points_unchanged": true,
+      "retention_schedule_changed": false,
+      "live_database_modified": false,
+      "caveat": "filesystem free delta includes concurrent filesystem activity; unlinked sizes measured separately"
+    },
+    "scope": "only three user analytics runtime files; no schema/timer/other module change",
+    "verified_recovery_sha256": "c1cc89f22f53b3dc546ca2d691226136b838d36f08203ea09cb9b04a974fdeae",
+    "source_sha256_scope": "PR653 initial publication; see active_files and date_contract_fix for current user_source.py",
+    "date_contract_fix": {
+      "pr": 659,
+      "head": "a2395a4e5f68b9bdfca7b738e7363453cb802155",
+      "merge": "d7c48bccd24a126871857383f08f27e4c69d0518",
+      "release_id": "nav-20261029T125628Z",
+      "manifest_sha256": "e5a34e8899bc03accbc8e6a476c8d2c139497d49cbcc7c1b2094896dfc5af39b",
+      "source_sha256": "6d9ce4cefcd4c68fe07936798b1a57780e1879da77bbb812ac37e4e62f9b9244",
+      "formal_ci": {
+        "run": 40875135782,
+        "job": 123451902498,
+        "tests": 149,
+        "skipped": 0
+      },
+      "publication_checks": {
+        "journal_exact_manifest": true,
+        "journal_applied": true,
+        "range_loaded": true,
+        "/opt/fs-hermes-fc/user_source.py": true,
+        "protected_708": true,
+        "negative_3": true,
+        "range_new_pid": true,
+        "five_unrelated_pids_unchanged": true,
+        "six_maintenance_states": true,
+        "retired_8767": true,
+        "admission.lock_same_private_inode": true,
+        "publication.lock_same_private_inode": true,
+        "reader-entry.lock_same_private_inode": true,
+        "range_health": true,
+        "actual_frozen_public_summary": true,
+        "actual_hermes_tool_read": true,
+        "anonymous_summary_denied": true,
+        "anonymous_private_denied": true,
+        "native_image_preserved": true
+      },
+      "natural_acceptance": {
+        "status": "natural_date_refresh_accepted",
+        "utc": 1793279363.8019645,
+        "checks": {
+          "installed_source_pinned": true,
+          "natural_unit_completed": true,
+          "original_timer_active": true,
+          "requested_bound": true,
+          "count_identity": true,
+          "returned_orders_proven": true,
+          "state_matches_missing": true,
+          "selected_only_contract": true,
+          "changed_audit_matches": true
+        },
+        "all_pass": true,
+        "targeted_receipt": {
+          "mode": "targeted",
+          "captured_at": "2026-10-29T21:04:08.501721+08:00",
+          "requested_rows": 400,
+          "returned_rows": 400,
+          "missing_rows": 0,
+          "changed_rows": 178,
+          "data_version": "1899",
+          "correction_coverage": "selected_existing_orders_only"
+        },
+        "targeted_state": "complete",
+        "attempt_id": 1965,
+        "request_digest_id": "t_035656bc609bbfbaed82bab3",
+        "revision_audit": {
+          "reason": "targeted_order_correction",
+          "old_rows": 178,
+          "unique_order_keys": 178,
+          "current_rows_present": 178,
+          "site_scope_matches": true
+        },
+        "service": {
+          "MainPID": "0",
+          "Result": "success",
+          "ExecMainStartTimestamp": "Thu 2026-10-29 21:03:11 CST",
+          "ExecMainExitTimestamp": "Thu 2026-10-29 21:05:01 CST",
+          "ExecMainStatus": "0",
+          "ActiveState": "inactive",
+          "SubState": "dead"
+        },
+        "timer": {
+          "Result": "success",
+          "ActiveState": "active",
+          "SubState": "waiting"
+        },
+        "same_request_digest_as_first_1149_batch": false,
+        "first_batch_counts": {
+          "requested_rows": 400,
+          "returned_rows": 0,
+          "missing_rows": 400,
+          "changed_rows": 0
+        },
+        "scope": "first completed natural selected batch after PR659; not claimed to be the same IDs as the original 11:49 batch",
+        "source_sha256": "6d9ce4cefcd4c68fe07936798b1a57780e1879da77bbb812ac37e4e62f9b9244",
+        "manual_acceptance_helper_executed": false,
+        "observer_source_calls": 0,
+        "observer_database_writes": 0,
+        "observer_model_calls": 0
+      },
+      "extra_manual_acceptance_executed": false
+    }
   }
 }
