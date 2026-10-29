@@ -224,6 +224,37 @@ def existing_delivery_ids(conn, ids) -> set:
     return out
 
 
+def ids_in_range(conn, kind: str, lo: str, hi: str) -> set:
+    """区间内已经入库的主键集合 —— 增量翻页靠它「追上已知就收手」。
+
+    有了这个集合，重叠窗口就可以开得很大（订单 24h、发货 12h）而几乎不花成本：
+    第一页通常全是已知数据，直接停。
+    """
+    if kind == "orders":
+        q = "SELECT id FROM orders WHERE paytime >= ? AND paytime <= ?"
+    else:
+        q = "SELECT delivery_id FROM deliveries WHERE trade_at >= ? AND trade_at <= ?"
+    return {str(r[0]) for r in conn.execute(q, (lo, hi))}
+
+
+def should_stop(batch, id_key: str, known) -> bool:
+    """这一页能否当最后一页：空页，或整页主键都已在库里。
+
+    比"按第一页的 total 算页数"可靠 —— total 是翻页开始那一刻的快照，
+    下单高峰时窗口内最旧的那几条会被新单挤到算出来的页数之外，静默丢掉。
+    列表按 id 倒序（订单显式 order=id,desc，发货页默认也是最新在前），
+    所以"整页都认识"就等于"后面全是更旧的、已经抓过的"。
+    """
+    if not batch:
+        return True
+    if not known:
+        return False
+    for r in batch:
+        if str(r.get(id_key) or "") not in known:
+            return False
+    return True
+
+
 # ------------------------------------------------------------------ 读
 def count(conn, table: str) -> int:
     return int(conn.execute("SELECT COUNT(*) FROM %s" % table).fetchone()[0])

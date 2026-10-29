@@ -76,6 +76,23 @@ class HistoryDBTest(unittest.TestCase):
         # 解析不了 → None（不能把脏字符串塞进水位，否则排序全乱）
         self.assertIsNone(HDB._dt("暂无"))
 
+    def test_should_stop(self):
+        known = {"11", "12"}
+        # 空页 = 翻到底了
+        self.assertTrue(HDB.should_stop([], "id", known))
+        # 整页都认识 = 已经追上最新，收手
+        self.assertTrue(HDB.should_stop([{"id": 12}, {"id": 11}], "id", known))
+        # 只要有一条没见过就必须继续翻（下单高峰时这一页会混着新单）
+        self.assertFalse(HDB.should_stop([{"id": 13}, {"id": 11}], "id", known))
+        # 没有已知集合（首次回填）时永远不靠这个停
+        self.assertFalse(HDB.should_stop([{"id": 1}], "id", None))
+
+    def test_ids_in_range(self):
+        HDB.upsert_orders(self.conn, [_order(1, "2026-10-28 09:00:00"),
+                                      _order(2, "2026-10-28 20:00:00")])
+        got = HDB.ids_in_range(self.conn, "orders", "2026-10-28 18:00:00", "2026-10-28 23:59:59")
+        self.assertEqual(got, {"2"})
+
 
 if __name__ == "__main__":
     unittest.main()
