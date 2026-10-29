@@ -38,7 +38,7 @@ def unit():
 def database(path):
     with closing(sqlite3.connect(path)) as db:
         db.executescript('''CREATE TABLE executions(id TEXT,status TEXT,step TEXT);
-          CREATE TABLE events(seq INTEGER,execution_id TEXT,detail TEXT);
+          CREATE TABLE events(seq INTEGER PRIMARY KEY AUTOINCREMENT,execution_id TEXT,detail TEXT);
           CREATE TABLE execution_items(execution_id TEXT,model_id INTEGER,status TEXT);
           CREATE TABLE active_scope(futbin_id TEXT,execution_id TEXT);
           CREATE TABLE legacy_unresolved(futbin_id TEXT,evidence TEXT);
@@ -113,7 +113,7 @@ class Contracts(unittest.TestCase):
         P.validate_dockerfile((HERE/'Dockerfile').read_text(encoding='utf-8'))
 
     def test_complete_store_detects_saved_image_plan_snapshot_and_schema_changes(self):
-        for statement in ("UPDATE plans SET payload='lost'", "UPDATE model_snapshot_rows SET payload='wrong'", 'CREATE TABLE extra(value TEXT)'):
+        for statement in ("UPDATE plans SET payload='lost'", "UPDATE model_snapshot_rows SET payload='wrong'", "UPDATE sqlite_sequence SET seq=99", 'CREATE TABLE extra(value TEXT)'):
             with self.subTest(statement=statement),tempfile.TemporaryDirectory() as temporary:
                 root=Path(temporary);db=root/'db';tasks=root/'tasks';database(db);tasks.write_text('original')
                 with patch.object(P,'DB',db),patch.object(P,'ADMIN_TASKS',tasks):

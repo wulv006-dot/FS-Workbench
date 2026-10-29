@@ -64,7 +64,7 @@ def db_state():
     with closing(sqlite3.connect('file:' + str(P.DB) + '?mode=ro', uri=True)) as db:
         db.execute('PRAGMA query_only=ON')
         db.execute('BEGIN')
-        names = [row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+        names = [row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
         if not all(name.replace('_', '').isascii() and name.replace('_', '').isalnum() for name in names):
             raise RuntimeError('Unexpected database table name')
         return {'active': db.execute("SELECT COUNT(*) FROM executions WHERE status IN ('queued','running','waiting_price_lock')").fetchone()[0],
