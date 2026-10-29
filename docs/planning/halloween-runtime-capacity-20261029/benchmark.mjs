@@ -1,0 +1,26 @@
+// Synthetic loopback only. Measures this local Windows runtime, never production.
+import fs from 'node:fs';import path from 'node:path';import os from 'node:os';import {pathToFileURL,fileURLToPath} from 'node:url';import {performance} from 'node:perf_hooks';
+const app=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../../releases/fs-dashboard/campaign-analytics-20261023/app');
+const load=p=>import(pathToFileURL(path.join(app,p)).href);
+const [{createPublicServer},{digest},{halloweenFixture}]=await Promise.all(['runtime/server.mjs','runtime/snapshot.mjs','runtime/tests/halloween-fixture.mjs'].map(load));
+const input=halloweenFixture();let nextGoods=940000,nextModel=950000;
+// 56 models / 252 products: similar catalog size, entirely synthetic identities.
+for(const game of input.halloween.games){
+ const template=input.products.find(p=>p.product_ref.model_id===game.random_models[0]),contract=input.seasonal_model_contracts[template.product_ref.model_id];
+ while(game.random_models.length<13){const model=String(++nextModel),p=structuredClone(template),c=structuredClone(contract);p.key='load-'+model;p.product_ref.model_id=model;p.product_ref.goods_id=String(++nextGoods);c.model_ref.model_id=model;c.combinations[0].product_key=p.key;input.products.push(p);input.seasonal_model_contracts[model]=c;game.random_models.push(model);
+  for(const tier of [8,10,15]){const b=structuredClone(input.native_checkout.bindings.find(x=>x.product_key===template.key&&x.off_percent===tier));b.product_key=p.key;b.native.id=p.product_ref.goods_id;b.observed_serialization.model_id=model;input.native_checkout.bindings.push(b);}
+ }
+}
+const originals=[...input.products];let i=0;
+while(input.products.length<252){const template=originals[i++%originals.length],model=template.product_ref.model_id,c=input.seasonal_model_contracts[model],p=structuredClone(template),option=String(c.combinations.length+1);p.key=template.key+'-variant-'+option;p.product_ref.goods_id=String(++nextGoods);input.products.push(p);c.fields[0].values.push({id:option,label:'Synthetic server '+option});const combo=structuredClone(c.combinations[0]);combo.product_key=p.key;combo.choices.server=option;c.combinations.push(combo);
+ for(const tier of [8,10,15]){const b=structuredClone(input.native_checkout.bindings.find(x=>x.product_key===template.key&&x.off_percent===tier));b.product_key=p.key;b.native.id=p.product_ref.goods_id;if(b.native.category==='new_gold'&&!b.observed_serialization)b.observed_serialization={verification_ref:'synthetic-load-only',game_id:p.product_ref.game_id,model_id:model,region:'us',currency:'USD'};input.native_checkout.bindings.push(b);}
+}
+input.pages[0].product_keys=input.products.map(p=>p.key);
+const manifest={};for(const name of ['seasonal/index.html','seasonal/event.js','seasonal/event.css','seasonal/runtime-bridge.js','native-code-handoff.js','host-adapter.js'])manifest[name]=digest(fs.readFileSync(path.join(app,name)));
+const cacheEnabled=process.argv.includes('--cache'),dir=fs.mkdtempSync(path.join(os.tmpdir(),'seasonal-capacity-baseline-'));const server=createPublicServer({assetRoot:app,staticManifest:manifest,snapshotProvider:()=>input,dir,origin:'http://127.0.0.1',configCacheMs:cacheEnabled?2000:0,configStampProvider:()=>input.release_id,priceCacheProvider:()=>({schema_version:1,status:'ready',release_id:input.release_id,config_hash:input.config_hash,generated_at:new Date().toISOString(),products:input.products,model_contracts:input.seasonal_model_contracts})});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port,results=[];
+try{
+ const warm=await fetch(base+'/events/api/campaign/config');if(!warm.ok)throw Error(await warm.text());const sample=await warm.json();if(sample.products.length!==252)throw Error('Invalid synthetic projection');
+ for(const concurrency of [1,10,50,100]){const n=200,latencies=[],start=performance.now();let index=0,bytes=0;const statuses={};await Promise.all(Array.from({length:concurrency},async()=>{while(index++<n){const t=performance.now(),r=await fetch(base+'/events/api/campaign/config'),data=await r.arrayBuffer();statuses[r.status]=(statuses[r.status]||0)+1;bytes+=data.byteLength;latencies.push(performance.now()-t);}}));latencies.sort((a,b)=>a-b);const ms=performance.now()-start;results.push({concurrency,requests:n,statuses,total_bytes:bytes,elapsed_ms:Math.round(ms),requests_per_second:Math.round(n*1000/ms),p50_ms:Math.round(latencies[Math.floor(n*.5)]),p95_ms:Math.round(latencies[Math.floor(n*.95)]),rss_bytes:process.memoryUsage().rss});}
+ console.log(JSON.stringify({synthetic_loopback_only:true,production_load_test:false,config_cache_ms:cacheEnabled?2000:0,node:process.version,platform:process.platform,models:Object.keys(input.seasonal_model_contracts).length,products:input.products.length,bindings:input.native_checkout.bindings.length,prices_expire_at:input.seasonal_model_contracts[Object.keys(input.seasonal_model_contracts)[0]].combinations[0].price.expires_at,results,limitation:'Local Windows CPU/memory and synthetic config GET only; excludes upstream, TLS/proxy, real visitors, Admin polling, native Cart/add and payment. Not a production capacity promise.'}));
+}finally{await new Promise(r=>server.close(r));fs.rmSync(dir,{recursive:true,force:true});}
