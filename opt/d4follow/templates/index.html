@@ -3149,16 +3149,18 @@ setInterval(renderLocal, 5000);   // 执行器状态要比主状态刷得更勤
 /* 货架自检告警条：只读展示，不自动改配置（用户手动处理）。
    2026-10-08：按老板要求下线「核对货架一致性（生成纳管补丁草稿 · 只生成不落盘）」按钮 ——
    该动作日常不用，整块去掉（后端 /api/shelf_patch 保留未删，日后要恢复只加回前端即可）。
-   告警条本身保留：它是「映射错位 / 人工价被覆盖」这类**只读风险提示**，仍要看得见。 */
+   告警条本身保留：它是「映射错位 / 人工价被覆盖」这类**只读风险提示**，仍要看得见。
+   2026-10-29：按老板要求**下线「未纳管档位」这块** —— 常年只报 Dark and Darker 的整套装备，
+   放在页面最上方没用还难看。后端 S1 同步停算，这里只留 映射错位 / 人工价暴露。 */
 async function renderShelfBar(){
   const box=$('#shelfBar'); if(!box) return;
   let d;
   try{ d=await api('api/shelf_drift'); }catch(e){ box.innerHTML=''; return; }
-  const un=d.unmapped_shelf||[], mm=d.mismatched_pack||[], orp=d.orphan_row||[];
-  /* 2026-10-09：三项都无差异时**整条不渲染**（原来会画一条绿色的一致性提示条，
+  const mm=d.mismatched_pack||[], orp=d.orphan_row||[];
+  /* 2026-10-09：无差异时**整条不渲染**（原来会画一条绿色的一致性提示条，
      日常绝大多数时候都是那条 ⇒ 白占一行，老板要求去掉）。
      现在只有真出问题时才出现，一致时静默；#shelfBar:empty{display:none} 连外边距都不占。 */
-  if(!un.length && !mm.length && !orp.length){ box.innerHTML=''; return; }
+  if(!mm.length && !orp.length){ box.innerHTML=''; return; }
   /* ⛔ 2026-10-01 修：此处原有一行 `const esc=...`，与全局 `function esc`（第 630 行）
      同名。JS 的 const 有 TDZ —— 函数体内任何位置引用 esc 都会先撞上这行声明，
      抛 "Cannot access 'esc' before initialization"，**整个 renderShelfBar 崩掉**。
@@ -3168,11 +3170,6 @@ async function renderShelfBar(){
   if(mm.length){
     h+='<div class="sb err"><h4>🔴 映射错位（'+mm.length+'）—— 这些行会被写错价格，请尽快处理</h4><ul>'
       + mm.slice(0,12).map(x=>'<li>'+esc(x.detail)+'</li>').join('')
-      + '</ul></div>';
-  }
-  if(un.length){
-    h+='<div class="sb"><h4>🟠 未纳管档位（'+un.length+'）—— 前台有货架档位，但系统配置里没有</h4><ul>'
-      + un.slice(0,12).map(x=>'<li>'+esc(x.detail)+'</li>').join('')
       + '</ul></div>';
   }
   if(orp.length){
