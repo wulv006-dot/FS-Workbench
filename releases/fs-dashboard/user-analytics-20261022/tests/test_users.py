@@ -725,6 +725,15 @@ class Users(unittest.TestCase):
         flags.assert_called_once()
         self.assertIn('requires_reconciliation', output.getvalue())
 
+    def test_backup_changed_while_verifying_never_records_complete(self):
+        from user_jobs import backup, daily_backup_status
+        backup(self.store, NOW)
+        with patch('user_jobs.backup_signature', side_effect=[{'version': 1}, {'version': 2}]), \
+                patch('user_jobs.backup', return_value={'contract': 'fixture'}):
+            with self.assertRaisesRegex(ValueError, 'backup_changed_during_verification'):
+                daily_backup_status(self.store, NOW)
+        self.assertFalse((self.store.root / 'backup-status.json').exists())
+
     def test_frozen_snapshot_rechecks_global_context_permission(self):
         self.load([order(1, '2026-10-01')])
         allowed = [True]
