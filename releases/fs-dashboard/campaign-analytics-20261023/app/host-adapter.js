@@ -47,7 +47,9 @@
           const literal=parts.join(' + ');if(binding.replace(/\s/g,'')!==literal.replace(/\s/g,''))throw Error('NATIVE_CART_READ_UNAVAILABLE');
           const key=parts.map(x=>x.slice(1,-1)).join(''),match=key.match(/(?:ITEM|GOLD)_([1-9]\d*)_/),gold=category==='new_gold'?key.match(/GOLD_[1-9]\d*_([1-9]\d*)(?:_|$)/):null,num=row.querySelector('input.item-num')?.getAttribute('value');
           if(!['new_items','new_gold'].includes(category)||!match||category==='new_gold'&&!gold||!/^\d+$/.test(num||''))throw Error('NATIVE_CART_READ_UNAVAILABLE');
-          return {category,id:match[1],num,...(gold?{group:gold[1]}:{})};
+          // Keep the complete opaque native key for diagnostics. The observed
+          // HTML does not expose aid/attr (or item group); do not invent them.
+          return {category,id:match[1],num,native_key:key,...(gold?{group:gold[1]}:{})};
         });return {status:'native_cart_read',items};
       }finally{clearTimeout(timer);}
   }

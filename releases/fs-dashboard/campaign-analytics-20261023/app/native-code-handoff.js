@@ -197,9 +197,13 @@
     const read=()=>{let v;try{v=JSON.parse(storage.getItem(key)||'null');}catch{fail('CART_JOURNAL_UNAVAILABLE');}
       if(v&&(!['idle','confirmed','unknown'].includes(v.state)||!Array.isArray(v.items)||!Array.isArray(v.history)||v.state==='unknown'&&(!v.attempt?.id||!Array.isArray(v.attempt.items))))fail('CART_JOURNAL_UNAVAILABLE');return v;};
     const save=v=>{try{const raw=JSON.stringify(v);storage.setItem(key,raw);if(storage.getItem(key)!==raw)fail('CART_JOURNAL_UNAVAILABLE');}catch{fail('CART_JOURNAL_UNAVAILABLE');}};
-    const identity=item=>({category:item.native_payload.category,id:item.native_payload.id,num:item.native_payload.num,...(item.native_payload.category==='new_gold'?{group:item.native_payload.group}:{})});
-    const sameLine=(a,b)=>a.category===b.category&&a.id===b.id&&(a.group||null)===(b.group||null);
+    const identity=item=>Object.fromEntries(['category','id','num','group','attr','aid'].map(k=>[k,item.native_payload[k]]));
+    const sameLine=(a,b)=>a.category===b.category&&a.id===b.id&&(a.category!=='new_gold'||(a.group||null)===(b.group||null));
     const matches=(rows,items)=>rows.length===items.length&&items.every(x=>rows.filter(r=>sameLine(r,x)&&r.num===x.num).length===1);
+    // A SKU/quantity match can identify a known-success cart, but cannot prove
+    // that an UNKNOWN POST created the same variant. Missing native fields are
+    // unknown, never empty strings inferred from a title or an opaque key hash.
+    const completeMatch=(rows,items)=>rows.length===items.length&&items.every(x=>rows.filter(r=>['category','id','num','group','attr','aid'].every(k=>typeof r[k]==='string'&&r[k]===x[k])).length===1);
     // Upgrade the old page/cart journals before creating ANY new native ID. An
     // empty cart cannot disprove an older timed-out POST still reaching the store.
     // Keep the old records intact; acknowledged IDs survive the bounded UI history.
@@ -213,7 +217,7 @@
         const old=JSON.parse(session.getItem('fs-native-cart:'+page.id)||'null');
         let items=[],context={};
         try{const signature=JSON.parse(old?.signature),source=JSON.parse(page.signature);
-          if(Array.isArray(signature?.[0]))items=signature[0].map(body=>({category:body.category,id:body.id,num:body.num,...(body.category==='new_gold'?{group:body.group}:{})}));
+          if(Array.isArray(signature?.[0]))items=signature[0].map(body=>Object.fromEntries(['category','id','num','group','attr','aid'].map(k=>[k,body[k]])));
           if(items.some(x=>!['new_items','new_gold'].includes(x.category)||!positive(x.id)||!positive(x.num)))items=[];
           context={code:signature[1],release:source[0],hash:source[1],selection:source.at(-1)};
         }catch{ /* An unreadable legacy result remains unresolved, never empty. */ }
@@ -235,7 +239,7 @@
     return {known(){return upgrade(legacyStorage,read());},async inspect(readCart){
       const cart=await readCart();if(cart?.status!=='native_cart_read'||!Array.isArray(cart.items))fail('NATIVE_CART_READ_UNAVAILABLE');
       const journal=upgrade(legacyStorage,read(),cart.items);
-      if(journal?.state==='unknown')return {state:journal.attempt.items.length&&(!journal.legacy_pending_ids||journal.legacy_pending_ids.length===1)&&matches(cart.items,[...journal.items,...journal.attempt.items])?'recoverable':'unknown',selection:journal.selection};
+      if(journal?.state==='unknown')return {state:journal.attempt.items.length&&(!journal.legacy_pending_ids||journal.legacy_pending_ids.length===1)&&completeMatch(cart.items,[...journal.items,...journal.attempt.items])?'recoverable':'unknown',selection:journal.selection};
       if(!cart.items.length)return {state:'empty'};
       return journal?.state==='confirmed'&&matches(cart.items,journal.items)?{state:'selected',selection:journal.selection}:{state:'occupied'};
     },async checkout({snapshot,selection,approved,storage:session,host,navigate,onCartConfirmed}){
@@ -250,7 +254,7 @@
           const expected=[...journal.items,...journal.attempt.items];
           // Presence of every exact new line can reconcile success. Empty is not
           // proof that a timed-out native POST will never complete.
-          if(!journal.attempt.items.length||journal.legacy_pending_ids?.length>1||!matches(rows,expected))return blocked('cart_unknown_inspect_original',approved.options.cartUrl);
+          if(!journal.attempt.items.length||journal.legacy_pending_ids?.length>1||!completeMatch(rows,expected))return blocked('cart_unknown_inspect_original',approved.options.cartUrl);
           journal={...journal,state:'confirmed',items:expected,legacy_resolved_ids:[...new Set([...(journal.legacy_resolved_ids||[]),...(journal.attempt.legacy?[journal.attempt.id]:[])])],history:[...journal.history,{id:journal.attempt.id,state:'confirmed_by_cart_read',at:now()}].slice(-20),attempt:null};save(journal);
         }
         if(rows.length){

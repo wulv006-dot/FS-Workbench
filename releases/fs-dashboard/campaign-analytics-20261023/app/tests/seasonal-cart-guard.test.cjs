@@ -26,7 +26,7 @@ test('known rejection can retry, but timeout/unknown survives reload without a s
  const f=fixture();f.answer='rejected';await f.submit();assert.equal(f.calls,1);f.answer='confirmed';await f.submit();assert.equal(f.calls,2);
  const u=fixture();u.answer='unknown';await u.submit();assert.equal(u.calls,1);assert.equal((await u.submit()).state,'cart_unknown_inspect_original');assert.equal(u.calls,1);
  const restored=h.createCartGuard({storage:u.durable,locks:u.locks});assert.equal((await u.submit(u.approved('202','OTHER15'),restored)).state,'cart_unknown_inspect_original');assert.equal(u.calls,1);
- u.cart=[{category:'new_items',id:'101',num:'1'}];await u.submit();assert.equal(u.calls,1);assert.equal(u.navigations,1);
+ u.cart=[{category:'new_items',id:'101',num:'1',group:'1',attr:'',aid:'100'}];await u.submit();assert.equal(u.calls,1);assert.equal(u.navigations,1);
 });
 test('two tabs / rapid clicks coordinate one native POST, including a delayed response',async()=>{
  const f=fixture();let release;f.pause=new Promise(r=>release=r);const first=f.submit();await new Promise(r=>setImmediate(r));assert.equal((await f.submit(f.approved('202'))).state,'cart_busy_inspect_original');assert.equal(f.calls,1);release();await first;assert.equal(f.cart.length,1);
@@ -78,7 +78,7 @@ test('an old confirmed add opens its existing cart without a POST; confirmed del
 test('an old UNKNOWN is reconciled only by its exact original line, and acknowledged beyond bounded history',async()=>{
  const f=fixture(),{a,id}=legacyPage(f);f.answer='unknown';
  await h.checkout({storage:f.session,options:a.options,operationId:id,items:a.items,host:f.host,navigate(){},liveVerified:true});
- f.cart=[{category:'new_items',id:'101',num:'1'}];
+ f.cart=[{category:'new_items',id:'101',num:'1',group:'1',attr:'',aid:'100'}];
  const guard=h.createCartGuard({storage:f.durable,legacyStorage:f.session,locks:f.locks});
  assert.equal((await guard.inspect(()=>f.host.readCart())).state,'recoverable');
  await f.submit(a,guard);assert.equal(f.calls,1);
@@ -104,4 +104,42 @@ test('the published entry point preserves an actual pre-upgrade UNKNOWN instead 
  const guard=h.createCartGuard({storage:f.durable,legacyStorage:f.session,locks:f.locks});
  assert.equal((await h.checkoutPublished({...args,cartGuard:guard})).state,'cart_unknown_inspect_original');
  assert.equal(f.calls,1);assert.deepEqual([...f.session.values],before);
+});
+
+test('UNKNOWN never confirms another variant of the same goods or a cart row missing variant fields',async()=>{
+ const f=fixture(),a=f.approved();a.items[0].native_payload.attr='31:41';a.items[0].observed_serialization=true;f.answer='unknown';await f.submit(a);
+ const original=JSON.parse(f.durable.getItem('fs-seasonal-native-cart-v1'));assert.deepEqual(original.attempt.items,[{category:'new_items',id:'101',num:'1',group:'1',attr:'31:41',aid:'100'}]);
+ const guard=h.createCartGuard({storage:f.durable,legacyStorage:f.session,locks:f.locks});
+ for(const wrong of [
+  {category:'new_items',id:'101',num:'1',group:'1',attr:'31:42',aid:'200'},
+  {category:'new_items',id:'101',num:'1',group:'2',attr:'31:41',aid:'100'},
+  {category:'new_items',id:'101',num:'1',native_key:'cart_key_new_itemsITEM_101__opaque'}
+ ]){
+  f.cart=[wrong];assert.equal((await guard.inspect(()=>f.host.readCart())).state,'unknown');
+  assert.equal((await f.submit(a,guard)).state,'cart_unknown_inspect_original');
+  assert.equal(f.calls,1);assert.equal(f.navigations,0);assert.equal(f.session.getItem('pending_discount_code'),null);
+  assert.equal(JSON.parse(f.durable.getItem('fs-seasonal-native-cart-v1')).state,'unknown');
+ }
+ f.cart=[{category:'new_items',id:'101',num:'1',group:'1',attr:'31:41',aid:'100'}];
+ assert.equal((await guard.inspect(()=>f.host.readCart())).state,'recoverable');await f.submit(a,guard);assert.equal(f.calls,1);assert.equal(f.navigations,1);
+});
+
+test('two valid model-option variants sharing a goods ID cannot resolve each other through the published entry',async()=>{
+ const {pathToFileURL}=require('node:url'),path=require('node:path'),load=p=>import(pathToFileURL(path.resolve(__dirname,'../runtime/'+p)).href);
+ const [{halloweenFixture},{projectModelOptions}]=await Promise.all([load('tests/halloween-fixture.mjs'),load('model-options.mjs')]);
+ const snapshot=halloweenFixture(),game=snapshot.halloween.games.find(x=>x.id==='diablo'),model=game.random_models[0],source=snapshot.seasonal_model_contracts[model],product=snapshot.products.find(p=>p.product_ref.model_id===model);
+ product.attributes[0].values.push('42');source.fields.push({id:'variant',label:'Variant',depends_on:[],values:[{id:'a',label:'A'},{id:'b',label:'B'}]});source.combinations[0].choices.variant='a';
+ const second=structuredClone(source.combinations[0]);second.choices.variant='b';second.attributes=[{attribute_id:'31',value_id:'42'}];source.combinations.push(second);
+ const firstBindings=snapshot.native_checkout.bindings.filter(b=>b.product_key===product.key);
+ for(const b of firstBindings){const other=structuredClone(b);other.attributes=second.attributes;other.native.attr='31:42';other.native.aid='200';snapshot.native_checkout.bindings.push(other);}
+ snapshot.seasonal_model_contracts=projectModelOptions(snapshot.seasonal_model_contracts,snapshot.products);
+ const options=require('../seasonal/model-selection.js'),choose=variant=>{const selector=options.create(snapshot.seasonal_model_contracts[model]);selector.select('server','1');selector.select('variant',variant);selector.setQuantity('1');return {activity_id:'mmoexp-seasonal',page_id:'seasonal-vault',game_id:game.admin_game_id,model_id:model,slot:'random-1',off_percent:8,reveal_request_id:crypto.randomUUID(),lines:[selector.line()]};};
+ const a=choose('a'),b=choose('b'),planA=h.publishedPlan(snapshot,a,{origin:'https://www.mmoexp.com'}),planB=h.publishedPlan(snapshot,b,{origin:'https://www.mmoexp.com'});
+ assert.equal(planA.items[0].native_payload.id,planB.items[0].native_payload.id);assert.notEqual(planA.items[0].native_payload.attr,planB.items[0].native_payload.attr);
+ const f=fixture();f.answer='unknown';f.host.verifySelection=async r=>({...r,status:'selection_confirmed',release_id:snapshot.release_id,config_hash:snapshot.config_hash});
+ const guard=h.createCartGuard({storage:f.durable,legacyStorage:f.session,locks:f.locks}),args={snapshot,selection:a,storage:f.session,host:f.host,cartGuard:guard,origin:'https://www.mmoexp.com',navigate(){throw Error('Must not navigate');}};
+ await h.checkoutPublished(args);const nativeB=planB.items[0].native_payload;
+ for(const row of [{category:nativeB.category,id:nativeB.id,num:nativeB.num},{...nativeB}]){
+  f.cart=[row];assert.equal((await guard.inspect(()=>f.host.readCart())).state,'unknown');assert.equal((await h.checkoutPublished(args)).state,'cart_unknown_inspect_original');assert.equal(f.calls,1);assert.equal(f.session.getItem('pending_discount_code'),null);
+ }
 });

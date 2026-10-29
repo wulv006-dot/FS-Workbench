@@ -48,6 +48,8 @@
 
 若读取到与原请求一致的商品、数量及套餐组，可按已有商品继续进入购物车，不重复加购。若结果仍未知，即使当前空车，也不能把它当成“原请求绝不会稍后完成”的证明；先检查购物车，必要时由客服核实原操作。
 
+仅商品编号和数量相同，还不能确认原请求的完整规格。当前主站购物车页面没有暴露全部规格标识；遇到响应丢失，即使车中有相似商品，也可能必须保留 UNKNOWN，联系技术或客服核对原操作，不能再次提交。删除可见商品也不能单独证明旧未知请求已经结束。
+
 ### 8. 取消、刷新、后退会不会自动再加一件？
 
 关闭尚未提交的选项窗口不会加购。点击 Go to cart 后关闭或离开页面，不等于取消已发出的原站请求。后退、前进、刷新及重新打开标签页只恢复检查状态，不因为缺少待用优惠码或看到旧成功记录就重发加购。
@@ -150,6 +152,8 @@ If the event confirms that the store rejected the add, check your options and tr
 ### An add timed out. Why not just send it again?
 
 The store may have received the first request even if its response was lost. The event will not automatically repeat it. If the exact item and quantity can be confirmed in the cart, you can continue with that existing item. If the result stays uncertain and the item is missing, contact support.
+
+Matching the product number and quantity alone is not enough: all product options must also be verified. The current store cart page does not expose every option identifier, so some interrupted adds must remain unconfirmed even when a similar item is visible. Review that cart and contact support rather than submitting again. Removing a visible item does not by itself resolve an earlier unknown request.
 
 ### Will closing the dialog, refreshing or using Back add another item?
 
