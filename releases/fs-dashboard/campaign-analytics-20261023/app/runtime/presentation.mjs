@@ -51,7 +51,14 @@ function displayGroups(snapshot,page,source){
   });
 }
 const sectionClass=source=>/href=["'][^"']*event\.css(?:[?"'])/i.test(source)?'seo-content page-width':'fc-activity fca-container fca-guide';
-function metadata(html,p,publicBase) {
+// Explicit launch switch only covers the verified main-site seasonal page.
+export function seasonalSeo({snapshot,publicBase,enabled=false,mode='preview',now=Date.now()}={}){
+ const page=snapshot?.pages?.find(p=>p.page_id==='seasonal-vault'&&p.activity_id==='mmoexp-seasonal'&&p.path==='seasonal/index.html');
+ const clock=Number(new Date(typeof now==='function'?now():now)),start=Date.parse(page?.starts_at),end=Date.parse(page?.ends_at);
+ if(enabled!==true||mode==='integration_test'||publicBase!=='https://www.mmoexp.com/events/'||snapshot?.schema_version!==1||!snapshot.release_id||snapshot.publication_status&&snapshot.publication_status!=='published'||page?.active!==true||snapshot.halloween?.status!=='configured'||snapshot.native_checkout?.status!=='configured'||![clock,start,end].every(Number.isFinite)||start>=end||clock<start||clock>end||Date.parse(snapshot.halloween.ends_at)!==end)return null;
+ return {canonical:new URL('seasonal/',publicBase).href};
+}
+function metadata(html,p,publicBase,seo) {
   const fieldsConfig=presentationFields(p);
   if(fieldsConfig.default_language!=='original'){
     const language=fieldsConfig.default_language==='zh'?'zh-CN':'en';
@@ -74,10 +81,16 @@ function metadata(html,p,publicBase) {
     html=html.replace(/<meta\b[^>]*>/gi,tag=>attr(tag,kind)?.toLowerCase()===key?'':tag);
     html=html.replace(/<\/head\s*>/i,()=>`<meta ${kind}="${key}" content="${escape(value)}"></head>`);
   }
-  // Keep collection metadata consistent without rebuilding product identity, URLs or canonical origin.
+  if(seo&&p.path==='seasonal/index.html'){
+    html=html.replace(/<meta\b[^>]*>/gi,tag=>['robots','googlebot','bingbot'].includes(attr(tag,'name')?.toLowerCase())?'':tag);
+    html=html.replace(/<link\b[^>]*>/gi,tag=>attr(tag,'rel')?.toLowerCase()==='canonical'?'':tag);
+    html=html.replace(/<meta\b[^>]*>/gi,tag=>attr(tag,'property')?.toLowerCase()==='og:url'?'':tag);
+    html=html.replace(/<\/head\s*>/i,()=>`<meta name="robots" content="index,follow"><link rel="canonical" href="${escape(seo.canonical)}"><meta property="og:url" content="${escape(seo.canonical)}"></head>`);
+  }
+  // Keep collection metadata consistent without rebuilding product identities.
   return html.replace(/(<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>)([\s\S]*?)(<\/script\s*>)/gi,(all,open,raw,close)=>{
     try{
-      const data=JSON.parse(raw),update=node=>{if(!node||typeof node!=='object')return;if(node['@type']==='CollectionPage'){node.name=p.title;if(description)node.description=description;if(fieldsConfig.default_language!=='original')node.inLanguage=fieldsConfig.default_language==='zh'?'zh-CN':'en';}for(const value of Object.values(node))if(value&&typeof value==='object')Array.isArray(value)?value.forEach(update):update(value);};
+      const data=JSON.parse(raw),update=node=>{if(!node||typeof node!=='object')return;if(node['@type']==='CollectionPage'){node.name=p.title;if(description)node.description=description;if(seo&&p.path==='seasonal/index.html')node.url=seo.canonical;if(fieldsConfig.default_language!=='original')node.inLanguage=fieldsConfig.default_language==='zh'?'zh-CN':'en';}for(const value of Object.values(node))if(value&&typeof value==='object')Array.isArray(value)?value.forEach(update):update(value);};
       update(data);return open+JSON.stringify(data).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029')+close;
     }catch{return all;}
   });
@@ -104,7 +117,7 @@ function versionAssets(html,target,assetVersion){
 }
 
 // Call with the current validated published projection; immutable source HTML stays unchanged.
-export function presentPage({name,body,snapshot,now=Date.now(),publicBase,assetVersion}={}) {
+export function presentPage({name,body,snapshot,now=Date.now(),publicBase,assetVersion,seo}={}) {
   snapshot=publicEnglishRelease(snapshot);
   const target=route(name);
   if(!routes.has(target))return {status:200,body};
@@ -117,7 +130,7 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase,assetV
   if(start!==null&&start>clock)return neutral(source,p,200,'Upcoming activity — the published start time has not arrived.');
   let html=source.replace(/<section\b[^>]*\bid=["']campaign-published-details["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
   html=html.replace(/<section\b[^>]*\bid=["']campaign-imported-products(?:-[a-z]+)?["'][^>]*>[\s\S]*?<\/section\s*>/gi,'');
-  html=metadata(html,p,publicBase);
+  html=metadata(html,p,publicBase,seo);
   html=versionAssets(html,target,assetVersion);
   if(p.media?.hero_desktop||p.media?.hero_mobile){
     const url=ref=>{let base;try{base=new URL(publicBase);}catch{fail('INVALID_PUBLIC_BASE',503);}if(base.username||base.password||base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname)))fail('INVALID_PUBLIC_BASE',503);return new URL('media/'+ref.asset_id,base).href;};

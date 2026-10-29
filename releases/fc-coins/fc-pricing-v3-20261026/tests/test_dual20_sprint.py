@@ -5,7 +5,7 @@ import json,sys,tempfile,unittest
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
-from fixtures import fixture,NOW
+from fixtures import fixture,NOW,set_console_cost
 from fc_pricing_v3 import engine,financial,runtime,api
 from fc_pricing_v3.ledger import Ledger
 from fc_pricing_v3.legacy_simulation import dual10_financial
@@ -23,6 +23,7 @@ def source(loot='10',item='11',cost='.35',bonus='0'):
         rules=data['promotion_envelope']['packages'][p]
         rules['max_delivered_ratio']=str(1+Decimal(bonus)/100)
         for tier in rules['tiers']:tier['bonus_k']=str(Decimal(tier['base_k'])*Decimal(bonus)/100)
+    set_console_cost(data)
     envelope=data['promotion_envelope'];envelope['sha256']=financial.fingerprint({k:v for k,v in envelope.items() if k not in ('sha256','checked_at')})
     return data
 
@@ -153,7 +154,7 @@ class Dual20Sprint(unittest.TestCase):
         data['offers']['PS']['Lootbar']['usd_price']='10.8'
         self.assertEqual(engine.competition(data,['PS'],NOW)['anchors']['PS']['source'],'Lootbar')
         data['offers']['PS']['Lootbar']['usd_price']='10'
-        data['costs']['PS']['cny_per_1k']=data['costs']['XBOX']['cny_per_1k']='.35'
+        data['costs']['PS']['cny_per_1k']=data['costs']['XBOX']['cny_per_1k']='.35';set_console_cost(data)
         self.assertEqual(engine.competition(data,['PS'],NOW)['anchors']['PS']['source'],'Lootbar')
 
     def test_cost_conflict_uses_legal_floor_without_switching_to_higher_itemd2r(self):
@@ -165,7 +166,7 @@ class Dual20Sprint(unittest.TestCase):
 
     def test_d8_saved_amounts_choose_minimum_legal_catalog_with_saudi_proof(self):
         saved=json.loads((Path(__file__).parent/'fixtures/d8-lowest-anchor.json').read_text(encoding='utf-8'))
-        data=saved['evidence'];plan=saved['plan']
+        data=saved['evidence'];set_console_cost(data);plan=saved['plan']
         plan['parameters']['sprint_policy_version']=engine.SPRINT_POLICY_VERSION
         result=engine.evaluate(data,'revenue_sprint',plan=plan,now=datetime.fromisoformat(saved['provenance']['as_of']))
         self.assertEqual(saved['previous_action']['base_prices'],dict(console='8.12',pc='7.71'))

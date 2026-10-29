@@ -11,6 +11,7 @@ HARD_MARGIN = Decimal('20')
 CENT = Decimal('.01')
 STEP = Decimal('.0001')
 CONSOLE = ('PS', 'XBOX')
+CONSOLE_COST_CONTRACT = 'ps_latest_six_valid_order_delivery_max_v1'
 ROUNDING_RESERVE = Decimal('.02')
 def number(value, *, zero=False):
     if value is None or isinstance(value, bool):
@@ -51,23 +52,52 @@ def fresh(value, now, seconds=3600):
 
 
 def common_cost(evidence):
-    """One console pool uses its newest verified delivery, preserving both observations."""
-    records = [evidence['costs'][p] for p in CONSOLE]
-    for p, row in zip(CONSOLE, records):
-        if row.get('platform') != p or row.get('game') != 'FC27' or row.get('product') != 'Game Coins':
+    """PS and Xbox share the highest unit cost among the latest six valid PS deliveries."""
+    ps = evidence['costs']['PS']
+    if ps.get('sample_contract') != CONSOLE_COST_CONTRACT or ps.get('sample_complete') is not True:
+        raise ValueError('pricing_console_cost_sample_unverified')
+    records = ps.get('sample_records')
+    if not isinstance(records, list) or len(records) != 6:
+        raise ValueError('pricing_console_cost_sample_incomplete')
+    boundary = ps.get('sample_boundary')
+    if not isinstance(boundary, dict) or boundary.get('complete') is not True:
+        raise ValueError('pricing_console_cost_sample_boundary')
+    try:
+        start, end = instant(boundary.get('start')), instant(boundary.get('end'))
+    except ValueError:
+        raise ValueError('pricing_console_cost_sample_boundary') from None
+    if not start < end or end - start > timedelta(days=8):
+        raise ValueError('pricing_console_cost_sample_boundary')
+    ids = set()
+    for row in records:
+        if (row.get('platform') != 'PS' or row.get('game') != 'FC27'
+                or row.get('product') != 'Game Coins' or row.get('unit') != 'CNY/K'
+                or row.get('genre') != '1' or row.get('delivery_type') != '\u8ba2\u5355\u53d1\u8d27'):
             raise ValueError('pricing_console_cost_scope')
         number(row.get('cny_per_1k'))
-        if not str(row.get('record_id', '')).isdigit():
+        record_id = str(row.get('record_id', ''))
+        if not record_id.isdigit() or int(record_id) in ids:
             raise ValueError('pricing_console_cost_identity')
-    latest = max(records, key=lambda r: instant(r['trade_at']))
-    at = instant(latest['trade_at'])
-    tied = [r for r in records if instant(r['trade_at']) == at]
-    if len({number(r['cny_per_1k']) for r in tied}) != 1:
-        raise ValueError('pricing_console_simultaneous_cost_conflict')
-    return number(latest['cny_per_1k']), dict(
-        basis='newest_verified_delivery_in_user_confirmed_shared_console_pool',
-        selected_platform=latest['platform'], record_id=str(latest['record_id']),
-        trade_at=latest['trade_at'], cny_per_k=str(number(latest['cny_per_1k'])),
+        ids.add(int(record_id))
+        if not start <= instant(row['trade_at']) <= end:
+            raise ValueError('pricing_console_cost_sample_boundary')
+    ordered = sorted(records, key=lambda r: (instant(r['trade_at']), int(r['record_id'])), reverse=True)
+    if records != ordered:
+        raise ValueError('pricing_console_cost_sample_order')
+    selected = max(records, key=lambda r: number(r['cny_per_1k']))
+    for platform in CONSOLE:
+        row = evidence['costs'][platform]
+        if (row.get('platform') != platform or row.get('source_platform') != 'PS'
+                or row.get('sample_contract') != CONSOLE_COST_CONTRACT or row.get('sample_complete') is not True
+                or row.get('sample_boundary') != boundary
+                or row.get('sample_records') != records
+                or any(row.get(key) != selected.get(key) for key in ('game', 'product', 'record_id', 'trade_at'))
+                or number(row.get('cny_per_1k')) != number(selected['cny_per_1k'])):
+            raise ValueError('pricing_console_cost_selection_mismatch')
+    return number(selected['cny_per_1k']), dict(
+        basis=CONSOLE_COST_CONTRACT, sample_size=6,
+        selected_platform='PS', record_id=str(selected['record_id']),
+        trade_at=selected['trade_at'], cny_per_k=str(number(selected['cny_per_1k'])),
         observations=[{k:r.get(k) for k in ('platform','record_id','trade_at','checked_at','cny_per_1k')} for r in records])
 
 

@@ -150,16 +150,19 @@ class AdminDcTests(unittest.TestCase):
                 base = admin.API_BASES[0] if '--network host' in text else admin.API_BASES[2]
                 self.assertIn('FS_ADMIN_API_BASE=' + base, text)
 
-    def test_publisher_requires_exact_98_targets(self):
+    def test_publisher_requires_exact_99_targets_with_cost_collector(self):
         spec = importlib.util.spec_from_file_location('fc_admin_target_map', SOURCE.parent / 'deploy/target_map.py')
         targets = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(targets)
         mapping = targets.targets(SOURCE)
-        self.assertEqual(targets.TARGET_COUNT, 98)
+        self.assertEqual(targets.TARGET_COUNT, 99)
         self.assertEqual(len(mapping), targets.TARGET_COUNT)
         self.assertEqual(mapping['fc_shared_admin.py'], '/opt/fc27-cloud-browser/fc_shared_admin.py')
         self.assertNotIn('/opt/fs-order-session/fc_shared_admin.py', mapping.values())
         self.assertEqual(mapping['sync_players.sh'], '/opt/fc27-cloud-browser/sync_players.sh')
+        self.assertEqual(mapping['collect_p2pah_cost.py'], '/opt/fc27-cloud-browser/collect_p2pah_cost.py')
+        self.assertEqual(len(targets.DELTA_NAMES),5)
+        self.assertEqual(targets.DELTA_NEW,frozenset())
         for name in ['build_stage.py', 'prepare_manifest.py']:
             text = (SOURCE.parent / 'deploy' / name).read_text(encoding='utf8')
             self.assertIn('!= TARGET_COUNT', text)
