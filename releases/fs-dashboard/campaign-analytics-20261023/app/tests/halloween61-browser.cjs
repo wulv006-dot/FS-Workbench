@@ -10,11 +10,11 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  let expiryTest=0;
  const server=createPublicServer({assetRoot:root,staticManifest:manifest,snapshotProvider:()=>snapshot,dir,origin:'https://www.mmoexp.com',priceCacheProvider:()=>{const contracts=structuredClone(snapshot.seasonal_model_contracts);for(const c of Object.values(contracts))for(const row of c.combinations){if(expiryTest)row.price.base_minor=expiryTest===1?1000:1200;row.price.expires_at=new Date(Date.now()+(expiryTest===1?1500:600000)).toISOString();}return {schema_version:1,status:'ready',release_id:snapshot.release_id,config_hash:snapshot.config_hash,generated_at:new Date().toISOString(),products:snapshot.products,model_contracts:contracts};}});await new Promise(r=>server.listen(0,'127.0.0.1',r));
  let browser;try{
-  browser=await chromium.launch({headless:true});const page=await browser.newPage(),posts=[],applies=[],errors=[],revealIds=new Map(),revealReceipts=new Map();page.setDefaultTimeout(8000);page.on('pageerror',e=>errors.push(e.message));
+  browser=await chromium.launch({headless:true});let cart=[];const page=await browser.newPage(),posts=[],applies=[],errors=[],revealIds=new Map(),revealReceipts=new Map();page.setDefaultTimeout(8000);page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/*',async route=>{
    const req=route.request(),url=new URL(req.url());if(url.origin!=='https://www.mmoexp.com')return route.abort();
-   if(url.pathname==='/Cart/add.html'){posts.push(Object.fromEntries(new URLSearchParams(req.postData())));return route.fulfill({json:{code:1}});}
-   if(url.pathname==='/Cart.html')return route.fulfill({contentType:'text/html',body:'<!doctype html><title>Synthetic Cart</title><p id="result">Pending simulation</p><script>const code=sessionStorage.getItem("pending_discount_code");sessionStorage.removeItem("pending_discount_code");fetch("/__fixture/apply",{method:"POST",body:code}).then(r=>r.json()).then(r=>document.querySelector("#result").textContent=r.accepted?"SIMULATED ACCEPTED":"SIMULATED REJECTED");</script>'});
+   if(url.pathname==='/Cart/add.html'){const line=Object.fromEntries(new URLSearchParams(req.postData()));posts.push(line);cart.push(line);return route.fulfill({json:{code:1}});}
+   if(url.pathname==='/Cart.html')return route.fulfill({contentType:'text/html',body:'<!doctype html><title>Synthetic Cart</title><p id="result">Pending simulation</p>'+(cart.length?cart.map(x=>`<li data-cart-category="${x.category}" :class="'cart_key_' + '${x.category}' + '${x.category==='new_gold'?'GOLD_'+x.id+'_'+x.group:'ITEM_'+x.id+'__synthetic'}'"><input class="item-num" value="${x.num}"></li>`).join(''):'<div class="no-c-box"><h1 class="no-title">Your cart is empty</h1></div>')+'<script>const code=sessionStorage.getItem("pending_discount_code");sessionStorage.removeItem("pending_discount_code");fetch("/__fixture/apply",{method:"POST",body:code}).then(r=>r.json()).then(r=>document.querySelector("#result").textContent=r.accepted?"SIMULATED ACCEPTED":"SIMULATED REJECTED");</script>'});
    if(url.pathname==='/__fixture/apply'){applies.push(req.postData());return route.fulfill({json:{accepted:applies.length%2===1}});}
    if(!url.pathname.startsWith('/events/'))return route.abort();
    const response=await fetch('http://127.0.0.1:'+server.address().port+url.pathname,{method:req.method(),...(req.method()==='POST'?{body:req.postData(),headers:{Origin:'https://www.mmoexp.com','Content-Type':'application/json'}}:{})});
@@ -38,14 +38,15 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
    const chosen=revealReceipts.get(game.id).slots.find(s=>s.slot==='random-1');const expected=snapshot.native_checkout.bindings.find(b=>b.product_key==='synthetic61-'+model&&b.off_percent===8&&(!chosen.quantity||b.quantity.value===chosen.quantity.value)).native;assert.deepEqual(posts.at(-1),expected);
    // A consumed pending code and reload cannot repeat the same native operation.
    const count=posts.length,applyCount=applies.length;await open(game.id);await page.locator('[data-random-reveal="random-1"]').click();await page.waitForSelector('[data-offer-slot="random-1"] .is-revealed');assert.equal(await page.locator('[data-buy-slot="random-1"]').getAttribute('data-model-buy'),model);
-   await page.locator('[data-buy-slot="random-1"]').click();await page.locator('#dialog-content select').selectOption('1');await page.locator('#dialog-content button').click();await page.waitForFunction(()=>document.querySelector('#dialog-content').textContent.includes('Apply and final totals remain unconfirmed'));assert.equal(posts.length,count);assert.equal(applies.length,applyCount);
-   await page.locator('[data-action="close"]').click();await page.locator('[data-random-reveal="random-2"]').click();await page.waitForSelector('[data-offer-slot="random-2"] .is-revealed');if(game.random_source.mode==='quantity_tiers'){const slots=revealReceipts.get(game.id).slots;assert.notEqual(slots[1].quantity.value,slots[2].quantity.value);}else assert.notEqual(await page.locator('[data-buy-slot="random-2"]').getAttribute('data-model-buy'),model);
+   await page.locator('[data-buy-slot="random-1"]').click();await page.locator('#dialog-content select').selectOption('1');await page.locator('#dialog-content button').click();await page.waitForURL('**/Cart.html');await page.waitForFunction(()=>document.querySelector('#result').textContent.startsWith('SIMULATED '));assert.equal(posts.length,count);assert.equal(applies.length,applyCount+1);
+   await open(game.id);await page.locator('[data-random-reveal="random-2"]').click();await page.waitForSelector('[data-offer-slot="random-2"] .is-revealed');if(game.random_source.mode==='quantity_tiers'){const slots=revealReceipts.get(game.id).slots;assert.notEqual(slots[1].quantity.value,slots[2].quantity.value);}else assert.notEqual(await page.locator('[data-buy-slot="random-2"]').getAttribute('data-model-buy'),model);
+   assert.equal(await page.locator('[data-buy-slot="random-2"]').isDisabled(),true,'Other offers stay locked while the original line exists');cart=[];
   }
-  assert.equal(posts.length,4);assert.equal(applies.length,4);assert.equal(revealIds.size,4);assert.deepEqual(errors,[]);
+  assert.equal(posts.length,4);assert.equal(applies.length,8);assert.equal(revealIds.size,4);assert.deepEqual(errors,[]);
   // Price expiry refreshes the open dialog without changing its amount/server.
   expiryTest=1;await open('aion');await page.locator('[data-fixed-reveal]').click();await page.locator('[data-offer-slot="fixed"] [data-model-buy]').click();await page.locator('#dialog-content select').selectOption('1');
   await page.waitForFunction(()=>document.querySelector('#dialog-content').textContent.includes('$10.80'));
-  assert.equal(await page.locator('#dialog-content input').inputValue(),'10');assert.equal(await page.locator('#dialog-content select').inputValue(),'1');assert.equal(posts.length,4);assert.equal(applies.length,4);
+  assert.equal(await page.locator('#dialog-content input').inputValue(),'10');assert.equal(await page.locator('#dialog-content select').inputValue(),'1');assert.equal(posts.length,4);assert.equal(applies.length,8);
 
   // A same-version refresh may reuse a still-fresh reference, never an expired one;
   // changing publication context also drops a reference that has not expired.
@@ -76,7 +77,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
    assert.equal(await page.locator('[data-offer-slot="fixed"] .reference-price').count(),0);
    assert.equal(await page.locator('[data-offer-slot="fixed"] [data-model-buy]').isDisabled(),true);
   }
-  assert.equal(posts.length,4);assert.equal(applies.length,4);
+  assert.equal(posts.length,4);assert.equal(applies.length,8);
 
   console.log('PASS Halloween61: four actual game pages -> distinct server mystery cards or quantity tiers -> exact option/quantity/native payload -> same-tab synthetic Cart + accepted/rejected Apply; reload never reposts; no live calls.');
  }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));fs.rmSync(dir,{recursive:true,force:true});}
