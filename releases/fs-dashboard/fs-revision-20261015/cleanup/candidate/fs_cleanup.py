@@ -16,7 +16,7 @@ import uuid
 CACHE = Path('/var/lib/fs-business-ranges/profit-days')
 AUDIT = Path('/var/lib/fs-maintenance-cleanup')
 RETENTION_DAYS = 7
-WRITER_SHA = '0e89299020a723d674dd2ba1fc3b46c07c8591b9027147ab1302bf606cfb8da0'
+WRITER_SHA = '9b043ed25d165d859bbc1728bc5ceb24cb6432b37387d1de3f6771e1c6dfe805'
 REFERENCES = tuple(Path(p) for p in ['/var/www/dashboard/fs-home/transactions', '/opt/mmoexp-weekly-report', '/var/lib/fs-hermes-fc', '/var/lib/fs-boss-workspaces', '/var/lib/fs-business-ranges/fc-daily'])
 SHANGHAI = timezone(timedelta(hours=8))
 HELD = local()
@@ -107,6 +107,10 @@ def expired_row(data, name, now):
     if latest != stamp or not timedelta(days=RETENTION_DAYS) < now - stamp:
         return False
     day = date.fromisoformat(row['date'])
+    from daily_archive import cutoff, retention_cutoff
+    today = now.astimezone(SHANGHAI).date()
+    if day >= min(cutoff(today), retention_cutoff(today)):
+        return False
     if stamp.astimezone(SHANGHAI).date() <= day or row['period'] != {'start': str(day) + ' 00:00', 'end': str(day + timedelta(days=1)) + ' 00:00'}:
         return False
     scope = row['scope']
@@ -117,32 +121,59 @@ def expired_row(data, name, now):
     return name == key + '.json'
 
 
-def references(roots=REFERENCES):
+def reference_hashes(stream, wanted=None):
+    found = set()
+    carry, offset = b'', 0
+    while True:
+        block = stream.read(64 * 1024)
+        data = carry + block
+        start = offset - len(carry)
+        for match in re.finditer(rb'(?<![a-f0-9])[a-f0-9]{64}(?![a-f0-9])', data):
+            # The next block proves the right boundary; a carry's first byte has unknown left context.
+            if (match.end() == len(data) and block) or (match.start() == 0 and start > 0):
+                continue
+            value = match.group()
+            if wanted is None or value in wanted:
+                found.add(value.decode('ascii'))
+        offset += len(block)
+        if not block:
+            return found
+        carry = data[-65:]
+
+
+def references(roots=REFERENCES, identifiers=None):
     result = set()
+    wanted = None if identifiers is None else {value.encode('ascii') for value in identifiers}
+    roots = tuple(checked_path(root) for root in roots)
     for root in roots:
-        checked_path(root)
         if not root.exists():
             continue
         count = 0
         for base, dirs, files in os.walk(str(root), followlinks=False):
             for name in list(dirs):
                 if (Path(base) / name).is_symlink():
-                    if name != 'current-files' or root != REFERENCES[0]:
+                    try:
+                        target = (Path(base) / name).resolve(strict=True)
+                        checked_path(target)
+                    except (OSError, ValueError, RuntimeError):
+                        raise ValueError('reference_scan_linked_directory') from None
+                    if not target.is_dir() or not any(target == allowed or allowed in target.parents for allowed in roots):
                         raise ValueError('reference_scan_linked_directory')
                     dirs.remove(name)
             for name in files:
+                path = Path(base) / name
+                if path.suffix not in {'.json', '.jsonl', '.html', '.txt', '.md', '.log'}:
+                    continue
                 count += 1
                 if count > 30000:
                     raise ValueError('reference_scan_limit')
-                path = Path(base) / name
                 if path.is_symlink():
                     raise ValueError('reference_scan_linked_file')
-                if path.suffix not in {'.json', '.jsonl', '.html', '.txt', '.md', '.log'}:
-                    continue
                 info = path.stat()
-                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > 16 * 1024 * 1024:
+                if not stat.S_ISREG(info.st_mode):
                     raise ValueError('reference_file_limit')
-                result.update(m.decode() for m in re.findall(rb'(?<![a-f0-9])[a-f0-9]{64}(?![a-f0-9])', path.read_bytes()))
+                with path.open('rb') as stream:
+                    result.update(reference_hashes(stream, wanted))
     return result
 
 
@@ -151,7 +182,8 @@ def plan(root=CACHE, now=None, referenced=None):
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:
         raise ValueError('aware_time_required')
-    referenced = references() if referenced is None else referenced
+    supplied_references = referenced is not None
+    referenced = referenced if supplied_references else set()
     rows = []
     preserved = 0
     if root.exists():
@@ -172,12 +204,17 @@ def plan(root=CACHE, now=None, referenced=None):
                 preserved += 1
                 continue
             rows.append({'name': path.name, 'bytes': info.st_size, 'sha256': sha(data), 'device': info.st_dev, 'inode': info.st_ino, 'mtimeNs': info.st_mtime_ns})
-    return {'schemaVersion': 1, 'root': str(root), 'capturedAt': now.isoformat(), 'retentionDays': RETENTION_DAYS, 'eligibleFiles': len(rows), 'eligibleBytes': sum(r['bytes'] for r in rows), 'preservedFiles': preserved, 'referencedIdentifiers': len(referenced), 'rows': rows}
+    if rows and not supplied_references:
+        referenced = references(identifiers={row['name'][:-5] for row in rows})
+        kept = [row for row in rows if row['name'][:-5] not in referenced]
+        preserved += len(rows) - len(kept)
+        rows = kept
+    return {'schemaVersion': 1, 'root': str(root), 'capturedAt': now.isoformat(), 'retentionDays': RETENTION_DAYS, 'eligibleFiles': len(rows), 'eligibleBytes': sum(r['bytes'] for r in rows), 'preservedFiles': preserved, 'referencedIdentifiers': len(referenced), 'referenceScope': 'provided_identifiers' if supplied_references else 'eligible_candidates', 'rows': rows}
 
 
 def inside_window(now):
     local_time = now.astimezone(SHANGHAI)
-    return local_time.hour < 7 and not (local_time.hour == 6 and local_time.minute >= 59)
+    return (local_time.hour, local_time.minute) < (7, 49)
 
 
 def apply(preview, root=CACHE, now=None, referenced=None, clock=None, action=None):
@@ -186,7 +223,9 @@ def apply(preview, root=CACHE, now=None, referenced=None, clock=None, action=Non
     now = now or clock()
     if preview['root'] != str(root) or not inside_window(now):
         raise ValueError('scope_or_window_changed')
-    referenced = references() if referenced is None else referenced
+    if not preview['rows']:
+        return {'removedFiles': 0, 'removedBytes': 0, 'removed': []}
+    referenced = references(identifiers={row['name'][:-5] for row in preview['rows']}) if referenced is None else referenced
     removed = []
     with cache_guard(root, blocking=False) as directory:
         for row in preview['rows']:
@@ -250,6 +289,18 @@ def cooperating_writer_running():
     return started > max(Path(__file__).stat().st_mtime, Path(__file__).with_name('profit_queries.py').stat().st_mtime)
 
 
+def failure_reason(error):
+    known = {'path_outside_scope', 'linked_path', 'posix_apply_required', 'unsafe_cache_directory',
+             'unsafe_cache_lock', 'reference_scan_linked_directory', 'reference_scan_limit',
+             'reference_scan_linked_file', 'reference_file_limit', 'aware_time_required',
+             'scope_or_window_changed', 'unsafe_audit_directory', 'cooperating_cache_writer_missing'}
+    if type(error) in (ValueError, RuntimeError) and str(error) in known:
+        return str(error)
+    if isinstance(error, OSError):
+        return 'cleanup_filesystem_unavailable'
+    return 'cleanup_' + type(error).__name__
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apply', action='store_true')
@@ -266,9 +317,10 @@ def main():
             record.update(plannedAudit=planned, removedFiles=None)
             record.update(apply(preview, action=lambda event, row: append_action(planned, event, row)), status='applied')
     except Exception as error:
-        record.update(status='skipped', reason=type(error).__name__)
+        record.update(status='skipped', reason=failure_reason(error))
     target = audit(record)
-    print(json.dumps({'status': record['status'], 'removedFiles': record['removedFiles'], 'audit': target}, sort_keys=True))
+    print(json.dumps({'status': record['status'], 'removedFiles': record['removedFiles'], 'audit': target,
+        **({'reason': record['reason']} if 'reason' in record else {})}, sort_keys=True))
 
 
 if __name__ == '__main__':

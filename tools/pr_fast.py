@@ -231,6 +231,12 @@ def selfcheck():
         raise RuntimeError("coins_workflow_checks_missing")
     if select(["releases/fs-dashboard/cache-archive-retention-20261025/source/cache_retention.py"]) != ["cache-archive-retention"]:
         raise RuntimeError("cache_retention_checks_missing")
+    if select(['releases/fs-dashboard/fs-revision-20261015/cleanup/candidate/fs_cleanup.py']) != ['fs-revision-20261015']:
+        raise RuntimeError('cleanup_existing_checks_missing')
+    for name,group in (('dashboard-refresh-20261025/source/daily_archive.py','business-dashboard-refresh'),
+                       ('shipping-profit-20261024/source/profit_queries.py','business-shipping-profit')):
+        if select(['releases/fs-dashboard/'+name]) != sorted([group,'fs-maintenance-cleanup']):
+            raise RuntimeError('cleanup_current_dependency_checks_missing')
     if select(["releases/fs-dashboard/fc-coins-evidence-20261021/source/coins_evidence.py"]) != ["fc-coins-evidence"]:
         raise RuntimeError("coins_evidence_checks_missing")
     if select(["releases/fs-dashboard/business-procurement-20261022/source/business.js"]) != ["business-procurement"]:
@@ -412,6 +418,9 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name in ('releases/fs-dashboard/dashboard-refresh-20261025/source/daily_archive.py',
+                    'releases/fs-dashboard/shipping-profit-20261024/source/profit_queries.py'):
+            groups.add('fs-maintenance-cleanup')
         if name == 'docs/planning/business-dashboard-refresh-20261025/CONTRACT.md':
             groups.update(('knowledge-layering','fc-pricing-v3'));continue
         if name.startswith('releases/ops/shared-admin-direct-20261028/'):
@@ -1004,6 +1013,8 @@ def main():
             units("releases/fs-dashboard/hermes-shared-reports-20261015",["test_shared_reports"])
         elif group=="navigation-recovery":
             units("releases/fs-dashboard/navigation-recovery-20261015",["test_recovery"],root_owned=True)
+        elif group=="fs-maintenance-cleanup":
+            units("releases/fs-dashboard/fs-revision-20261015/cleanup/tests",["test_cleanup","test_profit_queries"],root_owned=True)
         elif group=="fs-revision-20261015":
             release="releases/fs-dashboard/fs-revision-20261015"
             units(release+"/reports/tests",["test_renderer"])
