@@ -22,6 +22,9 @@
 ⚠ 本模块**永不抛异常**：告警不能把业务链路带崩。
 """
 import datetime as dt
+import io
+import json
+import os
 
 PREFIX = "[告警]"
 
@@ -42,22 +45,48 @@ def _bot():
         return None
 
 
-def _recent(con, sig):
+def _state_path():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "msg_alert_state.json")
+
+
+def _load_state():
     try:
-        r = con.execute("SELECT last_ts FROM alert_state WHERE sig=?", (sig,)).fetchone()
-        return (r[0] if r else None)
-    except Exception:
-        return None
+        with io.open(_state_path(), encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _recent(con, sig):
+    """冷却时间戳。
+
+    2026-10-29：**不再用 sqlite alert_state**。那张表被「货架自检」共用，而
+    `store.alert_state_prune(con, [])` 在无差异时执行 `DELETE FROM alert_state`
+    —— 每轮采集都把 msg_alert 刚写的冷却记录清空，导致冷却形同虚设：
+    实测「IGGM 连续 N 轮 0 条」「金币缺竞品价」每 30 分钟各推一条，一天 34 条。
+    改用独立小 JSON（与 gold_manual.json 同一套路：tmp + os.replace 原子替换），
+    app / srv_exec 两个进程共享同一份，互不干扰。
+    """
+    return ((_load_state().get(str(sig)) or {}).get("last_ts")) or None
 
 
 def _mark(con, sig, detail):
-    now = dt.datetime.now().isoformat(timespec="seconds")
+    st = _load_state()
+    st[str(sig)] = {"last_ts": dt.datetime.now().isoformat(timespec="seconds"),
+                    "detail": str(detail)[:200]}
+    if len(st) > 200:                       # 只留最近 200 条，别无限长
+        for k in sorted(st, key=lambda x: (st[x] or {}).get("last_ts") or "")[:-200]:
+            st.pop(k, None)
     try:
-        con.execute("INSERT OR REPLACE INTO alert_state(sig,last_ts,last_detail)"
-                    " VALUES(?,?,?)", (sig, now, str(detail)[:500]))
-        con.commit()
-    except Exception as e:                                  # noqa: BLE001
-        _log("写 alert_state 失败（不影响发送）：%r" % (e,))
+        p = _state_path()
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        tmp = p + ".tmp"
+        with io.open(tmp, "w", encoding="utf-8") as f:
+            json.dump(st, f, ensure_ascii=False, indent=1)
+        os.replace(tmp, p)
+    except (OSError, ValueError) as e:                      # noqa: BLE001
+        _log("写告警冷却文件失败（不影响发送）：%r" % (e,))
 
 
 def alert(con, sig, title, text, cooldown_s=6 * 3600, force=False):
