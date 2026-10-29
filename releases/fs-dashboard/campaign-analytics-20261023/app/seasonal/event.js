@@ -162,7 +162,14 @@
   }
   function format(value,currency,scale){try{return new Intl.NumberFormat('en-US',{style:'currency',currency}).format(value/10**scale);}catch{return 'Reference price unavailable';}}
   function eventConfigured(){return view.status==='configured'&&view.probabilities&&view.binding&&view.starts_at&&view.ends_at&&Date.parse(view.starts_at)<=Date.now()&&Date.parse(view.ends_at)>=Date.now();}
-  function buyReady(game,offer=fixedOffer(game)){return Boolean(eventConfigured()&&offer&&offer.off_percent!==null&&contractFor(game,offer)&&(referenceFor(game,offer)||root.SeasonalCommerce?.nativeOffer(game,offer)));}
+  const cartAllows=(game,offer)=>root.SeasonalCommerce?.canOffer?.(game,offer)!==false;
+  function cartLabel(game,offer){if(!cartAllows(game,offer))return 'Review current cart first';return ['selected','recoverable'].includes(root.SeasonalCommerce?.cartState?.().state)?'View selected offer':'Buy Now';}
+  function paintCartGuidance(){
+    const box=doc.getElementById('cart-guidance');if(!box)return;const state=root.SeasonalCommerce?.cartState?.().state||'untracked';box.hidden=['untracked','empty'].includes(state);
+    const notes={checking:'Checking your current cart before enabling another offer.',selected:'Your selected offer is still in the cart. Open it without adding it twice, or remove it yourself before choosing another offer. There is no daily purchase limit.',recoverable:'Your previous add and all product options are confirmed in the cart. Open the selected offer without adding it again.',unknown:'The previous add is unconfirmed. Check your cart; do not submit it again while the result or product options remain unknown. Contact support if it cannot be confirmed.',occupied:'Your current cart was started with another offer. Complete that checkout or remove its items yourself before choosing an event offer.',unavailable:'Your cart status could not be verified. Check your connection and try Check cart status. No new items or codes were changed.'};
+    doc.getElementById('cart-guidance-status').textContent=notes[state]||'';
+  }
+  function buyReady(game,offer=fixedOffer(game)){return Boolean(cartAllows(game,offer)&&eventConfigured()&&offer&&offer.off_percent!==null&&contractFor(game,offer)&&(referenceFor(game,offer)||root.SeasonalCommerce?.nativeOffer(game,offer)));}
   function showDialog(title,body){doc.querySelector('#dialog-title').textContent=title;doc.querySelector('#dialog-content').innerHTML=body;if(!dialog.open)dialog.showModal();}
   function renderHero(){
     const image=doc.querySelector('#hero-image'),source=doc.querySelector('#hero-mobile-source');
@@ -187,14 +194,14 @@
     if(reference)nextExpiry=Math.min(nextExpiry,Date.parse(reference.expires_at));
     const title=english(model?.title,game.label+' model'),businessAmount=game.fixed_quantity?'<p class="business-quantity">'+esc(game.fixed_quantity.label)+'</p>':'';
     const price=reference?'<div class="reference-price"><span>Limited-Time Price</span><div class="price-line"><strong>'+format(reference.indicative_discounted_minor,reference.currency,reference.minor_unit_scale)+'</strong><del>'+format(reference.base_minor,reference.currency,reference.minor_unit_scale)+'</del></div></div>':'';
-    const fixed='<article class="offer-slot fixed-slot" data-offer-slot="fixed"><span class="slot-label">MYSTERY PICK 01</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-fixed-reveal aria-expanded="'+open+'" '+(!configured?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(configured?'Reveal your surprise':'Awaiting configuration')+'</strong><small>'+(configured?'Tap to turn your card':'Product model and offer binding unavailable')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'>'+faceContent({title,off:game.fixed_off_percent,image:categoryArt(game.id,model?.title,model?.image)})+businessAmount+'</span><span class="reveal-rays" aria-hidden="true"></span></button><div class="slot-detail'+(open&&animatingSlots.has('fixed')?' is-pending':'')+'" '+(!open?'hidden':'')+'>'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(game.fixed_model||'')+'" '+(!buyReady(game)?'disabled':'')+'>Buy Now</button>'+(contractFor(game)?'':'<p class="slot-note">Verified model options are not connected. Purchasing is unavailable.</p>')+'</div></article>';
+    const fixed='<article class="offer-slot fixed-slot" data-offer-slot="fixed"><span class="slot-label">MYSTERY PICK 01</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-fixed-reveal aria-expanded="'+open+'" '+(!configured?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(configured?'Reveal your surprise':'Awaiting configuration')+'</strong><small>'+(configured?'Tap to turn your card':'Product model and offer binding unavailable')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'>'+faceContent({title,off:game.fixed_off_percent,image:categoryArt(game.id,model?.title,model?.image)})+businessAmount+'</span><span class="reveal-rays" aria-hidden="true"></span></button><div class="slot-detail'+(open&&animatingSlots.has('fixed')?' is-pending':'')+'" '+(!open?'hidden':'')+'>'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(game.fixed_model||'')+'" '+(!buyReady(game)?'disabled':'')+'>'+cartLabel(game,fixedOffer(game))+'</button>'+(contractFor(game)?'':'<p class="slot-note">Verified model options are not connected. Purchasing is unavailable.</p>')+'</div></article>';
     const random=[1,2].map(n=>{
       const slot='random-'+n,offer=slotOffer(game,slot),receipt=receipts.get(game.id),token=receipt?.request_id+':'+slot,open=offer&&revealed.has(token),product=offer&&resolveModel(config,game,offer.model_id)[0],reference=offer&&referenceFor(game,offer);
       if(reference)nextExpiry=Math.min(nextExpiry,Date.parse(reference.expires_at));
       const price=reference?'<div class="reference-price"><span>Limited-Time Price</span><div class="price-line"><strong>'+format(reference.indicative_discounted_minor,reference.currency,reference.minor_unit_scale)+'</strong><del>'+format(reference.base_minor,reference.currency,reference.minor_unit_scale)+'</del></div></div>':'';
       const tp=titleParts(english(product?.title,'Mystery selection'));
       const qtyPrefix=offer?.quantity?offer.quantity.value+' '+offer.quantity.unit+' ':'';
-      const detail=open?'<div class="slot-detail'+(animatingSlots.has(slot)?' is-pending':'')+'">'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(offer.model_id)+'" data-buy-slot="'+slot+'" '+(!buyReady(game,offer)?'disabled':'')+'>Buy Now</button></div>':'';
+      const detail=open?'<div class="slot-detail'+(animatingSlots.has(slot)?' is-pending':'')+'">'+price+'<button type="button" class="button primary buy-button" data-model-buy="'+esc(offer.model_id)+'" data-buy-slot="'+slot+'" '+(!buyReady(game,offer)?'disabled':'')+'>'+cartLabel(game,offer)+'</button></div>':'';
       return '<article class="offer-slot random-slot" data-offer-slot="'+slot+'"><span class="slot-label">MYSTERY PICK 0'+(n+1)+'</span><button type="button" class="flip-card '+(open?'is-revealed':'')+'" data-random-reveal="'+slot+'" aria-expanded="'+Boolean(open)+'" '+(!eventConfigured()||drawing.has(game.id)?'disabled':'')+'><span class="card-back" '+(open?'aria-hidden="true"':'')+'><span class="mystery-mark" aria-hidden="true">?</span><strong>'+(drawing.has(game.id)?'Opening your collection…':'Reveal your surprise')+'</strong><small>'+(eventConfigured()?'Tap to turn your card':'Offer probabilities and dates are not configured')+'</small></span><span class="card-front" '+(!open?'aria-hidden="true"':'')+'>'+faceContent({title:tp.main,attrs:tp.attrs,off:offer?.off_percent,image:categoryArt(game.id,product?.title,product?.image),qty:qtyPrefix})+'</span><span class="reveal-rays" aria-hidden="true"></span></button>'+detail+'</article>';
     }).join('');
     // Rebuilding identical markup resets focus and can replay transitions, so
@@ -235,10 +242,11 @@
     const today=nyDay();
     if(today!==currentDay){currentDay=today;revealed.clear();receipts.clear();lastPrices.clear();}
     if(config.release_id!==input.release_id||config.config_hash!==input.config_hash){receipts.clear();revealed.clear();lastPrices.clear();}
-    config=input;view=project(config);media=config.page_media?.['seasonal-vault']||media;
+    config=input;view=project(config);paintCartGuidance();media=config.page_media?.['seasonal-vault']||media;
     restoreReceipts();
     renderHero();renderGames();renderSlots();renderConfiguration();
   }
+  root.addEventListener('seasonal-cart-state',()=>{paintCartGuidance();renderSlots();});
   doc.addEventListener('click',async event=>{
     const gameButton=event.target.closest('[data-game-card]');
     if(gameButton){lastGameButton=gameButton.dataset.gameCard;activeGame=lastGameButton;track('game_select',view.games.find(g=>g.id===activeGame));renderGames();renderSlots();doc.querySelector('[data-action=all-games]').focus();return;}
@@ -272,6 +280,7 @@
       showDialog('Choose your options','<p>Loading your selection…</p>');root.dispatchEvent(new CustomEvent('seasonal:model-buy',{detail}));return;
     }
     const action=event.target.closest('[data-action]')?.dataset.action;
+    if(action==='cart-refresh'){void root.SeasonalCommerce?.refreshCart?.(true);return;}
     if(action==='close')dialog.close();
   });
   root.addEventListener('seasonal-published-catalog',event=>update(event.detail));

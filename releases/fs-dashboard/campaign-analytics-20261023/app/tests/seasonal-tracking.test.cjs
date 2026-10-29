@@ -8,15 +8,15 @@ test('formal seasonal analytics needs consent; actual UI/native callbacks carry 
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'seasonal-tracking-')),server=createPublicServer({assetRoot:root,staticManifest:manifest,snapshotProvider:()=>snapshot,dir,origin:'https://www.mmoexp.com',priceCacheProvider:()=>({schema_version:1,status:'ready',release_id:snapshot.release_id,config_hash:snapshot.config_hash,generated_at:new Date().toISOString(),products:snapshot.products,model_contracts:snapshot.seasonal_model_contracts})});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
  try{
-  browser=await chromium.launch({headless:true});const page=await browser.newPage(),events=[],posts=[],errors=[];page.setDefaultTimeout(8000);page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>sessionStorage.setItem('fc-analytics-session','private@example.test'));
+  browser=await chromium.launch({headless:true});const page=await browser.newPage(),events=[],posts=[],errors=[],nativeCart=[];page.setDefaultTimeout(8000);page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>sessionStorage.setItem('fc-analytics-session','private@example.test'));
   await page.route('**/*',async route=>{
    const req=route.request(),url=new URL(req.url());
    if(url.origin==='https://us.i.posthog.com'){
     assert.equal(url.pathname,'/i/v0/e/');assert.equal(req.headers().cookie,undefined);assert.equal(req.headers().referer,undefined);events.push(JSON.parse(req.postData()));return route.fulfill({json:{status:1}});
    }
    assert.equal(url.origin,'https://www.mmoexp.com','No unrelated external requests');
-   if(url.pathname==='/Cart/add.html'){posts.push(Object.fromEntries(new URLSearchParams(req.postData())));return route.fulfill({json:{code:1}});}
-   if(url.pathname==='/Cart.html')return route.fulfill({contentType:'text/html',body:'<!doctype html><title>Synthetic Cart</title><h1>Simulated native cart; Apply and payment unconfirmed</h1>'});
+   if(url.pathname==='/Cart/add.html'){const body=Object.fromEntries(new URLSearchParams(req.postData()));posts.push(body);nativeCart.push(body);return route.fulfill({json:{code:1}});}
+   if(url.pathname==='/Cart.html')return route.fulfill({contentType:'text/html',body:'<!doctype html><title>Synthetic Cart</title><h1>Simulated native cart; Apply and payment unconfirmed</h1>'+(nativeCart.length?nativeCart.map(x=>`<li data-cart-category="${x.category}" :class="'cart_key_' + '${x.category}' + '${x.category==='new_gold'?'GOLD_'+x.id+'_'+x.group:'ITEM_'+x.id+'__synthetic'}'"><input class="item-num" value="${x.num}"></li>`).join(''):'<div class="no-c-box"><h1 class="no-title">Your cart is empty</h1></div>')});
    const response=await fetch('http://127.0.0.1:'+server.address().port+url.pathname,{method:req.method(),...(req.method()==='POST'?{body:req.postData(),headers:{Origin:'https://www.mmoexp.com','Content-Type':'application/json'}}:{})});return route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:Buffer.from(await response.arrayBuffer())});
   });
   const run='7e875f11-56b2-4a8b-9ef0-2738653221bc',url='https://www.mmoexp.com/events/seasonal/?analytics_test=1&analytics_run='+run;

@@ -31,10 +31,32 @@
       refreshHeader(){if(typeof root.syncHeaderCartBadge==='function')root.syncHeaderCartBadge();}
     };
   }
+  async function readNativeCart(){
+      if(root.location.origin!=='https://www.mmoexp.com')throw Error('HANDOFF_ORIGIN_UNVERIFIED');
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+      try{
+        const response=await root.fetch('/Cart.html',{credentials:'same-origin',cache:'no-store',signal:controller.signal});
+        if(!response.ok||response.redirected)throw Error('NATIVE_CART_READ_UNAVAILABLE');
+        const template=root.document.createElement('template');template.innerHTML=await response.text();
+        // Keep cart scripts, images and third-party widgets inert while reading.
+        const doc=template.content,rows=[...doc.querySelectorAll('li[data-cart-category]')];
+        if(rows.length>200||!rows.length&&!doc.querySelector('.no-c-box .no-title')?.textContent.includes('Your cart is empty'))throw Error('NATIVE_CART_READ_UNAVAILABLE');
+        const items=rows.map(row=>{
+          const category=row.getAttribute('data-cart-category'),binding=row.getAttribute(':class')||'',parts=binding.match(/'[A-Za-z0-9_]+'/g)||[];
+          // Parse only the server's literal Vue class concatenation, never eval.
+          const literal=parts.join(' + ');if(binding.replace(/\s/g,'')!==literal.replace(/\s/g,''))throw Error('NATIVE_CART_READ_UNAVAILABLE');
+          const key=parts.map(x=>x.slice(1,-1)).join(''),match=key.match(/(?:ITEM|GOLD)_([1-9]\d*)_/),gold=category==='new_gold'?key.match(/GOLD_[1-9]\d*_([1-9]\d*)(?:_|$)/):null,num=row.querySelector('input.item-num')?.getAttribute('value');
+          if(!['new_items','new_gold'].includes(category)||!match||category==='new_gold'&&!gold||!/^\d+$/.test(num||''))throw Error('NATIVE_CART_READ_UNAVAILABLE');
+          // Keep the complete opaque native key for diagnostics. The observed
+          // HTML does not expose aid/attr (or item group); do not invent them.
+          return {category,id:match[1],num,native_key:key,...(gold?{group:gold[1]}:{})};
+        });return {status:'native_cart_read',items};
+      }finally{clearTimeout(timer);}
+  }
   function createNative(snapshot,selection){
     const approved=root.CampaignNativeCodeHandoff.publishedPlan(snapshot,selection,{origin:root.location.origin});
     const items=approved.items;
-    return {async claimSelection(body){
+    return {readCart:readNativeCart,async claimSelection(body){
       const prefix=root.document?.documentElement?.dataset.campaignRuntime||'/events/';
       if(!/^\/(?:[A-Za-z0-9_-]+\/)+$/.test(prefix))throw Error('INVALID_PUBLIC_PATH');
       const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
@@ -90,5 +112,5 @@
       }
     };
   }
-  root.FCActivityHost={create,createNative,createLivePrice};
+  root.FCActivityHost={create,createNative,createLivePrice,readNativeCart};
 })(window);
