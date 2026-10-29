@@ -2,7 +2,7 @@
   'use strict';
   const base='/api/fc27/cloud/pricing/v3';
   const names={daily:'日常运营',revenue_sprint:'冲销售额'};
-  const purposes={daily:'正常保留计划锚点与采购贡献目标；竞品参考Lootbar优先、缺价用ItemD2R，两家均缺的平台按八日实际优惠后平均30%求最低价，双20硬线不减。',revenue_sprint:'两家有效取较低价，一家缺价用另一家；两家均缺则无竞争目标，按100K双20最低合法价。竞争锚低5–10%冲额，默认偏好7.5%；沙特额外比较Arab-UT普通发货。'};
+  const purposes={daily:'Lootbar有效时保留计划锚点与采购贡献目标；Lootbar缺价时按ItemD2R当轮实际交付价定价，低于双20合法底价则用底价并标未达到Item目标。两家均缺的平台按八日实际优惠后平均30%求最低价；Console共价按较低Item目标并披露各平台差价。',revenue_sprint:'两家有效取较低价，一家缺价用另一家；两家均缺则无竞争目标，按100K双20最低合法价。竞争锚低5–10%冲额，默认偏好7.5%；沙特额外比较Arab-UT普通发货。'};
   const $=id=>document.getElementById(id);
   let current,loading=false,acting=false,manualPreview=null,selectedPlanId=null,displayedMode='daily',canWrite=false,permissionKnown=false,playerRevision=null,playerDirty=false,collectPending=sessionStorage.getItem('fc-v3-collect-job'),automationRevision=null,lastAutomation=null,lastMonitor=null;
   const statuses={DRAFT:'待启用',SCHEDULED:'等待开始',ACTIVE:'执行中',SUSPENDED:'已暂停新写入',ENDING:'正在退出',ENDED:'已结束',
@@ -113,9 +113,13 @@
   }
   function renderDecision(state){
     const mode=$('v3-mode').value,r=state.strategies?.[mode],cards=$('v3-strategies');cards.replaceChildren();
-    const card=node('article');card.className='panel';card.append(node('h3',names[mode]),node('p',r?.selected?.decision_type==='floor_fallback'?'双20可写，未达到竞争目标':r?.status?statusText(r.status):'尚无本轮同策略决策'));
+    const card=node('article');card.className='panel';card.append(node('h3',names[mode]),node('p',Object.values(r?.selected?.daily_pricing||{}).some(t=>!t.item_target_met)?'双20可写，未达到ItemD2R目标':r?.selected?.decision_type==='floor_fallback'?'双20可写，未达到竞争目标':r?.status?statusText(r.status):'尚无本轮同策略决策'));
     if(r?.selected){const s=r.selected;card.append(node('p',`候选 100K：Console ${usd(s.action?.base_prices?.console)} · PC ${usd(s.action?.base_prices?.pc)}`),node('p',s.score?.absolute_forecast_available?`同轮预测收入 ${usd(s.score.revenue)} · 采购贡献 ${usd(s.score.contribution)}`:'只有相对需求情景；绝对收入与新客效果待真实基线核证'));
       if(s.decision_type==='floor_fallback')card.append(node('p','财务底价兜底：竞争区间与双 20% 红线无交集；执行最低可写合法底价，不能视为已达到竞争降幅。'));
+      for(const [group,target] of Object.entries(s.daily_pricing||{})){
+        card.append(node('p',`${group==='console'?'Console共价':'PC'}按ItemD2R ${target.driver_platform}当轮实际交付价定价：我方100K含赠套餐目标 ${usd(target.target_public_usd)}，执行基础价 ${usd(target.selected_base_total)}。${target.item_target_met?'达到Item目标（按公开分币舍入）':target.unmet_reason==='public_cent_not_reachable'?'舍入导致目标未命中，未达到Item目标':'财务底价抬高，未达到Item目标'}。`));
+        for(const [platform,row] of Object.entries(target.platforms||{}))card.append(node('p',`${platform} · 每100K实际交付 ${usd(row.actual_unit_100k)} · 本平台参考 ${row.reference_source||'双源缺价'}${row.difference_pct!=null?` · 价差 ${Number(row.difference_pct)>0?'+':''}${Number(row.difference_pct).toFixed(2)}%`:''}`));
+      }
       for(const [scope,platforms] of Object.entries(s.market_position||{}))for(const [platform,position] of Object.entries(platforms)){
         const differences=Object.entries(position.difference_pct||{}).map(([name,pct])=>`${name} ${Number(pct)>0?'+':''}${Number(pct).toFixed(2)}%`).join('；');
         card.append(node('p',`${scope} ${platform} · 每 100K 实际交付 ${usd(position.actual_unit_100k)} · 相对竞品 ${differences} · ${position.competitive_band_met?'达到 5–10% 区间':'未达到竞争区间'}`));
@@ -200,7 +204,7 @@
           const delivered=purchase!=null&&bonus!=null?Number(purchase)+Number(bonus):NaN;
           const unit=node('p',available&&verified&&Number.isFinite(delivered)&&delivered>0?`${usd(Number(price)/delivered*100)} / 100K 实际交付`:'同口径单价待核');unit.className='market-unit';card.append(unit);
           card.append(node('p',row?`购买 ${purchase??'待核'}K + 赠送 ${bonus??'待核'}K${Number.isFinite(delivered)?` · 交付 ${delivered}K`:''}`:'本轮未取得可核报价'),node('p',method));
-          if(!available&&name!=='Arab-UT')card.append(node('p',`冲额：另一家有效则用另一家；双缺取双20最低合法价，竞争目标未达。日常：Lootbar优先、缺价用ItemD2R；双缺的平台按八日平均30%最低价。原因：${missingReason||'本轮无有效报价'}`));
+          if(!available&&name!=='Arab-UT')card.append(node('p',`冲额：另一家有效则用另一家；双缺取双20最低合法价，竞争目标未达。日常：Lootbar有效保留计划选价；缺价按ItemD2R实际交付价；双缺的平台按八日平均30%最低价。原因：${missingReason||'本轮无有效报价'}`));
           const time=node('p',`采集 ${when(stamp)} · USD`);time.className='footnote';card.append(time);column.append(card);
         }
         output.append(column);

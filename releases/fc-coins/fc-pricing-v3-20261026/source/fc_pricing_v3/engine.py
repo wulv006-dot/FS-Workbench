@@ -240,6 +240,40 @@ def daily_reference(evidence,platforms,now):
     return result
 
 
+def daily_item_target(evidence,platforms,references,floor):
+    eligible=[p for p in platforms if references[p]['source']=='ItemD2R']
+    if not eligible:return None
+    driver=min(eligible,key=lambda p:number(references[p]['unit_100k']))
+    unit=number(references[driver]['unit_100k'])
+    tier=package_100k(evidence['promotion_envelope']['packages'][driver])
+    delivered=100+number(tier['bonus_k'],zero=True)
+    exact_public=unit*delivered/100
+    public=money(exact_public,ROUND_HALF_UP)
+    target,high=base_limits(public,public,tier['retained_ratio'])
+    previous=(target-CENT)*number(tier['retained_ratio'])
+    previous=previous.quantize(CENT,rounding=ROUND_HALF_UP)
+    if previous>=public:raise ValueError('pricing_daily_item_target_base_not_minimal')
+    chosen=max(number(floor),target)
+    positions={}
+    for p in platforms:
+        shown=render(chosen/100,package_100k(evidence['promotion_envelope']['packages'][p]))
+        ref=references[p]
+        positions[p]=dict(reference_source=ref['source'],reference_unit_100k=ref['unit_100k'],
+            actual_public_usd=shown['regular_usd'],delivered_k=shown['delivered_k'],actual_unit_100k=shown['delivered_unit_100k'],
+            difference_pct=str((number(shown['delivered_unit_100k'])/number(ref['unit_100k'])-1)*100) if ref['unit_100k'] is not None else None)
+    return dict(basis='itemd2r_actual_delivery_target',driver_platform=driver,driver_source='ItemD2R',
+        driver_unit_100k=str(unit),driver_captured_at=references[driver]['captured_at'],
+        exact_target_public_usd=str(exact_public),target_public_usd=str(public),public_target_rounding='half_up_cent',
+        public_target_rounding_difference_usd=str(public-exact_public),
+        target_base_total=str(target),target_base_high=str(high),target_public_cent_reachable=target<=high,
+        minimum_legal_base_total=str(floor),selected_base_total=str(chosen),
+        previous_target_base_cent=str(target-CENT),previous_target_public_usd=str(previous),
+        financial_floor_applied=chosen>target,item_target_met=number(positions[driver]['actual_public_usd'])==public,
+        actual_minus_target_public_usd=str(number(positions[driver]['actual_public_usd'])-public),
+        unmet_reason='financial_floor' if chosen>target else 'public_cent_not_reachable' if target>high else None,
+        platforms=positions)
+
+
 def daily_average_target_proof(evidence,proof,platforms):
     result={}
     for p in platforms:
@@ -535,6 +569,7 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
     comparisons = {}
     failures = []
     daily_inputs=daily_reference(evidence,PLATFORMS,now) if mode=='daily' else {}
+    daily_targets={}
     average30_platforms=[p for group,ps in GROUPS.items() if not plan or 'base:'+group in plan['resources']
                          for p in ps if daily_inputs.get(p,{}).get('average_margin_target_pct')=='30']
     avg = history_ratio(evidence,now,evaluation_context)
@@ -566,13 +601,17 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                 failures.append(dict(scope=group,code=str(exc)))
                 values = {number(current['base_prices'][group])}
                 comparisons.pop(group,None)
-        elif any(daily_inputs[p]['average_margin_target_pct']=='30' for p in platforms):
-            values={floor}
         else:
-            anchor_price = number(anchor['base_prices'][group])
-            offsets=(plan or {}).get('parameters',{}).get('offsets_pct',POLICIES[mode]['offsets'])
-            values = {money(anchor_price*(1+Decimal(str(o))/100)) for o in offsets}
-            values = {v for v in values if v >= floor}
+            item_target=daily_item_target(evidence,platforms,daily_inputs,floor)
+            if item_target:
+                daily_targets[group]=item_target
+                values={number(item_target['selected_base_total'])}
+            elif any(daily_inputs[p]['average_margin_target_pct']=='30' for p in platforms):values={floor}
+            else:
+                anchor_price = number(anchor['base_prices'][group])
+                offsets=(plan or {}).get('parameters',{}).get('offsets_pct',POLICIES[mode]['offsets'])
+                values = {money(anchor_price*(1+Decimal(str(o))/100)) for o in offsets}
+                values = {v for v in values if v >= floor}
         options[group] = sorted(values)
         if not values:failures.append(dict(scope=group,code='pricing_plan_candidate_range_below_margin_floor'))
         if explicit_prices and group in explicit_prices:
@@ -583,6 +622,8 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                 if group not in comparisons:raise ValueError('pricing_manual_required_market_missing')
                 limits=comparisons[group]['targets'].values()
                 if any(not number(t['total_low'])<=candidate<=number(t['total_high']) for t in limits):raise ValueError('pricing_competitive_band')
+            elif group in daily_targets:
+                if candidate!=number(daily_targets[group]['selected_base_total']):raise ValueError('pricing_daily_item_target_price_changed')
             else:
                 offsets=(plan or {}).get('parameters',{}).get('offsets_pct',POLICIES[mode]['offsets'])
                 anchor_price=number(anchor['base_prices'][group])
@@ -621,6 +662,7 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
             for group,ps in GROUPS.items():
                 targeted=[p for p in ps if p in average30_platforms]
                 if not targeted:continue
+                if group in daily_targets and number(bases[group])>number(daily_targets[group]['minimum_legal_base_total']):continue
                 lower=deepcopy(action);lower['base_prices'][group]=str(number(bases[group])-CENT)
                 try:
                     previous=financial(evidence,lower,now,regions=affected_regions,evaluation_context=evaluation_context)
@@ -629,6 +671,14 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                     if str(exc) not in ('pricing_daily_missing_market_average_30','pricing_hard_margin_floor','pricing_average_catalog_margin_floor'):raise
                     minimum_proofs[group]=dict(previous_cent=lower['base_prices'][group],rejected_by=str(exc),average_margin_target_pct='30')
                 else:raise ValueError('pricing_daily_minimum_average_30_not_established')
+            for group,target in daily_targets.items():
+                if not target['financial_floor_applied'] or group in minimum_proofs:continue
+                lower=deepcopy(action);lower['base_prices'][group]=str(number(bases[group])-CENT)
+                try:financial(evidence,lower,now,regions=affected_regions,evaluation_context=evaluation_context)
+                except ValueError as exc:
+                    if str(exc) not in ('pricing_hard_margin_floor','pricing_average_catalog_margin_floor'):raise
+                    minimum_proofs[group]=dict(previous_cent=lower['base_prices'][group],rejected_by=str(exc),item_target_below_legal_floor=True)
+                else:raise ValueError('pricing_floor_minimality_not_established')
             for group,market in comparisons.items():
                 if market['decision_type']!='floor_fallback':continue
                 lower=deepcopy(action);lower['base_prices'][group]=str(number(bases[group])-CENT)
@@ -675,10 +725,11 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                     if not available:positions[scope][p]=dict(competition_available=False,competitive_band_met=False,reason='BOTH_COMPETITOR_QUOTES_MISSING')
             feasible.append(dict(action=action,action_sha256=fingerprint(action),steps=path,financial_proof=proof,market_comparison=deepcopy(comparisons),regional_market_comparison=region_markets,score=rating,
                                  daily_reference=deepcopy(daily_inputs),
+                                 daily_pricing=deepcopy(daily_targets),
                                  daily_average_target_proof=average30_proof,
                                  minimum_legal_price_proof=minimum_proofs,market_position=positions,
                                  decision_type='floor_fallback' if fallback else 'competitive' if mode=='revenue_sprint' else 'objective',
-                                 decision_reason='MARGIN_FLOOR_FALLBACK_20' if fallback else 'DAILY_MISSING_REFERENCE_AVERAGE_MARGIN_30' if average30_platforms else mode+'_objective',
+                                 decision_reason='MARGIN_FLOOR_FALLBACK_20' if fallback else 'DAILY_ITEMD2R_TARGET_BELOW_MARGIN_FLOOR' if any(t['financial_floor_applied'] for t in daily_targets.values()) else 'DAILY_ITEMD2R_PUBLIC_CENT_NOT_REACHABLE' if any(not t['item_target_met'] for t in daily_targets.values()) else 'DAILY_ITEMD2R_ACTUAL_DELIVERY_TARGET' if daily_targets else 'DAILY_MISSING_REFERENCE_AVERAGE_MARGIN_30' if average30_platforms else mode+'_objective',
                                  sprint_policy_version=SPRINT_POLICY_VERSION if mode=='revenue_sprint' else None,financial_contract_version=proof['financial_contract_version'],
                                  control=action==current))
           except ValueError as exc:

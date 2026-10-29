@@ -84,7 +84,12 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
                     if abs((as_of-instant(own['checked_at'])).total_seconds())>3600:failures.append('public_stale:'+platform)
                     quotes,missing=current_market_quotes(evidence,[platform],as_of)
                     available=[quote['source'] for quote in quotes]
+                    daily_pricing=receipt.get('daily_pricing',{}).get('pc' if platform=='PC' else 'console',{})
                     competitive_sources[platform]=dict(available=available,missing=missing,margin_floor_only=not available,
+                        price_driver_source=daily_pricing.get('driver_source'),price_driver_platform=daily_pricing.get('driver_platform'),
+                        item_target_met=daily_pricing.get('item_target_met'),
+                        item_target_unmet_reason=daily_pricing.get('unmet_reason'),
+                        reference_difference_pct=daily_pricing.get('platforms',{}).get(platform,{}).get('difference_pct'),
                         average_margin_target_pct='30' if mode=='daily' and not available else '20')
                     if mode=='daily' and not available and (receipt.get('daily_reference') or {}).get(platform,{}).get('average_margin_target_pct')!='30':
                         failures.append('daily_missing_market_average_30_unverified:'+platform)

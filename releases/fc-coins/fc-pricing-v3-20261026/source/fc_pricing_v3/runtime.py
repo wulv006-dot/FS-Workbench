@@ -235,6 +235,7 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         randomization_verified=bool(allocation.get('probabilities') and len(allocation['probabilities'])>1 and not allocation.get('effective_choice')),
         financial_proof=selected['financial_proof'],market_comparison=selected['market_comparison'],regional_market_comparison=selected.get('regional_market_comparison',{}),
         daily_reference=selected.get('daily_reference',{}),
+        daily_pricing=selected.get('daily_pricing',{}),
         daily_average_target_proof=selected.get('daily_average_target_proof',{}),
         financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT,sprint_policy_version=SPRINT_POLICY_VERSION if mode=='revenue_sprint' else None,
         strategy_parameters=sprint_parameters(plan) if mode=='revenue_sprint' else (plan or {}).get('parameters',{}),
@@ -283,6 +284,8 @@ def render_result(evidence,selected,bundle,mode):
         try:market_quote(evidence,p,'Lootbar',instant(evidence['checked_at']))
         except (ValueError,KeyError,TypeError):public_anchor=None
         market=selected.get('market_comparison',{}).get(group,{})
+        daily_reference=selected.get('daily_reference',{}).get(p)
+        daily_pricing=selected.get('daily_pricing',{}).get(group)
         offers=[dict(source=s,**value) for s,value in evidence['offers'][p].items()]
         rows.append(dict(platform=p,proposal=format(target/100,'.4f'),auto_proposal=format(target/100,'.4f'),
             raw_cost_cny=cost['cny_per_1k'],cost_cny=cost['cny_per_1k'],raw_cost_record_id=cost['record_id'],
@@ -299,11 +302,11 @@ def render_result(evidence,selected,bundle,mode):
             pricing_quantity_basis='both_sides_actual_delivered_quantity',
             lootbar_page_usd=public_anchor['usd_price'] if public_anchor else None,
             lootbar_usd_per_1k=str(number(public_anchor['usd_price'])/(number(public_anchor['base_k'])+number(public_anchor.get('bonus_k','0'),zero=True))) if public_anchor else None,
-            competition_available=market.get('competition_available',{}).get(p),
-            source_gaps=[gap for gap in market.get('source_gaps',[]) if gap['platform']==p],
-            daily_reference=selected.get('daily_reference',{}).get(p),
+            competition_available=bool(daily_reference.get('source')) if daily_reference is not None else market.get('competition_available',{}).get(p),
+            source_gaps=daily_reference['source_gaps'] if daily_reference is not None else [gap for gap in market.get('source_gaps',[]) if gap['platform']==p],
+            daily_reference=daily_reference,daily_pricing=daily_pricing,
             change_pct=str((target/number(own['package_usd'])-1)*100),
-            warning='双20%红线；单笔合法优惠仍可亏损。预测不是实绩。',status='财务底价兜底 · 未达到竞争降幅' if selected.get('decision_type')=='floor_fallback' else '双模式引擎核算通过 · 待执行'))
+            warning='双20%红线；单笔合法优惠仍可亏损。预测不是实绩。',status='舍入导致目标未命中 · 未达到ItemD2R目标' if daily_pricing and daily_pricing['unmet_reason']=='public_cent_not_reachable' else '财务底价抬高 · 未达到ItemD2R目标' if daily_pricing and not daily_pricing['item_target_met'] else '按ItemD2R实际交付价定价 · 待执行' if daily_pricing else '财务底价兜底 · 未达到竞争降幅' if selected.get('decision_type')=='floor_fallback' else '双模式引擎核算通过 · 待执行'))
     result=dict(checked_at=evidence['checked_at'],fx=evidence['fx'],minimum_gross_margin_pct=str(HARD_MARGIN),
                 rows=rows,decision_receipt=bundle,strategy_version=VERSION)
     return result
@@ -426,17 +429,23 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         if number(row['proposal'])*100!=number(receipt['action']['base_prices'][group]):
             raise ValueError('pricing_action_row_changed')
     if receipt['mode']=='daily' and not maintenance and purpose!='original_unsent_ALL_steps_only':
-        from .engine import daily_reference,required_base_bound,daily_average_target_proof
+        from .engine import daily_reference,required_base_bound,daily_average_target_proof,daily_item_target
         references=daily_reference(quote['evidence'],PLATFORMS,now)
         if references!=receipt.get('daily_reference'):raise ValueError('pricing_daily_reference_changed')
         targets=[p for g,ps in GROUPS.items() if not receipt.get('plan_id') or 'base:'+g in receipt['authorized_resources'] for p in ps if references[p]['average_margin_target_pct']=='30']
         if daily_average_target_proof(quote['evidence'],proof,targets)!=receipt.get('daily_average_target_proof'):raise ValueError('pricing_daily_average_target_proof_changed')
         daily_plan=dict(mode='daily',resources=receipt['authorized_resources'])
+        pricing={}
         for group,platforms in GROUPS.items():
-            if 'base:'+group not in receipt['authorized_resources']:continue
-            if any(references[p]['average_margin_target_pct']=='30' for p in platforms):
-                target=max(required_base_bound(quote['evidence'],p,now,daily_plan,average_minimum='30' if references[p]['average_margin_target_pct']=='30' else HARD_MARGIN) for p in platforms)
-                if number(receipt['action']['base_prices'][group])!=target:raise ValueError('pricing_daily_missing_market_not_minimum_average_30')
+            if receipt.get('plan_id') and 'base:'+group not in receipt['authorized_resources']:continue
+            floor=max(required_base_bound(quote['evidence'],p,now,daily_plan,average_minimum='30' if references[p]['average_margin_target_pct']=='30' else HARD_MARGIN) for p in platforms)
+            item_target=daily_item_target(quote['evidence'],platforms,references,floor)
+            if item_target:
+                pricing[group]=item_target
+                if number(receipt['action']['base_prices'][group])!=number(item_target['selected_base_total']):raise ValueError('pricing_daily_item_target_price_changed')
+            elif any(references[p]['average_margin_target_pct']=='30' for p in platforms):
+                if number(receipt['action']['base_prices'][group])!=floor:raise ValueError('pricing_daily_missing_market_not_minimum_average_30')
+        if pricing!=receipt.get('daily_pricing',{}):raise ValueError('pricing_daily_item_target_proof_changed')
     if receipt['mode']=='revenue_sprint':
         market_plan=dict(mode='revenue_sprint',resources=receipt['authorized_resources'],parameters=receipt['strategy_parameters']) if receipt.get('plan_id') else None
         markets={}
