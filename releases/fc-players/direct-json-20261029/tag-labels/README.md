@@ -14,6 +14,22 @@
 
 HMAC/client/images、功能 flags、DB/账本/jobs/UNKNOWN、锁及服务身份保持。此候选无 Admin POST，未改变真实标签；不声明生产页面已恢复。
 
+## cloud15 → cloud16 原发布器适配
+
+`upgrade_tag_labels.py` 固定原 `publisher/upgrade_direct_json.py` 的 Git 字节 SHA及本目录 `SOURCE-MAP.json` SHA；只替换该原模块的本次版本/镜像/两 RO bind 来源/manifest 校验与只读账本投影，不改历史文件或其 cloud14→15 常量。main 仍调用原流程，持同一 `deployment.lock`，保原两次 CAS、源码与容器 SHA读回、env/主unit/dropin备份、SQLite online backup、current原子切换、失败回滚。回滚从不覆盖旧DB。原所有表（含已保存图片计划、快照）及 schema 均纳入只读事务指纹，未知写入原ID保留；活动任务拒绝发布。原其它服务状态/PID、price-writer.lock inode保护与 flags 不减。
+
+2026-10-29 本次只读重新核定当前 cloud15 镜像/manifest及配置 SHA：env `16545169…`、主unit `91f2fcee…`、on-demand `50fc07e2…`。真实配置未输出，仅公开 flags。适配器只接受精确三目标及原51完整映射，其余48和HMAC/client/images不变；不接受添加第4目标、改候选SHA、替换基底或占位fixture。
+
+10项新离线合同覆盖正确/错误manifest、两个只读bind、原部署锁竞争、完整DB/schema变动、活动任务拒绝、51源成功切换、事后并发计划变动触发原回滚且保留该新计划/原UNKNOWN，以及打包来自固定Git字节/仅3成员/拒绝覆盖stage。所有systemctl/docker/HTTP均替身，未作真实apply。
+
+仅本地准备stage（不会上传、构建生产镜像或apply）：
+
+```text
+python -B releases/fc-players/direct-json-20261029/tag-labels/prepare_tag_labels.py <repo绝对目录> <具体commit> <新的stage绝对目录>
+```
+
+工具生成 `delta.tar.gz`、manifest、原publisher、窄适配器、Dockerfile、固定source-map及 `stage-receipt.json`。stage已存在即拒绝，不覆盖未知结果；准备与上线状态分开。部署负责人后续只可经原SSH入口在 `/opt/fc27-player-tool/staging/<本次目录>` 审已sealed字节，显式运行 `upgrade_tag_labels.py <stage绝对目录>`；本说明和准备动作不授apply。服务若按需退出，发布负责人须沿既有唤醒入口，不绕原健康/活动任务/CAS检查。
+
 ### Modern Web Guidance
 
 我检查了 responsive-table 指引；此次只修正 ID/名称映射，未应用布局或 API 改动。

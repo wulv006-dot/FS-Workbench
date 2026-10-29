@@ -868,6 +868,7 @@ def main():
         if group == 'fc-players-direct-json':
             units('releases/fc-players/direct-json-20261029/tests', ['test_payload','test_client','test_direct_import','test_resume','test_model_labels'])
             units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
+            units('releases/fc-players/direct-json-20261029/tag-labels', ['test_upgrade_tag_labels'])
             node('releases/fc-players/direct-json-20261029/tests/check_resume.cjs')
             node('releases/fc-players/direct-json-20261029/tests/check_model_labels.cjs')
         elif group == 'shared-admin-direct':
