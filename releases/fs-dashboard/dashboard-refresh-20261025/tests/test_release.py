@@ -66,7 +66,7 @@ class ConcurrentPublisher(unittest.TestCase):
    return types.SimpleNamespace(returncode=0)
   self.addCleanup(patch.stopall);patch.object(module.subprocess,'run',side_effect=command).start()
   @contextmanager
-  def file_lease(base,root,path):actions.append(('lease',path));yield
+  def file_lease(base,root,path,create=False):actions.append(('lease',path));yield
   patch.object(module,'lease',file_lease).start()
   class Fence:
    modified=False;confirmed=False
@@ -212,7 +212,7 @@ class ConcurrentPublisher(unittest.TestCase):
   manifest=self.manifest(module,states)
   base.inspect(manifest,Path('/fixture'),Path('/fixture'))
   self.assertFalse(any(action[0]=='systemctl' for action in actions))
-  self.assertEqual(actions[0],('lease',module.ADMISSION));self.assertFalse(fence.modified)
+  self.assertEqual(actions[0],('lease',module.RELEASE_LOCKS[0]));self.assertFalse(fence.modified)
   with self.assertRaisesRegex(ValueError,'invalid controlled reader stop'):base.guards(manifest,Path('/fixture'),True)
  def test_apply_real_stop_precedes_controlled_guards_restore_only_original_active_state(self):
   module,base,control,fence,states,actions,seen,_=self.setup()
@@ -256,7 +256,7 @@ class ConcurrentPublisher(unittest.TestCase):
     if kind=='file':directory.write_bytes(b'not a cache directory')
     else:os.symlink(saved,directory,target_is_directory=True)
    @contextmanager
-   def checked_lease(base,root,name):
+   def checked_lease(base,root,name,create=False):
     base.no_target_link(base.rooted(root,name));actions.append(('lease',name));yield
    with patch.object(module,'lease',checked_lease):
     if kind=='directory':
