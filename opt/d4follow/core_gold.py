@@ -1454,7 +1454,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             except (TypeError, ValueError):
                 _n_i = None
             _short_items = bool(_ok) and _n_i is not None and 0 < _n_i < _min_items
-            if _ok and not _short_items:
+            if _ok and not _short_items and _enough:
                 _tgt_from_base = _cusd / (1.0 - min(float(_mk or 0.0), 0.99))
                 _base_src = "DD373进货成本"
                 rec["定价来源级别"] = 1
@@ -1463,6 +1463,37 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 _base_detail = ("DD373 %s 订单簿均价 %s 元/万基纳 = $%.4f/M，+%.1f%%"
                                 % (_c.get("dd_zone") or sv.get("中文名"),
                                    _c.get("cny_per_wan"), _cusd, float(_mk or 0) * 100))
+            elif _ok and not _short_items and not _enough:
+                # 2026-10-29：薄区（DD373 可买量 < 无货最小可买万基纳）在 dd373_only 下
+                # 与 g2g_cheapold 分支保持同一口径 —— 统一挂薄区价，并加成本下限
+                # max(薄区价, 成本×0.9)，避免成本高于挂单价时倒挂出货。
+                _thinp = _f(_row_pol.get("薄区挂单价_USD每M"))
+                if _thinp is None or _thinp <= 0:
+                    _thinp = 4.99
+                _thin_floor = None
+                if _cusd and float(_cusd) > 0:
+                    _thin_floor = round(float(_cusd) * 0.9, 4)
+                    if _thin_floor > float(_thinp):
+                        _thinp = _thin_floor
+                        rec["薄区成本下限"] = ("成本 $%.4f/M × 0.9 = $%.4f/M 高于薄区挂单价 ⇒ "
+                                               "按成本九折挂（不倒挂出货）"
+                                               % (float(_cusd), _thin_floor))
+                _tgt_from_base = float(_thinp)
+                _base_src = "薄区挂单价"
+                rec["定价来源级别"] = 3
+                rec["基准价"] = float(_thinp)
+                rec["基准来源"] = "薄区挂单价"
+                rec["薄区挂单价_USD每M"] = float(_thinp)
+                rec["薄区说明"] = (
+                    "该区 DD373 可买量仅 %s 万基纳（< %g 亿）⇒ 本轮挂 $%.2f/M；"
+                    "成本另算 $%.4f/M（%d 条挂单全量加权，不参与本行定价）%s；"
+                    "等可买量 ≥ %g 亿下一轮自动跟回"
+                    % (_avail if _avail is not None else "未知", _need / 10000.0, _thinp,
+                       _cusd or 0.0, int(_n_i or 0),
+                       ("；⛔ 成本高于挂单价 ⇒ 按成本×0.9 兜底" if _thin_floor
+                        and _thin_floor >= float(_thinp) else ""),
+                       _need / 10000.0))
+                _base_detail = rec["薄区说明"]
             elif _short_items:
                 _tgt_from_base = float(_shortp)
                 _base_src = "条数不足价"
@@ -2408,13 +2439,34 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                               if rec.get("DD373可买_万基纳") is not None else "-",
                               rec.get("DD373依据") or "-"))
                 else:
-                    _pre = ("目标 $%s/%s（⛔ 无货兜底：DD373 无报价/不足 %s ⇒ 统一挂 $%.2f/M）"
-                            "｜我方 $%s/%s（%+.2f%%）"
-                            % (fmt_money(per_100k(tgt_m, _dm)), _ul,
-                               need_yi_txt(rec.get("无货最小可买万基纳") or 10000),
-                               float(rec.get("无货兜底售价_USD每M") or 0),
-                               fmt_money(per_100k(oup, _dm)), _ul, _gap_pct))
-                    _gz = "｜%s" % (rec.get("无货兜底说明") or "")
+                    # 2026-10-29：lvl 3 里其实有三种口径（薄区价 / 条数不足价 / 无货兜底），
+                    # 原来一律写成「无货兜底 $19.9」，导致薄区目标 $5.60 却标成「挂 $19.90」——
+                    # 数值是对的、文案自相矛盾。按 基准来源 分开写。
+                    _src_lbl = str(rec.get("基准来源") or "")
+                    if _src_lbl == "薄区挂单价":
+                        _pre = ("目标 $%s/%s（⛔ 薄区保护价：DD373 可买量 < %s ⇒ 挂 $%.2f/M）"
+                                "｜我方 $%s/%s（%+.2f%%）"
+                                % (fmt_money(per_100k(tgt_m, _dm)), _ul,
+                                   need_yi_txt(rec.get("无货最小可买万基纳") or 10000),
+                                   float(rec.get("薄区挂单价_USD每M") or 0),
+                                   fmt_money(per_100k(oup, _dm)), _ul, _gap_pct))
+                        _gz = "｜%s" % (rec.get("薄区说明") or "")
+                    elif _src_lbl == "条数不足价":
+                        _pre = ("目标 $%s/%s（⛔ 挂单不足 %d 条 ⇒ 挂 $%.2f/M）"
+                                "｜我方 $%s/%s（%+.2f%%）"
+                                % (fmt_money(per_100k(tgt_m, _dm)), _ul,
+                                   int(rec.get("DD373挂单数") or 0),
+                                   float(rec.get("基准价") or 0),
+                                   fmt_money(per_100k(oup, _dm)), _ul, _gap_pct))
+                        _gz = "｜%s" % (rec.get("条数不足说明") or "")
+                    else:
+                        _pre = ("目标 $%s/%s（⛔ 无货兜底：DD373 无报价/不足 %s ⇒ 统一挂 $%.2f/M）"
+                                "｜我方 $%s/%s（%+.2f%%）"
+                                % (fmt_money(per_100k(tgt_m, _dm)), _ul,
+                                   need_yi_txt(rec.get("无货最小可买万基纳") or 10000),
+                                   float(rec.get("无货兜底售价_USD每M") or 0),
+                                   fmt_money(per_100k(oup, _dm)), _ul, _gap_pct))
+                        _gz = "｜%s" % (rec.get("无货兜底说明") or "")
                 if rec["动作"] == "hold":
                     rec["说明"] = _pre + "（在 ±%.1f%% 持平区间内）→ 不动%s" % (_thr * 100, _gz)
                 else:
