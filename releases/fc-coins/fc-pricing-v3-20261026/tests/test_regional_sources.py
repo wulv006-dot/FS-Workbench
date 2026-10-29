@@ -14,6 +14,7 @@ SOURCE = Path(__file__).resolve().parents[1] / 'source'
 sys.path.insert(0, str(SOURCE))
 from fc_pricing_v3 import regional_public, sources, business_source, region_source, engine
 from fc_pricing_v3.financial import fingerprint
+from fixtures import set_console_cost
 
 AIDS = {'PS': 21587, 'XBOX': 21585, 'PC': 21589}
 SKUS = {'PS': 163329311, 'XBOX': 163329277, 'PC': 163329345}
@@ -65,7 +66,7 @@ class RegionalSourceEvidenceTest(unittest.TestCase):
         data=json.loads(Path(__file__).with_name('fixture.json').read_text(encoding='utf-8-sig'))
         from datetime import datetime
         now=datetime.fromisoformat(data['now'])
-        evidence=deepcopy(data['fixture'][0])
+        evidence=deepcopy(data['fixture'][0]);set_console_cost(evidence)
         for platform in AIDS:
             evidence['storefront']['rows'][platform].update(sku_id=str(SKUS[platform]),package_usd='20')
         history=dict(status='verified',basis_lower_bound_sufficient=True,paths=[dict(weight_usd='1',

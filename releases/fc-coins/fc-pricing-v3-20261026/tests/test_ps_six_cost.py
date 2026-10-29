@@ -1,0 +1,246 @@
+"""Offline contracts for PS latest-six maximum and shared console costs."""
+import importlib.util
+import sys
+import types
+import unittest
+from contextlib import nullcontext
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from pathlib import Path
+from unittest.mock import patch
+
+SOURCE = Path(__file__).resolve().parents[1] / 'source'
+sys.path.insert(0, str(SOURCE))
+from fc_pricing_v3.financial import common_cost
+
+
+def load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class SixCost(unittest.TestCase):
+    def setUp(self):
+        self.closed = 0
+        tab = object()
+        browser = types.SimpleNamespace(contexts=[types.SimpleNamespace(new_page=lambda: tab)])
+        def close(page):
+            self.closed += 1
+        stubs = {
+            'isolated_backend': types.SimpleNamespace(open_backend=lambda _: browser, close_backend=close),
+            'fs_order_client': types.SimpleNamespace(apply=lambda _: None),
+            'p2pah_session_service': types.SimpleNamespace(read_private_config=lambda: {}),
+            'playwright.sync_api': types.SimpleNamespace(TimeoutError=TimeoutError, sync_playwright=lambda: nullcontext(None)),
+            'fc27_quote_engine': types.SimpleNamespace(source_coverage=lambda _: None),
+        }
+        with patch.dict(sys.modules, stubs):
+            try:
+                self.collector = load('six_cost_collector', SOURCE/'collect_p2pah_cost.py')
+            except __import__('zoneinfo').ZoneInfoNotFoundError:
+                with patch('zoneinfo.ZoneInfo', lambda _: timezone(timedelta(hours=8))):
+                    self.collector = load('six_cost_collector', SOURCE/'collect_p2pah_cost.py')
+            self.snapshot = load('six_snapshot', SOURCE/'snapshot_layer.py')
+        self.now = datetime.now(timezone(timedelta(hours=8))) - timedelta(minutes=1)
+        self.rows = [self.raw(100+i, cost, i) for i, cost in enumerate(('.1','.2','.9','.4','.5','.6','99'))]
+        self.rows += [self.raw(200, '888', 0, 'XBOX'), self.raw(300, '.77', 0, 'PC')]
+
+    def raw(self, record_id, cost, age, platform='PS'):
+        return dict(platform=platform, record_id=str(record_id), cny_per_1k=cost,
+                    trade_at=(self.now-timedelta(minutes=age)).strftime('%Y-%m-%d %H:%M:%S'),
+                    delivery_type='订单发货')
+
+    def data(self, rows):
+        return dict(rows=rows, hasDataRows=bool(rows), empty=not rows,deliveryRowCount=len(rows))
+
+    def run_collect(self, pages=None):
+        pages = pages or [self.rows, []]
+        def read(tab, number, observations=None, window=None):
+            rows=pages[number-1] if number <= len(pages) else []
+            return self.data([row for row in rows if row['platform']=='PS'] if window else rows)
+        with patch.object(self.collector, 'read_page', side_effect=read):
+            return self.collector.collect()
+
+    def test_latest_six_then_max_excludes_expensive_seventh_and_xbox(self):
+        result = self.run_collect()
+        self.assertEqual(result['status'], 'valid')
+        ps, xbox, pc = result['costs']
+        self.assertEqual([r['record_id'] for r in ps['sample_records']], ['100','101','102','103','104','105'])
+        self.assertEqual((ps['record_id'], ps['cny_per_1k']), ('102','0.9'))
+        self.assertEqual((xbox['record_id'], xbox['cny_per_1k'], xbox['source_platform']), ('102','0.9','PS'))
+        self.assertEqual(xbox['observed_cost']['cny_per_1k'], '888')
+        self.assertEqual((pc['record_id'], pc['cny_per_1k']), ('300','0.77'))
+        normalized = self.snapshot.cost_snapshots('offline-run', result)
+        cost, proof = common_cost(dict(costs={row['platform']:row for row in normalized}))
+        self.assertEqual(cost, Decimal('.9'))
+        self.assertEqual(proof['sample_size'], 6)
+        self.assertEqual(len(proof['observations']), 6)
+        self.assertEqual(self.closed, 1)
+
+    def test_duplicate_same_record_does_not_count_twice(self):
+        result = self.run_collect([self.rows[:3], self.rows[:3]+self.rows[3:], []])
+        self.assertEqual(len(result['costs'][0]['sample_records']), 6)
+
+    def test_conflicting_duplicate_fails(self):
+        with self.assertRaisesRegex(ValueError, 'cost_duplicate_record_conflict'):
+            self.run_collect([self.rows, [dict(self.rows[0], cny_per_1k='999')], []])
+        self.assertEqual(self.closed, 1)
+
+    def test_five_unique_valid_ps_records_do_not_pass(self):
+        with self.assertRaisesRegex(ValueError, 'ps_valid_delivery_sample_incomplete'):
+            self.run_collect([self.rows[:5]*2+self.rows[7:], []])
+
+    def test_non_order_delivery_and_invalid_unit_cost_are_not_samples(self):
+        invalid = [dict(self.rows[0], record_id='500', delivery_type='采购打款'),
+                   dict(self.rows[0], record_id='501', cny_per_1k='0'),
+                   dict(self.rows[0], record_id='502', cny_per_1k='NaN')]
+        result = self.run_collect([invalid+self.rows, []])
+        self.assertNotIn('500', [row['record_id'] for row in result['costs'][0]['sample_records']])
+
+    def test_same_trade_time_orders_by_numeric_id_before_taking_six(self):
+        rows = [dict(self.rows[0], record_id=str(i), cny_per_1k=str(i)) for i in (2,9,10,20,50,100,101)]
+        result = self.run_collect([rows+self.rows[7:], []])
+        self.assertEqual([row['record_id'] for row in result['costs'][0]['sample_records']], ['101','100','50','20','10','9'])
+
+    def test_original_fifteen_page_limit_requires_complete_narrow_rescan(self):
+        calls = []
+        def read(tab, number, observations=None, window=None):
+            calls.append((number,window))
+            if window is None:
+                return self.data(self.rows)
+            return self.data(self.rows[:6] if number == 1 else [])
+        with patch.object(self.collector,'read_page',side_effect=read):
+            result = self.collector.collect()
+        self.assertEqual(len(calls),17)
+        self.assertIsNotNone(calls[-1][1])
+        self.assertTrue(result['costs'][0]['sample_boundary']['complete'])
+        self.assertEqual(result['costs'][2]['cny_per_1k'], '0.77')
+
+    def test_narrow_scan_page_limit_does_not_silently_use_six(self):
+        def read(tab, number, observations=None, window=None):
+            return self.data(self.rows if window is None else self.rows[:6])
+        with patch.object(self.collector,'read_page',side_effect=read):
+            with self.assertRaisesRegex(ValueError,'ps_valid_delivery_sample_page_limit'):
+                self.collector.collect()
+
+    def test_one_hour_window_expands_to_two_when_fewer_than_six(self):
+        windows=[]
+        def read(tab, number, observations=None, window=None):
+            if window is None:
+                return self.data(self.rows if number==1 else [])
+            if number>1:
+                return self.data([])
+            hours=(window['end']-window['start']).total_seconds()/3600
+            windows.append(hours)
+            return self.data(self.rows[:5] if hours==1 else self.rows[:6])
+        with patch.object(self.collector,'read_page',side_effect=read):
+            result=self.collector.collect()
+        self.assertEqual(windows,[1,2])
+        boundary=result['costs'][0]['sample_boundary']
+        self.assertEqual((datetime.fromisoformat(boundary['end'])-datetime.fromisoformat(boundary['start'])).total_seconds(),7200)
+
+    def test_two_hour_filter_must_match_returned_trades(self):
+        def read(tab,number,observations=None,window=None):
+            if window is None:
+                return self.data(self.rows if number==1 else [])
+            return self.data([self.raw(900,'.4',200)])
+        with patch.object(self.collector,'read_page',side_effect=read):
+            with self.assertRaisesRegex(ValueError,'cost_time_window_filter_unverified'):
+                self.collector.collect()
+
+    def empty_page(self, *, ready='complete'):
+        return dict(login=False,ready=ready,page='1',game='1322',area='21942',product='1',genre='1',
+                    typeHeader='交货类型',table=True,hasDataRows=False,empty=False,deliveryRowCount=0,rows=[],
+                    start=self.now.strftime('%Y-%m-%d %H:%M'),end=(self.now+timedelta(hours=1)).strftime('%Y-%m-%d %H:%M'))
+
+    def test_real_ps_page_reader_accepts_verified_zero_rows_without_empty_text(self):
+        data=self.empty_page()
+        page=types.SimpleNamespace(goto=lambda *a,**k:types.SimpleNamespace(status=200),evaluate=lambda _:data,
+                                   wait_for_timeout=lambda _:self.fail('verified empty PS page should not wait'))
+        window=dict(start=self.now,end=self.now+timedelta(hours=1))
+        self.assertEqual(self.collector.read_page(page,1,[],window=window),data)
+
+    def test_ps_empty_page_waits_for_document_parsing_and_pc_gate_is_unchanged(self):
+        values=iter([self.empty_page(ready='loading'),self.empty_page()]);waits=[]
+        page=types.SimpleNamespace(goto=lambda *a,**k:types.SimpleNamespace(status=200),evaluate=lambda _:next(values),
+                                   wait_for_timeout=waits.append)
+        self.collector.read_page(page,1,[],window=dict(start=self.now,end=self.now+timedelta(hours=1)))
+        self.assertEqual(waits,[500])
+        page.evaluate=lambda _:self.empty_page()
+        with self.assertRaisesRegex(self.collector.CostPageError,'filter_or_rows_unverified:1'):
+            self.collector.read_page(page,1,[])
+
+    def test_completely_empty_hour_expands_to_two_hours(self):
+        windows=[]
+        def read(tab,number,observations=None,window=None):
+            if window is None:
+                return self.data(self.rows if number==1 else [])
+            hours=(window['end']-window['start']).total_seconds()/3600
+            if number==1:windows.append(hours)
+            return self.data(self.rows[:6] if hours==2 and number==1 else [])
+        with patch.object(self.collector,'read_page',side_effect=read):
+            result=self.collector.collect()
+        self.assertEqual(windows,[1,2])
+        self.assertEqual(result['costs'][0]['record_id'],'102')
+
+    def test_sample_exactly_at_window_end_is_accepted(self):
+        result=self.run_collect()
+        costs={row['platform']:row for row in result['costs']}
+        boundary=dict(costs['PS']['sample_boundary'])
+        boundary['end']=costs['PS']['sample_records'][0]['trade_at']
+        for platform in ('PS','XBOX'):
+            costs[platform]['sample_boundary']=boundary
+        self.assertEqual(common_cost(dict(costs=costs))[0],Decimal('.9'))
+
+    def test_financial_rejects_missing_incomplete_or_wrong_sample_boundary(self):
+        result = self.run_collect()
+        costs = {row['platform']:row for row in result['costs']}
+        for boundary in (None, dict(complete=False), dict(complete=True,start='2026-01-01 00:00',end='2026-01-02 00:00'),
+                         dict(complete=True,start='2026-01-02 00:00',end='2026-01-01 00:00')):
+            bad = deepcopy(costs)
+            bad['PS']['sample_boundary'] = boundary
+            with self.assertRaisesRegex(ValueError,'pricing_console_cost_sample_boundary'):
+                common_cost(dict(costs=bad))
+
+    def test_old_payload_without_six_sample_contract_is_rejected(self):
+        result = self.run_collect()
+        for row in result['costs'][:2]:
+            row.pop('sample_contract')
+        with self.assertRaisesRegex(ValueError,'pricing_console_cost_sample_unverified'):
+            self.snapshot.cost_snapshots('offline', result)
+
+    def test_financial_rejects_xbox_override_or_tampered_sample(self):
+        result = self.run_collect()
+        costs = {row['platform']:row for row in result['costs']}
+        bad = deepcopy(costs)
+        bad['XBOX']['cny_per_1k'] = '888'
+        with self.assertRaisesRegex(ValueError,'pricing_console_cost_selection_mismatch'):
+            common_cost(dict(costs=bad))
+        bad = deepcopy(costs)
+        for platform in ('PS','XBOX'):
+            bad[platform]['sample_records'][0]['record_id']='101'
+        with self.assertRaisesRegex(ValueError,'pricing_console_cost_identity'):
+            common_cost(dict(costs=bad))
+
+    def test_financial_rejects_unsorted_sample_and_wrong_delivery_type(self):
+        result = self.run_collect()
+        costs = {row['platform']:row for row in result['costs']}
+        bad = deepcopy(costs)
+        bad['PS']['sample_records'] = list(reversed(bad['PS']['sample_records']))
+        with self.assertRaisesRegex(ValueError,'pricing_console_cost_sample_order'):
+            common_cost(dict(costs=bad))
+        bad = deepcopy(costs)
+        bad['PS']['sample_records'][0]['delivery_type']='采购打款'
+        with self.assertRaisesRegex(ValueError,'pricing_console_cost_scope'):
+            common_cost(dict(costs=bad))
+
+    def test_missing_pc_stays_missing_and_does_not_copy_console(self):
+        result = self.run_collect([self.rows[:7], []])
+        self.assertEqual(result['status'], 'incomplete')
+        self.assertEqual(result['costs'][2]['status'], 'missing')
+
+
+if __name__ == '__main__':
+    unittest.main()
