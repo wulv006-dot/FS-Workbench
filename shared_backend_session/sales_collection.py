@@ -8,7 +8,9 @@
 2. **分段缓存**：每轮只重抓「最近 RECENT_DAYS 天所在的窗口」，更早的窗口直接读
    `data/segments/<kind>_<start>_<end>.json`；每满 `FULL_REFRESH_HOURS` 小时（或 `--full`）
    全量重抓一次，覆盖退款/状态变更这类历史变动。
-   —— 不这么做的话，177+ 页发货 × 5s/页 会超过 30 分钟的调度周期。
+   —— 窗口长度必须远小于调度周期：SLICE_DAYS=28 时"最近窗口"永远是 28 天，
+   于是每轮都把 200+ 页发货从头翻一遍（近 7 天实测 31,837 页发货请求）。
+   改成 7 天后，最近窗口通常只剩 1 天（约 5 页发货），全量兜底从每日一次降到每周一次。
 3. 订单按 id、发货按 delivery_id 去重合并。
 
 口径说明
@@ -41,9 +43,9 @@ ORDER_GID = 826      # Order   侧 Aion 2
 PAGE_SIZE = 100
 GENRE_ORDER_SHIP = "1"
 MEM_BATCH = 100
-SLICE_DAYS = 28      # 接口限制「不超过一个月」，用 28 天窗口最稳
-RECENT_DAYS = 4      # 最近这段总重抓
-FULL_REFRESH_HOURS = 24
+SLICE_DAYS = 7       # 窗口要短：接口允许 ≤1 个月，但窗口越长「最近窗口」越贵（2026-10-29 由 28 改 7）
+RECENT_DAYS = 1      # 最近这段总重抓（与 SLICE_DAYS 配合：前一天那一格走缓存）
+FULL_REFRESH_HOURS = 168   # 全量兜底由「每日一次」改为「每周一次」
 
 DEFAULT_START = "2026-09-17"
 
