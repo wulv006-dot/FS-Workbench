@@ -73,5 +73,6 @@
     "player_web/direct_model_payload.py": "19d864b24f70605f76b3eb70ccd26f770cc1f97a86f24e96e45456a5c613c783",
     "player_web/direct_model_import.py": "771c36a794752c4443a362393e91bedaa1036b0c3365dee3754e938147ca85a1"
   },
-  "policy": "Keep runtime flags, HMAC/client/images bytes, DB/ledgers/jobs/UNKNOWN, locks and service identities. No bind-only release or business-tag write. Preserve all 51 manifest entries, replacing only exact 3."
+  "policy": "Keep runtime flags, HMAC/client/images bytes, DB/ledgers/jobs/UNKNOWN, locks and service identities. No bind-only release or business-tag write. Preserve all 51 manifest entries, replacing only exact 3.",
+  "base_image_id": "sha256:12b81c6f0d63b9c5c4e9ccbf7cb0b268b72084b1e283408fe68c8fdc606f7f65"
 }
