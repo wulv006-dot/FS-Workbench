@@ -49,6 +49,7 @@ def cost_url(page: int, window=None) -> str:
 
 READ_ROWS = r"""() => ({
   login:location.pathname.includes('login.html'),
+  ready:document.readyState,
   page:new URLSearchParams(location.search).get('page'),
   game:document.querySelector('#lot-game')?.value,
   area:document.querySelector('#lot-area')?.value,
@@ -150,13 +151,17 @@ def read_page(page, number, observations=None, window=None):
         except PlaywrightTimeoutError:
             raise CostPageError(f"order_page_read_timeout:{number}", diagnostic) from None
         diagnostic["observed"] = {k: data.get(k) for k in
-                                  ("login", "page", "game", "area", "start", "end", "product", "genre", "typeHeader", "table", "hasDataRows", "empty", "deliveryRowCount")}
+                                  ("login", "ready", "page", "game", "area", "start", "end", "product", "genre", "typeHeader", "table", "hasDataRows", "empty", "deliveryRowCount")}
         if data.get("login"):
             raise CostPageError("login_expired", diagnostic)
+        if window is not None and data.get('ready') not in ('interactive', 'complete'):
+            page.wait_for_timeout(500)
+            continue
         if (data.get("page") == str(number) and data.get("game") == "1322"
                 and data.get("product") == "1" and data.get("genre") == "1"
                 and data.get("typeHeader") == "\u4ea4\u8d27\u7c7b\u578b" and data.get("table") is True
-                and (data["hasDataRows"] or data["empty"])):
+                and (data["hasDataRows"] or data["empty"]
+                     or window is not None and data.get("deliveryRowCount") == 0)):
             if window is not None and (
                     data.get('area') != '21942'
                     or data.get('start') != window['start'].strftime('%Y-%m-%d %H:%M')
