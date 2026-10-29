@@ -71,6 +71,35 @@ def advance_day(store, now):
     return value
 
 
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def backup_signature(destination):
+    from user_store import safe
+    receipt = destination / 'manifest.json'
+    safe(receipt)
+    with receipt.open('rb') as source:
+        raw = source.read(65537)
+    if len(raw) > 65536:
+        raise ValueError('backup_manifest_size')
+    value = json.loads(raw)
+    names = ('config.json', 'customers.sqlite3', 'identity.key')
+    if set(value['sha256']) != set(names):
+        raise ValueError('backup_manifest_files')
+    signatures = {}
+    for name in (*names, 'manifest.json'):
+        path = destination / name
+        safe(path)
+        stat = path.stat()
+        signatures[name] = [stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns]
+    return dict(manifest_sha256=hashlib.sha256(raw).hexdigest(), files=signatures)
+
+
 def backup(store, now):
     root = store.root / 'backups'
     root.mkdir(mode=0o700, exist_ok=True)
@@ -80,9 +109,10 @@ def backup(store, now):
         receipt = destination / 'manifest.json'
         if not receipt.is_file():
             raise ValueError('backup_outcome_requires_reconciliation')
+        backup_signature(destination)
         value = json.loads(receipt.read_text('utf-8'))
         for name, digest in value['sha256'].items():
-            if hashlib.sha256((destination / name).read_bytes()).hexdigest() != digest:
+            if file_sha256(destination / name) != digest:
                 raise ValueError('backup_readback_mismatch')
         return value
     destination.mkdir(mode=0o700)
@@ -92,8 +122,31 @@ def backup(store, now):
         with os.fdopen(fd, 'wb') as output:
             output.write(raw); output.flush(); os.fsync(output.fileno())
     value = dict(contract='fs-users-private-backup-v1', captured_at=now.isoformat(), data_version=store.revision(),
-                 scope='same_host_recovery_copy', sha256={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in destination.iterdir()})
+                 scope='same_host_recovery_copy', sha256={p.name: file_sha256(p) for p in destination.iterdir()})
     atomic(destination / 'manifest.json', value)
+    return value
+
+
+def daily_backup_status(store, now):
+    destination = store.root / 'backups' / now.date().isoformat()
+    target = store.root / 'backup-status.json'
+    previous = json.loads(target.read_text('utf-8')) if target.is_file() else {}
+    if destination.exists() and not (destination / 'manifest.json').is_file():
+        value = dict(status='requires_reconciliation', reason='backup_outcome_requires_reconciliation',
+                     retryable=False, day=now.date().isoformat(), backup_directory=str(destination))
+        if value != previous:
+            atomic(target, value)
+        return value
+    signature = backup_signature(destination) if destination.exists() else None
+    if (previous.get('day') == now.date().isoformat() and previous.get('status') == 'complete'
+            and signature is not None and previous.get('signature') == signature):
+        return previous
+    receipt = backup(store, now)
+    after = backup_signature(destination)
+    if signature is not None and signature != after:
+        raise ValueError('backup_changed_during_verification')
+    value = dict(status='complete', day=now.date().isoformat(), receipt=receipt, signature=after)
+    atomic(target, value)
     return value
 
 
@@ -150,7 +203,8 @@ def main():
             print(canonical(result), flush=True)
             if result['status'] == 'deferred':
                 return
-        advance_day(store, datetime.now(TZ)); backup(store, now)
+        advance_day(store, datetime.now(TZ))
+        print(canonical(dict(backup=daily_backup_status(store, now))), flush=True)
         if args.action == 'tick':
             from user_customer_types import ensure_closed_month
             try:

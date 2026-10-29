@@ -645,6 +645,86 @@ class Users(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             self.store.backup(destination)
 
+    def test_public_snapshot_and_hermes_never_read_members(self):
+        from contextlib import contextmanager
+        self.load([order(1, '2026-10-01')])
+        result = self.query()
+        with self.store.db() as db:
+            db.execute('DELETE FROM snapshot_members')
+        original = self.store.db
+        statements = []
+        @contextmanager
+        def traced():
+            with original() as db:
+                db.set_trace_callback(statements.append)
+                yield db
+        with patch.object(self.store, 'db', traced), patch.object(self.store, 'snapshot', side_effect=AssertionError('private_read')):
+            self.assertEqual(self.service.query({'snapshot_id': result['snapshot_id']}, 'reader'), result)
+            self.assertEqual(invoke(self.service, 'reader', {'snapshot_id': result['snapshot_id'], 'section': 'trend'})['trend'], result['trend'])
+        self.assertTrue(any('SELECT query,body FROM snapshots' in sql for sql in statements))
+        self.assertFalse(any('snapshot_members' in sql or 'SELECT *' in sql for sql in statements))
+        with self.assertRaisesRegex(ValueError, 'snapshot_members_integrity'):
+            self.service.members(dict(snapshot_id=result['snapshot_id'], group='known_pool'), 'admin')
+        with self.store.db() as db:
+            db.execute('UPDATE snapshots SET body=? WHERE id=?', ('{}', result['snapshot_id']))
+        with self.assertRaisesRegex(ValueError, 'snapshot_integrity'):
+            self.service.query({'snapshot_id': result['snapshot_id']}, 'reader')
+
+    def test_backup_hash_is_streamed_and_tamper_checks_remain(self):
+        import hashlib
+        from user_jobs import backup, file_sha256
+        path = Path(self.tmp.name) / 'bounded.bin'
+        payload = b'x' * (2 * 1024 * 1024 + 19)
+        path.write_bytes(payload)
+        with patch.object(Path, 'read_bytes', side_effect=AssertionError('unbounded_file_read')):
+            self.assertEqual(file_sha256(path), hashlib.sha256(payload).hexdigest())
+            receipt = backup(self.store, NOW)
+            self.assertEqual(backup(self.store, NOW), receipt)
+        destination = self.store.root / 'backups' / NOW.date().isoformat()
+        (destination / 'config.json').write_text('changed')
+        with self.assertRaisesRegex(ValueError, 'backup_readback_mismatch'):
+            backup(self.store, NOW)
+
+    def test_daily_backup_reuses_verified_file_identity_but_rechecks_changes(self):
+        from user_jobs import daily_backup_status, file_sha256
+        with patch('user_jobs.file_sha256', wraps=file_sha256) as hashed:
+            receipt = daily_backup_status(self.store, NOW)
+            initial = hashed.call_count
+            self.assertEqual(initial, 3)
+            self.assertEqual(daily_backup_status(self.store, NOW), receipt)
+            self.assertEqual(hashed.call_count, initial)
+            folder = self.store.root / 'backups' / NOW.date().isoformat()
+            manifest = folder / 'manifest.json'
+            manifest.write_text(manifest.read_text() + ' ')
+            refreshed = daily_backup_status(self.store, NOW)
+            self.assertNotEqual(receipt['signature'], refreshed['signature'])
+            self.assertEqual(hashed.call_count, initial + 3)
+            (folder / 'identity.key').write_bytes(b'broken')
+            with self.assertRaisesRegex(ValueError, 'backup_readback_mismatch'):
+                daily_backup_status(self.store, NOW)
+
+    def test_partial_backup_preserved_and_customer_types_continue(self):
+        import contextlib, io
+        from user_jobs import daily_backup_status, main
+        folder = self.store.root / 'backups' / NOW.date().isoformat()
+        folder.mkdir(parents=True)
+        original = folder / 'customers.sqlite3'
+        original.write_bytes(b'original-unreconciled-copy')
+        with patch('user_jobs.backup', side_effect=AssertionError('must_not_recopy')):
+            first = daily_backup_status(self.store, NOW)
+            self.assertEqual(daily_backup_status(self.store, NOW), first)
+        self.assertEqual(first['status'], 'requires_reconciliation')
+        self.assertFalse(first['retryable'])
+        self.assertEqual(original.read_bytes(), b'original-unreconciled-copy')
+        with patch.object(sys, 'argv', ['user_jobs', 'tick']), patch('user_jobs.load_store', return_value=self.store), \
+                patch('user_jobs.tick_windows', return_value=[]), patch('user_jobs.advance_day'), \
+                patch('user_jobs.datetime') as clock, patch('user_customer_types.ensure_closed_month', return_value={'status': 'reused'}) as flags, \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            clock.now.return_value = NOW
+            main()
+        flags.assert_called_once()
+        self.assertIn('requires_reconciliation', output.getvalue())
+
     def test_frozen_snapshot_rechecks_global_context_permission(self):
         self.load([order(1, '2026-10-01')])
         allowed = [True]
