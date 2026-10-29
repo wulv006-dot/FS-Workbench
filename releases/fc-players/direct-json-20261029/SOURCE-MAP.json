@@ -1,0 +1,17 @@
+{
+  "version": "2026.10.29-cloud.15",
+  "base_version": "2026.10.24-cloud.14",
+  "status": "candidate_not_deployed",
+  "publisher": "publisher/upgrade_direct_json.py",
+  "files": {
+    "source/VERSION": "VERSION",
+    "source/direct_model_payload.py": "player_web/direct_model_payload.py",
+    "source/direct_model_import.py": "player_web/direct_model_import.py",
+    "source/new_card_service.py": "player_web/new_card_service.py",
+    "source/admin_client.py": "球员维护工具/admin_client.py",
+    "source/shared_session.py": "player_web/shared_session.py",
+    "source/main.py": "player_web/main.py",
+    "source/app.js": "player_web/static/app.js"
+  },
+  "notes": "Only exact eight-file overlay on current cloud14. Preserve original runtime policy, other source files, ledger, shared lock inode and Coins services. Actual Git bytes, checksums and state belong to sealed manifest and production readback, not this candidate status."
+}

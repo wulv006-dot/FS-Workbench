@@ -180,6 +180,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['releases/fc-players/direct-json-20261029/source/direct_model_import.py']) != ['fc-players-direct-json']:
+        raise RuntimeError('fc_players_direct_json_mapping_missing')
     if select(['docs/planning/business-dashboard-refresh-20261025/CONTRACT.md']) != ['fc-pricing-v3','knowledge-layering']:
         raise RuntimeError('dashboard_contract_knowledge_pin_coverage_missing')
     if select(['releases/ops/shared-admin-direct-20261028/source/fc_shared_admin.py']) != ['shared-admin-direct']:
@@ -418,6 +420,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('releases/fc-players/direct-json-20261029/'):
+            groups.add('fc-players-direct-json');continue
         if name in ('releases/fs-dashboard/dashboard-refresh-20261025/source/daily_archive.py',
                     'releases/fs-dashboard/shipping-profit-20261024/source/profit_queries.py'):
             groups.add('fs-maintenance-cleanup')
@@ -859,7 +863,11 @@ def main():
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/halloween52-browser.cjs")
             continue
         print("affected group:",group,flush=True)
-        if group == 'shared-admin-direct':
+        if group == 'fc-players-direct-json':
+            units('releases/fc-players/direct-json-20261029/tests', ['test_payload','test_client','test_direct_import','test_resume'])
+            units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
+            node('releases/fc-players/direct-json-20261029/tests/check_resume.cjs')
+        elif group == 'shared-admin-direct':
             units('releases/ops/shared-admin-direct-20261028/tests', ['test_shared_admin'])
             continue
         if group == 'hermes-review-archive':
