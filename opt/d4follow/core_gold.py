@@ -1594,6 +1594,19 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 _thinp = _f(_row_pol.get("薄区挂单价_USD每M"))
                 if _thinp is None or _thinp <= 0:
                     _thinp = 4.99
+                # 🔴 2026-10-29 老板定案 · **薄区价加成本下限**：
+                #    原口径「薄区统一挂 $4.99、与成本无关」在成本高于 4.99 时会倒挂出货
+                #    （实测 South America · Ariel：挂 $4.99、DD373 全量加权成本 $6.27 ⇒ -20.5%）。
+                #    ⇒ 薄区价 = max(配置薄区价, 成本 × 0.9)：仍在保护薄区、但不做亏本买卖。
+                #    只在「成本 > 挂单价」时生效，其余薄区行为完全不变。
+                _thin_floor = None
+                if _cusd and float(_cusd) > 0:
+                    _thin_floor = round(float(_cusd) * 0.9, 4)
+                    if _thin_floor > float(_thinp):
+                        _thinp = _thin_floor
+                        rec["薄区成本下限"] = ("成本 $%.4f/M × 0.9 = $%.4f/M 高于薄区挂单价 ⇒ "
+                                               "按成本九折挂（不倒挂出货）"
+                                               % (float(_cusd), _thin_floor))
                 _tgt_from_base = float(_thinp)
                 _base_src = "薄区挂单价"
                 rec["定价来源级别"] = 3
@@ -1602,10 +1615,13 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                 rec["薄区挂单价_USD每M"] = float(_thinp)
                 rec["薄区说明"] = (
                     "该区 DD373 可买量仅 %.0f 万基纳（< %g 亿）⇒ 本轮统一挂 $%.2f/M；"
-                    "成本另算 $%.4f/M（%d 条挂单全量加权，不参与本行定价）；"
+                    "成本另算 $%.4f/M（%d 条挂单全量加权，不参与本行定价）%s；"
                     "等可买量 ≥ %g 亿下一轮自动跟回"
                     % (_avail, _need / 10000.0, _thinp, _cusd or 0.0,
-                       int(_n_i or 0), _need / 10000.0))
+                       int(_n_i or 0),
+                       ("；⛔ 成本高于挂单价 ⇒ 按成本×0.9 兜底" if _thin_floor
+                        and _thin_floor >= float(_thinp) else ""),
+                       _need / 10000.0))
                 _base_detail = rec["薄区说明"]
             elif _short_items:
                 # ── 挂单不足 条数下限 条（1~9）⇒ 挂固定价 $12.99/M，不抓 G2G ──
