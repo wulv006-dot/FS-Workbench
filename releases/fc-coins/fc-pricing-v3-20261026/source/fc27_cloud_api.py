@@ -316,7 +316,7 @@ def publication_view(storefront):
         try:
             audit = read_json(path)
             checked = datetime.fromisoformat(str(audit.get('created_at', '')).replace('Z', '+00:00'))
-            if (audit.get("status") == "CONFIRMED" and audit.get("sync_confirmed") is True
+            if (audit.get("status") in ("CONFIRMED", "PUBLIC_CONFIRMED") and audit.get("sync_confirmed") is True
                     and valid_id(audit.get("execution_id")) and checked.tzinfo is not None):
                 audits.append(audit)
         except (OSError, ValueError, TypeError):
