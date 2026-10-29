@@ -18,6 +18,11 @@ class Profit(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);self.pool=Pool();self.calls=[]
         self.today=datetime.now(timezone(timedelta(hours=8))).date();self.clock=[100]
+        if sys.platform=='win32':
+            # POSIX dir_fd/flock is exercised by Linux ApplyTests; keep Windows batching synthetic.
+            from contextlib import nullcontext
+            guard=patch('profit_queries.cache_guard',side_effect=lambda path:nullcontext())
+            guard.start();self.addCleanup(guard.stop)
         self.api=ProfitQueries({'RS':('RS','RS',506,506,'general')},self.read,self.pool,self.root,self.root/'days',clock=lambda:self.clock[0])
         self.q={'profile':'RS','start':str(self.today-timedelta(days=7)),'end':str(self.today),'grain':'day'}
     def tearDown(self):self.tmp.cleanup()
