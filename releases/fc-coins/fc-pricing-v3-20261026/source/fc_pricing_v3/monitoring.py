@@ -112,10 +112,14 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
     with closing(sqlite3.connect('file:'+str(root/'v3/control.sqlite3')+'?mode=ro',uri=True,timeout=2)) as db:
         db.execute('PRAGMA query_only=ON')
         plans=[json.loads(row[0]) for row in db.execute('SELECT body FROM pricing_plans')]
-        active=[p for p in plans if p['state'] in ('ACTIVE','ENDING')]
-        owned=[p for p in plans if p['state'] in ('ACTIVE','ENDING','SUSPENDED')]
+        from .ledger import fully_owned_plans
+        executable=fully_owned_plans(db)
+        active=[p for p in executable if p['state'] in ('ACTIVE','ENDING')]
+        owned=[p for p in executable if p['state'] in ('ACTIVE','ENDING')]
+        owned += [p for p in plans if p['state']=='SUSPENDED']
         operations=[json.loads(row[0]) for row in db.execute('SELECT body FROM operations')]
         completed_cycles=[json.loads(row[0]) for row in db.execute("SELECT body FROM durable_jobs WHERE kind='cycle' AND state='done'")]
+        completed_cycles=[c for c in completed_cycles if (c.get('result') or {}).get('status')!='superseded']
         snapshots=[]
         for plan in owned:
             pointer=db.execute('SELECT body FROM metadata WHERE id=?',('latest_snapshot:'+plan['plan_id'],)).fetchone()

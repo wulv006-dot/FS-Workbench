@@ -25,6 +25,20 @@ def clock():
     return datetime.now(timezone.utc)
 
 
+def fully_owned_plans(db):
+    """A partially replaced plan cannot execute its original full resource set."""
+    ownership = {r[0]: tuple(r[1:]) for r in db.execute('SELECT resource,plan_id,revision,generation FROM plan_ownership')}
+    result = []
+    for ident in dict.fromkeys(row[0] for row in ownership.values()):
+        row = db.execute('SELECT body FROM pricing_plans WHERE id=?', (ident,)).fetchone()
+        if row:
+            plan = json.loads(row[0])
+            expected = (plan['plan_id'], plan['revision'], plan['generation'])
+            if plan.get('resources') and all(ownership.get(resource) == expected for resource in plan['resources']):
+                result.append(plan)
+    return result
+
+
 class Connection(sqlite3.Connection):
     def __exit__(self, *args):
         try:
@@ -235,7 +249,7 @@ class Ledger:
 
     def active_plans(self):
         with self.connect() as db:
-            return [self.get('pricing_plans',row[0],db) for row in db.execute('SELECT DISTINCT plan_id FROM plan_ownership')]
+            return fully_owned_plans(db)
 
     def owns(self, plan, resources, db):
         if (self.get('metadata', 'generation', db) or {}).get('id') != plan['generation']:
