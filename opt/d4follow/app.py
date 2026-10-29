@@ -428,6 +428,23 @@ def _gold_manual_guard(cfg, con, log=None):
     返回 {key: rec}（仍在保护中的）。
     """
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gold_manual.json")
+
+    # 2026-10-29 老板口径：**彻底关闭**这个闸（config 金币.人工改价保护.启用=false）。
+    # 实际业务里同事改的是后台折扣系数（0.2 → 0.3 之类），不是直接改采购成本；
+    # 脚本按固定 0.2 反推写 costprice，与「改过系数后的后台实际值」本来就必然不等 ——
+    # 是设计内的正常差异，不是人工改价；且经系数放大后最终价永远高于脚本价。
+    # 关闭时顺手把历史登记表归档，免得哪天开回来又被旧条目冻住。
+    _mgcfg = (cfg.get("金币") or {}).get("人工改价保护") or {}
+    if _mgcfg.get("启用") is False:
+        try:
+            if os.path.exists(path) and os.path.getsize(path) > 4:
+                os.replace(path, path + ".disabled-20261029")
+                if log:
+                    log("  ⏭ [人工改价保护] 已按配置关闭；历史登记表归档为 gold_manual.json.disabled-20261029")
+        except OSError:
+            pass
+        return {}
+
     try:
         with open(path, encoding="utf-8") as f:
             cur = json.load(f)
@@ -2101,7 +2118,10 @@ def task_collect(t, opts):
                 t.log("  ⚠ IGGM 被 CF 拦且金币独立通道也空 → 复用上一份快照 %s" % ig_ts)
                 _n = _iggm_streak(1, "IGGM 整轮被 CF 拦（金币独立通道也空）")["n"]
                 _need = _iggm_alert_need(cfg)
-                if _n >= _need:
+                # 2026-10-29 降噪：只在「刚跨过阈值」那一次告警，之后到恢复前不再重复推。
+                # 原来每 6 小时推一次「连续 N 轮 0 条」，实测推到 58 轮还在推 ——
+                # 服务器 IP 被 IGGM 的 CF 长期拦是已知状态，重复提醒没有信息增量。
+                if _n == _need:
                     msg_alert.alert(
                         con, "iggm-empty", "IGGM 连续 %d 轮 0 条" % _n,
                         "竞争价源（www.iggm.com）已被 Cloudflare 拦住，**冒险岛金币没有可比价的基准**。\n\n"
@@ -2394,7 +2414,9 @@ def task_collect(t, opts):
                 _noig = [it for it in (gp.get("items") or [])
                          if it.get("定价模式") == "iggm_undercut"
                          and it.get("IGGM每M_跟价用") is None]
-                if _noig:
+                # 2026-10-29 降噪：单个区偶发缺价不报（IGGM 抓取抖动很常见），
+                # ≥2 个区同时 hold 才值得叫一声。
+                if len(_noig) >= 2:
                     msg_alert.alert(
                         con, "gold-no-iggm",
                         "金币缺竞品价：%d 个区本轮 hold" % len(_noig),
