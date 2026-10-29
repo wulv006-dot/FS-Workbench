@@ -20,7 +20,7 @@
     "VERSION": {
       "source": "releases/fc-players/direct-json-20261029/tag-labels/VERSION",
       "baseline_sha256": "9d3dc673e0c865270a62d6116b2569b87a59187d82157f4d6e1c67f5d10f5b1a",
-      "candidate_sha256": "e34c3426ff21cf8ab8a9e3d3d0936bfcde81df20d6d8583f00c0fd4d7aa0fb45"
+      "candidate_sha256": "d97a2c6633eec626b62d9798ca38fb305909b22423111a206945dfd9990ca668"
     }
   },
   "protected": {
