@@ -398,6 +398,9 @@ def _gold_actual_map():
     return out
 
 
+GOLD_MANUAL_MAX_HOLD_H = 6.0     # 人工改价保护最长持有小时数（2026-10-29）
+
+
 def _gold_manual_guard(cfg, con, log=None):
     """金币侧「人工改价保护」表（2026-10-23 大超裁定 D）。
 
@@ -412,6 +415,15 @@ def _gold_manual_guard(cfg, con, log=None):
       · IGGM 每M 与登记时的锚一样 ⇒ 保护继续，本轮不派单（不重复覆盖、不刷空单）
       · IGGM 变了 ⇒ 解除保护（用户口径「ARC 是跟 IGGM 的」，IGGM 一动就该跟）
       · 登记时没有锚（少数仓促单）⇒ 现在能取到就解除
+      · 保护已超 GOLD_MANUAL_MAX_HOLD_H 小时 ⇒ 一律解除
+
+    2026-10-29 修（「价格冻死」事故）：
+      AION2 的跟价基准早已从 IGGM 切到 G2G cheapold / DD373，**86/86 个区
+      iggm_per_m 全是空值**。而解除条件只认「IGGM 变价」，抓不到 IGGM 时又走
+      「宁可不派单」⇒ 一旦登记就**永久冻结**，成本涨了价格也不跟。
+      实测 28 个区被冻：NA East 魔5(Marchutan) 的调价台账从 10-28 22:03 断档、
+      Beritra 毛利率掉到 -37%。所以补一条超时解除 —— IGGM 已不是主基准，
+      再等也不会有变价信号，冻着只是在流血。
 
     返回 {key: rec}（仍在保护中的）。
     """
@@ -425,22 +437,31 @@ def _gold_manual_guard(cfg, con, log=None):
         return {}
     rows, gts = store.gold_latest(con)
     ig = {str(r.get("key")): r.get("iggm_per_m") for r in (rows or [])}
-    keep_, rel = {}, []
+    now_ = dt.datetime.now()
+    keep_, rel = {}, {}
     for k, v in cur.items():
         _anchor = v.get("iggm锚") if isinstance(v, dict) else None
         _now = ig.get(str(k))
+        try:
+            _t = dt.datetime.fromisoformat(str((v or {}).get("ts") or "").strip())
+            _age_h = (now_ - _t).total_seconds() / 3600.0
+        except (TypeError, ValueError, AttributeError):
+            _age_h = None
+        if _age_h is not None and _age_h >= GOLD_MANUAL_MAX_HOLD_H:
+            rel[k] = "超时 %.1fh（IGGM 已非主基准，不再等它变价）" % _age_h
+            continue
         if _anchor is None:
             if _now is not None:
-                rel.append(k)            # 登记时没锚，现在有 ⇒ 可以正常跟随
+                rel[k] = "登记时无锚、现已取到 IGGM"
             else:
                 keep_[k] = v
             continue
         if _now is None:
-            keep_[k] = v                 # 本轮抓不到 IGGM ⇒ 不动（宁可不派单）
+            keep_[k] = v                 # 抓不到 IGGM 且未超时 ⇒ 本轮不动
             continue
         try:
             if abs(float(_now) - float(_anchor)) > max(1e-9, abs(float(_anchor)) * 1e-6):
-                rel.append(k)            # IGGM 变价 ⇒ 解除保护
+                rel[k] = "IGGM 变价"     # IGGM 变价 ⇒ 解除保护
             else:
                 keep_[k] = v
         except (TypeError, ValueError):
@@ -457,8 +478,8 @@ def _gold_manual_guard(cfg, con, log=None):
             if log:
                 log("  ⚠ [人工改价保护] 写回失败：%r" % e)
         if log:
-            log("  ▶ [人工改价保护] 解除 %d 个服务区（IGGM 已变价 → 恢复正常跟随）：%s"
-                % (len(rel), "、".join(sorted(rel)[:8])))
+            log("  ▶ [人工改价保护] 解除 %d 个服务区（恢复正常跟随）：%s"
+                % (len(rel), "、".join("%s[%s]" % (k, rel[k]) for k in sorted(rel)[:8])))
     if keep_ and log:
         log("  ⏸ [人工改价保护] %d 个服务区在保护中（人工价等着，IGGM 未变不覆盖）：%s"
             % (len(keep_), "、".join(sorted(keep_)[:8])))

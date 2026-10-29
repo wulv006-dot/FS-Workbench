@@ -42,6 +42,8 @@ import signal
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 
 ROOT = "/opt/d4follow"
 DATA = os.path.join(ROOT, "data")
@@ -60,7 +62,10 @@ IMAGE = "p2pah-srv:1"
 RECON_EVERY_MIN = 20
 RECON_STATE = os.path.join(DATA, "gold_recon_state.json")
 RECON_DUMP = os.path.join(JOBS, "_gold_recon.json")
-RECON_TOL = 0.01
+# 2026-10-29：1% → 3%。实测后台生效有延迟/四舍五入，正常漂移就能到 1~3%
+# （10-28 22:13 那一轮一次性把 15 个区误判成「人工改价」并永久冻结），
+# 3% 以内视作链路自己的漂移，不再登记人工改价保护。
+RECON_TOL = 0.03
 POLL_S = 10                 # 空转轮询间隔
 JOB_TIMEOUT_S = 3600        # 单张工单最长执行时间（金币单要跑推送+清缓存，给足）
 
@@ -489,6 +494,46 @@ def execution_state(result, phase, returncode):
     return "unknown", False
 
 
+DC_PROXY = "http://127.0.0.1:8911"
+DC_CLEAR_PATH = "/admin/tools.Caches/clear?server=1"
+
+
+def host_clear_via_dc_proxy(timeout=40):
+    """宿主机经数据中台签名代理清 admin 缓存（幂等）。
+
+    2026-10-27 背景：admin 域已切到数据中台 HMAC（`dc-proxy` @ 127.0.0.1:8911），
+    真实登录要过 Google 2FA，所以容器里的 `admin_cache_local.py` 从 8767 拿不到 batoken，
+    必然 `shared_admin_unavailable` ⇒ `publication_status=cache_failed`。
+    容器在 `fc27-cloud-net` 上够不到宿主机回环，所以这一步只能在宿主机补。
+
+    返回 (ok, note)。
+    """
+    body = json.dumps({"type": "all", "file": ""}).encode()
+    req = urllib.request.Request(DC_PROXY + DC_CLEAR_PATH, data=body,
+                                 headers={"Content-Type": "application/json"},
+                                 method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            status = resp.status
+            raw = resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        status = e.code
+        raw = e.read().decode("utf-8", "replace")
+    except Exception as e:                                  # noqa: BLE001
+        return False, "dc_proxy_unreachable:%s" % type(e).__name__
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        return False, "dc_proxy_bad_response:http=%s" % status
+    if status == 200 and isinstance(payload, dict) and payload.get("code") == 1:
+        return True, str(payload.get("msg") or "")[:80]
+    code = payload.get("code") if isinstance(payload, dict) else None
+    note = "http=%s code=%s msg=%s" % (status, code,
+                                       str((payload or {}).get("msg") or "")[:60]
+                                       if isinstance(payload, dict) else "")
+    return False, note
+
+
 def run_once():
     """跑一轮：有单就执行（返回 True），没单/不满足条件返回 False。"""
     cfg = read_cfg()
@@ -618,6 +663,20 @@ def run_once():
     res["write_state"] = write_state
     res["write_attempts"] = phase.get("write_attempts")
     res["original_job_id"] = jid
+
+    # 2026-10-27：容器里清缓存必然失败（8767 会话要过 Google 2FA，拿不到 batoken）。
+    # 价格已经写对，只差这最后一步 —— 在宿主机经 dc-proxy 补一次（幂等，重复清无害）。
+    if ok and isinstance(res, dict) and res.get("clearcache_wanted") and not res.get("clearcache_ok"):
+        _cc_ok2, _cc_note2 = host_clear_via_dc_proxy()
+        if _cc_ok2:
+            res["clearcache_ok"] = True
+            res["clearcache_via"] = "dc-proxy-host"
+            res["clearcache_msg"] = _cc_note2
+            log("  ① 宿主经 dc-proxy 补清缓存成功：%s" % _cc_note2)
+        else:
+            res["clearcache_via"] = "dc-proxy-host"
+            res["clearcache_msg"] = _cc_note2
+            log("  ⚠ 宿主经 dc-proxy 补清缓存仍失败：%s" % _cc_note2)
 
     if isinstance(res, dict):
         res["publication_status"] = (
