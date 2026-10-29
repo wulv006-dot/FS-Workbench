@@ -192,10 +192,10 @@ def extend(base,control_factory=SystemControl):
             with original_live(manifest,root):yield
             return
         control=control_factory(root);fence=None;reader_stop_requested=False
-        try:
-            control.remember(manifest)
-            deadline=time.monotonic()+DRAIN_SECONDS
-            with drain(lambda:lease(base,root,PUBLICATION,create=True),deadline),drain(lambda:lease(base,root,READER_ENTRY,create=True),deadline),drain(lambda:original_admission(manifest,root),deadline) as fence,ExitStack() as stack:
+        control.remember(manifest)
+        deadline=time.monotonic()+DRAIN_SECONDS
+        with drain(lambda:lease(base,root,PUBLICATION,create=True),deadline),drain(lambda:lease(base,root,READER_ENTRY,create=True),deadline),drain(lambda:original_admission(manifest,root),deadline) as fence,ExitStack() as stack:
+            try:
                 if fence is None:raise ValueError('p4_original_admission_fence_required')
                 control.pause(manifest)
                 for path in LEGACY_LOCKS:stack.enter_context(lease(base,root,path))
@@ -217,9 +217,9 @@ def extend(base,control_factory=SystemControl):
                 owned.root,owned.fence,owned.control=Path(root).resolve(),fence,control
                 try:yield
                 finally:owned.root=owned.fence=owned.control=None
-        finally:
-            if control.paused or reader_stop_requested:
-                control.restore(fence is None or not fence.modified or fence.confirmed)
+            finally:
+                if control.paused or reader_stop_requested:
+                    control.restore(fence is None or not fence.modified or fence.confirmed)
 
     @contextmanager
     def admission(manifest,root):

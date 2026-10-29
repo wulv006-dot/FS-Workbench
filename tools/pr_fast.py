@@ -936,7 +936,7 @@ def main():
         elif group=="daily-archive":
             units("releases/fs-dashboard/daily-archive-20261021/tests",["test_archive","test_jobs","test_release","test_report_readiness","test_marketing_ttl"])
         elif group=="business-dashboard-refresh":
-            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness","test_site_filters","test_direct_admin","test_concurrent_ranges","test_admission_fairness"])
+            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness","test_site_filters","test_direct_admin","test_concurrent_ranges","test_admission_fairness","test_admission_rollout"])
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_actual_ui.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_browsers.cjs")
         elif group=="business-actual-profit":

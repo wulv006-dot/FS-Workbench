@@ -40,3 +40,9 @@
 额外生产动作需单独批准：核实当前宿主/原生镜像和维护源，按既有 publisher 维护精确两个宿主源；沿既有原生镜像流程从当前运行基底构建并核源，更新原生入口和原 pinned image 引用，按原单元生命周期加载两端协议；核两把新共享锁的同 inode/0600、原 admission inode、缓存和任务账本保护。宿主 Range 和原生单元的受控加载、原生镜像/单元目标不在 PR641 三文件旧批准内。当前不执行这些动作。
 
 回退使用各原 publisher 的原 journal、源码备份、前一 pinned image 和单元前态；先确认没有本次排空/写入在途，再协调回到一致旧协议。保留数据、任务/UNKNOWN、两把空锁和原 admission inode，不靠删除锁“解锁”。
+
+## Approved rollout package
+
+The user approved this scope at 07:50 UTC on 2026-10-29. The three existing CAS targets are host cache_retention.py, controller.py, and the desktop unit with only its pinned image ID changed. admission_release.py composes the original frozen apply, rollback, global locks and native lifecycle; it does not create a second publisher. admission_image.py builds one COPY layer for fs_native_entry.py over the current running native image, with no activation.
+
+Native source and unit SHA must all match the same before/after epoch before activation. Native load failure attempts the original CAS rollback and old image; any uncertain recovery leaves a separate durable runtime receipt and keeps reader sources closed. Range must be healthy before source timers resume, all while publication gates remain held. Existing active/unreconciled tasks still deny rollout. No database cleanup, migration, new mount or FC/Hermes server restart is included.
