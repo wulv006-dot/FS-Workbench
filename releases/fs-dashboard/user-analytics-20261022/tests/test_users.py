@@ -115,12 +115,21 @@ class Users(unittest.TestCase):
         self.assertEqual(len(windows),4)
 
     def test_backfill_stops_at_user_bound_and_keeps_original_daily_work(self):
-        from user_jobs import tick_windows
+        from user_jobs import HISTORY_RECHECK_AFTER, tick_windows
         self.config['history_backfill_start']='2026-07-01T00:00:00+08:00'
         self.load([order(1,'2026-07-01')],start='2026-07-01')
+        original = self.store.coverage()
         reasons=[reason for _,_,_,reason in tick_windows(self.store,NOW)]
         self.assertNotIn('historical_backfill',reasons)
-        self.assertEqual(reasons,['today_overlap','yesterday_reconciliation','historical_refund_reconciliation'])
+        self.assertEqual(reasons,['today_overlap','yesterday_reconciliation'])
+        before_due = NOW+HISTORY_RECHECK_AFTER-timedelta(seconds=1)
+        self.assertEqual([row[3] for row in tick_windows(self.store,before_due)],
+                         ['today_overlap','yesterday_reconciliation'])
+        due = list(tick_windows(self.store,NOW+HISTORY_RECHECK_AFTER))
+        self.assertEqual([row[3] for row in due],
+                         ['today_overlap','yesterday_reconciliation','historical_refund_reconciliation'])
+        self.assertEqual(due[-1][1:3], (stamp('2026-07-01').isoformat(),stamp('2026-07-02').isoformat()))
+        self.assertEqual(self.store.coverage(), original)
 
     def test_bounded_coverage_is_not_proof_of_real_d0(self):
         from user_contract import digest
@@ -799,6 +808,391 @@ class Users(unittest.TestCase):
         self.assertEqual(self.store.coverage()[0]['state'], 'complete')
         self.assertEqual(self.store.job_health()['failed_attempts'], 1)
         self.assertEqual(self.store.job_health()['latest_attempt']['state'], 'failed')
+
+    def test_manual_recheck_still_calls_source_for_an_already_complete_day(self):
+        import contextlib
+        import io
+        from user_jobs import main
+        self.load([order(1, '2026-10-01')], start='2026-10-01', end='2026-10-02')
+        original = self.store.coverage()
+        class Clock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return NOW
+        for recheck in (False, True):
+            argv = ['user_jobs', 'sync', '--start', '2026-10-01', '--end', '2026-10-02']
+            if recheck:
+                argv.append('--recheck')
+            with patch.object(sys, 'argv', argv), patch('user_jobs.load_store', return_value=self.store), \
+                    patch('user_jobs.datetime', Clock), patch('user_jobs.advance_day'), \
+                    patch('user_jobs.daily_backup_status', return_value={'status': 'fixture'}), \
+                    patch('user_jobs.synchronize_day', return_value={'status': 'deferred'}) as source, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                main()
+            self.assertEqual(source.call_count, int(recheck))
+            self.assertEqual(self.store.coverage(), original)
+
+    def test_partial_old_day_heals_through_full_enumeration_without_promoting_old_proof(self):
+        from user_jobs import tick_windows
+        first = order(1, '2026-10-01T06:00:00+08:00')
+        self.store.replace_window('266', '2026-10-01', '2026-10-01T12:00:00+08:00', [first],
+                                  '2026-10-20T12:00:00+08:00')
+        original = self.store.coverage()[0]
+        planned = [row for row in tick_windows(self.store, NOW) if row[3] == 'historical_refund_reconciliation']
+        self.assertEqual(planned, [('266', stamp('2026-10-01').isoformat(), stamp('2026-10-02').isoformat(),
+                                    'historical_refund_reconciliation')])
+        class Clock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return NOW
+        def source(session, path, filters, limit):
+            self.assertEqual(filters[-1], ('paytime', 'RANGE', '2026-10-01 00:00:00,2026-10-01 23:59:59'))
+            return [first, order(2, '2026-10-01T18:00:00+08:00')]
+        with patch('user_source.datetime', Clock):
+            synchronize(self.store, '266', planned[0][1], planned[0][2], object(), source)
+        self.assertIn(original, self.store.coverage())
+        self.assertEqual(len(self.store.read()[1]), 2)
+        self.assertEqual([row for row in tick_windows(self.store, NOW+timedelta(minutes=15))
+                          if row[3] == 'historical_refund_reconciliation'], [])
+
+
+class TargetedCorrections(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.config = json.loads((BASE/'source/user_config.json').read_text(encoding='utf-8'))
+        self.store = Store(self.root/'private', b'x'*32, self.config)
+        self.rows = [dict(order(i, '2026-10-0'+str(i)), amount_usd_format='12.34',
+                          amount_rmb_format='88.12', return_money='0.00', currency_code='USD', payback='0.00')
+                     for i in (1, 2, 3)]
+        self.store.replace_window('266', '2026-10-01', '2026-10-04', self.rows, NOW.isoformat())
+        self.keys = {str(row['id']): 'admin:266:'+row['order_no'] for row in self.rows}
+
+    def facts(self, store=None):
+        return {r['order_key']: r for r in (store or self.store).read()[1]}
+
+    def database_state(self):
+        with self.store.db() as db:
+            return {name: [tuple(row) for row in db.execute('SELECT * FROM '+name+' ORDER BY 1')]
+                    for name in ('meta','identities','orders','jobs','job_attempts','revisions')}
+
+    def test_completed_order_keeps_customer_identity_and_unrelated_facts(self):
+        before, coverage = self.facts(), self.store.coverage()
+        changed = dict(self.rows[0], status='101', status_format='completed', uid=42,
+                       paytime='2026-10-01T13:00:00+08:00')
+        result = self.store.correct_orders('266', {'1': self.keys['1']}, [changed], NOW.isoformat())
+        after = self.facts()
+        self.assertEqual((result['mode'], result['state'], result['changed_rows']), ('targeted','complete',1))
+        self.assertEqual(result['data_version'], '2')
+        self.assertEqual(after[self.keys['1']]['customer_id'], before[self.keys['1']]['customer_id'])
+        self.assertEqual(after[self.keys['1']]['valid'], 1)
+        self.assertEqual(json.loads(after[self.keys['1']]['body'])['status'], '101')
+        self.assertEqual(after[self.keys['1']]['paid_at'], stamp(changed['paytime']).isoformat())
+        self.assertEqual([after[self.keys[i]] for i in ('2','3')], [before[self.keys[i]] for i in ('2','3')])
+        self.assertEqual(self.store.coverage(), coverage)
+        attempt = json.loads(self.store.job_health()['latest_attempt']['body'])
+        self.assertEqual(attempt['correction_coverage'], 'selected_existing_orders_only')
+        self.assertNotIn('start', attempt)
+        self.assertNotIn('end_exclusive', attempt)
+
+    def test_refund_and_amount_projection_match_full_window_normalization(self):
+        full = Store(self.root/'full-reference', b'y'*32, copy.deepcopy(self.config))
+        full.replace_window('266', '2026-10-01', '2026-10-04', self.rows, NOW.isoformat())
+        changed = dict(self.rows[0], status='86', pay_status='2', amount_usd_format='17.50',
+                       amount_rmb_format='123.45', return_money='4.56', payback='refund-observed')
+        result = self.store.correct_orders('266', {'1': self.keys['1']}, [changed], NOW.isoformat())
+        full.replace_window('266', '2026-10-01', '2026-10-04', [changed, *self.rows[1:]], NOW.isoformat())
+        target, reference = self.facts()[self.keys['1']], self.facts(full)[self.keys['1']]
+        self.assertEqual(result['changed_rows'], 1)
+        self.assertEqual(target['valid'], 0)
+        for name in ('site','gid','paid_at','valid','body'):
+            self.assertEqual(target[name], reference[name])
+        body = json.loads(target['body'])
+        self.assertEqual((body['amount_usd'], body['amount_rmb'], body['source_refund_amount']), ('17.5','123.45','4.56'))
+
+    def test_missing_id_is_partial_and_never_invalidates_missing_or_unselected_order(self):
+        before, coverage = self.facts(), self.store.coverage()
+        changed = dict(self.rows[0], status='101')
+        result = self.store.correct_orders('266', {i:self.keys[i] for i in ('1','2')}, [changed], NOW.isoformat())
+        self.assertEqual((result['state'],result['requested_rows'],result['returned_rows'],result['missing_rows']), ('partial',2,1,1))
+        self.assertEqual(self.facts()[self.keys['2']], before[self.keys['2']])
+        self.assertEqual(self.facts()[self.keys['3']], before[self.keys['3']])
+        self.assertEqual(self.store.coverage(), coverage)
+        self.assertEqual(self.store.job_health()['latest_attempt']['state'], 'partial')
+
+    def test_empty_return_preserves_all_rows_and_revision(self):
+        before, revision, coverage = self.facts(), self.store.revision(), self.store.coverage()
+        result = self.store.correct_orders('266', {i:self.keys[i] for i in ('1','2')}, [], NOW.isoformat())
+        self.assertEqual((result['state'], result['missing_rows'], result['changed_rows']), ('partial',2,0))
+        self.assertEqual(self.facts(), before)
+        self.assertEqual(self.store.revision(), revision)
+        self.assertEqual(self.store.coverage(), coverage)
+
+    def test_unchanged_result_does_not_increase_data_revision_or_revision_history(self):
+        before, revision = self.database_state(), self.store.revision()
+        result = self.store.correct_orders('266', {'1':self.keys['1']}, [dict(self.rows[0])], NOW.isoformat())
+        after = self.database_state()
+        self.assertEqual((result['state'], result['changed_rows'], result['data_version']), ('complete',0,revision))
+        for table in ('meta','identities','orders','jobs','revisions'):
+            self.assertEqual(after[table], before[table])
+        self.assertEqual(len(after['job_attempts']), len(before['job_attempts'])+1)
+
+    def test_old_frozen_order_version_survives_status_refund_and_time_correction(self):
+        before, version = self.facts(), self.store.revision()
+        cid = before[self.keys['1']]['customer_id']
+        original = self.store.orders_at(version, cid)
+        self.store.save_snapshot({'scope':'global'}, {'data_version':version}, {'records':{cid:{'fixture':True}}})
+        changed = dict(self.rows[0], status='81', pay_status='2', paytime='2026-09-30T23:00:00+08:00')
+        self.store.correct_orders('266', {'1':self.keys['1']}, [changed], NOW.isoformat())
+        self.assertEqual(self.store.orders_at(version, cid), original)
+        current = self.store.orders_at(self.store.revision(), cid)
+        self.assertEqual(next(r for r in current if r['order_key']==self.keys['1'])['valid'], 0)
+        with self.store.db() as db:
+            event = db.execute('SELECT reason,body FROM revisions WHERE id=2').fetchone()
+        self.assertEqual(event['reason'], 'targeted_order_correction')
+        self.assertEqual(json.loads(event['body']), [before[self.keys['1']]])
+
+    def test_invalid_returned_identity_or_status_rejects_whole_batch_without_writes(self):
+        before = self.database_state()
+        mutations = [dict(id=99), dict(order_no='another-order'), dict(site_id='535'),
+                     dict(email='another@example.test'), dict(status='9999'), dict(pay_status='unknown')]
+        for fields in mutations:
+            with self.subTest(fields=fields):
+                rows = [dict(self.rows[0], status='101'), dict(self.rows[1], **fields)]
+                with self.assertRaises(ValueError):
+                    self.store.correct_orders('266', {i:self.keys[i] for i in ('1','2')}, rows, NOW.isoformat())
+                self.assertEqual(self.database_state(), before)
+
+    def test_duplicate_rows_and_stale_requested_identity_reject_without_writes(self):
+        before = self.database_state()
+        cases = [({i:self.keys[i] for i in ('1','2')}, [self.rows[0], self.rows[0]]),
+                 ({'9':self.keys['1']}, [dict(self.rows[0], id=9)]),
+                 ({'1':self.keys['2']}, []), ({'99':'admin:266:not-in-store'}, [])]
+        for requested, rows in cases:
+            with self.subTest(requested=requested), self.assertRaises(ValueError):
+                self.store.correct_orders('266', requested, rows, NOW.isoformat())
+            self.assertEqual(self.database_state(), before)
+
+    def test_future_payment_rejects_entire_batch_and_capture_boundary_is_allowed(self):
+        before = self.database_state()
+        rows = [dict(self.rows[0], status='101'),
+                dict(self.rows[1], paytime=(NOW+timedelta(seconds=1)).isoformat())]
+        with self.assertRaisesRegex(ValueError, 'targeted_order_time_after_capture'):
+            self.store.correct_orders('266', {i:self.keys[i] for i in ('1','2')}, rows, NOW.isoformat())
+        self.assertEqual(self.database_state(), before)
+        result = self.store.correct_orders('266', {'2':self.keys['2']},
+                                           [dict(self.rows[1], paytime=NOW.isoformat())], NOW.isoformat())
+        self.assertEqual(result['changed_rows'], 1)
+
+    def test_test_order_identity_amount_guard_is_shared_and_atomic(self):
+        self.config['verified_test_rules'] = {'test-2': dict(gid='1327', salesUsd='12.34')}
+        before = self.database_state()
+        with self.assertRaisesRegex(ValueError, 'test_order_identity_mismatch'):
+            self.store.correct_orders('266', {i:self.keys[i] for i in ('1','2')},
+                                      [dict(self.rows[0], status='101'), dict(self.rows[1], amount_usd_format='999')], NOW.isoformat())
+        self.assertEqual(self.database_state(), before)
+
+    def attempt(self, status='complete', **fields):
+        result = dict(status=status, at=NOW.isoformat(), requested_rows=2, returned_rows=2,
+                      missing_rows=0, changed_rows=1)
+        result.update(fields)
+        return result
+
+    def health_file(self, value, store=None):
+        path = (store or self.store).root/'targeted-refresh.json'
+        path.write_text(json.dumps(value), encoding='utf-8')
+        path.chmod(0o600)
+        return path
+
+    def test_targeted_health_is_not_hidden_by_later_whole_day_success_or_private_fields(self):
+        self.health_file(dict(contract='fs-users-targeted-refresh-v1', cursors={'266':{'fast':987654321}},
+                             latest_attempts={'266':self.attempt('partial', returned_rows=1, missing_rows=1,
+                                                                email='never-public@example.test', ids=[987654321])}))
+        self.store.replace_window('266', '2026-10-01', '2026-10-04', self.rows, NOW.isoformat())
+        health = self.store.job_health()
+        self.assertEqual(health['latest_attempt']['state'], 'complete')
+        self.assertEqual(health['targeted_reconciliation']['status'], 'partial')
+        self.assertEqual(health['targeted_reconciliation']['sites']['266']['missing_rows'], 1)
+        public = json.dumps(health['targeted_reconciliation'])
+        self.assertNotIn('never-public', public)
+        self.assertNotIn('987654321', public)
+        self.assertNotIn('cursors', public)
+
+    def test_multisite_complete_cannot_cover_another_sites_failure_or_missing_attempt(self):
+        config = copy.deepcopy(self.config)
+        config['sites']['535'] = {}
+        store = Store(self.root/'two-sites', b'z'*32, config)
+        for status in ('partial','failed'):
+            self.health_file(dict(contract='fs-users-targeted-refresh-v1', latest_attempts={
+                '266':self.attempt(status, returned_rows=1, missing_rows=1, error='admin_page_failed', retryable=False),
+                '535':self.attempt()}), store)
+            health = store.job_health()['targeted_reconciliation']
+            self.assertEqual(health['status'], status)
+            self.assertEqual(health['sites']['535']['status'], 'complete')
+            self.assertIs(health['sites']['266']['retryable'], False)
+        self.health_file(dict(contract='fs-users-targeted-refresh-v1', latest_attempts={'266':self.attempt()}), store)
+        self.assertEqual(store.job_health()['targeted_reconciliation']['status'], 'deferred')
+
+    def test_bad_or_oversized_progress_metadata_never_reports_success(self):
+        path = self.store.root/'targeted-refresh.json'
+        invalid = [[], dict(contract='wrong', latest_attempt=self.attempt()),
+                   dict(contract='fs-users-targeted-refresh-v1', latest_attempts={'unknown':self.attempt()}),
+                   dict(contract='fs-users-targeted-refresh-v1', latest_attempt=self.attempt(returned_rows=3)),
+                   dict(contract='fs-users-targeted-refresh-v1', latest_attempt=self.attempt(requested_rows=True)),
+                   dict(contract='fs-users-targeted-refresh-v1', latest_attempt=self.attempt(retryable='false'))]
+        for value in invalid:
+            self.health_file(value)
+            self.assertEqual(self.store.job_health()['targeted_reconciliation'],
+                             dict(status='failed',error='targeted_refresh_metadata_invalid'))
+        for raw in ('{broken', 'x'*65537):
+            path.write_text(raw, encoding='utf-8'); path.chmod(0o600)
+            self.assertEqual(self.store.job_health()['targeted_reconciliation']['status'], 'failed')
+
+    def test_legacy_progress_supports_only_error_codes_and_missing_file_keeps_old_contract(self):
+        self.assertNotIn('targeted_reconciliation', self.store.job_health())
+        self.health_file(dict(contract='fs-users-targeted-refresh-v1', latest_attempt=self.attempt(
+            'failed', error='upstream customer never-public@example.test', retryable=True)))
+        health = self.store.job_health()['targeted_reconciliation']
+        self.assertEqual(health['status'], 'failed')
+        self.assertEqual(health['error'], 'source_error')
+        self.assertIs(health['retryable'], True)
+
+    def test_bad_private_cursor_shapes_fail_without_exposing_values(self):
+        invalid = [[], {'unknown':{}}, {'266':[]}, {'266':{'extra':1}}, {'266':{'fast':True}},
+                   {'266':{'fast':-1}}, {'266':{'fast':1.5}}, {'266':{'watch':2**63}}]
+        for cursors in invalid:
+            with self.subTest(cursors=cursors):
+                self.health_file(dict(contract='fs-users-targeted-refresh-v1', cursors=cursors,
+                                      latest_attempts={'266':self.attempt()}))
+                self.assertEqual(self.store.job_health()['targeted_reconciliation'],
+                                 dict(status='failed',error='targeted_refresh_metadata_invalid'))
+        self.health_file(dict(contract='fs-users-targeted-refresh-v1', cursors={'266':{'fast':2**63-1,'watch':0}},
+                              latest_attempts={'266':self.attempt()}))
+        health = self.store.job_health()['targeted_reconciliation']
+        self.assertEqual(health['status'], 'complete')
+        self.assertNotIn(str(2**63-1), json.dumps(health))
+
+    def test_fifo_progress_is_opened_nonblocking_and_rejected_before_read(self):
+        import os
+        if not hasattr(os, 'mkfifo'):
+            self.skipTest('POSIX FIFO required')
+        path = self.store.root/'targeted-refresh.json'
+        os.mkfifo(path, 0o600)
+        original = os.open
+        def nonblocking(target, flags, *args, **kwargs):
+            if Path(target) == path:
+                self.assertTrue(flags & os.O_NONBLOCK, 'FIFO open could block without a writer')
+            return original(target, flags, *args, **kwargs)
+        with patch('user_store.os.open', side_effect=nonblocking):
+            self.assertEqual(self.store.job_health()['targeted_reconciliation'],
+                             dict(status='failed',error='targeted_refresh_metadata_invalid'))
+
+    def test_symlinked_progress_is_not_parsed_or_exposed(self):
+        secret = self.store.root/'private-fixture.json'
+        secret.write_text(json.dumps(dict(secret='never-public')), encoding='utf-8')
+        (self.store.root/'targeted-refresh.json').symlink_to(secret)
+        with patch('user_store.json.loads', side_effect=AssertionError('unsafe metadata was parsed')):
+            self.assertEqual(self.store.job_health()['targeted_reconciliation'],
+                             dict(status='failed',error='targeted_refresh_metadata_invalid'))
+
+
+class JobPlanning(unittest.TestCase):
+    """Coverage metadata only: no source requests or customer rows."""
+    @staticmethod
+    def job(start, end, captured='2026-10-20T12:00:00+08:00', site='266', state='complete'):
+        return dict(site=site, state=state, start=stamp(start).isoformat(), end=stamp(end).isoformat(),
+                    body=json.dumps(dict(captured_at=captured) if captured is not None else {}))
+
+    def plan(self, jobs, now=NOW, sites=('266',)):
+        from user_jobs import tick_windows
+        class Fixture:
+            config = dict(sites={site: {} for site in sites}, history_backfill_start='2026-01-01')
+            def coverage(self):
+                return jobs
+        before = copy.deepcopy(jobs)
+        result = list(tick_windows(Fixture(), now))
+        self.assertEqual(jobs, before, 'planning changed durable coverage evidence')
+        return result
+
+    def historical(self, jobs, now=NOW, sites=('266',)):
+        return [row for row in self.plan(jobs, now, sites) if row[3] == 'historical_refund_reconciliation']
+
+    def test_half_day_prefixes_have_no_complete_watermark_but_schedule_one_full_day(self):
+        from user_jobs import payment_day_watermarks
+        jobs = [self.job('2026-10-01', '2026-10-01T%02d:00:00+08:00' % hour) for hour in range(1, 24)]
+        self.assertEqual(payment_day_watermarks(jobs, '266', NOW), {stamp('2026-10-01'): None})
+        self.assertEqual([r[1:3] for r in self.historical(jobs)],
+                         [(stamp('2026-10-01').isoformat(), stamp('2026-10-02').isoformat())])
+
+    def test_new_prefix_does_not_freshen_the_old_complete_day_tail(self):
+        jobs = [self.job('2026-10-01', '2026-10-02')]
+        jobs += [self.job('2026-10-01', '2026-10-01T%02d:00:00+08:00' % hour,
+                          captured=NOW.isoformat()) for hour in range(1, 24)]
+        self.assertEqual(self.historical(jobs), [('266', stamp('2026-10-01').isoformat(),
+                                                stamp('2026-10-02').isoformat(), 'historical_refund_reconciliation')])
+
+    def test_latest_complete_verification_wins_over_duplicate_old_proofs(self):
+        jobs = [self.job('2026-10-01', '2026-10-02'),
+                self.job('2026-10-01', '2026-10-02', captured='2026-10-22T01:00:00+08:00'),
+                self.job('2026-10-03', '2026-10-04')]
+        self.assertEqual([r[1:3] for r in self.historical(jobs)],
+                         [(stamp('2026-10-03').isoformat(), stamp('2026-10-04').isoformat())])
+
+    def test_adjacent_pieces_must_cover_every_second_and_use_oldest_needed_piece(self):
+        from user_jobs import payment_day_watermarks
+        jobs = [self.job('2026-10-01', '2026-10-01T12:00:00+08:00', captured=NOW.isoformat()),
+                self.job('2026-10-01T12:00:00+08:00', '2026-10-02')]
+        self.assertEqual(payment_day_watermarks(jobs, '266', NOW),
+                         {stamp('2026-10-01'): stamp('2026-10-20T12:00:00+08:00')})
+        self.assertEqual(len(self.historical(jobs)), 1)
+        jobs[1]['start'] = stamp('2026-10-01T12:00:01+08:00').isoformat()
+        self.assertEqual(payment_day_watermarks(jobs, '266', NOW), {stamp('2026-10-01'): None})
+        self.assertEqual(len(self.historical(jobs)), 1)
+
+    def test_multiday_partial_edges_are_unverified_and_requested_as_whole_beijing_days(self):
+        from user_jobs import payment_day_watermarks
+        jobs = [self.job('2026-10-01T12:00:00+08:00', '2026-10-03T12:00:00+08:00')]
+        self.assertEqual(payment_day_watermarks(jobs, '266', NOW),
+                         {stamp('2026-10-01'): None, stamp('2026-10-02'): stamp('2026-10-20T12:00:00+08:00'),
+                          stamp('2026-10-03'): None})
+        self.assertEqual([r[1:3] for r in self.historical(jobs)],
+                         [(stamp('2026-10-01').isoformat(), stamp('2026-10-02').isoformat())])
+
+    def test_current_and_yesterday_keep_original_slots_without_duplicate_historical_day(self):
+        jobs = [self.job('2026-10-21', '2026-10-22', captured='2026-10-21T00:00:00+08:00')]
+        self.assertEqual(self.historical(jobs), [])
+        slots = self.plan(jobs)[:2]
+        self.assertEqual(slots, [('266', stamp('2026-10-22').isoformat(), NOW.isoformat(), 'today_overlap'),
+                                 ('266', stamp('2026-10-21').isoformat(), stamp('2026-10-22').isoformat(), 'yesterday_reconciliation')])
+
+    def test_history_becomes_due_after_finite_interval_without_permanent_freeze(self):
+        from user_jobs import HISTORY_RECHECK_AFTER
+        jobs = [self.job('2026-10-01', '2026-10-02', captured=(NOW-HISTORY_RECHECK_AFTER+timedelta(seconds=1)).isoformat())]
+        self.assertEqual(self.historical(jobs), [])
+        self.assertEqual(len(self.historical(jobs, now=NOW+timedelta(seconds=1))), 1)
+
+    def test_missing_or_future_capture_does_not_suppress_reconciliation(self):
+        for captured in (None, '2027-01-01T00:00:00+08:00'):
+            with self.subTest(captured=captured):
+                self.assertEqual(len(self.historical([self.job('2026-10-01', '2026-10-02', captured=captured)])), 1)
+
+    def test_site_isolation_and_one_oldest_due_day_per_site(self):
+        jobs = [self.job('2026-10-01', '2026-10-02'), self.job('2026-10-03', '2026-10-04'),
+                self.job('2026-10-05', '2026-10-06', site='535')]
+        old = self.historical(jobs, sites=('266', '535'))
+        self.assertEqual([(r[0], stamp(r[1]).date().isoformat()) for r in old],
+                         [('266', '2026-10-01'), ('535', '2026-10-05')])
+
+    def test_failed_interval_is_not_promoted_to_complete_coverage(self):
+        jobs = [self.job('2026-10-01', '2026-10-02', state='failed')]
+        self.assertEqual(self.historical(jobs), [])
+
+    def test_clock_is_normalized_to_beijing_before_day_boundaries(self):
+        utc = datetime.fromisoformat('2026-10-21T17:00:00+00:00')
+        slots = self.plan([], now=utc)[:2]
+        self.assertEqual(slots[0][1:3], (stamp('2026-10-22').isoformat(), stamp('2026-10-22T01:00:00+08:00').isoformat()))
+        self.assertEqual(slots[1][1:3], (stamp('2026-10-21').isoformat(), stamp('2026-10-22').isoformat()))
 
 
 if __name__ == '__main__':

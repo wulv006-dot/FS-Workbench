@@ -3,7 +3,9 @@ import hmac
 import hashlib
 import json
 import os
+import re
 import sqlite3
+import stat
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
@@ -14,6 +16,43 @@ from user_contract import canonical, digest, stamp, money
 def safe(path):
     if any(p.is_symlink() for p in (path, *path.parents)):
         raise ValueError('private_store_symlink')
+
+
+def _public_targeted_attempt(value):
+    status = value['status']
+    if status not in ('complete', 'partial', 'failed', 'deferred'):
+        raise ValueError('targeted_refresh_status')
+    public = dict(status=status, at=stamp(value['at']).isoformat())
+    counts = ('requested_rows', 'returned_rows', 'missing_rows', 'changed_rows')
+    for key in counts:
+        if key in value:
+            number = value[key]
+            if type(number) is not int or not 0 <= number <= 400:
+                raise ValueError('targeted_refresh_counts')
+            public[key] = number
+    if status in ('complete', 'partial'):
+        if (any(key not in public for key in counts)
+                or public['requested_rows'] != public['returned_rows'] + public['missing_rows']
+                or public['changed_rows'] > public['returned_rows']
+                or (status == 'complete') != (public['missing_rows'] == 0)):
+            raise ValueError('targeted_refresh_counts')
+    if 'error' in value:
+        error = value['error']
+        public['error'] = error if isinstance(error, str) and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,79}', error) else 'source_error'
+    if 'retryable' in value:
+        if type(value['retryable']) is not bool:
+            raise ValueError('targeted_refresh_retryable')
+        public['retryable'] = value['retryable']
+    return public
+
+
+def _validate_targeted_cursors(value, sites):
+    if not isinstance(value, dict) or set(value) - set(sites):
+        raise ValueError('targeted_refresh_cursors')
+    for cursors in value.values():
+        if (not isinstance(cursors, dict) or set(cursors) - {'fast', 'watch'}
+                or any(type(cursor) is not int or not 0 <= cursor < 2**63 for cursor in cursors.values())):
+            raise ValueError('targeted_refresh_cursors')
 
 
 class Store:
@@ -81,17 +120,14 @@ class Store:
         db.execute('INSERT INTO identities VALUES(?,?,?)', (lookup, cid, email))
         return cid
 
-    def replace_window(self, site, start, end, rows, capture, reason='window_sync'):
-        site = str(site)
-        if site not in self.config['sites'] or not stamp(start) < stamp(end):
-            raise ValueError('window_scope')
-        start, end, capture = stamp(start).isoformat(), stamp(end).isoformat(), stamp(capture).isoformat()
+    def _normalize_orders(self, site, rows, period=None):
+        """The same purpose-specific projection, with no database or identity writes."""
         normalized, keys = [], set()
         for raw in rows:
             if str(raw.get('site_id')) != site:
                 raise ValueError('order_site_mismatch')
             paid = stamp(raw.get('paytime')).isoformat()
-            if not start <= paid < end:
+            if period is not None and not period[0] <= paid < period[1]:
                 raise ValueError('order_time_mismatch')
             number, gid = str(raw.get('order_no') or ''), str(raw.get('gid') or '')
             if not number or len(number) > 160 or not gid.isdigit():
@@ -118,6 +154,14 @@ class Store:
             body.update(amount_usd=money(raw.get('amount_usd_format')), amount_rmb=money(raw.get('amount_rmb_format')),
                         source_refund_amount=money(raw.get('return_money')), test_order=bool(test))
             normalized.append((key, gid, paid, valid, body))
+        return normalized, keys
+
+    def replace_window(self, site, start, end, rows, capture, reason='window_sync'):
+        site = str(site)
+        if site not in self.config['sites'] or not stamp(start) < stamp(end):
+            raise ValueError('window_scope')
+        start, end, capture = stamp(start).isoformat(), stamp(end).isoformat(), stamp(capture).isoformat()
+        normalized, keys = self._normalize_orders(site, rows, (start, end))
         job = 'j_' + digest([site, start, end])[:24]
         with self.db() as db:
             rev = int(db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0])
@@ -149,6 +193,69 @@ class Store:
             db.execute('INSERT INTO revisions VALUES(?,?,?)', (rev + 1, reason, canonical(changes)))
             db.execute("UPDATE meta SET value=? WHERE key='revision'", (str(rev + 1),))
         return dict(job_id=job, state='complete', data_version=str(rev + 1), **payload)
+
+    def correct_orders(self, site, requested, rows, capture):
+        """Correct selected existing orders; absent IDs never erase other facts.
+
+        This is not payment-window enumeration and cannot establish coverage.
+        Customer reassignment requires a separate verified migration contract.
+        """
+        site = str(site)
+        if (site not in self.config['sites'] or not isinstance(requested, dict) or not 1 <= len(requested) <= 400
+                or any(not isinstance(ident, str) or not ident.isascii() or not ident.isdigit()
+                       or len(ident) > 32 or int(ident) <= 0 or str(int(ident)) != ident
+                       or not isinstance(key, str) or not key.startswith('admin:' + site + ':')
+                       or not 0 < len(key) - len('admin:' + site + ':') <= 160
+                       for ident, key in requested.items())
+                or len(set(requested.values())) != len(requested)):
+            raise ValueError('targeted_scope')
+        if not isinstance(rows, list) or len(rows) > len(requested):
+            raise ValueError('targeted_rows')
+        capture_at = stamp(capture)
+        capture = capture_at.isoformat()
+        normalized, _ = self._normalize_orders(site, rows)
+        returned = {}
+        for row in normalized:
+            if stamp(row[2]) > capture_at:
+                raise ValueError('targeted_order_time_after_capture')
+            ident = str(row[4].get('id') or '')
+            if ident not in requested or requested[ident] != row[0]:
+                raise ValueError('targeted_order_identity_mismatch')
+            if ident in returned:
+                raise ValueError('targeted_duplicate_source_id')
+            returned[ident] = row
+        job = 't_' + digest([site, sorted(requested.items())])[:24]
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            rev = int(db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0])
+            previous = {}
+            for ident, key in requested.items():
+                old = db.execute('SELECT * FROM orders WHERE order_key=?', (key,)).fetchone()
+                if old is None or old['site'] != site or str(json.loads(old['body']).get('id') or '') != ident:
+                    raise ValueError('targeted_existing_order_required')
+                previous[ident] = dict(old)
+            updates, changes = [], []
+            for ident, (key, gid, paid, valid, body) in returned.items():
+                old = previous[ident]
+                if str(body.get('email') or '').strip() != str(json.loads(old['body']).get('email') or '').strip():
+                    raise ValueError('targeted_customer_identity_mismatch')
+                values = (site, gid, old['customer_id'], paid, int(valid), canonical(body))
+                if tuple(old[k] for k in ('site', 'gid', 'customer_id', 'paid_at', 'valid', 'body')) != values:
+                    changes.append(old)
+                    updates.append((key, *values, rev + 1))
+            if updates:
+                db.executemany('INSERT OR REPLACE INTO orders VALUES(?,?,?,?,?,?,?,?)', updates)
+                rev += 1
+                db.execute('INSERT INTO revisions VALUES(?,?,?)', (rev, 'targeted_order_correction', canonical(changes)))
+                db.execute("UPDATE meta SET value=? WHERE key='revision'", (str(rev),))
+            missing = len(requested) - len(returned)
+            payload = dict(mode='targeted', captured_at=capture, requested_rows=len(requested),
+                           returned_rows=len(returned), missing_rows=missing, changed_rows=len(updates),
+                           data_version=str(rev), correction_coverage='selected_existing_orders_only',
+                           source_status_rule_sha256=self.config.get('source_status_rule_sha256'))
+            state = 'partial' if missing else 'complete'
+            db.execute('INSERT INTO job_attempts(job_id,state,body) VALUES(?,?,?)', (job, state, canonical(payload)))
+        return dict(job_id=job, state=state, **payload)
 
     def failed_window(self, site, start, end, error):
         # Failed attempts never erase a previously complete coverage record.
@@ -194,7 +301,39 @@ class Store:
         with self.db() as db:
             latest = db.execute('SELECT job_id,state,body FROM job_attempts ORDER BY id DESC LIMIT 1').fetchone()
             failures = db.execute("SELECT count(*) FROM job_attempts WHERE state='failed'").fetchone()[0]
-        return dict(failed_attempts=failures, latest_attempt=dict(latest) if latest else None)
+        result = dict(failed_attempts=failures, latest_attempt=dict(latest) if latest else None)
+        path = self.root / 'targeted-refresh.json'
+        if path.exists() or path.is_symlink():
+            try:
+                safe(path)
+                fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0))
+                with os.fdopen(fd, 'rb') as source:
+                    info = os.fstat(source.fileno())
+                    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+                            or info.st_nlink != 1 or info.st_mode & 0o077 or info.st_size > 65536):
+                        raise ValueError('targeted_refresh_permissions')
+                    raw = source.read(65537)
+                if len(raw) > 65536:
+                    raise ValueError('targeted_refresh_size')
+                value = json.loads(raw)
+                if not isinstance(value, dict) or value.get('contract') != 'fs-users-targeted-refresh-v1':
+                    raise ValueError('targeted_refresh_contract')
+                if 'cursors' in value:
+                    _validate_targeted_cursors(value['cursors'], self.config['sites'])
+                if 'latest_attempts' in value:
+                    attempts = value['latest_attempts']
+                    if not isinstance(attempts, dict) or set(attempts) - set(self.config['sites']):
+                        raise ValueError('targeted_refresh_sites')
+                    sites = {site: _public_targeted_attempt(attempts[site]) if site in attempts else dict(status='deferred')
+                             for site in self.config['sites']}
+                    ranks = dict(complete=0, deferred=1, partial=2, failed=3)
+                    public = dict(status=max((attempt['status'] for attempt in sites.values()), key=ranks.get), sites=sites)
+                else:
+                    public = _public_targeted_attempt(value['latest_attempt'])
+                result['targeted_reconciliation'] = public
+            except (OSError, ValueError, KeyError, TypeError):
+                result['targeted_reconciliation'] = dict(status='failed', error='targeted_refresh_metadata_invalid')
+        return result
 
     def remap_projects(self, config):
         if any(config[k] != self.config[k] for k in ('sites', 'identity_version')) or config['scope_version'] == self.config['scope_version']:
