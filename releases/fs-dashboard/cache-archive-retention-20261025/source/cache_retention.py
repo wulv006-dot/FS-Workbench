@@ -22,14 +22,15 @@ OWNED=threading.local()
 
 
 @contextmanager
-def maintenance_reader(root=Path('/var/lib/fs-hermes-fc/fs')):
-    """Share the original Hermes admission inode; publication owns its exclusive lease."""
-    path=Path(root)/'admission.lock'
-    if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('maintenance_admission_link')
+def publication_reader(root,name):
+    """Kernel leases shared through the existing host/native FS mount."""
+    if name not in ('publication.lock','reader-entry.lock'):raise ValueError('maintenance_gate_name')
+    path=Path(root)/name
+    if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('maintenance_publication_link')
     fd=os.open(path,os.O_RDWR|os.O_CREAT|getattr(os,'O_NOFOLLOW',0),0o600)
     try:
         info=os.fstat(fd);current=private(path)
-        if (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino):raise ValueError('maintenance_admission_changed')
+        if (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino):raise ValueError('maintenance_publication_changed')
         try:
             if os.name=='posix':
                 import fcntl
@@ -37,11 +38,54 @@ def maintenance_reader(root=Path('/var/lib/fs-hermes-fc/fs')):
             else:
                 import msvcrt
                 msvcrt.locking(fd,msvcrt.LK_NBLCK,1)
-        except OSError as error:
-            import errno
-            if error.errno not in (errno.EACCES,errno.EAGAIN,errno.EDEADLK):raise
-            raise BlockingIOError('maintenance_in_progress') from None
+        except BlockingIOError:raise BlockingIOError('maintenance_in_progress') from None
         yield
+    finally:os.close(fd)
+
+
+@contextmanager
+def maintenance_reader(root=Path('/var/lib/fs-hermes-fc/fs'), *, create=True, session=False):
+    """Sessions finish downstream reads before publication drains ordinary readers."""
+    path=Path(root)/'admission.lock'
+    if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('maintenance_admission_link')
+    fd=os.open(path,os.O_RDWR|(os.O_CREAT if create else 0)|getattr(os,'O_NOFOLLOW',0),0o600)
+    depths=getattr(OWNED,'admissions',None)
+    if depths is None:depths=OWNED.admissions={}
+    key=None
+    try:
+        info=os.fstat(fd);current=private(path)
+        if (info.st_dev,info.st_ino)!=(current.st_dev,current.st_ino):raise ValueError('maintenance_admission_changed')
+        key=(os.getpid(),info.st_dev,info.st_ino)
+        prior=depths.get(key)
+        if prior is not None and (not session or prior['session']):
+            prior['depth']+=1
+            try:yield
+            finally:prior['depth']-=1
+            return
+        from contextlib import ExitStack
+        with ExitStack() as turn,ExitStack() as entry:
+            try:
+                if session:turn.enter_context(publication_reader(root,'publication.lock'))
+                entry.enter_context(publication_reader(root,'reader-entry.lock'))
+                if os.name=='posix':
+                    import fcntl
+                    fcntl.flock(fd,fcntl.LOCK_SH|fcntl.LOCK_NB)
+                else:
+                    import msvcrt
+                    msvcrt.locking(fd,msvcrt.LK_NBLCK,1)
+            except OSError as error:
+                import errno
+                if isinstance(error,BlockingIOError) or error.errno in (errno.EACCES,errno.EAGAIN,errno.EDEADLK):
+                    raise BlockingIOError('maintenance_in_progress') from None
+                raise
+            turn.close()
+            # An admitted Hermes session must retain its downstream read access.
+            if not session:entry.close()
+            depths[key]=dict(depth=1,session=session)
+            try:yield
+            finally:
+                if prior is None:depths.pop(key,None)
+                else:depths[key]=prior
     finally:os.close(fd)
 
 

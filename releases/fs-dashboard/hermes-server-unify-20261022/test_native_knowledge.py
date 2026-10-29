@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 
 ROOT=Path(__file__).resolve().parents[3]
 sys.path[:0]=[str(ROOT/'releases/fs-dashboard/knowledge-layering-20261023/source'),
+              str(ROOT/'releases/fs-dashboard/cache-archive-retention-20261025/source'),
               str(ROOT/'releases/fs-dashboard/user-analytics-20261022/source'),
               str(ROOT/'releases/fs-dashboard/hermes-fc-pilot-20261013')]
 from fs_readonly.knowledge import NativeKnowledge, register

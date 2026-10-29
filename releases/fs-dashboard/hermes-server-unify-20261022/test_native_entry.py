@@ -43,6 +43,24 @@ class Entry(unittest.TestCase):
     save_index = fixtures.Native.save_index
     save_policy = fixtures.Native.save_policy
 
+    def test_native_admission_loads_shared_helper_without_plugin_preload(self):
+        agent=self.construct()
+        (self.root/'admission.lock').touch(mode=0o600)
+        source=Path(__file__).resolve().parents[3]/'releases/fs-dashboard/cache-archive-retention-20261025/source'
+        old_path=list(sys.path)
+        removed={name:module for name,module in list(sys.modules.items()) if name=='cache_retention' or name=='fs_readonly' or name.startswith('fs_readonly.')}
+        try:
+            for name in removed:sys.modules.pop(name,None)
+            sys.path[:]=[p for p in sys.path if str(source) not in p and 'fs-readonly' not in p]
+            with patch.object(entry,'FS_SOURCE',source):
+                self.assertEqual(agent.run_conversation('fixture',task_id='existing-turn'),'existing-turn')
+            self.assertEqual(Path(sys.modules['cache_retention'].__file__).resolve(),source/'cache_retention.py')
+        finally:
+            sys.path[:]=old_path
+            for name in list(sys.modules):
+                if name=='cache_retention' or name=='fs_readonly' or name.startswith('fs_readonly.'):sys.modules.pop(name,None)
+            sys.modules.update(removed)
+
     def construct(self, **options):
         defaults = dict(session_id=self.info['session_id'], platform=self.info['platform'],
                         enabled_toolsets=['terminal', 'fs_readonly'], disabled_toolsets=[],
@@ -133,7 +151,7 @@ class Entry(unittest.TestCase):
         import inspect
         self.assertEqual(inspect.signature(agent.run_conversation), inspect.signature(Factory.run_conversation).replace(
             parameters=list(inspect.signature(Factory.run_conversation).parameters.values())[1:]))
-        (self.root / 'admission.lock').touch()
+        (self.root / 'admission.lock').touch(mode=0o600)
         import contextlib
         lock = types.SimpleNamespace(flock=lambda *a: None, LOCK_SH=1, LOCK_NB=4)
         # Windows checks call binding; formal Linux CI additionally uses actual flock.

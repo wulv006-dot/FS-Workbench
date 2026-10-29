@@ -4,12 +4,13 @@
 三个要点
 --------
 1. **接口限制「查询跨度 ≤ 1 个月」**：一次性传 2026-09-17→今天，2026-10-18 起必报
-   `code=0 下单时间查询范围不能超过一个月`。→ 用 `windows()` 按 28 天切片。
-2. **分段缓存**：每轮只重抓「最近 RECENT_DAYS 天所在的窗口」，更早的窗口直接读
-   `data/segments/<kind>_<start>_<end>.json`；每满 `FULL_REFRESH_HOURS` 小时（或 `--full`）
-   全量重抓一次，覆盖退款/状态变更这类历史变动。
-   —— 不这么做的话，177+ 页发货 × 5s/页 会超过 30 分钟的调度周期。
-3. 订单按 id、发货按 delivery_id 去重合并。
+   `code=0 下单时间查询范围不能超过一个月`。→ 回填时用 `windows()` 按 7 天切片。
+2. **历史库（2026-10-29 起）**：明细落 `data/history.db`（SQLite），每轮只抓
+   「水位之后」的增量（订单回看 48 小时、发货重叠 2 小时），每周做一次 7 天重扫
+   覆盖退款/状态变更；库空时才全区间回填（优先直接吃旧的 orders.json/deliveries.json，
+   不为建库重翻 600 多页）。看板仍由库里的全量明细聚合，产物格式不变。
+   —— 改造前每轮从 page=1 翻到 total，近 7 天实测 36,098 页请求；改造后单轮 3 页左右。
+3. 订单按 id、发货按 delivery_id 去重合并（库主键即幂等键）。
 
 口径说明
 --------
@@ -29,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import p2pah_auth as A  # noqa: E402
+import history_db as HDB  # noqa: E402
 from lxml import html as LH  # noqa: E402
 
 DATA = Path(__file__).resolve().parent.parent / "data"
@@ -41,11 +43,28 @@ ORDER_GID = 826      # Order   侧 Aion 2
 PAGE_SIZE = 100
 GENRE_ORDER_SHIP = "1"
 MEM_BATCH = 100
-SLICE_DAYS = 28      # 接口限制「不超过一个月」，用 28 天窗口最稳
-RECENT_DAYS = 4      # 最近这段总重抓
-FULL_REFRESH_HOURS = 24
+SLICE_DAYS = 7       # 回填切片：接口允许 ≤1 个月，但窗口越短越好翻（2026-10-29 由 28 改 7）
+RECENT_DAYS = 1      # 分段缓存的"最近一段"（仅回填路径使用）
+FULL_REFRESH_HOURS = 168   # 每 168 小时做一次「7 天重扫」，覆盖退款/状态变更
+
+ORDER_LOOKBACK_HOURS = 6     # 订单增量回看（相对水位；晚付单由每周 7 天重扫兜住）
+DELIVERY_OVERLAP_HOURS = 2   # 发货增量重叠（相对水位）
+DEEP_DAYS = 7                # 每周重扫窗口
 
 DEFAULT_START = "2026-09-17"
+
+_DB = None
+
+
+def db():
+    """惰性打开历史库（同进程复用）。"""
+    global _DB
+    if _DB is None:
+        _DB = HDB.open_db()
+        print("   历史库 %s（订单 %d / 发货 %d）"
+              % (HDB.DEFAULT_PATH, HDB.count(_DB, "orders"), HDB.count(_DB, "deliveries")),
+              flush=True)
+    return _DB
 
 
 def _dump(name, obj):
@@ -113,13 +132,14 @@ def use_cache_for(a: str, b: str, today, full: bool) -> bool:
 
 
 # --------------------------------------------------------------- 1) 订单
-def _order_page(s, page, start, end):
+def _order_page(s, page, lo, hi):
+    """lo/hi 是完整时间串 'YYYY-MM-DD HH:MM:SS'（接口支持到秒）。"""
     st, js = s.get_admin("/admin/order.Order/index", **{
         "page": page, "limit": PAGE_SIZE, "order": "id,desc",
         "search[0][field]": "gid", "search[0][val]": str(ADMIN_GID),
         "search[0][operator]": "=",
         "search[1][field]": "paytime",
-        "search[1][val]": "%s 00:00:00,%s 23:59:59" % (start, end),
+        "search[1][val]": "%s,%s" % (lo, hi),
         "search[1][operator]": "RANGE", "search[1][render]": "datetime",
     })
     if st != 200 or not isinstance(js, dict) or js.get("code") != 1:
@@ -129,15 +149,15 @@ def _order_page(s, page, start, end):
     return d.get("list") or [], int(d.get("total") or 0)
 
 
-def fetch_orders_range(s, start, end):
-    first, total = _order_page(s, 1, start, end)
+def fetch_orders_range(s, lo, hi):
+    first, total = _order_page(s, 1, lo, hi)
     rows = list(first)
     npages = (total + PAGE_SIZE - 1) // PAGE_SIZE
-    print("   %s→%s 订单 %d 页 / %d 单" % (start, end, npages, total), flush=True)
+    print("   %s→%s 订单 %d 页 / %d 单" % (lo, hi, npages, total), flush=True)
     bad = 0
     for p in range(2, npages + 1):
         try:
-            lst, _ = _order_page(s, p, start, end)
+            lst, _ = _order_page(s, p, lo, hi)
         except Exception as e:
             bad += 1
             print("   ⚠ 订单第%d页失败：%r" % (p, e), flush=True)
@@ -152,33 +172,120 @@ def fetch_orders_range(s, start, end):
     return rows
 
 
-def fetch_orders(s, start, end, full=False):
+def _crawl_orders(s, start, end):
+    """老路径：按窗口整段翻页。只在回填 / --full 时走。"""
     today = datetime.strptime(end, "%Y-%m-%d").date()
     rows, hit = [], 0
     for a, b in windows(start, end):
-        if use_cache_for(a, b, today, full):
+        if use_cache_for(a, b, today, False):
             cached = _seg_load("orders", a, b)
             if cached is not None:
                 rows.extend(cached)
                 hit += 1
                 continue
-        batch = fetch_orders_range(s, a, b)
+        batch = fetch_orders_range(s, a + " 00:00:00", b + " 23:59:59")
         _seg_save("orders", a, b, batch)
         rows.extend(batch)
     if hit:
-        print("   （%d 个窗口命中缓存）" % hit, flush=True)
-    seen, dedup = set(), []
-    for r in sorted(rows, key=lambda x: int(x.get("id") or 0), reverse=True):
-        if r.get("id") in seen:
-            continue
-        seen.add(r.get("id"))
-        dedup.append(r)
-    print("   订单合计 %d 条，去重后 %d 条" % (len(rows), len(dedup)), flush=True)
-    return dedup
+        print("   （%d 个窗口命中分段缓存）" % hit, flush=True)
+    return rows
+
+
+def _today_str():
+    return time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _deep_due(conn, kind):
+    """距上次「重扫」是否已满 FULL_REFRESH_HOURS。"""
+    st = HDB.get_state(conn, kind)
+    last = st.get("last_deep") or st.get("last_full") or ""
+    if not last:
+        return True
+    try:
+        age = (time.time() - time.mktime(time.strptime(last, "%Y-%m-%d %H:%M:%S"))) / 3600
+    except Exception:
+        return True
+    return age >= FULL_REFRESH_HOURS
+
+
+def _delta_lo(conn, kind, lookback_hours):
+    """增量窗口起点 = 水位时刻 - 回看小时数（不早于建库起点）。
+
+    两个坑：
+    * 回看要相对**水位时刻**，不能相对"今天"，否则每轮都重翻最近一整天；
+    * 水位要按**完整时间**减，只保留日期再减 6 小时会跨到前一天。
+    """
+    st = HDB.get_state(conn, kind)
+    try:
+        base = datetime.strptime(str(st.get("high_time") or "")[:19], "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        base = datetime.now()
+    lo = base - timedelta(hours=lookback_hours)
+    floor = datetime.strptime(DEFAULT_START, "%Y-%m-%d")
+    return lo if lo > floor else floor
+
+
+def _fmt(dt_obj):
+    return dt_obj.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def fetch_orders(s, start, end, full=False):
+    conn = db()
+    st = HDB.get_state(conn, "orders")
+    have = HDB.count(conn, "orders")
+    if full:
+        print("   订单：全区间重抓 %s → %s" % (start, end), flush=True)
+        rows = _crawl_orders(s, start, end)
+        n = HDB.upsert_orders(conn, rows)
+        HDB.bump_watermark(conn, "orders", rows)
+        HDB.set_state(conn, "orders", last_full=_today_str())
+        print("   订单：翻到 %d 条，写入 %d，库内共 %d" % (len(rows), n, HDB.count(conn, "orders")), flush=True)
+    elif not have:
+        n = HDB.import_json(conn, DATA / "orders.json", "orders")
+        if n:
+            print("   订单：直接导入历史 orders.json %d 条（建库 0 次翻页）" % n, flush=True)
+        else:
+            rows = _crawl_orders(s, start, end)
+            n = HDB.upsert_orders(conn, rows)
+            HDB.bump_watermark(conn, "orders", rows)
+            print("   订单：全区间回填，写入 %d 条" % n, flush=True)
+    else:
+        deep = _deep_due(conn, "orders")
+        lo = _delta_lo(conn, "orders", DEEP_DAYS * 24 if deep else ORDER_LOOKBACK_HOURS)
+        hi = datetime.now()
+        before = have
+        rows = fetch_orders_range(s, _fmt(lo), _fmt(hi))
+        HDB.upsert_orders(conn, rows)
+        HDB.bump_watermark(conn, "orders", rows)
+        if deep:
+            HDB.set_state(conn, "orders", last_deep=_today_str())
+        print("   订单增量 %s→%s：取 %d 条%s，库内 %d（+%d）"
+              % (_fmt(lo), _fmt(hi), len(rows), "（7 天重扫）" if deep else "",
+                 HDB.count(conn, "orders"), HDB.count(conn, "orders") - before), flush=True)
+    HDB.set_state(conn, "orders", last_run=_today_str(), rows=HDB.count(conn, "orders"))
+    out = HDB.load_orders(conn, start, end)
+    print("   订单合计 %d 条（来自历史库）" % len(out), flush=True)
+    return out
 
 
 # --------------------------------------------------------------- 2) 折扣码
-def fetch_discounts(s):
+def fetch_discounts(s, max_age_hours=6):
+    """折扣码变化很慢：6 小时内直接吃上次落盘的 discounts.json，不再翻 8 页。
+
+    返回 (rows, fresh)；fresh=False 时调用方不要重写文件，否则 mtime 被刷新、
+    缓存永远不会过期。
+    """
+    f = DATA / "discounts.json"
+    if max_age_hours and f.exists():
+        try:
+            age_h = (time.time() - f.stat().st_mtime) / 3600
+            if age_h < max_age_hours:
+                rows = json.loads(f.read_text(encoding="utf-8"))
+                if isinstance(rows, list) and rows:
+                    print("   折扣码 %d 个（缓存 %.1f 小时，本轮不翻页）" % (len(rows), age_h), flush=True)
+                    return rows, False
+        except Exception:
+            pass
     rows, page, total = [], 1, None
     while True:
         st, js = s.get_admin("/admin/market.Discount/index", page=page, limit=200)
@@ -194,8 +301,8 @@ def fetch_discounts(s):
             break
         page += 1
         time.sleep(0.1)
-    print("   折扣码 %d 个" % len(rows), flush=True)
-    return rows
+    print("   折扣码 %d 个（重新拉取）" % len(rows), flush=True)
+    return rows, True
 
 
 # --------------------------------------------------------------- 3) 会员
@@ -272,17 +379,18 @@ def _parse_delivery(txt, page):
     return out, (max(nums) if nums else page)
 
 
-def _delivery_page(s, page, start, end, gid, genre):
+def _delivery_page(s, page, lo, hi, gid, genre):
+    """lo/hi 是完整时间串，页面参数只认到分钟。"""
     st, txt = s.get_order("/order/admin_delivery/index.html", **{
         "gid": str(gid), "aid": "0", "cid": "1", "genre": genre, "status": "-1",
         "op_id": "0", "show_ccy": "-1", "is_stock": "", "keyword": "", "sn": "",
-        "start": "%s 00:00" % start, "end": "%s 23:59" % end, "page": str(page)})
+        "start": str(lo)[:16], "end": str(hi)[:16], "page": str(page)})
     if st != 200:
         raise RuntimeError("发货记录 HTTP=%s page=%d" % (st, page))
     return _parse_delivery(txt, page)
 
 
-def fetch_deliveries_range(s, start, end, gid=ORDER_GID, genre=GENRE_ORDER_SHIP):
+def fetch_deliveries_range(s, lo, hi, gid=ORDER_GID, genre=GENRE_ORDER_SHIP):
     rows = []
     maxpage = None
     page = 1
@@ -290,7 +398,7 @@ def fetch_deliveries_range(s, start, end, gid=ORDER_GID, genre=GENRE_ORDER_SHIP)
     while maxpage is None or page <= maxpage:
         for attempt in range(3):
             try:
-                batch, reported_max = _delivery_page(s, page, start, end, gid, genre)
+                batch, reported_max = _delivery_page(s, page, lo, hi, gid, genre)
             except Exception as exc:
                 if attempt == 2:
                     raise RuntimeError('delivery_page_incomplete: page=%d; no_publish' % page) from exc
@@ -301,7 +409,7 @@ def fetch_deliveries_range(s, start, end, gid=ORDER_GID, genre=GENRE_ORDER_SHIP)
                 break
         if maxpage is None:
             maxpage = reported_max or 1
-            print('   %s->%s delivery %d pages' % (start, end, maxpage), flush=True)
+            print('   %s->%s delivery %d pages' % (lo, hi, maxpage), flush=True)
         rows.extend(batch)
         if page % 20 == 0 or page == maxpage:
             elapsed = time.time() - t0
@@ -310,30 +418,61 @@ def fetch_deliveries_range(s, start, end, gid=ORDER_GID, genre=GENRE_ORDER_SHIP)
     return rows
 
 
-def fetch_deliveries(s, start, end, full=False, gid=ORDER_GID, genre=GENRE_ORDER_SHIP):
+def _crawl_deliveries(s, start, end, gid=ORDER_GID, genre=GENRE_ORDER_SHIP):
+    """老路径：按窗口整段翻页。只在回填 / --full 时走。"""
     today = datetime.strptime(end, "%Y-%m-%d").date()
     rows, hit = [], 0
     for a, b in windows(start, end):
-        if use_cache_for(a, b, today, full):
+        if use_cache_for(a, b, today, False):
             cached = _seg_load("deliveries", a, b)
             if cached is not None:
                 rows.extend(cached)
                 hit += 1
                 continue
-        batch = fetch_deliveries_range(s, a, b, gid, genre)
+        batch = fetch_deliveries_range(s, a + " 00:00:00", b + " 23:59:59", gid, genre)
         _seg_save("deliveries", a, b, batch)
         rows.extend(batch)
     if hit:
-        print("   （%d 个窗口命中缓存）" % hit, flush=True)
-    seen, dedup = set(), []
-    for r in rows:
-        k = (r.get("delivery_id") or "").strip() or tuple(sorted(r.items()))
-        if k in seen:
-            continue
-        seen.add(k)
-        dedup.append(r)
-    print("   发货合计 %d 条，去重后 %d 条" % (len(rows), len(dedup)), flush=True)
-    return dedup
+        print("   （%d 个窗口命中分段缓存）" % hit, flush=True)
+    return rows
+
+
+def fetch_deliveries(s, start, end, full=False, gid=ORDER_GID, genre=GENRE_ORDER_SHIP):
+    conn = db()
+    have = HDB.count(conn, "deliveries")
+    if full:
+        print("   发货：全区间重抓 %s → %s" % (start, end), flush=True)
+        rows = _crawl_deliveries(s, start, end, gid, genre)
+        n = HDB.upsert_deliveries(conn, rows, gid)
+        HDB.bump_watermark(conn, "deliveries", rows)
+        HDB.set_state(conn, "deliveries", last_full=_today_str())
+        print("   发货：翻到 %d 条，写入 %d，库内共 %d" % (len(rows), n, HDB.count(conn, "deliveries")), flush=True)
+    elif not have:
+        n = HDB.import_json(conn, DATA / "deliveries.json", "deliveries", gid)
+        if n:
+            print("   发货：直接导入历史 deliveries.json %d 条（建库 0 次翻页）" % n, flush=True)
+        else:
+            rows = _crawl_deliveries(s, start, end, gid, genre)
+            n = HDB.upsert_deliveries(conn, rows, gid)
+            HDB.bump_watermark(conn, "deliveries", rows)
+            print("   发货：全区间回填，写入 %d 条" % n, flush=True)
+    else:
+        deep = _deep_due(conn, "deliveries")
+        lo = _delta_lo(conn, "deliveries", DEEP_DAYS * 24 if deep else DELIVERY_OVERLAP_HOURS)
+        hi = datetime.now()
+        before = have
+        rows = fetch_deliveries_range(s, _fmt(lo), _fmt(hi), gid, genre)
+        HDB.upsert_deliveries(conn, rows, gid)
+        HDB.bump_watermark(conn, "deliveries", rows)
+        if deep:
+            HDB.set_state(conn, "deliveries", last_deep=_today_str())
+        print("   发货增量 %s→%s：取 %d 条%s，库内 %d（+%d）"
+              % (_fmt(lo), _fmt(hi), len(rows), "（7 天重扫）" if deep else "",
+                 HDB.count(conn, "deliveries"), HDB.count(conn, "deliveries") - before), flush=True)
+    HDB.set_state(conn, "deliveries", last_run=_today_str(), rows=HDB.count(conn, "deliveries"))
+    out = HDB.load_deliveries(conn, start, end)
+    print("   发货合计 %d 条（来自历史库）" % len(out), flush=True)
+    return out
 
 
 # --------------------------------------------------------------- 主流程
@@ -348,18 +487,11 @@ def main():
         pass
 
     cache = _cache_get()
-    last_full = cache.get("last_full_at") or ""
-    if not full:
-        try:
-            age_h = (time.time() - time.mktime(time.strptime(last_full, "%Y-%m-%d %H:%M:%S"))) / 3600
-            if age_h >= FULL_REFRESH_HOURS:
-                full = True
-                print("距上次全量 %.1f 小时，本轮改为全量重抓" % age_h, flush=True)
-        except Exception:
-            full = True
-
-    print("=== 采集区间 %s → %s（%d 天一段，%s）==="
-          % (start, end, SLICE_DAYS, "全量" if full else "增量"), flush=True)
+    # 2026-10-29：不再"每 24 小时自动全量重抓"。历史明细已在库里，
+    # 状态变更/退款由 fetch_* 内部的 7 天重扫（FULL_REFRESH_HOURS）覆盖；
+    # 真正的全区间重抓只在人工传 --full 时执行（用于修库/补洞）。
+    print("=== 采集区间 %s → %s（增量 %s，每周 7 天重扫）==="
+          % (start, end, "· 全量重抓" if full else ""), flush=True)
     t_all = time.time()
     s = A.bootstrap()
     try:
@@ -368,8 +500,9 @@ def main():
         _dump("orders.json", orders)
 
         print("[2/4] 折扣码配置", flush=True)
-        discounts = fetch_discounts(s)
-        _dump("discounts.json", discounts)
+        discounts, d_fresh = fetch_discounts(s)
+        if d_fresh:
+            _dump("discounts.json", discounts)
 
         print("[3/4] 发货记录（gid=%d Aion 2，仅「订单发货」）" % ORDER_GID, flush=True)
         deliveries = fetch_deliveries(s, start, end, full)

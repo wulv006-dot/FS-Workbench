@@ -1,6 +1,6 @@
 """Controller loaded by the existing FS process. No provider key enters Hermes."""
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from datetime import date, datetime, timedelta, timezone
 import json
 import os
@@ -50,33 +50,19 @@ class NoRedirect(HTTPRedirectHandler):
 
 @contextmanager
 def admission_guard(path):
+    from cache_retention import maintenance_reader
     path=Path(path)
     if any(p.is_symlink() for p in (path,*path.parents)):raise ValueError('linked_admission_lock')
-    fd=os.open(str(path),os.O_RDWR|os.O_CREAT|getattr(os,'O_NOFOLLOW',0),0o600)
-    locked=False
+    if path.name!='admission.lock':raise ValueError('admission_lock_boundary')
+    stack=ExitStack()
     try:
-        info=os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or (os.name=='posix' and (info.st_uid!=os.geteuid() or info.st_mode&0o077)):
-            raise ValueError('admission_lock_boundary')
         try:
-            if os.name=='posix':
-                import fcntl
-                fcntl.flock(fd,fcntl.LOCK_SH|fcntl.LOCK_NB)
-            else:
-                import msvcrt
-                msvcrt.locking(fd,msvcrt.LK_NBLCK,1)
-            locked=True
-        except OSError:pass
-        yield locked
-    finally:
-        if locked:
-            if os.name=='posix':
-                import fcntl
-                fcntl.flock(fd,fcntl.LOCK_UN)
-            else:
-                import msvcrt
-                os.lseek(fd,0,os.SEEK_SET);msvcrt.locking(fd,msvcrt.LK_UNLCK,1)
-        os.close(fd)
+            stack.enter_context(maintenance_reader(path.parent,session=True))
+        except OSError:
+            yield False
+        else:
+            with stack:yield True
+    finally:stack.close()
 
 
 def atomic(path,value,mode=0o640):

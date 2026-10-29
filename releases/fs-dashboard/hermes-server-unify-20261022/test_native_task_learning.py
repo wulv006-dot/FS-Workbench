@@ -67,7 +67,7 @@ class TaskLearning(unittest.TestCase):
                 enabled_toolsets=['terminal', 'skill_view'], disabled_toolsets=[], ephemeral_system_prompt='platform context')
 
     def run_turn(self, agent, inbound='message-1', source=None):
-        (self.root / 'admission.lock').touch()
+        (self.root / 'admission.lock').touch(mode=0o600)
         lock = types.SimpleNamespace(flock=lambda *a: None, LOCK_SH=1, LOCK_NB=4)
         with patch.dict(sys.modules, {'fcntl': lock}) if sys.platform == 'win32' else contextlib.nullcontext():
             with patch.object(entry, 'gateway_info', side_effect=lambda src, sid: dict(self.info,
@@ -177,7 +177,7 @@ class TaskLearning(unittest.TestCase):
         self.assertEqual(list((self.root / 'knowledge/native').glob('active-*')), [])
 
     def test_native_compaction_child_keeps_current_task_pin_without_new_scope(self):
-        self.enable(); agent = self.construct(); (self.root / 'admission.lock').touch()
+        self.enable(); agent = self.construct(); (self.root / 'admission.lock').touch(mode=0o600)
         lock = types.SimpleNamespace(flock=lambda *a: None, LOCK_SH=1, LOCK_NB=4)
         with patch.dict(sys.modules, {'fcntl': lock}) if sys.platform == 'win32' else contextlib.nullcontext():
             with patch.object(entry, 'gateway_info', return_value=self.info):
