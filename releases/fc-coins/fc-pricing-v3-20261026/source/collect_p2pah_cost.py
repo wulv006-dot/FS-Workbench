@@ -1,0 +1,304 @@
+"""Read current FC27 Game Coins procurement records in server Chrome."""
+from __future__ import annotations
+from isolated_backend import open_backend, close_backend
+
+import sys as _order_sys
+from pathlib import Path as _OrderPath
+for _order_root in ('/opt/fs-order-session', '/opt/fc27-collector', '/opt/madden-workbench', '/srv'):
+    if _OrderPath(_order_root, 'fs_order_client.py').is_file():
+        _order_sys.path.insert(0, _order_root)
+        break
+import fs_order_client as _global_order
+
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
+import json
+import os
+import re
+import traceback
+from urllib.parse import urlencode
+from zoneinfo import ZoneInfo
+
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
+
+def login(page, config=None):
+    _global_order.apply(page.context)
+    return 'global_order'
+
+from p2pah_session_service import read_private_config
+
+
+BASE = "https://order.p2pah.cn/order/admin_delivery/index.html"
+PLATFORMS = ("PS", "XBOX", "PC")
+SHANGHAI = ZoneInfo("Asia/Shanghai")
+CONSOLE_COST_CONTRACT = 'ps_latest_six_valid_order_delivery_max_v1'
+
+
+def cost_url(page: int, window=None) -> str:
+    today = datetime.now(SHANGHAI).date()
+    query = {"gid": "1322", "aid": "0", "cid": "1",
+             "start": str(today - timedelta(days=7)) + " 00:00",
+             "end": str(today + timedelta(days=1)) + " 00:00",
+             "show_ccy": "-1", "genre": "1", "status": "-1", "op_id": "0",
+             "is_stock": "", "keyword": "", "sn": "", "page": str(page)}
+    if window is not None:
+        query.update(aid='21942', start=window['start'].strftime('%Y-%m-%d %H:%M:%S'),
+                     end=window['end'].strftime('%Y-%m-%d %H:%M:%S'))
+    return BASE + "?" + urlencode(query)
+
+
+READ_ROWS = r"""() => ({
+  login:location.pathname.includes('login.html'),
+  page:new URLSearchParams(location.search).get('page'),
+  game:document.querySelector('#lot-game')?.value,
+  area:document.querySelector('#lot-area')?.value,
+  start:document.querySelector('#lot-start')?.value,
+  end:document.querySelector('#lot-end')?.value,
+  deliveryRowCount:[...(document.querySelector('table.table-list')?.querySelectorAll('tr')||[])].filter(tr=>[...tr.children].filter(c=>c.tagName==='TD').length>=10).length,
+  genre:document.querySelector('#lot-genre')?.value,
+  typeHeader:document.querySelector('table.table-list thead th:nth-child(3)')?.innerText.trim(),
+  product:document.querySelector('#lot-type')?.value,
+  table:!!document.querySelector('table.table-list'),
+  hasDataRows:[...document.querySelectorAll('tr')].some(tr=>tr.querySelector('td')),
+  empty:document.body?.innerText.includes('暂无数据')||false,
+  rows:[...document.querySelectorAll('tr')].map(tr=>{
+    const c=[...tr.children].filter(x=>x.tagName==='TD');
+    const platform=c[6]?.innerText?.trim().match(/^FC\s*27\s*▶\s*(PS|XBOX|PC)$/i)?.[1];
+    return platform?{platform:platform.toUpperCase(),record_id:c[1]?.innerText.trim(),
+      delivery_type:c[2]?.innerText.trim(),trade_at:c[5]?.innerText.trim(),cny_per_1k:c[9]?.innerText.trim()}:null;
+  }).filter(Boolean)
+})"""
+
+
+ORDER_DELIVERY = "\u8ba2\u5355\u53d1\u8d27"
+NON_COST_TYPES = {"\u91c7\u8d2d\u6253\u6b3e", "\u9500\u552e\u8865\u53d1", "\u9500\u552e\u8d60\u9001"}
+
+
+def valid_record(raw: dict):
+    if raw.get("platform") not in PLATFORMS:
+        return None
+    delivery_type = raw.get("delivery_type")
+    if delivery_type in NON_COST_TYPES:
+        return None
+    if delivery_type != ORDER_DELIVERY:
+        # Missing or unknown type cannot fall back to an older cost or be retried as a timeout.
+        raise ValueError("cost_delivery_type_unverified")
+    record_id = str(raw.get("record_id") or "")
+    if not re.fullmatch(r"\d+", record_id):
+        return None
+    try:
+        cost = Decimal(str(raw.get("cny_per_1k")))
+        trade_text = str(raw.get("trade_at")).strip()
+        if re.fullmatch(r"\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", trade_text):
+            traded = datetime.strptime(trade_text, "%y-%m-%d %H:%M:%S")
+        else:
+            traded = datetime.fromisoformat(trade_text.replace("/", "-"))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    if not cost.is_finite() or cost <= 0 or traded.tzinfo is not None:
+        return None
+    trade_time = traded.replace(tzinfo=SHANGHAI)
+    now = datetime.now(timezone.utc)
+    if trade_time > now + timedelta(minutes=5) or trade_time < now - timedelta(days=8):
+        return None
+    return trade_time, {"game": "FC27", "product": "Game Coins",
+                        "platform": raw["platform"], "record_id": record_id,
+                        "traded_at": raw["trade_at"], "trade_at": raw["trade_at"],
+                        "cny_per_k": str(cost), "cny_per_1k": str(cost),
+                        "unit": "CNY/K", "status": "valid",
+                        "delivery_type": ORDER_DELIVERY, "genre": "1"}
+
+
+CollectorTimeoutError = PlaywrightTimeoutError
+
+
+def timeout_diagnostic(exc):
+    # Inspect only the API name; never emit exception text, URLs or page content.
+    methods = ("BrowserType.connect_over_cdp", "BrowserContext.new_page",
+               "Page.goto", "Page.evaluate", "Locator.click", "Page.close")
+    method = next((name for name in methods if str(exc).startswith(name + ":")), None)
+    codes = {"BrowserType.connect_over_cdp": "browser_connection_timeout",
+             "BrowserContext.new_page": "page_create_timeout", "Page.goto": "page_navigation_timeout",
+             "Page.evaluate": "page_read_timeout", "Locator.click": "platform_click_timeout",
+             "Page.close": "page_close_timeout"}
+    return codes.get(method, "collection_timeout"), {"api_method": method or "unrecorded"}
+
+
+class CostPageError(ValueError):
+    def __init__(self, reason, diagnostic):
+        super().__init__(reason)
+        self.diagnostic = diagnostic
+
+
+def read_page(page, number, observations=None, window=None):
+    diagnostic = {"requested_page": number, "http_status": None,
+                  "checked_at": datetime.now(timezone.utc).isoformat()}
+    if window is not None:
+        diagnostic['ps_window'] = {key: value.isoformat() for key, value in window.items()}
+    try:
+        response = page.goto(cost_url(number, window), wait_until="commit", timeout=35000)
+    except PlaywrightTimeoutError:
+        raise CostPageError(f"order_page_navigation_timeout:{number}", diagnostic) from None
+    diagnostic["http_status"] = response.status if response is not None else None
+    if diagnostic["http_status"] is not None and diagnostic["http_status"] >= 400:
+        raise CostPageError(f"order_page_http_error:{number}:{response.status}", diagnostic)
+    # A committed navigation may still be rendering. The page/filter checks below
+    # ensure that no previous page or incomplete table can be treated as evidence.
+    for _ in range(40):
+        try:
+            data = page.evaluate(READ_ROWS)
+        except PlaywrightTimeoutError:
+            raise CostPageError(f"order_page_read_timeout:{number}", diagnostic) from None
+        diagnostic["observed"] = {k: data.get(k) for k in
+                                  ("login", "page", "game", "area", "start", "end", "product", "genre", "typeHeader", "table", "hasDataRows", "empty", "deliveryRowCount")}
+        if data.get("login"):
+            raise CostPageError("login_expired", diagnostic)
+        if (data.get("page") == str(number) and data.get("game") == "1322"
+                and data.get("product") == "1" and data.get("genre") == "1"
+                and data.get("typeHeader") == "\u4ea4\u8d27\u7c7b\u578b" and data.get("table") is True
+                and (data["hasDataRows"] or data["empty"])):
+            if window is not None and (
+                    data.get('area') != '21942'
+                    or data.get('start') != window['start'].strftime('%Y-%m-%d %H:%M')
+                    or data.get('end') != window['end'].strftime('%Y-%m-%d %H:%M')
+                    or not isinstance(data.get('deliveryRowCount'), int)
+                    or data['deliveryRowCount'] != len(data['rows'])
+                    or any(row.get('platform') != 'PS' or row.get('delivery_type') != ORDER_DELIVERY for row in data['rows'])):
+                raise CostPageError('cost_ps_filter_unverified', diagnostic)
+            if observations is not None:
+                observations.append(diagnostic)
+            return data
+        page.wait_for_timeout(500)
+    raise CostPageError(f"filter_or_rows_unverified:{number}", diagnostic)
+
+
+def remember(records, valid):
+    if valid is None:
+        return
+    traded, record = valid
+    key = int(record['record_id'])
+    if key in records and records[key] != (traded, record):
+        raise ValueError('cost_duplicate_record_conflict')
+    records[key] = (traded, record)
+
+
+def latest_ps(records):
+    return sorted((value for value in records.values() if value[1]['platform'] == 'PS'),
+                  key=lambda value: (value[0], int(value[1]['record_id'])), reverse=True)[:6]
+
+
+def shared_console_cost(records, checked_at, boundary):
+    samples = latest_ps(records)
+    if len(samples) != 6:
+        raise ValueError('ps_valid_delivery_sample_incomplete')
+    if boundary.get('complete') is not True:
+        raise ValueError('ps_valid_delivery_sample_boundary_unverified')
+    observations = [{**row, 'checked_at': checked_at} for _, row in samples]
+    selected = max(observations, key=lambda row: Decimal(row['cny_per_1k']))
+    return dict(selected, source_platform='PS', sample_contract=CONSOLE_COST_CONTRACT,
+                sample_complete=True, sample_records=observations, sample_boundary=boundary)
+
+
+def collect_ps_cost(tab, observations):
+    end = datetime.now(SHANGHAI).replace(microsecond=0)
+    for hours in (1, 2, 4, 8, 16, 32, 64, 128, 192):
+        window = dict(start=end-timedelta(hours=hours), end=end)
+        deliveries = {}
+        complete = False
+        for number in range(1, 16):
+            data = read_page(tab, number, observations, window=window)
+            for raw in data['rows']:
+                valid = valid_record(raw)
+                if valid and not window['start'] <= valid[0] <= window['end']:
+                    raise ValueError('cost_time_window_filter_unverified')
+                remember(deliveries, valid)
+            if data['deliveryRowCount'] == 0:
+                complete = True
+                break
+        if not complete:
+            raise ValueError('ps_valid_delivery_sample_page_limit')
+        if len(deliveries) >= 6:
+            boundary = dict(complete=True, **{key: value.isoformat() for key, value in window.items()})
+            return shared_console_cost(deliveries, datetime.now(timezone.utc).isoformat(), boundary)
+    raise ValueError('ps_valid_delivery_sample_incomplete')
+
+
+def collect():
+    config = {}
+    with sync_playwright() as playwright:
+        browser = open_backend(playwright)
+        if len(browser.contexts) != 1:
+            raise ValueError("browser_context_ambiguous")
+        tab = browser.contexts[0].new_page()
+        primary_error = None
+        try:
+            # Preserve the existing PC rule and original page limit.
+            found = {}
+            observations = []
+            for number in range(1, 16):
+                data = read_page(tab, number, observations)
+                for raw in data["rows"]:
+                    valid = valid_record(raw)
+                    if not valid:
+                        continue
+                    traded, record = valid
+                    platform = record["platform"]
+                    if platform not in found or traded > found[platform][0]:
+                        found[platform] = (traded, record)
+                if not data["hasDataRows"] or data["empty"]:
+                    break
+            console = collect_ps_cost(tab, observations)
+            checked_at = datetime.now(timezone.utc).isoformat()
+            records = []
+            for platform in PLATFORMS:
+                if platform in ('PS', 'XBOX'):
+                    record = dict(console, platform=platform)
+                    if platform == 'XBOX' and platform in found:
+                        record['observed_cost'] = {**found[platform][1], 'checked_at': checked_at}
+                    records.append(record)
+                elif platform in found:
+                    records.append({**found[platform][1], "checked_at": checked_at})
+                else:
+                    records.append({"platform": platform, "status": "missing",
+                                    "reason": "no_valid_recent_record"})
+            return {"status": "valid" if all(r["status"] == "valid" for r in records) else "incomplete",
+                    "checked_at": checked_at, "costs": records, "page_observations": observations}
+        except Exception as exc:
+            primary_error = exc
+            raise
+        finally:
+            try:
+                close_backend(tab)
+            except Exception:
+                if primary_error is None:
+                    raise
+
+
+def failure_result(exc):
+    reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+    if isinstance(exc, RuntimeError) and str(exc).startswith('global_order_unavailable:'):
+        category = str(exc).split(':', 1)[1]
+        reason = ('global_order_transport_unavailable' if category in {
+            'TimeoutError', 'OSError', 'ConnectionError', 'ConnectionRefusedError',
+            'ConnectionResetError', 'BrokenPipeError', 'FileNotFoundError',
+            'no_socket', 'order_probe_unavailable'} else 'global_order_session_unavailable')
+    result = {"status": "missing", "reason": reason[:120], "diagnostic": {
+        "exception_type": type(exc).__name__,
+        "stack": [{"file": os.path.basename(frame.filename), "function": frame.name,
+                   "line": frame.lineno} for frame in traceback.extract_tb(exc.__traceback__)[-8:]]}}
+    if isinstance(exc, CollectorTimeoutError):
+        result["reason"], diagnostic = timeout_diagnostic(exc)
+        result["diagnostic"].update(diagnostic)
+    if isinstance(exc, CostPageError):
+        result["diagnostic"].update(exc.diagnostic)
+    return result
+
+
+if __name__ == "__main__":
+    try:
+        result = collect()
+        print(json.dumps(result))
+        raise SystemExit(0 if result["status"] == "valid" else 1)
+    except Exception as exc:
+        print(json.dumps(failure_result(exc)))
+        raise SystemExit(1)

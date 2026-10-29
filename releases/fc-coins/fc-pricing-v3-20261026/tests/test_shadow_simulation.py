@@ -122,6 +122,8 @@ class ShadowBehavior(unittest.TestCase):
 
     def test_real_engine_missing_baseline_does_not_crash_shadow(self):
         actual, _, _ = actual_financial_fixture()
+        from fixtures import set_console_cost
+        set_console_cost(actual)
         actual.pop('demand_model', None)
         with tempfile.TemporaryDirectory() as folder:
             shadow = simulation.Shadow(Path(folder) / 'shadow.db')
