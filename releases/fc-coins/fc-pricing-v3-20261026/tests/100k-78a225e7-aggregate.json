@@ -1,0 +1,1722 @@
+{
+  "now": "2026-10-29T15:20:50+00:00",
+  "source_operation_id": "78a225e7-b404-5040-b07b-2af38037aa0b",
+  "evidence": {
+    "checked_at": "2026-10-29T15:18:44.843000+00:00",
+    "fx": {
+      "status": "valid",
+      "cny_per_usd": "6.7147",
+      "published_at": "2026/10/29",
+      "checked_at": "2026-10-29T15:20:01.150729+00:00",
+      "url": "https://www.bankofchina.com/sourcedb/whpj/"
+    },
+    "costs": {
+      "PS": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "platform": "PS",
+        "record_id": "4585354",
+        "traded_at": "26-10-29 23:01:10",
+        "trade_at": "26-10-29 23:01:10",
+        "cny_per_k": "0.340000",
+        "cny_per_1k": "0.340000",
+        "unit": "CNY/K",
+        "status": "valid",
+        "delivery_type": "订单发货",
+        "genre": "1",
+        "checked_at": "2026-10-29T15:19:59.039733+00:00",
+        "source_platform": "PS",
+        "sample_contract": "ps_latest_six_valid_order_delivery_max_v1",
+        "sample_complete": true,
+        "sample_records": [
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585378",
+            "traded_at": "26-10-29 23:11:37",
+            "trade_at": "26-10-29 23:11:37",
+            "cny_per_k": "0.277241",
+            "cny_per_1k": "0.277241",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          },
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585354",
+            "traded_at": "26-10-29 23:01:10",
+            "trade_at": "26-10-29 23:01:10",
+            "cny_per_k": "0.340000",
+            "cny_per_1k": "0.340000",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          },
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585348",
+            "traded_at": "26-10-29 22:59:08",
+            "trade_at": "26-10-29 22:59:08",
+            "cny_per_k": "0.280581",
+            "cny_per_1k": "0.280581",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          },
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585332",
+            "traded_at": "26-10-29 22:50:23",
+            "trade_at": "26-10-29 22:50:23",
+            "cny_per_k": "0.280581",
+            "cny_per_1k": "0.280581",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          },
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585320",
+            "traded_at": "26-10-29 22:40:18",
+            "trade_at": "26-10-29 22:40:18",
+            "cny_per_k": "0.280581",
+            "cny_per_1k": "0.280581",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          },
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585318",
+            "traded_at": "26-10-29 22:39:03",
+            "trade_at": "26-10-29 22:39:03",
+            "cny_per_k": "0.340000",
+            "cny_per_1k": "0.340000",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          }
+        ],
+        "sample_boundary": {
+          "complete": true,
+          "start": "2026-10-29T22:19:57+08:00",
+          "end": "2026-10-29T23:19:57+08:00"
+        },
+        "run_id": "8cc5a56b-bfc8-5494-8bfd-c7e01a7090e3"
+      },
+      "XBOX": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "platform": "XBOX",
+        "record_id": "4585354",
+        "traded_at": "26-10-29 23:01:10",
+        "trade_at": "26-10-29 23:01:10",
+        "cny_per_k": "0.340000",
+        "cny_per_1k": "0.340000",
+        "unit": "CNY/K",
+        "status": "valid",
+        "delivery_type": "订单发货",
+        "genre": "1",
+        "checked_at": "2026-10-29T15:19:59.039733+00:00",
+        "source_platform": "PS",
+        "sample_contract": "ps_latest_six_valid_order_delivery_max_v1",
+        "sample_complete": true,
+        "sample_records": [
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585378",
+            "traded_at": "26-10-29 23:11:37",
+            "trade_at": "26-10-29 23:11:37",
+            "cny_per_k": "0.277241",
+            "cny_per_1k": "0.277241",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          },
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585354",
+            "traded_at": "26-10-29 23:01:10",
+            "trade_at": "26-10-29 23:01:10",
+            "cny_per_k": "0.340000",
+            "cny_per_1k": "0.340000",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          },
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585348",
+            "traded_at": "26-10-29 22:59:08",
+            "trade_at": "26-10-29 22:59:08",
+            "cny_per_k": "0.280581",
+            "cny_per_1k": "0.280581",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          },
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585332",
+            "traded_at": "26-10-29 22:50:23",
+            "trade_at": "26-10-29 22:50:23",
+            "cny_per_k": "0.280581",
+            "cny_per_1k": "0.280581",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          },
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585320",
+            "traded_at": "26-10-29 22:40:18",
+            "trade_at": "26-10-29 22:40:18",
+            "cny_per_k": "0.280581",
+            "cny_per_1k": "0.280581",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          },
+          {
+            "game": "FC27",
+            "product": "Game Coins",
+            "platform": "PS",
+            "record_id": "4585318",
+            "traded_at": "26-10-29 22:39:03",
+            "trade_at": "26-10-29 22:39:03",
+            "cny_per_k": "0.340000",
+            "cny_per_1k": "0.340000",
+            "unit": "CNY/K",
+            "status": "valid",
+            "delivery_type": "订单发货",
+            "genre": "1",
+            "checked_at": "2026-10-29T15:19:59.039733+00:00"
+          }
+        ],
+        "sample_boundary": {
+          "complete": true,
+          "start": "2026-10-29T22:19:57+08:00",
+          "end": "2026-10-29T23:19:57+08:00"
+        },
+        "observed_cost": {
+          "game": "FC27",
+          "product": "Game Coins",
+          "platform": "XBOX",
+          "record_id": "4585384",
+          "traded_at": "26-10-29 23:14:23",
+          "trade_at": "26-10-29 23:14:23",
+          "cny_per_k": "0.300000",
+          "cny_per_1k": "0.300000",
+          "unit": "CNY/K",
+          "status": "valid",
+          "delivery_type": "订单发货",
+          "genre": "1",
+          "checked_at": "2026-10-29T15:19:59.039787+00:00"
+        },
+        "run_id": "8cc5a56b-bfc8-5494-8bfd-c7e01a7090e3"
+      },
+      "PC": {
+        "game": "FC27",
+        "product": "Game Coins",
+        "platform": "PC",
+        "record_id": "4585392",
+        "traded_at": "26-10-29 23:17:24",
+        "trade_at": "26-10-29 23:17:24",
+        "cny_per_k": "0.380000",
+        "cny_per_1k": "0.380000",
+        "unit": "CNY/K",
+        "status": "valid",
+        "delivery_type": "订单发货",
+        "genre": "1",
+        "checked_at": "2026-10-29T15:19:59.039787+00:00",
+        "run_id": "8cc5a56b-bfc8-5494-8bfd-c7e01a7090e3"
+      }
+    },
+    "storefront": {
+      "source": "https://www.mmoexp.com/Fc-27/Coins.html",
+      "currency": "USD",
+      "locale": "US/USD public page",
+      "package_k": 100,
+      "collection_run_id": "8cc5a56b-bfc8-5494-8bfd-c7e01a7090e3",
+      "last_attempt_at": "2026-10-29T15:20:01.408675+00:00",
+      "status": "ok",
+      "rows": {
+        "PS": {
+          "platform": "PS",
+          "package_usd": "7.15",
+          "base_k": "100",
+          "bonus_k": "5",
+          "usd_per_k": "0.068095",
+          "sku_id": "163329311",
+          "status": "ok",
+          "checked_at": "2026-10-29T15:20:04.883907+00:00",
+          "error": null
+        },
+        "XBOX": {
+          "platform": "XBOX",
+          "package_usd": "7.15",
+          "base_k": "100",
+          "bonus_k": "5",
+          "usd_per_k": "0.068095",
+          "sku_id": "163329277",
+          "status": "ok",
+          "checked_at": "2026-10-29T15:20:05.770772+00:00",
+          "error": null
+        },
+        "PC": {
+          "platform": "PC",
+          "package_usd": "8.31",
+          "base_k": "100",
+          "bonus_k": "5",
+          "usd_per_k": "0.079143",
+          "sku_id": "163329345",
+          "status": "ok",
+          "checked_at": "2026-10-29T15:20:06.330730+00:00",
+          "error": null
+        }
+      }
+    },
+    "promotion_envelope": {
+      "contract": "fc-coins-catalog-dual20-v1",
+      "status": "verified",
+      "site_id": 266,
+      "game_id": 1327,
+      "packages": {
+        "PS": {
+          "sku_id": "163329311",
+          "model_id": "41217957",
+          "tiers": [
+            {
+              "base_k": "10",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "50",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "80",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "100",
+              "bonus_k": "5",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "200",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "300",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "500",
+              "bonus_k": "25",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "600",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "800",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "1000",
+              "bonus_k": "50",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "1500",
+              "bonus_k": "75",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "1800",
+              "bonus_k": "90",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "2000",
+              "bonus_k": "100",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "3000",
+              "bonus_k": "150",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "5000",
+              "bonus_k": "250",
+              "retained_ratio": "1"
+            }
+          ],
+          "min_custom_k": "10",
+          "max_delivered_ratio": "1.05",
+          "minimum_package_retained_ratio": "1",
+          "source": "Admin product quantity/gift/discount configuration, checked against same-run public 100K",
+          "custom_basis": "existing integer-K custom amount, minimum published tier; no formula changes"
+        },
+        "XBOX": {
+          "sku_id": "163329277",
+          "model_id": "41217957",
+          "tiers": [
+            {
+              "base_k": "10",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "50",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "80",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "100",
+              "bonus_k": "5",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "200",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "300",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "500",
+              "bonus_k": "25",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "600",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "800",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "1000",
+              "bonus_k": "50",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "1500",
+              "bonus_k": "75",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "1800",
+              "bonus_k": "90",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "2000",
+              "bonus_k": "100",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "3000",
+              "bonus_k": "150",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "5000",
+              "bonus_k": "250",
+              "retained_ratio": "1"
+            }
+          ],
+          "min_custom_k": "10",
+          "max_delivered_ratio": "1.05",
+          "minimum_package_retained_ratio": "1",
+          "source": "Admin product quantity/gift/discount configuration, checked against same-run public 100K",
+          "custom_basis": "existing integer-K custom amount, minimum published tier; no formula changes"
+        },
+        "PC": {
+          "sku_id": "163329345",
+          "model_id": "41217957",
+          "tiers": [
+            {
+              "base_k": "10",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "50",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "80",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "100",
+              "bonus_k": "5",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "200",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "300",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "500",
+              "bonus_k": "25",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "600",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "800",
+              "bonus_k": "0",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "1000",
+              "bonus_k": "50",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "1500",
+              "bonus_k": "75",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "1800",
+              "bonus_k": "90",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "2000",
+              "bonus_k": "100",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "3000",
+              "bonus_k": "150",
+              "retained_ratio": "1"
+            },
+            {
+              "base_k": "5000",
+              "bonus_k": "250",
+              "retained_ratio": "1"
+            }
+          ],
+          "min_custom_k": "10",
+          "max_delivered_ratio": "1.05",
+          "minimum_package_retained_ratio": "1",
+          "source": "Admin product quantity/gift/discount configuration, checked against same-run public 100K",
+          "custom_basis": "existing integer-K custom amount, minimum published tier; no formula changes"
+        }
+      },
+      "worst_status": "unknown",
+      "sha256": "b1bf6bd43dd4f3277014ea15057f9e9f05b36f72cb45a29394289c263a5e0083",
+      "checked_at": "2026-10-29T15:20:46.988451+00:00"
+    },
+    "historical_discount_mix": {
+      "ES_source_sha256": "a428537efd9193001083059307710ecfbe7041964f1c76ba3cf2ab69d5022494",
+      "actual_discount_usd": "14937.09",
+      "canonical_archive_sha256": "8c348777878a4048b885450e3515e0ef311b66a6465ed06535fdc4ea4cf33463",
+      "eligible_orders": 2668,
+      "formula": "sum(Admin order USD) / sum(Admin order USD + matched ES actual discount USD)",
+      "history_window_contract": "d9_d2_eight_closed_days_v1",
+      "net_order_usd": "163296.52",
+      "observed_orders": 2668,
+      "period": {
+        "end": "2026-10-27",
+        "start": "2026-10-20"
+      },
+      "population": "identified main-site Coins paid nonrefund nonfraud nontest orders; all platforms combined",
+      "retained_ratio": "0.9161937526822241888047938882",
+      "sha256": "ac17173e2d8a0989d26117e284ea0a6cda640bfa3fb2a6b1be06b1da246e40f6",
+      "source_coverage": {
+        "ES_complete": true,
+        "missing_product_identity": 0
+      },
+      "source_times": {
+        "orders": "2026-10-28T18:31:21.432310+00:00"
+      },
+      "status": "available",
+      "undiscounted_order_usd": "178233.61"
+    }
+  },
+  "history": {
+    "basis": "historical_eligibility_current_terms_projected",
+    "basis_lower_bound_sufficient": true,
+    "replay_paths": [
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.08",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "30.62",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.2",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "24.84",
+        "orders": 2
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "4.68",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "160.85",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.33",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "76.23",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.79",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "91.36",
+        "orders": 2
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.74",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "108.53",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "8.13",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "85.29",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "threshold_usd": "0.00",
+          "cap_usd": "50.00",
+          "kind": "ratio",
+          "retained_ratio": "0.70"
+        },
+        "weight_usd": "21028.30",
+        "orders": 217
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.58",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "27.36",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.36",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "89.49",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.38",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "18.32",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.04",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "18.17",
+        "orders": 2
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "3.52",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "36.43",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "5.67",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "58.41",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.55",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "6.49",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.24",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "18.48",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.13",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "61.68",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "ratio",
+          "retained_ratio": "0.92",
+          "threshold_usd": "0",
+          "cap_usd": null
+        },
+        "weight_usd": "88219.33",
+        "orders": 1302
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.63",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "86.96",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "ratio",
+          "retained_ratio": "0.94",
+          "threshold_usd": "0",
+          "cap_usd": null
+        },
+        "weight_usd": "1166.18",
+        "orders": 21
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.04",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "10.98",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.85",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "30.59",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.83",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "44.27",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "6.04",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "62.18",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.42",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "85.15",
+        "orders": 2
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "4.66",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "51.88",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.56",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "44.94",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "2.01",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "21.13",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "threshold_usd": "30.00",
+          "cap_usd": "18.00",
+          "kind": "ratio",
+          "retained_ratio": "0.94"
+        },
+        "weight_usd": "214.60",
+        "orders": 4
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "2.54",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "133.30",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "5.33",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "134.00",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "2.23",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "27.13",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "threshold_usd": "0.00",
+          "cap_usd": null,
+          "kind": "ratio",
+          "retained_ratio": "0.90"
+        },
+        "weight_usd": "1988.84",
+        "orders": 12
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "17.86",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "214.45",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "9.52",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "97.90",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "6.35",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "65.83",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.91",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "62.36",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.91",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "19.60",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "4.34",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "44.79",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "threshold_usd": "0.01",
+          "cap_usd": "3.00",
+          "kind": "ratio",
+          "retained_ratio": "0.95"
+        },
+        "weight_usd": "4.51",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.9",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "49.96",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.87",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "9.21",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.72",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "50.40",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.07",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "50.90",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "8.24",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "98.28",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "8.9",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "96.68",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.58",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "45.17",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.47",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "222.80",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "6.24",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "483.29",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "ratio",
+          "retained_ratio": "0.96",
+          "threshold_usd": "0",
+          "cap_usd": null
+        },
+        "weight_usd": "10.63",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.4",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "124.36",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "3.66",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "202.71",
+        "orders": 2
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "6.26",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "64.58",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "4.9",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "50.72",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.79",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "19.59",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.28",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "3.77",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "4.92",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "50.74",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.08",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "4.96",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "3.1",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "32.10",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "none"
+        },
+        "weight_usd": "33624.51",
+        "orders": 663
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "6.92",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "182.19",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.43",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "12.52",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "14.2",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "151.77",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "2.44",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "50.81",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "threshold_usd": "100.00",
+          "cap_usd": "69.00",
+          "kind": "ratio",
+          "retained_ratio": "0.92"
+        },
+        "weight_usd": "4076.37",
+        "orders": 19
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "15.62",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "160.54",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "3.42",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "336.33",
+        "orders": 2
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.05",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "155.18",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "threshold_usd": "50.00",
+          "cap_usd": "29.00",
+          "kind": "ratio",
+          "retained_ratio": "0.93"
+        },
+        "weight_usd": "1172.08",
+        "orders": 13
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "threshold_usd": "0.00",
+          "cap_usd": null,
+          "kind": "ratio",
+          "retained_ratio": "0.85"
+        },
+        "weight_usd": "388.11",
+        "orders": 2
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.71",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "58.02",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.15",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "14.01",
+        "orders": 2
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "3.13",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "32.72",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.53",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "22.09",
+        "orders": 2
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.11",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "293.37",
+        "orders": 2
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "4.82",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "51.51",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "2.14",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "180.72",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "ratio",
+          "retained_ratio": "0.99",
+          "threshold_usd": "0",
+          "cap_usd": null
+        },
+        "weight_usd": "7324.97",
+        "orders": 151
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "2.95",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "30.59",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.22",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "19.79",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "3.59",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "45.25",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.09",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "8.96",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.32",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "23.07",
+        "orders": 2
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "ratio",
+          "retained_ratio": "0.95",
+          "threshold_usd": "0",
+          "cap_usd": null
+        },
+        "weight_usd": "2028.26",
+        "orders": 29
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "1.71",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "17.98",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "7.85",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "81.08",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.45",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "83.86",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "threshold_usd": "0.00",
+          "cap_usd": null,
+          "kind": "ratio",
+          "retained_ratio": "0.80"
+        },
+        "weight_usd": "3926.95",
+        "orders": 49
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "4.76",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "50.10",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "5.21",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "96.79",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.77",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "20.96",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "kind": "points",
+          "credit_usd": "0.59",
+          "cap_ratio": ".10"
+        },
+        "weight_usd": "6.47",
+        "orders": 1
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "threshold_usd": "0.00",
+          "cap_usd": null,
+          "kind": "ratio",
+          "retained_ratio": "0.92"
+        },
+        "weight_usd": "7017.66",
+        "orders": 95
+      },
+      {
+        "denominator_basis": "regional_regular",
+        "promotion_path_excludes_region": true,
+        "promotion_path": {
+          "threshold_usd": "0.00",
+          "cap_usd": null,
+          "kind": "ratio",
+          "retained_ratio": "0.88"
+        },
+        "weight_usd": "45.42",
+        "orders": 1
+      }
+    ],
+    "source_sha256": "edd68f835ec6b4784c418ada7df7cedd88a1f571275832d83707f86d02f4e523",
+    "source_scope": "global_pooled_actual_mix",
+    "original_basis_reconciliation": "Original v15 N/(N+ES_discount) is preserved separately. Original historical paths use actual code percentage, actual coupon-log USD amount and actual points credit with engine ROUND_UP deduction; current expired-template none projection is never used to validate old N. Every historical replay cash amount must be <= original Admin N. Differences are explicit cash lower bounds, not invented fee functions.",
+    "coverage": {
+      "automatic_or_none": 660,
+      "code": 1504,
+      "coupon": 416,
+      "historical_coupon_currently_inactive": 3,
+      "matched": 2668,
+      "net_residual_nonnegative": 2668,
+      "points": 88,
+      "region_matched": 34
+    }
+  },
+  "regions": [
+    {
+      "id": 3,
+      "resource": "region:21:PS",
+      "region_id": 21,
+      "platforms": [
+        "PS"
+      ],
+      "factor": "1.0000",
+      "price_semantics": "regional_regular_multiplicative",
+      "verified": true,
+      "rounding": "half_up_cent"
+    },
+    {
+      "id": 5,
+      "resource": "region:21:XBOX",
+      "region_id": 21,
+      "platforms": [
+        "XBOX"
+      ],
+      "factor": "0.9754",
+      "price_semantics": "regional_regular_multiplicative",
+      "verified": true,
+      "rounding": "half_up_cent"
+    },
+    {
+      "id": null,
+      "resource": "region:21:PC",
+      "region_id": 21,
+      "platforms": [
+        "PC"
+      ],
+      "factor": "1",
+      "price_semantics": "regional_regular_multiplicative",
+      "verified": true,
+      "rounding": "half_up_cent"
+    }
+  ]
+}

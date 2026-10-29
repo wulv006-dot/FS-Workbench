@@ -8,9 +8,9 @@ from . import VERSION
 from .financial import (number, fingerprint, fresh, instant, common_cost, envelope_ratio,
                         required_history_ratio, catalog_floor, prove_catalog, prove_price,
                         average_margin, MARGIN_BASIS, CENT, HARD_MARGIN, FINANCIAL_CONTRACT_VERSION,
-                        LEGACY_FINANCIAL_CONTRACT_VERSION, HISTORY_WINDOW_CONTRACT)
+                        LEGACY_FINANCIAL_CONTRACT_VERSION, HISTORY_WINDOW_CONTRACT, package_100k, PRICING_SCOPE)
 
-# Catalog adapters preserve frozen financial math and all legacy-envelope outputs.
+# Catalog adapters share the current 100K proof and retain legacy-envelope input compatibility.
 from .selective_sources import (input_ratio as envelope_ratio, input_catalog_floor as catalog_floor,
                                 input_prove_catalog as prove_catalog, input_prove_price as prove_price)
 
@@ -159,7 +159,7 @@ def price_basis(evidence,now):
             regular_floor_usd=str(catalog_floor(cost,fx,ratio,HARD_MARGIN,rules)*100),
             average_floor_usd=str(catalog_floor(cost,fx,ratio,HARD_MARGIN,rules,average_ratio=average)*100),
             cost_checked_at=evidence['costs'][platform]['checked_at'])
-    return dict(status='available',rows=rows,as_of=now.isoformat(),scope='global_catalog_base_100k',
+    return dict(status='available',rows=rows,as_of=now.isoformat(),scope='global_100k_package_only',pricing_scope=PRICING_SCOPE,
                 historical_retained_ratio=str(average),history_window_contract=evidence['historical_discount_mix'].get('history_window_contract'),history_period=evidence['historical_discount_mix']['period'],minimum_margin_pct=str(HARD_MARGIN),execution_authorized=False)
 
 
@@ -167,14 +167,19 @@ def required_unit_bound(evidence,platform,now,region=None,evaluation_context=Non
     pooled,_=common_cost(evidence)
     cost=pooled if platform!='PC' else number(evidence['costs']['PC']['cny_per_1k'])
     average=history_ratio(evidence,now,evaluation_context)
+    rules=evidence['promotion_envelope']['packages'][platform]
     if region:
         history=region.get('history') or {}
-        if history.get('replay_paths'):average=mixed_ratio_lower_bound(history)
+        if history.get('replay_paths'):
+            number(mixed_ratio_lower_bound(history))
+            tier=package_100k(rules)
+            required=cost/number(evidence['fx']['cny_per_usd'])*(100+number(tier['bonus_k'],zero=True))/(1-HARD_MARGIN/100)
+            regular=required.quantize(CENT,rounding=ROUND_UP)
+            while regular*replay_history(regular,history)<required:regular+=CENT
+            return ((regular-CENT/2)/number(tier['retained_ratio'])).quantize(CENT,rounding=ROUND_UP)/100
         elif history.get('basis')!='pooled_other_promotions_excluding_region_verified':
             raise ValueError('pricing_region_history_basis_unknown:'+str(region['region_id']))
-    rules=evidence['promotion_envelope']['packages'][platform]
-    unit=catalog_floor(cost,evidence['fx']['cny_per_usd'],envelope_ratio(evidence['promotion_envelope'],now),HARD_MARGIN,rules,average_ratio=average)
-    return unit+(CENT/number(rules['min_custom_k']) if region else 0)
+    return catalog_floor(cost,evidence['fx']['cny_per_usd'],envelope_ratio(evidence['promotion_envelope'],now),HARD_MARGIN,rules,average_ratio=average)
 
 
 def required_base_bound(evidence,platform,now,plan=None,evaluation_context=None):
@@ -189,7 +194,11 @@ def required_base_bound(evidence,platform,now,plan=None,evaluation_context=None)
             try:market_quote(evidence,platform,'ArabUT',now,region['region_id'])
             except ValueError:continue
         factor=Decimal(1) if mutable else number(region['factor'])
-        bound=max(bound,required_unit_bound(evidence,platform,now,region,evaluation_context)/factor)
+        tier=package_100k(evidence['promotion_envelope']['packages'][platform])
+        regional_floor=required_unit_bound(evidence,platform,now,region,evaluation_context)*100*number(tier['retained_ratio'])
+        before=((regional_floor-(CENT/2 if region.get('rounding')=='half_up_cent' else 0))/factor).quantize(CENT,rounding=ROUND_UP)
+        base=((before-CENT/2)/number(tier['retained_ratio'])).quantize(CENT,rounding=ROUND_UP)/100
+        bound=max(bound,base)
     return (bound*100).quantize(CENT,rounding=ROUND_UP)
 
 
@@ -241,6 +250,7 @@ def competition(evidence, platforms, now, region=None, *, plan=None, resolved_gl
       return targets
     targets=limits(anchors)
     attempts=[];decision_type='regional_follow_global' if region==21 and regional_fallbacks else 'competitive';minimum_base=None;coefficients=['1'] if decision_type=='regional_follow_global' else None
+    saudi_floor_follow_global=False
     if region is None:
         floor=max(required_base_bound(evidence,p,now,plan,evaluation_context) for p in platforms)
         minimum_base=str(floor)
@@ -251,6 +261,8 @@ def competition(evidence, platforms, now, region=None, *, plan=None, resolved_gl
         p=platforms[0]
         if p in regional_fallbacks:
             coefficients=['1'];decision_type='regional_follow_global'
+        elif resolved_global and resolved_global['decision_type']=='floor_fallback':
+            coefficients=['1'];decision_type='regional_follow_global';saudi_floor_follow_global=True
         else:
             region_rule=next(r for r in evidence['regional_controls'] if r['region_id']==region and p in r['platforms'])
             floor_factor=(required_unit_bound(evidence,p,now,region_rule,evaluation_context)*100/number(base_total)).quantize(Decimal('.0001'),rounding=ROUND_UP)
@@ -260,12 +272,12 @@ def competition(evidence, platforms, now, region=None, *, plan=None, resolved_gl
             before_region=render(number(base_total)/100,tier)['before_region_usd']
             coefficients=[str(f) for f in solve_coefficient(before_region,target['unit_low'],target['unit_high'],delivered,minimum_factor=str(max(Decimal('.0001'),floor_factor)))]
             if not coefficients:
-                coefficients=[str(max(Decimal('.0001'),floor_factor))];decision_type='floor_fallback'
+                coefficients=['1'];decision_type='regional_follow_global';saudi_floor_follow_global=True
     return dict(quotes=quotes, targets=targets, valid_until=(min(times)+timedelta(seconds=900)).isoformat(),
                 anchors=anchors,anchor_attempts=attempts,regional_fallbacks=regional_fallbacks,sprint_policy_version=SPRINT_POLICY_VERSION,financial_contract_version=FINANCIAL_CONTRACT_VERSION if evidence['historical_discount_mix'].get('history_window_contract')==HISTORY_WINDOW_CONTRACT else LEGACY_FINANCIAL_CONTRACT_VERSION,
-                decision_type=decision_type,reason='SAUDI_MISSING_QUOTE_FOLLOW_GLOBAL' if decision_type=='regional_follow_global' else 'MARGIN_FLOOR_FALLBACK_20' if decision_type=='floor_fallback' else 'VERIFIED_COMPETITIVE_BAND',
+                decision_type=decision_type,reason='SAUDI_MARGIN_FLOOR_FOLLOW_GLOBAL' if saudi_floor_follow_global else 'SAUDI_MISSING_QUOTE_FOLLOW_GLOBAL' if decision_type=='regional_follow_global' else 'MARGIN_FLOOR_FALLBACK_20' if decision_type=='floor_fallback' else 'VERIFIED_COMPETITIVE_BAND',
                 minimum_legal_base_total=minimum_base,legal_coefficients=coefficients,
-                scope='100K anchor only; complete financial catalog separately proven')
+                pricing_scope=PRICING_SCOPE,scope='100K actual package and gifts; other sizes are outside the hard pricing floor')
 
 
 def history_ratio(evidence,now,evaluation_context=None):
@@ -294,9 +306,9 @@ def financial(evidence, action, now, *, regions=None,evaluation_context=None):
         c = cost if p != 'PC' else number(evidence['costs']['PC']['cny_per_1k'])
         unit = number(action['base_prices']['console' if p!='PC' else 'pc'])/100
         proof = prove_catalog(unit,c,fx,ratio,HARD_MARGIN,packages[p],average_ratio=average)
-        tier = next(t for t in packages[p]['tiers'] if number(t['base_k'])==100)
+        tier = package_100k(packages[p])
         shown = render(unit,tier)
-        base_proof = prove_price(unit,c,fx,shown['delivered_k'],'100',ratio)
+        base_proof = prove_price(number(shown['regular_usd'])/100,c,fx,shown['delivered_k'],'100',ratio)
         results['global:'+p] = dict(catalog=proof, price=shown, proof=base_proof,
             average=average_margin(shown['regular_usd'],base_proof['delivered_cost_usd'],evidence['historical_discount_mix']))
         for region in regions or []:
@@ -312,33 +324,22 @@ def financial(evidence, action, now, *, regions=None,evaluation_context=None):
                     history_basis='global_actual_mix_no_independent_region_rule',application_scope='region_'+str(region['region_id']))
                 results[str(region['region_id'])+':'+p]=inherited
                 continue
-            regional_unit = unit*number(coefficient)
             # The exact replay basis is pinned by the source contract, never inferred from averages.
             history = region.get('history') or {}
             if history.get('basis')=='historical_eligibility_current_terms_projected' and history.get('basis_lower_bound_sufficient') is not True:
                 raise ValueError('pricing_region_original_basis_projection_unverified')
             if history.get('replay_paths'):
-                regional_average = mixed_ratio_lower_bound(history)
                 history_basis = 'verified_observed_paths_replay'
             elif history.get('basis') == 'pooled_other_promotions_excluding_region_verified':
                 regional_average = average
                 history_basis = 'global_pooled_actual_mix_regional_projection'
             else:
                 raise ValueError('pricing_region_history_basis_unknown:'+str(region['region_id']))
-            # One extra region rounding can lose at most one cent for any allowed integer-K.
-            region_rounding_bound = Decimal(0) if region.get('id') is None and number(coefficient)==1 else CENT/number(packages[p]['min_custom_k'])
-            regional_catalog = prove_catalog(regional_unit-region_rounding_bound,c,fx,ratio,HARD_MARGIN,packages[p],average_ratio=regional_average)
-            regional_catalog['extra_region_rounding_bound_per_k'] = str(region_rounding_bound)
-            for regional_tier in packages[p]['tiers']:
-                exact = render(unit,regional_tier,coefficient,rounding=ROUND_HALF_UP if region.get('rounding')=='half_up_cent' else ROUND_DOWN)
-                exact_proof = prove_price(number(exact['regular_usd'])/number(exact['purchase_k']),c,fx,
-                                          exact['delivered_k'],exact['purchase_k'],ratio)
-                tier_average=replay_history(exact['regular_usd'],history) if history.get('replay_paths') else regional_average
-                net = number(exact['regular_usd'])*tier_average
-                if (net-number(exact_proof['delivered_cost_usd']))/net*100 < HARD_MARGIN:
-                    raise ValueError('pricing_average_region_tier_margin_floor')
-            regional_catalog['average_bound_basis']='same_actual_amount_weights_per_observed_path; thresholds/caps ignored only for sufficient all_integer_K_bound'
             price = render(unit,tier,coefficient,rounding=ROUND_HALF_UP if region.get('rounding')=='half_up_cent' else ROUND_DOWN)
+            regional_average=replay_history(price['regular_usd'],history) if history.get('replay_paths') else regional_average
+            regional_catalog=prove_catalog(number(price['regular_usd'])/100/number(tier['retained_ratio']),c,fx,ratio,HARD_MARGIN,packages[p],average_ratio=regional_average)
+            regional_catalog['extra_region_rounding_bound_per_k']='0'
+            regional_catalog['average_bound_basis']='same_actual_amount_weights_at_100k_package_with_exact_rounding'
             results[str(region['region_id'])+':'+p] = dict(catalog=regional_catalog, price=price,
                  coefficient=str(coefficient), rule_id=region.get('id'), history_basis=history_basis,
                  history_source_sha256=history.get('source_sha256'),original_basis_reconciliation=history.get('original_basis_reconciliation'),
@@ -346,6 +347,7 @@ def financial(evidence, action, now, *, regions=None,evaluation_context=None):
                  application_scope='region_'+str(region['region_id']))
     current_window=evidence['historical_discount_mix'].get('history_window_contract')==HISTORY_WINDOW_CONTRACT
     return dict(pass_all=True, margin_basis=MARGIN_BASIS, minimum_pct=str(HARD_MARGIN), financial_contract_version=FINANCIAL_CONTRACT_VERSION if current_window else LEGACY_FINANCIAL_CONTRACT_VERSION, common_console_cost=pool,
+                pricing_scope=PRICING_SCOPE,
                 proof_kind=('actual_eight_day_lagged_mix' if current_window else 'actual_seven_day_mix') if evaluation_context is None else 'shadow_simulated_projection',
                 execution_eligible=evaluation_context is None,
                 historical_mix_sha256=evidence['historical_discount_mix']['sha256'], prices=results)
@@ -580,7 +582,7 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                 actual=number(proof['prices'][key]['price']['delivered_unit_100k']) if key in proof['prices'] else number(evidence['storefront']['rows'][key.split(':')[1]]['package_usd'])/105*100
                 target=market['targets'][key.split(':')[1]]
                 if market['decision_type']=='regional_follow_global':
-                    if number(action['region_coefficients'][key])!=1:raise ValueError('pricing_saudi_missing_quote_must_follow_global')
+                    if number(action['region_coefficients'][key])!=1:raise ValueError('pricing_saudi_follow_global_factor_must_be_one')
                 elif market['decision_type']!='floor_fallback' and not number(target['unit_low'])<=actual<=number(target['unit_high']):raise ValueError('pricing_regional_competitive_band')
             path=commit_path(current,action,lambda state:financial(evidence,state,now,regions=affected_regions,evaluation_context=evaluation_context),
                              transition=lambda old,new:preserve_competitive_state(evidence,old,new,comparisons,region_markets))
@@ -595,7 +597,7 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
             preference_distance=sum(abs(number(bases[g])-min(number(t['undiscounted_total']) for t in market['targets'].values())*(1-preference/100)) for g,market in comparisons.items())
             rating['preferred_undercut_pct']=str(preference)
             rating['preference_distance']=str(preference_distance)
-            fallback=any(m['decision_type']=='floor_fallback' for m in list(comparisons.values())+list(region_markets.values()))
+            fallback=any(m['decision_type']=='floor_fallback' or m.get('reason')=='SAUDI_MARGIN_FLOOR_FOLLOW_GLOBAL' for m in list(comparisons.values())+list(region_markets.values()))
             positions={}
             for scope,market in list(comparisons.items())+list(region_markets.items()):
                 positions[scope]={}
@@ -621,7 +623,7 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                 reference_action_sha256=reference['action_sha256'],reference_contribution=str(reference_contribution),enforced=False)
     feasible.sort(key=lambda c: (Decimal(c['score']['objective']),Decimal(c['score'].get('regional_prior_revenue_index','0')),Decimal(c['score']['contribution_index']),-Decimal(c['score'].get('preference_distance','0'))),reverse=True)
     valid_until = min([now+timedelta(seconds=900)]+[instant(c['valid_until']) for c in comparisons.values()]+[instant(c['valid_until']) for f in feasible for c in f.get('regional_market_comparison',{}).values()])
-    return dict(schema_version=VERSION,mode=mode,status='READY' if feasible else 'INFEASIBLE',
+    return dict(schema_version=VERSION,pricing_scope=PRICING_SCOPE,mode=mode,status='READY' if feasible else 'INFEASIBLE',
                 candidates=feasible,selected=feasible[0] if feasible else None,failures=failures,
                 current=current,anchor=anchor,valid_until=valid_until.isoformat(),
                 execution_authorized=False,write_performed=False,

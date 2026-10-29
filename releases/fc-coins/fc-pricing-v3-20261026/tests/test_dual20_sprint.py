@@ -172,17 +172,20 @@ class Dual20Sprint(unittest.TestCase):
         self.assertEqual(saved['previous_action']['base_prices'],dict(console='8.12',pc='7.71'))
         self.assertEqual(result['status'],'READY')
         chosen=result['selected']
-        self.assertEqual(chosen['action']['base_prices'],dict(console='7.20',pc='7.46'))
+        self.assertEqual(chosen['action']['base_prices'],dict(console='6.88',pc='7.26'))
         self.assertEqual(chosen['decision_type'],'floor_fallback')
-        self.assertEqual(chosen['minimum_legal_price_proof']['console']['previous_cent'],'7.19')
-        self.assertEqual(chosen['minimum_legal_price_proof']['pc']['previous_cent'],'7.45')
+        self.assertNotIn('console',chosen['minimum_legal_price_proof'])
+        self.assertEqual(chosen['market_comparison']['console']['decision_type'],'competitive')
+        self.assertEqual(chosen['minimum_legal_price_proof']['pc']['previous_cent'],'7.25')
         self.assertTrue(chosen['financial_proof']['pass_all'])
         for group in chosen['market_comparison'].values():
             self.assertTrue(all(a['source']=='Lootbar' for a in group['anchors'].values()))
         prices=chosen['financial_proof']['prices']
         self.assertTrue({'global:PS','global:XBOX','global:PC','21:PS','21:XBOX'}<=set(prices))
         for key,proof in prices.items():
-            self.assertEqual(proof['catalog']['published_packages'],len(data['promotion_envelope']['packages'][key.split(':')[1]]['tiers']))
+            self.assertEqual(proof['catalog']['published_packages'],1)
+            self.assertEqual(proof['catalog']['pricing_scope'],'100k_package_only')
+            self.assertFalse(proof['catalog']['all_integer_custom_quantities_covered'])
             self.assertGreaterEqual(Decimal(proof['catalog']['minimum_estimated_average_margin_pct']),20)
 
     def test_paused_sprint_version_migration_preserves_id_open_end_and_original_records(self):
@@ -236,7 +239,7 @@ class Dual20Sprint(unittest.TestCase):
         self.assertEqual(result['selected']['regional_market_comparison']['21:PC']['decision_type'],'regional_follow_global')
         self.assertEqual(result['selected']['financial_proof']['prices']['21:PC']['catalog']['extra_region_rounding_bound_per_k'],'0')
         control['id']=99
-        self.assertGreater(engine.required_base_bound(data,'PC',NOW),base)
+        self.assertEqual(engine.required_base_bound(data,'PC',NOW),base)
 
     def test_T15_T31_missing_or_stale_source_is_never_a_floor_fallback(self):
         for change in ('missing','stale'):

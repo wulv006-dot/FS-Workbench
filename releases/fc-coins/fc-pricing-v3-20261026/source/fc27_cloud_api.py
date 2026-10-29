@@ -316,7 +316,7 @@ def publication_view(storefront):
         try:
             audit = read_json(path)
             checked = datetime.fromisoformat(str(audit.get('created_at', '')).replace('Z', '+00:00'))
-            if (audit.get("status") == "CONFIRMED" and audit.get("sync_confirmed") is True
+            if (audit.get("status") in ("CONFIRMED", "PUBLIC_CONFIRMED") and audit.get("sync_confirmed") is True
                     and valid_id(audit.get("execution_id")) and checked.tzinfo is not None):
                 audits.append(audit)
         except (OSError, ValueError, TypeError):
@@ -355,7 +355,7 @@ def publication_view(storefront):
                 right={r['platform']:(str(r['id']),Decimal(r['costPrice']),Decimal(r['lirunlv']),Decimal(r['b2c'])) for r in b['after']['rows']}
                 return len(a['after']['rows'])==len(b['after']['rows'])==3 and set(left)=={'PS','XBOX','PC'} and left==right and a['after']['exchangeRate']==b['after']['exchangeRate']
             except (KeyError,TypeError,InvalidOperation):return False
-        matches=[a for a in audits if a.get('status')=='CONFIRMED' and a['created_at']<=observed['created_at'] and same_prices(a,observed)]
+        matches=[a for a in audits if a.get('status') in ('CONFIRMED','PUBLIC_CONFIRMED') and a['created_at']<=observed['created_at'] and same_prices(a,observed)]
         if matches:
             latest=dict(max(matches,key=lambda a:a['created_at']),basis='confirmed_write_and_matching_backend_preview',
                         observed_at=observed['created_at'],observation_preview_id=observed['preview_id'])
