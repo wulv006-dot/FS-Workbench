@@ -8,6 +8,8 @@
 
 本模块每轮采集后跑一次，**纯读**，只做三件事：
   S1 未纳管档位  前台有 (100) X，但 config 没有对应装量的对照项
+                 ⛔ 2026-10-29 按老板要求**停止计算**（S1_ON=False）：常年只报
+                 Dark and Darker 套装，页面顶部一长条没用还难看。逻辑保留待恢复。
   S2 映射错位    key 的映射指向的后台行，装量与 key 后缀不符
   S3 人工价暴露  被尾随写到的行 + 我方价 != 系统最后要求值（会被每轮覆盖）
 
@@ -143,13 +145,19 @@ def detect(cfg, con, opt_dir=".", log=None):
     out = {"S1": [], "S2": [], "S3": [], "skipped": []}
     index = build_index(cfg)
 
-    # ---------- S1 未纳管档位 ----------
-    try:
-        our_map, our_ts = store.our_latest(con)
-        rows = list(our_map.values())
-    except Exception as e:
-        rows = []
-        out["skipped"].append("S1 读我方价快照失败：%r" % e)
+    # ---------- S1 未纳管档位（2026-10-29 按老板要求停算）----------
+    # 原因：这项常年只命中 Dark and Darker 的整套装备（前台有 full set、config 不给对照项），
+    # 每天在页面最上面报一长条，老板判定「没用且难看」，明确要求下线。
+    # 判定逻辑（find_key / 装量降级）原样保留在下面，日后要恢复把 S1_ON 改回 True 即可。
+    S1_ON = False
+    rows = []
+    if S1_ON:
+        try:
+            our_map, our_ts = store.our_latest(con)
+            rows = list(our_map.values())
+        except Exception as e:
+            rows = []
+            out["skipped"].append("S1 读我方价快照失败：%r" % e)
 
     for r in rows:
         key = r.get("key")
