@@ -2,7 +2,8 @@
 from datetime import datetime, timedelta
 from collections import OrderedDict
 from copy import deepcopy
-from threading import RLock
+from threading import RLock, Timer
+from time import monotonic
 import json
 import re
 
@@ -19,6 +20,9 @@ class Service:
         self.customer_type_reader = customer_type_reader
         self.cache = OrderedDict()
         self.cache_lock = RLock()
+        self.private_lock = RLock()
+        self.private_cache = None
+        self.private_cache_timer = None
 
     def permit(self, user, query, private=False):
         if not user or self.authorizer(user, query, private) is not True:
@@ -33,6 +37,9 @@ class Service:
         if not isinstance(args, dict):
             raise ValueError('query_fields')
         config = self.store.config
+        storage = config.get('snapshot_storage', 'full')
+        if storage not in ('full', 'recipe-v1'):
+            raise ValueError('snapshot_storage_policy')
         if args.get('snapshot_id'):
             old, public = self.store.snapshot_public(args['snapshot_id'])
             # Query retrieval never silently switches to the newest version or a different scope.
@@ -108,20 +115,8 @@ class Service:
             else:
                 global_result, global_private = analyze(orders, jobs, global_query, global_config)
             result['projects'], result['migration'] = project_analysis(orders, jobs, query, global_config, global_result, global_private)
-        by_customer = {}
-        cutoff = stamp(query['as_of'])
-        for row in orders:
-            cid = row['customer_id']
-            if cid and cid in private['records'] and row['site'] in config['sites'] and stamp(row['paid_at']) < cutoff:
-                if row['valid']:
-                    by_customer.setdefault(cid, []).append(row)
-        for cid, record in private['records'].items():
-            whole = by_customer.get(cid, [])
-            if global_allowed:
-                record.update(global_earliest_observed_at=min((r['paid_at'] for r in whole), default=None),
-                              global_last_paid_at=max((r['paid_at'] for r in whole), default=None))
+        self.store.decorate_private_v1(private, orders, query, config, global_allowed)
         result['requires_global_scope'] = global_allowed
-        private['scope_projects'] = config['projects']
         result['coverage'].update(series_history_complete=config.get('series_history_complete', False), satellite_gaps=config.get('satellite_gaps', []), refund_policy=config.get('refund_policy'))
         progress = self.store.root / 'history-backfill.json'
         if progress.is_file():
@@ -143,12 +138,61 @@ class Service:
                 raise ValueError('bounded_history_proof_mismatch')
             result['coverage']['history_window'] = dict(start=bounded['start'],end_exclusive=bounded['end_exclusive'],complete=True,earlier_history_included=False)
         aggregate_only(result)
-        frozen = self.store.save_snapshot(query, result, private)
+        if storage == 'recipe-v1':
+            private.pop('events', None)
+            recipe_config = config
+            if period_cohort:
+                used = {json.loads(row['body']).get('order_no_hash') for row in orders
+                        if row['customer_id'] in private['records'] and in_scope(row, query, config)}
+                recipe_config = dict(config, period_customer_types={key: label for key, label in flags.items() if key in used})
+            # Fixed inputs plus a checksum replace a permanently stored full customer list.
+            members = dict(contract='fs-users-private-replay-v1', query=query, data_version=version,
+                           config=recipe_config, jobs=[{key: j[key] for key in ('site', 'start', 'end', 'state')} for j in jobs],
+                           global_allowed=global_allowed, private_sha256=digest(private))
+        else:
+            members = private
+        frozen = self.store.save_snapshot(query, result, members)
         with self.cache_lock:
             self.cache[cache_key] = deepcopy(frozen)
             if len(self.cache) > 8:
                 self.cache.popitem(last=False)
         return frozen
+
+    def expire_private_cache(self, deadline):
+        with self.private_lock:
+            if self.private_cache is not None and self.private_cache[1] == deadline:
+                remaining = deadline - monotonic()
+                if remaining > 0:
+                    self.schedule_private_expiry(deadline, remaining)
+                else:
+                    self.private_cache = None
+                    self.private_cache_timer = None
+
+    def schedule_private_expiry(self, deadline, delay=120):
+        timer = Timer(delay, self.expire_private_cache, args=(deadline,))
+        timer.daemon = True
+        self.private_cache_timer = timer
+        timer.start()
+
+    def private_snapshot(self, ident, user):
+        query, public = self.store.snapshot_public(ident)
+        self.permit_snapshot(user, query, public, True)
+        # Serialize reconstruction and retain one cached list, also expiring while idle.
+        with self.private_lock:
+            token = self.store.snapshot_token(ident)
+            if self.private_cache is not None:
+                if token is not None and self.private_cache[0] == ident and monotonic() < self.private_cache[1] and self.private_cache[2] == token:
+                    return self.private_cache[3]
+            self.private_cache = None
+            if self.private_cache_timer is not None:
+                self.private_cache_timer.cancel()
+                self.private_cache_timer = None
+            value = self.store.snapshot(ident)
+            if token is not None:
+                deadline = monotonic() + 120
+                self.private_cache = (ident, deadline, token, value)
+                self.schedule_private_expiry(deadline)
+            return value
 
     def catalog(self, user):
         allowed = []
@@ -165,8 +209,7 @@ class Service:
     def search(self, args, user):
         if not isinstance(args, dict) or set(args) != {'snapshot_id', 'email'}:
             raise ValueError('private_search_fields')
-        query, public, private = self.store.snapshot(args['snapshot_id'])
-        self.permit_snapshot(user, query, public, True)
+        query, public, private = self.private_snapshot(args['snapshot_id'], user)
         if query.get('state_basis') != 'period_cohort':
             raise ValueError('period_cohort_required')
         email = args['email']
@@ -184,8 +227,7 @@ class Service:
     def detail(self, args, user):
         if set(args) != {'snapshot_id', 'customer_id'}:
             raise ValueError('private_detail_fields')
-        query, public, private = self.store.snapshot(args['snapshot_id'])
-        self.permit_snapshot(user, query, public, True)
+        query, public, private = self.private_snapshot(args['snapshot_id'], user)
         cid = args['customer_id']
         if cid not in private['records']:
             raise LookupError('customer_not_in_snapshot')
@@ -215,7 +257,7 @@ class Service:
                 through = min(at, stamp(public['coverage'].get('state_data_through',query['as_of'])))
                 if at < following and at < stamp(query['as_of']) and covered(jobs, public['coverage']['sites'], paid, through):
                     timeline.append(dict(at=at.isoformat(),kind='enter',stage=stage_name,days_from_d0=(at.date()-stamp(first).date()).days if first else None,days_from_observed_first=(at.date()-observed).days))
-        return dict(snapshot_id=public['snapshot_id'], customer=private['records'][cid], timeline=timeline,
+        return dict(snapshot_id=public['snapshot_id'], customer=deepcopy(private['records'][cid]), timeline=timeline,
                     email=self.store.email(cid), orders=orders,
                     note=('D0为所选期间第一笔有效购买；新老客取该单的ES原标记，状态只算到昨日，不代表终身首次购买。' if query.get('state_basis') == 'period_cohort' else '时间线从已覆盖最早购买记为观察D0；更早历史未齐时不代表真实首购。')+'按当前已知状态冻结，金额为整单关联金额，不跨项目分摊。')
 
@@ -238,8 +280,7 @@ class Service:
     def members(self, args, user):
         if set(args) - {'snapshot_id', 'group', 'cursor', 'limit','repeat_status','customer_type'} or not {'snapshot_id', 'group'} <= set(args):
             raise ValueError('private_query_fields')
-        query, public, private = self.store.snapshot(args['snapshot_id'])
-        self.permit_snapshot(user, query, public, True)
+        query, public, private = self.private_snapshot(args['snapshot_id'], user)
         if not public['coverage']['identity_deduplication_complete']:
             raise ValueError('cross_site_identity_unverified')
         group, cursor, limit = args['group'], args.get('cursor', ''), args.get('limit', 50)
@@ -251,17 +292,16 @@ class Service:
         offset = ids.index(cursor) + 1 if cursor else 0
         selected = ids[offset:offset + limit]
         return dict(snapshot_id=public['snapshot_id'], total=len(ids), group=group,
-                    rows=[private['records'][cid] for cid in selected],
+                    rows=[deepcopy(private['records'][cid]) for cid in selected],
                     next_cursor=selected[-1] if offset + limit < len(ids) else None)
 
     def export(self, args, user):
         # JSON export is frozen and contains the same administrator-only masked rows.
-        query, public, private = self.store.snapshot(args.get('snapshot_id'))
-        self.permit_snapshot(user, query, public, True)
+        query, public, private = self.private_snapshot(args.get('snapshot_id'), user)
         if set(args) - {'snapshot_id', 'group','repeat_status','customer_type'} or not {'snapshot_id','group'} <= set(args):
             raise ValueError('private_export_fields')
         if not public['coverage']['identity_deduplication_complete']:
             raise ValueError('cross_site_identity_unverified')
         ids = self.filtered_members(query, private, args)
         return dict(snapshot_id=public['snapshot_id'], total=len(ids), group=args['group'],
-                    rows=[private['records'][cid] for cid in ids])
+                    rows=[deepcopy(private['records'][cid]) for cid in ids])
