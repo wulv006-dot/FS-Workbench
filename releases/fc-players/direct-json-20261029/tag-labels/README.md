@@ -30,6 +30,12 @@ python -B releases/fc-players/direct-json-20261029/tag-labels/prepare_tag_labels
 
 工具生成 `delta.tar.gz`、manifest、原publisher、窄适配器、Dockerfile、固定source-map及 `stage-receipt.json`。stage已存在即拒绝，不覆盖未知结果；准备与上线状态分开。部署负责人后续只可经原SSH入口在 `/opt/fc27-player-tool/staging/<本次目录>` 审已sealed字节，显式运行 `upgrade_tag_labels.py <stage绝对目录>`；本说明和准备动作不授apply。服务若按需退出，发布负责人须沿既有唤醒入口，不绕原健康/活动任务/CAS检查。
 
+## 首次 stage 的 VERSION 构建失败及更正
+
+已审原 stage `tag-labels-d5885b6a` 一次执行在原publisher第273行、任何backup/stop/switch之前被51源核验拒绝：候选镜像另外50项匹配，但 `/app/VERSION` 仍是cloud15，host候选VERSION已是cloud16。只读核实无symlink、volume、onbuild或dockerignore干预；镜像有COPY VERSION层。缓存复用旧内容是据此推断，内部缓存机制未直接证实。current/运行镜像仍cloud15、PlayersPID18902未变、DB/schema及env/unit/dropin/manifest/保护状态与原intent完全相同，没有cloud16 backup目录。原失败intent/log/outcome和候选镜像ID `b4957cae1c33f61b8c6b1e8c884d66c3382ceb38191a0fb256f69da35cdcd861` 保留，不重发原stage。
+
+更正保持三个Git源码SHA不变：Dockerfile明确 `COPY VERSION /app/VERSION`，紧接独立RUN检查VERSION精确SHA，防构建缓存静默沿用旧版本；打包成员mtime改为固定Git提交时间，而非一律0，确保同长度版本变更也带新源元数据。Dockerfile校验器严格固定上述两行，不接受旧目标目录、删断言或改预期SHA。新增显式“VERSION copied”回归执行实际RUN断言：同长度cloud15失败、cloud16通过；原10项继续通过，共11项。新stage摘要、CI和独审另记，不修改旧sealed stage，不降低51源验证或删除已生成release16目录绕过原guard。
+
 ### Modern Web Guidance
 
 我检查了 responsive-table 指引；此次只修正 ID/名称映射，未应用布局或 API 改动。
