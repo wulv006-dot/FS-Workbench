@@ -1,12 +1,17 @@
 """Batch raw Admin adapter over existing channel paging and shared-session credentials."""
 from datetime import datetime, timedelta
+import json
 import sys
 import re
 from time import monotonic
+from urllib.parse import urlencode
 
 from user_contract import TZ, stamp
 
 PATH = '/admin/order.Order/index'
+# shortcut: cap occupied windows at 16; revisit selection if this visible budget failure recurs.
+TARGETED_MAX_WINDOWS = 16
+TARGETED_READ_SECONDS = 180
 
 
 def windows(start, end):
@@ -73,6 +78,32 @@ def shared_sync(store, site, start, end):
         session.close()
 
 
+def targeted_windows(store, site, requested):
+    """Locate only selected primary keys, then group bounded payment-date slices."""
+    days = {}
+    with store.db() as db:
+        for ident, key in requested.items():
+            if not isinstance(key, str) or not key.startswith('admin:' + site + ':'):
+                raise ValueError('targeted_request_scope')
+            row = db.execute('SELECT site,paid_at,body FROM orders WHERE order_key=?', (key,)).fetchone()
+            if row is None or row['site'] != site:
+                raise ValueError('targeted_existing_order_required')
+            body = json.loads(row['body'])
+            if (not isinstance(body, dict) or str(body.get('id')) != ident
+                    or key != 'admin:' + site + ':' + str(body.get('order_no') or '')):
+                raise ValueError('targeted_projection_identity')
+            days[ident] = stamp(row['paid_at']).astimezone(TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+    result = []
+    while days:
+        begin = min(days.values()); end = begin + timedelta(days=28)
+        group = {ident: requested[ident] for ident, day in days.items() if day < end}
+        result.append((begin, end, group))
+        if len(result) > TARGETED_MAX_WINDOWS:
+            raise RuntimeError('targeted_read_budget_exhausted')
+        for ident in group: del days[ident]
+    return result
+
+
 def shared_correct(store, site, requested):
     """Read selected IDs in any state; do not infer absence from a status filter."""
     if store.config.get('activation_status') != 'W0_verified':
@@ -81,17 +112,27 @@ def shared_correct(store, site, requested):
             or any(not isinstance(ident,str) or not re.fullmatch(r'[1-9][0-9]{0,18}', ident) for ident in requested)
             or sum(len(ident)+3 for ident in requested)>6000):
         raise ValueError('targeted_request_scope')
+    groups = targeted_windows(store, site, requested)
+    deadline = monotonic() + TARGETED_READ_SECONDS
     sys.path[:0] = ['/opt/sales-dashboard/collector', '/opt/fs-hermes-fc']
     import p2pah_auth as auth
-    from channel_source import pages
+    from channel_source import pages, search
+    prepared = []
+    for begin, end, group in groups:
+        filters = [('site_id', '=', site), ('id', 'IN', ','.join(sorted(group, key=int))),
+                   ('paytime', 'RANGE', begin.strftime('%Y-%m-%d %H:%M:%S') + ',' +
+                    (end-timedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S'))]
+        if len(PATH.encode('ascii')) + 1 + len(urlencode(dict(page=1, limit=1000, order='id,desc', **search(filters))).encode('ascii')) > 6000:
+            raise ValueError('targeted_request_scope')
+        prepared.append((filters, group))
     session = auth.Session()
     try:
         token, reason = auth.admin_token_from_service()
         if not token:
             raise RuntimeError('admin_shared_source_unavailable')
         session.bind_admin_token(token); del token
-        filters = [('site_id', '=', site), ('id', 'IN', ','.join(sorted(requested, key=int)))]
         class Observed:
+            def __init__(self, allowed): self.allowed = allowed
             def get_admin(self,*args,**kwargs):
                 if kwargs.get('page',1)!=1:raise ValueError('targeted_source_contract')
                 status,payload=session.get_admin(*args,**kwargs)
@@ -102,14 +143,22 @@ def shared_correct(store, site, requested):
                 if status!=200 or payload['code']!=1:raise ValueError('targeted_source_contract')
                 data=payload.get('data')
                 if (not isinstance(data,dict) or type(data.get('total')) is not int
-                        or not 0<=data['total']<=len(requested) or not isinstance(data.get('list'),list)
+                        or not 0<=data['total']<=len(self.allowed) or not isinstance(data.get('list'),list)
                         or len(data['list'])!=data['total'] or any(not isinstance(row,dict) for row in data['list'])):raise ValueError('targeted_source_contract')
                 return status,payload
-        rows = pages(Observed(), PATH, filters, 1000)
-        ids = [str(row.get('id') or '') for row in rows]
-        if (any(ident not in requested for ident in ids) or len(set(ids)) != len(ids)
-                or [int(ident) for ident in ids] != sorted((int(ident) for ident in ids), reverse=True)):
-            raise ValueError('targeted_source_identity_or_sort')
+        rows, seen = [], set()
+        for filters, group in prepared:
+            if monotonic() >= deadline: raise RuntimeError('targeted_read_budget_exhausted')
+            # Original pages/search supplies render=datetime for RANGE.
+            batch = pages(Observed(group), PATH, filters, 1000)
+            if monotonic() >= deadline: raise RuntimeError('targeted_read_budget_exhausted')
+            ids = [str(row.get('id') or '') for row in batch]
+            if (any(ident not in group or ident in seen for ident in ids) or len(set(ids)) != len(ids)
+                    or [int(ident) for ident in ids] != sorted((int(ident) for ident in ids), reverse=True)):
+                raise ValueError('targeted_source_identity_or_sort')
+            seen.update(ids); rows.extend(batch)
+        # No group can commit independently; a later group failure leaves facts untouched.
+        rows.sort(key=lambda row: int(row['id']), reverse=True)
         return store.correct_orders(site, requested, rows, datetime.now(TZ).isoformat())
     finally:
         session.close()
