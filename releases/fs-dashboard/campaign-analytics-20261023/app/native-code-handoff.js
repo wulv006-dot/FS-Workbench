@@ -190,8 +190,9 @@
   }
   // This journal coordinates this browser's native cart, not a daily/person limit
   // or an authority for coupon eligibility. The original native claim stays required.
-  function createCartGuard({storage,locks=root.navigator?.locks,now=Date.now}={}){
+  function createCartGuard({storage,legacyStorage,locks=root.navigator?.locks,now=Date.now}={}){
     try{storage ||= root.localStorage;}catch{fail('CART_JOURNAL_UNAVAILABLE');}
+    try{legacyStorage ||= root.sessionStorage;}catch{fail('CART_JOURNAL_UNAVAILABLE');}
     const key='fs-seasonal-native-cart-v1',lockName='fs-seasonal-native-cart';
     const read=()=>{let v;try{v=JSON.parse(storage.getItem(key)||'null');}catch{fail('CART_JOURNAL_UNAVAILABLE');}
       if(v&&(!['idle','confirmed','unknown'].includes(v.state)||!Array.isArray(v.items)||!Array.isArray(v.history)||v.state==='unknown'&&(!v.attempt?.id||!Array.isArray(v.attempt.items))))fail('CART_JOURNAL_UNAVAILABLE');return v;};
@@ -199,11 +200,42 @@
     const identity=item=>({category:item.native_payload.category,id:item.native_payload.id,num:item.native_payload.num,...(item.native_payload.category==='new_gold'?{group:item.native_payload.group}:{})});
     const sameLine=(a,b)=>a.category===b.category&&a.id===b.id&&(a.group||null)===(b.group||null);
     const matches=(rows,items)=>rows.length===items.length&&items.every(x=>rows.filter(r=>sameLine(r,x)&&r.num===x.num).length===1);
+    // Upgrade the old page/cart journals before creating ANY new native ID. An
+    // empty cart cannot disprove an older timed-out POST still reaching the store.
+    // Keep the old records intact; acknowledged IDs survive the bounded UI history.
+    function upgrade(session,journal,rows=null){
+      if(!session)return journal;
+      const resolved=journal?.legacy_resolved_ids||[],pending=[],confirmed=[];
+      try{for(let i=0;i<session.length;i++){
+        const k=session.key(i);if(!k?.startsWith('fs-native-page:')||!k.includes(':seasonal-vault:'))continue;
+        const page=JSON.parse(session.getItem(k));if(!page?.id)fail('CART_JOURNAL_UNAVAILABLE');
+        if(resolved.includes(page.id))continue;
+        const old=JSON.parse(session.getItem('fs-native-cart:'+page.id)||'null');
+        let items=[],context={};
+        try{const signature=JSON.parse(old?.signature),source=JSON.parse(page.signature);
+          if(Array.isArray(signature?.[0]))items=signature[0].map(body=>({category:body.category,id:body.id,num:body.num,...(body.category==='new_gold'?{group:body.group}:{})}));
+          if(items.some(x=>!['new_items','new_gold'].includes(x.category)||!positive(x.id)||!positive(x.num)))items=[];
+          context={code:signature[1],release:source[0],hash:source[1],selection:source.at(-1)};
+        }catch{ /* An unreadable legacy result remains unresolved, never empty. */ }
+        const outcomes=old?.outcomes;
+        if(old?.state==='cart_incomplete_inspect_original'&&outcomes?.length===1&&outcomes[0].state==='rejected')continue;
+        const record={...context,items:[],history:journal?.history||[],legacy_resolved_ids:resolved,state:'unknown',attempt:{id:page.id,items,legacy:true}};
+        if(['navigation_attempted_not_applied','cart_confirmed_code_pending','code_unknown_inspect_original'].includes(old?.state)&&items.length&&outcomes?.length===items.length&&outcomes.every(x=>x.state==='confirmed'))confirmed.push({...record,state:'confirmed',items,attempt:null});
+        else pending.push(record);
+      }}catch{fail('CART_JOURNAL_UNAVAILABLE');}
+      // Any unresolved old operation takes priority over a newer confirmed cart.
+      if(pending.length){
+        if(journal?.state==='unknown'&&!pending.some(x=>x.attempt.id===journal.attempt.id))return {...journal,legacy_pending_ids:[journal.attempt.id,...pending.map(x=>x.attempt.id)]};
+        return {...pending[0],legacy_pending_ids:pending.map(x=>x.attempt.id)};
+      }
+      if(journal)return journal;
+      return (rows?confirmed.find(x=>matches(rows,x.items)):confirmed[0])||null;
+    }
     const blocked=(state,cartUrl)=>({state,cartUrl,suppressAnalytics:true});
-    return {known(){return read();},async inspect(readCart){
+    return {known(){return upgrade(legacyStorage,read());},async inspect(readCart){
       const cart=await readCart();if(cart?.status!=='native_cart_read'||!Array.isArray(cart.items))fail('NATIVE_CART_READ_UNAVAILABLE');
-      const journal=read();
-      if(journal?.state==='unknown')return {state:matches(cart.items,[...journal.items,...journal.attempt.items])?'recoverable':'unknown',selection:journal.selection};
+      const journal=upgrade(legacyStorage,read(),cart.items);
+      if(journal?.state==='unknown')return {state:journal.attempt.items.length&&(!journal.legacy_pending_ids||journal.legacy_pending_ids.length===1)&&matches(cart.items,[...journal.items,...journal.attempt.items])?'recoverable':'unknown',selection:journal.selection};
       if(!cart.items.length)return {state:'empty'};
       return journal?.state==='confirmed'&&matches(cart.items,journal.items)?{state:'selected',selection:journal.selection}:{state:'occupied'};
     },async checkout({snapshot,selection,approved,storage:session,host,navigate,onCartConfirmed}){
@@ -213,13 +245,13 @@
       return locks.request(lockName,{mode:'exclusive',ifAvailable:true},async lock=>{
         if(!lock)return blocked('cart_busy_inspect_original',approved.options.cartUrl);
         const cart=await host.readCart();if(cart?.status!=='native_cart_read'||!Array.isArray(cart.items))fail('NATIVE_CART_READ_UNAVAILABLE');
-        let journal=read();const wanted=approved.items.map(identity),rows=cart.items;
+        const wanted=approved.items.map(identity),rows=cart.items;let journal=upgrade(session,read(),rows);
         if(journal?.state==='unknown'){
           const expected=[...journal.items,...journal.attempt.items];
           // Presence of every exact new line can reconcile success. Empty is not
           // proof that a timed-out native POST will never complete.
-          if(!matches(rows,expected))return blocked('cart_unknown_inspect_original',approved.options.cartUrl);
-          journal={...journal,state:'confirmed',items:expected,history:[...journal.history,{id:journal.attempt.id,state:'confirmed_by_cart_read',at:now()}].slice(-20),attempt:null};save(journal);
+          if(!journal.attempt.items.length||journal.legacy_pending_ids?.length>1||!matches(rows,expected))return blocked('cart_unknown_inspect_original',approved.options.cartUrl);
+          journal={...journal,state:'confirmed',items:expected,legacy_resolved_ids:[...new Set([...(journal.legacy_resolved_ids||[]),...(journal.attempt.legacy?[journal.attempt.id]:[])])],history:[...journal.history,{id:journal.attempt.id,state:'confirmed_by_cart_read',at:now()}].slice(-20),attempt:null};save(journal);
         }
         if(rows.length){
           if(!journal||journal.state!=='confirmed'||!matches(rows,journal.items)||journal.code!==approved.options.code||journal.release!==snapshot.release_id||journal.hash!==snapshot.config_hash)return blocked('cart_code_conflict',approved.options.cartUrl);
@@ -233,7 +265,7 @@
           }
           return blocked('cart_offer_conflict',approved.options.cartUrl);
         }else{
-          journal={state:'idle',items:[],history:journal?.history||[]};
+          journal={state:'idle',items:[],history:journal?.history||[],legacy_resolved_ids:journal?.legacy_resolved_ids||[]};
         }
         const previous=journal||{state:'idle',items:[],history:[]},operationId=root.crypto.randomUUID();
         const context={code:approved.options.code,release:snapshot.release_id,hash:snapshot.config_hash,...(selection?{selection:structuredClone(selection)}:{})};
