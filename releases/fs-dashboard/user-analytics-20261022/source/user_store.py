@@ -269,17 +269,25 @@ class Store:
                 raise ValueError('snapshot_integrity')
         return public
 
-    def snapshot(self, ident):
+    def snapshot_public(self, ident):
         if not isinstance(ident, str) or len(ident) != 35 or not ident.startswith('us_') or any(c not in '0123456789abcdef' for c in ident[3:]):
             raise LookupError('snapshot_missing')
         with self.db() as db:
-            row = db.execute('SELECT * FROM snapshots WHERE id=?', (ident,)).fetchone()
+            row = db.execute('SELECT query,body FROM snapshots WHERE id=?', (ident,)).fetchone()
         if not row:
             raise LookupError('snapshot_missing')
         public, query = json.loads(row['body']), json.loads(row['query'])
         core = {k: v for k, v in public.items() if k not in ('snapshot_id', 'evidence_id')}
         if ident != 'us_' + digest({'query': query, 'data': core})[:32]:
             raise ValueError('snapshot_integrity')
+        return query, public
+
+    def snapshot(self, ident):
+        query, public = self.snapshot_public(ident)
+        with self.db() as db:
+            row = db.execute('SELECT members FROM snapshots WHERE id=?', (ident,)).fetchone()
+        if not row:
+            raise LookupError('snapshot_missing')
         members = json.loads(row['members'])
         if set(members) == {'member_ref'}:
             with self.db() as db:

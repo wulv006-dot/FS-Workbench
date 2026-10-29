@@ -34,7 +34,7 @@ class Service:
             raise ValueError('query_fields')
         config = self.store.config
         if args.get('snapshot_id'):
-            old, public, members = self.store.snapshot(args['snapshot_id'])
+            old, public = self.store.snapshot_public(args['snapshot_id'])
             # Query retrieval never silently switches to the newest version or a different scope.
             requested = {k: v for k, v in args.items() if k != 'snapshot_id'}
             for key, value in requested.items():
