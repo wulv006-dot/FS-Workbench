@@ -44,8 +44,8 @@ class Entry(unittest.TestCase):
     save_policy = fixtures.Native.save_policy
 
     def test_native_admission_loads_shared_helper_without_plugin_preload(self):
-        import importlib
         agent=self.construct()
+        (self.root/'admission.lock').touch(mode=0o600)
         source=Path(__file__).resolve().parents[3]/'releases/fs-dashboard/cache-archive-retention-20261025/source'
         old_path=list(sys.path)
         removed={name:module for name,module in list(sys.modules.items()) if name=='cache_retention' or name=='fs_readonly' or name.startswith('fs_readonly.')}
@@ -151,7 +151,7 @@ class Entry(unittest.TestCase):
         import inspect
         self.assertEqual(inspect.signature(agent.run_conversation), inspect.signature(Factory.run_conversation).replace(
             parameters=list(inspect.signature(Factory.run_conversation).parameters.values())[1:]))
-        (self.root / 'admission.lock').touch()
+        (self.root / 'admission.lock').touch(mode=0o600)
         import contextlib
         lock = types.SimpleNamespace(flock=lambda *a: None, LOCK_SH=1, LOCK_NB=4)
         # Windows checks call binding; formal Linux CI additionally uses actual flock.

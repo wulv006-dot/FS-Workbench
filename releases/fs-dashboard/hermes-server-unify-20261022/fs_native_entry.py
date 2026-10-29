@@ -98,7 +98,7 @@ def construct_fs_agent(factory, **options):
 
         @wraps(factory.run_conversation)
         def run_conversation(self, *args, **kwargs):
-            sys.path.insert(0,str(FS_SOURCE))
+            if str(FS_SOURCE) not in sys.path:sys.path.insert(0,str(FS_SOURCE))
             from cache_retention import maintenance_reader
             with maintenance_reader(knowledge.root, create=False, session=True):
                 if test:
