@@ -217,6 +217,19 @@ class SelectiveSourceTest(unittest.TestCase):
         self.assertFalse(selective.planned_source_coverage(snapshot,plan,NOW)['ready'])
         self.assertTrue(selective.planned_source_coverage(snapshot,plan,NOW,reference_market=dict(offers=[dict(base,source='ItemD2R')]))['ready'])
 
+    def test_sprint_missing_ArabUT_can_follow_global_without_blocking_quote(self):
+        plan=selective.source_plan('revenue_sprint',dict(region_ids=[21]))
+        base=dict(run_id='same-run',status='valid',currency='USD',purchase_k='100',gross_usd='10',captured_at=NOW.isoformat(),conditional=False,comparable=True)
+        snapshot=dict(run_id='same-run',competitors=[dict(base,source='Lootbar',platform=p) for p in plan['platforms']],
+                      arab_ut_status=dict(status='unavailable',offers=[]))
+        reference=dict(offers=[dict(base,source='ItemD2R',platform=p) for p in plan['platforms']])
+        coverage=selective.planned_source_coverage(snapshot,plan,NOW,reference_market=reference)
+        self.assertTrue(coverage['ready'])
+        self.assertEqual(coverage['required_sources'],['Lootbar','ItemD2R'])
+        self.assertEqual(coverage['optional_sources'],['ArabUT'])
+        self.assertEqual(coverage['missing'],[])
+        self.assertEqual({r['platform'] for r in coverage['optional_missing']},{'PS','XBOX'})
+
     def test_daily_replay_uses_only_same_day_immutable_stored_snapshots_and_two_pure_calls(self):
         snapshot=dict(snapshot_id='actual-stored',origin='live_collector',mode='production',evidence=dict(checked_at=NOW.isoformat(),historical_ref={'cache_sha256':'cache'}))
         request=selective.daily_shadow_request('2026-10-26',[snapshot,dict(snapshot,snapshot_id='old',evidence=dict(checked_at=(NOW-timedelta(days=1)).isoformat()))])

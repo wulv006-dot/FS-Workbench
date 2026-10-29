@@ -103,8 +103,11 @@ def planned_source_coverage(snapshot,plan,now,*,reference_market=None):
         times.append(datetime.fromisoformat(captured.replace('Z','+00:00')))
     if times and (max(times)-min(times)).total_seconds()>300:raise ValueError('selective_competitor_capture_span')
     missing=expected-set(found)
-    return dict(ready=not missing,required_sources=plan['required_markets'],
-        missing=[dict(platform=p,source=s) for p,s in sorted(missing)],gaps=gaps,
+    hard_missing={(p,s) for p,s in missing if s!='ArabUT'}
+    return dict(ready=not hard_missing,required_sources=[s for s in plan['required_markets'] if s!='ArabUT'],
+        optional_sources=['ArabUT'] if 'ArabUT' in plan['required_markets'] else [],
+        missing=[dict(platform=p,source=s) for p,s in sorted(hard_missing)],
+        optional_missing=[dict(platform=p,source=s) for p,s in sorted(missing-hard_missing)],gaps=gaps,
         retired_automatic_sources=list(RETIRED),reference_sources={p:[s for s in plan['required_markets'] if s!='Lootbar' and p in required[s]] for p in plan['platforms']})
 
 
