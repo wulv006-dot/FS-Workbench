@@ -1975,6 +1975,132 @@ def _iggm_local_recent(max_age_s=4200):
         return None
 
 
+# ── IGGM 取价来源：服务器 / 本机 / 交替（2026-10-29 老板定案）─────────────
+# 老板原话：「IGGM 因为经常触发 CF 风控，所以需要服务器和本机交替扒取降低频率，
+#   你根据这个情况单独给我在 RPG 改价系统的控制台新增一个 IGGM 的抓取按钮让我
+#   随时切换服务器抓取或者本机抓取，或者交替抓取，而且只要我电脑开着你就应该
+#   优先自动启动本机抓取来抓 IGGM 的数据。」
+#
+# 四态（config.iggm.抓取来源）：
+#   auto      ⭐默认：本机在「本机推送有效分钟」内有推送 → 用本机的；否则服务器自抓。
+#                    = 老板要的「只要我电脑开着就优先本机」
+#   server    只让服务器自抓（本机推送照收但不采用）
+#   local     只用本机推送；本机离线时**沿用上一份快照，绝不让服务器去打 CF**
+#             （服务器 IP 一旦被判死要很久才恢复，宁可数据旧一点也不烧）
+#   alternate 交替降频：以本机为主，每「交替_服务器每N轮」轮让服务器自抓一次；
+#             轮到本机但本机离线时退回服务器（不至于两个都不抓）
+IGGM_SOURCE_MODES = ("auto", "server", "local", "alternate")
+IGGM_SOURCE_LABELS = {
+    "auto": "自动（优先本机）",
+    "server": "仅服务器",
+    "local": "仅本机",
+    "alternate": "交替",
+}
+
+
+def _iggm_source_state_path():
+    return os.path.join(ROOT, "data", "iggm_source_state.json")
+
+
+def _iggm_source_mode(cfg=None):
+    """当前 IGGM 取价来源模式（已归一化，非法值回落 auto）。"""
+    try:
+        v = str(cfg_get(cfg or load_cfg(), "iggm.抓取来源", "auto") or "auto").strip().lower()
+    except Exception:
+        v = "auto"
+    return v if v in IGGM_SOURCE_MODES else "auto"
+
+
+def _iggm_source_state():
+    try:
+        with open(_iggm_source_state_path(), encoding="utf-8") as f:
+            d = json.load(f) or {}
+    except Exception:
+        d = {}
+    return {"round": int(d.get("round") or 0),
+            "last_turn": str(d.get("last_turn") or ""),
+            "last_ts": str(d.get("last_ts") or "")}
+
+
+def _iggm_source_state_save(round_no, last_turn, ts=None):
+    try:
+        os.makedirs(os.path.join(ROOT, "data"), exist_ok=True)
+        with open(_iggm_source_state_path(), "w", encoding="utf-8") as f:
+            json.dump({"round": int(round_no), "last_turn": last_turn,
+                       "last_ts": ts or dt.datetime.now().isoformat(timespec="seconds")},
+                      f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _iggm_source_decide(cfg, log=None, dry=False):
+    """本轮 IGGM 谁抓。返回 dict：
+
+    mode        当前模式
+    local       本机推送留痕（dict 或 None，供旧逻辑判断「本机刚推过」）
+    use_local   True = 本轮用本机的（服务器不抓）
+    skip_server True = 本轮**禁止**服务器自抓
+    hard_skip   True = 连「金币独立兜底」也不要打 CF（local 模式且本机离线）
+    why         中文说明（写日志/下发前端）
+    """
+    m = _iggm_source_mode(cfg)
+    local = _iggm_local_recent()
+    age_txt = ("本机 %.0f 分钟前推过 %d 条"
+               % (local["age_s"] / 60.0, int(local.get("saved") or 0))) if local else "本机无新鲜推送"
+    d = {"mode": m, "label": IGGM_SOURCE_LABELS[m], "local": local,
+         "use_local": False, "skip_server": False, "hard_skip": False, "why": ""}
+    if m == "server":
+        d.update(skip_server=False,
+                 why="模式=仅服务器 → 忽略本机推送，服务器自抓")
+    elif m == "local":
+        if local:
+            d.update(use_local=True, skip_server=True,
+                     why="模式=仅本机 → %s，服务器不抓" % age_txt)
+        else:
+            d.update(skip_server=True, hard_skip=True,
+                     why="模式=仅本机但本机已离线 → 沿用上一份快照（不打服务器 IP）")
+    elif m == "alternate":
+        try:
+            n_every = int(float(cfg_get(cfg, "iggm.交替_服务器每N轮", 3) or 3))
+        except Exception:
+            n_every = 3
+        n_every = max(2, min(n_every, 24))
+        st = _iggm_source_state()
+        rnd = st["round"] + 1
+        srv_turn = (rnd % n_every == 0)
+        if srv_turn:
+            d.update(skip_server=False,
+                     why="模式=交替（第 %d 轮，每 %d 轮服务器抓 1 次）→ 本轮服务器自抓"
+                         % (rnd, n_every))
+            if not dry:
+                _iggm_source_state_save(rnd, "server")
+                d["round"] = rnd
+        elif local:
+            d.update(use_local=True, skip_server=True,
+                     why="模式=交替（第 %d/%d 轮）→ 本轮用本机（%s）"
+                         % (rnd, n_every, age_txt))
+            if not dry:
+                _iggm_source_state_save(rnd, "local")
+                d["round"] = rnd
+        else:
+            d.update(skip_server=False,
+                     why="模式=交替（第 %d/%d 轮）本机离线 → 退回服务器自抓"
+                         % (rnd, n_every))
+            if not dry:
+                _iggm_source_state_save(rnd, "server")
+                d["round"] = rnd
+    else:  # auto
+        if local:
+            d.update(use_local=True, skip_server=True,
+                     why="模式=自动 → 本机在线，优先用本机（%s）" % age_txt)
+        else:
+            d.update(skip_server=False,
+                     why="模式=自动 → 本机离线，服务器自抓")
+    if log:
+        log("  [IGGM] %s" % d["why"])
+    return d
+
+
 def _pick_exec_mode(cfg, con, log=None):
     """这张单派给谁：config 说了算，但**服务器执行器不在线时自动改派本机**。
 
@@ -2050,11 +2176,12 @@ def task_collect(t, opts):
     ig_rows = []
     # 2026-10-20：服务器 IP 被 IGGM 的 CF 整站拦，改由本机代抓 → /api/iggm_push。
     # 本机 20 分钟内推过就跳过服务器自抓（否则每 15 分钟空打一次 CF，白费还加深封禁）。
-    _local_ig = _iggm_local_recent()
-    if _local_ig:
-        t.log("  [IGGM] 本机代抓 %.0f 分钟前推送 %d 条（%s）→ 本轮跳过服务器自抓"
-              % (_local_ig["age_s"] / 60.0, int(_local_ig.get("saved") or 0),
-                 "、".join(_local_ig.get("games") or []) or "—"))
+    # 2026-10-29：按「抓取来源」四态决定本轮谁抓（自动/仅服务器/仅本机/交替）。
+    # 决策与计数都在 _iggm_source_decide 里，这里只按结论走。
+    _ig_dec = _iggm_source_decide(cfg, log=t.log)
+    _local_ig = _ig_dec.get("local")
+    if _ig_dec.get("skip_server"):
+        t.log("  [IGGM] 本轮不走服务器自抓（%s）" % _ig_dec.get("why"))
     else:
         try:
             ig_rows = core_iggm.scrape_all(cfg, log=lambda *a: None, games=due)  # 只抓到期的
@@ -2089,7 +2216,12 @@ def task_collect(t, opts):
         #      它们的竞品价走 core_gold 那条线，不经过 scrape_all ⇒ 0 条**正常**，
         #      不能兜底、不能告警、不能动计数器（否则一晚上几十条误报）。
         _meta = core_iggm.last_run() or {}
-        if _local_ig or not _meta.get("blocked"):
+        if _ig_dec.get("hard_skip"):
+            # 2026-10-29「仅本机」模式且本机离线：连金币独立通道也不要打，
+            # 直接沿用上一份快照 —— 老板要的就是「本机不在就别去烧服务器 IP」。
+            ig_ts = store.prev_ts(con, "iggm_price", ts)
+            t.log("  ⓘ IGGM %s → 沿用上一份快照 %s" % (_ig_dec.get("why"), ig_ts))
+        elif _local_ig or not _meta.get("blocked"):
             ig_ts = store.prev_ts(con, "iggm_price", ts)
             t.log("  ⓘ IGGM 本轮 0 条（%s）→ 沿用上一份快照 %s（正常，不告警）"
                   % ("本机代抓已推送，沿用本机那份" if _local_ig
@@ -2495,7 +2627,7 @@ def task_collect(t, opts):
                                  else ("可买 %.0f 万基纳（不足 %s）"
                                        % (_av, core_gold.need_yi_txt(
                                            it.get("无货最小可买万基纳") or 15000))),
-                                 it.get("无货兜底售价_USD每M") or 19.9,
+                                 it.get("无货兜底售价_USD每M") or 12.99,
                                  it.get("采购成本_新"), it.get("动作") or "-"))
                     else:
                         # 🆕 2026-10-09：无 cheapold 卖家的区改按成本保 30% 利润定价，
@@ -3380,7 +3512,7 @@ def api_gold():
                 "G2G最低价/ELD最低价/IGGM 继续采集监控并展示，但不参与定价。"
                 % ((_pol_a.get("利润率") or 0.07) * 100,
                    (_pol_a.get("无货最小可买万基纳") or 15000) / 10000.0,
-                   (_pol_a.get("无货兜底售价_USD每M") or 19.9))
+                   (_pol_a.get("无货兜底售价_USD每M") or 12.99))
                 if _pol_a.get("模式") == "dd373_only" else
                 ("AION2 售价 = DD373 各区推荐价 ÷ (1−%.1f%%)；G2G/ELD/IGGM 继续采集监控并展示，"
                  "但不参与定价。旧三源比价策略已归档，改 config 可切回。"
@@ -3617,7 +3749,7 @@ def api_gold_cost():
              % ((_pol.get("利润率") or 0.07) * 100,
                 (_pol.get("无货最小可买万基纳") or 15000),
                 (_pol.get("无货最小可买万基纳") or 15000) / 10000.0,
-                (_pol.get("无货兜底售价_USD每M") or 19.9)))
+                (_pol.get("无货兜底售价_USD每M") or 12.99)))
             if _pol.get("模式") == "dd373_only" else
             ("售价 = G2G 该子服务器 cheapold 价 × (1−%.1f%%)；"
              "**该区无 cheapold 卖家 ⇒ 改按本区 DD373 成本 ÷ (1−%.2f) 定价"
@@ -3638,7 +3770,7 @@ def api_gold_cost():
                 (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.15) * 100,
                 (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.15) * 100,
                 1.0 - (_pol.get("利润率下限") if _pol.get("利润率下限") is not None else 0.15),
-                (_pol.get("无货兜底售价_USD每M") or 19.9),
+                (_pol.get("无货兜底售价_USD每M") or 12.99),
                 (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.22) * 100,
                 (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.22) * 100,
                 1.0 - (_pol.get("利润率上限") if _pol.get("利润率上限") is not None else 0.22))
@@ -3724,6 +3856,25 @@ def api_state():
             "对标区服": cfg_get(cfg, "千岛.对标区服"),
             "参考区服": cfg_get(cfg, "千岛.参考区服") or [],
         }
+        # IGGM 取价来源（2026-10-29）：控制台那组按钮要显示当前模式 + 本机是否在线
+        try:
+            _m = _iggm_source_mode(cfg)
+            _l = _iggm_local_recent(max_age_s=max(
+                60.0, float(cfg_get(cfg, "iggm.本机推送有效分钟", 70) or 70) * 60.0))
+            _stt = _iggm_source_state()
+            data["iggmSource"] = {
+                "mode": _m, "label": IGGM_SOURCE_LABELS[_m],
+                "modes": [{"key": k, "label": IGGM_SOURCE_LABELS[k]} for k in IGGM_SOURCE_MODES],
+                "localOnline": bool(_l),
+                "localAgeMin": round(_l["age_s"] / 60.0, 1) if _l else None,
+                "round": _stt.get("round") or 0,
+                "lastTurn": _stt.get("last_turn") or "",
+                "lastTs": _stt.get("last_ts") or "",
+                "everyN": int(float(cfg_get(cfg, "iggm.交替_服务器每N轮", 3) or 3)),
+            }
+        except Exception:
+            data["iggmSource"] = {"mode": "auto", "label": IGGM_SOURCE_LABELS["auto"],
+                                  "modes": [], "localOnline": False, "localAgeMin": None}
         # 人工调价保护（2026-09-29）：这些行的现价是人工改的，IGGM 未变价前系统不跟。
         # 页面上按行看 reason 也能看到（「⏸ 人工调价保护…」），这里是汇总口径。
         try:
@@ -4138,6 +4289,66 @@ def api_iggm_push():
         return jsonify({"ok": True, "saved": n, "ts": ts, "games": _games})
     finally:
         con.close()
+
+
+@app.route("/api/iggm_source")
+def api_iggm_source():
+    """IGGM 取价来源：查询当前模式 + 本机心跳 + 交替轮次（2026-10-29）。
+
+    控制台那组「服务器 / 本机 / 交替」按钮就读这里。只看不抓价，随时可点。
+    """
+    cfg = load_cfg()
+    try:
+        valid_min = float(cfg_get(cfg, "iggm.本机推送有效分钟", 70) or 70)
+    except Exception:
+        valid_min = 70.0
+    try:
+        every_n = int(float(cfg_get(cfg, "iggm.交替_服务器每N轮", 3) or 3))
+    except Exception:
+        every_n = 3
+    local = _iggm_local_recent(max_age_s=max(60.0, valid_min * 60.0))
+    st = _iggm_source_state()
+    m = _iggm_source_mode(cfg)
+    # 下一轮谁抓：只为把按钮旁边的提示写准，不落盘（dry=True）
+    try:
+        nxt = _iggm_source_decide(cfg, dry=True)
+        nxt_why = nxt.get("why") or ""
+    except Exception:
+        nxt_why = ""
+    return jsonify({
+        "ok": True,
+        "mode": m,
+        "label": IGGM_SOURCE_LABELS[m],
+        "modes": [{"key": k, "label": IGGM_SOURCE_LABELS[k]} for k in IGGM_SOURCE_MODES],
+        "validMinutes": valid_min,
+        "everyN": every_n,
+        "local": {
+            "online": bool(local),
+            "ageMin": round(local["age_s"] / 60.0, 1) if local else None,
+            "saved": int(local.get("saved") or 0) if local else 0,
+            "games": list(local.get("games") or []) if local else [],
+            "pushedAt": str(local.get("pushed_at") or "") if local else "",
+        },
+        "state": st,
+        "next": nxt_why,
+    })
+
+
+@app.route("/api/iggm_source", methods=["POST"])
+def api_iggm_source_set():
+    """切换 IGGM 取价来源。body: {mode: auto|server|local|alternate}"""
+    body = request.get_json(force=True, silent=True) or {}
+    m = str(body.get("mode") or "").strip().lower()
+    if m not in IGGM_SOURCE_MODES:
+        return jsonify({"ok": False, "error": "mode 必须是 %s 之一" % "/".join(IGGM_SOURCE_MODES)}), 400
+    try:
+        cfg = load_cfg()
+        ig = cfg.setdefault("iggm", {})
+        ig["抓取来源"] = m
+        save_cfg(cfg)
+    except Exception as e:                                   # noqa: BLE001
+        return jsonify({"ok": False, "error": "写 config 失败：%r" % (e,)})
+    return jsonify({"ok": True, "mode": m, "label": IGGM_SOURCE_LABELS[m]})
 
 
 @app.route("/api/cost/status")

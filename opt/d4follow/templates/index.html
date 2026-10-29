@@ -573,6 +573,13 @@ th{background:#fafafa}
               <button class="btn" onclick="runTask('rebuild')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 13.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="3.5" y="8" width="2.4" height="4" rx=".6" stroke="currentColor" stroke-width="1.3"/><rect x="7" y="5" width="2.4" height="7" rx=".6" stroke="currentColor" stroke-width="1.3"/><rect x="10.5" y="9.5" width="2.4" height="2.5" rx=".6" stroke="currentColor" stroke-width="1.3"/></svg>重算看板</button>
             </div>
           </div>
+          <div class="actgrp" id="iggmSrcGrp">
+            <label>IGGM 取价</label>
+            <div class="btns">
+              <div id="iggmSrcBtns" style="display:flex;gap:7px;flex-wrap:wrap"></div>
+              <span id="iggmSrcSub" style="font-size:10.5px;color:var(--ov0)"></span>
+            </div>
+          </div>
           <div class="actgrp">
             <label>演练</label>
             <div class="btns">
@@ -1098,6 +1105,47 @@ async function setSwitch(name){
   try{
     await api('api/switch',{method:'POST',body:JSON.stringify({name:name,on:!cur})});
     toast(label+(cur?'已关闭':'已开启'), (!cur)?'ok':'');
+    await loadState();
+  }catch(e){ toast(e.message,'err'); }
+}
+/* ── IGGM 取价来源（2026-10-29）────────────────────────────────────────
+   服务器出口长期被 IGGM 的 Cloudflare 拦，本机住宅 IP 能抓。
+   老板口径：电脑开着就优先用本机（auto）；CF 风控频繁时用交替降频；
+   也能一键锁死成「仅服务器」或「仅本机」。切换只写 config，下一轮采集生效。 */
+function igSrcTip(k){
+  return ({
+    auto:'自动（优先本机）：电脑开着就用本机抓，本机离线才让服务器抓 —— 推荐',
+    server:'仅服务器：忽略本机推送，全部由服务器自抓（服务器 IP 被 CF 拦时会拿不到数据）',
+    local:'仅本机：只用本机抓。本机离线时沿用旧快照，绝不让服务器去打 CF',
+    alternate:'交替：以本机为主，每 N 轮让服务器抓 1 次，双方都降频'
+  })[k]||'';
+}
+function renderIggmSource(st){
+  const s=(st&&st.iggmSource)||{};
+  const box=$('#iggmSrcBtns'); if(!box) return;
+  const modes=(s.modes&&s.modes.length)?s.modes:[
+    {key:'auto',label:'自动（优先本机）'},{key:'server',label:'仅服务器'},
+    {key:'local',label:'仅本机'},{key:'alternate',label:'交替'}];
+  box.innerHTML=modes.map(m=>
+    '<button class="btn '+(m.key===s.mode?'primary':'ghost')+'" '
+    +'style="padding:4px 11px;font-size:11.5px" '
+    +'onclick="setIggmSource(\''+m.key+'\')" title="'+esc(igSrcTip(m.key))+'"'
+    +(m.key===s.mode?' aria-pressed="true"':'')+'>'+esc(m.label)+'</button>').join('');
+  const sub=$('#iggmSrcSub');
+  if(sub){
+    const on=!!s.localOnline;
+    let t='本机'+(on?('在线 · '+(s.localAgeMin!=null?s.localAgeMin+' 分钟前推送':'刚推送')):'离线');
+    if(s.mode==='alternate') t+='｜第 '+(s.round||0)+' 轮（每 '+((s.everyN)||3)+' 轮服务器抓 1 次）';
+    if(s.mode==='auto'&&!on) t+='｜服务器兜底';
+    if(s.mode==='local'&&!on) t+='｜沿用旧快照，不烧服务器 IP';
+    if(s.lastTurn) t+='｜上轮：'+(s.lastTurn==='server'?'服务器':'本机');
+    sub.textContent=t;
+  }
+}
+async function setIggmSource(mode){
+  try{
+    const r=await api('api/iggm_source',{method:'POST',body:JSON.stringify({mode:mode})});
+    toast('IGGM 取价来源已切到「'+((r&&r.label)||mode)+'」','ok');
     await loadState();
   }catch(e){ toast(e.message,'err'); }
 }
@@ -3077,6 +3125,7 @@ async function loadState(){
   try{
     const r=await api('api/state'); STATE=r.data;
     renderBadges(STATE); renderSwitches(STATE);
+    renderIggmSource(STATE);
     renderToggles(STATE.config); renderParams(STATE.config);
     renderFollow(STATE.follow);
     renderGates(); renderGdHead();   // 采集周期已并入游戏卡，renderGates 一并重绘
@@ -3100,16 +3149,18 @@ setInterval(renderLocal, 5000);   // 执行器状态要比主状态刷得更勤
 /* 货架自检告警条：只读展示，不自动改配置（用户手动处理）。
    2026-10-08：按老板要求下线「核对货架一致性（生成纳管补丁草稿 · 只生成不落盘）」按钮 ——
    该动作日常不用，整块去掉（后端 /api/shelf_patch 保留未删，日后要恢复只加回前端即可）。
-   告警条本身保留：它是「映射错位 / 人工价被覆盖」这类**只读风险提示**，仍要看得见。 */
+   告警条本身保留：它是「映射错位 / 人工价被覆盖」这类**只读风险提示**，仍要看得见。
+   2026-10-29：按老板要求**下线「未纳管档位」这块** —— 常年只报 Dark and Darker 的整套装备，
+   放在页面最上方没用还难看。后端 S1 同步停算，这里只留 映射错位 / 人工价暴露。 */
 async function renderShelfBar(){
   const box=$('#shelfBar'); if(!box) return;
   let d;
   try{ d=await api('api/shelf_drift'); }catch(e){ box.innerHTML=''; return; }
-  const un=d.unmapped_shelf||[], mm=d.mismatched_pack||[], orp=d.orphan_row||[];
-  /* 2026-10-09：三项都无差异时**整条不渲染**（原来会画一条绿色的一致性提示条，
+  const mm=d.mismatched_pack||[], orp=d.orphan_row||[];
+  /* 2026-10-09：无差异时**整条不渲染**（原来会画一条绿色的一致性提示条，
      日常绝大多数时候都是那条 ⇒ 白占一行，老板要求去掉）。
      现在只有真出问题时才出现，一致时静默；#shelfBar:empty{display:none} 连外边距都不占。 */
-  if(!un.length && !mm.length && !orp.length){ box.innerHTML=''; return; }
+  if(!mm.length && !orp.length){ box.innerHTML=''; return; }
   /* ⛔ 2026-10-01 修：此处原有一行 `const esc=...`，与全局 `function esc`（第 630 行）
      同名。JS 的 const 有 TDZ —— 函数体内任何位置引用 esc 都会先撞上这行声明，
      抛 "Cannot access 'esc' before initialization"，**整个 renderShelfBar 崩掉**。
@@ -3119,11 +3170,6 @@ async function renderShelfBar(){
   if(mm.length){
     h+='<div class="sb err"><h4>🔴 映射错位（'+mm.length+'）—— 这些行会被写错价格，请尽快处理</h4><ul>'
       + mm.slice(0,12).map(x=>'<li>'+esc(x.detail)+'</li>').join('')
-      + '</ul></div>';
-  }
-  if(un.length){
-    h+='<div class="sb"><h4>🟠 未纳管档位（'+un.length+'）—— 前台有货架档位，但系统配置里没有</h4><ul>'
-      + un.slice(0,12).map(x=>'<li>'+esc(x.detail)+'</li>').join('')
       + '</ul></div>';
   }
   if(orp.length){
