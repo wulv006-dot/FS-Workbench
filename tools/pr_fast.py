@@ -465,7 +465,8 @@ def select(paths):
         if name.startswith("releases/ops/fc-itemd2r-shadow-20261023/"):
             groups.add("fc-price-shadow");continue
         if name.startswith("releases/fs-dashboard/campaign-analytics-20261023/") or name in (
-                "tools/campaign_catalog_mapping.py", "tools/campaign_catalog_probe.py", "tools/campaign_catalog_seed.py"):
+                "tools/campaign_catalog_mapping.py", "tools/campaign_catalog_probe.py", "tools/campaign_catalog_seed.py",
+                "docs/planning/halloween-runtime-capacity-20261029/retention_dry_run.py"):
             groups.add("campaign-analytics");continue
         if name.startswith('releases/ops/pricing-followup-20261023/'):
             groups.add('pricing-followup');continue
@@ -851,7 +852,7 @@ def main():
             tests=sorted(str(p) for d in directories for p in d.glob("*.test.*"))
             if not tests:raise RuntimeError("campaign tests missing")
             subprocess.run(["node","--test"]+tests,cwd=folder,check=True,timeout=90)
-            units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish","test_prepare_g1_release"])
+            units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish","test_prepare_g1_release","test_retention_plan"])
             units("releases/fs-dashboard/campaign-analytics-20261023/backend",["test_backend_suite"])
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/draft-compat-browser.cjs")
