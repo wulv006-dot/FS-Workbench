@@ -49,29 +49,40 @@ def collect(context):
     page=context.new_page()
     try:
         response=page.goto(URL,wait_until='domcontentloaded',timeout=35000)
+        if response is not None and response.status==403:
+            headers=response.headers
+            if 'cloudflare' in headers.get('server','').lower() or headers.get('cf-ray'):
+                raise ValueError('itemd2r_cloudflare_403')
         if response is None or response.status!=200:
-            raise ValueError('itemd2r_http_blocked')
+            raise ValueError('itemd2r_http_'+str(response.status) if response is not None else 'itemd2r_http_response_missing')
         if page.url.rstrip('/')!=URL or not re.search(r'FC\s*27\s*Coins',page.title(),re.I):
             raise ValueError('itemd2r_product_mismatch')
         rows=[]
+        exhausted=False
         for platform,device,label in DEVICES:
-            page.locator('#html_search_class_id').click(timeout=5000)
-            page.locator('.platform-list li').filter(has_text=re.compile('^'+re.escape(label)+'$')).click(timeout=5000)
-            page.wait_for_function("d=>document.querySelector('#html_now_device')?.value===d",arg=device,timeout=8000)
-            page.locator('.cumton-amount-btn[data-amount="100000"]').click(timeout=5000)
-            previous=None
-            for _ in range(20):
-                data=page.evaluate(READ)
-                try: row=offer(data,platform,device)
-                except ValueError:
-                    previous=None
-                else:
-                    signature=json.dumps(data,sort_keys=True)
-                    if signature==previous:
-                        rows.append(row);break
-                    previous=signature
-                page.wait_for_timeout(400)
-            else:raise ValueError('itemd2r_offer_unstable:'+platform)
+            try:
+                if exhausted:raise TimeoutError('itemd2r_read_budget')
+                page.locator('#html_search_class_id').click(timeout=5000)
+                page.locator('.platform-list li').filter(has_text=re.compile('^'+re.escape(label)+'$')).click(timeout=5000)
+                page.wait_for_function("d=>document.querySelector('#html_now_device')?.value===d",arg=device,timeout=8000)
+                page.locator('.cumton-amount-btn[data-amount="100000"]').click(timeout=5000)
+                previous=None;invalid_reason='itemd2r_offer_unstable'
+                for _ in range(20):
+                    data=page.evaluate(READ)
+                    try: row=offer(data,platform,device)
+                    except ValueError as error:
+                        previous=None;invalid_reason=str(error)
+                    else:
+                        signature=json.dumps(data,sort_keys=True)
+                        if signature==previous:
+                            rows.append(row);break
+                        previous=signature
+                    page.wait_for_timeout(400)
+                else:raise ValueError(invalid_reason+':'+platform)
+            except Exception as error:
+                reason=str(error) if re.fullmatch(r'itemd2r_[a-zA-Z0-9_:]{1,100}',str(error)) else 'itemd2r_'+type(error).__name__
+                exhausted=reason=='itemd2r_read_budget'
+                rows.append(dict(source='ItemD2R',platform=platform,url=URL,status='missing',reason=reason,captured_at=datetime.now(timezone.utc).isoformat()))
         return rows
     finally:page.close()
 
@@ -87,12 +98,26 @@ from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
  b=p.chromium.connect_over_cdp('http://127.0.0.1:9225',timeout=8000,no_defaults=True)
  if len(b.contexts)!=1:raise ValueError('itemd2r_context_ambiguous')
- print(json.dumps({'source':'ItemD2R','status':'valid','offers':collect(b.contexts[0])}))
+ try:
+  offers=collect(b.contexts[0])
+ except ValueError as error:
+  reason=str(error)
+  if not re.fullmatch(r'itemd2r_[a-zA-Z0-9_:]{1,100}',reason):raise
+  print(json.dumps({'source':'ItemD2R','status':'error','reason':reason,'offers':[]}))
+ else:
+  print(json.dumps({'source':'ItemD2R','status':'partial' if any(r.get('status')!='valid' for r in offers) else 'valid','offers':offers}))
 '''
     result=subprocess.run(['docker','exec','-i','-u','fc27chrome','fc27-cloud-browser','timeout','--signal=TERM','--kill-after=5s','50s','python3','-'],input=code,text=True,capture_output=True,timeout=60)
     if result.returncode:
         raise ValueError('itemd2r_public_read_failed')
     payload=json.loads(result.stdout)
-    if payload.get('source')!='ItemD2R' or payload.get('status')!='valid' or [r.get('platform') for r in payload.get('offers',[])]!=['PS','XBOX','PC']:
+    if payload.get('source')=='ItemD2R' and payload.get('status')=='error':
+        reason=payload.get('reason')
+        if isinstance(reason,str) and re.fullmatch(r'itemd2r_[a-zA-Z0-9_:]{1,100}',reason):
+            raise ValueError(reason)
+    offers=payload.get('offers')
+    if (payload.get('source')!='ItemD2R' or payload.get('status') not in ('valid','partial') or not isinstance(offers,list)
+            or any(not isinstance(r,dict) or r.get('platform') not in ('PS','XBOX','PC') for r in offers)
+            or len({r['platform'] for r in offers})!=len(offers)):
         raise ValueError('itemd2r_platform_coverage_invalid')
-    return payload['offers']
+    return offers

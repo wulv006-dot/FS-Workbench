@@ -241,16 +241,19 @@ class Dual20Sprint(unittest.TestCase):
         control['id']=99
         self.assertEqual(engine.required_base_bound(data,'PC',NOW),base)
 
-    def test_T15_T31_missing_or_stale_source_is_never_a_floor_fallback(self):
+    def test_missing_or_stale_item_uses_only_current_lootbar_and_financial_floor(self):
         for change in ('missing','stale'):
             data=source(cost='.56')
             if change=='missing':data['reference_market']['offers']=[]
             else:
                 for row in data['reference_market']['offers']:row['captured_at']=(NOW-timedelta(seconds=901)).isoformat()
             result=engine.evaluate(data,'revenue_sprint',now=NOW)
-            self.assertTrue(result['failures'])
-            self.assertTrue(all(c['decision_type']!='floor_fallback' for c in result['candidates']))
-            self.assertTrue(all(not c['steps'] for c in result['candidates']))
+            self.assertEqual(result['status'],'READY')
+            self.assertFalse(result['failures'])
+            self.assertTrue(result['selected']['financial_proof']['pass_all'])
+            for market in result['selected']['market_comparison'].values():
+                self.assertTrue(all(a['source']=='Lootbar' for a in market['anchors'].values()))
+                self.assertTrue(all(q['source']!='ItemD2R' for q in market['quotes']))
 
     def test_T17_uk_real_factor_remains_in_financial_bound_until_exit(self):
         data=source(cost='.56')
@@ -284,14 +287,15 @@ class Dual20Sprint(unittest.TestCase):
         self.assertNotIn('gift_equivalence_assumed',quote)
         self.assertEqual(data['reference_market']['offers'][0]['bonus_k'],'0')
 
-    def test_stale_saudi_quote_follows_global_but_missing_global_quote_still_blocks(self):
+    def test_stale_saudi_quote_follows_global_with_single_global_source(self):
         data=source();data['arab_ut_quotes']=[dict(platform='PS',region_id=21,price_usd='8',purchase_k='100',bonus_k='0',captured_at=(NOW-timedelta(minutes=16)).isoformat(),delivery='normal',selection_verified=True,currency='USD')]
         local=engine.competition(data,['PS'],NOW,region=21,base_total='9')
         self.assertEqual(local['decision_type'],'regional_follow_global')
         self.assertEqual(local['legal_coefficients'],['1'])
         data['reference_market']['offers']=[]
-        with self.assertRaisesRegex(ValueError,'pricing_required_market_missing:ItemD2R:PS'):
-            engine.competition(data,['PS'],NOW,region=21,base_total='9')
+        local=engine.competition(data,['PS'],NOW,region=21,base_total='9')
+        self.assertEqual(local['legal_coefficients'],['1'])
+        self.assertEqual(local['anchors']['PS']['source'],'Lootbar')
 
     def test_price_basis_uses_original_catalog_gift_pool_and_actual_history(self):
         data=source(bonus='5')

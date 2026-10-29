@@ -48,7 +48,7 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
     """Validate the last real owned snapshot per plan, within that plan's sampling interval."""
     from .financial import number,instant,required_history_ratio,fingerprint
     from .selective_sources import input_ratio as envelope_ratio
-    from .engine import market_quote
+    from .engine import current_market_quotes
     if not plans:return dict(status='not_required_without_active_plan',plans=[],issues=[])
     checks=[];issues=[]
     for plan in plans:
@@ -56,7 +56,7 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
                   not row.get('authorization_purpose') and (plan is None or row.get('result',{}).get('decision_receipt',{}).get('plan_id')==plan['plan_id'])]
         snapshot=max(relevant,key=lambda row:row.get('created_at',''),default=None)
         scope=(plan or {}).get('plan_id','current_collection')
-        failures=[]
+        failures=[];competitive_sources={}
         if not snapshot:failures.append('snapshot_missing')
         else:
             evidence=snapshot.get('evidence') or {};receipt=snapshot.get('result',{}).get('decision_receipt',{})
@@ -82,12 +82,17 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
                     if not str(cost.get('record_id','')).isdigit():failures.append('cost_identity_missing:'+platform)
                     if abs((as_of-instant(cost['checked_at'])).total_seconds())>3600:failures.append('cost_stale:'+platform)
                     if abs((as_of-instant(own['checked_at'])).total_seconds())>3600:failures.append('public_stale:'+platform)
-                    quote=evidence['offers'][platform]['Lootbar'];number(quote['usd_price'])
-                    if quote.get('comparable') is False or quote.get('conditional') or abs((as_of-instant(quote['checked_at'])).total_seconds())>900:
-                        failures.append('lootbar_not_current_comparable:'+platform)
-                    if mode=='revenue_sprint':
-                        try:market_quote(evidence,platform,'ItemD2R',as_of)
-                        except ValueError as exc:failures.append(str(exc)+':'+platform)
+                    quotes,missing=current_market_quotes(evidence,[platform],as_of)
+                    available=[quote['source'] for quote in quotes]
+                    daily_pricing=receipt.get('daily_pricing',{}).get('pc' if platform=='PC' else 'console',{})
+                    competitive_sources[platform]=dict(available=available,missing=missing,margin_floor_only=not available,
+                        price_driver_source=daily_pricing.get('driver_source'),price_driver_platform=daily_pricing.get('driver_platform'),
+                        item_target_met=daily_pricing.get('item_target_met'),
+                        item_target_unmet_reason=daily_pricing.get('unmet_reason'),
+                        reference_difference_pct=daily_pricing.get('platforms',{}).get(platform,{}).get('difference_pct'),
+                        average_margin_target_pct='30' if mode=='daily' and not available else '20')
+                    if mode=='daily' and not available and (receipt.get('daily_reference') or {}).get(platform,{}).get('average_margin_target_pct')!='30':
+                        failures.append('daily_missing_market_average_30_unverified:'+platform)
                 required_history_ratio(evidence,as_of);envelope_ratio(evidence['promotion_envelope'],as_of)
                 proof=receipt.get('financial_proof') or {}
                 infeasible=(snapshot.get('result',{}).get('status')=='INFEASIBLE' and receipt.get('status')=='INFEASIBLE' and receipt.get('execution_authorized') is False)
@@ -95,7 +100,7 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
                 if snapshot.get('snapshot_id')!=evidence.get('run_id') or receipt.get('snapshot_id')!=evidence.get('run_id'):
                     failures.append('snapshot_identity_mismatch')
             except (ValueError,KeyError,TypeError,StopIteration):failures.append('source_fields_unverified')
-        checks.append(dict(plan_id=scope,snapshot_id=(snapshot or {}).get('snapshot_id'),failures=failures))
+        checks.append(dict(plan_id=scope,snapshot_id=(snapshot or {}).get('snapshot_id'),failures=failures,competitive_sources=competitive_sources))
         issues += [dict(level='critical',code='coin_v3_'+failure+':'+scope) for failure in failures]
     return dict(status='verified' if not issues else 'unverified',plans=checks,issues=issues)
 
