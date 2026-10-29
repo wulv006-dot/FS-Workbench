@@ -451,18 +451,23 @@ def pricing_policy(cfg, game=None):
                            _mlim * 100, _mlim * 100, 1.0 - _mlim,
                            _capu * 100, _capu * 100, 1.0 - _capu, _mlim * 100, _capu * 100))}
     if mode == "dd373_only":
-        # 2026-10-06 老板定案：**只跟 DD373 进货成本**，利润率 7%；
-        #   无有效报价 / 可买量不足 1.5 亿 ⇒ 统一挂「无货兜底售价」（默认 $19.9/M）。
+        # 2026-10-06 老板定案：**只跟 DD373 进货成本**；
+        # 2026-10-29 老板定案：利润率带 25%~32%，**默认按最高 32%**，25% 兜底。
+        #   无有效报价 / 可买量不足 2 亿 ⇒ 统一挂「无货兜底售价」；条数不足同样挂兜底价。
         #   G2G最低价 / ELD最低价 / IGGM **仅采集展示，不参与定价**。
         try:
-            mk = float(p.get("利润率", 0.07))
+            mk = float(p.get("利润率", 0.32))
         except (TypeError, ValueError):
-            mk = 0.07
+            mk = 0.32
         if mk < 0:
             mk = 0.0
+        try:
+            _mlim2 = float(p.get("利润率下限", 0.25))
+        except (TypeError, ValueError):
+            _mlim2 = 0.25
         _park = _f(p.get("无货兜底售价_USD每M"))
         if _park is None or _park <= 0:
-            _park = 19.9
+            _park = 12.99
         _need = _f(p.get("无货最小可买万基纳"))
         if _need is None or _need < 0:
             _need = 10000.0
@@ -475,13 +480,16 @@ def pricing_policy(cfg, game=None):
         # 2026-10-09：套一层「时段加价」覆盖（北京时间 02:00-09:00 提到 0.35）
         return _time_markup(p, g, {
                 "模式": mode, "利润率": mk, "成本源": "DD373",
+                "利润率下限": _mlim2,
                 "无货兜底售价_USD每M": _park, "无货最小可买万基纳": _need,
                 "条数不足售价_USD每M": _shortp, "条数下限": _minq,
-                "口径": ("目标售价 $/M = DD373 该区进货成本 $/M ÷ (1−%.1f%%)；"
-                        "DD373 无有效报价 或 可买量 < %.0f 万基纳（不足 %s）"
+                "口径": ("目标售价 $/M = DD373 该区进货成本 $/M ÷ (1−%.0f%%)"
+                        "（利润率带 %.0f%%~%.0f%%，默认取最高，低于 %.0f%% 由兜底闸抬回）；"
+                        "DD373 无有效报价 / 可买量 < %.0f 万基纳（不足 %s）/ 挂单不足 %.0f 条"
                         "⇒ 统一挂 $%.2f/M（等有货自动跟回）。"
                         "G2G最低价/ELD最低价/IGGM 仅采集展示，不参与定价。"
-                        % (mk * 100, _need, need_yi_txt(_need), _park))})
+                        % (mk * 100, _mlim2 * 100, mk * 100, _mlim2 * 100,
+                           _need, need_yi_txt(_need), _minq, _park))})
     if mode == "iggm_undercut":
         # ── 2026-10-08 老板定案（MapleStory Classic World · 冒险岛怀旧服国际服）──────
         # 用户原话：
@@ -1176,7 +1184,7 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
         if not _costs:
             log("  [金币/定价] ⚠ 本轮没有注入 DD373 成本（dd373_costs 为空）"
                 "⇒ 全部 AION2 服务区按「无货兜底 $%.2f/M」出价（不会退回 G2G/IGGM）"
-                % float(_pol_a.get("无货兜底售价_USD每M") or 19.9))
+                % float(_pol_a.get("无货兜底售价_USD每M") or 12.99))
         else:
             _nok = sum(1 for v in _costs.values() if (v or {}).get("ok"))
             _nn = sum(1 for v in _costs.values()
@@ -1411,9 +1419,12 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
         elif _row_mode == "dd373_only":
             _mode_used = "dd373_only"
             rec["定价模式"] = "dd373_only"
+            # 2026-10-29 老板定案：利润率带 25%~32%，**默认按最高 32%** 出价
+            # （售价 = 成本 ÷ 0.68），出现其他情况时以 25%（成本 ÷ 0.75）兜底
+            # —— 兜底闸在本分支末尾单独实现（见「利润率下限兜底 · dd373_only」）。
             _mk = _row_pol.get("利润率")
             if _mk is None:
-                _mk = 0.07
+                _mk = 0.32
             rec["利润率"] = _mk
             _park = _f(_row_pol.get("无货兜底售价_USD每M"))
             if _park is None or _park <= 0:
@@ -2025,6 +2036,47 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     # 把标记并进「基准来源」（与利润下限同一做法，不改表结构）。
                     rec["基准来源"] = "%s｜利润率上限%.0f%%" % (
                         rec.get("基准来源") or "-", _capu * 100)
+        # ── 2026-10-29 利润率下限兜底（老板定案 · 仅 AION2 · dd373_only）──────
+        # 老板原话：「利润调整为 25-32%，默认最高，出现其他情况，则以 25% 为兜底」。
+        # 口径与看板「利润率」列同一支：(售价−成本)÷售价。
+        #   · 正常出价 = 成本 ÷ (1 − 0.32) = 成本 ÷ 0.68  ← 带内最高（默认）
+        #   · 下限兜底 = 成本 ÷ (1 − 0.25) = 成本 ÷ 0.75  ← 出现其他情况不得低于此
+        # 「其他情况」= 任何把目标价继续往下拉的机制（单轮跌停限幅、同族联动、
+        #   后续新增的竞品压价等）。dd373_only 自己恒出 32%，本闸平时不触发，
+        #   只在被别的路径压下来时才把价抬回 25% 利润 —— 是兜底，不是常规定价。
+        # ⚠ 保护档（无货兜底 / 条数不足 / 薄区挂单价）是**硬定价**，不吃本闸：
+        #   它们的价位只由那几个配置值决定（与 2026-10-22 薄区口径一致）。
+        if (tgt_m and gm == "AION2" and _mode_used == "dd373_only"
+                and rec.get("定价来源级别") == 1
+                and not rec.get("薄区挂单价_USD每M")
+                and rec.get("基准来源") not in ("无货兜底", "薄区挂单价", "条数不足价")):
+            _cost6 = _costs.get(sv.get("key")) or {}
+            _cu6 = _f(_cost6.get("usd_per_m"))
+            _lim6 = _row_pol.get("利润率下限")
+            if _lim6 is None:
+                _lim6 = 0.25
+            try:
+                _lim6 = float(_lim6)
+            except (TypeError, ValueError):
+                _lim6 = 0.25
+            if _cu6 and _cu6 > 0 and 0 < _lim6 < 0.99:
+                _mg6 = (float(tgt_m) - _cu6) / float(tgt_m)
+                rec["利润率_兜底前"] = round(_mg6, 6)
+                rec["利润率下限"] = _lim6
+                if _mg6 < _lim6 - 1e-9:
+                    _floor6 = _cu6 / (1.0 - _lim6)
+                    _pre6 = float(tgt_m)
+                    tgt_m = _floor6
+                    rec["目标前端每M"] = tgt_m
+                    rec["利润率下限前目标价"] = _pre6
+                    rec["利润率下限触发"] = (
+                        "按 $%.4f/M 卖利润率 %.2f%% 低于下限 %.0f%% ⇒ 抬到 $%.4f/M"
+                        "（= 成本 $%.4f ÷ %.2f）"
+                        % (_pre6, _mg6 * 100, _lim6 * 100, _floor6, _cu6, 1.0 - _lim6))
+                    rec["目标前端每M_口径"] = (rec.get("目标前端每M_口径") or "") + \
+                        "；随后被利润率下限 %.0f%% 兜底 → $%.4f/M" % (_lim6 * 100, _floor6)
+                    rec["基准来源"] = "%s｜利润下限%.0f%%" % (
+                        rec.get("基准来源") or "-", _lim6 * 100)
         # ── 2026-10-08 利润率下限兜底（老板定案 · MSCW iggm_undercut 专用）─────────
         # 口径：利润率 = (售价 − 成本) ÷ 售价（同 AION2，**可为负**）。
         #   下限是**正数 +15%**：P(1−lim) ≥ C ⇒ 目标价 ≥ 成本 ÷ (1−lim) = 成本 ÷ 0.85。
