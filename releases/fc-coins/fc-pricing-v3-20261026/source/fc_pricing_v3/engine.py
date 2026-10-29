@@ -261,6 +261,7 @@ def daily_item_target(evidence,platforms,references,floor):
         positions[p]=dict(reference_source=ref['source'],reference_unit_100k=ref['unit_100k'],
             actual_public_usd=shown['regular_usd'],delivered_k=shown['delivered_k'],actual_unit_100k=shown['delivered_unit_100k'],
             difference_pct=str((number(shown['delivered_unit_100k'])/number(ref['unit_100k'])-1)*100) if ref['unit_100k'] is not None else None)
+    target_met=number(positions[driver]['actual_public_usd'])==public
     return dict(basis='itemd2r_actual_delivery_target',driver_platform=driver,driver_source='ItemD2R',
         driver_unit_100k=str(unit),driver_captured_at=references[driver]['captured_at'],
         exact_target_public_usd=str(exact_public),target_public_usd=str(public),public_target_rounding='half_up_cent',
@@ -268,9 +269,9 @@ def daily_item_target(evidence,platforms,references,floor):
         target_base_total=str(target),target_base_high=str(high),target_public_cent_reachable=target<=high,
         minimum_legal_base_total=str(floor),selected_base_total=str(chosen),
         previous_target_base_cent=str(target-CENT),previous_target_public_usd=str(previous),
-        financial_floor_applied=chosen>target,item_target_met=number(positions[driver]['actual_public_usd'])==public,
+        financial_floor_applied=chosen>target,item_target_met=target_met,
         actual_minus_target_public_usd=str(number(positions[driver]['actual_public_usd'])-public),
-        unmet_reason='financial_floor' if chosen>target else 'public_cent_not_reachable' if target>high else None,
+        unmet_reason=None if target_met else 'financial_floor' if chosen>target else 'public_cent_not_reachable' if target>high else None,
         platforms=positions)
 
 

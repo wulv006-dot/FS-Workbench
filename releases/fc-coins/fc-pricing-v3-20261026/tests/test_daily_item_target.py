@@ -12,6 +12,16 @@ from fc_pricing_v3.ledger import Ledger
 
 
 class DailyItemTarget(unittest.TestCase):
+    def test_financial_floor_within_same_public_cent_does_not_mark_target_unmet(self):
+        data=source(cost='.10',bonus='5',item='8.14');missing(data,'Lootbar')
+        tier=dict(base_k='100',bonus_k='5',retained_ratio='.5')
+        with patch.object(engine,'package_100k',return_value=tier):
+            target=engine.daily_item_target(data,['PC'],engine.daily_reference(data,engine.PLATFORMS,NOW),Decimal('17.10'))
+        self.assertEqual(target['target_base_total'],'17.09')
+        self.assertTrue(target['financial_floor_applied'])
+        self.assertTrue(target['item_target_met'])
+        self.assertIsNone(target['unmet_reason'])
+
     def test_unreachable_cent_inverse_cannot_claim_target_or_financial_floor(self):
         # A coarse inverse counterexample exercises the presentation guard. The
         # real financial contract separately rejects this multiplier above 1.
