@@ -3,9 +3,8 @@ from pathlib import Path
 
 TARGET_COUNT = 99
 
-DELTA_SCOPE='fc-pricing-v3-ps-latest-six-cost-20261029'
-DELTA_NAMES=('source/collect_p2pah_cost.py','source/snapshot_layer.py','source/pricing_simulation.py',
-             'source/fc_pricing_v3/financial.py','source/hermes-copy/fc_pricing_v3/financial.py')
+DELTA_SCOPE='fc-pricing-v3-top-actions-20261029'
+DELTA_NAMES=('source/fc27-coins.html','source/fc-pricing-v3.js')
 DELTA_NEW=frozenset()
 SHADOW_SCOPE = 'fc-pricing-v3-sqlite-shadow-20261026'
 SHADOW_NAMES = tuple(prefix + 'fc_pricing_v3/' + name for prefix in ('source/', 'source/hermes-copy/')

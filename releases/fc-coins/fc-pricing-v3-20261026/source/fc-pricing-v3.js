@@ -38,6 +38,10 @@
   function requestKey(kind){const name='fc-v3-'+kind;let key=sessionStorage.getItem(name);if(!key){key=crypto.randomUUID();sessionStorage.setItem(name,key);}return key;}
   function clearKey(kind){sessionStorage.removeItem('fc-v3-'+kind);}
   function chosenPlan(){return (current?.plans||[]).find(p=>p.plan_id===selectedPlanId)||current?.plan;}
+  function executeControls(){
+    const disabled=acting||!canWrite||chosenPlan()?.state!=='ACTIVE';
+    for(const id of ['v3-execute-now','v3-execute'])$(id).disabled=disabled;
+  }
   function formParameters(){
     const mode=$('v3-mode').value;
     const allocation=Object.fromEntries(['control','exploit','explore'].map(k=>[k,$('v3-alloc-'+k).value]));
@@ -82,7 +86,7 @@
     const response=await fetch(base+'/'+path,{credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(20000),
       ...(body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})});
     const result=await response.json();
-    if(!response.ok)throw Error(result.error||`请求失败 ${response.status}`);
+    if(!response.ok){const error=Error(result.error||`请求失败 ${response.status}`);error.httpStatus=response.status;throw error;}
     return result;
   }
   async function cloud(path,body){
@@ -231,7 +235,7 @@
     $('v3-plan-stop').disabled=!canWrite||!plan||['ENDED','ENDING'].includes(plan.state);
     $('v3-plan-pause').disabled=!canWrite||!plan||!['ACTIVE','SUSPENDED'].includes(plan.state);
     $('v3-plan-pause').textContent=plan?.state==='SUSPENDED'?'恢复当前计划':'暂停新写入';
-    $('v3-execute').disabled=!canWrite||!plan||plan.state!=='ACTIVE';
+    executeControls();
     $('v3-manual-execute').disabled=!canWrite||!manualPreview||!plan||plan.plan_id!==manualPreview.plan_id||Date.now()>=Date.parse(manualPreview.valid_until);
     $('v3-history-read').disabled=!$('v3-history-id').value.trim();
     $('v3-error').hidden=!$('v3-error').textContent;
@@ -251,10 +255,10 @@
     finally{loading=false;$('v3-refresh').disabled=false;$('v3-refresh').textContent='更新统一状态';$('v3-panel').removeAttribute('aria-busy');}
   }
   async function action(fn){
-    if(acting)return;acting=true;$('v3-panel').setAttribute('aria-busy','true');$('v3-result').textContent='请求处理中，请等待原请求回执。';
+    if(acting)return;acting=true;executeControls();$('collect').disabled=true;$('v3-panel').setAttribute('aria-busy','true');$('v3-result').textContent='请求处理中，请等待原请求回执。';
     try{await fn();if($('v3-result').textContent==='请求处理中，请等待原请求回执。')$('v3-result').textContent='请求已登记；实际状态以后台、缓存与公开读回为准。';await refresh();}
-    catch(error){$('v3-error').textContent=`未完成：${errorText(error)}`;$('v3-error').hidden=false;$('v3-error').focus();}
-    finally{acting=false;$('collect').disabled=!canWrite||!!collectPending;$('v3-panel').removeAttribute('aria-busy');}
+    catch(error){if($('v3-result').textContent==='请求处理中，请等待原请求回执。')$('v3-result').textContent='请求未完成；请核对下方原因和原请求回执。';$('v3-error').textContent=`未完成：${errorText(error)}`;$('v3-error').hidden=false;$('v3-error').focus();}
+    finally{acting=false;executeControls();$('collect').disabled=!canWrite||!!collectPending;$('v3-panel').removeAttribute('aria-busy');}
   }
   $('v3-mode').addEventListener('change',()=>{saveModeDraft();displayedMode=$('v3-mode').value;setMode(displayedMode);});setMode(displayedMode);
   $('v3-plan-select').addEventListener('change',()=>{selectedPlanId=$('v3-plan-select').value;manualPreview=null;render(current);renderOverview(current,lastAutomation,lastMonitor);});
@@ -284,7 +288,26 @@
   });
   $('v3-plan-stop').addEventListener('click',()=>action(()=>request(`plans/${chosenPlan().plan_id}/stop`,{})));
   $('v3-plan-pause').addEventListener('click',()=>action(()=>request(`plans/${chosenPlan().plan_id}/${chosenPlan().state==='SUSPENDED'?'resume':'pause'}`,{})));
-  $('v3-execute').addEventListener('click',()=>action(()=>request('execute',{request_key:'cycle-'+current.snapshot_id+'-'+chosenPlan().plan_id,plan_id:chosenPlan().plan_id})));
+  function executeCurrentPlan(){
+    return action(async()=>{
+      const plan=chosenPlan();
+      if(!canWrite||!plan||plan.state!=='ACTIVE')throw Error('当前没有可执行的活动计划或操作权限');
+      const kind='execute-'+plan.plan_id,key=requestKey(kind);
+      try{
+        const result=await request('execute',{request_key:key,plan_id:plan.plan_id});
+        if(!result.job_key)throw Error('改价任务回执缺少编号，请按原请求核对');
+        clearKey(kind);
+        $('v3-result').textContent=`改价任务已登记，编号 ${result.job_key}（${statusText(result.status)}）。按当前计划重新采集、核算并按规则改价；实际结果以执行状态和读回为准。`;
+      }catch(error){
+        if(error.httpStatus>=400&&error.httpStatus<500&&error.httpStatus!==408&&error.message!=='pricing_execute_payload_conflict'){
+          clearKey(kind);
+          $('v3-result').textContent=`本次改价请求被拒绝：${errorText(error)}。未登记新任务，修正后可重新执行。`;
+        }else $('v3-result').textContent=`改价请求 ${key} 尚未确认；请先更新统一状态核对。再次点击将沿用该请求编号，不重复登记。`;
+        throw error;
+      }
+    });
+  }
+  for(const id of ['v3-execute-now','v3-execute'])$(id).addEventListener('click',executeCurrentPlan);
   $('v3-preview').addEventListener('click',()=>action(async()=>{
     const result=await request('preview',{mode:$('v3-mode').value});
     $('v3-preview-output').textContent=Object.entries(result.results).map(([m,r])=>`${names[m]}：${statusText(r.status)}；${r.selected?`Console ${usd(r.selected.action.base_prices.console)} / PC ${usd(r.selected.action.base_prices.pc)}`:`当前不可执行 ${[...new Set((r.failures||[]).map(f=>statusText(f.code)))].join('；')}`}`).join('\n');
