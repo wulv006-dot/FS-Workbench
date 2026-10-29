@@ -113,7 +113,7 @@
   }
   function renderDecision(state){
     const mode=$('v3-mode').value,r=state.strategies?.[mode],cards=$('v3-strategies');cards.replaceChildren();
-    const card=node('article');card.className='panel';card.append(node('h3',names[mode]),node('p',r?.status?statusText(r.status):'尚无本轮同策略决策'));
+    const card=node('article');card.className='panel';card.append(node('h3',names[mode]),node('p',r?.selected?.decision_type==='floor_fallback'?'双20可写，未达到竞争目标':r?.status?statusText(r.status):'尚无本轮同策略决策'));
     if(r?.selected){const s=r.selected;card.append(node('p',`候选 100K：Console ${usd(s.action?.base_prices?.console)} · PC ${usd(s.action?.base_prices?.pc)}`),node('p',s.score?.absolute_forecast_available?`同轮预测收入 ${usd(s.score.revenue)} · 采购贡献 ${usd(s.score.contribution)}`:'只有相对需求情景；绝对收入与新客效果待真实基线核证'));
       if(s.decision_type==='floor_fallback')card.append(node('p','财务底价兜底：竞争区间与双 20% 红线无交集；执行最低可写合法底价，不能视为已达到竞争降幅。'));
       for(const [scope,platforms] of Object.entries(s.market_position||{}))for(const [platform,position] of Object.entries(platforms)){
