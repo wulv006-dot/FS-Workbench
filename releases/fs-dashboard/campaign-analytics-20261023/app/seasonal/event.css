@@ -1042,3 +1042,5 @@ dialog{background:#241632;color:var(--ink);border:1px solid #a779cb80;border-rad
   .offer-badge { top: 4px; right: 4px; width: 46px; height: 46px; }
   .game-logo { top: 20%; left: 5%; width: 55%; }
 }
+
+.analytics-choice{padding:20px 4%;background:#101c31;color:#fff}.analytics-choice button,.analytics-settings{font:inherit;border:1px solid #73628a;border-radius:6px;padding:8px 12px;margin:6px;background:#241b35;color:#fff;cursor:pointer}.analytics-choice[hidden]{display:none}.analytics-settings{font-size:12px}#seasonal-analytics-test{margin:0;padding:12px;background:#fff3cd;color:#382b00;text-align:center}

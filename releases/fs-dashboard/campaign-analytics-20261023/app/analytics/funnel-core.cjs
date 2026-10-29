@@ -12,6 +12,7 @@
       if(filter.match&&filter.match!=='all'&&p.match_id!==filter.match)continue;
       if((filter.template==='prediction'||filter.template==='reward')&&!p.match_id)continue;
       const key=p.activity_id+':'+journey+':'+(filter.template==='prediction'||filter.template==='reward'?(p.match_id||'missing'): '');if(!groups.has(key))groups.set(key,[]);groups.get(key).push({...e,t});}
+    const seasonalOffers=new Map();
     const counts=steps.map(()=>0),products=new Map(),sources=new Map(),daily=new Map(),visitors=new Set(),clickers=new Set();let active=0,revenue=0,orders=new Set(),reviews=0,sbcSelections=0,visits=0;
     for(const rows of groups.values()){
       rows.sort((a,b)=>a.t-b.t);const first=rows.find(r=>r.event===steps[0]);if(!first)continue;const p=first.properties,date=first.timestamp.slice(0,10);
@@ -30,6 +31,17 @@
       if(windowRows.some(r=>r.event==='activity_selection'&&r.properties.include_sbc))sbcSelections++;
       const exposed=new Set(),clicked=new Set();
       for(const r of windowRows){const q=r.properties;
+        if(q.activity_id==='mmoexp-seasonal'&&/^\d{1,20}$/.test(q.game_id||'')&&/^\d{1,20}$/.test(q.model_id||'')&&[8,10,15].includes(Number(q.off_percent))&&['fixed','random-1','random-2'].includes(q.slot)){
+          const key=JSON.stringify([q.release_id,q.game_id,q.model_id,Number(q.off_percent),q.slot]);
+          const item=seasonalOffers.get(key)||{releaseId:q.release_id,gameId:q.game_id,modelId:q.model_id,offPercent:Number(q.off_percent),slot:q.slot,codes:new Set(),exposed:new Set(),reveals:new Set(),selected:new Set(),cartConfirmations:0};
+          if(typeof q.discount_code==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(q.discount_code))item.codes.add(q.discount_code);
+          if(r.event==='activity_product_view')item.exposed.add(p.activity_visit_id);
+          if(r.event==='activity_selection'&&q.action==='offer_reveal')item.reveals.add(p.activity_visit_id);
+          if(r.event==='activity_selection'&&q.action==='product_select')item.selected.add(p.activity_visit_id);
+          if(r.event==='activity_add_to_cart'&&q.complete===true)item.cartConfirmations++;
+          seasonalOffers.set(key,item);
+        }
+
         if(r.event==='activity_engaged')active+=Math.min(3600,Math.max(0,Number(q.active_seconds)||0));
         if(r.event==='activity_click')clickers.add(visitor);
         if(r.event==='activity_product_view'&&q.product_id)exposed.add(String(q.product_id));
@@ -41,6 +53,7 @@
     }
     return {template:filter.template||'commerce',windowHours,visits,visitors:visitors.size,clickers:clickers.size,activeSeconds:visits?Math.round(active/visits):null,revenueMinor:revenue,orders:orders.size,reviews,sbcSelections,
       steps:steps.map((event,i)=>({event,label:labels[i],count:counts[i],rate:i&&counts[i-1]?counts[i]/counts[i-1]:i===0&&counts[0]?1:null})),
+      seasonalOffers:[...seasonalOffers.values()].map(x=>({releaseId:x.releaseId,gameId:x.gameId,modelId:x.modelId,offPercent:x.offPercent,slot:x.slot,discountCodes:[...x.codes].sort(),exposedVisits:x.exposed.size,revealedVisits:x.reveals.size,selectedVisits:x.selected.size,cartConfirmations:x.cartConfirmations})),
       products:[...products.values()].sort((a,b)=>b.exposures-a.exposures),sources:[...sources.values()],daily:[...daily.values()].sort((a,b)=>a.date.localeCompare(b.date))};
   }
   function validateRegistry(items){

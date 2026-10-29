@@ -141,7 +141,9 @@
     const english=(value,fallback)=>typeof value==='string'&&value.trim()&&!/\p{Script=Han}/u.test(value)?value:fallback;
     const CART_NOTE='The main store confirms the final price and applies the discount code before payment. Coupons and points cannot be combined with this code.';
     const fields=document.createElement('div'),price=message('Choose all required options to see the current reference price.'),status=message(CART_NOTE);
-    let nativeReview=null,buying=false;
+    let nativeReview=null,buying=false,lastTrackedSelection=null;
+    const trackingFields=plan=>({game_id:String(detail.game_id),model_id:String(detail.model_id),slot:detail.slot,off_percent:detail.off_percent,product_id:String(plan.items[0].native_payload.id),server_id:String(plan.items[0].native_payload.aid||''),discount_code:plan.options.code,quantity_value:selection.line().quantity.value,quantity_unit:selection.line().quantity.unit});
+    const track=(action,plan)=>{try{window.FCActivityAnalytics?.offer(action,trackingFields(plan));}catch{/* Never alter the checkout outcome for analytics. */}};
     const nativeSelection=()=>({activity_id:'mmoexp-seasonal',page_id:'seasonal-vault',game_id:String(detail.game_id),model_id:String(detail.model_id),slot:detail.slot,off_percent:detail.off_percent,...(detail.quantity?{quantity:detail.quantity}:{}),...(detail.reveal_request_id?{reveal_request_id:detail.reveal_request_id}:{}),lines:[selection.line()]});
     const buy=document.createElement('button');buy.type='button';buy.disabled=true;buy.textContent='Checkout unavailable';
     host.append(fields,price,status,buy);
@@ -176,7 +178,7 @@
       let blocked=null;
       try{nativeReview=window.CampaignNativeCodeHandoff.publishedPlan(client.config,nativeSelection(),{origin:window.location.origin});}
       catch(error){blocked=error?.code||error?.message||null;}
-      if(nativeReview&&!buying){buy.disabled=false;buy.textContent='Go to cart';status.textContent=CART_NOTE;}
+      if(nativeReview&&!buying){buy.disabled=false;buy.textContent='Go to cart';status.textContent=CART_NOTE;if(lastTrackedSelection!==nativeReview.signature){lastTrackedSelection=nativeReview.signature;track('options_ready',nativeReview);}}
       else if(nativeReview&&buying)buy.textContent='Preparing your cart…';
       else{buy.textContent=blocked==='HANDOFF_ORIGIN_UNVERIFIED'||window.location.origin!==LIVE_ORIGIN?'Open on mmoexp.com to check out':selection.ready()?'Checkout unavailable':'Select all options to continue';status.textContent=blockedReason(blocked);}
       try{const value=window.SeasonalModelSelection.selectedPrice(contract,selection,detail.off_percent),format=n=>new Intl.NumberFormat('en',{style:'currency',currency:value.currency}).format(n/10**value.minor_unit_scale);
@@ -190,7 +192,8 @@
       try{const before=nativeReview.signature;await client.load();publishTheme(client.config);const approved=window.CampaignNativeCodeHandoff.publishedPlan(client.config,nativeSelection(),{origin:window.location.origin});
         if(before!==approved.signature)throw Object.assign(Error('Published selection changed. Reopen this offer before continuing.'),{code:'NATIVE_SCOPE_CHANGED'});
         const selected=nativeSelection(),host=window.FCActivityHost.createNative(client.config,selected);
-        const result=await window.CampaignNativeCodeHandoff.checkoutPublished({snapshot:client.config,selection:selected,storage:window.sessionStorage,host,origin:window.location.origin,navigate:url=>window.location.assign(url)});
+        const result=await window.CampaignNativeCodeHandoff.checkoutPublished({snapshot:client.config,selection:selected,storage:window.sessionStorage,host,origin:window.location.origin,onCartConfirmed:({code,items})=>track('cart_confirmed',{options:{code},items}),navigate:url=>window.location.assign(url)});
+        if(result.state!=='navigation_attempted_not_applied')track('cart_unconfirmed',approved);
         status.textContent=result.state==='navigation_attempted_not_applied'?'Native cart navigation attempted. Apply and final totals remain unconfirmed here.':'Original native operation requires inspection. Do not submit again; inspect the original cart.';
       }catch(error){status.textContent=(error.code||error.message||'Native handoff unavailable')+'. No successful checkout is confirmed.';}
     });

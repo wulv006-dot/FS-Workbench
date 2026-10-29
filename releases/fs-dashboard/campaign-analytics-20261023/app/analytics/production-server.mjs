@@ -45,7 +45,7 @@ publicNames.add('analytics/operations.html');publicNames.add('analytics/operatio
 const previews=new Map();let previewFiles=null;
 function filesForPreview(){
  if(previewFiles)return previewFiles;
- const names=['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','catalog.js','activity.js','activity-core.js','activity-content.js','activity.css','host-adapter.js','native-code-handoff.js','standalone-adapter.js','analytics-config.js','activity-analytics.js','seasonal/index.html','seasonal/event.js','seasonal/event.css','seasonal/model-selection.js','seasonal/runtime-bridge.js','seasonal/campaign-data.js'];
+ const names=['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','catalog.js','activity.js','activity-core.js','activity-content.js','activity.css','host-adapter.js','native-code-handoff.js','standalone-adapter.js','analytics-config.js','activity-analytics.js','seasonal/index.html','seasonal/event.js','seasonal/event.css','seasonal/activity-analytics.js','seasonal/analytics-config.js','seasonal/model-selection.js','seasonal/runtime-bridge.js','seasonal/campaign-data.js'];
  for(const folder of ['assets','seasonal/assets'])for(const name of fs.readdirSync(path.join(base,folder)))if(/\.(png|webp|svg|jpg|jpeg|woff2)$/.test(name))names.push(folder+'/'+name);
  previewFiles=loadStatic(base,Object.fromEntries(names.map(name=>[name,digest(fs.readFileSync(path.join(base,name)))])));return previewFiles;
 }
