@@ -178,7 +178,14 @@ class Knowledge(unittest.TestCase):
         self.assertTrue(source.endswith('\n') and not source.endswith('\n\n'))
         hook = "            if 'selection' in knowledge:\n                from conversation_service import attach_current_learning\n                attach_current_learning(book,self.root,knowledge)\n"
         self.assertEqual(source.count(hook), 1)
-        original = source.replace(new, old).replace(hook, '') + '\n'
+        def admission(text):
+            node=next(n for n in ast.parse(text).body if isinstance(n,ast.FunctionDef) and n.name=='admission_guard')
+            return ast.get_source_segment(text,node)
+        baseline=(ROOT/'releases/fs-dashboard/fc-coins-workflow-20261022/source/controller.py').read_text(encoding='utf8')
+        self.assertEqual(hashlib.sha256(admission(baseline).encode()).hexdigest(),'d2fc23f25e82ede5eb6fe8f4ad32f58d1414304b4ec743d05f17c7392df61f84')
+        # Exclude only the independently tested admission delta; keep the original whole-file pin.
+        restored=source.replace(admission(source),admission(baseline)).replace('from contextlib import contextmanager, ExitStack','from contextlib import contextmanager')
+        original = restored.replace(new, old).replace(hook, '') + '\n'
         self.assertEqual(hashlib.sha256(original.encode()).hexdigest(), '571f63637933e15ae0bf4bafdd6ff3b78d5f4b2c805afa76097a74df19de35af')
         ast.parse(source, feature_version=(3, 9))
 
