@@ -106,7 +106,7 @@
     const yes=document.createElement('button'),no=document.createElement('button');yes.type=no.type='button';yes.textContent='Allow analytics';no.textContent='No thanks';
     const close=()=>{if(modal&&section.open)section.close();section.hidden=true;},open=()=>{section.hidden=false;if(modal&&!section.open)section.showModal();title.focus?.();};
     const choose=value=>{window.FCActivityAnalytics.setConsent(value);try{localStorage.setItem(consentKey,value?'granted':'denied');}catch{}close();};
-    yes.addEventListener('click',()=>choose(true));no.addEventListener('click',()=>choose(false));section.append(title,label,yes,no);if(modal)section.addEventListener('close',()=>{section.hidden=true;});
+    yes.addEventListener('click',()=>choose(true));no.addEventListener('click',()=>choose(false));section.append(title,label,yes,no);
     const header=document.querySelector('.site-header');if(header?.after)header.after(section);else document.querySelector('.site-footer')?.before(section);
     const settings=document.createElement('button');settings.type='button';settings.className='analytics-settings';settings.textContent='Analytics preferences';settings.addEventListener('click',open);document.querySelector('.site-footer')?.append(settings);
     let saved;try{saved=localStorage.getItem(consentKey);}catch{}

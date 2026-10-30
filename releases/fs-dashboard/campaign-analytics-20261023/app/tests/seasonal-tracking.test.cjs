@@ -8,8 +8,8 @@ for(const entryPath of ['/events/seasonal/','/events/seasonal/index.html'])test(
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'seasonal-tracking-')),server=createPublicServer({assetRoot:root,staticManifest:manifest,snapshotProvider:()=>snapshot,dir,origin:'https://www.mmoexp.com',priceCacheProvider:()=>({schema_version:1,status:'ready',release_id:snapshot.release_id,config_hash:snapshot.config_hash,generated_at:new Date().toISOString(),products:snapshot.products,model_contracts:snapshot.seasonal_model_contracts})});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
  try{
-  browser=await chromium.launch({headless:true});const page=await browser.newPage(),events=[],posts=[],errors=[],nativeCart=[];page.setDefaultTimeout(8000);page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>sessionStorage.setItem('fc-analytics-session','private@example.test'));
-  await page.route('**/*',async route=>{
+  browser=await chromium.launch({headless:true});const context=await browser.newContext(),page=await context.newPage(),events=[],posts=[],errors=[],nativeCart=[];page.setDefaultTimeout(8000);page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>sessionStorage.setItem('fc-analytics-session','private@example.test'));
+  await page.context().route('**/*',async route=>{
    const req=route.request(),url=new URL(req.url());
    if(url.origin==='https://us.i.posthog.com'){
     assert.equal(url.pathname,'/i/v0/e/');assert.equal(req.headers().cookie,undefined);assert.equal(req.headers().referer,undefined);events.push(JSON.parse(req.postData()));return route.fulfill({json:{status:1}});
@@ -25,6 +25,7 @@ for(const entryPath of ['/events/seasonal/','/events/seasonal/index.html'])test(
   assert.equal(await page.locator('.site-header + #seasonal-analytics-choice').count(),1,'Statistics choice is visible at the page entrance, rather than buried after the offers');
   assert.equal(await page.locator('#seasonal-analytics-choice').evaluate(e=>e.tagName==='DIALOG'&&e.open),true,'Unknown choice opens an accessible dialog without sending events');
   assert.equal(await page.getByRole('button',{name:'Allow analytics',exact:true}).getAttribute('class'),await page.getByRole('button',{name:'No thanks',exact:true}).getAttribute('class'),'Choices have equal styling');
+  for(const width of [390,1440]){await page.setViewportSize({width,height:900});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Consent dialog must fit '+width);if(process.env.CAMPAIGN_CONSENT_SCREENSHOT&&entryPath.endsWith('index.html'))await page.screenshot({path:process.env.CAMPAIGN_CONSENT_SCREENSHOT+'-'+width+'.png'});}
   await page.getByRole('button',{name:'No thanks',exact:true}).click();await page.reload();await page.waitForFunction(()=>window.SeasonalPublishedConfig&&window.FCActivityAnalytics);
   assert.equal(await page.locator('#seasonal-analytics-choice').isVisible(),false,'Saved refusal is reused without another prompt');
   await page.locator('[data-game-card="diablo"]').click();assert.equal(events.length,0);
@@ -44,8 +45,9 @@ for(const entryPath of ['/events/seasonal/','/events/seasonal/index.html'])test(
   for(const e of events){assert.equal(e.properties.activity_id,'mmoexp-seasonal');assert.equal(e.properties.page_id,'seasonal-vault');assert.equal(e.properties.test_run_id,run);assert.equal(e.properties.environment,'test');assert.equal(e.properties.release_id,snapshot.release_id);assert.equal(e.properties.config_hash,snapshot.config_hash);assert.equal(e.properties.platform,'unknown');assert.equal(e.properties.language,'en');assert.equal(e.properties.$process_person_profile,false);assert.equal(e.properties.$geoip_disable,true);assert.match(e.distinct_id,/^seasonal-[a-f0-9-]{36}$/);assert(!Object.keys(e.properties).some(k=>/email|password|phone|url|token/i.test(k)));}
   const core=require('../analytics/funnel-core.cjs'),summary=core.summarize(events,{activity:'mmoexp-seasonal'});assert.equal(summary.steps[2].count,1);assert.equal(summary.steps[3].count,0);assert.equal(summary.revenueMinor,0);assert.equal(summary.seasonalOffers.find(o=>o.offPercent===15).cartConfirmations,1);assert.deepEqual(summary.seasonalOffers.find(o=>o.offPercent===15).discountCodes,['SYNTHETIC61-15']);
   await page.goto(url);await page.waitForFunction(()=>window.FCActivityAnalytics?.status().transmitting);assert.equal(await page.locator('#seasonal-analytics-choice').isVisible(),false,'Saved grant is reused without another prompt');
-  await page.evaluate(()=>{const key='mmoexp-event-analytics-consent-v1';localStorage.setItem(key,'denied');window.dispatchEvent(new StorageEvent('storage',{key,newValue:'denied'}));});
-  assert.equal(await page.evaluate(()=>window.FCActivityAnalytics.status().transmitting),false,'A withdrawal in another tab stops this tab');
+  const other=await page.context().newPage();await other.goto(url);await other.waitForFunction(()=>window.FCActivityAnalytics?.status().transmitting);
+  await other.getByRole('button',{name:'Analytics preferences',exact:true}).click();await other.getByRole('button',{name:'No thanks',exact:true}).click();
+  await page.waitForFunction(()=>!window.FCActivityAnalytics.status().transmitting);assert.equal(await page.evaluate(()=>window.FCActivityAnalytics.status().transmitting),false,'A real storage event from another tab stops this tab');await other.close();
   await page.getByRole('button',{name:'Analytics preferences',exact:true}).click();await page.getByRole('button',{name:'No thanks',exact:true}).click();const count=events.length;await page.locator('[data-game-card="aion"]').click();await page.locator('[data-fixed-reveal]').click();await page.waitForTimeout(100);assert.equal(events.length,count,'Revocation stops transmissions');assert.equal(posts.length,1);assert.deepEqual(errors,[]);
  }finally{if(browser)await browser.close();await new Promise(r=>server.close(r));}
 });
