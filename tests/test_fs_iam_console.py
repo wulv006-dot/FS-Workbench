@@ -246,12 +246,100 @@ class ConsoleTest(unittest.TestCase):
             self.assertEqual(200, h.response["code"], path)
             self.assertNotIn("Location", h.response["headers"], path)
 
-    def test_non_admin_gets_deny_page(self):
-        """非管理员拿到 403 说明页，而不是控制台骨架（避免看到一堆空表格）。"""
+    def test_non_admin_can_open_registration_shell_without_admin_api(self):
+        """本人申请页面可读，管理数据仍由独立 API 拒绝。"""
         h = FakeHandler("GET", cookie_user=VIEWER)
         self.call(h, "/iam/")
-        self.assertEqual(403, h.response["code"])
-        self.assertIn(VIEWER, h.response["body"])
+        self.assertEqual(200, h.response["code"])
+        self.assertIn('id="registration-account"', h.response["body"])
+
+    def test_registration_delegates_exact_routes_and_preserves_query(self):
+        seen = []
+        def route(handler, unused):
+            seen.append(handler.path)
+            return handler._send(200, '{}')
+        self.portal._registration_bridge = types.SimpleNamespace(route=route)
+        h = FakeHandler("GET")
+        h.path = "/iam/api/registration/bootstrap"
+        self.call(h, h.path)
+        self.assertEqual(["/access/api/bootstrap"], seen)
+        self.assertEqual("/iam/api/registration/bootstrap", h.path)
+        h = FakeHandler("GET", cookie_user=ADMIN)
+        h.path = "/iam/api/registration/requests?after=50"
+        self.call(h, "/iam/api/registration/requests", {"after": ["50"]})
+        self.assertEqual("/access/api/requests?after=50", seen[-1])
+        for operation in ("requests", "audit", "decision", "revoke"):
+            h = FakeHandler("GET", cookie_user=VIEWER)
+            h.path = "/iam/api/registration/" + operation
+            self.call(h, h.path)
+            self.assertEqual(403, h.response["code"])
+        for operation in ("native-login", "account-password", "member/roles", "register/", "../decision"):
+            h = FakeHandler("POST", cookie_user=ADMIN)
+            h.path = "/iam/api/registration/" + operation
+            self.call(h, h.path)
+            self.assertEqual(404, h.response["code"])
+        self.assertEqual(2, len(seen))
+
+    def test_registration_unavailable_does_not_fallback_or_initialize(self):
+        h = FakeHandler("POST")
+        h.path = "/iam/api/registration/register"
+        self.call(h, h.path)
+        self.assertEqual(503, h.response["code"])
+
+    def test_registration_lifecycle_uses_original_store_security_and_cas(self):
+        import importlib.util
+        from pathlib import Path
+        filename = Path(ROOT) / 'registration_approval_runtime_v3_20261006/vendor/auth_candidate.py'
+        sys.path.insert(0, str(filename.parent))
+        spec = importlib.util.spec_from_file_location('iam_registration_core', filename)
+        core_module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = core_module
+        spec.loader.exec_module(core_module)
+        with tempfile.TemporaryDirectory(prefix='fs-registration-') as sandbox:
+            store = core_module.Store(sandbox, reserved_names=lambda: {ADMIN, VIEWER},
+                                      policy_module=types.SimpleNamespace(ADMINS={ADMIN}))
+            def identity(cookies):
+                user = cookies.get('MMOEXP_AUTH')
+                return core_module.LegacyIdentity(user, ('dashboard',), 'admin' if user == ADMIN else 'readonly') if user else None
+            adapter = core_module.Adapter(store, legacy_resolver=identity, legacy_authorize=lambda *a: 403)
+            app = core_module.App(adapter, 'http://localhost')
+            def route(handler, unused):
+                code, result, headers = app.dispatch(handler.command, handler.path[len('/access'):],
+                    headers=handler.headers, cookies=self.portal.parse_cookies(handler.headers.get('Cookie', '')),
+                    body=handler.rfile.read(int(handler.headers['Content-Length'])))
+                return handler._send(code, json.dumps(result), headers=list(headers.items()))
+            self.portal._registration_bridge = types.SimpleNamespace(route=route)
+            def request(operation, method='GET', cookie='', form=None, origin='http://localhost', token=''):
+                raw = json.dumps(form).encode() if form is not None else b''
+                h = FakeHandler(method, headers={'Cookie': cookie, 'Origin': origin,
+                    'Content-Type': 'application/json', 'X-CSRF-Token': token}, body=raw)
+                h.path = '/iam/api/registration/' + operation
+                self.call(h, h.path.split('?')[0])
+                return h
+            boot = request('bootstrap')
+            cookie = boot.response['headers']['Set-Cookie'].split(';')[0]
+            token = boot.json['csrf']
+            form = dict(username='new_user', password='synthetic-password-42', team='QA', purpose='test only')
+            self.assertEqual(403, request('register', 'POST', cookie, form, origin='https://evil.example', token=token).response['code'])
+            self.assertEqual(403, request('register', 'POST', cookie, form, token='wrong').response['code'])
+            self.assertEqual(405, request('register', cookie=cookie).response['code'])
+            result = request('register', 'POST', cookie, form, token=token)
+            self.assertEqual(200, result.response['code'])
+            rid = result.json['request_id']
+            self.assertEqual(409, request('register', 'POST', cookie, form, token=token).response['code'])
+            login = request('login', 'POST', cookie, {k: form[k] for k in ('username', 'password')}, token=token)
+            self.assertEqual('pending', login.json['account']['state'])
+            pending_cookie = login.response['headers']['Set-Cookie'].split(';')[0]
+            self.assertEqual(403, adapter.verify(self.portal.parse_cookies(pending_cookie), 'GET', '/dashboard/')[0])
+            self.assertEqual(401, request('requests', cookie=pending_cookie).response['code'])
+            admin_boot = request('bootstrap', cookie='MMOEXP_AUTH=' + ADMIN)
+            admin_cookie = 'MMOEXP_AUTH=' + ADMIN + '; ' + admin_boot.response['headers']['Set-Cookie'].split(';')[0]
+            decision = dict(request_id=rid, version=0, action='approve', reason='synthetic review')
+            approved = request('decision', 'POST', admin_cookie, decision, token=admin_boot.json['csrf'])
+            self.assertEqual(200, approved.response['code'])
+            self.assertEqual('readonly', approved.json['state'])
+            self.assertEqual(409, request('decision', 'POST', admin_cookie, decision, token=admin_boot.json['csrf']).response['code'])
+            self.assertEqual(['register', 'approve'], [x['action'] for x in store.listing('audit')])
 
     def test_viewer_cannot_read_api(self):
         h = FakeHandler("GET", cookie_user=VIEWER)
