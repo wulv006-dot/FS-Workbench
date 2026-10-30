@@ -34,12 +34,23 @@
    if($('payment-read-state'))$('payment-read-state').textContent='活动码付款收入已接入；逐访客结账、付款回传未接入';
   }catch(error){if(generation!==revenueGeneration)return;section.innerHTML='<h2>活动码付款收入</h2><p role="status">'+esc(error.name==='TimeoutError'?'付款订单查询超时，请更新分析重试；未完成不记为零。':error.message)+'</p>';}
  }
+ let trafficState=null,trafficGeneration=0;
+ async function loadTraffic(filter,force){
+  const generation=++trafficGeneration;
+  if(!seasonal()||!window.CampaignServer||filter.mode!=='live'){trafficState=null;showBasicTraffic(filter.mode==='test');return;}
+  trafficState={status:'loading'};showBasicTraffic(false);
+  const params=new URLSearchParams({activity:'mmoexp-seasonal',from:filter.from,to:filter.to});if(force)params.set('refresh','1');
+  try{const response=await fetch('api/origin-traffic?'+params,{credentials:'same-origin',signal:AbortSignal.timeout(20000)}),data=await response.json();if([400,401,403].includes(response.status))autoRefreshAllowed=false;if(!response.ok)throw Error();if(generation!==trafficGeneration)return;trafficState=data;showBasicTraffic(false);}
+  catch{if(generation===trafficGeneration){trafficState={status:'unavailable'};showBasicTraffic(false);}}
+ }
  function showBasicTraffic(test){
   let panel=document.getElementById('basic-traffic-report');
   if(!seasonal()){if(panel)panel.hidden=true;return;}
   if(!panel){panel=document.createElement('section');panel.id='basic-traffic-report';panel.className='panel';$('activity-summary').after(panel);}
   panel.hidden=false;
-  panel.innerHTML='<h2>基础访问量 · 页面请求</h2><p class="muted">'+(test?'联调模式不报告基础访问量。':'当前尚未接入可覆盖CDN缓存命中的可信请求汇总，不能用下面的已授权行为访客代替全部访客。')+'</p><div class="metrics"><article class="metric"><span>页面访问次数 · 请求PV</span><strong>未接入</strong><small>仅统计活动文档请求，排除静态资源、接口、监控及可识别机器人。</small></article><article class="metric"><span>估算访客数 · 按IP去重</span><strong>未接入</strong><small>独立IP不是实际人数；每日与所选整期应分别去重，不能累加每日人数作为整期人数。</small></article></div><p class="muted">需要现有CDN/Worker提供活动路径、日期范围、请求次数、每日独立IP及整期独立IP的汇总；无需向看板提供原始IP。当前源站日志缺真实访客IP与边缘缓存覆盖，暂不展示估算值。活动码付款销售另行统计。</p>';
+  const t=trafficState,ready=!test&&t?.status==='available'&&Number.isSafeInteger(t.pageRequests),partial=!test&&t?.status==='partial';
+  const note=test?'测试模式不查询基础页面请求。':t?.status==='loading'?'正在读取187侧现有日志…':ready?'所选UTC日期的现有日志聚合已完成。':partial?'所选整期缺测；仅有部分日志覆盖，不能把已读片段当整期数据。':'现有日志暂不可读取；缺测不记为0。';
+  panel.innerHTML='<h2>基础访问量 · 187侧页面请求</h2><p class="muted">'+note+'</p><div class="metrics"><article class="metric"><span>187侧活动页面请求（估算）</span><strong>'+(ready?num(t.pageRequests):test?'不统计':t?.status==='loading'?'读取中':'缺测')+'</strong><small>只计正式index及目录页面的成功GET，排除资源、API、HEAD及已识别机器人/自动化和标记测试；刷新重复计数。</small></article><article class="metric"><span>估算访客数 · 按IP去重</span><strong>缺测</strong><small>真实访客代理IP链尚未核实，不把出口IP当人，也不使用行为UV推算全部访客。</small></article></div>'+(t?.coverage?'<p class="muted">日志覆盖：'+esc(bjt(t.coverage.from))+' 至 '+esc(bjt(t.coverage.through))+'（北京时间）；所选日期按UTC。'+(partial?'已读范围记录 '+num(t.observedPageRequests)+' 次，整期仍缺测。':'')+'成功文档GET '+num(t.successfulRequests)+' 次，已排除 '+num(t.excludedRequests)+' 次；更新时间 '+esc(bjt(t.generatedAt))+'，最多缓存10分钟。</p>':'')+'<p class="muted">仅代表到达187的文档请求；浏览器/边缘缓存未回源会漏计，未识别预取、内部测试或代理重试可能计入。不是实际人数，不按游戏、设备或渠道拆分，不设访客去重窗口。行为统计和活动码付款销售另列。</p>'+(t?.daily?.length?'<div class="report-table-wrap"><table><thead><tr><th>UTC日期</th><th>已读日志内页面请求估算</th></tr></thead><tbody>'+t.daily.map(r=>'<tr><td>'+esc(r.date)+'</td><td>'+num(r.requests)+'</td></tr>').join('')+'</tbody></table></div>':'');
  }
  function showSeasonal(data,mode){
   const c=currentContext,d=currentDiagnostics,missing=!data,t=data?.seasonalTotals||{},test=mode==='test';
@@ -72,7 +83,7 @@
  }
  function normalizeFilters(){if(seasonal()){for(const id of ['platform','match'])$(id).value='all';$('template').value='commerce';}}
  async function refresh(forceRevenue=false){normalizeFilters();const gen=++generation,mode=$('mode').value,filter=Object.fromEntries(new FormData($('filters')));if(!seasonal())delete filter.game;if(!filter.activity){show(null,mode);$('feedback').textContent='暂无可查询的已上线活动。请在活动管理区查看登记状态。';return;}$('feedback').textContent='';if(filter.from>filter.to){$('feedback').textContent='开始日期不能晚于结束日期。';return;}
-  void loadRevenue(filter,forceRevenue===true);
+  void loadRevenue(filter,forceRevenue===true);void loadTraffic(filter,forceRevenue===true);
   $('mode-notice').textContent=mode==='demo'?'演示模式 · 所有人数与金额均为虚构样本，不代表真实经营结果。':mode==='local'?'本机埋点体验 · 仅显示同源浏览器的最近 1,500 条预览事件；无外传、无真实成交。':mode==='test'?'PostHog 联调数据 · 从实际项目查询 test 事件，仅用于接入验收，不代表正式经营结果。':'真实数据模式 · 仅显示 FS 服务端查询结果；未接入不会用演示数据代替。';
   if(mode==='live'||mode==='test'){show(null,mode);$('feedback').textContent='正在查询接入状态…';try{const response=await fetch('api/report?'+new URLSearchParams(filter),{signal:AbortSignal.timeout(20000),credentials:'same-origin'});const result=await response.json();if([400,401,403].includes(response.status)||result.status==='not_configured')autoRefreshAllowed=false;if(!response.ok)throw Error(result.status==='not_configured'?'PostHog 尚未配置；请先在连接页录入只读密钥。':result.message||'真实数据接口不可用，请确认服务仍运行。');if(gen!==generation)return;if(result.status!=='available'||!result.report)throw Error(result.message||'数据暂不可用');currentContext=result.context||null;currentDiagnostics=result.diagnostics||null;if(currentContext?.games){const selected=$('game').value;$('game').innerHTML='<option value="all">全部游戏</option>'+currentContext.games.map(g=>'<option value="'+esc(g.id)+'">'+esc(g.name)+'</option>').join('');if(currentContext.games.some(g=>g.id===selected))$('game').value=selected;}show(result.report,mode);$('feedback').textContent='查询结果时间：'+bjt(result.generatedAt)+'（北京时间） · 正式查询最多缓存5分钟 · '+result.coverage;}catch(error){if(gen===generation){show(null,mode);$('feedback').textContent=error.message;}}return;}
   let events=[];try{events=mode==='demo'?window.activityDemoEvents(defaults):JSON.parse(localStorage.getItem('fc-activity-events-v1')||'[]');}catch{$('feedback').textContent='本地事件存储不可用。';}show(core.summarize(events,filter),mode);
