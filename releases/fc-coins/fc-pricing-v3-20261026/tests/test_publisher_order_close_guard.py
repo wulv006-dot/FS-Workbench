@@ -204,6 +204,20 @@ class PausedCodePublish(unittest.TestCase):
         guards(manifest,Path('/'));self.assertFalse(ready.call_args.kwargs['locks_held'])
 
 class SupersededAllCodePublish(unittest.TestCase):
+    def test_code_publisher_restarts_the_scheduler_that_imports_runtime_and_engine(self):
+        from unittest.mock import Mock
+        path=SOURCE.parent/'deploy/fc_v3_release_adapter.py'
+        load=next(n for n in ast.parse(path.read_text('utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
+        restart=next(n for n in load.body if isinstance(n,ast.FunctionDef) and n.name=='restart')
+        process=SimpleNamespace(run=Mock())
+        scope=dict(subprocess=process,base=SimpleNamespace(),original_restart=Mock(),restart_with_hermes_readiness=Mock(),
+                   SCOPE='full',DELTA_SCOPE='delta',SHADOW_SCOPE='shadow',OPERATING_SCOPE='operating')
+        exec(compile(ast.Module(body=[restart],type_ignores=[]),str(path),'exec'),scope)
+        for kind in ('full','delta','shadow','operating'):
+            process.run.reset_mock();scope['restart']({'scope':kind})
+            restarts=[c.args[0] for c in process.run.call_args_list if c.args[0][:2]==['systemctl','restart']]
+            self.assertEqual(restarts,[['systemctl','restart',name] for name in ('fc27-cloud-api.service','fc27-cloud-worker.service','fc-pricing-v3.service')])
+
     def setUp(self):
         from test_reconcile_original import all_step
         sys.path.insert(0,str(SOURCE.parent/'deploy'))
