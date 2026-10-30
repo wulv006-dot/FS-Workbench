@@ -164,7 +164,7 @@ def load_base():
         restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
         if manifest.get('scope') in (SCOPE,DELTA_SCOPE,SHADOW_SCOPE,OPERATING_SCOPE):
             subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=30)
-            for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service'):
+            for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service', 'fc-pricing-v3.service'):
                 subprocess.run(['systemctl', 'restart', name], check=True, timeout=30)
                 subprocess.run(['systemctl', 'is-active', '--quiet', name], check=True, timeout=10)
 
