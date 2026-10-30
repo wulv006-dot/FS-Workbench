@@ -135,7 +135,8 @@ def fc_release_quiescent(tick,api,*,locks_held=False):
     guard=tick.retry_guard()
     if guard=='ready':return True
     if guard=='all_sync_unconfirmed' and superseded_all_code_release(tick,health,locks_held=locks_held):
-        return tick.player_sync_gate()=='ready'
+        if tick.player_sync_gate()=='ready':return True
+        guard='player_sync_unconfirmed'
     if guard in ('all_sync_unconfirmed','player_sync_unconfirmed') and paused_code_release(tick,health,locks_held=locks_held):return True
     if guard!='player_sync_unconfirmed':return False
     config=tick.load_player_sync_policy()
