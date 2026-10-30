@@ -12,7 +12,7 @@ from typing import Any, Mapping
 
 from PIL import Image
 from 球员维护工具.admin_adapter import extract_futbin_id, extract_model_id
-from .media_client import edit_model_icon, upload_png
+from .media_client import ImageUploadNotStarted, edit_model_icon, upload_png
 from .repository import Repository, StateError, now
 from .settings import Settings
 
@@ -214,6 +214,11 @@ def execute_image_plan(settings: Settings, repo: Repository, client: Any,
             repo.set_execution_item(execution_id, current_id, "verified", before=item["before"],
                                     after={"icon": readback["icon"], "png_sha256": item["sha256"], **uploaded})
         repo.set_execution(execution_id, "completed_readback", "done", {"images_verified": len(plan["items"])}, release_scope=True)
+    except ImageUploadNotStarted as exc:
+        if current_id is not None:
+            repo.set_execution_item(execution_id, current_id, "not_started", after={"error_code": str(exc)})
+        repo.set_execution(execution_id, "failed", "image_not_started", {"error_code": str(exc)}, release_scope=True)
+        raise
     except Exception as exc:
         if current_id is not None:
             repo.set_execution_item(execution_id, current_id, "unknown", after={**(uploaded or {}), "error_type": type(exc).__name__})

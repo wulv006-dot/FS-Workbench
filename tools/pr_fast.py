@@ -369,6 +369,8 @@ def selfcheck():
         raise RuntimeError("lootbar_mapping_missing")
     for path,group in [("releases/fc-coins/browser-readiness-20261016/fc27_chrome_collector/lootbar_server_collector.py","fc-browser-readiness"),("releases/fc-coins/result-read-20261016/source/fc27-quote-cloud.js","fc-result-read"),("releases/fs-dashboard/business-refresh-20261016/source/live_summary.py","fs-business-refresh"),("fc27_players_cloud/player_web/main.py","fc-players-cloud10"),("releases/fs-dashboard/deployed-source-backfill-20261017/test_inventory.py","deployed-source-backfill")]:
         if select([path]) != [group]:raise RuntimeError("deployed_source_mapping_missing:"+path)
+    for path in ("fc27_players_cloud/player_web/media_client.py","fc27_players_cloud/player_web/model_image_service.py","fc27_players_cloud/tests_cloud/test_model_images.py"):
+        if select([path]) != ["fc-players-cloud10"]:raise RuntimeError("players_image_mapping_missing:"+path)
     for path in ("fc27_players_cloud/player_web/shared_session.py","fc27_players_cloud/tests_cloud/test_shared_session.py","releases/fc-players/shared-login-20261018/source/session/fc27-p2pah-session.service"):
         if select([path]) != ["fc-players-shared-login"]:raise RuntimeError("shared_login_mapping_missing:"+path)
     if select(["releases/fc-players/history-five-20261024/source/player_web/static/app.js"]) != ["fc-players-history-five"]:raise RuntimeError("players_history_mapping_missing")
@@ -622,7 +624,7 @@ def select(paths):
             groups.add("fs-business-refresh");continue
         if name.startswith("releases/fc-ops/active-frontend-20261017/"):
             groups.add("deployed-source-backfill");continue
-        if name in ("fc27_players_cloud/player_web/existing_action_service.py","fc27_players_cloud/player_web/main.py","fc27_players_cloud/player_web/settings.py","fc27_players_cloud/player_web/static/app.js","fc27_players_cloud/VERSION","fc27_players_cloud/source_manifest.json") or name.startswith(("fc27_players_cloud/tests_cloud/","releases/fc-players/manual-recommend-cloud10-20261017/")):
+        if name in ("fc27_players_cloud/player_web/existing_action_service.py","fc27_players_cloud/player_web/main.py","fc27_players_cloud/player_web/settings.py","fc27_players_cloud/player_web/static/app.js","fc27_players_cloud/player_web/media_client.py","fc27_players_cloud/player_web/model_image_service.py","fc27_players_cloud/VERSION","fc27_players_cloud/source_manifest.json") or name.startswith(("fc27_players_cloud/tests_cloud/","releases/fc-players/manual-recommend-cloud10-20261017/")):
             groups.add("fc-players-cloud10");continue
         if name in ("releases/fs-dashboard/hermes-fc-pilot-20261013/shared_candidate/release_navigation.py","releases/fs-dashboard/hermes-fc-pilot-20261013/test_nightly_release.py"):
             groups.add("hermes-nightly-publisher");continue
@@ -1008,7 +1010,7 @@ def main():
         elif group=="fc-players-history-five":
             node("releases/fc-players/history-five-20261024/check_job_history.cjs")
         elif group=="fc-players-cloud10":
-            units("fc27_players_cloud",["tests_cloud.test_manual_existing_recommend"])
+            units("fc27_players_cloud",["tests_cloud.test_manual_existing_recommend","tests_cloud.test_model_images"])
             node("fc27_players_cloud/tests_cloud/check_manual_recommend_button.cjs")
         elif group=="fc-prewrite":
             release="releases/fc-coins/prewrite-recovery-20261012"
