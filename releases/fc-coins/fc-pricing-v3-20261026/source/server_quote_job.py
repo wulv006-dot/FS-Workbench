@@ -6,6 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import sys
 
@@ -125,24 +126,46 @@ def reference_context(snapshot, now):
     if not isinstance(raw,dict):
         return dict(missing,reason='itemd2r_reference_invalid')
     if raw.get('status') != 'captured':
-        return dict(missing,reason=raw.get('reason') or missing['reason'])
+        return dict(missing,reason=raw.get('reason') or missing['reason'],
+                    **{key:raw[key] for key in ('run_id','http_status','blocked_by','captured_at') if key in raw})
     try:
-        offers = raw['offers']
-        if raw.get('run_id') != snapshot['run_id'] or [r.get('platform') for r in offers] != list(PLATFORMS):
+        rows = raw['offers']
+        if raw.get('run_id') != snapshot['run_id'] or not isinstance(rows,list):
             raise ValueError('itemd2r_reference_run_or_coverage')
-        for row in offers:
-            if (row.get('source')!='ItemD2R' or row.get('run_id')!=snapshot['run_id']
-                    or row.get('url')!='https://www.itemd2r.com/ea-sports-fc/fc-27-coins'
-                    or row.get('status')!='valid' or row.get('currency')!='USD'
-                    or row.get('conditional') is not False or row.get('comparable') is not True
-                    or number(row.get('purchase_k'))!=100 or number(row.get('bonus_k'),zero=True)>100):
-                raise ValueError('itemd2r_reference_contract')
-            number(row.get('gross_usd'))
-            fresh(row['captured_at'],now,900)
-        stamps=[instant(r['captured_at']) for r in snapshot['competitors']+offers if r.get('status')=='valid']
+        offers=[];gaps=[]
+        for platform in PLATFORMS:
+            matches=[r for r in rows if isinstance(r,dict) and r.get('platform')==platform]
+            try:
+                if len(matches)!=1:raise ValueError('itemd2r_platform_quote_missing' if not matches else 'itemd2r_platform_quote_duplicate')
+                row=matches[0]
+                if row.get('source')!='ItemD2R' or row.get('run_id')!=snapshot['run_id'] or row.get('url')!='https://www.itemd2r.com/ea-sports-fc/fc-27-coins':
+                    raise ValueError('itemd2r_reference_contract')
+                if row.get('status')=='missing':
+                    reason=row.get('reason')
+                    raise ValueError(reason if isinstance(reason,str) and re.fullmatch(r'itemd2r_[a-zA-Z0-9_:]{1,100}',reason) else 'itemd2r_platform_quote_missing')
+                if (row.get('status')!='valid' or row.get('currency')!='USD'
+                        or row.get('conditional') is not False or row.get('comparable') is not True
+                        or number(row.get('purchase_k'))!=100 or number(row.get('bonus_k'),zero=True)>100):
+                    raise ValueError('itemd2r_reference_contract')
+                number(row.get('gross_usd'))
+                fresh(row['captured_at'],now,900)
+            except (KeyError,TypeError,ValueError,AttributeError) as error:
+                gaps.append(dict(platform=platform,source='ItemD2R',reason=str(error) if isinstance(error,ValueError) else 'itemd2r_reference_invalid'))
+            else:offers.append(row)
+        if not offers:return dict(missing,missing=gaps,reason='itemd2r_no_valid_platform_quotes')
+        stamps=[instant(r['captured_at']) for r in offers]
+        for row in snapshot.get('competitors',[]):
+            if row.get('status')!='valid' or row.get('run_id')!=snapshot['run_id']:continue
+            try:
+                fresh(row.get('captured_at'),now,900)
+                if row.get('currency')!='USD' or number(row.get('purchase_k'))!=100 or row.get('conditional') is True or row.get('comparable') is False:continue
+                number(row.get('gross_usd'))
+            except (ValueError,TypeError):continue
+            stamps.append(instant(row['captured_at']))
         if (max(stamps)-min(stamps)).total_seconds()>300:
             raise ValueError('itemd2r_reference_capture_span_over_300_seconds')
-        return dict(status='available',run_id=snapshot['run_id'],offers=offers,
+        return dict(status='partial' if gaps else 'available',run_id=snapshot['run_id'],offers=offers,missing=gaps,
+                    reason='itemd2r_partial_platform_coverage' if gaps else None,
                     capture_span_seconds=(max(stamps)-min(stamps)).total_seconds(),
                     authority='fc-pricing-v3-20261026-observation')
     except (KeyError,TypeError,ValueError,AttributeError) as exc:
@@ -199,11 +222,11 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
             raise ValueError("competitor_invalid")
         if offer.get("run_id") != run_id:
             raise ValueError("competitor_stale_or_mismatched")
-        if offer.get("status") == "missing" and site != "Lootbar":
+        if offer.get("status") != "valid":
             continue
         if (offer.get("run_id") != run_id or offer.get("status") != "valid"
                 or offer.get("currency") != "USD" or not age_ok(offer["captured_at"], now)):
-            raise ValueError("competitor_stale_or_mismatched")
+            continue
         offers[platform][site] = {
             "usd_price": offer["gross_usd"], "base_k": offer["purchase_k"],
             "bonus_k": offer["bonus_k"], "conditional": offer.get("conditional", False),
@@ -241,6 +264,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
     evidence = {"game": "FC27", "product": "Game Coins", "run_id": run_id, "checked_at": snapshot["created_at"],
                 "costs": costs, "offers": offers, "fx": fx,
                 "storefront": storefront, "reference_market": reference_market,
+                "competitor_diagnostics":snapshot.get('source_warnings',[]),
                 "arab_ut_status": snapshot.get('arab_ut_status')}
     from pricing_sources import collect as collect_pricing_constraints
     evidence['promotion_envelope']=collect_pricing_constraints(storefront,persist=persist,catalog_only=True)

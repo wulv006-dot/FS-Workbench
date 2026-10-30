@@ -110,6 +110,16 @@ def unavailable(code,value):
     return 'failed','source_schema_invalid',False
 
 
+def retry_at(prior):
+    due=prior.get('retryAfter',0)
+    if prior.get('status')=='busy':
+        try:observed=datetime.fromisoformat(prior.get('lastObservedAt') or prior.get('at') or '').timestamp()
+        except (ValueError,TypeError):return 0
+        # Old admission failures must not keep an otherwise ready query asleep for four hours.
+        due=min(due,observed+300)
+    return due
+
+
 def candidates(today,definitions,daily):
     end=(today-timedelta(days=1)).isoformat()
     if daily:
@@ -140,14 +150,14 @@ def run_once(daily=False,budget=480):
     now=datetime.now(TZ);store=Archive();store.safe(True)
     state_path=ROOT/'scheduler-state.json'
     state=json.loads(state_path.read_text()) if state_path.is_file() else {}
-    completed=0;reused=0;begin=time.monotonic();definition=profiles();deferred={};catalog_reply=None
+    completed=0;reused=0;begin=time.monotonic();definition=profiles();deferred={};catalog_reply=None;limited_ports=set()
     cadence='daily' if daily else 'history'
     work=[(hashlib.sha256(encoded({'cadence':cadence,'query':args})).hexdigest(),args) for args in candidates(now.date(),definition,daily)]
     def oldest(item):
         prior=state.get(item[0],{})
         try:stamp=datetime.fromisoformat(prior.get('lastObservedAt') or prior.get('at') or '').timestamp()
         except (ValueError,TypeError):stamp=0
-        rank=0 if not prior else 3 if prior.get('status')=='complete' else 2 if prior.get('retryAfter',0)>time.time() or prior.get('retryable') is False else 1
+        rank=0 if not prior else 3 if prior.get('status')=='complete' else 2 if retry_at(prior)>time.time() or prior.get('retryable') is False else 1
         return rank,stamp
     # The same state rotates due work; a slow first marketing item cannot starve business profiles.
     work.sort(key=oldest)
@@ -157,6 +167,7 @@ def run_once(daily=False,budget=480):
         family='marketing' if marketing else 'native' if native else 'summary'
         port=8935 if marketing else 8931
         prior=state.get(key,{})
+        if port in limited_ports and prior.get('status')!='pending':continue
         correction_day=prior.get('correctionDay') or prior.get('at','')[:10]
         if daily and prior.get('status')=='complete' and correction_day==now.date().isoformat():continue
         if prior.get('status')=='failed' and prior.get('retryable') is False and prior.get('reason')=='invalid_archive_arguments':continue
@@ -180,8 +191,9 @@ def run_once(daily=False,budget=480):
                     state[key]=dict(base,status='complete',reason='existing_complete_archive',retryable=False,failures=0,retryAfter=0,at=now.isoformat(),lastObservedAt=datetime.now(timezone.utc).isoformat())
                     atomic(state_path,state)
                 reused+=1;continue
+        if port in limited_ports:continue
         if prior.get('retryable') is False and prior.get('status')=='failed':continue
-        if prior.get('retryAfter',0)>time.time():continue
+        if retry_at(prior)>time.time():continue
         params={k:v for k,v in args.items() if k!='archiveFamily' and (not marketing or k!='profile')}
         catalog_failed=None
         if native:
@@ -190,7 +202,7 @@ def run_once(daily=False,budget=480):
             if code!=200:catalog_failed=(code,catalog)
             elif not isinstance(catalog.get('catalogId'),str):catalog_failed=(200,dict(status='unavailable',retryable=False))
             else:params['snapshotId']=catalog['catalogId']
-        continuation=prior.get('status')=='pending' or daily and marketing and correction_day==now.date().isoformat()
+        continuation=prior.get('status') in ('pending','busy') or daily and marketing and correction_day==now.date().isoformat()
         attempt_at=prior.get('attemptStartedAt',requested) if continuation else datetime.now(timezone.utc).isoformat()
         # One refresh per daily correction; a lost reply still resumes the existing job/cache.
         if daily and marketing and prior.get('status')!='pending' and correction_day!=now.date().isoformat():
@@ -199,6 +211,7 @@ def run_once(daily=False,budget=480):
         if time.monotonic()-begin>=budget:break
         state[key]=dict(base,status='pending',reason='source_pending',retryable=True,retryAfter=0,correctionDay=correction_day,refreshPending=False,attemptStartedAt=attempt_at,failures=prior.get('failures',0));atomic(state_path,state)
         code,value=catalog_failed if catalog_failed is not None else read_route(params,port,timeout=min(10,begin+budget-time.monotonic()))
+        if code==429:limited_ports.add(port)
         try:
             valid=code==200 and value.get('status')=='available' if marketing else code==200 and (complete_native(value) if native else complete_summary(value))
             deferred_refresh=(value.get('archive') or {}).get('refreshDeferred') is True
@@ -210,8 +223,8 @@ def run_once(daily=False,budget=480):
             except (ValueError,TypeError):pass
             outcome,reason,retryable=('complete','complete',False) if valid and (not (daily and marketing) or fresh) else ('pending','correction_pending',True) if valid else unavailable(code,value)
         except (ValueError,KeyError,TypeError):outcome,reason,retryable='failed','source_schema_invalid',False
-        failures=0 if outcome=='complete' else prior.get('failures',0)+(outcome!='pending')
-        retry=0 if not retryable else 2 if outcome=='pending' else min(14400,300*2**min(failures-1,6))
+        failures=0 if outcome=='complete' else prior.get('failures',0)+(outcome not in ('pending','busy'))
+        retry=0 if not retryable else 2 if outcome=='pending' else 300 if outcome=='busy' else min(14400,300*2**min(failures-1,6))
         state[key].update(status=outcome,reason=reason,retryable=retryable,httpStatus=code,failures=failures,at=datetime.now(TZ).isoformat(),lastObservedAt=datetime.now(timezone.utc).isoformat(),retryAfter=time.time()+retry if retry else 0)
         atomic(state_path,state)
         if outcome=='complete':completed+=1

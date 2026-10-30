@@ -123,7 +123,7 @@ class SelectiveSourceTest(unittest.TestCase):
             self.assertEqual(plan['price_interval_minutes'],60)
             self.assertEqual(plan['quote_validity_seconds'],900)
             self.assertFalse(set(plan['required_markets'])&set(selective.RETIRED))
-            self.assertEqual(plan['required_markets'],['Lootbar','ItemD2R'] if mode=='revenue_sprint' else ['Lootbar'])
+            self.assertEqual(plan['required_markets'],['Lootbar','ItemD2R'])
         self.assertIn('ItemD2R',selective.source_plan('daily',dict(compare_itemd2r=True))['required_markets'])
         self.assertIn('ArabUT',selective.source_plan('revenue_sprint',dict(region_ids=[21]))['required_markets'])
         self.assertNotIn('ArabUT',selective.source_plan('revenue_sprint',dict(region_ids=[21],platforms=['PC']))['required_markets'])
@@ -208,13 +208,16 @@ class SelectiveSourceTest(unittest.TestCase):
         snapshot=dict(run_id='same-run',competitors=[dict(platform=p,source='Lootbar',run_id='same-run',status='valid',currency='USD',purchase_k='100',gross_usd='10',captured_at=NOW.isoformat(),conditional=False,comparable=True) for p in plan['platforms']])
         self.assertTrue(selective.planned_source_coverage(snapshot,plan,NOW)['ready'])
         snapshot['competitors'][0]['run_id']='other-run'
-        self.assertFalse(selective.planned_source_coverage(snapshot,plan,NOW)['ready'])
+        coverage=selective.planned_source_coverage(snapshot,plan,NOW)
+        self.assertTrue(coverage['ready'])
+        self.assertIn(dict(platform='PS',source='Lootbar'),coverage['optional_missing'])
+        self.assertIn(dict(platform='PS',source='Lootbar',reason='same_run_valid_quote_missing'),coverage['gaps'])
 
-    def test_sprint_coverage_still_requires_fresh_ItemD2R_actual_quote(self):
+    def test_sprint_coverage_records_optional_ItemD2R_actual_quote(self):
         plan=selective.source_plan('revenue_sprint',dict(platforms=['PC']))
         base=dict(platform='PC',run_id='same-run',status='valid',currency='USD',purchase_k='100',gross_usd='10',captured_at=NOW.isoformat(),conditional=False,comparable=True)
         snapshot=dict(run_id='same-run',competitors=[dict(base,source='Lootbar')])
-        self.assertFalse(selective.planned_source_coverage(snapshot,plan,NOW)['ready'])
+        self.assertEqual(selective.planned_source_coverage(snapshot,plan,NOW)['optional_missing'],[dict(platform='PC',source='ItemD2R')])
         self.assertTrue(selective.planned_source_coverage(snapshot,plan,NOW,reference_market=dict(offers=[dict(base,source='ItemD2R')]))['ready'])
 
     def test_sprint_missing_ArabUT_can_follow_global_without_blocking_quote(self):
@@ -225,8 +228,8 @@ class SelectiveSourceTest(unittest.TestCase):
         reference=dict(offers=[dict(base,source='ItemD2R',platform=p) for p in plan['platforms']])
         coverage=selective.planned_source_coverage(snapshot,plan,NOW,reference_market=reference)
         self.assertTrue(coverage['ready'])
-        self.assertEqual(coverage['required_sources'],['Lootbar','ItemD2R'])
-        self.assertEqual(coverage['optional_sources'],['ArabUT'])
+        self.assertEqual(coverage['required_sources'],[])
+        self.assertEqual(coverage['optional_sources'],['Lootbar','ItemD2R','ArabUT'])
         self.assertEqual(coverage['missing'],[])
         self.assertEqual({r['platform'] for r in coverage['optional_missing']},{'PS','XBOX'})
 

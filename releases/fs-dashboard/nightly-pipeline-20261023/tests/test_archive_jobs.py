@@ -86,12 +86,111 @@ class Jobs(unittest.TestCase):
         value=self.state()[self.key(self.business)]
         self.assertEqual(value['requestedAt'],'2026-10-01T00:00:00+00:00');self.assertEqual(value['failures'],3)
         self.assertTrue(value['retryable']);self.assertAlmostEqual(value['retryAfter']-jobs.time.time(),1200,delta=2)
-    def test_busy_backoff_has_no_permanent_retry_limit(self):
+    def test_busy_preserves_failure_history_and_retries_next_five_minute_tick(self):
         self.work=[self.business];self.seed(self.business,status='busy',failures=100,retryAfter=0)
         with patch.object(jobs,'read_route',return_value=(429,dict(status='busy'))):result=jobs.run_once(True,5)
         value=self.state()[self.key(self.business)]
-        self.assertEqual(value['failures'],101);self.assertTrue(value['retryable']);self.assertEqual(result['repeatedFailureCount'],1)
-        self.assertAlmostEqual(value['retryAfter']-jobs.time.time(),14400,delta=2)
+        self.assertEqual(value['failures'],100);self.assertTrue(value['retryable']);self.assertEqual(result['repeatedFailureCount'],1)
+        self.assertAlmostEqual(value['retryAfter']-jobs.time.time(),300,delta=2)
+    def test_429_yields_its_port_without_touching_later_keys_or_blocking_other_port(self):
+        self.work=[self.business,self.other,self.marketing]
+        self.seed(self.other,status='pending',failures=2,retryAfter=0,rangeId='original_range_id',requestedAt='2026-10-01T00:00:00+00:00')
+        original=self.state()[self.key(self.other)]
+        def reply(params,port,**unused):return (429,dict(status='busy')) if port==8931 else (200,dict(status='available',generatedAt=Clock.now(jobs.timezone.utc).isoformat()))
+        with patch.object(jobs,'read_route',side_effect=reply) as read:
+            result=jobs.run_once(True,5)
+        self.assertEqual(read.call_count,2);self.assertEqual([row.args[1] for row in read.call_args_list],[8931,8935])
+        self.assertEqual(self.state()[self.key(self.other)],original);self.assertEqual(result['completed'],1)
+    def test_pending_complete_archive_reconciles_after_same_port_429_without_http(self):
+        native=dict(self.other);native.pop('mode');native['archiveFamily']='native';self.work=[self.business,native]
+        self.seed(self.business,status='busy',retryAfter=0,lastObservedAt='2026-10-27T00:00:00+00:00')
+        original='2026-10-28T01:00:01+00:00'
+        self.seed(native,status='pending',failures=7,retryAfter=0,lastObservedAt=original,
+                  requestedAt=original,attemptStartedAt=original,rangeId='original_pending_range')
+        self.store.get.side_effect=lambda family,q:dict(fixture_complete=True) if q['profile']=='AION2' else None
+        with patch.object(jobs,'read_route',return_value=(429,dict(status='busy'))) as read:
+            result=jobs.run_once(True,5)
+        self.assertEqual(read.call_count,1);self.assertEqual((result['reused'],result['missingCount']),(1,1))
+        value=self.state()[self.key(native)]
+        self.assertEqual((value['status'],value['reason'],value['failures']),('complete','existing_complete_archive',0))
+        self.assertEqual((value['requestedAt'],value['attemptStartedAt'],value['rangeId']),(original,original,'original_pending_range'))
+    def test_pending_cache_miss_after_429_preserves_original_state_without_http(self):
+        self.work=[self.business,self.other]
+        self.seed(self.other,status='pending',failures=7,retryAfter=0,rangeId='original_pending_range')
+        original=self.state()[self.key(self.other)]
+        with patch.object(jobs,'read_route',return_value=(429,dict(status='busy'))) as read:
+            jobs.run_once(True,5)
+        self.assertEqual(read.call_count,1);self.assertEqual(self.store.get.call_count,2)
+        self.assertEqual(self.state()[self.key(self.other)],original)
+    def test_nonpending_keys_stay_untouched_after_429_even_if_archive_exists(self):
+        self.work=[self.business,self.other]
+        self.seed(self.other,status='busy',failures=12,retryAfter=0,rangeId='original_busy_range')
+        original=self.state()[self.key(self.other)]
+        self.store.get.side_effect=lambda family,q:dict(fixture_complete=True) if q['profile']=='AION2' else None
+        with patch.object(jobs,'read_route',return_value=(429,dict(status='busy'))) as read:
+            jobs.run_once(True,5)
+        self.assertEqual(read.call_count,1);self.assertEqual(self.store.get.call_count,1)
+        self.assertEqual(self.state()[self.key(self.other)],original)
+    def test_marketing_429_does_not_block_business_or_mark_unobserved_keys(self):
+        later=dict(self.marketing,start='2026-10-25',end='2026-10-25');self.work=[self.marketing,later,self.business]
+        with patch.object(jobs,'read_route',side_effect=[(429,dict(status='busy')),(200,dict(fixture_complete=True))]) as read:
+            result=jobs.run_once(True,5)
+        self.assertEqual(read.call_count,2);self.assertEqual([row.args[1] for row in read.call_args_list],[8935,8931])
+        self.assertNotIn(self.key(later),self.state());self.assertEqual(result['unobservedCount'],1)
+    def test_catalog_429_also_yields_business_port_without_requesting_native_data(self):
+        native=dict(self.business);native.pop('mode');native['archiveFamily']='native'
+        self.work=[native,self.other,self.marketing]
+        with patch.object(jobs,'read_route',side_effect=[(429,dict(status='busy')),(200,dict(status='available',generatedAt=Clock.now(jobs.timezone.utc).isoformat()))]) as read:
+            result=jobs.run_once(True,5)
+        self.assertEqual(read.call_count,2);self.assertEqual(read.call_args_list[0].args[0],{'mode':'catalog'})
+        self.assertEqual(read.call_args_list[1].args[1],8935);self.assertEqual(result['completed'],1)
+        self.assertNotIn(self.key(self.other),self.state())
+    def test_950_old_busy_keys_make_one_rejected_request_and_resume_on_next_tick(self):
+        stamp=Clock.now(jobs.timezone.utc).timestamp()
+        self.work=[dict(self.business,start=(Clock.at.date()-timedelta(days=i+1)).isoformat(),end=(Clock.at.date()-timedelta(days=i+1)).isoformat()) for i in range(950)]
+        original={self.key(q):dict(query=q,status='busy',retryable=True,failures=12,retryAfter=stamp+14400,
+                    requestedAt='2026-10-01T00:00:00+00:00',rangeId='original_'+str(i),
+                    lastObservedAt=(Clock.now(jobs.timezone.utc)-timedelta(minutes=10)).isoformat()) for i,q in enumerate(self.work)}
+        (self.root/'scheduler-state.json').write_bytes(encoded(original))
+        with patch.object(jobs.time,'time',return_value=stamp),patch.object(jobs,'read_route',return_value=(429,dict(status='busy'))) as read:
+            jobs.run_once(True,5)
+        self.assertEqual(read.call_count,1)
+        current=self.state();self.assertEqual(len(current),950)
+        self.assertTrue(all(current[self.key(q)]==original[self.key(q)] for q in self.work[1:]))
+        with patch.object(jobs.time,'time',return_value=stamp+300),patch.object(jobs,'read_route',side_effect=[(200,dict(fixture_complete=True)),(429,dict(status='busy'))]) as read:
+            result=jobs.run_once(True,5)
+        self.assertEqual(read.call_count,2);self.assertEqual(result['completed'],1)
+        self.assertEqual(read.call_args_list[0].args[0]['start'],self.work[1]['start'])
+    def test_old_four_hour_busy_wait_recovers_without_clearing_original_metadata(self):
+        self.work=[self.business];stamp=Clock.now(jobs.timezone.utc).timestamp()
+        original='2026-10-01T00:00:00+00:00'
+        self.seed(self.business,status='busy',failures=7,retryAfter=stamp+14400,
+                  lastObservedAt=(Clock.now(jobs.timezone.utc)-timedelta(minutes=10)).isoformat(),
+                  requestedAt=original,attemptStartedAt=original,rangeId='original_range_id')
+        with patch.object(jobs.time,'time',return_value=stamp),patch.object(jobs,'read_route',return_value=(202,dict(status='pending'))) as read:
+            jobs.run_once(True,5)
+        self.assertEqual(read.call_count,1);self.assertEqual(list(self.state()),[self.key(self.business)])
+        value=self.state()[self.key(self.business)]
+        self.assertEqual((value['requestedAt'],value['attemptStartedAt'],value['rangeId']),(original,original,'original_range_id'))
+        self.assertEqual(value['failures'],7);self.assertEqual(value['status'],'pending')
+    def test_new_busy_observation_waits_five_minutes_without_counting_source_failure(self):
+        self.work=[self.business];stamp=Clock.now(jobs.timezone.utc).timestamp()
+        with patch.object(jobs.time,'time',return_value=stamp),patch.object(jobs,'read_route',return_value=(429,dict(status='busy',retryAfter=10))):
+            jobs.run_once(True,5)
+        self.assertEqual(self.state()[self.key(self.business)]['failures'],0)
+        with patch.object(jobs.time,'time',return_value=stamp+299),patch.object(jobs,'read_route') as read:
+            jobs.run_once(True,5)
+        read.assert_not_called()
+        with patch.object(jobs.time,'time',return_value=stamp+300),patch.object(jobs,'read_route',return_value=(200,dict(fixture_complete=True))) as read:
+            result=jobs.run_once(True,5)
+        self.assertEqual(read.call_count,1);self.assertEqual(result['completed'],1)
+    def test_source_failure_still_honors_its_original_four_hour_wait(self):
+        self.work=[self.business];stamp=Clock.now(jobs.timezone.utc).timestamp()
+        self.seed(self.business,status='unavailable',failures=7,retryAfter=stamp+14400,
+                  lastObservedAt=(Clock.now(jobs.timezone.utc)-timedelta(minutes=10)).isoformat())
+        with patch.object(jobs.time,'time',return_value=stamp),patch.object(jobs,'read_route') as read:
+            jobs.run_once(True,5)
+        read.assert_not_called();self.assertEqual(self.state()[self.key(self.business)]['retryAfter'],stamp+14400)
     def test_pending_continuation_preserves_attempt_time(self):
         self.work=[self.business];self.seed(self.business,status='pending',failures=0,retryAfter=0,attemptStartedAt='2026-10-01T00:00:00+00:00')
         with patch.object(jobs,'read_route',return_value=(202,dict(status='pending'))):jobs.run_once(True,5)

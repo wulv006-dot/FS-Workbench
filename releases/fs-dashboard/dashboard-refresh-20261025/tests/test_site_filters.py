@@ -1,6 +1,6 @@
 """Fictional native aggregates: a website filter must reach the source and cache identity."""
 from datetime import datetime
-import copy,sys,types,unittest
+import copy,json,sys,tempfile,types,unittest
 from pathlib import Path
 from unittest.mock import Mock,patch
 
@@ -15,34 +15,43 @@ PERIOD=dict(start='2026-10-23 00:00',end='2026-10-24 00:00')
 
 class SiteFilters(unittest.TestCase):
     def make(self,**overrides):
-        self.session=Mock();self.session.token='fixture';self.response=Mock(status_code=200,content=b'fixture')
         self.raw=dict(total=2,amount=100,chart_sales_arr=dict(date=['2026-10-23'],n=[2],amount=[100]))
-        self.response.json.return_value=dict(code=1,data=self.raw)
-        self.session.admin.request.return_value=self.response
-        self.auth=types.SimpleNamespace(Session=lambda:self.session,admin_token_from_service=lambda:('fixture',None),ADMIN_API='https://fixture.test')
+        self.status=200;self.native=None;self.direct=Mock(side_effect=lambda *a,**k:(self.status,json.dumps(self.native or dict(code=1,data=self.raw))))
         self.mapped=dict(metrics={'orders':dict(value=2,status='available'),'newCustomers':dict(value=1,status='available')},dimensions={'channels':[dict(name='www.mmoexp.com',orders=2,revenueUsd=100)]})
         self.fields=types.SimpleNamespace(extract=lambda raw:copy.deepcopy(self.mapped))
         return dict(profile='FC27',profit_site='main',admin_site='266',period=PERIOD,**overrides)
 
     def run_read(self,q,definition=PROFILE):
-        with patch.dict(sys.modules,{'p2pah_auth':self.auth,'supplement_fields':self.fields}):return site_summary.collect(q,definition)
+        retired=types.SimpleNamespace(Session=Mock(side_effect=AssertionError('retired_admin_session_used')),admin_token_from_service=Mock(side_effect=AssertionError('retired_admin_token_used')))
+        with patch.dict(sys.modules,{'p2pah_auth':retired,'supplement_fields':self.fields}),patch('summary_bridge.dc_request',self.direct):return site_summary.collect(q,definition)
 
     def test_main_native_site_and_registered_game_status_and_hourly_rows(self):
         for group,status in [('sports',''),('rpg','')]:
             q=self.make();definition=(*PROFILE[:4],group);result=self.run_read(q,definition)
-            args=self.session.admin.request.call_args
-            self.assertEqual(args.args,('POST','https://fixture.test'+site_summary.ENDPOINT))
-            payload=args.kwargs['json'];self.assertEqual((payload['site'],payload['game'],payload['order_status']),(266,'1327',status))
-            self.assertEqual(payload['pay_status'],1);self.assertFalse(args.kwargs['allow_redirects'])
+            args=self.direct.call_args
+            self.assertEqual(args.args,(site_summary.ENDPOINT,))
+            payload=args.kwargs['data'];self.assertEqual((payload['site'],payload['game'],payload['order_status']),(266,'1327',status))
+            self.assertEqual(payload['pay_status'],1)
             self.assertEqual(result['normalisedScope'],'main-website');self.assertEqual(result['metrics']['newCustomers']['scope'],'MMOEXP')
             self.assertEqual(result['rows'],[dict(date='2026-10-23 00:00',orders=2,amount=100.0)])
-            self.session.bind_admin_token.assert_called_once_with('fixture');self.session.close.assert_called_once()
+            self.direct.assert_called_once()
 
     def test_wrong_or_unproved_nonzero_website_never_becomes_main(self):
         for channels in ([],[dict(name='www.rsorders.com')],[dict(name='www.mmoexp.com'),dict(name='www.rsorders.com')]):
             q=self.make();self.mapped['dimensions']['channels']=channels
             with self.assertRaisesRegex(ValueError,'filter_not_applied'):self.run_read(q)
-            self.session.close.assert_called_once()
+
+    def test_aion_main_same_day_native_paid_contract(self):
+        q=self.make();q.update(profile='AION2',period=dict(start='2026-10-27 00:00',end='2026-10-28 00:00'))
+        self.raw=dict(total=186,amount='17,689.92',chart_sales_arr=dict(date=['2026-10-27'],n=[186],amount=['17,689.92']))
+        self.native=dict(code=1,data=dict(data=self.raw))
+        self.mapped=dict(metrics={'orders':dict(value=186,status='available'),'revenueUsd':dict(value=17689.92,status='available')},
+            dimensions={'channels':[dict(name='www.mmoexp.com',orders=186,revenueUsd=17689.92)]})
+        value=self.run_read(q,('AION2','Aion2',826,891,'rpg'))
+        self.assertEqual(self.direct.call_args.kwargs['data'],dict(order_status='',pay_status=1,game=891,site=266,country_code='',client='',
+            date=['2026-10-27 00:00','2026-10-28 00:00'],pay_type='',time_unit=1,cid='',discount_code='',product_type=''))
+        self.assertEqual((value['metrics']['orders']['value'],value['metrics']['revenueUsd']['value']),(186,17689.92))
+        self.assertEqual(value['rows'],[dict(date='2026-10-27 00:00',orders=186,amount=17689.92)])
 
     def test_all_site_paid_orders_and_native_trend_share_totals(self):
         import json
@@ -102,15 +111,18 @@ class SiteFilters(unittest.TestCase):
         rpg=selection('AION2');self.assertEqual(rpg['adminCohort'],'paid-all-status-v2')
         self.assertNotIn('adminCohort',selection('FC27'))
 
-    def test_zero_and_permission_failure_and_missing_session(self):
+    def test_zero_and_permission_and_native_contract_failures(self):
         q=self.make();self.raw.update(total='0',amount='0',chart_sales_arr=dict(date=[],n=[],amount=[]));self.mapped['dimensions']['channels']=[]
         self.assertEqual(self.run_read(q)['rows'],[])
-        q=self.make();self.response.status_code=403
-        with self.assertRaises(PermissionError):self.run_read(q)
-        self.session.close.assert_called_once()
-        q=self.make();self.auth.admin_token_from_service=lambda:(None,'shared_admin_unavailable')
+        for status in (301,302,401,403):
+            q=self.make();self.status=status
+            with self.assertRaises(PermissionError):self.run_read(q)
+        q=self.make();self.status=502
         with self.assertRaises(OSError):self.run_read(q)
-        self.session.admin.request.assert_not_called();self.session.close.assert_called_once()
+        q=self.make();self.native=dict(code=0,data={})
+        with self.assertRaisesRegex(ValueError,'main_site_admin_contract'):self.run_read(q)
+        q=self.make();self.direct.side_effect=OSError('direct_api_down')
+        with self.assertRaisesRegex(OSError,'direct_api_down'):self.run_read(q)
 
     def test_website_identity_splits_main_all_and_legacy_archives(self):
         args=dict(mode=['summary'],profile=['FC27'],start=['2026-10-23'],end=['2026-10-23'],profit_basis=['actual'])
@@ -124,6 +136,28 @@ class SiteFilters(unittest.TestCase):
         self.assertNotIn('admin_site',omitted)
         self.assertEqual(summary_key(omitted),summary_key(legacy))
 
+    def test_old_main_labelled_all_site_archive_cannot_seed_explicit_main(self):
+        from daily_archive import Archive
+        from live_summary import SummaryCache
+        profiles={'AION2':('AION2','Aion2',826,891,'rpg')}
+        q=query(dict(mode=['summary'],profile=['AION2'],start=['2026-10-27'],end=['2026-10-27'],profit_site=['main'],profit_basis=['actual']),profiles,
+            datetime(2026,10,30,12,tzinfo=SHANGHAI))
+        legacy={k:v for k,v in q.items() if k!='admin_site'}
+        old=dict(generatedAt='2026-10-28T14:43:12+00:00',query=legacy,profile=dict(supplement=dict(filters={'site':''},metrics={
+            'orders':dict(value=192),'revenueUsd':dict(value=18114.27)})))
+        with tempfile.TemporaryDirectory() as folder:
+            store=Archive(Path(folder)/'archive',lambda:datetime(2026,10,30).date())
+            version=store.put('summary',summary_key(legacy),old)
+            self.assertIsNotNone(version);self.assertIsNone(store.get('summary',summary_key(q)))
+            cache=SummaryCache(Mock(),Mock(),profiles);cache.close();cache.pools={name:Mock() for name in cache.readers}
+            with patch('daily_archive.read',side_effect=store.get):
+                code,value=cache.get(q)
+            self.assertEqual(code,202);self.assertNotIn('profile',value)
+            self.assertIsNone(cache.entries[key_of(q)]['Admin']['value'])
+            retained=store.get('summary',summary_key(legacy))
+            self.assertEqual(retained['archive']['version'],version)
+            self.assertEqual(retained['profile']['supplement']['metrics']['orders']['value'],192)
+
     def test_actual_profit_keeps_its_original_site_cache_identity(self):
         from actual_profit import selection,CONTRACT
         profiles={'FC27':PROFILE}
@@ -131,7 +165,7 @@ class SiteFilters(unittest.TestCase):
             args=dict(mode=['actual-profit'],profile=['FC27'],start=['2026-10-23'],end=['2026-10-23'],profit_site=[site])
             actual=selection(args,profiles)
             old=query({**args,'mode':['summary']},profiles)
-            old.pop('admin_site',None);old['site']='www.mmoexp.com'
+            old.pop('admin_site',None);old['site']='www.mmoexp.com';old['cacheSeconds']=7200
             self.assertNotIn('admin_site',actual);self.assertEqual(actual['contractId'],CONTRACT)
             self.assertEqual({k:v for k,v in actual.items() if k!='contractId'},{k:v for k,v in old.items() if k!='contractId'})
             self.assertEqual(actual['profit_site'],site)

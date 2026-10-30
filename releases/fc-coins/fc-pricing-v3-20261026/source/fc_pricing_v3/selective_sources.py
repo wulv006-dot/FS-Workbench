@@ -1,7 +1,7 @@
 """Pure source planning/cache projection and stored-snapshot replay. No network or writes."""
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from .financial import fingerprint, required_history_ratio, fresh, history_period as financial_history_period, HISTORY_WINDOW_CONTRACT
 from . import financial as _math
@@ -63,8 +63,7 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
     platforms=scope.get('platforms',['PS','XBOX','PC'])
     if not platforms or set(platforms)-{'PS','XBOX','PC'}:raise ValueError('selective_platform_scope_invalid')
     regions=sorted(set(int(value) for value in known_region_ids)|set(int(value) for value in scope.get('region_ids',[])))
-    markets=['Lootbar']
-    if active_mode=='revenue_sprint' or scope.get('compare_itemd2r') is True:markets.append('ItemD2R')
+    markets=['Lootbar','ItemD2R']
     if 21 in regions and set(platforms)&{'PS','XBOX'} and (active_mode=='revenue_sprint' or scope.get('compare_saudi') is True):markets.append('ArabUT')
     return dict(version=VERSION,active_mode=active_mode,platforms=list(platforms),region_ids=regions,
         required_markets=markets,market_platforms={name:([p for p in platforms if p in ('PS','XBOX')] if name=='ArabUT' else list(platforms)) for name in markets},
@@ -92,23 +91,29 @@ def planned_source_coverage(snapshot,plan,now,*,reference_market=None):
         captured=row.get('captured_at') or row.get('checked_at')
         try:fresh(captured,now,900)
         except ValueError:gaps.append(dict(platform=key[0],source=key[1],reason='quote_not_fresh'));continue
-        purchase=row.get('purchase_k',row.get('base_k'))
-        if (row.get('currency')!='USD' or Decimal(str(purchase))!=100 or row.get('conditional') is True or row.get('comparable') is False):
+        try:
+            purchase=Decimal(str(row.get('purchase_k',row.get('base_k'))))
+            amount=Decimal(str(row.get('gross_usd',row.get('total_usd','0'))))
+        except (InvalidOperation,ValueError,TypeError):
+            gaps.append(dict(platform=key[0],source=key[1],reason='public_amount_or_quantity_invalid'));continue
+        if (row.get('currency')!='USD' or purchase!=100 or row.get('conditional') is True or row.get('comparable') is False):
             gaps.append(dict(platform=key[0],source=key[1],reason='public_no_coupon_100K_scope_invalid'));continue
         if key[1]=='ArabUT' and (row.get('delivery')!='normal' or row.get('selection_verified') is not True):
             gaps.append(dict(platform=key[0],source=key[1],reason='normal_delivery_not_verified'));continue
-        if Decimal(str(row.get('gross_usd',row.get('total_usd','0'))))<=0:
+        if not amount.is_finite() or amount<=0:
             gaps.append(dict(platform=key[0],source=key[1],reason='public_amount_invalid'));continue
         found[key]=row
         times.append(datetime.fromisoformat(captured.replace('Z','+00:00')))
     if times and (max(times)-min(times)).total_seconds()>300:raise ValueError('selective_competitor_capture_span')
     missing=expected-set(found)
-    hard_missing={(p,s) for p,s in missing if s!='ArabUT'}
-    return dict(ready=not hard_missing,required_sources=[s for s in plan['required_markets'] if s!='ArabUT'],
-        optional_sources=['ArabUT'] if 'ArabUT' in plan['required_markets'] else [],
-        missing=[dict(platform=p,source=s) for p,s in sorted(hard_missing)],
-        optional_missing=[dict(platform=p,source=s) for p,s in sorted(missing-hard_missing)],gaps=gaps,
-        retired_automatic_sources=list(RETIRED),reference_sources={p:[s for s in plan['required_markets'] if s!='Lootbar' and p in required[s]] for p in plan['platforms']})
+    for gap in (reference_market or {}).get('missing',[]):
+        if (gap.get('platform'),'ItemD2R') in missing:gaps.append(dict(gap,source='ItemD2R'))
+    hard_missing=set()
+    optional=list(plan['required_markets'])
+    return dict(ready=not hard_missing,required_sources=[s for s in plan['required_markets'] if s not in optional],optional_sources=optional,
+        pricing_source_policy='current_available_quote_or_100k_margin_floor',
+        missing=[dict(platform=p,source=s) for p,s in sorted(hard_missing)],optional_missing=[dict(platform=p,source=s) for p,s in sorted(missing-hard_missing)],gaps=gaps,
+        retired_automatic_sources=list(RETIRED),reference_sources={p:[s for s in plan['required_markets'] if s!='Lootbar' and (p,s) in found] for p in plan['platforms']})
 
 
 def history_period(now):

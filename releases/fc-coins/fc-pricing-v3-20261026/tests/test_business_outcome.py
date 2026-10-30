@@ -35,6 +35,7 @@ class BusinessOutcome(unittest.TestCase):
             (root/'runs/original.json').write_text(json.dumps(dict(run_id=ident,status='ready_for_quote')))
             (root/'monitor/storefront.json').write_text(json.dumps(dict(collection_run_id=ident,status='ok',rows={p:dict(status='ok') for p in ('PS','XBOX','PC')})))
             scope=dict(ROOT=root,APP=Path('/fixture'),PLATFORMS=('PS','XBOX','PC'),local_collection=SimpleNamespace(pin=lambda _:dict(mode='server')),save_job=Mock(),run=Mock(side_effect=[(0,dict(status='ready_for_quote')),(1,dict(status='NO_QUOTE',reason=reason))]),refresh_storefront=Mock(return_value=dict(status='ok')),atomic_json=Mock(),os=SimpleNamespace(chown=Mock(),chmod=Mock()),json=json,datetime=datetime,timezone=timezone)
+            scope['collect_reference_market']=Mock(return_value=dict(status='captured',run_id=ident,offers=[]))
             exec(compile(ast.Module(body=[fn],type_ignores=[]),str(source),'exec'),scope)
             with patch.object(runtime,'ledger'),patch.object(runtime,'collection_scope',return_value=dict(active_mode='daily',scope={})),self.assertRaisesRegex(ValueError,reason):scope['collect_quote'](dict(job_id=ident))
             self.assertEqual(scope['run'].call_count,2)
