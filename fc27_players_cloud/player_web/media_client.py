@@ -12,9 +12,13 @@ from typing import Any
 
 from 球员维护工具.admin_client import AdminAuthError, AdminContractError, _multipart_body, _NoRedirect
 
-AUTH_MODULE_URL = "https://admin.p2pah.cn/assets/uploadAuth-b29e96d2.js"
-AUTH_MODULE_SHA = "e8731f3622060e1427b0fdde36ee5743d4df27e567abd54317f86bb44a988c41"
+AUTH_MODULE_URL = "https://admin.p2pah.cn/assets/uploadAuth-4cd714b6.js"
+AUTH_MODULE_SHA = "54a3421c9fc1c47ae2678c69d5112ec8d6f9075bd0dde2ece156d7a55789e45e"
 UPLOAD_URL = "https://b2c-api.p2pah.cn/upload/file"
+
+
+class ImageUploadNotStarted(AdminContractError):
+    """Upload preparation failed before the single POST could be dispatched."""
 
 
 def upload_png(client: Any, path: Path) -> dict[str, Any]:
@@ -27,10 +31,10 @@ def upload_png(client: Any, path: Path) -> dict[str, Any]:
         with opener(urllib.request.Request(AUTH_MODULE_URL), timeout=15) as response:
             script = response.read(65537)
         if hashlib.sha256(script).hexdigest() != AUTH_MODULE_SHA:
-            raise AdminContractError("IMAGE_UPLOAD_CONTRACT_CHANGED")
+            raise ImageUploadNotStarted("IMAGE_UPLOAD_CONTRACT_CHANGED")
         match = re.search(r'UPLOAD_AUTH_SECRET\s*=\s*("(?:[^"\\]|\\.)*")', script.decode("utf-8"))
         if not match:
-            raise AdminContractError("IMAGE_UPLOAD_CONTRACT_CHANGED")
+            raise ImageUploadNotStarted("IMAGE_UPLOAD_CONTRACT_CHANGED")
         material = json.loads(match.group(1))
         timestamp = int(time.time() * 1000)
         token = hashlib.md5((str(timestamp) + material).encode()).hexdigest()
@@ -39,6 +43,9 @@ def upload_png(client: Any, path: Path) -> dict[str, Any]:
             "file", path.name, path.read_bytes())
         request = urllib.request.Request(UPLOAD_URL, data=body, method="POST",
                                          headers={"Content-Type": content_type, "Accept": "application/json"})
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError, TypeError, KeyError):
+        raise ImageUploadNotStarted("IMAGE_UPLOAD_PRECHECK_FAILED") from None
+    try:
         # This official media endpoint uses its own upload signature, not the Admin login token.
         # POST is performed once. Any missing response is left unknown, never retransmitted.
         with opener(request, timeout=client.timeout) as response:
