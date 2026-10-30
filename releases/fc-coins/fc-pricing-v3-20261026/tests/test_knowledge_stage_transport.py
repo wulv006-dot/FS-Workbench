@@ -24,6 +24,12 @@ class KnowledgeStageTransportTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout)['sourceCommit'], commit)
             with tarfile.open(archive, 'r:gz') as bundle:
+                release = PREFIX.removesuffix('deploy/')
+                catalog = json.load(bundle.extractfile(release + 'candidate/artifact/index.json'))
+                baseline = bundle.extractfile(release + 'candidate/runtime/business-baseline.md').read()
+                expected = {row['source']['sha256'] for row in catalog['entries']
+                            if row['source']['path'] == 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'}
+                self.assertEqual(expected, {hashlib.sha256(baseline).hexdigest()})
                 for name in ('release.py', 'prepare_manifest.py', 'release_navigation_base.py'):
                     relative = 'releases/fc-coins/fc-pricing-v3-20261026/deploy/knowledge/' + name
                     committed = subprocess.check_output(['git', 'show', 'HEAD:' + relative], cwd=ROOT)
