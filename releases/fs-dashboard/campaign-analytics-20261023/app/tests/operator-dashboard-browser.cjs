@@ -14,6 +14,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  };
  const {server}=await import('../analytics/production-server.mjs');await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port+'/dashboard/analytics/campaigns/';
  const browser=await chromium.launch({headless:true}),page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>{const original=window.setInterval.bind(window);window.setInterval=(fn,ms,...args)=>{if(ms===60000){window.__operatorCheck=fn;return 812;}return original(fn,ms,...args);};});
  await page.route('**/dashboard/workspace-assets/**',route=>{const name=path.basename(new URL(route.request().url()).pathname);return route.fulfill({contentType:'text/css',body:fs.readFileSync(path.join(app,'analytics',name),'utf8')});});
  try{
   await page.goto(base+'analytics/');await page.waitForFunction(()=>document.getElementById('feedback').textContent.includes('查询结果时间'));
@@ -26,6 +27,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   let viewports=0;for(const width of [1440,390])for(const theme of ['light','dark']){await page.setViewportSize({width,height:950});await page.evaluate(t=>document.documentElement.dataset.fsTheme=t,theme);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page overflow '+width);viewports++;}
   await page.setViewportSize({width:1440,height:1050});await page.evaluate(()=>{document.getElementById('management').open=false;window.scrollTo(0,0)});if(process.env.CAMPAIGN_OPERATOR_SCREENSHOT)await page.screenshot({path:process.env.CAMPAIGN_OPERATOR_SCREENSHOT,fullPage:true});
   await page.route('**/analytics/api/report?**',r=>r.fulfill({status:502,json:{status:'error',message:'fixture query unavailable'}}));await page.locator('#filters button[type=submit]').click();await page.waitForFunction(()=>document.getElementById('feedback').textContent.includes('fixture query unavailable'));assert.match(await page.locator('#metrics').innerText(),/—/);
+  await page.unroute('**/analytics/api/report?**');let deniedReads=0;await page.route('**/analytics/api/report?**',r=>{deniedReads++;return r.fulfill({status:403,json:{status:'error',message:'fixture access denied'}});});await page.selectOption('#mode','live');await page.waitForFunction(()=>document.getElementById('feedback').textContent.includes('fixture access denied'));await page.evaluate(()=>window.__operatorCheck());await page.waitForTimeout(50);assert.equal(deniedReads,1,'Permission failures stop automatic polling');
   assert.deepEqual(errors,[]);console.log('PASS operator dashboard: default published activity, production/test separation, readable names, game filter, empty/error states, 4 viewport/theme cases; isolated fixtures only');
  }finally{await browser.close();await new Promise(r=>server.close(r));global.fetch=real;fs.rmSync(dir,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exit(1)});
