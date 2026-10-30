@@ -5,6 +5,26 @@ import importlib.util
 from unittest.mock import patch
 
 class Release(unittest.TestCase):
+ def test_statistics_calendar_exact_targets_and_paired_payload(self):
+  self.assertEqual(p.target('backend/statistics_refresh.py'),'/opt/fs-campaign-dashboard/backend/statistics_refresh.py')
+  self.assertEqual(p.target('fs-campaign-statistics-refresh.timer'),'/etc/systemd/system/fs-campaign-statistics-refresh.timer')
+  for invalid in ['backend/statistics_refresh_extra.py','backend/./statistics_refresh.py','other-statistics.timer']:
+   with self.assertRaises(ValueError):p.target(invalid)
+  with tempfile.TemporaryDirectory() as tmp:
+   stage=Path(tmp);rows=[]
+   for name in sorted(p.REQUIRED_SPECIAL|{'fs-campaign-statistics-refresh.timer'}):
+    f=stage/'candidate'/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('fixture')
+    rows.append(dict(candidate=name,target=p.target(name),sha256=p.m.digest(f),beforeSha256=None))
+   manifest=dict(schemaVersion=1,scope=p.SCOPE,targets={r['candidate']:r['target'] for r in rows},files=rows)
+   with self.assertRaisesRegex(ValueError,'exact paired service'):p.validate(manifest,stage)
+  timer=(Path(__file__).parent/'deploy/fs-campaign-statistics-refresh.timer').read_text()
+  service=(Path(__file__).parent/'deploy/fs-campaign-statistics-refresh.service').read_text()
+  for required in ['OnCalendar=*-*-* 00,08,16:00:00','Persistent=true','AccuracySec=1s','Unit=fs-campaign-statistics-refresh.service']:self.assertIn(required,timer)
+  for required in ['User=root','Environment=TZ=Asia/Shanghai','TimeoutStartSec=420','KillMode=control-group','backend/statistics_refresh.py']:self.assertIn(required,service)
+  with patch.object(p.Path,'exists',return_value=True),patch.object(p.subprocess,'run') as run:
+   p.restart({'targets':{'fs-campaign-statistics-refresh.timer':p.target('fs-campaign-statistics-refresh.timer')},'files':[]})
+  timer_calls=[c.args[0] for c in run.call_args_list if any(str(x).endswith('.timer') for x in c.args[0])]
+  self.assertEqual(timer_calls,[['systemctl','enable','fs-campaign-statistics-refresh.timer'],['systemctl','start','fs-campaign-statistics-refresh.timer']])
  def test_navigation_registry_and_static_submenus_share_order(self):
   path=Path(__file__).parent/'navigation/prepare_release.py';spec=importlib.util.spec_from_file_location('activity_navigation',path);nav=importlib.util.module_from_spec(spec);spec.loader.exec_module(nav)
   original={'sections':[{'id':'analytics','ids':['data','campaign-analytics']},{'id':'sports','ids':['coins']}],'tools':[{'id':'campaign-analytics','section':'analytics'}]}

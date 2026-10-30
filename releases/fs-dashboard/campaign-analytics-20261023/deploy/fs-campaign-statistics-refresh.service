@@ -1,0 +1,15 @@
+[Unit]
+Description=FS Halloween aggregate statistics refresh
+After=network-online.target fs-campaign-dashboard.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/fs-campaign-dashboard
+Environment=TZ=Asia/Shanghai
+UMask=0077
+ExecStart=/opt/python39/bin/python3 -B /opt/fs-campaign-dashboard/backend/statistics_refresh.py
+TimeoutStartSec=420
+TimeoutStopSec=15
+KillMode=control-group

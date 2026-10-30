@@ -9,6 +9,7 @@ import {report} from './server.mjs';
 import {reportContext} from './report-context.mjs';
 import {makeDiscountRevenue} from './discount-revenue.mjs';
 import {makeOriginTraffic} from './origin-traffic.mjs';
+import {readStatisticsSnapshot} from './statistics-refresh.mjs';
 import {atomic,makeStore,previewCatalog,validateLayout} from './store.mjs';
 import {makeCenterStore} from './center-store.mjs';
 import {centerSeed,effectivePageBindings} from './center-seed.mjs';
@@ -136,6 +137,11 @@ export const server=http.createServer(async(req,res)=>{
   if(relative==='analytics/api/center')return json(res,200,{...centerState(center.read()),csrf:auth.admin?csrf:null,canEdit:auth.admin});
   if(relative.startsWith('analytics/api/center/assets/')){const {info,bytes}=center.readAsset(relative.slice('analytics/api/center/assets/'.length));res.writeHead(200,{'Content-Type':info.mime,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(req.method==='HEAD'?undefined:bytes);}
   if(relative==='analytics/api/config')return json(res,200,{...publicState(store.read()),csrf:auth.admin?csrf:null,canEdit:auth.admin});
+  if(relative==='analytics/api/statistics-snapshot'){
+   if([...url.searchParams.keys()].some(k=>k!=='kind')||!['today','campaign','yesterday'].includes(url.searchParams.get('kind')))return json(res,400,{status:'invalid',message:'计划汇总只支持今日、整期或UTC昨日；细分筛选请使用自选查询。'});
+   const published=JSON.parse(fs.readFileSync(path.join(publicDir,'current.json'),'utf8'));
+   return json(res,200,{...readStatisticsSnapshot({directory:path.join(dir,'statistics-refresh'),published,kind:url.searchParams.get('kind')}),context:reportContext(publicDir)});
+  }
   if(relative==='analytics/api/discount-revenue'){const result=await discountRevenue(url.searchParams);return json(res,result.status,result.body);}
   if(relative==='analytics/api/origin-traffic')return json(res,200,await originTraffic(url.searchParams));
   if(relative==='analytics/api/report'){const state=store.read();const result=await report(url.searchParams,{token:secret(),project:cfg.projectId,registry:state.registry,revision:state.revision,context:reportContext(publicDir)});return json(res,result.status,result.body);}
