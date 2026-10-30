@@ -234,7 +234,7 @@ class SupersededAllCodePublish(unittest.TestCase):
         self.tick=SimpleNamespace(ROOT=self.root,read_record=lambda p:json.loads(p.read_text()),
             resolved_execution=lambda a:a.get('status') in ('CONFIRMED','PUBLIC_CONFIRMED'),
             RETRY_LOCKS=('price-writer.lock',),queue_mutation=self.queue_mutation,
-            retry_guard=lambda:'all_sync_unconfirmed',player_sync_gate=lambda:'ready')
+            retry_guard=lambda:'all_sync_unconfirmed',player_sync_gate=lambda:'ready',load_player_sync_policy=lambda:{'revision':10})
         (self.root/'state/price-writer.lock').touch()
         self.health={'incomplete_executions':0,'queue_depth':0};self.api=SimpleNamespace(health=lambda:self.health)
     def persist(self):
