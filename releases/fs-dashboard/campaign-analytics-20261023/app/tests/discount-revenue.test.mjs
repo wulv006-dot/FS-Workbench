@@ -2,6 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {makeDiscountRevenue} from '../analytics/discount-revenue.mjs';
 const params=()=>new URLSearchParams({activity:'mmoexp-seasonal',mode:'live',from:'2026-10-30',to:'2026-10-30',game:'all'});
+test('only classified transient failures survive the order adapter as retry reasons',async()=>{
+ const timeout=await makeDiscountRevenue(()=>{throw Error('BACKEND_READ_TIMEOUT');})(params());assert.equal(timeout.body.reason,'SOURCE_TIMEOUT');
+ const unknown=await makeDiscountRevenue(()=>{throw Error('BACKEND_UNAVAILABLE');})(params());assert.equal(unknown.body.reason,'BACKEND_UNAVAILABLE');
+ const wait=await makeDiscountRevenue(()=>{throw Object.assign(Error('PostHog query returned 503'),{retryAfterMs:10000});})(params());assert.equal(wait.body.reason,'SOURCE_HTTP_503');assert.equal(wait.body.retryAfterMs,10000);
+});
 test('paid orders use separate 600s cache, exact request, refresh and no failures as zero',async()=>{
  let now=1000,calls=0,fail=false;
  const report=makeDiscountRevenue(async request=>{calls++;assert.deepEqual(request,{action:'discount_revenue',site_id:'266',from:'2026-10-30',to:'2026-10-30',game:'all'});if(fail)throw Error('UPSTREAM_UNAVAILABLE');return {status:'available',coverage:{complete:true},totals:{paid_orders:2,paid_usd_minor:30725}};},()=>now);

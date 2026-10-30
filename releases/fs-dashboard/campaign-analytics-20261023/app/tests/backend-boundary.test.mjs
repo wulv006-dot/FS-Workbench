@@ -13,5 +13,8 @@ test('catalog child timeout is explicit; ordinary backend failures are not misla
  try{
   await assert.rejects(backendRead({action:'catalog_search',site_id:'266',game_id:'1327',keyword:'synthetic'},{python:process.execPath,bridge,timeout:200}),e=>e.code==='CATALOG_SEARCH_TIMEOUT'&&e.status===504);
   await assert.rejects(backendRead({action:'product_read',site_id:'266',game_id:'1327',goods_id:'1'},{python:process.execPath,bridge,timeout:200}),e=>e.code==='BACKEND_UNAVAILABLE'&&e.status===502);
+  await assert.rejects(backendRead({action:'discount_revenue',site_id:'266'},{python:process.execPath,bridge,timeout:200}),e=>e.code==='BACKEND_READ_TIMEOUT');
+  fs.writeFileSync(bridge,"process.stdin.resume();process.stdout.write('x'.repeat(2100000));setTimeout(()=>{},10000);");
+  await assert.rejects(backendRead({action:'discount_revenue',site_id:'266'},{python:process.execPath,bridge,timeout:3000}),e=>e.code==='BACKEND_UNAVAILABLE','Output cap failure is not a retryable timeout');
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });

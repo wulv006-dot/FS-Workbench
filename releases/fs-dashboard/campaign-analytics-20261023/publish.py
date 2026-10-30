@@ -16,7 +16,7 @@ RUNTIME_SPECIAL={'fs-campaign-runtime.service':'/etc/systemd/system/fs-campaign-
 SPECIAL.update(RUNTIME_SPECIAL)
 STATS_SPECIAL={'fs-campaign-statistics-refresh.service':'/etc/systemd/system/fs-campaign-statistics-refresh.service','fs-campaign-statistics-refresh.timer':'/etc/systemd/system/fs-campaign-statistics-refresh.timer'}
 SPECIAL.update(STATS_SPECIAL)
-STATS_PAYLOAD=set(STATS_SPECIAL)|{'app/analytics/statistics-refresh.mjs','backend/statistics_refresh.py','app/analytics/production-server.mjs','app/analytics/dashboard.js'}
+STATS_PAYLOAD=set(STATS_SPECIAL)|{'app/analytics/statistics-refresh.mjs','app/analytics/statistics-retry.mjs','backend/statistics_refresh.py','app/analytics/production-server.mjs','app/analytics/dashboard.js'}
 BACKEND_FILES={'bridge.py','catalog-mapping.json','campaign_backend/__init__.py','campaign_backend/adapters.py','campaign_backend/attribution.py','campaign_backend/catalog.py','campaign_backend/models.py','campaign_backend/provider.py','campaign_backend/core.py','campaign_backend/ledger.py','campaign_backend/coupon_draft.py','campaign_backend/benefits.py','campaign_backend/analysis.py','campaign_backend/services.py','campaign_backend/discount_revenue.py'}
 BACKEND_FILES.add('statistics_refresh.py')
 
@@ -36,6 +36,7 @@ def validate(manifest,stage):
  if manifest.get('schemaVersion')!=1 or names!=expected(manifest) or len(names)!=len(files) or not REQUIRED_SPECIAL.issubset(names):raise ValueError('incomplete exact manifest')
  if names.intersection(RUNTIME_SPECIAL) and not set(RUNTIME_SPECIAL).issubset(names):raise ValueError('runtime unit and environment must be staged together')
  if names.intersection(STATS_SPECIAL) and not STATS_PAYLOAD.issubset(names):raise ValueError('statistics timer requires its exact paired service and readers')
+ if names.intersection({'app/analytics/statistics-refresh.mjs','app/analytics/server.mjs','app/analytics/discount-revenue.mjs'}) and 'app/analytics/statistics-retry.mjs' not in names:raise ValueError('statistics retry dependency must be staged with its consumers')
  for r in files:
   if r['target']!=target(r['candidate']) or manifest['targets'][r['candidate']]!=r['target']:raise ValueError('target changed')
   if not m.HASH.fullmatch(r['sha256']) or r['beforeSha256'] is not None and not m.HASH.fullmatch(r['beforeSha256']):raise ValueError('invalid hash')

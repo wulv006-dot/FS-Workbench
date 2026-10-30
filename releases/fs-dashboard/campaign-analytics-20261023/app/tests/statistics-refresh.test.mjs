@@ -94,3 +94,10 @@ test('unknown existing snapshot is preserved, malformed source becomes missing, 
  await assert.rejects(runStatisticsRefresh({directory:dir,published,readers:readers(),now:()=>at}),/INVALID_SNAPSHOT_FILE/);assert.deepEqual(fs.readFileSync(file),before);
  const other=folder(t),r=readers();r.behavior=async()=>{throw Error('SOURCE_NOT_CONFIGURED');};r.revenue=async()=>({status:200,body:{status:'available',coverage:{complete:false}}});const out=await runStatisticsRefresh({directory:other,published,readers:r,now:()=>at});assert.equal(out.status,'partial');assert.equal(read(other,'today').sources.revenue.lastSuccess,null);assert.equal(read(other,'today').sources.traffic.lastSuccess.summary.pageRequests,20);assert(read(other,'status').blockedSources.behavior);
 });
+test('only the transiently failed window/source retries; successful traffic and sales are reused',async t=>{
+ const dir=folder(t);await runStatisticsRefresh({directory:dir,published,readers:readers(),now:()=>at});
+ const calls={},r=readers(values(),calls);let campaignCalls=0;const regular=r.behavior;
+ r.behavior=async w=>{if(w.kind==='campaign'&&++campaignCalls===1){calls.behavior=(calls.behavior||0)+1;throw new DOMException('deadline','TimeoutError');}return regular(w);};
+ const result=await runStatisticsRefresh({directory:dir,published,readers:r,now:()=>at+8*3600000});assert.equal(result.status,'success');assert.deepEqual(calls,{traffic:2,behavior:3,revenue:2});
+ const retry=read(dir,'campaign').sources.behavior.lastAttempt.retry;assert.equal(retry.attemptCount,2);assert.equal(retry.retryCount,1);assert.equal(retry.attempts[0].reason,'SOURCE_TIMEOUT');assert.equal(read(dir,'today').sources.revenue.lastAttempt.retry.retryCount,0);
+});

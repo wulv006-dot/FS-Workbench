@@ -5,6 +5,16 @@ import importlib.util
 from unittest.mock import patch
 
 class Release(unittest.TestCase):
+ def test_retry_dependency_cannot_be_omitted_from_consumer_release(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   stage=Path(tmp);rows=[]
+   for name in sorted(p.REQUIRED_SPECIAL|{'app/analytics/server.mjs'}):
+    f=stage/'candidate'/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('fixture')
+    rows.append(dict(candidate=name,target=p.target(name),sha256=p.m.digest(f),beforeSha256=None))
+   manifest=dict(schemaVersion=1,scope=p.SCOPE,targets={r['candidate']:r['target'] for r in rows},files=rows)
+   with self.assertRaisesRegex(ValueError,'retry dependency'):p.validate(manifest,stage)
+   name='app/analytics/statistics-retry.mjs';f=stage/'candidate'/name;f.write_text('retry fixture');row=dict(candidate=name,target=p.target(name),sha256=p.m.digest(f),beforeSha256=None);rows.append(row);manifest['targets'][name]=row['target']
+   self.assertEqual(p.validate(manifest,stage),rows)
  def test_statistics_calendar_exact_targets_and_paired_payload(self):
   self.assertEqual(p.target('backend/statistics_refresh.py'),'/opt/fs-campaign-dashboard/backend/statistics_refresh.py')
   self.assertEqual(p.target('fs-campaign-statistics-refresh.timer'),'/etc/systemd/system/fs-campaign-statistics-refresh.timer')

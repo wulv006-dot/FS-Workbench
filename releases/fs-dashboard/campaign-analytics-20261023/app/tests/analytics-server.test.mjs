@@ -1,5 +1,9 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {report} from '../analytics/server.mjs';
 test('unconfigured query does not substitute sample data',async()=>{delete process.env.POSTHOG_QUERY_KEY;assert.equal((await report(new URLSearchParams())).status,503);});
+test('PostHog errors preserve only status and parsed Retry-After for scheduled retry',async()=>{
+ const original=globalThis.fetch;globalThis.fetch=async()=>({ok:false,status:429,headers:new Headers({'Retry-After':'7'})});
+ try{await assert.rejects(report(new URLSearchParams({activity:'all',from:'2026-10-31',to:'2026-10-31'}),{token:'fixture',project:'1',revision:'retry-header'}),e=>e.message==='PostHog query returned 429'&&e.retryAfterMs===7000);}finally{globalThis.fetch=original;}
+});
 test('server validates activity/date and returns only aggregate with mocked PostHog',async()=>{
  process.env.POSTHOG_QUERY_KEY='test-only';process.env.POSTHOG_PROJECT_ID='123';
  assert.equal((await report(new URLSearchParams({activity:'unknown'}))).status,400);
