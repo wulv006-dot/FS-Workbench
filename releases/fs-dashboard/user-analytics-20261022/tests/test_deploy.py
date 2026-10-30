@@ -13,6 +13,38 @@ from patch_navigation import patch
 
 
 class Deployment(unittest.TestCase):
+    def test_weekly_release_binds_exact_ten_targets_to_existing_host_publisher(self):
+        spec=importlib.util.spec_from_file_location('users_weekly_release_test',ROOT/'deploy/release_weekly.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        host=SimpleNamespace(SCOPE='old',TARGETS={},NEW=frozenset(),bind=object())
+        original_bind=host.bind
+        base=object()
+        def original_loader():
+            self.assertEqual(host.SCOPE,module.SCOPE)
+            self.assertEqual(host.NEW,frozenset({'source/user_weekly.py'}))
+            self.assertEqual(set(host.TARGETS.values()),{
+                *('/opt/fs-hermes-fc/'+name for name in ('user_runtime.py','user_contract.py','user_jobs.py','user_query.py','user_http.py','user_customer_types.py','user_tools.py','user_weekly.py')),
+                '/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/index.html',
+                '/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/users.js'})
+            self.assertEqual(len(host.TARGETS),10)
+            self.assertIs(host.bind,original_bind)
+            return base
+        p4=SimpleNamespace(load_base=Mock(side_effect=original_loader))
+        with mock_patch.dict(sys.modules,{'host_release':host,'p4_release':p4}):
+            self.assertIs(module.load_base(),base)
+        p4.load_base.assert_called_once_with()
+        host.TARGETS.clear()
+        self.assertEqual(len(module.TARGETS),10)
+
+    def test_weekly_release_does_not_hide_original_publisher_rejection(self):
+        spec=importlib.util.spec_from_file_location('users_weekly_release_rejection_test',ROOT/'deploy/release_weekly.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        host=SimpleNamespace(SCOPE='old',TARGETS={},NEW=frozenset())
+        p4=SimpleNamespace(load_base=Mock(side_effect=ValueError('exact_host_tiered_scope_required')))
+        with mock_patch.dict(sys.modules,{'host_release':host,'p4_release':p4}):
+            with self.assertRaisesRegex(ValueError,'exact_host_tiered_scope_required'):
+                module.load_base()
+
     def test_january_extension_cannot_change_other_runtime_or_schedule(self):
         import release
         with mock_patch.dict(sys.modules),mock_patch.multiple(release,SCOPE=release.SCOPE,TARGETS=release.TARGETS,NEW=release.NEW,AUTHORIZED_TIMERS=release.AUTHORIZED_TIMERS):

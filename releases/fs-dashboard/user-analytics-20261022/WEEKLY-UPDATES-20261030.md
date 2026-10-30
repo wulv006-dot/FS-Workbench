@@ -28,7 +28,7 @@
 
 精确运行目标共8个：`/opt/fs-hermes-fc/` 下新增 `user_weekly.py`，更新 `user_runtime.py`、`user_contract.py`、`user_jobs.py`、`user_query.py`、`user_http.py`、`user_customer_types.py`、`user_tools.py`。界面目标为 `/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/{index.html,users.js}`。复用原 `user_store.read_at()` 与meta表，无schema变更；现役配置、回放算法和所有timer文件不变。
 
-沿原publisher的CAS、原子备份、journal、准入和回滚；共享发布由父任务串行协调。必要Range加载、Hermes原生新会话工具说明载入分别留证，不将文件存在当模型实际使用。上线前重核实际hash、维护状态和并行任务，不套旧主机PID或静态保护hash。
+入口`deploy/release_weekly.py`仅将这10个目标（新增1个）绑定到已使用的host/P4发布器，保留原锁、CAS、原子备份、journal、准入和回滚。原发布器短暂维护Range及原5个采集timer，先核采集自然退出并恢复原状态，不改timer文件或日程，不重启FC、Admin、nginx或原生Hermes服务。共享发布由父任务串行协调；活动发布退出后重取现场hash、锁身份和服务状态，形成最终清单，不能用候选包或旧基线直接apply。必要Range加载、Hermes原生新会话工具说明载入分别留证，不将文件存在当模型实际使用。上线前重核实际hash、维护状态和并行任务，不套旧主机PID或静态保护hash。
 
 回滚恢复该批文件并受控加载原读取服务，保留所有事实、周元数据、旧新快照和备份。旧读者仍能读取新recipe冻结快照；恢复旧日更代码会恢复原高频行为。先核周任务自然结束及备份目录，不盲重放未知状态。
 
