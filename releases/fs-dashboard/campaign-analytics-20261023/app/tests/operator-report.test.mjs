@@ -15,6 +15,7 @@ test('public report context exposes names but no checkout policy, prices or priv
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'report-context-'));try{
   fs.writeFileSync(path.join(dir,'current.json'),JSON.stringify({release_id:'campaign-preview-16',config_hash:'a'.repeat(64),pages:[{page_id:'seasonal-vault',activity_id:'mmoexp-seasonal',active:true}],halloween:{status:'configured',games:[{admin_game_id:'456',label:'Diablo IV',random_models:['1']}],ends_at:'2026-11-02T23:59:59-05:00'},products:[{title:'Resplendent Spark',price:99,product_ref:{game_id:'456',model_id:'111',goods_id:'333'}}],native_checkout:{secret:'not-exposed'}}));
   const c=reportContext(dir);assert.equal(c.models['456:111'],'Resplendent Spark');assert.equal(c.products['333'],'Resplendent Spark');assert.equal(c.games[0].name,'Diablo IV');assert.equal(c.payment,'not_integrated');assert(!JSON.stringify(c).includes('not-exposed'));assert(!JSON.stringify(c).includes('random_models'));assert(!JSON.stringify(c).includes('price'));
+  assert.equal(c.traffic.status,'not_connected');assert.equal(c.traffic.pageRequests,null);assert.equal(c.traffic.estimatedVisitors,null);assert.equal(c.traffic.visitorBasis,'distinct_ip_not_people');assert.equal(c.traffic.periodDistinct,'separate_from_daily_sum');
   fs.writeFileSync(path.join(dir,'current.json'),'bad');assert.equal(reportContext(dir),null);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });

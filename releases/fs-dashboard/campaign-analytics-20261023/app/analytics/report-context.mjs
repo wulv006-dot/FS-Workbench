@@ -15,7 +15,7 @@ export function reportContext(publicDir){
    if(r.game_id&&r.model_id)models[r.game_id+':'+r.model_id]=name;
    if(r.goods_id)products[r.goods_id]=name;
   }
-  return {activityId:'mmoexp-seasonal',name:'万圣节神秘商店',url:'https://www.mmoexp.com/events/seasonal/',releaseId:p.release_id,configHash:p.config_hash,active:page.active===true&&p.halloween?.status==='configured',startsAt:p.halloween?.starts_at,endsAt:p.halloween?.ends_at,games,models,products,checkout:'not_integrated',payment:'not_integrated'};
+  return {activityId:'mmoexp-seasonal',name:'万圣节神秘商店',url:'https://www.mmoexp.com/events/seasonal/',releaseId:p.release_id,configHash:p.config_hash,active:page.active===true&&p.halloween?.status==='configured',startsAt:p.halloween?.starts_at,endsAt:p.halloween?.ends_at,games,models,products,checkout:'not_integrated',payment:'not_integrated',traffic:{status:'not_connected',pageRequests:null,estimatedVisitors:null,reason:'TRUSTED_EDGE_AGGREGATE_REQUIRED',visitorBasis:'distinct_ip_not_people',periodDistinct:'separate_from_daily_sum'}};
  }catch{return null;}
 }
 

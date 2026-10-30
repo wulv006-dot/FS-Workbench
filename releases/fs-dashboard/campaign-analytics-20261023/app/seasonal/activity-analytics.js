@@ -3,7 +3,7 @@
   if(window.FCActivityAnalytics)return;
   const cfg=window.FC_ANALYTICS_CONFIG||{},catalog=window.FC_ACTIVITY_CONFIG||{},root=document.getElementById('fc-activity');
   if(!root)return;
-  let published=null;const formal=location.origin==='https://www.mmoexp.com'&&location.pathname==='/events/seasonal/'&&(!document.documentElement.dataset.campaignRuntime||document.documentElement.dataset.campaignRuntime==='/events/');
+  let published=null;const formal=location.origin==='https://www.mmoexp.com'&&['/events/seasonal/','/events/seasonal/index.html'].includes(location.pathname)&&(!document.documentElement.dataset.campaignRuntime||document.documentElement.dataset.campaignRuntime==='/events/');
   let preview=catalog.mode!=='live';const local=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   const uuid=()=>crypto.randomUUID(),safe=v=>typeof v==='string'&&/^[\w. /-]{1,100}$/.test(v)?v:undefined;
   let sdk=null,consent=false,state={},entry=null,seen=new Set(),last=performance.now(),active=0,observer,wasVisible=document.visibilityState==='visible';
@@ -99,14 +99,19 @@
   },opt_in_capturing(){transportOptIn=true;},opt_out_capturing(){transportOptIn=false;},get_distinct_id(){return distinct;}};
   function consentControls(){
     if(document.getElementById('seasonal-analytics-choice'))return;
-    const section=document.createElement('section');section.id='seasonal-analytics-choice';section.className='analytics-choice';section.setAttribute('aria-label','Anonymous analytics preferences');
-    const label=document.createElement('p');label.textContent='Allow anonymous usage data to help improve this event? Your choice does not affect offers or purchases.';
+    const native=document.createElement('dialog'),modal=typeof native.showModal==='function'&&typeof native.close==='function';
+    const section=modal?native:document.createElement('section');section.id='seasonal-analytics-choice';section.className='analytics-choice';section.setAttribute('aria-labelledby','seasonal-analytics-title');section.setAttribute('aria-describedby','seasonal-analytics-description');
+    const title=document.createElement('h2');title.id='seasonal-analytics-title';title.tabIndex=-1;title.textContent='Your analytics choice';
+    const label=document.createElement('p');label.id='seasonal-analytics-description';label.textContent='May we collect optional usage data to improve this event? You can browse and buy with either choice. Change your choice anytime in Analytics preferences.';
     const yes=document.createElement('button'),no=document.createElement('button');yes.type=no.type='button';yes.textContent='Allow analytics';no.textContent='No thanks';
-    const choose=value=>{window.FCActivityAnalytics.setConsent(value);try{localStorage.setItem(consentKey,value?'granted':'denied');}catch{}section.hidden=true;};
-    yes.addEventListener('click',()=>choose(true));no.addEventListener('click',()=>choose(false));section.append(label,yes,no);
+    const close=()=>{if(modal&&section.open)section.close();section.hidden=true;},open=()=>{section.hidden=false;if(modal&&!section.open)section.showModal();title.focus?.();};
+    const choose=value=>{window.FCActivityAnalytics.setConsent(value);try{localStorage.setItem(consentKey,value?'granted':'denied');}catch{}close();};
+    yes.addEventListener('click',()=>choose(true));no.addEventListener('click',()=>choose(false));section.append(title,label,yes,no);if(modal)section.addEventListener('close',()=>{section.hidden=true;});
     const header=document.querySelector('.site-header');if(header?.after)header.after(section);else document.querySelector('.site-footer')?.before(section);
-    const settings=document.createElement('button');settings.type='button';settings.className='analytics-settings';settings.textContent='Analytics preferences';settings.addEventListener('click',()=>{section.hidden=false;yes.focus();});document.querySelector('.site-footer')?.append(settings);
-    try{const saved=localStorage.getItem(consentKey);if(saved==='granted'||saved==='denied'){section.hidden=true;window.FCActivityAnalytics.setConsent(saved==='granted');}}catch{}
+    const settings=document.createElement('button');settings.type='button';settings.className='analytics-settings';settings.textContent='Analytics preferences';settings.addEventListener('click',open);document.querySelector('.site-footer')?.append(settings);
+    let saved;try{saved=localStorage.getItem(consentKey);}catch{}
+    window.FCActivityAnalytics.setConsent(saved==='granted');if(saved==='granted'||saved==='denied')close();else open();
+    window.addEventListener('storage',e=>{if(e.key===consentKey||e.key===null)window.FCActivityAnalytics.setConsent(e.key===consentKey&&e.newValue==='granted');});
   }
   window.addEventListener('seasonal-published-catalog',e=>{
     const next=e.detail,page=Array.isArray(next?.pages)?next.pages.find(p=>p?.page_id==='seasonal-vault'&&p.activity_id==='mmoexp-seasonal'):null;
