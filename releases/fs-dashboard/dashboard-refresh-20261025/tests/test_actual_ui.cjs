@@ -22,7 +22,7 @@ check('three UI variants use the paid Admin cohort for all-site cards and trends
  const profile={key:'AION2',supplement:admin,primary:{status:'available',period,currency:'USD',metrics:{orders:metric(9),revenueUsd:metric(900),newCustomers:metric(7)},rows:[{date:'2026-10-23 01:00',orders:9,amount:900}],seriesGranularity:'day-or-hour',labelsVerified:true}};
  const q={start:'2026-10-23',end:'2026-10-23',grain:'day'},c=vm.createContext({fsActualMetrics:()=>({}),scope:{summary:{query:q,profile}},KEY:'AION2',currentSelection:()=>q,exactPermissionDenied:()=>false});
  vm.runInContext(s.slice(0,s.indexOf('export function mount')),c);
- assert.equal(c.fsPeriodPolicy().ttl(q,Date.parse('2026-10-23T08:00:00Z')),600);assert.equal(c.fsPeriodPolicy().ttl(q,Date.parse('2026-10-24T08:00:00Z')),7200);
+ assert.equal(c.fsPeriodPolicy().ttl(q,Date.parse('2026-10-23T08:00:00Z')),600);assert.equal(c.fsPeriodPolicy().ttl(q,Date.parse('2026-10-24T08:00:00Z')),604800);
  c.GROUPS=[];c.data={dashboard:{groups:[{key:'rpg',label:'RPG · 已完成',profiles:['AION2']}]}};
  vm.runInContext(s.slice(s.indexOf('GROUPS.splice(0,GROUPS.length'),s.indexOf(';Object.assign(DATA,',s.indexOf('GROUPS.splice(0,GROUPS.length'))),c);
  assert.equal(c.GROUPS[0].label,'RPG');

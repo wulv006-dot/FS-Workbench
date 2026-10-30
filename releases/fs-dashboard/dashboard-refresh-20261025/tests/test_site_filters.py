@@ -131,7 +131,7 @@ class SiteFilters(unittest.TestCase):
             args=dict(mode=['actual-profit'],profile=['FC27'],start=['2026-10-23'],end=['2026-10-23'],profit_site=[site])
             actual=selection(args,profiles)
             old=query({**args,'mode':['summary']},profiles)
-            old.pop('admin_site',None);old['site']='www.mmoexp.com'
+            old.pop('admin_site',None);old['site']='www.mmoexp.com';old['cacheSeconds']=7200
             self.assertNotIn('admin_site',actual);self.assertEqual(actual['contractId'],CONTRACT)
             self.assertEqual({k:v for k,v in actual.items() if k!='contractId'},{k:v for k,v in old.items() if k!='contractId'})
             self.assertEqual(actual['profit_site'],site)

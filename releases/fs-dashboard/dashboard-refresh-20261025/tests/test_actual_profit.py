@@ -248,6 +248,14 @@ class Service(unittest.TestCase):
             self.service.get({**BASE,'refresh':['1']},'admin')
         self.assertEqual(self.pool.jobs[0][1][:2],(key,target));self.assertEqual(len(list(self.service.root.glob('*.json'))),1)
         with self.assertRaises(ValueError):self.service.get({**BASE,'contractId':['caller-contract']},'admin')
+    def test_summary_ttl_change_preserves_existing_aion_actual_profit_key(self):
+        params=dict(mode=['actual-profit'],profile=['AION2'],start=['2026-10-27'],end=['2026-10-27'],profit_site=['all'])
+        profiles={'AION2':('AION2','Aion2',826,891,'rpg')}
+        q=selection(params,profiles)
+        self.assertEqual(q['cacheSeconds'],7200)
+        key=hashlib.sha256(json.dumps({k:v for k,v in q.items() if k not in ('period','refresh')},sort_keys=True).encode()).hexdigest()
+        self.assertEqual(key,'713f952ac22296a114c937edd05298c8d4a036ed8d6508242da42abd05d8e6c0')
+        with patch('live_summary.HISTORY_TTL',604801):self.assertEqual(selection(params,profiles),q)
     def test_closed_zero_order_cache_reuses_complete_sources_but_retries_unavailable_cost(self):
         q=selection(BASE,PROFILES)
         key=hashlib.sha256(json.dumps({k:v for k,v in q.items() if k not in ('period','refresh')},sort_keys=True).encode()).hexdigest()

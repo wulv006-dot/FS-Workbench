@@ -14,6 +14,8 @@ def selection(params,profiles):
     values={**params,'mode':['summary']}
     if values.get('refresh')==['1']:values['refresh']=['true']
     q=summary_query(values,profiles)
+    # Profit cache IDs retain their original TTL field; freshness is decided independently.
+    q['cacheSeconds']=600 if q['cachePolicy']=='today' else 7200
     # Admin summary metadata must not invalidate the independent profit archive.
     q.pop('admin_site',None)
     q['contractId']=CONTRACT

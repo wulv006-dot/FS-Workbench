@@ -1,5 +1,6 @@
 import copy, sys, unittest
-from datetime import datetime, timezone
+from unittest.mock import patch
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'source'))
 from live_summary import SummaryCache, query, key_of, SHANGHAI
@@ -55,7 +56,29 @@ class RefreshTest(unittest.TestCase):
         self.assertEqual(sum(len(p.jobs) for p in c.pools.values()),0)
         self.now=600;self.assertTrue(c.get(q)[1]['stale'])
         self.assertEqual(sum(len(p.jobs) for p in c.pools.values()),2)
-        self.assertEqual(query(PARAMS,PROFILES,NOW.replace(day=16))['cacheSeconds'],7200)
+        self.assertEqual(query(PARAMS,PROFILES,NOW.replace(day=16))['cacheSeconds'],604800)
+    def test_history_reuses_live_sources_for_seven_days_then_revalidates(self):
+        c=self.cache();q=query(PARAMS,PROFILES,NOW.replace(day=16))
+        with patch('daily_archive.save'):
+            self.assertEqual(c.get_live(q)[0],202);self.drain(c)
+        for age in (7201,604799):
+            self.now=age;self.assertFalse(c.get_live(q)[1]['stale'])
+            self.assertEqual(sum(len(p.jobs) for p in c.pools.values()),0)
+        self.now=604800;self.assertTrue(c.get_live(q)[1]['stale'])
+        self.assertEqual(sum(len(p.jobs) for p in c.pools.values()),2)
+    def test_saved_summary_keeps_original_version_across_new_ttl_and_expires_at_seven_days(self):
+        c=self.cache();q=query(PARAMS,PROFILES,NOW.replace(day=16));now=datetime.now(timezone.utc)
+        for age in (7201,604799,604800):
+            stamp=(now-timedelta(seconds=age)).isoformat()
+            old=dict(generatedAt=stamp,query=dict(q,cacheSeconds=7200),sources={'Admin':{'status':'available'}},profile={'value':17})
+            with patch('daily_archive.read',return_value=old),patch('daily_archive.derive_summary',return_value=None),patch('daily_archive.save') as save,patch.object(c,'get_live',return_value=(202,{'status':'pending'})) as native,patch('live_summary.datetime',wraps=datetime) as clock:
+                clock.now.return_value=now
+                code,value=c.get(q)
+                self.assertEqual(code,200);self.assertEqual(value['generatedAt'],stamp)
+                self.assertEqual(value['query']['cacheSeconds'],604800);save.assert_not_called()
+                if age<604800:
+                    self.assertFalse(value['stale']);self.assertEqual(value['refreshSeconds'],604800);native.assert_not_called()
+                else:self.assertTrue(value['refreshing']);native.assert_called_once()
     def test_invalid_refresh_and_unchanged_other_scope(self):
         for refresh in (['false'],['1'],['true','true']):
             with self.assertRaises(ValueError):query({**PARAMS,'refresh':refresh},PROFILES,NOW)
