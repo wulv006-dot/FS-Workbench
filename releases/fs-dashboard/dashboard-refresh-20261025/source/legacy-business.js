@@ -3,7 +3,7 @@ function fsPeriodPolicy(){
  const shift=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
  const selection=(mode,custom,min,max,anchor=day())=>custom?{...custom,grain:'day'}:mode==='today'?{start:anchor,end:anchor,grain:'day'}:mode==='yesterday'?{start:shift(anchor,-1),end:shift(anchor,-1),grain:'day'}:+mode>0?{start:shift(anchor,-Number(mode)),end:shift(anchor,-1),grain:'day'}:{start:min,end:max<anchor?max:shift(anchor,-1),grain:'day'};
  const active=(s,now=Date.now())=>!!s?.end&&s.end.slice(0,10)>=day(now);
- return {day,shift,selection,active,ttl:(s,now=Date.now())=>active(s,now)?600:7200};
+ return {day,shift,selection,active,ttl:(s,now=Date.now())=>active(s,now)?600:604800};
 }
 export function mount(scope){
 const {window,document,fetch,URL,setTimeout,setInterval,clearTimeout,clearInterval,requestAnimationFrame,cancelAnimationFrame,MutationObserver,ResizeObserver,addEventListener,matchMedia}=scope;
@@ -402,7 +402,7 @@ async function load(d,key,s,signal,onWait,onResult,followOrder=true){
   const pending=data.sources?.Admin?.status==='pending'||followOrder&&data.sources?.Order?.status==='pending';
   // A deferred Order read is temporary contention, not a completed source omission.
   // Follow it only inside this explicit read's existing 100-second budget. Closed
-  // history revalidates on its existing two-hour bound; the shared backend lock is untouched.
+  // history revalidates on its seven-day bound; the shared backend lock is untouched.
   const order=data.sources?.Order;
   const deferred=followOrder&&order?.phase==='deferred'&&['collector_busy','scheduled_collection_due'].includes(order.error);
   const delay=pending?2000:30000;

@@ -7,7 +7,7 @@ import copy, hashlib, json, time
 
 SHANGHAI = timezone(timedelta(hours=8))
 TTL = 600
-HISTORY_TTL = 7200
+HISTORY_TTL = 604800
 CAPTURE_MAX_AGE = 120
 STALE_GRACE = 180
 STALE_LIMIT = TTL + STALE_GRACE
@@ -144,6 +144,7 @@ class SummaryCache:
             archived = read('summary', selector)
             if archived is not None:
                 archived['origin'] = 'dated-archive'
+                archived['query'] = copy.deepcopy(q)
                 # Payment-date history can still receive refunds and native corrections.
                 try: age = (datetime.now(timezone.utc)-datetime.fromisoformat(archived['generatedAt'])).total_seconds()
                 except (KeyError,ValueError,TypeError): age = float('inf')
