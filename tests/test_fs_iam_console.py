@@ -273,7 +273,7 @@ class ConsoleTest(unittest.TestCase):
             h.path = "/iam/api/registration/" + operation
             self.call(h, h.path)
             self.assertEqual(403, h.response["code"])
-        for operation in ("account-password", "member/roles", "register/", "../decision"):
+        for operation in ("native-login", "account-password", "member/roles", "register/", "../decision"):
             h = FakeHandler("POST", cookie_user=ADMIN)
             h.path = "/iam/api/registration/" + operation
             self.call(h, h.path)

@@ -49,9 +49,19 @@
 
   function guest(register) {
     $('login-form').hidden = register;
+    $('registration-login-form').hidden = true;
     $('registration-view').hidden = !register;
     $('registration-account').hidden = true;
     $('registration-toggle').textContent = register ? '返回登录' : '没有账号？注册账号';
+    $('registration-status-toggle').textContent = '查看注册申请进度';
+  }
+
+  function requestLogin() {
+    guest(false);
+    $('login-form').hidden = true;
+    $('registration-login-form').hidden = false;
+    $('registration-status-toggle').textContent = '返回工作台登录';
+    $('request-login-name').focus();
   }
 
   function button(text, action, parent) {
@@ -65,8 +75,10 @@
     try {
       var data = await bootstrap(), a = data.account;
       $('registration-toggle').hidden = a.role !== 'guest';
+      $('registration-status-toggle').hidden = a.role !== 'guest';
       if (a.role === 'guest') return guest(false);
       $('login-form').hidden = true;
+      $('registration-login-form').hidden = true;
       $('registration-view').hidden = true;
       var box = $('registration-account');
       box.hidden = false; box.replaceChildren();
@@ -112,20 +124,15 @@
       var values = Object.fromEntries(new FormData(form));
       if (operation === 'login') {
         values = { username: values.username, password: values.password };
-        var result;
-        try { result = await api('native-login', values); }
-        catch (error) {
-          if (error.status !== 401) throw error;
-          result = await api('login', values);
-        }
+        var result = await api('login', values);
         if (!result.account.id || result.account.state === 'readonly') {
           window.location.assign($('login-next').value || '/dashboard/'); return;
         }
       } else { await api(operation, values); }
       form.reset();
       if (operation === 'register') {
-        guest(false); message('注册成功，申请待审批。请登录查看进度。');
-        $('login-form').querySelector('input[name="username"]').focus();
+        requestLogin(); message('注册成功，申请待审批。请登录查看进度。');
+        $('request-login-name').value = values.username;
       } else { await account(); }
     } catch (e) { message(e.status === 401 && operation === 'login' ? '账号或密码错误，请检查后重试。' : e.message, true); }
     finally { busy = false; submit.disabled = uncertain; }
@@ -219,6 +226,10 @@
     ($('registration-view').hidden ? $('login-form') : $('registration-form')).querySelector('input[name="username"]').focus();
   });
   $('registration-form').addEventListener('submit', function (event) { submitForm(event, 'register'); });
-  $('login-form').addEventListener('submit', function (event) { submitForm(event, 'login'); });
+  $('registration-login-form').addEventListener('submit', function (event) { submitForm(event, 'login'); });
+  $('registration-status-toggle').addEventListener('click', function () {
+    if ($('registration-login-form').hidden) requestLogin();
+    else { guest(false); $('login-form').querySelector('input[name="username"]').focus(); }
+  });
   window.FSRegistration = { account: account, requests: requests };
 })();
