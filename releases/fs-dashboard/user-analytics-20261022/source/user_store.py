@@ -56,23 +56,30 @@ def _validate_targeted_cursors(value, sites):
 
 
 class Store:
-    def __init__(self, root, key, config):
+    def __init__(self, root, key, config, read_only=False):
         self.root, self.key, self.config = Path(root), key, config
+        self.read_only = read_only
         if not isinstance(key, bytes) or len(key) < 32:
             raise ValueError('identity_key_required')
         safe(self.root)
-        self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if read_only and not self.root.is_dir():
+            raise ValueError('existing_restore_directory_required')
+        if not read_only:
+            self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.root.stat().st_mode & 0o077:
             raise ValueError('private_directory_permissions')
         self.path = self.root / 'customers.sqlite3'
         safe(self.path)
         if not self.path.exists():
+            if read_only:
+                raise ValueError('existing_restore_database_required')
             fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
             os.close(fd)
         if self.path.stat().st_mode & 0o077:
             raise ValueError('private_database_permissions')
         with self.db() as db:
-            db.executescript('''
+            if not read_only:
+                db.executescript('''
               CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
               INSERT OR IGNORE INTO meta VALUES('revision','0');
               CREATE TABLE IF NOT EXISTS identities(lookup TEXT PRIMARY KEY,customer_id TEXT NOT NULL,email TEXT NOT NULL);
@@ -86,20 +93,25 @@ class Store:
               CREATE TABLE IF NOT EXISTS revisions(id INTEGER PRIMARY KEY,reason TEXT,body TEXT);
               CREATE TABLE IF NOT EXISTS snapshots(id TEXT PRIMARY KEY,query TEXT,body TEXT,members TEXT);
               CREATE TABLE IF NOT EXISTS snapshot_members(id TEXT PRIMARY KEY,body TEXT NOT NULL);
-            ''')
+                ''')
             fingerprint = hmac.new(key, b'fs-user-identity-v1', 'sha256').hexdigest()
             mapping = digest({k: config[k] for k in ('sites', 'identity_version', 'scope_version', 'projects')})
             for name, value in (('key_fingerprint', fingerprint), ('mapping_fingerprint', mapping)):
                 old = db.execute('SELECT value FROM meta WHERE key=?', (name,)).fetchone()
                 if old and old[0] != value:
                     raise ValueError('identity_or_mapping_migration_required')
-                db.execute('INSERT OR IGNORE INTO meta VALUES(?,?)', (name, value))
+                if read_only and not old:
+                    raise ValueError('restore_identity_metadata_missing')
+                if not read_only:
+                    db.execute('INSERT OR IGNORE INTO meta VALUES(?,?)', (name, value))
 
     @contextmanager
     def db(self):
         safe(self.path)
-        db = sqlite3.connect(self.path, timeout=15)
+        db = sqlite3.connect(self.path.as_uri() + '?mode=ro', uri=True, timeout=15) if self.read_only else sqlite3.connect(self.path, timeout=15)
         db.row_factory = sqlite3.Row
+        if self.read_only:
+            db.execute('PRAGMA query_only=ON')
         try:
             with db:
                 yield db
@@ -282,12 +294,82 @@ class Store:
             for row in db.execute('SELECT * FROM orders' + where + ' ORDER BY paid_at,order_key', (stamp(start).isoformat(),stamp(end).isoformat()) if start is not None else ()):
                 row = dict(row)
                 if analytics:
-                    body = json.loads(row['body'])
-                    row['source_id'] = str(body.get('id') or '')
-                    row['body'] = canonical({'amount_usd': body.get('amount_usd'), 'order_no_hash': hashlib.sha256(str(body.get('order_no') or '').encode()).hexdigest()})
+                    row = self.analytics_row_v1(row)
                 orders.append(row)
             jobs = [dict(r) for r in db.execute('SELECT * FROM jobs')]
         return revision, orders, jobs
+
+    @staticmethod
+    def analytics_row_v1(row):
+        """Versioned projection also used by persisted v1 replay inputs."""
+        row = dict(row)
+        body = json.loads(row['body'])
+        row['source_id'] = str(body.get('id') or '')
+        row['body'] = canonical({'amount_usd': body.get('amount_usd'), 'order_no_hash': hashlib.sha256(str(body.get('order_no') or '').encode()).hexdigest()})
+        return row
+
+    def read_at(self, version, start=None, end=None):
+        """One batch replay; validity and payment dates are filtered after revision selection."""
+        if not isinstance(version, str) or not version.isdecimal() or str(int(version)) != version or (start is None) != (end is None):
+            raise ValueError('snapshot_replay_version')
+        target = int(version)
+        result = {}
+        def include(raw):
+            if raw['revision'] <= target:
+                old = result.get(raw['order_key'])
+                if old is None or raw['revision'] > old['revision']:
+                    result[raw['order_key']] = self.analytics_row_v1(raw)
+        with self.db() as db:
+            db.execute('BEGIN')
+            current = int(db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0])
+            if target > current:
+                raise ValueError('snapshot_replay_future_version')
+            for row in db.execute('SELECT * FROM orders WHERE revision<=?', (target,)):
+                include(dict(row))
+            for row in db.execute('SELECT body FROM revisions WHERE id>? ORDER BY id', (target,)):
+                for old in json.loads(row[0]):
+                    include(old)
+        if start is not None:
+            start, end = stamp(start).isoformat(), stamp(end).isoformat()
+            if not start < end:
+                raise ValueError('analytics_period_required')
+        return sorted((r for r in result.values() if r['valid'] and (start is None or start <= r['paid_at'] < end)),
+                      key=lambda r: (r['paid_at'], r['order_key']))
+
+    @staticmethod
+    def decorate_private_v1(private, orders, query, config, global_allowed):
+        """Keep the v1 record fields stable for old recipes."""
+        if global_allowed:
+            by_customer = {}
+            cutoff = stamp(query['as_of'])
+            for row in orders:
+                cid = row['customer_id']
+                if cid and cid in private['records'] and row['site'] in config['sites'] and stamp(row['paid_at']) < cutoff and row['valid']:
+                    by_customer.setdefault(cid, []).append(row)
+            for cid, record in private['records'].items():
+                whole = by_customer.get(cid, [])
+                record.update(global_earliest_observed_at=min((r['paid_at'] for r in whole), default=None),
+                              global_last_paid_at=max((r['paid_at'] for r in whole), default=None))
+        private['scope_projects'] = config['projects']
+        return private
+
+    def replay_snapshot_v1(self, query, public, recipe):
+        """The v1 algorithm and record layout remain readable when future versions are added."""
+        if (set(recipe) != {'contract', 'query', 'data_version', 'config', 'jobs', 'global_allowed', 'private_sha256'}
+                or recipe['query'] != query or recipe['data_version'] != public['data_version']
+                or recipe['config']['scope_version'] != public['scope_version']
+                or recipe['config']['identity_version'] != public['identity_version']
+                or type(recipe['global_allowed']) is not bool or recipe['global_allowed'] != public.get('requires_global_scope', False)):
+            raise ValueError('snapshot_replay_contract')
+        from user_replay_v1 import analyze
+        cohort = query.get('state_basis') == 'period_cohort'
+        rows = self.read_at(recipe['data_version'], **dict(start=query['start'], end=query['end_exclusive']) if cohort else {})
+        _, private = analyze(rows, recipe['jobs'], query, recipe['config'])
+        self.decorate_private_v1(private, rows, query, recipe['config'], recipe['global_allowed'])
+        private.pop('events', None)
+        if digest(private) != recipe['private_sha256']:
+            raise ValueError('snapshot_replay_integrity')
+        return private
 
     def revision(self):
         with self.db() as db:
@@ -389,17 +471,30 @@ class Store:
                 source.backup(target)
                 if target.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
                     raise ValueError('backup_integrity')
+                revision = target.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0]
             finally:
                 target.close()
-        return dict(path=destination.name, revision=self.revision())
+        return dict(path=destination.name, revision=revision)
 
     def save_snapshot(self, query, public, members):
         ident = 'us_' + digest({'query': query, 'data': public})[:32]
         evidence = 'ua_' + ident[3:]
         public = dict(public, snapshot_id=ident, evidence_id=evidence)
         member_id = digest(members)
-        reference = canonical({'member_ref': member_id})
+        reference = canonical(dict(member_ref=member_id, **({'member_kind':'recipe-v1'} if members.get('contract') == 'fs-users-private-replay-v1' else {})))
         with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            old = db.execute('SELECT query,body,members FROM snapshots WHERE id=?', (ident,)).fetchone()
+            if old is not None and tuple(old[:2]) == (canonical(query), canonical(public)) and old[2] not in (reference, canonical(members)):
+                previous = self._snapshot_members(db, old[2])
+                incoming_recipe = members.get('contract') == 'fs-users-private-replay-v1'
+                previous_recipe = previous.get('contract') == 'fs-users-private-replay-v1'
+                if incoming_recipe or previous_recipe:
+                    before = previous['private_sha256'] if previous_recipe else digest({k: v for k, v in previous.items() if k != 'events'})
+                    after = members['private_sha256'] if incoming_recipe else digest({k: v for k, v in members.items() if k != 'events'})
+                    if before == after:
+                        return public  # Same immutable public ID keeps its original reference during rollout/rollback.
+                raise ValueError('snapshot_integrity')
             db.execute('INSERT OR IGNORE INTO snapshot_members VALUES(?,?)', (member_id, canonical(members)))
             db.execute('INSERT OR IGNORE INTO snapshots VALUES(?,?,?,?)',
                        (ident, canonical(query), canonical(public), reference))
@@ -407,6 +502,35 @@ class Store:
             if tuple(row[:2]) != (canonical(query), canonical(public)) or row[2] not in (reference, canonical(members)):
                 raise ValueError('snapshot_integrity')
         return public
+
+    @staticmethod
+    def _snapshot_members(db, encoded):
+        members = json.loads(encoded)
+        if set(members) == {'member_ref'} or set(members) == {'member_ref','member_kind'} and members['member_kind'] == 'recipe-v1':
+            record = db.execute('SELECT body FROM snapshot_members WHERE id=?', (members['member_ref'],)).fetchone()
+            if not record:
+                raise ValueError('snapshot_members_integrity')
+            value = json.loads(record[0])
+            if digest(value) != members['member_ref']:
+                raise ValueError('snapshot_members_integrity')
+            return value
+        return members
+
+    def snapshot_token(self, ident):
+        """Validate the small recipe before a private-cache hit; legacy lists are not cached."""
+        with self.db() as db:
+            row = db.execute('SELECT CASE WHEN length(CAST(members AS BLOB))<=256 THEN members ELSE NULL END FROM snapshots WHERE id=?', (ident,)).fetchone()
+            if not row:
+                raise LookupError('snapshot_missing')
+            if row[0] is None:
+                return None  # Never decode a large legacy inline list just to decide cacheability.
+            reference = json.loads(row[0])
+            if reference.get('member_kind') != 'recipe-v1':
+                return None
+            recipe = self._snapshot_members(db, row[0])
+            if recipe.get('contract') != 'fs-users-private-replay-v1':
+                raise ValueError('snapshot_replay_contract')
+            return digest(reference)
 
     def snapshot_public(self, ident):
         if not isinstance(ident, str) or len(ident) != 35 or not ident.startswith('us_') or any(c not in '0123456789abcdef' for c in ident[3:]):
@@ -427,11 +551,8 @@ class Store:
             row = db.execute('SELECT members FROM snapshots WHERE id=?', (ident,)).fetchone()
         if not row:
             raise LookupError('snapshot_missing')
-        members = json.loads(row['members'])
-        if set(members) == {'member_ref'}:
-            with self.db() as db:
-                record = db.execute('SELECT body FROM snapshot_members WHERE id=?', (members['member_ref'],)).fetchone()
-            if not record or digest(json.loads(record[0])) != members['member_ref']:
-                raise ValueError('snapshot_members_integrity')
-            members = json.loads(record[0])
+        with self.db() as db:
+            members = self._snapshot_members(db, row['members'])
+        if members.get('contract') == 'fs-users-private-replay-v1':
+            members = self.replay_snapshot_v1(query, public, members)
         return query, public, members

@@ -124,15 +124,35 @@ def backup(store, now):
                 raise ValueError('backup_readback_mismatch')
         return value
     destination.mkdir(mode=0o700)
-    store.backup(destination / 'customers.sqlite3')
+    copied = store.backup(destination / 'customers.sqlite3')
     for name, raw in (('identity.key', store.key), ('config.json', canonical(store.config).encode())):
         fd = os.open(destination / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'wb') as output:
             output.write(raw); output.flush(); os.fsync(output.fileno())
-    value = dict(contract='fs-users-private-backup-v1', captured_at=now.isoformat(), data_version=store.revision(),
+    from user_backup_retention import restore_check
+    recovery = restore_check(destination, integrity_checked=True)
+    if recovery['data_version'] != copied['revision']:
+        raise ValueError('backup_restore_version_mismatch')
+    value = dict(contract='fs-users-private-backup-v2', captured_at=now.isoformat(), data_version=copied['revision'], recovery=recovery,
                  scope='same_host_recovery_copy', sha256={p.name: file_sha256(p) for p in destination.iterdir()})
+    from user_backup_retention import signature
+    if recovery['file_signatures'] != {name: signature(destination / name) for name in recovery['file_signatures']}:
+        raise ValueError('backup_changed_during_verification')
     atomic(destination / 'manifest.json', value)
     return value
+
+
+def finish_backup_status(store, now, value):
+    from user_backup_retention import policy, plan, apply
+    if not policy(store)['enabled']:
+        return value
+    try:
+        retention = apply(store, now, plan(store, now))
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        # A failed/ambiguous retirement must never erase a successful backup receipt.
+        retention = dict(status='requires_reconciliation', error=type(error).__name__, retryable=False)
+    atomic(store.root / 'backup-retention-status.json', retention)
+    return dict(value, retention=retention)
 
 
 def daily_backup_status(store, now):
@@ -148,14 +168,14 @@ def daily_backup_status(store, now):
     signature = backup_signature(destination) if destination.exists() else None
     if (previous.get('day') == now.date().isoformat() and previous.get('status') == 'complete'
             and signature is not None and previous.get('signature') == signature):
-        return previous
+        return finish_backup_status(store, now, previous)
     receipt = backup(store, now)
     after = backup_signature(destination)
     if signature is not None and signature != after:
         raise ValueError('backup_changed_during_verification')
     value = dict(status='complete', day=now.date().isoformat(), receipt=receipt, signature=after)
     atomic(target, value)
-    return value
+    return finish_backup_status(store, now, value)
 
 
 def payment_day_watermarks(jobs, site, now):
@@ -329,7 +349,8 @@ def targeted_refresh(store, site, now, reader=shared_correct, lock_path=SOURCE_L
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=('sync', 'tick', 'backup'))
+    parser.add_argument('action', choices=('sync', 'tick', 'backup', 'backup-plan', 'backup-verify'))
+    parser.add_argument('--day')
     parser.add_argument('--start'); parser.add_argument('--end')
     parser.add_argument('--site', default='266'); parser.add_argument('--recheck', action='store_true')
     args = parser.parse_args()
@@ -339,8 +360,11 @@ def main():
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             print('{"status":"deferred","reason":"user_job_active"}'); return
+        if args.action in ('backup-plan', 'backup-verify'):
+            from user_backup_retention import plan, verify_existing
+            print(canonical(plan(store, now) if args.action == 'backup-plan' else verify_existing(store, args.day or now.date().isoformat()))); return
         if args.action == 'backup':
-            print(canonical(backup(store, now))); return
+            print(canonical(finish_backup_status(store, now, backup(store, now)))); return
         if args.action == 'sync':
             if args.site not in store.config['sites'] or not args.start or not args.end or stamp(args.end) > now.replace(hour=0, minute=0, second=0, microsecond=0):
                 raise ValueError('connected_closed_day_range_required')
