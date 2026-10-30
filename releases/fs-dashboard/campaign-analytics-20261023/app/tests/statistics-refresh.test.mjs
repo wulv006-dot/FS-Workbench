@@ -70,6 +70,25 @@ test('denied source stops remaining windows and future runs until explicit corre
  now+=8*3600000;r.behavior=async()=>{attempts++;return values().behavior;};await runStatisticsRefresh({directory:dir,published,readers:r,now:()=>now});assert.equal(attempts,1);
  const corrected=await runStatisticsRefresh({directory:dir,published,readers:r,now:()=>now,retryBlocked:true});assert.equal(corrected.status,'success');assert.equal(attempts,4);assert.deepEqual(read(dir,'status').blockedSources,{});
 });
+test('new release/config/start never inherits old successes; same identity keeps same-window fallback',async t=>{
+ const original={...published,config_hash:'a'.repeat(64)},variants=[
+  ['release',{...original,release_id:'campaign-preview-17'}],
+  ['config',{...original,config_hash:'b'.repeat(64)}],
+  ['start',{...original,halloween:{starts_at:'2026-10-28T00:00:00+08:00'}}],
+  ['same',original]
+ ];
+ for(const [name,next] of variants){
+  const dir=folder(t);await runStatisticsRefresh({directory:dir,published:original,readers:readers(),now:()=>at});
+  const failed=Object.fromEntries(['traffic','behavior','revenue'].map(k=>[k,async()=>{throw Error('SOURCE_READ_FAILED');}]));
+  await runStatisticsRefresh({directory:dir,published:next,readers:failed,now:()=>at+8*3600000});
+  const stored=read(dir,'today'),shown=readStatisticsSnapshot({directory:dir,published:next,kind:'today',at:at+8*3600000});
+  for(const source of ['traffic','behavior','revenue']){
+   assert.equal(!!stored.sources[source].lastSuccess,name==='same',name+' persisted '+source);
+   assert.equal(!!shown.sources[source].lastSuccess,name==='same',name+' visible '+source);
+  }
+  if(name==='same')assert.equal(shown.sources.behavior.lastSuccess.summary.visits,5);
+ }
+});
 test('unknown existing snapshot is preserved, malformed source becomes missing, missing configuration blocks only that source',async t=>{
  const dir=folder(t),file=path.join(dir,'status.json');fs.writeFileSync(file,'{"schemaVersion":2,"keep":true}\n');const before=fs.readFileSync(file);
  await assert.rejects(runStatisticsRefresh({directory:dir,published,readers:readers(),now:()=>at}),/INVALID_SNAPSHOT_FILE/);assert.deepEqual(fs.readFileSync(file),before);

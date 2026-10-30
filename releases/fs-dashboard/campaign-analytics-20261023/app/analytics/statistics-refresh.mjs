@@ -76,14 +76,14 @@ export async function runStatisticsRefresh({directory,published,readers,now=Date
  const state={schemaVersion:1,scheduleTimezone:plan.scheduleTimezone,scheduleHours:plan.scheduleHours,metricTimezone:'UTC',lastSuccessfulRunAt:old.lastSuccessfulRunAt||null,lastCompleteDailyDate:old.lastCompleteDailyDate||null,blockedSources:retryBlocked?{}:{...old.blockedSources},lastAttempt:{runId,slot:plan.slot,startedAt,status:'running',windows:[]}};
  writeSlot(directory,'status',state);let anyGood=false,allGood=true;
  for(const window of plan.windows){
-  const prior=readSlot(directory,window.kind),output={schemaVersion:1,activityId:'mmoexp-seasonal',releaseId:published.release_id,configHash:published.config_hash,runId,window,campaignStartsAt:plan.campaignStartsAt,updatedAt:new Date(now()).toISOString(),sources:{}};
+  const prior=readSlot(directory,window.kind),priorCompatible=prior?.activityId==='mmoexp-seasonal'&&prior.releaseId===published.release_id&&prior.configHash===published.config_hash&&prior.campaignStartsAt===plan.campaignStartsAt,output={schemaVersion:1,activityId:'mmoexp-seasonal',releaseId:published.release_id,configHash:published.config_hash,runId,window,campaignStartsAt:plan.campaignStartsAt,updatedAt:new Date(now()).toISOString(),sources:{}};
   const results=await Promise.all(sources.map(async name=>{
    if(Date.parse(window.to)-Date.parse(window.from)>30*DAY)return {status:'unavailable',reason:'WINDOW_RANGE_TOO_LARGE'};
    if(state.blockedSources[name])return {status:'blocked',reason:state.blockedSources[name].reason};
    try{return compactSource(name,await readers[name](window));}catch(error){return sourceFailure(error);}
   }));
   for(let i=0;i<sources.length;i++){
-   const name=sources[i],result=results[i],at=new Date(now()).toISOString(),lastSuccess=prior?.sources?.[name]?.lastSuccess||null;
+   const name=sources[i],result=results[i],at=new Date(now()).toISOString(),lastSuccess=priorCompatible?prior?.sources?.[name]?.lastSuccess||null:null;
    output.sources[name]={lastAttempt:{runId,at,status:result.status,reason:result.reason||null,...(result.data?{summary:result.data}:{})},lastSuccess:result.status==='available'?{runId,at,window,summary:result.data}:lastSuccess};
    if(result.blocked)state.blockedSources[name]={at,reason:result.reason};
    anyGood ||= result.status==='available';allGood &&= result.status==='available';
