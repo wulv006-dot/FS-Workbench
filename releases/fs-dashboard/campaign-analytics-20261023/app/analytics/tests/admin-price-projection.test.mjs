@@ -85,5 +85,35 @@ test('explicit D4 native product discount precedes the event discount without ch
  f.observation.products[0].source_discount='100';out=projectAdminPrices(f.observation,f.policy,{now});assert.deepEqual(new Set(out.model_contracts['123'].combinations.map(x=>x.price.base_minor)),new Set([674,749]));
  const legacy=structuredClone(f);legacy.policy.price_semantics='native_item_display_total';assert(projectAdminPrices(legacy.observation,legacy.policy,{now}).model_contracts['123'].combinations.every(x=>x.price.base_minor===749));
  for(const value of [undefined,null,'0','-1','101','NaN','90x']){const bad=structuredClone(f);bad.observation.products[0].source_discount=value;assert.equal(projectAdminPrices(bad.observation,bad.policy,{now}).reason,'NATIVE_PRODUCT_DISCOUNT_UNVERIFIED');}
- const other=structuredClone(f);other.policy.model_ref.game_id='1327';assert.equal(projectAdminPrices(other.observation,other.policy,{now}).reason,'PRICE_CURRENCY_SEMANTICS_UNVERIFIED');
+ const other=structuredClone(f);other.policy.model_ref.game_id='891';assert.equal(projectAdminPrices(other.observation,other.policy,{now}).reason,'PRICE_CURRENCY_SEMANTICS_UNVERIFIED');
+});
+
+test('explicit FC sale policy uses the observed product discount once for all 18 bundle SKUs',()=>{
+ // 2026-10-30 US/USD read-only Admin observations; expected cents also match
+ // native Packs.html for PS, not the historical screenshots' unknown platform.
+ const bundles=[
+  ['44839991',['185753051','185753087','185753123'],['105.38','105.38','135.98'],[7377,7377,9519]],
+  ['44839993',['185753159','185753195','185753231'],['24.99','24.99','27.68'],[1749,1749,1938]],
+  ['44839989',['185752943','185752979','185753015'],['145.15','145.15','182.3'],[10161,10161,12761]],
+  ['44839987',['185752835','185752871','185752907'],['69.49','69.49','75.36'],[4864,4864,5275]],
+  ['44656527',['185327195','185327231','185327267'],['13.36','13.36','13.19'],[935,935,923]],
+  ['44656303',['185327087','185327123','185327159'],['286.47','286.47','361.37'],[20053,20053,25296]],
+ ];
+ for(const [model_id,goods,amounts,cents] of bundles){
+  const f=fixture(),ref={site_id:'266',game_id:'1327',model_id};
+  Object.assign(f.policy,{model_ref:ref,source_field:'unit_price',price_semantics:'native_discounted_item_display_total',rounding_contract:'native-js-number-format-tofixed-2',quantity_value:'1',quantity_unit:'item',verified_goods_ids:goods,ordered_goods_ids:goods});
+  f.observation.model={...ref,raw_state:{status:1,auto_off:0}};
+  f.observation.products=goods.map((goods_id,i)=>({product_ref:{...ref,goods_id},raw_state:{status:1,auto_off:0},platform_attribute_id:['21587','21585','21589'][i],region_id:'7645',specification:{},quantity:{unit:'item',group:'1'},source_unit_price:amounts[i],source_discount:'70',source_price:'1.00'}));
+  const out=projectAdminPrices(f.observation,f.policy,{now});assert.equal(out.status,'reference_price_ready_not_checkout');
+  const c=out.model_contracts[model_id];assert.deepEqual(c.combinations.map(x=>x.price.base_minor),cents);
+  if(model_id==='44839991'){
+   for(const [off,expected] of [[8,6787],[10,6639],[15,6270]])assert.equal(selection.defaultPrice(c,off,{now:()=>now}).indicative_discounted_minor,expected);
+   const s=selection.create(c,{now:()=>now});s.select('platform','21589');s.select('region','7645');s.setQuantity('1');
+   assert.equal(selection.selectedPrice(c,s,15,{now:()=>now}).indicative_discounted_minor,8091);
+   assert.throws(()=>selection.defaultPrice(c,15,{now:()=>now+f.policy.max_age_ms+1}),{code:'DEFAULT_PRICE_UNAVAILABLE'});
+   const legacy=structuredClone(f);legacy.policy.price_semantics='native_item_display_total';assert.equal(projectAdminPrices(legacy.observation,legacy.policy,{now}).model_contracts[model_id].combinations[0].price.base_minor,10538);
+   for(const value of [undefined,null,'0','-1','101','70x']){const bad=structuredClone(f);bad.observation.products[0].source_discount=value;assert.equal(projectAdminPrices(bad.observation,bad.policy,{now}).reason,'NATIVE_PRODUCT_DISCOUNT_UNVERIFIED');}
+   f.observation.products.forEach(r=>r.source_discount='100');assert.deepEqual(projectAdminPrices(f.observation,f.policy,{now}).model_contracts[model_id].combinations.map(x=>x.price.base_minor),[10538,10538,13598]);
+  }
+ }
 });
