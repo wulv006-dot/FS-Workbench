@@ -9,6 +9,10 @@ const time=s=>s?new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',dateSt
 const text=(id,t)=>{el(id).textContent=t;};
 const localDay=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
 const addDay=(s,n)=>{const d=new Date(s+'T00:00:00+08:00');d.setUTCDate(d.getUTCDate()+n);return localDay(d);};
+function reportDates(info,now=new Date()){
+  const cutoff=info?.cutoff?.slice(0,10)||localDay(now);
+  return {cutoff,end:addDay(cutoff,-1),start:info?.default_start?.slice(0,10)||addDay(cutoff,-30)};
+}
 async function read(params,path='data.json',signal){
   const response=await fetch('./'+path+'?'+new URLSearchParams(params),{credentials:'same-origin',cache:'no-store',signal});
   if(!response.headers.get('content-type')?.includes('application/json'))throw new Error('登录状态或接口不可用');
@@ -47,7 +51,7 @@ document.addEventListener('pointerdown',event=>{if(activeTip&&!activeTip.button.
 window.addEventListener('resize',dismissHelp);window.addEventListener('scroll',dismissHelp,true);
 function definition(key){
   const period=snapshot?.query.state_basis==='period_cohort',points=snapshot?.lifecycle_policy?.thresholds_days||catalog.policies[snapshot?.query.policy_version]||[30,60,90];
-  const [a,c,l]=points,day=period?'截至昨天':'在当前观察日';
+  const [a,c,l]=points,day='截至观察日';
   const stage={new_purchasers:'这位客户在所选期间的第一笔有效订单，被后台标为新客。取这笔订单的原标记；不把缺失标签猜成新客。',old_flag_purchasers:'这位客户在所选期间的第一笔有效订单，被后台标为老客。老客在期间只买1笔，也不算期间复购。',customer_type_unknown:'期间第一笔有效订单的新老客标记缺失、未匹配或相互冲突。这些人仍计入购买总人数，但不默认算老客。',silent_wakeup:'期间两次购买之间曾达到沉默天数，但未到流失天数，之后再次购买。人数去重，不代表仍处于沉默，也不能仅凭回购认定某次活动有效。',lost_return:'期间两次购买之间曾达到流失或长期流失天数，之后再次购买。人数去重；回来后仍可能再次沉默。',waiting:`期间只买过1笔有效订单，距末购还不到${a}天。已包含在期间复购率的分母里；它与下方7/30天“还需观察”的分组不同。`,recent:period?`期间买过至少2笔有效订单，距末购不到${a}天。近期再次购买不等于长期忠诚。`:`距最近有效购买不到${a}天。`,silent:`${day}距末购达到${a}天、未到${c}天。买过1次或复购过的人都可能进入。`,lost:`${day}距末购达到${c}天、未到${l}天。`,long_lost:`${day}距末购至少${l}天。`,repeat_purchasers:period?'期间至少有2笔不同的有效订单，以完整确认邮箱去重。期间以前买过不计入本期复购。':null,high_value_entered_silent:period?'所选期间USD消费达到这批客户第75百分位，并在期间进入过沉默。它是核查线索，不代表终身价值。':null};
   if(!period&&['silent_wakeup','lost_return'].includes(key))return catalog.metric_definitions[key].definition;
   return stage[key]||snapshot?.metric_definitions?.[key]?.definition||catalog.metric_definitions?.[key]?.definition||'按当前查询期间、范围和已覆盖数据计算。';
@@ -92,8 +96,12 @@ function render(){
   const q=snapshot.query,scope=q.scope==='project'?catalog.projects[q.scope_id]?.label||q.scope_id:q.scope==='site'?catalog.sites.find(s=>s.id===q.scope_id)?.label||q.scope_id:q.scope==='series'?q.scope_id:'全部';
   text('coverage',`已应用：${q.start.slice(0,10)} 至 ${addDay(q.end_exclusive.slice(0,10),-1)} · ${scope} · 阶段规则 ${snapshot.lifecycle_policy?.thresholds_days?.join(' / ')||q.policy_version} 天 · ${snapshot.full_company_coverage?'公司经营范围':'已接入范围'} · 站点 ${snapshot.coverage.sites.join(' / ')} · ${snapshot.coverage.period_complete?'区间订单已覆盖':'区间仍有覆盖缺口'} · 无法识别身份的订单 ${snapshot.coverage.missing_identity_orders} 笔。`);
   text('freshness',`北京时间 ${time(q.start)} 至 ${time(q.end_exclusive)}（截止不含） · 最近来源读取 ${time(snapshot.captured_at)}`);
+  if(snapshot.weekly_update){
+    const w=snapshot.weekly_update,pending=catalog.weekly_update?.pending;
+    text('freshness',`每周更新 · 数据截至 ${w.data_through} · 最近成功更新 ${time(w.last_successful_update)} · 下次计划 ${time(w.next_planned_update)}${pending?pending.phase==='backup'?' · 本周数据已发布，备份待完成':' · 本轮更新尚未完成，保留上次成功版本':''}`);
+  }
   text('period-end',addDay(q.end_exclusive.slice(0,10),-1));
-  text('stock-title',period?'截至昨日，这批期间购买客户处于什么阶段':q.state_basis==='current'?'辅助：全部已覆盖客户今天的阶段':'辅助：全部已覆盖客户截至昨日的阶段');
+  text('stock-title',period?'截至观察日，这批期间购买客户处于什么阶段':'辅助：全部已覆盖客户在观察日的阶段');
   text('entry-hint',period?'一个确认邮箱算一人；新老客取期间第一笔有效订单的ES原标记，缺失或冲突单列待核。':'辅助全历史视图：期间购买 = 已确认首购 + 已确认老客 + 首购待确认；阶段包含窗前客户。');
   const rate=snapshot.repeat_rate;
   text('repeat-rate',period?`期间复购率 ${rate?.rate==null?'暂无可计算分母':(rate.rate*100).toFixed(1)+'%'} = 期间至少两笔有效订单的 ${value(rate?.numerator)} 人 / 期间购买 ${value(rate?.denominator)} 人。下方固定7/30天复购另排除观察期未走完的人。`:'');
@@ -101,11 +109,11 @@ function render(){
   const coverage=snapshot.coverage;
   const window=coverage.history_window,target=coverage.backfill_target_start;
   const historyNote=window?`已补齐 ${window.start.slice(0,10)} 起至 ${window.end_exclusive.slice(0,10)} 的完整日订单；更早未纳入，真实首购仍可能待确认。`:`${target?'本轮只补到 '+target.slice(0,10)+'；':''}回补尚未完成，人数仍是部分客户池。`;
-  text('observation',period?`观察日 ${snapshot.observation_date} · 只含 ${q.start.slice(0,10)} 至昨日买过的 ${value(snapshot.metrics.known_pool.value)} 个邮箱，区间外和今天的订单不参与。${coverage.period_complete?'这段订单已覆盖。':'这段订单仍有缺口。'}新老客待核 ${value(snapshot.metrics.customer_type_unknown.value)} 人，不默认老客。`:`观察日 ${snapshot.observation_date} · 按已确认邮箱一人一档，共 ${value(snapshot.metrics.known_pool.value)} 人。实际覆盖起点 ${time(coverage.covered_history_start)}，订单读至 ${time(coverage.state_data_through)}。${historyNote}`);
+  text('observation',period?`观察日 ${snapshot.observation_date} · 只含 ${q.start.slice(0,10)} 至 ${addDay(q.end_exclusive.slice(0,10),-1)} 买过的 ${value(snapshot.metrics.known_pool.value)} 个邮箱，区间外和截止后的订单不参与。${coverage.period_complete?'这段订单已覆盖。':'这段订单仍有缺口。'}新老客待核 ${value(snapshot.metrics.customer_type_unknown.value)} 人，不默认老客。`:`观察日 ${snapshot.observation_date} · 按已确认邮箱一人一档，共 ${value(snapshot.metrics.known_pool.value)} 人。实际覆盖起点 ${time(coverage.covered_history_start)}，订单读至 ${time(coverage.state_data_through)}。${historyNote}`);
   const repeatCell=(row,repeated)=>{const count=repeated?row.repeated:row.not_repeated;if(!catalog.can_read_private||!count)return value(count)+' 人';const b=document.createElement('button');b.type='button';b.textContent=value(count)+' 人 · '+(repeated?'已复购':'未复购');b.addEventListener('click',()=>members(row.stage,false,{repeat_status:repeated?'repeated':'not_repeated',customer_type:'all'}));return b;};
   el('repeat-states').hidden=!period;
   el('period-state-hint').hidden=!period;
-  if(period)table('repeat-states',[['截至昨日的阶段',r=>labels[r.stage]],['人数 · 占本批客户',r=>value(r.repeated+r.not_repeated)+' 人 · '+(snapshot.metrics.known_pool.value?((r.repeated+r.not_repeated)/snapshot.metrics.known_pool.value*100).toFixed(1)+'%':'—')],['期间已复购',r=>repeatCell(r,true)],['期间未复购',r=>repeatCell(r,false)]],snapshot.repeat_states||[]);
+  if(period)table('repeat-states',[['截至观察日的阶段',r=>labels[r.stage]],['人数 · 占本批客户',r=>value(r.repeated+r.not_repeated)+' 人 · '+(snapshot.metrics.known_pool.value?((r.repeated+r.not_repeated)/snapshot.metrics.known_pool.value*100).toFixed(1)+'%':'—')],['期间已复购',r=>repeatCell(r,true)],['期间未复购',r=>repeatCell(r,false)]],snapshot.repeat_states||[]);
   table('trajectories',[['当前阶段',r=>labels[r.stage]],['所选期间的经历',r=>r.label],['人数',r=>{if(!catalog.can_read_private)return value(r.count);const b=document.createElement('button');b.type='button';b.textContent=value(r.count)+' 人 · '+labels[r.stage]+' / '+r.label;b.addEventListener('click',()=>members(r.group));return b;}]],snapshot.trajectories||[]);
   text('versions',JSON.stringify({snapshot_id:snapshot.snapshot_id,evidence_id:snapshot.evidence_id,query:snapshot.query,coverage:snapshot.coverage,data_version:snapshot.data_version},null,2));
   table('trend',[['日期',r=>r.day],['购买客户',r=>value(r.purchasers)],[period?'期间首次购买':'确认首购',r=>value(period?r.period_entries:r.first_purchasers)],['进入流失',r=>value(r.entered_lost)],['流失回流',r=>value(r.lost_return)],...[...(period?['waiting']:[]),'recent','silent','lost','long_lost','unverified'].map(key=>[labels[key],r=>value(r.stock?.[key])]),['覆盖',r=>statuses[r.status]]],snapshot.trend);charts();
@@ -121,8 +129,10 @@ function render(){
 }
 async function query(event){
   event?.preventDefault();controller?.abort();controller=new AbortController();const version=++serial;const f=el('filters');
+  if(event){try{const fresh=await read({action:'catalog'},'data.json',controller.signal);if(version!==serial)return;catalog=fresh;}catch(error){if(error.name!=='AbortError')text('status',error.message);return;}}
+  const dates=reportDates(catalog.weekly_update);el('period-start').max=dates.end;text('period-end',dates.end);
   const args={scope:f.elements.scope.value,scope_id:f.elements.scope_id.value,state_basis:f.elements.state_basis.value,start:f.elements.start.value,policy_version:f.elements.policy_version.value,policy_mode:f.elements.policy_mode.value,H:f.elements.H.value};
-  if(args.state_basis!=='period_cohort')args.end_exclusive=localDay(new Date());
+  if(args.state_basis!=='period_cohort')args.end_exclusive=dates.cutoff;
   text('status','正在读取同一范围的快照…');
   try{const data=await read(args,'data.json',controller.signal);if(version!==serial)return;snapshot=data;render();text('status',`快照已读取 · ${data.coverage.history_window?data.coverage.history_window.start.slice(0,10)+'起已覆盖 · '+statuses[data.status]:data.coverage.historical_origin?statuses[data.status]:'回补中 · 部分客户池'}`);}
   catch(error){if(error.name==='AbortError'||version!==serial)return;text('status',error.message+(snapshot?'；保留上次完整快照及其原范围。':''));}
@@ -167,7 +177,7 @@ el('filters').addEventListener('submit',query);el('refresh').addEventListener('c
 el('filters').elements.scope.addEventListener('change',scopeOptions);
 el('filters').elements.state_basis.addEventListener('change',event=>{
   const period=event.target.value==='period_cohort';el('period-start').min=period?(catalog.history_backfill_start||'').slice(0,10):'';
-  text('period-hint',period?'只选开始日期，结束固定为北京时间昨天。只分析这段期间买过的邮箱；D0是期间第一笔有效购买，新老客取该单后台标记。':'辅助视图保留全体已覆盖历史客户；今天状态或截至昨日状态按所选方式计算，开始日只筛期间行为。');
+  text('period-hint',period?'只选开始日期，结束固定到最新成功更新的数据截止日。只分析这段期间买过的邮箱；D0是期间第一笔有效购买，新老客取该单后台标记。':'辅助视图保留全体已覆盖历史客户；按已发布版本的固定观察日计算，开始日只筛期间行为。');
 });
 el('path-filter').addEventListener('change',event=>members(event.target.value,false,memberFilters));
 el('repeat-filter').addEventListener('change',event=>members(group,false,{...memberFilters,repeat_status:event.target.value}));
@@ -196,9 +206,9 @@ el('hermes').addEventListener('click',async()=>{const selected=el('hermes-conver
 });
 el('theme').addEventListener('change',event=>{if(window.FSTheme?.set)window.FSTheme.set(event.target.value);});
 function addFieldHelp(){
-  const fields={'state-basis':'默认只看所选期间买过的人。辅助模式保留全体已覆盖历史客户，含期间以前购买的人。','period-start':'开始日包含当天。结束固定为北京时间昨天，今天订单不计入。','period-end':'每天自动截止到昨天，避免把尚未结束的一天与完整日比较。',policy_version:'按距末次有效购买的北京时间日数分阶段。短期效果：满7天沉默、14天流失、30天长期流失；长期追踪：满14天沉默、30天流失、60天长期流失。全部项目使用所选规则；短期效果不代表活动因果归因。',policy_mode:'短期效果与长期追踪均让各项目沿用所选天数，便于整体与项目比较。旧快照仍保留原各项目规则。',H:'从期间第一笔有效购买起，观察7或30天内是否再买。只把已走完这段时间的人放进分母。'};
+  const fields={'state-basis':'默认只看所选期间买过的人。辅助模式保留全体已覆盖历史客户，含期间以前购买的人。','period-start':'开始日包含当天，可按日期选择；结束固定到最新成功更新日。','period-end':'每周一补齐上一完整周；平日沿用同一成功版本，更新失败不把缺失当零。',policy_version:'按距末次有效购买的北京时间日数分阶段。短期效果：满7天沉默、14天流失、30天长期流失；长期追踪：满14天沉默、30天流失、60天长期流失。全部项目使用所选规则；短期效果不代表活动因果归因。',policy_mode:'短期效果与长期追踪均让各项目沿用所选天数，便于整体与项目比较。旧快照仍保留原各项目规则。',H:'从期间第一笔有效购买起，观察7或30天内是否再买。只把已走完这段时间的人放进分母。'};
   for(const [key,description] of Object.entries(fields)){const input=el(key)||el('filters').elements[key],label=input.closest('label'),name=label.firstChild.textContent.trim(),heading=document.createElement('span');heading.className='field-label';heading.textContent=name;label.firstChild.replaceWith(heading);if(!input.id)input.id='users-field-'+key;label.htmlFor=input.id;input.setAttribute('aria-label',name);heading.append(help(name,description));}
 
 }
-async function init(){try{catalog=await read({action:'catalog'});Object.entries(catalog.metric_definitions||{}).forEach(([key,definition])=>labels[key]=definition.label);scopeOptions();const today=localDay(new Date());el('filters').elements.start.value=addDay(today,-30);text('period-end',addDay(today,-1));el('period-start').min=(catalog.history_backfill_start||'').slice(0,10);el('period-start').max=addDay(today,-1);addFieldHelp();await query();await conversationOptions();if(intent?.state==='unknown'){el('reconcile-handoff').hidden=false;await reconcileIntent();}}catch(error){text('status',error.message);}}
+async function init(){try{catalog=await read({action:'catalog'});Object.entries(catalog.metric_definitions||{}).forEach(([key,definition])=>labels[key]=definition.label);scopeOptions();const dates=reportDates(catalog.weekly_update);el('filters').elements.start.value=dates.start;text('period-end',dates.end);el('period-start').min=(catalog.history_backfill_start||'').slice(0,10);el('period-start').max=dates.end;addFieldHelp();await query();await conversationOptions();if(intent?.state==='unknown'){el('reconcile-handoff').hidden=false;await reconcileIntent();}}catch(error){text('status',error.message);}}
 init();

@@ -10,12 +10,13 @@ PROPERTIES = {
     'scope': {'type': 'string', 'enum': ['global', 'site', 'series', 'project']},
     'scope_id': {'type': 'string'}, 'start': {'type': 'string'}, 'end_exclusive': {'type': 'string'},
     'as_of': {'type': 'string'}, 'policy_version': {'type': 'string', 'description': 'short-term-v1 uses 7/14/30 days; long-term-v1 uses 14/30/60 days. Both apply the selected thresholds to all projects. Legacy versions and frozen snapshots keep their original rules.'},
-    'state_basis': {'type': 'string', 'enum': ['period_cohort','current', 'period_end'], 'description': 'Default period_cohort: only emails purchasing from start through yesterday; end is fixed by server to today 00:00 Beijing, as_of forbidden. Period first-order ES flag supplies new/old; second order and stages use that period only. current and period_end retain legacy all-history views.'},
+    'state_basis': {'type': 'string', 'enum': ['period_cohort','current', 'period_end'], 'description': 'Weekly mode defaults to the previous complete Monday-Sunday week. An optional earlier start date retains the latest successful publication cutoff; period_cohort as_of is forbidden. Read weekly_update for exact dates and data_version; never advance to yesterday without a new publication. Period first-order ES flag supplies new/old; current and period_end retain all-history views with a fixed observation date. Frozen legacy snapshots preserve original dates.'},
     'policy_mode': {'type': 'string', 'enum': ['per_project', 'uniform']},
     'snapshot_id': {'type': 'string'}, 'H': {'type': 'integer', 'enum': [7, 30], 'description': 'Second-purchase observation horizon only; never the recent/silent/lost thresholds.'},
     'evidence_id': {'type': 'string'},
 }
-DESCRIPTION = ('Read frozen FS purchase-customer lifecycle aggregates. Default period_cohort accepts a start date, automatically ends yesterday, and includes only emails with an effective order in that period. '
+DESCRIPTION = ('Read frozen FS purchase-customer lifecycle aggregates. Weekly updates publish the previous complete Monday-Sunday week after collection finishes. Default period_cohort uses that complete week; optionally select an earlier start date, with the end fixed to the latest successful publication cutoff. '
+               'Preserve weekly_update/data_version and fixed observation_date during weekdays or failed refreshes. Queries never force source collection; one successful weekly batch has at most one full backup, and old snapshots retain their IDs. '
                'new_purchasers/old_flag_purchasers/customer_type_unknown use the first period order ES flag, not lifetime first-purchase proof. Repeat means at least two distinct valid period orders. Waiting means one order and not yet silent; repeat buyers may later be silent/lost. '
                'Legacy current and period_end still use all covered history. Guest customers are included. '
                'Preserve coverage, partial historical pool, refund-revision limits, mature cohort denominators and versions. '

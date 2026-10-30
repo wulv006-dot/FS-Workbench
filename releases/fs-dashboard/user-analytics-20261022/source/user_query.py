@@ -12,12 +12,13 @@ from user_lifecycle import analyze, project_analysis, in_scope, covered
 
 
 class Service:
-    def __init__(self, store, authorizer, clock=None, customer_type_reader=None):
+    def __init__(self, store, authorizer, clock=None, customer_type_reader=None, weekly_publication=None):
         if not callable(authorizer):
             raise ValueError('existing_authorizer_required')
         self.store, self.authorizer = store, authorizer
         self.clock = clock or (lambda: datetime.now(TZ))
         self.customer_type_reader = customer_type_reader
+        self.weekly_publication = weekly_publication
         self.cache = OrderedDict()
         self.cache_lock = RLock()
         self.private_lock = RLock()
@@ -52,11 +53,17 @@ class Service:
                     raise ValueError('snapshot_query_mismatch')
             self.permit_snapshot(user, old, public)
             return public
+        publication = None
+        if self.weekly_publication is not False and config.get('update_cadence') == 'weekly-v1':
+            from user_weekly import publication as read_publication
+            publication = read_publication(self.store, self.clock())
+            config = dict(publication['config'], weekly_data_cutoff=publication['cutoff'])
+            args = {'start': (stamp(publication['cutoff'])-timedelta(days=7)).isoformat(), **args}
         query = checked_query(args, config, self.clock())
         self.permit(user, query)
         period_cohort = query['state_basis'] == 'period_cohort'
         flags, flag_source = ({}, dict(status='unavailable',source='Admin ES order-time new-customer flag'))
-        if period_cohort and self.customer_type_reader:
+        if period_cohort and self.customer_type_reader and not publication:
             try:
                 flags, flag_source = self.customer_type_reader(query)
             except (OSError,ValueError,KeyError,TypeError,ImportError) as error:
@@ -66,17 +73,29 @@ class Service:
         global_allowed = self.authorizer(user, global_query, False) is True
         proof_path = self.store.root/'history-origin.json'
         bounded_path = self.store.root/'history-coverage.json'
-        cache_key = digest([query, config, flag_source, self.store.revision(), self.store.job_health(), user, global_allowed,
-                            proof_path.read_text('utf-8') if proof_path.is_file() else None,
-                            bounded_path.read_text('utf-8') if bounded_path.is_file() else None])
+        refresh_health = publication['refresh_health'] if publication else self.store.job_health()
+        cache_key = digest([query, config, flag_source, publication['publication_id'] if publication else self.store.revision(), refresh_health, user, global_allowed,
+                            proof_path.read_text('utf-8') if not publication and proof_path.is_file() else None,
+                            bounded_path.read_text('utf-8') if not publication and bounded_path.is_file() else None])
         with self.cache_lock:
             if cache_key in self.cache:
                 self.cache.move_to_end(cache_key)
                 return deepcopy(self.cache[cache_key])
-        version, orders, jobs = self.store.read(analytics=True, **dict(start=query['start'],end=query['end_exclusive']) if period_cohort else {})
+        if period_cohort and publication:
+            from user_customer_types import read_pinned_flags
+            try:
+                flags, flag_source = read_pinned_flags(query, publication['flag_manifests'])
+            except (OSError, ValueError, KeyError, TypeError, ImportError) as error:
+                flag_source = dict(status='unavailable', source='Admin ES order-time new-customer flag',
+                                   reason='frozen_source_unavailable', error_type=type(error).__name__)
+        period = dict(start=query['start'], end=query['end_exclusive']) if period_cohort else {}
+        if publication:
+            version, orders, jobs = publication['data_version'], self.store.read_at(publication['data_version'], **period), deepcopy(publication['jobs'])
+        else:
+            version, orders, jobs = self.store.read(analytics=True, **period)
         if period_cohort:
             config = dict(config, period_customer_types=flags)
-        if proof_path.is_file():
+        if not publication and proof_path.is_file():
             from user_store import safe
             safe(proof_path)
             proof = json.loads(proof_path.read_text('utf-8'))
@@ -96,7 +115,7 @@ class Service:
                       captured_at=max((json.loads(j['body']).get('captured_at', '') for j in jobs), default=None),
                       source_watermark=[dict(site=j['site'], start=j['start'], end_exclusive=j['end'], state=j['state']) for j in jobs],
                       source_status_rule_versions=sorted({json.loads(j['body'])['source_status_rule_sha256'] for j in jobs if json.loads(j['body']).get('source_status_rule_sha256')}),
-                      refresh_health=self.store.job_health(),
+                      refresh_health=refresh_health,
                       scope_label='已接入站点的购买客户', full_company_coverage=config.get('full_company_coverage', False),
                       status='available' if result['coverage']['period_complete'] and result['coverage']['identity_deduplication_complete'] and not result['coverage']['missing_identity_orders'] else 'partial')
         if period_cohort:
@@ -119,12 +138,12 @@ class Service:
         result['requires_global_scope'] = global_allowed
         result['coverage'].update(series_history_complete=config.get('series_history_complete', False), satellite_gaps=config.get('satellite_gaps', []), refund_policy=config.get('refund_policy'))
         progress = self.store.root / 'history-backfill.json'
-        if progress.is_file():
+        if not publication and progress.is_file():
             # Purpose-specific aggregate receipt only; never expose raw source diagnostics.
             receipt = json.loads(progress.read_text('utf-8'))
             result['coverage']['backfill'] = {key: receipt[key] for key in ('status', 'start', 'end_exclusive', 'target_start','target_end_exclusive','completed_windows', 'source_rows', 'at') if key in receipt}
         result['coverage']['backfill_target_start'] = config.get('history_backfill_start')
-        if bounded_path.is_file():
+        if not publication and bounded_path.is_file():
             bounded = json.loads(bounded_path.read_text('utf-8'))
             inventory_file = bounded.get('inventory_file', 'history-full-inventory.json')
             if inventory_file != 'history-full-inventory.json' and not re.fullmatch(r'history-inventory-[a-f0-9]{64}\.json', inventory_file):
@@ -137,6 +156,10 @@ class Service:
                     or not covered(jobs,list(config['sites']),stamp(bounded['start']),stamp(bounded['end_exclusive']))):
                 raise ValueError('bounded_history_proof_mismatch')
             result['coverage']['history_window'] = dict(start=bounded['start'],end_exclusive=bounded['end_exclusive'],complete=True,earlier_history_included=False)
+        if publication:
+            from user_weekly import public_info
+            result.update(captured_at=publication['captured_at'], source_status_rule_versions=publication['source_status_rule_versions'], weekly_update=public_info(publication))
+            result['coverage'].update(publication['coverage_context'])
         aggregate_only(result)
         if storage == 'recipe-v1':
             private.pop('events', None)
@@ -201,10 +224,20 @@ class Service:
                 allowed.append(dict(id=sid, label=site['label']))
         if not allowed:
             raise PermissionError('user_scope_denied')
-        return dict(contract_version='fs-users-v1', sites=allowed, projects=self.store.config['projects'],
+        value = dict(contract_version='fs-users-v1', sites=allowed, projects=self.store.config['projects'],
                     policies=self.store.config['policies'], full_company_coverage=self.store.config.get('full_company_coverage', False),
                     metric_definitions=METRIC_DEFINITIONS, history_backfill_start=self.store.config.get('history_backfill_start'),
                     can_read_private=self.authorizer(user, {'scope': 'global', 'scope_id': ''}, True) is True)
+        if self.store.config.get('update_cadence') == 'weekly-v1':
+            from user_weekly import publication, public_info, small_state, WeeklyUnavailable
+            try:
+                value['weekly_update'] = public_info(publication(self.store, self.clock()))
+            except WeeklyUnavailable:
+                value['weekly_update'] = dict(cadence='weekly', status='initial_publication_pending')
+            state = small_state(self.store.root)
+            if state and state.get('phase') != 'complete':
+                value['weekly_update']['pending'] = {k: state[k] for k in ('cutoff', 'phase', 'error', 'retryable') if k in state}
+        return value
 
     def search(self, args, user):
         if not isinstance(args, dict) or set(args) != {'snapshot_id', 'email'}:

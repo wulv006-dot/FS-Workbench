@@ -1,6 +1,6 @@
 """One bounded reader, existing source lock, durable windows and independent daily state."""
 import argparse
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import fcntl
 import hashlib
 import json
@@ -108,10 +108,13 @@ def backup_signature(destination):
     return dict(manifest_sha256=hashlib.sha256(raw).hexdigest(), files=signatures)
 
 
-def backup(store, now):
+def backup(store, now, day=None):
+    day = day or now.date().isoformat()
+    if not isinstance(day, str) or date.fromisoformat(day).isoformat() != day:
+        raise ValueError('backup_date_required')
     root = store.root / 'backups'
     root.mkdir(mode=0o700, exist_ok=True)
-    destination = root / now.date().isoformat()
+    destination = root / day
     if destination.exists():
         # Existing partial/unknown backups are evidence, never replace them on a retry.
         receipt = destination / 'manifest.json'
@@ -354,7 +357,12 @@ def main():
     parser.add_argument('--start'); parser.add_argument('--end')
     parser.add_argument('--site', default='266'); parser.add_argument('--recheck', action='store_true')
     args = parser.parse_args()
-    store = load_store(); now = datetime.now(TZ)
+    now = datetime.now(TZ)
+    if args.action == 'tick':
+        from user_weekly import wake
+        print(canonical(wake(ROOT, load_store, now, force=args.recheck)), flush=True)
+        return
+    store = load_store()
     with (store.root / 'jobs.lock').open('a+b') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -392,6 +400,9 @@ def main():
                 targeted = targeted_refresh(store,site,datetime.now(TZ),force=args.recheck)
                 print(canonical(targeted),flush=True)
                 if targeted['status']=='deferred':return
+        if store.config.get('update_cadence') == 'weekly-v1':
+            print(canonical(dict(status='complete', publication='unchanged_until_weekly_cycle')), flush=True)
+            return
         advance_day(store, datetime.now(TZ))
         print(canonical(dict(backup=daily_backup_status(store, now))), flush=True)
         if args.action == 'tick':

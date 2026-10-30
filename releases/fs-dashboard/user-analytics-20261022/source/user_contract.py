@@ -85,11 +85,12 @@ def checked_query(args, config, now=None):
     if 'start' not in args:
         raise ValueError('query_period_required')
     now = now or datetime.now(TZ)
+    weekly_cutoff = stamp(config['weekly_data_cutoff']) if config.get('weekly_data_cutoff') else None
     basis = args.get('state_basis', 'period_end' if 'as_of' in args else 'period_cohort')
     if basis not in ('current', 'period_end', 'period_cohort'):
         raise ValueError('invalid_state_basis')
     if basis == 'period_cohort':
-        end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = weekly_cutoff or now.replace(hour=0, minute=0, second=0, microsecond=0)
         if 'as_of' in args or 'end_exclusive' in args and stamp(args['end_exclusive']) != end:
             raise ValueError('period_cohort_ends_yesterday')
     elif 'end_exclusive' not in args:
@@ -97,11 +98,15 @@ def checked_query(args, config, now=None):
     else:
         end = stamp(args['end_exclusive'])
     start = stamp(args['start'])
+    if weekly_cutoff and end > weekly_cutoff:
+        raise ValueError('period_after_published_data')
     if not start < end or end - start > timedelta(days=366):
         raise ValueError('invalid_period')
     if end > (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0):
         raise ValueError('future_period')
     actual = stamp(args['as_of']) if 'as_of' in args else now if basis == 'current' else min(end, now)
+    if weekly_cutoff and basis == 'current':
+        actual = weekly_cutoff - timedelta(microseconds=1)
     if not start < actual <= now or basis == 'period_end' and actual > end:
         raise ValueError('invalid_as_of')
     if basis == 'period_end' and end <= now and actual != end:
