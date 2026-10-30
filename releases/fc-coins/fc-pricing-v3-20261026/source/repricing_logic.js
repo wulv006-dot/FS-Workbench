@@ -352,7 +352,7 @@
       if (!/^\d+$/.test(String(sourceCost.record_id ?? '')) || !sourceCost.trade_at)
         fail(`${platform} 成本来源记录不完整`);
 
-      for (const site of SITES) {
+      for (const site of (result.decision_receipt?.price_control?.manual_enabled ? [] : SITES)) {
         const offer = evidence.offers?.[platform]?.[site];
         if (!offer && evidence.storefront && site!=='Lootbar') continue;
         if (!offer) fail(`${platform} ${site} 竞品报价缺失`);

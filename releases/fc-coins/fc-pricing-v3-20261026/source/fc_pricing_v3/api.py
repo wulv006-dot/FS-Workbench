@@ -146,7 +146,7 @@ def read(path):
         configured=db.get('monthly_targets','current')
         if configured:
             target=dict(target,amount=configured['amount'],target_scope=configured['target_scope'],target_basis=configured['target_basis'],currency='USD')
-        return dict(version=VERSION,generation=db.generation(),plan=db.active_plan(),
+        return dict(version=VERSION,generation=db.generation(),plan=db.active_plan(),price_control=db.price_control(),
                     plans=sorted(db.all('pricing_plans'),key=lambda p:p['created_at'],reverse=True),active_plans=db.active_plans(),
                     snapshot_id=snapshot['snapshot_id'] if snapshot else None,
                     captured_at=snapshot['created_at'] if snapshot else None,
@@ -277,6 +277,9 @@ def post(path,data,actor):
         return dict(interval_minutes=updated['interval_minutes'],revision=updated['revision'],updated_at=updated['updated_at'],
                     plan_state=(ledger().active_plan() or {}).get('state'),write_performed=False)
     db=ledger()
+    if path=='price-control':
+        if not isinstance(data,dict):raise ValueError('pricing_price_control_fields_invalid')
+        return db.save_price_control(data,actor,request_id(actor,data,'price-control'))
     if path=='retire-uk-discount':
         if set(data)!={'request_key','plan_id'}:raise ValueError('pricing_uk_retirement_fields_invalid')
         ident=request_id(actor,data,'retire-uk-discount');key='uk-retirement:'+ident

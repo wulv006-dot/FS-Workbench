@@ -364,6 +364,45 @@ class Ledger:
             self.put('experiment_assignments',key,value,db)
         return value
 
+    def price_control(self, db=None):
+        return self.get('metadata','price_control',db) or dict(revision=0,manual_enabled=False,
+            manual_prices=dict(console=None,pc=None),uplift_enabled=False,uplift_pct='0')
+
+    def save_price_control(self, data, actor, request_id):
+        expected={'expected_revision','manual_enabled','manual_prices','uplift_enabled','uplift_pct','request_key'}
+        if not isinstance(data,dict) or set(data)!=expected or type(data['expected_revision']) is not int:
+            raise ValueError('pricing_price_control_fields_invalid')
+        if type(data['manual_enabled']) is not bool or type(data['uplift_enabled']) is not bool:
+            raise ValueError('pricing_price_control_switch_invalid')
+        prices=data['manual_prices']
+        if not isinstance(prices,dict) or set(prices)!={'console','pc'}:
+            raise ValueError('pricing_manual_price_fields')
+        normalized={}
+        for group,price in prices.items():
+            value=number(price) if price is not None else None
+            if data['manual_enabled'] and value is None:raise ValueError('pricing_manual_price_required')
+            if value is not None and value*100!=(value*100).quantize(Decimal('.01')):
+                raise ValueError('pricing_manual_unit_precision')
+            normalized[group]=str(value) if value is not None else None
+        pct=number(data['uplift_pct'],zero=True)
+        key='price-control-request:'+request_id
+        with self.transaction() as db:
+            saved=self.get('metadata',key,db)
+            if saved:
+                if saved['request_sha256']!=fingerprint(data):raise ValueError('pricing_price_control_payload_conflict')
+                return saved['response']
+            current=self.price_control(db)
+            if current['revision']!=data['expected_revision']:raise ValueError('pricing_price_control_revision_changed')
+            if db.execute('SELECT 1 FROM resource_leases LIMIT 1').fetchone():
+                raise ValueError('pricing_resource_unresolved')
+            value=dict(revision=current['revision']+1,manual_enabled=data['manual_enabled'],manual_prices=normalized,
+                uplift_enabled=data['uplift_enabled'],uplift_pct=str(pct),actor=actor,updated_at=clock().isoformat())
+            self.put('metadata','price_control',value,db)
+            self.put('metadata','price-control-history:'+request_id,dict(before=current,after=value),db)
+            response=dict(settings=value,write_performed=False)
+            self.put('metadata',key,dict(request_sha256=fingerprint(data),response=response),db)
+            return response
+
     def prepare(self, plan, bundle, *, operation_id=None, now=None,dispatch_context=None):
         from .uk_retirement import authority_resources
         now = now or clock()
@@ -375,6 +414,10 @@ class Ledger:
                     raise ValueError('pricing_operation_payload_conflict')
                 return old
             self.owns(plan, authority_resources(bundle), db)
+            if not bundle.get('maintenance_purpose') and bundle.get('authorization_purpose')!='original_unsent_ALL_steps_only':
+                actual_control=self.price_control(db)
+                if (bundle.get('price_control') or {}).get('revision',0)!=actual_control['revision'] or bundle.get('price_control') is not None and bundle['price_control']!=actual_control:
+                    raise ValueError('pricing_price_control_revision_changed')
             if now >= instant(bundle['valid_until']):
                 raise ValueError('pricing_authorization_expired')
             if plan['ends_at'] and now >= instant(plan['ends_at']):
