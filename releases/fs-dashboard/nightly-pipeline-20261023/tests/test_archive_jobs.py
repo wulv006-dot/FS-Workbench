@@ -343,6 +343,20 @@ class Jobs(unittest.TestCase):
         self.assertIn('OnCalendar=*-*-* *:00/5:00',timer);self.assertNotIn('01,02,03,04,05,06:',timer)
         service=(PACKAGE.parent/'daily-archive-20261021/deploy/fs-data-archive.service').read_text()
         self.assertIn('TimeoutStartSec=10min',service);self.assertIn('Nice=10',service);self.assertIn('IOSchedulingClass=idle',service)
+    def test_scheduled_daily_precedes_bounded_history_on_each_catchup_invocation(self):
+        clock=[0];starts=[];self.store.prune.return_value={}
+        def run(daily,budget):
+            starts.append((daily,budget,clock[0]));clock[0]+=budget
+            return dict(status='deferred',missingCount=900)
+        with patch.dict(sys.modules,{'fcntl':Mock(LOCK_EX=1,LOCK_NB=2)}),patch.object(sys,'argv',['archive_jobs.py','--scheduled']),patch.object(jobs,'run_once',side_effect=run),patch('sys.stdout',new_callable=io.StringIO):
+            jobs.main();jobs.main()
+        self.assertEqual(starts,[(True,120,0),(False,360,120),(True,120,480),(False,360,600)])
+        self.assertEqual(self.store.prune.call_count,2)
+    def test_midnight_retains_daily_only_budget_despite_history_backlog(self):
+        Clock.at=datetime(2026,10,28,0,1,tzinfo=jobs.TZ);self.store.prune.return_value={}
+        with patch.dict(sys.modules,{'fcntl':Mock(LOCK_EX=1,LOCK_NB=2)}),patch.object(sys,'argv',['archive_jobs.py','--scheduled']),patch.object(jobs,'run_once',return_value=dict(status='deferred')) as run,patch('sys.stdout',new_callable=io.StringIO):
+            jobs.main()
+        run.assert_called_once_with(True,480)
     @unittest.skipIf(os.name!='posix','requires real Linux flock')
     def test_existing_scheduler_lock_is_nonblocking_and_does_not_reenter(self):
         import fcntl
