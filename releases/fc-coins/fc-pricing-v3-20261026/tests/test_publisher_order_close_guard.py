@@ -123,7 +123,7 @@ class PausedCodePublish(unittest.TestCase):
             RETRY_LOCKS=('price-writer.lock','restore.lock'),queue_mutation=self.queue_mutation)
         for name in self.tick.RETRY_LOCKS:(self.root/'state'/name).touch()
         self.health={'incomplete_executions':0,'queue_depth':0};self.api=SimpleNamespace(health=lambda:self.health)
-        scope={'json':json}
+        scope={'json':json,'superseded_all_code_release':lambda *a,**k:False}
         self.paused=function(SOURCE.parent/'deploy/release_readiness.py','paused_code_release',scope)
         self.ready=function(SOURCE.parent/'deploy/release_readiness.py','fc_release_quiescent',scope)
         self.all_path=self.root/'all-coin-sync/pending.json';self.all_path.write_text(json.dumps({'status':'needs_reconcile','steps':[{'platform':'PC','status':'pending'}]}))
@@ -202,5 +202,88 @@ class PausedCodePublish(unittest.TestCase):
             with (self.root/'state'/self.tick.RETRY_LOCKS[0]).open('rb') as other:
                 with self.assertRaises(BlockingIOError):fcntl.flock(other,fcntl.LOCK_EX|fcntl.LOCK_NB)
         guards(manifest,Path('/'));self.assertFalse(ready.call_args.kwargs['locks_held'])
+
+class SupersededAllCodePublish(unittest.TestCase):
+    def setUp(self):
+        from test_reconcile_original import all_step
+        sys.path.insert(0,str(SOURCE.parent/'deploy'))
+        import release_readiness
+        self.release=release_readiness
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
+        for name in ('queue','jobs','executions','all-coin-sync','state'):(self.root/name).mkdir()
+        self.old=dict(execution_id='original',status='needs_reconcile',steps=[all_step('PC','pending')])
+        self.latest=dict(execution_id='later',status='confirmed',completed_at='2026-10-30T02:48:58+00:00',
+            source_confirmation={'status':'confirmed'},steps=[all_step(p,'confirmed') for p in ('PS','XBOX','PC')])
+        self.old_audit=dict(execution_id='original',status='PUBLIC_CONFIRMED',sync_confirmed=True,updated_at='2026-10-29T15:21:28+00:00')
+        self.later_audit=dict(execution_id='later',status='CONFIRMED',sync_confirmed=True,all_baseline={'status':'confirmed'})
+        self.persist()
+        self.tick=SimpleNamespace(ROOT=self.root,read_record=lambda p:json.loads(p.read_text()),
+            resolved_execution=lambda a:a.get('status') in ('CONFIRMED','PUBLIC_CONFIRMED'),
+            RETRY_LOCKS=('price-writer.lock',),queue_mutation=self.queue_mutation,
+            retry_guard=lambda:'all_sync_unconfirmed',player_sync_gate=lambda:'ready')
+        (self.root/'state/price-writer.lock').touch()
+        self.health={'incomplete_executions':0,'queue_depth':0};self.api=SimpleNamespace(health=lambda:self.health)
+    def persist(self):
+        for folder,ident,body in [('all-coin-sync','original',self.old),('all-coin-sync','later',self.latest),
+                                  ('executions','original',self.old_audit),('executions','later',self.later_audit)]:
+            (self.root/folder/(ident+'.json')).write_text(json.dumps(body))
+    @contextmanager
+    def queue_mutation(self):yield
+    def check(self,mutate=None,held=True):
+        import coin_all_sync_job as coins
+        steps={s['platform']:s for s in self.latest['steps']}
+        def read(manager,platform,site):
+            from copy import deepcopy
+            row=deepcopy(steps[platform]['source' if site==266 else 'payload'])
+            return mutate(row,platform,site) if mutate else row
+        admin=SimpleNamespace(read_private_config=lambda:{},SessionManager=lambda _:SimpleNamespace(ensure=lambda:True))
+        with patch.dict(sys.modules,{'fc_shared_admin':admin}),patch.object(coins,'read_row',side_effect=read),\
+                patch.object(coins,'api',side_effect=AssertionError('no_price_POST')),patch.object(self.release.time,'sleep'):
+            return self.release.superseded_all_code_release(self.tick,self.health,locks_held=held)
+    def test_full_later_confirmation_and_two_fresh_rounds_preserve_original_bytes(self):
+        before={str(p):p.read_bytes() for folder in ('all-coin-sync','executions') for p in (self.root/folder).glob('*.json')}
+        self.assertTrue(self.check())
+        self.assertEqual(before,{str(p):p.read_bytes() for folder in ('all-coin-sync','executions') for p in (self.root/folder).glob('*.json')})
+        self.assertEqual(self.tick.retry_guard(),'all_sync_unconfirmed')
+    def test_dispatch_unknown_or_unclosed_original_still_blocks(self):
+        for state in ('dispatching','unknown'):
+            self.old['steps'][0]['status']=state;self.persist();self.assertFalse(self.check())
+        self.old['steps'][0]['status']='pending';self.old_audit['status']='UNCERTAIN';self.persist();self.assertFalse(self.check())
+    def test_later_partial_stale_or_wrong_product_is_not_supersession(self):
+        from copy import deepcopy
+        good=deepcopy(self.latest)
+        for field,value in [('status','needs_reconcile'),('completed_at','2026-10-28T00:00:00+00:00'),('completed_at','2999-01-01T00:00:00+00:00')]:
+            self.latest=deepcopy(good);self.latest[field]=value;self.persist();self.assertFalse(self.check())
+        self.latest=deepcopy(good);self.latest['steps'][0]['product_id']=123;self.persist();self.assertFalse(self.check())
+    def test_current_price_tier_or_source_change_blocks_without_writes(self):
+        def mismatch(row,p,site):
+            if p=='PC' and site==0:row['more']['price']=['different']
+            return row
+        self.assertFalse(self.check(mismatch))
+        def source_changed(row,p,site):
+            if p=='PS' and site==266:row['unit_price']='99'
+            return row
+        self.assertFalse(self.check(source_changed))
+        calls=[]
+        def unstable(row,p,site):
+            calls.append(p)
+            if len(calls)>6:row['keywords']='changed'
+            return row
+        self.assertFalse(self.check(unstable))
+    def test_running_queue_unknown_and_player_guard_are_preserved(self):
+        for folder,body in [('queue',{}),('jobs',{'status':'running'}),('executions',{'status':'UNCERTAIN'})]:
+            path=self.root/folder/'active.json';path.write_text(json.dumps(body))
+            self.assertFalse(self.check());path.unlink()
+        self.health['incomplete_executions']=1;self.assertFalse(self.check());self.health['incomplete_executions']=0
+        with patch.object(self.release,'superseded_all_code_release',return_value=True):
+            self.assertTrue(self.release.fc_release_quiescent(self.tick,self.api,locks_held=True))
+            self.tick.player_sync_gate=lambda:'needs_reconcile'
+            self.assertFalse(self.release.fc_release_quiescent(self.tick,self.api,locks_held=True))
+    @unittest.skipUnless(os.name=='posix','requires real Linux flock')
+    def test_original_retry_lock_contention_blocks_same_read_only_proof(self):
+        import fcntl
+        with (self.root/'state/price-writer.lock').open('rb') as held:
+            fcntl.flock(held,fcntl.LOCK_EX|fcntl.LOCK_NB);self.assertFalse(self.check(held=False))
+        self.assertTrue(self.check(held=False))
 
 if __name__=='__main__':unittest.main()

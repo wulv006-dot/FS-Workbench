@@ -5,6 +5,87 @@ import time
 import urllib.request
 
 
+def superseded_all_code_release(tick, health, *, locks_held=False):
+    """Prove current convergence for code release; never resolve or replay old writes."""
+    from contextlib import ExitStack
+    from datetime import datetime, timezone
+    import hashlib, os, stat
+    root=tick.ROOT
+    def check():
+        if health.get('queue_depth')!=0 or health.get('incomplete_executions')!=0:return False
+        for name in ('queue','jobs','executions','all-coin-sync'):
+            if not (root/name).is_dir() or (root/name).is_symlink():return False
+        if any((root/'queue').glob('*.json')):return False
+        if any(tick.read_record(p).get('status')=='running' for p in (root/'jobs').glob('*.json')):return False
+        if any(not tick.resolved_execution(tick.read_record(p)) for p in (root/'executions').glob('*.json')):return False
+        def read(path):
+            if path.is_symlink() or not path.is_file():raise ValueError('unsafe_all_evidence')
+            raw=path.read_bytes()
+            return json.loads(raw),hashlib.sha256(raw).hexdigest()
+        def stamp(value):
+            result=datetime.fromisoformat(value.replace('Z','+00:00'))
+            if result.tzinfo is None:raise ValueError('all_evidence_time_unknown')
+            return result
+        pending=[]; confirmed=[]
+        for path in (root/'all-coin-sync').glob('*.json'):
+            record,digest=read(path)
+            if record.get('execution_id')!=path.stem:return False
+            if record.get('status')=='confirmed':confirmed.append((path,record,digest));continue
+            if record.get('status')!='needs_reconcile':return False
+            if any(s.get('status') not in ('pending','confirmed') for s in record.get('steps',[])):return False
+            audit,audit_sha=read(root/'executions'/path.name)
+            if (audit.get('execution_id')!=path.stem or not tick.resolved_execution(audit)
+                    or audit.get('sync_confirmed') is not True):return False
+            pending.append((path.stem,digest,audit_sha,stamp(audit['updated_at'])))
+        if not pending or not confirmed:return False
+        path,record,record_sha=max(confirmed,key=lambda item:stamp(item[1]['completed_at']))
+        completed=stamp(record['completed_at'])
+        if completed>datetime.now(timezone.utc) or any(completed<=p[3] for p in pending):return False
+        audit,audit_sha=read(root/'executions'/path.name)
+        if (audit.get('execution_id')!=path.stem or audit.get('status')!='CONFIRMED'
+                or audit.get('sync_confirmed') is not True or not tick.resolved_execution(audit)
+                or audit.get('all_baseline',{}).get('status')!='confirmed'
+                or record.get('source_confirmation',{}).get('status')!='confirmed'):return False
+        import fc_shared_admin as admin, coin_all_sync_job as coins
+        steps=record['steps']
+        if len(steps)!=3 or {s.get('platform') for s in steps}!=set(coins.PRODUCTS):return False
+        for step in steps:
+            ids=coins.PRODUCTS[step['platform']]
+            if step.get('status')!='confirmed' or (step.get('product_id'),step.get('source_product_id'))!=ids[:2]:return False
+        manager=admin.SessionManager(admin.read_private_config())
+        if not manager.ensure():return False
+        previous=None
+        for attempt in range(2):
+            snapshot={}
+            for step in steps:
+                platform=step['platform']
+                source=coins.read_row(manager,platform,266);actual=coins.read_row(manager,platform,0)
+                if not coins.unchanged(step['source'],source,platform) or not coins.unchanged(step['payload'],actual,platform):return False
+                coins.verify_step(step,actual,source)
+                snapshot[platform]={'source':coins.editable(source),'all':coins.editable(actual)}
+            if previous is not None and previous!=snapshot:return False
+            previous=snapshot
+            if attempt==0:time.sleep(3)
+        print(json.dumps({'code_release_all_supersession':{'originals':[{'execution_id':p[0],'all_sha256':p[1],'audit_sha256':p[2]} for p in pending],
+            'superseding_execution_id':path.stem,'all_sha256':record_sha,'audit_sha256':audit_sha,
+            'checked_at':datetime.now(timezone.utc).isoformat(),'stable_rounds':2,'price_posts':0,
+            'snapshot_sha256':hashlib.sha256(json.dumps(snapshot,sort_keys=True).encode()).hexdigest()}}),flush=True)
+        return True
+    try:
+        if locks_held:return check()
+        import fcntl
+        with tick.queue_mutation(),ExitStack() as stack:
+            for name in tick.RETRY_LOCKS:
+                path=root/'state'/name
+                if path.is_symlink():return False
+                stream=stack.enter_context(path.open('rb'));info=os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.geteuid() or info.st_nlink!=1:return False
+                fcntl.flock(stream,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            return check()
+    except (OSError,ValueError,KeyError,TypeError,AttributeError,RuntimeError,ImportError):
+        return False
+
+
 def paused_code_release(tick,health,*,locks_held=False):
     """Allow code repair while paused; leave all business reconciliation gates intact."""
     from contextlib import closing,ExitStack
@@ -53,6 +134,8 @@ def fc_release_quiescent(tick,api,*,locks_held=False):
     if health['incomplete_executions']!=0:return False
     guard=tick.retry_guard()
     if guard=='ready':return True
+    if guard=='all_sync_unconfirmed' and superseded_all_code_release(tick,health,locks_held=locks_held):
+        return tick.player_sync_gate()=='ready'
     if guard in ('all_sync_unconfirmed','player_sync_unconfirmed') and paused_code_release(tick,health,locks_held=locks_held):return True
     if guard!='player_sync_unconfirmed':return False
     config=tick.load_player_sync_policy()
