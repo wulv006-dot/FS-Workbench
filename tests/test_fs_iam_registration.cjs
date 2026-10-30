@@ -54,9 +54,9 @@ const root = path.join(__dirname, '../opt/fs-access-policy/web');
     const registration = calls.find(c => c.path.endsWith('/register'));
     assert.deepEqual(registration.body, {username:'test_user',password:'synthetic-password-42',team:'QA',purpose:'fixture only'});
     assert.equal(registration.method, 'POST');
-    await page.locator('#login-form input[name=username]').fill('test_user');
-    await page.locator('#login-form input[name=password]').fill('synthetic-password-42');
-    await page.getByRole('button', {name:'登录',exact:true}).click();
+    await page.getByLabel('注册账号',{exact:true}).fill('test_user');
+    await page.locator('#registration-login-form input[name=password]').fill('synthetic-password-42');
+    await page.getByRole('button', {name:'登录并查看申请',exact:true}).click();
     await page.getByRole('heading', {name:'test_user · 待审批'}).waitFor();
     assert.equal(await page.getByText('申请编号：fixture-request', {exact:true}).count(), 1);
     assert(!calls.some(c => /decision|requests/.test(c.path)), 'pending account must not call admin APIs');
@@ -76,6 +76,11 @@ const root = path.join(__dirname, '../opt/fs-access-policy/web');
     mode='ok'; calls=[];
     await page.reload();
     await page.locator('#login-form').waitFor({state:'visible'});
+    assert.equal(await page.locator('#login-form').getAttribute('action'), '../login');
+    assert(await page.locator('#login-form input[name=remember]').isChecked());
+    assert.equal(await page.locator('#login-form').evaluate(form => {
+      const event=new Event('submit',{cancelable:true}); form.dispatchEvent(event); return event.defaultPrevented;
+    }), false, 'native login must retain its original form and remember duration');
     await page.evaluate(() => {
       document.getElementById('login-view').hidden=true;
       document.getElementById('app-view').hidden=false;

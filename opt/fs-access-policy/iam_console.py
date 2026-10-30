@@ -591,7 +591,7 @@ def handle(portal, handler, path, qs):
 
 def _registration(portal, handler, path, actor):
     operation = path[len("/iam/api/registration/"):]
-    public = {"bootstrap", "register", "login", "native-login", "logout", "apply"}
+    public = {"bootstrap", "register", "login", "logout", "apply"}
     admin = {"requests", "audit", "decision", "revoke"}
     if operation not in public | admin:
         return _json(handler, 404, {"error": "unknown endpoint"})

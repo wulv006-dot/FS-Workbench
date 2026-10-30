@@ -29,6 +29,14 @@
       <label class="login-remember"><input type="checkbox" name="remember" value="1" checked> 保持登录</label>
       <button class="btn primary block" type="submit">登录</button>
     </form>
+    <form id="registration-login-form" method="post" action="./api/registration/login" hidden>
+      <h2>查看注册申请</h2>
+      <label for="request-login-name">注册账号</label>
+      <input id="request-login-name" name="username" autocomplete="username" required>
+      <label for="request-login-password">密码</label>
+      <input id="request-login-password" name="password" type="password" autocomplete="current-password" required>
+      <button class="btn primary block" type="submit">登录并查看申请</button>
+    </form>
     <section id="registration-view" hidden>
       <h2>注册账号</h2>
       <p>提交后由管理员审批，登录后可查看进度。</p>
@@ -47,7 +55,8 @@
       </form>
     </section>
     <section id="registration-account" hidden></section>
-    <p class="login-foot"><button class="btn" id="registration-toggle" type="button">没有账号？注册账号</button></p>
+    <p class="login-foot"><button class="btn" id="registration-toggle" type="button">没有账号？注册账号</button>
+      <button class="btn" id="registration-status-toggle" type="button">查看注册申请进度</button></p>
   </div>
 </div>
 
