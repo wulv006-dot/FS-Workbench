@@ -228,6 +228,14 @@ def _recon_apply(con, cfg, d):
     except (OSError, ValueError):
         man = {}
 
+    # 2026-10-30：闸的开关只看 config.金币.人工改价保护.启用。
+    #   启用=false（2026-10-29 老板口径「彻底关闭」）时，执行器 p2pah_local 不会再判「人工改价」，
+    #   派单侧 _gold_manual_guard 也是首段直接 return {} 并把登记表归档 —— 此时这边**登记不产生
+    #   任何拦截效果**，只会：① 冒出一条「已登记人工改价保护」的假告警；② 每轮重建
+    #   gold_manual.json 又被派单侧归档，来回刷日志。⇒ 闸关着就只落 gold_actual、不登记、不告警。
+    #   开回来（启用 不是 false）行为与改前完全一致。
+    _mg_on = (((cfg.get("金币") or {}).get("人工改价保护") or {}).get("启用", True) is not False)
+
     ts = dt.datetime.now().isoformat(timespec="seconds")
     changed = []
     for k, info in actual.items():
@@ -240,6 +248,8 @@ def _recon_apply(con, cfg, d):
             continue
         if abs(cur - old) / abs(old) <= RECON_TOL:
             continue
+        if not _mg_on:
+            continue                          # 闸关：登记无拦截效果，静默（2026-10-30）
         changed.append((k, cur, old))
         if k in man:
             continue                          # 已在保护中：保持原 ts / 原 IGGM 锚
@@ -328,7 +338,10 @@ def _recon_readgold(con, cfg):
         log("  ⚠ 读不到对账输出：%r" % e)
         return False
     n, c = _recon_apply(con, cfg, d)
-    log("  对账完成：读到 %d 行采购成本，其中 %d 个区被手工改过" % (n, c))
+    if c:
+        log("  对账完成：读到 %d 行采购成本，其中 %d 个区被手工改过" % (n, c))
+    else:
+        log("  对账完成：读到 %d 行采购成本" % n)
     return True
 
 
