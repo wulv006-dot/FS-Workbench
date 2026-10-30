@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import {fileURLToPath} from 'node:url';
 import core from './funnel-core.cjs';
 import {connection} from './connection.mjs';
+import {eventDiagnostics} from './report-context.mjs';
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const sandbox={window:{}};vm.runInNewContext(fs.readFileSync(path.join(base,'analytics-config.js'),'utf8'),sandbox);
 const registry=core.validateRegistry(sandbox.window.FC_ANALYTICS_CONFIG.registry);
@@ -20,7 +21,8 @@ export async function report(params,options={}){
  if(!validDate(filter.from)||!validDate(filter.to)||filter.from>filter.to||Date.parse(filter.to)-Date.parse(filter.from)>30*86400000)return {status:400,body:{status:'invalid',message:'日期必须有效，且最多查询 31 天'}};
  const environment=filter.mode==='test'?'test':'production';
  if(filter.testRunId&&(environment!=='test'||!/^[a-f0-9-]{36}$/i.test(filter.testRunId)))return {status:400,body:{status:'invalid',message:'Invalid marked test run'}};
- const key=JSON.stringify([filter,ids,options.revision||0]),cached=cache.get(key);if(cached&&Date.now()-cached.time<(environment==='test'?3000:300000))return cached.value;
+ if(filter.game&&filter.game!=='all'&&!/^\d{1,20}$/.test(filter.game))return {status:400,body:{status:'invalid',message:'游戏筛选无效'}};
+ const key=JSON.stringify([filter,ids,options.revision||0,options.context?.configHash]),cached=cache.get(key);if(cached&&Date.now()-cached.time<(environment==='test'?3000:300000))return cached.value;
  if(pending)return {status:503,body:{status:'busy',message:'已有查询进行中，请稍后重试'}};
  pending=true;
  try{
@@ -35,7 +37,7 @@ export async function report(params,options={}){
   if(data.results.length>=50000||data.hasMore||data.has_more||data.error)throw Error('Query incomplete or exceeds 50,000 events; narrow the date range');
   const events=data.results.map(row=>({event:row[0],timestamp:row[1].replace(' ','T')+(/Z$|[+-]\d\d:\d\d$/.test(row[1])?'':'Z'),properties:Object.fromEntries(fields.map((k,i)=>[k,row[i+2]]))}));
   for(const e of events){const p=e.properties;for(const k of ['product_ids','confirmed_ids','include_sbc','complete','off_percent','active_seconds','activity_paid_minor'])if(typeof p[k]==='string'){try{p[k]=JSON.parse(p[k]);}catch{p[k]=null;}}if(!Array.isArray(p.product_ids))p.product_ids=[];p.include_sbc=p.include_sbc===true;}
-  const value={status:200,body:{status:'available',eventCount:events.length,eventTypes:[...new Set(events.map(e=>e.event))],generatedAt:new Date().toISOString(),coverage:'有界查询完成；浏览器拦截与未授权流量不在覆盖内',...(environment==='test'&&filter.testRunId?{testRun:{id:filter.testRunId,eventIds:[...new Set(events.map(e=>e.properties.event_id).filter(Boolean))]}}:{}),report:core.summarize(events,filter)}};
+  const value={status:200,body:{status:'available',eventCount:events.length,eventTypes:[...new Set(events.map(e=>e.event))],generatedAt:new Date().toISOString(),coverage:'有界查询完成；浏览器拦截与未授权流量不在覆盖内',diagnostics:eventDiagnostics(events,filter),context:options.context||null,...(environment==='test'&&filter.testRunId?{testRun:{id:filter.testRunId,eventIds:[...new Set(events.map(e=>e.properties.event_id).filter(Boolean))]}}:{}),report:core.summarize(events,filter)}};
   if(cache.size>30)cache.clear();cache.set(key,{time:Date.now(),value});return value;
  }finally{pending=null;}
 }

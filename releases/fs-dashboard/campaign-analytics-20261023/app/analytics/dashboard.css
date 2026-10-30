@@ -9,3 +9,15 @@ body{margin:0}a{color:var(--fs-brand)}.sidebar{position:fixed;inset:0 auto 0 0;w
 [hidden]{display:none!important}
 
 .product-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}.product-choice{display:flex;align-items:center;gap:12px;min-height:48px;padding:10px;border:1px solid var(--fs-border-subtle,#cbd5e1);border-radius:8px}.product-choice input{width:20px;min-height:20px;flex-shrink:0}.sbc-editor{padding:16px;margin-block:12px;border:1px solid var(--fs-border-subtle,#cbd5e1);border-radius:12px}fieldset{margin-block:24px;padding:16px}legend{font-weight:700}select,input{font-size:1rem}
+
+.operator-seasonal .legacy-filter,.operator-seasonal .generic-detail{display:none}
+.activity-status-grid,.game-report-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.activity-status-grid p{margin:4px 0}.activity-status-grid strong{display:block}.activity-status-grid small{display:block}
+#activity-summary h2{margin-bottom:4px}.activity-link{overflow-wrap:anywhere}.collection-note{color:var(--fs-muted);font-size:13px;margin-bottom:0}
+.game-report-grid{margin:20px 0}.game-report-card{padding:18px;border:1px solid var(--fs-line);background:var(--fs-surface);border-radius:12px}.game-report-card h3{margin-top:0}.game-report-card dl{display:grid;grid-template-columns:1fr auto;margin:0;gap:8px}.game-report-card dd{margin:0;font-weight:700}
+.report-table-wrap{overflow:auto;max-width:100%;max-height:520px;margin-top:14px}.report-table-wrap:focus-visible{outline:2px solid var(--fs-brand);outline-offset:3px}.report-table-wrap table{min-width:820px}.report-table-wrap thead{position:sticky;top:0;background:var(--fs-surface);z-index:1}.report-table-wrap tbody th{position:sticky;left:0;background:var(--fs-surface);z-index:1;min-width:180px;font-weight:600;color:var(--fs-text)}
+.admin-details>summary{cursor:pointer;font-weight:700;min-height:44px;display:list-item}.planned-toggle{display:flex;flex-direction:row;align-items:center;gap:10px;margin:16px 0}.planned-toggle input{width:18px;min-height:18px}.operator-seasonal #mode-notice{border-color:var(--fs-line);background:var(--fs-surface);color:var(--fs-text)}
+@media(max-width:900px){.activity-status-grid,.game-report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.activity-status-grid{grid-template-columns:1fr}.game-report-grid{gap:10px}.game-report-card{padding:12px}}
+
+.operator-seasonal .hero{padding:20px 24px}.operator-seasonal .hero h1{font-size:28px;margin:4px 0 6px}.operator-seasonal #activity-summary{padding:18px 24px;margin-top:16px}.operator-seasonal .notice{margin:12px 0}.operator-seasonal .filters{gap:12px;padding:18px 24px}.operator-seasonal .hero-side strong{font-size:36px}
