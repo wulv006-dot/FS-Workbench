@@ -92,6 +92,45 @@ class Jobs(unittest.TestCase):
         value=self.state()[self.key(self.business)]
         self.assertEqual(value['failures'],100);self.assertTrue(value['retryable']);self.assertEqual(result['repeatedFailureCount'],1)
         self.assertAlmostEqual(value['retryAfter']-jobs.time.time(),300,delta=2)
+    def test_429_yields_its_port_without_touching_later_keys_or_blocking_other_port(self):
+        self.work=[self.business,self.other,self.marketing]
+        self.seed(self.other,status='pending',failures=2,retryAfter=0,rangeId='original_range_id',requestedAt='2026-10-01T00:00:00+00:00')
+        original=self.state()[self.key(self.other)]
+        def reply(params,port,**unused):return (429,dict(status='busy')) if port==8931 else (200,dict(status='available',generatedAt=Clock.now(jobs.timezone.utc).isoformat()))
+        with patch.object(jobs,'read_route',side_effect=reply) as read:
+            result=jobs.run_once(True,5)
+        self.assertEqual(read.call_count,2);self.assertEqual([row.args[1] for row in read.call_args_list],[8931,8935])
+        self.assertEqual(self.state()[self.key(self.other)],original);self.assertEqual(result['completed'],1)
+    def test_marketing_429_does_not_block_business_or_mark_unobserved_keys(self):
+        later=dict(self.marketing,start='2026-10-25',end='2026-10-25');self.work=[self.marketing,later,self.business]
+        with patch.object(jobs,'read_route',side_effect=[(429,dict(status='busy')),(200,dict(fixture_complete=True))]) as read:
+            result=jobs.run_once(True,5)
+        self.assertEqual(read.call_count,2);self.assertEqual([row.args[1] for row in read.call_args_list],[8935,8931])
+        self.assertNotIn(self.key(later),self.state());self.assertEqual(result['unobservedCount'],1)
+    def test_catalog_429_also_yields_business_port_without_requesting_native_data(self):
+        native=dict(self.business);native.pop('mode');native['archiveFamily']='native'
+        self.work=[native,self.other,self.marketing]
+        with patch.object(jobs,'read_route',side_effect=[(429,dict(status='busy')),(200,dict(status='available',generatedAt=Clock.now(jobs.timezone.utc).isoformat()))]) as read:
+            result=jobs.run_once(True,5)
+        self.assertEqual(read.call_count,2);self.assertEqual(read.call_args_list[0].args[0],{'mode':'catalog'})
+        self.assertEqual(read.call_args_list[1].args[1],8935);self.assertEqual(result['completed'],1)
+        self.assertNotIn(self.key(self.other),self.state())
+    def test_950_old_busy_keys_make_one_rejected_request_and_resume_on_next_tick(self):
+        stamp=Clock.now(jobs.timezone.utc).timestamp()
+        self.work=[dict(self.business,start=(Clock.at.date()-timedelta(days=i+1)).isoformat(),end=(Clock.at.date()-timedelta(days=i+1)).isoformat()) for i in range(950)]
+        original={self.key(q):dict(query=q,status='busy',retryable=True,failures=12,retryAfter=stamp+14400,
+                    requestedAt='2026-10-01T00:00:00+00:00',rangeId='original_'+str(i),
+                    lastObservedAt=(Clock.now(jobs.timezone.utc)-timedelta(minutes=10)).isoformat()) for i,q in enumerate(self.work)}
+        (self.root/'scheduler-state.json').write_bytes(encoded(original))
+        with patch.object(jobs.time,'time',return_value=stamp),patch.object(jobs,'read_route',return_value=(429,dict(status='busy'))) as read:
+            jobs.run_once(True,5)
+        self.assertEqual(read.call_count,1)
+        current=self.state();self.assertEqual(len(current),950)
+        self.assertTrue(all(current[self.key(q)]==original[self.key(q)] for q in self.work[1:]))
+        with patch.object(jobs.time,'time',return_value=stamp+300),patch.object(jobs,'read_route',side_effect=[(200,dict(fixture_complete=True)),(429,dict(status='busy'))]) as read:
+            result=jobs.run_once(True,5)
+        self.assertEqual(read.call_count,2);self.assertEqual(result['completed'],1)
+        self.assertEqual(read.call_args_list[0].args[0]['start'],self.work[1]['start'])
     def test_old_four_hour_busy_wait_recovers_without_clearing_original_metadata(self):
         self.work=[self.business];stamp=Clock.now(jobs.timezone.utc).timestamp()
         original='2026-10-01T00:00:00+00:00'
