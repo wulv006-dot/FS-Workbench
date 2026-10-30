@@ -95,6 +95,27 @@ class PublishedQueries(WeeklyFixture):
             a = self.service.query({}, 'admin'); b = self.service.query({}, 'admin')
             self.assertEqual(a, b); self.assertEqual(replay.call_count, 1); self.assertEqual(flags.call_count, 1)
 
+    def test_temporary_pinned_export_failure_recovers_without_clearing_week_cache(self):
+        with patch.object(types, 'read_pinned_flags', side_effect=OSError('fixture temporary read failure')) as reader:
+            failed = self.service.query({}, 'admin')
+            self.assertEqual(failed['customer_type_source']['status'], 'unavailable')
+            self.assertEqual(reader.call_count, 1)
+        self.assertEqual(len(self.service.cache), 0)
+        with patch.object(types, 'read_pinned_flags', return_value=(self.flags, self.flag_info)) as reader:
+            recovered = self.service.query({}, 'admin')
+            self.assertEqual(recovered['customer_type_source']['status'], 'complete')
+            self.assertEqual(self.service.query({}, 'admin'), recovered)
+            self.assertEqual(reader.call_count, 1)
+        self.assertNotEqual(recovered['snapshot_id'], failed['snapshot_id'])
+        self.assertEqual(self.service.query(dict(snapshot_id=failed['snapshot_id']), 'admin'), failed)
+
+    def test_partial_pinned_export_is_rechecked_until_complete(self):
+        partial = dict(self.flag_info, status='partial')
+        with patch.object(types, 'read_pinned_flags', side_effect=[({}, partial), (self.flags, self.flag_info)]) as reader:
+            self.assertEqual(self.service.query({}, 'admin')['customer_type_source']['status'], 'partial')
+            self.assertEqual(self.service.query({}, 'admin')['customer_type_source']['status'], 'complete')
+            self.assertEqual(reader.call_count, 2)
+
     def test_permission_rechecked_before_warm_cache_or_fact_replay(self):
         self.service.query({}, 'admin'); self.allowed = False
         with patch.object(self.store, 'read_at', wraps=self.store.read_at) as replay:
@@ -217,6 +238,43 @@ class Worker(WeeklyFixture):
                 patch.object(jobs, 'synchronize_day', side_effect=AssertionError('must not recollect')):
             self.assertEqual(self.wake(stamp('2026-11-03T04:18:00+08:00'))['status'], 'complete')
         self.assertEqual(sorted(p.name for p in (self.store.root/'backups').iterdir()), ['2026-11-02'])
+
+    def test_delayed_old_week_backup_occupies_monday_and_new_week_resumes_tuesday(self):
+        with patch.object(jobs, 'backup', side_effect=OSError('fixture unavailable')):
+            self.assertEqual(self.wake()['status'], 'deferred')
+        monday = stamp('2026-11-09T04:18:00+08:00')
+        self.assertEqual(self.wake(monday)['status'], 'complete')
+        old_folder = self.store.root/'backups/2026-11-09'
+        before = jobs.backup_signature(old_folder)
+        pending = self.wake(stamp('2026-11-09T04:33:00+08:00'))
+        self.assertEqual(pending['status'], 'deferred')
+        self.assertEqual(pending['reason'], 'weekly_backup_date_busy')
+        self.assertTrue(weekly.small_state(self.store.root)['retryable'])
+        calls = self.sync.call_count
+        with patch.object(self.store, 'backup', side_effect=AssertionError('must not overwrite older cycle')):
+            self.assertEqual(self.wake(stamp('2026-11-09T04:48:00+08:00'))['status'], 'deferred')
+        self.assertEqual(self.wake(stamp('2026-11-10T04:18:00+08:00'))['status'], 'complete')
+        self.assertEqual(self.sync.call_count, calls)
+        self.assertEqual(jobs.backup_signature(old_folder), before)
+        new_folder = self.store.root/'backups/2026-11-10'
+        old = json.loads((old_folder/'manifest.json').read_text())
+        new = json.loads((new_folder/'manifest.json').read_text())
+        self.assertEqual(old['weekly_cutoff'], MONDAY.replace(hour=0, minute=0).isoformat())
+        self.assertEqual(new['weekly_cutoff'], monday.replace(hour=0, minute=0).isoformat())
+        self.assertEqual(sorted(p.name for p in old_folder.parent.iterdir()), ['2026-11-09', '2026-11-10'])
+        from user_backup_retention import verify_existing
+        self.assertEqual(verify_existing(self.store, '2026-11-10')['recovery']['status'], 'passed')
+
+    def test_changed_other_week_backup_is_unknown_and_never_skipped(self):
+        with patch.object(jobs, 'backup', side_effect=OSError('fixture unavailable')):self.wake()
+        self.wake(stamp('2026-11-09T04:18:00+08:00'))
+        path = self.store.root/'backups/2026-11-09/config.json'
+        path.write_text(path.read_text()+' ')
+        value = self.wake(stamp('2026-11-09T04:33:00+08:00'))
+        self.assertEqual(value['status'], 'requires_reconciliation')
+        self.assertEqual(value['reason'], 'weekly_backup_unknown_directory')
+        self.assertFalse(weekly.small_state(self.store.root)['retryable'])
+        self.assertFalse((self.store.root/'backups/2026-11-10').exists())
 
     def test_unknown_partial_backup_never_gets_overwritten_or_duplicated(self):
         folder = self.store.root/'backups/2026-11-02'; folder.mkdir(parents=True, mode=0o700)

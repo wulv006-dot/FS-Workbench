@@ -330,8 +330,22 @@ def recovery_day(store, state, published, now):
             value = json.loads(raw)
             if value.get('weekly_cutoff') == state['cutoff']:
                 matches.append(folder.name)
+            else:
+                # Only a verified, unchanged recovery point from an earlier weekly cycle is a known collision.
+                from user_backup_retention import FILES, backup_identity
+                identity = backup_identity(folder)
+                other = value.get('weekly_cutoff')
+                recovery = value.get('recovery', {})
+                if (not isinstance(other, str) or stamp(other).isoformat() != other or stamp(other) != monday(stamp(other))
+                        or stamp(other) >= stamp(state['cutoff'])
+                        or {p.name for p in folder.iterdir()} not in (set(FILES), set(FILES) | {'restore-check.json'})
+                        or not isinstance(recovery, dict) or recovery.get('status') != 'passed'
+                        or recovery.get('sqlite_integrity') != 'ok' or recovery.get('data_version') != value.get('data_version')
+                        or recovery.get('file_signatures') != {name: identity['files'][name] for name in FILES if name != 'manifest.json'}):
+                    raise ValueError('weekly_backup_unknown_directory')
     if len(matches)>1:raise ValueError('weekly_duplicate_backups_requires_reconciliation')
     if matches:return matches[0]
-    planned = state.get('backup_day', first)
-    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', planned):raise ValueError('weekly_backup_day')
-    return planned if (root/planned).exists() else today
+    if (root/today).exists():
+        # A known older cycle already owns today's directory. Retry on the next actual capture date.
+        raise RuntimeError('weekly_backup_date_busy')
+    return today

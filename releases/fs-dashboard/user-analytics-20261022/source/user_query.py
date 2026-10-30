@@ -175,10 +175,12 @@ class Service:
         else:
             members = private
         frozen = self.store.save_snapshot(query, result, members)
-        with self.cache_lock:
-            self.cache[cache_key] = deepcopy(frozen)
-            if len(self.cache) > 8:
-                self.cache.popitem(last=False)
+        # A transient/partial pinned export must be retried on a later query, not frozen in the success cache.
+        if not period_cohort or flag_source.get('status') == 'complete':
+            with self.cache_lock:
+                self.cache[cache_key] = deepcopy(frozen)
+                if len(self.cache) > 8:
+                    self.cache.popitem(last=False)
         return frozen
 
     def expire_private_cache(self, deadline):
