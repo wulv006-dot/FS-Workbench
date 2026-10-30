@@ -9,6 +9,7 @@ const paths=new Set(['/events/seasonal/index.html','/events/seasonal/']);
 const bots=/bot|crawler|spider|headless|uptimerobot|pingdom|healthcheck/i;
 const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const linePattern=/^\S+ \S+ \S+ \[([^\]]+)\] "(\S+) ([^ ]+) HTTP\/[^\"]+" (\d{3}) \S+ "(?:\\.|[^"\\])*" "((?:\\.|[^"\\])*)"(?: |$)/;
+const nonSuccessPrefix=/^\S+ \S+ \S+ \[([^\]]+)\] "(?:\\.|[^"\\])*" (\d{3}) \S+(?: |$)/;
 function timestamp(value){
  const m=/^(\d{2})\/(\w{3})\/(\d{4}):(\d{2}):(\d{2}):(\d{2}) ([+-])(\d{2})(\d{2})$/.exec(value);
  if(!m||!months.includes(m[2])||+m[4]>23||+m[5]>59||+m[6]>59||+m[8]>23||+m[9]>59)return NaN;
@@ -42,7 +43,14 @@ async function readLog(row,budget,maxFileBytes){
  function consume(line){
   if(!line.trim())return;
   const m=linePattern.exec(line),time=m&&timestamp(m[1]);
-  if(!m||!Number.isFinite(time)){malformed++;return;}
+  if(!m){
+   // Nginx also logs invalid/TLS requests as400 without an HTTP request line.
+   // A verified non200 status cannot contribute to our GET200 metric.
+   const rejected=nonSuccessPrefix.exec(line),at=rejected&&timestamp(rejected[1]);
+   if(rejected&&rejected[2]!=='200'&&Number.isFinite(at)){first=Math.min(first,at);last=Math.max(last,at);return;}
+   malformed++;return;
+  }
+  if(!Number.isFinite(time)){malformed++;return;}
   first=Math.min(first,time);last=Math.max(last,time);
   if(m[2]!=='GET'||m[4]!=='200'||!m[3].startsWith('/')||m[3].startsWith('//'))return;
   let url;try{url=new URL(m[3],'http://origin.invalid');}catch{malformed++;return;}
