@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -74,6 +75,17 @@ class EquivalenceTest(unittest.TestCase):
     def setUp(self):
         self.policy = rbac.default_policy()
         rbac.validate(self.policy)
+        self.tmp = tempfile.TemporaryDirectory(prefix="fs-iam-equivalence-")
+        self.previous_path = rbac.LIVE_POLICY
+        rbac.LIVE_POLICY = os.path.join(self.tmp.name, "policy.json")
+        with open(rbac.LIVE_POLICY, "w", encoding="utf-8") as fh:
+            json.dump(self.policy, fh)
+        access_policy._refresh(force=True)
+
+    def tearDown(self):
+        rbac.LIVE_POLICY = self.previous_path
+        access_policy._refresh(force=True)
+        self.tmp.cleanup()
 
     def test_matrix_equals_legacy(self):
         mismatches = []

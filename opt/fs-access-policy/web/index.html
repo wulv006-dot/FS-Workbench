@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>账号与权限 · FS 访问控制</title>
 <link rel="stylesheet" href="./app.css">
+<script defer src="./registration.js"></script>
 <script defer src="./app.js"></script>
 </head>
 <body>
@@ -20,7 +21,7 @@
         <small>成员 · 角色 · 授权 · 审计</small>
       </div>
     </div>
-    <div class="login-msg" id="login-msg" hidden></div>
+    <div class="login-msg" id="login-msg" role="status" aria-live="polite" hidden></div>
     <form method="post" action="../login" id="login-form">
       <input type="hidden" name="next" id="login-next" value="">
       <label>账号<input name="username" required autocomplete="username" autofocus></label>
@@ -28,46 +29,74 @@
       <label class="login-remember"><input type="checkbox" name="remember" value="1" checked> 保持登录</label>
       <button class="btn primary block" type="submit">登录</button>
     </form>
-    <p class="login-foot">用门户账号登录。没有账号请联系管理员开通。</p>
+    <section id="registration-view" hidden>
+      <h2>注册账号</h2>
+      <p>提交后由管理员审批，登录后可查看进度。</p>
+      <form id="registration-form" method="post" action="./api/registration/register">
+        <label for="reg-name">账号（必填）</label>
+        <input id="reg-name" name="username" minlength="3" maxlength="32" pattern="[A-Za-z][A-Za-z0-9_.-]{2,31}" autocomplete="username" autocapitalize="off" spellcheck="false" aria-describedby="reg-name-help" required>
+        <p class="hint" id="reg-name-help">3–32 位，以字母开头，可用字母、数字、下划线、点和短横线。</p>
+        <label for="reg-password">密码（必填）</label>
+        <input id="reg-password" name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" aria-describedby="reg-password-help" required>
+        <p class="hint" id="reg-password-help">12–128 位。</p>
+        <label for="reg-team">团队（必填）</label>
+        <input id="reg-team" name="team" maxlength="80" required>
+        <label for="reg-purpose">申请用途（必填）</label>
+        <textarea id="reg-purpose" name="purpose" maxlength="240" required></textarea>
+        <button class="btn primary block" type="submit">注册并提交申请</button>
+      </form>
+    </section>
+    <section id="registration-account" hidden></section>
+    <p class="login-foot"><button class="btn" id="registration-toggle" type="button">没有账号？注册账号</button></p>
   </div>
 </div>
 
 <div id="app-view" hidden>
 
-<header class="topbar">
-  <div class="brand">
-    <span class="mark">FS</span>
-    <div class="brand-text">
-      <strong>账号与权限</strong>
-      <small>成员 · 角色 · 授权</small>
+<!-- 页头 + 视图页签整块吸顶。页头沿用平台通用的白色 platform-header，
+     左边一条全站统一导航由 hubnav.js 挂（唯一真源 /__hub/hubnav.js），这里不再自建。 -->
+<div class="console-chrome">
+  <header class="platform-header">
+    <div class="ph-brand">
+      <span class="mark">FS</span>
+      <div class="brand-text">
+        <strong>账号与权限</strong>
+        <small>成员 · 角色 · 授权 · 审计</small>
+      </div>
     </div>
+    <div class="ph-actions">
+      <a class="ph-link" id="back-platform" href="/dashboard/" title="回到平台工作台">
+        <span class="ph-ico" aria-hidden="true">←</span>返回平台
+      </a>
+      <span class="who" id="who">—</span>
+      <a class="ph-link" href="../logout?next=/__auth/access/">退出</a>
+    </div>
+  </header>
+
+  <div class="tabbar">
+    <nav class="side" aria-label="控制台视图">
+      <button class="nav-item active" data-view="members" type="button">
+        <span class="nav-ico" aria-hidden="true">◧</span>成员管理<i id="nav-members" class="pill"></i>
+      </button>
+      <button class="nav-item" data-view="roles" type="button">
+        <span class="nav-ico" aria-hidden="true">◆</span>角色与策略<i id="nav-roles" class="pill"></i>
+      </button>
+      <button class="nav-item" data-view="check" type="button">
+        <span class="nav-ico" aria-hidden="true">◎</span>权限自检
+      </button>
+      <button class="nav-item" data-view="audit" type="button">
+        <span class="nav-ico" aria-hidden="true">☰</span>审计日志
+      </button>
+      <button class="nav-item" data-view="registration" type="button">注册审批</button>
+    </nav>
   </div>
-  <div class="top-right">
-    <span class="who" id="who">—</span>
-    <a class="ghost" href="../logout?next=/__auth/access/">退出</a>
-  </div>
-</header>
+</div>
 
 <div class="shell">
-  <nav class="side">
-    <button class="nav-item active" data-view="members" type="button">
-      <span class="nav-ico">◧</span>成员管理<i id="nav-members" class="pill"></i>
-    </button>
-    <button class="nav-item" data-view="roles" type="button">
-      <span class="nav-ico">◆</span>角色与策略<i id="nav-roles" class="pill"></i>
-    </button>
-    <button class="nav-item" data-view="check" type="button">
-      <span class="nav-ico">◎</span>权限自检
-    </button>
-    <button class="nav-item" data-view="audit" type="button">
-      <span class="nav-ico">☰</span>审计日志
-    </button>
-    <div class="side-foot" id="side-foot"></div>
-  </nav>
-
   <main class="main" id="main">
     <div class="loading" id="loading">正在载入策略…</div>
   </main>
+  <footer class="page-meta" id="side-foot"></footer>
 </div>
 
 <aside class="drawer" id="drawer" hidden>
