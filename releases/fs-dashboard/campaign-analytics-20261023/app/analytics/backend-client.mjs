@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import {fail} from '../runtime/snapshot.mjs';
 
 const deployedBridge=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../backend/bridge.py');
-export const readActions=new Set(['capabilities','benefits_read','catalog_read','catalog_discover','catalog_search','model_search','model_resolve','model_provider_read','model_provider_batch','model_category_pool','product_read','catalog_mapping_read','benefit_detail','operation_lookup','analysis_summary']);
+export const readActions=new Set(['capabilities','benefits_read','catalog_read','catalog_discover','catalog_search','model_search','model_resolve','model_provider_read','model_provider_batch','model_category_pool','product_read','catalog_mapping_read','benefit_detail','operation_lookup','analysis_summary','discount_revenue']);
 export const mutateActions=new Set(['benefit_edit','benefit_restore','benefit_toggle','operation_reconcile','analysis_reconcile']);
 export function backendRead(request,options={}){
  if(!readActions.has(request?.action))fail('ACTION_NOT_ALLOWED');

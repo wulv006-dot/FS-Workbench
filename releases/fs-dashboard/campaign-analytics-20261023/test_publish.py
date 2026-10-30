@@ -38,6 +38,9 @@ class Release(unittest.TestCase):
   self.assertEqual(p.target('fs-campaign-runtime.service'),'/etc/systemd/system/fs-campaign-runtime.service')
   self.assertEqual(p.target('runtime.env'),'/etc/fs-campaign-runtime.env')
   self.assertEqual(p.target('backend/campaign_backend/coupon_draft.py'),'/opt/fs-campaign-dashboard/backend/campaign_backend/coupon_draft.py')
+  self.assertEqual(p.target('backend/campaign_backend/discount_revenue.py'),'/opt/fs-campaign-dashboard/backend/campaign_backend/discount_revenue.py')
+  for name in ['backend/campaign_backend/discount_revenue_extra.py','backend/campaign_backend/discount_revenue.pyc','backend/campaign_backend/./discount_revenue.py']:
+   with self.assertRaises(ValueError):p.target(name)
   self.assertEqual(p.target('app/seasonal/assets/hero.jpg'),'/opt/fs-campaign-dashboard/seasonal/assets/hero.jpg')
   for path in ['app/../../etc/passwd','app/..\\etc/file.json','app//index.html','app/./index.html','secret.pem','app/data.db','other/index.html','other.service','etc/runtime.env','backend/secret.py','backend/campaign_backend/../../etc/passwd','backend/tests/test_ledger.py']:
    with self.assertRaises(ValueError):p.target(path)
