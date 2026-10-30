@@ -108,10 +108,14 @@ def backup_signature(destination):
     return dict(manifest_sha256=hashlib.sha256(raw).hexdigest(), files=signatures)
 
 
-def backup(store, now, day=None):
+def backup(store, now, day=None, weekly_cutoff=None):
     day = day or now.date().isoformat()
     if not isinstance(day, str) or date.fromisoformat(day).isoformat() != day:
         raise ValueError('backup_date_required')
+    if weekly_cutoff is not None:
+        from user_weekly import monday
+        if stamp(weekly_cutoff) != monday(stamp(weekly_cutoff)) or stamp(weekly_cutoff).isoformat() != weekly_cutoff:
+            raise ValueError('weekly_backup_cutoff')
     root = store.root / 'backups'
     root.mkdir(mode=0o700, exist_ok=True)
     destination = root / day
@@ -122,10 +126,14 @@ def backup(store, now, day=None):
             raise ValueError('backup_outcome_requires_reconciliation')
         backup_signature(destination)
         value = json.loads(receipt.read_text('utf-8'))
+        if weekly_cutoff is not None and value.get('weekly_cutoff') != weekly_cutoff:
+            raise ValueError('weekly_backup_cycle_requires_reconciliation')
         for name, digest in value['sha256'].items():
             if file_sha256(destination / name) != digest:
                 raise ValueError('backup_readback_mismatch')
         return value
+    if day != now.date().isoformat():
+        raise ValueError('backup_new_day_requires_current_capture_date')
     destination.mkdir(mode=0o700)
     copied = store.backup(destination / 'customers.sqlite3')
     for name, raw in (('identity.key', store.key), ('config.json', canonical(store.config).encode())):
@@ -138,6 +146,8 @@ def backup(store, now, day=None):
         raise ValueError('backup_restore_version_mismatch')
     value = dict(contract='fs-users-private-backup-v2', captured_at=now.isoformat(), data_version=copied['revision'], recovery=recovery,
                  scope='same_host_recovery_copy', sha256={p.name: file_sha256(p) for p in destination.iterdir()})
+    if weekly_cutoff is not None:
+        value['weekly_cutoff'] = weekly_cutoff
     from user_backup_retention import signature
     if recovery['file_signatures'] != {name: signature(destination / name) for name in recovery['file_signatures']}:
         raise ValueError('backup_changed_during_verification')

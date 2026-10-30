@@ -54,6 +54,10 @@ def invoke(service, user, args):
     section = section or value['query']['view']
     heavy = {'projects', 'migration', 'trend', 'cohort_weeks', 'trajectories', 'source_watermark'}
     result = {key: part for key, part in value.items() if key not in heavy}
+    if value.get('weekly_update'):
+        from user_weekly import small_state
+        state = small_state(service.store.root)
+        result['weekly_refresh_status'] = {key: state[key] for key in ('cutoff', 'phase', 'error', 'retryable') if key in state} if state else dict(phase='unknown')
     windows = value.get('source_watermark', [])
     runs = coverage_runs([dict(site=w['site'], start=w['start'], end=w['end_exclusive'], state=w['state']) for w in windows], sorted({w['site'] for w in windows}))
     result.update(source_coverage=[dict(site=site,start=a.isoformat(),end_exclusive=b.isoformat()) for site, intervals in runs.items() for a,b in intervals],

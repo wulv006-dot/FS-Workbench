@@ -17,7 +17,7 @@ async function read(params,path='data.json',signal){
   const response=await fetch('./'+path+'?'+new URLSearchParams(params),{credentials:'same-origin',cache:'no-store',signal});
   if(!response.headers.get('content-type')?.includes('application/json'))throw new Error('登录状态或接口不可用');
   const data=await response.json();
-  if(!response.ok)throw new Error(response.status===403?'当前账号无此范围或客户明细权限':response.status===401?'登录已过期':data.error||'查询失败');
+  if(!response.ok)throw new Error(response.status===403?'当前账号无此范围或客户明细权限':response.status===401?'登录已过期':data.error==='weekly_initial_publication_pending'?'首次周更新尚未完成，暂未发布可用数据':data.error||'查询失败');
   return data;
 }
 const columnHelp={
@@ -129,9 +129,9 @@ function render(){
 }
 async function query(event){
   event?.preventDefault();controller?.abort();controller=new AbortController();const version=++serial;const f=el('filters');
+  const args={scope:f.elements.scope.value,scope_id:f.elements.scope_id.value,state_basis:f.elements.state_basis.value,start:f.elements.start.value,policy_version:f.elements.policy_version.value,policy_mode:f.elements.policy_mode.value,H:f.elements.H.value};
   if(event){try{const fresh=await read({action:'catalog'},'data.json',controller.signal);if(version!==serial)return;catalog=fresh;}catch(error){if(error.name!=='AbortError')text('status',error.message);return;}}
   const dates=reportDates(catalog.weekly_update);el('period-start').max=dates.end;text('period-end',dates.end);
-  const args={scope:f.elements.scope.value,scope_id:f.elements.scope_id.value,state_basis:f.elements.state_basis.value,start:f.elements.start.value,policy_version:f.elements.policy_version.value,policy_mode:f.elements.policy_mode.value,H:f.elements.H.value};
   if(args.state_basis!=='period_cohort')args.end_exclusive=dates.cutoff;
   text('status','正在读取同一范围的快照…');
   try{const data=await read(args,'data.json',controller.signal);if(version!==serial)return;snapshot=data;render();text('status',`快照已读取 · ${data.coverage.history_window?data.coverage.history_window.start.slice(0,10)+'起已覆盖 · '+statuses[data.status]:data.coverage.historical_origin?statuses[data.status]:'回补中 · 部分客户池'}`);}

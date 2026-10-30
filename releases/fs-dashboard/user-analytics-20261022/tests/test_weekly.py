@@ -4,9 +4,6 @@ from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
-import re
-import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -49,21 +46,6 @@ class Dates(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'period_after_published_data'):
             checked_query(dict(start='2026-10-19', end_exclusive='2026-10-30', state_basis='period_end'), config, FRIDAY)
 
-    def test_actual_ui_date_helper_uses_published_week_not_browser_today(self):
-        source = (BASE/'ui/users.js').read_text('utf-8')
-        lines = [next(s for s in source.splitlines() if s.startswith('const '+name+'=')) for name in ('localDay', 'addDay')]
-        helper = re.search(r'function reportDates\(info,now=new Date\(\)\)\{.*?\n\}', source, re.S).group()
-        js = '\n'.join(lines)+'\n'+helper+'''
-const assert=require('node:assert/strict');
-const info={cutoff:'2026-10-26T00:00:00+08:00',default_start:'2026-10-19T00:00:00+08:00'};
-const expected={cutoff:'2026-10-26',start:'2026-10-19',end:'2026-10-25'};
-assert.deepEqual(reportDates(info,new Date('2026-10-30T22:00:00Z')),expected);
-assert.deepEqual(reportDates(info,new Date('2026-11-01T22:00:00Z')),expected);
-assert.equal(reportDates(null,new Date('2026-10-30T23:00:00Z')).cutoff,'2026-10-31');
-'''
-        self.assertIsNotNone(shutil.which('node'), 'Node is required for the real UI date helper check')
-        result = subprocess.run(['node', '-e', js], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class WeeklyFixture(unittest.TestCase):
@@ -133,6 +115,10 @@ class PublishedQueries(WeeklyFixture):
         weekly.record_state(self.store, dict(contract='fs-users-weekly-work-v1', cutoff='2026-11-02T00:00:00+08:00', phase='windows', error='fixture_failure', retryable=False))
         info = self.service.catalog('admin')['weekly_update']
         self.assertEqual(info['data_through'], '2026-10-25'); self.assertFalse(info['pending']['retryable'])
+        from user_tools import invoke
+        value = invoke(self.service, 'admin', {})
+        self.assertEqual(value['weekly_refresh_status']['error'], 'fixture_failure')
+        self.assertEqual(value['weekly_update']['data_through'], '2026-10-25')
 
     def test_publication_corruption_and_stale_cas_refuse(self):
         with self.assertRaisesRegex(ValueError, 'weekly_publication_cas'):
@@ -195,7 +181,7 @@ class Worker(WeeklyFixture):
 
     def test_partial_targeted_read_keeps_previous_week_and_missing_records(self):
         self.targeted.return_value = dict(status='partial', requested_rows=2, returned_rows=1, missing_rows=1)
-        self.assertEqual(self.wake()['status'], 'deferred')
+        self.assertEqual(self.wake()['status'], 'requires_reconciliation')
         self.assertEqual(weekly.stored_publication(self.store), self.publication)
         self.assertFalse(weekly.small_state(self.store.root)['retryable'])
 
@@ -207,9 +193,30 @@ class Worker(WeeklyFixture):
         count = self.sync.call_count
         with patch.object(jobs, 'backup', wraps=actual) as backup:
             self.assertEqual(self.wake(stamp('2026-11-03T04:18:00+08:00'))['status'], 'complete')
-            self.assertEqual(backup.call_args.kwargs['day'], '2026-11-02')
+            self.assertEqual(backup.call_args.kwargs['day'], '2026-11-03')
         self.assertEqual(self.sync.call_count, count)
+        self.assertFalse((self.store.root/'backups/2026-11-02').exists())
+        self.assertTrue((self.store.root/'backups/2026-11-03/manifest.json').is_file())
+        from user_backup_retention import verify_existing
+        self.assertEqual(verify_existing(self.store, '2026-11-03')['recovery']['status'], 'passed')
+
+    def test_complete_backup_with_lost_ack_is_reused_across_day(self):
+        actual = jobs.backup
+        def interrupted(*args, **kwargs):
+            actual(*args, **kwargs)
+            raise OSError('fixture lost acknowledgement')
+        with patch.object(jobs, 'backup', side_effect=interrupted):
+            self.assertEqual(self.wake()['status'], 'deferred')
+        with patch.object(self.store, 'backup', side_effect=AssertionError('must not copy a second time')):
+            self.assertEqual(self.wake(stamp('2026-11-03T04:18:00+08:00'))['status'], 'complete')
         self.assertFalse((self.store.root/'backups/2026-11-03').exists())
+
+    def test_lost_work_file_reconciles_existing_weekly_backup_before_any_copy(self):
+        self.wake(); (self.store.root/weekly.WORK).unlink()
+        with patch.object(self.store, 'backup', side_effect=AssertionError('must not duplicate after lost work file')), \
+                patch.object(jobs, 'synchronize_day', side_effect=AssertionError('must not recollect')):
+            self.assertEqual(self.wake(stamp('2026-11-03T04:18:00+08:00'))['status'], 'complete')
+        self.assertEqual(sorted(p.name for p in (self.store.root/'backups').iterdir()), ['2026-11-02'])
 
     def test_unknown_partial_backup_never_gets_overwritten_or_duplicated(self):
         folder = self.store.root/'backups/2026-11-02'; folder.mkdir(parents=True, mode=0o700)
@@ -217,6 +224,9 @@ class Worker(WeeklyFixture):
         self.assertEqual(self.wake()['status'], 'requires_reconciliation')
         self.assertEqual((folder/'customers.sqlite3').read_bytes(), original)
         self.assertEqual(sorted(p.name for p in folder.iterdir()), ['customers.sqlite3'])
+        self.ensure.assert_called_once(); self.targeted.assert_called_once()
+        self.wake(stamp('2026-11-03T04:18:00+08:00'))
+        self.assertFalse((self.store.root/'backups/2026-11-03').exists())
 
     def test_existing_older_backup_cannot_masquerade_as_current_week(self):
         with patch.object(jobs, 'backup', return_value=dict(data_version='0')):

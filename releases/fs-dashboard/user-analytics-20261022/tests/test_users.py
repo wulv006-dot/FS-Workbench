@@ -712,7 +712,7 @@ class Users(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'backup_readback_mismatch'):
                 daily_backup_status(self.store, NOW)
 
-    def test_partial_backup_preserved_and_customer_types_continue(self):
+    def test_partial_backup_preserved_and_weekly_tick_does_not_recopy(self):
         import contextlib, io
         from user_jobs import daily_backup_status, main
         folder = self.store.root / 'backups' / NOW.date().isoformat()
@@ -726,13 +726,14 @@ class Users(unittest.TestCase):
         self.assertFalse(first['retryable'])
         self.assertEqual(original.read_bytes(), b'original-unreconciled-copy')
         with patch.object(sys, 'argv', ['user_jobs', 'tick']), patch('user_jobs.load_store', return_value=self.store), \
-                patch('user_jobs.tick_windows', return_value=[]), patch('user_jobs.advance_day'), \
-                patch('user_jobs.datetime') as clock, patch('user_customer_types.ensure_closed_month', return_value={'status': 'reused'}) as flags, \
+                patch('user_jobs.datetime') as clock, patch('user_weekly.wake', return_value={'status': 'reused', 'reason': 'weekly_idle'}) as wake, \
+                patch('user_customer_types.ensure_closed_month') as flags, \
                 contextlib.redirect_stdout(io.StringIO()) as output:
             clock.now.return_value = NOW
             main()
-        flags.assert_called_once()
-        self.assertIn('requires_reconciliation', output.getvalue())
+        wake.assert_called_once(); flags.assert_not_called()
+        self.assertIn('weekly_idle', output.getvalue())
+        self.assertEqual(original.read_bytes(), b'original-unreconciled-copy')
 
     def test_backup_changed_while_verifying_never_records_complete(self):
         from user_jobs import backup, daily_backup_status
