@@ -217,8 +217,6 @@ def run(store, state, published, now, clock, force=False):
     from user_jobs import synchronize_day, targeted_refresh, payment_day_watermarks, backup, backup_signature, atomic
     from user_customer_types import ensure_period, manifest_inventory, read_pinned_flags
     cutoff = stamp(state['cutoff'])
-    if cutoff - stamp(state['start']) > timedelta(days=90):
-        raise ValueError('weekly_gap_exceeds_three_months')
     started = clock()
     deadline = started + 360
     def at():
@@ -228,6 +226,8 @@ def run(store, state, published, now, clock, force=False):
         return clock() >= deadline or not window(now + timedelta(seconds=clock()-started))
     if published and published['cutoff'] == state['cutoff']:
         state['phase'] = 'backup'  # Reconcile a commit whose checkpoint was interrupted.
+    if state['phase'] != 'backup' and cutoff - stamp(state['start']) > timedelta(days=90):
+        raise ValueError('weekly_gap_exceeds_three_months')
     if state['phase'] == 'windows':
         for site in store.config['sites']:
             day = stamp(state['next_days'][site])
