@@ -72,3 +72,9 @@ test('unavailable source scans are cached for5seconds, coalesced, and retried on
   fs.writeFileSync(f.logPath,anchor+line());time+=5000;assert.equal((await f.query(params())).pageRequests,1);assert.equal(scans,5,'expired failure cache recovers naturally');
  }finally{fsp.readdir=original;}
 });
+test('known non200 Nginx invalid-request records do not hide otherwise complete GET200 coverage',async t=>{
+ const invalid=status=>`192.0.2.7 - - [30/Oct/2026:08:00:03 +0800] "\\x16\\x03\\x01" ${status} 0 "-" "-" "-"\n`;
+ const f=fixture(t,anchor+line()+invalid(400)+invalid(499));const r=await f.query(params());assert.equal(r.status,'available');assert.equal(r.pageRequests,1);assert.equal(r.successfulRequests,1);
+ const unknownSuccess=fixture(t,anchor+line()+invalid(200));assert.equal((await unknownSuccess.query(params())).reason,'UNPARSED_LOG_ROWS');assert.equal((await unknownSuccess.query(params())).pageRequests,null);
+ const invalidTime=fixture(t,anchor+line()+invalid(400).replace('30/Oct/2026','99/Oct/2026'));assert.equal((await invalidTime.query(params())).pageRequests,null);
+});
