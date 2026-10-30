@@ -555,6 +555,11 @@ def score(mode, action, evidence, financial_proof, anchor, evaluation_context=No
                 new_customer_objective='available' if all((model.get('groups') or {}).get(g,{}).get('new_customer_ratio') is not None for g in GROUPS) else 'identity_pending_contribution_reference_with_exploration')
 
 
+def current_action(evidence):
+    return dict(base_prices={g:str(max(number(evidence['storefront']['rows'][p]['package_usd']) for p in ps)) for g,ps in GROUPS.items()},
+                region_coefficients={str(r['region_id'])+':'+r['platforms'][0]:r['factor'] for r in evidence.get('regional_controls',[])})
+
+
 def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,explicit_prices=None):
     now = now or datetime.now(timezone.utc)
     if mode not in POLICIES:
@@ -562,8 +567,7 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
     fresh(evidence['checked_at'],now)
     fresh(evidence['fx']['checked_at'],now)
     controls=evidence.get('regional_controls',[])
-    current = dict(base_prices={g:str(max(number(evidence['storefront']['rows'][p]['package_usd']) for p in ps)) for g,ps in GROUPS.items()},
-                   region_coefficients={str(r['region_id'])+':'+r['platforms'][0]:r['factor'] for r in controls})
+    current = current_action(evidence)
     anchor = deepcopy((plan or {}).get('price_anchor') or current)
     regions = evidence.get('region_rules',[])
     options = {}
@@ -749,6 +753,47 @@ def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,expl
                 execution_authorized=False,write_performed=False,
                 target=monthly_target((evidence.get('monthly_target') or {}).get('amount'),
                     (evidence.get('monthly_target') or {}).get('mtd'),now,(plan or {}).get('ends_at'),metadata=evidence.get('monthly_target')))
+
+
+def controlled_candidate(evidence,current,control,plan,now,selected=None):
+    """Operator price wins; otherwise mark up the freshly selected strategy action once."""
+    manual=control['manual_enabled']
+    if not manual and not control['uplift_enabled']:return selected
+    fresh(evidence['checked_at'],now)
+    fresh(evidence['fx']['checked_at'],now)
+    original=deepcopy(selected)
+    action=deepcopy(current if manual else selected['action'])
+    for group in GROUPS:
+        if 'base:'+group not in plan['resources']:continue
+        target=number(control['manual_prices'][group])*100 if manual else number(action['base_prices'][group])*(1+number(control['uplift_pct'],zero=True)/100)
+        action['base_prices'][group]=str(money(target,ROUND_HALF_UP))
+    average30=[p for g,ps in GROUPS.items() if 'base:'+g in plan['resources'] for p in ps
+               if not manual and selected.get('daily_reference',{}).get(p,{}).get('average_margin_target_pct')=='30']
+    regions=proof_regions(evidence,current,action,promised_regions=(selected or {}).get('regional_market_comparison',{}),minimum_average_platforms=average30)
+    proof=financial(evidence,action,now,regions=regions)
+    average_proof=daily_average_target_proof(evidence,proof,average30)
+    steps=commit_path(current,action,lambda state:financial(evidence,state,now,regions=regions))
+    result=deepcopy(selected) if selected else dict(market_comparison={},regional_market_comparison={},
+        market_position={},daily_reference={},daily_pricing={},minimum_legal_price_proof={},
+        score=dict(objective='0',revenue=None,contribution=None,absolute_forecast_available=False,status='manual_intervention'))
+    result.update(action=action,action_sha256=fingerprint(action),steps=steps,financial_proof=proof,
+        daily_average_target_proof=average_proof,control=action==current,price_control=deepcopy(control),
+        strategy_action=original['action'] if original else None,
+        decision_type='manual_intervention' if manual else 'temporary_uplift',
+        decision_reason='OPERATOR_MANUAL_PRICE' if manual else 'OPERATOR_TEMPORARY_UPLIFT')
+    # Strategy minimum/competition proofs describe X, never the operator's final price.
+    result['strategy_decision']=original
+    result['minimum_legal_price_proof']={}
+    if not manual:
+        result['score']=score(plan['mode'],action,evidence,proof,plan.get('price_anchor') or current,parameters=plan.get('parameters'))
+        for scope,market in list(result['market_comparison'].items())+list(result['regional_market_comparison'].items()):
+            for platform,target in market['targets'].items():
+                actual=number(proof['prices'][scope if ':' in scope else 'global:'+platform]['price']['delivered_unit_100k'])
+                position=result['market_position'][scope][platform]
+                position.update(actual_unit_100k=str(actual),actual_undercut_pct=str((1-actual/number(target['anchor_unit_100k']))*100),
+                    difference_pct={q['source']:str((actual/number(q['unit_100k'])-1)*100) for q in market['quotes'] if q['platform']==platform},
+                    competitive_band_met=number(target['unit_low'])<=actual<=number(target['unit_high']))
+    return result
 
 
 def proof_regions(evidence,before,after,promised_regions=(),minimum_average_platforms=()):

@@ -13,6 +13,7 @@ from . import VERSION, PROGRAM_CONTRACT
 from .engine import evaluate, financial, competition, commit_path, impacted_regions, proof_regions, GROUPS, PLATFORMS, market_quote, sprint_parameters, SPRINT_POLICY_VERSION
 from .financial import fingerprint, number, instant, MARGIN_BASIS, HARD_MARGIN, FINANCIAL_CONTRACT_VERSION, LEGACY_FINANCIAL_CONTRACT_VERSION, HISTORY_WINDOW_CONTRACT, required_history_ratio
 from .ledger import Ledger, clock
+from .engine import controlled_candidate, current_action
 
 ROOT = Path(os.environ.get('FC27_V3_ROOT','/var/lib/fc27-cloud'))
 STORE = ROOT/'v3'
@@ -183,7 +184,17 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
     if (job.get('request') or {}).get('v3_authorization_purpose')==UK_RETIREMENT:
         return calculate_uk_retirement(evidence,job,db)
     mode = plan['mode'] if plan else 'revenue_sprint'
-    evaluations = {mode:evaluate(evidence,mode,plan=plan,now=now)}
+    control=db.price_control()
+    if (control['manual_enabled'] or control['uplift_enabled']) and not plan:raise ValueError('pricing_plan_required')
+    if selected_action is not None and (control['manual_enabled'] or control['uplift_enabled']):
+        raise ValueError('pricing_price_control_conflicts_with_manual_preview')
+    if control['manual_enabled']:
+        before=current_action(evidence)
+        candidate=controlled_candidate(evidence,before,control,plan,now)
+        evaluations={mode:dict(mode=mode,status='READY',current=before,anchor=plan['price_anchor'],
+            candidates=[candidate],selected=candidate,failures=[],valid_until=(now+timedelta(seconds=900)).isoformat())}
+    else:
+        evaluations = {mode:evaluate(evidence,mode,plan=plan,now=now)}
     evaluation = evaluations[mode]
     if not evaluation['candidates']:
         result=dict(checked_at=evidence['checked_at'],rows=[],strategy_version=VERSION,status=evaluation['status'],
@@ -203,13 +214,19 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
                         deterministic=True,labels=['explicit_override'],parent_assignment_id=(prior or {}).get('assignment_id'),
                         original_assignment=prior,deviation_reason=override_reason)
         db.put('experiment_assignments',allocation['assignment_id'],allocation)
-    elif plan:
+    elif plan and not control['manual_enabled']:
         allocation = db.assignment(plan,evaluation['candidates'],now=now)
         selected = next(c for c in evaluation['candidates'] if c['action']==allocation['action'])
     else:
         selected = evaluation['selected']
         allocation = dict(assignment_id=None,action=selected['action'],ends_at=evaluation['valid_until'],
                           deterministic=True,labels=['read_only_unowned'])
+    if not control['manual_enabled'] and control['uplift_enabled']:
+        selected=controlled_candidate(evidence,evaluation['current'],control,plan,now,selected)
+        evaluation['selected']=selected
+    if selected.get('price_control'):
+        allocation=dict(allocation,strategy_action=allocation['action'],action=selected['action'],
+            effective_choice='operator_price_control')
     action = selected['action']
     relevant_regions=impacted_regions(evidence,evaluation['current'],action,promised_regions=selected.get('regional_market_comparison',{}))
     steps=deepcopy(selected['steps'])
@@ -241,7 +258,9 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         strategy_parameters=sprint_parameters(plan) if mode=='revenue_sprint' else (plan or {}).get('parameters',{}),
         authorized_resources=(plan or {}).get('resources',[]),decision_type=selected.get('decision_type'),decision_reason=selected.get('decision_reason'),
         market_position=selected.get('market_position'),minimum_legal_price_proof=selected.get('minimum_legal_price_proof'),
-        strategy_decision=selected['score'],allocation=allocation,
+        strategy_decision=selected['score'],allocation=allocation,price_control=control,
+        strategy_action=selected.get('strategy_action'),strategy_anchor=evaluation['anchor'],
+        base_strategy_decision=selected.get('strategy_decision'),
         budget_policy='none',
         execution_authorized=bool(plan and plan.get('state')=='ACTIVE'),review_contract=PROGRAM_CONTRACT,
         decision_source='program_current_strategy',per_cycle_model_required=False,
@@ -297,7 +316,7 @@ def render_result(evidence,selected,bundle,mode):
             decision_type=selected.get('decision_type'),financial_contract_version=FINANCIAL_CONTRACT_VERSION,
             gross_margin_pct=fp['proof']['procurement_margin_pct'],pricing_mode=mode,pricing_tier=None,
             requested_discount_pct=None,profit_floor_applied=False,pricing_basis='page_total_100k',
-            strategy_version=VERSION,quote_manual=False,own_bonus_k=own['bonus_k'],
+            strategy_version=VERSION,quote_manual=selected.get('decision_type')=='manual_intervention',own_bonus_k=own['bonus_k'],
             decision_reason=selected.get('decision_reason') or mode+'_objective',ending_reason='v3_exact_no_hidden_adjustment',
             pricing_quantity_basis='both_sides_actual_delivered_quantity',
             lootbar_page_usd=public_anchor['usd_price'] if public_anchor else None,
@@ -411,6 +430,22 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         raise ValueError('pricing_financial_quote_migration_required')
     from .uk_retirement import PURPOSE as UK_RETIREMENT,authority_resources
     maintenance=receipt.get('maintenance_purpose')==UK_RETIREMENT
+    controlled=bool(receipt.get('price_control',{}).get('manual_enabled') or receipt.get('price_control',{}).get('uplift_enabled'))
+    if not maintenance and purpose!='original_unsent_ALL_steps_only':
+        if for_execution:
+            actual_control=ledger().price_control()
+            if receipt.get('price_control',{}).get('revision',0)!=actual_control['revision'] or receipt.get('price_control') is not None and receipt['price_control']!=actual_control:
+                raise ValueError('pricing_price_control_revision_changed')
+        if controlled:
+            plan=dict(mode=receipt['mode'],resources=receipt['authorized_resources'],parameters=receipt['strategy_parameters'],price_anchor=receipt['strategy_anchor'])
+            raw=None
+            if not receipt['price_control']['manual_enabled']:
+                original=evaluate(quote['evidence'],receipt['mode'],plan=plan,now=now,explicit_prices=receipt['strategy_action']['base_prices'])
+                raw=next((c for c in original['candidates'] if c['action']==receipt['strategy_action']),None)
+                if raw is None:raise ValueError('pricing_price_control_strategy_changed')
+            checked=controlled_candidate(quote['evidence'],receipt['before_action'],receipt['price_control'],plan,now,raw)
+            if checked['action']!=receipt['action'] or checked['financial_proof']!=receipt['financial_proof']:
+                raise ValueError('pricing_price_control_proof_changed')
     regions=quote['evidence'].get('region_rules',[])
     if maintenance:
         authority_resources(receipt)
@@ -428,7 +463,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         group='pc' if row['platform']=='PC' else 'console'
         if number(row['proposal'])*100!=number(receipt['action']['base_prices'][group]):
             raise ValueError('pricing_action_row_changed')
-    if receipt['mode']=='daily' and not maintenance and purpose!='original_unsent_ALL_steps_only':
+    if receipt['mode']=='daily' and not controlled and not maintenance and purpose!='original_unsent_ALL_steps_only':
         from .engine import daily_reference,required_base_bound,daily_average_target_proof,daily_item_target
         references=daily_reference(quote['evidence'],PLATFORMS,now)
         if references!=receipt.get('daily_reference'):raise ValueError('pricing_daily_reference_changed')
@@ -446,7 +481,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
             elif any(references[p]['average_margin_target_pct']=='30' for p in platforms):
                 if number(receipt['action']['base_prices'][group])!=floor:raise ValueError('pricing_daily_missing_market_not_minimum_average_30')
         if pricing!=receipt.get('daily_pricing',{}):raise ValueError('pricing_daily_item_target_proof_changed')
-    if receipt['mode']=='revenue_sprint':
+    if receipt['mode']=='revenue_sprint' and not controlled:
         market_plan=dict(mode='revenue_sprint',resources=receipt['authorized_resources'],parameters=receipt['strategy_parameters']) if receipt.get('plan_id') else None
         markets={}
         for group in receipt['market_comparison']:

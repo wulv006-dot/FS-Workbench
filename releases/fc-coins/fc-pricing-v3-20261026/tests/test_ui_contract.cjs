@@ -15,11 +15,14 @@ assert(html.includes('/dashboard/fc27-local-client.js'));
 assert(!html.includes('ELD 独立'));
 assert(!/value="(?:acquisition|backlog|flash_sale)"/.test(html));
 const hero=html.match(/<header class="hero">[\s\S]*?<\/header>/)[0];
-assert.match(hero,/id="v3-execute-now"[^>]*>立即执行一轮改价/);
-assert.match(hero,/id="collect"[^>]*>刷新采集价格/);
-assert.match(html,/刷新采集价格只采集来源，不写价/);
+assert.match(hero,/FC 自动改价总控制台/);
+const mainConsole=html.slice(html.indexOf('class="panel console-panel"'),html.indexOf('aria-labelledby="current-title"'));
+for(const id of ['v3-system-enabled','v3-auto-enabled','v3-manual-enabled','v3-uplift-enabled','v3-execute-now','collect','v3-refresh'])assert(mainConsole.includes(`id="${id}"`),`#${id} belongs to the unified console`);
+assert.match(mainConsole,/id="v3-execute-now"[^>]*>立即执行一轮改价/);
+assert.match(mainConsole,/id="collect"[^>]*>立即采集/);
+assert.match(mainConsole,/立即采集只查价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261030-optional-markets/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261030-console-control/);
 assert.match(script,/双20只按购买100K、赠送5K这一档核算/);
 assert.match(script,/sprint_policy_version='sprint_5_10_lower_quote_floor20_v3'/,'preserve the live lower-anchor business parameter');
 assert.match(script,/D-9至D-2八个完整日真实优惠金额结构/,'preserve the live eight-day financial wording');
@@ -42,11 +45,12 @@ const store = new Map();
 const sessionStorage = { getItem: key => store.get(key) || null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) };
 const plan = { plan_id: 'plan-1', mode: 'daily', state: 'SUSPENDED' };
 const state = { plans: [plan], active_plans: [plan], plan, generation: 'g', captured_at: '2026-10-26T13:00:00+08:00', snapshot_id: 'snapshot-1',
+  price_control:{revision:0,manual_enabled:false,manual_prices:{console:null,pc:null},uplift_enabled:false,uplift_pct:'0'},
   strategies: { daily: { status: 'READY', selected: { action: { base_prices: { console: '8.51', pc: '8.59' } }, score: { absolute_forecast_available: false } } }, revenue_sprint: { status: 'DATA_PENDING' } },
   operations: [{ operation_id: 'op-1', status: 'COMPLETED', created_at: '2026-10-26T13:05:00+08:00', bundle: { mode: 'daily', review_approved: false, decision_source: 'v3_explicit_deterministic_feasible_assignment' } }],
   target: { mtd_lower_bound: '666454.13', mtd_upper_bound: '666464.47', through_date: '2026-10-25', today: { status: 'unavailable' } }, region_rules: [], regional_controls: [], incidents: [] };
 let canWrite = true, intervalBody;
-const automation = { revision: 3, can_manage_v3: true, v3: { schedule: { cycle_interval_minutes: 120, active_plan_state: 'SUSPENDED', next_cycle_at: null,
+const automation = { revision: 3, can_manage_v3: true, system_enabled:true,mode:'auto',platforms:['PS','XBOX','PC'],minimum_gross_margin_pct:'20', v3: { schedule: { cycle_interval_minutes: 120, active_plan_state: 'SUSPENDED', next_cycle_at: null,
   last_cycle_at: '2026-10-26T13:00:00+08:00', last_source_checked_at: null, last_execution_stage: 'COMPLETED' } } };
 const monitor = { storefront: { rows: { PS: { package_usd: 8.51, checked_at: '2026-10-26T13:07:00+08:00' },
   XBOX: { package_usd: 8.51 }, PC: { package_usd: 8.59 } } }, publication: { status: 'matched' } };
@@ -58,11 +62,18 @@ market.price_basis={historical_retained_ratio:'.9',rows:{PS:{cost_usd_per_1k:'.0
 const normalFetch = async (url, options = {}) => ({ ok: true, json: async () => url.endsWith('/pricing/v3/interval') ? (intervalBody = JSON.parse(options.body), { revision: 4 })
   : url.endsWith('/pricing/v3/market') ? (marketError?Promise.reject(Error('fixture unavailable')):market)
   : url.endsWith('/pricing/collect') ? {job_id:'collect-test'} : url.endsWith('/jobs/collect-test') ? {status:'ready',result:{status:'INFEASIBLE'}}
-  : url.endsWith('/pricing/v3/state') ? state : url.endsWith('/automation') ? { ...automation, can_manage_v3: canWrite }
+  : url.endsWith('/pricing/v3/state') ? state : url.endsWith('/automation') ? (options.body?(intervalBody=JSON.parse(options.body),{revision:4}):{ ...automation, can_manage_v3: canWrite })
   : url.endsWith('/monitor') ? monitor : url.endsWith('/player-sync') ? { enabled: true, revision: 1 } : {} });
 const executeBodies=[];
+const priceBodies=[];let priceFailure=false;
 let executeGate=null,releaseExecution=null,executeFailure=false,executeReplyMissing=false,executeReject=null,executeStatus='queued',idSequence=0;
 const fetch=async (url,options={})=>{
+  if(url.endsWith('/pricing/v3/price-control')){
+    const body=JSON.parse(options.body);priceBodies.push(body);
+    if(priceFailure)throw Error('fixture price save result unknown');
+    state.price_control={...body,revision:state.price_control.revision+1};
+    return {ok:true,json:async()=>({settings:state.price_control,write_performed:false})};
+  }
   if(url.endsWith('/pricing/v3/execute')){
     const body=JSON.parse(options.body);executeBodies.push(body);
     if(executeGate)await executeGate;
@@ -113,7 +124,8 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.doesNotMatch(JSON.stringify(elements['v3-strategies'].children),/财务底价抬高/);
   delete state.strategies.daily.selected.daily_pricing;await elements['v3-refresh'].events.click();
   assert.equal(elements['v3-interval-minutes'].value, 120);
-  assert(html.indexOf('id="v3-market-title"')<html.indexOf('id="plan-title"'),'competitor module precedes strategy');
+  assert(html.indexOf('id="plan-title"')<html.indexOf('id="current-title"'),'unified controls precede price monitoring');
+  assert(html.indexOf('id="current-title"')<html.indexOf('id="v3-market-title"'),'current prices precede competitor details');
   assert.equal(elements['v3-market-cards'].children.length,3);
   const marketText=JSON.stringify(elements['v3-market-cards'].children);
   assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/历史七日平均红线/);
@@ -176,7 +188,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   market.snapshot_id=state.snapshot_id;await elements['v3-refresh'].events.click();
   elements['v3-interval-minutes'].value = '180';
   await elements['v3-interval-form'].events.submit({ preventDefault() {} }); await tick();
-  assert.deepEqual(intervalBody, { interval_minutes: 180, expected_revision: 3 });
+  assert.deepEqual(intervalBody, {settings:{system_enabled:true,mode:'auto',interval_minutes:180,platforms:['PS','XBOX','PC'],minimum_gross_margin_pct:'20'},expected_revision:3});
   state.operations[0].bundle.decision_source = 'v3_inherited_reviewed_business_strategy';
   await elements['v3-refresh'].events.click();
   assert.match(elements['v3-review-source'].textContent, /沿用先前已审经营策略/);
@@ -278,5 +290,17 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(sessionStorage.getItem('fc-v3-execute-plan-1'),pendingStatusKey,'a job key with unknown state is not a confirmed receipt');
   executeStatus='queued';await elements['v3-execute-now'].events.click();
   assert.equal(executeBodies.at(-1).request_key,pendingStatusKey);
+  elements['v3-uplift-enabled'].checked=true;elements['v3-uplift-pct'].value='10';
+  elements['v3-price-control-form'].events.input();
+  assert.match(elements['v3-price-control-draft'].textContent,/未保存/);
+  priceFailure=true;elements['v3-price-control-form'].events.submit({preventDefault(){}});await tick();
+  const pendingPrice=priceBodies.at(-1);
+  assert.match(elements['v3-price-control-result'].textContent,/尚未确认/);
+  assert.equal(elements['v3-uplift-pct'].disabled,true,'unknown save freezes the original payload');
+  priceFailure=false;elements['v3-price-control-form'].events.submit({preventDefault(){}});await tick();
+  assert.deepEqual(priceBodies.at(-1),pendingPrice,'price settings retry the original ID and payload');
+  assert.equal(sessionStorage.getItem('fc-v3-price-control-pending'),null);
+  assert.match(elements['v3-effective-control'].textContent,/临时上浮 10%/);
+  assert.match(elements['v3-price-control-result'].textContent,/保存没有立即写价/);
   console.log('UI contract and state smoke passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });
