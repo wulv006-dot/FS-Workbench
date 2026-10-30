@@ -151,6 +151,7 @@ def run_once(daily=False,budget=480):
     state_path=ROOT/'scheduler-state.json'
     state=json.loads(state_path.read_text()) if state_path.is_file() else {}
     completed=0;reused=0;begin=time.monotonic();definition=profiles();deferred={};catalog_reply=None;limited_ports=set()
+    next_admission=0
     cadence='daily' if daily else 'history'
     work=[(hashlib.sha256(encoded({'cadence':cadence,'query':args})).hexdigest(),args) for args in candidates(now.date(),definition,daily)]
     def oldest(item):
@@ -194,6 +195,12 @@ def run_once(daily=False,budget=480):
         if port in limited_ports:continue
         if prior.get('retryable') is False and prior.get('status')=='failed':continue
         if retry_at(prior)>time.time():continue
+        # Pace new 8931 admissions, while pending observations and archived reads stay immediate.
+        if port==8931 and prior.get('status')!='pending':
+            delay=max(0,next_admission-time.monotonic())
+            if delay>=begin+budget-time.monotonic():continue
+            if delay:time.sleep(delay)
+            if time.monotonic()-begin>=budget:break
         params={k:v for k,v in args.items() if k!='archiveFamily' and (not marketing or k!='profile')}
         catalog_failed=None
         if native:
@@ -211,6 +218,7 @@ def run_once(daily=False,budget=480):
         if time.monotonic()-begin>=budget:break
         state[key]=dict(base,status='pending',reason='source_pending',retryable=True,retryAfter=0,correctionDay=correction_day,refreshPending=False,attemptStartedAt=attempt_at,failures=prior.get('failures',0));atomic(state_path,state)
         code,value=catalog_failed if catalog_failed is not None else read_route(params,port,timeout=min(10,begin+budget-time.monotonic()))
+        if port==8931 and prior.get('status')!='pending' and code==202:next_admission=time.monotonic()+10
         if code==429:limited_ports.add(port)
         try:
             valid=code==200 and value.get('status')=='available' if marketing else code==200 and (complete_native(value) if native else complete_summary(value))
