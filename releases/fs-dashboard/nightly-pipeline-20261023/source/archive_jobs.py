@@ -166,8 +166,8 @@ def run_once(daily=False,budget=480):
         marketing=args['profile']=='marketing';native=args.get('archiveFamily')=='native'
         family='marketing' if marketing else 'native' if native else 'summary'
         port=8935 if marketing else 8931
-        if port in limited_ports:continue
         prior=state.get(key,{})
+        if port in limited_ports and prior.get('status')!='pending':continue
         correction_day=prior.get('correctionDay') or prior.get('at','')[:10]
         if daily and prior.get('status')=='complete' and correction_day==now.date().isoformat():continue
         if prior.get('status')=='failed' and prior.get('retryable') is False and prior.get('reason')=='invalid_archive_arguments':continue
@@ -191,6 +191,7 @@ def run_once(daily=False,budget=480):
                     state[key]=dict(base,status='complete',reason='existing_complete_archive',retryable=False,failures=0,retryAfter=0,at=now.isoformat(),lastObservedAt=datetime.now(timezone.utc).isoformat())
                     atomic(state_path,state)
                 reused+=1;continue
+        if port in limited_ports:continue
         if prior.get('retryable') is False and prior.get('status')=='failed':continue
         if retry_at(prior)>time.time():continue
         params={k:v for k,v in args.items() if k!='archiveFamily' and (not marketing or k!='profile')}
