@@ -234,7 +234,7 @@ class SupersededAllCodePublish(unittest.TestCase):
         self.tick=SimpleNamespace(ROOT=self.root,read_record=lambda p:json.loads(p.read_text()),
             resolved_execution=lambda a:a.get('status') in ('CONFIRMED','PUBLIC_CONFIRMED'),
             RETRY_LOCKS=('price-writer.lock',),queue_mutation=self.queue_mutation,
-            retry_guard=lambda:'all_sync_unconfirmed',player_sync_gate=lambda:'ready')
+            retry_guard=lambda:'all_sync_unconfirmed',player_sync_gate=lambda:'ready',load_player_sync_policy=lambda:{'revision':10})
         (self.root/'state/price-writer.lock').touch()
         self.health={'incomplete_executions':0,'queue_depth':0};self.api=SimpleNamespace(health=lambda:self.health)
     def persist(self):
@@ -292,6 +292,18 @@ class SupersededAllCodePublish(unittest.TestCase):
         with patch.object(self.release,'superseded_all_code_release',return_value=True):
             self.assertTrue(self.release.fc_release_quiescent(self.tick,self.api,locks_held=True))
             self.tick.player_sync_gate=lambda:'needs_reconcile'
+            self.assertFalse(self.release.fc_release_quiescent(self.tick,self.api,locks_held=True))
+    def test_superseded_all_keeps_existing_proven_player_prewrite_refusal_contract(self):
+        self.tick.player_sync_gate=lambda:'needs_reconcile'
+        self.tick.load_player_sync_policy=lambda:{'revision':10}
+        path=self.root/'jobs/player.json'
+        job=dict(job_id='player',kind='player_sync',created_at='2026-10-30T04:03:52+00:00',
+                 request={'config_revision':10},status='failed',error='player_sync_not_confirmed',
+                 sync_result={'status':'blocked_before_write','reason':'player_sync_preflight_changed'})
+        path.write_text(json.dumps(job))
+        with patch.object(self.release,'superseded_all_code_release',return_value=True):
+            self.assertTrue(self.release.fc_release_quiescent(self.tick,self.api,locks_held=True))
+            job['sync_result']={'status':'unknown'};path.write_text(json.dumps(job))
             self.assertFalse(self.release.fc_release_quiescent(self.tick,self.api,locks_held=True))
     @unittest.skipUnless(os.name=='posix','requires real Linux flock')
     def test_original_retry_lock_contention_blocks_same_read_only_proof(self):
