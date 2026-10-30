@@ -36,7 +36,7 @@ export function compactSource(name,value){
  const v=value?.body;
  if(value?.status!==200||v?.status!=='available'){
   if([401,403].includes(value?.status))return {status:'unavailable',reason:'SOURCE_ACCESS_DENIED',blocked:true};
-  if(value?.status===400)return {status:'unavailable',reason:'SOURCE_CONFIGURATION_INVALID',blocked:true};
+  if(value?.status===400)return {status:'unavailable',reason:v?.message==='活动未部署到服务端白名单'?'SOURCE_CONFIGURATION_INVALID':'WINDOW_FILTER_INVALID',blocked:v?.message==='活动未部署到服务端白名单'};
   return sourceFailure(Error(v?.status==='not_configured'?'SOURCE_NOT_CONFIGURED':v?.reason||'SOURCE_READ_FAILED'));
  }
  if(name==='behavior'){
@@ -76,8 +76,9 @@ export async function runStatisticsRefresh({directory,published,readers,now=Date
  const state={schemaVersion:1,scheduleTimezone:plan.scheduleTimezone,scheduleHours:plan.scheduleHours,metricTimezone:'UTC',lastSuccessfulRunAt:old.lastSuccessfulRunAt||null,lastCompleteDailyDate:old.lastCompleteDailyDate||null,blockedSources:retryBlocked?{}:{...old.blockedSources},lastAttempt:{runId,slot:plan.slot,startedAt,status:'running',windows:[]}};
  writeSlot(directory,'status',state);let anyGood=false,allGood=true;
  for(const window of plan.windows){
-  const prior=readSlot(directory,window.kind),output={schemaVersion:1,activityId:'mmoexp-seasonal',releaseId:published.release_id,runId,window,campaignStartsAt:plan.campaignStartsAt,updatedAt:new Date(now()).toISOString(),sources:{}};
+  const prior=readSlot(directory,window.kind),output={schemaVersion:1,activityId:'mmoexp-seasonal',releaseId:published.release_id,configHash:published.config_hash,runId,window,campaignStartsAt:plan.campaignStartsAt,updatedAt:new Date(now()).toISOString(),sources:{}};
   const results=await Promise.all(sources.map(async name=>{
+   if(Date.parse(window.to)-Date.parse(window.from)>30*DAY)return {status:'unavailable',reason:'WINDOW_RANGE_TOO_LARGE'};
    if(state.blockedSources[name])return {status:'blocked',reason:state.blockedSources[name].reason};
    try{return compactSource(name,await readers[name](window));}catch(error){return sourceFailure(error);}
   }));
@@ -93,6 +94,15 @@ export async function runStatisticsRefresh({directory,published,readers,now=Date
  }
  state.lastAttempt.status=allGood?'success':anyGood?'partial':'failed';state.lastAttempt.finishedAt=new Date(now()).toISOString();if(allGood)state.lastSuccessfulRunAt=state.lastAttempt.finishedAt;writeSlot(directory,'status',state);
  return {status:state.lastAttempt.status,runId,slot:plan.slot,finishedAt:state.lastAttempt.finishedAt,lastSuccessfulRunAt:state.lastSuccessfulRunAt,windows:state.lastAttempt.windows};
+}
+// Authenticated dashboard consumer: only exact, unfiltered slots; never invoke source readers.
+export function readStatisticsSnapshot({directory,published,kind,at=Date.now()}){
+ if(!['today','campaign','yesterday'].includes(kind))throw Error('INVALID_SNAPSHOT_SLOT');
+ const plan=refreshPlan(published,{},at),window=plan.windows.find(w=>w.kind===kind),state=readSlot(directory,'status'),snapshot=readSlot(directory,kind);
+ const matching=snapshot?.activityId==='mmoexp-seasonal'&&snapshot.releaseId===published.release_id&&snapshot.configHash===published.config_hash&&snapshot.campaignStartsAt===plan.campaignStartsAt;
+ const sameWindow=w=>w?.from===window.from&&w?.to===window.to&&w?.timezone==='UTC';
+ const selected=Object.fromEntries(sources.map(name=>{const value=matching?snapshot.sources?.[name]:null,success=value?.lastSuccess;return [name,{lastAttempt:sameWindow(snapshot?.window)?value?.lastAttempt||null:null,lastSuccess:success&&sameWindow(success.window)?success:null,previousSuccessAt:success?.at||null,previousWindow:success?.window||null}];}));
+ return {status:matching&&sameWindow(snapshot?.window)?'available':'not_ready',activityId:'mmoexp-seasonal',kind,window,releaseId:published.release_id,scheduleTimezone:'Asia/Shanghai',metricTimezone:'UTC',scheduleHours:[0,8,16],nextScheduledAt:new Date((Math.floor(at/(8*3600000))+1)*8*3600000).toISOString(),lastSuccessfulRunAt:state?.lastSuccessfulRunAt||null,lastAttempt:state?.lastAttempt||null,sources:selected};
 }
 async function production(){
  const args=process.argv.slice(2),get=name=>{const i=args.indexOf(name);return i<0?null:args[i+1];},directory=get('--directory'),runId=get('--run-id');

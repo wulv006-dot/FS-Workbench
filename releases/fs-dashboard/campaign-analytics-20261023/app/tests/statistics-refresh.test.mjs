@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import os from 'node:os';
-import {refreshPlan,runStatisticsRefresh,compactSource} from '../analytics/statistics-refresh.mjs';
+import {refreshPlan,runStatisticsRefresh,compactSource,readStatisticsSnapshot} from '../analytics/statistics-refresh.mjs';
 const published={release_id:'campaign-preview-16',halloween:{starts_at:'2026-10-27T00:00:00+08:00'},pages:[{page_id:'seasonal-vault',activity_id:'mmoexp-seasonal'}]};
 const at=Date.parse('2026-10-30T00:00:00Z'),stamp=new Date(at).toISOString();
 const ids=['1327','891','1333','456'],codes=['HWFC08','HWFC10','HWFC15','HWAION08','HWAION10','HWAION15','HWMAPLE08','HWMAPLE10','HWMAPLE15','HWD408','HWD410','HWD415'];
@@ -38,9 +38,31 @@ const DAY=86400000;
 test('explicit source access and filter errors remain blocked across adapter envelopes',()=>{
  for(const name of ['behavior','revenue']){
   assert.deepEqual(compactSource(name,{status:502,body:{status:'unavailable',reason:'ADMIN_ACCESS_DENIED'}}),{status:'unavailable',reason:'SOURCE_ACCESS_DENIED',blocked:true});
-  assert.equal(compactSource(name,{status:400,body:{status:'invalid'}}).blocked,true);
+  assert.equal(compactSource(name,{status:400,body:{status:'invalid'}}).blocked,false);
+  assert.equal(compactSource(name,{status:400,body:{status:'invalid',message:'活动未部署到服务端白名单'}}).blocked,true);
   assert.equal(compactSource(name,{status:503,body:{status:'busy'}}).blocked,false);
  }
+});
+test('a source 400 for one valid window cannot poison yesterday or following today',async t=>{
+ const dir=folder(t),seen=[],r=readers();let now=at;r.revenue=async w=>{seen.push(w.kind);return w.kind==='campaign'?{status:400,body:{status:'invalid'}}:values().revenue;};
+ await runStatisticsRefresh({directory:dir,published,readers:r,now:()=>now});assert.deepEqual(seen,['today','campaign','yesterday']);assert.deepEqual(read(dir,'status').blockedSources,{});
+ now+=8*3600000;await runStatisticsRefresh({directory:dir,published,readers:r,now:()=>now});assert.deepEqual(seen,['today','campaign','yesterday','today','campaign']);
+});
+test('over 31 day campaign stays local; same-run yesterday and next-slot today still refresh',async t=>{
+ const dir=folder(t),long={...published,halloween:{starts_at:'2026-09-01T00:00:00Z'}},seen=[];let now=at;
+ const r=Object.fromEntries(Object.entries(readers()).map(([name,read])=>[name,async w=>{seen.push([name,w.kind]);return read(w);} ]));
+ await runStatisticsRefresh({directory:dir,published:long,readers:r,now:()=>now});
+ assert.equal(seen.length,6);assert(!seen.some(([,kind])=>kind==='campaign'));assert(seen.some(([,kind])=>kind==='yesterday'));assert.deepEqual(read(dir,'status').blockedSources,{});
+ assert.equal(read(dir,'campaign').sources.behavior.lastAttempt.reason,'WINDOW_RANGE_TOO_LARGE');
+ now+=8*3600000;await runStatisticsRefresh({directory:dir,published:long,readers:r,now:()=>now});assert.equal(seen.filter(([,kind])=>kind==='today').length,6);assert.deepEqual(read(dir,'status').blockedSources,{});
+});
+test('snapshot reader returns only matching date/release totals and next Beijing slot without collection',async t=>{
+ const dir=folder(t);await runStatisticsRefresh({directory:dir,published,readers:readers(),now:()=>at});
+ const v=readStatisticsSnapshot({directory:dir,published,kind:'today',at});assert.equal(v.sources.behavior.lastSuccess.summary.visits,5);assert.equal(v.nextScheduledAt,'2026-10-30T08:00:00.000Z');
+ assert.equal(readStatisticsSnapshot({directory:dir,published:{...published,release_id:'changed'},kind:'today',at}).sources.behavior.lastSuccess,null);
+ assert.equal(readStatisticsSnapshot({directory:dir,published,kind:'today',at:at+DAY}).sources.behavior.lastSuccess,null);
+ assert.equal(readStatisticsSnapshot({directory:dir,published,kind:'yesterday',at}).window.from,'2026-10-29');
+ assert.throws(()=>readStatisticsSnapshot({directory:dir,published,kind:'../../secret',at}),/INVALID_SNAPSHOT_SLOT/);
 });
 test('denied source stops remaining windows and future runs until explicit corrected-source retry',async t=>{
  const dir=folder(t);let now=at,attempts=0;const r=readers();r.behavior=async()=>{attempts++;throw Error('PostHog query returned 403');};

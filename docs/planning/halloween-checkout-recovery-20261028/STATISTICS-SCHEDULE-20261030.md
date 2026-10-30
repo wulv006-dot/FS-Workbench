@@ -14,16 +14,20 @@
 
 仅 `/var/lib/fs-campaign-dashboard/statistics-refresh/` 下四个固定JSON槽：`status`、`today`、`campaign`、`yesterday`。每槽最多64KiB，原子替换、fsync，目录0700/文件0600。不存原始IP、事件、订单或查询密钥；不是长期每日历史仓库。既有源归档不变。
 
-各来源独立 lastAttempt、lastSuccess；失败/partial 不写成零、不覆盖之前成功，旧成功附原日期窗口。status 保留最近全成功时刻、最近完整日与本轮来源状态；整期日志缺口可以使本轮长期为 partial，不能据此掩盖其它来源已完成。权限/明确配置错误暂停对应来源；修正后运维显式 `--retry-blocked`，定时器不自动带该参数。瞬态失败下一调度接续。
+各来源独立 lastAttempt、lastSuccess；失败/partial 不写成零、不覆盖之前成功，旧成功附原日期窗口。status 保留最近全成功时刻、最近完整日与本轮来源状态；整期日志缺口可以使本轮长期为 partial，不能据此掩盖其它来源已完成。超过31日仅该窗口缺测，不调用来源且不暂停今日/昨日；窗口参数400仅该窗口失败。认证、未配置密钥、明确全局白名单错误才暂停来源；修正后运维显式 `--retry-blocked`，定时器不自动带该参数。瞬态失败下一调度接续。
 
 同一成功日历槽重复运行直接复用；不完整槽允许重读。Linux flock 非阻塞互斥，忙返回75，不启动第二个worker。子进程390秒超时并结束整个进程组，systemd外层420秒保护；退出0成功、2部分、1失败、124超时。保留前次成功数据，journal只含精简状态。
 
 ## 发布与验收边界
 
-候选源：`app/analytics/statistics-refresh.mjs`、`backend/statistics_refresh.py`、`deploy/fs-campaign-statistics-refresh.{service,timer}`。复用原 publisher；新增两个精确 systemd 目标且要求四件套齐全，宿主实际UTC+08才允许日历安装。沿用现役FS服务身份和原只读接口，不改变其它业务调度、商品价、优惠码、订单或授权选择。
+候选源：`app/analytics/statistics-refresh.mjs`、`backend/statistics_refresh.py`、`deploy/fs-campaign-statistics-refresh.{service,timer}`及下述看板消费接线。复用原 publisher；新增两个精确 systemd 目标且要求脚本、两个unit及两份消费文件齐全，宿主实际UTC+08才允许日历安装。沿用现役FS服务身份和原只读接口，不改变其它业务调度、商品价、优惠码、订单或授权选择。
 
 合并前必须精确 CI、独立审查；Linux CI 以独立15秒离线入口实测 flock、超时及后代退出，仅运行临时假worker，原普通单测禁止子进程规则不变；Windows仅语法/Node/发布器检查。发布前核现役CAS与共享锁，原子备份、回执；部署后读回源hash、两个unit、下一触发时间及固定槽状态。启用 Persistent timer 可能立即补最近一次调度，不额外重复手动触发；未知结果先查原runId和status。
 
-原看板请求仍走现有实时接口和缓存；这四个槽是定时保存的轻量汇总，不宣称新进程预热了看板进程内缓存，也不新增对外无鉴权路由。每天08:00的 yesterday 槽可取作一次日汇总；没有授权自动向第三方发消息。
+活动看板默认读取UTC今日计划汇总，提供整期、UTC昨日与自选查询切换。计划模式经原鉴权下 `analytics/api/statistics-snapshot?kind=today|campaign|yesterday` 只读固定槽，展示每个来源的最后成功、最新状态与下次北京时间计划；60秒页面检查只读已保存结果，不触发三路采集。来源缺测可展示同一日期窗口的上次成功并明确状态；旧日期/旧发布版本/旧配置数据不填入当前数字。IP继续缺测，渠道/每日趋势/货架明细不在轻量槽中，明确引导自选查询而不冒充零。
+
+选择具体游戏/设备/渠道/日期/漏斗窗口后转为自选查询，保留现有三路实时接口和各自缓存；自选查询不自动60秒反复采集。计划模式不支持细分筛选，接口也拒绝附带过滤参数，避免不匹配快照；选择计划范围时显式恢复全游戏/设备/渠道。每天08:00的 yesterday 槽可取作一次日汇总；没有授权自动向第三方发消息。
+
+消费接线增量发布含 `app/analytics/production-server.mjs`、`app/analytics/dashboard.js`，沿用原鉴权/公共静态清单，没有新增对外无鉴权路由或额外采集。聚合新进程不预热原看板的进程内缓存。
 
 回滚用原发布器备份还原候选文件；初次安装前原unit不存在时，仅停止/禁用本任务timer/service，不动其它timer，保留聚合数据便于核对。代码完成、CI、合并、生产启用和自然周期分别报告；本文不是生产已完成证明。
