@@ -183,8 +183,19 @@ class Knowledge(unittest.TestCase):
             return ast.get_source_segment(text,node)
         baseline=(ROOT/'releases/fs-dashboard/fc-coins-workflow-20261022/source/controller.py').read_text(encoding='utf8')
         self.assertEqual(hashlib.sha256(admission(baseline).encode()).hexdigest(),'d2fc23f25e82ede5eb6fe8f4ad32f58d1414304b4ec743d05f17c7392df61f84')
-        # Exclude only the independently tested admission delta; keep the original whole-file pin.
-        restored=source.replace(admission(source),admission(baseline)).replace('from contextlib import contextmanager, ExitStack','from contextlib import contextmanager')
+        scheduled_delta=[
+            ('def submit_scheduled(self,body):','def submit_scheduled(self,body,context=None):'),
+            ('self.pool.submit(self.execute,key,owner,value)','self.pool.submit(self.execute,key,owner,value,scheduled_context=context)'),
+            ('def execute(self,key,owner,body):','def execute(self,key,owner,body,scheduled_context=None):'),
+            ('',"            if deadline is not None and scheduled_context is not None:\n                admission['prompt']+='\\n服务端夜间数据准备观察（不是区间完整性证明）：\\n'+encoded(scheduled_context)\n"),
+        ]
+        scheduled_restored=source
+        for before,after in scheduled_delta:
+            self.assertEqual(scheduled_restored.count(after),1)
+            scheduled_restored=scheduled_restored.replace(after,before)
+        self.assertEqual(hashlib.sha256(scheduled_restored.encode()).hexdigest(),'706b11a00319de14c32faf0e3ffcc68974cc2d20745bc954c2e01213bbde5c35')
+        # Exclude only the tested scheduling/admission deltas; keep the original whole-file pin.
+        restored=scheduled_restored.replace(admission(source),admission(baseline)).replace('from contextlib import contextmanager, ExitStack','from contextlib import contextmanager')
         original = restored.replace(new, old).replace(hook, '') + '\n'
         self.assertEqual(hashlib.sha256(original.encode()).hexdigest(), '571f63637933e15ae0bf4bafdd6ff3b78d5f4b2c805afa76097a74df19de35af')
         ast.parse(source, feature_version=(3, 9))
