@@ -1,6 +1,6 @@
 """One bounded reader, existing source lock, durable windows and independent daily state."""
 import argparse
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import fcntl
 import hashlib
 import json
@@ -108,10 +108,17 @@ def backup_signature(destination):
     return dict(manifest_sha256=hashlib.sha256(raw).hexdigest(), files=signatures)
 
 
-def backup(store, now):
+def backup(store, now, day=None, weekly_cutoff=None):
+    day = day or now.date().isoformat()
+    if not isinstance(day, str) or date.fromisoformat(day).isoformat() != day:
+        raise ValueError('backup_date_required')
+    if weekly_cutoff is not None:
+        from user_weekly import monday
+        if stamp(weekly_cutoff) != monday(stamp(weekly_cutoff)) or stamp(weekly_cutoff).isoformat() != weekly_cutoff:
+            raise ValueError('weekly_backup_cutoff')
     root = store.root / 'backups'
     root.mkdir(mode=0o700, exist_ok=True)
-    destination = root / now.date().isoformat()
+    destination = root / day
     if destination.exists():
         # Existing partial/unknown backups are evidence, never replace them on a retry.
         receipt = destination / 'manifest.json'
@@ -119,10 +126,14 @@ def backup(store, now):
             raise ValueError('backup_outcome_requires_reconciliation')
         backup_signature(destination)
         value = json.loads(receipt.read_text('utf-8'))
+        if weekly_cutoff is not None and value.get('weekly_cutoff') != weekly_cutoff:
+            raise ValueError('weekly_backup_cycle_requires_reconciliation')
         for name, digest in value['sha256'].items():
             if file_sha256(destination / name) != digest:
                 raise ValueError('backup_readback_mismatch')
         return value
+    if day != now.date().isoformat():
+        raise ValueError('backup_new_day_requires_current_capture_date')
     destination.mkdir(mode=0o700)
     copied = store.backup(destination / 'customers.sqlite3')
     for name, raw in (('identity.key', store.key), ('config.json', canonical(store.config).encode())):
@@ -135,6 +146,8 @@ def backup(store, now):
         raise ValueError('backup_restore_version_mismatch')
     value = dict(contract='fs-users-private-backup-v2', captured_at=now.isoformat(), data_version=copied['revision'], recovery=recovery,
                  scope='same_host_recovery_copy', sha256={p.name: file_sha256(p) for p in destination.iterdir()})
+    if weekly_cutoff is not None:
+        value['weekly_cutoff'] = weekly_cutoff
     from user_backup_retention import signature
     if recovery['file_signatures'] != {name: signature(destination / name) for name in recovery['file_signatures']}:
         raise ValueError('backup_changed_during_verification')
@@ -354,7 +367,12 @@ def main():
     parser.add_argument('--start'); parser.add_argument('--end')
     parser.add_argument('--site', default='266'); parser.add_argument('--recheck', action='store_true')
     args = parser.parse_args()
-    store = load_store(); now = datetime.now(TZ)
+    now = datetime.now(TZ)
+    if args.action == 'tick':
+        from user_weekly import wake
+        print(canonical(wake(ROOT, load_store, now, force=args.recheck)), flush=True)
+        return
+    store = load_store()
     with (store.root / 'jobs.lock').open('a+b') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -392,6 +410,9 @@ def main():
                 targeted = targeted_refresh(store,site,datetime.now(TZ),force=args.recheck)
                 print(canonical(targeted),flush=True)
                 if targeted['status']=='deferred':return
+        if store.config.get('update_cadence') == 'weekly-v1':
+            print(canonical(dict(status='complete', publication='unchanged_until_weekly_cycle')), flush=True)
+            return
         advance_day(store, datetime.now(TZ))
         print(canonical(dict(backup=daily_backup_status(store, now))), flush=True)
         if args.action == 'tick':

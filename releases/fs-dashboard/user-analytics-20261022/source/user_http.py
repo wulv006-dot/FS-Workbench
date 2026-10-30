@@ -1,4 +1,5 @@
 """Thin dispatch for the existing authenticated host. Does not start a new web server."""
+from user_weekly import WeeklyUnavailable
 
 
 def search(service, body, user):
@@ -10,6 +11,8 @@ def search(service, body, user):
         return 200, service.search(body, user)
     except PermissionError:
         return 403, {'error': 'scope_or_admin_required'}
+    except WeeklyUnavailable:
+        return 503, {'error': 'weekly_initial_publication_pending'}
     except LookupError:
         return 404, {'error': 'snapshot_not_found'}
     except (ValueError, TypeError):
@@ -49,6 +52,8 @@ def get(service, path, params, user):
         return 200, service.query(args, user)
     except PermissionError:
         return 403, {'error': 'scope_or_admin_required'}
+    except WeeklyUnavailable:
+        return 503, {'error': 'weekly_initial_publication_pending'}
     except LookupError:
         return 404, {'error': 'snapshot_not_found'}
     except (ValueError, TypeError):
