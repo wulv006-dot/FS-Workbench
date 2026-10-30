@@ -150,7 +150,7 @@ def run_once(daily=False,budget=480):
     now=datetime.now(TZ);store=Archive();store.safe(True)
     state_path=ROOT/'scheduler-state.json'
     state=json.loads(state_path.read_text()) if state_path.is_file() else {}
-    completed=0;reused=0;begin=time.monotonic();definition=profiles();deferred={};catalog_reply=None
+    completed=0;reused=0;begin=time.monotonic();definition=profiles();deferred={};catalog_reply=None;limited_ports=set()
     cadence='daily' if daily else 'history'
     work=[(hashlib.sha256(encoded({'cadence':cadence,'query':args})).hexdigest(),args) for args in candidates(now.date(),definition,daily)]
     def oldest(item):
@@ -166,6 +166,7 @@ def run_once(daily=False,budget=480):
         marketing=args['profile']=='marketing';native=args.get('archiveFamily')=='native'
         family='marketing' if marketing else 'native' if native else 'summary'
         port=8935 if marketing else 8931
+        if port in limited_ports:continue
         prior=state.get(key,{})
         correction_day=prior.get('correctionDay') or prior.get('at','')[:10]
         if daily and prior.get('status')=='complete' and correction_day==now.date().isoformat():continue
@@ -209,6 +210,7 @@ def run_once(daily=False,budget=480):
         if time.monotonic()-begin>=budget:break
         state[key]=dict(base,status='pending',reason='source_pending',retryable=True,retryAfter=0,correctionDay=correction_day,refreshPending=False,attemptStartedAt=attempt_at,failures=prior.get('failures',0));atomic(state_path,state)
         code,value=catalog_failed if catalog_failed is not None else read_route(params,port,timeout=min(10,begin+budget-time.monotonic()))
+        if code==429:limited_ports.add(port)
         try:
             valid=code==200 and value.get('status')=='available' if marketing else code==200 and (complete_native(value) if native else complete_summary(value))
             deferred_refresh=(value.get('archive') or {}).get('refreshDeferred') is True
