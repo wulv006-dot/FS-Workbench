@@ -228,6 +228,8 @@ def selfcheck():
         raise RuntimeError('hermes_skill_approval_checks_missing')
     if select(['releases/fs-dashboard/hermes-memory-approval-20261022/reviewed_skills.py']) != ['hermes-memory-approval','hermes-server-unify','knowledge-layering']:
         raise RuntimeError('hermes_reviewed_skill_consumers_missing')
+    if select(['releases/fs-dashboard/knowledge-layering-20261023/source/controller.py']) != ['knowledge-layering','nightly-reschedule']:
+        raise RuntimeError('maintained_controller_nightly_consumer_missing')
     if select(['tools/prepare_learning_native_release.py']) != ['hermes-learning-closure']:
         raise RuntimeError('hermes_learning_native_producer_checks_missing')
     if select(['tools/prepare_learning_release.py']) != ['hermes-learning-closure']:
@@ -475,7 +477,9 @@ def select(paths):
         if name.startswith('releases/ops/pricing-recovery-20261023/'):
             groups.add('pricing-recovery');continue
         if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/knowledge_closeout.py','tools/prepare_knowledge_release.py','tools/prepare_native_knowledge_release.py'):
-            groups.add('knowledge-layering');continue
+            groups.add('knowledge-layering')
+            if name=='releases/fs-dashboard/knowledge-layering-20261023/source/controller.py':groups.add('nightly-reschedule')
+            continue
         if name.startswith("releases/fs-dashboard/game-monitor-autopublish-20261022/"):
             groups.add("game-monitor-auto");continue
         if name.startswith("releases/fs-dashboard/game-monitor-sop-20261022/"):

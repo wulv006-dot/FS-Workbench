@@ -1,5 +1,5 @@
 import ast,hashlib,importlib.util,json,os,re,secrets,sqlite3,stat,sys,tempfile,threading,traceback,types,unittest
-from contextlib import contextmanager
+from contextlib import contextmanager,ExitStack
 from pathlib import Path
 from datetime import date,datetime,timedelta
 from unittest.mock import patch
@@ -170,12 +170,13 @@ class Scheduling(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'frozen_publisher_drift'):release.load_base()
 
 class RealScheduledAdmission(unittest.TestCase):
+    controller_source=ROOT/'source/controller.py'
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.folder=Path(self.temp.name);self.now=datetime(2026,11,2,2,45,tzinfo=nightly.SHANGHAI)
         self.db=sqlite3.connect(':memory:');self.db.row_factory=sqlite3.Row;self.addCleanup(self.db.close)
         self.db.executescript('CREATE TABLE requests(id TEXT PRIMARY KEY,owner TEXT,request_id TEXT,body TEXT,state TEXT,task_id TEXT,error TEXT,result TEXT);CREATE TABLE request_knowledge(id TEXT PRIMARY KEY,version TEXT);')
-        tree=ast.parse((ROOT/'source/controller.py').read_text(encoding='utf-8'))
+        tree=ast.parse(self.controller_source.read_text(encoding='utf-8'))
         cls=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='HermesService')
         methods=[n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name in ('submit_scheduled','_submit_report','execute')]
         functions=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in ('clean_hermes_question','admission_guard')]
@@ -183,7 +184,7 @@ class RealScheduledAdmission(unittest.TestCase):
             identity={'knowledge_sha256':'d'*64},files=[],memory_path=None,native_skip_reason=None)
         self.writes=[];self.remote_inputs=[];self.queued=[];self.task=None
         namespace=dict(Path=Path,date=date,datetime=datetime,timedelta=timedelta,SHANGHAI=nightly.SHANGHAI,
-            re=re,json=json,os=os,stat=stat,secrets=secrets,contextmanager=contextmanager,
+            re=re,json=json,os=os,stat=stat,secrets=secrets,contextmanager=contextmanager,ExitStack=ExitStack,
             digest=sys.modules['pilot'].digest,encoded=encoded,load_bundle=lambda *a,**k:{},
             freeze_learning=lambda *a,**k:self.knowledge,loaded_learning=lambda *a:self.knowledge,
             spending_hold=lambda *a:None,html_design_context=lambda q:('',None),
@@ -193,7 +194,7 @@ class RealScheduledAdmission(unittest.TestCase):
             FORMAT='format',POLICY_ID='policy',data_request_context=lambda b:'',
             atomic=lambda p,v,**k:self.writes.append((Path(p),json.loads(json.dumps(v)))))
         self.namespace=namespace
-        exec(compile(ast.Module(body=functions+methods,type_ignores=[]),str(ROOT/'source/controller.py'),'exec'),namespace)
+        exec(compile(ast.Module(body=functions+methods,type_ignores=[]),str(self.controller_source),'exec'),namespace)
         @contextmanager
         def database():
             with self.db:yield self.db
@@ -277,6 +278,28 @@ class RealScheduledAdmission(unittest.TestCase):
                     args,kwargs=self.queued[0];self.assertLessEqual(len(args[-1]['question']),600)
                     self.assertEqual(args[-1]['start'],start);self.assertEqual(args[-1]['end'],end)
                     self.assertEqual(kwargs['scheduled_context']['archive_status'],self.observed)
+
+
+class MaintainedScheduledAdmission(RealScheduledAdmission):
+    controller_source=ROOT.parent/'knowledge-layering-20261023/source/controller.py'
+
+    def seed_original(self):
+        body=dict(kind='hermes_report',request_id='night_daily_20261102',start='2026-11-01',end='2026-11-01',mode='daily',question='检查经营变化')
+        key=self.namespace['digest']({'owner':'wulv','request_id':body['request_id']})[:32]
+        self.db.execute('INSERT INTO nightly_requests VALUES(?,?,?,?,?,?,NULL)',(body['request_id'],key,'wulv','daily',self.now.replace(hour=7,minute=49).isoformat(),'WAITING'))
+        return body,key
+
+    def test_context_does_not_bypass_owner_authorization(self):
+        body,key=self.seed_original();self.service.authorizer=lambda owner:False
+        self.assertEqual(self.service.submit_scheduled(body,context=self.observed),(403,{'error':'nightly_owner_not_authorized'}))
+        self.assertIsNone(self.service.get_job('wulv',key));self.assertEqual(self.queued,[])
+
+    def test_expired_original_stays_expired_without_new_request(self):
+        body,key=self.seed_original();self.service.clock=lambda:self.now.replace(hour=7,minute=50)
+        self.assertEqual(self.service.submit_scheduled(body,context=self.observed),(403,{'error':'nightly_not_admitted'}))
+        self.service.nightly.tick()
+        self.assertEqual([tuple(r) for r in self.db.execute('SELECT request_id,state FROM nightly_requests')],[(body['request_id'],'EXPIRED')])
+        self.assertIsNone(self.service.get_job('wulv',key));self.assertEqual(self.queued,[])
 
 
 class KnowledgeEnvelope(unittest.TestCase):
