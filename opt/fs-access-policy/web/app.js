@@ -122,6 +122,7 @@
   /* ------------------------------------------------------------ 渲染 */
   function render() {
     var main = $('main');
+    main.dataset.view = S.view;
     document.querySelectorAll('.nav-item').forEach(function (b) {
       b.classList.toggle('active', b.dataset.view === S.view);
     });
@@ -129,6 +130,10 @@
       ? '<div class="notice">策略引擎处于降级状态：' + esc(S.degraded) + '，当前按改造前的旧规则判定。</div>'
       : '';
     if (S.view === 'members') main.innerHTML = banner + viewMembers();
+    else if (S.view === 'registration') {
+      window.FSRegistration.requests(main);
+      return;
+    }
     else if (S.view === 'roles') main.innerHTML = banner + viewRoles();
     else if (S.view === 'check') main.innerHTML = banner + viewCheck();
     else main.innerHTML = banner + viewAudit();
@@ -613,6 +618,7 @@
     if (q.err && map[q.err]) { box.textContent = map[q.err]; box.className = 'login-msg bad'; box.hidden = false; }
     else if (q.msg) { box.textContent = q.msg; box.className = 'login-msg ok'; box.hidden = false; }
     else { box.hidden = true; }
+    window.FSRegistration.account();
   }
 
   function boot() {
@@ -628,12 +634,7 @@
       var j = e.payload || {};
       if (j.detail && j.detail.code === 403) {
         // 已登录但没权限：不要把登录框再摆出来制造「我明明登录了」的错觉。
-        $('login-view').hidden = true;
-        $('app-view').hidden = false;
-        mountSharedNav();
-        $('main').innerHTML = '<div class="empty">' + esc(j.error || '没有权限') +
-          '</div>';
-        return;
+        return showLogin();
       }
       showLogin();
     });

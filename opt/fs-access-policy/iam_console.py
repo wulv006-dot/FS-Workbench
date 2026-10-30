@@ -26,6 +26,7 @@ import re
 import sqlite3
 import sys
 import time
+from urllib.parse import urlsplit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -43,15 +44,22 @@ _STATIC = {
     "/iam/": ("index.html", "text/html; charset=utf-8"),
     "/iam/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/iam/app.css": ("app.css", "text/css; charset=utf-8"),
+    "/iam/registration.js": ("registration.js", "text/javascript; charset=utf-8"),
 }
 
 PAGE_HEADERS = (
     ("X-Frame-Options", "DENY"),
     ("X-Content-Type-Options", "nosniff"),
     ("Referrer-Policy", "same-origin"),
+    # style-src 必须放 'unsafe-inline'：全站统一导航 hubnav.js 是把导航样式以
+    # <style> 内联注入的（它要保证导航 DOM 与样式同帧生效）。
+    # 'inline-speculation-rules' 只为 hubnav 里那段 <script type=speculationrules>
+    # 预热规则开口，它不等于放开内联脚本：普通 <script> 仍然只认 'self'。
     ("Content-Security-Policy",
-     "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
-     "img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"),
+     "default-src 'none'; style-src 'self' 'unsafe-inline'; "
+     "script-src 'self' 'inline-speculation-rules'; connect-src 'self'; "
+     "img-src 'self' data:; base-uri 'none'; form-action 'self'; "
+     "frame-ancestors 'none'"),
 )
 
 # ---------------------------------------------------------------- 基础工具
@@ -515,10 +523,11 @@ def _audit_entries(portal, limit=120):
 def handle(portal, handler, path, qs):
     actor = _session_user(portal, handler)
 
+    if path.startswith("/iam/api/registration/"):
+        return _registration(portal, handler, path, actor)
+
     if handler.command in ("GET", "HEAD") and path in _STATIC:
-        # 已登录但没权限 -> 403 说明页。
-        if actor and portal._fs_policy.explain(actor, "GET", "/__auth/iam/", "").get("code") != 200:
-            return _deny_page(handler, actor)
+        # 所有人都需要登录、注册及本人申请页面；管理 API 仍单独鉴权。
         # 未登录也返回页面本体，不 302：这个地址本身就是全站未登录的登录落点
         # （nginx @auth_login 就 302 到这里），302 的目标还是它自己。
         # 页面里的 app.js 先问 ./api/session，未登录就摆出登录框，
@@ -578,6 +587,30 @@ def handle(portal, handler, path, qs):
     else:
         code, payload = 404, {"error": "unknown endpoint"}
     return _json(handler, code, payload)
+
+
+def _registration(portal, handler, path, actor):
+    operation = path[len("/iam/api/registration/"):]
+    public = {"bootstrap", "register", "login", "native-login", "logout", "apply"}
+    admin = {"requests", "audit", "decision", "revoke"}
+    if operation not in public | admin:
+        return _json(handler, 404, {"error": "unknown endpoint"})
+    if operation in admin:
+        if not actor:
+            return _json(handler, 401, {"error": "请先登录"})
+        if portal._fs_policy.explain(actor, "GET", "/__auth/iam/", "").get("code") != 200:
+            return _json(handler, 403, {"error": "你没有注册审批权限"})
+    bridge = getattr(portal, "_registration_bridge", None)
+    if bridge is None:
+        return _json(handler, 503, {"error": "注册服务暂不可用，请稍后刷新核对"})
+    original = handler.path
+    query = urlsplit(original).query
+    handler.path = "/access/api/" + operation + ("?" + query if query else "")
+    try:
+        # 原运行时保留请求体校验、Origin/CSRF、限流、CAS、会话与审计。
+        return bridge.route(handler, lambda unused: None)
+    finally:
+        handler.path = original
 
 
 def _page(portal, handler, path):

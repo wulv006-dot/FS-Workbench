@@ -753,7 +753,7 @@ def select(paths):
         # 检查（纯 AST / 文本，不 exec、不联网）。.html/.css 不在此处拦，继续走
         # frontend 结构校验；.md/.bat/.json 按原有约定忽略。
         if name.startswith(OPS_MODULE_PATHS) and suffix in (".py",".js",".cjs",".sh",".service",".timer"):
-            if name == "opt/fs-access-policy/web/app.js":
+            if name in ("opt/fs-access-policy/web/app.js", "opt/fs-access-policy/web/registration.js"):
                 groups.add("iam")
             # nba 的纯守卫用例是独立资产，不能被新组顶掉（select 按集合返回，可并存）。
             if name.startswith("opt/nba-reprice/backend/api_security"):
@@ -761,7 +761,7 @@ def select(paths):
             groups.add("ops-modules");continue
         # 全站访问控制（2026-10-20 fs-iam）：策略引擎与控制台的离线用例。
         # 这两个文件不在任何 releases/ 批次里，必须显式登记，否则一入仓就 UNMAPPED。
-        if name in ("tests/test_fs_iam_rbac.py", "tests/test_fs_iam_console.py", "tests/test_fs_iam_password_request.cjs"):
+        if name in ("tests/test_fs_iam_rbac.py", "tests/test_fs_iam_console.py", "tests/test_fs_iam_password_request.cjs", "tests/test_fs_iam_registration.cjs"):
             groups.add("iam");continue
         if name.startswith("releases/fc-coins/publish-entry-20261020/") and suffix in (".py", ".json", ".sh"):
             groups.add("fc-publish-entry");continue
@@ -998,6 +998,7 @@ def main():
             # 任何一个格子对不上，这里就红 —— 换引擎不许顺带改谁的权限。
             units("tests",["test_fs_iam_rbac","test_fs_iam_console"])
             node("tests/test_fs_iam_password_request.cjs")
+            node("tests/test_fs_iam_registration.cjs")
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
         elif group=="nba":node("tests/integration/test_nba_pure_guards.cjs")
         elif group=="hooks":units("ops/hooks",["test_hooks","test_monitor","test_notifier","test_rpg_alerts"])
