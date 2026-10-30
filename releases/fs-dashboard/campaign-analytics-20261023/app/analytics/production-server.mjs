@@ -8,6 +8,7 @@ import {randomBytes} from 'node:crypto';
 import {report} from './server.mjs';
 import {reportContext} from './report-context.mjs';
 import {makeDiscountRevenue} from './discount-revenue.mjs';
+import {makeOriginTraffic} from './origin-traffic.mjs';
 import {atomic,makeStore,previewCatalog,validateLayout} from './store.mjs';
 import {makeCenterStore} from './center-store.mjs';
 import {centerSeed,effectivePageBindings} from './center-seed.mjs';
@@ -24,6 +25,7 @@ const cfg=box.window.FC_ANALYTICS_CONFIG,catalog=JSON.parse(fs.readFileSync(path
 const prefix=process.env.CAMPAIGN_PREFIX||'/dashboard/analytics/campaigns/',origin=process.env.CAMPAIGN_ORIGIN||'https://47.85.224.112',dir=process.env.CAMPAIGN_DATA||'/var/lib/fs-campaign-dashboard';
 const store=makeStore(dir,catalog,cfg.registry),secretFile=path.join(dir,'posthog-secret.json'),csrf=randomBytes(32).toString('hex');
 const discountRevenue=makeDiscountRevenue();
+const originTraffic=makeOriginTraffic();
 const seasonalBox={};vm.runInNewContext(fs.readFileSync(path.join(base,'seasonal/campaign-data.js'),'utf8'),seasonalBox);
 const publicDir=process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public';
 const adminPrices=makeAdminPriceProvider({publicDir,readPolicy:()=>readAdminPricePolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))});
@@ -135,6 +137,7 @@ export const server=http.createServer(async(req,res)=>{
   if(relative.startsWith('analytics/api/center/assets/')){const {info,bytes}=center.readAsset(relative.slice('analytics/api/center/assets/'.length));res.writeHead(200,{'Content-Type':info.mime,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(req.method==='HEAD'?undefined:bytes);}
   if(relative==='analytics/api/config')return json(res,200,{...publicState(store.read()),csrf:auth.admin?csrf:null,canEdit:auth.admin});
   if(relative==='analytics/api/discount-revenue'){const result=await discountRevenue(url.searchParams);return json(res,result.status,result.body);}
+  if(relative==='analytics/api/origin-traffic')return json(res,200,await originTraffic(url.searchParams));
   if(relative==='analytics/api/report'){const state=store.read();const result=await report(url.searchParams,{token:secret(),project:cfg.projectId,registry:state.registry,revision:state.revision,context:reportContext(publicDir)});return json(res,result.status,result.body);}
   if(relative==='analytics/api/catalog')return json(res,200,{catalog, ...publicState(store.read())});
   if(relative==='analytics/api/export')return json(res,200,{...publicState(store.read()),catalog:previewCatalog(catalog,store.read().layout),notice:'仅配置导出，原站仍需构建 SEO 和网站开发发布'});
