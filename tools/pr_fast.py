@@ -861,6 +861,7 @@ def main():
             units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish","test_prepare_g1_release","test_retention_plan"])
             units("releases/fs-dashboard/campaign-analytics-20261023/backend",["test_backend_suite"])
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/operator-dashboard-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/draft-compat-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/products-model-media-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/preview-entry-browser.cjs")

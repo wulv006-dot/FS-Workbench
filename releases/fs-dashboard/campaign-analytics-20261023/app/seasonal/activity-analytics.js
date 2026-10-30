@@ -103,7 +103,8 @@
     const label=document.createElement('p');label.textContent='Allow anonymous usage data to help improve this event? Your choice does not affect offers or purchases.';
     const yes=document.createElement('button'),no=document.createElement('button');yes.type=no.type='button';yes.textContent='Allow analytics';no.textContent='No thanks';
     const choose=value=>{window.FCActivityAnalytics.setConsent(value);try{localStorage.setItem(consentKey,value?'granted':'denied');}catch{}section.hidden=true;};
-    yes.addEventListener('click',()=>choose(true));no.addEventListener('click',()=>choose(false));section.append(label,yes,no);document.querySelector('.site-footer')?.before(section);
+    yes.addEventListener('click',()=>choose(true));no.addEventListener('click',()=>choose(false));section.append(label,yes,no);
+    const header=document.querySelector('.site-header');if(header?.after)header.after(section);else document.querySelector('.site-footer')?.before(section);
     const settings=document.createElement('button');settings.type='button';settings.className='analytics-settings';settings.textContent='Analytics preferences';settings.addEventListener('click',()=>{section.hidden=false;yes.focus();});document.querySelector('.site-footer')?.append(settings);
     try{const saved=localStorage.getItem(consentKey);if(saved==='granted'||saved==='denied'){section.hidden=true;window.FCActivityAnalytics.setConsent(saved==='granted');}}catch{}
   }

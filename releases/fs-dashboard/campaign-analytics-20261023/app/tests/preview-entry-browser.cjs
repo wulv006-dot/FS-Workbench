@@ -9,7 +9,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  const browser=await chromium.launch({headless:true}),context=await browser.newContext(),page=await context.newPage(),base='http://127.0.0.1:8531/dashboard/analytics/campaigns/analytics/',writes=[];
  context.on('request',r=>{if(!['GET','HEAD'].includes(r.method()))writes.push({method:r.method(),url:r.url(),body:r.postDataJSON()});});
  try{
-  await page.goto(base);await page.getByRole('link',{name:'体验活动页 ↗',exact:true}).click();
+  await page.goto(base);await page.locator('#open-activity').click();
   assert.equal(new URL(page.url()).pathname,'/dashboard/analytics/campaigns/analytics/products.html');
   await page.waitForFunction(()=>document.querySelector('#center-status').textContent.includes('已读取'));
   const state=path.join(dir,'center/state.json'),before=fs.readFileSync(state,'utf8');
