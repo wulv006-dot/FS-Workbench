@@ -36,11 +36,66 @@ class Jobs(unittest.TestCase):
     def seed(self,args,**values):
         s=self.state();s[self.key(args)]=dict(query=args,**values);(self.root/'scheduler-state.json').write_bytes(encoded(s))
     def test_pending_is_one_observation_and_does_not_wait_or_block_other_profile(self):
+        for q in self.work:self.seed(q,status='pending',failures=0,retryAfter=0)
         with patch.object(jobs,'read_route',return_value=(202,dict(status='pending'))) as read,patch.object(jobs.time,'sleep') as sleep:
             result=jobs.run_once(True,5)
         self.assertEqual(read.call_count,3);sleep.assert_not_called()
         self.assertEqual(result['missingCount'],3)
         self.assertTrue(all(v['status']=='pending' and v['failures']==0 for v in self.state().values()))
+    def test_fast_source_admissions_use_original_budget_instead_of_a_four_job_burst(self):
+        self.work=[dict(self.business,start=f'2026-10-{day:02}',end=f'2026-10-{day:02}') for day in range(1,13)]
+        clock=[0.0];starts=[];rejected=[];sleeps=[]
+        def sleep(seconds):sleeps.append(seconds);clock[0]+=seconds
+        def read(*args,**kwargs):
+            if sum(t+2>clock[0] for t in starts)>=4:rejected.append(clock[0]);return 429,dict(status='busy')
+            starts.append(clock[0]);return 202,dict(status='pending')
+        with patch.object(jobs.time,'monotonic',side_effect=lambda:clock[0]),patch.object(jobs.time,'sleep',side_effect=sleep),patch.object(jobs,'read_route',side_effect=read):
+            jobs.run_once(True,65)
+        self.assertEqual(starts,[0,10,20,30,40,50,60]);self.assertEqual(rejected,[])
+        self.assertEqual(sum(sleeps),60);self.assertLessEqual(clock[0],65)
+        self.assertTrue(all(sum(at<=other<at+60 for other in starts)<=6 for at in starts))
+    def test_slow_source_keeps_four_slot_bound_and_stops_after_first_429(self):
+        self.work=[dict(self.business,start=f'2026-10-{day:02}',end=f'2026-10-{day:02}') for day in range(1,13)]
+        clock=[0.0];starts=[];rejected=[]
+        def read(*args,**kwargs):
+            if sum(t+90>clock[0] for t in starts)>=4:rejected.append(clock[0]);return 429,dict(status='busy')
+            starts.append(clock[0]);return 202,dict(status='pending')
+        with patch.object(jobs.time,'monotonic',side_effect=lambda:clock[0]),patch.object(jobs.time,'sleep',side_effect=lambda seconds:clock.__setitem__(0,clock[0]+seconds)),patch.object(jobs,'read_route',side_effect=read) as requests:
+            jobs.run_once(True,120)
+        self.assertEqual(starts,[0,10,20,30]);self.assertEqual(rejected,[40]);self.assertEqual(requests.call_count,5)
+        self.assertEqual(clock[0],40)
+    def test_native_and_summary_share_pacing_without_delaying_or_repeating_catalog(self):
+        native=dict(self.business);native.pop('mode');native['archiveFamily']='native';self.work=[native,self.other]
+        clock=[0.0];seen=[]
+        def read(params,port=8931,**unused):
+            seen.append((params.get('mode'),port,clock[0]));return (200,dict(catalogId='original_catalog')) if params.get('mode')=='catalog' else (202,dict(status='pending'))
+        with patch.object(jobs.time,'monotonic',side_effect=lambda:clock[0]),patch.object(jobs.time,'sleep',side_effect=lambda seconds:clock.__setitem__(0,clock[0]+seconds)),patch.object(jobs,'read_route',side_effect=read):
+            jobs.run_once(True,20)
+        self.assertEqual(seen,[('catalog',8931,0),(None,8931,0),('summary',8931,10)])
+    def test_existing_pending_and_marketing_are_not_delayed_by_new_admission_pacing(self):
+        later=dict(self.business,start='2026-10-25',end='2026-10-25');self.work=[self.business,self.other,self.marketing,later]
+        for q in self.work:self.seed(q,status='busy',retryAfter=0)
+        self.seed(self.other,status='pending',retryAfter=0,attemptStartedAt='2026-10-01T00:00:00+00:00')
+        clock=[0.0];seen=[]
+        def read(params,port,**unused):
+            seen.append((params.get('profile'),port,clock[0]));return (200,dict(status='available',generatedAt=Clock.now(jobs.timezone.utc).isoformat())) if port==8935 else (202,dict(status='pending'))
+        with patch.object(jobs.time,'monotonic',side_effect=lambda:clock[0]),patch.object(jobs.time,'sleep',side_effect=lambda seconds:clock.__setitem__(0,clock[0]+seconds)),patch.object(jobs,'read_route',side_effect=read):
+            jobs.run_once(True,20)
+        self.assertEqual(seen,[('FC27',8931,0),('AION2',8931,0),(None,8935,0),('FC27',8931,10)])
+        self.assertEqual(self.state()[self.key(self.other)]['attemptStartedAt'],'2026-10-01T00:00:00+00:00')
+    def test_insufficient_pacing_budget_keeps_unvisited_key_and_other_port_work(self):
+        self.work=[self.business,self.other,self.marketing];self.seed(self.other,status='busy',failures=0,retryAfter=0,rangeId='original_range')
+        original=self.state()[self.key(self.other)];clock=[0.0]
+        def read(params,port,**unused):return (200,dict(status='available',generatedAt=Clock.now(jobs.timezone.utc).isoformat())) if port==8935 else (202,dict(status='pending'))
+        with patch.object(jobs.time,'monotonic',side_effect=lambda:clock[0]),patch.object(jobs.time,'sleep') as sleep,patch.object(jobs,'read_route',side_effect=read) as requests:
+            result=jobs.run_once(True,5)
+        sleep.assert_not_called();self.assertEqual(requests.call_count,2);self.assertEqual(result['completed'],1)
+        self.assertEqual(self.state()[self.key(self.other)],original)
+    def test_sleep_overshoot_does_not_start_another_source_after_budget(self):
+        self.work=[self.business,self.other];clock=[0.0]
+        with patch.object(jobs.time,'monotonic',side_effect=lambda:clock[0]),patch.object(jobs.time,'sleep',side_effect=lambda seconds:clock.__setitem__(0,clock[0]+seconds+1)),patch.object(jobs,'read_route',return_value=(202,dict(status='pending'))) as requests:
+            jobs.run_once(True,10.5)
+        self.assertEqual(requests.call_count,1);self.assertNotIn(self.key(self.other),self.state())
     def test_permission_failure_stops_only_its_item_not_same_port(self):
         self.work=[self.business,self.other]
         with patch.object(jobs,'read_route',side_effect=[(403,dict(error='source_permission_denied')),(200,dict(fixture_complete=True))]) as read:
@@ -256,8 +311,8 @@ class Jobs(unittest.TestCase):
         self.assertEqual(read.call_args_list[0].args[0]['profile'],'FC27')
     def test_oldest_observation_runs_first(self):
         self.work=[self.business,self.other]
-        self.seed(self.business,status='unavailable',lastObservedAt='2026-10-28T05:00:00+00:00',retryAfter=0)
-        self.seed(self.other,status='unavailable',lastObservedAt='2026-10-28T03:00:00+00:00',retryAfter=0)
+        self.seed(self.business,status='unavailable',failures=0,lastObservedAt='2026-10-28T05:00:00+00:00',retryAfter=0)
+        self.seed(self.other,status='unavailable',failures=0,lastObservedAt='2026-10-28T03:00:00+00:00',retryAfter=0)
         with patch.object(jobs,'read_route',return_value=(202,dict(status='pending'))) as read:jobs.run_once(True,5)
         self.assertEqual(read.call_args_list[0].args[0]['profile'],'AION2')
     def test_due_missing_item_precedes_old_complete_archive_scan(self):
@@ -288,6 +343,20 @@ class Jobs(unittest.TestCase):
         self.assertIn('OnCalendar=*-*-* *:00/5:00',timer);self.assertNotIn('01,02,03,04,05,06:',timer)
         service=(PACKAGE.parent/'daily-archive-20261021/deploy/fs-data-archive.service').read_text()
         self.assertIn('TimeoutStartSec=10min',service);self.assertIn('Nice=10',service);self.assertIn('IOSchedulingClass=idle',service)
+    def test_scheduled_daily_precedes_bounded_history_on_each_catchup_invocation(self):
+        clock=[0];starts=[];self.store.prune.return_value={}
+        def run(daily,budget):
+            starts.append((daily,budget,clock[0]));clock[0]+=budget
+            return dict(status='deferred',missingCount=900)
+        with patch.dict(sys.modules,{'fcntl':Mock(LOCK_EX=1,LOCK_NB=2)}),patch.object(sys,'argv',['archive_jobs.py','--scheduled']),patch.object(jobs,'run_once',side_effect=run),patch('sys.stdout',new_callable=io.StringIO):
+            jobs.main();jobs.main()
+        self.assertEqual(starts,[(True,120,0),(False,360,120),(True,120,480),(False,360,600)])
+        self.assertEqual(self.store.prune.call_count,2)
+    def test_midnight_retains_daily_only_budget_despite_history_backlog(self):
+        Clock.at=datetime(2026,10,28,0,1,tzinfo=jobs.TZ);self.store.prune.return_value={}
+        with patch.dict(sys.modules,{'fcntl':Mock(LOCK_EX=1,LOCK_NB=2)}),patch.object(sys,'argv',['archive_jobs.py','--scheduled']),patch.object(jobs,'run_once',return_value=dict(status='deferred')) as run,patch('sys.stdout',new_callable=io.StringIO):
+            jobs.main()
+        run.assert_called_once_with(True,480)
     @unittest.skipIf(os.name!='posix','requires real Linux flock')
     def test_existing_scheduler_lock_is_nonblocking_and_does_not_reenter(self):
         import fcntl
