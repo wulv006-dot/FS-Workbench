@@ -78,6 +78,24 @@ class PriceControlTest(unittest.TestCase):
             input=json.dumps(dict(evidence=self.data,result=result)),text=True,encoding='utf-8',capture_output=True,timeout=15)
         self.assertEqual(check.returncode,0,check.stderr)
 
+    def test_six_percent_uplift_reproves_legal_floor_fallback_before_execution(self):
+        from test_dual20_sprint import source
+        self.data=source(loot='1',item='2',cost='.35',bonus='5')
+        self.save(uplift_enabled=True,uplift_pct='6')
+        result=self.quote();receipt=result['decision_receipt']
+        self.assertEqual(receipt['base_strategy_decision']['decision_type'],'floor_fallback')
+        for group in engine.GROUPS:
+            self.assertEqual(Decimal(receipt['action']['base_prices'][group]),
+                (Decimal(receipt['strategy_action']['base_prices'][group])*Decimal('1.06')).quantize(Decimal('.01'),rounding=ROUND_HALF_UP))
+        (self.root/'config').mkdir()
+        (self.root/'config/v3-control.json').write_text(json.dumps(dict(generation='g',enabled=True)))
+        runtime.verify_quote(dict(evidence=self.data,result=result),dict(minimum_gross_margin_pct='20'),
+                             ['PS','XBOX','PC'],now=NOW,for_execution=True)
+        bad=deepcopy(result);bad['decision_receipt']['strategy_action']['base_prices']['console']='999'
+        bad['decision_receipt']['sha256']=fingerprint({k:v for k,v in bad['decision_receipt'].items() if k!='sha256'})
+        with self.assertRaisesRegex(ValueError,'pricing_price_control_strategy_changed'):
+            self.verify(bad)
+
     def test_manual_off_resumes_strategy_then_saved_uplift(self):
         strategy=self.quote()['decision_receipt']['action']
         self.save(manual_enabled=True,manual_prices=dict(console='.2',pc='.22'),uplift_enabled=True,uplift_pct='10')

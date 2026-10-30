@@ -440,7 +440,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
             plan=dict(mode=receipt['mode'],resources=receipt['authorized_resources'],parameters=receipt['strategy_parameters'],price_anchor=receipt['strategy_anchor'])
             raw=None
             if not receipt['price_control']['manual_enabled']:
-                original=evaluate(quote['evidence'],receipt['mode'],plan=plan,now=now,explicit_prices=receipt['strategy_action']['base_prices'])
+                original=evaluate(quote['evidence'],receipt['mode'],plan=plan,now=now)
                 raw=next((c for c in original['candidates'] if c['action']==receipt['strategy_action']),None)
                 if raw is None:raise ValueError('pricing_price_control_strategy_changed')
             checked=controlled_candidate(quote['evidence'],receipt['before_action'],receipt['price_control'],plan,now,raw)
