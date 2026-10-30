@@ -101,6 +101,36 @@ class Jobs(unittest.TestCase):
             result=jobs.run_once(True,5)
         self.assertEqual(read.call_count,2);self.assertEqual([row.args[1] for row in read.call_args_list],[8931,8935])
         self.assertEqual(self.state()[self.key(self.other)],original);self.assertEqual(result['completed'],1)
+    def test_pending_complete_archive_reconciles_after_same_port_429_without_http(self):
+        native=dict(self.other);native.pop('mode');native['archiveFamily']='native';self.work=[self.business,native]
+        self.seed(self.business,status='busy',retryAfter=0,lastObservedAt='2026-10-27T00:00:00+00:00')
+        original='2026-10-28T01:00:01+00:00'
+        self.seed(native,status='pending',failures=7,retryAfter=0,lastObservedAt=original,
+                  requestedAt=original,attemptStartedAt=original,rangeId='original_pending_range')
+        self.store.get.side_effect=lambda family,q:dict(fixture_complete=True) if q['profile']=='AION2' else None
+        with patch.object(jobs,'read_route',return_value=(429,dict(status='busy'))) as read:
+            result=jobs.run_once(True,5)
+        self.assertEqual(read.call_count,1);self.assertEqual((result['reused'],result['missingCount']),(1,1))
+        value=self.state()[self.key(native)]
+        self.assertEqual((value['status'],value['reason'],value['failures']),('complete','existing_complete_archive',0))
+        self.assertEqual((value['requestedAt'],value['attemptStartedAt'],value['rangeId']),(original,original,'original_pending_range'))
+    def test_pending_cache_miss_after_429_preserves_original_state_without_http(self):
+        self.work=[self.business,self.other]
+        self.seed(self.other,status='pending',failures=7,retryAfter=0,rangeId='original_pending_range')
+        original=self.state()[self.key(self.other)]
+        with patch.object(jobs,'read_route',return_value=(429,dict(status='busy'))) as read:
+            jobs.run_once(True,5)
+        self.assertEqual(read.call_count,1);self.assertEqual(self.store.get.call_count,2)
+        self.assertEqual(self.state()[self.key(self.other)],original)
+    def test_nonpending_keys_stay_untouched_after_429_even_if_archive_exists(self):
+        self.work=[self.business,self.other]
+        self.seed(self.other,status='busy',failures=12,retryAfter=0,rangeId='original_busy_range')
+        original=self.state()[self.key(self.other)]
+        self.store.get.side_effect=lambda family,q:dict(fixture_complete=True) if q['profile']=='AION2' else None
+        with patch.object(jobs,'read_route',return_value=(429,dict(status='busy'))) as read:
+            jobs.run_once(True,5)
+        self.assertEqual(read.call_count,1);self.assertEqual(self.store.get.call_count,1)
+        self.assertEqual(self.state()[self.key(self.other)],original)
     def test_marketing_429_does_not_block_business_or_mark_unobserved_keys(self):
         later=dict(self.marketing,start='2026-10-25',end='2026-10-25');self.work=[self.marketing,later,self.business]
         with patch.object(jobs,'read_route',side_effect=[(429,dict(status='busy')),(200,dict(fixture_complete=True))]) as read:
