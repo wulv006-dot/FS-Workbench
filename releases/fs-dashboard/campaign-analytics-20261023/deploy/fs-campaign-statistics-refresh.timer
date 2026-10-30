@@ -1,0 +1,12 @@
+[Unit]
+Description=FS Halloween statistics at Beijing 00:00 08:00 16:00
+
+[Timer]
+# Original187 system timezone is Asia/Shanghai (+08:00); publisher validates it.
+OnCalendar=*-*-* 00,08,16:00:00
+AccuracySec=1s
+Persistent=true
+Unit=fs-campaign-statistics-refresh.service
+
+[Install]
+WantedBy=timers.target
