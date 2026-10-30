@@ -104,6 +104,7 @@ export function makeOriginTraffic({logPath='/var/log/nginx/access.log',ttlMs=600
   while(flight)await flight;
   const old=cache.get(key);
   if(!force&&old&&old.expires>now()){
+   if(old.data.status==='unavailable')return structuredClone(old.data);
    try{const s=await fsp.lstat(logPath);if(stamp(s)===old.identity&&s.size>=old.size)return structuredClone(old.data);}catch{}
   }
   flight=(async()=>{const data=await scan(range),meta=data[snapshotKey];

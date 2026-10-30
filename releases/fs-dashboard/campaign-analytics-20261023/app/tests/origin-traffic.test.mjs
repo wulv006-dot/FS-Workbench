@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {gzipSync} from 'node:zlib';
@@ -56,4 +57,18 @@ test('concurrent UTC-day and full-period queries remain isolated; period request
  const f=fixture(t,line('29/Oct/2026:07:59:59 +0800','/health')+line('29/Oct/2026:08:10:00 +0800')+line('30/Oct/2026:08:10:00 +0800'));
  const [a,b,c]=await Promise.all([f.query(params('2026-10-29')),f.query(params('2026-10-29','2026-10-30')),f.query(params())]);
  assert.deepEqual([a.pageRequests,b.pageRequests,c.pageRequests],[1,2,1]);assert.deepEqual(b.daily.map(r=>r.requests),[1,1]);assert([a,b,c].every(r=>r.estimatedVisitors===null));
+});
+test('unavailable source scans are cached for5seconds, coalesced, and retried only after expiry or explicit refresh',async t=>{
+ let time=clock,scans=0;const f=fixture(t,anchor+line().repeat(20),{now:()=>time,maxFileBytes:1024}),original=fsp.readdir;
+ fsp.readdir=async function(dir,...args){if(path.resolve(dir)===path.resolve(f.dir))scans++;return original.call(this,dir,...args);};
+ try{
+  const first=await Promise.all([f.query(params()),f.query(params()),f.query(params())]);
+  assert.equal(scans,1);assert(first.every(r=>r.status==='unavailable'&&r.reason==='LOG_READ_LIMIT'&&r.pageRequests===null));
+  time+=4999;assert.equal((await f.query(params())).reason,'LOG_READ_LIMIT');assert.equal(scans,1);
+  time++;const expired=await Promise.all([f.query(params()),f.query(params()),f.query(params())]);assert.equal(scans,2);assert(expired.every(r=>r.pageRequests===null&&r.reason==='LOG_READ_LIMIT'));
+  fs.writeFileSync(f.logPath,anchor+line());assert.equal((await f.query(params())).reason,'LOG_READ_LIMIT');assert.equal(scans,2,'a repaired source still observes the short failure backoff');
+  const force=params();force.set('refresh','1');assert.equal((await f.query(force)).pageRequests,1);assert.equal(scans,3);
+  fs.writeFileSync(f.logPath,anchor+line().repeat(20));assert.equal((await f.query(force)).reason,'LOG_READ_LIMIT');assert.equal(scans,4);
+  fs.writeFileSync(f.logPath,anchor+line());time+=5000;assert.equal((await f.query(params())).pageRequests,1);assert.equal(scans,5,'expired failure cache recovers naturally');
+ }finally{fsp.readdir=original;}
 });
