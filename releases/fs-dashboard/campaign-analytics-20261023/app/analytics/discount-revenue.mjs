@@ -1,4 +1,5 @@
 import {backendRead} from './backend-client.mjs';
+import {transientFailure} from './statistics-retry.mjs';
 
 // One cache for authoritative orders, independent from browser events and their consent state.
 export function makeDiscountRevenue(read=backendRead,clock=Date.now){
@@ -16,7 +17,7 @@ export function makeDiscountRevenue(read=backendRead,clock=Date.now){
    const body=await Promise.resolve().then(()=>read(request));
    if(body?.status!=='available'||body.coverage?.complete!==true)throw Error('INCOMPLETE_ORDER_REVENUE');
    if(cache.size>=32)cache.clear();cache.set(key,{at:clock(),body});return {status:200,body};
-  }catch(error){return {status:502,body:{status:'unavailable',message:'活动码付款订单读取未完成，请稍后更新；未完成不记为零。',reason:/^[A-Z_]{3,100}$/.test(error.message)?error.message:'ORDER_SOURCE_UNAVAILABLE'}};}finally{pending.delete(key);}})();
+  }catch(error){return {status:502,body:{status:'unavailable',message:'活动码付款订单读取未完成，请稍后更新；未完成不记为零。',...(transientFailure(error)||{reason:/^[A-Z_]{3,100}$/.test(error.message)?error.message:'ORDER_SOURCE_UNAVAILABLE'})}};}finally{pending.delete(key);}})();
   pending.set(key,work);return work;
  };
 }

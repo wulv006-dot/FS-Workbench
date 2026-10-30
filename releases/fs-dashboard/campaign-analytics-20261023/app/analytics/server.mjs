@@ -7,6 +7,7 @@ import {fileURLToPath} from 'node:url';
 import core from './funnel-core.cjs';
 import {connection} from './connection.mjs';
 import {eventDiagnostics} from './report-context.mjs';
+import {retryAfterMs} from './statistics-retry.mjs';
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const sandbox={window:{}};vm.runInNewContext(fs.readFileSync(path.join(base,'analytics-config.js'),'utf8'),sandbox);
 const registry=core.validateRegistry(sandbox.window.FC_ANALYTICS_CONFIG.registry);
@@ -32,7 +33,7 @@ export async function report(params,options={}){
   const fields=['distinct_id','activity_id','activity_visit_id','activity_session_id','source','device','platform','event_id','product_id','product_ids','active_seconds','include_sbc','order_key','currency','activity_paid_minor','match_id','reward_journey_id','game_id','model_id','off_percent','discount_code','slot','release_id','config_hash','server_id','quantity_value','quantity_unit','test_run_id','action','target','complete','confirmed_ids','failed_count','page_id'];
   const query=`SELECT event, timestamp, ${fields.map(k=>k==='distinct_id'?'distinct_id':'properties.'+k).join(', ')} FROM events WHERE timestamp >= toDateTime('${filter.from} 00:00:00') AND timestamp < toDateTime('${end} 00:00:00') AND properties.environment = '${environment}' ${filter.testRunId?"AND properties.test_run_id = '"+filter.testRunId+"'":''} AND properties.activity_id IN (${ids.map(x=>"'"+x+"'").join(',')}) AND event IN (${names.map(x=>"'"+x+"'").join(',')}) ORDER BY timestamp LIMIT 50000`;
   const response=await fetch(`${host}/api/projects/${project}/query/`,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query:{kind:'HogQLQuery',query},refresh:'force_blocking'}),signal:AbortSignal.timeout(15000)});
-  if(!response.ok)throw Error('PostHog query returned '+response.status);
+  if(!response.ok)throw Object.assign(Error('PostHog query returned '+response.status),{retryAfterMs:retryAfterMs(response.headers?.get('Retry-After'))});
   const data=await response.json();if(!Array.isArray(data.results))throw Error('Unexpected query response');
   if(data.results.length>=50000||data.hasMore||data.has_more||data.error)throw Error('Query incomplete or exceeds 50,000 events; narrow the date range');
   const events=data.results.map(row=>({event:row[0],timestamp:row[1].replace(' ','T')+(/Z$|[+-]\d\d:\d\d$/.test(row[1])?'':'Z'),properties:Object.fromEntries(fields.map((k,i)=>[k,row[i+2]]))}));

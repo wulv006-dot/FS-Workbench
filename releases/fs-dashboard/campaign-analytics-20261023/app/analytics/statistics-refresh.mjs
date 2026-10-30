@@ -4,6 +4,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
+import {retrySource,transientFailure} from './statistics-retry.mjs';
 
 const day=ms=>new Date(ms).toISOString().slice(0,10),DAY=86400000;
 const sources=['traffic','behavior','revenue'],games=new Set(['1327','891','456','1333']);
@@ -23,6 +24,7 @@ export function refreshPlan(published,status={},at=Date.now()){
 function sourceFailure(error){
  const text=String(error?.message||'');
  const blocked=text==='SOURCE_NOT_CONFIGURED'||/^PostHog query returned (401|403)$/.test(text)||/^[A-Z_]*(?:AUTH|PERMISSION|ACCESS_DENIED)[A-Z_]*$/.test(text);
+ const transient=!blocked&&transientFailure(error);if(transient)return {status:'unavailable',...transient,blocked:false};
  return {status:'unavailable',reason:text==='SOURCE_NOT_CONFIGURED'?text:blocked?'SOURCE_ACCESS_DENIED':/^[A-Z_]{3,80}$/.test(text)?text:'SOURCE_READ_FAILED',blocked};
 }
 export function compactSource(name,value){
@@ -37,7 +39,7 @@ export function compactSource(name,value){
  if(value?.status!==200||v?.status!=='available'){
   if([401,403].includes(value?.status))return {status:'unavailable',reason:'SOURCE_ACCESS_DENIED',blocked:true};
   if(value?.status===400)return {status:'unavailable',reason:v?.message==='活动未部署到服务端白名单'?'SOURCE_CONFIGURATION_INVALID':'WINDOW_FILTER_INVALID',blocked:v?.message==='活动未部署到服务端白名单'};
-  return sourceFailure(Error(v?.status==='not_configured'?'SOURCE_NOT_CONFIGURED':v?.reason||'SOURCE_READ_FAILED'));
+  return sourceFailure(Object.assign(Error(v?.status==='not_configured'?'SOURCE_NOT_CONFIGURED':v?.reason||'SOURCE_READ_FAILED'),{retryAfterMs:v?.retryAfterMs}));
  }
  if(name==='behavior'){
   const r=v.report,t=r?.seasonalTotals;
@@ -70,7 +72,8 @@ function writeSlot(dir,name,data){
  try{fd=fs.openSync(temp,'wx',0o600);fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;fs.renameSync(temp,target);if(process.platform!=='win32'){const d=fs.openSync(dir,'r');try{fs.fsyncSync(d);}finally{fs.closeSync(d);}}}
  finally{if(fd!==undefined)fs.closeSync(fd);try{fs.unlinkSync(temp);}catch(e){if(e.code!=='ENOENT')throw e;}}
 }
-export async function runStatisticsRefresh({directory,published,readers,now=Date.now,runId=randomUUID(),retryBlocked=false}={}){
+export async function runStatisticsRefresh({directory,published,readers,now=Date.now,runId=randomUUID(),retryBlocked=false,isCurrent=()=>true}={}){
+ const deadline=Date.now()+360000;
  prepareDir(directory);const old=readSlot(directory,'status')||{schemaVersion:1,blockedSources:{}},startedAt=new Date(now()).toISOString(),plan=refreshPlan(published,old,now());
  if(old.lastAttempt?.slot===plan.slot&&old.lastAttempt?.status==='success'&&!retryBlocked)return {status:'already_completed',runId:old.lastAttempt.runId};
  const state={schemaVersion:1,scheduleTimezone:plan.scheduleTimezone,scheduleHours:plan.scheduleHours,metricTimezone:'UTC',lastSuccessfulRunAt:old.lastSuccessfulRunAt||null,lastCompleteDailyDate:old.lastCompleteDailyDate||null,blockedSources:retryBlocked?{}:{...old.blockedSources},lastAttempt:{runId,slot:plan.slot,startedAt,status:'running',windows:[]}};
@@ -80,11 +83,11 @@ export async function runStatisticsRefresh({directory,published,readers,now=Date
   const results=await Promise.all(sources.map(async name=>{
    if(Date.parse(window.to)-Date.parse(window.from)>30*DAY)return {status:'unavailable',reason:'WINDOW_RANGE_TOO_LARGE'};
    if(state.blockedSources[name])return {status:'blocked',reason:state.blockedSources[name].reason};
-   try{return compactSource(name,await readers[name](window));}catch(error){return sourceFailure(error);}
+   return retrySource(async()=>{try{return compactSource(name,await readers[name](window));}catch(error){return sourceFailure(error);}},{deadline,attemptTimeoutMs:({traffic:10000,behavior:15000,revenue:120000})[name],isCurrent});
   }));
   for(let i=0;i<sources.length;i++){
    const name=sources[i],result=results[i],at=new Date(now()).toISOString(),lastSuccess=priorCompatible?prior?.sources?.[name]?.lastSuccess||null:null;
-   output.sources[name]={lastAttempt:{runId,at,status:result.status,reason:result.reason||null,...(result.data?{summary:result.data}:{})},lastSuccess:result.status==='available'?{runId,at,window,summary:result.data}:lastSuccess};
+   output.sources[name]={lastAttempt:{runId,at,status:result.status,reason:result.reason||null,...(result.retry?{retry:result.retry}:{}),...(result.data?{summary:result.data}:{})},lastSuccess:result.status==='available'?{runId,at,window,summary:result.data}:lastSuccess};
    if(result.blocked)state.blockedSources[name]={at,reason:result.reason};
    anyGood ||= result.status==='available';allGood &&= result.status==='available';
   }
@@ -114,6 +117,7 @@ async function production(){
  const readers={traffic:w=>traffic(new URLSearchParams({activity:'mmoexp-seasonal',from:w.from,to:w.to,refresh:'1'})),
   behavior:w=>{const state=JSON.parse(fs.readFileSync(path.join(dataDir,'state.json'),'utf8'));let secret;try{secret=JSON.parse(fs.readFileSync(path.join(dataDir,'posthog-secret.json'),'utf8')).key;}catch{throw Error('SOURCE_NOT_CONFIGURED');}return report(new URLSearchParams({activity:'mmoexp-seasonal',mode:'live',from:w.from,to:w.to,template:'commerce',windowHours:'24',game:'all',device:'all',platform:'all',source:'all'}),{token:secret,project:box.window.FC_ANALYTICS_CONFIG.projectId,registry:state.registry,revision:state.revision,context:reportContext(publicDir)});},
   revenue:w=>revenue(new URLSearchParams({activity:'mmoexp-seasonal',mode:'live',from:w.from,to:w.to,game:'all',refresh:'1'}))};
- const result=await runStatisticsRefresh({directory,published:context,readers,runId,retryBlocked:args.includes('--retry-blocked')});console.log(JSON.stringify(result));process.exitCode=result.status==='success'||result.status==='already_completed'?0:result.status==='partial'?2:1;
+ const initialDay=day(Date.now()),isCurrent=()=>{try{const p=JSON.parse(fs.readFileSync(path.join(publicDir,'current.json'),'utf8'));return day(Date.now())===initialDay&&p.release_id===context.release_id&&p.config_hash===context.config_hash&&p.halloween?.starts_at===context.halloween?.starts_at;}catch{return false;}};
+ const result=await runStatisticsRefresh({directory,published:context,readers,runId,isCurrent,retryBlocked:args.includes('--retry-blocked')});console.log(JSON.stringify(result));process.exitCode=result.status==='success'||result.status==='already_completed'?0:result.status==='partial'?2:1;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))production().catch(()=>{console.error(JSON.stringify({status:'failed',reason:'STATISTICS_REFRESH_FAILED'}));process.exitCode=1;});
