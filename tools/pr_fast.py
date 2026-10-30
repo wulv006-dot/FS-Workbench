@@ -860,6 +860,7 @@ def main():
             subprocess.run(["node","--test"]+tests,cwd=folder,check=True,timeout=90)
             units("releases/fs-dashboard/campaign-analytics-20261023",["test_publish","test_prepare_g1_release","test_retention_plan"])
             units("releases/fs-dashboard/campaign-analytics-20261023/backend",["test_backend_suite"])
+            subprocess.run([sys.executable,"-I","-B",str(folder.parent/"backend/runtime_tests/test_statistics_refresh.py")],check=True,timeout=15,cwd=ROOT)
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/center-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/operator-dashboard-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/draft-compat-browser.cjs")

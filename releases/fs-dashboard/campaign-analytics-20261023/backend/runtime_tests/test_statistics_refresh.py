@@ -6,6 +6,8 @@ import tempfile
 import time
 import unittest
 import fcntl
+import socket
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from statistics_refresh import run
 
 
@@ -63,4 +65,12 @@ class StatisticsRefresh(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    # Dedicated process-lifecycle fixture, separate from the ordinary no-subprocess suite.
+    # Only local fake Python workers are executed; no production readers or network.
+    def reject_network(*args, **kwargs):
+        raise AssertionError('offline_runtime_network')
+    socket.socket.connect = reject_network
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase(StatisticsRefresh)
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    print(json.dumps({'testsRun': result.testsRun, 'failures': len(result.failures), 'errors': len(result.errors), 'skipped': len(result.skipped)}))
+    sys.exit(0 if result.testsRun == 4 and result.wasSuccessful() and not result.skipped else 1)

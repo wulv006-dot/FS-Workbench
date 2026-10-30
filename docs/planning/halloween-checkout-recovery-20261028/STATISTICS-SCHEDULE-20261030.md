@@ -22,7 +22,7 @@
 
 候选源：`app/analytics/statistics-refresh.mjs`、`backend/statistics_refresh.py`、`deploy/fs-campaign-statistics-refresh.{service,timer}`。复用原 publisher；新增两个精确 systemd 目标且要求四件套齐全，宿主实际UTC+08才允许日历安装。沿用现役FS服务身份和原只读接口，不改变其它业务调度、商品价、优惠码、订单或授权选择。
 
-合并前必须精确 CI、独立审查；Linux CI 实测 flock、超时及后代退出，Windows仅语法/Node/发布器检查。发布前核现役CAS与共享锁，原子备份、回执；部署后读回源hash、两个unit、下一触发时间及固定槽状态。启用 Persistent timer 可能立即补最近一次调度，不额外重复手动触发；未知结果先查原runId和status。
+合并前必须精确 CI、独立审查；Linux CI 以独立15秒离线入口实测 flock、超时及后代退出，仅运行临时假worker，原普通单测禁止子进程规则不变；Windows仅语法/Node/发布器检查。发布前核现役CAS与共享锁，原子备份、回执；部署后读回源hash、两个unit、下一触发时间及固定槽状态。启用 Persistent timer 可能立即补最近一次调度，不额外重复手动触发；未知结果先查原runId和status。
 
 原看板请求仍走现有实时接口和缓存；这四个槽是定时保存的轻量汇总，不宣称新进程预热了看板进程内缓存，也不新增对外无鉴权路由。每天08:00的 yesterday 槽可取作一次日汇总；没有授权自动向第三方发消息。
 
