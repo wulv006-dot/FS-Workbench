@@ -27,6 +27,36 @@ TARGETS.update({'frontend/' + name: '/var/www/dashboard/fs-home/hermes/conversat
 NEW = frozenset('runtime/' + name for name in (
     'conversation_files.py', 'conversation_file_bindings.py',
     'conversation_file_tools.py', 'material_evidence.py'))
+INSTALLED_COMMIT = '1f8ddc57c37e16df7c802de358eefb6585d078ee'
+INSTALLED_PROOF = {
+    'sourceCommit': INSTALLED_COMMIT,
+    'backup': '/var/backups/fs-navigation-20261006/nav-20261031T192312Z',
+    'manifestSha256': 'b129179049dc9ff4b575075ebd1b47c1f6edf325936ac70b1286ca990bd73a05',
+    'journalSha256': 'c902e8f3d1d613c80f1f0573647dbcf17184466579fdfbc77539d8f8846c24fc'}
+INSTALLED_NGINX_SHA = 'b792f18b8d1b322139f8be96bb5052ff53a79e82dac7a607cbe102e199b06302'
+
+
+def installed_baseline(root, git_baseline):
+    """Bind an installed baseline to both the successful journal and Git bytes."""
+    base = frozen()
+    records = {}
+    for name, key in (('approved-manifest.json', 'manifestSha256'), ('journal.json', 'journalSha256')):
+        path = base.rooted(root, INSTALLED_PROOF['backup'] + '/' + name)
+        base.no_target_link(path)
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != INSTALLED_PROOF[key]:
+            raise ValueError('installed_release_proof_drift')
+        records[name] = json.loads(raw)
+    manifest, journal = records['approved-manifest.json'], records['journal.json']
+    expected = {row['candidate']: row['sha256'] for row in manifest['files']}
+    if (manifest.get('sourceCommit') != INSTALLED_COMMIT or manifest.get('scope') != SCOPE
+            or {row['candidate']: row['target'] for row in manifest['files']} != TARGETS
+            or journal.get('status') != 'applied-awaiting-actual-http-role-acceptance'
+            or journal.get('approvedManifestSha256') != INSTALLED_PROOF['manifestSha256']
+            or journal.get('manifest') != manifest
+            or git_baseline != {'source_commit': INSTALLED_COMMIT, 'files': expected}):
+        raise ValueError('installed_git_and_journal_mismatch')
+    return manifest
 
 
 def frozen():
@@ -149,6 +179,12 @@ def quiescent(base, root):
 def load_base():
     base = frozen()
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
+    git_baseline = None
+    if approved.get('installedBaseline'):
+        raw = (HERE / 'payload-manifest.json').read_bytes()
+        if hashlib.sha256(raw).hexdigest() != approved['approvedPayloadSha256']:
+            raise ValueError('installed_git_descriptor_drift')
+        git_baseline = json.loads(raw).get('installed_baseline')
     validate = base.validate
 
     def exact(manifest, stage):
@@ -161,8 +197,17 @@ def load_base():
             raise ValueError('fresh_material_baseline_required')
         if not re.fullmatch('sha256:[a-f0-9]{64}', manifest.get('workerImageId', '')):
             raise ValueError('material_worker_image_required')
+        installed = manifest.get('installedBaseline')
+        if installed is not None and installed != INSTALLED_PROOF:
+            raise ValueError('exact_installed_release_required')
+        if installed and (not isinstance(git_baseline, dict)
+                          or git_baseline.get('source_commit') != INSTALLED_COMMIT
+                          or set(git_baseline.get('files', {})) != set(TARGETS)):
+            raise ValueError('installed_git_baseline_required')
         for row in manifest.get('files', []):
-            if ((row.get('beforeSha256') is None) != (row['candidate'] in NEW)
+            wrong_before = (row.get('beforeSha256') != git_baseline['files'][row['candidate']] if installed
+                            else (row.get('beforeSha256') is None) != (row['candidate'] in NEW))
+            if (wrong_before
                     or row.get('owner') != '0:0'
                     or row.get('mode') != ('0o600' if row['target'] == NGINX else '0o644')):
                 raise ValueError('material_existing_new_or_mode_boundary')
@@ -179,6 +224,13 @@ def load_base():
                 or (manifest['workerImageSource'] == 'configured_unit_and_local_image'
                     and before['fs-hermes-fc.service']['ActiveState'] == 'active')):
             raise ValueError('material_runtime_before_required')
+        static = manifest.get('materialStaticOnly', False)
+        if type(static) is not bool or static and (
+                not installed or manifest['runtimeBefore'] != manifest['runtimeRequired']
+                or manifest['workerImageSource'] != 'container'
+                or any(row['beforeSha256'] != row['sha256'] and not row['candidate'].startswith('frontend/')
+                       for row in manifest['files'])):
+            raise ValueError('exact_static_material_delta_required')
         if {row['path'] for row in manifest.get('unchangedRequired', [])} != protected_paths(base):
             raise ValueError('material_protected_set_changed')
         return validate(manifest, stage)
@@ -202,6 +254,8 @@ def load_base():
         # runtimeRequired is the successful postcondition, runtimeBefore is the
         # explicit observed precondition. Never fake an active worker to the
         # frozen checks, and retain every other guard/protected source check.
+        if manifest.get('installedBaseline'):
+            installed_baseline(root, git_baseline)
         if before_restart and manifest.get('scope') == SCOPE:
             if manifest['runtimeBefore']['fs-hermes-fc.service'] != {'ActiveState': 'active'}:
                 observed = worker_observation(allow_stopped=True)
@@ -212,6 +266,27 @@ def load_base():
         return original_guards(manifest, root, reader_stopped=reader_stopped)
 
     base.guards = guards
+    original_atomic, original_apply = base.atomic, base.apply
+    publish_root = Path('/')
+
+    def atomic(path, payload, mode=0o644):
+        # Keep the original writer/journal and every per-row guard. Static-only
+        # follow-ups leave identical active targets (including runtime) untouched.
+        if approved.get('materialStaticOnly'):
+            for row in approved['files']:
+                if path == base.rooted(publish_root, row['target']) and row['beforeSha256'] == row['sha256']:
+                    if (hashlib.sha256(payload).hexdigest() != row['sha256']
+                            or base.digest(path) != row['sha256'] or mode != int(row['mode'], 8)):
+                        raise ValueError('unchanged_static_target_drift')
+                    return
+        return original_atomic(path, payload, mode)
+
+    def apply(manifest, stage, approved_sha, manifest_bytes, release_id, root=Path('/')):
+        nonlocal publish_root
+        publish_root = root
+        return original_apply(manifest, stage, approved_sha, manifest_bytes, release_id, root)
+
+    base.atomic, base.apply = atomic, apply
     original_inspect = base.inspect
 
     def inspect(manifest, stage, root=Path('/')):
@@ -251,6 +326,11 @@ def load_base():
     def restart(manifest, admission_fence=None):
         nonlocal before_restart
         before_restart = False
+        if manifest.get('materialStaticOnly'):
+            if worker_image() != manifest['workerImageId']:
+                raise ValueError('material_worker_image_drift')
+            base.guards(manifest, publish_root)
+            return  # Static bytes only: no worker/HTTP restart or Nginx reload.
         if manifest.get('scope') == SCOPE:
             subprocess.run(['nginx', '-t'], check=True, capture_output=True)
         result = readiness.restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)

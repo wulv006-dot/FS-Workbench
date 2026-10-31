@@ -230,7 +230,12 @@
   function progressText(progress) {
     if (!progress) return '';
     if (typeof progress === 'string') return progress;
-    if (progress.type?.startsWith('tool.')) return (progress.tool || '数据工具') + ' · ' + (progress.type === 'tool.started' ? '正在查询' : progress.type === 'tool.failed' ? '查询失败' : '已完成');
+    if (progress.type?.startsWith('tool.')) {
+      const labels = {mcp__fcro__fc_list_conversation_files: '查看附件目录',
+        mcp__fcro__fc_read_conversation_file: '读取附件', mcp__fcro__fc_revise_conversation_file: '生成修订文件'};
+      return (labels[progress.tool] || progress.tool || '数据工具') + ' · ' +
+        (progress.type === 'tool.started' ? '正在处理' : progress.type === 'tool.failed' ? '处理失败' : '已完成');
+    }
     return progress.status || '正在处理';
   }
   function terminalMessage(state) {
@@ -322,6 +327,7 @@
     }
     syncControls();
     $('conversation-title').textContent = snapshot?.title || '与 Hermes 对话';
+    $('conversation-title').title = snapshot?.title || '与 Hermes 对话';
   }
   function closeStream() {
     clearTimeout(reconnectTimer);
@@ -458,7 +464,13 @@
       if (accepted || rejected) {
         sessionStorage.removeItem(pendingKey(current)); pending = null; $('message-input').readOnly = false;
       }
-      if (accepted) { $('message-input').value = ''; if (!wasSteer) { selectedFiles.clear(); saveFiles(current); } }
+      if (accepted) {
+        $('message-input').value = '';
+        if (!wasSteer) {
+          selectedFiles.clear(); saveFiles(current);
+          if ($('attachments')) $('attachments').open = false;
+        }
+      }
       else if (!rejected) $('message-input').readOnly = true;
       await refreshCurrent();
       loadList().catch(() => {});
