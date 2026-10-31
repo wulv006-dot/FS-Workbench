@@ -307,6 +307,8 @@ class Wire(unittest.TestCase):
 def load_tests(loader, tests, pattern):
     import test_b1_model_routing
     tests.addTests(loader.loadTestsFromModule(test_b1_model_routing))
+    import test_b2_customer_followup
+    tests.addTests(loader.loadTestsFromModule(test_b2_customer_followup))
     path=ROOT/'releases/fs-dashboard/hermes-fc-pilot-20261013/test_direct_provider.py'
     if not path.exists():path=ROOT/'.agent_runtime/hermes-v2-core-20261020/related-tests/test_direct_provider.py'
     spec=importlib.util.spec_from_file_location('v2_existing_provider_regressions',path)
