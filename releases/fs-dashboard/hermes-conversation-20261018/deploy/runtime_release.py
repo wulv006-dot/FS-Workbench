@@ -19,7 +19,7 @@ NGINX = '/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf'
 TARGETS = {'runtime/' + name: '/opt/fs-hermes-fc/' + name for name in (
     'conversation_store.py', 'conversation_files.py', 'conversation_file_bindings.py',
     'conversation_service.py', 'conversation_file_tools.py', 'material_evidence.py',
-    'runs_contract.py', 'proxy_gateway.py')}
+    'runs_contract.py', 'proxy_gateway.py', 'hermes_worker.py')}
 TARGETS.update({'http/conversation_http.py': '/opt/fs-exact-range-20261001/conversation_http.py',
                 'http/formal.conf': NGINX})
 TARGETS.update({'frontend/' + name: '/var/www/dashboard/fs-home/hermes/conversation/' + name
