@@ -38,7 +38,7 @@ class SpaceExportTests(unittest.TestCase):
         self.assertEqual(a, b)
 
     def test_reference_is_readable_only_with_explicit_history(self):
-        snapshot = module.documents([('docs/a.md', b'old rule')], 'a' * 40)
+        snapshot = module.documents([('docs/a.md', b'old rule\r\r\nlegacy')], 'a' * 40)
         entries, sources = module.references(snapshot, '2026-10-31')
         loader = importlib.util.spec_from_file_location('export_catalog', ROOT / 'releases/fs-dashboard/knowledge-layering-20261023/source/knowledge_catalog.py')
         catalog = importlib.util.module_from_spec(loader); loader.loader.exec_module(catalog)
@@ -51,7 +51,7 @@ class SpaceExportTests(unittest.TestCase):
             args = (root, 'index.json', hashlib.sha256(raw).hexdigest(), ['FS'], [entries[0]['id']])
             self.assertEqual(catalog.select(*args)['status'], 'missing_or_out_of_scope')
             past = catalog.select(*args, history=True)
-            self.assertIn('old rule', past['entries'][0]['content'])
+            self.assertIn('old rule\nlegacy', past['entries'][0]['content'])
             with self.assertRaisesRegex(ValueError, 'not_current'):
                 catalog.context(past)
 

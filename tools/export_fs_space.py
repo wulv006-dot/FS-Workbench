@@ -62,7 +62,7 @@ def references(snapshot, snapshot_date):
             effective_at=snapshot_date, time_precision='snapshot_date_not_policy_effective_date',
             owner='FS', authority='git', provenance=[row['url'], '固定Git原文的资料快照，按导出工具脱敏'],
             source_commit=snapshot['source_commit'], supersedes=[],
-            source=dict(path=path, sha256=hashlib.sha256(raw).hexdigest(), hash_basis='utf8_lf',
+            source=dict(path=path, sha256=hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest(), hash_basis='utf8_lf',
                         original_path=row['path'], original_sha256=row['source_sha256'], url=row['url'])))
     return entries, sources
 
