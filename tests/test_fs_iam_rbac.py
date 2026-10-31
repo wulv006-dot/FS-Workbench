@@ -100,6 +100,10 @@ class EquivalenceTest(unittest.TestCase):
                         if group and not uri.startswith("/deploy"):
                             continue
                         old = access_policy.legacy_authorize(user, method, uri, group)
+                        # Registered accounts previously had a second route whitelist.
+                        # Keep its unknown/sensitive denial after unifying the grant source.
+                        if user.startswith("reg:") and rbac.resolve_resource(uri) in (rbac.UNMAPPED, "sensitive"):
+                            old = 403
                         new = rbac.authorize(self.policy, user, method, uri, group)
                         if old != new:
                             mismatches.append((user, method, uri, group, old, new))
@@ -223,6 +227,7 @@ class DriftTest(unittest.TestCase):
         "brain", "coins", "fc27-bundles", "fc27-sbc", "ops", "players", "gallery",
         "odds", "mlb", "nba", "madden", "d4", "g2g", "sales", "bot-console",
         "tasks", "green_plan", "docs", "sites",
+        "fc27-evolutions", "marketing", "activities",
         # 平台类
         "home", "identity", "admin", "deploy", "sensitive",
     }

@@ -145,28 +145,61 @@
       await bootstrap();
       var data = await api('requests?after=' + after);
       if (main.dataset.view !== 'registration') return;
-      main.replaceChildren();
-      var heading = document.createElement('h2'); heading.textContent = '注册审批'; main.appendChild(heading);
-      var feedback = document.createElement('p'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
-      var controls = document.createElement('div'); controls.className = 'registration-actions';
-      var reasonLabel = document.createElement('label'); reasonLabel.htmlFor = 'registration-decision-reason'; reasonLabel.textContent = '审批原因（拒绝、撤销时必填）';
-      var reason = document.createElement('textarea'); reason.id = 'registration-decision-reason'; reason.maxLength = 240;
-      var selected = [];
-      button('刷新申请', function () { if (!busy) requests(main, after); }, controls);
-      main.append(controls, reasonLabel, reason, feedback);
-      if (!data.items.length) feedback.textContent = '暂无注册申请。';
-      data.items.forEach(function (row) {
-        var card = document.createElement('article'); card.className = 'registration-row';
-        var title = document.createElement('h3'); title.textContent = row.name + ' · ' + (labels[row.status] || row.status);
-        var info = document.createElement('p'); info.textContent = row.team + ' / ' + row.purpose + '\n申请编号：' + row.id;
-        card.append(title, info);
-        if (['pending', 'approved'].indexOf(row.status) >= 0) {
-          var label = document.createElement('label'), check = document.createElement('input');
-          check.type = 'checkbox'; label.append(check, document.createTextNode('选择 ' + row.name)); card.prepend(label);
-          selected.push({ row: row, check: check });
-        }
-        main.appendChild(card);
+      main.innerHTML = '<div class="page-head"><div><div class="eyebrow">REGISTRATION</div><h1>注册审批</h1><p>审核新成员的申请；通过后到成员管理分配工作区角色。</p></div></div>';
+      function el(tag, cls, text) {
+        var node = document.createElement(tag); node.className = cls || '';
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+      var stats = el('div', 'stats');
+      [['本页申请', data.items.length], ['待审批', data.items.filter(function(r){return r.status === 'pending';}).length],
+       ['已批准', data.items.filter(function(r){return r.status === 'approved';}).length],
+       ['已拒绝 / 撤销', data.items.filter(function(r){return ['rejected','revoked'].includes(r.status);}).length]].forEach(function(pair){
+        var stat = el('div','stat'); stat.append(el('div','k',pair[0]),el('div','v',pair[1])); stats.append(stat);
       });
+      var card = el('div','card'), head = el('div','card-head'), title = el('div');
+      title.append(el('h2','','申请列表'),el('div','sub','待审批与已批准申请请分别选择处理'));
+      var tools = el('div','actions'), search = el('input','registration-search');
+      search.type = 'search'; search.placeholder = '搜索账号、团队或用途'; search.setAttribute('aria-label','搜索本页申请');
+      var filter = el('select','registration-filter'); filter.setAttribute('aria-label','申请状态');
+      [['','全部状态'],['pending','待审批'],['approved','已批准'],['rejected','已拒绝'],['revoked','已撤销']].forEach(function(pair){
+        var o=el('option','',pair[1]);o.value=pair[0];filter.append(o);
+      });
+      tools.append(search,filter); button('刷新',function(){if(!busy)requests(main,after);},tools).className='btn sm';
+      head.append(title,tools);
+      var body = el('div','card-body'), table = el('table','registration-table');
+      table.innerHTML = '<thead><tr><th><input type="checkbox" aria-label="选择当前可见的可处理申请"></th><th>账号</th><th>团队</th><th>申请用途</th><th>状态</th><th>操作</th></tr></thead>';
+      var tbody = el('tbody'), selected = [], rows = [];
+      var feedback = el('p','registration-feedback'); feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');
+      var controls = el('div','actions registration-actions');
+      var reasonLabel = el('label','','审批说明（拒绝、撤销时必填）'); reasonLabel.htmlFor='registration-decision-reason';
+      var reason = el('textarea'); reason.id='registration-decision-reason';reason.maxLength=240;reason.rows=2;
+      reason.placeholder='填写给申请人的处理说明';
+      var decision = el('div','registration-decision');decision.append(reasonLabel,reason,controls,feedback);
+      main.append(stats,card);card.append(head,body,decision);table.append(tbody);body.append(table);
+      var empty=el('div','empty','暂无符合条件的申请');body.append(empty);
+      data.items.forEach(function(row){
+        var tr=el('tr'), select=el('td'), name=el('td'), team=el('td','',row.team), purpose=el('td','registration-purpose',row.purpose), status=el('td'), actions=el('td');
+        name.append(el('div','name',row.name),el('div','dim mono',row.id));
+        status.append(el('span','tag '+({pending:'warn',approved:'ok',rejected:'bad',revoked:'bad'}[row.status]||''),labels[row.status]||row.status));
+        if(['pending','approved'].includes(row.status)){
+          var check=el('input');check.type='checkbox';check.setAttribute('aria-label','选择 '+row.name);select.append(check);
+          selected.push({row:row,check:check});
+          var ops=row.status==='pending'?[['approve','通过'],['reject','拒绝']]:[['revoke','撤销']];
+          ops.forEach(function(op){button(op[1],function(){selected.forEach(function(x){x.check.checked=x.row.id===row.id;});decide(op[0]);},actions).className='btn sm'+(op[0]==='approve'?' primary':'');});
+        } else actions.append(el('span','dim','已处理'));
+        tr.append(select,name,team,purpose,status,actions);tbody.append(tr);rows.push({row:row,node:tr});
+      });
+      var selectAll=table.querySelector('thead input');
+      function applyFilter(){
+        var query=search.value.trim().toLowerCase();
+        rows.forEach(function(x){x.node.hidden=!!((filter.value&&x.row.status!==filter.value)||![x.row.name,x.row.team,x.row.purpose].join(' ').toLowerCase().includes(query));if(x.node.hidden){var c=x.node.querySelector('input');if(c)c.checked=false;}});
+        empty.hidden=rows.some(function(x){return !x.node.hidden;}); selectAll.checked=false;
+      }
+      search.oninput=filter.onchange=applyFilter;
+      selectAll.onchange=function(){selected.forEach(function(x){if(!x.check.closest('tr').hidden)x.check.checked=selectAll.checked;});};
+      applyFilter();
+      if(uncertain){feedback.textContent='上次操作结果待核对，请核对申请状态和审批审计后重新进入。';tbody.querySelectorAll('button,input').forEach(function(x){x.disabled=true;});}
       async function decide(action) {
         if (busy || uncertain) return;
         var items = selected.filter(function (x) { return x.check.checked; });
@@ -198,7 +231,7 @@
           document.querySelectorAll('.nav-item').forEach(function (el) { el.disabled = false; });
         }
         if (!uncertain) { await requests(main, after); }
-        else { controls.querySelector('button').disabled = false; }
+        else { tools.querySelector('button').disabled = false; }
         var status = main.querySelector('[role="status"]');
         status.textContent = results.join('；') + '。已处理 ' + results.length + '/' + items.length + '，其余未执行。';
       }

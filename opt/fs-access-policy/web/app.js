@@ -199,7 +199,7 @@
 
     return '' +
       '<div class="page-head"><div><div class="eyebrow">ROLE &amp; POLICY</div><h1>角色与策略</h1>' +
-      '<p>角色 = 一组「资源 × 动作」。成员可绑定多个角色，权限取并集；没有勾选的一律拒绝。</p></div>' +
+      '<p>按工作区分配：球类运营、RPG 运营、营销运营等。成员可兼任多个工作区；平台管理与部署单独授权。</p></div>' +
       '<div class="actions"><button class="btn" id="btn-new-role">新建角色</button></div></div>' +
       '<div class="roles-grid">' +
       '<div class="role-list">' + list + '</div>' +
@@ -407,7 +407,7 @@
     S.member = m;
     $('drawer-title').textContent = m.name;
     $('drawer-sub').textContent = m.source + ' · ' + m.subject + (m.lastLogin ? ' · 最近登录 ' + m.lastLogin.at : '');
-    $('drawer-hint').textContent = '越靠上的角色权限越大';
+    $('drawer-hint').textContent = '按工作区选择运营角色，可同时负责多个工作区；只读账号选择只读访客';
     var roles = S.data.policy.roles.slice().sort(function (a, b) {
       return (b.super ? 1 : 0) - (a.super ? 1 : 0) || b.rules.length - a.rules.length;
     });
@@ -432,7 +432,11 @@
       : m.writable.map(function (r) {
           return '<span class="tag warn">' + esc(r) + '</span>';
         }).join('');
-    $('drawer-body').innerHTML = pw +
+    var extra = (m.extraGrants || []).length
+      ? '<div class="notice"><label><input type="checkbox" id="keep-extra-grants" checked> 保留原有补充授权</label><p class="hint">' +
+        esc(m.extraGrants.map(function(g){return g.resources.map(function(id){var r=S.data.resources.find(function(x){return x.id===id;});return r?r.label:id;}).join('、')+'：'+g.actions.map(function(a){var x=S.data.actions.find(function(x){return x.id===a;});return x?x.label:a;}).join('、');}).join('；')) +
+        '。取消勾选并保存后，仅按所选角色授权。</p></div>' : '';
+    $('drawer-body').innerHTML = pw + extra +
         '<div class="matrix-mini">' + (m.writable.length
           ? '<span class="hint">当前可写：</span>' + writableTags
           : '<span class="hint">当前没有任何写权限</span>') + '</div>' +
@@ -498,7 +502,8 @@
     });
     api('member/roles', {
       method: 'POST',
-      body: { subject: m.subject, roles: picked, revision: S.data.meta.revision }
+      body: { subject: m.subject, roles: picked, revision: S.data.meta.revision,
+        keep_extra_grants: !$('keep-extra-grants') || $('keep-extra-grants').checked }
     }).then(function () {
       toast('已更新「' + m.name + '」的角色', 'ok');
       closeDrawer();

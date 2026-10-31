@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "scope": "iam-modules-20261031",
+  "releaseReady": true,
+  "publisherSha256": "df4441db0e718585862cb4dbd7c84f06b1f2373cd5d262dafa537524205926c7",
+  "files": [
+    {
+      "candidate": "rbac.py",
+      "target": "/opt/fs-access-policy/rbac.py",
+      "beforeSha256": "95f77db18ceba7e5034849bd38135096b3d0a3239ae471c53d9e328d1d3ee2e5",
+      "sha256": "fe3848ef523ff1f355f764fde817955f55cf703815a2d1ff94a14e45a8c72c3c"
+    },
+    {
+      "candidate": "iam_console.py",
+      "target": "/opt/fs-access-policy/iam_console.py",
+      "beforeSha256": "d2af82d9e16b26fc112d4a4e696bb9798e10dfde64854746710119cddc984ff4",
+      "sha256": "e9bd1286af08472d19153c4eb6595c007b527b8328eca516b537c73a058b38c0"
+    },
+    {
+      "candidate": "module_permissions.py",
+      "target": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/module_permissions.py",
+      "beforeSha256": "56e989ed9414ccdeb1ca42f2b469d3d54f825ea1b662273d0a958dd8f2890bfb",
+      "sha256": "1413417e6003d61f33f644d3a71fa9d3cb6783b914afc192316960b9b626f635"
+    },
+    {
+      "candidate": "web/app.js",
+      "target": "/opt/fs-access-policy/web/app.js",
+      "beforeSha256": "745b2186dbf27220d3dcd453349f52ace49a8886abcce0d7f312d26598f319a4",
+      "sha256": "87a7fc8196d05cdd00a5891c22ebab05516c62289f11495748f02ff65cf398e8"
+    },
+    {
+      "candidate": "web/app.css",
+      "target": "/opt/fs-access-policy/web/app.css",
+      "beforeSha256": "ea6cdaf66a4903b6c410ae5afd366772fef16de1f4c572e0483cfe9ea55d960f",
+      "sha256": "110985bd36a614866b622461564cf1defb638936907d58a6f89218edf99c593b"
+    },
+    {
+      "candidate": "web/registration.js",
+      "target": "/opt/fs-access-policy/web/registration.js",
+      "beforeSha256": "acb0a1eb7dae8ba8fc2a8dc0daaf470afc464d08e78c1ee561ee504871c1c824",
+      "sha256": "b0a5af4bacf8ee276b00530eb07229c4285557df4e756ede1c32683ea50fa883"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5ec1ac5ca2204f913f27f9b68a414d72e764e9c9bb3d563ee5a4aabdf4091475"
+    },
+    {
+      "path": "/opt/fs-access-policy/access_policy.py",
+      "sha256": "84e7a2f50868eb5764412d7b56e3a4ef2fc81681d0a07a478ad62819add7a95d"
+    },
+    {
+      "path": "/opt/auth-portal/data/fs-iam/policy.json",
+      "sha256": "1139b4a3e21f0524034e1063920aaf31ba02dc03156c5e7cf59f8da2b3311add"
+    }
+  ],
+  "runtimeRequired": {
+    "auth-portal.service": {
+      "ActiveState": "active"
+    }
+  }
+}
