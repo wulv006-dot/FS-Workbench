@@ -71,6 +71,10 @@ PR716 reviewed `6fc954f1555538677cd39b0ce5e923445899a42b`独审无未解决项�
 
 同一A独占prepare/release及相关测试继续最小支持这种已验证恢复态：仅容器确不存在、unit完整hash及inactive/failed状态与原ExecStart固定image、本机image inspect交叉核实均通过时允许识别准备镜像；其他docker错误或漂移拒绝，正常容器仍核实际image。必须标明镜像来源和发布前失败状态，不冒称运行容器。主控同时核出`runtime_release.py`的runtimeRequired全active校验及冻结base guards的实际服务状态核对会阻断此恢复态；本次完整候选应一并限定处理发布前状态，不修改冻结base或全局关闭guards。保留其余服务/保护文件/CAS/围栏，发布后仍要求实际容器/image/worker健康及HTTP/Nginx读回，fallback不能充当成功证明。具体补丁/契约/独审/CI及真实恢复仍待回交，不重放旧stage、不造容器或改服务配置。
 
+完整恢复态候选A `961467bf8d7b4de70d401ad686c86b04f2b4c31f`（base `ac58cf7f854fb4e9548db47228a110e725f99d81`）已正常合入，四路径仅prepare/release/原deploy测试/模块附录，运行代码与A固定候选相同。manifest显式增加runtimeBefore及workerImageSource，成功runtimeRequired仍全active；发布前用基线状态交原guards，进入restart后永久切回实际容器/健康/active检查，之后才reload Nginx。严格missing分支还核唯一有效unit/drop-in、无待daemon reload及本机固定image，与原unit/drop-in SHA及保护CAS绑定；不把本机镜像存在称作运行成功。冻结base、14目标/48保护/4新增不变。
+
+复用相同运行代码的原pr-fast deploy三模块19项通过、0skip，新增3项含容器/单位/image/状态漂移及原inspect/apply/journal合成生命周期：失败基线CAS、成功active、启动异常、健康后容器缺失或服务再停均拒绝并保留回退字节。主控核diff及状态切换核心，未见当前阻断；最新集成完整SHA独审及必要LinuxCI待完成，真实worker与材料/模型/视觉验收仍未完成。新Gitpack仅本地候选证据，合并后仍须最终SHA重pack/新现场prepare，不复用旧descriptor或stage。
+
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。
 
 不新增账号/凭据/权限/安全配置或费用，不启用待配置模型，不改价/发券/订单/触达客户、不真实购买支付。测试仅新增明确标记的小合成验收会话/附件，不删除旧业务数据。真实数据只读现有授权scope的必要匿名摘要，原客户/订单/密钥不进Git或截图。
