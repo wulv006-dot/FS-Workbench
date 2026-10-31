@@ -55,7 +55,55 @@ idempotency, HTTP adaptation, ownership, revocation, integrity and expiry. Exist
 socket HTTP tests cover the original adapter. No real customer data, model calls,
 business API calls or production actions are used.
 
-Pending: UI attachment controls, binding files to a turn and exposing scoped file
-tools to Hermes, actual natural-language follow-up, isolated calculation, global
+Pending: UI attachment controls, actual natural-language follow-up with a real model, isolated calculation, global
 quotas, scheduled/orphan cleanup, publisher mapping and production acceptance.
 This PR is the first backend slice; it does not claim the complete A1 workflow.
+
+## Turn-bound file work package (local/mock acceptance)
+
+`POST /turns` additionally accepts optional `file_ids` (at most 10 IDs, normalized
+as a set). The request identity includes the attachment set; the same request ID
+with different attachments fails. Empty attachments retain compatibility with
+legacy text-only requests. Every ID must belong to the authenticated conversation,
+exist, pass integrity checks and be unexpired before the turn is reserved.
+
+`source/conversation_file_bindings.py` provides
+`context_factory(store, owner, cid, turn_id, authorized)`. The service constructs
+these arguments; none are model inputs. The returned capability exposes:
+
+- `catalog()`: only this turn's explicit inputs and generated derivatives.
+- `read_table(file_id, sheet=None, offset=0, limit=None)`: complete bounded parsing
+  for internal callers; the model consumer always supplies a sheet and page size
+  of 1–200. `complete` and `coverage.scope=selected_sheet` describe only that
+  sheet in the current request, never the whole workbook. `next_offset` drives
+  page traversal. Internal complete reads use `coverage.scope=workbook`.
+- `revise(file_id, edits, format, request_id)`: immutable output, registered to
+  this turn. The request ID is internally scoped by turn. Repeated requests with
+  unchanged arguments reconcile the same file. No automatic retry occurs.
+
+Each call rechecks the original FS authorizer, conversation owner, turn state
+(queued/running only), bound membership, expiry and bytes. Stopping, terminal,
+dispatch-unknown and preparing turns cannot use file tools. The existing task
+gateway separately checks owner/task/lease. A new turn inherits no files: a
+follow-up must explicitly bind the derivative ID.
+
+Bindings live under the new file namespace, with atomic sidecar replacement;
+reserve/bind/revise share the original conversation DB write lock. No schema or
+public migration is introduced. File metadata may survive a failed binding write;
+an explicit reconciliation using the original request ID reuses it rather than
+creating a duplicate. No claim of cross-filesystem atomic rollback is made.
+
+Receipts add a `download_url` pointing to the existing authenticated file route,
+never a token or public URL. `detail.turns[].file_bindings` exposes inputs and
+generated IDs to the authorized UI/client. For example, a 451-row sheet requested
+with offset 0/limit 200 returns `complete=false`, `returned_rows=200`,
+`next_offset=200` and coverage `{scope: selected_sheet, total_rows: 451,
+offset: 0, end_exclusive: 200}`. A two-row selected sheet requested at offset 0
+with limit 200 returns complete=true and next_offset=null for that sheet.
+
+The active v2 `conversation_service.py` attaches B's
+`attach_conversation_file_tools(book, context)` and adds its static `file_prompt()`
+to the admission prompt, without reading files in preparing state. B owns the
+independent consumer and the shared schema/allowlist. A owns the service seam,
+bindings, storage, HTTP and the synthetic loop acceptance test. Production and
+real model acceptance remain separate from this local/mock work package.

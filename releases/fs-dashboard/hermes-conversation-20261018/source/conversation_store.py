@@ -89,18 +89,22 @@ class ConversationStore:
             raise LookupError("conversation_not_found")
         return row
 
-    def reserve_turn(self, owner, conversation_id, text, request_id):
+    def reserve_turn(self, owner, conversation_id, text, request_id, file_ids=None):
         if not isinstance(text, str) or not 1 <= len(text.strip()) <= 12000:
             raise ValueError("invalid_input")
         if not isinstance(request_id, str) or not REQUEST_ID.fullmatch(request_id):
             raise ValueError("invalid_request_id")
-        fingerprint = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        from conversation_file_bindings import FileBindings, normalize_file_ids
+        file_ids = normalize_file_ids(file_ids)
+        payload = json.dumps({'text': text, 'file_ids': file_ids}, sort_keys=True) if file_ids else text
+        fingerprint = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
             conversation = self._owned(db, owner, conversation_id)
             old = db.execute("SELECT * FROM turns WHERE conversation_id=? AND request_id=?", (conversation_id, request_id)).fetchone()
             if old:
-                if old["input_sha256"] != fingerprint:
+                bound = FileBindings(self).bound(db, owner, conversation_id, old['id'])
+                if old["input_sha256"] != fingerprint or bound['inputs'] != file_ids:
                     raise ValueError("idempotency_conflict")
                 return {"turn_id": old["id"], "run_id": old["run_id"], "state": old["state"], "session_id": conversation["session_id"], "reused": True}
             active = db.execute("SELECT 1 FROM turns WHERE conversation_id=? AND state IN ('preparing','dispatch_unknown','queued','running','stopping')", (conversation_id,)).fetchone()
@@ -108,6 +112,8 @@ class ConversationStore:
                 raise RuntimeError("conversation_busy")
             turn_id = uuid.uuid4().hex
             db.execute("INSERT INTO turns(id,conversation_id,request_id,input_sha256,text,state) VALUES(?,?,?,?,?,?)", (turn_id, conversation_id, request_id, fingerprint, text, "preparing"))
+            if file_ids:
+                FileBindings(self).bind(db, owner, conversation_id, turn_id, file_ids)
             db.execute("UPDATE conversations SET updated_at=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), conversation_id))
             return {"turn_id": turn_id, "run_id": None, "state": "preparing", "session_id": conversation["session_id"], "reused": False}
 
@@ -240,6 +246,7 @@ class ConversationStore:
             return db.execute("SELECT 1 FROM events WHERE turn_id=? AND type=? LIMIT 1", (turn["id"], kind)).fetchone() is not None
 
     def detail(self, owner, conversation_id):
+        from conversation_file_bindings import FileBindings
         with self.db() as db:
             self._owned(db, owner, conversation_id)
             turns = db.execute("SELECT id,text,state,run_id FROM turns WHERE conversation_id=? ORDER BY rowid", (conversation_id,)).fetchall()
@@ -254,7 +261,8 @@ class ConversationStore:
                                "run_id": turn["run_id"], "reply": json.loads(last["payload"]).get("output", "") if last else "".join(json.loads(row["payload"]).get("delta", "") for row in deltas),
                                "error": json.loads(failure["payload"]).get("error") if failure else None,
                                "progress": {"type": progress["type"], **json.loads(progress["payload"])} if progress else None,
-                               "artifacts": [dict(row) for row in files]})
+                               "artifacts": [dict(row) for row in files],
+                               "file_bindings": FileBindings(self).bound(db, owner, conversation_id, turn["id"])})
             seq = db.execute("SELECT coalesce(max(e.seq),0) FROM events e JOIN turns t ON t.id=e.turn_id WHERE t.conversation_id=?", (conversation_id,)).fetchone()[0]
             return {"conversation_id": conversation_id, "title": result[0]["text"][:80] if result else "新会话",
                     "turns": result, "last_seq": seq}
