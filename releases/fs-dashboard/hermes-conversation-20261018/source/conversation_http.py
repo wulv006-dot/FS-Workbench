@@ -80,8 +80,11 @@ def handle(handler, method, uri, user, service, authorized):
             else:
                 respond(handler, 404, {'error': 'not_found'})
         elif method == "POST" and len(parts) == 2 and parts[1] == "turns" and not params:
-            body = read_json(handler, {"text", "client_request_id"})
-            respond(handler, 202, service.submit(user, parts[0], body["text"], body["client_request_id"]))
+            body = read_json(handler)
+            if set(body) not in ({'text', 'client_request_id'}, {'text', 'client_request_id', 'file_ids'}):
+                raise ValueError('turn_fields')
+            extra = {'file_ids': body['file_ids']} if 'file_ids' in body else {}
+            respond(handler, 202, service.submit(user, parts[0], body["text"], body["client_request_id"], **extra))
         elif method == "GET" and len(parts) == 2 and parts[1] == "events" and set(params) == {"after"} and len(params["after"]) == 1:
             stream_events(handler, service, user, parts[0], params["after"][0])
         elif method == "POST" and len(parts) == 4 and parts[1] == "runs" and parts[3] in {"steer", "stop"} and not params:
