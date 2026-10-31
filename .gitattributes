@@ -10,3 +10,5 @@ releases/fc-players/admin-api-repair-20261031/** -text
 releases/fc-players/mixed-plan-20261031/** -text
 
 releases/fc-players/empty-market-recovery-20261031/** -text
+
+/releases/fs-dashboard/hermes-conversation-20261018/source/worker-install-state-isolation.conf text eol=lf
