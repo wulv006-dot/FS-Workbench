@@ -394,3 +394,108 @@ health, modes and all other protections remain intact. A newly merged SHA and
 fresh pack/prepare are still required; neither failed stage will be replayed.
 Material/DeepSeek, real download/follow-up and deployed visual acceptance remain
 unverified.
+
+## Successful software publication and real synthetic acceptance (1f8ddc57)
+
+Source commit: `1f8ddc57c37e16df7c802de358eefb6585d078ee`. Fresh LF payload descriptor SHA256: `346d3b5659593a5b78a5043fd7c4ec717e0f3824815bef83ba024620bd010014`. Stage: `/var/tmp/fs-hermes-materials-1f8ddc57-20261031T192312Z/stage`; baseline `2026-10-31T19:23:40.580450+00:00`. Manifest SHA256: `b129179049dc9ff4b575075ebd1b47c1f6edf325936ac70b1286ca990bd73a05`.
+
+One apply succeeded as `applied-awaiting-actual-http-role-acceptance`. Backup: `/var/backups/fs-navigation-20261006/nav-20261031T192312Z`; journal SHA256: `c902e8f3d1d613c80f1f0573647dbcf17184466579fdfbc77539d8f8846c24fc`. Independent readback verified all 14 after-hashes, root:root and exact modes (Nginx 0600, others 0644), plus all 48 protected hashes. No DB/UNKNOWN/old-task clearing, account, permission, credential or business change. Earlier failures remain recorded above.
+
+Actual container image: `sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544`, Running=true. Worker, range and Nginx were all active/running; original authenticated worker readiness passed during publication, range `/health` returned 200/ok=true, anonymous worker capabilities returned 401. Nginx reloaded only the two approved 16k-to-10m edits. Normal browser auth returned 200, and normal same-origin conversation creation returned 201 with only `conversation_id`.
+
+| Active target | Verified after SHA256 |
+|---|---|
+| `/opt/fs-hermes-fc/conversation_store.py` | `06fedb9887d4b23a4f0ae347cf91d1b8271f6165e7640ea457ddacd729ce92c9` |
+| `/opt/fs-hermes-fc/conversation_files.py` | `b985a1db31c9eb0c9a29dc525345425a01797201b0388626f13699880402949a` |
+| `/opt/fs-hermes-fc/conversation_file_bindings.py` | `45e2933dc2fa9a90c77926b952fe97a7c61fe51ce68ced0df64733a4545729c7` |
+| `/opt/fs-hermes-fc/conversation_service.py` | `27856bb29b47de56518789da418cb9ebdb0ddf7f65082803ef2b7f47df5841ad` |
+| `/opt/fs-hermes-fc/conversation_file_tools.py` | `4bde6f456bea2802c379b88467102cf9517c401ce2531d1238e24929dc38a5a8` |
+| `/opt/fs-hermes-fc/material_evidence.py` | `d2e4cd3e3ffdbab6876c4754098ec0a603685f3657f8d732cbf18b9b7b4226b4` |
+| `/opt/fs-hermes-fc/runs_contract.py` | `af9239b015f63f0501e5c03972c063a6b506c395130325b24df2497fa2341865` |
+| `/opt/fs-hermes-fc/proxy_gateway.py` | `7d9b05ea2c2000680a9e1a7138255a7ac34c76b3f73b13c3f84a8f7641cbbf3d` |
+| `/opt/fs-hermes-fc/hermes_worker.py` | `82992ce7c94ba220781afc36be6673bb75059e63a2e3de09e7c99c8098b55415` |
+| `/opt/fs-exact-range-20261001/conversation_http.py` | `6a10a4360d3fa090b88994fdd91c56ecb3c18bc25935bd41eb8c6a6675fc3261` |
+| `/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf` | `b792f18b8d1b322139f8be96bb5052ff53a79e82dac7a607cbe102e199b06302` |
+| `/var/www/dashboard/fs-home/hermes/conversation/index.html` | `6ee4a6f718e1759235648190f02c5d1c79332afa830baaa7893017048d70f604` |
+| `/var/www/dashboard/fs-home/hermes/conversation/conversation.js` | `73082f8f663a4ffbb2e0b0b9041343bee4a70285bdcdf84214e31e4ed51d0a50` |
+| `/var/www/dashboard/fs-home/hermes/conversation/conversation.css` | `c4a5fd9b937343572465ea477b309f0110b458774b23efcabb4a06d6521c43f7` |
+
+### Synthetic tasks, provider receipts and immutable downloads
+
+Only synthetic conversation `0884f9a7a4ee4b66a220e20651e4e54c` was exercised. Read-only review URL: https://47.85.224.112/dashboard/fs-home/hermes/conversation/?conversation=0884f9a7a4ee4b66a220e20651e4e54c . The original user page was preserved; the A acceptance tabs were closed when those checks finished.
+
+| Turn / task / run | State and observed provider calls | Prompt / completion / total tokens |
+|---|---|---|
+| `0f708fcf56a0497784d70a3290f7d1bf` / `efae1d897b2d494816ca594eb519b953` / `run_2dd4e5a96cb44a859732e9779fd40e31` | completed; 5 recorded calls | 475029 / 1614 / 476643 |
+| `2f5efc7bde8b419786b3649d42b4a542` / `9c511c44d5f9df7a1a87efccb31c7a7a` / `run_c4c684cb55b742f9ac83837dc96f0cb8` | completed; 5 recorded calls | 501953 / 1057 / 503010 |
+| `6cfcaf9df1624b61a17e4fce8b1f77ca` / `8dbb2ecf07b4a72976b59f2429592874` / `run_8261315a1a3340708ffdabe7619cb8ff` | completed; 1 recorded calls | 102739 / 3 / 102742 |
+| `611dc5c87a5a4ebe9345d73509311ace` / `b85b7c6a8faa990fe992fe5c537a2dcc` / `run_990498b4bfe74715a00fbf30522e18b7` | cancelled; 1 recorded calls | 102770 / 3 / 102773 |
+
+Calls used the existing DeepSeek channel; receipts independently record requested/response model `deepseek-flash`, forwarded_verified=true, actual_backend_version=`unknown`. Invoice amount and `cost_microcny` remain null/unknown (`amount_unknown_no_cny_invoice_or_fx`), never zero or a currency estimate. Five successful provider receipts belong to each material task, not to all acceptance work; each no-attachment/stop task has its own single recorded call. No provider/model/budget or quota setting was changed. Representative first-task provider request IDs: `0d131993-f2d6-405e-bc2a-9cf820109574`, `9edea579-71a2-46b5-9d2b-dd8c92199c1b`, `0ecdbdd3-e2f4-48ee-8739-fef9a8e8590c`, `5270c9b5-5d28-4c26-877a-1400a65419b9`, `75ba19d8-26f2-4bc6-ad35-fcdbd8b25a83`.
+
+| File | Full file ID | Full SHA256 | Bytes / parent / version |
+|---|---|---|---|
+| CSV input | `3e9a4d1ab98a51735b39de96e4c2dad7` | `167a1ac5f4f95e0e56176bf4e9d7335d34f347c7e04db78d9f5745f01928c444` | 2064 / none / 1 |
+| XLSX input | `8591505aec3035dbd7e8647eadd4a20b` | `196b6358b8717d044b80cc8c25b681da922d4829eaac2b4e2ad98ca9601b0f5a` | 5413 / none / 1 |
+| XLSX revised once, b=25 | `9c8b6330dd88a522a2c4578e491f9141` | `1b731736326470071e596abf684ef0844add1ca0447b3b83304bd5337c76b390` | 5401 / `8591505aec3035dbd7e8647eadd4a20b` / 2 |
+| Explicit follow-up, b=30 | `708c96a51f2b4332d3323bd332dc4f07` | `8bc7f4b7dbab1645d91c10ce7c90ad2d04e4c3530606837396c0b282ec5e1f11` | 5400 / `9c8b6330dd88a522a2c4578e491f9141` / 3 |
+
+Both revised files were clicked in real server-metadata cards and downloaded by the authenticated browser. Their bytes, full hashes and ZIP/XLSX structure were checked with openpyxl: a remained 10, b became 25 then 30, and the second sheet remained `FS synthetic acceptance only`. V2 was explicitly selected with the card button; focus moved to the composer, refresh retained only that v2 selection, and the next turn bound only v2. Revision request IDs were `acceptance_revision_20261101_v2` and `acceptance_revision_20261101_v3`, one revision tool call per material task.
+
+Actual browser downloads (extensionless browser storage files, parsed as XLSX bytes):
+
+- V2: `E:/T3Code/state/userdata/server-browser/downloads/917d10d0a632c01b87c3976923d5c201101f9ef2f9538c7cd5c6a0b4f077d022/2a27ee0d-c48f-42f1-a4c7-d1d88772a85f`.
+- V3: `E:/T3Code/state/userdata/server-browser/downloads/917d10d0a632c01b87c3976923d5c201101f9ef2f9538c7cd5c6a0b4f077d022/1ba7fa6f-895f-46ba-b5f7-7535b1892682`.
+
+### Pagination evidence: recorded calls plus same-SHA parse, not archived raw tool receipts
+
+The task ledger records actual read-tool arguments. Conversation events record 8 started/completed tools in material turn 1 and 6 in turn 2, with no tool.failed event. At `2026-10-31T19:50:51.831Z`, authenticated table readbacks independently matched all four immutable file IDs/SHA values: CSV total_rows=206 including header, 205 data rows and amount sum=205; each XLSX sheet0 total_rows=3 and sheet1 total_rows=2. No raw tool result/coverage payload was persisted by this implementation. The table below therefore reconstructs the deterministic page receipts from those exact immutable tables and recorded successful calls; it does **not** claim to be a saved original tool response or ledger.
+
+| Material turn | File ID / sheet | total_rows | offset / limit / returned_rows | next_offset | Page complete / coverage |
+|---|---|---|---|---|---|
+| 1 | `3e9a4d1ab98a51735b39de96e4c2dad7` / 0 | 206 | 0 / 200 / 200 | 200 | false / selected_sheet [0,200) |
+| 1 | `3e9a4d1ab98a51735b39de96e4c2dad7` / 0 | 206 | 200 / 200 / 6 | null | false / selected_sheet [200,206) |
+| 1 | `8591505aec3035dbd7e8647eadd4a20b` / 0 | 3 | 0 / 200 / 3 | null | true / selected_sheet [0,3) |
+| 1 | `8591505aec3035dbd7e8647eadd4a20b` / 1 | 2 | 0 / 200 / 2 | null | true / selected_sheet [0,2) |
+| 1 | `9c8b6330dd88a522a2c4578e491f9141` / 0 | 3 | 0 / 200 / 3 | null | true / selected_sheet [0,3) |
+| 1 | `9c8b6330dd88a522a2c4578e491f9141` / 1 | 2 | 0 / 200 / 2 | null | true / selected_sheet [0,2) |
+| 2 | `9c8b6330dd88a522a2c4578e491f9141` / 0 | 3 | 0 / 200 / 3 | null | true / selected_sheet [0,3) |
+| 2 | `9c8b6330dd88a522a2c4578e491f9141` / 1 | 2 | 0 / 200 / 2 | null | true / selected_sheet [0,2) |
+| 2 | `708c96a51f2b4332d3323bd332dc4f07` / 0 | 3 | 0 / 200 / 3 | null | true / selected_sheet [0,3) |
+| 2 | `708c96a51f2b4332d3323bd332dc4f07` / 1 | 2 | 0 / 200 / 2 | null | true / selected_sheet [0,2) |
+
+The CSV chain is [0,200) then [200,206), no hole or overlap. The second page is not individually complete because its offset is nonzero; its null next_offset only denotes the last page. For each XLSX, selected-sheet completeness is separate from workbook completeness: both known sheets were read, not just sheet0. These are only the identified immutable synthetic file versions, not live business or full-customer coverage.
+
+### Original IDs, unknown, stop, permissions and browser limitations
+
+- Original CSV upload ID: `upload_cd817ca6c9354bf59440541416d82242`; XLSX: `upload_fe95d726079940adbc3ea930873191cb`. Lookup returned the same CSV ID/SHA. Re-posting the exact first turn request `web_6babbc1cbfda4203911c92f315fd110c` with its original attachment set returned 202 and the original turn; changing only the set returned 422. No extra turn/model task was created by those checks.
+- Unknown upload was an explicitly labelled browser response-loss injection after a real 201, not a natural incident or fake server result. Original ID `upload_7004d34f4880458cad06482c49cd2b4f` survived refresh; same filename/size with different SHA was rejected client-side, zero new POSTs. The UI original-ID lookup recovered available file `f60e89f79be5a8123e0974d67e874a49`, without changing the request ID or uploading again.
+- Invalid 9-byte XLSX genuinely failed validation. UI retained request `upload_a55b83c6c1524ad4b1cc0a190d4b28b5`, displayed upload failure and original-ID recovery/retry controls.
+- Plain Enter inserted a newline without submitting; Ctrl+Enter sent through the original submit path. A keyboard Tab reached the recovery button with a visible 2px theme outline. Follow-up selection focused the composer.
+- The first tiny stop attempt completed before the native click and is not a stop success. The separate necessary queued cancellation used the real stop-button handler via a MutationObserver when the button became actionable: stop ID `stop_92140d1e691942af89981c8d665e7e6f`, turn `611dc5c87a5a4ebe9345d73509311ace`, action accepted and state cancelled. At `2026-10-31T19:41:05.835Z`, state was still cancelled, reply empty, with zero started/completed/failed tool events. Its provider receipt still records a completed 3-token response; cancellation did not erase billing or prove provider computation/cost stopped. Running-state interruption remains untested.
+- Authenticated own downloads passed; real anonymous download returned 401. A new empty synthetic conversation `a34c969efbd5465eb754ad90025b9ea3` could not download the first conversation file (404). No second real low-privilege identity was available; cross-owner/revocation/expiry and FC/tool/turn denial have local contract evidence, not an equivalent second-identity production claim. No account or authentication header was fabricated. A2 lacks a trusted production host scope and remains unavailable.
+- During the instrumented first material task, no uncaught app error was observed and own-conversation requests returned expected 200/202. Later checks included deliberate 422/401/404 and the injected upload response loss. A complete console/HAR was not captured and is not claimed clean.
+- Control+Plus did not change measured DPR=2, inner/outer width=1280 or visualViewport.scale=1 in T3 preview; real 200% browser zoom is unverified, not represented by CSS zoom or a narrow-viewport pass.
+
+### Viewed current-deployment screenshots and actual visual failure
+
+All paths below are fresh production `1f8ddc57` screenshots of the synthetic conversation, actually opened with view_image. Non-current sidebar rows were privacy-hidden with verified visibility:hidden without layout changes. An initial injected stylesheet was blocked by CSP; that first screenshot was deleted and is not evidence. No historical conversation body or credential was read.
+
+| Scenario / UTC capture window | CSS viewport / theme | Absolute screenshot |
+|---|---|---|
+| Long title, expanded attachments, stopped status; 2026-10-31 19:35:44 | 1280x800 / light | `E:/T3Code/state/userdata/browser-artifacts/browser-screenshot-47-85-224-112-mvwswxv6-48da10e6.png` |
+| Same current deployment; 2026-10-31 19:35:48 | 1280x800 / dark | `E:/T3Code/state/userdata/browser-artifacts/browser-screenshot-47-85-224-112-mvwsx0qq-09ce01d2.png` |
+| Narrow view, long title and version cards; 2026-10-31 19:36 | 390x844 / dark | `E:/T3Code/state/userdata/browser-artifacts/browser-screenshot-47-85-224-112-mvwsxssa-f6fe6c63.png` |
+| Genuine failed upload and keyboard focus; 2026-10-31 19:41 | 1280x800 / dark | `E:/T3Code/state/userdata/browser-artifacts/browser-screenshot-47-85-224-112-mvwt3qxq-66a72935.png` |
+
+Visual acceptance failed: the long title squeezed the connection indicator into vertical text, expanded attachments left only a 35px message window for 2498px of content, and the 99-item history sidebar grew to about 15211px. No horizontal overflow was observed in the sampled desktop/narrow views, but that does not cure the reading/scrolling failures.
+
+### Complete follow-up candidate (not yet deployed)
+
+The A CSS/JS correction keeps the existing UI tokens/theme/navigation: clamp the visual title to two lines while retaining full DOM text and native title, keep connection status on one line, bound the history list with independent scrolling, retain at least 160px of message reading space when attachments expand, increase file-action touch targets and use human attachment progress labels. Only a confirmed accepted ordinary turn closes attachments; failed/unknown submission preserves recovery access, original IDs and selections.
+
+Follow-up preparation explicitly uses `--followup`. It validates this exact successful installed manifest and journal plus all 13 original Git LF source hashes at `1f8ddc57` and the pinned Nginx after-hash. It refuses arbitrary reflected live hashes, altered proof/Git baseline, target/protected/image drift, and missing installed modules. The 14-target/48-protected/four-module set is unchanged; the four modules now have real before-hashes and rollback restores them rather than deleting them. Already-10m Nginx bytes remain exact.
+
+For a frontend-only diff with all services already active and an actual container image, materialStaticOnly retains the original writer, journal, backups, locks/fences and every original per-row guard. Identical active targets are hash-checked and left untouched; only changed CSS/JS pass to the original atomic writer. The static postcondition verifies actual container image and active-service guards, without restarting worker/HTTP, reloading Nginx or calling a model. A synthetic failure proves rollback restores the prior frontend while all four installed modules remain. Non-static runtime deltas retain the original restart/readiness path.
+
+Checks passed: original deploy three-module runner 21 tests/zero skips; original Node data-handoff entry including executed DOM/fetch material checks; real Chromium local synthetic interactions, download bytes, 99-history/long-title/expanded messages and themes/narrow viewport. Candidate-only viewed local images are under `C:/Users/ADMINI~1/AppData/Local/Temp/fs-materials-ui-qt3cbjp9/` (`expanded.png`, `mobile-dark.png`); they are not deployed-version evidence. No unrelated Core/channel/knowledge suite was rerun and no shared CI driver changed. A newly reviewed/merged SHA, fresh pack/prepare and deployed visual review are still required.

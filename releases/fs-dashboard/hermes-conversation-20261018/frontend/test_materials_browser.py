@@ -16,6 +16,7 @@ UI = next(p / 'ui-system' for p in HERE.parents if (p / 'ui-system').is_dir())
 NAV = UI.parent / 'releases/fs-dashboard/hermes-navigation-range-20261019/candidate'
 NAV_JS = UI.parent / 'releases/fs-dashboard/campaign-analytics-20261023/navigation/source/nav.js'
 CID = 'a' * 32
+TITLE = '合成验收长中文会话标题：附件分页与确定性修订，不访问业务数据。' * 3
 
 
 def check():
@@ -63,10 +64,11 @@ def check():
             if path.endswith('/' + name):
                 return route.fulfill(body=source.read_bytes(), content_type=mime)
         if path == '/api/hermes/conversations':
-            return response({'items': [{'conversation_id': CID, 'title': '材料核对'}]})
+            return response({'items': [{'conversation_id': CID, 'title': TITLE}] + [
+                {'conversation_id': '%032x' % i, 'title': '历史合成会话 ' + str(i) + TITLE} for i in range(98)]})
         base = '/api/hermes/conversations/' + CID
         if path == base:
-            return response({'conversation_id': CID, 'title': '材料核对', 'turns': state['turns'], 'last_seq': 0})
+            return response({'conversation_id': CID, 'title': TITLE, 'turns': state['turns'], 'last_seq': 0})
         if path == base + '/events':
             return route.fulfill(body=': connected\n\n', content_type='text/event-stream')
         if path == base + '/files' and request.method == 'POST':
@@ -114,7 +116,7 @@ def check():
         thread.start()
         origin = 'http://127.0.0.1:' + str(server.server_port)
         browser = playwright.chromium.launch(headless=True)
-        page = browser.new_page(viewport={'width': 1280, 'height': 1000}, accept_downloads=True)
+        page = browser.new_page(viewport={'width': 1280, 'height': 800}, accept_downloads=True)
         page.route(origin + '/**', serve)
         page.goto(origin + '/')
         expect(page.locator('#file-input')).to_be_enabled()
@@ -132,6 +134,15 @@ def check():
         page.get_by_label('给 Hermes 发消息').fill('核对并修改金额')
         page.get_by_label('给 Hermes 发消息').press('Control+Enter')
         page.get_by_role('button', name='用于下一轮追问').wait_for()
+        assert not page.locator('#attachments').evaluate('(element) => element.open')
+        assert page.locator('#conversation-title').get_attribute('title') == TITLE
+        assert page.locator('#conversation-title').evaluate('(element) => element.getBoundingClientRect().height < 70')
+        assert page.locator('#connection-indicator').evaluate('(element) => element.getBoundingClientRect().height < 30')
+        assert page.locator('.conversation-sidebar').evaluate('(element) => element.scrollHeight > element.clientHeight && element.clientHeight < innerHeight')
+        page.locator('#attachment-summary').click()
+        assert page.locator('#messages').evaluate('(element) => element.clientHeight >= 160')
+        page.screenshot(path=str(shots / 'expanded.png'), full_page=True)
+        page.locator('#attachment-summary').click()
         assert len(state['requests']) == 1
         assert page.locator('iframe').count() == 0
         for theme in ('light', 'dark'):
