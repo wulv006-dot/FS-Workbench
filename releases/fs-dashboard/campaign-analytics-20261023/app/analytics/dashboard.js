@@ -63,7 +63,7 @@
   let panel=$('google-traffic-report');if(!seasonal()){if(panel)panel.hidden=true;return;}
   if(!panel){panel=document.createElement('section');panel.id='google-traffic-report';panel.className='panel';$('activity-summary').after(panel);}panel.hidden=false;
   const from=$('from').value,to=$('to').value,mode=$('mode').value,key=[from,to,mode,googleSource].join(':');if(key===googleKey)return;googleKey=key;googleGeneration++;
-  panel.innerHTML='<h2>Google · 万圣节页面流量</h2><p class="muted">只查询正式活动页；各来源按自己的统计日，不与UTC行为窗口拼成逐访客漏斗。此区不随游戏、设备和渠道筛选，不会在页面自动刷新时重复请求Google。</p><label>数据来源 <select id="google-source"><option value="gsc">Search Console · 自然搜索</option><option value="ga4">GA4 · 页面与访问</option><option value="ads">Google Ads · 广告落地页</option></select></label> <button id="google-load" type="button">读取 Google 明细</button><div id="google-result" role="status" aria-live="polite"><p>'+esc(from)+' 至 '+esc(to)+' · 点击读取；未查询不显示为零。</p></div>';
+  panel.innerHTML='<h2>Google · 万圣节页面流量</h2><p class="muted">只查询正式活动页；各来源按自己的统计日，不与UTC行为窗口拼成逐访客漏斗。此区不随游戏、设备和渠道筛选，不会在页面自动刷新时重复请求Google。</p><label>数据来源 <select id="google-source"><option value="gsc">Search Console · 自然搜索</option><option value="ga4">GA4 · 页面与访问</option><option value="ads">Google Ads · 广告落地页</option></select></label> <button id="google-load" class="fs-btn fs-btn--primary" type="button">读取 Google 明细</button><div id="google-result" role="status" aria-live="polite"><p>'+esc(from)+' 至 '+esc(to)+' · 点击读取；未查询不显示为零。</p></div>';
   $('google-source').value=googleSource;$('google-source').addEventListener('change',()=>{googleSource=$('google-source').value;googleKey='';showGoogle();});
   $('google-load').disabled=mode!=='live'||!window.CampaignServer;
   $('google-load').addEventListener('click',async()=>{
@@ -81,13 +81,18 @@
   html+='<p>'+({available:'接口已返回活动页记录。',no_rows:'接口正常，但未返回该活动页记录；不能据此认定真实流量为零。',partial:'部分报表未完成；仅显示本次成功返回的部分。',unavailable:'来源暂不可读；未将缺测记为零。'}[value.status]||'查询状态待核对')+'</p>';
   html+='<p class="muted">'+(value.source==='ga4'?'GA4仍受访客同意、标签加载和拦截影响。页面用户与入口会话分别查询；细分用户不相加。':value.source==='gsc'?'仅Google自然网页搜索，不含广告。最终数据可能延迟，搜索词明细受隐私与Top行限制；无记录的日期不补零。':'仅MMOEXP广告账号中直接落到该活动页的记录，不代表站内入口引流，也不等同实际订单归因。')+'</p>';
   if(value.coverage)html+='<p>站点最终数据已覆盖日期：'+esc(value.coverage.availableFinalDates.join('、')||'未取得')+'；'+(value.coverage.missingDates.length?'所选区间尚缺 '+esc(value.coverage.missingDates.join('、'))+'，当前汇总不能当完整区间结果。':'所选日期最终数据均已可查询。')+'</p>';
+  const totalReports=Object.entries(reports).filter(([name])=>name.endsWith('total')||name==='total'),totals=totalReports.flatMap(([,report])=>report.rows?.[0]?Object.entries(report.rows[0].metrics):[]);
+  const restricted=report=>report.quality&&(report.quality.subjectToThresholding||report.quality.dataLossFromOtherRow||report.quality.samplingMetadatas?.length||report.quality.schemaRestrictionResponse?.activeMetricRestrictions?.length);
+  if(value.source==='ads'&&reports.landing?.rows?.length&&!reports.landing.truncated)for(const key of ['impressions','clicks','costMicros'])totals.push([key,reports.landing.rows.reduce((sum,row)=>sum+row.metrics[key],0)]);
+  if(totals.length)html+='<div class="metrics">'+totals.map(([key,v])=>'<article class="metric"><span>'+esc(labels[key]||key)+'</span><strong>'+display(key,v)+'</strong></article>').join('')+'</div>';
+  if(totalReports.some(([,report])=>restricted(report)))html+='<p>Google标记汇总报表受阈值、采样或字段限制影响。</p>';
   for(const [name,report]of Object.entries(reports)){
+   if(name.endsWith('total')||name==='total')continue;
    const rows=report.rows||[];html+='<details><summary>'+esc(names[name]||name)+' · '+rows.length+' 行'+(report.truncated?'（返回不完整）':'')+'</summary>';
    if(!rows.length){html+='<p>未返回记录。</p></details>';continue;}
-   if(name.endsWith('total')||name==='total')html+='<div class="metrics">'+Object.entries(rows[0].metrics).map(([k,v])=>'<article class="metric"><span>'+esc(labels[k]||k)+'</span><strong>'+display(k,v)+'</strong></article>').join('')+'</div>';
-   else{const dims=Object.keys(rows[0].dimensions),metrics=Object.keys(rows[0].metrics),keys=[...dims,...metrics];html+='<div class="report-table-wrap" tabindex="0" role="region" aria-label="'+esc(names[name]||name)+'"><table><thead><tr>'+keys.map(k=>'<th scope="col">'+esc(labels[k]||k)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+keys.map(k=>'<td>'+display(k,dims.includes(k)?row.dimensions[k]:row.metrics[k])+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';}
+   const dims=Object.keys(rows[0].dimensions),metrics=Object.keys(rows[0].metrics),keys=[...dims,...metrics];html+='<div class="report-table-wrap" tabindex="0" role="region" aria-label="'+esc(names[name]||name)+'"><table><thead><tr>'+keys.map(k=>'<th scope="col">'+esc(labels[k]||k)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+keys.map(k=>'<td>'+display(k,dims.includes(k)?row.dimensions[k]:row.metrics[k])+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
    if(report.topRowsOnly)html+='<p class="muted">来源返回的Top明细，不用明细行和代替原生总量。</p>';
-   if(report.quality&&(report.quality.subjectToThresholding||report.quality.dataLossFromOtherRow||report.quality.samplingMetadatas?.length||report.quality.schemaRestrictionResponse?.activeMetricRestrictions?.length))html+='<p>Google标记该报表受阈值、采样或字段限制影响。</p>';
+   if(restricted(report))html+='<p>Google标记该报表受阈值、采样或字段限制影响。</p>';
    html+='</details>';
   }
   for(const name of Object.keys(value.failures||{}))html+='<p>'+esc(names[name]||name)+'：本次读取失败，未补零。</p>';

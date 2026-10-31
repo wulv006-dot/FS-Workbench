@@ -88,15 +88,16 @@
   }
   const consentKey='mmoexp-event-analytics-consent-v1';let transportOptIn=false,distinct=uuid();
   // Reuse the verified MMOEXP web stream; only load its tag after the existing opt-in.
-  const googleId='G-L67DEVB5XN',googleConsentKey='mmoexp-event-google-consent-v1';let googleStarted=false,googlePageSent=false;
+  const googleId='G-L67DEVB5XN',googleConsentKey='mmoexp-event-google-consent-v1';let googleStarted=false,googlePageSent=false,googleOwnsDefaults=false;
   function googleConsent(){
     let googleAllowed=false;try{googleAllowed=localStorage.getItem(googleConsentKey)==='granted';}catch{}
-    if(!consent||!googleAllowed||!liveSeasonal()||verification){window['ga-disable-'+googleId]=true;if(googleStarted)window.gtag('consent','update',{analytics_storage:'denied'});return;}
+    if(!consent||!googleAllowed||!liveSeasonal()||verification){window['ga-disable-'+googleId]=true;if(googleStarted&&googleOwnsDefaults)window.gtag('consent','update',{analytics_storage:'denied'});return;}
     try{
       window['ga-disable-'+googleId]=false;
       if(!googleStarted){
+        googleOwnsDefaults=typeof window.gtag!=='function'&&!document.querySelector('script[src*="googletagmanager.com/gtag/js"]');
         window.dataLayer=window.dataLayer||[];window.gtag=window.gtag||function(){window.dataLayer.push(arguments);};
-        window.gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
+        if(googleOwnsDefaults)window.gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
         window.gtag('js',new Date());window.gtag('config',googleId,{send_page_view:false,allow_google_signals:false,allow_ad_personalization_signals:false,page_location:location.origin+'/events/seasonal/',page_referrer:cleanReferrer(),...Object.fromEntries([['utm_source','campaign_source'],['utm_medium','campaign_medium'],['utm_campaign','campaign_name'],['utm_content','campaign_content'],['utm_term','campaign_term']].filter(([key])=>safe(params.get(key))).map(([key,field])=>[field,safe(params.get(key))]))});
         const tag=document.createElement('script');tag.async=true;tag.src='https://www.googletagmanager.com/gtag/js?id='+googleId;document.head.append(tag);googleStarted=true;
       }
