@@ -46,9 +46,9 @@ and an unknown write is never silently overwritten.
 ## Dependencies and evidence boundary
 
 CSV/HTML use the standard library. XLSX needs the existing openpyxl package;
-the pinned dependency list is `requirements-files.txt`. No dependency was installed
-in this task. Shared CI preparation belongs to the Personal coordinator and must
-include these dependencies before XLSX tests can pass in a clean runner.
+the pinned dependency list is `requirements-files.txt`. The existing `pr-fast`
+workflow installs this list when conversation files change, before running the
+isolated offline checks. Production dependency installation remains outside this slice.
 
 Local tests exercise real synthetic CSV/XLSX bytes, immutable revisions, restart,
 idempotency, HTTP adaptation, ownership, revocation, integrity and expiry. Existing
