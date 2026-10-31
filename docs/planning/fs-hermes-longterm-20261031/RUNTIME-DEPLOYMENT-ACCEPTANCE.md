@@ -6,7 +6,7 @@
 
 PR711已merge88ac65d9337f20da71864ff48ebebc5284b89963，reviewed7275612c/basecc33dbcb独审通过、project-only P2解决，LinuxCore125/user-analytics253及ready重跑成功。本包开工已fetch/ff main为fc77dd1b8743c8c54dd6c943fffa0fadfa6f30a2，工作区干净；其新增为其他活动分析，不覆盖其成果。
 
-上述不代表本轮已部署。Business先最小现场只读核对真实活动源/路径/版本、服务、入口、发布器和已有权限。历史SOURCE-MAP/manifest只作定位，不直接重放或从旧快照覆盖当前活动文件。
+上述不代表本轮已部署。Business已回交最小现场只读活动源/路径/版本、服务、入口和发布器核验，并形成完整候选；历史SOURCE-MAP/manifest只作定位，不直接重放或从旧快照覆盖当前活动文件。
 
 首要终点：原授权人员在实际FS入口用DeepSeek完成小CSV/XLSX上传、显式绑定、分页读取、已支持确定性修订、真实可打开产物下载和新turn显式追问，刷新/unknown原ID/停止/权限围栏有效，界面清楚可操作。冻结调查接入实际任务时必须有host真实身份/scope和显式检查点；缺scope/接口/额度的链明示未完成，不能只传py文件或HTTP200就称功能生效。
 
@@ -40,6 +40,16 @@ PR711已merge88ac65d9337f20da71864ff48ebebc5284b89963，reviewed7275612c/basecc3
 生产源码导出已由13项缩至1项：9项可复用精确Git字节，上述3项不改。仅会话`/var/www/dashboard/fs-home/hermes/conversation/index.html`未匹配且确需保留现行导航，5776字节，SHA256 `3d79a5642f1517a8c1e414702c2b7491dc0ff4ed079c7d09895a3b1251045a24`。目标为A本机ignored `.agent_runtime/runtime-20261101/live/frontend/index.html`，原始导出不入Git、不含配置/凭据/DB/业务数据。此前13项SCP被自动审批以未明确授权生产源码导出为由拒绝，命令未执行；2026-11-01用户针对上述精确文件/大小/hash/目标明确回复“授权仅此文件按上述范围复制”，主控已通知A可提交正常工具审核。只授权这一项，复制实际执行及哈希核对结果仍待A回报；再次拒绝须停止，不等价绕过。用户已选择在现有页用原账号登录，尚待完成回复，正常FS登录和真实会话/视觉验收仍未完成，不自动操作用户正在登录的页面、不提取凭据。
 
 A已确认对应新增测试精确路径为`releases/fs-dashboard/hermes-conversation-20261018/deploy/test_runtime_materials.py`，同属A唯一维护。现有pr-fast conversation deploy使用显式列表，不自动discover；Personal仅在该列表追加`test_runtime_materials`，保留原HTTP/release及Node入口。测试模块尚待A固定候选合入，当前不将驱动接线或A回报的本地模拟通过宣称为本分支完整验收；合入后核实际执行数量及LinuxCI，目录fsync/POSIX权限、生产回退与真实模型仍分别取证。
+
+### 固定候选集成
+
+A完整候选为`4648d7aee6aefe08294aae77f4c954809009d60d`，父基线`e18a5b71f88c7831d291e155e3b3390d637354fc`，11个路径。主控开工fetch后main仍为`fc77dd1b8743c8c54dd6c943fffa0fadfa6f30a2`，正常merge候选为`7bab422b96bf0d9929ea2cd1828fb559682a0edc`，无冲突；相对A固定候选只差主控授权记录，运行代码/测试相同。新增测试已随候选合入，不再是仅有驱动登记。
+
+复用A在相同运行代码及原pr-fast runner的证据：conversation30项、deploy16项均通过且0skip，另两项FC定价route/独立队列通过，原Node DOM/fetch与两套本地Chromium通过；后者使用合成响应，并非部署版验收。主控diff检查通过，代码/发布封装核心自查未见当前阻断项，仍待最新完整head独审与必要CI，不代替独审。知识closeout旧91项30错误保留未完成，无新业务规则或知识发布。
+
+单HTML正常工具审核及复制已成功；A核源/本地均5776字节、授权SHA一致、原件ignored且未入Git。候选HTML SHA为`6ee4a6f718e1759235648190f02c5d1c79332afa830baaa7893017048d70f604`，移除新增661字节附件块后复原活动原件。用户在A线程实际回复“已登录”，A只读核验auth200/admin及conversations200/items形状，认证不再阻塞；未读取历史聊天、Cookie或密码，未触发模型。
+
+候选pack共12个源码/静态payload，第13目标Nginx须新现场prepare派生。候选payload descriptor SHA `438c69e157c3f287408d22d2d553dafd98dfdb24dc5a19ed2d872ec7364bd468`仅对应A候选，不是生产manifest；合并后以最终合并SHA重新pack、新现场prepare并固定manifest，再按原publisher发布。实际Linux模式/fsync/compose imports、生产manifest/备份、真实DeepSeek/provider用量费用、部署视觉/缩放/停止/真实第二身份、A2 hostscope仍未验。验收后沿主方案继续，不逐阶段重复索取同范围授权。
 
 ## 当前授权边界
 
