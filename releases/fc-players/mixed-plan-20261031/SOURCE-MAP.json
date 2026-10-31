@@ -1,0 +1,26 @@
+{
+  "version": "2026.10.31-cloud.18",
+  "base_version": "2026.10.31-cloud.17",
+  "runtime_files": {
+    "VERSION": {
+      "source": "releases/fc-players/mixed-plan-20261031/VERSION",
+      "before_sha256": "ce85ee0cff583b588f8a34e9400d45af5d8fcf5933abbf7cce2f366e3af938cb",
+      "sha256": "41231936a0676bef67ee6eb1236a21bc1eb1a156de2f36b2cd41ce0e71406c19"
+    },
+    "player_web/new_card_service.py": {
+      "source": "releases/fc-players/direct-json-20261029/source/new_card_service.py",
+      "before_sha256": "3c4ed4dabc0c06db8c101edbee57fb5666456a81351961ee8f97cafc9322edea",
+      "sha256": "31735b61750c8017d7fc9a6dde4adf4e79a77fc3250ecf0e6be134091d84ce05"
+    },
+    "player_web/static/app.js": {
+      "source": "releases/fc-players/mixed-plan-20261031/source/app.js",
+      "before_sha256": "53ada0a105f5fe90f4e802eef5fd4a564385025d23711715aac03fa03729bf29",
+      "sha256": "f8de4468b900312912f48e93e82119b07e4d42b72d19e660c441467a0b6b8064"
+    }
+  },
+  "manifest_sha256": "02f18656e8a126dedf34b1fa2ab8476460664355292b973e61acbeec2c3cc291",
+  "publisher_dependency_sha256": "37b2b48020be180f2b2b00ab3ff2a51766edd8cfd9c7843096b9c623e6d5c1ea",
+  "policy_changes": false,
+  "knowledge_impact": false,
+  "notion_sync_required": false
+}
