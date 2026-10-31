@@ -107,3 +107,33 @@ to the admission prompt, without reading files in preparing state. B owns the
 independent consumer and the shared schema/allowlist. A owns the service seam,
 bindings, storage, HTTP and the synthetic loop acceptance test. Production and
 real model acceptance remain separate from this local/mock work package.
+
+### Local combined acceptance
+
+Combined A candidate `3d972b4f` with fixed B candidate `6c008963` using a normal
+merge in A's independent worktree. The two tests in
+`tests/test_conversation_file_loop.py` passed with actual A/B implementations:
+
+1. Actual v2 submit/dispatch code, simulated provider/task services, static prompt
+   attachment without preparing-stage file reads, and generated file registration.
+2. Real local synthetic CSV bytes through the HTTP adapter and turn submission;
+   scripted worker wire calls through the actual ScopedTools task/lease checks and
+   B consumer; all 451 rows read across three pages; specified edit exported to real
+   XLSX bytes; cross-user download rejected; completed-turn tools rejected; explicit
+   derivative binding in a new turn produces a third immutable CSV version.
+
+The existing pr-fast `test_conversation_store` entry includes these loop tests via
+`load_tests`. Combined conversation checks: 28 passed. Combined Core checks: 83
+passed (including B's 11 file-consumer/proxy tests). Existing conversation HTTP and
+release checks: 10 passed. Inputs are synthetic; the model, task services and
+provider are simulated. Real-model calls, production, browser/UI interaction,
+standalone calculation isolation and natural cleanup cycles are not validated.
+
+A's scripted loop loads the 20261021 proxy. B separately reports 11 boundary
+tests covering both 20261021/20261026 proxies and the 20261021 runs contract,
+including exact file-tool schemas/allowlists and task/lease/deadline/no-context
+rejection before reaching file storage. This does not verify which proxy is
+assembled in production, a real worker process, or a model run.
+
+Only the Personal coordinator creates the final integrated work-package draft PR;
+A supplies this branch/commit and repairs its owned files within that package.
