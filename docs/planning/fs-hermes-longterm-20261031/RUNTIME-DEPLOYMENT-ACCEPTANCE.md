@@ -81,6 +81,16 @@ PR717 reviewed `67e3c0107615dede37ae08befe4c6feb5b9e7157`独审无未解决项�
 
 完整最小兼容候选A `d5a640e9dd64d39a10a4e46c319c565e468fab9d`（base ba972abb）已正常合入，实际三路径：runtime_release正常容器分支去`--value`并按`ActiveState=...`解析、现有契约断言完整兼容命令及模块失败/恢复附录。A已真实只读核`systemctl --version=219`与原`-p ActiveState`返回`ActiveState=failed`。worker语义、冻结base、14/48/4集合、恢复态及原guards均未改。主控核同封装直接命令仅此处使用不兼容参数，运行代码/测试与A固定候选一致，diff检查通过；复用原deploy三模块19项零skip证据，不重复无关旧套件。最新完整SHA独审/必要CI、新最终SHA现场pack/prepare及真实恢复仍待完成，旧stage不重放。
 
+### 软件发布成功，真实使用验收进行中
+
+PR718 reviewed `0a3e595ad7045ec9bcf919947eead55fda188c91`独审无未解决问题，受影响独立case/18异常边界及Linuxdeploy19零skip通过，正常merge `1f8ddc57c37e16df7c802de358eefb6585d078ee`。主控核merge树与reviewedhead一致，A clean/ff后新Git LF pack descriptor `346d3b5659593a5b78a5043fd7c4ec717e0f3824815bef83ba024620bd010014`。
+
+A实际发布回执：stage `/var/tmp/fs-hermes-materials-1f8ddc57-20261031T192312Z/stage`，baseline `2026-10-31T19:23:40.580450+00:00`，manifest `b129179049dc9ff4b575075ebd1b47c1f6edf325936ac70b1286ca990bd73a05`，runtimeBefore为failed、来源configured_unit_and_local_image。inspect source/protected CAS通过后仅apply一次，返回`applied-awaiting-actual-http-role-acceptance`；备份 `/var/backups/fs-navigation-20261006/nav-20261031T192312Z`，journal SHA `c902e8f3d1d613c80f1f0573647dbcf17184466579fdfbc77539d8f8846c24fc`。
+
+独立现场读回14个afterSHA均与manifest一致，root owner/原mode匹配，48保护文件原SHA保持。worker/range/nginx均active/running；实际`fs-hermes-fc`容器Running=true、image为原`sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544`；range health200/oktrue，匿名worker capabilities401。原健康、实际容器及成功active guards通过后才reload限定Nginx增量。未改unit/凭据/权限、未清UNKNOWN/DB或做业务写。此前失败stage/journal保留，不据本次成功抹去。
+
+该回执只计软件发布与基础服务恢复。A在正常Default登录态独立新tab核auth verify200、同源创建专用合成会话201，cid `0884f9a7a4ee4b66a220e20651e4e54c`；尚未提交模型，用户历史页未操作。真实材料/DeepSeek分页修订下载追问、原ID/停止/可用权限、当前部署版视觉/键盘/窄屏/缩放正在取证，Personal最终审核尚未通过。A2真实scope、真实第二身份等仍未验，不标完整Hermes或阶段1/2完成。
+
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。
 
 不新增账号/凭据/权限/安全配置或费用，不启用待配置模型，不改价/发券/订单/触达客户、不真实购买支付。测试仅新增明确标记的小合成验收会话/附件，不删除旧业务数据。真实数据只读现有授权scope的必要匿名摘要，原客户/订单/密钥不进Git或截图。
