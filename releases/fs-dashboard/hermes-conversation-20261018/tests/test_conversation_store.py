@@ -318,5 +318,12 @@ class StoreTests(unittest.TestCase):
             self.assertEqual(store.detail("admin", cid)["turns"][0]["reply"], "最终原文")
 
 
+def load_tests(loader, tests, pattern):
+    # The existing pr-fast store entry also exercises the cross-line file workflow.
+    import test_conversation_file_loop
+    tests.addTests(loader.loadTestsFromModule(test_conversation_file_loop))
+    return tests
+
+
 if __name__ == "__main__":
     unittest.main()
