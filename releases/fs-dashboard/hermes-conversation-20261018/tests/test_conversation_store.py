@@ -3,9 +3,126 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import io
+import json
+from email.message import Message
+from types import SimpleNamespace
+from urllib.parse import urlsplit
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "source"))
 from conversation_store import ConversationStore
+from conversation_files import ConversationFiles, parse_table
+from conversation_http import handle
+
+
+class FileTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.store = ConversationStore(self.temp.name)
+        self.cid = self.store.create('alice')['conversation_id']
+        self.files = ConversationFiles(self.store)
+
+    def test_real_bytes_full_rows_revision_restart_and_permissions(self):
+        raw = ('name,value\n' + ''.join('item,2\n' for _ in range(500))).encode()
+        first = self.files.save('alice', self.cid, 'report.csv', raw, 'upload_001')
+        self.assertEqual(self.files.parsed('alice', self.cid, first['file_id'])['cells'], 1002)
+        second = self.files.revise('alice', self.cid, first['file_id'],
+                                   [{'sheet': 0, 'row': 500, 'column': 1, 'value': '7'}], 'xlsx', 'revise_001')
+        self.assertEqual(second['version'], 2)
+        self.assertEqual(second['parent_id'], first['file_id'])
+        self.assertEqual(self.files.revise('alice', self.cid, first['file_id'],
+                                          [{'sheet': 0, 'row': 500, 'column': 1, 'value': '7'}],
+                                          'xlsx', 'revise_001'), second)
+        with self.assertRaises(ValueError):
+            self.files.revise('alice', self.cid, first['file_id'], [], 'xlsx', 'revise_001')
+        restarted = ConversationFiles(ConversationStore(self.temp.name))
+        self.assertEqual(restarted.read('alice', self.cid, first['file_id'])['content'], raw)
+        self.assertEqual(restarted.parsed('alice', self.cid, second['file_id'])['sheets'][0]['rows'][-1], ['item', '7'])
+        for operation in (lambda: restarted.read('bob', self.cid, first['file_id']),
+                          lambda: restarted.parsed('bob', self.cid, second['file_id']),
+                          lambda: restarted.save('bob', self.cid, 'a.csv', raw, 'upload_002')):
+            with self.assertRaises(LookupError):
+                operation()
+        other = self.store.create('alice')['conversation_id']
+        with self.assertRaises(LookupError):
+            self.files.read('alice', other, first['file_id'])
+
+    def test_idempotency_integrity_expiry_and_legacy_preservation(self):
+        item = self.files.save('alice', self.cid, 'a.csv', b'a,b\n1,2', 'upload_001')
+        self.assertEqual(self.files.save('alice', self.cid, 'a.csv', b'a,b\n1,2', 'upload_001'), item)
+        with self.assertRaises(ValueError):
+            self.files.save('alice', self.cid, 'a.csv', b'a,b\n3,4', 'upload_001')
+        target = Path(self.temp.name) / 'files' / self.cid / item['file_id']
+        target.write_bytes(b'bad')
+        with self.assertRaisesRegex(ValueError, 'integrity'):
+            self.files.read('alice', self.cid, item['file_id'])
+        legacy = Path(self.temp.name) / 'artifacts'
+        legacy.mkdir()
+        (legacy / 'old').write_bytes(b'preserve')
+        with patch('conversation_files.time.time', return_value=item['expires_at'] + 1):
+            with self.assertRaises(LookupError):
+                self.files.read('alice', self.cid, item['file_id'])
+            self.assertTrue(self.files.listed('alice', self.cid)['items'][0]['expired'])
+        self.assertFalse(target.exists())
+        self.assertEqual((legacy / 'old').read_bytes(), b'preserve')
+
+    def test_xlsx_formula_is_not_executed_and_html_is_escaped(self):
+        from openpyxl import Workbook
+        book = Workbook()
+        book.active.append(['=1+2', '<script>alert(1)</script>'])
+        data = io.BytesIO()
+        book.save(data)
+        book.close()
+        item = self.files.save('alice', self.cid, 'formulas.xlsx', data.getvalue(), 'upload_001')
+        parsed = self.files.parsed('alice', self.cid, item['file_id'])
+        self.assertEqual(parsed['sheets'][0]['rows'][0][0], '=1+2')
+        self.assertEqual(parsed['formulas'], 'expressions_preserved_not_evaluated')
+        result = self.files.revise('alice', self.cid, item['file_id'], [], 'html', 'revise_001')
+        output = self.files.read('alice', self.cid, result['file_id'])['content']
+        self.assertIn(b'&lt;script&gt;', output)
+        self.assertNotIn(b'<script>', output)
+        with patch('conversation_files.MAX_CELLS', 1):
+            with self.assertRaisesRegex(ValueError, 'too_large'):
+                parse_table(b'a,b\n1,2', 'csv')
+        with self.assertRaises(ValueError):
+            self.files.save('alice', self.cid, '../x.csv', b'a', 'upload_002')
+
+    def request(self, method, path, body=b'', headers=None, user='alice', allowed=True):
+        message = Message()
+        for key, value in {'Content-Length': str(len(body)), 'Content-Type': 'application/octet-stream',
+                           'X-FS-Advisor-Action': 'submit', 'Sec-Fetch-Site': 'same-origin', **(headers or {})}.items():
+            message[key] = value
+        status, response_headers = [], {}
+        handler = SimpleNamespace(headers=message, rfile=io.BytesIO(body), wfile=io.BytesIO(),
+                                  connection=SimpleNamespace(settimeout=lambda _: None),
+                                  send_response=status.append, send_header=lambda k, v: response_headers.update({k: v}),
+                                  end_headers=lambda: None)
+        service = SimpleNamespace(store=self.store, detail=self.store.detail)
+        self.assertTrue(handle(handler, method, urlsplit('/api/hermes/conversations/' + self.cid + path),
+                               user, service, lambda _: allowed))
+        return status[0], handler.wfile.getvalue(), response_headers
+
+    def test_http_upload_revision_download_and_revocation(self):
+        code, raw, _ = self.request('POST', '/files', b'a,b\n1,2',
+                                    {'X-FS-Filename': 'a.csv', 'X-FS-Request-ID': 'upload_001'})
+        self.assertEqual(code, 201)
+        fid = json.loads(raw)['file_id']
+        code, raw, _ = self.request('POST', '/files/' + fid + '/revisions',
+                                    json.dumps({'edits': [], 'format': 'xlsx', 'client_request_id': 'revise_001'}).encode(),
+                                    {'Content-Type': 'application/json'})
+        self.assertEqual(code, 201)
+        revised = json.loads(raw)['file_id']
+        code, content, headers = self.request('GET', '/files/' + revised)
+        self.assertEqual(code, 200)
+        self.assertTrue(content.startswith(b'PK'))
+        self.assertEqual(headers['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        self.assertEqual(self.request('GET', '/files/' + fid, user='bob')[0], 404)
+        self.assertEqual(self.request('GET', '/files/' + fid, allowed=False)[0], 403)
+        self.assertEqual(self.request('POST', '/files', b'x', {'Sec-Fetch-Site': 'cross-site'})[0], 403)
+        self.assertEqual(self.request('POST', '/files', b'bad zip',
+                                     {'X-FS-Filename': 'bad.xlsx', 'X-FS-Request-ID': 'upload_002'})[0], 422)
 
 
 class StoreTests(unittest.TestCase):
