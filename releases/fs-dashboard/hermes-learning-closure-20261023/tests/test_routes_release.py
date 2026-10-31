@@ -56,6 +56,54 @@ class Routes(unittest.TestCase):
         self.write();self.value['nativeImageAfter']='sha256:'+'d'*64
         with self.assertRaisesRegex(ValueError,'same_image_cache_restart'):scope.checked(self.value,self.stage)
 
+    def refresh(self):
+        self.before=copy.deepcopy(self.after)
+        self.before['task_routes']['routes'][0].update(catalog='old',sha256='0'*64,entry_ids=['old'])
+        self.item['entry_ids']=['current'];self.item['history_entry_ids']=['archive']
+        plugin=self.stage/'candidate/plugin/knowledge.py';plugin.parent.mkdir();plugin.write_bytes(b'new plugin')
+        self.value.update(knowledgeRefresh=True)
+        self.value['files'].append(dict(candidate='plugin/knowledge.py',target='/var/lib/fs-hermes-fc/profile/plugins/fs-readonly/knowledge.py',
+            beforeSha256='d'*64,sha256=hashlib.sha256(plugin.read_bytes()).hexdigest()))
+        self.write()
+
+    def test_refresh_changes_versions_with_exact_existing_bindings_and_original_readonly(self):
+        self.refresh();scope.checked(self.value,self.stage)
+        self.item['owner']='other';self.write()
+        with self.assertRaisesRegex(ValueError,'refresh_existing_bindings'):scope.checked(self.value,self.stage)
+        self.item['owner']='wulv';self.after['native']=dict(enabled=False);self.write()
+        with self.assertRaisesRegex(ValueError,'existing_policy_preserved'):scope.checked(self.value,self.stage)
+
+    def test_refresh_can_add_only_declared_desktop_owner_and_keeps_group_scope(self):
+        self.refresh()
+        desktop=dict(self.item,channel='desktop',profile_name='default',task_types=['conversation'])
+        desktop.pop('baseline_compatibility');self.after['task_routes']['routes'].append(desktop);self.write()
+        with self.assertRaisesRegex(ValueError,'refresh_existing_bindings'):scope.checked(self.value,self.stage)
+        self.value['desktopRouteAdded']=True;scope.checked(self.value,self.stage)
+        desktop['owner']='other';self.write()
+        with self.assertRaisesRegex(ValueError,'desktop_exact_owner_profile'):scope.checked(self.value,self.stage)
+
+    def test_refresh_plugin_payload_drift_is_rejected(self):
+        self.refresh();(self.stage/'candidate/plugin/knowledge.py').write_bytes(b'unreviewed')
+        with self.assertRaisesRegex(ValueError,'refresh_plugin_bytes'):scope.checked(self.value,self.stage)
+        self.value['releaseReady']=True
+        with self.assertRaisesRegex(ValueError,'refresh_protection_required'):scope.checked(self.value,self.stage)
+
+    def test_refresh_reuses_frozen_profile_adapter_and_native_fence(self):
+        self.refresh()
+        root=p.parents[4]
+        sources={'release_adapter_base.py':'releases/fs-dashboard/user-analytics-20261022/deploy/release.py',
+                 'release_navigation_base.py':'releases/fs-dashboard/channel-effects-20261021/deploy/release_navigation_base.py',
+                 'native_scope_base.py':'releases/fs-dashboard/knowledge-layering-20261023/deploy/native_release.py'}
+        for target,source in sources.items():
+            raw=(root/source).read_bytes()
+            (self.stage/target).write_bytes(raw if target=='release_navigation_base.py' else raw.replace(b'\r\n',b'\n'))
+        for row in self.value['files']:row.update(owner='0:0',mode='0o644')
+        (self.stage/'approved-manifest.json').write_text(json.dumps(self.value))
+        with mock.patch.object(scope,'HERE',self.stage):
+            base=scope.load_base()
+        self.assertEqual(base.apply.__module__,'frozen_hermes_v2_publisher')
+        self.assertEqual(base.hermes_admission_fence.__name__,'fence')
+
     def test_existing_native_fence_recreates_gateway_cache_and_keeps_business_reader(self):
         path=p.parents[2]/'knowledge-layering-20261023/deploy/native_release.py'
         self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),scope.NATIVE_SCOPE_SHA)

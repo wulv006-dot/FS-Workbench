@@ -17,8 +17,12 @@ def digest(value):
 
 
 def checked(value,stage):
-    if (value.get('scope')!=SCOPE or len(value.get('files',[]))!=1
-            or {r['candidate']:r['target'] for r in value['files']}!=TARGETS
+    refresh=value.get('knowledgeRefresh') is True
+    targets=dict(TARGETS)
+    if refresh:
+        targets['plugin/knowledge.py']='/var/lib/fs-hermes-fc/profile/plugins/fs-readonly/knowledge.py'
+    if (value.get('scope')!=SCOPE or len(value.get('files',[]))!=len(targets)
+            or {r['candidate']:r['target'] for r in value['files']}!=targets
             or value.get('businessWrites') is not False or value.get('timersChanged') is not False):
         raise ValueError('routes_exact_policy_scope')
     if (value.get('nativeImageBefore')!=value.get('nativeImageRequired')
@@ -32,13 +36,30 @@ def checked(value,stage):
         raise ValueError('routes_frozen_policy_bytes')
     prior,current=json.loads(before),json.loads(after)
     if ({k:v for k,v in prior.items() if k!='task_routes'}!={k:v for k,v in current.items() if k!='task_routes'}
-            or prior.get('task_routes',{}).get('enabled') is True):
+            or prior.get('task_routes',{}).get('enabled') is True and not refresh):
         raise ValueError('routes_existing_policy_preserved')
     routes=current.get('task_routes',{})
     if set(routes)!={'enabled','routes'} or routes['enabled'] is not True or not routes['routes']:
         raise ValueError('routes_activation_required')
     if digest(routes['routes'])!=value['taskRoutesSha256']:
         raise ValueError('routes_exact_approved_identities')
+    if refresh:
+        if value.get('releaseReady') is True and not all(value.get('nativeProtection',{}).get(k) for k in ('metadata','trees')):
+            raise ValueError('routes_refresh_protection_required')
+        def bindings(items):
+            return [{k:v for k,v in r.items() if k not in ('catalog','sha256','entry_ids','history_entry_ids')}
+                    for r in items]
+        old=bindings(prior.get('task_routes',{}).get('routes',[]));new=bindings(routes['routes'])
+        if value.get('desktopRouteAdded') is True:
+            desktop=[r for r in new if r.get('channel')=='desktop' and r not in old]
+            if len(desktop)!=1:
+                raise ValueError('routes_refresh_desktop_binding')
+            new.remove(desktop[0])
+        if prior.get('task_routes',{}).get('enabled') is not True or old!=new:
+            raise ValueError('routes_refresh_existing_bindings')
+        plugin=next(r for r in value['files'] if r['candidate']=='plugin/knowledge.py')
+        if (not plugin.get('beforeSha256') or hashlib.sha256((stage/'candidate/plugin/knowledge.py').read_bytes()).hexdigest()!=plugin['sha256']):
+            raise ValueError('routes_refresh_plugin_bytes')
     for item in routes['routes']:
         if (item.get('project')!='FS' or set(item.get('modules',[]))!={'FS','FC27'}
                 or item.get('catalog')!=value['catalogPath'] or item.get('sha256')!=value['catalogSha256']
@@ -52,6 +73,10 @@ def checked(value,stage):
             if (not item.get('owner') or not item.get('chat_id') or 'thread_id' not in item
                     or item.get('profile_name')!='default' or item.get('task_types')!=['conversation']):
                 raise ValueError('routes_feishu_exact_scope')
+        elif refresh and item.get('channel')=='desktop':
+            if (item.get('owner')!='wulv' or item.get('profile_name')!='default'
+                    or item.get('task_types')!=['conversation'] or 'chat_id' in item or 'thread_id' in item):
+                raise ValueError('routes_desktop_exact_owner_profile')
         else:
             raise ValueError('routes_unapproved_channel')
     return value
@@ -68,12 +93,16 @@ def native_scope():
 
 def load_base():
     raw=(HERE/'release_adapter_base.py').read_bytes()
-    if hashlib.sha256(raw).hexdigest()!='65794d515f78826e5a23c4c88966c603e1a46dd3c977c3dd0956bc770a581344':
+    requested=json.loads((HERE/'approved-manifest.json').read_text('utf-8'))
+    refresh=requested.get('knowledgeRefresh') is True
+    expected='1ce25dae41a5bac8317d0ab2b9b719964085b3a1d1481708692ec099111775dc' if refresh else '65794d515f78826e5a23c4c88966c603e1a46dd3c977c3dd0956bc770a581344'
+    if hashlib.sha256(raw).hexdigest()!=expected:
         raise ValueError('existing_adapter_drift')
-    value=checked(json.loads((HERE/'approved-manifest.json').read_text('utf-8')),HERE)
+    value=checked(requested,HERE)
     spec=importlib.util.spec_from_file_location('existing_routes_scope',HERE/'release_adapter_base.py')
     adapter=importlib.util.module_from_spec(spec);spec.loader.exec_module(adapter)
-    adapter.HERE,adapter.SCOPE,adapter.TARGETS,adapter.NEW=HERE,SCOPE,TARGETS,frozenset()
+    adapter.HERE,adapter.SCOPE,adapter.TARGETS,adapter.NEW=HERE,SCOPE,{r['candidate']:r['target'] for r in value['files']},frozenset()
+    adapter.AUTHORIZED_TIMERS=frozenset()
     base=adapter.load_base();group=base.approved_daily_group;inspect=base.inspect
     base.approved_daily_group=lambda v,r,p,i:group(v,r,p,i) or (v.get('scope')==SCOPE
         and p==base.rooted(r,'/var/lib/fs-hermes-fc') and (i.st_uid,i.st_gid,stat.S_IMODE(i.st_mode))==(0,9876,0o750))
@@ -84,8 +113,15 @@ def load_base():
             raise ValueError('routes_native_image_and_readonly_catalog_required')
         return inspect(manifest,stage,root)
     base.inspect=ready
+    native=native_scope()
+    if refresh:
+        guards=base.guards
+        def protected(manifest,root,reader_stopped=False):
+            native.verify_protection(manifest,root)
+            return guards(manifest,root,reader_stopped)
+        base.guards=protected
     # Cached gateway agents select their wrapper at construction; recreate them under the existing turn fence.
-    return native_scope().install_native_scope(base,value)
+    return native.install_native_scope(base,value)
 
 
 if __name__=='__main__':load_base().main()
