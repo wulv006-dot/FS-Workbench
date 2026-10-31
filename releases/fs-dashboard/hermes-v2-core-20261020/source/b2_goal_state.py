@@ -129,7 +129,7 @@ The host persists this object using its existing create-if-absent mechanism.
     return state
 
 
-def plan_step(state, *, expected_revision, now, fact_version, request_id, authorize):
+def plan_step(state, *, expected_revision, now, fact_version, request_id, authorize, evidence=None):
     """Propose at most one short task on changed facts or an explicit due point.
 
 Persist the proposed state via host CAS before dispatch. A replay of prepared
@@ -137,6 +137,8 @@ state reconciles the original ID; it never assumes an absent receipt means no
 execution. The host's original task ledger owns cross-history ID uniqueness.
 fact_version must be the trusted scope/identity/policy/data version composite,
 not the current clock, a model claim or an unscoped digest.
+Fresh evidence is server-validated, and saved with prepared in this same CAS;
+it is ignored when paused/pending/waiting, never a separate fake task receipt.
 """
     _guard(state, expected_revision, now, authorize)
     new = deepcopy(state)
@@ -159,9 +161,11 @@ not the current clock, a model claim or an unscoped digest.
     new['work'] = dict(request_id=request_id, fact_version=fact_version,
                        checkpoint_at=state['next_check_at'] if due else None,
                        status='prepared', receipt_ref=None, receipt_digest=None)
+    if evidence is not None:
+        new['evidence'] = deepcopy(evidence)
     continuation = handoff(task_id=request_id, revision=state['revision'] + 1,
                            goal=state['objective'], constraints=state['constraints'],
-                           evidence=state['evidence'],
+                           evidence=new['evidence'],
                            completed_actions=state['completed_actions'],
                            next_step='Read authorized frozen evidence; preserve missing fields, '
                                      'compare changes and the explicit checkpoint; include '
