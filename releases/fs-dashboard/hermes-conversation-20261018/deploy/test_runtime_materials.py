@@ -1,0 +1,187 @@
+"""Synthetic publisher/SQLite checks; not real Linux modes, deployment or login."""
+from contextlib import closing
+from datetime import datetime, timedelta, timezone
+import importlib.util
+import json
+import os
+from pathlib import Path
+import sqlite3
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import runtime_prepare as prepare
+import runtime_release as release
+
+
+NGINX = (b'# unrelated\r\nlocation = /api/hermes/conversations {\r\n'
+         b' if ($request_method !~ ^(GET|POST)$) { return 405; }\r\n'
+         b' auth_request /__auth_verify;\r\n client_max_body_size 16k;\r\n}\r\n'
+         b'location ^~ /api/hermes/conversations/ {\r\n client_max_body_size 16k;\r\n}\r\n'
+         b'location /other { client_max_body_size 16k; }\r\n')
+
+
+class RuntimeMaterials(unittest.TestCase):
+    def test_nginx_patch_preserves_all_other_bytes_and_rejects_anchor_drift(self):
+        changed = prepare.patch_nginx(NGINX)
+        self.assertEqual(changed.replace(b'10m;', b'16k;'), NGINX)
+        self.assertEqual(changed.count(b'10m;'), 2)
+        self.assertIn(b'location /other { client_max_body_size 16k; }', changed)
+        for raw in (NGINX.replace(b'16k;', b'20k;', 1), NGINX + NGINX, b'location /other {}'):
+            with self.assertRaises(ValueError):
+                prepare.patch_nginx(raw)
+
+    def test_pack_consumes_injected_git_blob_bytes_not_working_copy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = root / 'repo'; repo.mkdir()
+            sources = {'runtime/a.py': 'a.py'}
+            files = {'a.py': b'committed\n', **{path: b'publisher\n' for path in prepare.PUBLISHER_SOURCES.values()}}
+            for name, body in files.items():
+                target = repo / name; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(body)
+            commit = 'a' * 40
+            (repo / 'a.py').write_bytes(b'uncommitted\r\n')
+            def git_blob(command, cwd):
+                self.assertEqual(command[:2], ['git', 'show'])
+                self.assertEqual(cwd, repo)
+                self.assertTrue(command[2].startswith(commit + ':'))
+                return files[command[2].split(':', 1)[1]]
+            # The normal pr-fast runner forbids child processes. Inject only the
+            # Git blob boundary; production pack still calls git show directly.
+            with patch.object(prepare, 'SOURCES', sources), patch.object(prepare.subprocess, 'check_output', git_blob):
+                result = prepare.pack(repo, root / 'payload', commit)
+            self.assertEqual((root / 'payload/payload/runtime/a.py').read_bytes(), b'committed\n')
+            self.assertEqual(result['payload_sha256'], prepare.digest((root / 'payload/payload-manifest.json').read_bytes()))
+
+    def fixture(self, root):
+        system = root / 'system'; system.mkdir()
+        base = release.frozen()
+        hashes = {}
+        for name, target in release.TARGETS.items():
+            if name in release.NEW:
+                continue
+            path = base.rooted(system, target); path.parent.mkdir(parents=True, exist_ok=True)
+            body = NGINX if target == release.NGINX else ('old:' + name).encode()
+            path.write_bytes(body); hashes[name] = prepare.digest(body)
+        for target in release.protected_paths(base):
+            path = base.rooted(system, target); path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b'protected')
+        payload = root / 'bundle/payload'; payload.mkdir(parents=True)
+        descriptor = {'source_commit': 'a' * 40, 'files': {}}
+        for name in prepare.SOURCES:
+            path = payload / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(('new:' + name).encode())
+            descriptor['files']['payload/' + name] = prepare.digest(path.read_bytes())
+        for name, source in prepare.PUBLISHER_SOURCES.items():
+            source = next(parent / source for parent in release.HERE.parents if (parent / source).is_file())
+            path = payload.parent / name; path.write_bytes(source.read_bytes())
+            descriptor['files'][name] = prepare.digest(path.read_bytes())
+        raw = json.dumps(descriptor).encode(); (payload.parent / 'payload-manifest.json').write_bytes(raw)
+
+        def metadata(base, host, name, absent=False):
+            # Only Windows temp fixture ownership/modes are synthetic. Byte hashes,
+            # exact target sets, manifests, CAS and rollback use real files.
+            path = base.rooted(host, name)
+            if not path.exists():
+                if not absent:
+                    raise ValueError('fixture_missing')
+                return {'path': name, 'sha256': None}
+            return {'path': name, 'sha256': prepare.digest(path.read_bytes()),
+                    'mode': '0o600' if name == release.NGINX else '0o644'}
+        return base, system, payload, hashes, metadata, prepare.digest(raw)
+
+    def test_fresh_manifest_validate_and_existing_target_cas(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, system, payload, known, metadata, sha = self.fixture(root)
+            stage = root / 'stage'
+            with patch.object(prepare, 'KNOWN', known), patch.object(prepare, 'file_metadata', metadata):
+                result = prepare.prepare(payload, stage, 'a' * 40, sha, root=system)
+            self.assertEqual(result['production_writes'], 0)
+            spec = importlib.util.spec_from_file_location('staged_materials', stage / 'runtime_release.py')
+            module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+            publisher = module.load_base()
+            manifest = json.loads((stage / 'approved-manifest.json').read_bytes())
+            self.assertFalse(manifest['releaseReady'])
+            publisher.validate(manifest, stage)
+            # OS/service/retirement checks are intentionally outside this fixture.
+            publisher.guards = lambda *a, **kw: None
+            publisher.retirement = lambda *a: None
+            publisher.inspect(manifest, stage, system)
+            target = base.rooted(system, release.TARGETS['runtime/conversation_store.py'])
+            target.write_bytes(b'concurrent change')
+            with self.assertRaisesRegex(ValueError, 'target baseline drift'):
+                publisher.inspect(manifest, stage, system)
+            with self.assertRaisesRegex(ValueError, 'exact_material_manifest_required'):
+                publisher.validate(dict(manifest, businessWrites=True), stage)
+            manifest['baselineObservedAt'] = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+            (stage / 'approved-manifest.json').write_text(json.dumps(manifest), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'fresh_material_baseline_required'):
+                module.load_base().validate(manifest, stage)
+
+    def test_payload_tamper_and_existing_new_file_stop_preparation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, system, payload, known, metadata, sha = self.fixture(root)
+            target = base.rooted(system, release.TARGETS['runtime/conversation_files.py'])
+            target.write_bytes(b'unknown existing module')
+            with patch.object(prepare, 'KNOWN', known), patch.object(prepare, 'file_metadata', metadata):
+                with self.assertRaisesRegex(ValueError, 'runtime_source_baseline_drift'):
+                    prepare.prepare(payload, root / 'stage', 'a' * 40, sha, root=system)
+            self.assertFalse((root / 'stage').exists())
+            (payload / 'runtime/conversation_files.py').write_bytes(b'tampered')
+            with self.assertRaisesRegex(ValueError, 'git_payload_changed'):
+                prepare.prepare(payload, root / 'stage', 'a' * 40, sha, root=system)
+
+    def test_sqlite_active_unknown_and_pricing_lane_are_not_cleared(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); base = release.frozen()
+            names = {'conversations/conversations.db': ['turns'], 'pricing-reviews/conversations.db': ['turns'],
+                     'tasks.sqlite3': ['tasks', 'learning_events']}
+            for name, tables in names.items():
+                path = base.rooted(root, '/var/lib/fs-hermes-fc/fs/' + name); path.parent.mkdir(parents=True, exist_ok=True)
+                with closing(sqlite3.connect(path)) as db:
+                    for table in tables:
+                        db.execute('CREATE TABLE ' + table + '(state TEXT)')
+            release.quiescent(base, root)
+            path = base.rooted(root, '/var/lib/fs-hermes-fc/fs/pricing-reviews/conversations.db')
+            with closing(sqlite3.connect(path)) as db:
+                db.execute("INSERT INTO turns VALUES('dispatch_unknown')"); db.commit()
+            with self.assertRaisesRegex(ValueError, 'active_or_unknown_material_task'):
+                release.quiescent(base, root)
+            with closing(sqlite3.connect(path)) as db:
+                self.assertEqual(db.execute('SELECT state FROM turns').fetchall(), [('dispatch_unknown',)])
+
+    def test_original_rollback_restores_code_and_preserves_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); base = release.frozen(); backup = root / 'backup'; backup.mkdir()
+            if os.name == 'nt':
+                # Windows cannot fsync directories. Linux CI uses the real
+                # original primitive; this local case checks byte/CAS semantics.
+                base.directory_sync = lambda path: None
+            target = '/opt/fs-hermes-fc/conversation_store.py'
+            data = root / 'business.db'; data.write_bytes(b'preserve actual state')
+            rows = []
+            for name, path in release.TARGETS.items():
+                code = base.rooted(root, path); code.parent.mkdir(parents=True, exist_ok=True); code.write_bytes(b'new')
+                old = None if name in release.NEW else prepare.digest(b'old')
+                if old:
+                    saved = backup / 'files' / name; saved.parent.mkdir(parents=True, exist_ok=True); saved.write_bytes(b'old')
+                rows.append({'candidate': name, 'target': path, 'beforeSha256': old, 'sha256': prepare.digest(b'new')})
+            manifest = {'schemaVersion': 1, 'scope': release.SCOPE, 'files': rows}
+            raw = json.dumps(manifest).encode(); (backup / 'approved-manifest.json').write_bytes(raw)
+            journal = {'files': [dict(row, beforeMode=0o600 if row['target'] == release.NGINX else 0o644,
+                                     intent=True, written=True) for row in rows],
+                       'manifest': manifest, 'approvedManifestSha256': prepare.digest(raw)}
+            base.rollback_journal(backup, journal, root)
+            code = base.rooted(root, target)
+            self.assertEqual(code.read_bytes(), b'old')
+            self.assertEqual(data.read_bytes(), b'preserve actual state')
+            self.assertFalse(base.rooted(root, release.TARGETS['runtime/conversation_files.py']).exists())
+            if os.name == 'posix':
+                self.assertEqual(base.rooted(root, release.NGINX).stat().st_mode & 0o777, 0o600)
+            code.write_bytes(b'other operator')
+            with self.assertRaises(ValueError):
+                base.rollback_journal(backup, journal, root)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -3,7 +3,7 @@
 
 **整理日期：2026-10-31｜本次整合：双端首轮工作包、共享接口与最新业务口径**  
 **适用项目：MMOEXP / FS-Workbench / Hermes**  
-**当前结论：V4/V5是历史方案编号；PR704—708已有局部代码交付和本地/CI验收，阶段1/2整体及生产仍未验收。**
+**当前结论：V4/V5是历史方案编号；PR704—711已有局部代码交付和本地/CI/独审验收，阶段1/2整体及本轮生产仍未验收。**
 
 **当前入口：G0本机开工核对已回报，继续阶段1与阶段2；现阶段模型保留DeepSeek，候选模型先验证、后切换。**
 
@@ -49,8 +49,8 @@
 | 阶段 | 目标 | 当前状态与待办 | 完成凭据 |
 |---|---|---|---|
 | 阶段0 | 核对现有能力和当前规则 | 本机开工/分支/归属已核；生产活动映射未知，不扩全仓核查 | G0-B1.md、当前施工记录 |
-| 阶段1 | Agent 工作台与共用工具 | 文件工具/附件UI代码包已合并；待真实运行装配、FS查询计算、配额清理及真实材料任务验收 | PR704/707/708、FILES-WORKPACKAGE.md、MATERIALS-UI-WORKPACKAGE.md |
-| 阶段2 | 自主模型路由、按需数据与用户追踪 | B1/B2离线首片、材料观察及PR709 DeepSeek默认/候选仅验证已合并；本轮合入A2固定候选并实现B2冻结调查，CI/独审待完成；完整追踪与实际模型回执未验 | PR705/706/708/709、B2-HANDOFF.md、DEEPSEEK-VALIDATION-WORKPACKAGE.md、A2-B2-FROZEN-WORKPACKAGE.md |
+| 阶段1 | Agent 工作台与共用工具 | 文件工具/附件UI代码包已合并；用户已安排Business做运行接线/部署/真实测试，Personal最终审核功能与视觉；配额清理/完整材料任务仍按实证验收 | PR704/707/708、FILES-WORKPACKAGE.md、MATERIALS-UI-WORKPACKAGE.md、RUNTIME-DEPLOYMENT-ACCEPTANCE.md |
+| 阶段2 | 自主模型路由、按需数据与用户追踪 | B1/B2首片、材料观察、DeepSeek默认/候选仅验证及PR711冻结调查已合并；Business开始运行接线/部署验收包，持续追踪与真实任务仍未验 | PR705/706/708/709/711、B2-HANDOFF.md、DEEPSEEK-VALIDATION-WORKPACKAGE.md、A2-B2-FROZEN-WORKPACKAGE.md、RUNTIME-DEPLOYMENT-ACCEPTANCE.md |
 | 阶段3 | 一项已授权经营动作闭环 | 本轮未做新增真实动作验收；复用原执行链，仍需目标范围授权 | 未计完成 |
 | 阶段4 | 团队任务派发与成果回写 | 施工Business独立审查链已跑通；FS产品内派发/回写未验，两者不等同 | REVIEW-WORKFLOW.md；产品阶段未计完成 |
 | 阶段5 | 一个完整的跨角色活动 | 待前述能力会合及明确活动授权 | 未计完成 |
@@ -860,13 +860,13 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 |---|---|
 | 唯一主方案 | 本文件 |
 | 正式仓库存放路径 | docs/planning/fs-hermes-longterm-20261031/FS_Hermes_长期总施工方案_唯一主文件.md；Personal维护，外部开工文件作为输入快照保留 |
-| 当前阶段 | G0本机核对已回报，PR708/709已合并；阶段1/2并行，本轮A2/B2冻结调查合成集成，待CI及独审；整体未验收 |
+| 当前阶段 | 阶段1/2并行；Business已回交真实活动源核验及4648d7ae完整运行候选，Personal正常合入、准备独审/CI；部署与真实功能/视觉验收仍未完成 |
 | 主施工／总控 | 个人版Work；负责B线、总方案、接口协调、集成验收与发布协调 |
 | 协同施工 | 工作版Work；负责A线实现与可验收交付 |
-| 公共代码归属 | 见同目录G0-B1.md；共享controller/schema/迁移/发布清单冻结，未确认A知悉前不接线 |
-| 现有FS/Hermes活动版本 | 待现场核对，不由V4/V5方案名推断 |
+| 公共代码归属 | 本包精确FC v3 service/HTTP、FC v2 runs、26proxy及原publisher装配由A唯一维护，见RUNTIME-DEPLOYMENT-ACCEPTANCE.md；controller/公共schema/迁移不改，CI/主方案由Personal维护 |
+| 现有FS/Hermes活动版本 | 已据A现场哈希核定活动service/HTTP为FC v3、runs为FC v2、proxy为26版本；未匹配controller/range_api/fs_evidence原字节保持，完整记录见部署附录，不由方案名推断 |
 | 新能力已验收范围 | B1/B2离线首片、文件工具与附件UI本地模拟/必要CI及限定核心独审通过并合并；未调用真实模型、未部署 |
-| 下一步 | 保留DeepSeek并验证候选，验收A2/B2固定scope/快照/检查点消费者，再补目标持续状态及任务接线；真实模型启用与部署另验 |
+| 下一步 | 主控就集成最新完整SHA派Business独立worktree审查并核必要CI，满足条件自动合并；A用最终合并SHA重新pack/prepare后沿原publisher部署，Personal核真实功能/视觉/便捷性，验收后继续主方案。现用DeepSeek，不扩业务写/新模型权限 |
 | 已有生产业务 | 沿原系统、原权限、原调度运行；本次整理未改动 |
 | 本次文件交付 | 长期主方案与两个岗位入口原地整合；不等于已派发、编码或上线 |
 | PR702复用线索 | head `666814c9ae0376fe4f372cf9718508345da45ee0`，merge `30423f91c963228b41fe450f0c7993fa408cf12f`；完整独审与生产验收未在本包确认 |
@@ -887,6 +887,8 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-10-31／PR708合并、DeepSeek保留 | Business Sol High独立worktree复查cc163437通过，P2解决，CI41211850822成功；普通merge56204866386376e148f5fc04626b0edf474b50f8，Personal已ff且tree同已审版本；用户确认候选模型先验证后启用 | PR708、同目录DEEPSEEK-VALIDATION-WORKPACKAGE.md | 本轮DeepSeek路由包CI/独审待固定head；A2只读核对完成待接口对齐；真实模型/生产未验 | 一个完整B包验证默认路由/单次回执；随后消费A2，不重做底座 | Personal主控/B；A继续查询唯一维护 |
 | 2026-11-01／PR709合并与A2/B2冻结调查 | PR709 reviewed cbc2799b独审通过，必要CI两轮成功，merge71cb788e8fdffab3068b278045911c910a12f093；正常合入A7ee41c0a三文件，B实现分页覆盖/显式追踪/原B2与B1交接，A18及Core124（含组合16）合成通过 | 同目录A2-B2-FROZEN-WORKPACKAGE.md | 最终集成CI/独审、Linux权限/时区待验；真实数据/模型/生产/持续目标未验 | 一个A2/B2集成PR，包内反馈与新head复查；阶段2不标整体完成 | Personal主控/B；Business A |
 | 2026-11-01／PR711独审P2修复 | reviewed12acaea9的Linux Core124/user-analytics253通过；独审发现project-only目录误拒绝。A确认单文件临时交接后修复catalog，补严格project-only全链回归，本地Core125/A18通过 | 同目录A2-B2-FROZEN-WORKPACKAGE.md | 修复新head独立复查及必要CI待完成，尚未合并；生产/模型等未验 | 原PR内复查新SHA，不扩大site/global/IAM授权 | Personal修复/集成；A保留长期归属 |
+| 2026-11-01／PR711合并与部署任务安排 | reviewed7275612c独立复查通过，P2解决，LinuxCore125/users253及ready CI成功；merge88ac65d9，当前main同步fc77dd1b；用户明确安排Business部署测试及Personal最终功能/视觉审核，工作包已发原A线程 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md | 真实活动源、必要接线/发布装配/部署/真实入口验收待Business回交；不拿合并算上线 | 原分支串行发布，先核精确共享路径单一A修改，再PR/部署/测试及最终审核 | Business A执行；Personal主控/最终审核 |
+| 2026-11-01／运行候选集成 | 已登记共享单一A路径、补原CI测试入口；现场匹配与限定单HTML正常授权复制完成，用户已正常登录。正常合入A完整4648d7ae；复用同代码conversation30/deploy16及两项FC回归、Node/本地Chromium证据 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；A模块DEPLOYMENT-ACCEPTANCE.md | 最新集成SHA独审/CI、实际Linux发布与真实DeepSeek/视觉仍未完成；知识旧失败保留，A2缺真实hostscope | 一个集成PR满足条件后自动合并，A沿原publisher部署测试，Personal最后验收；验收后连续推进 | A施工/发布；Personal集成/最终审核 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 

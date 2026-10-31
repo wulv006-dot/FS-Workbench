@@ -13,6 +13,8 @@ from playwright.sync_api import sync_playwright, expect
 
 HERE = Path(__file__).resolve().parent
 UI = next(p / 'ui-system' for p in HERE.parents if (p / 'ui-system').is_dir())
+NAV = UI.parent / 'releases/fs-dashboard/hermes-navigation-range-20261019/candidate'
+NAV_JS = UI.parent / 'releases/fs-dashboard/campaign-analytics-20261023/navigation/source/nav.js'
 CID = 'a' * 32
 
 
@@ -47,6 +49,12 @@ def check():
             route.fulfill(status=status, body=json.dumps(value), content_type='application/json')
         if path == '/':
             return route.fulfill(body=(HERE / 'index.html').read_bytes(), content_type='text/html')
+        if path == '/__hub/hermes-nav.css':
+            return route.fulfill(body=(NAV / 'hermes-nav.css').read_bytes(), content_type='text/css')
+        if path == '/__hub/nav.js':
+            return route.fulfill(body=NAV_JS.read_bytes(), content_type='text/javascript')
+        if path == '/__auth/verify':
+            return route.fulfill(status=200, body='', headers={'X-Auth-User': 'synthetic-ui', 'X-Auth-Role': 'admin'})
         for name, source, mime in [('conversation.js', HERE / 'conversation.js', 'text/javascript'),
                 ('conversation.css', HERE / 'conversation.css', 'text/css'),
                 ('fs-tokens.css', UI / 'tokens/fs-tokens.css', 'text/css'),
@@ -111,7 +119,7 @@ def check():
         page.goto(origin + '/')
         expect(page.locator('#file-input')).to_be_enabled()
         page.locator('#attachments').evaluate('(element) => element.open = true')
-        page.locator('#file-input').set_input_files({'name': '业务.csv', 'mimeType': 'text/csv', 'buffer': b'amount\n2\n'})
+        page.locator('#file-input').set_input_files({'name': '验收专用_中文长名称_分页与版本追问_附件内容核对.csv', 'mimeType': 'text/csv', 'buffer': b'amount\n2\n'})
         page.get_by_role('button', name='核对原上传').wait_for()
         page.reload()
         page.locator('#attachments').evaluate('(element) => element.open = true')
