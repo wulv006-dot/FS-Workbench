@@ -22,6 +22,23 @@ PR711已merge88ac65d9337f20da71864ff48ebebc5284b89963，reviewed7275612c/basecc3
 
 必要工程在A原独立分支形成完整候选，Personal正常merge一个集成PR；Business Sol High独立worktree审查覆盖最新SHA，必要CI/无冲突后主控按授权合并，A再部署与测试。沿原publisher和锁/CAS/备份/回退，不新增第二发布链或重放旧stage。
 
+### 2026-11-01现场接点登记
+
+根据A回交的现场哈希及Git精确匹配，本包以下路径唯一修改者登记为Business A；Personal不并改这些接点。此登记不代表代码、发布或验收已完成。
+
+| 精确路径 | 本包允许的增量与保留边界 |
+|---|---|
+| `releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py` | 接入已交付附件能力；保留当前FC接点 |
+| `releases/fc-coins/fc-pricing-v3-20261026/source/conversation_http.py` | 消费A文件HTTP接口；保留现行鉴权和FC接点 |
+| `releases/fc-coins/fc-pricing-v2-20261022/source/runs_contract.py` | 在当前活动allowlist追加必要B文件名，不扩大工具/业务权限 |
+| `releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py` | 用当前main已有B增量对活动基线制作精确补丁，不整体覆盖 |
+| `releases/fs-dashboard/hermes-conversation-20261018/deploy/runtime_prepare.py`、`deploy/runtime_release.py`及对应新增测试 | 作为既有publisher的本包装配封装，复用原锁/CAS/备份/回读，不改冻结base、不另建发布链；测试精确路径随候选回报 |
+| 生产目标 `/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf` | 仅两个已定位会话location的body上限定向调整，以支持HTTP严格不超过10MiB的上传；其余路由、鉴权、原0600权限保持。prepare只生成候选，发布前固定完整manifest/hash并按原发布锁/CAS实施 |
+
+现场`controller.py`、`fs_evidence.py`及`range_api.py`本包不改不部署，只以现场完整SHA保护；不以旧Git快照覆盖。A2尚无可信host scope接入来源，保持不可用。实际业务HTTP解释器为`/opt/python39/bin/python3.9`，A已核其openpyxl/et_xmlfile存在，无安装需求；worker只读挂载与profile/memories/skills边界保持。
+
+生产源码导出已由13项缩至1项：9项可复用精确Git字节，上述3项不改。仅会话`/var/www/dashboard/fs-home/hermes/conversation/index.html`未匹配且确需保留现行导航，5776字节，SHA256 `3d79a5642f1517a8c1e414702c2b7491dc0ff4ed079c7d09895a3b1251045a24`。拟复制到A本机ignored `.agent_runtime/runtime-20261101/live/frontend/index.html`，不入Git、不含配置/凭据/DB/业务数据。此前13项SCP被自动审批以未明确授权生产源码导出为由拒绝，命令未执行；本次单文件仍待用户明确许可及正常工具审核，禁止等价绕过。正常FS登录和真实会话/视觉验收仍待完成。
+
 ## 当前授权边界
 
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。
