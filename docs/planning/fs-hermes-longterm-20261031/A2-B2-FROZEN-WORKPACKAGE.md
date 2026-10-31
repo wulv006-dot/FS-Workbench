@@ -122,3 +122,17 @@ Business实例codex-business／gpt-6.1-sol high在平台独立工作树复查完
 Personal合并前再次核完整SHA/base、必要CI success及mergeable，按已有用户授权正常merge `8f604875455845679c181000e382fe8c04725ba2`；本机ff后与reviewed head树完全一致，已停止PR721监听。本包终点是本机真实SQLite持久化/admission与独立合成任务账本的故障恢复合同，至此限定验收完成。没有生产DB/TaskStore/worker/模型/调度动作，生产源仍501f90bf。真实scope/fact/receipt来源与原运行桥接、阶段2整体和知识收尾旧错误均未提升为已验。
 
 下一步不重写存储：A先限定只读定位原独立TaskStore create/reserve_dispatch/lease/observe与现行FC3 conversation_service的实际接口、spec字段来源、原ID与receipt映射及锁序，不再重复scope审计、不运行生产或获取凭据；明确最小新增适配路径后再登记单一修改者。现行FC3 _dispatch还写ConversationStore.bind_task、mint/grants、book/knowledge和runtime POST，不能直接塞进goal admission或据callback测试说已接通。B继续负责事实复合版本/最小handoff/原ID回执消费的真实接口对齐；A维护任务底座及宿主装配。没有可信细粒度scope仍unavailable，不为接线把页面/admin或合成授权当新生产授权。
+
+## 冻结证据驱动的持久待执行队列包（2026-11-01）
+
+A限定只读确认：原pilot.TaskStore.create只有FC27/fc_operations_diagnosis及五字段spec指纹，没有goal原request_id/full handoff映射。现行FC3的spec来源含实际book/knowledge及昨天日期，_dispatch又写会话DB并调用runtime POST，不能直接入goal admission或构造假spec。worker只有run_id GET，没有按goal request_id只读lookup。活动controller/fs_evidence与本地候选未匹配，仍未知；本包不扩查生产、不覆盖旧源。
+
+本包终点明确为：真实本机A2冻结摘要→B复合事实版本/最小引用→已验GoalHost→原独立任务DB的私有持久reservation/outbox→原ID lookup及验真。queued只表示outbox预留，task_id/lease/run_id未绑定仍null，不能称原TaskStore任务或worker已启动；本包不做无法证明的generic执行类型或真实spec绑定，不用假任务追求通过。
+
+唯一A路径登记：新增`hermes-conversation-20261018/source/conversation_goal_tasks.py`、`tests/test_conversation_goal_tasks.py`，原`tests/test_conversation_store.py`仅load_tests，模块`CONVERSATION-GOALS.md`补合同。在已配置且核存在的原独立任务SQLite中建模块私有goal-request/outbox命名空间；不改pilot/TaskStore现有表、FC lane、controller/HTTP/runtime/publisher/IAM或公共迁移。不用模糊路径新建空任务DB来证明not_found。A确认后施工，Personal不并改。
+
+唯一B路径登记：新增`hermes-v2-core-20261020/source/b2_goal_facts.py`、`test_b2_goal_facts.py`、原Core加载，并在原B `b2_goal_state.plan_step`与`b2_goal_host.step`增加可选server-only evidence参数，使已核冻结摘要引用与prepared同一次CAS保存。B消费原A2 source/summary.lifecycle_policy，不重写A授权/查询/存储；停止/未决原任务先处理，未知scope或fact版本无源读取或派发。只保存原us_/ua_/scope/query/cutoff/coverage/missing等最小引用，不把摘要正文或客户表塞进目标。
+
+队列适配冻结submit(binding,handoff)/lookup(binding)/verify_receipt(receipt,binding)，server固定owner/cid/当前authorize及期望原账本路径；原ID按权威owner命名空间去重，完整binding+handoff指纹同事务，重复同内容查原回执、同ID异内容拒绝。not_found仅为已配置/同owner+scope授权的此outbox无row，不证明worker从未收到请求；库缺失/错路径/拒权/IO不能变成not_found。没有合法task/spec/run来源，不提供伪造running/completed入口。锁序保持goal DB admission→独立task DB短事务，禁止任务DB锁内反向调用goal或ConversationService。
+
+验收使用真实temp Store/Goals、原TaskStore的独立SQLite及真实A2 Service冻结重放，零模型/业务API/生产：指纹冲突/并发/重连/丢回执、wrong/missing ledger、scope撤权、queued不冒running、paused/stopped/pending零A2读取、同snapshot稳定/版本缺失或scope错配不派发、partial旧截止及真实lifecycle policy保留、源异常不补0。现行host grant、合法generic执行类型/spec、原worker及生产装配仍是明确缺口，A2真实scope保持unavailable。仍一个Personal整包PR、最新SHA Business独审/必要CI后合并，不按方法拆PR。
