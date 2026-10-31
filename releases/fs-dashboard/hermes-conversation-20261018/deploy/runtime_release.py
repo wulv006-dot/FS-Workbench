@@ -105,9 +105,9 @@ def worker_observation(*, allow_stopped=False):
             raise ValueError('stopped_worker_pinned_image_unavailable')
     else:
         value = checked.stdout.strip()
-        state = {'ActiveState': subprocess.check_output([
-            'systemctl', 'show', 'fs-hermes-fc.service', '-p', 'ActiveState', '--value'],
-            universal_newlines=True, timeout=10).strip()}
+        state = dict(line.split('=', 1) for line in subprocess.check_output([
+            'systemctl', 'show', 'fs-hermes-fc.service', '-p', 'ActiveState'],
+            universal_newlines=True, timeout=10).splitlines())
     if not re.fullmatch('sha256:[a-f0-9]{64}', value):
         raise ValueError('current_worker_image_required')
     if state['ActiveState'] not in ('active', 'failed', 'inactive'):
