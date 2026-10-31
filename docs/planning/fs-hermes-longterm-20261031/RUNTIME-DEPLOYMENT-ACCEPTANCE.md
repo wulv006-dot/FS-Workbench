@@ -91,6 +91,16 @@ A实际发布回执：stage `/var/tmp/fs-hermes-materials-1f8ddc57-20261031T1923
 
 该回执只计软件发布与基础服务恢复。A在正常Default登录态独立新tab核auth verify200、同源创建专用合成会话201，cid `0884f9a7a4ee4b66a220e20651e4e54c`；尚未提交模型，用户历史页未操作。真实材料/DeepSeek分页修订下载追问、原ID/停止/可用权限、当前部署版视觉/键盘/窄屏/缩放正在取证，Personal最终审核尚未通过。A2真实scope、真实第二身份等仍未验，不标完整Hermes或阶段1/2完成。
 
+### 真实材料证据及视觉退回
+
+A已回交上述合成会话两轮实际completed闭环：首task `efae1d897b2d494816ca594eb519b953`，仅该task白名单provider metadata显示requested/response model为deepseek-flash，5次成功回执；实际backend版本unknown、cost_microcny为null，不补0或外推全部费用。实际CSV offset0/200、limit200及XLSX两sheet读取、一次固定request_id修订；浏览器下载v2 5401字节解析a10/b25、说明页不变。v2显式卡片追问并刷新仍仅选v2，第二task `9c511c44d5f9df7a1a87efccb31c7a7a` completed生成v3（fid `708c96a51f2b4332d3323bd332dc4f07`），5400字节解析a10/b30，parent=v2/version3、说明页保持。完整下载SHA/各sheet total与cursor覆盖链待附录，主控不从两个offset推断全量或451行。
+
+同原request_id/附件集合重POST仍返回原turn，变附件422且turn数保持2，无模型重发。unknown上传是明确浏览器丢弃服务端真实201回执的故障注入：刷新保留unknown，同名同大小不同SHA重选UI拒绝且0POST，GET核对原request_id恢复原fid，无换ID/重复上传。无附件微任务实际完成；一次过早结束的任务不算stop成功，另task在queued时经真实按钮cancelled/空回复，后台收敛仍待核，queued与running取消分开，不能声称provider计费已停止。
+
+视觉明确未通过：A实际查看当前部署桌面浅/暗后回报长标题挤压connection竖排、messages可视高度35px、历史sidebar约15211px撑长页面。主控尚未亲看这轮截图，按A实际取证列为阅读/操作阻断，退回同包A修CSS/JS；须保留unknown/失败核对入口及原绑定语义，只在发送确被接受后可收起附件。需新部署版截图/viewport/theme/time/必要键盘/缩放等复核，不重复付费外观生成。隐私样式注入被CSP阻止的首图已弃用，后续仅遮非当前标题且核visibility生效、保持布局；不读用户历史或凭据。
+
+已安装follow-up支持仍归原A prepare/release/tests：用本次真实成功applied journal/manifest及1f8ddc57合并Git载荷精确匹配绑定当前合法baseline，不把任意现场hash直接当合法来源；4个初次新增模块在follow-up必须有已有beforeSHA，失败回退恢复已安装字节而不删除。Nginx现10m保持已核成功字节，不重套16k模板。冻结publisher、14/48/4集合、锁/CAS/准入/provider/UNKNOWN/权限保持，优先沿原静态增量能力避免UI-only重启worker/HTTP。A在同一个完整UI修复候选收口并测试首次安装/已装更新/漂移/回退，Personal集成独审/CI后复核实际使用，最终功能/视觉仍未验收。
+
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。
 
 不新增账号/凭据/权限/安全配置或费用，不启用待配置模型，不改价/发券/订单/触达客户、不真实购买支付。测试仅新增明确标记的小合成验收会话/附件，不删除旧业务数据。真实数据只读现有授权scope的必要匿名摘要，原客户/订单/密钥不进Git或截图。
