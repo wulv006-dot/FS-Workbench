@@ -21,8 +21,13 @@ class B1Contracts(unittest.TestCase):
     def test_routine_retains_deepseek(self):
         self.assertEqual(self.route()["provider"], "deepseek")
 
-    def test_complex_can_start_with_openai(self):
-        self.assertEqual(self.route(task="investigation")["provider"], "openai")
+    def test_complex_defaults_to_deepseek_until_formal_switch(self):
+        self.assertEqual(self.route(task="investigation")["provider"], "deepseek")
+
+    def test_complex_can_validate_openai_without_enabling_invocation(self):
+        value = self.route(task="investigation", mode="contract_validation")
+        self.assertEqual(value["provider"], "openai")
+        self.assertFalse(value["invocation_allowed"])
 
     def test_grants_precede_preference(self):
         self.assertEqual(self.route(task="investigation", allowed_providers={"deepseek"})["provider"], "deepseek")

@@ -1,7 +1,8 @@
-"""Unwired B1 contracts. No HTTP, credentials, storage or tool execution.
+"""Unwired B1 contracts. No constructed HTTP client, credentials or storage.
 
 Trusted host supplies capabilities, channel grants and injected provider clients.
 Local contract verification does not establish live provider availability.
+Runtime selection currently retains DeepSeek; candidate evaluation cannot invoke.
 """
 from copy import deepcopy
 from dataclasses import dataclass
@@ -19,23 +20,71 @@ class Capability:
     verification: str = "local_contract_only"
 
 
-def select_model(capabilities, *, task, inputs, needs_tools, allowed_providers):
+def select_model(capabilities, *, task, inputs, needs_tools, allowed_providers,
+                 mode="deepseek_only"):
     """Host-owned grants only; task class comes from the trusted planner.
 
 No automatic fallback after dispatch: an unknown outcome keeps its identity.
+Only a trusted test harness may request contract_validation mode. Availability
+flags or broad channel grants alone never enable another runtime provider.
 """
     if task not in {"routine", "investigation"}:
         raise ValueError("unsupported_task_class")
+    if mode not in {"deepseek_only", "contract_validation"}:
+        raise ValueError("unsupported_routing_mode")
     candidates = [c for c in capabilities if c.available
+                  and (c.provider == "deepseek" or mode == "contract_validation")
                   and c.provider in allowed_providers and task in c.tasks
                   and set(inputs) <= c.inputs and (not needs_tools or c.tools)]
     preferred = "deepseek" if task == "routine" else "openai"
     candidates.sort(key=lambda c: (c.provider != preferred, c.provider, c.model))
     if not candidates:
-        return {"status": "unavailable", "reason": "no_eligible_model"}
+        return {"status": "unavailable", "reason": "no_eligible_model", "mode": mode,
+                "invocation_allowed": False}
     c = candidates[0]
     return {"status": "selected", "provider": c.provider, "model": c.model,
-            "reason": task, "verification": c.verification}
+            "reason": task, "verification": c.verification, "mode": mode,
+            "invocation_allowed": mode == "deepseek_only"}
+
+
+def run_deepseek_task(*, request_id, capabilities, task, inputs, allowed_providers,
+                      request, approved_tools, request_model, deadline=None,
+                      mode="deepseek_only"):
+    """Host entry point: select once and delegate once to the native client.
+
+    Validation candidates never invoke a client, including when DeepSeek wins.
+    The host owns identity, grants, capabilities and approved tools; this helper
+    grants no data/tool access, stores no task, and does not implement recovery.
+    A caller must reconcile an unknown outcome by the original request ID.
+    """
+    if not isinstance(request_id, str) or not request_id.strip():
+        raise ValueError("request_identity")
+    if not isinstance(request, dict) or not isinstance(request.get("tools", []), list):
+        raise ValueError("native_request_contract")
+    if not isinstance(approved_tools, list):
+        raise ValueError("approved_tools_contract")
+    route = select_model(capabilities, task=task, inputs=inputs,
+                         needs_tools=bool(request.get("tools")),
+                         allowed_providers=allowed_providers, mode=mode)
+    receipt = dict(request_id=request_id, route=route, client_invoked=False,
+                   retry_allowed=False, fallback_performed=False)
+    if route["status"] != "selected":
+        return dict(receipt, status="unavailable")
+    if not route["invocation_allowed"]:
+        return dict(receipt, status="validation_only")
+    if request.get("model") != route["model"]:
+        raise ValueError("native_model_mismatch")
+    # Never copy task bookkeeping or candidate policy into the native payload.
+    receipt["client_invoked"] = True
+    try:
+        result = DeepSeekAdapter(request_model).invoke(request, approved_tools, deadline)
+    except (TimeoutError, ConnectionError, OSError):
+        return dict(receipt, status="unknown", reason="transport_outcome_unknown")
+    if not isinstance(result, dict):
+        return dict(receipt, status="invalid_response")
+    # A returned provider response is not proof that the whole task completed.
+    return dict(receipt, status=result.get("status", "provider_returned"),
+                provider_result=result)
 
 
 def handoff(*, task_id, revision, goal, constraints, evidence, completed_actions, next_step):

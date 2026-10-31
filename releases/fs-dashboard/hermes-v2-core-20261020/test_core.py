@@ -307,6 +307,8 @@ class Wire(unittest.TestCase):
 def load_tests(loader, tests, pattern):
     import test_b1_model_routing
     tests.addTests(loader.loadTestsFromModule(test_b1_model_routing))
+    import test_b1_runtime_policy
+    tests.addTests(loader.loadTestsFromModule(test_b1_runtime_policy))
     import test_b2_customer_followup
     tests.addTests(loader.loadTestsFromModule(test_b2_customer_followup))
     import test_conversation_file_tools
