@@ -194,10 +194,16 @@ class NativeKnowledge:
                 raise ValueError('native_knowledge_catalog_changed')
             index = catalog.validate(json.loads(raw))
             allowed_ids = selected.get('entry_ids')
+            history_ids = set(selected.get('history_entry_ids', []))
+            archive_ids = {row['id'] for row in index['entries'] if row['layer'] == 'archive'
+                           and set(row['modules']) & set(selected['modules'])}
+            if history_ids - archive_ids:
+                raise ValueError('native_knowledge_history_entry_scope')
             entries = [{k: row[k] for k in ('id', 'revision', 'layer', 'status', 'modules', 'effective_at', 'source', 'supersedes')}
                        for row in index['entries'] if row['layer'] != 'candidate'
                        and set(row['modules']) & set(selected['modules'])
-                       and (allowed_ids is None or row['id'] in allowed_ids)]
+                       and (allowed_ids is None or row['id'] in allowed_ids
+                            or row['layer'] == 'archive' and row['id'] in history_ids)]
             skills = dict(status='not_configured', items=[], documents=[])
             reviewed = selected.get('reviewed_skills')
             if reviewed is not None:

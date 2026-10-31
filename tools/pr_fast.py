@@ -484,7 +484,7 @@ def select(paths):
             groups.add('pricing-followup');continue
         if name.startswith('releases/ops/pricing-recovery-20261023/'):
             groups.add('pricing-recovery');continue
-        if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/knowledge_closeout.py','tools/prepare_knowledge_release.py','tools/prepare_native_knowledge_release.py'):
+        if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/knowledge_closeout.py','tools/prepare_knowledge_release.py','tools/prepare_native_knowledge_release.py','tools/export_fs_space.py'):
             groups.add('knowledge-layering')
             if name=='releases/fs-dashboard/knowledge-layering-20261023/source/controller.py':groups.add('nightly-reschedule')
             continue
@@ -931,7 +931,7 @@ def main():
             units('releases/ops/pricing-recovery-20261023/order',['test_service'])
             continue
         if group=='knowledge-layering':
-            units('releases/fs-dashboard/knowledge-layering-20261023/tests',['test_knowledge','test_closeout','test_knowledge_release','test_native_plan','test_native_release','test_native_prepare','test_task_selection','test_learning_catalog'])
+            units('releases/fs-dashboard/knowledge-layering-20261023/tests',['test_knowledge','test_closeout','test_knowledge_release','test_native_plan','test_native_release','test_native_prepare','test_task_selection','test_learning_catalog','test_space_export'])
             continue
         if group=='hermes-memory-approval':
             units('releases/fs-dashboard/hermes-memory-approval-20261022',['test_review_queue','test_reviewed_skills','test_daily_review'])
