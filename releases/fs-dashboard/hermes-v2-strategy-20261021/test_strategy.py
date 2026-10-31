@@ -178,7 +178,10 @@ class Records(Fixture):
         spec=importlib.util.spec_from_file_location('candidate_runs',HERE/'source/runs_contract.py');runs=importlib.util.module_from_spec(spec);spec.loader.exec_module(runs)
         for item in st.schemas():self.assertIn(item['function']['name'],runs.WIRE_TOOLS)
         self.assertEqual(len(st.schemas()),5);self.assertTrue(all(s['function']['parameters']['additionalProperties'] is False for s in st.schemas()))
-        self.assertEqual(set(runs.SEMANTIC_TOOLS[-5:]),set(st.NAMES))
+        from conversation_file_tools import NAMES as FILE_NAMES
+        self.assertEqual(runs.SEMANTIC_TOOLS[-len(FILE_NAMES):], FILE_NAMES)
+        original_tools = runs.SEMANTIC_TOOLS[:-len(FILE_NAMES)]
+        self.assertEqual(set(original_tools[-len(st.NAMES):]),set(st.NAMES))
 
     def test_new_algorithm_remains_reviewable_idea_without_fabricated_prices(self):
         idea=dict(name='分阶段试价',description='先验证可比样本。',entry_conditions='来源齐备。',pricing_formula='根据成熟样本调整步幅。',stop_conditions='触及利润底线即停止。')
