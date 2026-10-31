@@ -6,7 +6,7 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
-from urllib.request import Request
+from urllib.parse import urlsplit
 
 from player_web.main import App
 from player_web.repository import Repository
@@ -21,38 +21,29 @@ def settings(root):
 
 
 class SharedSessionTests(unittest.TestCase):
-    def test_fresh_token_per_request_headers_and_no_external_target(self):
+    def test_hmac_proxy_requests_do_not_restore_browser_login(self):
         with tempfile.TemporaryDirectory() as temporary:
             config = settings(Path(temporary))
             seen = []
             def opener(request, *, timeout):
+                self.assertEqual(urlsplit(request.full_url).netloc, '127.0.0.1:8912')
                 seen.append(dict(request.header_items()))
                 return io.BytesIO(b'{"code":1,"data":{}}')
             with patch('urllib.request.OpenerDirector.open', side_effect=opener), \
-                 patch('player_web.shared_session.session_token', side_effect=['first', 'rotated']):
+                 patch('player_web.shared_session.session_token', side_effect=AssertionError('retired session used')):
                 client = shared_client(config)
                 client.verify_identity()
-                self.assertEqual([row['Batoken'] for row in seen], ['first', 'rotated'])
-                self.assertEqual(seen[0]['Origin'], 'https://admin.p2pah.cn')
-                self.assertEqual(seen[0]['Server'], '1')
-                with self.assertRaises(AdminAuthError):
-                    client._opener(Request('https://outside.invalid/admin/index/index'), timeout=1)
+                self.assertEqual([row['Batoken'] for row in seen], ['dc-hmac-proxy', 'dc-hmac-proxy'])
+                self.assertNotIn('Origin', seen[0])
+                self.assertEqual(seen[0]['Server'], 'true')
                 client.clear_auth()
                 with self.assertRaises(AdminAuthError):
                     client.verify_identity()
 
-    def test_unavailable_or_unsafe_token_is_redacted(self):
-        for raw in (b'{"error":"shared_session_unavailable"}\n', b'{"token":"secret\\r\\n"}', b'x' * 17000):
-            class Connection:
-                def __enter__(self): return self
-                def __exit__(self, *args): pass
-                def settimeout(self, value): pass
-                def connect(self, value): pass
-                def sendall(self, value): pass
-                def makefile(self, value): return io.BytesIO(raw)
-            with patch('player_web.shared_session.socket.socket', return_value=Connection()):
-                with self.assertRaisesRegex(AdminAuthError, '^FS_SHARED_SESSION_UNAVAILABLE$'):
-                    session_token()
+    def test_retired_token_entry_never_opens_network(self):
+        with patch('socket.socket', side_effect=AssertionError('retired socket used')):
+            with self.assertRaisesRegex(AdminAuthError, '^FS_SHARED_SESSION_RETIRED$'):
+                session_token()
 
     def test_browser_guards_logout_and_existing_write_scope(self):
         with tempfile.TemporaryDirectory() as temporary:

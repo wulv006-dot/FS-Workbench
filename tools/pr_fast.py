@@ -181,6 +181,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(['releases/fc-players/admin-api-repair-20261031/source/images.js']) != ['fc-players-direct-json']:
+        raise AssertionError('Players API repair coverage')
     if select(['releases/fc-players/direct-json-20261029/source/direct_model_import.py']) != ['fc-players-direct-json']:
         raise RuntimeError('fc_players_direct_json_mapping_missing')
     if select(['fc27_players_cloud/player_web/model_service.py']) != ['fc-players-direct-json']:
@@ -427,7 +429,7 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
-        if name.startswith('releases/fc-players/direct-json-20261029/') or name == 'fc27_players_cloud/player_web/model_service.py':
+        if name.startswith(('releases/fc-players/direct-json-20261029/','releases/fc-players/admin-api-repair-20261031/')) or name == 'fc27_players_cloud/player_web/model_service.py':
             groups.add('fc-players-direct-json');continue
         if name in ('releases/fs-dashboard/dashboard-refresh-20261025/source/daily_archive.py',
                     'releases/fs-dashboard/shipping-profit-20261024/source/profit_queries.py'):
@@ -878,11 +880,14 @@ def main():
             continue
         print("affected group:",group,flush=True)
         if group == 'fc-players-direct-json':
-            units('releases/fc-players/direct-json-20261029/tests', ['test_payload','test_client','test_direct_import','test_resume','test_model_labels'])
+            units('releases/fc-players/direct-json-20261029/tests', ['test_payload','test_client','test_direct_import','test_resume','test_model_labels','test_api_repair'])
             units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
             units('releases/fc-players/direct-json-20261029/tag-labels', ['test_upgrade_tag_labels'])
             node('releases/fc-players/direct-json-20261029/tests/check_resume.cjs')
             node('releases/fc-players/direct-json-20261029/tests/check_model_labels.cjs')
+            units('releases/fc-players/admin-api-repair-20261031', ['test_publisher'])
+            node('releases/fc-players/admin-api-repair-20261031/check_add_tags.cjs')
+            node('releases/fc-players/admin-api-repair-20261031/check_image_batch.cjs')
         elif group == 'shared-admin-direct':
             units('releases/ops/shared-admin-direct-20261028/tests', ['test_shared_admin'])
             continue

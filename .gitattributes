@@ -4,3 +4,5 @@
 /releases/fc-players/history-five-20261024/** -text
 /releases/fc-coins/fc-pricing-v3-20261026/source/*.sh text eol=lf
 /releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/legacy_simulation/dual10_*.py -text
+
+releases/fc-players/admin-api-repair-20261031/** -text

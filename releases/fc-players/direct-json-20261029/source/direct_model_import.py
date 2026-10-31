@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Mapping
@@ -235,6 +236,19 @@ def _products(client, mid):
     return {"model_id": mid, "product_ids": sorted(ids), "products_sha256": digest(rows)}
 
 
+def _shelves_readback(client, mid):
+    # Shelves returns before its model flag and all six products become visible.
+    pending = {"DIRECT_SHELVES_MODEL_STATE_INCOMPLETE", "DIRECT_PRODUCTS_INCOMPLETE",
+               "DIRECT_PRODUCT_SIX_SCOPES_INCOMPLETE"}
+    for attempt in range(6):
+        try:
+            return _products(client, mid)
+        except StateError as exc:
+            if str(exc) not in pending or attempt == 5:
+                raise
+            time.sleep(2)
+
+
 def _product_state(client, mid, product_id, desired):
     _products(client, mid)
     rows = [row for row in client.get_products(mid) if str(row.get("id")) == str(product_id)]
@@ -393,7 +407,7 @@ def execute_direct_plan(settings, repo, client, execution_id, plan, should_stop=
                     raise StateError("DIRECT_SHELVES_SCOPE_INVALID")
                 if not _action(repo, execution_id, item, "shelves", {"model_id": mid, "payload": shelves},
                                lambda: checked_write(lambda: client.shelves_models([mid], gid=1327, cid=9627, payload=shelves)),
-                               lambda: _products(client, mid), should_stop=should_stop):
+                               lambda: _shelves_readback(client, mid), should_stop=should_stop):
                     unresolved.append(fid)
                     continue
                 phases = ["add", "shelves"]

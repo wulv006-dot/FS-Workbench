@@ -1,6 +1,6 @@
 // Extend the original history-five VM DOM fixture with actual api/showJob handlers.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../source/app.js'),'utf8');
+const source=fs.readFileSync(path.join(__dirname,'../../admin-api-repair-20261031/source/app.js'),'utf8');
 const helper=source.slice(source.indexOf('  function node('),source.indexOf('  function clearPlan('));
 const api=source.slice(source.indexOf('  async function api('),source.indexOf('  async function status()'));
 const jobs=source.slice(source.indexOf('  async function loadJobs()'),source.indexOf('  async function loadTagCatalog('));
