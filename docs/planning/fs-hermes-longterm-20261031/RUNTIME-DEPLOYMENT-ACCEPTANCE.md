@@ -111,6 +111,8 @@ A同代码原deploy三模块21项零skip、原Node实际DOM/fetch、本地Chromi
 
 附录已补齐实际合成任务/文件完整ID、SHA及provider分层：两材料任务各5回执，另自然完成微任务1及queued取消1，共12回执；backend版本unknown、费用null。CSV同SHA重解析总206含表头/205数据行、sum205，实录成功参数offset0/200 limit200覆盖[0,200)/[200,206)，末页complete仍false；两XLSX sheet各3/2行。十条coverage链由实录参数/成功事件及同SHA确定性解析重建，非原raw工具回执；不据此声称业务全量。取消到19:41:05Z仍cancelled/空回复/0工具，provider3token回执保留，不称计费停止；running取消未验。真实匿名下载401、跨合成cid404；第二身份/撤权过期/A2scope未验。200%快捷键未改变实际缩放，仍未验，不以CSS缩放或窄屏冒充。
 
+下载收据交接已补正，A代码候选d4a9f6fd未变：原真实下载缓存经正常工具审核复制到新共享Temp目录`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Receipts-1f8ddc57-20261031T200731Z/`，仅result-v2.xlsx/result-v3.xlsx两份合成产物，无新模型/HTTP/生产操作。主控已独立只读读取并用openpyxl核：v2 5401字节/SHA `1b731736326470071e596abf684ef0844add1ca0447b3b83304bd5337c76b390`、v3 5400字节/SHA `8bc7f4b7dbab1645d91c10ce7c90ad2d04e4c3530606837396c0b282ec5e1f11`，两sheet均可读，数据分别a10/b25及a10/b30，说明sheet均为FS synthetic acceptance only且一致。旧浏览器临时路径缺失保留为历史交接问题，不再列为下载内容核验阻塞；新的稳定收据及独立字节内容核验不替代修后部署版视觉验收。
+
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。
 
 不新增账号/凭据/权限/安全配置或费用，不启用待配置模型，不改价/发券/订单/触达客户、不真实购买支付。测试仅新增明确标记的小合成验收会话/附件，不删除旧业务数据。真实数据只读现有授权scope的必要匿名摘要，原客户/订单/密钥不进Git或截图。
