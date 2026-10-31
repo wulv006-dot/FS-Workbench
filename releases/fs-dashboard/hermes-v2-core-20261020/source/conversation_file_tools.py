@@ -12,11 +12,19 @@ NAMES = ("fc.list_conversation_files", "fc.read_conversation_file", "fc.revise_c
 WIRE_NAMES = tuple("mcp__fcro__" + n.replace(".", "_") for n in NAMES)
 FILE_ID = re.compile(r"[a-f0-9]{32}\Z")
 REQUEST_ID = re.compile(r"[A-Za-z0-9_-]{8,80}\Z")
+SCOPES = ("turn_bound_files", "material_execution_files")
 
 
-def file_prompt(context=None):
+def _scope(scope):
+    if scope not in SCOPES:
+        raise ValueError("conversation_file_scope")
+    return scope
+
+
+def file_prompt(context=None, *, scope="turn_bound_files"):
     """Static instruction: no eager file lookup while the turn is preparing."""
-    return (
+    _scope(scope)
+    text = (
         "附件仅限当前turn显式绑定的文件及本turn派生版本；先调用fc.list_conversation_files获取目录。"
         "用fc.read_conversation_file按sheet/offset/limit读取，limit最多200；"
         "complete只说明coverage.scope内的覆盖，selected_sheet不代表整本workbook。"
@@ -27,9 +35,15 @@ def file_prompt(context=None):
         "结果unknown先核同一原请求，不换ID盲重放。产物返回file_id、parent_id、version，"
         "沿原鉴权下载，不编造文件或链接。跨turn追问须显式绑定相应版本，不自动读取其他附件。"
     )
+    if scope == "material_execution_files":
+        text = (text.replace("当前turn", "当前材料执行").replace("本turn", "本执行")
+                .replace("跨turn追问", "下一执行追问"))
+        text += "仅使用本执行三种文件工具；修订必须精确符合服务端冻结操作及原修订request_id，读任务不授修订权。短任务完成不等于长期目标达成。"
+    return text
 
 
-def tool_schemas():
+def tool_schemas(*, scope="turn_bound_files"):
+    _scope(scope)
     fid = {"type": "string", "pattern": "^[a-f0-9]{32}$"}
     index = {"type": "integer", "minimum": 0}
     definitions = (
@@ -45,6 +59,10 @@ def tool_schemas():
           "request_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{8,80}$"}},
          "Apply only requested bounded cell edits and export an immutable new version. CSV/XLSX are table sources; HTML is a download derivative, not an arbitrary calculation sandbox. Reuse request_id for the same operation; never automatically replay an unknown write."),
     )
+    if scope == "material_execution_files":
+        definitions = tuple((fields, desc.replace("conversation turn", "material execution")
+                             .replace("Other turns/files", "Other executions/files"))
+                            for fields, desc in definitions)
     return [{"type": "function", "function": {"name": wire, "description": desc,
         "parameters": {"type": "object", "properties": deepcopy(fields),
                        "required": list(fields), "additionalProperties": False}}}
@@ -82,20 +100,27 @@ def validate(name, arguments):
     json.dumps(edits, allow_nan=False)
 
 
-def attach_conversation_file_tools(book, context):
+def attach_conversation_file_tools(book, context, *, scope="turn_bound_files", operation_guard=None):
     """Attach to the existing task book, without persisting full tables again.
 
 ScopedTools retains task/lease checks; A's closure rechecks authorization, owner,
 turn state and expiry on every operation. The model supplies no identity grants.
 """
+    _scope(scope)
+    if (scope == "material_execution_files" or operation_guard is not None) and not callable(operation_guard):
+        raise ValueError("material_operation_guard_required")
     if getattr(book, "_conversation_file_tools", False):
         raise ValueError("conversation_file_tools_already_attached")
     original = book.call
     evidence = MaterialEvidence()
     def call(name, arguments):
         if name not in NAMES:
+            if scope == "material_execution_files":
+                raise PermissionError("material_tool_denied")
             return original(name, arguments)
         validate(name, arguments)
+        if operation_guard is not None and operation_guard(name, deepcopy(arguments)) is not True:
+            raise PermissionError("material_operation_denied")
         if context is None:
             raise PermissionError("conversation_file_context_required")
         args = deepcopy(arguments)
@@ -110,11 +135,12 @@ turn state and expiry on every operation. The model supplies no identity grants.
             raise ValueError("conversation_file_response")
         # Preserve A's exact coverage, pagination, receipts and unknown outcomes.
         # No ResearchBook.register: avoid duplicating whole tables in evidence DB.
-        result = dict(deepcopy(value), material_role="untrusted_data", scope="turn_bound_files")
+        result = dict(deepcopy(value), material_role="untrusted_data", scope=scope)
         if name == NAMES[1]:
             result["analysis_coverage"] = evidence.observe_page(value, args)
         return result
     book.call = call
     book._conversation_file_tools = True
+    book._conversation_file_scope = scope
     book.material_evidence = evidence
     return book
