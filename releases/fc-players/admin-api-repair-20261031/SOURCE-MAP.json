@@ -43,7 +43,7 @@
     }
   },
   "base_version": "2026.10.29-cloud.16",
-  "manifest_sha256": "58df51499dabaa638740be5e21833b66a667ca26b78923af5826f088e82e94ca",
+  "manifest_sha256": "4ff800c5073389b529f1145be496e6068fb331d7c5e127cba76d2eec47c0cd94",
   "publisher_dependency_sha256": "37b2b48020be180f2b2b00ab3ff2a51766edd8cfd9c7843096b9c623e6d5c1ea",
   "runtime_flag": "MANUAL_EXISTING_ADD_TAGS_ENABLED=true in existing Players unit/dropin",
   "preserved": "ENV bytes, global/automatic write flags, original manual scopes, HMAC8912, demand600s, task DB, UNKNOWN and per-player locks",

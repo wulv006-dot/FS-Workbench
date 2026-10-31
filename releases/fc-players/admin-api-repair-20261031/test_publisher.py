@@ -10,6 +10,14 @@ def functions(**values):
     return values
 
 class PublisherTests(unittest.TestCase):
+    def test_inherited_image_overlay_uses_original_dockerfile_validator(self):
+        original=HERE.parent/'direct-json-20261029/publisher/upgrade_direct_json.py'
+        tree=ast.parse(original.read_text(encoding='utf-8'))
+        node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='validate_dockerfile')
+        scope={'BASE_IMAGE':'fc27-player-tool:2026.10.29-cloud.16'}
+        exec(compile(ast.Module(body=[node],type_ignores=[]),'original-dockerfile-validator','exec'),scope)
+        scope['validate_dockerfile']((HERE/'Dockerfile').read_text(encoding='utf-8'))
+
     def test_all_51_baselines_are_exact_cloud16_paths_and_hashes(self):
         manifest=json.loads((HERE/'manifest.json').read_text(encoding='utf-8'))
         old=json.loads((HERE.parent/'direct-json-20261029/tag-labels/SOURCE-MAP.json').read_text(encoding='utf-8'))

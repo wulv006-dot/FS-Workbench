@@ -7,7 +7,7 @@ if not original.is_file():original=HERE.parent/'direct-json-20261029/publisher/u
 assert hashlib.sha256(original.read_bytes()).hexdigest()=='37b2b48020be180f2b2b00ab3ff2a51766edd8cfd9c7843096b9c623e6d5c1ea'
 spec=importlib.util.spec_from_file_location('players_existing_publisher',original)
 P=importlib.util.module_from_spec(spec);spec.loader.exec_module(P)
-MANIFEST_SHA='58df51499dabaa638740be5e21833b66a667ca26b78923af5826f088e82e94ca'
+MANIFEST_SHA='4ff800c5073389b529f1145be496e6068fb331d7c5e127cba76d2eec47c0cd94'
 def validate_manifest(value):
     raw=(HERE/'manifest.json').read_bytes()
     if hashlib.sha256(raw).hexdigest()!=MANIFEST_SHA or value!=json.loads(raw):raise RuntimeError('Publication manifest changed')
