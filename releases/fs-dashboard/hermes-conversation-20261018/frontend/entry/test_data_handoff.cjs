@@ -22,3 +22,4 @@ assert.equal(old.platform, 'PS');
 assert(!('product_id' in old));
 assert(!('product_id' in query('cohort', {product_id: '123', window_days: '30'})));
 console.log('PASS new product_id handoff and legacy model_id compatibility');
+require('../test_materials_ui.cjs').run().catch(error => { console.error(error); process.exitCode = 1; });

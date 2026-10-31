@@ -5,6 +5,17 @@
   const activeStates = new Set(['preparing', 'dispatch_unknown', 'queued', 'running', 'stopping']);
   let current = null, snapshot = null, stream = null, epoch = 0, sending = false, creating = false, stopping = false, pending = null, ready = false, accessDenied = false;
   let reconnectTimer = null, announcementTimer = null;
+  let uploads = [], fileItems = [], selectedFiles = new Set(), filesReady = false;
+  const uploadBytes = new Map(), uploadFlights = new Set();
+  const fileStates = {available: '可用', expired: '已过期', damaged: '文件损坏', missing: '文件不可用',
+    unavailable: '暂不可用', unknown: '上传结果待核对', uploading: '正在上传', failed: '上传失败'};
+  function fileStatus(file) {
+    return typeof file.expires_at === 'number' && file.expires_at * 1000 <= Date.now() ? 'expired' : file.status;
+  }
+  function bindingAvailable(file) {
+    return fileStatus(file) === 'available' && !uploads.some(u => ['unknown', 'uploading'].includes(u.status) &&
+      (u.file_id === file.file_id || (!u.file_id && u.sha256 === file.sha256 && u.name === file.filename && u.size === file.size)));
+  }
 
   function announce(message) {
     clearTimeout(announcementTimer);
@@ -46,16 +57,171 @@
     const unknown = (snapshot?.turns || []).some(turn => turn.state === 'dispatch_unknown');
     $('new-conversation').disabled = accessDenied || creating || sending || !!pending;
     $('message-input').disabled = accessDenied;
-    $('send-message').disabled = accessDenied || !ready || sending || creating || (!pending && (unknown || running?.state === 'stopping'));
+    const active = (snapshot?.turns || []).some(turn => activeStates.has(turn.state));
+    const invalidFiles = selectedFiles.size > 10 || (selectedFiles.size && (!filesReady || [...selectedFiles].some(id => !fileItems.some(f => f.file_id === id && bindingAvailable(f)))));
+    $('send-message').disabled = accessDenied || !ready || sending || creating || (!pending && (unknown || running?.state === 'stopping' || (active && !running) || (!running && invalidFiles)));
     $('send-message').textContent = pending ? '核对上次发送' : running ? '补充当前任务' : '发送';
     $('stop-run').hidden = accessDenied || !running;
     $('stop-run').disabled = stopping || running?.state === 'stopping';
+    if ($('file-input')) $('file-input').disabled = accessDenied || !ready || active || sending || !!pending;
+    renderFileChoices();
   }
   function pendingKey(id) { return 'hermes_pending_' + id; }
+  function filesKey(id) { return 'hermes_files_' + id; }
+  function storedFiles(id) {
+    try { return JSON.parse(sessionStorage.getItem(filesKey(id)) || '{}'); } catch { return {}; }
+  }
+  function saveFiles(id, record) {
+    const value = storedFiles(id);
+    if (record) value.uploads = [...(value.uploads || []).filter(u => u.request_id !== record.request_id), record];
+    if (id === current) { value.selected = [...selectedFiles]; if (!record) value.uploads = uploads; }
+    sessionStorage.setItem(filesKey(id), JSON.stringify(value));
+  }
+  function lockedFiles() {
+    return accessDenied || !ready || sending || !!pending || (snapshot?.turns || []).some(t => activeStates.has(t.state));
+  }
+  function renderFileChoices() {
+    if (!$('file-choices')) return;
+    const focusId = document.activeElement?.id;
+    $('file-choices').replaceChildren(); $('upload-list').replaceChildren();
+    $('attachment-summary').textContent = '本轮附件 · ' + selectedFiles.size + ' / 10';
+    if (!ready || accessDenied) return;
+    for (const upload of uploads) {
+      if (upload.status === 'available') continue; // The selectable file row already shows success.
+      const row = el('li', upload.name + ' · ' + (fileStates[upload.status] || '待核对'), $('upload-list'));
+      if (['unknown', 'failed'].includes(upload.status)) {
+        const check = el('button', '核对原上传', row, 'fs-btn'); check.type = 'button';
+        check.disabled = uploadFlights.has(current + ':' + upload.request_id);
+        check.onclick = () => checkUpload(current, epoch, upload);
+        const retry = el('button', '重试原文件', row, 'fs-btn'); retry.type = 'button';
+        retry.disabled = lockedFiles() || uploadFlights.has(current + ':' + upload.request_id);
+        retry.onclick = () => {
+          const bytes = uploadBytes.get(current + ':' + upload.request_id);
+          if (bytes) uploadFile(current, epoch, upload, bytes);
+          else { announce('请重新选择内容相同的原文件，再沿原上传核对。'); $('file-input').click(); }
+        };
+      }
+    }
+    const choices = [...fileItems, ...[...selectedFiles].filter(id => !fileItems.some(f => f.file_id === id)).map(file_id => ({file_id, status: 'unavailable', filename: '已选文件待核对'}))];
+    for (const file of choices) {
+      const row = el('li', undefined, $('file-choices'));
+      const label = el('label', undefined, row);
+      const checkbox = el('input', undefined, label); checkbox.type = 'checkbox';
+      checkbox.id = 'file-choice-' + file.file_id;
+      checkbox.checked = selectedFiles.has(file.file_id);
+      checkbox.disabled = lockedFiles() || (!checkbox.checked && (!bindingAvailable(file) || selectedFiles.size >= 10));
+      el('span', (file.filename || '文件') + ' · v' + (file.version || '?') + ' · ' + (fileStates[fileStatus(file)] || '暂不可用'), label);
+      checkbox.onchange = () => {
+        if (checkbox.checked) selectedFiles.add(file.file_id); else selectedFiles.delete(file.file_id);
+        saveFiles(current); syncControls();
+      };
+    }
+    if (focusId?.startsWith('file-choice-')) document.getElementById(focusId)?.focus();
+  }
+  function selectForFollowup(file) {
+    if (lockedFiles()) { announce('请等当前任务结束后再选择追问附件。'); return; }
+    if (!filesReady || !fileItems.some(f => f.file_id === file.file_id && bindingAvailable(f))) {
+      announce('文件状态尚未确认，请刷新后重试。'); return;
+    }
+    if (selectedFiles.size >= 10 && !selectedFiles.has(file.file_id)) { announce('本轮最多选择 10 个附件。'); return; }
+    selectedFiles.add(file.file_id); saveFiles(current); syncControls();
+    $('attachments').open = true; $('message-input').focus();
+    announce('已选择“' + file.filename + '”用于下一轮，请填写修改要求后发送。');
+  }
+  function fileCards(parent, files, generated) {
+    for (const file of files || []) {
+      if (!/^[a-f0-9]{32}$/.test(file.file_id || '')) continue;
+      const card = el('div', undefined, parent, 'file-card');
+      el('p', (file.filename || '文件') + ' · v' + (file.version || '?') + ' · ' + (fileStates[fileStatus(file)] || '暂不可用'), card);
+      if (file.expires_at) el('p', '到期：' + new Date(file.expires_at * 1000).toLocaleString('zh-CN'), card, 'file-state');
+      if (fileStatus(file) === 'available') {
+        const download = el('a', '下载文件', card);
+        download.href = api + '/' + encodeURIComponent(current) + '/files/' + file.file_id;
+        download.download = file.filename || 'file';
+        if (generated) {
+          const choose = el('button', '用于下一轮追问', card, 'fs-btn'); choose.type = 'button';
+          choose.disabled = lockedFiles(); choose.onclick = () => selectForFollowup(file);
+        }
+      }
+    }
+  }
+  async function refreshFiles(id, generation) {
+    const result = await request('/' + encodeURIComponent(id) + '/files');
+    if (id !== current || generation !== epoch || accessDenied) return;
+    fileItems = result.items || []; filesReady = true;
+    for (const upload of uploads) {
+      const item = fileItems.find(f => f.file_id === upload.file_id);
+      if (item) upload.status = item.status;
+    }
+    saveFiles(id); syncControls();
+  }
+  function updateUpload(id, generation, record) {
+    saveFiles(id, record);
+    if (id !== current || generation !== epoch || accessDenied) return;
+    uploads = [...uploads.filter(u => u.request_id !== record.request_id), record];
+    renderFileChoices();
+  }
+  async function checkUpload(id, generation, record) {
+    try {
+      const item = await request('/' + id + '/files?request_id=' + encodeURIComponent(record.request_id));
+      if (item.sha256 !== record.sha256 || item.size !== record.size || item.filename !== record.name) throw Error('上传内容核对不一致，请保留原文件并检查。');
+      updateUpload(id, generation, {...record, file_id: item.file_id, status: item.status});
+      await refreshFiles(id, generation);
+    } catch (error) {
+      if (id !== current || generation !== epoch) return;
+      if ([401, 403].includes(error.status)) { denyAccess(); return; }
+      updateUpload(id, generation, {...record, status: 'unknown'});
+      announce(error.status === 404 ? '尚未查到上传结果；请选回同一原文件，沿原上传重试。' : '上传结果尚未确认，请稍后核对原上传。');
+    }
+  }
+  async function uploadFile(id, generation, record, file) {
+    const key = id + ':' + record.request_id;
+    if (uploadFlights.has(key)) return;
+    uploadFlights.add(key); updateUpload(id, generation, {...record, status: 'uploading'});
+    try {
+      const response = await fetch(api + '/' + id + '/files', {method: 'POST', credentials: 'same-origin',
+        cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(60000),
+        headers: {'Content-Type': 'application/octet-stream', 'X-FS-Advisor-Action': 'submit',
+          'X-FS-Filename': encodeURIComponent(record.name), 'X-FS-Request-ID': record.request_id}, body: file});
+      if (!response.ok) { const error = Error('upload'); error.status = response.status; throw error; }
+      // Success bytes are reconciled against server metadata, including SHA256.
+      await checkUpload(id, generation, record);
+    } catch (error) {
+      const failed = error.status >= 400 && error.status < 500;
+      updateUpload(id, generation, {...record, status: failed ? 'failed' : 'unknown'});
+      if (id === current && generation === epoch) {
+        if ([401, 403].includes(error.status)) denyAccess();
+        else announce(failed ? '上传未被接受，请检查文件后重试原上传。' : '上传结果待核对，请勿重复新建上传。');
+      }
+    } finally { uploadFlights.delete(key); if (id === current && generation === epoch) syncControls(); }
+  }
+  async function chooseFiles() {
+    if (lockedFiles()) return;
+    const chosen = [...$('file-input').files]; $('file-input').value = '';
+    if (chosen.length > 10) { announce('每次最多上传 10 个文件。'); return; }
+    if (!current) await newConversation();
+    const id = current, generation = epoch;
+    if (!id || lockedFiles()) return;
+    for (const file of chosen) {
+      if (id !== current || generation !== epoch) break;
+      if (!/\.(csv|xlsx)$/i.test(file.name) || !file.size || file.size > 10 * 1024 * 1024) {
+        announce('请选择不超过 10 MiB 的 CSV / XLSX 文件。'); continue;
+      }
+      const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))].map(b => b.toString(16).padStart(2, '0')).join('');
+      if (id !== current || generation !== epoch) break;
+      const previous = uploads.find(u => ['unknown', 'failed', 'uploading'].includes(u.status) && u.name === file.name && u.size === file.size);
+      if (previous && previous.sha256 !== hash) { announce('所选文件内容与待核对的原上传不同，请选回原文件。'); continue; }
+      const record = previous || {name: file.name, size: file.size, sha256: hash,
+        request_id: 'upload_' + crypto.randomUUID().replaceAll('-', ''), status: 'unknown'};
+      uploadBytes.set(id + ':' + record.request_id, file);
+      await uploadFile(id, generation, record, file);
+    }
+  }
   function restorePending(id) {
     try { pending = JSON.parse(sessionStorage.getItem(pendingKey(id)) || 'null'); }
     catch { pending = null; }
     if (pending) {
+      if (!pending.target?.endsWith('/steer')) selectedFiles = new Set(pending.file_ids || []);
       $('message-input').value = pending.text;
       $('message-input').readOnly = true;
       announce('上次发送结果待核对。可用同一请求编号重试，避免重复任务。');
@@ -96,6 +262,7 @@
     syncControls();
     $('conversation-list').replaceChildren();
     $('messages').replaceChildren();
+    fileItems = []; uploads = []; selectedFiles.clear(); uploadBytes.clear(); filesReady = false; renderFileChoices();
     const box = el('div', undefined, $('messages'), 'empty');
     el('p', '当前账号没有持续对话权限。', box);
     const link = el('a', '返回获准的快捷报告', box);
@@ -116,6 +283,7 @@
       const user = el('article', undefined, box, 'message user');
       el('h2', '你', user);
       el('p', turn.text || '', user);
+      fileCards(user, turn.files?.inputs, false);
       const answer = el('article', undefined, box, 'message assistant');
       el('h2', 'Hermes', answer);
       const hasHtml = turn.artifacts?.some(artifact => artifact.mime?.split(';')[0].toLowerCase() === 'text/html');
@@ -150,6 +318,7 @@
           download.href = path; download.download = artifact.filename;
         }
       }
+      fileCards(answer, turn.files?.generated, true);
     }
     syncControls();
     $('conversation-title').textContent = snapshot?.title || '与 Hermes 对话';
@@ -200,6 +369,22 @@
       if (snapshot && (detail.last_seq || 0) < (snapshot.last_seq || 0)) return;
       snapshot = detail;
       ready = true;
+      if (pending && !pending.target?.endsWith('/steer')) {
+        const accepted = detail.turns?.find(t => t.client_request_id === pending.client_request_id && t.text === pending.text &&
+          JSON.stringify([...(t.file_bindings?.inputs || [])].sort()) === JSON.stringify([...(pending.file_ids || [])].sort()));
+        if (accepted && accepted.state !== 'dispatch_unknown') {
+          sessionStorage.removeItem(pendingKey(current)); pending = null; selectedFiles.clear();
+          $('message-input').value = ''; $('message-input').readOnly = false; saveFiles(current);
+        }
+      }
+      try { await refreshFiles(current, generation); }
+      catch (error) {
+        if (generation !== epoch) return;
+        filesReady = false; fileItems = fileItems.map(f => ({...f, status: 'unavailable'}));
+        if ([401, 403].includes(error.status)) { denyAccess(); return; }
+        if ($('file-help')) $('file-help').textContent = '附件状态暂未确认，请稍后刷新核对；已选附件确认前不会用于新一轮。';
+      }
+      if (generation !== epoch || accessDenied) return;
       scrollIfAtBottom(renderMessages);
       connect(current, detail.last_seq || 0, generation);
       $('connection-indicator').textContent = '已连接';
@@ -214,7 +399,11 @@
   }
   async function openConversation(id) {
     if (accessDenied || !/^[a-f0-9]{32}$/.test(id || '')) return;
-    current = id; epoch++; snapshot = null; ready = false; closeStream(); restorePending(id); syncControls();
+    current = id; epoch++; snapshot = null; ready = false; filesReady = false; fileItems = [];
+    const saved = storedFiles(id);
+    uploads = (saved.uploads || []).map(u => ({...u, status: u.status === 'failed' ? 'failed' : 'unknown'}));
+    selectedFiles = new Set(saved.selected || []);
+    closeStream(); restorePending(id); syncControls();
     history.replaceState(null, '', '?conversation=' + encodeURIComponent(id));
     $('connection-indicator').textContent = '正在读取';
     await refreshCurrent(epoch);
@@ -239,24 +428,37 @@
     const text = $('message-input').value.trim();
     if (!text) return;
     sending = true; syncControls();
+    let origin = null, sendEpoch = null;
     try {
       if (!current) await newConversation();
       if (!current) return;
+      const id = current, generation = epoch;
+      origin = id; sendEpoch = generation;
       const running = selectedRun();
+      if (!pending && !running && selectedFiles.size) {
+        await refreshFiles(id, generation);
+        if (id !== current || generation !== epoch || accessDenied) return;
+        if ([...selectedFiles].some(fid => !fileItems.some(f => f.file_id === fid && bindingAvailable(f)))) {
+          announce('已选附件已过期或不可用，请取消选择后再发送。'); return;
+        }
+      }
       const target = running ? '/' + encodeURIComponent(current) + '/runs/' + encodeURIComponent(running.run_id) + '/steer' : '/' + encodeURIComponent(current) + '/turns';
       if (!pending) {
-        pending = {target, text, client_request_id: 'web_' + crypto.randomUUID().replaceAll('-', '')};
+        pending = {target, text, client_request_id: 'web_' + crypto.randomUUID().replaceAll('-', ''),
+          ...(!running ? {file_ids: [...selectedFiles].sort()} : {})};
         sessionStorage.setItem(pendingKey(current), JSON.stringify(pending));
       }
       const wasSteer = pending.target.endsWith('/steer');
-      const result = await request(pending.target, {text: pending.text, client_request_id: pending.client_request_id}, 'POST');
+      const result = await request(pending.target, {text: pending.text, client_request_id: pending.client_request_id,
+        ...(!wasSteer && pending.file_ids?.length ? {file_ids: pending.file_ids} : {})}, 'POST');
+      if (id !== current || generation !== epoch) return;
       const state = result.state;
       const accepted = wasSteer ? state === 'accepted' : ['preparing', 'queued', 'running', 'stopping', 'completed'].includes(state);
       const rejected = ['rejected', 'failed', 'cancelled', 'interrupted'].includes(state);
       if (accepted || rejected) {
         sessionStorage.removeItem(pendingKey(current)); pending = null; $('message-input').readOnly = false;
       }
-      if (accepted) $('message-input').value = '';
+      if (accepted) { $('message-input').value = ''; if (!wasSteer) { selectedFiles.clear(); saveFiles(current); } }
       else if (!rejected) $('message-input').readOnly = true;
       await refreshCurrent();
       loadList().catch(() => {});
@@ -264,6 +466,7 @@
       else if (rejected) announce('本次提交未被接受，内容已保留，可调整后重新发送。');
       else announce('提交状态待核对，请勿换请求编号或重复发起新任务。');
     } catch (error) {
+      if (origin && (origin !== current || sendEpoch !== epoch)) return;
       if (error.status === 403) { denyAccess(); return; }
       $('message-input').readOnly = !!pending;
       announce('发送结果需核对：' + errorMessage(error) + '。再次发送会使用同一请求编号。');
@@ -274,11 +477,13 @@
     const run = selectedRun();
     if (!run || !current) return;
     stopping = true; syncControls();
+    const id = current, generation = epoch;
     try {
       const key = 'hermes_stop_' + current + '_' + run.run_id;
       const requestId = sessionStorage.getItem(key) || 'stop_' + crypto.randomUUID().replaceAll('-', '');
       sessionStorage.setItem(key, requestId);
       const result = await request('/' + encodeURIComponent(current) + '/runs/' + encodeURIComponent(run.run_id) + '/stop', {client_request_id: requestId}, 'POST');
+      if (id !== current || generation !== epoch) return;
       if (result.state === 'accepted' || ['completed', 'failed', 'cancelled', 'interrupted'].includes(result.state)) {
         sessionStorage.removeItem(key);
         if (result.state !== 'accepted') announce(terminalMessage(result.state) || '任务已结束，无需停止。');
@@ -293,6 +498,7 @@
       if (latest && terminalMessage(latest.state)) announce(terminalMessage(latest.state));
       else if (result.state === 'accepted') announce('停止请求已接受，正在等待服务确认。');
     } catch (error) {
+      if (id !== current || generation !== epoch) return;
       if (error.status === 403) { denyAccess(); return; }
       announce('停止结果需核对：' + errorMessage(error));
       await refreshCurrent();
@@ -302,6 +508,7 @@
   $('composer').onsubmit = send;
   $('stop-run').onclick = stop;
   $('message-input').onkeydown = event => { if (event.key === 'Enter' && event.ctrlKey) { event.preventDefault(); $('composer').requestSubmit(); } };
+  if ($('file-input')) $('file-input').onchange = () => chooseFiles().catch(() => announce('文件读取失败，请检查原文件后重试。'));
   (async () => {
     try {
       const items = await loadList();
