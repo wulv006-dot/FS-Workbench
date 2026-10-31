@@ -67,6 +67,10 @@ A回报最终main `4077536449a3dcaa8871623989a15be3ead1552b`新pack SHA `910b31d
 
 原pr-fast runner证据为conversation32、deploy16、channel12通过且0skip，两项新增实际make_adapter离线契约经注入官方边界复现旧拒读及确认零dotenv调用，构造agent/原Runs gate、runtime-config/loopback/token/model/注册/路由保持，其他RuntimeError/PermissionError原对象传播。主控核实际diff及合并后运行代码/测试与A固定候选一致，diff检查通过。新增测试已由原store.load_tests及channel分组覆盖，无新CI接线/依赖。独立最新SHA审查及必需CI待完成；真实worker启动、材料/模型/费用/视觉仍待受控新发布验收，不把离线结果当恢复。
 
+PR716 reviewed `6fc954f1555538677cd39b0ce5e923445899a42b`独审无未解决项、Linux32/16/12零skip，通过后merge `ac58cf7f854fb4e9548db47228a110e725f99d81`。A新pack descriptor `78aa52177a57d3fd33dd7fe728e2d77996b4be9403fde5b9a4eabb7ba1f2e1fe`，但prepare在活动写入前因`docker inspect fs-hermes-fc: No such object`中止，未生成stage/manifest/backup、未安装新worker；旧HTTP/Nginx active。原unit为Restart=no、docker --rm，失败容器已移除，unit SHA `94b9cf19547ad0a4b68307ea35d4f5317fca0136048b90d78d5f9cea1dbaf011`，固定原完整image，未改配置/权限/凭据。
+
+同一A独占prepare/release及相关测试继续最小支持这种已验证恢复态：仅容器确不存在、unit完整hash及inactive/failed状态与原ExecStart固定image、本机image inspect交叉核实均通过时允许识别准备镜像；其他docker错误或漂移拒绝，正常容器仍核实际image。必须标明镜像来源和发布前失败状态，不冒称运行容器。主控同时核出`runtime_release.py`的runtimeRequired全active校验及冻结base guards的实际服务状态核对会阻断此恢复态；本次完整候选应一并限定处理发布前状态，不修改冻结base或全局关闭guards。保留其余服务/保护文件/CAS/围栏，发布后仍要求实际容器/image/worker健康及HTTP/Nginx读回，fallback不能充当成功证明。具体补丁/契约/独审/CI及真实恢复仍待回交，不重放旧stage、不造容器或改服务配置。
+
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。
 
 不新增账号/凭据/权限/安全配置或费用，不启用待配置模型，不改价/发券/订单/触达客户、不真实购买支付。测试仅新增明确标记的小合成验收会话/附件，不删除旧业务数据。真实数据只读现有授权scope的必要匿名摘要，原客户/订单/密钥不进Git或截图。
