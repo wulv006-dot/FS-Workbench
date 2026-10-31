@@ -27,7 +27,7 @@
     const row={event,timestamp:new Date().toISOString(),properties:clean(properties({...extra,event_id:uuid()}))};
     if(preview&&local&&cfg.localPreviewJournal){try{const rows=JSON.parse(localStorage.getItem(journalKey)||'[]');rows.push(row);localStorage.setItem(journalKey,JSON.stringify(rows.slice(-1500)));}catch{/* Storage denial must not interrupt buying. */}}
     if(testMode&&testCsrf)fetch('/analytics/api/test-event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...row,csrf:testCsrf}),keepalive:true}).then(r=>{const banner=document.getElementById('analytics-test-banner');if(banner)banner.textContent=r.ok?"PostHog test event sent. Live shopping and payment remain disabled.":"PostHog test event is unconfirmed. Check the dashboard connection status.";}).catch(()=>{});
-    if(allowed()){try{sdk.capture(event,row.properties);}catch{/* Analytics failure cannot block checkout. */}}
+    if(allowed()){try{sdk.capture(event,row.properties);}catch{/* Analytics failure cannot block checkout. */}googleEvent(event,row.properties);}
     window.dispatchEvent(new CustomEvent('fcactivity:analytics-debug',{detail:row}));
   }
   function tick(){const now=performance.now();if(wasVisible)active+=Math.min(now-last,15000);last=now;wasVisible=document.visibilityState==='visible';}
@@ -87,6 +87,28 @@
     }
   }
   const consentKey='mmoexp-event-analytics-consent-v1';let transportOptIn=false,distinct=uuid();
+  // Reuse the verified MMOEXP web stream; only load its tag after the existing opt-in.
+  const googleId='G-L67DEVB5XN',googleConsentKey='mmoexp-event-google-consent-v1';let googleStarted=false,googlePageSent=false;
+  function googleConsent(){
+    let googleAllowed=false;try{googleAllowed=localStorage.getItem(googleConsentKey)==='granted';}catch{}
+    if(!consent||!googleAllowed||!liveSeasonal()||verification){window['ga-disable-'+googleId]=true;if(googleStarted)window.gtag('consent','update',{analytics_storage:'denied'});return;}
+    try{
+      window['ga-disable-'+googleId]=false;
+      if(!googleStarted){
+        window.dataLayer=window.dataLayer||[];window.gtag=window.gtag||function(){window.dataLayer.push(arguments);};
+        window.gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
+        window.gtag('js',new Date());window.gtag('config',googleId,{send_page_view:false,allow_google_signals:false,allow_ad_personalization_signals:false,page_location:location.origin+'/events/seasonal/',page_referrer:cleanReferrer(),...Object.fromEntries([['utm_source','campaign_source'],['utm_medium','campaign_medium'],['utm_campaign','campaign_name'],['utm_content','campaign_content'],['utm_term','campaign_term']].filter(([key])=>safe(params.get(key))).map(([key,field])=>[field,safe(params.get(key))]))});
+        const tag=document.createElement('script');tag.async=true;tag.src='https://www.googletagmanager.com/gtag/js?id='+googleId;document.head.append(tag);googleStarted=true;
+      }
+      window.gtag('consent','update',{analytics_storage:'granted'});
+      if(!googlePageSent){googlePageSent=true;window.gtag('event','page_view',{send_to:googleId,page_location:location.origin+'/events/seasonal/',page_referrer:cleanReferrer()});}
+    }catch{/* Google availability cannot interrupt consent or purchasing. */}
+  }
+  function cleanReferrer(){try{const u=new URL(document.referrer);return /^https?:$/.test(u.protocol)?u.origin+'/':'';}catch{return '';}}
+  function googleEvent(event,props){
+    if(!consent||!liveSeasonal()||verification||!googleStarted||window['ga-disable-'+googleId])return;
+    try{window.gtag('event',event,{send_to:googleId,page_location:location.origin+'/events/seasonal/',activity_id:'mmoexp-seasonal',...Object.fromEntries(['game_id','slot','action','target','depth','active_seconds'].filter(k=>props[k]!=null).map(k=>[k,props[k]]))});}catch{}
+  }
   // Reuse the existing public Capture API transport, with no SDK autocapture/replay.
   const transport={capture(event,props){
     if(!transportOptIn||!allowed())return;
@@ -102,16 +124,16 @@
     const native=document.createElement('dialog'),modal=typeof native.showModal==='function'&&typeof native.close==='function';
     const section=modal?native:document.createElement('section');section.id='seasonal-analytics-choice';section.className='analytics-choice';section.setAttribute('aria-labelledby','seasonal-analytics-title');section.setAttribute('aria-describedby','seasonal-analytics-description');
     const title=document.createElement('h2');title.id='seasonal-analytics-title';title.tabIndex=-1;title.textContent='Your analytics choice';
-    const label=document.createElement('p');label.id='seasonal-analytics-description';label.textContent='May we collect optional usage data to improve this event? You can browse and buy with either choice. Change your choice anytime in Analytics preferences.';
+    const label=document.createElement('p');label.id='seasonal-analytics-description';label.textContent='May we use Google Analytics and PostHog to collect optional usage data to improve this event? You can browse and buy with either choice. Change your choice anytime in Analytics preferences.';
     const yes=document.createElement('button'),no=document.createElement('button');yes.type=no.type='button';yes.textContent='Allow analytics';no.textContent='No thanks';
     const close=()=>{if(modal&&section.open)section.close();section.hidden=true;},open=()=>{section.hidden=false;if(modal&&!section.open)section.showModal();title.focus?.();};
-    const choose=value=>{window.FCActivityAnalytics.setConsent(value);try{localStorage.setItem(consentKey,value?'granted':'denied');}catch{}close();};
+    const choose=value=>{try{localStorage.setItem(consentKey,value?'granted':'denied');localStorage.setItem(googleConsentKey,value?'granted':'denied');}catch{}window.FCActivityAnalytics.setConsent(value);close();};
     yes.addEventListener('click',()=>choose(true));no.addEventListener('click',()=>choose(false));section.append(title,label,yes,no);
     const header=document.querySelector('.site-header');if(header?.after)header.after(section);else document.querySelector('.site-footer')?.before(section);
     const settings=document.createElement('button');settings.type='button';settings.className='analytics-settings';settings.textContent='Analytics preferences';settings.addEventListener('click',open);document.querySelector('.site-footer')?.append(settings);
-    let saved;try{saved=localStorage.getItem(consentKey);}catch{}
-    window.FCActivityAnalytics.setConsent(saved==='granted');if(saved==='granted'||saved==='denied')close();else open();
-    window.addEventListener('storage',e=>{if(e.key===consentKey||e.key===null)window.FCActivityAnalytics.setConsent(e.key===consentKey&&e.newValue==='granted');});
+    let saved,googleSaved;try{saved=localStorage.getItem(consentKey);googleSaved=localStorage.getItem(googleConsentKey);}catch{}
+    window.FCActivityAnalytics.setConsent(saved==='granted');if(saved==='denied'||saved==='granted'&&googleSaved)close();else open();
+    window.addEventListener('storage',e=>{if(e.key===googleConsentKey){googleConsent();return;}if(e.key===consentKey||e.key===null){let granted=false;try{granted=localStorage.getItem(consentKey)==='granted';}catch{}window.FCActivityAnalytics.setConsent(e.key!==null&&granted);}});
   }
   window.addEventListener('seasonal-published-catalog',e=>{
     const next=e.detail,page=Array.isArray(next?.pages)?next.pages.find(p=>p?.page_id==='seasonal-vault'&&p.activity_id==='mmoexp-seasonal'):null;
@@ -120,7 +142,7 @@
     if(cfg.seasonalEnabled!==true||!cfg.projectToken||next?.schema_version!==1||page?.active!==true||next?.halloween?.status!=='configured'||!/^campaign-preview-\d+$/.test(next?.release_id||'')||!/^[a-f0-9]{64}$/.test(next?.config_hash||'')||!Number.isFinite(startAt)||!Number.isFinite(endAt)||startAt>now||endAt<now){
       // Revoke the old publication immediately; never flush it after a pause,
       // retain stale observer context, or fall back to the general enabled flag.
-      published=null;preview=true;entry=null;state={};active=0;last=performance.now();seen=new Set();observer?.disconnect();transport.opt_out_capturing();return;
+      published=null;preview=true;entry=null;state={};active=0;last=performance.now();seen=new Set();observer?.disconnect();transport.opt_out_capturing();googleConsent();return;
     }
     if(published?.release_id===next.release_id&&published?.config_hash===next.config_hash)return;
     flush();published=next;preview=false;entry=null;state={view:'seasonal',platform:'unknown',language:'en'};window.FCActivityAnalytics.connect(transport);window.FCActivityAnalytics.setConsent(consent);start(state);consentControls();
@@ -131,7 +153,7 @@
   window.FCActivityAnalytics={
     offer:trackOffer,
     connect(instance){if(!instance||typeof instance.capture!=='function')throw Error('PostHog SDK required');sdk=instance;},
-    setConsent(value){consent=value===true;if(consent)restoreSession();active=0;last=performance.now();if(!consent){try{sdk?.opt_out_capturing();}catch{}}else if(sdk&&(formal?liveSeasonal():cfg.enabled)&&!preview){try{sdk.opt_in_capturing({captureEventName:false});}catch{}if(entry)start(state);}},
+    setConsent(value){consent=value===true;if(consent)restoreSession();active=0;last=performance.now();googleConsent();if(!consent){try{sdk?.opt_out_capturing();}catch{}}else if(sdk&&(formal?liveSeasonal():cfg.enabled)&&!preview){try{sdk.opt_in_capturing({captureEventName:false});}catch{}if(entry)start(state);}},
     context(){if(!allowed()||!entry)return null;try{return {...properties(),distinct_id:sdk.get_distinct_id()};}catch{return null;}},
     sdkOptions:{api_host:cfg.apiHost,autocapture:false,capture_pageview:false,capture_pageleave:false,disable_session_recording:true,person_profiles:'never',opt_out_capturing_by_default:true,disable_surveys:true,advanced_disable_feature_flags:true,before_send(event){if(!consent||!event?.event?.startsWith('activity_'))return null;event.properties=clean(event.properties||{});return event;}},
     status(){return {preview,enabled:!!(formal?liveSeasonal():cfg.enabled),consent,connected:!!sdk,transmitting:!!allowed()};}

@@ -5,6 +5,17 @@ import importlib.util
 from unittest.mock import patch
 
 class Release(unittest.TestCase):
+ def test_google_endpoint_requires_both_reader_files(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   stage=Path(tmp);rows=[]
+   for name in sorted(p.REQUIRED_SPECIAL|{'app/analytics/production-server.mjs'}):
+    f=stage/'candidate'/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text("import {makeGoogleTraffic} from './google-traffic.mjs';" if name.endswith('production-server.mjs') else 'fixture')
+    rows.append(dict(candidate=name,target=p.target(name),sha256=p.m.digest(f),beforeSha256=None))
+   manifest=dict(schemaVersion=1,scope=p.SCOPE,targets={r['candidate']:r['target'] for r in rows},files=rows)
+   with self.assertRaisesRegex(ValueError,'exact reader closure'):p.validate(manifest,stage)
+   for name in ['app/analytics/google-traffic.mjs','backend/google_traffic.py']:
+    f=stage/'candidate'/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('fixture');row=dict(candidate=name,target=p.target(name),sha256=p.m.digest(f),beforeSha256=None);rows.append(row);manifest['targets'][name]=row['target']
+   self.assertEqual(p.validate(manifest,stage),rows)
  def test_retry_dependency_cannot_be_omitted_from_consumer_release(self):
   with tempfile.TemporaryDirectory() as tmp:
    stage=Path(tmp);rows=[]
