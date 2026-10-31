@@ -54,7 +54,8 @@ def schemas():
                            'required': list(fields), 'additionalProperties': False}}})
     from research import tool_schemas
     from strategy_tools import schemas as strategy_schemas
-    return result+tool_schemas()+strategy_schemas()
+    from conversation_file_tools import tool_schemas as file_schemas
+    return result+tool_schemas()+strategy_schemas()+file_schemas()
 
 
 class ScopedTools:
@@ -74,6 +75,9 @@ class ScopedTools:
         if name not in WIRE_TOOLS:
             raise PermissionError('tool_denied')
         semantic=SEMANTIC_TOOLS[WIRE_TOOLS.index(name)]
+        from conversation_file_tools import NAMES as FILE_NAMES
+        if semantic in FILE_NAMES and not getattr(self.book, '_conversation_file_tools', False):
+            raise PermissionError('conversation_file_context_required')
         from strategy_tools import NAMES,call
         if semantic in NAMES:result=call(self,owner,task_id,lease,semantic,arguments)
         else:result = self.book.call(semantic, arguments)
