@@ -15,6 +15,7 @@
 - A已认领`hermes-conversation-20261018/frontend/{index.html,conversation.js,conversation.css}`及其执行事件测试；必要files/http/store元数据接口亦由A独占。复用ui-system令牌、原主题和组件；不换业务规则或复制第二套共享样式。
 - B业务主线为`hermes-v2-core-20261020/source/material_evidence.py`及B-owned `conversation_file_tools.py`接入：消费A分页回执，给模型实际已读覆盖及B1最小证据交接。另负责`test_material_evidence.py`、`test_materials_http_workflow.py`和既有test_core测试加载、最终跨层验收、工作包与主方案记录。不与A并改上述前端/后端文件，协调/评审不能替代B代码。
 - shared controller、公共schema、迁移、发布清单冻结，未授权新并改。
+- A发现并交接的`tools/pr_fast.py`精确CI接线由Personal/B唯一维护：在现有hermes-conversation分组两次units后调用原node入口`frontend/entry/test_data_handoff.cjs`，原generic-data调用保留，不新增workflow/依赖/全仓门禁。A在该原入口require新增DOM/fetch测试，整合后核实其实际执行。
 
 A已确认`detail.turns[].files={inputs:[metadata],generated:[metadata]}`，每项为file_id/filename/mime/size/version/parent_id/expires_at/status，status为available/expired/damaged/missing/unavailable。终态可读最小元数据不授工具执行权，工具queued/running围栏不变。下载地址由原API和真实server file_id构造，不能从模型文本提取任意URL/file_id。没有表格正文或凭据进入元数据。
 
@@ -36,3 +37,5 @@ B新增真实loopback HTTP验收使用注入测试身份，沿真实HTTP适配�
 - 8项直接测试通过，含真实A BoundFiles分页→B模型回执→B1交接，以及多sheet、乱序/重叠/重复页、未知/错误回执、版本/维度冲突、空sheet和新turn隔离。原Core入口共91项通过。B另有4项真实HTTP新接口验收候选，待A新接口合入后挂入Core，未把缺新接口的旧基线标回归或绿色完成。
 
 共同联调顺序：UI显式选择→A绑定/鉴权/分页→B判断并交接观察覆盖→A不可变产物→UI真实卡片与下载→新turn显式绑定重新建证据。核心Codex审查在整包候选上进行，不能代替B实现；普通代码/测试修复继续本包一个集成PR。
+
+CI接线本地自检通过；在A新候选合入前运行原node入口仅验证了旧handoff，不冒充新DOM测试执行证据。待最终候选后通过此入口实际执行新增用例并留CI回执。
