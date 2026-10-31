@@ -879,6 +879,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-10-31／材料文件工具包本地集成 | 正常合入A59fa290e，文件绑定→三工具分页/修改→下载→显式绑定追问组合模拟通过；相关157项含Git LF归档检查通过 | 同目录FILES-WORKPACKAGE.md | 待本包集成草稿的正式CI/核心审查；真实worker进程/模型、前台及生产未验，阶段1/2整体未完成 | 单一集成草稿内收尾，满足交付条件再转正式汇总 | Personal集成；A/B保持文件唯一维护者 |
 | 2026-10-31／文件包合并与附件UI包 | PR707同SHA核心审查/必要CI通过，merge fb683f2d82d3b44595d866619bb6c880fd3852fb；A认领UI/最小元数据，B补实际HTTP跨层验收 | 同目录MATERIALS-UI-WORKPACKAGE.md | 附件UI包执行测试与组合候选待完成；无真实模型或部署；知识收尾旧失败保留 | 按用户确认由主控自行验收/合并，整包持续一个集成PR | Personal主控/B；Business A |
 | 2026-10-31／附件UI与B材料证据集成 | B实现分页观察覆盖及最小证据交接，正常merge A完整UI候选beacbcf6；Core95、conversation28及原Node入口实际DOM/fetch通过，复用同候选A浏览器证据；独立审查聊天双向握手成功 | 同目录MATERIALS-UI-WORKPACKAGE.md、REVIEW-WORKFLOW.md | 最新PR的CI/独立审查/合并待完成；真实worker/模型/生产仍未验，知识收尾旧失败保留 | 一个集成草稿按完整head交接，包内修复留同PR | Personal主控/B；Business A；独立Business审查员 |
+| 2026-10-31／PR708独立审查与P2修复 | Business delegate对4a3b820a完整核心独审，必要CI及独立回归通过但发现元数据结构损坏使整会话失败；A确认单文件临时交接Personal小修，新增详情/事件HTTP回归，Core96/conversation28/HTTP3通过 | 同目录MATERIALS-UI-WORKPACKAGE.md、REVIEW-WORKFLOW.md | 修复新head的独立复查及CI待完成，尚未合并；真实worker/模型/生产仍未验 | 仅一个Business Sol High独立worktree复查任务，旧结论不覆盖新head | Personal主控/B；A保留底座长期归属 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 

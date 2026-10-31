@@ -133,9 +133,26 @@ class ConversationFiles:
                 return {'file_id': fid, 'status': 'missing'}
             except (ValueError, OSError):
                 return {'file_id': fid, 'status': 'damaged'}
+            # A readable JSON receipt may still have lost fields or field types.
+            # Keep that attachment unavailable without hiding the conversation.
+            fields = {'filename': str, 'mime': str, 'sha256': str, 'size': int,
+                      'version': int, 'generated': bool}
+            if (not isinstance(item, dict) or item.get('file_id') != fid
+                    or any(type(item.get(key)) is not kind for key, kind in fields.items())
+                    or any(type(item.get(key)) not in (int, float) for key in ('created_at', 'expires_at'))
+                    or 'parent_id' not in item
+                    or (item['parent_id'] is not None and
+                        (not isinstance(item['parent_id'], str) or
+                         not re.fullmatch('[a-f0-9]{32}', item['parent_id'])))
+                    or not re.fullmatch('[a-f0-9]{64}', item['sha256'])
+                    or not 0 < item['size'] <= MAX_BYTES or item['version'] < 1
+                    or item['mime'] not in MIMES.values()):
+                return {'file_id': fid, 'status': 'damaged'}
             try:
                 self.read(owner, cid, fid, _db=db)
                 status = 'available'
+            except (KeyError, TypeError, AttributeError):
+                return {'file_id': fid, 'status': 'damaged'}
             except LookupError:
                 status = 'expired' if item['expires_at'] <= time.time() else 'missing'
             except FileNotFoundError:

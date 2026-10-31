@@ -32,7 +32,7 @@ class MaterialsHTTPWorkflow(unittest.TestCase):
         self.store = ConversationStore(self.folder.name)
         self.cid = self.store.create("alice")["conversation_id"]
         self.allowed = {"alice", "bob"}
-        self.service = SimpleNamespace(store=self.store, detail=self.store.detail)
+        self.service = SimpleNamespace(store=self.store, detail=self.store.detail, events=self.store.events)
         self.service.submit = lambda owner, cid, text, client_request_id, file_ids=None: self.store.reserve_turn(
             owner, cid, text, client_request_id, file_ids)
         fixture = self
@@ -164,6 +164,29 @@ class MaterialsHTTPWorkflow(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertEqual(detail["turns"][0]["files"]["inputs"][0]["status"], "missing")
         self.assertNotEqual(self.request("/files/" + item["file_id"])[0], 200)
+
+    def test_structurally_damaged_metadata_does_not_hide_conversation(self):
+        item = self.upload()
+        turn, _ = self.start([item["file_id"]], "turn_ui_metadata_001")
+        self.store.append_event("alice", self.cid, "run_" + turn["turn_id"], 1,
+                                {"event": "message.delta", "delta": "history stays readable"})
+        self.store.set_state("alice", self.cid, turn["turn_id"], "completed")
+        path = Path(self.folder.name) / "files" / self.cid / (item["file_id"] + ".json")
+        variants = [{}, [], dict(item, expires_at="broken"), dict(item, file_id="wrong")]
+        for metadata in variants:
+            with self.subTest(metadata=metadata):
+                path.write_text(json.dumps(metadata), encoding="utf-8")
+                code, detail, _ = self.request("")
+                self.assertEqual(code, 200)
+                self.assertEqual(detail["turns"][0]["turn_id"], turn["turn_id"])
+                self.assertEqual(detail["turns"][0]["reply"], "history stays readable")
+                self.assertEqual(detail["turns"][0]["files"]["inputs"], [
+                    {"file_id": item["file_id"], "status": "damaged"}])
+                code, events, headers = self.request("/events?after=0")
+                self.assertEqual(code, 200)
+                self.assertIn("text/event-stream", headers["Content-Type"])
+                self.assertIsInstance(events, bytes)
+                self.assertIn(b"history stays readable", events)
 
 
 if __name__ == "__main__":

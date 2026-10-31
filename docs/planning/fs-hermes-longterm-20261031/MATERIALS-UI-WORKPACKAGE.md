@@ -47,3 +47,11 @@ Personal已正常merge A固定候选beacbcf693a5aa972b5f7c963ac2a33b2ccf692c，m
 A候选的浏览器证据由A提供：原无附件/停止/补充/撤权回归、新Chromium交互、浅暗桌面和390px移动截图检查、合成XLSX点击下载实际落盘通过。Personal核对整个A包与固定候选无源码差异，复用这些证据，不声称自己重复完成视觉检查。API/模型响应仍模拟；下载使用测试期loopback字节夹具，非生产认证。
 
 独立Business审查聊天已实际回复并回送“已就绪”，规则见REVIEW-WORKFLOW.md；握手不是PR审查。最终PR的CI、对应最新head的独立审查和合并仍待完成。知识统一收尾plan已尝试，但原knowledge-layering子检查字节相关失败未解决，不标完成，不改无关publisher。真实worker进程、跨模型运行时、真实模型、生产认证、部署以及整套A1仍未验。
+
+## PR708独立审查与小修维护交接
+
+用户调整为delegate_task独立审查，不再要求复用固定审查聊天。平台核实并实际使用Business codex-business，在独立worktree审查4a3b820afbbaebb3d1ec448ff2371b2880be281c/base fb683f2d82d3b44595d866619bb6c880fd3852fb；19路径核心核阅，Core95/conversation28/HTTP-release10/Node/selfcheck独立通过，两个CI成功，但发现一项P2：合法JSON的附件元数据结构损坏导致详情/事件整会话404或422。尚不合并。
+
+A已通过原施工聊天真实确认：仅本次P2的conversation_files.py.describe结构损坏降级修复临时交Personal唯一修改，A不并改、不重复实现，A底座长期归属不变；B继续独占test_materials_http_workflow.py。修复留原PR708，固定新head再用新的delegate_task复查，不继承旧head结论。
+
+修复前B新增真实HTTP回归复现{}→404、[]/expires_at类型错误→422及file_id不匹配误报available。describe现先核对象与必要字段类型/身份，结构损坏返回最小原file_id+damaged；读取中的结构错误同样降级，owner鉴权仍在最前。回归同时断言损坏时详情200、原回复保留、events200且实际包含原事件。修复后Core96、conversation28（store/loop16+其他12）、原HTTP3通过；未修改UI，原浏览器证据不重复运行。同步origin/main仍为fb683f2d，待新head独立复查及必要CI，不以旧review代表修复版通过。
