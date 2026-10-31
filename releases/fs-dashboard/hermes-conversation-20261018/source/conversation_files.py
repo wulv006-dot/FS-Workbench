@@ -12,6 +12,7 @@ import os
 import re
 import time
 import zipfile
+from contextlib import contextmanager
 
 MAX_BYTES = 10 * 1024 * 1024
 MAX_CELLS = 100_000
@@ -70,6 +71,15 @@ class ConversationFiles:
     def __init__(self, store):
         self.store = store
 
+    @contextmanager
+    def transaction(self, connection=None):
+        if connection is not None:
+            yield connection
+        else:
+            with self.store.db() as db:
+                db.execute('BEGIN IMMEDIATE')
+                yield db
+
     def directory(self, cid):
         if not isinstance(cid, str) or not re.fullmatch('[a-f0-9]{32}', cid):
             raise LookupError('conversation_not_found')
@@ -108,15 +118,13 @@ class ConversationFiles:
             items.append(item)
         return items
 
-    def listed(self, owner, cid):
-        with self.store.db() as db:
-            db.execute('BEGIN IMMEDIATE')
+    def listed(self, owner, cid, *, _db=None):
+        with self.transaction(_db) as db:
             self.store._owned(db, owner, cid)
             return {'items': self._inventory(self.directory(cid))}
 
-    def read(self, owner, cid, fid):
-        with self.store.db() as db:
-            db.execute('BEGIN IMMEDIATE')
+    def read(self, owner, cid, fid, *, _db=None):
+        with self.transaction(_db) as db:
             self.store._owned(db, owner, cid)
             directory = self.directory(cid)
             self._inventory(directory)
@@ -132,7 +140,7 @@ class ConversationFiles:
                 raise ValueError('file_integrity')
             return dict(item, content=content)
 
-    def save(self, owner, cid, filename, content, request_id, parent_id=None, generated=False, recipe=None):
+    def save(self, owner, cid, filename, content, request_id, parent_id=None, generated=False, recipe=None, *, _db=None):
         if not isinstance(filename, str) or not re.fullmatch(r'[\w .-]{1,100}', filename) or filename.startswith('.'):
             raise ValueError('file_name')
         extension = filename.rsplit('.', 1)[-1].lower()
@@ -143,13 +151,13 @@ class ConversationFiles:
         if not isinstance(request_id, str) or not re.fullmatch('[A-Za-z0-9_-]{8,80}', request_id):
             raise ValueError('request_id')
         # Verify ownership before parsing any untrusted workbook.
-        self.store.detail(owner, cid)
+        with self.transaction(_db) as db:
+            self.store._owned(db, owner, cid)
         if extension != 'html':
             parse_table(content, extension)
         sha = hashlib.sha256(content).hexdigest()
         fid = hashlib.sha256((cid + ':' + request_id).encode()).hexdigest()[:32]
-        with self.store.db() as db:
-            db.execute('BEGIN IMMEDIATE')
+        with self.transaction(_db) as db:
             self.store._owned(db, owner, cid)
             directory = self.directory(cid)
             items = self._inventory(directory)
@@ -185,13 +193,13 @@ class ConversationFiles:
                 raise
             return dict(item, expired=False)
 
-    def parsed(self, owner, cid, fid):
-        item = self.read(owner, cid, fid)
+    def parsed(self, owner, cid, fid, *, _db=None):
+        item = self.read(owner, cid, fid, _db=_db)
         return dict(parse_table(item['content'], item['filename'].rsplit('.', 1)[-1].lower()),
                     file_id=fid, sha256=item['sha256'])
 
-    def revise(self, owner, cid, fid, edits, output_format, request_id):
-        table = self.parsed(owner, cid, fid)
+    def revise(self, owner, cid, fid, edits, output_format, request_id, *, _db=None):
+        table = self.parsed(owner, cid, fid, _db=_db)
         if output_format not in MIMES or not isinstance(edits, list) or len(edits) > 1000:
             raise ValueError('revision')
         recipe = hashlib.sha256(json.dumps({'parent': fid, 'edits': edits, 'format': output_format},
@@ -239,4 +247,4 @@ class ConversationFiles:
                     body.append('<tr>' + ''.join('<td>' + html.escape('' if v is None else str(v)) + '</td>' for v in row) + '</tr>')
                 body.append('</table>')
             content = ('<!doctype html><html><meta charset="utf-8"><body>' + ''.join(body) + '</body></html>').encode()
-        return self.save(owner, cid, 'result.' + output_format, content, request_id, fid, generated=True, recipe=recipe)
+        return self.save(owner, cid, 'result.' + output_format, content, request_id, fid, generated=True, recipe=recipe, _db=_db)

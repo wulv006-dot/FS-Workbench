@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "source"))
 from conversation_store import ConversationStore
 from conversation_files import ConversationFiles, parse_table
 from conversation_http import handle
+from conversation_file_bindings import context_factory
 
 
 class FileTests(unittest.TestCase):
@@ -23,6 +24,97 @@ class FileTests(unittest.TestCase):
         self.store = ConversationStore(self.temp.name)
         self.cid = self.store.create('alice')['conversation_id']
         self.files = ConversationFiles(self.store)
+
+    def running_context(self, file_ids, request_id='turn_001'):
+        turn = self.store.reserve_turn('alice', self.cid, '分析附件', request_id, file_ids)
+        run_id = 'run_' + turn['turn_id']
+        self.store.bind_run('alice', self.cid, turn['turn_id'], run_id)
+        return turn, run_id, context_factory(self.store, 'alice', self.cid, turn['turn_id'], lambda user: user == 'alice')
+
+    def test_turn_binding_paging_revision_and_explicit_followup(self):
+        first = self.files.save('alice', self.cid, 'a.csv', b'a,b\n1,2\n3,4', 'upload_001')
+        other = self.files.save('alice', self.cid, 'b.csv', b'secret', 'upload_002')
+        turn, run_id, context = self.running_context([first['file_id']])
+        self.assertEqual([i['file_id'] for i in context.catalog()['items']], [first['file_id']])
+        with self.assertRaisesRegex(LookupError, 'not_bound'):
+            context.read_table(other['file_id'])
+        full = context.read_table(first['file_id'])
+        self.assertTrue(full['complete'])
+        self.assertEqual(full['coverage']['scope'], 'workbook')
+        rows, offset = [], 0
+        while offset is not None:
+            page = context.read_table(first['file_id'], sheet=0, offset=offset, limit=2)
+            self.assertFalse(page['complete'])
+            self.assertEqual(page['coverage']['scope'], 'selected_sheet')
+            rows.extend(page['sheets'][0]['rows'])
+            offset = page['next_offset']
+        self.assertEqual(rows, full['sheets'][0]['rows'])
+        result = context.revise(first['file_id'], [{'sheet': 0, 'row': 2, 'column': 1, 'value': 9}], 'xlsx', 'revise_001')
+        self.assertEqual(context.read_table(result['file_id'])['sheets'][0]['rows'][2][1], 9)
+        self.assertIn(result['file_id'], self.store.detail('alice', self.cid)['turns'][0]['file_bindings']['generated'])
+        self.store.set_state('alice', self.cid, turn['turn_id'], 'completed')
+        with self.assertRaisesRegex(PermissionError, 'not_running'):
+            context.revise(result['file_id'], [], 'csv', 'revise_002')
+        followup, _, next_context = self.running_context([result['file_id']], 'turn_002')
+        with self.assertRaises(LookupError):
+            next_context.read_table(first['file_id'])
+        revised = next_context.revise(result['file_id'], [], 'csv', 'revise_001')
+        self.assertEqual(revised['version'], 3)
+        self.assertEqual(self.files.read('alice', self.cid, first['file_id'])['content'], b'a,b\n1,2\n3,4')
+
+    def test_attachment_set_idempotency_and_failed_binding_rolls_back(self):
+        a = self.files.save('alice', self.cid, 'a.csv', b'a', 'upload_001')['file_id']
+        b = self.files.save('alice', self.cid, 'b.csv', b'b', 'upload_002')['file_id']
+        item = self.store.reserve_turn('alice', self.cid, 'same', 'turn_001', [b, a])
+        self.assertTrue(self.store.reserve_turn('alice', self.cid, 'same', 'turn_001', [a, a, b])['reused'])
+        with self.assertRaisesRegex(ValueError, 'idempotency_conflict'):
+            self.store.reserve_turn('alice', self.cid, 'same', 'turn_001', [a])
+        self.store.set_state('alice', self.cid, item['turn_id'], 'failed')
+        with self.assertRaises(LookupError):
+            self.store.reserve_turn('alice', self.cid, 'bad', 'turn_002', ['f' * 32])
+        self.assertEqual(len(self.store.detail('alice', self.cid)['turns']), 1)
+        with self.assertRaises(ValueError):
+            self.store.reserve_turn('alice', self.cid, 'bad', 'turn_003', 'not-list')
+
+    def test_bound_permissions_state_expiry_and_reopen(self):
+        item = self.files.save('alice', self.cid, 'a.csv', b'a,b\n1,2', 'upload_001')
+        turn, run_id, context = self.running_context([item['file_id']])
+        reopened = context_factory(ConversationStore(self.temp.name), 'alice', self.cid, turn['turn_id'], lambda _: True)
+        self.assertEqual(reopened.catalog()['items'][0]['file_id'], item['file_id'])
+        context.authorized = lambda _: False
+        with self.assertRaisesRegex(PermissionError, 'revoked'):
+            context.read_table(item['file_id'])
+        wrong_owner = context_factory(self.store, 'bob', self.cid, turn['turn_id'], lambda _: True)
+        with self.assertRaises(LookupError):
+            wrong_owner.catalog()
+        with patch('conversation_files.time.time', return_value=item['expires_at'] + 1):
+            with self.assertRaises(LookupError):
+                reopened.revise(item['file_id'], [], 'csv', 'revise_001')
+        self.store.set_state('alice', self.cid, turn['turn_id'], 'dispatch_unknown')
+        with self.assertRaises(PermissionError):
+            reopened.catalog()
+        self.store.set_state('alice', self.cid, turn['turn_id'], 'stopping')
+        with self.assertRaises(PermissionError):
+            reopened.catalog()
+
+    def test_empty_turn_does_not_inherit_files(self):
+        self.files.save('alice', self.cid, 'a.csv', b'a', 'upload_001')
+        _, _, context = self.running_context([])
+        self.assertEqual(context.catalog()['items'], [])
+
+    def test_unknown_revision_keeps_id_and_can_be_reconciled_without_duplicate(self):
+        original = self.files.save('alice', self.cid, 'a.csv', b'a,b\n1,2', 'upload_001')
+        _, _, context = self.running_context([original['file_id']])
+        with patch.object(context.bindings, 'write', side_effect=OSError('simulated receipt write failure')):
+            with self.assertRaises(OSError):
+                context.revise(original['file_id'], [], 'csv', 'revision_001')
+        inventory = self.files.listed('alice', self.cid)['items']
+        generated = [i for i in inventory if i['generated']]
+        self.assertEqual(len(generated), 1)
+        # Explicit reconciliation with the original ID, never an automatic new request.
+        result = context.revise(original['file_id'], [], 'csv', 'revision_001')
+        self.assertEqual(result['file_id'], generated[0]['file_id'])
+        self.assertEqual(len(self.files.listed('alice', self.cid)['items']), 2)
 
     def test_real_bytes_full_rows_revision_restart_and_permissions(self):
         raw = ('name,value\n' + ''.join('item,2\n' for _ in range(500))).encode()
@@ -99,7 +191,9 @@ class FileTests(unittest.TestCase):
                                   connection=SimpleNamespace(settimeout=lambda _: None),
                                   send_response=status.append, send_header=lambda k, v: response_headers.update({k: v}),
                                   end_headers=lambda: None)
-        service = SimpleNamespace(store=self.store, detail=self.store.detail)
+        def submit(owner, cid, text, request_id, file_ids=None):
+            return self.store.reserve_turn(owner, cid, text, request_id, file_ids)
+        service = SimpleNamespace(store=self.store, detail=self.store.detail, submit=submit)
         self.assertTrue(handle(handler, method, urlsplit('/api/hermes/conversations/' + self.cid + path),
                                user, service, lambda _: allowed))
         return status[0], handler.wfile.getvalue(), response_headers
@@ -123,6 +217,16 @@ class FileTests(unittest.TestCase):
         self.assertEqual(self.request('POST', '/files', b'x', {'Sec-Fetch-Site': 'cross-site'})[0], 403)
         self.assertEqual(self.request('POST', '/files', b'bad zip',
                                      {'X-FS-Filename': 'bad.xlsx', 'X-FS-Request-ID': 'upload_002'})[0], 422)
+
+    def test_http_submit_binds_attachments_and_conflicting_retry_fails(self):
+        first = self.files.save('alice', self.cid, 'a.csv', b'a', 'upload_001')
+        payload = {'text': 'analyze', 'client_request_id': 'turn_001', 'file_ids': [first['file_id']]}
+        status, raw, _ = self.request('POST', '/turns', json.dumps(payload).encode(), {'Content-Type': 'application/json'})
+        self.assertEqual(status, 202)
+        turn = json.loads(raw)
+        self.assertEqual(self.store.detail('alice', self.cid)['turns'][0]['file_bindings']['inputs'], [first['file_id']])
+        payload['file_ids'] = []
+        self.assertEqual(self.request('POST', '/turns', json.dumps(payload).encode(), {'Content-Type': 'application/json'})[0], 422)
 
 
 class StoreTests(unittest.TestCase):
@@ -212,6 +316,13 @@ class StoreTests(unittest.TestCase):
             store.append_event("admin", cid, run_id, 510, {"event": "run.completed", "output": "最终原文"})
             self.assertTrue(store.has_event("admin", cid, run_id, "run.completed"))
             self.assertEqual(store.detail("admin", cid)["turns"][0]["reply"], "最终原文")
+
+
+def load_tests(loader, tests, pattern):
+    # The existing pr-fast store entry also exercises the cross-line file workflow.
+    import test_conversation_file_loop
+    tests.addTests(loader.loadTestsFromModule(test_conversation_file_loop))
+    return tests
 
 
 if __name__ == "__main__":
