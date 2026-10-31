@@ -50,7 +50,7 @@
 |---|---|---|---|
 | 阶段0 | 核对现有能力和当前规则 | 本机开工/分支/归属已核；生产活动映射未知，不扩全仓核查 | G0-B1.md、当前施工记录 |
 | 阶段1 | Agent 工作台与共用工具 | 文件工具/附件UI代码包已合并；待真实运行装配、FS查询计算、配额清理及真实材料任务验收 | PR704/707/708、FILES-WORKPACKAGE.md、MATERIALS-UI-WORKPACKAGE.md |
-| 阶段2 | 自主模型路由、按需数据与用户追踪 | B1/B2离线首片及材料观察覆盖已合并；本轮补DeepSeek默认/候选仅验证，A2范围已核，完整追踪与实际模型回执未验 | PR705/706/708、B2-HANDOFF.md、本轮DEEPSEEK-VALIDATION-WORKPACKAGE.md |
+| 阶段2 | 自主模型路由、按需数据与用户追踪 | B1/B2离线首片、材料观察及PR709 DeepSeek默认/候选仅验证已合并；本轮合入A2固定候选并实现B2冻结调查，CI/独审待完成；完整追踪与实际模型回执未验 | PR705/706/708/709、B2-HANDOFF.md、DEEPSEEK-VALIDATION-WORKPACKAGE.md、A2-B2-FROZEN-WORKPACKAGE.md |
 | 阶段3 | 一项已授权经营动作闭环 | 本轮未做新增真实动作验收；复用原执行链，仍需目标范围授权 | 未计完成 |
 | 阶段4 | 团队任务派发与成果回写 | 施工Business独立审查链已跑通；FS产品内派发/回写未验，两者不等同 | REVIEW-WORKFLOW.md；产品阶段未计完成 |
 | 阶段5 | 一个完整的跨角色活动 | 待前述能力会合及明确活动授权 | 未计完成 |
@@ -860,13 +860,13 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 |---|---|
 | 唯一主方案 | 本文件 |
 | 正式仓库存放路径 | docs/planning/fs-hermes-longterm-20261031/FS_Hermes_长期总施工方案_唯一主文件.md；Personal维护，外部开工文件作为输入快照保留 |
-| 当前阶段 | G0本机核对已回报，PR708附件/材料证据包已合并；阶段1/2并行，推进DeepSeek默认/候选仅验证包及A2接口对齐；整体未验收 |
+| 当前阶段 | G0本机核对已回报，PR708/709已合并；阶段1/2并行，本轮A2/B2冻结调查合成集成，待CI及独审；整体未验收 |
 | 主施工／总控 | 个人版Work；负责B线、总方案、接口协调、集成验收与发布协调 |
 | 协同施工 | 工作版Work；负责A线实现与可验收交付 |
 | 公共代码归属 | 见同目录G0-B1.md；共享controller/schema/迁移/发布清单冻结，未确认A知悉前不接线 |
 | 现有FS/Hermes活动版本 | 待现场核对，不由V4/V5方案名推断 |
 | 新能力已验收范围 | B1/B2离线首片、文件工具与附件UI本地模拟/必要CI及限定核心独审通过并合并；未调用真实模型、未部署 |
-| 下一步 | 保留DeepSeek并验证候选，按现行授权scope对齐A2/B2；真实模型启用与部署另验 |
+| 下一步 | 保留DeepSeek并验证候选，验收A2/B2固定scope/快照/检查点消费者，再补目标持续状态及任务接线；真实模型启用与部署另验 |
 | 已有生产业务 | 沿原系统、原权限、原调度运行；本次整理未改动 |
 | 本次文件交付 | 长期主方案与两个岗位入口原地整合；不等于已派发、编码或上线 |
 | PR702复用线索 | head `666814c9ae0376fe4f372cf9718508345da45ee0`，merge `30423f91c963228b41fe450f0c7993fa408cf12f`；完整独审与生产验收未在本包确认 |
@@ -885,6 +885,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-10-31／附件UI与B材料证据集成 | B实现分页观察覆盖及最小证据交接，正常merge A完整UI候选beacbcf6；Core95、conversation28及原Node入口实际DOM/fetch通过，复用同候选A浏览器证据；独立审查聊天双向握手成功 | 同目录MATERIALS-UI-WORKPACKAGE.md、REVIEW-WORKFLOW.md | 最新PR的CI/独立审查/合并待完成；真实worker/模型/生产仍未验，知识收尾旧失败保留 | 一个集成草稿按完整head交接，包内修复留同PR | Personal主控/B；Business A；独立Business审查员 |
 | 2026-10-31／PR708独立审查与P2修复 | Business delegate对4a3b820a完整核心独审，必要CI及独立回归通过但发现元数据结构损坏使整会话失败；A确认单文件临时交接Personal小修，新增详情/事件HTTP回归，Core96/conversation28/HTTP3通过 | 同目录MATERIALS-UI-WORKPACKAGE.md、REVIEW-WORKFLOW.md | 修复新head的独立复查及CI待完成，尚未合并；真实worker/模型/生产仍未验 | 仅一个Business Sol High独立worktree复查任务，旧结论不覆盖新head | Personal主控/B；A保留底座长期归属 |
 | 2026-10-31／PR708合并、DeepSeek保留 | Business Sol High独立worktree复查cc163437通过，P2解决，CI41211850822成功；普通merge56204866386376e148f5fc04626b0edf474b50f8，Personal已ff且tree同已审版本；用户确认候选模型先验证后启用 | PR708、同目录DEEPSEEK-VALIDATION-WORKPACKAGE.md | 本轮DeepSeek路由包CI/独审待固定head；A2只读核对完成待接口对齐；真实模型/生产未验 | 一个完整B包验证默认路由/单次回执；随后消费A2，不重做底座 | Personal主控/B；A继续查询唯一维护 |
+| 2026-11-01／PR709合并与A2/B2冻结调查 | PR709 reviewed cbc2799b独审通过，必要CI两轮成功，merge71cb788e8fdffab3068b278045911c910a12f093；正常合入A7ee41c0a三文件，B实现分页覆盖/显式追踪/原B2与B1交接，A18及Core124（含组合16）合成通过 | 同目录A2-B2-FROZEN-WORKPACKAGE.md | 最终集成CI/独审、Linux权限/时区待验；真实数据/模型/生产/持续目标未验 | 一个A2/B2集成PR，包内反馈与新head复查；阶段2不标整体完成 | Personal主控/B；Business A |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 
