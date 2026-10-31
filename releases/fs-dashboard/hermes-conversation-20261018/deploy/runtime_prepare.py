@@ -24,6 +24,7 @@ SOURCES.update({name: CORE + name.rsplit('/', 1)[1] for name in (
 SOURCES.update({'runtime/conversation_service.py': FC + 'fc-pricing-v3-20261026/source/conversation_service.py',
                 'runtime/runs_contract.py': FC + 'fc-pricing-v2-20261022/source/runs_contract.py',
                 'runtime/proxy_gateway.py': FC + 'fc-review-channel-20261026/source/proxy_gateway.py',
+                'runtime/hermes_worker.py': FC + 'fc-review-channel-20261026/source/hermes_worker.py',
                 'http/conversation_http.py': FC + 'fc-pricing-v3-20261026/source/conversation_http.py'})
 SOURCES.update({'frontend/' + name: MODULE + 'frontend/' + name
                 for name in ('index.html', 'conversation.js', 'conversation.css')})
@@ -32,6 +33,7 @@ KNOWN = {
     'runtime/conversation_store.py': '43d4f8bf1e67b86f9beb0ee87903c41cb62d9c86079c2c6a68a8d7b0c586fb45',
     'runtime/runs_contract.py': 'e02e94b83325f7aa1ec1b598cf25f11d26e77ec481d25bdd6fab9ffd9765c70c',
     'runtime/proxy_gateway.py': '784257f2e99340128c8163d92f8c2cf79c3229ebe952ff821687e9655705d3ff',
+    'runtime/hermes_worker.py': '8c377abb19da520df2f92e02e0523430dd53fc1be2f1eac8c47c3f6de35854e9',
     'http/conversation_http.py': 'd74f0242b2d22a210f694218c0d5e1933af581f0c1e137f658fcb882f5b058b7',
     'frontend/index.html': '3d79a5642f1517a8c1e414702c2b7491dc0ff4ed079c7d09895a3b1251045a24',
     'frontend/conversation.js': '81debe079db8fdb83eff6145af55c743895871f65acbfb143841f93cff9226b6',

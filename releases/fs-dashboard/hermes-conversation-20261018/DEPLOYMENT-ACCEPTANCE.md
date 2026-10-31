@@ -213,3 +213,76 @@ source. These images/results are candidate checks, not deployed-version evidence
 Actual deployment screenshots, real DeepSeek pagination/revision/follow-up,
 provider receipt/cost, stop convergence, second-identity negatives and 200% real
 browser zoom remain pending after the integrated merge.
+
+## First real publication and scoped worker repair
+
+PR715 merged as `4077536449a3dcaa8871623989a15be3ead1552b`. The A branch
+fast-forwarded cleanly and packed fresh Git bytes:
+
+- Payload descriptor: `910b31d1989cf28c77bdf1fa033fceccfce65689988874dde596ff22d43f756a`.
+- Stage: `/var/tmp/fs-hermes-materials-40775364-20261031T182821Z/stage`.
+- Baseline: `2026-10-31T18:29:47.445727+00:00`.
+- Manifest: `2e250d648631b09c911d909f3db0fb0216d96e06667b8a141e36504eb1c5505c`;
+  13 targets, 49 protected files; source/protected CAS, modes and composed
+  definitions import passed real `inspect` without active-file changes.
+- Actual image: `sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544`.
+
+Real `apply` failed: `Hermes worker health failed after 60s`. The original
+publisher restored all 13 target before-hashes (the four new code files were
+removed by its journal rollback), and all 49 protected hashes matched. Backup:
+`/var/backups/fs-navigation-20261006/nav-20261031T182821Z`. The journal is
+`rolled-back`, SHA256
+`813a72a21961c12bf981c8a0c095e11f38eacca4d92a08b16ffa2a540317ca06`.
+The candidate Nginx configuration was never reloaded. No failed stage was replayed.
+
+Both the candidate and restored old worker then failed in the same official
+import chain: `make_adapter` → `run_agent.py:96` →
+`hermes_cli.env_loader.load_hermes_dotenv` → `_load_dotenv_with_fallback` →
+`PermissionError` for `/profile/.env`. Only filtered exception class/frame/path
+metadata was inspected; the credential file's contents and metadata were not
+read, and no credential, permission or account setting was changed.
+
+Because that failed worker restart prevented the original publisher from
+restarting the business HTTP process, A reacquired the original release/live/
+admission/provider fences, verified the rollback journal and every before/protected
+hash, and called the original DEEP restart. Original range health passed. This
+restored HTTP service, **not Hermes**; the worker remained failed. Databases,
+UNKNOWN receipts, old tasks and business automation were preserved. No real
+model task or acceptance conversation had been created.
+
+Personal registered the necessary single worker initialization seam to A at
+`c6d4b8252bdc58e97feaec97cbf95a2d55f08ab8`. The repair is confined to
+`fc-review-channel-20261026/source/hermes_worker.py::make_adapter` and its
+FS-process-only official loader callback. It returns the official empty loaded-
+paths receipt before importing config/agent modules. It does not patch `Path`,
+the general dotenv library, filesystem permissions or Desktop/other processes;
+unrelated initialization exceptions still propagate. Original FS runtime-config,
+loopback provider, listener key, task token, model choice, tool registration and
+Runs lifecycle remain unchanged.
+
+Non-sensitive AST inspection ran in an ephemeral, read-only, network-disabled
+container of the **existing image**, with no profile or secrets mounted:
+
+- `hermes_cli/env_loader.py` SHA256
+  `da921984d4cd690bbb9813c6431ecc88b18b46307800d155c86e25c8e45ccee1`.
+- `run_agent.py` SHA256
+  `9fca746dde685859ed084d6f7651a94d8849e8944a145de77f8a177c839cb5ac`.
+- Public loader signature: keyword-only `hermes_home=None`, `project_env=None`,
+  `load_external_secrets=True`, returning `list[Path]`. The external-secret
+  switch does not disable profile `.env` loading; no profile-load skip parameter
+  was found. `run_agent.py:96` calls it at import with a home and project path.
+  The source hashes/signatures are the observed runtime basis; the worker's
+  declared API PIN is not used to infer an unverified upstream checkout version.
+
+The next candidate adds the exact worker file to the existing package target
+set (14 targets, no new writer). A new merged-SHA payload/manifest/stage and
+normal review/CI are required; this record does not authorize replay of the
+failed 13-file stage. Real worker startup and the material/UI/model acceptance
+remain unverified until that controlled publication succeeds.
+
+The scoped repair's original offline runner passed conversation 32, deploy 16
+and channel 12 tests with zero skips. The two added worker cases reproduce the
+old refusal, execute the actual adapter constructor with injected official import
+boundaries, check original config/loopback/token/model/tool/Run contracts, and
+verify unrelated initialization errors propagate. They do not prove a real
+container startup, provider call, production authentication or material workflow.
