@@ -39,6 +39,8 @@ PR711已merge88ac65d9337f20da71864ff48ebebc5284b89963，reviewed7275612c/basecc3
 
 生产源码导出已由13项缩至1项：9项可复用精确Git字节，上述3项不改。仅会话`/var/www/dashboard/fs-home/hermes/conversation/index.html`未匹配且确需保留现行导航，5776字节，SHA256 `3d79a5642f1517a8c1e414702c2b7491dc0ff4ed079c7d09895a3b1251045a24`。拟复制到A本机ignored `.agent_runtime/runtime-20261101/live/frontend/index.html`，不入Git、不含配置/凭据/DB/业务数据。此前13项SCP被自动审批以未明确授权生产源码导出为由拒绝，命令未执行；本次单文件仍待用户明确许可及正常工具审核，禁止等价绕过。正常FS登录和真实会话/视觉验收仍待完成。
 
+A已确认对应新增测试精确路径为`releases/fs-dashboard/hermes-conversation-20261018/deploy/test_runtime_materials.py`，同属A唯一维护。现有pr-fast conversation deploy使用显式列表，不自动discover；Personal仅在该列表追加`test_runtime_materials`，保留原HTTP/release及Node入口。测试模块尚待A固定候选合入，当前不将驱动接线或A回报的本地模拟通过宣称为本分支完整验收；合入后核实际执行数量及LinuxCI，目录fsync/POSIX权限、生产回退与真实模型仍分别取证。
+
 ## 当前授权边界
 
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。

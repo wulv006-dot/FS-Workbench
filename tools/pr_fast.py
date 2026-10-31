@@ -1281,7 +1281,7 @@ def main():
         elif group=="hermes-conversation":
             release="releases/fs-dashboard/hermes-conversation-20261018"
             units(release+"/tests",["test_conversation_store","test_conversation_service","test_worker_admission","test_lazy_evidence"])
-            units(release+"/deploy",["test_http","test_release"])
+            units(release+"/deploy",["test_http","test_release","test_runtime_materials"])
             node(release+"/frontend/entry/test_data_handoff.cjs")
         elif group=="hermes-report-repair":
             release="releases/fs-dashboard/hermes-report-repair-20261019"
