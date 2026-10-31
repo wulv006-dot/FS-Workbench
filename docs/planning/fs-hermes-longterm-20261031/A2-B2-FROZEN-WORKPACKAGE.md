@@ -42,3 +42,11 @@ Personal已独立运行A2 18项合成测试，以及B2组合16项；原pr_fast.u
 Windows本地缺tzdata和POSIX mode支持：复用A测试对2026固定UTC+08导入及仅私有temp根mode位夹具，SQL/Service授权/覆盖/投影真实运行；不安装依赖、不改生产时区或权限。Linux实际时区/FS权限、原user-analytics旧套件及新CI接线效果仍待最终PR CI，不能据本地逻辑通过称Linux或生产验收。
 
 未完成：模型工具schemas/真实worker/会话接线、真实数据与细粒度生产授权、目标持久化/真正变化或到期调度、价值/风险方法与干预比较、真实模型选择/费用负载、部署及阶段2整体验收。本包再次运行knowledge_closeout.py plan（base71cb788e），仍原91项中30项native_plugin_exact_registration_delta_required字节错误，未通过收尾；不改无关publisher、不放宽校验，不声称知识或Notion发布完成。
+
+## PR711独审与project-only修复
+
+Business Sol High独立worktree核阅12acaea91245e0620621b6edfb954ea89ab8a9d4/base71cb788e，实际9路径，发现1项P2：合法原project:1327单独授权可以aggregate/candidates，却因原Service.catalog要求至少site权限而拒绝目录，整条B调查失败。其余限定核心范围无可复现越权/UNKNOWN重放；Linux CI41218728471的Ubuntu22.04/Python3.9.18已实际Core124及user-analytics253通过、0skip，不再把该固定head标Linux待验。
+
+A原施工聊天已确认，仅本次catalog小修临时将a2_query_context.py交Personal唯一修改、A不并改，长期归属不变。B先补project-only整条调查回归并复现user_scope_denied，再沿已核当前scope构造原静态目录字段投影，保留definitions/policies/weekly状态，不修改原Service/IAM、不增加site/global授权。项目目录sites为空、仅当前project；can_read_private仍为当前scope的原授权与host校验交集，返回字段深拷贝不修改原配置。修复继续原PR711，新完整head待重新独审及必要CI，不继承旧结论。
+
+修复后本地原Core125项（组合17）及A2原18项通过、0skip。新增组合回归以严格project-only原authorizer跑目录→完整B调查，断言没有site/global授予、原对象/配置不变、撤权仍拒绝；原weekly publication缺失及scope交集用例继续通过。新head的Linux全组CI及独立复查仍待完成，旧head Linux253通过不直接覆盖此次目录修复。

@@ -11,7 +11,7 @@ import json
 import re
 from time import perf_counter
 
-from user_contract import digest, stamp
+from user_contract import digest, stamp, METRIC_DEFINITIONS
 from user_query import Service
 from user_tools import invoke
 from user_weekly import WeeklyUnavailable
@@ -101,11 +101,29 @@ class QueryContext:
         if not self.guard():
             return self.unavailable()
         self.original.permit(self.identity, self.scope)
-        result = deepcopy(self.original.catalog(self.identity))
+        # The old UI catalog requires site access. A scoped project consumer
+        # instead uses its already checked project grant for static metadata.
+        config = self.original.store.config
         if self.scope['scope'] == 'site':
-            result['sites'] = [s for s in result['sites'] if s['id'] == self.scope['scope_id']]
+            sites = [{'id': self.scope['scope_id'], 'label': config['sites'][self.scope['scope_id']]['label']}]
+            projects = config['projects']
         else:
-            result['projects'] = {k: v for k, v in result['projects'].items() if k == self.scope['scope_id']}
+            sites = []  # Project metadata does not imply a separate site grant.
+            projects = {self.scope['scope_id']: config['projects'][self.scope['scope_id']]}
+        result = deepcopy(dict(contract_version='fs-users-v1', sites=sites, projects=projects,
+                               policies=config['policies'], metric_definitions=METRIC_DEFINITIONS,
+                               full_company_coverage=config.get('full_company_coverage', False),
+                               history_backfill_start=config.get('history_backfill_start')))
+        if config.get('update_cadence') == 'weekly-v1':
+            from user_weekly import publication, public_info, small_state
+            try:
+                result['weekly_update'] = public_info(publication(self.original.store, self.original.clock()))
+            except WeeklyUnavailable:
+                result['weekly_update'] = {'cadence': 'weekly', 'status': 'initial_publication_pending'}
+            state = small_state(self.original.store.root)
+            if state and state.get('phase') != 'complete':
+                result['weekly_update']['pending'] = {k: state[k] for k in
+                    ('cutoff', 'phase', 'error', 'retryable') if k in state}
         result.update(scope=deepcopy(self.scope), groups=['known_pool', 'entered_silent', 'high_value_entered_silent'],
                       group_order='stable_opaque_customer_id_not_value_rank',
                       query_fields=['start', 'end_exclusive', 'as_of', 'state_basis', 'policy_version', 'policy_mode', 'H'],

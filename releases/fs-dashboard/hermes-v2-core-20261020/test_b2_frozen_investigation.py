@@ -47,6 +47,30 @@ class FrozenInvestigation(unittest.TestCase):
         self.assertFalse(result['business_write_performed'])
         self.assertFalse(result['model_call_performed'])
 
+    def test_project_only_original_grant_completes_investigation_without_site_or_global(self):
+        calls = []
+        def project_only(user, query, private):
+            calls.append((user, dict(query), private))
+            return user == 'operator' and query.get('scope') == 'project' and query.get('scope_id') == '1327'
+        self.fixture.original.authorizer = project_only
+        catalog = self.context.catalog()
+        self.assertEqual(catalog['scope'], fixtures.SCOPE)
+        self.assertEqual(set(catalog['projects']), {'1327'})
+        self.assertEqual(catalog['sites'], [])
+        self.assertTrue(catalog['can_read_private'])
+        self.assertIn('metric_definitions', catalog)
+        catalog['policies']['fc-v1'].append(999)
+        self.assertNotIn(999, self.fixture.store.config['policies']['fc-v1'])
+        result = self.run_investigation()
+        self.assertEqual(result['status'], 'observed_with_limits')
+        self.assertEqual(result['decisions'][0]['payment_observation'], 'due_no_new_purchase_observed')
+        self.assertIs(self.fixture.original.authorizer, project_only)
+        self.fixture.host_allowed = False
+        with self.assertRaises(PermissionError):
+            self.context.catalog()
+        self.assertTrue(calls)
+        self.assertTrue(all(query['scope'] == 'project' for _, query, _ in calls))
+
     def test_205_candidates_are_enumerated_but_not_copied_into_handoff(self):
         self.fixture.rows = [fixtures.order(i + 10, person='person' + str(i)) for i in range(205)]
         self.fixture.load()

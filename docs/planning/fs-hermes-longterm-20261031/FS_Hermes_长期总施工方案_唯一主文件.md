@@ -886,6 +886,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-10-31／PR708独立审查与P2修复 | Business delegate对4a3b820a完整核心独审，必要CI及独立回归通过但发现元数据结构损坏使整会话失败；A确认单文件临时交接Personal小修，新增详情/事件HTTP回归，Core96/conversation28/HTTP3通过 | 同目录MATERIALS-UI-WORKPACKAGE.md、REVIEW-WORKFLOW.md | 修复新head的独立复查及CI待完成，尚未合并；真实worker/模型/生产仍未验 | 仅一个Business Sol High独立worktree复查任务，旧结论不覆盖新head | Personal主控/B；A保留底座长期归属 |
 | 2026-10-31／PR708合并、DeepSeek保留 | Business Sol High独立worktree复查cc163437通过，P2解决，CI41211850822成功；普通merge56204866386376e148f5fc04626b0edf474b50f8，Personal已ff且tree同已审版本；用户确认候选模型先验证后启用 | PR708、同目录DEEPSEEK-VALIDATION-WORKPACKAGE.md | 本轮DeepSeek路由包CI/独审待固定head；A2只读核对完成待接口对齐；真实模型/生产未验 | 一个完整B包验证默认路由/单次回执；随后消费A2，不重做底座 | Personal主控/B；A继续查询唯一维护 |
 | 2026-11-01／PR709合并与A2/B2冻结调查 | PR709 reviewed cbc2799b独审通过，必要CI两轮成功，merge71cb788e8fdffab3068b278045911c910a12f093；正常合入A7ee41c0a三文件，B实现分页覆盖/显式追踪/原B2与B1交接，A18及Core124（含组合16）合成通过 | 同目录A2-B2-FROZEN-WORKPACKAGE.md | 最终集成CI/独审、Linux权限/时区待验；真实数据/模型/生产/持续目标未验 | 一个A2/B2集成PR，包内反馈与新head复查；阶段2不标整体完成 | Personal主控/B；Business A |
+| 2026-11-01／PR711独审P2修复 | reviewed12acaea9的Linux Core124/user-analytics253通过；独审发现project-only目录误拒绝。A确认单文件临时交接后修复catalog，补严格project-only全链回归，本地Core125/A18通过 | 同目录A2-B2-FROZEN-WORKPACKAGE.md | 修复新head独立复查及必要CI待完成，尚未合并；生产/模型等未验 | 原PR内复查新SHA，不扩大site/global/IAM授权 | Personal修复/集成；A保留长期归属 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 
