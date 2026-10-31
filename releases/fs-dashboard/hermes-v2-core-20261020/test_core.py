@@ -311,6 +311,8 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromModule(test_b1_runtime_policy))
     import test_b2_customer_followup
     tests.addTests(loader.loadTestsFromModule(test_b2_customer_followup))
+    import test_b2_frozen_investigation
+    tests.addTests(loader.loadTestsFromModule(test_b2_frozen_investigation))
     import test_conversation_file_tools
     tests.addTests(loader.loadTestsFromModule(test_conversation_file_tools))
     import test_material_evidence
