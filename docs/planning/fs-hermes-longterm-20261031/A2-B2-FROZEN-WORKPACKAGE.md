@@ -92,3 +92,17 @@ Business Sol High独立工作树审查精确head `349460cc019bc00c45b1b93cdeec0a
 B独占拟新增`hermes-v2-core-20261020/source/b2_goal_host.py`、`test_b2_goal_host.py`和原`test_core.py`加载，消费A持久化接口与原b2_goal_state，不重造A底座。共享controller/HTTP/runtime/publisher/公共schema/迁移均暂不动，tools/pr_fast仍Personal唯一维护；测试优先沿两条既有入口。A确认收到归属后才实现上述A路径，Personal不并改。
 
 接口目标：host固定owner/cid/goal_id，load_goal与cas_goal(expected_revision,mutation_id,state)逐调用原会话owner及当前scope校验；create expected_revision=0、后续state.revision=expected+1。CAS mutation_id绑定完整指纹，同ID同内容返回原操作收据并明确replayed，不再触发执行；同ID异内容拒绝，revision冲突不覆盖。任务request_id与CAS mutation_id不同，核prepared保存后才单次派发；prepared重放、派发后进程崩溃、回执丢失、unknown必须原ID查询/对账，不因not_found直接换ID重发。A不为本包合成真实授权；缺可信identity/scope/fact复合版本则无源查询、无真实派发。先冻结小接口/回执语义再组合，最终仍一份完整集成PR及独立最新SHA审查/CI，不按函数拆PR。
+
+### 实际A候选及B宿主适配
+
+A固定`2247724c7d517b7c84f5b58ecd09551714401bee`、base2f4251a4已正常合入，实际四路径与前述登记相同（交付文档为模块`CONVERSATION-GOALS.md`），不改原公共表或ConversationStore/service/HTTP/controller/runtime/publisher/IAM。新模块在原db事务内维护conversation_goals_v1及conversation_goal_mutations_v1，目标/回执同事务提交；全DB goal及mutation绑定、32KiB完整v1状态、原scope严格True、原始操作重放与存储checksum按A文档实现。A原入口53项（goal21）零失败/零skip证据复用，包含实际temp SQLite并发、事务故障、重连/旧回执/跨owner等；新增admission夹具曾因连接未close导致WinError32清理失败，A以closing修正后完整通过，未放宽生产逻辑。
+
+单纯prepared CAS后再load不能封住pause与reserve竞态，因此已与A明确追加同文件同DB的`admission(goal_id,expected_revision,request_id)`。它持BEGIN IMMEDIATE至退出，先owner/原scope再核active/精确revision/prepared/原ID，yield deepcopy而不暴露连接、不写目标或任务；B只在内预留**独立任务账本**，不能嵌套写conversation DB、等待provider或业务操作。任务预留与pause由锁序列化；外部预留成功后admission异常不代表任务库回滚，保留原ID对账。该接点A独占实现，B不改表或事务。
+
+B实际新增`source/b2_goal_host.py`、`test_b2_goal_host.py`及原Core加载，消费真实A模块与原b2_goal_state。`GoalHost`仅server注入已绑定goals/owner/cid/authorize/dispatcher/verify_receipt，公开create/configure/step/observe。只有本次fresh CAS（replayed严格False）、原账本已验证not_found、live admission三条件都满足才单次submit；旧prepared、未知、lookup缺失或CAS回执不明都不能补发。CAS/submit/lookup/admission退出的传输异常只返回受限unknown/原ID对账状态，不回传异常文本；PermissionError仍拒绝，不误归为传输未知。回执CAS在退出admission后执行，避免同DB嵌套锁。
+
+dispatcher冻结`lookup(*,binding)`及`submit(*,binding,handoff)`，submit只能按原ID原子reserve/入队；回执严格为`{binding,status,receipt_ref,evidence?,completed_actions?}`，仅completed能带后两项，not_found也须host `verify_receipt(receipt,binding) is True`查询原账本。binding为owner/cid/goal_id/scope_ref/request_id/intent_sha256；摘要固定逻辑身份、objective/constraints及work.fact_version/checkpoint，排除进度revision和可更新证据，保证completed后的原回执仍可核验。它不是访问授权或全payload hash；任务账本**另外**须对完整binding+原始handoff做原子指纹校验。模型正文、原始客户表/工具结果、未核verified标志不能变成执行回执。
+
+新增B组合最终16项由原Core入口实际加载，与原套件合计156项全部通过、0失败/0skip。组合使用真实A Store/Goals和独立SQLite **SyntheticTaskLedger测试夹具**，没有真实TaskStore/worker客户端；覆盖prepared提交后丢回执而not_found仍不派发、外部任务已提交而submit/admission退出丢回执、receipt CAS提交后丢回执、真实A重放CAS不算fresh、pause抢先拒绝、暂停停止零lookup、停止后原取消push、partial原cutoff/缺页保留、旧任务迟到/六项binding漂移/假成功拒绝、unknown及provider_returned保持原ID、撤权和strict True。该夹具验证跨两个本地DB的故障合同，不声称原生产TaskStore/lease装配、真实授权/事实版本、模型、A2数据、调度或生产DB已验。运行入口/真实授权来源继续为后续明确接点；生产保持501f。
+
+本包knowledge_closeout plan以base2f4251a4运行，仍原91项30 error/native_plugin_exact_registration_delta_required、exit1，未放宽/扩修，知识/Notion收尾保持未完成。主控核A四路径与固定2247724c完全相同，Python3.9语法及diff检查通过；CI驱动与外网/Popen禁令未改。

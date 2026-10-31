@@ -50,7 +50,7 @@
 |---|---|---|---|
 | 阶段0 | 核对现有能力和当前规则 | 本机开工/分支/归属已核；生产活动映射未知，不扩全仓核查 | G0-B1.md、当前施工记录 |
 | 阶段1 | Agent 工作台与共用工具 | 材料主闭环及已测部署版桌面浅暗/390px/基本键盘范围已验收，生产源501f90bf；配额清理、真实200%缩放、running取消、第二身份等未验，非阶段整体完成 | PR704/707/708/715—719、FILES-WORKPACKAGE.md、MATERIALS-UI-WORKPACKAGE.md、RUNTIME-DEPLOYMENT-ACCEPTANCE.md |
-| 阶段2 | 自主模型路由、按需数据与用户追踪 | PR720目标状态/短任务续接纯合同已合并且独审/CI通过；下一包A做goal load/CAS持久化，B做原ID派发/回执恢复适配；可信scope缺失仍unavailable，未开放真实用户调查/持续调度 | PR705/706/708/709/711/720、B2-HANDOFF.md、DEEPSEEK-VALIDATION-WORKPACKAGE.md、A2-B2-FROZEN-WORKPACKAGE.md、RUNTIME-DEPLOYMENT-ACCEPTANCE.md |
+| 阶段2 | 自主模型路由、按需数据与用户追踪 | PR720目标内核已合并；A goal load/CAS/admission与B原ID宿主适配候选已组合，Core156零skip；最新整包独审/CI待做。可信scope缺失仍unavailable，未开放真实用户调查/持续调度 | PR705/706/708/709/711/720、B2-HANDOFF.md、DEEPSEEK-VALIDATION-WORKPACKAGE.md、A2-B2-FROZEN-WORKPACKAGE.md、RUNTIME-DEPLOYMENT-ACCEPTANCE.md |
 | 阶段3 | 一项已授权经营动作闭环 | 本轮未做新增真实动作验收；复用原执行链，仍需目标范围授权 | 未计完成 |
 | 阶段4 | 团队任务派发与成果回写 | 施工Business独立审查链已跑通；FS产品内派发/回写未验，两者不等同 | REVIEW-WORKFLOW.md；产品阶段未计完成 |
 | 阶段5 | 一个完整的跨角色活动 | 待前述能力会合及明确活动授权 | 未计完成 |
@@ -901,6 +901,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／材料限定终审通过 | 正常合入A55c4bbd5仅记录；Personal亲看9张fresh图，独立Default合成tab核JS/CSS精确hash、288/160消息区、390独滚/44px、v3原生选择/Enter/空CtrlEnter/Tab焦点。前后4turn、取消仍空回复、无mutation/模型；独立核两份真实XLSX收据 | RUNTIME-DEPLOYMENT-ACCEPTANCE.md含主控时间窗/截图/只读结果 | 限本材料闭环及已测桌面浅暗/390/基本键盘范围通过；真实200%/running取消/第二身份/撤权过期/A2scope及阶段1/2整体仍未验，费用unknown | 按原路线继续阶段2目标状态/短任务续接，不为记录重新部署 | Personal终审；A证据 |
 | 2026-11-01／B目标状态与续接 | B新增独立goal state、原Core加载；显式目标/变化或检查点/先CAS再dispatch/原ID复核/最小冻结引用，直接15项及Core140项零skip通过。A只读确认原TaskStore/turn围栏不是GoalState CAS，细粒度host scope未证 | A2-B2-FROZEN-WORKPACKAGE.md及b2_goal_state.py/test_b2_goal_state.py | 本地合同完成，最新SHA独审/CI待做；真实goal持久化/派发/receipt核验与scope仍未接，不称持续追踪上线 | 完整包独审/CI后按授权合并；后续A精确登记宿主持久化接点，缺可信scope仍unavailable | Personal B施工；A底座/接口核查 |
 | 2026-11-01／PR720纯合同验收合并 | 最新349460cc/base501f的Business独审无未解决项，独立15/140及LinuxCore140零skip；Personal核版本/CI/无冲突，正常merge2f4251a4并ff核树一致 | A2-B2-FROZEN-WORKPACKAGE.md；PR720；CI41241979255 | 仅B目标内核及材料收口记录已合并；生产501f未变，无真实scope/goal持久化/调度新增验收，旧知识收尾30error保留 | 登记A conversation_goals持久化及B b2_goal_host原ID适配，先本地合成持久化闭环再整包独审，真实授权来源未证继续unavailable | A持久化底座；Personal B适配/集成 |
+| 2026-11-01／持久化宿主组合候选 | 正常合入A2247724c四路径，A真实SQLite goal/CAS及admission53项证据；B新增host与16项真实A/独立合成SQLite任务账本组合，Core156零skip。fresh CAS+verified not_found+admission才一次预留，异常/重放查原ID | A2-B2-FROZEN-WORKPACKAGE.md；模块CONVERSATION-GOALS.md；b2_goal_host.py及对应测试 | 本机持久化/故障合同候选完成，最新SHA独审/LinuxCI待做；任务账本为测试夹具，未装原生产TaskStore/worker，scope/模型/调度仍未验 | 给A固定候选仅运行新增组合，完整集成PR经Business独审/必要CI后合并；不因本地通过发布生产 | A底座；Personal B适配/统一交付 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 
