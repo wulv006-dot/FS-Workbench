@@ -22,7 +22,7 @@
       "sha256": "6bbd740f81d7b12a55553bcc8603b5973d1e2d5187973c8358e3c83c3a1a34b7"
     },
     "player_web/static/app.js": {
-      "source": "releases/fc-players/direct-json-20261029/source/app.js",
+      "source": "releases/fc-players/admin-api-repair-20261031/source/app.js",
       "before_sha256": "26b2ce1b99688a23dd504c6586893e6ab1a46c36967228af9665f1d29889511c",
       "sha256": "53ada0a105f5fe90f4e802eef5fd4a564385025d23711715aac03fa03729bf29"
     },
@@ -43,7 +43,7 @@
     }
   },
   "base_version": "2026.10.29-cloud.16",
-  "manifest_sha256": "2d52446c018c5fa00d34c65545185a8827703aaf518efa16cf35fa1394131dd4",
+  "manifest_sha256": "f66f5e9ca5b676829bbf466bfab2ac8bd705a10e56439793296a555fca4902bb",
   "publisher_dependency_sha256": "37b2b48020be180f2b2b00ab3ff2a51766edd8cfd9c7843096b9c623e6d5c1ea",
   "runtime_flag": "MANUAL_EXISTING_ADD_TAGS_ENABLED=true in existing Players unit/dropin",
   "preserved": "ENV bytes, global/automatic write flags, original manual scopes, HMAC8912, demand600s, task DB, UNKNOWN and per-player locks",

@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../direct-json-20261029/source/app.js'),'utf8');
+const source=fs.readFileSync(path.join(__dirname,'source/app.js'),'utf8');
 const update=source.slice(source.indexOf('  function updateConfirm()'),source.indexOf('  async function confirmPlan()'));
 const state={role:'admin',auth:true,write:false,addTagsWrite:true,recommendWrite:false,plan:{kind:'existing_action',action:'add_tags',blockers:[],expires_at:new Date(Date.now()+60000).toISOString()}};
 const elements={confirm:{},scopeChecked:{checked:true}};

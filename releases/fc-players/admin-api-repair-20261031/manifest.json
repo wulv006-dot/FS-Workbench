@@ -69,7 +69,7 @@
   "base_unit_sha256": "49e062285c5a1c067655378ca95ca84f3744f26632deb5b5343c9cc0527a78dd",
   "base_on_demand_sha256": "5c2c66313667e989d4fb6af4db3203eeceb748059d8738497386c2bb6faed94e",
   "base_source_manifest_sha256": "00284404ebc28f3f3b123ae40b64a0a15b1bfb35bd080923e111cc04aac6a5d1",
-  "archive_sha256": "698bc8c4d0ce77725ff9c0abcccee9137dc64e78388d86ec68ebe70ba9da54c3",
+  "archive_sha256": "77ce912cb5ba9534fd66902107a11c1b13adb4460d740e0b5326f60187133fe8",
   "dockerfile_sha256": "537170acd8eb438a6a720ca74ee922a5ab9b8a80fed56e8301ae1b67d5aca2ac",
   "manual_flag": "FS_SHARED_BACKEND_SESSION",
   "manual_add_tags": true
