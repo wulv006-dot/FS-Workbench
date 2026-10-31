@@ -9,7 +9,9 @@ import shutil
 import stat
 import subprocess
 
-from runtime_release import HERE, NGINX, TARGETS, NEW, FROZEN_IMAGE_MARKER, frozen, protected_paths, worker_observation
+from runtime_release import (HERE, NGINX, TARGETS, NEW, FROZEN_IMAGE_MARKER, frozen,
+                             protected_paths, worker_observation, INSTALLED_COMMIT,
+                             INSTALLED_PROOF, INSTALLED_NGINX_SHA, installed_baseline)
 
 MODULE = 'releases/fs-dashboard/hermes-conversation-20261018/'
 CORE = 'releases/fs-dashboard/hermes-v2-core-20261020/source/'
@@ -91,18 +93,24 @@ def file_metadata(base, root, name, absent=False):
     return {'path': name, 'sha256': digest(path.read_bytes()), 'mode': oct(stat.S_IMODE(info.st_mode))}
 
 
-def observe(root=Path('/')):
+def observe(root=Path('/'), installed=None):
     base = frozen()
-    rows = {name: file_metadata(base, root, target, name in NEW) for name, target in TARGETS.items()}
+    rows = {name: file_metadata(base, root, target, not installed and name in NEW) for name, target in TARGETS.items()}
+    expected = {row['candidate']: row['sha256'] for row in installed['files']} if installed else KNOWN
     for name, row in rows.items():
-        if (name in NEW and row['sha256'] is not None) or (name in KNOWN and row['sha256'] != KNOWN[name]):
+        if (not installed and name in NEW and row['sha256'] is not None) or (name in expected and row['sha256'] != expected[name]):
             raise ValueError('runtime_source_baseline_drift: ' + row['path'])
         expected_mode = '0o600' if row['path'] == NGINX else '0o644'
         if row['sha256'] is not None and row['mode'] != expected_mode:
             raise ValueError('runtime_mode_drift: ' + row['path'])
     protected = [file_metadata(base, root, path) for path in sorted(protected_paths(base))]
+    if installed and {r['path']: r['sha256'] for r in protected} != {
+            r['path']: r['sha256'] for r in installed['unchangedRequired']}:
+        raise ValueError('installed_protected_baseline_drift')
     worker = worker_observation(allow_stopped=True) if root == Path('/') else {
         'image': 'sha256:' + '0' * 64, 'state': 'active', 'source': 'container'}
+    if installed and worker['image'] != installed['workerImageId']:
+        raise ValueError('installed_worker_image_drift')
     return {'observed_at': datetime.now(timezone.utc).isoformat(), 'files': rows, 'protected': protected,
             'worker_image': worker['image'], 'worker_state': worker['state'], 'worker_image_source': worker['source']}
 
@@ -122,12 +130,17 @@ def pack(repo, output, commit):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(raw)
         hashes[name] = digest(raw)
-    raw = json.dumps({'source_commit': commit, 'files': hashes}, sort_keys=True).encode('utf-8')
+    baseline = {name: digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo))
+                for name, path in SOURCES.items()}
+    baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
+    raw = json.dumps({'source_commit': commit, 'files': hashes,
+                      'installed_baseline': {'source_commit': INSTALLED_COMMIT, 'files': baseline}},
+                     sort_keys=True).encode('utf-8')
     (output / 'payload-manifest.json').write_bytes(raw)
     return {'source_commit': commit, 'payload_files': len(SOURCES), 'payload_sha256': digest(raw)}
 
 
-def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_ready=False):
+def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_ready=False, followup=False):
     if stage.exists() or not re.fullmatch('[a-f0-9]{40}', commit):
         raise ValueError('new_stage_and_exact_commit_required')
     raw = (payload.parent / 'payload-manifest.json').read_bytes()
@@ -142,13 +155,14 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
     for name, sha in descriptor['files'].items():
         if digest((payload.parent / name).read_bytes()) != sha:
             raise ValueError('git_payload_changed')
-    observed = observe(root)
+    installed = installed_baseline(root, descriptor.get('installed_baseline')) if followup else None
+    observed = observe(root, installed)
     # Source verification and body-limit generation happen before creating a stage.
     bodies = {name: (payload / name).read_bytes() for name in SOURCES}
     nginx = frozen().rooted(root, NGINX).read_bytes()
     if digest(nginx) != observed['files']['http/formal.conf']['sha256']:
         raise ValueError('nginx_changed_during_prepare')
-    bodies['http/formal.conf'] = patch_nginx(nginx)
+    bodies['http/formal.conf'] = nginx if installed else patch_nginx(nginx)
     files = [{'candidate': name, 'target': target, 'beforeSha256': observed['files'][name]['sha256'],
               'sha256': digest(bodies[name]), 'owner': '0:0', 'mode': '0o600' if target == NGINX else '0o644'}
              for name, target in TARGETS.items()]
@@ -166,6 +180,12 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
                                   for unit in ('fs-business-range.service', 'fs-hermes-fc.service', 'nginx.service')},
                 'workerImageSource': observed['worker_image_source'],
                 'baselineObservedAt': observed['observed_at'], 'approvedPayloadSha256': payload_sha256}
+    if installed:
+        manifest['installedBaseline'] = INSTALLED_PROOF
+        manifest['materialStaticOnly'] = all(row['beforeSha256'] == row['sha256'] or row['candidate'].startswith('frontend/')
+                                            for row in files)
+        if manifest['materialStaticOnly'] and (observed['worker_state'] != 'active' or observed['worker_image_source'] != 'container'):
+            raise ValueError('static_followup_requires_running_worker')
     stage.mkdir(parents=True, mode=0o700)
     for name, body in bodies.items():
         path = stage / 'candidate' / name
@@ -177,6 +197,7 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
     raw = json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8')
     (stage / 'approved-manifest.json').write_bytes(raw)
     (stage / 'baseline.json').write_text(json.dumps(observed, indent=2), encoding='utf-8')
+    shutil.copyfile(payload.parent / 'payload-manifest.json', stage / 'payload-manifest.json')
     return {'stage': str(stage), 'manifest_sha256': digest(raw), 'files': len(files),
             'release_ready': release_ready, 'production_writes': 0}
 
@@ -190,6 +211,7 @@ if __name__ == '__main__':
     parser.add_argument('--source-commit')
     parser.add_argument('--approved-payload-sha256')
     parser.add_argument('--release-ready', action='store_true')
+    parser.add_argument('--followup', action='store_true')
     args = parser.parse_args()
     if args.action == 'observe':
         value = observe()
@@ -197,5 +219,5 @@ if __name__ == '__main__':
         value = pack(args.repo, args.output, args.source_commit)
     else:
         value = prepare(args.payload, args.output, args.source_commit, args.approved_payload_sha256,
-                        release_ready=args.release_ready)
+                        release_ready=args.release_ready, followup=args.followup)
     print(json.dumps(value, ensure_ascii=False, indent=2))

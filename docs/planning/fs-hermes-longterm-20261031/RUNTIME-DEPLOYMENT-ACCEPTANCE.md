@@ -81,6 +81,38 @@ PR717 reviewed `67e3c0107615dede37ae08befe4c6feb5b9e7157`独审无未解决项�
 
 完整最小兼容候选A `d5a640e9dd64d39a10a4e46c319c565e468fab9d`（base ba972abb）已正常合入，实际三路径：runtime_release正常容器分支去`--value`并按`ActiveState=...`解析、现有契约断言完整兼容命令及模块失败/恢复附录。A已真实只读核`systemctl --version=219`与原`-p ActiveState`返回`ActiveState=failed`。worker语义、冻结base、14/48/4集合、恢复态及原guards均未改。主控核同封装直接命令仅此处使用不兼容参数，运行代码/测试与A固定候选一致，diff检查通过；复用原deploy三模块19项零skip证据，不重复无关旧套件。最新完整SHA独审/必要CI、新最终SHA现场pack/prepare及真实恢复仍待完成，旧stage不重放。
 
+### 软件发布成功，真实使用验收进行中
+
+PR718 reviewed `0a3e595ad7045ec9bcf919947eead55fda188c91`独审无未解决问题，受影响独立case/18异常边界及Linuxdeploy19零skip通过，正常merge `1f8ddc57c37e16df7c802de358eefb6585d078ee`。主控核merge树与reviewedhead一致，A clean/ff后新Git LF pack descriptor `346d3b5659593a5b78a5043fd7c4ec717e0f3824815bef83ba024620bd010014`。
+
+A实际发布回执：stage `/var/tmp/fs-hermes-materials-1f8ddc57-20261031T192312Z/stage`，baseline `2026-10-31T19:23:40.580450+00:00`，manifest `b129179049dc9ff4b575075ebd1b47c1f6edf325936ac70b1286ca990bd73a05`，runtimeBefore为failed、来源configured_unit_and_local_image。inspect source/protected CAS通过后仅apply一次，返回`applied-awaiting-actual-http-role-acceptance`；备份 `/var/backups/fs-navigation-20261006/nav-20261031T192312Z`，journal SHA `c902e8f3d1d613c80f1f0573647dbcf17184466579fdfbc77539d8f8846c24fc`。
+
+独立现场读回14个afterSHA均与manifest一致，root owner/原mode匹配，48保护文件原SHA保持。worker/range/nginx均active/running；实际`fs-hermes-fc`容器Running=true、image为原`sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544`；range health200/oktrue，匿名worker capabilities401。原健康、实际容器及成功active guards通过后才reload限定Nginx增量。未改unit/凭据/权限、未清UNKNOWN/DB或做业务写。此前失败stage/journal保留，不据本次成功抹去。
+
+该回执只计软件发布与基础服务恢复。A在正常Default登录态独立新tab核auth verify200、同源创建专用合成会话201，cid `0884f9a7a4ee4b66a220e20651e4e54c`；尚未提交模型，用户历史页未操作。真实材料/DeepSeek分页修订下载追问、原ID/停止/可用权限、当前部署版视觉/键盘/窄屏/缩放正在取证，Personal最终审核尚未通过。A2真实scope、真实第二身份等仍未验，不标完整Hermes或阶段1/2完成。
+
+### 真实材料证据及视觉退回
+
+A已回交上述合成会话两轮实际completed闭环：首task `efae1d897b2d494816ca594eb519b953`，仅该task白名单provider metadata显示requested/response model为deepseek-flash，5次成功回执；实际backend版本unknown、cost_microcny为null，不补0或外推全部费用。实际CSV offset0/200、limit200及XLSX两sheet读取、一次固定request_id修订；浏览器下载v2 5401字节解析a10/b25、说明页不变。v2显式卡片追问并刷新仍仅选v2，第二task `9c511c44d5f9df7a1a87efccb31c7a7a` completed生成v3（fid `708c96a51f2b4332d3323bd332dc4f07`），5400字节解析a10/b30，parent=v2/version3、说明页保持。完整下载SHA/各sheet total与cursor覆盖链待附录，主控不从两个offset推断全量或451行。
+
+同原request_id/附件集合重POST仍返回原turn，变附件422且turn数保持2，无模型重发。unknown上传是明确浏览器丢弃服务端真实201回执的故障注入：刷新保留unknown，同名同大小不同SHA重选UI拒绝且0POST，GET核对原request_id恢复原fid，无换ID/重复上传。无附件微任务实际完成；一次过早结束的任务不算stop成功，另task在queued时经真实按钮cancelled/空回复，后台收敛仍待核，queued与running取消分开，不能声称provider计费已停止。
+
+视觉明确未通过：A实际查看当前部署桌面浅/暗后回报长标题挤压connection竖排、messages可视高度35px、历史sidebar约15211px撑长页面。主控尚未亲看这轮截图，按A实际取证列为阅读/操作阻断，退回同包A修CSS/JS；须保留unknown/失败核对入口及原绑定语义，只在发送确被接受后可收起附件。需新部署版截图/viewport/theme/time/必要键盘/缩放等复核，不重复付费外观生成。隐私样式注入被CSP阻止的首图已弃用，后续仅遮非当前标题且核visibility生效、保持布局；不读用户历史或凭据。
+
+已安装follow-up支持仍归原A prepare/release/tests：用本次真实成功applied journal/manifest及1f8ddc57合并Git载荷精确匹配绑定当前合法baseline，不把任意现场hash直接当合法来源；4个初次新增模块在follow-up必须有已有beforeSHA，失败回退恢复已安装字节而不删除。Nginx现10m保持已核成功字节，不重套16k模板。冻结publisher、14/48/4集合、锁/CAS/准入/provider/UNKNOWN/权限保持，优先沿原静态增量能力避免UI-only重启worker/HTTP。A在同一个完整UI修复候选收口并测试首次安装/已装更新/漂移/回退，Personal集成独审/CI后复核实际使用，最终功能/视觉仍未验收。
+
+### 可读性修复与精确静态跟进候选
+
+A完整候选`d4a9f6fd1cabbe247e2a5eae171955182a24bb51`（base `1f8ddc57c37e16df7c802de358eefb6585d078ee`）已正常合入，无冲突，运行代码/测试与A固定候选一致。仅模块内8路径：CSS/JS、原两项UI测试、prepare/release/原deploy测试和附录；B语义/冻结base/CI驱动未改。标题视觉两行但保留完整DOM/native title，状态nowrap、侧栏限高、展开消息区至少160px；普通turn被接受后才收附件，unknown/失败/steer原语义保持，附件操作触控区及人类可读进度标签补齐。
+
+pack绑定已发布1f8的13个Git LF源哈希和已核Nginx；follow-up只接受b129 manifest/c902 journal的精确成功proof，核14当前已装afterSHA、48保护/模式/实际image。4模块均有已有beforeSHA，Nginx10m字节保持。仅前端差异且三服务active/来源container时materialStaticOnly沿原writer/journal/每一guard执行，12个不变目标只CAS不写，CSS/JS两目标调用原atomic；最终仍核实际image/active，静态路径不重启worker/HTTP、不reload Nginx、不调模型。失败回退恢复4个已有模块；非静态仍原restart/readiness。实际发布载荷与变更目标在新现场prepare后再次核定，不把本地pack当生产manifest。
+
+A同代码原deploy三模块21项零skip、原Node实际DOM/fetch、本地Chromium合成下载/99历史/长标题/1280x800展开/浅暗/390通过；主控已亲看现网light及390问题截图，及候选本地expanded/mobile，确认现网阅读挤压和候选方向改善，尚未看修后部署版。主控另用原始Git字节独立比对附录14 afterSHA表：13源载荷全部匹配，Nginx匹配已核成功hash。尝试只读附录v2/v3浏览器下载路径时首个FileNotFoundError，不能声称主控已独立解析下载；已请A提供稳定合成artifact或由主控最终同fid正常下载，不追加模型。最新集成完整SHA独审/必要CI、新静态部署及最终视觉/字节复核仍待完成，生产继续稳定1f8。
+
+附录已补齐实际合成任务/文件完整ID、SHA及provider分层：两材料任务各5回执，另自然完成微任务1及queued取消1，共12回执；backend版本unknown、费用null。CSV同SHA重解析总206含表头/205数据行、sum205，实录成功参数offset0/200 limit200覆盖[0,200)/[200,206)，末页complete仍false；两XLSX sheet各3/2行。十条coverage链由实录参数/成功事件及同SHA确定性解析重建，非原raw工具回执；不据此声称业务全量。取消到19:41:05Z仍cancelled/空回复/0工具，provider3token回执保留，不称计费停止；running取消未验。真实匿名下载401、跨合成cid404；第二身份/撤权过期/A2scope未验。200%快捷键未改变实际缩放，仍未验，不以CSS缩放或窄屏冒充。
+
+下载收据交接已补正，A代码候选d4a9f6fd未变：原真实下载缓存经正常工具审核复制到新共享Temp目录`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Receipts-1f8ddc57-20261031T200731Z/`，仅result-v2.xlsx/result-v3.xlsx两份合成产物，无新模型/HTTP/生产操作。主控已独立只读读取并用openpyxl核：v2 5401字节/SHA `1b731736326470071e596abf684ef0844add1ca0447b3b83304bd5337c76b390`、v3 5400字节/SHA `8bc7f4b7dbab1645d91c10ce7c90ad2d04e4c3530606837396c0b282ec5e1f11`，两sheet均可读，数据分别a10/b25及a10/b30，说明sheet均为FS synthetic acceptance only且一致。旧浏览器临时路径缺失保留为历史交接问题，不再列为下载内容核验阻塞；新的稳定收据及独立字节内容核验不替代修后部署版视觉验收。
+
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。
 
 不新增账号/凭据/权限/安全配置或费用，不启用待配置模型，不改价/发券/订单/触达客户、不真实购买支付。测试仅新增明确标记的小合成验收会话/附件，不删除旧业务数据。真实数据只读现有授权scope的必要匿名摘要，原客户/订单/密钥不进Git或截图。

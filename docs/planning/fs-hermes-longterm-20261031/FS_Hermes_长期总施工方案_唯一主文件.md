@@ -860,13 +860,13 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 |---|---|
 | 唯一主方案 | 本文件 |
 | 正式仓库存放路径 | docs/planning/fs-hermes-longterm-20261031/FS_Hermes_长期总施工方案_唯一主文件.md；Personal维护，外部开工文件作为输入快照保留 |
-| 当前阶段 | PR717已合并ba972abb并通过现场prepare；实际apply在健康返回后因systemd219不支持--value失败，14目标已回退、旧HTTP恢复，worker仍failed。完整兼容候选d5a640e9已正常合入，材料/视觉未通过 |
+| 当前阶段 | 生产稳定1f8ddc57，已回交两轮真实材料闭环；完整可读性/精确静态follow-up候选d4a9f6fd已正常合入，准备最新SHA独审/CI。当前生产视觉仍未通过，Personal修后终审待完成 |
 | 主施工／总控 | 个人版Work；负责B线、总方案、接口协调、集成验收与发布协调 |
 | 协同施工 | 工作版Work；负责A线实现与可验收交付 |
 | 公共代码归属 | 本包精确FC v3 service/HTTP、FC v2 runs、26proxy及原publisher装配由A唯一维护，见RUNTIME-DEPLOYMENT-ACCEPTANCE.md；controller/公共schema/迁移不改，CI/主方案由Personal维护 |
 | 现有FS/Hermes活动版本 | 已据A现场哈希核定活动service/HTTP为FC v3、runs为FC v2、proxy为26版本；未匹配controller/range_api/fs_evidence原字节保持，完整记录见部署附录，不由方案名推断 |
-| 新能力已验收范围 | B1/B2离线首片、文件工具与附件UI本地模拟/必要CI及限定核心独审通过并合并；未调用真实模型、未部署 |
-| 下一步 | A独占26版hermes_worker.py::make_adapter必要修复，限制FS进程隐式dotenv加载，不读.env或改权限/凭据。后续完整修复候选独审/CI及原publisher受控发布，Personal核真实功能与视觉后继续主方案 |
+| 新能力已验收范围 | B1/B2离线及文件/UI模拟/CI/限定独审通过；1f8ddc57材料软件包已实际发布并恢复worker，基础服务/匿名拒绝读回通过。真实材料/模型/部署版视觉未通过，不标阶段1/2完成 |
+| 下一步 | A同包修可阅读/可操作布局及已装followup发布，补分页全量/停止收敛/权限和fresh视觉证据；Personal核下载内容与覆盖、功能和审美后续推主方案。费用未知保留，不为外观重复模型，不扩业务/权限 |
 | 已有生产业务 | 沿原系统、原权限、原调度运行；本次整理未改动 |
 | 本次文件交付 | 长期主方案与两个岗位入口原地整合；不等于已派发、编码或上线 |
 | PR702复用线索 | head `666814c9ae0376fe4f372cf9718508345da45ee0`，merge `30423f91c963228b41fe450f0c7993fa408cf12f`；完整独审与生产验收未在本包确认 |
@@ -894,6 +894,9 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／恢复态准备阻塞 | PR716 reviewed6fc954f1独审及Linux32/16/12通过，mergeac58cf7f。新prepare写入前发现--rm失败容器已消失，未生成stage/manifest/backup；新worker未安装 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；模块部署附录 | worker仍待修；镜像来源识别与原active前置条件需精确支持已核失败态 | A同包补完整准备/发布前状态契约，运行成功仍要求真实容器与健康；不修改unit/凭据/权限或跳过保护 | A实现/发布；Personal核接口与验收 |
 | 2026-11-01／恢复态候选集成 | A完整961467bf正常合入，仅prepare/release/原deploy测试/附录；manifest区分实际runtimeBefore与全active成功条件，严格missing镜像来源核验，进入restart即终止恢复分支。原runner deploy19零skip通过 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；模块部署附录 | 新集成SHA独审/必要LinuxCI及真实worker/材料/DeepSeek/视觉未验 | 完整必要后续PR满足条件自动合并，A以最终SHA新pack/prepare/原publisher发布，不复用旧stage | A实现/发布；Personal集成/验收 |
 | 2026-11-01／systemd219兼容修复 | PR717 reviewed67e3c010独审及Linux32/19通过，mergeba972abb；新现场inspect通过，但apply读回使用--value失败，14目标/48保护回退核对、旧HTTP恢复。正常合入A完整d5a640e9，仅兼容属性解析/原契约/附录，原deploy19零skip | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；备份nav-20261031T191240Z | worker仍failed；本次最新SHA独审/CI、真实发布/模型/视觉仍待验，不拿健康流程曾返回冒报成功 | 同包必要完整后续PR满足条件自动合并，最终SHA新pack/新现场prepare/原publisher发布 | A施工/发布；Personal集成/最终验收 |
+| 2026-11-01／软件发布成功 | PR718 reviewed0a3e595a独审/必要CI通过，merge1f8ddc57；A新pack/新现场prepare后仅apply一次成功，14afterSHA/48保护、原mode/root、worker/range/nginx及真实容器image/健康/匿名拒绝读回通过；新建专用合成会话尚未模型提交 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；备份nav-20261031T192312Z | 真实材料/DeepSeek/停止/权限、部署版视觉与Personal最终验收未完成；A2真实scope/第二身份未验 | A继续真实使用与fresh截图，Personal核内容/功能/视觉后续推主方案，不把软件发布当整包通过 | A测试取证；Personal最终审核 |
+| 2026-11-01／材料取证与视觉退回 | A回交两轮真实completed文件闭环、浏览器有效XLSX v2/v3下载及显式追问、原ID/集合幂等/unknown注入恢复；费用及backend版本未知保留。queued取消已发生待后台核收敛 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；模块部署附录待汇总 | 当前视觉实测失败：长标题挤状态、messages35px、历史侧栏过长；完整覆盖/停止/权限和主控独立视觉审核仍待完成 | A一个完整UI/followup修复包，严守已装baseline/回退、不给新模型外观任务；Personal复核再验收 | A修复取证；Personal主控/最终审核 |
+| 2026-11-01／可读性与静态跟进集成 | 正常合入A完整d4a9f6fd；CSS/JS可读性/接受后收附件、原publisher精确已装proof/Git/CAS/静态两目标更新，原deploy21/Node/本地Chromium通过。主控亲看现网问题与本地候选图，独立核13Git载荷+Nginx与附录hash匹配；分页重建及queued收敛/401/跨cid404证据补齐；稳定Temp收据已独立核v2/v3完整SHA/字节/两sheet内容 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；模块完整部署附录 | 最新独审/CI、新静态部署与fresh最终视觉待验；旧下载临时路径缺失已通过稳定收据补正；running/真实第二身份/200%/A2未验 | 满足条件合并后无模型静态更新，主控独立核内容/视觉后推进主方案 | A静态发布/取证；Personal集成/最终审核 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 

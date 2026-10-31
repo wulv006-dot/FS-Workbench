@@ -84,8 +84,11 @@ async function run() {
   let ui=await boot();
   await ui.send('plain text'); assert(!('file_ids' in ui.state.submitted));
   ui=await boot(); await ui.choose(); assert.equal(ui.state.uploads.length,1);
+  assert.equal(ui.nodes['conversation-title'].title,'Chat 0');
   assert.match(ui.nodes['file-choices'].textContent,/可用/); assert.equal(ui.checks()[0].checked,false);
+  ui.nodes.attachments.open=true;
   ui.checks()[0].click(); await ui.send(); assert.equal(ui.state.submitted.file_ids.length,1);
+  assert.equal(ui.nodes.attachments.open,false);
   assert.equal(descendants(ui.nodes.messages).filter(x=>x.tagName==='a'&&x.textContent==='下载文件').length,1);
   assert(!descendants(ui.nodes.messages).some(x=>x.href?.includes('arbitrary')));
 
@@ -129,8 +132,9 @@ async function run() {
   assert.equal(ui.checks().length,0); assert.match(ui.nodes['attachment-summary'].textContent,/0 \/ 10/);
 
   // Pending turn identity and attachment set survive refresh unchanged.
-  ui=await boot(); await ui.choose(); ui.checks()[0].click(); ui.state.turnUnknown=true;
+  ui=await boot(); await ui.choose(); ui.checks()[0].click(); ui.state.turnUnknown=true; ui.nodes.attachments.open=true;
   await ui.send('pending'); const pending={...ui.state.submitted};
+  assert.equal(ui.nodes.attachments.open,true);
   ui=await boot(ui.state,ui.storage); ui.state.turnUnknown=false; await ui.send();
   assert.equal(ui.state.submitted.client_request_id,pending.client_request_id);
   assert.deepEqual(ui.state.submitted.file_ids,pending.file_ids);
@@ -150,8 +154,11 @@ async function run() {
 
   // Steer never submits selected attachments again; keyboard retains original submit path.
   ui=await boot(); await ui.choose(); ui.checks()[0].click();
-  ui.state.turns[A]=[{turn_id:'c'.repeat(32),state:'running',run_id:'run_'+'e'.repeat(32),text:'running'}];
+  ui.state.turns[A]=[{turn_id:'c'.repeat(32),state:'running',run_id:'run_'+'e'.repeat(32),text:'running',
+    progress:{type:'tool.started',tool:'mcp__fcro__fc_read_conversation_file'}}];
   ui=await boot(ui.state,ui.storage); assert(ui.nodes['file-input'].disabled);
+  assert.match(ui.nodes.messages.textContent,/读取附件 · 正在处理/);
+  assert(!ui.nodes.messages.textContent.includes('mcp__fcro__'));
   ui.nodes['message-input'].value='steer'; await ui.nodes['message-input'].onkeydown({key:'Enter',ctrlKey:true,preventDefault(){}}); await ui.flush();
   assert.equal(ui.state.steered.text,'steer'); assert(!('file_ids' in ui.state.steered));
   const css=fs.readFileSync(path.join(__dirname,'conversation.css'),'utf8');

@@ -24,6 +24,134 @@ NGINX = (b'# unrelated\r\nlocation = /api/hermes/conversations {\r\n'
 
 
 class RuntimeMaterials(unittest.TestCase):
+    def installed_fixture(self, root):
+        base, system, payload, known, metadata, sha = self.fixture(root)
+        previous = {'sourceCommit': release.INSTALLED_COMMIT, 'scope': release.SCOPE, 'files': [],
+                    'unchangedRequired': [], 'workerImageId': 'sha256:' + '0' * 64}
+        descriptor = json.loads((payload.parent / 'payload-manifest.json').read_bytes())
+        for name, target in release.TARGETS.items():
+            body = prepare.patch_nginx(NGINX) if target == release.NGINX else ('installed:' + name).encode()
+            path = base.rooted(system, target); path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(body)
+            if os.name == 'posix': path.chmod(0o600 if target == release.NGINX else 0o644)
+            previous['files'].append({'candidate': name, 'target': target, 'sha256': prepare.digest(body)})
+            if name in prepare.SOURCES and name not in ('frontend/conversation.js', 'frontend/conversation.css'):
+                (payload / name).write_bytes(body)
+            if name in prepare.SOURCES:
+                descriptor['files']['payload/' + name] = prepare.digest((payload / name).read_bytes())
+        previous['unchangedRequired'] = [{'path': p, 'sha256': prepare.digest(base.rooted(system, p).read_bytes())}
+                                         for p in sorted(release.protected_paths(base))]
+        descriptor['installed_baseline'] = {'source_commit': release.INSTALLED_COMMIT,
+                                          'files': {r['candidate']: r['sha256'] for r in previous['files']}}
+        proof = dict(release.INSTALLED_PROOF)
+        backup = base.rooted(system, proof['backup']); backup.mkdir(parents=True)
+        raw = json.dumps(previous).encode(); (backup / 'approved-manifest.json').write_bytes(raw)
+        proof['manifestSha256'] = prepare.digest(raw)
+        journal = {'status': 'applied-awaiting-actual-http-role-acceptance', 'manifest': previous,
+                   'approvedManifestSha256': proof['manifestSha256']}
+        raw = json.dumps(journal).encode(); (backup / 'journal.json').write_bytes(raw)
+        proof['journalSha256'] = prepare.digest(raw)
+        raw = json.dumps(descriptor).encode(); (payload.parent / 'payload-manifest.json').write_bytes(raw)
+        return base, system, payload, metadata, prepare.digest(raw), proof, previous
+
+    def test_installed_followup_proof_git_cas_and_nginx_are_exact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base, system, payload, metadata, sha, proof, previous = self.installed_fixture(Path(directory))
+            with patch.object(release, 'INSTALLED_PROOF', proof), patch.object(prepare, 'INSTALLED_PROOF', proof), \
+                    patch.object(prepare, 'file_metadata', metadata):
+                with self.assertRaisesRegex(ValueError, 'installed_worker_image_drift'):
+                    prepare.observe(system, dict(previous, workerImageId='sha256:' + '1' * 64))
+                for drift in ('git', 'journal', 'module', 'nginx', 'protected'):
+                    descriptor_path = payload.parent / 'payload-manifest.json'
+                    descriptor_raw = descriptor_path.read_bytes(); restore = None
+                    if drift == 'git':
+                        value = json.loads(descriptor_raw)
+                        value['installed_baseline']['files']['runtime/conversation_files.py'] = '0' * 64
+                        descriptor_path.write_text(json.dumps(value), encoding='utf-8')
+                    else:
+                        target = (proof['backup'] + '/journal.json' if drift == 'journal' else
+                                  release.TARGETS['runtime/conversation_files.py'] if drift == 'module' else
+                                  release.NGINX if drift == 'nginx' else previous['unchangedRequired'][0]['path'])
+                        path = base.rooted(system, target); restore = (path, path.read_bytes()); path.write_bytes(b'changed')
+                    current_sha = prepare.digest(descriptor_path.read_bytes())
+                    stage = Path(directory) / ('bad-' + drift)
+                    with self.subTest(drift=drift), self.assertRaises(ValueError):
+                        prepare.prepare(payload, stage, 'a' * 40, current_sha, root=system, followup=True)
+                    self.assertFalse(stage.exists())
+                    if restore: restore[0].write_bytes(restore[1])
+                    descriptor_path.write_bytes(descriptor_raw)
+                stage = Path(directory) / 'valid'
+                prepare.prepare(payload, stage, 'a' * 40, sha, root=system, followup=True, release_ready=True)
+                manifest = json.loads((stage / 'approved-manifest.json').read_bytes())
+                self.assertEqual(len(manifest['files']), 14)
+                self.assertEqual(len(manifest['unchangedRequired']), 48)
+                self.assertTrue(manifest['materialStaticOnly'])
+                self.assertEqual(manifest['installedBaseline'], proof)
+                self.assertTrue(all(r['beforeSha256'] is not None for r in manifest['files']))
+                self.assertEqual((stage / 'candidate/http/formal.conf').read_bytes(), prepare.patch_nginx(NGINX))
+
+    def test_static_followup_original_apply_no_runtime_writes_restart_or_delete_on_rollback(self):
+        for fail in (False, True):
+            with self.subTest(fail=fail), tempfile.TemporaryDirectory() as directory:
+                base, system, payload, metadata, sha, proof, previous = self.installed_fixture(Path(directory))
+                stage = Path(directory) / 'stage'
+                with patch.object(release, 'INSTALLED_PROOF', proof), patch.object(prepare, 'INSTALLED_PROOF', proof), \
+                        patch.object(prepare, 'file_metadata', metadata):
+                    prepare.prepare(payload, stage, 'a' * 40, sha, root=system, followup=True, release_ready=True)
+                raw = (stage / 'approved-manifest.json').read_bytes(); manifest = json.loads(raw)
+                spec = importlib.util.spec_from_file_location('static_followup', stage / 'runtime_release.py')
+                module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+                module.INSTALLED_PROOF = proof
+                guards = []
+                def host_guards(current, root, reader_stopped=False):
+                    guards.append(current['runtimeRequired'])
+                    self.assertEqual(current['runtimeRequired'], manifest['runtimeRequired'])
+                    for row in current['unchangedRequired']:
+                        self.assertEqual(base.digest(base.rooted(system, row['path'])), row['sha256'])
+                base.guards = host_guards
+                base.retirement = lambda *a: None
+                base.locks = base.live_lock = base.model_release_lock = lambda *a: nullcontext()
+                base.hermes_admission_fence = lambda *a: nullcontext(SimpleNamespace(modified=False, confirmed=False))
+                base.restart_for = Mock(side_effect=AssertionError('static followup must not restart'))
+                writes = []
+                original_atomic = base.atomic
+                def host_atomic(path, data, mode=0o644):
+                    if path in [base.rooted(system, r['target']) for r in manifest['files']]: writes.append(path)
+                    return original_atomic(path, data, mode)
+                base.atomic = host_atomic
+                if os.name == 'nt': base.directory_sync = lambda *a: None
+                css = next(r for r in manifest['files'] if r['candidate'] == 'frontend/conversation.css')
+                def image():
+                    if fail and base.digest(base.rooted(system, css['target'])) == css['sha256']:
+                        raise ValueError('static postcondition lost')
+                    return manifest['workerImageId']
+                with patch.object(module, 'frozen', return_value=base), \
+                        patch.object(module, 'worker_image', side_effect=image), \
+                        patch.object(module.subprocess, 'run', side_effect=AssertionError('no static child process')):
+                    publisher = module.load_base()
+                    if os.name == 'nt':
+                        # Normalize only Windows temp target modes at the host
+                        # boundary; real Linux CI retains original POSIX modes.
+                        wire_atomic = publisher.atomic
+                        def windows_atomic(path, data, mode=0o644):
+                            for row in manifest['files']:
+                                if path == base.rooted(system, row['target']): mode = int(row['mode'], 8)
+                            return wire_atomic(path, data, mode)
+                        publisher.atomic = windows_atomic
+                    publisher.inspect(manifest, stage, system)
+                    if fail:
+                        with self.assertRaisesRegex(ValueError, 'static postcondition lost'):
+                            publisher.apply(manifest, stage, prepare.digest(raw), raw, 'nav-20261101T000002Z', system)
+                    else:
+                        publisher.apply(manifest, stage, prepare.digest(raw), raw, 'nav-20261101T000002Z', system)
+                    self.assertGreaterEqual(len(guards), 17)  # Original per-row guards remain.
+                    changed = {base.rooted(system, r['target']) for r in manifest['files'] if r['beforeSha256'] != r['sha256']}
+                    self.assertEqual(set(writes), changed)
+                    for row in manifest['files']:
+                        self.assertEqual(base.digest(base.rooted(system, row['target'])), row['beforeSha256'] if fail else row['sha256'])
+                    for name in release.NEW: self.assertTrue(base.rooted(system, release.TARGETS[name]).exists())
+                    journal = json.loads((base.rooted(system, '/var/backups/fs-navigation-20261006/nav-20261101T000002Z') / 'journal.json').read_bytes())
+                    self.assertEqual(journal['status'], 'rolled-back' if fail else 'applied-awaiting-actual-http-role-acceptance')
+
     def test_live_image_and_post_restart_require_real_container(self):
         live = subprocess.CompletedProcess([], 0, release.FROZEN_IMAGE_MARKER + '\n', '')
         def old_systemctl(command, **kwargs):
@@ -187,14 +315,17 @@ class RuntimeMaterials(unittest.TestCase):
             def git_blob(command, cwd):
                 self.assertEqual(command[:2], ['git', 'show'])
                 self.assertEqual(cwd, repo)
-                self.assertTrue(command[2].startswith(commit + ':'))
-                return files[command[2].split(':', 1)[1]]
+                selected, name = command[2].split(':', 1)
+                self.assertIn(selected, (commit, prepare.INSTALLED_COMMIT))
+                return b'prior-merged-LF\n' if selected == prepare.INSTALLED_COMMIT else files[name]
             # The normal pr-fast runner forbids child processes. Inject only the
             # Git blob boundary; production pack still calls git show directly.
             with patch.object(prepare, 'SOURCES', sources), patch.object(prepare.subprocess, 'check_output', git_blob):
                 result = prepare.pack(repo, root / 'payload', commit)
             self.assertEqual((root / 'payload/payload/runtime/a.py').read_bytes(), b'committed\n')
             self.assertEqual(result['payload_sha256'], prepare.digest((root / 'payload/payload-manifest.json').read_bytes()))
+            descriptor = json.loads((root / 'payload/payload-manifest.json').read_bytes())
+            self.assertEqual(descriptor['installed_baseline']['files']['runtime/a.py'], prepare.digest(b'prior-merged-LF\n'))
 
     def fixture(self, root):
         system = root / 'system'; system.mkdir()
