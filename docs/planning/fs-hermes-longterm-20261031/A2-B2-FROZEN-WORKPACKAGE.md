@@ -160,3 +160,20 @@ Business Sol High平台独立worktree核完整head `24bc4d6b786849b0de8db58b178c
 Personal合并前复核最新版本/CI success/无冲突，按已有授权正常merge `d279086292f514002adadf801468e077dc7f3a1a`；本机ff核merge树与reviewed head完全一致，已停止PR722监听。至此限定本机「冻结事实→prepared同CAS→独立DB私有outbox→原IDlookup/验真」通过。queued仍非原TaskStore执行任务/worker；没有生产goal DB/真实模型/调度或新scope授权动作，生产继续501f，阶段2整体未完成，旧知识收尾错误保留。
 
 下一工作转入真实运行装配，不再增加替代执行层：A唯一现场执行者先沿既有合法SSH作三份已知未匹配活动文件的限定只读元信息核对（controller.py/fs_evidence.py/range_api.py）；只返回哈希/大小、必要类/函数签名及调用/导入名称、可比函数AST指纹，不导出源码正文/常量值、不导入执行这些模块、不读配置/凭据/DB、不调用业务或模型API。既有批量源码复制拒绝仍独立有效，元信息不能等价绕为源码下载；工具拒绝即停止原样回报。若信息不足，列必要读取的最小具体范围与用途交用户，不把未知活动装配伪称匹配，不覆盖旧源。B据实际接口对齐合法goal执行类型/spec/原ID只读恢复及scope来源；真实grant缺证据继续unavailable。
+
+### 活动源码在既有Git中的精确定位（2026-11-01）
+
+A在原独立工作树正常ff main d279086292f514002adadf801468e077dc7f3a1a后，以既有合法SSH只读核三份指定文件；逐目录/目标O_NOFOLLOW、regular及稳定fstat检查，AST前重核SHA，无源码正文/常量值导出、SCP、模块导入、服务或DB/API操作。当前controller为59487 bytes、SHA256 `75c1b1f6b6af47fe00465e8b4dd0e9628ed17dbd85be0b1988145dbf41dc8e28`；另外两份如下，均与501f原保护记录一致。这里只证明当前磁盘文件，不证明进程已加载或当前健康。
+
+Personal随后只读本地Git原始LF字节，找到两份完整精确匹配；旧“未找到Git源”的结论由以下证据收窄，而非恢复旧候选覆盖现场：
+
+| 活动文件 | d2790862中的Git路径 | bytes / SHA256 | Git blob |
+|---|---|---|---|
+| /opt/fs-hermes-fc/fs_evidence.py | releases/fs-dashboard/fc-coins-workflow-20261022/source/fs_evidence.py | 27713 / 08ea0d4a85b605c0665aed11f6bda56ff15b51dcfe8b1c53dd90a80a6d101d29 | e995458b378c51ea6908119357ef29c842b8849a |
+| /opt/fs-exact-range-20261001/range_api.py | releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py | 25525 / 12008f7fc6a21a01b2daf5d911905356c4aab238d10925e09069029f4f047b7f | b7f024715816fd788d4e7c921f2c747d6fb92562 |
+
+Windows工作区CRLF的大小/hash不同，不能据此否定Git LF匹配。range_api.py:277-281已可从合法Git读取：原HERMES的root/run_root/source_root为`/var/lib/fs-hermes-fc/fs`、`/run/fs-hermes-fc`、`/opt/fs-hermes-fc`；现有ConversationService复用HERMES，store根为`/var/lib/fs-hermes-fc/fs/conversations`。GET/POST会话及analytics入口传递正常宿主`X-Auth-User`。这些静态接点不证明上游细粒度site/project grant，fc_daily.admin也不作为该证明。
+
+为比较远端Python3.9与本地3.14的有界函数AST，Personal去除3.9没有的空type_params字段，再用`ast.dump(include_attributes=False, show_empty=True)`保留3.9的空字段表达。由此Core controller.__init__:97/get_job:251分别与远端完整指纹`7baa4d624b545ee76bd1cb7f0f47d63c1635eb1964da06b4869e24804ead4882`、`020e1801e31719a461ccc5d9fbba03df8f356a5201b01b1b76e375b06f53a2fd`相等；knowledge-layering-20261023/source/controller.py的_submit_report:441与`3e21966641bf24fc7ed750aaab0c9b966677d8afc3ac6e4e5c25757a958d269d`相等。所匹配构造函数的原TaskStore路径为self.root/'tasks.sqlite3'；仍使用现有对象，不另构造带恢复/线程/DDL副作用的HermesService。函数结构匹配不保证其它全局符号/整模块行为相同，controller整文件和execute仍未匹配，不覆盖或复用其执行分支。
+
+原计划A类45行片段的生产读取/导出已不必要，未向用户索取该许可、未执行等价导出；此前批量SCP拒绝仍有效。已把两份精确Git源、blob和函数指纹交A，只读本地收敛真实执行包接口，不重复SSH核查或旧测试。候选方向为用户显式选择且同owner/cid授权的材料目标短任务，不从页面admin推A2 scope；必须先确定合法执行类型及真实spec/预算来源、task/lease/run持久映射、单次POST/UNKNOWN原ID对账、锁序与停止/恢复合同，再登记实际A/B路径实现。此处是接口待定项，没有新增通用goal执行、模型请求、调度或生产发布；B主线是执行意图/证据与最小handoff，A主线是原任务账本/生命周期/HTTP/runtime装配，独占归属保持。
