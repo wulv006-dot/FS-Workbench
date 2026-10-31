@@ -113,6 +113,22 @@ A同代码原deploy三模块21项零skip、原Node实际DOM/fetch、本地Chromi
 
 下载收据交接已补正，A代码候选d4a9f6fd未变：原真实下载缓存经正常工具审核复制到新共享Temp目录`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Receipts-1f8ddc57-20261031T200731Z/`，仅result-v2.xlsx/result-v3.xlsx两份合成产物，无新模型/HTTP/生产操作。主控已独立只读读取并用openpyxl核：v2 5401字节/SHA `1b731736326470071e596abf684ef0844add1ca0447b3b83304bd5337c76b390`、v3 5400字节/SHA `8bc7f4b7dbab1645d91c10ce7c90ad2d04e4c3530606837396c0b282ec5e1f11`，两sheet均可读，数据分别a10/b25及a10/b30，说明sheet均为FS synthetic acceptance only且一致。旧浏览器临时路径缺失保留为历史交接问题，不再列为下载内容核验阻塞；新的稳定收据及独立字节内容核验不替代修后部署版视觉验收。
 
+### 501f静态更新成功及限定范围最终验收
+
+PR719 reviewed `912af9b374936a0f6b6ab281097e27b7e7c3c401`的Business独审无阻断、独立deploy21/Node及LinuxCI通过后正常merge `501f90bf16fe114e70fcb05833cb1b2cf478e54c`，主控核merge树一致。A clean/ff最终SHA新pack descriptor `28dcf2a616839cda805ca6ccd891f0cd48091c49643c2579dd234c1453210c5b`；stage `/var/tmp/fs-hermes-materials-501f90bf-20261031T201743Z/stage`，baseline `2026-10-31T20:18:30.255759+00:00`，manifest `6c6c1aceda92eba62cb694f112dc6df93f97dd05fc157c778b51c4ffe8daf920`。真实原1f8 b129/c902+Git/Nginx proof与inspect CAS通过，仅apply一次；备份 `/var/backups/fs-navigation-20261006/nav-20261031T201743Z`，journal为`applied-awaiting-actual-http-role-acceptance`，SHA `9131be81c7c95da5c15a0c6ba49107102517952f009046e524dd813c1732c9b9`。
+
+A独立实际读回14 afterSHA/mode/root匹配、48保护原SHA；实际差异仅conversation.js/css，其余12目标inode/mtime_ns保持。worker/range/nginx PID前后分别10943/11083/31780，均active/running；实际container ID `fdb100cedd9b2c05dedfb7880282cd1105e322e3315e3585d72d149d8f01c96a`、StartedAt `2026-10-31T19:23:50.179982343Z`、原image/Running=true前后不变，range health200/oktrue。没有restart/reload、模型或DB/UNKNOWN清理。
+
+随后A以固定`55c4bbd5456c77a6a7c871c21cb7f62b88217347`回交仅46行fresh记录，主控正常合入；没有运行代码/测试差异，不因此重pack、部署或重跑旧套件。A初次preview_status的available=false/无当前tab不代表原页关闭；随后正常open列出原tab5仍在及新合成tab8，Default正常登录。主控不把状态列表缺项推断为用户关闭或登录丢失。
+
+Personal在2026-10-31T20:33:59.332Z—20:43:26.024Z独立审核同一合成会话。亲看A的9张501f fresh生产PNG，并在自己新开tab9只读复核，原用户tab5未操作或读取历史正文。浏览器no-store GET的JS/CSS均200，完整SHA分别为`734008e993c00ec105fed5b696ef407005395fabea381466d793162989a53ad4`及`15d84281a43a3f49dd337ec8225135b1da9c08a5414efc6eb38c948999a902b8`，与manifest一致；正常auth200。
+
+独立实测桌面1280x800消息区收起288px/展开160px，标题61.6px两行且native title保留全文、状态24px且nowrap，sidebar683px独立滚动；390x844时page宽390无横溢、sidebar183px滚动280而pageY不变、消息464px、状态仍在面板内，v3下载/追问均44px。原生点v3仅选fid708c96a51f2b4332d3323bd332dc4f07并focus composer；Enter换行、空CtrlEnter由原required阻止、Tab到附件summary有2px可见焦点。起初一个offscreen旧locator点击超时，实际滚动后可视原生点击成功，不计跳过或产品失败。
+
+主控自己的桌面截图`E:/T3Code/state/userdata/browser-artifacts/browser-screenshot-47-85-224-112-mvwv0dlu-fd115355.png`和窄屏截图`E:/T3Code/state/userdata/browser-artifacts/browser-screenshot-47-85-224-112-mvwvbvtt-b304654a.png`均保存且实际view。非当前99条历史行只visibility遮蔽、布局保持，未遮蔽计数0。只读探针无server mutation尝试、error或unhandledrejection；不是首加载全HAR/console证明。前后均4turn，原cancelled仍空回复，没有模型调用；仅关闭自己tab9，未变全局主题或操作原页。
+
+**最终结论：本材料主闭环和已测试的桌面浅暗、390px及基本键盘/版本卡操作范围验收通过。**真实下载字节/两sheet及immutable parent/version由前述独立收据检查支持，真实DeepSeek及停止证据仍按原任务分层。journal本身仍保留`applied-awaiting-actual-http-role-acceptance`原回执，不为写结论而改生产journal。真实200%原生缩放、running取消、第二身份/真实撤权过期、A2可信scope、完整A1/阶段1和2、真实模型后端版本与费用均未提升为已验；不为外观追加付费任务。阶段2沿原主方案继续，见A2-B2-FROZEN-WORKPACKAGE.md。
+
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。
 
 不新增账号/凭据/权限/安全配置或费用，不启用待配置模型，不改价/发券/订单/触达客户、不真实购买支付。测试仅新增明确标记的小合成验收会话/附件，不删除旧业务数据。真实数据只读现有授权scope的必要匿名摘要，原客户/订单/密钥不进Git或截图。
