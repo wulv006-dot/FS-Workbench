@@ -131,7 +131,8 @@ def source_budget_probe(root, knowledge):
             'releases/fs-dashboard/hermes-customer-tracking-20261018/source',
             'releases/fs-dashboard/hermes-generic-data-20261018/source',
             'releases/fs-dashboard/admin-data-tools-20261018/candidate/hermes',
-            'releases/fs-dashboard/hermes-data-workspace-20261018/source')]
+            'releases/fs-dashboard/hermes-data-workspace-20261018/source',
+            'releases/fs-dashboard/hermes-v2-core-20261020/source')]
         with patch.dict(sys.modules):
             sources = {
                 'research': 'releases/fs-dashboard/fc-coins-workflow-20261022/source/research.py',
