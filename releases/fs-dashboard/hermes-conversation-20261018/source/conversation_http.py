@@ -1,8 +1,11 @@
 """FS-authenticated HTTP adapter for the separate Hermes conversation service."""
 
 import json
+import csv
 import re
 import time
+import zipfile
+from xml.etree.ElementTree import ParseError
 from urllib.parse import parse_qs, quote
 
 
@@ -52,6 +55,30 @@ def handle(handler, method, uri, user, service, authorized):
             respond(handler, 201, service.create(user))
         elif method == "GET" and len(parts) == 1 and not params:
             respond(handler, 200, service.detail(user, parts[0]))
+        elif len(parts) >= 2 and parts[1] == "files" and not params:
+            from conversation_files import ConversationFiles
+            # Existing service gate and owner checks also apply after revocation.
+            service.detail(user, parts[0])
+            files = ConversationFiles(service.store)
+            if method == "GET" and len(parts) == 2:
+                respond(handler, 200, files.listed(user, parts[0]))
+            elif method == "POST" and len(parts) == 2:
+                raw = read_file(handler)
+                item = files.save(user, parts[0], handler.headers.get('X-FS-Filename'), raw,
+                                  handler.headers.get('X-FS-Request-ID'))
+                respond(handler, 201, item)
+            elif method == "GET" and len(parts) == 4 and parts[3] == "table":
+                respond(handler, 200, files.parsed(user, parts[0], parts[2]))
+            elif method == "POST" and len(parts) == 4 and parts[3] == "revisions":
+                body = read_json(handler, {'edits', 'format', 'client_request_id'})
+                respond(handler, 201, files.revise(user, parts[0], parts[2], body['edits'],
+                                                 body['format'], body['client_request_id']))
+            elif method == "GET" and len(parts) == 3:
+                item = files.read(user, parts[0], parts[2])
+                respond(handler, 200, item['content'], item['mime'],
+                        [('Content-Disposition', "attachment; filename*=UTF-8''" + quote(item['filename']))])
+            else:
+                respond(handler, 404, {'error': 'not_found'})
         elif method == "POST" and len(parts) == 2 and parts[1] == "turns" and not params:
             body = read_json(handler, {"text", "client_request_id"})
             respond(handler, 202, service.submit(user, parts[0], body["text"], body["client_request_id"]))
@@ -82,7 +109,7 @@ def handle(handler, method, uri, user, service, authorized):
         respond(handler, 403, {"error": "forbidden"})
     except LookupError:
         respond(handler, 404, {"error": "not_found"})
-    except (ValueError, KeyError, TypeError):
+    except (ValueError, KeyError, TypeError, csv.Error, zipfile.BadZipFile, ParseError):
         respond(handler, 422, {"error": "invalid_request"})
     except Exception:
         respond(handler, 503, {"error": "conversation_unavailable"})
@@ -101,6 +128,20 @@ def read_json(handler, fields=None):
     body = json.loads(raw)
     if not isinstance(body, dict) or (fields is not None and set(body) != fields): raise ValueError("body_fields")
     return body
+
+
+def read_file(handler):
+    from conversation_files import MAX_BYTES
+    if handler.headers.get('Transfer-Encoding') or handler.headers.get('Content-Type') != 'application/octet-stream':
+        raise ValueError('binary_required')
+    lengths = handler.headers.get_all('Content-Length', [])
+    if len(lengths) != 1 or not re.fullmatch('[0-9]{1,8}', lengths[0]) or not 0 < int(lengths[0]) <= MAX_BYTES:
+        raise ValueError('file_size')
+    handler.connection.settimeout(30)
+    raw = handler.rfile.read(int(lengths[0]))
+    if len(raw) != int(lengths[0]):
+        raise ValueError('file_incomplete')
+    return raw
 
 
 def stream_events(handler, service, user, conversation_id, after):
