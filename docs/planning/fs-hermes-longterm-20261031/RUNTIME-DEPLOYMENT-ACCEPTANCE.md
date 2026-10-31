@@ -63,6 +63,10 @@ A回报最终main `4077536449a3dcaa8871623989a15be3ead1552b`新pack SHA `910b31d
 
 本包必要共享修复接点新增登记：`releases/fc-coins/fc-review-channel-20261026/source/hermes_worker.py::make_adapter`唯一修改者为Business A，Personal不并改。目标仅在既有FS runtime-config/provider代理适配中阻止官方导入隐式dotenv加载；先核公开loader调用及现成skip机制的非敏感代码，不导出生产源码、不授.env读取权限、不将提供方凭据传入worker。需相关离线契约、最新SHA独审/必要CI及沿原publisher限定发布，不能凭推断宣称根因已修复。PR715已合并，此必要修复仍属同一运行工作包，若需PR使用一个完整后续修复PR，不拆函数片或重开已合并PR；实际修复候选、恢复状态和新部署证据待回交。
 
+完整修复候选已回交并正常合入：A `230a7cf13ab04a529c369ce049fb5080b5cd98b7`，base `4077536449a3dcaa8871623989a15be3ead1552b`，实际5路径。worker仅9行，先在FS进程替换官方keyword-only同签名loader回调为空已加载路径列表，再导入config/agent；不改Path/通用dotenv、不吞异常，不影响其他进程。A通过既有image的无网络/无profile/secrets挂载只读AST核官方签名/调用和无适用skip，依据及source hash保留在模块附录，不读.env。publisher仅将现有worker加入固定SOURCES/TARGETS/KNOWN beforeSHA，成为14目标/48保护，冻结base不变；失败13目标stage不复用。
+
+原pr-fast runner证据为conversation32、deploy16、channel12通过且0skip，两项新增实际make_adapter离线契约经注入官方边界复现旧拒读及确认零dotenv调用，构造agent/原Runs gate、runtime-config/loopback/token/model/注册/路由保持，其他RuntimeError/PermissionError原对象传播。主控核实际diff及合并后运行代码/测试与A固定候选一致，diff检查通过。新增测试已由原store.load_tests及channel分组覆盖，无新CI接线/依赖。独立最新SHA审查及必需CI待完成；真实worker启动、材料/模型/费用/视觉仍待受控新发布验收，不把离线结果当恢复。
+
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。
 
 不新增账号/凭据/权限/安全配置或费用，不启用待配置模型，不改价/发券/订单/触达客户、不真实购买支付。测试仅新增明确标记的小合成验收会话/附件，不删除旧业务数据。真实数据只读现有授权scope的必要匿名摘要，原客户/订单/密钥不进Git或截图。
