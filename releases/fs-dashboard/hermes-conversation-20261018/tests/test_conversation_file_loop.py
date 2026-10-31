@@ -3,6 +3,8 @@
 No provider, credentials, HTTP business service or production state is involved.
 """
 import importlib.util
+import asyncio
+import builtins
 import io
 import json
 from pathlib import Path
@@ -233,6 +235,118 @@ class WorkerFileLoop(unittest.TestCase):
             self.assertEqual(files.read('alice', cid, original['file_id'])['content'], raw)
             self.assertIn(third['file_id'], [i['file_id'] for i in next_context.catalog()['items']])
             self.assertIn('fc.list_conversation_files', self.prompt())
+
+
+class WorkerEnvironmentTests(unittest.TestCase):
+    @contextmanager
+    def runtime(self, *, original_loader=False, initialization_error=None):
+        wires = ('mcp__fcro__fc_read_skill', 'mcp__fcro__fc_list_conversation_files')
+        calls = {'dotenv_reads': 0, 'registered': [], 'agent': None, 'executed': False}
+        modules = {name: types.ModuleType(name) for name in (
+            'proxy_gateway', 'runs_contract', 'hermes_cli', 'hermes_cli.config',
+            'hermes_cli.env_loader', 'aiohttp', 'gateway', 'gateway.config',
+            'gateway.platforms', 'gateway.platforms.api_server', 'gateway.platforms.api_server_runs',
+            'tools', 'tools.registry', 'toolsets', 'run_agent', 'skill_bundle', 'agent', 'agent.context_compressor')}
+        proxy = modules['proxy_gateway']
+        proxy.schemas = lambda: [{'function': {'name': name}} for name in wires]
+        proxy.MAX_PROVIDER_CONTEXT_TOKENS = proxy.MAX_HERMES_OUTPUT_TOKENS = 1000
+        proxy.MAX_PROVIDER_WIRE_BYTES = 10000000
+        contract = modules['runs_contract']
+        contract.WIRE_TOOLS, contract.SEMANTIC_TOOLS, contract.PIN = wires, ('fc.read_skill', 'fc.list_conversation_files'), 'fixture'
+        loader = modules['hermes_cli.env_loader']
+        def denied(**kwargs):
+            calls['dotenv_reads'] += 1
+            raise PermissionError('synthetic /profile/.env read refused')
+        loader.load_hermes_dotenv = denied
+        dotenv_library = object(); loader.DotEnv = dotenv_library
+        modules['hermes_cli'].env_loader = loader
+        modules['hermes_cli'].config = modules['hermes_cli.config']
+        modules['aiohttp'].web = types.SimpleNamespace(middleware=lambda fn: fn)
+        modules['gateway.platforms'].api_server_runs = modules['gateway.platforms.api_server_runs']
+        async def execute(*args, **kwargs):
+            calls['executed'] = True
+        modules['gateway.platforms.api_server_runs']._execute_run = execute
+        class Config:
+            def __init__(self, **kwargs): self.values = kwargs
+        modules['gateway.config'].PlatformConfig = Config
+        class Adapter:
+            def __init__(self, config):
+                if initialization_error:
+                    raise initialization_error
+                self.config = config
+                self._stopping_run_ids = set(); self._shutdown_interrupted_run_ids = set()
+            def _ensure_session_db(self): return 'synthetic-db'
+            def _http_route_table(self):
+                return [('GET', '/v1/capabilities'), ('POST', '/v1/runs'),
+                        ('POST', '/v1/runs/{run_id}/stop'), ('POST', '/v1/chat/completions')]
+        modules['gateway.platforms.api_server'].APIServerAdapter = Adapter
+        modules['tools.registry'].registry = types.SimpleNamespace(register=lambda **kw: calls['registered'].append(kw['name']))
+        modules['toolsets'].create_custom_toolset = lambda *args, **kwargs: calls.update(toolset=kwargs['tools'])
+        class Compressor:
+            _config_context_length = 1000
+            protect_first_n = protect_last_n = proactive_prune_tokens = 1
+            proactive_prune_min_result_chars = proactive_prune_min_reclaim_tokens = 1
+        modules['agent.context_compressor'].ContextCompressor = Compressor
+        class Agent:
+            def __init__(self, **kwargs):
+                calls['agent'] = kwargs
+                self.context_compressor = Compressor(); self.valid_tool_names = wires
+        modules['run_agent'].AIAgent = Agent
+        modules['skill_bundle'].load_bundle = lambda *args, **kw: self.fail('no eager conversation bundle')
+        modules['skill_bundle'].prompt = lambda *args: 'unused'
+        real_import = builtins.__import__
+        def importing(name, *args, **kwargs):
+            if name == 'run_agent':
+                # Simulate the pinned run_agent.py:96 import-time loader call.
+                loader.load_hermes_dotenv(hermes_home='/profile', project_env=Path('/opt/hermes/.env'))
+            return real_import(name, *args, **kwargs)
+        with patch.dict(sys.modules, modules):
+            worker = load('isolated_deployed_worker', PACKAGES.parent / 'fc-coins/fc-review-channel-20261026/source/hermes_worker.py')
+            if original_loader:
+                worker._fs_no_implicit_dotenv = denied
+            item = {'model': 'deepseek-flash', 'token': 'fixture-task-token', 'conversation': True,
+                    'prompt': 'synthetic', 'ready': True}
+            worker.admission = lambda sid: item
+            with patch('builtins.__import__', importing):
+                adapter = worker.make_adapter('fixture-listener-key')
+                self.assertIs(loader.DotEnv, dotenv_library)
+                yield worker, adapter, calls, modules
+
+    def test_official_import_refusal_is_reproduced_and_fs_constructor_does_not_read_dotenv(self):
+        with self.assertRaisesRegex(PermissionError, 'synthetic /profile/.env'):
+            with self.runtime(original_loader=True):
+                self.fail('unfixed loader must fail before construction')
+        original_read = Path.read_bytes
+        with self.runtime() as (worker, adapter, calls, modules):
+            self.assertEqual(calls['dotenv_reads'], 0)
+            self.assertIs(Path.read_bytes, original_read)
+            self.assertEqual(modules['hermes_cli.config'].get_config_path(),
+                             Path(worker.__file__).with_name('runtime-config.yaml'))
+            self.assertEqual(adapter.config.values['extra'], {'host': '127.0.0.1', 'port': 8941,
+                             'key': 'fixture-listener-key', 'model_name': 'deepseek-flash'})
+            self.assertEqual(calls['registered'], list(worker.WIRE_TOOLS))
+            self.assertEqual(calls['toolset'], list(worker.WIRE_TOOLS))
+            self.assertIn(('GET', '/v1/capabilities'), adapter._http_route_table())
+            self.assertIn(('POST', '/v1/runs/{run_id}/stop'), adapter._http_route_table())
+            self.assertNotIn(('POST', '/v1/chat/completions'), adapter._http_route_table())
+            adapter._create_agent(session_id='hc_' + 'a' * 64)
+            self.assertEqual(calls['agent']['base_url'], 'http://127.0.0.1:8940/v1')
+            self.assertEqual(calls['agent']['api_key'], 'fixture-task-token')
+            self.assertEqual(calls['agent']['model'], 'deepseek-flash')
+            self.assertIsNone(calls['agent']['fallback_model'])
+            self.assertTrue(calls['agent']['skip_memory'])
+            run = types.SimpleNamespace(run_id='run_' + 'a' * 32, session_id='hc_' + 'a' * 64)
+            asyncio.run(modules['gateway.platforms.api_server_runs']._execute_run(adapter, run, _api_server=None))
+            self.assertTrue(calls['executed'])
+            self.assertEqual(calls['dotenv_reads'], 0)
+
+    def test_unrelated_adapter_initialization_errors_propagate(self):
+        for error in (RuntimeError('synthetic initialization failed'), PermissionError('synthetic other access denied')):
+            with self.subTest(type=type(error).__name__):
+                with self.assertRaises(type(error)) as result:
+                    with self.runtime(initialization_error=error):
+                        self.fail('initialization error must propagate')
+                self.assertIs(result.exception, error)
 
 
 if __name__ == '__main__':

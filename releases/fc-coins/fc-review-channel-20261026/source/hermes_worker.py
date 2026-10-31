@@ -118,7 +118,16 @@ def loaded_context_metadata(agent):
     return result
 
 
+def _fs_no_implicit_dotenv(*, hermes_home=None, project_env=None, load_external_secrets=True):
+    # FS supplies its config and task-scoped loopback credential explicitly.
+    # The pinned official loader returns a list of loaded paths. This process
+    # loads none; Desktop and other processes retain the unmodified loader.
+    return []
+
+
 def make_adapter(api_key):
+    from hermes_cli import env_loader
+    env_loader.load_hermes_dotenv = _fs_no_implicit_dotenv
     from hermes_cli import config as hermes_config
     # FS owns this config; Desktop keeps the shared home and its own config.yaml.
     hermes_config.get_config_path = lambda: Path(__file__).with_name('runtime-config.yaml')
