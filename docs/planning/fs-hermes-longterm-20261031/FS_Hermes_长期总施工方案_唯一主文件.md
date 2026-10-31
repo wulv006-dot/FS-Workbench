@@ -860,7 +860,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 |---|---|
 | 唯一主方案 | 本文件 |
 | 正式仓库存放路径 | docs/planning/fs-hermes-longterm-20261031/FS_Hermes_长期总施工方案_唯一主文件.md；Personal维护，外部开工文件作为输入快照保留 |
-| 当前阶段 | 首次材料发布失败并回退、旧HTTP已恢复、worker待修。A完整230a7cf1最小dotenv隔离候选已正常合入，准备后续修复PR独审/CI；材料与视觉验收未通过 |
+| 当前阶段 | 首次材料发布失败并回退、旧HTTP已恢复；PR716新prepare写前因失败容器随--rm移除中止。完整恢复态候选961467bf已正常合入，准备限定独审/CI；新worker尚未部署，材料/视觉未通过 |
 | 主施工／总控 | 个人版Work；负责B线、总方案、接口协调、集成验收与发布协调 |
 | 协同施工 | 工作版Work；负责A线实现与可验收交付 |
 | 公共代码归属 | 本包精确FC v3 service/HTTP、FC v2 runs、26proxy及原publisher装配由A唯一维护，见RUNTIME-DEPLOYMENT-ACCEPTANCE.md；controller/公共schema/迁移不改，CI/主方案由Personal维护 |
@@ -891,6 +891,8 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／运行候选集成 | 已登记共享单一A路径、补原CI测试入口；现场匹配与限定单HTML正常授权复制完成，用户已正常登录。正常合入A完整4648d7ae；复用同代码conversation30/deploy16及两项FC回归、Node/本地Chromium证据 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；A模块DEPLOYMENT-ACCEPTANCE.md | 最新集成SHA独审/CI、实际Linux发布与真实DeepSeek/视觉仍未完成；知识旧失败保留，A2缺真实hostscope | 一个集成PR满足条件后自动合并，A沿原publisher部署测试，Personal最后验收；验收后连续推进 | A施工/发布；Personal集成/最终审核 |
 | 2026-11-01／首次发布失败 | PR715最新0ddcf0cc独审及两轮CI通过后merge40775364；新pack/现场inspect通过，但apply后worker健康失败，原publisher回退13目标。旧worker亦因官方导入隐式dotenv读取PermissionError失败 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；备份nav-20261031T182821Z | worker failed、range inactive待恢复；未到Nginx reload，生产材料/DeepSeek/视觉均未验收，不以回退代码替代恢复 | A先沿原锁/围栏核回退并恢复旧HTTP，登记worker make_adapter为A唯一修复接点；不重apply/清UNKNOWN/扩大凭据权限 | A恢复/修复；Personal主控验收 |
 | 2026-11-01／worker修复集成 | 旧HTTP已在原锁/围栏核13 beforeSHA/49保护后恢复；A独占接点实现9行FS进程官方loader隔离，完整候选230a7cf1正常合入。原runner conversation32/deploy16/channel12零skip通过，含2个实际adapter契约 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；模块部署附录 | 最新集成SHA独审/CI、真实worker恢复及材料/DeepSeek/视觉待验；不读.env/不变权限 | 必要完整后续修复PR，满足条件自动合并后以最终SHA新pack/prepare/原publisher发布，Personal最终验收 | A实现/发布；Personal集成/验收 |
+| 2026-11-01／恢复态准备阻塞 | PR716 reviewed6fc954f1独审及Linux32/16/12通过，mergeac58cf7f。新prepare写入前发现--rm失败容器已消失，未生成stage/manifest/backup；新worker未安装 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；模块部署附录 | worker仍待修；镜像来源识别与原active前置条件需精确支持已核失败态 | A同包补完整准备/发布前状态契约，运行成功仍要求真实容器与健康；不修改unit/凭据/权限或跳过保护 | A实现/发布；Personal核接口与验收 |
+| 2026-11-01／恢复态候选集成 | A完整961467bf正常合入，仅prepare/release/原deploy测试/附录；manifest区分实际runtimeBefore与全active成功条件，严格missing镜像来源核验，进入restart即终止恢复分支。原runner deploy19零skip通过 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；模块部署附录 | 新集成SHA独审/必要LinuxCI及真实worker/材料/DeepSeek/视觉未验 | 完整必要后续PR满足条件自动合并，A以最终SHA新pack/prepare/原publisher发布，不复用旧stage | A实现/发布；Personal集成/验收 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 

@@ -286,3 +286,66 @@ old refusal, execute the actual adapter constructor with injected official impor
 boundaries, check original config/loopback/token/model/tool/Run contracts, and
 verify unrelated initialization errors propagate. They do not prove a real
 container startup, provider call, production authentication or material workflow.
+
+## Failed-worker recovery preflight (after PR716)
+
+PR716 merged as `ac58cf7f854fb4e9548db47228a110e725f99d81`. A fast-forwarded
+cleanly and generated a new LF Git pack, descriptor SHA256
+`78aa52177a57d3fd33dd7fe728e2d77996b4be9403fde5b9a4eabb7ba1f2e1fe`.
+The new private directory is
+`/var/tmp/fs-hermes-materials-ac58cf7f-20261031T185510Z`. Real `prepare` stopped
+before stage creation or active-file writes: `docker inspect fs-hermes-fc`
+returned `Error: No such object: fs-hermes-fc`. This is **not** a new worker
+startup failure: the merged worker repair has not been installed.
+
+Read-only observation confirmed the original unit uses `--rm`, `Restart=no`
+and the complete fixed image ID
+`sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544`.
+The stopped worker's container was removed; that exact image is still locally
+present, as verified by `docker image inspect` without a pull. The effective
+unit has no pending daemon reload and exactly its existing isolation drop-in:
+
+- `/etc/systemd/system/fs-hermes-fc.service` SHA256
+  `94b9cf19547ad0a4b68307ea35d4f5317fca0136048b90d78d5f9cea1dbaf011`.
+- `/etc/systemd/system/fs-hermes-fc.service.d/install-state-isolation.conf` SHA256
+  `2a4eeada8c0acd27db04aa14838af7cc5c7fe3355677581d53f1f3509c74321a`.
+
+The recovery candidate retains the frozen publisher's exact bytes, all 14
+targets, 48 protected files and four new modules. Only pre-install observation
+can accept an explicitly missing container: a successful empty exact-name
+container listing, the two exact root-owned safe unit hashes, current
+inactive/failed state, exact effective fragment/drop-in paths, no daemon reload,
+and the actual locally installed fixed image ID must all agree. Other Docker
+errors, active/activating-without-container, unit drift, additional drop-ins or
+image drift fail closed. Existing containers always supply their actual image.
+
+The manifest now separates `runtimeBefore` (the observed baseline, including
+the failed/inactive worker) from `runtimeRequired` (all three services active
+after publication), and records `workerImageSource` as `container` or
+`configured_unit_and_local_image`. The latter is **not** running-container
+evidence. Before restart, the adapter passes the explicitly recorded baseline
+states to the original guards; it does not pretend the worker is active or omit
+worker protection. State/source drift is rejected during inspect and every
+installation guard. On entering restart, that recovery allowance ends. Success
+requires the real container image, original bounded health probe and original
+guards with all services actually active before Nginx reload. Restart errors
+still propagate into the original journal rollback; the previously documented
+old-HTTP recovery procedure remains available if the old worker cannot restart.
+
+The unchanged offline runner command passed 19 tests, zero skips:
+
+```
+python -B -c "from tools.pr_fast import units; units('releases/fs-dashboard/hermes-conversation-20261018/deploy',['test_http','test_release','test_runtime_materials'])"
+```
+
+The added contracts cover real-container versus strictly missing-container
+observation and the original inspect/apply/journal lifecycle with injected host
+process boundaries: failed baseline CAS, active success, startup error, missing
+container after health, stopped service after health, and byte-exact rollback.
+They retain the original runner's subprocess/network denial. During development,
+one pre-existing HTTP socket assertion encountered Windows `WinError 10054`;
+the final complete invocation passed without changing HTTP code. A temporary
+test-fixture reuse error was corrected before that final run. Linux permissions,
+actual recovered worker startup, production material/model flow and deployed
+visual acceptance remain unverified. No old stage or descriptor was replayed,
+no container was fabricated and no config/permission/credential was changed.
