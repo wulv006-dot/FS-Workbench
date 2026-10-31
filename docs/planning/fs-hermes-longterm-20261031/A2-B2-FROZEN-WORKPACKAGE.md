@@ -82,3 +82,13 @@ fact_version是host核验scope/identity/policy/contract/lifecycle policy及冻�
 `hermes-fc-pilot-20261013/pilot.py::TaskStore.change/reserve_dispatch/bind_run/observe`提供原owner/version、DISPATCH_UNKNOWN/lease围栏；ConversationStore的turn/action围栏和文件绑定可复用为执行边界，**都不是通用GoalState load/CAS**。tracking save_config有scan_jobs副作用、tool_read可能poll历史且该源仍有8767，不能恢复为纯只读到期工具；snapshot.meta.revision是源版本，不是goal revision。真实宿主缺口精确为：①当前可信identity+scope_ref→精确scope逐调用validator；②独立goal revision/request指纹的load/CAS和崩溃一致性；③CAS后沿原ID派发、receipt验证/unknown对账接点。A后续持久化如需扩既有DB或私有记录，须先登记准确文件及唯一维护者，本包没有建表/sidecar/迁移/共享controller接线或生产动作。
 
 复查前fetch发现main已为cc33dbcb0023559192c409141963bc93eebfe1c5（其他活动分析PR710，改动路径与本包不重叠），已在保存P2修复后正常merge，无冲突；新组合基线Core125再次通过。最终PR仍仅本包9路径相对新main的差异，不重审/重写对方活动模块。独审新head/base及CI按此最新组合重新核对。
+
+## PR720验收及下一最小宿主包
+
+Business Sol High独立工作树审查精确head `349460cc019bc00c45b1b93cdeec0a4974ca8a87`、base `501f90bf16fe114e70fcb05833cb1b2cf478e54c`起止未变，限定七路径无未解决问题；独立新15/Core140和实际Ubuntu22.04/Python3.9.18 CI41241979255的Core140均零skip通过。Personal合并前核同head/base、CI成功及无冲突，按已有用户授权正常merge `2f4251a4b1fe8b0be33e727d6d97a8acd6773a6a`；本机ff并核merge树与reviewed head完全一致，取消PR720监听。纯合同验收通过，未部署B goal state；生产仍501f90bf，真实scope/GoalState存储/派发接线仍未提升为已验。
+
+下一包终点是本机合成环境的持久化goal load/CAS→原ID短任务提议/派发→回执/UNKNOWN恢复，零真实模型/业务API。A独占拟新增`hermes-conversation-20261018/source/conversation_goals.py`、`tests/test_conversation_goals.py`以及原`tests/test_conversation_store.py`的load_tests接线；A可在该独立模块维护既有ConversationStore DB内唯一私有goal命名空间及mutation指纹表，与原DB锁序列化，不改现有公共表、公共schema/migration文件或另建客户库。不把原TaskStore.change当任意goal CAS。具体SQL/连接/崩溃一致性由A实现并回交；无生产DB操作。
+
+B独占拟新增`hermes-v2-core-20261020/source/b2_goal_host.py`、`test_b2_goal_host.py`和原`test_core.py`加载，消费A持久化接口与原b2_goal_state，不重造A底座。共享controller/HTTP/runtime/publisher/公共schema/迁移均暂不动，tools/pr_fast仍Personal唯一维护；测试优先沿两条既有入口。A确认收到归属后才实现上述A路径，Personal不并改。
+
+接口目标：host固定owner/cid/goal_id，load_goal与cas_goal(expected_revision,mutation_id,state)逐调用原会话owner及当前scope校验；create expected_revision=0、后续state.revision=expected+1。CAS mutation_id绑定完整指纹，同ID同内容返回原操作收据并明确replayed，不再触发执行；同ID异内容拒绝，revision冲突不覆盖。任务request_id与CAS mutation_id不同，核prepared保存后才单次派发；prepared重放、派发后进程崩溃、回执丢失、unknown必须原ID查询/对账，不因not_found直接换ID重发。A不为本包合成真实授权；缺可信identity/scope/fact复合版本则无源查询、无真实派发。先冻结小接口/回执语义再组合，最终仍一份完整集成PR及独立最新SHA审查/CI，不按函数拆PR。
