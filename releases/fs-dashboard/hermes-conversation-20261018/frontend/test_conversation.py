@@ -12,6 +12,8 @@ UI = next((base / "ui-system" for base in HERE.parents if (base / "ui-system/tok
 CONVERSATION = "a" * 32
 TURN = "b" * 32
 RUN = "run_" + "c" * 32
+NAV = UI.parent / 'releases/fs-dashboard/hermes-navigation-range-20261019/candidate'
+NAV_JS = UI.parent / 'releases/fs-dashboard/campaign-analytics-20261023/navigation/source/nav.js'
 
 
 def check():
@@ -22,6 +24,12 @@ def check():
         path = urlparse(request.request.url).path
         if path == "/":
             return request.fulfill(body=(HERE / "index.html").read_bytes(), content_type="text/html")
+        if path == '/__hub/hermes-nav.css':
+            return request.fulfill(body=(NAV / 'hermes-nav.css').read_bytes(), content_type='text/css')
+        if path == '/__hub/nav.js':
+            return request.fulfill(body=NAV_JS.read_bytes(), content_type='text/javascript')
+        if path == '/__auth/verify':
+            return request.fulfill(status=200, body='', headers={'X-Auth-User': 'synthetic-ui', 'X-Auth-Role': 'admin'})
         if path == "/conversation.css":
             return request.fulfill(body=(HERE / "conversation.css").read_bytes(), content_type="text/css")
         if path == "/conversation.js":
