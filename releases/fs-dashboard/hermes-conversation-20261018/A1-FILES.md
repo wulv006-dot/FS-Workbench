@@ -135,5 +135,72 @@ including exact file-tool schemas/allowlists and task/lease/deadline/no-context
 rejection before reaching file storage. This does not verify which proxy is
 assembled in production, a real worker process, or a model run.
 
+## Materials UI work package
+
+The existing conversation page now accepts CSV/XLSX selection and raw uploads
+(10 MiB/file, at most ten files per selection and per turn). Uploading and binding
+are separate: successful uploads appear as unchecked choices. The browser retains
+the original upload request ID, UTF-8 filename, size and SHA256 in sessionStorage;
+bytes stay in memory only. Refresh can reconcile through
+`GET /files?request_id=<original-id>`. This returns direct metadata. No receipt is
+404; an existing receipt with missing bytes returns status=missing. Retrying an
+unknown/failed upload requires the same filename/size/SHA256 and reuses its ID.
+The UI never creates a fresh ID in response to a network failure or lookup 404.
+Non-ASCII upload names use percent encoding in X-FS-Filename, decoded by HTTP.
+
+The compatible detail extension is:
+
+```
+turn.client_request_id: original request ID
+turn.files: {
+  inputs: [{file_id, filename, mime, size, sha256, version, parent_id,
+            expires_at, status}],
+  generated: [same metadata shape]
+}
+```
+
+Status is available/expired/damaged/missing/unavailable. Missing/corrupt metadata
+can return only file_id/status rather than invent a name or version. No content
+or table rows are returned. Repeated references are checked once per detail read.
+Terminal turn metadata remains readable by its owner without reopening tool access.
+UI download paths use the authenticated API plus validated server IDs only. HTML
+files are downloads; no attachment is embedded in the authenticated FS origin.
+
+The UI binds only explicit selections, rechecks current server metadata before a
+new file-bearing turn, and freezes the request ID and attachment set for unknown
+turn submission/reload. Detail can reconcile an accepted request using its original
+ID/text/attachment set. Steer never sends attachment IDs. Results are scoped by
+conversation ID and UI epoch; late responses cannot add files to another chat.
+Generated file cards have an explicit next-turn selection action. Expired, damaged
+and unavailable files have no download/action links. File statuses originate in
+server metadata, never model reply URL/ID extraction.
+
+### UI evidence and remaining limits
+
+`frontend/test_materials_ui.cjs` executes the production script and event handlers
+against a small DOM/fetch host: text-only flow, explicit selection, upload failure,
+unknown/reload/original-ID recovery, changed-hash rejection, 10-item/10-MiB bounds,
+conversation-switch race, pending turn identity, derived follow-up, expiration,
+revocation, steer and Ctrl+Enter. It is required from the original
+`frontend/entry/test_data_handoff.cjs` Node entry. Personal owns adding that existing
+entry to the conversation pr-fast group; A does not change the shared driver.
+
+`frontend/test_materials_browser.py` runs real Chromium against synthetic routed
+API/model responses and a temporary loopback download-only byte fixture. It covers
+keyboard checkbox selection, unknown recovery after refresh, Ctrl+Enter submission,
+explicit derivative follow-up and real XLSX download bytes. Light/dark desktop and
+390px mobile screenshots were inspected. This caught and fixed checkbox focus loss
+on asynchronous redraw and mobile composer overflow. The original
+`frontend/test_conversation.py` text/steer/stop/access flow passed; an attachment
+refresh error initially overwrote the stop message and was corrected.
+
+Local combination with fixed B 97a1d3ca: Core 91 and B socket 4 passed; conversation
+28 and original HTTP/release 10 passed. The socket fixture uses actual HTTP/store/
+bindings/helper with injected test identity, not production authentication. B's
+material_evidence/analysis_coverage is consumed unchanged. These local checks do
+not prove Linux CI, production install, real model usage or complete A1 acceptance.
+Real browser checks are separate from the dependency-free Node CI behavior check;
+no browser packages or services were installed for this task.
+
 Only the Personal coordinator creates the final integrated work-package draft PR;
 A supplies this branch/commit and repairs its owned files within that package.

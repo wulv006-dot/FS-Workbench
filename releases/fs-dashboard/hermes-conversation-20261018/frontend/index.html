@@ -31,6 +31,14 @@
         <form id="composer" class="composer">
           <label for="message-input">给 Hermes 发消息</label>
           <textarea id="message-input" rows="3" maxlength="4000" placeholder="例如：今天先看什么？" required disabled></textarea>
+          <details id="attachments" class="attachments">
+            <summary id="attachment-summary">本轮附件 · 0 / 10</summary>
+            <label for="file-input">上传 CSV / XLSX</label>
+            <input id="file-input" type="file" accept=".csv,.xlsx" multiple disabled aria-describedby="file-help">
+            <p id="file-help" class="muted">单文件最多 10 MiB。上传后请勾选本轮要使用的文件；进行中的任务不更换附件。</p>
+            <ul id="upload-list" class="file-list" aria-label="上传状态"></ul>
+            <ul id="file-choices" class="file-list" aria-label="选择本轮附件"></ul>
+          </details>
           <div class="composer-footer"><span>Enter 换行，Ctrl+Enter 发送</span><button id="send-message" type="submit" class="fs-btn fs-btn--primary" disabled>发送</button></div>
         </form>
         <p id="status" class="status" role="status" aria-live="polite"></p>

@@ -247,22 +247,29 @@ class ConversationStore:
 
     def detail(self, owner, conversation_id):
         from conversation_file_bindings import FileBindings
+        from conversation_files import ConversationFiles
         with self.db() as db:
             self._owned(db, owner, conversation_id)
-            turns = db.execute("SELECT id,text,state,run_id FROM turns WHERE conversation_id=? ORDER BY rowid", (conversation_id,)).fetchall()
+            turns = db.execute("SELECT id,text,state,run_id,request_id FROM turns WHERE conversation_id=? ORDER BY rowid", (conversation_id,)).fetchall()
             result = []
+            file_metadata = {}
             for turn in turns:
                 last = db.execute("SELECT payload FROM events WHERE turn_id=? AND type='run.completed' ORDER BY seq DESC LIMIT 1", (turn["id"],)).fetchone()
                 failure = db.execute("SELECT payload FROM events WHERE turn_id=? AND type IN ('run.failed','run.interrupted') ORDER BY seq DESC LIMIT 1", (turn["id"],)).fetchone()
                 deltas = db.execute("SELECT payload FROM events WHERE turn_id=? AND type='message.delta' ORDER BY seq", (turn["id"],)).fetchall() if not last else []
                 progress = db.execute("SELECT type,payload FROM events WHERE turn_id=? AND type IN ('tool.started','tool.completed','tool.failed','message.interim') ORDER BY seq DESC LIMIT 1", (turn["id"],)).fetchone()
                 files = db.execute("SELECT id artifact_id,filename,mime,sha256,size FROM artifacts WHERE turn_id=? ORDER BY rowid", (turn["id"],)).fetchall()
-                result.append({"turn_id": turn["id"], "text": turn["text"], "state": turn["state"],
+                bindings = FileBindings(self).bound(db, owner, conversation_id, turn['id'])
+                for fid in set(bindings['inputs'] + bindings['generated']):
+                    if fid not in file_metadata:
+                        file_metadata[fid] = ConversationFiles(self).describe(owner, conversation_id, fid, _db=db)
+                metadata = {kind: [file_metadata[fid] for fid in ids] for kind, ids in bindings.items()}
+                result.append({"turn_id": turn["id"], "client_request_id": turn['request_id'], "text": turn["text"], "state": turn["state"],
                                "run_id": turn["run_id"], "reply": json.loads(last["payload"]).get("output", "") if last else "".join(json.loads(row["payload"]).get("delta", "") for row in deltas),
                                "error": json.loads(failure["payload"]).get("error") if failure else None,
                                "progress": {"type": progress["type"], **json.loads(progress["payload"])} if progress else None,
                                "artifacts": [dict(row) for row in files],
-                               "file_bindings": FileBindings(self).bound(db, owner, conversation_id, turn["id"])})
+                               "file_bindings": bindings, "files": metadata})
             seq = db.execute("SELECT coalesce(max(e.seq),0) FROM events e JOIN turns t ON t.id=e.turn_id WHERE t.conversation_id=?", (conversation_id,)).fetchone()[0]
             return {"conversation_id": conversation_id, "title": result[0]["text"][:80] if result else "新会话",
                     "turns": result, "last_seq": seq}

@@ -123,6 +123,55 @@ class ConversationFiles:
             self.store._owned(db, owner, cid)
             return {'items': self._inventory(self.directory(cid))}
 
+    def describe(self, owner, cid, fid, *, _db=None):
+        """Metadata for UI, including terminal turns; grants no tool capability."""
+        with self.transaction(_db) as db:
+            self.store._owned(db, owner, cid)
+            try:
+                item = self.metadata(self.directory(cid), fid)
+            except LookupError:
+                return {'file_id': fid, 'status': 'missing'}
+            except (ValueError, OSError):
+                return {'file_id': fid, 'status': 'damaged'}
+            # A readable JSON receipt may still have lost fields or field types.
+            # Keep that attachment unavailable without hiding the conversation.
+            fields = {'filename': str, 'mime': str, 'sha256': str, 'size': int,
+                      'version': int, 'generated': bool}
+            if (not isinstance(item, dict) or item.get('file_id') != fid
+                    or any(type(item.get(key)) is not kind for key, kind in fields.items())
+                    or any(type(item.get(key)) not in (int, float) for key in ('created_at', 'expires_at'))
+                    or 'parent_id' not in item
+                    or (item['parent_id'] is not None and
+                        (not isinstance(item['parent_id'], str) or
+                         not re.fullmatch('[a-f0-9]{32}', item['parent_id'])))
+                    or not re.fullmatch('[a-f0-9]{64}', item['sha256'])
+                    or not 0 < item['size'] <= MAX_BYTES or item['version'] < 1
+                    or item['mime'] not in MIMES.values()):
+                return {'file_id': fid, 'status': 'damaged'}
+            try:
+                self.read(owner, cid, fid, _db=db)
+                status = 'available'
+            except (KeyError, TypeError, AttributeError):
+                return {'file_id': fid, 'status': 'damaged'}
+            except LookupError:
+                status = 'expired' if item['expires_at'] <= time.time() else 'missing'
+            except FileNotFoundError:
+                status = 'missing'
+            except ValueError:
+                status = 'damaged'
+            except OSError:
+                status = 'unavailable'
+            return {**{k: v for k, v in item.items() if k != 'recipe'}, 'status': status}
+
+    def lookup(self, owner, cid, request_id):
+        if not isinstance(request_id, str) or not re.fullmatch('[A-Za-z0-9_-]{8,80}', request_id):
+            raise ValueError('request_id')
+        fid = hashlib.sha256((cid + ':' + request_id).encode()).hexdigest()[:32]
+        with self.transaction() as db:
+            self.store._owned(db, owner, cid)
+            self.metadata(self.directory(cid), fid)  # Absent request receipt is 404.
+            return self.describe(owner, cid, fid, _db=db)
+
     def read(self, owner, cid, fid, *, _db=None):
         with self.transaction(_db) as db:
             self.store._owned(db, owner, cid)
@@ -134,8 +183,11 @@ class ConversationFiles:
             target = directory / fid
             if target.is_symlink():
                 raise ValueError('linked_file')
-            with target.open('rb') as stream:
-                content = stream.read(MAX_BYTES + 1)
+            try:
+                with target.open('rb') as stream:
+                    content = stream.read(MAX_BYTES + 1)
+            except FileNotFoundError:
+                raise LookupError('file_missing') from None
             if len(content) != item['size'] or hashlib.sha256(content).hexdigest() != item['sha256']:
                 raise ValueError('file_integrity')
             return dict(item, content=content)
