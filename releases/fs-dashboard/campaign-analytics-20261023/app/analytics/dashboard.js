@@ -49,6 +49,7 @@
   catch{if(generation===trafficGeneration){trafficState={status:'unavailable'};showBasicTraffic(false);}}
  }
  function showBasicTraffic(test){
+  showGoogle();
   let panel=document.getElementById('basic-traffic-report');
   if(!seasonal()){if(panel)panel.hidden=true;return;}
   if(!panel){panel=document.createElement('section');panel.id='basic-traffic-report';panel.className='panel';$('activity-summary').after(panel);}
@@ -56,6 +57,41 @@
   const t=trafficState,ready=!test&&t?.status==='available'&&Number.isSafeInteger(t.pageRequests),partial=!test&&t?.status==='partial';
   const note=test?'测试模式不查询基础页面请求。':t?.status==='loading'?'正在读取187侧现有日志…':ready?'所选UTC日期的现有日志聚合已完成。':partial?'所选整期缺测；仅有部分日志覆盖，不能把已读片段当整期数据。':'现有日志暂不可读取；缺测不记为0。';
   panel.innerHTML='<h2>基础访问量 · 187侧页面请求</h2><p class="muted">'+note+'</p><div class="metrics"><article class="metric"><span>187侧活动页面请求（估算）</span><strong>'+(ready?num(t.pageRequests):test?'不统计':t?.status==='loading'?'读取中':'缺测')+'</strong><small>只计正式index及目录页面的成功GET，排除资源、API、HEAD及已识别机器人/自动化和标记测试；刷新重复计数。</small></article><article class="metric"><span>估算访客数 · 按IP去重</span><strong>缺测</strong><small>真实访客代理IP链尚未核实，不把出口IP当人，也不使用行为UV推算全部访客。</small></article></div>'+(t?.coverage?'<p class="muted">日志覆盖：'+esc(bjt(t.coverage.from))+' 至 '+esc(bjt(t.coverage.through))+'（北京时间）；所选日期按UTC。'+(partial?'已读范围记录 '+num(t.observedPageRequests)+' 次，整期仍缺测。':'')+'成功文档GET '+num(t.successfulRequests)+' 次，已排除 '+num(t.excludedRequests)+' 次；更新时间 '+esc(bjt(t.generatedAt))+'，最多缓存10分钟。</p>':'')+'<p class="muted">仅代表到达187的文档请求；浏览器/边缘缓存未回源会漏计，未识别预取、内部测试或代理重试可能计入。不是实际人数，不按游戏、设备或渠道拆分，不设访客去重窗口。行为统计和活动码付款销售另列。</p>'+(t?.daily?.length?'<div class="report-table-wrap"><table><thead><tr><th>UTC日期</th><th>已读日志内页面请求估算</th></tr></thead><tbody>'+t.daily.map(r=>'<tr><td>'+esc(r.date)+'</td><td>'+num(r.requests)+'</td></tr>').join('')+'</tbody></table></div>':'');
+ }
+ let googleSource='gsc',googleKey='',googleGeneration=0;
+ function showGoogle(){
+  let panel=$('google-traffic-report');if(!seasonal()){if(panel)panel.hidden=true;return;}
+  if(!panel){panel=document.createElement('section');panel.id='google-traffic-report';panel.className='panel';$('activity-summary').after(panel);}panel.hidden=false;
+  const from=$('from').value,to=$('to').value,mode=$('mode').value,key=[from,to,mode,googleSource].join(':');if(key===googleKey)return;googleKey=key;googleGeneration++;
+  panel.innerHTML='<h2>Google · 万圣节页面流量</h2><p class="muted">只查询正式活动页；各来源按自己的统计日，不与UTC行为窗口拼成逐访客漏斗。此区不随游戏、设备和渠道筛选，不会在页面自动刷新时重复请求Google。</p><label>数据来源 <select id="google-source"><option value="gsc">Search Console · 自然搜索</option><option value="ga4">GA4 · 页面与访问</option><option value="ads">Google Ads · 广告落地页</option></select></label> <button id="google-load" type="button">读取 Google 明细</button><div id="google-result" role="status" aria-live="polite"><p>'+esc(from)+' 至 '+esc(to)+' · 点击读取；未查询不显示为零。</p></div>';
+  $('google-source').value=googleSource;$('google-source').addEventListener('change',()=>{googleSource=$('google-source').value;googleKey='';showGoogle();});
+  $('google-load').disabled=mode!=='live'||!window.CampaignServer;
+  $('google-load').addEventListener('click',async()=>{
+   const generation=++googleGeneration,button=$('google-load');button.disabled=true;$('google-result').textContent='正在读取活动页专属Google聚合数据…';
+   try{const response=await fetch('api/google-traffic?'+new URLSearchParams({activity:'mmoexp-seasonal',source:googleSource,from,to,refresh:'1'}),{credentials:'same-origin',signal:AbortSignal.timeout(95000)}),value=await response.json();if(generation!==googleGeneration)return;if(!response.ok)throw Error('Google查询未完成');renderGoogle(value);}
+   catch{if(generation===googleGeneration)$('google-result').textContent='Google查询未完成；未将失败或超时记为零。';}
+   finally{if(generation===googleGeneration)button.disabled=false;}
+  });
+ }
+ function renderGoogle(value){
+  const reports=value.reports||{},names={page_total:'页面浏览汇总',landing_total:'作为入口的会话汇总',total:'自然搜索汇总',daily:'逐日记录',query:'搜索词',country:'国家',device:'设备',channel:'来源 / 媒介',events:'已上报事件',landing:'广告日期 × 系列 × 设备'},labels={screenPageViews:'浏览量',activeUsers:'活跃用户',userEngagementDuration:'参与时长（秒）',sessions:'入口会话',engagedSessions:'参与会话',bounceRate:'跳出率',clicks:'点击',impressions:'曝光',ctr:'CTR',position:'平均位置',eventCount:'事件次数',costMicros:'广告费用（USD）',date:'日期',query:'搜索词',country:'国家',device:'设备',deviceCategory:'设备',sessionSourceMedium:'来源 / 媒介',eventName:'事件',campaign:'广告系列'};
+  labels.costMicros='广告费用（'+(value.currency||'币种未核实')+'）';
+  const display=(key,v)=>v==null?'—':['ctr','bounceRate'].includes(key)?pct(v):key==='costMicros'?(v/1000000).toFixed(2):typeof v==='number'?num(v):esc(v);
+  let html='<p>'+esc(value.from||$('from').value)+' 至 '+esc(value.to||$('to').value)+' · 来源时区 '+esc(value.timezone||'未提供')+' · 读取时间 '+esc(bjt(value.generatedAt))+'（北京时间）</p>';
+  html+='<p>'+({available:'接口已返回活动页记录。',no_rows:'接口正常，但未返回该活动页记录；不能据此认定真实流量为零。',partial:'部分报表未完成；仅显示本次成功返回的部分。',unavailable:'来源暂不可读；未将缺测记为零。'}[value.status]||'查询状态待核对')+'</p>';
+  html+='<p class="muted">'+(value.source==='ga4'?'GA4仍受访客同意、标签加载和拦截影响。页面用户与入口会话分别查询；细分用户不相加。':value.source==='gsc'?'仅Google自然网页搜索，不含广告。最终数据可能延迟，搜索词明细受隐私与Top行限制；无记录的日期不补零。':'仅MMOEXP广告账号中直接落到该活动页的记录，不代表站内入口引流，也不等同实际订单归因。')+'</p>';
+  if(value.coverage)html+='<p>站点最终数据已覆盖日期：'+esc(value.coverage.availableFinalDates.join('、')||'未取得')+'；'+(value.coverage.missingDates.length?'所选区间尚缺 '+esc(value.coverage.missingDates.join('、'))+'，当前汇总不能当完整区间结果。':'所选日期最终数据均已可查询。')+'</p>';
+  for(const [name,report]of Object.entries(reports)){
+   const rows=report.rows||[];html+='<details><summary>'+esc(names[name]||name)+' · '+rows.length+' 行'+(report.truncated?'（返回不完整）':'')+'</summary>';
+   if(!rows.length){html+='<p>未返回记录。</p></details>';continue;}
+   if(name.endsWith('total')||name==='total')html+='<div class="metrics">'+Object.entries(rows[0].metrics).map(([k,v])=>'<article class="metric"><span>'+esc(labels[k]||k)+'</span><strong>'+display(k,v)+'</strong></article>').join('')+'</div>';
+   else{const dims=Object.keys(rows[0].dimensions),metrics=Object.keys(rows[0].metrics),keys=[...dims,...metrics];html+='<div class="report-table-wrap" tabindex="0" role="region" aria-label="'+esc(names[name]||name)+'"><table><thead><tr>'+keys.map(k=>'<th scope="col">'+esc(labels[k]||k)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+keys.map(k=>'<td>'+display(k,dims.includes(k)?row.dimensions[k]:row.metrics[k])+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';}
+   if(report.topRowsOnly)html+='<p class="muted">来源返回的Top明细，不用明细行和代替原生总量。</p>';
+   if(report.quality&&(report.quality.subjectToThresholding||report.quality.dataLossFromOtherRow||report.quality.samplingMetadatas?.length||report.quality.schemaRestrictionResponse?.activeMetricRestrictions?.length))html+='<p>Google标记该报表受阈值、采样或字段限制影响。</p>';
+   html+='</details>';
+  }
+  for(const name of Object.keys(value.failures||{}))html+='<p>'+esc(names[name]||name)+'：本次读取失败，未补零。</p>';
+  $('google-result').innerHTML=html;
  }
  function showSeasonal(data,mode){
   const c=currentContext,d=currentDiagnostics,missing=!data,t=data?.seasonalTotals||{},test=mode==='test';

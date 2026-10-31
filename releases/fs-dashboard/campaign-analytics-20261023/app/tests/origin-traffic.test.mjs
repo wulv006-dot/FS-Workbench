@@ -44,6 +44,25 @@ test('overlapping snapshots, missing rotations, gzip limits and incomplete final
  const gzip=fixture(t,line('30/Oct/2026:09:00:00 +0800'),{maxBytes:600,maxFileBytes:1000});fs.writeFileSync(gzip.logPath+'.1.gz',gzipSync(anchor.repeat(20)));assert.equal((await gzip.query(params())).reason,'LOG_READ_LIMIT');
  const unfinished=fixture(t,anchor+line().trimEnd());const r=await unfinished.query(params());assert.equal(r.reason,'INCOMPLETE_LOG_LINE');assert.equal(r.pageRequests,null);
 });
+
+test('reads187 dateext raw/gzip archives in date order; gaps and mixed formats remain explicit',async t=>{
+ const f=fixture(t,line('30/Oct/2026:10:00:00 +0800'));
+ fs.writeFileSync(f.logPath+'-20261030',line('30/Oct/2026:09:00:00 +0800'));
+ fs.writeFileSync(f.logPath+'-20261029.gz',gzipSync(anchor+line()));
+ fs.writeFileSync(f.logPath+'-20260230.gz','invalid date ignored');
+ const r=await f.query(params());assert.equal(r.status,'available');assert.equal(r.pageRequests,3);assert.equal(r.coverage.files,3);
+ const gap=fixture(t,line('30/Oct/2026:10:00:00 +0800'));fs.writeFileSync(gap.logPath+'-20261030',line('30/Oct/2026:09:00:00 +0800'));fs.writeFileSync(gap.logPath+'-20261028.gz',gzipSync(anchor));assert.equal((await gap.query(params())).reason,'LOG_ROTATION_GAP');
+ const mixed=fixture(t,line());fs.writeFileSync(mixed.logPath+'.1',anchor);fs.writeFileSync(mixed.logPath+'-20261030',anchor);assert.equal((await mixed.query(params())).reason,'LOG_ROTATION_FORMAT_MIXED');
+});
+
+test('rotation may split distinct requests in one second; copied boundary records remain ambiguous',async t=>{
+ const f=fixture(t,line('30/Oct/2026:09:00:00 +0800','/events/seasonal/'));
+ fs.writeFileSync(f.logPath+'.1',anchor+line('30/Oct/2026:09:00:00 +0800','/events/seasonal/index.html'));
+ assert.equal((await f.query(params())).pageRequests,2);
+ const health=line('30/Oct/2026:09:00:00 +0800','/health');fs.appendFileSync(f.logPath,health);fs.appendFileSync(f.logPath+'.1',health);const refresh=params();refresh.set('refresh','1');assert.equal((await f.query(refresh)).pageRequests,2,'copied health records cannot duplicate the activity metric');
+ fs.appendFileSync(f.logPath+'.1',line('30/Oct/2026:09:00:00 +0800','/events/seasonal/'));
+ const p=params();p.set('refresh','1');assert.equal((await f.query(p)).reason,'OVERLAPPING_LOG_SNAPSHOTS');
+});
 test('cache TTL and explicit refresh; inode replacement invalidates cache without double-counting',async t=>{
  let time=clock;const f=fixture(t,anchor+line(),{now:()=>time,ttlMs:600000});
  assert.equal((await f.query(params())).pageRequests,1);fs.appendFileSync(f.logPath,line());assert.equal((await f.query(params())).pageRequests,1);
