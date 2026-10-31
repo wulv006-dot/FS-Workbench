@@ -114,3 +114,11 @@ Business Sol High独审head `ae18056d2291f78b4c7679c3425069aac498be49`、base2f4
 Personal先新增真实A SQLite回归，原实现确实复现同一异常；修复仅B `_save_receipt`以expected_revision、完整新state及receipt共同生成确定性CAS操作ID，不把外部回执身份当每次CAS操作身份。不同revision的合法恢复各有操作ID，同一proposal/回执重试仍稳定。A原mutation指纹/事务/admission不变，没有放宽校验或换任务request_id。
 
 修后原runner B host18项全部通过、0失败/0skip：新增两轮running→unknown→同一running恢复及重建host、submit总数仍1；另测同一CAS操作在写前丢回执后原ID查回，mutation ID保持确定。原回执CAS提交后丢回执、prepared/replayed不重派等16边界继续通过。旧head独审/CI证据只覆盖其版本；新完整head须Business独立复查及必要CI，不把本地18项冒Linux/Core新全组验收。A四路径/冻结publisher/运行入口/权限/生产均不改。
+
+### PR721限定验收与合并（2026-11-01）
+
+Business实例codex-business／gpt-6.1-sol high在平台独立工作树复查完整head `065ab1d54e544220632ff54412402a835ae5935c`、base2f4251a4起止一致，原P2解决、无新发现。独立在内存重装旧实现复现冲突；当前host18和额外重建host/回执键序变化后同proposal稳定性通过。沿observe/lookup/submit、撤权、终态迟到、原ID和admission检查无回退，A四路径仍固定2247724c。实际新LinuxCI41244422090对应此head/base，Ubuntu22.04/Python3.9.18，A53/相关21/Core158均零skip，新两项已加载；不再将修复版记为Linux待验。
+
+Personal合并前再次核完整SHA/base、必要CI success及mergeable，按已有用户授权正常merge `8f604875455845679c181000e382fe8c04725ba2`；本机ff后与reviewed head树完全一致，已停止PR721监听。本包终点是本机真实SQLite持久化/admission与独立合成任务账本的故障恢复合同，至此限定验收完成。没有生产DB/TaskStore/worker/模型/调度动作，生产源仍501f90bf。真实scope/fact/receipt来源与原运行桥接、阶段2整体和知识收尾旧错误均未提升为已验。
+
+下一步不重写存储：A先限定只读定位原独立TaskStore create/reserve_dispatch/lease/observe与现行FC3 conversation_service的实际接口、spec字段来源、原ID与receipt映射及锁序，不再重复scope审计、不运行生产或获取凭据；明确最小新增适配路径后再登记单一修改者。现行FC3 _dispatch还写ConversationStore.bind_task、mint/grants、book/knowledge和runtime POST，不能直接塞进goal admission或据callback测试说已接通。B继续负责事实复合版本/最小handoff/原ID回执消费的真实接口对齐；A维护任务底座及宿主装配。没有可信细粒度scope仍unavailable，不为接线把页面/admin或合成授权当新生产授权。
