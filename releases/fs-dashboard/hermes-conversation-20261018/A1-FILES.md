@@ -129,5 +129,11 @@ release checks: 10 passed. Inputs are synthetic; the model, task services and
 provider are simulated. Real-model calls, production, browser/UI interaction,
 standalone calculation isolation and natural cleanup cycles are not validated.
 
+A's scripted loop loads the 20261021 proxy. B separately reports 11 boundary
+tests covering both 20261021/20261026 proxies and the 20261021 runs contract,
+including exact file-tool schemas/allowlists and task/lease/deadline/no-context
+rejection before reaching file storage. This does not verify which proxy is
+assembled in production, a real worker process, or a model run.
+
 Only the Personal coordinator creates the final integrated work-package draft PR;
 A supplies this branch/commit and repairs its owned files within that package.
