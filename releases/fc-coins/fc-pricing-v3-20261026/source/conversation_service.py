@@ -212,14 +212,16 @@ class ConversationService:
         except (TypeError,ValueError):
             return False
 
-    def submit(self, user, conversation_id, text, client_request_id, *, pricing_run_id=None):
+    def submit(self, user, conversation_id, text, client_request_id, file_ids=None, *, pricing_run_id=None):
         self._admin(user)
         with admission_guard(self.hermes.root / "admission.lock") as acquired:
             if not acquired:raise RuntimeError("release_in_progress")
             pricing_lane=self._pricing_lane(user,conversation_id,pricing_run_id)
             if (self.pricing_only or client_request_id.startswith('fc_pricing_')) and not pricing_lane:
                 raise PermissionError("pricing_review_lane_required")
-            item = self.store.reserve_turn(user, conversation_id, text, client_request_id)
+            if pricing_lane and file_ids:
+                raise PermissionError("pricing_file_attachments_unavailable")
+            item = self.store.reserve_turn(user, conversation_id, text, client_request_id, file_ids=file_ids)
             if not item["reused"]:
                 if spending_hold(self.hermes.daily, self.hermes.tasks, user):
                     self.store.set_state(user, conversation_id, item["turn_id"], "failed")
@@ -273,6 +275,13 @@ class ConversationService:
             knowledge=freeze_learning(self.hermes.root,load_bundle(self.hermes.source_root,question=text),self.hermes.proxy.background,'daily',owner=user,experience_manifest=experiences,selection=selection)
             attach_current_learning(book, self.hermes.root,knowledge)
             attach_customer_tracking(book,self.customer_tracking,user)
+            file_rules = ""
+            if not pricing_lane and not self.pricing_only:
+                from conversation_file_bindings import context_factory
+                from conversation_file_tools import attach_conversation_file_tools, file_prompt
+                file_context = context_factory(self.store, user, conversation_id, turn_id, self.hermes.authorizer)
+                attach_conversation_file_tools(book, file_context)
+                file_rules = file_prompt()
             spec = {"period": {"start": day_text, "end_exclusive": (day + timedelta(days=1)).isoformat(),
                                 "timezone": "Asia/Shanghai"},
                     "snapshot_id": book.capture_id,
@@ -305,7 +314,7 @@ class ConversationService:
                 self.live[turn_id] = (task["id"], lease, token)
             admission = {"session_id": session_id, "token": token,
                          "model": item_gateway.budget.policy["model"],
-                         "prompt": SHORT_RULES + "当前日期（Asia/Shanghai）：" + datetime.now(SHANGHAI).date().isoformat() + "。",
+                         "prompt": SHORT_RULES + file_rules + "当前日期（Asia/Shanghai）：" + datetime.now(SHANGHAI).date().isoformat() + "。",
                          "reasoning_effort": "high",
                          "conversation": True, "ready": False}
             admission.update(frozen_skills=knowledge['skills'],learning_text=knowledge['text'],

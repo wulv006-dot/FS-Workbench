@@ -57,9 +57,18 @@ class WorkerFileLoop(unittest.TestCase):
             contract = load('file_loop_runs_contract', STRATEGY / 'runs_contract.py')
             with patch.dict(sys.modules, {'runs_contract': contract}):
                 cls.gateway_module = load('file_loop_proxy', STRATEGY / 'proxy_gateway.py')
+            contract = load('deployed_file_contract', PACKAGES.parent / 'fc-coins/fc-pricing-v2-20261022/source/runs_contract.py')
+            with patch.dict(sys.modules, {'runs_contract': contract}):
+                cls.deployed_gateway = load('deployed_file_proxy', PACKAGES.parent / 'fc-coins/fc-review-channel-20261026/source/proxy_gateway.py')
         cls.strategies = strategies
 
     def test_active_service_submit_and_admission_attach_without_preparing_read(self):
+        self.service_submit_admission(CORE / 'conversation_service.py')
+
+    def test_deployed_service_submit_and_admission_preserves_pricing_lane(self):
+        self.service_submit_admission(PACKAGES.parent / 'fc-coins/fc-pricing-v3-20261026/source/conversation_service.py')
+
+    def service_submit_admission(self, service_path):
         @contextmanager
         def guard(_):
             yield True
@@ -73,7 +82,7 @@ class WorkerFileLoop(unittest.TestCase):
         evidence.build_book = lambda *a, **kw: book
         inprocess = types.ModuleType('fs_inprocess')
         inprocess.spending_hold = lambda *a: False
-        inprocess.gateway = lambda *a: types.SimpleNamespace(budget=types.SimpleNamespace(policy={'model': 'synthetic'}))
+        inprocess.gateway = lambda *a, **kw: types.SimpleNamespace(budget=types.SimpleNamespace(policy={'model': 'synthetic'}))
         pilot = types.ModuleType('pilot')
         pilot.SHANGHAI, pilot.digest, pilot.encoded = timezone.utc, lambda _: 'synthetic', json.dumps
         context_module = types.ModuleType('business_context')
@@ -84,11 +93,13 @@ class WorkerFileLoop(unittest.TestCase):
         skills.load_bundle = lambda *a, **kw: {}
         registry = types.ModuleType('learning_registry')
         registry.manifest, registry.record_use = lambda *a: {}, lambda *a: None
+        catalog = types.ModuleType('knowledge_catalog')
+        catalog.task_selection = lambda *a, **kw: {}
         injected = {'controller': controller, 'fs_evidence': evidence, 'fs_inprocess': inprocess,
                     'pilot': pilot, 'business_context': context_module, 'skill_bundle': skills,
-                    'learning_registry': registry}
+                    'learning_registry': registry, 'knowledge_catalog': catalog}
         with tempfile.TemporaryDirectory() as directory, patch.dict(sys.modules, injected):
-            module = load('file_loop_active_service', CORE / 'conversation_service.py')
+            module = load('file_loop_active_service', service_path)
             module.attach_current_learning = lambda *a: None
             module.attach_customer_tracking = lambda *a: None
             task = {'id': 'a' * 32, 'state': 'QUEUED'}
@@ -100,6 +111,11 @@ class WorkerFileLoop(unittest.TestCase):
                 proxy=types.SimpleNamespace(background=None), tokens={}, books={}, gateways={},
                 grants=types.SimpleNamespace(mint=lambda *a, **kw: 'synthetic-not-a-credential'))
             service = module.ConversationService(hermes, Path(directory) / 'data', Path(directory) / 'run')
+            if hasattr(service, 'pricing'):
+                self.assertNotEqual(service.store.root, service.pricing.store.root)
+                service.pricing.pool.shutdown(wait=True)
+                service.pricing_pool.shutdown(wait=True)
+                service._pricing_lane = lambda *a: False
             service.pool.shutdown(wait=True)
             jobs = []
             service.pool = types.SimpleNamespace(submit=lambda fn, *args: jobs.append((fn, args)))
@@ -124,8 +140,20 @@ class WorkerFileLoop(unittest.TestCase):
             self.assertIn(self.prompt(), admission['prompt'])
             self.assertTrue(admissions[-1]['ready'])
             self.assertEqual(service.detail('alice', cid)['turns'][0]['state'], 'completed')
+            if hasattr(service, 'pricing'):
+                service._pricing_lane = lambda *a: True
+                with self.assertRaisesRegex(PermissionError, 'pricing_file_attachments_unavailable'):
+                    service.submit('alice', cid, 'no file access in pricing', 'pricing_001', [item['file_id']])
+                self.assertEqual(len(jobs), 1)
 
     def test_upload_bind_scripted_worker_revision_download_and_followup(self):
+        self.upload_loop(handle, self.gateway_module)
+
+    def test_deployed_http_and_allowlist_upload_paging_revision_followup(self):
+        module = load('deployed_file_http', PACKAGES.parent / 'fc-coins/fc-pricing-v3-20261026/source/conversation_http.py')
+        self.upload_loop(module.handle, self.deployed_gateway)
+
+    def upload_loop(self, http_handle, gateway_module):
         with tempfile.TemporaryDirectory() as directory:
             store = ConversationStore(directory)
             cid = store.create('alice')['conversation_id']
@@ -141,7 +169,7 @@ class WorkerFileLoop(unittest.TestCase):
                 handler = types.SimpleNamespace(headers=headers, rfile=io.BytesIO(body), wfile=io.BytesIO(),
                     connection=types.SimpleNamespace(settimeout=lambda _: None), send_response=status.append,
                     send_header=lambda k, v: response_headers.update({k: v}), end_headers=lambda: None)
-                handle(handler, method, urlsplit('/api/hermes/conversations/' + cid + suffix), user, service, lambda _: True)
+                http_handle(handler, method, urlsplit('/api/hermes/conversations/' + cid + suffix), user, service, lambda _: True)
                 return status[0], handler.wfile.getvalue(), response_headers
 
             raw = ('item,amount\n' + ''.join('row,2\n' for _ in range(450))).encode()
@@ -162,7 +190,7 @@ class WorkerFileLoop(unittest.TestCase):
                 self.attach(book, context)
                 task = {'state': 'RUNNING', 'lease': 'original-lease', 'spec': {'snapshot_id': 'synthetic'}}
                 tasks = types.SimpleNamespace(get=lambda task_id, owner: task if owner == 'alice' else (_ for _ in ()).throw(PermissionError()))
-                gateway = self.gateway_module.ScopedTools(tasks, book, lambda: 0)
+                gateway = gateway_module.ScopedTools(tasks, book, lambda: 0)
                 def worker_call(name, arguments, lease='original-lease'):
                     # The scripted worker supplies only wire tool names and arguments.
                     with patch.dict(sys.modules, {'strategy_tools': self.strategies}):
