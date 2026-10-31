@@ -101,6 +101,16 @@ A已回交上述合成会话两轮实际completed闭环：首task `efae1d897b2d4
 
 已安装follow-up支持仍归原A prepare/release/tests：用本次真实成功applied journal/manifest及1f8ddc57合并Git载荷精确匹配绑定当前合法baseline，不把任意现场hash直接当合法来源；4个初次新增模块在follow-up必须有已有beforeSHA，失败回退恢复已安装字节而不删除。Nginx现10m保持已核成功字节，不重套16k模板。冻结publisher、14/48/4集合、锁/CAS/准入/provider/UNKNOWN/权限保持，优先沿原静态增量能力避免UI-only重启worker/HTTP。A在同一个完整UI修复候选收口并测试首次安装/已装更新/漂移/回退，Personal集成独审/CI后复核实际使用，最终功能/视觉仍未验收。
 
+### 可读性修复与精确静态跟进候选
+
+A完整候选`d4a9f6fd1cabbe247e2a5eae171955182a24bb51`（base `1f8ddc57c37e16df7c802de358eefb6585d078ee`）已正常合入，无冲突，运行代码/测试与A固定候选一致。仅模块内8路径：CSS/JS、原两项UI测试、prepare/release/原deploy测试和附录；B语义/冻结base/CI驱动未改。标题视觉两行但保留完整DOM/native title，状态nowrap、侧栏限高、展开消息区至少160px；普通turn被接受后才收附件，unknown/失败/steer原语义保持，附件操作触控区及人类可读进度标签补齐。
+
+pack绑定已发布1f8的13个Git LF源哈希和已核Nginx；follow-up只接受b129 manifest/c902 journal的精确成功proof，核14当前已装afterSHA、48保护/模式/实际image。4模块均有已有beforeSHA，Nginx10m字节保持。仅前端差异且三服务active/来源container时materialStaticOnly沿原writer/journal/每一guard执行，12个不变目标只CAS不写，CSS/JS两目标调用原atomic；最终仍核实际image/active，静态路径不重启worker/HTTP、不reload Nginx、不调模型。失败回退恢复4个已有模块；非静态仍原restart/readiness。实际发布载荷与变更目标在新现场prepare后再次核定，不把本地pack当生产manifest。
+
+A同代码原deploy三模块21项零skip、原Node实际DOM/fetch、本地Chromium合成下载/99历史/长标题/1280x800展开/浅暗/390通过；主控已亲看现网light及390问题截图，及候选本地expanded/mobile，确认现网阅读挤压和候选方向改善，尚未看修后部署版。主控另用原始Git字节独立比对附录14 afterSHA表：13源载荷全部匹配，Nginx匹配已核成功hash。尝试只读附录v2/v3浏览器下载路径时首个FileNotFoundError，不能声称主控已独立解析下载；已请A提供稳定合成artifact或由主控最终同fid正常下载，不追加模型。最新集成完整SHA独审/必要CI、新静态部署及最终视觉/字节复核仍待完成，生产继续稳定1f8。
+
+附录已补齐实际合成任务/文件完整ID、SHA及provider分层：两材料任务各5回执，另自然完成微任务1及queued取消1，共12回执；backend版本unknown、费用null。CSV同SHA重解析总206含表头/205数据行、sum205，实录成功参数offset0/200 limit200覆盖[0,200)/[200,206)，末页complete仍false；两XLSX sheet各3/2行。十条coverage链由实录参数/成功事件及同SHA确定性解析重建，非原raw工具回执；不据此声称业务全量。取消到19:41:05Z仍cancelled/空回复/0工具，provider3token回执保留，不称计费停止；running取消未验。真实匿名下载401、跨合成cid404；第二身份/撤权过期/A2scope未验。200%快捷键未改变实际缩放，仍未验，不以CSS缩放或窄屏冒充。
+
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。
 
 不新增账号/凭据/权限/安全配置或费用，不启用待配置模型，不改价/发券/订单/触达客户、不真实购买支付。测试仅新增明确标记的小合成验收会话/附件，不删除旧业务数据。真实数据只读现有授权scope的必要匿名摘要，原客户/订单/密钥不进Git或截图。
