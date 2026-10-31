@@ -50,14 +50,17 @@ def _adapter(settings: Settings, admin_client: Any, stop_event: Any = None) -> A
 
 
 def verify_manual_new_card_scope(settings: Settings, plan: Mapping[str, Any]) -> None:
-    """The narrow manual switch never grants existing-model maintenance writes."""
+    """Combine only the separately enabled new-card and existing add-tag scopes."""
     if settings.manual_new_cards_enabled and not settings.write_enabled:
         upload = {str(item) for item in plan.get("upload_futbin_ids") or ()}
+        tags = {str(item) for item in plan.get("tag_futbin_ids") or ()}
+        recommend = {str(item) for item in plan.get("recommend_futbin_ids") or ()}
         scope = {str(item) for item in plan.get("scope_ids") or ()}
-        if not upload or scope != upload or any(
-            {str(item) for item in plan.get(key) or ()} - upload
-            for key in ("tag_futbin_ids", "recommend_futbin_ids")
-        ):
+        existing = {str(item) for item in plan.get("existing_model_map") or {}}
+        extra_tags = tags - upload
+        if (not scope or scope != upload | tags | recommend or recommend - upload
+                or existing != scope - upload
+                or (extra_tags and not settings.existing_action_write_enabled("add_tags"))):
             raise StateError("NEW_CARD_SCOPE_REQUIRED")
 
 
@@ -123,12 +126,16 @@ def prepare_plan(
         valid = {int(row.get("id")) for row in catalog if row.get("id") is not None}
         if set(tag_ids) - valid:
             raise StateError("标签 ID 不属于当前 FC27 Players 标签目录")
+    with repository.connection() as db:
+        active_conflicts = [dict(row) for row in db.execute(
+            "SELECT futbin_id,execution_id FROM active_scope WHERE futbin_id IN (" +
+            ",".join("?" for _ in scope) + ") ORDER BY futbin_id", scope)]
     artifact_path = ""
     artifact_hash = ""
     direct_items = []
     context_path = ""
     context_sha = ""
-    if upload:
+    if upload and not active_conflicts:
         source = source_client or player_client(settings)
         run_dir = settings.data_root / "runs" / uuid.uuid4().hex
         run_dir.mkdir(parents=True, exist_ok=False)
@@ -154,6 +161,8 @@ def prepare_plan(
     low = [item for item in scope if is_low_rating_player(candidate_by_id[item], rating_threshold)]
     missing_rating = [item for item in scope if candidate_by_id[item].get("rating") in {None, ""}]
     blockers: list[str] = []
+    if active_conflicts:
+        blockers.append("UNRESOLVED_IMPORT")
     if missing_rating:
         blockers.append("MISSING_RATING")
     if repository.legacy_blocks(scope):
@@ -176,7 +185,7 @@ def prepare_plan(
         "context_artifact_path": context_path, "context_sha256": context_sha,
         "low_rating_ids": low, "missing_rating_ids": missing_rating,
         "rating_threshold": rating_threshold,
-        "blockers": blockers,
+        "blockers": blockers, "active_conflicts": active_conflicts,
         "actions": ["import"] * bool(upload) + ["tags"] * bool(tags) +
                    ["recommend"] * bool(recommend) + ["sync"] * bool(upload),
     }
