@@ -39,3 +39,11 @@ B新增真实loopback HTTP验收使用注入测试身份，沿真实HTTP适配�
 共同联调顺序：UI显式选择→A绑定/鉴权/分页→B判断并交接观察覆盖→A不可变产物→UI真实卡片与下载→新turn显式绑定重新建证据。核心Codex审查在整包候选上进行，不能代替B实现；普通代码/测试修复继续本包一个集成PR。
 
 CI接线本地自检通过；在A新候选合入前运行原node入口仅验证了旧handoff，不冒充新DOM测试执行证据。待最终候选后通过此入口实际执行新增用例并留CI回执。
+
+## 最终候选集成与审查交接准备
+
+Personal已正常merge A固定候选beacbcf693a5aa972b5f7c963ac2a33b2ccf692c，merge为8dc573a68d7a5812ea1bf564e166a900148dd2d9；未改A源。B的4项真实HTTP验收已挂入test_core.load_tests，现Core入口95项通过；conversation原入口28项通过。实际使用pr_fast的units/node运行器确认Core、conversation、Node原入口均通过；Node输出明确含新增DOM/fetch执行场景。pr-fast --selfcheck、git diff --check通过。
+
+A候选的浏览器证据由A提供：原无附件/停止/补充/撤权回归、新Chromium交互、浅暗桌面和390px移动截图检查、合成XLSX点击下载实际落盘通过。Personal核对整个A包与固定候选无源码差异，复用这些证据，不声称自己重复完成视觉检查。API/模型响应仍模拟；下载使用测试期loopback字节夹具，非生产认证。
+
+独立Business审查聊天已实际回复并回送“已就绪”，规则见REVIEW-WORKFLOW.md；握手不是PR审查。最终PR的CI、对应最新head的独立审查和合并仍待完成。知识统一收尾plan已尝试，但原knowledge-layering子检查字节相关失败未解决，不标完成，不改无关publisher。真实worker进程、跨模型运行时、真实模型、生产认证、部署以及整套A1仍未验。
