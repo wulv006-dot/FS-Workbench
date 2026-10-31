@@ -152,3 +152,11 @@ B新增`b2_goal_facts.py`的`FrozenGoalFacts(host,resolve_scope,context_for)`及
 Personal原Core最终177项全部通过、0失败/0skip，新增facts18项已实际加载（4元数据、14真实A2/GoalStore/原任务DB outbox组合）；新增kernel1项覆盖prepared/evidence原子保存、pending忽略覆盖及future拒绝。首次组合16项通过，补同snapshot缺项及pending缓存边界后完整177重验。使用真实合成SQLite/Service冻结重放及原TaskStore temp DB，原tasks行数仍0；全程无SyntheticTaskLedger替代此新组合、无真实模型/业务API。Windows沿用A2已明示2026 UTC+08及私有temp mode夹具，真实POSIX/最新SHA独审与LinuxCI待完成。queued只计持久待执行，不计原TaskStore任务、worker启动或阶段2上线；生产仍501f。
 
 本包以base8f604875执行原knowledge_closeout plan，仍既有91项/30 error、native_plugin_exact_registration_delta_required、exit1，未扩修或放宽旧知识publisher，不称知识/Notion完成。原pr-fast/外网/Popen围栏未改；6条B Python路径3.9 AST与diff通过，A四路径与固定66b12897无差异。实际源扫描量/生产费用仍unknown，不因冻结摘要小而推断后端少扫或新模型账单。
+
+### PR722限定验收与合并（2026-11-01）
+
+Business Sol High平台独立worktree核完整head `24bc4d6b786849b0de8db58b178c853bc6b6454e`、base8f604875起止不变，实际12路径，无可复现功能/权限/数据丢失问题；A四路径与66b12897一致。独立A22/B18/kernel16/host18及补充3项源异常/admission撤权/保守cutoff均零skip。新LinuxCI41247844832实际绑定此head/base，Ubuntu22.04/Python3.9.18会话75/相关21/Core177全部通过，新增测试已加载。
+
+Personal合并前复核最新版本/CI success/无冲突，按已有授权正常merge `d279086292f514002adadf801468e077dc7f3a1a`；本机ff核merge树与reviewed head完全一致，已停止PR722监听。至此限定本机「冻结事实→prepared同CAS→独立DB私有outbox→原IDlookup/验真」通过。queued仍非原TaskStore执行任务/worker；没有生产goal DB/真实模型/调度或新scope授权动作，生产继续501f，阶段2整体未完成，旧知识收尾错误保留。
+
+下一工作转入真实运行装配，不再增加替代执行层：A唯一现场执行者先沿既有合法SSH作三份已知未匹配活动文件的限定只读元信息核对（controller.py/fs_evidence.py/range_api.py）；只返回哈希/大小、必要类/函数签名及调用/导入名称、可比函数AST指纹，不导出源码正文/常量值、不导入执行这些模块、不读配置/凭据/DB、不调用业务或模型API。既有批量源码复制拒绝仍独立有效，元信息不能等价绕为源码下载；工具拒绝即停止原样回报。若信息不足，列必要读取的最小具体范围与用途交用户，不把未知活动装配伪称匹配，不覆盖旧源。B据实际接口对齐合法goal执行类型/spec/原ID只读恢复及scope来源；真实grant缺证据继续unavailable。
