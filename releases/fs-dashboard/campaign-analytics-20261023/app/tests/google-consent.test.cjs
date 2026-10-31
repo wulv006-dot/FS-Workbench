@@ -35,6 +35,23 @@ test('Google tag requires a new explicit choice; denial, withdrawal, previews an
    await page.addScriptTag({path:path.resolve(__dirname,'../seasonal/activity-analytics.js')});await page.evaluate(detail=>window.dispatchEvent(new CustomEvent('seasonal-published-catalog',{detail})),publication);await page.waitForTimeout(50);
    assert.equal(requests.filter(u=>u.includes('googletagmanager.com')).length,before,'Draft and marked verification never load Google');
   }
+  for(const nativeTag of [false,true]){
+   await page.goto('https://www.mmoexp.com/events/seasonal/');
+   await page.evaluate(nativeTag=>{
+    localStorage.setItem('mmoexp-event-analytics-consent-v1','denied');localStorage.setItem('mmoexp-event-google-consent-v1','denied');
+    window.FC_ACTIVITY_CONFIG={mode:'preview'};window.FC_ANALYTICS_CONFIG={seasonalEnabled:true,projectToken:'fixture',allowedHosts:['www.mmoexp.com'],registry:[{id:'mmoexp-seasonal',view:'seasonal'}]};
+    window.dataLayer=[];
+    if(nativeTag){const tag=document.createElement('script');tag.src='https://www.googletagmanager.com/gtag/js?id=AW-18230729339&gtg_health=1';document.head.append(tag);}
+    else window.gtag=function(){window.dataLayer.push(arguments);};
+   },nativeTag);
+   await page.addScriptTag({path:path.resolve(__dirname,'../seasonal/activity-analytics.js')});await page.evaluate(detail=>window.dispatchEvent(new CustomEvent('seasonal-published-catalog',{detail})),publication);
+   await page.getByRole('button',{name:'Analytics preferences',exact:true}).click();await page.getByRole('button',{name:'Allow analytics',exact:true}).click();
+   await page.waitForFunction(()=>window.dataLayer.some(a=>a[0]==='event'&&a[1]==='page_view'));
+   await page.getByRole('button',{name:'Analytics preferences',exact:true}).click();await page.getByRole('button',{name:'No thanks',exact:true}).click();
+   assert.equal(await page.evaluate(()=>window['ga-disable-G-L67DEVB5XN']),true);
+   const consent=await page.evaluate(()=>window.dataLayer.filter(a=>a[0]==='consent').map(a=>Array.from(a)));
+   assert.deepEqual(consent,[['consent','update',{analytics_storage:'granted'}]],'Existing Google function or tag retains its global defaults and withdrawal state');
+  }
   await page.close();
  }finally{await browser.close();}
 });
