@@ -75,6 +75,12 @@ PR716 reviewed `6fc954f1555538677cd39b0ce5e923445899a42b`独审无未解决项�
 
 复用相同运行代码的原pr-fast deploy三模块19项通过、0skip，新增3项含容器/单位/image/状态漂移及原inspect/apply/journal合成生命周期：失败基线CAS、成功active、启动异常、健康后容器缺失或服务再停均拒绝并保留回退字节。主控核diff及状态切换核心，未见当前阻断；最新集成完整SHA独审及必要LinuxCI待完成，真实worker与材料/模型/视觉验收仍未完成。新Gitpack仅本地候选证据，合并后仍须最终SHA重pack/新现场prepare，不复用旧descriptor或stage。
 
+PR717 reviewed `67e3c0107615dede37ae08befe4c6feb5b9e7157`独审无未解决项、Linuxconversation32/deploy19零skip通过，merge `ba972abbba87f4afd9f18374faf6ed6ccff61ec1`；独审完整本地19项遇旧Windows socket WinError10054，未冒报本地全绿。A新pack SHA `07287dcdaf9008df2b87789eaf1c2bfc5c4516223c8e5a0005558e2c0f21a868`，stage `/var/tmp/fs-hermes-materials-ba972abb-20261031T191240Z/stage`，baseline `2026-10-31T19:13:06.830141+00:00`，manifest `f5187838dea263cf4951255f4221bb0f80585fadf9b6e7c5293bab4e0fc78d9d`，真实inspect的14目标/48保护CAS通过。
+
+该stage仅apply一次，原worker健康流程返回后，post worker_observation因现场systemd219不支持`systemctl show --value`失败。原journal已回退14目标（4新增移除），48保护hash及全部beforeSHA匹配，journal SHA `16899358bdd37050f36534f5623b3ad1400f2673ecdaf679f9576558e0fd3a88`，备份 `/var/backups/fs-navigation-20261006/nav-20261031T191240Z`；候选Nginx未reload。旧worker重启仍因旧dotenv代码失败，A在原锁/围栏核回退后用原DEEP restart恢复旧HTTP。当前仍为发布失败、旧HTTP/Nginx可用、workerfailed；未创建模型/合成验收任务、未操作用户页，不把曾返回健康当完整恢复。
+
+完整最小兼容候选A `d5a640e9dd64d39a10a4e46c319c565e468fab9d`（base ba972abb）已正常合入，实际三路径：runtime_release正常容器分支去`--value`并按`ActiveState=...`解析、现有契约断言完整兼容命令及模块失败/恢复附录。A已真实只读核`systemctl --version=219`与原`-p ActiveState`返回`ActiveState=failed`。worker语义、冻结base、14/48/4集合、恢复态及原guards均未改。主控核同封装直接命令仅此处使用不兼容参数，运行代码/测试与A固定候选一致，diff检查通过；复用原deploy三模块19项零skip证据，不重复无关旧套件。最新完整SHA独审/必要CI、新最终SHA现场pack/prepare及真实恢复仍待完成，旧stage不重放。
+
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。
 
 不新增账号/凭据/权限/安全配置或费用，不启用待配置模型，不改价/发券/订单/触达客户、不真实购买支付。测试仅新增明确标记的小合成验收会话/附件，不删除旧业务数据。真实数据只读现有授权scope的必要匿名摘要，原客户/订单/密钥不进Git或截图。

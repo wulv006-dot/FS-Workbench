@@ -349,3 +349,48 @@ test-fixture reuse error was corrected before that final run. Linux permissions,
 actual recovered worker startup, production material/model flow and deployed
 visual acceptance remain unverified. No old stage or descriptor was replayed,
 no container was fabricated and no config/permission/credential was changed.
+
+## Second real publication: systemd 219 readback compatibility
+
+PR717 merged as `ba972abbba87f4afd9f18374faf6ed6ccff61ec1`. A fast-forwarded
+cleanly, generated new LF Git bytes and prepared a new stage:
+
+- Payload descriptor SHA256:
+  `07287dcdaf9008df2b87789eaf1c2bfc5c4516223c8e5a0005558e2c0f21a868`.
+- Stage: `/var/tmp/fs-hermes-materials-ba972abb-20261031T191240Z/stage`.
+- Baseline: `2026-10-31T19:13:06.830141+00:00`; worker really `failed`, image
+  source `configured_unit_and_local_image`, exact original fixed image present.
+- Manifest SHA256:
+  `f5187838dea263cf4951255f4221bb0f80585fadf9b6e7c5293bab4e0fc78d9d`.
+- Real inspect passed all 14 target/48 protected CAS checks; worker before-SHA
+  was `8c377abb19da520df2f92e02e0523430dd53fc1be2f1eac8c47c3f6de35854e9`.
+
+One controlled apply reached post-restart image observation after the original
+health routine returned, then failed because the installed **systemd 219**
+rejects `systemctl show --value`. This does not establish successful publication:
+the publisher rolled back all 14 targets (including removal of four new files),
+and the restored old worker could not start. The Nginx candidate was never
+reloaded. Backup: `/var/backups/fs-navigation-20261006/nav-20261031T191240Z`;
+journal `rolled-back`, SHA256
+`16899358bdd37050f36534f5623b3ad1400f2673ecdaf679f9576558e0fd3a88`.
+All before-hashes and all 48 protected hashes were independently verified.
+Ignored local copies of the manifest/journal retain these exact hashes; no
+production source/configuration or database was exported.
+
+After the apply process exited 1, A reacquired the original release/live/
+admission/provider fences, rechecked the rollback and every before/protected
+hash, then used the original DEEP restart to restore old HTTP health. No file,
+credential or permission change was needed. Current HTTP/Nginx are the old
+working version; worker remains failed. No real model or synthetic acceptance
+conversation was submitted, and the user page was not operated on.
+
+The compatibility correction only replaces `--value` with the original-style
+`-p ActiveState` key/value parser. That exact command was verified read-only on
+the real host (`ActiveState=failed`). The live-container contract now explicitly
+checks the command and returns the systemd-219-compatible response shape; the
+complete original deploy runner passed 19 tests with zero skips. Missing-
+container recovery, actual-container postconditions, original guards/rollback,
+health, modes and all other protections remain intact. A newly merged SHA and
+fresh pack/prepare are still required; neither failed stage will be replayed.
+Material/DeepSeek, real download/follow-up and deployed visual acceptance remain
+unverified.
