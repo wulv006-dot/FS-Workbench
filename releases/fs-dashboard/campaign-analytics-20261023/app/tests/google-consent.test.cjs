@@ -20,6 +20,9 @@ test('Google tag requires a new explicit choice; denial, withdrawal, previews an
   assert.equal(requests.filter(u=>u.includes('googletagmanager.com')).length,1);
   assert.equal(await page.evaluate(()=>window['ga-disable-G-L67DEVB5XN']),false);
   assert(!await page.evaluate(()=>JSON.stringify(window.dataLayer).includes('private-email')));
+  const visits=await page.evaluate(()=>window.dataLayer.filter(a=>a[0]==='event'&&a[1]==='activity_view').length);
+  await page.evaluate(()=>window.dispatchEvent(new StorageEvent('storage',{key:'mmoexp-event-google-consent-v1',newValue:'granted'})));
+  assert.equal(await page.evaluate(()=>window.dataLayer.filter(a=>a[0]==='event'&&a[1]==='activity_view').length),visits,'Google-only preference sync must not create another PostHog visit');
   await page.evaluate(detail=>window.dispatchEvent(new CustomEvent('seasonal-published-catalog',{detail})),publication);
   assert.equal(await page.evaluate(()=>window.dataLayer.filter(a=>a[0]==='event'&&a[1]==='page_view').length),1);
   await page.getByRole('button',{name:'Analytics preferences',exact:true}).click();await page.getByRole('button',{name:'No thanks',exact:true}).click();

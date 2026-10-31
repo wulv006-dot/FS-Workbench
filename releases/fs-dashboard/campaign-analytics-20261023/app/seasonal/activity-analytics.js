@@ -133,7 +133,7 @@
     const settings=document.createElement('button');settings.type='button';settings.className='analytics-settings';settings.textContent='Analytics preferences';settings.addEventListener('click',open);document.querySelector('.site-footer')?.append(settings);
     let saved,googleSaved;try{saved=localStorage.getItem(consentKey);googleSaved=localStorage.getItem(googleConsentKey);}catch{}
     window.FCActivityAnalytics.setConsent(saved==='granted');if(saved==='denied'||saved==='granted'&&googleSaved)close();else open();
-    window.addEventListener('storage',e=>{if(e.key===consentKey||e.key===googleConsentKey||e.key===null){let granted=false;try{granted=localStorage.getItem(consentKey)==='granted';}catch{}window.FCActivityAnalytics.setConsent(e.key!==null&&granted);}});
+    window.addEventListener('storage',e=>{if(e.key===googleConsentKey){googleConsent();return;}if(e.key===consentKey||e.key===null){let granted=false;try{granted=localStorage.getItem(consentKey)==='granted';}catch{}window.FCActivityAnalytics.setConsent(e.key!==null&&granted);}});
   }
   window.addEventListener('seasonal-published-catalog',e=>{
     const next=e.detail,page=Array.isArray(next?.pages)?next.pages.find(p=>p?.page_id==='seasonal-vault'&&p.activity_id==='mmoexp-seasonal'):null;
