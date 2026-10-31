@@ -66,10 +66,12 @@ threshold, invented high-value definition, churn probability or net profit.
         options=[dict(action="no_intervention", reason="No business action authorized by this assessment")],
         business_write_performed=False,
         maturity={str(days): None for days in (7, 14, 30)},
+        purchase_since_anchor=None,
         verification="local_contract_only",
     )
     # Only complete, unambiguous history can establish a credible Day0.
-    if o.complete and o.identity_verified and o.first_paid_at is not None:
+    if (o.complete and o.identity_verified and not o.missing
+            and not o.refund_review_needed and o.first_paid_at is not None):
         elapsed = (o.as_of.astimezone(BEIJING).date() - o.first_paid_at.astimezone(BEIJING).date()).days
         result["maturity"] = {str(days): elapsed >= days for days in (7, 14, 30)}
     def finish(state, reason):
@@ -84,18 +86,20 @@ threshold, invented high-value definition, churn probability or net profit.
         return finish("needs_evidence", "refund_correction_requires_review")
     if o.as_of < anchor:
         return finish("needs_evidence", "source_predates_observation_anchor")
-    # A purchase strictly after the observation anchor is an observation only;
-    # it proves neither successful intervention nor incremental revenue.
-    if o.latest_paid_at is not None and o.latest_paid_at > anchor:
-        return finish("purchase_observed", "reassess_or_reduce_frequency")
+    # Preserve the observed fact separately: it must not suppress elapsed
+    # deadlines or their freshness requirements on later assessments.
+    result["purchase_since_anchor"] = o.latest_paid_at is not None and o.latest_paid_at > anchor
     if now >= due:
         if o.as_of < due:
             return finish("refresh_required", "source_does_not_cover_due_check")
-        return finish("review_due", "due_even_without_new_orders")
+        return finish("review_due", "scheduled_recheck_due")
     if expected_next_purchase_at is not None and now >= expected_next_purchase_at:
         if o.as_of < expected_next_purchase_at:
             return finish("refresh_required", "source_does_not_cover_expected_purchase")
         return finish("investigate", "past_supplied_purchase_cadence_not_confirmed_churn")
+    # A purchase alone proves neither intervention success nor incrementality.
+    if result["purchase_since_anchor"]:
+        return finish("purchase_observed", "reassess_or_reduce_frequency")
     if previous_evidence_ref == o.evidence_ref:
         return finish("waiting", "unchanged_evidence_before_due")
     if expected_next_purchase_at is None:

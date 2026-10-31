@@ -64,6 +64,34 @@ class B2Contracts(unittest.TestCase):
         self.assertFalse(self.check(o)["maturity"]["7"])
         self.assertEqual(self.check(replace(o, complete=False))["maturity"]["7"], None)
 
+    def test_missing_or_corrected_first_payment_does_not_publish_maturity(self):
+        old = replace(self.o, first_paid_at=self.now-timedelta(days=35))
+        for change in (dict(missing=("first_paid_history",)), dict(refund_review_needed=True)):
+            with self.subTest(change=change):
+                value = self.check(replace(old, **change))
+                self.assertEqual(value["state"], "needs_evidence")
+                self.assertEqual(value["maturity"], {"7": None, "14": None, "30": None})
+
+    def test_earlier_purchase_does_not_suppress_due_recheck(self):
+        old = replace(self.o, latest_paid_at=self.now-timedelta(days=4),
+                      as_of=self.now-timedelta(days=2))
+        value = self.check(old, previous_evidence_ref="e1", recheck_at=self.now)
+        self.assertEqual(value["state"], "refresh_required")
+        self.assertTrue(value["purchase_since_anchor"])
+        fresh = self.check(replace(old, as_of=self.now), previous_evidence_ref="e1", recheck_at=self.now)
+        self.assertEqual(fresh["state"], "review_due")
+        self.assertTrue(fresh["purchase_since_anchor"])
+
+    def test_earlier_purchase_does_not_suppress_cadence_trigger(self):
+        old = replace(self.o, latest_paid_at=self.now-timedelta(days=4),
+                      as_of=self.now-timedelta(days=2))
+        value = self.check(old, previous_evidence_ref="e1", expected_next_purchase_at=self.now)
+        self.assertEqual(value["state"], "refresh_required")
+        fresh = self.check(replace(old, as_of=self.now), previous_evidence_ref="e1",
+                           expected_next_purchase_at=self.now)
+        self.assertEqual(fresh["state"], "investigate")
+        self.assertTrue(fresh["purchase_since_anchor"])
+
     def test_future_naive_and_inverted_history_rejected(self):
         for o in (replace(self.o, as_of=self.now+timedelta(seconds=1)),
                   replace(self.o, as_of=self.now.replace(tzinfo=None)),
