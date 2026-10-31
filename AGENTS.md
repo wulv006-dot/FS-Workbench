@@ -82,7 +82,13 @@ UI 新建、修改与修复统一遵循项目全局 UI 规范，复用现有设�
 
 ## 当前业务基准
 
-知识读取先看 [简短索引](knowledge/README.md)，只读任务适用的正式条目和版本；历史与候选不能自行提升为现行规则。涉及知识、方法、消费入口或Notion摘要的变更，完成直接检查后自动走 [统一收尾入口](docs/planning/knowledge-layering-20261023/CLOSEOUT.md) 的 `python tools/knowledge_closeout.py plan`，由工具识别受影响条目、版本和候选摘要；不要要求用户重新提供路径或命令。候选准备与冲突检查可连续完成；正式业务规则/生产生效按具体清单确认，确认后沿同一变更ID连续收尾和读回，不重复索取同一授权。新增权限/凭据/安全范围另核。老D原凌晨维护不变，同一变更ID去重，不建重复定时。
+知识读取顺序：本文件及 [唯一执行规则](docs/ops/HOTFIX.md) → [知识读取说明](knowledge/README.md) → [条目索引](knowledge/index.json) → 任务适用的 Git 原文。核对条目 `id`、`revision`、`modules`、`layer`、`status`、来源哈希及替代关系，只采用同模块、有效的 `current` 条目；候选只供审核/显式预览，`archive`、退役规则与历史快照只供明确的历史查询，不提升为当前执行指令。缺项、哈希漂移或有效版本冲突按知识说明处理，不凭日期或“最新”标题猜版本。
+
+资料浏览入口：[Business 团队版（FS规范）](https://chatgpt.com/space/page_0685096df12881918422e94f9dbfe95d) · [个人版](https://chatgpt.com/space/page_6ae5813bdcf88191af4a69285736a9c1) · [历史资料](https://chatgpt.com/space/page_9827d03c50d08191a2b4478a253043e7)。页面与快照仅辅助阅读、追溯，正式规则仍指向 Git 原文；同步合同和访问边界见 [资料空间说明](docs/planning/fs-space-knowledge-20261031/README.md)。页面、附件、私库权限独立，分享页面不授予私库访问权；Hermes 历史读取仍须命中原身份、模块和 `history_entry_ids`，不因本入口扩大。
+
+仓库 `knowledge/index.json` 的 `release_state=candidate` 表示可审查的发布输入，不等于生产目录；条目有效、Git 合并或空间更新都不能证明服务器已发布、路由已装载、真实模型已使用或自然同步已验收。按确切版本与回执分别核实，保留原会话/任务固定版本，不为补入口修改发布状态或共享范围。
+
+涉及知识、方法、消费入口或Notion摘要的变更，完成直接检查后自动走 [统一收尾入口](docs/planning/knowledge-layering-20261023/CLOSEOUT.md) 的 `python tools/knowledge_closeout.py plan`，由工具识别受影响条目、版本和候选摘要；不要要求用户重新提供路径或命令。候选准备与冲突检查可连续完成；正式业务规则/生产生效按具体清单确认，确认后沿同一变更ID连续收尾和读回，不重复索取同一授权。新增权限/凭据/安全范围另核。老D原凌晨维护不变，同一变更ID去重，不建重复定时。
 
 取数、金额、成本参数、渠道归因、产品身份、客户生命周期与Hermes教学，使用[2026-10-21修订基准](docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md)。冲突旧规则退出新判断与学习，历史报告/账本/unknown仍保留。部署与真实验收状态另见同目录README；HOTFIX流程及现有定价/调度/权限保护保持。
 
