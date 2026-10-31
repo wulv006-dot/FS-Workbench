@@ -27,8 +27,11 @@ const missing=reason=>({status:'unavailable',reason,pageRequests:null,observedPa
 const stamp=s=>s.dev+':'+s.ino;
 const snapshotKey=Symbol('internal-source-snapshot');
 async function inventory(logPath,maxEntries){
- const dir=path.dirname(logPath),base=path.basename(logPath),escaped=base.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),pattern=new RegExp('^'+escaped+'(?:\\.(\\d+)(\\.gz)?)?$');
- const names=(await fsp.readdir(dir)).flatMap(name=>{const m=pattern.exec(name);return m?[{name,index:m[1]?Number(m[1]):0}]:[];}).sort((a,b)=>a.index-b.index||a.name.localeCompare(b.name));
+ const dir=path.dirname(logPath),base=path.basename(logPath),escaped=base.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),pattern=new RegExp('^'+escaped+'(?:(?:\\.(\\d+)|-(\\d{8}))(?:\\.gz)?)?$');
+ const names=(await fsp.readdir(dir)).flatMap(name=>{const m=pattern.exec(name);if(!m)return [];const date=m[2]&&Date.parse(m[2].slice(0,4)+'-'+m[2].slice(4,6)+'-'+m[2].slice(6)+'T00:00:00Z');if(m[2]&&(!Number.isFinite(date)||new Date(date).toISOString().slice(0,10).replaceAll('-','')!==m[2]))return [];return [{name,index:m[1]?Number(m[1]):0,date}];});
+ const dated=names.filter(r=>r.date!==undefined);if(dated.length&&names.some(r=>r.index>0))throw Error('LOG_ROTATION_FORMAT_MIXED');
+ const newest=Math.max(...dated.map(r=>r.date));for(const row of dated)row.index=1+(newest-row.date)/86400000;
+ names.sort((a,b)=>a.index-b.index||a.name.localeCompare(b.name));
  return Promise.all(names.slice(0,maxEntries).map(async row=>{const file=path.join(dir,row.name),stat=await fsp.lstat(file);if(stat.isSymbolicLink()||!stat.isFile())throw Error('UNSAFE_LOG_FILE');return {...row,file,stat};}));
 }
 async function readLog(row,budget,maxFileBytes){
@@ -38,8 +41,14 @@ async function readLog(row,budget,maxFileBytes){
  const input=fd.createReadStream({start:0,end:Math.max(0,row.stat.size-1),autoClose:true,signal:budget.signal});
  const stream=row.name.endsWith('.gz')?input.pipe(createGunzip()):input;
  if(stream!==input)input.on('error',error=>stream.destroy(error));
- let pending='',first=Infinity,last=-Infinity,malformed=0,bytes=0;
+ let pending='',first=Infinity,last=-Infinity,malformed=0,bytes=0,firstRecords=new Set(),lastRecords=new Set();
  const days=new Map(),hash=createHash('sha256');
+ function boundary(time,line,contributes=false){
+  if(time>first&&time<last)return;
+  if(time<first){first=time;firstRecords=new Set();}if(time>last){last=time;lastRecords=new Set();}
+  if(!contributes)return;const digest=createHash('sha256').update(line).digest('hex');
+  if(time===first)firstRecords.add(digest);if(time===last)lastRecords.add(digest);
+ }
  function consume(line){
   if(!line.trim())return;
   const m=linePattern.exec(line),time=m&&timestamp(m[1]);
@@ -47,16 +56,16 @@ async function readLog(row,budget,maxFileBytes){
    // Nginx also logs invalid/TLS requests as400 without an HTTP request line.
    // A verified non200 status cannot contribute to our GET200 metric.
    const rejected=nonSuccessPrefix.exec(line),at=rejected&&timestamp(rejected[1]);
-   if(rejected&&rejected[2]!=='200'&&Number.isFinite(at)){first=Math.min(first,at);last=Math.max(last,at);return;}
+   if(rejected&&rejected[2]!=='200'&&Number.isFinite(at)){boundary(at,line);return;}
    malformed++;return;
   }
   if(!Number.isFinite(time)){malformed++;return;}
-  first=Math.min(first,time);last=Math.max(last,time);
+  boundary(time,line);
   if(m[2]!=='GET'||m[4]!=='200'||!m[3].startsWith('/')||m[3].startsWith('//'))return;
   let url;try{url=new URL(m[3],'http://origin.invalid');}catch{malformed++;return;}
   if(!paths.has(url.pathname))return;
   const day=new Date(time).toISOString().slice(0,10),r=days.get(day)||{successful:0,excluded:0,requests:0};
-  r.successful++;if(bots.test(m[5])||url.searchParams.get('analytics_test')==='1')r.excluded++;else r.requests++;
+  r.successful++;if(bots.test(m[5])||url.searchParams.get('analytics_test')==='1')r.excluded++;else {r.requests++;boundary(time,line,true);}
   days.set(day,r);
  }
  try{
@@ -70,16 +79,16 @@ async function readLog(row,budget,maxFileBytes){
   const truncatedLine=Boolean(pending);
   const after=await fsp.lstat(row.file);
   if(stamp(after)!==stamp(row.stat)||after.size<row.stat.size)throw Error('LOG_ROTATED_DURING_READ');
-  return {first,last,days,malformed,truncatedLine,bytes,hash:hash.digest('hex')};
+  return {first,last,firstRecords,lastRecords,days,malformed,truncatedLine,bytes,hash:hash.digest('hex')};
  }finally{stream.destroy();if(stream!==input)input.destroy();await fd.close().catch(()=>{});}
 }
 
-export function makeOriginTraffic({logPath='/var/log/nginx/access.log',ttlMs=600000,maxBytes=64*1024*1024,maxFileBytes=32*1024*1024,maxFiles=8,now=Date.now}={}){
+export function makeOriginTraffic({logPath='/var/log/nginx/access.log',ttlMs=600000,maxBytes=256*1024*1024,maxFileBytes=32*1024*1024,maxFiles=12,now=Date.now}={}){
  const cache=new Map();let flight=null;
  async function scan(range){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);timer.unref?.();
   const generatedAt=new Date(now()).toISOString(),budget={used:0,max:maxBytes,signal:controller.signal},days=new Map(),identities=new Set(),hashes=new Set();
-  let first=Infinity,last=-Infinity,malformed=0,files=0,previousFirst=Infinity,reason=null,initial;
+  let first=Infinity,last=-Infinity,malformed=0,files=0,previousFirst=Infinity,previousRecords=new Set(),reason=null,initial;
   try{
    initial=await inventory(logPath,maxFiles+1);if(!initial.some(r=>r.index===0))return missing('LOG_NOT_AVAILABLE');
    let expected=0;
@@ -90,8 +99,8 @@ export function makeOriginTraffic({logPath='/var/log/nginx/access.log',ttlMs=600
     const r=await readLog(row,budget,maxFileBytes);identities.add(stamp(row.stat));files++;
     if(hashes.has(r.hash))continue; // exact copied log, not a second request stream
     hashes.add(r.hash);
-    if(r.last>=previousFirst){reason='OVERLAPPING_LOG_SNAPSHOTS';break;}
-    previousFirst=r.first;first=Math.min(first,r.first);last=Math.max(last,r.last);malformed+=r.malformed;
+    if(r.last>previousFirst||r.last===previousFirst&&[...r.lastRecords].some(hash=>previousRecords.has(hash))){reason='OVERLAPPING_LOG_SNAPSHOTS';break;}
+    previousFirst=r.first;previousRecords=r.firstRecords;first=Math.min(first,r.first);last=Math.max(last,r.last);malformed+=r.malformed;
     if(r.truncatedLine)reason='INCOMPLETE_LOG_LINE';
     for(const [day,row] of r.days){const d=days.get(day)||{successful:0,excluded:0,requests:0};for(const k of Object.keys(d))d[k]+=row[k];days.set(day,d);}
     if(first<=range.from)break;
@@ -103,7 +112,7 @@ export function makeOriginTraffic({logPath='/var/log/nginx/access.log',ttlMs=600
    const daily=[...days].filter(([day])=>day>=range.fromDay&&day<=range.toDay).sort(([a],[b])=>a.localeCompare(b)).map(([date,r])=>({date,...r}));
    const observed=daily.reduce((n,r)=>n+r.requests,0),complete=!reason&&first<=range.from;
    return {[snapshotKey]:{identity:stamp(initial[0].stat),size:initial[0].stat.size},status:complete?'available':'partial',reason:reason||(complete?null:'LOG_HISTORY_GAP'),source:'existing_origin_access_log',generatedAt,from:range.fromDay,to:range.toDay,pageRequests:complete?observed:null,observedPageRequests:observed,estimatedVisitors:null,visitorReason:'UNVERIFIED_PROXY_CHAIN',daily,coverage:{complete,from:new Date(first).toISOString(),through:generatedAt,lastRecordAt:new Date(last).toISOString(),files,bytesRead:budget.used},successfulRequests:daily.reduce((n,r)=>n+r.successful,0),excludedRequests:daily.reduce((n,r)=>n+r.excluded,0),repeatedRefreshCounted:true,cacheMissCoverageOnly:true,scope:'all_games_devices_channels',deduplication:'physical_or_identical_log_files_only',cacheTtlSeconds:ttlMs/1000};
-  }catch(error){return {...missing(controller.signal.aborted?'LOG_READ_TIMEOUT':['LOG_READ_LIMIT','LOG_LINE_LIMIT','LOG_ROTATED_DURING_READ','UNSAFE_LOG_FILE'].includes(error.message)?error.message:'LOG_READ_FAILED'),generatedAt};}
+  }catch(error){return {...missing(controller.signal.aborted?'LOG_READ_TIMEOUT':['LOG_READ_LIMIT','LOG_LINE_LIMIT','LOG_ROTATED_DURING_READ','UNSAFE_LOG_FILE','LOG_ROTATION_FORMAT_MIXED'].includes(error.message)?error.message:'LOG_READ_FAILED'),generatedAt};}
   finally{clearTimeout(timer);}
  }
  return async function query(params){

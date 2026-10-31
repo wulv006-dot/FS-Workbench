@@ -1,0 +1,42 @@
+# 万圣节流量口径与读取基准（2026-10-31 用户确认）
+
+用户已授权：修复现有187日志历史覆盖、深查并补齐万圣节Google追踪与FS展示、原流程发布验收、PR合并和规则基准Markdown更新。仅此活动和既有Google只读连接；保留商品、优惠、订单、原授权选择与原统计计划。代码/CI/合并/部署/真实读取/自然数据分别记录，本文不是上线回执。
+
+## 数据与判断
+
+| 来源 | 口径 | 不允许的解释 |
+| --- | --- | --- |
+| 187现有日志 | 正式活动目录/index的成功文档GET，排除已识别机器人和标记测试，UTC统计日 | 请求不是人数；重复刷新可计数、CDN/浏览器缓存未回源可漏计 |
+| PostHog/FS行为 | 用户允许后成功上报的正式活动行为，按原访问/会话口径 | 不外推未授权客户；不拿行为UV推全部访客 |
+| GA4 | 现有MMOEXP属性541418940、主站web stream；页面浏览和入口会话分别读取 | 仍受同意、拦截和标签影响；细分用户不累加、不当订单新客 |
+| GSC | sc-domain:mmoexp.com中该正式页面的网页自然搜索曝光、点击、CTR、平均位置，America/Los_Angeles | 不含广告；Top搜索词不等于完整查询；未最终可查询日期不补零 |
+| Ads | 既有MMOEXP账号1430398974，落地URL精确匹配活动目录/index；日期×系列×设备的曝光/点击/费用 | 不等于全部活动访问或真实成交；不并入Admin订单/收入 |
+
+GA4使用属性当前Asia/Shanghai日；Ads沿现有账号Asia/Hong_Kong/USD合同。各来源相同日期字符串不代表同一UTC起止时刻。不拼成可逐人核对的全链漏斗，不相加跨源用户、曝光或收入。服务器IP代理链未证实，estimatedVisitors维持null，不输出原始IP、请求行、Cookie或访客标识。
+
+## 日志历史补读
+
+兼容原编号轮转与187实际`access.log-YYYYMMDD[.gz]`；按轮转顺序和真实时间范围核覆盖，混合格式、缺档、真实时间重叠、残行和容量超限保留partial/unavailable。相邻文件同秒交接本身不证明重叠：只核会计入活动请求的边界记录，重复的健康检查不能阻断活动统计；边界活动记录有重复歧义时仍不给完整总量。
+
+整份物理/字节相同副本仍去重；同一文件内重复刷新仍计数。边界记录仅在内存中用摘要比较，不导出或保留客户标识。原32MiB单文件/解压上限、16KiB行、10秒、串行读取与短失败缓存保持。根据真实六日已超过64MiB的日志体量，总扫描上限调整为256MiB、12个文件，覆盖当前短活动；超限仍缺测，不无限扫描。
+
+## Google读取与前端授权
+
+FS复用现有Google Reader和凭据，只发读取报告请求。限定活动、三来源、严格31日内日期、固定属性/站点/账号及正式页面，不接收任意文件路径、URL或Google查询。源读取有子进程超时、输出限制、同窗合并、全局单读和缓存；错误只返回脱敏原因。GA4保留阈值/采样/字段限制，原生总量不由Top行累加；GSC另查站点最终日期水位，仅输出日期覆盖。Google合法空响应即使省略表头也按无记录处理；无记录、真实0、部分和失败分开。
+
+Google明细在FS现有活动统计页独立展示，管理员/只读登录沿原权限；用户显式点击读取，不挂到页面60秒检查或新增定时器。原00/08/16计划、UTC行为/收入快照和既有重试机制保持。
+
+活动页复用已有Allow/No thanks和可撤回入口。Google Analytics在新说明中明确列出；旧PostHog授权不自动升级为Google授权，原授权仍按原规则继续，新增Google需用户重新明确选择。未同意不加载Google标签，撤回禁用该stream并停止主动事件；本地/草稿/标记测试/失效发布不启动Google采集。只授analytics_storage，不授广告存储、广告用户数据或个性化。使用既有G-L67DEVB5XN stream，不增账号/凭据/付费服务。
+
+GA4主动事件的页面URL固定正式canonical，referrer仅留来源域名，UTM仅取原白名单字符；主动字段不发送完整查询串、订单、邮箱、PostHog会话ID或折扣码。主动发送页面浏览和现有明确活动行为；Google另沿主站stream既有增强衡量设置，已只读核实，不修改全站设置。购买链路仍由原权威回执提供。不回填没有采集过的历史GA4行为；自然访客进入与Google入报延迟要另验。
+
+## 已定位原因与验证入口
+
+1. 历史读取器只识别编号轮转，187实际日期轮转未被纳入。
+2. 交接边界同秒存在重复健康检查；原重叠规则过宽，会误阻断活动统计。
+3. 独立活动追踪桥原本只有PostHog，未安装主站GA4标签。现有Google授权和主站web stream真实可读。
+4. Ads按落地页精确过滤已有记录；GSC页面维度空结果与聚合返回0、最终日期缺口要分别解释。
+
+维护源：`releases/fs-dashboard/campaign-analytics-20261023/`。直接测试为origin-traffic、google-traffic、google-consent、seasonal-tracking、operator-dashboard及backend/tests/test_google_traffic.py；沿原pr-fast，不新建工作流。发布沿原campaign publisher、共享锁、现场CAS、备份及读回，更新公开脚本时同时更新对应static-manifest项，保留其它项与运行配置。回滚只还原本批代码/清单，不回退DB、授权选择、活动发布或统计数据。
+
+Google接口依据：[GA4字段](https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema)、[Search Console查询](https://developers.google.com/webmaster-tools/v1/searchanalytics/query)、[同意模式](https://developers.google.com/tag-platform/security/concepts/consent-mode)。
