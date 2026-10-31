@@ -91,6 +91,8 @@ SECTIONS = (
     ("brain", "Hermes 智体"),
     ("sports", "球类工作区"),
     ("arpg", "RPG 工作区"),
+    ("marketing", "营销系统"),
+    ("activities", "主站活动区"),
     ("bots", "机器人管理"),
     ("collaboration", "协作工具"),
     ("platform", "平台与账号"),
@@ -102,14 +104,14 @@ RESOURCES = (
     ("admin", "成员与授权", "platform", ("/admin", "/__auth/iam")),
     ("deploy", "部署工作台", "platform", ("/deploy",)),
     # ---- 数据分析 ----
-    ("unified-business", "数据看板", "analytics", ("/dashboard/analytics", "/dashboard/users")),
+    ("unified-business", "数据看板", "analytics", ("/dashboard/analytics", "/dashboard/users", "/dashboard/channel-effects", "/dashboard/fs-home/range.json", "/dashboard/fs-home/today.json", "/dashboard/marketing")),
     ("data-analysis-tools", "数据分析工具", "analytics", ("/dashboard/data-tools",)),
     ("management", "经营管理台", "analytics", ("/dashboard/management",)),
     ("game-monitor", "游戏监控台", "analytics", ("/dashboard/game-monitor",)),
     # ---- Hermes 智体 ----
-    ("brain", "Hermes 智体", "brain", ("/dashboard/fs-home/brain",)),
+    ("brain", "Hermes 智体", "brain", ("/dashboard/fs-home/brain", "/dashboard/fs-home/hermes", "/dashboard/fs-home/advisor.json", "/api/hermes")),
     # ---- 球类工作区 ----
-    ("coins", "FC27 金币控制台", "sports", ("/dashboard/fc27-coins.html", "/dashboard/fc27-coins.")),
+    ("coins", "FC27 金币控制台", "sports", ("/dashboard/fc27-coins.html", "/dashboard/fc27-coins.", "/api/fc27/cloud", "/dashboard/fc27-quote-api", "/dashboard/fc27-activity-api")),
     ("fc27-bundles", "FC27 捆绑包改价", "sports", ("/dashboard/modules/sports/bundles",)),
     ("fc27-sbc", "FC27 SBC 上架工具", "sports", ("/dashboard/fc27-sbc",)),
     ("ops", "FC27 运营看板", "sports", ("/s/wulv/fc27-ops",)),
@@ -119,6 +121,9 @@ RESOURCES = (
     ("mlb", "MLB 新卡工作台", "sports", ("/mlb",)),
     ("nba", "NBA2K 自动改价台", "sports", ("/nba2k27",)),
     ("madden", "Madden 金币看板", "sports", ("/dashboard/madden27-coins.html", "/dashboard/madden27-coins.")),
+    ("fc27-evolutions", "FC27 进化商品改价", "sports", ("/dashboard/fc27-evolutions",)),
+    ("marketing", "营销系统", "marketing", ("/dashboard/modules/marketing",)),
+    ("activities", "活动配置与转化", "activities", ("/dashboard/analytics/campaigns",)),
     # ---- RPG 工作区 ----
     ("d4", "RPG 游戏改价系统", "arpg", ("/d4",)),
     ("g2g", "G2G 自动改价", "arpg", ("/g2g",)),
@@ -160,9 +165,6 @@ COMPAT_EXCEPTION_DEFAULT = {
 # 旧策略里「注册账号不可直达」的路径：保留资源名便于解释，语义同 unmapped。
 BLOCKED_PREFIXES = (
     "/dashboard/api/",
-    "/dashboard/fc27-quote-api/",
-    "/dashboard/fc27-activity-api/",
-    "/api/fc27/cloud/",
     "/dashboard/tasks/api/members",
     "/s/wulv/fc27-ops/api/collect",
 )
@@ -741,6 +743,9 @@ def evaluate(policy, subject, method, uri, group=""):
     if resource == "identity" and (method or "GET").upper() in ("GET", "HEAD", "OPTIONS"):
         return Decision(True, 200, subject, resource, action,
                         reason="identity-bootstrap")
+
+    if subject.startswith("reg:") and resource in (UNMAPPED, "sensitive"):
+        return Decision(False, 403, subject, resource, action, reason="未登记的业务资源")
 
     binding, implicit = effective_binding(policy, subject)
     roles = policy.get("roles") or {}

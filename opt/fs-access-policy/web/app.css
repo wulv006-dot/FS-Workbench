@@ -385,3 +385,12 @@ input:focus,select:focus{outline:2px solid var(--brand-soft);border-color:var(--
   .ph-link{padding:5px 9px;font-size:12px}
   .brand-text strong{font-size:15px}
 }
+
+/* Registration uses the same member card/table and shared theme tokens. */
+.registration-search{min-width:210px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.registration-filter{padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.registration-purpose{max-width:360px;white-space:normal;overflow-wrap:anywhere}
+.registration-table .mono{font-size:10px}.registration-table td:last-child{white-space:nowrap}.registration-table .btn+.btn{margin-left:6px}
+.registration-decision{padding:18px 20px;border-top:1px solid var(--line)}
+.registration-decision textarea{display:block;width:100%;margin:8px 0 12px;padding:10px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;resize:vertical}
+.registration-feedback{color:var(--ink-2);white-space:pre-line;margin:12px 0 0}

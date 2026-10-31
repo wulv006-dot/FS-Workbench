@@ -230,6 +230,7 @@ def _members(portal, policy):
             roleLabels=[(roles.get(r) or {}).get("label", r) for r in bound],
             accessCount=len(matrix),
             writable=writable,
+            extraGrants=(policy.get("bindings", {}).get(subject) or {}).get("grants", []) if isinstance(policy.get("bindings", {}).get(subject), dict) else [],
             lastLogin=logins.get(row["name"]) or logins.get(subject) or None,
         )
         out.append(row)
@@ -364,10 +365,11 @@ def _api_member_roles(portal, actor, body):
         old = bindings.get(subject)
         entry = dict(old) if isinstance(old, dict) else {}
         entry["roles"] = sorted(set(roles))
-        if not entry["roles"] and not entry.get("grants"):
-            bindings.pop(subject, None)
-        else:
-            bindings[subject] = entry
+        if body.get("keep_extra_grants") is False:
+            entry.pop("grants", None)
+        # An explicit empty selection means no grants, not the unbound Viewer.
+        # Preserve deny rules even when all role checkboxes are cleared.
+        bindings[subject] = entry
 
     return _mutate(portal, actor, "成员授权：%s → %s" % (subject, ",".join(roles) or "无"),
                    apply, body.get("revision"))

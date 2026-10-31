@@ -429,6 +429,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("releases/registration/iam-modules-20261031/") or name == "tests/test_fs_iam_module_access.py":
+            groups.add("iam"); continue
         if name.startswith('releases/fc-players/empty-market-recovery-20261031/'):
             groups.add('fc-players-empty-market');continue
         if name.startswith('releases/fc-players/mixed-plan-20261031/'):
@@ -1019,7 +1021,7 @@ def main():
         elif group=="iam":
             # 授权引擎的硬门槛：新引擎必须与改造前的旧实现逐格同判定。
             # 任何一个格子对不上，这里就红 —— 换引擎不许顺带改谁的权限。
-            units("tests",["test_fs_iam_rbac","test_fs_iam_console"])
+            units("tests",["test_fs_iam_rbac","test_fs_iam_console","test_fs_iam_module_access"])
             node("tests/test_fs_iam_password_request.cjs")
             node("tests/test_fs_iam_registration.cjs")
         elif group=="aion":node("aion2_dashboard_20261004/test_status.cjs")
