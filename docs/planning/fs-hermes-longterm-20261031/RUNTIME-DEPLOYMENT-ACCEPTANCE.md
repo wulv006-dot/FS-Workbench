@@ -59,6 +59,8 @@ A回报最终main `4077536449a3dcaa8871623989a15be3ead1552b`新pack SHA `910b31d
 
 先由唯一发布者A在原锁/准入/provider围栏下核beforeSHA、49保护文件和journal，再沿原publisher限定恢复旧range基础HTTP；不重apply材料包、不清UNKNOWN/任务、不强杀。该恢复不等待新材料补丁，不改凭据/权限或dotenv内容。
 
+后续A恢复回执：在原发布/live/admission/provider锁内核journal、13个beforeSHA（4新文件已移除）及49保护SHA全通过，执行原fence.stop_then_unlock_database及DEEP restart，range health已通过；未改活动文件、权限、凭据或任务。worker仍failed，Nginx保持原配置字节、未reload候选。过滤日志明确拒读路径为`/profile/.env`，仅日志路径证据，未读该文件内容或元数据。当前状态为代码回退及旧HTTP恢复、Hermes worker待修，材料/模型验收未开始。
+
 本包必要共享修复接点新增登记：`releases/fc-coins/fc-review-channel-20261026/source/hermes_worker.py::make_adapter`唯一修改者为Business A，Personal不并改。目标仅在既有FS runtime-config/provider代理适配中阻止官方导入隐式dotenv加载；先核公开loader调用及现成skip机制的非敏感代码，不导出生产源码、不授.env读取权限、不将提供方凭据传入worker。需相关离线契约、最新SHA独审/必要CI及沿原publisher限定发布，不能凭推断宣称根因已修复。PR715已合并，此必要修复仍属同一运行工作包，若需PR使用一个完整后续修复PR，不拆函数片或重开已合并PR；实际修复候选、恢复状态和新部署证据待回交。
 
 本轮用户授权本包软件部署及必要使用测试：原合法SSH/会话、publisher、发布/准入锁、现场CAS、备份、定向服务重载、读回及回退。保留全部DB/任务/文件/UNKNOWN与原自动化；活跃或不明任务按原发布器处理，不强杀/清状态制造空闲、不旧整包覆盖。

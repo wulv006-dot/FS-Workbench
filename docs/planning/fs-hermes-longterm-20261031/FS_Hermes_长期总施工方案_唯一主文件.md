@@ -860,13 +860,13 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 |---|---|
 | 唯一主方案 | 本文件 |
 | 正式仓库存放路径 | docs/planning/fs-hermes-longterm-20261031/FS_Hermes_长期总施工方案_唯一主文件.md；Personal维护，外部开工文件作为输入快照保留 |
-| 当前阶段 | PR715已合并40775364；首次运行发布失败，13目标已回退但worker仍failed、range恢复待回。优先恢复旧基础服务，再修worker导入隐式dotenv问题；材料与视觉验收未通过 |
+| 当前阶段 | PR715已合并40775364；首次运行发布失败，13目标已回退且旧HTTP已恢复，worker仍failed。A已获唯一make_adapter接点确认，修worker导入隐式dotenv问题；材料与视觉验收未通过 |
 | 主施工／总控 | 个人版Work；负责B线、总方案、接口协调、集成验收与发布协调 |
 | 协同施工 | 工作版Work；负责A线实现与可验收交付 |
 | 公共代码归属 | 本包精确FC v3 service/HTTP、FC v2 runs、26proxy及原publisher装配由A唯一维护，见RUNTIME-DEPLOYMENT-ACCEPTANCE.md；controller/公共schema/迁移不改，CI/主方案由Personal维护 |
 | 现有FS/Hermes活动版本 | 已据A现场哈希核定活动service/HTTP为FC v3、runs为FC v2、proxy为26版本；未匹配controller/range_api/fs_evidence原字节保持，完整记录见部署附录，不由方案名推断 |
 | 新能力已验收范围 | B1/B2离线首片、文件工具与附件UI本地模拟/必要CI及限定核心独审通过并合并；未调用真实模型、未部署 |
-| 下一步 | A在原锁/围栏下核回退及保护文件并恢复旧range；A独占26版hermes_worker.py::make_adapter必要修复，不读.env或改权限/凭据。后续完整修复候选独审/CI及原publisher受控发布，Personal核真实功能与视觉后继续主方案 |
+| 下一步 | A独占26版hermes_worker.py::make_adapter必要修复，限制FS进程隐式dotenv加载，不读.env或改权限/凭据。后续完整修复候选独审/CI及原publisher受控发布，Personal核真实功能与视觉后继续主方案 |
 | 已有生产业务 | 沿原系统、原权限、原调度运行；本次整理未改动 |
 | 本次文件交付 | 长期主方案与两个岗位入口原地整合；不等于已派发、编码或上线 |
 | PR702复用线索 | head `666814c9ae0376fe4f372cf9718508345da45ee0`，merge `30423f91c963228b41fe450f0c7993fa408cf12f`；完整独审与生产验收未在本包确认 |
