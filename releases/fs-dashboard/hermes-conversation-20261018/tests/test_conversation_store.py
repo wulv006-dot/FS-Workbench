@@ -322,6 +322,8 @@ def load_tests(loader, tests, pattern):
     # The existing pr-fast store entry also exercises the cross-line file workflow.
     import test_conversation_file_loop
     tests.addTests(loader.loadTestsFromModule(test_conversation_file_loop))
+    import test_conversation_goals
+    tests.addTests(loader.loadTestsFromModule(test_conversation_goals))
     return tests
 
 
