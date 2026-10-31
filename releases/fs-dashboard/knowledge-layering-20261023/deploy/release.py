@@ -37,7 +37,8 @@ def load_base():
     manifest = json.loads((HERE / 'approved-manifest.json').read_text(encoding='utf-8'))
     mapping = targets(manifest)
     adapter.HERE, adapter.SCOPE, adapter.TARGETS = HERE, SCOPE, mapping
-    adapter.NEW = frozenset(n for n in mapping if n not in RUNTIME or n == 'runtime/knowledge_catalog.py')
+    adapter.NEW = frozenset(r['candidate'] for r in manifest['files'] if r['candidate'] not in RUNTIME
+                            or r['candidate'] == 'runtime/knowledge_catalog.py' and r['beforeSha256'] is None)
     base = adapter.load_base()
     original_group = base.approved_daily_group
 
