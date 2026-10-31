@@ -860,7 +860,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 |---|---|
 | 唯一主方案 | 本文件 |
 | 正式仓库存放路径 | docs/planning/fs-hermes-longterm-20261031/FS_Hermes_长期总施工方案_唯一主文件.md；Personal维护，外部开工文件作为输入快照保留 |
-| 当前阶段 | 生产稳定1f8ddc57，已回交两轮真实材料闭环；完整可读性/精确静态follow-up候选d4a9f6fd已正常合入，准备最新SHA独审/CI。当前生产视觉仍未通过，Personal修后终审待完成 |
+| 当前阶段 | PR719已合并501f90bf并实际静态发布成功，仅CSS/JS改变，12不变目标及服务PID/容器保持、14/48读回通过。真实文件闭环已有证据，当前部署版fresh视觉/操作复验及Personal终审进行中 |
 | 主施工／总控 | 个人版Work；负责B线、总方案、接口协调、集成验收与发布协调 |
 | 协同施工 | 工作版Work；负责A线实现与可验收交付 |
 | 公共代码归属 | 本包精确FC v3 service/HTTP、FC v2 runs、26proxy及原publisher装配由A唯一维护，见RUNTIME-DEPLOYMENT-ACCEPTANCE.md；controller/公共schema/迁移不改，CI/主方案由Personal维护 |
@@ -897,6 +897,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／软件发布成功 | PR718 reviewed0a3e595a独审/必要CI通过，merge1f8ddc57；A新pack/新现场prepare后仅apply一次成功，14afterSHA/48保护、原mode/root、worker/range/nginx及真实容器image/健康/匿名拒绝读回通过；新建专用合成会话尚未模型提交 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；备份nav-20261031T192312Z | 真实材料/DeepSeek/停止/权限、部署版视觉与Personal最终验收未完成；A2真实scope/第二身份未验 | A继续真实使用与fresh截图，Personal核内容/功能/视觉后续推主方案，不把软件发布当整包通过 | A测试取证；Personal最终审核 |
 | 2026-11-01／材料取证与视觉退回 | A回交两轮真实completed文件闭环、浏览器有效XLSX v2/v3下载及显式追问、原ID/集合幂等/unknown注入恢复；费用及backend版本未知保留。queued取消已发生待后台核收敛 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；模块部署附录待汇总 | 当前视觉实测失败：长标题挤状态、messages35px、历史侧栏过长；完整覆盖/停止/权限和主控独立视觉审核仍待完成 | A一个完整UI/followup修复包，严守已装baseline/回退、不给新模型外观任务；Personal复核再验收 | A修复取证；Personal主控/最终审核 |
 | 2026-11-01／可读性与静态跟进集成 | 正常合入A完整d4a9f6fd；CSS/JS可读性/接受后收附件、原publisher精确已装proof/Git/CAS/静态两目标更新，原deploy21/Node/本地Chromium通过。主控亲看现网问题与本地候选图，独立核13Git载荷+Nginx与附录hash匹配；分页重建及queued收敛/401/跨cid404证据补齐；稳定Temp收据已独立核v2/v3完整SHA/字节/两sheet内容 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；模块完整部署附录 | 最新独审/CI、新静态部署与fresh最终视觉待验；旧下载临时路径缺失已通过稳定收据补正；running/真实第二身份/200%/A2未验 | 满足条件合并后无模型静态更新，主控独立核内容/视觉后推进主方案 | A静态发布/取证；Personal集成/最终审核 |
+| 2026-11-01／501f静态发布成功 | PR719 reviewed912af9b3独审/CI通过，merge501f90bf后新pack/follow-up仅apply一次成功。真实差异仅CSS/JS，14SHA/mode/root及48保护匹配，12不变目标inode/mtime、服务PID/实际容器保持，range健康通过，无重启/重载/模型 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；备份nav-20261031T201743Z | 新部署版fresh视觉/操作与主控独立复测待完成，未提前通过；200%/running取消/第二身份/A2范围保持未验 | A回新图/交互证据，Personal独立无模型复核后给本包验收结论，再沿主方案推进 | A复验；Personal最终审核 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 
