@@ -3,7 +3,7 @@
 
 **整理日期：2026-10-31｜本次整合：双端首轮工作包、共享接口与最新业务口径**  
 **适用项目：MMOEXP / FS-Workbench / Hermes**  
-**当前结论：V4/V5是历史方案编号；PR704—711已有局部代码交付和本地/CI/独审验收，阶段1/2整体及本轮生产仍未验收。**
+**当前结论：501f90bf材料主闭环及已测试的部署版桌面浅暗、390px、基本键盘操作已由Personal最终验收；阶段1/2整体仍未完成。继续阶段2目标状态与短任务续接，现阶段保留DeepSeek。**
 
 **当前入口：G0本机开工核对已回报，继续阶段1与阶段2；现阶段模型保留DeepSeek，候选模型先验证、后切换。**
 
@@ -49,8 +49,8 @@
 | 阶段 | 目标 | 当前状态与待办 | 完成凭据 |
 |---|---|---|---|
 | 阶段0 | 核对现有能力和当前规则 | 本机开工/分支/归属已核；生产活动映射未知，不扩全仓核查 | G0-B1.md、当前施工记录 |
-| 阶段1 | Agent 工作台与共用工具 | 文件工具/附件UI代码包已合并；用户已安排Business做运行接线/部署/真实测试，Personal最终审核功能与视觉；配额清理/完整材料任务仍按实证验收 | PR704/707/708、FILES-WORKPACKAGE.md、MATERIALS-UI-WORKPACKAGE.md、RUNTIME-DEPLOYMENT-ACCEPTANCE.md |
-| 阶段2 | 自主模型路由、按需数据与用户追踪 | B1/B2首片、材料观察、DeepSeek默认/候选仅验证及PR711冻结调查已合并；Business开始运行接线/部署验收包，持续追踪与真实任务仍未验 | PR705/706/708/709/711、B2-HANDOFF.md、DEEPSEEK-VALIDATION-WORKPACKAGE.md、A2-B2-FROZEN-WORKPACKAGE.md、RUNTIME-DEPLOYMENT-ACCEPTANCE.md |
+| 阶段1 | Agent 工作台与共用工具 | 材料主闭环及已测部署版桌面浅暗/390px/基本键盘范围已验收，生产源501f90bf；配额清理、真实200%缩放、running取消、第二身份等未验，非阶段整体完成 | PR704/707/708/715—719、FILES-WORKPACKAGE.md、MATERIALS-UI-WORKPACKAGE.md、RUNTIME-DEPLOYMENT-ACCEPTANCE.md |
+| 阶段2 | 自主模型路由、按需数据与用户追踪 | B1/B2及PR711冻结调查已合并；B继续独立目标状态/短任务续接合同，A核真实host scope及既有存储接点；可信scope缺失仍unavailable，未开放真实用户调查/持续调度 | PR705/706/708/709/711、B2-HANDOFF.md、DEEPSEEK-VALIDATION-WORKPACKAGE.md、A2-B2-FROZEN-WORKPACKAGE.md、RUNTIME-DEPLOYMENT-ACCEPTANCE.md |
 | 阶段3 | 一项已授权经营动作闭环 | 本轮未做新增真实动作验收；复用原执行链，仍需目标范围授权 | 未计完成 |
 | 阶段4 | 团队任务派发与成果回写 | 施工Business独立审查链已跑通；FS产品内派发/回写未验，两者不等同 | REVIEW-WORKFLOW.md；产品阶段未计完成 |
 | 阶段5 | 一个完整的跨角色活动 | 待前述能力会合及明确活动授权 | 未计完成 |
@@ -860,7 +860,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 |---|---|
 | 唯一主方案 | 本文件 |
 | 正式仓库存放路径 | docs/planning/fs-hermes-longterm-20261031/FS_Hermes_长期总施工方案_唯一主文件.md；Personal维护，外部开工文件作为输入快照保留 |
-| 当前阶段 | PR719已合并501f90bf并实际静态发布成功，仅CSS/JS改变，12不变目标及服务PID/容器保持、14/48读回通过。真实文件闭环已有证据，当前部署版fresh视觉/操作复验及Personal终审进行中 |
+| 当前阶段 | 生产501f90bf材料主闭环及已测桌面浅暗/390px/键盘范围终审通过；真实200%/running取消/第二身份/A2scope等仍未验。继续阶段2：B目标状态与短任务续接，A只读核可信scope与宿主存储接口 |
 | 主施工／总控 | 个人版Work；负责B线、总方案、接口协调、集成验收与发布协调 |
 | 协同施工 | 工作版Work；负责A线实现与可验收交付 |
 | 公共代码归属 | 本包精确FC v3 service/HTTP、FC v2 runs、26proxy及原publisher装配由A唯一维护，见RUNTIME-DEPLOYMENT-ACCEPTANCE.md；controller/公共schema/迁移不改，CI/主方案由Personal维护 |
@@ -898,6 +898,8 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／材料取证与视觉退回 | A回交两轮真实completed文件闭环、浏览器有效XLSX v2/v3下载及显式追问、原ID/集合幂等/unknown注入恢复；费用及backend版本未知保留。queued取消已发生待后台核收敛 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；模块部署附录待汇总 | 当前视觉实测失败：长标题挤状态、messages35px、历史侧栏过长；完整覆盖/停止/权限和主控独立视觉审核仍待完成 | A一个完整UI/followup修复包，严守已装baseline/回退、不给新模型外观任务；Personal复核再验收 | A修复取证；Personal主控/最终审核 |
 | 2026-11-01／可读性与静态跟进集成 | 正常合入A完整d4a9f6fd；CSS/JS可读性/接受后收附件、原publisher精确已装proof/Git/CAS/静态两目标更新，原deploy21/Node/本地Chromium通过。主控亲看现网问题与本地候选图，独立核13Git载荷+Nginx与附录hash匹配；分页重建及queued收敛/401/跨cid404证据补齐；稳定Temp收据已独立核v2/v3完整SHA/字节/两sheet内容 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；模块完整部署附录 | 最新独审/CI、新静态部署与fresh最终视觉待验；旧下载临时路径缺失已通过稳定收据补正；running/真实第二身份/200%/A2未验 | 满足条件合并后无模型静态更新，主控独立核内容/视觉后推进主方案 | A静态发布/取证；Personal集成/最终审核 |
 | 2026-11-01／501f静态发布成功 | PR719 reviewed912af9b3独审/CI通过，merge501f90bf后新pack/follow-up仅apply一次成功。真实差异仅CSS/JS，14SHA/mode/root及48保护匹配，12不变目标inode/mtime、服务PID/实际容器保持，range健康通过，无重启/重载/模型 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；备份nav-20261031T201743Z | 新部署版fresh视觉/操作与主控独立复测待完成，未提前通过；200%/running取消/第二身份/A2范围保持未验 | A回新图/交互证据，Personal独立无模型复核后给本包验收结论，再沿主方案推进 | A复验；Personal最终审核 |
+| 2026-11-01／材料限定终审通过 | 正常合入A55c4bbd5仅记录；Personal亲看9张fresh图，独立Default合成tab核JS/CSS精确hash、288/160消息区、390独滚/44px、v3原生选择/Enter/空CtrlEnter/Tab焦点。前后4turn、取消仍空回复、无mutation/模型；独立核两份真实XLSX收据 | RUNTIME-DEPLOYMENT-ACCEPTANCE.md含主控时间窗/截图/只读结果 | 限本材料闭环及已测桌面浅暗/390/基本键盘范围通过；真实200%/running取消/第二身份/撤权过期/A2scope及阶段1/2整体仍未验，费用unknown | 按原路线继续阶段2目标状态/短任务续接，不为记录重新部署 | Personal终审；A证据 |
+| 2026-11-01／B目标状态与续接 | B新增独立goal state、原Core加载；显式目标/变化或检查点/先CAS再dispatch/原ID复核/最小冻结引用，直接15项及Core140项零skip通过。A只读确认原TaskStore/turn围栏不是GoalState CAS，细粒度host scope未证 | A2-B2-FROZEN-WORKPACKAGE.md及b2_goal_state.py/test_b2_goal_state.py | 本地合同完成，最新SHA独审/CI待做；真实goal持久化/派发/receipt核验与scope仍未接，不称持续追踪上线 | 完整包独审/CI后按授权合并；后续A精确登记宿主持久化接点，缺可信scope仍unavailable | Personal B施工；A底座/接口核查 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 
