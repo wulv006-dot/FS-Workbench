@@ -380,7 +380,7 @@ class DirectImportTests(unittest.TestCase):
             self.run_plan()
         mid = next(iter(self.backend.rows))
         market = {entry["key"]: entry["value"] for entry in self.backend.rows[mid]["more"]["extend"]}
-        self.assertIsNone(market["pc_price"])
+        self.assertEqual(market["pc_price"], "")
         self.assertEqual(market["ps_price"], "200000")
         for row in self.backend.products[mid]:
             self.assertEqual(row["status"], 1)
@@ -407,8 +407,8 @@ class DirectImportTests(unittest.TestCase):
         self.run_plan()
         mid = next(iter(self.backend.rows))
         market = {entry["key"]: entry["value"] for entry in self.backend.rows[mid]["more"]["extend"]}
-        self.assertIsNone(market["pc_price"])
-        self.assertIsNone(market["ps_price"])
+        self.assertEqual(market["pc_price"], "")
+        self.assertEqual(market["ps_price"], "")
         self.assertTrue(all(row["unit_price"] == 9999 and row["status"] == 1 for row in self.backend.products[mid]))
         self.assertEqual(len([call for call in self.backend.calls if call[0] == "fallback"]), 6)
         self.assertEqual(self.scopes(), [])

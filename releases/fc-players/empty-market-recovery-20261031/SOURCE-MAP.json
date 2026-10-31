@@ -1,0 +1,21 @@
+{
+  "version": "2026.10.31-cloud.19",
+  "base_version": "2026.10.31-cloud.18",
+  "runtime_files": {
+    "player_web/direct_model_payload.py": {
+      "source": "releases/fc-players/direct-json-20261029/source/direct_model_payload.py",
+      "before_sha256": "19d864b24f70605f76b3eb70ccd26f770cc1f97a86f24e96e45456a5c613c783",
+      "sha256": "7542069967f9a9bcbe65e94e151f076959f8b029f75e80f2596105ddac10baba"
+    },
+    "VERSION": {
+      "source": "releases/fc-players/empty-market-recovery-20261031/VERSION",
+      "before_sha256": "41231936a0676bef67ee6eb1236a21bc1eb1a156de2f36b2cd41ce0e71406c19",
+      "sha256": "c872671427dc4b6e69a2e1697730bbac1d79a40044a4d7ee50a173acefbcb511"
+    }
+  },
+  "manifest_sha256": "da7b3fcc73bc6eb91058616f7144b3da790eb61fe39f46e62dad4f06c5f5c93d",
+  "publisher_dependency_sha256": "37b2b48020be180f2b2b00ab3ff2a51766edd8cfd9c7843096b9c623e6d5c1ea",
+  "policy_changes": false,
+  "knowledge_impact": false,
+  "notion_sync_required": false
+}

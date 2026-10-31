@@ -145,7 +145,7 @@ def build_model_payload(
     business_defaults must contain players_type, coefficient, discount and model_price.
     Missing single-select options use the native base='' / custom=source-value fields.
     Multi-select options must already exist. No independent property API is called.
-    missing_price_policy='preserve_unknown' or 'fallback_9999' keeps market inputs null/blank.
+    missing_price_policy='preserve_unknown' or 'fallback_9999' keeps market inputs blank.
     The caller freezes missing_platforms(source_row) and separately applies the authorized
     product fallback. A product's USD 9999 fallback is never a market-coin input here.
     """
@@ -204,7 +204,8 @@ def build_model_payload(
     for key, column in EXTEND_COLUMNS.items():
         value = source_row.get(column)
         if key in ("ps_price", "pc_price") and _missing(value) and missing_policy in ("preserve_unknown", "fallback_9999"):
-            extend[key] = value
+            # Native text fields submit blank strings; JSON null fails the upstream add.
+            extend[key] = ""
         else:
             extend[key] = _number(value, column, positive=key in ("player_id", "ps_price", "pc_price"))
     extend["player_id"] = player_id

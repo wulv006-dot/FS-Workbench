@@ -429,6 +429,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('releases/fc-players/empty-market-recovery-20261031/'):
+            groups.add('fc-players-empty-market');continue
         if name.startswith('releases/fc-players/mixed-plan-20261031/'):
             groups.add('fc-players-mixed-plan');continue
         if name.startswith('releases/fc-players/admin-api-repair-20261031/'):
@@ -883,7 +885,9 @@ def main():
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/halloween52-browser.cjs")
             continue
         print("affected group:",group,flush=True)
-        if group == 'fc-players-mixed-plan':
+        if group == 'fc-players-empty-market':
+            units('releases/fc-players/empty-market-recovery-20261031', ['test_publisher'])
+        elif group == 'fc-players-mixed-plan':
             units('releases/fc-players/mixed-plan-20261031', ['test_publisher'])
             node('releases/fc-players/mixed-plan-20261031/check_mixed_preview.cjs')
         elif group == 'fc-players-api-repair':
@@ -892,7 +896,7 @@ def main():
             node('releases/fc-players/admin-api-repair-20261031/check_image_batch.cjs')
             node('releases/fc-players/direct-json-20261029/tests/check_resume.cjs')
         elif group == 'fc-players-direct-json':
-            units('releases/fc-players/direct-json-20261029/tests', ['test_payload','test_client','test_direct_import','test_resume','test_model_labels','test_api_repair','test_mixed_scope'])
+            units('releases/fc-players/direct-json-20261029/tests', ['test_payload','test_client','test_direct_import','test_resume','test_model_labels','test_api_repair','test_mixed_scope','test_empty_market_recovery'])
             units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
             units('releases/fc-players/direct-json-20261029/tag-labels', ['test_upgrade_tag_labels'])
             node('releases/fc-players/direct-json-20261029/tests/check_resume.cjs')
