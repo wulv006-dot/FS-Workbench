@@ -10,6 +10,14 @@ def functions(**values):
     return values
 
 class PublisherTests(unittest.TestCase):
+    def test_all_51_baselines_are_exact_cloud16_paths_and_hashes(self):
+        manifest=json.loads((HERE/'manifest.json').read_text(encoding='utf-8'))
+        old=json.loads((HERE.parent/'direct-json-20261029/tag-labels/SOURCE-MAP.json').read_text(encoding='utf-8'))
+        expected={**old['protected'],**{name:row['candidate_sha256'] for name,row in old['files'].items()}}
+        self.assertEqual(len(expected),51)
+        self.assertEqual(manifest['baseline'],expected)
+        self.assertIn('球员维护工具/admin_client.py',manifest['baseline'])
+
     def test_exact_runtime_flag_and_other_runtime_text_preserved(self):
         call=functions(original_unit=lambda text:text.replace('cloud.16','cloud.17'))['updated_unit']
         source='ExecStart=docker --env-file /etc/fc27-player-tool/app.env --env IDLE_STOP_SECONDS=600 --read-only cloud.16'
