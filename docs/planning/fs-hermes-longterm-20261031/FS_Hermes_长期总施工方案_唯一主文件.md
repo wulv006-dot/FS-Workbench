@@ -860,13 +860,13 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 |---|---|
 | 唯一主方案 | 本文件 |
 | 正式仓库存放路径 | docs/planning/fs-hermes-longterm-20261031/FS_Hermes_长期总施工方案_唯一主文件.md；Personal维护，外部开工文件作为输入快照保留 |
-| 当前阶段 | 阶段1/2并行；Business已回交真实活动源核验及4648d7ae完整运行候选，Personal正常合入、准备独审/CI；部署与真实功能/视觉验收仍未完成 |
+| 当前阶段 | PR715已合并40775364；首次运行发布失败，13目标已回退但worker仍failed、range恢复待回。优先恢复旧基础服务，再修worker导入隐式dotenv问题；材料与视觉验收未通过 |
 | 主施工／总控 | 个人版Work；负责B线、总方案、接口协调、集成验收与发布协调 |
 | 协同施工 | 工作版Work；负责A线实现与可验收交付 |
 | 公共代码归属 | 本包精确FC v3 service/HTTP、FC v2 runs、26proxy及原publisher装配由A唯一维护，见RUNTIME-DEPLOYMENT-ACCEPTANCE.md；controller/公共schema/迁移不改，CI/主方案由Personal维护 |
 | 现有FS/Hermes活动版本 | 已据A现场哈希核定活动service/HTTP为FC v3、runs为FC v2、proxy为26版本；未匹配controller/range_api/fs_evidence原字节保持，完整记录见部署附录，不由方案名推断 |
 | 新能力已验收范围 | B1/B2离线首片、文件工具与附件UI本地模拟/必要CI及限定核心独审通过并合并；未调用真实模型、未部署 |
-| 下一步 | 主控就集成最新完整SHA派Business独立worktree审查并核必要CI，满足条件自动合并；A用最终合并SHA重新pack/prepare后沿原publisher部署，Personal核真实功能/视觉/便捷性，验收后继续主方案。现用DeepSeek，不扩业务写/新模型权限 |
+| 下一步 | A在原锁/围栏下核回退及保护文件并恢复旧range；A独占26版hermes_worker.py::make_adapter必要修复，不读.env或改权限/凭据。后续完整修复候选独审/CI及原publisher受控发布，Personal核真实功能与视觉后继续主方案 |
 | 已有生产业务 | 沿原系统、原权限、原调度运行；本次整理未改动 |
 | 本次文件交付 | 长期主方案与两个岗位入口原地整合；不等于已派发、编码或上线 |
 | PR702复用线索 | head `666814c9ae0376fe4f372cf9718508345da45ee0`，merge `30423f91c963228b41fe450f0c7993fa408cf12f`；完整独审与生产验收未在本包确认 |
@@ -889,6 +889,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／PR711独审P2修复 | reviewed12acaea9的Linux Core124/user-analytics253通过；独审发现project-only目录误拒绝。A确认单文件临时交接后修复catalog，补严格project-only全链回归，本地Core125/A18通过 | 同目录A2-B2-FROZEN-WORKPACKAGE.md | 修复新head独立复查及必要CI待完成，尚未合并；生产/模型等未验 | 原PR内复查新SHA，不扩大site/global/IAM授权 | Personal修复/集成；A保留长期归属 |
 | 2026-11-01／PR711合并与部署任务安排 | reviewed7275612c独立复查通过，P2解决，LinuxCore125/users253及ready CI成功；merge88ac65d9，当前main同步fc77dd1b；用户明确安排Business部署测试及Personal最终功能/视觉审核，工作包已发原A线程 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md | 真实活动源、必要接线/发布装配/部署/真实入口验收待Business回交；不拿合并算上线 | 原分支串行发布，先核精确共享路径单一A修改，再PR/部署/测试及最终审核 | Business A执行；Personal主控/最终审核 |
 | 2026-11-01／运行候选集成 | 已登记共享单一A路径、补原CI测试入口；现场匹配与限定单HTML正常授权复制完成，用户已正常登录。正常合入A完整4648d7ae；复用同代码conversation30/deploy16及两项FC回归、Node/本地Chromium证据 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；A模块DEPLOYMENT-ACCEPTANCE.md | 最新集成SHA独审/CI、实际Linux发布与真实DeepSeek/视觉仍未完成；知识旧失败保留，A2缺真实hostscope | 一个集成PR满足条件后自动合并，A沿原publisher部署测试，Personal最后验收；验收后连续推进 | A施工/发布；Personal集成/最终审核 |
+| 2026-11-01／首次发布失败 | PR715最新0ddcf0cc独审及两轮CI通过后merge40775364；新pack/现场inspect通过，但apply后worker健康失败，原publisher回退13目标。旧worker亦因官方导入隐式dotenv读取PermissionError失败 | 同目录RUNTIME-DEPLOYMENT-ACCEPTANCE.md；备份nav-20261031T182821Z | worker failed、range inactive待恢复；未到Nginx reload，生产材料/DeepSeek/视觉均未验收，不以回退代码替代恢复 | A先沿原锁/围栏核回退并恢复旧HTTP，登记worker make_adapter为A唯一修复接点；不重apply/清UNKNOWN/扩大凭据权限 | A恢复/修复；Personal主控验收 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 
