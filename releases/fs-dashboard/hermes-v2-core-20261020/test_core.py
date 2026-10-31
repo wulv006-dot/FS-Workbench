@@ -315,6 +315,8 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromModule(test_b2_frozen_investigation))
     import test_b2_goal_state
     tests.addTests(loader.loadTestsFromModule(test_b2_goal_state))
+    import test_b2_goal_host
+    tests.addTests(loader.loadTestsFromModule(test_b2_goal_host))
     import test_conversation_file_tools
     tests.addTests(loader.loadTestsFromModule(test_conversation_file_tools))
     import test_material_evidence
