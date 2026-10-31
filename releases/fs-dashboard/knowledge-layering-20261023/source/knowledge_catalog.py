@@ -211,6 +211,12 @@ def task_selection(root, *, owner, project, channel, task_type, profile_name=Non
     result = selected_route(root, chosen)
     result.update(catalog=chosen['catalog'], entry_ids=chosen.get('entry_ids'),
                   route_identity=dict(identity, **{k: v for k, v in optional.items() if v is not None or k in chosen}))
+    history_ids = chosen.get('history_entry_ids')
+    if history_ids is not None:
+        if (not isinstance(history_ids, list) or not history_ids
+                or not all(isinstance(x, str) and x for x in history_ids) or len(set(history_ids)) != len(history_ids)):
+            raise ValueError('knowledge_history_ids_required')
+        result['history_entry_ids'] = history_ids
     if compatibility is not None:
         result['baseline_compatibility'] = compatibility
     reviewed = chosen.get('reviewed_skills')

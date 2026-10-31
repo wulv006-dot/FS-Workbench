@@ -167,6 +167,34 @@ class TaskLearning(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'entry_scope'):
                 self.adapter.call('fs_read_knowledge', dict(modules=['FC27'], entry_ids=['private.other']), **ids)
 
+    def test_declared_reference_history_is_explicit_and_keeps_entry_allowlist(self):
+        raw = b'archived reference, never a current rule'
+        (self.folder / 'reference.md').write_bytes(raw)
+        for name in ('fs.reference.allowed', 'fs.reference.private'):
+            self.index['entries'].append(dict(self.row, id=name, layer='archive', status='archived',
+                source=dict(path='reference.md', sha256=hashlib.sha256(raw).hexdigest())))
+        self.save_index(); route = self.enable(); route['entry_ids'] = ['fc.rule']
+        route['history_entry_ids'] = ['fs.reference.allowed']; self.save_policy()
+        ids = dict(session_id=self.info['session_id'], task_id='native-1')
+        with self.adapter.activate_task(self.info, 'reference-turn', 'native-1'):
+            self.assertEqual([r['id'] for r in self.adapter.call('fs_get_knowledge_index', {}, **ids)['entries']], ['fc.rule'])
+            self.assertEqual({r['id'] for r in self.adapter.call('fs_get_knowledge_index', {'history': True}, **ids)['entries']}, {'fc.rule', 'fs.reference.allowed'})
+            args = dict(modules=['FC27'], entry_ids=['fs.reference.allowed'])
+            self.assertEqual(self.adapter.call('fs_read_knowledge', args, **ids)['status'], 'missing_or_out_of_scope')
+            self.assertEqual(self.adapter.call('fs_read_knowledge', dict(args, history=True), **ids)['entries'][0]['content'], raw.decode())
+            with self.assertRaisesRegex(ValueError, 'entry_scope'):
+                self.adapter.call('fs_read_knowledge', dict(args, entry_ids=['fs.reference.private'], history=True), **ids)
+
+    def test_history_declaration_rejects_invalid_ids_and_current_rules(self):
+        route = self.enable(); route['entry_ids'] = ['fc.rule']
+        for value in ([], 'fc.rule', ['fc.rule', 'fc.rule'], [None]):
+            route['history_entry_ids'] = value; self.save_policy()
+            with self.assertRaisesRegex(ValueError, 'history_ids_required'):
+                self.adapter.task_selection(self.info)
+        route['history_entry_ids'] = ['fc.rule']; self.save_policy()
+        with self.assertRaisesRegex(ValueError, 'history_entry_scope'):
+            self.adapter.pin_task(self.info, 'invalid-history', 'native-1')
+
     def test_exception_restores_original_ephemeral_context_and_clears_active_alias(self):
         self.enable(); agent = self.construct()
         with patch.object(self.adapter, 'call', side_effect=RuntimeError('provider-or-tool-failure')):

@@ -59,6 +59,10 @@ class Release(unittest.TestCase):
             for row in docs_only['files']:
                 if row['candidate'] in scope.RUNTIME:
                     row['beforeSha256']=row['sha256']
+            (stage/'approved-manifest.json').write_text(json.dumps(docs_only),encoding='utf-8')
+            with patch.object(scope,'HERE',stage):
+                existing=scope.load_base()
+            self.assertEqual(len(existing.validate(docs_only,stage)),len(docs_only['files']))
             with patch('subprocess.run') as service:
                 publisher.restart_for(docs_only)
                 service.assert_not_called()
