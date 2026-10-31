@@ -6,7 +6,7 @@ import re
 import time
 import zipfile
 from xml.etree.ElementTree import ParseError
-from urllib.parse import parse_qs, quote
+from urllib.parse import parse_qs, quote, unquote
 
 
 PREFIX = "/api/hermes/conversations"
@@ -55,16 +55,22 @@ def handle(handler, method, uri, user, service, authorized):
             respond(handler, 201, service.create(user))
         elif method == "GET" and len(parts) == 1 and not params:
             respond(handler, 200, service.detail(user, parts[0]))
-        elif len(parts) >= 2 and parts[1] == "files" and not params:
+        elif len(parts) >= 2 and parts[1] == "files" and (not params or
+                (method == 'GET' and len(parts) == 2 and set(params) == {'request_id'} and len(params['request_id']) == 1)):
             from conversation_files import ConversationFiles
             # Existing service gate and owner checks also apply after revocation.
             service.detail(user, parts[0])
             files = ConversationFiles(service.store)
             if method == "GET" and len(parts) == 2:
-                respond(handler, 200, files.listed(user, parts[0]))
+                if params:
+                    respond(handler, 200, files.lookup(user, parts[0], params['request_id'][0]))
+                else:
+                    listed = files.listed(user, parts[0])
+                    respond(handler, 200, {'items': [files.describe(user, parts[0], item['file_id']) for item in listed['items']]})
             elif method == "POST" and len(parts) == 2:
                 raw = read_file(handler)
-                item = files.save(user, parts[0], handler.headers.get('X-FS-Filename'), raw,
+                name = handler.headers.get('X-FS-Filename')
+                item = files.save(user, parts[0], unquote(name, errors='strict') if name else name, raw,
                                   handler.headers.get('X-FS-Request-ID'))
                 respond(handler, 201, item)
             elif method == "GET" and len(parts) == 4 and parts[3] == "table":
