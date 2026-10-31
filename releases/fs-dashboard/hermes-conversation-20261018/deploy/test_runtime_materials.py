@@ -1,14 +1,16 @@
 """Synthetic publisher/SQLite checks; not real Linux modes, deployment or login."""
-from contextlib import closing
+from contextlib import closing, nullcontext
 from datetime import datetime, timedelta, timezone
 import importlib.util
 import json
 import os
 from pathlib import Path
 import sqlite3
+import subprocess
 import tempfile
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import runtime_prepare as prepare
 import runtime_release as release
@@ -22,6 +24,144 @@ NGINX = (b'# unrelated\r\nlocation = /api/hermes/conversations {\r\n'
 
 
 class RuntimeMaterials(unittest.TestCase):
+    def test_live_image_and_post_restart_require_real_container(self):
+        live = subprocess.CompletedProcess([], 0, release.FROZEN_IMAGE_MARKER + '\n', '')
+        with patch.object(release.subprocess, 'run', return_value=live), \
+                patch.object(release.subprocess, 'check_output', return_value='active\n'), \
+                patch.object(release, 'Path') as path:
+            self.assertEqual(release.worker_image(), release.FROZEN_IMAGE_MARKER)
+            path.assert_not_called()
+        absent = subprocess.CompletedProcess([], 1, '', 'Error: No such object: fs-hermes-fc\n')
+        with patch.object(release.subprocess, 'run', return_value=absent):
+            with self.assertRaisesRegex(ValueError, 'current_worker_container_unavailable'):
+                release.worker_image()
+
+    def test_stopped_image_recovery_is_exact_and_pre_install_only(self):
+        absent = subprocess.CompletedProcess([], 1, '', 'Error: No such object: fs-hermes-fc\n')
+        unit = '/etc/systemd/system/fs-hermes-fc.service'
+        dropin = unit + '.d/install-state-isolation.conf'
+        pinned = {unit: '94b9cf19547ad0a4b68307ea35d4f5317fca0136048b90d78d5f9cea1dbaf011',
+                  dropin: '2a4eeada8c0acd27db04aa14838af7cc5c7fe3355677581d53f1f3509c74321a'}
+        state = ('ActiveState=failed\nFragmentPath=' + unit + '\nDropInPaths=' + dropin + '\nNeedDaemonReload=no\n')
+        # Inject host/process boundaries only. No unit/config/secrets are read and
+        # the original offline runner continues to forbid real child processes.
+        info = SimpleNamespace(st_mode=0o100644, st_nlink=1, st_uid=0, st_gid=0)
+        fake_paths = {name: SimpleNamespace(stat=lambda: info, read_bytes=lambda n=name: n.encode())
+                      for name in pinned}
+        sha = lambda raw: SimpleNamespace(hexdigest=lambda: pinned[raw.decode()])
+        values = {'containers': '', 'state': state, 'image': release.FROZEN_IMAGE_MARKER}
+        def output(command, **kwargs):
+            if command[:2] == ['docker', 'ps']:
+                self.assertIn('name=^/fs-hermes-fc$', command)
+                return values['containers']
+            if command[0] == 'systemctl':
+                return values['state']
+            self.assertEqual(command, ['docker', 'image', 'inspect', '--format', '{{.Id}}', release.FROZEN_IMAGE_MARKER])
+            return values['image']
+        with patch.object(release.subprocess, 'run', return_value=absent) as run, \
+                patch.object(release.subprocess, 'check_output', side_effect=output), \
+                patch.object(release, 'Path', side_effect=lambda n: fake_paths[n]), \
+                patch.object(release, 'frozen', return_value=SimpleNamespace(no_target_link=Mock())), \
+                patch.object(release.hashlib, 'sha256', side_effect=sha):
+            self.assertEqual(release.worker_image(allow_stopped=True), release.FROZEN_IMAGE_MARKER)
+            values['state'] = state.replace('failed', 'inactive')
+            self.assertEqual(release.worker_image(allow_stopped=True), release.FROZEN_IMAGE_MARKER)
+            values['state'] = state
+            for key, bad, error in (
+                    ('containers', 'new-container', 'container_changed'),
+                    ('state', state.replace('failed', 'active'), 'unit_state_changed'),
+                    ('state', state.replace('NeedDaemonReload=no', 'NeedDaemonReload=yes'), 'unit_state_changed'),
+                    ('state', state.replace(dropin, dropin + ' /other.conf'), 'unit_state_changed'),
+                    ('state', state.replace('FragmentPath=' + unit, 'FragmentPath=/other'), 'unit_state_changed'),
+                    ('image', 'sha256:' + '0' * 64, 'pinned_image_unavailable')):
+                old = values[key]; values[key] = bad
+                with self.subTest(key=key, bad=bad), self.assertRaisesRegex(ValueError, error):
+                    release.worker_image(allow_stopped=True)
+                values[key] = old
+            info.st_mode = 0o100666
+            with self.assertRaisesRegex(ValueError, 'unit_drift'):
+                release.worker_image(allow_stopped=True)
+            info.st_mode = 0o100644
+            pinned[unit] = '0' * 64
+            with self.assertRaisesRegex(ValueError, 'unit_drift'):
+                release.worker_image(allow_stopped=True)
+            run.return_value = subprocess.CompletedProcess([], 1, '', 'Cannot connect to Docker daemon')
+            with self.assertRaisesRegex(ValueError, 'container_unavailable'):
+                release.worker_image(allow_stopped=True)
+
+    def test_recovery_inspect_apply_guards_switch_to_actual_active_postcondition(self):
+        for failure in (None, 'restart', 'missing_container', 'stopped_after_health'):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                base, system, payload, known, metadata, sha = self.fixture(root)
+                stage = root / 'stage'
+                with patch.object(prepare, 'KNOWN', known), patch.object(prepare, 'file_metadata', metadata):
+                    prepare.prepare(payload, stage, 'a' * 40, sha, root=system, release_ready=True)
+                manifest_path = stage / 'approved-manifest.json'
+                manifest = json.loads(manifest_path.read_bytes())
+                manifest['runtimeBefore']['fs-hermes-fc.service']['ActiveState'] = 'failed'
+                manifest['workerImageSource'] = 'configured_unit_and_local_image'
+                raw = json.dumps(manifest).encode(); manifest_path.write_bytes(raw)
+                spec = importlib.util.spec_from_file_location('staged_recovery', stage / 'runtime_release.py')
+                module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+                state = {'worker': 'failed', 'container': False, 'restarted': False}
+                phases = []
+                def host_guards(current, host, reader_stopped=False):
+                    expected = current['runtimeRequired']['fs-hermes-fc.service']['ActiveState']
+                    phases.append(expected)
+                    if state['worker'] != expected:
+                        raise ValueError('protected unit changed: fs-hermes-fc.service')
+                    for row in current['unchangedRequired']:
+                        self.assertEqual(base.digest(base.rooted(system, row['path'])), row['sha256'])
+                def observation(*, allow_stopped=False):
+                    if not state['container'] and not allow_stopped:
+                        raise ValueError('current_worker_container_unavailable')
+                    return {'image': manifest['workerImageId'], 'state': state['worker'],
+                            'source': 'container' if state['container'] else 'configured_unit_and_local_image'}
+                def restart(current, fence):
+                    state['restarted'] = True
+                    if failure == 'restart':
+                        raise RuntimeError('real startup failed')
+                    state.update(worker='active', container=True)
+                    if failure == 'missing_container':
+                        state['container'] = False
+                    if failure == 'stopped_after_health':
+                        state['worker'] = 'failed'
+                base.guards = host_guards
+                base.restart_for = restart
+                base.retirement = lambda *a: None
+                base.locks = base.live_lock = base.model_release_lock = lambda *a: nullcontext()
+                base.hermes_admission_fence = lambda *a: nullcontext(SimpleNamespace(modified=False, confirmed=False))
+                if os.name == 'nt':
+                    base.directory_sync = lambda *a: None
+                with patch.object(module, 'frozen', return_value=base), \
+                        patch.object(module, 'worker_observation', side_effect=observation), \
+                        patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)):
+                    publisher = module.load_base()
+                    publisher.inspect(manifest, stage, system)
+                    self.assertEqual(phases, ['failed'])
+                    # A baseline-state change is rejected before any install.
+                    state['worker'] = 'inactive'
+                    with self.assertRaisesRegex(ValueError, 'protected unit changed'):
+                        publisher.inspect(manifest, stage, system)
+                    state['worker'] = 'failed'
+                    if failure:
+                        with self.assertRaises((RuntimeError, ValueError)):
+                            publisher.apply(manifest, stage, prepare.digest(raw), raw, 'nav-20261101T000001Z', system)
+                    else:
+                        result = publisher.apply(manifest, stage, prepare.digest(raw), raw, 'nav-20261101T000001Z', system)
+                        self.assertEqual(result['status'], 'applied-awaiting-actual-http-role-acceptance')
+                    self.assertTrue(state['restarted'])
+                    self.assertEqual(manifest['runtimeRequired']['fs-hermes-fc.service'], {'ActiveState': 'active'})
+                    journal = json.loads((base.rooted(system, '/var/backups/fs-navigation-20261006/nav-20261101T000001Z') / 'journal.json').read_bytes())
+                    self.assertEqual(journal['status'], 'rolled-back' if failure else result['status'])
+                    for row in manifest['files']:
+                        self.assertEqual(base.digest(base.rooted(system, row['target'])),
+                                         row['beforeSha256'] if failure else row['sha256'])
+                    if failure != 'restart':
+                        if failure != 'missing_container':
+                            self.assertEqual(phases[-1], 'active')
+
     def test_nginx_patch_preserves_all_other_bytes_and_rejects_anchor_drift(self):
         changed = prepare.patch_nginx(NGINX)
         self.assertEqual(changed.replace(b'10m;', b'16k;'), NGINX)
@@ -102,6 +242,14 @@ class RuntimeMaterials(unittest.TestCase):
             manifest = json.loads((stage / 'approved-manifest.json').read_bytes())
             self.assertFalse(manifest['releaseReady'])
             publisher.validate(manifest, stage)
+            for invalid in ('activating', 'active'):
+                bad = json.loads((stage / 'approved-manifest.json').read_bytes())
+                bad['runtimeBefore']['fs-hermes-fc.service']['ActiveState'] = invalid
+                bad['workerImageSource'] = 'configured_unit_and_local_image'
+                (stage / 'approved-manifest.json').write_text(json.dumps(bad), encoding='utf-8')
+                with self.assertRaisesRegex(ValueError, 'runtime_before_required'):
+                    module.load_base().validate(bad, stage)
+                (stage / 'approved-manifest.json').write_text(json.dumps(manifest), encoding='utf-8')
             # OS/service/retirement checks are intentionally outside this fixture.
             publisher.guards = lambda *a, **kw: None
             publisher.retirement = lambda *a: None

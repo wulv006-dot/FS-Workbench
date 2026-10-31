@@ -9,7 +9,7 @@ import shutil
 import stat
 import subprocess
 
-from runtime_release import HERE, NGINX, TARGETS, NEW, FROZEN_IMAGE_MARKER, frozen, protected_paths, worker_image
+from runtime_release import HERE, NGINX, TARGETS, NEW, FROZEN_IMAGE_MARKER, frozen, protected_paths, worker_observation
 
 MODULE = 'releases/fs-dashboard/hermes-conversation-20261018/'
 CORE = 'releases/fs-dashboard/hermes-v2-core-20261020/source/'
@@ -101,8 +101,10 @@ def observe(root=Path('/')):
         if row['sha256'] is not None and row['mode'] != expected_mode:
             raise ValueError('runtime_mode_drift: ' + row['path'])
     protected = [file_metadata(base, root, path) for path in sorted(protected_paths(base))]
+    worker = worker_observation(allow_stopped=True) if root == Path('/') else {
+        'image': 'sha256:' + '0' * 64, 'state': 'active', 'source': 'container'}
     return {'observed_at': datetime.now(timezone.utc).isoformat(), 'files': rows, 'protected': protected,
-            'worker_image': worker_image() if root == Path('/') else 'sha256:' + '0' * 64}
+            'worker_image': worker['image'], 'worker_state': worker['state'], 'worker_image_source': worker['source']}
 
 
 def pack(repo, output, commit):
@@ -160,6 +162,9 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
                 'unchangedRequired': [{'path': r['path'], 'sha256': r['sha256']} for r in observed['protected']],
                 'runtimeRequired': {unit: {'ActiveState': 'active'} for unit in (
                     'fs-business-range.service', 'fs-hermes-fc.service', 'nginx.service')},
+                'runtimeBefore': {unit: {'ActiveState': observed['worker_state'] if unit == 'fs-hermes-fc.service' else 'active'}
+                                  for unit in ('fs-business-range.service', 'fs-hermes-fc.service', 'nginx.service')},
+                'workerImageSource': observed['worker_image_source'],
                 'baselineObservedAt': observed['observed_at'], 'approvedPayloadSha256': payload_sha256}
     stage.mkdir(parents=True, mode=0o700)
     for name, body in bodies.items():

@@ -63,12 +63,61 @@ def protected_paths(base):
     return paths - set(TARGETS.values())
 
 
-def worker_image():
-    value = subprocess.check_output(['docker', 'inspect', '--format', '{{.Image}}', 'fs-hermes-fc'],
-                                    universal_newlines=True).strip()
+def worker_observation(*, allow_stopped=False):
+    checked = subprocess.run(['docker', 'inspect', '--format', '{{.Image}}', 'fs-hermes-fc'],
+                             capture_output=True, text=True, timeout=10)
+    if checked.returncode:
+        # The original unit uses --rm and Restart=no: a failed worker may have
+        # no container. Only pre-install checks can use its exact installed unit
+        # and locally present pinned image; post-restart still requires a container.
+        if (not allow_stopped or checked.returncode != 1
+                or checked.stderr.strip() != 'Error: No such object: fs-hermes-fc'):
+            raise ValueError('current_worker_container_unavailable')
+        def output(command):
+            return subprocess.check_output(command, universal_newlines=True, timeout=10).strip()
+        if output(['docker', 'ps', '-a', '--filter', 'name=^/fs-hermes-fc$', '--format', '{{.ID}}']):
+            raise ValueError('worker_container_changed_during_observation')
+        unit = '/etc/systemd/system/fs-hermes-fc.service'
+        dropin = unit + '.d/install-state-isolation.conf'
+        expected = {unit: '94b9cf19547ad0a4b68307ea35d4f5317fca0136048b90d78d5f9cea1dbaf011',
+                    dropin: '2a4eeada8c0acd27db04aa14838af7cc5c7fe3355677581d53f1f3509c74321a'}
+        base = frozen()
+        for name, sha in expected.items():
+            path = Path(name)
+            base.no_target_link(path)
+            info = path.stat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                    or (info.st_uid, info.st_gid) != (0, 0)
+                    or stat.S_IMODE(info.st_mode) & 0o022
+                    or hashlib.sha256(path.read_bytes()).hexdigest() != sha):
+                raise ValueError('stopped_worker_unit_drift')
+        state = dict(line.split('=', 1) for line in output([
+            'systemctl', 'show', 'fs-hermes-fc.service', '-p', 'ActiveState',
+            '-p', 'FragmentPath', '-p', 'DropInPaths', '-p', 'NeedDaemonReload']).splitlines())
+        if (state.get('ActiveState') not in ('failed', 'inactive')
+                or state.get('FragmentPath') != unit or state.get('DropInPaths') != dropin
+                or state.get('NeedDaemonReload') != 'no'):
+            raise ValueError('stopped_worker_unit_state_changed')
+        # Both exact unit bytes above pin this image; do not resolve mutable tags
+        # or substitute another image when recovery is needed.
+        value = output(['docker', 'image', 'inspect', '--format', '{{.Id}}', FROZEN_IMAGE_MARKER])
+        if value != FROZEN_IMAGE_MARKER:
+            raise ValueError('stopped_worker_pinned_image_unavailable')
+    else:
+        value = checked.stdout.strip()
+        state = {'ActiveState': subprocess.check_output([
+            'systemctl', 'show', 'fs-hermes-fc.service', '-p', 'ActiveState', '--value'],
+            universal_newlines=True, timeout=10).strip()}
     if not re.fullmatch('sha256:[a-f0-9]{64}', value):
         raise ValueError('current_worker_image_required')
-    return value
+    if state['ActiveState'] not in ('active', 'failed', 'inactive'):
+        raise ValueError('worker_state_not_stable')
+    return {'image': value, 'state': state['ActiveState'],
+            'source': 'configured_unit_and_local_image' if checked.returncode else 'container'}
+
+
+def worker_image(*, allow_stopped=False):
+    return worker_observation(allow_stopped=allow_stopped)['image']
 
 
 def quiescent(base, root):
@@ -120,6 +169,16 @@ def load_base():
         if manifest.get('runtimeRequired') != {unit: {'ActiveState': 'active'} for unit in (
                 'fs-business-range.service', 'fs-hermes-fc.service', 'nginx.service')}:
             raise ValueError('material_active_services_required')
+        before = manifest.get('runtimeBefore', {})
+        if (set(before) != set(manifest['runtimeRequired'])
+                or before['fs-business-range.service'] != {'ActiveState': 'active'}
+                or before['nginx.service'] != {'ActiveState': 'active'}
+                or before['fs-hermes-fc.service'] not in [
+                    {'ActiveState': state} for state in ('active', 'inactive', 'failed')]
+                or manifest.get('workerImageSource') not in ('container', 'configured_unit_and_local_image')
+                or (manifest['workerImageSource'] == 'configured_unit_and_local_image'
+                    and before['fs-hermes-fc.service']['ActiveState'] == 'active')):
+            raise ValueError('material_runtime_before_required')
         if {row['path'] for row in manifest.get('unchangedRequired', [])} != protected_paths(base):
             raise ValueError('material_protected_set_changed')
         return validate(manifest, stage)
@@ -136,6 +195,23 @@ def load_base():
         quiescent(base, root)
 
     base.hermes_quiescent = idle
+    original_guards = base.guards
+    before_restart = True
+
+    def guards(manifest, root, reader_stopped=False):
+        # runtimeRequired is the successful postcondition, runtimeBefore is the
+        # explicit observed precondition. Never fake an active worker to the
+        # frozen checks, and retain every other guard/protected source check.
+        if before_restart and manifest.get('scope') == SCOPE:
+            if manifest['runtimeBefore']['fs-hermes-fc.service'] != {'ActiveState': 'active'}:
+                observed = worker_observation(allow_stopped=True)
+                if (observed['image'] != manifest['workerImageId']
+                        or observed['source'] != manifest['workerImageSource']):
+                    raise ValueError('material_recovery_image_source_drift')
+            manifest = dict(manifest, runtimeRequired=manifest['runtimeBefore'])
+        return original_guards(manifest, root, reader_stopped=reader_stopped)
+
+    base.guards = guards
     original_inspect = base.inspect
 
     def inspect(manifest, stage, root=Path('/')):
@@ -147,7 +223,7 @@ def load_base():
                     info = path.stat()
                     if (info.st_uid, info.st_gid, oct(stat.S_IMODE(info.st_mode))) != (0, 0, row['mode']):
                         raise ValueError('material_target_owner_mode_drift')
-            if worker_image() != manifest['workerImageId']:
+            if worker_image(allow_stopped=True) != manifest['workerImageId']:
                 raise ValueError('material_worker_image_drift')
             # Import definitions only; no service instance, model or source query.
             program = ("import sys;from pathlib import Path;"
@@ -173,12 +249,15 @@ def load_base():
     spec.loader.exec_module(readiness)
 
     def restart(manifest, admission_fence=None):
+        nonlocal before_restart
+        before_restart = False
         if manifest.get('scope') == SCOPE:
             subprocess.run(['nginx', '-t'], check=True, capture_output=True)
         result = readiness.restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
         if manifest.get('scope') == SCOPE:
             if worker_image() != manifest['workerImageId']:
                 raise ValueError('material_worker_image_drift')
+            base.guards(manifest, Path('/'))
             subprocess.run(['systemctl', 'reload', 'nginx.service'], check=True)
         return result
 
