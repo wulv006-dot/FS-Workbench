@@ -64,7 +64,7 @@ class PayloadTests(unittest.TestCase):
         defaults = {**DEFAULTS, "missing_price_policy": "fallback_9999"}
         result = build(row, business_defaults=defaults)
         ext = {entry["key"]: entry["value"] for entry in result["more"]["extend"]}
-        self.assertIsNone(ext["ps_price"])
+        self.assertEqual(ext["ps_price"], "")
         self.assertEqual(ext["pc_price"], "150000")
         self.assertEqual(result["price"], "9999")
         self.assertEqual(payload.missing_platforms(row), ["PlayStation", "Xbox"])
@@ -81,6 +81,16 @@ class PayloadTests(unittest.TestCase):
         row["PC"] = 0
         with self.assertRaisesRegex(ValueError, "INVALID_NUMBER:PC"):
             build(row, business_defaults=defaults)
+
+    def test_missing_market_values_always_use_native_blank_strings(self):
+        for policy in ("preserve_unknown", "fallback_9999"):
+            for missing in (None, "", "   "):
+                row = {**source_row(), "PS": missing, "PC": missing}
+                result = build(row, business_defaults={**DEFAULTS, "missing_price_policy": policy})
+                ext = {e["key"]: e["value"] for e in result["more"]["extend"]}
+                self.assertEqual((ext["ps_price"], ext["pc_price"]), ("", ""))
+                self.assertEqual(row["PC"], missing)
+                payload.validate_model_readback(result, readback(result))
 
     def test_signature_and_normal_keep_their_own_ids_scores_and_prices(self):
         normal = source_row()
@@ -175,7 +185,7 @@ class PayloadTests(unittest.TestCase):
         defaults = {**DEFAULTS, "missing_price_policy": "preserve_unknown"}
         result = build(row, business_defaults=defaults)
         ext = {e["key"]: e["value"] for e in result["more"]["extend"]}
-        self.assertIsNone(ext["ps_price"])
+        self.assertEqual(ext["ps_price"], "")
         self.assertEqual(ext["pc_price"], "")
         self.assertEqual(payload.missing_platforms(row), ["PlayStation", "Xbox", "PC"])
         self.assertNotIn("missing_platforms", result)
