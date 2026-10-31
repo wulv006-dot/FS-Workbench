@@ -3,9 +3,10 @@ import re
 from pilot import digest, encoded, TOOLS
 from research import RESEARCH_NAMES
 from strategy_tools import NAMES as STRATEGY_NAMES
+from conversation_file_tools import NAMES as FILE_NAMES
 
 PIN = {'tag': 'v0.21.7', 'commit': '71d34bad1045610252eda02ee79549436896e784'}
-SEMANTIC_TOOLS = TOOLS + RESEARCH_NAMES + STRATEGY_NAMES
+SEMANTIC_TOOLS = TOOLS + RESEARCH_NAMES + STRATEGY_NAMES + FILE_NAMES
 WIRE_TOOLS = tuple('mcp__fcro__'+name.replace('.', '_') for name in SEMANTIC_TOOLS)
 
 
