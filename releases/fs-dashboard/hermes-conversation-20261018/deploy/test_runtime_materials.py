@@ -26,8 +26,11 @@ NGINX = (b'# unrelated\r\nlocation = /api/hermes/conversations {\r\n'
 class RuntimeMaterials(unittest.TestCase):
     def test_live_image_and_post_restart_require_real_container(self):
         live = subprocess.CompletedProcess([], 0, release.FROZEN_IMAGE_MARKER + '\n', '')
+        def old_systemctl(command, **kwargs):
+            self.assertEqual(command, ['systemctl', 'show', 'fs-hermes-fc.service', '-p', 'ActiveState'])
+            return 'ActiveState=active\n'
         with patch.object(release.subprocess, 'run', return_value=live), \
-                patch.object(release.subprocess, 'check_output', return_value='active\n'), \
+                patch.object(release.subprocess, 'check_output', side_effect=old_systemctl), \
                 patch.object(release, 'Path') as path:
             self.assertEqual(release.worker_image(), release.FROZEN_IMAGE_MARKER)
             path.assert_not_called()
