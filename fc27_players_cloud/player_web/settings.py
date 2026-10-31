@@ -23,9 +23,12 @@ class Settings:
     manual_model_images_enabled: bool = False
     manual_existing_recommend_enabled: bool = False
     shared_backend_session: bool = False
+    manual_existing_add_tags_enabled: bool = False
 
     def existing_action_write_enabled(self, action: str) -> bool:
-        return self.write_enabled or (self.manual_existing_recommend_enabled and action == "recommend_enable")
+        return (self.write_enabled
+                or (self.manual_existing_recommend_enabled and action == "recommend_enable")
+                or (self.manual_existing_add_tags_enabled and action == "add_tags"))
 
     @property
     def model_image_write_enabled(self) -> bool:
@@ -89,4 +92,5 @@ class Settings:
             manual_model_images_enabled=os.environ.get("MANUAL_MODEL_IMAGES_ENABLED", "false").lower() == "true",
             manual_existing_recommend_enabled=os.environ.get("MANUAL_EXISTING_RECOMMEND_ENABLED", "false").lower() == "true",
             shared_backend_session=os.environ.get("FS_SHARED_BACKEND_SESSION", "false").lower() == "true",
+            manual_existing_add_tags_enabled=os.environ.get("MANUAL_EXISTING_ADD_TAGS_ENABLED", "false").lower() == "true",
         )

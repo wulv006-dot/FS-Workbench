@@ -206,6 +206,7 @@ class App:
                     "new_card_write_enabled": self.settings.new_card_write_enabled,
                     "model_image_write_enabled": self.settings.model_image_write_enabled,
                     "existing_recommend_write_enabled": self.settings.existing_action_write_enabled("recommend_enable"),
+                    "existing_add_tags_write_enabled": self.settings.existing_action_write_enabled("add_tags"),
                 }, cookie_headers)
             if method == "GET" and path == "/api/status":
                 return self._json(start, "200 OK", {
@@ -218,6 +219,7 @@ class App:
                     "new_card_write_enabled": self.settings.new_card_write_enabled,
                     "model_image_write_enabled": self.settings.model_image_write_enabled,
                     "existing_recommend_write_enabled": self.settings.existing_action_write_enabled("recommend_enable"),
+                    "existing_add_tags_write_enabled": self.settings.existing_action_write_enabled("add_tags"),
                     "source_transport": self.settings.source_transport,
                     "source_freshness": "unknown",
                     "backend_authenticated": self._session(session_key) is not None,
