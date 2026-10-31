@@ -305,6 +305,46 @@ class GoalHostTests(unittest.TestCase):
             self.assertEqual(result['request_id'], 'task-request-1')
         self.assertEqual(self.ledger.submits, 1)
 
+    def test_same_running_receipt_recovers_from_unknown_across_revisions(self):
+        self.step()
+        binding = self.binding()
+        running = self.ledger.change(binding, 'running')
+        self.host.observe('goal-1', receipt=running, now=NOW)
+        for _ in range(2):
+            unknown = self.ledger.change(binding, 'unknown')
+            self.host.observe('goal-1', receipt=unknown, now=NOW)
+            before = self.state()['revision']
+            restored = self.ledger.change(binding, 'running')
+            self.assertEqual(restored, running)  # Same legitimate original receipt.
+            result = self.step(self.new_host(), request_id='never-replace',
+                               fact_version='new-facts-must-not-replay')
+            self.assertEqual(result['state']['work']['status'], 'running')
+            self.assertEqual(result['state']['revision'], before + 1)
+            self.assertEqual(result['request_id'], 'task-request-1')
+        self.assertEqual(self.ledger.submits, 1)
+
+    def test_same_receipt_cas_operation_retries_with_stable_mutation_identity(self):
+        self.step()
+        binding = self.binding()
+        self.host.observe('goal-1', receipt=self.ledger.change(binding, 'unknown'), now=NOW)
+        self.ledger.change(binding, 'running')
+        original = self.host.goals.cas_goal
+        mutations = []
+        def fail_before_write(*a, **kw):
+            mutations.append(kw['mutation_id'])
+            if len(mutations) == 1:
+                raise TimeoutError('receipt CAS not written; outcome not assumed')
+            return original(*a, **kw)
+        with patch.object(self.host.goals, 'cas_goal', fail_before_write):
+            first = self.step()
+            self.assertEqual(first['action'], 'reconcile_storage')
+            self.assertEqual(self.state()['work']['status'], 'unknown')
+            second = self.step()
+        self.assertEqual(second['state']['work']['status'], 'running')
+        self.assertEqual(len(mutations), 2)
+        self.assertEqual(mutations[0], mutations[1])
+        self.assertEqual(self.ledger.submits, 1)
+
     def test_revocation_after_io_denies_cached_state_and_submit(self):
         self.ledger.lookup_hook = lambda: setattr(self, 'allowed', False)
         with self.assertRaises(PermissionError):

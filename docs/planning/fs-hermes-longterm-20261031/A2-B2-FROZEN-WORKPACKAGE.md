@@ -106,3 +106,11 @@ dispatcher冻结`lookup(*,binding)`及`submit(*,binding,handoff)`，submit只能
 新增B组合最终16项由原Core入口实际加载，与原套件合计156项全部通过、0失败/0skip。组合使用真实A Store/Goals和独立SQLite **SyntheticTaskLedger测试夹具**，没有真实TaskStore/worker客户端；覆盖prepared提交后丢回执而not_found仍不派发、外部任务已提交而submit/admission退出丢回执、receipt CAS提交后丢回执、真实A重放CAS不算fresh、pause抢先拒绝、暂停停止零lookup、停止后原取消push、partial原cutoff/缺页保留、旧任务迟到/六项binding漂移/假成功拒绝、unknown及provider_returned保持原ID、撤权和strict True。该夹具验证跨两个本地DB的故障合同，不声称原生产TaskStore/lease装配、真实授权/事实版本、模型、A2数据、调度或生产DB已验。运行入口/真实授权来源继续为后续明确接点；生产保持501f。
 
 本包knowledge_closeout plan以base2f4251a4运行，仍原91项30 error/native_plugin_exact_registration_delta_required、exit1，未放宽/扩修，知识/Notion收尾保持未完成。主控核A四路径与固定2247724c完全相同，Python3.9语法及diff检查通过；CI驱动与外网/Popen禁令未改。
+
+### PR721独审P2：同回执跨revision的恢复冲突
+
+Business Sol High独审head `ae18056d2291f78b4c7679c3425069aac498be49`、base2f4251a4起止未变；旧head实际LinuxCI41243810785的A53/相关组21/Core156零skip通过，但审查独立复现一项P2：B仅按外部receipt内容生成mutation ID，A的mutation指纹还绑定expected_revision/完整state，所以queued→running→unknown后原账本恢复同一running回执会抛goal_mutation_conflict，重建host仍不能恢复。旧CI绿不能取消该阻断，暂不合并。
+
+Personal先新增真实A SQLite回归，原实现确实复现同一异常；修复仅B `_save_receipt`以expected_revision、完整新state及receipt共同生成确定性CAS操作ID，不把外部回执身份当每次CAS操作身份。不同revision的合法恢复各有操作ID，同一proposal/回执重试仍稳定。A原mutation指纹/事务/admission不变，没有放宽校验或换任务request_id。
+
+修后原runner B host18项全部通过、0失败/0skip：新增两轮running→unknown→同一running恢复及重建host、submit总数仍1；另测同一CAS操作在写前丢回执后原ID查回，mutation ID保持确定。原回执CAS提交后丢回执、prepared/replayed不重派等16边界继续通过。旧head独审/CI证据只覆盖其版本；新完整head须Business独立复查及必要CI，不把本地18项冒Linux/Core新全组验收。A四路径/冻结publisher/运行入口/权限/生产均不改。

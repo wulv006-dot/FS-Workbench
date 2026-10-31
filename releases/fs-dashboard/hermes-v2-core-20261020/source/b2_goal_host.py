@@ -137,7 +137,12 @@ class GoalHost:
         if proposal['state'] == state:
             return self._result(state['goal_id'], self._load(state['goal_id']),
                                 'receipt_already_recorded')
-        mutation = 'goal_receipt_' + hashlib.sha256(_json(receipt).encode('utf-8')).hexdigest()
+        # A receipt can legitimately recur after UNKNOWN at a later revision.
+        # Identify the CAS operation, not just the external receipt; retries of
+        # the same proposal still produce exactly the same mutation identity.
+        operation = dict(expected_revision=proposal['expected_revision'],
+                         state=proposal['state'], receipt=receipt)
+        mutation = 'goal_receipt_' + hashlib.sha256(_json(operation).encode('utf-8')).hexdigest()
         saved = self._cas(proposal['state'], proposal['expected_revision'], mutation)
         if saved is None:
             return dict(action='reconcile_storage', goal_id=state['goal_id'],
