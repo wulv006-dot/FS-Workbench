@@ -205,6 +205,24 @@ class GoalState(unittest.TestCase):
                 self.receipt(prepared, evidence=evidence)
         self.assertEqual(prepared['work']['status'], 'prepared')
 
+    def test_fresh_server_evidence_is_bound_with_prepared_not_a_fake_task_completion(self):
+        checked = NOW + timedelta(hours=1)
+        reference = dict(ref='us_frozen/ua_summary', source='authorized_frozen_user_analytics',
+                         as_of=checked.isoformat(), coverage='partial',
+                         missing=['refund_history'], version='scope/identity/data-v2')
+        result = self.plan(now=checked, evidence=[reference])
+        self.assertEqual(result['state']['revision'], self.state['revision'] + 1)
+        self.assertEqual(result['state']['work']['status'], 'prepared')
+        self.assertEqual(result['state']['evidence'], [reference])
+        self.assertEqual(result['handoff']['evidence'], [reference])
+        self.assertEqual(self.state['evidence'], [])
+        self.assertEqual(result['state']['completed_actions'], [])
+        pending = self.plan(result['state'], now=checked, evidence=[{'untrusted': 'ignored'}])
+        self.assertEqual(pending['state'], result['state'])
+        self.assertEqual(pending['action'], 'reconcile_original')
+        with self.assertRaisesRegex(ValueError, 'future_evidence'):
+            self.plan(evidence=[reference])
+
     def test_real_frozen_investigation_to_goal_to_existing_b1_handoff(self):
         from test_b2_frozen_investigation import FrozenInvestigation
         fixture = FrozenInvestigation('runTest')

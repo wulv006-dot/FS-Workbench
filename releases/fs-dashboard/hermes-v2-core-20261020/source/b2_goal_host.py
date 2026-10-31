@@ -158,12 +158,16 @@ claiming that pause/stop cancelled a provider. Old task receipts fail binding.
 """
         return self._save_receipt(self._load(goal_id), receipt, now)
 
-    def step(self, goal_id, *, mutation_id, request_id, fact_version, now):
+    def step(self, goal_id, *, mutation_id, request_id, fact_version, now,
+             evidence=None, expected_revision=None):
         """One non-looping continuation attempt. No automatic retries anywhere."""
         state = self._load(goal_id)
+        if expected_revision is not None and (type(expected_revision) is not int
+                                               or expected_revision != state['revision']):
+            raise ValueError('goal_revision_conflict')
         proposal = plan_step(state, expected_revision=state['revision'], now=now,
                              fact_version=fact_version, request_id=request_id,
-                             authorize=self.authorize)
+                             authorize=self.authorize, evidence=evidence)
         if proposal['action'] not in {'dispatch_after_cas', 'reconcile_original'}:
             return self._result(goal_id, state, proposal['action'])
         fresh = False

@@ -136,3 +136,19 @@ A限定只读确认：原pilot.TaskStore.create只有FC27/fc_operations_diagnosi
 队列适配冻结submit(binding,handoff)/lookup(binding)/verify_receipt(receipt,binding)，server固定owner/cid/当前authorize及期望原账本路径；原ID按权威owner命名空间去重，完整binding+handoff指纹同事务，重复同内容查原回执、同ID异内容拒绝。not_found仅为已配置/同owner+scope授权的此outbox无row，不证明worker从未收到请求；库缺失/错路径/拒权/IO不能变成not_found。没有合法task/spec/run来源，不提供伪造running/completed入口。锁序保持goal DB admission→独立task DB短事务，禁止任务DB锁内反向调用goal或ConversationService。
 
 验收使用真实temp Store/Goals、原TaskStore的独立SQLite及真实A2 Service冻结重放，零模型/业务API/生产：指纹冲突/并发/重连/丢回执、wrong/missing ledger、scope撤权、queued不冒running、paused/stopped/pending零A2读取、同snapshot稳定/版本缺失或scope错配不派发、partial旧截止及真实lifecycle policy保留、源异常不补0。现行host grant、合法generic执行类型/spec、原worker及生产装配仍是明确缺口，A2真实scope保持unavailable。仍一个Personal整包PR、最新SHA Business独审/必要CI后合并，不按方法拆PR。
+
+### 实际outbox与冻结事实候选
+
+A固定`66b1289729cc8cd6a2e9da13c0c3d973ce1c445a`、base8f604875已正常合入，四路径与登记一致。`ConversationGoalTasks`强制host expected_path匹配原tasks.path现存绝对规范路径，以mode=rw打开并逐次核原schema/非partial完整唯一索引、文件身份及私有ledger_id。模块只创建/写私有outbox与身份表，不经TaskStore.db自动建替代库；缺库/漂移/损坏/IO不返回not_found。完整binding+原始B1 handoff按owner/request_id事务去重，重复同payload返原queued，未知scope/撤权literal True拒绝；receipt精确三字段，不新增task_id/lease/run_id，私有row这三项始终NULL，无running/completed或record入口。
+
+A真实temp测试原会话入口75项（新outbox22）零skip证据复用；最后收紧partial unique index后新22项单独重验通过。覆盖原已有合成FC任务保留、tasks/schema不改、路径竞态不造空库、授权/指纹/并发、reservation独立提交及锁序。B不改A底座，固定候选四路径比对另核；Linux按最新PR CI验证，不据Windows3.9 AST称Linux执行。
+
+B新增`b2_goal_facts.py`的`FrozenGoalFacts(host,resolve_scope,context_for)`及实际组合测试。server解析opaque scope_ref到精确site/project，未配置则unavailable且零context/源读取；context身份/范围不能换用。只读原catalog和显式snapshot aggregate(summary)，校对source与summary七项原版本、scope/query/us_/ua_/reference、实际冻结lifecycle_policy及保守query/state/weekly截止；不按snapshot_id或当前时间补版本。捕获时间只校验不来自未来，不用它推进业务截止或制造新fact版本；复合摘要含原版本/query/coverage/watermark/实际policy。
+
+已有上一摘要时，从其原snapshot重放必要baseline并核实际policy/身份/scope/contract及期间基础可比，缺原源返回unavailable，不靠hash或当前表重建。当前与baseline的原引用、partial/旧cutoff/missing保留，同snapshot原有缺项并集；只精简重复aggregate摘要，原页链/其它证据引用保留，仍受32KiB约束。summary不冒候选/时间线全集，不新增高价值金额排名、流失概率或经营写入。
+
+原B plan_step与GoalHost.step加可选server-only evidence；新事实引用与prepared同一次CAS保存，非伪completed回执，不改v1状态schema。读取期间goal revision改变即拒绝过时提议；新事实CAS/admission通过A2原授权∩host范围继续校验，读后撤权不存/不排队。paused/stopped/pending在源读取前处理，pending只对原ID核队列，不返未经source重核的私有state/evidence缓存。原GoalState/host API默认参数兼容，UNKNOWN/replayed和已验证not_found不补发。
+
+Personal原Core最终177项全部通过、0失败/0skip，新增facts18项已实际加载（4元数据、14真实A2/GoalStore/原任务DB outbox组合）；新增kernel1项覆盖prepared/evidence原子保存、pending忽略覆盖及future拒绝。首次组合16项通过，补同snapshot缺项及pending缓存边界后完整177重验。使用真实合成SQLite/Service冻结重放及原TaskStore temp DB，原tasks行数仍0；全程无SyntheticTaskLedger替代此新组合、无真实模型/业务API。Windows沿用A2已明示2026 UTC+08及私有temp mode夹具，真实POSIX/最新SHA独审与LinuxCI待完成。queued只计持久待执行，不计原TaskStore任务、worker启动或阶段2上线；生产仍501f。
+
+本包以base8f604875执行原knowledge_closeout plan，仍既有91项/30 error、native_plugin_exact_registration_delta_required、exit1，未扩修或放宽旧知识publisher，不称知识/Notion完成。原pr-fast/外网/Popen围栏未改；6条B Python路径3.9 AST与diff通过，A四路径与固定66b12897无差异。实际源扫描量/生产费用仍unknown，不因冻结摘要小而推断后端少扫或新模型账单。
