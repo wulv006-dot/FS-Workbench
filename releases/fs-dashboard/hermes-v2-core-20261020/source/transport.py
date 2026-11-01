@@ -133,6 +133,8 @@ class Proxy:
         # escalate, disable or silently downgrade it using a body parameter.
         effort=grant.reasoning_effort
         auxiliary='tools' not in body and 'max_tokens' not in body
+        book = getattr(gateway.scope, 'book', None)
+        material = getattr(book, 'material_execution', False)
         # Fixed native compression omits max_tokens/tools and probes streaming.
         # Its pre-dispatch stream probe is rejected as HTTP400, so official
         # auxiliary_client falls back once to a plain request without a charge.
@@ -145,17 +147,29 @@ class Proxy:
             body['reasoning_effort']=effort
             from proxy_gateway import MAX_HERMES_OUTPUT_TOKENS
             body['max_tokens']=MAX_HERMES_OUTPUT_TOKENS
+        elif material:
+            # Streaming is a response encoding, not another provider call or
+            # permission to override the trusted model/tool/policy selection.
+            if type(body.get('stream', False)) is not bool:
+                raise ValueError('provider_override')
+            options=body.get('stream_options')
+            if (options is not None and
+                    (type(options) is not dict or set(options)-{'include_usage'} or
+                     ('include_usage' in options and type(options['include_usage']) is not bool))):
+                raise ValueError('stream_options')
+            if not body.get('stream', False) and options:
+                raise ValueError('stream_options')
         elif 'stream_options' in body:raise ValueError('stream_options')
         if (effort=='none' and body.get('reasoning_effort') not in (None,'none') or
                 effort!='none' and body.get('reasoning_effort')!=effort):
             raise ValueError('reasoning_policy')
-        if body.get('model') != gateway.budget.policy['model'] or body.get('stream', False) is not False:
+        if (body.get('model') != gateway.budget.policy['model'] or
+                (not (material and not auxiliary) and body.get('stream', False) is not False)):
             raise ValueError('provider_override')
         if body.get('tool_choice', 'auto') != 'auto':
             raise ValueError('tool_choice')
         tool_schemas = None
-        book = getattr(gateway.scope, 'book', None)
-        if getattr(book, 'material_execution', False):
+        if material:
             # The authenticated gateway context above owns this book. Never
             # select a task kind or expand tools from client request fields.
             from proxy_gateway import task_schemas
@@ -220,6 +234,23 @@ class Proxy:
                              'finish_reason':receipt['finish_reason']}]}
 
 
+def _completion_events(result, include_usage):
+    # The existing gateway has already completed and accounted for one call.
+    # Adapt that receipt to SDK SSE; this does not promise live upstream tokens.
+    base={key:result[key] for key in ('id','created','model')}
+    base['object']='chat.completion.chunk'
+    choice=result['choices'][0]
+    delta=deepcopy(choice['message'])
+    if 'tool_calls' in delta:
+        delta['tool_calls']=[dict(call,index=index) for index,call in enumerate(delta['tool_calls'])]
+    events=[dict(base,choices=[{'index':0,'delta':delta,'finish_reason':None}]),
+            dict(base,choices=[{'index':0,'delta':{},'finish_reason':choice['finish_reason']}])]
+    if include_usage:
+        events.append(dict(base,choices=[],usage=result['usage']))
+    return (''.join('data: '+encoded(event)+'\n\n' for event in events)+
+            'data: [DONE]\n\n').encode('utf-8')
+
+
 def start_loopback(proxy, port=8940):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.0'
@@ -269,9 +300,12 @@ def start_loopback(proxy, port=8940):
                 if code=='provider_transport_recovery_exhausted':status,result=503,{'error':{'message':'FC model connection recovery exhausted: provider_transport_recovery_exhausted','type':'upstream_transport_error'}}
             except Exception:
                 status, result = 503, {'error': {'message': 'request unavailable', 'type': 'server_error'}}
-            data = encoded(result).encode('utf-8')
+            streaming=(status==200 and self.path=='/v1/chat/completions' and
+                       isinstance(body,dict) and body.get('stream') is True)
+            data = (_completion_events(result, (body.get('stream_options') or {}).get('include_usage') is True)
+                    if streaming else encoded(result).encode('utf-8'))
             self.send_response(status)
-            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Type', 'text/event-stream; charset=utf-8' if streaming else 'application/json; charset=utf-8')
             self.send_header('Content-Length', str(len(data)))
             self.end_headers()
             self.wfile.write(data)
