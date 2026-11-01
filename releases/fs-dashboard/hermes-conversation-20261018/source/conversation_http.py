@@ -25,7 +25,8 @@ def _material_lookup_stage(error, service, stage):
     while trace is not None:
         frames.append(trace.tb_frame.f_code)
         trace = trace.tb_next
-    if stage == 'submit' and queue_code is not None and owned_code is not None and queue_code in frames and owned_code in frames:
+    if (stage == 'submit' and queue_code is not None and owned_code is not None
+            and any(code is queue_code for code in frames) and any(code is owned_code for code in frames)):
         return 'submit_owned'
     return 'lookup'
 
