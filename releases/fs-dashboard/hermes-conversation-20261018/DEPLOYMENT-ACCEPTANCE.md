@@ -841,3 +841,14 @@ Personal交接PR735独审/必要CI通过及最终source=`9edb8827c0bc21fce417303
 经正常工具审核，只读collector已知锁及服务元信息，于 `2026-11-01T16:52:49.679091+00:00` 观察到collector.lock由PID3139/python3持WRITE锁；fs-transaction-collect.service为Type=oneshot、MainPID=3139、ActiveState=activating、SubState=start、ExecMainStartTimestamp=`Mon 2026-11-02 00:48:59 CST`。这是该时点真实占用，不是未来状态保证，也不是本次apply抛锁异常：本轮没有调用publisher prepare/inspect/apply或实际尝试获取锁，预检即停止。没有轮询、抢锁、stop/kill、改timer、清UNKNOWN、变更权限或服务。
 
 稳定共享目录=`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-MaterialStream-Deploy-20261101T165224Z/`，index列pack/collector_preflight/summary三份metadata的完整bytes/SHA。无生产源码/配置/DB或业务内容导出；未新开浏览器session、未调用任何材料GET/POST/result/error或模型，所有封存请求保持、旧费用和因果unknown不变。生产仅沿此前已验b362记录，本次未重新核25/45现场SHA或服务/image，不能补称当前全量读回通过。结论仅【最终9edb本地包就绪；collector预检锁忙，软件尚未安装，真实材料及视觉验收未开始】。按本轮边界回交Personal后停止，后续自然释放需另有据核查，不能自动重复发布；本附录纯记录提交，不作部署source。
+
+
+## PR735最终9edb发布读回通过，正常新会话验收被工具审核阻断（2026-11-02）
+
+本轮只推进阶段1。17:51:03Z一次collector观察为锁无持有者、inactive/dead、MainPID0，才继续原授权发布；复用最终9edb原GitLF载荷956df248…/645120-byte tar dac6f974…，不夹带其它PR。先核旧计划nav-20261101T165224Z无backup/stage，再使用全新stage=/var/tmp/fs-material-stream-9edb8827-20261101T175040Z/stage、release-id=nav-20261101T175040Z；fresh baseline=2026-11-01T17:51:51.833785+00:00，manifest SHA=74270ff2d91e195a8279572ba48aaa35a4189a75597bceaa9496a4fbe9116088。原b362 proof、25before/45保护/root/mode/active真实固定image及quiescent、原inspect全部通过后，仅一次原apply成功，backup=/var/backups/fs-navigation-20261006/nav-20261101T175040Z，journal SHA=831ca7e02476aa50ef9fb25c2b3cc52c28ad562979fff26a938992746a6fc3e7，状态applied-awaiting-actual-http-role-acceptance。
+
+25 afterSHA/root/mode、45保护及其mode/root匹配；唯一transport2ef021…→e682d865…，其它24目标inode/mtime保持、8已有模块仍在。仅range PID10201→21750；worker10045、Nginx31780不变，三服务active，range200/ok=true、匿名worker401。真实container7af81e7fd24b3d6de9cb0ba37492cb640a712ec4ab3d1f59985d34621b374b4a、image8251bc53…、Running及StartedAt=2026-11-01T14:06:29.450947631Z前后相同。软件已安装，不能与此前预检等待混记；没有第二次apply、SDK/config/权限变更或临时生产patch。
+
+随后仅在自建BrowserAct会话打开同源favicon非应用页，避免自动读取历史cid。创建新验收cid时，harness把X-FS-Advisor-Action误填为1，POST /api/hermes/conversations得到403/same_origin_required，未返cid；当前前端实际使用submit。纠正为页面原submit的尝试被auto-review在进程启动前拒绝，理由为403后改变动作头重试可能绕过同源/授权边界，禁止换手段绕过。故停止，不改入口或认证，不把403猜成账号过期或材料模型错误。已关闭仅自己创建的fs_material_stream_9edb_20261101t1750，用户原页不动；上传0、材料POST0、模型任务0、无旧run/error/result读取，历史费用unknown仍保留。
+
+稳定共享目录C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-MaterialStream-Resume-20261101T175040Z/，index1299bytes/SHA675c58337a99d953d9dc91fcc320633b85589a5a113e5dd958b7ba6bef7eafec，8份metadata列完整bytes/SHA。结论仅【9edb软件发布读回通过；新CSV尚未开始，正常角色入口被工具审核阻断】，不是阶段1功能或视觉通过。精确下一许可为按页面原有submit动作头创建单个新合成验收会话并重新正常工具审核，不能凭本记录绕过拒绝。此为本轮一次短附录，不作部署source；未重跑旧27/14/SDK6或推进阶段2。
