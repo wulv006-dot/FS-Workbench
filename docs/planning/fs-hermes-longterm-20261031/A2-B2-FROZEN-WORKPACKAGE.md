@@ -246,3 +246,13 @@ A同固定输入的本机证据复用：原store入口83（含新材料20）、d
 正常merge A修复固定501239c434ae6931cf44b19980b51c828fafac3f，无冲突，仍同一个PR723；9条差异仅属A已登记路径，B目录相对42b6df09无差异。runtime独立RLock只覆盖cache取建并返回锁内局部引用，DB/授权构造、执行与网络在锁外。修订前端单选及事件处理双重拒绝多选，并显示真实目标名；读取多选和后端显式目标能力不收窄。A在内存装回旧51af后两个新增回归实际失败，修复后通过，未修改跟踪旧源。
 
 Personal沿原pr_fast.units独立运行新增并发2项零failure/error/skip，原Node入口真实DOM/fetch含两种勾选顺序及逆序ID回归通过；查看新candidate-only深色展开图，目标文件名已可见。复用未变输入的材料20/Core198、A原83/deploy22/channel12及Chromium证据，不宣称本轮全部重跑。原知识收尾失败状态保持，生产501f未变。当前两项主控P2已收口，冻结最新完整集成SHA交唯一Business Sol High独立worktree审核心；LinuxCI/独审返回前仍draft、不合并、不部署。真实SDK/模型/费用、生产停止/第二身份/A2scope/200%与生产视觉未验。
+
+### PR723代码验收合并与发布交接
+
+Business独立工作树t3-67218b89在起止均核head d5f0df0c02d87993e8d676b45fde9c277b2bcdd0/base d279086292f514002adadf801468e077dc7f3a1a、origin/clean一致，审阅28路径核心，无新的可复现问题；独立材料22/Core198/deploy22及Node零failure/error/skip，两项主控P2的新旧对照成立。执行平台codex-business、gpt-6.1-sol High，未启动其它Agent/改GitHub内容。GitHub机器人另一次自动审查未能完成，仅摘要提示、无具体代码意见，不冒称其通过、不重复触发。
+
+CI41258739182首轮在APT浏览器依赖准备停滞至10分钟上限取消，实际测试未开始；同SHA原job重跑成功。PR转正式触发仓库原ready_for_review CI41260030720，GitHub曾以required pr-fast in progress拒绝正常merge（405）；等待该轮成功后才继续，未绕保护/改依赖或检查范围。两轮成功日志均绑定上述完整head/base，Ubuntu22.04/Python3.9.18实际会话97/Core198/deploy22/channel12零失败零skip，新增并发/原ID丢202和Node入口实际加载。
+
+Personal复核最新head/base/必要检查/无冲突及无未解决具体意见后，按用户既有授权正常merge PR723，提交5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f；本机fetch/ff并核merge树与reviewed head完全一致、工作区干净，已停止PR723监听。至此只完成代码/本地合成与Linux验收，不代表新包上线或阶段2整体完成；旧知识收尾错误仍未完成。生产仍按最后有效记录501f90bf，真实SDK启动恢复、DeepSeek/费用、生产running stop/第二身份/A2scope/200%及新部署视觉未验。
+
+下一步交唯一A沿既有Hermes发布测试授权，以最终main merge SHA新Git LF pack、新现场baseline/stage/manifest/备份，核501f精确installed proof与24目标/46保护/8新增，沿原publisher inspect/锁/CAS/准入与UNKNOWN围栏。先做实际固定SDK无模型装配/三工具/上下文proof检查，避免把agent夹具当实际运行；依赖或保护不符即保留原版本并报具体阻塞。符合原发布条件和正常工具审核后继续原apply与读回，不复用旧失败stage、不扩IAM/业务写/新预算。真实认证、少量合成材料任务/停止及浅暗/移动/键盘验收仍须取得实际证据，遵守当前浏览器工具边界；工具或正常登录途径不可用就如实留未验，不伪造身份、会话或视觉通过。Personal审核A实际回执后再推进主方案。
