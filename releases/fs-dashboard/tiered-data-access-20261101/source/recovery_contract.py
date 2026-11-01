@@ -1,7 +1,7 @@
 """Recovery decisions only; never copy files, initialize facts or recollect sources."""
 
 
-def decision(kind,*,mode='fresh',proof=None,query=None,history_inputs=False,consistent_backup=False,accept_new_baseline=False,identity_available=None,fixture=False):
+def decision(kind,*,mode='fresh',proof=None,query=None,history_inputs=False,consistent_backup=False,accept_new_baseline=False,identity_available=None,fixture=False,now=None,resolver=None,clock=None):
     if kind not in ('cache_miss','empty_read_model','authoritative_store_missing','frozen_inputs_missing'):raise ValueError('recovery_kind')
     if kind=='frozen_inputs_missing' or mode=='frozen' and not history_inputs:
         return dict(status='missing_history',action='restore_designated_pinned_inputs',fresh_fallback=False,promises_original_asof=False)
@@ -14,10 +14,23 @@ def decision(kind,*,mode='fresh',proof=None,query=None,history_inputs=False,cons
     if mode!='fresh':return dict(status='local_history_only',action='read_retained_archive',fresh_fallback=False)
     if not isinstance(query,dict) or not all(query.get(k) for k in ('start','end_exclusive','scope_hash','dataset_id')):return dict(status='date_and_scope_required',automatic=False)
     from eviction_policy import proof_valid
-    try:proof_valid(proof,query,fixture=fixture)
+    import time
+    current_time=clock if callable(clock) else (lambda:now) if fixture else time.time
+    try:proof_state=proof_valid(proof,query,now=current_time(),resolver=resolver,fixture=fixture,phase='plan')
     except Exception:return dict(status='regeneration_not_proven',automatic=False)
-    bounded={key:query[key] for key in ('dataset_id','scope_hash','start','end_exclusive','fields','source_contract','mode') if key in query}
-    return dict(status='bounded_plan_required',action='reuse_facts_then_missing_slices_only',query=bounded,full_import=False,whole_database_backup=False,complete=False)
+    bounded={key:query[key] for key in ('dataset_id','scope_hash','start','end_exclusive','fields','source_contract','source_revision','mode') if key in query}
+    return dict(status='bounded_plan_required',action='reuse_facts_then_missing_slices_only',query=bounded,proof_state=proof_state,full_import=False,whole_database_backup=False,complete=False)
+
+
+def recheck_regeneration(plan,proof,*,now=None,resolver=None,clock=None,fixture=False):
+    """Decision is not a lease: host must call again immediately before source I/O."""
+    from eviction_policy import proof_valid
+    import time
+    current_time=clock if callable(clock) else (lambda:now) if fixture else time.time
+    try:
+        state=proof_valid(proof,plan['query'],now=current_time(),resolver=resolver,fixture=fixture,phase='use')
+        return state==plan['proof_state']
+    except Exception:return False
 
 
 def rollback_read_configuration(current,previous_read_route):

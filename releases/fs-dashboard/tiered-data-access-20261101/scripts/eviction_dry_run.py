@@ -10,9 +10,12 @@ def run():
         root=Path(temp);raw=b'{"synthetic":true}';ident=hashlib.sha256(raw).hexdigest();path=root/(ident+'.data.json');path.write_bytes(raw)
         item=dict(path=str(path),object_id=ident,dataset_id='fixture.orders',scope_hash='fixture-scope',source_contract='fixture-source',classification='L1',active_job=False,mode='fresh',expires_at=1,start='2026-10-01',end_exclusive='2026-10-02',fields=['order_id'],proof_id='synthetic-only')
         proof=dict(proof_id='synthetic-only',evidence_kind='synthetic',evidence_sha256='0'*64,verified=True,mode='current_state',dataset_id='fixture.orders',scope_hash='fixture-scope',source_contract='fixture-source',start='2026-10-01',end_exclusive='2026-10-02',fields=['order_id'],stable_key='order_id',checks={key:True for key in CHECKS})
+        item['source_revision']='fixture-source-v1'
+        proof.update(contract='fs-regeneration-proof-v2',source_revision='fixture-source-v1',issuer_id='fixture-only-not-authorized-issuer',proof_version=1,registry_revision='fixture-registry-v1',issued_at=0,valid_from=0,expires_at=100,revoked=False)
         policy=dict(contract='fs-cache-eviction-dryrun-v1',policy_id='fixture-not-production',roots=[str(root)],datasets=['fixture.orders'],quarantine_days=7,max_object_bytes=1000,max_batch_bytes=1000)
         refs=dict(complete=True,epoch='fixture-epoch',pins={ident:0},references=[])
-        result=dry_run([item],policy,{'synthetic-only':proof},lambda dataset:refs,now=2,fixture=True)
+        def resolver(proof_id,binding,now):return dict(contract='fs-proof-resolution-v1',authority_kind='fixture-only',issuer_authorized=True,active=True,registry_revision=proof['registry_revision'],proof=proof)
+        result=dry_run([item],policy,{'synthetic-only':proof},lambda dataset:refs,now=2,resolver=resolver,fixture=True)
         result.update(synthetic=True,production_proof=False,protected_file_preserved=path.read_bytes()==raw)
         return result
 

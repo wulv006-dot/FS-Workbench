@@ -2,6 +2,9 @@
 
 这是当前本地候选状态；“代码/fixture实现”不等于生产恢复。历史固定包说明保留各自时点，不覆盖本矩阵。
 
+最新增量：0c29890固定包已获父独立Linux users282/tiered51（333项）通过、无skip，保留一个SQLite连接ResourceWarning；不等于独审全部放行。proof有效期/撤销缺口现已补v2及当前resolver/使用前复验，见PROOF-VALIDITY-FIX.md，本增量仍待相关Linux和独审。users源码本轮未变。
+owner已由B确认：真实身份/grant/epoch、私有artifact/认证下载、range_api路由与身份传递均原A；数据owner负责内部消费/故障测试，Hermes/UI/维护锁需原owner+A窗口。没有实际接线，不改系统权限绕过安全所有权检查。
+
 | 04任务 | 本地已实现/证据 | 待验 | 尚未做/接线 |
 |---|---|---|---|
 | 1只读盘点 | 正确隔离worktree/remote、187身份/已知source hash、Python3.9.18 SQLite3.7.17、两backup逐文件/占用/fd范围 | 全数据集活动映射、容量增长/负荷实际基线 | FC/NBA/MLB/RPG逐dataset目录未全覆盖，不称全站完成 |

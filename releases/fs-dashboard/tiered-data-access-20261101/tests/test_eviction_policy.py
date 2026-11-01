@@ -4,7 +4,7 @@ import hashlib,os,sys,tempfile,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
 from eviction_policy import CHECKS,dry_run,recheck
-from recovery_contract import decision,rollback_read_configuration
+from recovery_contract import decision,recheck_regeneration,rollback_read_configuration
 
 
 class Eviction(unittest.TestCase):
@@ -14,10 +14,16 @@ class Eviction(unittest.TestCase):
         self.policy=dict(contract='fs-cache-eviction-dryrun-v1',policy_id='fixture-only-v1',roots=[str(self.root)],datasets=['orders.detail'],quarantine_days=7,max_object_bytes=10000,max_batch_bytes=10000)
         self.item=dict(path=str(self.path),object_id=ident,dataset_id='orders.detail',scope_hash='fixture-scope',source_contract='fixture-contract',classification='L1',active_job=False,mode='fresh',expires_at=1,start='2026-10-01',end_exclusive='2026-10-02',fields=['order_id'],proof_id='synthetic-proof')
         self.proof=dict(proof_id='synthetic-proof',evidence_kind='synthetic',evidence_sha256='0'*64,verified=True,mode='current_state',dataset_id='orders.detail',scope_hash='fixture-scope',source_contract='fixture-contract',start='2026-10-01',end_exclusive='2026-10-02',fields=['order_id'],stable_key='order_id',checks={k:True for k in CHECKS})
+        self.item['source_revision']='source-v1'
+        self.proof.update(contract='fs-regeneration-proof-v2',source_revision='source-v1',issuer_id='fixture-issuer',proof_version=1,registry_revision='registry-v1',issued_at=0,valid_from=0,expires_at=100,revoked=False)
+        self.current_proof=deepcopy(self.proof);self.issuer_authorized=True;self.active=True
         self.refs=dict(complete=True,epoch='r1',pins={ident:0},references=[])
 
     def plan(self,item=None,proof=None,refs=None,fixture=True):
-        return dry_run([self.item if item is None else item],self.policy,{self.item['proof_id']:self.proof if proof is None else proof},lambda d:self.refs if refs is None else refs,now=2,fixture=fixture)
+        return dry_run([self.item if item is None else item],self.policy,{self.item['proof_id']:self.proof if proof is None else proof},lambda d:self.refs if refs is None else refs,now=2,resolver=self.resolve,fixture=fixture)
+
+    def resolve(self,proof_id,binding,now):
+        return dict(contract='fs-proof-resolution-v1',authority_kind='fixture-only',issuer_authorized=self.issuer_authorized,active=self.active,registry_revision=self.current_proof['registry_revision'],proof=deepcopy(self.current_proof))
 
     def test_valid_l1_is_dryrun_only_and_does_not_change_files(self):
         before=self.path.read_bytes(),self.path.stat().st_mtime_ns
@@ -58,15 +64,15 @@ class Eviction(unittest.TestCase):
             finally:locked[0]=False
         def reader(dataset):
             self.assertTrue(locked[0]);return dict(self.refs,pins={self.item['object_id']:1},epoch='r2')
-        self.assertFalse(recheck(proposal,self.item,self.policy,self.proof,reader,existing_lock,now=2,fixture=True)['eligible_under_existing_lock'])
-        self.assertFalse(recheck(proposal,self.item,self.policy,self.proof,lambda d:dict(self.refs,epoch='r2'),existing_lock,now=2,fixture=True)['eligible_under_existing_lock'])
+        self.assertFalse(recheck(proposal,self.item,self.policy,self.proof,reader,existing_lock,now=2,resolver=self.resolve,fixture=True)['eligible_under_existing_lock'])
+        self.assertFalse(recheck(proposal,self.item,self.policy,self.proof,lambda d:dict(self.refs,epoch='r2'),existing_lock,now=2,resolver=self.resolve,fixture=True)['eligible_under_existing_lock'])
         self.assertTrue(self.path.exists())
 
     def test_changed_bytes_lock_failure_and_batch_budget_fail_closed(self):
         proposal=self.plan()['candidates'][0];self.path.write_bytes(b'changed')
         @contextmanager
         def busy():raise BlockingIOError('fixture busy');yield
-        self.assertFalse(recheck(proposal,self.item,self.policy,self.proof,lambda d:self.refs,busy,now=2,fixture=True)['eligible_under_existing_lock'])
+        self.assertFalse(recheck(proposal,self.item,self.policy,self.proof,lambda d:self.refs,busy,now=2,resolver=self.resolve,fixture=True)['eligible_under_existing_lock'])
         self.assertFalse(self.plan()['candidates'])
         self.path.write_bytes(b'{"fixture":"synthetic-current-response"}');self.policy['max_batch_bytes']=1
         self.assertFalse(self.plan()['candidates'])
@@ -82,7 +88,7 @@ class Recovery(unittest.TestCase):
     def test_three_missing_scenarios_and_frozen_history_never_imply_full_restore(self):
         f=Eviction();f.setUp();self.addCleanup(f.doCleanups)
         for kind in ('cache_miss','empty_read_model'):
-            value=decision(kind,proof=f.proof,query=f.item,fixture=True)
+            value=decision(kind,proof=f.proof,query=f.item,now=2,resolver=f.resolve,fixture=True)
             self.assertFalse(value['full_import']);self.assertFalse(value['whole_database_backup']);self.assertFalse(value['complete'])
             self.assertNotIn('path',value['query'])
         lost=decision('authoritative_store_missing',accept_new_baseline=True)
@@ -97,5 +103,82 @@ class Recovery(unittest.TestCase):
         self.assertEqual(current,before)
         for key in current:
             if key!='read_route':self.assertEqual(value[key],before[key])
+
+class ProofFreshness(unittest.TestCase):
+    def setUp(self):
+        self.f=Eviction();self.f.setUp();self.addCleanup(self.f.doCleanups)
+
+    def inspect(self,proof=None,item=None,resolver=None,clock=lambda:2):
+        f=self.f
+        return dry_run([f.item if item is None else item],f.policy,{f.proof['proof_id']:f.proof if proof is None else proof},lambda d:f.refs,now=2,resolver=f.resolve if resolver is None else resolver,clock=clock,fixture=True)
+
+    def test_expired_future_issued_future_validity_revoked_and_unknown_times_hold_both_paths(self):
+        f=self.f
+        for change in (dict(expires_at=2),dict(issued_at=3,valid_from=3),dict(valid_from=3),dict(revoked=True),dict(revoked=None),dict(issued_at=None),dict(expires_at=float('nan')),dict(proof_version=0)):
+            with self.subTest(change=change):
+                proof=dict(f.proof,**change);f.current_proof=deepcopy(proof)
+                self.assertFalse(self.inspect(proof=proof)['candidates'])
+                self.assertEqual(decision('cache_miss',proof=proof,query=f.item,now=2,resolver=f.resolve,fixture=True)['status'],'regeneration_not_proven')
+
+    def test_missing_trusted_resolver_and_fixture_authority_cannot_issue_live_proof(self):
+        f=self.f
+        result=dry_run([f.item],f.policy,{f.proof['proof_id']:f.proof},lambda d:f.refs,now=2,fixture=True)
+        self.assertEqual(result['held'][0]['reason'],'proof_registry_unavailable')
+        live=dict(f.proof,evidence_kind='live');f.current_proof=live
+        result=dry_run([f.item],f.policy,{f.proof['proof_id']:live},lambda d:f.refs,now=2,resolver=f.resolve,clock=lambda:2,fixture=False)
+        self.assertEqual(result['held'][0]['reason'],'proof_registry_denied')
+
+    def test_current_registry_revocation_versions_issuer_and_source_revision_are_binding(self):
+        f=self.f
+        for change in (dict(revoked=True),dict(proof_version=2),dict(registry_revision='registry-v2'),dict(source_revision='source-v2'),dict(issuer_id='different-issuer')):
+            with self.subTest(change=change):
+                f.current_proof=dict(f.proof,**change)
+                self.assertFalse(self.inspect()['candidates'])
+        f.current_proof=deepcopy(f.proof)
+        for change in (dict(scope_hash='other-scope'),dict(source_revision='source-v2'),dict(source_contract='source-contract-v2')):
+            self.assertFalse(self.inspect(item=dict(f.item,**change))['candidates'])
+        f.issuer_authorized=False;self.assertFalse(self.inspect()['candidates'])
+
+    def test_expiry_and_registry_revocation_during_inspection_fail_closed(self):
+        f=self.f;ticks=iter([2,100])
+        self.assertFalse(self.inspect(clock=lambda:next(ticks,100))['candidates'])
+        calls=[0]
+        def revoke(proof_id,binding,now):
+            calls[0]+=1;value=f.resolve(proof_id,binding,now)
+            if calls[0]>1:value['active']=False
+            return value
+        self.assertFalse(self.inspect(resolver=revoke)['candidates']);self.assertEqual(calls[0],2)
+
+    def test_use_time_recheck_rejects_expiry_revocation_or_refreshed_proof_version(self):
+        f=self.f;proposal=self.inspect()['candidates'][0]
+        @contextmanager
+        def existing_lock():yield
+        def check(proof,clock=lambda:2):return recheck(proposal,f.item,f.policy,proof,lambda d:f.refs,existing_lock,now=2,resolver=f.resolve,clock=clock,fixture=True)
+        self.assertTrue(check(f.proof)['eligible_under_existing_lock'])
+        self.assertFalse(check(f.proof,lambda:100)['eligible_under_existing_lock'])
+        f.active=False;self.assertFalse(check(f.proof)['eligible_under_existing_lock']);f.active=True
+        newer=dict(f.proof,proof_version=2,registry_revision='registry-v2');f.current_proof=newer
+        self.assertEqual(check(newer)['reason'],'proposal_stale')
+        changed=dict(f.proof,evidence_sha256='1'*64);f.current_proof=changed
+        self.assertEqual(check(changed)['reason'],'proposal_stale')
+        f.current_proof=deepcopy(f.proof);calls=[]
+        def revoke_before_return(proof_id,binding,now):
+            calls.append(binding['phase']);value=f.resolve(proof_id,binding,now)
+            if len(calls)==3:value['active']=False
+            return value
+        result=recheck(proposal,f.item,f.policy,f.proof,lambda d:f.refs,existing_lock,now=2,resolver=revoke_before_return,fixture=True)
+        self.assertFalse(result['eligible_under_existing_lock']);self.assertEqual(calls,['use','use','use'])
+        self.assertTrue(f.path.exists())
+
+    def test_recovery_plan_is_not_a_lease_and_requires_use_time_revalidation(self):
+        f=self.f
+        plan=decision('empty_read_model',proof=f.proof,query=f.item,now=2,resolver=f.resolve,fixture=True)
+        self.assertEqual(plan['status'],'bounded_plan_required')
+        self.assertTrue(recheck_regeneration(plan,f.proof,now=2,resolver=f.resolve,fixture=True))
+        self.assertFalse(recheck_regeneration(plan,f.proof,now=100,resolver=f.resolve,fixture=True))
+        f.active=False
+        self.assertFalse(recheck_regeneration(plan,f.proof,now=2,resolver=f.resolve,fixture=True))
+        self.assertFalse(recheck_regeneration(plan,f.proof,now=2,fixture=True))
+
 
 if __name__=='__main__':unittest.main()
