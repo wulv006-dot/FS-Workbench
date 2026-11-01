@@ -298,3 +298,13 @@ A独占两份conversation_http.py、range_api.py的必要接点、材料相关�
 A最终固定候选b3efed2e0c6acceed08334ee599e2d13fe6f003d已正常merge到Personal分支，A十路径与候选完全一致；当前main仍5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f。没有B/Core/UI/controller/SDK/CI驱动或冻结publisher差异。runtime-diagnostics从正常原鉴权/owner进入，只读实际对象DB；range单独承接该GET以观察原import绑定的handler，不替换普通handler或改变sys.path。加载code的marshal指纹与磁盘SHA分列，不作跨解释器或Git源指纹等值声明。材料404保持原状态与error，仅固定source/stage；submit_owned须实际_queue和_owned code对象均在异常链中，非仅函数名相同。原请求与discarded=false、费用unknown继续保留。
 
 Personal集成后原runner诊断7项全过、零skip；Windows工作目录deploy23出现既有CRLF相关2error/1fail，未改冻结代码或测试。仅相关模块Git archive LF字节复核时22项通过、旧HTTP一项WinError10054；该失败用例独立复跑通过。故不称本机完整23一次全绿，Linux最新SHA整组结果待CI。A自身相关FileTests10、诊断7/deploy23及identity末次单用例证据依输入分层复用。diff check通过，测试/生产/模型/浏览器未混同；旧知识closeout失败保持。下一步唯一Personal草稿PR，Business独立worktree按最新完整head/base审整个12路径（A十路径加主控两份记录），必要CI通过前不合并、不交现场部署。
+
+#### PR724已合并，交A发布诊断入口
+
+Business在独立worktree t3-5b304c2f审查head d63024ff4d13f8747539d6eae98ed1f127ef8f4c/base5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f，起止GitHub版本不变、origin/clean正确，12路径无可触发且有实际影响的问题；原runner独立诊断7/runtime发布13/HTTP-release10均零失败零skip，发布23分两次执行。执行设置codex-business/gpt-6.1-sol High，未启动其它Agent/生产操作/发布GitHub意见。
+
+首轮LinuxCI41265633376成功，转正式触发仓库原required CI41265895674；期间虽收到旧轮通过通知，Personal复核新轮仍在运行后没有合并。待新轮job124728506754完成success，实际日志绑定相同head/base、Ubuntu22.04/Python3.9.18，Core198、conversation104含新诊断7、deploy23全部零失败零skip，才按用户既有授权正常merge。GitHub机器人自动审查未完成，仅摘要无具体代码问题，不重复触发或冒称机器人通过，也未绕仓库保护。
+
+PR724正常合并提交f79e29f0d5921b103a218c5e6ed967a754858b9c；Personal本机fetch/ff、merge树与reviewed head git diff空、工作区干净，已停止PR监听。代码验收完成不代表诊断已上线或原404恢复，现场最后有效软件仍5f99。已向唯一A交最终merge SHA，沿已审--materials-diagnostics/--followup新Git LF pack、新fresh baseline/stage/manifest/backup，钉5f99成功proof，24现存/46保护/NEW空，仅两HTTP目标改变、原8模块保留、原围栏下只重载range；回收全部after/mode/root与保护及实际进程/image读回。
+
+现场先用正常FS身份对原synthetic cid做runtime-diagnostics GET并核白名单/表计数不变，0材料POST/0模型，不用原materials detail/result当纯读。原request保持posts=1/discarded=false/费用unknown；真实诊断结果回主控后再决定下一接点修复或有据恢复，不开R2/R3、不换ID绕UNKNOWN，不以新进程结果倒推旧根因。新诊断发布、原请求执行、费用/停止/视觉/A2scope仍待验；旧知识收尾失败保留。
