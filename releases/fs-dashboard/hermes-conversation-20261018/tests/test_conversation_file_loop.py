@@ -482,9 +482,16 @@ class WorkerEnvironmentTests(unittest.TestCase):
                 self.assertIs(api._execute_run, execute)
                 self.assertIs(api._run_agent_sync, sync)
                 run = types.SimpleNamespace(run_id='run_' + 'c' * 32, session_id='mg_' + 'c' * 64)
-                with self.assertRaises(type(error)) as raised:
-                    asyncio.run(api._execute_run(adapter, run, _api_server=None))
-                self.assertIs(raised.exception, error)
+                async def check_original_exception():
+                    # Python 3.9's Task.result() can rebuild CancelledError.
+                    # Check the wrapper's exact exception before crossing that boundary.
+                    try:
+                        await api._execute_run(adapter, run, _api_server=None)
+                    except type(error) as actual:
+                        self.assertIs(actual, error)
+                        raise
+                with self.assertRaises(type(error)):
+                    asyncio.run(check_original_exception())
                 self.assertEqual(adapter._material_diagnostics, {})
 
     def test_material_sync_keeps_exact_return_and_exception_objects(self):
@@ -516,9 +523,16 @@ class WorkerEnvironmentTests(unittest.TestCase):
         with self.runtime(executor=self.terminal_executor, worker_error=error) as (_, adapter, _, modules):
             sid, rid = 'mg_' + 'a' * 64, 'run_' + 'a' * 32
             adapter._material_admitted_inputs = {sid: 'secret-model-input'}
-            with self.assertRaises(asyncio.CancelledError) as raised:
-                self.diagnostic_run(adapter, modules)
-            self.assertIs(raised.exception, error)
+            async def check_original_cancellation():
+                run = types.SimpleNamespace(run_id=rid, session_id=sid)
+                try:
+                    await modules['gateway.platforms.api_server_runs']._execute_run(
+                        adapter, run, _api_server=None)
+                except asyncio.CancelledError as actual:
+                    self.assertIs(actual, error)
+                    raise
+            with self.assertRaises(asyncio.CancelledError):
+                asyncio.run(check_original_cancellation())
             self.assertEqual(adapter._run_statuses[rid]['status'], 'cancelled')
             self.assertEqual(adapter._material_admitted_inputs, {})
             self.assertEqual(adapter._material_diagnostics, {})
