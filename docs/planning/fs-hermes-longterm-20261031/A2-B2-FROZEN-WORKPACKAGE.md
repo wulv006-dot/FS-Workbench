@@ -348,3 +348,11 @@ PR725首轮CI41268857407成功，独审返回后转正式触发新required CI412
 已交唯一A最终merge SHA，先最终Git LF独立私有stage镜像最小测试/source/pilot，以已核/opt/python39/bin/python3.9及原生SQLite3.7.17做隔离synthetic temp DB/禁网验证，模块来源全在stage，不导入活动生产源码、不触生产两库、不安装或升级SQLite；必须包含不改PRAGMA结果的原生constructor/幂等查回/撤权与真实HTTP空原ID查询，不能仅代理三列。原生失败即停止apply、回完整必要候选，不现场改代码。
 
 原生通过后同最终SHA新pack --goal-task-index-compat/--followup、新fresh baseline/stage/manifest/backup，钉f79成功proof/24现存/46保护/唯一目标变更，原publisher锁/CAS/围栏下仅range重载；读回全部after/mode/root、23未变inode/mtime及worker/Nginx/container边界。软件成功后仍仅一次正常FS原ID状态GET，明确接受已审私有表初始化；若完整schema且执行意图确无row才记当前权威查无，失败保留ID不重GET。0材料POST/0模型/无R2R3保持，实际回执独立核收后再决定有据恢复提交。当前仅代码已合并，最后有效生产仍f79，原请求执行/费用/停止/视觉及阶段整体未验。
+
+#### 1b20原生验证通过，发布写前锁拒绝
+
+A独立stage /var/tmp/fs-native-task-index-1b20b91f-20261101T033100Z的9个最终Git源/测试/pilot逐SHA固定，另列harness69dc2f858fc9011d8f1e6f5c9d2853060ccc9a925ead4f6880474d62ee9309dd。实际/opt/python39/bin/python3.9以-I -B运行Python3.9.18/SQLite3.7.17，原native账本6项加两份真实HTTP初始化/空原ID查询1项共7，零失败零skip；未改PRAGMA/Connection/Cursor/Row，88连接全在合成temp/内存、0网络/额外子进程，模块源全在stage、源SHA前后不变、temp DB清理。实际三列native HTTP完整schema后identity1、intent/tasks0才404 lookup，不再以现代Row代理代替。Personal实际核共享Temp receipt-index SHA4151b80cb2211cfafb80fa1ebfd4187c37923bd36f7daa01b88f7d120ac4ad31及5文件size/SHA，并用本地git show最终1b20逐项重算9源blob一致；这是独立核收A原生证据，不冒Personal亲自运行生产解释器。
+
+新payload b46b941b065a120a361c21412432f09fa374944ad044056122551896ec44c453，stage /var/tmp/fs-goal-index-1b20b91f-20261101T033400Z/stage，baseline03:34:30.838092Z，manifest c149b7173db4a496332b2dafce02ae198b84e2c5e0b23f32f6f5d004ad5655d3。原inspect通过后唯一apply nav-20261101T033600Z以BlockingIOError/exit1拒绝；只保留异常类及1219 stderr bytes，具体errno/栈位置未知，不补写为某一锁行。03:36:43Z原ID对账无backup/journal；Personal逐项比对before/失败后24全部before hash/mode/root/inode/mtime、46保护hash/mode/root、services/container字符串均相等。同期collector.lock持python3/PID15925、oneshot activating/start，只作同时观察，不追认精确异常栈。故分类写前发布锁拒绝、0活动目标写，生产仍f79，不是已装1b20后失败或回退；未继续GET/POST/模型/浏览器。
+
+已交A等锁自然释放，不停止采集/抢锁/改timer/清UNKNOWN，不忙轮询或新建定时。释放后重核原ID无backup/journal、24before/46保护/image/active/quiescent/原guards全同，且原1小时fresh有效，才原inspect后同ID/同manifest有据续试一次原publisher；若过期/漂移，固定Git载荷新observe/prepare全新stage/baseline/manifest，保留旧回执，不改时间/跳CAS。出现任何backup/journal先原ID对账回主控，不盲重apply。仅此0写入锁拒绝解除暂停，不允许UNKNOWN或部分写入stage盲重放。成功后仍须完整读回及一次原ID状态GET；单次续发再失败即停，材料POST/R2/R3/模型继续禁止、旧费用与旧404unknown。
