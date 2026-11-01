@@ -143,3 +143,47 @@ ExecutionBoundFiles 没有伪造 human turn。每次工具核正常权限、goal
 MaterialService 只在 runtime cache 的 check/create 短边界持有独立 RLock；原会话/Goal/任务 DB 构造和鉴权均在该锁外，网络及执行也不在锁内。同 owner/cid 的并发首次请求取得同一实例，live book 不会因另一个首次请求覆盖缓存而误被当作重启围栏。新增两项真实 temp Store/TaskStore 并发回归通过；只在 constructor 插入 Barrier 同步点，不替换 DB/Goals。旧51af `_parts` 仅内存回退时两项均实际构造2个 runtime并失败，修复版只构造1个，带live状态继续reconcile且不POST stop。原20项及主控Core198证据复用，未重跑旧输入整组。
 
 UI 修订只允许显式单选，显示“修改目标：<真实文件名>”；多选时按钮禁用且事件处理器再次拒绝，无隐藏 file_id 排序目标。读任务的多选及后端显式 operation.file_id 合同保持。新增真实DOM/fetch事件覆盖列表/勾选顺序与ID反序、两种勾选顺序、多选零提交、取消另一份后只提交明确保留的目标。原Node入口通过；Chromium入口增加真实目标文字断言并通过。长目标名称沿当前布局换行，不增后台业务门禁。
+
+
+## 材料入口受控装配诊断与 404 分层（候选，未部署）
+
+本轮只新增正常 FS gate 下当前 owner/cid 的 `GET /api/hermes/conversations/{cid}/runtime-diagnostics`。不接受查询参数、路径选择或模型参数；匿名 401、撤权/非 literal True 授权 403、非本 owner/cid 404。先对原服务的 store.path 所指既有 DB 用 `mode=ro` / `query_only=ON` / 参数化 SELECT 核 owner，才观察 tasks 对象、代码及路径绑定。tasks 也只以 mode=ro 验现存原 tasks 表；缺库、链接、坏库或观察失败关闭，不修库、不新建空 DB。响应不含 owner、cid、业务行、环境、认证头、凭据、异常文本或堆栈。
+
+range 新增三个可隔离定义接点：`conversation_runtime_diagnostics`、`bind_conversation_diagnostics`、`conversation_get`。bind 只把原 service 与实际 import 选中的 HTTP handle、两个固定期望路径连接起来；不重建服务。range 仅接管诊断 GET，普通请求继续调用原 conversation_handle，不按 shadowing 假设替换模块或调整 sys.path。即使同名旧 HTTP 已被选中并缓存，诊断仍可观察它。两份 HTTP 的独立入口也消费同一 server-only callback；无 callback 返回 unavailable，不自行初始化账本。公共 /health 保持原内容。
+
+正常回执字段（路径示意，不是现网测量结果）：
+
+```json
+{
+  "version": "materials_runtime_diagnostics_v1",
+  "http": {
+    "module_path": "/opt/fs-exact-range-20261001/conversation_http.py",
+    "handle_code_filename": "/opt/fs-exact-range-20261001/conversation_http.py",
+    "loaded_code_sha256": "<64hex>",
+    "code_fingerprint_format": "python_marshal_code_v1",
+    "disk_file_sha256": "<64hex>",
+    "materials_branch_present": true,
+    "adapter_version": "materials_runtime_diagnostics_v1"
+  },
+  "materials_bound": true,
+  "materials_store_matches": true,
+  "materials_tasks_matches": true,
+  "store_path_matches_expected": true,
+  "tasks_path_matches_expected": true
+}
+```
+
+loaded_code_sha256 来自该函数当前已加载 code object 的 marshal 字节；包含嵌套 code/常量，但不返回它们。它只用于同解释器/路径下的代码观测，不是跨 Python 版本的 Git 源码 hash，也不覆盖模块全部对象。disk_file_sha256 是请求时磁盘文件的 SHA；两者明确分列，不以磁盘 SHA 宣称进程已加载同字节。materials_branch_present 仅观察 handle code 的 materials 常量，不证明调用成功；adapter_version 只允许本版本固定值或 null。对象匹配布尔值说明已绑定材料服务是否使用同会话 store/同 Hermes tasks 宿主，不授予 scope，也不验证 provider 执行。
+
+已通过原 gate 的材料响应带固定 `X-FS-Material-Adapter: materials_runtime_diagnostics_v1`；404 保留 error=not_found，并仅加固定 `source=material_http`、stage：
+
+- route：材料路径/方法未命中；
+- http_owned：HTTP 最前的原会话 owner guard 抛 LookupError；
+- submit_owned：真实 submit → _queue → 原 store._owned 的 code 对象均在该 LookupError 的 traceback 中；
+- lookup：其它后续 LookupError（包括原 KeyError 映射），不回异常文本/ID/栈。
+
+只对 traceback 的 code 对象作身份比对，不返回 traceback 或通过异常字符串猜测阶段。匿名/主 gate 拒绝无该适配器头；其它文件、turn、FC 路由的原状态/正文保持。跨 owner 的 404 不透露另一 owner 的存在。
+
+诊断不得调用 `_parts`、queue、Goals、ledger、recover 或任何 material detail/result；后两者不是只读探针。部署后应在正常认证的安全空页面直接访问诊断 GET，避免打开有 pending material 自动轮询的 UI。原 request_id 的恢复/重发仍须另据真实映射与官方回执判断，诊断不能证明从未执行或零费用。
+
+本地新 `tests/test_conversation_runtime_diagnostics.py` 由原 store.load_tests 加载。7 项覆盖两 HTTP 与 range 的实际 GET 分派/三个隔离 AST 定义、原 sys.path 同名旧模块实际 import+缓存、内存 code 与随后改写磁盘分离、真实 temp Store/TaskStore 的 DB bytes/表集合/goal/outbox/task 数量不变、已有私有记录、缺/错库不修复、匿名/跨 owner/撤权/非 literal True 拒绝、四种材料 404 阶段及无异常泄漏。未 import 完整 range 或启动真实 reader/recovery；外部网络/模型为零。受影响 FileTests 10 项通过，原 deploy 三模块合计 23 项通过；Windows temp mode 只在既有夹具边界归一化，Linux 实际权限与本候选部署/正常角色诊断仍待 CI 和发布后取证。未修改 B 算法、controller、IAM、SDK、UI、公共 schema 或 CI 驱动。

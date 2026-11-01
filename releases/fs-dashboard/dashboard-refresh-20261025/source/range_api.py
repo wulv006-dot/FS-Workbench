@@ -278,7 +278,68 @@ if os.environ.get('FS_HERMES_FC_ENABLED')=='1':
   '/var/lib/fs-hermes-fc/fs','/run/fs-hermes-fc','/opt/fs-hermes-fc',hermes_authorizer)
 from conversation_service import ConversationService
 from conversation_http import handle as conversation_handle, respond as conversation_respond, PREFIX as CONVERSATION_PREFIX
+
+def conversation_runtime_diagnostics(service,user,cid,http_handle,store_path,tasks_path):
+ """Observe this process's bound objects; never initialize a material ledger."""
+ import hashlib,marshal,sqlite3,stat,types
+ from contextlib import closing
+ from pathlib import Path
+ def existing(value):
+  path=Path(value)
+  if not path.is_absolute() or any(p.is_symlink() for p in (path,*path.parents)):
+   raise OSError('diagnostic_path_unavailable')
+  if not stat.S_ISREG(path.stat().st_mode):raise OSError('diagnostic_path_unavailable')
+  return path.resolve(strict=True)
+ store=existing(service.store.path)
+ with closing(sqlite3.connect(store.as_uri()+'?mode=ro',uri=True,timeout=2)) as db:
+  db.execute('PRAGMA query_only=ON')
+  if not db.execute('SELECT 1 FROM conversations WHERE id=? AND owner=?',(cid,user)).fetchone():
+   raise LookupError('conversation_not_found')
+ tasks=existing(service.hermes.tasks.path)
+ with closing(sqlite3.connect(tasks.as_uri()+'?mode=ro',uri=True,timeout=2)) as db:
+  db.execute('PRAGMA query_only=ON');db.execute('SELECT 1 FROM tasks LIMIT 0')
+ if not isinstance(http_handle,types.FunctionType):raise ValueError('diagnostic_handler_unavailable')
+ module=existing(http_handle.__globals__['__file__'])
+ materials=getattr(service,'materials',None)
+ return {'version':'materials_runtime_diagnostics_v1',
+  'http':{'module_path':str(module),'handle_code_filename':http_handle.__code__.co_filename,
+   'loaded_code_sha256':hashlib.sha256(marshal.dumps(http_handle.__code__)).hexdigest(),
+   'code_fingerprint_format':'python_marshal_code_v1',
+   'disk_file_sha256':hashlib.sha256(module.read_bytes()).hexdigest(),
+   'materials_branch_present':'materials' in http_handle.__code__.co_consts,
+   'adapter_version':('materials_runtime_diagnostics_v1' if
+       http_handle.__globals__.get('MATERIAL_ADAPTER_VERSION')=='materials_runtime_diagnostics_v1' else None)},
+  'materials_bound':materials is not None,
+  'materials_store_matches':getattr(getattr(materials,'conversation',None),'store',None) is service.store,
+  'materials_tasks_matches':getattr(materials,'hermes',None) is service.hermes,
+  'store_path_matches_expected':store==Path(store_path).resolve(strict=True),
+  'tasks_path_matches_expected':tasks==Path(tasks_path).resolve(strict=True)==existing(service.hermes.root/'tasks.sqlite3')}
+
+def bind_conversation_diagnostics(service,http_handle,*,
+ store_path='/var/lib/fs-hermes-fc/fs/conversations/conversations.db',
+ tasks_path='/var/lib/fs-hermes-fc/fs/tasks.sqlite3'):
+ if service is not None:
+  service.runtime_diagnostics=lambda user,cid:conversation_runtime_diagnostics(service,user,cid,http_handle,store_path,tasks_path)
+
+def conversation_get(handler,uri,user):
+ # Own only this diagnostic route so a cached old same-name HTTP module is
+ # observable without replacing it or changing any ordinary routing decision.
+ parts=uri.path[len(CONVERSATION_PREFIX):].strip('/').split('/')
+ if len(parts)!=2 or parts[1]!='runtime-diagnostics':
+  return conversation_handle(handler,'GET',uri,user,CONVERSATION,hermes_authorizer)
+ if not user:conversation_respond(handler,401,{'error':'login_required'});return
+ if hermes_authorizer(user) is not True:conversation_respond(handler,403,{'error':'admin_required'});return
+ headers=[('X-FS-Material-Adapter','materials_runtime_diagnostics_v1')]
+ if uri.query or not re.fullmatch(r'[a-zA-Z0-9_-]{8,80}',parts[0]):
+  conversation_respond(handler,404,{'error':'not_found'},headers=headers);return
+ try:
+  result=CONVERSATION.runtime_diagnostics(user,parts[0])
+ except LookupError:conversation_respond(handler,404,{'error':'not_found'},headers=headers)
+ except Exception:conversation_respond(handler,503,{'error':'runtime_diagnostics_unavailable'},headers=headers)
+ else:conversation_respond(handler,200,result,headers=headers)
+
 CONVERSATION=ConversationService(HERMES,'/var/lib/fs-hermes-fc/fs/conversations','/run/fs-hermes-fc') if HERMES is not None else None
+bind_conversation_diagnostics(CONVERSATION,conversation_handle)
 if CONVERSATION is not None:
  from conversation_material_runs import MaterialService
  CONVERSATION.materials=MaterialService(HERMES,CONVERSATION)
@@ -312,7 +373,7 @@ class Handler(BaseHTTPRequestHandler):
   if uri.path=='/health':self.reply(200,{'ok':True,'service':'fs-business-range','readonly':True,'active_customer_reports':CUSTOMER_TRACKING.active_reports() if CUSTOMER_TRACKING is not None else 0,'user_analytics_ready':USERS is not None,'user_analytics_error':USERS_ERROR});return
   if uri.path==CONVERSATION_PREFIX or uri.path.startswith(CONVERSATION_PREFIX+'/'):
    if CONVERSATION is None:conversation_respond(self,503,{'error':'hermes_not_enabled'})
-   else:conversation_handle(self,'GET',uri,self.headers.get('X-Auth-User'),CONVERSATION,hermes_authorizer)
+   else:conversation_get(self,uri,self.headers.get('X-Auth-User'))
    return
   # Only the existing nginx auth_request identity is trusted; public headers are replaced.
   if not self.headers.get('X-Auth-User'):self.reply(401,{'error':'login_required'});return

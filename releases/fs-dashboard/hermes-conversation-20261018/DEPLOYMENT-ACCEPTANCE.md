@@ -595,3 +595,31 @@ PR723派审前两项P2已在A原分支收口：runtime缓存短锁+并发/live�
 - `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Deploy-5f99-20261101T013800Z/merged-5f99f5b3-blocked-metadata.json`
 
 未进入新版本正常FS认证、实际DeepSeek/accepted-context/用量费用、running stop、不可变下载、新部署视觉阶段；这些均未验，不能借旧501f闭环或本次构造探针代替。不使用preview_*验证自己修改、不提取Cookie/凭据、不伪造认证头，原用户tab未操作。没有额外业务/模型/API/IAM写入或新预算；未重跑旧Core/知识套件。Personal最终验收仍待真实后续结果。
+
+
+## 5f99 实际安装、真实材料 404 与诊断后续候选（2026-11-01）
+
+此前 collector errno11 是第一次 apply 在全部锁前拒绝、0 目标写入的历史回执。collector 自然结束后，同原 ID 在原一小时窗口内重核 24 before/46 保护/8 缺失/原 image/服务/空闲/无 backup+journal，沿原 inspect/锁/准入/CAS 成功 apply；未停止采集、清任务或改 freshness。
+
+当前真实软件 sourceCommit=`5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f`，不是记录 commit a536。payload descriptor SHA=`041ccf76093a0f337fbb75ef90a09ae91d5d004f56cdade2a98d330c92c48310`，成功 manifest SHA=`4057435dce473622c5ef2f88ba0d55255a9f7b588a6e193f70a41cffca409881`；stage=`/var/tmp/fs-materials-5f99-20261101T013900Z/stage`，backup=`/var/backups/fs-navigation-20261006/nav-20261101T013519Z`，journal SHA=`3f6d474d37716610de334f14b9b7a699f879aae170471c065f5007c47e3ab93d`，状态 `applied-awaiting-actual-http-role-acceptance`。24 after SHA/root/mode 与 46 保护匹配，8 新模块已存在；不是后续可再当 absent 安装的文件。
+
+实际运行 container=`9c0225c7ea03f676c10ff9f1b2181fa0c5dda8f472f6e6834ea616ba015b5db7`，image=`sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544`，StartedAt=`2026-11-01T01:42:47.848543281Z`；worker/range/nginx active，range health 200、匿名 worker 401。原内部 transport 仅 capabilities 200，fs_materials verified_pin/readonly_original_lookup/single_post 为 true；此为软件/内部健康证据，不冒正常 FS 身份或 accepted run。实际 SDK 零模型构造证据复用先前受控结果，不重新调用模型或构造官方 accepted-input 回执。
+
+正常 FS BrowserAct 合成验收 cid=`fa7ea40c42bc4833bdff3788f1d733f9`，CSV fid=`55b55801892a3d83c3fc699f98da4a8a`，2061 bytes、SHA=`31f3057e1b6b72cb930b65fbfd10bd362e4a3e599803c5d5f11af692a76cadd3`。普通会话和文件列表 200、上传 201。唯一材料 POST 的原 request=`material_da2c98dcd8d3464fb4db5f065f0ea110` 返回 404，完整 path 的 cid 一致且无 query。原成功回执丢弃注入 discarded=false，未触发；未发第二 POST、未建 R2/R3，未获得 task/lease/run/proof，费用 unknown，不据 404 断言从未执行/零费用。
+
+曾调用原材料 GET，明确该入口可能经 _parts 初始化私有表，不能算纯读探针；已停止此类探针。02:08:29Z 后时点，已知 conversation DB mode=ro 核本合成行存在、已知 tasks DB 三个 namespace 缺失；未测到当时运行对象实际 DB 路径，故不外推因果。实际 8931 监听 PID1616 与 range unit 一致、启动 09:42:51CST，argv range_api SHA=`584cb74985b7f44f8e9d85ac1a4e9681de62af65133fb62b5b65095af94d83f3`。fresh 独立进程选中 range 目录 HTTP（SHA=`3d5f245da179f0a3cb7abbad2fcbf6aa3bbe749f7090c5bd188d8aca11de90cd`、含 materials），不是运行进程内存证明。error=not_found 同时覆盖未命中与 LookupError，shadowing/早期 owner/实际对象路径仍待证；没有先按猜测修固定导入路径。
+
+稳定合成证据目录：`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Deploy-5f99-20261101T013800Z/`，含 browser-material-r1-audit.json、material-r1-early-db-metadata.json、merged-5f99f5b3-applied-metadata.json。主控已独立读取前两份；原请求完整 payload 已保留。只关闭 A 自建 BrowserAct session，用户原页不操作。没有新的生产视觉/DeepSeek/费用/停止或 A2 scope 通过声明。
+
+本次后续候选仅“材料入口受控装配诊断与 404 分层”，合同见 CONVERSATION-GOALS.md。本轮无 SSH、真实 API、模型、浏览器或生产写。新增 `--materials-diagnostics` 模式仍走原 publisher，但严格钉上述 5f99 成功 manifest+journal、Git LF 全 24 before 和原 46 保护；NEW 集合为空，8 模块必须现存。pack/prepare 不把随读当前 hash 反射成合法基线。只允许 HTTP conversation_http.py 与 range_api.py 两目标改变，manifest 明列 materialChangedTargets，其余 22 个目标只 CAS/备份不改写。Nginx 保持原 10m/0600 字节。
+
+操作形状（仅审查/合并后由最终 merge SHA 新 pack，新 baseline/stage；不是本轮执行记录）：
+
+```text
+python runtime_prepare.py pack --materials-diagnostics --repo <repo> --source-commit <final-merge-sha> --output <new-bundle>
+python runtime_prepare.py prepare --followup --payload <new-bundle>/payload --source-commit <same-sha> --approved-payload-sha256 <new-descriptor-sha> --output <new-stage> --release-ready
+```
+
+descriptor 自动携带 material_execution/material_diagnostics 与精确 5f99 installed_baseline；原 inspect/apply、发布锁/准入/provider/CAS/UNKNOWN/journal/backup/回退保持。诊断模式要求真实 active/container，禁止用恢复态 fallback。当且仅当实际修改两个 HTTP 目标时，沿原 fence.stop_then_unlock_database 与原 DEEP_SCOPE restart/readiness 重载 range；worker 不重启，Nginx 不 reload。合成成功/失败回退均实测只写两个目标，其它目标保留字节，8 模块不删。Windows fixture mode 仅临时主机边界归一化；Linux CI 和现场发布仍待验。
+
+范围证据：新增诊断 7 项通过；受影响 FileTests 10 项通过；原 deploy 三模块 23 项通过（含新增 5f99 proof/pack/before/CAS/只写两目标/原 apply/rollback）。原 CI 的 store.load_tests 已加新模块，deploy 原 test_runtime_materials 自动包含新测试，无 tools/pr_fast.py/workflow/依赖变更。未重跑无关 Core/旧 knowledge 套件；旧 knowledge 收尾失败仍保留。本候选须 Personal 集成、最新 SHA 独审/必要 CI/合并后，才新 pack/prepare/apply。发布重启可能改变旧内存状态，不能倒推本次原 404 根因；发布后先取正常鉴权诊断，不盲重发原材料 POST。
