@@ -66,6 +66,60 @@ class MaterialRunsTests(unittest.TestCase):
                                    operation=operation,deadline_at=self.now+timedelta(minutes=10),now=self.now)
         return execution
 
+    def concurrent_first_parts(self, service, live=None):
+        from concurrent.futures import ThreadPoolExecutor
+        constructor_barrier=threading.Barrier(2)
+        constructed=[]
+        def construct(*args,**kwargs):
+            runtime=MaterialRuntime(*args,**kwargs)
+            constructed.append(runtime)
+            if live:runtime.live.update(live)
+            # The old unlocked implementation admits both constructors here.
+            # With the cache lock, the only constructor times out at this test
+            # synchronization point; no DB/network operation is mocked.
+            try:constructor_barrier.wait(timeout=1)
+            except threading.BrokenBarrierError:pass
+            return runtime
+        with patch('conversation_material_runs.MaterialRuntime',side_effect=construct),ThreadPoolExecutor(max_workers=2) as pool:
+            futures=[pool.submit(service._parts,'alice',self.cid) for _ in range(2)]
+            runtimes=[future.result(timeout=5)[3] for future in futures]
+        self.assertEqual(len(constructed),1)
+        self.assertIs(runtimes[0],runtimes[1])
+        self.assertIs(service.runtimes[('alice',self.cid)],runtimes[0])
+        return runtimes[0]
+
+    def test_concurrent_first_parts_constructs_one_runtime_with_real_databases(self):
+        hermes=SimpleNamespace(root=Path(self.tasks.path).parent,tasks=self.tasks,authorizer=self.auth)
+        service=MaterialService(hermes,SimpleNamespace(store=self.store))
+        runtime=self.concurrent_first_parts(service)
+        self.assertIs(service._parts('alice',self.cid)[3],runtime)
+
+    def test_concurrent_first_parts_keeps_live_book_and_reconcile_does_not_fence_it(self):
+        execution=self.execution();binding=execution['binding'];row=self.ledger.create(execution,'policy')
+        self.ledger.claim_post(binding);self.ledger.bind_run(binding,'run_'+'6'*32)
+        book=object();token='synthetic-existing-token'
+        hermes=SimpleNamespace(root=Path(self.tasks.path).parent,tasks=self.tasks,authorizer=self.auth,
+            grants=SimpleNamespace(renew=lambda *a:None,revoke=lambda *a:self.fail('live grant revoked')),
+            lock=threading.RLock(),tokens={row['task_id']:token},books={row['task_id']:book},gateways={})
+        service=MaterialService(hermes,SimpleNamespace(store=self.store))
+        queue=service._queue('alice',self.cid)
+        with queue._db() as db:
+            db.execute('INSERT INTO conversation_material_selections_v1 VALUES(?,?,?,?,?,?)',
+                ('alice',self.cid,binding['request_id'],self.scope,'synthetic-request-sha','{}'))
+        live={row['task_id']:{'token':token,'gateway':object()}}
+        runtime=self.concurrent_first_parts(service,live)
+        calls=[]
+        def rpc(method,path,*args):
+            calls.append((method,path));self.assertEqual(method,'GET')
+            return 200,dict(run_id='run_'+'6'*32,session_id=row['session_id'],status='running')
+        runtime.rpc=rpc
+        with patch.object(runtime,'_admission'):
+            self.assertEqual(service._parts('alice',self.cid)[3].reconcile(binding)['status'],'running')
+        self.assertIs(runtime.live[row['task_id']],live[row['task_id']])
+        self.assertIs(hermes.books[row['task_id']],book)
+        self.assertEqual(self.tasks.get(row['task_id'],'alice')['state'],'RUNNING')
+        self.assertEqual(calls,[('GET','/v1/materials/'+row['session_id'])])
+
     def test_scope_selection_is_frozen_before_cas_conflicts_and_changes_fact_version(self):
         hermes=SimpleNamespace(root=Path(self.tasks.path).parent,tasks=self.tasks,authorizer=self.auth)
         conversation=SimpleNamespace(store=self.store,pool=SimpleNamespace(submit=lambda *a:None))

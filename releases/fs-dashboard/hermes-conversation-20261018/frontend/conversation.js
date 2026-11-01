@@ -53,7 +53,11 @@
     return [...(snapshot?.turns || [])].reverse().find(turn => activeStates.has(turn.state) && turn.run_id);
   }
   function syncControls() {
-    if ($('run-material')) $('run-material').disabled = !current || !ready || accessDenied || !filesReady || !selectedFiles.size || materialJobs(current).some(job => !['completed','cancelled','failed','interrupted'].includes(job.status));
+    const revising = $('material-mode')?.value === 'revise';
+    const target = selectedFiles.size === 1 ? fileItems.find(file => selectedFiles.has(file.file_id)) : null;
+    if ($('material-target')) $('material-target').textContent = filesReady && target && bindingAvailable(target)
+      ? '修改目标：' + (target.filename || '所选文件') : '请仅勾选一份要修改的文件。';
+    if ($('run-material')) $('run-material').disabled = !current || !ready || accessDenied || !filesReady || !selectedFiles.size || (revising && selectedFiles.size !== 1) || materialJobs(current).some(job => !['completed','cancelled','failed','interrupted'].includes(job.status));
     const running = selectedRun();
     const unknown = (snapshot?.turns || []).some(turn => turn.state === 'dispatch_unknown');
     $('new-conversation').disabled = accessDenied || creating || sending || !!pending;
@@ -624,6 +628,7 @@
     const goal = $('message-input').value.trim(); if (!goal) { $('message-input').reportValidity(); return; }
     const ids = [...selectedFiles].sort(); let operation = {mode: 'read'};
     if ($('material-mode').value === 'revise') {
+      if (ids.length !== 1) { announce('请仅勾选一份要修改的文件。'); return; }
       const indices = ['material-sheet','material-row','material-column'].map(id => Number($(id).value));
       if (indices.some(v => !Number.isInteger(v) || v < 1)) { announce('工作表、行和列须从 1 开始。'); return; }
       let value = $('material-value').value;
@@ -649,7 +654,7 @@
   }
   if ($('run-material')) {
     $('run-material').onclick = runMaterial;
-    $('material-mode').onchange = () => { $('material-edit').hidden = $('material-mode').value !== 'revise'; $('material-read').hidden = $('material-mode').value !== 'read'; };
+    $('material-mode').onchange = () => { $('material-edit').hidden = $('material-mode').value !== 'revise'; $('material-read').hidden = $('material-mode').value !== 'read'; syncControls(); };
     $('material-bounded').onchange = () => { $('material-range').hidden = !$('material-bounded').checked; };
     watchMaterials();
   }

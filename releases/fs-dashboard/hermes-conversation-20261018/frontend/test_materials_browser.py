@@ -186,6 +186,7 @@ def check():
             page.screenshot(path=str(shots / ('material-desktop-'+theme+'.png')),full_page=True)
         page.locator('#attachments').evaluate('(element) => element.open = true')
         page.locator('#material-mode').select_option('revise')
+        expect(page.locator('#material-target')).to_have_text('修改目标：核对结果.xlsx')
         page.locator('#material-value').fill('30')
         page.locator('#material-value').focus()
         page.screenshot(path=str(shots/'material-expanded-dark.png'),full_page=True)

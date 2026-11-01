@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import secrets
 import sqlite3
+from threading import RLock
 import time
 
 from conversation_goals import _json, _sha, _pairs, _identifier
@@ -579,6 +580,7 @@ class MaterialService:
     def __init__(self, hermes, conversation):
         self.hermes, self.conversation = hermes, conversation
         self.runtimes = {}
+        self.runtime_lock = RLock()
         self.recovery_errors = []
 
     def recover(self):
@@ -663,9 +665,14 @@ class MaterialService:
         goals = ConversationGoals(self.conversation.store,owner,cid,lambda user,scope:self._scope(user,cid,scope))
         ledger = MaterialRunLedger(queue)
         key = (owner,cid)
-        if key not in self.runtimes:
-            self.runtimes[key] = MaterialRuntime(self.hermes,self.conversation,ledger,goals)
-        return queue,goals,ledger,self.runtimes[key]
+        # Runtime construction only assigns references. DB/authorization work
+        # above and all later network/execution remain outside this short lock.
+        with self.runtime_lock:
+            runtime = self.runtimes.get(key)
+            if runtime is None:
+                runtime = MaterialRuntime(self.hermes,self.conversation,ledger,goals)
+                self.runtimes[key] = runtime
+        return queue,goals,ledger,runtime
 
     def submit(self, owner, cid, body):
         from datetime import timedelta
