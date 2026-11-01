@@ -239,7 +239,8 @@ class WorkerFileLoop(unittest.TestCase):
 
 class WorkerEnvironmentTests(unittest.TestCase):
     @contextmanager
-    def runtime(self, *, original_loader=False, initialization_error=None, execution=None, extra_tool=False):
+    def runtime(self, *, original_loader=False, initialization_error=None, execution=None, extra_tool=False,
+                executor=None, worker_error=None, agent_error=None, agent_result=None, sync_executor=None):
         from conversation_file_tools import WIRE_NAMES
         wires = tuple(WIRE_NAMES) if execution else ('mcp__fcro__fc_read_skill', 'mcp__fcro__fc_list_conversation_files')
         calls = {'dotenv_reads': 0, 'registered': [], 'agent': None, 'executed': False}
@@ -266,7 +267,15 @@ class WorkerEnvironmentTests(unittest.TestCase):
         modules['gateway.platforms'].api_server_runs = modules['gateway.platforms.api_server_runs']
         async def execute(*args, **kwargs):
             calls['executed'] = True
-        modules['gateway.platforms.api_server_runs']._execute_run = execute
+        modules['gateway.platforms.api_server_runs']._execute_run = executor or execute
+        result = ({'completed': True} if agent_result is None else agent_result, {}, {})
+        def sync_execute(adapter, run, agent, approval_notify, *, _api_server):
+            calls['sync_calls'] = calls.get('sync_calls', 0) + 1
+            if worker_error is not None:
+                raise worker_error
+            return result
+        modules['gateway.platforms.api_server_runs']._run_agent_sync = sync_executor or sync_execute
+        calls['sync_result'] = result
         class Config:
             def __init__(self, **kwargs): self.values = kwargs
         modules['gateway.config'].PlatformConfig = Config
@@ -276,6 +285,11 @@ class WorkerEnvironmentTests(unittest.TestCase):
                     raise initialization_error
                 self.config = config
                 self._stopping_run_ids = set(); self._shutdown_interrupted_run_ids = set()
+                self._active_run_agents = {}; self._run_statuses = {}
+            def _set_run_status(self, run_id, status, **fields):
+                value = dict(self._run_statuses.get(run_id, {}), status=status, **fields)
+                self._run_statuses[run_id] = json.loads(json.dumps(value))
+                return value
             def _ensure_session_db(self): return 'synthetic-db'
             def _http_route_table(self):
                 return [('GET', '/v1/capabilities'), ('POST', '/v1/runs'),
@@ -290,6 +304,8 @@ class WorkerEnvironmentTests(unittest.TestCase):
         modules['agent.context_compressor'].ContextCompressor = Compressor
         class Agent:
             def __init__(self, **kwargs):
+                if agent_error is not None:
+                    raise agent_error
                 calls['agent'] = kwargs
                 self.context_compressor = Compressor(); self.valid_tool_names = wires
                 self.tools=[{'function':{'name':v}} for v in wires]+([{'function':{'name':'forbidden'}}] if extra_tool else [])
@@ -359,6 +375,184 @@ class WorkerEnvironmentTests(unittest.TestCase):
                     with self.runtime(initialization_error=error):
                         self.fail('initialization error must propagate')
                 self.assertIs(result.exception, error)
+
+    @staticmethod
+    async def terminal_executor(adapter, run, *, _api_server):
+        # Protocol fixture; the separate pinned-source check substitutes real SDK functions.
+        adapter._run_statuses[run.run_id] = {'session_id': run.session_id}
+        try:
+            adapter._set_run_status(run.run_id, 'running')
+            agent = adapter._create_agent(session_id=run.session_id)
+            adapter._active_run_agents[run.run_id] = agent
+            result = sys.modules['gateway.platforms.api_server_runs']._run_agent_sync(
+                adapter, run, agent, None, _api_server=_api_server)
+            adapter._set_run_status(run.run_id, 'failed' if result[0].get('failed') else 'completed')
+        except asyncio.CancelledError:
+            adapter._set_run_status(run.run_id, 'cancelled')
+            raise
+        except Exception:
+            adapter._set_run_status(run.run_id, 'failed', error='existing SDK error field')
+        finally:
+            adapter._active_run_agents.pop(run.run_id, None)
+
+    def diagnostic_run(self, adapter, modules, suffix='a', prefix='mg'):
+        run = types.SimpleNamespace(run_id='run_' + suffix * 32, session_id=prefix + '_' + suffix * 64)
+        asyncio.run(modules['gateway.platforms.api_server_runs']._execute_run(adapter, run, _api_server=None))
+        return run, adapter._run_statuses[run.run_id]
+
+    def test_material_diagnostic_captures_real_exception_type_at_create_and_worker_boundaries(self):
+        secret = 'secret-token model-output private-reasoning https://secret.invalid/path'
+        for option, phase, cls in (('agent_error', 'agent_create', ValueError),
+                                   ('worker_error', 'agent_worker', PermissionError)):
+            with self.subTest(option=option), self.runtime(
+                    executor=self.terminal_executor, **{option: cls(secret)}) as (_, adapter, calls, modules):
+                run, state = self.diagnostic_run(adapter, modules)
+                self.assertEqual(state['status'], 'failed')
+                self.assertEqual(state['runtime']['fs_material_diagnostic'], {
+                    'version': 'materials_diagnostic_v1', 'phase': phase,
+                    'exception_class': cls.__name__, 'reason': 'unknown'})
+                self.assertNotIn(secret, json.dumps(state['runtime']))
+                self.assertEqual(adapter._material_diagnostics, {})
+                self.assertEqual(calls.get('sync_calls', 0), 0 if option == 'agent_error' else 1)
+
+    def test_material_failed_return_is_unchanged_and_reason_never_uses_error_prose(self):
+        for reason, expected in (('max_iterations', 'max_iterations'),
+                                 ('secret-token model-output private-reasoning', 'unknown')):
+            result = {'failed': True, 'reason': reason, 'error': 'secret-model-output'}
+            with self.subTest(reason=expected), self.runtime(
+                    executor=self.terminal_executor, agent_result=result) as (_, adapter, calls, modules):
+                run, state = self.diagnostic_run(adapter, modules)
+                note = state['runtime']['fs_material_diagnostic']
+                self.assertEqual(note, {'version': 'materials_diagnostic_v1', 'phase': 'agent_returned',
+                                       'exception_class': 'unknown', 'reason': expected})
+                self.assertIs(calls['sync_result'][0], result)
+                self.assertEqual(result['error'], 'secret-model-output')
+                self.assertNotIn('secret', json.dumps(note))
+                self.assertEqual(adapter._material_diagnostics, {})
+
+    def test_material_custom_exception_cannot_spoof_whitelisted_class(self):
+        forged = type('PermissionError', (PermissionError,), {})("secret private reasoning")
+        class HostileMeta(type):
+            def __hash__(cls): raise AssertionError('must not hash exception class')
+        class HostileError(Exception, metaclass=HostileMeta):
+            def __str__(self): raise AssertionError('must not stringify exception')
+            def __repr__(self): raise AssertionError('must not repr exception')
+        for error in (forged, HostileError()):
+            with self.subTest(kind=type(error).__name__), self.runtime(
+                    executor=self.terminal_executor, worker_error=error) as (_, adapter, _, modules):
+                _, state = self.diagnostic_run(adapter, modules)
+                self.assertEqual(state['runtime']['fs_material_diagnostic']['exception_class'], 'other_exception')
+
+    def test_material_success_fc_human_and_old_record_keep_original_semantics(self):
+        with self.runtime(executor=self.terminal_executor) as (worker, adapter, _, modules):
+            for prefix in ('mg', 'fc', 'hc'):
+                with self.subTest(prefix=prefix):
+                    _, state = self.diagnostic_run(adapter, modules, prefix=prefix)
+                    self.assertEqual(state['status'], 'completed')
+                    self.assertEqual('fs_material_diagnostic' in state.get('runtime', {}), prefix == 'mg')
+                    if prefix == 'mg':
+                        note = state['runtime']['fs_material_diagnostic']
+                        worker._material_note(adapter, 'run_' + 'a' * 32, phase='agent_create', error=ValueError('late secret'))
+                        adapter._active_run_agents['run_' + 'a' * 32] = types.SimpleNamespace(
+                            _hermes_api_runtime={'fs_material_context': {'version': 'fixture'}})
+                        repeated = adapter._set_run_status('run_' + 'a' * 32, 'completed')
+                        self.assertEqual(repeated['runtime']['fs_material_diagnostic'], note)
+            old = adapter._set_run_status('run_' + 'f' * 32, 'failed', session_id='mg_' + 'f' * 64)
+            self.assertNotIn('fs_material_diagnostic', old.get('runtime', {}))
+            self.assertEqual(adapter._material_diagnostics, {})
+
+    def test_official_error_caught_outside_observed_boundaries_stays_unknown(self):
+        async def caught(adapter, run, *, _api_server):
+            adapter._run_statuses[run.run_id] = {'session_id': run.session_id}
+            adapter._set_run_status(run.run_id, 'failed', error='ValueError secret model-output private-reasoning')
+        with self.runtime(executor=caught) as (_, adapter, _, modules):
+            _, state = self.diagnostic_run(adapter, modules)
+            self.assertEqual(state['runtime']['fs_material_diagnostic'], {
+                'version': 'materials_diagnostic_v1', 'phase': 'executor',
+                'exception_class': 'unknown', 'reason': 'unknown'})
+
+    def test_material_wrapping_once_and_propagated_exception_cancel_cleanup(self):
+        async def failing(adapter, run, *, _api_server):
+            raise error
+        for error in (ValueError('secret'), asyncio.CancelledError()):
+            with self.subTest(error=type(error).__name__), self.runtime(executor=failing) as (worker, adapter, _, modules):
+                api = modules['gateway.platforms.api_server_runs']
+                execute, sync = api._execute_run, api._run_agent_sync
+                worker.make_adapter('same-fixture-key')
+                self.assertIs(api._execute_run, execute)
+                self.assertIs(api._run_agent_sync, sync)
+                run = types.SimpleNamespace(run_id='run_' + 'c' * 32, session_id='mg_' + 'c' * 64)
+                with self.assertRaises(type(error)) as raised:
+                    asyncio.run(api._execute_run(adapter, run, _api_server=None))
+                self.assertIs(raised.exception, error)
+                self.assertEqual(adapter._material_diagnostics, {})
+
+    def test_material_sync_keeps_exact_return_and_exception_objects(self):
+        observed = {}
+        async def executor(adapter, run, *, _api_server):
+            adapter._run_statuses[run.run_id] = {'session_id': run.session_id}
+            try:
+                observed['returned'] = sys.modules['gateway.platforms.api_server_runs']._run_agent_sync(
+                    adapter, run, None, None, _api_server=_api_server)
+            except BaseException as error:
+                observed['error'] = error
+                raise
+        for error in (None, ValueError('secret model-output private-reasoning')):
+            with self.subTest(failed=error is not None), self.runtime(
+                    executor=executor, worker_error=error) as (_, adapter, calls, modules):
+                if error is None:
+                    self.diagnostic_run(adapter, modules)
+                    self.assertIs(observed['returned'], calls['sync_result'])
+                else:
+                    with self.assertRaises(ValueError) as raised:
+                        self.diagnostic_run(adapter, modules)
+                    self.assertIs(raised.exception, error)
+                    self.assertIs(observed['error'], error)
+                self.assertEqual(calls['sync_calls'], 1)
+                self.assertEqual(adapter._material_diagnostics, {})
+
+    def test_material_terminal_cancel_clears_admitted_input_and_diagnostics(self):
+        error = asyncio.CancelledError()
+        with self.runtime(executor=self.terminal_executor, worker_error=error) as (_, adapter, _, modules):
+            sid, rid = 'mg_' + 'a' * 64, 'run_' + 'a' * 32
+            adapter._material_admitted_inputs = {sid: 'secret-model-input'}
+            with self.assertRaises(asyncio.CancelledError) as raised:
+                self.diagnostic_run(adapter, modules)
+            self.assertIs(raised.exception, error)
+            self.assertEqual(adapter._run_statuses[rid]['status'], 'cancelled')
+            self.assertEqual(adapter._material_admitted_inputs, {})
+            self.assertEqual(adapter._material_diagnostics, {})
+
+    def test_material_concurrent_runs_do_not_mix_phases_or_retain_terminal_state(self):
+        ready = 0
+        release = None
+        async def concurrent(adapter, run, *, _api_server):
+            nonlocal ready
+            adapter._run_statuses[run.run_id] = {'session_id': run.session_id}
+            ready += 1
+            if ready == 2: release.set()
+            await release.wait()
+            return await self.terminal_executor(adapter, run, _api_server=_api_server)
+        with self.runtime(executor=concurrent) as (_, adapter, _, modules):
+            api = modules['gateway.platforms.api_server_runs']
+            # One session fails inside the existing agent-builder boundary; the other succeeds.
+            build = adapter._create_admitted_agent
+            def selected(ephemeral_system_prompt=None, session_id=None, **kwargs):
+                if session_id.startswith('mg_' + 'a'):
+                    raise TypeError('secret')
+                return build(ephemeral_system_prompt, session_id, **kwargs)
+            async def both():
+                nonlocal release
+                release = asyncio.Event()
+                await asyncio.gather(*(api._execute_run(adapter, types.SimpleNamespace(
+                    run_id='run_' + v * 32, session_id='mg_' + v * 64), _api_server=None) for v in ('a', 'b')))
+            with patch.object(adapter, '_create_admitted_agent', selected):
+                asyncio.run(both())
+            a, b = (adapter._run_statuses['run_' + v * 32] for v in ('a', 'b'))
+            self.assertEqual(a['status'], 'failed'); self.assertEqual(b['status'], 'completed')
+            self.assertEqual(a['runtime']['fs_material_diagnostic']['exception_class'], 'TypeError')
+            self.assertEqual(b['runtime']['fs_material_diagnostic']['exception_class'], 'unknown')
+            self.assertEqual(adapter._material_diagnostics, {})
 
 
 if __name__ == '__main__':
