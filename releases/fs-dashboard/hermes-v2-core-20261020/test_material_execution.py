@@ -12,7 +12,9 @@ from unittest.mock import Mock
 sys.path.insert(0, str(Path(__file__).parent / "source"))
 from b1_model_routing import handoff
 from conversation_file_tools import NAMES, attach_conversation_file_tools, file_prompt, tool_schemas
-from material_execution import freeze_execution, validate_execution, operation_guard, prepare_materials
+from material_execution import (freeze_execution, validate_execution, operation_guard, prepare_materials,
+                                build_context_proof, verify_context_proof)
+from conversation_file_tools import WIRE_NAMES
 
 NOW = datetime(2026, 11, 1, tzinfo=timezone.utc)
 FID = "a" * 32
@@ -200,8 +202,66 @@ class MaterialExecutionTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             operation_guard(self.frozen(), "fs.pricing.control", {}, now=NOW)
 
+    def proof_inputs(self, fixed):
+        return dict(session_id="material_fixture_session", run_id="run_" + "1" * 32,
+                    actual_system_prompt="native fixture prelude\n" + fixed["system_prompt"] + "\nfixture tool map",
+                    actual_input=fixed["input"], actual_tool_names=list(WIRE_NAMES), native_memory_skipped=True)
+
+    def test_context_measurements_bind_real_identifiers_and_store_only_hashes(self):
+        fixed = self.frozen()
+        observations = self.proof_inputs(fixed)
+        proof = build_context_proof(fixed, **observations)
+        self.assertIs(verify_context_proof(fixed, proof,
+            session_id=observations["session_id"], run_id=observations["run_id"]), True)
+        self.assertNotIn("native fixture", json.dumps(proof))
+        self.assertNotIn(fixed["handoff"]["goal"], json.dumps(proof, ensure_ascii=False))
+        self.assertEqual(proof["system_prompt_sha256"],
+                         hashlib.sha256(observations["actual_system_prompt"].encode()).hexdigest())
+
+    def test_context_measurements_reject_missing_prompt_changed_input_tools_and_memory(self):
+        fixed = self.frozen()
+        for change in (dict(actual_system_prompt="unrelated prompt"), dict(actual_input="other request"),
+                       dict(actual_tool_names=list(WIRE_NAMES) + ["fs.pricing.control"]),
+                       dict(actual_tool_names=[WIRE_NAMES[0]] * 3), dict(native_memory_skipped=1),
+                       dict(native_memory_skipped=False)):
+            with self.subTest(change=change), self.assertRaises(PermissionError):
+                build_context_proof(fixed, **dict(self.proof_inputs(fixed), **change))
+
+    def test_context_proof_rejects_cross_run_scope_payload_and_truthy_measurement_flags(self):
+        fixed = self.frozen()
+        observed = self.proof_inputs(fixed)
+        proof = build_context_proof(fixed, **observed)
+        def verify(value, **changes):
+            return verify_context_proof(fixed, value,
+                **dict(session_id=observed["session_id"], run_id=observed["run_id"], **changes))
+        with self.assertRaises(PermissionError):
+            verify_context_proof(fixed, proof, session_id="other", run_id=observed["run_id"])
+        with self.assertRaises(PermissionError):
+            verify_context_proof(fixed, proof, session_id=observed["session_id"], run_id="run_" + "2" * 32)
+        for key, value in (("input_sha256", "a" * 64), ("payload_sha256", "b" * 64),
+                           ("prompt_present", 1), ("input_verified", "yes"), ("native_memory_skipped", False)):
+            with self.subTest(key=key), self.assertRaises(PermissionError):
+                verify(dict(proof, **{key: value}))
+        with self.assertRaises(PermissionError):
+            verify(dict(proof, model_body="model says complete"))
+
 
 class ExecutionToolsTests(unittest.TestCase):
+    def test_material_evidence_labels_do_not_inherit_turn_scope_or_business_freshness(self):
+        context = Mock()
+        context.read_table.return_value = dict(file_id=FID, sha256="b" * 64, complete=True,
+            next_offset=None, sheets=[dict(rows=[["fixture"]])],
+            coverage=dict(scope="selected_sheet", sheet=0, offset=0, end_exclusive=1,
+                          total_rows=1, returned_rows=1, total_sheets=1, complete=True))
+        book = SimpleNamespace(call=Mock())
+        attach_conversation_file_tools(book, context, scope="material_execution_files", operation_guard=lambda *args: True)
+        value = book.call(NAMES[1], dict(file_id=FID, sheet=0, offset=0, limit=200))
+        self.assertEqual(value["analysis_coverage"]["scope"], "this_execution_observed_pages")
+        self.assertEqual(value["analysis_coverage"]["time_basis"], "tool_read_receipt_not_business_data_date")
+        refs = book.material_evidence.handoff_evidence()
+        self.assertEqual(refs[0]["source"], "material_execution_files")
+        self.assertEqual(set(refs[0]["missing"]), {"business_data_not_read", "long_term_goal_not_assessed"})
+
     def test_scope_is_static_host_input_not_a_model_schema_argument(self):
         context = Mock()
         prompt = file_prompt(context, scope="material_execution_files")

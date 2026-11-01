@@ -186,7 +186,7 @@ A本地只读合同已回收，冻结首个合法类型`conversation_materials_v
 
 | 本包实际路径（相对仓库） | 唯一修改者 / 范围 |
 |---|---|
-| releases/fs-dashboard/hermes-v2-core-20261020/source/material_execution.py、新test_material_execution.py；source/conversation_file_tools.py及test_conversation_file_tools.py；test_core.py | Personal B：显式意图/材料manifest/实际最小上下文及工具作用域；原turn默认行为兼容 |
+| releases/fs-dashboard/hermes-v2-core-20261020/source/material_execution.py、新test_material_execution.py；source/conversation_file_tools.py、source/material_evidence.py及test_conversation_file_tools.py、test_material_evidence.py；test_core.py | Personal B：显式意图/材料manifest/实际最小上下文及工具/证据作用域；原turn默认行为兼容 |
 | releases/fs-dashboard/hermes-conversation-20261018/source/conversation_material_runs.py、新tests/test_conversation_material_runs.py；source/conversation_file_bindings.py及tests/test_conversation_file_loop.py、test_conversation_store.py；source/conversation_http.py及deploy/test_http.py | Business A：真实task/lease/run映射、execution-bound文件上下文、原ID恢复/停止、HTTP及原入口测试加载 |
 | releases/fc-coins/fc-pricing-v3-20261026/source/conversation_http.py及对应tests/test_runtime_contracts.py | Business A：保留现行FC接点的材料HTTP适配 |
 | releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py | Business A：仅向现有HERMES/CONVERSATION注入新服务；原身份来源不变 |
@@ -214,3 +214,21 @@ A已真实回复登记a2512c72完整可见、共享单一维护者已知，开�
 - A调用`attach_conversation_file_tools(book,context,scope='material_execution_files',operation_guard=lambda name,args: operation_guard(fixed,name,args,now=host_clock()))`；新scope必须提供可调用guard且返回字面True，最前拒绝非文件工具。file_prompt/tool_schemas的同名scope仅host关键字参数，不进入模型schema。默认turn_bound_files的原prompt/schema/透传语义保持，原coverage算法复用、每新book独立，unknown产物原样返回且不自动再调A。
 
 B最终原pr_fast.units Core入口194项、零failure/error/skip；新增17项已加载，含真实freeze→guard→原helper调用链，原文件/coverage/HTTP/provider/goal回归通过。四条B Python路径通过3.9 AST，实际本机3.14；沿用原A2明确Windows UTC+08/temp mode夹具，不称Linux执行。knowledge_closeout plan(base d279)仍原知识层30 errors/exit1，保持未完成。A完整运行链、真实官方只读resolver/当前版本证明、LinuxCI和独立最新SHA审查未完成；生产仍501f，未作新模型/部署/业务操作。待A完整固定候选正常合入后，只对真实组合及受影响合同验收，仍一个Personal集成PR。
+
+#### 官方字节定位与实际上下文proof补充
+
+A已在B fixed4e4c5659上本机施工，回交真实原TaskStore/lease/单次attempt映射、execution-bound文件与SELECT-only resolver初版4项真实temp DB通过；完整候选/HTTP/UI/三层隔离仍在实现，此局部证据不记整包通过。A的基础receipt沿原exact binding/status/receipt_ref，仅completed附最小evidence/completed_actions，兼容GoalHost；原outbox仍只queued，不能回填其NULL任务字段。ref须回指持久映射版本与实际task/lease/run/完整execution hash、官方最小状态、实际页覆盖/产物及proof，不能仅凭模型正文或hash当执行来源。
+
+在既有现场权限下，Personal明确限定A只核当前worker容器/实际image的WorkingDir和三份明确官方.py元信息。A回报当前容器fdb100cedd9b2c05dedfb7880282cd1105e322e3315e3585d72d149d8f01c96a Running=true、实际image8251bc53…3544，两个WorkingDir均/opt/hermes。目录/目标O_NOFOLLOW、regular及stable fstat检查通过，以下实际字节全部匹配A按固定commit71d34bad1045610252eda02ee79549436896e784公开raw下载的源码缓存；未输出正文/读取Env、profile/config/DB/日志/凭据，未新建/启动容器或改服务，旧批量SCP拒绝未重试：
+
+| /opt/hermes/gateway/platforms/下 | bytes | SHA256 |
+|---|---|---|
+| api_server.py | 256424 | 6a7e6fb0a0d5ea25ddc47d36a64e2c0bc50ded331d49e1c4521d801ca7189043 |
+| api_server_runs.py | 68296 | 8a7fcfd56183c32a14b41c7c43ce36b21b37bf49f2ed035dafe48899c0e8cbe7 |
+| api_server_run_idempotency.py | 10755 | 56f7762addc5e610569fd613729f1f0b3d5e99e4b76f56d9cfa509dfeb51636c |
+
+raw行号与web索引会移动，使用完整字节hash及原指纹/SQL语义，不沿用旧web行号当证明。这消除当前磁盘SDK字节未知，不等于模块加载、新resolver功能或新包生产验收。
+
+B按同包依赖补`build_context_proof(execution,*,session_id,run_id,actual_system_prompt,actual_input,actual_tool_names,native_memory_skipped)`与`verify_context_proof(execution,proof,*,session_id,run_id)`。A必须从实际agent已组装提示、实际官方已接收input（或已核官方完整body fingerprint对应input）、真实enabled三工具和实际memory/context/background关闭标志取值，不能把expected模板冒actual。构造器检查冻结提示确实包含、输入精确相同、仅原三工具及字面True，产出实际完整系统提示hash、输入/声明提示hash、payload/snapshot/模板/上下文版本、session/run和工具集的最小proof，不持久原文。核验器重核原执行/版本/session/run/工具和严格布尔；proof本身不认证worker或替代A原账本/task/lease/官方来源验真，不授新执行权。完整性核验支持到期后对账，真实工具仍须活动时间/权限检查。
+
+MaterialEvidence增加host-only scope，原turn默认标签/算法不变；执行scope内层明确this_execution_observed_pages，B1 source=material_execution_files，缺项始终含business_data_not_read和long_term_goal_not_assessed，as_of仍真实工具读回时间，非业务日期。读任务可在明确局部范围完成并保留未读缺项，不能由一页成功推全workbook或目标达成；产物还须A读取实际metadata/hash/版本关系与字节。新增4项proof/标签边界与原相关测试合计40项零failure/error/skip通过，随后原Core最终198项全部通过、零skip。4条受影响Python路径3.9 AST/diff通过；知识plan仍既有错误/exit1，未扩修。完整A组合、最新LinuxCI/独审和真实运行仍待完成。

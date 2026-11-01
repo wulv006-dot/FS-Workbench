@@ -12,7 +12,7 @@ import math
 import re
 
 from b1_model_routing import handoff as checked_handoff
-from conversation_file_tools import NAMES, file_prompt, validate as validate_tool
+from conversation_file_tools import NAMES, WIRE_NAMES, file_prompt, validate as validate_tool
 
 KIND = "conversation_materials_v1"
 SCOPE = "material_execution_files"
@@ -213,4 +213,58 @@ This function never retries an unknown revision or infers task completion.
         expected["request_id"] = allowed["revision_request_id"]
         if _json(expected) != _json(arguments):
             raise PermissionError("material_revision_not_authorized")
+    return True
+
+
+def _proof_identity(execution, session_id, run_id):
+    fixed = validate_execution(execution)  # Reconciliation may occur after expiry.
+    _text(session_id)
+    if not isinstance(run_id, str) or not re.fullmatch(r"run_[a-f0-9]{32}", run_id):
+        raise ValueError("material_run_identity")
+    return dict(version="materials_effective_context_v1", kind=KIND, session_id=session_id, run_id=run_id,
+        payload_sha256=fixed["payload_sha256"], snapshot_id=fixed["snapshot_id"],
+        template_version=fixed["template_version"], knowledge_version=fixed["knowledge_version"],
+        input_sha256=hashlib.sha256(fixed["input"].encode("utf-8")).hexdigest(),
+        declared_prompt_sha256=hashlib.sha256(fixed["system_prompt"].encode("utf-8")).hexdigest(),
+        tool_names=sorted(WIRE_NAMES))
+
+
+def build_context_proof(execution, *, session_id, run_id, actual_system_prompt, actual_input,
+                        actual_tool_names, native_memory_skipped):
+    """Record measurements from A's actual agent/official admission boundary.
+
+A must supply the assembled agent prompt, actual admitted input (or input whose
+full official persisted body fingerprint was verified), actual enabled tools,
+    and actual skip flags (memory, context files and background loading disabled).
+    Supplying expected template text is NOT runtime proof.
+No text is persisted here. The authenticated A ledger binds this proof to the
+real task/lease/run; this pure comparison alone cannot authenticate a worker.
+"""
+    fixed = validate_execution(execution)
+    if (not isinstance(actual_system_prompt, str) or fixed["system_prompt"] not in actual_system_prompt
+            or not isinstance(actual_input, str) or actual_input != fixed["input"] or native_memory_skipped is not True
+            or not isinstance(actual_tool_names, (list, tuple))
+            or len(actual_tool_names) != len(WIRE_NAMES)
+            or any(not isinstance(name, str) for name in actual_tool_names)
+            or sorted(actual_tool_names) != sorted(WIRE_NAMES)):
+        raise PermissionError("material_effective_context_unverified")
+    return dict(_proof_identity(fixed, session_id, run_id),
+        system_prompt_sha256=hashlib.sha256(actual_system_prompt.encode("utf-8")).hexdigest(),
+        native_memory_skipped=True, prompt_present=True, input_verified=True)
+
+
+def verify_context_proof(execution, proof, *, session_id, run_id):
+    """Check a proof retrieved from A's trusted task ledger, never model text.
+
+Verifies the original frozen input/version/session/run and exact three tools.
+It does not establish the provenance of the measurement or grant execution.
+A's receipt verifier must first bind the actual task/lease and official record.
+"""
+    identity = _proof_identity(execution, session_id, run_id)
+    extra = {"system_prompt_sha256", "native_memory_skipped", "prompt_present", "input_verified"}
+    if (not isinstance(proof, dict) or set(proof) != set(identity) | extra
+            or any(proof.get(key) != value for key, value in identity.items())
+            or any(proof.get(key) is not True for key in extra - {"system_prompt_sha256"})):
+        raise PermissionError("material_context_proof_changed")
+    _hex(proof["system_prompt_sha256"], 64)
     return True

@@ -112,7 +112,7 @@ turn state and expiry on every operation. The model supplies no identity grants.
     if getattr(book, "_conversation_file_tools", False):
         raise ValueError("conversation_file_tools_already_attached")
     original = book.call
-    evidence = MaterialEvidence()
+    evidence = MaterialEvidence(scope=scope)
     def call(name, arguments):
         if name not in NAMES:
             if scope == "material_execution_files":
