@@ -686,3 +686,10 @@ Linux CI之后仍须按已授权未来发布阶段，在独立目录只用最终
 据原publisher全部锁先于backup/journal/目标写的结构和此次读回，本次分类为**发布锁拒绝、尚无活动目标写入**，不是1b20安装后失败。准确生产仍为 `f79e29f0d5921b103a218c5e6ed967a754858b9c`；1b20只在独立合成环境证明原生兼容。严格按本阶段“失败即停”：没有第二apply/inspect，没有BrowserAct会话、真实材料GET/result/POST/模型/R2/R3，也没有原ID状态清理或手写SQL促通。原request=`material_da2c98dcd8d3464fb4db5f065f0ea110`、旧posts=1/discarded=false/费用unknown/旧404根因unknown保持。
 
 稳定共享目录=`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Native-1b20b91f-BlockedPublish-20261101T033600Z/`，receipt-index SHA=`4151b80cb2211cfafb80fa1ebfd4187c37923bd36f7daa01b88f7d120ac4ad31`。index列5份证据的bytes/fullSHA：原生结果、9源Git SHA表、发布before、过滤失败回执、失败后完整approved manifest+24/46及锁/服务元信息；无源码/配置/凭据/DB正文导出。收据已主动回送主控；本附录为记录性提交，不重pack/部署/旧测试。后续是否可在锁自然释放且原ID/新鲜度/CAS仍可核时有据续发，由主控明确；A当前停止，不盲重apply或先做材料GET，不声称真实功能恢复。
+
+
+### 同发布ID有据续发授权后的等待回执（03:40:22Z）
+
+主控已独立核收上述native7/5文件及0目标写入证据，明确仅对本次原ID/原manifest写前拒绝给有据续发条件。A先按约只读一次collector自然状态：`2026-11-01T03:40:22.829070+00:00`，collector.lock仍由python3 PID15925持WRITE锁，unit Type=oneshot/MainPID15925/activating/start、开始11:32:54CST。故本次停在等待，续试apply=0，材料GET/POST/model=0；未继续其它现场探针、复核DB、重跑native/Core/SDK、轮询或新增定时，也未stop/kill/改timer/抢锁。backup/journal此步未重核，只保留03:36:43Z已核不存在的历史时点，不冒当前完整fresh/CAS条件已重新通过。
+
+当前1b20仍未安装，生产版本最近已核为f79。原ID `nav-20261101T033600Z`、manifest `c149b7173db4a496332b2dafce02ae198b84e2c5e0b23f32f6f5d004ad5655d3`和旧锁忙收据均保留；后续在自然释放并获继续唤醒后才按授权重核fresh/CAS/receipt/quiescent，当前不盲重发。新等待收据目录 `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-1b20b91f-CollectorWait-20261101T034022Z/`，含collector-check及独立receipt-index，不覆盖已独立核收的上一份index。该追加只作记录，不触发布，不宣称材料原ID查询或功能验收通过。
