@@ -917,6 +917,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／材料404有界诊断包 | 原payload与后时点DB元信息由Personal独立读回；同CID普通detail/files200，8931监听与启动路径正确，fresh导入正确仍不代表实际进程内存；材料GET可能初始化表已停止 | A2-B2-FROZEN-WORKPACKAGE.md有界因果与后续包 | 旧404根因未知；禁止凭假设固定路径修复、重POST或用重启后的变化倒推旧内存 | A在已登记HTTP/range/测试/publisher范围实现受控同owner只读诊断和错误阶段，0模型/0私有表初始化，钉5f99已安装proof；完整候选经独审CI后再发布取证 | A独占实现；Personal合同/集成/终审 |
 | 2026-11-01／诊断固定候选已集成 | 正常merge A b3efed2e十路径，源与固定候选一致；Personal诊断7全过，Git LF发布组22过/旧HTTP一次socket reset后单用例复跑过，不冒本机23一次全绿 | A2-B2-FROZEN-WORKPACKAGE.md固定候选集成 | 最新完整SHA独审及LinuxCI待验；生产仍5f99、原404未定因，原材料ID未重发 | 一个Personal集成草稿，Business Sol High独审12路径，必要CI后合并再交最终SHA；新pack/prepare只改两HTTP目标、range原围栏重载 | Personal集成/审查协调；A原publisher |
 | 2026-11-01／PR724代码验收合并 | reviewed d63024ff/base5f99独审无问题，两轮LinuxCI实际Core198/conversation104含诊断7/deploy23零失败零skip；正常merge f79e29f0d5921b103a218c5e6ed967a754858b9c，树一致且停止PR监听 | A2-B2-FROZEN-WORKPACKAGE.md PR724收口；CI41265895674 | 代码通过不代表诊断上线或原404恢复；生产最后有效5f99，原request仍一次/unknown，费用与真实执行未验 | 已交A最终merge SHA新LF pack/新现场prepare/原publisher，仅两HTTP目标+range围栏重载；先正常FS零模型诊断GET，回收证据再决定下一步，不重原POST | A唯一发布/取证；Personal最终审核 |
+| 2026-11-01／f79软件与正常角色诊断通过 | A原publisher一次apply；Personal独立核8收据SHA、24目标与Git LF、46保护、22inode/mtime及容器未变；正常诊断200/匿名401、实际HTTP与store/tasks六绑定true、前后两库元信息相同 | A2-B2-FROZEN-WORKPACKAGE.md f79核收；A记录af2648d4仅附录26行已合入 | 当前软件f79，旧404根因与原请求执行/费用未知，未完成材料/视觉/阶段2整体 | 仅一次原ID有状态lookup，明确接受私有表初始化且无任务/POST/模型；回收实际stage/schema/计数后再定恢复边界，禁止R2/R3与盲重POST | A限定执行；Personal独立核收/决策 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 
