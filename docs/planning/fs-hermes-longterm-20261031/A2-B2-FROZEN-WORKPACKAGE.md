@@ -274,3 +274,11 @@ A于2026-11-01T01:41:35Z只读确认collector自然inactive/dead、MainPID0、�
 真实备份为/var/backups/fs-navigation-20261006/nav-20261101T013519Z，成功journal SHA256 `3f6d474d37716610de334f14b9b7a699f879aae170471c065f5007c47e3ab93d`，备份manifest与approved字节相同。A于01:44:15Z逐项读回24afterSHA/owner/mode匹配、46保护SHA/owner/mode未变；新容器9c0225c7ea03f676c10ff9f1b2181fa0c5dda8f472f6e6834ea616ba015b5db7，沿原image8251bc53…3544、Running=true、StartedAt2026-11-01T01:42:47.848543281Z。worker/range/nginx PID1434/1616/31780均active，range200/ok、匿名worker401。经原MaterialRuntime._rpc内部身份通道GET capabilities，fs_materials三字段verified_pin/readonly_original_lookup/single_post均True，不读取输出凭据；该内部结果不替代正常FS用户角色。
 
 因此当前生产软件源由501f推进到5f99，先前锁忙记录只保留历史。零模型实际SDK构造证据复用，无正式accepted输入、真实模型/费用/停止、正常FS角色或新部署视觉已验声明。Personal核到本机既有browser-act 1.4.2及完整core技能，存在FS专用浏览器与A自有会话；未创建/操作浏览器或转移认证。A沿既有正常登录、当前允许的非preview通道继续少量合成材料/真实proof与下载、fresh浅暗/移动/键盘取证，Personal不操作A会话，回收实际结果后再作最终审核。没有新账号/配置/预算/依赖安装；未取得真实证据的项目保持待验。
+
+### 5f99真实材料入口404阻塞
+
+A自有BrowserAct会话的正常认证及会话列表200；新建专用合成cid `fa7ea40c42bc4833bdff3788f1d733f9`，上传合成CSV 201，2061 bytes、SHA256 `31f3057e1b6b72cb930b65fbfd10bd362e4a3e599803c5d5f11af692a76cadd3`，file_id `55b55801892a3d83c3fc699f98da4a8a`。显式勾选后正常UI仅一次POST材料request `material_da2c98dcd8d3464fb4db5f065f0ea110`返回404 application/json。UI保留原ID unknown与恢复入口；故障注入discarded=false，未丢弃成功202，不能记丢202恢复验收通过。A停止后续模型任务与重POST，没有R2/R3。正常FS登录/创建/上传已有真实证据，但材料执行与整体功能验收阻塞。
+
+A限定该合成请求的任务DB元信息检查发现selections/material_runs/goal_outbox三个私有表尚不存在，未取得task/run回执；此信息和404不足以单独证明永未接收或零费用，费用继续unknown。软件24/46及服务稳定结论保持，不临时改生产、不清理原请求或UNKNOWN。
+
+Personal本地读已发布Git源码确认两个HTTP适配均包含materials分支；实际range_api先把/opt/fs-hermes-fc置于sys.path首位，再按同名导入conversation_http，而publisher HTTP目标位于/opt/fs-exact-range-20261001。因此存在旧同名模块遮蔽的待核假设，尚非已证根因。已交唯一A核实际导入文件/code filename/hash和materials分支元信息、区分路由404与内部LookupError，不导生产源码正文或扩大数据查询。若证实缺口，由A修最小装配接点并补真实目录优先级/旧同名模块存在的回归；Personal不并改A源。必要完整后续候选仍须最新SHA独审、CI及正常合并，publisher必须核当前5f99成功manifest/journal与实际before，不能重放旧stage或继续沿501f未安装假设。
