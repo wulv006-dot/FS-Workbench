@@ -153,9 +153,18 @@ class Proxy:
             raise ValueError('provider_override')
         if body.get('tool_choice', 'auto') != 'auto':
             raise ValueError('tool_choice')
+        tool_schemas = None
+        book = getattr(gateway.scope, 'book', None)
+        if getattr(book, 'material_execution', False):
+            # The authenticated gateway context above owns this book. Never
+            # select a task kind or expand tools from client request fields.
+            from proxy_gateway import task_schemas
+            tool_schemas = task_schemas(book)
+        allowed_tools = (WIRE_TOOLS if tool_schemas is None else
+                         tuple(item['function']['name'] for item in tool_schemas))
         if 'tools' in body:
             names = [x.get('function', {}).get('name') for x in body['tools'] if isinstance(x, dict)]
-            if len(names) != len(body['tools']) or len(names) != len(set(names)) or set(names) != set(WIRE_TOOLS):
+            if len(names) != len(body['tools']) or len(names) != len(set(names)) or set(names) != set(allowed_tools):
                 raise ValueError('tool_allowlist')
         messages = deepcopy(body.get('messages'))
         if isinstance(messages,list):
@@ -185,7 +194,10 @@ class Proxy:
         if effort!='none':request['reasoning_effort']=effort
         # Validate before recording request identity or changing any ledger table.
         from proxy_gateway import request_body
-        request_body(request, gateway.budget.policy['model'])
+        if tool_schemas is None:
+            request_body(request, gateway.budget.policy['model'])
+        else:
+            request_body(request, gateway.budget.policy['model'], tool_schemas=tool_schemas)
         learning=getattr(gateway,'learning',None);proof=None
         if learning:
             from business_context import effective_learning
