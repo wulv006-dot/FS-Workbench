@@ -187,3 +187,22 @@ loaded_code_sha256 来自该函数当前已加载 code object 的 marshal 字节
 诊断不得调用 `_parts`、queue、Goals、ledger、recover 或任何 material detail/result；后两者不是只读探针。部署后应在正常认证的安全空页面直接访问诊断 GET，避免打开有 pending material 自动轮询的 UI。原 request_id 的恢复/重发仍须另据真实映射与官方回执判断，诊断不能证明从未执行或零费用。
 
 本地新 `tests/test_conversation_runtime_diagnostics.py` 由原 store.load_tests 加载。7 项覆盖两 HTTP 与 range 的实际 GET 分派/三个隔离 AST 定义、原 sys.path 同名旧模块实际 import+缓存、内存 code 与随后改写磁盘分离、真实 temp Store/TaskStore 的 DB bytes/表集合/goal/outbox/task 数量不变、已有私有记录、缺/错库不修复、匿名/跨 owner/撤权/非 literal True 拒绝、四种材料 404 阶段及无异常泄漏。未 import 完整 range 或启动真实 reader/recovery；外部网络/模型为零。受影响 FileTests 10 项通过，原 deploy 三模块合计 23 项通过；Windows temp mode 只在既有夹具边界归一化，Linux 实际权限与本候选部署/正常角色诊断仍待 CI 和发布后取证。未修改 B 算法、controller、IAM、SDK、UI、公共 schema 或 CI 驱动。
+
+
+## tasks 索引元信息三列兼容（完整后续候选，未部署）
+
+当前构造链缺陷已确认：已核 range 可执行文件的 fresh 只读进程为 Python3.9.18/SQLite3.7.17，原 tasks 的 index_list 仅 seq/name/unique 三列；直接 index['partial'] 产生 IndexError（LookupError 子类），现 HTTP 会映射404/lookup，私有 schema 尚未完成。此确认不倒推原材料 POST404 的所有历史因果，不把旧费用补0。现场只读收据及原一次 GET 均已独立核收；本候选未再次探现场。
+
+`conversation_goal_tasks._task_unique_indexes(db)` 替换原内联索引扫描，仍在原 mode=rw、同路径/文件身份校验、BEGIN IMMEDIATE 和原 tasks 列结构验证之后、私有 DDL 之前执行。原 TaskStore/pilot/tasks 表、owner/cid/scope literal True、全 intent 指纹、命名空间/原ID/事务及锁序不变；不新增 DB、执行器、模型或自动恢复。
+
+- 现代元信息含 partial：校验必要键及严格整数0/1标志，排除真实 partial 索引，仍要求全表 UNIQUE(owner,fingerprint) 与 UNIQUE(run_id)。
+- 仅精确已测 seq/name/unique 三列格式：不填 partial=0、不用版本号代替证据；每个用于校验的 UNIQUE 必须由 main.sqlite_master 同名唯一一行证明 type=index、tbl_name=tasks、sql IS NULL，且名称为 SQLite 保留的 sqlite_autoindex_tasks_N 形式。由此证明它来自表内 UNIQUE/PK 自动约束而非任意显式 CREATE INDEX。显式索引即使可能合法，也在这个缺元信息分支保持 unavailable，不解析任意DDL猜全表范围。
+- 两种格式均核真实 index_info 非空、seqno 顺序、cid 与原 TASK_COLUMNS/name 精确一致且列不重复；仍要求原两项有序列组合存在。缺字段、错误类型/标志、错来源/表/SQL、空/表达式/错列映射或不可证明的情况均 OSError；存储异常沿原 _db 关闭为 OSError。table_info 键/类型异常也不再泄为 LookupError。现 HTTP 因而返回503 unavailable，不把元信息异常当原ID not_found。
+
+依据为 SQLite 官方 [index_list/index_info](https://www.sqlite.org/pragma.html#pragma_index_list)、[schema 表及自动索引 sql=NULL](https://www.sqlite.org/schematab.html)、[全量/partial 索引与支持版本](https://www.sqlite.org/partialindex.html#supported_versions)。partial 自3.8.0支持这一能力事实与现场3.7.17吻合；代码的安全判断采用可核自动约束来源，而非假定所有缺 partial 字段的引擎都没有 partial 能力。现代引擎人为降列时，显式 partial/unique 索引仍不会被当自动全量约束放行。
+
+测试保留真实临时原 TaskStore/ConversationStore/Goals/MaterialService，连接代理只把索引元信息变成真实三列 sqlite3.Row，不替代存储/事务。内存切回原索引循环后，真实 constructor IndexError→HTTP404/lookup→私有表缺失；修复版同样元信息下，完整创建空 outbox/selections/material_runs/goals/mutations 后，原请求无 row 才正常404/lookup。identity 单行是预期账本元数据，不是执行 intent。不可证明元信息的真实 HTTP 为503且原 tasks/私有 schema 不受部分写影响。
+
+原 runner：GoalTaskTests26项（原22+新4，含20种元信息/存储对抗子案例）、RuntimeDiagnosticsTests9项（原7+真实HTTP新2）合计35通过0failure/error/skip；现代partial唯一索引拒绝、全指纹/丢回执重连/并发/跨绑定/撤权/admission/原FC task不变均按影响覆盖。deploy原三模块24项通过，含新增f79单目标发布与失败回退。原 store.load_tests 已加载这两测试模块，无需改加载器、pr_fast、workflow或依赖。没有重复无关Core、视觉或SDK构造。
+
+待验：最新完整SHA独审/LinuxCI；合并最终Git LF独立stage、同已核exe/SQLite3.7.17的隔离temp DB运行；生产安装及唯一一次原ID GET完整初始化/查回。现代机器的三列Row代理不是旧SQLite实测。随后仍需主控另决定有据一次恢复POST；原request/费用unknown/posts=1/discarded=false保持，无R2/R3、生产scope、自动调度或完整材料功能通过声明。

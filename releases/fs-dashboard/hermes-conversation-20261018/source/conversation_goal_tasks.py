@@ -33,10 +33,58 @@ OUTBOX_COLUMNS = [('owner', 'TEXT', 1, 1), ('request_id', 'TEXT', 1, 2),
 
 
 def _schema(db, table, expected):
-    actual = [(r['name'], r['type'].upper(), r['notnull'], r['pk'])
-              for r in db.execute('PRAGMA table_info(' + table + ')')]
+    try:
+        actual = [(r['name'], r['type'].upper(), r['notnull'], r['pk'])
+                  for r in db.execute('PRAGMA table_info(' + table + ')')]
+    except (LookupError, TypeError, AttributeError) as exc:
+        raise OSError('goal_task_ledger_schema_unavailable') from exc
     if actual != expected:
         raise OSError('goal_task_ledger_schema_unavailable')
+
+
+def _task_unique_indexes(db):
+    """Keep full-table uniqueness proof on both modern and three-column PRAGMAs."""
+    try:
+        cursor = db.execute('PRAGMA index_list(tasks)')
+        fields = [column[0] for column in cursor.description]
+        legacy = fields == ['seq', 'name', 'unique']
+        if len(fields) != len(set(fields)) or not legacy and not {'seq', 'name', 'unique', 'partial'} <= set(fields):
+            raise ValueError('index_list_fields')
+        unique = []
+        task_columns = [column[0] for column in TASK_COLUMNS]
+        for index in cursor.fetchall():
+            name, flag = index['name'], index['unique']
+            if (not isinstance(name, str) or not name or type(flag) is not int or flag not in (0, 1)
+                    or type(index['seq']) is not int or index['seq'] < 0):
+                raise ValueError('index_list_value')
+            if not legacy and (type(index['partial']) is not int or index['partial'] not in (0, 1)):
+                raise ValueError('index_partial_value')
+            if not flag or not legacy and index['partial']:
+                continue
+            if legacy:
+                # SQL NULL is SQLite's own UNIQUE/PK autoindex source, not a
+                # missing-metadata default. Explicit (possibly partial) indexes
+                # are deliberately not inferred by parsing arbitrary DDL.
+                source = db.execute('SELECT type,tbl_name,sql FROM main.sqlite_master WHERE name=?', (name,)).fetchall()
+                if (not re.fullmatch(r'sqlite_autoindex_tasks_[1-9][0-9]*', name) or len(source) != 1
+                        or source[0]['type'] != 'index' or source[0]['tbl_name'] != 'tasks'
+                        or source[0]['sql'] is not None):
+                    raise ValueError('index_source_unproved')
+            info = db.execute('PRAGMA index_info("' + name.replace('"', '""') + '")').fetchall()
+            columns = []
+            for position, row in enumerate(info):
+                if (type(row['seqno']) is not int or row['seqno'] != position
+                        or type(row['cid']) is not int or not 0 <= row['cid'] < len(task_columns)
+                        or row['name'] != task_columns[row['cid']]):
+                    raise ValueError('index_columns_unproved')
+                columns.append(row['name'])
+            if not columns or len(set(columns)) != len(columns):
+                raise ValueError('index_columns_unproved')
+            unique.append(tuple(columns))
+    except (LookupError, TypeError, ValueError, AttributeError) as exc:
+        raise OSError('goal_task_index_metadata_unavailable') from exc
+    if ('owner', 'fingerprint') not in unique or ('run_id',) not in unique:
+        raise OSError('goal_task_original_schema_unavailable')
 
 
 def _handoff_json(value, binding):
@@ -121,13 +169,7 @@ class ConversationGoalTasks:
                     db.execute('BEGIN IMMEDIATE')
                     self._check_path()
                     _schema(db, 'tasks', TASK_COLUMNS)
-                    unique = []
-                    for index in db.execute('PRAGMA index_list(tasks)'):
-                        if index['unique'] and not index['partial']:
-                            name = index['name'].replace('"', '""')
-                            unique.append(tuple(r['name'] for r in db.execute('PRAGMA index_info("' + name + '")')))
-                    if ('owner', 'fingerprint') not in unique or ('run_id',) not in unique:
-                        raise OSError('goal_task_original_schema_unavailable')
+                    _task_unique_indexes(db)
                     yield db
                     self._check_path()
         except sqlite3.Error as exc:

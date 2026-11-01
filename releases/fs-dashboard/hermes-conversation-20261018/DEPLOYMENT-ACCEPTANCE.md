@@ -623,3 +623,51 @@ python runtime_prepare.py prepare --followup --payload <new-bundle>/payload --so
 descriptor 自动携带 material_execution/material_diagnostics 与精确 5f99 installed_baseline；原 inspect/apply、发布锁/准入/provider/CAS/UNKNOWN/journal/backup/回退保持。诊断模式要求真实 active/container，禁止用恢复态 fallback。当且仅当实际修改两个 HTTP 目标时，沿原 fence.stop_then_unlock_database 与原 DEEP_SCOPE restart/readiness 重载 range；worker 不重启，Nginx 不 reload。合成成功/失败回退均实测只写两个目标，其它目标保留字节，8 模块不删。Windows fixture mode 仅临时主机边界归一化；Linux CI 和现场发布仍待验。
 
 范围证据：新增诊断 7 项通过；受影响 FileTests 10 项通过；原 deploy 三模块 23 项通过（含新增 5f99 proof/pack/before/CAS/只写两目标/原 apply/rollback）。原 CI 的 store.load_tests 已加新模块，deploy 原 test_runtime_materials 自动包含新测试，无 tools/pr_fast.py/workflow/依赖变更。未重跑无关 Core/旧 knowledge 套件；旧 knowledge 收尾失败仍保留。本候选须 Personal 集成、最新 SHA 独审/必要 CI/合并后，才新 pack/prepare/apply。发布重启可能改变旧内存状态，不能倒推本次原 404 根因；发布后先取正常鉴权诊断，不盲重发原材料 POST。
+
+
+## PR724 最终 f79e 诊断发布与正常角色 GET 实测（2026-11-01）
+
+本节是实际执行回执，前节候选/未部署描述仅保留当时时点。原 A 分支 clean 后正常 ff 最终 `f79e29f0d5921b103a218c5e6ed967a754858b9c`，origin/main 同 SHA；仅用该 merge SHA 新 Git LF pack，未重跑已验 Core/SDK/本地套件，也不复用旧 descriptor/stage。payload descriptor SHA=`95589f43b26ec4ed48afdc7e150af6c7a522383cc3aff7fbb3573d8d66832412`；604160-byte tar SHA=`14fbecd85b202f9c50cc538dd8e327d085e9e41d08850738a342870fb234c32b`。上传的是已合并 Git 载荷，无生产源码导出。
+
+新 stage=`/var/tmp/fs-materials-diagnostics-f79e29f0-20261101T024200Z/stage`，baselineObservedAt=`2026-11-01T02:43:02.272873+00:00`；新 manifest SHA=`25cd452cfb25790502cab7a7561187f04da5af6e2096baf9a71fabb11ad199ee`，精确绑定原 5f99 成功 proof。24 个 before 均存在、46 保护、NEW 空，原 image/三服务 active；manifest 变化目标仅 `/opt/fs-exact-range-20261001/conversation_http.py` 和同目录 `range_api.py`。原 inspect 的 sourceCAS/protectedCAS/releaseReady 通过后，沿原锁/准入/provider/CAS 单次 apply 成功。新 backup=`/var/backups/fs-navigation-20261006/nav-20261101T024500Z`，journal SHA=`534a813b17ea54422131403075156ec82fa2696959c575211e29cee3c0c6cdab`，原状态仍为 `applied-awaiting-actual-http-role-acceptance`。没有锁抢占、清 UNKNOWN、重试 apply 或回退。
+
+02:44:58Z 软件读回：24 afterSHA/root/mode 全匹配，46 保护 SHA 和原 mode/uid/gid 保持，22 不变目标 inode/mtime 保持，8 已装模块均保留。range PID1616→18220，active 时间 10:44:23CST；worker PID1434 与 Nginx PID31780 不变。实际 container=`9c0225c7ea03f676c10ff9f1b2181fa0c5dda8f472f6e6834ea616ba015b5db7`、image=`sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544`、StartedAt=`2026-11-01T01:42:47.848543281Z` 前后完全一致，Running=true。range health200、匿名 worker401；只按原 DEEP/admission 路径重载 range，没有 worker restart 或 Nginx reload。
+
+A 自建 BrowserAct session `fs_hermes_a_f79e_diag_20261101`，只开同 origin `/robots.txt` 安全空页，不打开会话 UI/自动轮询、用户历史或用户原 tab。02:46:10.623Z 沿已有正常 FS 登录态 GET 原合成 cid `fa7ea40c42bc4833bdff3788f1d733f9` 的 `/runtime-diagnostics`，无 query、无改认证头，200/application-json/no-redirect，`X-FS-Material-Adapter=materials_runtime_diagnostics_v1`。
+
+实际诊断：
+
+- module_path 与 handle_code_filename 均为 `/opt/fs-exact-range-20261001/conversation_http.py`；
+- loaded_code_sha256=`c48a9563baf14869acd2e68811fbf4448086ee52a9c0072458af01cee46be742`，format=`python_marshal_code_v1`；
+- disk_file_sha256=`97f8d6982beeba363885bc9fb4f354b4907dc6f492a40d545ef2f5af652a82a4`，与本次实际目标 afterSHA 匹配，明确不当作内存 hash；
+- materials_branch_present、materials_bound、materials_store_matches、materials_tasks_matches、store_path_matches_expected、tasks_path_matches_expected 均为 true，adapter_version 为当前固定版本。
+
+诊断前 02:45:58.593962Z / 后 02:46:33.727256Z，只用原两 DB mode=ro/query_only 核限定元信息：inode/size/mtime、白名单表存在性/数量完全相等。合成 conversation 行1/turn0；goal/mutation/outbox/identity/selections/material_runs 均仍不存在；原 tasks 仅数量元信息346→346，不读原 task/客户/会话正文。没有整 DB 导出或 hash，不把元信息对照冒充全库逐字节审计。未调用 _parts/queue/material detail/result，没有私有表初始化。
+
+02:47:09.870Z 同自建会话正常 `credentials:omit` 匿名 GET 同诊断路径为401/text-html/no-redirect、无适配器头；不读 HTML 正文或凭据。实际 network summary 只有两次诊断 GET（200/401），0 POST。随后只关闭 A 自建 session，用户原页未动，没有 Profile/Cookie 提取/转移或伪造 X-Auth。
+
+稳定共享收据目录：`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Diagnostics-f79e29f0-20261101T024200Z/`。`receipt-index.json` SHA=`1d40e02f6f1d2c7d6a5fca040a1cdcac451027058612f40a4b5c1d8617ee134a`；其中登记 before/apply/after 软件元数据、DB before/after、正常/匿名诊断和实际 network summary 共8文件的 bytes/full SHA。只含授权元信息，没有源码/配置/凭据/DB正文。收据已主动回送 Personal，最终认可仍由主控独立审核。
+
+本阶段 0 新材料 POST、0 模型、0 SDK 重复构造、0 新合成会话/附件；原 request=`material_da2c98dcd8d3464fb4db5f065f0ea110` 保留，原捕获 posts=1/discarded=false/费用unknown，不建 R2/R3。此次只证明**重载后的当前装配与诊断边界**，不能倒推先前404或shadowing根因，也不证明从未执行。当前真实软件版本为 f79e；原材料执行/单POST恢复/回答/下载/运行中停止/第二真实身份与撤权/A2scope/视觉等均未在本阶段新增验收，保持旧证据分层。主控核明诊断后另决定必要修复或原ID受控恢复边界；本记录提交不重pack/重部署，不宣称材料整包、Hermes或阶段2整体通过。
+
+
+## 原ID准备查询、SQLite事实与 f79 单模块兼容候选（2026-11-01）
+
+主控独立核收 f79 的8份发布/正常角色诊断收据，只认可软件发布+当前受控诊断。随后明确允许一次带私有 schema 初始化副作用的原ID GET，原材料POST仍禁止。02:53:17.831Z 正常已有 FS 身份从自建安全 /robots.txt 页面 GET `/api/hermes/conversations/fa7ea40c42bc4833bdff3788f1d733f9/materials/material_da2c98dcd8d3464fb4db5f065f0ea110`（无query），返回404、error=not_found/source=material_http/stage=lookup、当前适配器头。网络仅1GET/0POST；前02:52:12.954952Z与后02:53:40.086936Z两库限定元信息完全相等，tasks346不变，全部 private namespace仍缺失。因此 authoritative not_found=false，原request行数不可权威判定，不把不存在的表补成0行。未/result、第二GET、重发、手写SQL或执行模型，session已关。首次会话名大写被CLI210107拒绝发生于创建会话/HTTP之前，已更正最初误标的transport unknown，本次实际服务端请求仍只有1次。
+
+上述5文件收据目录 `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-OriginalQuery-f79e-20261101T025212Z/`，index SHA=`70a1a2d3b9ef56fe8c0c2a0dff2713d1512bb8a23f1724466ded1ab45dc7c6af`，主控已逐项核size/SHA。获准的下一次最小只读 SQLite 元信息收据为 `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-SQLite-IndexMetadata-f79e-20261101/sqlite-index-metadata.json`，1551 bytes/SHA=`a1ec21733df838a5dc83ffb7e663a78266458ee95d42b80f8052c02dc169ca1a`，亦已独立核收。range PID18220实际 exe=/opt/python39/bin/python3.9，同exe fresh探针 Python3.9.18/SQLite3.7.17；index_list仅seq/name/unique，3个索引都unique=1且缺partial，原约束列集合为owner+fingerprint、run_id、id。只输出版本/列结构/约束列集合；不输出索引名/SQL/业务行/Env/凭据，DB inode/size/mtime稳定，没有构造生产服务。不是进程内存或真实旧constructor执行证据。
+
+现场缺字段事实与本机真实temp链的内存对照吻合，已确认当前索引元信息兼容缺陷；完整源修复见 CONVERSATION-GOALS.md。本轮代码包只改 runtime/conversation_goal_tasks.py 的索引证明与元信息错误关闭；不修改B/Core/UI/controller/pilot/原tasks表/SDK/worker/proxy。新增发布模式 `--goal-task-index-compat` 明确独立于仅允许HTTP目标的 diagnostics 模式，descriptor=goal_task_index_compat、manifest=goalTaskIndexCompat，诊断标记不再启用。
+
+该模式严格钉最终 f79e29f0d5921b103a218c5e6ed967a754858b9c、manifest25cd452cfb25790502cab7a7561187f04da5af6e2096baf9a71fabb11ad199ee、journal534a813b17ea54422131403075156ec82fa2696959c575211e29cee3c0c6cdab、backup `/var/backups/fs-navigation-20261006/nav-20261101T024500Z`。24现存/46保护/NEW空，8模块保留；仅允许 `/opt/fs-hermes-fc/conversation_goal_tasks.py` 改变，materialChangedTargets精确列实际变动，其余23只CAS/备份不改写。原锁/准入/provider/UNKNOWN/image/active/原writer/journal/rollback保持，禁止旧5f99/501f proof、旧stage或动态反射当前hash成合法baseline。只沿原fence+DEEP/readiness重载range，不restartworker/reloadNginx。新合成发布用例实际验证pack模式/完整before、旧proof拒绝、额外HTTP改动拒绝、成功/失败回退只写一个目标、其余23inode/mtime保持和所有8模块不删。
+
+合并后的操作形状（尚未执行）：
+
+```text
+python runtime_prepare.py pack --goal-task-index-compat --repo <repo> --source-commit <final-merge-sha> --output <new-bundle>
+python runtime_prepare.py prepare --followup --payload <new-bundle>/payload --source-commit <same-sha> --approved-payload-sha256 <new-descriptor-sha> --output <new-stage> --release-ready
+```
+
+Linux CI之后仍须按已授权未来发布阶段，在独立目录只用最终Git LF文件/同已核exe运行隔离temp DB测试，不import活动生产模块、不触真实库、不联网、不装/升级SQLite。最小正向旧引擎用例为 `test_conversation_goal_tasks.GoalTaskTests.test_legacy_auto_constraints_keep_original_id_fingerprint_and_revocation`；原TaskStore来自同Git的 `hermes-fc-pilot-20261013/pilot.py`，临时目录镜像其原路径和A source/tests。要复验HTTP旧/新对照，再包含最终Git的conversation_material_runs.py、两HTTP及test_conversation_runtime_diagnostics.py，运行该模块的 `test_real_http_old_index_loop_fails_then_legacy_proof_initializes_empty_original_lookup`。只选这些可在旧引擎运行的用例，不把现代partial索引对抗DDL强行放到不支持partial的引擎、不skip冒绿。所有源码仅来自最终Git，不读/导出服务器活动源。隔离测试用 -I -B、只显式加入该独立目录中的测试/source/pilot路径，先核相关模块 __file__ 均落在该目录，禁止把 /opt 活动源码加入 sys.path；socket调用在测试中拒绝，不为此放宽原runner。
+
+本地真实temp索引/HTTP35项、原deploy三模块24项已通过0failure/error/skip；Windows临时mode仍只沿原夹具边界归一化，实际旧SQLite及Linux权限未冒通过。当前生产继续f79、原POST禁令不变；本包未SSH/生产API/浏览器/模型/部署，也未重跑无关Core/SDK/视觉/旧知识套件。新head必须Personal一个集成PR/最新SHA独审/必要CI/合并，再新最终Git LF pack/隔离旧引擎验证/prepare/apply。发布后仍先只一次原ID GET核完整初始化及原ID查回，之后交主控决定恢复提交，不擅启R2/R3或以新ID绕UNKNOWN。

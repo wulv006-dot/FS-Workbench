@@ -1,6 +1,6 @@
 """Real temp TaskStore/ConversationStore databases, no host/runtime construction."""
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
-from contextlib import closing
+from contextlib import closing, contextmanager
 from copy import deepcopy
 from pathlib import Path
 import sqlite3
@@ -17,6 +17,70 @@ from pilot import TaskStore
 from conversation_store import ConversationStore
 from conversation_goals import ConversationGoals
 from conversation_goal_tasks import ConversationGoalTasks, IDENTITY, OUTBOX
+
+
+_CONNECT = sqlite3.connect
+
+
+class MetadataRows:
+    """Actual sqlite3.Row keys with a deliberately narrowed PRAGMA description."""
+    def __init__(self, fields, values):
+        with closing(_CONNECT(':memory:')) as db:
+            cursor = db.execute('SELECT ' + ','.join('NULL AS "' + name + '"' for name in fields))
+            self.description = cursor.description
+            self.rows = [sqlite3.Row(cursor, tuple(value)) for value in values]
+
+    def __iter__(self):
+        return iter(self.rows)
+
+    def fetchall(self):
+        return list(self.rows)
+
+
+def legacy_indexes(sql, parameters, fields, rows):
+    if sql == 'PRAGMA index_list(tasks)':
+        names = ['seq', 'name', 'unique']
+        return MetadataRows(names, [[row[k] for k in names] for row in rows])
+
+
+@contextmanager
+def index_metadata(transform=legacy_indexes):
+    """Only metadata responses change; storage, transactions and Row are real."""
+    class Connection:
+        def __init__(self, *args, **kwargs):
+            self.real = _CONNECT(*args, **kwargs)
+
+        def __getattr__(self, name):
+            return getattr(self.real, name)
+
+        @property
+        def row_factory(self):
+            return self.real.row_factory
+
+        @row_factory.setter
+        def row_factory(self, value):
+            self.real.row_factory = value
+
+        def __enter__(self):
+            self.real.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self.real.__exit__(*args)
+
+        def execute(self, sql, parameters=()):
+            cursor = self.real.execute(sql, parameters)
+            # Only selected metadata is intercepted, except the explicit test
+            # fault after identity INSERT used to prove transactional rollback.
+            if sql.startswith('PRAGMA ') or sql.startswith('SELECT type,tbl_name,sql') or sql.startswith('INSERT INTO conversation_goal_outbox_identity_v1'):
+                fields = [v[0] for v in cursor.description] if cursor.description else []
+                rows = cursor.fetchall()
+                replacement = transform(sql, parameters, fields, rows)
+                return replacement if replacement is not None else MetadataRows(fields, rows) if fields else cursor
+            return cursor
+
+    with patch('conversation_goal_tasks.sqlite3.connect', side_effect=Connection):
+        yield
 
 
 class GoalTaskTests(unittest.TestCase):
@@ -371,6 +435,94 @@ class GoalTaskTests(unittest.TestCase):
         self.assertEqual(self.tasks.get(original['id'], 'alice'), original)
         with self.tasks.db() as db:
             self.assertEqual(db.execute("SELECT sql FROM sqlite_master WHERE name='tasks'").fetchone()[0], schema)
+
+    def test_legacy_auto_constraints_keep_original_id_fingerprint_and_revocation(self):
+        tasks = TaskStore(Path(self.temp.name) / 'legacy.sqlite3')
+        with index_metadata():
+            queue = ConversationGoalTasks(tasks, 'alice', self.cid, self.authorize, expected_path=tasks.path)
+            self.assertEqual(queue.lookup(binding=self.binding)['status'], 'not_found')
+            receipt = queue.submit(binding=self.binding, handoff=self.handoff)
+            reopened = ConversationGoalTasks(tasks, 'alice', self.cid, self.authorize, expected_path=tasks.path)
+            self.assertEqual(reopened.lookup(binding=self.binding), receipt)
+            self.assertEqual(reopened.submit(binding=self.binding, handoff=self.handoff), receipt)
+            with self.assertRaisesRegex(ValueError, 'intent_conflict'):
+                reopened.submit(binding=self.binding, handoff=dict(self.handoff, goal='changed'))
+            self.allowed = False
+            with self.assertRaises(PermissionError): reopened.lookup(binding=self.binding)
+        with tasks.db() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM tasks').fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT count(*) FROM '+OUTBOX).fetchone()[0], 1)
+
+    def test_legacy_cannot_infer_explicit_unique_or_partial_index_as_full_table(self):
+        with self.tasks.db() as db:
+            sql = db.execute("SELECT sql FROM sqlite_master WHERE name='tasks'").fetchone()[0]
+        for suffix in ('', " WHERE state='QUEUED'"):
+            path = Path(self.temp.name) / ('explicit'+str(bool(suffix))+'.sqlite3')
+            with closing(_CONNECT(path)) as db, db:
+                db.execute(sql.replace(', UNIQUE(owner,fingerprint)', ''))
+                db.execute('CREATE UNIQUE INDEX explicit_owner ON tasks(owner,fingerprint)'+suffix)
+            with index_metadata(), self.assertRaisesRegex(OSError, 'index_metadata_unavailable'):
+                ConversationGoalTasks(SimpleNamespace(path=path), 'alice', self.cid, self.authorize, expected_path=path)
+            with closing(_CONNECT(path)) as db:
+                self.assertEqual(db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall(), [('tasks',)])
+
+    def test_index_metadata_missing_forged_wrong_source_or_columns_fail_closed(self):
+        cases = ('no_unique', 'no_name', 'bad_unique', 'fake_nonunique', 'unknown_shape', 'bad_partial',
+                 'source_missing', 'source_type', 'source_table', 'source_sql', 'source_fields',
+                 'info_missing', 'info_name', 'info_position', 'info_cid', 'info_fields', 'table_fields',
+                 'io_index_list', 'io_source', 'io_index_info')
+        for number, case in enumerate(cases):
+            with self.subTest(case=case):
+                tasks = TaskStore(Path(self.temp.name) / ('fault'+str(number)+'.sqlite3'))
+                # A real non-unique index cannot become a legacy constraint just
+                # because a faulty metadata producer labels it unique.
+                with tasks.db() as db:
+                    db.execute('CREATE INDEX nonunique ON tasks(owner,fingerprint)')
+                def corrupt(sql, parameters, fields, rows):
+                    if case == 'io_index_list' and sql == 'PRAGMA index_list(tasks)' or case == 'io_source' and sql.startswith('SELECT type,tbl_name,sql') or case == 'io_index_info' and sql.startswith('PRAGMA index_info('):
+                        raise sqlite3.OperationalError('synthetic storage failure')
+                    if sql == 'PRAGMA index_list(tasks)':
+                        if case == 'bad_partial':
+                            return MetadataRows(fields, [[None if k == 'partial' else row[k] for k in fields] for row in rows])
+                        names = ['seq', 'name', 'unique']
+                        if case == 'no_unique': names.remove('unique')
+                        if case == 'no_name': names.remove('name')
+                        if case == 'unknown_shape': names.append('origin')
+                        values = [[(2 if case == 'bad_unique' and k == 'unique' else
+                                    1 if case == 'fake_nonunique' and k == 'unique' else row[k]) for k in names] for row in rows]
+                        return MetadataRows(names, values)
+                    if sql.startswith('SELECT type,tbl_name,sql'):
+                        if case == 'source_missing': return MetadataRows(fields, [])
+                        changes = {'source_type': ('type', 'table'), 'source_table': ('tbl_name', 'other'), 'source_sql': ('sql', 'unproved DDL')}
+                        if case in changes:
+                            key, value = changes[case]
+                            return MetadataRows(fields, [[value if k == key else row[k] for k in fields] for row in rows])
+                        if case == 'source_fields': return MetadataRows(['type'], [[row['type']] for row in rows])
+                    if sql.startswith('PRAGMA index_info('):
+                        if case == 'info_missing': return MetadataRows(fields, [])
+                        changes = {'info_name': ('name', None), 'info_position': ('seqno', 100), 'info_cid': ('cid', 100)}
+                        if case in changes:
+                            key, value = changes[case]
+                            return MetadataRows(fields, [[value if k == key else row[k] for k in fields] for row in rows])
+                        if case == 'info_fields': return MetadataRows(['seqno'], [[row['seqno']] for row in rows])
+                    if case == 'table_fields' and sql == 'PRAGMA table_info(tasks)':
+                        return MetadataRows(['name'], [[row['name']] for row in rows])
+                with index_metadata(corrupt), self.assertRaises(OSError):
+                    ConversationGoalTasks(tasks, 'alice', self.cid, self.authorize, expected_path=tasks.path)
+                with tasks.db() as db:
+                    self.assertEqual([tuple(r) for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")], [('tasks',)])
+                    self.assertEqual(db.execute('SELECT count(*) FROM tasks').fetchone()[0], 0)
+
+    def test_legacy_constructor_storage_failure_rolls_back_both_private_tables(self):
+        tasks = TaskStore(Path(self.temp.name) / 'legacy-rollback.sqlite3')
+        def failed_insert(sql, parameters, fields, rows):
+            if sql.startswith('INSERT INTO conversation_goal_outbox_identity_v1'):
+                raise sqlite3.OperationalError('synthetic after-insert failure')
+            return legacy_indexes(sql, parameters, fields, rows)
+        with index_metadata(failed_insert), self.assertRaisesRegex(OSError, 'ledger_unavailable'):
+            ConversationGoalTasks(tasks, 'alice', self.cid, self.authorize, expected_path=tasks.path)
+        with tasks.db() as db:
+            self.assertEqual([tuple(r) for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")], [('tasks',)])
 
 
 if __name__ == '__main__':
