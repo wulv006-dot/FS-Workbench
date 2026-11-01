@@ -232,3 +232,11 @@ raw行号与web索引会移动，使用完整字节hash及原指纹/SQL语义，
 B按同包依赖补`build_context_proof(execution,*,session_id,run_id,actual_system_prompt,actual_input,actual_tool_names,native_memory_skipped)`与`verify_context_proof(execution,proof,*,session_id,run_id)`。A必须从实际agent已组装提示、实际官方已接收input（或已核官方完整body fingerprint对应input）、真实enabled三工具和实际memory/context/background关闭标志取值，不能把expected模板冒actual。构造器检查冻结提示确实包含、输入精确相同、仅原三工具及字面True，产出实际完整系统提示hash、输入/声明提示hash、payload/snapshot/模板/上下文版本、session/run和工具集的最小proof，不持久原文。核验器重核原执行/版本/session/run/工具和严格布尔；proof本身不认证worker或替代A原账本/task/lease/官方来源验真，不授新执行权。完整性核验支持到期后对账，真实工具仍须活动时间/权限检查。
 
 MaterialEvidence增加host-only scope，原turn默认标签/算法不变；执行scope内层明确this_execution_observed_pages，B1 source=material_execution_files，缺项始终含business_data_not_read和long_term_goal_not_assessed，as_of仍真实工具读回时间，非业务日期。读任务可在明确局部范围完成并保留未读缺项，不能由一页成功推全workbook或目标达成；产物还须A读取实际metadata/hash/版本关系与字节。新增4项proof/标签边界与原相关测试合计40项零failure/error/skip通过，随后原Core最终198项全部通过、零skip。4条受影响Python路径3.9 AST/diff通过；知识plan仍既有错误/exit1，未扩修。完整A组合、最新LinuxCI/独审和真实运行仍待完成。
+
+#### A完整候选集成与主控核心复核
+
+正常ff合入A固定51af0a424e7e1155073e58f7cc3df64dfe1291ed（main仍d279），实际21条A路径符合登记；B目录相对42b6df09逐字节无差异。原TaskStore真实行/私有映射/单attempt与原session/key/body绑定、execution-bound上下文、仅SELECT原官方账本、三层file-only/零transport retry、结果文本与最小receipt分离均已进入候选。原HTTP沿正常owner/cid，显式read_scope首次冻结进新材料目标/handoff；不同原ID选择推进selection_revision，默认全workbook或明确局部区间分别验收。原outbox列不回填、FC create/spec/未知controller不改。
+
+A同固定输入的本机证据复用：原store入口83（含新材料20）、deploy22、channel12零skip，Node原入口及本地Chromium/loopback下载通过，15Python路径3.9 AST及diff通过。Personal独立新材料20与当前组合Core198均零failure/error/skip，亲看4张candidate-only浅暗/展开/390图（A临时截图目录fs-materials-ui-szads3wx）；不视为生产视觉、真实SDK或模型通过。
+
+主控核心复核发现两项同包待修，已交唯一A处理，未提前派独审/合并：一是MaterialService._parts未串行runtime cache首次创建，真实temp DB加同步点可使同owner/cid两调用取得不同实例，后写缓存挤掉在用实例，后续reconcile会误按重启路径停止原任务；二是UI修订把选中file_id排序取首个，和“第一份勾选文件”的人类含义不一致，会静默修改另一已选文件。要求A补短缓存锁及并发回归，UI明确单份/目标文件选择与反序ID事件回归。保持一个集成草稿，待更新完整SHA的相关检查、LinuxCI及Business独审再作合并判断。当前生产仍501f，未pack/upload/apply或运行模型。
