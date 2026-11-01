@@ -330,3 +330,11 @@ A后续有界只读元信息确认实际range PID18220的exe=/opt/python39/bin/p
 已交A完整必要修复包：source/conversation_goal_tasks.py、原goal_tasks/诊断相关测试、原runtime_prepare/runtime_release/test_runtime_materials及模块合同/附录。兼容已证旧元信息仍须证明全量UNIQUE，不把缺partial默认0；现代partial继续拒绝，无法证明的元信息明确OSError unavailable而非IndexError伪not_found。原tasks表/FC create/SQLite版本/依赖/IAM/B/worker/UI/SDK均不改。能力依据仅SQLite官方PRAGMA index_list及partialindex Supported Versions说明（https://www.sqlite.org/pragma.html#pragma_index_list 、https://www.sqlite.org/partialindex.html#supported_versions），不把现代文档列结构外推旧版本。
 
 新发布适配钉f79成功manifest25cd452c/journal534a813b/backup nav-20261101T024500Z，24现存/NEW空/46保护/8模块保留，原则仅runtime/conversation_goal_tasks.py可变；原围栏仅重载range，不借只允许HTTP的diagnostics模式放开目标。先本机完整候选、最新SHA独审CI合并；最终Git LF独立stage再用实际同exe/SQLite3.7.17做无网络隔离合成temp DB验证，不导入活动生产模块或触生产库，不安装/升级SQLite。原ID仍禁POST/R2/R3；真实发布后先一次状态GET确认完整私有schema与原ID查询，再由主控决定有据恢复提交。当前生产仍f79未修复，材料功能验收阻塞、旧费用unknown，旧知识closeout错误保留。
+
+#### SQLite兼容修复固定候选集成
+
+A完整固定7363eb9b47994763f3a9272edd4b1dca721aa398已普通merge，八条A路径逐字节与fixed无差异，当前base/main f79e29f0d5921b103a218c5e6ed967a754858b9c。新_task_unique_indexes仅接受精确旧三列或含真实partial的现代格式；旧格式参与UNIQUE必须由main.sqlite_master唯一同名index/tasks/sql NULL及sqlite_autoindex_tasks_N证明自动约束，再核index_info有序seqno/cid/name和完整两项UNIQUE。显式legacy索引即便可能全量也不推断；现代partial继续排除。元信息异常转OSError unavailable/HTTP503，不用缺partial默认0，不改原tasks表或安装SQLite。两份HTTP消费者用真实临时Store/TaskStore/Goals/MaterialService验证旧循环404/无表、新实现完整空schema后才原ID查无，以及无法证明时503/无部分schema。
+
+Personal在集成树沿原runner实际执行goal_tasks26+诊断9共35，另用仅相关模块Git archive LF副本执行deploy三个显式模块共24；两组均一次零failure/error/skip、exit0，未改runner限制。diff check、A八路径与固定候选一致。代理旧三列测试仍运行于本机现代SQLite，不冒原生3.7.17通过；最终合并后独立stage原生无网络合成检查保留。旧Core/SDK/视觉/knowledge相同输入不重跑。
+
+发布采用单独--goal-task-index-compat/goalTaskIndexCompat模式，diagnostics_mode=false，钉当前真实f79已安装proof；24现存/46保护/NEW空，唯一允许变化runtime/conversation_goal_tasks.py，其他23仅CAS备份不写，原apply/rollback保留八模块。仍严格active/真实container，原锁/准入/provider/UNKNOWN/备份/回退与DEEP/readiness仅range重载，worker/Nginx不动。仅完成候选和本机检查，生产f79未变。下一步唯一Personal后续PR，Business Sol High独立worktree对最新完整head/base审十路径（A八加主控两记录）并核LinuxCI，满足授权条件后才合并交A；原材料POST/R2/R3继续禁止，费用unknown，旧404不追认。
