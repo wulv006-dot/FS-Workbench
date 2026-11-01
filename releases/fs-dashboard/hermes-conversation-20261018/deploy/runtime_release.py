@@ -38,6 +38,7 @@ LEGACY_TARGETS = dict(TARGETS)
 EXECUTION_MODE = False
 DIAGNOSTICS_MODE = False
 TASK_INDEX_MODE = False
+WORKER_DIAGNOSTICS_MODE = False
 EXECUTION_MODULES = ('conversation_goals.py','conversation_goal_tasks.py','conversation_material_runs.py',
                      'material_execution.py','b2_goal_state.py','b2_goal_host.py','b1_model_routing.py','b2_customer_followup.py')
 
@@ -88,6 +89,20 @@ def configure_task_index_compat():
         journalSha256='534a813b17ea54422131403075156ec82fa2696959c575211e29cee3c0c6cdab')
 
 
+def configure_worker_diagnostics():
+    """Only the worker wrapper over the exact successful 1b20 installation."""
+    global INSTALLED_COMMIT, TASK_INDEX_MODE, WORKER_DIAGNOSTICS_MODE
+    if WORKER_DIAGNOSTICS_MODE:
+        return
+    configure_task_index_compat()
+    TASK_INDEX_MODE, WORKER_DIAGNOSTICS_MODE = False, True
+    INSTALLED_COMMIT = '1b20b91f2e7e023d90a0197053916ba9a59978e6'
+    INSTALLED_PROOF.update(sourceCommit=INSTALLED_COMMIT,
+        backup='/var/backups/fs-navigation-20261006/nav-20261101T062133Z',
+        manifestSha256='16615694e66cda7dcfffa4ba55381d21071b51cf45b3597be303f5ba2af4f235',
+        journalSha256='912511fd8fc877d9155ca6fec30ec8bdf9ff5bd94b94d6443d4f764e529c2446')
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -101,8 +116,8 @@ def installed_baseline(root, git_baseline):
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
     expected = {row['candidate']: row['sha256'] for row in manifest['files']}
-    proof_targets = LEGACY_TARGETS if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE) else TARGETS
-    if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE):
+    proof_targets = LEGACY_TARGETS if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE) else TARGETS
+    if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE):
         protected = {r['path']:r['sha256'] for r in manifest['unchangedRequired']}
         expected.update({name: None if name in NEW else protected[target]
                          for name,target in TARGETS.items() if name not in LEGACY_TARGETS})
@@ -207,6 +222,11 @@ def worker_image(*, allow_stopped=False):
     return worker_observation(allow_stopped=allow_stopped)['image']
 
 
+def running_worker(manifest):
+    if worker_observation() != {'image': manifest['workerImageId'], 'state': 'active', 'source': 'container'}:
+        raise ValueError('worker_diagnostics_running_container_required')
+
+
 def quiescent(base, root):
     # The original requests/provider fences remain, with both conversation lanes,
     # tracking and learning added before either install or rollback can restart.
@@ -235,7 +255,9 @@ def quiescent(base, root):
 
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
-    if approved.get('goalTaskIndexCompat') is True:
+    if approved.get('workerDiagnostics') is True:
+        configure_worker_diagnostics()
+    elif approved.get('goalTaskIndexCompat') is True:
         configure_task_index_compat()
     elif approved.get('materialDiagnostics') is True:
         configure_diagnostics()
@@ -251,18 +273,19 @@ def load_base():
     validate = base.validate
 
     def exact(manifest, stage):
-        controlled = DIAGNOSTICS_MODE or TASK_INDEX_MODE
-        marker = 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
-        other_marker = 'materialDiagnostics' if TASK_INDEX_MODE else 'goalTaskIndexCompat'
-        allowed = ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
-        if controlled and (manifest.get(marker) is not True or manifest.get(other_marker) is True or
+        controlled = DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE
+        marker = 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
+        allowed = ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
+        if controlled and (manifest.get(marker) is not True or
+                any(manifest.get(key) is True for key in ('workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
                 manifest.get('installedBaseline') != INSTALLED_PROOF or
                 manifest.get('runtimeBefore') != manifest.get('runtimeRequired') or
                 manifest.get('workerImageSource') != 'container' or
+                WORKER_DIAGNOSTICS_MODE and manifest.get('materialChangedTargets') != [TARGETS['runtime/hermes_worker.py']] or
                 manifest.get('materialChangedTargets') != [r['target'] for r in manifest.get('files', [])
                                                           if r['beforeSha256'] != r['sha256']] or
                 any(r['beforeSha256'] != r['sha256'] and r['candidate'] not in allowed for r in manifest.get('files', []))):
-            raise ValueError('exact_goal_task_index_delta_required' if TASK_INDEX_MODE else 'exact_material_diagnostics_delta_required')
+            raise ValueError('exact_worker_diagnostics_delta_required' if WORKER_DIAGNOSTICS_MODE else 'exact_goal_task_index_delta_required' if TASK_INDEX_MODE else 'exact_material_diagnostics_delta_required')
         if manifest != approved or manifest.get('scope') != SCOPE:
             raise ValueError('exact_material_manifest_required')
         if manifest.get('businessWrites') is not False or manifest.get('timersChanged') is not False:
@@ -331,6 +354,8 @@ def load_base():
         # frozen checks, and retain every other guard/protected source check.
         if manifest.get('installedBaseline'):
             installed_baseline(root, git_baseline)
+        if WORKER_DIAGNOSTICS_MODE:
+            running_worker(manifest)
         if before_restart and manifest.get('scope') == SCOPE:
             if manifest['runtimeBefore']['fs-hermes-fc.service'] != {'ActiveState': 'active'}:
                 observed = worker_observation(allow_stopped=True)
@@ -347,7 +372,7 @@ def load_base():
     def atomic(path, payload, mode=0o644):
         # Keep the original writer/journal and every per-row guard. Static-only
         # follow-ups leave identical active targets (including runtime) untouched.
-        if approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat'):
+        if approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics'):
             for row in approved['files']:
                 if path == base.rooted(publish_root, row['target']) and row['beforeSha256'] == row['sha256']:
                     if (hashlib.sha256(payload).hexdigest() != row['sha256']
@@ -366,6 +391,8 @@ def load_base():
 
     def inspect(manifest, stage, root=Path('/')):
         result = original_inspect(manifest, stage, root)
+        if WORKER_DIAGNOSTICS_MODE:
+            running_worker(manifest)
         if root == Path('/'):
             for row in manifest['files']:
                 path = base.rooted(root, row['target'])
@@ -373,7 +400,7 @@ def load_base():
                     info = path.stat()
                     if (info.st_uid, info.st_gid, oct(stat.S_IMODE(info.st_mode))) != (0, 0, row['mode']):
                         raise ValueError('material_target_owner_mode_drift')
-            if worker_image(allow_stopped=True) != manifest['workerImageId']:
+            if not WORKER_DIAGNOSTICS_MODE and worker_image(allow_stopped=True) != manifest['workerImageId']:
                 raise ValueError('material_worker_image_drift')
             # Import definitions only; no service instance, model or source query.
             program = ("import sys;from pathlib import Path;"
@@ -403,6 +430,14 @@ def load_base():
     def restart(manifest, admission_fence=None):
         nonlocal before_restart
         before_restart = False
+        if manifest.get('workerDiagnostics'):
+            # No host code changed: retain the original admission fence while
+            # restarting only the worker, using its original capabilities probe.
+            result = readiness.restart_with_hermes_readiness(base, original_restart,
+                dict(manifest, scope=base.HERMES_WORKER_SCOPE), admission_fence)
+            running_worker(manifest)
+            base.guards(manifest, publish_root)
+            return result
         if manifest.get('materialStaticOnly'):
             if worker_image() != manifest['workerImageId']:
                 raise ValueError('material_worker_image_drift')
