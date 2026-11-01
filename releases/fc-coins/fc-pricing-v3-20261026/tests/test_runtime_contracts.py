@@ -22,6 +22,22 @@ import hermes_pricing_bridge
 
 
 class RuntimeContracts(unittest.TestCase):
+    def test_scheduler_keeps_wal_available_without_pinning_a_read_transaction(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'control.sqlite3')
+            wal=Path(str(db.path)+'-wal');shm=Path(str(db.path)+'-shm')
+            def check_keeper(*_):
+                self.assertTrue(wal.exists(),'read-only writers need the host WAL to stay open')
+                self.assertTrue(shm.exists())
+                db.put('metadata','probe',dict(value=1))
+                with db.connect() as conn:
+                    self.assertEqual(tuple(conn.execute('PRAGMA wal_checkpoint(TRUNCATE)').fetchone()),(0,0,0))
+                self.assertEqual(db.get('metadata','probe'),dict(value=1))
+                signals.call_args.args[1](None,None)
+            with patch.object(scheduler,'ledger',return_value=db),patch.object(scheduler.signal,'signal') as signals,patch.object(scheduler,'tick',side_effect=check_keeper):
+                scheduler.main()
+            self.assertFalse(wal.exists(),'the keeper must close on scheduler shutdown')
+
     def test_replaced_partial_plan_and_later_superseded_cycle_do_not_hide_real_completion(self):
         now=datetime(2026,10,29,12,tzinfo=timezone.utc)
         with tempfile.TemporaryDirectory() as folder:

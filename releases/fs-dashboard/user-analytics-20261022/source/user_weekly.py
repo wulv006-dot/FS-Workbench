@@ -1,7 +1,6 @@
 """One resumable weekly publication over the existing fact/revision ledger."""
 from datetime import datetime, timedelta
 import json
-import re
 from pathlib import Path
 from time import monotonic
 
@@ -153,16 +152,18 @@ def public_info(value):
     return dict(cadence='weekly', publication_id=value['publication_id'], data_version=value['data_version'],
                 data_through=(cutoff - timedelta(days=1)).date().isoformat(), cutoff=value['cutoff'],
                 default_start=(cutoff - timedelta(days=7)).isoformat(), last_successful_update=value['published_at'],
-                next_planned_update=(cutoff + timedelta(days=7, hours=4, minutes=18)).isoformat())
+                next_planned_update=(cutoff + timedelta(days=7, hours=4, minutes=18)).isoformat(),
+                backup_policy='on_demand_only')
 
 
 def wake(root, loader, now=None, force=False, clock=monotonic):
     now = (now or datetime.now(TZ)).astimezone(TZ)
     state = small_state(root)
     latest = monday(now)
-    if state and state.get('retryable') is False and not force:
+    retiring_backup = state is not None and state['phase'] == 'backup'
+    if state and not retiring_backup and state.get('retryable') is False and not force:
         return dict(status='requires_reconciliation', reason=state.get('error'), cutoff=state['cutoff'], source_calls=0)
-    if state and (not window(now) or state['phase'] == 'complete' and stamp(state['cutoff']) >= latest
+    if state and not retiring_backup and (not window(now) or state['phase'] == 'complete' and stamp(state['cutoff']) >= latest
                   or state.get('retryable') is False and not force):
         return dict(status='reused', reason='weekly_idle', cutoff=state['cutoff'], source_calls=0)
     store = loader()
@@ -177,14 +178,17 @@ def wake(root, loader, now=None, force=False, clock=monotonic):
             published = publication(store, now)
         except WeeklyUnavailable:
             published = None
-        if not window(now):
-            if published and state is None:
-                record_state(store, dict(contract='fs-users-weekly-work-v1', cutoff=published['cutoff'],
-                                         phase='backup' if published.get('origin') == 'weekly' else 'complete'))
-            return dict(status='reused', reason='weekly_outside_window', source_calls=0)
         if state is None and published and published.get('origin') == 'weekly':
             state = dict(contract='fs-users-weekly-work-v1', cutoff=published['cutoff'], phase='backup')
-            record_state(store, state)
+        if state and state['phase'] == 'backup':
+            if not published or published['cutoff'] != state['cutoff']:
+                return dict(status='requires_reconciliation', reason='weekly_publication_checkpoint_mismatch', source_calls=0)
+            # Old pending copies are left intact; they no longer block the next weekly publication.
+            return dict(finish_week(store, state, published, now), source_calls=0)
+        if not window(now):
+            if published and state is None:
+                record_state(store, dict(contract='fs-users-weekly-work-v1', cutoff=published['cutoff'], phase='complete'))
+            return dict(status='reused', reason='weekly_outside_window', source_calls=0)
         if state is None or state['phase'] == 'complete':
             if published and stamp(published['cutoff']) >= latest:
                 record_state(store, dict(contract='fs-users-weekly-work-v1', cutoff=published['cutoff'], phase='complete'))
@@ -214,7 +218,7 @@ def wake(root, loader, now=None, force=False, clock=monotonic):
 
 
 def run(store, state, published, now, clock, force=False):
-    from user_jobs import synchronize_day, targeted_refresh, payment_day_watermarks, backup, backup_signature, atomic
+    from user_jobs import synchronize_day, targeted_refresh, payment_day_watermarks
     from user_customer_types import ensure_period, manifest_inventory, read_pinned_flags
     cutoff = stamp(state['cutoff'])
     started = clock()
@@ -298,54 +302,18 @@ def run(store, state, published, now, clock, force=False):
         value = from_snapshot(store, result['snapshot_id'], cutoff, manifests, at().isoformat())
         write_publication(store, value, state['base_publication'])
         state['phase'] = 'backup'; record_state(store, state)
-    if state['phase'] == 'backup':
-        published = stored_publication(store)
-        day = recovery_day(store, state, published, at())
-        state['backup_day'] = day; record_state(store, state)
-        receipt = backup(store, at(), day=day, weekly_cutoff=state['cutoff'])
-        if receipt['data_version'] != stored_publication(store)['data_version']:
-            raise ValueError('weekly_backup_version_requires_reconciliation')
-        folder = store.root / 'backups' / day
-        atomic(store.root/'backup-status.json', dict(status='complete', day=day, receipt=receipt, signature=backup_signature(folder)))
-        state.update(phase='complete', completed_at=at().isoformat()); record_state(store, state)
-    return dict(status='complete', cutoff=state['cutoff'], data_version=stored_publication(store)['data_version'])
+    return finish_week(store, state, stored_publication(store), at())
 
 
-def recovery_day(store, state, published, now):
-    """Reconcile an existing cycle before choosing a new directory; never duplicate an unknown copy."""
-    first = stamp(published['published_at']).date().isoformat()
-    today = now.date().isoformat()
-    root = store.root / 'backups'; safe(root)
-    matches = []
-    if root.exists():
-        for folder in root.iterdir():
-            if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', folder.name) or not first <= folder.name <= today:
-                continue
-            safe(folder)
-            if not folder.is_dir():raise ValueError('weekly_backup_unknown_directory')
-            path = folder/'manifest.json'; safe(path)
-            if not path.is_file():raise ValueError('weekly_backup_unknown_directory')
-            with path.open('rb') as stream:raw = stream.read(65537)
-            if len(raw)>65536:raise ValueError('weekly_backup_manifest_size')
-            value = json.loads(raw)
-            if value.get('weekly_cutoff') == state['cutoff']:
-                matches.append(folder.name)
-            else:
-                # Only a verified, unchanged recovery point from an earlier weekly cycle is a known collision.
-                from user_backup_retention import FILES, backup_identity
-                identity = backup_identity(folder)
-                other = value.get('weekly_cutoff')
-                recovery = value.get('recovery', {})
-                if (not isinstance(other, str) or stamp(other).isoformat() != other or stamp(other) != monday(stamp(other))
-                        or stamp(other) >= stamp(state['cutoff'])
-                        or {p.name for p in folder.iterdir()} not in (set(FILES), set(FILES) | {'restore-check.json'})
-                        or not isinstance(recovery, dict) or recovery.get('status') != 'passed'
-                        or recovery.get('sqlite_integrity') != 'ok' or recovery.get('data_version') != value.get('data_version')
-                        or recovery.get('file_signatures') != {name: identity['files'][name] for name in FILES if name != 'manifest.json'}):
-                    raise ValueError('weekly_backup_unknown_directory')
-    if len(matches)>1:raise ValueError('weekly_duplicate_backups_requires_reconciliation')
-    if matches:return matches[0]
-    if (root/today).exists():
-        # A known older cycle already owns today's directory. Retry on the next actual capture date.
-        raise RuntimeError('weekly_backup_date_busy')
-    return today
+def finish_week(store, state, published, now):
+    """Commit a tiny completion receipt; full database backups are explicit manual operations only."""
+    if not published or published['cutoff'] != state['cutoff']:
+        raise ValueError('weekly_publication_checkpoint_mismatch')
+    if state.get('error'):
+        state['retired_backup_error'] = state.pop('error')
+    state.pop('retryable', None)
+    state.update(phase='complete', completed_at=now.isoformat(), backup_policy='on_demand_only',
+                 data_version=published['data_version'])
+    record_state(store, state)
+    return dict(status='complete', cutoff=state['cutoff'], data_version=published['data_version'],
+                backup_policy='on_demand_only', automatic_backup=False)
