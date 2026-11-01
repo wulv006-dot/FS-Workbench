@@ -53,6 +53,11 @@
     return [...(snapshot?.turns || [])].reverse().find(turn => activeStates.has(turn.state) && turn.run_id);
   }
   function syncControls() {
+    const revising = $('material-mode')?.value === 'revise';
+    const target = selectedFiles.size === 1 ? fileItems.find(file => selectedFiles.has(file.file_id)) : null;
+    if ($('material-target')) $('material-target').textContent = filesReady && target && bindingAvailable(target)
+      ? '修改目标：' + (target.filename || '所选文件') : '请仅勾选一份要修改的文件。';
+    if ($('run-material')) $('run-material').disabled = !current || !ready || accessDenied || !filesReady || !selectedFiles.size || (revising && selectedFiles.size !== 1) || materialJobs(current).some(job => !['completed','cancelled','failed','interrupted'].includes(job.status));
     const running = selectedRun();
     const unknown = (snapshot?.turns || []).some(turn => turn.state === 'dispatch_unknown');
     $('new-conversation').disabled = accessDenied || creating || sending || !!pending;
@@ -267,6 +272,8 @@
     syncControls();
     $('conversation-list').replaceChildren();
     $('messages').replaceChildren();
+    if ($('material-jobs')) $('material-jobs').replaceChildren();
+    materialAnswers.clear();
     fileItems = []; uploads = []; selectedFiles.clear(); uploadBytes.clear(); filesReady = false; renderFileChoices();
     const box = el('div', undefined, $('messages'), 'empty');
     el('p', '当前账号没有持续对话权限。', box);
@@ -515,6 +522,141 @@
       announce('停止结果需核对：' + errorMessage(error));
       await refreshCurrent();
     } finally { stopping = false; syncControls(); }
+  }
+  let materialTimer = null;
+  let materialRendered = '';
+  const materialAnswers = new Map();
+  const materialKey = id => 'fs_material_jobs_' + id;
+  function materialJobs(id) {
+    try { const value = JSON.parse(sessionStorage.getItem(materialKey(id)) || '[]'); return Array.isArray(value) ? value : []; }
+    catch (_) { return []; }
+  }
+  function saveMaterialJob(id, job) {
+    const values = materialJobs(id).filter(v => v.body.client_request_id !== job.body.client_request_id);
+    values.push(job); sessionStorage.setItem(materialKey(id), JSON.stringify(values.slice(-20)));
+  }
+  function renderMaterialJobs() {
+    if (!$('material-jobs')) return;
+    const fingerprint = JSON.stringify([current, epoch, ready, accessDenied, [...materialAnswers], current ? materialJobs(current) : []]);
+    if (materialRendered === fingerprint) return;
+    materialRendered = fingerprint;
+    const root = $('material-jobs'); root.replaceChildren();
+    if (!current || !ready || accessDenied) return;
+    for (const job of materialJobs(current)) {
+      const card = el('article', undefined, root, 'material-job');
+      el('strong', job.body.goal, card);
+      const names = {queued: '已预留，等待执行', running: '执行中', stopping: '正在停止', completed: '短任务完成', cancelled: '已取消', failed: '短任务失败', interrupted: '运行已中断', unknown: '结果待核对', unavailable:'暂时无法启动，请稍后再试'};
+      el('p', names[job.status] || '状态待核对', card);
+      const coverage = new Map((job.coverage || []).filter(page => page.analysis_coverage).map(page => [page.file_id,page.analysis_coverage]));
+      for (const [fid, summary] of coverage) {
+        const name = fileItems.find(file => file.file_id === fid)?.filename || '已选文件';
+        for (const sheet of summary.observed_sheets || []) el('p', name + ' · 工作表 ' + (sheet.sheet + 1) + '：已读 ' + sheet.covered_rows + ' / ' + sheet.total_rows + ' 行', card);
+        if (summary.unread_sheet_count) el('p', '另有 ' + summary.unread_sheet_count + ' 个工作表未读', card);
+      }
+      const id = current, generation = epoch;
+      const answerKey = id + ':' + job.body.client_request_id;
+      if (job.run_id && ['completed','failed','cancelled','interrupted'].includes(job.status)) {
+        const show = el('button','查看回答',card,'fs-btn'); show.type='button';
+        show.onclick = async () => {
+          try {
+            const result = await request('/'+id+'/materials/'+job.body.client_request_id+'/result');
+            if (id !== current || generation !== epoch || accessDenied) return;
+            materialAnswers.set(answerKey,result); renderMaterialJobs();
+          } catch (error) { if (id === current && generation === epoch) {
+            if ([401,403].includes(error.status)) denyAccess(); else announce('回答暂不可读，请核对原任务后重试。');
+          } }
+        };
+      }
+      if (materialAnswers.has(answerKey)) {
+        const answer = materialAnswers.get(answerKey);
+        el('p',answer.text || '原任务尚无可读取的回答，请核对原任务。',card,'material-answer');
+        if (answer.truncated) el('p','回答较长，此处显示前 64 KiB。',card,'muted');
+        if (job.status !== 'completed') el('p','任务未完整通过；此处仅保留原回答，覆盖与产物状态以上方记录为准。',card,'muted');
+      }
+      if (!['completed','cancelled','failed','interrupted'].includes(job.status)) {
+        const check = el('button', '核对原任务', card, 'fs-btn'); check.type = 'button';
+        check.onclick = () => pollMaterial(id, generation, job);
+        const stop = el('button', '停止短任务', card, 'fs-btn'); stop.type = 'button';
+        stop.onclick = async () => {
+          try { const result = await request('/' + id + '/materials/' + job.body.client_request_id + '/stop', {}, 'POST');
+            saveMaterialJob(id, {...job, ...result}); if (id === current && generation === epoch) renderMaterialJobs();
+          } catch (_) { if (id === current && generation === epoch) announce('停止结果待核对，请核对原任务。'); }
+        };
+      }
+      if (job.missing) {
+        const retry = el('button', '按原选择与请求重试', card, 'fs-btn'); retry.type = 'button';
+        retry.onclick = () => postMaterial(id, generation, job);
+      }
+      for (const file of job.files || []) {
+        if (!/^[a-f0-9]{32}$/.test(file.file_id || '')) continue;
+        el('p', (file.filename || '派生文件') + ' · ' + (fileStates[fileStatus(file)] || '状态待核对'), card);
+        if (fileStatus(file) !== 'available') continue;
+        const link = el('a', '下载文件', card); link.href = api + '/' + id + '/files/' + file.file_id; link.setAttribute('download','');
+        const select = el('button', '选此版本用于后续任务', card, 'fs-btn'); select.type = 'button';
+        select.onclick = async () => { if (id !== current || generation !== epoch) return;
+          await refreshFiles(id, generation); if (id !== current || generation !== epoch) return;
+          selectedFiles = new Set([file.file_id]); saveFiles(id); renderFileChoices(); $('attachments').open = true; $('message-input').focus(); };
+      }
+    }
+  }
+  async function pollMaterial(id, generation, job) {
+    try {
+      const result = await request('/' + id + '/materials/' + job.body.client_request_id);
+      if (id !== current || generation !== epoch) return;
+      saveMaterialJob(id, {...job, ...result, missing: false}); renderMaterialJobs();
+    } catch (error) {
+      if (id !== current || generation !== epoch) return;
+      saveMaterialJob(id, {...job, status: 'unknown', missing: error.status === 404}); renderMaterialJobs();
+      if ([401,403].includes(error.status)) denyAccess();
+    }
+  }
+  async function postMaterial(id, generation, job) {
+    saveMaterialJob(id, job);
+    try {
+      const result = await request('/' + id + '/materials', job.body, 'POST');
+      saveMaterialJob(id, {...job, ...result, missing: false});
+      if (id === current && generation === epoch) { $('attachments').open = false; renderMaterialJobs(); }
+    } catch (error) {
+      saveMaterialJob(id, {...job, status: [400,401,403,409,422].includes(error.status) ? 'failed' : 'unknown'});
+      if (id === current && generation === epoch) { renderMaterialJobs(); announce('材料任务结果待核对；保留了原选择和请求。'); }
+    }
+  }
+  async function runMaterial() {
+    if (!current || !ready || accessDenied || !filesReady || !selectedFiles.size) { announce('请先确认可用附件。'); return; }
+    if (materialJobs(current).some(job => !['completed','cancelled','failed','interrupted'].includes(job.status))) { announce('请先核对或停止原材料短任务。'); return; }
+    if ([...selectedFiles].some(id => !fileItems.some(f => f.file_id === id && bindingAvailable(f)))) { announce('所选文件不可用，请先核对。'); return; }
+    const goal = $('message-input').value.trim(); if (!goal) { $('message-input').reportValidity(); return; }
+    const ids = [...selectedFiles].sort(); let operation = {mode: 'read'};
+    if ($('material-mode').value === 'revise') {
+      if (ids.length !== 1) { announce('请仅勾选一份要修改的文件。'); return; }
+      const indices = ['material-sheet','material-row','material-column'].map(id => Number($(id).value));
+      if (indices.some(v => !Number.isInteger(v) || v < 1)) { announce('工作表、行和列须从 1 开始。'); return; }
+      let value = $('material-value').value;
+      if ($('material-value-type').value === 'number') { value = Number(value); if (!Number.isFinite(value)) { announce('请输入有效数字。'); return; } }
+      operation = {mode:'revise', file_id:ids[0], edits:[{sheet:indices[0]-1,row:indices[1]-1,column:indices[2]-1,value}],format:$('material-format').value};
+    }
+    const id = current, generation = epoch;
+    const job = {body:{client_request_id:'material_'+crypto.randomUUID().replaceAll('-',''),goal,file_ids:ids,operation},status:'unknown'};
+    if (operation.mode === 'read' && $('material-bounded').checked) {
+      const [sheet, start, limit] = ['material-read-sheet','material-read-offset','material-read-limit'].map(id => Number($(id).value));
+      if (ids.length !== 1 || [sheet,start,limit].some(v => !Number.isInteger(v) || v < 1) || limit > 200) { announce('指定范围需一个文件，工作表和起始行从 1 开始，行数最多 200。'); return; }
+      job.body.read_scope = {file_id:ids[0],sheet:sheet-1,offset:start-1,limit};
+    }
+    $('run-material').disabled = true;
+    try { await postMaterial(id, generation, job); } finally { if (id === current && generation === epoch) syncControls(); }
+  }
+  function watchMaterials() {
+    clearTimeout(materialTimer); renderMaterialJobs();
+    syncControls();
+    if (current && !accessDenied) for (const job of materialJobs(current))
+      if (!['completed','cancelled','failed','interrupted'].includes(job.status)) pollMaterial(current,epoch,job);
+    materialTimer = setTimeout(watchMaterials,2500);
+  }
+  if ($('run-material')) {
+    $('run-material').onclick = runMaterial;
+    $('material-mode').onchange = () => { $('material-edit').hidden = $('material-mode').value !== 'revise'; $('material-read').hidden = $('material-mode').value !== 'read'; syncControls(); };
+    $('material-bounded').onchange = () => { $('material-range').hidden = !$('material-bounded').checked; };
+    watchMaterials();
   }
   $('new-conversation').onclick = newConversation;
   $('composer').onsubmit = send;

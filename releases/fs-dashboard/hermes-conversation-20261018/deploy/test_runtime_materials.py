@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
+from copy import deepcopy
 from unittest.mock import Mock, patch
 
 import runtime_prepare as prepare
@@ -24,6 +25,80 @@ NGINX = (b'# unrelated\r\nlocation = /api/hermes/conversations {\r\n'
 
 
 class RuntimeMaterials(unittest.TestCase):
+    def test_material_execution_501f_proof_composition_and_failed_apply_restore_installed_modules(self):
+        # Isolate the explicit new publisher mode from the old first-install and
+        # static-followup fixtures in this same existing test entry.
+        names=('TARGETS','NEW','INSTALLED_COMMIT','INSTALLED_PROOF','EXECUTION_MODE')
+        old_release={k:deepcopy(getattr(release,k)) for k in names}
+        old_prepare={k:deepcopy(getattr(prepare,k)) for k in ('TARGETS','NEW','INSTALLED_COMMIT','INSTALLED_PROOF','SOURCES')}
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                root=Path(directory)
+                base,system,payload,metadata,_,_,previous=self.installed_fixture(root)
+                prepare.configure_execution()
+                base=release.frozen()
+                proof=dict(release.INSTALLED_PROOF)
+                previous['sourceCommit']=release.INSTALLED_COMMIT
+                backup=base.rooted(system,proof['backup']);backup.mkdir(parents=True)
+                raw=json.dumps(previous).encode();(backup/'approved-manifest.json').write_bytes(raw)
+                proof['manifestSha256']=prepare.digest(raw)
+                raw=json.dumps(dict(status='applied-awaiting-actual-http-role-acceptance',manifest=previous,
+                    approvedManifestSha256=proof['manifestSha256'])).encode()
+                (backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+                old={v['candidate']:v['sha256'] for v in previous['files']}
+                protected={v['path']:v['sha256'] for v in previous['unchangedRequired']}
+                baseline={}
+                for name,target in release.TARGETS.items():
+                    baseline[name]=old[name] if name in old else None if name in release.NEW else protected[target]
+                    if name!='http/formal.conf':
+                        path=payload/name;path.parent.mkdir(parents=True,exist_ok=True)
+                        path.write_bytes(('execution-candidate:'+name).encode())
+                descriptor=json.loads((payload.parent/'payload-manifest.json').read_bytes())
+                descriptor.update(material_execution=True,installed_baseline={'source_commit':release.INSTALLED_COMMIT,'files':baseline})
+                descriptor['files'].update({'payload/'+name:prepare.digest((payload/name).read_bytes()) for name in prepare.SOURCES})
+                raw=json.dumps(descriptor).encode();(payload.parent/'payload-manifest.json').write_bytes(raw)
+                stage=root/'execution-stage'
+                with patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof),patch.object(prepare,'file_metadata',metadata):
+                    prepare.prepare(payload,stage,'a'*40,prepare.digest(raw),root=system,followup=True,release_ready=True)
+                    manifest=json.loads((stage/'approved-manifest.json').read_bytes())
+                    self.assertTrue(manifest['materialExecution']);self.assertFalse(manifest['materialStaticOnly'])
+                    self.assertEqual(len(manifest['files']),24);self.assertEqual(len(manifest['unchangedRequired']),46)
+                    self.assertEqual(sum(r['beforeSha256'] is None for r in manifest['files']),8)
+                    for name in ('conversation_files.py','conversation_file_bindings.py','conversation_file_tools.py','material_evidence.py'):
+                        self.assertIsNotNone(next(r['beforeSha256'] for r in manifest['files'] if r['candidate']=='runtime/'+name))
+                    # A drift is refused before creating another stage.
+                    target=base.rooted(system,release.TARGETS['runtime/fs_inprocess.py']);saved=target.read_bytes();target.write_bytes(b'drift')
+                    with self.assertRaisesRegex(ValueError,'baseline_drift'):
+                        prepare.prepare(payload,root/'drift-stage','a'*40,prepare.digest(raw),root=system,followup=True)
+                    target.write_bytes(saved)
+                spec=importlib.util.spec_from_file_location('execution_publisher_fixture',stage/'runtime_release.py')
+                module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                module.configure_execution();module.INSTALLED_PROOF=proof
+                base.guards=lambda *a,**kw:None
+                base.retirement=lambda *a:None
+                base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
+                base.hermes_admission_fence=lambda *a:nullcontext(SimpleNamespace(modified=False,confirmed=False))
+                base.restart_for=Mock(side_effect=RuntimeError('synthetic restart failure'))
+                if os.name=='nt':base.directory_sync=lambda *a:None
+                with patch.object(module,'frozen',return_value=base),patch.object(module,'worker_image',return_value=manifest['workerImageId']),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0)):
+                    publisher=module.load_base()
+                    if os.name=='nt':
+                        original=publisher.atomic
+                        def atomic(path,data,mode=0o644):
+                            row=next((r for r in manifest['files'] if path==base.rooted(system,r['target'])),None)
+                            return original(path,data,int(row['mode'],8) if row else mode)
+                        publisher.atomic=atomic
+                    manifest_raw=(stage/'approved-manifest.json').read_bytes()
+                    publisher.inspect(manifest,stage,system)
+                    with self.assertRaises(RuntimeError):publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,'nav-20261101T000003Z',system)
+                for row in manifest['files']:
+                    self.assertEqual(base.digest(base.rooted(system,row['target'])),row['beforeSha256'])
+        finally:
+            for key,value in old_release.items():setattr(release,key,value)
+            for key,value in old_prepare.items():setattr(prepare,key,value)
+            # prepare and release intentionally share the authoritative target map.
+            prepare.TARGETS=release.TARGETS
+
     def installed_fixture(self, root):
         base, system, payload, known, metadata, sha = self.fixture(root)
         previous = {'sourceCommit': release.INSTALLED_COMMIT, 'scope': release.SCOPE, 'files': [],

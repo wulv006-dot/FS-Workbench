@@ -239,14 +239,15 @@ class WorkerFileLoop(unittest.TestCase):
 
 class WorkerEnvironmentTests(unittest.TestCase):
     @contextmanager
-    def runtime(self, *, original_loader=False, initialization_error=None):
-        wires = ('mcp__fcro__fc_read_skill', 'mcp__fcro__fc_list_conversation_files')
+    def runtime(self, *, original_loader=False, initialization_error=None, execution=None, extra_tool=False):
+        from conversation_file_tools import WIRE_NAMES
+        wires = tuple(WIRE_NAMES) if execution else ('mcp__fcro__fc_read_skill', 'mcp__fcro__fc_list_conversation_files')
         calls = {'dotenv_reads': 0, 'registered': [], 'agent': None, 'executed': False}
         modules = {name: types.ModuleType(name) for name in (
             'proxy_gateway', 'runs_contract', 'hermes_cli', 'hermes_cli.config',
             'hermes_cli.env_loader', 'aiohttp', 'gateway', 'gateway.config',
             'gateway.platforms', 'gateway.platforms.api_server', 'gateway.platforms.api_server_runs',
-            'tools', 'tools.registry', 'toolsets', 'run_agent', 'skill_bundle', 'agent', 'agent.context_compressor')}
+            'tools', 'tools.registry', 'toolsets', 'run_agent', 'skill_bundle', 'agent', 'agent.context_compressor', 'agent.system_prompt')}
         proxy = modules['proxy_gateway']
         proxy.schemas = lambda: [{'function': {'name': name}} for name in wires]
         proxy.MAX_PROVIDER_CONTEXT_TOKENS = proxy.MAX_HERMES_OUTPUT_TOKENS = 1000
@@ -281,7 +282,7 @@ class WorkerEnvironmentTests(unittest.TestCase):
                         ('POST', '/v1/runs/{run_id}/stop'), ('POST', '/v1/chat/completions')]
         modules['gateway.platforms.api_server'].APIServerAdapter = Adapter
         modules['tools.registry'].registry = types.SimpleNamespace(register=lambda **kw: calls['registered'].append(kw['name']))
-        modules['toolsets'].create_custom_toolset = lambda *args, **kwargs: calls.update(toolset=kwargs['tools'])
+        modules['toolsets'].create_custom_toolset = lambda name, *args, **kwargs: calls.setdefault('toolsets', {}).update({name:kwargs['tools']})
         class Compressor:
             _config_context_length = 1000
             protect_first_n = protect_last_n = proactive_prune_tokens = 1
@@ -291,7 +292,14 @@ class WorkerEnvironmentTests(unittest.TestCase):
             def __init__(self, **kwargs):
                 calls['agent'] = kwargs
                 self.context_compressor = Compressor(); self.valid_tool_names = wires
+                self.tools=[{'function':{'name':v}} for v in wires]+([{'function':{'name':'forbidden'}}] if extra_tool else [])
+                self.ephemeral_system_prompt=kwargs['ephemeral_system_prompt']
+                self.skip_context_files=kwargs['skip_context_files'];self.load_soul_identity=kwargs['load_soul_identity']
+                self.skip_background_review=kwargs['skip_background_review']
+                self._memory_enabled=False;self._memory_store=None;self._memory_manager=None
+            def close(self):calls['closed']=True
         modules['run_agent'].AIAgent = Agent
+        modules['agent.system_prompt'].build_system_prompt=lambda agent:'Actual SDK fixture system prefix'
         modules['skill_bundle'].load_bundle = lambda *args, **kw: self.fail('no eager conversation bundle')
         modules['skill_bundle'].prompt = lambda *args: 'unused'
         real_import = builtins.__import__
@@ -306,9 +314,13 @@ class WorkerEnvironmentTests(unittest.TestCase):
                 worker._fs_no_implicit_dotenv = denied
             item = {'model': 'deepseek-flash', 'token': 'fixture-task-token', 'conversation': True,
                     'prompt': 'synthetic', 'ready': True}
+            if execution:
+                item.pop('conversation');item['prompt']=execution['system_prompt']
+                item['materials']={'execution':execution};item['run_id']='run_'+'d'*32
             worker.admission = lambda sid: item
             with patch('builtins.__import__', importing):
                 adapter = worker.make_adapter('fixture-listener-key')
+                if execution:adapter._material_admitted_inputs={'mg_'+'a'*64:execution['input']}
                 self.assertIs(loader.DotEnv, dotenv_library)
                 yield worker, adapter, calls, modules
 
@@ -325,7 +337,7 @@ class WorkerEnvironmentTests(unittest.TestCase):
             self.assertEqual(adapter.config.values['extra'], {'host': '127.0.0.1', 'port': 8941,
                              'key': 'fixture-listener-key', 'model_name': 'deepseek-flash'})
             self.assertEqual(calls['registered'], list(worker.WIRE_TOOLS))
-            self.assertEqual(calls['toolset'], list(worker.WIRE_TOOLS))
+            self.assertEqual(calls['toolsets']['fs_fc_readonly'], list(worker.WIRE_TOOLS))
             self.assertIn(('GET', '/v1/capabilities'), adapter._http_route_table())
             self.assertIn(('POST', '/v1/runs/{run_id}/stop'), adapter._http_route_table())
             self.assertNotIn(('POST', '/v1/chat/completions'), adapter._http_route_table())

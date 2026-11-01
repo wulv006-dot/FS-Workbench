@@ -65,6 +65,21 @@ async function boot(state=backend(), storage=new Map()) {
       state.turns[cid].push(turn); return reply({turn_id:turn.turn_id,state:'completed'},202);
     }
     if (kind==='runs') { state.steered=JSON.parse(init.body); return reply({state:'accepted'},202); }
+    if (kind==='materials') {
+      state.materialJobs ||= {};
+      if (method==='POST' && !id) {
+        const body=JSON.parse(init.body);state.materialSubmitted=body;
+        state.materialJobs[cid+body.client_request_id]={request_id:body.client_request_id,status:'running',files:[]};
+        if (state.materialUnknown) throw Error('lost material acceptance');
+        if (state.materialDelay) await new Promise(resolve=>{state.materialRelease=resolve;});
+        return reply(state.materialJobs[cid+body.client_request_id],202);
+      }
+      const job=state.materialJobs[cid+id];
+      if (!job) return reply({},404);
+      if (parts[3]==='result') return reply({request_id:id,status:'completed',text:'<script>never execute</script>\nanswer /arbitrary/file',truncated:false});
+      if (method==='POST') job.status='cancelled';
+      return reply(job);
+    }
     throw Error('unexpected '+url);
   };
   const context={document:{getElementById:id=>nodes[id],createElement:tag=>new Element(tag)},fetch,
@@ -163,6 +178,70 @@ async function run() {
   assert.equal(ui.state.steered.text,'steer'); assert(!('file_ids' in ui.state.steered));
   const css=fs.readFileSync(path.join(__dirname,'conversation.css'),'utf8');
   assert(css.includes(':focus-visible')); assert(css.includes('var(--fs-surface)')); assert(markup.includes('aria-describedby="file-help"'));
+  // New material actions execute real UI handlers; lost acceptance reconciles by
+  // original GET and never silently posts another task or binds a human turn.
+  ui=await boot();await ui.choose();ui.checks()[0].click();
+  ui.nodes['material-mode'].value='read';ui.nodes['message-input'].value='Read this selected file';
+  ui.state.materialUnknown=true;await ui.nodes['run-material'].click();await ui.flush();
+  const original=ui.state.materialSubmitted;
+  assert.equal(original.file_ids.length,1);assert.equal(original.operation.mode,'read');
+  assert(!ui.state.submitted);assert.match(ui.nodes['material-jobs'].textContent,/结果待核对/);
+  const postCount=()=>ui.state.calls.filter(v=>v.url.endsWith('/materials')&&v.method==='POST').length;
+  await ui.nodes['run-material'].click();await ui.flush();assert.equal(postCount(),1);
+  await ui.find('material-jobs','核对原任务').click();await ui.flush();
+  assert.match(ui.nodes['material-jobs'].textContent,/执行中/);assert.equal(postCount(),1);
+  await ui.find('material-jobs','停止短任务').click();await ui.flush();
+  assert.match(ui.nodes['material-jobs'].textContent,/已取消/);
+  assert.equal(ui.state.materialSubmitted.client_request_id,original.client_request_id);
+  ui=await boot();await ui.choose();ui.checks()[0].click();
+  ui.nodes['material-mode'].value='revise';ui.nodes['material-sheet'].value='1';ui.nodes['material-row'].value='2';
+  ui.nodes['material-column'].value='2';ui.nodes['material-value'].value='30';ui.nodes['material-value-type'].value='number';
+  ui.nodes['material-format'].value='xlsx';ui.nodes['message-input'].value='Change selected cell';
+  await ui.nodes['run-material'].click();await ui.flush();
+  assert.deepEqual(ui.state.materialSubmitted.operation.edits,[{sheet:0,row:1,column:1,value:30}]);
+  assert.equal(ui.state.materialSubmitted.operation.format,'xlsx');
+  // Display/selection order is the reverse of ID sorting. Multiple selections
+  // cannot silently choose a revision target; only the explicitly retained one
+  // can be sent, with its human-readable name shown before acceptance.
+  for (const order of [[0,1],[1,0]]) {
+    ui=await boot();
+    ui.state.files[A]=[{file_id:'f'.repeat(32),filename:'列表第一份.csv',version:1,status:'available'},
+                       {file_id:'0'.repeat(32),filename:'列表第二份.csv',version:1,status:'available'}];
+    ui=await boot(ui.state,ui.storage);
+    for (const index of order) ui.checks()[index].click();
+    ui.nodes['material-mode'].value='revise';ui.nodes['material-mode'].onchange();
+    ui.nodes['message-input'].value='Modify only my explicitly selected target';
+    assert(ui.nodes['run-material'].disabled);
+    assert.match(ui.nodes['material-target'].textContent,/请仅勾选一份/);
+    await ui.nodes['run-material'].onclick();await ui.flush();
+    assert.equal(ui.state.materialSubmitted,undefined);
+    ui.checks()[1].click();
+    assert(!ui.nodes['run-material'].disabled);
+    assert.equal(ui.nodes['material-target'].textContent,'修改目标：列表第一份.csv');
+    ui.nodes['material-sheet'].value='1';ui.nodes['material-row'].value='2';ui.nodes['material-column'].value='2';
+    ui.nodes['material-value'].value='30';ui.nodes['material-value-type'].value='number';ui.nodes['material-format'].value='xlsx';
+    await ui.nodes['run-material'].click();await ui.flush();
+    assert.equal(ui.state.materialSubmitted.operation.file_id,'f'.repeat(32));
+    assert.deepEqual(ui.state.materialSubmitted.file_ids,['f'.repeat(32)]);
+  }
+  ui=await boot();await ui.choose();ui.checks()[0].click();
+  ui.nodes['material-mode'].value='read';ui.nodes['material-bounded'].checked=true;
+  ui.nodes['material-read-sheet'].value='2';ui.nodes['material-read-offset'].value='201';ui.nodes['material-read-limit'].value='100';
+  ui.nodes['message-input'].value='Read this explicit range';
+  await ui.nodes['run-material'].click();await ui.flush();
+  assert.deepEqual(ui.state.materialSubmitted.read_scope,{file_id:ui.state.files[A][0].file_id,sheet:1,offset:200,limit:100});
+  const retained=ui.find('material-jobs','核对原任务');
+  await retained.click();await ui.flush();
+  const unchanged=ui.find('material-jobs','核对原任务');
+  await unchanged.click();await ui.flush();
+  assert.equal(ui.find('material-jobs','核对原任务'),unchanged,'unchanged polls preserve the focused DOM control');
+  const materialId=ui.state.materialSubmitted.client_request_id;
+  ui.state.materialJobs[A+materialId].status='completed';ui.state.materialJobs[A+materialId].run_id='run_'+'a'.repeat(32);
+  await ui.find('material-jobs','核对原任务').click();await ui.flush();
+  await ui.find('material-jobs','查看回答').click();await ui.flush();
+  assert.match(ui.nodes['material-jobs'].textContent,/<script>never execute<\/script>/);
+  assert(!descendants(ui.nodes['material-jobs']).some(x=>['script','iframe','a'].includes(x.tagName)));
+  assert(![...ui.storage.values()].some(value=>value.includes('never execute')),'model answer stays outside stored goal/request data');
   console.log('PASS materials UI: executed DOM/fetch upload, recovery, hash, race, turn, follow-up, revocation, steer and keyboard scenarios');
 }
 module.exports={run};

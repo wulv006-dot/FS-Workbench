@@ -69,6 +69,15 @@ def check():
         base = '/api/hermes/conversations/' + CID
         if path == base:
             return response({'conversation_id': CID, 'title': TITLE, 'turns': state['turns'], 'last_seq': 0})
+        if path == base + '/materials':
+            value=request.post_data_json
+            state['material_request']=value
+            state['material_result']={'request_id':value['client_request_id'],'status':'completed','files':[],'run_id':'run_'+'f'*32,
+                'coverage':[{'file_id':value['file_ids'][0],'analysis_coverage':{'observed_sheets':[{'sheet':0,'covered_rows':2,'total_rows':2}],'unread_sheet_count':0}}]}
+            return response(state['material_result'],202)
+        if path.startswith(base + '/materials/'):
+            if path.endswith('/result'):return response({'status':'completed','text':'合成回答：已核所选两行。\n<script>此处仅作文字显示</script>','truncated':False})
+            return response(state['material_result'])
         if path == base + '/events':
             return route.fulfill(body=': connected\n\n', content_type='text/event-stream')
         if path == base + '/files' and request.method == 'POST':
@@ -126,11 +135,11 @@ def check():
         page.reload()
         page.locator('#attachments').evaluate('(element) => element.open = true')
         page.get_by_role('button', name='核对原上传').click()
-        page.get_by_role('checkbox').wait_for()
-        expect(page.get_by_role('checkbox')).to_be_enabled()
-        page.get_by_role('checkbox').focus()
+        page.locator('#file-choices input[type="checkbox"]').wait_for()
+        expect(page.locator('#file-choices input[type="checkbox"]')).to_be_enabled()
+        page.locator('#file-choices input[type="checkbox"]').focus()
         page.keyboard.press('Space')
-        assert page.get_by_role('checkbox').is_checked()
+        assert page.locator('#file-choices input[type="checkbox"]').is_checked()
         page.get_by_label('给 Hermes 发消息').fill('核对并修改金额')
         page.get_by_label('给 Hermes 发消息').press('Control+Enter')
         page.get_by_role('button', name='用于下一轮追问').wait_for()
@@ -160,10 +169,33 @@ def check():
         page.get_by_role('button', name='发送', exact=True).click()
         expect(page.locator('.message.assistant')).to_have_count(2)
         assert state['turns'][1]['file_bindings']['inputs'] == ['d' * 32]
+        page.get_by_role('button',name='用于下一轮追问').last.click()
+        page.locator('#attachments').evaluate('(element) => element.open = true')
+        page.locator('#material-bounded').check()
+        page.locator('#material-read-limit').fill('2')
+        page.locator('#message-input').fill('合成材料短任务：仅阅读所选两行，不调用模型')
+        page.locator('#run-material').click()
+        expect(page.locator('#material-jobs')).to_contain_text('短任务完成')
+        expect(page.locator('#material-jobs')).to_contain_text('已读 2 / 2 行')
+        page.get_by_role('button',name='查看回答').click()
+        expect(page.locator('.material-answer')).to_contain_text('合成回答：已核所选两行。')
+        assert page.locator('#material-jobs script').count()==0
+        assert state['material_request']['read_scope']=={'file_id':'e'*32,'sheet':0,'offset':0,'limit':2}
+        for theme in ('light','dark'):
+            page.evaluate('(theme) => FSTheme.set(theme)',theme)
+            page.screenshot(path=str(shots / ('material-desktop-'+theme+'.png')),full_page=True)
+        page.locator('#attachments').evaluate('(element) => element.open = true')
+        page.locator('#material-mode').select_option('revise')
+        expect(page.locator('#material-target')).to_have_text('修改目标：核对结果.xlsx')
+        page.locator('#material-value').fill('30')
+        page.locator('#material-value').focus()
+        page.screenshot(path=str(shots/'material-expanded-dark.png'),full_page=True)
         page.set_viewport_size({'width': 390, 'height': 844})
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         assert page.locator('#conversation-main').evaluate('(element) => element.getBoundingClientRect().bottom >= document.querySelector("#status").getBoundingClientRect().bottom')
         page.screenshot(path=str(shots / 'mobile-dark.png'), full_page=True)
+        page.locator('#attachments').evaluate('(element) => element.open = false')
+        page.screenshot(path=str(shots/'material-mobile-collapsed.png'),full_page=True)
         browser.close()
         server.shutdown()
         thread.join(timeout=5)

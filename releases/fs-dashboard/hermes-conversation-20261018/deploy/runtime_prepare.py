@@ -43,6 +43,17 @@ KNOWN = {
 }
 
 
+def configure_execution():
+    import runtime_release as release
+    global INSTALLED_COMMIT, NEW
+    release.configure_execution()
+    INSTALLED_COMMIT, NEW = release.INSTALLED_COMMIT, release.NEW
+    SOURCES.update({'runtime/'+name: (MODULE if name.startswith('conversation_') else 'releases/fs-dashboard/hermes-v2-core-20261020/')+'source/'+name
+                    for name in release.EXECUTION_MODULES})
+    SOURCES.update({'runtime/fs_inprocess.py':FC+'fc-review-channel-20261026/source/fs_inprocess.py',
+                    'http/range_api.py':'releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py'})
+
+
 def digest(raw):
     return hashlib.sha256(raw).hexdigest()
 
@@ -95,8 +106,13 @@ def file_metadata(base, root, name, absent=False):
 
 def observe(root=Path('/'), installed=None):
     base = frozen()
-    rows = {name: file_metadata(base, root, target, not installed and name in NEW) for name, target in TARGETS.items()}
+    import runtime_release as release
+    rows = {name: file_metadata(base, root, target, name in NEW and (not installed or release.EXECUTION_MODE)) for name, target in TARGETS.items()}
     expected = {row['candidate']: row['sha256'] for row in installed['files']} if installed else KNOWN
+    if installed and release.EXECUTION_MODE:
+        pinned = {r['path']:r['sha256'] for r in installed['unchangedRequired']}
+        expected.update({name:None if name in NEW else pinned[target]
+                         for name,target in TARGETS.items() if name not in release.LEGACY_TARGETS})
     for name, row in rows.items():
         if (not installed and name in NEW and row['sha256'] is not None) or (name in expected and row['sha256'] != expected[name]):
             raise ValueError('runtime_source_baseline_drift: ' + row['path'])
@@ -105,7 +121,7 @@ def observe(root=Path('/'), installed=None):
             raise ValueError('runtime_mode_drift: ' + row['path'])
     protected = [file_metadata(base, root, path) for path in sorted(protected_paths(base))]
     if installed and {r['path']: r['sha256'] for r in protected} != {
-            r['path']: r['sha256'] for r in installed['unchangedRequired']}:
+            r['path']: r['sha256'] for r in installed['unchangedRequired'] if r['path'] in protected_paths(base)}:
         raise ValueError('installed_protected_baseline_drift')
     worker = worker_observation(allow_stopped=True) if root == Path('/') else {
         'image': 'sha256:' + '0' * 64, 'state': 'active', 'source': 'container'}
@@ -130,10 +146,11 @@ def pack(repo, output, commit):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(raw)
         hashes[name] = digest(raw)
-    baseline = {name: digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo))
+    import runtime_release as release
+    baseline = {name: (None if release.EXECUTION_MODE and name in NEW else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo)))
                 for name, path in SOURCES.items()}
     baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
-    raw = json.dumps({'source_commit': commit, 'files': hashes,
+    raw = json.dumps({'source_commit': commit, 'files': hashes, 'material_execution':release.EXECUTION_MODE,
                       'installed_baseline': {'source_commit': INSTALLED_COMMIT, 'files': baseline}},
                      sort_keys=True).encode('utf-8')
     (output / 'payload-manifest.json').write_bytes(raw)
@@ -147,6 +164,9 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
     if digest(raw) != payload_sha256:
         raise ValueError('approved_git_payload_required')
     descriptor = json.loads(raw)
+    if descriptor.get('material_execution') is True:
+        configure_execution()
+        if not followup:raise ValueError('material_execution_requires_installed_followup')
     if descriptor.get('source_commit') != commit:
         raise ValueError('payload_source_commit_mismatch')
     expected = {'payload/' + name for name in SOURCES} | set(PUBLISHER_SOURCES)
@@ -182,6 +202,7 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
                 'baselineObservedAt': observed['observed_at'], 'approvedPayloadSha256': payload_sha256}
     if installed:
         manifest['installedBaseline'] = INSTALLED_PROOF
+        if __import__('runtime_release').EXECUTION_MODE:manifest['materialExecution']=True
         manifest['materialStaticOnly'] = all(row['beforeSha256'] == row['sha256'] or row['candidate'].startswith('frontend/')
                                             for row in files)
         if manifest['materialStaticOnly'] and (observed['worker_state'] != 'active' or observed['worker_image_source'] != 'container'):
@@ -212,7 +233,9 @@ if __name__ == '__main__':
     parser.add_argument('--approved-payload-sha256')
     parser.add_argument('--release-ready', action='store_true')
     parser.add_argument('--followup', action='store_true')
+    parser.add_argument('--materials-execution', action='store_true')
     args = parser.parse_args()
+    if args.materials_execution:configure_execution()
     if args.action == 'observe':
         value = observe()
     elif args.action == 'pack':

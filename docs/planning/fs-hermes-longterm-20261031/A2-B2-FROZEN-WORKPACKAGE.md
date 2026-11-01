@@ -152,3 +152,97 @@ B新增`b2_goal_facts.py`的`FrozenGoalFacts(host,resolve_scope,context_for)`及
 Personal原Core最终177项全部通过、0失败/0skip，新增facts18项已实际加载（4元数据、14真实A2/GoalStore/原任务DB outbox组合）；新增kernel1项覆盖prepared/evidence原子保存、pending忽略覆盖及future拒绝。首次组合16项通过，补同snapshot缺项及pending缓存边界后完整177重验。使用真实合成SQLite/Service冻结重放及原TaskStore temp DB，原tasks行数仍0；全程无SyntheticTaskLedger替代此新组合、无真实模型/业务API。Windows沿用A2已明示2026 UTC+08及私有temp mode夹具，真实POSIX/最新SHA独审与LinuxCI待完成。queued只计持久待执行，不计原TaskStore任务、worker启动或阶段2上线；生产仍501f。
 
 本包以base8f604875执行原knowledge_closeout plan，仍既有91项/30 error、native_plugin_exact_registration_delta_required、exit1，未扩修或放宽旧知识publisher，不称知识/Notion完成。原pr-fast/外网/Popen围栏未改；6条B Python路径3.9 AST与diff通过，A四路径与固定66b12897无差异。实际源扫描量/生产费用仍unknown，不因冻结摘要小而推断后端少扫或新模型账单。
+
+### PR722限定验收与合并（2026-11-01）
+
+Business Sol High平台独立worktree核完整head `24bc4d6b786849b0de8db58b178c853bc6b6454e`、base8f604875起止不变，实际12路径，无可复现功能/权限/数据丢失问题；A四路径与66b12897一致。独立A22/B18/kernel16/host18及补充3项源异常/admission撤权/保守cutoff均零skip。新LinuxCI41247844832实际绑定此head/base，Ubuntu22.04/Python3.9.18会话75/相关21/Core177全部通过，新增测试已加载。
+
+Personal合并前复核最新版本/CI success/无冲突，按已有授权正常merge `d279086292f514002adadf801468e077dc7f3a1a`；本机ff核merge树与reviewed head完全一致，已停止PR722监听。至此限定本机「冻结事实→prepared同CAS→独立DB私有outbox→原IDlookup/验真」通过。queued仍非原TaskStore执行任务/worker；没有生产goal DB/真实模型/调度或新scope授权动作，生产继续501f，阶段2整体未完成，旧知识收尾错误保留。
+
+下一工作转入真实运行装配，不再增加替代执行层：A唯一现场执行者先沿既有合法SSH作三份已知未匹配活动文件的限定只读元信息核对（controller.py/fs_evidence.py/range_api.py）；只返回哈希/大小、必要类/函数签名及调用/导入名称、可比函数AST指纹，不导出源码正文/常量值、不导入执行这些模块、不读配置/凭据/DB、不调用业务或模型API。既有批量源码复制拒绝仍独立有效，元信息不能等价绕为源码下载；工具拒绝即停止原样回报。若信息不足，列必要读取的最小具体范围与用途交用户，不把未知活动装配伪称匹配，不覆盖旧源。B据实际接口对齐合法goal执行类型/spec/原ID只读恢复及scope来源；真实grant缺证据继续unavailable。
+
+### 活动源码在既有Git中的精确定位（2026-11-01）
+
+A在原独立工作树正常ff main d279086292f514002adadf801468e077dc7f3a1a后，以既有合法SSH只读核三份指定文件；逐目录/目标O_NOFOLLOW、regular及稳定fstat检查，AST前重核SHA，无源码正文/常量值导出、SCP、模块导入、服务或DB/API操作。当前controller为59487 bytes、SHA256 `75c1b1f6b6af47fe00465e8b4dd0e9628ed17dbd85be0b1988145dbf41dc8e28`；另外两份如下，均与501f原保护记录一致。这里只证明当前磁盘文件，不证明进程已加载或当前健康。
+
+Personal随后只读本地Git原始LF字节，找到两份完整精确匹配；旧“未找到Git源”的结论由以下证据收窄，而非恢复旧候选覆盖现场：
+
+| 活动文件 | d2790862中的Git路径 | bytes / SHA256 | Git blob |
+|---|---|---|---|
+| /opt/fs-hermes-fc/fs_evidence.py | releases/fs-dashboard/fc-coins-workflow-20261022/source/fs_evidence.py | 27713 / 08ea0d4a85b605c0665aed11f6bda56ff15b51dcfe8b1c53dd90a80a6d101d29 | e995458b378c51ea6908119357ef29c842b8849a |
+| /opt/fs-exact-range-20261001/range_api.py | releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py | 25525 / 12008f7fc6a21a01b2daf5d911905356c4aab238d10925e09069029f4f047b7f | b7f024715816fd788d4e7c921f2c747d6fb92562 |
+
+Windows工作区CRLF的大小/hash不同，不能据此否定Git LF匹配。range_api.py:277-281已可从合法Git读取：原HERMES的root/run_root/source_root为`/var/lib/fs-hermes-fc/fs`、`/run/fs-hermes-fc`、`/opt/fs-hermes-fc`；现有ConversationService复用HERMES，store根为`/var/lib/fs-hermes-fc/fs/conversations`。GET/POST会话及analytics入口传递正常宿主`X-Auth-User`。这些静态接点不证明上游细粒度site/project grant，fc_daily.admin也不作为该证明。
+
+为比较远端Python3.9与本地3.14的有界函数AST，Personal去除3.9没有的空type_params字段，再用`ast.dump(include_attributes=False, show_empty=True)`保留3.9的空字段表达。由此Core controller.__init__:97/get_job:251分别与远端完整指纹`7baa4d624b545ee76bd1cb7f0f47d63c1635eb1964da06b4869e24804ead4882`、`020e1801e31719a461ccc5d9fbba03df8f356a5201b01b1b76e375b06f53a2fd`相等；knowledge-layering-20261023/source/controller.py的_submit_report:441与`3e21966641bf24fc7ed750aaab0c9b966677d8afc3ac6e4e5c25757a958d269d`相等。所匹配构造函数的原TaskStore路径为self.root/'tasks.sqlite3'；仍使用现有对象，不另构造带恢复/线程/DDL副作用的HermesService。函数结构匹配不保证其它全局符号/整模块行为相同，controller整文件和execute仍未匹配，不覆盖或复用其执行分支。
+
+原计划A类45行片段的生产读取/导出已不必要，未向用户索取该许可、未执行等价导出；此前批量SCP拒绝仍有效。已把两份精确Git源、blob和函数指纹交A，只读本地收敛真实执行包接口，不重复SSH核查或旧测试。候选方向为用户显式选择且同owner/cid授权的材料目标短任务，不从页面admin推A2 scope；必须先确定合法执行类型及真实spec/预算来源、task/lease/run持久映射、单次POST/UNKNOWN原ID对账、锁序与停止/恢复合同，再登记实际A/B路径实现。此处是接口待定项，没有新增通用goal执行、模型请求、调度或生产发布；B主线是执行意图/证据与最小handoff，A主线是原任务账本/生命周期/HTTP/runtime装配，独占归属保持。
+
+### 真实材料短任务执行包登记（2026-11-01）
+
+A本地只读合同已回收，冻结首个合法类型`conversation_materials_v1`：仅正常FS身份在原会话显式选择的最多10份材料及明确读/确定性修订意图。材料grant来自该服务端选择记录和逐调用文件/任务/goal授权，不能转成site/project业务grant；A2真实scope仍unavailable。只由显式动作创建/执行/停止短任务，不加定时/自动触发，不造human turn。验收终点是原task/lease及一次官方Runs提交、三工具真实分页/修订、鉴权字节下载和派生版本显式再选择；UNKNOWN、停止、撤权、重启/迟到和FC原链回归在同包验收，不以queued代替执行。
+
+原TaskStore.create/FC validate_spec/FC validator和未知controller.execute不改。A在原tasks DB的独占材料映射事务中，按明确FS/materials命名空间创建真实tasks行并持久映射完整binding/intent/outbox receipt；原outbox_v1仅reservation，不回填其NULL任务列。新类型period=null表示材料无业务期间；snapshot_id来自材料manifest内容hash；template_version来自B实际静态提示内容；knowledge_version来自本次文件规则/操作/最小handoff的实际冻结上下文；budget_policy_id取原general gateway真实有效policy。此特殊validator只适用于新类型，原FC五字段要求不放宽，不填昨天/假FC capture或教材版本。原额度、到额停止、DeepSeek及usage账本保持，材料transport retry=0，不增加费用授权。
+
+| 本包实际路径（相对仓库） | 唯一修改者 / 范围 |
+|---|---|
+| releases/fs-dashboard/hermes-v2-core-20261020/source/material_execution.py、新test_material_execution.py；source/conversation_file_tools.py、source/material_evidence.py及test_conversation_file_tools.py、test_material_evidence.py；test_core.py | Personal B：显式意图/材料manifest/实际最小上下文及工具/证据作用域；原turn默认行为兼容 |
+| releases/fs-dashboard/hermes-conversation-20261018/source/conversation_material_runs.py、新tests/test_conversation_material_runs.py；source/conversation_file_bindings.py及tests/test_conversation_file_loop.py、test_conversation_store.py；source/conversation_http.py及deploy/test_http.py | Business A：真实task/lease/run映射、execution-bound文件上下文、原ID恢复/停止、HTTP及原入口测试加载 |
+| releases/fc-coins/fc-pricing-v3-20261026/source/conversation_http.py及对应tests/test_runtime_contracts.py | Business A：保留现行FC接点的材料HTTP适配 |
+| releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py | Business A：仅向现有HERMES/CONVERSATION注入新服务；原身份来源不变 |
+| releases/fc-coins/fc-review-channel-20261026/source/hermes_worker.py、proxy_gateway.py、fs_inprocess.py及tests/test_channel.py | Business A：materials可信类型、仅三文件工具schema/调用隔离、原官方持久记录只读resolver；B不并改 |
+| releases/fc-coins/fc-pricing-v2-20261022/source/runs_contract.py及原tests/test_pricing_v2.py（仅受影响合同） | Business A：材料session及状态/恢复协议；旧FC合同保持 |
+| releases/fs-dashboard/hermes-conversation-20261018/frontend/conversation.js、index.html、conversation.css、test_materials_ui.cjs、test_materials_browser.py及entry/test_data_handoff.cjs | Business A：必要显式选择/状态/产物/停止UI，复用令牌和原入口，不另建界面风格 |
+| releases/fs-dashboard/hermes-conversation-20261018/deploy/runtime_prepare.py、runtime_release.py、test_runtime_materials.py；CONVERSATION-GOALS.md、DEPLOYMENT-ACCEPTANCE.md | Business A：最终固定载荷/现行501f installed proof增量/原publisher与本模块交付；不复用旧stage |
+| tools/pr_fast.py；本工作包及唯一主文件 | Personal主控：仅必要原CI接线/全局记录 |
+
+本登记先送A确认可见后，A才改共享路径。若需要表外源/公共schema/迁移或其它运行接点，先报具体依赖再登记，不能默默扩改。首包不调用广域build_book或通用经营工具；worker toolset、proxy最前置拒绝和provider/preflight schemas三层均须仅三文件工具，不靠book末端拒绝掩盖strategy分支。
+
+B固定接口为`freeze_execution(*,binding,handoff,selection_revision,files,operation,deadline_at,now)`，只消费A已核的服务端身份/完整B binding、原B1 handoff和真实metadata，产出固定manifest/snapshot、完整payload指纹、实际input/system_prompt和模板/上下文版本，不授文件权限、不写库/发请求。operation为read或指定file_id/edits/format的revise；后者使用按原request与完整操作确定的revision_request_id。A须在工具调用前核操作精确匹配；下一任务不能隐式继承产物。B helper新scope仅host参数`material_execution_files`，默认turn_bound_files不变，模型schema无scope字段；新scope拒绝非文件工具、不preparing读取catalog，coverage仍只表示本执行实际页链，非业务新鲜度或目标完成。
+
+原Runs单次POST前持久attempt/session/key/body hash，全部DB锁释放后网络；任何不确定结果保留原ID，不重POST。已只读核[固定官方Runs源码](https://raw.githubusercontent.com/NousResearch/hermes-agent/71d34bad1045610252eda02ee79549436896e784/gateway/platforms/api_server_runs.py)和[幂等存储源码](https://raw.githubusercontent.com/NousResearch/hermes-agent/71d34bad1045610252eda02ee79549436896e784/gateway/platforms/api_server_run_idempotency.py)：原请求按认证命名空间/key/完整body指纹持久预留run；store.lookup虽不reserve但会清理过期记录，不能冒纯只读。A应在现有受认证adapter内从同一官方持久账本只读核原scope/key/fingerprint/session并返回最小run状态；不新建替代执行账本、不读其它会话正文，不用404宣称从未执行。官方版本/当前镜像是否一致需正常固定依赖核验；未证或账本不可用则真实POST不可启用。丢202后必须实际找回原run且POST计数1；重启无法安全恢复book/grant则围栏/停止原run，不重发。CAS/admission与独立reservation/网络不作跨DB原子承诺，锁序仍goal→tasks，禁止反向回调。
+
+此登记授权继续本机实现/相关测试/统一集成PR；沿原用户授权和最新SHA独审/CI处理合并。当前未执行新部署、真实scope/模型或业务操作；A同包固定候选和无模型故障组合准备好后再核最终发布清单与必要真实验证，费用缺值保持unknown。独立审查仍唯一Business Sol High delegate，未完成不合并。
+
+#### B实际候选与A接入合同
+
+A已真实回复登记a2512c72完整可见、共享单一维护者已知，开始本机实现。Personal B新增material_execution.py及17项test_material_execution.py，并在原Core入口加载；helper增加host-only材料作用域。无新执行器/模型client/文件算法或存储替代层，不改A文件。实际API：
+
+- `prepare_materials(*,owner,cid,scope_ref,selection_revision,files,operation,now)`先从A已核metadata/明确操作得到manifest、snapshot_id和fact_version，供原GoalHost.step使用；不需伪binding/hand-off/task。版本含owner/cid、scope、选择revision、完整文件版本/到期、操作和实际静态提示模板，不因读回时间改变；它表示材料身份，不是A2复合业务版本或业务截止。
+- `freeze_execution(*,binding,handoff,selection_revision,files,operation,deadline_at,now)`冻结原exact6字段B binding及exact7字段B1 handoff（task_id须原request_id）。只保留文件file_id/sha256/parent_id/version/size/expires_at，不复制正文/路径/URL。操作是read或明确选定输入的精确cell edits/format；后者产出按原request+完整操作确定的`revision_request_id`。返回kind/binding/handoff/selection_revision/manifest/operation/deadline_at/snapshot_id/fact_version/template_version/knowledge_version/system_prompt/input/payload_sha256，A持久化完整payload并比较，不能只比较logical binding digest或在后续revision重建原handoff。
+- `validate_execution(execution,*,now=None)`重建完整冻结数据并精确比较，返回深拷贝。无now仅验完整性，专供到期后的状态对账/停止，不授派发权限；派发/工具须传实际带时区当前时间，截止或文件到期拒绝。`operation_guard(execution,name,arguments,*,now)`必须有真实当前时间，精确匹配修订的原ID/file/format/cells，read拒绝revision，非文件工具拒绝；成功仅literal True。选中/派生membership、owner/goal/task/lease、磁盘hash及真实receipt仍由A逐调用核，不由B hash代替授权。
+- A调用`attach_conversation_file_tools(book,context,scope='material_execution_files',operation_guard=lambda name,args: operation_guard(fixed,name,args,now=host_clock()))`；新scope必须提供可调用guard且返回字面True，最前拒绝非文件工具。file_prompt/tool_schemas的同名scope仅host关键字参数，不进入模型schema。默认turn_bound_files的原prompt/schema/透传语义保持，原coverage算法复用、每新book独立，unknown产物原样返回且不自动再调A。
+
+B最终原pr_fast.units Core入口194项、零failure/error/skip；新增17项已加载，含真实freeze→guard→原helper调用链，原文件/coverage/HTTP/provider/goal回归通过。四条B Python路径通过3.9 AST，实际本机3.14；沿用原A2明确Windows UTC+08/temp mode夹具，不称Linux执行。knowledge_closeout plan(base d279)仍原知识层30 errors/exit1，保持未完成。A完整运行链、真实官方只读resolver/当前版本证明、LinuxCI和独立最新SHA审查未完成；生产仍501f，未作新模型/部署/业务操作。待A完整固定候选正常合入后，只对真实组合及受影响合同验收，仍一个Personal集成PR。
+
+#### 官方字节定位与实际上下文proof补充
+
+A已在B fixed4e4c5659上本机施工，回交真实原TaskStore/lease/单次attempt映射、execution-bound文件与SELECT-only resolver初版4项真实temp DB通过；完整候选/HTTP/UI/三层隔离仍在实现，此局部证据不记整包通过。A的基础receipt沿原exact binding/status/receipt_ref，仅completed附最小evidence/completed_actions，兼容GoalHost；原outbox仍只queued，不能回填其NULL任务字段。ref须回指持久映射版本与实际task/lease/run/完整execution hash、官方最小状态、实际页覆盖/产物及proof，不能仅凭模型正文或hash当执行来源。
+
+在既有现场权限下，Personal明确限定A只核当前worker容器/实际image的WorkingDir和三份明确官方.py元信息。A回报当前容器fdb100cedd9b2c05dedfb7880282cd1105e322e3315e3585d72d149d8f01c96a Running=true、实际image8251bc53…3544，两个WorkingDir均/opt/hermes。目录/目标O_NOFOLLOW、regular及stable fstat检查通过，以下实际字节全部匹配A按固定commit71d34bad1045610252eda02ee79549436896e784公开raw下载的源码缓存；未输出正文/读取Env、profile/config/DB/日志/凭据，未新建/启动容器或改服务，旧批量SCP拒绝未重试：
+
+| /opt/hermes/gateway/platforms/下 | bytes | SHA256 |
+|---|---|---|
+| api_server.py | 256424 | 6a7e6fb0a0d5ea25ddc47d36a64e2c0bc50ded331d49e1c4521d801ca7189043 |
+| api_server_runs.py | 68296 | 8a7fcfd56183c32a14b41c7c43ce36b21b37bf49f2ed035dafe48899c0e8cbe7 |
+| api_server_run_idempotency.py | 10755 | 56f7762addc5e610569fd613729f1f0b3d5e99e4b76f56d9cfa509dfeb51636c |
+
+raw行号与web索引会移动，使用完整字节hash及原指纹/SQL语义，不沿用旧web行号当证明。这消除当前磁盘SDK字节未知，不等于模块加载、新resolver功能或新包生产验收。
+
+B按同包依赖补`build_context_proof(execution,*,session_id,run_id,actual_system_prompt,actual_input,actual_tool_names,native_memory_skipped)`与`verify_context_proof(execution,proof,*,session_id,run_id)`。A必须从实际agent已组装提示、实际官方已接收input（或已核官方完整body fingerprint对应input）、真实enabled三工具和实际memory/context/background关闭标志取值，不能把expected模板冒actual。构造器检查冻结提示确实包含、输入精确相同、仅原三工具及字面True，产出实际完整系统提示hash、输入/声明提示hash、payload/snapshot/模板/上下文版本、session/run和工具集的最小proof，不持久原文。核验器重核原执行/版本/session/run/工具和严格布尔；proof本身不认证worker或替代A原账本/task/lease/官方来源验真，不授新执行权。完整性核验支持到期后对账，真实工具仍须活动时间/权限检查。
+
+MaterialEvidence增加host-only scope，原turn默认标签/算法不变；执行scope内层明确this_execution_observed_pages，B1 source=material_execution_files，缺项始终含business_data_not_read和long_term_goal_not_assessed，as_of仍真实工具读回时间，非业务日期。读任务可在明确局部范围完成并保留未读缺项，不能由一页成功推全workbook或目标达成；产物还须A读取实际metadata/hash/版本关系与字节。新增4项proof/标签边界与原相关测试合计40项零failure/error/skip通过，随后原Core最终198项全部通过、零skip。4条受影响Python路径3.9 AST/diff通过；知识plan仍既有错误/exit1，未扩修。完整A组合、最新LinuxCI/独审和真实运行仍待完成。
+
+#### A完整候选集成与主控核心复核
+
+正常ff合入A固定51af0a424e7e1155073e58f7cc3df64dfe1291ed（main仍d279），实际21条A路径符合登记；B目录相对42b6df09逐字节无差异。原TaskStore真实行/私有映射/单attempt与原session/key/body绑定、execution-bound上下文、仅SELECT原官方账本、三层file-only/零transport retry、结果文本与最小receipt分离均已进入候选。原HTTP沿正常owner/cid，显式read_scope首次冻结进新材料目标/handoff；不同原ID选择推进selection_revision，默认全workbook或明确局部区间分别验收。原outbox列不回填、FC create/spec/未知controller不改。
+
+A同固定输入的本机证据复用：原store入口83（含新材料20）、deploy22、channel12零skip，Node原入口及本地Chromium/loopback下载通过，15Python路径3.9 AST及diff通过。Personal独立新材料20与当前组合Core198均零failure/error/skip，亲看4张candidate-only浅暗/展开/390图（A临时截图目录fs-materials-ui-szads3wx）；不视为生产视觉、真实SDK或模型通过。
+
+主控核心复核发现两项同包待修，已交唯一A处理，未提前派独审/合并：一是MaterialService._parts未串行runtime cache首次创建，真实temp DB加同步点可使同owner/cid两调用取得不同实例，后写缓存挤掉在用实例，后续reconcile会误按重启路径停止原任务；二是UI修订把选中file_id排序取首个，和“第一份勾选文件”的人类含义不一致，会静默修改另一已选文件。要求A补短缓存锁及并发回归，UI明确单份/目标文件选择与反序ID事件回归。保持一个集成草稿，待更新完整SHA的相关检查、LinuxCI及Business独审再作合并判断。当前生产仍501f，未pack/upload/apply或运行模型。
+
+### PR723派审版本收敛
+
+正常merge A修复固定501239c434ae6931cf44b19980b51c828fafac3f，无冲突，仍同一个PR723；9条差异仅属A已登记路径，B目录相对42b6df09无差异。runtime独立RLock只覆盖cache取建并返回锁内局部引用，DB/授权构造、执行与网络在锁外。修订前端单选及事件处理双重拒绝多选，并显示真实目标名；读取多选和后端显式目标能力不收窄。A在内存装回旧51af后两个新增回归实际失败，修复后通过，未修改跟踪旧源。
+
+Personal沿原pr_fast.units独立运行新增并发2项零failure/error/skip，原Node入口真实DOM/fetch含两种勾选顺序及逆序ID回归通过；查看新candidate-only深色展开图，目标文件名已可见。复用未变输入的材料20/Core198、A原83/deploy22/channel12及Chromium证据，不宣称本轮全部重跑。原知识收尾失败状态保持，生产501f未变。当前两项主控P2已收口，冻结最新完整集成SHA交唯一Business Sol High独立worktree审核心；LinuxCI/独审返回前仍draft、不合并、不部署。真实SDK/模型/费用、生产停止/第二身份/A2scope/200%与生产视觉未验。

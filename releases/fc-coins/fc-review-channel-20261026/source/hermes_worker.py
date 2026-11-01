@@ -1,6 +1,6 @@
 """Constrained adapter around the pinned official Hermes Runs implementation.
 
-FS registers five HTTP-backed tools through Hermes' official registry API. The
+FS registers approved HTTP-backed tools through Hermes' official registry API. The
 wire names retain the v1 contract; this adapter does not claim an MCP connection.
 Provider credentials never enter this process. Admissions are FS-owned read-only
 files containing a renewable task token, model name, and approved task context.
@@ -28,15 +28,28 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 def admission(session_id):
-    if not isinstance(session_id, str) or not re.fullmatch(r'(?:fc|hc)_[a-f0-9]{64}', session_id):
+    if not isinstance(session_id, str) or not re.fullmatch(r'(?:fc|hc|mg)_[a-f0-9]{64}', session_id):
         raise PermissionError('session_not_admitted')
     path = ADMISSIONS/(session_id+'.json')
     if path.is_symlink() or path.stat().st_size > MAX_PROVIDER_WIRE_BYTES:
         raise PermissionError('admission_invalid')
     item = json.loads(path.read_text('utf-8'))
-    if not isinstance(item,dict) or set(item)-{'session_id', 'token', 'model', 'prompt','ready','reasoning_effort','background','context_receipt','report_mode','skill_question','frozen_skills','learning_receipt','learning_text','conversation','run_id'} or not {'session_id','token','model','prompt'}.issubset(item) or item['session_id'] != session_id:
+    if not isinstance(item,dict) or set(item)-{'session_id', 'token', 'model', 'prompt','ready','reasoning_effort','background','context_receipt','report_mode','skill_question','frozen_skills','learning_receipt','learning_text','conversation','run_id','materials'} or not {'session_id','token','model','prompt'}.issubset(item) or item['session_id'] != session_id:
         raise PermissionError('admission_invalid')
-    if session_id.startswith('hc_'):
+    if session_id.startswith('mg_'):
+        material = item.get('materials')
+        if (not isinstance(material, dict) or set(material) != {'key','fingerprint','execution_sha256','execution'}
+                or not re.fullmatch('mg-[a-f0-9]{64}', material.get('key',''))
+                or any(not re.fullmatch('[a-f0-9]{64}', material.get(k,'')) for k in ('fingerprint','execution_sha256'))
+                or any(k in item for k in ('conversation','background','frozen_skills','learning_text','report_mode','context_receipt'))):
+            raise PermissionError('material_admission_invalid')
+        from material_execution import validate_execution
+        execution=validate_execution(material['execution'])
+        if execution['payload_sha256']!=material['execution_sha256'] or execution['system_prompt']!=item['prompt']:
+            raise PermissionError('material_context_changed')
+    elif 'materials' in item:
+        raise PermissionError('material_admission_invalid')
+    elif session_id.startswith('hc_'):
         if item.get('conversation') is not True or 'report_mode' in item or 'background' in item:
             raise PermissionError('conversation_admission_invalid')
         if 'run_id' in item and not re.fullmatch(r'run_[a-f0-9]{32}',item['run_id']):
@@ -74,7 +87,7 @@ def skill_question(item):
 def runtime_metadata(item,bundle):
     result={'provider':'custom','model':item['model'],'route_source':'fs_task_admission',
             'fs_reasoning_effort':item.get('reasoning_effort','none')}
-    if not item.get('conversation'):
+    if not item.get('conversation') and not item.get('materials'):
         result.update(fs_skill_version=bundle['version'],fs_skill_sha256=bundle['sha256'])
     return result
 
@@ -107,6 +120,8 @@ def call_tool(name, args, *, session_id=None, parent_agent=None, **unused):
 def loaded_context_metadata(agent):
     source=getattr(agent,'_hermes_api_runtime',{}) or {}
     result={}
+    if isinstance(source.get('fs_material_context'),dict):
+        result['fs_material_context']=source['fs_material_context']
     for key in ('fs_context_version','fs_context_sha256','fs_background_version','fs_background_sha256',
                 'fs_methods_sha256','fs_governance_sha256','fs_skill_version','fs_skill_sha256'):
         value=source.get(key)
@@ -165,6 +180,8 @@ def make_adapter(api_key):
             return call_tool(_name, args, **context)
         registry.register(name=name, toolset='fs_fc_readonly', schema=schema['function'], handler=handler)
     create_custom_toolset('fs_fc_readonly', 'FS FC aggregate readonly', tools=list(WIRE_TOOLS))
+    from conversation_file_tools import WIRE_NAMES as MATERIAL_WIRE_NAMES
+    create_custom_toolset('fs_materials', 'Explicitly selected material files', tools=list(MATERIAL_WIRE_NAMES))
 
     class ReadonlyAdapter(APIServerAdapter):
         _fs_handshake=True
@@ -173,13 +190,36 @@ def make_adapter(api_key):
             # constructed agent's verified FS context receipt in its pollable record.
             loaded=loaded_context_metadata(self._active_run_agents.get(run_id))
             if loaded:fields['runtime']={**(fields.get('runtime') or {}),**loaded}
-            return super()._set_run_status(run_id,status,**fields)
+            result=super()._set_run_status(run_id,status,**fields)
+            if status in {'completed','failed','cancelled','interrupted'}:
+                session_id=result.get('session_id')
+                getattr(self,'_material_admitted_inputs',{}).pop(session_id,None)
+            return result
 
         def _http_route_table(self):
             allowed = {('GET', '/v1/capabilities'), ('POST', '/v1/runs'),
                        ('GET', '/v1/runs/{run_id}'), ('POST', '/v1/runs/{run_id}/stop'),
                        ('GET', '/v1/runs/{run_id}/events'), ('POST', '/v1/runs/{run_id}/steer')}
-            return [row for row in super()._http_route_table() if row[:2] in allowed]
+            routes = [row for row in super()._http_route_table() if row[:2] in allowed]
+            routes.append(('GET', '/v1/materials/{session_id}', self._material_lookup))
+            return routes
+
+        async def _material_lookup(self, request):
+            denied = self._check_auth(request)
+            if denied is not None:
+                return denied
+            from conversation_material_runs import readonly_official_run, runtime_pin_verified
+            try:
+                item = admission(request.match_info['session_id'])
+                if not item.get('materials') or not runtime_pin_verified(Path(api_server_runs.__file__).parent):
+                    raise PermissionError('material_runtime_unverified')
+                value = readonly_official_run(self._run_idempotency_store._db_path,
+                    scope=self._run_idempotency_scope(request), key=item['materials']['key'],
+                    fingerprint=item['materials']['fingerprint'], session_id=item['session_id'],
+                    owner_alive=api_server_runs._owner_alive,execution=item['materials']['execution'])
+                return web.json_response(value)
+            except (ValueError,PermissionError,OSError,KeyError,TypeError):
+                return web.json_response({'error':'material_lookup_unavailable'}, status=503)
 
         def _make_profile_prefix_middleware(self):
             @web.middleware
@@ -189,7 +229,8 @@ def make_adapter(api_key):
                            request.method == 'GET' and re.fullmatch(r'/v1/runs/run_[a-f0-9]{32}', path) or
                            request.method == 'POST' and re.fullmatch(r'/v1/runs/run_[a-f0-9]{32}/stop', path) or
                            request.method == 'GET' and re.fullmatch(r'/v1/runs/run_[a-f0-9]{32}/events', path) or
-                           request.method == 'POST' and re.fullmatch(r'/v1/runs/run_[a-f0-9]{32}/steer', path))
+                           request.method == 'POST' and re.fullmatch(r'/v1/runs/run_[a-f0-9]{32}/steer', path) or
+                           request.method == 'GET' and re.fullmatch(r'/v1/materials/mg_[a-f0-9]{64}', path))
                 if not allowed:
                     return web.json_response({'error': 'route_denied'}, status=403)
                 if (request.method, path) == ('POST', '/v1/runs'):
@@ -197,7 +238,17 @@ def make_adapter(api_key):
                     if not isinstance(body, dict) or set(body) != {'input', 'session_id'} or not isinstance(body['input'], str):
                         return web.json_response({'error': 'request_fields'}, status=400)
                     try:
-                        admission(body['session_id'])
+                        item = admission(body['session_id'])
+                        if item.get('materials'):
+                            from conversation_material_runs import official_fingerprint, runtime_pin_verified
+                            if (not runtime_pin_verified(Path(api_server_runs.__file__).parent)
+                                    or getattr(self._run_idempotency_store,'durable',False) is not True
+                                    or request.headers.get('Idempotency-Key') != item['materials']['key']
+                                    or official_fingerprint(body) != item['materials']['fingerprint']):
+                                raise PermissionError('material_runtime_unverified')
+                            inputs=getattr(self,'_material_admitted_inputs',None)
+                            if inputs is None:self._material_admitted_inputs=inputs={}
+                            inputs[body['session_id']]=body['input']
                     except (ValueError, PermissionError, OSError):
                         return web.json_response({'error': 'session_not_admitted'}, status=403)
                 if path.endswith(('/events','/steer')):
@@ -207,9 +258,19 @@ def make_adapter(api_key):
                     try:item=admission(session_id)
                     except (ValueError,PermissionError,OSError):
                         return web.json_response({'error':'conversation_run_not_admitted'},status=403)
-                    if not session_id.startswith('hc_') or item.get('run_id')!=run_id or not item.get('ready'):
+                    if not session_id.startswith(('hc_','mg_')) or item.get('run_id')!=run_id or not item.get('ready'):
                         return web.json_response({'error':'conversation_run_not_bound'},status=403)
-                return await handler(request)
+                    if session_id.startswith('mg_') and path.endswith('/steer'):
+                        return web.json_response({'error':'material_intent_frozen'},status=403)
+                response = await handler(request)
+                if (request.method,path) == ('GET','/v1/capabilities') and response.status == 200:
+                    from conversation_material_runs import runtime_pin_verified
+                    value = json.loads(response.body)
+                    value['fs_materials'] = {'verified_pin': runtime_pin_verified(Path(api_server_runs.__file__).parent)
+                                             and getattr(self._run_idempotency_store,'durable',False) is True,
+                                             'readonly_original_lookup': True, 'single_post': True}
+                    return web.json_response(value)
+                return response
             return approved_routes
 
         def _wire_plugin_handlers(self, app):
@@ -217,14 +278,16 @@ def make_adapter(api_key):
 
         def _create_agent(self, ephemeral_system_prompt=None, session_id=None, **kwargs):
             item = admission(session_id)
+            material = bool(item.get('materials'))
             # Official Runs can start the worker before POST returns. FS must bind
             # the actual run_id durably before granting any tool/model access.
             if item.get('ready',True) is False:raise PermissionError('admission_handshake_timeout')
             from skill_bundle import load_bundle, prompt
-            bundle={} if item.get('conversation') else item.get('frozen_skills') or load_bundle(Path(__file__).parent,question=skill_question(item),mode=item.get('report_mode'))
-            task_prompt=item['prompt'] if item.get('conversation') else prompt(bundle,{'instruction':item['prompt']})
+            bundle={} if material or item.get('conversation') else item.get('frozen_skills') or load_bundle(Path(__file__).parent,question=skill_question(item),mode=item.get('report_mode'))
+            task_prompt=item['prompt'] if material or item.get('conversation') else prompt(bundle,{'instruction':item['prompt']})
             if item.get('learning_text'):task_prompt+='\n'+item['learning_text']
-            task_prompt+='\n工具调用必须使用本次tools提供的完整函数名，不使用文档语义名或自行拼写。已注册语义名→实际函数名：'+json.dumps(dict(zip(SEMANTIC_TOOLS,WIRE_TOOLS)),ensure_ascii=False)
+            tool_names = {k:v for k,v in zip(SEMANTIC_TOOLS,WIRE_TOOLS) if not material or v in MATERIAL_WIRE_NAMES}
+            task_prompt+='\n工具调用必须使用本次tools提供的完整函数名，不使用文档语义名或自行拼写。已注册语义名→实际函数名：'+json.dumps(tool_names,ensure_ascii=False)
             context_receipt=None
             if item.get('background') is not None:
                 from background import task_context
@@ -236,7 +299,7 @@ def make_adapter(api_key):
                          'reasoning_callback', 'status_callback') if k in kwargs}
             agent = AIAgent(base_url=PROXY+'/v1', api_key=item['token'], provider='custom',
                             api_mode='chat_completions', model=item['model'],
-                            enabled_toolsets=['fs_fc_readonly'], session_id=session_id,
+                            enabled_toolsets=['fs_materials' if material else 'fs_fc_readonly'], session_id=session_id,
                             ephemeral_system_prompt=task_prompt, platform='api_server',
                             skip_context_files=True, load_soul_identity=False, skip_memory=True,
                             skip_background_review=True, checkpoints_enabled=False,
@@ -267,11 +330,31 @@ def make_adapter(api_key):
                 agent.close()
                 raise PermissionError('unexpected_context_compressor')
             # Keep the pinned official compaction/pruning defaults.
-            if set(agent.valid_tool_names) != set(WIRE_TOOLS):
+            if set(agent.valid_tool_names) != set(MATERIAL_WIRE_NAMES if material else WIRE_TOOLS):
                 observed_tools = sorted(agent.valid_tool_names)
                 agent.close()
                 raise PermissionError('unexpected_runtime_tools:'+','.join(observed_tools))
             agent._hermes_api_runtime = runtime_metadata(item,bundle)
+            if material:
+                from material_execution import build_context_proof,validate_execution
+                from agent.system_prompt import build_system_prompt
+                effective=(build_system_prompt(agent)+'\n\n'+agent.ephemeral_system_prompt).strip()
+                from datetime import datetime,timezone
+                fixed=validate_execution(item['materials']['execution'],now=datetime.now(timezone.utc))
+                actual_input=getattr(self,'_material_admitted_inputs',{}).get(session_id)
+                actual_tools=[v['function']['name'] for v in agent.tools]
+                skipped=(getattr(agent,'skip_context_files',None) is True and getattr(agent,'load_soul_identity',None) is False
+                         and getattr(agent,'skip_background_review',None) is True
+                         and getattr(agent,'_memory_enabled',None) is False
+                         and getattr(agent,'_memory_store',False) is None
+                         and getattr(agent,'_memory_manager',False) is None)
+                try:
+                    proof=build_context_proof(fixed,session_id=session_id,run_id=item['run_id'],
+                        actual_system_prompt=effective,actual_input=actual_input,actual_tool_names=actual_tools,
+                        native_memory_skipped=skipped)
+                except Exception:
+                    agent.close();raise
+                agent._hermes_api_runtime['fs_material_context']=proof
             if learning:agent._hermes_api_runtime['fs_effective_input']=effective_receipt
             if context_receipt:
                 agent._hermes_api_runtime.update(fs_context_version=context_receipt['version'],fs_context_sha256=context_receipt['context_sha256'],

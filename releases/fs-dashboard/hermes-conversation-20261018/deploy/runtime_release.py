@@ -34,6 +34,27 @@ INSTALLED_PROOF = {
     'manifestSha256': 'b129179049dc9ff4b575075ebd1b47c1f6edf325936ac70b1286ca990bd73a05',
     'journalSha256': 'c902e8f3d1d613c80f1f0573647dbcf17184466579fdfbc77539d8f8846c24fc'}
 INSTALLED_NGINX_SHA = 'b792f18b8d1b322139f8be96bb5052ff53a79e82dac7a607cbe102e199b06302'
+LEGACY_TARGETS = dict(TARGETS)
+EXECUTION_MODE = False
+EXECUTION_MODULES = ('conversation_goals.py','conversation_goal_tasks.py','conversation_material_runs.py',
+                     'material_execution.py','b2_goal_state.py','b2_goal_host.py','b1_model_routing.py','b2_customer_followup.py')
+
+
+def configure_execution():
+    """Same publisher, explicit 501f installed-baseline increment; never a replay."""
+    global INSTALLED_COMMIT, NEW, EXECUTION_MODE
+    if EXECUTION_MODE:
+        return
+    EXECUTION_MODE = True
+    INSTALLED_COMMIT = '501f90bf16fe114e70fcb05833cb1b2cf478e54c'
+    INSTALLED_PROOF.update(sourceCommit=INSTALLED_COMMIT,
+        backup='/var/backups/fs-navigation-20261006/nav-20261031T201743Z',
+        manifestSha256='6c6c1aceda92eba62cb694f112dc6df93f97dd05fc157c778b51c4ffe8daf920',
+        journalSha256='9131be81c7c95da5c15a0c6ba49107102517952f009046e524dd813c1732c9b9')
+    TARGETS.update({'runtime/'+name:'/opt/fs-hermes-fc/'+name for name in EXECUTION_MODULES})
+    TARGETS.update({'runtime/fs_inprocess.py':'/opt/fs-hermes-fc/fs_inprocess.py',
+                    'http/range_api.py':'/opt/fs-exact-range-20261001/range_api.py'})
+    NEW = frozenset('runtime/'+name for name in EXECUTION_MODULES)
 
 
 def installed_baseline(root, git_baseline):
@@ -49,8 +70,13 @@ def installed_baseline(root, git_baseline):
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
     expected = {row['candidate']: row['sha256'] for row in manifest['files']}
+    proof_targets = LEGACY_TARGETS if EXECUTION_MODE else TARGETS
+    if EXECUTION_MODE:
+        protected = {r['path']:r['sha256'] for r in manifest['unchangedRequired']}
+        expected.update({name: None if name in NEW else protected[target]
+                         for name,target in TARGETS.items() if name not in LEGACY_TARGETS})
     if (manifest.get('sourceCommit') != INSTALLED_COMMIT or manifest.get('scope') != SCOPE
-            or {row['candidate']: row['target'] for row in manifest['files']} != TARGETS
+            or {row['candidate']: row['target'] for row in manifest['files']} != proof_targets
             or journal.get('status') != 'applied-awaiting-actual-http-role-acceptance'
             or journal.get('approvedManifestSha256') != INSTALLED_PROOF['manifestSha256']
             or journal.get('manifest') != manifest
@@ -177,8 +203,10 @@ def quiescent(base, root):
 
 
 def load_base():
-    base = frozen()
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
+    if approved.get('materialExecution') is True:
+        configure_execution()
+    base = frozen()
     git_baseline = None
     if approved.get('installedBaseline'):
         raw = (HERE / 'payload-manifest.json').read_bytes()
@@ -306,6 +334,8 @@ def load_base():
                        "import conversation_service,conversation_http,conversation_file_tools,conversation_files;"
                        "assert Path(conversation_service.__file__).parent==Path(sys.argv[1]);"
                        "import openpyxl,et_xmlfile")
+            if EXECUTION_MODE:
+                program += ';import conversation_material_runs,conversation_goals,conversation_goal_tasks,material_execution,b2_goal_host,b2_goal_state'
             checked = subprocess.run(['/opt/python39/bin/python3.9', '-I', '-B', '-c', program,
                                       str((stage / 'candidate/runtime').resolve()),
                                       str((stage / 'candidate/http').resolve()), '/opt/fs-hermes-fc',

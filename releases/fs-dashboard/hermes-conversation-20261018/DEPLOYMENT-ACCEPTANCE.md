@@ -545,3 +545,32 @@ Observed diagnostics: from the post-load probe at 20:19 onward, window error/unh
 Native Control+Plus was attempted again on current 501f at 20:25:29Z. DPR stayed 2, inner/outer width stayed 1280 and visualViewport.scale stayed 1: real 200% browser zoom remains unverified. No CSS zoom or viewport substitution is presented as a pass. Running-state interruption, second-identity production authorization/revocation/expiry, trusted live A2 scope and full-stage acceptance likewise remain outside the evidence; previous contract layers are preserved.
 
 A restored the original light theme and closed only its new synthetic tab at 20:27:30Z. The original user tab was never navigated, captured or closed. A previous preview_status available=false denoted no current selection, not proof that tabs were closed: the following open listed the original tab intact. Personal must still perform its own independent read-only/no-model visual review; A does not mark that review or the entire Hermes/stage 2 complete. The synthetic review URL remains https://47.85.224.112/dashboard/fs-home/hermes/conversation/?conversation=0884f9a7a4ee4b66a220e20651e4e54c .
+
+## 2026-11-01 材料执行装配：本地候选，生产仍501f
+
+本轮只本机实现/合成验证。固定 B 补充为42b6df09cfc0ccbe0743231c79b96cec5edf8bb1；A 完整固定 SHA 随提交回交。不复用旧 descriptor/stage，不上传/安装，不调用真实模型或业务 API，不宣称运行包已验收。
+
+先前用户明确允许的唯一 A 有限现场元信息核验已完成：实际 running container fdb100cedd9b2c05dedfb7880282cd1105e322e3315e3585d72d149d8f01c96a，image sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544，container/image WorkingDir=/opt/hermes。未输出 Env/config/DB/凭据/日志或源码正文。以下 regular 文件与固定 public pin71d34bad1045610252eda02ee79549436896e784 的 raw Git bytes 全等（不是新 resolver 上线证明）：
+
+| /opt/hermes/gateway/platforms/ 文件 | bytes | 完整 SHA256 |
+|---|---:|---|
+| api_server.py |256424|6a7e6fb0a0d5ea25ddc47d36a64e2c0bc50ded331d49e1c4521d801ca7189043|
+| api_server_runs.py |68296|8a7fcfd56183c32a14b41c7c43ce36b21b37bf49f2ed035dafe48899c0e8cbe7|
+| api_server_run_idempotency.py |10755|56f7762addc5e610569fd613729f1f0b3d5e99e4b76f56d9cfa509dfeb51636c|
+
+原 publisher 增加显式 --materials-execution pack/prepare 模式，必须 --followup，绑定501f真实成功 proof：backup=/var/backups/fs-navigation-20261006/nav-20261031T201743Z；manifest=6c6c1aceda92eba62cb694f112dc6df93f97dd05fc157c778b51c4ffe8daf920；journal=9131be81c7c95da5c15a0c6ba49107102517952f009046e524dd813c1732c9b9。候选目标为24（旧14+8新模块+fs_inprocess/range_api两个由原保护转为载荷），保护集合46。8新模块为 conversation_goals/conversation_goal_tasks/conversation_material_runs/material_execution/b2_goal_state/b2_goal_host/b1_model_routing/b2_customer_followup。新增前必须不存在；两个已有接点既核旧 proof 保护 SHA 又核501f Git LF before；原4文件均为已有 beforeSHA，失败回退恢复，不删除。Nginx保持已装10m及原0600精确字节。本轮是运行装配变化，不能冒静态-only免重载；后续实际 changed-target/影响、现场新 baseline/manifest/CAS/原锁/围栏/备份/服务/image/健康须合并后另取证。冻结 publisher bytes 未改。
+
+合成 publisher 新用例已覆盖24/46/8精确组装、Git+成功 journal 来源、源漂移拒绝、原 inspect/apply 与 restart 失败回退，原首次安装/静态followup/UNKNOWN/CAS回归保持。Windows目录 fsync/mode 仍用原 temp 边界夹具，不称 Linux 发布通过。原 runner deploy 三模块合计22项通过（test_http3/test_release7/test_runtime_materials12）。
+
+本地 Chromium 使用路由合成数据、真实 DOM/事件/loopback 下载，无正常生产登录或模型请求。2026-11-01 本机约08:28 +08生成并实际 view_image 看过以下候选图：桌面1280x800 light/dark、指定修改展开与可见焦点、390x844 dark收起/回答。页面无横溢、历史侧栏独滚、长中文标题两行/connection nowrap；答案中的<script>按原文本原样显示，不执行、不生成任意链接；显式范围和单元格控件由真实事件执行。每2.5秒相同状态 polling 保留原按钮 DOM/焦点。图片及本地 download.xlsx 都是夹具，绝不是先前501f的真实产物或新部署证据。
+
+- C:/Users/Administrator/AppData/Local/Temp/fs-materials-ui-szads3wx/material-desktop-light.png
+- C:/Users/Administrator/AppData/Local/Temp/fs-materials-ui-szads3wx/material-desktop-dark.png
+- C:/Users/Administrator/AppData/Local/Temp/fs-materials-ui-szads3wx/material-expanded-dark.png
+- C:/Users/Administrator/AppData/Local/Temp/fs-materials-ui-szads3wx/material-mobile-collapsed.png
+
+浏览器测试中预期第一次上传响应被夹具丢弃，刷新按原 ID恢复，无新上传；两个原human turn及显式派生选择保留；新增材料任务只走其专用HTTP夹具，未伪造新human turn。未做完整console/HAR留档及实际200% zoom，生产视觉、真实SDK/模型任务/费用、running停止和第二身份权限仍待后续实际验收，不能据本组截图提前通过。
+
+最终 A 本地收口：原 `units(.../tests,['test_conversation_store'])` 实际加载83项、零失败/错误/skip（其中新材料20）；原 deploy显式三模块22项、channel12、原Node入口含DOM/fetch、Chromium操作通过，15个变更Python文件按3.9 AST通过。图片桌面/窄屏代表文件实际写入时间为2026-11-01T00:28:56Z；本轮未重复旧Core198或未改知识套件，先前知识收尾失败不在本包扩修，未冒通过。主控集成后新SHA Linux/独审、真实SDK/模型/生产仍未验。
+
+PR723派审前两项P2已在A原分支收口：runtime缓存短锁+并发/live回归；UI单选修订并显示目标名+反序DOM/fetch回归。新增两项Python测试通过，原Node入口通过；真实temp SQLite且无模型/业务API。旧51af方法只在内存回退的两项测试均明确因构造2个runtime失败，修复版为1个。新本地Chromium `C:/Users/Administrator/AppData/Local/Temp/fs-materials-ui-3k9h9zql/material-expanded-dark.png` 已实际view，看到“修改目标：核对结果.xlsx”及原主题焦点；仍是candidate-only非生产验收。B源码、发布器及其他51af已验输入未改，不重跑Core198/旧20。PR723由Personal集成/新SHA独审与LinuxCI，A不新建PR/Agent或部署。

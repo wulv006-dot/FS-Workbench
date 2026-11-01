@@ -53,3 +53,14 @@
 .file-state{color:var(--fs-muted)}
 .attachments :focus-visible,.file-card :focus-visible{outline:2px solid var(--fs-brand);outline-offset:2px}
 @media(max-width:700px){.conversation-shell{padding:12px}.conversation-layout{grid-template-columns:1fr}.conversation-sidebar{max-height:185px;overflow:auto;position:static}.conversation-main{height:auto;min-height:0;padding:12px}.messages{flex:none;min-height:220px;max-height:55dvh}.message{max-width:95%}.composer-footer{flex-wrap:wrap}.sidebar-head{position:sticky;top:0;background:var(--fs-surface)}}
+.material-controls { border: 1px solid var(--fs-line); border-radius: var(--fs-radius, 8px); padding: 12px; margin-top: 12px; min-width: 0; }
+.material-controls label { display: inline-flex; flex-direction: column; gap: 4px; margin: 4px; max-width: 100%; }
+.material-controls input[type="number"] { width: 72px; }
+.material-controls input, .material-controls select { max-width: 100%; min-height: 44px; color: inherit; background: var(--fs-surface, transparent); border: 1px solid var(--fs-line); border-radius: var(--fs-input-radius); }
+.material-controls button { display: block; margin-top: 12px; min-height: 44px; }
+.material-jobs { max-height: 200px; overflow: auto; flex: 0 1 auto; }
+.material-job { margin: 8px 0; padding: 12px; border: 1px solid var(--fs-line); border-radius: var(--fs-radius); overflow-wrap: anywhere; }
+.material-job button, .material-job a { min-height: 44px; margin: 4px; }
+.material-answer { white-space: pre-wrap; overflow-wrap: anywhere; }
+#material-target { overflow-wrap: anywhere; }
+.material-controls :focus-visible,.material-job :focus-visible { outline: 2px solid var(--fs-brand); outline-offset: 2px; }

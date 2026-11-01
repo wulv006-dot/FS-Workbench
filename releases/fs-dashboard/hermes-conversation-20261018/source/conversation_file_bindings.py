@@ -142,3 +142,84 @@ class BoundFiles:
 
 def context_factory(store, owner, cid, turn_id, authorized):
     return BoundFiles(store, owner, cid, turn_id, authorized)
+
+
+class ExecutionBoundFiles(BoundFiles):
+    """Real material-run capability, independent of human turn records."""
+    def __init__(self, store, goals, ledger, binding, authorized, operation_guard):
+        row = ledger.get(binding)
+        if row is None:
+            raise LookupError('material_execution_missing')
+        super().__init__(store, binding['owner'], binding['cid'], row['task_id'], authorized)
+        self.goals, self.ledger, self.binding = goals, ledger, dict(binding)
+        self.operation_guard = operation_guard
+        from material_evidence import MaterialEvidence
+        from threading import RLock
+        self.evidence = MaterialEvidence(scope='material_execution_files')
+        self.evidence_lock = RLock()
+        from conversation_material_runs import read_scope
+        self.read_scope = read_scope(row['execution'])
+
+    @contextmanager
+    def current(self):
+        if self.authorized(self.owner) is not True:
+            raise PermissionError('file_access_revoked')
+        with self.bindings.files.transaction() as db:
+            self.bindings.files.store._owned(db, self.owner, self.cid)
+            goal = self.goals._read(db, self.binding['goal_id'])
+            row = self.ledger.get(self.binding)
+            task = self.ledger.outbox.tasks.get(row['task_id'], self.owner)
+            from datetime import datetime, timezone
+            from material_execution import validate_execution
+            validate_execution(row['execution'],now=datetime.now(timezone.utc))
+            deadline = datetime.fromisoformat(row['execution']['deadline_at'].replace('Z', '+00:00'))
+            if (goal is None or goal['status'] != 'active' or row['stopped']
+                    or goal['work']['request_id'] != self.binding['request_id']
+                    or task['state'] != 'RUNNING' or task['lease'] != row['lease']
+                    or not row['run_id'] or task['run_id'] != row['run_id']
+                    or datetime.now(timezone.utc) >= deadline):
+                raise PermissionError('material_execution_inactive')
+            files = row['execution']['manifest']
+            # The frozen B manifest exposes only immutable input metadata.
+            files = files['files'] if isinstance(files, dict) else files
+            self.inputs = {v['file_id']: v for v in files}
+            self.generated = {v['file_id']: v for v in row['generated']}
+            yield db, {'inputs': list(self.inputs), 'generated': list(self.generated)}
+
+    def authorize(self, db, value, file_id):
+        item = super().authorize(db, value, file_id)
+        expected = (self.inputs | self.generated)[file_id]
+        if any(item[k] != expected[k] for k in ('sha256', 'size', 'version', 'parent_id')):
+            raise PermissionError('material_file_version_conflict')
+        return item
+
+    def read_table(self, file_id, sheet=None, offset=0, limit=None):
+        arguments = dict(file_id=file_id, sheet=sheet, offset=offset, limit=limit)
+        if self.operation_guard('fc.read_conversation_file', arguments) is not True:
+            raise PermissionError('material_operation_denied')
+        selected = self.read_scope
+        if selected is not None and (file_id != selected['file_id'] or sheet != selected['sheet']
+                or type(offset) is not int or type(limit) is not int or offset < selected['offset']
+                or offset + limit > selected['offset'] + selected['limit']):
+            raise PermissionError('material_read_scope_denied')
+        value = super().read_table(file_id, sheet, offset, limit)
+        with self.evidence_lock:
+            summary = self.evidence.observe_page(value, arguments)
+            page = {k: value[k] for k in
+                ('file_id', 'sha256', 'sheet', 'offset', 'returned_rows', 'total_rows', 'coverage', 'next_offset') if k in value}
+            page.update(analysis_coverage=summary, evidence=[ref for ref in self.evidence.handoff_evidence()
+                if ref['ref'].startswith('file:'+file_id+'@')])
+            self.ledger.record_tool(self.binding, page=page)
+        return value
+
+    def revise(self, file_id, edits, format, request_id):
+        arguments = dict(file_id=file_id, edits=edits, format=format, request_id=request_id)
+        if self.operation_guard('fc.revise_conversation_file', arguments) is not True:
+            raise PermissionError('material_operation_denied')
+        with self.current() as (db, value):
+            self.authorize(db, value, file_id)
+            import hashlib
+            scoped = hashlib.sha256((self.turn_id + ':' + request_id).encode()).hexdigest()
+            item = self.bindings.files.revise(self.owner, self.cid, file_id, edits, format, scoped, _db=db)
+            self.ledger.record_tool(self.binding, artifact=item)
+            return self.receipt(item)

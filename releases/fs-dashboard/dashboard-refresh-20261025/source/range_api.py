@@ -279,6 +279,10 @@ if os.environ.get('FS_HERMES_FC_ENABLED')=='1':
 from conversation_service import ConversationService
 from conversation_http import handle as conversation_handle, respond as conversation_respond, PREFIX as CONVERSATION_PREFIX
 CONVERSATION=ConversationService(HERMES,'/var/lib/fs-hermes-fc/fs/conversations','/run/fs-hermes-fc') if HERMES is not None else None
+if CONVERSATION is not None:
+ from conversation_material_runs import MaterialService
+ CONVERSATION.materials=MaterialService(HERMES,CONVERSATION)
+ CONVERSATION.pool.submit(CONVERSATION.materials.recover)
 CUSTOMER_TRACKING=None
 if HERMES is not None:
  from tracking_controller import TrackingController

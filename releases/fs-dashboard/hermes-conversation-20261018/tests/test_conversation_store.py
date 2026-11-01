@@ -326,6 +326,8 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromModule(test_conversation_goals))
     import test_conversation_goal_tasks
     tests.addTests(loader.loadTestsFromModule(test_conversation_goal_tasks))
+    import test_conversation_material_runs
+    tests.addTests(loader.loadTestsFromModule(test_conversation_material_runs))
     return tests
 
 

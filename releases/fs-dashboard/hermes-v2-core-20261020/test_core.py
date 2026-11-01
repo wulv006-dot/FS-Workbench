@@ -323,6 +323,8 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromModule(test_conversation_file_tools))
     import test_material_evidence
     tests.addTests(loader.loadTestsFromModule(test_material_evidence))
+    import test_material_execution
+    tests.addTests(loader.loadTestsFromModule(test_material_execution))
     import test_materials_http_workflow
     tests.addTests(loader.loadTestsFromModule(test_materials_http_workflow))
     path=ROOT/'releases/fs-dashboard/hermes-fc-pilot-20261013/test_direct_provider.py'

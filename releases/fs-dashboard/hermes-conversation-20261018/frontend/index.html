@@ -66,9 +66,35 @@
             <p id="file-help" class="muted">单文件最多 10 MiB。上传后请勾选本轮要使用的文件；进行中的任务不更换附件。</p>
             <ul id="upload-list" class="file-list" aria-label="上传状态"></ul>
             <ul id="file-choices" class="file-list" aria-label="选择本轮附件"></ul>
+            <fieldset class="material-controls">
+              <legend>所选附件的独立短任务</legend>
+              <p class="muted">使用上方问题和勾选的文件，不读取历史对话或经营数据。</p>
+              <label for="material-mode">操作</label>
+              <select id="material-mode"><option value="read">阅读与分析</option><option value="revise">指定单元格修改并下载</option></select>
+              <div id="material-read">
+                <label><input id="material-bounded" type="checkbox">只阅读指定行范围（须只选一个文件）</label>
+                <div id="material-range" hidden>
+                  <label>工作表<input id="material-read-sheet" type="number" min="1" value="1"></label>
+                  <label>起始行<input id="material-read-offset" type="number" min="1" value="1"></label>
+                  <label>行数<input id="material-read-limit" type="number" min="1" max="200" value="200"></label>
+                </div>
+              </div>
+              <div id="material-edit" hidden>
+                <p class="muted">修订时仅勾选一份文件。工作表、行、列从 1 开始。</p>
+                <p id="material-target" class="muted" aria-live="polite">请仅勾选一份要修改的文件。</p>
+                <label>工作表<input id="material-sheet" type="number" min="1" value="1"></label>
+                <label>行<input id="material-row" type="number" min="1" value="2"></label>
+                <label>列<input id="material-column" type="number" min="1" value="1"></label>
+                <label>新值<input id="material-value" type="text" maxlength="2000"></label>
+                <label for="material-value-type">值类型</label><select id="material-value-type"><option value="text">文字</option><option value="number">数字</option></select>
+                <label for="material-format">下载格式</label><select id="material-format"><option value="xlsx">XLSX</option><option value="csv">CSV</option><option value="html">HTML</option></select>
+              </div>
+              <button id="run-material" type="button" class="fs-btn" disabled>确认所选文件并执行</button>
+            </fieldset>
           </details>
           <div class="composer-footer"><span>Enter 换行，Ctrl+Enter 发送</span><button id="send-message" type="submit" class="fs-btn fs-btn--primary" disabled>发送</button></div>
         </form>
+        <section id="material-jobs" class="material-jobs" aria-label="材料短任务" aria-live="polite"></section>
         <p id="status" class="status" role="status" aria-live="polite"></p>
       </main>
     </div>

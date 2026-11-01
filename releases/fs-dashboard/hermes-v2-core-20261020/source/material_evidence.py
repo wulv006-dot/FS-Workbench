@@ -10,7 +10,10 @@ import threading
 
 
 class MaterialEvidence:
-    def __init__(self, clock=None):
+    def __init__(self, clock=None, *, scope="turn_bound_files"):
+        if scope not in ("turn_bound_files", "material_execution_files"):
+            raise ValueError("material_evidence_scope")
+        self.scope = scope
         self.clock = clock or (lambda: datetime.now(timezone.utc).isoformat())
         self.files = {}
         self.lock = threading.RLock()
@@ -97,7 +100,8 @@ Existing conflicting version/dimension observations invalidate that file's union
                              "covered_rows": sum(end-start for start, end in page["intervals"]),
                              "missing_ranges": gaps, "complete": not gaps})
         unread = item["total_sheets"] - len(observed)
-        return {"status": "observed", "scope": "this_turn_observed_pages", "file_id": fid,
+        return {"status": "observed", "scope": ("this_execution_observed_pages" if self.scope == "material_execution_files"
+                                                  else "this_turn_observed_pages"), "file_id": fid,
                 "sha256": item["sha256"], "total_sheets": item["total_sheets"],
                 "observed_sheets": observed, "unread_sheet_count": unread,
                 "workbook_complete": unread == 0 and all(s["complete"] for s in observed),
@@ -111,7 +115,8 @@ Existing conflicting version/dimension observations invalidate that file's union
         """B1-compatible small evidence references, not table or chat copies."""
         result = []
         for item in self.summaries():
-            missing = []
+            missing = (["business_data_not_read", "long_term_goal_not_assessed"]
+                       if self.scope == "material_execution_files" else [])
             if item["status"] == "unverified":
                 missing.append(item["reason"])
             else:
@@ -121,7 +126,8 @@ Existing conflicting version/dimension observations invalidate that file's union
                     missing.extend("sheet:%s:rows:%s:%s" % (sheet["sheet"], start, end)
                                    for start, end in sheet["missing_ranges"])
             result.append({"ref": "file:" + item["file_id"] + "@" + item["sha256"],
-                           "source": "turn_file_tool_read_receipt", "as_of": item["read_at"],
+                           "source": ("material_execution_files" if self.scope == "material_execution_files"
+                                      else "turn_file_tool_read_receipt"), "as_of": item["read_at"],
                            "version": item["sha256"], "missing": missing,
                            "coverage": "workbook_observed" if item["workbook_complete"] else "partial_or_unverified"})
         return result

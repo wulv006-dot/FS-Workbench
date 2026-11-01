@@ -47,6 +47,24 @@ def handle(handler, method, uri, user, service, authorized):
         return True
     try:
         params = parse_qs(uri.query, keep_blank_values=True, max_num_fields=2)
+        if len(parts) >= 2 and parts[1] == 'materials' and not params:
+            with service.store.db() as db:
+                service.store._owned(db,user,parts[0])
+            materials=getattr(service,'materials',None)
+            if materials is None:
+                respond(handler,503,{'error':'material_execution_unavailable'})
+            elif method=='POST' and len(parts)==2:
+                respond(handler,202,materials.submit(user,parts[0],read_json(handler)))
+            elif method=='GET' and len(parts)==3:
+                respond(handler,200,materials.detail(user,parts[0],parts[2]))
+            elif method=='GET' and len(parts)==4 and parts[3]=='result':
+                respond(handler,200,materials.result(user,parts[0],parts[2]))
+            elif method=='POST' and len(parts)==4 and parts[3]=='stop':
+                if read_json(handler):raise ValueError('material_stop_fields')
+                respond(handler,200,materials.stop(user,parts[0],parts[2]))
+            else:
+                respond(handler,404,{'error':'not_found'})
+            return True
         if method == "GET" and not parts and not params:
             respond(handler, 200, service.listed(user))
         elif method == "POST" and not parts and not params:
