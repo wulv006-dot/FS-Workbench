@@ -338,3 +338,37 @@ A完整固定7363eb9b47994763f3a9272edd4b1dca721aa398已普通merge，八条A路
 Personal在集成树沿原runner实际执行goal_tasks26+诊断9共35，另用仅相关模块Git archive LF副本执行deploy三个显式模块共24；两组均一次零failure/error/skip、exit0，未改runner限制。diff check、A八路径与固定候选一致。代理旧三列测试仍运行于本机现代SQLite，不冒原生3.7.17通过；最终合并后独立stage原生无网络合成检查保留。旧Core/SDK/视觉/knowledge相同输入不重跑。
 
 发布采用单独--goal-task-index-compat/goalTaskIndexCompat模式，diagnostics_mode=false，钉当前真实f79已安装proof；24现存/46保护/NEW空，唯一允许变化runtime/conversation_goal_tasks.py，其他23仅CAS备份不写，原apply/rollback保留八模块。仍严格active/真实container，原锁/准入/provider/UNKNOWN/备份/回退与DEEP/readiness仅range重载，worker/Nginx不动。仅完成候选和本机检查，生产f79未变。下一步唯一Personal后续PR，Business Sol High独立worktree对最新完整head/base审十路径（A八加主控两记录）并核LinuxCI，满足授权条件后才合并交A；原材料POST/R2/R3继续禁止，费用unknown，旧404不追认。
+
+#### PR725代码验收合并及原生旧SQLite交接
+
+Business独立worktree t3-886ea8b1对head ae1aeaa94c35d9d46fe2d11ae55d3a24d43179cd/base f79e29f0d5921b103a218c5e6ed967a754858b9c起止核版本/clean/origin一致，十路径无可复现的实质问题，A八路径与fixed7363eb9b逐blob一致；独立原runner35及LF deploy24均零失败零skip，六个Python文件3.9语法/diff通过。执行设置codex-business/gpt-6.1-sol High，不冒原生SQLite3.7.17或生产验收；旧知识收尾错误保留。
+
+PR725首轮CI41268857407成功，独审返回后转正式触发新required CI41269137128。Personal等待新轮job124738089561完成success后核实际日志：完整head/base准确，Ubuntu22.04/Python3.9.18，store110含Goal26/Diag9/新增6、deploy24全部零失败零skip。机器人另一次自动审查未完成且无具体代码意见，不重复触发/不冒通过。版本无变化、无冲突、用户既有授权条件满足后正常merge，提交1b20b91f2e7e023d90a0197053916ba9a59978e6；本机fetch/ff、merge树对reviewed head diff空、clean，已停止PR监听，没有绕保护。
+
+已交唯一A最终merge SHA，先最终Git LF独立私有stage镜像最小测试/source/pilot，以已核/opt/python39/bin/python3.9及原生SQLite3.7.17做隔离synthetic temp DB/禁网验证，模块来源全在stage，不导入活动生产源码、不触生产两库、不安装或升级SQLite；必须包含不改PRAGMA结果的原生constructor/幂等查回/撤权与真实HTTP空原ID查询，不能仅代理三列。原生失败即停止apply、回完整必要候选，不现场改代码。
+
+原生通过后同最终SHA新pack --goal-task-index-compat/--followup、新fresh baseline/stage/manifest/backup，钉f79成功proof/24现存/46保护/唯一目标变更，原publisher锁/CAS/围栏下仅range重载；读回全部after/mode/root、23未变inode/mtime及worker/Nginx/container边界。软件成功后仍仅一次正常FS原ID状态GET，明确接受已审私有表初始化；若完整schema且执行意图确无row才记当前权威查无，失败保留ID不重GET。0材料POST/0模型/无R2R3保持，实际回执独立核收后再决定有据恢复提交。当前仅代码已合并，最后有效生产仍f79，原请求执行/费用/停止/视觉及阶段整体未验。
+
+#### 1b20原生验证通过，发布写前锁拒绝
+
+A独立stage /var/tmp/fs-native-task-index-1b20b91f-20261101T033100Z的9个最终Git源/测试/pilot逐SHA固定，另列harness69dc2f858fc9011d8f1e6f5c9d2853060ccc9a925ead4f6880474d62ee9309dd。实际/opt/python39/bin/python3.9以-I -B运行Python3.9.18/SQLite3.7.17，原native账本6项加两份真实HTTP初始化/空原ID查询1项共7，零失败零skip；未改PRAGMA/Connection/Cursor/Row，88连接全在合成temp/内存、0网络/额外子进程，模块源全在stage、源SHA前后不变、temp DB清理。实际三列native HTTP完整schema后identity1、intent/tasks0才404 lookup，不再以现代Row代理代替。Personal实际核共享Temp receipt-index SHA4151b80cb2211cfafb80fa1ebfd4187c37923bd36f7daa01b88f7d120ac4ad31及5文件size/SHA，并用本地git show最终1b20逐项重算9源blob一致；这是独立核收A原生证据，不冒Personal亲自运行生产解释器。
+
+新payload b46b941b065a120a361c21412432f09fa374944ad044056122551896ec44c453，stage /var/tmp/fs-goal-index-1b20b91f-20261101T033400Z/stage，baseline03:34:30.838092Z，manifest c149b7173db4a496332b2dafce02ae198b84e2c5e0b23f32f6f5d004ad5655d3。原inspect通过后唯一apply nav-20261101T033600Z以BlockingIOError/exit1拒绝；只保留异常类及1219 stderr bytes，具体errno/栈位置未知，不补写为某一锁行。03:36:43Z原ID对账无backup/journal；Personal逐项比对before/失败后24全部before hash/mode/root/inode/mtime、46保护hash/mode/root、services/container字符串均相等。同期collector.lock持python3/PID15925、oneshot activating/start，只作同时观察，不追认精确异常栈。故分类写前发布锁拒绝、0活动目标写，生产仍f79，不是已装1b20后失败或回退；未继续GET/POST/模型/浏览器。
+
+已交A等锁自然释放，不停止采集/抢锁/改timer/清UNKNOWN，不忙轮询或新建定时。释放后重核原ID无backup/journal、24before/46保护/image/active/quiescent/原guards全同，且原1小时fresh有效，才原inspect后同ID/同manifest有据续试一次原publisher；若过期/漂移，固定Git载荷新observe/prepare全新stage/baseline/manifest，保留旧回执，不改时间/跳CAS。出现任何backup/journal先原ID对账回主控，不盲重apply。仅此0写入锁拒绝解除暂停，不允许UNKNOWN或部分写入stage盲重放。成功后仍须完整读回及一次原ID状态GET；单次续发再失败即停，材料POST/R2/R3/模型继续禁止、旧费用与旧404unknown。
+
+#### 1b20软件与完整原ID查询核收；继续B2单客决策卡
+
+2026-11-01最新核收软件source固定1b20b91f2e7e023d90a0197053916ba9a59978e6，payload b46b941b065a120a361c21412432f09fa374944ad044056122551896ec44c453。旧nav-20261101T033600Z无backup/journal，06:18:39Z锁自然空闲；Nginx仅inode/mtime变化、字节与0600/root保持，因此弃用过期baseline。新fresh06:21:48.558756Z，release nav-20261101T062133Z，manifest16615694e66cda7dcfffa4ba55381d21071b51cf45b3597be303f5ba2af4f235，journal912511fd8fc877d9155ca6fec30ec8bdf9ff5bd94b94d6443d4f764e529c2446。Personal独立核12文件size/SHA及24after/root/mode、46保护、23inode/mtime、worker/Nginx/container不变；唯一GoalTasks after8160a92c与固定Git字节一致，range仅重载健康。收据索引为共享Temp FS-Hermes-1b20b91f-FreshPublish-20261101T062133Z/index.json，SHA eeeea9ba5d2689a6e9e9881299c320b377bc45278216eb96b7d2c3fba79297c2。
+
+正常FS唯一原IDGET于06:25:06Z返回404/material_http/lookup；此前缺失的六私有表已完整初始化、identity1、原request持久意图0/tasks346不增。DB因明确获准DDL大小/mtime有变，不冒完全不变。原request material_da2c98dcd8d3464fb4db5f065f0ea110、cid fa7ea40c42bc4833bdff3788f1d733f9及payload保持；旧POST1/discarded=false、费用和旧404因果unknown。这仅证明当前权威账本查无，不证明任意官方run不存在。用户最新继续施工明确不授权重提材料或付费模型；本轮无部署、材料GET/POST/result、真实scope/API/模型操作。
+
+本轮按原主方案§6.6补齐B2决策卡，Personal唯一维护hermes-v2-core-20261020/source/b2_decision_card.py、test_b2_decision_card.py及原test_core.load_tests两行；现有investigate/A2/GoalHost/公共schema/publisher保持。decision_card(investigation,*,opaque_customer_id,goal,recheck_at)只消费已经由host授权取得的冻结调查，输出所选客户、原证据/截止/缺口、调查或不干预两种方案、为何取舍、未来读取须host重新验权/本卡不授执行权、显式复查点；不另查数据、建库、调模型、创建Goal或排程。多客回执只保留不包含其它客户定位符的证据引用，不复制原始行/模型正文。缺页推partial，退款/历史缺项保持，不把付款或完整分页认成收益/目标完成；净贡献和因果效果固定unknown。停止/unavailable/unknown/incomparable不返回旧客户决策。host仍负责每次读取和卡片交付授权，不能将纯函数当权限入口。
+
+验收：新增11项使用既有真实A2合成SQLite/Service调查夹具，无模型/来源客户端；RED先8项因缺消费者失败，后分别复现覆盖/执行标记及followup缺项丢失断言，再GREEN。原pr_fast.units Core最终209项零failure/error/skip，runner外网/子进程围栏保持；本机Windows沿原2026 UTC+08及私有temp mode夹具，非Linux/真实业务scope证明。最新SHA独审/必要CI及产品接线仍待，不将本地决策卡称经营追踪上线。A仅按既有归属追加1b20收尾记录，fixed d0c12e8667e764562e39f3b4f2390ea3520bd5a2已正常合入（相对1b20仅模块附录36行），无新运行任务。README/AGENTS原导航dirty逐字节保留，不纳入本包提交。远端main1053c94a的PR726只涉及看板，已普通merge，不改变Hermes生产source。
+
+#### PR727核心独审P2修复
+
+Business独立审查固定0bfc7bedd416d55cbdeed51026e817f531f5ab50/base1053c94a发现两项P2：真实候选分页cursor的Base64定位符携带其它客户ID；多客changes_due引用整条排除后未说明比较证据交付缺口。Personal用真实A2 SQLite/Service新增两项回归，分别对排序两位客户及双客户调查复现3处失败，不以明文字符串检查代替编码位置验证。
+
+本次仅B消费者/测试修复：单客卡不交付候选分页链原引用，保留候选覆盖摘要与安全的原summary/baseline/单客timeline等引用；不自行解码或改写A的定位协议。candidate_reference_withheld_for_privacy明确标出，单纯隐藏群体定位符不要求重新调查已读页。跨客批量比较引用不能安全交付时保留原来源声明缺项，增加comparison_reference_withheld_for_privacy，evidence_delivery与卡状态标partial，并建议核证；不把批量查询伪造为来源未执行的单客查询，不推进源截止或声称完整可核比较证据已交付。所有返回引用逐项来自原回执，真实分页测试同时解码输入/输出游标核其它客户位置未交付。停止/撤权/授权和原POST禁令不变。修复后原Core211项（决策卡13）零failure/error/skip；新SHA审查/CI不能复用旧209绿灯，生产仍1b20未改。

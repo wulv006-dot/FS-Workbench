@@ -3,7 +3,7 @@
 
 **整理日期：2026-10-31｜本次整合：双端首轮工作包、共享接口与最新业务口径**  
 **适用项目：MMOEXP / FS-Workbench / Hermes**  
-**当前结论：501f90bf材料主闭环及已测试的部署版桌面浅暗、390px、基本键盘操作已由Personal最终验收；阶段1/2整体仍未完成。继续阶段2目标状态与短任务续接，现阶段保留DeepSeek。**
+**当前结论：既有501f人类会话材料闭环及已测UI证据保留；最新软件1b20b91f已发布读回，原材料ID完整账本查回通过，但新材料目标执行尚未验收。阶段1/2整体仍未完成，现阶段保留DeepSeek。**
 
 **当前入口：G0本机开工核对已回报，继续阶段1与阶段2；现阶段模型保留DeepSeek，候选模型先验证、后切换。**
 
@@ -49,8 +49,8 @@
 | 阶段 | 目标 | 当前状态与待办 | 完成凭据 |
 |---|---|---|---|
 | 阶段0 | 核对现有能力和当前规则 | 本机开工/分支/归属已核；生产活动映射未知，不扩全仓核查 | G0-B1.md、当前施工记录 |
-| 阶段1 | Agent 工作台与共用工具 | 材料主闭环及已测部署版桌面浅暗/390px/基本键盘范围已验收，生产源501f90bf；配额清理、真实200%缩放、running取消、第二身份等未验，非阶段整体完成 | PR704/707/708/715—719、FILES-WORKPACKAGE.md、MATERIALS-UI-WORKPACKAGE.md、RUNTIME-DEPLOYMENT-ACCEPTANCE.md |
-| 阶段2 | 自主模型路由、按需数据与用户追踪 | PR720/721/722本机目标/冻结事实/outbox合同已限定验收合并，722新Linux75/21/Core177零skip。queued仍仅持久待执行；下一步核实际活动装配并接合法执行类型/原ID恢复，可信scope仍缺，真实调查/调度未开放 | PR705/706/708/709/711/720/721/722、B2-HANDOFF.md、DEEPSEEK-VALIDATION-WORKPACKAGE.md、A2-B2-FROZEN-WORKPACKAGE.md、RUNTIME-DEPLOYMENT-ACCEPTANCE.md |
+| 阶段1 | Agent 工作台与共用工具 | 历史501f材料主闭环/UI验收保留；最新软件1b20b91f发布及完整schema原ID查询已核收。新材料目标执行、配额清理、200%缩放、running取消、第二身份仍未验 | PR704/707/708/715—725；A DEPLOYMENT-ACCEPTANCE.md；本文件当前施工记录 |
+| 阶段2 | 自主模型路由、按需数据与用户追踪 | 目标/冻结事实/材料执行代码已限定验收；本轮B2单客决策卡原11项/209通过后独审发现两项P2；编码群体游标隔离和比较证据缺口已修，13项/Core211本地通过，新SHA复查/CI待做；可信业务scope仍缺，真实调查/持续调度未开放 | PR705/706/709/711/720—725；A2-B2-FROZEN-WORKPACKAGE.md；b2_decision_card.py及测试 |
 | 阶段3 | 一项已授权经营动作闭环 | 本轮未做新增真实动作验收；复用原执行链，仍需目标范围授权 | 未计完成 |
 | 阶段4 | 团队任务派发与成果回写 | 施工Business独立审查链已跑通；FS产品内派发/回写未验，两者不等同 | REVIEW-WORKFLOW.md；产品阶段未计完成 |
 | 阶段5 | 一个完整的跨角色活动 | 待前述能力会合及明确活动授权 | 未计完成 |
@@ -860,13 +860,13 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 |---|---|
 | 唯一主方案 | 本文件 |
 | 正式仓库存放路径 | docs/planning/fs-hermes-longterm-20261031/FS_Hermes_长期总施工方案_唯一主文件.md；Personal维护，外部开工文件作为输入快照保留 |
-| 当前阶段 | 生产501f90bf材料主闭环及已测桌面浅暗/390px/键盘范围终审通过；真实200%/running取消/第二身份/A2scope等仍未验。继续阶段2：B目标状态与短任务续接，A只读核可信scope与宿主存储接口 |
+| 当前阶段 | 阶段1/2部分完成；1b20软件及原ID查询已独立核收；继续B2冻结调查到单客决策卡的本地交付，不恢复材料POST或付费模型 |
 | 主施工／总控 | 个人版Work；负责B线、总方案、接口协调、集成验收与发布协调 |
 | 协同施工 | 工作版Work；负责A线实现与可验收交付 |
 | 公共代码归属 | 本包精确FC v3 service/HTTP、FC v2 runs、26proxy及原publisher装配由A唯一维护，见RUNTIME-DEPLOYMENT-ACCEPTANCE.md；controller/公共schema/迁移不改，CI/主方案由Personal维护 |
-| 现有FS/Hermes活动版本 | 已据A现场哈希核定活动service/HTTP为FC v3、runs为FC v2、proxy为26版本；未匹配controller/range_api/fs_evidence原字节保持，完整记录见部署附录，不由方案名推断 |
-| 新能力已验收范围 | B1/B2离线及文件/UI模拟/CI/限定独审通过；1f8ddc57材料软件包已实际发布并恢复worker，基础服务/匿名拒绝读回通过。真实材料/模型/部署版视觉未通过，不标阶段1/2完成 |
-| 下一步 | A同包修可阅读/可操作布局及已装followup发布，补分页全量/停止收敛/权限和fresh视觉证据；Personal核下载内容与覆盖、功能和审美后续推主方案。费用未知保留，不为外观重复模型，不扩业务/权限 |
+| 现有FS/Hermes活动版本 | 最新已核收sourceCommit=1b20b91f2e7e023d90a0197053916ba9a59978e6；fresh发布nav-20261101T062133Z，24目标/46保护通过，唯一GoalTasks变化；不是全仓Git main装入生产 |
+| 新能力已验收范围 | 原生SQLite3.7.17七项、1b20软件24/46读回及正常FS原ID完整schema查询通过；新材料任务/模型/视觉整包未验，旧费用与旧404因果unknown，真实A2 scope不可用 |
+| 下一步 | B2决策卡本地包经最新SHA独立审查及必要CI后集成；材料POST/原payload保持暂停，确需真实重提或付费验收时先报具体影响及必要授权，不重复发布1b20 |
 | 已有生产业务 | 沿原系统、原权限、原调度运行；本次整理未改动 |
 | 本次文件交付 | 长期主方案与两个岗位入口原地整合；不等于已派发、编码或上线 |
 | PR702复用线索 | head `666814c9ae0376fe4f372cf9718508345da45ee0`，merge `30423f91c963228b41fe450f0c7993fa408cf12f`；完整独审与生产验收未在本包确认 |
@@ -920,6 +920,11 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／f79软件与正常角色诊断通过 | A原publisher一次apply；Personal独立核8收据SHA、24目标与Git LF、46保护、22inode/mtime及容器未变；正常诊断200/匿名401、实际HTTP与store/tasks六绑定true、前后两库元信息相同 | A2-B2-FROZEN-WORKPACKAGE.md f79核收；A记录af2648d4仅附录26行已合入 | 当前软件f79，旧404根因与原请求执行/费用未知，未完成材料/视觉/阶段2整体 | 仅一次原ID有状态lookup，明确接受私有表初始化且无任务/POST/模型；回收实际stage/schema/计数后再定恢复边界，禁止R2/R3与盲重POST | A限定执行；Personal独立核收/决策 |
 | 2026-11-01／原ID查询阻塞与SQLite兼容断点 | 唯一GET404 lookup且私有schema仍缺，非权威not_found；现场同exe fresh SQLite3.7.17/index_list三列无partial，Personal真实temp内存降列复现IndexError→LookupError→404/无表，限定收据已独立核SHA | A2-B2-FROZEN-WORKPACKAGE.md SQLite断点；artifact a1ec2173 | 当前材料账本构造兼容缺陷已定位但未修复；旧POST404不追认，费用unknown/生产仍f79 | A完整小修保留nonpartial UNIQUE/schema校验及原tasks表，最新SHA独审CI后钉f79 proof窄发布；旧SQLite合成验证、原IDGET先行，继续禁POST/模型/R2/R3 | A唯一施工/现场；Personal因果复现/集成 |
 | 2026-11-01／SQLite兼容固定候选已集成 | 正常merge A7363eb9b八路径且源一致；Personal原runner26+9=35、GitLF deploy24均一次零失败零skip，旧格式自动约束来源证明/现代partial拒绝保留 | A2-B2-FROZEN-WORKPACKAGE.md兼容候选；无B/Core/UI/原tasks/SDK/CI变化 | 最新SHA独审/LinuxCI及现场native SQLite3.7.17待验，当前生产f79未修复；原材料ID禁止POST | 一个Personal集成PR；审查CI后最终SHA隔离native合成验证、新pack/prepare窄改单目标并仅range重载，原IDGET先行 | A候选/现场；Personal集成/终审 |
+| 2026-11-01／PR725代码验收合并 | reviewed ae1aeaa9/basef79独审无实质问题，两轮LinuxCI store110/deploy24零失败零skip；正常merge1b20b91f2e7e023d90a0197053916ba9a59978e6，树一致且停止监听 | A2-B2-FROZEN-WORKPACKAGE.md PR725交接；最新CI41269137128 | 原生SQLite3.7.17/真实发布/完整初始化仍待验；生产最后有效f79、原POST继续禁止、费用unknown | 已交A最终SHA先原生隔离synthetic检查，通过后新pack/原publisher单目标窄发布、一次原ID GET；实际收据回主控后定恢复边界 | A唯一现场；Personal最终核收 |
+| 2026-11-01／1b20原生通过、发布写前锁拒绝 | 实际同exe SQLite3.7.17原生7项零失败零skip，9源blob由Personal对Git重算一致；唯一apply BlockingIOError，无backup/journal且24/46/服务容器完全未变 | A2-B2-FROZEN-WORKPACKAGE.md原生/锁拒绝；receipt index4151b80c | 具体errno/栈未知；生产仍f79未安装1b20，未发原GET/POST/模型 | 原锁自然释放后重核原ID无写入/fresh/CAS/guards，有据同ID续试一次；过期/漂移新prepare，不抢锁/清状态/循环apply，成功读回后原IDGET先行 | A唯一发布；Personal独立收据核收 |
+| 2026-11-01／1b20新基线发布及原ID查询验收 | 锁自然空闲后新fresh baseline06:21:48Z、manifest16615694；原publisher单次apply及24after/46保护/23未写metadata核收通过，唯一GoalTasks字节等于固定Git；正常FS仅一GET，schema完整/identity1/原ID0/tasks346 | A DEPLOYMENT-ACCEPTANCE.md；稳定收据index eeeea9ba5d2689a6e9e9881299c320b377bc45278216eb96b7d2c3fba79297c2，12文件已独立核SHA | 当前软件1b20；未重POST/模型，旧费用/旧404unknown，不证明官方run不存在；新材料执行未验 | 保留原ID/payload，B继续不依赖真实scope/模型的冻结调查决策消费；不重复部署或盲重材料 | A唯一现场；Personal独立核收/主控 |
+| 2026-11-01／B2单客决策卡本地包 | 消费原investigate回执，不建查询/库/调度；单客引用、缺项/截止、调查与不干预、授权边界/复查点明确。新11项及原Core209零失败零skip；无网络/模型/生产副作用 | A2-B2-FROZEN-WORKPACKAGE.md本轮记录；b2_decision_card.py/test_b2_decision_card.py | 尚为未装配本地消费者，最新SHA独审/LinuxCI待做；A2真实scope仍unavailable，原材料POST禁止 | 一个既有Personal分支集成包，审查/CI按既有流程；不触A运行底座/共享publisher | Personal B施工/主控；A仅收尾记录 |
+| 2026-11-01／PR727两项核心P2修复 | Business固定0bfc7bed审查复现候选编码游标跨客定位泄露、批量比较引用被排除但未标缺；Personal真实A2回归先3失败后修复，13项决策卡/Core211零失败零skip | A2-B2-FROZEN-WORKPACKAGE.md PR727修复记录；原PR内更新 | 本地修复不代替最新SHA独立复查/LinuxCI；不造单客来源引用，不将旧209绿灯冒新版本，原POST仍禁 | 新SHA限定复查两项及必要CI；通过前不合并，不影响A或生产 | Personal B修复；Business独立复查 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 
