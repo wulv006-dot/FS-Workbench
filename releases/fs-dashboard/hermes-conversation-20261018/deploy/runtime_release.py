@@ -39,6 +39,10 @@ EXECUTION_MODE = False
 DIAGNOSTICS_MODE = False
 TASK_INDEX_MODE = False
 WORKER_DIAGNOSTICS_MODE = False
+TRANSPORT_MODE = False
+TRANSPORT_CANDIDATE = 'runtime/transport.py'
+TRANSPORT_TARGET = '/opt/fs-hermes-fc/transport.py'
+TRANSPORT_BEFORE_SHA = 'e677a186a893c346379ba572576afdfbd412612cc5c63146751182558743f843'
 EXECUTION_MODULES = ('conversation_goals.py','conversation_goal_tasks.py','conversation_material_runs.py',
                      'material_execution.py','b2_goal_state.py','b2_goal_host.py','b1_model_routing.py','b2_customer_followup.py')
 
@@ -103,6 +107,30 @@ def configure_worker_diagnostics():
         journalSha256='912511fd8fc877d9155ca6fec30ec8bdf9ff5bd94b94d6443d4f764e529c2446')
 
 
+def configure_material_transport():
+    """Promote only the installed transport from the exact 82edf protection set."""
+    global INSTALLED_COMMIT, WORKER_DIAGNOSTICS_MODE, TRANSPORT_MODE
+    if TRANSPORT_MODE:
+        return
+    configure_worker_diagnostics()
+    WORKER_DIAGNOSTICS_MODE, TRANSPORT_MODE = False, True
+    INSTALLED_COMMIT = '82edf03573c3fed796d7a7ed2784134c5dd1f7ec'
+    INSTALLED_PROOF.update(sourceCommit=INSTALLED_COMMIT,
+        backup='/var/backups/fs-navigation-20261006/nav-20261101T110803Z',
+        manifestSha256='a9be5243f473129379e6662854be5236d9c69f08d86f97693d66039be86d5656',
+        journalSha256='46b6f0f1258fb190330544ae0b1538504f0024457d0b2b7336999c42dc3bce67')
+    TARGETS[TRANSPORT_CANDIDATE] = TRANSPORT_TARGET
+
+
+def promoted_transport_sha(manifest, base):
+    paths = [row['path'] for row in manifest['unchangedRequired']]
+    rows = [row for row in manifest['unchangedRequired'] if row['path'] == TRANSPORT_TARGET]
+    if (len(paths) != len(set(paths)) or set(paths) != protected_paths(base) | {TRANSPORT_TARGET}
+            or len(rows) != 1 or rows[0]['sha256'] != TRANSPORT_BEFORE_SHA):
+        raise ValueError('exact_installed_transport_protection_required')
+    return rows[0]['sha256']
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -116,8 +144,13 @@ def installed_baseline(root, git_baseline):
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
     expected = {row['candidate']: row['sha256'] for row in manifest['files']}
-    proof_targets = LEGACY_TARGETS if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE) else TARGETS
-    if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE):
+    proof_targets = LEGACY_TARGETS if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE) else TARGETS
+    if TRANSPORT_MODE:
+        proof_targets = {name: path for name, path in TARGETS.items() if name != TRANSPORT_CANDIDATE}
+        expected[TRANSPORT_CANDIDATE] = promoted_transport_sha(manifest, base)
+        if len(manifest['files']) != len(proof_targets):
+            raise ValueError('exact_installed_transport_targets_required')
+    if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE):
         protected = {r['path']:r['sha256'] for r in manifest['unchangedRequired']}
         expected.update({name: None if name in NEW else protected[target]
                          for name,target in TARGETS.items() if name not in LEGACY_TARGETS})
@@ -255,7 +288,9 @@ def quiescent(base, root):
 
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
-    if approved.get('workerDiagnostics') is True:
+    if approved.get('materialTransport') is True:
+        configure_material_transport()
+    elif approved.get('workerDiagnostics') is True:
         configure_worker_diagnostics()
     elif approved.get('goalTaskIndexCompat') is True:
         configure_task_index_compat()
@@ -273,19 +308,21 @@ def load_base():
     validate = base.validate
 
     def exact(manifest, stage):
-        controlled = DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE
-        marker = 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
-        allowed = ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
+        controlled = DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE
+        marker = 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
+        allowed = (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
         if controlled and (manifest.get(marker) is not True or
-                any(manifest.get(key) is True for key in ('workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
+                any(manifest.get(key) is True for key in ('materialTransport', 'workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
                 manifest.get('installedBaseline') != INSTALLED_PROOF or
                 manifest.get('runtimeBefore') != manifest.get('runtimeRequired') or
                 manifest.get('workerImageSource') != 'container' or
                 WORKER_DIAGNOSTICS_MODE and manifest.get('materialChangedTargets') != [TARGETS['runtime/hermes_worker.py']] or
+                TRANSPORT_MODE and manifest.get('materialChangedTargets') != [TRANSPORT_TARGET] or
+                TRANSPORT_MODE and len(manifest.get('unchangedRequired', [])) != len(protected_paths(base)) or
                 manifest.get('materialChangedTargets') != [r['target'] for r in manifest.get('files', [])
                                                           if r['beforeSha256'] != r['sha256']] or
                 any(r['beforeSha256'] != r['sha256'] and r['candidate'] not in allowed for r in manifest.get('files', []))):
-            raise ValueError('exact_worker_diagnostics_delta_required' if WORKER_DIAGNOSTICS_MODE else 'exact_goal_task_index_delta_required' if TASK_INDEX_MODE else 'exact_material_diagnostics_delta_required')
+            raise ValueError('exact_material_transport_delta_required' if TRANSPORT_MODE else 'exact_worker_diagnostics_delta_required' if WORKER_DIAGNOSTICS_MODE else 'exact_goal_task_index_delta_required' if TASK_INDEX_MODE else 'exact_material_diagnostics_delta_required')
         if manifest != approved or manifest.get('scope') != SCOPE:
             raise ValueError('exact_material_manifest_required')
         if manifest.get('businessWrites') is not False or manifest.get('timersChanged') is not False:
@@ -354,7 +391,7 @@ def load_base():
         # frozen checks, and retain every other guard/protected source check.
         if manifest.get('installedBaseline'):
             installed_baseline(root, git_baseline)
-        if WORKER_DIAGNOSTICS_MODE:
+        if WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE:
             running_worker(manifest)
         if before_restart and manifest.get('scope') == SCOPE:
             if manifest['runtimeBefore']['fs-hermes-fc.service'] != {'ActiveState': 'active'}:
@@ -372,7 +409,7 @@ def load_base():
     def atomic(path, payload, mode=0o644):
         # Keep the original writer/journal and every per-row guard. Static-only
         # follow-ups leave identical active targets (including runtime) untouched.
-        if approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics'):
+        if approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics') or approved.get('materialTransport'):
             for row in approved['files']:
                 if path == base.rooted(publish_root, row['target']) and row['beforeSha256'] == row['sha256']:
                     if (hashlib.sha256(payload).hexdigest() != row['sha256']
@@ -391,7 +428,7 @@ def load_base():
 
     def inspect(manifest, stage, root=Path('/')):
         result = original_inspect(manifest, stage, root)
-        if WORKER_DIAGNOSTICS_MODE:
+        if WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE:
             running_worker(manifest)
         if root == Path('/'):
             for row in manifest['files']:
@@ -400,7 +437,7 @@ def load_base():
                     info = path.stat()
                     if (info.st_uid, info.st_gid, oct(stat.S_IMODE(info.st_mode))) != (0, 0, row['mode']):
                         raise ValueError('material_target_owner_mode_drift')
-            if not WORKER_DIAGNOSTICS_MODE and worker_image(allow_stopped=True) != manifest['workerImageId']:
+            if not (WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE) and worker_image(allow_stopped=True) != manifest['workerImageId']:
                 raise ValueError('material_worker_image_drift')
             # Import definitions only; no service instance, model or source query.
             program = ("import sys;from pathlib import Path;"
@@ -410,6 +447,8 @@ def load_base():
                        "import openpyxl,et_xmlfile")
             if EXECUTION_MODE:
                 program += ';import conversation_material_runs,conversation_goals,conversation_goal_tasks,material_execution,b2_goal_host,b2_goal_state'
+            if TRANSPORT_MODE:
+                program += ';import transport;assert Path(transport.__file__).parent==Path(sys.argv[1])'
             checked = subprocess.run(['/opt/python39/bin/python3.9', '-I', '-B', '-c', program,
                                       str((stage / 'candidate/runtime').resolve()),
                                       str((stage / 'candidate/http').resolve()), '/opt/fs-hermes-fc',
@@ -443,14 +482,16 @@ def load_base():
                 raise ValueError('material_worker_image_drift')
             base.guards(manifest, publish_root)
             return  # Static bytes only: no worker/HTTP restart or Nginx reload.
-        if manifest.get('materialDiagnostics') or manifest.get('goalTaskIndexCompat'):
+        if manifest.get('materialDiagnostics') or manifest.get('goalTaskIndexCompat') or manifest.get('materialTransport'):
             # Same original admission fence and DEEP restart on install/rollback;
             # only the existing HTTP process loads changed bytes. Worker/Nginx
             # targets and their running processes are not changed by this mode.
             admission_fence.stop_then_unlock_database()
             result = readiness.restart_with_hermes_readiness(base, original_restart,
                 dict(manifest, scope=base.DEEP_SCOPE), admission_fence)
-            if worker_image() != manifest['workerImageId']:
+            if TRANSPORT_MODE:
+                running_worker(manifest)
+            elif worker_image() != manifest['workerImageId']:
                 raise ValueError('material_worker_image_drift')
             base.guards(manifest, publish_root)
             return result
