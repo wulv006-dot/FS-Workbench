@@ -256,3 +256,13 @@ CI41258739182首轮在APT浏览器依赖准备停滞至10分钟上限取消，�
 Personal复核最新head/base/必要检查/无冲突及无未解决具体意见后，按用户既有授权正常merge PR723，提交5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f；本机fetch/ff并核merge树与reviewed head完全一致、工作区干净，已停止PR723监听。至此只完成代码/本地合成与Linux验收，不代表新包上线或阶段2整体完成；旧知识收尾错误仍未完成。生产仍按最后有效记录501f90bf，真实SDK启动恢复、DeepSeek/费用、生产running stop/第二身份/A2scope/200%及新部署视觉未验。
 
 下一步交唯一A沿既有Hermes发布测试授权，以最终main merge SHA新Git LF pack、新现场baseline/stage/manifest/备份，核501f精确installed proof与24目标/46保护/8新增，沿原publisher inspect/锁/CAS/准入与UNKNOWN围栏。先做实际固定SDK无模型装配/三工具/上下文proof检查，避免把agent夹具当实际运行；依赖或保护不符即保留原版本并报具体阻塞。符合原发布条件和正常工具审核后继续原apply与读回，不复用旧失败stage、不扩IAM/业务写/新预算。真实认证、少量合成材料任务/停止及浅暗/移动/键盘验收仍须取得实际证据，遵守当前浏览器工具边界；工具或正常登录途径不可用就如实留未验，不伪造身份、会话或视觉通过。Personal审核A实际回执后再推进主方案。
+
+### 5f99现场准备与锁忙回执
+
+A在原分支干净ff最终main5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f后新Git LF pack，payload SHA256 `041ccf76093a0f337fbb75ef90a09ae91d5d004f56cdade2a98d330c92c48310`，stage `/var/tmp/fs-materials-5f99-20261101T013900Z/stage`，manifest SHA256 `4057435dce473622c5ef2f88ba0d55255a9f7b588a6e193f70a41cffca409881`。24目标/46保护/8新增及501f原proof/Git通过原inspect source/protected CAS；19个目标实际改变，Nginx字节不变。尚非安装成功。
+
+A零模型检查使用实际固定容器的原venv、原FS挂载配置/opt/pilot和真实官方AIAgent/registry，三文件工具、1048576上下文、实际skip/memory属性及15字段proof兼容，socket全阻断且0网络尝试。隔离合成输入、session_db=None，没有正式APIServerAdapter/HTTP admission，故只记真实SDK构造通过，不记accepted input或正式执行回执。初次系统Python缺dotenv、其后probe误用host路径产生meta tools/null context均按probe设置错误保留，改用真实venv/mount通过；未安装依赖或改配置/权限，不冒生产故障。三官方文件hash继续匹配pin。
+
+仅一次apply（原release ID nav-20261101T013519Z）在原live_lock取得collector.lock时errno11中止，持锁pid18397/python3、unit fs-transaction-collect.service。未进入Hermes准入/provider围栏、备份/journal或目标写入；24当前仍全部before、46保护匹配、8模块仍缺失，无backup/journal。worker/range/nginx仍active且原PID10943/11083/31780、容器/StartedAt未变，range health200/ok、匿名worker401。原publisher源码锁/写入顺序与此回执一致，分类为写前正常锁忙，不能记已部署或已有UNKNOWN写入。
+
+已交A沿原授权等待采集自然释放，不取消任务/抢锁或改服务timer。释放后重核原发布ID无backup/journal、全部before/保护/原image/状态/quiescent；在原1小时fresh窗口及输入全相同时可按原ID有据续试原publisher。过期或输入漂移则用同固定Git载荷重新prepare新现场baseline/stage/manifest并保留锁忙回执，不改时间或跳CAS；若已有journal先对账不盲重apply。当前生产仍501f，真实认证/模型/停止/新部署视觉未开始，不把SDK构造当这些验收。
