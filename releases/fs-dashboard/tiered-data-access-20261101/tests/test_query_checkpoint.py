@@ -1,5 +1,7 @@
 from contextlib import closing
-from threading import RLock
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from threading import RLock,Event
 import sys,tempfile,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
@@ -40,6 +42,7 @@ class Durable(unittest.TestCase):
         f.grants.pop('a');engine=self.restart()
         self.assertEqual(engine.jobs[key]['status'],'cancelled')
         f.grants['a']=dict(scope_hash='trusted-scope',permission_epoch='1',policy_version='fixture')
+        f.engine=engine;f.jobs=engine.jobs;f.subs=engine.subscriptions
         handle=f.submit();engine=self.restart(False)
         self.assertEqual(engine.jobs[key]['error'],'source_unstable')
 
@@ -82,5 +85,40 @@ class Durable(unittest.TestCase):
             f.engine.step(key,lambda request:self.fail('source called after failed reservation'))
         self.assertEqual(f.engine.status('a',handle)['status'],'failed')
         self.assertFalse(f.cache)
+
+    def test_old_generation_late_success_and_failure_cannot_overwrite_new_generation(self):
+        for outcome in ('success','failure'):
+            for final in ('queued','complete','cancelled'):
+                with self.subTest(outcome=outcome,final=final):
+                    f=fixtures.Jobs();f.setUp()
+                    store=Checkpoints(Archive(Path(self.tmp.name)/(outcome+final)));store.initialize();f.engine.checkpoint=store.save
+                    first=f.submit();key=f.key(first);entered,release=Event(),Event()
+                    def adapter(request):
+                        entered.set();self.assertTrue(release.wait(5))
+                        if outcome=='failure':raise RuntimeError('late failure')
+                        return f.reply()
+                    with ThreadPoolExecutor(max_workers=1) as pool:
+                        future=pool.submit(f.engine.step,key,adapter)
+                        self.assertTrue(entered.wait(5));old=deepcopy(f.jobs[key])
+                        f.engine.cancel('a',first);second=f.submit();generation=f.jobs[key]['generation']
+                        if final=='complete':f.engine.step(key,lambda r:f.reply())
+                        if final=='cancelled':f.engine.cancel('a',second)
+                        release.set();future.result()
+                    jobs,subs=store.load()
+                    self.assertEqual(jobs[key]['generation'],generation);self.assertEqual(jobs[key]['status'],final)
+                    with self.assertRaisesRegex(ValueError,'generation_conflict'):store.save(key,old,{first:f.subs[first]})
+                    self.assertEqual(store.load()[0][key]['generation'],generation)
+                    recovered=Engine(jobs=jobs,subscriptions=subs,cache={},authorize=f.engine.authorize,secret=b'x'*32,lock=RLock(),checkpoint=store.save)
+                    recovered.recover(lambda *a:True)
+                    self.assertEqual(recovered.jobs[key]['generation'],generation)
+                    if final=='cancelled':self.assertEqual(recovered.jobs[key]['status'],'cancelled')
+
+    def test_same_generation_stale_revision_is_rejected_and_resume_requires_true(self):
+        f=self.fixture;handle=f.submit();key=f.key(handle);old=deepcopy(f.jobs[key])
+        f.engine.step(key,lambda r:dict(f.reply(),complete=False,next_cursor='next'))
+        with self.assertRaisesRegex(ValueError,'generation_conflict'):self.store.save(key,old,{handle:f.subs[handle]})
+        engine=self.restart();engine.jobs[key]['status']='queued'
+        engine.recover(lambda *a:{'allowed':False})
+        self.assertEqual(engine.jobs[key]['error'],'source_unstable')
 
 if __name__=='__main__':unittest.main()

@@ -22,6 +22,7 @@ class Engine:
         self.checkpoint=checkpoint
 
     def save(self,key,job):
+        if self.jobs.get(key) is not job:return False
         if self.checkpoint:
             try:self.checkpoint(key,job,{h:s for h,s in self.subscriptions.items() if s['key']==key})
             except Exception as error:
@@ -52,8 +53,11 @@ class Engine:
             if len(self.subscriptions)>=1000:raise PolicyError('job_capacity')
             if not job and len(self.jobs)>=32:raise PolicyError('job_capacity')
             if not job or job['status'] in ('cancelled','cancel_requested','failed') or job['status']=='complete' and not cached:
+                previous_generation=job['generation'] if job else None
+                previous_revision=job.get('_checkpoint_revision',0) if job else None
                 job=dict(query=deepcopy(query),plan=deepcopy(plan),grant=deepcopy(grant),watermark=watermark,status='complete' if cached else 'queued',slice=0,cursor=None,
-                         rows=deepcopy(cached['rows']) if cached else [],ids={},seen_cursors=[],requests=0,bytes=0,inflight=False,error=None,ttl=ttl,generation=uuid.uuid4().hex,source_contract=source_contract)
+                         rows=deepcopy(cached['rows']) if cached else [],ids={},seen_cursors=[],requests=0,bytes=0,inflight=False,error=None,ttl=ttl,generation=uuid.uuid4().hex,source_contract=source_contract,
+                         previous_generation=previous_generation,previous_revision=previous_revision)
                 self.jobs[key]=job
             handle=uuid.uuid4().hex
             self.subscriptions[handle]=dict(identity=identity,key=key,active=True)
@@ -105,6 +109,7 @@ class Engine:
         try:page=adapter(deepcopy(request))
         except Exception as error:
             with self.lock:
+                if self.jobs.get(key) is not job:return
                 job['inflight']=False
                 if not self.active(key,job) or job['status']=='cancel_requested':job['status']='cancelled'
                 else:
@@ -113,6 +118,7 @@ class Engine:
                 self.save(key,job)
             return
         with self.lock:
+            if self.jobs.get(key) is not job:return
             job['inflight']=False
             if not self.active(key,job) or job['status']=='cancel_requested':job['status']='cancelled';self.save(key,job);return
             try:self.accept(key,job,page)
@@ -127,7 +133,7 @@ class Engine:
                     job.update(status='failed',inflight=False,error='checkpoint_identity_changed');self.save(key,job);continue
                 if job['status'] not in ('queued','running','cancel_requested'):continue
                 if job['status']=='cancel_requested' or not self.active(key,job):job['status']='cancelled'
-                elif not resume_allowed(job['query'],job['watermark'],job['source_contract']):job.update(status='failed',error='source_unstable')
+                elif resume_allowed(job['query'],job['watermark'],job['source_contract']) is not True:job.update(status='failed',error='source_unstable')
                 else:job['status']='queued'
                 job['inflight']=False
                 self.save(key,job)
