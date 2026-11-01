@@ -915,6 +915,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／5f99软件实际发布成功 | collector自然释放后原ID重核fresh/CAS/24before/46保护及无journal，原apply成功；01:44:15Z 24after/root/mode与46保护全匹配，原image新容器及三服务active、range健康/匿名拒绝/内部fs_materials能力通过 | A2-B2-FROZEN-WORKPACKAGE.md软件成功；backup nav-20261101T013519Z、journal3f6d474d | 当前软件源已为5f99，先前锁忙仅历史；正常FS角色/实际accepted任务、模型费用/停止和生产视觉仍待验，不标阶段2整体完成 | A复用现有合法非preview正常浏览器通道作少量合成任务与fresh取证，Personal核结果/下载/视觉；不转移认证或扩预算/IAM | A唯一测试/取证；Personal最终审核 |
 | 2026-11-01／5f99材料真实入口阻塞 | 正常FS认证/列表200、新专用合成会话及CSV上传201；显式材料request单次POST返回404，UI保留原ID unknown；丢202注入未触发，无task/run验收回执 | A2-B2-FROZEN-WORKPACKAGE.md真实入口404；cid fa7ea40c、request material_da2c98dc | 软件稳定不等功能通过；未重POST或开始后续模型任务，费用unknown；HTTP同名导入遮蔽仅本地待核假设 | A核实际导入元信息后提交必要完整修复及真实装配回归，Personal集成/最新SHA独审CI；以当前5f99成功基线受控跟进，不重放旧stage | A唯一施工/现场；Personal协调/终审 |
 | 2026-11-01／材料404有界诊断包 | 原payload与后时点DB元信息由Personal独立读回；同CID普通detail/files200，8931监听与启动路径正确，fresh导入正确仍不代表实际进程内存；材料GET可能初始化表已停止 | A2-B2-FROZEN-WORKPACKAGE.md有界因果与后续包 | 旧404根因未知；禁止凭假设固定路径修复、重POST或用重启后的变化倒推旧内存 | A在已登记HTTP/range/测试/publisher范围实现受控同owner只读诊断和错误阶段，0模型/0私有表初始化，钉5f99已安装proof；完整候选经独审CI后再发布取证 | A独占实现；Personal合同/集成/终审 |
+| 2026-11-01／诊断固定候选已集成 | 正常merge A b3efed2e十路径，源与固定候选一致；Personal诊断7全过，Git LF发布组22过/旧HTTP一次socket reset后单用例复跑过，不冒本机23一次全绿 | A2-B2-FROZEN-WORKPACKAGE.md固定候选集成 | 最新完整SHA独审及LinuxCI待验；生产仍5f99、原404未定因，原材料ID未重发 | 一个Personal集成草稿，Business Sol High独审12路径，必要CI后合并再交最终SHA；新pack/prepare只改两HTTP目标、range原围栏重载 | Personal集成/审查协调；A原publisher |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 
