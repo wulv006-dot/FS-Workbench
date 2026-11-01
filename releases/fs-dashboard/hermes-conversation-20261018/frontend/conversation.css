@@ -62,4 +62,5 @@
 .material-job { margin: 8px 0; padding: 12px; border: 1px solid var(--fs-line); border-radius: var(--fs-radius); overflow-wrap: anywhere; }
 .material-job button, .material-job a { min-height: 44px; margin: 4px; }
 .material-answer { white-space: pre-wrap; overflow-wrap: anywhere; }
+#material-target { overflow-wrap: anywhere; }
 .material-controls :focus-visible,.material-job :focus-visible { outline: 2px solid var(--fs-brand); outline-offset: 2px; }

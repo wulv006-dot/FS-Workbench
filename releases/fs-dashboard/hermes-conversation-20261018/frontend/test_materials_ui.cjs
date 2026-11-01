@@ -200,6 +200,30 @@ async function run() {
   await ui.nodes['run-material'].click();await ui.flush();
   assert.deepEqual(ui.state.materialSubmitted.operation.edits,[{sheet:0,row:1,column:1,value:30}]);
   assert.equal(ui.state.materialSubmitted.operation.format,'xlsx');
+  // Display/selection order is the reverse of ID sorting. Multiple selections
+  // cannot silently choose a revision target; only the explicitly retained one
+  // can be sent, with its human-readable name shown before acceptance.
+  for (const order of [[0,1],[1,0]]) {
+    ui=await boot();
+    ui.state.files[A]=[{file_id:'f'.repeat(32),filename:'列表第一份.csv',version:1,status:'available'},
+                       {file_id:'0'.repeat(32),filename:'列表第二份.csv',version:1,status:'available'}];
+    ui=await boot(ui.state,ui.storage);
+    for (const index of order) ui.checks()[index].click();
+    ui.nodes['material-mode'].value='revise';ui.nodes['material-mode'].onchange();
+    ui.nodes['message-input'].value='Modify only my explicitly selected target';
+    assert(ui.nodes['run-material'].disabled);
+    assert.match(ui.nodes['material-target'].textContent,/请仅勾选一份/);
+    await ui.nodes['run-material'].onclick();await ui.flush();
+    assert.equal(ui.state.materialSubmitted,undefined);
+    ui.checks()[1].click();
+    assert(!ui.nodes['run-material'].disabled);
+    assert.equal(ui.nodes['material-target'].textContent,'修改目标：列表第一份.csv');
+    ui.nodes['material-sheet'].value='1';ui.nodes['material-row'].value='2';ui.nodes['material-column'].value='2';
+    ui.nodes['material-value'].value='30';ui.nodes['material-value-type'].value='number';ui.nodes['material-format'].value='xlsx';
+    await ui.nodes['run-material'].click();await ui.flush();
+    assert.equal(ui.state.materialSubmitted.operation.file_id,'f'.repeat(32));
+    assert.deepEqual(ui.state.materialSubmitted.file_ids,['f'.repeat(32)]);
+  }
   ui=await boot();await ui.choose();ui.checks()[0].click();
   ui.nodes['material-mode'].value='read';ui.nodes['material-bounded'].checked=true;
   ui.nodes['material-read-sheet'].value='2';ui.nodes['material-read-offset'].value='201';ui.nodes['material-read-limit'].value='100';

@@ -137,3 +137,9 @@ ExecutionBoundFiles 没有伪造 human turn。每次工具核正常权限、goal
 检查入口：原 store.load_tests 新增本模块，现有 Node entry/test_data_handoff.cjs 实际加载 DOM/fetch 场景；原 channel 与 deploy/test_runtime_materials 入口复用，无 CI driver/workflow 改动。新增材料模块 20 项本地原 runner 通过：真实 temp TaskStore/Goals/files、localhost 接收后丢202、单 POST、分页/范围/多文件/EOF、原 ID 冲突、真实 agent 构造方法的 SDK 夹具 proof、三层工具边界/零 retry、鉴权答案/停止/重启。协议服务器、agent 与 provider 仍是明确的本地夹具；没有真实 SDK 进程或模型运行通过声明。原 publisher 12 项、原 HTTP/release 10 项、channel12、Node 和本地 Chromium 亦通过；最终集成 Linux/新 SHA 独审由 Personal 进行。
 
 未验：生产安装/真实 SDK 启动及持久恢复、真实 DeepSeek/账单、生产 running stop/第二身份/真实 A2 scope、实际浏览器 200% 缩放和生产视觉。当前生产保持501f；本次没有新模型、业务 API、SSH 或部署操作（先前获准三 SDK 文件元信息证据单列保留）。
+
+### PR723 集成前 P2 收口（2026-11-01）
+
+MaterialService 只在 runtime cache 的 check/create 短边界持有独立 RLock；原会话/Goal/任务 DB 构造和鉴权均在该锁外，网络及执行也不在锁内。同 owner/cid 的并发首次请求取得同一实例，live book 不会因另一个首次请求覆盖缓存而误被当作重启围栏。新增两项真实 temp Store/TaskStore 并发回归通过；只在 constructor 插入 Barrier 同步点，不替换 DB/Goals。旧51af `_parts` 仅内存回退时两项均实际构造2个 runtime并失败，修复版只构造1个，带live状态继续reconcile且不POST stop。原20项及主控Core198证据复用，未重跑旧输入整组。
+
+UI 修订只允许显式单选，显示“修改目标：<真实文件名>”；多选时按钮禁用且事件处理器再次拒绝，无隐藏 file_id 排序目标。读任务的多选及后端显式 operation.file_id 合同保持。新增真实DOM/fetch事件覆盖列表/勾选顺序与ID反序、两种勾选顺序、多选零提交、取消另一份后只提交明确保留的目标。原Node入口通过；Chromium入口增加真实目标文字断言并通过。长目标名称沿当前布局换行，不增后台业务门禁。
