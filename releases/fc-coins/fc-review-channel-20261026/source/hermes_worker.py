@@ -6,11 +6,13 @@ Provider credentials never enter this process. Admissions are FS-owned read-only
 files containing a renewable task token, model name, and approved task context.
 """
 import asyncio
+from contextvars import ContextVar
 import json
 from pathlib import Path
 import re
 import signal
 import time
+from threading import RLock
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError
 
@@ -20,6 +22,42 @@ from runs_contract import WIRE_TOOLS, SEMANTIC_TOOLS, PIN
 
 ADMISSIONS = Path('/run/fs-hermes-fc/admissions')
 PROXY = 'http://127.0.0.1:8940'
+_MATERIAL_RUN = ContextVar('fs_material_diagnostic_run', default=None)
+_MATERIAL_EXCEPTIONS = {cls: cls.__name__ for cls in (
+    ValueError, TypeError, AttributeError, KeyError, RuntimeError, OSError,
+    PermissionError, TimeoutError, ConnectionError, ImportError, asyncio.CancelledError)}
+_MATERIAL_REASONS = frozenset({'max_iterations', 'interrupted', 'cancelled'})
+_MATERIAL_PHASES = frozenset({'admission_wait', 'executor', 'agent_create', 'agent_ready',
+                              'agent_worker', 'agent_returned'})
+
+
+def _material_snapshot(value):
+    if (type(value) is not dict or set(value) != {'version', 'phase', 'exception_class', 'reason'}
+            or type(value['version']) is not str or value['version'] != 'materials_diagnostic_v1'):
+        return None
+    allowed = {'phase': _MATERIAL_PHASES,
+               'exception_class': set(_MATERIAL_EXCEPTIONS.values()) | {'unknown', 'other_exception'},
+               'reason': _MATERIAL_REASONS | {'unknown'}}
+    if all(type(value[key]) is str and value[key] in options for key, options in allowed.items()):
+        return dict(value)
+    return None
+
+
+def _material_note(adapter, run_id, *, phase=None, error=None, reason=None):
+    # Only trusted wrapper call sites supply phases; never inspect exception text.
+    with adapter._material_diagnostic_lock:
+        previous = adapter._material_diagnostics.get(run_id)
+        if previous is None:
+            return  # Terminal cleanup cannot be undone by a late worker callback.
+        note = dict(previous)
+        if type(phase) is str and phase in _MATERIAL_PHASES:
+            note['phase'] = phase
+        if error is not None:
+            note['exception_class'] = next((name for cls, name in _MATERIAL_EXCEPTIONS.items()
+                                             if type(error) is cls), 'other_exception')
+        if reason is not None:
+            note['reason'] = reason if type(reason) is str and reason in _MATERIAL_REASONS else 'unknown'
+        adapter._material_diagnostics[run_id] = note
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -154,23 +192,70 @@ def make_adapter(api_key):
     from toolsets import create_custom_toolset
     from run_agent import AIAgent
 
+    # Pinned api_server_runs.py:781-847 calls this synchronous boundary and
+    # returns (result, usage, runtime). The official executor still owns catch/
+    # status/cleanup; diagnostics neither stringify errors nor replace results.
+    if not getattr(api_server_runs._run_agent_sync, '_fs_material_diagnostic', False):
+        original_sync = api_server_runs._run_agent_sync
+        def material_agent_sync(adapter, run, agent, approval_notify, *, _api_server):
+            if not getattr(adapter, '_fs_handshake', False):
+                return original_sync(adapter, run, agent, approval_notify, _api_server=_api_server)
+            with adapter._material_diagnostic_lock:
+                observed = run.run_id in adapter._material_diagnostics
+            if not observed:
+                return original_sync(adapter, run, agent, approval_notify, _api_server=_api_server)
+            _material_note(adapter, run.run_id, phase='agent_worker')
+            try:
+                result = original_sync(adapter, run, agent, approval_notify, _api_server=_api_server)
+            except BaseException as error:
+                _material_note(adapter, run.run_id, error=error)
+                raise
+            reason = 'unknown'
+            if type(result) is tuple and result and type(result[0]) is dict and result[0].get('failed') is True:
+                reason = result[0].get('turn_exit_reason', result[0].get('reason'))
+            _material_note(adapter, run.run_id, phase='agent_returned', reason=reason)
+            return result
+        material_agent_sync._fs_material_diagnostic = True
+        api_server_runs._run_agent_sync = material_agent_sync
+
     # Pinned Runs calls _create_agent on its event loop before starting the
     # executor. Wait cooperatively here so its HTTP202 can actually be flushed.
     # Retain the official executor for terminal state, cancellation and cleanup.
     if not getattr(api_server_runs._execute_run,'_fs_async_gate',False):
         original_executor=api_server_runs._execute_run
         async def admitted_executor(adapter,run,*,_api_server):
-            if getattr(adapter,'_fs_handshake',False):
-                deadline=time.monotonic()+30
-                try:
-                    while run.run_id not in adapter._stopping_run_ids and run.run_id not in adapter._shutdown_interrupted_run_ids:
-                        try:item=admission(run.session_id)
-                        except (ValueError,PermissionError,OSError):break
-                        if item.get('ready',True) or time.monotonic()>=deadline:break
-                        await asyncio.sleep(.1)
-                except asyncio.CancelledError:
-                    adapter._stopping_run_ids.add(run.run_id)
-            await original_executor(adapter,run,_api_server=_api_server)
+            material = (getattr(adapter, '_fs_handshake', False) and
+                        isinstance(run.session_id, str) and re.fullmatch('mg_[a-f0-9]{64}', run.session_id))
+            token = None
+            if material:
+                with adapter._material_diagnostic_lock:
+                    adapter._material_diagnostics[run.run_id] = {
+                        'version': 'materials_diagnostic_v1', 'phase': 'admission_wait',
+                        'exception_class': 'unknown', 'reason': 'unknown'}
+                token = _MATERIAL_RUN.set((adapter, run.run_id))
+            try:
+                if getattr(adapter,'_fs_handshake',False):
+                    deadline=time.monotonic()+30
+                    try:
+                        while run.run_id not in adapter._stopping_run_ids and run.run_id not in adapter._shutdown_interrupted_run_ids:
+                            try:item=admission(run.session_id)
+                            except (ValueError,PermissionError,OSError):break
+                            if item.get('ready',True) or time.monotonic()>=deadline:break
+                            await asyncio.sleep(.1)
+                    except asyncio.CancelledError:
+                        adapter._stopping_run_ids.add(run.run_id)
+                if material:
+                    _material_note(adapter, run.run_id, phase='executor')
+                return await original_executor(adapter,run,_api_server=_api_server)
+            except BaseException as error:
+                if material:
+                    _material_note(adapter, run.run_id, error=error)
+                raise
+            finally:
+                if material:
+                    with adapter._material_diagnostic_lock:
+                        adapter._material_diagnostics.pop(run.run_id, None)
+                    _MATERIAL_RUN.reset(token)
         admitted_executor._fs_async_gate=True
         api_server_runs._execute_run=admitted_executor
 
@@ -185,12 +270,32 @@ def make_adapter(api_key):
 
     class ReadonlyAdapter(APIServerAdapter):
         _fs_handshake=True
+        def __init__(self, *args, **kwargs):
+            self._material_diagnostics = {}
+            self._material_diagnostic_lock = RLock()
+            super().__init__(*args, **kwargs)
+
         def _set_run_status(self,run_id,status,**fields):
             # Pinned official Runs emits only provider/model. Preserve the actual
             # constructed agent's verified FS context receipt in its pollable record.
             loaded=loaded_context_metadata(self._active_run_agents.get(run_id))
             if loaded:fields['runtime']={**(fields.get('runtime') or {}),**loaded}
-            result=super()._set_run_status(run_id,status,**fields)
+            terminal = status in {'completed','failed','cancelled','interrupted'}
+            try:
+                with self._material_diagnostic_lock:
+                    note = self._material_diagnostics.get(run_id)
+                    if note is None:
+                        # Keep an already-persisted bounded terminal receipt when
+                        # a late SDK status update also carries context metadata.
+                        previous = self._run_statuses.get(run_id, {}).get('runtime') or {}
+                        note = _material_snapshot(previous.get('fs_material_diagnostic'))
+                    if note is not None:
+                        fields['runtime'] = {**(fields.get('runtime') or {}), 'fs_material_diagnostic': dict(note)}
+                result=super()._set_run_status(run_id,status,**fields)
+            finally:
+                if terminal:
+                    with self._material_diagnostic_lock:
+                        self._material_diagnostics.pop(run_id, None)
             if status in {'completed','failed','cancelled','interrupted'}:
                 session_id=result.get('session_id')
                 getattr(self,'_material_admitted_inputs',{}).pop(session_id,None)
@@ -277,6 +382,19 @@ def make_adapter(api_key):
             pass  # No plugin HTTP extensions on this listener.
 
         def _create_agent(self, ephemeral_system_prompt=None, session_id=None, **kwargs):
+            scope = _MATERIAL_RUN.get()
+            if scope is None or scope[0] is not self:
+                return self._create_admitted_agent(ephemeral_system_prompt, session_id, **kwargs)
+            _material_note(self, scope[1], phase='agent_create')
+            try:
+                agent = self._create_admitted_agent(ephemeral_system_prompt, session_id, **kwargs)
+            except BaseException as error:
+                _material_note(self, scope[1], error=error)
+                raise
+            _material_note(self, scope[1], phase='agent_ready')
+            return agent
+
+        def _create_admitted_agent(self, ephemeral_system_prompt=None, session_id=None, **kwargs):
             item = admission(session_id)
             material = bool(item.get('materials'))
             # Official Runs can start the worker before POST returns. FS must bind
