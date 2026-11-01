@@ -313,6 +313,8 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromModule(test_b2_customer_followup))
     import test_b2_frozen_investigation
     tests.addTests(loader.loadTestsFromModule(test_b2_frozen_investigation))
+    import test_b2_decision_card
+    tests.addTests(loader.loadTestsFromModule(test_b2_decision_card))
     import test_b2_goal_state
     tests.addTests(loader.loadTestsFromModule(test_b2_goal_state))
     import test_b2_goal_host
