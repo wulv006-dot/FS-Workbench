@@ -214,6 +214,9 @@ def selfcheck():
         raise RuntimeError('pricing_recovery_mapping_missing')
     if select(["releases/fs-dashboard/user-analytics-20261022/source/user_query.py"]) != ["user-analytics"]:
         raise RuntimeError("user_analytics_checks_missing")
+    for path in ("source/date_policy.py","source/eviction_policy.py","scripts/backup_inventory.py","scripts/eviction_dry_run.py","tests/test_query_checkpoint.py","schema/query-v2.json"):
+        if select(["releases/fs-dashboard/tiered-data-access-20261101/"+path]) != ["tiered-data-access"]:
+            raise RuntimeError("tiered_data_access_checks_missing:"+path)
     if select(["releases/fs-dashboard/game-monitor-autopublish-20261022/source/controller.py"]) != ["game-monitor-auto"]:
         raise RuntimeError("game_monitor_auto_checks_missing")
     if select(["releases/fs-dashboard/game-monitor-sop-20261022/source/index.html"]) != ["game-monitor-sop"]:
@@ -522,6 +525,8 @@ def select(paths):
             groups.add("business-procurement");continue
         if name.startswith("releases/fs-dashboard/user-analytics-20261022/"):
             groups.add("user-analytics");continue
+        if name.startswith("releases/fs-dashboard/tiered-data-access-20261101/"):
+            groups.add("tiered-data-access");continue
         if name.startswith("releases/fs-dashboard/channel-effects-20261021/"):
             groups.add("channel-effects");continue
         if name.startswith("admin_session_continuity_20261021/"):
@@ -992,8 +997,10 @@ def main():
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_procurement.cjs")
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_views.cjs")
         elif group=="user-analytics":
-            units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration","test_deploy","test_period","test_search_http","test_targeted_refresh","test_storage_recipe","test_backup_retention","test_weekly","test_a2_query_context"])
+            units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration","test_deploy","test_period","test_search_http","test_targeted_refresh","test_storage_recipe","test_backup_retention","test_weekly","test_a2_query_context","test_missing_store","test_revision_range","test_member_keyset"])
             node("releases/fs-dashboard/user-analytics-20261022/tests/test_weekly_dates.cjs")
+        elif group=="tiered-data-access":
+            units("releases/fs-dashboard/tiered-data-access-20261101/tests",["test_backup_inventory","test_date_policy","test_query_planner","test_daily_facts","test_range_jobs","test_query_checkpoint","test_eviction_policy"])
         elif group=="channel-effects":
             units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher","test_pmax_source","test_pmax_publisher","test_pmax_traffic_ui","test_pmax_es_projection","test_mapping_reclassification"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")
