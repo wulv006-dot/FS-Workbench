@@ -57,9 +57,9 @@
  }
  function showBasicTraffic(test){
   let panel=document.getElementById('basic-traffic-report');
-  if(!seasonal()){if(panel)panel.hidden=true;$('mode-notice').after($('filters'));showGoogle();return;}
+  if(!seasonal()){if(panel)panel.hidden=true;if($('mode-notice').nextElementSibling!==$('filters'))$('mode-notice').after($('filters'));showGoogle();return;}
   if(!panel){panel=document.createElement('section');panel.id='basic-traffic-report';panel.className='panel';$('activity-summary').after(panel);}
-  panel.hidden=false;panel.after($('filters'));showGoogle();
+  panel.hidden=false;if(panel.nextElementSibling!==$('filters'))panel.after($('filters'));showGoogle();
   const t=trafficState,ready=!test&&t?.status==='available'&&Number.isSafeInteger(t.pageRequests),partial=!test&&t?.status==='partial';
   const note=test?'测试模式不查询基础页面请求。':!t?'尚未查询，请点击“更新分析”。':t.status==='loading'?'正在读取187侧现有日志…':ready?'所选UTC日期的现有日志聚合已完成。':partial?'所选整期缺测；仅有部分日志覆盖，不能把已读片段当整期数据。':'现有日志暂不可读取；缺测不记为0。';
   panel.innerHTML='<h2>基础访问量 · 187侧页面请求</h2><p class="muted">'+note+'</p><div class="metrics"><article class="metric"><span>187侧活动页面请求（估算）</span><strong>'+(ready?num(t.pageRequests):test?'不统计':!t||t.status==='loading'?'—':'缺测')+'</strong><small>只计正式index及目录页面的成功GET，排除资源、API、HEAD及已识别机器人/自动化和标记测试；刷新重复计数。</small></article><article class="metric"><span>估算访客数 · 按IP去重</span><strong>缺测</strong><small>真实访客代理IP链尚未核实，不把出口IP当人，也不使用行为UV推算全部访客。</small></article></div>'+(t?.coverage?'<p class="muted">日志覆盖：'+esc(bjt(t.coverage.from))+' 至 '+esc(bjt(t.coverage.through))+'（北京时间）；所选日期按UTC。'+(partial?'已读范围记录 '+num(t.observedPageRequests)+' 次，整期仍缺测。':'')+'成功文档GET '+num(t.successfulRequests)+' 次，已排除 '+num(t.excludedRequests)+' 次；更新时间 '+esc(bjt(t.generatedAt))+'，最多缓存10分钟。</p>':'')+'<p class="muted">仅代表到达187的文档请求；浏览器/边缘缓存未回源会漏计，未识别预取、内部测试或代理重试可能计入。不是实际人数，不按游戏、设备或渠道拆分，不设访客去重窗口。行为统计和活动码付款销售另列。</p>'+(t?.daily?.length?'<div class="report-table-wrap"><table><thead><tr><th>UTC日期</th><th>已读日志内页面请求估算</th></tr></thead><tbody>'+t.daily.map(r=>'<tr><td>'+esc(r.date)+'</td><td>'+num(r.requests)+'</td></tr>').join('')+'</tbody></table></div>':'');
@@ -67,7 +67,7 @@
  let googleSource='gsc',googleKey='',googleGeneration=0;
  function showGoogle(){
   let panel=$('google-traffic-report');if(!seasonal()){if(panel)panel.hidden=true;return;}
-  if(!panel){panel=document.createElement('section');panel.id='google-traffic-report';panel.className='panel';}panel.hidden=false;$('filters').after(panel);
+  if(!panel){panel=document.createElement('section');panel.id='google-traffic-report';panel.className='panel';}panel.hidden=false;if($('filters').nextElementSibling!==panel)$('filters').after(panel);
   const from=$('from').value,to=$('to').value,mode=$('mode').value,key=[from,to,mode,googleSource].join(':');if(key===googleKey)return;googleKey=key;googleGeneration++;
   panel.innerHTML='<h2>Google · 万圣节页面流量</h2><p class="muted">只查询正式活动页；各来源按自己的统计日，不与UTC行为窗口拼成逐访客漏斗。此区不随游戏、设备和渠道筛选，不会在页面自动刷新时重复请求Google。</p><label>数据来源 <select id="google-source"><option value="gsc">Search Console · 自然搜索</option><option value="ga4">GA4 · 页面与访问</option><option value="ads">Google Ads · 广告落地页</option></select></label> <button id="google-load" class="fs-btn fs-btn--primary" type="button">读取 Google 明细</button><div id="google-result" role="status" aria-live="polite"><p>'+esc(from)+' 至 '+esc(to)+' · 点击读取；未查询不显示为零。</p></div>';
   const labels=googleSource==='ga4'?['浏览量','活跃用户','入口会话']:googleSource==='ads'?['曝光','点击','广告费用']:['曝光','点击','CTR'];
