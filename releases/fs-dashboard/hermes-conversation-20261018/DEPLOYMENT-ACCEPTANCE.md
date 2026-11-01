@@ -852,3 +852,14 @@ Personal交接PR735独审/必要CI通过及最终source=`9edb8827c0bc21fce417303
 随后仅在自建BrowserAct会话打开同源favicon非应用页，避免自动读取历史cid。创建新验收cid时，harness把X-FS-Advisor-Action误填为1，POST /api/hermes/conversations得到403/same_origin_required，未返cid；当前前端实际使用submit。纠正为页面原submit的尝试被auto-review在进程启动前拒绝，理由为403后改变动作头重试可能绕过同源/授权边界，禁止换手段绕过。故停止，不改入口或认证，不把403猜成账号过期或材料模型错误。已关闭仅自己创建的fs_material_stream_9edb_20261101t1750，用户原页不动；上传0、材料POST0、模型任务0、无旧run/error/result读取，历史费用unknown仍保留。
 
 稳定共享目录C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-MaterialStream-Resume-20261101T175040Z/，index1299bytes/SHA675c58337a99d953d9dc91fcc320633b85589a5a113e5dd958b7ba6bef7eafec，8份metadata列完整bytes/SHA。结论仅【9edb软件发布读回通过；新CSV尚未开始，正常角色入口被工具审核阻断】，不是阶段1功能或视觉通过。精确下一许可为按页面原有submit动作头创建单个新合成验收会话并重新正常工具审核，不能凭本记录绕过拒绝。此为本轮一次短附录，不作部署source；未重跑旧27/14/SDK6或推进阶段2。
+
+
+## c12a当前装配：新CSV一次真实验收failed，后续付费停止（2026-11-02）
+
+本轮只测试，不部署/改源/重跑旧套件。沿用户新增明确许可，在自建正常BrowserAct会话、同源favicon非应用页，以当前前端原有X-FS-Advisor-Action: submit成功创建全新cid=3507b32df6af4abaa0a44698a80a53c8（201）；没有重复先前被拒动作的无授权绕行。当前现场装配由主控核为c12a273387a7811c71b3fbf1c040c8a7b4d1639a、bindings严格True已装、transport仍e682d865…，A不再部署或覆盖其新字节。初次页面路径误少/dashboard/fs-home前缀而404，随本地已知正式路由纠正，未额外建cid或提交任务。
+
+新CSV“阶段1_stream验证_205行_金额.csv”1506bytes/SHA dc04932d205971fc04306481f94063cddc991652286828d688c84e32cc9c40a7，205数据行、amount合计63345仅夹具预期。正常上传201，fid=63fd50825f2b79efe83bf174686f104e，server SHA相同；真实checkbox显式唯一选中、read模式、不启局部范围后，正常UI材料POST恰1次，18:12:52.442Z得到202 queued/discarded=false。request=material_64d15ce3b33f47389140579a83504012，task=eef295043c6ac7525ba8a7d47509c99a，18:12:56.542Z running，18:12:59.076Z failed，coverage=[]/files=[]，未读全或算对、无产物，不把预期数字或HTTP202当成功。
+
+仅本新任务mode=ro/query_only白名单账本及官方status/四字段诊断：lease=0af628e4500553a848155f722a0c26e1，session=mg_29b072d64f442d2c1262ff3336eeab3a11a4acfe34c841c4dbb9a2bb5db39317，run=run_1da8fb2fce024df3bd78fc164d49cd75，body SHA=015216ae1cb5e78a1091a1da5bd5f534bb491b7b8d0271a9215a0c539d82b56b。task/run/lease/session/key/fingerprint唯一匹配、mapping attempted1（非官方网络次数），官方failed、materials_diagnostic_v1/phase agent_returned/exception_class unknown/reason unknown，官方库stat稳定。gateway本task0条、task tokens/rounds0，不能推供应商0调用/0费用；provider调用/tokens/response_model/backendversion均unknown，cost_microcny=null，policy仍no-pilot-quotas-deepseek-direct-stream-tokens-only-v2。没有读取error/完整官方JSON/output/messages/私有推理，未点失败查看回答或/result。
+
+失败后立即停止后续：模型任务共1，XLSX修订/下载/派生追问/stop均0，不重POST或用新ID猜参数；四组旧请求完全未访问。未做截图/外观任务，只关闭自建session fs_material_csv_c12a_20261101t1815，原用户页不动。最小稳定收据C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-MaterialCSV-c12a-20261101T181118Z/index.json，1033bytes/SHA60bbda1dcfe93121027c5a8383e4093979d42023c140059a084e363551703163，6文件bytes/fullSHA自核（夹具、context、浏览器本新cid审计、mapping、四字段、summary）。结论仅正常创建/上传/单次材料接收成立，真实材料失败且错误类别仍未知；交主控最小诊断缺口，不作阶段1恢复或进入阶段2/3。此为一次纯模块记录，非部署source。
