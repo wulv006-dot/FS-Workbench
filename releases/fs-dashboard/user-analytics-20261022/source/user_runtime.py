@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 from threading import RLock
 
-from user_store import Store, safe
+from user_store import Store, safe, require_database
 
 ROOT = Path('/var/lib/fs-user-analytics')
 CONFIG = Path(__file__).with_name('user_config.json')
@@ -52,10 +52,14 @@ def configuration(path=CONFIG, accounting=ACCOUNTING, statuses=STATUSES):
     return value
 
 
-def load_store(root=ROOT, config=None):
-    import fcntl
+def load_store(root=ROOT, config=None, *, initialize=False):
     root = Path(root)
     safe(root)
+    # Boot/query/weekly runs must not bootstrap replacement facts after data loss.
+    # Initial provisioning is explicit and is not exposed through HTTP or Hermes.
+    if not initialize:
+        require_database(root / 'customers.sqlite3')
+    import fcntl
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     if root.stat().st_uid != os.geteuid() or root.stat().st_mode & 0o077:
         raise ValueError('private_directory_permissions')

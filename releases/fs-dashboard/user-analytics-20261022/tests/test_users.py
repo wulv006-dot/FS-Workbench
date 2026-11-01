@@ -768,7 +768,7 @@ class Users(unittest.TestCase):
             result = synchronize_day(self.store, '266', '2026-10-01', '2026-10-02', reader=lambda *_: self.fail('busy source must not be called'), lock_path=lock_path)
             self.assertEqual(result['status'], 'deferred')
         root = Path(self.tmp.name) / 'new-private-root'
-        store = load_store(root, self.config)
+        store = load_store(root, self.config, initialize=True)
         same = load_store(root, self.config)
         self.assertEqual(store.key, same.key)
         manifest = backup(store, NOW)

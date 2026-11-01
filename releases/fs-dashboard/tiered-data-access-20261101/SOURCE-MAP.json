@@ -1,0 +1,54 @@
+{
+  "contract": "fs-tiered-data-candidate-map-v1",
+  "base": "4e31c61ff39064377ce277e3c2dc55c5b7ee5b58",
+  "production_verified": false,
+  "deployed": false,
+  "rows": [
+    {
+      "candidate": "releases/fs-dashboard/user-analytics-20261022/source/user_http.py",
+      "sha256": "bcd2a1329eaaa7758b3d1add5aca9e7a6d802b4bd3fd891a71d42fe8c9a27845",
+      "runtime_target_hint": "/opt/fs-hermes-fc/user_http.py",
+      "live_hash": null,
+      "live_verified": false
+    },
+    {
+      "candidate": "releases/fs-dashboard/user-analytics-20261022/source/user_runtime.py",
+      "sha256": "f36c730caf0e6632989be8cf5bc5eeb5f48b740b54af1fbc5a5bf6f846575d69",
+      "runtime_target_hint": "/opt/fs-hermes-fc/user_runtime.py",
+      "live_hash": null,
+      "live_verified": false
+    },
+    {
+      "candidate": "releases/fs-dashboard/user-analytics-20261022/source/user_store.py",
+      "sha256": "7f107bf2da6f59f06d6dc766d1da73c90d5076b388a16327dc99e820d2d31a45",
+      "runtime_target_hint": "/opt/fs-hermes-fc/user_store.py",
+      "live_hash": null,
+      "live_verified": false
+    },
+    {
+      "candidate": "releases/fs-dashboard/user-analytics-20261022/source/user_version_index.py",
+      "sha256": "d45e8d141e59daa0945c6963b678215c1263799bc4e4eed4d9534a583d645265",
+      "runtime_target_hint": "/opt/fs-hermes-fc/user_version_index.py",
+      "live_hash": null,
+      "live_verified": false
+    },
+    {
+      "candidate": "releases/fs-dashboard/tiered-data-access-20261101/source/date_policy.py",
+      "sha256": "7f0977f412f0789d0c245d4592ffffc0c33a6f1cf6f44926b70041ce01ed1e24",
+      "runtime_target_hint": null,
+      "live_hash": null,
+      "live_verified": false
+    }
+  ],
+  "coordination_required": [
+    "dashboard-refresh-20261025/source/range_api.py",
+    "trusted identity/grant resolver",
+    "existing Hermes tool dispatcher"
+  ],
+  "excluded": [
+    "T3 runner/provider/MaterialRunLedger",
+    "FC pricing resources/dependencies",
+    "L0/UNKNOWN/keys/receipts/Excel",
+    "two old backup directories"
+  ]
+}
