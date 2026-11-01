@@ -58,6 +58,13 @@ def schemas():
     return result+tool_schemas()+strategy_schemas()+file_schemas()
 
 
+def task_schemas(book):
+    if getattr(book, 'material_execution', False):
+        from conversation_file_tools import tool_schemas
+        return tool_schemas(scope='material_execution_files')
+    return schemas()
+
+
 class ScopedTools:
     def __init__(self, tasks, book, clock, deadline=None):
         self.tasks, self.book, self.clock, self.deadline = tasks, book, clock, deadline
@@ -68,10 +75,16 @@ class ScopedTools:
                 task['spec']['snapshot_id'] != self.book.capture_id or
                 (self.deadline is not None and self.clock() >= self.deadline)):
             raise PermissionError('inactive_task')
+        if getattr(self.book, 'material_execution', False) and self.book.authorize_execution() is not True:
+            raise PermissionError('material_execution_inactive')
         return task
 
     def call(self, owner, task_id, lease, name, arguments):
         self.context(owner, task_id, lease)
+        if getattr(self.book, 'material_execution', False):
+            from conversation_file_tools import WIRE_NAMES
+            if name not in WIRE_NAMES:
+                raise PermissionError('material_tool_denied')
         if name not in WIRE_TOOLS:
             raise PermissionError('tool_denied')
         semantic=SEMANTIC_TOOLS[WIRE_TOOLS.index(name)]
@@ -84,7 +97,7 @@ class ScopedTools:
         return {'snapshot_id': self.book.capture_id, 'tool': name, 'data': result}
 
 
-def request_body(body, model):
+def request_body(body, model, *, tool_schemas=None):
     # No client endpoint, credentials, system identity or tool definitions accepted.
     if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens','reasoning_effort','auxiliary'} or not {'messages','max_tokens'}.issubset(body):
         raise ValueError('request_fields')
@@ -135,7 +148,7 @@ def request_body(body, model):
     if len(serialized.encode()) > MAX_PROVIDER_WIRE_BYTES or sensitive_context(messages):
         raise ValueError('context_rejected')
     result={'model': model, 'messages': deepcopy(messages), 'max_tokens': body['max_tokens'],
-            'tools': [] if auxiliary else schemas(), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
+            'tools': [] if auxiliary else (schemas() if tool_schemas is None else deepcopy(tool_schemas)), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
     if effort is not None:result['reasoning_effort']=effort
     # Include trusted tool schemas and all framing in the exact UTF-8 wire budget, before reservation/network.
     if len(encoded(result).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
@@ -470,7 +483,7 @@ class ModelGateway:
         # Logical turn identity remains in hermes_turns. Existing reservation slots encode
         # each physical attempt as turn*3+ordinal, with no schema migration or old-row rewrite.
         base_turn=turn*(self.transport_retries+1)
-        request = self.budget.restore_tool_indexes(owner,task_id,base_turn,request_body(body,self.budget.policy['model']))
+        request = self.budget.restore_tool_indexes(owner,task_id,base_turn,request_body(body,self.budget.policy['model'], tool_schemas=task_schemas(getattr(self.scope, 'book', None))))
         if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
         require_context_window(request)  # Recheck after trusted replay metadata is restored.
         if self.preflight is not None:self.preflight(request)  # Final vendor wire before any reservation/network.

@@ -68,15 +68,21 @@ def spending_hold(daily, tasks, owner):
     return None
 
 
-def gateway(daily, tasks, book, deadline=None, provider_lane="general"):
+def gateway(daily, tasks, book, deadline=None, provider_lane="general", *, material_execution=False):
     from fc_daily import provider_slot, model_daily_limit
     from direct_provider import MODEL, POLICY_ID, request_model, prepare_request
-    from proxy_gateway import schemas
+    from proxy_gateway import schemas, task_schemas
+    if material_execution is not bool(getattr(book, 'material_execution', False)):
+        raise ValueError('material_gateway_identity')
+    if material_execution and provider_lane != 'general':
+        raise PermissionError('material_pricing_lane_denied')
+    def effective_schemas():
+        return task_schemas(book) if material_execution else schemas()
     policy = {'id': POLICY_ID, 'model': MODEL,
               'price_version': 'deepseek-direct-no-cny-invoice-or-fx-v1',
               'input_microcny': None, 'output_microcny': None}
     def provider(request):
-        raw = request_model(request, schemas(),deadline=deadline) if deadline is not None else request_model(request, schemas())
+        raw = request_model(request, effective_schemas(),deadline=deadline) if deadline is not None else request_model(request, effective_schemas())
         if not isinstance(raw, dict) or raw.get('model') != MODEL:
             status=raw.get('status') if isinstance(raw,dict) else None
             known={'configuration_missing','configuration_invalid','input_too_large','invalid_response','http_rejected','unknown_transport','scheduled_deadline'}
@@ -95,7 +101,7 @@ def gateway(daily, tasks, book, deadline=None, provider_lane="general"):
                         # Conservative byte+framing reservation bound; no cumulative quota.
                         # Actual usage remains authoritative and missing usage stays unknown.
                         conservative_input_bound,
-                          model_daily_limit, preflight=lambda req:prepare_request(req,schemas()),transport_retries=2)
+                          model_daily_limit, preflight=lambda req:prepare_request(req,effective_schemas()),transport_retries=0 if material_execution else 2)
 
 
 def approved_background(root):

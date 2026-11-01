@@ -1,5 +1,7 @@
 # 本机合成 GoalState 持久化合同
 
+前两包的持久化/outbox 合同与证据保留如下；2026-11-01 材料执行装配候选见本文末节。当前生产仍501f，本轮尚未部署或运行真实模型。
+
 本模块为 B 的 `b2_goal_state_v1` 最小状态提供真实 SQLite load/CAS 和 admission；没有 HTTP、会话服务、生产 scope、模型、定时器或运行入口接线。生产仍为既有 501f 材料版，不能据本模块测试称目标系统已上线。
 
 ## 路径与归属
@@ -109,3 +111,29 @@ queued 只表示该 outbox reservation 已提交，绝不表示原 TaskStore tas
 BEGIN IMMEDIATE 下保留原事务提交/异常回滚/关闭语义。锁序是 goal admission→独立任务 DB 短事务→退出任务事务→退出 admission；任务事务无反向会话 DB、网络、grant、provider 等待或模型调用。submit 提交后回执丢失、admission 退出失败或权限随后变化时，原 reservation 可能已存在；恢复只查原 ID，不能据异常换 ID/重派。goal DB 的回滚不回滚独立 outbox。
 
 本机原 runner：新增首轮 21 项直接入口通过；补 ledger 身份/路径漂移后，新模块 22 项由原 store.load_tests 实际加载，原四模块会话入口合计 75 项通过、零 failure/error/skip。使用真实临时 TaskStore/ConversationStore/Goals，覆盖并发单 reservation、完整指纹冲突、重连/丢回执、错/缺库及 stat→open 删除竞态不建库、schema/命名空间/数据损坏、跨 owner/cid/goal/scope、strict True/撤权、原 tasks 零新增/零改动、pause 与 admission 串行、原 goal 事务失败不抹已提交 outbox。未运行 B 旧套件；B 冻结事实候选组合、Linux/CI 和最新 SHA 独审另验。真实 generic spec/任务执行/worker/host grant 未接，生产仍501f，无生产或模型动作。
+
+## 2026-11-01 材料短任务执行装配候选（尚未部署）
+
+本轮 A 新增 `source/conversation_material_runs.py` / `tests/test_conversation_material_runs.py`，消费 B 固定 `42b6df09cfc0ccbe0743231c79b96cec5edf8bb1`。原 controller、TaskStore.create/FC validate_spec、公共迁移和 B 源均不修改；不是另一套执行器。原私有 outbox 的 queued/NULL task_id/lease/run_id 合同保持，实际任务另由本模块私有映射关联。
+
+- `MaterialService(HERMES, CONVERSATION)` 只接现有实例。正常入口身份、原会话 owner/cid、用户显式文件选择形成材料 capability，不产生经营/A2 scope。
+- `POST /api/hermes/conversations/{cid}/materials` 精确必选 `client_request_id,goal,file_ids,operation`；可选 `read_scope={file_id,sheet,offset,limit}`。文件必须来自原选择；sheet/offset 为非负严格 int，limit 为 1..200 严格 int，bool 拒绝。只用真实解析结果核 sheet/EOF，offset 超过末尾拒绝。
+- 每个新显式选择在同一原任务 DB 短事务中分配该 owner/cid 下递增 selection_revision，原 ID 的完整请求 SHA、metadata、时间和版本先持久，再 prepare/freeze/CAS/outbox。范围规范 JSON 在首次 CAS 前进入服务端新材料目标/原 handoff 的 constraints，参与 logical intent 和完整 payload 指纹；不是后续临时拼入。原 ID 换范围/文件/操作拒绝；重试只读原选择。
+- `GET .../materials/{request_id}` 返回真实 task/run 状态、B 合并覆盖、实际派生文件 metadata/proof、`cost_microcny:null`、`goal_achieved:false`。`POST .../{request_id}/stop` 先 B stop CAS，撤销现有 grant 并停止原 run；不宣称提供方计算或计费停止。
+- `GET .../{request_id}/result` 是单独的 owner/cid 鉴权答案通道，仅访问映射中已知 run 的原官方 GET 状态端点，再核 run/session 与授权，最多返回 64 KiB UTF-8 文本。此端点可能触发官方状态 hydration，不称纯只读账本对账。原 UNKNOWN resolver 不返回正文；答案不进 GoalState、receipt 或 ref，UI 沿 textContent 安全文本渲染，不把模型 URL 变成下载卡。
+
+实际 TaskStore 五字段来源：period=null（该任务类型不伪造 FC 周期）；snapshot_id 为真实文件 metadata 的冻结快照；template_version 为 B 实际冻结模板；knowledge_version 为冻结 system/input 的组合版本；budget_policy_id 从原 direct_provider.POLICY_ID 取，并与实际 general gateway policy 再核。项目/类型指纹为 FS/conversation_materials_v1，未调用 FC create 或未知 execute。
+
+原 outbox reservation 与材料 mapping/真实 task 写入均发生在短 tasksDB 事务；锁序保持 conversation goal admission→tasksDB→退出两锁。mint/POST/provider 不在 admission 中执行。实际派发另在同 conversationDB 锁下核当前 active/原 request/精确 revision、真实字节和元数据后，原子 CAS attempted=1 与真实 task DISPATCH_UNKNOWN/lease。随后只有一次 POST。session、key、官方 body 指纹和完整原 execution 持久绑定，丢 202 或任何不确定边界不重 POST。
+
+官方 pin `71d34bad1045610252eda02ee79549436896e784` 的三文件磁盘 hash 已按获准有限元信息核实；完整值见部署附录。worker 每次材料 POST/能力检查再次核 pin 与官方 store.durable，未证即 unavailable。materials resolver 在原 adapter 正常认证/profile scope 下，对同官方库 `mode=ro + query_only` 仅 SELECT，核 key/full fingerprint/session；不调用会 prune 的 lookup/reserve，不重 POST。missing/过期=unknown，stale owner=interrupted，只读投影不改官方库。
+
+worker/模型代理/vendor preflight 三层都仅启用原三个文件工具；材料分支最先拒绝非文件工具/strategy 绕行，禁止 steer 改冻结意图。复用原 general provider/预算/到额停止，材料 transport_retries=0；原 FC lane 和旧工具集合保持。actual context proof 来自实际 agent system、已接收原 POST input、agent.tools、memory/context/background 禁用状态，不能由 expected 文本自证。
+
+ExecutionBoundFiles 没有伪造 human turn。每次工具核正常权限、goal/task/lease/run/当前状态、deadline、文件选择/生成 membership、sha/size/parent/version/expiry；修订只允许冻结 cells/格式/确定性 revision_request_id。产物由真实 ConversationFiles 读回，成功前再核内容。默认 read 必须所有选中 workbook 完整；显式范围仅要求真实末尾裁剪后的请求区间无 missing_ranges，空表/EOF 也需真实零行读回。复用 B MaterialEvidence 合并覆盖，持久化每文件最新合并摘要/最小 refs 而非正文或无限页日志；未读 sheet/文件保留缺项。短任务完成不是业务全量、实时数据或长期目标完成。
+
+启动恢复只有限扫描本模块映射并核 task 完整指纹；未尝试 queued 取消，已尝试仅查原 ID/停止原 run，不重建活 book/重发。撤权围栏只取消已验原任务，不返回私有缓存，不创建 grant。损坏映射不拿未知 task ID 去取消 FC 任务。UNKNOWN/原账本/DB 不清除。
+
+检查入口：原 store.load_tests 新增本模块，现有 Node entry/test_data_handoff.cjs 实际加载 DOM/fetch 场景；原 channel 与 deploy/test_runtime_materials 入口复用，无 CI driver/workflow 改动。新增材料模块 20 项本地原 runner 通过：真实 temp TaskStore/Goals/files、localhost 接收后丢202、单 POST、分页/范围/多文件/EOF、原 ID 冲突、真实 agent 构造方法的 SDK 夹具 proof、三层工具边界/零 retry、鉴权答案/停止/重启。协议服务器、agent 与 provider 仍是明确的本地夹具；没有真实 SDK 进程或模型运行通过声明。原 publisher 12 项、原 HTTP/release 10 项、channel12、Node 和本地 Chromium 亦通过；最终集成 Linux/新 SHA 独审由 Personal 进行。
+
+未验：生产安装/真实 SDK 启动及持久恢复、真实 DeepSeek/账单、生产 running stop/第二身份/真实 A2 scope、实际浏览器 200% 缩放和生产视觉。当前生产保持501f；本次没有新模型、业务 API、SSH 或部署操作（先前获准三 SDK 文件元信息证据单列保留）。
