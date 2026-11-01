@@ -854,8 +854,12 @@ def solve_coefficient(base_total, target_unit_low, target_unit_high, delivered_k
 
 
 def commit_path(before, after, validate,transition=None):
-    changes = [('base_prices','all')] if before['base_prices']!=after['base_prices'] else []
-    changes += [('region_coefficients',key) for key in after.get('region_coefficients',{}) if before.get('region_coefficients',{}).get(key)!=after['region_coefficients'][key]]
+    old_prices={key:number(value) for key,value in before['base_prices'].items()}
+    new_prices={key:number(value) for key,value in after['base_prices'].items()}
+    changes = [('base_prices','all')] if old_prices!=new_prices else []
+    old_factors=before.get('region_coefficients',{})
+    changes += [('region_coefficients',key) for key,value in after.get('region_coefficients',{}).items()
+                if key not in old_factors or number(old_factors[key])!=number(value)]
     for order in itertools.permutations(changes):
         state = deepcopy(before)
         steps = []

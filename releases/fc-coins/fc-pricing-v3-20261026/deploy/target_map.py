@@ -3,10 +3,8 @@ from pathlib import Path
 
 TARGET_COUNT = 99
 
-DELTA_SCOPE='fc-pricing-v3-console-price-control-20261030'
-DELTA_NAMES=('source/fc27-coins.html','source/fc-pricing-v3.js','source/repricing_logic.js','source/pricing_simulation.py')
-DELTA_NAMES+=tuple(prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/')
-                   for name in ('api.py','engine.py','ledger.py','runtime.py'))
+DELTA_SCOPE='fc-pricing-v3-numeric-nochange-20261101'
+DELTA_NAMES=('source/pricing_simulation.py','source/fc_pricing_v3/engine.py','source/hermes-copy/fc_pricing_v3/engine.py')
 DELTA_NEW=frozenset()
 SHADOW_SCOPE = 'fc-pricing-v3-sqlite-shadow-20261026'
 SHADOW_NAMES = tuple(prefix + 'fc_pricing_v3/' + name for prefix in ('source/', 'source/hermes-copy/')

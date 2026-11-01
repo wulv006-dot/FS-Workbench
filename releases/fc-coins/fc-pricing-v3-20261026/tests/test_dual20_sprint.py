@@ -29,6 +29,29 @@ def source(loot='10',item='11',cost='.35',bonus='0'):
 
 
 class Dual20Sprint(unittest.TestCase):
+    def test_equal_prices_with_different_decimal_places_do_not_dispatch(self):
+        before=dict(base_prices=dict(console='9.7',pc='9.04'),region_coefficients={})
+        after=dict(base_prices=dict(console='9.70',pc='9.0400'),region_coefficients={})
+        original=deepcopy(before)
+        self.assertEqual(engine.commit_path(before,after,lambda action:None),[])
+        self.assertEqual(before,original)
+
+    def test_equal_region_factors_with_different_decimal_places_do_not_dispatch(self):
+        before=dict(base_prices=dict(console='9.70',pc='9.04'),region_coefficients={'21:PS':'1'})
+        after=deepcopy(before);after['region_coefficients']['21:PS']='1.0000'
+        self.assertEqual(engine.commit_path(before,after,lambda action:None),[])
+
+    def test_real_base_and_region_changes_still_validate_each_write(self):
+        before=dict(base_prices=dict(console='9.7',pc='9.04'),region_coefficients={'21:PS':'1'})
+        after=dict(base_prices=dict(console='9.71',pc='9.0400'),region_coefficients={'21:PS':'.9999'})
+        checked=[]
+        steps=engine.commit_path(before,after,lambda action:checked.append(deepcopy(action)))
+        self.assertEqual([s['kind'] for s in steps],['base','region'])
+        self.assertEqual(checked,[s['intermediate'] for s in steps])
+        self.assertEqual(checked[-1],after)
+        with self.assertRaisesRegex(ValueError,'NO_SAFE_COMMIT_PATH'):
+            engine.commit_path(before,after,lambda action:(_ for _ in ()).throw(ValueError('margin_failed')))
+
     def test_single_base_path_allows_temporary_lower_price_with_full_financial_proof(self):
         data=source(loot='9.18',item='8.14',cost='.32',bonus='5')
         data['offers']['PS']['Lootbar']['bonus_k']='5'
