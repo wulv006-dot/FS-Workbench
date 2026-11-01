@@ -68,6 +68,8 @@ def load_store(root=ROOT, config=None, *, initialize=False):
     with (root / 'init.lock').open('a+b') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if not key_path.exists():
+            if not initialize:
+                raise ValueError('existing_identity_key_missing')
             if (root / 'customers.sqlite3').exists():
                 raise ValueError('existing_identity_key_missing')
             fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -76,7 +78,7 @@ def load_store(root=ROOT, config=None, *, initialize=False):
         if key_path.stat().st_uid != os.geteuid() or key_path.stat().st_mode & 0o077 or key_path.stat().st_size != 32:
             raise ValueError('private_identity_key_permissions')
         key = key_path.read_bytes()
-        return Store(root, key, configuration() if config is None else config)
+        return Store(root, key, configuration() if config is None else config, create=initialize)
 
 
 def authorize(user, query, private=False):

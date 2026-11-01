@@ -25,12 +25,16 @@ def require_database(path):
         raise StoreUnavailable('users_store_missing')
     try:
         with closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=15)) as db:
-            required = {'meta', 'orders', 'identities', 'revisions', 'jobs', 'snapshots', 'snapshot_members'}
-            tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            if not required <= tables or db.execute("SELECT value FROM meta WHERE key='revision'").fetchone() is None:
-                raise StoreUnavailable('users_store_incomplete')
+            require_schema(db)
     except sqlite3.DatabaseError as error:
         raise StoreUnavailable('users_store_unreadable') from error
+
+
+def require_schema(db):
+    required = {'meta', 'orders', 'identities', 'revisions', 'jobs', 'snapshots', 'snapshot_members'}
+    tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if not required <= tables or db.execute("SELECT value FROM meta WHERE key='revision'").fetchone() is None:
+        raise StoreUnavailable('users_store_incomplete')
 
 
 def safe(path):
@@ -76,21 +80,25 @@ def _validate_targeted_cursors(value, sites):
 
 
 class Store:
-    def __init__(self, root, key, config, read_only=False):
+    def __init__(self, root, key, config, read_only=False, *, create=True):
         self.root, self.key, self.config = Path(root), key, config
         self.read_only = read_only
+        self.path = self.root / 'customers.sqlite3'
+        if not create and not self.path.is_file():
+            raise StoreUnavailable('users_store_missing')
         if not isinstance(key, bytes) or len(key) < 32:
             raise ValueError('identity_key_required')
         safe(self.root)
         if read_only and not self.root.is_dir():
             raise ValueError('existing_restore_directory_required')
-        if not read_only:
+        if not read_only and create:
             self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.root.stat().st_mode & 0o077:
             raise ValueError('private_directory_permissions')
-        self.path = self.root / 'customers.sqlite3'
         safe(self.path)
         if not self.path.exists():
+            if not create:
+                raise StoreUnavailable('users_store_missing')
             if read_only:
                 raise ValueError('existing_restore_database_required')
             fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -98,7 +106,9 @@ class Store:
         if self.path.stat().st_mode & 0o077:
             raise ValueError('private_database_permissions')
         with self.db() as db:
-            if not read_only:
+            if not create:
+                require_schema(db)  # Same mode=rw connection that will inspect metadata.
+            if not read_only and create:
                 db.executescript('''
               CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
               INSERT OR IGNORE INTO meta VALUES('revision','0');
@@ -120,9 +130,9 @@ class Store:
                 old = db.execute('SELECT value FROM meta WHERE key=?', (name,)).fetchone()
                 if old and old[0] != value:
                     raise ValueError('identity_or_mapping_migration_required')
-                if read_only and not old:
+                if (read_only or not create) and not old:
                     raise ValueError('restore_identity_metadata_missing')
-                if not read_only:
+                if not read_only and create:
                     db.execute('INSERT OR IGNORE INTO meta VALUES(?,?)', (name, value))
 
     @contextmanager

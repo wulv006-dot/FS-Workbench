@@ -1,11 +1,13 @@
 """Portable data-loss checks; no mocked filesystem permissions or production I/O."""
 import sqlite3
+import json
+import os
 from contextlib import closing
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from user_store import Store, StoreUnavailable, require_database
@@ -56,6 +58,30 @@ class MissingStore(unittest.TestCase):
             with store.db():
                 self.fail('missing database connected')
         self.assertFalse(store.path.exists())
+
+    def test_no_create_constructor_rejects_database_removed_after_precheck(self):
+        self.root.mkdir()
+        path = self.root / 'customers.sqlite3'
+        path.write_bytes(b'prechecked fixture placeholder')
+        path.rename(self.root / 'moved.sqlite3')
+        with self.assertRaisesRegex(StoreUnavailable, 'users_store_missing'):
+            Store(self.root, b'x'*32, {}, create=False)
+        self.assertFalse(path.exists())
+
+    @unittest.skipUnless(os.name == 'posix', 'requires real POSIX permissions and fcntl; run Linux validation')
+    def test_real_loader_precheck_then_database_rename_keeps_key_and_never_creates(self):
+        config=json.loads((Path(__file__).resolve().parents[1]/'source/user_config.json').read_text('utf-8'))
+        store=load_store(self.root,config,initialize=True)
+        original_key=(self.root/'identity.key').read_bytes()
+        real_check=require_database
+        def lose_after_check(path):
+            real_check(path)
+            Path(path).rename(self.root/'moved.sqlite3')
+        with patch('user_runtime.require_database',side_effect=lose_after_check):
+            with self.assertRaisesRegex(StoreUnavailable,'users_store_missing'):
+                load_store(self.root,config)
+        self.assertFalse(store.path.exists())
+        self.assertEqual((self.root/'identity.key').read_bytes(),original_key)
 
     def test_http_is_503_not_empty_or_snapshot_404(self):
         service = Mock()
