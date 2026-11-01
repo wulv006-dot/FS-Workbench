@@ -278,6 +278,35 @@ class MaterialTransport(unittest.TestCase):
             self.assertEqual(f.gateway.call.call_count, 1)
             self.assertEqual(len(f.turns), 1)
 
+    def test_material_guard_failures_identify_the_exact_local_boundary(self):
+        with self.fixture() as f:
+            for code, change in [('request_fields', {'unexpected': 'PRIVATE_SENTINEL'}),
+                                 ('tool_allowlist', {'tools': f.module.schemas()})]:
+                status, content_type, raw = self.stream_http(f, dict(f.body, **change))
+                self.assertEqual(status, 400)
+                error = json.loads(raw)['error']
+                self.assertEqual(error, dict(message='invalid or unreconciled request',
+                    type='invalid_request_error', source='fs_material_transport',
+                    diagnostic_version='material_guard_v1', code=code))
+                self.assertNotIn(b'PRIVATE_SENTINEL', raw)
+                self.untouched(f)
+
+    def test_guard_diagnostic_is_not_inferred_from_an_arbitrary_exception_string(self):
+        with self.fixture(material=False) as f:
+            status, _, raw = self.stream_http(f, dict(f.body, unexpected=True))
+            self.assertEqual(status, 400)
+            self.assertNotIn('code', json.loads(raw)['error'])
+        with self.fixture() as f:
+            status, _, raw = self.stream_http(f, dict(f.body, unexpected=True), authorized=False)
+            self.assertEqual(status, 403)
+            self.assertNotIn('source', json.loads(raw)['error'])
+            f.gateway.call.side_effect = ValueError('tool_allowlist')
+            status, _, raw = self.stream_http(f, f.body)
+            self.assertEqual(status, 400)
+            self.assertEqual(json.loads(raw)['error'], dict(message='invalid or unreconciled request',
+                                                          type='invalid_request_error'))
+            self.assertEqual(f.gateway.call.call_count, 1)
+
     def test_actual_loopback_accepts_three_tools_and_keeps_denial_responses(self):
         with self.fixture() as f:
             server, thread = f.transport.start_loopback(f.proxy, port=0)

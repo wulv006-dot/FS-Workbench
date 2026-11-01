@@ -830,3 +830,49 @@ TDD先见缺新模式红断言，再实现。新增综合用例覆盖真实临�
 稳定共享收据目录=`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-MaterialStream-Candidate-20261101T163251Z/`，index逐文件列bytes/fullSHA，含harness/runner、输入metadata、真实SDK结果及3份SSE、第一次失败/最终发布组合与B14日志、最终Git pack/状态分层说明。无生产源码/配置/DB/错误正文/回答/推理导出。此SDK检查不重跑AIAgent首包、不改变实际stream、worker/proof/discovery或global配置，亦不生成正式execution receipt。
 
 已知未闭环：原未改的合成SDK discovery首包在新transport仍停tool_allowlist/gateway0，只有显式direct三文件schema变体通过，不能宣称原首包全通过或全局关闭发现。历史真实v1 direct3 proof保留，但不能倒推生产配置/历史首失败分支。生产仍按已核b362，历史材料失败/187限制因果/人民币费用unknown，所有封存请求不读、不重发。本轮0付费/新FS任务/部署/重启/浏览器；实际正常入口CSV/XLSX读全算对、确定性修改、不可变下载和派生追问及视觉仍待最新SHA独审/CI/合并后受控验收，不开展阶段2。
+
+
+## PR735最终9edb包：collector预检锁忙，未进入现场准备（2026-11-02）
+
+Personal交接PR735独审/必要CI通过及最终source=`9edb8827c0bc21fce4173030bd09b7388b19c866`。A原分支干净、origin正确，正常fetch确认main恰为该SHA，再ff到该最终merge；tree=`676de9f628782d1b516ac259f5a1d0814884b7e6`与已审候选一致。复用已核deploy27/B14/真实SDK6，不重复SDK/native/Core/知识，不改任何运行源或配置。
+
+已用最终Git原字节在本机生成全新 `--material-stream --followup` 包，payload descriptor SHA=`956df248d4aa5b5acfe34fb66b2c79ff96ec0bf5940d878279555e1b027dde87`；645120-byte tar SHA=`dac6f974e9331d833d8734bfd4994ef214cf030ad9e8cbbf29afed906cd1b8ff`。精确绑定上一节b362/nav-20261101T123702Z/02d2…/92b65…成功proof；本地Git比较为25现存/45保护/NEW0，唯一transport before2ef021…→after e682d865…，其它24目标字节不变。计划的新release ID=`nav-20261101T165224Z`、新远端目录=`/var/tmp/fs-material-stream-9edb8827-20261101T165224Z`；两者仅在本机context预留，未上传或创建远端stage，未生成现场fresh baseline/manifest/backup/journal，不能把本地pack当软件已安装。
+
+经正常工具审核，只读collector已知锁及服务元信息，于 `2026-11-01T16:52:49.679091+00:00` 观察到collector.lock由PID3139/python3持WRITE锁；fs-transaction-collect.service为Type=oneshot、MainPID=3139、ActiveState=activating、SubState=start、ExecMainStartTimestamp=`Mon 2026-11-02 00:48:59 CST`。这是该时点真实占用，不是未来状态保证，也不是本次apply抛锁异常：本轮没有调用publisher prepare/inspect/apply或实际尝试获取锁，预检即停止。没有轮询、抢锁、stop/kill、改timer、清UNKNOWN、变更权限或服务。
+
+稳定共享目录=`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-MaterialStream-Deploy-20261101T165224Z/`，index列pack/collector_preflight/summary三份metadata的完整bytes/SHA。无生产源码/配置/DB或业务内容导出；未新开浏览器session、未调用任何材料GET/POST/result/error或模型，所有封存请求保持、旧费用和因果unknown不变。生产仅沿此前已验b362记录，本次未重新核25/45现场SHA或服务/image，不能补称当前全量读回通过。结论仅【最终9edb本地包就绪；collector预检锁忙，软件尚未安装，真实材料及视觉验收未开始】。按本轮边界回交Personal后停止，后续自然释放需另有据核查，不能自动重复发布；本附录纯记录提交，不作部署source。
+
+
+## PR735最终9edb发布读回通过，正常新会话验收被工具审核阻断（2026-11-02）
+
+本轮只推进阶段1。17:51:03Z一次collector观察为锁无持有者、inactive/dead、MainPID0，才继续原授权发布；复用最终9edb原GitLF载荷956df248…/645120-byte tar dac6f974…，不夹带其它PR。先核旧计划nav-20261101T165224Z无backup/stage，再使用全新stage=/var/tmp/fs-material-stream-9edb8827-20261101T175040Z/stage、release-id=nav-20261101T175040Z；fresh baseline=2026-11-01T17:51:51.833785+00:00，manifest SHA=74270ff2d91e195a8279572ba48aaa35a4189a75597bceaa9496a4fbe9116088。原b362 proof、25before/45保护/root/mode/active真实固定image及quiescent、原inspect全部通过后，仅一次原apply成功，backup=/var/backups/fs-navigation-20261006/nav-20261101T175040Z，journal SHA=831ca7e02476aa50ef9fb25c2b3cc52c28ad562979fff26a938992746a6fc3e7，状态applied-awaiting-actual-http-role-acceptance。
+
+25 afterSHA/root/mode、45保护及其mode/root匹配；唯一transport2ef021…→e682d865…，其它24目标inode/mtime保持、8已有模块仍在。仅range PID10201→21750；worker10045、Nginx31780不变，三服务active，range200/ok=true、匿名worker401。真实container7af81e7fd24b3d6de9cb0ba37492cb640a712ec4ab3d1f59985d34621b374b4a、image8251bc53…、Running及StartedAt=2026-11-01T14:06:29.450947631Z前后相同。软件已安装，不能与此前预检等待混记；没有第二次apply、SDK/config/权限变更或临时生产patch。
+
+随后仅在自建BrowserAct会话打开同源favicon非应用页，避免自动读取历史cid。创建新验收cid时，harness把X-FS-Advisor-Action误填为1，POST /api/hermes/conversations得到403/same_origin_required，未返cid；当前前端实际使用submit。纠正为页面原submit的尝试被auto-review在进程启动前拒绝，理由为403后改变动作头重试可能绕过同源/授权边界，禁止换手段绕过。故停止，不改入口或认证，不把403猜成账号过期或材料模型错误。已关闭仅自己创建的fs_material_stream_9edb_20261101t1750，用户原页不动；上传0、材料POST0、模型任务0、无旧run/error/result读取，历史费用unknown仍保留。
+
+稳定共享目录C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-MaterialStream-Resume-20261101T175040Z/，index1299bytes/SHA675c58337a99d953d9dc91fcc320633b85589a5a113e5dd958b7ba6bef7eafec，8份metadata列完整bytes/SHA。结论仅【9edb软件发布读回通过；新CSV尚未开始，正常角色入口被工具审核阻断】，不是阶段1功能或视觉通过。精确下一许可为按页面原有submit动作头创建单个新合成验收会话并重新正常工具审核，不能凭本记录绕过拒绝。此为本轮一次短附录，不作部署source；未重跑旧27/14/SDK6或推进阶段2。
+
+
+## c12a当前装配：新CSV一次真实验收failed，后续付费停止（2026-11-02）
+
+本轮只测试，不部署/改源/重跑旧套件。沿用户新增明确许可，在自建正常BrowserAct会话、同源favicon非应用页，以当前前端原有X-FS-Advisor-Action: submit成功创建全新cid=3507b32df6af4abaa0a44698a80a53c8（201）；没有重复先前被拒动作的无授权绕行。当前现场装配由主控核为c12a273387a7811c71b3fbf1c040c8a7b4d1639a、bindings严格True已装、transport仍e682d865…，A不再部署或覆盖其新字节。初次页面路径误少/dashboard/fs-home前缀而404，随本地已知正式路由纠正，未额外建cid或提交任务。
+
+新CSV“阶段1_stream验证_205行_金额.csv”1506bytes/SHA dc04932d205971fc04306481f94063cddc991652286828d688c84e32cc9c40a7，205数据行、amount合计63345仅夹具预期。正常上传201，fid=63fd50825f2b79efe83bf174686f104e，server SHA相同；真实checkbox显式唯一选中、read模式、不启局部范围后，正常UI材料POST恰1次，18:12:52.442Z得到202 queued/discarded=false。request=material_64d15ce3b33f47389140579a83504012，task=eef295043c6ac7525ba8a7d47509c99a，18:12:56.542Z running，18:12:59.076Z failed，coverage=[]/files=[]，未读全或算对、无产物，不把预期数字或HTTP202当成功。
+
+仅本新任务mode=ro/query_only白名单账本及官方status/四字段诊断：lease=0af628e4500553a848155f722a0c26e1，session=mg_29b072d64f442d2c1262ff3336eeab3a11a4acfe34c841c4dbb9a2bb5db39317，run=run_1da8fb2fce024df3bd78fc164d49cd75，body SHA=015216ae1cb5e78a1091a1da5bd5f534bb491b7b8d0271a9215a0c539d82b56b。task/run/lease/session/key/fingerprint唯一匹配、mapping attempted1（非官方网络次数），官方failed、materials_diagnostic_v1/phase agent_returned/exception_class unknown/reason unknown，官方库stat稳定。gateway本task0条、task tokens/rounds0，不能推供应商0调用/0费用；provider调用/tokens/response_model/backendversion均unknown，cost_microcny=null，policy仍no-pilot-quotas-deepseek-direct-stream-tokens-only-v2。没有读取error/完整官方JSON/output/messages/私有推理，未点失败查看回答或/result。
+
+失败后立即停止后续：模型任务共1，XLSX修订/下载/派生追问/stop均0，不重POST或用新ID猜参数；四组旧请求完全未访问。未做截图/外观任务，只关闭自建session fs_material_csv_c12a_20261101t1815，原用户页不动。最小稳定收据C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-MaterialCSV-c12a-20261101T181118Z/index.json，1033bytes/SHA60bbda1dcfe93121027c5a8383e4093979d42023c140059a084e363551703163，6文件bytes/fullSHA自核（夹具、context、浏览器本新cid审计、mapping、四字段、summary）。结论仅正常创建/上传/单次材料接收成立，真实材料失败且错误类别仍未知；交主控最小诊断缺口，不作阶段1恢复或进入阶段2/3。此为一次纯模块记录，非部署source。
+
+
+## c12a材料守卫诊断：A原publisher单文件候选（2026-11-02）
+
+本包只服务阶段1失败定位，不宣称修复执行。A原clean b17分支正常fetch/merge B固定c46bc32e57eb39df63e9b56f7256ed6c3ac3b66c及实际最新main=c12a273387a7811c71b3fbf1c040c8a7b4d1639a，无冲突，旧记录保留；B transport/test与fixed无diff。A仅本模块deploy/runtime_prepare.py、runtime_release.py、test_runtime_materials.py及本附录四路径，不改冻结base/CI/worker/SDK或其它运行源。
+
+新增互斥--material-guard --followup、descriptor material_guard、manifest materialGuard。唯一基线为已装c12a，backup=/var/backups/fs-navigation-20261006/nav-20261101T180448Z，manifest SHA=b0353c2f42e0704b8f20999b0a8da26755d2ae4f0e1752cd32e54a6c9ce1ea49，journal SHA=2832922e69306c879dfcb9698b2a51997a9fdd0bf5ce50286931d406c6cd2dec。25现存/45保护/NEW0/8已有，完整成功proof、固定Git25before及current CAS/root/mode/fresh/原锁/准入/provider/UNKNOWN/quiescent保持。唯一transport before e682d8659812cf5b3a9cc44f3011a7f3de0a204c830855cbff2a85e1573c3052→after a71849b7e5e8f3c5b55967c21d5383e2ff6afa7c7c5e3c6772dc0c80209ba945；当前bindings严格True通过完整c12a Git基线保留，不恢复旧字节。拒绝0delta、混marker、旧proof、额外目标/缺失重复集合、stopped/假image、过期或before/mode/root漂移。只原DEEP/fence/readiness重载range，其余24不写inode/mtime、worker/Nginx不动；失败原journal回退恢复existing transport、8模块保留，不新建publisher。
+
+TDD先缺模式红断言，再复用原成功/回退综合夹具。实现迭代发现并修正模式条件与夹具guard变量遮蔽，最终原deploy显式test_http/test_release/test_runtime_materials一次29项全过0failure/error/skip；真实临时文件系统覆盖inspect/apply及重载抛错、重载后容器缺失回退、24未写metadata/8模块存在及原strict集合拒绝。服务/锁是合成边界，Windows mode/fsync沿原夹具，不冒现场Linux。合并后的B原test_material_transport16项全过0skip；3个A Python3.9 AST/diff check通过。未重跑Core227/SDK/native/知识，无远端/浏览器/生产或付费调用。
+
+另将已核合成实际SDK首包15144bytes/SHA8a9fabf869d4134b0f80af8db14764e49f77d35558629035213910ccf75ce96f原字节，经本机真实loopback及B原Grants/ScopedTools fixture回放：材料400/source fs_material_transport/diagnostic_version material_guard_v1/code tool_allowlist、turn0/gateway0；普通FC与匿名各原拒绝且不披露source/code。3分支一个测试通过，未删字段/关stream/替换tools迎合；不是完整SDK重新执行或生产有效配置/旧run根因证明。B仅exact私有异常类型标识本地guard，外部同名ValueError仍generic，原拒绝和权限不放宽。
+
+最小稳定收据目录C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-MaterialGuard-Candidate-20261101T183711Z/，index列红绿/最终29与16日志、本地原包回放及精确Git pack metadata/summary的bytes/fullSHA。仅本机可审候选，生产仍已核c12a，历史HTTP400的producer/具体根因/费用unknown，不重读error/result/旧run或新付费猜参数。后续统一Personal最新SHA独审/CI/合并，才可新现场准备；本轮不部署、不新PR/Agent、不开展阶段2/3。
