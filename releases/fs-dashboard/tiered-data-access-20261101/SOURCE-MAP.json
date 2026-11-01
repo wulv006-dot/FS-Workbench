@@ -13,14 +13,14 @@
     },
     {
       "candidate": "releases/fs-dashboard/user-analytics-20261022/source/user_runtime.py",
-      "sha256": "f36c730caf0e6632989be8cf5bc5eeb5f48b740b54af1fbc5a5bf6f846575d69",
+      "sha256": "51c2baa27bdbae722146ae5af99ef184e504a7ad6194f4425af07f1d15b7ab01",
       "runtime_target_hint": "/opt/fs-hermes-fc/user_runtime.py",
       "live_hash": null,
       "live_verified": false
     },
     {
       "candidate": "releases/fs-dashboard/user-analytics-20261022/source/user_store.py",
-      "sha256": "7f107bf2da6f59f06d6dc766d1da73c90d5076b388a16327dc99e820d2d31a45",
+      "sha256": "5d9cd2dce039c1bce1e7454cf855a9024f4c8399da8662375f55217fe511f623",
       "runtime_target_hint": "/opt/fs-hermes-fc/user_store.py",
       "live_hash": null,
       "live_verified": false
@@ -38,6 +38,27 @@
       "runtime_target_hint": null,
       "live_hash": null,
       "live_verified": false
+    },
+    {
+      "candidate": "releases/fs-dashboard/tiered-data-access-20261101/source/daily_facts.py",
+      "runtime_target_hint": null,
+      "live_hash": null,
+      "live_verified": false,
+      "sha256": "599c7389e006b90b40a388976775c098ab530c81c1fdfe2318847bedc355942a"
+    },
+    {
+      "candidate": "releases/fs-dashboard/tiered-data-access-20261101/source/query_contract.py",
+      "runtime_target_hint": null,
+      "live_hash": null,
+      "live_verified": false,
+      "sha256": "3dc0f2e214f79543e23ac87607782f073045c98ccc0e2ded4ccc18ce9ca9f360"
+    },
+    {
+      "candidate": "releases/fs-dashboard/tiered-data-access-20261101/source/query_planner.py",
+      "runtime_target_hint": null,
+      "live_hash": null,
+      "live_verified": false,
+      "sha256": "a888f6fede4b643cdb4c2f21ed005ec4ab32a7fc2ebfd77507eea4ac9cca1491"
     }
   ],
   "coordination_required": [
@@ -50,5 +71,6 @@
     "FC pricing resources/dependencies",
     "L0/UNKNOWN/keys/receipts/Excel",
     "two old backup directories"
-  ]
+  ],
+  "source_state_commit": "934f501caa345969eb80104fcc187dbfd9b40e27"
 }
