@@ -866,7 +866,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 公共代码归属 | 本包精确FC v3 service/HTTP、FC v2 runs、26proxy及原publisher装配由A唯一维护，见RUNTIME-DEPLOYMENT-ACCEPTANCE.md；controller/公共schema/迁移不改，CI/主方案由Personal维护 |
 | 现有FS/Hermes活动版本 | 最新已核收sourceCommit=1b20b91f2e7e023d90a0197053916ba9a59978e6；fresh发布nav-20261101T062133Z，24目标/46保护通过，唯一GoalTasks变化；不是全仓Git main装入生产 |
 | 新能力已验收范围 | 原生SQLite3.7.17七项、1b20软件24/46读回及正常FS原ID完整schema查询通过；新材料任务/模型/视觉整包未验，旧费用与旧404因果unknown，真实A2 scope不可用 |
-| 下一步 | 失败run只读诊断结束，具体根因仍unknown；用户已授权最小诊断增强及原分支commit/push，并在迁移暂停后明确继续。原A仅改worker/对应测试/模块附录，Personal集成后最新SHA独审/必要CI；不部署、重启、读取错误正文或新增模型任务。丢202后原ID恢复证据保留，材料读取/产物/费用仍未验，A2 scope仍unavailable |
+| 下一步 | PR729代码已验收合并35a839b9，用户随后明确允许复测、测试OK后部署。原A先完成以1b20已装proof为基线的原publisher精确worker增量装配及复测，必要最新SHA独审/CI合并后新stage受控部署；通过实际读回再做正常FS专用新合成复测。旧失败请求不重放，费用/根因unknown不倒推，A2 scope仍unavailable；当前尚未生产装入诊断增强 |
 | 已有生产业务 | 沿原系统、原权限、原调度运行；本次整理未改动 |
 | 本次文件交付 | 长期主方案与两个岗位入口原地整合；不等于已派发、编码或上线 |
 | PR702复用线索 | head `666814c9ae0376fe4f372cf9718508345da45ee0`，merge `30423f91c963228b41fe450f0c7993fa408cf12f`；完整独审与生产验收未在本包确认 |

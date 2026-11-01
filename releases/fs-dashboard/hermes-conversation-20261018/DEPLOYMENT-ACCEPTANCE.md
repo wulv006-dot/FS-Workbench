@@ -735,3 +735,20 @@ Linux CI之后仍须按已授权未来发布阶段，在独立目录只用最终
 TDD先运行新增用例观察当前缺诊断：原两个worker测试通过，新用例因无字段/记录失败；随后完成RED→GREEN。追加对抗证明了终态带context重发不能丢快照、未知异常metaclass hash不能覆盖原异常，再最小修正。最终原pr-fast.units入口 `test_conversation_file_loop` 15项（11 adapter/4已有file loop）和原channel消费者 `test_channel` 12项均0failure/error/skip；原store.load_tests已加载整个file_loop模块，不需CI接线或旧Core/native/发布全套。两个改动Python文件按3.9语法核对，diff --check及三路径范围核对通过。没有安装依赖或放宽原外网/Popen围栏。
 
 另在本地固定公开源码中AST提取原 `_execute_run`、`_run_agent_sync`、`terminal_run_status` 真正函数体（保留源码行号、先核完整pin SHA），用原units围栏和依赖夹具执行5项对照：构造异常、agent调用前注入异常、agent返回failed、成功、取消。5项通过，确认阶段/白名单类、实际原finally/checkin/终态清理和同异常传播；回答/推理/secret哨兵不进入诊断。最初夹具缺少SDK事件回调导致5项失败，补齐夹具后通过，未为此改SDK或生产逻辑。这是**函数提取+代理依赖的本地契约证据**，不是实际SDK进程、真实provider或原run失败复现；完整SDK/当前Linux CI/生产装入与付费复测均待后续独立阶段。本轮只交完整三路径候选供Personal集成/独审，不包含发布授权。
+
+
+## 已装1b20的worker诊断窄增量：本地发布装配候选（2026-11-01）
+
+用户明确“允许复测，测试ok后部署”；本轮只完成第一阶段本地装配候选，部署及真实付费复测等Personal对最终合并SHA另行交接。原A worktree/origin/分支复核干净，fetch确认main仍为指定 `35a839b9efb7e85a5fd20b59a39d670245cd7808` 后正常ff；不合主控后续记录、不碰Personal未提交导航。只改本模块deploy/runtime_prepare.py、runtime_release.py、test_runtime_materials.py及本附录。worker本身复用PR729已审blob，不改SDK/HTTP/B/Core/UI/controller/proxy/IAM/预算或原冻结publisher。
+
+新增显式 `--worker-diagnostics --followup`，descriptor字段worker_diagnostics、manifest字段workerDiagnostics。唯一合法installed baseline为 `1b20b91f2e7e023d90a0197053916ba9a59978e6`，backup=`/var/backups/fs-navigation-20261006/nav-20261101T062133Z`，manifest SHA=`16615694e66cda7dcfffa4ba55381d21071b51cf45b3597be303f5ba2af4f235`，journal SHA=`912511fd8fc877d9155ca6fec30ec8bdf9ff5bd94b94d6443d4f764e529c2446`。同原installed_baseline逐项核成功journal、其manifest和固定Git LF beforeSHA，24现存/46保护/NEW空/8已装模块保留；不拿随读当前SHA充当合法基线。actual changed target必须精确只有 `/opt/fs-hermes-fc/hermes_worker.py`，零delta或附带HTTP/UI/其它目标均拒绝，不能套用旧GoalTasks/diagnostics模式。
+
+本地逐一比较1b20与35a839b9的23个Git源载荷：仅worker从SHA `1016736b159f0612c1a8559ddb148faa0e028717b8d058fac4d9c32028cb6076` 变为已审SHA `78b586984234a11418c7151ec494d8e83fa7b9659d607c201c0435ab2ac0e100`，另22个源原字节相同；第24项Nginx保持成功proof的SHA `b792f18b8d1b322139f8be96bb5052ff53a79e82dac7a607cbe102e199b06302`、0600/root，不重套body-limit补丁。此为本地Git比较，不冒本轮现场已重新核收。
+
+prepare/inspect/apply仍沿原fresh<=1h、完整before/mode/root、installed proof、protected、锁/准入/provider/UNKNOWN/quiescent/DB/journal/backup约束。该模式只接受runtimeBefore三服务active、workerImageSource=container；prepare禁stopped fallback，inspect及每次guard、重启成功后均核实际容器image与active。失败/inactive/镜像或来源漂移/容器缺失均拒绝，不用本机镜像存在替代运行证据。只在原writer实际写worker；另外23目标仍CAS并备份，原atomic适配保留其inode/mtime，原失败回退恢复worker并保留全部8个已有模块。
+
+重启仅调用原HERMES_WORKER_SCOPE及原readiness/capabilities健康合同，同一admission fence和数据库锁保持；原worker启动代码不构造FS TaskStore，未修改host模块，因此本模式不调用stop_then_unlock_database或DEEP，不重载range。Nginx不测试改写、不reload。原冻结writer/locks/fence/provider/rollback字节不变；若真实启动/回退失败仍原异常传播、原journal保留，不作恢复态成功或吞错。正式发布时仍需最终Git LF pack、新stage/fresh现场prepare/manifest、inspect和单次apply，不可用本地候选或旧stage。
+
+TDD先确认缺worker followup红断言，再最小实现；补充零delta拒绝也先红后绿。最终原 `python -B -c "from tools.pr_fast import units; units('releases/fs-dashboard/hermes-conversation-20261018/deploy',['test_http','test_release','test_runtime_materials'])"` 25项0failure/error/skip。新综合用例真实临时文件系统+原validate/inspect/apply/rollback，固定Git/proof fixture，覆盖成功、worker restart异常、restart返回但真实容器读回缺失的失败回退，另23目标inode/mtime保持、24/46集合及8模块不删。负向包含旧proof/Git/journal/protected/before漂移、额外HTTP/零delta、过期基线、混用marker、失败/缺失/不同image或来源的容器。systemctl/docker/原锁边界为合成夹具、Windows目录fsync与mode沿既有测试适配；不是Linux真实锁/服务/SDK/生产验证。原runner外网/Popen围栏未放宽，3个改动Python文件3.9语法及diff --check通过，无需CI驱动新增入口。
+
+本阶段0SSH/生产读取/浏览器/材料POST/result/模型/部署；不重复旧Core/knowledge/native或已验worker输入。生产仍仅历史已核1b20，两个封存请求不访问、不重发；旧record没有诊断继续unknown，旧404与费用及run_2fa6490e5755454892c6f897bb0222f5根因不由新候选倒推。当前仅交完整四路径fixed候选供Personal统一PR/最新SHA独审/必要LinuxCI；原生零模型检查、实际发布/正常FS新意图付费复测及视觉均留第二阶段，未宣称完成。
