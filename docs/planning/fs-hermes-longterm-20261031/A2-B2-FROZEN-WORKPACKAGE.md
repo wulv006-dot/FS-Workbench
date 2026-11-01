@@ -338,3 +338,13 @@ A完整固定7363eb9b47994763f3a9272edd4b1dca721aa398已普通merge，八条A路
 Personal在集成树沿原runner实际执行goal_tasks26+诊断9共35，另用仅相关模块Git archive LF副本执行deploy三个显式模块共24；两组均一次零failure/error/skip、exit0，未改runner限制。diff check、A八路径与固定候选一致。代理旧三列测试仍运行于本机现代SQLite，不冒原生3.7.17通过；最终合并后独立stage原生无网络合成检查保留。旧Core/SDK/视觉/knowledge相同输入不重跑。
 
 发布采用单独--goal-task-index-compat/goalTaskIndexCompat模式，diagnostics_mode=false，钉当前真实f79已安装proof；24现存/46保护/NEW空，唯一允许变化runtime/conversation_goal_tasks.py，其他23仅CAS备份不写，原apply/rollback保留八模块。仍严格active/真实container，原锁/准入/provider/UNKNOWN/备份/回退与DEEP/readiness仅range重载，worker/Nginx不动。仅完成候选和本机检查，生产f79未变。下一步唯一Personal后续PR，Business Sol High独立worktree对最新完整head/base审十路径（A八加主控两记录）并核LinuxCI，满足授权条件后才合并交A；原材料POST/R2/R3继续禁止，费用unknown，旧404不追认。
+
+#### PR725代码验收合并及原生旧SQLite交接
+
+Business独立worktree t3-886ea8b1对head ae1aeaa94c35d9d46fe2d11ae55d3a24d43179cd/base f79e29f0d5921b103a218c5e6ed967a754858b9c起止核版本/clean/origin一致，十路径无可复现的实质问题，A八路径与fixed7363eb9b逐blob一致；独立原runner35及LF deploy24均零失败零skip，六个Python文件3.9语法/diff通过。执行设置codex-business/gpt-6.1-sol High，不冒原生SQLite3.7.17或生产验收；旧知识收尾错误保留。
+
+PR725首轮CI41268857407成功，独审返回后转正式触发新required CI41269137128。Personal等待新轮job124738089561完成success后核实际日志：完整head/base准确，Ubuntu22.04/Python3.9.18，store110含Goal26/Diag9/新增6、deploy24全部零失败零skip。机器人另一次自动审查未完成且无具体代码意见，不重复触发/不冒通过。版本无变化、无冲突、用户既有授权条件满足后正常merge，提交1b20b91f2e7e023d90a0197053916ba9a59978e6；本机fetch/ff、merge树对reviewed head diff空、clean，已停止PR监听，没有绕保护。
+
+已交唯一A最终merge SHA，先最终Git LF独立私有stage镜像最小测试/source/pilot，以已核/opt/python39/bin/python3.9及原生SQLite3.7.17做隔离synthetic temp DB/禁网验证，模块来源全在stage，不导入活动生产源码、不触生产两库、不安装或升级SQLite；必须包含不改PRAGMA结果的原生constructor/幂等查回/撤权与真实HTTP空原ID查询，不能仅代理三列。原生失败即停止apply、回完整必要候选，不现场改代码。
+
+原生通过后同最终SHA新pack --goal-task-index-compat/--followup、新fresh baseline/stage/manifest/backup，钉f79成功proof/24现存/46保护/唯一目标变更，原publisher锁/CAS/围栏下仅range重载；读回全部after/mode/root、23未变inode/mtime及worker/Nginx/container边界。软件成功后仍仅一次正常FS原ID状态GET，明确接受已审私有表初始化；若完整schema且执行意图确无row才记当前权威查无，失败保留ID不重GET。0材料POST/0模型/无R2R3保持，实际回执独立核收后再决定有据恢复提交。当前仅代码已合并，最后有效生产仍f79，原请求执行/费用/停止/视觉及阶段整体未验。
