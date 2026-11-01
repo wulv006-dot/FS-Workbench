@@ -152,6 +152,8 @@ class PublishedQueries(WeeklyFixture):
 class Worker(WeeklyFixture):
     def setUp(self):
         super().setUp(); self.synced = []
+        self.manual_backup = jobs.backup
+        self.automatic_copy = self.stack.enter_context(patch.object(jobs, 'backup', side_effect=AssertionError('automatic full backup is retired')))
         def sync(store, site, start, end):
             self.synced.append((site, start, end))
             store.replace_window(site, start, end, [], MONDAY.isoformat())
@@ -168,13 +170,15 @@ class Worker(WeeklyFixture):
         value = weekly.wake(self.store.root, loader, FRIDAY)
         self.assertEqual(value['reason'], 'weekly_idle'); loader.assert_not_called(); self.sync.assert_not_called()
 
-    def test_success_enumerates_all_seven_days_and_one_backup_then_reuses(self):
+    def test_success_enumerates_all_seven_days_without_automatic_backup_then_reuses(self):
         value = self.wake(); self.assertEqual(value['status'], 'complete')
         week = [(a, b) for _, a, b in self.synced if a >= OLD.isoformat()]
         self.assertEqual(len(week), 7); self.assertEqual(week[0][0], OLD.isoformat()); self.assertEqual(week[-1][1], '2026-11-02T00:00:00+08:00')
         self.targeted.assert_called_once(); self.ensure.assert_called_once()
         folder = self.store.root/'backups/2026-11-02'
-        self.assertTrue((folder/'manifest.json').is_file())
+        self.assertFalse(folder.exists())
+        self.assertFalse(value['automatic_backup'])
+        self.assertEqual(weekly.small_state(self.store.root)['backup_policy'], 'on_demand_only')
         count = self.sync.call_count
         with patch.object(jobs, 'backup', side_effect=AssertionError('duplicate backup')):
             self.assertEqual(self.wake(stamp('2026-11-02T04:33:00+08:00'))['status'], 'reused')
@@ -206,91 +210,71 @@ class Worker(WeeklyFixture):
         self.assertEqual(weekly.stored_publication(self.store), self.publication)
         self.assertFalse(weekly.small_state(self.store.root)['retryable'])
 
-    def test_backup_failure_retries_same_cycle_on_another_day_without_recollection(self):
-        actual = jobs.backup
-        with patch.object(jobs, 'backup', side_effect=OSError('fixture unavailable')):
-            self.assertEqual(self.wake()['status'], 'deferred')
-        self.assertEqual(weekly.stored_publication(self.store)['cutoff'], '2026-11-02T00:00:00+08:00')
-        count = self.sync.call_count
-        with patch.object(jobs, 'backup', wraps=actual) as backup:
-            self.assertEqual(self.wake(stamp('2026-11-03T04:18:00+08:00'))['status'], 'complete')
-            self.assertEqual(backup.call_args.kwargs['day'], '2026-11-03')
-        self.assertEqual(self.sync.call_count, count)
-        self.assertFalse((self.store.root/'backups/2026-11-02').exists())
-        self.assertTrue((self.store.root/'backups/2026-11-03/manifest.json').is_file())
-        from user_backup_retention import verify_existing
-        self.assertEqual(verify_existing(self.store, '2026-11-03')['recovery']['status'], 'passed')
 
-    def test_complete_backup_with_lost_ack_is_reused_across_day(self):
-        actual = jobs.backup
-        def interrupted(*args, **kwargs):
-            actual(*args, **kwargs)
-            raise OSError('fixture lost acknowledgement')
-        with patch.object(jobs, 'backup', side_effect=interrupted):
-            self.assertEqual(self.wake()['status'], 'deferred')
-        with patch.object(self.store, 'backup', side_effect=AssertionError('must not copy a second time')):
-            self.assertEqual(self.wake(stamp('2026-11-03T04:18:00+08:00'))['status'], 'complete')
-        self.assertFalse((self.store.root/'backups/2026-11-03').exists())
 
-    def test_lost_work_file_reconciles_existing_weekly_backup_before_any_copy(self):
-        self.wake(); (self.store.root/weekly.WORK).unlink()
-        with patch.object(self.store, 'backup', side_effect=AssertionError('must not duplicate after lost work file')), \
-                patch.object(jobs, 'synchronize_day', side_effect=AssertionError('must not recollect')):
-            self.assertEqual(self.wake(stamp('2026-11-03T04:18:00+08:00'))['status'], 'complete')
-        self.assertEqual(sorted(p.name for p in (self.store.root/'backups').iterdir()), ['2026-11-02'])
 
-    def test_delayed_old_week_backup_occupies_monday_and_new_week_resumes_tuesday(self):
-        with patch.object(jobs, 'backup', side_effect=OSError('fixture unavailable')):
-            self.assertEqual(self.wake()['status'], 'deferred')
-        monday = stamp('2026-11-09T04:18:00+08:00')
-        self.assertEqual(self.wake(monday)['status'], 'complete')
-        old_folder = self.store.root/'backups/2026-11-09'
-        before = jobs.backup_signature(old_folder)
-        pending = self.wake(stamp('2026-11-09T04:33:00+08:00'))
-        self.assertEqual(pending['status'], 'deferred')
-        self.assertEqual(pending['reason'], 'weekly_backup_date_busy')
-        self.assertTrue(weekly.small_state(self.store.root)['retryable'])
-        calls = self.sync.call_count
-        with patch.object(self.store, 'backup', side_effect=AssertionError('must not overwrite older cycle')):
-            self.assertEqual(self.wake(stamp('2026-11-09T04:48:00+08:00'))['status'], 'deferred')
-        self.assertEqual(self.wake(stamp('2026-11-10T04:18:00+08:00'))['status'], 'complete')
-        self.assertEqual(self.sync.call_count, calls)
-        self.assertEqual(jobs.backup_signature(old_folder), before)
-        new_folder = self.store.root/'backups/2026-11-10'
-        old = json.loads((old_folder/'manifest.json').read_text())
-        new = json.loads((new_folder/'manifest.json').read_text())
-        self.assertEqual(old['weekly_cutoff'], MONDAY.replace(hour=0, minute=0).isoformat())
-        self.assertEqual(new['weekly_cutoff'], monday.replace(hour=0, minute=0).isoformat())
-        self.assertEqual(sorted(p.name for p in old_folder.parent.iterdir()), ['2026-11-09', '2026-11-10'])
-        from user_backup_retention import verify_existing
-        self.assertEqual(verify_existing(self.store, '2026-11-10')['recovery']['status'], 'passed')
 
-    def test_changed_other_week_backup_is_unknown_and_never_skipped(self):
-        with patch.object(jobs, 'backup', side_effect=OSError('fixture unavailable')):self.wake()
-        self.wake(stamp('2026-11-09T04:18:00+08:00'))
-        path = self.store.root/'backups/2026-11-09/config.json'
-        path.write_text(path.read_text()+' ')
-        value = self.wake(stamp('2026-11-09T04:33:00+08:00'))
-        self.assertEqual(value['status'], 'requires_reconciliation')
-        self.assertEqual(value['reason'], 'weekly_backup_unknown_directory')
-        self.assertFalse(weekly.small_state(self.store.root)['retryable'])
-        self.assertFalse((self.store.root/'backups/2026-11-10').exists())
 
-    def test_unknown_partial_backup_never_gets_overwritten_or_duplicated(self):
+
+
+    def test_failed_legacy_backup_no_longer_blocks_published_week(self):
+        state = dict(contract='fs-users-weekly-work-v1', cutoff=OLD.isoformat(), phase='backup',
+                     error='weekly_backup_cycle_requires_reconciliation', retryable=False)
+        weekly.record_state(self.store, state)
+        value = self.wake(FRIDAY)
+        self.assertEqual(value['status'], 'complete')
+        self.assertEqual(value['source_calls'], 0)
+        current = weekly.small_state(self.store.root)
+        self.assertEqual(current['retired_backup_error'], state['error'])
+        self.assertNotIn('retryable', current)
+        self.sync.assert_not_called(); self.automatic_copy.assert_not_called()
+
+    def test_legacy_partial_files_are_preserved_and_do_not_block_new_week(self):
         folder = self.store.root/'backups/2026-11-02'; folder.mkdir(parents=True, mode=0o700)
-        original = b'fixture unknown partial'; (folder/'customers.sqlite3').write_bytes(original)
-        self.assertEqual(self.wake()['status'], 'requires_reconciliation')
-        self.assertEqual((folder/'customers.sqlite3').read_bytes(), original)
+        data = b'unknown fixture evidence'; (folder/'customers.sqlite3').write_bytes(data)
+        self.assertEqual(self.wake()['status'], 'complete')
+        self.assertEqual((folder/'customers.sqlite3').read_bytes(), data)
         self.assertEqual(sorted(p.name for p in folder.iterdir()), ['customers.sqlite3'])
-        self.ensure.assert_called_once(); self.targeted.assert_called_once()
-        self.wake(stamp('2026-11-03T04:18:00+08:00'))
-        self.assertFalse((self.store.root/'backups/2026-11-03').exists())
+        self.automatic_copy.assert_not_called()
 
-    def test_existing_older_backup_cannot_masquerade_as_current_week(self):
-        with patch.object(jobs, 'backup', return_value=dict(data_version='0')):
-            value = self.wake()
+    def test_missing_work_after_committed_publication_never_duplicates_backup(self):
+        self.wake(); (self.store.root/weekly.WORK).unlink()
+        self.sync.reset_mock()
+        self.assertEqual(self.wake(FRIDAY.replace(day=3, month=11))['status'], 'complete')
+        self.sync.assert_not_called(); self.automatic_copy.assert_not_called()
+        self.assertFalse((self.store.root/'backups').exists())
+
+    def test_mismatched_legacy_backup_checkpoint_is_not_marked_complete(self):
+        state = dict(contract='fs-users-weekly-work-v1', cutoff='2026-11-02T00:00:00+08:00', phase='backup', retryable=False)
+        weekly.record_state(self.store, state)
+        value = self.wake(FRIDAY)
         self.assertEqual(value['status'], 'requires_reconciliation')
-        self.assertEqual(value['reason'], 'weekly_backup_version_requires_reconciliation')
+        self.assertEqual(value['reason'], 'weekly_publication_checkpoint_mismatch')
+        self.assertEqual(weekly.small_state(self.store.root), state)
+        self.sync.assert_not_called(); self.automatic_copy.assert_not_called()
+
+    def test_completed_old_week_does_not_reserve_current_backup_date(self):
+        self.wake()
+        self.assertEqual(self.wake(stamp('2026-11-09T04:18:00+08:00'))['status'], 'complete')
+        self.assertEqual(weekly.stored_publication(self.store)['cutoff'], '2026-11-09T00:00:00+08:00')
+        self.assertFalse((self.store.root/'backups').exists())
+        self.automatic_copy.assert_not_called()
+
+    def test_manual_consistent_backup_is_still_an_explicit_operation(self):
+        receipt = self.manual_backup(self.store, MONDAY)
+        self.assertEqual(receipt['recovery']['status'], 'passed')
+        self.assertTrue((self.store.root/'backups/2026-11-02/manifest.json').is_file())
+        self.assertEqual(self.wake()['status'], 'complete')
+        self.assertEqual(sorted(p.name for p in (self.store.root/'backups').iterdir()), ['2026-11-02'])
+        self.automatic_copy.assert_not_called()
+
+    def test_legacy_backup_is_retired_outside_collection_window(self):
+        weekly.record_state(self.store, dict(contract='fs-users-weekly-work-v1', cutoff=OLD.isoformat(), phase='backup'))
+        value = self.wake(stamp('2026-11-01T20:30:00+08:00'))
+        self.assertEqual(value['status'], 'complete')
+        self.assertEqual(value['source_calls'], 0)
+        self.sync.assert_not_called(); self.targeted.assert_not_called(); self.ensure.assert_not_called()
+        self.automatic_copy.assert_not_called()
 
     def test_cross_week_resume_finishes_original_cycle_before_new_one(self):
         self.sync.side_effect = TimeoutError('fixture network timeout')
@@ -323,7 +307,7 @@ class Worker(WeeklyFixture):
         self.assertEqual(self.wake(stamp('2026-11-02T04:33:00+08:00'))['status'], 'complete')
         self.assertEqual(self.synced.count(first), 1)
 
-    def test_publication_commit_without_checkpoint_resumes_backup_only(self):
+    def test_publication_commit_without_checkpoint_completes_without_recollection_or_copy(self):
         self.wake()
         state = weekly.small_state(self.store.root); state['phase']='publish'; weekly.record_state(self.store,state)
         with patch.object(jobs,'synchronize_day',side_effect=AssertionError('recollection after committed publication')):
