@@ -36,5 +36,6 @@ def plan(request,capability,dataset,budgets):
     else:
         raise PolicyError('source_kind_not_supported')
     slices=[dict(source=dataset['source'],site_id=query['site_id'],game_id=query['game_id'],start=lo.isoformat(),end_exclusive=hi.isoformat(),fields=query['fields'],filters=query['filters'],date_semantics=dataset['date_semantics']) for lo,hi in windows]
-    return dict(status='queued' if len(slices)>budget['interactive_slices'] else 'planned',query=query,source=dataset['source'],slices=slices,network_allowed=True,budget=dict(budget),
+    field_contracts={field:dict(dataset.get('field_contracts',{}).get(field,dict(required=True,nullable=False))) for field in query['fields']}
+    return dict(status='queued' if len(slices)>budget['interactive_slices'] else 'planned',query=query,source=dataset['source'],slices=slices,network_allowed=True,budget=dict(budget),field_contracts=field_contracts,
                 estimated_requests=None,minimum_requests=len(slices),complete=False,watermark_required=dataset['kind']=='detail')

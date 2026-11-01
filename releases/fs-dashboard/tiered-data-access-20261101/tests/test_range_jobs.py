@@ -100,4 +100,17 @@ class Jobs(unittest.TestCase):
         self.grants['b']['scope_hash']='other-trusted-scope'
         other=self.submit('b');self.assertNotEqual(self.key(other),self.key(next_handle))
 
+    def test_missing_required_field_never_completes_or_caches_and_nullable_is_explicit(self):
+        handle=self.submit();self.engine.step(self.key(handle),lambda r:self.reply([dict(order_id='o1')]))
+        self.assertEqual(self.engine.status('a',handle)['status'],'failed');self.assertFalse(self.cache)
+        self.plan['field_contracts']['amount']=dict(required=True,nullable=True,type='string')
+        handle=self.submit();self.engine.step(self.key(handle),lambda r:self.reply([dict(order_id='o1',amount=None)]))
+        self.assertTrue(self.engine.status('a',handle)['complete'])
+
+    def test_cursor_zero_false_empty_and_objects_are_not_first_page(self):
+        handle=self.submit();self.engine.step(self.key(handle),lambda r:self.reply())
+        for cursor in (0,False,'',[],{}):
+            with self.subTest(cursor=cursor),self.assertRaisesRegex(PolicyError,'invalid_cursor'):
+                self.engine.page('a',handle,cursor=cursor)
+
 if __name__=='__main__':unittest.main()
