@@ -671,3 +671,39 @@ python runtime_prepare.py prepare --followup --payload <new-bundle>/payload --so
 Linux CI之后仍须按已授权未来发布阶段，在独立目录只用最终Git LF文件/同已核exe运行隔离temp DB测试，不import活动生产模块、不触真实库、不联网、不装/升级SQLite。最小正向旧引擎用例为 `test_conversation_goal_tasks.GoalTaskTests.test_legacy_auto_constraints_keep_original_id_fingerprint_and_revocation`；原TaskStore来自同Git的 `hermes-fc-pilot-20261013/pilot.py`，临时目录镜像其原路径和A source/tests。要复验HTTP旧/新对照，再包含最终Git的conversation_material_runs.py、两HTTP及test_conversation_runtime_diagnostics.py，运行该模块的 `test_real_http_old_index_loop_fails_then_legacy_proof_initializes_empty_original_lookup`。只选这些可在旧引擎运行的用例，不把现代partial索引对抗DDL强行放到不支持partial的引擎、不skip冒绿。所有源码仅来自最终Git，不读/导出服务器活动源。隔离测试用 -I -B、只显式加入该独立目录中的测试/source/pilot路径，先核相关模块 __file__ 均落在该目录，禁止把 /opt 活动源码加入 sys.path；socket调用在测试中拒绝，不为此放宽原runner。
 
 本地真实temp索引/HTTP35项、原deploy三模块24项已通过0failure/error/skip；Windows临时mode仍只沿原夹具边界归一化，实际旧SQLite及Linux权限未冒通过。当前生产继续f79、原POST禁令不变；本包未SSH/生产API/浏览器/模型/部署，也未重跑无关Core/SDK/视觉/旧知识套件。新head必须Personal一个集成PR/最新SHA独审/必要CI/合并，再新最终Git LF pack/隔离旧引擎验证/prepare/apply。发布后仍先只一次原ID GET核完整初始化及原ID查回，之后交主控决定恢复提交，不擅启R2/R3或以新ID绕UNKNOWN。
+
+
+## PR725 最终1b20原生通过、单次发布锁拒绝（2026-11-01）
+
+原A worktree clean后正常ff最终 `1b20b91f2e7e023d90a0197053916ba9a59978e6`，未用主控后续记录作source。新私有隔离stage=`/var/tmp/fs-native-task-index-1b20b91f-20261101T033100Z`，9个最小source/test/pilot文件均为该SHA原始Git LF，逐文件hash前后保持；应用源未改写。执行harness单独记录、非Git应用源码，其SHA=`69dc2f858fc9011d8f1e6f5c9d2853060ccc9a925ead4f6880474d62ee9309dd`，225280-byte隔离tar SHA=`d555409a98c071b1711d741fcf13b89df5b059ced78df4164c208673b084b64b`。用已核range实际exe `/opt/python39/bin/python3.9`、-I -B，03:33:34.559757Z实际Python3.9.18/SQLite3.7.17原生7项通过0failure/error/skip：6项原账本constructor/原ID/full fingerprint/重连/strict True/IO后撤权/admission，以及1项覆盖通用和FC3两HTTP处理函数的完整空schema→原ID404 lookup测试。HTTP IO为内存handler夹具，不是真实socket/API请求。
+
+原生阶段不改PRAGMA返回、不进入Row代理；Connection路径守卫返回真实SQLite Connection/Cursor/Row，只允许隔离目录内合成临时DB/内存。88次连接均受此守卫约束，相关模块__file__全在独立stage，网络/额外子进程尝试均0，没有活动生产源码import或原生产DB访问；临时DB完整清理。两个真实HTTP适配器均见原生seq/name/unique三列，修复constructor完整初始化私有表、identity1元数据、tasks/outbox/selection/run/goal/mutation意图均0，原ID确无row后正常404/lookup。这不是用现代Row代理冒旧SQLite，也不是正常FS角色验收。
+
+原生通过后才新Git LF pack：payload descriptor SHA=`b46b941b065a120a361c21412432f09fa374944ad044056122551896ec44c453`，614400-byte发布tar SHA=`539b9326ec5da5b4c967a278d5fc1acfcbc1ec4d8be2ebc3243def13200898e6`；显式goal-task-index-compat/followup，新stage=`/var/tmp/fs-goal-index-1b20b91f-20261101T033400Z/stage`。baselineObservedAt=`2026-11-01T03:34:30.838092+00:00`，manifest SHA=`c149b7173db4a496332b2dafce02ae198b84e2c5e0b23f32f6f5d004ad5655d3`，严格绑定f79成功proof；24现存/46保护/NEW空、active/真实container检查通过，变化仅runtime/conversation_goal_tasks.py。原inspect sourceCAS/protectedCAS/releaseReady通过，无活动写。
+
+唯一apply ID=`nav-20261101T033600Z` 返回exit1/BlockingIOError。过滤回执仅保留异常类及stderr长度1219 bytes，未保留具体errno/栈定位；不为补错误栈重跑apply，也不把同期collector锁观察冒充精确异常栈。03:36:43.930342Z限定只读对账：拟backup=`/var/backups/fs-navigation-20261006/nav-20261101T033600Z`和journal均不存在；24目标仍匹配全部before SHA/root/mode且inode/mtime全未变，46保护SHA/mode/owner未变，range18220/worker1434/nginx31780及container/image/StartedAt与before完整一致。同期collector.lock持锁python3 PID15925，oneshot unit MainPID同15925、activating/start、开始11:32:54CST。没有抢锁/stop/restart/kill/timer或配置权限变更。
+
+据原publisher全部锁先于backup/journal/目标写的结构和此次读回，本次分类为**发布锁拒绝、尚无活动目标写入**，不是1b20安装后失败。准确生产仍为 `f79e29f0d5921b103a218c5e6ed967a754858b9c`；1b20只在独立合成环境证明原生兼容。严格按本阶段“失败即停”：没有第二apply/inspect，没有BrowserAct会话、真实材料GET/result/POST/模型/R2/R3，也没有原ID状态清理或手写SQL促通。原request=`material_da2c98dcd8d3464fb4db5f065f0ea110`、旧posts=1/discarded=false/费用unknown/旧404根因unknown保持。
+
+稳定共享目录=`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Native-1b20b91f-BlockedPublish-20261101T033600Z/`，receipt-index SHA=`4151b80cb2211cfafb80fa1ebfd4187c37923bd36f7daa01b88f7d120ac4ad31`。index列5份证据的bytes/fullSHA：原生结果、9源Git SHA表、发布before、过滤失败回执、失败后完整approved manifest+24/46及锁/服务元信息；无源码/配置/凭据/DB正文导出。收据已主动回送主控；本附录为记录性提交，不重pack/部署/旧测试。后续是否可在锁自然释放且原ID/新鲜度/CAS仍可核时有据续发，由主控明确；A当前停止，不盲重apply或先做材料GET，不声称真实功能恢复。
+
+
+### 同发布ID有据续发授权后的等待回执（03:40:22Z）
+
+主控已独立核收上述native7/5文件及0目标写入证据，明确仅对本次原ID/原manifest写前拒绝给有据续发条件。A先按约只读一次collector自然状态：`2026-11-01T03:40:22.829070+00:00`，collector.lock仍由python3 PID15925持WRITE锁，unit Type=oneshot/MainPID15925/activating/start、开始11:32:54CST。故本次停在等待，续试apply=0，材料GET/POST/model=0；未继续其它现场探针、复核DB、重跑native/Core/SDK、轮询或新增定时，也未stop/kill/改timer/抢锁。backup/journal此步未重核，只保留03:36:43Z已核不存在的历史时点，不冒当前完整fresh/CAS条件已重新通过。
+
+当前1b20仍未安装，生产版本最近已核为f79。原ID `nav-20261101T033600Z`、manifest `c149b7173db4a496332b2dafce02ae198b84e2c5e0b23f32f6f5d004ad5655d3`和旧锁忙收据均保留；后续在自然释放并获继续唤醒后才按授权重核fresh/CAS/receipt/quiescent，当前不盲重发。新等待收据目录 `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-1b20b91f-CollectorWait-20261101T034022Z/`，含collector-check及独立receipt-index，不覆盖已独立核收的上一份index。该追加只作记录，不触发布，不宣称材料原ID查询或功能验收通过。
+
+## PR725 最终1b20成功发布与完整schema原ID查询收口（2026-11-01）
+
+本节更新上述历史等待状态，不改写旧失败回执。06:18:39Z单次只读观察collector无持锁者、inactive/dead；原 `nav-20261101T033600Z` backup/journal仍不存在，24 before及46保护匹配。Nginx目标SHA/大小/0600/root未变，但inode/mtime已变，旧03:34基线亦已超过一小时，因此没有复用旧manifest直接apply，也没有推断旧具体失败栈或元数据变化原因。
+
+生产已发布sourceCommit为 **`1b20b91f2e7e023d90a0197053916ba9a59978e6`**，不是A记录head、Personal导航或其它模块main。复用已核native7与固定payload SHA=`b46b941b065a120a361c21412432f09fa374944ad044056122551896ec44c453`；新stage=`/var/tmp/fs-goal-index-1b20b91f-fresh-20261101T062133Z/stage`，fresh baseline=`2026-11-01T06:21:48.558756+00:00`，manifest SHA=`16615694e66cda7dcfffa4ba55381d21071b51cf45b3597be303f5ba2af4f235`。goal-task-index-compat/followup模式仍精确绑定上述f79成功proof，24现存/46保护/NEW空/8模块保留；Nginx当前inode/mtime纳入新基线但不改写它。原inspect/CAS/锁/准入/provider围栏通过后，仅一次新ID apply成功：release=`nav-20261101T062133Z`，backup=`/var/backups/fs-navigation-20261006/nav-20261101T062133Z`，journal SHA=`912511fd8fc877d9155ca6fec30ec8bdf9ff5bd94b94d6443d4f764e529c2446`，原journal状态保留 `applied-awaiting-actual-http-role-acceptance`。旧ID无backup/journal，不改旧stage或时间戳。
+
+06:23:32Z实际读回24 afterSHA/root/mode与46保护SHA/mode/owner全部匹配。唯一字节变化为 `/opt/fs-hermes-fc/conversation_goal_tasks.py`，afterSHA=`8160a92c01e09a621cacad8112599f74b33c1fb1a82fb4db3c87e2cbfac40152`；另23目标相对fresh before的inode/mtime全部保持，包括Nginx。仅range沿原fence+DEEP/readiness重载，PID18220→14050、health200/ok=true；worker PID1434、Nginx PID31780不变，三服务active。实际container=`9c0225c7ea03f676c10ff9f1b2181fa0c5dda8f472f6e6834ea616ba015b5db7`、image=`sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544`、Running=true、StartedAt=`2026-11-01T01:42:47.848543281Z`前后保持；没有worker restart或Nginx reload。
+
+正常FS身份、自建BrowserAct安全页于06:25:06.195–06:25:06.481Z只执行一次 GET `/api/hermes/conversations/fa7ea40c42bc4833bdff3788f1d733f9/materials/material_da2c98dcd8d3464fb4db5f065f0ea110`，无query，响应404/error=not_found/source=material_http/stage=lookup，适配器 `materials_runtime_diagnostics_v1`；网络捕获恰1GET。此GET已明确接受构造初始化私有表的副作用，不称纯只读。前后仅原两库mode=ro必要元信息：6个private表由缺失变完整，identity元数据1；outbox/selection/material_runs全表及原request计数0，goal/mutation仅原合成cid计数0，turn0，原tasks346→346。DB大小/mtime有预期DDL变化，不误记DB完全不变。自建session已关闭，用户原页未动，没有提取或转移Cookie/Profile、伪造认证头。
+
+稳定收据目录=`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-1b20b91f-FreshPublish-20261101T062133Z/`；`index.json` SHA=`eeeea9ba5d2689a6e9e9881299c320b377bc45278216eb96b7d2c3fba79297c2`，列12文件bytes/fullSHA，`summary.json` SHA=`5f9073077bd2dc1163f06aa2da8765a72b771b806f58fdf3207a9e7b4d1c7b00`。Personal已逐项独立核收，并用固定1b20 Git原字节复核GoalTasks SHA，认可范围仅为**固定1b20软件发布通过、完整private schema初始化后的原ID状态查询语义通过**。当前权威账本查无原ID持久执行意图，不证明任意官方run不存在，不把queued或404当执行完成。
+
+原cid/request/payload继续保留，历史POST posts=1/discarded=false、旧费用unknown、旧POST404因果unknown。该发布及查询阶段0材料POST/0模型/0result/无R2/R3，未重复native/Core/SDK/视觉测试；材料POST禁令未解除，不因outbox查无自动恢复提交，也不再材料GET/result或现场探针。当前没有本材料短任务的真实task/lease/run、accepted-context、模型回答/用量、产物或视觉执行验收；不宣称材料整包、Hermes或阶段1/2整体完成。锁恢复和软件发布任务已收口，本条仅复用既有收据追加模块记录，不重部署、不改变权限、业务数据或主方案。
