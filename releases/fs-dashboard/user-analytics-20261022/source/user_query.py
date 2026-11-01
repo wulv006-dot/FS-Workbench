@@ -5,6 +5,7 @@ from copy import deepcopy
 from threading import RLock, Timer
 from time import monotonic
 import json
+import hashlib
 import re
 
 from user_contract import TZ, aggregate_only, checked_query, stamp, digest, METRIC_DEFINITIONS, OBSERVATION_POLICIES
@@ -12,7 +13,7 @@ from user_lifecycle import analyze, project_analysis, in_scope, covered
 
 
 class Service:
-    def __init__(self, store, authorizer, clock=None, customer_type_reader=None, weekly_publication=None, permission_epoch=None, export_sink=None):
+    def __init__(self, store, authorizer, clock=None, customer_type_reader=None, weekly_publication=None, permission_epoch=None, export_sink=None, export_verifier=None, export_publisher=None):
         if not callable(authorizer):
             raise ValueError('existing_authorizer_required')
         self.store, self.authorizer = store, authorizer
@@ -20,6 +21,7 @@ class Service:
         self.customer_type_reader = customer_type_reader
         self.weekly_publication = weekly_publication
         self.permission_epoch,self.export_sink = permission_epoch,export_sink
+        self.export_verifier,self.export_publisher = export_verifier,export_publisher
         self.cache = OrderedDict()
         self.cache_lock = RLock()
         self.private_lock = RLock()
@@ -341,12 +343,32 @@ class Service:
         if self.store.config.get('member_keyset_index') is True:
             from user_member_index import IndexUnavailable
             if not isinstance(args,dict) or set(args)-{'snapshot_id','group','repeat_status','customer_type'} or not {'snapshot_id','group'}<=set(args):raise ValueError('private_export_fields')
-            if not callable(self.export_sink):raise IndexUnavailable('streaming_export_host_required')
+            if not all(callable(callback) for callback in (self.export_sink,self.export_verifier,self.export_publisher)):raise IndexUnavailable('streaming_export_host_required')
             header=self.indexed_members(dict(args,limit=1),user)
             header={k:v for k,v in header.items() if k not in ('rows','next_cursor')}
+            header['export_filter_hash']=digest([header['snapshot_id'],args['group'],args.get('repeat_status','all'),args.get('customer_type','all'),header['data_version'],header['permission_epoch']])
             completion={}
-            receipt=self.export_sink(header,self.export_iter(args,user,completion))
+            prepared=self.export_sink(header,self.export_iter(args,user,completion))
             if not completion.get('complete'):raise IndexUnavailable('streaming_export_incomplete')
+            def checked(receipt,phase):
+                if not isinstance(receipt,dict) or receipt.get('contract')!='fs-member-export-receipt-v1' or receipt.get('status')!=phase or not isinstance(receipt.get('artifact_id'),str) or re.fullmatch('[A-Za-z0-9_-]{1,160}',receipt['artifact_id']) is None:raise IndexUnavailable('streaming_export_receipt_invalid')
+                expected=dict(snapshot_id=header['snapshot_id'],data_version=header['data_version'],export_filter_hash=header['export_filter_hash'],rows=completion['rows'],bytes=completion['bytes'],sha256=completion['sha256'])
+                if any(type(receipt.get(key)) is not type(value) or receipt[key]!=value for key,value in expected.items()):raise IndexUnavailable('streaming_export_receipt_invalid')
+                if self.export_verifier(user,header,receipt) is not True:raise IndexUnavailable('streaming_export_publication_unverified')
+            checked(prepared,'prepared')
+            query,public=self.store.snapshot_public(header['snapshot_id'])
+            publication_check=[False]
+            def revalidate():
+                self.permit_snapshot(user,query,public,True)
+                if self.permission_epoch(user,query)!=header['permission_epoch']:raise PermissionError('export_permission_changed')
+                publication_check[0]=True
+                return True
+            revalidate();publication_check[0]=False
+            # Publisher must invoke this callback inside its existing publication
+            # lock immediately before committing the artifact manifest.
+            receipt=self.export_publisher(user,header,prepared,revalidate)
+            if not publication_check[0]:raise IndexUnavailable('streaming_export_publication_not_authorized')
+            checked(receipt,'published');revalidate()
             return dict(receipt,**header,complete=True,exported_rows=completion['rows'])
         query, public, private = self.private_snapshot(args.get('snapshot_id'), user)
         if set(args) - {'snapshot_id', 'group','repeat_status','customer_type'} or not {'snapshot_id','group'} <= set(args):
@@ -373,18 +395,18 @@ class Service:
         if not isinstance(args,dict) or set(args)-{'snapshot_id','group','repeat_status','customer_type'} or not {'snapshot_id','group'}<=set(args):raise ValueError('private_export_fields')
         budget=self.store.config.get('member_export_max_bytes',8*1024*1024)
         if type(budget) is not int or not 0<budget<=512*1024*1024:raise ValueError('private_export_budget')
-        cursor=None;count=size=0
+        cursor=None;count=size=0;checksum=hashlib.sha256()
         while True:
             request=dict(args,limit=200)
             if cursor is not None:request['cursor']=cursor
             value=self.members(request,user)
             for row in value['rows']:
                 from user_contract import canonical
-                size+=len(canonical(row).encode())+1
+                raw=canonical(row).encode()+b'\n';size+=len(raw);checksum.update(raw)
                 if size>budget:raise IndexUnavailable('streaming_export_budget_exhausted')
                 count+=1
                 yield row
             cursor=value['next_cursor']
             if cursor is None:break
         if count!=value['total']:raise ValueError('member_projection_incomplete')
-        if completion is not None:completion.update(complete=True,rows=count,bytes=size)
+        if completion is not None:completion.update(complete=True,rows=count,bytes=size,sha256=checksum.hexdigest())

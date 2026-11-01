@@ -17,6 +17,7 @@ def initialize(store):
     with store.db() as db:
         db.execute('CREATE TABLE IF NOT EXISTS member_projection_bodies(ref TEXT PRIMARY KEY,body TEXT)')
         db.execute('CREATE TABLE IF NOT EXISTS member_projection_groups(snapshot TEXT,grp TEXT,body TEXT,signature TEXT,PRIMARY KEY(snapshot,grp))')
+        db.execute('CREATE TABLE IF NOT EXISTS member_projection_sets(projection TEXT,grp TEXT,body TEXT,signature TEXT,PRIMARY KEY(projection,grp))')
         db.execute('CREATE TABLE IF NOT EXISTS member_projection_rows(snapshot TEXT,grp TEXT,ordinal INTEGER,cid TEXT,ref TEXT,repeated INTEGER,kind TEXT,signature TEXT,PRIMARY KEY(snapshot,grp,ordinal))')
         db.execute('CREATE INDEX IF NOT EXISTS member_projection_repeat ON member_projection_rows(snapshot,grp,repeated,ordinal)')
         db.execute('CREATE INDEX IF NOT EXISTS member_projection_kind ON member_projection_rows(snapshot,grp,kind,ordinal)')
@@ -34,6 +35,7 @@ def classification(record):
 def build(store,public,private):
     sid=public['snapshot_id'];query,_=store.snapshot_public(sid);token=store.snapshot_token(sid)
     private_hash=digest({k:v for k,v in private.items() if k!='events'});query_hash=digest(query)
+    projection=digest(['member-projection-v2',private_hash,query_hash])
     with store.db() as db:
         db.execute('BEGIN IMMEDIATE')
         saved=db.execute('SELECT members FROM snapshots WHERE id=?',(sid,)).fetchone()
@@ -47,25 +49,33 @@ def build(store,public,private):
         elif digest(reference)!=digest(private):raise ValueError('member_projection_recipe_mismatch')
         for group,ids in private['members'].items():
             if len(ids)!=len(set(ids)):raise ValueError('member_index_duplicate_identity')
-            totals={r+':'+k:0 for r in ('all','repeated','not_repeated') for k in ('all','new','old','unknown')}
-            for ordinal,cid in enumerate(ids):
-                record=private['records'][cid];body=canonical(record)
-                if len(body.encode())>16384:raise ValueError('member_projection_size')
-                ref=hashlib.sha256(body.encode()).hexdigest();repeated,kind=classification(record)
-                for r in ('all',)+(('repeated',) if repeated==1 else ('not_repeated',) if repeated==0 else ()):
-                    for k in ('all',)+((kind,) if kind in ('new','old','unknown') else ()):totals[r+':'+k]+=1
-                db.execute('INSERT OR IGNORE INTO member_projection_bodies VALUES(?,?)',(ref,body))
-            header=dict(contract='fs-frozen-member-keyset-v1',snapshot_id=sid,group=group,data_version=public['data_version'],query_hash=query_hash,private_sha256=private_hash,snapshot_token=token,totals=totals)
+            existing=db.execute('SELECT body,signature FROM member_projection_sets WHERE projection=? AND grp=?',(projection,group)).fetchone()
+            if existing:
+                shared=json.loads(existing['body'])
+                if not hmac.compare_digest(existing['signature'],mac(store,shared)) or shared['private_sha256']!=private_hash or shared['query_hash']!=query_hash or shared['group']!=group:raise ValueError('member_projection_integrity')
+                totals=shared['totals']
+            else:
+                totals={r+':'+k:0 for r in ('all','repeated','not_repeated') for k in ('all','new','old','unknown')}
+                for ordinal,cid in enumerate(ids):
+                    record=private['records'][cid];body=canonical(record)
+                    if len(body.encode())>16384:raise ValueError('member_projection_size')
+                    ref=hashlib.sha256(body.encode()).hexdigest();repeated,kind=classification(record)
+                    for r in ('all',)+(('repeated',) if repeated==1 else ('not_repeated',) if repeated==0 else ()):
+                        for k in ('all',)+((kind,) if kind in ('new','old','unknown') else ()):totals[r+':'+k]+=1
+                    db.execute('INSERT OR IGNORE INTO member_projection_bodies VALUES(?,?)',(ref,body))
+                def rows():
+                    for ordinal,cid in enumerate(ids):
+                        record=private['records'][cid];ref=hashlib.sha256(canonical(record).encode()).hexdigest();repeated,kind=classification(record)
+                        yield (projection,group,ordinal,cid,ref,repeated,kind,mac(store,[projection,group,ordinal,cid,ref,repeated,kind]))
+                db.executemany('INSERT INTO member_projection_rows VALUES(?,?,?,?,?,?,?,?)',rows())
+                shared=dict(private_sha256=private_hash,query_hash=query_hash,group=group,totals=totals)
+                db.execute('INSERT INTO member_projection_sets VALUES(?,?,?,?)',(projection,group,canonical(shared),mac(store,shared)))
+            header=dict(contract='fs-frozen-member-keyset-v2',projection_id=projection,snapshot_id=sid,group=group,data_version=public['data_version'],query_hash=query_hash,private_sha256=private_hash,snapshot_token=token,totals=totals)
             encoded=canonical(header);signature=mac(store,header)
             old=db.execute('SELECT body,signature FROM member_projection_groups WHERE snapshot=? AND grp=?',(sid,group)).fetchone()
             if old:
                 if tuple(old)!=(encoded,signature):raise ValueError('member_projection_immutable')
                 continue
-            def rows():
-                for ordinal,cid in enumerate(ids):
-                    record=private['records'][cid];ref=hashlib.sha256(canonical(record).encode()).hexdigest();repeated,kind=classification(record)
-                    yield (sid,group,ordinal,cid,ref,repeated,kind,mac(store,[sid,group,ordinal,cid,ref,repeated,kind]))
-            db.executemany('INSERT INTO member_projection_rows VALUES(?,?,?,?,?,?,?,?)',rows())
             db.execute('INSERT INTO member_projection_groups VALUES(?,?,?,?)',(sid,group,encoded,signature))
 
 
@@ -86,7 +96,10 @@ def page(store,query,public,args,user,epoch):
         row=db.execute('SELECT body,signature FROM member_projection_groups WHERE snapshot=? AND grp=?',(sid,group)).fetchone()
         if row is None:raise IndexUnavailable('snapshot_member_index_unavailable')
         header=json.loads(row['body'])
+        if header.get('contract')!='fs-frozen-member-keyset-v2':raise IndexUnavailable('member_projection_version_requires_shadow_migration')
         if not hmac.compare_digest(row['signature'],mac(store,header)) or header['query_hash']!=digest(query) or header['data_version']!=public['data_version']:raise ValueError('member_projection_integrity')
+        projection=digest(['member-projection-v2',header['private_sha256'],header['query_hash']])
+        if header['projection_id']!=projection:raise ValueError('member_projection_integrity')
         if header['snapshot_token']!=store.snapshot_token(sid):raise ValueError('member_projection_recipe_changed')
         context=[sid,group,repeat,kind,mac(store,['owner',user]),epoch,header['data_version'],header['private_sha256']]
         after=-1;seen=0;cursor=args.get('cursor')
@@ -98,13 +111,13 @@ def page(store,query,public,args,user,epoch):
                 after,seen=int(ordinal),int(count)
                 if not hmac.compare_digest(signature,mac(store,context+[after,seen])):raise ValueError()
             except (ValueError,AttributeError):raise ValueError('private_cursor_mismatch') from None
-        where='snapshot=? AND grp=? AND ordinal>?';params=[sid,group,after]
+        where='snapshot=? AND grp=? AND ordinal>?';params=[projection,group,after]
         if repeat!='all':where+=' AND repeated=?';params.append(1 if repeat=='repeated' else 0)
         if kind!='all':where+=' AND kind=?';params.append(kind)
         rows=list(db.execute('SELECT ordinal,cid,ref,repeated,kind,signature FROM member_projection_rows WHERE '+where+' ORDER BY ordinal LIMIT ?',params+[limit+1]))
         result=[]
         for row in rows[:limit]:
-            if not hmac.compare_digest(row['signature'],mac(store,[sid,group,row['ordinal'],row['cid'],row['ref'],row['repeated'],row['kind']])):raise ValueError('member_projection_integrity')
+            if not hmac.compare_digest(row['signature'],mac(store,[projection,group,row['ordinal'],row['cid'],row['ref'],row['repeated'],row['kind']])):raise ValueError('member_projection_integrity')
             body=db.execute('SELECT body FROM member_projection_bodies WHERE ref=?',(row['ref'],)).fetchone()
             if body is None or hashlib.sha256(body[0].encode()).hexdigest()!=row['ref']:raise ValueError('member_projection_integrity')
             result.append(json.loads(body[0]))
@@ -113,4 +126,4 @@ def page(store,query,public,args,user,epoch):
         if len(rows)<=limit and consumed!=total or len(rows)>limit and consumed>=total:raise ValueError('member_projection_incomplete')
         if len(rows)>limit:
             ordinal=rows[limit-1]['ordinal'];next_cursor=str(ordinal)+'_'+str(consumed)+'.'+mac(store,context+[ordinal,consumed])
-        return dict(snapshot_id=sid,data_version=header['data_version'],total=total,group=group,rows=result,next_cursor=next_cursor)
+        return dict(snapshot_id=sid,data_version=header['data_version'],permission_epoch=epoch,total=total,group=group,rows=result,next_cursor=next_cursor)
