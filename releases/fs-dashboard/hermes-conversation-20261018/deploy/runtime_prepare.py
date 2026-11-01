@@ -87,6 +87,15 @@ def configure_material_transport():
     SOURCES[release.TRANSPORT_CANDIDATE] = CORE + 'transport.py'
 
 
+def configure_material_stream():
+    import runtime_release as release
+    global INSTALLED_COMMIT, NEW
+    configure_execution()
+    release.configure_material_stream()
+    INSTALLED_COMMIT, NEW = release.INSTALLED_COMMIT, release.NEW
+    SOURCES[release.TRANSPORT_CANDIDATE] = CORE + 'transport.py'
+
+
 def digest(raw):
     return hashlib.sha256(raw).hexdigest()
 
@@ -144,7 +153,7 @@ def observe(root=Path('/'), installed=None):
     expected = {row['candidate']: row['sha256'] for row in installed['files']} if installed else KNOWN
     if installed and release.TRANSPORT_MODE:
         expected[release.TRANSPORT_CANDIDATE] = release.promoted_transport_sha(installed, base)
-    if installed and release.EXECUTION_MODE and not (release.DIAGNOSTICS_MODE or release.TASK_INDEX_MODE or release.WORKER_DIAGNOSTICS_MODE or release.TRANSPORT_MODE):
+    if installed and release.EXECUTION_MODE and not (release.DIAGNOSTICS_MODE or release.TASK_INDEX_MODE or release.WORKER_DIAGNOSTICS_MODE or release.TRANSPORT_MODE or release.STREAM_MODE):
         pinned = {r['path']:r['sha256'] for r in installed['unchangedRequired']}
         expected.update({name:None if name in NEW else pinned[target]
                          for name,target in TARGETS.items() if name not in release.LEGACY_TARGETS})
@@ -158,7 +167,7 @@ def observe(root=Path('/'), installed=None):
     if installed and {r['path']: r['sha256'] for r in protected} != {
             r['path']: r['sha256'] for r in installed['unchangedRequired'] if r['path'] in protected_paths(base)}:
         raise ValueError('installed_protected_baseline_drift')
-    worker = worker_observation(allow_stopped=not (release.WORKER_DIAGNOSTICS_MODE or release.TRANSPORT_MODE)) if root == Path('/') else {
+    worker = worker_observation(allow_stopped=not (release.WORKER_DIAGNOSTICS_MODE or release.TRANSPORT_MODE or release.STREAM_MODE)) if root == Path('/') else {
         'image': 'sha256:' + '0' * 64, 'state': 'active', 'source': 'container'}
     if installed and worker['image'] != installed['workerImageId']:
         raise ValueError('installed_worker_image_drift')
@@ -190,6 +199,7 @@ def pack(repo, output, commit):
                       'goal_task_index_compat':release.TASK_INDEX_MODE,
                       'worker_diagnostics':release.WORKER_DIAGNOSTICS_MODE,
                       'material_transport':release.TRANSPORT_MODE,
+                      'material_stream':release.STREAM_MODE,
                       'installed_baseline': {'source_commit': INSTALLED_COMMIT, 'files': baseline}},
                      sort_keys=True).encode('utf-8')
     (output / 'payload-manifest.json').write_bytes(raw)
@@ -203,10 +213,13 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
     if digest(raw) != payload_sha256:
         raise ValueError('approved_git_payload_required')
     descriptor = json.loads(raw)
-    if sum(descriptor.get(key) is True for key in ('goal_task_index_compat', 'material_diagnostics', 'worker_diagnostics', 'material_transport')) > 1:
+    if sum(descriptor.get(key) is True for key in ('goal_task_index_compat', 'material_diagnostics', 'worker_diagnostics', 'material_transport', 'material_stream')) > 1:
         raise ValueError('conflicting_material_followup_modes')
+    if descriptor.get('material_stream') is True and descriptor.get('material_execution') is not True:
+        raise ValueError('material_stream_requires_execution')
     if descriptor.get('material_execution') is True:
-        if descriptor.get('material_transport') is True:configure_material_transport()
+        if descriptor.get('material_stream') is True:configure_material_stream()
+        elif descriptor.get('material_transport') is True:configure_material_transport()
         elif descriptor.get('worker_diagnostics') is True:configure_worker_diagnostics()
         elif descriptor.get('goal_task_index_compat') is True:configure_task_index_compat()
         elif descriptor.get('material_diagnostics') is True:configure_diagnostics()
@@ -252,18 +265,19 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
         if __import__('runtime_release').TASK_INDEX_MODE:manifest['goalTaskIndexCompat']=True
         if __import__('runtime_release').WORKER_DIAGNOSTICS_MODE:manifest['workerDiagnostics']=True
         if __import__('runtime_release').TRANSPORT_MODE:manifest['materialTransport']=True
+        if __import__('runtime_release').STREAM_MODE:manifest['materialStream']=True
         manifest['materialStaticOnly'] = all(row['beforeSha256'] == row['sha256'] or row['candidate'].startswith('frontend/')
                                             for row in files)
         if manifest['materialStaticOnly'] and (observed['worker_state'] != 'active' or observed['worker_image_source'] != 'container'):
             raise ValueError('static_followup_requires_running_worker')
-        if manifest.get('materialTransport') or manifest.get('workerDiagnostics') or manifest.get('materialDiagnostics') or manifest.get('goalTaskIndexCompat'):
-            allowed = ('runtime/transport.py',) if manifest.get('materialTransport') else ('runtime/hermes_worker.py',) if manifest.get('workerDiagnostics') else ('runtime/conversation_goal_tasks.py',) if manifest.get('goalTaskIndexCompat') else ('http/conversation_http.py', 'http/range_api.py')
+        if manifest.get('materialStream') or manifest.get('materialTransport') or manifest.get('workerDiagnostics') or manifest.get('materialDiagnostics') or manifest.get('goalTaskIndexCompat'):
+            allowed = ('runtime/transport.py',) if manifest.get('materialTransport') or manifest.get('materialStream') else ('runtime/hermes_worker.py',) if manifest.get('workerDiagnostics') else ('runtime/conversation_goal_tasks.py',) if manifest.get('goalTaskIndexCompat') else ('http/conversation_http.py', 'http/range_api.py')
             changed = [r['target'] for r in files if r['beforeSha256'] != r['sha256']]
             if (observed['worker_state'] != 'active' or observed['worker_image_source'] != 'container'
                     or manifest.get('workerDiagnostics') and changed != [TARGETS['runtime/hermes_worker.py']]
-                    or manifest.get('materialTransport') and changed != [TARGETS['runtime/transport.py']]
+                    or (manifest.get('materialTransport') or manifest.get('materialStream')) and changed != [TARGETS['runtime/transport.py']]
                     or any(r['beforeSha256'] != r['sha256'] and r['candidate'] not in allowed for r in files)):
-                raise ValueError('exact_material_transport_delta_required' if manifest.get('materialTransport') else 'exact_worker_diagnostics_delta_required' if manifest.get('workerDiagnostics') else 'exact_goal_task_index_delta_required' if manifest.get('goalTaskIndexCompat') else 'exact_material_diagnostics_delta_required')
+                raise ValueError('exact_material_stream_delta_required' if manifest.get('materialStream') else 'exact_material_transport_delta_required' if manifest.get('materialTransport') else 'exact_worker_diagnostics_delta_required' if manifest.get('workerDiagnostics') else 'exact_goal_task_index_delta_required' if manifest.get('goalTaskIndexCompat') else 'exact_material_diagnostics_delta_required')
             manifest['materialChangedTargets'] = changed
     stage.mkdir(parents=True, mode=0o700)
     for name, body in bodies.items():
@@ -296,10 +310,12 @@ if __name__ == '__main__':
     parser.add_argument('--goal-task-index-compat', action='store_true')
     parser.add_argument('--worker-diagnostics', action='store_true')
     parser.add_argument('--material-transport', action='store_true')
+    parser.add_argument('--material-stream', action='store_true')
     args = parser.parse_args()
-    if sum((args.material_transport, args.worker_diagnostics, args.goal_task_index_compat, args.materials_diagnostics)) > 1:
+    if sum((args.material_stream, args.material_transport, args.worker_diagnostics, args.goal_task_index_compat, args.materials_diagnostics)) > 1:
         parser.error('choose one installed followup mode')
-    if args.material_transport:configure_material_transport()
+    if args.material_stream:configure_material_stream()
+    elif args.material_transport:configure_material_transport()
     elif args.worker_diagnostics:configure_worker_diagnostics()
     elif args.goal_task_index_compat:configure_task_index_compat()
     elif args.materials_diagnostics:configure_diagnostics()
