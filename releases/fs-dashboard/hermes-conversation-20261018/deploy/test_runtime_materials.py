@@ -25,6 +25,131 @@ NGINX = (b'# unrelated\r\nlocation = /api/hermes/conversations {\r\n'
 
 
 class RuntimeMaterials(unittest.TestCase):
+    def test_diagnostics_5f99_existing24_proof_delta_cas_and_original_apply_rollback(self):
+        names = ('TARGETS', 'NEW', 'INSTALLED_COMMIT', 'INSTALLED_PROOF', 'EXECUTION_MODE', 'DIAGNOSTICS_MODE')
+        saved_release = {k: deepcopy(getattr(release, k)) for k in names}
+        saved_prepare = {k: deepcopy(getattr(prepare, k)) for k in ('TARGETS', 'NEW', 'INSTALLED_COMMIT', 'INSTALLED_PROOF', 'SOURCES')}
+        try:
+            prepare.configure_diagnostics()
+            self.assertEqual(release.INSTALLED_COMMIT, '5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f')
+            self.assertEqual(release.INSTALLED_PROOF, {
+                'sourceCommit': release.INSTALLED_COMMIT,
+                'backup': '/var/backups/fs-navigation-20261006/nav-20261101T013519Z',
+                'manifestSha256': '4057435dce473622c5ef2f88ba0d55255a9f7b588a6e193f70a41cffca409881',
+                'journalSha256': '3f6d474d37716610de334f14b9b7a699f879aae170471c065f5007c47e3ab93d'})
+            self.assertEqual(len(release.TARGETS), 24); self.assertEqual(release.NEW, frozenset())
+            with tempfile.TemporaryDirectory() as packed:
+                calls = []
+                def git_blob(command, **kwargs):
+                    self.assertEqual(command[:2], ['git', 'show'])
+                    calls.append(command[2])
+                    return ('exact-git-blob:' + command[2]).encode()
+                with patch.object(prepare.subprocess, 'check_output', side_effect=git_blob):
+                    prepare.pack(Path(packed), Path(packed)/'bundle', 'b'*40)
+                descriptor = json.loads((Path(packed)/'bundle/payload-manifest.json').read_bytes())
+                self.assertTrue(descriptor['material_diagnostics']); self.assertTrue(descriptor['material_execution'])
+                self.assertEqual(descriptor['installed_baseline']['source_commit'], release.INSTALLED_COMMIT)
+                self.assertEqual(set(descriptor['installed_baseline']['files']), set(release.TARGETS))
+                self.assertTrue(all(v is not None for v in descriptor['installed_baseline']['files'].values()))
+                for name in release.EXECUTION_MODULES:
+                    self.assertIn(release.INSTALLED_COMMIT+':'+prepare.SOURCES['runtime/'+name], calls)
+            for fail in (False, True):
+                with self.subTest(rollback=fail), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    base, system, payload, metadata, _, proof, previous = self.installed_fixture(root)
+                    descriptor_path = payload.parent / 'payload-manifest.json'
+                    descriptor = json.loads(descriptor_path.read_bytes())
+                    descriptor.update(material_execution=True, material_diagnostics=True)
+                    changed_names = ('http/conversation_http.py', 'http/range_api.py')
+                    for name in prepare.SOURCES:
+                        before = base.rooted(system, release.TARGETS[name]).read_bytes()
+                        body = before + b'\n# diagnostic\n' if name in changed_names else before
+                        (payload / name).write_bytes(body)
+                        descriptor['files']['payload/' + name] = prepare.digest(body)
+                    raw = json.dumps(descriptor).encode(); descriptor_path.write_bytes(raw)
+                    stage = root / 'diagnostics-stage'
+                    with patch.object(release, 'INSTALLED_PROOF', proof), patch.object(prepare, 'INSTALLED_PROOF', proof), \
+                            patch.object(prepare, 'file_metadata', metadata):
+                        prepare.prepare(payload, stage, 'a'*40, prepare.digest(raw), root=system, followup=True, release_ready=True)
+                        manifest = json.loads((stage/'approved-manifest.json').read_bytes())
+                        self.assertTrue(manifest['materialDiagnostics']); self.assertFalse(manifest['materialStaticOnly'])
+                        self.assertEqual(len(manifest['files']), 24); self.assertEqual(len(manifest['unchangedRequired']), 46)
+                        self.assertTrue(all(r['beforeSha256'] is not None for r in manifest['files']))
+                        self.assertEqual(manifest['materialChangedTargets'], [release.TARGETS[n] for n in changed_names])
+                        # Existing NEW8 must never be accepted as absent, nor may
+                        # another target/protected byte or the proof be reflected
+                        # into a newly invented baseline.
+                        for key in ('missing_module', 'target', 'protected', 'proof'):
+                            path = (base.rooted(system, release.TARGETS['runtime/conversation_material_runs.py']) if key == 'missing_module' else
+                                    base.rooted(system, release.TARGETS['runtime/conversation_store.py']) if key == 'target' else
+                                    base.rooted(system, previous['unchangedRequired'][0]['path']) if key == 'protected' else
+                                    base.rooted(system, proof['backup']+'/journal.json'))
+                            saved = path.read_bytes()
+                            if key == 'missing_module': path.unlink()
+                            else: path.write_bytes(b'drift')
+                            try:
+                                with self.assertRaises((OSError, ValueError)):
+                                    prepare.prepare(payload, root/('rejected-'+key), 'a'*40, prepare.digest(raw), root=system, followup=True)
+                                self.assertFalse((root/('rejected-'+key)).exists())
+                            finally: path.write_bytes(saved)
+                    spec = importlib.util.spec_from_file_location('diagnostics_publisher', stage/'runtime_release.py')
+                    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+                    module.configure_diagnostics(); module.INSTALLED_PROOF = proof
+                    guard_calls = []
+                    def guards(current, host, reader_stopped=False):
+                        guard_calls.append(current['runtimeRequired'])
+                        self.assertEqual(current['runtimeRequired'], manifest['runtimeRequired'])
+                        for row in current['unchangedRequired']:
+                            self.assertEqual(base.digest(base.rooted(host, row['path'])), row['sha256'])
+                    base.guards = guards; base.retirement = lambda *a: None
+                    base.locks = base.live_lock = base.model_release_lock = lambda *a: nullcontext()
+                    fence = SimpleNamespace(modified=False, confirmed=False, stop_then_unlock_database=Mock())
+                    base.hermes_admission_fence = lambda *a: nullcontext(fence)
+                    original_restart = Mock(side_effect=[RuntimeError('synthetic range failure'), None] if fail else None)
+                    base.restart_for = original_restart
+                    writes = []; original_atomic = base.atomic
+                    target_paths = {base.rooted(system, r['target']) for r in manifest['files']}
+                    def atomic(path, body, mode=0o644):
+                        if path in target_paths: writes.append(path)
+                        if os.name == 'nt':
+                            row = next((r for r in manifest['files'] if path == base.rooted(system, r['target'])), None)
+                            if row: mode = int(row['mode'], 8)
+                        return original_atomic(path, body, mode)
+                    base.atomic = atomic
+                    if os.name == 'nt': base.directory_sync = lambda *a: None
+                    with patch.object(module, 'frozen', return_value=base), \
+                            patch.object(module, 'worker_image', return_value=manifest['workerImageId']), \
+                            patch.object(module.subprocess, 'run', side_effect=AssertionError('no worker or nginx command')):
+                        publisher = module.load_base()
+                        if os.name == 'nt':
+                            original_wire = publisher.atomic
+                            def windows_atomic(path, body, mode=0o644):
+                                row = next((r for r in manifest['files'] if path == base.rooted(system, r['target'])), None)
+                                return original_wire(path, body, int(row['mode'], 8) if row else mode)
+                            publisher.atomic = windows_atomic
+                        raw = (stage/'approved-manifest.json').read_bytes()
+                        publisher.inspect(manifest, stage, system)
+                        if fail:
+                            with self.assertRaisesRegex(RuntimeError, 'synthetic range failure'):
+                                publisher.apply(manifest, stage, prepare.digest(raw), raw, 'nav-20261101T000004Z', system)
+                        else:
+                            publisher.apply(manifest, stage, prepare.digest(raw), raw, 'nav-20261101T000004Z', system)
+                        self.assertGreaterEqual(len(guard_calls), 27)
+                        self.assertEqual(set(writes), {base.rooted(system, release.TARGETS[n]) for n in changed_names})
+                        for call in original_restart.call_args_list:
+                            self.assertEqual(call.args[0]['scope'], base.DEEP_SCOPE)
+                        self.assertGreaterEqual(fence.stop_then_unlock_database.call_count, 1)
+                        for row in manifest['files']:
+                            path = base.rooted(system, row['target'])
+                            self.assertTrue(path.exists())
+                            self.assertEqual(base.digest(path), row['beforeSha256'] if fail else row['sha256'])
+                        journal = json.loads((base.rooted(system, '/var/backups/fs-navigation-20261006/nav-20261101T000004Z')/'journal.json').read_bytes())
+                        self.assertEqual(journal['status'], 'rolled-back' if fail else 'applied-awaiting-actual-http-role-acceptance')
+        finally:
+            for key, value in saved_release.items(): setattr(release, key, value)
+            for key, value in saved_prepare.items(): setattr(prepare, key, value)
+            prepare.TARGETS = release.TARGETS
+
     def test_material_execution_501f_proof_composition_and_failed_apply_restore_installed_modules(self):
         # Isolate the explicit new publisher mode from the old first-install and
         # static-followup fixtures in this same existing test entry.

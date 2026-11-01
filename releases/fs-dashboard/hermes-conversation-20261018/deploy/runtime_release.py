@@ -36,6 +36,7 @@ INSTALLED_PROOF = {
 INSTALLED_NGINX_SHA = 'b792f18b8d1b322139f8be96bb5052ff53a79e82dac7a607cbe102e199b06302'
 LEGACY_TARGETS = dict(TARGETS)
 EXECUTION_MODE = False
+DIAGNOSTICS_MODE = False
 EXECUTION_MODULES = ('conversation_goals.py','conversation_goal_tasks.py','conversation_material_runs.py',
                      'material_execution.py','b2_goal_state.py','b2_goal_host.py','b1_model_routing.py','b2_customer_followup.py')
 
@@ -57,6 +58,21 @@ def configure_execution():
     NEW = frozenset('runtime/'+name for name in EXECUTION_MODULES)
 
 
+def configure_diagnostics():
+    """Exact 5f99 follow-up: all 24 targets already exist, including NEW8."""
+    global INSTALLED_COMMIT, NEW, DIAGNOSTICS_MODE
+    if DIAGNOSTICS_MODE:
+        return
+    configure_execution()
+    DIAGNOSTICS_MODE = True
+    INSTALLED_COMMIT = '5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f'
+    INSTALLED_PROOF.update(sourceCommit=INSTALLED_COMMIT,
+        backup='/var/backups/fs-navigation-20261006/nav-20261101T013519Z',
+        manifestSha256='4057435dce473622c5ef2f88ba0d55255a9f7b588a6e193f70a41cffca409881',
+        journalSha256='3f6d474d37716610de334f14b9b7a699f879aae170471c065f5007c47e3ab93d')
+    NEW = frozenset()
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -70,8 +86,8 @@ def installed_baseline(root, git_baseline):
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
     expected = {row['candidate']: row['sha256'] for row in manifest['files']}
-    proof_targets = LEGACY_TARGETS if EXECUTION_MODE else TARGETS
-    if EXECUTION_MODE:
+    proof_targets = LEGACY_TARGETS if EXECUTION_MODE and not DIAGNOSTICS_MODE else TARGETS
+    if EXECUTION_MODE and not DIAGNOSTICS_MODE:
         protected = {r['path']:r['sha256'] for r in manifest['unchangedRequired']}
         expected.update({name: None if name in NEW else protected[target]
                          for name,target in TARGETS.items() if name not in LEGACY_TARGETS})
@@ -204,7 +220,9 @@ def quiescent(base, root):
 
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
-    if approved.get('materialExecution') is True:
+    if approved.get('materialDiagnostics') is True:
+        configure_diagnostics()
+    elif approved.get('materialExecution') is True:
         configure_execution()
     base = frozen()
     git_baseline = None
@@ -216,6 +234,15 @@ def load_base():
     validate = base.validate
 
     def exact(manifest, stage):
+        if DIAGNOSTICS_MODE and (manifest.get('materialDiagnostics') is not True or
+                manifest.get('installedBaseline') != INSTALLED_PROOF or
+                manifest.get('runtimeBefore') != manifest.get('runtimeRequired') or
+                manifest.get('workerImageSource') != 'container' or
+                manifest.get('materialChangedTargets') != [r['target'] for r in manifest.get('files', [])
+                                                          if r['beforeSha256'] != r['sha256']] or
+                any(r['beforeSha256'] != r['sha256'] and r['candidate'] not in
+                    ('http/conversation_http.py', 'http/range_api.py') for r in manifest.get('files', []))):
+            raise ValueError('exact_material_diagnostics_delta_required')
         if manifest != approved or manifest.get('scope') != SCOPE:
             raise ValueError('exact_material_manifest_required')
         if manifest.get('businessWrites') is not False or manifest.get('timersChanged') is not False:
@@ -300,7 +327,7 @@ def load_base():
     def atomic(path, payload, mode=0o644):
         # Keep the original writer/journal and every per-row guard. Static-only
         # follow-ups leave identical active targets (including runtime) untouched.
-        if approved.get('materialStaticOnly'):
+        if approved.get('materialStaticOnly') or approved.get('materialDiagnostics'):
             for row in approved['files']:
                 if path == base.rooted(publish_root, row['target']) and row['beforeSha256'] == row['sha256']:
                     if (hashlib.sha256(payload).hexdigest() != row['sha256']
@@ -361,6 +388,17 @@ def load_base():
                 raise ValueError('material_worker_image_drift')
             base.guards(manifest, publish_root)
             return  # Static bytes only: no worker/HTTP restart or Nginx reload.
+        if manifest.get('materialDiagnostics'):
+            # Same original admission fence and DEEP restart on install/rollback;
+            # only the existing HTTP process loads changed bytes. Worker/Nginx
+            # targets and their running processes are not changed by this mode.
+            admission_fence.stop_then_unlock_database()
+            result = readiness.restart_with_hermes_readiness(base, original_restart,
+                dict(manifest, scope=base.DEEP_SCOPE), admission_fence)
+            if worker_image() != manifest['workerImageId']:
+                raise ValueError('material_worker_image_drift')
+            base.guards(manifest, publish_root)
+            return result
         if manifest.get('scope') == SCOPE:
             subprocess.run(['nginx', '-t'], check=True, capture_output=True)
         result = readiness.restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
