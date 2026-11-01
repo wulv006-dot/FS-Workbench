@@ -23,6 +23,10 @@ SAFE_MODEL_ERRORS = frozenset({'pilot_usage_hold', 'context_window_exceeded','pr
 SAFE_CALCULATION_ERRORS=frozenset({'calculation_evidence','calculation_bindings','calculation_assumption','calculation_operand_mismatch','evidence_path','decimal_required','calculation_fields','calculation_operation'})
 
 
+class _MaterialGuardError(ValueError):
+    """Only a fixed local protocol check, never provider/error text."""
+
+
 @dataclass(frozen=True)
 class Grant:
     owner: str
@@ -127,14 +131,22 @@ class Proxy:
                                 expected_sha256=body['sha256'])
         if (method, path) != ('POST', '/v1/chat/completions'):
             raise PermissionError('route_denied')
+        book = getattr(gateway.scope, 'book', None)
+        material = getattr(book, 'material_execution', False)
+        auxiliary=isinstance(body,dict) and 'tools' not in body and 'max_tokens' not in body
+
+        def invalid(code):
+            # Scope is established above. Only these literal local checks can
+            # identify this producer; matching another exception's text cannot.
+            if material and not auxiliary:
+                raise _MaterialGuardError(code)
+            raise ValueError(code)
+
         if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens', 'model', 'tools', 'tool_choice', 'stream', 'stream_options', 'reasoning_effort'}:
-            raise ValueError('request_fields')
+            invalid('request_fields')
         # The FS-issued grant pins the business model mode. The client cannot
         # escalate, disable or silently downgrade it using a body parameter.
         effort=grant.reasoning_effort
-        auxiliary='tools' not in body and 'max_tokens' not in body
-        book = getattr(gateway.scope, 'book', None)
-        material = getattr(book, 'material_execution', False)
         # Fixed native compression omits max_tokens/tools and probes streaming.
         # Its pre-dispatch stream probe is rejected as HTTP400, so official
         # auxiliary_client falls back once to a plain request without a charge.
@@ -151,23 +163,23 @@ class Proxy:
             # Streaming is a response encoding, not another provider call or
             # permission to override the trusted model/tool/policy selection.
             if type(body.get('stream', False)) is not bool:
-                raise ValueError('provider_override')
+                invalid('provider_override')
             options=body.get('stream_options')
             if (options is not None and
                     (type(options) is not dict or set(options)-{'include_usage'} or
                      ('include_usage' in options and type(options['include_usage']) is not bool))):
-                raise ValueError('stream_options')
+                invalid('stream_options')
             if not body.get('stream', False) and options:
-                raise ValueError('stream_options')
-        elif 'stream_options' in body:raise ValueError('stream_options')
+                invalid('stream_options')
+        elif 'stream_options' in body:invalid('stream_options')
         if (effort=='none' and body.get('reasoning_effort') not in (None,'none') or
                 effort!='none' and body.get('reasoning_effort')!=effort):
-            raise ValueError('reasoning_policy')
+            invalid('reasoning_policy')
         if (body.get('model') != gateway.budget.policy['model'] or
                 (not (material and not auxiliary) and body.get('stream', False) is not False)):
-            raise ValueError('provider_override')
+            invalid('provider_override')
         if body.get('tool_choice', 'auto') != 'auto':
-            raise ValueError('tool_choice')
+            invalid('tool_choice')
         tool_schemas = None
         if material:
             # The authenticated gateway context above owns this book. Never
@@ -179,7 +191,7 @@ class Proxy:
         if 'tools' in body:
             names = [x.get('function', {}).get('name') for x in body['tools'] if isinstance(x, dict)]
             if len(names) != len(body['tools']) or len(names) != len(set(names)) or set(names) != set(allowed_tools):
-                raise ValueError('tool_allowlist')
+                invalid('tool_allowlist')
         messages = deepcopy(body.get('messages'))
         if isinstance(messages,list):
             for message in messages:
@@ -190,19 +202,19 @@ class Proxy:
                     if message.get('role')!='assistant' or (message.get('reasoning')!=message.get('reasoning_content') and
                             not (isinstance(message.get('reasoning'),str) and isinstance(message.get('reasoning_content'),str) and
                                  message['reasoning'].strip()==message['reasoning_content'].strip())):
-                        raise ValueError('reasoning_carrier_mismatch')
+                        invalid('reasoning_carrier_mismatch')
                     message.pop('reasoning')
                 if isinstance(message,dict) and 'reasoning_content' in message:
                     pad=message['reasoning_content']
                     if message.get('role')!='assistant' or (pad is not None and not isinstance(pad,str)):
-                        raise ValueError('reasoning_content_policy')
+                        invalid('reasoning_content_policy')
                     if effort=='none':
-                        if pad is not None and (len(pad)>8 or pad.strip()): raise ValueError('reasoning_content_policy')
+                        if pad is not None and (len(pad)>8 or pad.strip()): invalid('reasoning_content_policy')
                         message.pop('reasoning_content')
                     elif pad is None:
                         message.pop('reasoning_content')
                     elif len(pad.encode())>MAX_PROVIDER_WIRE_BYTES:
-                        raise ValueError('reasoning_content_size')
+                        invalid('reasoning_content_size')
         request = {'messages': messages, 'max_tokens': body.get('max_tokens')}
         if auxiliary:request['auxiliary']=True
         if effort!='none':request['reasoning_effort']=effort
@@ -294,6 +306,9 @@ def start_loopback(proxy, port=8940):
                 code = str(error) if isinstance(error, ValueError) and str(error) in SAFE_MODEL_ERRORS else None
                 message = 'FC model request blocked: '+code if code else 'invalid or unreconciled request'
                 status, result = 400, {'error': {'message': message, 'type': 'invalid_request_error'}}
+                if type(error) is _MaterialGuardError:
+                    result['error'].update(source='fs_material_transport',
+                        diagnostic_version='material_guard_v1', code=str(error))
                 if (self.path=='/fc/tools/call' and isinstance(body,dict) and body.get('name') in ('fc.calculate','mcp__fcro__fc_calculate')
                         and isinstance(error,ValueError) and str(error) in SAFE_CALCULATION_ERRORS):
                     result={'error':{'message':'invalid calculation arguments','type':'invalid_request_error','code':str(error)}}
