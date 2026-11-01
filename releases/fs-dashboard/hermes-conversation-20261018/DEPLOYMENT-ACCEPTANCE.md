@@ -830,3 +830,14 @@ TDD先见缺新模式红断言，再实现。新增综合用例覆盖真实临�
 稳定共享收据目录=`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-MaterialStream-Candidate-20261101T163251Z/`，index逐文件列bytes/fullSHA，含harness/runner、输入metadata、真实SDK结果及3份SSE、第一次失败/最终发布组合与B14日志、最终Git pack/状态分层说明。无生产源码/配置/DB/错误正文/回答/推理导出。此SDK检查不重跑AIAgent首包、不改变实际stream、worker/proof/discovery或global配置，亦不生成正式execution receipt。
 
 已知未闭环：原未改的合成SDK discovery首包在新transport仍停tool_allowlist/gateway0，只有显式direct三文件schema变体通过，不能宣称原首包全通过或全局关闭发现。历史真实v1 direct3 proof保留，但不能倒推生产配置/历史首失败分支。生产仍按已核b362，历史材料失败/187限制因果/人民币费用unknown，所有封存请求不读、不重发。本轮0付费/新FS任务/部署/重启/浏览器；实际正常入口CSV/XLSX读全算对、确定性修改、不可变下载和派生追问及视觉仍待最新SHA独审/CI/合并后受控验收，不开展阶段2。
+
+
+## PR735最终9edb包：collector预检锁忙，未进入现场准备（2026-11-02）
+
+Personal交接PR735独审/必要CI通过及最终source=`9edb8827c0bc21fce4173030bd09b7388b19c866`。A原分支干净、origin正确，正常fetch确认main恰为该SHA，再ff到该最终merge；tree=`676de9f628782d1b516ac259f5a1d0814884b7e6`与已审候选一致。复用已核deploy27/B14/真实SDK6，不重复SDK/native/Core/知识，不改任何运行源或配置。
+
+已用最终Git原字节在本机生成全新 `--material-stream --followup` 包，payload descriptor SHA=`956df248d4aa5b5acfe34fb66b2c79ff96ec0bf5940d878279555e1b027dde87`；645120-byte tar SHA=`dac6f974e9331d833d8734bfd4994ef214cf030ad9e8cbbf29afed906cd1b8ff`。精确绑定上一节b362/nav-20261101T123702Z/02d2…/92b65…成功proof；本地Git比较为25现存/45保护/NEW0，唯一transport before2ef021…→after e682d865…，其它24目标字节不变。计划的新release ID=`nav-20261101T165224Z`、新远端目录=`/var/tmp/fs-material-stream-9edb8827-20261101T165224Z`；两者仅在本机context预留，未上传或创建远端stage，未生成现场fresh baseline/manifest/backup/journal，不能把本地pack当软件已安装。
+
+经正常工具审核，只读collector已知锁及服务元信息，于 `2026-11-01T16:52:49.679091+00:00` 观察到collector.lock由PID3139/python3持WRITE锁；fs-transaction-collect.service为Type=oneshot、MainPID=3139、ActiveState=activating、SubState=start、ExecMainStartTimestamp=`Mon 2026-11-02 00:48:59 CST`。这是该时点真实占用，不是未来状态保证，也不是本次apply抛锁异常：本轮没有调用publisher prepare/inspect/apply或实际尝试获取锁，预检即停止。没有轮询、抢锁、stop/kill、改timer、清UNKNOWN、变更权限或服务。
+
+稳定共享目录=`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-MaterialStream-Deploy-20261101T165224Z/`，index列pack/collector_preflight/summary三份metadata的完整bytes/SHA。无生产源码/配置/DB或业务内容导出；未新开浏览器session、未调用任何材料GET/POST/result/error或模型，所有封存请求保持、旧费用和因果unknown不变。生产仅沿此前已验b362记录，本次未重新核25/45现场SHA或服务/image，不能补称当前全量读回通过。结论仅【最终9edb本地包就绪；collector预检锁忙，软件尚未安装，真实材料及视觉验收未开始】。按本轮边界回交Personal后停止，后续自然释放需另有据核查，不能自动重复发布；本附录纯记录提交，不作部署source。
