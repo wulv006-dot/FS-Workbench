@@ -866,7 +866,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 公共代码归属 | 本包精确FC v3 service/HTTP、FC v2 runs、26proxy及原publisher装配由A唯一维护，见RUNTIME-DEPLOYMENT-ACCEPTANCE.md；controller/公共schema/迁移不改，CI/主方案由Personal维护 |
 | 现有FS/Hermes活动版本 | 已独立核收A完整21收据：source82edf03573c3fed796d7a7ed2784134c5dd1f7ec单worker发布，24after/46保护及23未写metadata匹配、range/Nginx PID保持；manifest a9be5243…d5656/journal46b6f0f1…ce67。新CSV仍failed、未读材料或产物通过，不把软件发布当功能恢复 |
 | 新能力已验收范围 | 原生SQLite3.7.17七项、1b20软件24/46读回及正常FS原ID完整schema查询通过；新材料任务/模型/视觉整包未验，旧费用与旧404因果unknown，真实A2 scope不可用 |
-| 下一步 | 用户已授权限定transport修复/测试/独审CI后单文件部署及最小新合成复测。B固定154280e8已修服务端材料三工具校验与preflight，新增8项及Core219本地通过；A正在补原publisher单transport增量装配，待同包集成后最新SHA独审/CI。历史run首拒绝分支/187外网限制仍未证，旧费用unknown，不续读失败error查询或重放旧请求 |
+| 下一步 | PR731完整070ab73a独审及必要LinuxCI通过，正常merge b362bd3b；原A已收到最终source按原publisher新stage/fresh baseline/25现存45保护单transport发布，读回通过后最小正常FS新合成复测。当前仅交接启动，尚无本次现场成功回执；历史首拒绝分支/187外网限制及旧费用unknown保持，不续读失败error查询或重放旧请求 |
 | 已有生产业务 | 沿原系统、原权限、原调度运行；本次整理未改动 |
 | 本次文件交付 | 长期主方案与两个岗位入口原地整合；不等于已派发、编码或上线 |
 | PR702复用线索 | head `666814c9ae0376fe4f372cf9718508345da45ee0`，merge `30423f91c963228b41fe450f0c7993fa408cf12f`；完整独审与生产验收未在本包确认 |
