@@ -429,6 +429,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith("docs/planning/fs-hermes-offline-acceptance-20261101/"):
+            groups.add("fs-hermes-offline-acceptance");continue
         if name.startswith("releases/registration/iam-modules-20261031/") or name == "tests/test_fs_iam_module_access.py":
             groups.add("iam"); continue
         if name.startswith('releases/fc-players/empty-market-recovery-20261031/'):
@@ -1403,6 +1405,8 @@ def main():
         elif group=="mlb-shelf-tool":
             # 离线用例：bat 规范化闸门 / SQLite 3.7.17 兼容 / 认证通路 / 模板发现。
             units("共享资源/MLB新卡上架/tests",["test_shelf_tool_offline"])
+        elif group=="fs-hermes-offline-acceptance":
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/"docs/planning/fs-hermes-offline-acceptance-20261101/test_probe_tools.py")],check=True,timeout=45,cwd=ROOT)
         elif group=="builder":units("tools",["test_business_html_build"])
         elif group=="registration-delta":
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tests/registration-release-delta-qa-20261007/linux_delta_entry.py"),"--driver-check"],check=True,timeout=30,cwd=ROOT)

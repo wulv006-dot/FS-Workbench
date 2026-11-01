@@ -2,6 +2,8 @@
 import json,os,subprocess,sys,tempfile,types
 from pathlib import Path
 from threading import Event,RLock,Thread
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from probe_support import read_sources,install_guard
 ROOT=Path(__file__).resolve().parent
 REPO=Path(os.environ.get('FS_ACCEPTANCE_REPO', str(ROOT.parents[2]))).resolve()
 SHA='40dbf3df38adcd19f5a1afda853b06712886d3e0'
@@ -9,10 +11,8 @@ paths={'date_policy':'tiered-data-access-20261101/source/date_policy.py',
        'range_jobs':'tiered-data-access-20261101/source/range_jobs.py',
        'query_checkpoint':'tiered-data-access-20261101/source/query_checkpoint.py',
        'daily_archive':'daily-archive-20261021/source/daily_archive.py'}
-sources={n:subprocess.run(['git','-C',str(REPO),'show',SHA+':releases/fs-dashboard/'+p],capture_output=True,check=True,env=dict(os.environ,GIT_NO_LAZY_FETCH='1')).stdout for n,p in paths.items()}
-def guard(event,args):
-    if event in {'socket.connect','socket.bind','socket.getaddrinfo','socket.sendto','subprocess.Popen','os.system'}:raise RuntimeError('OFFLINE_DENY:'+event)
-sys.addaudithook(guard)
+sources=read_sources(REPO,SHA,{'date_policy': 'releases/fs-dashboard/tiered-data-access-20261101/source/date_policy.py', 'range_jobs': 'releases/fs-dashboard/tiered-data-access-20261101/source/range_jobs.py', 'query_checkpoint': 'releases/fs-dashboard/tiered-data-access-20261101/source/query_checkpoint.py', 'daily_archive': 'releases/fs-dashboard/daily-archive-20261021/source/daily_archive.py'})
+install_guard()
 for n,s in sources.items():
     m=types.ModuleType(n);sys.modules[n]=m;exec(compile(s,SHA+':'+paths[n],'exec'),m.__dict__)
 from daily_archive import Archive

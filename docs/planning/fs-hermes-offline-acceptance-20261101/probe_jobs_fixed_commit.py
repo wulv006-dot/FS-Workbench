@@ -2,15 +2,15 @@
 import ast,json,os,subprocess,sys,types
 from pathlib import Path
 from threading import RLock
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from probe_support import read_sources,install_guard
 ROOT=Path(__file__).resolve().parent
 REPO=Path(os.environ.get('FS_ACCEPTANCE_REPO', str(ROOT.parents[2]))).resolve()
 SHA='bf7f9ca2c4ccdb040cdbbcf265eda23a42e85637'
 names=['date_policy','query_contract','query_planner','daily_facts','range_jobs']
-sources={n:subprocess.run(['git','-C',str(REPO),'show',SHA+':releases/fs-dashboard/tiered-data-access-20261101/source/'+n+'.py'],capture_output=True,check=True,env=dict(os.environ,GIT_NO_LAZY_FETCH='1')).stdout for n in names}
+sources=read_sources(REPO,SHA,{'date_policy': 'releases/fs-dashboard/tiered-data-access-20261101/source/date_policy.py', 'query_contract': 'releases/fs-dashboard/tiered-data-access-20261101/source/query_contract.py', 'query_planner': 'releases/fs-dashboard/tiered-data-access-20261101/source/query_planner.py', 'daily_facts': 'releases/fs-dashboard/tiered-data-access-20261101/source/daily_facts.py', 'range_jobs': 'releases/fs-dashboard/tiered-data-access-20261101/source/range_jobs.py'})
 for n,s in sources.items():ast.parse(s,feature_version=(3,9))
-def guard(event,args):
-    if event in {'socket.connect','socket.bind','socket.getaddrinfo','socket.sendto','subprocess.Popen','os.system'}:raise RuntimeError('OFFLINE_DENY:'+event)
-sys.addaudithook(guard)
+install_guard()
 for name in ['date_policy','range_jobs']:
     mod=types.ModuleType(name);sys.modules[name]=mod;exec(compile(sources[name],SHA+':'+name,'exec'),mod.__dict__)
 from range_jobs import Engine

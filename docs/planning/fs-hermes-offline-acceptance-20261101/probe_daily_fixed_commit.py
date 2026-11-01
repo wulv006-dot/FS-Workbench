@@ -1,18 +1,16 @@
 """Narrow probes, fixed Git objects, temporary Archive, no production calls."""
 import json, os, subprocess, sys, tempfile, types
 from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from probe_support import read_sources,install_guard
 ROOT=Path(__file__).resolve().parent
 REPO=Path(os.environ.get('FS_ACCEPTANCE_REPO', str(ROOT.parents[2]))).resolve()
 SHA='934f501caa345969eb80104fcc187dbfd9b40e27'
 paths={'date_policy':'releases/fs-dashboard/tiered-data-access-20261101/source/date_policy.py',
        'daily_archive':'releases/fs-dashboard/daily-archive-20261021/source/daily_archive.py',
        'daily_facts':'releases/fs-dashboard/tiered-data-access-20261101/source/daily_facts.py'}
-sources={n:subprocess.run(['git','-C',str(REPO),'show',SHA+':'+p],capture_output=True,check=True,
-                         env=dict(os.environ,GIT_NO_LAZY_FETCH='1')).stdout for n,p in paths.items()}
-def guard(event,args):
-    if event in {'socket.connect','socket.bind','socket.getaddrinfo','socket.sendto','subprocess.Popen','os.system'}:
-        raise RuntimeError('OFFLINE_DENY:'+event)
-sys.addaudithook(guard)
+sources=read_sources(REPO,SHA,{'date_policy': 'releases/fs-dashboard/tiered-data-access-20261101/source/date_policy.py', 'daily_archive': 'releases/fs-dashboard/daily-archive-20261021/source/daily_archive.py', 'daily_facts': 'releases/fs-dashboard/tiered-data-access-20261101/source/daily_facts.py'})
+install_guard()
 for name,data in sources.items():
     mod=types.ModuleType(name);sys.modules[name]=mod
     exec(compile(data,SHA+':'+paths[name],'exec'),mod.__dict__)

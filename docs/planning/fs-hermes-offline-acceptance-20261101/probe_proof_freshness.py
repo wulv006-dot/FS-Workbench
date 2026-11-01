@@ -1,13 +1,13 @@
 """Fixed-commit dry-run proof freshness probe; synthetic object only."""
 import hashlib,json,os,subprocess,sys,tempfile,types
 from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from probe_support import read_sources,install_guard
 ROOT=Path(__file__).resolve().parent;REPO=Path(os.environ.get('FS_ACCEPTANCE_REPO', str(ROOT.parents[2]))).resolve()
 SHA='0c29890b51c8370d40bccaf4c6538f3849b6e22f'
 names=['date_policy','eviction_policy','recovery_contract']
-sources={n:subprocess.run(['git','-C',str(REPO),'show',SHA+':releases/fs-dashboard/tiered-data-access-20261101/source/'+n+'.py'],capture_output=True,check=True,env=dict(os.environ,GIT_NO_LAZY_FETCH='1')).stdout for n in names}
-def guard(event,args):
-    if event in {'socket.connect','socket.bind','socket.getaddrinfo','socket.sendto','subprocess.Popen','os.system'}:raise RuntimeError('OFFLINE_DENY:'+event)
-sys.addaudithook(guard)
+sources=read_sources(REPO,SHA,{'date_policy': 'releases/fs-dashboard/tiered-data-access-20261101/source/date_policy.py', 'eviction_policy': 'releases/fs-dashboard/tiered-data-access-20261101/source/eviction_policy.py', 'recovery_contract': 'releases/fs-dashboard/tiered-data-access-20261101/source/recovery_contract.py'})
+install_guard()
 for name,source in sources.items():
     m=types.ModuleType(name);sys.modules[name]=m;exec(compile(source,SHA+':'+name,'exec'),m.__dict__)
 from eviction_policy import CHECKS,dry_run
