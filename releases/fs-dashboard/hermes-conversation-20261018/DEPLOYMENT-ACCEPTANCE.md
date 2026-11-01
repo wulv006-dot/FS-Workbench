@@ -574,3 +574,24 @@ A restored the original light theme and closed only its new synthetic tab at 20:
 最终 A 本地收口：原 `units(.../tests,['test_conversation_store'])` 实际加载83项、零失败/错误/skip（其中新材料20）；原 deploy显式三模块22项、channel12、原Node入口含DOM/fetch、Chromium操作通过，15个变更Python文件按3.9 AST通过。图片桌面/窄屏代表文件实际写入时间为2026-11-01T00:28:56Z；本轮未重复旧Core198或未改知识套件，先前知识收尾失败不在本包扩修，未冒通过。主控集成后新SHA Linux/独审、真实SDK/模型/生产仍未验。
 
 PR723派审前两项P2已在A原分支收口：runtime缓存短锁+并发/live回归；UI单选修订并显示目标名+反序DOM/fetch回归。新增两项Python测试通过，原Node入口通过；真实temp SQLite且无模型/业务API。旧51af方法只在内存回退的两项测试均明确因构造2个runtime失败，修复版为1个。新本地Chromium `C:/Users/Administrator/AppData/Local/Temp/fs-materials-ui-3k9h9zql/material-expanded-dark.png` 已实际view，看到“修改目标：核对结果.xlsx”及原主题焦点；仍是candidate-only非生产验收。B源码、发布器及其他51af已验输入未改，不重跑Core198/旧20。PR723由Personal集成/新SHA独审与LinuxCI，A不新建PR/Agent或部署。
+
+## 5f99 最终合并版：零模型实际SDK构造通过，发布前原锁阻塞（2026-11-01）
+
+本轮部署 sourceCommit 固定 `5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f`，A先 clean/ff main；不用Personal后续状态记录作部署来源。新 Git LF pack 为23源载荷+原publisher四文件，descriptor SHA256 `041ccf76093a0f337fbb75ef90a09ae91d5d004f56cdade2a98d330c92c48310`；新tar 593920bytes/SHA256 `97e6eea4df2a0e6d649e5fce091dd50859ec9090eab2d0943a7bcfb8856f15c8`。通过正常工具审核上传至全新 `/var/tmp/fs-materials-5f99-20261101T013900Z`，未重用旧stage。
+
+实际固定容器仍 fdb100cedd9b2c05dedfb7880282cd1105e322e3315e3585d72d149d8f01c96a/image sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544。三SDK文件 regular/size/fullSHA再次全等上节固定pin。零模型探针在这个现有容器的原 `.venv/bin/python` 独立进程构造真实官方 AIAgent/registry，加载精确Git候选模块定义，并指向已核原FS挂载 `/opt/pilot/runtime-config.yaml`；不修改任何活动源或配置。实际工具恰为三个文件wire工具，实际上下文1048576，skip_context_files/skip_background_review=True、load_soul_identity=False、memory_enabled=False且两个memory对象None；实际system包含冻结指令，15个proof字段形状兼容。Socket全部阻断，实际网络尝试0、未执行conversation/tool/model，session_db=None，未构造正式APIServerAdapter或读写其持久账本。合成输入没有经过官方POST admission；探针不是accepted-input/正式执行回执，更不是实际SDK运行任务完成。
+
+探针设置的初始失败保留：系统python缺dotenv；改用原venv后，误用host配置路径时构造得到SDK默认meta-tools与null context，proof拒绝。仅查询现有FS挂载元信息并在探针进程指向正确原路径后通过；没有安装依赖、变更配置/权限或放宽proof，不把这些探针设置错误算作生产SDK故障。具体最小字段回执见下列共享JSON，不含配置/凭据/源码正文。
+
+新现场baselineObservedAt=`2026-11-01T01:33:26.578106+00:00`；新stage=`/var/tmp/fs-materials-5f99-20261101T013900Z/stage`，manifest SHA256=`4057435dce473622c5ef2f88ba0d55255a9f7b588a6e193f70a41cffca409881`。501f installed proof与Git before全部匹配；24目标/46保护/8新增，19目标有字节变化，Nginx旧10m/0600精确字节不变。三服务runtimeBefore全active，workerImageSource=实际container。原publisher inspect通过sourceCAS/protectedCAS，原publisher仍retired，未写活动文件。
+
+唯一一次 apply attempt `nav-20261101T013519Z` 在冻结原publisher live_lock取得 `/var/www/dashboard/fs-home/transactions/collector.lock` 时抛BlockingIOError(errno11)中止。尚未进入admission/provider围栏或备份创建，backup `/var/backups/fs-navigation-20261006/nav-20261101T013519Z` 及journal均不存在，不能称安装失败后回退、不能称新worker启动失败。只读核实持锁pid18397/comm python3/cgroup fs-transaction-collect.service，Type=oneshot；该任务09:32:54 CST自然启动，至01:39:05Z仍activating/start。没有取消任务、强杀、清UNKNOWN、抢锁或重复apply。
+
+阻塞后逐项读回：24 currentSHA全等manifest beforeSHA（8新模块仍缺失）；46保护全匹配，目标owner/mode保持。worker/range/nginx均active，PID仍10943/11083/31780；容器ID/image/StartedAt仍原值，range /health=200且ok=true，匿名worker /v1/capabilities=401。故当前生产仍501f，5f99尚未软件发布。新manifest、stage和失败attempt均保留；后续只能在自然空闲且重新核实际基线后沿原publisher继续，不能靠取消collector获得空闲。
+
+可供主控独立读取的稳定共享metadata（没有源正文/DB/凭据）：
+- `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Deploy-5f99-20261101T013800Z/sdk-probe-5f99-result.json`
+- `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Deploy-5f99-20261101T013800Z/sdk-probe-5f99-attempts.json`
+- `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Deploy-5f99-20261101T013800Z/merged-5f99f5b3-blocked-metadata.json`
+
+未进入新版本正常FS认证、实际DeepSeek/accepted-context/用量费用、running stop、不可变下载、新部署视觉阶段；这些均未验，不能借旧501f闭环或本次构造探针代替。不使用preview_*验证自己修改、不提取Cookie/凭据、不伪造认证头，原用户tab未操作。没有额外业务/模型/API/IAM写入或新预算；未重跑旧Core/知识套件。Personal最终验收仍待真实后续结果。
