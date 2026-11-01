@@ -266,3 +266,11 @@ A零模型检查使用实际固定容器的原venv、原FS挂载配置/opt/pilot
 仅一次apply（原release ID nav-20261101T013519Z）在原live_lock取得collector.lock时errno11中止，持锁pid18397/python3、unit fs-transaction-collect.service。未进入Hermes准入/provider围栏、备份/journal或目标写入；24当前仍全部before、46保护匹配、8模块仍缺失，无backup/journal。worker/range/nginx仍active且原PID10943/11083/31780、容器/StartedAt未变，range health200/ok、匿名worker401。原publisher源码锁/写入顺序与此回执一致，分类为写前正常锁忙，不能记已部署或已有UNKNOWN写入。
 
 已交A沿原授权等待采集自然释放，不取消任务/抢锁或改服务timer。释放后重核原发布ID无backup/journal、全部before/保护/原image/状态/quiescent；在原1小时fresh窗口及输入全相同时可按原ID有据续试原publisher。过期或输入漂移则用同固定Git载荷重新prepare新现场baseline/stage/manifest并保留锁忙回执，不改时间或跳CAS；若已有journal先对账不盲重apply。当前生产仍501f，真实认证/模型/停止/新部署视觉未开始，不把SDK构造当这些验收。
+
+### 5f99软件实际发布成功（后续真实使用待验）
+
+A于2026-11-01T01:41:35Z只读确认collector自然inactive/dead、MainPID0、无锁持有者，未干预采集。按原ID nav-20261101T013519Z重核backup/journal不存在、24before/46保护及owner/mode全等、8缺失、原image/服务与baseline fresh，再次原inspect通过后才有据续试。原apply成功为applied-awaiting-actual-http-role-acceptance，source固定5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f，payload041ccf76093a0f337fbb75ef90a09ae91d5d004f56cdade2a98d330c92c48310，manifest4057435dce473622c5ef2f88ba0d55255a9f7b588a6e193f70a41cffca409881，均未换包。
+
+真实备份为/var/backups/fs-navigation-20261006/nav-20261101T013519Z，成功journal SHA256 `3f6d474d37716610de334f14b9b7a699f879aae170471c065f5007c47e3ab93d`，备份manifest与approved字节相同。A于01:44:15Z逐项读回24afterSHA/owner/mode匹配、46保护SHA/owner/mode未变；新容器9c0225c7ea03f676c10ff9f1b2181fa0c5dda8f472f6e6834ea616ba015b5db7，沿原image8251bc53…3544、Running=true、StartedAt2026-11-01T01:42:47.848543281Z。worker/range/nginx PID1434/1616/31780均active，range200/ok、匿名worker401。经原MaterialRuntime._rpc内部身份通道GET capabilities，fs_materials三字段verified_pin/readonly_original_lookup/single_post均True，不读取输出凭据；该内部结果不替代正常FS用户角色。
+
+因此当前生产软件源由501f推进到5f99，先前锁忙记录只保留历史。零模型实际SDK构造证据复用，无正式accepted输入、真实模型/费用/停止、正常FS角色或新部署视觉已验声明。Personal核到本机既有browser-act 1.4.2及完整core技能，存在FS专用浏览器与A自有会话；未创建/操作浏览器或转移认证。A沿既有正常登录、当前允许的非preview通道继续少量合成材料/真实proof与下载、fresh浅暗/移动/键盘取证，Personal不操作A会话，回收实际结果后再作最终审核。没有新账号/配置/预算/依赖安装；未取得真实证据的项目保持待验。
