@@ -380,3 +380,31 @@ Business独立worktree t3-966e8628起止核head baa7893f19e34f8c0718a3b4149ae6c0
 Personal转正式后新required CI41284500799/job124782942680实际日志准确绑定该head/base，Core211含新13、会话110、发布24零failure/error/skip。Codex机器人另有failed摘要/未完成文案，元数据标has_unresolved但无具体评论或正式review，不冒机器人已审通过、不重复触发；最新Business独审和必要CI已满足用户既有合并条件。PR无冲突后正常merge6ccc86a850b0606db5e6e401b369d260da2dd821，本机fetch/ff、merge树对reviewed head diff空，README/AGENTS导航dirty的原字节保持，PR监听已停止，无Approve或保护绕过。
 
 此为B2单客决策消费代码/合成与Linux验收通过，不是产品装配或真实业务调查。生产仍按已核收1b20，不部署本卡，不重发原材料POST/result/模型或扩大scope；原ID/payload、旧费用及旧404因果unknown保持。阶段1/2整体未完成，需真实材料或付费模型的下一步先列具体影响和必要授权。现有主方案只更新真实状态，不另建路线或恢复已通过旧阶段。
+
+#### 用户授权付费测试；原A接续材料真实执行验收
+
+用户在Personal原线程明确回复“允许执行付费调用及测试”。本轮只解除必要新合成验收的付费调用暂停，沿现有DeepSeek/general lane、有效policy及额度/到额停止，不改模型配置、预算、供应商、账户或权限，不重复发布1b20。原Business A已由原线程正常唤醒（run ordinal63），未创建替代执行者或重复派审；Personal负责最终收据核收。
+
+旧cid fa7ea40c42bc4833bdff3788f1d733f9/request material_da2c98dcd8d3464fb4db5f065f0ea110及完整payload封存，旧POST1/discarded=false、费用和404因果unknown保持；禁止重POST、换ID伪装重试或自动恢复旧执行。本轮使用不同专用合成cid及新测试意图，最多4个必要短任务：CSV尾页完整读取、两sheet XLSX确定性不可变修订、显式选择派生产物追问、必要的running-stop。达到验收即不追加模型任务。明确安全的丢202注入仅一次且必须核真实接收、POST计数1与原ID恢复；无法安全注入即记未验，不反复付费。
+
+先核现有运行及正常FS认证、有效policy/额度保护，复用native7和已核发布24/46；不重跑旧全套、不新部署、不读取凭据或业务客户数据。UNKNOWN/异常立即停止后续任务，沿原ID对账，不重发或清账本。收据需分列实际官方状态与context proof、工具覆盖、下载字节/parent/version/hash、provider回执数及费用未知、停止和部署版视觉。真实200%/第二身份/撤权/A2 scope未验证不得升级为已验。本段仅登记授权与已派执行，尚无本轮执行成功结论。
+
+预检08:49–08:51Z：A核12相关活动hash/mode/root匹配1b20、三服务active和正常FS认证关口；模型/材料POST/上传均0。Personal独立复算共享Temp FS-Hermes-Materials-PaidAcceptance-20261101T084924Z/index.json SHA c470025af9b3328fb650bf462675d8728e7b4d606f03f064f43cba04c839ff33及7文件size/SHA一致。原policy允许unknown费用且材料transport_retries=0；当前账户余额、环境有效限额和累计CNY停止保护仍未证，不猜测或读取配置。A按Personal此前附加预算证明条件暂停，该停点不是实际额度拒绝。
+
+主控据用户已明确付费测试授权撤回上述附加暂停条件：必要小合成验收不以证明余额/CNY硬上限为前置，不修改或绕过任何现有gateway/账户/平台限制，不另行读取Env/凭据或查账单；不宣称未知限额已生效。原A接续相同最多4任务包，复用预检，实际配置/额度/消费hold/权限拒绝或UNKNOWN立即停止并原ID对账；费用不能计价仍unknown。本条只修正主控执行安排，不授充值、改预算、换账号/模型或重发封存旧请求，也不构成执行成功结论。
+
+#### 首任务失败核收；用户限定授权错误类别只读诊断
+
+新合成cid558e974b536e4bbfaceb6d018c0273e3/request material_3d7065f9afb44f70ab1142090bc827d4/task10f54f0b5b650a26bdf30a47b3a596be/run run_2fa6490e5755454892c6f897bb0222f5真实202接收后failed。客户端材料POST1、明确丢弃202后原ID找回同run及实际上下文proof有回执；不将mapping attempted=1冒官方POST完整网络计数。coverage/产物为空，该task消费账本无行不证明供应商未调用；response_model/usage/费用与精确失败类别unknown。后续3任务未执行，无重POST/部署/配置改动。Personal独立复算共享Temp FS-Hermes-Materials-Execution-20261101T085429Z/index SHA21a2edea8a183b57c45dbf26aeb95174ddc5505bf913f8323b66425305fa5def及17文件size/SHA一致，核收的是接收/恢复证据，材料整包未通过。
+
+auto-review在CreateProcess前拒绝scroll+查看回答，因失败后状态/用量对账范围不包括可能触发处理的结果通道；动作未执行，未绕过。用户随后明确授权原Business A仅只读该失败run的状态、脱敏错误码及必要源码位置；不读模型回答/私有推理/凭据、不调用result、不新建或重发任务。原A在原线程接续一次有界诊断（ordinal65），先核已有SDK/Git的字段与副作用，正常工具审核后仅白名单状态/错误类别/源码位置，若仍拒绝即停止。此授权不含修补、部署、恢复后续付费任务或扩大生产读取，旧封存请求及unknown保持。
+
+只读诊断核收：Personal复算FS-Hermes-FailedRun-ReadonlyDiagnosis-20261101T092139Z/index SHA27a8df1d11cabea0e4eb38744e19a045b776d2a99d1e5985690120318e409a54及4文件bytes/SHA一致。官方同run/session/key/指纹持久状态failed，error非空但两轮受控分类未命中；异常类/失败源行仍unknown。固定公开SDK将失败结果或异常转为脱敏str(error)，未保留异常类；Personal公开源码缓存三文件SHA与原pin相同，仅本地对照，不据此给本次run归因。现场诊断结束，不继续读取error或结果。
+
+后续最小方案（尚未派达/开工）：拟仅26版hermes_worker.py、原test_conversation_file_loop.py相关worker测试及模块附录，增加有限phase/白名单异常类别的材料专属诊断；不记正文/推理/凭据/traceback，不吞改原异常/终态/清理，不造替代runner或修改SDK。旧record仍unknown；合成测试不冒真实故障复现。向原A派发该开发/测试/commit-push任务时，auto-review明确拒绝：现有用户授权仅覆盖只读定位失败run，未覆盖开发及远程仓库写入。任务未送达，未换工具派发；已向用户申请这项精确开发授权，未获回复前不实施。不改publisher/HTTP/B/公共schema，不部署、重启、重放任务或新增模型调用。
+
+用户随后明确批准上述3路径开发/本地检查/原分支commit-push，并要求先等T3 Code迁移；主控暂停未派发。本轮用户明确“继续任务”后，核原B工作树/origin/分支/HEAD139eb7aa及四文件dirty保留，实际main仍1aedeeda且已包含，原A idle无并行任务。新明确授权通过正常工具审核，原A任务ordinal66已实际启动（不是此前被拒任务已执行）。范围仍仅worker、原file-loop对应测试及模块附录，采用材料专属固定phase/白名单异常类别，未知类/旧记录unknown；原异常/返回/终态/清理、并发隔离、重复构造及FC行为用直接受影响本地测试验证。完成一个固定候选再统一集成独审及CI；不读取现场错误正文、不改SDK/HTTP/publisher、不部署重启或新增模型任务。当前仅恢复施工，尚无候选完成或故障恢复结论。
+
+原A固定候选08f32fa4d53c90a6163299f34d0cc66cd79eae3c（父2b5f5a67）恰三授权路径；Personal正常merge e552e352cb8dd71bc5a47f064c1a57aec918828b，原README/AGENTS及两主控文档dirty字节保持。新增可选runtime.fs_material_diagnostic四字段version/phase/exception_class/reason，仅mg材料run；固定枚举/type身份白名单，不读取异常str/repr/traceback，旧记录不补造；终态快照保留而临时记录释放，晚到worker不能复活记录。官方SDK/pin/HTTP/生产装配不改。
+
+Personal独立核候选共享Temp索引7b310077748fcd6a9a757437d514245c16eb30d5bd1690a6e73a53f593ee00c0及4文件bytes/SHA，并在合并代码实跑原units：file_loop15（worker11含新9、原闭环4）和channel12全部零失败/错误/skip。固定公开SDK原字节SHA再次匹配；另加载A共享test_sdk_contract.py实际16项（固定源码AST函数体新5及导入worker11）全部通过，未称只运行5项或完整SDK进程。离线依赖/agent为受控夹具，不能代替LinuxCI、独立审查、真实运行或旧故障复现。统一草稿按最新完整head/base审查，尚不合并或部署，不重提两失败/封存请求，不新增付费任务。
