@@ -1,0 +1,14 @@
+{
+  "contract": "fs-cache-eviction-dryrun-v1",
+  "policy_id": "candidate-not-approved-20261101",
+  "live_enabled": false,
+  "approval_status": "draft",
+  "roots": ["/var/lib/fs-hermes-fc/fs/source-snapshots"],
+  "datasets": ["orders.detail"],
+  "quarantine_days": 7,
+  "max_object_bytes": 16777216,
+  "max_batch_bytes": 8388608,
+  "proof_registry_required": true,
+  "reference_scan_must_be_complete": true,
+  "notes": "Only a proposal; dataset has no live regeneration proof in this task. Existing Excel/backup/L0 protections remain. No apply implementation."
+}

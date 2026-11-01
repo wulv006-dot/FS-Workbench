@@ -1,0 +1,23 @@
+{
+  "proof_id": "unverified-example",
+  "verified": false,
+  "evidence_kind": "unverified",
+  "evidence_sha256": null,
+  "mode": "current_state",
+  "dataset_id": "orders.detail",
+  "scope_hash": null,
+  "source_contract": null,
+  "start": null,
+  "end_exclusive": null,
+  "fields": [],
+  "stable_key": null,
+  "checks": {
+    "scope_enforced": false,
+    "pagination_complete": false,
+    "time_boundaries": false,
+    "required_fields": false,
+    "stable_identity": false,
+    "refund_correction": false,
+    "failures_not_empty": false
+  }
+}

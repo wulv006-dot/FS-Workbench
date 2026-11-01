@@ -113,6 +113,27 @@ class Keyset(unittest.TestCase):
             self.assertEqual(db.execute('SELECT count(*) FROM member_projection_groups').fetchone()[0],2)
         self.assertEqual(self.service.members(dict(self.args,snapshot_id=public['snapshot_id']),'admin')['total'],20)
 
+    def test_index_budget_stops_before_adding_projection_rows(self):
+        self.store.config['member_projection_max_rows']=1
+        public=self.store.save_snapshot(self.query,dict(self.public,data_version='8'),self.private)
+        with self.assertRaisesRegex(index.IndexUnavailable,'budget_exhausted'):index.build(self.store,public,self.private)
+        with self.store.db() as db:self.assertEqual(db.execute('SELECT count(*) FROM member_projection_rows').fetchone()[0],20)
+
+    def test_estimated_byte_actual_page_and_time_budgets_leave_no_partial_ready_index(self):
+        for budget in ('member_projection_max_estimated_bytes','member_projection_max_new_bytes','member_projection_max_seconds'):
+            with self.subTest(budget=budget):
+                private=dict(records={str(i):dict(customer_id=str(i),amount='new') for i in range(1000)},members=dict(purchasers=[str(i) for i in range(1000)]))
+                public=self.store.save_snapshot(self.query,dict(self.public,data_version='9'),private)
+                self.store.config[budget]=1
+                ticks=iter([0,0,0,0,0,100]);kwargs=dict(clock=lambda:next(ticks,100)) if budget.endswith('seconds') else {}
+                with self.assertRaisesRegex(index.IndexUnavailable,'budget_exhausted'):index.build(self.store,public,private,**kwargs)
+                with self.store.db() as db:
+                    self.assertEqual(db.execute('SELECT count(*) FROM member_projection_bodies').fetchone()[0],20)
+                    self.assertEqual(db.execute('SELECT count(*) FROM member_projection_rows').fetchone()[0],20)
+                    self.assertEqual(db.execute('SELECT count(*) FROM member_projection_groups').fetchone()[0],1)
+                    self.assertEqual(db.execute('SELECT count(*) FROM member_projection_sets').fetchone()[0],1)
+                self.store.config.pop(budget)
+
     def test_missing_index_fails_without_implicit_rebuild(self):
         with self.store.db() as db:db.execute('DELETE FROM member_projection_groups')
         with patch.object(self.store,'snapshot',side_effect=AssertionError('implicit full replay')):

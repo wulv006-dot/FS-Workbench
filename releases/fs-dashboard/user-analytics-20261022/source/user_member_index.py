@@ -3,7 +3,7 @@
 Build from the already-computed private result, never from a page/cache MISS.
 All rows remain derived; original facts, revisions, recipes and algorithms survive.
 """
-import hashlib,hmac,json
+import hashlib,hmac,json,math,time
 from user_contract import canonical,digest
 
 
@@ -32,12 +32,32 @@ def classification(record):
     return repeated,kind
 
 
-def build(store,public,private):
+def build(store,public,private,*,clock=time.monotonic):
+    started=clock()
     sid=public['snapshot_id'];query,_=store.snapshot_public(sid);token=store.snapshot_token(sid)
+    row_budget=store.config.get('member_projection_max_rows',100000)
+    byte_budget=store.config.get('member_projection_max_estimated_bytes',64*1024*1024)
+    new_bytes_budget=store.config.get('member_projection_max_new_bytes',64*1024*1024)
+    seconds=store.config.get('member_projection_max_seconds',30)
+    if type(row_budget) is not int or not 0<row_budget<=1000000 or type(byte_budget) is not int or not 0<byte_budget<=512*1024*1024:raise IndexUnavailable('member_projection_budget_configuration')
+    if type(new_bytes_budget) is not int or not 0<new_bytes_budget<=512*1024*1024 or type(seconds) not in (int,float) or not math.isfinite(seconds) or not 0<seconds<=60:raise IndexUnavailable('member_projection_budget_configuration')
+    def check_time():
+        if clock()-started>seconds:raise IndexUnavailable('member_projection_time_budget_exhausted')
+    refs=sum(len(ids) for ids in private['members'].values())
+    if refs>row_budget or len(private['records'])>row_budget:raise IndexUnavailable('member_projection_budget_exhausted')
+    estimated=sum(len(canonical(record).encode()) for record in private['records'].values())+refs*2048
+    if estimated>byte_budget:raise IndexUnavailable('member_projection_budget_exhausted')
+    check_time()
     private_hash=digest({k:v for k,v in private.items() if k!='events'});query_hash=digest(query)
     projection=digest(['member-projection-v2',private_hash,query_hash])
+    check_time()
     with store.db() as db:
         db.execute('BEGIN IMMEDIATE')
+        baseline_pages=db.execute('PRAGMA page_count').fetchone()[0];page_size=db.execute('PRAGMA page_size').fetchone()[0]
+        def guard(space=False):
+            check_time()
+            if space and (db.execute('PRAGMA page_count').fetchone()[0]-baseline_pages)*page_size>new_bytes_budget:raise IndexUnavailable('member_projection_new_bytes_budget_exhausted')
+        guard(True)
         saved=db.execute('SELECT members FROM snapshots WHERE id=?',(sid,)).fetchone()
         if saved is None:raise IndexUnavailable('snapshot_missing')
         reference=json.loads(saved[0])
@@ -57,6 +77,7 @@ def build(store,public,private):
             else:
                 totals={r+':'+k:0 for r in ('all','repeated','not_repeated') for k in ('all','new','old','unknown')}
                 for ordinal,cid in enumerate(ids):
+                    guard(ordinal%128==0)
                     record=private['records'][cid];body=canonical(record)
                     if len(body.encode())>16384:raise ValueError('member_projection_size')
                     ref=hashlib.sha256(body.encode()).hexdigest();repeated,kind=classification(record)
@@ -65,6 +86,7 @@ def build(store,public,private):
                     db.execute('INSERT OR IGNORE INTO member_projection_bodies VALUES(?,?)',(ref,body))
                 def rows():
                     for ordinal,cid in enumerate(ids):
+                        guard(ordinal%128==0)
                         record=private['records'][cid];ref=hashlib.sha256(canonical(record).encode()).hexdigest();repeated,kind=classification(record)
                         yield (projection,group,ordinal,cid,ref,repeated,kind,mac(store,[projection,group,ordinal,cid,ref,repeated,kind]))
                 db.executemany('INSERT INTO member_projection_rows VALUES(?,?,?,?,?,?,?,?)',rows())
@@ -77,6 +99,7 @@ def build(store,public,private):
                 if tuple(old)!=(encoded,signature):raise ValueError('member_projection_immutable')
                 continue
             db.execute('INSERT INTO member_projection_groups VALUES(?,?,?,?)',(sid,group,encoded,signature))
+        guard(True)  # Abort/rollback instead of publishing an over-budget ready manifest.
 
 
 def filters(query,args):
