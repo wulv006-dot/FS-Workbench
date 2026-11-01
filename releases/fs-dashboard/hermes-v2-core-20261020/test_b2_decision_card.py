@@ -1,5 +1,6 @@
 """Decision consumption of real A2 synthetic Store/Service receipts; no models."""
 from copy import deepcopy
+import base64
 import importlib
 import json
 import unittest
@@ -111,6 +112,58 @@ class DecisionCard(unittest.TestCase):
         for secret in (other, 'PRIVATE_OTHER', 'RAW_ORDERS', 'IGNORE PERMISSIONS'):
             self.assertNotIn(secret, text)
         self.assertFalse(card['model_call_performed'])
+
+    def test_real_candidate_cursor_does_not_disclose_previous_customer(self):
+        people = self.fixture.context.candidates(self.fixture.current)['rows']
+        ids = sorted(row['opaque_customer_id'] for row in people)
+        self.assertEqual(len(ids), 2)
+        for cid in ids:
+            with self.subTest(customer=cid):
+                context = self.fixture.fixture.plan(cid)
+                result = self.fixture.run_investigation(context, customer_ids=[cid], limit=1)
+                # A real candidate-chain cursor contains the first customer's ID.
+                tokens = [json.loads(e['ref']).get('last', {}).get('query', {}).get('cursor')
+                          for e in result['evidence']]
+                decoded = [json.loads(base64.urlsafe_b64decode(t + '=' * (-len(t) % 4)))
+                           for t in tokens if t]
+                self.assertTrue(any(v.get('after') == ids[0] for v in decoded))
+                card = self.card(result, opaque_customer_id=cid)
+                for ref in card['evidence']:
+                    locator = json.loads(ref['ref'])
+                    queries = [locator.get('query', {}), locator.get('first', {}).get('query', {}),
+                               locator.get('last', {}).get('query', {})]
+                    self.assertTrue(all(q.get('method') != 'candidates' for q in queries))
+                    for query in queries:
+                        token = query.get('cursor')
+                        if token:
+                            position = json.loads(base64.urlsafe_b64decode(
+                                token + '=' * (-len(token) % 4)))['after']
+                            if isinstance(position, str) and position.startswith('c_'):
+                                self.assertEqual(position, cid)
+                self.assertIn('candidate_reference_withheld_for_privacy', card['missing'])
+                self.assertEqual(card['coverage']['candidates_complete'], True)
+
+    def test_real_multi_customer_comparison_removal_is_explicit_not_forged(self):
+        people = self.fixture.context.candidates(self.fixture.current)['rows']
+        ids = [row['opaque_customer_id'] for row in people]
+        context = self.fixture.fixture.make(observation={
+            'observation_at': '2026-10-29T00:00:00+08:00',
+            'checks': {cid: {'recheck_at': '2026-10-28T00:00:00+08:00'} for cid in ids}})
+        result = self.fixture.run_investigation(context, customer_ids=ids)
+        comparison = [e for e in result['evidence']
+                      if json.loads(e['ref']).get('query', {}).get('method') == 'changes_due']
+        self.assertEqual(len(comparison), 1)
+        for cid in ids:
+            card = self.card(result, opaque_customer_id=cid)
+            self.assertIn('comparison_reference_withheld_for_privacy', card['missing'])
+            self.assertEqual(card['evidence_delivery'], 'partial')
+            self.assertEqual(card['status'], 'partial')
+            self.assertEqual(card['recommendation'], 'investigate_evidence')
+            self.assertEqual(card['source_as_of'], result['source_as_of'])
+            for ref in card['evidence']:
+                self.assertIn(ref, result['evidence'])  # Never forge a single-customer query.
+                self.assertNotEqual(json.loads(ref['ref']).get('query', {}).get('method'),
+                                    'changes_due')
 
     def test_incomplete_coverage_overrides_summary_label(self):
         result = deepcopy(self.result)

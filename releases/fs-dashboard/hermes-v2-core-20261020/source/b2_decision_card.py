@@ -64,7 +64,7 @@ def decision_card(investigation, *, opaque_customer_id, goal, recheck_at):
     evidence = handoff(task_id=investigation.get('request_id'), revision=1, goal=goal,
                        constraints=[], evidence=investigation.get('evidence'),
                        completed_actions=[], next_step='review frozen evidence')['evidence']
-    relevant = []
+    relevant, withheld = [], set()
     for ref in evidence:
         try:
             locator = json.loads(ref['ref'])
@@ -72,7 +72,18 @@ def decision_card(investigation, *, opaque_customer_id, goal, recheck_at):
             raise ValueError('frozen_evidence_locator') from None
         if not isinstance(locator, dict) or aware(ref['as_of']) > aware(evaluated_at):
             raise ValueError('frozen_evidence_locator')
-        if _customer_refs(locator) <= {cid}:
+        queries = [locator.get('query', {})] + [
+            locator.get(edge, {}).get('query', {}) for edge in ('first', 'last')]
+        methods = {q.get('method') for q in queries}
+        if 'candidates' in methods:
+            # Candidate cursors encode positions belonging to OTHER customers.
+            # Keep the coverage summary, not the group page-chain locator. Do
+            # not decode/rewrite A's opaque cursor into a new source query.
+            withheld.add('candidate_reference_withheld_for_privacy')
+        elif not _customer_refs(locator) <= {cid}:
+            withheld.add('comparison_reference_withheld_for_privacy'
+                         if 'changes_due' in methods else 'customer_reference_withheld_for_privacy')
+        else:
             relevant.append(ref)
     if not relevant:
         raise ValueError('decision_evidence_required')
@@ -91,7 +102,8 @@ def decision_card(investigation, *, opaque_customer_id, goal, recheck_at):
     if not isinstance(followup_missing, list) or any(not isinstance(v, str) for v in followup_missing):
         raise ValueError('followup_missing')
     missing.update(followup_missing)
-    for ref in relevant:
+    for ref in evidence:
+        # Withholding a locator does not erase the source's declared gaps.
         missing.update(ref['missing'])
     if not coverage['candidates_complete']:
         missing.add('candidate_pages_unread')
@@ -99,9 +111,13 @@ def decision_card(investigation, *, opaque_customer_id, goal, recheck_at):
         missing.add('timeline_pages_unread')
     if not all(coverage.values()):
         base['status'] = 'partial'
+    if withheld - {'candidate_reference_withheld_for_privacy'}:
+        base['status'] = 'partial'
+    analysis_missing = missing | (withheld - {'candidate_reference_withheld_for_privacy'})
+    missing.update(withheld)
     # A provider or caller cannot append discount/contact options to enable them.
     investigate = (state in {'needs_evidence', 'refresh_required', 'review_due', 'investigate'}
-                   or status == 'partial' or bool(missing))
+                   or status == 'partial' or bool(analysis_missing))
     recommendation = 'investigate_evidence' if investigate else 'no_intervention'
     if state == 'stopped':
         recommendation = 'no_intervention'
@@ -109,6 +125,7 @@ def decision_card(investigation, *, opaque_customer_id, goal, recheck_at):
                   source_as_of=source_at, evaluated_at=evaluated_at, recheck_at=recheck_at,
                   state=state, reason=reason, recommendation=recommendation,
                   coverage=coverage, missing=sorted(missing), evidence=relevant,
+                  evidence_delivery='partial' if withheld else 'complete',
                   alternatives=[
                       dict(action='no_intervention',
                            reason='Preserve current operations; no intervention benefit is established.'),

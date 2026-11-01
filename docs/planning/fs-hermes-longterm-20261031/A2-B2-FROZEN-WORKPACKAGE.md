@@ -366,3 +366,9 @@ A独立stage /var/tmp/fs-native-task-index-1b20b91f-20261101T033100Z的9个最�
 本轮按原主方案§6.6补齐B2决策卡，Personal唯一维护hermes-v2-core-20261020/source/b2_decision_card.py、test_b2_decision_card.py及原test_core.load_tests两行；现有investigate/A2/GoalHost/公共schema/publisher保持。decision_card(investigation,*,opaque_customer_id,goal,recheck_at)只消费已经由host授权取得的冻结调查，输出所选客户、原证据/截止/缺口、调查或不干预两种方案、为何取舍、未来读取须host重新验权/本卡不授执行权、显式复查点；不另查数据、建库、调模型、创建Goal或排程。多客回执只保留不包含其它客户定位符的证据引用，不复制原始行/模型正文。缺页推partial，退款/历史缺项保持，不把付款或完整分页认成收益/目标完成；净贡献和因果效果固定unknown。停止/unavailable/unknown/incomparable不返回旧客户决策。host仍负责每次读取和卡片交付授权，不能将纯函数当权限入口。
 
 验收：新增11项使用既有真实A2合成SQLite/Service调查夹具，无模型/来源客户端；RED先8项因缺消费者失败，后分别复现覆盖/执行标记及followup缺项丢失断言，再GREEN。原pr_fast.units Core最终209项零failure/error/skip，runner外网/子进程围栏保持；本机Windows沿原2026 UTC+08及私有temp mode夹具，非Linux/真实业务scope证明。最新SHA独审/必要CI及产品接线仍待，不将本地决策卡称经营追踪上线。A仅按既有归属追加1b20收尾记录，fixed d0c12e8667e764562e39f3b4f2390ea3520bd5a2已正常合入（相对1b20仅模块附录36行），无新运行任务。README/AGENTS原导航dirty逐字节保留，不纳入本包提交。远端main1053c94a的PR726只涉及看板，已普通merge，不改变Hermes生产source。
+
+#### PR727核心独审P2修复
+
+Business独立审查固定0bfc7bedd416d55cbdeed51026e817f531f5ab50/base1053c94a发现两项P2：真实候选分页cursor的Base64定位符携带其它客户ID；多客changes_due引用整条排除后未说明比较证据交付缺口。Personal用真实A2 SQLite/Service新增两项回归，分别对排序两位客户及双客户调查复现3处失败，不以明文字符串检查代替编码位置验证。
+
+本次仅B消费者/测试修复：单客卡不交付候选分页链原引用，保留候选覆盖摘要与安全的原summary/baseline/单客timeline等引用；不自行解码或改写A的定位协议。candidate_reference_withheld_for_privacy明确标出，单纯隐藏群体定位符不要求重新调查已读页。跨客批量比较引用不能安全交付时保留原来源声明缺项，增加comparison_reference_withheld_for_privacy，evidence_delivery与卡状态标partial，并建议核证；不把批量查询伪造为来源未执行的单客查询，不推进源截止或声称完整可核比较证据已交付。所有返回引用逐项来自原回执，真实分页测试同时解码输入/输出游标核其它客户位置未交付。停止/撤权/授权和原POST禁令不变。修复后原Core211项（决策卡13）零failure/error/skip；新SHA审查/CI不能复用旧209绿灯，生产仍1b20未改。

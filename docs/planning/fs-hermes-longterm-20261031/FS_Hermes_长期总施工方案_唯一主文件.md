@@ -50,7 +50,7 @@
 |---|---|---|---|
 | 阶段0 | 核对现有能力和当前规则 | 本机开工/分支/归属已核；生产活动映射未知，不扩全仓核查 | G0-B1.md、当前施工记录 |
 | 阶段1 | Agent 工作台与共用工具 | 历史501f材料主闭环/UI验收保留；最新软件1b20b91f发布及完整schema原ID查询已核收。新材料目标执行、配额清理、200%缩放、running取消、第二身份仍未验 | PR704/707/708/715—725；A DEPLOYMENT-ACCEPTANCE.md；本文件当前施工记录 |
-| 阶段2 | 自主模型路由、按需数据与用户追踪 | 目标/冻结事实/材料执行代码已限定验收；本轮B2单客决策卡11项、Core209本地通过，最新SHA独审/CI待做；可信业务scope仍缺，真实调查/持续调度未开放 | PR705/706/709/711/720—725；A2-B2-FROZEN-WORKPACKAGE.md；b2_decision_card.py及测试 |
+| 阶段2 | 自主模型路由、按需数据与用户追踪 | 目标/冻结事实/材料执行代码已限定验收；本轮B2单客决策卡原11项/209通过后独审发现两项P2；编码群体游标隔离和比较证据缺口已修，13项/Core211本地通过，新SHA复查/CI待做；可信业务scope仍缺，真实调查/持续调度未开放 | PR705/706/709/711/720—725；A2-B2-FROZEN-WORKPACKAGE.md；b2_decision_card.py及测试 |
 | 阶段3 | 一项已授权经营动作闭环 | 本轮未做新增真实动作验收；复用原执行链，仍需目标范围授权 | 未计完成 |
 | 阶段4 | 团队任务派发与成果回写 | 施工Business独立审查链已跑通；FS产品内派发/回写未验，两者不等同 | REVIEW-WORKFLOW.md；产品阶段未计完成 |
 | 阶段5 | 一个完整的跨角色活动 | 待前述能力会合及明确活动授权 | 未计完成 |
@@ -924,6 +924,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／1b20原生通过、发布写前锁拒绝 | 实际同exe SQLite3.7.17原生7项零失败零skip，9源blob由Personal对Git重算一致；唯一apply BlockingIOError，无backup/journal且24/46/服务容器完全未变 | A2-B2-FROZEN-WORKPACKAGE.md原生/锁拒绝；receipt index4151b80c | 具体errno/栈未知；生产仍f79未安装1b20，未发原GET/POST/模型 | 原锁自然释放后重核原ID无写入/fresh/CAS/guards，有据同ID续试一次；过期/漂移新prepare，不抢锁/清状态/循环apply，成功读回后原IDGET先行 | A唯一发布；Personal独立收据核收 |
 | 2026-11-01／1b20新基线发布及原ID查询验收 | 锁自然空闲后新fresh baseline06:21:48Z、manifest16615694；原publisher单次apply及24after/46保护/23未写metadata核收通过，唯一GoalTasks字节等于固定Git；正常FS仅一GET，schema完整/identity1/原ID0/tasks346 | A DEPLOYMENT-ACCEPTANCE.md；稳定收据index eeeea9ba5d2689a6e9e9881299c320b377bc45278216eb96b7d2c3fba79297c2，12文件已独立核SHA | 当前软件1b20；未重POST/模型，旧费用/旧404unknown，不证明官方run不存在；新材料执行未验 | 保留原ID/payload，B继续不依赖真实scope/模型的冻结调查决策消费；不重复部署或盲重材料 | A唯一现场；Personal独立核收/主控 |
 | 2026-11-01／B2单客决策卡本地包 | 消费原investigate回执，不建查询/库/调度；单客引用、缺项/截止、调查与不干预、授权边界/复查点明确。新11项及原Core209零失败零skip；无网络/模型/生产副作用 | A2-B2-FROZEN-WORKPACKAGE.md本轮记录；b2_decision_card.py/test_b2_decision_card.py | 尚为未装配本地消费者，最新SHA独审/LinuxCI待做；A2真实scope仍unavailable，原材料POST禁止 | 一个既有Personal分支集成包，审查/CI按既有流程；不触A运行底座/共享publisher | Personal B施工/主控；A仅收尾记录 |
+| 2026-11-01／PR727两项核心P2修复 | Business固定0bfc7bed审查复现候选编码游标跨客定位泄露、批量比较引用被排除但未标缺；Personal真实A2回归先3失败后修复，13项决策卡/Core211零失败零skip | A2-B2-FROZEN-WORKPACKAGE.md PR727修复记录；原PR内更新 | 本地修复不代替最新SHA独立复查/LinuxCI；不造单客来源引用，不将旧209绿灯冒新版本，原POST仍禁 | 新SHA限定复查两项及必要CI；通过前不合并，不影响A或生产 | Personal B修复；Business独立复查 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 
