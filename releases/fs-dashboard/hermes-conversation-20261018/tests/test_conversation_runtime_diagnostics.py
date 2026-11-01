@@ -20,8 +20,9 @@ MODULE = Path(__file__).resolve().parents[1]
 REPO = MODULE.parents[2]
 sys.path[:0] = [str(MODULE / 'source'), str(MODULE.parent / 'hermes-fc-pilot-20261013')]
 from conversation_store import ConversationStore
-from conversation_material_runs import MaterialService
+from conversation_material_runs import MaterialService, MaterialRuntime
 from pilot import TaskStore
+from test_conversation_goal_tasks import index_metadata, MetadataRows
 
 RANGE = REPO / 'releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py'
 HTTP = [MODULE / 'source/conversation_http.py',
@@ -49,7 +50,9 @@ def load_http(path, name):
 class RuntimeDiagnosticsTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
-        root = Path(self.temp.name)
+        self.fresh_service(Path(self.temp.name))
+
+    def fresh_service(self, root):
         self.store = ConversationStore(root / 'conversations')
         self.cid = self.store.create('alice')['conversation_id']
         self.tasks = TaskStore(root / 'tasks.sqlite3')
@@ -59,6 +62,58 @@ class RuntimeDiagnosticsTests(unittest.TestCase):
         self.service = SimpleNamespace(store=self.store, hermes=self.hermes)
         self.materials = MaterialService(self.hermes, self.service)
         self.service.materials = self.materials
+
+    def test_real_http_old_index_loop_fails_then_legacy_proof_initializes_empty_original_lookup(self):
+        def old_index_loop(db):
+            # Exact old validation, swapped in memory only. All constructor,
+            # real DB transactions, MaterialService and HTTP code stay actual.
+            unique = []
+            for index in db.execute('PRAGMA index_list(tasks)'):
+                if index['unique'] and not index['partial']:
+                    name = index['name'].replace('"', '""')
+                    unique.append(tuple(r['name'] for r in db.execute('PRAGMA index_info("'+name+'")')))
+            if ('owner', 'fingerprint') not in unique or ('run_id',) not in unique:
+                raise OSError('goal_task_original_schema_unavailable')
+        for number, path in enumerate(HTTP):
+            with self.subTest(http=path):
+                self.fresh_service(Path(self.temp.name)/('actual-http-'+str(number)))
+                http = load_http(path, 'compat_http_'+str(number))
+                before = self.snapshot()
+                from conversation_goal_tasks import ConversationGoalTasks
+                with index_metadata(), patch('conversation_goal_tasks._task_unique_indexes', old_index_loop):
+                    with self.assertRaises(IndexError) as error:
+                        ConversationGoalTasks(self.tasks, 'alice', self.cid, lambda *a: True, expected_path=self.tasks.path)
+                    self.assertIsInstance(error.exception, LookupError)
+                    code, value, _ = self.request(http, '/materials/original-request')
+                    self.assertEqual((code, value), (404, {'error':'not_found','source':'material_http','stage':'lookup'}))
+                self.assertEqual(before, self.snapshot())
+                with index_metadata(), patch('socket.socket.connect', side_effect=AssertionError('no network')), \
+                        patch.object(MaterialRuntime, 'reconcile', side_effect=AssertionError('no original run')), \
+                        patch.object(MaterialRuntime, 'start', side_effect=AssertionError('no POST')):
+                    code, value, headers = self.request(http, '/materials/original-request')
+                    self.assertEqual((code, value), (404, {'error':'not_found','source':'material_http','stage':'lookup'}))
+                    self.assertEqual(headers['X-FS-Material-Adapter'], 'materials_runtime_diagnostics_v1')
+                after = self.snapshot()
+                conversation = after[str(self.store.path)][2]; tasks = after[str(self.tasks.path)][2]
+                self.assertEqual(conversation['conversation_goals_v1'], 0)
+                self.assertEqual(conversation['conversation_goal_mutations_v1'], 0)
+                for table in ('conversation_goal_outbox_v1', 'conversation_material_selections_v1', 'conversation_material_runs_v1', 'tasks'):
+                    self.assertEqual(tasks[table], 0)
+                self.assertEqual(tasks['conversation_goal_outbox_identity_v1'], 1)
+                with self.tasks.db() as db:
+                    self.assertEqual(db.execute('SELECT count(*) FROM tasks').fetchone()[0], 0)
+
+    def test_real_http_unprovable_index_metadata_is_503_without_private_schema(self):
+        def incomplete(sql, parameters, fields, rows):
+            if sql == 'PRAGMA index_list(tasks)':
+                return MetadataRows(['seq', 'name'], [[r['seq'], r['name']] for r in rows])
+        for number, path in enumerate(HTTP):
+            self.fresh_service(Path(self.temp.name)/('unprovable-http-'+str(number)))
+            before = self.snapshot(); http = load_http(path, 'unprovable_http')
+            with index_metadata(incomplete):
+                code, value, _ = self.request(http, '/materials/original-request')
+            self.assertEqual((code, value), (503, {'error':'conversation_unavailable'}))
+            self.assertEqual(before, self.snapshot())
 
     def snapshot(self):
         result = {}

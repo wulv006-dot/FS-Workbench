@@ -25,6 +25,120 @@ NGINX = (b'# unrelated\r\nlocation = /api/hermes/conversations {\r\n'
 
 
 class RuntimeMaterials(unittest.TestCase):
+    def test_goal_task_index_f79_single_module_proof_delta_and_rollback(self):
+        names = ('TARGETS', 'NEW', 'INSTALLED_COMMIT', 'INSTALLED_PROOF', 'EXECUTION_MODE', 'DIAGNOSTICS_MODE', 'TASK_INDEX_MODE')
+        saved_release = {k: deepcopy(getattr(release, k)) for k in names}
+        saved_prepare = {k: deepcopy(getattr(prepare, k)) for k in ('TARGETS', 'NEW', 'INSTALLED_COMMIT', 'INSTALLED_PROOF', 'SOURCES')}
+        try:
+            prepare.configure_task_index_compat()
+            self.assertTrue(release.TASK_INDEX_MODE); self.assertFalse(release.DIAGNOSTICS_MODE)
+            self.assertEqual(release.NEW, frozenset())
+            self.assertEqual(release.INSTALLED_PROOF, {
+                'sourceCommit':'f79e29f0d5921b103a218c5e6ed967a754858b9c',
+                'backup':'/var/backups/fs-navigation-20261006/nav-20261101T024500Z',
+                'manifestSha256':'25cd452cfb25790502cab7a7561187f04da5af6e2096baf9a71fabb11ad199ee',
+                'journalSha256':'534a813b17ea54422131403075156ec82fa2696959c575211e29cee3c0c6cdab'})
+            with tempfile.TemporaryDirectory() as packed:
+                def blob(command, **kwargs):
+                    self.assertEqual(command[:2], ['git', 'show'])
+                    return ('git-blob:'+command[2]).encode()
+                with patch.object(prepare.subprocess, 'check_output', side_effect=blob):
+                    prepare.pack(Path(packed), Path(packed)/'bundle', 'b'*40)
+                descriptor=json.loads((Path(packed)/'bundle/payload-manifest.json').read_bytes())
+                self.assertTrue(descriptor['goal_task_index_compat']); self.assertFalse(descriptor['material_diagnostics'])
+                self.assertEqual(descriptor['installed_baseline']['source_commit'], release.INSTALLED_COMMIT)
+                self.assertEqual(set(descriptor['installed_baseline']['files']), set(release.TARGETS))
+                self.assertTrue(all(v is not None for v in descriptor['installed_baseline']['files'].values()))
+            for fail in (False, True):
+                with self.subTest(rollback=fail), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    base, system, payload, metadata, _, proof, previous = self.installed_fixture(root)
+                    descriptor_path = payload.parent/'payload-manifest.json'
+                    descriptor = json.loads(descriptor_path.read_bytes())
+                    descriptor.update(material_execution=True, material_diagnostics=False, goal_task_index_compat=True)
+                    for name in prepare.SOURCES:
+                        before = base.rooted(system, release.TARGETS[name]).read_bytes()
+                        body = before+b'\n# index compat\n' if name == 'runtime/conversation_goal_tasks.py' else before
+                        (payload/name).write_bytes(body); descriptor['files']['payload/'+name] = prepare.digest(body)
+                    raw = json.dumps(descriptor).encode(); descriptor_path.write_bytes(raw)
+                    stage = root/'index-stage'
+                    with patch.object(release, 'INSTALLED_PROOF', proof), patch.object(prepare, 'INSTALLED_PROOF', proof), \
+                            patch.object(prepare, 'file_metadata', metadata):
+                        prepare.prepare(payload, stage, 'a'*40, prepare.digest(raw), root=system, followup=True, release_ready=True)
+                        for case in ('old_proof', 'extra_http'):
+                            changed = deepcopy(descriptor)
+                            if case == 'old_proof': changed['installed_baseline']['source_commit'] = '5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f'
+                            else:
+                                (payload/'http/conversation_http.py').write_bytes(b'unapproved HTTP delta')
+                                changed['files']['payload/http/conversation_http.py'] = prepare.digest(b'unapproved HTTP delta')
+                            bad = json.dumps(changed).encode(); descriptor_path.write_bytes(bad)
+                            with self.assertRaises(ValueError):
+                                prepare.prepare(payload, root/('reject-'+case), 'a'*40, prepare.digest(bad), root=system, followup=True)
+                            self.assertFalse((root/('reject-'+case)).exists())
+                        descriptor_path.write_bytes(raw)
+                        (payload/'http/conversation_http.py').write_bytes(base.rooted(system, release.TARGETS['http/conversation_http.py']).read_bytes())
+                    manifest = json.loads((stage/'approved-manifest.json').read_bytes())
+                    self.assertTrue(manifest['goalTaskIndexCompat']); self.assertNotIn('materialDiagnostics', manifest)
+                    self.assertFalse(manifest['materialStaticOnly'])
+                    self.assertEqual((len(manifest['files']), len(manifest['unchangedRequired'])), (24, 46))
+                    self.assertTrue(all(r['beforeSha256'] is not None for r in manifest['files']))
+                    target = release.TARGETS['runtime/conversation_goal_tasks.py']
+                    self.assertEqual(manifest['materialChangedTargets'], [target])
+                    unchanged = {r['target']:(base.rooted(system,r['target']).stat().st_ino,base.rooted(system,r['target']).stat().st_mtime_ns)
+                                 for r in manifest['files'] if r['target'] != target}
+                    spec = importlib.util.spec_from_file_location('index_compat_publisher', stage/'runtime_release.py')
+                    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+                    module.configure_task_index_compat(); module.INSTALLED_PROOF = proof
+                    guards = []
+                    def guard(current, host, reader_stopped=False):
+                        guards.append(True)
+                        self.assertEqual(current['runtimeRequired'], manifest['runtimeRequired'])
+                        for row in current['unchangedRequired']:
+                            self.assertEqual(base.digest(base.rooted(host, row['path'])), row['sha256'])
+                    base.guards = guard; base.retirement = lambda *a: None
+                    base.locks = base.live_lock = base.model_release_lock = lambda *a: nullcontext()
+                    fence = SimpleNamespace(modified=False, confirmed=False, stop_then_unlock_database=Mock())
+                    base.hermes_admission_fence = lambda *a: nullcontext(fence)
+                    original_restart = Mock(side_effect=[RuntimeError('index range failure'), None] if fail else None)
+                    base.restart_for = original_restart
+                    writes = []; original_atomic = base.atomic
+                    targets = {base.rooted(system,r['target']) for r in manifest['files']}
+                    def atomic(path, body, mode=0o644):
+                        if path in targets: writes.append(path)
+                        return original_atomic(path, body, mode)
+                    base.atomic = atomic
+                    if os.name == 'nt': base.directory_sync = lambda *a: None
+                    with patch.object(module, 'frozen', return_value=base), \
+                            patch.object(module, 'worker_image', return_value=manifest['workerImageId']), \
+                            patch.object(module.subprocess, 'run', side_effect=AssertionError('no worker or nginx command')):
+                        publisher = module.load_base()
+                        if os.name == 'nt':
+                            original_wire = publisher.atomic
+                            def windows_atomic(path, body, mode=0o644):
+                                row = next((r for r in manifest['files'] if path == base.rooted(system,r['target'])), None)
+                                return original_wire(path, body, int(row['mode'],8) if row else mode)
+                            publisher.atomic = windows_atomic
+                        raw = (stage/'approved-manifest.json').read_bytes()
+                        publisher.inspect(manifest,stage,system)
+                        if fail:
+                            with self.assertRaisesRegex(RuntimeError,'index range failure'):
+                                publisher.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261101T000005Z',system)
+                        else: publisher.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261101T000005Z',system)
+                        self.assertEqual(set(writes),{base.rooted(system,target)})
+                        self.assertGreaterEqual(len(guards),27)
+                        self.assertTrue(original_restart.called)
+                        self.assertTrue(all(c.args[0]['scope']==base.DEEP_SCOPE for c in original_restart.call_args_list))
+                        self.assertTrue(fence.stop_then_unlock_database.called)
+                        for row in manifest['files']:
+                            path=base.rooted(system,row['target']); self.assertTrue(path.exists())
+                            self.assertEqual(base.digest(path),row['beforeSha256'] if fail else row['sha256'])
+                            if row['target'] in unchanged:
+                                self.assertEqual((path.stat().st_ino,path.stat().st_mtime_ns),unchanged[row['target']])
+        finally:
+            for key,value in saved_release.items():setattr(release,key,value)
+            for key,value in saved_prepare.items():setattr(prepare,key,value)
+            prepare.TARGETS=release.TARGETS
+
     def test_diagnostics_5f99_existing24_proof_delta_cas_and_original_apply_rollback(self):
         names = ('TARGETS', 'NEW', 'INSTALLED_COMMIT', 'INSTALLED_PROOF', 'EXECUTION_MODE', 'DIAGNOSTICS_MODE')
         saved_release = {k: deepcopy(getattr(release, k)) for k in names}
