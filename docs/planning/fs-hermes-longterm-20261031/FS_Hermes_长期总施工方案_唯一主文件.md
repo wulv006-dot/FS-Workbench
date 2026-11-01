@@ -909,6 +909,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／真实装配来源定位 | A只读三指定活动文件元信息；Personal本地Git LF完整匹配fs_evidence及range_api（大小/完整SHA/blob），并核controller构造/get_job/_submit_report的可比函数AST，原任务DB及会话对象接点已定位 | A2-B2-FROZEN-WORKPACKAGE.md活动源码精确定位表 | controller整文件/execute未匹配，真实goal任务类型/spec/原ID对账/细粒度scope仍未接；文件匹配不等于运行验收，生产仍501f | 不再申请/执行已有Git片段的生产导出；A只读本地收敛真实执行包合同，B同步执行意图/证据/handoff接点，登记唯一维护路径后同包施工 | A运行底座；Personal B/技术主控 |
 | 2026-11-01／材料真实执行包施工 | 登记conversation_materials_v1、period=null专用validator与A运行共享路径唯一维护者，A已确认施工；B材料意图/上下文/三工具与proof/证据作用域合计新21项、Core198零skip。A有限元信息确认当前官方三文件与固定公开pin字节相同，初版DB4项通过 | A2-B2-FROZEN-WORKPACKAGE.md实际API/维护表及SDK SHA；material_execution.py及测试 | 仅B本地候选和A初版局部通过；完整tasks/lease/run/resolver、组合/LinuxCI/独审未完成，无新部署/模型；A2 scope仍unavailable | 正常合入A完整候选并做原接口组合，统一一个集成PR和Business最新SHA独审；本包不加调度或业务写 | Personal B语义/集成；A原账本/生命周期/运行/UI |
 | 2026-11-01／A完整执行候选集成复核 | 正常ff A51af0a42的21路径，B与42b6df09完全一致；主控独立材料20/Core198零skip，复看4张本地候选浅暗/展开/390图；A83/deploy22/channel12/Node/Chromium同输入证据复用 | A2-B2-FROZEN-WORKPACKAGE.md主控复核；A模块部署附录 | 发现runtime cache并发替换与UI按隐藏file_id决定修订目标两项待修；LinuxCI/最新SHA独审及真实SDK/模型/生产视觉仍未完成 | A同包修复回完整head，保留一个集成草稿，修复后再派Business独审；生产501f不变 | A修复；Personal集成/最终审核 |
+| 2026-11-01／PR723派审收敛 | 正常merge A501239c4同包修复，B源无差异；cache短锁及修订单选/目标名已核，主控新增2并发及Node事件回归通过，亲看新本地目标图 | A2-B2-FROZEN-WORKPACKAGE.md派审版本；PR723 | 主控两P2已收口，最新集成SHA LinuxCI/Business独审待完成；非真实SDK/模型/生产通过，生产501f不变 | 冻结完整head派唯一Business Sol High核心独审，必要CI及审查通过后沿授权合并，再安排原publisher验收 | Personal统一PR/终审；Business独审 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 

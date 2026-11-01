@@ -240,3 +240,9 @@ MaterialEvidence增加host-only scope，原turn默认标签/算法不变；执�
 A同固定输入的本机证据复用：原store入口83（含新材料20）、deploy22、channel12零skip，Node原入口及本地Chromium/loopback下载通过，15Python路径3.9 AST及diff通过。Personal独立新材料20与当前组合Core198均零failure/error/skip，亲看4张candidate-only浅暗/展开/390图（A临时截图目录fs-materials-ui-szads3wx）；不视为生产视觉、真实SDK或模型通过。
 
 主控核心复核发现两项同包待修，已交唯一A处理，未提前派独审/合并：一是MaterialService._parts未串行runtime cache首次创建，真实temp DB加同步点可使同owner/cid两调用取得不同实例，后写缓存挤掉在用实例，后续reconcile会误按重启路径停止原任务；二是UI修订把选中file_id排序取首个，和“第一份勾选文件”的人类含义不一致，会静默修改另一已选文件。要求A补短缓存锁及并发回归，UI明确单份/目标文件选择与反序ID事件回归。保持一个集成草稿，待更新完整SHA的相关检查、LinuxCI及Business独审再作合并判断。当前生产仍501f，未pack/upload/apply或运行模型。
+
+### PR723派审版本收敛
+
+正常merge A修复固定501239c434ae6931cf44b19980b51c828fafac3f，无冲突，仍同一个PR723；9条差异仅属A已登记路径，B目录相对42b6df09无差异。runtime独立RLock只覆盖cache取建并返回锁内局部引用，DB/授权构造、执行与网络在锁外。修订前端单选及事件处理双重拒绝多选，并显示真实目标名；读取多选和后端显式目标能力不收窄。A在内存装回旧51af后两个新增回归实际失败，修复后通过，未修改跟踪旧源。
+
+Personal沿原pr_fast.units独立运行新增并发2项零failure/error/skip，原Node入口真实DOM/fetch含两种勾选顺序及逆序ID回归通过；查看新candidate-only深色展开图，目标文件名已可见。复用未变输入的材料20/Core198、A原83/deploy22/channel12及Chromium证据，不宣称本轮全部重跑。原知识收尾失败状态保持，生产501f未变。当前两项主控P2已收口，冻结最新完整集成SHA交唯一Business Sol High独立worktree审核心；LinuxCI/独审返回前仍draft、不合并、不部署。真实SDK/模型/费用、生产停止/第二身份/A2scope/200%与生产视觉未验。
