@@ -14,7 +14,7 @@ from user_contract import canonical, digest, stamp, money
 import user_version_index
 
 
-class StoreUnavailable(RuntimeError):
+class StoreUnavailable(OSError):
     """Authoritative facts are unavailable; never interpret this as an empty cache."""
 
 

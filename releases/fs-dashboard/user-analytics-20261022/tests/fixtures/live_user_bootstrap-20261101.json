@@ -1,0 +1,9 @@
+{
+  "source": "/opt/fs-exact-range-20261001/range_api.py",
+  "source_sha256": "6ad36b9be9790c0392874ee748c8f2e9bade24cb1b23ef1585fed59464ff9d32",
+  "observed_at_utc": "2026-11-01T17:59:12Z",
+  "lines": [362, 368],
+  "entry_verified_by_systemd": true,
+  "scope": "Captured bootstrap only; replay is not a running production host or a target SQLite validation.",
+  "snippet": "try:\n sys.path.insert(0,'/opt/fs-hermes-fc')\n from user_runtime import build as build_user_analytics\n from user_http import get as get_user_analytics\n USERS=build_user_analytics()\nexcept (ImportError,OSError,ValueError) as error:\n USERS_ERROR=str(error) if isinstance(error,ValueError) and re.fullmatch(r'[a-z_]{1,80}',str(error)) else type(error).__name__"
+}

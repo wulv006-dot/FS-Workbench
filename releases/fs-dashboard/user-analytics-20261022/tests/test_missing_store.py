@@ -6,6 +6,8 @@ from contextlib import closing
 import sys
 import tempfile
 import unittest
+import ast
+import re
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -13,6 +15,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from user_store import Store, StoreUnavailable, require_database
 from user_runtime import load_store
 import user_http
+
+
+def replay_live_bootstrap(builder):
+    """Keep the captured build/catch; omit host imports/path mutation, never start it."""
+    fixture=json.loads((Path(__file__).parent/'fixtures/live_user_bootstrap-20261101.json').read_text('utf-8'))
+    block=ast.parse(fixture['snippet']).body[0]
+    calls=[n for n in block.body if isinstance(n,ast.Assign)]
+    if len(calls)!=1 or not isinstance(calls[0].value,ast.Call) or not isinstance(calls[0].value.func,ast.Name) or calls[0].value.func.id!='build_user_analytics':
+        raise AssertionError('captured_user_bootstrap_changed')
+    block.body=calls
+    state=dict(USERS=None,USERS_ERROR=None,build_user_analytics=builder,re=re)
+    exec(compile(ast.Module(body=[block],type_ignores=[]),'captured-live-user-bootstrap','exec'),state)
+    return state
 
 
 class MissingStore(unittest.TestCase):
@@ -91,6 +106,50 @@ class MissingStore(unittest.TestCase):
                          (503, {'error': 'users_store_unavailable', 'recovery_required': True}))
         self.assertEqual(user_http.search(service, {}, 'fixture-user')[0], 503)
         self.assertEqual(user_http.get(service, '/users', {}, '')[0], 401)
+
+    def test_live_host_missing_store_stays_available_without_bootstrapping_facts(self):
+        for key_present in (False,True):
+            root=self.root/str(key_present)
+            if key_present:
+                root.mkdir(parents=True);(root/'identity.key').write_bytes(b'fixture-preserved-key')
+            try:
+                state=replay_live_bootstrap(lambda:load_store(root,{}))
+            except StoreUnavailable as error:
+                self.fail('live bootstrap leaked storage-unavailable exception: '+str(error))
+            self.assertIsNone(state['USERS']);self.assertEqual(state['USERS_ERROR'],'StoreUnavailable')
+            self.assertEqual(user_http.get(state['USERS'],'/users',{},'fixture-user')[0],503)
+            self.assertEqual(user_http.search(state['USERS'],{},'fixture-user')[0],503)
+            if key_present:
+                self.assertEqual((root/'identity.key').read_bytes(),b'fixture-preserved-key')
+                self.assertEqual([p.name for p in root.iterdir()],['identity.key'])
+            else:self.assertFalse(root.exists())
+
+    def test_live_host_normal_builder_is_retained_and_unexpected_bug_still_escapes(self):
+        sentinel=object();state=replay_live_bootstrap(lambda:sentinel)
+        self.assertIs(state['USERS'],sentinel);self.assertIsNone(state['USERS_ERROR'])
+        def bug():raise RuntimeError('unexpected_application_bug')
+        with self.assertRaisesRegex(RuntimeError,'unexpected_application_bug'):
+            replay_live_bootstrap(bug)
+
+    def test_real_hot_store_loss_returns_503_without_creating_database(self):
+        store=Store.__new__(Store);store.path=self.root/'customers.sqlite3';store.read_only=False
+        class Service:
+            def query(self,args,user):
+                with store.db():return {'unexpected_empty_success':True}
+            search=query
+        self.assertEqual(user_http.get(Service(),'/users',{},'fixture-user'),
+                         (503,{'error':'users_store_unavailable','recovery_required':True}))
+        self.assertEqual(user_http.search(Service(),{},'fixture-user')[0],503)
+        self.assertFalse(self.root.exists())
+
+    @unittest.skipUnless(os.name=='posix','requires real POSIX ownership/fcntl; Linux must run normal load')
+    def test_live_host_normal_existing_store_load_preserves_identity_and_revision(self):
+        config=json.loads((Path(__file__).resolve().parents[1]/'source/user_config.json').read_text('utf-8'))
+        original=load_store(self.root,config,initialize=True)
+        key=(self.root/'identity.key').read_bytes();revision=original.revision()
+        state=replay_live_bootstrap(lambda:load_store(self.root,config))
+        self.assertIsInstance(state['USERS'],Store);self.assertIsNone(state['USERS_ERROR'])
+        self.assertEqual(state['USERS'].revision(),revision);self.assertEqual((self.root/'identity.key').read_bytes(),key)
 
 
 if __name__ == '__main__':
