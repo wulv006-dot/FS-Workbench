@@ -406,6 +406,8 @@ def main():
     executors={lane:ThreadPoolExecutor(max_workers=1) for lane in ('collection','control','observation')}
     running={}
     try:
+        # SQLite opens WAL lazily; keep its sidecars alive for read-only writer mounts.
+        keeper.execute('SELECT count(*) FROM metadata').fetchone()
         while not stop:
             tick(executors,running)
             for _ in range(60):
