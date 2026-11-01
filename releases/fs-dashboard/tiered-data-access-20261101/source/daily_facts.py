@@ -15,7 +15,7 @@ def schema(db):
     db.execute('CREATE TABLE IF NOT EXISTS daily_facts(dataset TEXT,scope_hash TEXT,business_date TEXT,contract TEXT,currency TEXT,revision TEXT,sequence INTEGER,body TEXT,PRIMARY KEY(dataset,scope_hash,business_date,contract,currency,revision))')
     db.execute('CREATE TABLE IF NOT EXISTS daily_current(dataset TEXT,scope_hash TEXT,business_date TEXT,contract TEXT,currency TEXT,revision TEXT,sequence INTEGER,PRIMARY KEY(dataset,scope_hash,business_date,contract,currency))')
     db.execute('CREATE TABLE IF NOT EXISTS dirty_days(dataset TEXT,scope_hash TEXT,business_date TEXT,currency TEXT,reason TEXT,PRIMARY KEY(dataset,scope_hash,business_date,currency))')
-    db.execute('CREATE TABLE IF NOT EXISTS daily_dirty_events(dataset TEXT,scope_hash TEXT,event_id TEXT,checksum TEXT,PRIMARY KEY(dataset,scope_hash,event_id))')
+    db.execute('CREATE TABLE IF NOT EXISTS daily_dirty_events(dataset TEXT,scope_hash TEXT,event_id TEXT,currency TEXT,checksum TEXT,PRIMARY KEY(dataset,scope_hash,event_id,currency))')
 
 
 class Facts:
@@ -62,11 +62,11 @@ class Facts:
         checksum=hashlib.sha256(encoded([dates,reason,currency]).encode()).hexdigest()
         with closing(self.archive.database(True)) as db,db:
             db.execute('BEGIN IMMEDIATE')
-            old=db.execute('SELECT checksum FROM daily_dirty_events WHERE dataset=? AND scope_hash=? AND event_id=?',(dataset,scope_hash,event_id)).fetchone()
+            old=db.execute('SELECT checksum FROM daily_dirty_events WHERE dataset=? AND scope_hash=? AND event_id=? AND currency=?',(dataset,scope_hash,event_id,currency)).fetchone()
             if old:
                 if old['checksum']!=checksum:raise ValueError('daily_event_conflict')
                 return False
-            db.execute('INSERT INTO daily_dirty_events VALUES(?,?,?,?)',(dataset,scope_hash,event_id,checksum))
+            db.execute('INSERT INTO daily_dirty_events VALUES(?,?,?,?,?)',(dataset,scope_hash,event_id,currency,checksum))
             for value in dates:db.execute('INSERT OR REPLACE INTO dirty_days VALUES(?,?,?,?,?)',(dataset,scope_hash,value,currency,reason))
         return True
 
@@ -76,6 +76,7 @@ class Facts:
         db=self.archive.database()
         if db is None:return dict(complete=False,currency=currency,rows=[],missing=[start],reason='read_model_missing')
         with closing(db):
+            db.execute('BEGIN')  # Facts and dirty state must describe one SQLite snapshot.
             rows=[dict(row) for row in db.execute('SELECT c.business_date,f.body FROM daily_current c JOIN daily_facts f ON c.dataset=f.dataset AND c.scope_hash=f.scope_hash AND c.business_date=f.business_date AND c.contract=f.contract AND c.currency=f.currency AND c.revision=f.revision WHERE c.dataset=? AND c.scope_hash=? AND c.contract=? AND c.currency=? AND c.business_date>=? AND c.business_date<? ORDER BY c.business_date',(dataset,scope_hash,spec['metric_contract'],currency,start,end_exclusive))]
             dirty={row[0] for row in db.execute('SELECT business_date FROM dirty_days WHERE dataset=? AND scope_hash=? AND currency=? AND business_date>=? AND business_date<?',(dataset,scope_hash,currency,start,end_exclusive))}
         existing={row['business_date'] for row in rows};missing=[];cursor=lo
