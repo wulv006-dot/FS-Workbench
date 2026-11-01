@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 from pathlib import Path
 import sys
 import tempfile
@@ -101,6 +102,67 @@ class FileTests(unittest.TestCase):
         self.files.save('alice', self.cid, 'a.csv', b'a', 'upload_001')
         _, _, context = self.running_context([])
         self.assertEqual(context.catalog()['items'], [])
+
+    def test_bound_files_require_literal_true_before_reading_bindings(self):
+        item = self.files.save('alice', self.cid, 'a.csv', b'a,b\n1,2', 'upload_001')
+        _, _, context = self.running_context([item['file_id']])
+        operations = (context.catalog, lambda: context.read_table(item['file_id']),
+                      lambda: context.revise(item['file_id'], [], 'csv', 'revise_001'))
+        for value in (1, 'false', {'allowed': False}, False, None, 0, [], {}):
+            for operation in operations:
+                with self.subTest(value=value, operation=operation):
+                    context.authorized = lambda owner: value
+                    with patch.object(context.bindings, 'bound', wraps=context.bindings.bound) as bound:
+                        with self.assertRaisesRegex(PermissionError, '^file_access_revoked$'):
+                            operation()
+                        bound.assert_not_called()
+
+    def test_bound_files_missing_or_raising_authorizer_does_not_read_bindings(self):
+        item = self.files.save('alice', self.cid, 'a.csv', b'a,b\n1,2', 'upload_001')
+        _, _, context = self.running_context([item['file_id']])
+        def unavailable(owner):
+            raise RuntimeError('synthetic_authorizer_unavailable')
+        for authorize, error in ((None, TypeError), (unavailable, RuntimeError)):
+            context.authorized = authorize
+            for operation in (context.catalog, lambda: context.read_table(item['file_id']),
+                              lambda: context.revise(item['file_id'], [], 'csv', 'revise_001')):
+                with self.subTest(authorize=authorize, operation=operation):
+                    with patch.object(context.bindings, 'bound', wraps=context.bindings.bound) as bound:
+                        with self.assertRaises(error):
+                            operation()
+                        bound.assert_not_called()
+
+    def test_bound_files_with_registered_admin_callback_and_revocation(self):
+        # Execute the repository callback; only its unrelated report-model import
+        # and permission file are synthetic. No production policy is read.
+        packages = Path(__file__).resolve().parents[2]
+        path = packages / 'hermes-admin-recovery-20261020/source/fc_daily.py'
+        spec = importlib.util.spec_from_file_location('bound_files_daily', path)
+        daily = importlib.util.module_from_spec(spec)
+        model = SimpleNamespace(configured=None, explain=None, projection=None)
+        with patch.dict(sys.modules, {'fc_daily_model': model}):
+            spec.loader.exec_module(daily)
+        daily._POLICY_PATH = Path(self.temp.name) / 'synthetic_policy.py'
+        daily._POLICY_PATH.write_text("ADMINS = {'alice'}\n", encoding='utf-8')
+        self.assertIs(daily.admin('alice'), True)
+        self.assertIs(daily.admin('bob'), False)
+        item = self.files.save('alice', self.cid, 'a.csv', b'a,b\n1,2', 'upload_001')
+        _, _, context = self.running_context([item['file_id']])
+        context.authorized = daily.admin
+        self.assertEqual(context.catalog()['items'][0]['file_id'], item['file_id'])
+        self.assertEqual(context.read_table(item['file_id'])['sheets'][0]['rows'][1], ['1', '2'])
+        revised = context.revise(item['file_id'], [], 'csv', 'revise_001')
+        self.assertEqual(revised['parent_id'], item['file_id'])
+        daily._POLICY_PATH.write_text('ADMINS = set()\n', encoding='utf-8')
+        self.assertIs(daily.admin('alice'), False)
+        for operation in (context.catalog, lambda: context.read_table(item['file_id']),
+                          lambda: context.read_table(revised['file_id']),
+                          lambda: context.revise(item['file_id'], [], 'csv', 'revise_002')):
+            with self.subTest(operation=operation):
+                with patch.object(context.bindings, 'bound', wraps=context.bindings.bound) as bound:
+                    with self.assertRaisesRegex(PermissionError, '^file_access_revoked$'):
+                        operation()
+                    bound.assert_not_called()
 
     def test_unknown_revision_keeps_id_and_can_be_reconciled_without_duplicate(self):
         original = self.files.save('alice', self.cid, 'a.csv', b'a,b\n1,2', 'upload_001')

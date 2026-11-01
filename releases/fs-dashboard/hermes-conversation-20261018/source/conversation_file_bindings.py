@@ -76,7 +76,7 @@ class BoundFiles:
     @contextmanager
     def current(self):
         with self.bindings.files.transaction() as db:
-            if not self.authorized(self.owner):
+            if self.authorized(self.owner) is not True:
                 raise PermissionError('file_access_revoked')
             value = self.bindings.bound(db, self.owner, self.cid, self.turn_id)
             row = db.execute('SELECT state FROM turns WHERE id=? AND conversation_id=?',
