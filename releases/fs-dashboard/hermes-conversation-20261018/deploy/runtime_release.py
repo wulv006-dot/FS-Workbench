@@ -37,6 +37,7 @@ INSTALLED_NGINX_SHA = 'b792f18b8d1b322139f8be96bb5052ff53a79e82dac7a607cbe102e19
 LEGACY_TARGETS = dict(TARGETS)
 EXECUTION_MODE = False
 DIAGNOSTICS_MODE = False
+TASK_INDEX_MODE = False
 EXECUTION_MODULES = ('conversation_goals.py','conversation_goal_tasks.py','conversation_material_runs.py',
                      'material_execution.py','b2_goal_state.py','b2_goal_host.py','b1_model_routing.py','b2_customer_followup.py')
 
@@ -73,6 +74,20 @@ def configure_diagnostics():
     NEW = frozenset()
 
 
+def configure_task_index_compat():
+    """One host module over the exact installed f79 diagnostics release."""
+    global INSTALLED_COMMIT, DIAGNOSTICS_MODE, TASK_INDEX_MODE
+    if TASK_INDEX_MODE:
+        return
+    configure_diagnostics()
+    DIAGNOSTICS_MODE, TASK_INDEX_MODE = False, True
+    INSTALLED_COMMIT = 'f79e29f0d5921b103a218c5e6ed967a754858b9c'
+    INSTALLED_PROOF.update(sourceCommit=INSTALLED_COMMIT,
+        backup='/var/backups/fs-navigation-20261006/nav-20261101T024500Z',
+        manifestSha256='25cd452cfb25790502cab7a7561187f04da5af6e2096baf9a71fabb11ad199ee',
+        journalSha256='534a813b17ea54422131403075156ec82fa2696959c575211e29cee3c0c6cdab')
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -86,8 +101,8 @@ def installed_baseline(root, git_baseline):
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
     expected = {row['candidate']: row['sha256'] for row in manifest['files']}
-    proof_targets = LEGACY_TARGETS if EXECUTION_MODE and not DIAGNOSTICS_MODE else TARGETS
-    if EXECUTION_MODE and not DIAGNOSTICS_MODE:
+    proof_targets = LEGACY_TARGETS if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE) else TARGETS
+    if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE):
         protected = {r['path']:r['sha256'] for r in manifest['unchangedRequired']}
         expected.update({name: None if name in NEW else protected[target]
                          for name,target in TARGETS.items() if name not in LEGACY_TARGETS})
@@ -220,7 +235,9 @@ def quiescent(base, root):
 
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
-    if approved.get('materialDiagnostics') is True:
+    if approved.get('goalTaskIndexCompat') is True:
+        configure_task_index_compat()
+    elif approved.get('materialDiagnostics') is True:
         configure_diagnostics()
     elif approved.get('materialExecution') is True:
         configure_execution()
@@ -234,15 +251,18 @@ def load_base():
     validate = base.validate
 
     def exact(manifest, stage):
-        if DIAGNOSTICS_MODE and (manifest.get('materialDiagnostics') is not True or
+        controlled = DIAGNOSTICS_MODE or TASK_INDEX_MODE
+        marker = 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
+        other_marker = 'materialDiagnostics' if TASK_INDEX_MODE else 'goalTaskIndexCompat'
+        allowed = ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
+        if controlled and (manifest.get(marker) is not True or manifest.get(other_marker) is True or
                 manifest.get('installedBaseline') != INSTALLED_PROOF or
                 manifest.get('runtimeBefore') != manifest.get('runtimeRequired') or
                 manifest.get('workerImageSource') != 'container' or
                 manifest.get('materialChangedTargets') != [r['target'] for r in manifest.get('files', [])
                                                           if r['beforeSha256'] != r['sha256']] or
-                any(r['beforeSha256'] != r['sha256'] and r['candidate'] not in
-                    ('http/conversation_http.py', 'http/range_api.py') for r in manifest.get('files', []))):
-            raise ValueError('exact_material_diagnostics_delta_required')
+                any(r['beforeSha256'] != r['sha256'] and r['candidate'] not in allowed for r in manifest.get('files', []))):
+            raise ValueError('exact_goal_task_index_delta_required' if TASK_INDEX_MODE else 'exact_material_diagnostics_delta_required')
         if manifest != approved or manifest.get('scope') != SCOPE:
             raise ValueError('exact_material_manifest_required')
         if manifest.get('businessWrites') is not False or manifest.get('timersChanged') is not False:
@@ -327,7 +347,7 @@ def load_base():
     def atomic(path, payload, mode=0o644):
         # Keep the original writer/journal and every per-row guard. Static-only
         # follow-ups leave identical active targets (including runtime) untouched.
-        if approved.get('materialStaticOnly') or approved.get('materialDiagnostics'):
+        if approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat'):
             for row in approved['files']:
                 if path == base.rooted(publish_root, row['target']) and row['beforeSha256'] == row['sha256']:
                     if (hashlib.sha256(payload).hexdigest() != row['sha256']
@@ -388,7 +408,7 @@ def load_base():
                 raise ValueError('material_worker_image_drift')
             base.guards(manifest, publish_root)
             return  # Static bytes only: no worker/HTTP restart or Nginx reload.
-        if manifest.get('materialDiagnostics'):
+        if manifest.get('materialDiagnostics') or manifest.get('goalTaskIndexCompat'):
             # Same original admission fence and DEEP restart on install/rollback;
             # only the existing HTTP process loads changed bytes. Worker/Nginx
             # targets and their running processes are not changed by this mode.

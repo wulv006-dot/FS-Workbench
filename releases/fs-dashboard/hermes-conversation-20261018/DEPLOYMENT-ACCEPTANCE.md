@@ -649,3 +649,25 @@ A 自建 BrowserAct session `fs_hermes_a_f79e_diag_20261101`，只开同 origin 
 稳定共享收据目录：`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Diagnostics-f79e29f0-20261101T024200Z/`。`receipt-index.json` SHA=`1d40e02f6f1d2c7d6a5fca040a1cdcac451027058612f40a4b5c1d8617ee134a`；其中登记 before/apply/after 软件元数据、DB before/after、正常/匿名诊断和实际 network summary 共8文件的 bytes/full SHA。只含授权元信息，没有源码/配置/凭据/DB正文。收据已主动回送 Personal，最终认可仍由主控独立审核。
 
 本阶段 0 新材料 POST、0 模型、0 SDK 重复构造、0 新合成会话/附件；原 request=`material_da2c98dcd8d3464fb4db5f065f0ea110` 保留，原捕获 posts=1/discarded=false/费用unknown，不建 R2/R3。此次只证明**重载后的当前装配与诊断边界**，不能倒推先前404或shadowing根因，也不证明从未执行。当前真实软件版本为 f79e；原材料执行/单POST恢复/回答/下载/运行中停止/第二真实身份与撤权/A2scope/视觉等均未在本阶段新增验收，保持旧证据分层。主控核明诊断后另决定必要修复或原ID受控恢复边界；本记录提交不重pack/重部署，不宣称材料整包、Hermes或阶段2整体通过。
+
+
+## 原ID准备查询、SQLite事实与 f79 单模块兼容候选（2026-11-01）
+
+主控独立核收 f79 的8份发布/正常角色诊断收据，只认可软件发布+当前受控诊断。随后明确允许一次带私有 schema 初始化副作用的原ID GET，原材料POST仍禁止。02:53:17.831Z 正常已有 FS 身份从自建安全 /robots.txt 页面 GET `/api/hermes/conversations/fa7ea40c42bc4833bdff3788f1d733f9/materials/material_da2c98dcd8d3464fb4db5f065f0ea110`（无query），返回404、error=not_found/source=material_http/stage=lookup、当前适配器头。网络仅1GET/0POST；前02:52:12.954952Z与后02:53:40.086936Z两库限定元信息完全相等，tasks346不变，全部 private namespace仍缺失。因此 authoritative not_found=false，原request行数不可权威判定，不把不存在的表补成0行。未/result、第二GET、重发、手写SQL或执行模型，session已关。首次会话名大写被CLI210107拒绝发生于创建会话/HTTP之前，已更正最初误标的transport unknown，本次实际服务端请求仍只有1次。
+
+上述5文件收据目录 `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-OriginalQuery-f79e-20261101T025212Z/`，index SHA=`70a1a2d3b9ef56fe8c0c2a0dff2713d1512bb8a23f1724466ded1ab45dc7c6af`，主控已逐项核size/SHA。获准的下一次最小只读 SQLite 元信息收据为 `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-SQLite-IndexMetadata-f79e-20261101/sqlite-index-metadata.json`，1551 bytes/SHA=`a1ec21733df838a5dc83ffb7e663a78266458ee95d42b80f8052c02dc169ca1a`，亦已独立核收。range PID18220实际 exe=/opt/python39/bin/python3.9，同exe fresh探针 Python3.9.18/SQLite3.7.17；index_list仅seq/name/unique，3个索引都unique=1且缺partial，原约束列集合为owner+fingerprint、run_id、id。只输出版本/列结构/约束列集合；不输出索引名/SQL/业务行/Env/凭据，DB inode/size/mtime稳定，没有构造生产服务。不是进程内存或真实旧constructor执行证据。
+
+现场缺字段事实与本机真实temp链的内存对照吻合，已确认当前索引元信息兼容缺陷；完整源修复见 CONVERSATION-GOALS.md。本轮代码包只改 runtime/conversation_goal_tasks.py 的索引证明与元信息错误关闭；不修改B/Core/UI/controller/pilot/原tasks表/SDK/worker/proxy。新增发布模式 `--goal-task-index-compat` 明确独立于仅允许HTTP目标的 diagnostics 模式，descriptor=goal_task_index_compat、manifest=goalTaskIndexCompat，诊断标记不再启用。
+
+该模式严格钉最终 f79e29f0d5921b103a218c5e6ed967a754858b9c、manifest25cd452cfb25790502cab7a7561187f04da5af6e2096baf9a71fabb11ad199ee、journal534a813b17ea54422131403075156ec82fa2696959c575211e29cee3c0c6cdab、backup `/var/backups/fs-navigation-20261006/nav-20261101T024500Z`。24现存/46保护/NEW空，8模块保留；仅允许 `/opt/fs-hermes-fc/conversation_goal_tasks.py` 改变，materialChangedTargets精确列实际变动，其余23只CAS/备份不改写。原锁/准入/provider/UNKNOWN/image/active/原writer/journal/rollback保持，禁止旧5f99/501f proof、旧stage或动态反射当前hash成合法baseline。只沿原fence+DEEP/readiness重载range，不restartworker/reloadNginx。新合成发布用例实际验证pack模式/完整before、旧proof拒绝、额外HTTP改动拒绝、成功/失败回退只写一个目标、其余23inode/mtime保持和所有8模块不删。
+
+合并后的操作形状（尚未执行）：
+
+```text
+python runtime_prepare.py pack --goal-task-index-compat --repo <repo> --source-commit <final-merge-sha> --output <new-bundle>
+python runtime_prepare.py prepare --followup --payload <new-bundle>/payload --source-commit <same-sha> --approved-payload-sha256 <new-descriptor-sha> --output <new-stage> --release-ready
+```
+
+Linux CI之后仍须按已授权未来发布阶段，在独立目录只用最终Git LF文件/同已核exe运行隔离temp DB测试，不import活动生产模块、不触真实库、不联网、不装/升级SQLite。最小正向旧引擎用例为 `test_conversation_goal_tasks.GoalTaskTests.test_legacy_auto_constraints_keep_original_id_fingerprint_and_revocation`；原TaskStore来自同Git的 `hermes-fc-pilot-20261013/pilot.py`，临时目录镜像其原路径和A source/tests。要复验HTTP旧/新对照，再包含最终Git的conversation_material_runs.py、两HTTP及test_conversation_runtime_diagnostics.py，运行该模块的 `test_real_http_old_index_loop_fails_then_legacy_proof_initializes_empty_original_lookup`。只选这些可在旧引擎运行的用例，不把现代partial索引对抗DDL强行放到不支持partial的引擎、不skip冒绿。所有源码仅来自最终Git，不读/导出服务器活动源。隔离测试用 -I -B、只显式加入该独立目录中的测试/source/pilot路径，先核相关模块 __file__ 均落在该目录，禁止把 /opt 活动源码加入 sys.path；socket调用在测试中拒绝，不为此放宽原runner。
+
+本地真实temp索引/HTTP35项、原deploy三模块24项已通过0failure/error/skip；Windows临时mode仍只沿原夹具边界归一化，实际旧SQLite及Linux权限未冒通过。当前生产继续f79、原POST禁令不变；本包未SSH/生产API/浏览器/模型/部署，也未重跑无关Core/SDK/视觉/旧知识套件。新head必须Personal一个集成PR/最新SHA独审/必要CI/合并，再新最终Git LF pack/隔离旧引擎验证/prepare/apply。发布后仍先只一次原ID GET核完整初始化及原ID查回，之后交主控决定恢复提交，不擅启R2/R3或以新ID绕UNKNOWN。
