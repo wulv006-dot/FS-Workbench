@@ -7,7 +7,14 @@
  const scheduleControl=document.createElement('label');scheduleControl.id='statistics-scope-control';scheduleControl.innerHTML='统计范围<select id="statistics-scope"><option value="today">UTC 今日 · 计划汇总</option><option value="campaign">活动整期 · 计划汇总</option><option value="yesterday">UTC 昨日 · 每日汇总</option><option value="custom">自选区间 / 细分查询</option></select>';$('filters').insertBefore(scheduleControl,$('filters').querySelector('button[type=submit]'));
  const scheduleStatus=document.createElement('section');scheduleStatus.id='statistics-schedule';scheduleStatus.className='panel';scheduleStatus.setAttribute('role','status');scheduleStatus.setAttribute('aria-live','polite');$('feedback').before(scheduleStatus);scheduleStatus.hidden=true;
  if(!window.CampaignServer||new URLSearchParams(location.search).get('scope')==='custom')$('statistics-scope').value='custom';
- for(const id of ['from','to','game','device','source','windowHours'])$(id).addEventListener('change',()=>{$('statistics-scope').value='custom';});
+ for(const id of ['from','to','game','device','source','windowHours'])$(id).addEventListener('change',()=>{
+  $('statistics-scope').value='custom';
+  if(window.CampaignServer&&seasonal()){
+   generation++;revenueGeneration++;trafficGeneration++;trafficState=null;currentDiagnostics=null;scheduleStatus.hidden=true;showSeasonal(null,$('mode').value);
+   $('feedback').textContent='筛选条件已更改，尚未查询；请点击“更新分析”。';
+   if($('discount-revenue'))$('discount-revenue').innerHTML='<h2>活动码付款收入</h2><p>— · 尚未查询，请点击“更新分析”。</p>';
+  }
+ });
  $('statistics-scope').addEventListener('change',()=>{if($('statistics-scope').value!=='custom'){for(const id of ['game','device','source','platform','match'])$(id).value='all';$('mode').value='live';$('template').value='commerce';$('windowHours').value='24';}refresh();});
  function renderRegistry(){const selected=$('activity').value;$('activity').innerHTML=(window.CampaignServer&&!$('show-planned').checked?'':'<option value="all">全部活动</option>')+registry.filter(a=>!window.CampaignServer||a.status==='active'||$('show-planned').checked).map(a=>`<option value="${esc(a.id)}">${esc(a.id==='mmoexp-seasonal'?'万圣节神秘商店（已上线）':a.name)}</option>`).join('');const choices=[...$('activity').options].map(o=>o.value);$('activity').value=choices.includes(selected)?selected:choices.includes('mmoexp-seasonal')?'mmoexp-seasonal':choices[0]||'';if(!choices.length)$('activity').innerHTML='<option value="" disabled>暂无已上线活动</option>';if($('activity').value!==selected)activityFilters();$('activity-count').textContent=registry.filter(a=>a.status==='active').length;
   $('activities').innerHTML=registry.map(a=>`<article class="activity-card"><span class="pill">${esc(({draft:'草稿',testing:'联调中',active:'计划启用',paused:'计划暂停',archived:'归档'})[a.status]||'待接入')} · ${a.type==='prediction'?'赛事竞猜':'商品促销'}</span><h3>${esc(a.name)}</h3><code>${esc(a.id)}</code><p class="muted">${esc(a.origin+a.path)}<br>负责人：${esc(a.owner||'待指定')} · v${esc(a.version)}<br>${a.matches.length} 场赛事 · ${a.windowHours}h 窗口</p><button class="fs-btn" type="button" data-edit="${esc(a.id)}">编辑配置</button></article>`).join('');}
@@ -49,21 +56,23 @@
   catch{if(generation===trafficGeneration){trafficState={status:'unavailable'};showBasicTraffic(false);}}
  }
  function showBasicTraffic(test){
-  showGoogle();
   let panel=document.getElementById('basic-traffic-report');
-  if(!seasonal()){if(panel)panel.hidden=true;return;}
+  if(!seasonal()){if(panel)panel.hidden=true;if($('mode-notice').nextElementSibling!==$('filters'))$('mode-notice').after($('filters'));showGoogle();return;}
   if(!panel){panel=document.createElement('section');panel.id='basic-traffic-report';panel.className='panel';$('activity-summary').after(panel);}
-  panel.hidden=false;
+  panel.hidden=false;if(panel.nextElementSibling!==$('filters'))panel.after($('filters'));showGoogle();
   const t=trafficState,ready=!test&&t?.status==='available'&&Number.isSafeInteger(t.pageRequests),partial=!test&&t?.status==='partial';
-  const note=test?'测试模式不查询基础页面请求。':t?.status==='loading'?'正在读取187侧现有日志…':ready?'所选UTC日期的现有日志聚合已完成。':partial?'所选整期缺测；仅有部分日志覆盖，不能把已读片段当整期数据。':'现有日志暂不可读取；缺测不记为0。';
-  panel.innerHTML='<h2>基础访问量 · 187侧页面请求</h2><p class="muted">'+note+'</p><div class="metrics"><article class="metric"><span>187侧活动页面请求（估算）</span><strong>'+(ready?num(t.pageRequests):test?'不统计':t?.status==='loading'?'读取中':'缺测')+'</strong><small>只计正式index及目录页面的成功GET，排除资源、API、HEAD及已识别机器人/自动化和标记测试；刷新重复计数。</small></article><article class="metric"><span>估算访客数 · 按IP去重</span><strong>缺测</strong><small>真实访客代理IP链尚未核实，不把出口IP当人，也不使用行为UV推算全部访客。</small></article></div>'+(t?.coverage?'<p class="muted">日志覆盖：'+esc(bjt(t.coverage.from))+' 至 '+esc(bjt(t.coverage.through))+'（北京时间）；所选日期按UTC。'+(partial?'已读范围记录 '+num(t.observedPageRequests)+' 次，整期仍缺测。':'')+'成功文档GET '+num(t.successfulRequests)+' 次，已排除 '+num(t.excludedRequests)+' 次；更新时间 '+esc(bjt(t.generatedAt))+'，最多缓存10分钟。</p>':'')+'<p class="muted">仅代表到达187的文档请求；浏览器/边缘缓存未回源会漏计，未识别预取、内部测试或代理重试可能计入。不是实际人数，不按游戏、设备或渠道拆分，不设访客去重窗口。行为统计和活动码付款销售另列。</p>'+(t?.daily?.length?'<div class="report-table-wrap"><table><thead><tr><th>UTC日期</th><th>已读日志内页面请求估算</th></tr></thead><tbody>'+t.daily.map(r=>'<tr><td>'+esc(r.date)+'</td><td>'+num(r.requests)+'</td></tr>').join('')+'</tbody></table></div>':'');
+  const note=test?'测试模式不查询基础页面请求。':!t?'尚未查询，请点击“更新分析”。':t.status==='loading'?'正在读取187侧现有日志…':ready?'所选UTC日期的现有日志聚合已完成。':partial?'所选整期缺测；仅有部分日志覆盖，不能把已读片段当整期数据。':'现有日志暂不可读取；缺测不记为0。';
+  panel.innerHTML='<h2>基础访问量 · 187侧页面请求</h2><p class="muted">'+note+'</p><div class="metrics"><article class="metric"><span>187侧活动页面请求（估算）</span><strong>'+(ready?num(t.pageRequests):test?'不统计':!t||t.status==='loading'?'—':'缺测')+'</strong><small>只计正式index及目录页面的成功GET，排除资源、API、HEAD及已识别机器人/自动化和标记测试；刷新重复计数。</small></article><article class="metric"><span>估算访客数 · 按IP去重</span><strong>缺测</strong><small>真实访客代理IP链尚未核实，不把出口IP当人，也不使用行为UV推算全部访客。</small></article></div>'+(t?.coverage?'<p class="muted">日志覆盖：'+esc(bjt(t.coverage.from))+' 至 '+esc(bjt(t.coverage.through))+'（北京时间）；所选日期按UTC。'+(partial?'已读范围记录 '+num(t.observedPageRequests)+' 次，整期仍缺测。':'')+'成功文档GET '+num(t.successfulRequests)+' 次，已排除 '+num(t.excludedRequests)+' 次；更新时间 '+esc(bjt(t.generatedAt))+'，最多缓存10分钟。</p>':'')+'<p class="muted">仅代表到达187的文档请求；浏览器/边缘缓存未回源会漏计，未识别预取、内部测试或代理重试可能计入。不是实际人数，不按游戏、设备或渠道拆分，不设访客去重窗口。行为统计和活动码付款销售另列。</p>'+(t?.daily?.length?'<div class="report-table-wrap"><table><thead><tr><th>UTC日期</th><th>已读日志内页面请求估算</th></tr></thead><tbody>'+t.daily.map(r=>'<tr><td>'+esc(r.date)+'</td><td>'+num(r.requests)+'</td></tr>').join('')+'</tbody></table></div>':'');
  }
  let googleSource='gsc',googleKey='',googleGeneration=0;
  function showGoogle(){
   let panel=$('google-traffic-report');if(!seasonal()){if(panel)panel.hidden=true;return;}
-  if(!panel){panel=document.createElement('section');panel.id='google-traffic-report';panel.className='panel';$('activity-summary').after(panel);}panel.hidden=false;
+  if(!panel){panel=document.createElement('section');panel.id='google-traffic-report';panel.className='panel';}panel.hidden=false;if($('filters').nextElementSibling!==panel)$('filters').after(panel);
   const from=$('from').value,to=$('to').value,mode=$('mode').value,key=[from,to,mode,googleSource].join(':');if(key===googleKey)return;googleKey=key;googleGeneration++;
   panel.innerHTML='<h2>Google · 万圣节页面流量</h2><p class="muted">只查询正式活动页；各来源按自己的统计日，不与UTC行为窗口拼成逐访客漏斗。此区不随游戏、设备和渠道筛选，不会在页面自动刷新时重复请求Google。</p><label>数据来源 <select id="google-source"><option value="gsc">Search Console · 自然搜索</option><option value="ga4">GA4 · 页面与访问</option><option value="ads">Google Ads · 广告落地页</option></select></label> <button id="google-load" class="fs-btn fs-btn--primary" type="button">读取 Google 明细</button><div id="google-result" role="status" aria-live="polite"><p>'+esc(from)+' 至 '+esc(to)+' · 点击读取；未查询不显示为零。</p></div>';
+  const labels=googleSource==='ga4'?['浏览量','活跃用户','入口会话']:googleSource==='ads'?['曝光','点击','广告费用']:['曝光','点击','CTR'];
+  $('google-result').insertAdjacentHTML('afterbegin','<div class="metrics">'+labels.map(label=>'<article class="metric"><span>'+label+'</span><strong>—</strong></article>').join('')+'</div>');
+  $('google-result').querySelector('p').textContent=from+' 至 '+to+' · 尚未查询，请点击“读取 Google 明细”。';
   $('google-source').value=googleSource;$('google-source').addEventListener('change',()=>{googleSource=$('google-source').value;googleKey='';showGoogle();});
   $('google-load').disabled=mode!=='live'||!window.CampaignServer;
   $('google-load').addEventListener('click',async()=>{
