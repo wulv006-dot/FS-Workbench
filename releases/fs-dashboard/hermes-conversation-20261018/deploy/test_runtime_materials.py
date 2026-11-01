@@ -25,6 +25,11 @@ NGINX = (b'# unrelated\r\nlocation = /api/hermes/conversations {\r\n'
 
 
 class RuntimeMaterials(unittest.TestCase):
+    def test_material_guard_c12a_transport_delta_and_rollback(self):
+        self.assertTrue(callable(getattr(prepare, 'configure_material_guard', None)),
+                        'c12a material-guard followup missing')
+        self._transport_followup(stream=True, guard=True)
+
     def test_material_stream_b362_existing_transport_delta_and_rollback(self):
         self.assertTrue(callable(getattr(prepare, 'configure_material_stream', None)),
                         'b362 existing-transport stream followup missing')
@@ -38,21 +43,30 @@ class RuntimeMaterials(unittest.TestCase):
                         "bindings-only installed followup missing")
         self._transport_followup(stream=True, bindings=True)
 
-    def _transport_followup(self, stream, bindings=False):
+    def _transport_followup(self, stream, bindings=False, guard=False):
         configure = prepare.configure_material_stream if stream else prepare.configure_material_transport
         if bindings: configure = prepare.configure_bindings_auth
+        if guard: configure = prepare.configure_material_guard
         candidate = "runtime/conversation_file_bindings.py" if bindings else "runtime/transport.py"
-        marker = "bindingsAuth" if bindings else "materialStream" if stream else "materialTransport"
-        before_key = "BINDINGS_BEFORE_SHA" if bindings else "STREAM_BEFORE_SHA" if stream else "TRANSPORT_BEFORE_SHA"
+        marker = "materialGuard" if guard else "bindingsAuth" if bindings else "materialStream" if stream else "materialTransport"
+        before_key = "GUARD_BEFORE_SHA" if guard else "BINDINGS_BEFORE_SHA" if bindings else "STREAM_BEFORE_SHA" if stream else "TRANSPORT_BEFORE_SHA"
         self.assertTrue(callable(getattr(prepare, 'configure_material_transport', None)), 'transport-only installed followup missing')
-        names = ('TARGETS', 'NEW', 'INSTALLED_COMMIT', 'INSTALLED_PROOF', 'EXECUTION_MODE', 'DIAGNOSTICS_MODE', 'TASK_INDEX_MODE', 'WORKER_DIAGNOSTICS_MODE', 'TRANSPORT_MODE', 'STREAM_MODE', 'BINDINGS_MODE')
+        names = ('TARGETS', 'NEW', 'INSTALLED_COMMIT', 'INSTALLED_PROOF', 'EXECUTION_MODE', 'DIAGNOSTICS_MODE', 'TASK_INDEX_MODE', 'WORKER_DIAGNOSTICS_MODE', 'TRANSPORT_MODE', 'STREAM_MODE', 'BINDINGS_MODE', 'GUARD_MODE')
         saved_release = {k: deepcopy(getattr(release, k)) for k in names}
         saved_prepare = {k: deepcopy(getattr(prepare, k)) for k in ('TARGETS', 'NEW', 'INSTALLED_COMMIT', 'INSTALLED_PROOF', 'SOURCES')}
         try:
             configure()
-            self.assertEqual(release.STREAM_MODE, stream and not bindings); self.assertEqual(release.TRANSPORT_MODE, not stream); self.assertFalse(release.WORKER_DIAGNOSTICS_MODE); self.assertFalse(release.TASK_INDEX_MODE); self.assertFalse(release.DIAGNOSTICS_MODE)
+            self.assertEqual(release.STREAM_MODE, stream and not bindings and not guard); self.assertEqual(release.TRANSPORT_MODE, not stream); self.assertFalse(release.WORKER_DIAGNOSTICS_MODE); self.assertFalse(release.TASK_INDEX_MODE); self.assertFalse(release.DIAGNOSTICS_MODE)
             self.assertEqual(release.NEW, frozenset())
-            if bindings:
+            if guard:
+                self.assertTrue(release.GUARD_MODE); self.assertFalse(release.BINDINGS_MODE)
+                self.assertEqual(release.GUARD_BEFORE_SHA, 'e682d8659812cf5b3a9cc44f3011a7f3de0a204c830855cbff2a85e1573c3052')
+                self.assertEqual(release.INSTALLED_PROOF, {
+                    'sourceCommit':'c12a273387a7811c71b3fbf1c040c8a7b4d1639a',
+                    'backup':'/var/backups/fs-navigation-20261006/nav-20261101T180448Z',
+                    'manifestSha256':'b0353c2f42e0704b8f20999b0a8da26755d2ae4f0e1752cd32e54a6c9ce1ea49',
+                    'journalSha256':'2832922e69306c879dfcb9698b2a51997a9fdd0bf5ce50286931d406c6cd2dec'})
+            elif bindings:
                 self.assertTrue(release.BINDINGS_MODE)
                 self.assertEqual(release.INSTALLED_PROOF, {
                     'sourceCommit':'9edb8827c0bc21fce4173030bd09b7388b19c866',
@@ -79,8 +93,9 @@ class RuntimeMaterials(unittest.TestCase):
                 with patch.object(prepare.subprocess, 'check_output', side_effect=blob):
                     prepare.pack(Path(packed), Path(packed)/'bundle', 'b'*40)
                 descriptor=json.loads((Path(packed)/'bundle/payload-manifest.json').read_bytes())
-                self.assertEqual(descriptor['material_stream'], stream and not bindings)
+                self.assertEqual(descriptor['material_stream'], stream and not bindings and not guard)
                 self.assertEqual(descriptor['bindings_auth'], bindings)
+                self.assertEqual(descriptor['material_guard'], guard)
                 self.assertEqual(descriptor['material_transport'], not stream); self.assertFalse(descriptor['material_diagnostics'])
                 self.assertEqual(descriptor['installed_baseline']['source_commit'], release.INSTALLED_COMMIT)
                 self.assertEqual(set(descriptor['installed_baseline']['files']), set(release.TARGETS))
@@ -104,7 +119,7 @@ class RuntimeMaterials(unittest.TestCase):
                     save_previous()
                     descriptor_path = payload.parent/'payload-manifest.json'
                     descriptor = json.loads(descriptor_path.read_bytes())
-                    descriptor.update(material_execution=True, material_diagnostics=False, goal_task_index_compat=False, worker_diagnostics=False, material_transport=not stream, material_stream=stream and not bindings, bindings_auth=bindings)
+                    descriptor.update(material_execution=True, material_diagnostics=False, goal_task_index_compat=False, worker_diagnostics=False, material_transport=not stream, material_stream=stream and not bindings and not guard, bindings_auth=bindings, material_guard=guard)
                     for name in prepare.SOURCES:
                         before = base.rooted(system, release.TARGETS[name]).read_bytes()
                         body = before+b'\n# material transport\n' if name == candidate else before
@@ -145,7 +160,7 @@ class RuntimeMaterials(unittest.TestCase):
                         previous['unchangedRequired']=protected_before;previous['files']=files_before;save_previous()
                         for case in ('old_proof', 'git', 'journal', 'protected', 'extra_http', 'worker_before', 'no_delta', 'mixed_mode') + (('missing_execution',) if stream else ()):
                             changed = deepcopy(descriptor); restore = None
-                            if case == 'old_proof': changed['installed_baseline']['source_commit'] = '82edf03573c3fed796d7a7ed2784134c5dd1f7ec' if stream else 'f79e29f0d5921b103a218c5e6ed967a754858b9c'
+                            if case == 'old_proof': changed['installed_baseline']['source_commit'] = '9edb8827c0bc21fce4173030bd09b7388b19c866' if guard else '82edf03573c3fed796d7a7ed2784134c5dd1f7ec' if stream else 'f79e29f0d5921b103a218c5e6ed967a754858b9c'
                             elif case == 'mixed_mode':changed['material_transport' if stream else 'material_stream']=True
                             elif case == 'missing_execution':changed['material_execution']=False
                             elif case == 'git': changed['installed_baseline']['files']['runtime/transport.py'] = '0'*64
@@ -175,15 +190,15 @@ class RuntimeMaterials(unittest.TestCase):
                                  for r in manifest['files'] if r['target'] != target}
                     spec = importlib.util.spec_from_file_location('material_transport_publisher', stage/'runtime_release.py')
                     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
-                    (module.configure_bindings_auth if bindings else module.configure_material_stream if stream else module.configure_material_transport)()
+                    (module.configure_material_guard if guard else module.configure_bindings_auth if bindings else module.configure_material_stream if stream else module.configure_material_transport)()
                     module.INSTALLED_PROOF = proof; module.BINDINGS_TRANSPORT_SHA = transport_row['sha256']; setattr(module, before_key, next(r['sha256'] for r in previous['files'] if r['candidate']==candidate) if bindings else transport_row['sha256'])
                     guards = []
-                    def guard(current, host, reader_stopped=False):
+                    def check_guard(current, host, reader_stopped=False):
                         guards.append(True)
                         self.assertEqual(current['runtimeRequired'], manifest['runtimeRequired'])
                         for row in current['unchangedRequired']:
                             self.assertEqual(base.digest(base.rooted(host, row['path'])), row['sha256'])
-                    base.guards = guard; base.retirement = lambda *a: None
+                    base.guards = check_guard; base.retirement = lambda *a: None
                     base.locks = base.live_lock = base.model_release_lock = lambda *a: nullcontext()
                     fence = SimpleNamespace(modified=False, confirmed=False, stop_then_unlock_database=Mock())
                     base.hermes_admission_fence = lambda *a: nullcontext(fence)

@@ -42,6 +42,8 @@ WORKER_DIAGNOSTICS_MODE = False
 TRANSPORT_MODE = False
 STREAM_MODE = False
 BINDINGS_MODE = False
+GUARD_MODE = False
+GUARD_BEFORE_SHA = "e682d8659812cf5b3a9cc44f3011a7f3de0a204c830855cbff2a85e1573c3052"
 BINDINGS_CANDIDATE = "runtime/conversation_file_bindings.py"
 BINDINGS_BEFORE_SHA = "655625ff698981c295539663d60ac54f21ebe2c1935dfef4f7a1dd3a27899294"
 BINDINGS_TRANSPORT_SHA = "e682d8659812cf5b3a9cc44f3011a7f3de0a204c830855cbff2a85e1573c3052"
@@ -156,6 +158,20 @@ def configure_bindings_auth():
         manifestSha256='74270ff2d91e195a8279572ba48aaa35a4189a75597bceaa9496a4fbe9116088',
         journalSha256='831ca7e02476aa50ef9fb25c2b3cc52c28ad562979fff26a938992746a6fc3e7')
 
+def configure_material_guard():
+    """Existing transport only over the exact successful c12a bindings install."""
+    global INSTALLED_COMMIT, BINDINGS_MODE, GUARD_MODE
+    if GUARD_MODE:
+        return
+    configure_bindings_auth()
+    BINDINGS_MODE, GUARD_MODE = False, True
+    INSTALLED_COMMIT = 'c12a273387a7811c71b3fbf1c040c8a7b4d1639a'
+    INSTALLED_PROOF.update(sourceCommit=INSTALLED_COMMIT,
+        backup='/var/backups/fs-navigation-20261006/nav-20261101T180448Z',
+        manifestSha256='b0353c2f42e0704b8f20999b0a8da26755d2ae4f0e1752cd32e54a6c9ce1ea49',
+        journalSha256='2832922e69306c879dfcb9698b2a51997a9fdd0bf5ce50286931d406c6cd2dec')
+
+
 def promoted_transport_sha(manifest, base):
     paths = [row['path'] for row in manifest['unchangedRequired']]
     rows = [row for row in manifest['unchangedRequired'] if row['path'] == TRANSPORT_TARGET]
@@ -178,24 +194,24 @@ def installed_baseline(root, git_baseline):
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
     expected = {row['candidate']: row['sha256'] for row in manifest['files']}
-    proof_targets = LEGACY_TARGETS if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE) else TARGETS
+    proof_targets = LEGACY_TARGETS if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE) else TARGETS
     if BINDINGS_MODE and (len(manifest['files']) != len(TARGETS)
             or expected.get(BINDINGS_CANDIDATE) != BINDINGS_BEFORE_SHA
             or expected.get(TRANSPORT_CANDIDATE) != BINDINGS_TRANSPORT_SHA
             or len(manifest['unchangedRequired']) != len(protected_paths(base))
             or {row['path'] for row in manifest['unchangedRequired']} != protected_paths(base)):
         raise ValueError('exact_installed_bindings_targets_required')
-    if STREAM_MODE and (len(manifest['files']) != len(TARGETS)
-            or expected.get(TRANSPORT_CANDIDATE) != STREAM_BEFORE_SHA
+    if (STREAM_MODE or GUARD_MODE) and (len(manifest['files']) != len(TARGETS)
+            or expected.get(TRANSPORT_CANDIDATE) != (GUARD_BEFORE_SHA if GUARD_MODE else STREAM_BEFORE_SHA)
             or len(manifest['unchangedRequired']) != len(protected_paths(base))
             or {row['path'] for row in manifest['unchangedRequired']} != protected_paths(base)):
-        raise ValueError('exact_installed_stream_targets_required')
+        raise ValueError('exact_installed_guard_targets_required' if GUARD_MODE else 'exact_installed_stream_targets_required')
     if TRANSPORT_MODE:
         proof_targets = {name: path for name, path in TARGETS.items() if name != TRANSPORT_CANDIDATE}
         expected[TRANSPORT_CANDIDATE] = promoted_transport_sha(manifest, base)
         if len(manifest['files']) != len(proof_targets):
             raise ValueError('exact_installed_transport_targets_required')
-    if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE):
+    if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE):
         protected = {r['path']:r['sha256'] for r in manifest['unchangedRequired']}
         expected.update({name: None if name in NEW else protected[target]
                          for name,target in TARGETS.items() if name not in LEGACY_TARGETS})
@@ -333,7 +349,9 @@ def quiescent(base, root):
 
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
-    if approved.get('bindingsAuth') is True:
+    if approved.get('materialGuard') is True:
+        configure_material_guard()
+    elif approved.get('bindingsAuth') is True:
         configure_bindings_auth()
     elif approved.get('materialStream') is True:
         configure_material_stream()
@@ -357,23 +375,23 @@ def load_base():
     validate = base.validate
 
     def exact(manifest, stage):
-        controlled = DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE
-        marker = 'bindingsAuth' if BINDINGS_MODE else 'materialStream' if STREAM_MODE else 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
-        allowed = (BINDINGS_CANDIDATE,) if BINDINGS_MODE else (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
+        controlled = DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE
+        marker = 'materialGuard' if GUARD_MODE else 'bindingsAuth' if BINDINGS_MODE else 'materialStream' if STREAM_MODE else 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
+        allowed = (BINDINGS_CANDIDATE,) if BINDINGS_MODE else (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
         if controlled and (manifest.get(marker) is not True or
-                any(manifest.get(key) is True for key in ('bindingsAuth', 'materialStream', 'materialTransport', 'workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
+                any(manifest.get(key) is True for key in ('materialGuard', 'bindingsAuth', 'materialStream', 'materialTransport', 'workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
                 manifest.get('installedBaseline') != INSTALLED_PROOF or
                 manifest.get('runtimeBefore') != manifest.get('runtimeRequired') or
                 manifest.get('workerImageSource') != 'container' or
                 WORKER_DIAGNOSTICS_MODE and manifest.get('materialChangedTargets') != [TARGETS['runtime/hermes_worker.py']] or
-                (TRANSPORT_MODE or STREAM_MODE) and manifest.get('materialChangedTargets') != [TRANSPORT_TARGET]
+                (TRANSPORT_MODE or STREAM_MODE or GUARD_MODE) and manifest.get('materialChangedTargets') != [TRANSPORT_TARGET]
                 or BINDINGS_MODE and manifest.get('materialChangedTargets') != [TARGETS[BINDINGS_CANDIDATE]] or
-                (TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE) and len(manifest.get('unchangedRequired', [])) != len(protected_paths(base)) or
-                (STREAM_MODE or BINDINGS_MODE) and len(manifest.get('files', [])) != len(TARGETS) or
+                (TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE) and len(manifest.get('unchangedRequired', [])) != len(protected_paths(base)) or
+                (STREAM_MODE or BINDINGS_MODE or GUARD_MODE) and len(manifest.get('files', [])) != len(TARGETS) or
                 manifest.get('materialChangedTargets') != [r['target'] for r in manifest.get('files', [])
                                                           if r['beforeSha256'] != r['sha256']] or
                 any(r['beforeSha256'] != r['sha256'] and r['candidate'] not in allowed for r in manifest.get('files', []))):
-            raise ValueError('exact_bindings_auth_delta_required' if BINDINGS_MODE else 'exact_material_stream_delta_required' if STREAM_MODE else 'exact_material_transport_delta_required' if TRANSPORT_MODE else 'exact_worker_diagnostics_delta_required' if WORKER_DIAGNOSTICS_MODE else 'exact_goal_task_index_delta_required' if TASK_INDEX_MODE else 'exact_material_diagnostics_delta_required')
+            raise ValueError('exact_material_guard_delta_required' if GUARD_MODE else 'exact_bindings_auth_delta_required' if BINDINGS_MODE else 'exact_material_stream_delta_required' if STREAM_MODE else 'exact_material_transport_delta_required' if TRANSPORT_MODE else 'exact_worker_diagnostics_delta_required' if WORKER_DIAGNOSTICS_MODE else 'exact_goal_task_index_delta_required' if TASK_INDEX_MODE else 'exact_material_diagnostics_delta_required')
         if manifest != approved or manifest.get('scope') != SCOPE:
             raise ValueError('exact_material_manifest_required')
         if manifest.get('businessWrites') is not False or manifest.get('timersChanged') is not False:
@@ -393,8 +411,8 @@ def load_base():
         if BINDINGS_MODE and (git_baseline['files'].get(BINDINGS_CANDIDATE) != BINDINGS_BEFORE_SHA
                 or git_baseline['files'].get(TRANSPORT_CANDIDATE) != BINDINGS_TRANSPORT_SHA):
             raise ValueError('exact_installed_bindings_baseline_required')
-        if STREAM_MODE and git_baseline['files'].get(TRANSPORT_CANDIDATE) != STREAM_BEFORE_SHA:
-            raise ValueError('exact_installed_stream_transport_required')
+        if (STREAM_MODE or GUARD_MODE) and git_baseline['files'].get(TRANSPORT_CANDIDATE) != (GUARD_BEFORE_SHA if GUARD_MODE else STREAM_BEFORE_SHA):
+            raise ValueError('exact_installed_guard_transport_required' if GUARD_MODE else 'exact_installed_stream_transport_required')
         for row in manifest.get('files', []):
             wrong_before = (row.get('beforeSha256') != git_baseline['files'][row['candidate']] if installed
                             else (row.get('beforeSha256') is None) != (row['candidate'] in NEW))
@@ -447,7 +465,7 @@ def load_base():
         # frozen checks, and retain every other guard/protected source check.
         if manifest.get('installedBaseline'):
             installed_baseline(root, git_baseline)
-        if WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE:
+        if WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
             running_worker(manifest)
         if before_restart and manifest.get('scope') == SCOPE:
             if manifest['runtimeBefore']['fs-hermes-fc.service'] != {'ActiveState': 'active'}:
@@ -465,7 +483,7 @@ def load_base():
     def atomic(path, payload, mode=0o644):
         # Keep the original writer/journal and every per-row guard. Static-only
         # follow-ups leave identical active targets (including runtime) untouched.
-        if approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics') or approved.get('materialTransport') or approved.get('materialStream') or approved.get('bindingsAuth'):
+        if approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics') or approved.get('materialTransport') or approved.get('materialStream') or approved.get('bindingsAuth') or approved.get('materialGuard'):
             for row in approved['files']:
                 if path == base.rooted(publish_root, row['target']) and row['beforeSha256'] == row['sha256']:
                     if (hashlib.sha256(payload).hexdigest() != row['sha256']
@@ -484,7 +502,7 @@ def load_base():
 
     def inspect(manifest, stage, root=Path('/')):
         result = original_inspect(manifest, stage, root)
-        if WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE:
+        if WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
             running_worker(manifest)
         if root == Path('/'):
             for row in manifest['files']:
@@ -493,7 +511,7 @@ def load_base():
                     info = path.stat()
                     if (info.st_uid, info.st_gid, oct(stat.S_IMODE(info.st_mode))) != (0, 0, row['mode']):
                         raise ValueError('material_target_owner_mode_drift')
-            if not (WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE) and worker_image(allow_stopped=True) != manifest['workerImageId']:
+            if not (WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE) and worker_image(allow_stopped=True) != manifest['workerImageId']:
                 raise ValueError('material_worker_image_drift')
             # Import definitions only; no service instance, model or source query.
             program = ("import sys;from pathlib import Path;"
@@ -503,7 +521,7 @@ def load_base():
                        "import openpyxl,et_xmlfile")
             if EXECUTION_MODE:
                 program += ';import conversation_material_runs,conversation_goals,conversation_goal_tasks,material_execution,b2_goal_host,b2_goal_state'
-            if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE:
+            if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
                 program += ';import transport;assert Path(transport.__file__).parent==Path(sys.argv[1])'
             checked = subprocess.run(['/opt/python39/bin/python3.9', '-I', '-B', '-c', program,
                                       str((stage / 'candidate/runtime').resolve()),
@@ -538,14 +556,14 @@ def load_base():
                 raise ValueError('material_worker_image_drift')
             base.guards(manifest, publish_root)
             return  # Static bytes only: no worker/HTTP restart or Nginx reload.
-        if manifest.get('materialDiagnostics') or manifest.get('goalTaskIndexCompat') or manifest.get('materialTransport') or manifest.get('materialStream') or manifest.get('bindingsAuth'):
+        if manifest.get('materialDiagnostics') or manifest.get('goalTaskIndexCompat') or manifest.get('materialTransport') or manifest.get('materialStream') or manifest.get('bindingsAuth') or manifest.get('materialGuard'):
             # Same original admission fence and DEEP restart on install/rollback;
             # only the existing HTTP process loads changed bytes. Worker/Nginx
             # targets and their running processes are not changed by this mode.
             admission_fence.stop_then_unlock_database()
             result = readiness.restart_with_hermes_readiness(base, original_restart,
                 dict(manifest, scope=base.DEEP_SCOPE), admission_fence)
-            if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE:
+            if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
                 running_worker(manifest)
             elif worker_image() != manifest['workerImageId']:
                 raise ValueError('material_worker_image_drift')
