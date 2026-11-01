@@ -7,11 +7,12 @@ from date_policy import PolicyError
 
 
 class Artifacts:
-    def __init__(self,archive,clock=time.time):self.archive,self.clock=archive,clock
+    def __init__(self,archive,clock=time.time,lease_owner=None):self.archive,self.clock,self.lease_owner=archive,clock,lease_owner
 
     def initialize(self):
         with closing(self.archive.database(True)) as db,db:
             db.execute('CREATE TABLE IF NOT EXISTS range_query_artifacts(id TEXT PRIMARY KEY,handle TEXT,key TEXT,generation TEXT,expires REAL,bytes INTEGER,sha256 TEXT,pins INTEGER)')
+            db.execute('CREATE TABLE IF NOT EXISTS range_query_artifact_leases(id TEXT PRIMARY KEY,artifact TEXT,owner TEXT,created REAL)')
 
     def path(self,ident):
         if not isinstance(ident,str) or not re.fullmatch('[a-f0-9]{32}',ident):raise PolicyError('artifact_id')
@@ -60,11 +61,17 @@ class Artifacts:
     @contextmanager
     def download(self,engine,identity,handle,ident):
         path=self.path(ident)
+        lease=None
         with engine.lock,closing(self.archive.database(True)) as db,db:
             db.execute('BEGIN IMMEDIATE')
             row=db.execute('SELECT * FROM range_query_artifacts WHERE id=?',(ident,)).fetchone()
             if row is None:raise PolicyError('artifact_unavailable')
             meta=dict(row);self.allowed(engine,identity,handle,meta)
+            if self.lease_owner:
+                owner=self.lease_owner()
+                if not isinstance(owner,dict) or set(owner)!={'machine_id','boot_id','pid','start_token'} or any(not isinstance(v,(str,int)) or isinstance(v,bool) or not str(v) for v in owner.values()):raise ValueError('artifact_lease_owner')
+                lease=uuid.uuid4().hex
+                db.execute('INSERT INTO range_query_artifact_leases VALUES(?,?,?,?)',(lease,ident,encode(owner).decode(),self.clock()))
             db.execute('UPDATE range_query_artifacts SET pins=pins+1 WHERE id=?',(ident,))
         stream=None
         try:
@@ -84,8 +91,28 @@ class Artifacts:
             yield stream
         finally:
             if stream is not None:stream.close()
-            with closing(self.archive.database(True)) as db,db:db.execute('UPDATE range_query_artifacts SET pins=pins-1 WHERE id=? AND pins>0',(ident,))
+            with closing(self.archive.database(True)) as db,db:
+                db.execute('BEGIN IMMEDIATE')
+                changed=db.execute('DELETE FROM range_query_artifact_leases WHERE id=?',(lease,)).rowcount if lease else 1
+                if changed:db.execute('UPDATE range_query_artifacts SET pins=pins-1 WHERE id=? AND pins>0',(ident,))
 
-    def expired_candidates(self):
+    def expired_candidates(self,reference_status=None):
         with closing(self.archive.database()) as db:
-            return [dict(row) for row in db.execute('SELECT id,bytes FROM range_query_artifacts WHERE expires<=? AND pins=0',(self.clock(),))]
+            return [dict(row) for row in db.execute('SELECT id,bytes FROM range_query_artifacts WHERE expires<=? AND pins=0',(self.clock(),)) if reference_status is None or reference_status(row['id'])=='unreferenced']
+
+    def abandoned_pin_candidates(self,*,liveness,reference_status):
+        """Read-only evidence candidates, never clear pins or unlink files.
+
+        liveness must prove the exact machine/boot/pid/start instance dead. PID or
+        age alone is insufficient. Unknown/missing legacy leases stay protected.
+        """
+        import json
+        result=[]
+        with closing(self.archive.database()) as db:
+            db.execute('BEGIN')
+            for row in db.execute('SELECT id,pins FROM range_query_artifacts WHERE expires<=? AND pins>0',(self.clock(),)):
+                leases=list(db.execute('SELECT id,owner FROM range_query_artifact_leases WHERE artifact=?',(row['id'],)))
+                if len(leases)!=row['pins'] or not leases or reference_status(row['id'])!='unreferenced':continue
+                if all(liveness(json.loads(lease['owner'])) is False for lease in leases):
+                    result.append(dict(artifact_id=row['id'],lease_ids=[lease['id'] for lease in leases],pins=row['pins'],action='dry_run_only_revalidate_under_host_lock'))
+        return result

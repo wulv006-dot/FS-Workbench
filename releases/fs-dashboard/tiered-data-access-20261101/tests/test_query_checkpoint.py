@@ -121,4 +121,21 @@ class Durable(unittest.TestCase):
         engine.recover(lambda *a:{'allowed':False})
         self.assertEqual(engine.jobs[key]['error'],'source_unstable')
 
+    def test_abandoned_pin_detection_keeps_live_unknown_referenced_and_legacy_pins(self):
+        f=self.fixture;handle=f.submit();f.engine.step(f.key(handle),lambda r:f.reply())
+        now=[0];owner=dict(machine_id='fixture-machine',boot_id='fixture-boot',pid=123,start_token='start1')
+        artifacts=Artifacts(self.archive,clock=lambda:now[0],lease_owner=lambda:owner);artifacts.initialize()
+        receipt=artifacts.create(f.engine,'a',handle,ttl=1);ident=receipt['artifact_id']
+        with artifacts.download(f.engine,'a',handle,ident) as chunks:
+            now[0]=2
+            self.assertEqual(artifacts.abandoned_pin_candidates(liveness=lambda o:True,reference_status=lambda i:'unreferenced'),[])
+            self.assertEqual(artifacts.abandoned_pin_candidates(liveness=lambda o:None,reference_status=lambda i:'unreferenced'),[])
+            self.assertEqual(artifacts.abandoned_pin_candidates(liveness=lambda o:False,reference_status=lambda i:'referenced'),[])
+            candidates=artifacts.abandoned_pin_candidates(liveness=lambda o:False,reference_status=lambda i:'unreferenced')
+            self.assertEqual(candidates[0]['artifact_id'],ident)
+            with closing(self.archive.database()) as db:self.assertEqual(db.execute('SELECT pins FROM range_query_artifacts').fetchone()[0],1)
+        self.assertEqual(artifacts.expired_candidates(reference_status=lambda i:'referenced'),[])
+        with closing(self.archive.database(True)) as db,db:db.execute('UPDATE range_query_artifacts SET pins=1')
+        self.assertEqual(artifacts.abandoned_pin_candidates(liveness=lambda o:False,reference_status=lambda i:'unreferenced'),[])
+
 if __name__=='__main__':unittest.main()

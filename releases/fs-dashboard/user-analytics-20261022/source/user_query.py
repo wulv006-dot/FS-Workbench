@@ -12,13 +12,14 @@ from user_lifecycle import analyze, project_analysis, in_scope, covered
 
 
 class Service:
-    def __init__(self, store, authorizer, clock=None, customer_type_reader=None, weekly_publication=None):
+    def __init__(self, store, authorizer, clock=None, customer_type_reader=None, weekly_publication=None, permission_epoch=None, export_sink=None):
         if not callable(authorizer):
             raise ValueError('existing_authorizer_required')
         self.store, self.authorizer = store, authorizer
         self.clock = clock or (lambda: datetime.now(TZ))
         self.customer_type_reader = customer_type_reader
         self.weekly_publication = weekly_publication
+        self.permission_epoch,self.export_sink = permission_epoch,export_sink
         self.cache = OrderedDict()
         self.cache_lock = RLock()
         self.private_lock = RLock()
@@ -175,6 +176,9 @@ class Service:
         else:
             members = private
         frozen = self.store.save_snapshot(query, result, members)
+        if self.store.config.get('member_keyset_index') is True:
+            from user_member_index import build
+            build(self.store, frozen, private)
         # A transient/partial pinned export must be retried on a later query, not frozen in the success cache.
         if not period_cohort or flag_source.get('status') == 'complete':
             with self.cache_lock:
@@ -315,6 +319,8 @@ class Service:
     def members(self, args, user):
         if set(args) - {'snapshot_id', 'group', 'cursor', 'limit','repeat_status','customer_type'} or not {'snapshot_id', 'group'} <= set(args):
             raise ValueError('private_query_fields')
+        if self.store.config.get('member_keyset_index') is True:
+            return self.indexed_members(args, user)
         query, public, private = self.private_snapshot(args['snapshot_id'], user)
         if not public['coverage']['identity_deduplication_complete']:
             raise ValueError('cross_site_identity_unverified')
@@ -332,6 +338,16 @@ class Service:
 
     def export(self, args, user):
         # JSON export is frozen and contains the same administrator-only masked rows.
+        if self.store.config.get('member_keyset_index') is True:
+            from user_member_index import IndexUnavailable
+            if not isinstance(args,dict) or set(args)-{'snapshot_id','group','repeat_status','customer_type'} or not {'snapshot_id','group'}<=set(args):raise ValueError('private_export_fields')
+            if not callable(self.export_sink):raise IndexUnavailable('streaming_export_host_required')
+            header=self.indexed_members(dict(args,limit=1),user)
+            header={k:v for k,v in header.items() if k not in ('rows','next_cursor')}
+            completion={}
+            receipt=self.export_sink(header,self.export_iter(args,user,completion))
+            if not completion.get('complete'):raise IndexUnavailable('streaming_export_incomplete')
+            return dict(receipt,**header,complete=True,exported_rows=completion['rows'])
         query, public, private = self.private_snapshot(args.get('snapshot_id'), user)
         if set(args) - {'snapshot_id', 'group','repeat_status','customer_type'} or not {'snapshot_id','group'} <= set(args):
             raise ValueError('private_export_fields')
@@ -340,3 +356,35 @@ class Service:
         ids = self.filtered_members(query, private, args)
         return dict(snapshot_id=public['snapshot_id'], total=len(ids), group=args['group'],
                     rows=[deepcopy(private['records'][cid]) for cid in ids])
+
+    def indexed_members(self,args,user):
+        from user_member_index import page,IndexUnavailable
+        if not isinstance(args,dict) or set(args)-{'snapshot_id','group','cursor','limit','repeat_status','customer_type'} or not {'snapshot_id','group'}<=set(args):raise ValueError('private_query_fields')
+        query,public=self.store.snapshot_public(args['snapshot_id'])
+        self.permit_snapshot(user,query,public,True)
+        if not public['coverage']['identity_deduplication_complete']:raise ValueError('cross_site_identity_unverified')
+        if not callable(self.permission_epoch):raise IndexUnavailable('permission_epoch_required')
+        return page(self.store,query,public,args,user,self.permission_epoch(user,query))
+
+    def export_iter(self,args,user,completion=None):
+        """Yield actual frozen DB pages; the existing export host consumes the iterator."""
+        from user_member_index import IndexUnavailable
+        if self.store.config.get('member_keyset_index') is not True:raise IndexUnavailable('member_index_not_enabled')
+        if not isinstance(args,dict) or set(args)-{'snapshot_id','group','repeat_status','customer_type'} or not {'snapshot_id','group'}<=set(args):raise ValueError('private_export_fields')
+        budget=self.store.config.get('member_export_max_bytes',8*1024*1024)
+        if type(budget) is not int or not 0<budget<=512*1024*1024:raise ValueError('private_export_budget')
+        cursor=None;count=size=0
+        while True:
+            request=dict(args,limit=200)
+            if cursor is not None:request['cursor']=cursor
+            value=self.members(request,user)
+            for row in value['rows']:
+                from user_contract import canonical
+                size+=len(canonical(row).encode())+1
+                if size>budget:raise IndexUnavailable('streaming_export_budget_exhausted')
+                count+=1
+                yield row
+            cursor=value['next_cursor']
+            if cursor is None:break
+        if count!=value['total']:raise ValueError('member_projection_incomplete')
+        if completion is not None:completion.update(complete=True,rows=count,bytes=size)
