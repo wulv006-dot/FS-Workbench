@@ -54,6 +54,14 @@ def configure_execution():
                     'http/range_api.py':'releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py'})
 
 
+def configure_diagnostics():
+    import runtime_release as release
+    global INSTALLED_COMMIT, NEW
+    configure_execution()
+    release.configure_diagnostics()
+    INSTALLED_COMMIT, NEW = release.INSTALLED_COMMIT, release.NEW
+
+
 def digest(raw):
     return hashlib.sha256(raw).hexdigest()
 
@@ -109,7 +117,7 @@ def observe(root=Path('/'), installed=None):
     import runtime_release as release
     rows = {name: file_metadata(base, root, target, name in NEW and (not installed or release.EXECUTION_MODE)) for name, target in TARGETS.items()}
     expected = {row['candidate']: row['sha256'] for row in installed['files']} if installed else KNOWN
-    if installed and release.EXECUTION_MODE:
+    if installed and release.EXECUTION_MODE and not release.DIAGNOSTICS_MODE:
         pinned = {r['path']:r['sha256'] for r in installed['unchangedRequired']}
         expected.update({name:None if name in NEW else pinned[target]
                          for name,target in TARGETS.items() if name not in release.LEGACY_TARGETS})
@@ -151,6 +159,7 @@ def pack(repo, output, commit):
                 for name, path in SOURCES.items()}
     baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
     raw = json.dumps({'source_commit': commit, 'files': hashes, 'material_execution':release.EXECUTION_MODE,
+                      'material_diagnostics':release.DIAGNOSTICS_MODE,
                       'installed_baseline': {'source_commit': INSTALLED_COMMIT, 'files': baseline}},
                      sort_keys=True).encode('utf-8')
     (output / 'payload-manifest.json').write_bytes(raw)
@@ -165,7 +174,8 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
         raise ValueError('approved_git_payload_required')
     descriptor = json.loads(raw)
     if descriptor.get('material_execution') is True:
-        configure_execution()
+        if descriptor.get('material_diagnostics') is True:configure_diagnostics()
+        else:configure_execution()
         if not followup:raise ValueError('material_execution_requires_installed_followup')
     if descriptor.get('source_commit') != commit:
         raise ValueError('payload_source_commit_mismatch')
@@ -203,10 +213,18 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
     if installed:
         manifest['installedBaseline'] = INSTALLED_PROOF
         if __import__('runtime_release').EXECUTION_MODE:manifest['materialExecution']=True
+        if __import__('runtime_release').DIAGNOSTICS_MODE:manifest['materialDiagnostics']=True
         manifest['materialStaticOnly'] = all(row['beforeSha256'] == row['sha256'] or row['candidate'].startswith('frontend/')
                                             for row in files)
         if manifest['materialStaticOnly'] and (observed['worker_state'] != 'active' or observed['worker_image_source'] != 'container'):
             raise ValueError('static_followup_requires_running_worker')
+        if manifest.get('materialDiagnostics'):
+            changed = [r['target'] for r in files if r['beforeSha256'] != r['sha256']]
+            if (observed['worker_state'] != 'active' or observed['worker_image_source'] != 'container'
+                    or any(r['beforeSha256'] != r['sha256'] and r['candidate'] not in
+                           ('http/conversation_http.py', 'http/range_api.py') for r in files)):
+                raise ValueError('exact_material_diagnostics_delta_required')
+            manifest['materialChangedTargets'] = changed
     stage.mkdir(parents=True, mode=0o700)
     for name, body in bodies.items():
         path = stage / 'candidate' / name
@@ -234,8 +252,10 @@ if __name__ == '__main__':
     parser.add_argument('--release-ready', action='store_true')
     parser.add_argument('--followup', action='store_true')
     parser.add_argument('--materials-execution', action='store_true')
+    parser.add_argument('--materials-diagnostics', action='store_true')
     args = parser.parse_args()
-    if args.materials_execution:configure_execution()
+    if args.materials_diagnostics:configure_diagnostics()
+    elif args.materials_execution:configure_execution()
     if args.action == 'observe':
         value = observe()
     elif args.action == 'pack':

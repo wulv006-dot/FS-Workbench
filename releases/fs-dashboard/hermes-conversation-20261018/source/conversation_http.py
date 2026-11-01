@@ -11,6 +11,24 @@ from urllib.parse import parse_qs, quote, unquote
 
 PREFIX = "/api/hermes/conversations"
 IDENT = r"[a-zA-Z0-9_-]{8,80}"
+MATERIAL_ADAPTER_VERSION = 'materials_runtime_diagnostics_v1'
+
+
+def _material_lookup_stage(error, service, stage):
+    if stage == 'http_owned':
+        return stage
+    materials = getattr(service, 'materials', None)
+    queue_code = getattr(getattr(materials, '_queue', None), '__code__', None)
+    owned_code = getattr(getattr(service.store, '_owned', None), '__code__', None)
+    frames = []
+    trace = error.__traceback__
+    while trace is not None:
+        frames.append(trace.tb_frame.f_code)
+        trace = trace.tb_next
+    if (stage == 'submit' and queue_code is not None and owned_code is not None
+            and any(code is queue_code for code in frames) and any(code is owned_code for code in frames)):
+        return 'submit_owned'
+    return 'lookup'
 
 
 def respond(handler, status, data, content_type="application/json; charset=utf-8", headers=()):
@@ -33,37 +51,63 @@ def handle(handler, method, uri, user, service, authorized):
     if not user:
         respond(handler, 401, {"error": "login_required"})
         return True
-    if not authorized(user):
+    permission = authorized(user)
+    if not permission:
         respond(handler, 403, {"error": "admin_required"})
         return True
     parts = path[len(PREFIX):].strip("/").split("/") if path != PREFIX else []
+    material_route = len(parts) >= 2 and parts[1] == 'materials'
+    diagnostic_route = len(parts) >= 2 and parts[1] == 'runtime-diagnostics'
+    if diagnostic_route and permission is not True:
+        respond(handler, 403, {'error': 'admin_required'})
+        return True
+    material_stage = 'route'
+    def reply(status, data, *args, **kwargs):
+        if material_route or diagnostic_route:
+            kwargs['headers'] = [*kwargs.get('headers', ()), ('X-FS-Material-Adapter', MATERIAL_ADAPTER_VERSION)]
+        if material_route and status == 404:
+            data = dict(data, stage=material_stage, source='material_http')
+        return respond(handler, status, data, *args, **kwargs)
     ids = ([parts[0]] if parts else []) + ([parts[2]] if len(parts) > 2 else [])
     if any(not re.fullmatch(IDENT, part) for part in ids):
-        respond(handler, 404, {"error": "not_found"})
+        reply(404, {"error": "not_found"})
         return True
     if method == "POST" and (handler.headers.get("X-FS-Advisor-Action") != "submit" or
                              handler.headers.get("Sec-Fetch-Site") != "same-origin"):
-        respond(handler, 403, {"error": "same_origin_required"})
+        reply(403, {"error": "same_origin_required"})
         return True
     try:
         params = parse_qs(uri.query, keep_blank_values=True, max_num_fields=2)
+        if diagnostic_route:
+            if method == 'GET' and len(parts) == 2 and not uri.query:
+                diagnostics = getattr(service, 'runtime_diagnostics', None)
+                if diagnostics is None:
+                    reply(503, {'error': 'runtime_diagnostics_unavailable'})
+                else:
+                    reply(200, diagnostics(user, parts[0]))
+            else:
+                reply(404, {'error': 'not_found'})
+            return True
         if len(parts) >= 2 and parts[1] == 'materials' and not params:
+            material_stage = 'http_owned'
             with service.store.db() as db:
                 service.store._owned(db,user,parts[0])
+            material_stage = 'route'
             materials=getattr(service,'materials',None)
             if materials is None:
-                respond(handler,503,{'error':'material_execution_unavailable'})
+                reply(503,{'error':'material_execution_unavailable'})
             elif method=='POST' and len(parts)==2:
-                respond(handler,202,materials.submit(user,parts[0],read_json(handler)))
+                material_stage = 'submit'
+                reply(202,materials.submit(user,parts[0],read_json(handler)))
             elif method=='GET' and len(parts)==3:
-                respond(handler,200,materials.detail(user,parts[0],parts[2]))
+                reply(200,materials.detail(user,parts[0],parts[2]))
             elif method=='GET' and len(parts)==4 and parts[3]=='result':
-                respond(handler,200,materials.result(user,parts[0],parts[2]))
+                reply(200,materials.result(user,parts[0],parts[2]))
             elif method=='POST' and len(parts)==4 and parts[3]=='stop':
                 if read_json(handler):raise ValueError('material_stop_fields')
-                respond(handler,200,materials.stop(user,parts[0],parts[2]))
+                reply(200,materials.stop(user,parts[0],parts[2]))
             else:
-                respond(handler,404,{'error':'not_found'})
+                reply(404,{'error':'not_found'})
             return True
         if method == "GET" and not parts and not params:
             respond(handler, 200, service.listed(user))
@@ -131,15 +175,17 @@ def handle(handler, method, uri, user, service, authorized):
                 extra.append(("Content-Security-Policy", "sandbox" + script + "; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'"))
             respond(handler, 200, data, artifact["mime"] + "; charset=utf-8", extra)
         else:
-            respond(handler, 404, {"error": "not_found"})
+            reply(404, {"error": "not_found"})
     except PermissionError:
-        respond(handler, 403, {"error": "forbidden"})
-    except LookupError:
-        respond(handler, 404, {"error": "not_found"})
+        reply(403, {"error": "forbidden"})
+    except LookupError as error:
+        if material_route:
+            material_stage = _material_lookup_stage(error, service, material_stage)
+        reply(404, {"error": "not_found"})
     except (ValueError, KeyError, TypeError, csv.Error, zipfile.BadZipFile, ParseError):
-        respond(handler, 422, {"error": "invalid_request"})
+        reply(422, {"error": "invalid_request"})
     except Exception:
-        respond(handler, 503, {"error": "conversation_unavailable"})
+        reply(503, {"error": "conversation_unavailable"})
     return True
 
 

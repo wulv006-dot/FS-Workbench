@@ -574,3 +574,52 @@ A restored the original light theme and closed only its new synthetic tab at 20:
 最终 A 本地收口：原 `units(.../tests,['test_conversation_store'])` 实际加载83项、零失败/错误/skip（其中新材料20）；原 deploy显式三模块22项、channel12、原Node入口含DOM/fetch、Chromium操作通过，15个变更Python文件按3.9 AST通过。图片桌面/窄屏代表文件实际写入时间为2026-11-01T00:28:56Z；本轮未重复旧Core198或未改知识套件，先前知识收尾失败不在本包扩修，未冒通过。主控集成后新SHA Linux/独审、真实SDK/模型/生产仍未验。
 
 PR723派审前两项P2已在A原分支收口：runtime缓存短锁+并发/live回归；UI单选修订并显示目标名+反序DOM/fetch回归。新增两项Python测试通过，原Node入口通过；真实temp SQLite且无模型/业务API。旧51af方法只在内存回退的两项测试均明确因构造2个runtime失败，修复版为1个。新本地Chromium `C:/Users/Administrator/AppData/Local/Temp/fs-materials-ui-3k9h9zql/material-expanded-dark.png` 已实际view，看到“修改目标：核对结果.xlsx”及原主题焦点；仍是candidate-only非生产验收。B源码、发布器及其他51af已验输入未改，不重跑Core198/旧20。PR723由Personal集成/新SHA独审与LinuxCI，A不新建PR/Agent或部署。
+
+## 5f99 最终合并版：零模型实际SDK构造通过，发布前原锁阻塞（2026-11-01）
+
+本轮部署 sourceCommit 固定 `5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f`，A先 clean/ff main；不用Personal后续状态记录作部署来源。新 Git LF pack 为23源载荷+原publisher四文件，descriptor SHA256 `041ccf76093a0f337fbb75ef90a09ae91d5d004f56cdade2a98d330c92c48310`；新tar 593920bytes/SHA256 `97e6eea4df2a0e6d649e5fce091dd50859ec9090eab2d0943a7bcfb8856f15c8`。通过正常工具审核上传至全新 `/var/tmp/fs-materials-5f99-20261101T013900Z`，未重用旧stage。
+
+实际固定容器仍 fdb100cedd9b2c05dedfb7880282cd1105e322e3315e3585d72d149d8f01c96a/image sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544。三SDK文件 regular/size/fullSHA再次全等上节固定pin。零模型探针在这个现有容器的原 `.venv/bin/python` 独立进程构造真实官方 AIAgent/registry，加载精确Git候选模块定义，并指向已核原FS挂载 `/opt/pilot/runtime-config.yaml`；不修改任何活动源或配置。实际工具恰为三个文件wire工具，实际上下文1048576，skip_context_files/skip_background_review=True、load_soul_identity=False、memory_enabled=False且两个memory对象None；实际system包含冻结指令，15个proof字段形状兼容。Socket全部阻断，实际网络尝试0、未执行conversation/tool/model，session_db=None，未构造正式APIServerAdapter或读写其持久账本。合成输入没有经过官方POST admission；探针不是accepted-input/正式执行回执，更不是实际SDK运行任务完成。
+
+探针设置的初始失败保留：系统python缺dotenv；改用原venv后，误用host配置路径时构造得到SDK默认meta-tools与null context，proof拒绝。仅查询现有FS挂载元信息并在探针进程指向正确原路径后通过；没有安装依赖、变更配置/权限或放宽proof，不把这些探针设置错误算作生产SDK故障。具体最小字段回执见下列共享JSON，不含配置/凭据/源码正文。
+
+新现场baselineObservedAt=`2026-11-01T01:33:26.578106+00:00`；新stage=`/var/tmp/fs-materials-5f99-20261101T013900Z/stage`，manifest SHA256=`4057435dce473622c5ef2f88ba0d55255a9f7b588a6e193f70a41cffca409881`。501f installed proof与Git before全部匹配；24目标/46保护/8新增，19目标有字节变化，Nginx旧10m/0600精确字节不变。三服务runtimeBefore全active，workerImageSource=实际container。原publisher inspect通过sourceCAS/protectedCAS，原publisher仍retired，未写活动文件。
+
+唯一一次 apply attempt `nav-20261101T013519Z` 在冻结原publisher live_lock取得 `/var/www/dashboard/fs-home/transactions/collector.lock` 时抛BlockingIOError(errno11)中止。尚未进入admission/provider围栏或备份创建，backup `/var/backups/fs-navigation-20261006/nav-20261101T013519Z` 及journal均不存在，不能称安装失败后回退、不能称新worker启动失败。只读核实持锁pid18397/comm python3/cgroup fs-transaction-collect.service，Type=oneshot；该任务09:32:54 CST自然启动，至01:39:05Z仍activating/start。没有取消任务、强杀、清UNKNOWN、抢锁或重复apply。
+
+阻塞后逐项读回：24 currentSHA全等manifest beforeSHA（8新模块仍缺失）；46保护全匹配，目标owner/mode保持。worker/range/nginx均active，PID仍10943/11083/31780；容器ID/image/StartedAt仍原值，range /health=200且ok=true，匿名worker /v1/capabilities=401。故当前生产仍501f，5f99尚未软件发布。新manifest、stage和失败attempt均保留；后续只能在自然空闲且重新核实际基线后沿原publisher继续，不能靠取消collector获得空闲。
+
+可供主控独立读取的稳定共享metadata（没有源正文/DB/凭据）：
+- `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Deploy-5f99-20261101T013800Z/sdk-probe-5f99-result.json`
+- `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Deploy-5f99-20261101T013800Z/sdk-probe-5f99-attempts.json`
+- `C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Deploy-5f99-20261101T013800Z/merged-5f99f5b3-blocked-metadata.json`
+
+未进入新版本正常FS认证、实际DeepSeek/accepted-context/用量费用、running stop、不可变下载、新部署视觉阶段；这些均未验，不能借旧501f闭环或本次构造探针代替。不使用preview_*验证自己修改、不提取Cookie/凭据、不伪造认证头，原用户tab未操作。没有额外业务/模型/API/IAM写入或新预算；未重跑旧Core/知识套件。Personal最终验收仍待真实后续结果。
+
+
+## 5f99 实际安装、真实材料 404 与诊断后续候选（2026-11-01）
+
+此前 collector errno11 是第一次 apply 在全部锁前拒绝、0 目标写入的历史回执。collector 自然结束后，同原 ID 在原一小时窗口内重核 24 before/46 保护/8 缺失/原 image/服务/空闲/无 backup+journal，沿原 inspect/锁/准入/CAS 成功 apply；未停止采集、清任务或改 freshness。
+
+当前真实软件 sourceCommit=`5f99f5b3eeca8bdf974de1dcd913508ff4c89c1f`，不是记录 commit a536。payload descriptor SHA=`041ccf76093a0f337fbb75ef90a09ae91d5d004f56cdade2a98d330c92c48310`，成功 manifest SHA=`4057435dce473622c5ef2f88ba0d55255a9f7b588a6e193f70a41cffca409881`；stage=`/var/tmp/fs-materials-5f99-20261101T013900Z/stage`，backup=`/var/backups/fs-navigation-20261006/nav-20261101T013519Z`，journal SHA=`3f6d474d37716610de334f14b9b7a699f879aae170471c065f5007c47e3ab93d`，状态 `applied-awaiting-actual-http-role-acceptance`。24 after SHA/root/mode 与 46 保护匹配，8 新模块已存在；不是后续可再当 absent 安装的文件。
+
+实际运行 container=`9c0225c7ea03f676c10ff9f1b2181fa0c5dda8f472f6e6834ea616ba015b5db7`，image=`sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544`，StartedAt=`2026-11-01T01:42:47.848543281Z`；worker/range/nginx active，range health 200、匿名 worker 401。原内部 transport 仅 capabilities 200，fs_materials verified_pin/readonly_original_lookup/single_post 为 true；此为软件/内部健康证据，不冒正常 FS 身份或 accepted run。实际 SDK 零模型构造证据复用先前受控结果，不重新调用模型或构造官方 accepted-input 回执。
+
+正常 FS BrowserAct 合成验收 cid=`fa7ea40c42bc4833bdff3788f1d733f9`，CSV fid=`55b55801892a3d83c3fc699f98da4a8a`，2061 bytes、SHA=`31f3057e1b6b72cb930b65fbfd10bd362e4a3e599803c5d5f11af692a76cadd3`。普通会话和文件列表 200、上传 201。唯一材料 POST 的原 request=`material_da2c98dcd8d3464fb4db5f065f0ea110` 返回 404，完整 path 的 cid 一致且无 query。原成功回执丢弃注入 discarded=false，未触发；未发第二 POST、未建 R2/R3，未获得 task/lease/run/proof，费用 unknown，不据 404 断言从未执行/零费用。
+
+曾调用原材料 GET，明确该入口可能经 _parts 初始化私有表，不能算纯读探针；已停止此类探针。02:08:29Z 后时点，已知 conversation DB mode=ro 核本合成行存在、已知 tasks DB 三个 namespace 缺失；未测到当时运行对象实际 DB 路径，故不外推因果。实际 8931 监听 PID1616 与 range unit 一致、启动 09:42:51CST，argv range_api SHA=`584cb74985b7f44f8e9d85ac1a4e9681de62af65133fb62b5b65095af94d83f3`。fresh 独立进程选中 range 目录 HTTP（SHA=`3d5f245da179f0a3cb7abbad2fcbf6aa3bbe749f7090c5bd188d8aca11de90cd`、含 materials），不是运行进程内存证明。error=not_found 同时覆盖未命中与 LookupError，shadowing/早期 owner/实际对象路径仍待证；没有先按猜测修固定导入路径。
+
+稳定合成证据目录：`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Deploy-5f99-20261101T013800Z/`，含 browser-material-r1-audit.json、material-r1-early-db-metadata.json、merged-5f99f5b3-applied-metadata.json。主控已独立读取前两份；原请求完整 payload 已保留。只关闭 A 自建 BrowserAct session，用户原页不操作。没有新的生产视觉/DeepSeek/费用/停止或 A2 scope 通过声明。
+
+本次后续候选仅“材料入口受控装配诊断与 404 分层”，合同见 CONVERSATION-GOALS.md。本轮无 SSH、真实 API、模型、浏览器或生产写。新增 `--materials-diagnostics` 模式仍走原 publisher，但严格钉上述 5f99 成功 manifest+journal、Git LF 全 24 before 和原 46 保护；NEW 集合为空，8 模块必须现存。pack/prepare 不把随读当前 hash 反射成合法基线。只允许 HTTP conversation_http.py 与 range_api.py 两目标改变，manifest 明列 materialChangedTargets，其余 22 个目标只 CAS/备份不改写。Nginx 保持原 10m/0600 字节。
+
+操作形状（仅审查/合并后由最终 merge SHA 新 pack，新 baseline/stage；不是本轮执行记录）：
+
+```text
+python runtime_prepare.py pack --materials-diagnostics --repo <repo> --source-commit <final-merge-sha> --output <new-bundle>
+python runtime_prepare.py prepare --followup --payload <new-bundle>/payload --source-commit <same-sha> --approved-payload-sha256 <new-descriptor-sha> --output <new-stage> --release-ready
+```
+
+descriptor 自动携带 material_execution/material_diagnostics 与精确 5f99 installed_baseline；原 inspect/apply、发布锁/准入/provider/CAS/UNKNOWN/journal/backup/回退保持。诊断模式要求真实 active/container，禁止用恢复态 fallback。当且仅当实际修改两个 HTTP 目标时，沿原 fence.stop_then_unlock_database 与原 DEEP_SCOPE restart/readiness 重载 range；worker 不重启，Nginx 不 reload。合成成功/失败回退均实测只写两个目标，其它目标保留字节，8 模块不删。Windows fixture mode 仅临时主机边界归一化；Linux CI 和现场发布仍待验。
+
+范围证据：新增诊断 7 项通过；受影响 FileTests 10 项通过；原 deploy 三模块 23 项通过（含新增 5f99 proof/pack/before/CAS/只写两目标/原 apply/rollback）。原 CI 的 store.load_tests 已加新模块，deploy 原 test_runtime_materials 自动包含新测试，无 tools/pr_fast.py/workflow/依赖变更。未重跑无关 Core/旧 knowledge 套件；旧 knowledge 收尾失败仍保留。本候选须 Personal 集成、最新 SHA 独审/必要 CI/合并后，才新 pack/prepare/apply。发布重启可能改变旧内存状态，不能倒推本次原 404 根因；发布后先取正常鉴权诊断，不盲重发原材料 POST。
