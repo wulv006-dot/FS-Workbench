@@ -111,7 +111,7 @@ def read_revenue(reader, request):
     ids = {native: code for native, code, _, _ in BINDINGS}
     # Include global-site collisions; a same-code record outside the approved IDs is ambiguous.
     natives = reader.pages('discounts', [('site_id', 'IN', '0,266'), ('code', 'IN', ','.join(ids.values()))],
-                           validate=lambda r: str(r.get('id')) in ids and str(r.get('site_id')) == '266')
+                           validate=lambda r: str(r.get('id')) in ids and str(r.get('site_id')) in ('0', '266'))
     if ({str(r['id']) for r in natives} != set(ids)
             or any(str(r.get('code', '')).strip().casefold() != ids[str(r['id'])].casefold() for r in natives)):
         raise ContractError('ACTIVITY_CODE_IDENTITY_MISMATCH')

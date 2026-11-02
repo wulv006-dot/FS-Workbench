@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 from campaign_backend.discount_revenue import BINDINGS, query_window, summarize, read_revenue
 from campaign_backend.core import ContractError
 from bridge import handle
+from campaign_backend.adapters import AdminRead
 
 
 def order(**changes):
@@ -90,6 +91,26 @@ class DiscountRevenueTests(unittest.TestCase):
             read_revenue(Reader(),self.request)
         with self.assertRaisesRegex(ContractError,'REPORT_MONEY_EXCEEDS_SAFE_INTEGER'):
             self.summary([order(amount_usd_format='$ 90071992547409.92')])
+
+    def test_same_bound_native_id_can_be_global_without_expanding_order_site(self):
+        class Reader(AdminRead):
+            def __init__(self):
+                self.calls=[]
+                self.natives=[dict(id=n,code=c,site_id=0 if n=='6033' else 266) for n,c,g,o in BINDINGS]
+            def _get(self,route,**params):
+                self.calls.append((route,params))
+                return dict(list=self.natives,total=len(self.natives)) if 'Discount' in route else dict(list=[],total=0)
+        reader=Reader()
+        self.assertEqual(read_revenue(reader,self.request)['status'],'available')
+        orders=[p for route,p in reader.calls if 'Order' in route]
+        self.assertEqual(orders[0]['search[0][field]'],'site_id')
+        self.assertEqual(orders[0]['search[0][operator]'],'=')
+        self.assertEqual(orders[0]['search[0][val]'],'266')
+        for change in [dict(id='99999'),dict(site_id=999)]:
+            reader=Reader();reader.natives[5].update(change)
+            with self.subTest(change=change),self.assertRaisesRegex(ContractError,'UPSTREAM_SCOPE_MISMATCH'):
+                read_revenue(reader,self.request)
+            self.assertFalse(any('Order' in route for route,p in reader.calls))
 
 
 if __name__=='__main__':unittest.main()
