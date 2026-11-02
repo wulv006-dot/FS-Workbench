@@ -166,4 +166,30 @@ class NativeReview(unittest.TestCase):
                 self.assertEqual(target.read_text('utf-8'),'Prefer Chinese');self.assertEqual(pending,{})
 
 
+    def test_native_receipt_projection_is_readable_by_actual_profile_uid(self):
+        import os
+        from unittest.mock import call
+        m=self.module()
+        with self.fixture() as (path,db,binding,record), tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'root-review';root.mkdir()
+            profile=Path(temp)/'owner-profile';profile.mkdir()
+            scope=m.load_scope(path,'alice');scope['profile_root']=str(profile)
+            actual_stat=Path.stat
+            def stat(target,*args,**kwargs):
+                value=actual_stat(target,*args,**kwargs)
+                if target==profile:
+                    fields=list(value);fields[4]=9876;fields[5]=9876
+                    return os.stat_result(fields)
+                return value
+            with patch.object(review_queue,'ROOT',root),review_queue.native_context(scope),patch.object(Path,'stat',stat),patch.object(os,'fchown',create=True) as file_owner,patch.object(os,'chown',create=True) as directory_owner:
+                review_queue.receipt_root().mkdir(parents=True)
+                review_queue.export_reviews()
+                self.assertEqual(file_owner.call_count,1,'native projection must retain worker read access')
+                self.assertEqual(file_owner.call_args.args[1:],(9876,9876))
+                directory_owner.assert_called_once_with(str(profile/'memory-review'),9876,9876)
+                self.assertEqual(json.loads((profile/'memory-review/approval-receipts.json').read_text('utf-8')),[])
+                self.assertTrue((review_queue.receipt_root()/'approved-skills.json').is_file())
+                self.assertEqual(list((profile/'memory-review').glob('*.tmp')),[])
+
+
 if __name__ == '__main__':unittest.main()

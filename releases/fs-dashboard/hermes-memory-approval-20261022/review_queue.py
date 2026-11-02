@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import time
+import tempfile
 from contextlib import contextmanager
 from contextvars import ContextVar
 from reviewed_skills import approved_index
@@ -208,6 +209,27 @@ def save(path,value):
     os.chmod(str(temp),0o600);os.replace(str(temp),str(path))
 
 
+def native_projection(profile, value):
+    """Only the readable observation follows the worker uid; audit remains root-only."""
+    profile=Path(profile)
+    if profile.is_symlink() or not profile.is_dir():raise ValueError('native_review_profile_directory')
+    owner=profile.stat()
+    directory=profile/'memory-review'
+    if directory.is_symlink():raise ValueError('native_review_projection_directory')
+    directory.mkdir(mode=0o700,exist_ok=True)
+    os.chmod(str(directory),0o700)
+    os.chown(str(directory),owner.st_uid,owner.st_gid)
+    fd,temp=tempfile.mkstemp(prefix='.codex-receipts-',suffix='.tmp',dir=str(directory))
+    try:
+        with os.fdopen(fd,'w',encoding='utf-8') as stream:
+            os.fchown(stream.fileno(),owner.st_uid,owner.st_gid)
+            json.dump(value,stream,ensure_ascii=False,indent=2)
+            stream.flush();os.fsync(stream.fileno())
+        os.replace(temp,str(directory/'approval-receipts.json'))
+    finally:
+        if os.path.lexists(temp):os.unlink(temp)
+
+
 def decision_projection(receipt):
     original=receipt.get('result') or {}
     result={k:original[k] for k in ('success','applied','rejected','status_code','after_sha256','characters','limit','error') if k in original}
@@ -241,9 +263,8 @@ def export_reviews():
     save(published/'index.json',index)
     projection=[decision_projection(row) for row in rows]
     scope=_NATIVE_REVIEW.get()
-    target=(Path(scope['profile_root']) if scope is not None else Path('/var/lib/fs-hermes-fc/profile'))/'memory-review/approval-receipts.json'
-    if scope is not None:target.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
-    save(target,projection)
+    if scope is not None:native_projection(scope['profile_root'],projection)
+    else:save(Path('/var/lib/fs-hermes-fc/profile/memory-review/approval-receipts.json'),projection)
 
 
 def main():
