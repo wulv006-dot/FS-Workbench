@@ -7,7 +7,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULES = ('__init__.py', 'contracts.py', 'worker.py', 'adapters.py', 'protocol.py', 'public_sources.py', 'server.py')
-CONTROL_MODULES = ('__init__.py', 'contracts.py', 'coordinator.py', 'protocol.py', 'ssh_client.py', 'public_sources.py', 'pilot.py', 'client.py')
+CONTROL_MODULES = ('__init__.py', 'contracts.py', 'coordinator.py', 'protocol.py', 'ssh_client.py', 'public_sources.py',
+                   'pilot.py', 'client.py', 'adapters.py', 'worker.py', 'failover.py')
 ENTRY = b'''from pathlib import Path
 import sys
 ROOT = Path(__file__).resolve().parent

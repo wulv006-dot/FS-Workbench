@@ -95,9 +95,20 @@ class Coordinator:
             raise ValueError('capabilities_invalid')
         with self.transaction() as db:
             old = self._get(db, 'collection_nodes', identity['node_id'])
-            since = old['healthy_since'] if old and old['node_boot_id'] == identity['node_boot_id'] else instant(now).isoformat()
+            since = old.get('healthy_since') if old and old['node_boot_id'] == identity['node_boot_id'] else None
             self._put(db, 'collection_nodes', identity['node_id'], dict(identity,
-                capabilities=capabilities, healthy_since=since, last_seen=instant(now).isoformat()))
+                capabilities=capabilities, healthy_since=since or instant(now).isoformat(),
+                last_seen=instant(now).isoformat(), unavailable_until=(old or {}).get('unavailable_until', 0)))
+
+    def quarantine_node(self, node_id, now, seconds):
+        label(node_id)
+        integer(seconds, 1, 300)
+        with self.transaction() as db:
+            node = self._get(db, 'collection_nodes', node_id)
+            if node:
+                node.update(healthy_since=None, unavailable_until=max(node.get('unavailable_until', 0),
+                                                                    instant(now).timestamp() + seconds))
+                self._put(db, 'collection_nodes', node_id, node)
 
     def _identity_fields(self, identity):
         if not isinstance(identity, dict) or set(identity) != {'node_id', 'node_boot_id'}:
@@ -146,6 +157,8 @@ class Coordinator:
             node = self._node(db, identity)
             node['last_seen'] = now.isoformat()
             self._put(db, 'collection_nodes', identity['node_id'], node)
+            if not node.get('healthy_since') or now.timestamp() < node.get('unavailable_until', 0):
+                return None
             query = "SELECT body,state FROM collection_jobs WHERE state IN ('PENDING','LEASED','RETRY_WAIT')"
             for row in db.execute(query + (' AND id=?' if job_id is not None else '') + ' ORDER BY rowid',
                                   (job_id,) if job_id is not None else ()).fetchall():
@@ -171,7 +184,8 @@ class Coordinator:
                         continue
                 elif identity['node_id'] != policy['nodes'][0]:
                     primary = self._get(db, 'collection_nodes', policy['nodes'][0])
-                    if primary and (now - instant(primary['last_seen'])).total_seconds() <= policy['lease_seconds'] + policy['clock_margin_seconds']:
+                    if (primary and primary.get('healthy_since') and primary.get('unavailable_until', 0) <= now.timestamp()
+                            and (now - instant(primary['last_seen'])).total_seconds() <= policy['lease_seconds'] + policy['clock_margin_seconds']):
                         continue
                 task.update(identity, attempts=task['attempts'] + 1, lease_epoch=task['lease_epoch'] + 1,
                     attempt_id=uuid.uuid4().hex, lease_started_at=now.isoformat(),

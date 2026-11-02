@@ -76,7 +76,7 @@ class Worker:
             raise ValueError('spool_invalid')
         self.spool.mkdir(mode=0o700, parents=True, exist_ok=True)
 
-    def run_once(self):
+    def run_once(self, *, job_id=None, allow_claim=True):
         for temporary in self.spool.glob('.pending-*'):
             if temporary.is_symlink() or not temporary.is_file() or temporary.stat().st_size > 65536:
                 raise ValueError('spool_pending_invalid')
@@ -96,7 +96,7 @@ class Worker:
             else:
                 os.replace(temporary, destination)
         files = list(self.spool.iterdir())
-        if (len(files) >= 32 or sum(path.stat().st_size for path in files) + 65536 > 262144
+        if (len(files) > 32 or sum(path.stat().st_size for path in files) > 262144
                 or any(path.is_symlink() or not path.is_file() or not re.fullmatch(r'[a-f0-9]{32}\.json', path.name)
                        for path in files)):
             raise ValueError('spool_limit_or_path_invalid')
@@ -108,7 +108,8 @@ class Worker:
             if body.get('node_id') != self.identity['node_id'] or not body.get('observation_id'):
                 raise ValueError('spool_identity_invalid')
         else:
-            task = self.endpoint.claim_job(self.identity, list(self.adapters), self.clock())
+            options = dict(job_id=job_id) if job_id is not None else {}
+            task = self.endpoint.claim_job(self.identity, list(self.adapters), self.clock(), **options) if allow_claim else None
             if task is None:
                 return dict(status='idle')
             transport = BudgetedTransport(self.endpoint, self.identity, task, self.fetch, self.clock)
