@@ -9,8 +9,9 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import stat
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from datetime import datetime, timezone
 
 
@@ -24,7 +25,8 @@ SYNTHETIC_ARCHIVE = dict(cid='1fbe5a2b7b0b4434af259bbde7c9293b',
     owner_sha256='8786268024326948bef96466ae9950ffa1e8a8fcb449cb23e679e54a129d1661',
     fingerprint='920110e75f4d4db43ddb82cfefaf509f8ffa9cce8a9cec799ffb17cb6b2536eb',
     input_sha256='1382d12e44f283937d1b14338e76e89d4d7c96d04a61bd576dcb10f504a6b0f2',
-    file_ids=['30e5c3042c07625f702ed5ac72540307'])
+    file_ids=['30e5c3042c07625f702ed5ac72540307'], file_size=3278,
+    file_sha256='27a55101378e06e1db491600db1d433ef19a5bfae76c5edffb5ee39e2c897aec')
 PUBLIC_EVENTS = {
     "run.queued", "run.started", "run.completed", "run.failed", "run.cancelled",
     "run.stopping", "run.steered", "run.interrupted", "message.delta", "message.interim",
@@ -111,6 +113,8 @@ class ConversationStore:
     def archived_synthetic_receipt(self, owner):
         p=SYNTHETIC_ARCHIVE
         with self.db() as db:
+            if db.execute('SELECT COUNT(*) FROM synthetic_turn_archives WHERE turn_id!=? OR conversation_id!=?', (p['turn_id'],p['cid'])).fetchone()[0]:
+                raise ValueError('archive_audit_drift')
             row=db.execute('SELECT a.conversation_id,a.receipt,a.receipt_sha256 FROM synthetic_turn_archives a JOIN conversations c ON c.id=a.conversation_id WHERE a.turn_id=? AND c.owner=?', (p['turn_id'],owner)).fetchone()
             if row is None:return None
             if row['conversation_id']!=p['cid'] or hashlib.sha256(row['receipt'].encode()).hexdigest()!=row['receipt_sha256']:
@@ -139,6 +143,47 @@ class ConversationStore:
             bound=dict(owner=owner,conversation_id=p['cid'],turn_id=p['turn_id'],request_id=p['request_id'],session_id=p['session_id'],lease=p['lease'],run_id=None)
             body={'input':row['text'],'session_id':p['session_id']}
             files=p.get('file_ids',[])
+            # Read the actual immutable attachment snapshot without publishing or expiring files.
+            archive_root=self.path.parent
+            directory=archive_root/'files'/p['cid']
+            try:
+                def read(path,limit):
+                    with ExitStack() as stack:
+                        if os.name=='posix':
+                            fd=os.open(archive_root,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+                            stack.callback(os.close,fd)
+                            parts=path.relative_to(archive_root).parts
+                            for name in parts[:-1]:
+                                fd=os.open(name,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
+                                stack.callback(os.close,fd)
+                            fd=os.open(parts[-1],os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=fd)
+                        else:
+                            # Windows fixtures; production uses the descriptor chain above.
+                            if any(part.is_symlink() for part in (path,*path.parents)):
+                                raise ValueError('archive_linked_attachment')
+                            fd=os.open(path,os.O_RDONLY|getattr(os,'O_BINARY',0))
+                        with os.fdopen(fd,'rb') as stream:
+                            before=os.fstat(stream.fileno())
+                            if not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>limit:
+                                raise ValueError('archive_attachment_kind_or_size')
+                            raw=stream.read(limit+1);after=os.fstat(stream.fileno())
+                        if (len(raw)!=after.st_size or len(raw)>limit or
+                                (before.st_ino,before.st_dev,before.st_size,before.st_mtime_ns)!=
+                                (after.st_ino,after.st_dev,after.st_size,after.st_mtime_ns)):
+                            raise ValueError('archive_attachment_changed')
+                        return raw
+                current=json.loads(read(directory/'bindings'/(p['turn_id']+'.json'),65536))
+                if current!={'inputs':files,'generated':[]}:
+                    raise ValueError('archive_attachment_CAS_mismatch')
+                for fid in files:
+                    item=json.loads(read(directory/(fid+'.json'),65536))
+                    raw=read(directory/fid,p['file_size'])
+                    if (item.get('file_id')!=fid or item.get('sha256')!=p['file_sha256'] or
+                            item.get('size')!=p['file_size'] or len(raw)!=p['file_size'] or
+                            hashlib.sha256(raw).hexdigest()!=p['file_sha256']):
+                        raise ValueError('archive_attachment_CAS_mismatch')
+            except (OSError,ValueError,KeyError,TypeError,AttributeError):
+                raise ValueError('archive_attachment_CAS_mismatch') from None
             payload=json.dumps({'text':row['text'],'file_ids':files},sort_keys=True) if files else row['text']
             if (row['binding']!=canonical(bound) or row['body']!=canonical(body) or
                     digest(row['text'])!=p['input_sha256'] or row['input_sha256']!=digest(payload) or

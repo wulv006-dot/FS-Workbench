@@ -1549,7 +1549,10 @@ class NativePublisher(unittest.TestCase):
                 spec=importlib.util.spec_from_file_location('archive_fixture_store',source);store_module=importlib.util.module_from_spec(spec);spec.loader.exec_module(store_module)
                 path=base.rooted(f.system,'/var/lib/fs-hermes-fc/fs/conversations/conversations.db')
                 store=store_module.ConversationStore(path.parent);owner='archive-owner';cid=store.create(owner)['conversation_id'];text='Synthetic archive fixture';req='archive_fixture_01'
-                with patch.object(sys,'path',[str(source.parent),*sys.path]):turn=store.reserve_turn(owner,cid,text,req)
+                with patch.object(sys,'path',[str(source.parent),*sys.path]):
+                    from conversation_files import ConversationFiles
+                    file=ConversationFiles(store).save(owner,cid,'archive.csv',b'value\n1\n','archive_upload_01')
+                    turn=store.reserve_turn(owner,cid,text,req,file_ids=[file['file_id']],native=True)
                 lease='a'*32;store.bind_task(owner,cid,turn['turn_id'],turn['turn_id'],lease)
                 canonical=lambda v:json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False)
                 with store.db() as db:
@@ -1559,7 +1562,7 @@ class NativePublisher(unittest.TestCase):
                     body={'input':text,'session_id':session};fp=prepare.digest(canonical({'body':body,'gateway_session_key':''}).encode())
                     db.execute('INSERT INTO native_conversation_runs VALUES(?,?,?,?,?,NULL,1)',(turn['turn_id'],canonical(binding),canonical(body),'hn-'+prepare.digest(canonical([owner,cid,req]).encode()),fp))
                 store.set_state(owner,cid,turn['turn_id'],'dispatch_unknown')
-                pins=dict(cid=cid,turn_id=turn['turn_id'],request_id=req,session_id=session,lease=lease,owner_sha256=prepare.digest(owner.encode()),fingerprint=fp,input_sha256=prepare.digest(text.encode()))
+                pins=dict(cid=cid,turn_id=turn['turn_id'],request_id=req,session_id=session,lease=lease,owner_sha256=prepare.digest(owner.encode()),fingerprint=fp,input_sha256=prepare.digest(text.encode()),file_ids=[file['file_id']],file_size=file['size'],file_sha256=file['sha256'])
                 source_body=source.read_bytes()+('\nSYNTHETIC_ARCHIVE='+repr(pins)+'\n').encode()
                 for name,table in (('tasks.sqlite3','tasks'),('pricing-reviews/conversations.db','turns'),('customer-tracking/tracking.db','scan_jobs')):
                     p=base.rooted(f.system,'/var/lib/fs-hermes-fc/fs/'+name);p.parent.mkdir(parents=True,exist_ok=True)
