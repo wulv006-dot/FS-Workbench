@@ -43,6 +43,33 @@ TRANSPORT_MODE = False
 STREAM_MODE = False
 BINDINGS_MODE = False
 GUARD_MODE = False
+NATIVE_MODE = False
+NATIVE_UNIT = '/etc/systemd/system/fs-hermes-fc.service.d/install-state-isolation.conf'
+NATIVE_UNIT_BEFORE_SHA = '2a4eeada8c0acd27db04aa14838af7cc5c7fe3355677581d53f1f3509c74321a'
+NATIVE_CLI = '/usr/bin/docker'
+NATIVE_CLI_SHA = 'bfc304d1c5d8694b5c9bacc1c52c2f8d50e65b6f3e29446283a2561e23667be7'
+NATIVE_ROOT = '/var/lib/fs-hermes-fc/native'
+NATIVE_EMPTY_SOURCE = '/var/lib/fs-hermes-fc/native-backend-home'
+NATIVE_EXTRA_TARGETS = {
+    'runtime/conversation_native.py':'/opt/fs-hermes-fc/conversation_native.py',
+    'runtime/native_chat.py':'/opt/fs-hermes-fc/native_chat.py',
+    'runtime/native-backend.json':'/opt/fs-hermes-fc/native-backend.json',
+    'unit/native-control.conf':NATIVE_UNIT,
+    'approval/review_queue.py':'/opt/fs-hermes-memory-approval/review_queue.py',
+    'approval/native_review.py':'/opt/fs-hermes-memory-approval/native_review.py',
+    'approval/reviewed_skills.py':'/opt/fs-hermes-memory-approval/reviewed_skills.py',
+    'approval/daily_review.py':'/var/lib/fs-hermes-fc/profile/scripts/hermes-memory-review/daily_review.py'}
+NATIVE_EXTERNAL_BEFORE = {
+    'approval/review_queue.py':'05ee9dc2e7c936504284bdbdf91343230594365741997a4f3fbdf6c65167387c',
+    'approval/reviewed_skills.py':'a3d546177396ba906f66c4f8411111aaefb3c96371dc628ac5ada2daf023e660',
+    'approval/daily_review.py':'33c77c007b97061e13e7f530d4e550b25151b6ed11b3fcdf1c878da0bbe56c0d'}
+NATIVE_INSTALLED_TARGETS = {}
+NATIVE_INSTALLED_PROTECTED = frozenset()
+NATIVE_ALLOWED = frozenset(NATIVE_EXTRA_TARGETS) | frozenset({
+    'runtime/conversation_service.py','runtime/conversation_store.py','runtime/conversation_files.py',
+    'runtime/conversation_file_bindings.py','runtime/hermes_worker.py','runtime/transport.py',
+    'runtime/proxy_gateway.py','runtime/fs_inprocess.py','http/conversation_http.py','http/range_api.py',
+    'frontend/index.html','frontend/conversation.css','frontend/conversation.js'})
 GUARD_BEFORE_SHA = "a71849b7e5e8f3c5b55967c21d5383e2ff6afa7c7c5e3c6772dc0c80209ba945"
 BINDINGS_CANDIDATE = "runtime/conversation_file_bindings.py"
 BINDINGS_BEFORE_SHA = "655625ff698981c295539663d60ac54f21ebe2c1935dfef4f7a1dd3a27899294"
@@ -172,6 +199,24 @@ def configure_material_guard():
         journalSha256='fc33024f58bb1222e288e6ab1374be16b543f93756f135833238b29be9e22c74')
 
 
+def configure_native_chat():
+    global INSTALLED_COMMIT, NEW, NATIVE_MODE, GUARD_MODE, NATIVE_INSTALLED_TARGETS, NATIVE_INSTALLED_PROTECTED
+    if NATIVE_MODE:
+        return
+    configure_material_guard()
+    NATIVE_INSTALLED_TARGETS = dict(TARGETS)
+    NATIVE_INSTALLED_PROTECTED = frozenset(protected_paths(frozen()))
+    NATIVE_MODE, GUARD_MODE = True, False
+    INSTALLED_COMMIT = '23a27325b00f27a5c5696657c7c4141a06135f18'
+    INSTALLED_PROOF.update(sourceCommit=INSTALLED_COMMIT,
+        backup='/var/backups/fs-navigation-20261006/nav-20261102T010331Z',
+        manifestSha256='ae010cb6b11a1a7c7c4ed877ae7534dbfc63b443143955cdd990ed96dfe19cf4',
+        journalSha256='d59396365261e5669b8a1ec4fc9432beea103ca23ed8f664b81b0a6de1fd3431')
+    TARGETS.update(NATIVE_EXTRA_TARGETS)
+    NEW = frozenset({'runtime/conversation_native.py','runtime/native_chat.py',
+                     'runtime/native-backend.json','approval/native_review.py'})
+
+
 def promoted_transport_sha(manifest, base):
     paths = [row['path'] for row in manifest['unchangedRequired']]
     rows = [row for row in manifest['unchangedRequired'] if row['path'] == TRANSPORT_TARGET]
@@ -193,6 +238,23 @@ def installed_baseline(root, git_baseline):
             raise ValueError('installed_release_proof_drift')
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
+    if NATIVE_MODE:
+        expected = {row['candidate']:row['sha256'] for row in manifest['files']}
+        expected.update({name:None for name in NEW})
+        expected.update(NATIVE_EXTERNAL_BEFORE)
+        expected['unit/native-control.conf'] = NATIVE_UNIT_BEFORE_SHA
+        protected = manifest.get('unchangedRequired', [])
+        if (manifest.get('sourceCommit') != INSTALLED_COMMIT or manifest.get('scope') != SCOPE or
+                len(manifest['files']) != len(NATIVE_INSTALLED_TARGETS) or
+                {row['candidate']:row['target'] for row in manifest['files']} != NATIVE_INSTALLED_TARGETS or
+                len(protected) != len(NATIVE_INSTALLED_PROTECTED) or
+                {row['path'] for row in protected} != NATIVE_INSTALLED_PROTECTED or
+                next((row['sha256'] for row in protected if row['path'] == NATIVE_UNIT),None) != NATIVE_UNIT_BEFORE_SHA or
+                journal.get('status') != 'applied-awaiting-actual-http-role-acceptance' or
+                journal.get('approvedManifestSha256') != INSTALLED_PROOF['manifestSha256'] or
+                journal.get('manifest') != manifest or git_baseline != {'source_commit':INSTALLED_COMMIT,'files':expected}):
+            raise ValueError('native_installed_git_and_journal_mismatch')
+        return manifest
     expected = {row['candidate']: row['sha256'] for row in manifest['files']}
     proof_targets = LEGACY_TARGETS if EXECUTION_MODE and not (DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE) else TARGETS
     if BINDINGS_MODE and (len(manifest['files']) != len(TARGETS)
@@ -256,6 +318,8 @@ def protected_paths(base):
                   '/var/www/dashboard/fs-home/navigation.js', '/opt/fs-access-policy/access_policy.py',
                   '/opt/fs-hermes-fc/direct_provider.py', '/etc/systemd/system/fs-business-range.service',
                   '/etc/systemd/system/fs-hermes-fc.service.d/install-state-isolation.conf'))
+    if NATIVE_MODE:
+        paths.add(NATIVE_CLI)
     return paths - set(TARGETS.values())
 
 
@@ -316,6 +380,70 @@ def worker_image(*, allow_stopped=False):
     return worker_observation(allow_stopped=allow_stopped)['image']
 
 
+def native_dependencies(base, root):
+    cli = base.rooted(root, NATIVE_CLI)
+    base.no_target_link(cli)
+    info = cli.stat()
+    if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or
+            (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode)) != (0,0,0o755) or
+            base.digest(cli) != NATIVE_CLI_SHA):
+        raise ValueError('native_docker_cli_drift')
+    socket = base.rooted(root, '/run/docker.sock')
+    base.no_target_link(socket)
+    sock = socket.stat()
+    if not stat.S_ISSOCK(sock.st_mode) or sock.st_uid != 0 or stat.S_IMODE(sock.st_mode) != 0o660:
+        raise ValueError('native_docker_socket_unavailable')
+    if root == Path('/'):
+        user = subprocess.check_output(['docker','inspect','--format','{{.Config.User}}','fs-hermes-fc'],text=True,timeout=10).strip()
+        if user != '9876:9876':
+            raise ValueError('native_worker_user_drift')
+    return {'cli':{'path':NATIVE_CLI,'sha256':NATIVE_CLI_SHA,'size':info.st_size,'uid':0,'gid':0,'mode':'0o755'},
+            'socket':{'path':'/run/docker.sock','uid':sock.st_uid,'gid':sock.st_gid,'mode':oct(stat.S_IMODE(sock.st_mode)),
+                      'inode':sock.st_ino,'device':sock.st_dev}, 'worker_user':'9876:9876'}
+
+
+def ensure_native_directories():
+    """Create only the new runtime data roots; rollback never deletes user data."""
+    import os
+    for name in (NATIVE_ROOT,NATIVE_ROOT+'/profiles',NATIVE_ROOT+'/workspaces',NATIVE_EMPTY_SOURCE):
+        path = Path(name)
+        frozen().no_target_link(path)
+        wanted = (0,0,0o555) if name == NATIVE_EMPTY_SOURCE else (9876,9876,0o700)
+        if not path.exists():
+            path.mkdir(mode=wanted[2],parents=False)
+            os.chown(path,wanted[0],wanted[1])
+        info = path.stat()
+        if not stat.S_ISDIR(info.st_mode) or (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode)) != wanted:
+            raise ValueError('native_directory_owner_mode')
+        if name == NATIVE_EMPTY_SOURCE and any(path.iterdir()):
+            raise ValueError('native_empty_backend_home_changed')
+
+
+def native_runtime_readiness():
+    """Check the unchanged nonroot worker really reaches its fixed Docker daemon."""
+    expected_contract={'version':'native_docker_v1','root':NATIVE_ROOT,'image':FROZEN_IMAGE_MARKER,
+                       'docker_binary':'/opt/fs-native-bin/docker','docker_sha256':NATIVE_CLI_SHA,'uid':9876,'gid':9876}
+    contract=Path(TARGETS['runtime/native-backend.json'])
+    if contract.is_symlink() or json.loads(contract.read_bytes()) != expected_contract:
+        raise ValueError('native_control_contract_drift')
+    user=subprocess.check_output(['docker','inspect','--format','{{.Config.User}}','fs-hermes-fc'],text=True,timeout=10).strip()
+    if user!='9876:9876':
+        raise ValueError('native_control_user_readback')
+    answer = subprocess.check_output(['docker','exec','fs-hermes-fc','/opt/fs-native-bin/docker',
+                                     'version','--format','{{.Client.Version}}|{{.Server.Version}}'],
+                                    text=True,timeout=15).strip()
+    if not re.fullmatch(r'[0-9][A-Za-z0-9.+_-]*\|[0-9][A-Za-z0-9.+_-]*',answer):
+        raise ValueError('native_control_daemon_unavailable')
+    mounts = json.loads(subprocess.check_output(['docker','inspect','--format','{{json .Mounts}}','fs-hermes-fc'],
+                                               text=True,timeout=10))
+    expected = {'/opt/fs-native-bin/docker':(NATIVE_CLI,False),
+                '/var/run/docker.sock':('/run/docker.sock',True),
+                NATIVE_ROOT:(NATIVE_ROOT,True),'/opt/fs-native-backend-home':(NATIVE_EMPTY_SOURCE,False)}
+    actual = {row['Destination']:(row['Source'],row['RW']) for row in mounts if row['Destination'] in expected}
+    if actual != expected:
+        raise ValueError('native_control_mount_readback')
+
+
 def running_worker(manifest):
     if worker_observation() != {'image': manifest['workerImageId'], 'state': 'active', 'source': 'container'}:
         raise ValueError('worker_diagnostics_running_container_required')
@@ -349,7 +477,9 @@ def quiescent(base, root):
 
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
-    if approved.get('materialGuard') is True:
+    if approved.get('nativeChat') is True:
+        configure_native_chat()
+    elif approved.get('materialGuard') is True:
         configure_material_guard()
     elif approved.get('bindingsAuth') is True:
         configure_bindings_auth()
@@ -375,11 +505,11 @@ def load_base():
     validate = base.validate
 
     def exact(manifest, stage):
-        controlled = DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE
-        marker = 'materialGuard' if GUARD_MODE else 'bindingsAuth' if BINDINGS_MODE else 'materialStream' if STREAM_MODE else 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
-        allowed = (BINDINGS_CANDIDATE,) if BINDINGS_MODE else (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
+        controlled = DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE or NATIVE_MODE
+        marker = 'nativeChat' if NATIVE_MODE else 'materialGuard' if GUARD_MODE else 'bindingsAuth' if BINDINGS_MODE else 'materialStream' if STREAM_MODE else 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
+        allowed = NATIVE_ALLOWED if NATIVE_MODE else (BINDINGS_CANDIDATE,) if BINDINGS_MODE else (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
         if controlled and (manifest.get(marker) is not True or
-                any(manifest.get(key) is True for key in ('materialGuard', 'bindingsAuth', 'materialStream', 'materialTransport', 'workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
+                any(manifest.get(key) is True for key in ('nativeChat','materialGuard', 'bindingsAuth', 'materialStream', 'materialTransport', 'workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
                 manifest.get('installedBaseline') != INSTALLED_PROOF or
                 manifest.get('runtimeBefore') != manifest.get('runtimeRequired') or
                 manifest.get('workerImageSource') != 'container' or
@@ -387,7 +517,7 @@ def load_base():
                 (TRANSPORT_MODE or STREAM_MODE or GUARD_MODE) and manifest.get('materialChangedTargets') != [TRANSPORT_TARGET]
                 or BINDINGS_MODE and manifest.get('materialChangedTargets') != [TARGETS[BINDINGS_CANDIDATE]] or
                 (TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE) and len(manifest.get('unchangedRequired', [])) != len(protected_paths(base)) or
-                (STREAM_MODE or BINDINGS_MODE or GUARD_MODE) and len(manifest.get('files', [])) != len(TARGETS) or
+                (NATIVE_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE) and len(manifest.get('files', [])) != len(TARGETS) or
                 manifest.get('materialChangedTargets') != [r['target'] for r in manifest.get('files', [])
                                                           if r['beforeSha256'] != r['sha256']] or
                 any(r['beforeSha256'] != r['sha256'] and r['candidate'] not in allowed for r in manifest.get('files', []))):
@@ -442,6 +572,17 @@ def load_base():
             raise ValueError('exact_static_material_delta_required')
         if {row['path'] for row in manifest.get('unchangedRequired', [])} != protected_paths(base):
             raise ValueError('material_protected_set_changed')
+        if NATIVE_MODE:
+            dependencies = manifest.get('nativeDependencies')
+            required = set(NEW) | {'unit/native-control.conf','runtime/hermes_worker.py','runtime/conversation_service.py',
+                       'runtime/proxy_gateway.py','runtime/fs_inprocess.py','runtime/transport.py',
+                       'frontend/index.html','frontend/conversation.css','frontend/conversation.js',
+                       'approval/review_queue.py','approval/daily_review.py'}
+            changed = {row['candidate'] for row in manifest['files'] if row['beforeSha256'] != row['sha256']}
+            if (type(dependencies) is not dict or dependencies.get('cli',{}).get('sha256') != NATIVE_CLI_SHA or
+                    dependencies.get('worker_user') != '9876:9876' or not required <= changed or
+                    len(manifest['unchangedRequired']) != len(protected_paths(base))):
+                raise ValueError('native_complete_payload_and_dependencies_required')
         return validate(manifest, stage)
 
     base.validate = exact
@@ -465,8 +606,10 @@ def load_base():
         # frozen checks, and retain every other guard/protected source check.
         if manifest.get('installedBaseline'):
             installed_baseline(root, git_baseline)
-        if WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
+        if NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
             running_worker(manifest)
+        if NATIVE_MODE and native_dependencies(base, root) != manifest['nativeDependencies']:
+            raise ValueError('native_dependencies_cas_drift')
         if before_restart and manifest.get('scope') == SCOPE:
             if manifest['runtimeBefore']['fs-hermes-fc.service'] != {'ActiveState': 'active'}:
                 observed = worker_observation(allow_stopped=True)
@@ -479,11 +622,25 @@ def load_base():
     base.guards = guards
     original_atomic, original_apply = base.atomic, base.apply
     publish_root = Path('/')
+    restoring_native = False
+    original_rollback_journal = base.rollback_journal
+
+    def rollback_journal(backup, journal, root):
+        nonlocal restoring_native
+        result = original_rollback_journal(backup, journal, root)
+        if approved.get('nativeChat'):
+            if any(base.digest(base.rooted(root,row['target'])) != row['beforeSha256'] for row in journal['files']):
+                raise ValueError('native_rollback_bytes_incomplete')
+            restoring_native = True
+        return result
+
+    if approved.get('nativeChat'):
+        base.rollback_journal = rollback_journal
 
     def atomic(path, payload, mode=0o644):
         # Keep the original writer/journal and every per-row guard. Static-only
         # follow-ups leave identical active targets (including runtime) untouched.
-        if approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics') or approved.get('materialTransport') or approved.get('materialStream') or approved.get('bindingsAuth') or approved.get('materialGuard'):
+        if approved.get('nativeChat') or approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics') or approved.get('materialTransport') or approved.get('materialStream') or approved.get('bindingsAuth') or approved.get('materialGuard'):
             for row in approved['files']:
                 if path == base.rooted(publish_root, row['target']) and row['beforeSha256'] == row['sha256']:
                     if (hashlib.sha256(payload).hexdigest() != row['sha256']
@@ -502,8 +659,10 @@ def load_base():
 
     def inspect(manifest, stage, root=Path('/')):
         result = original_inspect(manifest, stage, root)
-        if WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
+        if NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
             running_worker(manifest)
+        if NATIVE_MODE and native_dependencies(base, root) != manifest['nativeDependencies']:
+            raise ValueError('native_dependencies_cas_drift')
         if root == Path('/'):
             for row in manifest['files']:
                 path = base.rooted(root, row['target'])
@@ -511,7 +670,7 @@ def load_base():
                     info = path.stat()
                     if (info.st_uid, info.st_gid, oct(stat.S_IMODE(info.st_mode))) != (0, 0, row['mode']):
                         raise ValueError('material_target_owner_mode_drift')
-            if not (WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE) and worker_image(allow_stopped=True) != manifest['workerImageId']:
+            if not (NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE) and worker_image(allow_stopped=True) != manifest['workerImageId']:
                 raise ValueError('material_worker_image_drift')
             # Import definitions only; no service instance, model or source query.
             program = ("import sys;from pathlib import Path;"
@@ -523,6 +682,8 @@ def load_base():
                 program += ';import conversation_material_runs,conversation_goals,conversation_goal_tasks,material_execution,b2_goal_host,b2_goal_state'
             if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
                 program += ';import transport;assert Path(transport.__file__).parent==Path(sys.argv[1])'
+            if NATIVE_MODE:
+                program += ';import native_chat,conversation_native,transport;assert Path(conversation_native.__file__).parent==Path(sys.argv[1])'
             checked = subprocess.run(['/opt/python39/bin/python3.9', '-I', '-B', '-c', program,
                                       str((stage / 'candidate/runtime').resolve()),
                                       str((stage / 'candidate/http').resolve()), '/opt/fs-hermes-fc',
@@ -543,6 +704,22 @@ def load_base():
     def restart(manifest, admission_fence=None):
         nonlocal before_restart
         before_restart = False
+        if manifest.get('nativeChat'):
+            if admission_fence is None:
+                raise ValueError('native_admission_fence_required')
+            if publish_root == Path('/') and not restoring_native:
+                ensure_native_directories()
+            subprocess.run(['systemctl','daemon-reload'],check=True)
+            admission_fence.stop_then_unlock_database()
+            readiness.restart_with_hermes_readiness(base, original_restart,
+                dict(manifest, scope=base.HERMES_WORKER_SCOPE), admission_fence)
+            readiness.restart_with_hermes_readiness(base, original_restart,
+                dict(manifest, scope=base.DEEP_SCOPE), admission_fence)
+            running_worker(manifest)
+            if not restoring_native:
+                native_runtime_readiness()
+            base.guards(manifest, publish_root)
+            return
         if manifest.get('workerDiagnostics'):
             # No host code changed: retain the original admission fence while
             # restarting only the worker, using its original capabilities probe.

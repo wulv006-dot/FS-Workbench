@@ -1191,5 +1191,174 @@ class RuntimeMaterials(unittest.TestCase):
                 base.rollback_journal(backup, journal, root)
 
 
+
+
+class NativePublisher(unittest.TestCase):
+    def setUp(self):
+        self.release_state={key:deepcopy(value) for key,value in vars(release).items() if key.isupper()}
+        self.prepare_state={key:deepcopy(value) for key,value in vars(prepare).items() if key.isupper()}
+    def tearDown(self):
+        for module,saved in ((release,self.release_state),(prepare,self.prepare_state)):
+            for key,value in saved.items():setattr(module,key,value)
+        prepare.TARGETS=release.TARGETS
+
+    def test_native_mode_exact_installed_proof_targets_and_new_modules(self):
+        self.assertTrue(callable(getattr(prepare,'configure_native_chat',None)),'native publisher mode is missing')
+        prepare.configure_native_chat()
+        self.assertEqual(release.INSTALLED_COMMIT,'23a27325b00f27a5c5696657c7c4141a06135f18')
+        self.assertEqual(release.INSTALLED_PROOF['manifestSha256'],'ae010cb6b11a1a7c7c4ed877ae7534dbfc63b443143955cdd990ed96dfe19cf4')
+        self.assertEqual(len(release.TARGETS),33)
+        self.assertEqual(release.NEW,frozenset({'runtime/conversation_native.py','runtime/native_chat.py','runtime/native-backend.json','approval/native_review.py'}))
+        self.assertEqual(release.TARGETS['approval/daily_review.py'],'/var/lib/fs-hermes-fc/profile/scripts/hermes-memory-review/daily_review.py')
+        self.assertNotIn(release.NATIVE_UNIT,release.protected_paths(release.frozen()))
+        self.assertIn('/usr/bin/docker',release.protected_paths(release.frozen()))
+        self.assertFalse(release.GUARD_MODE)
+
+    def test_native_prepare_original_apply_rollback_and_unchanged_metadata(self):
+        for fail in (False,'worker','native_readiness'):
+            # Start from an installed 25-target material-guard package, then promote
+            # precisely the new native dependencies. All IO uses real temp files.
+            self.tearDown(); self.setUp()
+            with self.subTest(failure=fail),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory)
+                prepare.configure_material_guard()
+                old_case=RuntimeMaterials()
+                base,system,payload,metadata,_,_,previous=old_case.installed_fixture(root)
+                old_targets=dict(release.TARGETS)
+                old_unit=b'[Service]\nExecStart=\nExecStart=/usr/bin/docker run --rm --user 9876:9876 '+release.FROZEN_IMAGE_MARKER.encode()+b' worker\n'
+                unit=base.rooted(system,release.NATIVE_UNIT);unit.write_bytes(old_unit)
+                prepare.configure_native_chat()
+                release.NATIVE_UNIT_BEFORE_SHA=prepare.digest(old_unit)
+                release.NATIVE_EXTERNAL_BEFORE={name:prepare.digest(('old:'+name).encode()) for name in release.NATIVE_EXTERNAL_BEFORE}
+                for name in release.NATIVE_EXTERNAL_BEFORE:
+                    path=base.rooted(system,release.TARGETS[name]);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(('old:'+name).encode())
+                cli=base.rooted(system,release.NATIVE_CLI);cli.parent.mkdir(parents=True,exist_ok=True);cli.write_bytes(b'fixed CLI')
+                release.NATIVE_CLI_SHA=prepare.digest(b'fixed CLI')
+                previous['sourceCommit']=release.INSTALLED_COMMIT
+                previous['files']=[row for row in previous['files'] if row['candidate'] in old_targets]
+                previous['unchangedRequired']=[{'path':path,'sha256':prepare.digest(base.rooted(system,path).read_bytes())} for path in sorted(release.NATIVE_INSTALLED_PROTECTED)]
+                proof=dict(release.INSTALLED_PROOF)
+                backup=base.rooted(system,proof['backup']);backup.mkdir(parents=True,exist_ok=True)
+                raw=json.dumps(previous).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
+                journal={'status':'applied-awaiting-actual-http-role-acceptance','manifest':previous,'approvedManifestSha256':proof['manifestSha256']}
+                raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+                descriptor=json.loads((payload.parent/'payload-manifest.json').read_bytes())
+                descriptor.update(material_execution=True,material_diagnostics=False,goal_task_index_compat=False,worker_diagnostics=False,material_transport=False,material_stream=False,bindings_auth=False,material_guard=False,native_chat=True)
+                git_before={row['candidate']:row['sha256'] for row in previous['files']}
+                git_before.update({name:None for name in release.NEW});git_before.update(release.NATIVE_EXTERNAL_BEFORE);git_before['unit/native-control.conf']=release.NATIVE_UNIT_BEFORE_SHA
+                descriptor['installed_baseline']={'source_commit':release.INSTALLED_COMMIT,'files':git_before}
+                generated=prepare.native_generated()
+                for name in prepare.SOURCES:
+                    path=payload/name;path.parent.mkdir(parents=True,exist_ok=True)
+                    if name in generated:body=generated[name]
+                    elif name=='approval/reviewed_skills.py':body=base.rooted(system,release.TARGETS[name]).read_bytes()
+                    else:body=('native:'+name).encode() if name in release.NATIVE_ALLOWED else base.rooted(system,release.TARGETS[name]).read_bytes()
+                    path.write_bytes(body);descriptor['files']['payload/'+name]=prepare.digest(body)
+                raw=json.dumps(descriptor).encode();(payload.parent/'payload-manifest.json').write_bytes(raw)
+                deps={'cli':{'sha256':release.NATIVE_CLI_SHA},'socket':{'gid':998},'worker_user':'9876:9876'}
+                stage=root/'native-stage'
+                with patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof),patch.object(prepare,'file_metadata',metadata),patch.object(release,'native_dependencies',return_value=deps):
+                    prepare.prepare(payload,stage,'a'*40,prepare.digest(raw),root=system,followup=True,release_ready=True)
+                    manifest=json.loads((stage/'approved-manifest.json').read_bytes())
+                    self.assertTrue(manifest['nativeChat']);self.assertEqual(len(manifest['files']),33)
+                    self.assertEqual(manifest['nativeDependencies'],deps)
+                    original_meta={row['target']:(base.rooted(system,row['target']).stat().st_ino,base.rooted(system,row['target']).stat().st_mtime_ns) for row in manifest['files'] if row['beforeSha256']==row['sha256']}
+                spec=importlib.util.spec_from_file_location('native_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                module.configure_native_chat();module.INSTALLED_PROOF=proof
+                base.MATERIAL_NEW=module.NEW
+                module.NATIVE_UNIT_BEFORE_SHA=release.NATIVE_UNIT_BEFORE_SHA;module.NATIVE_EXTERNAL_BEFORE=dict(release.NATIVE_EXTERNAL_BEFORE);module.NATIVE_CLI_SHA=release.NATIVE_CLI_SHA
+                module.native_dependencies=lambda *a:deps
+                base.guards=lambda *a,**kw:None;base.retirement=lambda *a:None
+                base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
+                fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock())
+                base.hermes_admission_fence=lambda *a:nullcontext(fence)
+                def restart_effect(*args,**kwargs):
+                    if fail=='worker' and restart_spy.call_count==1:
+                        raise RuntimeError('native worker restart failed')
+                    if fail and restart_spy.call_count>1 and (fail=='worker' or restart_spy.call_count>2):
+                        for row in manifest['files']:
+                            self.assertEqual(base.digest(base.rooted(system,row['target'])),row['beforeSha256'])
+                restart_spy=Mock(side_effect=restart_effect)
+                base.restart_for=restart_spy
+                if os.name=='nt':base.directory_sync=lambda *a:None
+                native_readback=Mock(side_effect=RuntimeError('native worker restart failed') if fail=='native_readiness' else None)
+                with patch.object(module,'frozen',return_value=base),patch.object(module,'running_worker'),patch.object(module,'native_runtime_readiness',native_readback),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0)):
+                    publisher=module.load_base()
+                    if os.name=='nt':
+                        original_atomic=publisher.atomic
+                        def atomic(path,data,mode=0o644):
+                            row=next((r for r in manifest['files'] if path==base.rooted(system,r['target'])),None)
+                            return original_atomic(path,data,int(row['mode'],8) if row else mode)
+                        publisher.atomic=atomic
+                    publisher.inspect(manifest,stage,system)
+                    for change in (
+                        lambda m:m.update(materialGuard=True),
+                        lambda m:m['installedBaseline'].update(sourceCommit='0'*40),
+                        lambda m:m['runtimeBefore']['fs-hermes-fc.service'].update(ActiveState='failed'),
+                        lambda m:m.update(workerImageSource='configured_unit_and_local_image'),
+                        lambda m:m['files'].pop(),
+                        lambda m:m['unchangedRequired'].pop(),
+                        lambda m:m['nativeDependencies'].update(worker_user='0:0'),
+                        lambda m:m['nativeDependencies']['cli'].update(sha256='0'*64),
+                    ):
+                        invalid=deepcopy(manifest);change(invalid)
+                        with self.assertRaises((ValueError,KeyError)):publisher.validate(invalid,stage)
+                    manifest_raw=(stage/'approved-manifest.json').read_bytes()
+                    if fail:
+                        with self.assertRaisesRegex(RuntimeError,'native worker restart failed'):
+                            publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,'nav-20261102T030001Z',system)
+                    else:publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,'nav-20261102T030001Z',system)
+                    for row in manifest['files']:
+                        path=base.rooted(system,row['target'])
+                        if fail and row['beforeSha256'] is None:self.assertFalse(path.exists())
+                        else:self.assertEqual(base.digest(path),row['beforeSha256'] if fail else row['sha256'])
+                        if row['target'] in original_meta:self.assertEqual((path.stat().st_ino,path.stat().st_mtime_ns),original_meta[row['target']])
+                    scopes=[call.args[0]['scope'] for call in restart_spy.call_args_list]
+                    self.assertIn(base.HERMES_WORKER_SCOPE,scopes)
+                    self.assertIn(base.DEEP_SCOPE,scopes)
+                    self.assertEqual(native_readback.call_count,0 if fail=='worker' else 1)
+                    self.assertNotIn('nginx.service',str(module.subprocess.run.call_args_list))
+
+    def test_native_unit_is_exact_increment_cli_socket_only_control_plane(self):
+        self.assertTrue(callable(getattr(prepare,'render_native_unit',None)),'native unit generation missing')
+        old=b'[Service]\nExecStart=\nExecStart=/usr/bin/docker run --rm --user 9876:9876 --name fs-hermes-fc '+release.FROZEN_IMAGE_MARKER.encode()+b' old-entry\n'
+        with patch.object(release,'NATIVE_UNIT_BEFORE_SHA',prepare.digest(old),create=True):
+            changed=prepare.render_native_unit(old,{'socket':{'gid':998}})
+            self.assertIn(b'--group-add 998',changed)
+            self.assertIn(b'source=/usr/bin/docker,target=/opt/fs-native-bin/docker,readonly',changed)
+            self.assertIn(b'source=/run/docker.sock,target=/var/run/docker.sock',changed)
+            self.assertEqual(changed.count(release.FROZEN_IMAGE_MARKER.encode()),1)
+            self.assertIn(b'--user 9876:9876',changed)
+            self.assertEqual(prepare.render_native_unit(old,{'socket':{'gid':998}}),changed)
+            with self.assertRaises(ValueError):prepare.render_native_unit(old+b'drift',{'socket':{'gid':998}})
+            with self.assertRaises(ValueError):prepare.render_native_unit(changed,{'socket':{'gid':998}})
+
+    def test_control_readiness_checks_exact_contract_user_daemon_and_mounts(self):
+        prepare.configure_native_chat()
+        contract=prepare.native_generated()['runtime/native-backend.json']
+        mounts=[{'Destination':destination,'Source':source,'RW':rw} for destination,source,rw in (
+            ('/opt/fs-native-bin/docker','/usr/bin/docker',False),
+            ('/var/run/docker.sock','/run/docker.sock',True),
+            (release.NATIVE_ROOT,release.NATIVE_ROOT,True),
+            ('/opt/fs-native-backend-home',release.NATIVE_EMPTY_SOURCE,False))]
+        user=['9876:9876'];failure=[False]
+        def observed(command,**kwargs):
+            if '{{.Config.User}}' in command:return user[0]
+            if 'version' in command:
+                if failure[0]:raise OSError('synthetic daemon refusal')
+                return '24.0.0|24.0.0'
+            return json.dumps(mounts)
+        with patch.object(Path,'read_bytes',return_value=contract),patch.object(Path,'is_symlink',return_value=False),patch.object(release.subprocess,'check_output',side_effect=observed):
+            release.native_runtime_readiness()
+            user[0]='0:0'
+            with self.assertRaisesRegex(ValueError,'native_control_user_readback'):release.native_runtime_readiness()
+            user[0]='9876:9876';mounts[0]['RW']=True
+            with self.assertRaisesRegex(ValueError,'native_control_mount_readback'):release.native_runtime_readiness()
+            mounts[0]['RW']=False;failure[0]=True
+            with self.assertRaises(OSError):release.native_runtime_readiness()
+            failure[0]=False
+            with patch.object(Path,'read_bytes',return_value=b'{}'):
+                with self.assertRaisesRegex(ValueError,'native_control_contract_drift'):release.native_runtime_readiness()
+
 if __name__ == '__main__':
     unittest.main()

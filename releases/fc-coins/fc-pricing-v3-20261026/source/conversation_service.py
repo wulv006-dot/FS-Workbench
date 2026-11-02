@@ -160,6 +160,8 @@ class ConversationService:
         self.live = {}
         self.customer_tracking = None
         self.lock = threading.RLock()
+        from conversation_native import NativeConversation
+        self.native = None if pricing_only else NativeConversation(self)
         # Pricing reviews have their own durable store and execution queue. They
         # are not visible in the ordinary conversation list or report pool.
         self.pricing = None if pricing_only else ConversationService(hermes_service,
@@ -170,6 +172,8 @@ class ConversationService:
                 self.pool.submit(self._recover, row["owner"], row["conversation_id"], row["turn_id"], row["run_id"])
             else:
                 self.store.set_state(row["owner"], row["conversation_id"], row["turn_id"], "dispatch_unknown")
+                if self.native and self.native.row(row['owner'],row['conversation_id'],row['turn_id']):
+                    self.native.schedule_reconcile(row['owner'],row['conversation_id'],row['turn_id'])
 
     def _admin(self, user):
         if not user or not self.hermes.authorizer(user):
@@ -187,7 +191,12 @@ class ConversationService:
 
     def detail(self, user, conversation_id):
         self._admin(user)
-        return self.store.detail(user, conversation_id)
+        detail = self.store.detail(user, conversation_id)
+        if self.native:
+            for turn in detail['turns']:
+                if turn['state'] == 'dispatch_unknown' and turn['run_id'] is None and self.native.row(user,conversation_id,turn['turn_id']):
+                    self.native.schedule_reconcile(user,conversation_id,turn['turn_id'])
+        return detail
 
     def events(self, user, conversation_id, after=0):
         self._admin(user)
@@ -221,9 +230,12 @@ class ConversationService:
                 raise PermissionError("pricing_review_lane_required")
             if pricing_lane and file_ids:
                 raise PermissionError("pricing_file_attachments_unavailable")
-            item = self.store.reserve_turn(user, conversation_id, text, client_request_id, file_ids=file_ids)
+            item = self.store.reserve_turn(user, conversation_id, text, client_request_id, file_ids=file_ids,
+                                           native=not pricing_lane and not self.pricing_only)
             if not item["reused"]:
-                if spending_hold(self.hermes.daily, self.hermes.tasks, user):
+                hold = (spending_hold(self.hermes.daily,self.hermes.tasks,user,active_tasks=self.native.active_tasks)
+                        if self.native else spending_hold(self.hermes.daily,self.hermes.tasks,user))
+                if hold:
                     self.store.set_state(user, conversation_id, item["turn_id"], "failed")
                     raise RuntimeError("model_usage_hold")
                 pool=self.pricing_pool if pricing_lane else self.pool
@@ -237,7 +249,7 @@ class ConversationService:
         return self.submit(user,conversation_id,text,client_request_id,pricing_run_id=run_id)
 
     def _request(self, method, path, body=None, idempotency=None, timeout=30):
-        if not re.fullmatch(r"/v1/runs(?:/run_[a-f0-9]{32}(?:/(?:events|steer|stop))?)?", path):
+        if not re.fullmatch(r"(?:/v1/runs(?:/run_[a-f0-9]{32}(?:/(?:events|steer|stop))?)?|/v1/native/hc_[a-f0-9]{64})", path):
             raise ValueError("runtime_route")
         key = (self.run_root / "api-key").read_text("ascii").strip()
         headers = {"Authorization": "Bearer " + key}
@@ -254,6 +266,8 @@ class ConversationService:
             return response.status, json.loads(raw)
 
     def _dispatch(self, user, conversation_id, turn_id, session_id, text, request_id, pricing_lane=False):
+        if not pricing_lane and not self.pricing_only:
+            return self.native.dispatch(user, conversation_id, turn_id, session_id, text, request_id)
         token = task = lease = run_id = None
         stage='evidence_book'
         admission_path = self.run_root / "admissions" / (session_id + ".json")
@@ -399,7 +413,11 @@ class ConversationService:
                                 if type(oldest) is int and oldest > last_seq:
                                     last_seq = oldest - 1
                             elif event_id is not None:
-                                self.store.append_event(user, conversation_id, run_id, event_id, payload)
+                                native = self.native.row(user, conversation_id, turn_id) if self.native else None
+                                if native:
+                                    self.native.append_event(user,conversation_id,turn_id,run_id,event_id,payload)
+                                else:
+                                    self.store.append_event(user, conversation_id, run_id, event_id, payload)
                                 last_seq = max(last_seq, event_id)
                             event_id = None
                             data = None
@@ -434,7 +452,12 @@ class ConversationService:
                         self.store.set_state(user, conversation_id, turn_id, "dispatch_unknown")
                         self._abandon_task(user, conversation_id, turn_id, live)
                         return
-                    self._terminal_from_status(user, conversation_id, run_id, output)
+                    try:
+                        self._terminal_from_status(user, conversation_id, run_id, output)
+                    except (OSError,ValueError,PermissionError,LookupError):
+                        self.store.set_state(user,conversation_id,turn_id,'dispatch_unknown')
+                        self._abandon_task(user,conversation_id,turn_id,live)
+                        return
                 elif not self.store.has_event(user, conversation_id, run_id, "run." + state):
                     self.store.append_event(user, conversation_id, run_id, 2**63 - 1,
                                             {"event": "run." + state, "error": str(status.get("error") or "")[:2000], "run_id": run_id})
@@ -460,6 +483,10 @@ class ConversationService:
         with self.lock:self.live.pop(turn_id, None)
 
     def _abandon_task(self, user, conversation_id, turn_id, live):
+        if self.native and self.native.row(user, conversation_id, turn_id):
+            self.native.fence(user, conversation_id, turn_id)
+            self._release_live(turn_id, live)
+            return
         task_id, _ = self.store.task_binding(user, conversation_id, turn_id)
         if task_id:
             try:
@@ -471,6 +498,10 @@ class ConversationService:
         self._release_live(turn_id, live)
 
     def _finish_task(self, user, conversation_id, turn_id, live, state):
+        if self.native and self.native.row(user, conversation_id, turn_id):
+            self.native.fence(user, conversation_id, turn_id)
+            self._release_live(turn_id, live)
+            return
         task_id, lease = self.store.task_binding(user, conversation_id, turn_id)
         try:
             if task_id and lease:
@@ -513,6 +544,8 @@ class ConversationService:
                 self.store.set_state(user, conversation_id, turn_id, state)
                 self._finish_task(user, conversation_id, turn_id, live, state)
                 return
+            if self.native and self.native.row(user,conversation_id,turn_id):
+                self.native.fence(user,conversation_id,turn_id)
             self._request("POST", path + "/stop", {})
         except (OSError, TimeoutError, URLError, ValueError):
             self.store.set_state(user, conversation_id, turn_id, "dispatch_unknown")
@@ -523,10 +556,19 @@ class ConversationService:
         self._monitor(user, conversation_id, turn_id, run_id, live)
 
     def _terminal_from_status(self, user, conversation_id, run_id, output):
+        turn = self.store.run(user, conversation_id, run_id)
+        native = self.native.row(user, conversation_id, turn['id']) if self.native else None
+        if native:
+            if native['stopped']:
+                return
+            self.native.complete(user, conversation_id, turn['id'], run_id)
         # The final status survives a lost SSE transport; duplicate terminal reads are safe.
         if not self.store.has_event(user, conversation_id, run_id, "run.completed"):
-            self.store.append_event(user, conversation_id, run_id, 2**63 - 1,
-                                    {"event": "run.completed", "output": output, "run_id": run_id})
+            event={"event":"run.completed","output":output,"run_id":run_id}
+            if native:
+                if self.native.append_event(user,conversation_id,turn['id'],run_id,2**63-1,event) is None:
+                    return
+            else:self.store.append_event(user,conversation_id,run_id,2**63-1,event)
         html = self._html_document(output)
         raw = (html if html is not None else output).encode("utf-8")
         if html is not None:
@@ -570,6 +612,8 @@ class ConversationService:
             reserved = self.store.action(user, conversation_id, run_id, kind, request_id, text)
             if reserved["reused"]:
                 return {"run_id": run_id, **reserved}
+            if kind == 'stop' and self.native and self.native.row(user, conversation_id, turn['id']):
+                self.native.fence(user, conversation_id, turn['id'])
         try:
             code, value = self._request("POST", "/v1/runs/" + run_id + "/" + kind,
                                         {"input": text} if kind == "steer" else {})
