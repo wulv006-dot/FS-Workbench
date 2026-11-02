@@ -166,7 +166,7 @@ class ConversationStore:
             return receipt
 
     def reserve_turn(self, owner, conversation_id, text, request_id, file_ids=None, *, native=False):
-        if not isinstance(text, str) or not 1 <= len(text.strip()) <= 12000:
+        if not isinstance(text, str) or not text.strip() or (not native and len(text.strip()) > 12000):
             raise ValueError("invalid_input")
         if not isinstance(request_id, str) or not REQUEST_ID.fullmatch(request_id):
             raise ValueError("invalid_request_id")
@@ -244,10 +244,10 @@ class ConversationStore:
                 raise LookupError("run_not_found")
             return dict(row)
 
-    def action(self, owner, conversation_id, run_id, kind, request_id, text=""):
+    def action(self, owner, conversation_id, run_id, kind, request_id, text="", *, native=False):
         if kind not in {"steer", "stop"} or not isinstance(request_id, str) or not REQUEST_ID.fullmatch(request_id):
             raise ValueError("invalid_action")
-        if not isinstance(text, str) or len(text) > 12000:
+        if not isinstance(text, str) or (not native and len(text) > 12000):
             raise ValueError("invalid_action_text")
         fingerprint = hashlib.sha256((kind + "\0" + text).encode()).hexdigest()
         with self.db() as db:

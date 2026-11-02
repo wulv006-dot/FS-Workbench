@@ -497,14 +497,14 @@ class NativeDockerPolicyTests(unittest.TestCase):
         self.assertEqual(policy['TERMINAL_ENV'],'docker')
         self.assertEqual(policy['TERMINAL_DOCKER_FORWARD_ENV'],'[]')
         image='sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544'
-        command=['/opt/fs-native-bin/docker','run','-d','--network=none','--cap-drop=ALL','--security-opt=no-new-privileges','-v',workspace+':/workspace',image,'sleep','infinity']
+        command=['/opt/fs-native-bin/docker','run','-d','--user','9876:9876','--network=bridge','--cap-drop=ALL','--security-opt=no-new-privileges','-v',workspace+':/workspace',image,'sleep','infinity']
         validate_docker_command(command,workspace,image)
         for extra in (['-v','/profile:/profile:ro'],['-v','/var/run/docker.sock:/var/run/docker.sock'],['-e','FAKE_TOKEN=PRIVATE_SENTINEL'],['--privileged']):
             changed=command[:-3]+extra+command[-3:]
             with self.subTest(extra=extra),self.assertRaises((ValueError,PermissionError)):
                 validate_docker_command(changed,workspace,image)
         with self.assertRaises((ValueError,PermissionError)):
-            validate_docker_command([x.replace('--network=none','--network=host') for x in command],workspace,image)
+            validate_docker_command([x.replace('--network=bridge','--network=host') for x in command],workspace,image)
 
     def test_profile_configuration_enables_pending_tools_and_owner_namespace(self):
         from conversation_native import NativeWorkspace, native_profile_config
@@ -625,3 +625,66 @@ class NativeArchiveTests(unittest.TestCase):
                 raise RuntimeError('CAS correctly rejected')
             with self.subTest(mutation=mutation),patch.object(ConversationStore,'archive_synthetic_unknown',guarded),self.assertRaisesRegex(RuntimeError,'CAS correctly rejected'):
                 self.test_exact_synthetic_archive_preserves_unknown_and_blocks_all_reuse()
+
+
+class NativeCapabilitiesTests(unittest.TestCase):
+    def test_bridge_network_and_sdk_resource_defaults_keep_sandbox(self):
+        from conversation_native import docker_policy, validate_docker_command
+        policy=docker_policy({'conversation_id':'a'*32})
+        self.assertEqual(policy['TERMINAL_DOCKER_NETWORK'],'true')
+        self.assertNotIn('TERMINAL_CONTAINER_CPU',policy)
+        self.assertNotIn('TERMINAL_CONTAINER_MEMORY',policy)
+        workspace='/var/lib/fs-hermes-fc/native/workspaces/'+'a'*32
+        command=['/opt/fs-native-bin/docker','run','-d','--user','9876:9876','--cap-drop=ALL',
+                 '--security-opt=no-new-privileges','-v',workspace+':/workspace']
+        tail=[policy['TERMINAL_DOCKER_IMAGE'],'sleep','infinity']
+        for network in ([],['--network=bridge'],['--network','bridge']):
+            self.assertTrue(validate_docker_command(command+network+tail,workspace))
+        for extra in (['--user','0'],['--network=host'],['--network=container:other'],['--privileged'],
+                      ['-v','/profile:/profile'],['--group-add','994'],['-p','8080:80']):
+            with self.subTest(extra=extra),self.assertRaises((ValueError,PermissionError)):
+                validate_docker_command(command+extra+tail,workspace)
+
+    def test_existing_owner_config_is_preserved_and_approval_paths_remain_bound(self):
+        from conversation_native import NativeWorkspace, validate_native_profile
+        with tempfile.TemporaryDirectory() as root:
+            store=ConversationStore(Path(root)/'store');cid=store.create('alice')['conversation_id']
+            bridge=NativeWorkspace(store,Path(root)/'native');env=bridge.prepare('alice',cid)
+            profile=Path(env['profile']);config=profile/'config.yaml'
+            custom={'memory':{'write_approval':True},'skills':{'write_approval':True,
+                    'external_dirs':[str(profile/'approved-skills')]},'agent':{'reasoning_effort':'high'},
+                    'terminal':{'container_cpu':2,'container_memory':2048}}
+            raw=json.dumps(custom).encode();config.write_bytes(raw)
+            bridge.prepare('alice',cid);self.assertEqual(config.read_bytes(),raw)
+            validate_native_profile(custom,profile)
+            custom['skills']['external_dirs']=['~/approved-skills']
+            validate_native_profile(custom,profile)
+            for section in ('memory','skills'):
+                invalid=json.loads(json.dumps(custom));invalid[section]['write_approval']=False
+                with self.assertRaises(PermissionError):validate_native_profile(invalid,profile)
+            for path in ('/profile','/run','/other-owner/skills'):
+                invalid=json.loads(json.dumps(custom));invalid['skills']['external_dirs']=[path]
+                with self.assertRaises(PermissionError):validate_native_profile(invalid,profile)
+
+    def test_native_long_text_uses_actual_transport_boundary_not_fc_12k(self):
+        with tempfile.TemporaryDirectory() as root:
+            store=ConversationStore(Path(root));cid=store.create('alice')['conversation_id']
+            text='原始内容'*6000
+            turn=store.reserve_turn('alice',cid,text,'native_long_123',native=True)
+            with store.db() as db:self.assertEqual(db.execute('SELECT text FROM turns WHERE id=?',(turn['turn_id'],)).fetchone()[0],text)
+            other=store.create('alice')['conversation_id']
+            with self.assertRaises(ValueError):store.reserve_turn('alice',other,text,'legacy_long_123')
+
+
+class NativeHttpLimitsTests(unittest.TestCase):
+    def test_native_json_reuses_deployed_file_transport_boundary(self):
+        import io
+        from email.message import Message
+        from conversation_http import read_json
+        from conversation_files import MAX_BYTES
+        text='原文'*15000;raw=json.dumps({'text':text,'client_request_id':'native_large_json'}).encode()
+        headers=Message();headers['Content-Type']='application/json';headers['Content-Length']=str(len(raw))
+        handler=types.SimpleNamespace(headers=headers,rfile=io.BytesIO(raw),connection=types.SimpleNamespace(settimeout=lambda value:None))
+        self.assertEqual(read_json(handler,maximum=MAX_BYTES)['text'],text)
+        handler.rfile=io.BytesIO(raw)
+        with self.assertRaises(ValueError):read_json(handler)

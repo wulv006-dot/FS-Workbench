@@ -56,9 +56,28 @@ def native_owner_scope(item):
 def native_profile_config():
     # Native tools write proposals. Only the existing independent review applies them.
     return {'memory': {'memory_enabled': True, 'user_profile_enabled': True, 'write_approval': True},
-            'skills': {'write_approval': True, 'external_dirs': []},
+            'skills': {'write_approval': True},
             'model': {'default': 'deepseek-flash', 'provider': 'custom',
                       'base_url': 'http://127.0.0.1:8940/v1', 'context_length': 1048576}}
+
+
+def validate_native_profile(config, profile):
+    # Owner settings remain editable; approval and owner path boundaries do not.
+    if type(config) is not dict or any(type(config.get(section)) is not dict or
+            config[section].get('write_approval') is not True for section in ('memory','skills')):
+        raise PermissionError('native_write_approval_required')
+    directories=config['skills'].get('external_dirs',[])
+    if type(directories) is not list:
+        raise PermissionError('native_skill_directory')
+    profile=Path(profile).resolve()
+    for directory in directories:
+        if type(directory) is not str:
+            raise PermissionError('native_skill_directory')
+        path=profile/directory[2:] if directory.startswith('~/') else (profile if directory=='~' else Path(directory))
+        if not path.is_absolute():path=profile/path
+        try:path.resolve().relative_to(profile)
+        except ValueError:raise PermissionError('native_skill_directory') from None
+    return config
 
 
 def validate_native_admission(item):
@@ -96,12 +115,11 @@ def docker_policy(binding, root=NATIVE_ROOT):
             'TERMINAL_DOCKER_IMAGE': NATIVE_IMAGE, 'TERMINAL_DOCKER_IMAGE_PINNED': '1',
             'TERMINAL_DOCKER_MOUNT_CWD_TO_WORKSPACE': 'true',
             'TERMINAL_DOCKER_VOLUMES': '[]', 'TERMINAL_DOCKER_ENV': '{}',
-            'TERMINAL_DOCKER_FORWARD_ENV': '[]', 'TERMINAL_DOCKER_NETWORK': 'false',
+            'TERMINAL_DOCKER_FORWARD_ENV': '[]', 'TERMINAL_DOCKER_NETWORK': 'true',
             'TERMINAL_DOCKER_RUN_AS_HOST_USER': 'true', 'TERMINAL_CONTAINER_DISK': '0',
             'TERMINAL_CONTAINER_PERSISTENT': 'false', 'TERMINAL_DOCKER_PERSIST_ACROSS_PROCESSES': 'false',
             'TERMINAL_DOCKER_ORPHAN_REAPER': 'false', 'TERMINAL_DOCKER_SHARED_CONTAINER_KEY': '',
-            'TERMINAL_DOCKER_EXTRA_ARGS': canonical(['--pull=never', '--entrypoint=/usr/bin/env']),
-            'TERMINAL_CONTAINER_CPU': '1', 'TERMINAL_CONTAINER_MEMORY': '1024'}
+            'TERMINAL_DOCKER_EXTRA_ARGS': canonical(['--pull=never', '--entrypoint=/usr/bin/env'])}
 
 
 def validate_docker_command(command, workspace, image=NATIVE_IMAGE):
@@ -110,14 +128,12 @@ def validate_docker_command(command, workspace, image=NATIVE_IMAGE):
             command[-3:] != [image, 'sleep', 'infinity']):
         raise ValueError('native_docker_command')
     args, mounts = command[3:-3], []
-    if '--network=none' not in args and not any(args[i:i+2] == ['--network', 'none'] for i in range(len(args))):
-        raise PermissionError('native_docker_network')
     denied = {'--privileged', '--volumes-from', '--device', '--device-cgroup-rule', '--env-file', '--publish', '-p', '-P', '--group-add'}
     for index, value in enumerate(args):
         name, equal, suffix = value.partition('=')
         if name in denied or name in {'-e', '--env'}:
             raise PermissionError('native_docker_authority')
-        if name in {'--net', '--network'} and (suffix if equal else args[index+1]) != 'none':
+        if name in {'--net', '--network'} and (suffix if equal else args[index+1]) != 'bridge':
             raise PermissionError('native_docker_network')
         if name in {'--pid', '--ipc', '--userns', '--cgroupns'} and (suffix if equal else args[index+1]) == 'host':
             raise PermissionError('native_docker_host_namespace')
@@ -127,6 +143,9 @@ def validate_docker_command(command, workspace, image=NATIVE_IMAGE):
             raise PermissionError('native_docker_mount')
         if name == '--mount':
             raise PermissionError('native_docker_mount')
+    users=[value.partition('=')[2] if '=' in value else args[index+1]
+           for index,value in enumerate(args) if value.partition('=')[0] in {'--user','-u'}]
+    if users!=['9876:9876']:raise PermissionError('native_docker_user')
     if mounts != [workspace + ':/workspace']:
         raise PermissionError('native_docker_mount')
     if not any(value in {'--cap-drop=ALL', '--cap-drop=all'} for value in args) and not any(
@@ -325,8 +344,7 @@ class NativeWorkspace:
             # The original DB writer lock also serializes first profile creation
             # across two conversations of the same owner.
             if config.exists():
-                if regular_bytes(config,65536) != expected:
-                    raise PermissionError('native_profile_config_changed')
+                regular_bytes(config,65536)  # SDK parses this owner's existing YAML; never overwrite it.
             else:
                 with config.open('xb') as stream:
                     os.chmod(config,0o600)
@@ -427,7 +445,11 @@ class NativeDockerBackend:
         if (self.environment['profile'] != str(self.profile) or
                 self.environment['workspace'] != str(self.workspace)):
             raise PermissionError('native_worker_paths')
+        from tools.terminal_scope import build_profile_terminal_scope
+        inherited=build_profile_terminal_scope(self.profile)
         self.policy = docker_policy(bound, root=NATIVE_ROOT)
+        for key in ('TERMINAL_CONTAINER_CPU','TERMINAL_CONTAINER_MEMORY'):
+            if key in inherited:self.policy[key]=inherited[key]
 
     def check(self, task_id=None):
         if task_id not in (None, self.binding['session_id']) or self.authorize() is not True:
@@ -669,6 +691,8 @@ class NativeConversation:
                 not re.fullmatch('[a-f0-9]{64}', value['catalog_sha256'] or '') or
                 type(value['registry_generation']) is not int or value['registry_generation'] < 0):
             raise ValueError('native_schema_registration')
+        if value.get('reasoning_effort','none') not in ('none','minimal','low','medium','high','xhigh','max','ultra'):
+            raise ValueError('native_reasoning_config')
         raw = canonical(value)
         if len(raw.encode()) > 2 * 1024 * 1024:
             raise ValueError('native_schema_size')
@@ -693,6 +717,12 @@ class NativeConversation:
         if row['schemas'] is None:
             raise PermissionError('native_schema_not_measured')
         return json.loads(row['schemas'])['model_schemas']
+
+    def reasoning_effort(self, binding):
+        if not self.authorized(binding):raise PermissionError('native_chat_inactive')
+        row=self.row(binding['owner'],binding['conversation_id'],binding['turn_id'])
+        if row['schemas'] is None:raise PermissionError('native_schema_not_measured')
+        return json.loads(row['schemas']).get('reasoning_effort','none')
 
     def register_pending(self, binding, value):
         if (type(value) is not dict or set(value) != {'binding', 'subsystem', 'pending_id', 'record_sha256'} or
@@ -766,7 +796,7 @@ class NativeConversation:
             with self.store.db() as db:
                 db.execute('UPDATE native_conversation_runs SET binding=? WHERE turn_id=?', (canonical(bound), turn_id))
             scope = NativeChatScope(bound, lambda: self.authorized(bound), model_schemas=lambda: self.schemas(bound),
-                                    call_tool=lambda name, args: self.host_tool(bound, name, args))
+                                    reasoning_effort=lambda: self.reasoning_effort(bound), call_tool=lambda name, args: self.host_tool(bound, name, args))
             item_gateway = native_gateway(self.hermes.daily, scope, active_tasks=self.active_tasks)
             with self.hermes.lock:
                 self.hermes.tokens[turn_id] = token

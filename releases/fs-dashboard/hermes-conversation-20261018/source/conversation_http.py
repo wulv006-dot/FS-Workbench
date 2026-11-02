@@ -148,7 +148,8 @@ def handle(handler, method, uri, user, service, authorized):
             else:
                 respond(handler, 404, {'error': 'not_found'})
         elif method == "POST" and len(parts) == 2 and parts[1] == "turns" and not params:
-            body = read_json(handler)
+            from conversation_files import MAX_BYTES
+            body = read_json(handler, maximum=MAX_BYTES if getattr(service,'native',None) else 16384)
             if set(body) not in ({'text', 'client_request_id'}, {'text', 'client_request_id', 'file_ids'}):
                 raise ValueError('turn_fields')
             extra = {'file_ids': body['file_ids']} if 'file_ids' in body else {}
@@ -157,7 +158,8 @@ def handle(handler, method, uri, user, service, authorized):
             stream_events(handler, service, user, parts[0], params["after"][0])
         elif method == "POST" and len(parts) == 4 and parts[1] == "runs" and parts[3] in {"steer", "stop"} and not params:
             names = {"text", "client_request_id"} if parts[3] == "steer" else {"client_request_id"}
-            body = read_json(handler, names)
+            from conversation_files import MAX_BYTES
+            body = read_json(handler, names, maximum=MAX_BYTES if getattr(service,'native',None) else 16384)
             result = (service.steer(user, parts[0], parts[2], body["text"], body["client_request_id"])
                       if parts[3] == "steer" else service.stop(user, parts[0], parts[2], body["client_request_id"]))
             respond(handler, 202, result)
@@ -189,11 +191,11 @@ def handle(handler, method, uri, user, service, authorized):
     return True
 
 
-def read_json(handler, fields=None):
+def read_json(handler, fields=None, *, maximum=16384):
     if handler.headers.get("Transfer-Encoding") or handler.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
         raise ValueError("json_required")
     lengths = handler.headers.get_all("Content-Length", [])
-    if len(lengths) != 1 or not re.fullmatch(r"[0-9]{1,5}", lengths[0]) or not 1 <= int(lengths[0]) <= 16384:
+    if len(lengths) != 1 or not re.fullmatch(r"[0-9]{1,8}", lengths[0]) or not 1 <= int(lengths[0]) <= maximum:
         raise ValueError("body_size")
     handler.connection.settimeout(15)
     raw = handler.rfile.read(int(lengths[0]))

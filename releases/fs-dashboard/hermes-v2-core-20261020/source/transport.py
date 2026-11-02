@@ -162,6 +162,9 @@ class Proxy:
         # The FS-issued grant pins the business model mode. The client cannot
         # escalate, disable or silently downgrade it using a body parameter.
         effort=grant.reasoning_effort
+        if native:
+            measured=gateway.scope.reasoning_effort()
+            if measured is not None:effort=measured
         # Fixed native compression omits max_tokens/tools and probes streaming.
         # Its pre-dispatch stream probe is rejected as HTTP400, so official
         # auxiliary_client falls back once to a plain request without a charge.
@@ -194,7 +197,7 @@ class Proxy:
         if (body.get('model') != gateway.budget.policy['model'] or
                 (not (native or material and not auxiliary) and body.get('stream', False) is not False)):
             invalid('provider_override')
-        if body.get('tool_choice', 'auto') != 'auto':
+        if not native and body.get('tool_choice', 'auto') != 'auto':
             invalid('tool_choice')
         tool_schemas = None
         if material or native:
@@ -236,6 +239,7 @@ class Proxy:
         request = {'messages': messages, 'max_tokens': body.get('max_tokens')}
         if native:
             request['tools'] = deepcopy(tool_schemas) if 'tools' in body else []
+            if 'tool_choice' in body:request['tool_choice']=deepcopy(body['tool_choice'])
             if 'response_format' in body:
                 request['response_format'] = deepcopy(body['response_format'])
         if auxiliary:request['auxiliary']=True

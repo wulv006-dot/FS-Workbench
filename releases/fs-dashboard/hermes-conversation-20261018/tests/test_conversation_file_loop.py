@@ -409,7 +409,7 @@ class WorkerEnvironmentTests(unittest.TestCase):
             modules['run_agent'].AIAgent=NativeAgent
             registration=[]
             worker.call_tool=lambda name,args,**kw: registration.append((name,args)) or '{"registered":true}'
-            with patch.dict(sys.modules,{'hermes_cli.tools_config':config,'model_tools':model_tools}),patch.object(conversation_native,'NativeDockerBackend',return_value=backend),patch.object(conversation_native,'install_native_backend_guards'),patch.object(modules['hermes_cli.config'],'load_config',return_value={},create=True):
+            with patch.dict(sys.modules,{'hermes_cli.tools_config':config,'model_tools':model_tools}),patch.object(conversation_native,'NativeDockerBackend',return_value=backend),patch.object(conversation_native,'install_native_backend_guards'),patch.object(modules['hermes_cli.config'],'load_config',return_value={'memory':{'write_approval':True},'skills':{'write_approval':True},'agent':{'reasoning_effort':'high'}},create=True),patch.dict(sys.modules,{'hermes_constants':types.SimpleNamespace(resolve_reasoning_config=lambda config,model:{'enabled':True,'effort':'high'}),'agent.reasoning_params':types.SimpleNamespace(unset_reasoning_default=lambda agent:{'enabled':True,'effort':'medium'})}):
                 agent=adapter._create_agent(session_id=bound['session_id'])
                 kwargs=calls['native_kwargs']
                 self.assertIs(kwargs['skip_memory'],False);self.assertIs(kwargs['skip_context_files'],False)
@@ -418,6 +418,8 @@ class WorkerEnvironmentTests(unittest.TestCase):
                 self.assertEqual(registration[0][0],'fs.native.register_schemas')
                 self.assertEqual(registration[0][1]['binding'],bound)
                 self.assertEqual(registration[0][1]['model_schemas'],agent.tools)
+                self.assertEqual(kwargs['reasoning_config'],{'enabled':True,'effort':'high'})
+                self.assertEqual(registration[0][1]['reasoning_effort'],'high')
                 agent.run_conversation('unchanged original')
                 self.assertGreaterEqual(calls['native_scope'],2)
 
