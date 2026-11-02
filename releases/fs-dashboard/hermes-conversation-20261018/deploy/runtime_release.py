@@ -44,6 +44,12 @@ STREAM_MODE = False
 BINDINGS_MODE = False
 GUARD_MODE = False
 NATIVE_MODE = False
+NATIVE_ADMISSION_MODE = False
+NATIVE_ADMISSION_CANDIDATE = 'runtime/conversation_native.py'
+NATIVE_ADMISSION_BEFORE_SHA = '030e36d5cf134fa1ef63c576211a3f1b4f2d9a3135ed44c15a7fd1d403e795c2'
+NATIVE_ADMISSION_AFTER_SHA = '72253b5ffee19cc2d0352c0bb1ee7d67fe801fcb515b3b711466e828a4c1a57a'
+NATIVE_CURRENT_UNIT_SHA = '5f31448a6396d8d702d2cda1df7d192cd022e7d42f53d04a2a97e1664e9955e3'
+NATIVE_SOCKET_GID = 994
 NATIVE_UNIT = '/etc/systemd/system/fs-hermes-fc.service.d/install-state-isolation.conf'
 NATIVE_UNIT_BEFORE_SHA = '2a4eeada8c0acd27db04aa14838af7cc5c7fe3355677581d53f1f3509c74321a'
 NATIVE_PROVIDER_BEFORE_SHA = '91d301ebe3578d0e6c60c23252510ebb34416a57f9f5dfc4ffd744f5ae0c74fa'
@@ -221,6 +227,27 @@ def configure_native_chat():
                      'runtime/native-backend.json','approval/native_review.py','approval/daily_review.py'})
 
 
+def configure_native_admission():
+    """Existing 34-file native installation; only host admission bytes may change."""
+    global INSTALLED_COMMIT, NEW, NATIVE_ADMISSION_MODE
+    if NATIVE_ADMISSION_MODE:
+        return
+    configure_native_chat()  # Composition only; bootstrap proof/NEW are replaced.
+    NATIVE_ADMISSION_MODE = True
+    NEW = frozenset()
+    INSTALLED_COMMIT = '89e5db08edba36cf3d88efdb37601ee1ca53bc38'
+    INSTALLED_PROOF.update(sourceCommit=INSTALLED_COMMIT,
+        backup='/var/backups/fs-navigation-20261006/nav-20261102T100758Z',
+        manifestSha256='642d78db24159c3c79f04ca3f67f4e8cda2abdbcd5680022ba6c9e9f71969084',
+        journalSha256='34f8e7a3dea5df8f05baf73d9e9bc668a3127444f8915f323cc15dce5e361266')
+
+
+def native_backend_bytes():
+    return json.dumps({'version':'native_docker_v1','root':NATIVE_ROOT,
+        'image':FROZEN_IMAGE_MARKER,'docker_binary':'/opt/fs-native-bin/docker',
+        'docker_sha256':NATIVE_CLI_SHA,'uid':9876,'gid':9876},sort_keys=True).encode()
+
+
 def promoted_transport_sha(manifest, base):
     paths = [row['path'] for row in manifest['unchangedRequired']]
     rows = [row for row in manifest['unchangedRequired'] if row['path'] == TRANSPORT_TARGET]
@@ -242,6 +269,26 @@ def installed_baseline(root, git_baseline):
             raise ValueError('installed_release_proof_drift')
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
+    if NATIVE_ADMISSION_MODE:
+        expected = {row['candidate']:row['sha256'] for row in manifest['files']}
+        protected = manifest.get('unchangedRequired', [])
+        if (manifest.get('sourceCommit') != INSTALLED_COMMIT or manifest.get('scope') != SCOPE or
+                manifest.get('nativeChat') is not True or manifest.get('nativeAdmission') or
+                len(manifest['files']) != len(TARGETS) or
+                {row['candidate']:row['target'] for row in manifest['files']} != TARGETS or
+                any(row.get('owner') != '0:0' or row.get('mode') != ('0o600' if row['target'] == NGINX else '0o644') for row in manifest['files']) or
+                len(protected) != len(protected_paths(base)) or
+                {row['path'] for row in protected} != protected_paths(base) or
+                expected.get(NATIVE_ADMISSION_CANDIDATE) != NATIVE_ADMISSION_BEFORE_SHA or
+                expected.get('unit/native-control.conf') != NATIVE_CURRENT_UNIT_SHA or
+                expected.get('runtime/native-backend.json') != hashlib.sha256(native_backend_bytes()).hexdigest() or
+                journal.get('status') != 'applied-awaiting-actual-http-role-acceptance' or
+                journal.get('approvedManifestSha256') != INSTALLED_PROOF['manifestSha256'] or
+                journal.get('manifest') != manifest or
+                git_baseline != {'source_commit':INSTALLED_COMMIT,'files':expected,
+                    'protected':{NATIVE_LEGACY_DAILY:NATIVE_LEGACY_DAILY_SHA}}):
+            raise ValueError('native_admission_installed_git_and_journal_mismatch')
+        return manifest
     if NATIVE_MODE:
         expected = {row['candidate']:row['sha256'] for row in manifest['files']}
         expected.update({name:None for name in NEW})
@@ -512,7 +559,9 @@ def quiescent(base, root):
 
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
-    if approved.get('nativeChat') is True:
+    if approved.get('nativeAdmission') is True:
+        configure_native_admission()
+    elif approved.get('nativeChat') is True:
         configure_native_chat()
     elif approved.get('materialGuard') is True:
         configure_material_guard()
@@ -541,13 +590,14 @@ def load_base():
 
     def exact(manifest, stage):
         controlled = DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE or NATIVE_MODE
-        marker = 'nativeChat' if NATIVE_MODE else 'materialGuard' if GUARD_MODE else 'bindingsAuth' if BINDINGS_MODE else 'materialStream' if STREAM_MODE else 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
-        allowed = NATIVE_ALLOWED if NATIVE_MODE else (BINDINGS_CANDIDATE,) if BINDINGS_MODE else (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
+        marker = 'nativeAdmission' if NATIVE_ADMISSION_MODE else 'nativeChat' if NATIVE_MODE else 'materialGuard' if GUARD_MODE else 'bindingsAuth' if BINDINGS_MODE else 'materialStream' if STREAM_MODE else 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
+        allowed = (NATIVE_ADMISSION_CANDIDATE,) if NATIVE_ADMISSION_MODE else NATIVE_ALLOWED if NATIVE_MODE else (BINDINGS_CANDIDATE,) if BINDINGS_MODE else (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
         if controlled and (manifest.get(marker) is not True or
-                any(manifest.get(key) is True for key in ('nativeChat','materialGuard', 'bindingsAuth', 'materialStream', 'materialTransport', 'workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
+                any(manifest.get(key) is True for key in ('nativeAdmission','nativeChat','materialGuard', 'bindingsAuth', 'materialStream', 'materialTransport', 'workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
                 manifest.get('installedBaseline') != INSTALLED_PROOF or
                 manifest.get('runtimeBefore') != manifest.get('runtimeRequired') or
                 manifest.get('workerImageSource') != 'container' or
+                NATIVE_ADMISSION_MODE and manifest.get('materialChangedTargets') != [TARGETS[NATIVE_ADMISSION_CANDIDATE]] or
                 WORKER_DIAGNOSTICS_MODE and manifest.get('materialChangedTargets') != [TARGETS['runtime/hermes_worker.py']] or
                 (TRANSPORT_MODE or STREAM_MODE or GUARD_MODE) and manifest.get('materialChangedTargets') != [TRANSPORT_TARGET]
                 or BINDINGS_MODE and manifest.get('materialChangedTargets') != [TARGETS[BINDINGS_CANDIDATE]] or
@@ -556,7 +606,7 @@ def load_base():
                 manifest.get('materialChangedTargets') != [r['target'] for r in manifest.get('files', [])
                                                           if r['beforeSha256'] != r['sha256']] or
                 any(r['beforeSha256'] != r['sha256'] and r['candidate'] not in allowed for r in manifest.get('files', []))):
-            raise ValueError('exact_material_guard_delta_required' if GUARD_MODE else 'exact_bindings_auth_delta_required' if BINDINGS_MODE else 'exact_material_stream_delta_required' if STREAM_MODE else 'exact_material_transport_delta_required' if TRANSPORT_MODE else 'exact_worker_diagnostics_delta_required' if WORKER_DIAGNOSTICS_MODE else 'exact_goal_task_index_delta_required' if TASK_INDEX_MODE else 'exact_material_diagnostics_delta_required')
+            raise ValueError('exact_native_admission_delta_required' if NATIVE_ADMISSION_MODE else 'exact_material_guard_delta_required' if GUARD_MODE else 'exact_bindings_auth_delta_required' if BINDINGS_MODE else 'exact_material_stream_delta_required' if STREAM_MODE else 'exact_material_transport_delta_required' if TRANSPORT_MODE else 'exact_worker_diagnostics_delta_required' if WORKER_DIAGNOSTICS_MODE else 'exact_goal_task_index_delta_required' if TASK_INDEX_MODE else 'exact_material_diagnostics_delta_required')
         if manifest != approved or manifest.get('scope') != SCOPE:
             raise ValueError('exact_material_manifest_required')
         if manifest.get('businessWrites') is not False or manifest.get('timersChanged') is not False:
@@ -613,6 +663,15 @@ def load_base():
                        'runtime/proxy_gateway.py','runtime/fs_inprocess.py','runtime/transport.py',
                        'frontend/index.html','frontend/conversation.css','frontend/conversation.js',
                        'approval/review_queue.py','approval/daily_review.py'}
+            if NATIVE_ADMISSION_MODE:
+                required = {NATIVE_ADMISSION_CANDIDATE}
+                rows = {row['candidate']:row for row in manifest['files']}
+                if (type(dependencies) is not dict or NEW or rows[NATIVE_ADMISSION_CANDIDATE]['beforeSha256'] != NATIVE_ADMISSION_BEFORE_SHA or
+                        rows[NATIVE_ADMISSION_CANDIDATE]['sha256'] != NATIVE_ADMISSION_AFTER_SHA or
+                        rows['unit/native-control.conf']['sha256'] != NATIVE_CURRENT_UNIT_SHA or
+                        rows['runtime/native-backend.json']['sha256'] != hashlib.sha256(native_backend_bytes()).hexdigest() or
+                        dependencies.get('socket',{}).get('gid') != NATIVE_SOCKET_GID):
+                    raise ValueError('native_admission_existing_contract_required')
             changed = {row['candidate'] for row in manifest['files'] if row['beforeSha256'] != row['sha256']}
             if (type(dependencies) is not dict or dependencies.get('cli',{}).get('sha256') != NATIVE_CLI_SHA or
                     dependencies.get('worker_user') != '9876:9876' or not required <= changed or
@@ -665,19 +724,19 @@ def load_base():
     def rollback_journal(backup, journal, root):
         nonlocal restoring_native
         result = original_rollback_journal(backup, journal, root)
-        if approved.get('nativeChat'):
+        if approved.get('nativeChat') or approved.get('nativeAdmission'):
             if any(base.digest(base.rooted(root,row['target'])) != row['beforeSha256'] for row in journal['files']):
                 raise ValueError('native_rollback_bytes_incomplete')
             restoring_native = True
         return result
 
-    if approved.get('nativeChat'):
+    if approved.get('nativeChat') or approved.get('nativeAdmission'):
         base.rollback_journal = rollback_journal
 
     def atomic(path, payload, mode=0o644):
         # Keep the original writer/journal and every per-row guard. Static-only
         # follow-ups leave identical active targets (including runtime) untouched.
-        if approved.get('nativeChat') or approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics') or approved.get('materialTransport') or approved.get('materialStream') or approved.get('bindingsAuth') or approved.get('materialGuard'):
+        if approved.get('nativeAdmission') or approved.get('nativeChat') or approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics') or approved.get('materialTransport') or approved.get('materialStream') or approved.get('bindingsAuth') or approved.get('materialGuard'):
             for row in approved['files']:
                 if path == base.rooted(publish_root, row['target']) and row['beforeSha256'] == row['sha256']:
                     if (hashlib.sha256(payload).hexdigest() != row['sha256']
@@ -700,6 +759,8 @@ def load_base():
             running_worker(manifest)
         if NATIVE_MODE and native_dependencies(base, root) != manifest['nativeDependencies']:
             raise ValueError('native_dependencies_cas_drift')
+        if NATIVE_ADMISSION_MODE:
+            native_runtime_readiness()
         if root == Path('/'):
             for row in manifest['files']:
                 path = base.rooted(root, row['target'])
@@ -741,6 +802,16 @@ def load_base():
     def restart(manifest, admission_fence=None):
         nonlocal before_restart
         before_restart = False
+        if manifest.get('nativeAdmission'):
+            if admission_fence is None:
+                raise ValueError('native_admission_fence_required')
+            admission_fence.stop_then_unlock_database()
+            result = readiness.restart_with_hermes_readiness(base, original_restart,
+                dict(manifest, scope=base.DEEP_SCOPE), admission_fence)
+            running_worker(manifest)
+            native_runtime_readiness()
+            base.guards(manifest, publish_root)
+            return result
         if manifest.get('nativeChat'):
             if admission_fence is None:
                 raise ValueError('native_admission_fence_required')

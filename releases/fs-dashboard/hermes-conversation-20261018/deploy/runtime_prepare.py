@@ -119,9 +119,7 @@ def native_generated():
     return {'unit/native-control.conf': json.dumps({'recipe':'native_worker_mounts_v2',
                 'daily_source':release.TARGETS['approval/daily_review.py'],'daily_target':release.NATIVE_DAILY_CONTAINER,
                 'daily_readonly':True},sort_keys=True).encode(),
-            'runtime/native-backend.json': json.dumps({'version':'native_docker_v1','root':release.NATIVE_ROOT,
-                'image':FROZEN_IMAGE_MARKER,'docker_binary':'/opt/fs-native-bin/docker',
-                'docker_sha256':release.NATIVE_CLI_SHA,'uid':9876,'gid':9876},sort_keys=True).encode()}
+            'runtime/native-backend.json': release.native_backend_bytes()}
 
 
 def configure_native_chat():
@@ -138,6 +136,24 @@ def configure_native_chat():
     SOURCES.update({'approval/'+name:'releases/fs-dashboard/hermes-memory-approval-20261022/'+name
                     for name in ('review_queue.py','native_review.py','reviewed_skills.py','daily_review.py')})
     SOURCES.update({name:None for name in native_generated()})
+
+
+def configure_native_admission():
+    import runtime_release as release
+    global INSTALLED_COMMIT, NEW
+    configure_native_chat()
+    release.configure_native_admission()
+    INSTALLED_COMMIT, NEW = release.INSTALLED_COMMIT, release.NEW
+
+
+def admission_generated(repo):
+    """Reproduce the installed v2 unit from pinned Git, never render live bytes."""
+    import runtime_release as release
+    original = subprocess.check_output(['git','show',INSTALLED_COMMIT+':'+MODULE+'source/worker-install-state-isolation.conf'],cwd=repo)
+    unit = render_native_unit(original, {'socket':{'gid':release.NATIVE_SOCKET_GID}})
+    if digest(unit) != release.NATIVE_CURRENT_UNIT_SHA:
+        raise ValueError('native_admission_generated_unit_drift')
+    return {'unit/native-control.conf':unit,'runtime/native-backend.json':release.native_backend_bytes()}
 
 
 def render_native_unit(raw, dependencies):
@@ -212,7 +228,7 @@ def observe(root=Path('/'), installed=None):
     import runtime_release as release
     rows = {name: file_metadata(base, root, target, name in NEW and (not installed or release.EXECUTION_MODE)) for name, target in TARGETS.items()}
     expected = {row['candidate']: row['sha256'] for row in installed['files']} if installed else KNOWN
-    if installed and release.NATIVE_MODE:
+    if installed and release.NATIVE_MODE and not release.NATIVE_ADMISSION_MODE:
         expected.update({name:None for name in release.NEW})
         expected.update(release.NATIVE_EXTERNAL_BEFORE)
         expected['unit/native-control.conf'] = release.NATIVE_UNIT_BEFORE_SHA
@@ -257,7 +273,8 @@ def pack(repo, output, commit):
              **PUBLISHER_SOURCES}
     hashes = {}
     import runtime_release as release
-    generated = {'payload/'+name:raw for name,raw in native_generated().items()} if release.NATIVE_MODE else {}
+    generated_bodies = admission_generated(repo) if release.NATIVE_ADMISSION_MODE else native_generated() if release.NATIVE_MODE else {}
+    generated = {'payload/'+name:raw for name,raw in generated_bodies.items()}
     for name, path in paths.items():
         # Read exact Git bytes: neither Windows autocrlf nor a working copy is a
         # deployment input. This command cannot read credentials outside SOURCES.
@@ -267,12 +284,18 @@ def pack(repo, output, commit):
         target.write_bytes(raw)
         hashes[name] = digest(raw)
     import runtime_release as release
-    baseline = {name: (None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo)))
+    baseline = {name: (digest(generated_bodies[name]) if release.NATIVE_ADMISSION_MODE and name in generated_bodies else None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo)))
                 for name, path in SOURCES.items()}
     baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
+    if release.NATIVE_ADMISSION_MODE:
+        changed = [name for name in SOURCES if hashes['payload/'+name] != baseline[name]]
+        if (changed != [release.NATIVE_ADMISSION_CANDIDATE] or
+                baseline[release.NATIVE_ADMISSION_CANDIDATE] != release.NATIVE_ADMISSION_BEFORE_SHA or
+                hashes['payload/'+release.NATIVE_ADMISSION_CANDIDATE] != release.NATIVE_ADMISSION_AFTER_SHA):
+            raise ValueError('exact_native_admission_git_delta_required')
     installed_baseline={'source_commit': INSTALLED_COMMIT, 'files': baseline}
     if release.NATIVE_MODE:
-        legacy=digest(subprocess.check_output(['git','show',INSTALLED_COMMIT+':'+SOURCES['approval/daily_review.py']],cwd=repo))
+        legacy=digest(subprocess.check_output(['git','show',('23a27325b00f27a5c5696657c7c4141a06135f18' if release.NATIVE_ADMISSION_MODE else INSTALLED_COMMIT)+':'+SOURCES['approval/daily_review.py']],cwd=repo))
         if legacy!=release.NATIVE_LEGACY_DAILY_SHA:raise ValueError('native_legacy_daily_git_drift')
         installed_baseline['protected']={release.NATIVE_LEGACY_DAILY:legacy}
     raw = json.dumps({'source_commit': commit, 'files': hashes, 'material_execution':release.EXECUTION_MODE,
@@ -283,7 +306,8 @@ def pack(repo, output, commit):
                       'material_stream':release.STREAM_MODE,
                       'bindings_auth':release.BINDINGS_MODE,
                       'material_guard':release.GUARD_MODE,
-                      'native_chat':release.NATIVE_MODE,
+                      'native_chat':release.NATIVE_MODE and not release.NATIVE_ADMISSION_MODE,
+                      'native_admission':release.NATIVE_ADMISSION_MODE,
                       'installed_baseline': installed_baseline},
                      sort_keys=True).encode('utf-8')
     (output / 'payload-manifest.json').write_bytes(raw)
@@ -297,12 +321,13 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
     if digest(raw) != payload_sha256:
         raise ValueError('approved_git_payload_required')
     descriptor = json.loads(raw)
-    if sum(descriptor.get(key) is True for key in ('goal_task_index_compat', 'material_diagnostics', 'worker_diagnostics', 'material_transport', 'material_stream', 'bindings_auth', 'material_guard','native_chat')) > 1:
+    if sum(descriptor.get(key) is True for key in ('native_admission','goal_task_index_compat', 'material_diagnostics', 'worker_diagnostics', 'material_transport', 'material_stream', 'bindings_auth', 'material_guard','native_chat')) > 1:
         raise ValueError('conflicting_material_followup_modes')
-    if (descriptor.get('native_chat') is True or descriptor.get('material_stream') is True or descriptor.get('bindings_auth') is True or descriptor.get('material_guard') is True) and descriptor.get('material_execution') is not True:
+    if (descriptor.get('native_admission') is True or descriptor.get('native_chat') is True or descriptor.get('material_stream') is True or descriptor.get('bindings_auth') is True or descriptor.get('material_guard') is True) and descriptor.get('material_execution') is not True:
         raise ValueError('material_stream_requires_execution')
     if descriptor.get('material_execution') is True:
-        if descriptor.get('native_chat') is True:configure_native_chat()
+        if descriptor.get('native_admission') is True:configure_native_admission()
+        elif descriptor.get('native_chat') is True:configure_native_chat()
         elif descriptor.get('material_guard') is True:configure_material_guard()
         elif descriptor.get('bindings_auth') is True:configure_bindings_auth()
         elif descriptor.get('material_stream') is True:configure_material_stream()
@@ -324,6 +349,12 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
     observed = observe(root, installed)
     # Source verification and body-limit generation happen before creating a stage.
     bodies = {name: (payload / name).read_bytes() for name in SOURCES}
+    if descriptor.get('native_admission'):
+        import runtime_release as release
+        if (digest(bodies['unit/native-control.conf']) != release.NATIVE_CURRENT_UNIT_SHA or
+                bodies['runtime/native-backend.json'] != release.native_backend_bytes() or
+                observed['native_dependencies'].get('socket',{}).get('gid') != release.NATIVE_SOCKET_GID):
+            raise ValueError('native_admission_existing_contract_required')
     if descriptor.get('native_chat'):
         import runtime_release as release
         if bodies['unit/native-control.conf'] != native_generated()['unit/native-control.conf']:
@@ -362,21 +393,22 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
         if __import__('runtime_release').BINDINGS_MODE:manifest['bindingsAuth']=True
         if __import__('runtime_release').GUARD_MODE:manifest['materialGuard']=True
         if __import__('runtime_release').NATIVE_MODE:
-            manifest['nativeChat']=True
+            manifest['nativeAdmission' if __import__('runtime_release').NATIVE_ADMISSION_MODE else 'nativeChat']=True
             manifest['nativeDependencies']=observed['native_dependencies']
         manifest['materialStaticOnly'] = all(row['beforeSha256'] == row['sha256'] or row['candidate'].startswith('frontend/')
                                             for row in files)
         if manifest['materialStaticOnly'] and (observed['worker_state'] != 'active' or observed['worker_image_source'] != 'container'):
             raise ValueError('static_followup_requires_running_worker')
-        if manifest.get('nativeChat') or manifest.get('materialGuard') or manifest.get('bindingsAuth') or manifest.get('materialStream') or manifest.get('materialTransport') or manifest.get('workerDiagnostics') or manifest.get('materialDiagnostics') or manifest.get('goalTaskIndexCompat'):
-            allowed = __import__('runtime_release').NATIVE_ALLOWED if manifest.get('nativeChat') else ('runtime/conversation_file_bindings.py',) if manifest.get('bindingsAuth') else ('runtime/transport.py',) if manifest.get('materialTransport') or manifest.get('materialStream') or manifest.get('materialGuard') else ('runtime/hermes_worker.py',) if manifest.get('workerDiagnostics') else ('runtime/conversation_goal_tasks.py',) if manifest.get('goalTaskIndexCompat') else ('http/conversation_http.py', 'http/range_api.py')
+        if manifest.get('nativeAdmission') or manifest.get('nativeChat') or manifest.get('materialGuard') or manifest.get('bindingsAuth') or manifest.get('materialStream') or manifest.get('materialTransport') or manifest.get('workerDiagnostics') or manifest.get('materialDiagnostics') or manifest.get('goalTaskIndexCompat'):
+            allowed = (__import__('runtime_release').NATIVE_ADMISSION_CANDIDATE,) if manifest.get('nativeAdmission') else __import__('runtime_release').NATIVE_ALLOWED if manifest.get('nativeChat') else ('runtime/conversation_file_bindings.py',) if manifest.get('bindingsAuth') else ('runtime/transport.py',) if manifest.get('materialTransport') or manifest.get('materialStream') or manifest.get('materialGuard') else ('runtime/hermes_worker.py',) if manifest.get('workerDiagnostics') else ('runtime/conversation_goal_tasks.py',) if manifest.get('goalTaskIndexCompat') else ('http/conversation_http.py', 'http/range_api.py')
             changed = [r['target'] for r in files if r['beforeSha256'] != r['sha256']]
             if (observed['worker_state'] != 'active' or observed['worker_image_source'] != 'container'
+                    or manifest.get('nativeAdmission') and (changed != [TARGETS[__import__('runtime_release').NATIVE_ADMISSION_CANDIDATE]] or digest(bodies[__import__('runtime_release').NATIVE_ADMISSION_CANDIDATE]) != __import__('runtime_release').NATIVE_ADMISSION_AFTER_SHA)
                     or manifest.get('workerDiagnostics') and changed != [TARGETS['runtime/hermes_worker.py']]
                     or manifest.get('bindingsAuth') and changed != [TARGETS['runtime/conversation_file_bindings.py']]
                     or (manifest.get('materialTransport') or manifest.get('materialStream') or manifest.get('materialGuard')) and changed != [TARGETS['runtime/transport.py']]
                     or any(r['beforeSha256'] != r['sha256'] and r['candidate'] not in allowed for r in files)):
-                raise ValueError('exact_material_guard_delta_required' if manifest.get('materialGuard') else 'exact_bindings_auth_delta_required' if manifest.get('bindingsAuth') else 'exact_material_stream_delta_required' if manifest.get('materialStream') else 'exact_material_transport_delta_required' if manifest.get('materialTransport') else 'exact_worker_diagnostics_delta_required' if manifest.get('workerDiagnostics') else 'exact_goal_task_index_delta_required' if manifest.get('goalTaskIndexCompat') else 'exact_material_diagnostics_delta_required')
+                raise ValueError('exact_native_admission_delta_required' if manifest.get('nativeAdmission') else 'exact_material_guard_delta_required' if manifest.get('materialGuard') else 'exact_bindings_auth_delta_required' if manifest.get('bindingsAuth') else 'exact_material_stream_delta_required' if manifest.get('materialStream') else 'exact_material_transport_delta_required' if manifest.get('materialTransport') else 'exact_worker_diagnostics_delta_required' if manifest.get('workerDiagnostics') else 'exact_goal_task_index_delta_required' if manifest.get('goalTaskIndexCompat') else 'exact_material_diagnostics_delta_required')
             manifest['materialChangedTargets'] = changed
     stage.mkdir(parents=True, mode=0o700)
     for name, body in bodies.items():
@@ -413,10 +445,12 @@ if __name__ == '__main__':
     parser.add_argument('--bindings-auth', action='store_true')
     parser.add_argument('--material-guard', action='store_true')
     parser.add_argument('--native-chat', action='store_true')
+    parser.add_argument('--native-admission', action='store_true')
     args = parser.parse_args()
-    if sum((args.native_chat,args.material_guard, args.bindings_auth, args.material_stream, args.material_transport, args.worker_diagnostics, args.goal_task_index_compat, args.materials_diagnostics)) > 1:
+    if sum((args.native_admission,args.native_chat,args.material_guard, args.bindings_auth, args.material_stream, args.material_transport, args.worker_diagnostics, args.goal_task_index_compat, args.materials_diagnostics)) > 1:
         parser.error('choose one installed followup mode')
-    if args.native_chat:configure_native_chat()
+    if args.native_admission:configure_native_admission()
+    elif args.native_chat:configure_native_chat()
     elif args.material_guard:configure_material_guard()
     elif args.bindings_auth:configure_bindings_auth()
     elif args.material_stream:configure_material_stream()

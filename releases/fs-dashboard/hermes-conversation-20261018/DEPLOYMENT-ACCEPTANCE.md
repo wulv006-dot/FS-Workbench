@@ -943,3 +943,10 @@ publisher 新增互斥 `--native-chat --followup`，钉已安装 23a 的 manifes
 仅将 native write_admission 改为原 FC admission 一致的0640：允许既有 worker 组读取，不开放 other，不改 owner、组、目录、token、鉴权、SDK、预算或重试。新增回归使用真实临时 ConversationStore/TaskStore/Workspace、原 Grants、原 atomic 函数体、真实 Request/NoRedirect/序列化及 worker admission；唯一文件读边界明确模拟已测 Linux UID/GID/DAC，Windows不冒原生切UID。旧代码先实际 RED=HTTP403，新代码 GREEN；既有 fake atomic/Grants/202 fixture 保留用于原测试，不能再充当本共享文件接线证据。
 
 额外本地固定公开SDK函数体合同走真实 worker middleware、原 Runs handler 与真实临时 RunIdempotencyStore：旧0600在worker读取拒绝、官方row0；新0640按相同合成原文/CSV元数据通过官方指纹和durable reserve、真实202→bindrun→ready=true。HTTP框架/空初始历史/外部秘密源/OS身份/WAL helper及最终executor为明确依赖fixture，网络与供应商调用0，不冒完整SDK进程或生产材料通过。当前生产仍89e5，原UNKNOWN及所有旧请求封存未改；本轮不发布、不改旧admission权限、不恢复或重POST。后续仅由同包publisher按已装89e5证明及NEW0登记必要增量，独审/CI后再发布与新意图验收，阶段2/3保持暂停。
+
+
+### Native admission：已安装89e5上的单文件后续候选（2026-11-02）
+
+`--native-admission --followup` / `native_admission` / `nativeAdmission`独立互斥，固定成功89e5 proof：backup `nav-20261102T100758Z`、manifest `642d78db24159c3c79f04ca3f67f4e8cda2abdbcd5680022ba6c9e9f71969084`、journal `34f8e7a3dea5df8f05baf73d9e9bc668a3127444f8915f323cc15dce5e361266`。34现存/45保护/NEW0，只允许`conversation_native.py`由`030e36d5…e795c2`变为`72253b5f…c1a57a`；其余33仅CAS/备份、跳过写入。原recipe v2从89e5 Git旧unit和固定socket GID994重现已安装unit SHA `5f31448a…9955e3`，不再次展开现场unit；backend、rootdaily只读挂载、旧profile/legacydaily及冻结writer保持。只沿原围栏DEEP/readiness重载range，worker/Nginx不重启，回退仅还原该代码目标。
+
+新增本地tempFS用例覆盖完整原validate/inspect/apply/rollback（保留真实原guards）、range与readiness失败、33未写metadata、34/45精确集合、Git/proof/current unit/marker/NEW/零或额外delta/权限漂移拒绝。OS服务、锁、Docker与uid为明确夹具；不冒生产DAC或真实发布通过。原一行0600→0640修复和A111消费链证据复用，旧UNKNOWN不改权限/ready/重发。本次只是可审候选，尚未发布或恢复正常附件聊天；历史材料400、官方调用数和费用仍unknown。
