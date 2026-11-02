@@ -110,7 +110,7 @@ def request_body(body, model, *, tool_schemas=None, native_chat=False):
     # No client endpoint, credentials, system identity or tool definitions accepted.
     fields = {'messages', 'max_tokens', 'reasoning_effort', 'auxiliary'}
     if native_chat:
-        fields.add('tools')
+        fields.update({'tools', 'response_format'})
     if not isinstance(body, dict) or set(body)-fields or not {'messages','max_tokens'}.issubset(body):
         raise ValueError('request_fields')
     if native_chat and (tool_schemas is None or body.get('tools') not in (None, [], tool_schemas)):
@@ -168,11 +168,31 @@ def request_body(body, model, *, tool_schemas=None, native_chat=False):
             'tools': [] if auxiliary else (schemas() if tool_schemas is None else deepcopy(tool_schemas)), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
     if native_chat and 'tools' in body:
         result['tools'] = deepcopy(body['tools'])
+    if native_chat and 'response_format' in body:
+        result['response_format'] = native_response_format(body['response_format'])
     if effort is not None:result['reasoning_effort']=effort
     # Include trusted tool schemas and all framing in the exact UTF-8 wire budget, before reservation/network.
     if len(encoded(result).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
     require_context_window(result)
     return result
+
+
+def native_response_format(value):
+    """Keep the SDK's structured output contract in the actual provider body."""
+    if type(value) is not dict:
+        raise ValueError('response_format')
+    kind = value.get('type')
+    if kind in ('text', 'json_object') and set(value) == {'type'}:
+        return deepcopy(value)
+    schema = value.get('json_schema')
+    if (kind != 'json_schema' or set(value) != {'type', 'json_schema'} or type(schema) is not dict or
+            set(schema)-{'name', 'description', 'schema', 'strict'} or
+            type(schema.get('name')) is not str or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', schema['name']) or
+            type(schema.get('schema')) is not dict or
+            ('strict' in schema and type(schema['strict']) is not bool) or
+            ('description' in schema and type(schema['description']) is not str)):
+        raise ValueError('response_format')
+    return deepcopy(value)
 
 
 def validate_native_content(content):

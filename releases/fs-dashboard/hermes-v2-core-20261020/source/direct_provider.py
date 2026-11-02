@@ -274,7 +274,7 @@ def discover_models():
 def prepare_request(request, approved_tools):
     """Pure native wire builder, shared by pre-reservation validation and send."""
     if (not isinstance(request, dict) or request.get('model') != MODEL or
-            set(request)-{'model', 'messages', 'max_tokens', 'tools', 'tool_choice', 'stream', 'enable_thinking', 'reasoning_effort'} or
+            set(request)-{'model', 'messages', 'max_tokens', 'tools', 'tool_choice', 'stream', 'enable_thinking', 'reasoning_effort', 'response_format'} or
             request.get('reasoning_effort') not in ('high', 'max') or
             request.get('enable_thinking') is not True or request.get('stream') is not False or
             type(request.get('max_tokens')) is not int or request['max_tokens'] != OUTPUT_TOKENS or
@@ -286,6 +286,11 @@ def prepare_request(request, approved_tools):
             'stream': True, 'stream_options': {'include_usage': True}}
     if request['tools']:
         body.update(tools=approved_tools, tool_choice='auto')
+    if 'response_format' in request:
+        # Only the authenticated native bridge admits this field. Revalidate
+        # before wire preparation; preserve its exact schema, never downgrade it.
+        from proxy_gateway import native_response_format
+        body['response_format'] = native_response_format(request['response_format'])
     payload = json.dumps(body, ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8')
     if len(payload) > WIRE_BYTES:
         raise ValueError('provider_payload_too_large')
