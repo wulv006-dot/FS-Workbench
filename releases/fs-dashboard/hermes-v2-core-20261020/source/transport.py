@@ -129,13 +129,15 @@ class Proxy:
         grant = self.grants.resolve(token)
         gateway = self.gateway_for(grant)
         gateway.scope.context(grant.owner, grant.task_id, grant.lease)
+        from proxy_gateway import native_scope
+        native = native_scope(gateway.scope)
         if (method, path) == ('POST', '/fc/tools/call'):
             if not isinstance(body, dict) or set(body) != {'name', 'arguments'}:
                 raise ValueError('tool_request')
             return gateway.scope.call(grant.owner, grant.task_id, grant.lease, body['name'], body['arguments'])
-        if (method, path) == ('GET', '/fc/context/index') and self.background:
+        if (method, path) == ('GET', '/fc/context/index') and self.background and not native:
             return background_index(self.background)
-        if (method, path) == ('POST', '/fc/context/section') and self.background:
+        if (method, path) == ('POST', '/fc/context/section') and self.background and not native:
             if not isinstance(body, dict) or set(body) != {'section_id', 'version', 'sha256'}:
                 raise ValueError('context_request')
             return read_section(self.background, body['section_id'], expected_version=body['version'],
@@ -153,7 +155,9 @@ class Proxy:
                 raise _MaterialGuardError(code)
             raise ValueError(code)
 
-        if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens', 'model', 'tools', 'tool_choice', 'stream', 'stream_options', 'reasoning_effort'}:
+        fields = {'messages', 'max_tokens', 'model', 'tools', 'tool_choice', 'stream', 'stream_options', 'reasoning_effort'}
+        if native: fields.add('response_format')
+        if not isinstance(body, dict) or set(body)-fields:
             invalid('request_fields')
         # The FS-issued grant pins the business model mode. The client cannot
         # escalate, disable or silently downgrade it using a body parameter.
@@ -163,14 +167,15 @@ class Proxy:
         # auxiliary_client falls back once to a plain request without a charge.
         if auxiliary:
             if body.get('stream_options') not in (None,{'include_usage':True}):raise ValueError('stream_options')
-            if body.get('stream') is True:raise ValueError('stream_not_supported')
+            if native and type(body.get('stream',False)) is not bool:raise ValueError('provider_override')
+            if body.get('stream') is True and not native:raise ValueError('stream_not_supported')
             if body.get('reasoning_effort') not in (None,'none',effort):raise ValueError('reasoning_policy')
             body=deepcopy(body)
             body.pop('stream_options',None)
             body['reasoning_effort']=effort
             from proxy_gateway import MAX_HERMES_OUTPUT_TOKENS
             body['max_tokens']=MAX_HERMES_OUTPUT_TOKENS
-        elif material:
+        elif material or native:
             # Streaming is a response encoding, not another provider call or
             # permission to override the trusted model/tool/policy selection.
             if type(body.get('stream', False)) is not bool:
@@ -187,12 +192,12 @@ class Proxy:
                 effort!='none' and body.get('reasoning_effort')!=effort):
             invalid('reasoning_policy')
         if (body.get('model') != gateway.budget.policy['model'] or
-                (not (material and not auxiliary) and body.get('stream', False) is not False)):
+                (not (native or material and not auxiliary) and body.get('stream', False) is not False)):
             invalid('provider_override')
         if body.get('tool_choice', 'auto') != 'auto':
             invalid('tool_choice')
         tool_schemas = None
-        if material:
+        if material or native:
             # The authenticated gateway context above owns this book. Never
             # select a task kind or expand tools from client request fields.
             from proxy_gateway import task_schemas
@@ -202,6 +207,8 @@ class Proxy:
         if 'tools' in body:
             names = [x.get('function', {}).get('name') for x in body['tools'] if isinstance(x, dict)]
             if len(names) != len(body['tools']) or len(names) != len(set(names)) or set(names) != set(allowed_tools):
+                invalid('tool_allowlist')
+            if native and body['tools'] != tool_schemas:
                 invalid('tool_allowlist')
         messages = deepcopy(body.get('messages'))
         if isinstance(messages,list):
@@ -227,6 +234,10 @@ class Proxy:
                     elif len(pad.encode())>MAX_PROVIDER_WIRE_BYTES:
                         invalid('reasoning_content_size')
         request = {'messages': messages, 'max_tokens': body.get('max_tokens')}
+        if native:
+            request['tools'] = deepcopy(tool_schemas) if 'tools' in body else []
+            if 'response_format' in body:
+                request['response_format'] = deepcopy(body['response_format'])
         if auxiliary:request['auxiliary']=True
         if effort!='none':request['reasoning_effort']=effort
         # Validate before recording request identity or changing any ledger table.
@@ -234,7 +245,7 @@ class Proxy:
         if tool_schemas is None:
             request_body(request, gateway.budget.policy['model'])
         else:
-            request_body(request, gateway.budget.policy['model'], tool_schemas=tool_schemas)
+            request_body(request, gateway.budget.policy['model'], tool_schemas=tool_schemas, native_chat=native)
         learning=getattr(gateway,'learning',None);proof=None
         if learning:
             from business_context import effective_learning

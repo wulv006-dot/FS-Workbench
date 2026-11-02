@@ -135,7 +135,14 @@ class DailyProgramFlow(unittest.TestCase):
             def active(self):return []
         ns=dict(Path=Path,ConversationStore=Store,ThreadPoolExecutor=ThreadPoolExecutor,threading=threading)
         exec(compile(ast.Module(body=[cls],type_ignores=[]),'conversation_service.py','exec'),ns)
-        service=ns['ConversationService'](Mock(),Path('fs/conversations'),Path('runtime'))
+        native=Mock()
+        # This AST fixture tests queue/store separation, not the native runtime.
+        # Supply its constructor dependency just like the synthetic Store above.
+        with patch.dict(sys.modules,{'conversation_native':SimpleNamespace(NativeConversation=native)}):
+            service=ns['ConversationService'](Mock(),Path('fs/conversations'),Path('runtime'))
+        native.assert_called_once_with(service)
+        self.assertIs(service.native,native.return_value)
+        self.assertIsNone(service.pricing.native)
         gate=threading.Event()
         try:
             occupied=service.pricing.pool.submit(gate.wait,3)
@@ -149,6 +156,23 @@ class DailyProgramFlow(unittest.TestCase):
         unit=(SOURCE/'systemd/fc-pricing-v3-shadow.service').read_text()
         for item in ('Type=oneshot','--once','Restart=no','PrivateNetwork=yes','User=nobody','ReadOnlyDirectories=/var/lib/fc27-cloud'):
             self.assertIn(item,unit)
+
+    def test_pricing_only_does_not_import_native_runtime(self):
+        tree=ast.parse((SOURCE/'conversation_service.py').read_text(encoding='utf-8'))
+        cls=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=='ConversationService')
+        class Store:
+            def __init__(self,root):self.root=Path(root)
+            def active(self):return []
+        ns=dict(Path=Path,ConversationStore=Store,ThreadPoolExecutor=ThreadPoolExecutor,threading=threading)
+        exec(compile(ast.Module(body=[cls],type_ignores=[]),'conversation_service.py','exec'),ns)
+        with patch.dict(sys.modules,{'conversation_native':None}):
+            service=ns['ConversationService'](Mock(),Path('fs/pricing-reviews'),Path('runtime'),pricing_only=True)
+        try:
+            self.assertIsNone(service.native)
+            self.assertIsNone(service.pricing)
+            self.assertIs(service.pool,service.pricing_pool)
+        finally:
+            service.pool.shutdown()
 
     def test_daily_shadow_restarts_once_and_leaves_next_day_snapshot_for_next_run(self):
         from test_shadow_worker import evidence,evaluate

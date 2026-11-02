@@ -65,21 +65,6 @@ async function boot(state=backend(), storage=new Map()) {
       state.turns[cid].push(turn); return reply({turn_id:turn.turn_id,state:'completed'},202);
     }
     if (kind==='runs') { state.steered=JSON.parse(init.body); return reply({state:'accepted'},202); }
-    if (kind==='materials') {
-      state.materialJobs ||= {};
-      if (method==='POST' && !id) {
-        const body=JSON.parse(init.body);state.materialSubmitted=body;
-        state.materialJobs[cid+body.client_request_id]={request_id:body.client_request_id,status:'running',files:[]};
-        if (state.materialUnknown) throw Error('lost material acceptance');
-        if (state.materialDelay) await new Promise(resolve=>{state.materialRelease=resolve;});
-        return reply(state.materialJobs[cid+body.client_request_id],202);
-      }
-      const job=state.materialJobs[cid+id];
-      if (!job) return reply({},404);
-      if (parts[3]==='result') return reply({request_id:id,status:'completed',text:'<script>never execute</script>\nanswer /arbitrary/file',truncated:false});
-      if (method==='POST') job.status='cancelled';
-      return reply(job);
-    }
     throw Error('unexpected '+url);
   };
   const context={document:{getElementById:id=>nodes[id],createElement:tag=>new Element(tag)},fetch,
@@ -91,158 +76,102 @@ async function boot(state=backend(), storage=new Map()) {
   async function flush() { for(let i=0;i<12;i++) await new Promise(r=>setImmediate(r)); for(const [id,fn] of [...timers]) {timers.delete(id);fn();} }
   await flush();
   const find=(root,text)=>descendants(nodes[root]).find(x=>x.textContent===text && ['button','a'].includes(x.tagName));
-  const checks=()=>descendants(nodes['file-choices']).filter(x=>x.type==='checkbox');
   async function choose(content='a,b\n1,2',name='a.csv') { nodes['file-input'].files=[new File([content],name)]; await nodes['file-input'].onchange(); await flush(); }
-  return {nodes,state,storage,flush,choose,find,checks,async send(text='analyze') {nodes['message-input'].value=text;await nodes.composer.requestSubmit();await flush();}};
+  return {nodes,state,storage,flush,choose,find,async send(text='analyze') {nodes['message-input'].value=text;await nodes.composer.requestSubmit();await flush();}};
 }
 async function run() {
+  // The five-file candidate is an ordinary chat UI; legacy material data stays untouched.
+  assert(!markup.includes('id="run-material"'));
+  assert(!markup.includes('id="material-jobs"'));
+  assert(!markup.includes('accept=".csv,.xlsx"'));
   let ui=await boot();
-  await ui.send('plain text'); assert(!('file_ids' in ui.state.submitted));
-  ui=await boot(); await ui.choose(); assert.equal(ui.state.uploads.length,1);
-  assert.equal(ui.nodes['conversation-title'].title,'Chat 0');
-  assert.match(ui.nodes['file-choices'].textContent,/可用/); assert.equal(ui.checks()[0].checked,false);
-  ui.nodes.attachments.open=true;
-  ui.checks()[0].click(); await ui.send(); assert.equal(ui.state.submitted.file_ids.length,1);
-  assert.equal(ui.nodes.attachments.open,false);
-  assert.equal(descendants(ui.nodes.messages).filter(x=>x.tagName==='a'&&x.textContent==='下载文件').length,1);
+  await ui.choose('original raw bytes','说明.pdf');
+  assert.equal(ui.state.uploads.length,1);
+  assert.equal(ui.state.uploads[0].bytes.toString(),'original raw bytes');
+  assert(!ui.nodes['send-message'].disabled);
+  await ui.send('请结合这份附件回答');
+  assert.deepEqual(ui.state.submitted.file_ids,[ui.state.files[A][0].file_id]);
+  assert.equal(ui.state.submitted.text,'请结合这份附件回答');
+  assert.equal(ui.nodes['file-choices'].children.length,0);
+  assert.equal(ui.nodes['message-input'].value,'');
+  assert(!ui.state.calls.some(c=>c.url.includes('/materials')));
   assert(!descendants(ui.nodes.messages).some(x=>x.href?.includes('arbitrary')));
 
-  // Unknown commit is recovered after refresh with the exact original request and hash.
-  ui=await boot(); ui.state.mode='unknown'; await ui.choose(); const originalId=ui.state.uploads[0].id;
-  assert.match(ui.nodes['upload-list'].textContent,/待核对/);
-  ui=await boot(ui.state,ui.storage); assert(ui.checks()[0].disabled);
-  ui.find('upload-list','核对原上传').click(); await ui.flush();
-  assert.match(ui.nodes['file-choices'].textContent,/可用/); assert.equal(ui.state.uploads.length,1);
-  ui.state.mode='ok';
+  ui=await boot(); await ui.choose();
+  ui.find('file-choices','移除附件').click(); await ui.send('只发文字');
+  assert(!('file_ids' in ui.state.submitted));
 
-  // Missing result never makes a new request ID, and changed bytes are rejected.
-  ui=await boot(); ui.state.mode='unknown'; await ui.choose(); ui.state.lookup404=true;
-  ui.find('upload-list','核对原上传').click(); await ui.flush();
-  const before=ui.state.uploads.length; await ui.choose('a,b\n9,8'); assert.equal(ui.state.uploads.length,before);
-  ui.state.mode='ok'; ui.state.lookup404=false; await ui.choose();
-  assert.equal(ui.state.uploads[1].id,ui.state.uploads[0].id); assert.equal(ui.state.files[A].length,1);
+  ui=await boot(); ui.state.mode='unknown'; await ui.choose();
+  const uploadId=ui.state.uploads[0].id;
+  assert(ui.nodes['send-message'].disabled,'unconfirmed uploads cannot silently be omitted');
+  ui=await boot(ui.state,ui.storage);
+  await ui.find('upload-list','核对原上传').click();await ui.flush();
+  await ui.send();assert.equal(ui.state.uploads.length,1);
+  assert.equal(ui.state.uploads[0].id,uploadId);assert.equal(ui.state.submitted.file_ids.length,1);
 
-  ui=await boot(); ui.state.mode='fail'; await ui.choose(); assert.match(ui.nodes['upload-list'].textContent,/上传失败/);
-  ui.state.mode='ok'; await ui.find('upload-list','重试原文件').click(); await ui.flush();
+  ui=await boot();ui.state.mode='unknown';ui.state.lookup404=true;await ui.choose();
+  const original=ui.state.uploads[0].id;
+  await ui.choose('different bytes');assert.equal(ui.state.uploads.length,1);
+  ui.state.mode='ok';ui.state.lookup404=false;await ui.choose();
+  assert.equal(ui.state.uploads[1].id,original);
+
+  ui=await boot();ui.state.mode='fail';await ui.choose();
+  assert.match(ui.nodes['upload-list'].textContent,/上传失败/);
+  ui.state.mode='ok';await ui.find('upload-list','重试原文件').click();await ui.flush();
   assert.equal(ui.state.uploads[1].id,ui.state.uploads[0].id);
 
-  ui=await boot(); await ui.choose('a','bad.exe');
-  ui.nodes['file-input'].files=[{name:'too.csv',size:10*1024*1024+1}];
-  await ui.nodes['file-input'].onchange(); await ui.flush(); assert.equal(ui.state.uploads.length,0);
-  ui=await boot();
-  for(let i=0;i<11;i++) ui.state.files[A].push({file_id:hash(String(i)).slice(0,32),filename:i+'.csv',version:1,status:'available'});
-  ui=await boot(ui.state,ui.storage);
-  for(let i=0;i<10;i++) ui.checks()[i].click();
-  assert(ui.checks()[10].disabled); assert.match(ui.nodes['attachment-summary'].textContent,/10 \/ 10/);
-
-  ui=await boot(); await ui.choose(); ui.checks()[0].click(); ui.state.files[A][0].status='expired';
-  await ui.send(); assert.equal(ui.state.submitted,undefined); assert(ui.nodes['send-message'].disabled);
-  ui.checks()[0].click(); await ui.send('without expired file'); assert(!('file_ids' in ui.state.submitted));
-
-  // A late upload for A must never select or add files to B.
-  ui=await boot(); ui.state.mode='delay'; const uploading=ui.choose();
+  ui=await boot();ui.state.mode='delay';const uploading=ui.choose();
   while(!ui.state.delayed) await new Promise(r=>setImmediate(r));
-  await ui.find('conversation-list','Chat 1').click(); await ui.flush();
-  ui.state.delayed(); await uploading; await ui.flush();
-  assert.equal(ui.checks().length,0); assert.match(ui.nodes['attachment-summary'].textContent,/0 \/ 10/);
+  await ui.find('conversation-list','Chat 1').click();await ui.flush();
+  ui.state.delayed();await uploading;await ui.flush();
+  assert.equal(ui.nodes['file-choices'].children.length,0,'late A upload cannot select into B');
 
-  // Pending turn identity and attachment set survive refresh unchanged.
-  ui=await boot(); await ui.choose(); ui.checks()[0].click(); ui.state.turnUnknown=true; ui.nodes.attachments.open=true;
-  await ui.send('pending'); const pending={...ui.state.submitted};
-  assert.equal(ui.nodes.attachments.open,true);
-  ui=await boot(ui.state,ui.storage); ui.state.turnUnknown=false; await ui.send();
+  ui=await boot();await ui.choose();ui.state.turnUnknown=true;await ui.send('待核对的原消息');
+  const pending={...ui.state.submitted};
+  assert.equal(ui.nodes['message-input'].value,pending.text);
+  ui=await boot(ui.state,ui.storage);ui.state.turnUnknown=false;await ui.send();
   assert.equal(ui.state.submitted.client_request_id,pending.client_request_id);
   assert.deepEqual(ui.state.submitted.file_ids,pending.file_ids);
 
-  // Server metadata alone creates derived cards and explicit follow-up selection.
-  ui=await boot(); await ui.choose(); const derived={...ui.state.files[A][0],file_id:'d'.repeat(32),version:2,filename:'result.xlsx'};
-  ui.state.files[A].push(derived); ui.state.turns[A]=[{turn_id:'c'.repeat(32),state:'completed',text:'done',reply:'done',files:{inputs:[],generated:[derived]}}];
-  ui=await boot(ui.state,ui.storage); ui.find('messages','用于下一轮追问').click(); await ui.flush();
-  assert(ui.checks().find(c=>c.checked)); await ui.send('revise'); assert.deepEqual(ui.state.submitted.file_ids,[derived.file_id]);
-  assert(ui.nodes['message-input'].focused);
-  ui.state.files[A].forEach(f=>f.status='expired');
-  ui.state.turns[A].forEach(t=>Object.values(t.files||{}).flat().forEach(f=>f.status='expired'));
-  ui=await boot(ui.state,ui.storage);
-  assert(!descendants(ui.nodes.messages).some(x=>x.textContent==='下载文件'&&x.tagName==='a'));
-  assert(ui.checks().every(c=>c.disabled));
-  ui.state.denied=true; ui=await boot(ui.state,ui.storage); assert(ui.nodes['file-input'].disabled); assert.equal(ui.checks().length,0);
+  ui=await boot();await ui.choose();
+  ui.state.files[A][0].status='expired';ui=await boot(ui.state,ui.storage);
+  await ui.send('失效文件不静默忽略');assert.equal(ui.state.submitted,undefined);
+  ui.find('file-choices','移除附件').click();await ui.send('只发文字');assert(!('file_ids' in ui.state.submitted));
 
-  // Steer never submits selected attachments again; keyboard retains original submit path.
-  ui=await boot(); await ui.choose(); ui.checks()[0].click();
-  ui.state.turns[A]=[{turn_id:'c'.repeat(32),state:'running',run_id:'run_'+'e'.repeat(32),text:'running',
-    progress:{type:'tool.started',tool:'mcp__fcro__fc_read_conversation_file'}}];
-  ui=await boot(ui.state,ui.storage); assert(ui.nodes['file-input'].disabled);
-  assert.match(ui.nodes.messages.textContent,/读取附件 · 正在处理/);
-  assert(!ui.nodes.messages.textContent.includes('mcp__fcro__'));
-  ui.nodes['message-input'].value='steer'; await ui.nodes['message-input'].onkeydown({key:'Enter',ctrlKey:true,preventDefault(){}}); await ui.flush();
-  assert.equal(ui.state.steered.text,'steer'); assert(!('file_ids' in ui.state.steered));
-  const css=fs.readFileSync(path.join(__dirname,'conversation.css'),'utf8');
-  assert(css.includes(':focus-visible')); assert(css.includes('var(--fs-surface)')); assert(markup.includes('aria-describedby="file-help"'));
-  // New material actions execute real UI handlers; lost acceptance reconciles by
-  // original GET and never silently posts another task or binds a human turn.
-  ui=await boot();await ui.choose();ui.checks()[0].click();
-  ui.nodes['material-mode'].value='read';ui.nodes['message-input'].value='Read this selected file';
-  ui.state.materialUnknown=true;await ui.nodes['run-material'].click();await ui.flush();
-  const original=ui.state.materialSubmitted;
-  assert.equal(original.file_ids.length,1);assert.equal(original.operation.mode,'read');
-  assert(!ui.state.submitted);assert.match(ui.nodes['material-jobs'].textContent,/结果待核对/);
-  const postCount=()=>ui.state.calls.filter(v=>v.url.endsWith('/materials')&&v.method==='POST').length;
-  await ui.nodes['run-material'].click();await ui.flush();assert.equal(postCount(),1);
-  await ui.find('material-jobs','核对原任务').click();await ui.flush();
-  assert.match(ui.nodes['material-jobs'].textContent,/执行中/);assert.equal(postCount(),1);
-  await ui.find('material-jobs','停止短任务').click();await ui.flush();
-  assert.match(ui.nodes['material-jobs'].textContent,/已取消/);
-  assert.equal(ui.state.materialSubmitted.client_request_id,original.client_request_id);
-  ui=await boot();await ui.choose();ui.checks()[0].click();
-  ui.nodes['material-mode'].value='revise';ui.nodes['material-sheet'].value='1';ui.nodes['material-row'].value='2';
-  ui.nodes['material-column'].value='2';ui.nodes['material-value'].value='30';ui.nodes['material-value-type'].value='number';
-  ui.nodes['material-format'].value='xlsx';ui.nodes['message-input'].value='Change selected cell';
-  await ui.nodes['run-material'].click();await ui.flush();
-  assert.deepEqual(ui.state.materialSubmitted.operation.edits,[{sheet:0,row:1,column:1,value:30}]);
-  assert.equal(ui.state.materialSubmitted.operation.format,'xlsx');
-  // Display/selection order is the reverse of ID sorting. Multiple selections
-  // cannot silently choose a revision target; only the explicitly retained one
-  // can be sent, with its human-readable name shown before acceptance.
-  for (const order of [[0,1],[1,0]]) {
-    ui=await boot();
-    ui.state.files[A]=[{file_id:'f'.repeat(32),filename:'列表第一份.csv',version:1,status:'available'},
-                       {file_id:'0'.repeat(32),filename:'列表第二份.csv',version:1,status:'available'}];
-    ui=await boot(ui.state,ui.storage);
-    for (const index of order) ui.checks()[index].click();
-    ui.nodes['material-mode'].value='revise';ui.nodes['material-mode'].onchange();
-    ui.nodes['message-input'].value='Modify only my explicitly selected target';
-    assert(ui.nodes['run-material'].disabled);
-    assert.match(ui.nodes['material-target'].textContent,/请仅勾选一份/);
-    await ui.nodes['run-material'].onclick();await ui.flush();
-    assert.equal(ui.state.materialSubmitted,undefined);
-    ui.checks()[1].click();
-    assert(!ui.nodes['run-material'].disabled);
-    assert.equal(ui.nodes['material-target'].textContent,'修改目标：列表第一份.csv');
-    ui.nodes['material-sheet'].value='1';ui.nodes['material-row'].value='2';ui.nodes['material-column'].value='2';
-    ui.nodes['material-value'].value='30';ui.nodes['material-value-type'].value='number';ui.nodes['material-format'].value='xlsx';
-    await ui.nodes['run-material'].click();await ui.flush();
-    assert.equal(ui.state.materialSubmitted.operation.file_id,'f'.repeat(32));
-    assert.deepEqual(ui.state.materialSubmitted.file_ids,['f'.repeat(32)]);
-  }
-  ui=await boot();await ui.choose();ui.checks()[0].click();
-  ui.nodes['material-mode'].value='read';ui.nodes['material-bounded'].checked=true;
-  ui.nodes['material-read-sheet'].value='2';ui.nodes['material-read-offset'].value='201';ui.nodes['material-read-limit'].value='100';
-  ui.nodes['message-input'].value='Read this explicit range';
-  await ui.nodes['run-material'].click();await ui.flush();
-  assert.deepEqual(ui.state.materialSubmitted.read_scope,{file_id:ui.state.files[A][0].file_id,sheet:1,offset:200,limit:100});
-  const retained=ui.find('material-jobs','核对原任务');
-  await retained.click();await ui.flush();
-  const unchanged=ui.find('material-jobs','核对原任务');
-  await unchanged.click();await ui.flush();
-  assert.equal(ui.find('material-jobs','核对原任务'),unchanged,'unchanged polls preserve the focused DOM control');
-  const materialId=ui.state.materialSubmitted.client_request_id;
-  ui.state.materialJobs[A+materialId].status='completed';ui.state.materialJobs[A+materialId].run_id='run_'+'a'.repeat(32);
-  await ui.find('material-jobs','核对原任务').click();await ui.flush();
-  await ui.find('material-jobs','查看回答').click();await ui.flush();
-  assert.match(ui.nodes['material-jobs'].textContent,/<script>never execute<\/script>/);
-  assert(!descendants(ui.nodes['material-jobs']).some(x=>['script','iframe','a'].includes(x.tagName)));
-  assert(![...ui.storage.values()].some(value=>value.includes('never execute')),'model answer stays outside stored goal/request data');
-  console.log('PASS materials UI: executed DOM/fetch upload, recovery, hash, race, turn, follow-up, revocation, steer and keyboard scenarios');
+  ui=await boot();await ui.choose();
+  ui.state.turns[A]=[{turn_id:'c'.repeat(32),state:'running',run_id:'run_'+'e'.repeat(32),text:'其他客户端刚启动'}];
+  ui=await boot(ui.state,ui.storage);await ui.send('不能静默丢掉待发送附件');
+  assert.equal(ui.state.steered,undefined);assert(ui.nodes['send-message'].disabled);
+
+  const derived={file_id:'d'.repeat(32),filename:'核对结果.xlsx',mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',status:'available',version:2};
+  ui=await boot();ui.state.files[A].push(derived);
+  ui.state.turns[A]=[{turn_id:'c'.repeat(32),state:'completed',text:'原消息',reply:'完整回答\n<script>不执行</script>\n[脚本](javascript:alert(1))\n[正常文档](https://example.org/help)',files:{inputs:[],generated:[derived]},artifacts:[{artifact_id:'f'.repeat(32),filename:'结果.html',mime:'text/html'}]}];
+  const legacy=JSON.stringify([{body:{client_request_id:'sealed'},status:'unknown'}]);
+  ui.storage.set('fs_material_jobs_'+A,legacy);
+  ui=await boot(ui.state,ui.storage);
+  assert(ui.nodes.messages.textContent.includes('<script>不执行</script>'));
+  assert(!descendants(ui.nodes.messages).some(x=>['script','iframe','input'].includes(x.tagName)));
+  assert(!ui.nodes.messages.textContent.includes('用于下一轮'));
+  assert(!descendants(ui.nodes.messages).some(x=>x.href?.startsWith('javascript:')));
+  assert(descendants(ui.nodes.messages).some(x=>x.href==='https://example.org/help'));
+  assert.equal(ui.storage.get('fs_material_jobs_'+A),legacy);
+  await ui.send('继续说明上一个版本');assert(!('file_ids' in ui.state.submitted),'history must not blindly rebind every file');
+  assert(!ui.state.calls.some(c=>c.url.includes('sealed')));
+
+  ui=await boot();ui.state.turns[A]=[{turn_id:'c'.repeat(32),state:'running',run_id:'run_'+'e'.repeat(32),text:'生成中',reply:'',progress:{type:'tool.started',tool:'mcp__fcro__fc_read_conversation_file'}}];
+  ui=await boot(ui.state,ui.storage);assert(ui.nodes['file-input'].disabled);
+  assert.match(ui.nodes.messages.textContent,/读取附件/);
+  ui.nodes['message-input'].value='补充文字';
+  await ui.nodes['message-input'].onkeydown({key:'Enter',shiftKey:false,isComposing:false,preventDefault(){}});await ui.flush();
+  assert.equal(ui.state.steered.text,'补充文字');assert(!('file_ids' in ui.state.steered));
+  const count=ui.state.calls.length;
+  await ui.nodes['message-input'].onkeydown({key:'Enter',shiftKey:true,preventDefault(){throw Error('must retain newline')}});
+  assert.equal(ui.state.calls.length,count);
+  await ui.nodes['message-input'].onkeydown({key:'Enter',isComposing:true,preventDefault(){throw Error('IME must not send')}});
+  ui.state.denied=true;ui=await boot(ui.state,ui.storage);assert(ui.nodes['file-input'].disabled);
+  assert(!descendants(ui.nodes.messages).some(x=>x.tagName==='a'&&x.textContent==='下载文件'));
+  console.log('PASS native chat UI: raw upload/chips/remove/recovery/unknown/race/turn/files/history/steer/IME/denial; zero materials requests');
 }
+
 module.exports={run};
 if(require.main===module) run().catch(e=>{console.error(e);process.exitCode=1;});

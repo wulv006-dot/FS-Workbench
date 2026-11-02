@@ -69,15 +69,8 @@ def check():
         base = '/api/hermes/conversations/' + CID
         if path == base:
             return response({'conversation_id': CID, 'title': TITLE, 'turns': state['turns'], 'last_seq': 0})
-        if path == base + '/materials':
-            value=request.post_data_json
-            state['material_request']=value
-            state['material_result']={'request_id':value['client_request_id'],'status':'completed','files':[],'run_id':'run_'+'f'*32,
-                'coverage':[{'file_id':value['file_ids'][0],'analysis_coverage':{'observed_sheets':[{'sheet':0,'covered_rows':2,'total_rows':2}],'unread_sheet_count':0}}]}
-            return response(state['material_result'],202)
-        if path.startswith(base + '/materials/'):
-            if path.endswith('/result'):return response({'status':'completed','text':'合成回答：已核所选两行。\n<script>此处仅作文字显示</script>','truncated':False})
-            return response(state['material_result'])
+        if '/materials' in path:
+            raise AssertionError('legacy materials endpoint must not be called')
         if path == base + '/events':
             return route.fulfill(body=': connected\n\n', content_type='text/event-stream')
         if path == base + '/files' and request.method == 'POST':
@@ -85,6 +78,7 @@ def check():
             state['requests'].append(rid)
             fid = hashlib.sha256((CID + ':' + rid).encode()).hexdigest()[:32]
             content = request.post_data_buffer
+            if state.get('reject_upload'): return response({'error':'unsupported_file_type'},422)
             item = {'file_id': fid, 'filename': unquote(request.headers['x-fs-filename']),
                     'sha256': hashlib.sha256(content).hexdigest(), 'size': len(content), 'status': 'available',
                     'mime': 'text/csv', 'version': 1, 'parent_id': None, 'expires_at': 2000000000}
@@ -102,24 +96,30 @@ def check():
                 found = next((f for f in state['files'] if f['file_id'] == fid), None)
                 return response(found or {}, 200 if found else 404)
             return response({'items': state['files']})
+        if path.startswith(base + '/runs/'):
+            value = request.post_data_json
+            if path.endswith('/stop'):
+                state['turns'][-1]['state'] = 'cancelled'
+            else: state['steer'] = value
+            return response({'state':'accepted'},202)
         if path == base + '/turns':
             value = request.post_data_json
             inputs = [f for f in state['files'] if f['file_id'] in value.get('file_ids', [])]
             fid = ('d' if not state['turns'] else 'e') * 32
             derived = {'file_id': fid, 'filename': '核对结果.xlsx', 'mime': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'size': len(output.getvalue()), 'sha256': hashlib.sha256(output.getvalue()).hexdigest(), 'version': len(state['turns']) + 2,
-                'parent_id': inputs[0]['file_id'], 'status': 'available', 'expires_at': 2000000000}
+                'parent_id': inputs[0]['file_id'] if inputs else None, 'status': 'available', 'expires_at': 2000000000}
             state['files'].append(derived)
             state['bytes'][fid] = output.getvalue()
             state['turns'].append({'turn_id': fid, 'client_request_id': value['client_request_id'], 'text': value['text'],
                 'state': 'completed', 'files': {'inputs': inputs, 'generated': [derived]},
-                'file_bindings': {'inputs': value['file_ids'], 'generated': [fid]}, 'reply': '已按要求修改。', 'artifacts': []})
+                'file_bindings': {'inputs': value.get('file_ids', []), 'generated': [fid]}, 'reply': '# 核对完成\n已结合附件保留完整回答。\n\n| 项目 | 结果 |\n| --- | --- |\n| 金额 | 7 |\n\n```python\nprint(7)\n```\n<script>此处仅作文字显示</script>\n[危险链接](javascript:alert(1))', 'artifacts': []})
             return response({'turn_id': fid, 'state': 'completed'}, 202)
         if path.startswith(base + '/files/'):
             return route.continue_()  # Real loopback response allows Chromium download completion.
         return route.fulfill(status=404, body='missing')
 
-    shots = Path(tempfile.mkdtemp(prefix='fs-materials-ui-'))
+    shots = Path(tempfile.mkdtemp(prefix='fs-native-chat-ui-'))
     with ThreadingHTTPServer(('127.0.0.1', 0), Downloads) as server, sync_playwright() as playwright:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -129,77 +129,89 @@ def check():
         page.route(origin + '/**', serve)
         page.goto(origin + '/')
         expect(page.locator('#file-input')).to_be_enabled()
-        page.locator('#attachments').evaluate('(element) => element.open = true')
-        page.locator('#file-input').set_input_files({'name': '验收专用_中文长名称_分页与版本追问_附件内容核对.csv', 'mimeType': 'text/csv', 'buffer': b'amount\n2\n'})
-        page.get_by_role('button', name='核对原上传').wait_for()
+        assert page.locator('#run-material').count() == 0
+        assert page.locator('#material-jobs').count() == 0
+        assert page.locator('input[type=checkbox]').count() == 0
+        assert page.locator('#file-input').get_attribute('accept') is None
+        page.screenshot(path=str(shots/'empty-light.png'), full_page=True)
+        original = b'%PDF-synthetic-raw-original'
+        page.locator('#file-input').set_input_files({'name':'说明_原始附件.pdf','mimeType':'application/pdf','buffer':original})
+        page.get_by_role('button',name='核对原上传').wait_for()
+        expect(page.get_by_role('button',name='发送',exact=True)).to_be_disabled()
         page.reload()
-        page.locator('#attachments').evaluate('(element) => element.open = true')
-        page.get_by_role('button', name='核对原上传').click()
-        page.locator('#file-choices input[type="checkbox"]').wait_for()
-        expect(page.locator('#file-choices input[type="checkbox"]')).to_be_enabled()
-        page.locator('#file-choices input[type="checkbox"]').focus()
-        page.keyboard.press('Space')
-        assert page.locator('#file-choices input[type="checkbox"]').is_checked()
-        page.get_by_label('给 Hermes 发消息').fill('核对并修改金额')
-        page.get_by_label('给 Hermes 发消息').press('Control+Enter')
-        page.get_by_role('button', name='用于下一轮追问').wait_for()
-        assert not page.locator('#attachments').evaluate('(element) => element.open')
-        assert page.locator('#conversation-title').get_attribute('title') == TITLE
-        assert page.locator('#conversation-title').evaluate('(element) => element.getBoundingClientRect().height < 70')
-        assert page.locator('#connection-indicator').evaluate('(element) => element.getBoundingClientRect().height < 30')
-        assert page.locator('.conversation-sidebar').evaluate('(element) => element.scrollHeight > element.clientHeight && element.clientHeight < innerHeight')
-        page.locator('#attachment-summary').click()
-        assert page.locator('#messages').evaluate('(element) => element.clientHeight >= 160')
-        page.screenshot(path=str(shots / 'expanded.png'), full_page=True)
-        page.locator('#attachment-summary').click()
+        page.get_by_role('button',name='核对原上传').click()
+        expect(page.locator('#file-choices')).to_contain_text('说明_原始附件.pdf · 已上传')
+        assert next(iter(state['bytes'].values())) == original
         assert len(state['requests']) == 1
-        assert page.locator('iframe').count() == 0
-        for theme in ('light', 'dark'):
-            page.evaluate('(theme) => FSTheme.set(theme)', theme)
-            assert page.locator('html').get_attribute('data-fs-theme') == theme
-            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-            page.screenshot(path=str(shots / (theme + '.png')), full_page=True)
+        page.get_by_label('给 Hermes 发消息').fill('请结合这份附件，核对并说明金额。')
+        page.get_by_label('给 Hermes 发消息').press('Shift+Enter')
+        assert page.get_by_label('给 Hermes 发消息').input_value().endswith('\n')
+        page.get_by_label('给 Hermes 发消息').press('Enter')
+        expect(page.locator('.message.assistant')).to_have_count(1)
+        expect(page.locator('.reply-body')).to_contain_text('<script>此处仅作文字显示</script>')
+        assert page.locator('.reply-body script').count() == 0
+        assert page.locator('a[href^="javascript:"]').count() == 0
+        expect(page.locator('.reply-body table')).to_have_count(1)
+        expect(page.locator('.reply-body pre code')).to_have_text('print(7)')
+        expect(page.locator('#file-choices')).to_be_empty()
+        assert page.get_by_label('给 Hermes 发消息').input_value() == ''
+        assert not page.get_by_role('button',name='用于下一轮追问').count()
+        assert page.locator('#conversation-title').get_attribute('title') == TITLE
+        assert page.locator('#conversation-title').evaluate('(e)=>e.getBoundingClientRect().height < 70')
         with page.expect_download() as received:
-            page.get_by_role('link', name='下载文件', exact=True).last.click()
-        received.value.save_as(str(shots / 'download.xlsx'))
-        assert (shots / 'download.xlsx').read_bytes() == output.getvalue()
-        page.get_by_role('button', name='用于下一轮追问').click()
-        assert page.locator('#message-input').evaluate('(element) => element === document.activeElement')
-        page.get_by_label('给 Hermes 发消息').fill('继续修改此版本')
-        page.get_by_role('button', name='发送', exact=True).click()
+            page.get_by_role('link',name='下载文件',exact=True).last.click()
+        received.value.save_as(str(shots/'download.xlsx'))
+        assert (shots/'download.xlsx').read_bytes() == output.getvalue()
+        for width,name in ((1280,'desktop'),(390,'mobile')):
+            page.set_viewport_size({'width':width,'height':844})
+            for theme in ('light','dark'):
+                page.evaluate('(theme)=>FSTheme.set(theme)',theme)
+                page.get_by_label('给 Hermes 发消息').focus()
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+                assert page.locator('#attachments').evaluate('(e)=>getComputedStyle(e).overflowY !== "auto"')
+                page.screenshot(path=str(shots/(name+'-'+theme+'.png')),full_page=True)
+        page.set_viewport_size({'width':1280,'height':800})
+        # Ordinary follow-up needs no file checkbox/rebinding UI. The fixture
+        # proves the text route, not backend native SDK context inheritance.
+        page.get_by_label('给 Hermes 发消息').fill('继续解释上一个结果文件。')
+        page.get_by_role('button',name='发送',exact=True).click()
         expect(page.locator('.message.assistant')).to_have_count(2)
-        assert state['turns'][1]['file_bindings']['inputs'] == ['d' * 32]
-        page.get_by_role('button',name='用于下一轮追问').last.click()
-        page.locator('#attachments').evaluate('(element) => element.open = true')
-        page.locator('#material-bounded').check()
-        page.locator('#material-read-limit').fill('2')
-        page.locator('#message-input').fill('合成材料短任务：仅阅读所选两行，不调用模型')
-        page.locator('#run-material').click()
-        expect(page.locator('#material-jobs')).to_contain_text('短任务完成')
-        expect(page.locator('#material-jobs')).to_contain_text('已读 2 / 2 行')
-        page.get_by_role('button',name='查看回答').click()
-        expect(page.locator('.material-answer')).to_contain_text('合成回答：已核所选两行。')
-        assert page.locator('#material-jobs script').count()==0
-        assert state['material_request']['read_scope']=={'file_id':'e'*32,'sheet':0,'offset':0,'limit':2}
-        for theme in ('light','dark'):
-            page.evaluate('(theme) => FSTheme.set(theme)',theme)
-            page.screenshot(path=str(shots / ('material-desktop-'+theme+'.png')),full_page=True)
-        page.locator('#attachments').evaluate('(element) => element.open = true')
-        page.locator('#material-mode').select_option('revise')
-        expect(page.locator('#material-target')).to_have_text('修改目标：核对结果.xlsx')
-        page.locator('#material-value').fill('30')
-        page.locator('#material-value').focus()
-        page.screenshot(path=str(shots/'material-expanded-dark.png'),full_page=True)
-        page.set_viewport_size({'width': 390, 'height': 844})
-        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-        assert page.locator('#conversation-main').evaluate('(element) => element.getBoundingClientRect().bottom >= document.querySelector("#status").getBoundingClientRect().bottom')
-        page.screenshot(path=str(shots / 'mobile-dark.png'), full_page=True)
-        page.locator('#attachments').evaluate('(element) => element.open = false')
-        page.screenshot(path=str(shots/'material-mobile-collapsed.png'),full_page=True)
+        assert state['turns'][1]['file_bindings']['inputs'] == []
+        state['reject_upload'] = True
+        page.locator('#file-input').set_input_files({'name':'被拒绝的附件.bin','mimeType':'application/octet-stream','buffer':b'synthetic'})
+        expect(page.locator('#upload-list')).to_contain_text('上传失败')
+        page.screenshot(path=str(shots/'upload-failed-dark.png'),full_page=True)
+        page.get_by_role('button',name='移除附件',exact=True).click()
+        state['reject_upload'] = False
+        # Verify the real drag/drop handler routes original File bytes too.
+        page.locator('#composer').evaluate("""element => {
+            const data = new DataTransfer(); data.items.add(new File(['dropped bytes'],'拖放.txt',{type:'text/plain'}));
+            element.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:data}));
+        }""")
+        expect(page.locator('#file-choices')).to_contain_text('拖放.txt · 已上传')
+        page.get_by_role('button',name='移除附件：拖放.txt',exact=True).focus()
+        page.keyboard.press('Enter')
+        expect(page.locator('#file-choices')).to_be_empty()
+        state['turns'][-1]['state']='running'
+        state['turns'][-1]['run_id']='run_'+'a'*32
+        state['turns'][-1]['progress']={'type':'tool.started','tool':'mcp__fcro__fc_read_conversation_file'}
+        page.reload()
+        expect(page.get_by_role('button',name='停止当前任务')).to_be_visible()
+        expect(page.get_by_role('button',name='添加附件',exact=True)).to_be_disabled()
+        expect(page.locator('#file-help')).to_contain_text('可继续发送文字补充')
+        page.get_by_label('给 Hermes 发消息').fill('请保留原文件，再补充说明。')
+        page.get_by_role('button',name='补充当前任务').click()
+        assert state['steer']['text']=='请保留原文件，再补充说明。'
+        assert 'file_ids' not in state['steer']
+        page.screenshot(path=str(shots/'running-dark.png'),full_page=True)
+        page.get_by_role('button',name='停止当前任务').click()
+        expect(page.get_by_role('button',name='停止当前任务')).to_be_hidden()
+        expect(page.locator('#messages')).to_contain_text('已停止；上方保留停止前的回复。')
+        page.screenshot(path=str(shots/'stopped-dark.png'),full_page=True)
         browser.close()
         server.shutdown()
         thread.join(timeout=5)
-    print('materials Chromium UI interactions/theme/mobile/download passed; screenshots:', shots)
+    print('native chat Chromium: raw upload/recovery/chips/Markdown/table/code/HTML safety/download/followup/drag/failure/steer/stop/light/dark/390 passed; screenshots:', shots)
 
 
 if __name__ == '__main__':

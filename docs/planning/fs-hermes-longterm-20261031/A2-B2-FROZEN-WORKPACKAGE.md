@@ -558,3 +558,17 @@ A发布装配须绑定当前成功b362 source/proof，而非复用82edf提升tar
 B离线执行固定原摘要函数体（依赖为明确fixture，非完整SDK进程）：原FS附加字段在摘要后消失，原classifier原envelope可识别但摘要后unknown。修正仅对私有材料guard用九项有限静态消息查表，将相同安全码置于message，同时保留原字段；FC/aux/匿名/未知和动态异常原逻辑保留。不拼动态异常文本、不改权限/SDK/工具规则。直接拼str(error)的初版写法被自动审核拒绝，未应用；随后改为exact类型、参数类型与九码白名单查表，未知私有异常不泄露。
 
 新17项、Core228零失败/错误/skip，3.9 AST及diff通过；忽略目录5项实际FS loopback→原摘要函数→新安全分类器合同通过，含假前缀/尾缀/未知码拒绝，仍非供应商或生产证明。新classifier只补整个固定HTTP400摘要的严格匹配，不扫描自由文本猜source，原执行版本和历史unknown保留。A下一包只补原publisher在8e2a已安装proof上的transport单文件增量及必要真实SDK摘要消费无模型验证，其他24目标/strictTrue绑定不回退；阶段1失败仍待定位，禁止用新付费任务反复猜参数。
+
+### 2026-11-02阶段1产品方向变更：原生式附件聊天
+
+用户截图明确否定“附件独立短任务”交互，要求原样交Hermes对话、由原生能力结合上下文使用、原结果与文件回聊天。本条覆盖旧材料面板/operation/read_scope/逐次选版本作为默认产品要求；不是删除旧账本、放开身份凭据或取消敏感改价规则。阶段2/3不借此提前施工。
+
+实施顺序与验收：A先仅核固定SDK的真实session/attachment/file/artifact接口及普通服务中FC日报组装的替换点；升级线独占frontend index/conversation.js/css及两相关UI测试，改一个composer自动带已上传附件发送现有普通turn API，移除独立材料执行面板。B据真实接口接薄model transport和输出合同，不再以固定三wire或FS格式清单替代Hermes通用执行权限。保留原request ID/停止恢复/未知对账、owner/cid文件隔离及生成字节可下载；普通返回不因旧报告/material schema被丢弃。
+
+先补端到端真实SDK无模型夹具：原文件字节→真实会话/工具读取与生成→输出消息及产物；普通多轮引用、上传未知/重复发送、跨owner/cid及停止恢复必须在直接消费者验证。其后统一独审CI/原publisher小发布，从正常FS界面验证文件聊天和真实下载。不复用旧模拟SDK请求或仅隐藏菜单冒新链路已通，不为外观追加模型；旧独立materials任务暂停所有新增诊断/付费复试。实际native字段/源码清单由A本轮只读报告补齐，不能猜原生/v1/files或把browser-control artifact误当通用文件上传。
+
+### 2026-11-02原生聊天接线与记忆技能补充
+
+仅阶段1：A实现普通turn的原Runs/session与文件workspace，不再默认构造昨天经营书、FC教材或FC TaskStore五字段。B新增NativeChatScope并复用general原provider/预算账本，实际工具schemas来自受信worker组装而非模型请求自报，保留原生discovery与stream；旧FC/定价/材料记录兼容保持。前端固定候选61214995的六文件与后端统一集成，不单独上线。
+
+原生记忆/技能按用户最新决定开放，按owner隔离，新增/修订候选沿原Codex审核队列及原每日调度去重审核，不以候选覆盖正式业务规则。当前实际审核owner/profile映射、官方DockerEnvironment控制面CLI/daemon与执行面cid workspace隔离仍在同包实施验证；不把cwd称sandbox、不把共享profile挂入执行容器，不拿mock代替真实装配。

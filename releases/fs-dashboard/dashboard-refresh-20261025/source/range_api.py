@@ -338,6 +338,10 @@ def conversation_get(handler,uri,user):
  except Exception:conversation_respond(handler,503,{'error':'runtime_diagnostics_unavailable'},headers=headers)
  else:conversation_respond(handler,200,result,headers=headers)
 
+if HERMES is not None:
+ from conversation_native import NATIVE_ROOT
+ HERMES.native_root=Path(NATIVE_ROOT)
+ HERMES.native_ownership=(9876,9876)
 CONVERSATION=ConversationService(HERMES,'/var/lib/fs-hermes-fc/fs/conversations','/run/fs-hermes-fc') if HERMES is not None else None
 bind_conversation_diagnostics(CONVERSATION,conversation_handle)
 if CONVERSATION is not None:

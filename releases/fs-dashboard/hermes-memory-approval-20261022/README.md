@@ -58,3 +58,13 @@ read_reviewed_skill(skills_root, index_path, modules, skill_id,
 源挂载新鲜核对证明宿主`/var/lib/fs-hermes-fc/profile`与native`/profile`同源，完整包mode/uid/gid检查保留。启用skills gate会将原skill_manage的单操作、批处理及背景写入送原pending队列，原生apply仍只由外部审核入口调用；本轮未切gate。原06:00候选代码实际读`/profile/pending/skills`的完整operations，不是只改提示；仍不批准或应用技能。
 
 本地环境为Windows 64位、bundled Python3.12.14。完整相关单元测试有333项有效结果：332通过、1项真实符号链接因权限未执行；另有Node UI检查、dispatcher自检和语法检查通过。这些结果复用同代码的先前通过，最后差异只定向复验。conversation发布测试初次3项失败源于未改旧conf的CRLF工作区转换；确认仅换行、恢复HEAD原字节后，原3项全过，Git逻辑差异为0，旧SHA与validator均未改。正式CI、真实native脚本、真实gate/技能应用、多入口加载与自然日周期仍未执行。
+
+## 2026-11-02 原生聊天owner审核接口（候选）
+
+普通聊天不再靠固定教材注入获得长期知识。A按owner创建`/var/lib/fs-hermes-fc/native/profiles/<sha256(owner UTF8)>`，启用原生memory/skills工具及原write approval；会话workspace与profile分离。原pending记录不含owner/session，A可信工具回调必须先用同home的`wa.get_pending`回读真实record，再把完整摘要与真实run binding登记到原ConversationStore。
+
+`native_review.py`以mode=ro/query_only读取已存在的`/var/lib/fs-hermes-fc/fs/conversations/conversations.db`，从`native_pending_sources`左连接`native_conversation_runs`，用Python解码binding，兼容旧SQLite、不依赖JSON1。严格核对owner/cid/turn/session/run/lease/profile_key与subsystem/8hex pending ID/64hex record SHA，不创建缺库或表。后台review子进程从`hermes_constants`设置owner home ContextVar后才导入官方memory/skill工具，finally复位，不改process env。只使用fs-hermes-fc受信控制面，不在模型执行容器内审批。
+
+沿用原CLI：`review_queue.py list --native-owner wulv`；inspect、decide、publish-index均传同owner，可选`--native-session`只缩小来源。决定必须携带list给出的完整`native_source`，原候选正文和SHA、目标SHA、完整备份、原request幂等与UNKNOWN保护继续有效。每owner回执和发布索引位于原ROOT下`native/<profile_key>`，审批投影写该owner的memory-review，旧desktop默认路径和体验不变；原生memory不能借此修改共享business_context。
+
+未映射或原pending内容与登记SHA不同的项不作为可批准候选；未映射项只列ID和待核状态，不伪造来源。新候选进入pending不等于已生效。原daily_review可读取root选定的`--native-pending-file`观察快照，仍不应用或批准。原heartbeat仅追加同一队列的owner消费，不新增调度；当前新增源未发布、原heartbeat实际追加未验，不能称日审已自动接通。

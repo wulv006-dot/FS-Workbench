@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import zipfile
 import io
 import json
 from email.message import Message
@@ -277,8 +278,14 @@ class FileTests(unittest.TestCase):
         self.assertEqual(self.request('GET', '/files/' + fid, user='bob')[0], 404)
         self.assertEqual(self.request('GET', '/files/' + fid, allowed=False)[0], 403)
         self.assertEqual(self.request('POST', '/files', b'x', {'Sec-Fetch-Site': 'cross-site'})[0], 403)
-        self.assertEqual(self.request('POST', '/files', b'bad zip',
-                                     {'X-FS-Filename': 'bad.xlsx', 'X-FS-Request-ID': 'upload_002'})[0], 422)
+        # Native chat stores original bytes; parsing is an explicit later tool
+        # operation, so even a malformed document can be sent for inspection.
+        code,raw,_=self.request('POST','/files',b'bad zip',
+                               {'X-FS-Filename':'bad.xlsx','X-FS-Request-ID':'upload_002'})
+        self.assertEqual(code,201)
+        bad=json.loads(raw)['file_id']
+        self.assertEqual(self.request('GET','/files/'+bad)[:2],(200,b'bad zip'))
+        with self.assertRaises(zipfile.BadZipFile):self.files.parsed('alice',self.cid,bad)
 
     def test_http_submit_binds_attachments_and_conflicting_retry_fails(self):
         first = self.files.save('alice', self.cid, 'a.csv', b'a', 'upload_001')
@@ -384,6 +391,8 @@ def load_tests(loader, tests, pattern):
     # The existing pr-fast store entry also exercises the cross-line file workflow.
     import test_conversation_file_loop
     tests.addTests(loader.loadTestsFromModule(test_conversation_file_loop))
+    import test_conversation_native
+    tests.addTests(loader.loadTestsFromModule(test_conversation_native))
     import test_conversation_goals
     tests.addTests(loader.loadTestsFromModule(test_conversation_goals))
     import test_conversation_goal_tasks
