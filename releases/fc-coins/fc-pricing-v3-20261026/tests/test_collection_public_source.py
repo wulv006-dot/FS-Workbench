@@ -102,7 +102,7 @@ class PublicSource(unittest.TestCase):
             def abort(self): pass
         with patch('socket.getaddrinfo', return_value=[(2, 1, 6, '', ('93.184.216.34', 443))]), \
                 patch('fc_collection.adapters.PinnedHTTPS', Connection):
-            for location in ('/', 'https://www.arab-ut.com/?currency=USD'):
+            for location in ('/', 'https://www.arab-ut.com', 'https://www.arab-ut.com/?currency=USD'):
                 response = Response(location)
                 http = RestrictedHTTP(REGISTRY)
                 self.assertEqual(http.fetch('ArabUT', 'warm', 2), b'')
@@ -117,7 +117,7 @@ class PublicSource(unittest.TestCase):
             response = Response('/')
             with self.assertRaisesRegex(SourceUnavailable, 'redirect_denied'):
                 RestrictedHTTP(REGISTRY).fetch('ArabUT', 'quote', 2)
-        self.assertEqual(len(calls), 10)
+        self.assertEqual(len(calls), 11)
 
     def test_successful_request_completion_frees_slot_not_budget(self):
         with tempfile.TemporaryDirectory() as folder:

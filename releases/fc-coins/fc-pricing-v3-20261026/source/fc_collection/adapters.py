@@ -142,7 +142,7 @@ class RestrictedHTTP:
                         query = parse_qsl(target.query, keep_blank_values=True, strict_parsing=True) if target.query else []
                         allowed = (target.scheme == 'https' and target.hostname == item['host']
                             and target.port in (None, 443) and target.username is None and target.password is None
-                            and target.path == '/' and not target.fragment and len(dict(query)) == len(query)
+                            and target.path in ('', '/') and not target.fragment and len(dict(query)) == len(query)
                             and all(item['query'].get(key) == value for key, value in query))
                     except ValueError:
                         pass
