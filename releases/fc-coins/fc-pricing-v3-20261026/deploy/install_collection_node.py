@@ -21,7 +21,7 @@ USER = 'fs-fc-collector'
 FILES = {'fc_collection/' + name for name in ('__init__.py', 'contracts.py', 'worker.py', 'adapters.py',
          'protocol.py', 'public_sources.py', 'server.py')} | {'entry.py', 'manifest.json'}
 CONTROL_FILES = {'fc_collection/' + name for name in ('__init__.py', 'contracts.py', 'coordinator.py',
-                 'protocol.py', 'public_sources.py', 'ssh_client.py', 'pilot.py')} | {'entry.py', 'manifest.json'}
+                 'protocol.py', 'public_sources.py', 'ssh_client.py', 'pilot.py', 'client.py')} | {'entry.py', 'manifest.json'}
 SERVICE = b'''[Unit]
 Description=FS source-limited FC collector
 After=network-online.target
