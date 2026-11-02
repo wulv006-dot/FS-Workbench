@@ -566,3 +566,9 @@ B离线执行固定原摘要函数体（依赖为明确fixture，非完整SDK进
 实施顺序与验收：A先仅核固定SDK的真实session/attachment/file/artifact接口及普通服务中FC日报组装的替换点；升级线独占frontend index/conversation.js/css及两相关UI测试，改一个composer自动带已上传附件发送现有普通turn API，移除独立材料执行面板。B据真实接口接薄model transport和输出合同，不再以固定三wire或FS格式清单替代Hermes通用执行权限。保留原request ID/停止恢复/未知对账、owner/cid文件隔离及生成字节可下载；普通返回不因旧报告/material schema被丢弃。
 
 先补端到端真实SDK无模型夹具：原文件字节→真实会话/工具读取与生成→输出消息及产物；普通多轮引用、上传未知/重复发送、跨owner/cid及停止恢复必须在直接消费者验证。其后统一独审CI/原publisher小发布，从正常FS界面验证文件聊天和真实下载。不复用旧模拟SDK请求或仅隐藏菜单冒新链路已通，不为外观追加模型；旧独立materials任务暂停所有新增诊断/付费复试。实际native字段/源码清单由A本轮只读报告补齐，不能猜原生/v1/files或把browser-control artifact误当通用文件上传。
+
+### 2026-11-02原生聊天接线与记忆技能补充
+
+仅阶段1：A实现普通turn的原Runs/session与文件workspace，不再默认构造昨天经营书、FC教材或FC TaskStore五字段。B新增NativeChatScope并复用general原provider/预算账本，实际工具schemas来自受信worker组装而非模型请求自报，保留原生discovery与stream；旧FC/定价/材料记录兼容保持。前端固定候选61214995的六文件与后端统一集成，不单独上线。
+
+原生记忆/技能按用户最新决定开放，按owner隔离，新增/修订候选沿原Codex审核队列及原每日调度去重审核，不以候选覆盖正式业务规则。当前实际审核owner/profile映射、官方DockerEnvironment控制面CLI/daemon与执行面cid workspace隔离仍在同包实施验证；不把cwd称sandbox、不把共享profile挂入执行容器，不拿mock代替真实装配。

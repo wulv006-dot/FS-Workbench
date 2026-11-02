@@ -329,6 +329,8 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromModule(test_material_execution))
     import test_material_transport
     tests.addTests(loader.loadTestsFromModule(test_material_transport))
+    import test_native_chat
+    tests.addTests(loader.loadTestsFromModule(test_native_chat))
     import test_materials_http_workflow
     tests.addTests(loader.loadTestsFromModule(test_materials_http_workflow))
     path=ROOT/'releases/fs-dashboard/hermes-fc-pilot-20261013/test_direct_provider.py'
