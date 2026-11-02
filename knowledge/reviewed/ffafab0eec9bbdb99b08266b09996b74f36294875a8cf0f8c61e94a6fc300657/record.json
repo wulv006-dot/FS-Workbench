@@ -1,0 +1,20 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "native:d4410279",
+  "candidate_sha256": "1302a90da556bb0f3511005f44c96b520acf879924846d7ff9ef1b7169678838",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "summary_only",
+  "evidence": "Original completed approve receipt with success=true and applied=true. Candidate SHA and original receipt bytes verified. The three native before/after hashes form an ordered chain ending at the observed memory hash. This summary archives prior authorized application only; it does not reapply memory or establish new business rules.",
+  "formal_rule_change": false,
+  "kind": "native",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "receipt_sha256": "c4a9f03994a557344a70f865a9df802ff17d89debd15c5397dc3772724c2a66d",
+  "request_id": "ffafab0eec9bbdb99b08266b09996b74f36294875a8cf0f8c61e94a6fc300657",
+  "runtime_activation": false,
+  "summary": "Historical memory revision applied on 2026-11-02: route reports to the current business baseline and skill index, preserve missing data, and use confirmed Order shipping statistics for primary procurement gross profit. Detailed methods remain in skill references. Later revisions refine report presentation; this archive is evidence of adoption, not a second writable business rule."
+}
