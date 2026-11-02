@@ -42,10 +42,12 @@ def amount(row):
     usd = Money.parse(raw.replace('$', '').replace(',', '').strip(), 'USD', {'USD': 2}).minor
     parts, currency = row.get('pay_money_format2'), row.get('currency_code')
     if (not isinstance(currency, str) or not re.fullmatch('[A-Z]{3}', currency)
-            or not isinstance(parts, list) or len(parts) != 2 or parts[0] != currency
+            or not isinstance(parts, list) or len(parts) != 2
+            or not isinstance(parts[0], str) or not re.fullmatch('[A-Z]{3}', parts[0])
             or not isinstance(parts[1], str) or not re.fullmatch(r'\d{1,15}(?:\.\d{1,6})?', parts[1])):
         raise ContractError('PAID_CURRENCY_AMOUNT_REQUIRED')
-    return usd, currency, Decimal(parts[1])
+    # Original payment currency and the Admin display currency can differ after conversion.
+    return usd, parts[0], Decimal(parts[1])
 
 
 def summarize(rows, start, end, game):

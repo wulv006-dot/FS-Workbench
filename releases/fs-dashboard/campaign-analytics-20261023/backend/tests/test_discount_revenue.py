@@ -33,7 +33,7 @@ class DiscountRevenueTests(unittest.TestCase):
             self.summary([order(),order(pay_money_format2=['USD','999'])])
 
     def test_scope_money_state_and_boundaries_fail_closed(self):
-        for changes in [dict(discount_code='LOH8'),dict(site_id=0),dict(gid=456),dict(pay_status=True),dict(pay_status=3),dict(amount_usd_format='?'),dict(pay_money_format2=['EUR','156.91']),dict(paytime='2026-10-31 08:00:00')]:
+        for changes in [dict(discount_code='LOH8'),dict(site_id=0),dict(gid=456),dict(pay_status=True),dict(pay_status=3),dict(amount_usd_format='?'),dict(pay_money_format2=['?','156.91']),dict(paytime='2026-10-31 08:00:00')]:
             with self.subTest(changes=changes),self.assertRaises(ContractError):self.summary([order(**changes)])
         self.assertEqual(self.start.hour,8)
         self.assertEqual(self.summary([order(paytime='2026-10-30 08:00:00')])['totals']['paid_orders'],1)
@@ -45,6 +45,22 @@ class DiscountRevenueTests(unittest.TestCase):
         self.assertEqual(value['paid_currencies'],[dict(currency='EUR',amount='100.01'),dict(currency='USD',amount='156.91')])
         self.assertEqual(value['totals']['paid_usd_minor'],26802)
         self.assertEqual(self.summary(rows,'456')['totals']['paid_orders'],0)
+
+    def test_original_currency_and_payment_display_currency_are_independent(self):
+        rows=[order(),order(order_no='fixture-pln',currency_code='PLN',pay_money_format2=['USD','10.00'],amount_usd_format='$ 10.00')]
+        value=self.summary(rows+rows)
+        self.assertEqual(value['totals']['paid_orders'],2)
+        self.assertEqual(value['totals']['paid_usd_minor'],16691)
+        self.assertEqual(value['paid_currencies'],[dict(currency='USD',amount='166.91')])
+        self.assertTrue(value['coverage']['complete'])
+        converted=self.summary([order(currency_code='BRL',pay_money_format2=['USD','14.22'])])
+        self.assertEqual(converted['paid_currencies'],[dict(currency='USD',amount='14.22')])
+        self.assertEqual(converted['totals']['paid_usd_minor'],15691)
+        with self.assertRaisesRegex(ContractError,'USD_ORDER_AMOUNT_REQUIRED'):
+            self.summary([order(currency_code='PLN',amount_usd_format='?')])
+        for parts in [['USD','?'],['?','10.00'],['USD'],None]:
+            with self.subTest(parts=parts),self.assertRaisesRegex(ContractError,'PAID_CURRENCY_AMOUNT_REQUIRED'):
+                self.summary([order(currency_code='PLN',pay_money_format2=parts)])
 
     def test_31_day_windows_split_and_identity_readback(self):
         class Reader:
