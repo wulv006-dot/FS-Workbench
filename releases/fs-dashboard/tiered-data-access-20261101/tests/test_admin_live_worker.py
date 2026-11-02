@@ -35,7 +35,13 @@ class TestWorker(unittest.TestCase):
   self.assertEqual(Fake.calls,[])
  def test_source_response_cap_is_enforced(self):
   Fake.body=b'x'*4097
-  with self.assertRaises(ValueError):handle(self.payload,lambda:Fake)
+  self.assertEqual(handle(self.payload,lambda:Fake,today=lambda:datetime.date(2026,11,2)),{'error':'source_response_too_large'})
+ def test_later_pages_supported_but_bounded(self):
+  params=valid_params();params['page']=5001
+  result=handle(dict(self.payload,params=params),lambda:Fake,today=lambda:datetime.date(2026,11,2))
+  self.assertEqual(result['status'],200)
+  params['page']=100001
+  with self.assertRaises(ValueError):handle(dict(self.payload,params=params),lambda:Fake,today=lambda:datetime.date(2026,11,2))
  def test_bad_or_unexpected_proxy_denied(self):
   class Wrong(Fake):
    @staticmethod

@@ -8,7 +8,7 @@ from admin_supervised_transport import SupervisedAdminTransport
 
 CONFIG='/opt/fs-hermes-fc/user_config.json'
 WORKER='/opt/fs-hermes-fc/admin_live_worker.py'
-WORKER_SHA256='ac20d5a5fd408ed06ec127ee64567e88f8928cb5705382ac697ddaf2b5b11b5a'
+WORKER_SHA256='e7b71e5a0cbc63c5578b956635aba08cc5da71c3e713e421a4466bb7a1b4993c'
 
 def read_existing_json(path):
  p=Path(path)

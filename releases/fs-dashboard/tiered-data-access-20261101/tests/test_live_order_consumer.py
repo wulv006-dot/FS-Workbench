@@ -20,5 +20,11 @@ class Consumer(unittest.TestCase):
  def test_source_limit_is_not_mistaken_for_end(self):
   def fetch(query):return {'status':'partial','complete':False,'semantics':'live_non_snapshot','data':[],'next_cursor':None,'limitation':'page_limit_reached'}
   with self.assertRaisesRegex(ValueError,'page_limit_reached'):list(iter_pages(fetch,site_id='266',game_id='1327',start='2026-10-01',end_exclusive='2026-10-02',max_pages=5))
+ def test_can_resume_saved_cursor_after_budget(self):
+  calls=[]
+  def fetch(query):
+   calls.append(dict(query));return {'status':'partial','complete':False,'semantics':'live_non_snapshot','data':[],'next_cursor':None,'limitation':'live_pagination_not_snapshot'}
+  list(iter_pages(fetch,site_id='266',game_id='1327',start='2026-10-01',end_exclusive='2026-10-02',max_pages=1,resume_cursor='saved'))
+  self.assertEqual(calls[0]['cursor'],'saved')
 
 if __name__=='__main__':unittest.main()

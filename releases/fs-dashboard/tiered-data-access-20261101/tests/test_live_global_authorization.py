@@ -29,14 +29,14 @@ class GlobalAuthorization(unittest.TestCase):
  def test_regular_viewer_cursor_does_not_disclose_private_order_ids(self):
   import json
   def many(*args):
-   rows=[dict(id=n,site_id=266,gid=1327,paytime='2026-10-29 11:12:13',status='11') for n in range(100,50,-1)]
-   return 200,json.dumps({'code':1,'data':{'total':51,'list':rows}}).encode()
+   rows=[dict(id=n,site_id=266,gid=1327,paytime='2026-10-29 11:12:13',status='11') for n in range(100,80,-1)]
+   return 200,json.dumps({'code':1,'data':{'total':21,'list':rows}}).encode()
   handler=build_handler(load_config=lambda:self.config,load_policy=lambda:self.policy,rbac=RBAC,fetch=many,run_source=lambda operation,timeout:operation(),existing_authorizer=self.authorize,observed_at=lambda:'2026-11-02T00:00:00Z')
   status,result=handler(self.params,'staff');self.assertEqual(status,206)
   import base64,json
   self.assertEqual(result['data'],[]);self.assertIsInstance(result['next_cursor'],str)
   body=result['next_cursor'].split('.')[0];state=json.loads(base64.urlsafe_b64decode(body+'='*((-len(body))%4)))
-  self.assertIsInstance(state[2],str);self.assertEqual(len(state[2]),64);self.assertNotEqual(state[2],str(51))
+  self.assertIsInstance(state[2],str);self.assertEqual(len(state[2]),64);self.assertNotEqual(state[2],str(81))
  def test_existing_private_permission_exposes_private_order_rows(self):
   status,result=self.handler(self.params,'admin');self.assertEqual(status,206)
   self.assertEqual(result['data'][0],{'order_id':'123','paid_at':'2026-10-29 11:12:13','status':'11','pay_status':'1','customer_email':'fixture@example.test'})

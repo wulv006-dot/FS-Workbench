@@ -14,7 +14,7 @@ def handle(params,user,*,authorize_for_user,fetch,enabled=False,observed_at=None
   grant=authorize(dict(query))
   if not isinstance(grant,dict):return 403,{'error':'scope_denied'}
   options={} if observed_at is None else {'observed_at':observed_at}
-  adapter=AdminLivePage(fetch=fetch,authorize=authorize,expected_grant=grant,page_size=50,max_bytes=262144,timeout_seconds=10,**options)
+  adapter=AdminLivePage(fetch=fetch,authorize=authorize,expected_grant=grant,page_size=20,max_bytes=262144,timeout_seconds=10,**options)
   result=adapter(query)
   return 206,result
  except LivePageError as error:

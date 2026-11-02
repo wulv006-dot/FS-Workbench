@@ -5,6 +5,7 @@ from admin_live_page import AdminLivePage,LivePageError
 from admin_live_dispatch import handle as dispatch
 from admin_live_worker import handle as worker
 from test_admin_live_worker import Fake,valid_params
+from admin_supervised_transport import SourceResponseTooLarge
 import datetime
 
 class Pagination(unittest.TestCase):
@@ -59,11 +60,11 @@ class Pagination(unittest.TestCase):
   params={k:[v] for k,v in self.request.items() if k!='fields'}
   def auth(user):return lambda query:dict(self.grant)
   def fetch(path,params,timeout,cap):
-   self.calls.append(params['page']); start=(params['page']-1)*50
-   rows=[dict(id=n,site_id=266,gid=1327,paytime='2026-10-30 10:00:00',status='11',pay_status='1',email='fixture@example.test') for n in range(100,49,-1)]
-   return 200,json.dumps({'code':1,'data':{'total':51,'list':rows[start:start+50]}}).encode()
+   self.calls.append(params['page']); start=(params['page']-1)*20
+   rows=[dict(id=n,site_id=266,gid=1327,paytime='2026-10-30 10:00:00',status='11',pay_status='1',email='fixture@example.test') for n in range(100,79,-1)]
+   return 200,json.dumps({'code':1,'data':{'total':21,'list':rows[start:start+20]}}).encode()
   kw=dict(authorize_for_user=auth,fetch=fetch,enabled=True,observed_at=lambda:'2026-11-02T00:00:00Z',select_fields=lambda q:self.request['fields'])
-  status,first=dispatch(params,'admin',**kw);self.assertEqual(status,206);self.assertEqual(len(first['data']),50)
+  status,first=dispatch(params,'admin',**kw);self.assertEqual(status,206);self.assertEqual(len(first['data']),20)
   self.assertIn('customer_email',first['data'][0]);self.assertTrue(first['next_cursor'])
   status,second=dispatch(dict(params,cursor=[first['next_cursor']]),'admin',**kw)
   self.assertEqual(status,206);self.assertEqual(len(second['data']),1);self.assertEqual(self.calls,[1,2])
@@ -71,5 +72,10 @@ class Pagination(unittest.TestCase):
   params=valid_params();params['page']=2;Fake.calls=[]
   value=worker({'path':'/admin/order.Order/index','params':params,'max_bytes':4096},lambda:Fake,today=lambda:datetime.date(2026,11,2))
   self.assertEqual(value['status'],200);self.assertEqual(len(Fake.calls),1)
+ def test_source_byte_limit_returns_explicit_reason(self):
+  def too_large(*args):raise SourceResponseTooLarge()
+  self.adapter.fetch=too_large
+  with self.assertRaises(LivePageError) as e:self.adapter(self.request)
+  self.assertEqual(e.exception.code,'source_response_too_large')
 
 if __name__=='__main__':unittest.main()

@@ -6,9 +6,10 @@ or fed to range_jobs as a complete snapshot.
 """
 import base64,datetime,hashlib,hmac,json,secrets,time
 from admin_live_admission import LiveBusy
+from admin_supervised_transport import SourceResponseTooLarge
 
 _CURSOR_KEY=secrets.token_bytes(32)
-_MAX_PAGES=2000
+_MAX_PAGES=100000
 
 class LivePageError(Exception):
  def __init__(self,code):super().__init__(code);self.code=code
@@ -68,6 +69,7 @@ class AdminLivePage:
   try:status,raw=self.fetch('/admin/order.Order/index',params,self.timeout_seconds,self.max_bytes)
   except LivePageError:raise
   except LiveBusy:raise LivePageError('source_busy') from None
+  except SourceResponseTooLarge:raise LivePageError('source_response_too_large') from None
   except PermissionError:raise LivePageError('permission_denied') from None
   except TimeoutError:raise LivePageError('source_timeout') from None
   except Exception:raise LivePageError('source_unavailable') from None
