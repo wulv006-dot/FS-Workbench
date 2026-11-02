@@ -2,12 +2,13 @@
 import json,os,stat,sys
 from pathlib import Path
 from admin_live_dispatch import handle
+from admin_live_page import utc_now,validate_period
 from admin_site_authorizer import ConfiguredAdminAuthorizer
 from admin_supervised_transport import SupervisedAdminTransport
 
 CONFIG='/opt/fs-hermes-fc/user_config.json'
 WORKER='/opt/fs-hermes-fc/admin_live_worker.py'
-WORKER_SHA256='fce78f897468a1ee22c89605cb473372d8129833e639dfef48b3e90cbf827606'
+WORKER_SHA256='4503c17edbaa08e3042b4d31bc91f343f6db96db406b3a4a418917ac148429c1'
 
 def read_existing_json(path):
  p=Path(path)
@@ -19,7 +20,7 @@ def read_existing_json(path):
   if not isinstance(value,dict):raise ValueError('invalid_configuration')
   return value
 
-def build_handler(*,load_config,load_policy,rbac,fetch,run_source=None):
+def build_handler(*,load_config,load_policy,rbac,fetch,run_source=None,observed_at=utc_now):
  def get(params,user):
   if not user:return 401,{'error':'login_required'}
   try:
@@ -33,9 +34,10 @@ def build_handler(*,load_config,load_policy,rbac,fetch,run_source=None):
      current=load_config()
      if not isinstance(current,dict) or current.get('live_admin_single_page') is not True:raise PermissionError('permission_denied')
      if not authorizer(user)(query):raise PermissionError('permission_denied')
+     validate_period(query,observed_at)
      return fetch(path,source_params,timeout,max_bytes)
     return run_source(operation,timeout)
-   return handle(params,user,authorize_for_user=authorizer,fetch=scoped_fetch,enabled=True)
+   return handle(params,user,authorize_for_user=authorizer,fetch=scoped_fetch,enabled=True,observed_at=observed_at)
   except Exception:return 503,{'error':'live_source_unavailable'}
  return get
 

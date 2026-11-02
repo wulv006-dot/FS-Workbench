@@ -38,6 +38,12 @@ class Host(unittest.TestCase):
   def delayed(operation,timeout):self.config['live_admin_single_page']=False;return operation()
   handler=build_handler(load_config=lambda:self.config,load_policy=lambda:self.policy,rbac=RBAC,fetch=self.fetch,run_source=delayed)
   self.assertEqual(handler(self.params,'trusted')[0],403);self.assertEqual(self.calls,[])
+ def test_shanghai_midnight_while_queued_rechecks_365_day_boundary(self):
+  self.config['live_admin_single_page']=True;clock=['2026-11-02T15:59:59+00:00']
+  params=dict(self.params,start=['2025-11-02'],end_exclusive=['2025-11-03'])
+  def delayed(operation,timeout):clock[0]='2026-11-02T16:00:01+00:00';return operation()
+  handler=build_handler(load_config=lambda:self.config,load_policy=lambda:self.policy,rbac=RBAC,fetch=self.fetch,run_source=delayed,observed_at=lambda:clock[0])
+  self.assertEqual(handler(params,'trusted')[0],422);self.assertEqual(self.calls,[])
  def test_busy_admission_reports_retry_without_source(self):
   from admin_live_admission import LiveBusy
   self.config['live_admin_single_page']=True

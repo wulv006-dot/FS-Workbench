@@ -21,7 +21,9 @@ def load_shared():
  exec(compile(raw,str(p),'exec'),module.__dict__)
  return module
 
-def handle(value,loader=load_shared):
+def shanghai_today():return datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).date()
+
+def handle(value,loader=load_shared,*,today=shanghai_today):
  if not isinstance(value,dict) or set(value)!={'path','params','max_bytes'} or value['path']!='/admin/order.Order/index' or type(value['max_bytes']) is not int or not 1<=value['max_bytes']<=1048576:raise ValueError('worker_input')
  params=value['params']
  keys={'page','limit','order'}|{'search[%d][%s]'%(i,k) for i in range(3) for k in ('field','operator','val')}|{'search[2][render]'}
@@ -33,11 +35,16 @@ def handle(value,loader=load_shared):
   start=datetime.date.fromisoformat(period[:10]);end=datetime.date.fromisoformat(period[20:30])
   if not 0<=(end-start).days<28:raise ValueError()
  except ValueError:raise ValueError('worker_dates') from None
+ def check_current_date():
+  current=today()
+  if type(current) is not datetime.date or start<current-datetime.timedelta(days=365) or end>current:raise ValueError('worker_dates')
+ check_current_date()
  shared=loader();session=shared.SessionManager({});base=shared.api_base(session.config)
  if base!='http://127.0.0.1:8912' or base not in shared.API_BASES:raise ValueError('worker_proxy')
  query=urlencode(params)
  if len(query)>4096:raise ValueError('worker_query')
  request=Request(base+value['path']+'?'+query,headers=dict(shared.HEADERS),method='GET')
+ check_current_date()
  try:
   with session.opener.open(request,timeout=10) as response:status=response.status;body=response.read(value['max_bytes']+1)
  except HTTPError as error:

@@ -12,6 +12,17 @@ class LivePageError(Exception):
 
 def utc_now():return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
+def validate_period(request,observed_at):
+ try:
+  start=datetime.date.fromisoformat(request['start']);end=datetime.date.fromisoformat(request['end_exclusive'])
+  if start.isoformat()!=request['start'] or end.isoformat()!=request['end_exclusive'] or not 0<(end-start).days<=28:raise ValueError()
+  now=datetime.datetime.fromisoformat(observed_at().replace('Z','+00:00'))
+  if now.utcoffset() is None:raise ValueError()
+  today=now.astimezone(datetime.timezone(datetime.timedelta(hours=8))).date()
+  if start<today-datetime.timedelta(days=365) or end>today+datetime.timedelta(days=1):raise ValueError()
+  return start,end
+ except (KeyError,ValueError,TypeError,AttributeError):raise LivePageError('invalid_request') from None
+
 class AdminLivePage:
  def __init__(self,*,fetch,authorize,expected_grant,page_size,max_bytes,timeout_seconds,observed_at=utc_now,clock=time.monotonic):
   if not all(callable(x) for x in (fetch,authorize,observed_at,clock)):raise ValueError('host_dependencies_required')
@@ -28,16 +39,7 @@ class AdminLivePage:
   if any(not isinstance(request[k],str) or not request[k].isascii() or not request[k].isdigit() or len(request[k])>20 for k in ('site_id','game_id')):raise LivePageError('invalid_request')
   fields=request['fields']
   if not isinstance(fields,list) or any(type(x) is not str for x in fields) or 'order_id' not in fields or len(fields)!=len(set(fields)) or set(fields)-{'order_id','paid_at','status'}:raise LivePageError('invalid_request')
-  try:
-   start=datetime.date.fromisoformat(request['start']);end=datetime.date.fromisoformat(request['end_exclusive'])
-   if start.isoformat()!=request['start'] or end.isoformat()!=request['end_exclusive'] or not 0<(end-start).days<=28:raise ValueError()
-  except (ValueError,TypeError):raise LivePageError('invalid_request') from None
-  try:
-   now=datetime.datetime.fromisoformat(self.observed_at().replace('Z','+00:00'))
-   if now.utcoffset() is None:raise ValueError()
-   today=now.astimezone(datetime.timezone(datetime.timedelta(hours=8))).date()
-   if start<today-datetime.timedelta(days=365) or end>today+datetime.timedelta(days=1):raise ValueError()
-  except (ValueError,TypeError,AttributeError):raise LivePageError('invalid_request') from None
+  start,end=validate_period(request,self.observed_at)
   self.grant(request)
   filters=[('site_id','=',request['site_id']),('gid','=',request['game_id']),('paytime','RANGE',start.isoformat()+' 00:00:00,'+(end-datetime.timedelta(days=1)).isoformat()+' 23:59:59')]
   params={'page':1,'limit':self.page_size,'order':'id,desc'}
@@ -46,6 +48,7 @@ class AdminLivePage:
    if operator=='RANGE':params['search[%d][render]'%i]='datetime'
   started=self.clock()
   try:status,raw=self.fetch('/admin/order.Order/index',params,self.timeout_seconds,self.max_bytes)
+  except LivePageError:raise
   except LiveBusy:raise LivePageError('source_busy') from None
   except PermissionError:raise LivePageError('permission_denied') from None
   except TimeoutError:raise LivePageError('source_timeout') from None

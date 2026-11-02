@@ -1,4 +1,4 @@
-import base64,io,json,sys,unittest
+import base64,datetime,io,json,sys,unittest
 from pathlib import Path
 from urllib.error import HTTPError
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
@@ -41,6 +41,15 @@ class TestWorker(unittest.TestCase):
    @staticmethod
    def api_base(config):return 'http://127.0.0.1:9999'
   with self.assertRaises(ValueError):handle(self.payload,lambda:Wrong)
+  self.assertEqual(Fake.calls,[])
+ def test_worker_rejects_window_that_expired_after_midnight(self):
+  params=valid_params();params['search[2][val]']='2025-11-02 00:00:00,2025-11-02 23:59:59'
+  with self.assertRaises(ValueError):handle(dict(self.payload,params=params),lambda:Fake,today=lambda:datetime.date(2026,11,3))
+  self.assertEqual(Fake.calls,[])
+ def test_worker_rechecks_after_session_setup_immediately_before_io(self):
+  params=valid_params();params['search[2][val]']='2025-11-02 00:00:00,2025-11-02 23:59:59'
+  dates=iter((datetime.date(2026,11,2),datetime.date(2026,11,3)))
+  with self.assertRaises(ValueError):handle(dict(self.payload,params=params),lambda:Fake,today=lambda:next(dates))
   self.assertEqual(Fake.calls,[])
 
 if __name__=='__main__':unittest.main(verbosity=2)
