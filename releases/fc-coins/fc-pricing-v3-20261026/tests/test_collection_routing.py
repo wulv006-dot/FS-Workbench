@@ -207,7 +207,7 @@ class Routing(unittest.TestCase):
                     coordinator.submit_observation(principal, pending.pop(), NOW)
                     return dict(status='accepted')
                 return dict(status='idle')
-            def run(self, task, principal, coordinator):
+            def run(self, task, principal, coordinator, **kwargs):
                 runs.append(task['job_id'])
                 endpoint.reserve_request(principal, task['job_id'], task['lease_epoch'], dict(count=1), NOW)
                 body = observation(task)

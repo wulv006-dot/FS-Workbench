@@ -1,5 +1,6 @@
 """187-only, opt-in ArabUT routing. No implicit direct read after a remote failure."""
 from datetime import datetime, timezone
+from contextlib import closing
 import json
 import os
 from pathlib import Path
@@ -43,6 +44,12 @@ def read_routing():
     return value
 
 
+def check_routing(expected):
+    if read_routing() != expected:
+        from .adapters import SourceUnavailable
+        raise SourceUnavailable('collection_routing_changed')
+
+
 def source_ready(coordinator, routing):
     with coordinator.transaction() as db:
         source = coordinator._source_ready(db, 'ArabUT', utc())
@@ -64,7 +71,8 @@ def collect_remote(parent, routing):
     task = build_job(parent, 'ArabUT', dict(requested_platforms=['PS', 'XBOX'], region_scope=[21],
         quantity_scope=dict(purchase_quantity='100', quantity_unit='K'), discount_scope='coupon_excluded', currency='USD',
         policy_version=source['policy_version'], adapter_version=source['adapter_version'],
-        assignment_generation=source['generation'], total_attempt_limit=1, total_request_budget=3), parent['deadline_at'])
+        assignment_generation=source['generation'], total_attempt_limit=2 if '187' in source['nodes'] else 1,
+        total_request_budget=6 if '187' in source['nodes'] else 3), parent['deadline_at'])
     with coordinator.transaction() as db:
         key = fingerprint(['ArabUT', parent['run_id']])
         pin = dict(routing, created_at=task['created_at'], task_context_hash=task['task_context_hash'])
@@ -81,50 +89,60 @@ def collect_remote(parent, routing):
         coordinator.enqueue(task)
     accepted = coordinator.accepted(task['job_id'], utc())
     if not accepted:
-        remaining = (instant(task['deadline_at']) - utc()).total_seconds()
-        if remaining <= 0:
-            raise ValueError('collection_original_pending_or_expired')
-        private_file(ACCESS)
-        access = json.loads(ACCESS.read_text())
-        command = ssh_command(access)
-        principal = None
-        for index in range(2):
+        try:
             remaining = (instant(task['deadline_at']) - utc()).total_seconds()
             if remaining <= 0:
-                raise ValueError('collection_parent_expired')
-            with Session(command, max_seconds=min(15, remaining)) as session:
-                health = session.health('183', access['worker_digest'], margin=source['clock_margin_seconds'])
-            if health['adapters'] != VERSIONS:
-                raise ValueError('collection_adapter_version_invalid')
-            current = {key:health[key] for key in ('node_id', 'node_boot_id')}
-            if principal and current != principal:
-                raise ValueError('collection_node_unstable')
-            principal = current
-            coordinator.register_node(principal, ['ArabUT'], utc())
-            if index == 0:
-                if source['stable_seconds'] > min(10, remaining - 15):
-                    raise ValueError('collection_parent_insufficient_time')
-                time.sleep(source['stable_seconds'])
-        # Reconcile an original durable spool before claiming a new task.
-        for _ in range(32):
-            remaining = (instant(task['deadline_at']) - utc()).total_seconds()
-            if remaining <= 0:
-                raise ValueError('collection_parent_expired')
-            with Session(command, max_seconds=min(10, remaining)) as session:
-                receipt = session.resend(principal, coordinator)
-            if receipt.get('status') == 'idle':
-                break
-        else:
-            raise ValueError('collection_spool_not_drained')
-        if read_routing() != routing:
-            raise ValueError('collection_routing_changed')
-        source_ready(coordinator, routing)
-        leased = coordinator.claim_job(principal, ['ArabUT'], utc(), job_id=task['job_id'])
-        if leased is not None:
-            remaining = (instant(leased['deadline_at']) - utc()).total_seconds()
-            if remaining > 0:
-                with Session(command, max_seconds=min(90, remaining)) as session:
-                    session.run(leased, principal, coordinator)
+                raise ValueError('collection_original_pending_or_expired')
+            private_file(ACCESS)
+            access = json.loads(ACCESS.read_text())
+            command = ssh_command(access)
+            principal = None
+            for index in range(2):
+                remaining = (instant(task['deadline_at']) - utc()).total_seconds()
+                if remaining <= 0:
+                    raise ValueError('collection_parent_expired')
+                with Session(command, max_seconds=min(15, remaining)) as session:
+                    health = session.health('183', access['worker_digest'], margin=source['clock_margin_seconds'])
+                if health['adapters'] != VERSIONS:
+                    raise ValueError('collection_adapter_version_invalid')
+                current = {key:health[key] for key in ('node_id', 'node_boot_id')}
+                if principal and current != principal:
+                    raise ValueError('collection_node_unstable')
+                principal = current
+                coordinator.register_node(principal, ['ArabUT'], utc())
+                if index == 0:
+                    if source['stable_seconds'] > min(10, remaining - 15):
+                        raise ValueError('collection_parent_insufficient_time')
+                    time.sleep(source['stable_seconds'])
+            # Reconcile an original durable spool before claiming a new task.
+            for _ in range(32):
+                remaining = (instant(task['deadline_at']) - utc()).total_seconds()
+                if remaining <= 0:
+                    raise ValueError('collection_parent_expired')
+                with Session(command, max_seconds=min(10, remaining)) as session:
+                    receipt = session.resend(principal, coordinator)
+                if receipt.get('status') == 'idle':
+                    break
+            else:
+                raise ValueError('collection_spool_not_drained')
+            if read_routing() != routing:
+                raise ValueError('collection_routing_changed')
+            source_ready(coordinator, routing)
+            leased = coordinator.claim_job(principal, ['ArabUT'], utc(), job_id=task['job_id'])
+            if leased is not None:
+                remaining = (instant(leased['deadline_at']) - utc()).total_seconds()
+                if remaining > 0:
+                    with Session(command, max_seconds=min(90, remaining)) as session:
+                        session.run(leased, principal, coordinator, guard=lambda: check_routing(routing))
+            accepted = coordinator.accepted(task['job_id'], utc())
+        except (OSError, ValueError, TimeoutError, EOFError):
+            if '187' not in source['nodes']:
+                raise
+        accepted = coordinator.accepted(task['job_id'], utc())
+    retryable = {'transport_unavailable', 'request_timeout', 'dns_unavailable', 'http_500', 'http_502', 'http_503', 'http_504'}
+    if '187' in source['nodes'] and (not accepted or any(body['node_id'] == '183' and body['status'] == 'failed' and body['reason_code'] in retryable for body in accepted)):
+        from .failover import run_fallback
+        run_fallback(coordinator, task, routing)
         accepted = coordinator.accepted(task['job_id'], utc())
     if read_routing() != routing:
         raise ValueError('collection_routing_changed')
@@ -136,6 +154,31 @@ def collect_remote(parent, routing):
     return to_arab_status(accepted, task, utc())
 
 
+def legacy_ready():
+    if not DATABASE.exists():
+        return True
+    if DATABASE.is_symlink():
+        return False
+    with closing(sqlite3.connect(DATABASE.as_uri() + '?mode=ro', uri=True, timeout=5)) as db:
+        source = db.execute('SELECT body FROM collection_sources WHERE id=?', ('ArabUT',)).fetchone()
+        if source is None:
+            return True
+        source = json.loads(source[0])
+        now = utc().timestamp()
+        for row in db.execute('SELECT body FROM collection_sources'):
+            shared = json.loads(row[0])
+            if shared['origin'] == source['origin'] and (shared['blocked'] or shared['cooldown_until'] > now):
+                return False
+        if db.execute('SELECT 1 FROM collection_permits p LEFT JOIN collection_permit_completions c ON p.id=c.id '
+                      'WHERE p.origin=? AND c.id IS NULL AND p.expires>? LIMIT 1',
+                      (source['origin'], now - source['clock_margin_seconds'])).fetchone():
+            return False
+        for row in db.execute("SELECT body FROM collection_jobs WHERE source=? AND state='LEASED'", ('ArabUT',)):
+            if instant(json.loads(row[0])['lease_expires_at']).timestamp() + source['clock_margin_seconds'] > now:
+                return False
+    return True
+
+
 def arab_normal(local, parent=None, *, pinned=None):
     if isinstance(pinned, dict) and pinned.get('mode') == 'local':
         return local()
@@ -145,6 +188,11 @@ def arab_normal(local, parent=None, *, pinned=None):
         return dict(status='unavailable', reason='collection_routing_invalid', offers=[])
     if routing['remote_result_mode'] != 'consume':
         # The bounded independent shadow driver owns remote shadow requests.
+        try:
+            if not legacy_ready():
+                return dict(status='unavailable', reason='collection_origin_not_ready', offers=[])
+        except (OSError, ValueError, sqlite3.Error):
+            return dict(status='unavailable', reason='collection_origin_state_unavailable', offers=[])
         return local()
     try:
         return collect_remote(parent, routing)
