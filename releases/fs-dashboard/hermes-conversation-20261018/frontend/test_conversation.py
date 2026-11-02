@@ -112,10 +112,8 @@ def check():
         assert state["calls"], (page.locator("#status").inner_text(), page.locator("#send-message").inner_text())
         page.get_by_role("button", name="核对上次发送").wait_for()
         page.get_by_role("button", name="核对上次发送").click()
-        page.get_by_text("已生成 HTML，可打开原稿查看。").wait_for()
-        assert not page.get_by_text("已完成。").is_visible()
-        page.get_by_text("展开 Hermes 原始回复").click()
-        page.get_by_text("已完成。").wait_for(state="visible")
+        page.locator(".reply-body").filter(has_text="已完成。").wait_for(state="visible")
+        assert page.locator(".reply-body script").count() == 0
         assert state["calls"][0]["client_request_id"] == state["calls"][1]["client_request_id"]
         assert page.evaluate("getComputedStyle(document.querySelector('#stop-run')).display") == "none"
         assert page.evaluate("parseInt(getComputedStyle(document.querySelector('.skip')).top) < 0")
@@ -131,8 +129,6 @@ def check():
         state["turn"]["reply"] = ""
         state["emit"] = True
         page.reload()
-        page.get_by_text("已生成 HTML，可打开原稿查看。").wait_for()
-        page.get_by_text("展开 Hermes 原始回复").click()
         page.get_by_text("最终原文").wait_for(state="visible")
         assert page.get_by_text("今天先看什么？").count() == 1
         assert page.evaluate("document.documentElement.dataset.fsTheme") == "dark"
@@ -140,16 +136,15 @@ def check():
         state["turn"]["reply"] = "<!doctype html><html><body>原始标记</body></html>"
         state["turn"]["state"] = "running"
         page.reload()
-        page.get_by_text("HTML 原稿正在归档，稍后可打开。", exact=True).wait_for()
-        assert not page.get_by_text("原始标记").is_visible()
+        page.locator(".reply-body").filter(has_text="原始标记").wait_for(state="visible")
+        assert page.locator(".reply-body html, .reply-body body, .reply-body script").count() == 0
         state["turn"]["state"] = "completed"
         state["turn"]["reply"] = "前言 <article>外套</article> <!doctype html><html><body>文本归档原稿</body></html> 后言"
         state["turn"]["artifacts"] = [{"artifact_id": "e" * 32, "filename": "original.txt", "mime": "text/plain"}]
         page.reload()
-        page.get_by_text("回复已归档为文本，可打开原稿查看。", exact=True).wait_for()
+        page.locator(".reply-body").filter(has_text="文本归档原稿").wait_for(state="visible")
         assert page.get_by_role("link", name="打开原稿 · original.txt").get_attribute("target") == "_blank"
-        assert not page.get_by_text("文本归档原稿").is_visible()
-        page.get_by_text("展开 Hermes 原始回复").click()
+        assert page.locator(".reply-body article").count() == 0
         page.get_by_text("前言", exact=False).wait_for(state="visible")
         state["turn"]["artifacts"] = []
         state["turn"]["state"] = "running"
@@ -211,7 +206,7 @@ def check():
         fresh.wait_for_function("!document.querySelector('#send-message').disabled")
         fresh.get_by_label("给 Hermes 发消息").fill("新会话问题")
         fresh.get_by_role("button", name="发送", exact=True).click()
-        fresh.get_by_text("已生成 HTML，可打开原稿查看。").wait_for()
+        fresh.locator(".reply-body").filter(has_text="已完成。").wait_for(state="visible")
         assert state["created"]
         fresh.close()
         browser.close()
