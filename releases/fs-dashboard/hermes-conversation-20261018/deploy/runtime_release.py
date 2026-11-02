@@ -43,7 +43,7 @@ TRANSPORT_MODE = False
 STREAM_MODE = False
 BINDINGS_MODE = False
 GUARD_MODE = False
-GUARD_BEFORE_SHA = "e682d8659812cf5b3a9cc44f3011a7f3de0a204c830855cbff2a85e1573c3052"
+GUARD_BEFORE_SHA = "a71849b7e5e8f3c5b55967c21d5383e2ff6afa7c7c5e3c6772dc0c80209ba945"
 BINDINGS_CANDIDATE = "runtime/conversation_file_bindings.py"
 BINDINGS_BEFORE_SHA = "655625ff698981c295539663d60ac54f21ebe2c1935dfef4f7a1dd3a27899294"
 BINDINGS_TRANSPORT_SHA = "e682d8659812cf5b3a9cc44f3011a7f3de0a204c830855cbff2a85e1573c3052"
@@ -159,17 +159,17 @@ def configure_bindings_auth():
         journalSha256='831ca7e02476aa50ef9fb25c2b3cc52c28ad562979fff26a938992746a6fc3e7')
 
 def configure_material_guard():
-    """Existing transport only over the exact successful c12a bindings install."""
+    """Existing transport only over the exact successful 8e2a guard install."""
     global INSTALLED_COMMIT, BINDINGS_MODE, GUARD_MODE
     if GUARD_MODE:
         return
     configure_bindings_auth()
     BINDINGS_MODE, GUARD_MODE = False, True
-    INSTALLED_COMMIT = 'c12a273387a7811c71b3fbf1c040c8a7b4d1639a'
+    INSTALLED_COMMIT = '8e2a456631fc5aa916c1366d087b9adbccb02f91'
     INSTALLED_PROOF.update(sourceCommit=INSTALLED_COMMIT,
-        backup='/var/backups/fs-navigation-20261006/nav-20261101T180448Z',
-        manifestSha256='b0353c2f42e0704b8f20999b0a8da26755d2ae4f0e1752cd32e54a6c9ce1ea49',
-        journalSha256='2832922e69306c879dfcb9698b2a51997a9fdd0bf5ce50286931d406c6cd2dec')
+        backup='/var/backups/fs-navigation-20261006/nav-20261102T002030Z',
+        manifestSha256='e3a949b35d55aac5048f22094d81bc9f7db7e4f684f7463a83044371f5d4d3a4',
+        journalSha256='fc33024f58bb1222e288e6ab1374be16b543f93756f135833238b29be9e22c74')
 
 
 def promoted_transport_sha(manifest, base):
