@@ -3,6 +3,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import unittest
 import zipfile
@@ -11,6 +12,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 
 
 class NodePackage(unittest.TestCase):
+    def test_exported_control_accepts_explicit_recheck_and_refuses_missing_original_state(self):
+        root = Path(__file__).resolve().parents[1]
+        spec = importlib.util.spec_from_file_location('build_collection_node', root / 'deploy/build_collection_node.py')
+        builder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            bundle = folder / 'control.zip'
+            builder.build(bundle, 'control')
+            with zipfile.ZipFile(bundle) as archive:
+                code = folder / 'code'
+                archive.extractall(code)
+            missing = folder / 'missing-state'
+            result = subprocess.run([sys.executable, '-I', '-B', str(code / 'entry.py'), 'unused-config',
+                str(missing), 'original-recheck', '--recheck-of', 'original'], capture_output=True, timeout=10)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(b'pilot_original_required', result.stderr)
+            self.assertFalse(missing.exists())
+
     def test_exported_node_can_report_health_over_real_subprocess_pipes(self):
         from fc_collection.ssh_client import Session
         root = Path(__file__).resolve().parents[1]
