@@ -51,6 +51,9 @@ NATIVE_CLI = '/usr/bin/docker'
 NATIVE_CLI_SHA = 'bfc304d1c5d8694b5c9bacc1c52c2f8d50e65b6f3e29446283a2561e23667be7'
 NATIVE_ROOT = '/var/lib/fs-hermes-fc/native'
 NATIVE_EMPTY_SOURCE = '/var/lib/fs-hermes-fc/native-backend-home'
+NATIVE_LEGACY_DAILY = '/var/lib/fs-hermes-fc/profile/scripts/hermes-memory-review/daily_review.py'
+NATIVE_LEGACY_DAILY_SHA = '33c77c007b97061e13e7f530d4e550b25151b6ed11b3fcdf1c878da0bbe56c0d'
+NATIVE_DAILY_CONTAINER = '/profile/scripts/hermes-memory-review/daily_review.py'
 NATIVE_EXTRA_TARGETS = {
     'runtime/direct_provider.py':'/opt/fs-hermes-fc/direct_provider.py',
     'runtime/conversation_native.py':'/opt/fs-hermes-fc/conversation_native.py',
@@ -60,11 +63,10 @@ NATIVE_EXTRA_TARGETS = {
     'approval/review_queue.py':'/opt/fs-hermes-memory-approval/review_queue.py',
     'approval/native_review.py':'/opt/fs-hermes-memory-approval/native_review.py',
     'approval/reviewed_skills.py':'/opt/fs-hermes-memory-approval/reviewed_skills.py',
-    'approval/daily_review.py':'/var/lib/fs-hermes-fc/profile/scripts/hermes-memory-review/daily_review.py'}
+    'approval/daily_review.py':'/opt/fs-hermes-memory-approval/daily_review.py'}
 NATIVE_EXTERNAL_BEFORE = {
     'approval/review_queue.py':'05ee9dc2e7c936504284bdbdf91343230594365741997a4f3fbdf6c65167387c',
-    'approval/reviewed_skills.py':'a3d546177396ba906f66c4f8411111aaefb3c96371dc628ac5ada2daf023e660',
-    'approval/daily_review.py':'33c77c007b97061e13e7f530d4e550b25151b6ed11b3fcdf1c878da0bbe56c0d'}
+    'approval/reviewed_skills.py':'a3d546177396ba906f66c4f8411111aaefb3c96371dc628ac5ada2daf023e660'}
 NATIVE_INSTALLED_TARGETS = {}
 NATIVE_INSTALLED_PROTECTED = frozenset()
 NATIVE_ALLOWED = frozenset(NATIVE_EXTRA_TARGETS) | frozenset({
@@ -216,7 +218,7 @@ def configure_native_chat():
         journalSha256='d59396365261e5669b8a1ec4fc9432beea103ca23ed8f664b81b0a6de1fd3431')
     TARGETS.update(NATIVE_EXTRA_TARGETS)
     NEW = frozenset({'runtime/conversation_native.py','runtime/native_chat.py',
-                     'runtime/native-backend.json','approval/native_review.py'})
+                     'runtime/native-backend.json','approval/native_review.py','approval/daily_review.py'})
 
 
 def promoted_transport_sha(manifest, base):
@@ -256,7 +258,8 @@ def installed_baseline(root, git_baseline):
                 next((row['sha256'] for row in protected if row['path'] == TARGETS['runtime/direct_provider.py']),None) != NATIVE_PROVIDER_BEFORE_SHA or
                 journal.get('status') != 'applied-awaiting-actual-http-role-acceptance' or
                 journal.get('approvedManifestSha256') != INSTALLED_PROOF['manifestSha256'] or
-                journal.get('manifest') != manifest or git_baseline != {'source_commit':INSTALLED_COMMIT,'files':expected}):
+                journal.get('manifest') != manifest or git_baseline != {'source_commit':INSTALLED_COMMIT,'files':expected,
+                    'protected':{NATIVE_LEGACY_DAILY:NATIVE_LEGACY_DAILY_SHA}}):
             raise ValueError('native_installed_git_and_journal_mismatch')
         return manifest
     expected = {row['candidate']: row['sha256'] for row in manifest['files']}
@@ -324,6 +327,7 @@ def protected_paths(base):
                   '/etc/systemd/system/fs-hermes-fc.service.d/install-state-isolation.conf'))
     if NATIVE_MODE:
         paths.add(NATIVE_CLI)
+        paths.add(NATIVE_LEGACY_DAILY)
     return paths - set(TARGETS.values())
 
 
@@ -436,6 +440,16 @@ def ensure_native_directories():
             raise ValueError('native_empty_backend_home_changed')
 
 
+def native_legacy_daily_guard(base, root):
+    """Pin the unchanged host entry; never grant its private parent a code exception."""
+    path=base.rooted(root,NATIVE_LEGACY_DAILY)
+    info=native_path_info(path)
+    if (not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or
+            (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode))!=(0,0,0o644) or
+            base.digest(path)!=NATIVE_LEGACY_DAILY_SHA):
+        raise ValueError('native_legacy_daily_drift')
+
+
 def native_runtime_readiness():
     """Check the unchanged nonroot worker really reaches its fixed Docker daemon."""
     expected_contract={'version':'native_docker_v1','root':NATIVE_ROOT,'image':FROZEN_IMAGE_MARKER,
@@ -455,9 +469,13 @@ def native_runtime_readiness():
                                                text=True,timeout=10))
     expected = {'/opt/fs-native-bin/docker':(NATIVE_CLI,False),
                 '/var/run/docker.sock':('/run/docker.sock',True),
-                NATIVE_ROOT:(NATIVE_ROOT,True),'/opt/fs-native-backend-home':(NATIVE_EMPTY_SOURCE,False)}
-    actual = {row['Destination']:(row['Source'],row['RW']) for row in mounts if row['Destination'] in expected}
-    if actual != expected:
+                NATIVE_ROOT:(NATIVE_ROOT,True),'/opt/fs-native-backend-home':(NATIVE_EMPTY_SOURCE,False),
+                NATIVE_DAILY_CONTAINER:(TARGETS['approval/daily_review.py'],False)}
+    selected=[row for row in mounts if row['Destination'] in expected]
+    actual = {row['Destination']:(row['Source'],row['RW']) for row in selected}
+    if (actual != expected or len(selected)!=len(expected) or
+            any(row['Destination'].startswith(('/opt/fs-native-',NATIVE_ROOT+'/',NATIVE_DAILY_CONTAINER.rsplit('/',1)[0]+'/'))
+                and row['Destination'] not in expected for row in mounts)):
         raise ValueError('native_control_mount_readback')
 
 
@@ -627,6 +645,8 @@ def load_base():
             running_worker(manifest)
         if NATIVE_MODE and native_dependencies(base, root) != manifest['nativeDependencies']:
             raise ValueError('native_dependencies_cas_drift')
+        if NATIVE_MODE:
+            native_legacy_daily_guard(base,root)
         if before_restart and manifest.get('scope') == SCOPE:
             if manifest['runtimeBefore']['fs-hermes-fc.service'] != {'ActiveState': 'active'}:
                 observed = worker_observation(allow_stopped=True)

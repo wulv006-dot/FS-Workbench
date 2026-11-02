@@ -9,6 +9,7 @@ import stat
 from pathlib import Path
 import sqlite3
 import subprocess
+import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -1196,23 +1197,108 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 class NativePublisher(unittest.TestCase):
+    def test_daily_consumer_keeps_container_entry_and_sibling_import(self):
+        prepare.configure_native_chat()
+        source=Path(__file__).resolve().parents[2]/'hermes-memory-approval-20261022'
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);host=root/'root-code.py';host.write_bytes((source/'daily_review.py').read_bytes())
+            entry=root/'container'/release.NATIVE_DAILY_CONTAINER.lstrip('/')
+            entry.parent.mkdir(parents=True);entry.write_bytes(host.read_bytes())  # bind-file bytes fixture, no Docker invocation
+            sibling=entry.with_name('inspect_runtime.py');sibling.write_bytes((source/'inspect_runtime.py').read_bytes())
+            spec=importlib.util.spec_from_file_location('inspect_runtime',sibling);helper=importlib.util.module_from_spec(spec)
+            with patch.dict(sys.modules,{'inspect_runtime':helper}),patch('zoneinfo.ZoneInfo',return_value=timezone(timedelta(hours=8))):
+                spec.loader.exec_module(helper)
+                spec=importlib.util.spec_from_file_location('synthetic_daily_consumer',entry);daily=importlib.util.module_from_spec(spec);spec.loader.exec_module(daily)
+            self.assertEqual(daily.PROFILE,Path('/profile'))
+            self.assertIs(daily.redact,helper.redact)
+            self.assertEqual(Path(daily.__file__).with_name('inspect_runtime.py'),sibling)
+            self.assertEqual(Path(daily.__file__).read_bytes(),host.read_bytes())
+
+    def test_daily_legacy_protection_rejects_hash_owner_mode_and_links(self):
+        prepare.configure_native_chat()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen();legacy=base.rooted(root,release.NATIVE_LEGACY_DAILY)
+            legacy.parent.mkdir(parents=True);legacy.write_bytes(b'old host daily')
+            profile=base.rooted(root,'/var/lib/fs-hermes-fc/profile')
+            owners={profile:(9876,9876,0o700),legacy:(0,0,0o644)};kinds={}
+            with self.native_metadata(owners,kinds,root=root),patch.object(release,'NATIVE_LEGACY_DAILY_SHA',base.digest(legacy)):
+                release.native_legacy_daily_guard(base,root)
+                for bad in ((9876,9876,0o644),(0,0,0o664)):
+                    owners[legacy]=bad
+                    with self.assertRaisesRegex(ValueError,'native_legacy_daily_drift'):release.native_legacy_daily_guard(base,root)
+                owners[legacy]=(0,0,0o644)
+                with patch.object(release,'NATIVE_LEGACY_DAILY_SHA','0'*64):
+                    with self.assertRaisesRegex(ValueError,'native_legacy_daily_drift'):release.native_legacy_daily_guard(base,root)
+                for item in (legacy,legacy.parent):
+                    kinds[item]=stat.S_IFLNK
+                    with self.assertRaises(ValueError):release.native_legacy_daily_guard(base,root)
+                    kinds.clear()
+
+    def test_daily_overlay_uses_root_code_and_keeps_original_guard_on_private_profile(self):
+        prepare.configure_native_chat()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen()
+            legacy=base.rooted(root,'/var/lib/fs-hermes-fc/profile/scripts/hermes-memory-review/daily_review.py')
+            legacy.parent.mkdir(parents=True);legacy.write_bytes(b'unchanged host daily')
+            profile=base.rooted(root,'/var/lib/fs-hermes-fc/profile')
+            target=base.rooted(root,release.TARGETS['approval/daily_review.py'])
+            target.parent.mkdir(parents=True,exist_ok=True)
+            if target!=legacy:target.write_bytes(b'new root daily')
+            owners={p:(0,0,0o755 if p.is_dir() else 0o644) for p in (root,*root.rglob('*'))}
+            owners[profile]=(9876,9876,0o700)
+            before=(legacy.read_bytes(),legacy.stat().st_ino,legacy.stat().st_mtime_ns)
+            base.hermes_quiescent=Mock()  # DB liveness IO only; original guards stays intact.
+            manifest={'scope':release.SCOPE,'runtimeRequired':{},'unchangedRequired':[]}
+            kinds={}
+            with self.native_metadata(owners,kinds):
+                base.HERMES_HISTORY_TARGETS={'daily':str(legacy.relative_to(root)).replace('\\','/')}
+                base.HERMES_HISTORY_TARGETS={'daily':'/'+base.HERMES_HISTORY_TARGETS['daily']}
+                with self.assertRaisesRegex(ValueError,'unsafe daily source boundary'):base.guards(manifest,root)
+                base.HERMES_HISTORY_TARGETS={'daily':release.TARGETS['approval/daily_review.py']}
+                base.guards(manifest,root)
+                for item in (target,target.parent):
+                    saved=owners[item];owners[item]=(9876,9876,saved[2])
+                    with self.assertRaisesRegex(ValueError,'unsafe daily source boundary'):base.guards(manifest,root)
+                    owners[item]=saved;kinds[item]=stat.S_IFLNK
+                    with self.assertRaises(ValueError):base.guards(manifest,root)
+                    kinds.clear()
+            self.assertEqual(release.TARGETS['approval/daily_review.py'],'/opt/fs-hermes-memory-approval/daily_review.py')
+            self.assertEqual((legacy.read_bytes(),legacy.stat().st_ino,legacy.stat().st_mtime_ns),before)
+
     @contextmanager
-    def native_metadata(self, owners, kinds=None):
+    def native_metadata(self, owners, kinds=None, root=None):
         # Keep real filesystem types (including a real Unix socket on Linux).
         # Root/9876 ownership cannot be created by the unprivileged CI runner.
         kinds={} if kinds is None else kinds
         def metadata(path, *, follow_symlinks=True):
             path=Path(path);info=os.stat(path,follow_symlinks=follow_symlinks)
-            if path not in owners and path not in kinds:return info
-            fields=list(info);uid,gid,mode=owners.get(path,(info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode)))
+            inside=root is not None and (path==root or root in path.parents)
+            if path not in owners and path not in kinds and not inside:return info
+            default=(0,0,0o755 if stat.S_ISDIR(info.st_mode) else 0o600 if path==root/release.NGINX.lstrip('/') else 0o644) if inside else (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode))
+            fields=list(info);uid,gid,mode=owners.get(path,default)
             fields[0]=kinds.get(path,stat.S_IFMT(info.st_mode))|mode
             fields[4]=uid;fields[5]=gid
-            return os.stat_result(fields)
+            result={key:getattr(info,key) for key in dir(info) if key.startswith('st_')}
+            result.update(st_mode=fields[0],st_uid=uid,st_gid=gid)
+            return SimpleNamespace(**result)
         def kind(path, check, follow):
             try:return check(metadata(path,follow_symlinks=follow).st_mode)
             except FileNotFoundError:return False
         with patch.object(Path,'stat',lambda path,**kw:metadata(path,**kw)), patch.object(Path,'lstat',lambda path:metadata(path,follow_symlinks=False)), patch.object(Path,'is_file',lambda path:kind(path,stat.S_ISREG,True)), patch.object(Path,'is_symlink',lambda path:kind(path,stat.S_ISLNK,False)):
             yield
+
+    def test_native_metadata_keeps_formal_nginx_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen()
+            nginx=base.rooted(root,release.NGINX)
+            other=base.rooted(root,'/opt/fs-hermes-fc/unchanged.py')
+            for path in (nginx,other):
+                path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'unchanged fixture')
+            if os.name=='posix':
+                nginx.chmod(0o600);other.chmod(0o644)
+            with self.native_metadata({},root=root):
+                self.assertEqual(stat.S_IMODE(nginx.stat().st_mode),0o600)
+                self.assertEqual(stat.S_IMODE(other.stat().st_mode),0o644)
 
     def test_native_dependencies_accept_unix_socket_and_keep_type_owner_parent_guards(self):
         prepare.configure_native_chat()
@@ -1285,13 +1371,14 @@ class NativePublisher(unittest.TestCase):
         self.assertEqual(release.INSTALLED_COMMIT,'23a27325b00f27a5c5696657c7c4141a06135f18')
         self.assertEqual(release.INSTALLED_PROOF['manifestSha256'],'ae010cb6b11a1a7c7c4ed877ae7534dbfc63b443143955cdd990ed96dfe19cf4')
         self.assertEqual(len(release.TARGETS),34)
-        self.assertEqual(len(release.protected_paths(release.frozen())),44)
+        self.assertEqual(len(release.protected_paths(release.frozen())),45)
         self.assertEqual(release.TARGETS['runtime/direct_provider.py'],'/opt/fs-hermes-fc/direct_provider.py')
         self.assertEqual(prepare.SOURCES['runtime/direct_provider.py'],prepare.CORE+'direct_provider.py')
         self.assertEqual(release.NATIVE_PROVIDER_BEFORE_SHA,'91d301ebe3578d0e6c60c23252510ebb34416a57f9f5dfc4ffd744f5ae0c74fa')
         self.assertNotIn(release.TARGETS['runtime/direct_provider.py'],release.protected_paths(release.frozen()))
-        self.assertEqual(release.NEW,frozenset({'runtime/conversation_native.py','runtime/native_chat.py','runtime/native-backend.json','approval/native_review.py'}))
-        self.assertEqual(release.TARGETS['approval/daily_review.py'],'/var/lib/fs-hermes-fc/profile/scripts/hermes-memory-review/daily_review.py')
+        self.assertEqual(release.NEW,frozenset({'runtime/conversation_native.py','runtime/native_chat.py','runtime/native-backend.json','approval/native_review.py','approval/daily_review.py'}))
+        self.assertEqual(release.TARGETS['approval/daily_review.py'],'/opt/fs-hermes-memory-approval/daily_review.py')
+        self.assertIn(release.NATIVE_LEGACY_DAILY,release.protected_paths(release.frozen()))
         self.assertNotIn(release.NATIVE_UNIT,release.protected_paths(release.frozen()))
         self.assertIn('/usr/bin/docker',release.protected_paths(release.frozen()))
         self.assertFalse(release.GUARD_MODE)
@@ -1309,6 +1396,7 @@ class NativePublisher(unittest.TestCase):
         baseline['files'].update({name:None for name in release.NEW})
         baseline['files'].update(release.NATIVE_EXTERNAL_BEFORE)
         baseline['files'].update({'unit/native-control.conf':release.NATIVE_UNIT_BEFORE_SHA,candidate:release.NATIVE_PROVIDER_BEFORE_SHA})
+        baseline['protected']={release.NATIVE_LEGACY_DAILY:release.NATIVE_LEGACY_DAILY_SHA}
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);base=release.frozen();backup=base.rooted(root,release.INSTALLED_PROOF['backup']);backup.mkdir(parents=True)
             for drift in (None,'missing','duplicate','protection_hash','git_hash','source'):
@@ -1344,6 +1432,11 @@ class NativePublisher(unittest.TestCase):
                 unit=base.rooted(system,release.NATIVE_UNIT);unit.write_bytes(old_unit)
                 prepare.configure_native_chat()
                 release.NATIVE_UNIT_BEFORE_SHA=prepare.digest(old_unit)
+                legacy=base.rooted(system,release.NATIVE_LEGACY_DAILY);legacy.parent.mkdir(parents=True,exist_ok=True);legacy.write_bytes(b'old host daily')
+                release.NATIVE_LEGACY_DAILY_SHA=prepare.digest(legacy.read_bytes())
+                profile=base.rooted(system,'/var/lib/fs-hermes-fc/profile')
+                owners={profile:(9876,9876,0o700)}
+                legacy_before=(legacy.read_bytes(),legacy.stat().st_ino,legacy.stat().st_mtime_ns)
                 release.NATIVE_PROVIDER_BEFORE_SHA=prepare.digest(base.rooted(system,release.TARGETS['runtime/direct_provider.py']).read_bytes())
                 release.NATIVE_EXTERNAL_BEFORE={name:prepare.digest(('old:'+name).encode()) for name in release.NATIVE_EXTERNAL_BEFORE}
                 for name in release.NATIVE_EXTERNAL_BEFORE:
@@ -1363,7 +1456,7 @@ class NativePublisher(unittest.TestCase):
                 git_before={row['candidate']:row['sha256'] for row in previous['files']}
                 git_before.update({name:None for name in release.NEW});git_before.update(release.NATIVE_EXTERNAL_BEFORE);git_before['unit/native-control.conf']=release.NATIVE_UNIT_BEFORE_SHA
                 git_before['runtime/direct_provider.py']=release.NATIVE_PROVIDER_BEFORE_SHA
-                descriptor['installed_baseline']={'source_commit':release.INSTALLED_COMMIT,'files':git_before}
+                descriptor['installed_baseline']={'source_commit':release.INSTALLED_COMMIT,'files':git_before,'protected':{release.NATIVE_LEGACY_DAILY:release.NATIVE_LEGACY_DAILY_SHA}}
                 generated=prepare.native_generated()
                 for name in prepare.SOURCES:
                     path=payload/name;path.parent.mkdir(parents=True,exist_ok=True)
@@ -1374,8 +1467,28 @@ class NativePublisher(unittest.TestCase):
                 raw=json.dumps(descriptor).encode();(payload.parent/'payload-manifest.json').write_bytes(raw)
                 deps={'cli':{'sha256':release.NATIVE_CLI_SHA},'socket':{'gid':998},'worker_user':'9876:9876'}
                 stage=root/'native-stage'
-                with patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof),patch.object(prepare,'file_metadata',metadata),patch.object(release,'native_dependencies',return_value=deps):
+                with self.native_metadata(owners,root=system),patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof),patch.object(prepare,'file_metadata',metadata),patch.object(release,'native_dependencies',return_value=deps):
                     if not fail:
+                        daily=base.rooted(system,release.TARGETS['approval/daily_review.py'])
+                        daily.parent.mkdir(parents=True,exist_ok=True);daily.write_bytes(b'already installed elsewhere')
+                        with self.assertRaisesRegex(ValueError,'runtime_source_baseline_drift'):
+                            prepare.prepare(payload,root/'daily-already-present','a'*40,prepare.digest(raw),root=system,followup=True,release_ready=True)
+                        self.assertFalse((root/'daily-already-present').exists());daily.unlink()
+                        recipe=payload/'unit/native-control.conf';recipe_bytes=recipe.read_bytes()
+                        for variant in ('old_recipe','writable','source','target','extra'):
+                            bad=json.loads(recipe_bytes)
+                            if variant=='old_recipe':bad={'recipe':'native_worker_mounts_v1'}
+                            elif variant=='writable':bad['daily_readonly']=False
+                            elif variant=='source':bad['daily_source']=release.NATIVE_LEGACY_DAILY
+                            elif variant=='target':bad['daily_target']='/profile/scripts/other.py'
+                            else:bad['extra_mount']='/profile/extra'
+                            recipe.write_bytes(json.dumps(bad).encode())
+                            changed=deepcopy(descriptor);changed['files']['payload/unit/native-control.conf']=prepare.digest(recipe.read_bytes())
+                            bad_raw=json.dumps(changed).encode();(payload.parent/'payload-manifest.json').write_bytes(bad_raw)
+                            with self.subTest(recipe=variant),self.assertRaisesRegex(ValueError,'native_unit_recipe_changed'):
+                                prepare.prepare(payload,root/('bad-recipe-'+variant),'a'*40,prepare.digest(bad_raw),root=system,followup=True,release_ready=True)
+                            self.assertFalse((root/('bad-recipe-'+variant)).exists())
+                        recipe.write_bytes(recipe_bytes);(payload.parent/'payload-manifest.json').write_bytes(raw)
                         provider=base.rooted(system,release.TARGETS['runtime/direct_provider.py'])
                         before=provider.read_bytes();provider.write_bytes(b'other writer')
                         with self.assertRaisesRegex(ValueError,'runtime_source_baseline_drift'):
@@ -1385,7 +1498,7 @@ class NativePublisher(unittest.TestCase):
                     prepare.prepare(payload,stage,'a'*40,prepare.digest(raw),root=system,followup=True,release_ready=True)
                     manifest=json.loads((stage/'approved-manifest.json').read_bytes())
                     self.assertTrue(manifest['nativeChat']);self.assertEqual(len(manifest['files']),34)
-                    self.assertEqual(len(manifest['unchangedRequired']),44)
+                    self.assertEqual(len(manifest['unchangedRequired']),45)
                     provider_row=next(r for r in manifest['files'] if r['candidate']=='runtime/direct_provider.py')
                     self.assertEqual(provider_row['beforeSha256'],release.NATIVE_PROVIDER_BEFORE_SHA)
                     self.assertNotIn('runtime/direct_provider.py',release.NEW)
@@ -1396,8 +1509,9 @@ class NativePublisher(unittest.TestCase):
                 base.MATERIAL_NEW=module.NEW
                 module.NATIVE_UNIT_BEFORE_SHA=release.NATIVE_UNIT_BEFORE_SHA;module.NATIVE_EXTERNAL_BEFORE=dict(release.NATIVE_EXTERNAL_BEFORE);module.NATIVE_CLI_SHA=release.NATIVE_CLI_SHA
                 module.NATIVE_PROVIDER_BEFORE_SHA=release.NATIVE_PROVIDER_BEFORE_SHA
+                module.NATIVE_LEGACY_DAILY_SHA=release.NATIVE_LEGACY_DAILY_SHA
                 module.native_dependencies=lambda *a:deps
-                base.guards=lambda *a,**kw:None;base.retirement=lambda *a:None
+                base.hermes_quiescent=Mock();base.retirement=Mock()  # Keep original guards and source-parent checks.
                 base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
                 fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock())
                 base.hermes_admission_fence=lambda *a:nullcontext(fence)
@@ -1411,14 +1525,8 @@ class NativePublisher(unittest.TestCase):
                 base.restart_for=restart_spy
                 if os.name=='nt':base.directory_sync=lambda *a:None
                 native_readback=Mock(side_effect=RuntimeError('native worker restart failed') if fail=='native_readiness' else None)
-                with patch.object(module,'frozen',return_value=base),patch.object(module,'running_worker'),patch.object(module,'native_runtime_readiness',native_readback),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0)):
+                with self.native_metadata(owners,root=system),patch.object(module,'frozen',return_value=base),patch.object(module,'quiescent'),patch.object(module,'running_worker'),patch.object(module,'native_runtime_readiness',native_readback),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')):
                     publisher=module.load_base()
-                    if os.name=='nt':
-                        original_atomic=publisher.atomic
-                        def atomic(path,data,mode=0o644):
-                            row=next((r for r in manifest['files'] if path==base.rooted(system,r['target'])),None)
-                            return original_atomic(path,data,int(row['mode'],8) if row else mode)
-                        publisher.atomic=atomic
                     publisher.inspect(manifest,stage,system)
                     for change in (
                         lambda m:m.update(materialGuard=True),
@@ -1446,9 +1554,11 @@ class NativePublisher(unittest.TestCase):
                     self.assertIn(base.HERMES_WORKER_SCOPE,scopes)
                     self.assertIn(base.DEEP_SCOPE,scopes)
                     self.assertEqual(native_readback.call_count,0 if fail=='worker' else 1)
-                    self.assertNotIn('nginx.service',str(module.subprocess.run.call_args_list))
+                    self.assertFalse(any(call.args and call.args[0][:2]==['systemctl','reload'] for call in module.subprocess.run.call_args_list))
+                    self.assertEqual((legacy.read_bytes(),legacy.stat().st_ino,legacy.stat().st_mtime_ns),legacy_before)
 
     def test_native_unit_is_exact_increment_cli_socket_only_control_plane(self):
+        prepare.configure_native_chat()
         self.assertTrue(callable(getattr(prepare,'render_native_unit',None)),'native unit generation missing')
         old=b'[Service]\nExecStart=\nExecStart=/usr/bin/docker run --rm --user 9876:9876 --name fs-hermes-fc '+release.FROZEN_IMAGE_MARKER.encode()+b' old-entry\n'
         with patch.object(release,'NATIVE_UNIT_BEFORE_SHA',prepare.digest(old),create=True):
@@ -1456,6 +1566,8 @@ class NativePublisher(unittest.TestCase):
             self.assertIn(b'--group-add 998',changed)
             self.assertIn(b'source=/usr/bin/docker,target=/opt/fs-native-bin/docker,readonly',changed)
             self.assertIn(b'source=/run/docker.sock,target=/var/run/docker.sock',changed)
+            mount=b'--mount type=bind,source=/opt/fs-hermes-memory-approval/daily_review.py,target=/profile/scripts/hermes-memory-review/daily_review.py,readonly'
+            self.assertEqual(changed.count(mount),1)
             self.assertEqual(changed.count(release.FROZEN_IMAGE_MARKER.encode()),1)
             self.assertIn(b'--user 9876:9876',changed)
             self.assertEqual(prepare.render_native_unit(old,{'socket':{'gid':998}}),changed)
@@ -1469,7 +1581,8 @@ class NativePublisher(unittest.TestCase):
             ('/opt/fs-native-bin/docker','/usr/bin/docker',False),
             ('/var/run/docker.sock','/run/docker.sock',True),
             (release.NATIVE_ROOT,release.NATIVE_ROOT,True),
-            ('/opt/fs-native-backend-home',release.NATIVE_EMPTY_SOURCE,False))]
+            ('/opt/fs-native-backend-home',release.NATIVE_EMPTY_SOURCE,False),
+            (release.NATIVE_DAILY_CONTAINER,release.TARGETS['approval/daily_review.py'],False))]
         user=['9876:9876'];failure=[False]
         def observed(command,**kwargs):
             if '{{.Config.User}}' in command:return user[0]
@@ -1486,6 +1599,18 @@ class NativePublisher(unittest.TestCase):
             mounts[0]['RW']=False;failure[0]=True
             with self.assertRaises(OSError):release.native_runtime_readiness()
             failure[0]=False
+            original=deepcopy(mounts)
+            daily=next(row for row in mounts if row['Destination']==release.NATIVE_DAILY_CONTAINER)
+            for variant in ('writable','source','target','duplicate','extra','missing'):
+                mounts[:]=deepcopy(original);daily=next(row for row in mounts if row['Destination']==release.NATIVE_DAILY_CONTAINER)
+                if variant=='writable':daily['RW']=True
+                elif variant=='source':daily['Source']=release.NATIVE_LEGACY_DAILY
+                elif variant=='target':daily['Destination']='/profile/scripts/hermes-memory-review/other.py'
+                elif variant=='duplicate':mounts.append(daily.copy())
+                elif variant=='extra':mounts.append(dict(daily,Destination='/profile/scripts/hermes-memory-review/extra.py'))
+                else:mounts.remove(daily)
+                with self.subTest(variant=variant),self.assertRaisesRegex(ValueError,'native_control_mount_readback'):release.native_runtime_readiness()
+            mounts[:]=original
             with patch.object(Path,'read_bytes',return_value=b'{}'):
                 with self.assertRaisesRegex(ValueError,'native_control_contract_drift'):release.native_runtime_readiness()
 
