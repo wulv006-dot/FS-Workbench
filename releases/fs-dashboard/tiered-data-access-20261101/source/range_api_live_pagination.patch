@@ -1,7 +1,17 @@
 --- a/range_api.py
 +++ b/range_api.py
-@@ -393,9 +393,10 @@
-    if LIVE_ADMIN is None or not callable(verify_live_session):self.reply(503,{'error':'live_admission_unavailable'});return
+@@ -375,8 +375,10 @@
+ LIVE_ADMIN=None
+ verify_live_session=None
++private_live_body=None
+ try:
+  from admin_live_admission import LiveAdminAdmission
+  from admin_live_host import get as get_live_orders
+  from admin_live_session import verify as verify_live_session
++ from admin_live_dispatch import private_body_params as private_live_body
+  LIVE_ADMIN=LiveAdminAdmission(SUMMARY.pools['Admin'],maintenance_admission)
+ except (ImportError,OSError,ValueError,AttributeError):pass
+@@ -394,7 +396,8 @@
     try:
      live_query=parse_qs(uri.query,keep_blank_values=True,max_num_fields=16)
 -    if set(live_query)!={'site_id','game_id','start','end_exclusive'} or any(len(v)!=1 for v in live_query.values()):raise ValueError('invalid_live_query')
@@ -12,4 +22,32 @@
 +    if first.isoformat()!=live_query['start'][0] or last.isoformat()!=live_query['end_exclusive'][0] or not 1<=(last-first).days<=28:raise ValueError('invalid_live_query')
     except (ValueError,KeyError):self.reply(422,{'error':'invalid_live_query'});return
     cookie=self.headers.get('Cookie')
-    try:
+@@ -461,4 +464,28 @@
+  def do_POST(self):
+   uri=urlsplit(self.path)
++  if uri.path=='/users/live-orders':
++   if LIVE_ADMIN is None or not callable(verify_live_session) or not callable(private_live_body):self.reply(503,{'error':'live_admission_unavailable'});return
++   if uri.query or self.headers.get('Sec-Fetch-Site')!='same-origin':self.reply(403,{'error':'same_origin_required'});return
++   if self.headers.get('Transfer-Encoding') or self.headers.get('Content-Type','').split(';')[0].strip().lower()!='application/json':self.reply(415,{'error':'json_required'});return
++   length=self.headers.get('Content-Length','')
++   if not re.fullmatch(r'[0-9]{1,4}',length) or not 1<=int(length)<=4096:self.reply(413,{'error':'body_too_large'});return
++   cookie=self.headers.get('Cookie')
++   try:
++    auth_status,actor=verify_live_session(cookie)
++    if auth_status!=200 or not actor:self.reply(auth_status if auth_status in (401,403,429,503) else 503,{'error':'session_unavailable' if auth_status==503 else 'session_denied'});return
++    self.connection.settimeout(10)
++    raw=self.rfile.read(int(length))
++    if len(raw)!=int(length):raise ValueError('invalid_body')
++    live_query=private_live_body(raw)
++    def run_scoped(operation,timeout):
++     def checked():
++      next_status,next_actor=verify_live_session(cookie)
++      if next_status!=200 or next_actor!=actor:raise PermissionError('session_changed')
++      return operation()
++     return LIVE_ADMIN.run(checked,timeout)
++    status,data=get_live_orders(live_query,actor,run_source=run_scoped);self.reply(status,data)
++   except (ValueError,TypeError,UnicodeError):self.reply(422,{'error':'invalid_live_query'})
++   except Exception:self.reply(503,{'error':'live_source_unavailable'})
++   return
+   if uri.path=='/users/private/search':
+    from user_http import search as search_users

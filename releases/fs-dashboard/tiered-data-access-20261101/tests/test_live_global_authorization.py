@@ -44,6 +44,11 @@ class GlobalAuthorization(unittest.TestCase):
   self.assertEqual(self.handler(self.params,'outsider')[0],403)
   for key,value in [('site_id','535'),('game_id','999')]:self.assertEqual(self.handler(dict(self.params,**{key:[value]}),'staff')[0],403)
   self.assertEqual(self.calls,[])
+ def test_exact_customer_search_reuses_existing_private_permission(self):
+  params=dict(self.params,customer_email=['fixture@example.test'])
+  self.assertEqual(self.handler(params,'staff')[0],403);self.assertEqual(self.calls,[])
+  status,result=self.handler(params,'admin');self.assertEqual(status,206)
+  self.assertEqual(result['data'][0]['customer_email'],'fixture@example.test')
  def test_existing_global_permission_revocation_is_immediate(self):
   self.assertEqual(self.handler(self.params,'staff')[0],206);self.policy['viewers'].remove('staff')
   self.assertEqual(self.handler(self.params,'staff')[0],403);self.assertEqual(len(self.calls),1)

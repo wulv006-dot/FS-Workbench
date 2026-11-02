@@ -8,7 +8,7 @@ from admin_supervised_transport import SupervisedAdminTransport
 
 CONFIG='/opt/fs-hermes-fc/user_config.json'
 WORKER='/opt/fs-hermes-fc/admin_live_worker.py'
-WORKER_SHA256='e7b71e5a0cbc63c5578b956635aba08cc5da71c3e713e421a4466bb7a1b4993c'
+WORKER_SHA256='5776e6dda8a0231ea303f1024c32dcd87405ec89166311eeac81778f0b8d6e1e'
 
 def read_existing_json(path):
  p=Path(path)
@@ -36,6 +36,7 @@ def build_handler(*,load_config,load_policy,rbac,fetch,run_source=None,observed_
     return fields
    def scoped_fetch(path,source_params,timeout,max_bytes):
     query={key:params[key][0] for key in ('site_id','game_id','start','end_exclusive')};query['fields']=list(selected)
+    if 'customer_email' in params:query['customer_email']=params['customer_email'][0]
     def operation():
      current=load_config()
      if not isinstance(current,dict) or current.get('live_admin_single_page') is not True:raise PermissionError('permission_denied')

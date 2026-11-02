@@ -16,6 +16,9 @@ class LivePageError(Exception):
 
 def utc_now():return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
+def valid_customer_email(value):
+ return isinstance(value,str) and 3<=len(value)<=320 and value.count('@')==1 and all(part for part in value.split('@')) and not any(c.isspace() or ord(c)<32 or ord(c)==127 for c in value)
+
 def validate_period(request,observed_at):
  try:
   start=datetime.date.fromisoformat(request['start']);end=datetime.date.fromisoformat(request['end_exclusive'])
@@ -41,10 +44,11 @@ class AdminLivePage:
   except Exception:raise LivePageError('permission_denied') from None
   if value!=self.expected_grant:raise LivePageError('permission_denied')
  def __call__(self,request):
-  if not isinstance(request,dict) or set(request)-{'site_id','game_id','start','end_exclusive','fields','cursor'} or not {'site_id','game_id','start','end_exclusive','fields'}<=set(request):raise LivePageError('invalid_request')
+  if not isinstance(request,dict) or set(request)-{'site_id','game_id','start','end_exclusive','fields','cursor','customer_email'} or not {'site_id','game_id','start','end_exclusive','fields'}<=set(request):raise LivePageError('invalid_request')
   if any(not isinstance(request[k],str) or not request[k].isascii() or not request[k].isdigit() or len(request[k])>20 for k in ('site_id','game_id')):raise LivePageError('invalid_request')
   fields=request['fields']
   if not isinstance(fields,list) or any(type(x) is not str for x in fields) or (fields and 'order_id' not in fields) or len(fields)!=len(set(fields)) or set(fields)-{'order_id','paid_at','status','pay_status','customer_email'}:raise LivePageError('invalid_request')
+  if 'customer_email' in request and (not valid_customer_email(request['customer_email']) or 'customer_email' not in fields):raise LivePageError('invalid_request')
   start,end=validate_period(request,self.observed_at)
   self.grant(request)
   bound=hashlib.sha256(json.dumps([self.expected_grant,{k:v for k,v in request.items() if k!='cursor'},self.page_size],sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -65,6 +69,7 @@ class AdminLivePage:
     if len(last_digests)!=len(digests)//16:raise ValueError()
    except (ValueError,TypeError,UnicodeError,OverflowError):raise LivePageError('invalid_request') from None
   filters=[('site_id','=',request['site_id']),('gid','=',request['game_id']),('paytime','RANGE',start.isoformat()+' 00:00:00,'+(end-datetime.timedelta(days=1)).isoformat()+' 23:59:59')]
+  if 'customer_email' in request:filters.append(('email','=',request['customer_email']))
   params={'page':page,'limit':self.page_size,'order':'id,desc'}
   for i,(field,operator,value) in enumerate(filters):
    for key,val in (('field',field),('operator',operator),('val',value)):params['search[%d][%s]'%(i,key)]=val
@@ -108,6 +113,7 @@ class AdminLivePage:
     if 'customer_email' in fields:
      email=row['email']
      if email is not None and (not isinstance(email,str) or len(email)>320):raise ValueError()
+     if 'customer_email' in request and email!=request['customer_email']:raise LivePageError('source_filter_mismatch')
      projection['customer_email']=email.strip() if email else None
     if fields:output.append({k:projection[k] for k in fields})
     previous=int(ident)
