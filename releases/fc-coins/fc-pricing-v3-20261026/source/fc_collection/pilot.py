@@ -13,13 +13,16 @@ from .public_sources import VERSIONS
 from .ssh_client import Session, ssh_command
 
 
-def source_policy(recheck=False):
+def source_policy(generation=1):
+    # shortcut: manual shadow diagnostics stop after three groups; production routing needs its own policy.
+    if type(generation) is not int or not 1 <= generation <= 3:
+        raise ValueError('pilot_diagnostic_limit_reached')
     # 2 x existing 18s HTTP + 10s SSH setup + clock/callback allowance fit 60s.
     return dict(origin='https://www.arab-ut.com', nodes=['183'], mode='shadow',
-        generation=2 if recheck else 1, adapter_version=VERSIONS['ArabUT'],
-        policy_version='arab-shadow-recheck-v2' if recheck else 'arab-shadow-two-request-v1',
+        generation=generation, adapter_version=VERSIONS['ArabUT'],
+        policy_version='arab-shadow-recheck-v' + str(generation) if generation > 1 else 'arab-shadow-two-request-v1',
         lease_seconds=60, request_timeout_seconds=20, clock_margin_seconds=2, stable_seconds=5,
-        window_seconds=86400, max_requests=4 if recheck else 2, concurrency=1, retry_after_seconds=60)
+        window_seconds=86400, max_requests=2 * generation, concurrency=1, retry_after_seconds=60)
 
 
 def configure_recheck(coordinator, state, run_id, previous):
@@ -29,37 +32,51 @@ def configure_recheck(coordinator, state, run_id, previous):
     if path.is_symlink() or not path.is_file():
         raise ValueError('pilot_original_required')
     original = json.loads(path.read_text())
+    previous_generation = original.get('assignment_generation')
+    if type(previous_generation) is not int:
+        raise ValueError('pilot_original_terminal_failure_required')
+    target_policy = source_policy(previous_generation + 1)
     with coordinator.transaction() as db:
-        old = db.execute('SELECT state,body FROM collection_jobs WHERE id=?', (original['job_id'],)).fetchone()
-        stored = json.loads(old['body']) if old else {}
-        if (not old or old['state'] != 'COMPLETED' or original.get('source_id') != 'ArabUT'
-                or original.get('parent_run_id') != previous or original.get('assignment_generation') != 1
-                or any(stored.get(key) != value for key, value in original.items())
-                or stored.get('request_budget_reserved') != 2 or stored.get('attempts') != 1):
-            raise ValueError('pilot_original_terminal_failure_required')
-        observations = db.execute('SELECT body,receipt,payload_hash FROM collection_observations WHERE job=?',
-                                  (original['job_id'],)).fetchall()
-        body = json.loads(observations[0]['body']) if len(observations) == 1 else {}
-        receipt = json.loads(observations[0]['receipt']) if len(observations) == 1 else {}
-        if (body.get('status') != 'failed' or body.get('reason_code') != 'adapter_contract_invalid'
-                or body.get('request_budget_used') != 2 or body.get('offers') != []
-                or receipt.get('status') != 'accepted' or fingerprint(body) != receipt.get('payload_hash')
-                or fingerprint(body) != observations[0]['payload_hash']):
-            raise ValueError('pilot_original_terminal_failure_required')
-        jobs = [json.loads(row['body']) for row in db.execute('SELECT body FROM collection_jobs')]
-        if (any(row['parent_run_id'] not in (previous, run_id) for row in jobs)
-                or len(jobs) > 2 or db.execute('SELECT COALESCE(SUM(count),0) FROM collection_permits').fetchone()[0] > 4
-                or db.execute('SELECT COALESCE(SUM(count),0) FROM collection_permits WHERE job=?',
-                              (original['job_id'],)).fetchone()[0] != 2):
+        rows = [(row['state'], json.loads(row['body'])) for row in db.execute('SELECT state,body FROM collection_jobs')]
+        roots = [body['parent_run_id'] for _, body in rows if body['assignment_generation'] == 1]
+        if len(roots) != 1:
             raise ValueError('pilot_recheck_lifetime_budget_invalid')
+        parents = [roots[0] + '-recheck' * offset for offset in range(previous_generation + 1)]
+        jobs = {body['parent_run_id']: (state, body) for state, body in rows}
+        if (previous != parents[-2] or run_id != parents[-1] or set(jobs) - set(parents)
+                or len(jobs) != len(rows) or db.execute('SELECT COALESCE(SUM(count),0) FROM collection_permits').fetchone()[0] > 2 * len(parents)):
+            raise ValueError('pilot_recheck_lifetime_budget_invalid')
+        for generation, parent in enumerate(parents[:-1], 1):
+            manifest_path = state / (parent + '.json')
+            if manifest_path.is_symlink() or not manifest_path.is_file():
+                raise ValueError('pilot_original_required')
+            manifest = json.loads(manifest_path.read_text())
+            old_state, stored = jobs.get(parent, (None, {}))
+            if (old_state != 'COMPLETED' or manifest.get('source_id') != 'ArabUT'
+                    or manifest.get('parent_run_id') != parent or manifest.get('assignment_generation') != generation
+                    or any(stored.get(key) != value for key, value in manifest.items())
+                    or stored.get('request_budget_reserved') != 2 or stored.get('attempts') != 1
+                    or db.execute('SELECT COALESCE(SUM(count),0) FROM collection_permits WHERE job=?',
+                                  (manifest['job_id'],)).fetchone()[0] != 2):
+                raise ValueError('pilot_original_terminal_failure_required')
+            observations = db.execute('SELECT body,receipt,payload_hash FROM collection_observations WHERE job=?',
+                                      (manifest['job_id'],)).fetchall()
+            body = json.loads(observations[0]['body']) if len(observations) == 1 else {}
+            receipt = json.loads(observations[0]['receipt']) if len(observations) == 1 else {}
+            if (body.get('status') != 'failed' or body.get('reason_code') != 'adapter_contract_invalid'
+                    or body.get('request_budget_used') != 2 or body.get('offers') != []
+                    or receipt.get('status') != 'accepted' or fingerprint(body) != receipt.get('payload_hash')
+                    or fingerprint(body) != observations[0]['payload_hash']):
+                raise ValueError('pilot_original_terminal_failure_required')
         policy = coordinator._get(db, 'collection_sources', 'ArabUT') or {}
         if (db.execute('SELECT COUNT(*) FROM collection_sources').fetchone()[0] != 1
-                or not any(all(policy.get(key) == value for key, value in source_policy(recheck).items())
-                           for recheck in (False, True))):
+                or not any(all(policy.get(key) == value for key, value in source_policy(generation).items())
+                           for generation in (previous_generation, previous_generation + 1))):
             raise ValueError('pilot_recheck_policy_conflict')
-        # Fence generation1 in the same transaction that verified the original budget.
-        coordinator._put(db, 'collection_sources', 'ArabUT', dict(source_policy(True),
+        # Fence the previous generation in the same transaction that verified its budget.
+        coordinator._put(db, 'collection_sources', 'ArabUT', dict(target_policy,
                          blocked=policy['blocked'], cooldown_until=policy['cooldown_until']))
+    return target_policy
 
 
 def run(config_path, state, run_id, *, recheck_of=None):
@@ -72,10 +89,10 @@ def run(config_path, state, run_id, *, recheck_of=None):
     command = ssh_command(config)
     coordinator = Coordinator(state / 'collection.sqlite3')
     if recheck_of is not None:
-        configure_recheck(coordinator, state, run_id, recheck_of)
+        policy = configure_recheck(coordinator, state, run_id, recheck_of)
     else:
-        coordinator.configure_source('ArabUT', source_policy())
-    policy = source_policy(recheck_of is not None)
+        policy = source_policy()
+        coordinator.configure_source('ArabUT', policy)
     health = None
     for index in range(2):
         with Session(command) as session:

@@ -110,8 +110,9 @@ class RestrictedHTTP:
         timer.start()
         try:
             path = item['path'] + ('?' + urlencode(item['query']) if item.get('query') else '')
+            accept = ('text/html' if template_id == 'warm' else 'application/json') if source_id == 'ArabUT' else 'application/json,text/html'
             request = Request('https://' + item['host'] + path,
-                              headers={'Accept': 'application/json,text/html', 'User-Agent': 'Mozilla/5.0'})
+                              headers={'Accept': accept, 'User-Agent': 'Mozilla/5.0'})
             if source_id == 'ArabUT':
                 self.cookies.add_cookie_header(request)
                 if template_id == 'quote':

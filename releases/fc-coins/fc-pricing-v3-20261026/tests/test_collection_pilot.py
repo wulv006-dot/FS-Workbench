@@ -18,6 +18,7 @@ class ReadOnlyPilot(unittest.TestCase):
         from fc_collection import pilot
         from fc_collection.public_sources import VERSIONS, arab_adapter
         from fc_collection.worker import Worker
+        from fc_collection.adapters import SourceUnavailable
         with tempfile.TemporaryDirectory() as folder:
             root, current, calls = Path(folder), [NOW], []
             value = dict(platform='playstation', delivery='normal', quantity=100000, market='console',
@@ -26,6 +27,13 @@ class ReadOnlyPilot(unittest.TestCase):
             def fetch(*args):
                 calls.append(args)
                 return json.dumps(value).encode()
+            def historical_adapter(task, transport):
+                try:
+                    return arab_adapter(task, transport)
+                except SourceUnavailable as exc:
+                    if task['assignment_generation'] <= 2 and str(exc).startswith('arab_quote_'):
+                        raise ValueError('historical_parser_failure') from None
+                    raise
             class Session:
                 def __init__(self, *_): pass
                 def __enter__(self): return self
@@ -37,7 +45,7 @@ class ReadOnlyPilot(unittest.TestCase):
                     class Endpoint:
                         def __getattr__(self, name): return getattr(coordinator, name)
                         def claim_job(self, *args): return task
-                    return Worker(Endpoint(), principal, {'ArabUT': arab_adapter}, root / 'spool',
+                    return Worker(Endpoint(), principal, {'ArabUT': historical_adapter}, root / 'spool',
                         fetch, clock=lambda: current[0]).run_once()
             config = root / 'config.json'
             config.write_text(json.dumps(dict(worker_digest='b' * 64)))
@@ -45,6 +53,26 @@ class ReadOnlyPilot(unittest.TestCase):
             with patch.object(pilot, 'Session', Session), patch.object(pilot, 'ssh_command', return_value=['fixture']), \
                     patch.object(pilot, 'utc', side_effect=lambda: current[0]), patch.object(pilot.time, 'sleep', side_effect=sleep):
                 yield lambda ident='original', **kwargs: pilot.run(config, root / 'state', ident, **kwargs), root, current, value, calls
+
+    def test_final_diagnostic_group_preserves_two_failures_and_stops_at_six_requests(self):
+        with self.recheck_fixture() as (run, root, current, value, calls):
+            first = run()
+            second = run('original-recheck', recheck_of='original')
+            self.assertEqual(first['status'], 'source_unavailable')
+            self.assertEqual(second['status'], 'source_unavailable')
+            with closing(sqlite3.connect(root / 'state/collection.sqlite3')) as db:
+                original = db.execute('SELECT * FROM collection_observations ORDER BY rowid').fetchall()
+            value['priceVersion'] = 2841
+            third = run('original-recheck-recheck', recheck_of='original-recheck')
+            self.assertEqual(third['status'], 'valid_shadow_observation')
+            current[0] += timedelta(days=2)
+            run('original-recheck-recheck', recheck_of='original-recheck')
+            self.assertEqual(len(calls), 6)
+            with self.assertRaises(ValueError):
+                run('original-recheck-recheck-recheck', recheck_of='original-recheck-recheck')
+            with closing(sqlite3.connect(root / 'state/collection.sqlite3')) as db:
+                self.assertEqual(db.execute('SELECT * FROM collection_observations ORDER BY rowid LIMIT 2').fetchall(), original)
+                self.assertEqual(db.execute('SELECT SUM(count) FROM collection_permits').fetchone()[0], 6)
 
     def test_one_recheck_keeps_original_failure_and_lifetime_budget_even_after_window(self):
         with self.recheck_fixture() as (run, root, current, value, calls):

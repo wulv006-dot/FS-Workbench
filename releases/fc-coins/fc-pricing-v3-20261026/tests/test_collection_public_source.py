@@ -60,8 +60,24 @@ class PublicSource(unittest.TestCase):
             self.assertEqual(http.fetch('ArabUT', 'quote', 2), b'fixture')
         self.assertEqual(calls[0][1], '/?platform=playstation&delivery=normal&quantity=100000&currency=USD')
         self.assertEqual(calls[1][1], '/coins/quote?platform=playstation&delivery=normal&quantity=100000')
+        self.assertEqual({k.lower(): v for k, v in calls[0][2].items()}['accept'], 'text/html')
+        self.assertEqual({k.lower(): v for k, v in calls[1][2].items()}['accept'], 'application/json')
         self.assertEqual({k.lower(): v for k, v in calls[1][2].items()}['cookie'], 'visitor=fixture')
         self.assertNotIn('authorization', {k.lower() for k in calls[1][2]})
+
+    def test_public_contract_failures_expose_only_static_diagnostics(self):
+        from fc_collection.public_sources import arab_adapter
+        from fc_collection.adapters import SourceUnavailable
+        from types import SimpleNamespace
+        cases = [(b'<html>private-response-text</html>', 'arab_quote_html_response'),
+                 (b'private-response-text', 'arab_quote_json_invalid'),
+                 (b'{"data":{"total":null,"debug":"private-response-text"}}', 'arab_quote_selection_invalid')]
+        for payload, reason in cases:
+            transport = SimpleNamespace(get=lambda _, payload=payload: payload, clock=lambda: NOW)
+            with self.subTest(reason=reason), self.assertRaises(SourceUnavailable) as caught:
+                arab_adapter(dict(requested_platforms=['PS', 'XBOX'], region_scope=[21]), transport)
+            self.assertEqual(str(caught.exception), reason)
+            self.assertNotIn('private-response-text', str(caught.exception))
 
     def test_successful_request_completion_frees_slot_not_budget(self):
         with tempfile.TemporaryDirectory() as folder:
