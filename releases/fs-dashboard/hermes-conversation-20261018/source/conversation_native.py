@@ -685,13 +685,13 @@ class NativeConversation:
         """Only the admitted worker's private grant calls this, never a turn body."""
         if not self.authorized(binding):
             raise PermissionError('native_chat_inactive')
-        expected = {'binding', 'model_schemas', 'catalog_sha256', 'registry_generation'}
+        expected = {'binding', 'model_schemas', 'catalog_sha256', 'registry_generation', 'reasoning_effort'}
         if (type(value) is not dict or set(value) != expected or value['binding'] != binding or
                 type(value['model_schemas']) is not list or
                 not re.fullmatch('[a-f0-9]{64}', value['catalog_sha256'] or '') or
                 type(value['registry_generation']) is not int or value['registry_generation'] < 0):
             raise ValueError('native_schema_registration')
-        if value.get('reasoning_effort','none') not in ('none','minimal','low','medium','high','xhigh','max','ultra'):
+        if value['reasoning_effort'] not in ('none','minimal','low','medium','high','xhigh','max','ultra'):
             raise ValueError('native_reasoning_config')
         raw = canonical(value)
         if len(raw.encode()) > 2 * 1024 * 1024:

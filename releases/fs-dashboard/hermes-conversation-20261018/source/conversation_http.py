@@ -148,8 +148,11 @@ def handle(handler, method, uri, user, service, authorized):
             else:
                 respond(handler, 404, {'error': 'not_found'})
         elif method == "POST" and len(parts) == 2 and parts[1] == "turns" and not params:
-            from conversation_files import MAX_BYTES
-            body = read_json(handler, maximum=MAX_BYTES if getattr(service,'native',None) else 16384)
+            maximum = 16384
+            if getattr(service, 'native', None):
+                from conversation_files import MAX_BYTES
+                maximum = MAX_BYTES
+            body = read_json(handler, maximum=maximum)
             if set(body) not in ({'text', 'client_request_id'}, {'text', 'client_request_id', 'file_ids'}):
                 raise ValueError('turn_fields')
             extra = {'file_ids': body['file_ids']} if 'file_ids' in body else {}
@@ -158,8 +161,11 @@ def handle(handler, method, uri, user, service, authorized):
             stream_events(handler, service, user, parts[0], params["after"][0])
         elif method == "POST" and len(parts) == 4 and parts[1] == "runs" and parts[3] in {"steer", "stop"} and not params:
             names = {"text", "client_request_id"} if parts[3] == "steer" else {"client_request_id"}
-            from conversation_files import MAX_BYTES
-            body = read_json(handler, names, maximum=MAX_BYTES if getattr(service,'native',None) else 16384)
+            maximum = 16384
+            if getattr(service, 'native', None):
+                from conversation_files import MAX_BYTES
+                maximum = MAX_BYTES
+            body = read_json(handler, names, maximum=maximum)
             result = (service.steer(user, parts[0], parts[2], body["text"], body["client_request_id"])
                       if parts[3] == "steer" else service.stop(user, parts[0], parts[2], body["client_request_id"]))
             respond(handler, 202, result)

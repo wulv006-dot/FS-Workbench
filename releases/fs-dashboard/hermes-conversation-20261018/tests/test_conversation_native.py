@@ -331,9 +331,69 @@ class NativeDispatchTests(unittest.TestCase):
             with self.assertRaises(PermissionError):scope.schemas()
             binding=scope.context('alice',turn['turn_id'],service.store.task_binding('alice',cid,turn['turn_id'])[1])
             schemas=[{'type':'function','function':{'name':'tool_search','parameters':{'type':'object','properties':{}}}}]
-            value={'binding':binding,'model_schemas':schemas,'catalog_sha256':'f'*64,'registry_generation':7}
+            # Execute the real worker constructor/registration; SDK and Docker are fixtures.
+            from test_conversation_file_loop import WorkerEnvironmentTests
+            import conversation_native as native
+            with WorkerEnvironmentTests().runtime() as (worker,adapter,calls,modules):
+                worker.admission=lambda sid:dict(session_id=binding['session_id'],model='deepseek-flash',token='f'*43,
+                    conversation=True,ready=True,run_id=binding['run_id'],prompt='',
+                    native_chat={'binding':binding,'environment':{'files':[]},'key':'native-key','fingerprint':'0'*64})
+                adapter._ensure_session_db=lambda:types.SimpleNamespace(native_owner_profile=True)
+                @contextmanager
+                def backend_scope(**kwargs):yield
+                backend=types.SimpleNamespace(profile=Path('/native/alice'),environment={'workspace':'/workspace'},
+                    scope=backend_scope,ensure_environment=lambda:None,check=lambda *a:None,observe_pending=lambda *a:None)
+                class Agent:
+                    def __init__(self,**kwargs):
+                        self.tools=schemas;self.enabled_toolsets=kwargs['enabled_toolsets']
+                        self.disabled_toolsets=kwargs['disabled_toolsets'];self._tool_snapshot_generation=7
+                    def run_conversation(self,*a,**kw):return {'completed':True}
+                    def close(self):pass
+                modules['run_agent'].AIAgent=Agent
+                config=types.ModuleType('hermes_cli.tools_config');config._get_platform_tools=lambda *a:{'file'}
+                tools=types.ModuleType('model_tools');tools.get_tool_definitions=lambda **kw:schemas
+                registered=[]
+                def register(name,value,**kwargs):
+                    registered.append(value)
+                    return json.dumps(scope.call('alice',binding['turn_id'],binding['lease'],name,value))
+                worker.call_tool=register
+                overrides={'hermes_cli.tools_config':config,'model_tools':tools,
+                    'hermes_constants':types.SimpleNamespace(resolve_reasoning_config=lambda *a:{'enabled':True,'effort':'medium'}),
+                    'agent.reasoning_params':types.SimpleNamespace(unset_reasoning_default=lambda agent:{'enabled':True,'effort':'medium'})}
+                with patch.dict(sys.modules,overrides),patch.object(native,'NativeDockerBackend',return_value=backend),patch.object(native,'install_native_backend_guards'),patch.object(modules['hermes_cli.config'],'load_config',return_value={'memory':{'write_approval':True},'skills':{'write_approval':True}},create=True):
+                    adapter._create_agent(session_id=binding['session_id'])
+                self.assertEqual(len(registered),1);value=registered[0]
+                self.assertEqual(value['reasoning_effort'],'medium')
+            for bad in (dict(value,reasoning_effort='invalid'),dict(value,extra=True),
+                        {k:v for k,v in value.items() if k!='reasoning_effort'},
+                        dict(value,binding=dict(binding,owner='other'))):
+                with self.subTest(registration=bad.keys()),self.assertRaises((ValueError,PermissionError)):
+                    scope.call('alice',binding['turn_id'],binding['lease'],'fs.native.register_schemas',bad)
             self.assertTrue(scope.call('alice',binding['turn_id'],binding['lease'],'fs.native.register_schemas',value)['registered'])
             self.assertEqual(scope.schemas(),schemas)
+            self.assertEqual(service.native.reasoning_effort(binding),'medium')
+            self.assertEqual(scope.reasoning_effort(),'medium')
+            pilot_path=SOURCE.parents[1]/'hermes-fc-pilot-20261013/pilot.py'
+            spec=importlib.util.spec_from_file_location('native_reasoning_pilot',pilot_path)
+            real_pilot=importlib.util.module_from_spec(spec);spec.loader.exec_module(real_pilot)
+            with patch.object(sys,'path',[str(SOURCE.parents[2]/'fc-coins/fc-review-channel-20261026/source'),str(SOURCE.parents[1]/'hermes-v2-core-20261020/source'),str(pilot_path.parent),*sys.path]),patch.dict(sys.modules,{'pilot':real_pilot}):
+                from transport import Grants, Proxy
+                grants=Grants();token=grants.mint('alice',binding['turn_id'],binding['lease'])
+                gateway=service.hermes.gateways[turn['turn_id']];forwarded=[]
+                gateway.budget=types.SimpleNamespace(policy={'model':'deepseek-flash'},db=service.store.db)
+                def provider_stub(*args):
+                    forwarded.append(args[-1])
+                    return dict(provider_request_id='synthetic',model='deepseek-flash',usage=dict(prompt_tokens=1,completion_tokens=1,total_tokens=2),
+                                message={'role':'assistant','content':'synthetic'},finish_reason='stop')
+                gateway.call=provider_stub
+                proxy=Proxy(grants,lambda grant:gateway)
+                body=dict(messages=[{'role':'user','content':'synthetic'}],model='deepseek-flash',max_tokens=32,
+                          tools=schemas,reasoning_effort='medium')
+                self.assertEqual(proxy.dispatch('POST','/v1/chat/completions',token,body)['model'],'deepseek-flash')
+                self.assertEqual(forwarded[0]['reasoning_effort'],'medium')
+                with self.assertRaisesRegex(ValueError,'reasoning_policy'):
+                    proxy.dispatch('POST','/v1/chat/completions',token,dict(body,reasoning_effort='high'))
+                self.assertEqual(len(forwarded),1)
             changed=json.loads(json.dumps(value));changed['model_schemas'][0]['function']['name']='anything_else'
             with self.assertRaises(PermissionError):scope.call('alice',binding['turn_id'],binding['lease'],'fs.native.register_schemas',changed)
             service.native.fence('alice',cid,turn['turn_id'])
