@@ -21,6 +21,7 @@ FILES = {'source/fc_collection/' + name for name in
          ('__init__.py', 'contracts.py', 'coordinator.py', 'adapters.py', 'worker.py',
           'protocol.py', 'public_sources.py', 'server.py', 'ssh_client.py', 'pilot.py', 'client.py')}
 FILES.add('source/fc_pricing_v3/sources.py')
+FILES.add('source/server_quote_job.py')
 FILES |= {'tests/' + name for name in ('collection_cases.py', 'test_collection_contracts.py',
           'test_collection_leases.py', 'test_collection_limits.py', 'test_collection_worker.py',
           'test_collection_public_source.py', 'test_collection_protocol.py', 'test_collection_service.py',

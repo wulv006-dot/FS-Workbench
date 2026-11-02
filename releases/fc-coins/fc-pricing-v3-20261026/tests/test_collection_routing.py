@@ -248,6 +248,56 @@ class Routing(unittest.TestCase):
 
 
 class SourceWiring(unittest.TestCase):
+    def test_original_branch_needs_no_controller_install_but_configured_route_receives_parent(self):
+        from types import SimpleNamespace
+        path = Path(__file__).resolve().parents[1] / 'source/fc_pricing_v3/sources.py'
+        shared = next(n for n in ast.parse(path.read_text()).body if isinstance(n, ast.FunctionDef) and n.name == 'shared_context')
+        reader = next(n for n in shared.body if isinstance(n, ast.FunctionDef) and n.name == 'read_arab')
+        config = Mock()
+        config.exists.return_value = False
+        config.is_symlink.return_value = False
+        local = Mock(return_value='legacy')
+        parent = dict(run_id='original')
+        scope = dict(Path=lambda _: config, sys=SimpleNamespace(path=[]), arab_normal=local,
+                     collection_context=parent, collection_mode=dict(mode='server'))
+        exec(compile(ast.Module(body=[reader], type_ignores=[]), str(path), 'exec'), scope)
+        with patch('fc_collection.client.arab_normal', return_value='routed') as remote:
+            self.assertEqual(scope['read_arab'](), 'legacy')
+            remote.assert_not_called()
+            config.exists.return_value = True
+            self.assertEqual(scope['read_arab'](), 'routed')
+            remote.assert_called_once_with(local, parent, pinned=dict(mode='server'))
+            remote.reset_mock()
+            scope['collection_mode'] = dict(mode='local')
+            self.assertEqual(scope['read_arab'](), 'legacy')
+            remote.assert_not_called()
+
+    def test_real_quote_evidence_preserves_snapshot_time_and_local_pin_through_source_subprocess(self):
+        from datetime import datetime, timezone
+        from types import SimpleNamespace
+        root = Path(__file__).resolve().parents[1] / 'source'
+        tree = ast.parse((root / 'server_quote_job.py').read_text(encoding='utf-8'))
+        assignment = next(n for n in ast.walk(tree) if isinstance(n, ast.Assign)
+                          and any(isinstance(t, ast.Name) and t.id == 'evidence' for t in n.targets)
+                          and isinstance(n.value, ast.Dict))
+        now = datetime.now(timezone.utc).isoformat()
+        deadline = (datetime.fromisoformat(now) + timedelta(seconds=30)).isoformat()
+        snapshot = dict(created_at=now, collection_mode=dict(mode='local', revision=7), collection_deadline_at=deadline)
+        environment = dict(snapshot=snapshot, run_id='real-run', costs=[], offers=[], fx={}, storefront={}, reference_market={})
+        exec(compile(ast.Module(body=[assignment], type_ignores=[]), str(root / 'server_quote_job.py'), 'exec'), environment)
+        evidence = environment['evidence']
+        function = next(n for n in ast.parse((root / 'fc_pricing_v3/sources.py').read_text()).body
+                        if isinstance(n, ast.FunctionDef) and n.name == 'collect_context')
+        process = Mock(return_value=SimpleNamespace(returncode=0, stdout='{}'))
+        scope = dict(subprocess=SimpleNamespace(run=process), json=json, datetime=datetime, timedelta=timedelta, timezone=timezone)
+        exec(compile(ast.Module(body=[function], type_ignores=[]), str(root / 'fc_pricing_v3/sources.py'), 'exec'), scope)
+        scope['collect_context'](evidence)
+        data = json.loads(process.call_args.kwargs['input'])
+        self.assertEqual(data['collection_mode'], snapshot['collection_mode'])
+        self.assertEqual(data['collection_context']['created_at'], snapshot['created_at'])
+        self.assertEqual(data['collection_context']['run_id'], 'real-run')
+        self.assertEqual(data['collection_context']['deadline_at'], deadline)
+
     def test_source_subprocess_receives_only_minimal_parent_and_pinned_local_mode(self):
         from datetime import datetime, timezone
         from types import SimpleNamespace

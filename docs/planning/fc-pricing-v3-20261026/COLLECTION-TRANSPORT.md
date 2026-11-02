@@ -87,3 +87,5 @@
 - v2携带且校验SAR原金额、priceVersion原类型、pricedAt；消费要求同一完整Console组。原v1影子可验签/补ACK，但不能作为完整v2生产报价；不改写原回执。
 - 候选本机96项通过、完整FC611项通过（10个原Windows平台跳过）；183目标Python3.9.18无网络、0.25核/256MB容器94项通过，无跳过。证据在本地task目录routing-full-fc.log、routing-linux183.log；未新增外站请求，知识收尾候选无冲突。
 - **本段是可关闭候选，尚未向原生产目录发布或开启consume。** 187本机自动接替与回切还在P6范围；在该能力完成和验收前不把候选宣称为生产可切换。原FC调度、定价、writer及RPG未改。原publisher受控增量发布、真实入口消费、自然轮和现场回退仍未执行。
+- 独立审查99ae09f发现真实server_quote_job只传checked_at、未传collection_mode；新增真实构造→子进程回归先失败，修复为原checked_at建parent并透传原local模式/截止。无routing时直接原分支，不依赖控制包安装。
+- 修复后完整FC613项通过（10个原Windows平台跳过）；183目标Python3.9隔离96项通过无跳过。最终Linux包3e751eac2504e677063cc12eda6d62d3744edee9c1913a14a5065f8ba5ec5722，routing-final-linux183.log。独立审查未发现其他P1/P2，同run并发仅1job/1attempt/1permit。

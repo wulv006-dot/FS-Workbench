@@ -47,13 +47,14 @@ def _public_matches(observed,region_id,platform,product,factor):
 
 def collect_context(evidence):
     parent=None
-    if evidence.get('run_id') and evidence.get('created_at'):
+    original_created=evidence.get('checked_at') or evidence.get('created_at')
+    if evidence.get('run_id') and original_created:
         try:
-            created=datetime.fromisoformat(evidence['created_at'].replace('Z','+00:00'))
+            created=datetime.fromisoformat(original_created.replace('Z','+00:00'))
             deadline=min(datetime.now(timezone.utc)+timedelta(seconds=210),created+timedelta(seconds=900))
             if evidence.get('collection_deadline_at'):
                 deadline=min(deadline,datetime.fromisoformat(evidence['collection_deadline_at'].replace('Z','+00:00')))
-            parent=dict(run_id=evidence['run_id'],created_at=evidence['created_at'],deadline_at=deadline.isoformat())
+            parent=dict(run_id=evidence['run_id'],created_at=original_created,deadline_at=deadline.isoformat())
         except (ValueError,TypeError,AttributeError):
             pass
     done=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.sources'],
@@ -71,6 +72,11 @@ def collect_context(evidence):
 def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mode=None,scope=None,history_cache=None,history_signature=None,online_context=None,collection_context=None,collection_mode=None):
     from .market_registry import arab_normal
     def read_arab():
+        if isinstance(collection_mode,dict) and collection_mode.get('mode')=='local':
+            return arab_normal()
+        routing=Path('/var/lib/fc27-cloud/collection-access/routing.json')
+        if not routing.exists() and not routing.is_symlink():
+            return arab_normal()
         sys.path.insert(0,'/opt/fs-fc-control/code')
         from fc_collection.client import arab_normal as routed
         return routed(arab_normal,collection_context,pinned=collection_mode)
