@@ -23,7 +23,9 @@ def arab_offers(value, now):
     settlement = value['total'].get('amountHalalah')
     if type(amount) is not int or amount <= 0 or type(settlement) is not int or settlement <= 0:
         raise ValueError('arab_quote_amount_invalid')
-    if not isinstance(value.get('priceVersion'), str) or not value['priceVersion'] or len(value['priceVersion']) > 120:
+    version = value.get('priceVersion')
+    if not (type(version) is int and 0 <= version <= 2**63 - 1
+            or isinstance(version, str) and 0 < len(version) <= 120):
         raise ValueError('arab_quote_version_invalid')
     instant(value.get('pricedAt'))
     safe_evidence = {key: value[key] for key in ('platform', 'delivery', 'quantity', 'market',
