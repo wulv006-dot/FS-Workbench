@@ -72,8 +72,6 @@ def collect_context(evidence):
 def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mode=None,scope=None,history_cache=None,history_signature=None,online_context=None,collection_context=None,collection_mode=None):
     from .market_registry import arab_normal
     def read_arab():
-        if isinstance(collection_mode,dict) and collection_mode.get('mode')=='local':
-            return arab_normal()
         routing=Path('/var/lib/fc27-cloud/collection-access/routing.json')
         if not routing.exists() and not routing.is_symlink():
             return arab_normal()
