@@ -22,7 +22,7 @@ class ConfiguredAdminAuthorizer:
    sites=config.get('sites');projects=config.get('projects')
    if not isinstance(sites,dict) or query['site_id'] not in sites or not isinstance(projects,dict) or query['game_id'] not in projects:return None
    fields=query.get('fields',[])
-   if not isinstance(fields,list) or set(fields)-{'order_id','paid_at','status'}:return None
+   if not isinstance(fields,list) or set(fields)-{'order_id','paid_at','status','pay_status','customer_email'}:return None
    scope={'scope':'site','scope_id':query['site_id']}
    if not callable(self.existing_authorizer) or self.existing_authorizer(self.subject,scope,bool(fields)) is not True:return None
    return dict(scope_hash=digest([self.subject,'266',query['game_id']]),permission_epoch=digest([policy,config]),policy_version=self.policy_version)

@@ -27,7 +27,11 @@ def handle(value,loader=load_shared,*,today=shanghai_today):
  if not isinstance(value,dict) or set(value)!={'path','params','max_bytes'} or value['path']!='/admin/order.Order/index' or type(value['max_bytes']) is not int or not 1<=value['max_bytes']<=1048576:raise ValueError('worker_input')
  params=value['params']
  keys={'page','limit','order'}|{'search[%d][%s]'%(i,k) for i in range(3) for k in ('field','operator','val')}|{'search[2][render]'}
- if not isinstance(params,dict) or set(params)!=keys or type(params['page']) is not int or params['page']!=1 or type(params['limit']) is not int or not 1<=params['limit']<=100 or params['order']!='id,desc':raise ValueError('worker_scope')
+ email_keys={'search[3][field]','search[3][operator]','search[3][val]'}
+ if not isinstance(params,dict) or set(params) not in (keys,keys|email_keys) or type(params['page']) is not int or not 1<=params['page']<=100000 or type(params['limit']) is not int or not 1<=params['limit']<=100 or params['order']!='id,desc':raise ValueError('worker_scope')
+ if email_keys<=set(params):
+  email=params['search[3][val]']
+  if params['search[3][field]']!='email' or params['search[3][operator]']!='=' or not isinstance(email,str) or not 3<=len(email)<=320 or email.count('@')!=1 or not all(email.split('@')) or any(c.isspace() or ord(c)<32 or ord(c)==127 for c in email):raise ValueError('worker_scope')
  if any(params['search[%d][field]'%i]!=field or params['search[%d][operator]'%i]!=op for i,(field,op) in enumerate((('site_id','='),('gid','='),('paytime','RANGE')))) or params['search[2][render]']!='datetime' or params['search[0][val]']!='266':raise ValueError('worker_scope')
  game=params['search[1][val]'];period=params['search[2][val]']
  if not isinstance(game,str) or not game.isascii() or not game.isdigit() or len(game)>20 or not isinstance(period,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2} 00:00:00,\d{4}-\d{2}-\d{2} 23:59:59',period):raise ValueError('worker_scope')
@@ -50,7 +54,8 @@ def handle(value,loader=load_shared,*,today=shanghai_today):
  except HTTPError as error:
   try:status=error.code;body=b''
   finally:error.close()
- if type(status) is not int or not 100<=status<=599 or not isinstance(body,bytes) or len(body)>value['max_bytes']:raise ValueError('worker_response')
+ if type(status) is not int or not 100<=status<=599 or not isinstance(body,bytes):raise ValueError('worker_response')
+ if len(body)>value['max_bytes']:return {'error':'source_response_too_large'}
  return {'status':status,'body':base64.b64encode(body).decode('ascii')}
 
 def main():

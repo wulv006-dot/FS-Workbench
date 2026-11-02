@@ -8,6 +8,7 @@ class NginxLiveRoute(unittest.TestCase):
   text=path.read_text(encoding='utf8')
   self.assertIn('location = /dashboard/users/live-orders.json {',text)
   self.assertIn('auth_request /__auth_verify;',text)
+  self.assertIn('if ($request_method !~ "^(GET|POST)$") { return 405; }',text)
   self.assertIn('proxy_set_header X-Auth-User "";',text)
   self.assertIn('MMOEXP_AUTH=$cookie_MMOEXP_AUTH',text)
   self.assertIn('FS_ACCESS_CANDIDATE=$cookie_FS_ACCESS_CANDIDATE',text)

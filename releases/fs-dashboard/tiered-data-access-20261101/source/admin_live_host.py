@@ -8,7 +8,7 @@ from admin_supervised_transport import SupervisedAdminTransport
 
 CONFIG='/opt/fs-hermes-fc/user_config.json'
 WORKER='/opt/fs-hermes-fc/admin_live_worker.py'
-WORKER_SHA256='4503c17edbaa08e3042b4d31bc91f343f6db96db406b3a4a418917ac148429c1'
+WORKER_SHA256='5776e6dda8a0231ea303f1024c32dcd87405ec89166311eeac81778f0b8d6e1e'
 
 def read_existing_json(path):
  p=Path(path)
@@ -31,11 +31,12 @@ def build_handler(*,load_config,load_policy,rbac,fetch,run_source=None,observed_
    selected=[]
    def select_fields(query):
     scope={'scope':'site','scope_id':query['site_id']}
-    fields=['order_id','paid_at','status'] if callable(existing_authorizer) and existing_authorizer(user,scope,True) is True else []
+    fields=['order_id','paid_at','status','pay_status','customer_email'] if callable(existing_authorizer) and existing_authorizer(user,scope,True) is True else []
     selected[:]=fields
     return fields
    def scoped_fetch(path,source_params,timeout,max_bytes):
     query={key:params[key][0] for key in ('site_id','game_id','start','end_exclusive')};query['fields']=list(selected)
+    if 'customer_email' in params:query['customer_email']=params['customer_email'][0]
     def operation():
      current=load_config()
      if not isinstance(current,dict) or current.get('live_admin_single_page') is not True:raise PermissionError('permission_denied')
