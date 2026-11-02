@@ -1,9 +1,11 @@
 """Synthetic publisher/SQLite checks; not real Linux modes, deployment or login."""
-from contextlib import closing, nullcontext
+from contextlib import closing, contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
 import importlib.util
 import json
 import os
+import socket
+import stat
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -1194,6 +1196,81 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 class NativePublisher(unittest.TestCase):
+    @contextmanager
+    def native_metadata(self, owners, kinds=None):
+        # Keep real filesystem types (including a real Unix socket on Linux).
+        # Root/9876 ownership cannot be created by the unprivileged CI runner.
+        kinds={} if kinds is None else kinds
+        def metadata(path, *, follow_symlinks=True):
+            path=Path(path);info=os.stat(path,follow_symlinks=follow_symlinks)
+            if path not in owners and path not in kinds:return info
+            fields=list(info);uid,gid,mode=owners.get(path,(info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode)))
+            fields[0]=kinds.get(path,stat.S_IFMT(info.st_mode))|mode
+            fields[4]=uid;fields[5]=gid
+            return os.stat_result(fields)
+        def kind(path, check, follow):
+            try:return check(metadata(path,follow_symlinks=follow).st_mode)
+            except FileNotFoundError:return False
+        with patch.object(Path,'stat',lambda path,**kw:metadata(path,**kw)), patch.object(Path,'lstat',lambda path:metadata(path,follow_symlinks=False)), patch.object(Path,'is_file',lambda path:kind(path,stat.S_ISREG,True)), patch.object(Path,'is_symlink',lambda path:kind(path,stat.S_ISLNK,False)):
+            yield
+
+    def test_native_dependencies_accept_unix_socket_and_keep_type_owner_parent_guards(self):
+        prepare.configure_native_chat()
+        with tempfile.TemporaryDirectory(prefix='fs-native-sock-') as directory:
+            root=Path(directory);base=release.frozen()
+            cli=root/'usr/bin/docker';cli.parent.mkdir(parents=True);cli.write_bytes(b'fixed cli')
+            target=root/'run/docker.sock';target.parent.mkdir()
+            sock=None;kinds={}
+            try:
+                if hasattr(socket,'AF_UNIX'):
+                    sock=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);sock.bind(str(target))
+                    self.assertTrue(stat.S_ISSOCK(os.lstat(target).st_mode))
+                else:
+                    # Windows Python lacks AF_UNIX; only this platform uses a
+                    # type fixture. Linux must exercise the real bound socket.
+                    target.write_bytes(b'Windows socket metadata fixture');kinds[target]=stat.S_IFSOCK
+                owners={cli:(0,0,0o755),target:(0,994,0o660)}
+                with self.native_metadata(owners,kinds), patch.object(release,'NATIVE_CLI_SHA',base.digest(cli)):
+                    result=release.native_dependencies(base,root)
+                    self.assertEqual(result['socket']['gid'],994)
+                    self.assertEqual(result['socket']['mode'],'0o660')
+                    with patch.object(release,'NATIVE_CLI_SHA','0'*64):
+                        with self.assertRaisesRegex(ValueError,'native_docker_cli_drift'):release.native_dependencies(base,root)
+                    owners[target]=(9876,994,0o660)
+                    with self.assertRaisesRegex(ValueError,'native_docker_socket_unavailable'):release.native_dependencies(base,root)
+                    owners[target]=(0,994,0o600)
+                    with self.assertRaisesRegex(ValueError,'native_docker_socket_unavailable'):release.native_dependencies(base,root)
+                    owners[target]=(0,994,0o660);kinds[target]=stat.S_IFREG
+                    with self.assertRaisesRegex(ValueError,'native_docker_socket_unavailable'):release.native_dependencies(base,root)
+                    kinds[target]=stat.S_IFSOCK;kinds[target.parent]=stat.S_IFLNK
+                    with self.assertRaises(ValueError):release.native_dependencies(base,root)
+            finally:
+                if sock is not None:sock.close()
+
+    def test_native_existing_directories_keep_type_ownership_and_empty_home_checks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            native=Path(directory)/'native';empty=Path(directory)/'empty-home'
+            paths=[native,native/'profiles',native/'workspaces',empty]
+            for path in paths:path.mkdir()
+            owners={path:((0,0,0o555) if path==empty else (9876,9876,0o700)) for path in paths};kinds={}
+            with patch.object(release,'NATIVE_ROOT',str(native)), patch.object(release,'NATIVE_EMPTY_SOURCE',str(empty)), self.native_metadata(owners,kinds), patch.object(os,'chown',create=True) as chown:
+                release.ensure_native_directories();chown.assert_not_called()
+                (native/'profiles').rmdir()
+                release.ensure_native_directories()
+                chown.assert_called_once_with(native/'profiles',9876,9876)
+                for bad in ((0,9876,0o700),(9876,9876,0o755)):
+                    owners[native/'profiles']=bad
+                    with self.assertRaisesRegex(ValueError,'native_directory_owner_mode'):release.ensure_native_directories()
+                owners[native/'profiles']=(9876,9876,0o700)
+                kinds[native/'workspaces']=stat.S_IFREG
+                with self.assertRaises(ValueError):release.ensure_native_directories()
+                kinds[native/'workspaces']=stat.S_IFLNK
+                with self.assertRaises(ValueError):release.ensure_native_directories()
+                kinds.clear();kinds[native.parent]=stat.S_IFLNK
+                with self.assertRaises(ValueError):release.ensure_native_directories()
+                kinds.clear();(empty/'unexpected').write_bytes(b'must not be mounted')
+                with self.assertRaisesRegex(ValueError,'native_empty_backend_home_changed'):release.ensure_native_directories()
+
     def setUp(self):
         self.release_state={key:deepcopy(value) for key,value in vars(release).items() if key.isupper()}
         self.prepare_state={key:deepcopy(value) for key,value in vars(prepare).items() if key.isupper()}

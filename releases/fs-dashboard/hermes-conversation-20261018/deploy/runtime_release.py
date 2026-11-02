@@ -384,6 +384,20 @@ def worker_image(*, allow_stopped=False):
     return worker_observation(allow_stopped=allow_stopped)['image']
 
 
+def native_path_info(path):
+    """Check non-file dependencies without the frozen regular-file writer guard."""
+    info = None
+    for current in reversed((path, *path.parents)):
+        try:
+            info = current.lstat()
+        except FileNotFoundError:
+            info = None
+            continue
+        if stat.S_ISLNK(info.st_mode) or (current != path and not stat.S_ISDIR(info.st_mode)):
+            raise ValueError('native_dependency_link_or_parent')
+    return info
+
+
 def native_dependencies(base, root):
     cli = base.rooted(root, NATIVE_CLI)
     base.no_target_link(cli)
@@ -393,9 +407,8 @@ def native_dependencies(base, root):
             base.digest(cli) != NATIVE_CLI_SHA):
         raise ValueError('native_docker_cli_drift')
     socket = base.rooted(root, '/run/docker.sock')
-    base.no_target_link(socket)
-    sock = socket.stat()
-    if not stat.S_ISSOCK(sock.st_mode) or sock.st_uid != 0 or stat.S_IMODE(sock.st_mode) != 0o660:
+    sock = native_path_info(socket)
+    if sock is None or not stat.S_ISSOCK(sock.st_mode) or sock.st_uid != 0 or stat.S_IMODE(sock.st_mode) != 0o660:
         raise ValueError('native_docker_socket_unavailable')
     if root == Path('/'):
         user = subprocess.check_output(['docker','inspect','--format','{{.Config.User}}','fs-hermes-fc'],text=True,timeout=10).strip()
@@ -411,12 +424,12 @@ def ensure_native_directories():
     import os
     for name in (NATIVE_ROOT,NATIVE_ROOT+'/profiles',NATIVE_ROOT+'/workspaces',NATIVE_EMPTY_SOURCE):
         path = Path(name)
-        frozen().no_target_link(path)
+        info = native_path_info(path)
         wanted = (0,0,0o555) if name == NATIVE_EMPTY_SOURCE else (9876,9876,0o700)
-        if not path.exists():
+        if info is None:
             path.mkdir(mode=wanted[2],parents=False)
             os.chown(path,wanted[0],wanted[1])
-        info = path.stat()
+        info = native_path_info(path)
         if not stat.S_ISDIR(info.st_mode) or (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode)) != wanted:
             raise ValueError('native_directory_owner_mode')
         if name == NATIVE_EMPTY_SOURCE and any(path.iterdir()):
