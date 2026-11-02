@@ -56,4 +56,4 @@ FS 入口通过 POST 请求体传邮箱；上游 Admin 沿用原有固定 GET �
 
 Hermes 尚未接可信身份：`hermes-server-unify-20261022/fs_readonly/__init__.py` 固定 `OWNER='wulv'` 且注册处理丢弃 `**context`；会话 HTTP 层已有真实 actor，但下游工具还缺可核验的 run-bound actor/session 传递。接口负责人需提供该绑定并复用 `user_runtime.authorize`，不能把任意本机进程或自填身份头当可信。不要改动正在施工的 T3 技能来伪装已接线。
 
-历史测试记录清理交接见 [TEST-DIRTY-HANDOFF.md](TEST-DIRTY-HANDOFF.md)。本次数据调用文档不代表整个04治理栈上线，也不代表旧备份已清理。
+历史测试记录清理交接见 [TEST-DIRTY-HANDOFF.md](TEST-DIRTY-HANDOFF.md)。主执行已回报：仅用户指定的 `backups/2026-10-29`、`backups/2026-10-30` 两目录共8文件已清理，小型回执已保全并完成释放空间核对；不表示其他备份已清理或整个04治理栈上线。本调用文档不替代该独立清理回执。
