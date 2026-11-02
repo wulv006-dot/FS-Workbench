@@ -611,6 +611,7 @@ class NativeConversation:
         self.hermes.tasks._native_active_model_tasks=self.native_only_active_tasks
 
     def row(self, owner, cid, turn_id):
+        if self.store.is_archived(owner,cid,turn_id):return None
         with self.store.db() as db:
             self.store._owned(db, owner, cid)
             row = db.execute('SELECT * FROM native_conversation_runs WHERE turn_id=?', (turn_id,)).fetchone()
@@ -844,6 +845,7 @@ class NativeConversation:
         atomic(self.service.run_root / 'admissions' / (session_id + '.json'), value, mode=0o640)
 
     def fence(self, owner, cid, turn_id):
+        if self.store.is_archived(owner,cid,turn_id):return
         row = self.row(owner, cid, turn_id)
         with self.store.db() as db:
             db.execute('BEGIN IMMEDIATE')

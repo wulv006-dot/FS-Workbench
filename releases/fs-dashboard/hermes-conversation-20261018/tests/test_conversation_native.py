@@ -542,3 +542,121 @@ class NativeResolverTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class NativeArchiveTests(unittest.TestCase):
+    def test_exact_synthetic_archive_preserves_unknown_and_blocks_all_reuse(self):
+        import conversation_store as module
+        self.assertTrue(callable(getattr(ConversationStore,'archive_synthetic_unknown',None)))
+        with tempfile.TemporaryDirectory() as root:
+            store=ConversationStore(root);owner='archive-owner';cid=store.create(owner)['conversation_id']
+            text='Synthetic archive only';request='archive_request_01'
+            file=ConversationFiles(store).save(owner,cid,'archive.csv',b'value\n1\n','archive_upload_01')
+            turn=store.reserve_turn(owner,cid,text,request,file_ids=[file['file_id']],native=True)
+            lease='a'*32;store.bind_task(owner,cid,turn['turn_id'],turn['turn_id'],lease)
+            with store.db() as db:
+                session=store._owned(db,owner,cid)['session_id']
+                db.execute('CREATE TABLE native_conversation_runs(turn_id PRIMARY KEY,binding,body,idempotency_key,fingerprint,schemas,stopped)')
+                binding=dict(owner=owner,conversation_id=cid,turn_id=turn['turn_id'],request_id=request,session_id=session,lease=lease,run_id=None)
+                body={'input':text,'session_id':session};canonical=lambda v:json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False)
+                key='hn-'+hashlib.sha256(canonical([owner,cid,request]).encode()).hexdigest()
+                fp=hashlib.sha256(canonical({'body':body,'gateway_session_key':''}).encode()).hexdigest()
+                db.execute('INSERT INTO native_conversation_runs VALUES(?,?,?,?,?,NULL,1)',(turn['turn_id'],canonical(binding),canonical(body),key,fp))
+            store.set_state(owner,cid,turn['turn_id'],'dispatch_unknown')
+            pins=dict(cid=cid,turn_id=turn['turn_id'],request_id=request,session_id=session,lease=lease,owner_sha256=hashlib.sha256(owner.encode()).hexdigest(),fingerprint=fp,input_sha256=hashlib.sha256(text.encode()).hexdigest(),file_ids=[file['file_id']],file_sha256=file['sha256'],file_size=file['size'])
+            other=store.create('other')['conversation_id'];before=store.active()
+            with patch.object(module,'SYNTHETIC_ARCHIVE',pins):
+                with self.assertRaises(PermissionError):store.archive_synthetic_unknown('other')
+                receipt=store.archive_synthetic_unknown(owner)
+                self.assertEqual(receipt['outcome'],'unknown');self.assertEqual(receipt['cost'],'unknown')
+                self.assertEqual(store.archive_synthetic_unknown(owner),receipt)
+                self.assertEqual(store.active(),[])
+                self.assertNotIn(cid,[r['conversation_id'] for r in store.listed(owner)['items']])
+                self.assertEqual(store.detail('other',other)['turns'],[])
+                for call in (lambda:store.detail(owner,cid),lambda:store.reserve_turn(owner,cid,text,request),lambda:store.reserve_turn(owner,cid,'different','archive_other_01'),lambda:store.set_state(owner,cid,turn['turn_id'],'running'),lambda:store.bind_run(owner,cid,turn['turn_id'],'run_'+'b'*32),lambda:store.bind_task(owner,cid,turn['turn_id'],turn['turn_id'],lease)):
+                    with self.assertRaisesRegex(LookupError,'archived_conversation'):call()
+                restarted=ConversationStore(root);self.assertEqual(restarted.active(),[])
+                with restarted.db() as db:
+                    old=db.execute('SELECT state,run_id FROM turns WHERE id=?',(turn['turn_id'],)).fetchone()
+                    self.assertEqual(tuple(old),('dispatch_unknown',None))
+                    self.assertEqual(tuple(db.execute('SELECT binding,body,idempotency_key,fingerprint,stopped FROM native_conversation_runs').fetchone()),(canonical(binding),canonical(body),key,fp,1))
+                    self.assertEqual(db.execute('SELECT COUNT(*) FROM synthetic_turn_archives').fetchone()[0],1)
+                self.assertEqual(store.archived_synthetic_receipt(owner),receipt)
+                from conversation_native import NativeConversation
+                native=NativeConversation.__new__(NativeConversation);native.store=store
+                native.hermes=types.SimpleNamespace(authorizer=lambda _:True)
+                native.service=types.SimpleNamespace(_request=lambda *a: self.fail('archived reconciliation must not perform HTTP'))
+                self.assertIsNone(native.row(owner,cid,turn['turn_id']))
+                self.assertIsNone(native.reconcile_unknown(owner,cid,turn['turn_id']))
+                self.assertEqual(native.complete(owner,cid,turn['turn_id'],'run_'+'d'*32),[])
+                native.fence(owner,cid,turn['turn_id'])
+                self.assertFalse(native.authorized(binding))
+                NativeDispatchTests.setUpClass()
+                service=types.SimpleNamespace(store=store)
+                self.assertIsNone(NativeDispatchTests.active.ConversationService._recover(service,owner,cid,turn['turn_id'],'run_'+'d'*32))
+                self.assertIsNone(NativeDispatchTests.active.ConversationService._monitor(service,owner,cid,turn['turn_id'],'run_'+'d'*32,None))
+                forged=dict(receipt,turn_id='f'*32)
+                raw=json.dumps(forged,sort_keys=True,separators=(',',':'),ensure_ascii=False)
+                with store.db() as db:db.execute('UPDATE synthetic_turn_archives SET receipt=?,receipt_sha256=?',(raw,hashlib.sha256(raw.encode()).hexdigest()))
+                with self.assertRaisesRegex(ValueError,'archive_audit_CAS_mismatch'):store.archive_synthetic_unknown(owner,_check_only=True)
+
+
+
+    def test_archive_CAS_rejects_changed_lifecycle_without_tombstone(self):
+        # Reuse the full direct fixture through a hook just before the maintenance call.
+        original=ConversationStore.archive_synthetic_unknown
+        for mutation in ('state','run_id','lease','stopped','extra_turn','session','body','key','fingerprint','input','schemas'):
+            def guarded(store,owner,kind=mutation):
+                import conversation_store as module
+                p=module.SYNTHETIC_ARCHIVE
+                if owner!='archive-owner':return original(store,owner)
+                with store.db() as db:
+                    if kind=='state':db.execute("UPDATE turns SET state='running' WHERE id=?",(p['turn_id'],))
+                    elif kind=='run_id':db.execute('UPDATE turns SET run_id=? WHERE id=?',('run_'+'c'*32,p['turn_id']))
+                    elif kind=='lease':db.execute('UPDATE turns SET lease=? WHERE id=?',('f'*32,p['turn_id']))
+                    elif kind=='stopped':db.execute('UPDATE native_conversation_runs SET stopped=0')
+                    elif kind=='extra_turn':db.execute("INSERT INTO turns(id,conversation_id,request_id,input_sha256,text,state) VALUES('extra',?,'extra_request','f','x','completed')",(p['cid'],))
+                    elif kind=='session':db.execute('UPDATE conversations SET session_id=? WHERE id=?',('hc_'+'1'*64,p['cid']))
+                    elif kind=='body':db.execute("UPDATE native_conversation_runs SET body='{}'")
+                    elif kind=='key':db.execute("UPDATE native_conversation_runs SET idempotency_key='wrong'")
+                    elif kind=='fingerprint':db.execute("UPDATE native_conversation_runs SET fingerprint='wrong'")
+                    elif kind=='input':db.execute("UPDATE turns SET input_sha256='wrong' WHERE id=?",(p['turn_id'],))
+                    else:db.execute("UPDATE native_conversation_runs SET schemas='{}'")
+                with self.assertRaises((ValueError,PermissionError)):original(store,owner)
+                with store.db() as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM synthetic_turn_archives').fetchone()[0],0)
+                raise RuntimeError('CAS correctly rejected')
+            with self.subTest(mutation=mutation),patch.object(ConversationStore,'archive_synthetic_unknown',guarded),self.assertRaisesRegex(RuntimeError,'CAS correctly rejected'):
+                self.test_exact_synthetic_archive_preserves_unknown_and_blocks_all_reuse()
+
+    def test_archive_rejects_attachment_and_extra_audit_drift(self):
+        from conversation_file_bindings import FileBindings
+        original=ConversationStore.archive_synthetic_unknown
+        for kind in ('missing','empty','different','corrupt','bytes','extra_audit'):
+            for check_only in (False,True):
+                def guarded(store,owner,kind=kind,check_only=check_only,**kwargs):
+                    import conversation_store as module
+                    if owner!='archive-owner':return original(store,owner,**kwargs)
+                    p=module.SYNTHETIC_ARCHIVE
+                    path=FileBindings(store).path(p['cid'],p['turn_id'])
+                    if kind=='missing':path.unlink()
+                    elif kind=='empty':path.write_text('{"inputs":[],"generated":[]}',encoding='utf-8')
+                    elif kind=='different':path.write_text('{"inputs":["other"],"generated":[]}',encoding='utf-8')
+                    elif kind=='corrupt':path.write_text('{',encoding='utf-8')
+                    elif kind=='bytes':
+                        item=ConversationFiles(store).read(owner,p['cid'],p['file_ids'][0])
+                        # Keep metadata unchanged, so the real reader must reject mutated bytes.
+                        directory=ConversationFiles(store).directory(p['cid'])
+                        for candidate in directory.iterdir():
+                            if candidate.is_file() and candidate.read_bytes()==item['content']:
+                                candidate.write_bytes(b'changed')
+                    else:
+                        with store.db() as db:
+                            cid=db.execute('SELECT id FROM conversations WHERE owner=?',('other',)).fetchone()[0]
+                            db.execute('INSERT INTO synthetic_turn_archives VALUES(?,?,?,?)',('extra',cid,'{','invalid'))
+                    with self.assertRaises((ValueError,PermissionError,LookupError)):
+                        original(store,owner,_check_only=check_only)
+                    with store.db() as db:
+                        self.assertEqual(db.execute('SELECT COUNT(*) FROM synthetic_turn_archives WHERE turn_id=?',(p['turn_id'],)).fetchone()[0],0)
+                    raise RuntimeError('drift correctly rejected')
+                with self.subTest(kind=kind,check_only=check_only),patch.object(ConversationStore,'archive_synthetic_unknown',guarded),self.assertRaisesRegex(RuntimeError,'drift correctly rejected'):
+                    self.test_exact_synthetic_archive_preserves_unknown_and_blocks_all_reuse()

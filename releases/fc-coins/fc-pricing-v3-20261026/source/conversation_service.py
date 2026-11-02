@@ -386,11 +386,13 @@ class ConversationService:
                 with self.lock:self.live.pop(turn_id, None)
 
     def _monitor(self, user, conversation_id, turn_id, run_id, live):
+        if self.store.is_archived(user,conversation_id,turn_id):return
         path = "/v1/runs/" + run_id
         last_seq = self.store.last_upstream(user, conversation_id, run_id)
         missing_status = 0
         status_errors = 0
         while True:
+            if self.store.is_archived(user,conversation_id,turn_id):return
             try:
                 key = (self.run_root / "api-key").read_text("ascii").strip()
                 query = urlencode({"last_seq": last_seq}) if last_seq >= 0 else ""
@@ -525,6 +527,7 @@ class ConversationService:
     def _recover(self, user, conversation_id, turn_id, run_id):
         # A process restart loses in-memory grant/gateway bindings. Never run an
         # apparently healthy model with tool access silently broken or resubmit it.
+        if self.store.is_archived(user,conversation_id,turn_id):return
         path = "/v1/runs/" + run_id
         with self.lock:live = self.live.get(turn_id)
         try:
