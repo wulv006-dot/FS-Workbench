@@ -67,3 +67,13 @@
 - 最小处理只针对ArabUT warm302/303：Location须HTTPS同hostname、root path、无userinfo/fragment，query无重复且键值都匹配已登记参数。只提取该响应的独立匿名选择cookie，warm体原本不使用；不请求Location目标，随后仍只访问固定quote API并核USD/SAR/100K/Console。其他跳转/来源不变，登录路径、外站、降级HTTP、额外token和不匹配币种均拒绝。
 - 仅额外允许一个有新证据的暖页修复组：此前两组generic失败各2请求，第三组必须是唯一接受的redirect_denied且只用1请求。固定第四ID和一次attempt/2请求，总计最多7；第五组联网前拒绝。所有旧回执、permit、block/cooldown保留，未知请求占用待原超时及裕量结束，不退款或清状态。
 - 80专项通过，正常/拒绝暖页、无跟跳请求、两次历史失败及第三次1请求保留、7请求终止、跨窗口重入均有回归。真实修复报价是否恢复须看后续现场读回。
+
+## 已证语言入口与显式三请求组
+
+- PR755最终对齐Hermes PR754后的head为`5aec7183e277ed3e12a452b7eabf54846841b42f`，正式CI`41447112867` success，合并`1247225eb2a051db427992a366fc2464ba7dbfb7`。初次因落后主线被405拒绝；批处理漏检后继续更新FC角色的顺序错误已明确报告并纠正，后续必须核`merged=true`才继续。
+- 第四组仍仅暖页1次redirect_denied，累计6。未再盲猜，而是以独立`183-manual-diag`实例、同一协调DB预留第7次预算，183低权限0.25核/256MiB/64tasks/30s临时进程只warm一次采枚举元数据，不quote、不follow、不输出URL/cookie/响应体。HTTP前独立O_EXCL标记阻止重放，原4回执保留；收尾实验source off/gen6，不覆盖后续策略。
+- 真实枚举为302/https/exact-host/default-port/language-path/query-match、无userinfo和fragment。language只可能已分类的/en、/en/、/ar、/ar/；这是语言跳转未登记的明确证据，不是403或账号失败。手工诊断不是正常worker报价成功。
+- 固定语言模板由纯contracts常量统一，根暖页经同站/HTTPS/参数校验且提cookie后仅返回内部`WarmLanguageRedirect(template_id)`信号，原fetch不暗发第二请求。adapter最多接一次信号，再各自预算get(language)和get(quote)。语言响应仅接受root或同语言选择redirect并留cookie，不继续跟跳。
+- `BudgetedTransport`对已完成且验证过的语言信号完成原permit后传播；预算不退款，后续GET重新reserve。回归确认root+language+quote恰3permit/3completion/2offers。未知/错误不释放占用；原拒绝与报价/币种/数量合同保持。
+- 旧4模块Lootbar导出包新增独立子进程Worker导入检查，防止误引未导出的public_sources；红绿验证后常量落contracts，控制包仍无adapters依赖。81专项通过，183固定3.9.18隔离79项无skip通过，未执行额外外站请求。
+- 下一次仅一个正常协议组，固定ID、单attempt、3请求预算、90s截止、原18s单GET硬界，所有已有7次和5份旧回执保留；同事务off/gen6→shadow/gen7与新job入队，总10硬界。preview先核持久诊断枚举，旧ID重入只读/补ACK，不另建job，不接生产消费。现场结果另记。

@@ -7,6 +7,7 @@ import json
 import re
 
 SOURCES = {'ItemD2R', 'Lootbar', 'ArabUT'}
+ARAB_WARM_PATHS = {'warm':'/', 'warm_en':'/en', 'warm_en_slash':'/en/', 'warm_ar':'/ar', 'warm_ar_slash':'/ar/'}
 PLATFORMS = {'PS', 'XBOX', 'PC'}
 CONTEXT = {'requested_platforms', 'region_scope', 'quantity_scope', 'discount_scope',
            'currency', 'policy_version', 'adapter_version', 'assignment_generation',

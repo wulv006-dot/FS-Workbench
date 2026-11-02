@@ -2,13 +2,13 @@
 from decimal import Decimal
 import json
 
-from .contracts import fingerprint, instant
+from .contracts import fingerprint, instant, ARAB_WARM_PATHS
 
 VERSIONS = {'ArabUT': 'arab-public-quote-collection-v1'}
 ARAB_QUERY = dict(platform='playstation', delivery='normal', quantity='100000')
-REGISTRY = {'ArabUT': {
-    'warm': dict(host='www.arab-ut.com', path='/', query=dict(ARAB_QUERY, currency='USD'), max_bytes=2097153),
-    'quote': dict(host='www.arab-ut.com', path='/coins/quote', query=ARAB_QUERY, max_bytes=1048576)}}
+REGISTRY = {'ArabUT': {name:dict(host='www.arab-ut.com', path=path,
+    query=dict(ARAB_QUERY, currency='USD'), max_bytes=2097153) for name,path in ARAB_WARM_PATHS.items()}}
+REGISTRY['ArabUT']['quote'] = dict(host='www.arab-ut.com', path='/coins/quote', query=ARAB_QUERY, max_bytes=1048576)
 
 
 def arab_offers(value, now):
@@ -40,10 +40,13 @@ def arab_offers(value, now):
 
 
 def arab_adapter(task, transport):
-    from .adapters import SourceUnavailable
+    from .adapters import SourceUnavailable, WarmLanguageRedirect
     if task['requested_platforms'] != ['PS', 'XBOX'] or task['region_scope'] != [21]:
         raise ValueError('arab_quote_scope_invalid')
-    transport.get('warm')
+    try:
+        transport.get('warm')
+    except WarmLanguageRedirect as redirect:
+        transport.get(redirect.template_id)
     payload = transport.get('quote')
     try:
         data = json.loads(payload)

@@ -8,7 +8,7 @@ import tempfile
 import time
 import uuid
 
-from .adapters import SourceUnavailable
+from .adapters import SourceUnavailable, WarmLanguageRedirect
 from .contracts import BINDING, encoded, fingerprint, instant, validate_observation
 
 
@@ -35,7 +35,11 @@ class BudgetedTransport:
         timeout = min(self.end - self.monotonic(), 300, request_started + server_duration - margin - self.monotonic())
         if timeout <= 0:
             raise SourceUnavailable('permit_expired')
-        result = self.fetch(task['source_id'], template_id, timeout)
+        try:
+            result = self.fetch(task['source_id'], template_id, timeout)
+        except WarmLanguageRedirect:
+            self.endpoint.complete_request(self.identity, task['job_id'], task['lease_epoch'], permit['permit_id'], self.clock())
+            raise
         self.endpoint.complete_request(self.identity, task['job_id'], task['lease_epoch'], permit['permit_id'], self.clock())
         return result
 
