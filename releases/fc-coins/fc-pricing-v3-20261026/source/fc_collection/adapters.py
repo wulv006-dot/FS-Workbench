@@ -14,13 +14,21 @@ import time
 from urllib.parse import urlencode, urljoin, urlsplit, parse_qsl
 from urllib.request import Request
 
-from .contracts import SOURCES, integer, label
+from .contracts import SOURCES, integer, label, ARAB_WARM_PATHS
 
 
 class SourceUnavailable(ValueError):
     def __init__(self, reason, retry_after_seconds=0):
         super().__init__(reason)
         self.retry_after_seconds = retry_after_seconds
+
+
+class WarmLanguageRedirect(SourceUnavailable):
+    def __init__(self, template_id):
+        if template_id not in ARAB_WARM_PATHS or template_id == 'warm':
+            raise ValueError('warm_language_template_invalid')
+        super().__init__('warm_language_redirect')
+        self.template_id = template_id
 
 
 class PinnedHTTPS(http.client.HTTPSConnection):
@@ -75,7 +83,7 @@ class RestrictedHTTP:
                 if 'query' in item:
                     query = dict(platform='playstation', delivery='normal', quantity='100000')
                     if (source != 'ArabUT' or item['host'] != 'www.arab-ut.com'
-                            or not ((template == 'warm' and item['path'] == '/' and item['query'] == dict(query, currency='USD'))
+                            or not ((template in ARAB_WARM_PATHS and item['path'] == ARAB_WARM_PATHS[template] and item['query'] == dict(query, currency='USD'))
                                     or (template == 'quote' and item['path'] == '/coins/quote' and item['query'] == query))):
                         raise ValueError('template_query_invalid')
                 integer(item['max_bytes'], 1, 2097153)
@@ -108,9 +116,10 @@ class RestrictedHTTP:
         timer = threading.Timer(remaining, connection.abort)
         timer.daemon = True
         timer.start()
+        response = None
         try:
             path = item['path'] + ('?' + urlencode(item['query']) if item.get('query') else '')
-            accept = ('text/html' if template_id == 'warm' else 'application/json') if source_id == 'ArabUT' else 'application/json,text/html'
+            accept = ('text/html' if template_id in ARAB_WARM_PATHS else 'application/json') if source_id == 'ArabUT' else 'application/json,text/html'
             request = Request('https://' + item['host'] + path,
                               headers={'Accept': accept, 'User-Agent': 'Mozilla/5.0'})
             if source_id == 'ArabUT':
@@ -135,14 +144,19 @@ class RestrictedHTTP:
             if 300 <= response.status < 400:
                 location = response.getheader('Location', '')
                 allowed = False
-                if (source_id == 'ArabUT' and template_id == 'warm' and response.status in (302, 303)
+                language_template = None
+                if (source_id == 'ArabUT' and template_id in ARAB_WARM_PATHS and response.status in (302, 303)
                         and location and len(location) <= 2048 and all(ord(c) >= 32 for c in location)):
                     try:
                         target = urlsplit(urljoin('https://' + item['host'] + path, location))
                         query = parse_qsl(target.query, keep_blank_values=True, strict_parsing=True) if target.query else []
+                        language_template = next((name for name,path in ARAB_WARM_PATHS.items()
+                                                  if name != 'warm' and path == target.path), None)
                         allowed = (target.scheme == 'https' and target.hostname == item['host']
                             and target.port in (None, 443) and target.username is None and target.password is None
-                            and target.path in ('', '/') and not target.fragment and len(dict(query)) == len(query)
+                            and (target.path in ('', '/') or language_template is not None
+                                 and (template_id == 'warm' or target.path.rstrip('/') == item['path'].rstrip('/')))
+                            and not target.fragment and len(dict(query)) == len(query)
                             and all(item['query'].get(key) == value for key, value in query))
                     except ValueError:
                         pass
@@ -151,6 +165,8 @@ class RestrictedHTTP:
                 self.cookies.extract_cookies(response, request)
                 if len(self.cookies) > 32:
                     raise SourceUnavailable('visitor_cookie_limit')
+                if template_id == 'warm' and language_template:
+                    raise WarmLanguageRedirect(language_template)
                 # Warm body is unused; retain selection cookies, never fetch the redirect target.
                 return b''
             if response.status != 200:
@@ -180,4 +196,8 @@ class RestrictedHTTP:
             raise SourceUnavailable('tls_validation_failed') from None
         finally:
             timer.cancel()
-            connection.close()
+            try:
+                if response is not None:
+                    response.close()
+            finally:
+                connection.close()

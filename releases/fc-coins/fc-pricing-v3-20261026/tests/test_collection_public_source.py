@@ -32,6 +32,7 @@ class PublicSource(unittest.TestCase):
         class Response:
             status = 200
             def __init__(self):
+                self.closed = False
                 self.headers = HTTPMessage()
                 self.headers['Set-Cookie'] = 'visitor=fixture; Path=/; Secure; HttpOnly'
                 self.body = b'fixture'
@@ -39,6 +40,8 @@ class PublicSource(unittest.TestCase):
                 return self.headers.get(key, default)
             def info(self):
                 return self.headers
+            def close(self):
+                self.closed = True
             def read1(self, _):
                 body, self.body = self.body, b''
                 return body
@@ -82,17 +85,19 @@ class PublicSource(unittest.TestCase):
     def test_warm_same_origin_redirect_keeps_currency_cookie_without_following_target(self):
         from http.client import HTTPMessage
         from types import SimpleNamespace
-        from fc_collection.adapters import RestrictedHTTP, SourceUnavailable
+        from fc_collection.adapters import RestrictedHTTP, SourceUnavailable, WarmLanguageRedirect
         from fc_collection.public_sources import REGISTRY
         calls = []
         class Response:
             status = 302
             def __init__(self, location):
+                self.closed = False
                 self.headers = HTTPMessage()
                 self.headers['Location'] = location
                 self.headers['Set-Cookie'] = 'currency=USD; Path=/; Secure; HttpOnly'
             def getheader(self, key, default=None): return self.headers.get(key, default)
             def info(self): return self.headers
+            def close(self): self.closed = True
             def read1(self, _): raise AssertionError('warm redirect body is unused')
         class Connection:
             def __init__(self, *args): self.wire_socket = SimpleNamespace(settimeout=lambda _: None)
@@ -107,6 +112,16 @@ class PublicSource(unittest.TestCase):
                 http = RestrictedHTTP(REGISTRY)
                 self.assertEqual(http.fetch('ArabUT', 'warm', 2), b'')
                 self.assertEqual(next(iter(http.cookies)).value, 'USD')
+            for location, template in (('/en?currency=USD','warm_en'),('/ar/?currency=USD','warm_ar_slash')):
+                response = Response(location)
+                http = RestrictedHTTP(REGISTRY)
+                with self.assertRaises(WarmLanguageRedirect) as redirect:
+                    http.fetch('ArabUT','warm',2)
+                self.assertEqual(redirect.exception.template_id,template)
+                self.assertTrue(response.closed)
+                self.assertEqual(next(iter(http.cookies)).value,'USD')
+            response = Response('/en?currency=USD')
+            self.assertEqual(RestrictedHTTP(REGISTRY).fetch('ArabUT','warm_en',2),b'')
             for location in ('https://other.example/', 'http://www.arab-ut.com/', '/login', '/?token=private',
                              'https://user:private@www.arab-ut.com/', '/?currency=SAR', ''):
                 response = Response(location)
@@ -117,7 +132,47 @@ class PublicSource(unittest.TestCase):
             response = Response('/')
             with self.assertRaisesRegex(SourceUnavailable, 'redirect_denied'):
                 RestrictedHTTP(REGISTRY).fetch('ArabUT', 'quote', 2)
-        self.assertEqual(len(calls), 11)
+        self.assertEqual(len(calls), 14)
+
+    def test_language_warm_uses_three_individually_budgeted_completed_requests(self):
+        from contextlib import closing
+        import json
+        import sqlite3
+        from fc_collection.adapters import WarmLanguageRedirect
+        from fc_collection.contracts import build_job
+        from fc_collection.coordinator import Coordinator
+        from fc_collection.public_sources import VERSIONS, arab_adapter
+        from fc_collection.pilot import source_policy
+        from fc_collection.worker import Worker
+        with tempfile.TemporaryDirectory() as folder:
+            c = Coordinator(Path(folder)/'collection.sqlite3')
+            policy = dict(source_policy(4), generation=7, nodes=['183'], stable_seconds=0,
+                          max_requests=3, lease_seconds=90, policy_version='language-warm-test')
+            c.configure_source('ArabUT', policy)
+            c.register_node(identity(), ['ArabUT'], NOW)
+            task = build_job(dict(run_id='language-warm',created_at=NOW.isoformat()),'ArabUT',
+                dict(requested_platforms=['PS','XBOX'],region_scope=[21],quantity_scope=dict(purchase_quantity='100',quantity_unit='K'),
+                    discount_scope='coupon_excluded',currency='USD',policy_version=policy['policy_version'],
+                    adapter_version=VERSIONS['ArabUT'],assignment_generation=7,total_attempt_limit=1,total_request_budget=3),
+                (NOW+timedelta(seconds=90)).isoformat())
+            c.enqueue(task)
+            calls = []
+            value = dict(platform='playstation',delivery='normal',quantity=100000,market='console',
+                total=dict(currency='SAR',amountHalalah=3200),displayTotal=dict(currency='USD',amountMinor=853),
+                priceVersion=2841,pricedAt=NOW.isoformat())
+            def fetch(source, template, timeout):
+                calls.append(template)
+                if template == 'warm': raise WarmLanguageRedirect('warm_en')
+                return json.dumps(value).encode() if template == 'quote' else b''
+            receipt = Worker(c, identity(), {'ArabUT':arab_adapter},Path(folder)/'spool',fetch,clock=lambda:NOW).run_once()
+            self.assertEqual(receipt['status'],'accepted')
+            self.assertEqual(calls,['warm','warm_en','quote'])
+            accepted = c.accepted(task['job_id'],NOW)
+            self.assertEqual(accepted[0]['request_budget_used'],3)
+            self.assertEqual(len(accepted[0]['offers']),2)
+            with closing(sqlite3.connect(c.path)) as db:
+                self.assertEqual(db.execute('SELECT SUM(count) FROM collection_permits').fetchone()[0],3)
+                self.assertEqual(db.execute('SELECT COUNT(*) FROM collection_permit_completions').fetchone()[0],3)
 
     def test_successful_request_completion_frees_slot_not_budget(self):
         with tempfile.TemporaryDirectory() as folder:

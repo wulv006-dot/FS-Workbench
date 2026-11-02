@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -34,6 +35,9 @@ class WorkerPackage(unittest.TestCase):
                 subprocess.run(['node', '-e', "require('vm').runInNewContext(require('fs').readFileSync(0,'utf8'),{})"],
                                input=archive.read('lootbar/background.js'), check=True, timeout=10)
                 archive.extractall(Path(folder) / 'unpacked')
+                subprocess.run([sys.executable, '-I', '-B', '-c',
+                    'import sys;sys.path.insert(0,sys.argv[1]);from fc_collection.worker import Worker',
+                    str(Path(folder)/'unpacked')], check=True, capture_output=True, timeout=10)
                 reader_spec = importlib.util.spec_from_file_location('exported_lootbar',
                     Path(folder) / 'unpacked/lootbar/lootbar_server_collector.py')
                 reader = importlib.util.module_from_spec(reader_spec)
