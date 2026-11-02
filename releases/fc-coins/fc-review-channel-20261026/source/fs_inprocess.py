@@ -49,7 +49,14 @@ def approved_unknowns(tasks):
 
 def active_model_tasks(tasks):
     with tasks.db() as db:
-        return {(r['owner'],r['id']) for r in db.execute("SELECT owner,id FROM tasks WHERE state='RUNNING' AND run_id IS NOT NULL AND lease IS NOT NULL")}
+        active={(r['owner'],r['id']) for r in db.execute("SELECT owner,id FROM tasks WHERE state='RUNNING' AND run_id IS NOT NULL AND lease IS NOT NULL")}
+    # Trusted host registration only. The callback must query native rows directly,
+    # never call this union helper again. No cross-DB callback under the tasks lock.
+    native=getattr(tasks,'_native_active_model_tasks',None)
+    if native is not None:
+        if not callable(native):raise ValueError('native_liveness_callback_required')
+        active.update(native())
+    return active
 
 
 def spending_hold(daily, tasks, owner, *, active_tasks=None):

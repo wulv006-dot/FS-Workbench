@@ -224,6 +224,24 @@ class NativeChat(unittest.TestCase):
             callback=Mock(return_value={('fixture-owner','native-other-cid')})
             self.assertIsNone(factory.spending_hold(daily,tasks,'fixture-owner',active_tasks=callback))
             callback.assert_called_once_with()
+            # Old controller and FC gateway do not pass native-only keyword arguments.
+            tasks._native_active_model_tasks=callback
+            self.assertIsNone(factory.spending_hold(daily,tasks,'fixture-owner'))
+            self.assertEqual(factory.active_model_tasks(tasks),{('fixture-owner','native-other-cid'),('fixture-owner','legacy-task')})
+            @contextmanager
+            def slot(unused):yield True
+            provider=Mock()
+            sys.modules['fc_daily']=SimpleNamespace(provider_slot=slot,model_daily_limit=lambda:0)
+            sys.modules['direct_provider']=SimpleNamespace(MODEL=policy['model'],POLICY_ID=policy['id'],
+                request_model=provider,prepare_request=Mock())
+            with tasks.db() as connection:
+                connection.execute('INSERT INTO tasks VALUES(?,?,?,?,?,?,?,?,?,?)',
+                    ('legacy-next','fixture-owner','next-fingerprint','{}','RUNNING',1,'run-next','next-lease',0,0))
+            fc_gateway=factory.gateway(SimpleNamespace(db=daily_db,root=root),tasks,SimpleNamespace(capture_id='legacy-capture'))
+            self.assertEqual(fc_gateway.budget.active_tasks(),factory.active_model_tasks(tasks))
+            fc_gateway.budget.reserve('fixture-owner','legacy-next',0,request,100,0)
+            provider.assert_not_called()
+            del tasks._native_active_model_tasks
             for active in (set(),{('another-owner','native-other-cid')}):
                 self.assertEqual(factory.spending_hold(daily,tasks,'fixture-owner',active_tasks=lambda:active),'pilot_usage_hold')
             with tasks.db() as connection:
@@ -235,7 +253,7 @@ class NativeChat(unittest.TestCase):
                 factory.spending_hold(daily,tasks,'fixture-owner',active_tasks=Mock(side_effect=OSError('ledger unavailable')))
             with daily_db() as connection:
                 rows=connection.execute('SELECT m.state,r.microcny FROM model_calls m JOIN hermes_reservations r ON r.fingerprint=m.fingerprint').fetchall()
-                self.assertEqual([tuple(row) for row in rows],[('started',-1),('started',-1)])
+                self.assertEqual([tuple(row) for row in rows],[('started',-1),('started',-1),('started',-1)])
 
 
 if __name__ == '__main__':
