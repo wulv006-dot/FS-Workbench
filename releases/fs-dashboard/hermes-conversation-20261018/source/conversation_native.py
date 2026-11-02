@@ -840,7 +840,8 @@ class NativeConversation:
 
     def write_admission(self, session_id, value):
         from controller import atomic
-        atomic(self.service.run_root / 'admissions' / (session_id + '.json'), value, mode=0o600)
+        # Match the existing root-writer/nonroot-worker admission contract.
+        atomic(self.service.run_root / 'admissions' / (session_id + '.json'), value, mode=0o640)
 
     def fence(self, owner, cid, turn_id):
         row = self.row(owner, cid, turn_id)

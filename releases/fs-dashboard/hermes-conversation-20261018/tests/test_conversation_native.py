@@ -194,6 +194,100 @@ class NativeDispatchTests(unittest.TestCase):
         cid=service.store.create('alice')['conversation_id']
         return service,cid
 
+    def test_real_atomic_admission_is_readable_by_the_nonroot_worker(self):
+        """Real host/client/admission; POSIX DAC is the explicit OS fixture.
+
+        The observed writer is root, the worker is 9876:9876, and the shared
+        admission directory supplies group 9876. Windows cannot switch to that
+        Linux identity, so only the final filesystem read enforces those DAC
+        bits. No fake 202 or model execution is used to pass the boundary.
+        """
+        import ast
+        import io
+        import secrets
+        import socket
+        import time
+        from dataclasses import dataclass
+        from urllib.error import HTTPError
+        from urllib.request import HTTPRedirectHandler
+        import conversation_native as native
+
+        def declarations(path,names,namespace):
+            tree=ast.parse(path.read_text('utf-8'))
+            body=[node for node in tree.body if getattr(node,'name',None) in names]
+            self.assertEqual({node.name for node in body},set(names))
+            exec(compile(ast.Module(body=body,type_ignores=[]),str(path),'exec'),namespace)
+            return namespace
+
+        core=SOURCE.parents[1]/'hermes-v2-core-20261020/source'
+        controller=declarations(core/'controller.py',('atomic','NoRedirect'),
+                                dict(Path=Path,secrets=secrets,json=json,HTTPRedirectHandler=HTTPRedirectHandler))
+        transport=declarations(core/'transport.py',('Grant','Grants'),
+                               dict(dataclass=dataclass,threading=threading,time=time,secrets=secrets,hashlib=hashlib))
+        worker_path=SOURCE.parents[2]/'fc-coins/fc-review-channel-20261026/source/hermes_worker.py'
+        import re
+        worker=declarations(worker_path,('admission',),dict(Path=Path,re=re,json=json,MAX_PROVIDER_WIRE_BYTES=10000000))
+        pilot_path=SOURCE.parents[1]/'hermes-fc-pilot-20261013/pilot.py'
+        spec=importlib.util.spec_from_file_location('native_post_real_pilot',pilot_path)
+        pilot=importlib.util.module_from_spec(spec);spec.loader.exec_module(pilot)
+
+        # Preserve POSIX wire path rendering while using actual temporary files
+        # on Windows. This is not a production path change or Linux proof.
+        class WirePath(type(Path())):
+            def __str__(self):return super().__str__().replace('\\','/')
+
+        with tempfile.TemporaryDirectory() as root,patch.dict(sys.modules,self.modules):
+            service,cid=self.fixture(root,pilot.TaskStore(Path(root)/'tasks.sqlite3'))
+            service.hermes.grants=transport['Grants']()
+            service.run_root.mkdir();(service.run_root/'admissions').mkdir()
+            (service.run_root/'api-key').write_text('synthetic-listener-key','ascii')
+            worker['ADMISSIONS']=service.run_root/'admissions'
+            service.native.workspace.root=WirePath(service.native.workspace.root)
+            observed={'worker_read':False,'post_count':0,'permission_error':False}
+            modes={};read_text=Path.read_text
+            def atomic(path,value,mode=0o640):
+                controller['atomic'](path,value,mode=mode)
+                modes[str(path)]=mode
+            def worker_read(path,*args,**kwargs):
+                if path.parent==worker['ADMISSIONS']:
+                    # root owns the created file; group 9876 is inherited from
+                    # the existing shared directory, as measured in production.
+                    if not modes[str(path)] & 0o040:
+                        observed['permission_error']=True
+                        raise PermissionError('synthetic POSIX admission read denied')
+                return read_text(path,*args,**kwargs)
+            def final_http_edge(opener,request,*args,**kwargs):
+                self.assertTrue(any(isinstance(h,controller['NoRedirect']) for h in opener.handlers))
+                self.assertEqual(request.get_method(),'POST');self.assertTrue(request.full_url.endswith('/v1/runs'))
+                body=json.loads(request.data);self.assertEqual(set(body),{'input','session_id'})
+                observed['post_count']+=1
+                with patch.object(Path,'read_text',worker_read):
+                    try:item=worker['admission'](body['session_id'])
+                    except PermissionError:
+                        raise HTTPError(request.full_url,403,'Forbidden',{},io.BytesIO(b'{"error":"session_not_admitted"}'))
+                grant=service.hermes.grants.resolve(item['token'])
+                self.assertEqual(grant.task_id,turn['turn_id'])
+                self.assertIs(item['ready'],False)
+                observed['worker_read']=True
+                raise OSError('synthetic executor boundary; no official run created')
+            original_build_opener=self.active.build_opener
+            def build_opener(*handlers):
+                opener=original_build_opener(*handlers)
+                opener.open=types.MethodType(final_http_edge,opener)
+                return opener
+            turn=service.submit('alice',cid,'Read the synthetic CSV.','native_post_permissions_01')
+            with service.store.db() as db:session=service.store._owned(db,'alice',cid)['session_id']
+            with patch.object(self.modules['controller'],'atomic',atomic),patch.object(self.active,'NoRedirect',controller['NoRedirect']),patch.object(self.active,'encoded',pilot.encoded),patch.object(self.active,'build_opener',build_opener),patch.object(socket.socket,'connect',side_effect=AssertionError('real network disabled')),patch.object(socket,'getaddrinfo',side_effect=AssertionError('real DNS disabled')),patch.object(native,'Path',WirePath),patch.object(native,'NATIVE_ROOT',str(service.native.workspace.root)):
+                try:service._dispatch('alice',cid,turn['turn_id'],session,'Read the synthetic CSV.','native_post_permissions_01')
+                except OSError as error:
+                    observed['exception_type']=type(error).__name__
+                    observed['exception_errno']=error.errno
+                    if isinstance(error,HTTPError):error.close()
+            self.assertEqual(observed['post_count'],1,observed)
+            self.assertTrue(observed['worker_read'],observed)
+            self.assertFalse(observed['permission_error'])
+            self.assertEqual(set(modes.values()),{0o640})
+
     def test_real_taskstore_host_hook_is_readonly_and_stop_blocks_late_publication(self):
         path=SOURCE.parents[1]/'hermes-fc-pilot-20261013/pilot.py'
         spec=importlib.util.spec_from_file_location('native_real_pilot',path)

@@ -1,5 +1,5 @@
 """Synthetic publisher/SQLite checks; not real Linux modes, deployment or login."""
-from contextlib import closing, contextmanager, nullcontext
+from contextlib import closing, contextmanager, nullcontext, ExitStack
 from datetime import datetime, timedelta, timezone
 import importlib.util
 import json
@@ -1364,6 +1364,189 @@ class NativePublisher(unittest.TestCase):
         for module,saved in ((release,self.release_state),(prepare,self.prepare_state)):
             for key,value in saved.items():setattr(module,key,value)
         prepare.TARGETS=release.TARGETS
+
+    @contextmanager
+    def admission_fixture(self, root):
+        prepare.configure_native_admission()
+        base,system,payload,_,_,proof,previous=RuntimeMaterials().installed_fixture(root)
+        # Installed unit/backend are existing generated files, not bootstrap recipes.
+        old_unit=b'[Service]\nExecStart=/usr/bin/docker run --user 9876:9876 '+release.FROZEN_IMAGE_MARKER.encode()+b' worker\n'
+        with patch.object(release,'NATIVE_UNIT_BEFORE_SHA',prepare.digest(old_unit)):
+            unit=prepare.render_native_unit(old_unit,{'socket':{'gid':994}})
+        base.rooted(system,release.NATIVE_UNIT).write_bytes(unit)
+        release.NATIVE_CLI_SHA=prepare.digest(b'fixed cli')
+        base.rooted(system,release.TARGETS['runtime/native-backend.json']).write_bytes(release.native_backend_bytes())
+        legacy=base.rooted(system,release.NATIVE_LEGACY_DAILY)
+        legacy.write_bytes(b'unchanged legacy daily')
+        cli=base.rooted(system,release.NATIVE_CLI);cli.write_bytes(b'fixed cli')
+        profile=base.rooted(system,'/var/lib/fs-hermes-fc/profile')
+        owners={profile:(9876,9876,0o700),cli:(0,0,0o755)}
+        candidate=release.NATIVE_ADMISSION_CANDIDATE
+        before=base.rooted(system,release.TARGETS[candidate]).read_bytes()
+        after=before+b'\n# admission group read\n'
+        deps={'cli':{'sha256':prepare.digest(b'fixed cli')},'socket':{'gid':994},'worker_user':'9876:9876'}
+        descriptor=json.loads((payload.parent/'payload-manifest.json').read_bytes())
+        descriptor.update(material_execution=True,native_admission=True,native_chat=False)
+        previous['nativeChat']=True
+        for row in previous['files']:
+            row.update(sha256=base.digest(base.rooted(system,row['target'])),owner='0:0',mode='0o600' if row['target']==release.NGINX else '0o644')
+            if row['candidate'] in prepare.SOURCES:
+                body=after if row['candidate']==candidate else base.rooted(system,row['target']).read_bytes()
+                (payload/row['candidate']).write_bytes(body)
+                descriptor['files']['payload/'+row['candidate']]=prepare.digest(body)
+        previous['unchangedRequired']=[{'path':path,'sha256':base.digest(base.rooted(system,path))} for path in sorted(release.protected_paths(base))]
+        descriptor['installed_baseline']={'source_commit':release.INSTALLED_COMMIT,
+            'files':{row['candidate']:row['sha256'] for row in previous['files']},
+            'protected':{release.NATIVE_LEGACY_DAILY:base.digest(legacy)}}
+        backup=base.rooted(system,proof['backup'])
+        def save_proof():
+            raw=json.dumps(previous).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
+            journal={'status':'applied-awaiting-actual-http-role-acceptance','manifest':previous,'approvedManifestSha256':proof['manifestSha256']}
+            raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+        save_proof()
+        raw=json.dumps(descriptor).encode();(payload.parent/'payload-manifest.json').write_bytes(raw)
+        pins={'NATIVE_ADMISSION_BEFORE_SHA':prepare.digest(before),'NATIVE_ADMISSION_AFTER_SHA':prepare.digest(after),
+              'NATIVE_CURRENT_UNIT_SHA':prepare.digest(unit),'NATIVE_LEGACY_DAILY_SHA':base.digest(legacy),'NATIVE_CLI_SHA':deps['cli']['sha256']}
+        with self.native_metadata(owners,root=system),ExitStack() as stack:
+            for key,value in pins.items():stack.enter_context(patch.object(release,key,value))
+            stack.enter_context(patch.object(release,'INSTALLED_PROOF',proof));stack.enter_context(patch.object(prepare,'INSTALLED_PROOF',proof))
+            stack.enter_context(patch.object(release,'native_dependencies',return_value=deps))
+            yield SimpleNamespace(base=base,system=system,payload=payload,descriptor=descriptor,raw=raw,proof=proof,
+                previous=previous,save_proof=save_proof,pins=pins,deps=deps,owners=owners)
+
+    def test_native_admission_prepare_rejects_drift_proof_extra_zero_and_mixed(self):
+        with tempfile.TemporaryDirectory() as directory,self.admission_fixture(Path(directory)) as f:
+            root=Path(directory);descriptor_path=f.payload.parent/'payload-manifest.json'
+            stage=root/'valid';prepare.prepare(f.payload,stage,'a'*40,prepare.digest(f.raw),root=f.system,followup=True,release_ready=True)
+            manifest=json.loads((stage/'approved-manifest.json').read_bytes())
+            self.assertTrue(manifest['nativeAdmission']);self.assertNotIn('nativeChat',manifest)
+            self.assertEqual((len(manifest['files']),len(manifest['unchangedRequired'])),(34,45))
+            self.assertTrue(all(row['beforeSha256'] is not None for row in manifest['files']))
+            self.assertEqual(manifest['materialChangedTargets'],[release.TARGETS[release.NATIVE_ADMISSION_CANDIDATE]])
+            for case in ('zero','extra','unit','old_recipe','backend','old_source','git','mixed','missing_execution','journal','protected','legacy','missing','mode','owner'):
+                value=deepcopy(f.descriptor);restore=None;saved_owner=None
+                if case=='old_source':value['installed_baseline']['source_commit']='23a27325b00f27a5c5696657c7c4141a06135f18'
+                elif case=='git':value['installed_baseline']['files'][release.NATIVE_ADMISSION_CANDIDATE]='0'*64
+                elif case=='mixed':value['native_chat']=True
+                elif case=='missing_execution':value['material_execution']=False
+                elif case in ('mode','owner'):
+                    path=f.base.rooted(f.system,release.TARGETS['runtime/conversation_store.py'])
+                    saved_owner=path;f.owners[path]=(0,0,0o664) if case=='mode' else (9876,9876,0o644)
+                else:
+                    name=release.NATIVE_ADMISSION_CANDIDATE if case=='zero' else 'http/conversation_http.py' if case=='extra' else 'unit/native-control.conf' if case in ('unit','old_recipe') else 'runtime/native-backend.json'
+                    path=f.payload/name if case in ('zero','extra','unit','old_recipe','backend') else f.base.rooted(f.system,
+                        f.proof['backup']+'/journal.json' if case=='journal' else release.NATIVE_LEGACY_DAILY if case=='legacy' else
+                        release.TARGETS['runtime/native_chat.py'] if case=='missing' else f.previous['unchangedRequired'][0]['path'])
+                    restore=(path,path.read_bytes())
+                    if case=='zero':body=f.base.rooted(f.system,release.TARGETS[name]).read_bytes()
+                    elif case=='old_recipe':body=prepare.native_generated()['unit/native-control.conf']
+                    else:body=b'drift'
+                    if case=='missing':path.unlink()
+                    else:path.write_bytes(body)
+                    if str(path).startswith(str(f.payload)):value['files']['payload/'+name]=prepare.digest(body)
+                raw=json.dumps(value).encode();descriptor_path.write_bytes(raw)
+                with self.subTest(rejection=case),self.assertRaises((OSError,ValueError)):
+                    prepare.prepare(f.payload,root/('bad-'+case),'a'*40,prepare.digest(raw),root=f.system,followup=True)
+                self.assertFalse((root/('bad-'+case)).exists())
+                if restore:restore[0].write_bytes(restore[1])
+                if saved_owner:f.owners.pop(saved_owner)
+                descriptor_path.write_bytes(f.raw)
+            saved=deepcopy(f.previous)
+            for case in ('target_missing','target_duplicate','protected_missing','protected_duplicate','unit','new'):
+                f.previous.clear();f.previous.update(deepcopy(saved))
+                if case=='target_missing':f.previous['files'].pop()
+                elif case=='target_duplicate':f.previous['files'].append(deepcopy(f.previous['files'][0]))
+                elif case=='protected_missing':f.previous['unchangedRequired'].pop()
+                elif case=='protected_duplicate':f.previous['unchangedRequired'].append(deepcopy(f.previous['unchangedRequired'][0]))
+                else:next(r for r in f.previous['files'] if r['candidate']==('unit/native-control.conf' if case=='unit' else 'runtime/native_chat.py'))['sha256']=None if case=='new' else '0'*64
+                f.save_proof()
+                with self.subTest(proof=case),self.assertRaises(ValueError):release.installed_baseline(f.system,f.descriptor['installed_baseline'])
+
+    def test_native_admission_original_apply_range_only_and_rollback(self):
+        for failure in (None,'range','readiness'):
+            self.tearDown();self.setUp()
+            with self.subTest(failure=failure),tempfile.TemporaryDirectory() as directory,self.admission_fixture(Path(directory)) as f:
+                stage=Path(directory)/'stage'
+                prepare.prepare(f.payload,stage,'a'*40,prepare.digest(f.raw),root=f.system,followup=True,release_ready=True)
+                raw=(stage/'approved-manifest.json').read_bytes();manifest=json.loads(raw)
+                spec=importlib.util.spec_from_file_location('native_admission_fixture',stage/'runtime_release.py')
+                module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                module.configure_native_admission();module.INSTALLED_PROOF=f.proof
+                for key,value in f.pins.items():setattr(module,key,value)
+                base=f.base;original_guards=base.guards
+                base.hermes_quiescent=Mock();base.retirement=Mock()  # Only host DB/retired-service IO, real guards remain.
+                base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
+                fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock())
+                base.hermes_admission_fence=lambda *a:nullcontext(fence)
+                restart=Mock(side_effect=[RuntimeError('synthetic range failure'),None] if failure=='range' else None);base.restart_for=restart
+                if os.name=='nt':base.directory_sync=lambda *a:None
+                readiness=Mock(side_effect=[None,None,RuntimeError('synthetic readiness failure'),None] if failure=='readiness' else None)
+                untouched={path:(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns,path.stat().st_uid,path.stat().st_gid,stat.S_IMODE(path.stat().st_mode))
+                    for path in (base.rooted(f.system,row['target']) for row in manifest['files'] if row['candidate']!=release.NATIVE_ADMISSION_CANDIDATE)}
+                untouched.update({base.rooted(f.system,row['path']):(base.rooted(f.system,row['path']).read_bytes(),base.rooted(f.system,row['path']).stat().st_ino,base.rooted(f.system,row['path']).stat().st_mtime_ns,base.rooted(f.system,row['path']).stat().st_uid,base.rooted(f.system,row['path']).stat().st_gid,stat.S_IMODE(base.rooted(f.system,row['path']).stat().st_mode)) for row in manifest['unchangedRequired']})
+                with patch.object(module,'frozen',return_value=base),patch.object(module,'quiescent'),patch.object(module,'running_worker') as worker,patch.object(module,'native_dependencies',return_value=f.deps),patch.object(module,'native_runtime_readiness',readiness),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')) as commands:
+                    publisher=module.load_base();self.assertIsNot(publisher.guards,original_guards)
+                    publisher.inspect(manifest,stage,f.system)
+                    # Original parent ownership guard, not a no-op fixture.
+                    parent=base.rooted(f.system,'/opt/fs-hermes-fc');f.owners[parent]=(9876,9876,0o755)
+                    with self.assertRaisesRegex(ValueError,'unsafe daily source boundary'):publisher.guards(manifest,f.system)
+                    f.owners.pop(parent)
+                    for mutate in (lambda m:m.update(nativeChat=True),lambda m:m['files'].pop(),lambda m:m['unchangedRequired'].append(m['unchangedRequired'][0]),lambda m:m.update(baselineObservedAt='2020-01-01T00:00:00+00:00'),lambda m:m['runtimeBefore']['fs-hermes-fc.service'].update(ActiveState='failed'),lambda m:m.update(workerImageSource='configured_unit_and_local_image'),lambda m:m['nativeDependencies']['socket'].update(gid=995)):
+                        bad=deepcopy(manifest);mutate(bad)
+                        with self.assertRaises((ValueError,KeyError)):publisher.validate(bad,stage)
+                    if failure:
+                        with self.assertRaisesRegex(RuntimeError,'synthetic .* failure'):publisher.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261102T120001Z',f.system)
+                    else:publisher.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261102T120001Z',f.system)
+                    self.assertTrue(worker.called)
+                    self.assertTrue(all(call.args[0]['scope']==base.DEEP_SCOPE for call in restart.call_args_list))
+                    self.assertEqual(restart.call_count,2 if failure else 1)
+                    self.assertEqual(readiness.call_count,3 if failure=='range' else 4 if failure=='readiness' else 3)
+                    self.assertFalse(any(call.args[0][:2] in (['systemctl','daemon-reload'],['systemctl','restart'],['systemctl','reload']) for call in commands.call_args_list))
+                for row in manifest['files']:
+                    self.assertEqual(base.digest(base.rooted(f.system,row['target'])),row['beforeSha256'] if failure else row['sha256'])
+                for path,metadata in untouched.items():
+                    self.assertEqual((path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns,path.stat().st_uid,path.stat().st_gid,stat.S_IMODE(path.stat().st_mode)),metadata)
+                journal=json.loads((base.rooted(f.system,'/var/backups/fs-navigation-20261006/nav-20261102T120001Z')/'journal.json').read_bytes())
+                self.assertEqual(journal['status'],'rolled-back' if failure else 'applied-awaiting-actual-http-role-acceptance')
+
+    def test_native_admission_pack_uses_git_v2_unit_and_rejects_other_deltas(self):
+        prepare.configure_native_admission()
+        candidate=release.NATIVE_ADMISSION_CANDIDATE
+        old=b'[Service]\nExecStart=/usr/bin/docker run --user 9876:9876 '+release.FROZEN_IMAGE_MARKER.encode()+b' worker\n'
+        legacy=b'fixed legacy';before=b'old admission';after=b'group read admission'
+        calls=[];extra=[False]
+        def git_blob(command,**kwargs):
+            self.assertEqual(command[:2],['git','show']);calls.append(command[2])
+            commit,path=command[2].split(':',1)
+            if path.endswith('worker-install-state-isolation.conf'):return old
+            if commit=='23a27325b00f27a5c5696657c7c4141a06135f18':return legacy
+            if path==prepare.SOURCES[candidate]:return before if commit==release.INSTALLED_COMMIT else after
+            return (('changed:' if extra[0] and commit=='b'*40 and path==prepare.SOURCES['runtime/hermes_worker.py'] else 'same:')+path).encode()
+        with patch.object(release,'NATIVE_UNIT_BEFORE_SHA',prepare.digest(old)),patch.object(release,'NATIVE_LEGACY_DAILY_SHA',prepare.digest(legacy)),patch.object(release,'NATIVE_ADMISSION_BEFORE_SHA',prepare.digest(before)),patch.object(release,'NATIVE_ADMISSION_AFTER_SHA',prepare.digest(after)),patch.object(prepare.subprocess,'check_output',side_effect=git_blob),tempfile.TemporaryDirectory() as directory:
+            unit=prepare.render_native_unit(old,{'socket':{'gid':994}})
+            with patch.object(release,'NATIVE_CURRENT_UNIT_SHA',prepare.digest(unit)):
+                out=Path(directory)/'pack';prepare.pack(Path(directory),out,'b'*40)
+                value=json.loads((out/'payload-manifest.json').read_bytes())
+                self.assertTrue(value['native_admission']);self.assertFalse(value['native_chat'])
+                self.assertEqual((out/'payload/unit/native-control.conf').read_bytes(),unit)
+                self.assertEqual(value['installed_baseline']['files']['unit/native-control.conf'],prepare.digest(unit))
+                self.assertTrue(all(sha is not None for sha in value['installed_baseline']['files'].values()))
+                self.assertIn(release.INSTALLED_COMMIT+':'+prepare.MODULE+'source/worker-install-state-isolation.conf',calls)
+                extra[0]=True
+                with self.assertRaisesRegex(ValueError,'exact_native_admission_git_delta_required'):prepare.pack(Path(directory),Path(directory)/'extra','b'*40)
+            with patch.object(release,'NATIVE_CURRENT_UNIT_SHA','0'*64):
+                with self.assertRaisesRegex(ValueError,'native_admission_generated_unit_drift'):prepare.admission_generated(Path(directory))
+
+    def test_native_admission_is_existing_89_single_file_followup(self):
+        self.assertTrue(callable(getattr(prepare, 'configure_native_admission', None)),
+                        'installed native admission mode missing')
+        prepare.configure_native_admission()
+        self.assertTrue(release.NATIVE_ADMISSION_MODE)
+        self.assertEqual(release.INSTALLED_COMMIT, '89e5db08edba36cf3d88efdb37601ee1ca53bc38')
+        self.assertEqual(release.INSTALLED_PROOF['manifestSha256'],
+                         '642d78db24159c3c79f04ca3f67f4e8cda2abdbcd5680022ba6c9e9f71969084')
+        self.assertEqual((len(release.TARGETS),len(release.protected_paths(release.frozen())),len(release.NEW)),(34,45,0))
+        self.assertEqual(release.NATIVE_CURRENT_UNIT_SHA, '5f31448a6396d8d702d2cda1df7d192cd022e7d42f53d04a2a97e1664e9955e3')
 
     def test_native_mode_exact_installed_proof_targets_and_new_modules(self):
         self.assertTrue(callable(getattr(prepare,'configure_native_chat',None)),'native publisher mode is missing')

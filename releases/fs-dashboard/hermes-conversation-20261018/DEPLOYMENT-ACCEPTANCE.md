@@ -935,3 +935,18 @@ publisher 新增互斥 `--native-chat --followup`，钉已安装 23a 的 manifes
 ### 日报代码只读覆盖装配候选（2026-11-02，未部署）
 
 仅改原 publisher：新版日报部署为 NEW 的 `/opt/fs-hermes-memory-approval/daily_review.py`，用 v2 unit recipe 的唯一只读 bind 保持容器 `/profile/scripts/hermes-memory-review/daily_review.py` 入口和相邻 inspect_runtime 导入；业务源码未变，真实06:10调度加载仍未验。host 原日报转精确保护项，原33c77…56c0d与23a Git bytes共同绑定，原profile9876:9876/0700及旧文件字节/归属/模式/inode/mtime不写；34 targets/45 protected/NEW5，原23a proof、CLI/socket/UID/child隔离/锁/CAS/UNKNOWN/回退不变，不对profile放宽原guard。先以原frozen guards实际重现旧路径RED，再验证新root路径与原容器入口契约；原deploy三入口39项零failure/error/skip，包括原guard父目录检查、旧保护漂移、旧recipe/可写/重复/错source/错target/额外挂载拒绝、根目标已存在拒绝以及成功/两类失败回退。系统UID/mode和Docker读回为明确本机fixture，原日报与inspect_runtime真实模块定义在合成文件布局导入，非真实容器/调度验收；本轮0SSH/生产/模型/浏览器。冻结writer未改，原unit回退恢复后仅移除hash吻合的NEW文件，旧profile/pending/DB保留。统一新SHA独审CI后再发布，不复用旧34/44/NEW4 pack。
+
+### Native admission 共享读取修复候选（2026-11-02，未部署）
+
+89e5 软件与真实隔离 backend 已核收，首个普通 CSV turn 仍为 UNKNOWN。A110 只读快照确认该 admission 为 root:9876/0600，实际 worker 为 9876:9876；native 写入的仅 owner 可读模式与原 root writer/非 root worker 共享目录合同不符。原 worker admission 读取会遭 POSIX DAC 拒绝，middleware 返回403，真实 urllib HTTPError 进入原 UNKNOWN/fence；这是本次可证的首个阻塞，不把官方精确 row0外推为从未提交或零费用。该403是固定原逻辑结合实测权限的本地重现，现场该次响应未留；不追认旧材料400、187或历史费用原因。
+
+仅将 native write_admission 改为原 FC admission 一致的0640：允许既有 worker 组读取，不开放 other，不改 owner、组、目录、token、鉴权、SDK、预算或重试。新增回归使用真实临时 ConversationStore/TaskStore/Workspace、原 Grants、原 atomic 函数体、真实 Request/NoRedirect/序列化及 worker admission；唯一文件读边界明确模拟已测 Linux UID/GID/DAC，Windows不冒原生切UID。旧代码先实际 RED=HTTP403，新代码 GREEN；既有 fake atomic/Grants/202 fixture 保留用于原测试，不能再充当本共享文件接线证据。
+
+额外本地固定公开SDK函数体合同走真实 worker middleware、原 Runs handler 与真实临时 RunIdempotencyStore：旧0600在worker读取拒绝、官方row0；新0640按相同合成原文/CSV元数据通过官方指纹和durable reserve、真实202→bindrun→ready=true。HTTP框架/空初始历史/外部秘密源/OS身份/WAL helper及最终executor为明确依赖fixture，网络与供应商调用0，不冒完整SDK进程或生产材料通过。当前生产仍89e5，原UNKNOWN及所有旧请求封存未改；本轮不发布、不改旧admission权限、不恢复或重POST。后续仅由同包publisher按已装89e5证明及NEW0登记必要增量，独审/CI后再发布与新意图验收，阶段2/3保持暂停。
+
+
+### Native admission：已安装89e5上的单文件后续候选（2026-11-02）
+
+`--native-admission --followup` / `native_admission` / `nativeAdmission`独立互斥，固定成功89e5 proof：backup `nav-20261102T100758Z`、manifest `642d78db24159c3c79f04ca3f67f4e8cda2abdbcd5680022ba6c9e9f71969084`、journal `34f8e7a3dea5df8f05baf73d9e9bc668a3127444f8915f323cc15dce5e361266`。34现存/45保护/NEW0，只允许`conversation_native.py`由`030e36d5…e795c2`变为`72253b5f…c1a57a`；其余33仅CAS/备份、跳过写入。原recipe v2从89e5 Git旧unit和固定socket GID994重现已安装unit SHA `5f31448a…9955e3`，不再次展开现场unit；backend、rootdaily只读挂载、旧profile/legacydaily及冻结writer保持。只沿原围栏DEEP/readiness重载range，worker/Nginx不重启，回退仅还原该代码目标。
+
+新增本地tempFS用例覆盖完整原validate/inspect/apply/rollback（保留真实原guards）、range与readiness失败、33未写metadata、34/45精确集合、Git/proof/current unit/marker/NEW/零或额外delta/权限漂移拒绝。OS服务、锁、Docker与uid为明确夹具；不冒生产DAC或真实发布通过。原一行0600→0640修复和A111消费链证据复用，旧UNKNOWN不改权限/ready/重发。本次只是可审候选，尚未发布或恢复正常附件聊天；历史材料400、官方调用数和费用仍unknown。
