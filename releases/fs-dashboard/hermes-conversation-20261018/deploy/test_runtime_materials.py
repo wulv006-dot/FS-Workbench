@@ -1274,7 +1274,7 @@ class NativePublisher(unittest.TestCase):
             path=Path(path);info=os.stat(path,follow_symlinks=follow_symlinks)
             inside=root is not None and (path==root or root in path.parents)
             if path not in owners and path not in kinds and not inside:return info
-            default=(0,0,0o755 if stat.S_ISDIR(info.st_mode) else 0o600 if path==root/'etc/nginx/conf.d/fs-business-range.conf' else 0o644) if inside else (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode))
+            default=(0,0,0o755 if stat.S_ISDIR(info.st_mode) else 0o600 if path==root/release.NGINX.lstrip('/') else 0o644) if inside else (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode))
             fields=list(info);uid,gid,mode=owners.get(path,default)
             fields[0]=kinds.get(path,stat.S_IFMT(info.st_mode))|mode
             fields[4]=uid;fields[5]=gid
@@ -1286,6 +1286,19 @@ class NativePublisher(unittest.TestCase):
             except FileNotFoundError:return False
         with patch.object(Path,'stat',lambda path,**kw:metadata(path,**kw)), patch.object(Path,'lstat',lambda path:metadata(path,follow_symlinks=False)), patch.object(Path,'is_file',lambda path:kind(path,stat.S_ISREG,True)), patch.object(Path,'is_symlink',lambda path:kind(path,stat.S_ISLNK,False)):
             yield
+
+    def test_native_metadata_keeps_formal_nginx_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen()
+            nginx=base.rooted(root,release.NGINX)
+            other=base.rooted(root,'/opt/fs-hermes-fc/unchanged.py')
+            for path in (nginx,other):
+                path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'unchanged fixture')
+            if os.name=='posix':
+                nginx.chmod(0o600);other.chmod(0o644)
+            with self.native_metadata({},root=root):
+                self.assertEqual(stat.S_IMODE(nginx.stat().st_mode),0o600)
+                self.assertEqual(stat.S_IMODE(other.stat().st_mode),0o644)
 
     def test_native_dependencies_accept_unix_socket_and_keep_type_owner_parent_guards(self):
         prepare.configure_native_chat()
@@ -1514,12 +1527,6 @@ class NativePublisher(unittest.TestCase):
                 native_readback=Mock(side_effect=RuntimeError('native worker restart failed') if fail=='native_readiness' else None)
                 with self.native_metadata(owners,root=system),patch.object(module,'frozen',return_value=base),patch.object(module,'quiescent'),patch.object(module,'running_worker'),patch.object(module,'native_runtime_readiness',native_readback),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')):
                     publisher=module.load_base()
-                    if os.name=='nt':
-                        original_atomic=publisher.atomic
-                        def atomic(path,data,mode=0o644):
-                            row=next((r for r in manifest['files'] if path==base.rooted(system,r['target'])),None)
-                            return original_atomic(path,data,int(row['mode'],8) if row else mode)
-                        publisher.atomic=atomic
                     publisher.inspect(manifest,stage,system)
                     for change in (
                         lambda m:m.update(materialGuard=True),
