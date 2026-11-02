@@ -135,7 +135,14 @@ class DailyProgramFlow(unittest.TestCase):
             def active(self):return []
         ns=dict(Path=Path,ConversationStore=Store,ThreadPoolExecutor=ThreadPoolExecutor,threading=threading)
         exec(compile(ast.Module(body=[cls],type_ignores=[]),'conversation_service.py','exec'),ns)
-        service=ns['ConversationService'](Mock(),Path('fs/conversations'),Path('runtime'))
+        native=Mock()
+        # This AST fixture tests queue/store separation, not the native runtime.
+        # Supply its constructor dependency just like the synthetic Store above.
+        with patch.dict(sys.modules,{'conversation_native':SimpleNamespace(NativeConversation=native)}):
+            service=ns['ConversationService'](Mock(),Path('fs/conversations'),Path('runtime'))
+        native.assert_called_once_with(service)
+        self.assertIs(service.native,native.return_value)
+        self.assertIsNone(service.pricing.native)
         gate=threading.Event()
         try:
             occupied=service.pricing.pool.submit(gate.wait,3)
