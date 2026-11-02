@@ -1956,21 +1956,35 @@ class NativePublisher(unittest.TestCase):
 
     def test_control_readiness_checks_exact_contract_user_daemon_and_mounts(self):
         prepare.configure_native_chat()
-        contract=prepare.native_generated()['runtime/native-backend.json']
+        self._control_readiness_checks()
+
+    def test_archive_readiness_uses_installed_dependencies_outside_three_targets(self):
+        prepare.configure_native_archive()
+        self.assertEqual(len(release.TARGETS),3)
+        self.assertNotIn('runtime/native-backend.json',release.TARGETS)
+        self.assertNotIn('approval/daily_review.py',release.TARGETS)
+        self._control_readiness_checks()
+
+    def _control_readiness_checks(self):
+        # Execute the actual readiness function; only file and Docker IO are fixtures.
+        contract=release.native_backend_bytes()
         mounts=[{'Destination':destination,'Source':source,'RW':rw} for destination,source,rw in (
             ('/opt/fs-native-bin/docker','/usr/bin/docker',False),
             ('/var/run/docker.sock','/run/docker.sock',True),
             (release.NATIVE_ROOT,release.NATIVE_ROOT,True),
             ('/opt/fs-native-backend-home',release.NATIVE_EMPTY_SOURCE,False),
-            (release.NATIVE_DAILY_CONTAINER,release.TARGETS['approval/daily_review.py'],False))]
-        user=['9876:9876'];failure=[False]
+            (release.NATIVE_DAILY_CONTAINER,release.NATIVE_EXTRA_TARGETS['approval/daily_review.py'],False))]
+        user=['9876:9876'];failure=[False];version=['24.0.0|24.0.0']
         def observed(command,**kwargs):
             if '{{.Config.User}}' in command:return user[0]
             if 'version' in command:
                 if failure[0]:raise OSError('synthetic daemon refusal')
-                return '24.0.0|24.0.0'
+                return version[0]
             return json.dumps(mounts)
-        with patch.object(Path,'read_bytes',return_value=contract),patch.object(Path,'is_symlink',return_value=False),patch.object(release.subprocess,'check_output',side_effect=observed):
+        def read_contract(path):
+            self.assertEqual(path,Path(release.NATIVE_EXTRA_TARGETS['runtime/native-backend.json']))
+            return contract
+        with patch.object(Path,'read_bytes',autospec=True,side_effect=read_contract),patch.object(Path,'is_symlink',return_value=False),patch.object(release.subprocess,'check_output',side_effect=observed):
             release.native_runtime_readiness()
             user[0]='0:0'
             with self.assertRaisesRegex(ValueError,'native_control_user_readback'):release.native_runtime_readiness()
@@ -1978,7 +1992,9 @@ class NativePublisher(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'native_control_mount_readback'):release.native_runtime_readiness()
             mounts[0]['RW']=False;failure[0]=True
             with self.assertRaises(OSError):release.native_runtime_readiness()
-            failure[0]=False
+            failure[0]=False;version[0]='invalid-version'
+            with self.assertRaisesRegex(ValueError,'native_control_daemon_unavailable'):release.native_runtime_readiness()
+            version[0]='24.0.0|24.0.0'
             original=deepcopy(mounts)
             daily=next(row for row in mounts if row['Destination']==release.NATIVE_DAILY_CONTAINER)
             for variant in ('writable','source','target','duplicate','extra','missing'):

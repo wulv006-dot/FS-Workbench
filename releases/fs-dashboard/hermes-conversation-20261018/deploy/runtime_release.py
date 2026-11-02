@@ -583,7 +583,7 @@ def native_runtime_readiness():
     """Check the unchanged nonroot worker really reaches its fixed Docker daemon."""
     expected_contract={'version':'native_docker_v1','root':NATIVE_ROOT,'image':FROZEN_IMAGE_MARKER,
                        'docker_binary':'/opt/fs-native-bin/docker','docker_sha256':NATIVE_CLI_SHA,'uid':9876,'gid':9876}
-    contract=Path(TARGETS['runtime/native-backend.json'])
+    contract=Path(NATIVE_EXTRA_TARGETS['runtime/native-backend.json'])
     if contract.is_symlink() or json.loads(contract.read_bytes()) != expected_contract:
         raise ValueError('native_control_contract_drift')
     user=subprocess.check_output(['docker','inspect','--format','{{.Config.User}}','fs-hermes-fc'],text=True,timeout=10).strip()
@@ -599,7 +599,7 @@ def native_runtime_readiness():
     expected = {'/opt/fs-native-bin/docker':(NATIVE_CLI,False),
                 '/var/run/docker.sock':('/run/docker.sock',True),
                 NATIVE_ROOT:(NATIVE_ROOT,True),'/opt/fs-native-backend-home':(NATIVE_EMPTY_SOURCE,False),
-                NATIVE_DAILY_CONTAINER:(TARGETS['approval/daily_review.py'],False)}
+                NATIVE_DAILY_CONTAINER:(NATIVE_EXTRA_TARGETS['approval/daily_review.py'],False)}
     selected=[row for row in mounts if row['Destination'] in expected]
     actual = {row['Destination']:(row['Source'],row['RW']) for row in selected}
     if (actual != expected or len(selected)!=len(expected) or

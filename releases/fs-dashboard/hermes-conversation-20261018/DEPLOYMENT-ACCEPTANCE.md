@@ -975,3 +975,8 @@ publisher 新增互斥 `--native-chat --followup`，钉已安装 23a 的 manifes
 #### ARCHIVE 单一 usage 账本保护修正（候选，未发布）
 
 0cc 最终包现场 prepare 被 `installed_protected_baseline_drift` 拒绝：三目标 before 全匹配，776 保护中仅 `/var/lib/fs-hermes-fc/profile/skills/.usage.json` 与历史 SHA 不同，其余775一致、unknown0；未生成stage/backup/journal，未apply、归档或模型调用。新合同仅在 ARCHIVE followup 对这一本运行账本采 fresh SHA，仍列入原 `unchangedRequired`，强制 regular/单链接/no-follow/root:root/0600；inspect/apply 继续原 SHA/owner/mode CAS，prepare 后变化拒绝。其余775静态历史 SHA、三delta、原writer/锁/回退不变，发布与回退不写账本。回归覆盖原失败、静态漂移、owner/mode/链接、prepare后变更、成功与range/readiness失败回退；Windows权限为明确夹具，Linux使用真实链接。本条不代表已安装、已清理或CSV通过。
+
+
+#### ARCHIVE 既有控制面 readiness 接线（候选，未发布）
+
+f43 新包 prepare/三目标+776保护 fresh CAS 已过，一次 inspect 在 `native_runtime_readiness` 查 `TARGETS['runtime/native-backend.json']` 时失败；ARCHIVE 的 TARGETS 仅3项，本机实际函数稳定复现 KeyError。就绪函数的 backend 配置及 rootdaily mount 源改从既有固定 `NATIVE_EXTRA_TARGETS` 读取，配置/用户/daemon/mount 验证均保留。新增 ARCHIVE 三目标下直接执行真实函数的正反回归，非整体 Mock readiness。usage fresh CAS 不改；另3项FC保护漂移待成功发布收据衔接，不反射磁盘或复用175044 stage。本条不代表新安装、归档或CSV通过。
