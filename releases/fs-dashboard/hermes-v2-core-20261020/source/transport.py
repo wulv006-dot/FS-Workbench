@@ -155,7 +155,9 @@ class Proxy:
                 raise _MaterialGuardError(code)
             raise ValueError(code)
 
-        if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens', 'model', 'tools', 'tool_choice', 'stream', 'stream_options', 'reasoning_effort'}:
+        fields = {'messages', 'max_tokens', 'model', 'tools', 'tool_choice', 'stream', 'stream_options', 'reasoning_effort'}
+        if native: fields.add('response_format')
+        if not isinstance(body, dict) or set(body)-fields:
             invalid('request_fields')
         # The FS-issued grant pins the business model mode. The client cannot
         # escalate, disable or silently downgrade it using a body parameter.
@@ -234,6 +236,8 @@ class Proxy:
         request = {'messages': messages, 'max_tokens': body.get('max_tokens')}
         if native:
             request['tools'] = deepcopy(tool_schemas) if 'tools' in body else []
+            if 'response_format' in body:
+                request['response_format'] = deepcopy(body['response_format'])
         if auxiliary:request['auxiliary']=True
         if effort!='none':request['reasoning_effort']=effort
         # Validate before recording request identity or changing any ledger table.

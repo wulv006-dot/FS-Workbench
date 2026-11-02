@@ -102,6 +102,76 @@ class NativeChat(unittest.TestCase):
             self.assertEqual(request['tools'], [])
             self.assertTrue(request['auxiliary'])
 
+    def test_native_title_response_format_reaches_provider_body_and_identity(self):
+        # Fixed Hermes agent/title_generator.py _TITLE_RESPONSE_FORMAT. This is
+        # the SDK auxiliary request shape, not another business task.
+        title_format = {'type':'json_schema', 'json_schema':{'name':'session_title', 'strict':True,
+            'schema':{'type':'object','properties':{'title':{'type':'string'}},
+                      'required':['title'],'additionalProperties':False}}}
+        with fixtures.MaterialTransport().fixture(material=False) as f:
+            native, binding, schemas, active, scope = self.setup_native(f)
+            body = dict(model='deepseek-flash', messages=[{'role':'user','content':'name this chat'}],
+                        reasoning_effort='none', response_format=deepcopy(title_format))
+            before = deepcopy(body)
+            f.proxy.dispatch('POST','/v1/chat/completions',f.token,body)
+            request = f.turns[-1]
+            wire = f.module.request_body(request,'deepseek-flash',tool_schemas=schemas,native_chat=True)
+            self.assertEqual(request['response_format'],title_format)
+            self.assertEqual(wire['response_format'],title_format)
+            self.assertEqual(wire['tools'],[])
+            self.assertEqual(body,before)
+            body['response_format']={'type':'json_object'}
+            f.proxy.dispatch('POST','/v1/chat/completions',f.token,body)
+            from pilot import digest
+            self.assertNotEqual(digest(f.turns[0]),digest(f.turns[1]))
+            self.assertEqual(f.gateway.call.call_count,2)
+
+    def test_native_response_format_invalid_and_legacy_reject_before_ledger(self):
+        invalid = [None, 'json', {}, {'type':'invented'}, {'type':'json_object','url':'file:///x'},
+                   {'type':'json_schema','json_schema':{'name':'title','strict':1,'schema':{}}},
+                   {'type':'json_schema','json_schema':{'name':'title','schema':[]}}]
+        for value in invalid:
+            with self.subTest(value=value), fixtures.MaterialTransport().fixture(material=False) as f:
+                self.setup_native(f)
+                body=dict(model='deepseek-flash', messages=[{'role':'user','content':'title'}],response_format=value)
+                with self.assertRaises(ValueError): f.proxy.dispatch('POST','/v1/chat/completions',f.token,body)
+                self.assertEqual(f.turns,[])
+                f.gateway.call.assert_not_called()
+        with fixtures.MaterialTransport().fixture(material=False) as f:
+            body=dict(f.body,tools=f.module.schemas(),response_format={'type':'json_object'})
+            with self.assertRaisesRegex(ValueError,'request_fields'):
+                f.proxy.dispatch('POST','/v1/chat/completions',f.token,body)
+            self.assertEqual(f.turns,[])
+            f.gateway.call.assert_not_called()
+
+    def test_native_title_format_survives_real_direct_provider_serialization(self):
+        import json
+        from unittest.mock import patch
+        with fixtures.MaterialTransport().fixture(material=False) as f:
+            self.setup_native(f)
+            provider=fixtures.load('native_title_direct_provider',CORE/'direct_provider.py')
+            token=f.grants.mint('fixture-owner','fixture-task','fixture-lease',reasoning_effort='high')
+            response_format={'type':'json_schema','json_schema':{'name':'session_title','strict':True,
+                'schema':{'type':'object','properties':{'title':{'type':'string'}},
+                          'required':['title'],'additionalProperties':False}}}
+            body={'messages':[{'role':'user','content':'title'}],'model':'deepseek-flash',
+                  'reasoning_effort':'none','response_format':response_format}
+            f.proxy.dispatch('POST','/v1/chat/completions',token,body)
+            request=f.module.request_body(f.turns[0],provider.MODEL,
+                tool_schemas=f.gateway.scope.schemas(),native_chat=True)
+            wire=json.loads(provider.prepare_request(request,f.gateway.scope.schemas()))
+            self.assertEqual(wire['response_format'],response_format)
+            self.assertNotIn('tools',wire)
+            self.assertEqual(wire['reasoning_effort'],'high')
+            with patch.object(provider,'_open',return_value={'id':'title-response','model':provider.MODEL}) as send:
+                provider.request_model(request,f.gateway.scope.schemas())
+                self.assertEqual(json.loads(send.call_args.args[1])['response_format'],response_format)
+                send.assert_called_once()
+            bad=dict(request,response_format={'type':'invented'})
+            with patch.object(provider,'_open') as send:
+                self.assertEqual(provider.request_model(bad,f.gateway.scope.schemas())['status'],'configuration_invalid')
+                send.assert_not_called()
+
     def test_unbound_run_and_duplicate_surface_cannot_admit(self):
         with fixtures.MaterialTransport().fixture(material=False) as f:
             native, binding, schemas, active, scope = self.setup_native(f)
@@ -171,19 +241,27 @@ class NativeChat(unittest.TestCase):
             self.assertEqual(preflight.call_args.args[1], schemas)
             self.assertEqual(one['choices'][0]['message']['tool_calls'], [call])
             self.assertEqual(gateway.transport_retries, 0)
+            provider.return_value=dict(response,choices=[dict(message=dict(role='assistant',content='{"title":"Synthetic"}'),finish_reason='stop')])
+            title_body=dict(model='deepseek-flash',messages=[{'role':'user','content':'title'}],
+                            response_format={'type':'json_object'})
+            title_one=f.proxy.dispatch('POST','/v1/chat/completions',f.token,title_body)
+            title_two=f.proxy.dispatch('POST','/v1/chat/completions',f.token,title_body)
+            self.assertEqual(title_one,title_two)
+            self.assertEqual(provider.call_count,2)
+            self.assertEqual(provider.call_args.args[0]['response_format'],{'type':'json_object'})
             next_body = dict(body, messages=[*body['messages'], dict(role='assistant', content=None, tool_calls=[call]),
                                           dict(role='tool',tool_call_id='call-native',content='done')])
             provider.side_effect = OSError('synthetic network outcome unknown')
             for expected in ('provider_outcome_unknown', 'unknown_previous_attempt'):
                 with self.assertRaisesRegex(ValueError, '^'+expected+'$'):
                     f.proxy.dispatch('POST','/v1/chat/completions',f.token,next_body)
-            self.assertEqual(provider.call_count, 2)
+            self.assertEqual(provider.call_count, 3)
             with db() as connection:
-                self.assertEqual(connection.execute('SELECT state FROM model_calls ORDER BY rowid').fetchall()[1][0], 'unknown')
-                self.assertEqual(connection.execute('SELECT COUNT(*) FROM hermes_turns').fetchone()[0], 2)
+                self.assertEqual(connection.execute('SELECT state FROM model_calls ORDER BY rowid').fetchall()[2][0], 'unknown')
+                self.assertEqual(connection.execute('SELECT COUNT(*) FROM hermes_turns').fetchone()[0], 3)
             active[0] = False
             with self.assertRaises(PermissionError): f.proxy.dispatch('POST','/v1/chat/completions',f.token,body)
-            self.assertEqual(provider.call_count, 2)
+            self.assertEqual(provider.call_count, 3)
 
 
     def test_submit_hold_counts_native_and_legacy_inflight_without_settling_usage(self):
