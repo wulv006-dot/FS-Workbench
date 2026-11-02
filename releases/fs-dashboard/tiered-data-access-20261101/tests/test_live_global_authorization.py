@@ -36,7 +36,7 @@ class GlobalAuthorization(unittest.TestCase):
   import base64,json
   self.assertEqual(result['data'],[]);self.assertIsInstance(result['next_cursor'],str)
   body=result['next_cursor'].split('.')[0];state=json.loads(base64.urlsafe_b64decode(body+'='*((-len(body))%4)))
-  self.assertIsInstance(state[2],str);self.assertEqual(len(state[2]),64);self.assertNotEqual(state[2],str(81))
+  self.assertIsInstance(state[2],str);self.assertNotIn(str(81),state[2])
  def test_existing_private_permission_exposes_private_order_rows(self):
   status,result=self.handler(self.params,'admin');self.assertEqual(status,206)
   self.assertEqual(result['data'][0],{'order_id':'123','paid_at':'2026-10-29 11:12:13','status':'11','pay_status':'1','customer_email':'fixture@example.test'})

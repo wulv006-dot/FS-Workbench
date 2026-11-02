@@ -49,6 +49,21 @@ class Pagination(unittest.TestCase):
   cursor=self.adapter(self.request)['next_cursor'];self.rows[2]=dict(self.rows[1])
   with self.assertRaises(LivePageError) as e:self.adapter(dict(self.request,cursor=cursor))
   self.assertEqual(e.exception.code,'source_changed')
+ def test_duplicate_not_at_last_boundary_is_also_rejected(self):
+  cursor=self.adapter(self.request)['next_cursor'];self.rows[2]=dict(self.rows[0])
+  with self.assertRaises(LivePageError) as e:self.adapter(dict(self.request,cursor=cursor))
+  self.assertEqual(e.exception.code,'source_changed')
+ def test_last_page_cannot_exceed_reported_total(self):
+  cursor=self.adapter(self.request)['next_cursor']
+  extra=dict(self.rows[2],id=6)
+  self.adapter.fetch=lambda *a:(200,json.dumps({'code':1,'data':{'total':3,'list':[self.rows[2],extra]}}).encode())
+  with self.assertRaises(LivePageError) as e:self.adapter(dict(self.request,cursor=cursor))
+  self.assertEqual(e.exception.code,'source_changed')
+ def test_empty_continuation_page_is_source_changed(self):
+  cursor=self.adapter(self.request)['next_cursor']
+  self.adapter.fetch=lambda *a:(200,json.dumps({'code':1,'data':{'total':3,'list':[]}}).encode())
+  with self.assertRaises(LivePageError) as e:self.adapter(dict(self.request,cursor=cursor))
+  self.assertEqual(e.exception.code,'source_changed')
  def test_missing_email_is_not_fabricated(self):
   del self.rows[0]['email']
   with self.assertRaises(LivePageError):self.adapter(self.request)
