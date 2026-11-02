@@ -1,5 +1,7 @@
 # Admin 实时单页：候选与接线边界
 
+> 历史设计记录：其中五条/第一页/未上线/旧身份方案仅描述原候选，不作为当前调用规则。2026-11-02 已上线版本以 [LIVE-ORDER-PAGINATION.md](LIVE-ORDER-PAGINATION.md) 为准；保留本文用于追溯。
+
 目标是业务需要时查当前源，不重建派生库。`AdminLivePage` 固定单个 site/game、上海业务日半开范围、最多 28 日且最早不早于服务当日减 365 日、不晚于明日，最多 5 条、一个请求、262144 字节和 10 秒；只投影订单 ID、付款时间、状态。无跨页游标，不接快照引擎和完整缓存。即使源报 total=0 或实际条数不满页，均返回 `status=partial, complete=false, semantics=live_non_snapshot`、观察时间和实际范围，total 仅为源当时声称值，不证明历史/跨页完整。上游 401/403/429、timeout、字段/站点/游戏/时间不匹配均明确失败。
 
 2026-11-02 09:00 UTC，既有管理员服务身份 `wulv` 的用户分析资源权限和 admin 身份通过，真实服务配置仅 site 266 且含 game 1327；经现役 `/opt/fs-order-session/fc_shared_admin.py` 固定 HMAC 8912 代理做一次 `2026-10-29`、page=1、limit=1 的只读请求返回 200，且 `id/site_id/gid/paytime/status` 均存在并匹配范围。仅输出结构和布尔值，无客户明细、采集落库或新凭据。这证明该时点的一个单页，不证明任意用户站点 grant、所有游戏或历史、跨页水位或长期可用。
