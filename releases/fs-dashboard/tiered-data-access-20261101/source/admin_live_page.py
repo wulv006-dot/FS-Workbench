@@ -38,7 +38,7 @@ class AdminLivePage:
   if not isinstance(request,dict) or set(request)!={'site_id','game_id','start','end_exclusive','fields'}:raise LivePageError('invalid_request')
   if any(not isinstance(request[k],str) or not request[k].isascii() or not request[k].isdigit() or len(request[k])>20 for k in ('site_id','game_id')):raise LivePageError('invalid_request')
   fields=request['fields']
-  if not isinstance(fields,list) or any(type(x) is not str for x in fields) or 'order_id' not in fields or len(fields)!=len(set(fields)) or set(fields)-{'order_id','paid_at','status'}:raise LivePageError('invalid_request')
+  if not isinstance(fields,list) or any(type(x) is not str for x in fields) or (fields and 'order_id' not in fields) or len(fields)!=len(set(fields)) or set(fields)-{'order_id','paid_at','status'}:raise LivePageError('invalid_request')
   start,end=validate_period(request,self.observed_at)
   self.grant(request)
   filters=[('site_id','=',request['site_id']),('gid','=',request['game_id']),('paytime','RANGE',start.isoformat()+' 00:00:00,'+(end-datetime.timedelta(days=1)).isoformat()+' 23:59:59')]
@@ -69,10 +69,12 @@ class AdminLivePage:
     if not ident.isascii() or not ident.isdigit() or len(ident)>20 or int(ident)<=0 or previous is not None and int(ident)>=previous or not isinstance(paid,str) or not state.isascii() or not state.isdigit() or not 1<=len(state)<=4:raise ValueError()
     when=datetime.datetime.strptime(paid,'%Y-%m-%d %H:%M:%S')
     if not start<=when.date()<end:raise ValueError()
-    projection={'order_id':ident,'paid_at':paid,'status':state};output.append({k:projection[k] for k in fields});previous=int(ident)
+    projection={'order_id':ident,'paid_at':paid,'status':state}
+    if fields:output.append({k:projection[k] for k in fields})
+    previous=int(ident)
    at=self.observed_at()
    if not isinstance(at,str) or datetime.datetime.fromisoformat(at.replace('Z','+00:00')).utcoffset() is None:raise ValueError()
   except (ValueError,TypeError,KeyError,OverflowError):raise LivePageError('source_schema_changed') from None
   self.grant(request)
   return dict(status='partial',complete=False,semantics='live_non_snapshot',observed_at=at,timezone='Asia/Shanghai',scope=dict(site_id=request['site_id'],game_id=request['game_id']),period=dict(start=request['start'],end_exclusive=request['end_exclusive']),data=output,next_cursor=None,
-              source_reported_total=total,limitation='single_page_no_snapshot_or_full_history_guarantee')
+              source_reported_total=total,observed_page_rows=len(rows),limitation='single_page_no_snapshot_or_full_history_guarantee')

@@ -1,0 +1,36 @@
+--- a/range_api.py
++++ b/range_api.py
+@@ -373,0 +374,10 @@
++# Dedicated live reads remain disabled if the existing pool or verifier is unavailable.
++LIVE_ADMIN=None
++verify_live_session=None
++try:
++ from admin_live_admission import LiveAdminAdmission
++ from admin_live_host import get as get_live_orders
++ from admin_live_session import verify as verify_live_session
++ LIVE_ADMIN=LiveAdminAdmission(SUMMARY.pools['Admin'],maintenance_admission)
++except (ImportError,OSError,ValueError,AttributeError):pass
++
+@@ -380,0 +391,22 @@
++   return
++  if uri.path=='/users/live-orders':
++   if LIVE_ADMIN is None or not callable(verify_live_session):self.reply(503,{'error':'live_admission_unavailable'});return
++   try:
++    live_query=parse_qs(uri.query,keep_blank_values=True,max_num_fields=16)
++    if set(live_query)!={'site_id','game_id','start','end_exclusive'} or any(len(v)!=1 for v in live_query.values()):raise ValueError('invalid_live_query')
++    first=date.fromisoformat(live_query['start'][0]);last=date.fromisoformat(live_query['end_exclusive'][0])
++    if first.isoformat()!=live_query['start'][0] or last.isoformat()!=live_query['end_exclusive'][0] or (last-first).days!=1:raise ValueError('invalid_live_query')
++   except (ValueError,KeyError):self.reply(422,{'error':'invalid_live_query'});return
++   cookie=self.headers.get('Cookie')
++   try:
++    auth_status,actor=verify_live_session(cookie)
++    if auth_status!=200 or not actor:self.reply(auth_status if auth_status in (401,403,429,503) else 503,{'error':'session_unavailable' if auth_status==503 else 'session_denied'});return
++    def run_scoped(operation,timeout):
++     def checked():
++      next_status,next_actor=verify_live_session(cookie)
++      if next_status!=200 or next_actor!=actor:raise PermissionError('session_changed')
++      return operation()
++     return LIVE_ADMIN.run(checked,timeout)
++    status,data=get_live_orders(live_query,actor,run_source=run_scoped)
++    self.reply(status,data)
++   except Exception:self.reply(503,{'error':'live_source_unavailable'})

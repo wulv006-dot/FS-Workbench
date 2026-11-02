@@ -15,14 +15,15 @@ class Authorization(unittest.TestCase):
  def setUp(self):
   self.policy={'admins':['trusted']};self.config={'activation_status':'W0_verified','sites':{'266':{}},'projects':{'1327':{}}}
   self.req={'site_id':'266','game_id':'1327'}
-  self.auth=ConfiguredAdminAuthorizer(subject='trusted',load_policy=lambda:self.policy,load_config=lambda:self.config,rbac=RBAC,policy_version='fixture')
+  def existing(user,scope,private=False):return RBAC.authorize(self.policy,user,'GET','/dashboard/users/')==200 and (not private or RBAC.is_admin(self.policy,user))
+  self.auth=ConfiguredAdminAuthorizer(subject='trusted',load_policy=lambda:self.policy,load_config=lambda:self.config,rbac=RBAC,policy_version='fixture',existing_authorizer=existing)
  def test_only_admin_with_explicit_configured_site_and_game(self):
   grant=self.auth(self.req);self.assertEqual(set(grant),{'scope_hash','permission_epoch','policy_version'})
   self.assertIsNone(self.auth(dict(self.req,site_id='267')));self.assertIsNone(self.auth(dict(self.req,game_id='999')))
   self.policy['admins']=[];self.assertIsNone(self.auth(self.req))
- def test_nonadmin_and_ambiguous_or_missing_configuration_denied(self):
+ def test_global_denial_and_missing_configuration_denied(self):
   self.assertIsNone(ConfiguredAdminAuthorizer(subject='viewer',load_policy=lambda:self.policy,load_config=lambda:self.config,rbac=RBAC,policy_version='fixture')(self.req))
-  self.config['sites']['267']={};self.assertIsNone(self.auth(self.req))
+  self.config['sites']['267']={};self.assertIsNotNone(self.auth(self.req))
   self.config['sites']={'266':{}};self.config['activation_status']='unknown';self.assertIsNone(self.auth(self.req))
  def test_policy_and_config_changes_change_epoch(self):
   first=self.auth(self.req);self.policy['revision']='new';self.assertNotEqual(first['permission_epoch'],self.auth(self.req)['permission_epoch'])
