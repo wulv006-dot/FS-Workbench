@@ -1,0 +1,21 @@
+# 第三包：轻量日事实候选与P1修复
+
+## P1构造器竞态
+
+独立审查指出load_store预检查与Store构造器之间丢库会重建空库，已接受。修复提交c079b3b036520ea522e81ad92fc3dc0f4bcf904b：Store增加create参数，正常load_store传create=False，只有显式initialize=True可创建。禁止创建模式跳过O_CREAT/schema初始化/元数据插入，并在mode=rw连接内校验schema；正常路径缺identity也不能新建key。
+Windows新增构造器故障注入通过，相关7测试6通过1skip；真实load_store预检查后rename测试需要POSIX/fcntl，未在Windows冒充通过。该用例已进入Library云Linux验证输入，等待执行结果。单纯多加exists检查不是本修复的创建控制机制。
+
+云验证包Library libfile_c415fa5df1f881919fe46b2546d0ecd8，对应c079b3b，SHA256 1da8955b0bb58a745943600f425a0c280fc02655366c16d724aaa6dd706ccaf0；79文件含5个同提交直接依赖及测试说明。不含本第三包后续日事实；当前身份元数据写回因Windows缺os.setxattr失败，Library上传成功，未重传。
+
+## 轻日事实范围
+
+source/daily_facts.py将必要投影写入已有Archive.database catalog，显式initialize增加4个小表，不新建raw DB/宿主/timer。沿用Archive目录边界、身份、权限和连接。尚未确认活动Archive源hash，不生成生产DDL或切换计划。
+每dataset/可信scope_hash/业务日/metric_contract/currency发布完整revision；字段仅允许registry声明的可加和数值，不接客户名单或任意正文，单事实16KiB上限。来源完整才切current；旧sequence或同sequence异值拒绝。更正事件幂等标记旧日/新日；dirty按币种隔离，旧版本重放不能清标记，完整更新后才清。
+范围读取带scope/date/contract/currency谓词，缺日/dirty导致complete=false，禁止当完整总额。比率由总分子/分母重算，零分母null；distinct不在fixture可加和字段，不能相加。真实指标合同尚未配置，Order发货统计与Admin付款语义不能混用。
+
+新增test_daily_facts.py五项通过，独立新包全19项通过。全部临时SQLite与虚构fixture；未测旧SQLite真实版本、Archive并发/maintenance引用保护、生产WAL/锁负荷、日归档timer接线或真实指标对账。尚无pins/历史依赖清理，不授权淘汰这些新必要facts。
+来源sequence必须有实际已验证的修订/重算合同，当前未替某源臆造watermark。低频去重归档/异步job/cache/真分页导出仍未完成。
+
+## 后续最小接线
+
+先由数据owner给每个真实dataset定义可加和分子分母、currency、timezone、date_semantics与可信scope_hash；固定adapter完整结果→Facts.publish。原archive run在同现有锁下按批准小日期窗调用，来源故障只保留旧日并显式partial。该候选没有改共享range_api或T3执行链。

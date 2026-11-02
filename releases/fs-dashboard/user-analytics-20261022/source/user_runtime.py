@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 from threading import RLock
 
-from user_store import Store, safe
+from user_store import Store, safe, require_database
 
 ROOT = Path('/var/lib/fs-user-analytics')
 CONFIG = Path(__file__).with_name('user_config.json')
@@ -52,10 +52,14 @@ def configuration(path=CONFIG, accounting=ACCOUNTING, statuses=STATUSES):
     return value
 
 
-def load_store(root=ROOT, config=None):
-    import fcntl
+def load_store(root=ROOT, config=None, *, initialize=False):
     root = Path(root)
     safe(root)
+    # Boot/query/weekly runs must not bootstrap replacement facts after data loss.
+    # Initial provisioning is explicit and is not exposed through HTTP or Hermes.
+    if not initialize:
+        require_database(root / 'customers.sqlite3')
+    import fcntl
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     if root.stat().st_uid != os.geteuid() or root.stat().st_mode & 0o077:
         raise ValueError('private_directory_permissions')
@@ -64,6 +68,8 @@ def load_store(root=ROOT, config=None):
     with (root / 'init.lock').open('a+b') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if not key_path.exists():
+            if not initialize:
+                raise ValueError('existing_identity_key_missing')
             if (root / 'customers.sqlite3').exists():
                 raise ValueError('existing_identity_key_missing')
             fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -72,7 +78,7 @@ def load_store(root=ROOT, config=None):
         if key_path.stat().st_uid != os.geteuid() or key_path.stat().st_mode & 0o077 or key_path.stat().st_size != 32:
             raise ValueError('private_identity_key_permissions')
         key = key_path.read_bytes()
-        return Store(root, key, configuration() if config is None else config)
+        return Store(root, key, configuration() if config is None else config, create=initialize)
 
 
 def authorize(user, query, private=False):

@@ -1,0 +1,20 @@
+--- a/releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py
++++ b/releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py
+@@ -373,0 +374,8 @@
++# Share the existing four-worker Admin pool and maintenance lease; one live request at most.
++LIVE_ADMIN=None
++try:
++ from admin_live_admission import LiveAdminAdmission
++ from admin_live_host import get as get_live_orders
++ LIVE_ADMIN=LiveAdminAdmission(SUMMARY.pools['Admin'],maintenance_admission)
++except (ImportError,OSError,ValueError,AttributeError):pass
++
+@@ -383,0 +392,8 @@
++  if uri.path=='/users/live-orders':
++   if LIVE_ADMIN is None:self.reply(503,{'error':'live_admission_unavailable'});return
++   try:
++    status,data=get_live_orders(parse_qs(uri.query,keep_blank_values=True,max_num_fields=4),self.headers.get('X-Auth-User'),run_source=LIVE_ADMIN.run)
++    self.reply(status,data)
++   except ValueError:self.reply(422,{'error':'invalid_live_query'})
++   except Exception:self.reply(503,{'error':'live_source_unavailable'})
++   return

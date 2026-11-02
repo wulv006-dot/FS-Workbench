@@ -7,10 +7,34 @@ import re
 import sqlite3
 import stat
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 from pathlib import Path
 
 from user_contract import canonical, digest, stamp, money
+import user_version_index
+
+
+class StoreUnavailable(OSError):
+    """Authoritative facts are unavailable; never interpret this as an empty cache."""
+
+
+def require_database(path):
+    path = Path(path)
+    safe(path)
+    if not path.is_file() or path.stat().st_size == 0:
+        raise StoreUnavailable('users_store_missing')
+    try:
+        with closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=15)) as db:
+            require_schema(db)
+    except sqlite3.DatabaseError as error:
+        raise StoreUnavailable('users_store_unreadable') from error
+
+
+def require_schema(db):
+    required = {'meta', 'orders', 'identities', 'revisions', 'jobs', 'snapshots', 'snapshot_members'}
+    tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if not required <= tables or db.execute("SELECT value FROM meta WHERE key='revision'").fetchone() is None:
+        raise StoreUnavailable('users_store_incomplete')
 
 
 def safe(path):
@@ -56,21 +80,25 @@ def _validate_targeted_cursors(value, sites):
 
 
 class Store:
-    def __init__(self, root, key, config, read_only=False):
+    def __init__(self, root, key, config, read_only=False, *, create=True):
         self.root, self.key, self.config = Path(root), key, config
         self.read_only = read_only
+        self.path = self.root / 'customers.sqlite3'
+        if not create and not self.path.is_file():
+            raise StoreUnavailable('users_store_missing')
         if not isinstance(key, bytes) or len(key) < 32:
             raise ValueError('identity_key_required')
         safe(self.root)
         if read_only and not self.root.is_dir():
             raise ValueError('existing_restore_directory_required')
-        if not read_only:
+        if not read_only and create:
             self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.root.stat().st_mode & 0o077:
             raise ValueError('private_directory_permissions')
-        self.path = self.root / 'customers.sqlite3'
         safe(self.path)
         if not self.path.exists():
+            if not create:
+                raise StoreUnavailable('users_store_missing')
             if read_only:
                 raise ValueError('existing_restore_database_required')
             fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -78,7 +106,9 @@ class Store:
         if self.path.stat().st_mode & 0o077:
             raise ValueError('private_database_permissions')
         with self.db() as db:
-            if not read_only:
+            if not create:
+                require_schema(db)  # Same mode=rw connection that will inspect metadata.
+            if not read_only and create:
                 db.executescript('''
               CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
               INSERT OR IGNORE INTO meta VALUES('revision','0');
@@ -100,15 +130,23 @@ class Store:
                 old = db.execute('SELECT value FROM meta WHERE key=?', (name,)).fetchone()
                 if old and old[0] != value:
                     raise ValueError('identity_or_mapping_migration_required')
-                if read_only and not old:
+                if (read_only or not create) and not old:
                     raise ValueError('restore_identity_metadata_missing')
-                if not read_only:
+                if not read_only and create:
                     db.execute('INSERT OR IGNORE INTO meta VALUES(?,?)', (name, value))
 
     @contextmanager
     def db(self):
         safe(self.path)
-        db = sqlite3.connect(self.path.as_uri() + '?mode=ro', uri=True, timeout=15) if self.read_only else sqlite3.connect(self.path, timeout=15)
+        if not self.path.is_file():
+            raise StoreUnavailable('users_store_missing')
+        # mode=rw closes the exists/connect race without silently creating an empty DB.
+        try:
+            db = sqlite3.connect(self.path.as_uri() + ('?mode=ro' if self.read_only else '?mode=rw'), uri=True, timeout=15)
+        except sqlite3.OperationalError as error:
+            if not self.path.is_file():
+                raise StoreUnavailable('users_store_missing') from error
+            raise
         db.row_factory = sqlite3.Row
         if self.read_only:
             db.execute('PRAGMA query_only=ON')
@@ -203,6 +241,7 @@ class Store:
             db.execute('INSERT OR REPLACE INTO jobs VALUES(?,?,?,?,?,?,?)', (job, site, start, end, 'complete', canonical(payload), rev + 1))
             db.execute('INSERT INTO job_attempts(job_id,state,body) VALUES(?,?,?)', (job, 'complete', canonical(dict(site=site, start=start, end_exclusive=end, captured_at=capture))))
             db.execute('INSERT INTO revisions VALUES(?,?,?)', (rev + 1, reason, canonical(changes)))
+            user_version_index.advance(db, rev, rev + 1, changes)
             db.execute("UPDATE meta SET value=? WHERE key='revision'", (str(rev + 1),))
         return dict(job_id=job, state='complete', data_version=str(rev + 1), **payload)
 
@@ -259,6 +298,7 @@ class Store:
                 db.executemany('INSERT OR REPLACE INTO orders VALUES(?,?,?,?,?,?,?,?)', updates)
                 rev += 1
                 db.execute('INSERT INTO revisions VALUES(?,?,?)', (rev, 'targeted_order_correction', canonical(changes)))
+                user_version_index.advance(db, rev - 1, rev, changes)
                 db.execute("UPDATE meta SET value=? WHERE key='revision'", (str(rev),))
             missing = len(requested) - len(returned)
             payload = dict(mode='targeted', captured_at=capture, requested_rows=len(requested),
@@ -313,6 +353,10 @@ class Store:
         if not isinstance(version, str) or not version.isdecimal() or str(int(version)) != version or (start is None) != (end is None):
             raise ValueError('snapshot_replay_version')
         target = int(version)
+        if start is not None:
+            start, end = stamp(start).isoformat(), stamp(end).isoformat()
+            if not start < end:
+                raise ValueError('analytics_period_required')
         result = {}
         def include(raw):
             if raw['revision'] <= target:
@@ -324,6 +368,9 @@ class Store:
             current = int(db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0])
             if target > current:
                 raise ValueError('snapshot_replay_future_version')
+            if self.config.get('revision_range_index') is True and user_version_index.ready(db, current):
+                return sorted((self.analytics_row_v1(row) for row in user_version_index.read(db, target, start=start, end=end)
+                               if row['valid']), key=lambda row: (row['paid_at'], row['order_key']))
             for row in db.execute('SELECT * FROM orders WHERE revision<=?', (target,)):
                 include(dict(row))
             for row in db.execute('SELECT body FROM revisions WHERE id>? ORDER BY id', (target,)):
@@ -429,6 +476,7 @@ class Store:
             rev = int(db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0]) + 1
             db.execute("UPDATE meta SET value=? WHERE key='mapping_fingerprint'", (after,))
             db.execute('INSERT INTO revisions VALUES(?,?,?)', (rev, 'verified_project_mapping_revision', '[]'))
+            user_version_index.advance(db, rev - 1, rev, [])
             db.execute("UPDATE meta SET value=? WHERE key='revision'", (str(rev),))
         self.config = config
         return dict(data_version=str(rev), before=before, after=after, identities_preserved=True)
@@ -436,6 +484,13 @@ class Store:
     def orders_at(self, version, customer_id):
         version = int(version)
         with self.db() as db:
+            db.execute('BEGIN')
+            current = int(db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0])
+            if version > current or version < 0:
+                raise ValueError('snapshot_replay_future_version')
+            if self.config.get('revision_range_index') is True and user_version_index.ready(db, current):
+                return sorted(user_version_index.read(db, version, customer_id=customer_id),
+                              key=lambda row: (row['paid_at'], row['order_key']))
             candidates = [dict(r) for r in db.execute('SELECT * FROM orders WHERE customer_id=? AND revision<=?', (customer_id, version))]
             for row in db.execute('SELECT body FROM revisions WHERE id>?', (version,)):
                 candidates.extend(r for r in json.loads(row[0]) if r['customer_id'] == customer_id and r['revision'] <= version)

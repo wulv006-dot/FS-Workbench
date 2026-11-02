@@ -1,5 +1,7 @@
 """Thin dispatch for the existing authenticated host. Does not start a new web server."""
 from user_weekly import WeeklyUnavailable
+from user_store import StoreUnavailable
+from user_member_index import IndexUnavailable
 
 
 def search(service, body, user):
@@ -11,6 +13,10 @@ def search(service, body, user):
         return 200, service.search(body, user)
     except PermissionError:
         return 403, {'error': 'scope_or_admin_required'}
+    except IndexUnavailable:
+        return 503, {'error': 'snapshot_member_index_unavailable'}
+    except StoreUnavailable:
+        return 503, {'error': 'users_store_unavailable', 'recovery_required': True}
     except WeeklyUnavailable:
         return 503, {'error': 'weekly_initial_publication_pending'}
     except LookupError:
@@ -52,6 +58,10 @@ def get(service, path, params, user):
         return 200, service.query(args, user)
     except PermissionError:
         return 403, {'error': 'scope_or_admin_required'}
+    except IndexUnavailable:
+        return 503, {'error': 'snapshot_member_index_unavailable'}
+    except StoreUnavailable:
+        return 503, {'error': 'users_store_unavailable', 'recovery_required': True}
     except WeeklyUnavailable:
         return 503, {'error': 'weekly_initial_publication_pending'}
     except LookupError:
