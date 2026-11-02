@@ -116,7 +116,9 @@ def configure_material_guard():
 
 def native_generated():
     import runtime_release as release
-    return {'unit/native-control.conf': json.dumps({'recipe':'native_worker_mounts_v1'},sort_keys=True).encode(),
+    return {'unit/native-control.conf': json.dumps({'recipe':'native_worker_mounts_v2',
+                'daily_source':release.TARGETS['approval/daily_review.py'],'daily_target':release.NATIVE_DAILY_CONTAINER,
+                'daily_readonly':True},sort_keys=True).encode(),
             'runtime/native-backend.json': json.dumps({'version':'native_docker_v1','root':release.NATIVE_ROOT,
                 'image':FROZEN_IMAGE_MARKER,'docker_binary':'/opt/fs-native-bin/docker',
                 'docker_sha256':release.NATIVE_CLI_SHA,'uid':9876,'gid':9876},sort_keys=True).encode()}
@@ -150,7 +152,8 @@ def render_native_unit(raw, dependencies):
         ' --mount type=bind,source=/usr/bin/docker,target=/opt/fs-native-bin/docker,readonly'
         ' --mount type=bind,source=/run/docker.sock,target=/var/run/docker.sock'
         ' --mount type=bind,source='+release.NATIVE_ROOT+',target='+release.NATIVE_ROOT+
-        ' --mount type=bind,source='+release.NATIVE_EMPTY_SOURCE+',target=/opt/fs-native-backend-home,readonly')
+        ' --mount type=bind,source='+release.NATIVE_EMPTY_SOURCE+',target=/opt/fs-native-backend-home,readonly'
+        ' --mount type=bind,source='+release.TARGETS['approval/daily_review.py']+',target='+release.NATIVE_DAILY_CONTAINER+',readonly')
     return raw.replace(anchor, extra.encode()+anchor)
 
 
@@ -231,6 +234,8 @@ def observe(root=Path('/'), installed=None):
                           if r['path'] in protected_paths(base)} if installed else None
     if installed and release.NATIVE_MODE:
         expected_protected[release.NATIVE_CLI] = release.NATIVE_CLI_SHA
+        expected_protected[release.NATIVE_LEGACY_DAILY] = release.NATIVE_LEGACY_DAILY_SHA
+        release.native_legacy_daily_guard(base,root)
     if installed and {r['path']: r['sha256'] for r in protected} != expected_protected:
         raise ValueError('installed_protected_baseline_drift')
     worker = worker_observation(allow_stopped=not (release.WORKER_DIAGNOSTICS_MODE or release.TRANSPORT_MODE or release.STREAM_MODE or release.BINDINGS_MODE or release.GUARD_MODE or release.NATIVE_MODE)) if root == Path('/') else {
@@ -265,6 +270,11 @@ def pack(repo, output, commit):
     baseline = {name: (None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo)))
                 for name, path in SOURCES.items()}
     baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
+    installed_baseline={'source_commit': INSTALLED_COMMIT, 'files': baseline}
+    if release.NATIVE_MODE:
+        legacy=digest(subprocess.check_output(['git','show',INSTALLED_COMMIT+':'+SOURCES['approval/daily_review.py']],cwd=repo))
+        if legacy!=release.NATIVE_LEGACY_DAILY_SHA:raise ValueError('native_legacy_daily_git_drift')
+        installed_baseline['protected']={release.NATIVE_LEGACY_DAILY:legacy}
     raw = json.dumps({'source_commit': commit, 'files': hashes, 'material_execution':release.EXECUTION_MODE,
                       'material_diagnostics':release.DIAGNOSTICS_MODE,
                       'goal_task_index_compat':release.TASK_INDEX_MODE,
@@ -274,7 +284,7 @@ def pack(repo, output, commit):
                       'bindings_auth':release.BINDINGS_MODE,
                       'material_guard':release.GUARD_MODE,
                       'native_chat':release.NATIVE_MODE,
-                      'installed_baseline': {'source_commit': INSTALLED_COMMIT, 'files': baseline}},
+                      'installed_baseline': installed_baseline},
                      sort_keys=True).encode('utf-8')
     (output / 'payload-manifest.json').write_bytes(raw)
     return {'source_commit': commit, 'payload_files': len(SOURCES), 'payload_sha256': digest(raw)}
