@@ -180,10 +180,9 @@ def legacy_ready():
 
 
 def arab_normal(local, parent=None, *, pinned=None):
-    if isinstance(pinned, dict) and pinned.get('mode') == 'local':
-        return local()
+    is_local = isinstance(pinned, dict) and pinned.get('mode') == 'local'
     try:
-        routing = read_routing()
+        routing = dict(remote_result_mode='off') if is_local else read_routing()
     except (OSError, ValueError):
         return dict(status='unavailable', reason='collection_routing_invalid', offers=[])
     if routing['remote_result_mode'] != 'consume':

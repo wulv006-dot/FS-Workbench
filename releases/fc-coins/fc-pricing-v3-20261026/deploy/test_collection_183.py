@@ -22,6 +22,7 @@ FILES = {'source/fc_collection/' + name for name in
           'protocol.py', 'public_sources.py', 'server.py', 'ssh_client.py', 'pilot.py', 'client.py', 'failover.py')}
 FILES.add('source/fc_pricing_v3/sources.py')
 FILES.add('source/server_quote_job.py')
+FILES |= {'source/fc27_cloud_worker.py', 'source/fc27_cloud_api.py'}
 # The publisher enumerates these source filenames; tests never load business sessions or data.
 FILES |= {'source/fc_pricing_v3/' + name for name in ('__init__.py', 'api.py', 'business_source.py',
           'ledger.py', 'monitoring.py', 'observations.py', 'regional_public.py', 'runtime.py', 'scheduler.py',
