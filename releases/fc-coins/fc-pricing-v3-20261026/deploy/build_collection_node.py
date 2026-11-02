@@ -16,16 +16,11 @@ from fc_collection.server import main
 main(ROOT)
 '''
 CONTROL_ENTRY = b'''from pathlib import Path
-import os
 import sys
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
-from fc_collection.pilot import run
-from fc_collection.contracts import encoded
-if len(sys.argv) != 4:
-    raise ValueError('pilot_arguments_required')
-os.umask(0o077)
-print(encoded(run(Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3])))
+from fc_collection.pilot import main
+main()
 '''
 
 
