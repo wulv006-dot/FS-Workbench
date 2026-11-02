@@ -160,8 +160,10 @@ class ConversationService:
         self.live = {}
         self.customer_tracking = None
         self.lock = threading.RLock()
-        from conversation_native import NativeConversation
-        self.native = None if pricing_only else NativeConversation(self)
+        self.native = None
+        if not pricing_only:
+            from conversation_native import NativeConversation
+            self.native = NativeConversation(self)
         # Pricing reviews have their own durable store and execution queue. They
         # are not visible in the ordinary conversation list or report pool.
         self.pricing = None if pricing_only else ConversationService(hermes_service,

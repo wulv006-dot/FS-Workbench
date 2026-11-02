@@ -392,6 +392,10 @@ class NativeWorkspace:
                 count += 1
                 if count > 1000:raise ValueError('native_file_count')
                 raw=regular_bytes(workspace/relative,MAX_BYTES,root=workspace)
+                # Caches and empty intermediate files are not downloadable
+                # outputs. Keep them in the workspace without failing valid
+                # exports; the link/kind/size/stability checks above still run.
+                if not raw or any(part.startswith('.') for part in Path(relative).parts):continue
                 digest=sha(raw);previous=known.get(relative)
                 if previous and previous['sha256']==digest:continue
                 filename=(self.files.metadata(self.files.directory(cid),previous['file_id'])['filename']

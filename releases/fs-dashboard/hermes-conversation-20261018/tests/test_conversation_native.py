@@ -18,6 +18,32 @@ from conversation_files import ConversationFiles
 
 
 class NativeWorkspaceTests(unittest.TestCase):
+    def test_intermediate_empty_and_hidden_files_do_not_block_real_exports(self):
+        from conversation_native import NativeWorkspace
+        with tempfile.TemporaryDirectory() as root:
+            store=ConversationStore(Path(root)/'store');cid=store.create('alice')['conversation_id']
+            files=ConversationFiles(store);bridge=NativeWorkspace(store,Path(root)/'native')
+            state=bridge.prepare('alice',cid);workspace=Path(state['workspace'])
+            (workspace/'answer.txt').write_bytes(b'actual answer')
+            (workspace/'empty.txt').write_bytes(b'')
+            (workspace/'.scratch').write_bytes(b'internal scratch')
+            (workspace/'.cache').mkdir();(workspace/'.cache'/'state.txt').write_bytes(b'cache state')
+            run='run_'+'a'*32
+            cards=bridge.collect('alice',cid,run)
+            self.assertEqual([item['filename'] for item in cards],['answer.txt'])
+            self.assertEqual(files.read('alice',cid,cards[0]['file_id'])['content'],b'actual answer')
+            self.assertEqual(bridge.collect('alice',cid,run),cards)
+            with store.db() as db:
+                self.assertEqual(db.execute('SELECT COUNT(*) FROM native_file_exports WHERE cid=?',(cid,)).fetchone()[0],1)
+                self.assertEqual(db.execute('SELECT COUNT(*) FROM native_collected_runs WHERE cid=?',(cid,)).fetchone()[0],1)
+            # Intermediate files stay in the workspace. If filled in a later
+            # turn, an ordinary file can then become a real downloadable output.
+            self.assertEqual((workspace/'empty.txt').read_bytes(),b'')
+            (workspace/'empty.txt').write_bytes(b'later answer')
+            later=bridge.collect('alice',cid,'run_'+'b'*32)
+            self.assertEqual([item['filename'] for item in later],['empty.txt'])
+            self.assertEqual(files.read('alice',cid,later[0]['file_id'])['content'],b'later answer')
+
     def test_two_sheet_real_xlsx_bytes_versions_and_natural_followup(self):
         import io
         from openpyxl import Workbook,load_workbook
@@ -93,8 +119,9 @@ class NativeWorkspaceTests(unittest.TestCase):
             store=ConversationStore(Path(root)/'store');cid=store.create('alice')['conversation_id']
             bridge=NativeWorkspace(store,Path(root)/'native');state=bridge.prepare('alice',cid)
             outside=Path(root)/'private.txt';outside.write_bytes(b'PRIVATE_SENTINEL')
-            with patch('conversation_native.os.walk',return_value=iter([(state['workspace'],[],['escape'])])), patch.object(Path,'is_symlink',return_value=True):
-                with self.assertRaises(ValueError):bridge.collect('alice',cid,'run_'+'a'*32)
+            for name in ('escape','.scratch'):
+                with self.subTest(name=name), patch('conversation_native.os.walk',return_value=iter([(state['workspace'],[],[name])])), patch.object(Path,'is_symlink',return_value=True):
+                    with self.assertRaises(ValueError):bridge.collect('alice',cid,'run_'+'a'*32)
 
 
 
