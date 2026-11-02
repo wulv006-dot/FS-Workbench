@@ -582,9 +582,9 @@ def archive_rollback_guard(base, journal, root):
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
     if approved.get('nativeArchive') is True:
-        # No valid stage/source-generation proof yet: do not disguise the old
-        # installed89 single-target recipe as a new live-orders followup.
-        raise ValueError('native_archive_generated_source_chain_required')
+        # Only the three host sources may change. A new mode must bind the
+        # successful live receipt; never reuse the old one-target recipe.
+        raise ValueError('native_archive_three_source_mode_not_prepared')
     if approved.get('nativeAdmission') is True:
         configure_native_admission()
     elif approved.get('nativeChat') is True:

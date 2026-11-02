@@ -1540,7 +1540,7 @@ class NativePublisher(unittest.TestCase):
     def test_native_archive_marker_cannot_borrow_installed89_recipe(self):
         with tempfile.TemporaryDirectory() as directory:
             stage=Path(directory);(stage/'approved-manifest.json').write_text(json.dumps({'nativeArchive':True,'nativeAdmission':True}),encoding='utf-8')
-            with patch.object(release,'HERE',stage),self.assertRaisesRegex(ValueError,'native_archive_generated_source_chain_required'):
+            with patch.object(release,'HERE',stage),self.assertRaisesRegex(ValueError,'native_archive_three_source_mode_not_prepared'):
                 release.load_base()
 
     def test_archive_rollback_guard_preserves_unknown_and_denies_blind_restore(self):

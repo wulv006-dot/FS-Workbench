@@ -968,3 +968,6 @@ publisher 新增互斥 `--native-chat --followup`，钉已安装 23a 的 manifes
 原冻结journal成功schema本身不保存stage；本次明确投影的`stage/stagePath/stage_dir`字段均未提供指针。依本轮边界停止现场追踪，没有广扫stage/读取备份内容或反射活动磁盘。尚需数据发布执行者提供可信stage/生成器与精确前序range/Nginx patch链；这是具体生成链缺口，不再称manifest/journal未找到。
 
 本地补`archive_rollback_guard`：新nativeArchive维护模式恢复三个archive-blind宿主源前，stdlib ro/query_only检查原账本；缺库或已有任意tombstone（含异常审计）即拒绝旧字节回退，未归档时保留原回退。冻结writer未改。该guard置于原rollback_journal调用之前；当前nativeArchive仍明确拒绝`native_archive_generated_source_chain_required`，不能借用89e5/nativeAdmission模式绕过新数据源证明。三delta新模式、精确UNKNOWN例外和维护执行器尚未启用，非可部署完整包；不得用本阶段helper测试冒完整apply/readiness/归档验收。生产归档0/删除0，原UNKNOWN、费用未知、原数据/服务和live接口未改。
+
+
+用户随后要求按Ponytail收紧：不再把不写入range/Nginx的stage重现作为新增发布前置。已核成功manifest/journal的精确SHA和8/743集合可供三host源码增量的CAS-only保护使用，不复制或重写生成文件；前段stage缺口仅是本次读取到的事实。只保留本对象必要防重发标记，不建费用查询或通用归档系统。当前代码明确拒绝未装配的三源模式`native_archive_three_source_mode_not_prepared`，是避免误套旧单目标包，不是新增永久stage门禁。生产清理仍0/0，待三源装配完成统一独审CI后实施。
