@@ -1,0 +1,20 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "native:c5ec37b0",
+  "candidate_sha256": "fbca51d60665408e831589b2b18b7b0cc28b5c9ffb80fcc663aebfd5fae711ca",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "summary_only",
+  "evidence": "Original completed approve receipt with success=true and applied=true. Candidate SHA and original receipt bytes verified. The three native before/after hashes form an ordered chain ending at the observed memory hash. This summary archives prior authorized application only; it does not reapply memory or establish new business rules.",
+  "formal_rule_change": false,
+  "kind": "native",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "receipt_sha256": "ebcc201cce8060b4f1bfc52c6745680c7871f1834890394c78dcbc23b63b7ff9",
+  "request_id": "d3de0e2b1d04a4566ddf72f068cd6512af63c4a51d71c3784ee163a0e7fdd81c",
+  "runtime_activation": false,
+  "summary": "An applied memory distinguishes the server environment, the FS conversation integration goal, and actual verified capability. Older FS assembly is not a permanent capability ceiling; an integration goal must not be reported as already implemented. No networking, credentials, permissions or service configuration changed."
+}
