@@ -278,6 +278,7 @@ def archive_check(base,root,source,source_sha):
     store=module.ConversationStore.__new__(module.ConversationStore)
     path=base.rooted(root,'/var/lib/fs-hermes-fc/fs/conversations/conversations.db')
     base.no_target_link(path)
+    store.path=path
     @contextmanager
     def db():
         with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=2)) as connection:
