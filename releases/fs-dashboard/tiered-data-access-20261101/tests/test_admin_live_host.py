@@ -55,7 +55,7 @@ class Host(unittest.TestCase):
   from admin_live_worker import handle as worker_handle
   from admin_supervised_transport import SupervisedAdminTransport
   from test_admin_live_worker import Fake
-  Fake.calls=[];Fake.body=json.dumps({'code':1,'data':{'total':1,'list':[dict(id=1,site_id=266,gid=1327,paytime='2026-10-29 12:00:00',status='11',email='fixture@example.test')]}}).encode()
+  Fake.calls=[];Fake.body=json.dumps({'code':1,'data':{'total':1,'list':[dict(id=1,site_id=266,gid=1327,paytime='2026-10-29 12:00:00',status='11',pay_status='1',email='fixture@example.test')]}}).encode()
   def runner(args,**kwargs):return subprocess.CompletedProcess(args,0,json.dumps(worker_handle(json.loads(kwargs['input']),lambda:Fake)).encode())
   source=Path(__file__).resolve().parents[1]/'source'/'admin_live_worker.py'
   with tempfile.TemporaryDirectory() as directory:
@@ -63,6 +63,6 @@ class Host(unittest.TestCase):
    fetch=SupervisedAdminTransport(worker=worker,worker_sha256=WORKER_SHA256,python=sys.executable,runner=runner)
    handler=build_handler(load_config=lambda:self.config,load_policy=lambda:self.policy,rbac=RBAC,fetch=fetch,run_source=lambda operation,timeout:operation(),existing_authorizer=self.authorize)
    self.config['live_admin_single_page']=True
-   status,result=handler(self.params,'trusted');self.assertEqual(status,206);self.assertFalse(result['complete']);self.assertEqual(result['data'][0]['order_id'],'1');self.assertNotIn('email',result['data'][0]);self.assertEqual(len(Fake.calls),1)
+   status,result=handler(self.params,'trusted');self.assertEqual(status,206);self.assertFalse(result['complete']);self.assertEqual(result['data'][0]['order_id'],'1');self.assertEqual(result['data'][0]['customer_email'],'fixture@example.test');self.assertEqual(len(Fake.calls),1)
 
 if __name__=='__main__':unittest.main(verbosity=2)

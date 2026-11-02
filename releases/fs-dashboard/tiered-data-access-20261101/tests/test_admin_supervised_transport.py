@@ -1,7 +1,7 @@
 import base64,hashlib,json,os,subprocess,sys,tempfile,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
-from admin_supervised_transport import SupervisedAdminTransport
+from admin_supervised_transport import SupervisedAdminTransport,SourceResponseTooLarge
 
 class TestSupervised(unittest.TestCase):
  def setUp(self):
@@ -32,5 +32,8 @@ class TestSupervised(unittest.TestCase):
   for path,timeout,cap in (('/other',3,100),('/admin/order.Order/index',0,100),('/admin/order.Order/index',3,0)):
    with self.assertRaises(ValueError):self.transport(path,{'page':1},timeout,cap)
   self.assertEqual(self.calls,[])
+ def test_explicit_worker_byte_limit_is_not_generic_unavailable(self):
+  self.transport.runner=lambda args,**kw:subprocess.CompletedProcess(args,0,b'{"error":"source_response_too_large"}')
+  with self.assertRaises(SourceResponseTooLarge):self.transport('/admin/order.Order/index',{'page':1},3,100)
 
 if __name__=='__main__':unittest.main(verbosity=2)

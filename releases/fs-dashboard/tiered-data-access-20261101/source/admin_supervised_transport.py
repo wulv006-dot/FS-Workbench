@@ -6,6 +6,8 @@ trusted Python executable. No network, credentials or process starts on import.
 import base64,hashlib,json,os,re,stat,subprocess
 from pathlib import Path
 
+class SourceResponseTooLarge(Exception):pass
+
 class SupervisedAdminTransport:
  def __init__(self,*,worker,worker_sha256,python,runner=subprocess.run):
   if not callable(runner) or not isinstance(worker_sha256,str) or re.fullmatch('[a-f0-9]{64}',worker_sha256) is None:raise ValueError('trusted_worker_required')
@@ -32,6 +34,7 @@ class SupervisedAdminTransport:
   if result.returncode!=0 or not isinstance(result.stdout,bytes) or len(result.stdout)>((max_bytes+2)//3)*4+1024:raise OSError('source_worker_failed')
   try:
    response=json.loads(result.stdout)
+   if response=={'error':'source_response_too_large'}:raise SourceResponseTooLarge()
    if not isinstance(response,dict) or set(response)!={'status','body'} or type(response['status']) is not int or not 100<=response['status']<=599:raise ValueError()
    body=base64.b64decode(response['body'],validate=True)
    if len(body)>max_bytes:raise ValueError()
