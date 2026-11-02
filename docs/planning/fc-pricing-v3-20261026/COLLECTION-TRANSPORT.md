@@ -59,3 +59,11 @@
 - 已证请求差异：187现役warm Accept=`text/html`、quote Accept=`application/json`；新客户端原来混用`application/json,text/html`。现在严格复用原header；其是否导致现场差异仍待实测，不先宣布根因成立。
 - 适配器新增白名单静态失败码，区分HTML、JSON、selection/amount/version/time，响应原文不入回执。401/403/challenge/429原分类与停止/冷却保持；control依赖仍通过函数内lazy import隔离。
 - 手动诊断本次最多三组（共6请求），每组两请求/一次attempt；第三组必须逐一核验前两组原COMPLETED、唯一accepted generic parser失败与各两permit、固定ID链，同事务升代，不清账、不启用循环重采。78专项通过，独立补审无P0/P1/P2。真实第三组结果另记。
+
+## 暖页响应实际差异与有限修复
+
+- PR753 head `00145be6d1f5948bd7f742033edd4222049c2300` 正式CI `41442889526` success，合并`e03b136fb85e39b1de4e28476ed95ff88821b6c7`；完整FC593项通过（原10skip），183隔离76项通过无skip。两机限定角色更新预览、apply和manifest通过。
+- 第三组实际只发暖页一次即`redirect_denied`，尚未发报价请求；累计5请求，0offers、不消费。原urllib opener会处理redirect，新客户端全拒绝，这一行为差异已证，不能把前两轮失败一概归为版本类型。
+- 最小处理只针对ArabUT warm302/303：Location须HTTPS同hostname、root path、无userinfo/fragment，query无重复且键值都匹配已登记参数。只提取该响应的独立匿名选择cookie，warm体原本不使用；不请求Location目标，随后仍只访问固定quote API并核USD/SAR/100K/Console。其他跳转/来源不变，登录路径、外站、降级HTTP、额外token和不匹配币种均拒绝。
+- 仅额外允许一个有新证据的暖页修复组：此前两组generic失败各2请求，第三组必须是唯一接受的redirect_denied且只用1请求。固定第四ID和一次attempt/2请求，总计最多7；第五组联网前拒绝。所有旧回执、permit、block/cooldown保留，未知请求占用待原超时及裕量结束，不退款或清状态。
+- 80专项通过，正常/拒绝暖页、无跟跳请求、两次历史失败及第三次1请求保留、7请求终止、跨窗口重入均有回归。真实修复报价是否恢复须看后续现场读回。

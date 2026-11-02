@@ -79,6 +79,46 @@ class PublicSource(unittest.TestCase):
             self.assertEqual(str(caught.exception), reason)
             self.assertNotIn('private-response-text', str(caught.exception))
 
+    def test_warm_same_origin_redirect_keeps_currency_cookie_without_following_target(self):
+        from http.client import HTTPMessage
+        from types import SimpleNamespace
+        from fc_collection.adapters import RestrictedHTTP, SourceUnavailable
+        from fc_collection.public_sources import REGISTRY
+        calls = []
+        class Response:
+            status = 302
+            def __init__(self, location):
+                self.headers = HTTPMessage()
+                self.headers['Location'] = location
+                self.headers['Set-Cookie'] = 'currency=USD; Path=/; Secure; HttpOnly'
+            def getheader(self, key, default=None): return self.headers.get(key, default)
+            def info(self): return self.headers
+            def read1(self, _): raise AssertionError('warm redirect body is unused')
+        class Connection:
+            def __init__(self, *args): self.wire_socket = SimpleNamespace(settimeout=lambda _: None)
+            def request(self, method, path, headers): calls.append((method, path, headers))
+            def getresponse(self): return response
+            def close(self): pass
+            def abort(self): pass
+        with patch('socket.getaddrinfo', return_value=[(2, 1, 6, '', ('93.184.216.34', 443))]), \
+                patch('fc_collection.adapters.PinnedHTTPS', Connection):
+            for location in ('/', 'https://www.arab-ut.com', 'https://www.arab-ut.com/?currency=USD'):
+                response = Response(location)
+                http = RestrictedHTTP(REGISTRY)
+                self.assertEqual(http.fetch('ArabUT', 'warm', 2), b'')
+                self.assertEqual(next(iter(http.cookies)).value, 'USD')
+            for location in ('https://other.example/', 'http://www.arab-ut.com/', '/login', '/?token=private',
+                             'https://user:private@www.arab-ut.com/', '/?currency=SAR', ''):
+                response = Response(location)
+                http = RestrictedHTTP(REGISTRY)
+                with self.subTest(location=location), self.assertRaisesRegex(SourceUnavailable, 'redirect_denied'):
+                    http.fetch('ArabUT', 'warm', 2)
+                self.assertEqual(len(http.cookies), 0)
+            response = Response('/')
+            with self.assertRaisesRegex(SourceUnavailable, 'redirect_denied'):
+                RestrictedHTTP(REGISTRY).fetch('ArabUT', 'quote', 2)
+        self.assertEqual(len(calls), 11)
+
     def test_successful_request_completion_frees_slot_not_budget(self):
         with tempfile.TemporaryDirectory() as folder:
             c = coordinator(Path(folder) / 'collection.sqlite3')

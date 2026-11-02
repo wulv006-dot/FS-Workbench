@@ -11,7 +11,7 @@ import socket
 import ssl
 import threading
 import time
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urljoin, urlsplit, parse_qsl
 from urllib.request import Request
 
 from .contracts import SOURCES, integer, label
@@ -133,7 +133,26 @@ class RestrictedHTTP:
                         seconds = 0
                 raise SourceUnavailable('http_' + str(response.status), min(seconds, 31536000))
             if 300 <= response.status < 400:
-                raise SourceUnavailable('redirect_denied')
+                location = response.getheader('Location', '')
+                allowed = False
+                if (source_id == 'ArabUT' and template_id == 'warm' and response.status in (302, 303)
+                        and location and len(location) <= 2048 and all(ord(c) >= 32 for c in location)):
+                    try:
+                        target = urlsplit(urljoin('https://' + item['host'] + path, location))
+                        query = parse_qsl(target.query, keep_blank_values=True, strict_parsing=True) if target.query else []
+                        allowed = (target.scheme == 'https' and target.hostname == item['host']
+                            and target.port in (None, 443) and target.username is None and target.password is None
+                            and target.path in ('', '/') and not target.fragment and len(dict(query)) == len(query)
+                            and all(item['query'].get(key) == value for key, value in query))
+                    except ValueError:
+                        pass
+                if not allowed:
+                    raise SourceUnavailable('redirect_denied')
+                self.cookies.extract_cookies(response, request)
+                if len(self.cookies) > 32:
+                    raise SourceUnavailable('visitor_cookie_limit')
+                # Warm body is unused; retain selection cookies, never fetch the redirect target.
+                return b''
             if response.status != 200:
                 raise SourceUnavailable('http_' + str(response.status))
             if response.getheader('Content-Encoding', 'identity') != 'identity':
