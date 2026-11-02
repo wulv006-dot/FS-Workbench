@@ -9,7 +9,7 @@ import re
 import stat
 import subprocess
 
-from target_map import DELTA_NAMES, DELTA_SCOPE, DELTA_NEW, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, TARGET_COUNT, targets
+from target_map import DELTA_NAMES, DELTA_SCOPE, DELTA_NEW, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, COLLECTION_SCOPE, COLLECTION_NAMES, TARGET_COUNT, targets
 
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
@@ -41,7 +41,7 @@ def load_base():
     return base
 
 
-def prepare(delta=False, shadow=False, operating=False):
+def prepare(delta=False, shadow=False, operating=False, collection=False):
     provenance = json.loads((STAGE / 'source-manifest.json').read_text(encoding='utf-8'))
     source_commit = provenance.get('sourceCommit')
     if not re.fullmatch('[a-f0-9]{40}', source_commit or ''):
@@ -51,7 +51,7 @@ def prepare(delta=False, shadow=False, operating=False):
     if len(all_expected) != TARGET_COUNT or provenance.get('files') != {
             name: sha(STAGE / 'candidate' / name) for name in sorted(all_expected)}:
         raise ValueError('staged_payload_differs_from_git_source_manifest')
-    selected = OPERATING_NAMES if operating else SHADOW_NAMES if shadow else DELTA_NAMES if delta else None
+    selected = COLLECTION_NAMES if collection else OPERATING_NAMES if operating else SHADOW_NAMES if shadow else DELTA_NAMES if delta else None
     new_targets=OPERATING_NEW if operating else DELTA_NEW if delta else frozenset()
     expected = {name: all_expected[name] for name in selected} if selected else all_expected
     base = load_base()
@@ -97,7 +97,7 @@ def prepare(delta=False, shadow=False, operating=False):
         if state != 'ActiveState=active':
             raise ValueError('required_service_not_active:' + unit)
         runtime[unit] = {'ActiveState': 'active'}
-    manifest = dict(schemaVersion=1, scope=OPERATING_SCOPE if operating else SHADOW_SCOPE if shadow else DELTA_SCOPE if delta else SCOPE, sourceCommit=source_commit,
+    manifest = dict(schemaVersion=1, scope=COLLECTION_SCOPE if collection else OPERATING_SCOPE if operating else SHADOW_SCOPE if shadow else DELTA_SCOPE if delta else SCOPE, sourceCommit=source_commit,
         releaseReady=True, businessWrites=False, timersChanged=False, imageId=IMAGE_ID,
         runtimeRequired=runtime, unchangedRequired=required, files=rows)
     raw = (json.dumps(manifest, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
@@ -127,5 +127,6 @@ if __name__ == '__main__':
     kind.add_argument('--delta', action='store_true')
     kind.add_argument('--shadow', action='store_true')
     kind.add_argument('--operating',action='store_true')
+    kind.add_argument('--collection',action='store_true')
     args = parser.parse_args()
-    print(json.dumps(prepare(args.delta,args.shadow,args.operating), sort_keys=True))
+    print(json.dumps(prepare(args.delta,args.shadow,args.operating,args.collection), sort_keys=True))

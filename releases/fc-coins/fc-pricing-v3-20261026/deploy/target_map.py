@@ -3,6 +3,9 @@ from pathlib import Path
 
 TARGET_COUNT = 99
 
+COLLECTION_SCOPE='fc-pricing-v3-collection-routing-20261102'
+COLLECTION_NAMES=('source/fc_pricing_v3/sources.py','source/hermes-copy/fc_pricing_v3/sources.py','source/server_quote_job.py')
+
 DELTA_SCOPE='fc-pricing-v3-wal-keeper-20261101'
 DELTA_NAMES=('source/fc_pricing_v3/scheduler.py','source/hermes-copy/fc_pricing_v3/scheduler.py')
 DELTA_NEW=frozenset()
