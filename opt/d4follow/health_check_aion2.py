@@ -339,10 +339,20 @@ def check_pricing(con, ts):
                   " · 现价口径跌破 15%% 的 %d 区（改价工单未落地，属正常）"
                   % (n_cmp, len(below_tgt), below_now))
         if n_exempt:
+            # ⚠ 2026-10-29：这两个价会随老板定案变（2026-10-29 已把无货兜底 19.9 → 12.99），
+            #   硬编码在文案里必然过时 ⇒ 改成从 config 实时读，读不到就不显示金额。
+            _g_thin = _g_park = "?"
+            try:
+                _cfg0 = json.load(open(os.path.join(ROOT, "config.json"), encoding="utf-8"))
+                _pol0 = ((_cfg0.get("金币") or {}).get("定价策略") or {})
+                _g_thin = _pol0.get("薄区挂单价_USD每M") or "?"
+                _g_park = _pol0.get("无货兜底售价_USD每M") or "?"
+            except Exception:
+                pass
             print("  [信息] 货源闸固定价 %d 区（不吃利润闸，不参与 15%% 下限核对）：%s"
                   % (n_exempt, ", ".join(exempt_rows[:5])))
-            add_info("货源闸固定价 %d 区不吃利润闸（薄区 $4.99 / 无货兜底 $19.9），"
-                     "已排除出 15%% 下限核对" % n_exempt)
+            add_info("货源闸固定价 %d 区不吃利润闸（薄区 $%s / 无货兜底 $%s），"
+                     "已排除出 15%% 下限核对" % (n_exempt, _g_thin, _g_park))
         if below_tgt:
             add_problem("有 %d 个区按**目标价**算利润率仍低于 15%% 下限：%s"
                         % (len(below_tgt), ", ".join(below_tgt[:5])))
@@ -356,7 +366,12 @@ def check_pricing(con, ts):
         print("  定价策略：模式=%s 加价=%s 次源=%s 次源利润率=%s 默认=%s"
               % (p.get("模式"), p.get("加价比例"), p.get("次源"),
                  p.get("次源利润率"), p.get("默认售价_USD每M")))
-        if p.get("模式") != "dd373_markup":
+        # ⚠ 2026-10-29 修复永久误报：本行原判据是 `!= "dd373_markup"`，
+        #   但**当前实际使用的模式名是 `dd373_only`**（2026-10-06 起）⇒ 每轮都误报
+        #   「当前不是 DD373 定价模式」，而实际恰恰就是 DD373 定价（已连续 3 轮误报）。
+        #   两个模式名都是「以 DD373 进货成本为基准」，故按白名单判定。
+        _DD373_MODES = ("dd373_only", "dd373_markup")
+        if p.get("模式") not in _DD373_MODES:
             add_info("当前不是 DD373 定价模式（模式=%s）" % p.get("模式"))
         # ⚠ 次源加价 2% 已于 2026-10-02 由老板拍板保留
         #   （老板原话「直接用 G2G 的价格」，但实现时加了 2% 避免贴竞品打，
