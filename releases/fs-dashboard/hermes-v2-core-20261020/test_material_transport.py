@@ -285,7 +285,7 @@ class MaterialTransport(unittest.TestCase):
                 status, content_type, raw = self.stream_http(f, dict(f.body, **change))
                 self.assertEqual(status, 400)
                 error = json.loads(raw)['error']
-                self.assertEqual(error, dict(message='invalid or unreconciled request',
+                self.assertEqual(error, dict(message='fs_material_transport/material_guard_v1/'+code,
                     type='invalid_request_error', source='fs_material_transport',
                     diagnostic_version='material_guard_v1', code=code))
                 self.assertNotIn(b'PRIVATE_SENTINEL', raw)
@@ -307,6 +307,15 @@ class MaterialTransport(unittest.TestCase):
                                                           type='invalid_request_error'))
             self.assertEqual(f.gateway.call.call_count, 1)
 
+    def test_unlisted_private_guard_error_keeps_dynamic_text_private(self):
+        with self.fixture() as f:
+            f.gateway.call.side_effect = f.transport._MaterialGuardError('PRIVATE_SENTINEL')
+            status, _, raw = self.stream_http(f, f.body)
+            self.assertEqual(status, 400)
+            self.assertEqual(json.loads(raw)['error'], dict(message='invalid or unreconciled request',
+                                                          type='invalid_request_error'))
+            self.assertNotIn(b'PRIVATE_SENTINEL', raw)
+
     def test_actual_loopback_accepts_three_tools_and_keeps_denial_responses(self):
         with self.fixture() as f:
             server, thread = f.transport.start_loopback(f.proxy, port=0)
@@ -327,7 +336,9 @@ class MaterialTransport(unittest.TestCase):
                 for body in (dict(f.body, tools=f.module.schemas()), dict(f.body, temperature=0)):
                     status, value = send(body)
                     self.assertEqual(status, 400)
-                    self.assertEqual(value['error']['message'], 'invalid or unreconciled request')
+                    code='tool_allowlist' if 'tools' in body and body['tools']==f.module.schemas() else 'request_fields'
+                    self.assertEqual(value['error']['message'], 'fs_material_transport/material_guard_v1/'+code)
+                    self.assertEqual(value['error']['code'], code)
                 self.assertEqual(send(f.body, authorized=False)[0], 403)
                 self.assertEqual(len(f.turns), 1)
                 self.assertEqual(f.gateway.call.call_count, 1)
