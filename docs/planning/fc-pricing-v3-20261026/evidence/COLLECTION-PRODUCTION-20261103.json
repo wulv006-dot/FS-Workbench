@@ -25,7 +25,7 @@
     ],
     "payload_hash": "b524056f8425985282ffd381a4b474e7e9eb191f19af5d466b938dc50237e783",
     "captured_at": "2026-11-02T18:25:42.398727+00:00",
-    "source_requests": 0
+    "verification_source_requests": 0
   },
   "order_admin_acceptance": {
     "status": "verified",
