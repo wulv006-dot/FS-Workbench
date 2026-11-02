@@ -331,9 +331,9 @@ def fetch_ajax_cats(cfg, log=print, games=None):
                 dv = float(x.get("discount"))
             except (TypeError, ValueError):
                 dv = None
-            if fp is None and dv and dv > 0:
+            if (fp is None or fp <= 0) and dv and dv > 0:
                 fp = round(up * dv / 100.0, 6)      # 兜底：标价 × 折扣
-            if fp is None:
+            if fp is None or fp <= 0:
                 fp = up
             base, pk = split_pack(name)
             out.append({"name": name, "base_name": base,
@@ -470,7 +470,7 @@ def fetch_multi_game(cfg, log=print, games=None):
                             _dv = float(_d) / 100.0
                         except (TypeError, ValueError):
                             _dv = None
-                        if fp is None and _dv and _dv > 0:
+                        if (fp is None or fp <= 0) and _dv and _dv > 0:
                             fp = round(up * _dv, 6)     # 兜底：用 unit_price × 折扣还原
                         out.append({
                             "zone_key": z.get("key"), "游戏": game, "kind": kind,

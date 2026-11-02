@@ -306,6 +306,16 @@ def _recon_readgold(con, cfg):
            "--cpus", "2",
            "--network", "fc27-cloud-net",
            "-e", "FS_ADMIN_SESSION_URL=http://fc27-p2pah-session:8767",
+           # 2026-11-02 迁到 183 后补：order broker 的 unix socket 由 rpg183-link 的
+           # ssh -R 落在宿主机 /run/fs-order-session/，容器不挂就取不到 cookie
+           # （fs_order_client 报 global_order_unavailable:no_socket）。挂目录而不是
+           # 单个文件：link 重连会重建 socket inode，挂文件会留成死链。
+           "--mount", "type=bind,src=/run/fs-order-session,dst=/run/fs-order-session",
+           # 2026-11-02：183 的公网出口被 order.p2pah.cn 403（站点按 IP 放行，只有 187 通）。
+           # 宿主机靠 /etc/hosts 把域名指到 127.0.0.1:443（rpg183-link 的 -R 隧道，走 187 出口）；
+           # 容器里的 127.0.0.1 是它自己，所以指到 fc27-cloud-net 网关，由 rpg-order-bridge
+           # （socat 172.20.0.1:443 -> 127.0.0.1:443）接出去。
+           "--add-host", "order.p2pah.cn:172.20.0.1",
            "--mount", "type=bind,src=/opt/fs-order-session/fc_shared_admin.py,"
                       "dst=/srv/fc_shared_admin.py,readonly",
            "-v", "%s:/srv" % SRV, "-w", "/srv",
@@ -631,6 +641,16 @@ def run_once():
            "--cpus", "2",
            "--network", "fc27-cloud-net",
            "-e", "FS_ADMIN_SESSION_URL=http://fc27-p2pah-session:8767",
+           # 2026-11-02 迁到 183 后补：order broker 的 unix socket 由 rpg183-link 的
+           # ssh -R 落在宿主机 /run/fs-order-session/，容器不挂就取不到 cookie
+           # （fs_order_client 报 global_order_unavailable:no_socket）。挂目录而不是
+           # 单个文件：link 重连会重建 socket inode，挂文件会留成死链。
+           "--mount", "type=bind,src=/run/fs-order-session,dst=/run/fs-order-session",
+           # 2026-11-02：183 的公网出口被 order.p2pah.cn 403（站点按 IP 放行，只有 187 通）。
+           # 宿主机靠 /etc/hosts 把域名指到 127.0.0.1:443（rpg183-link 的 -R 隧道，走 187 出口）；
+           # 容器里的 127.0.0.1 是它自己，所以指到 fc27-cloud-net 网关，由 rpg-order-bridge
+           # （socat 172.20.0.1:443 -> 127.0.0.1:443）接出去。
+           "--add-host", "order.p2pah.cn:172.20.0.1",
            "-e", "FS_RPG_JOB_ID=" + jid,
            "-e", "FS_RPG_EXECUTION_RECEIPT=/srv/_jobs/" + jid + ".execution.json",
            "--mount", "type=bind,src=/opt/fs-order-session/fc_shared_admin.py,dst=/srv/fc_shared_admin.py,readonly",

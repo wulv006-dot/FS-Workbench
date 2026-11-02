@@ -1337,6 +1337,13 @@ def eval_rows(cfg, con, with_history=True):
     # 2026-09-25：改为**按商品/按游戏**取（暗黑4=90、POE2=100），见 engine.disc_of。
     # 2026-09-27：再优先采信**前端实测折扣**（our_price.front_disc），config 只当兜底。
     _key2it = {it["key"]: it for it in cfg["商品映射"]["对照项"]}
+    # 订单反推接管的 key（D&D 金币）：说明列改成它的结论
+    _autopriced = set()
+    for _blk in ("订单反推定价", "金币固定跟价"):
+        for _g, _v in (cfg.get(_blk) or {}).items():
+            if not str(_g).startswith("_") and isinstance(_v, dict) \
+                    and _v.get("启用") and _v.get("商品key"):
+                _autopriced.add(str(_v["商品key"]))
 
     def _disc_of_key(k):
         return disc_of_key(cfg, our_map, k, _key2it)
@@ -1358,6 +1365,12 @@ def eval_rows(cfg, con, with_history=True):
         if not follow:
             _act, _sug, _tgt, _mnew = "hold", None, None, None
             _rsn = "未勾选跟价：只展示价格与毛利，不出目标价"
+            # 2026-10-29：订单反推接管的行，说明列直接给它的结论
+            # （成本/当前利润率/目标标价），不用再去翻日志。
+            if d["key"] in _autopriced:
+                _rsn = d.get("reason") or _rsn
+                _tgt = d.get("target_usd")
+                _mnew = d.get("margin_new")
         # 过期行（该 key 最近一次决策不是本轮）：动作降级成 hold 并注明来源轮次。
         # 目的有两个：① 页面「待改 N 条」只反映本轮真会出单的行，与工单对得上；
         #             ② 避免用户误以为这些行本轮会改价（本轮根本没重算它们）。
