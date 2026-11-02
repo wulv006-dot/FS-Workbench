@@ -5,6 +5,7 @@ real authorization. Results are intentionally partial and must never be cached
 or fed to range_jobs as a complete snapshot.
 """
 import datetime,json,time
+from admin_live_admission import LiveBusy
 
 class LivePageError(Exception):
  def __init__(self,code):super().__init__(code);self.code=code
@@ -45,6 +46,8 @@ class AdminLivePage:
    if operator=='RANGE':params['search[%d][render]'%i]='datetime'
   started=self.clock()
   try:status,raw=self.fetch('/admin/order.Order/index',params,self.timeout_seconds,self.max_bytes)
+  except LiveBusy:raise LivePageError('source_busy') from None
+  except PermissionError:raise LivePageError('permission_denied') from None
   except TimeoutError:raise LivePageError('source_timeout') from None
   except Exception:raise LivePageError('source_unavailable') from None
   if self.clock()-started>self.timeout_seconds:raise LivePageError('source_timeout')

@@ -18,6 +18,7 @@ def handle(params,user,*,authorize_for_user,fetch,enabled=False):
  except LivePageError as error:
   if error.code=='permission_denied':return 403,{'error':'scope_or_admin_required'}
   if error.code=='invalid_request':return 422,{'error':'invalid_live_query'}
+  if error.code=='source_busy':return 429,{'error':'source_busy','retryAfter':10}
   return 503,{'error':error.code}
  except Exception:
   return 503,{'error':'live_source_unavailable'}

@@ -1000,7 +1000,7 @@ def main():
             units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration","test_deploy","test_period","test_search_http","test_targeted_refresh","test_storage_recipe","test_backup_retention","test_weekly","test_a2_query_context","test_missing_store","test_revision_range","test_member_keyset"])
             node("releases/fs-dashboard/user-analytics-20261022/tests/test_weekly_dates.cjs")
         elif group=="tiered-data-access":
-            units("releases/fs-dashboard/tiered-data-access-20261101/tests",["test_backup_inventory","test_date_policy","test_query_planner","test_daily_facts","test_range_jobs","test_query_checkpoint","test_eviction_policy","test_admin_orders_adapter","test_admin_live_page","test_admin_site_authorizer","test_admin_supervised_transport","test_admin_live_worker","test_admin_live_dispatch","test_admin_live_host"])
+            units("releases/fs-dashboard/tiered-data-access-20261101/tests",["test_backup_inventory","test_date_policy","test_query_planner","test_daily_facts","test_range_jobs","test_query_checkpoint","test_eviction_policy","test_admin_orders_adapter","test_admin_live_page","test_admin_site_authorizer","test_admin_supervised_transport","test_admin_live_worker","test_admin_live_dispatch","test_admin_live_host","test_admin_live_admission"])
         elif group=="channel-effects":
             units("releases/fs-dashboard/channel-effects-20261021/tests",["test_channel_effects","test_channel_cache","test_publisher","test_pmax_source","test_pmax_publisher","test_pmax_traffic_ui","test_pmax_es_projection","test_mapping_reclassification"])
             node("releases/fs-dashboard/channel-effects-20261021/tests/test_ui.cjs")

@@ -19,23 +19,33 @@ def read_existing_json(path):
   if not isinstance(value,dict):raise ValueError('invalid_configuration')
   return value
 
-def build_handler(*,load_config,load_policy,rbac,fetch):
+def build_handler(*,load_config,load_policy,rbac,fetch,run_source=None):
  def get(params,user):
   if not user:return 401,{'error':'login_required'}
   try:
    config=load_config()
    if not isinstance(config,dict) or config.get('live_admin_single_page') is not True:return 503,{'error':'live_source_not_enabled'}
+   if not callable(run_source):return 503,{'error':'live_admission_unavailable'}
    def authorizer(subject):return ConfiguredAdminAuthorizer(subject=subject,load_policy=load_policy,load_config=load_config,rbac=rbac,policy_version='users-live-page-v1')
-   return handle(params,user,authorize_for_user=authorizer,fetch=fetch,enabled=True)
+   def scoped_fetch(path,source_params,timeout,max_bytes):
+    query={key:params[key][0] for key in ('site_id','game_id','start','end_exclusive')};query['fields']=['order_id','paid_at','status']
+    def operation():
+     current=load_config()
+     if not isinstance(current,dict) or current.get('live_admin_single_page') is not True:raise PermissionError('permission_denied')
+     if not authorizer(user)(query):raise PermissionError('permission_denied')
+     return fetch(path,source_params,timeout,max_bytes)
+    return run_source(operation,timeout)
+   return handle(params,user,authorize_for_user=authorizer,fetch=scoped_fetch,enabled=True)
   except Exception:return 503,{'error':'live_source_unavailable'}
  return get
 
-def get(params,user):
+def get(params,user,*,run_source=None):
  if not user:return 401,{'error':'login_required'}
+ if not callable(run_source):return 503,{'error':'live_admission_unavailable'}
  try:
   # Use the same existing policy module and trusted nginx subject as user_runtime.
   sys.path.insert(0,'/opt/fs-access-policy')
   import rbac
   fetch=SupervisedAdminTransport(worker=WORKER,worker_sha256=WORKER_SHA256,python=sys.executable)
-  return build_handler(load_config=lambda:read_existing_json(CONFIG),load_policy=lambda:read_existing_json(rbac.LIVE_POLICY),rbac=rbac,fetch=fetch)(params,user)
+  return build_handler(load_config=lambda:read_existing_json(CONFIG),load_policy=lambda:read_existing_json(rbac.LIVE_POLICY),rbac=rbac,fetch=fetch,run_source=run_source)(params,user)
  except Exception:return 503,{'error':'live_source_unavailable'}
