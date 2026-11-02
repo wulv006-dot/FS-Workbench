@@ -1,5 +1,5 @@
 """FC V3 code release through the existing FS publisher and original FC locks."""
-from contextlib import contextmanager, closing, ExitStack
+from contextlib import contextmanager, closing, ExitStack, nullcontext
 import hashlib
 import json
 from pathlib import Path
@@ -71,6 +71,9 @@ def load_base():
     base.V3_NEW = new
     exec(compile(source, base.__file__, 'exec'), base.__dict__)
     base.HERMES_HISTORY_SCOPE, base.HERMES_HISTORY_TARGETS = scope, active_targets
+    if scope == COLLECTION_SCOPE:
+        base.hermes_admission_fence = lambda manifest, root: nullcontext()
+        base.model_release_lock = lambda manifest, root: nullcontext()
     base.expected_files = lambda m: set(active_targets) if m.get('scope') == scope else set()
     base.target_for = lambda relative: active_targets[relative]
     validate = base.validate
@@ -85,6 +88,8 @@ def load_base():
     original_quiescent = base.hermes_quiescent
 
     def quiescent(root):
+        if scope == COLLECTION_SCOPE:
+            return
         original_quiescent(root)
         for path, query in (
             ('/var/lib/fs-hermes-fc/fs/conversations/conversations.db',
@@ -162,6 +167,9 @@ def load_base():
     original_restart = base.restart_for
 
     def restart(manifest, admission_fence=None):
+        # These three entries load in fresh quote/source subprocesses.
+        if manifest.get('scope') == COLLECTION_SCOPE:
+            return
         restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
         if manifest.get('scope') in (SCOPE,DELTA_SCOPE,SHADOW_SCOPE,OPERATING_SCOPE,COLLECTION_SCOPE):
             subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=30)

@@ -240,6 +240,15 @@ class Routing(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'original selection failure'):
             self.collect()
 
+    def test_pinned_local_keeps_original_input_but_does_not_bypass_origin_denial(self):
+        with self.coordinator.transaction() as db:
+            source=self.coordinator._get(db,'collection_sources','ArabUT')
+            source['blocked']=True
+            self.coordinator._put(db,'collection_sources','ArabUT',source)
+        with patch.object(self.client,'Coordinator',side_effect=AssertionError('no remote ledger dispatch')):
+            self.assertEqual(self.collect(pinned=dict(mode='local'))['offers'],[])
+        self.local.assert_not_called()
+
     def test_original_deadline_is_checked_at_consumption_even_when_quote_is_fresh(self):
         self.accepted()
         with patch.object(self.client, 'utc', return_value=NOW + timedelta(seconds=201)), \
@@ -269,8 +278,8 @@ class SourceWiring(unittest.TestCase):
             remote.assert_called_once_with(local, parent, pinned=dict(mode='server'))
             remote.reset_mock()
             scope['collection_mode'] = dict(mode='local')
-            self.assertEqual(scope['read_arab'](), 'legacy')
-            remote.assert_not_called()
+            self.assertEqual(scope['read_arab'](), 'routed')
+            remote.assert_called_once_with(local,parent,pinned=dict(mode='local'))
 
     def test_real_quote_evidence_preserves_snapshot_time_and_local_pin_through_source_subprocess(self):
         from datetime import datetime, timezone

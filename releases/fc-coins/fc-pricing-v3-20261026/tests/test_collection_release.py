@@ -1,8 +1,12 @@
 from copy import deepcopy
+import ast
+from contextlib import nullcontext
 from pathlib import Path
 import subprocess
 import sys
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 DEPLOY = Path(__file__).resolve().parents[1] / 'deploy'
 sys.path.insert(0, str(DEPLOY))
@@ -17,6 +21,72 @@ def manifest(scope, mapping):
 
 
 class CollectionRelease(unittest.TestCase):
+    def test_collection_entry_is_loaded_by_fresh_processes_and_has_no_used_daemon_import(self):
+        source = DEPLOY.parent/'source'
+        for name, imported in (('fc27_cloud_worker.py','quote_for_run'),('fc27_cloud_api.py','preview_discount_rules')):
+            tree=ast.parse((source/name).read_text(encoding='utf-8'))
+            self.assertFalse(any(isinstance(n,ast.Name) and isinstance(n.ctx,ast.Load) and n.id==imported for n in ast.walk(tree)))
+        worker=ast.parse((source/'fc27_cloud_worker.py').read_text(encoding='utf-8'))
+        self.assertTrue(any(isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='run'
+            and any(isinstance(v,ast.Constant) and v.value=='server_quote_job.py' for v in ast.walk(n)) for n in ast.walk(worker)))
+        text=(source/'fc_pricing_v3/sources.py').read_text(encoding='utf-8')
+        self.assertIn("subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.sources']", text)
+
+    def test_collection_apply_and_rollback_restart_hook_is_noop(self):
+        tree=ast.parse((DEPLOY/'fc_v3_release_adapter.py').read_text(encoding='utf-8'))
+        load=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
+        restart=next(n for n in load.body if isinstance(n,ast.FunctionDef) and n.name=='restart')
+        process=SimpleNamespace(run=Mock())
+        ready=Mock()
+        scope=dict(subprocess=process,base=SimpleNamespace(),original_restart=Mock(),restart_with_hermes_readiness=ready,
+            SCOPE='full',DELTA_SCOPE='delta',SHADOW_SCOPE='shadow',OPERATING_SCOPE='operating',COLLECTION_SCOPE='collection')
+        exec(compile(ast.Module(body=[restart],type_ignores=[]),'collection-restart','exec'),scope)
+        for _ in range(2):
+            scope['restart'](dict(scope='collection'))
+        process.run.assert_not_called()
+        ready.assert_not_called()
+
+    def test_collection_ignores_other_Hermes_tasks_but_keeps_original_FC_unknown_guard(self):
+        tree=ast.parse((DEPLOY/'fc_v3_release_adapter.py').read_text(encoding='utf-8'))
+        load=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
+        quiet=next(n for n in load.body if isinstance(n,ast.FunctionDef) and n.name=='quiescent')
+        original=Mock(side_effect=ValueError('other Hermes unknown'))
+        environment=dict(scope='collection',COLLECTION_SCOPE='collection',original_quiescent=original)
+        exec(compile(ast.Module(body=[quiet],type_ignores=[]),'collection-quiescent','exec'),environment)
+        environment['quiescent'](Path('/'))
+        original.assert_not_called()
+        environment['scope']='operating'
+        with self.assertRaisesRegex(ValueError,'other Hermes unknown'):
+            environment['quiescent'](Path('/'))
+        guard=next(n for n in load.body if isinstance(n,ast.FunctionDef) and n.name=='guards')
+        checked=Mock()
+        environment=dict(original_guards=checked,fc_release_quiescent=lambda *a,**kw:False,
+                         fc=SimpleNamespace(tick=None,api=None),holding_fc_locks=True)
+        exec(compile(ast.Module(body=[guard],type_ignores=[]),'collection-fc-guard','exec'),environment)
+        with self.assertRaisesRegex(ValueError,'original_fc_execution_not_quiescent'):
+            environment['guards'](dict(files=[]),Path('/'))
+        checked.assert_called_once()
+
+    def test_only_exact_collection_scope_avoids_Hermes_and_model_fences(self):
+        tree=ast.parse((DEPLOY/'fc_v3_release_adapter.py').read_text(encoding='utf-8'))
+        load=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
+        branch=next(n for n in load.body if isinstance(n,ast.If)
+            and any(isinstance(v,ast.Attribute) and v.attr=='hermes_admission_fence' for v in ast.walk(n)))
+        original=Mock(side_effect=AssertionError('other business fence'))
+        base=SimpleNamespace(hermes_admission_fence=original, model_release_lock=original)
+        environment=dict(scope='collection',COLLECTION_SCOPE='collection',base=base,nullcontext=nullcontext)
+        module=ast.Module(body=[branch],type_ignores=[])
+        exec(compile(module,'collection-fences','exec'),environment)
+        for fence in (base.hermes_admission_fence,base.model_release_lock):
+            with fence({},Path('/')) as held:
+                self.assertIsNone(held)
+        original.assert_not_called()
+        base=SimpleNamespace(hermes_admission_fence=original,model_release_lock=original)
+        environment.update(scope='operating',base=base)
+        exec(compile(module,'collection-fences','exec'),environment)
+        self.assertIs(base.hermes_admission_fence,original)
+        self.assertIs(base.model_release_lock,original)
+
     def test_collection_scope_is_exactly_three_existing_entry_files(self):
         self.assertEqual(set(target_map.COLLECTION_NAMES), {
             'source/fc_pricing_v3/sources.py', 'source/hermes-copy/fc_pricing_v3/sources.py', 'source/server_quote_job.py'})
