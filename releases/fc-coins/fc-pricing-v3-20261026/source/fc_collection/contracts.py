@@ -152,8 +152,10 @@ def validate_observation(body, task, now):
                 or row['region_id'] not in task['region_scope'] or key in seen):
             raise ValueError('offer_scope_invalid')
         seen.add(key)
-        if (row['currency'] != task['currency'] or row['settlement_currency'] != 'USD'
-                or row['conversion_source'] != 'not_required'):
+        valid_conversion = (row['settlement_currency'], row['conversion_source']) == ('USD', 'not_required')
+        if task['source_id'] == 'ArabUT':
+            valid_conversion = valid_conversion or (row['settlement_currency'], row['conversion_source']) == ('SAR', 'official_display_quote')
+        if row['currency'] != task['currency'] or not valid_conversion:
             raise ValueError('currency_invalid')
         purchase = quantity(row['purchase_quantity'], row['quantity_unit'])
         bonus = quantity(row['bonus_quantity'], row['quantity_unit'], True)
@@ -204,6 +206,7 @@ def to_fc_quote_rows(accepted, expected_context, now):
                 auth_state=offer['auth_state'], delivery_method=offer['delivery_method'],
                 price_basis=offer['price_basis'], discount_source=offer['discount_source'],
                 selection_verified=True, observation_id=body['observation_id'])
+            row.update(settlement_currency=offer['settlement_currency'], conversion_source=offer['conversion_source'])
             if body['source_id'] == 'ArabUT':
                 if offer['delivery_method'] != 'normal':
                     continue
