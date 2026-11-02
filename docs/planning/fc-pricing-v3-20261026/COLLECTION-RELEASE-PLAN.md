@@ -39,3 +39,6 @@
 - PR762已合并3b0cca79，CI41478046062成功。完整FC630通过、183 Python3.9隔离113通过；仅发布范围准备，未apply。
 - 2026-11-03 00:11 CST首次187预览not_ready/active_conversation_or_tracking，原结果保留。只读状态是一条Hermes dispatch_unknown，不清理或重发。
 - 独立核对确认worker→server_quote_job→runtime.context→新-m sources，history也新进程；两个daemon预载的quote_for_run/preview_discount_rules无调用。因此精确collection分支免重启及Hermes/report fence，仅保持FC锁/FC quiescent/UNKNOWN、其余原guard、CAS/备份/回退；旧scope不变。新增反例测试已先失败后通过。
+
+- 本机pin兼容：配置存在时不派SSH仍读原输入，但经过已有来源拒绝/冷却检查；无配置仍原入口，无新增选择器。
+- 最新验证：完整FC635通过（11平台跳过）；183 Python3.9隔离118全部通过无跳过，包e4371e503535e30a9194b2d6e8c0b509b820eb5610b27ccd687cc1310813d2ae。当前仍未apply/consume，原Hermes未决记录未改。
