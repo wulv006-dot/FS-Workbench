@@ -50,3 +50,12 @@
 - 校验与策略generation2/max_requests4写入同一SQLite事务，原receipt、permit和blocked/cooldown保留；旧generation不能穿透。独立审查发现跨24小时窗口并发空档，已失败复现后改为同事务，并经补审通过。
 - 76项采集专项通过；183固定Python3.9.18隔离74项通过、零skip。测试覆盖重复原ID、不刷新观察、跨窗口累计4次、第三ID拒绝、来源阻断保留、导出控制entry正确传递复验参数。
 - 执行将使用已合并控制包在187 root私有暂存目录的一次性entry，复用现有access配置与同一collection-shadow账本；不更新183worker，不改持久服务、原业务入口或共享隧道。实际外站报价及原账本读回另记，当前不称影子恢复。
+
+## 第二次失败与请求保真诊断
+
+- PR752 head `c9ef59b99a1accf5b5231412418832b82d35371c`，正式PR fast `41440710899` success，合并`cad64bfbab6946a260eac30cd12a37ba94ae4227`。本地完整FC591项通过（原10平台skip）。
+- 实际第二组仍`adapter_contract_invalid`，0offers、两请求，累计4，不消费。不能将整数兼容修复说成已恢复真实采集。
+- 183实际安装manifest核验与187旧字段离线回放通过（2offers、0外站请求），排除仍运行旧整数限制。187最近已有自然快照停在11:09 UTC，不作当前站点正常证明。
+- 已证请求差异：187现役warm Accept=`text/html`、quote Accept=`application/json`；新客户端原来混用`application/json,text/html`。现在严格复用原header；其是否导致现场差异仍待实测，不先宣布根因成立。
+- 适配器新增白名单静态失败码，区分HTML、JSON、selection/amount/version/time，响应原文不入回执。401/403/challenge/429原分类与停止/冷却保持；control依赖仍通过函数内lazy import隔离。
+- 手动诊断本次最多三组（共6请求），每组两请求/一次attempt；第三组必须逐一核验前两组原COMPLETED、唯一accepted generic parser失败与各两permit、固定ID链，同事务升代，不清账、不启用循环重采。78专项通过，独立补审无P0/P1/P2。真实第三组结果另记。

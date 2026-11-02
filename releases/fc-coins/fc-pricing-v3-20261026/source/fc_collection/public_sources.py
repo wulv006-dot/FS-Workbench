@@ -40,16 +40,23 @@ def arab_offers(value, now):
 
 
 def arab_adapter(task, transport):
+    from .adapters import SourceUnavailable
     if task['requested_platforms'] != ['PS', 'XBOX'] or task['region_scope'] != [21]:
         raise ValueError('arab_quote_scope_invalid')
     transport.get('warm')
+    payload = transport.get('quote')
     try:
-        data = json.loads(transport.get('quote'))
+        data = json.loads(payload)
     except (ValueError, TypeError, RecursionError):
-        raise ValueError('arab_quote_JSON_invalid') from None
+        raise SourceUnavailable('arab_quote_html_response' if payload.lstrip().startswith(b'<') else 'arab_quote_json_invalid') from None
     if not isinstance(data, dict):
-        raise ValueError('arab_quote_JSON_invalid')
+        raise SourceUnavailable('arab_quote_json_invalid')
     value = data.get('data', data)
-    offers = arab_offers(value, transport.clock())
+    try:
+        offers = arab_offers(value, transport.clock())
+    except ValueError as exc:
+        reason = str(exc)
+        allowed = {'arab_quote_selection_invalid', 'arab_quote_amount_invalid', 'arab_quote_version_invalid', 'timestamp_invalid'}
+        raise SourceUnavailable(reason if reason in allowed else 'arab_quote_contract_invalid') from None
     return dict(status='ok', reason_code=None, offers=offers,
                 evidence_hash=offers[0]['sanitized_evidence_ref'].removeprefix('sha256:'))
