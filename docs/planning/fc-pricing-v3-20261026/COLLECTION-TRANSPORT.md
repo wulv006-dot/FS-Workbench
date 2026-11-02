@@ -89,3 +89,12 @@
 - **本段是可关闭候选，尚未向原生产目录发布或开启consume。** 187本机自动接替与回切还在P6范围；在该能力完成和验收前不把候选宣称为生产可切换。原FC调度、定价、writer及RPG未改。原publisher受控增量发布、真实入口消费、自然轮和现场回退仍未执行。
 - 独立审查99ae09f发现真实server_quote_job只传checked_at、未传collection_mode；新增真实构造→子进程回归先失败，修复为原checked_at建parent并透传原local模式/截止。无routing时直接原分支，不依赖控制包安装。
 - 修复后完整FC613项通过（10个原Windows平台跳过）；183目标Python3.9隔离96项通过无跳过。最终Linux包3e751eac2504e677063cc12eda6d62d3744edee9c1913a14a5065f8ba5ec5722，routing-final-linux183.log。独立审查未发现其他P1/P2，同run并发仅1job/1attempt/1permit。
+
+
+## P6受控接替候选（未发布）
+
+显式nodes含187时最多2attempt/6GET，复用同job/原deadline/中央permit；旧lease、未完成请求及退避窗口未过不接替。187采用独立spool和Linux互斥，备用最多一次；183恢复须60秒冷却及原稳定窗。401/403/challenge/429无切换出口。off/shadow显式路由也读取原账本拒绝/冷却和在途窗口；回退保留routing文件和原账本，不通过删除记录恢复访问。原legacy分支未改为逐GET写入新预算，因此不声称已完成全站所有消费者预算验收。
+
+锁内先按原187身份仅补交spool，再为新任务登记新boot；未过期的提交前中断可恢复，过期仍拒绝，不续采旧身份。每个本机GET及SSH许可前核路由，关闭后停止新请求，补ACK继续。满spool可以先补回执，不领新任务。
+
+完整FC626项通过（11个平台跳过）；183 Python3.9.18隔离109项通过无跳过，含真实Linux锁。独立审查两项已修复且复核无新增P1/P2；正式CI及现场新FC worker故障验证另记录。原FC/RPG/writer未部署或切换，本阶段真实外站请求0。

@@ -42,7 +42,9 @@ class NodeInstall(unittest.TestCase):
             digest = hashlib.sha256(bundle.read_bytes()).hexdigest()
             files = installer.read_bundle(bundle, digest, 'control')
             self.assertIn('fc_collection/coordinator.py', files)
-            self.assertNotIn('fc_collection/worker.py', files)
+            self.assertIn('fc_collection/worker.py', files)
+            self.assertNotIn('fc_collection/server.py', files)
+            self.assertNotIn('fc_pricing_v3/sources.py', files)
             with self.assertRaises(ValueError):
                 installer.read_bundle(bundle, digest)
 

@@ -119,7 +119,7 @@ class CallbackEndpoint:
         if 'error' in response:
             from .adapters import SourceUnavailable
             allowed = {'request_budget_unavailable', 'lease_invalid', 'identity_invalid', 'request_budget_invalid',
-                       'permit_invalid', 'observation_conflict', 'observation_schema_invalid'}
+                       'permit_invalid', 'observation_conflict', 'observation_schema_invalid', 'collection_routing_changed'}
             reason = response['error'] if response['error'] in allowed else 'coordinator_rejected'
             raise SourceUnavailable(reason)
         return response['result']
