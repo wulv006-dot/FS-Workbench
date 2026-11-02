@@ -29,8 +29,8 @@
 
 - [x] 先测精确三目标、禁止新增/夹带writer、旧scope重启保护与回归。
 - [x] 最小扩展现有scope/CLI，不新建publisher。
-- [ ] 正式FC回归、183目标Python3.9检查、独立审查、CI/PR。
-- [ ] 准备Git载荷、实际hash基线、一次性具体发布/验证/回退清单；生产动作仍按当前明确授权。
+- [x] 正式FC回归、183目标Python3.9检查、独立审查、CI/PR。
+- [x] 准备Git载荷、实际hash基线、一次性具体发布/验证/回退清单；生产动作仍按当前明确授权。
 
 ## Execution ledger
 
@@ -41,4 +41,14 @@
 - 独立核对确认worker→server_quote_job→runtime.context→新-m sources，history也新进程；两个daemon预载的quote_for_run/preview_discount_rules无调用。因此精确collection分支免重启及Hermes/report fence，仅保持FC锁/FC quiescent/UNKNOWN、其余原guard、CAS/备份/回退；旧scope不变。新增反例测试已先失败后通过。
 
 - 本机pin兼容：配置存在时不派SSH仍读原输入，但经过已有来源拒绝/冷却检查；无配置仍原入口，无新增选择器。
-- 最新验证：完整FC635通过（11平台跳过）；183 Python3.9隔离118全部通过无跳过，包e4371e503535e30a9194b2d6e8c0b509b820eb5610b27ccd687cc1310813d2ae。当前仍未apply/consume，原Hermes未决记录未改。
+- PR765合并前验证：完整FC635通过（11平台跳过）；183 Python3.9隔离118全部通过无跳过，包e4371e503535e30a9194b2d6e8c0b509b820eb5610b27ccd687cc1310813d2ae。当时未apply/consume，原Hermes未决记录未改。
+
+## 2026-11-03生产接入与首个自然周期
+
+- PR765已实际合并`5e3e5fdcc92d3d93e66a307e40dca9ad20ba994d`，最终head `e33108b66f5ecced98c6dd93fca96b15ee65d2ba`，正式CI41490594838 success。
+- 精确3文件沿原publisher发布，release `nav-20261102T175000Z`；双角色更新完成，原FC常驻/RPG/共享隧道未重启。首次错误使用deploy默认清单位置，在写入前失败；核原3SHA/无备份后用stage根同清单、同release ID继续成功，原失败日志保留。
+- 183正常与只停新增FC服务后的187接替各3次GET，均2份Console报价，同ID复读无新增请求；183恢复及health通过。用户先误选保持关闭，随后明确纠正“选错了 启用”；按最新指令启用ArabUT consume/gen12。
+- 北京时间02:25:42，首个自然周期由183完成3GET、epoch1/attempt1。原报价快照逐字段等于原回执的v2投影，PS/XBOX observation_id相同；02:26:32原187操作COMPLETED。随后确认本次Order明确成功反馈，重查同SKU Admin三平台单位价全部匹配。
+- 原计划ID/revision/60分钟、writer与价格规则保持。12个受保护单元前后状态/PID/unitSHA完全一致；旧失败/回执保留。未清理/重发Hermes未决派发。
+- ItemD2R仍未恢复：187本轮继续cloudflare403；183仅一次APIRequestContext单跳HTTP入口也403，保存blocked并off/gen2。原生Chromium网络栈及完整三平台流程未验，不据此断言183所有合法方式不可用；Lootbar/ItemD2R仍走原187。
+- 生产off回退默认预览ready/gen13，未执行实际off；已有隔离开关/异常清理及影子off证据，不把它标成生产回退演练。完整结果见[生产验收](COLLECTION-PRODUCTION-ACCEPTANCE.md)。
