@@ -157,3 +157,20 @@ class RestrictedTransport(unittest.TestCase):
             self.transport().fetch('ItemD2R', 'offer', .02)
         self.assertTrue(cancelled.is_set())
         self.assertLess(time.monotonic() - start, .4)
+
+    def test_tls_verification_failure_does_not_become_a_node_retry(self):
+        import ssl
+        from fc_collection.adapters import SourceUnavailable
+        class Connection:
+            def __init__(self, *args):
+                pass
+            def request(self, *args, **kwargs):
+                raise ssl.SSLCertVerificationError('certificate_mismatch')
+            def abort(self):
+                pass
+            def close(self):
+                pass
+        with patch('socket.getaddrinfo', return_value=[(2, 1, 6, '', ('93.184.216.34', 443))]), \
+                patch('fc_collection.adapters.PinnedHTTPS', Connection), \
+                self.assertRaisesRegex(SourceUnavailable, 'tls_validation_failed'):
+            self.transport().fetch('ItemD2R', 'offer', 1)

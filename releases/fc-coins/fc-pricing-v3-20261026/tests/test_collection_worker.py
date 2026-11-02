@@ -115,3 +115,46 @@ class CollectionWorker(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'clock'):
             transport.get('offer')
         self.assertEqual(sent, [])
+
+    def test_parser_error_is_final_missing_evidence_without_node_retry_or_secret_log(self):
+        def adapter(task, transport):
+            transport.get('offer')
+            raise ValueError('bad source contains token=must-not-persist')
+        receipt = self.worker(adapter=adapter).run_once()
+        self.assertEqual(receipt['status'], 'accepted')
+        from collection_cases import job
+        accepted = self.endpoint.accepted(job()['job_id'], NOW)
+        self.assertEqual(accepted[0]['reason_code'], 'adapter_contract_invalid')
+        self.assertNotIn('must-not-persist', str(accepted))
+        self.assertIsNone(self.endpoint.claim_job(identity('187'), ['ItemD2R'], NOW + timedelta(seconds=100)))
+
+    def test_wrong_receipt_hash_keeps_original_result_for_idempotent_ack(self):
+        endpoint = self.endpoint
+        class WrongHash:
+            def __getattr__(self, name):
+                return getattr(endpoint, name)
+            def submit_observation(self, *args):
+                return dict(endpoint.submit_observation(*args), payload_hash='0' * 64)
+        with self.assertRaisesRegex(ValueError, 'receipt'):
+            self.worker(WrongHash()).run_once()
+        self.assertEqual(len(list((self.root / 'spool').glob('*.json'))), 1)
+        self.assertEqual(self.worker(adapter=lambda *_: self.fail('no recapture')).run_once()['status'], 'accepted')
+
+    def test_new_boot_rejects_uncommitted_old_result_once_and_drains_spool(self):
+        import json
+        task = self.endpoint.claim_job(identity(), ['ItemD2R'], NOW)
+        self.endpoint.reserve_request(identity(), task['job_id'], 1, dict(count=1), NOW)
+        body = dict(observation(task), observation_id='c' * 32)
+        self.endpoint.register_node(identity(boot='boot-2'), ['ItemD2R'], NOW + timedelta(seconds=1))
+        self.endpoint.claim_job(identity(boot='boot-2'), ['ItemD2R'], NOW + timedelta(seconds=33))
+        from fc_collection.worker import Worker
+        spool = self.root / 'spool'; spool.mkdir()
+        (spool / ('c' * 32 + '.json')).write_text(json.dumps(body))
+        worker = Worker(self.endpoint, identity(boot='boot-2'), {}, spool, self.transport,
+                        clock=lambda: NOW + timedelta(seconds=33))
+        receipt = worker.run_once()
+        self.assertEqual(receipt['status'], 'rejected')
+        self.assertEqual(receipt['reason'], 'lease_invalid')
+        self.assertEqual(list(spool.iterdir()), [])
+        self.assertEqual(self.endpoint.submit_observation(identity(boot='boot-2'), body,
+            NOW + timedelta(seconds=34)), receipt)

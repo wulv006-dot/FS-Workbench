@@ -29,6 +29,8 @@ class Coordinator:
                     (id TEXT PRIMARY KEY, origin TEXT NOT NULL, job TEXT NOT NULL, epoch INTEGER NOT NULL,
                      expires REAL NOT NULL, count INTEGER NOT NULL, created REAL NOT NULL);
                 CREATE INDEX IF NOT EXISTS collection_permit_origin ON collection_permits(origin,created);
+                CREATE TABLE IF NOT EXISTS collection_permit_completions
+                    (id TEXT PRIMARY KEY, completed REAL NOT NULL);
             ''')
 
     @contextmanager
@@ -68,7 +70,8 @@ class Coordinator:
         for value in policy['nodes']:
             label(value)
         for key in fields - {'origin', 'nodes', 'mode', 'adapter_version', 'policy_version'}:
-            integer(policy[key], 0 if key in ('clock_margin_seconds', 'stable_seconds') else 1)
+            integer(policy[key], 0 if key in ('clock_margin_seconds', 'stable_seconds') else 1,
+                    86400 if key == 'window_seconds' else 10000)
         label(policy['adapter_version']); label(policy['policy_version'])
         with self.transaction() as db:
             old = self._get(db, 'collection_sources', source) or {}
@@ -158,7 +161,9 @@ class Coordinator:
                     continue
                 if row['state'] in ('LEASED', 'RETRY_WAIT'):
                     until = instant(task['lease_expires_at']).timestamp()
-                    pending = db.execute('SELECT MAX(expires) FROM collection_permits WHERE job=?', (task['job_id'],)).fetchone()[0]
+                    pending = db.execute('SELECT MAX(p.expires) FROM collection_permits p LEFT JOIN '
+                        'collection_permit_completions c ON p.id=c.id WHERE p.job=? AND c.id IS NULL',
+                        (task['job_id'],)).fetchone()[0]
                     if now.timestamp() < max(until, pending or 0, task.get('retry_not_before', 0)) + policy['clock_margin_seconds']:
                         continue
                 elif identity['node_id'] != policy['nodes'][0]:
@@ -210,7 +215,8 @@ class Coordinator:
             origin = policy['origin']
             used = db.execute('SELECT COALESCE(SUM(count),0) FROM collection_permits WHERE origin=? AND created>?',
                 (origin, now.timestamp() - policy['window_seconds'])).fetchone()[0]
-            active = db.execute('SELECT COUNT(*) FROM collection_permits WHERE origin=? AND expires>?',
+            active = db.execute('SELECT COUNT(*) FROM collection_permits p LEFT JOIN collection_permit_completions c '
+                'ON p.id=c.id WHERE p.origin=? AND p.expires>? AND c.id IS NULL',
                 (origin, now.timestamp() - policy['clock_margin_seconds'])).fetchone()[0]
             if (used + count > policy['max_requests'] or active >= policy['concurrency']
                     or task['request_budget_reserved'] + count > task['total_request_budget']):
@@ -225,6 +231,20 @@ class Coordinator:
             task['request_budget_reserved'] += count
             self._save_job(db, task, 'LEASED')
             return permit
+
+    def complete_request(self, identity, job_id, lease_epoch, permit_id, now):
+        with self.transaction() as db:
+            task = self._get(db, 'collection_jobs', job_id)
+            if not task:
+                raise ValueError('lease_invalid')
+            self._lease(db, identity, task, lease_epoch, now)
+            permit = db.execute('SELECT id FROM collection_permits WHERE id=? AND job=? AND epoch=?',
+                                (permit_id, job_id, lease_epoch)).fetchone()
+            if permit is None:
+                raise ValueError('permit_invalid')
+            db.execute('INSERT OR IGNORE INTO collection_permit_completions VALUES (?,?)',
+                       (permit_id, instant(now).timestamp()))
+            return dict(permit_id=permit_id, status='completed')
 
     def submit_observation(self, identity, body, now):
         self._identity_fields(identity)
@@ -241,7 +261,7 @@ class Coordinator:
                     raise ValueError('observation_conflict')
                 return json.loads(old['receipt'])
             task = self._get(db, 'collection_jobs', body.get('job_id'))
-            if not task or body.get('node_id') != identity['node_id'] or body.get('node_boot_id') != identity['node_boot_id']:
+            if not task or body.get('node_id') != identity['node_id']:
                 raise ValueError('identity_invalid')
             self._node(db, identity)
             reason = None

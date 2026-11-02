@@ -3,6 +3,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import http.client
+import http.cookiejar
 import ipaddress
 import queue
 import re
@@ -10,6 +11,8 @@ import socket
 import ssl
 import threading
 import time
+from urllib.parse import urlencode
+from urllib.request import Request
 
 from .contracts import SOURCES, integer, label
 
@@ -56,19 +59,26 @@ class RestrictedHTTP:
         if not isinstance(registry, dict) or not registry or set(registry) - SOURCES:
             raise ValueError('source_registry_invalid')
         self.registry = deepcopy(registry)
-        for templates in self.registry.values():
+        self.cookies = http.cookiejar.CookieJar()
+        for source, templates in self.registry.items():
             if not isinstance(templates, dict) or not templates:
                 raise ValueError('template_registry_invalid')
             for template, item in templates.items():
                 label(template)
-                if not isinstance(item, dict) or set(item) != {'host', 'path', 'max_bytes'}:
+                if not isinstance(item, dict) or set(item) - {'query'} != {'host', 'path', 'max_bytes'}:
                     raise ValueError('template_invalid')
                 if (not isinstance(item['host'], str) or not re.fullmatch(r'[a-z0-9.-]+\.[a-z]{2,63}', item['host'])
                         or item['host'].endswith(('.localhost', '.local', '.internal'))
                         or not isinstance(item['path'], str) or not re.fullmatch(r'/[A-Za-z0-9/_-]*', item['path'])
                         or '//' in item['path'] or len(item['path']) > 500):
                     raise ValueError('template_endpoint_invalid')
-                integer(item['max_bytes'], 1, 1048576)
+                if 'query' in item:
+                    query = dict(platform='playstation', delivery='normal', quantity='100000')
+                    if (source != 'ArabUT' or item['host'] != 'www.arab-ut.com'
+                            or not ((template == 'warm' and item['path'] == '/' and item['query'] == dict(query, currency='USD'))
+                                    or (template == 'quote' and item['path'] == '/coins/quote' and item['query'] == query))):
+                        raise ValueError('template_query_invalid')
+                integer(item['max_bytes'], 1, 2097153)
 
     def fetch(self, source_id, template_id, timeout):
         if source_id not in self.registry or template_id not in self.registry[source_id]:
@@ -99,8 +109,16 @@ class RestrictedHTTP:
         timer.daemon = True
         timer.start()
         try:
-            connection.request('GET', item['path'], headers={'Accept': 'application/json,text/html',
-                                                           'User-Agent': 'FS-FC-Collector/1'})
+            path = item['path'] + ('?' + urlencode(item['query']) if item.get('query') else '')
+            request = Request('https://' + item['host'] + path,
+                              headers={'Accept': 'application/json,text/html', 'User-Agent': 'Mozilla/5.0'})
+            if source_id == 'ArabUT':
+                self.cookies.add_cookie_header(request)
+                if template_id == 'quote':
+                    request.add_header('Referer', 'https://www.arab-ut.com/?' + urlencode(self.registry['ArabUT']['warm']['query']))
+            if len(request.get_header('Cookie', '')) > 4096:
+                raise SourceUnavailable('visitor_cookie_limit')
+            connection.request('GET', path, headers=dict(request.header_items()))
             response = connection.getresponse()
             if time.monotonic() >= end:
                 raise SourceUnavailable('request_timeout')
@@ -119,6 +137,10 @@ class RestrictedHTTP:
                 raise SourceUnavailable('http_' + str(response.status))
             if response.getheader('Content-Encoding', 'identity') != 'identity':
                 raise SourceUnavailable('content_encoding_denied')
+            if source_id == 'ArabUT':
+                self.cookies.extract_cookies(response, request)
+                if len(self.cookies) > 32:
+                    raise SourceUnavailable('visitor_cookie_limit')
             body = bytearray()
             while True:
                 remaining = end - time.monotonic()
@@ -134,6 +156,8 @@ class RestrictedHTTP:
             if any(marker in bytes(body).lower() for marker in (b'cf-chl-', b'challenge-platform', b'g-recaptcha')):
                 raise SourceUnavailable('challenge')
             return bytes(body)
+        except ssl.SSLCertVerificationError:
+            raise SourceUnavailable('tls_validation_failed') from None
         finally:
             timer.cancel()
             connection.close()

@@ -9,7 +9,7 @@ import time
 import uuid
 
 from .adapters import SourceUnavailable
-from .contracts import BINDING, encoded, instant, validate_observation
+from .contracts import BINDING, encoded, fingerprint, instant, validate_observation
 
 
 class BudgetedTransport:
@@ -35,7 +35,9 @@ class BudgetedTransport:
         timeout = min(self.end - self.monotonic(), 300, request_started + server_duration - margin - self.monotonic())
         if timeout <= 0:
             raise SourceUnavailable('permit_expired')
-        return self.fetch(task['source_id'], template_id, timeout)
+        result = self.fetch(task['source_id'], template_id, timeout)
+        self.endpoint.complete_request(self.identity, task['job_id'], task['lease_epoch'], permit['permit_id'], self.clock())
+        return result
 
 
 def collect_job(task, adapter, transport, clock):
@@ -49,6 +51,8 @@ def collect_job(task, adapter, transport, clock):
             result['retry_after_seconds'] = exc.retry_after_seconds
     except (OSError, TimeoutError):
         result = dict(status='failed', reason_code='transport_unavailable', offers=[], evidence_hash='0' * 64)
+    except ValueError:
+        result = dict(status='failed', reason_code='adapter_contract_invalid', offers=[], evidence_hash='0' * 64)
     body = {key: task[key] for key in BINDING}
     body.update(schema_version=1, observation_id=uuid.uuid4().hex, request_budget_used=transport.used,
                 capture_started_at=instant(started).isoformat(), capture_finished_at=instant(clock()).isoformat())
@@ -123,7 +127,8 @@ class Worker:
                 if os.path.exists(temporary):
                     os.unlink(temporary)
         receipt = self.endpoint.submit_observation(self.identity, body, self.clock())
-        if receipt.get('observation_id') != body['observation_id'] or receipt.get('status') not in ('accepted', 'rejected'):
+        if (receipt.get('observation_id') != body['observation_id'] or receipt.get('status') not in ('accepted', 'rejected')
+                or receipt.get('payload_hash') != fingerprint(body)):
             raise ValueError('receipt_invalid')
         path.unlink()
         return receipt
