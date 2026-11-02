@@ -9,13 +9,24 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import stat
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from datetime import datetime, timezone
 
 
 RUN_ID = re.compile(r"run_[a-f0-9]{32}\Z")
 REQUEST_ID = re.compile(r"[A-Za-z0-9_-]{8,80}\Z")
+# One explicitly authorized synthetic residue. No caller-selectable bulk archive.
+SYNTHETIC_ARCHIVE = dict(cid='1fbe5a2b7b0b4434af259bbde7c9293b',
+    turn_id='d2d00f2c13e749f186bf6e4303514a65', request_id='web_c6a3cf2095854f898ed5b10c03b64a01',
+    session_id='hc_f7dedcccea9b45a394c2f8f37f6f20dca043b58806d3474faa83a633a81453c8',
+    lease='3b71174720b394f7f422dc1d0b990aec',
+    owner_sha256='8786268024326948bef96466ae9950ffa1e8a8fcb449cb23e679e54a129d1661',
+    fingerprint='920110e75f4d4db43ddb82cfefaf509f8ffa9cce8a9cec799ffb17cb6b2536eb',
+    input_sha256='1382d12e44f283937d1b14338e76e89d4d7c96d04a61bd576dcb10f504a6b0f2',
+    file_ids=['30e5c3042c07625f702ed5ac72540307'], file_size=3278,
+    file_sha256='27a55101378e06e1db491600db1d433ef19a5bfae76c5edffb5ee39e2c897aec')
 PUBLIC_EVENTS = {
     "run.queued", "run.started", "run.completed", "run.failed", "run.cancelled",
     "run.stopping", "run.steered", "run.interrupted", "message.delta", "message.interim",
@@ -34,6 +45,9 @@ class ConversationStore:
         self.path = self.root / "conversations.db"
         with self.db() as db:
             db.executescript("""
+                CREATE TABLE IF NOT EXISTS synthetic_turn_archives (
+                    turn_id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL UNIQUE,
+                    receipt TEXT NOT NULL, receipt_sha256 TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS conversations (
                     id TEXT PRIMARY KEY, owner TEXT NOT NULL, session_id TEXT NOT NULL UNIQUE,
                     updated_at TEXT NOT NULL);
@@ -87,7 +101,114 @@ class ConversationStore:
         row = db.execute("SELECT * FROM conversations WHERE id=? AND owner=?", (conversation_id, owner)).fetchone()
         if row is None:
             raise LookupError("conversation_not_found")
+        if db.execute('SELECT 1 FROM synthetic_turn_archives WHERE conversation_id=?', (conversation_id,)).fetchone():
+            raise LookupError('archived_conversation')
         return row
+
+    def is_archived(self, owner, conversation_id, turn_id=None):
+        with self.db() as db:
+            row=db.execute('SELECT a.turn_id FROM synthetic_turn_archives a JOIN conversations c ON c.id=a.conversation_id WHERE c.id=? AND c.owner=?', (conversation_id,owner)).fetchone()
+            return bool(row and (turn_id is None or row['turn_id']==turn_id))
+
+    def archived_synthetic_receipt(self, owner):
+        p=SYNTHETIC_ARCHIVE
+        with self.db() as db:
+            if db.execute('SELECT COUNT(*) FROM synthetic_turn_archives WHERE turn_id!=? OR conversation_id!=?', (p['turn_id'],p['cid'])).fetchone()[0]:
+                raise ValueError('archive_audit_drift')
+            row=db.execute('SELECT a.conversation_id,a.receipt,a.receipt_sha256 FROM synthetic_turn_archives a JOIN conversations c ON c.id=a.conversation_id WHERE a.turn_id=? AND c.owner=?', (p['turn_id'],owner)).fetchone()
+            if row is None:return None
+            if row['conversation_id']!=p['cid'] or hashlib.sha256(row['receipt'].encode()).hexdigest()!=row['receipt_sha256']:
+                raise ValueError('archive_audit_drift')
+            return json.loads(row['receipt'])
+
+    def archive_synthetic_unknown(self, owner, *, _check_only=False):
+        """Host maintenance only: preserve UNKNOWN and IDs; never cancel or rerun.
+
+        Must run only after all archive-aware consumers are installed. No HTTP or
+        model tool exposes this operation; it accepts no object/path selector.
+        """
+        p=SYNTHETIC_ARCHIVE
+        digest=lambda value:hashlib.sha256(value.encode()).hexdigest()
+        canonical=lambda value:json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False)
+        if not isinstance(owner,str) or digest(owner)!=p['owner_sha256']:
+            raise PermissionError('archive_owner_mismatch')
+        with self.db() as db:
+            if not _check_only:db.execute('BEGIN IMMEDIATE')
+            row=db.execute('SELECT c.owner,c.session_id,t.*,n.binding,n.body,n.idempotency_key,n.fingerprint,n.schemas,n.stopped FROM conversations c JOIN turns t ON t.conversation_id=c.id JOIN native_conversation_runs n ON n.turn_id=t.id WHERE c.id=? AND t.id=? AND t.request_id=?', (p['cid'],p['turn_id'],p['request_id'])).fetchone()
+            if (row is None or row['owner']!=owner or row['session_id']!=p['session_id'] or
+                    row['state']!='dispatch_unknown' or row['run_id'] is not None or row['task_id']!=p['turn_id'] or
+                    row['lease']!=p['lease'] or row['stopped']!=1 or row['schemas'] is not None or
+                    db.execute('SELECT COUNT(*) FROM turns WHERE conversation_id=?',(p['cid'],)).fetchone()[0]!=1):
+                raise ValueError('archive_lifecycle_CAS_mismatch')
+            bound=dict(owner=owner,conversation_id=p['cid'],turn_id=p['turn_id'],request_id=p['request_id'],session_id=p['session_id'],lease=p['lease'],run_id=None)
+            body={'input':row['text'],'session_id':p['session_id']}
+            files=p.get('file_ids',[])
+            # Read the actual immutable attachment snapshot without publishing or expiring files.
+            archive_root=self.path.parent
+            directory=archive_root/'files'/p['cid']
+            try:
+                def read(path,limit):
+                    with ExitStack() as stack:
+                        if os.name=='posix':
+                            fd=os.open(archive_root,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+                            stack.callback(os.close,fd)
+                            parts=path.relative_to(archive_root).parts
+                            for name in parts[:-1]:
+                                fd=os.open(name,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
+                                stack.callback(os.close,fd)
+                            fd=os.open(parts[-1],os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=fd)
+                        else:
+                            # Windows fixtures; production uses the descriptor chain above.
+                            if any(part.is_symlink() for part in (path,*path.parents)):
+                                raise ValueError('archive_linked_attachment')
+                            fd=os.open(path,os.O_RDONLY|getattr(os,'O_BINARY',0))
+                        with os.fdopen(fd,'rb') as stream:
+                            before=os.fstat(stream.fileno())
+                            if not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>limit:
+                                raise ValueError('archive_attachment_kind_or_size')
+                            raw=stream.read(limit+1);after=os.fstat(stream.fileno())
+                        if (len(raw)!=after.st_size or len(raw)>limit or
+                                (before.st_ino,before.st_dev,before.st_size,before.st_mtime_ns)!=
+                                (after.st_ino,after.st_dev,after.st_size,after.st_mtime_ns)):
+                            raise ValueError('archive_attachment_changed')
+                        return raw
+                current=json.loads(read(directory/'bindings'/(p['turn_id']+'.json'),65536))
+                if current!={'inputs':files,'generated':[]}:
+                    raise ValueError('archive_attachment_CAS_mismatch')
+                for fid in files:
+                    item=json.loads(read(directory/(fid+'.json'),65536))
+                    raw=read(directory/fid,p['file_size'])
+                    if (item.get('file_id')!=fid or item.get('sha256')!=p['file_sha256'] or
+                            item.get('size')!=p['file_size'] or len(raw)!=p['file_size'] or
+                            hashlib.sha256(raw).hexdigest()!=p['file_sha256']):
+                        raise ValueError('archive_attachment_CAS_mismatch')
+            except (OSError,ValueError,KeyError,TypeError,AttributeError):
+                raise ValueError('archive_attachment_CAS_mismatch') from None
+            payload=json.dumps({'text':row['text'],'file_ids':files},sort_keys=True) if files else row['text']
+            if (row['binding']!=canonical(bound) or row['body']!=canonical(body) or
+                    digest(row['text'])!=p['input_sha256'] or row['input_sha256']!=digest(payload) or
+                    row['idempotency_key']!='hn-'+digest(canonical([owner,p['cid'],p['request_id']])) or
+                    row['fingerprint']!=p['fingerprint'] or digest(canonical({'body':body,'gateway_session_key':''}))!=p['fingerprint']):
+                raise ValueError('archive_binding_CAS_mismatch')
+            exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='synthetic_turn_archives'").fetchone()
+            old=self.archived_synthetic_receipt(owner) if exists else None
+            if old is not None:
+                if (any(old.get(k)!=v for k,v in dict(turn_id=p['turn_id'],conversation_id=p['cid'],request_id=p['request_id'],session_id=p['session_id'],lease=p['lease'],owner_sha256=p['owner_sha256'],fingerprint=p['fingerprint'],stopped=1,run_id=None,archived=1,deleted=0,do_not_replay=True,prior_state='dispatch_unknown',version='synthetic_archive_v1').items()) or old.get('binding_sha256')!=digest(row['binding']) or old.get('body_sha256')!=digest(row['body']) or
+                        old.get('key_sha256')!=digest(row['idempotency_key']) or old.get('input_sha256')!=row['input_sha256'] or
+                        old.get('outcome')!='unknown' or old.get('cost')!='unknown'):
+                    raise ValueError('archive_audit_CAS_mismatch')
+                if not _check_only:return old
+            if _check_only:return dict(p,state='dispatch_unknown',run_id=None,stopped=1,schemas=None,turn_input_sha256=row['input_sha256'])
+            receipt=dict(version='synthetic_archive_v1',turn_id=p['turn_id'],conversation_id=p['cid'],
+                request_id=p['request_id'],session_id=p['session_id'],lease=p['lease'],owner_sha256=p['owner_sha256'],
+                input_sha256=row['input_sha256'],fingerprint=row['fingerprint'],
+                binding_sha256=digest(row['binding']),body_sha256=digest(row['body']),key_sha256=digest(row['idempotency_key']),
+                prior_state='dispatch_unknown',outcome='unknown',cost='unknown',stopped=1,run_id=None,
+                reason='user_requested_single_synthetic_test_archive',archived_at=datetime.now(timezone.utc).isoformat(),
+                archived=1,deleted=0,do_not_replay=True)
+            raw=canonical(receipt)
+            db.execute('INSERT INTO synthetic_turn_archives VALUES(?,?,?,?)',(p['turn_id'],p['cid'],raw,digest(raw)))
+            return receipt
 
     def reserve_turn(self, owner, conversation_id, text, request_id, file_ids=None, *, native=False):
         if not isinstance(text, str) or not 1 <= len(text.strip()) <= 12000:
@@ -195,7 +316,7 @@ class ConversationStore:
 
     def active(self):
         with self.db() as db:
-            return [dict(row) for row in db.execute("SELECT t.id turn_id,t.run_id,t.state,c.id conversation_id,c.owner FROM turns t JOIN conversations c ON c.id=t.conversation_id WHERE t.state NOT IN ('completed','failed','cancelled','interrupted')")]
+            return [dict(row) for row in db.execute("SELECT t.id turn_id,t.run_id,t.state,c.id conversation_id,c.owner FROM turns t JOIN conversations c ON c.id=t.conversation_id WHERE NOT EXISTS (SELECT 1 FROM synthetic_turn_archives a WHERE a.turn_id=t.id) AND t.state NOT IN ('completed','failed','cancelled','interrupted')")]
 
     def append_event(self, owner, conversation_id, run_id, upstream_seq, event, *, _db=None):
         if (upstream_seq is not None and (type(upstream_seq) is not int or upstream_seq < 0)) or not isinstance(event, dict):
@@ -279,7 +400,7 @@ class ConversationStore:
         if not owner:
             raise PermissionError("login_required")
         with self.db() as db:
-            rows = db.execute("SELECT c.id,c.updated_at,coalesce((SELECT text FROM turns WHERE conversation_id=c.id ORDER BY rowid LIMIT 1),'新会话') title FROM conversations c WHERE c.owner=? ORDER BY c.updated_at DESC LIMIT 100", (owner,)).fetchall()
+            rows = db.execute("SELECT c.id,c.updated_at,coalesce((SELECT text FROM turns WHERE conversation_id=c.id ORDER BY rowid LIMIT 1),'新会话') title FROM conversations c WHERE c.owner=? AND NOT EXISTS (SELECT 1 FROM synthetic_turn_archives a WHERE a.conversation_id=c.id) ORDER BY c.updated_at DESC LIMIT 100", (owner,)).fetchall()
             return {"items": [{"conversation_id": row["id"], "title": row["title"][:80], "updated_at": row["updated_at"]} for row in rows]}
 
     def save_original(self, owner, conversation_id, run_id, content, filename="hermes-original.txt", mime="text/plain"):

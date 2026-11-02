@@ -950,3 +950,23 @@ publisher 新增互斥 `--native-chat --followup`，钉已安装 23a 的 manifes
 `--native-admission --followup` / `native_admission` / `nativeAdmission`独立互斥，固定成功89e5 proof：backup `nav-20261102T100758Z`、manifest `642d78db24159c3c79f04ca3f67f4e8cda2abdbcd5680022ba6c9e9f71969084`、journal `34f8e7a3dea5df8f05baf73d9e9bc668a3127444f8915f323cc15dce5e361266`。34现存/45保护/NEW0，只允许`conversation_native.py`由`030e36d5…e795c2`变为`72253b5f…c1a57a`；其余33仅CAS/备份、跳过写入。原recipe v2从89e5 Git旧unit和固定socket GID994重现已安装unit SHA `5f31448a…9955e3`，不再次展开现场unit；backend、rootdaily只读挂载、旧profile/legacydaily及冻结writer保持。只沿原围栏DEEP/readiness重载range，worker/Nginx不重启，回退仅还原该代码目标。
 
 新增本地tempFS用例覆盖完整原validate/inspect/apply/rollback（保留真实原guards）、range与readiness失败、33未写metadata、34/45精确集合、Git/proof/current unit/marker/NEW/零或额外delta/权限漂移拒绝。OS服务、锁、Docker与uid为明确夹具；不冒生产DAC或真实发布通过。原一行0600→0640修复和A111消费链证据复用，旧UNKNOWN不改权限/ready/重发。本次只是可审候选，尚未发布或恢复正常附件聊天；历史材料400、官方调用数和费用仍unknown。
+
+
+### 指定合成UNKNOWN归档候选（2026-11-02，未生产执行）
+
+用户指定唯一cid `1fbe5a2b7b0b4434af259bbde7c9293b` / turn `d2d00f2c13e749f186bf6e4303514a65` / request `web_c6a3cf2095854f898ed5b10c03b64a01`。新增仅宿主管理维护函数`ConversationStore.archive_synthetic_unknown(owner)`，无对象选择器、HTTP或模型工具；固定owner SHA/session/lease/官方指纹/原合成输入SHA及附件IDs，事务内验证singleton会话、UNKNOWN/run=null/stopped=1/schemas=null、任务绑定和原幂等派生后，只新增`synthetic_turn_archives`审计行。原turn、native binding/body/key/fingerprint、文件、事件和UNKNOWN/费用unknown均保留，不伪造终态；同次维护重放返回相同审计。普通列表及启动active排除，原会话owned入口拒绝新旧request和写入；native reconcile/complete/fence/授权及service recover/monitor早退，不复活或派发。
+
+本候选只在temp执行归档，生产归档0、删除0。新表随Store原初始化装配，非公共迁移/回收站。执行真实维护前必须先安装所有archive-aware消费者并保留兼容回退代码，不能归档后回滚到忽略tombstone的旧Store。publisher仍原阻断COUNT，不以归档或新状态绕过；未来发布若排除该归档，须核完整审计/CAS而非排除任意UNKNOWN。
+
+最新数据发布`nav-20261102T150526Z`（PR757/0ab6b023）已改变range/Nginx生成字节，故原89e5 34/45包不可复用。当前Git交接只有发布ID/8目标743保护陈述；缺该次完整approved-manifest和journal精确SHA/收据位置，以及活动range/Nginx patch生成链、34原目标与新保护交集before映射。待B协调完整证明后再登记唯一后续装配；不得反射磁盘或覆盖live-orders接口。原754的0640修复仍只在Git，尚无已安装证据。阶段1真实附件聊天/归档、供应商终态与费用均未据此宣称通过；新客调查和阶段2/3不在本包。
+
+
+#### 指定合成残留：最小三文件增量（候选，未生产执行）
+
+已一次只读核实`nav-20261102T150526Z`成功收据：source `943c9f9317af20a7281ac773d0a4573f729a8dd5`，manifest `68e907842a53f744e77a6eb30b7c4b4d207ce922ae6a827542835accd8e3079e`、journal `340c44f080cd8edb96df0b012e66fa67b634ce5a2f49367292ae7838bc9cdfc9`。其8目标/743保护与89e5成功34/45 proof合并，仅接受新8个批准目标覆盖旧值，实际并集779路径；本包只写Store/native/service三宿主源，其余776项只校验保护，NEW0。六个live源码与固定Git匹配，生成的range/Nginx只用成功收据SHA作CAS保护，不写入、不复制、不为其追查额外stage。
+
+`--native-archive --followup`独立互斥，沿原writer/锁/准入/provider/UNKNOWN/quiescent/fresh/CAS/owner/mode/真实容器及原DEEP/readiness，仅重载range，worker/Nginx/timer保持。唯一UNKNOWN例外以候选Store的同一精确CAS函数作ro检查，绑定cid/turn/request/owner SHA/session/lease/input指纹/stopped1/run-null/schemas-null；其它阻断行或任何漂移仍拒绝。代码导入前核候选SHA，不读取token/配置/回答。原冻结writer不改。
+
+安装/读回成功后，同一stage原publisher的`archive-synthetic --release-id … --approved-manifest-sha …`在原全部锁和admission围栏内复核成功journal、三源afterSHA和精确对象CAS，再调用既有最小归档函数；没有HTTP/model工具或任意对象selector。原turn/幂等/文件仍保留，普通聊天/待执行残留退出，回执只记归档1/删除0/未知不变。归档前安装或readiness失败可原回退；审计成功后回退旧盲代码被`archive_rollback_guard`拒绝，应作兼容前修，不能复活残留。
+
+原tempFS原validate/inspect/apply/rollback正反用例含三delta、其它776inode/mtime保持、range/readiness失败恢复、锁内维护幂等、其它UNKNOWN/本对象生命周期/审计/候选源码漂移拒绝及归档后拒盲回退。OS/Docker/systemd边界是明确夹具，非真实生产验收。本轮仅候选，生产安装0/归档0/删除0，不调用模型，不核查费用；不扩成通用清理或账单系统。阶段1后续真实CSV/XLSX仍须在统一独审CI/最终merge后实际验证。
