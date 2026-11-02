@@ -14,15 +14,15 @@ from .ssh_client import Session, ssh_command
 
 
 def source_policy(generation=1):
-    # shortcut: manual shadow diagnostics stop after three groups; production routing needs its own policy.
-    if type(generation) is not int or not 1 <= generation <= 3:
+    # shortcut: manual diagnostics allow one final warm-redirect repair; production needs its own policy.
+    if type(generation) is not int or not 1 <= generation <= 4:
         raise ValueError('pilot_diagnostic_limit_reached')
     # 2 x existing 18s HTTP + 10s SSH setup + clock/callback allowance fit 60s.
     return dict(origin='https://www.arab-ut.com', nodes=['183'], mode='shadow',
         generation=generation, adapter_version=VERSIONS['ArabUT'],
         policy_version='arab-shadow-recheck-v' + str(generation) if generation > 1 else 'arab-shadow-two-request-v1',
         lease_seconds=60, request_timeout_seconds=20, clock_margin_seconds=2, stable_seconds=5,
-        window_seconds=86400, max_requests=2 * generation, concurrency=1, retry_after_seconds=60)
+        window_seconds=86400, max_requests=7 if generation == 4 else 2 * generation, concurrency=1, retry_after_seconds=60)
 
 
 def configure_recheck(coordinator, state, run_id, previous):
@@ -44,7 +44,7 @@ def configure_recheck(coordinator, state, run_id, previous):
         parents = [roots[0] + '-recheck' * offset for offset in range(previous_generation + 1)]
         jobs = {body['parent_run_id']: (state, body) for state, body in rows}
         if (previous != parents[-2] or run_id != parents[-1] or set(jobs) - set(parents)
-                or len(jobs) != len(rows) or db.execute('SELECT COALESCE(SUM(count),0) FROM collection_permits').fetchone()[0] > 2 * len(parents)):
+                or len(jobs) != len(rows) or db.execute('SELECT COALESCE(SUM(count),0) FROM collection_permits').fetchone()[0] > target_policy['max_requests']):
             raise ValueError('pilot_recheck_lifetime_budget_invalid')
         for generation, parent in enumerate(parents[:-1], 1):
             manifest_path = state / (parent + '.json')
@@ -52,19 +52,21 @@ def configure_recheck(coordinator, state, run_id, previous):
                 raise ValueError('pilot_original_required')
             manifest = json.loads(manifest_path.read_text())
             old_state, stored = jobs.get(parent, (None, {}))
+            used = 1 if generation == 3 and target_policy['generation'] == 4 else 2
+            reason = 'redirect_denied' if used == 1 else 'adapter_contract_invalid'
             if (old_state != 'COMPLETED' or manifest.get('source_id') != 'ArabUT'
                     or manifest.get('parent_run_id') != parent or manifest.get('assignment_generation') != generation
                     or any(stored.get(key) != value for key, value in manifest.items())
-                    or stored.get('request_budget_reserved') != 2 or stored.get('attempts') != 1
+                    or stored.get('request_budget_reserved') != used or stored.get('attempts') != 1
                     or db.execute('SELECT COALESCE(SUM(count),0) FROM collection_permits WHERE job=?',
-                                  (manifest['job_id'],)).fetchone()[0] != 2):
+                                  (manifest['job_id'],)).fetchone()[0] != used):
                 raise ValueError('pilot_original_terminal_failure_required')
             observations = db.execute('SELECT body,receipt,payload_hash FROM collection_observations WHERE job=?',
                                       (manifest['job_id'],)).fetchall()
             body = json.loads(observations[0]['body']) if len(observations) == 1 else {}
             receipt = json.loads(observations[0]['receipt']) if len(observations) == 1 else {}
-            if (body.get('status') != 'failed' or body.get('reason_code') != 'adapter_contract_invalid'
-                    or body.get('request_budget_used') != 2 or body.get('offers') != []
+            if (body.get('status') != 'failed' or body.get('reason_code') != reason
+                    or body.get('request_budget_used') != used or body.get('offers') != []
                     or receipt.get('status') != 'accepted' or fingerprint(body) != receipt.get('payload_hash')
                     or fingerprint(body) != observations[0]['payload_hash']):
                 raise ValueError('pilot_original_terminal_failure_required')

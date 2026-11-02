@@ -45,8 +45,13 @@ class ReadOnlyPilot(unittest.TestCase):
                     class Endpoint:
                         def __getattr__(self, name): return getattr(coordinator, name)
                         def claim_job(self, *args): return task
+                    def request(*args):
+                        if task['assignment_generation'] == 3 and value.get('warm_redirect'):
+                            calls.append(args)
+                            raise SourceUnavailable('redirect_denied')
+                        return fetch(*args)
                     return Worker(Endpoint(), principal, {'ArabUT': historical_adapter}, root / 'spool',
-                        fetch, clock=lambda: current[0]).run_once()
+                        request, clock=lambda: current[0]).run_once()
             config = root / 'config.json'
             config.write_text(json.dumps(dict(worker_digest='b' * 64)))
             def sleep(seconds): current[0] += timedelta(seconds=seconds)
@@ -73,6 +78,30 @@ class ReadOnlyPilot(unittest.TestCase):
             with closing(sqlite3.connect(root / 'state/collection.sqlite3')) as db:
                 self.assertEqual(db.execute('SELECT * FROM collection_observations ORDER BY rowid LIMIT 2').fetchall(), original)
                 self.assertEqual(db.execute('SELECT SUM(count) FROM collection_permits').fetchone()[0], 6)
+
+    def test_warm_redirect_failure_gets_one_bounded_repair_after_original_receipts(self):
+        with self.recheck_fixture() as (run, root, current, value, calls):
+            run()
+            run('original-recheck', recheck_of='original')
+            value['warm_redirect'] = True
+            third = run('original-recheck-recheck', recheck_of='original-recheck')
+            self.assertEqual(third['source_reasons'], ['redirect_denied'])
+            self.assertEqual(len(calls), 5)
+            with closing(sqlite3.connect(root / 'state/collection.sqlite3')) as db:
+                old = db.execute('SELECT * FROM collection_observations ORDER BY rowid').fetchall()
+            value['priceVersion'] = 2841
+            ident = 'original-recheck-recheck-recheck'
+            # The failed request keeps its permit until the original timeout and margin pass.
+            current[0] += timedelta(seconds=30)
+            fourth = run(ident, recheck_of='original-recheck-recheck')
+            self.assertEqual(fourth['status'], 'valid_shadow_observation')
+            current[0] += timedelta(days=2)
+            run(ident, recheck_of='original-recheck-recheck')
+            with self.assertRaises(ValueError): run(ident+'-recheck', recheck_of=ident)
+            self.assertEqual(len(calls), 7)
+            with closing(sqlite3.connect(root / 'state/collection.sqlite3')) as db:
+                self.assertEqual(db.execute('SELECT * FROM collection_observations ORDER BY rowid LIMIT 3').fetchall(), old)
+                self.assertEqual(db.execute('SELECT SUM(count) FROM collection_permits').fetchone()[0], 7)
 
     def test_one_recheck_keeps_original_failure_and_lifetime_budget_even_after_window(self):
         with self.recheck_fixture() as (run, root, current, value, calls):
