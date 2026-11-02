@@ -557,8 +557,34 @@ def quiescent(base, root):
                 raise ValueError('active_or_unknown_material_task')
 
 
+def archive_rollback_guard(base, journal, root):
+    """Never restore archive-blind before bytes after maintenance committed.
+
+    No production module/store import, DDL, state mutation or recovery here.
+    Before the first tombstone normal original rollback remains available.
+    """
+    if journal.get('manifest',{}).get('nativeArchive') is not True:
+        return
+    targets={'/opt/fs-hermes-fc/'+name for name in (
+        'conversation_store.py','conversation_native.py','conversation_service.py')}
+    if not any(row.get('target') in targets for row in journal.get('files',[])):
+        return
+    path=base.rooted(root,'/var/lib/fs-hermes-fc/fs/conversations/conversations.db')
+    base.no_target_link(path)
+    if not path.is_file():raise ValueError('archive_rollback_ledger_missing')
+    with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=2)) as db:
+        db.execute('PRAGMA query_only=ON')
+        exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='synthetic_turn_archives'").fetchone()
+        if exists and db.execute('SELECT 1 FROM synthetic_turn_archives LIMIT 1').fetchone():
+            raise ValueError('archived_unknown_requires_archive_aware_forward_repair')
+
+
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
+    if approved.get('nativeArchive') is True:
+        # No valid stage/source-generation proof yet: do not disguise the old
+        # installed89 single-target recipe as a new live-orders followup.
+        raise ValueError('native_archive_generated_source_chain_required')
     if approved.get('nativeAdmission') is True:
         configure_native_admission()
     elif approved.get('nativeChat') is True:
@@ -723,6 +749,7 @@ def load_base():
 
     def rollback_journal(backup, journal, root):
         nonlocal restoring_native
+        archive_rollback_guard(base,journal,root)
         result = original_rollback_journal(backup, journal, root)
         if approved.get('nativeChat') or approved.get('nativeAdmission'):
             if any(base.digest(base.rooted(root,row['target'])) != row['beforeSha256'] for row in journal['files']):
@@ -730,7 +757,7 @@ def load_base():
             restoring_native = True
         return result
 
-    if approved.get('nativeChat') or approved.get('nativeAdmission'):
+    if approved.get('nativeChat') or approved.get('nativeAdmission') or approved.get('nativeArchive'):
         base.rollback_journal = rollback_journal
 
     def atomic(path, payload, mode=0o644):

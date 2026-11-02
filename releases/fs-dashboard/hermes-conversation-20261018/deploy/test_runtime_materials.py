@@ -1537,6 +1537,35 @@ class NativePublisher(unittest.TestCase):
             with patch.object(release,'NATIVE_CURRENT_UNIT_SHA','0'*64):
                 with self.assertRaisesRegex(ValueError,'native_admission_generated_unit_drift'):prepare.admission_generated(Path(directory))
 
+    def test_native_archive_marker_cannot_borrow_installed89_recipe(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stage=Path(directory);(stage/'approved-manifest.json').write_text(json.dumps({'nativeArchive':True,'nativeAdmission':True}),encoding='utf-8')
+            with patch.object(release,'HERE',stage),self.assertRaisesRegex(ValueError,'native_archive_generated_source_chain_required'):
+                release.load_base()
+
+    def test_archive_rollback_guard_preserves_unknown_and_denies_blind_restore(self):
+        self.assertTrue(callable(getattr(release,'archive_rollback_guard',None)), 'archive rollback guard missing')
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen()
+            journal={'manifest':{'nativeArchive':True},'files':[{'target':'/opt/fs-hermes-fc/conversation_store.py'}]}
+            with self.assertRaisesRegex(ValueError,'archive_rollback_ledger_missing'):release.archive_rollback_guard(base,journal,root)
+            path=base.rooted(root,'/var/lib/fs-hermes-fc/fs/conversations/conversations.db');path.parent.mkdir(parents=True)
+            with closing(sqlite3.connect(path)) as db:
+                db.execute('CREATE TABLE turns(id,state)');db.execute("INSERT INTO turns VALUES('original','dispatch_unknown')");db.commit()
+            release.archive_rollback_guard(base,journal,root)
+            with closing(sqlite3.connect(path)) as db:
+                db.execute('CREATE TABLE synthetic_turn_archives(turn_id,receipt,receipt_sha256)');db.commit()
+            release.archive_rollback_guard(base,journal,root)
+            with closing(sqlite3.connect(path)) as db:
+                db.execute("INSERT INTO synthetic_turn_archives VALUES('original','audit','fixed')");db.commit()
+            before=path.read_bytes()
+            with self.assertRaisesRegex(ValueError,'archived_unknown_requires_archive_aware_forward_repair'):
+                release.archive_rollback_guard(base,journal,root)
+            self.assertEqual(path.read_bytes(),before)
+            # Existing modes and unrelated FC rollback keep their original contract.
+            release.archive_rollback_guard(base,dict(journal,manifest={'materialGuard':True}),root)
+            release.archive_rollback_guard(base,dict(journal,files=[{'target':'/opt/unrelated.py'}]),root)
+
     def test_native_admission_is_existing_89_single_file_followup(self):
         self.assertTrue(callable(getattr(prepare, 'configure_native_admission', None)),
                         'installed native admission mode missing')
