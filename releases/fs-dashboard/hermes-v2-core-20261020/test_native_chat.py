@@ -186,5 +186,57 @@ class NativeChat(unittest.TestCase):
             self.assertEqual(provider.call_count, 2)
 
 
+    def test_submit_hold_counts_native_and_legacy_inflight_without_settling_usage(self):
+        from contextlib import contextmanager
+        from datetime import datetime, timezone
+        import inspect
+        import sqlite3
+        import sys
+        import tempfile
+        from pathlib import Path
+        with fixtures.MaterialTransport().fixture(material=False) as f, tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            tasks=sys.modules['pilot'].TaskStore(root/'tasks.sqlite3')
+            with tasks.db() as connection:
+                connection.execute('INSERT INTO tasks VALUES(?,?,?,?,?,?,?,?,?,?)',
+                    ('legacy-task','fixture-owner','legacy-fingerprint','{}','RUNNING',1,'run-legacy','legacy-lease',0,0))
+            @contextmanager
+            def daily_db():
+                connection=sqlite3.connect(str(root/'daily.sqlite3'));connection.row_factory=sqlite3.Row
+                try:
+                    with connection:yield connection
+                finally:connection.close()
+            with daily_db() as connection:
+                connection.execute('CREATE TABLE model_calls(fingerprint TEXT PRIMARY KEY,day TEXT,state TEXT,content TEXT)')
+            policy=dict(id='no-pilot-quotas-deepseek-direct-stream-tokens-only-v2',model='deepseek-flash',
+                        price_version='deepseek-direct-no-cny-invoice-or-fx-v1',input_microcny=None,output_microcny=None)
+            budget=f.module.UnifiedBudget(daily_db,policy,lambda:datetime.now(timezone.utc),allow_unknown_costs=True)
+            budget.active_tasks=lambda:{('fixture-owner','native-other-cid'),('fixture-owner','legacy-task')}
+            request=dict(messages=[dict(role='user',content='synthetic')],max_tokens=32)
+            for task in ('native-other-cid','legacy-task'):
+                budget.reserve('fixture-owner',task,0,request,100,0)
+            sys.modules['background'].import_background=Mock()
+            sys.modules['source_projection']=SimpleNamespace(project_capture=Mock())
+            factory=fixtures.load('native_hold_fs_inprocess',fixtures.ROOT/'releases/fc-coins/fc-review-channel-20261026/source/fs_inprocess.py')
+            daily=SimpleNamespace(db=daily_db)
+            self.assertEqual(factory.spending_hold(daily,tasks,'fixture-owner'),'pilot_usage_hold')
+            self.assertIn('active_tasks',inspect.signature(factory.spending_hold).parameters,'native submit hold lacks server callback')
+            callback=Mock(return_value={('fixture-owner','native-other-cid')})
+            self.assertIsNone(factory.spending_hold(daily,tasks,'fixture-owner',active_tasks=callback))
+            callback.assert_called_once_with()
+            for active in (set(),{('another-owner','native-other-cid')}):
+                self.assertEqual(factory.spending_hold(daily,tasks,'fixture-owner',active_tasks=lambda:active),'pilot_usage_hold')
+            with tasks.db() as connection:
+                connection.execute("UPDATE tasks SET state='CANCEL_REQUESTED'")
+            self.assertEqual(factory.spending_hold(daily,tasks,'fixture-owner',active_tasks=callback),'pilot_usage_hold')
+            for invalid in (1,'true',{'allow':True}):
+                with self.assertRaises(ValueError):factory.spending_hold(daily,tasks,'fixture-owner',active_tasks=invalid)
+            with self.assertRaises(OSError):
+                factory.spending_hold(daily,tasks,'fixture-owner',active_tasks=Mock(side_effect=OSError('ledger unavailable')))
+            with daily_db() as connection:
+                rows=connection.execute('SELECT m.state,r.microcny FROM model_calls m JOIN hermes_reservations r ON r.fingerprint=m.fingerprint').fetchall()
+                self.assertEqual([tuple(row) for row in rows],[('started',-1),('started',-1)])
+
+
 if __name__ == '__main__':
     unittest.main()
