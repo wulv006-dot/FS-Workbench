@@ -45,6 +45,11 @@ BINDINGS_MODE = False
 GUARD_MODE = False
 NATIVE_MODE = False
 NATIVE_ADMISSION_MODE = False
+ARCHIVE_MODE = False
+ARCHIVE_PROTECTED = {}
+ARCHIVE_NATIVE_PROOF = dict(backup='/var/backups/fs-navigation-20261006/nav-20261102T100758Z',
+    manifestSha256='642d78db24159c3c79f04ca3f67f4e8cda2abdbcd5680022ba6c9e9f71969084',
+    journalSha256='34f8e7a3dea5df8f05baf73d9e9bc668a3127444f8915f323cc15dce5e361266')
 NATIVE_ADMISSION_CANDIDATE = 'runtime/conversation_native.py'
 NATIVE_ADMISSION_BEFORE_SHA = '030e36d5cf134fa1ef63c576211a3f1b4f2d9a3135ed44c15a7fd1d403e795c2'
 NATIVE_ADMISSION_AFTER_SHA = '72253b5ffee19cc2d0352c0bb1ee7d67fe801fcb515b3b711466e828a4c1a57a'
@@ -242,6 +247,50 @@ def configure_native_admission():
         journalSha256='34f8e7a3dea5df8f05baf73d9e9bc668a3127444f8915f323cc15dce5e361266')
 
 
+def configure_native_archive():
+    global ARCHIVE_MODE, NATIVE_MODE, NATIVE_ADMISSION_MODE, INSTALLED_COMMIT, NEW
+    if ARCHIVE_MODE:return
+    configure_native_admission()
+    ARCHIVE_MODE=True;NATIVE_MODE=False;NATIVE_ADMISSION_MODE=False
+    keep={'runtime/conversation_store.py','runtime/conversation_native.py','runtime/conversation_service.py'}
+    for key in list(TARGETS):
+        if key not in keep:del TARGETS[key]
+    NEW=frozenset()
+    INSTALLED_COMMIT='89e5db08edba36cf3d88efdb37601ee1ca53bc38'
+    INSTALLED_PROOF.update(sourceCommit='943c9f9317af20a7281ac773d0a4573f729a8dd5',
+        backup='/var/backups/fs-navigation-20261006/nav-20261102T150526Z',
+        manifestSha256='68e907842a53f744e77a6eb30b7c4b4d207ce922ae6a827542835accd8e3079e',
+        journalSha256='340c44f080cd8edb96df0b012e66fa67b634ce5a2f49367292ae7838bc9cdfc9')
+
+
+def archive_store_module(source,expected_sha):
+    raw=source.read_bytes()
+    if hashlib.sha256(raw).hexdigest()!=expected_sha:raise ValueError('archive_store_source_drift')
+    module=types.ModuleType('reviewed_archive_store');module.__file__=str(source)
+    exec(compile(raw,str(source),'exec'),module.__dict__)
+    return module
+
+
+def archive_check(base,root,source,source_sha):
+    """Use the reviewed Store's exact CAS with a read-only connection, no init."""
+    from contextlib import contextmanager
+    module=archive_store_module(source,source_sha)
+    store=module.ConversationStore.__new__(module.ConversationStore)
+    path=base.rooted(root,'/var/lib/fs-hermes-fc/fs/conversations/conversations.db')
+    base.no_target_link(path)
+    @contextmanager
+    def db():
+        with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=2)) as connection:
+            connection.row_factory=sqlite3.Row;connection.execute('PRAGMA query_only=ON')
+            yield connection
+    store.db=db
+    with db() as connection:
+        row=connection.execute('SELECT owner FROM conversations WHERE id=?',(module.SYNTHETIC_ARCHIVE['cid'],)).fetchone()
+        if row is None:raise ValueError('archive_owner_binding_missing')
+        owner=row['owner']
+    return store.archive_synthetic_unknown(owner,_check_only=True)
+
+
 def native_backend_bytes():
     return json.dumps({'version':'native_docker_v1','root':NATIVE_ROOT,
         'image':FROZEN_IMAGE_MARKER,'docker_binary':'/opt/fs-native-bin/docker',
@@ -269,6 +318,35 @@ def installed_baseline(root, git_baseline):
             raise ValueError('installed_release_proof_drift')
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
+    if ARCHIVE_MODE:
+        global ARCHIVE_PROTECTED
+        rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[])
+        values={r['target']:r['sha256'] for r in rows}
+        values.update({r['path']:r['sha256'] for r in protected})
+        if (manifest.get('sourceCommit')!=INSTALLED_PROOF['sourceCommit'] or
+                manifest.get('scope')!='user-admin-live-page-20261102' or len(rows)!=8 or len(protected)!=743 or len(values)!=751 or
+                journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or
+                journal.get('approvedManifestSha256')!=INSTALLED_PROOF['manifestSha256'] or journal.get('manifest')!=manifest):
+            raise ValueError('archive_live_installed_proof_mismatch')
+        backup=ARCHIVE_NATIVE_PROOF['backup']
+        original={}
+        for name,sha in (('approved-manifest.json',ARCHIVE_NATIVE_PROOF['manifestSha256']),('journal.json',ARCHIVE_NATIVE_PROOF['journalSha256'])):
+            path=base.rooted(root,backup+'/'+name);base.no_target_link(path);raw=path.read_bytes()
+            if hashlib.sha256(raw).hexdigest()!=sha:raise ValueError('archive_native_installed_proof_drift')
+            original[name]=json.loads(raw)
+        old=original['approved-manifest.json'];old_journal=original['journal.json']
+        if (old.get('sourceCommit')!=INSTALLED_COMMIT or len(old.get('files',[]))!=34 or len(old.get('unchangedRequired',[]))!=45 or
+                old_journal.get('manifest')!=old or old_journal.get('status')!='applied-awaiting-actual-http-role-acceptance'):
+            raise ValueError('archive_native_installed_proof_mismatch')
+        merged={r['target']:r['sha256'] for r in old['files']};merged.update({r['path']:r['sha256'] for r in old['unchangedRequired']})
+        updated={r['target'] for r in rows}
+        if any(path in merged and merged[path]!=sha and path not in updated for path,sha in values.items()):
+            raise ValueError('archive_protected_chain_conflict')
+        merged.update(values);values=merged
+        if git_baseline!={'source_commit':INSTALLED_COMMIT,'files':{name:values.get(target) for name,target in TARGETS.items()}}:
+            raise ValueError('archive_installed_git_mismatch')
+        ARCHIVE_PROTECTED={path:sha for path,sha in values.items() if path not in TARGETS.values()}
+        return dict(manifest,archive_all_hashes=values)
     if NATIVE_ADMISSION_MODE:
         expected = {row['candidate']:row['sha256'] for row in manifest['files']}
         protected = manifest.get('unchangedRequired', [])
@@ -361,6 +439,7 @@ def frozen():
 
 
 def protected_paths(base):
+    if ARCHIVE_MODE:return set(ARCHIVE_PROTECTED)
     # Preserve the original publisher's required consumers, plus this package's
     # unchanged live host/seams. No DB, credential or model-key payload is copied.
     paths = set(base.HERMES_TARGETS.values()) | {
@@ -531,7 +610,7 @@ def running_worker(manifest):
         raise ValueError('worker_diagnostics_running_container_required')
 
 
-def quiescent(base, root):
+def quiescent(base, root, archive_source=None, archive_exception=None, archive_sha=None):
     # The original requests/provider fences remain, with both conversation lanes,
     # tracking and learning added before either install or rollback can restart.
     for name, table, states in (
@@ -554,6 +633,10 @@ def quiescent(base, root):
                 continue
             query = 'SELECT count(*) FROM ' + table + ' WHERE state IN (' + ','.join('?' for _ in states) + ')'
             if db.execute(query, states).fetchone()[0]:
+                if ARCHIVE_MODE and name=='conversations/conversations.db' and table=='turns':
+                    checked=archive_check(base,root,archive_source,archive_sha)
+                    if checked!=archive_exception:raise ValueError('archive_exception_CAS_drift')
+                    if not db.execute(query+' AND id<>?',(*states,checked['turn_id'])).fetchone()[0]:continue
                 raise ValueError('active_or_unknown_material_task')
 
 
@@ -582,9 +665,11 @@ def archive_rollback_guard(base, journal, root):
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
     if approved.get('nativeArchive') is True:
-        # Only the three host sources may change. A new mode must bind the
-        # successful live receipt; never reuse the old one-target recipe.
-        raise ValueError('native_archive_three_source_mode_not_prepared')
+        if any(approved.get(key) is True for key in ('nativeAdmission','nativeChat','materialGuard','bindingsAuth','materialStream','materialTransport','workerDiagnostics','goalTaskIndexCompat','materialDiagnostics')):
+            raise ValueError('conflicting_material_followup_modes')
+        configure_native_archive()
+        global ARCHIVE_PROTECTED
+        ARCHIVE_PROTECTED={r['path']:r['sha256'] for r in approved['unchangedRequired']}
     if approved.get('nativeAdmission') is True:
         configure_native_admission()
     elif approved.get('nativeChat') is True:
@@ -615,14 +700,15 @@ def load_base():
     validate = base.validate
 
     def exact(manifest, stage):
-        controlled = DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE or NATIVE_MODE
-        marker = 'nativeAdmission' if NATIVE_ADMISSION_MODE else 'nativeChat' if NATIVE_MODE else 'materialGuard' if GUARD_MODE else 'bindingsAuth' if BINDINGS_MODE else 'materialStream' if STREAM_MODE else 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
-        allowed = (NATIVE_ADMISSION_CANDIDATE,) if NATIVE_ADMISSION_MODE else NATIVE_ALLOWED if NATIVE_MODE else (BINDINGS_CANDIDATE,) if BINDINGS_MODE else (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
+        controlled = ARCHIVE_MODE or DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE or NATIVE_MODE
+        marker = 'nativeArchive' if ARCHIVE_MODE else 'nativeAdmission' if NATIVE_ADMISSION_MODE else 'nativeChat' if NATIVE_MODE else 'materialGuard' if GUARD_MODE else 'bindingsAuth' if BINDINGS_MODE else 'materialStream' if STREAM_MODE else 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
+        allowed = tuple(TARGETS) if ARCHIVE_MODE else (NATIVE_ADMISSION_CANDIDATE,) if NATIVE_ADMISSION_MODE else NATIVE_ALLOWED if NATIVE_MODE else (BINDINGS_CANDIDATE,) if BINDINGS_MODE else (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
         if controlled and (manifest.get(marker) is not True or
-                any(manifest.get(key) is True for key in ('nativeAdmission','nativeChat','materialGuard', 'bindingsAuth', 'materialStream', 'materialTransport', 'workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
+                any(manifest.get(key) is True for key in ('nativeArchive','nativeAdmission','nativeChat','materialGuard', 'bindingsAuth', 'materialStream', 'materialTransport', 'workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
                 manifest.get('installedBaseline') != INSTALLED_PROOF or
                 manifest.get('runtimeBefore') != manifest.get('runtimeRequired') or
                 manifest.get('workerImageSource') != 'container' or
+                ARCHIVE_MODE and (len(manifest.get('files',[]))!=3 or manifest.get('materialChangedTargets')!=list(TARGETS.values())) or
                 NATIVE_ADMISSION_MODE and manifest.get('materialChangedTargets') != [TARGETS[NATIVE_ADMISSION_CANDIDATE]] or
                 WORKER_DIAGNOSTICS_MODE and manifest.get('materialChangedTargets') != [TARGETS['runtime/hermes_worker.py']] or
                 (TRANSPORT_MODE or STREAM_MODE or GUARD_MODE) and manifest.get('materialChangedTargets') != [TRANSPORT_TARGET]
@@ -714,7 +800,7 @@ def load_base():
 
     def idle(root):
         original_idle(root)
-        quiescent(base, root)
+        quiescent(base,root,HERE/'candidate/runtime/conversation_store.py',approved.get('archiveException'),next((r['sha256'] for r in approved['files'] if r['candidate']=='runtime/conversation_store.py'),None))
 
     base.hermes_quiescent = idle
     original_guards = base.guards
@@ -726,7 +812,7 @@ def load_base():
         # frozen checks, and retain every other guard/protected source check.
         if manifest.get('installedBaseline'):
             installed_baseline(root, git_baseline)
-        if NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
+        if ARCHIVE_MODE or NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
             running_worker(manifest)
         if NATIVE_MODE and native_dependencies(base, root) != manifest['nativeDependencies']:
             raise ValueError('native_dependencies_cas_drift')
@@ -739,6 +825,11 @@ def load_base():
                         or observed['source'] != manifest['workerImageSource']):
                     raise ValueError('material_recovery_image_source_drift')
             manifest = dict(manifest, runtimeRequired=manifest['runtimeBefore'])
+        if ARCHIVE_MODE:
+            for row in manifest['unchangedRequired']:
+                info=base.rooted(root,row['path']).stat()
+                if row['owner']!=str(info.st_uid)+':'+str(info.st_gid) or row['mode']!=oct(stat.S_IMODE(info.st_mode)):
+                    raise ValueError('archive_protected_mode_owner_drift')
         return original_guards(manifest, root, reader_stopped=reader_stopped)
 
     base.guards = guards
@@ -763,7 +854,7 @@ def load_base():
     def atomic(path, payload, mode=0o644):
         # Keep the original writer/journal and every per-row guard. Static-only
         # follow-ups leave identical active targets (including runtime) untouched.
-        if approved.get('nativeAdmission') or approved.get('nativeChat') or approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics') or approved.get('materialTransport') or approved.get('materialStream') or approved.get('bindingsAuth') or approved.get('materialGuard'):
+        if approved.get('nativeArchive') or approved.get('nativeAdmission') or approved.get('nativeChat') or approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics') or approved.get('materialTransport') or approved.get('materialStream') or approved.get('bindingsAuth') or approved.get('materialGuard'):
             for row in approved['files']:
                 if path == base.rooted(publish_root, row['target']) and row['beforeSha256'] == row['sha256']:
                     if (hashlib.sha256(payload).hexdigest() != row['sha256']
@@ -782,11 +873,11 @@ def load_base():
 
     def inspect(manifest, stage, root=Path('/')):
         result = original_inspect(manifest, stage, root)
-        if NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
+        if ARCHIVE_MODE or NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
             running_worker(manifest)
         if NATIVE_MODE and native_dependencies(base, root) != manifest['nativeDependencies']:
             raise ValueError('native_dependencies_cas_drift')
-        if NATIVE_ADMISSION_MODE:
+        if ARCHIVE_MODE or NATIVE_ADMISSION_MODE:
             native_runtime_readiness()
         if root == Path('/'):
             for row in manifest['files']:
@@ -829,7 +920,7 @@ def load_base():
     def restart(manifest, admission_fence=None):
         nonlocal before_restart
         before_restart = False
-        if manifest.get('nativeAdmission'):
+        if manifest.get('nativeArchive') or manifest.get('nativeAdmission'):
             if admission_fence is None:
                 raise ValueError('native_admission_fence_required')
             admission_fence.stop_then_unlock_database()
@@ -895,5 +986,40 @@ def load_base():
     return base
 
 
+def archive_synthetic_maintenance(release_id, approved_sha, root=Path('/')):
+    """Post-apply maintenance under the original locks; no task POST or retry."""
+    if not re.fullmatch(r'nav-[0-9]{8}T[0-9]{6}Z',release_id):raise ValueError('fixed release id required')
+    approved=json.loads((HERE/'approved-manifest.json').read_bytes())
+    raw=(HERE/'approved-manifest.json').read_bytes()
+    if approved.get('nativeArchive') is not True or hashlib.sha256(raw).hexdigest()!=approved_sha:
+        raise ValueError('exact_archive_maintenance_manifest_required')
+    base=load_base();backup=base.rooted(root,'/var/backups/fs-navigation-20261006/'+release_id)
+    base.no_target_link(backup/'journal.json');journal=json.loads((backup/'journal.json').read_bytes())
+    if (journal.get('manifest')!=approved or journal.get('approvedManifestSha256')!=approved_sha or
+            journal.get('status')!='applied-awaiting-actual-http-role-acceptance'):
+        raise ValueError('archive_requires_successful_apply')
+    with base.locks(root),base.live_lock(approved,root),base.hermes_admission_fence(approved,root),base.model_release_lock(approved,root):
+        if any(base.digest(base.rooted(root,r['target']))!=r['sha256'] for r in approved['files']):
+            raise ValueError('archive_installed_consumer_drift')
+        base.guards(approved,root)
+        store_sha=next(r['sha256'] for r in approved['files'] if r['candidate']=='runtime/conversation_store.py')
+        checked=archive_check(base,root,HERE/'candidate/runtime/conversation_store.py',store_sha)
+        if checked!=approved['archiveException']:raise ValueError('archive_exception_CAS_drift')
+        module=archive_store_module(base.rooted(root,TARGETS['runtime/conversation_store.py']),store_sha)
+        store=module.ConversationStore.__new__(module.ConversationStore)
+        store.path=base.rooted(root,'/var/lib/fs-hermes-fc/fs/conversations/conversations.db')
+        # Empty new audit table is normally initialized by the restarted service.
+        # If readiness returned without it, refuse rather than bypass that consumer.
+        with store.db() as db:
+            if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='synthetic_turn_archives'").fetchone():raise ValueError('archive_consumer_schema_not_ready')
+            owner=db.execute('SELECT owner FROM conversations WHERE id=?',(checked['cid'],)).fetchone()[0]
+        return store.archive_synthetic_unknown(owner)
+
+
 if __name__ == '__main__':
-    load_base().main()
+    import sys
+    if len(sys.argv)>1 and sys.argv[1]=='archive-synthetic':
+        import argparse
+        parser=argparse.ArgumentParser();parser.add_argument('action');parser.add_argument('--release-id',required=True);parser.add_argument('--approved-manifest-sha',required=True)
+        args=parser.parse_args();print(json.dumps(archive_synthetic_maintenance(args.release_id,args.approved_manifest_sha)))
+    else:load_base().main()

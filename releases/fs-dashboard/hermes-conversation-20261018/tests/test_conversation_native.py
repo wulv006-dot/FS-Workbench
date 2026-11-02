@@ -593,6 +593,11 @@ class NativeArchiveTests(unittest.TestCase):
                 service=types.SimpleNamespace(store=store)
                 self.assertIsNone(NativeDispatchTests.active.ConversationService._recover(service,owner,cid,turn['turn_id'],'run_'+'d'*32))
                 self.assertIsNone(NativeDispatchTests.active.ConversationService._monitor(service,owner,cid,turn['turn_id'],'run_'+'d'*32,None))
+                forged=dict(receipt,turn_id='f'*32)
+                raw=json.dumps(forged,sort_keys=True,separators=(',',':'),ensure_ascii=False)
+                with store.db() as db:db.execute('UPDATE synthetic_turn_archives SET receipt=?,receipt_sha256=?',(raw,hashlib.sha256(raw.encode()).hexdigest()))
+                with self.assertRaisesRegex(ValueError,'archive_audit_CAS_mismatch'):store.archive_synthetic_unknown(owner,_check_only=True)
+
 
 
     def test_archive_CAS_rejects_changed_lifecycle_without_tombstone(self):

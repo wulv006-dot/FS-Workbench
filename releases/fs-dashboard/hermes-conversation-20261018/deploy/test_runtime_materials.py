@@ -1537,10 +1537,120 @@ class NativePublisher(unittest.TestCase):
             with patch.object(release,'NATIVE_CURRENT_UNIT_SHA','0'*64):
                 with self.assertRaisesRegex(ValueError,'native_admission_generated_unit_drift'):prepare.admission_generated(Path(directory))
 
+    def test_archive_three_source_original_apply_rollback_and_locked_maintenance(self):
+        for failure in (None,'range','readiness'):
+            self.tearDown();self.setUp()
+            with self.subTest(failure=failure),tempfile.TemporaryDirectory() as directory,self.admission_fixture(Path(directory)) as f:
+                root=Path(directory);base=f.base;old_proof=deepcopy(f.proof);old=deepcopy(f.previous)
+                oldmap={r['target']:r['sha256'] for r in old['files']};oldmap.update({r['path']:r['sha256'] for r in old['unchangedRequired']})
+                prepare.configure_native_archive()
+                # Real Store/CAS functions; only identity pins are synthetic.
+                source=Path(__file__).resolve().parents[1]/'source/conversation_store.py'
+                spec=importlib.util.spec_from_file_location('archive_fixture_store',source);store_module=importlib.util.module_from_spec(spec);spec.loader.exec_module(store_module)
+                path=base.rooted(f.system,'/var/lib/fs-hermes-fc/fs/conversations/conversations.db')
+                store=store_module.ConversationStore(path.parent);owner='archive-owner';cid=store.create(owner)['conversation_id'];text='Synthetic archive fixture';req='archive_fixture_01'
+                with patch.object(sys,'path',[str(source.parent),*sys.path]):turn=store.reserve_turn(owner,cid,text,req)
+                lease='a'*32;store.bind_task(owner,cid,turn['turn_id'],turn['turn_id'],lease)
+                canonical=lambda v:json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False)
+                with store.db() as db:
+                    session=store._owned(db,owner,cid)['session_id']
+                    db.execute('CREATE TABLE native_conversation_runs(turn_id PRIMARY KEY,binding,body,idempotency_key,fingerprint,schemas,stopped)')
+                    binding=dict(owner=owner,conversation_id=cid,turn_id=turn['turn_id'],request_id=req,session_id=session,lease=lease,run_id=None)
+                    body={'input':text,'session_id':session};fp=prepare.digest(canonical({'body':body,'gateway_session_key':''}).encode())
+                    db.execute('INSERT INTO native_conversation_runs VALUES(?,?,?,?,?,NULL,1)',(turn['turn_id'],canonical(binding),canonical(body),'hn-'+prepare.digest(canonical([owner,cid,req]).encode()),fp))
+                store.set_state(owner,cid,turn['turn_id'],'dispatch_unknown')
+                pins=dict(cid=cid,turn_id=turn['turn_id'],request_id=req,session_id=session,lease=lease,owner_sha256=prepare.digest(owner.encode()),fingerprint=fp,input_sha256=prepare.digest(text.encode()))
+                source_body=source.read_bytes()+('\nSYNTHETIC_ARCHIVE='+repr(pins)+'\n').encode()
+                for name,table in (('tasks.sqlite3','tasks'),('pricing-reviews/conversations.db','turns'),('customer-tracking/tracking.db','scan_jobs')):
+                    p=base.rooted(f.system,'/var/lib/fs-hermes-fc/fs/'+name);p.parent.mkdir(parents=True,exist_ok=True)
+                    with closing(sqlite3.connect(p)) as db:
+                        db.execute('CREATE TABLE IF NOT EXISTS '+table+'(state TEXT)')
+                        if table=='tasks':db.execute('CREATE TABLE IF NOT EXISTS learning_events(state TEXT)')
+                        if table=='scan_jobs':db.execute('CREATE TABLE IF NOT EXISTS milestones(state TEXT)')
+                        db.commit()
+                live_targets=[release.NGINX,'/opt/fs-exact-range-20261001/range_api.py']+['/opt/fs-hermes-fc/live'+str(i)+'.py' for i in range(6)]
+                records=[]
+                for i,target in enumerate(live_targets):
+                    p=base.rooted(f.system,target);p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(('live:'+str(i)).encode())
+                    records.append(dict(candidate='live/'+str(i),target=target,sha256=base.digest(p),beforeSha256='0'*64,owner='0:0',mode='0o600' if target==release.NGINX else '0o644'))
+                overlap=[p for p in oldmap if p not in live_targets and p not in (release.TARGETS['runtime/conversation_store.py'],release.TARGETS['runtime/conversation_native.py'])][:49]
+                keep=[{'path':p,'sha256':oldmap[p]} for p in overlap]
+                while len(keep)<743:
+                    p='/opt/live-protected/file'+str(len(keep))+'.py';target=base.rooted(f.system,p);target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(b'live protected')
+                    keep.append(dict(path=p,sha256=base.digest(target)))
+                previous=dict(sourceCommit=release.INSTALLED_PROOF['sourceCommit'],scope='user-admin-live-page-20261102',files=records,unchangedRequired=keep)
+                proof=deepcopy(release.INSTALLED_PROOF);backup=base.rooted(f.system,proof['backup']);backup.mkdir(parents=True)
+                raw=json.dumps(previous).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
+                journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=previous,approvedManifestSha256=proof['manifestSha256'])
+                raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+                descriptor=json.loads((f.payload.parent/'payload-manifest.json').read_bytes())
+                descriptor.update(native_admission=False,native_archive=True,native_chat=False,installed_baseline={'source_commit':release.INSTALLED_COMMIT,'files':{name:oldmap[target] for name,target in release.TARGETS.items()}})
+                descriptor['files']={key:value for key,value in descriptor['files'].items() if not key.startswith('payload/')}
+                for name in prepare.SOURCES:
+                    p=f.payload/name
+                    p.write_bytes(source_body if name=='runtime/conversation_store.py' else (base.rooted(f.system,release.TARGETS[name]).read_bytes()+b'\n# archive consumer\n'))
+                    descriptor['files']['payload/'+name]=prepare.digest(p.read_bytes())
+                raw=json.dumps(descriptor).encode();(f.payload.parent/'payload-manifest.json').write_bytes(raw)
+                stage=root/'archive-stage'
+                with patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof),patch.object(release,'ARCHIVE_NATIVE_PROOF',old_proof):
+                    prepare.prepare(f.payload,stage,'a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
+                manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),3);self.assertEqual(len(manifest['unchangedRequired']),776)
+                untouched={r['path']:(base.rooted(f.system,r['path']).read_bytes(),base.rooted(f.system,r['path']).stat().st_ino,base.rooted(f.system,r['path']).stat().st_mtime_ns) for r in manifest['unchangedRequired']}
+                spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                module.configure_native_archive();module.INSTALLED_PROOF=proof;module.ARCHIVE_NATIVE_PROOF=old_proof
+                base.hermes_quiescent=Mock();base.retirement=Mock();base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
+                fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock());base.hermes_admission_fence=lambda *a:nullcontext(fence)
+                restart=Mock(side_effect=[RuntimeError('synthetic range failure'),None] if failure=='range' else None);base.restart_for=restart
+                if os.name=='nt':base.directory_sync=lambda *a:None
+                readiness=Mock(side_effect=[None,None,RuntimeError('synthetic readiness failure'),None] if failure=='readiness' else None)
+                with patch.object(module,'frozen',return_value=base),patch.object(module,'running_worker'),patch.object(module,'native_runtime_readiness',readiness),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')):
+                    publisher=module.load_base();publisher.inspect(manifest,stage,f.system)
+                    bad_git=deepcopy(descriptor['installed_baseline']);bad_git['files']['runtime/conversation_native.py']='0'*64
+                    with self.assertRaisesRegex(ValueError,'archive_installed_git_mismatch'):module.installed_baseline(f.system,bad_git)
+                    proof_file=base.rooted(f.system,proof['backup']+'/journal.json');proof_bytes=proof_file.read_bytes();proof_file.write_bytes(b'proof drift')
+                    with self.assertRaisesRegex(ValueError,'installed_release_proof_drift'):publisher.guards(manifest,f.system)
+                    proof_file.write_bytes(proof_bytes)
+                    # Other UNKNOWNs and changes to the one exception still block.
+                    with store.db() as db:db.execute("INSERT INTO turns(id,conversation_id,request_id,input_sha256,text,state) VALUES('other','other','other','h','x','running')")
+                    with self.assertRaises(ValueError):publisher.guards(manifest,f.system)
+                    with store.db() as db:db.execute("DELETE FROM turns WHERE id='other'")
+                    with store.db() as db:db.execute('UPDATE native_conversation_runs SET stopped=0')
+                    with self.assertRaises(ValueError):publisher.guards(manifest,f.system)
+                    with store.db() as db:db.execute('UPDATE native_conversation_runs SET stopped=1')
+                    candidate=stage/'candidate/runtime/conversation_store.py';saved_source=candidate.read_bytes();candidate.write_bytes(b"raise AssertionError('untrusted source must not execute')")
+                    with self.assertRaisesRegex(ValueError,'archive_store_source_drift'):publisher.guards(manifest,f.system)
+                    candidate.write_bytes(saved_source)
+                    for change in (lambda m:m.update(nativeAdmission=True),lambda m:m['files'].pop(),lambda m:m['unchangedRequired'].pop(),lambda m:m.update(materialChangedTargets=[]),lambda m:m.update(workerImageSource='configured_unit_and_local_image')):
+                        bad=deepcopy(manifest);change(bad)
+                        with self.assertRaises((ValueError,KeyError)):publisher.validate(bad,stage)
+                    manifest_raw=(stage/'approved-manifest.json').read_bytes();release_id='nav-20261103T000001Z'
+                    if failure:
+                        with self.assertRaisesRegex(RuntimeError,'synthetic .* failure'):publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,release_id,f.system)
+                    else:
+                        publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,release_id,f.system)
+                        receipt=module.archive_synthetic_maintenance(release_id,prepare.digest(manifest_raw),f.system)
+                        self.assertEqual((receipt['archived'],receipt['deleted'],receipt['outcome']),(1,0,'unknown'))
+                        self.assertEqual(module.archive_synthetic_maintenance(release_id,prepare.digest(manifest_raw),f.system),receipt)
+                        saved=json.loads((base.rooted(f.system,'/var/backups/fs-navigation-20261006/'+release_id)/'journal.json').read_bytes())
+                        with self.assertRaisesRegex(ValueError,'archived_unknown_requires_archive_aware_forward_repair'):publisher.rollback_journal(base.rooted(f.system,'/var/backups/fs-navigation-20261006/'+release_id),saved,f.system)
+                        with store.db() as db:db.execute("UPDATE synthetic_turn_archives SET receipt_sha256='drift'")
+                        with self.assertRaisesRegex(ValueError,'archive_audit_drift'):publisher.guards(manifest,f.system)
+                    self.assertTrue(all(c.args[0]['scope']==base.DEEP_SCOPE for c in restart.call_args_list))
+                for p,values in untouched.items():self.assertEqual((base.rooted(f.system,p).read_bytes(),base.rooted(f.system,p).stat().st_ino,base.rooted(f.system,p).stat().st_mtime_ns),values)
+                if failure:
+                    for row in manifest['files']:self.assertEqual(base.digest(base.rooted(f.system,row['target'])),row['beforeSha256'])
+
+    def test_archive_followup_only_three_existing_host_targets(self):
+        self.assertTrue(callable(getattr(prepare,'configure_native_archive',None)))
+        prepare.configure_native_archive()
+        self.assertEqual(set(release.TARGETS),{'runtime/conversation_store.py','runtime/conversation_native.py','runtime/conversation_service.py'})
+        self.assertEqual(release.NEW,frozenset())
+        self.assertEqual(release.INSTALLED_PROOF['manifestSha256'],'68e907842a53f744e77a6eb30b7c4b4d207ce922ae6a827542835accd8e3079e')
+
     def test_native_archive_marker_cannot_borrow_installed89_recipe(self):
         with tempfile.TemporaryDirectory() as directory:
             stage=Path(directory);(stage/'approved-manifest.json').write_text(json.dumps({'nativeArchive':True,'nativeAdmission':True}),encoding='utf-8')
-            with patch.object(release,'HERE',stage),self.assertRaisesRegex(ValueError,'native_archive_three_source_mode_not_prepared'):
+            with patch.object(release,'HERE',stage),self.assertRaisesRegex(ValueError,'conflicting_material_followup_modes'):
                 release.load_base()
 
     def test_archive_rollback_guard_preserves_unknown_and_denies_blind_restore(self):

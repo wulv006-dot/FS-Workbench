@@ -961,13 +961,12 @@ publisher 新增互斥 `--native-chat --followup`，钉已安装 23a 的 manifes
 最新数据发布`nav-20261102T150526Z`（PR757/0ab6b023）已改变range/Nginx生成字节，故原89e5 34/45包不可复用。当前Git交接只有发布ID/8目标743保护陈述；缺该次完整approved-manifest和journal精确SHA/收据位置，以及活动range/Nginx patch生成链、34原目标与新保护交集before映射。待B协调完整证明后再登记唯一后续装配；不得反射磁盘或覆盖live-orders接口。原754的0640修复仍只在Git，尚无已安装证据。阶段1真实附件聊天/归档、供应商终态与费用均未据此宣称通过；新客调查和阶段2/3不在本包。
 
 
-#### PR757收据定向核实与回退护栏（后续本地候选，未部署）
+#### 指定合成残留：最小三文件增量（候选，未生产执行）
 
-一次只读精确定位确认`/var/backups/fs-navigation-20261006/nav-20261102T150526Z/{approved-manifest.json,journal.json}`存在且root0600。成功source为reviewed `943c9f9317af20a7281ac773d0a4573f729a8dd5`，scope `user-admin-live-page-20261102`，manifest SHA `68e907842a53f744e77a6eb30b7c4b4d207ce922ae6a827542835accd8e3079e`，journal SHA `340c44f080cd8edb96df0b012e66fa67b634ce5a2f49367292ae7838bc9cdfc9`，journal成功状态与嵌入manifest精确相等。8目标/743保护已投影，六个source目标均与该Git原字节匹配。range当前approved SHA `5a66d9e4f6e39bdcda4373f2adb02b54140def908c5fc7ed684d7e70217853c8`、Nginx `75a9b57a7073771b105573ab59e4c0a227f8567a75c8accbde2991d171934b3d`，与Git基础range `8cb8df23…`不同，不能拿原native包覆盖。
+已一次只读核实`nav-20261102T150526Z`成功收据：source `943c9f9317af20a7281ac773d0a4573f729a8dd5`，manifest `68e907842a53f744e77a6eb30b7c4b4d207ce922ae6a827542835accd8e3079e`、journal `340c44f080cd8edb96df0b012e66fa67b634ce5a2f49367292ae7838bc9cdfc9`。其8目标/743保护与89e5成功34/45 proof合并，仅接受新8个批准目标覆盖旧值，实际并集779路径；本包只写Store/native/service三宿主源，其余776项只校验保护，NEW0。六个live源码与固定Git匹配，生成的range/Nginx只用成功收据SHA作CAS保护，不写入、不复制、不为其追查额外stage。
 
-原冻结journal成功schema本身不保存stage；本次明确投影的`stage/stagePath/stage_dir`字段均未提供指针。依本轮边界停止现场追踪，没有广扫stage/读取备份内容或反射活动磁盘。尚需数据发布执行者提供可信stage/生成器与精确前序range/Nginx patch链；这是具体生成链缺口，不再称manifest/journal未找到。
+`--native-archive --followup`独立互斥，沿原writer/锁/准入/provider/UNKNOWN/quiescent/fresh/CAS/owner/mode/真实容器及原DEEP/readiness，仅重载range，worker/Nginx/timer保持。唯一UNKNOWN例外以候选Store的同一精确CAS函数作ro检查，绑定cid/turn/request/owner SHA/session/lease/input指纹/stopped1/run-null/schemas-null；其它阻断行或任何漂移仍拒绝。代码导入前核候选SHA，不读取token/配置/回答。原冻结writer不改。
 
-本地补`archive_rollback_guard`：新nativeArchive维护模式恢复三个archive-blind宿主源前，stdlib ro/query_only检查原账本；缺库或已有任意tombstone（含异常审计）即拒绝旧字节回退，未归档时保留原回退。冻结writer未改。该guard置于原rollback_journal调用之前；当前nativeArchive仍明确拒绝`native_archive_generated_source_chain_required`，不能借用89e5/nativeAdmission模式绕过新数据源证明。三delta新模式、精确UNKNOWN例外和维护执行器尚未启用，非可部署完整包；不得用本阶段helper测试冒完整apply/readiness/归档验收。生产归档0/删除0，原UNKNOWN、费用未知、原数据/服务和live接口未改。
+安装/读回成功后，同一stage原publisher的`archive-synthetic --release-id … --approved-manifest-sha …`在原全部锁和admission围栏内复核成功journal、三源afterSHA和精确对象CAS，再调用既有最小归档函数；没有HTTP/model工具或任意对象selector。原turn/幂等/文件仍保留，普通聊天/待执行残留退出，回执只记归档1/删除0/未知不变。归档前安装或readiness失败可原回退；审计成功后回退旧盲代码被`archive_rollback_guard`拒绝，应作兼容前修，不能复活残留。
 
-
-用户随后要求按Ponytail收紧：不再把不写入range/Nginx的stage重现作为新增发布前置。已核成功manifest/journal的精确SHA和8/743集合可供三host源码增量的CAS-only保护使用，不复制或重写生成文件；前段stage缺口仅是本次读取到的事实。只保留本对象必要防重发标记，不建费用查询或通用归档系统。当前代码明确拒绝未装配的三源模式`native_archive_three_source_mode_not_prepared`，是避免误套旧单目标包，不是新增永久stage门禁。生产清理仍0/0，待三源装配完成统一独审CI后实施。
+原tempFS原validate/inspect/apply/rollback正反用例含三delta、其它776inode/mtime保持、range/readiness失败恢复、锁内维护幂等、其它UNKNOWN/本对象生命周期/审计/候选源码漂移拒绝及归档后拒盲回退。OS/Docker/systemd边界是明确夹具，非真实生产验收。本轮仅候选，生产安装0/归档0/删除0，不调用模型，不核查费用；不扩成通用清理或账单系统。阶段1后续真实CSV/XLSX仍须在统一独审CI/最终merge后实际验证。

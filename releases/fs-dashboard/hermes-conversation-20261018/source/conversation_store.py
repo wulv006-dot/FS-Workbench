@@ -111,13 +111,13 @@ class ConversationStore:
     def archived_synthetic_receipt(self, owner):
         p=SYNTHETIC_ARCHIVE
         with self.db() as db:
-            row=db.execute('SELECT a.receipt,a.receipt_sha256 FROM synthetic_turn_archives a JOIN conversations c ON c.id=a.conversation_id WHERE a.turn_id=? AND c.owner=?', (p['turn_id'],owner)).fetchone()
+            row=db.execute('SELECT a.conversation_id,a.receipt,a.receipt_sha256 FROM synthetic_turn_archives a JOIN conversations c ON c.id=a.conversation_id WHERE a.turn_id=? AND c.owner=?', (p['turn_id'],owner)).fetchone()
             if row is None:return None
-            if hashlib.sha256(row['receipt'].encode()).hexdigest()!=row['receipt_sha256']:
+            if row['conversation_id']!=p['cid'] or hashlib.sha256(row['receipt'].encode()).hexdigest()!=row['receipt_sha256']:
                 raise ValueError('archive_audit_drift')
             return json.loads(row['receipt'])
 
-    def archive_synthetic_unknown(self, owner):
+    def archive_synthetic_unknown(self, owner, *, _check_only=False):
         """Host maintenance only: preserve UNKNOWN and IDs; never cancel or rerun.
 
         Must run only after all archive-aware consumers are installed. No HTTP or
@@ -129,7 +129,7 @@ class ConversationStore:
         if not isinstance(owner,str) or digest(owner)!=p['owner_sha256']:
             raise PermissionError('archive_owner_mismatch')
         with self.db() as db:
-            db.execute('BEGIN IMMEDIATE')
+            if not _check_only:db.execute('BEGIN IMMEDIATE')
             row=db.execute('SELECT c.owner,c.session_id,t.*,n.binding,n.body,n.idempotency_key,n.fingerprint,n.schemas,n.stopped FROM conversations c JOIN turns t ON t.conversation_id=c.id JOIN native_conversation_runs n ON n.turn_id=t.id WHERE c.id=? AND t.id=? AND t.request_id=?', (p['cid'],p['turn_id'],p['request_id'])).fetchone()
             if (row is None or row['owner']!=owner or row['session_id']!=p['session_id'] or
                     row['state']!='dispatch_unknown' or row['run_id'] is not None or row['task_id']!=p['turn_id'] or
@@ -145,13 +145,15 @@ class ConversationStore:
                     row['idempotency_key']!='hn-'+digest(canonical([owner,p['cid'],p['request_id']])) or
                     row['fingerprint']!=p['fingerprint'] or digest(canonical({'body':body,'gateway_session_key':''}))!=p['fingerprint']):
                 raise ValueError('archive_binding_CAS_mismatch')
-            old=self.archived_synthetic_receipt(owner)
+            exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='synthetic_turn_archives'").fetchone()
+            old=self.archived_synthetic_receipt(owner) if exists else None
             if old is not None:
-                if (old.get('binding_sha256')!=digest(row['binding']) or old.get('body_sha256')!=digest(row['body']) or
+                if (any(old.get(k)!=v for k,v in dict(turn_id=p['turn_id'],conversation_id=p['cid'],request_id=p['request_id'],session_id=p['session_id'],lease=p['lease'],owner_sha256=p['owner_sha256'],fingerprint=p['fingerprint'],stopped=1,run_id=None,archived=1,deleted=0,do_not_replay=True,prior_state='dispatch_unknown',version='synthetic_archive_v1').items()) or old.get('binding_sha256')!=digest(row['binding']) or old.get('body_sha256')!=digest(row['body']) or
                         old.get('key_sha256')!=digest(row['idempotency_key']) or old.get('input_sha256')!=row['input_sha256'] or
                         old.get('outcome')!='unknown' or old.get('cost')!='unknown'):
                     raise ValueError('archive_audit_CAS_mismatch')
-                return old
+                if not _check_only:return old
+            if _check_only:return dict(p,state='dispatch_unknown',run_id=None,stopped=1,schemas=None,turn_input_sha256=row['input_sha256'])
             receipt=dict(version='synthetic_archive_v1',turn_id=p['turn_id'],conversation_id=p['cid'],
                 request_id=p['request_id'],session_id=p['session_id'],lease=p['lease'],owner_sha256=p['owner_sha256'],
                 input_sha256=row['input_sha256'],fingerprint=row['fingerprint'],
