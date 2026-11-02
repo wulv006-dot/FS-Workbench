@@ -15,8 +15,8 @@ CODE = {'.py', '.js', '.cjs', '.mjs', '.ts', '.tsx', '.jsx', '.sh', '.ps1', '.sq
 OMIT = {'node_modules', '__pycache__', '.git', 'history', 'legacy', 'test_support', 'fixtures', 'evidence', 'captures', 'screenshots'}
 
 
-def git(*args):
-    return subprocess.check_output(['git','-C',str(ROOT),*args]).decode('utf-8')
+def git(*args,root=ROOT):
+    return subprocess.check_output(['git','-c','safe.directory='+str(root),'-C',str(root),*args]).decode('utf-8')
 
 
 def validate_scope(config):
@@ -60,7 +60,7 @@ def safe_path(root, relative):
 
 
 def inventory(root, config):
-    tracked = set(subprocess.check_output(['git','-C',str(root),'ls-files','-z']).decode('utf-8').split('\0'))
+    tracked = set(git('ls-files','-z',root=root).split('\0'))
     selected, modules = {}, []
     for name, row in config['modules'].items():
         found, missing = set(), []
