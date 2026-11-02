@@ -68,16 +68,21 @@ def spending_hold(daily, tasks, owner):
     return None
 
 
-def gateway(daily, tasks, book, deadline=None, provider_lane="general", *, material_execution=False):
+def gateway(daily, tasks, book, deadline=None, provider_lane="general", *, material_execution=False,
+            native_chat_scope=None, active_native_tasks=None):
     from fc_daily import provider_slot, model_daily_limit
     from direct_provider import MODEL, POLICY_ID, request_model, prepare_request
-    from proxy_gateway import schemas, task_schemas
+    from proxy_gateway import schemas, task_schemas, native_scope
+    native = native_chat_scope is not None
+    if native and (not native_scope(native_chat_scope) or book is not native_chat_scope or
+                   not callable(active_native_tasks) or provider_lane != 'general' or material_execution):
+        raise ValueError('native_gateway_identity')
     if material_execution is not bool(getattr(book, 'material_execution', False)):
         raise ValueError('material_gateway_identity')
     if material_execution and provider_lane != 'general':
         raise PermissionError('material_pricing_lane_denied')
     def effective_schemas():
-        return task_schemas(book) if material_execution else schemas()
+        return task_schemas(book) if material_execution or native else schemas()
     policy = {'id': POLICY_ID, 'model': MODEL,
               'price_version': 'deepseek-direct-no-cny-invoice-or-fx-v1',
               'input_microcny': None, 'output_microcny': None}
@@ -95,13 +100,20 @@ def gateway(daily, tasks, book, deadline=None, provider_lane="general", *, mater
     slot_root=daily.root if provider_lane=='general' else daily.root/'pricing-review'
     slot_root.mkdir(mode=0o700,exist_ok=True)
     budget=UnifiedBudget(daily.db, policy, lambda: datetime.now(timezone.utc),allow_unknown_costs=True)
-    budget.active_tasks=lambda:active_model_tasks(tasks)
-    return ModelGateway(ScopedTools(tasks, book, lambda: datetime.now(timezone.utc),deadline=deadline),
+    budget.active_tasks=active_native_tasks if native else lambda:active_model_tasks(tasks)
+    scope = native_chat_scope if native else ScopedTools(tasks, book, lambda: datetime.now(timezone.utc),deadline=deadline)
+    return ModelGateway(scope,
                         budget, lambda: provider_slot(slot_root), provider,
                         # Conservative byte+framing reservation bound; no cumulative quota.
                         # Actual usage remains authoritative and missing usage stays unknown.
                         conservative_input_bound,
-                          model_daily_limit, preflight=lambda req:prepare_request(req,effective_schemas()),transport_retries=0 if material_execution else 2)
+                          model_daily_limit, preflight=lambda req:prepare_request(req,effective_schemas()),transport_retries=0 if material_execution or native else 2)
+
+
+def native_gateway(daily, scope, *, active_tasks, deadline=None):
+    """Use the existing provider, limits and usage ledger without an FC TaskStore."""
+    return gateway(daily, None, scope, deadline=deadline, native_chat_scope=scope,
+                   active_native_tasks=active_tasks)
 
 
 def approved_background(root):
