@@ -376,24 +376,54 @@ class NativeDispatchTests(unittest.TestCase):
             pilot_path=SOURCE.parents[1]/'hermes-fc-pilot-20261013/pilot.py'
             spec=importlib.util.spec_from_file_location('native_reasoning_pilot',pilot_path)
             real_pilot=importlib.util.module_from_spec(spec);spec.loader.exec_module(real_pilot)
-            with patch.object(sys,'path',[str(SOURCE.parents[2]/'fc-coins/fc-review-channel-20261026/source'),str(SOURCE.parents[1]/'hermes-v2-core-20261020/source'),str(pilot_path.parent),*sys.path]),patch.dict(sys.modules,{'pilot':real_pilot}):
+            review=SOURCE.parents[2]/'fc-coins/fc-review-channel-20261026/source'
+            core=SOURCE.parents[1]/'hermes-v2-core-20261020/source'
+            daily_source=SOURCE.parents[1]/'hermes-admin-recovery-20261020/source/fc_daily.py'
+            daily_model=SOURCE.parents[1]/'fc-daily-20261013/source'
+            with patch.object(sys,'path',[str(review),str(core),str(daily_model),str(pilot_path.parent),*sys.path]),patch.dict(sys.modules,{'pilot':real_pilot}):
                 from transport import Grants, Proxy
-                grants=Grants();token=grants.mint('alice',binding['turn_id'],binding['lease'])
-                gateway=service.hermes.gateways[turn['turn_id']];forwarded=[]
-                gateway.budget=types.SimpleNamespace(policy={'model':'deepseek-flash'},db=service.store.db)
-                def provider_stub(*args):
-                    forwarded.append(args[-1])
-                    return dict(provider_request_id='synthetic',model='deepseek-flash',usage=dict(prompt_tokens=1,completion_tokens=1,total_tokens=2),
-                                message={'role':'assistant','content':'synthetic'},finish_reason='stop')
-                gateway.call=provider_stub
-                proxy=Proxy(grants,lambda grant:gateway)
-                body=dict(messages=[{'role':'user','content':'synthetic'}],model='deepseek-flash',max_tokens=32,
-                          tools=schemas,reasoning_effort='medium')
-                self.assertEqual(proxy.dispatch('POST','/v1/chat/completions',token,body)['model'],'deepseek-flash')
-                self.assertEqual(forwarded[0]['reasoning_effort'],'medium')
-                with self.assertRaisesRegex(ValueError,'reasoning_policy'):
-                    proxy.dispatch('POST','/v1/chat/completions',token,dict(body,reasoning_effort='high'))
-                self.assertEqual(len(forwarded),1)
+                import direct_provider
+                import os
+                from proxy_gateway import ModelGateway, UnifiedBudget
+                spec=importlib.util.spec_from_file_location('native_reasoning_daily',daily_source)
+                daily_module=importlib.util.module_from_spec(spec);spec.loader.exec_module(daily_module)
+                spec=importlib.util.spec_from_file_location('native_reasoning_factory',review/'fs_inprocess.py')
+                factory=importlib.util.module_from_spec(spec);spec.loader.exec_module(factory)
+                daily=daily_module.DailyReports(None,Path(root)/'daily')
+                forwarded=[]
+                def provider_http(path,payload,**kwargs):
+                    self.assertEqual(path,'/chat/completions')
+                    wire=json.loads(payload);forwarded.append(wire)
+                    self.assertEqual(wire['reasoning_effort'],'medium')
+                    self.assertEqual(wire['thinking'],{'type':'enabled'})
+                    self.assertEqual(wire['tools'],schemas)
+                    return dict(id='synthetic',model='deepseek-flash',reasoning_effort='medium',
+                        usage=dict(prompt_tokens=1,completion_tokens=1,total_tokens=2),
+                        choices=[dict(message={'role':'assistant','content':'synthetic'},finish_reason='stop')])
+                # Only the final vendor HTTP boundary is replaced; normalization,
+                # preflight, provider result validation and accounting remain real.
+                with patch.dict(sys.modules,{'fc_daily':daily_module}),patch.dict(os.environ,{'FS_MODEL_DAILY_LIMIT':'10'}),patch.object(direct_provider,'_open',side_effect=provider_http):
+                    gateway=factory.native_gateway(daily,scope,active_tasks=service.native.native_only_active_tasks)
+                    self.assertIs(type(gateway),ModelGateway);self.assertIs(type(gateway.budget),UnifiedBudget)
+                    self.assertIs(gateway.call.__func__,ModelGateway.call)
+                    self.assertIsNotNone(gateway.preflight)
+                    grants=Grants();token=grants.mint('alice',binding['turn_id'],binding['lease'])
+                    proxy=Proxy(grants,lambda grant:gateway)
+                    body=dict(messages=[{'role':'user','content':'synthetic'}],model='deepseek-flash',max_tokens=32,
+                              tools=schemas,reasoning_effort='medium')
+                    self.assertEqual(proxy.dispatch('POST','/v1/chat/completions',token,body)['model'],'deepseek-flash')
+                    with self.assertRaisesRegex(ValueError,'reasoning_policy'):
+                        proxy.dispatch('POST','/v1/chat/completions',token,dict(body,reasoning_effort='high'))
+                    self.assertEqual(len(forwarded),1)
+                    with daily.db() as db:
+                        rows=db.execute('SELECT state,content FROM model_calls').fetchall()
+                        self.assertEqual([r['state'] for r in rows],['succeeded'])
+                        receipt=json.loads(rows[0]['content'])
+                        self.assertEqual(receipt['reasoning_effort'],'medium')
+                        self.assertEqual(receipt['model_validation']['requested_effort'],'medium')
+                        self.assertIs(receipt['enable_thinking'],True)
+                        self.assertEqual(db.execute('SELECT COUNT(*) FROM hermes_reservations').fetchone()[0],1)
+                        self.assertEqual(db.execute('SELECT COUNT(*) FROM hermes_turns').fetchone()[0],1)
             changed=json.loads(json.dumps(value));changed['model_schemas'][0]['function']['name']='anything_else'
             with self.assertRaises(PermissionError):scope.call('alice',binding['turn_id'],binding['lease'],'fs.native.register_schemas',changed)
             service.native.fence('alice',cid,turn['turn_id'])
