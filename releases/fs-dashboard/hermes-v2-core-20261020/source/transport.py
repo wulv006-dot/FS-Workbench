@@ -21,6 +21,17 @@ SAFE_MODEL_ERRORS = frozenset({'pilot_usage_hold', 'context_window_exceeded','pr
                               'provider_payload_too_large', 'context_rejected',
                               'model_busy', 'provider_outcome_unknown', 'unverified_provider_result', 'stream_not_supported'})
 SAFE_CALCULATION_ERRORS=frozenset({'calculation_evidence','calculation_bindings','calculation_assumption','calculation_operand_mismatch','evidence_path','decimal_required','calculation_fields','calculation_operation'})
+_MATERIAL_GUARD_MESSAGES = {
+    'request_fields': 'fs_material_transport/material_guard_v1/request_fields',
+    'provider_override': 'fs_material_transport/material_guard_v1/provider_override',
+    'stream_options': 'fs_material_transport/material_guard_v1/stream_options',
+    'reasoning_policy': 'fs_material_transport/material_guard_v1/reasoning_policy',
+    'tool_choice': 'fs_material_transport/material_guard_v1/tool_choice',
+    'tool_allowlist': 'fs_material_transport/material_guard_v1/tool_allowlist',
+    'reasoning_carrier_mismatch': 'fs_material_transport/material_guard_v1/reasoning_carrier_mismatch',
+    'reasoning_content_policy': 'fs_material_transport/material_guard_v1/reasoning_content_policy',
+    'reasoning_content_size': 'fs_material_transport/material_guard_v1/reasoning_content_size',
+}
 
 
 class _MaterialGuardError(ValueError):
@@ -306,9 +317,13 @@ def start_loopback(proxy, port=8940):
                 code = str(error) if isinstance(error, ValueError) and str(error) in SAFE_MODEL_ERRORS else None
                 message = 'FC model request blocked: '+code if code else 'invalid or unreconciled request'
                 status, result = 400, {'error': {'message': message, 'type': 'invalid_request_error'}}
-                if type(error) is _MaterialGuardError:
-                    result['error'].update(source='fs_material_transport',
-                        diagnostic_version='material_guard_v1', code=str(error))
+                if (type(error) is _MaterialGuardError and len(error.args)==1
+                        and type(error.args[0]) is str and error.args[0] in _MATERIAL_GUARD_MESSAGES):
+                    # Hermes summarizes message only. Select a finite literal
+                    # response, never copy an exception's dynamic text.
+                    guard_code=error.args[0]
+                    result['error'].update(message=_MATERIAL_GUARD_MESSAGES[guard_code],
+                        source='fs_material_transport', diagnostic_version='material_guard_v1', code=guard_code)
                 if (self.path=='/fc/tools/call' and isinstance(body,dict) and body.get('name') in ('fc.calculate','mcp__fcro__fc_calculate')
                         and isinstance(error,ValueError) and str(error) in SAFE_CALCULATION_ERRORS):
                     result={'error':{'message':'invalid calculation arguments','type':'invalid_request_error','code':str(error)}}
