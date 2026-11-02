@@ -98,7 +98,31 @@ def collect_pending_and_index(sources, coverage):
                         'content':redact(raw.decode('utf-8'))})
 
 
-def collect(end):
+def collect_native_pending(snapshot, sources, coverage, owner=OWNER):
+    """Review-queue observation only; this report never approves or applies a candidate."""
+    key=hashlib.sha256(owner.encode('utf-8')).hexdigest()
+    if (type(snapshot) is not dict or snapshot.get('owner')!=owner or
+            snapshot.get('profile_root')!='/var/lib/fs-hermes-fc/native/profiles/'+key):
+        raise ValueError('native_pending_scope')
+    rows=[]
+    for group,subsystem,kind in (('native','memory','pending_memory'),('skills','skills','pending_skill')):
+        for item in snapshot.get(group,[]):
+            record=item.get('record');source=item.get('native_source')
+            if type(record) is not dict or type(source) is not dict:
+                raise ValueError('native_pending_source')
+            sha=hashlib.sha256(json.dumps(record,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+            if (source.get('owner')!=owner or source.get('profile_key')!=key or source.get('subsystem')!=subsystem or
+                    source.get('pending_id')!=record.get('id') or source.get('record_sha256')!=sha or item.get('sha256')!=sha):
+                raise ValueError('native_pending_source')
+            rows.append(dict(source_id='native-profile:'+key+':'+item['id']+':'+sha,kind=kind,state='pending',
+                             content=redact(json.dumps(dict(record=record,source=source),ensure_ascii=False))))
+    sources.extend(rows)
+    coverage['native_profile_pending']=len(rows)
+    coverage['native_unmapped_pending']=len(snapshot.get('unmapped',[]))
+    coverage['native_pending_basis']='review_queue_snapshot_not_approval'
+
+
+def collect(end, native_pending=None):
     start = end - timedelta(days=1)
     sources, coverage = [], {'window_start': start.isoformat(), 'window_end_exclusive': end.isoformat(), 'messages': {}, 'gaps': []}
     inventory = []
@@ -177,6 +201,8 @@ def collect(end):
             sources.append({'source_id': 'experience:' + r['id'], 'kind': 'experience_version', 'state': r['state'],
                             'time': r['created_at'], 'expires_at': r['expires_at'], 'content_hash': r['content_hash'], 'content': redact(r['content'])})
     collect_pending_and_index(sources, coverage)
+    if native_pending is not None:
+        collect_native_pending(native_pending,sources,coverage)
     receipts_path = PROFILE/'memory-review/approval-receipts.json'
     decisions = []
     if receipts_path.is_file():
@@ -326,6 +352,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--end')
     parser.add_argument('--collect-only', action='store_true')
+    parser.add_argument('--native-pending-file',help='Root-selected review_queue list --native-owner snapshot; never a model-selected path')
     args = parser.parse_args()
     now = datetime.now(TZ)
     parsed = datetime.fromisoformat(args.end) if args.end else None
@@ -346,7 +373,12 @@ def main():
                 print((directory/'report.md').read_text())
                 return
             raise RuntimeError('prior_request_exists_inspect_receipt_no_blind_retry')
-        bundle = collect(end)
+        native_pending=None
+        if args.native_pending_file:
+            path=Path(args.native_pending_file)
+            if path.is_symlink() or not path.is_file():raise ValueError('native_pending_snapshot_file')
+            native_pending=json.loads(path.read_text(encoding='utf-8'))
+        bundle = collect(end,native_pending=native_pending)
         atomic(directory/'bundle.json', bundle)
         if args.collect_only:
             print(json.dumps({'directory':str(directory), 'coverage':bundle['coverage']}, ensure_ascii=True))
