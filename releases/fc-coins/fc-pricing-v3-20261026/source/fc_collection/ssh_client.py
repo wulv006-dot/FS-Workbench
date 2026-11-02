@@ -59,13 +59,13 @@ class Session:
             raise ValueError('collection_peer_health_invalid')
         return value
 
-    def run(self, task, identity, coordinator, clock=lambda: datetime.now(timezone.utc)):
-        return self._exchange(dict(method='run', task=task), task, identity, coordinator, clock)
+    def run(self, task, identity, coordinator, clock=lambda: datetime.now(timezone.utc), *, guard=None):
+        return self._exchange(dict(method='run', task=task), task, identity, coordinator, clock, guard)
 
     def resend(self, identity, coordinator, clock=lambda: datetime.now(timezone.utc)):
         return self._exchange(dict(method='resend'), None, identity, coordinator, clock)
 
-    def _exchange(self, request, task, identity, coordinator, clock):
+    def _exchange(self, request, task, identity, coordinator, clock, guard=None):
         self.send(request)
         sequence = 0
         while True:
@@ -75,6 +75,12 @@ class Session:
             sequence += 1
             if sequence > 64 or value.get('id') != sequence:
                 raise ValueError('collection_callback_sequence_invalid')
+            if guard is not None and value.get('method') == 'reserve_request':
+                try:
+                    guard()
+                except (ValueError, OSError):
+                    self.send(dict(kind='reply', id=sequence, error='collection_routing_changed'))
+                    continue
             self.send(handle_callback(coordinator, identity, task, value, clock))
 
     def close(self):

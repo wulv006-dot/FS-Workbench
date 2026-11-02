@@ -42,7 +42,7 @@ Files: source/fc_collection/client.py、coordinator.py、source/fc_pricing_v3/so
 - [x] root私有路由文件缺省off；consume仅匹配既存协调策略/代际，复用SSH健康/manifest/原ACK；只领取本job。
 - [x] 更新角色导出与Linux白名单，不向183导出client或业务源。
 - [x] 相关测试、全FC回归、183 Python3.9隔离测试、知识收尾与独立审查。
-- [ ] PR758最终head正式CI及合并；不把合并当生产发布。
+- [x] PR758最终head正式CI及合并；合并f5b318694c13735184124fee88340f47ad94fa0e，CI41468180539成功，不代表生产发布。
 
 ## Execution ledger
 
