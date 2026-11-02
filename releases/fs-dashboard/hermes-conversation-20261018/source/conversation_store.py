@@ -89,13 +89,13 @@ class ConversationStore:
             raise LookupError("conversation_not_found")
         return row
 
-    def reserve_turn(self, owner, conversation_id, text, request_id, file_ids=None):
+    def reserve_turn(self, owner, conversation_id, text, request_id, file_ids=None, *, native=False):
         if not isinstance(text, str) or not 1 <= len(text.strip()) <= 12000:
             raise ValueError("invalid_input")
         if not isinstance(request_id, str) or not REQUEST_ID.fullmatch(request_id):
             raise ValueError("invalid_request_id")
         from conversation_file_bindings import FileBindings, normalize_file_ids
-        file_ids = normalize_file_ids(file_ids)
+        file_ids = normalize_file_ids(file_ids, maximum=1000 if native else 10)
         payload = json.dumps({'text': text, 'file_ids': file_ids}, sort_keys=True) if file_ids else text
         fingerprint = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         with self.db() as db:
@@ -197,7 +197,7 @@ class ConversationStore:
         with self.db() as db:
             return [dict(row) for row in db.execute("SELECT t.id turn_id,t.run_id,t.state,c.id conversation_id,c.owner FROM turns t JOIN conversations c ON c.id=t.conversation_id WHERE t.state NOT IN ('completed','failed','cancelled','interrupted')")]
 
-    def append_event(self, owner, conversation_id, run_id, upstream_seq, event):
+    def append_event(self, owner, conversation_id, run_id, upstream_seq, event, *, _db=None):
         if (upstream_seq is not None and (type(upstream_seq) is not int or upstream_seq < 0)) or not isinstance(event, dict):
             raise ValueError("invalid_event")
         name = event.get("event")
@@ -216,8 +216,9 @@ class ConversationStore:
             raise ValueError("output_too_large")
         if "delta" in payload and len(payload["delta"]) > 16000:
             raise ValueError("event_too_large")
-        with self.db() as db:
-            db.execute("BEGIN IMMEDIATE")
+        from contextlib import nullcontext
+        with self.db() if _db is None else nullcontext(_db) as db:
+            if _db is None:db.execute("BEGIN IMMEDIATE")
             turn = self.run(owner, conversation_id, run_id)
             db.execute("INSERT OR IGNORE INTO events(turn_id,upstream_seq,type,payload) VALUES(?,?,?,?)",
                        (turn["id"], upstream_seq, name, json.dumps(payload, ensure_ascii=False)))

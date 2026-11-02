@@ -4,11 +4,44 @@ import json
 from pathlib import Path
 import tempfile
 from unittest.mock import patch
-import daily_review
+from datetime import timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+try:
+    ZoneInfo('Asia/Shanghai')
+except ZoneInfoNotFoundError:
+    # This offline suite uses 2026 Shanghai fixtures, which have fixed UTC+08.
+    # Production still requires actual tzdata; Linux CI exercises its real ZoneInfo.
+    with patch('zoneinfo.ZoneInfo',return_value=timezone(timedelta(hours=8))):
+        import daily_review
+    print('Daily review fixture: tzdata absent; explicit 2026 UTC+08 test clock')
+else:
+    import daily_review
 from daily_review import selected_native, normalized_content, validate, render, CATEGORIES
 
 
 class ReviewBoundaryTests(unittest.TestCase):
+    def test_native_pending_projection_requires_original_record_and_owner(self):
+        import hashlib
+        self.assertTrue(callable(getattr(daily_review,'collect_native_pending',None)), 'native daily consumer is missing')
+        owner='wulv';key=hashlib.sha256(owner.encode()).hexdigest()
+        record=dict(id='ab1234cd',subsystem='memory',action='add',summary='preference',origin='tool',created_at=1,
+                    payload=dict(action='add',target='user',content='Prefer Chinese'))
+        sha=hashlib.sha256(json.dumps(record,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+        source=dict(owner=owner,cid='cid',turn_id='turn',session_id='session',run_id='run',lease='lease',profile_key=key,
+                    subsystem='memory',pending_id='ab1234cd',record_sha256=sha)
+        item=dict(id='native:ab1234cd',record=record,sha256=sha,native_source=source)
+        snapshot=dict(owner=owner,profile_root='/var/lib/fs-hermes-fc/native/profiles/'+key,native=[item],skills=[],
+                      unmapped=[dict(id='skill:deadbeef',status='unmapped_pending')])
+        sources=[];coverage={}
+        daily_review.collect_native_pending(snapshot,sources,coverage)
+        self.assertEqual(len(sources),1)
+        self.assertEqual(coverage['native_unmapped_pending'],1)
+        self.assertEqual(sources[0]['kind'],'pending_memory')
+        self.assertIn('Prefer Chinese',sources[0]['content'])
+        self.assertNotIn('approved',coverage)
+        for changed in (dict(snapshot,owner='bob'),dict(snapshot,native=[dict(item,sha256='0'*64)])):
+            with self.assertRaises(ValueError):daily_review.collect_native_pending(changed,[],{})
+
     def test_pending_skills_are_input_data_and_index_only_observation(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);profile=root/'profile';fs=root/'fs'

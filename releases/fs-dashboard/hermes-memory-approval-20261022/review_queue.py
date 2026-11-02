@@ -8,10 +8,14 @@ import re
 import subprocess
 import sys
 import time
+import tempfile
+from contextlib import contextmanager
+from contextvars import ContextVar
 from reviewed_skills import approved_index
 
 ROOT = Path('/var/lib/fs-hermes-memory-approval')
 CONTAINER = 'fs-hermes-desktop'
+_NATIVE_REVIEW = ContextVar('native_codex_review_scope', default=None)
 SKILL_HELPERS = Path(__file__).with_name('reviewed_skills.py').read_text(encoding='utf-8')
 HEADER = """
 import json,hashlib,sys,sqlite3,os,time
@@ -160,10 +164,42 @@ def validate_decision(d):
     return d
 
 
+@contextmanager
+def native_context(scope):
+    token = _NATIVE_REVIEW.set(scope)
+    try:
+        yield
+    finally:
+        _NATIVE_REVIEW.reset(token)
+
+
+def receipt_root():
+    scope = _NATIVE_REVIEW.get()
+    return ROOT/'native'/scope['profile_key'] if scope is not None else ROOT
+
+
 def run(code,data=None):
-    script=HEADER+'\n'+SKILL_HELPERS+'\nDATA=json.loads('+repr(json.dumps(data or {},ensure_ascii=True))+')\n'+code
-    result=subprocess.run(['docker','exec','-i',CONTAINER,'/opt/hermes/.venv/bin/python','-'],input=script,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=90)
-    if result.returncode:raise RuntimeError('container_operation_failed: '+result.stderr[-2000:])
+    scope = _NATIVE_REVIEW.get()
+    container = CONTAINER
+    if scope is not None:
+        import native_review
+        scope = native_review.load_scope(native_review.DB_PATH, scope['owner'], scope.get('session_id'))
+        if code == MANIFEST:
+            return {'sha256': None}  # FC experience manifests do not authorize native profiles.
+        if code in (NATIVE, SNAPSHOT, SKILL, SKILL_SNAPSHOT):
+            source = (data or {}).get('native_source')
+            if (source not in scope['sources'] or source['record_sha256'] != data['expected_sha'] or
+                    data['id'] != ('native:' if source['subsystem'] == 'memory' else 'skill:')+source['pending_id']):
+                raise ValueError('native_review_candidate_changed_or_unmapped')
+        code = native_review.LIST if code == LIST else native_review.MEMORY if code == NATIVE else native_review.SNAPSHOT if code == SNAPSHOT else code
+        script = native_review.worker_script(code, data, scope, HEADER, SKILL_HELPERS)
+        container = 'fs-hermes-fc'
+    else:
+        script=HEADER+'\n'+SKILL_HELPERS+'\nDATA=json.loads('+repr(json.dumps(data or {},ensure_ascii=True))+')\n'+code
+    result=subprocess.run(['docker','exec','-i',container,'/opt/hermes/.venv/bin/python','-'],input=script,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=90)
+    if result.returncode:
+        if scope is not None:raise RuntimeError('native_review_container_operation_failed')
+        raise RuntimeError('container_operation_failed: '+result.stderr[-2000:])
     return json.loads(result.stdout)
 
 
@@ -171,6 +207,27 @@ def save(path,value):
     temp=path.with_name(path.name+'.tmp')
     with temp.open('w',encoding='utf-8') as f:json.dump(value,f,ensure_ascii=False,indent=2);f.flush();os.fsync(f.fileno())
     os.chmod(str(temp),0o600);os.replace(str(temp),str(path))
+
+
+def native_projection(profile, value):
+    """Only the readable observation follows the worker uid; audit remains root-only."""
+    profile=Path(profile)
+    if profile.is_symlink() or not profile.is_dir():raise ValueError('native_review_profile_directory')
+    owner=profile.stat()
+    directory=profile/'memory-review'
+    if directory.is_symlink():raise ValueError('native_review_projection_directory')
+    directory.mkdir(mode=0o700,exist_ok=True)
+    os.chmod(str(directory),0o700)
+    os.chown(str(directory),owner.st_uid,owner.st_gid)
+    fd,temp=tempfile.mkstemp(prefix='.codex-receipts-',suffix='.tmp',dir=str(directory))
+    try:
+        with os.fdopen(fd,'w',encoding='utf-8') as stream:
+            os.fchown(stream.fileno(),owner.st_uid,owner.st_gid)
+            json.dump(value,stream,ensure_ascii=False,indent=2)
+            stream.flush();os.fsync(stream.fileno())
+        os.replace(temp,str(directory/'approval-receipts.json'))
+    finally:
+        if os.path.lexists(temp):os.unlink(temp)
 
 
 def decision_projection(receipt):
@@ -183,7 +240,7 @@ def decision_projection(receipt):
 
 
 def receipts():
-    return [json.loads(x.read_text(encoding='utf-8')) for x in ROOT.glob('*.json')
+    return [json.loads(x.read_text(encoding='utf-8')) for x in receipt_root().glob('*.json')
             if re.fullmatch(r'[a-f0-9]{64}\.json',x.name)]
 
 
@@ -193,10 +250,11 @@ def prior_unknown(rows,candidate_id):
 
 
 def export_reviews():
+    root=receipt_root()
     rows=receipts()
     index=approved_index(rows)
-    save(ROOT/'approved-skills.json',index)
-    published=ROOT/'published-skills';versions=published/'versions'
+    save(root/'approved-skills.json',index)
+    published=root/'published-skills';versions=published/'versions'
     versions.mkdir(mode=0o700,parents=True,exist_ok=True)
     version=versions/(index['sha256']+'.json')
     if version.exists():
@@ -204,18 +262,32 @@ def export_reviews():
     else:save(version,index)
     save(published/'index.json',index)
     projection=[decision_projection(row) for row in rows]
-    save(Path('/var/lib/fs-hermes-fc/profile/memory-review/approval-receipts.json'),projection)
+    scope=_NATIVE_REVIEW.get()
+    if scope is not None:native_projection(scope['profile_root'],projection)
+    else:save(Path('/var/lib/fs-hermes-fc/profile/memory-review/approval-receipts.json'),projection)
 
 
 def main():
     import fcntl
-    p=argparse.ArgumentParser();p.add_argument('action',choices=('list','decide','inspect','publish-index'));p.add_argument('--decision-file');p.add_argument('--request-id');a=p.parse_args()
-    ROOT.mkdir(mode=0o700,parents=True,exist_ok=True)
-    with (ROOT/'.lock').open('a') as lock:
+    p=argparse.ArgumentParser();p.add_argument('action',choices=('list','decide','inspect','publish-index'));p.add_argument('--decision-file');p.add_argument('--request-id')
+    p.add_argument('--native-owner');p.add_argument('--native-session');a=p.parse_args()
+    if a.native_session and not a.native_owner:p.error('--native-session requires --native-owner')
+    if a.native_owner:
+        import native_review
+        scope=native_review.load_scope(native_review.DB_PATH,a.native_owner,a.native_session)
+        with native_context(scope):
+            return process(a,fcntl)
+    return process(a,fcntl)
+
+
+def process(a,fcntl):
+    root=receipt_root()
+    root.mkdir(mode=0o700,parents=True,exist_ok=True)
+    with (root/'.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
         if a.action=='publish-index':
             export_reviews()
-            print(json.dumps(dict(success=True,index=json.loads((ROOT/'approved-skills.json').read_text(encoding='utf-8'))),ensure_ascii=True));return
+            print(json.dumps(dict(success=True,index=json.loads((root/'approved-skills.json').read_text(encoding='utf-8'))),ensure_ascii=True));return
         if a.action=='inspect':
             if a.decision_file and not a.request_id:
                 draft=validate_decision(json.loads(Path(a.decision_file).read_text(encoding='utf-8')))
@@ -223,7 +295,7 @@ def main():
                 print(json.dumps(dict(candidate_id=draft['id'],expected_sha=draft['expected_sha'],
                     snapshot=run(SKILL_SNAPSHOT if draft['id'].startswith('skill:') else SNAPSHOT,draft)),ensure_ascii=True));return
             if not re.fullmatch(r'[a-f0-9]{64}',a.request_id or ''):raise ValueError('request_id')
-            old=json.loads((ROOT/(a.request_id+'.json')).read_text(encoding='utf-8'))
+            old=json.loads((root/(a.request_id+'.json')).read_text(encoding='utf-8'))
             result=dict(request_id=old['request_id'],status=old['status'],result=old.get('result'))
             if old['decision']['id'].startswith('skill:'):
                 result['observation']=run(SKILL_INSPECT,dict(candidate_id=old['decision']['id'],
@@ -236,9 +308,17 @@ def main():
                     item['previous_reviews']=[dict(request_id=r['request_id'],decision=r['decision'],status=r['status'],result=r.get('result')) for r in receipts() if r.get('decision',{}).get('id')==item['id']]
             print(json.dumps(result,ensure_ascii=True));return
         d=validate_decision(json.loads(Path(a.decision_file).read_text(encoding='utf-8')))
-        request_id=hashlib.sha256(canonical(d)).hexdigest();receipt_path=ROOT/(request_id+'.json')
+        if _NATIVE_REVIEW.get() is None and 'native_source' in d:
+            raise ValueError('native_review_scope_required')
+        request_id=hashlib.sha256(canonical(d)).hexdigest();receipt_path=root/(request_id+'.json')
         if receipt_path.exists():
             old=json.loads(receipt_path.read_text(encoding='utf-8'));print(json.dumps(dict(request_id=request_id,status=old['status'],result=old.get('result')),ensure_ascii=True));return
+        if _NATIVE_REVIEW.get() is not None:
+            source=d.get('native_source')
+            scope=_NATIVE_REVIEW.get()
+            if (source not in scope['sources'] or source['record_sha256']!=d['expected_sha'] or
+                    d['id']!=('native:' if source['subsystem']=='memory' else 'skill:')+source['pending_id']):
+                raise ValueError('native_review_candidate_changed_or_unmapped')
         if prior_unknown(receipts(),d['id']):raise RuntimeError('prior_unknown_inspect_original_request_no_replay')
         queue=run(LIST);group=queue['native'] if d['id'].startswith('native:') else queue['skills'] if d['id'].startswith('skill:') else queue['experiences']
         candidate=next((x for x in group if x['id']==d['id']),None)

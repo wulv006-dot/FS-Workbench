@@ -42,10 +42,12 @@ def amount(row):
     usd = Money.parse(raw.replace('$', '').replace(',', '').strip(), 'USD', {'USD': 2}).minor
     parts, currency = row.get('pay_money_format2'), row.get('currency_code')
     if (not isinstance(currency, str) or not re.fullmatch('[A-Z]{3}', currency)
-            or not isinstance(parts, list) or len(parts) != 2 or parts[0] != currency
+            or not isinstance(parts, list) or len(parts) != 2
+            or not isinstance(parts[0], str) or not re.fullmatch('[A-Z]{3}', parts[0])
             or not isinstance(parts[1], str) or not re.fullmatch(r'\d{1,15}(?:\.\d{1,6})?', parts[1])):
         raise ContractError('PAID_CURRENCY_AMOUNT_REQUIRED')
-    return usd, currency, Decimal(parts[1])
+    # Original payment currency and the Admin display currency can differ after conversion.
+    return usd, parts[0], Decimal(parts[1])
 
 
 def summarize(rows, start, end, game):
@@ -109,7 +111,7 @@ def read_revenue(reader, request):
     ids = {native: code for native, code, _, _ in BINDINGS}
     # Include global-site collisions; a same-code record outside the approved IDs is ambiguous.
     natives = reader.pages('discounts', [('site_id', 'IN', '0,266'), ('code', 'IN', ','.join(ids.values()))],
-                           validate=lambda r: str(r.get('id')) in ids and str(r.get('site_id')) == '266')
+                           validate=lambda r: str(r.get('id')) in ids and str(r.get('site_id')) in ('0', '266'))
     if ({str(r['id']) for r in natives} != set(ids)
             or any(str(r.get('code', '')).strip().casefold() != ids[str(r['id'])].casefold() for r in natives)):
         raise ContractError('ACTIVITY_CODE_IDENTITY_MISMATCH')

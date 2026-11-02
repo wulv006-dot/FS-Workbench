@@ -53,22 +53,20 @@
     return [...(snapshot?.turns || [])].reverse().find(turn => activeStates.has(turn.state) && turn.run_id);
   }
   function syncControls() {
-    const revising = $('material-mode')?.value === 'revise';
-    const target = selectedFiles.size === 1 ? fileItems.find(file => selectedFiles.has(file.file_id)) : null;
-    if ($('material-target')) $('material-target').textContent = filesReady && target && bindingAvailable(target)
-      ? '修改目标：' + (target.filename || '所选文件') : '请仅勾选一份要修改的文件。';
-    if ($('run-material')) $('run-material').disabled = !current || !ready || accessDenied || !filesReady || !selectedFiles.size || (revising && selectedFiles.size !== 1) || materialJobs(current).some(job => !['completed','cancelled','failed','interrupted'].includes(job.status));
     const running = selectedRun();
     const unknown = (snapshot?.turns || []).some(turn => turn.state === 'dispatch_unknown');
     $('new-conversation').disabled = accessDenied || creating || sending || !!pending;
     $('message-input').disabled = accessDenied;
     const active = (snapshot?.turns || []).some(turn => activeStates.has(turn.state));
-    const invalidFiles = selectedFiles.size > 10 || (selectedFiles.size && (!filesReady || [...selectedFiles].some(id => !fileItems.some(f => f.file_id === id && bindingAvailable(f)))));
-    $('send-message').disabled = accessDenied || !ready || sending || creating || (!pending && (unknown || running?.state === 'stopping' || (active && !running) || (!running && invalidFiles)));
+    const unresolved = uploads.some(u => ['unknown', 'uploading', 'failed'].includes(u.status));
+    const invalidFiles = unresolved || selectedFiles.size > 10 || (selectedFiles.size && (!filesReady || [...selectedFiles].some(id => !fileItems.some(f => f.file_id === id && bindingAvailable(f)))));
+    $('send-message').disabled = accessDenied || !ready || sending || creating || (!pending && (unknown || running?.state === 'stopping' || (active && !running) || (invalidFiles || (running && selectedFiles.size > 0))));
     $('send-message').textContent = pending ? '核对上次发送' : running ? '补充当前任务' : '发送';
     $('stop-run').hidden = accessDenied || !running;
     $('stop-run').disabled = stopping || running?.state === 'stopping';
     if ($('file-input')) $('file-input').disabled = accessDenied || !ready || active || sending || !!pending;
+    if ($('attach-file')) $('attach-file').disabled = $('file-input').disabled;
+    $('file-help').textContent = running ? '可继续发送文字补充；本轮回复结束后可添加新附件。' : '添加文件或拖到这里，和消息一起发送。支持情况由服务端确认。';
     renderFileChoices();
   }
   function pendingKey(id) { return 'hermes_pending_' + id; }
@@ -89,11 +87,11 @@
     if (!$('file-choices')) return;
     const focusId = document.activeElement?.id;
     $('file-choices').replaceChildren(); $('upload-list').replaceChildren();
-    $('attachment-summary').textContent = '本轮附件 · ' + selectedFiles.size + ' / 10';
     if (!ready || accessDenied) return;
     for (const upload of uploads) {
-      if (upload.status === 'available') continue; // The selectable file row already shows success.
-      const row = el('li', upload.name + ' · ' + (fileStates[upload.status] || '待核对'), $('upload-list'));
+      if (upload.status === 'available') continue;
+      const row = el('li', undefined, $('upload-list'), 'attachment-chip');
+      el('span', upload.name + ' · ' + (fileStates[upload.status] || '待核对'), row);
       if (['unknown', 'failed'].includes(upload.status)) {
         const check = el('button', '核对原上传', row, 'fs-btn'); check.type = 'button';
         check.disabled = uploadFlights.has(current + ':' + upload.request_id);
@@ -102,36 +100,29 @@
         retry.disabled = lockedFiles() || uploadFlights.has(current + ':' + upload.request_id);
         retry.onclick = () => {
           const bytes = uploadBytes.get(current + ':' + upload.request_id);
-          if (bytes) uploadFile(current, epoch, upload, bytes);
-          else { announce('请重新选择内容相同的原文件，再沿原上传核对。'); $('file-input').click(); }
+          if (bytes) return uploadFile(current, epoch, upload, bytes);
+          announce('请重新选择内容相同的原文件，将沿原上传核对。'); $('file-input').click();
         };
+        if (upload.status === 'failed') {
+          const remove = el('button', '移除附件', row, 'fs-btn'); remove.type = 'button';
+          remove.disabled = lockedFiles();
+          remove.onclick = () => { uploads = uploads.filter(u => u.request_id !== upload.request_id); saveFiles(current); syncControls(); };
+        }
       }
     }
-    const choices = [...fileItems, ...[...selectedFiles].filter(id => !fileItems.some(f => f.file_id === id)).map(file_id => ({file_id, status: 'unavailable', filename: '已选文件待核对'}))];
-    for (const file of choices) {
-      const row = el('li', undefined, $('file-choices'));
-      const label = el('label', undefined, row);
-      const checkbox = el('input', undefined, label); checkbox.type = 'checkbox';
-      checkbox.id = 'file-choice-' + file.file_id;
-      checkbox.checked = selectedFiles.has(file.file_id);
-      checkbox.disabled = lockedFiles() || (!checkbox.checked && (!bindingAvailable(file) || selectedFiles.size >= 10));
-      el('span', (file.filename || '文件') + ' · v' + (file.version || '?') + ' · ' + (fileStates[fileStatus(file)] || '暂不可用'), label);
-      checkbox.onchange = () => {
-        if (checkbox.checked) selectedFiles.add(file.file_id); else selectedFiles.delete(file.file_id);
-        saveFiles(current); syncControls();
+    for (const id of selectedFiles) {
+      const file = fileItems.find(f => f.file_id === id) || {filename:'附件',status:'unavailable'};
+      const row = el('li', undefined, $('file-choices'), 'attachment-chip');
+      el('span', file.filename + ' · ' + (bindingAvailable(file) ? '已上传' : fileStates[fileStatus(file)] || '待核对'), row);
+      const remove = el('button', '移除附件', row, 'fs-btn'); remove.type = 'button';
+      remove.id = 'remove-file-' + id; remove.setAttribute('aria-label', '移除附件：' + file.filename);
+      remove.disabled = lockedFiles();
+      remove.onclick = () => {
+        selectedFiles.delete(id); uploads = uploads.filter(u => u.file_id !== id);
+        saveFiles(current); syncControls(); $('message-input').focus();
       };
     }
-    if (focusId?.startsWith('file-choice-')) document.getElementById(focusId)?.focus();
-  }
-  function selectForFollowup(file) {
-    if (lockedFiles()) { announce('请等当前任务结束后再选择追问附件。'); return; }
-    if (!filesReady || !fileItems.some(f => f.file_id === file.file_id && bindingAvailable(f))) {
-      announce('文件状态尚未确认，请刷新后重试。'); return;
-    }
-    if (selectedFiles.size >= 10 && !selectedFiles.has(file.file_id)) { announce('本轮最多选择 10 个附件。'); return; }
-    selectedFiles.add(file.file_id); saveFiles(current); syncControls();
-    $('attachments').open = true; $('message-input').focus();
-    announce('已选择“' + file.filename + '”用于下一轮，请填写修改要求后发送。');
+    if (focusId?.startsWith('remove-file-')) document.getElementById(focusId)?.focus();
   }
   function fileCards(parent, files, generated) {
     for (const file of files || []) {
@@ -143,10 +134,7 @@
         const download = el('a', '下载文件', card);
         download.href = api + '/' + encodeURIComponent(current) + '/files/' + file.file_id;
         download.download = file.filename || 'file';
-        if (generated) {
-          const choose = el('button', '用于下一轮追问', card, 'fs-btn'); choose.type = 'button';
-          choose.disabled = lockedFiles(); choose.onclick = () => selectForFollowup(file);
-        }
+
       }
     }
   }
@@ -171,6 +159,7 @@
       const item = await request('/' + id + '/files?request_id=' + encodeURIComponent(record.request_id));
       if (item.sha256 !== record.sha256 || item.size !== record.size || item.filename !== record.name) throw Error('上传内容核对不一致，请保留原文件并检查。');
       updateUpload(id, generation, {...record, file_id: item.file_id, status: item.status});
+      if (id === current && generation === epoch && !accessDenied && item.status === 'available') selectedFiles.add(item.file_id);
       await refreshFiles(id, generation);
     } catch (error) {
       if (id !== current || generation !== epoch) return;
@@ -200,22 +189,20 @@
       }
     } finally { uploadFlights.delete(key); if (id === current && generation === epoch) syncControls(); }
   }
-  async function chooseFiles() {
+  async function chooseFiles(dropped) {
     if (lockedFiles()) return;
-    const chosen = [...$('file-input').files]; $('file-input').value = '';
-    if (chosen.length > 10) { announce('每次最多上传 10 个文件。'); return; }
+    const chosen = [...(dropped || $('file-input').files)]; $('file-input').value = '';
+    if (chosen.length + selectedFiles.size > 10) { announce('每次最多上传 10 个文件。'); return; }
     if (!current) await newConversation();
     const id = current, generation = epoch;
     if (!id || lockedFiles()) return;
     for (const file of chosen) {
       if (id !== current || generation !== epoch) break;
-      if (!/\.(csv|xlsx)$/i.test(file.name) || !file.size || file.size > 10 * 1024 * 1024) {
-        announce('请选择不超过 10 MiB 的 CSV / XLSX 文件。'); continue;
-      }
+      if (!file.size) { announce('文件为空，请检查后重新选择。'); continue; }
       const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))].map(b => b.toString(16).padStart(2, '0')).join('');
       if (id !== current || generation !== epoch) break;
-      const previous = uploads.find(u => ['unknown', 'failed', 'uploading'].includes(u.status) && u.name === file.name && u.size === file.size);
-      if (previous && previous.sha256 !== hash) { announce('所选文件内容与待核对的原上传不同，请选回原文件。'); continue; }
+      const previous = uploads.find(u => ['unknown', 'failed', 'uploading'].includes(u.status) && u.name === file.name);
+      if (previous && (previous.sha256 !== hash || previous.size !== file.size)) { announce('所选文件内容与待核对的原上传不同，请选回原文件。'); continue; }
       const record = previous || {name: file.name, size: file.size, sha256: hash,
         request_id: 'upload_' + crypto.randomUUID().replaceAll('-', ''), status: 'unknown'};
       uploadBytes.set(id + ':' + record.request_id, file);
@@ -272,8 +259,6 @@
     syncControls();
     $('conversation-list').replaceChildren();
     $('messages').replaceChildren();
-    if ($('material-jobs')) $('material-jobs').replaceChildren();
-    materialAnswers.clear();
     fileItems = []; uploads = []; selectedFiles.clear(); uploadBytes.clear(); filesReady = false; renderFileChoices();
     const box = el('div', undefined, $('messages'), 'empty');
     el('p', '当前账号没有持续对话权限。', box);
@@ -285,6 +270,60 @@
     const value = await request();
     if (!accessDenied) renderList(value.items || []);
     return value.items || [];
+  }
+  function safeLink(value) {
+    try { const url = new URL(value, location.href); return ['http:', 'https:'].includes(url.protocol) ? url.href : null; }
+    catch { return null; }
+  }
+  function inline(parent, text) {
+    // Build DOM nodes only. Raw HTML and unrecognized syntax remain readable text.
+    const tokens = /(`[^`]+`|\*\*[^*]+\*\*|!?\[[^\]]*\]\([^\s)]+\))/g;
+    let offset = 0;
+    for (const match of text.matchAll(tokens)) {
+      if (match.index > offset) el('span', text.slice(offset, match.index), parent);
+      const token = match[0];
+      if (token.startsWith('`')) el('code', token.slice(1, -1), parent);
+      else if (token.startsWith('**')) el('strong', token.slice(2, -2), parent);
+      else {
+        const parts = /^(!?)\[([^\]]*)\]\(([^)]+)\)$/.exec(token), href = safeLink(parts[3]);
+        if (href) {
+          // Authenticated server metadata supplies real file/image previews below.
+          // An arbitrary model URL is a normal link, never a download artifact.
+          const link = el('a', parts[2] || parts[3], parent); link.href = href; link.rel = 'noopener noreferrer';
+        } else el('span', token, parent);
+      }
+      offset = match.index + token.length;
+    }
+    if (offset < text.length) el('span', text.slice(offset), parent);
+  }
+  function renderReply(parent, value) {
+    const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    const body = el('div', undefined, parent, 'reply-body');
+    const lines = (text || '').split('\n');
+    const cells = line => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(v => v.trim());
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith('```')) {
+        const language = line.slice(3), code = [];
+        while (++i < lines.length && !lines[i].startsWith('```')) code.push(lines[i]);
+        const pre = el('pre', undefined, body); pre.setAttribute('aria-label', language || '代码');
+        el('code', code.join('\n'), pre); continue;
+      }
+      if (i + 1 < lines.length && line.includes('|') && /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(lines[i+1].trim())) {
+        const frame = el('div', undefined, body, 'table-scroll'); frame.tabIndex = 0; frame.setAttribute('aria-label', '回答表格');
+        const table = el('table', undefined, frame), header = el('tr', undefined, el('thead', undefined, table));
+        for (const cell of cells(line)) inline(el('th', undefined, header), cell);
+        const rows = el('tbody', undefined, table); i++;
+        while (i + 1 < lines.length && lines[i+1].includes('|')) {
+          const row = el('tr', undefined, rows); for (const cell of cells(lines[++i])) inline(el('td', undefined, row), cell);
+        }
+        continue;
+      }
+      const heading = /^(#{1,6})\s+(.+)$/.exec(line), list = /^\s*(?:[-*]|\d+\.)\s+(.+)$/.exec(line);
+      if (heading) inline(el('h' + Math.min(heading[1].length + 2, 6), undefined, body), heading[2]);
+      else if (list) { const row = el('p', undefined, body, 'reply-list'); inline(row, line); }
+      else inline(el('p', undefined, body), line || '\u00a0');
+    }
   }
   function renderMessages() {
     const box = $('messages');
@@ -298,32 +337,21 @@
       fileCards(user, turn.files?.inputs, false);
       const answer = el('article', undefined, box, 'message assistant');
       el('h2', 'Hermes', answer);
-      const hasHtml = turn.artifacts?.some(artifact => artifact.mime?.split(';')[0].toLowerCase() === 'text/html');
-      const hasText = turn.artifacts?.some(artifact => artifact.mime?.split(';')[0].toLowerCase() === 'text/plain');
-      const htmlReply = hasHtml || /<(!doctype\s+html|html(?:\s|>))/i.test((turn.reply || '').slice(0, 1024));
-      if (htmlReply) {
-        const label = hasHtml ? '已生成 HTML，可打开原稿查看。'
-          : ['preparing', 'queued', 'running', 'stopping'].includes(turn.state) ? 'HTML 原稿正在归档，稍后可打开。'
-          : hasText ? '回复已归档为文本，可打开原稿查看。'
-          : '暂无可打开的 HTML 原稿，可展开原始回复查看。';
-        el('p', label, answer);
-        if (turn.reply) {
-          const details = el('details', undefined, answer);
-          el('summary', '展开 Hermes 原始回复', details);
-          details.ontoggle = () => {
-            if (details.open && !details.querySelector('pre')) el('pre', turn.reply, details, 'raw-reply');
-          };
-        }
-      } else el('p', turn.reply || (activeStates.has(turn.state) ? '正在处理…' : turn.state === 'cancelled' ? '已停止；本轮未产生回复。' : turn.state === 'interrupted' ? '已中断；本轮未产生回复。' : ''), answer);
+      renderReply(answer, turn.reply || (activeStates.has(turn.state) ? '正在处理…' : turn.state === 'cancelled' ? '已停止；本轮未产生回复。' : turn.state === 'interrupted' ? '已中断；本轮未产生回复。' : ''));
       if (turn.state === 'cancelled' && turn.reply) el('p', '已停止；上方保留停止前的回复。', answer, 'progress');
-      if (turn.progress && activeStates.has(turn.state)) el('p', progressText(turn.progress), answer, 'progress');
+      if (turn.progress && activeStates.has(turn.state)) {
+        const progress = el('details', undefined, answer, 'progress');
+        el('summary', '处理进度', progress); el('p', progressText(turn.progress), progress);
+      }
       if (turn.state === 'failed' || turn.state === 'interrupted' || turn.state === 'dispatch_unknown') {
         el('p', turn.state === 'dispatch_unknown' ? '提交状态待核对，请勿重复发起新任务。' : turn.state === 'interrupted' ? '任务已中断：' + (turn.error || '可在此会话继续说明需求。') : '任务未完成：' + (turn.error || '可在此会话继续说明需求。'), answer, 'error');
       }
       if (turn.artifacts?.length) {
         const files = el('div', undefined, answer, 'artifact-list');
         for (const artifact of turn.artifacts) {
+          if (!/^[a-f0-9]{32}$/.test(artifact.artifact_id || '')) continue;
           const path = api + '/' + encodeURIComponent(current) + '/artifacts/' + encodeURIComponent(artifact.artifact_id);
+          if (artifact.mime?.startsWith('image/')) { const image = el('img', undefined, files, 'reply-image'); image.src = path; image.alt = artifact.filename || 'Hermes 生成的图片'; image.loading = 'lazy'; }
           const open = el('a', '打开原稿 · ' + artifact.filename, files);
           open.href = path + '?view=1'; open.target = '_blank'; open.rel = 'noopener noreferrer';
           const download = el('a', '下载原文件', files);
@@ -386,7 +414,7 @@
         const accepted = detail.turns?.find(t => t.client_request_id === pending.client_request_id && t.text === pending.text &&
           JSON.stringify([...(t.file_bindings?.inputs || [])].sort()) === JSON.stringify([...(pending.file_ids || [])].sort()));
         if (accepted && accepted.state !== 'dispatch_unknown') {
-          sessionStorage.removeItem(pendingKey(current)); pending = null; selectedFiles.clear();
+          sessionStorage.removeItem(pendingKey(current)); pending = null; uploads = uploads.filter(u => !selectedFiles.has(u.file_id)); selectedFiles.clear();
           $('message-input').value = ''; $('message-input').readOnly = false; saveFiles(current);
         }
       }
@@ -403,7 +431,7 @@
       $('connection-indicator').textContent = '已连接';
     } catch (error) {
       if (generation !== epoch) return;
-      if (error.status === 403) { denyAccess(); return; }
+      if ([401, 403].includes(error.status)) { denyAccess(); return; }
       $('connection-indicator').textContent = '连接失败';
       announce('会话读取失败：' + errorMessage(error));
       clearTimeout(reconnectTimer);
@@ -430,7 +458,7 @@
       await openConversation(value.conversation_id);
       $('message-input').focus();
     } catch (error) {
-      if (error.status === 403) { denyAccess(); return; }
+      if ([401, 403].includes(error.status)) { denyAccess(); return; }
       announce('新会话结果未确认：' + errorMessage(error) + '。请先核对会话列表。');
       loadList().catch(() => {});
     } finally { creating = false; syncControls(); }
@@ -474,7 +502,7 @@
       if (accepted) {
         $('message-input').value = '';
         if (!wasSteer) {
-          selectedFiles.clear(); saveFiles(current);
+          uploads = uploads.filter(u => !selectedFiles.has(u.file_id)); selectedFiles.clear(); saveFiles(current);
           if ($('attachments')) $('attachments').open = false;
         }
       }
@@ -486,7 +514,7 @@
       else announce('提交状态待核对，请勿换请求编号或重复发起新任务。');
     } catch (error) {
       if (origin && (origin !== current || sendEpoch !== epoch)) return;
-      if (error.status === 403) { denyAccess(); return; }
+      if ([401, 403].includes(error.status)) { denyAccess(); return; }
       $('message-input').readOnly = !!pending;
       announce('发送结果需核对：' + errorMessage(error) + '。再次发送会使用同一请求编号。');
       await refreshCurrent();
@@ -518,150 +546,22 @@
       else if (result.state === 'accepted') announce('停止请求已接受，正在等待服务确认。');
     } catch (error) {
       if (id !== current || generation !== epoch) return;
-      if (error.status === 403) { denyAccess(); return; }
+      if ([401, 403].includes(error.status)) { denyAccess(); return; }
       announce('停止结果需核对：' + errorMessage(error));
       await refreshCurrent();
     } finally { stopping = false; syncControls(); }
   }
-  let materialTimer = null;
-  let materialRendered = '';
-  const materialAnswers = new Map();
-  const materialKey = id => 'fs_material_jobs_' + id;
-  function materialJobs(id) {
-    try { const value = JSON.parse(sessionStorage.getItem(materialKey(id)) || '[]'); return Array.isArray(value) ? value : []; }
-    catch (_) { return []; }
-  }
-  function saveMaterialJob(id, job) {
-    const values = materialJobs(id).filter(v => v.body.client_request_id !== job.body.client_request_id);
-    values.push(job); sessionStorage.setItem(materialKey(id), JSON.stringify(values.slice(-20)));
-  }
-  function renderMaterialJobs() {
-    if (!$('material-jobs')) return;
-    const fingerprint = JSON.stringify([current, epoch, ready, accessDenied, [...materialAnswers], current ? materialJobs(current) : []]);
-    if (materialRendered === fingerprint) return;
-    materialRendered = fingerprint;
-    const root = $('material-jobs'); root.replaceChildren();
-    if (!current || !ready || accessDenied) return;
-    for (const job of materialJobs(current)) {
-      const card = el('article', undefined, root, 'material-job');
-      el('strong', job.body.goal, card);
-      const names = {queued: '已预留，等待执行', running: '执行中', stopping: '正在停止', completed: '短任务完成', cancelled: '已取消', failed: '短任务失败', interrupted: '运行已中断', unknown: '结果待核对', unavailable:'暂时无法启动，请稍后再试'};
-      el('p', names[job.status] || '状态待核对', card);
-      const coverage = new Map((job.coverage || []).filter(page => page.analysis_coverage).map(page => [page.file_id,page.analysis_coverage]));
-      for (const [fid, summary] of coverage) {
-        const name = fileItems.find(file => file.file_id === fid)?.filename || '已选文件';
-        for (const sheet of summary.observed_sheets || []) el('p', name + ' · 工作表 ' + (sheet.sheet + 1) + '：已读 ' + sheet.covered_rows + ' / ' + sheet.total_rows + ' 行', card);
-        if (summary.unread_sheet_count) el('p', '另有 ' + summary.unread_sheet_count + ' 个工作表未读', card);
-      }
-      const id = current, generation = epoch;
-      const answerKey = id + ':' + job.body.client_request_id;
-      if (job.run_id && ['completed','failed','cancelled','interrupted'].includes(job.status)) {
-        const show = el('button','查看回答',card,'fs-btn'); show.type='button';
-        show.onclick = async () => {
-          try {
-            const result = await request('/'+id+'/materials/'+job.body.client_request_id+'/result');
-            if (id !== current || generation !== epoch || accessDenied) return;
-            materialAnswers.set(answerKey,result); renderMaterialJobs();
-          } catch (error) { if (id === current && generation === epoch) {
-            if ([401,403].includes(error.status)) denyAccess(); else announce('回答暂不可读，请核对原任务后重试。');
-          } }
-        };
-      }
-      if (materialAnswers.has(answerKey)) {
-        const answer = materialAnswers.get(answerKey);
-        el('p',answer.text || '原任务尚无可读取的回答，请核对原任务。',card,'material-answer');
-        if (answer.truncated) el('p','回答较长，此处显示前 64 KiB。',card,'muted');
-        if (job.status !== 'completed') el('p','任务未完整通过；此处仅保留原回答，覆盖与产物状态以上方记录为准。',card,'muted');
-      }
-      if (!['completed','cancelled','failed','interrupted'].includes(job.status)) {
-        const check = el('button', '核对原任务', card, 'fs-btn'); check.type = 'button';
-        check.onclick = () => pollMaterial(id, generation, job);
-        const stop = el('button', '停止短任务', card, 'fs-btn'); stop.type = 'button';
-        stop.onclick = async () => {
-          try { const result = await request('/' + id + '/materials/' + job.body.client_request_id + '/stop', {}, 'POST');
-            saveMaterialJob(id, {...job, ...result}); if (id === current && generation === epoch) renderMaterialJobs();
-          } catch (_) { if (id === current && generation === epoch) announce('停止结果待核对，请核对原任务。'); }
-        };
-      }
-      if (job.missing) {
-        const retry = el('button', '按原选择与请求重试', card, 'fs-btn'); retry.type = 'button';
-        retry.onclick = () => postMaterial(id, generation, job);
-      }
-      for (const file of job.files || []) {
-        if (!/^[a-f0-9]{32}$/.test(file.file_id || '')) continue;
-        el('p', (file.filename || '派生文件') + ' · ' + (fileStates[fileStatus(file)] || '状态待核对'), card);
-        if (fileStatus(file) !== 'available') continue;
-        const link = el('a', '下载文件', card); link.href = api + '/' + id + '/files/' + file.file_id; link.setAttribute('download','');
-        const select = el('button', '选此版本用于后续任务', card, 'fs-btn'); select.type = 'button';
-        select.onclick = async () => { if (id !== current || generation !== epoch) return;
-          await refreshFiles(id, generation); if (id !== current || generation !== epoch) return;
-          selectedFiles = new Set([file.file_id]); saveFiles(id); renderFileChoices(); $('attachments').open = true; $('message-input').focus(); };
-      }
-    }
-  }
-  async function pollMaterial(id, generation, job) {
-    try {
-      const result = await request('/' + id + '/materials/' + job.body.client_request_id);
-      if (id !== current || generation !== epoch) return;
-      saveMaterialJob(id, {...job, ...result, missing: false}); renderMaterialJobs();
-    } catch (error) {
-      if (id !== current || generation !== epoch) return;
-      saveMaterialJob(id, {...job, status: 'unknown', missing: error.status === 404}); renderMaterialJobs();
-      if ([401,403].includes(error.status)) denyAccess();
-    }
-  }
-  async function postMaterial(id, generation, job) {
-    saveMaterialJob(id, job);
-    try {
-      const result = await request('/' + id + '/materials', job.body, 'POST');
-      saveMaterialJob(id, {...job, ...result, missing: false});
-      if (id === current && generation === epoch) { $('attachments').open = false; renderMaterialJobs(); }
-    } catch (error) {
-      saveMaterialJob(id, {...job, status: [400,401,403,409,422].includes(error.status) ? 'failed' : 'unknown'});
-      if (id === current && generation === epoch) { renderMaterialJobs(); announce('材料任务结果待核对；保留了原选择和请求。'); }
-    }
-  }
-  async function runMaterial() {
-    if (!current || !ready || accessDenied || !filesReady || !selectedFiles.size) { announce('请先确认可用附件。'); return; }
-    if (materialJobs(current).some(job => !['completed','cancelled','failed','interrupted'].includes(job.status))) { announce('请先核对或停止原材料短任务。'); return; }
-    if ([...selectedFiles].some(id => !fileItems.some(f => f.file_id === id && bindingAvailable(f)))) { announce('所选文件不可用，请先核对。'); return; }
-    const goal = $('message-input').value.trim(); if (!goal) { $('message-input').reportValidity(); return; }
-    const ids = [...selectedFiles].sort(); let operation = {mode: 'read'};
-    if ($('material-mode').value === 'revise') {
-      if (ids.length !== 1) { announce('请仅勾选一份要修改的文件。'); return; }
-      const indices = ['material-sheet','material-row','material-column'].map(id => Number($(id).value));
-      if (indices.some(v => !Number.isInteger(v) || v < 1)) { announce('工作表、行和列须从 1 开始。'); return; }
-      let value = $('material-value').value;
-      if ($('material-value-type').value === 'number') { value = Number(value); if (!Number.isFinite(value)) { announce('请输入有效数字。'); return; } }
-      operation = {mode:'revise', file_id:ids[0], edits:[{sheet:indices[0]-1,row:indices[1]-1,column:indices[2]-1,value}],format:$('material-format').value};
-    }
-    const id = current, generation = epoch;
-    const job = {body:{client_request_id:'material_'+crypto.randomUUID().replaceAll('-',''),goal,file_ids:ids,operation},status:'unknown'};
-    if (operation.mode === 'read' && $('material-bounded').checked) {
-      const [sheet, start, limit] = ['material-read-sheet','material-read-offset','material-read-limit'].map(id => Number($(id).value));
-      if (ids.length !== 1 || [sheet,start,limit].some(v => !Number.isInteger(v) || v < 1) || limit > 200) { announce('指定范围需一个文件，工作表和起始行从 1 开始，行数最多 200。'); return; }
-      job.body.read_scope = {file_id:ids[0],sheet:sheet-1,offset:start-1,limit};
-    }
-    $('run-material').disabled = true;
-    try { await postMaterial(id, generation, job); } finally { if (id === current && generation === epoch) syncControls(); }
-  }
-  function watchMaterials() {
-    clearTimeout(materialTimer); renderMaterialJobs();
-    syncControls();
-    if (current && !accessDenied) for (const job of materialJobs(current))
-      if (!['completed','cancelled','failed','interrupted'].includes(job.status)) pollMaterial(current,epoch,job);
-    materialTimer = setTimeout(watchMaterials,2500);
-  }
-  if ($('run-material')) {
-    $('run-material').onclick = runMaterial;
-    $('material-mode').onchange = () => { $('material-edit').hidden = $('material-mode').value !== 'revise'; $('material-read').hidden = $('material-mode').value !== 'read'; syncControls(); };
-    $('material-bounded').onchange = () => { $('material-range').hidden = !$('material-bounded').checked; };
-    watchMaterials();
-  }
   $('new-conversation').onclick = newConversation;
   $('composer').onsubmit = send;
   $('stop-run').onclick = stop;
-  $('message-input').onkeydown = event => { if (event.key === 'Enter' && event.ctrlKey) { event.preventDefault(); $('composer').requestSubmit(); } };
+  $('message-input').onkeydown = event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); $('composer').requestSubmit(); } };
+  $('attach-file').onclick = () => $('file-input').click();
+  $('composer').ondragover = event => { event.preventDefault(); };
+  $('composer').ondrop = event => {
+    event.preventDefault();
+    if (lockedFiles()) { announce('本轮回复结束后可添加附件，文件尚未上传。'); return; }
+    chooseFiles(event.dataTransfer?.files || []).catch(() => announce('文件读取失败，请检查原文件。'));
+  };
   if ($('file-input')) $('file-input').onchange = () => chooseFiles().catch(() => announce('文件读取失败，请检查原文件后重试。'));
   (async () => {
     try {
@@ -671,7 +571,7 @@
       if (first) await openConversation(first.conversation_id);
       else { ready = true; syncControls(); $('connection-indicator').textContent = '可以开始'; }
     } catch (error) {
-      if (error.status === 403) { denyAccess(); return; }
+      if ([401, 403].includes(error.status)) { denyAccess(); return; }
       $('connection-indicator').textContent = '连接失败';
       announce('会话列表读取失败：' + errorMessage(error));
     }

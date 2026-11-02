@@ -17,7 +17,15 @@ from contextlib import contextmanager
 MAX_BYTES = 10 * 1024 * 1024
 MAX_CELLS = 100_000
 MIMES = {'csv': 'text/csv', 'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-         'html': 'text/html'}
+         'html': 'text/html', 'txt': 'text/plain', 'md': 'text/markdown',
+         'json': 'application/json', 'pdf': 'application/pdf', 'png': 'image/png',
+         'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp',
+         'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+         'zip': 'application/zip'}
+
+
+def file_mime(filename):
+    return MIMES.get(filename.rsplit('.', 1)[-1].lower(), 'application/octet-stream')
 
 
 def parse_table(content, extension):
@@ -146,7 +154,7 @@ class ConversationFiles:
                          not re.fullmatch('[a-f0-9]{32}', item['parent_id'])))
                     or not re.fullmatch('[a-f0-9]{64}', item['sha256'])
                     or not 0 < item['size'] <= MAX_BYTES or item['version'] < 1
-                    or item['mime'] not in MIMES.values()):
+                    or item['mime'] != file_mime(item['filename'])):
                 return {'file_id': fid, 'status': 'damaged'}
             try:
                 self.read(owner, cid, fid, _db=db)
@@ -193,20 +201,17 @@ class ConversationFiles:
             return dict(item, content=content)
 
     def save(self, owner, cid, filename, content, request_id, parent_id=None, generated=False, recipe=None, *, _db=None):
-        if not isinstance(filename, str) or not re.fullmatch(r'[\w .-]{1,100}', filename) or filename.startswith('.'):
+        if (not isinstance(filename, str) or not 1 <= len(filename) <= 200 or
+                len(filename.encode('utf-8')) > 240 or not filename.strip() or filename.startswith('.') or
+                re.search(r'[/\\\x00-\x1f\x7f]',filename)):
             raise ValueError('file_name')
-        extension = filename.rsplit('.', 1)[-1].lower()
-        if extension not in (MIMES if generated else ('csv', 'xlsx')):
-            raise ValueError('file_format')
         if not isinstance(content, bytes) or not 0 < len(content) <= MAX_BYTES:
             raise ValueError('file_size')
         if not isinstance(request_id, str) or not re.fullmatch('[A-Za-z0-9_-]{8,80}', request_id):
             raise ValueError('request_id')
-        # Verify ownership before parsing any untrusted workbook.
+        # Upload stores the original bytes; tools parse a document only when asked.
         with self.transaction(_db) as db:
             self.store._owned(db, owner, cid)
-        if extension != 'html':
-            parse_table(content, extension)
         sha = hashlib.sha256(content).hexdigest()
         fid = hashlib.sha256((cid + ':' + request_id).encode()).hexdigest()[:32]
         with self.transaction(_db) as db:
@@ -226,7 +231,7 @@ class ConversationFiles:
                 raise LookupError('parent_not_found')
             if len(items) >= 1000 or sum(i['size'] for i in items if not i['expired']) + len(content) > 100 * MAX_BYTES:
                 raise ValueError('conversation_file_quota')
-            item = {'file_id': fid, 'filename': filename, 'mime': MIMES[extension], 'sha256': sha,
+            item = {'file_id': fid, 'filename': filename, 'mime': file_mime(filename), 'sha256': sha,
                     'size': len(content), 'parent_id': parent_id, 'version': parent['version'] + 1 if parent else 1,
                     'generated': generated, 'recipe': recipe, 'created_at': time.time(),
                     'expires_at': time.time() + (90 if generated else 30) * 86400}
@@ -252,7 +257,7 @@ class ConversationFiles:
 
     def revise(self, owner, cid, fid, edits, output_format, request_id, *, _db=None):
         table = self.parsed(owner, cid, fid, _db=_db)
-        if output_format not in MIMES or not isinstance(edits, list) or len(edits) > 1000:
+        if output_format not in {'csv', 'xlsx', 'html'} or not isinstance(edits, list) or len(edits) > 1000:
             raise ValueError('revision')
         recipe = hashlib.sha256(json.dumps({'parent': fid, 'edits': edits, 'format': output_format},
                                            sort_keys=True, allow_nan=False).encode()).hexdigest()

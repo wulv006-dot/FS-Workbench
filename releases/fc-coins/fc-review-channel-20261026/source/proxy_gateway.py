@@ -58,7 +58,16 @@ def schemas():
     return result+tool_schemas()+strategy_schemas()+file_schemas()
 
 
+def native_scope(scope):
+    if getattr(scope, 'native_chat', False) is not True:
+        return False
+    from native_chat import NativeChatScope
+    return isinstance(scope, NativeChatScope)
+
+
 def task_schemas(book):
+    if native_scope(book):
+        return book.schemas()
     if getattr(book, 'material_execution', False):
         from conversation_file_tools import tool_schemas
         return tool_schemas(scope='material_execution_files')
@@ -97,10 +106,15 @@ class ScopedTools:
         return {'snapshot_id': self.book.capture_id, 'tool': name, 'data': result}
 
 
-def request_body(body, model, *, tool_schemas=None):
+def request_body(body, model, *, tool_schemas=None, native_chat=False):
     # No client endpoint, credentials, system identity or tool definitions accepted.
-    if not isinstance(body, dict) or set(body)-{'messages', 'max_tokens','reasoning_effort','auxiliary'} or not {'messages','max_tokens'}.issubset(body):
+    fields = {'messages', 'max_tokens', 'reasoning_effort', 'auxiliary'}
+    if native_chat:
+        fields.update({'tools', 'response_format'})
+    if not isinstance(body, dict) or set(body)-fields or not {'messages','max_tokens'}.issubset(body):
         raise ValueError('request_fields')
+    if native_chat and (tool_schemas is None or body.get('tools') not in (None, [], tool_schemas)):
+        raise ValueError('tool_allowlist')
     effort=body.get('reasoning_effort')
     if effort is not None and effort not in ('low','high','max'):raise ValueError('reasoning_effort_invalid')
     auxiliary=body.get('auxiliary',False)
@@ -124,10 +138,13 @@ def request_body(body, model, *, tool_schemas=None):
             allowed.add('tool_call_id')
         elif role not in {'system', 'user'}:
             raise ValueError('role_invalid')
-        if set(message)-allowed or not isinstance(message.get('content'), (str, type(None))):
+        structured = native_chat and role == 'user' and type(message.get('content')) is list
+        if set(message)-allowed or (not structured and not isinstance(message.get('content'), (str, type(None)))):
             raise ValueError('message_fields')
+        if structured:
+            validate_native_content(message['content'])
         if 'reasoning_content' in message and not isinstance(message['reasoning_content'],str):raise ValueError('reasoning_content_invalid')
-        if role != 'assistant' and not isinstance(message.get('content'), str):
+        if role != 'assistant' and not structured and not isinstance(message.get('content'), str):
             raise ValueError('message_content')
         if role == 'tool':
             call_id = message.get('tool_call_id')
@@ -138,17 +155,21 @@ def request_body(body, model, *, tool_schemas=None):
             if pending:
                 raise ValueError('tool_result_missing')
             for call in message.get('tool_calls', []):
-                validate_tool_call(call)
+                validate_tool_call(call, tool_schemas=tool_schemas if native_chat else None)
                 if call['id'] in pending:
                     raise ValueError('duplicate_tool_call')
                 pending.add(call['id'])
     if pending:
         raise ValueError('tool_result_missing')
     serialized = encoded(messages)
-    if len(serialized.encode()) > MAX_PROVIDER_WIRE_BYTES or sensitive_context(messages):
+    if len(serialized.encode()) > MAX_PROVIDER_WIRE_BYTES or (not native_chat and sensitive_context(messages)):
         raise ValueError('context_rejected')
     result={'model': model, 'messages': deepcopy(messages), 'max_tokens': body['max_tokens'],
             'tools': [] if auxiliary else (schemas() if tool_schemas is None else deepcopy(tool_schemas)), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
+    if native_chat and 'tools' in body:
+        result['tools'] = deepcopy(body['tools'])
+    if native_chat and 'response_format' in body:
+        result['response_format'] = native_response_format(body['response_format'])
     if effort is not None:result['reasoning_effort']=effort
     # Include trusted tool schemas and all framing in the exact UTF-8 wire budget, before reservation/network.
     if len(encoded(result).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
@@ -156,19 +177,59 @@ def request_body(body, model, *, tool_schemas=None):
     return result
 
 
-def validate_tool_call(call):
+def native_response_format(value):
+    """Keep the SDK's structured output contract in the actual provider body."""
+    if type(value) is not dict:
+        raise ValueError('response_format')
+    kind = value.get('type')
+    if kind in ('text', 'json_object') and set(value) == {'type'}:
+        return deepcopy(value)
+    schema = value.get('json_schema')
+    if (kind != 'json_schema' or set(value) != {'type', 'json_schema'} or type(schema) is not dict or
+            set(schema)-{'name', 'description', 'schema', 'strict'} or
+            type(schema.get('name')) is not str or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', schema['name']) or
+            type(schema.get('schema')) is not dict or
+            ('strict' in schema and type(schema['strict']) is not bool) or
+            ('description' in schema and type(schema['description']) is not str)):
+        raise ValueError('response_format')
+    return deepcopy(value)
+
+
+def validate_native_content(content):
+    """OpenAI user text/image parts; file bytes are delivered by the workspace bridge."""
+    if not content:
+        raise ValueError('message_content')
+    for part in content:
+        if type(part) is not dict:
+            raise ValueError('message_content')
+        if part.get('type') == 'text':
+            if set(part) != {'type', 'text'} or type(part['text']) is not str:
+                raise ValueError('message_content')
+        elif part.get('type') == 'image_url':
+            image = part.get('image_url')
+            if (set(part) != {'type', 'image_url'} or type(image) is not dict or
+                    set(image)-{'url', 'detail'} or type(image.get('url')) is not str or
+                    not re.fullmatch(r'data:image/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}', image['url']) or
+                    image.get('detail', 'auto') not in ('auto', 'low', 'high')):
+                raise ValueError('message_content')
+        else:
+            raise ValueError('message_content')
+
+
+def validate_tool_call(call, *, tool_schemas=None):
     if not isinstance(call, dict) or not {'id','type','function'}<=set(call) or set(call)-{'id','type','function','index'} or call['type'] != 'function':
         raise ValueError('tool_call_fields')
     if 'index' in call and (type(call['index']) is not int or call['index']<0):raise ValueError('tool_call_index')
     if not isinstance(call['id'], str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', call['id']):
         raise ValueError('tool_call_id')
     function = call['function']
-    if isinstance(function,dict):
+    allowed_names = set(WIRE_TOOLS) if tool_schemas is None else {item['function']['name'] for item in tool_schemas}
+    if isinstance(function,dict) and allowed_names == set(WIRE_TOOLS):
         aliases={semantic:wire for semantic,wire in zip(SEMANTIC_TOOLS,WIRE_TOOLS)}
         aliases.update({semantic.replace('.','_'):wire for semantic,wire in zip(SEMANTIC_TOOLS,WIRE_TOOLS)})
         name=function.get('name')
         if isinstance(name,str) and name in aliases:function['name']=aliases[name]
-    if not isinstance(function, dict) or set(function) != {'name', 'arguments'} or function['name'] not in WIRE_TOOLS:
+    if not isinstance(function, dict) or set(function) != {'name', 'arguments'} or function['name'] not in allowed_names:
         raise ValueError('tool_call_denied')
     if not isinstance(function['arguments'], str) or len(function['arguments'].encode('utf-8')) > MAX_PROVIDER_WIRE_BYTES:
         raise ValueError('tool_arguments')
@@ -406,7 +467,7 @@ class UnifiedBudget:
             ids = set()
             for call in calls:
                 # Retain verified Bailian index metadata in provider replay.
-                validate_tool_call(call)
+                validate_tool_call(call, tool_schemas=request['tools'])
                 if call['id'] in ids:
                     raise ValueError('duplicate_tool_call')
                 ids.add(call['id'])
@@ -483,7 +544,7 @@ class ModelGateway:
         # Logical turn identity remains in hermes_turns. Existing reservation slots encode
         # each physical attempt as turn*3+ordinal, with no schema migration or old-row rewrite.
         base_turn=turn*(self.transport_retries+1)
-        request = self.budget.restore_tool_indexes(owner,task_id,base_turn,request_body(body,self.budget.policy['model'], tool_schemas=task_schemas(getattr(self.scope, 'book', None))))
+        request = self.budget.restore_tool_indexes(owner,task_id,base_turn,request_body(body,self.budget.policy['model'], tool_schemas=task_schemas(getattr(self.scope, 'book', None)), native_chat=native_scope(self.scope)))
         if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
         require_context_window(request)  # Recheck after trusted replay metadata is restored.
         if self.preflight is not None:self.preflight(request)  # Final vendor wire before any reservation/network.

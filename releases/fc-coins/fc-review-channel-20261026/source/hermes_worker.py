@@ -72,7 +72,7 @@ def admission(session_id):
     if path.is_symlink() or path.stat().st_size > MAX_PROVIDER_WIRE_BYTES:
         raise PermissionError('admission_invalid')
     item = json.loads(path.read_text('utf-8'))
-    if not isinstance(item,dict) or set(item)-{'session_id', 'token', 'model', 'prompt','ready','reasoning_effort','background','context_receipt','report_mode','skill_question','frozen_skills','learning_receipt','learning_text','conversation','run_id','materials'} or not {'session_id','token','model','prompt'}.issubset(item) or item['session_id'] != session_id:
+    if not isinstance(item,dict) or set(item)-{'session_id', 'token', 'model', 'prompt','ready','reasoning_effort','background','context_receipt','report_mode','skill_question','frozen_skills','learning_receipt','learning_text','conversation','run_id','materials','native_chat'} or not {'session_id','token','model','prompt'}.issubset(item) or item['session_id'] != session_id:
         raise PermissionError('admission_invalid')
     if session_id.startswith('mg_'):
         material = item.get('materials')
@@ -94,6 +94,11 @@ def admission(session_id):
             raise PermissionError('conversation_run_invalid')
     elif 'conversation' in item or 'run_id' in item:
         raise PermissionError('report_admission_changed')
+    if 'native_chat' in item:
+        if not session_id.startswith('hc_') or any(key in item for key in ('materials','frozen_skills','learning_text','background')):
+            raise PermissionError('native_admission_invalid')
+        from conversation_native import validate_native_admission
+        validate_native_admission(item)
     if ('background' in item)!=('context_receipt' in item) or any(not isinstance(item[n],dict) for n in ('background','context_receipt') if n in item):
         raise PermissionError('admission_context_invalid')
     if 'skill_question' in item and (not isinstance(item['skill_question'],str) or not 2<=len(item['skill_question'])<=600):
@@ -183,7 +188,13 @@ def make_adapter(api_key):
     env_loader.load_hermes_dotenv = _fs_no_implicit_dotenv
     from hermes_cli import config as hermes_config
     # FS owns this config; Desktop keeps the shared home and its own config.yaml.
-    hermes_config.get_config_path = lambda: Path(__file__).with_name('runtime-config.yaml')
+    def fs_config_path():
+        from conversation_native import current_native_profile
+        if current_native_profile() is not None:
+            from hermes_constants import get_hermes_home
+            return get_hermes_home() / 'config.yaml'
+        return Path(__file__).with_name('runtime-config.yaml')
+    hermes_config.get_config_path = fs_config_path
     from aiohttp import web
     from gateway.config import PlatformConfig
     from gateway.platforms.api_server import APIServerAdapter
@@ -307,7 +318,33 @@ def make_adapter(api_key):
                        ('GET', '/v1/runs/{run_id}/events'), ('POST', '/v1/runs/{run_id}/steer')}
             routes = [row for row in super()._http_route_table() if row[:2] in allowed]
             routes.append(('GET', '/v1/materials/{session_id}', self._material_lookup))
+            routes.append(('GET', '/v1/native/{session_id}', self._native_lookup))
             return routes
+
+        async def _native_lookup(self, request):
+            denied = self._check_auth(request)
+            if denied is not None:
+                return denied
+            from conversation_native import readonly_native_run
+            from conversation_material_runs import runtime_pin_verified
+            try:
+                item = admission(request.match_info['session_id'])
+                if not item.get('native_chat') or not runtime_pin_verified(Path(api_server_runs.__file__).parent):
+                    raise PermissionError('native_runtime_unverified')
+                native = item['native_chat']
+                return web.json_response(readonly_native_run(self._run_idempotency_store._db_path,
+                    scope=self._run_idempotency_scope(request),key=native['key'],fingerprint=native['fingerprint'],
+                    session_id=item['session_id'],owner_alive=api_server_runs._owner_alive))
+            except (ValueError,PermissionError,OSError,KeyError,TypeError):
+                return web.json_response({'error':'native_lookup_unavailable'},status=503)
+
+        async def _conversation_history_for_session(self, session_id):
+            item = admission(session_id)
+            if item.get('native_chat'):
+                from conversation_native import native_owner_scope
+                with native_owner_scope(item):
+                    return await super()._conversation_history_for_session(session_id)
+            return await super()._conversation_history_for_session(session_id)
 
         async def _material_lookup(self, request):
             denied = self._check_auth(request)
@@ -335,7 +372,8 @@ def make_adapter(api_key):
                            request.method == 'POST' and re.fullmatch(r'/v1/runs/run_[a-f0-9]{32}/stop', path) or
                            request.method == 'GET' and re.fullmatch(r'/v1/runs/run_[a-f0-9]{32}/events', path) or
                            request.method == 'POST' and re.fullmatch(r'/v1/runs/run_[a-f0-9]{32}/steer', path) or
-                           request.method == 'GET' and re.fullmatch(r'/v1/materials/mg_[a-f0-9]{64}', path))
+                           request.method == 'GET' and re.fullmatch(r'/v1/materials/mg_[a-f0-9]{64}', path) or
+                           request.method == 'GET' and re.fullmatch(r'/v1/native/hc_[a-f0-9]{64}', path))
                 if not allowed:
                     return web.json_response({'error': 'route_denied'}, status=403)
                 if (request.method, path) == ('POST', '/v1/runs'):
@@ -344,6 +382,13 @@ def make_adapter(api_key):
                         return web.json_response({'error': 'request_fields'}, status=400)
                     try:
                         item = admission(body['session_id'])
+                        if item.get('native_chat'):
+                            from conversation_material_runs import official_fingerprint,runtime_pin_verified
+                            if (not runtime_pin_verified(Path(api_server_runs.__file__).parent) or
+                                    getattr(self._run_idempotency_store,'durable',False) is not True or
+                                    request.headers.get('Idempotency-Key') != item['native_chat']['key'] or
+                                    official_fingerprint(body) != item['native_chat']['fingerprint']):
+                                raise PermissionError('native_runtime_unverified')
                         if item.get('materials'):
                             from conversation_material_runs import official_fingerprint, runtime_pin_verified
                             if (not runtime_pin_verified(Path(api_server_runs.__file__).parent)
@@ -367,13 +412,20 @@ def make_adapter(api_key):
                         return web.json_response({'error':'conversation_run_not_bound'},status=403)
                     if session_id.startswith('mg_') and path.endswith('/steer'):
                         return web.json_response({'error':'material_intent_frozen'},status=403)
-                response = await handler(request)
+                if (request.method,path) == ('POST','/v1/runs') and item.get('native_chat'):
+                    from conversation_native import native_owner_scope
+                    with native_owner_scope(item):
+                        response = await handler(request)
+                else:
+                    response = await handler(request)
                 if (request.method,path) == ('GET','/v1/capabilities') and response.status == 200:
                     from conversation_material_runs import runtime_pin_verified
                     value = json.loads(response.body)
                     value['fs_materials'] = {'verified_pin': runtime_pin_verified(Path(api_server_runs.__file__).parent)
                                              and getattr(self._run_idempotency_store,'durable',False) is True,
                                              'readonly_original_lookup': True, 'single_post': True}
+                    value['fs_native_chat'] = {'version':'native_chat_v1','single_post':True,
+                                               'readonly_original_lookup':True,'schema_relay':True}
                     return web.json_response(value)
                 return response
             return approved_routes
@@ -396,6 +448,8 @@ def make_adapter(api_key):
 
         def _create_admitted_agent(self, ephemeral_system_prompt=None, session_id=None, **kwargs):
             item = admission(session_id)
+            if item.get('native_chat'):
+                return self._create_native_agent(item, **kwargs)
             material = bool(item.get('materials'))
             # Official Runs can start the worker before POST returns. FS must bind
             # the actual run_id durably before granting any tool/model access.
@@ -478,6 +532,79 @@ def make_adapter(api_key):
                 agent._hermes_api_runtime.update(fs_context_version=context_receipt['version'],fs_context_sha256=context_receipt['context_sha256'],
                                                 fs_background_version=context_receipt['background_version'],fs_background_sha256=context_receipt['background_sha256'],
                                                 fs_methods_sha256=context_receipt['methods_sha256'],fs_governance_sha256=context_receipt['governance_sha256'])
+            return agent
+
+        def _create_native_agent(self, item, **kwargs):
+            import functools
+            import hashlib
+            import model_tools
+            from run_agent import AIAgent
+            from hermes_cli.tools_config import _get_platform_tools
+            from conversation_native import (NativeDockerBackend, install_native_backend_guards, canonical)
+            install_native_backend_guards()
+            fixed = item['native_chat']['binding']
+            def active():
+                current = admission(fixed['session_id'])
+                if not (current.get('ready') is True and current.get('run_id') == fixed['run_id'] and
+                        current.get('native_chat', {}).get('binding') == fixed):
+                    return False
+                checked = json.loads(call_tool('fs.native.check', {'binding': fixed},session_id=fixed['session_id']))
+                return checked.get('authorized') is True
+            backend = NativeDockerBackend(item, active)
+            with backend.scope():
+                backend.ensure_environment()
+                config = hermes_config.load_config()
+                enabled = sorted(_get_platform_tools(config, 'api_server'))
+                callbacks = {key: kwargs[key] for key in ('stream_delta_callback','tool_progress_callback',
+                    'tool_start_callback','tool_complete_callback','interim_assistant_callback','reasoning_callback',
+                    'status_callback') if key in kwargs}
+                def pending(call_id, name, arguments, result):
+                    backend.observe_pending(name, result, lambda value: call_tool(
+                        'fs.native.pending_source', value, session_id=fixed['session_id']))
+                    return None
+                files = item['native_chat']['environment']['files']
+                session_db=self._ensure_session_db()
+                if session_db is None:
+                    raise OSError('native_session_history_unavailable')
+                prompt = ('Attachments in this conversation are available in /workspace. '
+                          'Use the native tools as needed; save generated files in /workspace.\n' + canonical(files))
+                agent = AIAgent(base_url=PROXY+'/v1', api_key=item['token'], provider='custom',
+                    api_mode='chat_completions', model=item['model'], enabled_toolsets=enabled,
+                    disabled_toolsets=['fs_materials','fs_fc_readonly'], session_id=fixed['session_id'],
+                    cwd=backend.environment['workspace'], ephemeral_system_prompt=prompt, platform='api_server',
+                    skip_context_files=False, load_soul_identity=True, skip_memory=False,
+                    skip_background_review=False, fallback_model=None, quiet_mode=True,
+                    max_tokens=MAX_HERMES_OUTPUT_TOKENS, reasoning_config={'enabled':False},
+                    session_db=session_db, tool_result_metadata_callback=pending, **callbacks)
+                raw = model_tools.get_tool_definitions(enabled_toolsets=agent.enabled_toolsets,
+                    disabled_toolsets=agent.disabled_toolsets,quiet_mode=True,skip_tool_search_assembly=True)
+                measured = {'binding': fixed, 'model_schemas': agent.tools,
+                            'catalog_sha256': hashlib.sha256(canonical(raw).encode()).hexdigest(),
+                            'registry_generation': agent._tool_snapshot_generation}
+                try:
+                    receipt = json.loads(call_tool('fs.native.register_schemas', measured, session_id=fixed['session_id']))
+                    if receipt.get('registered') is not True:
+                        raise PermissionError('native_schema_not_registered')
+                except BaseException:
+                    agent.close()
+                    raise
+            original_run = agent.run_conversation
+            @functools.wraps(original_run)
+            def run(*args, **run_kwargs):
+                with backend.scope():
+                    return original_run(*args, **run_kwargs)
+            agent.run_conversation = run
+            original_close = agent.close
+            @functools.wraps(original_close)
+            def close():
+                # Cleanup still needs the owner's environment-cache key after
+                # terminal state/revocation. It grants no new model/tool work.
+                with backend.scope(check=False):
+                    return original_close()
+            agent.close = close
+            agent._hermes_api_runtime = {'provider':'custom','model':item['model'],'route_source':'fs_native_conversation',
+                'fs_native_catalog_sha256':measured['catalog_sha256'],
+                'fs_native_model_schema_sha256':hashlib.sha256(canonical(agent.tools).encode()).hexdigest()}
             return agent
 
     return ReadonlyAdapter(PlatformConfig(enabled=True, extra={

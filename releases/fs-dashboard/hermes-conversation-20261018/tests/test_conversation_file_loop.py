@@ -83,7 +83,8 @@ class WorkerFileLoop(unittest.TestCase):
         book = types.SimpleNamespace(capture_id='synthetic', call=lambda n, a: {'old': n})
         evidence.build_book = lambda *a, **kw: book
         inprocess = types.ModuleType('fs_inprocess')
-        inprocess.spending_hold = lambda *a: False
+        inprocess.native_gateway = lambda daily, scope, **kw: types.SimpleNamespace(scope=scope)
+        inprocess.spending_hold = lambda *a,**kw: False
         inprocess.gateway = lambda *a, **kw: types.SimpleNamespace(budget=types.SimpleNamespace(policy={'model': 'synthetic'}))
         pilot = types.ModuleType('pilot')
         pilot.SHANGHAI, pilot.digest, pilot.encoded = timezone.utc, lambda _: 'synthetic', json.dumps
@@ -129,6 +130,14 @@ class WorkerFileLoop(unittest.TestCase):
             results = []
             service._request = lambda *a, **kw: (202, {'run_id': 'run_' + 'b' * 32})
             def monitor(owner, cid, turn_id, run_id, live):
+                if getattr(service, 'native', None) is not None:
+                    environment = admissions[-1]['native_chat']['environment']
+                    attached = Path(environment['workspace']) / environment['files'][0]['path']
+                    self.assertEqual(attached.read_bytes(), b'a,b\n1,2')
+                    (Path(environment['workspace']) / 'result.csv').write_bytes(b'a,b\n1,3')
+                    results.extend(service.native.complete(owner, cid, turn_id, run_id))
+                    service.store.set_state(owner, cid, turn_id, 'completed')
+                    return
                 catalog = book.call('fc.list_conversation_files', {})
                 self.assertEqual(catalog['items'][0]['file_id'], item['file_id'])
                 results.append(book.call('fc.revise_conversation_file', {'file_id': item['file_id'],
@@ -139,7 +148,11 @@ class WorkerFileLoop(unittest.TestCase):
             fn(*args)
             self.assertEqual(len(results), 1)  # No preparing-stage catalog prefetch may abort dispatch.
             admission = next(value for value in admissions if value.get('ready') is False)
-            self.assertIn(self.prompt(), admission['prompt'])
+            if getattr(service, 'native', None) is not None:
+                self.assertIn('native_chat', admission)
+                self.assertEqual(admission['prompt'], '')
+            else:
+                self.assertIn(self.prompt(), admission['prompt'])
             self.assertTrue(admissions[-1]['ready'])
             self.assertEqual(service.detail('alice', cid)['turns'][0]['state'], 'completed')
             if hasattr(service, 'pricing'):
@@ -367,6 +380,46 @@ class WorkerEnvironmentTests(unittest.TestCase):
             asyncio.run(modules['gateway.platforms.api_server_runs']._execute_run(adapter, run, _api_server=None))
             self.assertTrue(calls['executed'])
             self.assertEqual(calls['dotenv_reads'], 0)
+
+    def test_native_agent_uses_owner_context_and_actual_schemas_not_fc_fixed_tools(self):
+        import conversation_native
+        bound=dict(owner='alice',conversation_id='b'*32,turn_id='c'*32,request_id='native_req_01',session_id='hc_'+'a'*64,lease='d'*32,run_id='run_'+'e'*32)
+        with self.runtime() as (worker,adapter,calls,modules):
+            item={'session_id':bound['session_id'],'model':'deepseek-flash','token':'f'*43,
+                  'conversation':True,'ready':True,'run_id':bound['run_id'],'prompt':'',
+                  'native_chat':{'binding':bound,'environment':{'files':[]},'key':'native-key','fingerprint':'0'*64}}
+            worker.admission=lambda sid:item
+            adapter._ensure_session_db=lambda:types.SimpleNamespace(native_owner_profile=True)
+            @contextmanager
+            def native_scope(**scope_kwargs):
+                calls['native_scope']=calls.get('native_scope',0)+1
+                yield
+            backend=types.SimpleNamespace(profile=Path('/native/alice'),environment={'workspace':'/native/alice/workspace'},scope=native_scope,ensure_environment=lambda:None,
+                check=lambda *a:None,observe_pending=lambda *a:None)
+            class NativeAgent:
+                def __init__(self,**kwargs):
+                    calls['native_kwargs']=kwargs
+                    self.tools=[{'type':'function','function':{'name':'tool_search','parameters':{'type':'object','properties':{}}}}]
+                    self.enabled_toolsets=kwargs['enabled_toolsets'];self.disabled_toolsets=kwargs['disabled_toolsets']
+                    self._tool_snapshot_generation=7
+                def run_conversation(self,*a,**kw):calls['native_ran']=True;return {'completed':True}
+                def close(self):pass
+            config=types.ModuleType('hermes_cli.tools_config');config._get_platform_tools=lambda cfg,platform:{'file','terminal','memory','skills'}
+            model_tools=types.ModuleType('model_tools');model_tools.get_tool_definitions=lambda **kw:[{'type':'function','function':{'name':'read_file','parameters':{'type':'object'}}}]
+            modules['run_agent'].AIAgent=NativeAgent
+            registration=[]
+            worker.call_tool=lambda name,args,**kw: registration.append((name,args)) or '{"registered":true}'
+            with patch.dict(sys.modules,{'hermes_cli.tools_config':config,'model_tools':model_tools}),patch.object(conversation_native,'NativeDockerBackend',return_value=backend),patch.object(conversation_native,'install_native_backend_guards'),patch.object(modules['hermes_cli.config'],'load_config',return_value={},create=True):
+                agent=adapter._create_agent(session_id=bound['session_id'])
+                kwargs=calls['native_kwargs']
+                self.assertIs(kwargs['skip_memory'],False);self.assertIs(kwargs['skip_context_files'],False)
+                self.assertIs(kwargs['skip_background_review'],False);self.assertIs(kwargs['load_soul_identity'],True)
+                self.assertEqual(set(kwargs['enabled_toolsets']),{'file','terminal','memory','skills'})
+                self.assertEqual(registration[0][0],'fs.native.register_schemas')
+                self.assertEqual(registration[0][1]['binding'],bound)
+                self.assertEqual(registration[0][1]['model_schemas'],agent.tools)
+                agent.run_conversation('unchanged original')
+                self.assertGreaterEqual(calls['native_scope'],2)
 
     def test_unrelated_adapter_initialization_errors_propagate(self):
         for error in (RuntimeError('synthetic initialization failed'), PermissionError('synthetic other access denied')):

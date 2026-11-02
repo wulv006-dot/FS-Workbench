@@ -8,10 +8,10 @@ import tempfile
 from conversation_files import ConversationFiles
 
 
-def normalize_file_ids(file_ids):
+def normalize_file_ids(file_ids, *, maximum=10):
     if file_ids is None:
         return []
-    if not isinstance(file_ids, list) or len(file_ids) > 10 or any(
+    if not isinstance(file_ids, list) or len(file_ids) > maximum or any(
             not isinstance(fid, str) or not re.fullmatch('[a-f0-9]{32}', fid) for fid in file_ids):
         raise ValueError('file_ids')
     return sorted(set(file_ids))
@@ -76,7 +76,7 @@ class BoundFiles:
     @contextmanager
     def current(self):
         with self.bindings.files.transaction() as db:
-            if not self.authorized(self.owner):
+            if self.authorized(self.owner) is not True:
                 raise PermissionError('file_access_revoked')
             value = self.bindings.bound(db, self.owner, self.cid, self.turn_id)
             row = db.execute('SELECT state FROM turns WHERE id=? AND conversation_id=?',

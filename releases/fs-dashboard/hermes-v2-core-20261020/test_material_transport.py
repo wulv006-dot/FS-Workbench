@@ -1,4 +1,4 @@
-"""Actual FS transport validation with scoped synthetic dependencies, no I/O."""
+"""FS transport with scoped synthetic dependencies and loopback-only HTTP."""
 import ast
 from contextlib import contextmanager
 from copy import deepcopy
@@ -143,7 +143,7 @@ class MaterialTransport(unittest.TestCase):
 
     def test_client_cannot_select_material_kind_or_relax_request_policy(self):
         changes = [dict(material_execution=True), dict(kind='conversation_materials_v1'),
-                   dict(temperature=0), dict(model='other'), dict(stream=True), dict(tool_choice='required'),
+                   dict(temperature=0), dict(model='other'), dict(stream='true'), dict(tool_choice='required'),
                    dict(reasoning_effort='high')]
         with self.fixture() as f:
             for change in changes:
@@ -160,6 +160,161 @@ class MaterialTransport(unittest.TestCase):
                 request = preflight.call_args.args[0]
                 self.assertTrue(request['auxiliary'])
                 self.assertEqual(real_preflight(request, body['model'])['tools'], [])
+
+    def test_material_stream_usage_is_response_format_not_provider_override(self):
+        with self.fixture() as f:
+            body = dict(f.body, stream=True, stream_options={'include_usage': True})
+            before = deepcopy(body)
+            value = self.dispatch(f, body)
+            self.assertEqual(value['id'], 'synthetic-receipt')
+            self.assertEqual(body, before)
+            self.assertEqual(len(f.turns), 1)
+            self.assertEqual(f.gateway.call.call_count, 1)
+            request = f.gateway.call.call_args.args[-1]
+            self.assertEqual(request, {'messages': body['messages'], 'max_tokens': body['max_tokens']})
+            # SDK may omit options, send null/empty, or explicitly omit usage.
+            for options in (None, {}, {'include_usage': False}):
+                self.dispatch(f, dict(body, stream_options=options))
+
+    def test_material_stream_option_types_and_unknown_fields_fail_before_dispatch(self):
+        changes = [dict(stream=1), dict(stream='true'), dict(stream=None),
+                   dict(stream=True, stream_options={'include_usage': 1}),
+                   dict(stream=True, stream_options={'include_usage': 'true'}),
+                   dict(stream=True, stream_options={'unknown': True}),
+                   dict(stream=True, stream_options=[]),
+                   dict(stream=False, stream_options={'include_usage': True})]
+        with self.fixture() as f:
+            for change in changes:
+                with self.subTest(change=change), self.assertRaises(ValueError):
+                    self.dispatch(f, dict(f.body, **change))
+                self.untouched(f)
+
+    def test_fc_and_native_auxiliary_stream_policies_are_preserved(self):
+        with self.fixture(material=False) as f:
+            body = dict(f.body, tools=f.module.schemas(), stream=True)
+            with self.assertRaisesRegex(ValueError, 'provider_override'):
+                self.dispatch(f, body)
+            with self.assertRaisesRegex(ValueError, 'stream_options'):
+                self.dispatch(f, dict(body, stream_options={'include_usage': True}))
+            self.untouched(f)
+        with self.fixture() as f:
+            body = dict(model=f.body['model'], messages=f.body['messages'], stream=True,
+                        stream_options={'include_usage': True})
+            with self.assertRaisesRegex(ValueError, 'stream_not_supported'):
+                self.dispatch(f, body)
+            self.untouched(f)
+
+    def stream_http(self, f, body, authorized=True):
+        server, thread = f.transport.start_loopback(f.proxy, port=0)
+        connection = http.client.HTTPConnection(*server.server_address, timeout=5)
+        try:
+            headers = {'Content-Type': 'application/json'}
+            if authorized:
+                headers['Authorization'] = 'Bearer ' + f.token
+            connection.request('POST', '/v1/chat/completions', json.dumps(body), headers)
+            response = connection.getresponse()
+            return response.status, response.getheader('Content-Type'), response.read()
+        finally:
+            connection.close()
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def stream_events(self, raw):
+        lines = raw.decode('utf-8').splitlines()
+        data = [line[6:] for line in lines if line.startswith('data: ')]
+        self.assertEqual(data[-1], '[DONE]')
+        self.assertEqual(data.count('[DONE]'), 1)
+        return [json.loads(value) for value in data[:-1]]
+
+    def test_material_http_stream_has_chunks_finish_and_requested_usage(self):
+        with self.fixture() as f:
+            f.gateway.call.return_value['usage'] = dict(prompt_tokens=3, completion_tokens=2, total_tokens=5)
+            body = dict(f.body, stream=True, stream_options={'include_usage': True})
+            status, content_type, raw = self.stream_http(f, body)
+            self.assertEqual(status, 200)
+            self.assertTrue(content_type.startswith('text/event-stream'))
+            events = self.stream_events(raw)
+            self.assertEqual([v['object'] for v in events], ['chat.completion.chunk'] * 3)
+            self.assertTrue(all(v['id'] == 'synthetic-receipt' and v['model']=='deepseek-flash'
+                                and v['created']==events[0]['created'] for v in events))
+            self.assertEqual(events[0]['choices'][0]['delta'], {'role': 'assistant', 'content': 'synthetic'})
+            self.assertIsNone(events[0]['choices'][0]['finish_reason'])
+            self.assertEqual(events[1]['choices'][0], {'index': 0, 'delta': {}, 'finish_reason': 'stop'})
+            self.assertEqual(events[2]['choices'], [])
+            self.assertEqual(events[2]['usage'], f.gateway.call.return_value['usage'])
+            self.assertEqual(f.gateway.call.call_count, 1)
+            self.assertEqual(len(f.turns), 1)
+
+    def test_material_http_stream_preserves_tool_call_and_can_omit_usage(self):
+        with self.fixture() as f:
+            call = dict(id='call-synthetic', type='function',
+                        function=dict(name=f.body['tools'][1]['function']['name'], arguments='{"file_id":"synthetic"}'))
+            f.gateway.call.return_value.update(message={'role': 'assistant', 'content': None, 'tool_calls': [call]},
+                                               finish_reason='tool_calls')
+            status, content_type, raw = self.stream_http(f, dict(f.body, stream=True))
+            self.assertEqual(status, 200)
+            self.assertTrue(content_type.startswith('text/event-stream'))
+            events = self.stream_events(raw)
+            self.assertEqual(len(events), 2)
+            self.assertEqual(events[0]['choices'][0]['delta']['tool_calls'], [dict(call, index=0)])
+            self.assertEqual(events[1]['choices'][0]['finish_reason'], 'tool_calls')
+            self.assertTrue(all('usage' not in event for event in events))
+            self.assertEqual(f.gateway.call.call_count, 1)
+
+    def test_material_stream_errors_remain_json_and_do_not_retry(self):
+        with self.fixture() as f:
+            body = dict(f.body, stream=True, stream_options={'include_usage': True})
+            status, content_type, raw = self.stream_http(f, body, authorized=False)
+            self.assertEqual(status, 403)
+            self.assertTrue(content_type.startswith('application/json'))
+            self.assertEqual(json.loads(raw)['error']['type'], 'permission_error')
+            self.untouched(f)
+            f.gateway.call.side_effect = OSError('synthetic provider failure')
+            status, content_type, raw = self.stream_http(f, body)
+            self.assertEqual(status, 503)
+            self.assertTrue(content_type.startswith('application/json'))
+            self.assertEqual(json.loads(raw)['error']['type'], 'server_error')
+            self.assertEqual(f.gateway.call.call_count, 1)
+            self.assertEqual(len(f.turns), 1)
+
+    def test_material_guard_failures_identify_the_exact_local_boundary(self):
+        with self.fixture() as f:
+            for code, change in [('request_fields', {'unexpected': 'PRIVATE_SENTINEL'}),
+                                 ('tool_allowlist', {'tools': f.module.schemas()})]:
+                status, content_type, raw = self.stream_http(f, dict(f.body, **change))
+                self.assertEqual(status, 400)
+                error = json.loads(raw)['error']
+                self.assertEqual(error, dict(message='fs_material_transport/material_guard_v1/'+code,
+                    type='invalid_request_error', source='fs_material_transport',
+                    diagnostic_version='material_guard_v1', code=code))
+                self.assertNotIn(b'PRIVATE_SENTINEL', raw)
+                self.untouched(f)
+
+    def test_guard_diagnostic_is_not_inferred_from_an_arbitrary_exception_string(self):
+        with self.fixture(material=False) as f:
+            status, _, raw = self.stream_http(f, dict(f.body, unexpected=True))
+            self.assertEqual(status, 400)
+            self.assertNotIn('code', json.loads(raw)['error'])
+        with self.fixture() as f:
+            status, _, raw = self.stream_http(f, dict(f.body, unexpected=True), authorized=False)
+            self.assertEqual(status, 403)
+            self.assertNotIn('source', json.loads(raw)['error'])
+            f.gateway.call.side_effect = ValueError('tool_allowlist')
+            status, _, raw = self.stream_http(f, f.body)
+            self.assertEqual(status, 400)
+            self.assertEqual(json.loads(raw)['error'], dict(message='invalid or unreconciled request',
+                                                          type='invalid_request_error'))
+            self.assertEqual(f.gateway.call.call_count, 1)
+
+    def test_unlisted_private_guard_error_keeps_dynamic_text_private(self):
+        with self.fixture() as f:
+            f.gateway.call.side_effect = f.transport._MaterialGuardError('PRIVATE_SENTINEL')
+            status, _, raw = self.stream_http(f, f.body)
+            self.assertEqual(status, 400)
+            self.assertEqual(json.loads(raw)['error'], dict(message='invalid or unreconciled request',
+                                                          type='invalid_request_error'))
+            self.assertNotIn(b'PRIVATE_SENTINEL', raw)
 
     def test_actual_loopback_accepts_three_tools_and_keeps_denial_responses(self):
         with self.fixture() as f:
@@ -181,7 +336,9 @@ class MaterialTransport(unittest.TestCase):
                 for body in (dict(f.body, tools=f.module.schemas()), dict(f.body, temperature=0)):
                     status, value = send(body)
                     self.assertEqual(status, 400)
-                    self.assertEqual(value['error']['message'], 'invalid or unreconciled request')
+                    code='tool_allowlist' if 'tools' in body and body['tools']==f.module.schemas() else 'request_fields'
+                    self.assertEqual(value['error']['message'], 'fs_material_transport/material_guard_v1/'+code)
+                    self.assertEqual(value['error']['code'], code)
                 self.assertEqual(send(f.body, authorized=False)[0], 403)
                 self.assertEqual(len(f.turns), 1)
                 self.assertEqual(f.gateway.call.call_count, 1)

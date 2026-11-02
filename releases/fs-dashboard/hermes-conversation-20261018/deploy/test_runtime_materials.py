@@ -1,12 +1,15 @@
 """Synthetic publisher/SQLite checks; not real Linux modes, deployment or login."""
-from contextlib import closing, nullcontext
+from contextlib import closing, contextmanager, nullcontext, ExitStack
 from datetime import datetime, timedelta, timezone
 import importlib.util
 import json
 import os
+import socket
+import stat
 from pathlib import Path
 import sqlite3
 import subprocess
+import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -25,16 +28,63 @@ NGINX = (b'# unrelated\r\nlocation = /api/hermes/conversations {\r\n'
 
 
 class RuntimeMaterials(unittest.TestCase):
+    def test_material_guard_8e2a_transport_delta_and_rollback(self):
+        self.assertTrue(callable(getattr(prepare, 'configure_material_guard', None)),
+                        '8e2a material-guard followup missing')
+        self._transport_followup(stream=True, guard=True)
+
+    def test_material_stream_b362_existing_transport_delta_and_rollback(self):
+        self.assertTrue(callable(getattr(prepare, 'configure_material_stream', None)),
+                        'b362 existing-transport stream followup missing')
+        self._transport_followup(stream=True)
+
     def test_transport_82edf_promoted_protection_delta_and_rollback(self):
+        self._transport_followup(stream=False)
+
+    def test_bindings_9edb_single_target_and_rollback(self):
+        self.assertTrue(callable(getattr(prepare, "configure_bindings_auth", None)),
+                        "bindings-only installed followup missing")
+        self._transport_followup(stream=True, bindings=True)
+
+    def _transport_followup(self, stream, bindings=False, guard=False):
+        configure = prepare.configure_material_stream if stream else prepare.configure_material_transport
+        if bindings: configure = prepare.configure_bindings_auth
+        if guard: configure = prepare.configure_material_guard
+        candidate = "runtime/conversation_file_bindings.py" if bindings else "runtime/transport.py"
+        marker = "materialGuard" if guard else "bindingsAuth" if bindings else "materialStream" if stream else "materialTransport"
+        before_key = "GUARD_BEFORE_SHA" if guard else "BINDINGS_BEFORE_SHA" if bindings else "STREAM_BEFORE_SHA" if stream else "TRANSPORT_BEFORE_SHA"
         self.assertTrue(callable(getattr(prepare, 'configure_material_transport', None)), 'transport-only installed followup missing')
-        names = ('TARGETS', 'NEW', 'INSTALLED_COMMIT', 'INSTALLED_PROOF', 'EXECUTION_MODE', 'DIAGNOSTICS_MODE', 'TASK_INDEX_MODE', 'WORKER_DIAGNOSTICS_MODE', 'TRANSPORT_MODE')
+        names = ('TARGETS', 'NEW', 'INSTALLED_COMMIT', 'INSTALLED_PROOF', 'EXECUTION_MODE', 'DIAGNOSTICS_MODE', 'TASK_INDEX_MODE', 'WORKER_DIAGNOSTICS_MODE', 'TRANSPORT_MODE', 'STREAM_MODE', 'BINDINGS_MODE', 'GUARD_MODE')
         saved_release = {k: deepcopy(getattr(release, k)) for k in names}
         saved_prepare = {k: deepcopy(getattr(prepare, k)) for k in ('TARGETS', 'NEW', 'INSTALLED_COMMIT', 'INSTALLED_PROOF', 'SOURCES')}
         try:
-            prepare.configure_material_transport()
-            self.assertTrue(release.TRANSPORT_MODE); self.assertFalse(release.WORKER_DIAGNOSTICS_MODE); self.assertFalse(release.TASK_INDEX_MODE); self.assertFalse(release.DIAGNOSTICS_MODE)
+            configure()
+            self.assertEqual(release.STREAM_MODE, stream and not bindings and not guard); self.assertEqual(release.TRANSPORT_MODE, not stream); self.assertFalse(release.WORKER_DIAGNOSTICS_MODE); self.assertFalse(release.TASK_INDEX_MODE); self.assertFalse(release.DIAGNOSTICS_MODE)
             self.assertEqual(release.NEW, frozenset())
-            self.assertEqual(release.INSTALLED_PROOF, {
+            if guard:
+                self.assertTrue(release.GUARD_MODE); self.assertFalse(release.BINDINGS_MODE)
+                self.assertEqual(release.GUARD_BEFORE_SHA, 'a71849b7e5e8f3c5b55967c21d5383e2ff6afa7c7c5e3c6772dc0c80209ba945')
+                self.assertEqual(release.INSTALLED_PROOF, {
+                    'sourceCommit':'8e2a456631fc5aa916c1366d087b9adbccb02f91',
+                    'backup':'/var/backups/fs-navigation-20261006/nav-20261102T002030Z',
+                    'manifestSha256':'e3a949b35d55aac5048f22094d81bc9f7db7e4f684f7463a83044371f5d4d3a4',
+                    'journalSha256':'fc33024f58bb1222e288e6ab1374be16b543f93756f135833238b29be9e22c74'})
+            elif bindings:
+                self.assertTrue(release.BINDINGS_MODE)
+                self.assertEqual(release.INSTALLED_PROOF, {
+                    'sourceCommit':'9edb8827c0bc21fce4173030bd09b7388b19c866',
+                    'backup':'/var/backups/fs-navigation-20261006/nav-20261101T175040Z',
+                    'manifestSha256':'74270ff2d91e195a8279572ba48aaa35a4189a75597bceaa9496a4fbe9116088',
+                    'journalSha256':'831ca7e02476aa50ef9fb25c2b3cc52c28ad562979fff26a938992746a6fc3e7'})
+            elif stream:
+                self.assertEqual(release.STREAM_BEFORE_SHA, '2ef021e7b3bc3efd76632cf1924b538860da5422a08a4a751d2a932ff6f1a23d')
+                self.assertEqual(release.INSTALLED_PROOF, {
+                    'sourceCommit':'b362bd3bfb3fc4eca4bcf1d47cb3f0550c8c6c04',
+                    'backup':'/var/backups/fs-navigation-20261006/nav-20261101T123702Z',
+                    'manifestSha256':'02d2d4623467aaf62f617775a7c47084b6005cf26e8da150025d12be7a052833',
+                    'journalSha256':'92b65d1a2d17a8d979b5b1011002c35ff1b80997e51b3e7e8db01cc43699a82d'})
+            else:
+                self.assertEqual(release.INSTALLED_PROOF, {
                 'sourceCommit':'82edf03573c3fed796d7a7ed2784134c5dd1f7ec',
                 'backup':'/var/backups/fs-navigation-20261006/nav-20261101T110803Z',
                 'manifestSha256':'a9be5243f473129379e6662854be5236d9c69f08d86f97693d66039be86d5656',
@@ -46,7 +96,10 @@ class RuntimeMaterials(unittest.TestCase):
                 with patch.object(prepare.subprocess, 'check_output', side_effect=blob):
                     prepare.pack(Path(packed), Path(packed)/'bundle', 'b'*40)
                 descriptor=json.loads((Path(packed)/'bundle/payload-manifest.json').read_bytes())
-                self.assertTrue(descriptor['material_transport']); self.assertFalse(descriptor['material_diagnostics'])
+                self.assertEqual(descriptor['material_stream'], stream and not bindings and not guard)
+                self.assertEqual(descriptor['bindings_auth'], bindings)
+                self.assertEqual(descriptor['material_guard'], guard)
+                self.assertEqual(descriptor['material_transport'], not stream); self.assertFalse(descriptor['material_diagnostics'])
                 self.assertEqual(descriptor['installed_baseline']['source_commit'], release.INSTALLED_COMMIT)
                 self.assertEqual(set(descriptor['installed_baseline']['files']), set(release.TARGETS))
                 self.assertTrue(all(v is not None for v in descriptor['installed_baseline']['files'].values()))
@@ -56,9 +109,10 @@ class RuntimeMaterials(unittest.TestCase):
                     base, system, payload, metadata, _, proof, previous = self.installed_fixture(root)
                     transport = release.TARGETS['runtime/transport.py']
                     transport_row = next(r for r in previous['files'] if r['candidate']=='runtime/transport.py')
-                    previous['files'] = [r for r in previous['files'] if r['candidate']!='runtime/transport.py']
-                    previous['unchangedRequired'].append({'path':transport,'sha256':transport_row['sha256']})
-                    self.assertEqual((len(previous['files']),len(previous['unchangedRequired'])),(24,46))
+                    if not stream:
+                        previous['files'] = [r for r in previous['files'] if r['candidate']!='runtime/transport.py']
+                        previous['unchangedRequired'].append({'path':transport,'sha256':transport_row['sha256']})
+                    self.assertEqual((len(previous['files']),len(previous['unchangedRequired'])),(25,45) if stream else (24,46))
                     backup = base.rooted(system,proof['backup'])
                     def save_previous():
                         raw=json.dumps(previous).encode();(backup/'approved-manifest.json').write_bytes(raw)
@@ -68,16 +122,17 @@ class RuntimeMaterials(unittest.TestCase):
                     save_previous()
                     descriptor_path = payload.parent/'payload-manifest.json'
                     descriptor = json.loads(descriptor_path.read_bytes())
-                    descriptor.update(material_execution=True, material_diagnostics=False, goal_task_index_compat=False, worker_diagnostics=False, material_transport=True)
+                    descriptor.update(material_execution=True, material_diagnostics=False, goal_task_index_compat=False, worker_diagnostics=False, material_transport=not stream, material_stream=stream and not bindings and not guard, bindings_auth=bindings, material_guard=guard)
                     for name in prepare.SOURCES:
                         before = base.rooted(system, release.TARGETS[name]).read_bytes()
-                        body = before+b'\n# material transport\n' if name == 'runtime/transport.py' else before
+                        body = before+b'\n# material transport\n' if name == candidate else before
                         (payload/name).write_bytes(body); descriptor['files']['payload/'+name] = prepare.digest(body)
                     raw = json.dumps(descriptor).encode(); descriptor_path.write_bytes(raw)
                     stage = root/'transport-stage'
                     with patch.object(release, 'INSTALLED_PROOF', proof), patch.object(prepare, 'INSTALLED_PROOF', proof), \
                             patch.object(prepare, 'file_metadata', metadata), \
-                            patch.object(release, 'TRANSPORT_BEFORE_SHA', transport_row['sha256']):
+                            patch.object(release, 'BINDINGS_TRANSPORT_SHA', transport_row['sha256'], create=True), \
+                            patch.object(release, before_key, next(r['sha256'] for r in previous['files'] if r['candidate']==candidate) if bindings else transport_row['sha256']):
                         observed = prepare.observe(system, previous)
                         for key, value in (('worker_state','failed'), ('worker_state','inactive'),
                                            ('worker_image_source','configured_unit_and_local_image')):
@@ -86,32 +141,41 @@ class RuntimeMaterials(unittest.TestCase):
                             self.assertFalse((root/'bad-runtime').exists())
                         prepare.prepare(payload, stage, 'a'*40, prepare.digest(raw), root=system, followup=True, release_ready=True)
                         protected_before=deepcopy(previous['unchangedRequired'])
-                        for error in ('missing','duplicate','wrong_hash','extra_protected','fake_target'):
+                        files_before=deepcopy(previous['files'])
+                        cases = ('target_missing','target_duplicate','target_hash','missing_protection','duplicate_protection','extra_protected','transport_protected') if stream else ('missing','duplicate','wrong_hash','extra_protected','fake_target')
+                        for error in cases:
                             previous['unchangedRequired']=deepcopy(protected_before)
+                            previous['files']=deepcopy(files_before)
                             if error=='missing':previous['unchangedRequired']=[r for r in protected_before if r['path']!=transport]
                             elif error=='duplicate':previous['unchangedRequired'].append({'path':transport,'sha256':transport_row['sha256']})
                             elif error=='wrong_hash':next(r for r in previous['unchangedRequired'] if r['path']==transport)['sha256']='0'*64
                             elif error=='extra_protected':previous['unchangedRequired'].append({'path':'/opt/unrelated.py','sha256':'0'*64})
-                            else:previous['files'].append(deepcopy(transport_row))
+                            elif error=='target_missing':previous['files']=[r for r in previous['files'] if r['candidate']!='runtime/transport.py']
+                            elif error in ('target_duplicate','fake_target'):previous['files'].append(deepcopy(transport_row))
+                            elif error=='target_hash':next(r for r in previous['files'] if r['candidate']=='runtime/transport.py')['sha256']='0'*64
+                            elif error=='missing_protection':previous['unchangedRequired'].pop()
+                            elif error=='duplicate_protection':previous['unchangedRequired'].append(deepcopy(previous['unchangedRequired'][0]))
+                            else:previous['unchangedRequired'].append({'path':transport,'sha256':transport_row['sha256']})
                             save_previous()
                             with self.subTest(proof=error),self.assertRaises(ValueError):
                                 prepare.prepare(payload,root/('bad-proof-'+error),'a'*40,prepare.digest(raw),root=system,followup=True)
                             self.assertFalse((root/('bad-proof-'+error)).exists())
-                            if error=='fake_target':previous['files'].pop()
-                        previous['unchangedRequired']=protected_before;save_previous()
-                        for case in ('old_proof', 'git', 'journal', 'protected', 'extra_http', 'worker_before', 'no_delta'):
+                        previous['unchangedRequired']=protected_before;previous['files']=files_before;save_previous()
+                        for case in ('old_proof', 'git', 'journal', 'protected', 'extra_http', 'worker_before', 'no_delta', 'mixed_mode') + (('missing_execution',) if stream else ()):
                             changed = deepcopy(descriptor); restore = None
-                            if case == 'old_proof': changed['installed_baseline']['source_commit'] = 'f79e29f0d5921b103a218c5e6ed967a754858b9c'
+                            if case == 'old_proof': changed['installed_baseline']['source_commit'] = 'c12a273387a7811c71b3fbf1c040c8a7b4d1639a' if guard else '82edf03573c3fed796d7a7ed2784134c5dd1f7ec' if stream else 'f79e29f0d5921b103a218c5e6ed967a754858b9c'
+                            elif case == 'mixed_mode':changed['material_transport' if stream else 'material_stream']=True
+                            elif case == 'missing_execution':changed['material_execution']=False
                             elif case == 'git': changed['installed_baseline']['files']['runtime/transport.py'] = '0'*64
                             else:
-                                path = (payload/'runtime/transport.py' if case == 'no_delta' else payload/'http/conversation_http.py' if case == 'extra_http' else
+                                path = (payload/candidate if case == 'no_delta' else payload/'http/conversation_http.py' if case == 'extra_http' else
                                         base.rooted(system, proof['backup']+'/journal.json') if case == 'journal' else
                                         base.rooted(system, previous['unchangedRequired'][0]['path']) if case == 'protected' else
-                                        base.rooted(system, release.TARGETS['runtime/transport.py']))
+                                        base.rooted(system, release.TARGETS[candidate]))
                                 restore = (path, path.read_bytes())
-                                path.write_bytes(base.rooted(system, release.TARGETS['runtime/transport.py']).read_bytes() if case == 'no_delta' else b'unapproved drift')
+                                path.write_bytes(base.rooted(system, release.TARGETS[candidate]).read_bytes() if case == 'no_delta' else b'unapproved drift')
                                 if case == 'extra_http': changed['files']['payload/http/conversation_http.py'] = prepare.digest(path.read_bytes())
-                                if case == 'no_delta': changed['files']['payload/runtime/transport.py'] = prepare.digest(path.read_bytes())
+                                if case == 'no_delta': changed['files']['payload/'+candidate] = prepare.digest(path.read_bytes())
                             bad = json.dumps(changed).encode(); descriptor_path.write_bytes(bad)
                             with self.subTest(rejected=case), self.assertRaises(ValueError):
                                 prepare.prepare(payload, root/('reject-'+case), 'a'*40, prepare.digest(bad), root=system, followup=True)
@@ -119,24 +183,25 @@ class RuntimeMaterials(unittest.TestCase):
                             if restore: restore[0].write_bytes(restore[1])
                         descriptor_path.write_bytes(raw)
                     manifest = json.loads((stage/'approved-manifest.json').read_bytes())
-                    self.assertTrue(manifest['materialTransport']); self.assertNotIn('materialDiagnostics', manifest)
+                    self.assertTrue(manifest[marker]); self.assertNotIn('materialTransport' if stream else 'materialStream', manifest); self.assertNotIn('materialDiagnostics', manifest)
                     self.assertFalse(manifest['materialStaticOnly'])
                     self.assertEqual((len(manifest['files']), len(manifest['unchangedRequired'])), (25, 45))
                     self.assertTrue(all(r['beforeSha256'] is not None for r in manifest['files']))
-                    target = release.TARGETS['runtime/transport.py']
+                    target = release.TARGETS[candidate]
                     self.assertEqual(manifest['materialChangedTargets'], [target])
                     unchanged = {r['target']:(base.rooted(system,r['target']).stat().st_ino,base.rooted(system,r['target']).stat().st_mtime_ns)
                                  for r in manifest['files'] if r['target'] != target}
                     spec = importlib.util.spec_from_file_location('material_transport_publisher', stage/'runtime_release.py')
                     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
-                    module.configure_material_transport(); module.INSTALLED_PROOF = proof; module.TRANSPORT_BEFORE_SHA = transport_row['sha256']
+                    (module.configure_material_guard if guard else module.configure_bindings_auth if bindings else module.configure_material_stream if stream else module.configure_material_transport)()
+                    module.INSTALLED_PROOF = proof; module.BINDINGS_TRANSPORT_SHA = transport_row['sha256']; setattr(module, before_key, next(r['sha256'] for r in previous['files'] if r['candidate']==candidate) if bindings else transport_row['sha256'])
                     guards = []
-                    def guard(current, host, reader_stopped=False):
+                    def check_guard(current, host, reader_stopped=False):
                         guards.append(True)
                         self.assertEqual(current['runtimeRequired'], manifest['runtimeRequired'])
                         for row in current['unchangedRequired']:
                             self.assertEqual(base.digest(base.rooted(host, row['path'])), row['sha256'])
-                    base.guards = guard; base.retirement = lambda *a: None
+                    base.guards = check_guard; base.retirement = lambda *a: None
                     base.locks = base.live_lock = base.model_release_lock = lambda *a: nullcontext()
                     fence = SimpleNamespace(modified=False, confirmed=False, stop_then_unlock_database=Mock())
                     base.hermes_admission_fence = lambda *a: nullcontext(fence)
@@ -168,22 +233,26 @@ class RuntimeMaterials(unittest.TestCase):
                                 return original_wire(path, body, int(row['mode'],8) if row else mode)
                             publisher.atomic = windows_atomic
                         raw = (stage/'approved-manifest.json').read_bytes()
-                        for error in ('protection_missing','protection_duplicate','extra_target','mode','owner','before','expired','mixed_mode','zero_delta'):
+                        for error in ('protection_missing','protection_duplicate','extra_target','mode','owner','before','expired','mixed_mode','zero_delta','duplicate_target'):
                             altered=deepcopy(manifest)
                             if error=='protection_missing':altered['unchangedRequired'].pop()
                             elif error=='protection_duplicate':altered['unchangedRequired'].append(deepcopy(altered['unchangedRequired'][0]))
                             elif error=='extra_target':altered['files'].append({'candidate':'runtime/unrelated.py','target':'/opt/unrelated.py','beforeSha256':'a'*64,'sha256':'b'*64})
                             elif error in ('mode','owner','before'):
-                                row=next(r for r in altered['files'] if r['candidate']=='runtime/transport.py')
+                                row=next(r for r in altered['files'] if r['candidate']==candidate)
                                 row[{'mode':'mode','owner':'owner','before':'beforeSha256'}[error]]={'mode':'0o600','owner':'1:1','before':'0'*64}[error]
                             elif error=='expired':altered['baselineObservedAt']=(datetime.now(timezone.utc)-timedelta(hours=2)).isoformat()
-                            elif error=='mixed_mode':altered['workerDiagnostics']=True
+                            elif error=='mixed_mode':altered['materialTransport' if stream else 'materialStream']=True
+                            elif error=='duplicate_target':altered['files'].append(deepcopy(altered['files'][0]))
                             else:
-                                row=next(r for r in altered['files'] if r['candidate']=='runtime/transport.py');row['sha256']=row['beforeSha256'];altered['materialChangedTargets']=[]
+                                row=next(r for r in altered['files'] if r['candidate']==candidate);row['sha256']=row['beforeSha256'];altered['materialChangedTargets']=[]
                             (stage/'approved-manifest.json').write_bytes(json.dumps(altered).encode())
                             # A fresh frozen validator observes this as its own
                             # approved file, so manifest-identity alone cannot pass.
-                            with patch.object(module,'frozen',return_value=release.frozen()):
+                            # Each rejected CLI run exits with its own mode globals;
+                            # do not leak a deliberately mixed mode into apply below.
+                            with patch.multiple(module, **{k:deepcopy(getattr(module,k)) for k in names}), \
+                                    patch.object(module,'frozen',return_value=release.frozen()):
                                 alternate=module.load_base()
                                 with self.subTest(loaded_manifest=error),self.assertRaises(ValueError):alternate.validate(altered,stage)
                         (stage/'approved-manifest.json').write_bytes(raw)
@@ -1124,6 +1193,609 @@ class RuntimeMaterials(unittest.TestCase):
             with self.assertRaises(ValueError):
                 base.rollback_journal(backup, journal, root)
 
+
+
+
+class NativePublisher(unittest.TestCase):
+    def test_daily_consumer_keeps_container_entry_and_sibling_import(self):
+        prepare.configure_native_chat()
+        source=Path(__file__).resolve().parents[2]/'hermes-memory-approval-20261022'
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);host=root/'root-code.py';host.write_bytes((source/'daily_review.py').read_bytes())
+            entry=root/'container'/release.NATIVE_DAILY_CONTAINER.lstrip('/')
+            entry.parent.mkdir(parents=True);entry.write_bytes(host.read_bytes())  # bind-file bytes fixture, no Docker invocation
+            sibling=entry.with_name('inspect_runtime.py');sibling.write_bytes((source/'inspect_runtime.py').read_bytes())
+            spec=importlib.util.spec_from_file_location('inspect_runtime',sibling);helper=importlib.util.module_from_spec(spec)
+            with patch.dict(sys.modules,{'inspect_runtime':helper}),patch('zoneinfo.ZoneInfo',return_value=timezone(timedelta(hours=8))):
+                spec.loader.exec_module(helper)
+                spec=importlib.util.spec_from_file_location('synthetic_daily_consumer',entry);daily=importlib.util.module_from_spec(spec);spec.loader.exec_module(daily)
+            self.assertEqual(daily.PROFILE,Path('/profile'))
+            self.assertIs(daily.redact,helper.redact)
+            self.assertEqual(Path(daily.__file__).with_name('inspect_runtime.py'),sibling)
+            self.assertEqual(Path(daily.__file__).read_bytes(),host.read_bytes())
+
+    def test_daily_legacy_protection_rejects_hash_owner_mode_and_links(self):
+        prepare.configure_native_chat()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen();legacy=base.rooted(root,release.NATIVE_LEGACY_DAILY)
+            legacy.parent.mkdir(parents=True);legacy.write_bytes(b'old host daily')
+            profile=base.rooted(root,'/var/lib/fs-hermes-fc/profile')
+            owners={profile:(9876,9876,0o700),legacy:(0,0,0o644)};kinds={}
+            with self.native_metadata(owners,kinds,root=root),patch.object(release,'NATIVE_LEGACY_DAILY_SHA',base.digest(legacy)):
+                release.native_legacy_daily_guard(base,root)
+                for bad in ((9876,9876,0o644),(0,0,0o664)):
+                    owners[legacy]=bad
+                    with self.assertRaisesRegex(ValueError,'native_legacy_daily_drift'):release.native_legacy_daily_guard(base,root)
+                owners[legacy]=(0,0,0o644)
+                with patch.object(release,'NATIVE_LEGACY_DAILY_SHA','0'*64):
+                    with self.assertRaisesRegex(ValueError,'native_legacy_daily_drift'):release.native_legacy_daily_guard(base,root)
+                for item in (legacy,legacy.parent):
+                    kinds[item]=stat.S_IFLNK
+                    with self.assertRaises(ValueError):release.native_legacy_daily_guard(base,root)
+                    kinds.clear()
+
+    def test_daily_overlay_uses_root_code_and_keeps_original_guard_on_private_profile(self):
+        prepare.configure_native_chat()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen()
+            legacy=base.rooted(root,'/var/lib/fs-hermes-fc/profile/scripts/hermes-memory-review/daily_review.py')
+            legacy.parent.mkdir(parents=True);legacy.write_bytes(b'unchanged host daily')
+            profile=base.rooted(root,'/var/lib/fs-hermes-fc/profile')
+            target=base.rooted(root,release.TARGETS['approval/daily_review.py'])
+            target.parent.mkdir(parents=True,exist_ok=True)
+            if target!=legacy:target.write_bytes(b'new root daily')
+            owners={p:(0,0,0o755 if p.is_dir() else 0o644) for p in (root,*root.rglob('*'))}
+            owners[profile]=(9876,9876,0o700)
+            before=(legacy.read_bytes(),legacy.stat().st_ino,legacy.stat().st_mtime_ns)
+            base.hermes_quiescent=Mock()  # DB liveness IO only; original guards stays intact.
+            manifest={'scope':release.SCOPE,'runtimeRequired':{},'unchangedRequired':[]}
+            kinds={}
+            with self.native_metadata(owners,kinds):
+                base.HERMES_HISTORY_TARGETS={'daily':str(legacy.relative_to(root)).replace('\\','/')}
+                base.HERMES_HISTORY_TARGETS={'daily':'/'+base.HERMES_HISTORY_TARGETS['daily']}
+                with self.assertRaisesRegex(ValueError,'unsafe daily source boundary'):base.guards(manifest,root)
+                base.HERMES_HISTORY_TARGETS={'daily':release.TARGETS['approval/daily_review.py']}
+                base.guards(manifest,root)
+                for item in (target,target.parent):
+                    saved=owners[item];owners[item]=(9876,9876,saved[2])
+                    with self.assertRaisesRegex(ValueError,'unsafe daily source boundary'):base.guards(manifest,root)
+                    owners[item]=saved;kinds[item]=stat.S_IFLNK
+                    with self.assertRaises(ValueError):base.guards(manifest,root)
+                    kinds.clear()
+            self.assertEqual(release.TARGETS['approval/daily_review.py'],'/opt/fs-hermes-memory-approval/daily_review.py')
+            self.assertEqual((legacy.read_bytes(),legacy.stat().st_ino,legacy.stat().st_mtime_ns),before)
+
+    @contextmanager
+    def native_metadata(self, owners, kinds=None, root=None):
+        # Keep real filesystem types (including a real Unix socket on Linux).
+        # Root/9876 ownership cannot be created by the unprivileged CI runner.
+        kinds={} if kinds is None else kinds
+        def metadata(path, *, follow_symlinks=True):
+            path=Path(path);info=os.stat(path,follow_symlinks=follow_symlinks)
+            inside=root is not None and (path==root or root in path.parents)
+            if path not in owners and path not in kinds and not inside:return info
+            default=(0,0,0o755 if stat.S_ISDIR(info.st_mode) else 0o600 if path==root/release.NGINX.lstrip('/') else 0o644) if inside else (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode))
+            fields=list(info);uid,gid,mode=owners.get(path,default)
+            fields[0]=kinds.get(path,stat.S_IFMT(info.st_mode))|mode
+            fields[4]=uid;fields[5]=gid
+            result={key:getattr(info,key) for key in dir(info) if key.startswith('st_')}
+            result.update(st_mode=fields[0],st_uid=uid,st_gid=gid)
+            return SimpleNamespace(**result)
+        def kind(path, check, follow):
+            try:return check(metadata(path,follow_symlinks=follow).st_mode)
+            except FileNotFoundError:return False
+        with patch.object(Path,'stat',lambda path,**kw:metadata(path,**kw)), patch.object(Path,'lstat',lambda path:metadata(path,follow_symlinks=False)), patch.object(Path,'is_file',lambda path:kind(path,stat.S_ISREG,True)), patch.object(Path,'is_symlink',lambda path:kind(path,stat.S_ISLNK,False)):
+            yield
+
+    def test_native_metadata_keeps_formal_nginx_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen()
+            nginx=base.rooted(root,release.NGINX)
+            other=base.rooted(root,'/opt/fs-hermes-fc/unchanged.py')
+            for path in (nginx,other):
+                path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'unchanged fixture')
+            if os.name=='posix':
+                nginx.chmod(0o600);other.chmod(0o644)
+            with self.native_metadata({},root=root):
+                self.assertEqual(stat.S_IMODE(nginx.stat().st_mode),0o600)
+                self.assertEqual(stat.S_IMODE(other.stat().st_mode),0o644)
+
+    def test_native_dependencies_accept_unix_socket_and_keep_type_owner_parent_guards(self):
+        prepare.configure_native_chat()
+        with tempfile.TemporaryDirectory(prefix='fs-native-sock-') as directory:
+            root=Path(directory);base=release.frozen()
+            cli=root/'usr/bin/docker';cli.parent.mkdir(parents=True);cli.write_bytes(b'fixed cli')
+            target=root/'run/docker.sock';target.parent.mkdir()
+            sock=None;kinds={}
+            try:
+                if hasattr(socket,'AF_UNIX'):
+                    sock=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);sock.bind(str(target))
+                    self.assertTrue(stat.S_ISSOCK(os.lstat(target).st_mode))
+                else:
+                    # Windows Python lacks AF_UNIX; only this platform uses a
+                    # type fixture. Linux must exercise the real bound socket.
+                    target.write_bytes(b'Windows socket metadata fixture');kinds[target]=stat.S_IFSOCK
+                owners={cli:(0,0,0o755),target:(0,994,0o660)}
+                with self.native_metadata(owners,kinds), patch.object(release,'NATIVE_CLI_SHA',base.digest(cli)):
+                    result=release.native_dependencies(base,root)
+                    self.assertEqual(result['socket']['gid'],994)
+                    self.assertEqual(result['socket']['mode'],'0o660')
+                    with patch.object(release,'NATIVE_CLI_SHA','0'*64):
+                        with self.assertRaisesRegex(ValueError,'native_docker_cli_drift'):release.native_dependencies(base,root)
+                    owners[target]=(9876,994,0o660)
+                    with self.assertRaisesRegex(ValueError,'native_docker_socket_unavailable'):release.native_dependencies(base,root)
+                    owners[target]=(0,994,0o600)
+                    with self.assertRaisesRegex(ValueError,'native_docker_socket_unavailable'):release.native_dependencies(base,root)
+                    owners[target]=(0,994,0o660);kinds[target]=stat.S_IFREG
+                    with self.assertRaisesRegex(ValueError,'native_docker_socket_unavailable'):release.native_dependencies(base,root)
+                    kinds[target]=stat.S_IFSOCK;kinds[target.parent]=stat.S_IFLNK
+                    with self.assertRaises(ValueError):release.native_dependencies(base,root)
+            finally:
+                if sock is not None:sock.close()
+
+    def test_native_existing_directories_keep_type_ownership_and_empty_home_checks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            native=Path(directory)/'native';empty=Path(directory)/'empty-home'
+            paths=[native,native/'profiles',native/'workspaces',empty]
+            for path in paths:path.mkdir()
+            owners={path:((0,0,0o555) if path==empty else (9876,9876,0o700)) for path in paths};kinds={}
+            with patch.object(release,'NATIVE_ROOT',str(native)), patch.object(release,'NATIVE_EMPTY_SOURCE',str(empty)), self.native_metadata(owners,kinds), patch.object(os,'chown',create=True) as chown:
+                release.ensure_native_directories();chown.assert_not_called()
+                (native/'profiles').rmdir()
+                release.ensure_native_directories()
+                chown.assert_called_once_with(native/'profiles',9876,9876)
+                for bad in ((0,9876,0o700),(9876,9876,0o755)):
+                    owners[native/'profiles']=bad
+                    with self.assertRaisesRegex(ValueError,'native_directory_owner_mode'):release.ensure_native_directories()
+                owners[native/'profiles']=(9876,9876,0o700)
+                kinds[native/'workspaces']=stat.S_IFREG
+                with self.assertRaises(ValueError):release.ensure_native_directories()
+                kinds[native/'workspaces']=stat.S_IFLNK
+                with self.assertRaises(ValueError):release.ensure_native_directories()
+                kinds.clear();kinds[native.parent]=stat.S_IFLNK
+                with self.assertRaises(ValueError):release.ensure_native_directories()
+                kinds.clear();(empty/'unexpected').write_bytes(b'must not be mounted')
+                with self.assertRaisesRegex(ValueError,'native_empty_backend_home_changed'):release.ensure_native_directories()
+
+    def setUp(self):
+        self.release_state={key:deepcopy(value) for key,value in vars(release).items() if key.isupper()}
+        self.prepare_state={key:deepcopy(value) for key,value in vars(prepare).items() if key.isupper()}
+    def tearDown(self):
+        for module,saved in ((release,self.release_state),(prepare,self.prepare_state)):
+            for key,value in saved.items():setattr(module,key,value)
+        prepare.TARGETS=release.TARGETS
+
+    @contextmanager
+    def admission_fixture(self, root):
+        prepare.configure_native_admission()
+        base,system,payload,_,_,proof,previous=RuntimeMaterials().installed_fixture(root)
+        # Installed unit/backend are existing generated files, not bootstrap recipes.
+        old_unit=b'[Service]\nExecStart=/usr/bin/docker run --user 9876:9876 '+release.FROZEN_IMAGE_MARKER.encode()+b' worker\n'
+        with patch.object(release,'NATIVE_UNIT_BEFORE_SHA',prepare.digest(old_unit)):
+            unit=prepare.render_native_unit(old_unit,{'socket':{'gid':994}})
+        base.rooted(system,release.NATIVE_UNIT).write_bytes(unit)
+        release.NATIVE_CLI_SHA=prepare.digest(b'fixed cli')
+        base.rooted(system,release.TARGETS['runtime/native-backend.json']).write_bytes(release.native_backend_bytes())
+        legacy=base.rooted(system,release.NATIVE_LEGACY_DAILY)
+        legacy.write_bytes(b'unchanged legacy daily')
+        cli=base.rooted(system,release.NATIVE_CLI);cli.write_bytes(b'fixed cli')
+        profile=base.rooted(system,'/var/lib/fs-hermes-fc/profile')
+        owners={profile:(9876,9876,0o700),cli:(0,0,0o755)}
+        candidate=release.NATIVE_ADMISSION_CANDIDATE
+        before=base.rooted(system,release.TARGETS[candidate]).read_bytes()
+        after=before+b'\n# admission group read\n'
+        deps={'cli':{'sha256':prepare.digest(b'fixed cli')},'socket':{'gid':994},'worker_user':'9876:9876'}
+        descriptor=json.loads((payload.parent/'payload-manifest.json').read_bytes())
+        descriptor.update(material_execution=True,native_admission=True,native_chat=False)
+        previous['nativeChat']=True
+        for row in previous['files']:
+            row.update(sha256=base.digest(base.rooted(system,row['target'])),owner='0:0',mode='0o600' if row['target']==release.NGINX else '0o644')
+            if row['candidate'] in prepare.SOURCES:
+                body=after if row['candidate']==candidate else base.rooted(system,row['target']).read_bytes()
+                (payload/row['candidate']).write_bytes(body)
+                descriptor['files']['payload/'+row['candidate']]=prepare.digest(body)
+        previous['unchangedRequired']=[{'path':path,'sha256':base.digest(base.rooted(system,path))} for path in sorted(release.protected_paths(base))]
+        descriptor['installed_baseline']={'source_commit':release.INSTALLED_COMMIT,
+            'files':{row['candidate']:row['sha256'] for row in previous['files']},
+            'protected':{release.NATIVE_LEGACY_DAILY:base.digest(legacy)}}
+        backup=base.rooted(system,proof['backup'])
+        def save_proof():
+            raw=json.dumps(previous).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
+            journal={'status':'applied-awaiting-actual-http-role-acceptance','manifest':previous,'approvedManifestSha256':proof['manifestSha256']}
+            raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+        save_proof()
+        raw=json.dumps(descriptor).encode();(payload.parent/'payload-manifest.json').write_bytes(raw)
+        pins={'NATIVE_ADMISSION_BEFORE_SHA':prepare.digest(before),'NATIVE_ADMISSION_AFTER_SHA':prepare.digest(after),
+              'NATIVE_CURRENT_UNIT_SHA':prepare.digest(unit),'NATIVE_LEGACY_DAILY_SHA':base.digest(legacy),'NATIVE_CLI_SHA':deps['cli']['sha256']}
+        with self.native_metadata(owners,root=system),ExitStack() as stack:
+            for key,value in pins.items():stack.enter_context(patch.object(release,key,value))
+            stack.enter_context(patch.object(release,'INSTALLED_PROOF',proof));stack.enter_context(patch.object(prepare,'INSTALLED_PROOF',proof))
+            stack.enter_context(patch.object(release,'native_dependencies',return_value=deps))
+            yield SimpleNamespace(base=base,system=system,payload=payload,descriptor=descriptor,raw=raw,proof=proof,
+                previous=previous,save_proof=save_proof,pins=pins,deps=deps,owners=owners)
+
+    def test_native_admission_prepare_rejects_drift_proof_extra_zero_and_mixed(self):
+        with tempfile.TemporaryDirectory() as directory,self.admission_fixture(Path(directory)) as f:
+            root=Path(directory);descriptor_path=f.payload.parent/'payload-manifest.json'
+            stage=root/'valid';prepare.prepare(f.payload,stage,'a'*40,prepare.digest(f.raw),root=f.system,followup=True,release_ready=True)
+            manifest=json.loads((stage/'approved-manifest.json').read_bytes())
+            self.assertTrue(manifest['nativeAdmission']);self.assertNotIn('nativeChat',manifest)
+            self.assertEqual((len(manifest['files']),len(manifest['unchangedRequired'])),(34,45))
+            self.assertTrue(all(row['beforeSha256'] is not None for row in manifest['files']))
+            self.assertEqual(manifest['materialChangedTargets'],[release.TARGETS[release.NATIVE_ADMISSION_CANDIDATE]])
+            for case in ('zero','extra','unit','old_recipe','backend','old_source','git','mixed','missing_execution','journal','protected','legacy','missing','mode','owner'):
+                value=deepcopy(f.descriptor);restore=None;saved_owner=None
+                if case=='old_source':value['installed_baseline']['source_commit']='23a27325b00f27a5c5696657c7c4141a06135f18'
+                elif case=='git':value['installed_baseline']['files'][release.NATIVE_ADMISSION_CANDIDATE]='0'*64
+                elif case=='mixed':value['native_chat']=True
+                elif case=='missing_execution':value['material_execution']=False
+                elif case in ('mode','owner'):
+                    path=f.base.rooted(f.system,release.TARGETS['runtime/conversation_store.py'])
+                    saved_owner=path;f.owners[path]=(0,0,0o664) if case=='mode' else (9876,9876,0o644)
+                else:
+                    name=release.NATIVE_ADMISSION_CANDIDATE if case=='zero' else 'http/conversation_http.py' if case=='extra' else 'unit/native-control.conf' if case in ('unit','old_recipe') else 'runtime/native-backend.json'
+                    path=f.payload/name if case in ('zero','extra','unit','old_recipe','backend') else f.base.rooted(f.system,
+                        f.proof['backup']+'/journal.json' if case=='journal' else release.NATIVE_LEGACY_DAILY if case=='legacy' else
+                        release.TARGETS['runtime/native_chat.py'] if case=='missing' else f.previous['unchangedRequired'][0]['path'])
+                    restore=(path,path.read_bytes())
+                    if case=='zero':body=f.base.rooted(f.system,release.TARGETS[name]).read_bytes()
+                    elif case=='old_recipe':body=prepare.native_generated()['unit/native-control.conf']
+                    else:body=b'drift'
+                    if case=='missing':path.unlink()
+                    else:path.write_bytes(body)
+                    if str(path).startswith(str(f.payload)):value['files']['payload/'+name]=prepare.digest(body)
+                raw=json.dumps(value).encode();descriptor_path.write_bytes(raw)
+                with self.subTest(rejection=case),self.assertRaises((OSError,ValueError)):
+                    prepare.prepare(f.payload,root/('bad-'+case),'a'*40,prepare.digest(raw),root=f.system,followup=True)
+                self.assertFalse((root/('bad-'+case)).exists())
+                if restore:restore[0].write_bytes(restore[1])
+                if saved_owner:f.owners.pop(saved_owner)
+                descriptor_path.write_bytes(f.raw)
+            saved=deepcopy(f.previous)
+            for case in ('target_missing','target_duplicate','protected_missing','protected_duplicate','unit','new'):
+                f.previous.clear();f.previous.update(deepcopy(saved))
+                if case=='target_missing':f.previous['files'].pop()
+                elif case=='target_duplicate':f.previous['files'].append(deepcopy(f.previous['files'][0]))
+                elif case=='protected_missing':f.previous['unchangedRequired'].pop()
+                elif case=='protected_duplicate':f.previous['unchangedRequired'].append(deepcopy(f.previous['unchangedRequired'][0]))
+                else:next(r for r in f.previous['files'] if r['candidate']==('unit/native-control.conf' if case=='unit' else 'runtime/native_chat.py'))['sha256']=None if case=='new' else '0'*64
+                f.save_proof()
+                with self.subTest(proof=case),self.assertRaises(ValueError):release.installed_baseline(f.system,f.descriptor['installed_baseline'])
+
+    def test_native_admission_original_apply_range_only_and_rollback(self):
+        for failure in (None,'range','readiness'):
+            self.tearDown();self.setUp()
+            with self.subTest(failure=failure),tempfile.TemporaryDirectory() as directory,self.admission_fixture(Path(directory)) as f:
+                stage=Path(directory)/'stage'
+                prepare.prepare(f.payload,stage,'a'*40,prepare.digest(f.raw),root=f.system,followup=True,release_ready=True)
+                raw=(stage/'approved-manifest.json').read_bytes();manifest=json.loads(raw)
+                spec=importlib.util.spec_from_file_location('native_admission_fixture',stage/'runtime_release.py')
+                module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                module.configure_native_admission();module.INSTALLED_PROOF=f.proof
+                for key,value in f.pins.items():setattr(module,key,value)
+                base=f.base;original_guards=base.guards
+                base.hermes_quiescent=Mock();base.retirement=Mock()  # Only host DB/retired-service IO, real guards remain.
+                base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
+                fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock())
+                base.hermes_admission_fence=lambda *a:nullcontext(fence)
+                restart=Mock(side_effect=[RuntimeError('synthetic range failure'),None] if failure=='range' else None);base.restart_for=restart
+                if os.name=='nt':base.directory_sync=lambda *a:None
+                readiness=Mock(side_effect=[None,None,RuntimeError('synthetic readiness failure'),None] if failure=='readiness' else None)
+                untouched={path:(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns,path.stat().st_uid,path.stat().st_gid,stat.S_IMODE(path.stat().st_mode))
+                    for path in (base.rooted(f.system,row['target']) for row in manifest['files'] if row['candidate']!=release.NATIVE_ADMISSION_CANDIDATE)}
+                untouched.update({base.rooted(f.system,row['path']):(base.rooted(f.system,row['path']).read_bytes(),base.rooted(f.system,row['path']).stat().st_ino,base.rooted(f.system,row['path']).stat().st_mtime_ns,base.rooted(f.system,row['path']).stat().st_uid,base.rooted(f.system,row['path']).stat().st_gid,stat.S_IMODE(base.rooted(f.system,row['path']).stat().st_mode)) for row in manifest['unchangedRequired']})
+                with patch.object(module,'frozen',return_value=base),patch.object(module,'quiescent'),patch.object(module,'running_worker') as worker,patch.object(module,'native_dependencies',return_value=f.deps),patch.object(module,'native_runtime_readiness',readiness),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')) as commands:
+                    publisher=module.load_base();self.assertIsNot(publisher.guards,original_guards)
+                    publisher.inspect(manifest,stage,f.system)
+                    # Original parent ownership guard, not a no-op fixture.
+                    parent=base.rooted(f.system,'/opt/fs-hermes-fc');f.owners[parent]=(9876,9876,0o755)
+                    with self.assertRaisesRegex(ValueError,'unsafe daily source boundary'):publisher.guards(manifest,f.system)
+                    f.owners.pop(parent)
+                    for mutate in (lambda m:m.update(nativeChat=True),lambda m:m['files'].pop(),lambda m:m['unchangedRequired'].append(m['unchangedRequired'][0]),lambda m:m.update(baselineObservedAt='2020-01-01T00:00:00+00:00'),lambda m:m['runtimeBefore']['fs-hermes-fc.service'].update(ActiveState='failed'),lambda m:m.update(workerImageSource='configured_unit_and_local_image'),lambda m:m['nativeDependencies']['socket'].update(gid=995)):
+                        bad=deepcopy(manifest);mutate(bad)
+                        with self.assertRaises((ValueError,KeyError)):publisher.validate(bad,stage)
+                    if failure:
+                        with self.assertRaisesRegex(RuntimeError,'synthetic .* failure'):publisher.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261102T120001Z',f.system)
+                    else:publisher.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261102T120001Z',f.system)
+                    self.assertTrue(worker.called)
+                    self.assertTrue(all(call.args[0]['scope']==base.DEEP_SCOPE for call in restart.call_args_list))
+                    self.assertEqual(restart.call_count,2 if failure else 1)
+                    self.assertEqual(readiness.call_count,3 if failure=='range' else 4 if failure=='readiness' else 3)
+                    self.assertFalse(any(call.args[0][:2] in (['systemctl','daemon-reload'],['systemctl','restart'],['systemctl','reload']) for call in commands.call_args_list))
+                for row in manifest['files']:
+                    self.assertEqual(base.digest(base.rooted(f.system,row['target'])),row['beforeSha256'] if failure else row['sha256'])
+                for path,metadata in untouched.items():
+                    self.assertEqual((path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns,path.stat().st_uid,path.stat().st_gid,stat.S_IMODE(path.stat().st_mode)),metadata)
+                journal=json.loads((base.rooted(f.system,'/var/backups/fs-navigation-20261006/nav-20261102T120001Z')/'journal.json').read_bytes())
+                self.assertEqual(journal['status'],'rolled-back' if failure else 'applied-awaiting-actual-http-role-acceptance')
+
+    def test_native_admission_pack_uses_git_v2_unit_and_rejects_other_deltas(self):
+        prepare.configure_native_admission()
+        candidate=release.NATIVE_ADMISSION_CANDIDATE
+        old=b'[Service]\nExecStart=/usr/bin/docker run --user 9876:9876 '+release.FROZEN_IMAGE_MARKER.encode()+b' worker\n'
+        legacy=b'fixed legacy';before=b'old admission';after=b'group read admission'
+        calls=[];extra=[False]
+        def git_blob(command,**kwargs):
+            self.assertEqual(command[:2],['git','show']);calls.append(command[2])
+            commit,path=command[2].split(':',1)
+            if path.endswith('worker-install-state-isolation.conf'):return old
+            if commit=='23a27325b00f27a5c5696657c7c4141a06135f18':return legacy
+            if path==prepare.SOURCES[candidate]:return before if commit==release.INSTALLED_COMMIT else after
+            return (('changed:' if extra[0] and commit=='b'*40 and path==prepare.SOURCES['runtime/hermes_worker.py'] else 'same:')+path).encode()
+        with patch.object(release,'NATIVE_UNIT_BEFORE_SHA',prepare.digest(old)),patch.object(release,'NATIVE_LEGACY_DAILY_SHA',prepare.digest(legacy)),patch.object(release,'NATIVE_ADMISSION_BEFORE_SHA',prepare.digest(before)),patch.object(release,'NATIVE_ADMISSION_AFTER_SHA',prepare.digest(after)),patch.object(prepare.subprocess,'check_output',side_effect=git_blob),tempfile.TemporaryDirectory() as directory:
+            unit=prepare.render_native_unit(old,{'socket':{'gid':994}})
+            with patch.object(release,'NATIVE_CURRENT_UNIT_SHA',prepare.digest(unit)):
+                out=Path(directory)/'pack';prepare.pack(Path(directory),out,'b'*40)
+                value=json.loads((out/'payload-manifest.json').read_bytes())
+                self.assertTrue(value['native_admission']);self.assertFalse(value['native_chat'])
+                self.assertEqual((out/'payload/unit/native-control.conf').read_bytes(),unit)
+                self.assertEqual(value['installed_baseline']['files']['unit/native-control.conf'],prepare.digest(unit))
+                self.assertTrue(all(sha is not None for sha in value['installed_baseline']['files'].values()))
+                self.assertIn(release.INSTALLED_COMMIT+':'+prepare.MODULE+'source/worker-install-state-isolation.conf',calls)
+                extra[0]=True
+                with self.assertRaisesRegex(ValueError,'exact_native_admission_git_delta_required'):prepare.pack(Path(directory),Path(directory)/'extra','b'*40)
+            with patch.object(release,'NATIVE_CURRENT_UNIT_SHA','0'*64):
+                with self.assertRaisesRegex(ValueError,'native_admission_generated_unit_drift'):prepare.admission_generated(Path(directory))
+
+    def test_native_admission_is_existing_89_single_file_followup(self):
+        self.assertTrue(callable(getattr(prepare, 'configure_native_admission', None)),
+                        'installed native admission mode missing')
+        prepare.configure_native_admission()
+        self.assertTrue(release.NATIVE_ADMISSION_MODE)
+        self.assertEqual(release.INSTALLED_COMMIT, '89e5db08edba36cf3d88efdb37601ee1ca53bc38')
+        self.assertEqual(release.INSTALLED_PROOF['manifestSha256'],
+                         '642d78db24159c3c79f04ca3f67f4e8cda2abdbcd5680022ba6c9e9f71969084')
+        self.assertEqual((len(release.TARGETS),len(release.protected_paths(release.frozen())),len(release.NEW)),(34,45,0))
+        self.assertEqual(release.NATIVE_CURRENT_UNIT_SHA, '5f31448a6396d8d702d2cda1df7d192cd022e7d42f53d04a2a97e1664e9955e3')
+
+    def test_native_mode_exact_installed_proof_targets_and_new_modules(self):
+        self.assertTrue(callable(getattr(prepare,'configure_native_chat',None)),'native publisher mode is missing')
+        prepare.configure_native_chat()
+        self.assertEqual(release.INSTALLED_COMMIT,'23a27325b00f27a5c5696657c7c4141a06135f18')
+        self.assertEqual(release.INSTALLED_PROOF['manifestSha256'],'ae010cb6b11a1a7c7c4ed877ae7534dbfc63b443143955cdd990ed96dfe19cf4')
+        self.assertEqual(len(release.TARGETS),34)
+        self.assertEqual(len(release.protected_paths(release.frozen())),45)
+        self.assertEqual(release.TARGETS['runtime/direct_provider.py'],'/opt/fs-hermes-fc/direct_provider.py')
+        self.assertEqual(prepare.SOURCES['runtime/direct_provider.py'],prepare.CORE+'direct_provider.py')
+        self.assertEqual(release.NATIVE_PROVIDER_BEFORE_SHA,'91d301ebe3578d0e6c60c23252510ebb34416a57f9f5dfc4ffd744f5ae0c74fa')
+        self.assertNotIn(release.TARGETS['runtime/direct_provider.py'],release.protected_paths(release.frozen()))
+        self.assertEqual(release.NEW,frozenset({'runtime/conversation_native.py','runtime/native_chat.py','runtime/native-backend.json','approval/native_review.py','approval/daily_review.py'}))
+        self.assertEqual(release.TARGETS['approval/daily_review.py'],'/opt/fs-hermes-memory-approval/daily_review.py')
+        self.assertIn(release.NATIVE_LEGACY_DAILY,release.protected_paths(release.frozen()))
+        self.assertNotIn(release.NATIVE_UNIT,release.protected_paths(release.frozen()))
+        self.assertIn('/usr/bin/docker',release.protected_paths(release.frozen()))
+        self.assertFalse(release.GUARD_MODE)
+
+    def test_native_provider_promotion_requires_exact_old_proof_and_git_before(self):
+        prepare.configure_native_chat()
+        candidate='runtime/direct_provider.py';target=release.TARGETS[candidate]
+        previous={'sourceCommit':release.INSTALLED_COMMIT,'scope':release.SCOPE,
+                  'files':[{'candidate':name,'target':path,'sha256':'a'*64}
+                           for name,path in release.NATIVE_INSTALLED_TARGETS.items()],
+                  'unchangedRequired':[{'path':path,'sha256':release.NATIVE_UNIT_BEFORE_SHA if path==release.NATIVE_UNIT else
+                                       release.NATIVE_PROVIDER_BEFORE_SHA if path==target else 'b'*64}
+                                       for path in sorted(release.NATIVE_INSTALLED_PROTECTED)]}
+        baseline={'source_commit':release.INSTALLED_COMMIT,'files':{row['candidate']:row['sha256'] for row in previous['files']}}
+        baseline['files'].update({name:None for name in release.NEW})
+        baseline['files'].update(release.NATIVE_EXTERNAL_BEFORE)
+        baseline['files'].update({'unit/native-control.conf':release.NATIVE_UNIT_BEFORE_SHA,candidate:release.NATIVE_PROVIDER_BEFORE_SHA})
+        baseline['protected']={release.NATIVE_LEGACY_DAILY:release.NATIVE_LEGACY_DAILY_SHA}
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen();backup=base.rooted(root,release.INSTALLED_PROOF['backup']);backup.mkdir(parents=True)
+            for drift in (None,'missing','duplicate','protection_hash','git_hash','source'):
+                with self.subTest(drift=drift):
+                    manifest=deepcopy(previous);git_before=deepcopy(baseline)
+                    if drift=='missing':manifest['unchangedRequired']=[r for r in manifest['unchangedRequired'] if r['path']!=target]
+                    elif drift=='duplicate':manifest['unchangedRequired'].append(next(r for r in manifest['unchangedRequired'] if r['path']==target).copy())
+                    elif drift=='protection_hash':next(r for r in manifest['unchangedRequired'] if r['path']==target)['sha256']='c'*64
+                    elif drift=='git_hash':git_before['files'][candidate]='c'*64
+                    elif drift=='source':manifest['sourceCommit']='0'*40
+                    raw=json.dumps(manifest).encode();(backup/'approved-manifest.json').write_bytes(raw)
+                    proof=dict(release.INSTALLED_PROOF,manifestSha256=prepare.digest(raw))
+                    journal={'manifest':manifest,'status':'applied-awaiting-actual-http-role-acceptance','approvedManifestSha256':proof['manifestSha256']}
+                    raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+                    with patch.object(release,'INSTALLED_PROOF',proof):
+                        if drift:
+                            with self.assertRaisesRegex(ValueError,'native_installed_git_and_journal_mismatch'):
+                                release.installed_baseline(root,git_before)
+                        else:self.assertEqual(release.installed_baseline(root,git_before),manifest)
+
+    def test_native_prepare_original_apply_rollback_and_unchanged_metadata(self):
+        for fail in (False,'worker','native_readiness'):
+            # Start from an installed 25-target material-guard package, then promote
+            # precisely the new native dependencies. All IO uses real temp files.
+            self.tearDown(); self.setUp()
+            with self.subTest(failure=fail),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory)
+                prepare.configure_material_guard()
+                old_case=RuntimeMaterials()
+                base,system,payload,metadata,_,_,previous=old_case.installed_fixture(root)
+                old_targets=dict(release.TARGETS)
+                old_unit=b'[Service]\nExecStart=\nExecStart=/usr/bin/docker run --rm --user 9876:9876 '+release.FROZEN_IMAGE_MARKER.encode()+b' worker\n'
+                unit=base.rooted(system,release.NATIVE_UNIT);unit.write_bytes(old_unit)
+                prepare.configure_native_chat()
+                release.NATIVE_UNIT_BEFORE_SHA=prepare.digest(old_unit)
+                legacy=base.rooted(system,release.NATIVE_LEGACY_DAILY);legacy.parent.mkdir(parents=True,exist_ok=True);legacy.write_bytes(b'old host daily')
+                release.NATIVE_LEGACY_DAILY_SHA=prepare.digest(legacy.read_bytes())
+                profile=base.rooted(system,'/var/lib/fs-hermes-fc/profile')
+                owners={profile:(9876,9876,0o700)}
+                legacy_before=(legacy.read_bytes(),legacy.stat().st_ino,legacy.stat().st_mtime_ns)
+                release.NATIVE_PROVIDER_BEFORE_SHA=prepare.digest(base.rooted(system,release.TARGETS['runtime/direct_provider.py']).read_bytes())
+                release.NATIVE_EXTERNAL_BEFORE={name:prepare.digest(('old:'+name).encode()) for name in release.NATIVE_EXTERNAL_BEFORE}
+                for name in release.NATIVE_EXTERNAL_BEFORE:
+                    path=base.rooted(system,release.TARGETS[name]);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(('old:'+name).encode())
+                cli=base.rooted(system,release.NATIVE_CLI);cli.parent.mkdir(parents=True,exist_ok=True);cli.write_bytes(b'fixed CLI')
+                release.NATIVE_CLI_SHA=prepare.digest(b'fixed CLI')
+                previous['sourceCommit']=release.INSTALLED_COMMIT
+                previous['files']=[row for row in previous['files'] if row['candidate'] in old_targets]
+                previous['unchangedRequired']=[{'path':path,'sha256':prepare.digest(base.rooted(system,path).read_bytes())} for path in sorted(release.NATIVE_INSTALLED_PROTECTED)]
+                proof=dict(release.INSTALLED_PROOF)
+                backup=base.rooted(system,proof['backup']);backup.mkdir(parents=True,exist_ok=True)
+                raw=json.dumps(previous).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
+                journal={'status':'applied-awaiting-actual-http-role-acceptance','manifest':previous,'approvedManifestSha256':proof['manifestSha256']}
+                raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+                descriptor=json.loads((payload.parent/'payload-manifest.json').read_bytes())
+                descriptor.update(material_execution=True,material_diagnostics=False,goal_task_index_compat=False,worker_diagnostics=False,material_transport=False,material_stream=False,bindings_auth=False,material_guard=False,native_chat=True)
+                git_before={row['candidate']:row['sha256'] for row in previous['files']}
+                git_before.update({name:None for name in release.NEW});git_before.update(release.NATIVE_EXTERNAL_BEFORE);git_before['unit/native-control.conf']=release.NATIVE_UNIT_BEFORE_SHA
+                git_before['runtime/direct_provider.py']=release.NATIVE_PROVIDER_BEFORE_SHA
+                descriptor['installed_baseline']={'source_commit':release.INSTALLED_COMMIT,'files':git_before,'protected':{release.NATIVE_LEGACY_DAILY:release.NATIVE_LEGACY_DAILY_SHA}}
+                generated=prepare.native_generated()
+                for name in prepare.SOURCES:
+                    path=payload/name;path.parent.mkdir(parents=True,exist_ok=True)
+                    if name in generated:body=generated[name]
+                    elif name=='approval/reviewed_skills.py':body=base.rooted(system,release.TARGETS[name]).read_bytes()
+                    else:body=('native:'+name).encode() if name in release.NATIVE_ALLOWED else base.rooted(system,release.TARGETS[name]).read_bytes()
+                    path.write_bytes(body);descriptor['files']['payload/'+name]=prepare.digest(body)
+                raw=json.dumps(descriptor).encode();(payload.parent/'payload-manifest.json').write_bytes(raw)
+                deps={'cli':{'sha256':release.NATIVE_CLI_SHA},'socket':{'gid':998},'worker_user':'9876:9876'}
+                stage=root/'native-stage'
+                with self.native_metadata(owners,root=system),patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof),patch.object(prepare,'file_metadata',metadata),patch.object(release,'native_dependencies',return_value=deps):
+                    if not fail:
+                        daily=base.rooted(system,release.TARGETS['approval/daily_review.py'])
+                        daily.parent.mkdir(parents=True,exist_ok=True);daily.write_bytes(b'already installed elsewhere')
+                        with self.assertRaisesRegex(ValueError,'runtime_source_baseline_drift'):
+                            prepare.prepare(payload,root/'daily-already-present','a'*40,prepare.digest(raw),root=system,followup=True,release_ready=True)
+                        self.assertFalse((root/'daily-already-present').exists());daily.unlink()
+                        recipe=payload/'unit/native-control.conf';recipe_bytes=recipe.read_bytes()
+                        for variant in ('old_recipe','writable','source','target','extra'):
+                            bad=json.loads(recipe_bytes)
+                            if variant=='old_recipe':bad={'recipe':'native_worker_mounts_v1'}
+                            elif variant=='writable':bad['daily_readonly']=False
+                            elif variant=='source':bad['daily_source']=release.NATIVE_LEGACY_DAILY
+                            elif variant=='target':bad['daily_target']='/profile/scripts/other.py'
+                            else:bad['extra_mount']='/profile/extra'
+                            recipe.write_bytes(json.dumps(bad).encode())
+                            changed=deepcopy(descriptor);changed['files']['payload/unit/native-control.conf']=prepare.digest(recipe.read_bytes())
+                            bad_raw=json.dumps(changed).encode();(payload.parent/'payload-manifest.json').write_bytes(bad_raw)
+                            with self.subTest(recipe=variant),self.assertRaisesRegex(ValueError,'native_unit_recipe_changed'):
+                                prepare.prepare(payload,root/('bad-recipe-'+variant),'a'*40,prepare.digest(bad_raw),root=system,followup=True,release_ready=True)
+                            self.assertFalse((root/('bad-recipe-'+variant)).exists())
+                        recipe.write_bytes(recipe_bytes);(payload.parent/'payload-manifest.json').write_bytes(raw)
+                        provider=base.rooted(system,release.TARGETS['runtime/direct_provider.py'])
+                        before=provider.read_bytes();provider.write_bytes(b'other writer')
+                        with self.assertRaisesRegex(ValueError,'runtime_source_baseline_drift'):
+                            prepare.prepare(payload,root/'provider-drift', 'a'*40,prepare.digest(raw),root=system,followup=True,release_ready=True)
+                        self.assertFalse((root/'provider-drift').exists())
+                        provider.write_bytes(before)
+                    prepare.prepare(payload,stage,'a'*40,prepare.digest(raw),root=system,followup=True,release_ready=True)
+                    manifest=json.loads((stage/'approved-manifest.json').read_bytes())
+                    self.assertTrue(manifest['nativeChat']);self.assertEqual(len(manifest['files']),34)
+                    self.assertEqual(len(manifest['unchangedRequired']),45)
+                    provider_row=next(r for r in manifest['files'] if r['candidate']=='runtime/direct_provider.py')
+                    self.assertEqual(provider_row['beforeSha256'],release.NATIVE_PROVIDER_BEFORE_SHA)
+                    self.assertNotIn('runtime/direct_provider.py',release.NEW)
+                    self.assertEqual(manifest['nativeDependencies'],deps)
+                    original_meta={row['target']:(base.rooted(system,row['target']).stat().st_ino,base.rooted(system,row['target']).stat().st_mtime_ns) for row in manifest['files'] if row['beforeSha256']==row['sha256']}
+                spec=importlib.util.spec_from_file_location('native_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                module.configure_native_chat();module.INSTALLED_PROOF=proof
+                base.MATERIAL_NEW=module.NEW
+                module.NATIVE_UNIT_BEFORE_SHA=release.NATIVE_UNIT_BEFORE_SHA;module.NATIVE_EXTERNAL_BEFORE=dict(release.NATIVE_EXTERNAL_BEFORE);module.NATIVE_CLI_SHA=release.NATIVE_CLI_SHA
+                module.NATIVE_PROVIDER_BEFORE_SHA=release.NATIVE_PROVIDER_BEFORE_SHA
+                module.NATIVE_LEGACY_DAILY_SHA=release.NATIVE_LEGACY_DAILY_SHA
+                module.native_dependencies=lambda *a:deps
+                base.hermes_quiescent=Mock();base.retirement=Mock()  # Keep original guards and source-parent checks.
+                base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
+                fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock())
+                base.hermes_admission_fence=lambda *a:nullcontext(fence)
+                def restart_effect(*args,**kwargs):
+                    if fail=='worker' and restart_spy.call_count==1:
+                        raise RuntimeError('native worker restart failed')
+                    if fail and restart_spy.call_count>1 and (fail=='worker' or restart_spy.call_count>2):
+                        for row in manifest['files']:
+                            self.assertEqual(base.digest(base.rooted(system,row['target'])),row['beforeSha256'])
+                restart_spy=Mock(side_effect=restart_effect)
+                base.restart_for=restart_spy
+                if os.name=='nt':base.directory_sync=lambda *a:None
+                native_readback=Mock(side_effect=RuntimeError('native worker restart failed') if fail=='native_readiness' else None)
+                with self.native_metadata(owners,root=system),patch.object(module,'frozen',return_value=base),patch.object(module,'quiescent'),patch.object(module,'running_worker'),patch.object(module,'native_runtime_readiness',native_readback),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')):
+                    publisher=module.load_base()
+                    publisher.inspect(manifest,stage,system)
+                    for change in (
+                        lambda m:m.update(materialGuard=True),
+                        lambda m:m['installedBaseline'].update(sourceCommit='0'*40),
+                        lambda m:m['runtimeBefore']['fs-hermes-fc.service'].update(ActiveState='failed'),
+                        lambda m:m.update(workerImageSource='configured_unit_and_local_image'),
+                        lambda m:m['files'].pop(),
+                        lambda m:m['unchangedRequired'].pop(),
+                        lambda m:m['nativeDependencies'].update(worker_user='0:0'),
+                        lambda m:m['nativeDependencies']['cli'].update(sha256='0'*64),
+                    ):
+                        invalid=deepcopy(manifest);change(invalid)
+                        with self.assertRaises((ValueError,KeyError)):publisher.validate(invalid,stage)
+                    manifest_raw=(stage/'approved-manifest.json').read_bytes()
+                    if fail:
+                        with self.assertRaisesRegex(RuntimeError,'native worker restart failed'):
+                            publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,'nav-20261102T030001Z',system)
+                    else:publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,'nav-20261102T030001Z',system)
+                    for row in manifest['files']:
+                        path=base.rooted(system,row['target'])
+                        if fail and row['beforeSha256'] is None:self.assertFalse(path.exists())
+                        else:self.assertEqual(base.digest(path),row['beforeSha256'] if fail else row['sha256'])
+                        if row['target'] in original_meta:self.assertEqual((path.stat().st_ino,path.stat().st_mtime_ns),original_meta[row['target']])
+                    scopes=[call.args[0]['scope'] for call in restart_spy.call_args_list]
+                    self.assertIn(base.HERMES_WORKER_SCOPE,scopes)
+                    self.assertIn(base.DEEP_SCOPE,scopes)
+                    self.assertEqual(native_readback.call_count,0 if fail=='worker' else 1)
+                    self.assertFalse(any(call.args and call.args[0][:2]==['systemctl','reload'] for call in module.subprocess.run.call_args_list))
+                    self.assertEqual((legacy.read_bytes(),legacy.stat().st_ino,legacy.stat().st_mtime_ns),legacy_before)
+
+    def test_native_unit_is_exact_increment_cli_socket_only_control_plane(self):
+        prepare.configure_native_chat()
+        self.assertTrue(callable(getattr(prepare,'render_native_unit',None)),'native unit generation missing')
+        old=b'[Service]\nExecStart=\nExecStart=/usr/bin/docker run --rm --user 9876:9876 --name fs-hermes-fc '+release.FROZEN_IMAGE_MARKER.encode()+b' old-entry\n'
+        with patch.object(release,'NATIVE_UNIT_BEFORE_SHA',prepare.digest(old),create=True):
+            changed=prepare.render_native_unit(old,{'socket':{'gid':998}})
+            self.assertIn(b'--group-add 998',changed)
+            self.assertIn(b'source=/usr/bin/docker,target=/opt/fs-native-bin/docker,readonly',changed)
+            self.assertIn(b'source=/run/docker.sock,target=/var/run/docker.sock',changed)
+            mount=b'--mount type=bind,source=/opt/fs-hermes-memory-approval/daily_review.py,target=/profile/scripts/hermes-memory-review/daily_review.py,readonly'
+            self.assertEqual(changed.count(mount),1)
+            self.assertEqual(changed.count(release.FROZEN_IMAGE_MARKER.encode()),1)
+            self.assertIn(b'--user 9876:9876',changed)
+            self.assertEqual(prepare.render_native_unit(old,{'socket':{'gid':998}}),changed)
+            with self.assertRaises(ValueError):prepare.render_native_unit(old+b'drift',{'socket':{'gid':998}})
+            with self.assertRaises(ValueError):prepare.render_native_unit(changed,{'socket':{'gid':998}})
+
+    def test_control_readiness_checks_exact_contract_user_daemon_and_mounts(self):
+        prepare.configure_native_chat()
+        contract=prepare.native_generated()['runtime/native-backend.json']
+        mounts=[{'Destination':destination,'Source':source,'RW':rw} for destination,source,rw in (
+            ('/opt/fs-native-bin/docker','/usr/bin/docker',False),
+            ('/var/run/docker.sock','/run/docker.sock',True),
+            (release.NATIVE_ROOT,release.NATIVE_ROOT,True),
+            ('/opt/fs-native-backend-home',release.NATIVE_EMPTY_SOURCE,False),
+            (release.NATIVE_DAILY_CONTAINER,release.TARGETS['approval/daily_review.py'],False))]
+        user=['9876:9876'];failure=[False]
+        def observed(command,**kwargs):
+            if '{{.Config.User}}' in command:return user[0]
+            if 'version' in command:
+                if failure[0]:raise OSError('synthetic daemon refusal')
+                return '24.0.0|24.0.0'
+            return json.dumps(mounts)
+        with patch.object(Path,'read_bytes',return_value=contract),patch.object(Path,'is_symlink',return_value=False),patch.object(release.subprocess,'check_output',side_effect=observed):
+            release.native_runtime_readiness()
+            user[0]='0:0'
+            with self.assertRaisesRegex(ValueError,'native_control_user_readback'):release.native_runtime_readiness()
+            user[0]='9876:9876';mounts[0]['RW']=True
+            with self.assertRaisesRegex(ValueError,'native_control_mount_readback'):release.native_runtime_readiness()
+            mounts[0]['RW']=False;failure[0]=True
+            with self.assertRaises(OSError):release.native_runtime_readiness()
+            failure[0]=False
+            original=deepcopy(mounts)
+            daily=next(row for row in mounts if row['Destination']==release.NATIVE_DAILY_CONTAINER)
+            for variant in ('writable','source','target','duplicate','extra','missing'):
+                mounts[:]=deepcopy(original);daily=next(row for row in mounts if row['Destination']==release.NATIVE_DAILY_CONTAINER)
+                if variant=='writable':daily['RW']=True
+                elif variant=='source':daily['Source']=release.NATIVE_LEGACY_DAILY
+                elif variant=='target':daily['Destination']='/profile/scripts/hermes-memory-review/other.py'
+                elif variant=='duplicate':mounts.append(daily.copy())
+                elif variant=='extra':mounts.append(dict(daily,Destination='/profile/scripts/hermes-memory-review/extra.py'))
+                else:mounts.remove(daily)
+                with self.subTest(variant=variant),self.assertRaisesRegex(ValueError,'native_control_mount_readback'):release.native_runtime_readiness()
+            mounts[:]=original
+            with patch.object(Path,'read_bytes',return_value=b'{}'):
+                with self.assertRaisesRegex(ValueError,'native_control_contract_drift'):release.native_runtime_readiness()
 
 if __name__ == '__main__':
     unittest.main()
