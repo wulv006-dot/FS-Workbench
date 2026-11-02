@@ -950,3 +950,12 @@ publisher 新增互斥 `--native-chat --followup`，钉已安装 23a 的 manifes
 `--native-admission --followup` / `native_admission` / `nativeAdmission`独立互斥，固定成功89e5 proof：backup `nav-20261102T100758Z`、manifest `642d78db24159c3c79f04ca3f67f4e8cda2abdbcd5680022ba6c9e9f71969084`、journal `34f8e7a3dea5df8f05baf73d9e9bc668a3127444f8915f323cc15dce5e361266`。34现存/45保护/NEW0，只允许`conversation_native.py`由`030e36d5…e795c2`变为`72253b5f…c1a57a`；其余33仅CAS/备份、跳过写入。原recipe v2从89e5 Git旧unit和固定socket GID994重现已安装unit SHA `5f31448a…9955e3`，不再次展开现场unit；backend、rootdaily只读挂载、旧profile/legacydaily及冻结writer保持。只沿原围栏DEEP/readiness重载range，worker/Nginx不重启，回退仅还原该代码目标。
 
 新增本地tempFS用例覆盖完整原validate/inspect/apply/rollback（保留真实原guards）、range与readiness失败、33未写metadata、34/45精确集合、Git/proof/current unit/marker/NEW/零或额外delta/权限漂移拒绝。OS服务、锁、Docker与uid为明确夹具；不冒生产DAC或真实发布通过。原一行0600→0640修复和A111消费链证据复用，旧UNKNOWN不改权限/ready/重发。本次只是可审候选，尚未发布或恢复正常附件聊天；历史材料400、官方调用数和费用仍unknown。
+
+
+### 指定合成UNKNOWN归档候选（2026-11-02，未生产执行）
+
+用户指定唯一cid `1fbe5a2b7b0b4434af259bbde7c9293b` / turn `d2d00f2c13e749f186bf6e4303514a65` / request `web_c6a3cf2095854f898ed5b10c03b64a01`。新增仅宿主管理维护函数`ConversationStore.archive_synthetic_unknown(owner)`，无对象选择器、HTTP或模型工具；固定owner SHA/session/lease/官方指纹/原合成输入SHA及附件IDs，事务内验证singleton会话、UNKNOWN/run=null/stopped=1/schemas=null、任务绑定和原幂等派生后，只新增`synthetic_turn_archives`审计行。原turn、native binding/body/key/fingerprint、文件、事件和UNKNOWN/费用unknown均保留，不伪造终态；同次维护重放返回相同审计。普通列表及启动active排除，原会话owned入口拒绝新旧request和写入；native reconcile/complete/fence/授权及service recover/monitor早退，不复活或派发。
+
+本候选只在temp执行归档，生产归档0、删除0。新表随Store原初始化装配，非公共迁移/回收站。执行真实维护前必须先安装所有archive-aware消费者并保留兼容回退代码，不能归档后回滚到忽略tombstone的旧Store。publisher仍原阻断COUNT，不以归档或新状态绕过；未来发布若排除该归档，须核完整审计/CAS而非排除任意UNKNOWN。
+
+最新数据发布`nav-20261102T150526Z`（PR757/0ab6b023）已改变range/Nginx生成字节，故原89e5 34/45包不可复用。当前Git交接只有发布ID/8目标743保护陈述；缺该次完整approved-manifest和journal精确SHA/收据位置，以及活动range/Nginx patch生成链、34原目标与新保护交集before映射。待B协调完整证明后再登记唯一后续装配；不得反射磁盘或覆盖live-orders接口。原754的0640修复仍只在Git，尚无已安装证据。阶段1真实附件聊天/归档、供应商终态与费用均未据此宣称通过；新客调查和阶段2/3不在本包。
