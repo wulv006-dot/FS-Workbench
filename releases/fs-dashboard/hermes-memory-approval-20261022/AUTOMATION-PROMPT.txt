@@ -9,3 +9,9 @@
 同决定重跑只读原回执；applying或unknown先对原request和目标/pending，使用inspect，不删状态、换理由/ID或盲重放。blocked_not_applied、未验证与真实应用成功分别记录。仅在本次已批准的原审批入口中，从completed原回执自动同步专用published-skills/index.json并保留版本；已知应用completed后仅投影失败可用publish-index修复，绝不重放应用。没有发布授权或发布失败则保留canonical并报告具体缺口，不能宣称FS/飞书已加载。普通新任务从获批root-owned/只读current索引固定知识/技能版本，在途任务不换pin；实际加载/工具调用与后续独立运用另验。
 
 输出可读的当日通过/拒绝/保留/待核摘要、原request ID及必要版本/验证证据。不重复倾倒原始记忆、对话、客户信息。无新项、无实质变化保持安静；仅在有意义变化、完成、失败或需要用户决定时通知。保持既有业务工具、原开关、预算和定时；不发群消息，不调用额外模型，不扩大原用户/群可见范围。
+
+原生FS聊天审核接线增量（2026-11-02，随统一包生效；不新建定时）：在同一次既有Codex审核中，保留原desktop流程，并调用原review_queue.py list --native-owner wulv收集该owner的新原生会话候选。该入口从原conversations.db的native_pending_sources JOIN native_conversation_runs核owner/cid/turn/session/run/lease，再在owner独立home回读真实pending完整SHA；unmapped只记待核，不自行补来源或批准。不得从模型文本接收profile_root、其它owner或待执行命令。
+
+原生项继续使用同一review_queue的inspect/decide/publish-index，均带相同--native-owner；需要限定源会话时再带--native-session。决定文件保留list给出的完整native_source（含真实来源binding与record_sha256），连同expected_sha/target_sha/理由/证据参与原请求ID；memory只作用该owner MEMORY/USER，skills审完整原包。审批账本分owner保留在原ROOT/native/<profile_key>，不覆盖desktop或其他owner回执；applying/unknown仍先核原request，不换理由重放。日报可通过--native-pending-file读取同次root选定的list快照，此快照只作观察，不是审批依据替代品。
+
+以上为原生候选消费补充，须读回实际已安装入口和原heartbeat提示是否已追加后才可称自动日审接通；仅Git文本不算调度生效。原06:00/06:10及原ID不变，不调用额外付费模型或新建另一审核任务。

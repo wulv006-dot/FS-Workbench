@@ -134,4 +134,10 @@ class DecisionTests(unittest.TestCase):
                 self.assertNotIn('backup',str(current));self.assertNotIn('decision',str(current))
 
 
+def load_tests(loader, tests, pattern):
+    import test_native_review
+    tests.addTests(loader.loadTestsFromModule(test_native_review))
+    return tests
+
+
 if __name__=='__main__':unittest.main()
