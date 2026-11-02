@@ -1207,12 +1207,50 @@ class NativePublisher(unittest.TestCase):
         prepare.configure_native_chat()
         self.assertEqual(release.INSTALLED_COMMIT,'23a27325b00f27a5c5696657c7c4141a06135f18')
         self.assertEqual(release.INSTALLED_PROOF['manifestSha256'],'ae010cb6b11a1a7c7c4ed877ae7534dbfc63b443143955cdd990ed96dfe19cf4')
-        self.assertEqual(len(release.TARGETS),33)
+        self.assertEqual(len(release.TARGETS),34)
+        self.assertEqual(len(release.protected_paths(release.frozen())),44)
+        self.assertEqual(release.TARGETS['runtime/direct_provider.py'],'/opt/fs-hermes-fc/direct_provider.py')
+        self.assertEqual(prepare.SOURCES['runtime/direct_provider.py'],prepare.CORE+'direct_provider.py')
+        self.assertEqual(release.NATIVE_PROVIDER_BEFORE_SHA,'91d301ebe3578d0e6c60c23252510ebb34416a57f9f5dfc4ffd744f5ae0c74fa')
+        self.assertNotIn(release.TARGETS['runtime/direct_provider.py'],release.protected_paths(release.frozen()))
         self.assertEqual(release.NEW,frozenset({'runtime/conversation_native.py','runtime/native_chat.py','runtime/native-backend.json','approval/native_review.py'}))
         self.assertEqual(release.TARGETS['approval/daily_review.py'],'/var/lib/fs-hermes-fc/profile/scripts/hermes-memory-review/daily_review.py')
         self.assertNotIn(release.NATIVE_UNIT,release.protected_paths(release.frozen()))
         self.assertIn('/usr/bin/docker',release.protected_paths(release.frozen()))
         self.assertFalse(release.GUARD_MODE)
+
+    def test_native_provider_promotion_requires_exact_old_proof_and_git_before(self):
+        prepare.configure_native_chat()
+        candidate='runtime/direct_provider.py';target=release.TARGETS[candidate]
+        previous={'sourceCommit':release.INSTALLED_COMMIT,'scope':release.SCOPE,
+                  'files':[{'candidate':name,'target':path,'sha256':'a'*64}
+                           for name,path in release.NATIVE_INSTALLED_TARGETS.items()],
+                  'unchangedRequired':[{'path':path,'sha256':release.NATIVE_UNIT_BEFORE_SHA if path==release.NATIVE_UNIT else
+                                       release.NATIVE_PROVIDER_BEFORE_SHA if path==target else 'b'*64}
+                                       for path in sorted(release.NATIVE_INSTALLED_PROTECTED)]}
+        baseline={'source_commit':release.INSTALLED_COMMIT,'files':{row['candidate']:row['sha256'] for row in previous['files']}}
+        baseline['files'].update({name:None for name in release.NEW})
+        baseline['files'].update(release.NATIVE_EXTERNAL_BEFORE)
+        baseline['files'].update({'unit/native-control.conf':release.NATIVE_UNIT_BEFORE_SHA,candidate:release.NATIVE_PROVIDER_BEFORE_SHA})
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen();backup=base.rooted(root,release.INSTALLED_PROOF['backup']);backup.mkdir(parents=True)
+            for drift in (None,'missing','duplicate','protection_hash','git_hash','source'):
+                with self.subTest(drift=drift):
+                    manifest=deepcopy(previous);git_before=deepcopy(baseline)
+                    if drift=='missing':manifest['unchangedRequired']=[r for r in manifest['unchangedRequired'] if r['path']!=target]
+                    elif drift=='duplicate':manifest['unchangedRequired'].append(next(r for r in manifest['unchangedRequired'] if r['path']==target).copy())
+                    elif drift=='protection_hash':next(r for r in manifest['unchangedRequired'] if r['path']==target)['sha256']='c'*64
+                    elif drift=='git_hash':git_before['files'][candidate]='c'*64
+                    elif drift=='source':manifest['sourceCommit']='0'*40
+                    raw=json.dumps(manifest).encode();(backup/'approved-manifest.json').write_bytes(raw)
+                    proof=dict(release.INSTALLED_PROOF,manifestSha256=prepare.digest(raw))
+                    journal={'manifest':manifest,'status':'applied-awaiting-actual-http-role-acceptance','approvedManifestSha256':proof['manifestSha256']}
+                    raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+                    with patch.object(release,'INSTALLED_PROOF',proof):
+                        if drift:
+                            with self.assertRaisesRegex(ValueError,'native_installed_git_and_journal_mismatch'):
+                                release.installed_baseline(root,git_before)
+                        else:self.assertEqual(release.installed_baseline(root,git_before),manifest)
 
     def test_native_prepare_original_apply_rollback_and_unchanged_metadata(self):
         for fail in (False,'worker','native_readiness'):
@@ -1229,6 +1267,7 @@ class NativePublisher(unittest.TestCase):
                 unit=base.rooted(system,release.NATIVE_UNIT);unit.write_bytes(old_unit)
                 prepare.configure_native_chat()
                 release.NATIVE_UNIT_BEFORE_SHA=prepare.digest(old_unit)
+                release.NATIVE_PROVIDER_BEFORE_SHA=prepare.digest(base.rooted(system,release.TARGETS['runtime/direct_provider.py']).read_bytes())
                 release.NATIVE_EXTERNAL_BEFORE={name:prepare.digest(('old:'+name).encode()) for name in release.NATIVE_EXTERNAL_BEFORE}
                 for name in release.NATIVE_EXTERNAL_BEFORE:
                     path=base.rooted(system,release.TARGETS[name]);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(('old:'+name).encode())
@@ -1246,6 +1285,7 @@ class NativePublisher(unittest.TestCase):
                 descriptor.update(material_execution=True,material_diagnostics=False,goal_task_index_compat=False,worker_diagnostics=False,material_transport=False,material_stream=False,bindings_auth=False,material_guard=False,native_chat=True)
                 git_before={row['candidate']:row['sha256'] for row in previous['files']}
                 git_before.update({name:None for name in release.NEW});git_before.update(release.NATIVE_EXTERNAL_BEFORE);git_before['unit/native-control.conf']=release.NATIVE_UNIT_BEFORE_SHA
+                git_before['runtime/direct_provider.py']=release.NATIVE_PROVIDER_BEFORE_SHA
                 descriptor['installed_baseline']={'source_commit':release.INSTALLED_COMMIT,'files':git_before}
                 generated=prepare.native_generated()
                 for name in prepare.SOURCES:
@@ -1258,15 +1298,27 @@ class NativePublisher(unittest.TestCase):
                 deps={'cli':{'sha256':release.NATIVE_CLI_SHA},'socket':{'gid':998},'worker_user':'9876:9876'}
                 stage=root/'native-stage'
                 with patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof),patch.object(prepare,'file_metadata',metadata),patch.object(release,'native_dependencies',return_value=deps):
+                    if not fail:
+                        provider=base.rooted(system,release.TARGETS['runtime/direct_provider.py'])
+                        before=provider.read_bytes();provider.write_bytes(b'other writer')
+                        with self.assertRaisesRegex(ValueError,'runtime_source_baseline_drift'):
+                            prepare.prepare(payload,root/'provider-drift', 'a'*40,prepare.digest(raw),root=system,followup=True,release_ready=True)
+                        self.assertFalse((root/'provider-drift').exists())
+                        provider.write_bytes(before)
                     prepare.prepare(payload,stage,'a'*40,prepare.digest(raw),root=system,followup=True,release_ready=True)
                     manifest=json.loads((stage/'approved-manifest.json').read_bytes())
-                    self.assertTrue(manifest['nativeChat']);self.assertEqual(len(manifest['files']),33)
+                    self.assertTrue(manifest['nativeChat']);self.assertEqual(len(manifest['files']),34)
+                    self.assertEqual(len(manifest['unchangedRequired']),44)
+                    provider_row=next(r for r in manifest['files'] if r['candidate']=='runtime/direct_provider.py')
+                    self.assertEqual(provider_row['beforeSha256'],release.NATIVE_PROVIDER_BEFORE_SHA)
+                    self.assertNotIn('runtime/direct_provider.py',release.NEW)
                     self.assertEqual(manifest['nativeDependencies'],deps)
                     original_meta={row['target']:(base.rooted(system,row['target']).stat().st_ino,base.rooted(system,row['target']).stat().st_mtime_ns) for row in manifest['files'] if row['beforeSha256']==row['sha256']}
                 spec=importlib.util.spec_from_file_location('native_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
                 module.configure_native_chat();module.INSTALLED_PROOF=proof
                 base.MATERIAL_NEW=module.NEW
                 module.NATIVE_UNIT_BEFORE_SHA=release.NATIVE_UNIT_BEFORE_SHA;module.NATIVE_EXTERNAL_BEFORE=dict(release.NATIVE_EXTERNAL_BEFORE);module.NATIVE_CLI_SHA=release.NATIVE_CLI_SHA
+                module.NATIVE_PROVIDER_BEFORE_SHA=release.NATIVE_PROVIDER_BEFORE_SHA
                 module.native_dependencies=lambda *a:deps
                 base.guards=lambda *a,**kw:None;base.retirement=lambda *a:None
                 base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()

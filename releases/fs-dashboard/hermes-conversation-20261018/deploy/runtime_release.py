@@ -46,11 +46,13 @@ GUARD_MODE = False
 NATIVE_MODE = False
 NATIVE_UNIT = '/etc/systemd/system/fs-hermes-fc.service.d/install-state-isolation.conf'
 NATIVE_UNIT_BEFORE_SHA = '2a4eeada8c0acd27db04aa14838af7cc5c7fe3355677581d53f1f3509c74321a'
+NATIVE_PROVIDER_BEFORE_SHA = '91d301ebe3578d0e6c60c23252510ebb34416a57f9f5dfc4ffd744f5ae0c74fa'
 NATIVE_CLI = '/usr/bin/docker'
 NATIVE_CLI_SHA = 'bfc304d1c5d8694b5c9bacc1c52c2f8d50e65b6f3e29446283a2561e23667be7'
 NATIVE_ROOT = '/var/lib/fs-hermes-fc/native'
 NATIVE_EMPTY_SOURCE = '/var/lib/fs-hermes-fc/native-backend-home'
 NATIVE_EXTRA_TARGETS = {
+    'runtime/direct_provider.py':'/opt/fs-hermes-fc/direct_provider.py',
     'runtime/conversation_native.py':'/opt/fs-hermes-fc/conversation_native.py',
     'runtime/native_chat.py':'/opt/fs-hermes-fc/native_chat.py',
     'runtime/native-backend.json':'/opt/fs-hermes-fc/native-backend.json',
@@ -243,6 +245,7 @@ def installed_baseline(root, git_baseline):
         expected.update({name:None for name in NEW})
         expected.update(NATIVE_EXTERNAL_BEFORE)
         expected['unit/native-control.conf'] = NATIVE_UNIT_BEFORE_SHA
+        expected['runtime/direct_provider.py'] = NATIVE_PROVIDER_BEFORE_SHA
         protected = manifest.get('unchangedRequired', [])
         if (manifest.get('sourceCommit') != INSTALLED_COMMIT or manifest.get('scope') != SCOPE or
                 len(manifest['files']) != len(NATIVE_INSTALLED_TARGETS) or
@@ -250,6 +253,7 @@ def installed_baseline(root, git_baseline):
                 len(protected) != len(NATIVE_INSTALLED_PROTECTED) or
                 {row['path'] for row in protected} != NATIVE_INSTALLED_PROTECTED or
                 next((row['sha256'] for row in protected if row['path'] == NATIVE_UNIT),None) != NATIVE_UNIT_BEFORE_SHA or
+                next((row['sha256'] for row in protected if row['path'] == TARGETS['runtime/direct_provider.py']),None) != NATIVE_PROVIDER_BEFORE_SHA or
                 journal.get('status') != 'applied-awaiting-actual-http-role-acceptance' or
                 journal.get('approvedManifestSha256') != INSTALLED_PROOF['manifestSha256'] or
                 journal.get('manifest') != manifest or git_baseline != {'source_commit':INSTALLED_COMMIT,'files':expected}):

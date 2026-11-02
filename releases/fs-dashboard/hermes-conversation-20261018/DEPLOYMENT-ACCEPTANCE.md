@@ -926,3 +926,9 @@ owner profile 为 `/var/lib/fs-hermes-fc/native/profiles/<sha256(owner UTF8)>`�
 publisher 新增互斥 `--native-chat --followup`，钉已安装 23a 的 manifest ae010cb6…/journal d5939636…/backup nav-20261102T010331Z。33 targets/45 protection/NEW4，包含三旧 root 审核消费者、native_review、native runtime/scope/backend 契约及精确控制面 drop-in；其余原目标按 SHA/mode CAS，未变文件不写 inode/mtime。CLI 固定 root0755/39719840/SHA bfc304d1c5d8694b5c9bacc1c52c2f8d50e65b6f3e29446283a2561e23667be7；daemon socket 的真实 type/uid/gid/mode 在新 prepare 一次观测、manifest 绑定，必要补充组仅控制面，不改 Config.User。原锁/准入/provider/UNKNOWN/fresh/CAS/备份/journal/回退保留；必要 worker 重建及原 DEEP range readiness，Nginx 不 reload。回退先恢复原字节与旧 unit，再检查旧运行边界，不错误要求旧 unit 提供新 CLI。新 owner 数据目录留存，不删除原八模块或数据库。
 
 当前生产仍已核 23a；本轮无发布、真实任务、付费调用、旧 run/error/result 或浏览器操作。新候选需统一最新 SHA 独审/CI 后再沿原 publisher 发布，随后正常入口验 CSV/XLSX、下载追问、刷新/stop/权限与桌面/手机；阶段1未完成，阶段2/3不启动，费用和历史原因 unknown 不补零。
+
+### 同包补齐自动标题 provider 装配（2026-11-02，未部署）
+
+正常 merge B 固定 198024fb0f687ed2f8720937920365476061cbd5；B 四路径未并改。A 仅补原 publisher 三文件和本附录：从已安装 23a 的原 45 保护证明中精确提升已有 `/opt/fs-hermes-fc/direct_provider.py`，Git 来源 core/source/direct_provider.py，before SHA91d301ebe3578d0e6c60c23252510ebb34416a57f9f5dfc4ffd744f5ae0c74fa 同时绑定原成功 journal/manifest 的唯一保护记录与原 Git bytes，不接受缺项、重复、错 hash/旧 source 或当前漂移；不视为新增。集合为 34 targets/44 protected/NEW4，CLI/unit/UID/隔离与原锁、回退均不变，失败恢复 provider 原已装字节。未改旧已生成 stage 或原冻结 writer。
+
+先测旧装配实际 RED=33≠34，再补最小提升；原 deploy 三显式入口最终34项全过、零 failure/error/skip，涵盖完整 proof/Git、现场 provider 漂移拒绝、原 inspect/apply/两类回退与未改文件 metadata。逐 Git 原始字节核 B after：direct_provider.py 17275bytes/SHA4bb723c0d9673bfe1e795bbeaf704cb97df6668d41ffd287c6ed7f18306443b0（320 CRLF）、transport.py 20694/SHAa9e6fb994625ccff66aed81b06e02b14c32171fd98b4693216b2264b49ededb7、proxy_gateway.py 37607/SHAb137b639c8863fcc12f0f5ed87ef5572f6c9860831b389651d0e9a52dfb47e02；pack 保留 Git 原字节，未以工作区换行重写 provider。B 的42项消费者验证按其固定输入证据复用，不冒 A 重跑；原138/SDK/模型未重复。旧 SDK 收据的自动标题拦截仍是旧候选当时的真实结果，新代码尚未做实际 SDK 标题/供应商或生产验收；当前生产仍23a。

@@ -131,6 +131,7 @@ def configure_native_chat():
     INSTALLED_COMMIT, NEW = release.INSTALLED_COMMIT, release.NEW
     SOURCES.update({'runtime/conversation_native.py':MODULE+'source/conversation_native.py',
                     'runtime/native_chat.py':CORE+'native_chat.py',
+                    'runtime/direct_provider.py':CORE+'direct_provider.py',
                     'runtime/transport.py':CORE+'transport.py'})
     SOURCES.update({'approval/'+name:'releases/fs-dashboard/hermes-memory-approval-20261022/'+name
                     for name in ('review_queue.py','native_review.py','reviewed_skills.py','daily_review.py')})
@@ -212,6 +213,7 @@ def observe(root=Path('/'), installed=None):
         expected.update({name:None for name in release.NEW})
         expected.update(release.NATIVE_EXTERNAL_BEFORE)
         expected['unit/native-control.conf'] = release.NATIVE_UNIT_BEFORE_SHA
+        expected['runtime/direct_provider.py'] = release.NATIVE_PROVIDER_BEFORE_SHA
     if installed and release.TRANSPORT_MODE:
         expected[release.TRANSPORT_CANDIDATE] = release.promoted_transport_sha(installed, base)
     if installed and release.EXECUTION_MODE and not (release.DIAGNOSTICS_MODE or release.TASK_INDEX_MODE or release.WORKER_DIAGNOSTICS_MODE or release.TRANSPORT_MODE or release.STREAM_MODE or release.BINDINGS_MODE or release.GUARD_MODE or release.NATIVE_MODE):
