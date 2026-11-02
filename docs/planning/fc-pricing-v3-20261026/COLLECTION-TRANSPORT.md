@@ -77,3 +77,15 @@
 - `BudgetedTransport`对已完成且验证过的语言信号完成原permit后传播；预算不退款，后续GET重新reserve。回归确认root+language+quote恰3permit/3completion/2offers。未知/错误不释放占用；原拒绝与报价/币种/数量合同保持。
 - 旧4模块Lootbar导出包新增独立子进程Worker导入检查，防止误引未导出的public_sources；红绿验证后常量落contracts，控制包仍无adapters依赖。81专项通过，183固定3.9.18隔离79项无skip通过，未执行额外外站请求。
 - 下一次仅一个正常协议组，固定ID、单attempt、3请求预算、90s截止、原18s单GET硬界，所有已有7次和5份旧回执保留；同事务off/gen6→shadow/gen7与新job入队，总10硬界。preview先核持久诊断枚举，旧ID重入只读/补ACK，不另建job，不接生产消费。现场结果另记。
+
+## 2026-11-02：真实影子通过与P3候选
+
+- PR756合并 `17c00bf1ddbde93bcf21b5364ecde896880ec0bb`，正式CI41458772193通过。183普通worker于14:13:54.505789 UTC取得ArabUT PS/Xbox报价，固定三次GET，总专项累计10次；同job重读未新增请求，观察时间不变。6个原任务COMPLETED，失败及人工诊断回执hash保留，spool清空。保护的FC/RPG/共享隧道状态、PID及unit hash前后相同。
+- P3候选新增 `fc_collection/client.py`，仅187控制角色导出；183仍不含客户端、协调器、业务源或凭据。`sources.py`两处ArabUT按原source_plan触发，已提供的原ArabUT结果优先、PC/其他来源范围不扩展，原local_collection钉住继续有效。
+- `/var/lib/fc27-cloud/collection-access/routing.json` 缺省或 `remote_result_mode=off` 使用旧分支，不创建协调器、不执行SSH。`shadow`也使用旧输入；远端影子由已验证的独立限额驱动承担，不新增后台轮询器。模板为 `{"schema_version":1,"remote_result_mode":"off","assignment_generation":7}`，文件要求root所有、单硬链接、0600。
+- 候选consume必须与同一原SQLite中的source mode/generation、adapter v2、origin及183首选节点一致。每原run钉住route/context，限定3次GET/1attempt，只领取本job；失败、403/429、未知请求不会转直采或换ID。丢ACK先对原spool；重读不刷新deadline/观察时间，不重新抓价。原报价下游缺价规则保留。
+- v2携带且校验SAR原金额、priceVersion原类型、pricedAt；消费要求同一完整Console组。原v1影子可验签/补ACK，但不能作为完整v2生产报价；不改写原回执。
+- 候选本机96项通过、完整FC611项通过（10个原Windows平台跳过）；183目标Python3.9.18无网络、0.25核/256MB容器94项通过，无跳过。证据在本地task目录routing-full-fc.log、routing-linux183.log；未新增外站请求，知识收尾候选无冲突。
+- **本段是可关闭候选，尚未向原生产目录发布或开启consume。** 187本机自动接替与回切还在P6范围；在该能力完成和验收前不把候选宣称为生产可切换。原FC调度、定价、writer及RPG未改。原publisher受控增量发布、真实入口消费、自然轮和现场回退仍未执行。
+- 独立审查99ae09f发现真实server_quote_job只传checked_at、未传collection_mode；新增真实构造→子进程回归先失败，修复为原checked_at建parent并透传原local模式/截止。无routing时直接原分支，不依赖控制包安装。
+- 修复后完整FC613项通过（10个原Windows平台跳过）；183目标Python3.9隔离96项通过无跳过。最终Linux包3e751eac2504e677063cc12eda6d62d3744edee9c1913a14a5065f8ba5ec5722，routing-final-linux183.log。独立审查未发现其他P1/P2，同run并发仅1job/1attempt/1permit。

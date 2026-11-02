@@ -19,11 +19,13 @@ import zipfile
 IMAGE = 'python:3.9.18-slim@sha256:aa7b73608abcfb021247bbb4c111435234a0459298a6da610681097a54ca2c2a'
 FILES = {'source/fc_collection/' + name for name in
          ('__init__.py', 'contracts.py', 'coordinator.py', 'adapters.py', 'worker.py',
-          'protocol.py', 'public_sources.py', 'server.py', 'ssh_client.py', 'pilot.py')}
+          'protocol.py', 'public_sources.py', 'server.py', 'ssh_client.py', 'pilot.py', 'client.py')}
+FILES.add('source/fc_pricing_v3/sources.py')
+FILES.add('source/server_quote_job.py')
 FILES |= {'tests/' + name for name in ('collection_cases.py', 'test_collection_contracts.py',
           'test_collection_leases.py', 'test_collection_limits.py', 'test_collection_worker.py',
           'test_collection_public_source.py', 'test_collection_protocol.py', 'test_collection_service.py',
-          'test_collection_node_package.py', 'test_collection_pilot.py', 'test_collection_install.py')} | {
+          'test_collection_node_package.py', 'test_collection_pilot.py', 'test_collection_install.py', 'test_collection_routing.py')} | {
           'deploy/build_collection_node.py', 'deploy/install_collection_node.py', 'deploy/prepare_collection_control.py'}
 
 

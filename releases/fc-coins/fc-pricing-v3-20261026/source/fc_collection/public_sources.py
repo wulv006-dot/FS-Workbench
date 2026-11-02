@@ -4,7 +4,7 @@ import json
 
 from .contracts import fingerprint, instant, ARAB_WARM_PATHS
 
-VERSIONS = {'ArabUT': 'arab-public-quote-collection-v1'}
+VERSIONS = {'ArabUT': 'arab-public-quote-collection-v2'}
 ARAB_QUERY = dict(platform='playstation', delivery='normal', quantity='100000')
 REGISTRY = {'ArabUT': {name:dict(host='www.arab-ut.com', path=path,
     query=dict(ARAB_QUERY, currency='USD'), max_bytes=2097153) for name,path in ARAB_WARM_PATHS.items()}}
@@ -35,7 +35,9 @@ def arab_offers(value, now):
         purchase_quantity='100', bonus_quantity='0', delivered_quantity='100', quantity_unit='K',
         amount=str(Decimal(amount) / 100), price_basis='public_merchandise', delivery_method='normal',
         discount_source='official_no_coupon', coupon_excluded=True, auth_state='public', conditional=False,
-        comparable=True, observed_at=instant(now).isoformat(), selection_verified=True, sanitized_evidence_ref='sha256:' + digest)
+        comparable=True, observed_at=instant(now).isoformat(), selection_verified=True, sanitized_evidence_ref='sha256:' + digest,
+        source_metadata=dict(original_currency='SAR', original_amount_minor=settlement,
+                             price_version=version, priced_at=value['pricedAt']))
     return [dict(common, platform=platform) for platform in ('PS', 'XBOX')]
 
 

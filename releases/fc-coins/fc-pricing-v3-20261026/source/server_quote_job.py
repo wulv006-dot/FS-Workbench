@@ -262,6 +262,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
         if Decimal(str(row.get("usd_per_k"))) != expected_unit:
             raise ValueError("storefront_unit_mismatch:" + platform)
     evidence = {"game": "FC27", "product": "Game Coins", "run_id": run_id, "checked_at": snapshot["created_at"],
+                "collection_mode": snapshot.get('collection_mode'), "collection_deadline_at": snapshot.get('collection_deadline_at'),
                 "costs": costs, "offers": offers, "fx": fx,
                 "storefront": storefront, "reference_market": reference_market,
                 "competitor_diagnostics":snapshot.get('source_warnings',[]),

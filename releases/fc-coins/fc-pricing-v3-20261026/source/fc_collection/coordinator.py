@@ -22,6 +22,7 @@ class Coordinator:
                     (id TEXT PRIMARY KEY, source TEXT NOT NULL, state TEXT NOT NULL, body TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS collection_sources (id TEXT PRIMARY KEY, body TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS collection_nodes (id TEXT PRIMARY KEY, body TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS collection_run_routes (id TEXT PRIMARY KEY, body TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS collection_observations
                     (id TEXT PRIMARY KEY, node TEXT NOT NULL, boot TEXT NOT NULL, job TEXT NOT NULL,
                      payload_hash TEXT NOT NULL, body TEXT NOT NULL, receipt TEXT NOT NULL);
@@ -139,13 +140,15 @@ class Coordinator:
                 return None
         return policy
 
-    def claim_job(self, identity, capabilities, now):
+    def claim_job(self, identity, capabilities, now, *, job_id=None):
         now = instant(now)
         with self.transaction() as db:
             node = self._node(db, identity)
             node['last_seen'] = now.isoformat()
             self._put(db, 'collection_nodes', identity['node_id'], node)
-            for row in db.execute("SELECT body,state FROM collection_jobs WHERE state IN ('PENDING','LEASED','RETRY_WAIT') ORDER BY rowid").fetchall():
+            query = "SELECT body,state FROM collection_jobs WHERE state IN ('PENDING','LEASED','RETRY_WAIT')"
+            for row in db.execute(query + (' AND id=?' if job_id is not None else '') + ' ORDER BY rowid',
+                                  (job_id,) if job_id is not None else ()).fetchall():
                 task = json.loads(row['body'])
                 policy = self._source_ready(db, task['source_id'], now)
                 if (not policy or task['source_id'] not in capabilities or task['source_id'] not in node['capabilities']
