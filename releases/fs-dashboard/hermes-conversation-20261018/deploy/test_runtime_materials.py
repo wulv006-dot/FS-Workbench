@@ -25,9 +25,9 @@ NGINX = (b'# unrelated\r\nlocation = /api/hermes/conversations {\r\n'
 
 
 class RuntimeMaterials(unittest.TestCase):
-    def test_material_guard_c12a_transport_delta_and_rollback(self):
+    def test_material_guard_8e2a_transport_delta_and_rollback(self):
         self.assertTrue(callable(getattr(prepare, 'configure_material_guard', None)),
-                        'c12a material-guard followup missing')
+                        '8e2a material-guard followup missing')
         self._transport_followup(stream=True, guard=True)
 
     def test_material_stream_b362_existing_transport_delta_and_rollback(self):
@@ -60,12 +60,12 @@ class RuntimeMaterials(unittest.TestCase):
             self.assertEqual(release.NEW, frozenset())
             if guard:
                 self.assertTrue(release.GUARD_MODE); self.assertFalse(release.BINDINGS_MODE)
-                self.assertEqual(release.GUARD_BEFORE_SHA, 'e682d8659812cf5b3a9cc44f3011a7f3de0a204c830855cbff2a85e1573c3052')
+                self.assertEqual(release.GUARD_BEFORE_SHA, 'a71849b7e5e8f3c5b55967c21d5383e2ff6afa7c7c5e3c6772dc0c80209ba945')
                 self.assertEqual(release.INSTALLED_PROOF, {
-                    'sourceCommit':'c12a273387a7811c71b3fbf1c040c8a7b4d1639a',
-                    'backup':'/var/backups/fs-navigation-20261006/nav-20261101T180448Z',
-                    'manifestSha256':'b0353c2f42e0704b8f20999b0a8da26755d2ae4f0e1752cd32e54a6c9ce1ea49',
-                    'journalSha256':'2832922e69306c879dfcb9698b2a51997a9fdd0bf5ce50286931d406c6cd2dec'})
+                    'sourceCommit':'8e2a456631fc5aa916c1366d087b9adbccb02f91',
+                    'backup':'/var/backups/fs-navigation-20261006/nav-20261102T002030Z',
+                    'manifestSha256':'e3a949b35d55aac5048f22094d81bc9f7db7e4f684f7463a83044371f5d4d3a4',
+                    'journalSha256':'fc33024f58bb1222e288e6ab1374be16b543f93756f135833238b29be9e22c74'})
             elif bindings:
                 self.assertTrue(release.BINDINGS_MODE)
                 self.assertEqual(release.INSTALLED_PROOF, {
@@ -160,7 +160,7 @@ class RuntimeMaterials(unittest.TestCase):
                         previous['unchangedRequired']=protected_before;previous['files']=files_before;save_previous()
                         for case in ('old_proof', 'git', 'journal', 'protected', 'extra_http', 'worker_before', 'no_delta', 'mixed_mode') + (('missing_execution',) if stream else ()):
                             changed = deepcopy(descriptor); restore = None
-                            if case == 'old_proof': changed['installed_baseline']['source_commit'] = '9edb8827c0bc21fce4173030bd09b7388b19c866' if guard else '82edf03573c3fed796d7a7ed2784134c5dd1f7ec' if stream else 'f79e29f0d5921b103a218c5e6ed967a754858b9c'
+                            if case == 'old_proof': changed['installed_baseline']['source_commit'] = 'c12a273387a7811c71b3fbf1c040c8a7b4d1639a' if guard else '82edf03573c3fed796d7a7ed2784134c5dd1f7ec' if stream else 'f79e29f0d5921b103a218c5e6ed967a754858b9c'
                             elif case == 'mixed_mode':changed['material_transport' if stream else 'material_stream']=True
                             elif case == 'missing_execution':changed['material_execution']=False
                             elif case == 'git': changed['installed_baseline']['files']['runtime/transport.py'] = '0'*64
