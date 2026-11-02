@@ -22,6 +22,15 @@ class LivePage(unittest.TestCase):
   for change in (dict(site_id=''),dict(fields=['email']),dict(cursor='1'),dict(end_exclusive='2027-01-01'),dict(start=''),dict(start='2020-01-01',end_exclusive='2020-01-02'),dict(start='2026-11-04',end_exclusive='2026-11-05')):
    with self.subTest(change=change),self.assertRaises(LivePageError):self.adapter(dict(self.req,**change))
   self.assertEqual(self.calls,[])
+ def test_date_boundaries_block_out_of_range_before_source(self):
+  def empty(*args):self.calls.append(args);return 200,b'{"code":1,"data":{"total":0,"list":[]}}'
+  self.adapter.fetch=empty
+  for start,end in (('2026-10-05','2026-11-02'),('2025-11-02','2025-11-03'),('2026-11-02','2026-11-03')):
+   with self.subTest(start=start,end=end):self.assertEqual(self.adapter(dict(self.req,start=start,end_exclusive=end))['status'],'partial')
+  self.assertEqual(len(self.calls),3)
+  for start,end in (('2026-10-04','2026-11-02'),('2025-11-01','2025-11-02'),('2026-11-03','2026-11-04')):
+   with self.subTest(start=start,end=end),self.assertRaises(LivePageError):self.adapter(dict(self.req,start=start,end_exclusive=end))
+  self.assertEqual(len(self.calls),3)
  def test_authorization_revoked_after_call_never_returns_rows(self):
   def fetch(*a):self.grant['permission_epoch']='2';return self.fetch(*a)
   self.adapter.fetch=fetch
