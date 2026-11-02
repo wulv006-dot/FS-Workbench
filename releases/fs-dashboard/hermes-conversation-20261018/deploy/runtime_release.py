@@ -52,6 +52,15 @@ ARCHIVE_USAGE_LEDGER = '/var/lib/fs-hermes-fc/profile/skills/.usage.json'
 ARCHIVE_NATIVE_PROOF = dict(backup='/var/backups/fs-navigation-20261006/nav-20261102T100758Z',
     manifestSha256='642d78db24159c3c79f04ca3f67f4e8cda2abdbcd5680022ba6c9e9f71969084',
     journalSha256='34f8e7a3dea5df8f05baf73d9e9bc668a3127444f8915f323cc15dce5e361266')
+ARCHIVE_FC_PROOF = dict(sourceCommit='6d395242b88ca634c5745181e16f1fec6053c065',
+    backup='/var/backups/fs-navigation-20261006/nav-20261102T175000Z',
+    manifestSha256='900233dade3ab9a3922a8365345cffebbd8bdfd3cbe9a006081d5d1a6c91ab5a',
+    journalSha256='5186d93010605186ec81d40e065758252d6cb8c93534edb27c753d11803afefc')
+# PR765 raw Git bytes; build_stage copies the same sources.py to hermes-copy.
+ARCHIVE_FC_FILES = {
+    'source/fc_pricing_v3/sources.py':('/opt/fc27-cloud-browser/fc_pricing_v3/sources.py','449a53558c6607449abf1b070a11eff20aca58e689e0169331c28c24540ae635'),
+    'source/hermes-copy/fc_pricing_v3/sources.py':('/opt/fs-hermes-fc/fc_pricing_v3/sources.py','449a53558c6607449abf1b070a11eff20aca58e689e0169331c28c24540ae635'),
+    'source/server_quote_job.py':('/opt/fc27-cloud-browser/server_quote_job.py','139bd6d239330bad4770148188d31f2fcbdd0e31bc1f668e4056f0489debbee9')}
 NATIVE_ADMISSION_CANDIDATE = 'runtime/conversation_native.py'
 NATIVE_ADMISSION_BEFORE_SHA = '030e36d5cf134fa1ef63c576211a3f1b4f2d9a3135ed44c15a7fd1d403e795c2'
 NATIVE_ADMISSION_AFTER_SHA = '72253b5ffee19cc2d0352c0bb1ee7d67fe801fcb515b3b711466e828a4c1a57a'
@@ -309,6 +318,41 @@ def promoted_transport_sha(manifest, base):
     return rows[0]['sha256']
 
 
+def archive_fc_baseline(base, root, values):
+    """Overlay only the three independently installed FC files, never disk drift."""
+    records={}
+    for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
+        path=base.rooted(root,ARCHIVE_FC_PROOF['backup']+'/'+name);base.no_target_link(path);info=path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or
+                (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode))!=(0,0,0o600)):
+            raise ValueError('archive_fc_proof_boundary_drift')
+        raw=path.read_bytes()
+        if hashlib.sha256(raw).hexdigest()!=ARCHIVE_FC_PROOF[key]:raise ValueError('archive_fc_proof_drift')
+        records[name]=json.loads(raw)
+    manifest,journal=records['approved-manifest.json'],records['journal.json']
+    rows=manifest.get('files',[]);written=journal.get('files',[])
+    if (manifest.get('sourceCommit')!=ARCHIVE_FC_PROOF['sourceCommit'] or
+            manifest.get('scope')!='fc-pricing-v3-collection-routing-20261102' or len(rows)!=3 or
+            {r['candidate']:(r['target'],r['sha256']) for r in rows}!=ARCHIVE_FC_FILES or
+            journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=ARCHIVE_FC_PROOF['manifestSha256'] or
+            journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
+            len(written)!=3 or {r['candidate'] for r in written}!=set(ARCHIVE_FC_FILES)):
+        raise ValueError('archive_fc_successful_proof_required')
+    for row in rows:
+        target=row['target'];matches=[r for r in written if r['candidate']==row['candidate']]
+        if (target not in values or target in TARGETS.values() or row.get('beforeSha256')!=values[target] or
+                row.get('owner')!='0:0' or row.get('mode')!='0o644' or len(matches)!=1 or
+                any(matches[0].get(k)!=v for k,v in row.items()) or
+                matches[0].get('intent') is not True or matches[0].get('written') is not True or
+                matches[0].get('beforeMode')!=0o644 or matches[0].get('rollbackIntent') or matches[0].get('rolledBack')):
+            raise ValueError('archive_fc_exact_transition_required')
+        path=base.rooted(root,target);base.no_target_link(path);info=path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or
+                (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode))!=(0,0,0o644)):
+            raise ValueError('archive_fc_target_boundary_drift')
+    return dict(values,**{r['target']:r['sha256'] for r in rows})
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -345,7 +389,7 @@ def installed_baseline(root, git_baseline):
         updated={r['target'] for r in rows}
         if any(path in merged and merged[path]!=sha and path not in updated for path,sha in values.items()):
             raise ValueError('archive_protected_chain_conflict')
-        merged.update(values);values=merged
+        merged.update(values);values=archive_fc_baseline(base,root,merged)
         if git_baseline!={'source_commit':INSTALLED_COMMIT,'files':{name:values.get(target) for name,target in TARGETS.items()}}:
             raise ValueError('archive_installed_git_mismatch')
         ARCHIVE_PROTECTED={path:sha for path,sha in values.items() if path not in TARGETS.values()}

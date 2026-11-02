@@ -980,3 +980,7 @@ publisher 新增互斥 `--native-chat --followup`，钉已安装 23a 的 manifes
 #### ARCHIVE 既有控制面 readiness 接线（候选，未发布）
 
 f43 新包 prepare/三目标+776保护 fresh CAS 已过，一次 inspect 在 `native_runtime_readiness` 查 `TARGETS['runtime/native-backend.json']` 时失败；ARCHIVE 的 TARGETS 仅3项，本机实际函数稳定复现 KeyError。就绪函数的 backend 配置及 rootdaily mount 源改从既有固定 `NATIVE_EXTRA_TARGETS` 读取，配置/用户/daemon/mount 验证均保留。新增 ARCHIVE 三目标下直接执行真实函数的正反回归，非整体 Mock readiness。usage fresh CAS 不改；另3项FC保护漂移待成功发布收据衔接，不反射磁盘或复用175044 stage。本条不代表新安装、归档或CSV通过。
+
+补齐 FC 成功保护链：一次只读核实 `nav-20261102T175000Z` 原 manifest `900233dade3ab9a3922a8365345cffebbd8bdfd3cbe9a006081d5d1a6c91ab5a` / journal `5186d93010605186ec81d40e065758252d6cb8c93534edb27c753d11803afefc`，source `6d395242b88ca634c5745181e16f1fec6053c065`，精确3项 written 且无回退，当前 root:root/0644。两份 `sources.py` 的新 SHA 为 `449a53558c6607449abf1b070a11eff20aca58e689e0169331c28c24540ae635`，`server_quote_job.py` 为 `139bd6d239330bad4770148188d31f2fcbdd0e31bc1f668e4056f0489debbee9`；Git 原字节及原 build_stage 的 hermes-copy 复制链匹配。
+
+仅 ARCHIVE 合并这3项已成功静态变更，必须先核固定 proof 原字节、scope/source/精确目标、旧 before 链、写入完成/无回退及 rootmode；不能接纳其它磁盘变化。仍为3 targets/776保护/NEW0，usage 单路径 fresh CAS 不改，FC消费保持原状。新增反例与原 tempFS 安装/失败回退/锁内维护合并检查：48方法全过0skip；原 guards 实际执行，三FC及其余保护字节/inode/mtime保持。权限及 Docker/systemd IO 为显式夹具，未据此宣称真实安装、清理或 CSV 通过；175044旧stage继续废止。
