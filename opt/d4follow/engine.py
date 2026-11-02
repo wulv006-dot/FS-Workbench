@@ -1001,6 +1001,16 @@ def evaluate(cfg, items, iggm_now, iggm_prev, ours_now, qd_map, ts,
              "仅展示": bool(it.get("无IGGM对应"))}
         ctx[key] = d
 
+        # 2026-10-29：被「订单反推定价」接管的商品（D&D 金币），本引擎永不出价。
+        # 为什么必须有这道闸：页面上的「整栏全开 / 全部跟价」会把 跟价 改回 true，
+        # 那时引擎会按 IGGM 出价，与订单反推模块互相打架 → 价格来回抖。
+        # 改价权只有一个：config.订单反推定价.<游戏>.商品key 列出的那个 key。
+        if key in autopriced_keys(cfg):
+            d["action"] = "hold"
+            d["reason"] = "改价权在「订单反推定价」模块，本链路只展示不出价"
+            out.append(d)
+            continue
+
         # 勾选表：没勾的商品只展示价格与毛利，不出目标价、不参与同族联动
         if d["跟价"] is False:
             d["action"] = "hold"
@@ -1641,3 +1651,21 @@ def formula_analysis(pairs, rate):
     return {"rows": rows, "kind": kind, "conclusion": concl,
             "ratio_mean": sum(ratios) / len(ratios) if ratios else None,
             "addon_mean": sum(addons) / len(addons) if addons else None}
+
+
+# ---------------------------------------------------------------- 订单反推接管
+def autopriced_keys(cfg):
+    """独立定价模块接管的 key —— 这些 key 的改价权不归本引擎。
+
+    认两个配置块（2026-10-29）：
+      · `订单反推定价` —— 第一版（按订单利润率反推），已停用但兼容保留；
+      · `金币固定跟价` —— 第二版（与 IGGM 真价持平，当前生效）。
+    """
+    out = set()
+    for blk in ("订单反推定价", "金币固定跟价"):
+        for g, v in (cfg.get(blk) or {}).items():
+            if str(g).startswith("_"):
+                continue
+            if isinstance(v, dict) and v.get("启用") and v.get("商品key"):
+                out.add(str(v["商品key"]))
+    return out
