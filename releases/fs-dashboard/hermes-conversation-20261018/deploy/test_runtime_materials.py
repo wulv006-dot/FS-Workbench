@@ -1537,6 +1537,97 @@ class NativePublisher(unittest.TestCase):
             with patch.object(release,'NATIVE_CURRENT_UNIT_SHA','0'*64):
                 with self.assertRaisesRegex(ValueError,'native_admission_generated_unit_drift'):prepare.admission_generated(Path(directory))
 
+    def archive_fc_fixture(self, root, base, before, owners):
+        # Independent, already-applied FC release: only these three static paths.
+        targets={
+            'source/fc_pricing_v3/sources.py':'/opt/fc27-cloud-browser/fc_pricing_v3/sources.py',
+            'source/hermes-copy/fc_pricing_v3/sources.py':'/opt/fs-hermes-fc/fc_pricing_v3/sources.py',
+            'source/server_quote_job.py':'/opt/fc27-cloud-browser/server_quote_job.py'}
+        rows=[];expected={}
+        for name,target in targets.items():
+            path=base.rooted(root,target);path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_bytes(('applied FC:'+name).encode());owners[path]=(0,0,0o644)
+            sha=base.digest(path);expected[name]=(target,sha)
+            rows.append(dict(candidate=name,target=target,sha256=sha,beforeSha256=before[target],owner='0:0',mode='0o644'))
+        manifest=dict(sourceCommit='6d395242b88ca634c5745181e16f1fec6053c065',scope='fc-pricing-v3-collection-routing-20261102',
+                      releaseReady=True,businessWrites=False,timersChanged=False,files=rows)
+        proof=dict(sourceCommit=manifest['sourceCommit'],backup='/var/backups/fs-navigation-20261006/nav-20261102T175000Z')
+        backup=base.rooted(root,proof['backup']);backup.mkdir(parents=True)
+        raw=json.dumps(manifest).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
+        journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=manifest,approvedManifestSha256=proof['manifestSha256'],
+                     files=[dict(row,intent=True,written=True,beforeMode=0o644) for row in rows])
+        raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+        for name in ('approved-manifest.json','journal.json'):owners[backup/name]=(0,0,0o600)
+        return proof,expected
+
+    def test_archive_fc_overlay_requires_exact_success_and_boundaries(self):
+        prepare.configure_native_archive()
+        paths=('/opt/fc27-cloud-browser/fc_pricing_v3/sources.py',
+               '/opt/fs-hermes-fc/fc_pricing_v3/sources.py','/opt/fc27-cloud-browser/server_quote_job.py')
+        before={p:prepare.digest(('old:'+p).encode()) for p in paths}
+        before['/opt/other-static.py']='a'*64
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen();owners={};kinds={}
+            proof,expected=self.archive_fc_fixture(root,base,before,owners)
+            backup=base.rooted(root,proof['backup']);mp=backup/'approved-manifest.json';jp=backup/'journal.json'
+            original_m=json.loads(mp.read_bytes());original_j=json.loads(jp.read_bytes())
+            cases={
+                'source':lambda m,j:m.update(sourceCommit='0'*40),
+                'scope':lambda m,j:m.update(scope='unrelated'),
+                'missing':lambda m,j:m['files'].pop(),
+                'extra':lambda m,j:m['files'].append(deepcopy(m['files'][0])),
+                'duplicate':lambda m,j:m['files'].__setitem__(1,deepcopy(m['files'][0])),
+                'target':lambda m,j:m['files'][0].update(target='/opt/other-static.py'),
+                'after':lambda m,j:m['files'][0].update(sha256='b'*64),
+                'before':lambda m,j:m['files'][0].update(beforeSha256='b'*64),
+                'owner':lambda m,j:m['files'][0].update(owner='9876:9876'),
+                'mode':lambda m,j:m['files'][0].update(mode='0o600'),
+                'status':lambda m,j:j.update(status='rolled-back'),
+                'failure':lambda m,j:j.update(failure='synthetic failure'),
+                'written':lambda m,j:j['files'][0].update(written=False),
+                'intent':lambda m,j:j['files'][0].update(intent=False),
+                'beforeMode':lambda m,j:j['files'][0].update(beforeMode=0o600),
+                'rollback':lambda m,j:j['files'][0].update(rollbackIntent=True),
+                'rolledBack':lambda m,j:j['files'][0].update(rolledBack=True),
+                'journal_target':lambda m,j:j['files'][0].update(target='/opt/other-static.py'),
+                'journal_missing':lambda m,j:j['files'].pop()}
+            with self.native_metadata(owners,kinds,root=root),patch.object(release,'ARCHIVE_FC_FILES',expected):
+                for drift,change in [(None,None),*cases.items()]:
+                    m=deepcopy(original_m);j=deepcopy(original_j)
+                    if change:change(m,j)
+                    raw=json.dumps(m).encode();mp.write_bytes(raw)
+                    pinned=dict(proof,manifestSha256=prepare.digest(raw))
+                    j.update(manifest=m,approvedManifestSha256=pinned['manifestSha256'])
+                    raw=json.dumps(j).encode();jp.write_bytes(raw);pinned['journalSha256']=prepare.digest(raw)
+                    with self.subTest(drift=drift),patch.object(release,'ARCHIVE_FC_PROOF',pinned):
+                        if drift:
+                            with self.assertRaises(ValueError):release.archive_fc_baseline(base,root,before)
+                        else:
+                            merged=release.archive_fc_baseline(base,root,before)
+                            self.assertEqual(merged,{**before,**{target:sha for target,sha in expected.values()}})
+                mp.write_bytes(json.dumps(original_m).encode());jp.write_bytes(json.dumps(original_j).encode())
+                with patch.object(release,'ARCHIVE_FC_PROOF',proof):
+                    for path in (mp,jp):
+                        saved=path.read_bytes();path.write_bytes(saved+b' ')
+                        with self.assertRaisesRegex(ValueError,'archive_fc_proof_drift'):release.archive_fc_baseline(base,root,before)
+                        path.write_bytes(saved)
+                    for path,code in ((mp,'archive_fc_proof_boundary_drift'),(jp,'archive_fc_proof_boundary_drift'),(base.rooted(root,paths[0]),'archive_fc_target_boundary_drift')):
+                        saved=owners[path]
+                        for metadata in ((9876,0,saved[2]),(0,9876,saved[2]),(0,0,0o666)):
+                            owners[path]=metadata
+                            with self.assertRaisesRegex(ValueError,code):release.archive_fc_baseline(base,root,before)
+                        owners[path]=saved;kinds[path]=stat.S_IFLNK
+                        with self.assertRaises(ValueError):release.archive_fc_baseline(base,root,before)
+                        kinds.clear()
+                        alias=path.with_name(path.name+'.hardlink');os.link(path,alias)
+                        with self.assertRaisesRegex(ValueError,code):release.archive_fc_baseline(base,root,before)
+                        alias.unlink()
+                    parent=mp.parent;kinds[parent]=stat.S_IFLNK
+                    with self.assertRaises(ValueError):release.archive_fc_baseline(base,root,before)
+                    kinds.clear()
+                    self.assertEqual(before[paths[0]],original_m['files'][0]['beforeSha256'])
+                    self.assertEqual(release.archive_fc_baseline(base,root,before)['/opt/other-static.py'],'a'*64)
+
     def test_archive_three_source_original_apply_rollback_and_locked_maintenance(self):
         for failure in (None,'range','readiness'):
             self.tearDown();self.setUp()
@@ -1576,8 +1667,14 @@ class NativePublisher(unittest.TestCase):
                 for i,target in enumerate(live_targets):
                     p=base.rooted(f.system,target);p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(('live:'+str(i)).encode())
                     records.append(dict(candidate='live/'+str(i),target=target,sha256=base.digest(p),beforeSha256='0'*64,owner='0:0',mode='0o600' if target==release.NGINX else '0o644'))
-                overlap=[p for p in oldmap if p not in live_targets and p not in (release.TARGETS['runtime/conversation_store.py'],release.TARGETS['runtime/conversation_native.py'])][:49]
+                fc_paths={'/opt/fc27-cloud-browser/fc_pricing_v3/sources.py','/opt/fs-hermes-fc/fc_pricing_v3/sources.py','/opt/fc27-cloud-browser/server_quote_job.py'}
+                eligible=[p for p in oldmap if p not in live_targets and p not in (release.TARGETS['runtime/conversation_store.py'],release.TARGETS['runtime/conversation_native.py'])]
+                overlap=[p for p in eligible if p in fc_paths]+[p for p in eligible if p not in fc_paths]
+                overlap=overlap[:49]
                 keep=[{'path':p,'sha256':oldmap[p]} for p in overlap]
+                for target in sorted(fc_paths-set(oldmap)):
+                    path=base.rooted(f.system,target);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'old FC')
+                    keep.append(dict(path=target,sha256=base.digest(path)))
                 usage_path='/var/lib/fs-hermes-fc/profile/skills/.usage.json'
                 usage=base.rooted(f.system,usage_path);usage.parent.mkdir(parents=True,exist_ok=True)
                 usage.write_bytes(b'historical usage');usage.chmod(0o600);f.owners[usage]=(0,0,0o600)
@@ -1590,6 +1687,8 @@ class NativePublisher(unittest.TestCase):
                 raw=json.dumps(previous).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
                 journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=previous,approvedManifestSha256=proof['manifestSha256'])
                 raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+                merged=dict(oldmap);merged.update({r['path']:r['sha256'] for r in keep})
+                fc_proof,fc_files=self.archive_fc_fixture(f.system,base,merged,f.owners)
                 descriptor=json.loads((f.payload.parent/'payload-manifest.json').read_bytes())
                 descriptor.update(native_admission=False,native_archive=True,native_chat=False,installed_baseline={'source_commit':release.INSTALLED_COMMIT,'files':{name:oldmap[target] for name,target in release.TARGETS.items()}})
                 descriptor['files']={key:value for key,value in descriptor['files'].items() if not key.startswith('payload/')}
@@ -1600,7 +1699,7 @@ class NativePublisher(unittest.TestCase):
                 raw=json.dumps(descriptor).encode();(f.payload.parent/'payload-manifest.json').write_bytes(raw)
                 stage=root/'archive-stage'
                 usage.write_bytes(b'fresh usage before prepare')
-                with patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof),patch.object(release,'ARCHIVE_NATIVE_PROOF',old_proof):
+                with patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof),patch.object(release,'ARCHIVE_NATIVE_PROOF',old_proof),patch.object(release,'ARCHIVE_FC_PROOF',fc_proof,create=True),patch.object(release,'ARCHIVE_FC_FILES',fc_files,create=True):
                     static=base.rooted(f.system,keep[0]['path']);saved_static=static.read_bytes()
                     static.write_bytes(b'unapproved static change')
                     with self.assertRaisesRegex(ValueError,'installed_protected_baseline_drift'):
@@ -1616,6 +1715,7 @@ class NativePublisher(unittest.TestCase):
                 untouched={r['path']:(base.rooted(f.system,r['path']).read_bytes(),base.rooted(f.system,r['path']).stat().st_ino,base.rooted(f.system,r['path']).stat().st_mtime_ns) for r in manifest['unchangedRequired']}
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
                 module.configure_native_archive();module.INSTALLED_PROOF=proof;module.ARCHIVE_NATIVE_PROOF=old_proof
+                module.ARCHIVE_FC_PROOF=fc_proof;module.ARCHIVE_FC_FILES=fc_files
                 base.hermes_quiescent=Mock();base.retirement=Mock();base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
                 fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock());base.hermes_admission_fence=lambda *a:nullcontext(fence)
                 restart=Mock(side_effect=[RuntimeError('synthetic range failure'),None] if failure=='range' else None);base.restart_for=restart
@@ -1956,21 +2056,35 @@ class NativePublisher(unittest.TestCase):
 
     def test_control_readiness_checks_exact_contract_user_daemon_and_mounts(self):
         prepare.configure_native_chat()
-        contract=prepare.native_generated()['runtime/native-backend.json']
+        self._control_readiness_checks()
+
+    def test_archive_readiness_uses_installed_dependencies_outside_three_targets(self):
+        prepare.configure_native_archive()
+        self.assertEqual(len(release.TARGETS),3)
+        self.assertNotIn('runtime/native-backend.json',release.TARGETS)
+        self.assertNotIn('approval/daily_review.py',release.TARGETS)
+        self._control_readiness_checks()
+
+    def _control_readiness_checks(self):
+        # Execute the actual readiness function; only file and Docker IO are fixtures.
+        contract=release.native_backend_bytes()
         mounts=[{'Destination':destination,'Source':source,'RW':rw} for destination,source,rw in (
             ('/opt/fs-native-bin/docker','/usr/bin/docker',False),
             ('/var/run/docker.sock','/run/docker.sock',True),
             (release.NATIVE_ROOT,release.NATIVE_ROOT,True),
             ('/opt/fs-native-backend-home',release.NATIVE_EMPTY_SOURCE,False),
-            (release.NATIVE_DAILY_CONTAINER,release.TARGETS['approval/daily_review.py'],False))]
-        user=['9876:9876'];failure=[False]
+            (release.NATIVE_DAILY_CONTAINER,release.NATIVE_EXTRA_TARGETS['approval/daily_review.py'],False))]
+        user=['9876:9876'];failure=[False];version=['24.0.0|24.0.0']
         def observed(command,**kwargs):
             if '{{.Config.User}}' in command:return user[0]
             if 'version' in command:
                 if failure[0]:raise OSError('synthetic daemon refusal')
-                return '24.0.0|24.0.0'
+                return version[0]
             return json.dumps(mounts)
-        with patch.object(Path,'read_bytes',return_value=contract),patch.object(Path,'is_symlink',return_value=False),patch.object(release.subprocess,'check_output',side_effect=observed):
+        def read_contract(path):
+            self.assertEqual(path,Path(release.NATIVE_EXTRA_TARGETS['runtime/native-backend.json']))
+            return contract
+        with patch.object(Path,'read_bytes',autospec=True,side_effect=read_contract),patch.object(Path,'is_symlink',return_value=False),patch.object(release.subprocess,'check_output',side_effect=observed):
             release.native_runtime_readiness()
             user[0]='0:0'
             with self.assertRaisesRegex(ValueError,'native_control_user_readback'):release.native_runtime_readiness()
@@ -1978,7 +2092,9 @@ class NativePublisher(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'native_control_mount_readback'):release.native_runtime_readiness()
             mounts[0]['RW']=False;failure[0]=True
             with self.assertRaises(OSError):release.native_runtime_readiness()
-            failure[0]=False
+            failure[0]=False;version[0]='invalid-version'
+            with self.assertRaisesRegex(ValueError,'native_control_daemon_unavailable'):release.native_runtime_readiness()
+            version[0]='24.0.0|24.0.0'
             original=deepcopy(mounts)
             daily=next(row for row in mounts if row['Destination']==release.NATIVE_DAILY_CONTAINER)
             for variant in ('writable','source','target','duplicate','extra','missing'):
