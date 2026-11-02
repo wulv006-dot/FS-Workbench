@@ -52,15 +52,20 @@ def active_model_tasks(tasks):
         return {(r['owner'],r['id']) for r in db.execute("SELECT owner,id FROM tasks WHERE state='RUNNING' AND run_id IS NOT NULL AND lease IS NOT NULL")}
 
 
-def spending_hold(daily, tasks, owner):
+def spending_hold(daily, tasks, owner, *, active_tasks=None):
+    """Include host-verified native turns without replacing original FC liveness."""
     from proxy_gateway import require_reconciled_usage
+    if active_tasks is not None and not callable(active_tasks):
+        raise ValueError('active_tasks_callback_required')
     with daily.db() as db:
         if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='hermes_reservations'").fetchone():
             return None
         rows = db.execute('SELECT r.fingerprint,r.owner,r.task,r.microcny,m.state FROM hermes_reservations r '
                           'JOIN model_calls m ON m.fingerprint=r.fingerprint').fetchall()
+    running=active_model_tasks(tasks)
+    if active_tasks is not None:running.update(active_tasks())
     try:
-        require_reconciled_usage(rows, {}, owner, None, allow_unknown_costs=True,active_tasks=active_model_tasks(tasks))
+        require_reconciled_usage(rows, {}, owner, None, allow_unknown_costs=True,active_tasks=running)
     except ValueError as error:
         if str(error) != 'pilot_usage_hold':
             raise
