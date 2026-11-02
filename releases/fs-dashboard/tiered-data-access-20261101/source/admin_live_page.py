@@ -55,7 +55,7 @@ class AdminLivePage:
   if not isinstance(raw,bytes) or len(raw)>self.max_bytes:raise LivePageError('source_schema_changed')
   try:
    data=json.loads(raw);payload=data['data'];rows=payload['list'];total=payload['total']
-   if type(data['code']) is not int or data['code']!=1 or type(total) is not int or not 0<=total<=100000 or not isinstance(rows,list) or len(rows)>self.page_size or len(rows)>total or not rows and total!=0:raise ValueError()
+   if type(data['code']) is not int or data['code']!=1 or type(total) is not int or total<0 or not isinstance(rows,list) or len(rows)>self.page_size or len(rows)>total or not rows and total!=0:raise ValueError()
    output=[];previous=None
    for row in rows:
     if not isinstance(row,dict) or str(row['site_id'])!=request['site_id'] or str(row['gid'])!=request['game_id']:raise ValueError()

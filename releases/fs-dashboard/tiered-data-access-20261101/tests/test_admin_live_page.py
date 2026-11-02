@@ -15,6 +15,9 @@ class LivePage(unittest.TestCase):
  def test_empty_is_observation_not_full_history_zero(self):
   self.adapter.fetch=lambda *a:(200,b'{"code":1,"data":{"total":0,"list":[]}}')
   result=self.adapter(self.req);self.assertEqual(result['status'],'partial');self.assertFalse(result['complete']);self.assertEqual(result['data'],[])
+ def test_large_source_total_does_not_block_bounded_first_page(self):
+  self.adapter.fetch=lambda *a:(200,json.dumps({'code':1,'data':{'total':100001,'list':[self.row]}}).encode())
+  result=self.adapter(self.req);self.assertFalse(result['complete']);self.assertEqual(result['source_reported_total'],100001);self.assertEqual(len(result['data']),1)
  def test_invalid_scope_fields_and_dates_fail_before_source(self):
   for change in (dict(site_id=''),dict(fields=['email']),dict(cursor='1'),dict(end_exclusive='2027-01-01'),dict(start=''),dict(start='2020-01-01',end_exclusive='2020-01-02'),dict(start='2026-11-04',end_exclusive='2026-11-05')):
    with self.subTest(change=change),self.assertRaises(LivePageError):self.adapter(dict(self.req,**change))
