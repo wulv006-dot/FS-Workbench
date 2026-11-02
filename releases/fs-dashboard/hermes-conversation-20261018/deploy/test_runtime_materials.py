@@ -1578,6 +1578,10 @@ class NativePublisher(unittest.TestCase):
                     records.append(dict(candidate='live/'+str(i),target=target,sha256=base.digest(p),beforeSha256='0'*64,owner='0:0',mode='0o600' if target==release.NGINX else '0o644'))
                 overlap=[p for p in oldmap if p not in live_targets and p not in (release.TARGETS['runtime/conversation_store.py'],release.TARGETS['runtime/conversation_native.py'])][:49]
                 keep=[{'path':p,'sha256':oldmap[p]} for p in overlap]
+                usage_path='/var/lib/fs-hermes-fc/profile/skills/.usage.json'
+                usage=base.rooted(f.system,usage_path);usage.parent.mkdir(parents=True,exist_ok=True)
+                usage.write_bytes(b'historical usage');usage.chmod(0o600);f.owners[usage]=(0,0,0o600)
+                keep.append(dict(path=usage_path,sha256=base.digest(usage)))
                 while len(keep)<743:
                     p='/opt/live-protected/file'+str(len(keep))+'.py';target=base.rooted(f.system,p);target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(b'live protected')
                     keep.append(dict(path=p,sha256=base.digest(target)))
@@ -1595,7 +1599,18 @@ class NativePublisher(unittest.TestCase):
                     descriptor['files']['payload/'+name]=prepare.digest(p.read_bytes())
                 raw=json.dumps(descriptor).encode();(f.payload.parent/'payload-manifest.json').write_bytes(raw)
                 stage=root/'archive-stage'
+                usage.write_bytes(b'fresh usage before prepare')
                 with patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof),patch.object(release,'ARCHIVE_NATIVE_PROOF',old_proof):
+                    static=base.rooted(f.system,keep[0]['path']);saved_static=static.read_bytes()
+                    static.write_bytes(b'unapproved static change')
+                    with self.assertRaisesRegex(ValueError,'installed_protected_baseline_drift'):
+                        prepare.prepare(f.payload,root/'static-rejected','a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
+                    static.write_bytes(saved_static)
+                    for owner_mode in ((9876,0,0o600),(0,9876,0o600),(0,0,0o644)):
+                        f.owners[usage]=owner_mode
+                        with self.subTest(owner_mode=owner_mode),self.assertRaisesRegex(ValueError,'archive_usage_boundary_drift'):
+                            prepare.prepare(f.payload,root/'usage-rejected','a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
+                    f.owners[usage]=(0,0,0o600)
                     prepare.prepare(f.payload,stage,'a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
                 manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),3);self.assertEqual(len(manifest['unchangedRequired']),776)
                 untouched={r['path']:(base.rooted(f.system,r['path']).read_bytes(),base.rooted(f.system,r['path']).stat().st_ino,base.rooted(f.system,r['path']).stat().st_mtime_ns) for r in manifest['unchangedRequired']}
@@ -1608,6 +1623,21 @@ class NativePublisher(unittest.TestCase):
                 readiness=Mock(side_effect=[None,None,RuntimeError('synthetic readiness failure'),None] if failure=='readiness' else None)
                 with patch.object(module,'frozen',return_value=base),patch.object(module,'running_worker'),patch.object(module,'native_runtime_readiness',readiness),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')):
                     publisher=module.load_base();publisher.inspect(manifest,stage,f.system)
+                    usage_row=next(r for r in manifest['unchangedRequired'] if r['path']==usage_path)
+                    self.assertEqual((usage_row['sha256'],usage_row['owner'],usage_row['mode']),
+                                     (base.digest(usage),'0:0','0o600'))
+                    usage.write_bytes(b'changed after prepare')
+                    with self.assertRaisesRegex(ValueError,'archive_usage_cas_drift'):
+                        publisher.inspect(manifest,stage,f.system)
+                    cas_raw=(stage/'approved-manifest.json').read_bytes()
+                    with self.assertRaisesRegex(ValueError,'archive_usage_cas_drift'):
+                        publisher.apply(manifest,stage,prepare.digest(cas_raw),cas_raw,'nav-20261103T000000Z',f.system)
+                    for row in manifest['files']:self.assertEqual(base.digest(base.rooted(f.system,row['target'])),row['beforeSha256'])
+                    usage.write_bytes(b'fresh usage before prepare')
+                    untouched[usage_path]=(usage.read_bytes(),usage.stat().st_ino,usage.stat().st_mtime_ns)
+                    bad_manifest=deepcopy(manifest)
+                    next(r for r in bad_manifest['unchangedRequired'] if r['path']!=usage_path)['sha256']='0'*64
+                    with self.assertRaisesRegex(ValueError,'archive_static_protection_drift'):publisher.guards(bad_manifest,f.system)
                     bad_git=deepcopy(descriptor['installed_baseline']);bad_git['files']['runtime/conversation_native.py']='0'*64
                     with self.assertRaisesRegex(ValueError,'archive_installed_git_mismatch'):module.installed_baseline(f.system,bad_git)
                     proof_file=base.rooted(f.system,proof['backup']+'/journal.json');proof_bytes=proof_file.read_bytes();proof_file.write_bytes(b'proof drift')
@@ -1642,6 +1672,31 @@ class NativePublisher(unittest.TestCase):
                 for p,values in untouched.items():self.assertEqual((base.rooted(f.system,p).read_bytes(),base.rooted(f.system,p).stat().st_ino,base.rooted(f.system,p).stat().st_mtime_ns),values)
                 if failure:
                     for row in manifest['files']:self.assertEqual(base.digest(base.rooted(f.system,row['target'])),row['beforeSha256'])
+
+    def test_archive_usage_requires_real_single_file_and_no_linked_parent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);base=release.frozen();path=base.rooted(root,release.ARCHIVE_USAGE_LEDGER)
+            path.parent.mkdir(parents=True);path.write_bytes(b'usage');path.chmod(0o600)
+            owners={path:(0,0,0o600)};kinds={}
+            with self.native_metadata(owners,kinds,root=root):
+                self.assertEqual(release.archive_usage_metadata(base,root)['sha256'],base.digest(path))
+                alias=path.with_name('hard-link');os.link(path,alias)
+                with self.assertRaisesRegex(ValueError,'archive_usage_boundary_drift'):release.archive_usage_metadata(base,root)
+                alias.unlink()
+                if os.name=='posix':
+                    original=path.with_name('original');path.rename(original);path.symlink_to(original)
+                    with self.assertRaises(ValueError):release.archive_usage_metadata(base,root)
+                    path.unlink();original.rename(path)
+                    parent=path.parent;original_parent=parent.with_name('original-skills');parent.rename(original_parent);parent.symlink_to(original_parent,target_is_directory=True)
+                    with self.assertRaises(ValueError):release.archive_usage_metadata(base,root)
+                    parent.unlink();original_parent.rename(parent)
+                else:
+                    # Windows path metadata fixture; Linux above uses real symlinks.
+                    for linked in (path,path.parent):
+                        kinds[linked]=stat.S_IFLNK
+                        with self.assertRaises(ValueError):release.archive_usage_metadata(base,root)
+                        kinds.clear()
+                self.assertEqual(path.read_bytes(),b'usage')
 
     def test_archive_followup_only_three_existing_host_targets(self):
         self.assertTrue(callable(getattr(prepare,'configure_native_archive',None)))

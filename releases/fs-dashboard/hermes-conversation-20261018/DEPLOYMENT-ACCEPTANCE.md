@@ -970,3 +970,8 @@ publisher 新增互斥 `--native-chat --followup`，钉已安装 23a 的 manifes
 安装/读回成功后，同一stage原publisher的`archive-synthetic --release-id … --approved-manifest-sha …`在原全部锁和admission围栏内复核成功journal、三源afterSHA和精确对象CAS，再调用既有最小归档函数；没有HTTP/model工具或任意对象selector。原turn/幂等/文件仍保留，普通聊天/待执行残留退出，回执只记归档1/删除0/未知不变。归档前安装或readiness失败可原回退；审计成功后回退旧盲代码被`archive_rollback_guard`拒绝，应作兼容前修，不能复活残留。
 
 原tempFS原validate/inspect/apply/rollback正反用例含三delta、其它776inode/mtime保持、range/readiness失败恢复、锁内维护幂等、其它UNKNOWN/本对象生命周期/审计/候选源码漂移拒绝及归档后拒盲回退。OS/Docker/systemd边界是明确夹具，非真实生产验收。本轮仅候选，生产安装0/归档0/删除0，不调用模型，不核查费用；不扩成通用清理或账单系统。阶段1后续真实CSV/XLSX仍须在统一独审CI/最终merge后实际验证。
+
+
+#### ARCHIVE 单一 usage 账本保护修正（候选，未发布）
+
+0cc 最终包现场 prepare 被 `installed_protected_baseline_drift` 拒绝：三目标 before 全匹配，776 保护中仅 `/var/lib/fs-hermes-fc/profile/skills/.usage.json` 与历史 SHA 不同，其余775一致、unknown0；未生成stage/backup/journal，未apply、归档或模型调用。新合同仅在 ARCHIVE followup 对这一本运行账本采 fresh SHA，仍列入原 `unchangedRequired`，强制 regular/单链接/no-follow/root:root/0600；inspect/apply 继续原 SHA/owner/mode CAS，prepare 后变化拒绝。其余775静态历史 SHA、三delta、原writer/锁/回退不变，发布与回退不写账本。回归覆盖原失败、静态漂移、owner/mode/链接、prepare后变更、成功与range/readiness失败回退；Windows权限为明确夹具，Linux使用真实链接。本条不代表已安装、已清理或CSV通过。

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
 import sqlite3
@@ -47,6 +48,7 @@ NATIVE_MODE = False
 NATIVE_ADMISSION_MODE = False
 ARCHIVE_MODE = False
 ARCHIVE_PROTECTED = {}
+ARCHIVE_USAGE_LEDGER = '/var/lib/fs-hermes-fc/profile/skills/.usage.json'
 ARCHIVE_NATIVE_PROOF = dict(backup='/var/backups/fs-navigation-20261006/nav-20261102T100758Z',
     manifestSha256='642d78db24159c3c79f04ca3f67f4e8cda2abdbcd5680022ba6c9e9f71969084',
     journalSha256='34f8e7a3dea5df8f05baf73d9e9bc668a3127444f8915f323cc15dce5e361266')
@@ -641,6 +643,27 @@ def quiescent(base, root, archive_source=None, archive_exception=None, archive_s
                 raise ValueError('active_or_unknown_material_task')
 
 
+def archive_usage_metadata(base, root):
+    """Only this runtime ledger uses a fresh CAS, never a historical code hash."""
+    path=base.rooted(root,ARCHIVE_USAGE_LEDGER)
+    base.no_target_link(path)
+    before=path.lstat()
+    def boundary(info):
+        return (stat.S_ISREG(info.st_mode) and info.st_nlink==1 and
+                (info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode))==(0,0,0o600))
+    if not boundary(before):raise ValueError('archive_usage_boundary_drift')
+    with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+        opened=os.fstat(stream.fileno())
+        if (opened.st_dev,opened.st_ino)!=(before.st_dev,before.st_ino):raise ValueError('archive_usage_changed')
+        digest=hashlib.sha256(stream.read()).hexdigest()
+    after=path.lstat();base.no_target_link(path)
+    if (not boundary(after) or
+            (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns)!=
+            (after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns)):
+        raise ValueError('archive_usage_changed')
+    return dict(path=ARCHIVE_USAGE_LEDGER,sha256=digest,owner='0:0',mode='0o600')
+
+
 def archive_rollback_guard(base, journal, root):
     """Never restore archive-blind before bytes after maintenance committed.
 
@@ -828,6 +851,11 @@ def load_base():
             manifest = dict(manifest, runtimeRequired=manifest['runtimeBefore'])
         if ARCHIVE_MODE:
             for row in manifest['unchangedRequired']:
+                if row['path']==ARCHIVE_USAGE_LEDGER:
+                    current=archive_usage_metadata(base,root)
+                    if current!=row:raise ValueError('archive_usage_cas_drift')
+                elif row['sha256']!=ARCHIVE_PROTECTED.get(row['path']):
+                    raise ValueError('archive_static_protection_drift')
                 info=base.rooted(root,row['path']).stat()
                 if row['owner']!=str(info.st_uid)+':'+str(info.st_gid) or row['mode']!=oct(stat.S_IMODE(info.st_mode)):
                     raise ValueError('archive_protected_mode_owner_drift')
