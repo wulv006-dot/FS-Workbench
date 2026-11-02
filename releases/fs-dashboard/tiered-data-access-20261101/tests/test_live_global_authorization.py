@@ -19,15 +19,27 @@ class GlobalAuthorization(unittest.TestCase):
   self.authorize=authorize
   def fetch(*args):
    self.calls.append(1)
-   return 200,b'{"code":1,"data":{"total":1,"list":[{"id":123,"site_id":266,"gid":1327,"paytime":"2026-10-29 11:12:13","status":"11"}]}}'
+   return 200,b'{"code":1,"data":{"total":1,"list":[{"id":123,"site_id":266,"gid":1327,"paytime":"2026-10-29 11:12:13","status":"11","pay_status":"1","email":"fixture@example.test"}]}}'
   self.handler=build_handler(load_config=lambda:self.config,load_policy=lambda:self.policy,rbac=RBAC,fetch=fetch,run_source=lambda operation,timeout:operation(),existing_authorizer=authorize,observed_at=lambda:'2026-11-02T00:00:00Z')
  def test_regular_global_viewer_gets_nonprivate_aggregate(self):
   status,result=self.handler(self.params,'staff');self.assertEqual(status,206)
   self.assertEqual(result['data'],[]);self.assertEqual(result['observed_page_rows'],1);self.assertEqual(result['source_reported_total'],1)
   self.assertNotIn('123',str(result));self.assertNotIn('11:12:13',str(result))
+  self.assertNotIn('fixture@example.test',str(result))
+ def test_regular_viewer_cursor_does_not_disclose_private_order_ids(self):
+  import json
+  def many(*args):
+   rows=[dict(id=n,site_id=266,gid=1327,paytime='2026-10-29 11:12:13',status='11') for n in range(100,50,-1)]
+   return 200,json.dumps({'code':1,'data':{'total':51,'list':rows}}).encode()
+  handler=build_handler(load_config=lambda:self.config,load_policy=lambda:self.policy,rbac=RBAC,fetch=many,run_source=lambda operation,timeout:operation(),existing_authorizer=self.authorize,observed_at=lambda:'2026-11-02T00:00:00Z')
+  status,result=handler(self.params,'staff');self.assertEqual(status,206)
+  import base64,json
+  self.assertEqual(result['data'],[]);self.assertIsInstance(result['next_cursor'],str)
+  body=result['next_cursor'].split('.')[0];state=json.loads(base64.urlsafe_b64decode(body+'='*((-len(body))%4)))
+  self.assertIsInstance(state[2],str);self.assertEqual(len(state[2]),64);self.assertNotEqual(state[2],str(51))
  def test_existing_private_permission_exposes_private_order_rows(self):
   status,result=self.handler(self.params,'admin');self.assertEqual(status,206)
-  self.assertEqual(result['data'][0],{'order_id':'123','paid_at':'2026-10-29 11:12:13','status':'11'})
+  self.assertEqual(result['data'][0],{'order_id':'123','paid_at':'2026-10-29 11:12:13','status':'11','pay_status':'1','customer_email':'fixture@example.test'})
  def test_no_global_permission_or_unknown_site_or_game_never_reads_source(self):
   self.assertEqual(self.handler(self.params,'outsider')[0],403)
   for key,value in [('site_id','535'),('game_id','999')]:self.assertEqual(self.handler(dict(self.params,**{key:[value]}),'staff')[0],403)

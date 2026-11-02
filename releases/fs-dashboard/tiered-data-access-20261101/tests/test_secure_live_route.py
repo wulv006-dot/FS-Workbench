@@ -31,9 +31,12 @@ class SecureRoute(unittest.TestCase):
    self.session=(status,None);self.assertEqual(self.invoke({'X-Auth-User':'forged'})[0],status)
   self.assertEqual(self.calls,[])
  def test_bad_range_and_extra_parameter_never_call_source(self):
-  self.assertEqual(self.invoke(query='site_id=266&game_id=1327&start=2026-10-29&end_exclusive=2026-10-31')[0],422)
+  self.assertEqual(self.invoke(query='site_id=266&game_id=1327&start=2026-10-01&end_exclusive=2026-10-30')[0],422)
   self.assertEqual(self.invoke(query='site_id=266&game_id=1327&start=2026-10-29&end_exclusive=2026-10-30&extra=1')[0],422)
   self.assertEqual(self.calls,[])
+ def test_bounded_multi_day_and_cursor_reach_authorized_handler(self):
+  status,_=self.invoke({'Cookie':'MMOEXP_AUTH=fixture'},query='site_id=266&game_id=1327&start=2026-10-01&end_exclusive=2026-10-29&cursor=fixture')
+  self.assertEqual(status,206);self.assertEqual(self.calls,['real-user'])
  def test_session_is_rechecked_before_queued_source_work(self):
   count=[]
   def verifier(cookie):

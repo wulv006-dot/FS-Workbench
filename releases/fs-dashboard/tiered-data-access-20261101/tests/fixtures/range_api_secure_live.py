@@ -393,9 +393,10 @@ class Handler(BaseHTTPRequestHandler):
    if LIVE_ADMIN is None or not callable(verify_live_session):self.reply(503,{'error':'live_admission_unavailable'});return
    try:
     live_query=parse_qs(uri.query,keep_blank_values=True,max_num_fields=16)
-    if set(live_query)!={'site_id','game_id','start','end_exclusive'} or any(len(v)!=1 for v in live_query.values()):raise ValueError('invalid_live_query')
+    required={'site_id','game_id','start','end_exclusive'}
+    if not required<=set(live_query) or set(live_query)-required-{'cursor'} or any(len(v)!=1 for v in live_query.values()):raise ValueError('invalid_live_query')
     first=date.fromisoformat(live_query['start'][0]);last=date.fromisoformat(live_query['end_exclusive'][0])
-    if first.isoformat()!=live_query['start'][0] or last.isoformat()!=live_query['end_exclusive'][0] or (last-first).days!=1:raise ValueError('invalid_live_query')
+    if first.isoformat()!=live_query['start'][0] or last.isoformat()!=live_query['end_exclusive'][0] or not 1<=(last-first).days<=28:raise ValueError('invalid_live_query')
    except (ValueError,KeyError):self.reply(422,{'error':'invalid_live_query'});return
    cookie=self.headers.get('Cookie')
    try:
