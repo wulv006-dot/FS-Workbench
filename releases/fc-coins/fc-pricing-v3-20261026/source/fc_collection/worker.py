@@ -13,13 +13,16 @@ from .contracts import BINDING, encoded, fingerprint, instant, validate_observat
 
 
 class BudgetedTransport:
-    def __init__(self, endpoint, identity, task, fetch, clock, monotonic=time.monotonic):
+    def __init__(self, endpoint, identity, task, fetch, clock, monotonic=time.monotonic, guard=None):
         self.endpoint, self.identity, self.task = endpoint, identity, task
         self.fetch, self.clock, self.monotonic = fetch, clock, monotonic
         self.used = 0
+        self.guard = guard
         self.end = monotonic() + max(0, (instant(task['deadline_at']) - instant(clock())).total_seconds())
 
     def get(self, template_id):
+        if self.guard is not None:
+            self.guard()
         if self.monotonic() >= self.end:
             raise SourceUnavailable('deadline_expired')
         now = self.clock()
@@ -76,7 +79,7 @@ class Worker:
             raise ValueError('spool_invalid')
         self.spool.mkdir(mode=0o700, parents=True, exist_ok=True)
 
-    def run_once(self, *, job_id=None, allow_claim=True):
+    def run_once(self, *, job_id=None, allow_claim=True, guard=None):
         for temporary in self.spool.glob('.pending-*'):
             if temporary.is_symlink() or not temporary.is_file() or temporary.stat().st_size > 65536:
                 raise ValueError('spool_pending_invalid')
@@ -112,7 +115,7 @@ class Worker:
             task = self.endpoint.claim_job(self.identity, list(self.adapters), self.clock(), **options) if allow_claim else None
             if task is None:
                 return dict(status='idle')
-            transport = BudgetedTransport(self.endpoint, self.identity, task, self.fetch, self.clock)
+            transport = BudgetedTransport(self.endpoint, self.identity, task, self.fetch, self.clock, guard=guard)
             body = collect_job(task, self.adapters[task['source_id']], transport, self.clock)
             path = self.spool / (body['observation_id'] + '.json')
             fd, temporary = tempfile.mkstemp(prefix='.pending-', dir=str(self.spool))

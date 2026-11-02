@@ -119,7 +119,7 @@ class Failover(unittest.TestCase):
             def __exit__(self, *a): pass
             def health(self, *a, **kw): return dict(identity(), adapters=VERSIONS)
             def resend(self, *a): return dict(status='idle')
-            def run(self, task, principal, endpoint):
+            def run(self, task, principal, endpoint, **kwargs):
                 endpoint.reserve_request(principal, task['job_id'], task['lease_epoch'], dict(count=1), outer.now)
                 body = observation(task, outer.now)
                 body['offers'] = arab_offers(quote(), outer.now)
@@ -136,6 +136,31 @@ class Failover(unittest.TestCase):
             self.run_local()
             self.run_local()
         self.assertEqual(fetch.call_count, 1)
+
+    def test_local_precommit_crash_replays_original_spool_before_registering_new_boot(self):
+        with patch.object(self.endpoint, 'submit_observation', side_effect=OSError('crash before commit')), self.assertRaises(OSError):
+            self.run_local()
+        with self.endpoint.transaction() as db:
+            old = self.endpoint._get(db, 'collection_jobs', self.job['job_id'])
+        self.assertEqual(len(list((self.folder/'local/spool').glob('*.json'))), 1)
+        self.run_local()
+        with self.endpoint.transaction() as db:
+            latest = self.endpoint._get(db, 'collection_jobs', self.job['job_id'])
+        rows = to_arab_status(self.endpoint.accepted(self.job['job_id'], self.now), latest, self.now)['offers']
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(latest['node_boot_id'], old['node_boot_id'])
+        self.assertEqual(len(self.requests), 2)
+        self.assertEqual(list((self.folder/'local/spool').glob('*.json')), [])
+
+    def test_turnoff_after_warm_prevents_quote_GET(self):
+        templates = []
+        def fetch(source, template, timeout):
+            templates.append(template)
+            self.routing['remote_result_mode'] = 'off'
+            return b'' if template == 'warm' else json.dumps(quote()).encode()
+        with patch.object(self.failover.RestrictedHTTP, 'fetch', side_effect=fetch):
+            self.run_local()
+        self.assertEqual(templates, ['warm'])
 
 
 class LegacyRollback(unittest.TestCase):
@@ -165,6 +190,20 @@ class LegacyRollback(unittest.TestCase):
 
 
 class LocalLock(unittest.TestCase):
+    def test_SSH_controller_refuses_next_permit_after_routing_closes(self):
+        from unittest.mock import Mock
+        from fc_collection.ssh_client import Session
+        session = object.__new__(Session)
+        session.send = Mock()
+        responses = iter([dict(kind='call', id=1, method='reserve_request', params={}),
+                          dict(kind='done', result=dict(status='accepted'))])
+        session.read = lambda: next(responses)
+        endpoint = Mock()
+        def closed(): raise ValueError('collection_routing_changed')
+        session._exchange({}, None, None, endpoint, lambda: NOW, guard=closed)
+        endpoint.reserve_request.assert_not_called()
+        self.assertEqual(session.send.call_args.args[0], dict(kind='reply', id=1, error='collection_routing_changed'))
+
     def test_full_bounded_spool_can_drain_original_ACK_without_claiming_new_work(self):
         from unittest.mock import Mock
         from fc_collection.contracts import fingerprint

@@ -30,7 +30,7 @@ def local_worker_lock(path):
 
 
 def run_fallback(coordinator, task, routing):
-    from .client import read_routing, source_ready, utc
+    from .client import read_routing, source_ready, utc, check_routing
     routing = dict(routing)
     source = source_ready(coordinator, routing)
     if '187' not in source['nodes']:
@@ -39,6 +39,21 @@ def run_fallback(coordinator, task, routing):
         raise ValueError('collection_local_state_invalid')
     LOCAL_STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
     with local_worker_lock(LOCAL_STATE / 'worker.lock'):
+        with coordinator.transaction() as db:
+            previous = coordinator._get(db, 'collection_nodes', '187')
+        if previous and (LOCAL_STATE / 'spool').exists():
+            # Replay only: the original lease identity must survive a pre-commit crash.
+            old_identity = {key:previous[key] for key in ('node_id', 'node_boot_id')}
+            replay = Worker(coordinator, old_identity, {}, LOCAL_STATE / 'spool', None, clock=utc)
+            for _ in range(33):
+                if replay.run_once(allow_claim=False).get('status') == 'idle':
+                    break
+            else:
+                raise ValueError('collection_local_spool_not_drained')
+        with coordinator.transaction() as db:
+            state = db.execute('SELECT state FROM collection_jobs WHERE id=?', (task['job_id'],)).fetchone()[0]
+        if state in ('COMPLETED', 'EXPIRED'):
+            return
         if read_routing() != routing or utc() >= instant(task['deadline_at']):
             raise ValueError('collection_routing_changed_or_expired')
         coordinator.quarantine_node('183', utc(), 60)
@@ -56,7 +71,7 @@ def run_fallback(coordinator, task, routing):
             if state in ('COMPLETED', 'EXPIRED') or state == 'RETRY_WAIT' and current['attempts'] >= current['total_attempt_limit']:
                 return
             attempted = current.get('node_id') == '187' and current['attempts'] > 0
-            result = worker.run_once(job_id=task['job_id'], allow_claim=not attempted)
+            result = worker.run_once(job_id=task['job_id'], allow_claim=not attempted, guard=lambda: check_routing(routing))
             if result.get('status') != 'idle':
                 with coordinator.transaction() as db:
                     observed = db.execute('SELECT job FROM collection_observations WHERE id=?', (result['observation_id'],)).fetchone()

@@ -44,6 +44,12 @@ def read_routing():
     return value
 
 
+def check_routing(expected):
+    if read_routing() != expected:
+        from .adapters import SourceUnavailable
+        raise SourceUnavailable('collection_routing_changed')
+
+
 def source_ready(coordinator, routing):
     with coordinator.transaction() as db:
         source = coordinator._source_ready(db, 'ArabUT', utc())
@@ -127,7 +133,7 @@ def collect_remote(parent, routing):
                 remaining = (instant(leased['deadline_at']) - utc()).total_seconds()
                 if remaining > 0:
                     with Session(command, max_seconds=min(90, remaining)) as session:
-                        session.run(leased, principal, coordinator)
+                        session.run(leased, principal, coordinator, guard=lambda: check_routing(routing))
             accepted = coordinator.accepted(task['job_id'], utc())
         except (OSError, ValueError, TimeoutError, EOFError):
             if '187' not in source['nodes']:
