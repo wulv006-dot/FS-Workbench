@@ -84,6 +84,15 @@ async function run() {
   assert(!markup.includes('id="run-material"'));
   assert(!markup.includes('id="material-jobs"'));
   assert(!markup.includes('accept=".csv,.xlsx"'));
+  assert(!/<textarea\b[^>]*\bid="message-input"[^>]*\bmaxlength=/i.test(markup));
+  const longText = '长消息合成核验'.repeat(1001);
+  let longUI = await boot();
+  await longUI.send(longText);
+  assert.equal(longUI.state.submitted.text, longText);
+  longUI.state.turns[A] = [{turn_id:'c'.repeat(32),state:'running',run_id:'run_'+'e'.repeat(32),text:'生成中'}];
+  longUI = await boot(longUI.state, longUI.storage);
+  await longUI.send(longText);
+  assert.equal(longUI.state.steered.text, longText);
   let ui=await boot();
   await ui.choose('original raw bytes','说明.pdf');
   assert.equal(ui.state.uploads.length,1);
