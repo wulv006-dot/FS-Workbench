@@ -23,6 +23,11 @@ TOOLS = {
     'fs_query_product_orders': ('Read aggregate orders for one verified Admin game and product ID through FS, MMOEXP site266. Dates retain the source time field; preserve completeness. Whole-order USD is not SKU revenue. No customer identifiers or order changes. Pending: poll identical arguments.',
         {**PERIOD,'product_id':{'type':'integer','minimum':1,'maximum':999999999}},[*PERIOD,'product_id']),
 }
+try:
+    from conversation_user_data import TOOLS as CUSTOMER_TOOLS
+except ModuleNotFoundError as error:
+    if error.name!='conversation_user_data':raise
+    CUSTOMER_TOOLS={}
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -52,12 +57,13 @@ def read(path, params):
         return value if response.code<400 else {**value,'http_status':response.code}
 
 
-def call(name,args):
+def call(name,args,*,read_source=None):
     if name not in TOOLS or not isinstance(args,dict):raise ValueError('fs_tool_denied')
     _,properties,required=TOOLS[name]
     if set(args)-set(properties) or not set(required)<=set(args):raise ValueError('fs_tool_fields')
     if any(type(v) not in (str,int) for v in args.values()):raise ValueError('fs_tool_value')
     if any('enum' in properties[k] and v not in properties[k]['enum'] for k,v in args.items()):raise ValueError('fs_tool_enum')
+    read=read_source or globals()['read']
     if name=='fs_get_data_catalog':
         return {**read('/range',{'mode':'catalog'}),'user_analytics':read('/users',{'action':'catalog'})}
     if name=='fs_query_user_analytics':
@@ -87,11 +93,36 @@ def call(name,args):
     return read('/advisor',{'mode':'hermes','structure':structure,**query})
 
 
-def register(ctx):
-    for name,(description,properties,required) in TOOLS.items():
+def register(ctx,*,native_only=False,include_knowledge=True):
+    for name,(description,properties,required) in {**TOOLS,**CUSTOMER_TOOLS}.items():
         schema={'name':name,'description':description,'parameters':{'type':'object','properties':properties,'required':required,'additionalProperties':False}}
         def handler(args,_name=name,**context):
-            return json.dumps(call(_name,args),ensure_ascii=False,allow_nan=False)
+            try:
+                from conversation_native import current_native_backend
+            except ModuleNotFoundError as error:
+                if error.name!='conversation_native':raise
+                backend=None
+            else:backend=current_native_backend()
+            if backend is not None:
+                task=context.get('task_id')
+                if _name in CUSTOMER_TOOLS or _name in ('fs_query_user_analytics','fs_get_data_catalog'):
+                    value=backend.user_data_call(_name,args,task)
+                else:value=call(_name,args,read_source=lambda path,params:backend.read_path(path,params,task))
+            elif native_only or _name in CUSTOMER_TOOLS:raise PermissionError('native_run_context_required')
+            else:value=call(_name,args)
+            return json.dumps(value,ensure_ascii=False,allow_nan=False)
         ctx.register_tool(name=name,toolset='fs_readonly',schema=schema,handler=handler)
-    from .knowledge import register as register_knowledge
-    register_knowledge(ctx)
+    if include_knowledge:
+        from .knowledge import register as register_knowledge
+        register_knowledge(ctx)
+
+
+def register_scope(registry,scope):
+    """Official profile overlay; the shared Desktop plugin/profile stays untouched."""
+    from types import SimpleNamespace
+    def install(**tool):
+        previous=registry.get_entry(tool['name'],scope=scope)
+        if (previous is not None and previous.handler.__module__==__name__ and
+                previous.schema==tool['schema']):return
+        registry.register(**tool,scope=scope)
+    register(SimpleNamespace(register_tool=install),native_only=True,include_knowledge=False)

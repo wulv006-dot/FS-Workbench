@@ -17,6 +17,12 @@ from conversation_store import ConversationStore
 from conversation_files import ConversationFiles
 
 
+def load_tests(loader, tests, pattern):
+    import test_native_user_data
+    tests.addTests(loader.loadTestsFromModule(test_native_user_data))
+    return tests
+
+
 class NativeWorkspaceTests(unittest.TestCase):
     def test_intermediate_empty_and_hidden_files_do_not_block_real_exports(self):
         from conversation_native import NativeWorkspace

@@ -551,12 +551,19 @@ def make_adapter(api_key):
                 checked = json.loads(call_tool('fs.native.check', {'binding': fixed},session_id=fixed['session_id']))
                 return checked.get('authorized') is True
             backend = NativeDockerBackend(item, active)
+            backend.data_call=lambda name,args:json.loads(call_tool('fs.native.user_data',
+                {'binding':fixed,'name':name,'arguments':args},session_id=fixed['session_id']))
+            backend.read_call=lambda path,params:json.loads(call_tool('fs.native.read',
+                {'binding':fixed,'path':path,'params':params},session_id=fixed['session_id']))
             with backend.scope():
                 config = validate_native_profile(hermes_config.load_config(),backend.profile)
                 backend.ensure_environment()
+                from tools.registry import registry
+                from fs_native_readonly import register_scope
+                register_scope(registry,str(backend.profile))
                 from hermes_constants import resolve_reasoning_config
                 reasoning = resolve_reasoning_config(config,item['model'])
-                enabled = sorted(_get_platform_tools(config, 'api_server'))
+                enabled = sorted(set(_get_platform_tools(config, 'api_server')) | {'fs_readonly'})
                 callbacks = {key: kwargs[key] for key in ('stream_delta_callback','tool_progress_callback',
                     'tool_start_callback','tool_complete_callback','interim_assistant_callback','reasoning_callback',
                     'status_callback') if key in kwargs}

@@ -81,15 +81,17 @@ def load_store(root=ROOT, config=None, *, initialize=False):
         return Store(root, key, configuration() if config is None else config, create=initialize)
 
 
-def authorize(user, query, private=False):
+def authorize(user, query, private=False, *, resource='/dashboard/users/'):
     if not isinstance(user, str) or not user:
+        return False
+    if resource not in ('/dashboard/users/','/dashboard/analytics/','/dashboard/data-tools/'):
         return False
     sys.path.insert(0, '/opt/fs-access-policy')
     import rbac
     if not Path(rbac.LIVE_POLICY).is_file():
         return False
     policy = rbac.load_policy()
-    if rbac.authorize(policy, user, 'GET', '/dashboard/users/') != 200:
+    if rbac.authorize(policy, user, 'GET', resource) != 200:
         return False
     return rbac.is_admin(policy, user) if private else True
 

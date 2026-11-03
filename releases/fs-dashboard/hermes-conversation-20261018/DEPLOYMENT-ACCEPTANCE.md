@@ -992,8 +992,16 @@ f43 新包 prepare/三目标+776保护 fresh CAS 已过，一次 inspect 在 `na
 原锁/准入/UNKNOWN/quiescent/owner/mode/fresh/镜像/备份恢复保持；仅同fence重启worker并原DEEP重载range，无daemon-reload/Nginx/timer动作。已归档对象沿原精确CAS保留，禁止本followup再次调用archive维护；失败只回退到已知archive-aware f1ed Store before SHA及同批其他九源，原writer仍逐项核备份CAS。tempFS直接测试成功、worker/range/readiness失败回退、769字节/inode/mtime和usage保持、归档后拒盲回退；OS/Docker边界为显式fixture。运行逻辑复用PR764已审及原147回归，不据候选/纯函数声称已部署、联网或CSV/XLSX成功。
 
 
-#### 停止后的跨turn产物隔离（候选，未发布）
+#### 停止后的跨turn产物隔离（94b已安装并核收）
 
 真实停止验收的原turn已cancelled且无回复/产物，但旧终端稍后写入共享workspace的文件被下一completed turn收集；停止不等于终端或计费立即结束。本补丁每turn独立执行目录，只由已发布immutable文件恢复同cid上下文；官方run_conversation(task_id=turn_id)、终端环境缓存和cleanup均绑定该turn，session_id继续承载原cid历史。旧执行可以继续写旧挂载，但不会跨轮发布；不删除工作目录或旧证据。真实temp Store/workspace跨turn RED后验证新产物/旧输入/历史版本及自然追问保留。
 
 沿原--native-capabilities --followup推进唯一当前基线：20c/nav011909成功10源proof，精确叠加d135/nav021812成功单HTML proof；10现存/769保护/NEW0，仅conversation_native.py与hermes_worker.py两delta，其余8只CAS备份不写，HTML6254b7保护。原usage freshCAS、锁/准入/UNKNOWN/tombstone、父目录/owner/mode/备份/回退保持；同fence worker+range，无Nginx/unit/timer操作。真实已归档audit存在的成功/worker失败/range失败/readiness失败回退在原publisher直接回归；OS/daemon服务为明确夹具，不冒生产验收。memory/skill已由总控独审后实际应用并由干净SDK读取；新聊天session加载及06:10自然日审仍未验。
+
+2026-11-03总控核收94b/nav033506软件及独立2-turn验收：terminal工具开始后一次stop→cancelled/空回复与产物；同cid下一completed轮generated空且无停止文件，真实skill_view已读已批内容，记忆标记在未提供值的提示后正确回答。仅此实际范围，不证明终端kill或计费立即结束；强制late场景复用原真实workspace/SDK合同。验收index：FS-Hermes-94b-Stop-Read-20261103T034607Z/index.json，SHA8355dd61428618a2e9f4ac512120492e1d665ddb4af3c7e31c15bb593ad12c56。
+
+#### 可信用户数据与显式追踪宿主（本地候选）
+
+继续原`--native-capabilities --followup`，唯一baseline为94b/nav033506成功manifest eec34e…c05f8及journal ae0327…b87e；原已验HTML包含在该成功保护链，不再回写旧HTML。16 targets／767保护／NEW4；9个必要delta（native/service/worker、B原样B2、user-runtime权限入口及4新helper），其余7只CAS/备份不写。既有user_query/user_store/live入口保持现役字节；不把当前Git候选当已装数据版本。新root模块使用官方registry的owner profile overlay，旧共享profile插件仍受保护，普通native无绑定时拒绝且不回落固定管理员。原worker+range同fence，原锁/准入/quiescent/usage freshCAS/tombstone/备份回退保持；不动unit、Nginx、timer或FC消费。
+
+普通客户问题只走真实A2/B2投影；live邮箱仅host成员校验后通过原private-body validator与既有共享Admin准入，逐页复核且不回传邮箱。显式追踪沿原ConversationGoals/TaskStore outbox持久CAS，fact版本绑定scope/identity/policy/data和有效cutoff；仅fresh CAS胜者在当前轮完成后交原native submit，取消/不确定或重启丢失的fresh派发权只沿原ID对账，不新建调度/执行器或重放。当前仅本地组合通过；尚未生产安装/调用客户模型或证明自然追踪周期。
