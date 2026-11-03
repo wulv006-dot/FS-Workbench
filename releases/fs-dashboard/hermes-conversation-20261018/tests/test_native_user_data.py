@@ -102,10 +102,10 @@ class NativeUserRelay(unittest.TestCase):
     def test_default_global_snapshot_offers_explicit_customer_scope_without_selecting_one(self):
         self.data()
         catalog=self.call('fs_get_data_catalog',{})
-        for explicit in ({},{'scope':'global'}):
+        for explicit in ({},{'scope':'global'},{'scope':'series','scope_id':'FC'}):
             aggregate=self.call('fs_query_user_analytics',dict(start='2026-10-01',end_exclusive='2026-10-25',
                                 state_basis='period_end',**explicit))
-            self.assertEqual(aggregate['query']['scope'],'global')
+            self.assertEqual(aggregate['query']['scope'],explicit.get('scope','global'))
             snapshot=aggregate['snapshot_id']
             # This public schema's default is legal for aggregates, but must
             # not turn into a misleading permission403 or an implicit site.
