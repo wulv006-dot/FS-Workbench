@@ -441,6 +441,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('releases/fs-dashboard/email-channels-20261103/'):
+            groups.add('email-channels');continue
         if name in ("tools/fs_graphify.py", "docs/development/graphify-scope.json"):
             groups.add("fs-graphify");continue
         if name.startswith("releases/registration/iam-modules-20261031/") or name == "tests/test_fs_iam_module_access.py":
@@ -858,6 +860,9 @@ def main():
             subprocess.run(["node","test_sandbox.cjs"],cwd=folder,check=True,timeout=30)
             subprocess.run(["node","test_target_hash.cjs",sys.executable],cwd=folder,check=True,timeout=30)
             subprocess.run([sys.executable,"-B","check_linux.py"],cwd=folder,check=True,timeout=30)
+            continue
+        if group=='email-channels':
+            units('releases/fs-dashboard/email-channels-20261103/source',['test_email_channels'])
             continue
         if group=="fs-graphify":
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"tools/fs_graphify.py"),"self-test"],check=True,timeout=30,cwd=ROOT)

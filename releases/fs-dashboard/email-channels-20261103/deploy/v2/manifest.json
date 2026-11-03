@@ -1,0 +1,47 @@
+{
+  "files": [
+    {
+      "beforeSha256": "5f2c97abe654e65baa82f4a0dbaf4f3df867976d89f209c7ae05070966f8fd54",
+      "candidate": "market_worker.py",
+      "sha256": "5f2c97abe654e65baa82f4a0dbaf4f3df867976d89f209c7ae05070966f8fd54",
+      "target": "/opt/marketing-worker/market_worker.py"
+    },
+    {
+      "beforeSha256": "13c864505dcac358a8681aa99f3fef51f461f3a473857a80ef3d02dd117c33fc",
+      "candidate": "email_channels.py",
+      "sha256": "20cc79ccdb269c9f1bd5be25faa98c4b2dc4ee5dfc888f020a8862868ae257a2",
+      "target": "/opt/marketing-worker/email_channels.py"
+    },
+    {
+      "beforeSha256": "919d3ea530aba671ed5053130d53eff215f7f3095841363b8633e6f54226e75b",
+      "candidate": "marketing.html",
+      "sha256": "c5ff66567b4947e78a3ec2c04f66b1741044afc54c0bba88b7b63262c761e176",
+      "target": "/opt/marketing-worker/web/marketing.html"
+    },
+    {
+      "beforeSha256": "42f38cf8767cc88ecdbb05df01120b7f64062a93d65d3cdccb50ba0f9358aaec",
+      "candidate": "iggm-web.conf",
+      "sha256": "252d2c4fbc7e139a517e5d3d49944c721b5785ab5da8fe0e08b6c5d4bb78cd4f",
+      "target": "/etc/nginx/conf.d/iggm-web.conf"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5ec1ac5ca2204f913f27f9b68a414d72e764e9c9bb3d563ee5a4aabdf4091475"
+    }
+  ],
+  "schemaVersion": 1,
+  "runtimeRequired": {
+    "nginx.service": {
+      "ActiveState": "active"
+    },
+    "fs-marketing-range.service": {
+      "ActiveState": "active"
+    }
+  },
+  "releaseReady": true,
+  "timersChanged": false,
+  "scope": "email-channels-20261103-v2",
+  "businessWrites": false
+}

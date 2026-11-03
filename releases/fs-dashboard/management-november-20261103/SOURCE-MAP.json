@@ -31,7 +31,7 @@
   },
   "naturalNightlyCycle": "not_yet_verified",
   "paidModel": "not_invoked",
-  "github": "local_branch_only_push_rejected_by_auto_review",
+  "github": "user_authorized_push_pr_ci_20261103",
   "normalization": "Git source is LF; publisher receipt hashes refer to deployed bytes",
   "sourceSha256": {
     "admin_summary.py": "701df17f8f867e64f25192c5bad780fce35abdbd945a1f31998c9ff203a3fbc7",
