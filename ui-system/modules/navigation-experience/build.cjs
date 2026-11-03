@@ -9,6 +9,9 @@ fs.mkdirSync(path.join(dir,'candidate'),{recursive:true});
 const hub=live.replace('tree.replaceChildren(frag);',"tree.replaceChildren(frag);document.dispatchEvent(new CustomEvent('fs-nav-account-ready',{detail:{account:tree.querySelector('.hn-account')}}));");
 fs.writeFileSync(path.join(dir,'candidate','hubnav.js'),hub+style+enhancement);
 let nav=fs.readFileSync(path.join(dir,'nav.live.js'),'utf8');
+// The shared renderer owns group structure and active state once mounted.
+nav=nav.replace('  // Keep the shared Hermes hierarchy', '  if(!window.__fsNavExperience){\n  // Keep the shared Hermes hierarchy');
+nav=nav.replace("  var KEY = 'fs-navigation-theme';", "  }\n  var KEY = 'fs-navigation-theme';");
 // Do not prerender operational pages: their scripts can start data requests before a click.
 nav=nav.slice(0,nav.indexOf('  /* 5)'))+'})();\n';
 fs.writeFileSync(path.join(dir,'candidate','nav.js'),nav+style+enhancement);
