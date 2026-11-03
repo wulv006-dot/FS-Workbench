@@ -23,8 +23,9 @@ def identity(value):
 
 
 class NativeKnowledge:
-    def __init__(self, root='/fs', profile_root='/profile', approved_skills_root='/approved-skills'):
+    def __init__(self, root='/fs', profile_root='/profile', approved_skills_root='/approved-skills', *, receipt_root=None):
         self.root = Path(root)
+        self.receipt_root = self.root if receipt_root is None else Path(receipt_root)
         self.profile_root = Path(profile_root)
         self.approved_skills_root = Path(approved_skills_root)
 
@@ -32,7 +33,7 @@ class NativeKnowledge:
         return 'knowledge/native/' + kind + '-' + catalog.digest(key) + '.json'
 
     def _read(self, name):
-        value = json.loads(catalog.read_bound(self.root, name))
+        value = json.loads(catalog.read_bound(self.receipt_root, name))
         material = {k: v for k, v in value.items() if k != 'receipt_sha256'}
         if value.get('receipt_sha256') != catalog.digest(material):
             raise ValueError('native_knowledge_receipt_changed')
@@ -71,13 +72,13 @@ class NativeKnowledge:
         raw = json.dumps(value, sort_keys=True, ensure_ascii=False).encode()
         if len(raw) > 1048576:
             raise ValueError('native_knowledge_receipt_too_large')
-        parent = self.root / 'knowledge/native'
+        parent = self.receipt_root / 'knowledge/native'
         if any(p.is_symlink() for p in (parent, *parent.parents)):
             raise ValueError('native_knowledge_path_link')
         parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         with self._receipt_lock(parent):
             # Extend the existing writer's check+atomic-replace to a cross-process CAS.
-            write_file(self.root / name, raw)
+            write_file(self.receipt_root / name, raw)
             if os.name == 'posix':
                 fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
                 try:
@@ -105,7 +106,7 @@ class NativeKnowledge:
         session = identity(info.get('session_id'))
         name = self._name('session', session)
         with LOCK:
-            if (self.root / name).exists():
+            if (self.receipt_root / name).exists():
                 value = self._read(name)
                 if any(value[k] != info.get(k) for k in ('session_id', 'platform', 'profile_name')):
                     raise ValueError('native_knowledge_session_identity_changed')
@@ -178,7 +179,7 @@ class NativeKnowledge:
         name = self._name('task', key)
         scope = {k: info.get(k) for k in ('owner', 'platform', 'profile_name', 'chat_id', 'thread_id')}
         with LOCK:
-            if (self.root / name).exists():
+            if (self.receipt_root / name).exists():
                 pin = self._read(name)
                 if pin['identity'] != key or pin['scope'] != scope or pin['native_task_id'] != native_task_id:
                     raise ValueError('native_knowledge_task_identity_changed')
@@ -237,6 +238,19 @@ class NativeKnowledge:
                 entries=entries, entry_ids=allowed_ids, selection_sha256=selected['selection_sha256'],
                 reviewed_skills=skills, readonly=None))
 
+    def load_task(self, info, task_key, native_task_id, *, expected_sha256):
+        """Load the caller's pinned turn; never select a newer policy or release."""
+        key = dict(session_id=identity(info.get('session_id')), task_key=identity(task_key))
+        identity(native_task_id)
+        pin = self._read(self._name('task', key))
+        scope = {k: info.get(k) for k in ('owner', 'platform', 'profile_name', 'chat_id', 'thread_id')}
+        if (pin.get('contract') != 'fs-native-knowledge-task-v1' or pin['identity'] != key
+                or pin['scope'] != scope or pin['native_task_id'] != native_task_id):
+            raise ValueError('native_knowledge_task_identity_changed')
+        if pin['receipt_sha256'] != expected_sha256:
+            raise ValueError('native_knowledge_task_pin_changed')
+        return pin
+
     def active_task(self, session, native_task_id):
         name = self._name('active', identity(session))
         try:
@@ -264,26 +278,27 @@ class NativeKnowledge:
     def unlink_task_session(self, name, pin):
         if self._read(name)['pin_sha256'] != pin['receipt_sha256']:
             raise ValueError('native_knowledge_active_pin_changed')
-        (self.root / name).unlink()
+        (self.receipt_root / name).unlink()
 
     @contextmanager
-    def activate_task(self, info, task_key, native_task_id):
-        # The gateway reuses native task_id=session_id; this lease prevents a later turn rebinding an in-flight read.
-        parent = self.root / 'knowledge/native' / ('turn-' + catalog.digest(info['session_id']))
+    def activate_task(self, info, task_key, native_task_id, *, pin_sha256=None):
+        # Serialize readers of a session; FS native passes its original turn_id as task_id.
+        parent = self.receipt_root / 'knowledge/native' / ('turn-' + catalog.digest(info['session_id']))
         if any(p.is_symlink() for p in (parent, *parent.parents)):
             raise ValueError('native_knowledge_path_link')
         parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         with self._receipt_lock(parent):
+            pin = (self.pin_task(info, task_key, native_task_id) if pin_sha256 is None else
+                   self.load_task(info, task_key, native_task_id, expected_sha256=pin_sha256))
             name = self._name('active', info['session_id'])
-            if (self.root / name).exists():
+            if (self.receipt_root / name).exists():
                 stale = self._read(name)
                 previous = self._read(stale['pin'])
                 if stale['session_id'] != info['session_id'] or previous['receipt_sha256'] != stale['pin_sha256']:
                     raise ValueError('native_knowledge_active_pin_changed')
                 # Holding the turn lease proves this transient alias has no active reader; immutable task/use receipts stay intact.
                 self._save(self._name('retired-active', stale['receipt_sha256']), dict(previous_active=stale))
-                (self.root / name).unlink()
-            pin = self.pin_task(info, task_key, native_task_id)
+                (self.receipt_root / name).unlink()
             if pin is None:
                 yield None
                 return
@@ -292,7 +307,7 @@ class NativeKnowledge:
             try:
                 yield pin
             finally:
-                (self.root / name).unlink()
+                (self.receipt_root / name).unlink()
 
     def prompt(self, info):
         # A missing/malformed session identity must not restrict ordinary unrelated chats.
@@ -380,7 +395,7 @@ class NativeKnowledge:
             key['index_version'] = 2
         path = self._name('use', key)
         with LOCK:
-            if (self.root / path).exists():
+            if (self.receipt_root / path).exists():
                 saved = self._read(path)
                 if saved['identity'] != key or saved['pin_sha256'] != pin['receipt_sha256']:
                     raise ValueError('native_knowledge_use_conflict')
