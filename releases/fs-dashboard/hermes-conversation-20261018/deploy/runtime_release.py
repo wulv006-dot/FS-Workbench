@@ -85,7 +85,86 @@ CAPABILITIES_NGINX_PROOF = dict(
     beforeSha256='75a9b57a7073771b105573ab59e4c0a227f8567a75c8accbde2991d171934b3d',
     sha256='fde65e277cbb873673b7dc474483dada42e0da558756c69c63c38d0acc769da4',
     pageSha256='46a9d8f52a733f17a588c96940a2e8d1c7a0c831ae20d95799166f192cf26bb0')
-CAPABILITIES_CHANGED = ('runtime/proxy_gateway.py',)
+# Exact successful UI/management transitions; never import their other payloads.
+CAPABILITIES_NAVIGATION_TARGETS = {'nginx': '/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf',
+ 'range': '/opt/fs-exact-range-20261001/range_api.py',
+ 'fc': '/var/www/dashboard/fc27-coins.html',
+ 'conversation': '/var/www/dashboard/fs-home/hermes/conversation/index.html',
+ 'home': '/var/www/dashboard/fs-home/index.html',
+ 'hubnav': '/var/www/hub/hubnav.js'}
+CAPABILITIES_NAVIGATION_PROOFS = (('nav-20261103T070000Z',
+  '5bafa6f6b84de10bff9f373d9828fcb0b75a85ead97f89f273ae0286d5b2a210',
+  'dfc076693ec92324ba64c7f8e5441a702f67a9f4164b05dd3a76f666e31ac6bd',
+  'traffic-source-tabs-ui-finish-20261019',
+  {'hubnav': ('hubnav.js',
+              'd38b42cb20a99c04bf6a11ead53fd1132b45c79578472086b3a6bb46cc968ad9',
+              '70594f731560e7d1c3ecc51b1b5479cc9fe3f1fd401ac380b99b2533b8d2ca0b'),
+   'nginx': ('zz-formal.conf',
+             'fde65e277cbb873673b7dc474483dada42e0da558756c69c63c38d0acc769da4',
+             'dbc20c9f0e1d5fafa10255d9a09baa41f9c7299de2630c47bea637e80f8a6728')}),
+ ('nav-20261103T070100Z',
+  'd71405565d8110f69a5ef4525197fd3dbe857ded9a2b72e02d75b1f88b90d4ac',
+  '4625d446030b89205887fea963314b9ba81ddc60c2b6727b6566425603513b02',
+  'traffic-source-tabs-ui-finish-20261019',
+  {'home': ('home.html',
+            '863d5c6ca130a053ff0fc511554e921e7e346163da23231c376f578b4a32528e',
+            '61a723d3d432537848f0fcec09e11a5fea72db279ddcafb042ba94508d742638'),
+   'conversation': ('conversation.html',
+                    '6254b7ce313c52b48402e47b881400086cd69decdcfca50932b2b8d4b7336ef8',
+                    '02b349aea2ac745e0760f5dc44ae48a2500c51696e84a53cb0be333bfa68bee3')}),
+ ('nav-20261103T070200Z',
+  '4c165a31d4968680bc8ea47586fe29461a8201c29188daab438f66f15dedb02e',
+  '0fd5950508a1b939e1d20c63590a20286be5105fcec9d9b2d899b045c1608ea3',
+  'traffic-source-tabs-ui-finish-20261019',
+  {'nginx': ('formal.conf',
+             'dbc20c9f0e1d5fafa10255d9a09baa41f9c7299de2630c47bea637e80f8a6728',
+             'ac35300546606708494643893892ea40933a4f7c5141fcd5e5294de67b666f81')}),
+ ('nav-20261103T070300Z',
+  '11399199bee4370524e8ff4df6a6669c380801810eb5980e8b647d3ecb8e0f29',
+  'e4cb9aa1470a81e5767b9b5cee8cea72b7526418870b1f787f4012e8c7b4624f',
+  'traffic-source-tabs-ui-finish-20261019',
+  {'hubnav': ('hubnav.js',
+              '70594f731560e7d1c3ecc51b1b5479cc9fe3f1fd401ac380b99b2533b8d2ca0b',
+              '21f3117487c74f56f5d464b9d68d1967e15e6444b3d31e90d31cbd8dc0205432'),
+   'nginx': ('zz-formal.conf',
+             'ac35300546606708494643893892ea40933a4f7c5141fcd5e5294de67b666f81',
+             '5e36a93c0ea7dcbe7a72b9e126376fc5638747666586c9bdf481cb6b9c039034'),
+   'home': ('home.html',
+            '61a723d3d432537848f0fcec09e11a5fea72db279ddcafb042ba94508d742638',
+            '70605e3cbcd70a2bba034445a587957f7fabe78fa5ae770740f9daf090c9b7a5'),
+   'conversation': ('conversation.html',
+                    '02b349aea2ac745e0760f5dc44ae48a2500c51696e84a53cb0be333bfa68bee3',
+                    '07fa69c4a6f44d91020c49040c09bb99556902710cf67b54f6af0803a0def945')}),
+ ('nav-20261103T090000Z',
+  'ab582f59e04a3c39b5e494f9b9b03d24bdb14b5444bdb7a645c4a1223c31224d',
+  '1de165cc7cc46ed26f56033e057f465d8595623e13c7c177d8cc955cf70711bf',
+  'traffic-source-tabs-ui-finish-20261019',
+  {'hubnav': ('hubnav.js',
+              '21f3117487c74f56f5d464b9d68d1967e15e6444b3d31e90d31cbd8dc0205432',
+              '9eaaead05d5576ab800f89a701bec8dd45be7322c96f8f2878d7abe6f21bb62a'),
+   'nginx': ('zz-formal.conf',
+             '5e36a93c0ea7dcbe7a72b9e126376fc5638747666586c9bdf481cb6b9c039034',
+             '52a73360649caee37b830269bb7409619b1369f25e62da5ef69192afc4a85e2a'),
+   'home': ('home.html',
+            '70605e3cbcd70a2bba034445a587957f7fabe78fa5ae770740f9daf090c9b7a5',
+            'eb7170a045ebf3ebc91d24090503d0207adf63cd9ac73713122ed36a427fecb3'),
+   'conversation': ('conversation.html',
+                    '07fa69c4a6f44d91020c49040c09bb99556902710cf67b54f6af0803a0def945',
+                    '824d327721a7160dc094188206f595b33f8bd881b32efb4ab6ff9ca8849cc3e2'),
+   'fc': ('fc-coins.html',
+          '90e636565826bf594c0ab073387b67612b9be457d58b40b47507af1ad65b3af2',
+          'f9442271898401b3cdd58914ca28726706aa0cddce9596521c0d32217ababc3f')}),
+ ('nav-20261103T083725Z',
+  'b7d78fc53d391080383cae0f7136b7ba76bea075b676875cc9cb88af6214975e',
+  '4c79311851b3c794e3b68a31047cc0e97b7bd98cc3bf4d898f46494b6de14cd4',
+  'management-november-20261103',
+  {'range': ('source/range_api.py',
+             '5a66d9e4f6e39bdcda4373f2adb02b54140def908c5fc7ed684d7e70217853c8',
+             '08e22627230531e06c35e661302d6f23808e07a527bbff2485d6b174303a79a6'),
+   'nginx': ('generated/navigation.conf',
+             '52a73360649caee37b830269bb7409619b1369f25e62da5ef69192afc4a85e2a',
+             '2907ad948d16176fb42454afd496e82da8d55f2341f1466ef624cc1928a6aa2b')}))
+CAPABILITIES_CHANGED = ('runtime/conversation_native.py','runtime/hermes_worker.py','runtime/native_chat.py','runtime/proxy_gateway.py')
 CAPABILITIES_STORE_BEFORE_SHA = 'ffa3a03e567fcef5bdd503a9673ce425584eb9b248227b2102ee44108a6914bf'
 CAPABILITIES_TARGETS = {'runtime/'+name:'/opt/fs-hermes-fc/'+name for name in (
     'conversation_store.py','conversation_native.py','conversation_service.py','hermes_worker.py',
@@ -492,6 +571,63 @@ def capabilities_nginx_overlay(base, root, metadata):
     return dict(metadata)
 
 
+def capabilities_navigation_overlay(base, root, metadata):
+    """Advance only six protected files through their pinned successful releases."""
+    paths=CAPABILITIES_NAVIGATION_TARGETS
+    if (not NATIVE_CAPABILITIES_MODE or set(paths.values()) & set(TARGETS.values()) or
+            any(p not in metadata or metadata[p].get('owner')!='0:0' or
+                metadata[p].get('mode')!=('0o600' if p==NGINX else '0o644') for p in paths.values())):
+        raise ValueError('native_navigation_baseline_drift')
+    result={p:dict(row) for p,row in metadata.items()}
+    for release_id,manifest_sha,journal_sha,scope,changes in CAPABILITIES_NAVIGATION_PROOFS:
+        records={}
+        for name,expected in (('approved-manifest.json',manifest_sha),('journal.json',journal_sha)):
+            path=base.rooted(root,'/var/backups/fs-navigation-20261006/'+release_id+'/'+name)
+            base.no_target_link(path);before=path.lstat()
+            if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>8*1024*1024 or
+                    (before.st_uid,before.st_gid,stat.S_IMODE(before.st_mode))!=(0,0,0o600)):
+                raise ValueError('native_navigation_proof_boundary_drift')
+            fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+            with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+                opened=os.fstat(stream.fileno())
+                if any(getattr(before,k)!=getattr(opened,k) for k in fields):
+                    raise ValueError('native_navigation_proof_changed')
+                raw=stream.read(8*1024*1024+1)
+            after=path.lstat();base.no_target_link(path)
+            if any(getattr(before,k)!=getattr(after,k) for k in fields):raise ValueError('native_navigation_proof_changed')
+            if hashlib.sha256(raw).hexdigest()!=expected:raise ValueError('native_navigation_proof_drift')
+            records[name]=json.loads(raw)
+        manifest,journal=records['approved-manifest.json'],records['journal.json']
+        rows=manifest.get('files',[]);written=journal.get('files',[])
+        if (manifest.get('scope')!=scope or manifest.get('releaseReady') is not True or
+                journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or
+                journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=manifest_sha or
+                journal.get('failure') or any(journal.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
+                len(rows)!=len(written) or len({r['candidate'] for r in rows})!=len(rows) or
+                any(w.get('intent') is not True or w.get('written') is not True or
+                    any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten')) for w in written) or
+                any(len([w for w in written if all(w.get(k)==r.get(k) for k in
+                    ('candidate','target','beforeSha256','sha256','owner','mode'))])!=1 for r in rows)):
+            raise ValueError('native_navigation_exact_success_required')
+        selected=[r for r in rows if r.get('target') in paths.values()]
+        if (len(selected)!=len(changes) or {r['target'] for r in selected}!={paths[a] for a in changes}):
+            raise ValueError('native_navigation_transition_drift')
+        for alias,(candidate,before_sha,after_sha) in changes.items():
+            target=paths[alias];old=result[target]
+            row=next(r for r in selected if r['target']==target)
+            saved=next(w for w in written if w['candidate']==candidate)
+            if (old['sha256']!=before_sha or any(row.get(k)!=v for k,v in
+                    dict(candidate=candidate,target=target,beforeSha256=before_sha,sha256=after_sha).items()) or
+                    row.get('owner') not in (None,'0:0') or
+                    row.get('mode') not in (None,old['mode'],'0o644' if target==NGINX else old['mode']) or
+                    saved.get('beforeMode')!=int(old['mode'],8)):
+                raise ValueError('native_navigation_transition_drift')
+            # The original writer uses beforeMode, including the Nginx0600
+            # special case; the management manifest's0644 never changes it.
+            result[target]=dict(old,sha256=after_sha)
+    return result
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -527,7 +663,9 @@ def installed_baseline(root, git_baseline):
                     {'frontend/index.html':COMPOSER_BEFORE_SHA} if COMPOSER_STATIC_MODE else
                     {name:None if name in NEW else metadata.get(target,{}).get('sha256') for name,target in TARGETS.items()})}):
             raise ValueError('composer_static_installed_proof_mismatch')
-        if NATIVE_CAPABILITIES_MODE:metadata=capabilities_nginx_overlay(base,root,metadata)
+        if NATIVE_CAPABILITIES_MODE:
+            metadata=capabilities_nginx_overlay(base,root,metadata)
+            metadata=capabilities_navigation_overlay(base,root,metadata)
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
