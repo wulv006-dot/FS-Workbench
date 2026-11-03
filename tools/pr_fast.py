@@ -181,6 +181,8 @@ def rename_source_selfcheck():
     print("rename source selfcheck: actual workflow reports both paths; frontend removal/runtime coverage reject; docs rename and ordinary edit retain scope")
 
 def selfcheck():
+    if select(["releases/fs-dashboard/game-monitor-fc-calendar-20261103/calendar.json"]) != ["game-monitor-fc-calendar"]:
+        raise RuntimeError("FC_calendar_check_missing")
     if select(['releases/fc-players/admin-api-repair-20261031/source/images.js']) != ['fc-players-api-repair']:
         raise AssertionError('Players API repair coverage')
     if select(['releases/fc-players/direct-json-20261029/source/direct_model_import.py']) != ['fc-players-direct-json']:
@@ -502,6 +504,8 @@ def select(paths):
             groups.add('knowledge-layering')
             if name=='releases/fs-dashboard/knowledge-layering-20261023/source/controller.py':groups.add('nightly-reschedule')
             continue
+        if name.startswith("releases/fs-dashboard/game-monitor-fc-calendar-20261103/"):
+            groups.add("game-monitor-fc-calendar");continue
         if name.startswith("releases/fs-dashboard/game-monitor-autopublish-20261022/"):
             groups.add("game-monitor-auto");continue
         if name.startswith("releases/fs-dashboard/game-monitor-sop-20261022/"):
@@ -960,8 +964,12 @@ def main():
             units('releases/fs-dashboard/hermes-learning-closure-20261023/tests',['test_learning_native_release','test_routes_release'])
             continue
         if group in ("self","frontend"):continue
+        if group=="game-monitor-fc-calendar":
+            subprocess.run([sys.executable,"-B",str(ROOT/"releases/fs-dashboard/game-monitor-fc-calendar-20261103/build.py"),"--check"],check=True,timeout=45)
+            node("releases/fs-dashboard/game-monitor-fc-calendar-20261103/check.cjs")
+            continue
         if group=="game-monitor-auto":
-            units("releases/fs-dashboard/game-monitor-autopublish-20261022/tests",["test_contract","test_controller","test_install"])
+            units("releases/fs-dashboard/game-monitor-autopublish-20261022/tests",["test_contract","test_controller","test_install","test_recovery"])
             node("releases/fs-dashboard/game-monitor-autopublish-20261022/tests/render.cjs")
             continue
         if group=="game-monitor-sop":

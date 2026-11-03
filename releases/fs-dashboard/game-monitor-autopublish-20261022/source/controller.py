@@ -21,7 +21,7 @@ PROFILE=Path('/var/lib/fs-hermes-fc/profile/game-monitor-maintenance')
 STATE=Path('/var/lib/fs-hermes-ops/game-monitor')
 PREFIX='releases/fs-dashboard/game-monitor-autopublish-20261022/'
 TOKEN_FILE='/var/lib/fs-hermes-fc/profile/.config/gh/hosts.yml'
-TERMINAL={'published_file_and_route_readback_verified','no_content_change'}
+TERMINAL={'published_file_and_route_readback_verified','no_content_change','rolled_back_verified'}
 
 def profile_read(name,optional=False):
     require(re.fullmatch(r'[a-zA-Z0-9_.-]+',name) is not None,'fixed_profile_filename')
@@ -127,7 +127,10 @@ def step(record):
         if status=='publishing_unknown':
             # Only complete a previous apply if its original journal and all bytes prove success.
             try:result=publication.verify(Path(record['publication']['stage']))
-            except (ValueError,OSError):return
+            except (ValueError,OSError):
+                try:result=publication.verify_rollback(Path(record['publication']['stage']),record['proof']['before_sha256'])
+                except (ValueError,OSError,KeyError):return
+                record.update(status='rolled_back_verified',rollback_readback=result);save(record);return
             finish(record,result)
         return
     if status=='finishing':
