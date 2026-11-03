@@ -194,6 +194,45 @@ class NativeDispatchTests(unittest.TestCase):
         cid=service.store.create('alice')['conversation_id']
         return service,cid
 
+    def test_stopped_writer_cannot_publish_through_the_next_turn(self):
+        """A real old workspace write races the next real host completion."""
+        with tempfile.TemporaryDirectory() as root,patch.dict(sys.modules,self.modules):
+            service,cid=self.fixture(root)
+            bridge=service.native.workspace;files=ConversationFiles(service.store)
+            original=files.save('alice',cid,'input.csv',b'x\n1\n','stop_handoff_input')
+            initial=bridge.prepare('alice',cid,[original['file_id']])
+            (Path(initial['workspace'])/'previous.txt').write_bytes(b'previous completed output')
+            previous=bridge.collect('alice',cid,'run_'+'a'*32)[0]
+            with service.store.db() as db:session=service.store._owned(db,'alice',cid)['session_id']
+            ids=iter(('run_'+'b'*32,'run_'+'c'*32,'run_'+'d'*32))
+            service._request=lambda *args,**kw:(202,{'run_id':next(ids)})
+            def dispatch(text,key):
+                turn=service.submit('alice',cid,text,key)
+                service._dispatch('alice',cid,turn['turn_id'],session,text,key)
+                binding=service.native.row('alice',cid,turn['turn_id'])['binding']
+                return turn,binding,Path(self.admissions[-1]['native_chat']['environment']['workspace'])
+            old,bound,old_workspace=dispatch('wait then write','stop_handoff_old')
+            service.native.fence('alice',cid,old['turn_id'])
+            service.store.set_state('alice',cid,old['turn_id'],'cancelled')
+            new,new_bound,new_workspace=dispatch('a different ordinary task','stop_handoff_next')
+            relative=initial['files'][0]['path']
+            # The old command can continue after stop. Do not fake its termination.
+            (old_workspace/'late-from-stopped.txt').write_bytes(b'stopped output')
+            (old_workspace/relative).write_bytes(b'x\n999\n')
+            (new_workspace/'new-answer.txt').write_bytes(b'new output')
+            cards=service.native.complete('alice',cid,new['turn_id'],new_bound['run_id'])
+            self.assertEqual([x['filename'] for x in cards],['new-answer.txt'])
+            self.assertEqual((new_workspace/relative).read_bytes(),b'x\n1\n')
+            self.assertEqual(service.native.complete('alice',cid,old['turn_id'],bound['run_id']),[])
+            service.store.set_state('alice',cid,new['turn_id'],'completed')
+            follow,follow_bound,follow_workspace=dispatch('follow up without an attachment','stop_handoff_follow')
+            self.assertEqual((follow_workspace/'new-answer.txt').read_bytes(),b'new output')
+            self.assertEqual((follow_workspace/'previous.txt').read_bytes(),b'previous completed output')
+            self.assertFalse((follow_workspace/'late-from-stopped.txt').exists())
+            self.assertEqual(service.native.complete('alice',cid,follow['turn_id'],follow_bound['run_id']),[])
+            self.assertEqual(files.read('alice',cid,original['file_id'])['content'],b'x\n1\n')
+            self.assertEqual(files.read('alice',cid,previous['file_id'])['content'],b'previous completed output')
+
     def test_real_atomic_admission_is_readable_by_the_nonroot_worker(self):
         """Real host/client/admission; POSIX DAC is the explicit OS fixture.
 
@@ -342,12 +381,13 @@ class NativeDispatchTests(unittest.TestCase):
                 @contextmanager
                 def backend_scope(**kwargs):yield
                 backend=types.SimpleNamespace(profile=Path('/native/alice'),environment={'workspace':'/workspace'},
-                    scope=backend_scope,ensure_environment=lambda:None,check=lambda *a:None,observe_pending=lambda *a:None)
+                    scope=backend_scope,ensure_environment=lambda:None,check=lambda *a:None,observe_pending=lambda *a:None,
+                    close_environment=lambda:None)
                 class Agent:
                     def __init__(self,**kwargs):
                         self.tools=schemas;self.enabled_toolsets=kwargs['enabled_toolsets']
                         self.disabled_toolsets=kwargs['disabled_toolsets'];self._tool_snapshot_generation=7
-                    def run_conversation(self,*a,**kw):return {'completed':True}
+                    def run_conversation(self,*a,**kw):return {'completed':True,'task_id':kw.get('task_id')}
                     def close(self):pass
                 modules['run_agent'].AIAgent=Agent
                 config=types.ModuleType('hermes_cli.tools_config');config._get_platform_tools=lambda *a:{'file'}
@@ -361,7 +401,9 @@ class NativeDispatchTests(unittest.TestCase):
                     'hermes_constants':types.SimpleNamespace(resolve_reasoning_config=lambda *a:{'enabled':True,'effort':'medium'}),
                     'agent.reasoning_params':types.SimpleNamespace(unset_reasoning_default=lambda agent:{'enabled':True,'effort':'medium'})}
                 with patch.dict(sys.modules,overrides),patch.object(native,'NativeDockerBackend',return_value=backend),patch.object(native,'install_native_backend_guards'),patch.object(modules['hermes_cli.config'],'load_config',return_value={'memory':{'write_approval':True},'skills':{'write_approval':True}},create=True):
-                    adapter._create_agent(session_id=binding['session_id'])
+                    agent=adapter._create_agent(session_id=binding['session_id'])
+                    self.assertEqual(agent.run_conversation('synthetic')['task_id'],binding['turn_id'])
+                    agent.close()
                 self.assertEqual(len(registered),1);value=registered[0]
                 self.assertEqual(value['reasoning_effort'],'medium')
             for bad in (dict(value,reasoning_effort='invalid'),dict(value,extra=True),
@@ -457,6 +499,56 @@ class NativeDispatchTests(unittest.TestCase):
             self.assertEqual(recovered,[('alice',cid,turn['turn_id'],'run_'+'a'*32)])
 
 class NativeDockerPolicyTests(unittest.TestCase):
+    def test_worker_turn_cache_and_cleanup_never_reuse_the_cid_session(self):
+        from contextlib import nullcontext
+        from pathlib import PurePosixPath
+        import conversation_native as native
+        cache={};overrides={};observed=[]
+        terminal=types.ModuleType('tools.terminal_tool')
+        terminal_scope=types.ModuleType('tools.terminal_scope')
+        terminal_scope.build_profile_terminal_scope=lambda profile:{}
+        terminal.register_task_env_overrides=lambda key,value:overrides.update({key:value})
+        terminal.clear_task_env_overrides=lambda key:overrides.pop(key,None)
+        terminal._resolve_container_task_id=lambda key:key
+        lifecycle=types.ModuleType('tools.terminal_tool_lifecycle')
+        docker=types.ModuleType('tools.environments.docker')
+        class Environment:pass
+        docker.DockerEnvironment=Environment
+        def ensure(key):
+            observed.append(key)
+            if key not in cache:
+                env=Environment();env._fs_native_backend=current[0]
+                env._image=native.NATIVE_IMAGE;env.host_cwd=overrides[key]['cwd'];cache[key]=env
+            return cache[key]
+        lifecycle.ensure_task_env=ensure
+        lifecycle.cleanup_vm=lambda key:cache.pop(key,None)
+        current=[None]
+        modules={'tools.terminal_tool':terminal,'tools.terminal_scope':terminal_scope,
+                 'tools.terminal_tool_lifecycle':lifecycle,'tools.environments.docker':docker}
+        with patch.dict(sys.modules,modules),patch.object(native,'Path',PurePosixPath),patch.object(native.NativeDockerBackend,'scope',lambda *a,**k:nullcontext()):
+            def backend(turn):
+                binding=dict(owner='alice',conversation_id='a'*32,turn_id=turn,request_id='req_'+turn,
+                             session_id='hc_'+'d'*64,lease='e'*32,run_id='run_'+turn)
+                environment=dict(profile=native.NATIVE_ROOT+'/profiles/'+native.sha(b'alice'),
+                                 workspace=native.execution_workspace(binding),files=[])
+                item=dict(session_id=binding['session_id'],run_id=binding['run_id'],ready=True,
+                          native_chat=dict(binding=binding,environment=environment,key='hn-'+'a'*64,fingerprint='b'*64))
+                native.validate_native_admission(item)
+                instance=native.NativeDockerBackend(item,lambda:True);current[0]=instance
+                env=instance.ensure_environment()
+                self.assertEqual(instance.policy['TERMINAL_CWD'],environment['workspace'])
+                bad=json.loads(json.dumps(item));bad['native_chat']['environment']['workspace']=native.NATIVE_ROOT+'/workspaces/'+'a'*32
+                with self.assertRaises(PermissionError):native.validate_native_admission(bad)
+                return instance,env
+            old,old_env=backend('b'*32);new,new_env=backend('c'*32)
+            self.assertEqual(observed,['b'*32,'c'*32]);self.assertIsNot(old_env,new_env)
+            self.assertNotEqual(old_env.host_cwd,new_env.host_cwd)
+            old.close_environment()
+            self.assertNotIn('b'*32,cache);self.assertNotIn('b'*32,overrides)
+            self.assertIs(cache['c'*32],new_env)
+            with self.assertRaises(PermissionError):new.check(new.binding['session_id'])
+            new.check(new.binding['turn_id'])
+
     def test_native_contexts_restore_on_error_cancel_and_concurrent_owners(self):
         import asyncio
         from contextvars import ContextVar
@@ -475,7 +567,7 @@ class NativeDockerPolicyTests(unittest.TestCase):
         secrets.set_multiplex_context=variables['multiplex'].set;secrets.reset_multiplex_context=variables['multiplex'].reset
         def backend(owner,cid):
             bound=dict(owner=owner,conversation_id=cid,turn_id='c'*32,request_id='native_scope_01',session_id='hc_'+'d'*64,lease='e'*32,run_id='run_'+'f'*32)
-            environment=dict(profile=native.NATIVE_ROOT+'/profiles/'+hashlib.sha256(owner.encode()).hexdigest(),workspace=native.NATIVE_ROOT+'/workspaces/'+cid,files=[])
+            environment=dict(profile=native.NATIVE_ROOT+'/profiles/'+hashlib.sha256(owner.encode()).hexdigest(),workspace=native.execution_workspace(bound),files=[])
             item=dict(session_id=bound['session_id'],run_id=bound['run_id'],ready=True,native_chat=dict(binding=bound,environment=environment,key='hn-'+'a'*64,fingerprint='b'*64))
             instance=object.__new__(native.NativeDockerBackend)
             instance.binding=bound;instance.item=item;instance.profile=Path(environment['profile']);instance.workspace=Path(environment['workspace']);instance.policy=native.docker_policy(bound);instance.authorize=lambda:True
@@ -552,10 +644,10 @@ class NativeDockerPolicyTests(unittest.TestCase):
     def test_inline_memory_stop_and_missing_approval_cannot_bypass_registry_guard(self):
         from conversation_native import install_native_backend_guards,_NATIVE_BACKEND
         calls=[];active=[True];approval=[True]
-        session='hc_'+'a'*64
+        session='a'*32
         def check(task=None):
             if not active[0] or task not in (None,session):raise PermissionError('inactive')
-        backend=types.SimpleNamespace(check=check,binding={'session_id':session},policy={'TERMINAL_ENV':'docker'})
+        backend=types.SimpleNamespace(check=check,binding={'turn_id':session},policy={'TERMINAL_ENV':'docker'})
         model=types.ModuleType('model_tools');model.handle_function_call=lambda *a,**k:calls.append('registry')
         docker=types.ModuleType('tools.environments.docker')
         docker.DockerEnvironment=type('Environment',(),{'__init__':lambda self:None,'_run_command':lambda *a:[]})
@@ -754,7 +846,7 @@ class NativeArchiveTests(unittest.TestCase):
 class NativeCapabilitiesTests(unittest.TestCase):
     def test_bridge_network_and_sdk_resource_defaults_keep_sandbox(self):
         from conversation_native import docker_policy, validate_docker_command
-        policy=docker_policy({'conversation_id':'a'*32})
+        policy=docker_policy({'conversation_id':'a'*32,'turn_id':'b'*32})
         self.assertEqual(policy['TERMINAL_DOCKER_NETWORK'],'true')
         self.assertNotIn('TERMINAL_CONTAINER_CPU',policy)
         self.assertNotIn('TERMINAL_CONTAINER_MEMORY',policy)

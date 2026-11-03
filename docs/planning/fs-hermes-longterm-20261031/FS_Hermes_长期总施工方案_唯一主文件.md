@@ -68,8 +68,8 @@ FS负责正常登录、会话归属、原ID转发/状态/文件投递与展示�
 | 阶段 | 目标 | 当前状态与待办 | 完成凭据 |
 |---|---|---|---|
 | 阶段0 | 核对现有能力和当前规则 | 本机开工/分支/归属已核；生产活动映射未知，不扩全仓核查 | G0-B1.md、当前施工记录 |
-| 阶段1 | 原生式Hermes聊天、附件与产物 | 附件核心真实闭环已交付并由总控核收：普通composer上传CSV205行完整核算70115；两sheet XLSX指定修改、真实下载打开；同cid不重传附件自然追问及刷新不重POST通过。阶段1整体仍有stop、记忆技能日审、390等独立未验项；普通composer的4000字额外限制正做本次静态收尾 | source 20c481384fcd746ccb6b122c7fe57f3d6185c51f；release nav-20261103T011909Z；第16节稳定index及SHA |
-| 阶段2 | 自主模型路由、按需数据与用户追踪 | 暂停新增施工，保留既有代码与验收证据。目标/冻结事实/决策卡等已通过限定代码验证，但真实scope/产品装配/持续调查未验，真实调度未开放；待阶段1终审通过后恢复，不宣称阶段2整体完成 | PR705/706/709/711/720—725/727；A2-B2-FROZEN-WORKPACKAGE.md；b2_decision_card.py及测试 |
+| 阶段1 | 原生式Hermes聊天、附件与产物 | 附件核心CSV205/70115、XLSX真实下载及同cid追问已核收；HTML4000额外限制已于nav021812移除并核7007输入。memory与skill已独立审批、原queue应用及干净SDK读取核收。真实停止的原turn取消/不发布成立，但晚到文件被下一turn误收，当前仅本地修复未部署；新聊天session记忆技能加载、06:10自然日审及390等仍未验 | runtime source20c/release011909；static source d135/release021812；第16节原回执保留 |
+| 阶段2 | 原生模型路由、客户决策与用户追踪 | 按总控恢复A/B双线，仅本地最新FS数据/可信actor接线与B2消费者适配进行；既有目标/事实/决策证据保留，未宣称生产发布或首条经营闭环完成，不作为本次stop修复前置 | 现行A2 QueryContext与PR757实时详情合同；B2固定候选f29f7bc；A/B按已登记owner协作 |
 | 阶段3 | 一项已授权经营动作闭环 | 本轮未做新增真实动作验收；复用原执行链，仍需目标范围授权 | 未计完成 |
 | 阶段4 | 团队任务派发与成果回写 | 施工Business独立审查链已跑通；FS产品内派发/回写未验，两者不等同 | REVIEW-WORKFLOW.md；产品阶段未计完成 |
 | 阶段5 | 一个完整的跨角色活动 | 待前述能力会合及明确活动授权 | 未计完成 |
@@ -891,15 +891,15 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 |---|---|
 | 唯一主方案 | 本文件 |
 | 正式仓库存放路径 | docs/planning/fs-hermes-longterm-20261031/FS_Hermes_长期总施工方案_唯一主文件.md；Personal维护，外部开工文件作为输入快照保留 |
-| 当前阶段 | 阶段1附件核心已正式核收；阶段1整体仍有独立未验项。阶段2/3未宣称完成且不在本轮重开；旧失败/UNKNOWN证据保留，不用历史状态覆盖本次真实结果 |
+| 当前阶段 | 阶段1附件核心、HTML静态收尾与memory/skill原审核应用子项已核收；stop跨turn晚到产物隔离为当前必要修复。阶段2仅本地双线适配，阶段3未重开；不抹旧失败/UNKNOWN |
 | 主施工／总控 | 当前Personal总控会话 a65c784742cfb43977bd486372ebb3f2a0f0d7a629f0808741db77ff7f947444；负责统一协调、核收与发布窗口 |
 | 协同施工 | B专注Hermes原生能力与经营智能；A负责FS接线/UI/auth/storage及唯一现场publisher |
 | 公共代码归属 | Hermes核心/模型/记忆技能归B；FS接线、会话、前端、存储及publisher归A；共享文件按实际登记单owner，Git及生产发布串行 |
 | 现有FS/Hermes活动版本 | source 20c481384fcd746ccb6b122c7fe57f3d6185c51f，release nav-20261103T011909Z；10after及769保护的SHA/uid/gid/mode/size/inode/mtime经总控独立核收。manifest 2f2cfcb5fac5aa9dc2ae910f25eb0ad83fa0c91e72f331cc9fe6f559593497e6；journal fe028bc753ec6f5a387fe4675a4a4b5ec395fd898cda9f3bb304f1829e256298 |
 | 新能力已验收范围 | CSV205行/合计70115/尾5行；真实XLSX下载仅Data!B3由20.75改77.25、Notes XML原字节保持；同cid无附件追问合计117.75和Notes!B3=93；刷新后turn POST仍3。生成物为新命名v1/parent null，不冒原文件v2 |
-| 下一步 | 本次仅移除普通native composer的maxlength4000并核发送/steer不截断，走小PR及原静态发布读回，不增加付费任务。原生HTTPS200仅正常任务UI回执层；effort/provider调用数/费用unknown。stop、日审、390、暗色及原生200%等独立未验项如实保留，不自动恢复阶段2/3 |
+| 下一步 | 固定stop跨turn隔离与官方worker task_id/cleanup直接消费者、20c+021812成功proof装配候选，经简核/CI后串行发布。新增模型/付费暂停；新聊天session加载、06:10自然运行、390/暗色/200%仍未验。effort/provider调用数/费用仍unknown |
 | 已有生产业务 | 沿原系统、原权限、原调度运行；本次整理未改动 |
-| 本次文件交付 | 当前仅更新本主文件的阶段表、状态卡及一条实际回执；4000字静态候选不冒已部署，历史记录不抹除 |
+| 本次文件交付 | 同一stop修复候选顺带更新本状态卡；HTML已交付，记忆/技能已应用且干净SDK读取，不能据此称停止交接或阶段1整体完成；旧所有回执保留 |
 | PR702复用线索 | head `666814c9ae0376fe4f372cf9718508345da45ee0`，merge `30423f91c963228b41fe450f0c7993fa408cf12f`；完整独审与生产验收未在本包确认 |
 
 ## 16.2 Work 每轮更新格式
@@ -958,6 +958,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 2026-11-01／PR727两项核心P2修复 | Business固定0bfc7bed审查复现候选编码游标跨客定位泄露、批量比较引用被排除但未标缺；Personal真实A2回归先3失败后修复，13项决策卡/Core211零失败零skip | A2-B2-FROZEN-WORKPACKAGE.md PR727修复记录；原PR内更新 | 本地修复不代替最新SHA独立复查/LinuxCI；不造单客来源引用，不将旧209绿灯冒新版本，原POST仍禁 | 新SHA限定复查两项及必要CI；通过前不合并，不影响A或生产 | Personal B修复；Business独立复查 |
 | 2026-11-01／PR727限定验收合并 | Business独立复查最新baa7893f/base1053确认两P2解决，13项通过；转正式后新LinuxCI41284500799准确版本、Core211/会话110/发布24零失败零skip。正常merge6ccc86a850b0606db5e6e401b369d260da2dd821，本机ff核树一致、原导航dirty字节保持、已停止监听 | A2-B2-FROZEN-WORKPACKAGE.md PR727收口；实际CI日志job124782942680 | 机器人自动审查未完成且无具体意见，不冒通过；B决策卡仍未产品装配/生产部署，真实A2 scope未接，阶段1/2整体非完成 | 材料原ID/payload/POST禁令与旧费用unknown保持；后续确需重提/模型时先报具体动作及必要授权，不重复发布1b20 | Personal B/主控；Business限定独审 |
 | 2026-11-03／阶段1附件核心核收 | source20c／release011909真实CSV205/70115；XLSX实际下载只改Data!B3=77.25；同cid不重传追问117.75/93；刷新POST仍3。总控独立核49文件与ZIP/openpyxl，接受附件核心闭环 | C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Native-Capabilities-Deploy-20261103T011909Z/index.json；8075 bytes；SHA256 85c496f1d4a928d183dff20070f7b663cf3ea517403dca1b6b0efeffeb473501（49文件） | HTTPS200仅任务UI回执；effort/provider调用数/费用unknown；stop/日审/390等未验；4000字限制本次静态候选待审待发布 | 原静态发布读回，不新增模型；阶段2/3未完成 | 当前Personal总控；B专注Hermes；A负责FS及唯一publisher |
+| 2026-11-03／阶段1必要收尾 | d135/nav021812：唯一HTML6254b7、778保护保持；同源HTTP仅既有64bytes公开导航插入，7007输入/清空验收关闭。memory33376…与skill7bb111…原独审/queue应用/inspect/幂等/干净SDK读取核收；原blocked技能回执保留 | 静态index618a80fddcf5e5697b5e8be4f4aa34c00ea36f9a28c68c4409b47e3ac9ae15cb；C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Stop-Memory-20261103T023930Z/skill-correction/applied/index.json，SHA ca303772e11f6a1dc698119b860fa93a139e214f3c267c8fcbc9c7453cdfdc40 | stop原turn取消但晚到文件污染下一turn，修复候选未发布；新session加载/06:10/390等未验，费用unknown | A修FS，B修Hermes/B2，总控简核集成；仅A串行发布 |
 
 证据位置引用已有PR、相关测试、真实任务、部署读回和操作记录，不复制原始客户数据或整套日志进本文件。主文件保留可用的阶段结论和关键变更，原始大证据沿现有系统和生命周期保存。
 

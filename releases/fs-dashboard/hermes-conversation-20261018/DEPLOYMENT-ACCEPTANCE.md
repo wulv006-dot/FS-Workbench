@@ -990,3 +990,10 @@ f43 新包 prepare/三目标+776保护 fresh CAS 已过，一次 inspect 在 `na
 `--native-capabilities --followup`沿同一 publisher/ARCHIVE保护及 usage fresh CAS，固定 f1ed / `nav-20261102T183302Z` manifest `88778d338bc0e35cf7cc91d62e245492c6a766f28bceceefe492506bd83b3437`、journal `d047b3d4b3b721de0bc7f12ec41f275ed2e81fc90f63f92a745fd367cdeb0f9f`。仅 Store/native/service/worker/native_chat/transport/direct_provider/proxy_gateway/fs_inprocess/会话HTTP十个现有目标，769保护、NEW0；unit/backend JSON/CLI/原live和FC文件不写，不重新创建目录或展开mount。HTTP after取本模块已审源码，before仍取f1ed原FC活动源码，逐项核成功凭据与Git，不能反射磁盘。全部十项必须确有delta，缺失/额外/零delta/旧proof/混marker拒绝。
 
 原锁/准入/UNKNOWN/quiescent/owner/mode/fresh/镜像/备份恢复保持；仅同fence重启worker并原DEEP重载range，无daemon-reload/Nginx/timer动作。已归档对象沿原精确CAS保留，禁止本followup再次调用archive维护；失败只回退到已知archive-aware f1ed Store before SHA及同批其他九源，原writer仍逐项核备份CAS。tempFS直接测试成功、worker/range/readiness失败回退、769字节/inode/mtime和usage保持、归档后拒盲回退；OS/Docker边界为显式fixture。运行逻辑复用PR764已审及原147回归，不据候选/纯函数声称已部署、联网或CSV/XLSX成功。
+
+
+#### 停止后的跨turn产物隔离（候选，未发布）
+
+真实停止验收的原turn已cancelled且无回复/产物，但旧终端稍后写入共享workspace的文件被下一completed turn收集；停止不等于终端或计费立即结束。本补丁每turn独立执行目录，只由已发布immutable文件恢复同cid上下文；官方run_conversation(task_id=turn_id)、终端环境缓存和cleanup均绑定该turn，session_id继续承载原cid历史。旧执行可以继续写旧挂载，但不会跨轮发布；不删除工作目录或旧证据。真实temp Store/workspace跨turn RED后验证新产物/旧输入/历史版本及自然追问保留。
+
+沿原--native-capabilities --followup推进唯一当前基线：20c/nav011909成功10源proof，精确叠加d135/nav021812成功单HTML proof；10现存/769保护/NEW0，仅conversation_native.py与hermes_worker.py两delta，其余8只CAS备份不写，HTML6254b7保护。原usage freshCAS、锁/准入/UNKNOWN/tombstone、父目录/owner/mode/备份/回退保持；同fence worker+range，无Nginx/unit/timer操作。真实已归档audit存在的成功/worker失败/range失败/readiness失败回退在原publisher直接回归；OS/daemon服务为明确夹具，不冒生产验收。memory/skill已由总控独审后实际应用并由干净SDK读取；新聊天session加载及06:10自然日审仍未验。

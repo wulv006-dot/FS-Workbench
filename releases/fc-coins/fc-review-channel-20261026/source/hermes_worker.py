@@ -598,6 +598,12 @@ def make_adapter(api_key):
             @functools.wraps(original_run)
             def run(*args, **run_kwargs):
                 with backend.scope():
+                    # History keeps its cid session. Official tool/cache state
+                    # is turn-scoped so a stopped writer cannot reach its successor.
+                    if len(args)>3:
+                        args=(*args[:3],fixed['turn_id'],*args[4:])
+                        run_kwargs.pop('task_id',None)
+                    else:run_kwargs['task_id']=fixed['turn_id']
                     return original_run(*args, **run_kwargs)
             agent.run_conversation = run
             original_close = agent.close
@@ -606,7 +612,8 @@ def make_adapter(api_key):
                 # Cleanup still needs the owner's environment-cache key after
                 # terminal state/revocation. It grants no new model/tool work.
                 with backend.scope(check=False):
-                    return original_close()
+                    try:return original_close()
+                    finally:backend.close_environment()
             agent.close = close
             agent._hermes_api_runtime = {'provider':'custom','model':item['model'],'route_source':'fs_native_conversation',
                 'fs_native_catalog_sha256':measured['catalog_sha256'],

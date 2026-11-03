@@ -301,7 +301,7 @@ def observe(root=Path('/'), installed=None):
                 expected_protected[row['path']]=row['sha256']
     if installed and {r['path']: r['sha256'] for r in protected} != expected_protected:
         raise ValueError('installed_protected_baseline_drift')
-    if release.COMPOSER_STATIC_MODE and any(any(r[k]!=release.COMPOSER_STATIC_METADATA[r['path']][k] for k in ('owner','mode')) for r in protected):
+    if (release.COMPOSER_STATIC_MODE or release.NATIVE_CAPABILITIES_MODE) and any(any(r[k]!=release.COMPOSER_STATIC_METADATA[r['path']][k] for k in ('owner','mode')) for r in protected):
         raise ValueError('composer_static_protected_metadata_drift')
     worker = worker_observation(allow_stopped=not (release.COMPOSER_STATIC_MODE or release.WORKER_DIAGNOSTICS_MODE or release.TRANSPORT_MODE or release.STREAM_MODE or release.BINDINGS_MODE or release.GUARD_MODE or release.NATIVE_MODE)) if root == Path('/') else {
         'image': FROZEN_IMAGE_MARKER if release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE else 'sha256:' + '0' * 64, 'state': 'active', 'source': 'container'}
@@ -333,7 +333,7 @@ def pack(repo, output, commit):
         target.write_bytes(raw)
         hashes[name] = digest(raw)
     import runtime_release as release
-    baseline = {name: (digest(generated_bodies[name]) if release.NATIVE_ADMISSION_MODE and name in generated_bodies else None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + (FC+'fc-pricing-v3-20261026/source/conversation_http.py' if release.NATIVE_CAPABILITIES_MODE and name=='http/conversation_http.py' else path)], cwd=repo)))
+    baseline = {name: (digest(generated_bodies[name]) if release.NATIVE_ADMISSION_MODE and name in generated_bodies else None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo)))
                 for name, path in SOURCES.items()}
     if not (release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE):baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
     if release.COMPOSER_STATIC_MODE and (baseline!={'frontend/index.html':release.COMPOSER_BEFORE_SHA} or
@@ -345,7 +345,7 @@ def pack(repo, output, commit):
                 baseline[release.NATIVE_ADMISSION_CANDIDATE] != release.NATIVE_ADMISSION_BEFORE_SHA or
                 hashes['payload/'+release.NATIVE_ADMISSION_CANDIDATE] != release.NATIVE_ADMISSION_AFTER_SHA):
             raise ValueError('exact_native_admission_git_delta_required')
-    if release.NATIVE_CAPABILITIES_MODE and ({name for name in SOURCES if hashes['payload/'+name]!=baseline[name]}!=set(release.CAPABILITIES_TARGETS) or any(value is None for value in baseline.values())):
+    if release.NATIVE_CAPABILITIES_MODE and ({name for name in SOURCES if hashes['payload/'+name]!=baseline[name]}!=set(release.CAPABILITIES_CHANGED) or any(value is None for value in baseline.values())):
         raise ValueError('exact_native_capabilities_git_delta_required')
     installed_baseline={'source_commit': INSTALLED_COMMIT, 'files': baseline}
     if release.NATIVE_MODE:
@@ -466,7 +466,9 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
         if __import__('runtime_release').GUARD_MODE:manifest['materialGuard']=True
         if __import__('runtime_release').ARCHIVE_MODE:
             manifest['nativeArchive']=True
-            if __import__('runtime_release').NATIVE_CAPABILITIES_MODE:manifest['nativeCapabilities']=True
+            if __import__('runtime_release').NATIVE_CAPABILITIES_MODE:
+                manifest['nativeCapabilities']=True
+                manifest['nativeStaticBaseline']=dict(__import__('runtime_release').CAPABILITIES_STATIC_PROOF)
             manifest['archiveException']=__import__('runtime_release').archive_check(frozen(),root,payload/'runtime/conversation_store.py',descriptor['files']['payload/runtime/conversation_store.py'])
         if __import__('runtime_release').NATIVE_MODE:
             manifest['nativeAdmission' if __import__('runtime_release').NATIVE_ADMISSION_MODE else 'nativeChat']=True
@@ -479,7 +481,7 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
             allowed = tuple(TARGETS) if manifest.get('nativeArchive') else (__import__('runtime_release').NATIVE_ADMISSION_CANDIDATE,) if manifest.get('nativeAdmission') else __import__('runtime_release').NATIVE_ALLOWED if manifest.get('nativeChat') else ('runtime/conversation_file_bindings.py',) if manifest.get('bindingsAuth') else ('runtime/transport.py',) if manifest.get('materialTransport') or manifest.get('materialStream') or manifest.get('materialGuard') else ('runtime/hermes_worker.py',) if manifest.get('workerDiagnostics') else ('runtime/conversation_goal_tasks.py',) if manifest.get('goalTaskIndexCompat') else ('http/conversation_http.py', 'http/range_api.py')
             changed = [r['target'] for r in files if r['beforeSha256'] != r['sha256']]
             if (observed['worker_state'] != 'active' or observed['worker_image_source'] != 'container'
-                    or manifest.get('nativeArchive') and changed != list(TARGETS.values())
+                    or manifest.get('nativeArchive') and changed != ([TARGETS[n] for n in __import__('runtime_release').CAPABILITIES_CHANGED] if manifest.get('nativeCapabilities') else list(TARGETS.values()))
                     or manifest.get('nativeAdmission') and (changed != [TARGETS[__import__('runtime_release').NATIVE_ADMISSION_CANDIDATE]] or digest(bodies[__import__('runtime_release').NATIVE_ADMISSION_CANDIDATE]) != __import__('runtime_release').NATIVE_ADMISSION_AFTER_SHA)
                     or manifest.get('workerDiagnostics') and changed != [TARGETS['runtime/hermes_worker.py']]
                     or manifest.get('bindingsAuth') and changed != [TARGETS['runtime/conversation_file_bindings.py']]
