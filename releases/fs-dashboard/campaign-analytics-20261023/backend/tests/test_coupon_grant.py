@@ -1,8 +1,10 @@
 """One private recipient, original durable ledger, synthetic final Admin boundary."""
+import ast
 from copy import deepcopy
 import json
 from pathlib import Path
 import tempfile
+import time
 from types import SimpleNamespace
 import unittest
 
@@ -48,6 +50,62 @@ class CouponGrantTests(unittest.TestCase):
     def call(self,request=None):
         return self.backend.handle(request or self.request,lambda:self.reader,grant_authorize=lambda payload:payload==self.request)
 
+    def standard_session_reader(self):
+        # Fixed existing Session method bodies, matching the observed actual
+        # non-rewriting Session shape. Only requests' final HTTP surface is a
+        # fixture; no mocked get_admin or invented HMAC implementation.
+        test=self
+        class HTTP:
+            def __init__(self):self.headers={};self.adapters={}
+            def mount(self,prefix,adapter):self.adapters[prefix]=adapter
+            def get_adapter(self,url):return self.adapters.get(url.split(':')[0]+'://',SimpleNamespace(max_retries=SimpleNamespace(total=0)))
+            def get(self,url,**kwargs):
+                test.wire_gets.append((url,kwargs))
+                value=dict(code=1,data=dict(row=deepcopy(test.row)))
+                return SimpleNamespace(status_code=200,json=lambda:value)
+            def post(self,url,**kwargs):
+                test.posts.append((url,kwargs))
+                return SimpleNamespace(status_code=200,content=json.dumps(dict(code=test.code,data=test.data)).encode())
+            def close(self):pass
+        def no_refresh(*args,**kwargs):raise AssertionError('credential refresh or retrying post_admin must not run')
+        source=Path(__file__).resolve().parents[5]/'shared_backend_session/sales_auth.py'
+        tree=ast.parse(source.read_text('utf8'))
+        nodes=[n for n in tree.body if isinstance(n,(ast.ClassDef,ast.FunctionDef)) and n.name in ('Session','needs_new_token')]
+        namespace=dict(requests=SimpleNamespace(Session=HTTP,adapters=SimpleNamespace(
+            HTTPAdapter=lambda **kwargs:SimpleNamespace(max_retries=SimpleNamespace(total=kwargs['max_retries'])))),
+            UA='synthetic user agent',ADMIN_SITE='https://fixture.invalid',ORDER_SITE='https://fixture.invalid',
+            ADMIN_API='http://127.0.0.1:8912',time=time,admin_token_from_service=no_refresh,log=no_refresh)
+        exec(compile(ast.Module(body=nodes,type_ignores=[]),str(source),'exec'),namespace)
+        self.wire_gets=[]
+        session=namespace['Session']();session.bind_admin_token('synthetic-no-private-credential')
+        session.post_admin=no_refresh
+        self.reader=AdminRead(session)
+
+    def test_standard_session_single_post_uses_existing_direct_api_channel(self):
+        self.standard_session_reader()
+        receipt=self.call()
+        self.assertEqual(receipt['state'],'confirmed')
+        self.assertEqual(len(self.wire_gets),2)
+        self.assertTrue(all(url=='http://127.0.0.1:8912/admin/market.Coupon/edit' for url,_ in self.wire_gets))
+        self.assertEqual(len(self.posts),1)
+        url,wire=self.posts[0]
+        self.assertEqual(url,'http://127.0.0.1:8912/admin/market.CouponGrant/import')
+        self.assertEqual((wire['timeout'],wire['allow_redirects']),(30,False))
+        self.assertEqual(self.call(),receipt);self.assertEqual(len(self.posts),1)
+
+    def test_existing_302_unknown_survives_new_consumer_without_another_post(self):
+        self.standard_session_reader();self.code=302
+        receipt=self.call()
+        self.assertEqual((receipt['state'],receipt['dispatched']),('unknown',1))
+        self.assertEqual(receipt['result']['reason_code'],'GRANT_RESPONSE_UNCONFIRMED')
+        self.assertEqual(len(self.posts),1)
+        self.code=1
+        # A reconstructed service must consume the original durable operation,
+        # never reinterpret its unknown as permission to resend via a new URL.
+        self.backend=BackendServices(self.backend.state_dir,{})
+        self.assertEqual(self.lookup(),receipt);self.assertEqual(self.call(),receipt)
+        self.assertEqual(len(self.posts),1);self.assertEqual(len(self.wire_gets),2)
+
     def test_no_private_host_approval_cannot_dispatch(self):
         with self.assertRaisesRegex(ContractError,'BUSINESS_AUTHORIZATION_REQUIRED'):
             self.backend.handle(self.request,lambda:self.reader)
@@ -63,7 +121,7 @@ class CouponGrantTests(unittest.TestCase):
         self.assertEqual(result['result']['upstream_ref'],'member-coupon:456')
         self.assertEqual(self.call(),result);self.assertEqual(len(self.posts),1)
         url,wire=self.posts[0]
-        self.assertEqual(url,'https://admin-api.p2pah.cn/admin/market.CouponGrant/import')
+        self.assertEqual(url,'http://127.0.0.1:8912/admin/market.CouponGrant/import')
         self.assertEqual(wire['json'],dict(site_id='266',coupon_id='123',grant_batch_no='synthetic-approved-batch',emails='one@example.test'))
         self.assertFalse(wire['allow_redirects']);self.assertNotIn('operation_id',wire['json'])
         from campaign_backend.ledger import OperationLedger

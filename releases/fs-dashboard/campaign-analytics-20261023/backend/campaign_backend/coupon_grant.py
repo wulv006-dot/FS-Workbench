@@ -86,7 +86,7 @@ class CouponGrant:
         # disabled/unused brief editor proofs must not gate a grant.
         if str(row.get('fetch_scene'))!='4':
             return dict(state='rejected',reason_code='GRANT_TEMPLATE_REQUIRED',dispatch_state='not_started')
-        session=self.reader.session;url='https://admin-api.p2pah.cn'+self.route
+        session=self.reader.session;url='http://127.0.0.1:8912'+self.route
         retries=session.admin.get_adapter(url).max_retries
         if type(retries.total) is not int or retries.total!=0:
             return dict(state='rejected',reason_code='TRANSPORT_RETRY_NOT_DISABLED',dispatch_state='not_started')
