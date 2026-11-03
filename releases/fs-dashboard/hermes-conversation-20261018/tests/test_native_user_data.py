@@ -99,6 +99,61 @@ class NativeUserRelay(unittest.TestCase):
             db.execute('UPDATE native_conversation_runs SET stopped=1 WHERE turn_id=?',(self.binding['turn_id'],))
         with self.assertRaises(PermissionError):self.call('fs_customer_candidates',{'snapshot_id':snapshot})
 
+    def test_default_global_snapshot_offers_explicit_customer_scope_without_selecting_one(self):
+        self.data()
+        catalog=self.call('fs_get_data_catalog',{})
+        for explicit in ({},{'scope':'global'},{'scope':'series','scope_id':'FC'}):
+            aggregate=self.call('fs_query_user_analytics',dict(start='2026-10-01',end_exclusive='2026-10-25',
+                                state_basis='period_end',**explicit))
+            self.assertEqual(aggregate['query']['scope'],explicit.get('scope','global'))
+            snapshot=aggregate['snapshot_id']
+            # This public schema's default is legal for aggregates, but must
+            # not turn into a misleading permission403 or an implicit site.
+            blocked=self.call('fs_customer_candidates',{'snapshot_id':snapshot})
+            self.assertEqual(blocked['status'],'unavailable')
+            self.assertEqual(blocked['reason'],'customer_snapshot_scope_required')
+            self.assertEqual(blocked['snapshot_id'],snapshot)
+            path=blocked['customer_investigation']
+            self.assertFalse(path['snapshot_usable'])
+            self.assertEqual(path['scope_choices'],catalog['user_analytics']['customer_investigation']['scope_choices'])
+            self.assertEqual(aggregate['customer_investigation'],path)
+            self.assertEqual(path['query_required_fields'],['scope','scope_id'])
+            self.assertNotIn('selected_scope',path)
+            for kind in ('site','project'):
+                selected=next(x for x in path['scope_choices'] if x['scope']==kind and
+                              (kind=='site' or x['scope_id']==fixtures.SCOPE['scope_id']))
+                narrowed=self.call('fs_query_user_analytics',dict(start='2026-10-01',end_exclusive='2026-10-25',
+                                   state_basis='period_end',**selected))
+                self.assertTrue(narrowed['customer_investigation']['snapshot_usable'])
+                page=self.call('fs_customer_candidates',{'snapshot_id':narrowed['snapshot_id'],'limit':1})
+                customer=page['rows'][0]['opaque_customer_id']
+                result=self.call('fs_describe_customer',{'snapshot_id':narrowed['snapshot_id'],'customer_id':customer})
+                self.assertEqual(result['status'],'observed')
+                self.assertEqual({k:result['source']['query'][k] for k in ('scope','scope_id')},selected)
+        with self.conversation.store.db() as db:
+            self.assertFalse(db.execute("SELECT 1 FROM sqlite_master WHERE name='conversation_goals_v1'").fetchone())
+
+    def test_customer_scope_guidance_does_not_replace_private_or_run_authorization(self):
+        self.data()
+        args=dict(start='2026-10-01',end_exclusive='2026-10-25',state_basis='period_end')
+        snapshot=self.call('fs_query_user_analytics',args)['snapshot_id']
+        self.original.authorizer=lambda owner,scope,private:owner=='operator' and not private
+        aggregate=self.call('fs_query_user_analytics',args)
+        self.assertEqual(aggregate['query']['scope'],'global')
+        self.assertEqual(aggregate['customer_investigation']['scope_choices'],[])
+        with self.assertRaises(PermissionError):self.call('fs_customer_candidates',{'snapshot_id':snapshot})
+        self.host_allowed=False
+        with self.assertRaises(PermissionError):self.call('fs_get_data_catalog',{})
+
+    def test_scope_guidance_rechecks_binding_after_authorizer_io(self):
+        self.data()
+        snapshot=self.call('fs_query_user_analytics',dict(start='2026-10-01',end_exclusive='2026-10-25',state_basis='period_end'))['snapshot_id']
+        def revoke(owner,scope,private):
+            if scope['scope']=='project' and private:self.host_allowed=False
+            return owner=='operator'
+        self.original.authorizer=revoke
+        with self.assertRaises(PermissionError):self.call('fs_customer_candidates',{'snapshot_id':snapshot})
+
     def test_actual_policy_reader_is_used_each_call_and_keeps_private_and_resource_boundaries(self):
         import user_runtime
         policy_source=HERE.parents[3]/'opt/fs-access-policy/rbac.py'
@@ -165,15 +220,31 @@ class NativeUserRelay(unittest.TestCase):
         ctx=types.SimpleNamespace(register_tool=lambda **kwargs:registered.update({kwargs['name']:kwargs}),
                                   register_system_prompt_section=lambda *a,**k:None,
                                   register_hook=lambda *a,**k:None)
-        with patch.dict(sys.modules,{'toolsets':types.SimpleNamespace(TOOLSET_SESSION_PLATFORMS={})}):fs_readonly.register(ctx)
+        with patch.dict(sys.modules,{'toolsets':types.SimpleNamespace(TOOLSET_SESSION_PLATFORMS={})}):fs_readonly.register(ctx,native_only=True,include_knowledge=False)
         current=_NATIVE_BACKEND.set(backend)
         try:
+            query_tool=registered['fs_query_user_analytics']
+            self.assertIn('global',query_tool['schema']['parameters']['properties']['scope']['enum'])
+            aggregate=json.loads(query_tool['handler'](
+                dict(start='2026-10-01',end_exclusive='2026-10-25',state_basis='period_end'),task_id=binding['turn_id']))
+            guidance=json.loads(registered['fs_customer_candidates']['handler'](
+                {'snapshot_id':aggregate['snapshot_id']},task_id=binding['turn_id']))
+            self.assertEqual(guidance['reason'],'customer_snapshot_scope_required')
+            self.assertIn('site',query_tool['schema']['description'])
+            selected=next(x for x in guidance['customer_investigation']['scope_choices'] if x['scope']=='site')
+            scoped=json.loads(query_tool['handler'](dict(start='2026-10-01',end_exclusive='2026-10-25',
+                state_basis='period_end',**selected),task_id=binding['turn_id']))
+            page=json.loads(registered['fs_customer_candidates']['handler'](
+                {'snapshot_id':scoped['snapshot_id'],'limit':1},task_id=binding['turn_id']))
+            described=json.loads(registered['fs_describe_customer']['handler'](
+                {'snapshot_id':scoped['snapshot_id'],'customer_id':page['rows'][0]['opaque_customer_id']},task_id=binding['turn_id']))
+            self.assertEqual(described['status'],'observed')
             result=json.loads(registered['fs_query_user_analytics']['handler'](
                 dict(fixtures.SCOPE,start='2026-10-01',end_exclusive='2026-10-25',state_basis='period_end'),task_id=binding['turn_id']))
             self.assertTrue(result['snapshot_id'].startswith('us_'))
-            self.assertEqual(len(wire),1)
+            wire_count=len(wire);self.assertEqual(wire_count,6)
             with self.assertRaises(PermissionError):registered['fs_query_user_analytics']['handler']({},task_id='another-turn')
-            self.assertEqual(len(wire),1)
+            self.assertEqual(len(wire),wire_count)
             grants.revoke(token)
             with self.assertRaises(PermissionError):registered['fs_get_data_catalog']['handler']({},task_id=binding['turn_id'])
         finally:_NATIVE_BACKEND.reset(current)

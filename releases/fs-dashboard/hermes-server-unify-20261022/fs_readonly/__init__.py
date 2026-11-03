@@ -24,10 +24,11 @@ TOOLS = {
         {**PERIOD,'product_id':{'type':'integer','minimum':1,'maximum':999999999}},[*PERIOD,'product_id']),
 }
 try:
-    from conversation_user_data import TOOLS as CUSTOMER_TOOLS
+    from conversation_user_data import TOOLS as CUSTOMER_TOOLS, CUSTOMER_SCOPE_HELP
 except ModuleNotFoundError as error:
     if error.name!='conversation_user_data':raise
     CUSTOMER_TOOLS={}
+    CUSTOMER_SCOPE_HELP=''
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -95,6 +96,7 @@ def call(name,args,*,read_source=None):
 
 def register(ctx,*,native_only=False,include_knowledge=True):
     for name,(description,properties,required) in {**TOOLS,**CUSTOMER_TOOLS}.items():
+        if native_only and name=='fs_query_user_analytics':description+=' '+CUSTOMER_SCOPE_HELP
         schema={'name':name,'description':description,'parameters':{'type':'object','properties':properties,'required':required,'additionalProperties':False}}
         def handler(args,_name=name,**context):
             try:

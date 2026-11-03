@@ -11,18 +11,27 @@ from user_tools import invoke
 
 TEXT={'type':'string'}
 REFERENCE={'snapshot_id':TEXT,'customer_id':TEXT}
+CUSTOMER_SCOPE_HELP=('Global, series and default queries remain available for aggregates. Customer investigation requires an explicit site or project snapshot. '
+    'Choose scope and scope_id from customer_investigation.scope_choices in fs_get_data_catalog, call fs_query_user_analytics with both fields, '
+    'then use its new snapshot_id for fs_customer_candidates and fs_describe_customer. Never reuse or silently narrow a global/series snapshot.')
+
+
+class _CustomerScopeRequired(ValueError):
+    pass
+
+
 TOOLS={
     'fs_track_customer':(
-        'Only for an explicit user request to persist customer follow-up. create requires explicit_goal=true, objective and recheck_at. step requires expected_revision and authorized frozen snapshot/customer. Ordinary questions use fs_describe_customer. This reserves the original follow-up ID through the existing goal CAS; it never authorizes outreach, pricing or other business actions.',
+        'Only for an explicit user request to persist customer follow-up. create requires explicit_goal=true, objective and recheck_at. step requires expected_revision and authorized site/project frozen snapshot/customer. '+CUSTOMER_SCOPE_HELP+' Ordinary questions use fs_describe_customer. This reserves the original follow-up ID through the existing goal CAS; it never authorizes outreach, pricing or other business actions.',
         {'operation':{'type':'string','enum':['create','step','status','pause','stop']},
          **REFERENCE,'goal_id':TEXT,'objective':TEXT,'recheck_at':TEXT,
          'explicit_goal':{'type':'boolean'},'expected_revision':{'type':'integer','minimum':0}},['operation']),
     'fs_customer_candidates':(
-        'Read private, scoped customer candidates from an authorized frozen FS snapshot. Keep coverage, cursor and policy. Opaque IDs are not access grants.',
+        'Read private customer candidates from an explicit site/project frozen snapshot. Global/series snapshots return scope-selection guidance, not customer rows. '+CUSTOMER_SCOPE_HELP+' Keep coverage, cursor and policy. Opaque IDs are not access grants.',
         {'snapshot_id':TEXT,'group':{'type':'string','enum':['known_pool','entered_silent','high_value_entered_silent']},
          'cursor':TEXT,'limit':{'type':'integer','minimum':1,'maximum':200}},['snapshot_id']),
     'fs_describe_customer':(
-        'Explain one authorized opaque customer using current FS frozen lifecycle facts, policy, coverage and evidence. No goal or business action is created; period-first is not lifetime Day0.',
+        'Explain one authorized opaque customer from an explicit site/project snapshot using FS frozen lifecycle facts, policy, coverage and evidence. '+CUSTOMER_SCOPE_HELP+' No goal or business action is created; period-first is not lifetime Day0.',
         dict(REFERENCE),list(REFERENCE)),
     'fs_observe_customer_orders':(
         'Observe bounded recent orders for the same authorized customer. Host resolves the private email; never supply one. Serial 20-row pages, 28-day windows, 365-day boundary. Partial live observations are not a frozen history or valid-purchase count.',
@@ -78,9 +87,21 @@ class NativeUserData:
         scope={key:public['query'][key] for key in ('scope','scope_id')}
         context=QueryContext(self.service,binding['owner'],scope,
             lambda owner,selected: owner==binding['owner'] and selected==scope and self.guard(binding,scope))
-        if not context.configured():raise PermissionError('native_customer_scope_required')
+        if not context.configured():
+            self.guard(binding,scope,True)  # A scope mismatch must not hide an actual private-access denial.
+            raise _CustomerScopeRequired('customer_snapshot_scope_required')
         context.guard()
         return context
+
+    def customer_path(self,binding,scope=None):
+        choices=[]
+        for kind,key in (('site','sites'),('project','projects')):
+            for identity in self.service.store.config[key]:
+                selected={'scope':kind,'scope_id':identity}
+                if (self.service.authorizer(binding['owner'],selected,False) is True and
+                        self.service.authorizer(binding['owner'],selected,True) is True):choices.append(selected)
+        return dict(snapshot_usable=scope in choices,scope_choices=choices,
+                    query_required_fields=['scope','scope_id'],instruction=CUSTOMER_SCOPE_HELP)
 
     def call(self,binding,name,args):
         self.guard(binding,{'scope':'global','scope_id':''})
@@ -99,9 +120,12 @@ class NativeUserData:
                 value=dict(receipt.get('data',{}),source=receipt.get('source'),
                            evidence_ref=receipt.get('evidence_ref'),status=receipt['status'])
             else:value=invoke(self.service,binding['owner'],args)
+            query=value.get('query') or (value.get('source') or {}).get('query') or {}
+            value['customer_investigation']=self.customer_path(binding,{k:query.get(k) for k in ('scope','scope_id')})
         elif name=='fs_get_data_catalog':
             if args:raise ValueError('native_user_tool_fields')
-            value={'user_analytics':self.service.catalog(binding['owner'])}
+            catalog=self.service.catalog(binding['owner'])
+            value={'user_analytics':dict(catalog,customer_investigation=self.customer_path(binding))}
         else:
             if name not in TOOLS:raise PermissionError('native_user_tool_unavailable')
             _,properties,required=TOOLS[name]
@@ -113,7 +137,12 @@ class NativeUserData:
                 value=self.track(binding,args)
                 self.guard(binding,{'scope':'global','scope_id':''})
                 return value
-            context=self.context(binding,args['snapshot_id'])
+            try:context=self.context(binding,args['snapshot_id'])
+            except _CustomerScopeRequired:
+                value=dict(status='unavailable',reason='customer_snapshot_scope_required',snapshot_id=args['snapshot_id'],
+                           customer_investigation=self.customer_path(binding))
+                self.guard(binding,{'scope':'global','scope_id':''})
+                return value
             if name=='fs_customer_candidates':value=context.candidates(**args)
             elif name=='fs_describe_customer':value=describe_customer(context,**args,now=self.clock())
             else:
