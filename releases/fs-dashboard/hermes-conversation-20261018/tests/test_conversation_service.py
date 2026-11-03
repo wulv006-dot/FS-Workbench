@@ -285,5 +285,11 @@ class ServiceTests(unittest.TestCase):
             self.assertLess(len(json.dumps(policy, ensure_ascii=False).encode("utf-8")), 8000)
 
 
+def load_tests(loader, tests, pattern):
+    import test_conversation_knowledge
+    tests.addTests(loader.loadTestsFromModule(test_conversation_knowledge))
+    return tests
+
+
 if __name__ == "__main__":
     unittest.main()

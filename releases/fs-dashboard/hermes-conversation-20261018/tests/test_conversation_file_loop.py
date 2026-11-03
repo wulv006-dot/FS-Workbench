@@ -3,6 +3,11 @@
 No provider, credentials, HTTP business service or production state is involved.
 """
 import importlib.util
+import ast
+import hashlib
+import os
+import secrets
+import stat
 import asyncio
 import builtins
 import io
@@ -78,7 +83,29 @@ class WorkerFileLoop(unittest.TestCase):
         controller.NoRedirect = object
         controller.admission_guard = guard
         admissions = []
-        controller.atomic = lambda path, value, **kw: admissions.append(json.loads(json.dumps(value)))
+        admission_path = reference_path = None
+        atomic_source = CORE / 'controller.py'
+        node = next(n for n in ast.parse(atomic_source.read_text('utf-8')).body
+                    if isinstance(n, ast.FunctionDef) and n.name == 'atomic')
+        namespace = dict(Path=Path, secrets=secrets, json=json)
+        exec(compile(ast.Module(body=[node], type_ignores=[]), str(atomic_source), 'exec'), namespace)
+        def atomic(path, value, **kwargs):
+            path = Path(path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path == admission_path:
+                self.assertIn('ready', value)
+                self.assertEqual(kwargs.get('mode', 0o640), 0o640)
+                admissions.append(json.loads(json.dumps(value)))
+            namespace['atomic'](path, value, **kwargs)
+            if path == reference_path:
+                self.assertEqual(kwargs.get('mode'), 0o600)
+                self.assertEqual(json.loads(path.read_bytes()), value)
+                if os.name == 'posix':
+                    self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+                    self.assertEqual(stat.S_IMODE(path.parent.stat().st_mode), 0o700)
+            elif path == admission_path and os.name == 'posix':
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o640)
+        controller.atomic = atomic
         evidence = types.ModuleType('fs_evidence')
         book = types.SimpleNamespace(capture_id='synthetic', call=lambda n, a: {'old': n})
         evidence.build_book = lambda *a, **kw: book
@@ -125,6 +152,11 @@ class WorkerFileLoop(unittest.TestCase):
             cid = service.create('alice')['conversation_id']
             item = ConversationFiles(service.store).save('alice', cid, 'a.csv', b'a,b\n1,2', 'upload_001')
             submitted = service.submit('alice', cid, 'modify attached table', 'turn_001', [item['file_id']])
+            with service.store.db() as db:
+                session_id = service.store._owned(db, 'alice', cid)['session_id']
+            admission_path = service.run_root / 'admissions' / (session_id + '.json')
+            if getattr(service, 'native', None) is not None:
+                reference_path = service.store.path.parent/'knowledge'/hashlib.sha256(b'alice').hexdigest()/(submitted['turn_id']+'.json')
             self.assertEqual(service.submit('alice', cid, 'modify attached table', 'turn_001', [item['file_id']])['turn_id'], submitted['turn_id'])
             self.assertEqual(len(jobs), 1)
             results = []

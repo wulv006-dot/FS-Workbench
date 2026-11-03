@@ -83,7 +83,8 @@ def validate_native_profile(config, profile):
 def validate_native_admission(item):
     value = item.get('native_chat')
     fields = {'owner','conversation_id','turn_id','request_id','session_id','lease','run_id'}
-    if type(value) is not dict or set(value) != {'binding','environment','key','fingerprint'}:
+    if (type(value) is not dict or set(value) - {'binding','environment','key','fingerprint','knowledge'}
+            or not {'binding','environment','key','fingerprint'}.issubset(value)):
         raise PermissionError('native_admission_invalid')
     bound = value['binding']
     if (type(bound) is not dict or set(bound) != fields or bound['session_id'] != item['session_id'] or
@@ -98,6 +99,9 @@ def validate_native_admission(item):
             not re.fullmatch('run_[a-f0-9]{32}', bound['run_id'] or '')):
         raise PermissionError('native_admission_run')
     environment = value['environment']
+    if 'knowledge' in value:
+        from conversation_knowledge import validate_reference
+        validate_reference(value['knowledge'], bound)
     if (type(environment) is not dict or set(environment) != {'profile','workspace','files'} or
             environment['workspace'] != execution_workspace(bound) or
             environment['profile'] != NATIVE_ROOT+'/profiles/'+sha(bound['owner'].encode()) or
@@ -786,6 +790,9 @@ class NativeConversation:
         return {'registered': True}
 
     def host_tool(self, binding, name, arguments):
+        if name == 'fs.native.knowledge':
+            from conversation_knowledge import host_call
+            return host_call(self, binding, arguments)
         if name == 'fs.native.compacted_request':
             if (type(arguments) is not dict or set(arguments)!={'binding','compression_count','messages_sha256'} or
                     arguments['binding']!=binding or type(arguments['compression_count']) is not int or
@@ -874,12 +881,14 @@ class NativeConversation:
             if self.hermes.authorizer(owner) is not True:
                 raise PermissionError('native_chat_revoked')
             environment = self.workspace.prepare(owner, cid, files, turn_id=turn_id)
+            from conversation_knowledge import lock_knowledge
+            knowledge = lock_knowledge(self, bound, environment)
             self.store.bind_task(owner, cid, turn_id, turn_id, bound['lease'])
             token = self.hermes.grants.mint(owner, turn_id, bound['lease'], reasoning_effort='none')
             admission = {'session_id': session_id, 'token': token, 'model': 'deepseek-flash',
                          'prompt': '', 'conversation': True, 'ready': False,
                          'native_chat': {'binding': bound, 'environment': environment,
-                                         'key': key, 'fingerprint': fingerprint}}
+                                         'key': key, 'fingerprint': fingerprint, 'knowledge': knowledge}}
             self.write_admission(session_id, admission)
             # Exactly one POST. Loss of 202 leaves the original persisted key unknown.
             code, result = self.service._request('POST', '/v1/runs', body, key)
