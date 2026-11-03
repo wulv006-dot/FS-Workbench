@@ -8,6 +8,34 @@ from copy import deepcopy
 import json
 import re
 import threading
+import hashlib
+
+
+def native_messages_sha256(kwargs, *, reasoning_effort):
+    """Identity of SDK wire messages under the existing native carrier rules."""
+    if type(kwargs) is not dict or type(kwargs.get('messages')) is not list:
+        raise ValueError('native_compaction_messages')
+    if reasoning_effort not in ('none','minimal','low','medium','high','xhigh','max','ultra'):
+        raise ValueError('native_chat_reasoning')
+    messages=deepcopy(kwargs['messages'])
+    for message in messages:
+        if type(message) is not dict:raise ValueError('native_compaction_messages')
+        if 'reasoning' in message:
+            native=message.get('reasoning_content');generic=message['reasoning']
+            if (message.get('role')!='assistant' or
+                    generic!=native and not (isinstance(generic,str) and isinstance(native,str) and generic.strip()==native.strip())):
+                raise ValueError('reasoning_carrier_mismatch')
+            message.pop('reasoning')
+        if 'reasoning_content' in message:
+            pad=message['reasoning_content']
+            if message.get('role')!='assistant' or pad is not None and not isinstance(pad,str):
+                raise ValueError('reasoning_content_policy')
+            if reasoning_effort=='none':
+                if pad is not None and (len(pad)>8 or pad.strip()):raise ValueError('reasoning_content_policy')
+                message.pop('reasoning_content')
+            elif pad is None:message.pop('reasoning_content')
+    return hashlib.sha256(json.dumps(messages,sort_keys=True,ensure_ascii=False,
+                                    allow_nan=False,separators=(',',':')).encode()).hexdigest()
 
 
 class NativeChatScope:

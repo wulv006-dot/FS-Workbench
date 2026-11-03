@@ -500,5 +500,181 @@ class NativeToolHistory(unittest.TestCase):
             self.assertEqual(len(h.wire),1)
 
 
+class NativeCompactionHistory(unittest.TestCase):
+    def fixture(self):
+        return NativeToolHistory('runTest').history_fixture(older=True)
+
+    def dispatch(self,h):
+        return NativeToolHistory.dispatch(self,h)
+
+    def gateway(self,h):
+        return h.proxy.gateway_for(h.f.grants.resolve(h.f.token))
+
+    def sdk_compact(self,h,count=1,keep_tail=False):
+        # Execute pinned SDK assembly and its actual post-commit event body.
+        # Summary text, window selection, diagnostic counters and persistence
+        # side effects are fixtures; the compressed list is NOT hand-written.
+        sdk=fixtures.load('native_sdk_compaction',CORE.parent/'fixtures/native_compaction_sdk_71d34bad.py')
+        engine=sdk.SDKAssembler();engine._summary_has_user_turn=True
+        original=deepcopy(h.body['messages'])
+        if not keep_tail:original.append(dict(role='user',content='continue the same synthetic task'))
+        start=len(original)-3 if keep_tail else len(original)-1
+        result=engine._assemble_compressed(original,0,start,
+            SimpleNamespace(tail_start=start,summary_indices=set()),sdk.SUMMARY_PREFIX+'\nSynthetic summary from provider fixture '+str(count)+'.')
+        events=[]
+        agent=SimpleNamespace(session_id='session',platform='api_server',tools=h.body['tools'],
+                              _memory_manager=None,context_compressor=SimpleNamespace(compression_count=count),
+                              log_prefix='',_emit_diagnostic_status=lambda *args:None,
+                              event_callback=lambda *args:events.append(args))
+        sdk._finish_compaction_boundary(agent,result,new_system_prompt='',old_session_id=None,
+            in_place=True,compacted_in_place=True,session_commit_succeeded=True,
+            defer_context_engine_notification=False,compression_made_progress=True,
+            compression_used_fallback=False,compression_feasibility_skip=False,task_id='fixture-task')
+        self.assertEqual(events,[('session:compress',dict(platform='api_server',session_id='session',
+            old_session_id='',in_place=True,compression_count=count))])
+        self.assertNotEqual(result,original)
+        # Explicit wire-preparation dependency: official transport strips its
+        # underscore persistence/summary scaffolding before sending JSON.
+        h.body['messages']=[{k:v for k,v in m.items() if not k.startswith('_')} for m in result]
+
+    def confirm(self,h,count=1):
+        import native_chat
+        self.assertTrue(callable(getattr(native_chat,'native_messages_sha256',None)),'native digest helper missing')
+        gateway=self.gateway(h)
+        self.assertTrue(callable(getattr(gateway,'confirm_native_compaction',None)),'trusted compaction confirmation missing')
+        binding=gateway.scope.context('fixture-owner','fixture-task','fixture-lease')
+        value=native_chat.native_messages_sha256(h.body,reasoning_effort='none')
+        receipt=gateway.confirm_native_compaction(binding,count,value)
+        self.assertEqual(receipt,dict(registered=True,compression_count=count))
+        return binding,value
+
+    def test_official_compaction_without_trusted_confirmation_stays_rejected(self):
+        with self.fixture() as h:
+            self.dispatch(h);h.body['messages']+=h.replay(h.calls)
+            self.sdk_compact(h)
+            with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
+            self.assertEqual(len(h.wire),1)
+
+    def test_paid_tools_official_compaction_then_more_paid_tools_complete(self):
+        for keep_tail in (False,True):
+            with self.subTest(keep_tail=keep_tail),self.fixture() as h:
+                newer=deepcopy(h.calls)
+                for c in newer:c['function']['arguments']='{"round":1}'
+                h.responses.append(newer)
+                self.dispatch(h);h.body['messages']+=h.replay(h.calls)
+                self.sdk_compact(h,keep_tail=keep_tail);self.confirm(h)
+                self.dispatch(h);h.body['messages']+=h.replay(newer)
+                self.assertEqual(self.dispatch(h)['choices'][0]['message']['content'],'synthetic answer')
+                self.assertEqual(len(h.wire),3)
+                with h.db() as conn:
+                    self.assertEqual(conn.execute("SELECT COUNT(*) FROM model_calls WHERE state='succeeded'").fetchone()[0],3)
+
+    def test_first_compacted_request_and_retained_tail_are_hash_bound(self):
+        for change in ('summary','retained_arguments'):
+            with self.subTest(change=change),self.fixture() as h:
+                self.dispatch(h);h.body['messages']+=h.replay(h.calls)
+                self.sdk_compact(h,keep_tail=True);self.confirm(h)
+                if change=='summary':h.body['messages'][0]['content']+=' changed'
+                else:
+                    next(m for m in h.body['messages'] if m.get('tool_calls'))['tool_calls'][0]['function']['arguments']='{"changed":true}'
+                with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
+                self.assertEqual(len(h.wire),1)
+
+    def test_confirmation_replay_cannot_retire_later_receipt_or_unlock_baseline(self):
+        for change in ('arguments','name','id','index','missing','duplicate','baseline'):
+            with self.subTest(change=change),self.fixture() as h:
+                newer=deepcopy(h.calls)
+                for c in newer:c['function']['arguments']='{"round":1}'
+                h.responses.append(newer)
+                self.dispatch(h);h.body['messages']+=h.replay(h.calls)
+                self.sdk_compact(h);binding,value=self.confirm(h)
+                self.dispatch(h)
+                self.gateway(h).confirm_native_compaction(binding,1,value)
+                h.body['messages']+=h.replay(newer)
+                if change=='arguments':h.body['messages'][-3]['tool_calls'][0]['function']['arguments']='{"changed":true}'
+                elif change=='name':h.body['messages'][-3]['tool_calls'][0]['function']['name']='tool_call'
+                elif change=='id':
+                    h.body['messages'][-3]['tool_calls'][0]['id']='changed-id';h.body['messages'][-2]['tool_call_id']='changed-id'
+                elif change=='index':h.body['messages'][-3]['tool_calls'][0]['index']=9
+                elif change=='missing':
+                    del h.body['messages'][-3:];h.body['messages'].append(dict(role='user',content='new request missing paid tool reply'))
+                elif change=='duplicate':h.body['messages']+=deepcopy(h.body['messages'][-3:])
+                else:h.body['messages'][0]['content']+=' changed'
+                with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
+                self.assertEqual(len(h.wire),2)
+
+    def test_second_official_compaction_uses_only_new_server_watermark(self):
+        with self.fixture() as h:
+            for round_ in (1,2):
+                newer=deepcopy(h.calls)
+                for c in newer:c['function']['arguments']='{"round":'+str(round_)+'}'
+                h.responses.append(newer)
+            self.dispatch(h);h.body['messages']+=h.replay(h.calls)
+            self.sdk_compact(h);binding,old=self.confirm(h)
+            self.dispatch(h);h.body['messages']+=h.replay(h.responses[1])
+            self.sdk_compact(h,count=2);self.confirm(h,count=2)
+            with self.assertRaises(ValueError):self.gateway(h).confirm_native_compaction(binding,1,old)
+            self.dispatch(h);h.body['messages']+=h.replay(h.responses[2])
+            self.dispatch(h)
+            self.assertEqual(len(h.wire),4)
+
+    def test_compaction_confirmation_requires_native_exact_binding_and_live_rights(self):
+        with self.fixture() as h:
+            self.dispatch(h);h.body['messages']+=h.replay(h.calls);self.sdk_compact(h)
+            binding,value=self.confirm(h)
+            gateway=self.gateway(h)
+            for field in ('owner','conversation_id','turn_id','request_id','session_id','lease','run_id'):
+                with self.subTest(field=field),self.assertRaises(PermissionError):
+                    gateway.confirm_native_compaction(dict(binding,**{field:'forged'}),2,value)
+            for count,hash_ in ((True,value),(0,value),(1,'f'*64)):
+                with self.assertRaises(ValueError):gateway.confirm_native_compaction(binding,count,hash_)
+            native_scope=gateway.scope
+            gateway.scope=h.f.gateway.scope
+            with self.assertRaises(PermissionError):gateway.confirm_native_compaction(binding,2,value)
+            gateway.scope=native_scope
+            before=deepcopy(gateway._native_compaction)
+            rights=iter((True,False));gateway.scope._authorize=lambda:next(rights)
+            with self.assertRaises(PermissionError):gateway.confirm_native_compaction(binding,2,value)
+            self.assertEqual(gateway._native_compaction,before)
+            gateway.scope._authorize=lambda:False
+            with self.assertRaises(PermissionError):gateway.confirm_native_compaction(binding,2,value)
+
+    def test_unsettled_and_orphan_reservations_cannot_be_retired(self):
+        for state in ('started','unknown',None):
+            with self.subTest(state=state),self.fixture() as h:
+                self.dispatch(h);h.body['messages']+=h.replay(h.calls);self.sdk_compact(h)
+                with h.db() as conn:
+                    if state is None:conn.execute('DELETE FROM model_calls')
+                    else:conn.execute('UPDATE model_calls SET state=?',(state,))
+                with self.assertRaisesRegex(ValueError,'native_compaction_unsettled'):self.confirm(h)
+                self.assertIsNone(self.gateway(h)._native_compaction)
+
+    def test_rebuilt_gateway_has_no_compaction_authority_and_no_body_field_can_create_it(self):
+        with self.fixture() as h:
+            self.dispatch(h);h.body['messages']+=h.replay(h.calls);self.sdk_compact(h);self.confirm(h)
+            old=self.gateway(h)
+            fresh=type(old)(old.scope,old.budget,old.slot,old.provider,old.input_bound,old.daily_limit,preflight=old.preflight)
+            h.proxy.gateway_for=lambda grant:fresh
+            with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
+            self.assertEqual(len(h.wire),1)
+            h.body['compression_count']=1;h.body['messages_sha256']='f'*64
+            with self.assertRaisesRegex(ValueError,'request_fields'):self.dispatch(h)
+
+    def test_native_digest_matches_actual_transport_carrier_normalization(self):
+        with self.fixture() as h:
+            import native_chat
+            from pilot import digest
+            messages=[dict(role='user',content='synthetic'),dict(role='assistant',content='answer',
+                      reasoning='',reasoning_content=''),dict(role='user',content='continue')]
+            identity=native_chat.native_messages_sha256(dict(messages=messages),reasoning_effort='none')
+            self.assertEqual(identity,
+                digest([dict(role='user',content='synthetic'),dict(role='assistant',content='answer'),dict(role='user',content='continue')]))
+            h.body['messages']=deepcopy(messages);self.dispatch(h)
+            self.assertEqual(identity,digest(h.wire[0]['messages']))
+            messages[1]['reasoning']='different'
+            with self.assertRaisesRegex(ValueError,'reasoning_carrier_mismatch'):
+                native_chat.native_messages_sha256(dict(messages=messages),reasoning_effort='none')
+
+
 if __name__ == '__main__':
     unittest.main()
