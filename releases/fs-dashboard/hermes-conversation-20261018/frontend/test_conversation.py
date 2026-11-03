@@ -106,10 +106,13 @@ def check():
         page.get_by_role("button", name="测试会话").wait_for()
         page.get_by_role("button", name="发送", exact=True).wait_for(state="visible")
         page.wait_for_function("!document.querySelector('#send-message').disabled")
-        page.get_by_label("给 Hermes 发消息").fill("今天先看什么？")
+        long_text = "长消息合成核验" * 1001
+        page.get_by_label("给 Hermes 发消息").fill(long_text)
+        assert page.get_by_label("给 Hermes 发消息").input_value() == long_text
         page.get_by_role("button", name="发送", exact=True).click()
         page.wait_for_timeout(1000)
         assert state["calls"], (page.locator("#status").inner_text(), page.locator("#send-message").inner_text())
+        assert state["calls"][0]["text"] == long_text
         page.get_by_role("button", name="核对上次发送").wait_for()
         page.get_by_role("button", name="核对上次发送").click()
         page.locator(".reply-body").filter(has_text="已完成。").wait_for(state="visible")
@@ -130,7 +133,7 @@ def check():
         state["emit"] = True
         page.reload()
         page.get_by_text("最终原文").wait_for(state="visible")
-        assert page.get_by_text("今天先看什么？").count() == 1
+        assert page.get_by_text(long_text, exact=True).count() == 1
         assert page.evaluate("document.documentElement.dataset.fsTheme") == "dark"
         state["turn"]["artifacts"] = []
         state["turn"]["reply"] = "<!doctype html><html><body>原始标记</body></html>"
@@ -149,10 +152,11 @@ def check():
         state["turn"]["artifacts"] = []
         state["turn"]["state"] = "running"
         page.reload()
-        page.get_by_label("给 Hermes 发消息").fill("补充证据")
+        page.get_by_label("给 Hermes 发消息").fill(long_text)
         page.get_by_role("button", name="补充当前任务").click()
         page.get_by_text("本次提交未被接受", exact=False).wait_for()
-        assert page.get_by_label("给 Hermes 发消息").input_value() == "补充证据"
+        assert page.get_by_label("给 Hermes 发消息").input_value() == long_text
+        assert state["steers"][0]["text"] == long_text
         page.get_by_role("button", name="补充当前任务").click()
         page.get_by_role("button", name="核对上次发送").wait_for()
         first_unknown_id = state["steers"][1]["client_request_id"]
