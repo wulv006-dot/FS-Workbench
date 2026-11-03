@@ -360,5 +360,145 @@ class NativeChat(unittest.TestCase):
                 self.assertEqual([tuple(row) for row in rows],[('started',-1),('started',-1),('started',-1)])
 
 
+class NativeToolHistory(unittest.TestCase):
+    """Real gateway/SQLite/preflight; only the vendor HTTP and OS slot are fixtures."""
+    from contextlib import contextmanager
+
+    @contextmanager
+    def history_fixture(self, effort='none', older=False):
+        from contextlib import contextmanager
+        from datetime import datetime, timezone
+        from pathlib import Path
+        from unittest.mock import patch
+        import json, sqlite3, sys, tempfile
+        with fixtures.MaterialTransport().fixture(material=False) as f, tempfile.TemporaryDirectory() as temp:
+            native=fixtures.load('native_chat',CORE/'native_chat.py')
+            direct=fixtures.load('direct_provider',CORE/'direct_provider.py')
+            binding=dict(owner='fixture-owner',conversation_id='cid',turn_id='fixture-task',
+                         request_id='request',session_id='session',lease='fixture-lease',run_id='run-fixture')
+            schemas=[dict(type='function',function=dict(name=name,parameters=dict(type='object',properties={})))
+                     for name in ('fs_track_customer','fs_describe_customer','tool_call')]
+            scope=native.NativeChatScope(binding,lambda:True,model_schemas=lambda:schemas,reasoning_effort=lambda:effort)
+            @contextmanager
+            def db():
+                conn=sqlite3.connect(str(Path(temp)/'daily.sqlite3'));conn.row_factory=sqlite3.Row
+                try:
+                    with conn:yield conn
+                finally:conn.close()
+            with db() as conn:
+                conn.execute('CREATE TABLE model_calls(fingerprint TEXT PRIMARY KEY,day TEXT,state TEXT,content TEXT)')
+            @contextmanager
+            def slot(unused):yield True
+            sys.modules['background'].import_background=Mock()
+            sys.modules['source_projection']=SimpleNamespace(project_capture=Mock())
+            sys.modules['fc_daily']=SimpleNamespace(provider_slot=slot,model_daily_limit=lambda:0)
+            factory=fixtures.load('history_fs_inprocess',fixtures.ROOT/'releases/fc-coins/fc-review-channel-20261026/source/fs_inprocess.py')
+            gateway=factory.native_gateway(SimpleNamespace(db=db,root=Path(temp)),scope,
+                                           active_tasks=lambda:{('fixture-owner','fixture-task')})
+            proxy=f.transport.Proxy(f.grants,lambda grant:gateway)
+            calls=[dict(id='same-'+str(i),type='function',index=i,
+                        function=dict(name=name,arguments='{"round":0}'))
+                   for i,name in enumerate(('fs_track_customer','fs_describe_customer'))]
+            responses=[deepcopy(calls)]
+            wire=[]
+            def send(path,payload,**kwargs):
+                wire.append(json.loads(payload))
+                batch=responses[len(wire)-1] if len(wire)<=len(responses) else None
+                message=dict(role='assistant',content=None,tool_calls=deepcopy(batch)) if batch else dict(role='assistant',content='synthetic answer')
+                return dict(id='response-'+str(len(wire)),model=direct.MODEL,
+                            usage=dict(prompt_tokens=1,completion_tokens=1,total_tokens=2),
+                            choices=[dict(message=message,finish_reason='tool_calls' if batch else 'stop')])
+            body=dict(model=direct.MODEL,messages=[dict(role='user',content='current synthetic followup')],
+                      tools=schemas,max_tokens=32,stream=True,stream_options={'include_usage':True},reasoning_effort=effort)
+            def replay(batch):
+                copied=deepcopy(batch)
+                for call in copied:call.pop('index',None)
+                return [dict(role='assistant',content=None,tool_calls=copied)]+[
+                    dict(role='tool',tool_call_id=c['id'],content='synthetic result') for c in copied]
+            if older:
+                old=deepcopy(calls)
+                for c in old:
+                    c['function'].update(name='tool_call',arguments='{"old":true}')
+                body['messages']=[dict(role='user',content='older conversation turn'),*replay(old),*body['messages']]
+            with patch.object(direct,'_open',side_effect=send):
+                yield SimpleNamespace(f=f,proxy=proxy,db=db,body=body,calls=calls,wire=wire,
+                                      responses=responses,replay=replay)
+
+    def dispatch(self,h):
+        return h.proxy.dispatch('POST','/v1/chat/completions',h.f.token,deepcopy(h.body))
+
+    def test_older_same_ids_do_not_bind_to_this_tasks_receipt(self):
+        with self.history_fixture(older=True) as h:
+            self.dispatch(h)
+            h.body['messages']+=h.replay(h.calls)
+            self.assertEqual(self.dispatch(h)['choices'][0]['message']['content'],'synthetic answer')
+            self.assertEqual(len(h.wire),2)
+            # Only current calls inherit this task's trusted stream indexes.
+            self.assertTrue(all('index' not in c for c in h.wire[-1]['messages'][1]['tool_calls']))
+            self.assertEqual([c['index'] for c in h.wire[-1]['messages'][-3]['tool_calls']],[0,1])
+
+    def test_normal_two_calls_keep_semantic_json_and_native_effort(self):
+        for effort in ('none','medium','high'):
+            with self.subTest(effort=effort),self.history_fixture(effort) as h:
+                self.dispatch(h)
+                history=h.replay(h.calls)
+                for c in history[0]['tool_calls']:c['function']['arguments']='{ "round" : 0 }'
+                h.body['messages']+=history
+                self.dispatch(h)
+                self.assertEqual(len(h.wire),2)
+                self.assertEqual(h.wire[-1]['thinking']['type'],'disabled' if effort=='none' else 'enabled')
+                with h.db() as conn:
+                    self.assertEqual([tuple(r) for r in conn.execute('SELECT r.turn,m.state FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint ORDER BY r.turn')],[(0,'succeeded'),(1,'succeeded')])
+
+    def test_current_call_changes_cannot_fall_back_to_older_matching_ids(self):
+        for change in ('name','arguments','index','id','missing','duplicate'):
+            with self.subTest(change=change),self.history_fixture(older=True) as h:
+                self.dispatch(h)
+                history=h.replay(h.calls)
+                if change=='name':history[0]['tool_calls'][0]['function']['name']='tool_call'
+                elif change=='arguments':history[0]['tool_calls'][0]['function']['arguments']='{"round":1}'
+                elif change=='index':history[0]['tool_calls'][0]['index']=9
+                elif change=='id':
+                    history[0]['tool_calls'][0]['id']='changed-id';history[1]['tool_call_id']='changed-id'
+                elif change=='missing':history=[dict(role='user',content='new request with the paid reply absent')]
+                elif change=='duplicate':history+=deepcopy(history)
+                h.body['messages']+=history
+                with self.assertRaisesRegex(ValueError,'^provider_tool_history_changed$'):self.dispatch(h)
+                self.assertEqual(len(h.wire),1)
+                with h.db() as conn:
+                    self.assertEqual(conn.execute('SELECT COUNT(*) FROM hermes_reservations').fetchone()[0],1)
+
+    def test_multiple_receipts_restore_in_order_even_when_ids_repeat(self):
+        with self.history_fixture(older=True) as h:
+            second=deepcopy(h.calls)
+            for c in second:c['function']['arguments']='{"round":1}'
+            h.responses.append(second)
+            self.dispatch(h)
+            h.body['messages']+=h.replay(h.calls)
+            self.dispatch(h)
+            h.body['messages']+=h.replay(second)
+            self.dispatch(h)
+            self.assertEqual(len(h.wire),3)
+            with h.db() as conn:
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM model_calls WHERE state='succeeded'").fetchone()[0],3)
+
+    def test_missing_reply_does_not_borrow_an_identical_older_batch(self):
+        with self.history_fixture(older=True) as h:
+            h.body['messages'][1:4]=h.replay(h.calls)
+            self.dispatch(h)
+            h.body['messages'].append(dict(role='user',content='changed request without current paid reply'))
+            with self.assertRaisesRegex(ValueError,'^provider_tool_history_changed$'):self.dispatch(h)
+            self.assertEqual(len(h.wire),1)
+
+    def test_no_guess_when_the_paid_request_prefix_cannot_be_verified(self):
+        with self.history_fixture(older=True) as h:
+            self.dispatch(h)
+            h.body['messages']+=h.replay(h.calls)
+            with h.db() as conn:
+                conn.execute("UPDATE hermes_reservations SET request_digest=?",('0'*64,))
+            with self.assertRaisesRegex(ValueError,'^provider_tool_history_changed$'):self.dispatch(h)
+            self.assertEqual(len(h.wire),1)
+
+
 if __name__ == '__main__':
     unittest.main()
