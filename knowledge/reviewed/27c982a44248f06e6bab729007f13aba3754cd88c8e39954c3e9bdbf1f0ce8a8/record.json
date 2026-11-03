@@ -1,0 +1,20 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "native:bf793f0a",
+  "candidate_sha256": "33d6c2baf7136a75322beffe3f7553d6e6b174286c705e343b724b0b6e403d40",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "summary_only",
+  "evidence": "Original completed approve receipt with success=true and applied=true. Candidate SHA and original receipt bytes verified. The three native before/after hashes form an ordered chain ending at the observed memory hash. This summary archives prior authorized application only; it does not reapply memory or establish new business rules.",
+  "formal_rule_change": false,
+  "kind": "native",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "receipt_sha256": "6ce98e5bf3ac8c1b5a9da5698710d1d7372295429f8138139e9d7dc959c6b915",
+  "request_id": "27c982a44248f06e6bab729007f13aba3754cd88c8e39954c3e9bdbf1f0ce8a8",
+  "runtime_activation": false,
+  "summary": "An applied report-method memory asks for ranked judgments, tradeoffs, evidence and actions while preserving important distinctions: countries versus language pages, cross-game versus one-game costs, order value versus unit price, and differences versus causal incremental profit. No invented attribution shares or thresholds; detailed examples and private memory text are not exported."
+}

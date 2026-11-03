@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "as_of_utc": "2026-11-02T18:28:08.966423+00:00",
+  "production_routing": {
+    "remote_result_mode": "consume",
+    "assignment_generation": 12
+  },
+  "source_merge": "5e3e5fdcc92d3d93e66a307e40dca9ad20ba994d",
+  "source_head": "e33108b66f5ecced98c6dd93fca96b15ee65d2ba",
+  "source_ci": "41490594838",
+  "release_id": "nav-20261102T175000Z",
+  "production_provenance": {
+    "status": "verified",
+    "job_id": "c87f567a448e035e98e9060828fc35f962e64e03ac1805e646187703cc3308cc",
+    "parent_run_id": "cb238ce0-1ac1-5fe8-ad84-c21b0484a635",
+    "node_id": "183",
+    "assignment_generation": 12,
+    "lease_epoch": 1,
+    "attempts": 1,
+    "request_count": 3,
+    "quote_projection_exactly_matches_receipt": true,
+    "platforms": [
+      "PS",
+      "XBOX"
+    ],
+    "payload_hash": "b524056f8425985282ffd381a4b474e7e9eb191f19af5d466b938dc50237e783",
+    "captured_at": "2026-11-02T18:25:42.398727+00:00",
+    "verification_source_requests": 0
+  },
+  "order_admin_acceptance": {
+    "status": "verified",
+    "checked_at": "2026-11-02T18:28:08.966423+00:00",
+    "operation_id": "c5c3fe46-ebb5-569a-9c9a-5116bda9aa48",
+    "ledger_status": "COMPLETED",
+    "completed_at": "2026-11-02T18:26:32.128428+00:00",
+    "snapshot_id": "cb238ce0-1ac1-5fe8-ad84-c21b0484a635",
+    "explicit_order_success": true,
+    "order_feedback_sha256": "b7c6c6e7b43992b2d90c0da62249bc6bc0c0e075ed2effae9f528ae7389a0b90",
+    "audit_sha256": "b4ce5d7e0b1a0d36bfefa983cc327f2044c380688e714c95b7ce3425258161ac",
+    "admin_unit_price_per_k": {
+      "PC": "0.0765",
+      "PS": "0.0755",
+      "XBOX": "0.0755"
+    },
+    "order_targets_per_100k": [
+      {
+        "platform": "PS",
+        "quote": "7.55"
+      },
+      {
+        "platform": "XBOX",
+        "quote": "7.55"
+      },
+      {
+        "platform": "PC",
+        "quote": "7.65"
+      }
+    ],
+    "all_platform_prices_matched": true,
+    "verification_scope": "Order_Admin",
+    "new_price_writes": 0
+  },
+  "itemd2r_entry_diagnostic": {
+    "cleanup": "source_off_or_fenced",
+    "job_id": "9991ba402134683b4857c78e722b0bf32d2e49be72f2a850bcbaff9382d7bf86",
+    "metadata": {
+      "cloudflare": true,
+      "error_type": "Error",
+      "finished_at": "2026-11-02T18:23:13.847738+00:00",
+      "http_status": 403,
+      "reason": "http_403",
+      "requests": 1,
+      "started_at": "2026-11-02T18:23:12.768683+00:00",
+      "title_kind": "unknown",
+      "uid": 65534
+    },
+    "pricing_consumption": false,
+    "receipt": {
+      "accepted_at": "2026-11-02T18:23:20.514140+00:00",
+      "observation_id": "itemd2r-entry-183-9991ba402134683b4857c78e",
+      "payload_hash": "2a71acdb6416a369fde5846f8753bbac4c3aa6981431fc5a861a25b4c4d591a1",
+      "reason": null,
+      "receipt_id": "32882830f0304bd1ae612afea0b5ce7b",
+      "status": "accepted"
+    },
+    "status": "diagnostic_committed",
+    "transport": "single_hop_APIRequestContext"
+  },
+  "protected": {
+    "183": {
+      "units": 9,
+      "state_pid_unit_sha_unchanged": true
+    },
+    "187": {
+      "units": 3,
+      "state_pid_unit_sha_unchanged": true
+    }
+  },
+  "collector_ledger": {
+    "total_count": 20,
+    "completed_jobs": 10,
+    "original_receipts_preserved": 6,
+    "count_scope": "new_collection_ledger_only"
+  },
+  "production_off_rollback": "preview_ready_gen13_not_applied"
+}

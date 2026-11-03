@@ -261,6 +261,8 @@ def observe(root=Path('/'), installed=None):
     if release.ARCHIVE_MODE:
         protected=[]
         for name in sorted(protected_paths(base)):
+            if name==release.ARCHIVE_USAGE_LEDGER:
+                protected.append(release.archive_usage_metadata(base,root));continue
             path=base.rooted(root,name);base.no_target_link(path);info=path.stat()
             if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1:raise ValueError('archive_protected_regular_required')
             protected.append({'path':name,'sha256':digest(path.read_bytes()),'mode':oct(stat.S_IMODE(info.st_mode)),'owner':str(info.st_uid)+':'+str(info.st_gid)})
@@ -271,7 +273,11 @@ def observe(root=Path('/'), installed=None):
         expected_protected[release.NATIVE_CLI] = release.NATIVE_CLI_SHA
         expected_protected[release.NATIVE_LEGACY_DAILY] = release.NATIVE_LEGACY_DAILY_SHA
         release.native_legacy_daily_guard(base,root)
-    if installed and release.ARCHIVE_MODE:expected_protected=dict(release.ARCHIVE_PROTECTED)
+    if installed and release.ARCHIVE_MODE:
+        expected_protected=dict(release.ARCHIVE_PROTECTED)
+        for row in protected:
+            if row['path']==release.ARCHIVE_USAGE_LEDGER and row['path'] in expected_protected:
+                expected_protected[row['path']]=row['sha256']
     if installed and {r['path']: r['sha256'] for r in protected} != expected_protected:
         raise ValueError('installed_protected_baseline_drift')
     worker = worker_observation(allow_stopped=not (release.WORKER_DIAGNOSTICS_MODE or release.TRANSPORT_MODE or release.STREAM_MODE or release.BINDINGS_MODE or release.GUARD_MODE or release.NATIVE_MODE)) if root == Path('/') else {

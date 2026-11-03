@@ -970,3 +970,17 @@ publisher 新增互斥 `--native-chat --followup`，钉已安装 23a 的 manifes
 安装/读回成功后，同一stage原publisher的`archive-synthetic --release-id … --approved-manifest-sha …`在原全部锁和admission围栏内复核成功journal、三源afterSHA和精确对象CAS，再调用既有最小归档函数；没有HTTP/model工具或任意对象selector。原turn/幂等/文件仍保留，普通聊天/待执行残留退出，回执只记归档1/删除0/未知不变。归档前安装或readiness失败可原回退；审计成功后回退旧盲代码被`archive_rollback_guard`拒绝，应作兼容前修，不能复活残留。
 
 原tempFS原validate/inspect/apply/rollback正反用例含三delta、其它776inode/mtime保持、range/readiness失败恢复、锁内维护幂等、其它UNKNOWN/本对象生命周期/审计/候选源码漂移拒绝及归档后拒盲回退。OS/Docker/systemd边界是明确夹具，非真实生产验收。本轮仅候选，生产安装0/归档0/删除0，不调用模型，不核查费用；不扩成通用清理或账单系统。阶段1后续真实CSV/XLSX仍须在统一独审CI/最终merge后实际验证。
+
+
+#### ARCHIVE 单一 usage 账本保护修正（候选，未发布）
+
+0cc 最终包现场 prepare 被 `installed_protected_baseline_drift` 拒绝：三目标 before 全匹配，776 保护中仅 `/var/lib/fs-hermes-fc/profile/skills/.usage.json` 与历史 SHA 不同，其余775一致、unknown0；未生成stage/backup/journal，未apply、归档或模型调用。新合同仅在 ARCHIVE followup 对这一本运行账本采 fresh SHA，仍列入原 `unchangedRequired`，强制 regular/单链接/no-follow/root:root/0600；inspect/apply 继续原 SHA/owner/mode CAS，prepare 后变化拒绝。其余775静态历史 SHA、三delta、原writer/锁/回退不变，发布与回退不写账本。回归覆盖原失败、静态漂移、owner/mode/链接、prepare后变更、成功与range/readiness失败回退；Windows权限为明确夹具，Linux使用真实链接。本条不代表已安装、已清理或CSV通过。
+
+
+#### ARCHIVE 既有控制面 readiness 接线（候选，未发布）
+
+f43 新包 prepare/三目标+776保护 fresh CAS 已过，一次 inspect 在 `native_runtime_readiness` 查 `TARGETS['runtime/native-backend.json']` 时失败；ARCHIVE 的 TARGETS 仅3项，本机实际函数稳定复现 KeyError。就绪函数的 backend 配置及 rootdaily mount 源改从既有固定 `NATIVE_EXTRA_TARGETS` 读取，配置/用户/daemon/mount 验证均保留。新增 ARCHIVE 三目标下直接执行真实函数的正反回归，非整体 Mock readiness。usage fresh CAS 不改；另3项FC保护漂移待成功发布收据衔接，不反射磁盘或复用175044 stage。本条不代表新安装、归档或CSV通过。
+
+补齐 FC 成功保护链：一次只读核实 `nav-20261102T175000Z` 原 manifest `900233dade3ab9a3922a8365345cffebbd8bdfd3cbe9a006081d5d1a6c91ab5a` / journal `5186d93010605186ec81d40e065758252d6cb8c93534edb27c753d11803afefc`，source `6d395242b88ca634c5745181e16f1fec6053c065`，精确3项 written 且无回退，当前 root:root/0644。两份 `sources.py` 的新 SHA 为 `449a53558c6607449abf1b070a11eff20aca58e689e0169331c28c24540ae635`，`server_quote_job.py` 为 `139bd6d239330bad4770148188d31f2fcbdd0e31bc1f668e4056f0489debbee9`；Git 原字节及原 build_stage 的 hermes-copy 复制链匹配。
+
+仅 ARCHIVE 合并这3项已成功静态变更，必须先核固定 proof 原字节、scope/source/精确目标、旧 before 链、写入完成/无回退及 rootmode；不能接纳其它磁盘变化。仍为3 targets/776保护/NEW0，usage 单路径 fresh CAS 不改，FC消费保持原状。新增反例与原 tempFS 安装/失败回退/锁内维护合并检查：48方法全过0skip；原 guards 实际执行，三FC及其余保护字节/inode/mtime保持。权限及 Docker/systemd IO 为显式夹具，未据此宣称真实安装、清理或 CSV 通过；175044旧stage继续废止。
