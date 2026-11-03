@@ -11,6 +11,7 @@ STATIC=Path('/var/lib/fs-navigation-formal-static')
 FRAGMENT=Path('/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf')
 ORIGINAL=Path('/var/lib/fs-navigation-staging/game-monitor-sop-20261022/candidate-final')
 LEDGER=Path('/var/lib/fs-dashboard-release/current.json')
+BACKUPS=Path('/var/backups/fs-navigation-native-20261006')
 PUBLISHER_SHA='82a5c2df830e128b3077d9c3d88286789680c4f3631966b400748e2e6e985056'
 NAVIGATION_SHA='c61ae129feccd8f81a63f51dde414753b620ee8658061a477b0997ae0befc89f'
 
@@ -100,3 +101,16 @@ def verify(stage):
     require(journal['status']=='applied-awaiting-real-desktop-URL-QA','publisher_journal_unresolved')
     require(sha((backup/'approved-manifest.json').read_bytes())==sha((stage/'release-manifest.json').read_bytes()),'backup_manifest_drift')
     return dict(release=manifest['releaseId'],assets=len(manifest['immutableAssets']),mutable=len(manifest['targets']),protected=len(manifest['unchangedRequired']),backup=str(backup),status='published_file_and_route_readback_verified')
+
+
+def verify_rollback(stage,before_sha256):
+    raw=safe(stage/'release-manifest.json').read_bytes()
+    manifest=json.loads(raw)
+    require(re.fullmatch(r'[a-zA-Z0-9-]+',manifest['releaseId']),'invalid_release_id')
+    backup=BACKUPS/manifest['releaseId']
+    require(safe(backup/'approved-manifest.json').read_bytes()==raw,'backup_manifest_drift')
+    journal=json.loads(safe(backup/'journal.json').read_bytes())
+    require(journal.get('approvedManifestSha256')==sha(raw),'rollback_manifest_drift')
+    require(journal.get('status')=='rolled-back-immutable-history-retained' and journal.get('activationAttempted') is False,'rollback_not_proven')
+    require(sha(active().read_bytes())==before_sha256,'rollback_live_drift')
+    return dict(status='rolled_back_verified',backup=str(backup),failure=journal.get('failure'),activation_attempted=False)

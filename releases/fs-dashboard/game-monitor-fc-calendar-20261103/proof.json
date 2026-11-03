@@ -1,0 +1,19 @@
+{
+  "status": "candidate_only_not_published",
+  "game": "ea-sports-fc",
+  "calendar_events": 18,
+  "official_as_labeled": 5,
+  "community_tracking": 13,
+  "other_games_unchanged": true,
+  "original_events_preserved": true,
+  "original_automation_unchanged": true,
+  "before_sha256": "bbc5e18dbee322364155e3e4718bd2ba85f7a9de5f08066399d5a6affa0ee7a0",
+  "after_sha256": "46a9d8f52a733f17a588c96940a2e8d1c7a0c831ae20d95799166f192cf26bb0",
+  "checks": [
+    "date ranges",
+    "source labels",
+    "market ratings",
+    "existing SOP",
+    "non-target data equality"
+  ]
+}
