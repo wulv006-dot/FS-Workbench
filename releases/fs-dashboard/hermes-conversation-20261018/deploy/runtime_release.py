@@ -48,6 +48,14 @@ NATIVE_MODE = False
 NATIVE_ADMISSION_MODE = False
 ARCHIVE_MODE = False
 NATIVE_CAPABILITIES_MODE = False
+COMPOSER_STATIC_MODE = False
+COMPOSER_STATIC_METADATA = {}
+COMPOSER_STATIC_PROOF = dict(sourceCommit='20c481384fcd746ccb6b122c7fe57f3d6185c51f',
+    backup='/var/backups/fs-navigation-20261006/nav-20261103T011909Z',
+    manifestSha256='2f2cfcb5fac5aa9dc2ae910f25eb0ad83fa0c91e72f331cc9fe6f559593497e6',
+    journalSha256='fe028bc753ec6f5a387fe4675a4a4b5ec395fd898cda9f3bb304f1829e256298')
+COMPOSER_BEFORE_SHA = '395c192a691c85a0d5787be8cd476afe08e9cc5135354f9ce46022bc95b35279'
+COMPOSER_AFTER_SHA = '6254b7ce313c52b48402e47b881400086cd69decdcfca50932b2b8d4b7336ef8'
 ARCHIVE_PROTECTED = {}
 ARCHIVE_USAGE_LEDGER = '/var/lib/fs-hermes-fc/profile/skills/.usage.json'
 ARCHIVE_NATIVE_PROOF = dict(backup='/var/backups/fs-navigation-20261006/nav-20261102T100758Z',
@@ -295,6 +303,19 @@ def configure_native_capabilities():
     TARGETS.clear();TARGETS.update(CAPABILITIES_TARGETS)
 
 
+def configure_native_composer_static():
+    """One existing HTML over the accepted 20c installation; no runtime marker."""
+    global COMPOSER_STATIC_MODE, INSTALLED_COMMIT, NEW
+    if COMPOSER_STATIC_MODE:return
+    if EXECUTION_MODE or ARCHIVE_MODE or NATIVE_MODE:
+        raise ValueError('conflicting_material_followup_modes')
+    COMPOSER_STATIC_MODE=True
+    INSTALLED_COMMIT=COMPOSER_STATIC_PROOF['sourceCommit']
+    INSTALLED_PROOF.update(COMPOSER_STATIC_PROOF)
+    TARGETS.clear();TARGETS['frontend/index.html']='/var/www/dashboard/fs-home/hermes/conversation/index.html'
+    NEW=frozenset()
+
+
 def archive_store_module(source,expected_sha):
     raw=source.read_bytes()
     if hashlib.sha256(raw).hexdigest()!=expected_sha:raise ValueError('archive_store_source_drift')
@@ -387,6 +408,28 @@ def installed_baseline(root, git_baseline):
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
     global ARCHIVE_PROTECTED
+    if COMPOSER_STATIC_MODE:
+        rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[])
+        metadata={r['target']:{'path':r['target'],'sha256':r['sha256'],'owner':r.get('owner'),'mode':r.get('mode')} for r in rows}
+        metadata.update({r['path']:dict(r) for r in protected})
+        written=journal.get('files',[])
+        if (manifest.get('sourceCommit')!=INSTALLED_COMMIT or manifest.get('scope')!=SCOPE or
+                manifest.get('nativeCapabilities') is not True or manifest.get('nativeArchive') is not True or
+                len(rows)!=10 or {r['candidate']:r['target'] for r in rows}!=CAPABILITIES_TARGETS or
+                len(protected)!=769 or len(metadata)!=779 or
+                journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
+                journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=INSTALLED_PROOF['manifestSha256'] or
+                len(written)!=10 or {r['candidate'] for r in written}!=set(CAPABILITIES_TARGETS) or
+                any(any(w.get(k)!=r.get(k) for k in ('candidate','target','beforeSha256','sha256','owner','mode')) or
+                    w.get('intent') is not True or w.get('written') is not True or w.get('rollbackIntent') or w.get('rolledBack')
+                    for r in rows for w in written if r['candidate']==w['candidate']) or
+                metadata.get(TARGETS['frontend/index.html'],{}).get('sha256')!=COMPOSER_BEFORE_SHA or
+                git_baseline!={'source_commit':INSTALLED_COMMIT,'files':{'frontend/index.html':COMPOSER_BEFORE_SHA}}):
+            raise ValueError('composer_static_installed_proof_mismatch')
+        COMPOSER_STATIC_METADATA.clear()
+        COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
+        ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
+        return dict(manifest,archive_all_hashes={p:r['sha256'] for p,r in metadata.items()})
     if NATIVE_CAPABILITIES_MODE:
         rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[])
         values={r['target']:r['sha256'] for r in rows};values.update({r['path']:r['sha256'] for r in protected})
@@ -520,6 +563,7 @@ def frozen():
 
 
 def protected_paths(base):
+    if COMPOSER_STATIC_MODE:return set(COMPOSER_STATIC_METADATA)
     if ARCHIVE_MODE:return set(ARCHIVE_PROTECTED)
     # Preserve the original publisher's required consumers, plus this package's
     # unchanged live host/seams. No DB, credential or model-key payload is copied.
@@ -769,6 +813,16 @@ def archive_rollback_guard(base, journal, root):
 
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
+    if approved.get('nativeComposerStatic') is True:
+        if any(approved.get(k) is True for k in ('nativeCapabilities','nativeArchive','nativeAdmission','nativeChat',
+                'materialExecution','materialGuard','bindingsAuth','materialStream','materialTransport',
+                'workerDiagnostics','goalTaskIndexCompat','materialDiagnostics')):
+            raise ValueError('conflicting_material_followup_modes')
+        configure_native_composer_static()
+        # The original validate runs before guards. Guards replace this view
+        # with the fixed successful proof before checking any current file.
+        COMPOSER_STATIC_METADATA.clear()
+        COMPOSER_STATIC_METADATA.update({r['path']:dict(r) for r in approved['unchangedRequired']})
     if approved.get('nativeArchive') is True:
         if any(approved.get(key) is True for key in ('nativeAdmission','nativeChat','materialGuard','bindingsAuth','materialStream','materialTransport','workerDiagnostics','goalTaskIndexCompat','materialDiagnostics')):
             raise ValueError('conflicting_material_followup_modes')
@@ -806,6 +860,13 @@ def load_base():
     validate = base.validate
 
     def exact(manifest, stage):
+        if COMPOSER_STATIC_MODE and (manifest.get('nativeComposerStatic') is not True or
+                manifest.get('materialStaticOnly') is not True or len(manifest.get('files',[]))!=1 or
+                manifest.get('materialChangedTargets')!=list(TARGETS.values()) or
+                manifest['files'][0].get('beforeSha256')!=COMPOSER_BEFORE_SHA or
+                manifest['files'][0].get('sha256')!=COMPOSER_AFTER_SHA or
+                len(manifest.get('unchangedRequired',[]))!=778):
+            raise ValueError('exact_composer_static_delta_required')
         controlled = ARCHIVE_MODE or DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE or NATIVE_MODE
         marker = 'nativeArchive' if ARCHIVE_MODE else 'nativeAdmission' if NATIVE_ADMISSION_MODE else 'nativeChat' if NATIVE_MODE else 'materialGuard' if GUARD_MODE else 'bindingsAuth' if BINDINGS_MODE else 'materialStream' if STREAM_MODE else 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
         allowed = tuple(TARGETS) if ARCHIVE_MODE else (NATIVE_ADMISSION_CANDIDATE,) if NATIVE_ADMISSION_MODE else NATIVE_ALLOWED if NATIVE_MODE else (BINDINGS_CANDIDATE,) if BINDINGS_MODE else (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
@@ -918,7 +979,10 @@ def load_base():
         # frozen checks, and retain every other guard/protected source check.
         if manifest.get('installedBaseline'):
             installed_baseline(root, git_baseline)
-        if ARCHIVE_MODE or NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
+        if COMPOSER_STATIC_MODE and (len(manifest['unchangedRequired'])!=778 or
+                {r['path'] for r in manifest['unchangedRequired']}!=set(COMPOSER_STATIC_METADATA)):
+            raise ValueError('composer_static_protected_set_drift')
+        if COMPOSER_STATIC_MODE or ARCHIVE_MODE or NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
             running_worker(manifest)
         if NATIVE_MODE and native_dependencies(base, root) != manifest['nativeDependencies']:
             raise ValueError('native_dependencies_cas_drift')
@@ -931,13 +995,15 @@ def load_base():
                         or observed['source'] != manifest['workerImageSource']):
                     raise ValueError('material_recovery_image_source_drift')
             manifest = dict(manifest, runtimeRequired=manifest['runtimeBefore'])
-        if ARCHIVE_MODE:
+        if ARCHIVE_MODE or COMPOSER_STATIC_MODE:
             for row in manifest['unchangedRequired']:
                 if row['path']==ARCHIVE_USAGE_LEDGER:
                     current=archive_usage_metadata(base,root)
                     if current!=row:raise ValueError('archive_usage_cas_drift')
                 elif row['sha256']!=ARCHIVE_PROTECTED.get(row['path']):
                     raise ValueError('archive_static_protection_drift')
+                if COMPOSER_STATIC_MODE and any(row.get(k)!=COMPOSER_STATIC_METADATA[row['path']].get(k) for k in ('owner','mode')):
+                    raise ValueError('composer_static_protected_metadata_drift')
                 info=base.rooted(root,row['path']).stat()
                 if row['owner']!=str(info.st_uid)+':'+str(info.st_gid) or row['mode']!=oct(stat.S_IMODE(info.st_mode)):
                     raise ValueError('archive_protected_mode_owner_drift')
@@ -984,7 +1050,7 @@ def load_base():
 
     def inspect(manifest, stage, root=Path('/')):
         result = original_inspect(manifest, stage, root)
-        if ARCHIVE_MODE or NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
+        if COMPOSER_STATIC_MODE or ARCHIVE_MODE or NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE:
             running_worker(manifest)
         if NATIVE_MODE and native_dependencies(base, root) != manifest['nativeDependencies']:
             raise ValueError('native_dependencies_cas_drift')
@@ -999,6 +1065,8 @@ def load_base():
                         raise ValueError('material_target_owner_mode_drift')
             if not (NATIVE_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE) and worker_image(allow_stopped=True) != manifest['workerImageId']:
                 raise ValueError('material_worker_image_drift')
+            if COMPOSER_STATIC_MODE:
+                return result  # No staged/runtime imports for a single static HTML replacement.
             # Import definitions only; no service instance, model or source query.
             program = ("import sys;from pathlib import Path;"
                        "sys.path[:0]=sys.argv[1:];"

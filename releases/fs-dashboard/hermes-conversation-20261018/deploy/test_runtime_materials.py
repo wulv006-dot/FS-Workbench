@@ -1197,6 +1197,143 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 class NativePublisher(unittest.TestCase):
+    def test_composer_static_is_exact_existing_html_followup(self):
+        self.assertTrue(callable(getattr(prepare, 'configure_native_composer_static', None)))
+        prepare.configure_native_composer_static()
+        self.assertEqual(release.TARGETS, {'frontend/index.html':'/var/www/dashboard/fs-home/hermes/conversation/index.html'})
+        self.assertEqual(release.NEW, frozenset())
+        self.assertEqual(release.INSTALLED_COMMIT, '20c481384fcd746ccb6b122c7fe57f3d6185c51f')
+        self.assertEqual(release.INSTALLED_PROOF['manifestSha256'], '2f2cfcb5fac5aa9dc2ae910f25eb0ad83fa0c91e72f331cc9fe6f559593497e6')
+        self.assertFalse(release.ARCHIVE_MODE or release.NATIVE_CAPABILITIES_MODE or release.NATIVE_MODE)
+
+    @contextmanager
+    def composer_fixture(self, root):
+        base=release.frozen()
+        paths=release.protected_paths(base) | set(release.TARGETS.values()) | set(release.CAPABILITIES_TARGETS.values())
+        paths.add(release.ARCHIVE_USAGE_LEDGER)
+        for i in range(779-len(paths)):paths.add('/opt/synthetic-protected/'+str(i)+'.py')
+        prepare.configure_native_composer_static()
+        system=root/'system';owners={};kinds={}
+        for path in paths:
+            file=base.rooted(system,path);file.parent.mkdir(parents=True,exist_ok=True)
+            file.write_bytes(('synthetic:'+path).encode())
+            owners[file]=(0,0,0o600 if path in (release.NGINX,release.ARCHIVE_USAGE_LEDGER) else 0o644)
+        target=base.rooted(system,release.TARGETS['frontend/index.html'])
+        html=(prepare.HERE.parent/'frontend/index.html').read_text('utf-8').encode('utf-8')
+        target.write_bytes(html.replace(b'rows="3"',b'rows="3" maxlength="4000"',1))
+        self.assertEqual(base.digest(target),release.COMPOSER_BEFORE_SHA)
+        def row(path):
+            return dict(path=path,sha256=base.digest(base.rooted(system,path)),owner='0:0',mode=oct(owners[base.rooted(system,path)][2]))
+        previous={'sourceCommit':release.INSTALLED_COMMIT,'scope':release.SCOPE,'nativeCapabilities':True,'nativeArchive':True,
+            'files':[dict(candidate=n,target=p,sha256=row(p)['sha256'],beforeSha256='0'*64,owner='0:0',mode='0o644') for n,p in release.CAPABILITIES_TARGETS.items()],
+            'unchangedRequired':[row(p) for p in sorted(paths-set(release.CAPABILITIES_TARGETS.values()))]}
+        proof=dict(release.INSTALLED_PROOF);backup=base.rooted(system,proof['backup']);backup.mkdir(parents=True)
+        def save_proof():
+            raw=json.dumps(previous).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
+            journal={'manifest':previous,'approvedManifestSha256':proof['manifestSha256'],'status':'applied-awaiting-actual-http-role-acceptance',
+                'files':[dict(r,intent=True,written=True) for r in previous['files']]}
+            raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+        save_proof()
+        for name in ('approved-manifest.json','journal.json'):owners[backup/name]=(0,0,0o600)
+        bundle=root/'bundle';payload=bundle/'payload';(payload/'frontend').mkdir(parents=True)
+        (payload/'frontend/index.html').write_bytes(html)
+        for name,source in prepare.PUBLISHER_SOURCES.items():
+            repo=Path(__file__).resolve().parents[4]
+            (bundle/name).write_bytes((repo/source).read_bytes())
+        descriptor={'source_commit':'a'*40,'native_composer_static':True,'material_execution':False,
+            'installed_baseline':{'source_commit':release.INSTALLED_COMMIT,'files':{'frontend/index.html':release.COMPOSER_BEFORE_SHA}},
+            'files':{p.relative_to(bundle).as_posix():prepare.digest(p.read_bytes()) for p in bundle.rglob('*') if p.is_file()}}
+        def save_descriptor():
+            raw=json.dumps(descriptor).encode();(bundle/'payload-manifest.json').write_bytes(raw);return raw
+        with self.native_metadata(owners,kinds,root=system),patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof):
+            yield SimpleNamespace(base=base,system=system,payload=payload,previous=previous,proof=proof,owners=owners,kinds=kinds,
+                descriptor=descriptor,save_descriptor=save_descriptor,save_proof=save_proof,target=target,usage=base.rooted(system,release.ARCHIVE_USAGE_LEDGER))
+
+    def test_composer_static_prepare_and_CAS_rejections(self):
+        with tempfile.TemporaryDirectory() as directory,self.composer_fixture(Path(directory)) as f:
+            root=Path(directory);raw=f.save_descriptor();f.usage.write_bytes(b'fresh dynamic usage')
+            prepare.prepare(f.payload,root/'stage','a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
+            manifest=json.loads((root/'stage/approved-manifest.json').read_bytes())
+            self.assertEqual((len(manifest['files']),len(manifest['unchangedRequired'])),(1,778))
+            self.assertTrue(manifest['materialStaticOnly']);self.assertTrue(manifest['nativeComposerStatic'])
+            self.assertFalse(any(manifest.get(k) for k in ('nativeArchive','nativeCapabilities','nativeChat','materialExecution')))
+            self.assertEqual(next(r['sha256'] for r in manifest['unchangedRequired'] if r['path']==release.ARCHIVE_USAGE_LEDGER),f.base.digest(f.usage))
+            for case in ('missing_marker','mixed','execution','old_git','git_hash','extra','zero','static','mode','owner','link','usage_mode','proof','proof_duplicate'):
+                saved=deepcopy(f.descriptor);old_previous=deepcopy(f.previous);restore=None;owner=None
+                if case=='missing_marker':del f.descriptor['native_composer_static']
+                elif case=='mixed':f.descriptor['native_capabilities']=True
+                elif case=='execution':f.descriptor['material_execution']=True
+                elif case=='old_git':f.descriptor['installed_baseline']['source_commit']='1f8ddc57c37e16df7c802de358eefb6585d078ee'
+                elif case=='git_hash':f.descriptor['installed_baseline']['files']['frontend/index.html']='0'*64
+                elif case=='extra':f.descriptor['files']['payload/frontend/extra.html']='0'*64
+                elif case in ('mode','owner','usage_mode'):
+                    owner=f.usage if case=='usage_mode' else f.base.rooted(f.system,manifest['unchangedRequired'][0]['path'])
+                    old_owner=f.owners[owner];f.owners[owner]=(9876,0,old_owner[2]) if case=='owner' else (0,0,0o664)
+                elif case=='link':f.kinds[f.target.parent]=stat.S_IFLNK
+                elif case=='proof':f.previous['sourceCommit']='0'*40;f.save_proof()
+                elif case=='proof_duplicate':f.previous['unchangedRequired'].append(deepcopy(f.previous['unchangedRequired'][0]));f.save_proof()
+                else:
+                    p=f.payload/'frontend/index.html' if case=='zero' else f.base.rooted(f.system,manifest['unchangedRequired'][0]['path'])
+                    restore=(p,p.read_bytes());p.write_bytes(f.target.read_bytes() if case=='zero' else b'static drift')
+                    if case=='zero':f.descriptor['files']['payload/frontend/index.html']=f.base.digest(p)
+                bad=f.save_descriptor()
+                with self.subTest(case=case),self.assertRaises(ValueError):prepare.prepare(f.payload,root/('bad-'+case),'a'*40,prepare.digest(bad),root=f.system,followup=True)
+                self.assertFalse((root/('bad-'+case)).exists())
+                f.descriptor.clear();f.descriptor.update(saved);f.previous.clear();f.previous.update(old_previous);f.save_proof()
+                if restore:restore[0].write_bytes(restore[1])
+                if owner:f.owners[owner]=old_owner
+                f.kinds.clear()
+
+    def test_composer_static_original_inspect_apply_rollback_no_service_actions(self):
+        for failure in (False,True):
+            self.tearDown();self.setUp()
+            with self.subTest(failure=failure),tempfile.TemporaryDirectory() as directory,self.composer_fixture(Path(directory)) as f:
+                root=Path(directory);raw=f.save_descriptor();f.usage.write_bytes(b'fresh usage')
+                stage=root/'stage';prepare.prepare(f.payload,stage,'a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
+                manifest_raw=(stage/'approved-manifest.json').read_bytes();manifest=json.loads(manifest_raw)
+                untouched={r['path']:(f.base.rooted(f.system,r['path']).read_bytes(),f.base.rooted(f.system,r['path']).stat()) for r in manifest['unchangedRequired']}
+                spec=importlib.util.spec_from_file_location('composer_static_publisher',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+                module.configure_native_composer_static();module.INSTALLED_PROOF=f.proof
+                base=f.base;base.hermes_quiescent=Mock();base.retirement=Mock()
+                base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
+                fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock())
+                base.hermes_admission_fence=lambda *a:nullcontext(fence)
+                service=Mock();base.restart_for=service
+                if os.name=='nt':base.directory_sync=lambda *a:None
+                with patch.object(module,'frozen',return_value=base),patch.object(module,'quiescent'),patch.object(module,'running_worker'),patch.object(module,'worker_image',return_value=release.FROZEN_IMAGE_MARKER),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')) as commands:
+                    publisher=module.load_base();publisher.inspect(manifest,stage,f.system)
+                    duplicate=deepcopy(manifest);duplicate['unchangedRequired'][-1]=deepcopy(duplicate['unchangedRequired'][0])
+                    with self.assertRaisesRegex(ValueError,'composer_static_protected_set_drift'):publisher.guards(duplicate,f.system)
+                    f.usage.write_bytes(b'after prepare change')
+                    with self.assertRaisesRegex(ValueError,'archive_usage_cas_drift'):publisher.inspect(manifest,stage,f.system)
+                    f.usage.write_bytes(b'fresh usage');untouched[release.ARCHIVE_USAGE_LEDGER]=(f.usage.read_bytes(),f.usage.stat())
+                    parent=f.target.parent;f.owners[parent]=(9876,0,0o755)
+                    with self.assertRaisesRegex(ValueError,'unsafe daily source boundary'):publisher.inspect(manifest,stage,f.system)
+                    f.owners.pop(parent)
+                    original_atomic=publisher.atomic;active_writes=[]
+                    def atomic(path,data,mode=0o644):
+                        if path==f.target:
+                            active_writes.append(prepare.digest(data))
+                            if failure and len(active_writes)==1:
+                                original_atomic(path,data,mode);raise RuntimeError('synthetic after-rename failure')
+                        return original_atomic(path,data,mode)
+                    publisher.atomic=atomic
+                    release_id='nav-20261103T010000Z'
+                    if failure:
+                        with self.assertRaisesRegex(RuntimeError,'after-rename'):publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,release_id,f.system)
+                    else:
+                        publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,release_id,f.system)
+                        self.assertEqual(base.digest(f.target),release.COMPOSER_AFTER_SHA)
+                        publisher.rollback(base.rooted(f.system,'/var/backups/fs-navigation-20261006/'+release_id),prepare.digest(manifest_raw),f.system)
+                    self.assertEqual(base.digest(f.target),release.COMPOSER_BEFORE_SHA)
+                    self.assertEqual(active_writes,[release.COMPOSER_AFTER_SHA,release.COMPOSER_BEFORE_SHA])
+                    service.assert_not_called();fence.stop_then_unlock_database.assert_not_called()
+                    self.assertTrue(all(c.args[0][:2]==['systemctl','show'] for c in commands.call_args_list))
+                    for path,(data,info) in untouched.items():
+                        p=base.rooted(f.system,path);now=p.stat()
+                        self.assertEqual(p.read_bytes(),data)
+                        self.assertEqual((now.st_uid,now.st_gid,now.st_mode,now.st_size,now.st_ino,now.st_mtime_ns),(info.st_uid,info.st_gid,info.st_mode,info.st_size,info.st_ino,info.st_mtime_ns))
+
     def test_daily_consumer_keeps_container_entry_and_sibling_import(self):
         prepare.configure_native_chat()
         source=Path(__file__).resolve().parents[2]/'hermes-memory-approval-20261022'
