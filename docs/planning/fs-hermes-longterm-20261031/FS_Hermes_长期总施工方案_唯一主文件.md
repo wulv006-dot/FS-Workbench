@@ -907,7 +907,7 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 | 公共代码归属 | Hermes核心/模型/记忆技能归B；FS接线、会话、前端、存储及publisher归A；共享文件按实际登记单owner，Git及生产发布串行 |
 | 现有FS/Hermes活动版本 | source6987712266dec9100a83b0d4d4dae5ede98ccf13／nav-20261103T144300Z；20existing/767保护/NEW0、5after及其余782完整metadata已总控核收。manifest72468b70ae375d0878d45a78d8dac106eb84ec4dd91dfb577b445ccb06767f04；journal2d3546e8b9819b99ebf8347f28f9a7826d23720ba900005c411a2821ddc986b7；原审批/UNKNOWN保持，0新模型/业务写。阶段2真实最小闭环证据仍为36d7/nav120348 |
 | 新能力已验收范围 | CSV205行/合计70115/尾5行；真实XLSX下载仅Data!B3由20.75改77.25、Notes XML原字节保持；同cid无附件追问合计117.75和Notes!B3=93；刷新后turn POST仍3。生成物为新命名v1/parent null，不冒原文件v2 |
-| 下一步 | couponGrant候选复用原OperationLedger/真实host approval；目标邮箱仅宿主私有，原operation/batch先落账，sync凭原明确单目标结果，async仅原job_id查回，UNKNOWN不重发。1307及单指定账号测试授权已明确，不重复索权；后台账号→Goal及取消派发独立，非发券前置。未来自然周期/压缩/OpenAI/06:10/UI及费用unknown保持 |
+| 下一步 | couponGrant候选补齐readyFalse内的同步intent→实际7binding定稿，再放行首次工具调用；复用原OperationLedger，目标邮箱仅宿主私有，原operation/batch先落账，sync凭明确单目标结果，async仅原job_id查回，UNKNOWN不重发。1307及单指定账号授权已明确，内部装配不重复索权；后台账号→Goal及取消派发独立，非发券前置。未来自然周期/压缩/OpenAI/06:10/UI及费用unknown保持 |
 | 已有生产业务 | 沿原系统、原权限、原调度运行；本次整理未改动 |
 | 本次文件交付 | 最小couponGrant原API/宿主/698发布衔接本地候选及直接回归；候选未上线、未真实发券。阶段1/2已核子项不重测，历史失败与原ID保留 |
 | PR702复用线索 | head `666814c9ae0376fe4f372cf9718508345da45ee0`，merge `30423f91c963228b41fe450f0c7993fa408cf12f`；完整独审与生产验收未在本包确认 |

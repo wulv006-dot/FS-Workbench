@@ -237,7 +237,7 @@ CAMPAIGN_BEFORE = dict(zip(CAMPAIGN_TARGETS,(
 CAPABILITIES_TARGETS.update(CAMPAIGN_TARGETS)
 CAPABILITIES_BASELINE_TARGETS=dict(CAPABILITIES_TARGETS)
 CAPABILITIES_TARGETS['campaign/backend/campaign_backend/coupon_grant.py']='/opt/fs-campaign-dashboard/backend/campaign_backend/coupon_grant.py'
-CAPABILITIES_CHANGED = ('runtime/conversation_user_data.py','campaign/backend/campaign_backend/services.py',*CAPABILITIES_NEW)
+CAPABILITIES_CHANGED = ('runtime/conversation_native.py','runtime/conversation_user_data.py','campaign/backend/campaign_backend/services.py',*CAPABILITIES_NEW)
 NATIVE_ADMISSION_CANDIDATE = 'runtime/conversation_native.py'
 NATIVE_ADMISSION_BEFORE_SHA = '030e36d5cf134fa1ef63c576211a3f1b4f2d9a3135ed44c15a7fd1d403e795c2'
 NATIVE_ADMISSION_AFTER_SHA = '72253b5ffee19cc2d0352c0bb1ee7d67fe801fcb515b3b711466e828a4c1a57a'

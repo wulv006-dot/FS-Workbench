@@ -1844,7 +1844,7 @@ class NativePublisher(unittest.TestCase):
         prepare.configure_native_capabilities()
         self.assertEqual((len(release.TARGETS),len(release.NEW)),(21,1))
         self.assertEqual(release.INSTALLED_COMMIT,'6987712266dec9100a83b0d4d4dae5ede98ccf13')
-        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'runtime/conversation_user_data.py','campaign/backend/campaign_backend/services.py',*release.NEW})
+        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'runtime/conversation_native.py','runtime/conversation_user_data.py','campaign/backend/campaign_backend/services.py',*release.NEW})
         self.assertEqual(release.INSTALLED_PROOF,dict(sourceCommit=release.INSTALLED_COMMIT,
             backup='/var/backups/fs-navigation-20261006/nav-20261103T144300Z',
             manifestSha256='72468b70ae375d0878d45a78d8dac106eb84ec4dd91dfb577b445ccb06767f04',
@@ -2158,7 +2158,7 @@ class NativePublisher(unittest.TestCase):
         self.assertEqual((len(release.TARGETS),len(release.CAPABILITIES_BASELINE_TARGETS)),(21,20))
         self.assertEqual(release.NEW,frozenset({'campaign/backend/campaign_backend/coupon_grant.py'}))
         self.assertEqual(set(release.CAPABILITIES_CHANGED),{
-            'runtime/conversation_user_data.py','campaign/backend/campaign_backend/services.py',*release.NEW})
+            'runtime/conversation_native.py','runtime/conversation_user_data.py','campaign/backend/campaign_backend/services.py',*release.NEW})
         self.assertEqual(release.CAPABILITIES_PREVIOUS_PROOF['sourceCommit'],'36d7d92540d9153e9b1cc764f900990ded17362d')
 
     def campaign_before_bytes(self,name):
@@ -2478,7 +2478,7 @@ class NativePublisher(unittest.TestCase):
                     for row in manifest['files']:
                         if row['candidate'] not in release.CAPABILITIES_CHANGED:
                             path=base.rooted(f.system,row['target']);untouched[row['target']]=(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns)
-                    self.assertEqual(len(untouched),785)
+                    self.assertEqual(len(untouched),784)
                     self.assertEqual({row['candidate'] for row in manifest['files'] if row['beforeSha256'] is None},set(release.NEW))
                 untouched_modes={p:(base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)) for p in untouched}
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)

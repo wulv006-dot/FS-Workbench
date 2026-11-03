@@ -899,6 +899,8 @@ class NativeConversation:
             live = (turn_id, bound['lease'], token)
             with self.service.lock:
                 self.service.live[turn_id] = live
+            from conversation_user_data import prepare_campaign_approval
+            prepare_campaign_approval(self,bound)
             admission['native_chat']['binding'] = bound
             admission.update(run_id=bound['run_id'], ready=True)
             self.write_admission(session_id, admission)

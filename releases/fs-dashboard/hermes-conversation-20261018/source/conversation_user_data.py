@@ -1,5 +1,6 @@
 """Trusted native run -> existing FS users/live consumers. No caller identities in tools."""
 from copy import deepcopy
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 import hashlib
 import json
@@ -9,9 +10,7 @@ import re
 import stat
 import sys
 
-from a2_query_context import QueryContext
 from b2_customer_followup import describe_customer, observe_live_orders, observation_from_a2
-from user_tools import invoke
 
 TEXT={'type':'string'}
 REFERENCE={'snapshot_id':TEXT,'customer_id':TEXT}
@@ -69,15 +68,10 @@ def authorize_campaign(owner,mutation):
 CAMPAIGN_APPROVAL_FILE=Path('/var/lib/fs-campaign-dashboard/backend/native-coupon-approval.json')
 
 
-def campaign_approval(binding,operation_id):
-    """One operator-provisioned user approval, never a model-supplied grant.
-
-    Provision only after the real run binding is known, before its mutation
-    tool call. The existing root-controlled backend directory holds this exact
-    request/expiry/source record; no API, table, wildcard or auto-claim exists.
-    """
+def _read_campaign_approval():
+    """The one root-controlled file; shared by consumption and pre-ready binding."""
     path=CAMPAIGN_APPROVAL_FILE
-    if not path.exists():return None
+    if not path.exists():return None,None
     parents=[]
     for parent in path.parents:
         info=parent.lstat()
@@ -101,7 +95,13 @@ def campaign_approval(binding,operation_id):
         now=parent.lstat()
         if [now.st_dev,now.st_ino,now.st_uid,now.st_gid,now.st_mode]!=identity:
             raise PermissionError('business_authorization_file_changed')
-    value=json.loads(raw)
+    return json.loads(raw),(tuple(getattr(before,k) for k in fields),tuple(tuple(r) for r in parents))
+
+
+def campaign_approval(binding,operation_id):
+    """Consume a finalized user approval, never model-supplied authority."""
+    value,_=_read_campaign_approval()
+    if value is None:return None
     if (type(value) is not dict or type(value.get('binding')) is not dict or set(value['binding'])!=set(binding) or
             any(value['binding'].get(k)!=binding[k] for k in ('owner','conversation_id','session_id')) or
             type(value.get('request')) is not dict or value['request'].get('operation_id')!=operation_id):
@@ -109,6 +109,67 @@ def campaign_approval(binding,operation_id):
     # approval() requires all seven fields for writes; a later authorized turn
     # in this same session may only look up/reconcile the original operation.
     return value
+
+
+@contextmanager
+def _campaign_approval_lock(expected):
+    """Lock the existing approval inode, never create another lock or queue."""
+    import fcntl
+    path=CAMPAIGN_APPROVAL_FILE
+    fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0))
+    try:
+        try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except OSError:raise PermissionError('business_authorization_file_locked') from None
+        info=os.fstat(fd)
+        fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+        if tuple(getattr(info,k) for k in fields)!=expected[0]:
+            raise PermissionError('business_authorization_file_changed')
+        yield
+    finally:os.close(fd)
+
+
+def prepare_campaign_approval(native,binding):
+    """Bind one trusted intent after real run persistence, before worker ready.
+
+    Intent matching is not authorization: only the secure root file supplies
+    the exact request/source/time, and the original consumer checks IAM again.
+    Unrelated or unreadable records never become an ordinary-chat prerequisite.
+    """
+    try:value,expected=_read_campaign_approval()
+    except (OSError,ValueError,PermissionError):return False
+    if type(value) is not dict:return False
+    if 'intent' in value:
+        intent=value['intent']
+        if type(intent) is not dict:return False
+        with native.store.db() as db:
+            native.store._owned(db,binding['owner'],binding['conversation_id'])
+            turn=db.execute('SELECT input_sha256 FROM turns WHERE id=? AND conversation_id=?',
+                (binding['turn_id'],binding['conversation_id'])).fetchone()
+        if turn is None:raise PermissionError('business_authorization_binding')
+        actual={k:binding[k] for k in ('owner','conversation_id','session_id')}
+        actual['input_sha256']=turn['input_sha256']  # Original stored request normalization; never caller hash.
+        if any(intent.get(k)!=v for k,v in actual.items()):return False
+        if set(intent)!=set(actual):raise PermissionError('business_authorization_invalid')
+        final={k:v for k,v in value.items() if k!='intent'};final['binding']=deepcopy(binding)
+        if type(final.get('request')) is not dict or final['request'].get('action')!='coupon_grant':
+            raise PermissionError('business_authorization_mismatch')
+    elif value.get('binding')==binding:final=value
+    else:return False  # A finalized record must never be reassigned to another run.
+    actions=NativeCouponActions(native,None,None,authorize=authorize_campaign,approval_source=lambda *args:final)
+    if type(final.get('request')) is not dict:raise PermissionError('business_authorization_invalid')
+    operation_id=final['request'].get('operation_id')
+    actions.approval(binding,operation_id,write=True)
+    with native.service.lock,_campaign_approval_lock(expected):
+        current,identity=_read_campaign_approval()
+        if identity!=expected or current!=value:raise PermissionError('business_authorization_file_changed')
+        actions.approval(binding,operation_id,write=True)
+        if 'intent' in value:
+            from controller import atomic
+            atomic(CAMPAIGN_APPROVAL_FILE,final,mode=0o600)
+            saved,_=_read_campaign_approval()
+            if saved!=final:raise PermissionError('business_authorization_file_changed')
+        actions.guard(binding,True)
+    return True
 
 
 class NativeCouponActions:
@@ -274,6 +335,7 @@ class NativeUserData:
         return True
 
     def context(self,binding,snapshot_id):
+        from a2_query_context import QueryContext
         self.guard(binding,{'scope':'global','scope_id':''})
         # Read the authoritative frozen query; a model's scope cannot override it.
         public=self.service.query({'snapshot_id':snapshot_id},binding['owner'])
@@ -303,6 +365,10 @@ class NativeUserData:
         self.guard(binding,{'scope':'global','scope_id':''})
         if not isinstance(args,dict):raise ValueError('native_user_tool_fields')
         if name=='fs_query_user_analytics':
+            # The pre-ready approval hook must not initialize analytics on
+            # ordinary native turns; load these original consumers on use.
+            from a2_query_context import QueryContext
+            from user_tools import invoke
             # A narrow frozen snapshot must be created with the same narrow
             # authorizer that will read it later; no global matrices are hidden
             # after having created a global-dependent recipe.
