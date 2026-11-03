@@ -1326,8 +1326,14 @@ def main():
             node(release+"/frontend/test-workspace.cjs")
         elif group=="hermes-conversation":
             release="releases/fs-dashboard/hermes-conversation-20261018"
+            # Class partitions require the complete two-class module, without a loader hook.
+            layout=ast.parse((ROOT/release/"deploy/test_runtime_materials.py").read_text(encoding="utf-8"))
+            if ({n.name for n in ast.walk(layout) if isinstance(n,ast.ClassDef)}!={"NativePublisher","RuntimeMaterials"}
+                    or any(getattr(n,"name",None)=="load_tests" or getattr(n,"id",None)=="load_tests" for n in ast.walk(layout))):
+                raise RuntimeError("hermes_deploy_test_layout_changed_update_groups")
             units(release+"/tests",["test_conversation_store","test_conversation_service","test_worker_admission","test_lazy_evidence"])
-            units(release+"/deploy",["test_http","test_release","test_runtime_materials"])
+            units(release+"/deploy",["test_http","test_release","test_runtime_materials.RuntimeMaterials"])
+            units(release+"/deploy",["test_runtime_materials.NativePublisher"])
             node(release+"/frontend/entry/test_data_handoff.cjs")
         elif group=="hermes-report-repair":
             release="releases/fs-dashboard/hermes-report-repair-20261019"

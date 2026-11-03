@@ -1879,7 +1879,7 @@ class NativePublisher(unittest.TestCase):
                     return SimpleNamespace(**fields)
                 with patch.object(os,'fstat',changed_ctime),self.assertRaisesRegex(ValueError,'native_navigation_proof_changed'):
                     release.capabilities_navigation_overlay(base,root,metadata)
-                for index in range(6):
+                for index in range(len(release.CAPABILITIES_NAVIGATION_PROOFS)):
                     record=f.records[index];mp,jp=record['paths']
                     raw=mp.read_bytes();mp.write_bytes(raw+b' ')
                     with self.assertRaises(ValueError):release.capabilities_navigation_overlay(base,root,metadata)
@@ -1896,6 +1896,11 @@ class NativePublisher(unittest.TestCase):
                         bad=deepcopy(record['manifest']);bad['files'][0][field]=value;f.save(index,manifest=bad)
                         with self.subTest(index=index,field=field),self.assertRaises(ValueError):release.capabilities_navigation_overlay(base,root,metadata)
                         f.save(index)
+                last=len(f.records)-1;extra=deepcopy(f.records[last]['manifest'])
+                extra['files'].append(dict(candidate='unimported-range.py',target=release.CAPABILITIES_NAVIGATION_TARGETS['range'],beforeSha256='b'*64,sha256='c'*64))
+                f.save(last,manifest=extra)
+                self.assertEqual(release.capabilities_navigation_overlay(base,root,metadata),expected)
+                f.save(last)
                 mp=f.records[0]['paths'][0]
                 for values in ((9876,0,0o600),(0,0,0o644)):
                     owners[mp]=values
@@ -1940,7 +1945,7 @@ class NativePublisher(unittest.TestCase):
             j.update(manifest=m,approvedManifestSha256=mh)
             raw=json.dumps(j).encode();record['paths'][1].write_bytes(raw)
             rid,_,_,scope,changes=proofs[index];proofs[index]=(rid,mh,prepare.digest(raw),scope,changes)
-        for index in range(6):save(index)
+        for index in range(len(proofs)):save(index)
         if materialize:
             for target,body in bodies.items():
                 p=base.rooted(root,target);p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(body)
@@ -2042,7 +2047,9 @@ class NativePublisher(unittest.TestCase):
             for alias,(_,before,_) in changes.items():first.setdefault(alias,before)
         protected=[dict(path=p,sha256=first[a],owner='0:0',mode='0o600' if p==release.NGINX else '0o644')
                    for a,p in release.CAPABILITIES_NAVIGATION_TARGETS.items()]
-        protected += [dict(path='/opt/static/'+str(i),sha256='a'*64,owner='0:0',mode='0o644') for i in range(761)]
+        for p,body in zip(self.shared_update_paths(),(b'old reviewed skill',b'{"old":"ledger"}\n',b'')):
+            protected.append(dict(path=p,sha256=prepare.digest(body),owner='0:0',mode='0o644'))
+        protected += [dict(path='/opt/static/'+str(i),sha256='a'*64,owner='0:0',mode='0o644') for i in range(758)]
         manifest=dict(sourceCommit=source,scope=release.SCOPE,nativeCapabilities=True,nativeArchive=True,
                       nativeStaticBaseline=release.CAPABILITIES_STATIC_PROOF,files=rows,unchangedRequired=protected)
         git=dict(source_commit=source,files={r['candidate']:r['sha256'] for r in rows})
@@ -2053,13 +2060,14 @@ class NativePublisher(unittest.TestCase):
                 raw=json.dumps(m).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
                 journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=m,approvedManifestSha256=proof['manifestSha256'],files=[dict(r,intent=True,written=True) for r in m['files']])
                 journal.update(changes);raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
-            with self.native_metadata(owners,kinds,root=root),self.capabilities_nginx_fixture(root,base) as historical,patch.object(release,'INSTALLED_PROOF',proof),self.capabilities_navigation_fixture(root,base,{r['path']:r for r in protected},owners) as navigation:
+            with self.native_metadata(owners,kinds,root=root),self.capabilities_nginx_fixture(root,base) as historical,patch.object(release,'INSTALLED_PROOF',proof),self.capabilities_navigation_fixture(root,base,{r['path']:r for r in protected},owners) as navigation,self.shared_update_fixture(root,base,owners) as shared:
                 save(manifest)
                 for path in historical.backup.iterdir():owners[path]=(0,0,0o600)
                 for path in backup.iterdir():owners[path]=(0,0,0o600)
                 result=release.installed_baseline(root,git)
                 expected={r['target']:r['sha256'] for r in rows};expected.update({r['path']:r['sha256'] for r in protected})
                 expected.update({p:r['sha256'] for p,r in navigation.after.items()})
+                expected.update({p:r['sha256'] for p,r in shared.after.items()})
                 self.assertEqual(result['archive_all_hashes'],expected)
                 self.assertEqual(len(release.ARCHIVE_PROTECTED),767)
                 self.assertTrue(historical.backup.is_dir())
@@ -2082,6 +2090,88 @@ class NativePublisher(unittest.TestCase):
 
     def test_native_capabilities_original_apply_rollback(self):
         self._archive_apply_contract(capabilities=True)
+
+    @staticmethod
+    def shared_update_paths():
+        home='/var/lib/fs-hermes-fc/profile/skills/'
+        return (home+'data-storytelling/SKILL.md',home+'.curator_ledger.jsonl',
+                home+'.locks/3a5f084db662a96c0e0055faa20055fa4a350a328b9f2223388f96b31af2fe9a.lock')
+
+    @contextmanager
+    def shared_update_fixture(self,root,base,owners):
+        skill,ledger,lock=(base.rooted(root,p) for p in self.shared_update_paths())
+        for p,raw in ((skill,b'old reviewed skill'),(ledger,b'{"old":"ledger"}\n'),(lock,b'')):
+            p.parent.mkdir(parents=True,exist_ok=True)
+            if not p.exists():p.write_bytes(raw)
+            owners[p]=(0,0,0o644)
+        before={name:dict(path=name,sha256=base.digest(p),owner='0:0',mode='0o644') for name,p in zip(self.shared_update_paths(),(skill,ledger,lock))}
+        prefix=ledger.read_bytes();new_skill=b'new independently reviewed skill'
+        proof=dict(candidate_id='skill:6e5464d7',target_sha='e'*64,after_sha='a'*64,package_sha='b'*64,
+                   skill_before=before[self.shared_update_paths()[0]]['sha256'],skill_after=prepare.digest(new_skill),
+                   ledger_before=prepare.digest(prefix),ledger_prefix_bytes=len(prefix),ledger_last_id='15b63d181884')
+        record=dict(id='6e5464d7',payload=dict(action='patch',name='data-storytelling',old_string='old',new_string='new'))
+        canonical=lambda x:json.dumps(x,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()
+        proof['expected_sha']=prepare.digest(canonical(record))
+        decision=dict(id=proof['candidate_id'],decision='approve',expected_sha=proof['expected_sha'],target_sha=proof['target_sha'],reason='Synthetic external review',evidence='Synthetic complete package')
+        proof['request_id']=prepare.digest(canonical(decision))
+        old_entry=dict(path='SKILL.md',kind='file',sha256=proof['skill_before'],uid=0,gid=0,mode=0o644)
+        new_entry=dict(old_entry,sha256=proof['skill_after'])
+        receipt=dict(request_id=proof['request_id'],reviewer='Codex',status='completed',decision=decision,
+            candidate=dict(id=proof['candidate_id'],record=record,sha256=proof['expected_sha'],target_sha256=proof['target_sha']),
+            backup=dict(sha256=proof['target_sha'],snapshots=[dict(path='data-storytelling',entries=[old_entry])]),
+            result=dict(success=True,applied=True,after_sha256=proof['after_sha'],packages=[dict(path='data-storytelling',sha256=proof['package_sha'],entries=[new_entry])]))
+        last=dict(id=proof['ledger_last_id'],skill='data-storytelling',action='patch',actor='agent',
+                  before=[dict(path='/profile/skills/data-storytelling/SKILL.md',sha256=proof['skill_before'])],
+                  after=[dict(path='/profile/skills/data-storytelling/SKILL.md',sha256=proof['skill_after'])])
+        ledger_bytes=prefix+json.dumps(dict(action='write_file',skill='data-storytelling')).encode()+b'\n'+json.dumps(last).encode()+b'\n'
+        proof.update(ledger_after=prepare.digest(ledger_bytes),ledger_bytes=len(ledger_bytes))
+        receipt_path=base.rooted(root,'/var/lib/fs-hermes-memory-approval/'+proof['request_id']+'.json');receipt_path.parent.mkdir(parents=True,exist_ok=True)
+        owners[receipt_path]=(0,0,0o600)
+        def save(value=receipt):
+            raw=json.dumps(value).encode();receipt_path.write_bytes(raw);proof['receipt_sha']=prepare.digest(raw)
+        save();skill.write_bytes(new_skill);ledger.write_bytes(ledger_bytes);owners[lock]=(9876,9876,0o644)
+        for name,identity in (('/var/lib/fs-hermes-fc',(0,9876,0o750)),('/var/lib/fs-hermes-fc/profile',(9876,9876,0o700)),
+                              ('/var/lib/fs-hermes-fc/profile/skills',(9876,9876,0o755)),('/var/lib/fs-hermes-fc/profile/skills/.locks',(9876,9876,0o755))):
+            owners[base.rooted(root,name)]=identity
+        after={p:dict(v) for p,v in before.items()}
+        after[self.shared_update_paths()[0]]['sha256']=proof['skill_after']
+        after[self.shared_update_paths()[1]]['sha256']=proof['ledger_after']
+        after[self.shared_update_paths()[2]]['owner']='9876:9876'
+        with patch.object(release,'CAPABILITIES_SHARED_PROOF',proof,create=True):
+            yield SimpleNamespace(proof=proof,before=before,after=after,skill=skill,ledger=ledger,lock=lock,receipt=receipt,receipt_path=receipt_path,save=save)
+
+    def test_native_capabilities_shared_approved_update_is_exact_and_readonly(self):
+        self.assertTrue(callable(getattr(release,'capabilities_shared_overlay',None)))
+        prepare.configure_native_capabilities();base=release.frozen()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owners={};kinds={}
+            with self.native_metadata(owners,kinds,root=root),self.shared_update_fixture(root,base,owners) as f:
+                original=deepcopy(f.before)
+                self.assertEqual(release.capabilities_shared_overlay(base,root,f.before),f.after)
+                self.assertEqual(f.before,original)
+                f.receipt_path.write_bytes(f.receipt_path.read_bytes()+b' ')
+                with self.assertRaisesRegex(ValueError,'native_shared_review_drift'):release.capabilities_shared_overlay(base,root,f.before)
+                f.save()
+                for field,value in (('status','applying'),('reviewer','Hermes'),('request_id','0'*64)):
+                    bad=deepcopy(f.receipt);bad[field]=value;f.save(bad)
+                    with self.subTest(field=field),self.assertRaises(ValueError):release.capabilities_shared_overlay(base,root,f.before)
+                for change in (lambda x:x['decision'].update(reason='different canonical'),lambda x:x['result'].update(applied=False),
+                               lambda x:x['result']['packages'][0]['entries'][0].update(sha256='0'*64)):
+                    bad=deepcopy(f.receipt);change(bad);f.save(bad)
+                    with self.assertRaises(ValueError):release.capabilities_shared_overlay(base,root,f.before)
+                f.save();raw=f.ledger.read_bytes()
+                saved_ledger_sha=f.proof['ledger_after']
+                for body in (b'x'+raw[1:],raw.replace(b'15b63d181884',b'15b63d181885')):
+                    f.ledger.write_bytes(body)
+                    f.proof['ledger_after']=prepare.digest(body)
+                    with self.assertRaises(ValueError):release.capabilities_shared_overlay(base,root,f.before)
+                f.ledger.write_bytes(raw);f.proof['ledger_after']=saved_ledger_sha
+                owners[f.lock]=(0,0,0o644)
+                with self.assertRaises(ValueError):release.capabilities_shared_overlay(base,root,f.before)
+                owners[f.lock]=(9876,9876,0o644);f.lock.write_bytes(b'x')
+                with self.assertRaises(ValueError):release.capabilities_shared_overlay(base,root,f.before)
+                f.lock.write_bytes(b'')
+                with patch.object(release,'NATIVE_CAPABILITIES_MODE',False),self.assertRaises(ValueError):release.capabilities_shared_overlay(base,root,f.before)
 
     def test_native_capabilities_static_overlay_requires_exact_success(self):
         base=release.frozen();html='/var/www/dashboard/fs-home/hermes/conversation/index.html'
@@ -2170,6 +2260,9 @@ class NativePublisher(unittest.TestCase):
                         if target in oldmap or target in live_targets or any(r['path']==target for r in keep):continue
                         path=base.rooted(f.system,target);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'original shared static')
                         f.owners[path]=(0,0,0o644);keep.append(dict(path=target,sha256=base.digest(path)))
+                    for target,body in zip(self.shared_update_paths(),(b'old reviewed skill',b'{"old":"ledger"}\n',b'')):
+                        path=base.rooted(f.system,target);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(body)
+                        f.owners[path]=(0,0,0o644);keep.append(dict(path=target,sha256=base.digest(path)))
                 while len(keep)<743:
                     p='/opt/live-protected/file'+str(len(keep))+'.py';target=base.rooted(f.system,p);target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(b'live protected')
                     keep.append(dict(path=p,sha256=base.digest(target)))
@@ -2228,6 +2321,8 @@ class NativePublisher(unittest.TestCase):
                         {p:metadata(p) for p in current},f.owners,materialize=True))
                     current.update({p:r['sha256'] for p,r in navigation.after.items()})
                     advanced_nginx=nginx.read_bytes()
+                    shared=proof_stack.enter_context(self.shared_update_fixture(f.system,base,f.owners))
+                    current.update({p:r['sha256'] for p,r in shared.after.items()})
                     with patch.object(store_module,'SYNTHETIC_ARCHIVE',pins):archived_before=store.archive_synthetic_unknown(owner)
                     prepare.configure_native_capabilities()
                     # frozen() captures NEW at construction; this reused fixture
@@ -2288,6 +2383,7 @@ class NativePublisher(unittest.TestCase):
                     module.CAPABILITIES_STORE_BEFORE_SHA=compat_store_sha;module.CAPABILITIES_STATIC_PROOF=static_proof
                     module.CAPABILITIES_NGINX_PROOF=nginx_proof.proof
                     module.CAPABILITIES_NAVIGATION_PROOFS=navigation.proofs
+                    module.CAPABILITIES_SHARED_PROOF=shared.proof
                 module.ARCHIVE_FC_PROOF=fc_proof;module.ARCHIVE_FC_FILES=fc_files
                 base.hermes_quiescent=Mock();base.retirement=Mock();base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
                 fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock());base.hermes_admission_fence=lambda *a:nullcontext(fence)
@@ -2309,6 +2405,12 @@ class NativePublisher(unittest.TestCase):
                         # The deliberate drift/restore above changes mtime;
                         # measure non-writing apply/rollback from this point.
                         untouched[release.NGINX]=(nginx.read_bytes(),nginx.stat().st_ino,nginx.stat().st_mtime_ns)
+                        for protected_path in self.shared_update_paths():
+                            path=base.rooted(f.system,protected_path);saved=path.read_bytes();path.write_bytes(saved+b'x')
+                            with self.assertRaises(ValueError):publisher.inspect(manifest,stage,f.system)
+                            rejected_raw=(stage/'approved-manifest.json').read_bytes()
+                            with self.assertRaises(ValueError):publisher.apply(manifest,stage,prepare.digest(rejected_raw),rejected_raw,'nav-20261103T000000Z',f.system)
+                            path.write_bytes(saved);untouched[protected_path]=(saved,path.stat().st_ino,path.stat().st_mtime_ns)
                     usage_row=next(r for r in manifest['unchangedRequired'] if r['path']==usage_path)
                     self.assertEqual((usage_row['sha256'],usage_row['owner'],usage_row['mode']),
                                      (base.digest(usage),'0:0','0o600'))
