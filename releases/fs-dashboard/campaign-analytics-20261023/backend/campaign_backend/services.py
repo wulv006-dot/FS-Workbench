@@ -72,10 +72,11 @@ class BackendServices:
                 reader.close()
         return ledger.record_compensation(reference, raw, approved, validate)
 
-    def handle(self, request, reader_factory):
+    def handle(self, request, reader_factory, *, grant_authorize=None):
         allowed = {'action', 'site_id', 'kind', 'native_id', 'operation_id', 'before_hash', 'changes', 'enabled',
                    'from', 'to', 'activity_id', 'restore_of'}
         if request.get('action') == 'coupon_candidates':allowed |= {'page','limit'}
+        if request.get('action') == 'coupon_grant':allowed |= {'email','grant_batch_no'}
         if set(request) - allowed:
             raise ContractError('REQUEST_FIELDS_NOT_ALLOWED')
         site_id = positive_id(request.get('site_id'))
@@ -102,10 +103,18 @@ class BackendServices:
                 return reader.coupons_page(site_id,page=request.get('page',1),limit=request.get('limit',100))
             if action == 'benefit_detail':
                 return benefits.detail(reader, self.policy, request.get('kind'), request.get('native_id'), site_id)
-            if action in ('benefit_edit', 'benefit_toggle', 'benefit_restore', 'operation_reconcile'):
+            if action in ('benefit_edit', 'benefit_toggle', 'benefit_restore', 'operation_reconcile','coupon_grant'):
                 self._directory()
                 ledger = OperationLedger(self.state_dir / 'operations.sqlite3')
+                if action=='coupon_grant':
+                    from .coupon_grant import execute
+                    return execute(reader,ledger,request,authorize=grant_authorize)
                 if action == 'operation_reconcile':
+                    payload=ledger.request_payload(request.get('operation_id'))
+                    if payload.get('action')=='coupon_grant':
+                        from .coupon_grant import CouponGrant
+                        if payload.get('site_id')!=site_id:raise ContractError('OPERATION_SCOPE_MISMATCH')
+                        return ledger.reconcile(request['operation_id'],CouponGrant(reader,ledger))
                     return benefits.operation(ledger, reader, site_id, request.get('operation_id'), True)
                 return benefits.mutate(reader, ledger, self.policy, request)
             if action == 'analysis_reconcile':

@@ -52,7 +52,12 @@ class NativeCouponTests(unittest.TestCase):
                 data={'list':[deepcopy(test.row)],'total':1} if route.endswith('/index') else {'row':deepcopy(test.row)}
                 return 200,{'code':1,'data':data}
             def post(self,url,**kwargs):
-                test.posts.append((url,kwargs));test.row.update(kwargs['json'])
+                test.posts.append((url,kwargs))
+                if url.endswith('/market.CouponGrant/import'):
+                    payload=dict(code=1,data=dict(mode='sync',success=1,rows=[dict(
+                        email=kwargs['json']['emails'],status='opaque-native-status',member_id=321,member_coupon_id=456)]))
+                    return type('Response',(),{'status_code':200,'content':json.dumps(payload).encode()})()
+                test.row.update(kwargs['json'])
                 if test.timeout:raise TimeoutError('synthetic unknown')
                 return type('Response',(),{'status_code':200,'content':b'{"code":1,"msg":"ok"}'})()
             def close(self):pass
@@ -71,6 +76,57 @@ class NativeCouponTests(unittest.TestCase):
         self.approval=dict(binding=deepcopy(self.binding),request=request,
             valid_from=(self.now-timedelta(minutes=1)).isoformat(),valid_until=(self.now+timedelta(minutes=1)).isoformat(),authority_ref='synthetic-external-approval')
         return dict(native_id='123',operation_id=request['operation_id'],before_hash=request['before_hash'],brief=request['changes']['brief'])
+
+    def issuance(self):
+        from campaign_backend.benefits import row_hash
+        request=dict(action='coupon_grant',site_id='266',kind='coupon',native_id='123',
+            operation_id='synthetic-issuance-operation',before_hash=row_hash(self.row),
+            grant_batch_no='synthetic-reviewed-batch',email='one@example.test')
+        self.approval=dict(binding=deepcopy(self.binding),request=request,
+            valid_from=(self.now-timedelta(minutes=1)).isoformat(),valid_until=(self.now+timedelta(minutes=1)).isoformat(),
+            authority_ref='synthetic-real-user-source-reference')
+        return {'operation_id':request['operation_id']}
+
+    def test_grant_uses_private_exact_approval_and_original_ledger_once(self):
+        import conversation_user_data as module
+        self.assertIn('fs_grant_coupon',module.COUPON_TOOLS,'normal native lacks reviewed grant consumer')
+        self.row['status']=1  # Actual grant selector is fetch_scene, not the brief editor gate.
+        args=self.issuance();approved=deepcopy(self.approval);self.approval=None
+        with self.assertRaisesRegex(PermissionError,'business_authorization_required'):self.call('fs_grant_coupon',args)
+        self.assertEqual(self.posts,[]);self.approval=approved
+        result=self.call('fs_grant_coupon',args)
+        self.assertTrue(result['business_confirmed']);self.assertEqual(self.call('fs_grant_coupon',args),result)
+        self.assertTrue(self.call('fs_coupon_operation',args)['business_confirmed'])
+        self.assertEqual(len(self.posts),1)
+        output=json.dumps(result)
+        for private in ('one@example.test','member-coupon:456','member_id','member_coupon_id'):
+            self.assertNotIn(private,output)
+
+    def test_grant_rejects_model_recipient_and_wrong_binding_or_expired_authority(self):
+        import conversation_user_data as module
+        self.assertIn('fs_grant_coupon',module.COUPON_TOOLS,'normal native lacks reviewed grant consumer')
+        args=self.issuance();approved=deepcopy(self.approval)
+        for change in ({'email':'other@example.test'},{'actor':'other'},{'native_id':'124'},
+                       {'grant_batch_no':'another'},{'approved':True}):
+            with self.subTest(fields=list(change)),self.assertRaises(ValueError):self.call('fs_grant_coupon',dict(args,**change))
+        for key in self.binding:
+            self.approval=deepcopy(approved);self.approval['binding'][key]='wrong'
+            with self.subTest(binding=key),self.assertRaises(PermissionError):self.call('fs_grant_coupon',args)
+        self.approval=deepcopy(approved);self.approval['valid_until']=self.now.isoformat()
+        with self.assertRaises(PermissionError):self.call('fs_grant_coupon',args)
+        self.approval=approved;self.iam['bindings']['operator']['roles']=['Viewer'];self.policy_path.write_text(json.dumps(self.iam))
+        with self.assertRaises(PermissionError):self.call('fs_grant_coupon',args)
+        self.assertEqual(self.posts,[])
+
+    def test_grant_expiring_during_template_read_cannot_post(self):
+        args=self.issuance();calls=[]
+        def clock():
+            calls.append(True)
+            return self.now if len(calls)<=3 else self.now+timedelta(minutes=2)
+        self.data.campaign.clock=clock
+        result=self.call('fs_grant_coupon',args)
+        self.assertEqual((result['state'],result['dispatch_state']),('rejected','not_started'))
+        self.assertFalse(result['business_confirmed']);self.assertEqual(self.posts,[])
 
     def test_real_host_IAM_service_and_ledger_require_exact_external_approval(self):
         page=self.call('fs_coupon_candidates',{'page':1,'limit':1})
@@ -258,10 +314,16 @@ class NativeCouponTests(unittest.TestCase):
         args=self.grant();self.assertTrue(call('fs_edit_coupon_brief',args)['business_confirmed'])
         self.assertTrue(call('fs_coupon_operation',{'operation_id':args['operation_id']})['business_confirmed'])
         self.assertEqual(len(self.posts),1);self.assertIn('fs.native.user_data',wire)
+        # Same real worker Request -> Grants/Proxy -> scope -> host -> IAM ->
+        # backend/SQLite; only the final Admin endpoint is synthetic.
+        grant_args=self.issuance();receipt=call('fs_grant_coupon',grant_args)
+        self.assertTrue(receipt['business_confirmed'])
+        self.assertEqual(call('fs_grant_coupon',grant_args),receipt)
+        self.assertEqual(len(self.posts),2);self.assertNotIn('one@example.test',json.dumps(receipt))
         with self.assertRaises(PermissionError):
             worker['call_tool']('fs.native.user_data',dict(binding=dict(self.binding,lease='d'*32),name='fs_coupon_detail',arguments={'native_id':'123'}),session_id=sid)
         with patch.dict(sys.modules,{'proxy_gateway':proxy_module}),self.assertRaises(PermissionError):
             proxy.dispatch('POST','/fc/tools/call',grants.mint('other',self.binding['turn_id'],self.binding['lease']),dict(name='fs.native.check',arguments={'binding':self.binding}))
         path.write_text(json.dumps(dict(item,ready=False)))
         with self.assertRaises(PermissionError):call('fs_coupon_detail',{'native_id':'123'})
-        self.assertEqual(len(self.posts),1)
+        self.assertEqual(len(self.posts),2)

@@ -50,6 +50,8 @@ COUPON_TOOLS={
     'fs_coupon_detail':('Read one project coupon metadata/hash and original brief-edit eligibility. No coupon code or brief body; no business write.',{'native_id':TEXT},['native_id']),
     'fs_edit_coupon_brief':('Change only an existing disabled, unused project coupon brief through the original executor. Requires exact external business approval bound by the host to this run, operation ID, object, before hash, text and time. Model approval or admin access is insufficient. Preserve original ID on unknown; tool/Goal completion is not business confirmation.',
         {key:TEXT for key in ('native_id','operation_id','before_hash','brief')},['native_id','operation_id','before_hash','brief']),
+    'fs_grant_coupon':('Send at most one reviewed template coupon to the one privately approved recipient. Host approval fixes this run, site/template, original batch and operation ID, recipient and expiry; none come from model identity claims. Pending/unknown: use fs_coupon_operation with the same operation_id, never send again or create a replacement ID. Business success requires the original single-recipient result, not tool/Goal completion.',
+        {'operation_id':TEXT},['operation_id']),
     'fs_coupon_operation':('Look up the same externally approved original coupon operation. reconcile uses only the original executor readback/fence, never another mutation POST.',
         {'operation_id':TEXT,'reconcile':{'type':'boolean'}},['operation_id']),
 }
@@ -110,7 +112,7 @@ def campaign_approval(binding,operation_id):
 
 
 class NativeCouponActions:
-    """A narrow adapter to the original writer; no approval producer or new ledger."""
+    """Original writer/ledger, with the existing private host approval source."""
     def __init__(self,native,backend,reader_factory,*,authorize,approval_source=None,clock=None):
         self.native,self.backend,self.reader_factory=native,backend,reader_factory
         self.authorize,self.approval_source=authorize,approval_source
@@ -133,12 +135,15 @@ class NativeCouponActions:
             raise PermissionError('native_campaign_access_denied')
 
     def handle(self,binding,request):
-        mutation=request['action'] in ('benefit_edit','operation_reconcile')
+        mutation=request['action'] in ('benefit_edit','coupon_grant','operation_reconcile')
         self.guard(binding,mutation)
         def reader():
             self.guard(binding,mutation)
             return self.reader_factory()
-        result=self.backend.handle(request,reader)
+        trusted={}
+        if request['action']=='coupon_grant':
+            trusted['grant_authorize']=lambda payload:self.approval(binding,request['operation_id'],write=True)==payload
+        result=self.backend.handle(request,reader,**trusted)
         self.guard(binding,mutation)
         return result
 
@@ -151,10 +156,16 @@ class NativeCouponActions:
             raise PermissionError('business_authorization_invalid')
         old=record['binding'];request=record['request']
         if (type(old) is not dict or (old!=binding if write else any(old.get(k)!=binding[k] for k in ('owner','conversation_id','session_id')))
-                or type(request) is not dict or set(request)!={'action','site_id','kind','native_id','operation_id','before_hash','changes'}
-                or request['operation_id']!=operation_id or request['action']!='benefit_edit' or request['site_id']!='266' or request['kind']!='coupon'
-                or type(request['changes']) is not dict or set(request['changes'])!={'brief'}
+                or type(request) is not dict or request.get('operation_id')!=operation_id
                 or type(record['authority_ref']) is not str or not record['authority_ref']):
+            raise PermissionError('business_authorization_mismatch')
+        if request.get('action')=='coupon_grant':
+            from campaign_backend.coupon_grant import validate
+            try:validate(request)
+            except ValueError:raise PermissionError('business_authorization_mismatch') from None
+        elif (set(request)!={'action','site_id','kind','native_id','operation_id','before_hash','changes'} or
+                request['action']!='benefit_edit' or request['site_id']!='266' or request['kind']!='coupon' or
+                type(request['changes']) is not dict or set(request['changes'])!={'brief'}):
             raise PermissionError('business_authorization_mismatch')
         try:
             start=datetime.fromisoformat(record['valid_from'].replace('Z','+00:00'))
@@ -165,13 +176,18 @@ class NativeCouponActions:
         return request
 
     @staticmethod
-    def receipt(value):
+    def receipt(value,*,grant=False):
         # The original ledger/coupon adapter owns success audit and full native
         # readback. Keep its operation identity; no synthetic Goal success receipt.
         out={k:value[k] for k in ('operation_id','state','dispatched','payload_hash','dispatch_state','created_at','updated_at',
             'object_busy','requested_operation_id','recovery_operation_id','recovery_operation_ids') if k in value}
         result=value.get('result') or {}
         out['result']={k:result[k] for k in ('state','reason_code','upstream_ref','dispatch_state') if k in result}
+        if grant:
+            # Native job/member-coupon IDs stay in the private original ledger.
+            # The operation ID suffices for every authorized status/reconcile call.
+            out['result'].pop('upstream_ref',None)
+            out['business_progress']='pending' if result.get('reason_code') in ('GRANT_TASK_PENDING','GRANT_PENDING_REGISTER') else value['state']
         out['business_confirmed']=value['state']=='confirmed'
         return out
 
@@ -193,9 +209,13 @@ class NativeCouponActions:
             return dict(native_id=view['native_id'],before_hash=view['before_hash'],
                 fields={k:fields[k] for k in ('site_id','game_id','goods_id','status','fetch_qty','used_qty')},
                 brief_sha256=hashlib.sha256(brief.encode()).hexdigest(),brief_chars=len(brief),editability=view['editability'])
-        request=self.approval(binding,args['operation_id'],write=name=='fs_edit_coupon_brief')
+        request=self.approval(binding,args['operation_id'],write=name in ('fs_edit_coupon_brief','fs_grant_coupon'))
         if name=='fs_coupon_operation':
-            return self.receipt(self.handle(binding,dict(action='operation_reconcile' if args.get('reconcile') else 'operation_lookup',site_id='266',operation_id=args['operation_id'])))
+            return self.receipt(self.handle(binding,dict(action='operation_reconcile' if args.get('reconcile') else 'operation_lookup',site_id='266',operation_id=args['operation_id'])),grant=request['action']=='coupon_grant')
+        if name=='fs_grant_coupon':
+            if request['action']!='coupon_grant' or self.approval(binding,args['operation_id'],write=True)!=request:
+                raise PermissionError('business_authorization_mismatch')
+            return self.receipt(self.handle(binding,request),grant=True)
         actual=dict(fixed,action='benefit_edit',native_id=args['native_id'],operation_id=args['operation_id'],
                     before_hash=args['before_hash'],changes={'brief':args['brief']})
         if actual!=request:raise PermissionError('business_authorization_mismatch')

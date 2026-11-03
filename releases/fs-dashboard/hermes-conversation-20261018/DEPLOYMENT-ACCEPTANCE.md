@@ -1047,3 +1047,15 @@ bd9/nav052236已真实安装，manifest4a6c58744029e3251d5ebf926a9161d977cf8bd24
 本地直接验证包含真实单页请求次数/路径参数、worker Request→Grants/Proxy→host→原IAM→真实BackendServices/临时OperationLedger（只替最终Admin边界）、缺批准/撤权/错绑定/对象/原ID与UNKNOWN、默认文件producer真实接入和详情读取期间过期仍拒写，以及真实临时FS prepare→inspect→apply和campaign/worker/range/readiness失败回退；782项bytes/owner/mode/inode/mtime保持。Windows身份/服务为明确fixture，不冒Linux现场权限或真实业务验收。本轮0新增模型/业务写，最终merge后才沿原publisher串行安装；对象情况以以下实际核对为准，不因本地批准fixture宣称生产可写。
 
 用户随后指定1307／TESTGPT及上述41字brief说明测试；实际来源为总控原用户消息 `40f534b7-c79b-4388-a653-a0d356ea294d` 与 `1d4b8f0d-1e2d-47ed-810e-c8052d23bc01`，不把总控当批准人。原owned浏览器沿真实FS登录、现有benefit_detail唯一读取1307：HTTP200/site266/title恰TESTGPT、status1/fetch0/used0、game/goods0、brief为空；before_hash `67aed0bb844b6d4d7c350e0505ed48e02b24981a44b6da3fb476812069d5fc70`。原allowed_changes为空，原因FULL_PRESERVE_EDIT_NOT_VERIFIED/NATIVE_WRITE_PROOFS_REQUIRED/PROJECT_OBJECT_NOT_VERIFIED。不满足现行status0及对象证明，故未生成生产授权配置、未改状态/政策/换券、0mutation/0model，自建session已关闭。此明确条件缺口独立于软件候选；不再用list寻找其它对象促通。
+
+## 2026-11-03：698正式安装与原API单目标发券候选
+
+总控已核 source `6987712266dec9100a83b0d4d4dae5ede98ccf13`／`nav-20261103T144300Z` 的20件收据：`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Native-Coupon-Deploy-20261103T144300Z/final/index.json`（3107B／SHA256 `69f984bc9357d5f74d3a86347ce09189b6e319dbda16912382da969ff1224466`）。manifest `72468b70ae375d0878d45a78d8dac106eb84ec4dd91dfb577b445ccb06767f04`／journal `2d3546e8b9819b99ebf8347f28f9a7826d23720ba900005c411a2821ddc986b7`；20existing/767保护、5after及其余782完整metadata核收，原服务/readiness通过。软件安装不代表业务配置/发放成功，0新增模型/业务写。
+
+用户随后明确指定测试账号及1307／TESTGPT最多1张1次，入口为Admin优惠券定向发放的**手填邮箱**。本轮用户自行登录后，仅沿当前公开模块 `index-d2ab3e4b.js`（10779B／SHA256 `31b64d68980593849934db9da3727f72e515faef0b961ca2c4e2f9366565e13c`）和真实原API helper只读核对：site266 exact init选择1307返回唯一TESTGPT，原GET详情code1、fetch_scene4/status1/fetch0/used0。没有发送、改模板、账号历史查询或凭据导出；自建session已关闭。旧brief编辑的disabled/unused及独立proof限制不机械套到发放。
+
+本地候选仅把原 `POST /admin/market.CouponGrant/import` 的 `{site_id,coupon_id,grant_batch_no,emails}` 接入原OperationLedger及现有root受控批准文件。单收件邮箱、模板hash、批次、原operation、有效期与真实7字段run由宿主批准记录固定，模型仅给operation_id，不接actor/邮箱/approved/任意URL。原调用前落私有账本且最后一次GET后复核批准/权限，超时或不明沿原ID查回，不换批次或再POST。没有上游幂等字段就不自造；suggestBatchNo不是状态查询或防重发证明。
+
+sync不要求job_id或响应回显未定义的site/template；原明确成功码＋success1＋唯一匹配目标已发券row才确认，响应的可选统计缺失不补0、不单独阻断，矛盾/错目标/批次/缺少关键结果仍unknown。row.status的真实枚举未获生产返回证据，不从合成值发明语义；not_found/pending_register/skipped_limit/failed区别于成功。async先保存真实job_id，仅原jobStatus GET对账，pending不冒confirmed，丢ID不猜批次查询。模型仅见原operation和脱敏状态，不见邮箱/member ID/领取记录ID；不复制前端带batoken的报告URL。
+
+候选发布仍沿原native-capabilities followup与冻结writer，从上述已成功698的20项基线衔接：新增一个原package内grant模块，20existing＋NEW1／767保护，实际两个既有delta（user_data/services）＋新模块，其他785只CAS不写。36d7及3c45、旧native/Nginx/导航/审批/ledger/单锁历史校验完整保留，在各自metadata上核连续链，不对现役值重复赋旧before。原campaign＋worker/range一致重载、失败先恢复代码及移除本次NEW模块再恢复服务；usagefresh、原UNKNOWN/tombstone/审批/policy/账本不写，不动Nginx/unit/timer/FC。OS/服务与最终Admin为明确夹具；本地绿不冒线上发券。阶段2/3本次约定验收后先用户系统总验收与修复优化，不自动进入阶段4—6；后台账号→Goal及取消派发独立未验，不作本发券前置。
