@@ -540,7 +540,7 @@ def make_adapter(api_key):
             import model_tools
             from run_agent import AIAgent
             from hermes_cli.tools_config import _get_platform_tools
-            from conversation_native import (NativeDockerBackend, install_native_backend_guards, canonical)
+            from conversation_native import (NativeDockerBackend, install_native_backend_guards, canonical, validate_native_profile)
             install_native_backend_guards()
             fixed = item['native_chat']['binding']
             def active():
@@ -552,8 +552,10 @@ def make_adapter(api_key):
                 return checked.get('authorized') is True
             backend = NativeDockerBackend(item, active)
             with backend.scope():
+                config = validate_native_profile(hermes_config.load_config(),backend.profile)
                 backend.ensure_environment()
-                config = hermes_config.load_config()
+                from hermes_constants import resolve_reasoning_config
+                reasoning = resolve_reasoning_config(config,item['model'])
                 enabled = sorted(_get_platform_tools(config, 'api_server'))
                 callbacks = {key: kwargs[key] for key in ('stream_delta_callback','tool_progress_callback',
                     'tool_start_callback','tool_complete_callback','interim_assistant_callback','reasoning_callback',
@@ -574,11 +576,15 @@ def make_adapter(api_key):
                     cwd=backend.environment['workspace'], ephemeral_system_prompt=prompt, platform='api_server',
                     skip_context_files=False, load_soul_identity=True, skip_memory=False,
                     skip_background_review=False, fallback_model=None, quiet_mode=True,
-                    max_tokens=MAX_HERMES_OUTPUT_TOKENS, reasoning_config={'enabled':False},
+                    max_tokens=MAX_HERMES_OUTPUT_TOKENS, reasoning_config=reasoning,
                     session_db=session_db, tool_result_metadata_callback=pending, **callbacks)
                 raw = model_tools.get_tool_definitions(enabled_toolsets=agent.enabled_toolsets,
                     disabled_toolsets=agent.disabled_toolsets,quiet_mode=True,skip_tool_search_assembly=True)
-                measured = {'binding': fixed, 'model_schemas': agent.tools,
+                from agent.reasoning_params import unset_reasoning_default
+                effective_reasoning=reasoning if reasoning is not None else unset_reasoning_default(agent)
+                effort=('none' if effective_reasoning and effective_reasoning.get('enabled') is False else
+                        (effective_reasoning or {}).get('effort','medium'))
+                measured = {'reasoning_effort':effort, 'binding': fixed, 'model_schemas': agent.tools,
                             'catalog_sha256': hashlib.sha256(canonical(raw).encode()).hexdigest(),
                             'registry_generation': agent._tool_snapshot_generation}
                 try:

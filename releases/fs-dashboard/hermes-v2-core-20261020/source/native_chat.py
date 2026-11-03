@@ -15,7 +15,7 @@ class NativeChatScope:
     _FIELDS = frozenset({'owner', 'conversation_id', 'turn_id', 'request_id',
                          'session_id', 'lease', 'run_id'})
 
-    def __init__(self, binding, authorize, *, model_schemas, call_tool=None):
+    def __init__(self, binding, authorize, *, model_schemas, call_tool=None, reasoning_effort=None):
         if (type(binding) is not dict or set(binding) != self._FIELDS or
                 any(type(value) is not str or not 1 <= len(value) <= 256 or
                     any(ord(char) < 32 or ord(char) == 127 for char in value)
@@ -25,6 +25,9 @@ class NativeChatScope:
             raise ValueError('native_chat_host_callbacks')
         if call_tool is not None and not callable(call_tool):
             raise ValueError('native_chat_tool_callback')
+        if reasoning_effort is not None and not callable(reasoning_effort):
+            raise ValueError('native_chat_reasoning_callback')
+        self._reasoning=reasoning_effort
         self._binding = deepcopy(binding)
         self._authorize, self._schemas, self._call = authorize, model_schemas, call_tool
         self._surface = None
@@ -37,6 +40,15 @@ class NativeChatScope:
                 self._authorize() is not True):
             raise PermissionError('native_chat_inactive')
         return deepcopy(bound)
+
+    def reasoning_effort(self):
+        bound=self._binding
+        self.context(bound['owner'],bound['turn_id'],bound['lease'])
+        if self._reasoning is None:return None
+        value=self._reasoning()
+        if value not in ('none','minimal','low','medium','high','xhigh','max','ultra'):
+            raise ValueError('native_chat_reasoning')
+        return value
 
     def schemas(self):
         bound = self._binding

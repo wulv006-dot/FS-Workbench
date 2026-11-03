@@ -1628,8 +1628,23 @@ class NativePublisher(unittest.TestCase):
                     self.assertEqual(before[paths[0]],original_m['files'][0]['beforeSha256'])
                     self.assertEqual(release.archive_fc_baseline(base,root,before)['/opt/other-static.py'],'a'*64)
 
+    def test_native_capabilities_installed_followup(self):
+        self.assertTrue(callable(getattr(prepare,'configure_native_capabilities',None)))
+        prepare.configure_native_capabilities()
+        self.assertEqual((len(release.TARGETS),len(release.NEW)),(10,0))
+        self.assertEqual(release.INSTALLED_COMMIT,'f1ed1da4f4863b66ec0895a8dae9a92d39c852b8')
+        self.assertEqual(set(prepare.SOURCES),set(release.CAPABILITIES_TARGETS))
+        self.assertEqual(prepare.SOURCES['http/conversation_http.py'],prepare.MODULE+'source/conversation_http.py')
+        self.assertNotIn('unit/native-control.conf',release.TARGETS)
+
+    def test_native_capabilities_original_apply_rollback(self):
+        self._archive_apply_contract(capabilities=True)
+
     def test_archive_three_source_original_apply_rollback_and_locked_maintenance(self):
-        for failure in (None,'range','readiness'):
+        self._archive_apply_contract()
+
+    def _archive_apply_contract(self, capabilities=False):
+        for failure in ((None,'range','readiness','worker') if capabilities else (None,'range','readiness')):
             self.tearDown();self.setUp()
             with self.subTest(failure=failure),tempfile.TemporaryDirectory() as directory,self.admission_fixture(Path(directory)) as f:
                 root=Path(directory);base=f.base;old_proof=deepcopy(f.proof);old=deepcopy(f.previous)
@@ -1689,12 +1704,31 @@ class NativePublisher(unittest.TestCase):
                 raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
                 merged=dict(oldmap);merged.update({r['path']:r['sha256'] for r in keep})
                 fc_proof,fc_files=self.archive_fc_fixture(f.system,base,merged,f.owners)
+                if capabilities:
+                    # Already installed archive-aware release with its exact static protection union.
+                    for name in release.TARGETS:
+                        target=base.rooted(f.system,release.TARGETS[name])
+                        target.write_bytes(source_body if name=='runtime/conversation_store.py' else target.read_bytes()+b'\n# installed archive aware\n')
+                    current=dict(merged);current.update({r['target']:r['sha256'] for r in records});current.update({target:sha for target,sha in fc_files.values()})
+                    old_three=dict(release.TARGETS)
+                    cap_rows=[dict(candidate=name,target=target,sha256=base.digest(base.rooted(f.system,target)),owner='0:0',mode='0o644') for name,target in old_three.items()]
+                    current.update({r['target']:r['sha256'] for r in cap_rows})
+                    cap_manifest=dict(sourceCommit=release.NATIVE_CAPABILITIES_PROOF['sourceCommit'],nativeArchive=True,files=cap_rows,unchangedRequired=[dict(path=p,sha256=sha) for p,sha in current.items() if p not in old_three.values()])
+                    proof=deepcopy(release.NATIVE_CAPABILITIES_PROOF);backup=base.rooted(f.system,proof['backup']);backup.mkdir(parents=True)
+                    cap_raw=json.dumps(cap_manifest).encode();(backup/'approved-manifest.json').write_bytes(cap_raw);proof['manifestSha256']=prepare.digest(cap_raw)
+                    cap_journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=cap_manifest,approvedManifestSha256=proof['manifestSha256'],files=[dict(r,written=True) for r in cap_rows])
+                    cap_raw=json.dumps(cap_journal).encode();(backup/'journal.json').write_bytes(cap_raw);proof['journalSha256']=prepare.digest(cap_raw)
+                    with patch.object(store_module,'SYNTHETIC_ARCHIVE',pins):archived_before=store.archive_synthetic_unknown(owner)
+                    prepare.configure_native_capabilities()
+                    before_cap={name:current[target] for name,target in release.TARGETS.items()}
+                    compat_store_sha=current[release.TARGETS['runtime/conversation_store.py']]
                 descriptor=json.loads((f.payload.parent/'payload-manifest.json').read_bytes())
-                descriptor.update(native_admission=False,native_archive=True,native_chat=False,installed_baseline={'source_commit':release.INSTALLED_COMMIT,'files':{name:oldmap[target] for name,target in release.TARGETS.items()}})
+                descriptor.update(native_admission=False,native_archive=not capabilities,native_capabilities=capabilities,native_chat=False,installed_baseline={'source_commit':release.INSTALLED_COMMIT,'files':{name:oldmap[target] for name,target in release.TARGETS.items()}})
+                if capabilities:descriptor['installed_baseline']['files']=before_cap
                 descriptor['files']={key:value for key,value in descriptor['files'].items() if not key.startswith('payload/')}
                 for name in prepare.SOURCES:
-                    p=f.payload/name
-                    p.write_bytes(source_body if name=='runtime/conversation_store.py' else (base.rooted(f.system,release.TARGETS[name]).read_bytes()+b'\n# archive consumer\n'))
+                    p=f.payload/name;p.parent.mkdir(parents=True,exist_ok=True)
+                    p.write_bytes((source_body+b'\n# capabilities store\n') if capabilities and name=='runtime/conversation_store.py' else source_body if name=='runtime/conversation_store.py' else (base.rooted(f.system,release.TARGETS[name]).read_bytes()+b'\n# archive consumer\n'))
                     descriptor['files']['payload/'+name]=prepare.digest(p.read_bytes())
                 raw=json.dumps(descriptor).encode();(f.payload.parent/'payload-manifest.json').write_bytes(raw)
                 stage=root/'archive-stage'
@@ -1711,14 +1745,16 @@ class NativePublisher(unittest.TestCase):
                             prepare.prepare(f.payload,root/'usage-rejected','a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
                     f.owners[usage]=(0,0,0o600)
                     prepare.prepare(f.payload,stage,'a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
-                manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),3);self.assertEqual(len(manifest['unchangedRequired']),776)
+                manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),10 if capabilities else 3);self.assertEqual(len(manifest['unchangedRequired']),769 if capabilities else 776)
                 untouched={r['path']:(base.rooted(f.system,r['path']).read_bytes(),base.rooted(f.system,r['path']).stat().st_ino,base.rooted(f.system,r['path']).stat().st_mtime_ns) for r in manifest['unchangedRequired']}
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-                module.configure_native_archive();module.INSTALLED_PROOF=proof;module.ARCHIVE_NATIVE_PROOF=old_proof
+                module.configure_native_capabilities() if capabilities else module.configure_native_archive();module.INSTALLED_PROOF=proof;module.ARCHIVE_NATIVE_PROOF=old_proof
+                if capabilities:module.CAPABILITIES_STORE_BEFORE_SHA=compat_store_sha
                 module.ARCHIVE_FC_PROOF=fc_proof;module.ARCHIVE_FC_FILES=fc_files
                 base.hermes_quiescent=Mock();base.retirement=Mock();base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
                 fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock());base.hermes_admission_fence=lambda *a:nullcontext(fence)
-                restart=Mock(side_effect=[RuntimeError('synthetic range failure'),None] if failure=='range' else None);base.restart_for=restart
+                effects=([None,RuntimeError('synthetic range failure'),None,None] if capabilities else [RuntimeError('synthetic range failure'),None]) if failure=='range' else [RuntimeError('synthetic worker failure'),None,None] if failure=='worker' else None
+                restart=Mock(side_effect=effects);base.restart_for=restart
                 if os.name=='nt':base.directory_sync=lambda *a:None
                 readiness=Mock(side_effect=[None,None,RuntimeError('synthetic readiness failure'),None] if failure=='readiness' else None)
                 with patch.object(module,'frozen',return_value=base),patch.object(module,'running_worker'),patch.object(module,'native_runtime_readiness',readiness),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')):
@@ -1739,7 +1775,7 @@ class NativePublisher(unittest.TestCase):
                     next(r for r in bad_manifest['unchangedRequired'] if r['path']!=usage_path)['sha256']='0'*64
                     with self.assertRaisesRegex(ValueError,'archive_static_protection_drift'):publisher.guards(bad_manifest,f.system)
                     bad_git=deepcopy(descriptor['installed_baseline']);bad_git['files']['runtime/conversation_native.py']='0'*64
-                    with self.assertRaisesRegex(ValueError,'archive_installed_git_mismatch'):module.installed_baseline(f.system,bad_git)
+                    with self.assertRaisesRegex(ValueError,'native_capabilities_installed_proof_mismatch' if capabilities else 'archive_installed_git_mismatch'):module.installed_baseline(f.system,bad_git)
                     proof_file=base.rooted(f.system,proof['backup']+'/journal.json');proof_bytes=proof_file.read_bytes();proof_file.write_bytes(b'proof drift')
                     with self.assertRaisesRegex(ValueError,'installed_release_proof_drift'):publisher.guards(manifest,f.system)
                     proof_file.write_bytes(proof_bytes)
@@ -1759,6 +1795,13 @@ class NativePublisher(unittest.TestCase):
                     manifest_raw=(stage/'approved-manifest.json').read_bytes();release_id='nav-20261103T000001Z'
                     if failure:
                         with self.assertRaisesRegex(RuntimeError,'synthetic .* failure'):publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,release_id,f.system)
+                    elif capabilities:
+                        publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,release_id,f.system)
+                        saved=json.loads((base.rooted(f.system,'/var/backups/fs-navigation-20261006/'+release_id)/'journal.json').read_bytes())
+                        module.archive_rollback_guard(base,saved,f.system)
+                        bad=deepcopy(saved);next(r for r in bad['files'] if r['candidate']=='runtime/conversation_store.py')['beforeSha256']='0'*64
+                        with self.assertRaisesRegex(ValueError,'archived_unknown_requires_archive_aware_forward_repair'):module.archive_rollback_guard(base,bad,f.system)
+                        with self.assertRaisesRegex(ValueError,'exact_archive_maintenance_manifest_required'):module.archive_synthetic_maintenance(release_id,prepare.digest(manifest_raw),f.system)
                     else:
                         publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,release_id,f.system)
                         receipt=module.archive_synthetic_maintenance(release_id,prepare.digest(manifest_raw),f.system)
@@ -1768,7 +1811,10 @@ class NativePublisher(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError,'archived_unknown_requires_archive_aware_forward_repair'):publisher.rollback_journal(base.rooted(f.system,'/var/backups/fs-navigation-20261006/'+release_id),saved,f.system)
                         with store.db() as db:db.execute("UPDATE synthetic_turn_archives SET receipt_sha256='drift'")
                         with self.assertRaisesRegex(ValueError,'archive_audit_drift'):publisher.guards(manifest,f.system)
-                    self.assertTrue(all(c.args[0]['scope']==base.DEEP_SCOPE for c in restart.call_args_list))
+                    self.assertTrue(all(c.args[0]['scope'] in ({base.DEEP_SCOPE,base.HERMES_WORKER_SCOPE} if capabilities else {base.DEEP_SCOPE}) for c in restart.call_args_list))
+                    if capabilities and not failure:self.assertEqual([c.args[0]['scope'] for c in restart.call_args_list],[base.HERMES_WORKER_SCOPE,base.DEEP_SCOPE])
+                if capabilities:
+                    with store.db() as db:self.assertEqual(json.loads(db.execute('SELECT receipt FROM synthetic_turn_archives WHERE turn_id=?',(turn['turn_id'],)).fetchone()[0]),archived_before)
                 for p,values in untouched.items():self.assertEqual((base.rooted(f.system,p).read_bytes(),base.rooted(f.system,p).stat().st_ino,base.rooted(f.system,p).stat().st_mtime_ns),values)
                 if failure:
                     for row in manifest['files']:self.assertEqual(base.digest(base.rooted(f.system,row['target'])),row['beforeSha256'])

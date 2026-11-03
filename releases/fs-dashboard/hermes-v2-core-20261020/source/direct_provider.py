@@ -271,21 +271,27 @@ def discover_models():
     return {'status': 'verified' if len(entries) == 1 else 'model_unavailable', 'models': entries}
 
 
-def prepare_request(request, approved_tools):
+def prepare_request(request, approved_tools, *, native_chat=False):
     """Pure native wire builder, shared by pre-reservation validation and send."""
     if (not isinstance(request, dict) or request.get('model') != MODEL or
             set(request)-{'model', 'messages', 'max_tokens', 'tools', 'tool_choice', 'stream', 'enable_thinking', 'reasoning_effort', 'response_format'} or
-            request.get('reasoning_effort') not in ('high', 'max') or
-            request.get('enable_thinking') is not True or request.get('stream') is not False or
-            type(request.get('max_tokens')) is not int or request['max_tokens'] != OUTPUT_TOKENS or
+            request.get('reasoning_effort') not in ((None,'minimal','low','medium','high','xhigh','max','ultra') if native_chat else ('high','max')) or
+            (type(request.get('enable_thinking')) is not bool if native_chat else request.get('enable_thinking') is not True) or request.get('stream') is not False or
+            type(request.get('max_tokens')) is not int or
+            (not 1 <= request['max_tokens'] <= OUTPUT_TOKENS if native_chat else request['max_tokens'] != OUTPUT_TOKENS) or
             not isinstance(request.get('messages'), list) or not request['messages'] or
             request.get('tools') not in (approved_tools, []) or not approved_tools):
         raise ValueError('configuration_invalid')
-    body = {'model': MODEL, 'messages': request['messages'], 'max_tokens': OUTPUT_TOKENS,
-            'thinking': {'type': 'enabled'}, 'reasoning_effort': request['reasoning_effort'],
+    if native_chat:
+        from proxy_gateway import native_tool_choice
+        choice=native_tool_choice(request.get('tool_choice','auto'),request['tools'])
+    else:choice='auto'
+    body = {'model': MODEL, 'messages': request['messages'], 'max_tokens': request['max_tokens'],
+            'thinking': {'type': 'enabled' if request['enable_thinking'] else 'disabled'},
             'stream': True, 'stream_options': {'include_usage': True}}
+    if request.get('reasoning_effort') is not None:body['reasoning_effort']=request.get('reasoning_effort')
     if request['tools']:
-        body.update(tools=approved_tools, tool_choice='auto')
+        body.update(tools=approved_tools, tool_choice=choice)
     if 'response_format' in request:
         # Only the authenticated native bridge admits this field. Revalidate
         # before wire preparation; preserve its exact schema, never downgrade it.
@@ -297,10 +303,10 @@ def prepare_request(request, approved_tools):
     return payload
 
 
-def request_model(request, approved_tools, deadline=None):
+def request_model(request, approved_tools, deadline=None, *, native_chat=False):
     """Only a trusted ModelGateway request; not an arbitrary endpoint proxy."""
     try:
-        payload = prepare_request(request, approved_tools)
+        payload = prepare_request(request, approved_tools, native_chat=True) if native_chat else prepare_request(request, approved_tools)
         result = _open('/chat/completions', payload,deadline=deadline) if deadline is not None else _open('/chat/completions', payload)
     except (ValueError, OSError, TypeError) as error:
         code = ('input_too_large' if str(error)=='provider_payload_too_large' else str(error)) if isinstance(error, ValueError) and str(error) in ('configuration_missing', 'configuration_invalid', 'provider_payload_too_large') else 'configuration_invalid'
@@ -311,10 +317,10 @@ def request_model(request, approved_tools, deadline=None):
         return {'status': 'invalid_response'}
     import hashlib
     echoed=result.get('reasoning_effort')
-    if echoed is not None and echoed!=request['reasoning_effort']:return {'status':'invalid_response'}
+    if echoed is not None and echoed!=request.get('reasoning_effort'):return {'status':'invalid_response'}
     result['model_validation']={'status':'provider_metadata_confirmed' if echoed is not None else 'accepted_no_effort_echo',
         'forwarded_verified':True,'endpoint_type':'chat_completions','requested_model':MODEL,
-        'response_model':result['model'],'actual_backend_version':'unknown','requested_effort':request['reasoning_effort'],
+        'response_model':result['model'],'actual_backend_version':'unknown','requested_effort':request.get('reasoning_effort'),
         'provider_effort_echo':echoed,'payload_sha256':hashlib.sha256(payload).hexdigest(),
-        'provider_response_id':result.get('id'),'thinking_enabled':True}
+        'provider_response_id':result.get('id'),'thinking_enabled':request['enable_thinking']}
     return result

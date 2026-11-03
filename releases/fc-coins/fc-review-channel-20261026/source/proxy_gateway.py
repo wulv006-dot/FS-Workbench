@@ -110,13 +110,13 @@ def request_body(body, model, *, tool_schemas=None, native_chat=False):
     # No client endpoint, credentials, system identity or tool definitions accepted.
     fields = {'messages', 'max_tokens', 'reasoning_effort', 'auxiliary'}
     if native_chat:
-        fields.update({'tools', 'response_format'})
+        fields.update({'tools', 'response_format','tool_choice'})
     if not isinstance(body, dict) or set(body)-fields or not {'messages','max_tokens'}.issubset(body):
         raise ValueError('request_fields')
     if native_chat and (tool_schemas is None or body.get('tools') not in (None, [], tool_schemas)):
         raise ValueError('tool_allowlist')
     effort=body.get('reasoning_effort')
-    if effort is not None and effort not in ('low','high','max'):raise ValueError('reasoning_effort_invalid')
+    if effort is not None and effort not in (('minimal','low','medium','high','xhigh','max','ultra') if native_chat else ('low','high','max')):raise ValueError('reasoning_effort_invalid')
     auxiliary=body.get('auxiliary',False)
     if type(auxiliary) is not bool:raise ValueError('auxiliary_invalid')
     output_limit=MAX_HERMES_OUTPUT_TOKENS
@@ -168,6 +168,8 @@ def request_body(body, model, *, tool_schemas=None, native_chat=False):
             'tools': [] if auxiliary else (schemas() if tool_schemas is None else deepcopy(tool_schemas)), 'tool_choice': 'auto', 'stream': False, 'enable_thinking': effort is not None}
     if native_chat and 'tools' in body:
         result['tools'] = deepcopy(body['tools'])
+    if native_chat:
+        result['tool_choice']=native_tool_choice(body.get('tool_choice','auto'),result['tools'])
     if native_chat and 'response_format' in body:
         result['response_format'] = native_response_format(body['response_format'])
     if effort is not None:result['reasoning_effort']=effort
@@ -175,6 +177,17 @@ def request_body(body, model, *, tool_schemas=None, native_chat=False):
     if len(encoded(result).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
     require_context_window(result)
     return result
+
+
+def native_tool_choice(value, tools):
+    if type(value) is str and value in ('auto','none','required'):
+        if value=='required' and not tools:raise ValueError('tool_choice')
+        return value
+    if (type(value) is dict and set(value)=={'type','function'} and value['type']=='function' and
+            type(value['function']) is dict and set(value['function'])=={'name'} and
+            value['function']['name'] in {item['function']['name'] for item in tools}):
+        return deepcopy(value)
+    raise ValueError('tool_choice')
 
 
 def native_response_format(value):

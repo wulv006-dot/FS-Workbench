@@ -172,6 +172,30 @@ class NativeChat(unittest.TestCase):
                 self.assertEqual(provider.request_model(bad,f.gateway.scope.schemas())['status'],'configuration_invalid')
                 send.assert_not_called()
 
+    def test_native_trusted_reasoning_and_tool_choice_reach_real_provider_bytes(self):
+        import json
+        for effort in ('none','minimal','low','medium','high','xhigh','max','ultra'):
+            with self.subTest(effort=effort), fixtures.MaterialTransport().fixture(material=False) as f:
+                native,binding,schemas,active,old_scope=self.setup_native(f)
+                scope=native.NativeChatScope(binding,lambda:active[0],model_schemas=lambda:schemas,
+                                            reasoning_effort=lambda:effort)
+                f.gateway.scope=scope
+                provider=fixtures.load('capabilities_direct_provider',CORE/'direct_provider.py')
+                for choice in ('auto','none','required',{'type':'function','function':{'name':'tool_call'}}):
+                    body=dict(f.body,tools=deepcopy(schemas),reasoning_effort=effort,tool_choice=choice)
+                    f.proxy.dispatch('POST','/v1/chat/completions',f.token,body)
+                    request=f.module.request_body(f.turns[-1],provider.MODEL,tool_schemas=schemas,native_chat=True)
+                    wire=json.loads(provider.prepare_request(request,schemas,native_chat=True))
+                    self.assertEqual(wire['tool_choice'],choice)
+                    self.assertEqual(wire['thinking']['type'],'disabled' if effort=='none' else 'enabled')
+                    if effort!='none':self.assertEqual(wire['reasoning_effort'],effort)
+                for changes in ({'reasoning_effort':'max' if effort!='max' else 'low'},
+                                {'model':'unapproved-model'},
+                                {'tool_choice':{'type':'function','function':{'name':'unknown'}}}):
+                    before=len(f.turns)
+                    with self.assertRaises(ValueError):f.proxy.dispatch('POST','/v1/chat/completions',f.token,dict(body,**changes))
+                    self.assertEqual(len(f.turns),before)
+
     def test_unbound_run_and_duplicate_surface_cannot_admit(self):
         with fixtures.MaterialTransport().fixture(material=False) as f:
             native, binding, schemas, active, scope = self.setup_native(f)
@@ -239,6 +263,8 @@ class NativeChat(unittest.TestCase):
             self.assertEqual(one, two)
             self.assertEqual(provider.call_count, 1)
             self.assertEqual(preflight.call_args.args[1], schemas)
+            self.assertEqual(preflight.call_args.kwargs,{'native_chat':True})
+            self.assertEqual(provider.call_args.kwargs,{'native_chat':True})
             self.assertEqual(one['choices'][0]['message']['tool_calls'], [call])
             self.assertEqual(gateway.transport_retries, 0)
             provider.return_value=dict(response,choices=[dict(message=dict(role='assistant',content='{"title":"Synthetic"}'),finish_reason='stop')])

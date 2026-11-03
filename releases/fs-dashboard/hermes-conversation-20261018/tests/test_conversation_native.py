@@ -331,9 +331,99 @@ class NativeDispatchTests(unittest.TestCase):
             with self.assertRaises(PermissionError):scope.schemas()
             binding=scope.context('alice',turn['turn_id'],service.store.task_binding('alice',cid,turn['turn_id'])[1])
             schemas=[{'type':'function','function':{'name':'tool_search','parameters':{'type':'object','properties':{}}}}]
-            value={'binding':binding,'model_schemas':schemas,'catalog_sha256':'f'*64,'registry_generation':7}
+            # Execute the real worker constructor/registration; SDK and Docker are fixtures.
+            from test_conversation_file_loop import WorkerEnvironmentTests
+            import conversation_native as native
+            with WorkerEnvironmentTests().runtime() as (worker,adapter,calls,modules):
+                worker.admission=lambda sid:dict(session_id=binding['session_id'],model='deepseek-flash',token='f'*43,
+                    conversation=True,ready=True,run_id=binding['run_id'],prompt='',
+                    native_chat={'binding':binding,'environment':{'files':[]},'key':'native-key','fingerprint':'0'*64})
+                adapter._ensure_session_db=lambda:types.SimpleNamespace(native_owner_profile=True)
+                @contextmanager
+                def backend_scope(**kwargs):yield
+                backend=types.SimpleNamespace(profile=Path('/native/alice'),environment={'workspace':'/workspace'},
+                    scope=backend_scope,ensure_environment=lambda:None,check=lambda *a:None,observe_pending=lambda *a:None)
+                class Agent:
+                    def __init__(self,**kwargs):
+                        self.tools=schemas;self.enabled_toolsets=kwargs['enabled_toolsets']
+                        self.disabled_toolsets=kwargs['disabled_toolsets'];self._tool_snapshot_generation=7
+                    def run_conversation(self,*a,**kw):return {'completed':True}
+                    def close(self):pass
+                modules['run_agent'].AIAgent=Agent
+                config=types.ModuleType('hermes_cli.tools_config');config._get_platform_tools=lambda *a:{'file'}
+                tools=types.ModuleType('model_tools');tools.get_tool_definitions=lambda **kw:schemas
+                registered=[]
+                def register(name,value,**kwargs):
+                    registered.append(value)
+                    return json.dumps(scope.call('alice',binding['turn_id'],binding['lease'],name,value))
+                worker.call_tool=register
+                overrides={'hermes_cli.tools_config':config,'model_tools':tools,
+                    'hermes_constants':types.SimpleNamespace(resolve_reasoning_config=lambda *a:{'enabled':True,'effort':'medium'}),
+                    'agent.reasoning_params':types.SimpleNamespace(unset_reasoning_default=lambda agent:{'enabled':True,'effort':'medium'})}
+                with patch.dict(sys.modules,overrides),patch.object(native,'NativeDockerBackend',return_value=backend),patch.object(native,'install_native_backend_guards'),patch.object(modules['hermes_cli.config'],'load_config',return_value={'memory':{'write_approval':True},'skills':{'write_approval':True}},create=True):
+                    adapter._create_agent(session_id=binding['session_id'])
+                self.assertEqual(len(registered),1);value=registered[0]
+                self.assertEqual(value['reasoning_effort'],'medium')
+            for bad in (dict(value,reasoning_effort='invalid'),dict(value,extra=True),
+                        {k:v for k,v in value.items() if k!='reasoning_effort'},
+                        dict(value,binding=dict(binding,owner='other'))):
+                with self.subTest(registration=bad.keys()),self.assertRaises((ValueError,PermissionError)):
+                    scope.call('alice',binding['turn_id'],binding['lease'],'fs.native.register_schemas',bad)
             self.assertTrue(scope.call('alice',binding['turn_id'],binding['lease'],'fs.native.register_schemas',value)['registered'])
             self.assertEqual(scope.schemas(),schemas)
+            self.assertEqual(service.native.reasoning_effort(binding),'medium')
+            self.assertEqual(scope.reasoning_effort(),'medium')
+            pilot_path=SOURCE.parents[1]/'hermes-fc-pilot-20261013/pilot.py'
+            spec=importlib.util.spec_from_file_location('native_reasoning_pilot',pilot_path)
+            real_pilot=importlib.util.module_from_spec(spec);spec.loader.exec_module(real_pilot)
+            review=SOURCE.parents[2]/'fc-coins/fc-review-channel-20261026/source'
+            core=SOURCE.parents[1]/'hermes-v2-core-20261020/source'
+            daily_source=SOURCE.parents[1]/'hermes-admin-recovery-20261020/source/fc_daily.py'
+            daily_model=SOURCE.parents[1]/'fc-daily-20261013/source'
+            with patch.object(sys,'path',[str(review),str(core),str(daily_model),str(pilot_path.parent),*sys.path]),patch.dict(sys.modules,{'pilot':real_pilot}):
+                from transport import Grants, Proxy
+                import direct_provider
+                import os
+                from proxy_gateway import ModelGateway, UnifiedBudget
+                spec=importlib.util.spec_from_file_location('native_reasoning_daily',daily_source)
+                daily_module=importlib.util.module_from_spec(spec);spec.loader.exec_module(daily_module)
+                spec=importlib.util.spec_from_file_location('native_reasoning_factory',review/'fs_inprocess.py')
+                factory=importlib.util.module_from_spec(spec);spec.loader.exec_module(factory)
+                daily=daily_module.DailyReports(None,Path(root)/'daily')
+                forwarded=[]
+                def provider_http(path,payload,**kwargs):
+                    self.assertEqual(path,'/chat/completions')
+                    wire=json.loads(payload);forwarded.append(wire)
+                    self.assertEqual(wire['reasoning_effort'],'medium')
+                    self.assertEqual(wire['thinking'],{'type':'enabled'})
+                    self.assertEqual(wire['tools'],schemas)
+                    return dict(id='synthetic',model='deepseek-flash',reasoning_effort='medium',
+                        usage=dict(prompt_tokens=1,completion_tokens=1,total_tokens=2),
+                        choices=[dict(message={'role':'assistant','content':'synthetic'},finish_reason='stop')])
+                # Only the final vendor HTTP boundary is replaced; normalization,
+                # preflight, provider result validation and accounting remain real.
+                with patch.dict(sys.modules,{'fc_daily':daily_module}),patch.dict(os.environ,{'FS_MODEL_DAILY_LIMIT':'10'}),patch.object(direct_provider,'_open',side_effect=provider_http):
+                    gateway=factory.native_gateway(daily,scope,active_tasks=service.native.native_only_active_tasks)
+                    self.assertIs(type(gateway),ModelGateway);self.assertIs(type(gateway.budget),UnifiedBudget)
+                    self.assertIs(gateway.call.__func__,ModelGateway.call)
+                    self.assertIsNotNone(gateway.preflight)
+                    grants=Grants();token=grants.mint('alice',binding['turn_id'],binding['lease'])
+                    proxy=Proxy(grants,lambda grant:gateway)
+                    body=dict(messages=[{'role':'user','content':'synthetic'}],model='deepseek-flash',max_tokens=32,
+                              tools=schemas,reasoning_effort='medium')
+                    self.assertEqual(proxy.dispatch('POST','/v1/chat/completions',token,body)['model'],'deepseek-flash')
+                    with self.assertRaisesRegex(ValueError,'reasoning_policy'):
+                        proxy.dispatch('POST','/v1/chat/completions',token,dict(body,reasoning_effort='high'))
+                    self.assertEqual(len(forwarded),1)
+                    with daily.db() as db:
+                        rows=db.execute('SELECT state,content FROM model_calls').fetchall()
+                        self.assertEqual([r['state'] for r in rows],['succeeded'])
+                        receipt=json.loads(rows[0]['content'])
+                        self.assertEqual(receipt['reasoning_effort'],'medium')
+                        self.assertEqual(receipt['model_validation']['requested_effort'],'medium')
+                        self.assertIs(receipt['enable_thinking'],True)
+                        self.assertEqual(db.execute('SELECT COUNT(*) FROM hermes_reservations').fetchone()[0],1)
+                        self.assertEqual(db.execute('SELECT COUNT(*) FROM hermes_turns').fetchone()[0],1)
             changed=json.loads(json.dumps(value));changed['model_schemas'][0]['function']['name']='anything_else'
             with self.assertRaises(PermissionError):scope.call('alice',binding['turn_id'],binding['lease'],'fs.native.register_schemas',changed)
             service.native.fence('alice',cid,turn['turn_id'])
@@ -497,14 +587,14 @@ class NativeDockerPolicyTests(unittest.TestCase):
         self.assertEqual(policy['TERMINAL_ENV'],'docker')
         self.assertEqual(policy['TERMINAL_DOCKER_FORWARD_ENV'],'[]')
         image='sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544'
-        command=['/opt/fs-native-bin/docker','run','-d','--network=none','--cap-drop=ALL','--security-opt=no-new-privileges','-v',workspace+':/workspace',image,'sleep','infinity']
+        command=['/opt/fs-native-bin/docker','run','-d','--user','9876:9876','--network=bridge','--cap-drop=ALL','--security-opt=no-new-privileges','-v',workspace+':/workspace',image,'sleep','infinity']
         validate_docker_command(command,workspace,image)
         for extra in (['-v','/profile:/profile:ro'],['-v','/var/run/docker.sock:/var/run/docker.sock'],['-e','FAKE_TOKEN=PRIVATE_SENTINEL'],['--privileged']):
             changed=command[:-3]+extra+command[-3:]
             with self.subTest(extra=extra),self.assertRaises((ValueError,PermissionError)):
                 validate_docker_command(changed,workspace,image)
         with self.assertRaises((ValueError,PermissionError)):
-            validate_docker_command([x.replace('--network=none','--network=host') for x in command],workspace,image)
+            validate_docker_command([x.replace('--network=bridge','--network=host') for x in command],workspace,image)
 
     def test_profile_configuration_enables_pending_tools_and_owner_namespace(self):
         from conversation_native import NativeWorkspace, native_profile_config
@@ -660,3 +750,65 @@ class NativeArchiveTests(unittest.TestCase):
                     raise RuntimeError('drift correctly rejected')
                 with self.subTest(kind=kind,check_only=check_only),patch.object(ConversationStore,'archive_synthetic_unknown',guarded),self.assertRaisesRegex(RuntimeError,'drift correctly rejected'):
                     self.test_exact_synthetic_archive_preserves_unknown_and_blocks_all_reuse()
+
+class NativeCapabilitiesTests(unittest.TestCase):
+    def test_bridge_network_and_sdk_resource_defaults_keep_sandbox(self):
+        from conversation_native import docker_policy, validate_docker_command
+        policy=docker_policy({'conversation_id':'a'*32})
+        self.assertEqual(policy['TERMINAL_DOCKER_NETWORK'],'true')
+        self.assertNotIn('TERMINAL_CONTAINER_CPU',policy)
+        self.assertNotIn('TERMINAL_CONTAINER_MEMORY',policy)
+        workspace='/var/lib/fs-hermes-fc/native/workspaces/'+'a'*32
+        command=['/opt/fs-native-bin/docker','run','-d','--user','9876:9876','--cap-drop=ALL',
+                 '--security-opt=no-new-privileges','-v',workspace+':/workspace']
+        tail=[policy['TERMINAL_DOCKER_IMAGE'],'sleep','infinity']
+        for network in ([],['--network=bridge'],['--network','bridge']):
+            self.assertTrue(validate_docker_command(command+network+tail,workspace))
+        for extra in (['--user','0'],['--network=host'],['--network=container:other'],['--privileged'],
+                      ['-v','/profile:/profile'],['--group-add','994'],['-p','8080:80']):
+            with self.subTest(extra=extra),self.assertRaises((ValueError,PermissionError)):
+                validate_docker_command(command+extra+tail,workspace)
+
+    def test_existing_owner_config_is_preserved_and_approval_paths_remain_bound(self):
+        from conversation_native import NativeWorkspace, validate_native_profile
+        with tempfile.TemporaryDirectory() as root:
+            store=ConversationStore(Path(root)/'store');cid=store.create('alice')['conversation_id']
+            bridge=NativeWorkspace(store,Path(root)/'native');env=bridge.prepare('alice',cid)
+            profile=Path(env['profile']);config=profile/'config.yaml'
+            custom={'memory':{'write_approval':True},'skills':{'write_approval':True,
+                    'external_dirs':[str(profile/'approved-skills')]},'agent':{'reasoning_effort':'high'},
+                    'terminal':{'container_cpu':2,'container_memory':2048}}
+            raw=json.dumps(custom).encode();config.write_bytes(raw)
+            bridge.prepare('alice',cid);self.assertEqual(config.read_bytes(),raw)
+            validate_native_profile(custom,profile)
+            custom['skills']['external_dirs']=['~/approved-skills']
+            validate_native_profile(custom,profile)
+            for section in ('memory','skills'):
+                invalid=json.loads(json.dumps(custom));invalid[section]['write_approval']=False
+                with self.assertRaises(PermissionError):validate_native_profile(invalid,profile)
+            for path in ('/profile','/run','/other-owner/skills'):
+                invalid=json.loads(json.dumps(custom));invalid['skills']['external_dirs']=[path]
+                with self.assertRaises(PermissionError):validate_native_profile(invalid,profile)
+
+    def test_native_long_text_uses_actual_transport_boundary_not_fc_12k(self):
+        with tempfile.TemporaryDirectory() as root:
+            store=ConversationStore(Path(root));cid=store.create('alice')['conversation_id']
+            text='原始内容'*6000
+            turn=store.reserve_turn('alice',cid,text,'native_long_123',native=True)
+            with store.db() as db:self.assertEqual(db.execute('SELECT text FROM turns WHERE id=?',(turn['turn_id'],)).fetchone()[0],text)
+            other=store.create('alice')['conversation_id']
+            with self.assertRaises(ValueError):store.reserve_turn('alice',other,text,'legacy_long_123')
+
+
+class NativeHttpLimitsTests(unittest.TestCase):
+    def test_native_json_reuses_deployed_file_transport_boundary(self):
+        import io
+        from email.message import Message
+        from conversation_http import read_json
+        from conversation_files import MAX_BYTES
+        text='原文'*15000;raw=json.dumps({'text':text,'client_request_id':'native_large_json'}).encode()
+        headers=Message();headers['Content-Type']='application/json';headers['Content-Length']=str(len(raw))
+        handler=types.SimpleNamespace(headers=headers,rfile=io.BytesIO(raw),connection=types.SimpleNamespace(settimeout=lambda value:None))
+        self.assertEqual(read_json(handler,maximum=MAX_BYTES)['text'],text)
+        handler.rfile=io.BytesIO(raw)
+        with self.assertRaises(ValueError):read_json(handler)

@@ -99,7 +99,9 @@ def gateway(daily, tasks, book, deadline=None, provider_lane="general", *, mater
               'price_version': 'deepseek-direct-no-cny-invoice-or-fx-v1',
               'input_microcny': None, 'output_microcny': None}
     def provider(request):
-        raw = request_model(request, effective_schemas(),deadline=deadline) if deadline is not None else request_model(request, effective_schemas())
+        options={'native_chat':True} if native else {}
+        if deadline is not None:options['deadline']=deadline
+        raw = request_model(request,effective_schemas(),**options)
         if not isinstance(raw, dict) or raw.get('model') != MODEL:
             status=raw.get('status') if isinstance(raw,dict) else None
             known={'configuration_missing','configuration_invalid','input_too_large','invalid_response','http_rejected','unknown_transport','scheduled_deadline'}
@@ -119,7 +121,7 @@ def gateway(daily, tasks, book, deadline=None, provider_lane="general", *, mater
                         # Conservative byte+framing reservation bound; no cumulative quota.
                         # Actual usage remains authoritative and missing usage stays unknown.
                         conservative_input_bound,
-                          model_daily_limit, preflight=lambda req:prepare_request(req,effective_schemas()),transport_retries=0 if material_execution or native else 2)
+                          model_daily_limit, preflight=lambda req:prepare_request(req,effective_schemas(),native_chat=True) if native else prepare_request(req,effective_schemas()),transport_retries=0 if material_execution or native else 2)
 
 
 def native_gateway(daily, scope, *, active_tasks, deadline=None):

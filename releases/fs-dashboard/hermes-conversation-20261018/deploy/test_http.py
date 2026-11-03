@@ -3,6 +3,9 @@ import importlib.util
 import json
 import threading
 import unittest
+import builtins
+import sys
+from unittest.mock import patch
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -72,6 +75,31 @@ class SocketContract(unittest.TestCase):
         self.assertEqual(self.call("POST", adapter.PREFIX, body={}, csrf=False)[0], 403)
         self.assertEqual(self.call("POST", adapter.PREFIX, body={})[0], 201)
         self.assertEqual(self.call("POST", adapter.PREFIX + "/" + CID + "/turns", body={"text": "hello", "client_request_id": "web_123"})[0], 202)
+
+    def test_non_native_turn_controls_do_not_import_attachment_support(self):
+        original=builtins.__import__
+        def importing(name,*args,**kwargs):
+            if name=='conversation_files':raise ModuleNotFoundError('attachment support unavailable')
+            return original(name,*args,**kwargs)
+        with patch('builtins.__import__',side_effect=importing):
+            for suffix,body in (('/turns',{'text':'hello','client_request_id':'web_123'}),
+                                ('/runs/'+RID+'/steer',{'text':'hello','client_request_id':'web_123'}),
+                                ('/runs/'+RID+'/stop',{'client_request_id':'web_123'})):
+                with self.subTest(suffix=suffix):
+                    self.assertEqual(self.call('POST',adapter.PREFIX+'/'+CID+suffix,body=body)[0],202)
+            self.assertEqual(self.call('POST',adapter.PREFIX+'/'+CID+'/turns',
+                body={'text':'x'*16384,'client_request_id':'web_123'})[0],422)
+
+    def test_native_turn_controls_keep_existing_upload_json_limit(self):
+        with patch.object(sys,'path',[str(SOURCE.parent),*sys.path]):
+            from conversation_files import MAX_BYTES
+        self.assertEqual(MAX_BYTES,10*1024*1024)
+        with patch.object(Service,'native',True,create=True),patch.object(adapter,'read_json',wraps=adapter.read_json) as read:
+            for suffix,body in (('/turns',{'text':'x'*20000,'client_request_id':'web_123'}),
+                                ('/runs/'+RID+'/steer',{'text':'x'*20000,'client_request_id':'web_123'})):
+                with self.subTest(suffix=suffix):
+                    self.assertEqual(self.call('POST',adapter.PREFIX+'/'+CID+suffix,body=body)[0],202)
+                    self.assertEqual(read.call_args.kwargs['maximum'],MAX_BYTES)
 
     def test_sse_finishes_and_can_resume(self):
         status, headers, data = self.call("GET", adapter.PREFIX + "/" + CID + "/events?after=0")

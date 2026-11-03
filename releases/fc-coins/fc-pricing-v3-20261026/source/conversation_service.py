@@ -614,7 +614,7 @@ class ConversationService:
             turn = self.store.run(user, conversation_id, run_id)
             if turn["state"] in TERMINAL:
                 return {"run_id": run_id, "state": turn["state"], "reused": True}
-            reserved = self.store.action(user, conversation_id, run_id, kind, request_id, text)
+            reserved = self.store.action(user, conversation_id, run_id, kind, request_id, text, native=self.native is not None)
             if reserved["reused"]:
                 return {"run_id": run_id, **reserved}
             if kind == 'stop' and self.native and self.native.row(user, conversation_id, turn['id']):
