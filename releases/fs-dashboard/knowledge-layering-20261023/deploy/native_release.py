@@ -42,10 +42,22 @@ def wait_for_native_container(expected):
 
 
 def original_plugin_sha(raw):
-    addition = b'    from .knowledge import register as register_knowledge\n    register_knowledge(ctx)\n'
-    if raw.count(addition) != 1:
+    # Both layouts are exact deltas: remove the entire conditional suite so the
+    # reconstructed preimage contains no dangling `if`. Preserve all other bytes.
+    pattern = (rb'(?m)^    (?:if include_knowledge:(?P<conditional_newline>\r?\n)'
+               rb'        from \.knowledge import register as register_knowledge(?P=conditional_newline)'
+               rb'        register_knowledge\(ctx\)(?P=conditional_newline)'
+               rb'|from \.knowledge import register as register_knowledge(?P<legacy_newline>\r?\n)'
+               rb'    register_knowledge\(ctx\)(?P=legacy_newline))')
+    matches = list(re.finditer(pattern, raw))
+    if (len(matches) != 1 or raw.count(b'from .knowledge import register as register_knowledge') != 1
+            or raw.count(b'register_knowledge(ctx)') != 1):
         raise ValueError('native_plugin_exact_registration_delta_required')
-    return hashlib.sha256(raw.replace(addition, b'', 1)).hexdigest()
+    match = matches[0]
+    if (match.group('legacy_newline') is not None and
+            re.search(rb'(?m)^    if include_knowledge:\r?\n\Z', raw[:match.start()])):
+        raise ValueError('native_plugin_exact_registration_delta_required')
+    return hashlib.sha256(raw[:match.start()] + raw[match.end():]).hexdigest()
 
 
 def checked(manifest, stage=None):

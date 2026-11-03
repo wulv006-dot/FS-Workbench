@@ -27,7 +27,7 @@ class Prepare(unittest.TestCase):
                 '/var/lib/fs-hermes-fc/profile/plugins/fs-readonly/knowledge.py': None}, unchangedRequired=[], runtimeRequired={})
         release = prepare.load(ROOT / prepare.DEPLOY / 'native_release.py', 'native_scope_fixture')
         self.preflight['before_hashes'][release.TARGETS['plugin/__init__.py']] = release.original_plugin_sha(
-            (ROOT / prepare.NATIVE / 'fs_readonly/__init__.py').read_bytes())
+            prepare.source_bytes(ROOT / prepare.NATIVE / 'fs_readonly/__init__.py'))
         self.result = dict(image=self.after, tag='offline-test', sources={
             '/opt/hermes/tui_gateway/server.py': 'd' * 64, '/opt/hermes/fs_native_entry.py': 'e' * 64})
 

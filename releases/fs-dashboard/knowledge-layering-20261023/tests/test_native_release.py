@@ -51,7 +51,7 @@ class NativeRelease(unittest.TestCase):
         for name, target in native.TARGETS.items():
             data = (self.unit_before.replace(self.before.encode(), self.after.encode()) if name.startswith('native/') else
                     json.dumps(self.policy).encode() if name.startswith('policy/') else
-                    (ROOT / 'releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py').read_bytes() if name.endswith('__init__.py') else b'candidate')
+                    (ROOT / 'releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py').read_bytes().replace(b'\r\n', b'\n') if name.endswith('__init__.py') else b'candidate')
             p = self.root / 'candidate' / name; p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(data)
             self.manifest['files'].append(dict(candidate=name, target=target, sha256=hashlib.sha256(data).hexdigest(),
                 beforeSha256=hashlib.sha256(self.unit_before).hexdigest() if name.startswith('native/') else None if name != 'plugin/__init__.py' else native.original_plugin_sha(data),
@@ -309,7 +309,7 @@ class NativeRelease(unittest.TestCase):
             data = self.unit_before if row['candidate'].startswith('native/') else (
                 json.dumps(self.policy).encode() if row['candidate'].startswith('policy/') else
                 (self.root / 'candidate/plugin/__init__.py').read_bytes().replace(
-                    b'    from .knowledge import register as register_knowledge\n    register_knowledge(ctx)\n', b''))
+                    b'    if include_knowledge:\n        from .knowledge import register as register_knowledge\n        register_knowledge(ctx)\n', b''))
             path = self.root / row['target'].lstrip('/'); path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(data)
             row['beforeSha256'] = hashlib.sha256(data).hexdigest(); previous[row['target']] = data
         (self.root / 'approved-manifest.json').write_text(json.dumps(self.manifest))
