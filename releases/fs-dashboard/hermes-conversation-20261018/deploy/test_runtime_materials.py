@@ -1832,12 +1832,12 @@ class NativePublisher(unittest.TestCase):
         self.assertTrue(callable(getattr(prepare,'configure_native_capabilities',None)))
         prepare.configure_native_capabilities()
         self.assertEqual((len(release.TARGETS),len(release.NEW)),(16,0))
-        self.assertEqual(release.INSTALLED_COMMIT,'bd9cb44c4233f176fb15fd14f5560a5000c750d1')
-        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'runtime/conversation_user_data.py','runtime/fs_native_readonly.py'})
+        self.assertEqual(release.INSTALLED_COMMIT,'3c45f02689cab4e1b70a3fe1227031f833e17b02')
+        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/proxy_gateway.py',))
         self.assertEqual(release.INSTALLED_PROOF,dict(sourceCommit=release.INSTALLED_COMMIT,
-            backup='/var/backups/fs-navigation-20261006/nav-20261103T052236Z',
-            manifestSha256='4a6c58744029e3251d5ebf926a9161d977cf8bd2487596682bb45352e1b3c7ce',
-            journalSha256='a548cdcab2e06c8568a7ff2231a6e979ab23d5babfb4990f12c5e5b4ef07a1a5'))
+            backup='/var/backups/fs-navigation-20261006/nav-20261103T065027Z',
+            manifestSha256='11fd2c4c2384913e7da9855028b50be05c3fc50836e658b5863fda3681c64eac',
+            journalSha256='c946e8cac39b1f0fde71a05f9dea49d86f9c76173a5d9e2dd767c712fc4819bf'))
         self.assertEqual(release.CAPABILITIES_STATIC_PROOF['sourceCommit'],'d135d2b965ecdfc2d96a1e49cf9425e31eaca07e')
         self.assertEqual(set(prepare.SOURCES),set(release.CAPABILITIES_TARGETS))
         self.assertEqual(prepare.SOURCES['http/conversation_http.py'],prepare.MODULE+'source/conversation_http.py')
@@ -1859,13 +1859,13 @@ class NativePublisher(unittest.TestCase):
             raw=json.dumps(m).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
             j=deepcopy(j);j.setdefault('manifest',m);j.setdefault('approvedManifestSha256',proof['manifestSha256'])
             raw=json.dumps(j).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
-        metadata={release.NGINX:dict(path=release.NGINX,sha256=proof['beforeSha256'],owner='0:0',mode='0o600'),
+        metadata={release.NGINX:dict(path=release.NGINX,sha256=proof['sha256'],owner='0:0',mode='0o600'),
                   '/opt/other-protected.py':dict(path='/opt/other-protected.py',sha256='e'*64,owner='0:0',mode='0o644')}
         save()
         with patch.object(release,'CAPABILITIES_NGINX_PROOF',proof):
             yield SimpleNamespace(proof=proof,backup=backup,manifest=manifest,journal=journal,save=save,metadata=metadata)
 
-    def test_native_capabilities_nginx_accepts_only_exact_successful_protected_transition(self):
+    def test_native_capabilities_nginx_current_and_historical_proof(self):
         self.assertTrue(callable(getattr(release,'capabilities_nginx_overlay',None)), 'single successful native Nginx proof is not consumed')
         prepare.configure_native_capabilities();base=release.frozen()
         with tempfile.TemporaryDirectory() as directory:
@@ -1875,10 +1875,10 @@ class NativePublisher(unittest.TestCase):
                 before=deepcopy(f.metadata)
                 result=release.capabilities_nginx_overlay(base,root,f.metadata)
                 self.assertEqual(result[release.NGINX]['sha256'],'fde65e277cbb873673b7dc474483dada42e0da558756c69c63c38d0acc769da4')
-                self.assertEqual(f.metadata,before);self.assertEqual(set(result),set(before))
+                self.assertEqual(f.metadata,before);self.assertEqual(result,before)
                 self.assertEqual(result['/opt/other-protected.py'],before['/opt/other-protected.py'])
                 self.assertNotIn('sourceCommit',f.manifest);self.assertNotIn('written',f.journal['files'][0])
-                bad=deepcopy(before);bad[release.NGINX]['sha256']=result[release.NGINX]['sha256']
+                bad=deepcopy(before);bad[release.NGINX]['sha256']=f.proof['beforeSha256']
                 for changed in (bad,dict(before,**{release.NGINX:dict(before[release.NGINX],owner='9876:9876')}),
                                 dict(before,**{release.NGINX:dict(before[release.NGINX],mode='0o644')})):
                     with self.assertRaises(ValueError):release.capabilities_nginx_overlay(base,root,changed)
@@ -1926,6 +1926,50 @@ class NativePublisher(unittest.TestCase):
                 with patch.object(release.os,'open',side_effect=change_before_open),self.assertRaisesRegex(ValueError,'native_nginx_proof_changed'):
                     release.capabilities_nginx_overlay(base,root,before)
                 with patch.object(release,'NATIVE_CAPABILITIES_MODE',False),self.assertRaises(ValueError):release.capabilities_nginx_overlay(base,root,before)
+
+    def test_native_capabilities_current_nginx_is_in_installed_proof(self):
+        prepare.configure_native_capabilities();base=release.frozen()
+        source='3c45f02689cab4e1b70a3fe1227031f833e17b02'
+        nginx_sha='fde65e277cbb873673b7dc474483dada42e0da558756c69c63c38d0acc769da4'
+        rows=[dict(candidate=n,target=p,beforeSha256='0'*64,sha256=prepare.digest(n.encode()),owner='0:0',mode='0o644') for n,p in release.CAPABILITIES_TARGETS.items()]
+        protected=[dict(path=release.NGINX,sha256=nginx_sha,owner='0:0',mode='0o600'),
+                   dict(path='/var/www/dashboard/fs-home/hermes/conversation/index.html',sha256=release.COMPOSER_AFTER_SHA,owner='0:0',mode='0o644')]
+        protected += [dict(path='/opt/static/'+str(i),sha256='a'*64,owner='0:0',mode='0o644') for i in range(765)]
+        manifest=dict(sourceCommit=source,scope=release.SCOPE,nativeCapabilities=True,nativeArchive=True,
+                      nativeStaticBaseline=release.CAPABILITIES_STATIC_PROOF,files=rows,unchangedRequired=protected)
+        git=dict(source_commit=source,files={r['candidate']:r['sha256'] for r in rows})
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);proof=deepcopy(release.INSTALLED_PROOF);owners={};kinds={}
+            backup=base.rooted(root,proof['backup']);backup.mkdir(parents=True)
+            def save(m,**changes):
+                raw=json.dumps(m).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
+                journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=m,approvedManifestSha256=proof['manifestSha256'],files=[dict(r,intent=True,written=True) for r in m['files']])
+                journal.update(changes);raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+            with self.native_metadata(owners,kinds,root=root),self.capabilities_nginx_fixture(root,base) as historical,patch.object(release,'INSTALLED_PROOF',proof):
+                save(manifest)
+                for path in historical.backup.iterdir():owners[path]=(0,0,0o600)
+                for path in backup.iterdir():owners[path]=(0,0,0o600)
+                result=release.installed_baseline(root,git)
+                expected={r['target']:r['sha256'] for r in rows};expected.update({r['path']:r['sha256'] for r in protected})
+                self.assertEqual(result['archive_all_hashes'],expected)
+                self.assertEqual(len(release.ARCHIVE_PROTECTED),767)
+                self.assertTrue(historical.backup.is_dir())
+                for change in (dict(source_commit='bd9cb44c4233f176fb15fd14f5560a5000c750d1',files=git['files']),
+                               dict(source_commit=source,files=dict(git['files'],**{'runtime/proxy_gateway.py':'0'*64}))):
+                    with self.assertRaisesRegex(ValueError,'composer_static_installed_proof_mismatch'):release.installed_baseline(root,change)
+                for key,value in (('sha256','75a9b57a7073771b105573ab59e4c0a227f8567a75c8accbde2991d171934b3d'),('owner','9876:9876'),('mode','0o644')):
+                    bad=deepcopy(manifest);bad['unchangedRequired'][0][key]=value;save(bad)
+                    with self.assertRaisesRegex(ValueError,'native_nginx_transition_baseline_drift'):release.installed_baseline(root,git)
+                bad=deepcopy(manifest);bad['sourceCommit']='bd9cb44c4233f176fb15fd14f5560a5000c750d1';save(bad)
+                with self.assertRaises(ValueError):release.installed_baseline(root,git)
+                save(manifest,files=[dict(r,intent=True,written=False) for r in rows])
+                with self.assertRaises(ValueError):release.installed_baseline(root,git)
+                save(manifest,status='rolled-back')
+                with self.assertRaises(ValueError):release.installed_baseline(root,git)
+                save(manifest,files=[dict(r,intent=True,written=True,rollbackIntent=True) for r in rows])
+                with self.assertRaises(ValueError):release.installed_baseline(root,git)
+                save(manifest);(backup/'journal.json').write_bytes(b'changed proof')
+                with self.assertRaisesRegex(ValueError,'installed_release_proof_drift'):release.installed_baseline(root,git)
 
     def test_native_capabilities_original_apply_rollback(self):
         self._archive_apply_contract(capabilities=True)
@@ -2058,14 +2102,14 @@ class NativePublisher(unittest.TestCase):
                     cap_raw=json.dumps(cap_manifest).encode();(backup/'approved-manifest.json').write_bytes(cap_raw);proof['manifestSha256']=prepare.digest(cap_raw)
                     cap_journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=cap_manifest,approvedManifestSha256=proof['manifestSha256'],files=[dict(r,intent=True,written=True) for r in cap_rows])
                     cap_raw=json.dumps(cap_journal).encode();(backup/'journal.json').write_bytes(cap_raw);proof['journalSha256']=prepare.digest(cap_raw)
-                    # A separate accepted native publisher advanced only this
-                    # protected route after the installed bd9 proof was written.
+                    for path in backup.iterdir():f.owners[path]=(0,0,0o600)
+                    # Current successful 3c45 proof already protects this route;
+                    # historical receipt remains verified without reassigning any SHA.
                     nginx=base.rooted(f.system,release.NGINX)
-                    advanced_nginx=nginx.read_bytes()+b'\n# accepted native route\n'
-                    nginx_proof=proof_stack.enter_context(self.capabilities_nginx_fixture(
-                        f.system,base,before=current[release.NGINX],after=prepare.digest(advanced_nginx)))
+                    advanced_nginx=nginx.read_bytes()
+                    nginx_proof=proof_stack.enter_context(self.capabilities_nginx_fixture(f.system,base,
+                        before=prepare.digest(b'historical route before transition'),after=current[release.NGINX]))
                     for path in nginx_proof.backup.iterdir():f.owners[path]=(0,0,0o600)
-                    nginx.write_bytes(advanced_nginx)
                     with patch.object(store_module,'SYNTHETIC_ARCHIVE',pins):archived_before=store.archive_synthetic_unknown(owner)
                     prepare.configure_native_capabilities()
                     # frozen() captures NEW at construction; this reused fixture
@@ -2117,7 +2161,7 @@ class NativePublisher(unittest.TestCase):
                     for row in manifest['files']:
                         if row['candidate'] not in release.CAPABILITIES_CHANGED:
                             path=base.rooted(f.system,row['target']);untouched[row['target']]=(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns)
-                    self.assertEqual(len(untouched),781)
+                    self.assertEqual(len(untouched),782)
                     self.assertTrue(all(row['beforeSha256'] is not None for row in manifest['files']))
                 untouched_modes={p:(base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)) for p in untouched}
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -2136,7 +2180,7 @@ class NativePublisher(unittest.TestCase):
                     publisher=module.load_base();publisher.inspect(manifest,stage,f.system)
                     if capabilities:
                         nginx_row=next(r for r in manifest['unchangedRequired'] if r['path']==release.NGINX)
-                        self.assertEqual(nginx_row['sha256'],nginx_proof.proof['sha256'])
+                        self.assertEqual(nginx_row['sha256'],current[release.NGINX])
                         nginx.write_bytes(b'changed route after prepare')
                         with self.assertRaises(ValueError):publisher.inspect(manifest,stage,f.system)
                         rejected_raw=(stage/'approved-manifest.json').read_bytes()
