@@ -1,5 +1,5 @@
 """Exact material-files adapter over the original publisher, not a new writer."""
-from contextlib import closing
+from contextlib import closing, nullcontext
 from datetime import datetime, timezone
 import hashlib
 import importlib.util
@@ -966,10 +966,22 @@ def load_base():
     original_idle = base.hermes_quiescent
 
     def idle(root):
+        if COMPOSER_STATIC_MODE:
+            return  # The exact static page replaces no running task consumer.
         original_idle(root)
         quiescent(base,root,HERE/'candidate/runtime/conversation_store.py',approved.get('archiveException'),next((r['sha256'] for r in approved['files'] if r['candidate']=='runtime/conversation_store.py'),None))
 
     base.hermes_quiescent = idle
+    if COMPOSER_STATIC_MODE:
+        def static_file_fence(manifest, root):
+            if manifest != approved:
+                raise ValueError('exact_material_manifest_required')
+            # Keep the original publisher/collector file locks. A static HTML
+            # replacement needs neither task admission/DB transactions nor the
+            # provider/report fence, which can stop a service on failure.
+            return nullcontext()
+        base.hermes_admission_fence = static_file_fence
+        base.model_release_lock = static_file_fence
     original_guards = base.guards
     before_restart = True
 
@@ -977,6 +989,8 @@ def load_base():
         # runtimeRequired is the successful postcondition, runtimeBefore is the
         # explicit observed precondition. Never fake an active worker to the
         # frozen checks, and retain every other guard/protected source check.
+        if COMPOSER_STATIC_MODE and manifest != approved:
+            raise ValueError('exact_material_manifest_required')
         if manifest.get('installedBaseline'):
             installed_baseline(root, git_baseline)
         if COMPOSER_STATIC_MODE and (len(manifest['unchangedRequired'])!=778 or

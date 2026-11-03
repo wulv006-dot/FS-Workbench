@@ -1294,16 +1294,16 @@ class NativePublisher(unittest.TestCase):
                 untouched={r['path']:(f.base.rooted(f.system,r['path']).read_bytes(),f.base.rooted(f.system,r['path']).stat()) for r in manifest['unchangedRequired']}
                 spec=importlib.util.spec_from_file_location('composer_static_publisher',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
                 module.configure_native_composer_static();module.INSTALLED_PROOF=f.proof
-                base=f.base;base.hermes_quiescent=Mock();base.retirement=Mock()
+                base=f.base;base.retirement=Mock()
                 base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
                 fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock())
                 base.hermes_admission_fence=lambda *a:nullcontext(fence)
                 service=Mock();base.restart_for=service
                 if os.name=='nt':base.directory_sync=lambda *a:None
-                with patch.object(module,'frozen',return_value=base),patch.object(module,'quiescent'),patch.object(module,'running_worker'),patch.object(module,'worker_image',return_value=release.FROZEN_IMAGE_MARKER),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')) as commands:
+                with patch.object(module,'frozen',return_value=base),patch.object(module,'running_worker'),patch.object(module,'worker_image',return_value=release.FROZEN_IMAGE_MARKER),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')) as commands:
                     publisher=module.load_base();publisher.inspect(manifest,stage,f.system)
                     duplicate=deepcopy(manifest);duplicate['unchangedRequired'][-1]=deepcopy(duplicate['unchangedRequired'][0])
-                    with self.assertRaisesRegex(ValueError,'composer_static_protected_set_drift'):publisher.guards(duplicate,f.system)
+                    with self.assertRaisesRegex(ValueError,'exact_material_manifest_required'):publisher.guards(duplicate,f.system)
                     f.usage.write_bytes(b'after prepare change')
                     with self.assertRaisesRegex(ValueError,'archive_usage_cas_drift'):publisher.inspect(manifest,stage,f.system)
                     f.usage.write_bytes(b'fresh usage');untouched[release.ARCHIVE_USAGE_LEDGER]=(f.usage.read_bytes(),f.usage.stat())
@@ -1333,6 +1333,69 @@ class NativePublisher(unittest.TestCase):
                         p=base.rooted(f.system,path);now=p.stat()
                         self.assertEqual(p.read_bytes(),data)
                         self.assertEqual((now.st_uid,now.st_gid,now.st_mode,now.st_size,now.st_ino,now.st_mtime_ns),(info.st_uid,info.st_gid,info.st_mode,info.st_size,info.st_ino,info.st_mtime_ns))
+
+    def test_composer_static_busy_databases_never_opened_and_original_file_locks_retained(self):
+        with tempfile.TemporaryDirectory() as directory,self.composer_fixture(Path(directory)) as f:
+            root=Path(directory);base=f.base
+            databases={
+                '/var/lib/fs-hermes-fc/fs/tasks.sqlite3':('CREATE TABLE requests(state);INSERT INTO requests VALUES("DISPATCH_UNKNOWN");CREATE TABLE tasks(state);INSERT INTO tasks VALUES("RUNNING");CREATE TABLE learning_events(state);INSERT INTO learning_events VALUES("unknown");'),
+                '/var/lib/fs-hermes-fc/fs/conversations/conversations.db':('CREATE TABLE turns(state);INSERT INTO turns VALUES("running");'),
+                '/var/lib/fs-hermes-fc/fs/pricing-reviews/conversations.db':('CREATE TABLE turns(state);INSERT INTO turns VALUES("dispatch_unknown");'),
+                '/var/lib/fs-hermes-fc/fs/customer-tracking/tracking.db':('CREATE TABLE scan_jobs(state);INSERT INTO scan_jobs VALUES("pending");CREATE TABLE milestones(state);INSERT INTO milestones VALUES("claimed");'),
+                '/var/lib/fs-business-ranges/advisor/advisor.sqlite3':('CREATE TABLE jobs(state);INSERT INTO jobs VALUES("running");'),
+                '/var/lib/fs-business-ranges/fc-daily/daily.sqlite3':('CREATE TABLE jobs(state);INSERT INTO jobs VALUES("pending");')}
+            for name,sql in databases.items():
+                p=base.rooted(f.system,name);p.parent.mkdir(parents=True,exist_ok=True)
+                with closing(sqlite3.connect(p)) as db:db.executescript(sql);db.commit()
+            for name in ('/var/www/dashboard/fs-home/transactions/collector.lock','/var/lib/fs-hermes-fc/fs/admission.lock','/var/lib/fs-business-ranges/fc-daily/provider.lock'):
+                p=base.rooted(f.system,name);p.parent.mkdir(parents=True,exist_ok=True);p.touch();p.chmod(0o600)
+            raw=f.save_descriptor();stage=root/'stage'
+            prepare.prepare(f.payload,stage,'a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
+            manifest_raw=(stage/'approved-manifest.json').read_bytes();manifest=json.loads(manifest_raw)
+            spec=importlib.util.spec_from_file_location('composer_static_busy',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+            module.configure_native_composer_static();module.INSTALLED_PROOF=f.proof
+            if os.name=='nt':
+                # Only flock is a Windows fixture. Every original lock/context,
+                # SQL admission consumer, filesystem writer and guard runs.
+                lock_module=SimpleNamespace(LOCK_EX=2,LOCK_NB=4,flock=Mock())
+            else:import fcntl as lock_module
+            with patch.dict(sys.modules,{'fcntl':lock_module}),ExitStack() as platform:
+                if os.name=='nt':
+                    original_fstat=os.fstat
+                    def root_lock_metadata(fd):
+                        info=original_fstat(fd)
+                        fields={k:getattr(info,k) for k in dir(info) if k.startswith('st_')}
+                        fields.update(st_uid=0,st_gid=0,st_mode=stat.S_IFMT(info.st_mode)|0o600)
+                        return SimpleNamespace(**fields)
+                    platform.enter_context(patch.object(os,'geteuid',return_value=0,create=True))
+                    platform.enter_context(patch.object(os,'fstat',side_effect=root_lock_metadata))
+                # Runtime publishers retain their actual active-task/report refusals.
+                with self.assertRaisesRegex(ValueError,'active or unreconciled Hermes task'):base.guards(manifest,f.system)
+                with self.assertRaisesRegex(ValueError,'active or unreconciled Hermes task'):
+                    with base.hermes_admission_fence(manifest,f.system):pass
+                with self.assertRaisesRegex(ValueError,'active report'):
+                    with base.model_release_lock(manifest,f.system):pass
+                with self.assertRaisesRegex(ValueError,'active_or_unknown_material_task'):release.quiescent(base,f.system)
+                preserved=[base.rooted(f.system,n) for n in databases]+[base.rooted(f.system,r['path']) for r in manifest['unchangedRequired']]
+                before={p:(p.read_bytes(),p.stat()) for p in preserved}
+                base.retirement=Mock()  # Retired systemd masks are an OS fixture, not task admission.
+                if os.name=='nt':base.directory_sync=lambda *a:None
+                with patch.object(module,'frozen',return_value=base),patch.object(module,'running_worker'),patch.object(module,'worker_image',return_value=release.FROZEN_IMAGE_MARKER),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')) as commands,patch.object(sqlite3,'connect',wraps=sqlite3.connect) as connections,patch.object(lock_module,'flock',wraps=lock_module.flock) as locks:
+                    publisher=module.load_base()
+                    for gate in (publisher.hermes_admission_fence,publisher.model_release_lock):
+                        with self.assertRaisesRegex(ValueError,'exact_material_manifest_required'):
+                            gate(dict(manifest,nativeCapabilities=True),f.system)
+                    publisher.inspect(manifest,stage,f.system)
+                    publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,'nav-20261103T010001Z',f.system)
+                    self.assertEqual(base.digest(f.target),release.COMPOSER_AFTER_SHA)
+                    publisher.rollback(base.rooted(f.system,'/var/backups/fs-navigation-20261006/nav-20261103T010001Z'),prepare.digest(manifest_raw),f.system)
+                    self.assertEqual(base.digest(f.target),release.COMPOSER_BEFORE_SHA)
+                    connections.assert_not_called()
+                    self.assertEqual(locks.call_count,6)  # original two publisher locks + collector, apply and rollback
+                    self.assertTrue(all(c.args[0][:2]==['systemctl','show'] for c in commands.call_args_list))
+                for p,(data,info) in before.items():
+                    now=p.stat();self.assertEqual(p.read_bytes(),data)
+                    self.assertEqual((now.st_uid,now.st_gid,now.st_mode,now.st_size,now.st_ino,now.st_mtime_ns),(info.st_uid,info.st_gid,info.st_mode,info.st_size,info.st_ino,info.st_mtime_ns))
 
     def test_daily_consumer_keeps_container_entry_and_sibling_import(self):
         prepare.configure_native_chat()
