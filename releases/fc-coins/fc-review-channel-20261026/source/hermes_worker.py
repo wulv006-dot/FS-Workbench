@@ -6,6 +6,7 @@ Provider credentials never enter this process. Admissions are FS-owned read-only
 files containing a renewable task token, model name, and approved task context.
 """
 import asyncio
+from contextlib import nullcontext
 from contextvars import ContextVar
 import json
 from pathlib import Path
@@ -163,6 +164,9 @@ def call_tool(name, args, *, session_id=None, parent_agent=None, **unused):
 def loaded_context_metadata(agent):
     source=getattr(agent,'_hermes_api_runtime',{}) or {}
     result={}
+    knowledge = source.get('fs_native_knowledge')
+    if isinstance(knowledge, dict):
+        result['fs_native_knowledge'] = dict(knowledge)
     if isinstance(source.get('fs_material_context'),dict):
         result['fs_material_context']=source['fs_material_context']
     for key in ('fs_context_version','fs_context_sha256','fs_background_version','fs_background_sha256',
@@ -253,6 +257,9 @@ def install_native_compaction_relay(agent, binding, effort, check, relay):
                     receipt.get('compression_count')!=pending[0]):
                 raise PermissionError('native_compaction_not_registered')
             check()
+            knowledge = getattr(agent, '_fs_native_knowledge', None)
+            if knowledge is not None:
+                knowledge.link(pending[1])
             with lock:
                 if state['pending'] is pending:state['pending']=None
         return result
@@ -642,7 +649,13 @@ def make_adapter(api_key):
                 register_scope(registry,str(backend.profile))
                 from hermes_constants import resolve_reasoning_config
                 reasoning = resolve_reasoning_config(config,item['model'])
-                enabled = sorted(set(_get_platform_tools(config, 'api_server')) | {'fs_readonly'})
+                enabled = sorted((set(_get_platform_tools(config, 'api_server')) - {'fs_native_knowledge'}) | {'fs_readonly'})
+                knowledge = None
+                if item['native_chat'].get('knowledge') is not None:
+                    from conversation_knowledge import WorkerKnowledge, register_scope as knowledge_scope
+                    knowledge = backend.knowledge = WorkerKnowledge(item, backend, call_tool)
+                    knowledge_scope(registry, str(backend.profile))
+                    enabled = sorted(set(enabled) | {'fs_native_knowledge'})
                 callbacks = {key: kwargs[key] for key in ('stream_delta_callback','tool_progress_callback',
                     'tool_start_callback','tool_complete_callback','interim_assistant_callback','reasoning_callback',
                     'status_callback','event_callback') if key in kwargs}
@@ -656,6 +669,8 @@ def make_adapter(api_key):
                     raise OSError('native_session_history_unavailable')
                 prompt = ('Attachments in this conversation are available in /workspace. '
                           'Use the native tools as needed; save generated files in /workspace.\n' + canonical(files))
+                if knowledge is not None:
+                    prompt += '\n' + knowledge.prompt()
                 agent = AIAgent(base_url=PROXY+'/v1', api_key=item['token'], provider='custom',
                     api_mode='chat_completions', model=item['model'], enabled_toolsets=enabled,
                     disabled_toolsets=['fs_materials','fs_fc_readonly'], session_id=fixed['session_id'],
@@ -664,6 +679,9 @@ def make_adapter(api_key):
                     skip_background_review=False, fallback_model=None, quiet_mode=True,
                     max_tokens=MAX_HERMES_OUTPUT_TOKENS, reasoning_config=reasoning,
                     session_db=session_db, tool_result_metadata_callback=pending, **callbacks)
+                if knowledge is not None:
+                    knowledge.agent = agent
+                    agent._fs_native_knowledge = knowledge
                 raw = model_tools.get_tool_definitions(enabled_toolsets=agent.enabled_toolsets,
                     disabled_toolsets=agent.disabled_toolsets,quiet_mode=True,skip_tool_search_assembly=True)
                 from agent.reasoning_params import unset_reasoning_default
@@ -685,7 +703,7 @@ def make_adapter(api_key):
             original_run = agent.run_conversation
             @functools.wraps(original_run)
             def run(*args, **run_kwargs):
-                with backend.scope():
+                with backend.scope(), knowledge.scope() if knowledge is not None else nullcontext():
                     # History keeps its cid session. Official tool/cache state
                     # is turn-scoped so a stopped writer cannot reach its successor.
                     if len(args)>3:
@@ -706,6 +724,9 @@ def make_adapter(api_key):
             agent._hermes_api_runtime = {'provider':'custom','model':item['model'],'route_source':'fs_native_conversation',
                 'fs_native_catalog_sha256':measured['catalog_sha256'],
                 'fs_native_model_schema_sha256':hashlib.sha256(canonical(agent.tools).encode()).hexdigest()}
+            if knowledge is not None:
+                agent._hermes_api_runtime['fs_native_knowledge'] = dict(release=knowledge.pin['release'],
+                    catalog_sha256=knowledge.pin['catalog_sha256'], pin_sha256=knowledge.reference['pin_sha256'])
             return agent
 
     return ReadonlyAdapter(PlatformConfig(enabled=True, extra={

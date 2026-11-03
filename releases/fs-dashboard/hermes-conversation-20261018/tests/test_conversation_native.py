@@ -173,7 +173,14 @@ class NativeDispatchTests(unittest.TestCase):
         def guard(_):
             yield True
         controller=types.ModuleType('controller');controller.NoRedirect=object;controller.admission_guard=guard
-        controller.atomic=lambda path,value,**kw: cls.admissions.append(json.loads(json.dumps(value)))
+        def atomic(path, value, **kwargs):
+            if set(value) == {'reference'}:
+                # New knowledge references are real persistent IO; admission observation stays unchanged.
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(value), encoding='utf-8')
+            else:
+                cls.admissions.append(json.loads(json.dumps(value)))
+        controller.atomic=atomic
         evidence=types.ModuleType('fs_evidence');evidence.build_book=lambda *a,**k: (_ for _ in ()).throw(AssertionError('native must not build FC book'))
         inprocess=types.ModuleType('fs_inprocess');inprocess.gateway=lambda *a,**k: (_ for _ in ()).throw(AssertionError('FC gateway'))
         inprocess.spending_hold=lambda *a,**kw:False;inprocess.active_model_tasks=lambda tasks:[]
@@ -461,7 +468,8 @@ class NativeDispatchTests(unittest.TestCase):
             self.assertEqual(observed['post_count'],1,observed)
             self.assertTrue(observed['worker_read'],observed)
             self.assertFalse(observed['permission_error'])
-            self.assertEqual(set(modes.values()),{0o640})
+            self.assertEqual({mode for path,mode in modes.items() if Path(path).parent==worker['ADMISSIONS']},{0o640})
+            self.assertEqual({mode for path,mode in modes.items() if Path(path).parent!=worker['ADMISSIONS']},{0o600})
 
     def test_real_taskstore_host_hook_is_readonly_and_stop_blocks_late_publication(self):
         path=SOURCE.parents[1]/'hermes-fc-pilot-20261013/pilot.py'
