@@ -1,0 +1,5 @@
+_email_private/
+_cache/
+__pycache__/
+*.local.json
+secrets/
