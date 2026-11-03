@@ -3,7 +3,10 @@ from copy import deepcopy
 from datetime import date, datetime, timezone
 import hashlib
 import json
+import os
+from pathlib import Path
 import re
+import stat
 import sys
 
 from a2_query_context import QueryContext
@@ -61,6 +64,51 @@ def authorize_campaign(owner,mutation):
     return rbac.authorize(rbac.load_policy(),owner,'POST',endpoint)==200
 
 
+CAMPAIGN_APPROVAL_FILE=Path('/var/lib/fs-campaign-dashboard/backend/native-coupon-approval.json')
+
+
+def campaign_approval(binding,operation_id):
+    """One operator-provisioned user approval, never a model-supplied grant.
+
+    Provision only after the real run binding is known, before its mutation
+    tool call. The existing root-controlled backend directory holds this exact
+    request/expiry/source record; no API, table, wildcard or auto-claim exists.
+    """
+    path=CAMPAIGN_APPROVAL_FILE
+    if not path.exists():return None
+    parents=[]
+    for parent in path.parents:
+        info=parent.lstat()
+        if (not stat.S_ISDIR(info.st_mode) or (info.st_uid,info.st_gid)!=(0,0) or info.st_mode&0o022):
+            raise PermissionError('business_authorization_file_boundary')
+        parents.append((parent,info.st_dev,info.st_ino,info.st_uid,info.st_gid,info.st_mode))
+    fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+    before=path.lstat()
+    if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>16384 or
+            (before.st_uid,before.st_gid,stat.S_IMODE(before.st_mode))!=(0,0,0o600)):
+        raise PermissionError('business_authorization_file_boundary')
+    with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as source:
+        opened=os.fstat(source.fileno())
+        if any(getattr(before,k)!=getattr(opened,k) for k in fields):raise PermissionError('business_authorization_file_changed')
+        raw=source.read(16385)
+        if any(getattr(before,k)!=getattr(os.fstat(source.fileno()),k) for k in fields):raise PermissionError('business_authorization_file_changed')
+    after=path.lstat()
+    if len(raw)!=before.st_size or any(getattr(before,k)!=getattr(after,k) for k in fields):
+        raise PermissionError('business_authorization_file_changed')
+    for parent,*identity in parents:
+        now=parent.lstat()
+        if [now.st_dev,now.st_ino,now.st_uid,now.st_gid,now.st_mode]!=identity:
+            raise PermissionError('business_authorization_file_changed')
+    value=json.loads(raw)
+    if (type(value) is not dict or type(value.get('binding')) is not dict or set(value['binding'])!=set(binding) or
+            any(value['binding'].get(k)!=binding[k] for k in ('owner','conversation_id','session_id')) or
+            type(value.get('request')) is not dict or value['request'].get('operation_id')!=operation_id):
+        raise PermissionError('business_authorization_mismatch')
+    # approval() requires all seven fields for writes; a later authorized turn
+    # in this same session may only look up/reconcile the original operation.
+    return value
+
+
 class NativeCouponActions:
     """A narrow adapter to the original writer; no approval producer or new ledger."""
     def __init__(self,native,backend,reader_factory,*,authorize,approval_source=None,clock=None):
@@ -75,10 +123,10 @@ class NativeCouponActions:
         sys.path.insert(0,'/opt/fs-campaign-dashboard/backend')
         from campaign_backend.services import BackendServices
         from campaign_backend.adapters import AdminRead
-        # This callback is trusted host composition only. There is currently no
-        # business approval producer; absent it, mutation/operation access refuses.
+        # An explicitly composed host callback or the one root-controlled user
+        # approval file is trusted. Missing records still deny every mutation.
         return cls(native,BackendServices.from_environment(),AdminRead.from_shared_session,
-            authorize=authorize_campaign,approval_source=getattr(native.service,'campaign_approval',None))
+            authorize=authorize_campaign,approval_source=getattr(native.service,'campaign_approval',None) or campaign_approval)
 
     def guard(self,binding,mutation=False):
         if self.native.authorized(binding) is not True or self.authorize(binding['owner'],mutation) is not True:
@@ -161,6 +209,8 @@ class NativeCouponActions:
             if (any(str(view['fields'].get(k))!='0' for k in ('status','fetch_qty','used_qty'))
                     or 'brief' not in view['editability']['allowed_changes'] or str(view['fields'].get('site_id'))!='266'):
                 raise PermissionError('native_coupon_not_disabled_unused')
+        if self.approval(binding,args['operation_id'],write=True)!=actual:
+            raise PermissionError('business_authorization_mismatch')
         return self.receipt(self.handle(binding,actual))
 
 

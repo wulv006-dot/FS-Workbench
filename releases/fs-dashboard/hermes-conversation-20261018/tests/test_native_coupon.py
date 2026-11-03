@@ -4,8 +4,11 @@ from copy import deepcopy
 from datetime import datetime,timedelta,timezone
 import importlib.util
 import json
+import os
 from pathlib import Path
+import stat
 import sys
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -116,6 +119,65 @@ class NativeCouponTests(unittest.TestCase):
         args=self.grant();self.row['brief']='Changed after approval'
         receipt=self.call('fs_edit_coupon_brief',args)
         self.assertEqual((receipt['state'],receipt['dispatch_state']),('rejected','not_started'))
+        self.assertEqual(self.posts,[])
+
+    def test_root_file_producer_binds_one_actual_run_and_preserves_expiry_and_IAM(self):
+        import conversation_user_data as module
+        producer=module.campaign_approval
+        self.now=datetime.now(timezone.utc)
+        args=self.grant();record=deepcopy(self.approval)
+        path=Path(self.temp.name)/'backend/native-coupon-approval.json';path.parent.mkdir()
+        real_lstat=Path.lstat;real_fstat=os.fstat;identity={'owner':0,'mode':0o600}
+        def view(info,directory=False):
+            values={k:getattr(info,k) for k in dir(info) if k.startswith('st_')}
+            values.update(st_uid=0 if directory else identity['owner'],st_gid=0,
+                          st_mode=(stat.S_IFDIR|0o755) if directory else stat.S_IFREG|identity['mode'])
+            # Windows ChangeTime may refresh on opening a handle; model the
+            # Linux ctime contract here, retaining the explicit FD drift case.
+            if os.name=='nt':values['st_ctime_ns']=info.st_mtime_ns
+            return SimpleNamespace(**values)
+        def lstat(p,*a,**kw):
+            info=real_lstat(p,*a,**kw)
+            return view(info,directory=True) if stat.S_ISDIR(info.st_mode) else view(info) if p==path else info
+        def fstat(fd):
+            result=view(real_fstat(fd))
+            if identity.get('drift'):result.st_ctime_ns+=1
+            return result
+        # Only OS root/mode identities are fixtures; the file bytes/FD/inode,
+        # binding, IAM, backend, durable ledger and final writer remain real.
+        with patch.object(module,'CAMPAIGN_APPROVAL_FILE',path),patch.object(Path,'lstat',lstat),patch.object(os,'fstat',fstat):
+            from campaign_backend.adapters import AdminRead
+            factory=self.data.campaign.reader_factory
+            state=self.backend.state_dir;state.mkdir(parents=True)
+            (state/'policy.json').write_text(json.dumps(fixture.policy()))
+            with patch.dict(os.environ,{'CAMPAIGN_BACKEND_STATE_DIR':str(state)}),patch.object(AdminRead,'from_shared_session',side_effect=factory):
+                self.data.campaign=module.NativeCouponActions.runtime(self.conversation.native,self.binding)
+            self.assertIs(self.data.campaign.approval_source,producer)
+            with self.assertRaisesRegex(PermissionError,'business_authorization_required'):self.call('fs_edit_coupon_brief',args)
+            path.write_text(json.dumps(record))
+            for key in self.binding:
+                bad=deepcopy(record);bad['binding'][key]='wrong';path.write_text(json.dumps(bad))
+                with self.subTest(key=key),self.assertRaisesRegex(PermissionError,'business_authorization_mismatch'):self.call('fs_edit_coupon_brief',args)
+            path.write_text(json.dumps(record))
+            for owner,mode in ((9876,0o600),(0,0o644)):
+                identity.update(owner=owner,mode=mode)
+                with self.assertRaisesRegex(PermissionError,'business_authorization_file_boundary'):self.call('fs_edit_coupon_brief',args)
+            identity.update(owner=0,mode=0o600)
+            identity['drift']=True
+            with self.assertRaisesRegex(PermissionError,'business_authorization_file_changed'):self.call('fs_edit_coupon_brief',args)
+            identity['drift']=False
+            bad=deepcopy(record);bad['valid_until']=self.now.isoformat();path.write_text(json.dumps(bad))
+            with self.assertRaisesRegex(PermissionError,'business_authorization_expired'):self.call('fs_edit_coupon_brief',args)
+            path.write_text(json.dumps(record));saved=path.read_bytes()
+            self.assertTrue(self.call('fs_edit_coupon_brief',args)['business_confirmed'])
+            self.assertEqual(path.read_bytes(),saved);self.assertEqual(len(self.posts),1)
+            self.iam['bindings']['operator']['roles']=['Viewer'];self.policy_path.write_text(json.dumps(self.iam))
+            with self.assertRaisesRegex(PermissionError,'native_campaign_access_denied'):self.call('fs_coupon_operation',{'operation_id':args['operation_id']})
+
+    def test_approval_expiring_during_detail_cannot_reach_mutation(self):
+        args=self.grant();times=iter((self.now,self.now+timedelta(minutes=2)))
+        self.data.campaign.clock=lambda:next(times)
+        with self.assertRaisesRegex(PermissionError,'business_authorization_expired'):self.call('fs_edit_coupon_brief',args)
         self.assertEqual(self.posts,[])
 
     def test_worker_request_grants_scope_host_IAM_and_original_coupon_executor(self):
