@@ -455,6 +455,13 @@ def pricing_policy(cfg, game=None):
         # 2026-10-29 老板定案：利润率带 25%~32%，**默认按最高 32%**，25% 兜底。
         #   无有效报价 / 可买量不足 2 亿 ⇒ 统一挂「无货兜底售价」；条数不足同样挂兜底价。
         #   G2G最低价 / ELD最低价 / IGGM **仅采集展示，不参与定价**。
+        # 🔴 2026-11-03 老板定案（**MSCW 冒险岛也切到 dd373_only**）：
+        #   「监督 IGGM 的价格但不跟随，固定 30% 利润定价，成本抓取还是从 DD373 抓，
+        #     抓取总额要满 5M，条数最低 10 条」
+        #   ⇒ 按游戏配置：利润率 0.30 / 利润率下限 0.30（固定 30%）/
+        #     无货最小可买万基纳 500（万金 = 5M）/ 条数下限 10 /
+        #     **无货处理 "hold"**（数据不达标不出价，保持线上现价）。
+        #   ⚠ AION2 未配 `无货处理` ⇒ 仍走原来的固定兜底价，行为不变。
         try:
             mk = float(p.get("利润率", 0.32))
         except (TypeError, ValueError):
@@ -477,19 +484,31 @@ def pricing_policy(cfg, game=None):
         _minq = _f(p.get("条数下限"))
         if _minq is None or _minq <= 0:
             _minq = 10.0
+        # 2026-11-03：`hold` = DD373 数据不达标（无报价 / 量不足 / 条数不足）本轮不出价，
+        #   保持线上现价；空串/其他值 = 旧行为（挂固定保护价）。
+        _holdm = str(p.get("无货处理") or "").strip().lower()
+        if _holdm == "hold":
+            _kj = ("目标价 = DD373 进货成本 ÷ (1−%.0f%%)（固定 %.0f%% 利润，兜底闸同值）；"
+                   "DD373 无有效报价 / 可买量 < %.0f 万金（%.1fM）/ 挂单不足 %.0f 条"
+                   "⇒ **本轮不出价（hold，保持线上现价）**。"
+                   "IGGM/G2G/ELD 仅采集展示，不参与定价。"
+                   % (mk * 100, _mlim2 * 100, _need, _need / 100.0, _minq))
+        else:
+            _kj = ("目标售价 $/M = DD373 该区进货成本 $/M ÷ (1−%.0f%%)"
+                   "（利润率带 %.0f%%~%.0f%%，默认取最高，低于 %.0f%% 由兜底闸抬回）；"
+                   "DD373 无有效报价 / 可买量 < %.0f 万基纳（不足 %s）/ 挂单不足 %.0f 条"
+                   "⇒ 统一挂 $%.2f/M（等有货自动跟回）。"
+                   "G2G最低价/ELD最低价/IGGM 仅采集展示，不参与定价。"
+                   % (mk * 100, _mlim2 * 100, mk * 100, _mlim2 * 100,
+                      _need, need_yi_txt(_need), _minq, _park))
         # 2026-10-09：套一层「时段加价」覆盖（北京时间 02:00-09:00 提到 0.35）
         return _time_markup(p, g, {
                 "模式": mode, "利润率": mk, "成本源": "DD373",
                 "利润率下限": _mlim2,
                 "无货兜底售价_USD每M": _park, "无货最小可买万基纳": _need,
                 "条数不足售价_USD每M": _shortp, "条数下限": _minq,
-                "口径": ("目标售价 $/M = DD373 该区进货成本 $/M ÷ (1−%.0f%%)"
-                        "（利润率带 %.0f%%~%.0f%%，默认取最高，低于 %.0f%% 由兜底闸抬回）；"
-                        "DD373 无有效报价 / 可买量 < %.0f 万基纳（不足 %s）/ 挂单不足 %.0f 条"
-                        "⇒ 统一挂 $%.2f/M（等有货自动跟回）。"
-                        "G2G最低价/ELD最低价/IGGM 仅采集展示，不参与定价。"
-                        % (mk * 100, _mlim2 * 100, mk * 100, _mlim2 * 100,
-                           _need, need_yi_txt(_need), _minq, _park))})
+                "无货处理": _holdm,
+                "口径": _kj})
     if mode == "iggm_undercut":
         # ── 2026-10-08 老板定案（MapleStory Classic World · 冒险岛怀旧服国际服）──────
         # 用户原话：
@@ -1465,7 +1484,29 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             except (TypeError, ValueError):
                 _n_i = None
             _short_items = bool(_ok) and _n_i is not None and 0 < _n_i < _min_items
-            if _ok and not _short_items and _enough:
+            # 🔴 2026-11-03 老板定案（MSCW 冒险岛）：**DD373 数据不达标 ⇒ 本轮不出价（hold）**。
+            #   原话「监督 IGGM 的价格但不跟随，固定 30% 利润定价，成本从 DD373 抓，
+            #   抓取总额要满 5M，条数最低 10 条」—— 只认「够量 + 够条数」的 DD373 成本；
+            #   无有效报价 / 可买量不足 / 挂单太少 一律**保持线上现价不动**，
+            #   不再像 AION2 那样挂固定保护价（MSCW 单价 $/K 量级，套 12.99/19.9 会翻几倍）。
+            #   ⚠ 由该游戏 `按游戏.<游戏>.无货处理 = "hold"` 开启；AION2 未配置 ⇒ 行为一字不变。
+            _hold_short = str(_row_pol.get("无货处理") or "").strip().lower() == "hold"
+            if _hold_short and not (_ok and (not _short_items) and _enough):
+                rec["定价来源级别"] = None
+                rec["基准价"] = None
+                rec["基准来源"] = ""
+                if not _ok:
+                    _why_hold = "DD373 无有效报价（%s）" % (_c.get("basis") or "该区无挂单")
+                elif _short_items:
+                    _why_hold = ("DD373 挂单仅 %d 条（< 条数下限 %d 条）"
+                                 % (int(_n_i or 0), _min_items))
+                else:
+                    _why_hold = ("DD373 可买量仅 %s 万金（< %g 万金 / %.0fM 门槛）"
+                                 % (_avail if _avail is not None else "未知",
+                                    _need, _need / 100.0))
+                rec["本轮不出价原因"] = _why_hold + " ⇒ 保持线上现价不动（本轮 hold）"
+                _base_detail = rec["本轮不出价原因"]
+            elif _ok and not _short_items and _enough:
                 _tgt_from_base = _cusd / (1.0 - min(float(_mk or 0.0), 0.99))
                 _base_src = "DD373进货成本"
                 rec["定价来源级别"] = 1
@@ -1891,6 +1932,9 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                     rec["目标前端每M_口径"] = (
                         "DD373 进货成本 $%.4f/M ÷ (1 − %.1f%%)"
                         % (rec.get("基准价") or 0.0, float(rec.get("利润率") or 0) * 100))
+                elif rec.get("本轮不出价原因"):
+                    # 2026-11-03：MSCW「数据不达标就 hold」，没有固定兜底价可写
+                    rec["目标前端每M_口径"] = rec["本轮不出价原因"]
                 else:
                     rec["目标前端每M_口径"] = (
                         "DD373 无货（无报价/不足 %s）→ 统一挂 $%.2f/M（等有货自动跟回）"
@@ -1917,6 +1961,14 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             tgt_m = None
             rec["目标前端每M_口径"] = ("IGGM 无报价/抓取失败 → 本轮不出目标价"
                                        "（不回落旧口径）")
+        elif _mode_used == "dd373_only":
+            # 🔴 2026-11-03（MSCW）：`无货处理=hold` 的区数据不达标 ⇒ 不出目标价。
+            #   必须单独一支 —— 否则会掉到下面的旧口径（IGGM × 让价系数），
+            #   看板与日志会显示「IGGM × 让价系数」误导成还在跟 IGGM。
+            tgt_m = None
+            rec["目标前端每M_口径"] = (
+                rec.get("本轮不出价原因")
+                or ("DD373 无有效报价 → 本轮不出目标价（不回落旧口径）"))
         else:
             # 退回旧口径（纯 IGGM × 让价系数）—— D4 走这条
             tgt_m = (igp * apo) if igp else None
@@ -2046,7 +2098,12 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
         #   只在被别的路径压下来时才把价抬回 25% 利润 —— 是兜底，不是常规定价。
         # ⚠ 保护档（无货兜底 / 条数不足 / 薄区挂单价）是**硬定价**，不吃本闸：
         #   它们的价位只由那几个配置值决定（与 2026-10-22 薄区口径一致）。
-        if (tgt_m and gm == "AION2" and _mode_used == "dd373_only"
+        # 🔴 2026-11-03：适用范围由「仅 AION2」扩到 **AION2 + MSCW**（两者都跑 dd373_only）。
+        #   各游戏的下限从自己的 `按游戏.<游戏>.利润率下限` 取 —— AION2 = 0.25（顶层），
+        #   MSCW = 0.30（固定 30%，与定价利润率同值 ⇒ 正常出价时恒不触发，
+        #   只在被跌停限幅等机制压低时抬回 30%）。
+        if (tgt_m and gm in ("AION2", "MapleStory Classic World")
+                and _mode_used == "dd373_only"
                 and rec.get("定价来源级别") == 1
                 and not rec.get("薄区挂单价_USD每M")
                 and rec.get("基准来源") not in ("无货兜底", "薄区挂单价", "条数不足价")):

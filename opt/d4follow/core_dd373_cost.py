@@ -1207,6 +1207,14 @@ def to_usd_per_m(price_yuan_per_wan, rate):
 #   2026-10-14 晚 用户口径：**800 万 → 1000 万**（「将 800w 换成 1000w」）⇒ target_wan = 1000 万金。
 #     ⚠ 同日起**跳过订单簿最低 1 条**（「跟 aion2 一样」，老板：AION2 曾因第一条超低价
 #       把整区成本拉崩）。首页可买量远超 1000 万 ⇒ 剔掉最低 1 条后仍在第 1 页内吃满，请求数不变。
+#   🔴 2026-11-03 用户口径：**目标量 800 万 → 500 万金（5M），并要求订单簿最低 10 条**
+#     （原话：「成本抓取还是从 DD373 抓，抓取总额要满5M，条数最低10条」）。
+#     ⇒ target_wan = 500.0、新增 min_quotes = 10：
+#       ① 加权均价只吃「够 500 万金」的挂单（不够 500 万继续翻页续抓）；
+#       ② **同时要求参与订单簿的挂单 ≥ 10 条**才算够 —— 只够量不够条数就继续翻页补条数，
+#          避免少数几条大单把整区均价定死（AION2 踩过同类坑）。
+#     实测（2026-11-03 · 183 出网）：首页可买 889~1339 万金、挂单 133~160 条 ⇒
+#     5M + 10 条在第 1 页内即可满足（仍只请求 2 次/轮：NA + EU 各 1 页）。
 #
 # ⚠ `wan_per_unit` = 前端 1 个单位合多少个「万」：
 #     前端单位是 **K**（档位 10/20/…/500，data-unit="K"）⇒ 1 K = 1000 金 = 0.1 万金。
@@ -1218,9 +1226,10 @@ FLAT_ZONES = {
         "type_seg": "et9e1b",       # 商品类型段（游戏币）
         "unit_name": "万金",        # 页面上的单位串（parse_first 自校验用）
         "wan_per_unit": 0.1,        # 前端单位 = K ⇒ 1 K = 0.1 万金
-        "target_wan": 800.0,        # 目标：买满 800 万金（2026-10-26 老板定案 1000w → 800w；不足 800 万自动翻页续抓，取订单簿加权均价）
+        "target_wan": 500.0,        # 目标：买满 500 万金（2026-11-03 老板定案 800w → 500w = 5M；不足 500 万自动翻页续抓，取订单簿加权均价）
+        "min_quotes": 10,           # 2026-11-03 老板定案：订单簿挂单**最低 10 条**（不够条数即使够量也继续翻页续抓）
         "skip_lowest": 1,           # 2026-10-14 老板：跳过订单簿最低 1 条（与 AION2 同口径）
-        "max_pages": 6,             # 够量即停；首页可买量远超目标 ⇒ 通常仍只请求 1 页
+        "max_pages": 6,             # 够量且够条数才停；首页可买量远超目标 ⇒ 通常仍只请求 1 页
         "sub": {                    # 我方「大区」→ (DD373 子区展示名, URL 段)
             "Global": ("北美NA+欧洲EU", "k5faqj"),
         },
@@ -1252,7 +1261,10 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
     """
     z = FLAT_ZONES[game]
     subs = list(z.get("sub_segs") or list((z.get("sub") or {}).values()))
-    tgt = float(z.get("target_wan") or 800.0)
+    tgt = float(z.get("target_wan") or 500.0)
+    # 2026-11-03 老板定案：订单簿**最低条数**（MSCW = 10）。够量但不够条数 ⇒ 继续翻页补。
+    #   0 / 缺失 = 不设条数门槛（旧行为）。
+    min_quotes = int(z.get("min_quotes") or 0)
     unit_name = z.get("unit_name") or "万金"
     wpu = float(z.get("wan_per_unit") or WAN_PER_M)
     quotes = []
@@ -1292,7 +1304,10 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
             if gap:
                 time.sleep(gap)
         # 本页（两个子区）都吃完了：够量就停（用户口径「遍历页面直到够目标量」）
-        if sum(q for q, _, _ in quotes) >= tgt - 1e-6:
+        # 🔴 2026-11-03：**量 + 条数 双条件**。只够量但挂单不足 min_quotes 条 ⇒ 继续翻页补条数，
+        #   避免「少数几条大单把整区均价定死」（老板口径：条数最低 10 条）。
+        if (sum(q for q, _, _ in quotes) >= tgt - 1e-6
+                and (not min_quotes or len(quotes) >= min_quotes)):
             break
         if pages_used == 0:
             break                       # 一页都没抓到（全失败）→ 别空转到底
@@ -1328,6 +1343,10 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
     _short = (None if ob["够量"] else
               "该专区 %d 页内仅可买 %.0f 万金（< %.0f 万），均价按现有挂单加权"
               % (pages_used, ob["可供量"], tgt))
+    # 2026-11-03：条数是否达标（老板口径「条数最低 10 条」）—— 供定价侧判「数据够不够用」
+    _short_q = (None if (not min_quotes or ob["报价条数"] >= min_quotes) else
+                "该专区 %d 页内仅 %d 条挂单（< %d 条），样本偏薄"
+                % (pages_used, ob["报价条数"], min_quotes))
     rec = {
         "ok": True,
         "成本_元每万基纳": _pr,
@@ -1335,6 +1354,9 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
         "成本_USD每M": _usd,                       # ⚠ 本专区实为 $/K（前端单位就是 K）
         "前端单位": "K",
         "可供量_万基纳": ob["可供量"], "够量": ob["够量"],
+        "目标量_万金": tgt,                        # 2026-11-03：本轮买满目标（5M = 500 万金）
+        "条数下限": min_quotes or None,            # 2026-11-03：挂单条数门槛（10 条）
+        "条数够": (not min_quotes) or ob["报价条数"] >= min_quotes,
         "参与条数": ob["参与条数"],
         "库存": "可买%.0f万金" % ob["可供量"],
         "起售": None,
@@ -1347,12 +1369,13 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
         "DD种族": "-", "DD游戏区": "Global（NA+EU 合并）",
         "跳过条数": ob.get("跳过条数", 0),
         "跳过明细": ob.get("跳过明细") or [],
-        "依据": "北美NA+欧洲EU 合并 · 买满 %.0f 万金订单簿加权(吃%d/%d条·翻%d页%s)"
+        "依据": "北美NA+欧洲EU 合并 · 买满 %.0f 万金订单簿加权(吃%d/%d条·翻%d页%s%s)"
                 % (tgt, ob["参与条数"], ob["报价条数"], pages_used,
-                   ("·跳过最低%d条" % ob["跳过条数"]) if ob.get("跳过条数") else ""),
+                   ("·跳过最低%d条" % ob["跳过条数"]) if ob.get("跳过条数") else "",
+                   ("·要求≥%d条" % min_quotes) if min_quotes else ""),
         "URL": urls[0] if urls else "",
     }
-    _own = "；".join(x for x in ((_chk or {}).get("自校验"), _short,
+    _own = "；".join(x for x in ((_chk or {}).get("自校验"), _short, _short_q,
                                  ("单价口径：元/万金 ÷ 汇率 ÷ 10 = $/K"
                                   "（1 万金 = 10 K，前端单位 K）"),
                                  ("；".join(notes) if notes else None)) if x)
@@ -1360,10 +1383,11 @@ def _collect_flat_game(game, rate, log=None, gap=1.3):
         rec["备注"] = _own
     if log:
         log("  [DD373] %-24s 买满 %.0f 万金 → %.6f 元/万金 = $%.6f/K "
-            "(吃%d/%d条·翻%d页%s·可买%.0f万金%s)"
+            "(吃%d/%d条·翻%d页%s%s·可买%.0f万金%s)"
             % (z.get("sub", {}).get("Global", ("", "-"))[0], tgt, _pr, _usd or 0,
                ob["参与条数"], ob["报价条数"], pages_used,
                ("·跳过最低%d条" % ob["跳过条数"]) if ob.get("跳过条数") else "",
+               ("·要求≥%d条" % min_quotes) if min_quotes else "",
                ob["可供量"],
                "" if ob["够量"] else "·不足%.0f万" % tgt))
     return (rec, site)

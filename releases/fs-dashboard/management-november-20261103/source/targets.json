@@ -1,0 +1,6453 @@
+{
+  "period": "2026-11",
+  "overview": {
+    "games": [
+      {
+        "profile": "FC27",
+        "name": "EA SPORTS FC 27",
+        "grp": "球类运营组",
+        "owner": "吴律",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "fc27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 860000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "RS",
+        "name": "RuneScape",
+        "grp": "综合运营组",
+        "owner": "JIM",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "rs.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 110000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "NFL27",
+        "name": "Madden NFL 27",
+        "grp": "球类运营组",
+        "owner": "刘峻洋",
+        "tier": "A",
+        "regime": "11月经营目标",
+        "file": "nfl27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 48000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "CFB27",
+        "name": "College Football 27",
+        "grp": "球类运营组",
+        "owner": "刘峻洋",
+        "tier": "A",
+        "regime": "11月经营目标",
+        "file": "cfb27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 17000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "ARC_RAIDERS",
+        "name": "ARC Raiders",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "arc_raiders.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 35000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "COD_MW4",
+        "name": "CoD Modern Warfare 4",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "cod_mw4.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 80000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "MONOPOLY_GO",
+        "name": "Monopoly Go",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "monopoly_go.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 3000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "MAPLESTORY_CLASSIC",
+        "name": "MapleStory Classic World",
+        "grp": "综合运营组",
+        "owner": "曹海钰",
+        "tier": "A",
+        "regime": "11月经营目标",
+        "file": "maplestory_classic.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 100000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "ELDEN_RING",
+        "name": "Elden Ring",
+        "grp": "综合运营组",
+        "owner": "曹海钰",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "elden_ring.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2500,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "MLB26",
+        "name": "MLB The Show 26",
+        "grp": "球类运营组",
+        "owner": "张星宇",
+        "tier": "A",
+        "regime": "11月经营目标",
+        "file": "mlb26.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 17000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "WARDOGS",
+        "name": "战犬",
+        "grp": "球类运营组",
+        "owner": "张星宇",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "wardogs.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 700,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "NBA2K27",
+        "name": "NBA 2K27",
+        "grp": "球类运营组",
+        "owner": "杜浩哲",
+        "tier": "B",
+        "regime": "11月经营目标",
+        "file": "nba2k27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 10000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "GTA_5_6",
+        "name": "GTA 5/6",
+        "grp": "球类运营组",
+        "owner": "杜浩哲",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "gta_5_6.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 400,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "TORCHLIGHT_INFINITE",
+        "name": "Torchlight: Infinite",
+        "grp": "球类运营组",
+        "owner": "杜浩哲",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "torchlight_infinite.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 1200,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "POE",
+        "name": "Path of Exile",
+        "grp": "RPG运营组",
+        "owner": "金晟",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "poe.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 10000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "POE2",
+        "name": "Path of Exile 2",
+        "grp": "RPG运营组",
+        "owner": "金晟",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "poe2.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 42000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "SKULL_AND_BONES",
+        "name": "Skull and Bones",
+        "grp": "RPG运营组",
+        "owner": "金晟",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "skull_and_bones.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 1500,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "LAST_EPOCH",
+        "name": "Last Epoch",
+        "grp": "RPG运营组",
+        "owner": "金晟",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "last_epoch.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 500,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "ARCHEAGE_CHRONICLES",
+        "name": "ArcheAge Chronicles",
+        "grp": "RPG运营组",
+        "owner": "金晟",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "archeage_chronicles.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 500,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "D4",
+        "name": "Diablo IV",
+        "grp": "RPG运营组",
+        "owner": "耿毅迪",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "d4.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 90000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "D2R",
+        "name": "Diablo II: Resurrected",
+        "grp": "RPG运营组",
+        "owner": "耿毅迪",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "d2r.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 3000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "DARK_AND_DARKER",
+        "name": "Dark and Darker",
+        "grp": "RPG运营组",
+        "owner": "耿毅迪",
+        "tier": "A",
+        "regime": "11月经营目标",
+        "file": "dark_and_darker.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 8000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "ODIN",
+        "name": "Odin: Valhalla Rising",
+        "grp": "RPG运营组",
+        "owner": "耿毅迪",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "odin.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 380,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "WOW_FOREVER",
+        "name": "WoW Forever",
+        "grp": "RPG运营组",
+        "owner": "陈超",
+        "tier": "长尾",
+        "regime": "11月经营目标",
+        "file": "wow_forever.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 100000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "AION2",
+        "name": "AION 2",
+        "grp": "RPG运营组",
+        "owner": "陈超",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "aion2.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 460000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      }
+    ],
+    "groups": [
+      {
+        "key": "球类运营组",
+        "leader": "吴律"
+      },
+      {
+        "key": "RPG运营组",
+        "leader": "陈超"
+      },
+      {
+        "key": "综合运营组",
+        "leader": "刘乐"
+      }
+    ]
+  },
+  "models": {
+    "FC27": {
+      "slug": "FC27",
+      "name": "EA SPORTS FC 27",
+      "grp": "球类运营组",
+      "owner": "吴律",
+      "launch": null,
+      "kick": "EA SPORTS FC 27 · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 860000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "13500",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥5000",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "60",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥90%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "20.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥9000",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：万圣节平台活动+尖叫卡2期 低价促销抢销量\nW2：进入日常运营期，上线每周好卡推荐+SBC核心组建+三人小队活动\nW3：筹备黑五及活动版本预热+游戏常规预热活动节点\nW4：黑五大促，市场进入高潮后流量及订单承接",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 3,
+        "source_cells": {
+          "margin": "F3",
+          "orders": "E3",
+          "owner": "B3 (merged cells expanded)",
+          "revenue": "N3",
+          "group": "A3 (merged cells expanded)",
+          "game": "C3"
+        },
+        "source_game_name": "FC27",
+        "display_name": "EA SPORTS FC 27",
+        "backend_profile_candidate": "FC27",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "球类运营组",
+        "owner": "吴律",
+        "revenue_target_usd": 860000,
+        "orders_or_volume_target": 13500,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.2,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "60",
+          "repeat_rate": "≥90%",
+          "new_customers": "≥5000",
+          "paying_customers": "≥9000"
+        },
+        "operating_actions_source_text": "W1：万圣节平台活动+尖叫卡2期 低价促销抢销量\nW2：进入日常运营期，上线每周好卡推荐+SBC核心组建+三人小队活动\nW3：筹备黑五及活动版本预热+游戏常规预热活动节点\nW4：黑五大促，市场进入高潮后流量及订单承接"
+      }
+    },
+    "RS": {
+      "slug": "RS",
+      "name": "RuneScape",
+      "grp": "综合运营组",
+      "owner": "JIM",
+      "launch": null,
+      "kick": "RuneScape · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 110000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "1800",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥400",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "60",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥70%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "25.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥1000",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 4,
+        "source_cells": {
+          "margin": "F4",
+          "orders": "E4",
+          "owner": "B4 (merged cells expanded)",
+          "revenue": "N4",
+          "group": "A4 (merged cells expanded)",
+          "game": "C4"
+        },
+        "source_game_name": "RS",
+        "display_name": "RuneScape",
+        "backend_profile_candidate": "RS",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "综合运营组",
+        "owner": "JIM",
+        "revenue_target_usd": 110000,
+        "orders_or_volume_target": 1800,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.25,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "60",
+          "repeat_rate": "≥70%",
+          "new_customers": "≥400",
+          "paying_customers": "≥1000"
+        },
+        "operating_actions_source_text": ""
+      }
+    },
+    "NFL27": {
+      "slug": "NFL27",
+      "name": "Madden NFL 27",
+      "grp": "球类运营组",
+      "owner": "刘峻洋",
+      "launch": null,
+      "kick": "Madden NFL 27 · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 48000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "1100",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥300",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "0.365",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥90",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "27.5%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥600",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：优化金币优惠方案，维护老客复购\nW2：日常运营，解决问题单\nW3：筹备黑五、感恩节 + Blitz 活动\nW4： 黑五、感恩节促销，结合感恩节大战传统赛事",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 5,
+        "source_cells": {
+          "margin": "F5",
+          "orders": "E5",
+          "owner": "B5 (merged cells expanded)",
+          "revenue": "N5",
+          "group": "A5 (merged cells expanded)",
+          "game": "C5"
+        },
+        "source_game_name": "Maddne27",
+        "display_name": "Madden NFL 27",
+        "backend_profile_candidate": "NFL27",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "球类运营组",
+        "owner": "刘峻洋",
+        "revenue_target_usd": 48000,
+        "orders_or_volume_target": 1100,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.275,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "0.365",
+          "repeat_rate": "≥90",
+          "new_customers": "≥300",
+          "paying_customers": "≥600"
+        },
+        "operating_actions_source_text": "W1：优化金币优惠方案，维护老客复购\nW2：日常运营，解决问题单\nW3：筹备黑五、感恩节 + Blitz 活动\nW4： 黑五、感恩节促销，结合感恩节大战传统赛事"
+      }
+    },
+    "CFB27": {
+      "slug": "CFB27",
+      "name": "College Football 27",
+      "grp": "球类运营组",
+      "owner": "刘峻洋",
+      "launch": null,
+      "kick": "College Football 27 · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 17000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "380",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥100",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "0.38",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥90",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "30.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥200",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：优化金币优惠方案，维护老客复购\nW2：日常运营，解决问题单\nW3：筹备宿敌周及冠军赛版本预热\nW4： 黑五、感恩节促销，结合宿敌周传统促销",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 6,
+        "source_cells": {
+          "margin": "F6",
+          "orders": "E6",
+          "owner": "B6 (merged cells expanded)",
+          "revenue": "N6",
+          "group": "A6 (merged cells expanded)",
+          "game": "C6"
+        },
+        "source_game_name": "CFB27",
+        "display_name": "College Football 27",
+        "backend_profile_candidate": "CFB27",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "球类运营组",
+        "owner": "刘峻洋",
+        "revenue_target_usd": 17000,
+        "orders_or_volume_target": 380,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.3,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "0.38",
+          "repeat_rate": "≥90",
+          "new_customers": "≥100",
+          "paying_customers": "≥200"
+        },
+        "operating_actions_source_text": "W1：优化金币优惠方案，维护老客复购\nW2：日常运营，解决问题单\nW3：筹备宿敌周及冠军赛版本预热\nW4： 黑五、感恩节促销，结合宿敌周传统促销"
+      }
+    },
+    "ARC_RAIDERS": {
+      "slug": "ARC_RAIDERS",
+      "name": "ARC Raiders",
+      "grp": "综合运营组",
+      "owner": "刘乐",
+      "launch": null,
+      "kick": "ARC Raiders · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 35000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "1010",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥150",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "23",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥85%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "55.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥500",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1： 万圣节活动，推出90%全物品折扣\n\nW2： 万圣节活动结束后，整体价格做调整继续做优惠\n\nW3： 感恩节根据之前的优惠，再做一些折扣调整，并且整理部分销售好的物品做套餐",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 7,
+        "source_cells": {
+          "margin": "F7",
+          "orders": "E7",
+          "owner": "B7 (merged cells expanded)",
+          "revenue": "N7",
+          "group": "A7 (merged cells expanded)",
+          "game": "C7"
+        },
+        "source_game_name": "ARC突袭者",
+        "display_name": "ARC Raiders",
+        "backend_profile_candidate": "ARC_RAIDERS",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "综合运营组",
+        "owner": "刘乐",
+        "revenue_target_usd": 35000,
+        "orders_or_volume_target": 1010,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.55,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "23",
+          "repeat_rate": "≥85%",
+          "new_customers": "≥150",
+          "paying_customers": "≥500"
+        },
+        "operating_actions_source_text": "W1： 万圣节活动，推出90%全物品折扣\n\nW2： 万圣节活动结束后，整体价格做调整继续做优惠\n\nW3： 感恩节根据之前的优惠，再做一些折扣调整，并且整理部分销售好的物品做套餐"
+      }
+    },
+    "COD_MW4": {
+      "slug": "COD_MW4",
+      "name": "CoD Modern Warfare 4",
+      "grp": "综合运营组",
+      "owner": "刘乐",
+      "launch": null,
+      "kick": "CoD Modern Warfare 4 · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 80000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "1500",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥400",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "25",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥85%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "40.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥800",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1: 针对即将上架的新模式和活动做物品价格调整以及宣传\nW2: COD会有个退伍军人节活动，可以做些SEO文章。做下部分产品优惠\n\nW3: 准备感恩节，以及黑色星期五活动\n",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 8,
+        "source_cells": {
+          "margin": "F8",
+          "orders": "E8",
+          "owner": "B8 (merged cells expanded)",
+          "revenue": "N8",
+          "group": "A8 (merged cells expanded)",
+          "game": "C8"
+        },
+        "source_game_name": "COD",
+        "display_name": "COD",
+        "backend_profile_candidate": "COD_BO7",
+        "backend_profile_resolved": null,
+        "binding_status": "source_scope_requires_verification",
+        "group": "综合运营组",
+        "owner": "刘乐",
+        "revenue_target_usd": 80000,
+        "orders_or_volume_target": 1500,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.4,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "25",
+          "repeat_rate": "≥85%",
+          "new_customers": "≥400",
+          "paying_customers": "≥800"
+        },
+        "operating_actions_source_text": "W1: 针对即将上架的新模式和活动做物品价格调整以及宣传\nW2: COD会有个退伍军人节活动，可以做些SEO文章。做下部分产品优惠\n\nW3: 准备感恩节，以及黑色星期五活动\n"
+      }
+    },
+    "MONOPOLY_GO": {
+      "slug": "MONOPOLY_GO",
+      "name": "Monopoly Go",
+      "grp": "综合运营组",
+      "owner": "刘乐",
+      "launch": null,
+      "kick": "Monopoly Go · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 3000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "180",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥70",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "18",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥80%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "30.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥100",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：事实追踪游戏消息，上架免费骰子，以及免费游戏道具\n\nW2：根据节日活动以及游戏内的活动做贴纸优惠\n\nW3：感恩节活动做优惠，以及调整部分热门贴纸",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 9,
+        "source_cells": {
+          "margin": "F9",
+          "orders": "E9",
+          "owner": "B9 (merged cells expanded)",
+          "revenue": "N9",
+          "group": "A9 (merged cells expanded)",
+          "game": "C9"
+        },
+        "source_game_name": "Monopoly Go",
+        "display_name": "Monopoly Go",
+        "backend_profile_candidate": null,
+        "backend_profile_resolved": null,
+        "binding_status": "missing_from_current_dashboard",
+        "group": "综合运营组",
+        "owner": "刘乐",
+        "revenue_target_usd": 3000,
+        "orders_or_volume_target": 180,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.3,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "18",
+          "repeat_rate": "≥80%",
+          "new_customers": "≥70",
+          "paying_customers": "≥100"
+        },
+        "operating_actions_source_text": "W1：事实追踪游戏消息，上架免费骰子，以及免费游戏道具\n\nW2：根据节日活动以及游戏内的活动做贴纸优惠\n\nW3：感恩节活动做优惠，以及调整部分热门贴纸"
+      }
+    },
+    "MAPLESTORY_CLASSIC": {
+      "slug": "MAPLESTORY_CLASSIC",
+      "name": "MapleStory Classic World",
+      "grp": "综合运营组",
+      "owner": "曹海钰",
+      "launch": null,
+      "kick": "MapleStory Classic World · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 100000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "1100",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥600",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "75",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥70%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "17.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥700",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：万圣节推出的礼包以及部分物品折扣活动（现已同步更新news商品卡片链接）+游戏内也推出了新的万圣节活动，同步促进销量提升；\n\nW2：万圣节过后推出新的职业礼包，并设置不同档位促进物品销量的提升\n\nW3：上架游戏内热门且稀有的极品装备，提升物品多元化促进物品销量\n\nW4：游戏11月份会出高等级新地图以及新的组队任务活动，使得玩家对于金币已经装备物品的需求可能会提升，到时针对新地图以及新活动上架限时礼包已经捆绑包活动\n\nW5：感恩节活动，推出折扣以及礼包（对应游戏内实际活动情况展开）",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 10,
+        "source_cells": {
+          "margin": "F10",
+          "orders": "E10",
+          "owner": "B10 (merged cells expanded)",
+          "revenue": "N10",
+          "group": "A10 (merged cells expanded)",
+          "game": "C10"
+        },
+        "source_game_name": "MapleStory CW",
+        "display_name": "MapleStory Classic World",
+        "backend_profile_candidate": "MAPLESTORY_CLASSIC",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "综合运营组",
+        "owner": "曹海钰",
+        "revenue_target_usd": 100000,
+        "orders_or_volume_target": 1100,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.17,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "75",
+          "repeat_rate": "≥70%",
+          "new_customers": "≥600",
+          "paying_customers": "≥700"
+        },
+        "operating_actions_source_text": "W1：万圣节推出的礼包以及部分物品折扣活动（现已同步更新news商品卡片链接）+游戏内也推出了新的万圣节活动，同步促进销量提升；\n\nW2：万圣节过后推出新的职业礼包，并设置不同档位促进物品销量的提升\n\nW3：上架游戏内热门且稀有的极品装备，提升物品多元化促进物品销量\n\nW4：游戏11月份会出高等级新地图以及新的组队任务活动，使得玩家对于金币已经装备物品的需求可能会提升，到时针对新地图以及新活动上架限时礼包已经捆绑包活动\n\nW5：感恩节活动，推出折扣以及礼包（对应游戏内实际活动情况展开）"
+      }
+    },
+    "ELDEN_RING": {
+      "slug": "ELDEN_RING",
+      "name": "Elden Ring",
+      "grp": "综合运营组",
+      "owner": "曹海钰",
+      "launch": null,
+      "kick": "Elden Ring · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 2500,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "200",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥40",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "9",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥85%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "99.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥80",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：针对销售量较高的物品推出新的折扣以及捆绑包活动\n\nW2：适当提高金币优惠力度，促进金币订单量增加\n\nW3：感恩节与黑五推出对应活动优惠",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 11,
+        "source_cells": {
+          "margin": "F11",
+          "orders": "E11",
+          "owner": "B11 (merged cells expanded)",
+          "revenue": "N11",
+          "group": "A11 (merged cells expanded)",
+          "game": "C11"
+        },
+        "source_game_name": "Elden Ring",
+        "display_name": "Elden Ring",
+        "backend_profile_candidate": null,
+        "backend_profile_resolved": null,
+        "binding_status": "missing_from_current_dashboard",
+        "group": "综合运营组",
+        "owner": "曹海钰",
+        "revenue_target_usd": 2500,
+        "orders_or_volume_target": 200,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.99,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "9",
+          "repeat_rate": "≥85%",
+          "new_customers": "≥40",
+          "paying_customers": "≥80"
+        },
+        "operating_actions_source_text": "W1：针对销售量较高的物品推出新的折扣以及捆绑包活动\n\nW2：适当提高金币优惠力度，促进金币订单量增加\n\nW3：感恩节与黑五推出对应活动优惠"
+      }
+    },
+    "MLB26": {
+      "slug": "MLB26",
+      "name": "MLB The Show 26",
+      "grp": "球类运营组",
+      "owner": "张星宇",
+      "launch": null,
+      "kick": "MLB The Show 26 · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 17000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "360",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥60",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "47",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥85%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "25.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥240",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1:以世界大赛两支球队为核心,做WS 主题球员捆绑包\nW2:黑五预热 + 备货 + 预告邮件发折扣卷优惠码\nW3:新闻页：开 WS 专题标签用 MLB The Show 26 Stubs / World Series，文章底部直接挂队包商品卡。\nW4:海报：站内 banner + 社媒各一套，主视觉用球队配色。社群：Discord / Reddit 的 MLB The Show 板块发一次队包预告，发折扣码和优惠卷。",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 12,
+        "source_cells": {
+          "margin": "F12",
+          "orders": "E12",
+          "owner": "B12 (merged cells expanded)",
+          "revenue": "N12",
+          "group": "A12 (merged cells expanded)",
+          "game": "C12"
+        },
+        "source_game_name": "MLB The Show 26",
+        "display_name": "MLB The Show 26",
+        "backend_profile_candidate": "MLB26",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "球类运营组",
+        "owner": "张星宇",
+        "revenue_target_usd": 17000,
+        "orders_or_volume_target": 360,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.25,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "47",
+          "repeat_rate": "≥85%",
+          "new_customers": "≥60",
+          "paying_customers": "≥240"
+        },
+        "operating_actions_source_text": "W1:以世界大赛两支球队为核心,做WS 主题球员捆绑包\nW2:黑五预热 + 备货 + 预告邮件发折扣卷优惠码\nW3:新闻页：开 WS 专题标签用 MLB The Show 26 Stubs / World Series，文章底部直接挂队包商品卡。\nW4:海报：站内 banner + 社媒各一套，主视觉用球队配色。社群：Discord / Reddit 的 MLB The Show 板块发一次队包预告，发折扣码和优惠卷。"
+      }
+    },
+    "WARDOGS": {
+      "slug": "WARDOGS",
+      "name": "战犬",
+      "grp": "球类运营组",
+      "owner": "张星宇",
+      "launch": null,
+      "kick": "战犬 · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 700,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "30",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥10",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "27",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥70%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "25.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥25",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1:黑五预热 + 备货 + 预告邮件发折扣卷优惠码\nW2:新模式和活动做物品价格调整和上架新商品",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 13,
+        "source_cells": {
+          "margin": "F13",
+          "orders": "E13",
+          "owner": "B13 (merged cells expanded)",
+          "revenue": "N13",
+          "group": "A13 (merged cells expanded)",
+          "game": "C13"
+        },
+        "source_game_name": "战犬",
+        "display_name": "战犬",
+        "backend_profile_candidate": null,
+        "backend_profile_resolved": null,
+        "binding_status": "missing_from_current_dashboard",
+        "group": "球类运营组",
+        "owner": "张星宇",
+        "revenue_target_usd": 700,
+        "orders_or_volume_target": 30,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.25,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "27",
+          "repeat_rate": "≥70%",
+          "new_customers": "≥10",
+          "paying_customers": "≥25"
+        },
+        "operating_actions_source_text": "W1:黑五预热 + 备货 + 预告邮件发折扣卷优惠码\nW2:新模式和活动做物品价格调整和上架新商品"
+      }
+    },
+    "NBA2K27": {
+      "slug": "NBA2K27",
+      "name": "NBA 2K27",
+      "grp": "球类运营组",
+      "owner": "杜浩哲",
+      "launch": null,
+      "kick": "NBA 2K27 · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 10000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "340",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥130",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "34",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥90%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "33.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "280",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1-W2:日常运营，关注游戏更新以及活动\nW3：感恩节与黑五推出对应活动优惠\nW4:日常运营，关注游戏更新以及活动\n赛事预测功能板块，正在优化当中\n",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 14,
+        "source_cells": {
+          "margin": "F14",
+          "orders": "E14",
+          "owner": "B14 (merged cells expanded)",
+          "revenue": "N14",
+          "group": "A14 (merged cells expanded)",
+          "game": "C14"
+        },
+        "source_game_name": "NBA 2K27",
+        "display_name": "NBA 2K27",
+        "backend_profile_candidate": "NBA2K27",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "球类运营组",
+        "owner": "杜浩哲",
+        "revenue_target_usd": 10000,
+        "orders_or_volume_target": 340,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.33,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "34",
+          "repeat_rate": "≥90%",
+          "new_customers": "≥130",
+          "paying_customers": "280"
+        },
+        "operating_actions_source_text": "W1-W2:日常运营，关注游戏更新以及活动\nW3：感恩节与黑五推出对应活动优惠\nW4:日常运营，关注游戏更新以及活动\n赛事预测功能板块，正在优化当中\n"
+      }
+    },
+    "GTA_5_6": {
+      "slug": "GTA_5_6",
+      "name": "GTA 5/6",
+      "grp": "球类运营组",
+      "owner": "杜浩哲",
+      "launch": null,
+      "kick": "GTA 5/6 · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 400,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "5",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "5",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "30",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥20%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "35.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "5",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "日常运营，监控价格\ngta6是11月19日开服，gta5流量会断崖下滑，\n可以降低利润率，做收官",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 15,
+        "source_cells": {
+          "margin": "F15",
+          "orders": "E15",
+          "owner": "B15 (merged cells expanded)",
+          "revenue": "N15",
+          "group": "A15 (merged cells expanded)",
+          "game": "C15"
+        },
+        "source_game_name": "GTA 5/6",
+        "display_name": "GTA 5/6",
+        "backend_profile_candidate": null,
+        "backend_profile_resolved": null,
+        "binding_status": "missing_from_current_dashboard",
+        "group": "球类运营组",
+        "owner": "杜浩哲",
+        "revenue_target_usd": 400,
+        "orders_or_volume_target": 5,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.35,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "30",
+          "repeat_rate": "≥20%",
+          "new_customers": "5",
+          "paying_customers": "5"
+        },
+        "operating_actions_source_text": "日常运营，监控价格\ngta6是11月19日开服，gta5流量会断崖下滑，\n可以降低利润率，做收官"
+      },
+      "components": [
+        "GTA5",
+        "GTA6"
+      ]
+    },
+    "TORCHLIGHT_INFINITE": {
+      "slug": "TORCHLIGHT_INFINITE",
+      "name": "Torchlight: Infinite",
+      "grp": "球类运营组",
+      "owner": "杜浩哲",
+      "launch": null,
+      "kick": "Torchlight: Infinite · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 1200,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "80",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "15",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "20",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥10",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "25.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "30",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "日常运营，监控价格\n10月22日新赛季开始，\n赛季持续多久，得等官方通知（大概是3个月）\n已经进入长草期，可提高利润率\n游玩人数较少",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 16,
+        "source_cells": {
+          "margin": "F16",
+          "orders": "E16",
+          "owner": "B16 (merged cells expanded)",
+          "revenue": "N16",
+          "group": "A16 (merged cells expanded)",
+          "game": "C16"
+        },
+        "source_game_name": "Torchlight:Infinite\n火炬之光：无限",
+        "display_name": "Torchlight: Infinite",
+        "backend_profile_candidate": null,
+        "backend_profile_resolved": null,
+        "binding_status": "missing_from_current_dashboard",
+        "group": "球类运营组",
+        "owner": "杜浩哲",
+        "revenue_target_usd": 1200,
+        "orders_or_volume_target": 80,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.25,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "20",
+          "repeat_rate": "≥10",
+          "new_customers": "15",
+          "paying_customers": "30"
+        },
+        "operating_actions_source_text": "日常运营，监控价格\n10月22日新赛季开始，\n赛季持续多久，得等官方通知（大概是3个月）\n已经进入长草期，可提高利润率\n游玩人数较少"
+      }
+    },
+    "POE": {
+      "slug": "POE",
+      "name": "Path of Exile",
+      "grp": "RPG运营组",
+      "owner": "金晟",
+      "launch": null,
+      "kick": "Path of Exile · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 10000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "300",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥20",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "16.6666666666667",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥80%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "20.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥250",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：11月14日新赛季，及时调整产品，监控价格\nW2：新赛季发送回流邮件，尝试召回老用户\nW3：感恩节和黑五筹划节日活动\n",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 17,
+        "source_cells": {
+          "margin": "F17",
+          "orders": "E17",
+          "owner": "B17 (merged cells expanded)",
+          "revenue": "N17",
+          "group": "A17 (merged cells expanded)",
+          "game": "C17"
+        },
+        "source_game_name": "POE 流放之路",
+        "display_name": "Path of Exile",
+        "backend_profile_candidate": null,
+        "backend_profile_resolved": null,
+        "binding_status": "missing_from_current_dashboard",
+        "group": "RPG运营组",
+        "owner": "金晟",
+        "revenue_target_usd": 10000,
+        "orders_or_volume_target": 300,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.2,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "16.6666666666667",
+          "repeat_rate": "≥80%",
+          "new_customers": "≥20",
+          "paying_customers": "≥250"
+        },
+        "operating_actions_source_text": "W1：11月14日新赛季，及时调整产品，监控价格\nW2：新赛季发送回流邮件，尝试召回老用户\nW3：感恩节和黑五筹划节日活动\n"
+      }
+    },
+    "POE2": {
+      "slug": "POE2",
+      "name": "Path of Exile 2",
+      "grp": "RPG运营组",
+      "owner": "金晟",
+      "launch": null,
+      "kick": "Path of Exile 2 · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 42000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "2000",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥140",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "21",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥80%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "20.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥1500",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：新赛季之前发送召回邮件，尝试抓本赛季最后一波回流\nW2：日常监控价格，及时调整\nW3：感恩节和黑五筹划节日活动\n",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 18,
+        "source_cells": {
+          "margin": "F18",
+          "orders": "E18",
+          "owner": "B18 (merged cells expanded)",
+          "revenue": "N18",
+          "group": "A18 (merged cells expanded)",
+          "game": "C18"
+        },
+        "source_game_name": "POE2 流放之路2",
+        "display_name": "Path of Exile 2",
+        "backend_profile_candidate": "POE2",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "RPG运营组",
+        "owner": "金晟",
+        "revenue_target_usd": 42000,
+        "orders_or_volume_target": 2000,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.2,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "21",
+          "repeat_rate": "≥80%",
+          "new_customers": "≥140",
+          "paying_customers": "≥1500"
+        },
+        "operating_actions_source_text": "W1：新赛季之前发送召回邮件，尝试抓本赛季最后一波回流\nW2：日常监控价格，及时调整\nW3：感恩节和黑五筹划节日活动\n"
+      }
+    },
+    "SKULL_AND_BONES": {
+      "slug": "SKULL_AND_BONES",
+      "name": "Skull and Bones",
+      "grp": "RPG运营组",
+      "owner": "金晟",
+      "launch": null,
+      "kick": "Skull and Bones · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 1500,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "40",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥5",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "37.5",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥90%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "40.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥30",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：日常运营，关注游戏更新以及活动，监控价格及时调整\n\n",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 19,
+        "source_cells": {
+          "margin": "F19",
+          "orders": "E19",
+          "owner": "B19 (merged cells expanded)",
+          "revenue": "N19",
+          "group": "A19 (merged cells expanded)",
+          "game": "C19"
+        },
+        "source_game_name": "Skull and Bones  碧海黑帆",
+        "display_name": "Skull and Bones",
+        "backend_profile_candidate": null,
+        "backend_profile_resolved": null,
+        "binding_status": "missing_from_current_dashboard",
+        "group": "RPG运营组",
+        "owner": "金晟",
+        "revenue_target_usd": 1500,
+        "orders_or_volume_target": 40,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.4,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "37.5",
+          "repeat_rate": "≥90%",
+          "new_customers": "≥5",
+          "paying_customers": "≥30"
+        },
+        "operating_actions_source_text": "W1：日常运营，关注游戏更新以及活动，监控价格及时调整\n\n"
+      }
+    },
+    "LAST_EPOCH": {
+      "slug": "LAST_EPOCH",
+      "name": "Last Epoch",
+      "grp": "RPG运营组",
+      "owner": "金晟",
+      "launch": null,
+      "kick": "Last Epoch · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 500,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "25",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥1",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "20",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥90%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "50.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥20",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：日常运营，关注游戏更新以及活动，监控价格及时调整\n\n",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 20,
+        "source_cells": {
+          "margin": "F20",
+          "orders": "E20",
+          "owner": "B20 (merged cells expanded)",
+          "revenue": "N20",
+          "group": "A20 (merged cells expanded)",
+          "game": "C20"
+        },
+        "source_game_name": "Last Epoch 最后纪元",
+        "display_name": "Last Epoch",
+        "backend_profile_candidate": null,
+        "backend_profile_resolved": null,
+        "binding_status": "missing_from_current_dashboard",
+        "group": "RPG运营组",
+        "owner": "金晟",
+        "revenue_target_usd": 500,
+        "orders_or_volume_target": 25,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.5,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "20",
+          "repeat_rate": "≥90%",
+          "new_customers": "≥1",
+          "paying_customers": "≥20"
+        },
+        "operating_actions_source_text": "W1：日常运营，关注游戏更新以及活动，监控价格及时调整\n\n"
+      }
+    },
+    "ARCHEAGE_CHRONICLES": {
+      "slug": "ARCHEAGE_CHRONICLES",
+      "name": "ArcheAge Chronicles",
+      "grp": "RPG运营组",
+      "owner": "金晟",
+      "launch": null,
+      "kick": "ArcheAge Chronicles · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 500,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "20",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥20",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "25",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥80%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "20.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥20",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：11月4日上线，及时关注产品和价格\nW2：上线安排喊话等措施\n\n",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 21,
+        "source_cells": {
+          "margin": "F21",
+          "orders": "E21",
+          "owner": "B21 (merged cells expanded)",
+          "revenue": "N21",
+          "group": "A21 (merged cells expanded)",
+          "game": "C21"
+        },
+        "source_game_name": "ArcheAge Chronicles 上古世纪编年史",
+        "display_name": "ArcheAge Chronicles",
+        "backend_profile_candidate": null,
+        "backend_profile_resolved": null,
+        "binding_status": "missing_from_current_dashboard",
+        "group": "RPG运营组",
+        "owner": "金晟",
+        "revenue_target_usd": 500,
+        "orders_or_volume_target": 20,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.2,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "25",
+          "repeat_rate": "≥80%",
+          "new_customers": "≥20",
+          "paying_customers": "≥20"
+        },
+        "operating_actions_source_text": "W1：11月4日上线，及时关注产品和价格\nW2：上线安排喊话等措施\n\n"
+      }
+    },
+    "D4": {
+      "slug": "D4",
+      "name": "Diablo IV",
+      "grp": "RPG运营组",
+      "owner": "耿毅迪",
+      "launch": null,
+      "kick": "Diablo IV · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 90000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "6300",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥600",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "15",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥85%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "45.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥2050",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1:万圣节&黑五回流邮件&回流促销活动\nW2:日常运营，监控价格\nW3:新赛季资讯收集，计划制定",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 22,
+        "source_cells": {
+          "margin": "F22",
+          "orders": "E22",
+          "owner": "B22 (merged cells expanded)",
+          "revenue": "N22",
+          "group": "A22 (merged cells expanded)",
+          "game": "C22"
+        },
+        "source_game_name": "Diablo IV",
+        "display_name": "Diablo IV",
+        "backend_profile_candidate": "D4",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "RPG运营组",
+        "owner": "耿毅迪",
+        "revenue_target_usd": 90000,
+        "orders_or_volume_target": 6300,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.45,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "15",
+          "repeat_rate": "≥85%",
+          "new_customers": "≥600",
+          "paying_customers": "≥2050"
+        },
+        "operating_actions_source_text": "W1:万圣节&黑五回流邮件&回流促销活动\nW2:日常运营，监控价格\nW3:新赛季资讯收集，计划制定"
+      }
+    },
+    "D2R": {
+      "slug": "D2R",
+      "name": "Diablo II: Resurrected",
+      "grp": "RPG运营组",
+      "owner": "耿毅迪",
+      "launch": null,
+      "kick": "Diablo II: Resurrected · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 3000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "60",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "10",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "25",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "75",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "20.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "30",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 23,
+        "source_cells": {
+          "margin": "F23",
+          "orders": "E23",
+          "owner": "B23 (merged cells expanded)",
+          "revenue": "N23",
+          "group": "A23 (merged cells expanded)",
+          "game": "C23"
+        },
+        "source_game_name": "Diablo 二",
+        "display_name": "Diablo 二",
+        "backend_profile_candidate": null,
+        "backend_profile_resolved": null,
+        "binding_status": "missing_from_current_dashboard",
+        "group": "RPG运营组",
+        "owner": "耿毅迪",
+        "revenue_target_usd": 3000,
+        "orders_or_volume_target": 60,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.2,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "25",
+          "repeat_rate": "75",
+          "new_customers": "10",
+          "paying_customers": "30"
+        },
+        "operating_actions_source_text": ""
+      }
+    },
+    "DARK_AND_DARKER": {
+      "slug": "DARK_AND_DARKER",
+      "name": "Dark and Darker",
+      "grp": "RPG运营组",
+      "owner": "耿毅迪",
+      "launch": null,
+      "kick": "Dark and Darker · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 8000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "1600",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥50",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "7",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥90%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "35.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥300",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1:万圣节&黑五回流邮件&回流促销活动\nW2、W3:日常运营，监控价格",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 24,
+        "source_cells": {
+          "margin": "F24",
+          "orders": "E24",
+          "owner": "B24 (merged cells expanded)",
+          "revenue": "N24",
+          "group": "A24 (merged cells expanded)",
+          "game": "C24"
+        },
+        "source_game_name": "Dark and Darker",
+        "display_name": "Dark and Darker",
+        "backend_profile_candidate": "DARK_AND_DARKER",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "RPG运营组",
+        "owner": "耿毅迪",
+        "revenue_target_usd": 8000,
+        "orders_or_volume_target": 1600,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.35,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "7",
+          "repeat_rate": "≥90%",
+          "new_customers": "≥50",
+          "paying_customers": "≥300"
+        },
+        "operating_actions_source_text": "W1:万圣节&黑五回流邮件&回流促销活动\nW2、W3:日常运营，监控价格"
+      }
+    },
+    "ODIN": {
+      "slug": "ODIN",
+      "name": "Odin: Valhalla Rising",
+      "grp": "RPG运营组",
+      "owner": "耿毅迪",
+      "launch": null,
+      "kick": "Odin: Valhalla Rising · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 380,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "7",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥1",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "263",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥90%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "18.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥8",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "日常运营，监控价格",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 25,
+        "source_cells": {
+          "margin": "F25",
+          "orders": "E25",
+          "owner": "B25 (merged cells expanded)",
+          "revenue": "N25",
+          "group": "A25 (merged cells expanded)",
+          "game": "C25"
+        },
+        "source_game_name": "Odin:Valhalla Rising",
+        "display_name": "Odin: Valhalla Rising",
+        "backend_profile_candidate": null,
+        "backend_profile_resolved": null,
+        "binding_status": "missing_from_current_dashboard",
+        "group": "RPG运营组",
+        "owner": "耿毅迪",
+        "revenue_target_usd": 380,
+        "orders_or_volume_target": 7,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.18,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "263",
+          "repeat_rate": "≥90%",
+          "new_customers": "≥1",
+          "paying_customers": "≥8"
+        },
+        "operating_actions_source_text": "日常运营，监控价格"
+      }
+    },
+    "WOW_FOREVER": {
+      "slug": "WOW_FOREVER",
+      "name": "WoW Forever",
+      "grp": "RPG运营组",
+      "owner": "陈超",
+      "launch": null,
+      "kick": "WoW Forever · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 100000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "5000",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥1600",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "15",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥60%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "20.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥2000",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：新人优惠券吸客\nW2：保证利润5-10%兜底，尽量压低价格\nW3：筹备黑五+邮件预热\nW4：黑五大促，推出捆绑包服务\"",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 26,
+        "source_cells": {
+          "margin": "F26",
+          "orders": "E26",
+          "owner": "B26 (merged cells expanded)",
+          "revenue": "N26",
+          "group": "A26 (merged cells expanded)",
+          "game": "C26"
+        },
+        "source_game_name": "WoW",
+        "display_name": "WoW",
+        "backend_profile_candidate": "WOW_FOREVER",
+        "backend_profile_resolved": null,
+        "binding_status": "source_scope_requires_verification",
+        "group": "RPG运营组",
+        "owner": "陈超",
+        "revenue_target_usd": 100000,
+        "orders_or_volume_target": 5000,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.2,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "15",
+          "repeat_rate": "≥60%",
+          "new_customers": "≥1600",
+          "paying_customers": "≥2000"
+        },
+        "operating_actions_source_text": "W1：新人优惠券吸客\nW2：保证利润5-10%兜底，尽量压低价格\nW3：筹备黑五+邮件预热\nW4：黑五大促，推出捆绑包服务\""
+      }
+    },
+    "AION2": {
+      "slug": "AION2",
+      "name": "AION 2",
+      "grp": "RPG运营组",
+      "owner": "陈超",
+      "launch": null,
+      "kick": "AION 2 · 2026-11",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 460000,
+          "sourceValue": null,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单/量（原表）",
+          "val": null,
+          "sourceValue": "5000",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润（未设置）",
+          "val": null,
+          "sourceValue": null,
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数（原表）",
+          "val": null,
+          "sourceValue": "≥800",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "订单均价（原表）",
+          "val": null,
+          "sourceValue": "80",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率（原表）",
+          "val": null,
+          "sourceValue": "≥60%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率/月（原表）",
+          "val": null,
+          "sourceValue": "15.0%",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        },
+        {
+          "id": "paying",
+          "lab": "付款人数（原表）",
+          "val": null,
+          "sourceValue": "≥1250",
+          "unit": "",
+          "dir": "hi",
+          "actual": null,
+          "ref": "2026-11 原表；订单/量、二级指标口径待核，未作为已核实际完成率分母",
+          "grp": "原表",
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 11/1-11/1",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 11/2-11/8",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 11/9-11/15",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 11/16-11/22",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 11/23-11/29",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w6",
+          "lab": "第6周 11/30-11/30",
+          "note": "周实际自动汇总；原表未分配周金额目标",
+          "rev": null,
+          "ord": null,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 30,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "11月原表经营计划",
+          "e": "W1：万圣节平台活动 低价促销抢销量\nW2：日常运营期\nW3：筹备黑五+邮件预热\nW4：黑五大促，市场进入高潮后流量及订单承接",
+          "tag": "计划",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null,
+      "sourceRow": {
+        "source_row": 27,
+        "source_cells": {
+          "margin": "F27",
+          "orders": "E27",
+          "owner": "B27 (merged cells expanded)",
+          "revenue": "N27",
+          "group": "A27 (merged cells expanded)",
+          "game": "C27"
+        },
+        "source_game_name": "Aion2",
+        "display_name": "AION 2",
+        "backend_profile_candidate": "AION2",
+        "backend_profile_resolved": null,
+        "binding_status": "existing_dashboard_candidate",
+        "group": "RPG运营组",
+        "owner": "陈超",
+        "revenue_target_usd": 460000,
+        "orders_or_volume_target": 5000,
+        "orders_or_volume_unit": "source header: 月订单/量; verify actual metric definition before binding",
+        "profit_margin_target": 0.15,
+        "profit_amount_target_usd": null,
+        "secondary_metrics_source": {
+          "average_order_value": "80",
+          "repeat_rate": "≥60%",
+          "new_customers": "≥800",
+          "paying_customers": "≥1250"
+        },
+        "operating_actions_source_text": "W1：万圣节平台活动 低价促销抢销量\nW2：日常运营期\nW3：筹备黑五+邮件预热\nW4：黑五大促，市场进入高潮后流量及订单承接"
+      }
+    }
+  },
+  "sandbox": {
+    "total": 2000680,
+    "floor": 0,
+    "cutoff": null,
+    "games": [
+      {
+        "profile": "FC27",
+        "name": "EA SPORTS FC 27",
+        "grp": "球类运营组",
+        "owner": "吴律",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "fc27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 860000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "RS",
+        "name": "RuneScape",
+        "grp": "综合运营组",
+        "owner": "JIM",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "rs.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 110000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "NFL27",
+        "name": "Madden NFL 27",
+        "grp": "球类运营组",
+        "owner": "刘峻洋",
+        "tier": "A",
+        "regime": "11月经营目标",
+        "file": "nfl27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 48000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "CFB27",
+        "name": "College Football 27",
+        "grp": "球类运营组",
+        "owner": "刘峻洋",
+        "tier": "A",
+        "regime": "11月经营目标",
+        "file": "cfb27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 17000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "ARC_RAIDERS",
+        "name": "ARC Raiders",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "arc_raiders.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 35000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "COD_MW4",
+        "name": "CoD Modern Warfare 4",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "cod_mw4.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 80000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "MONOPOLY_GO",
+        "name": "Monopoly Go",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "monopoly_go.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 3000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "MAPLESTORY_CLASSIC",
+        "name": "MapleStory Classic World",
+        "grp": "综合运营组",
+        "owner": "曹海钰",
+        "tier": "A",
+        "regime": "11月经营目标",
+        "file": "maplestory_classic.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 100000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "ELDEN_RING",
+        "name": "Elden Ring",
+        "grp": "综合运营组",
+        "owner": "曹海钰",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "elden_ring.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2500,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "MLB26",
+        "name": "MLB The Show 26",
+        "grp": "球类运营组",
+        "owner": "张星宇",
+        "tier": "A",
+        "regime": "11月经营目标",
+        "file": "mlb26.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 17000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "WARDOGS",
+        "name": "战犬",
+        "grp": "球类运营组",
+        "owner": "张星宇",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "wardogs.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 700,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "NBA2K27",
+        "name": "NBA 2K27",
+        "grp": "球类运营组",
+        "owner": "杜浩哲",
+        "tier": "B",
+        "regime": "11月经营目标",
+        "file": "nba2k27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 10000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "GTA_5_6",
+        "name": "GTA 5/6",
+        "grp": "球类运营组",
+        "owner": "杜浩哲",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "gta_5_6.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 400,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "TORCHLIGHT_INFINITE",
+        "name": "Torchlight: Infinite",
+        "grp": "球类运营组",
+        "owner": "杜浩哲",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "torchlight_infinite.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 1200,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "POE",
+        "name": "Path of Exile",
+        "grp": "RPG运营组",
+        "owner": "金晟",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "poe.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 10000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "POE2",
+        "name": "Path of Exile 2",
+        "grp": "RPG运营组",
+        "owner": "金晟",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "poe2.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 42000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "SKULL_AND_BONES",
+        "name": "Skull and Bones",
+        "grp": "RPG运营组",
+        "owner": "金晟",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "skull_and_bones.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 1500,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "LAST_EPOCH",
+        "name": "Last Epoch",
+        "grp": "RPG运营组",
+        "owner": "金晟",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "last_epoch.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 500,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "ARCHEAGE_CHRONICLES",
+        "name": "ArcheAge Chronicles",
+        "grp": "RPG运营组",
+        "owner": "金晟",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "archeage_chronicles.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 500,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "D4",
+        "name": "Diablo IV",
+        "grp": "RPG运营组",
+        "owner": "耿毅迪",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "d4.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 90000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "D2R",
+        "name": "Diablo II: Resurrected",
+        "grp": "RPG运营组",
+        "owner": "耿毅迪",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "d2r.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 3000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "DARK_AND_DARKER",
+        "name": "Dark and Darker",
+        "grp": "RPG运营组",
+        "owner": "耿毅迪",
+        "tier": "A",
+        "regime": "11月经营目标",
+        "file": "dark_and_darker.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 8000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "ODIN",
+        "name": "Odin: Valhalla Rising",
+        "grp": "RPG运营组",
+        "owner": "耿毅迪",
+        "tier": "新增",
+        "regime": "11月经营目标",
+        "file": "odin.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 380,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "WOW_FOREVER",
+        "name": "WoW Forever",
+        "grp": "RPG运营组",
+        "owner": "陈超",
+        "tier": "长尾",
+        "regime": "11月经营目标",
+        "file": "wow_forever.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 100000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      },
+      {
+        "profile": "AION2",
+        "name": "AION 2",
+        "grp": "RPG运营组",
+        "owner": "陈超",
+        "tier": "S",
+        "regime": "11月经营目标",
+        "file": "aion2.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 460000,
+          "ord": null,
+          "prof": null
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "aov": null,
+        "mar": null
+      }
+    ]
+  },
+  "source": {
+    "file_name": "26年11月份经营目标.xlsx",
+    "sha256": "29805DFC6D0B954F02EF98E02A7444E9D7B36A2643CAC3F37925557C848AB6CE",
+    "total_cell": "N28",
+    "sheet": "Sheet1",
+    "revenue_range": "N3:N27"
+  },
+  "sourcePolicy": "营收、分组、负责人正式发布；订单/量与二级指标原文保留，口径待核；未设置利润金额目标。"
+}

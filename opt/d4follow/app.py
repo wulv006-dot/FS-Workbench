@@ -2604,15 +2604,26 @@ def task_collect(t, opts):
                 t.log("  [金币] AION2 定价模式：%s ｜ %s" % (_pp.get("模式"), _pp.get("口径")))
             for it in gp["items"]:
                 if it.get("定价模式") == "dd373_only":
+                    # 2026-11-03：MSCW 的 DD373 单位是「万金」、前端单位是 K，
+                    #   AION2 是「万基纳」/M ⇒ 日志文案按游戏取，别把 AION2 口径套到冒险岛。
+                    _u_dd = ("万金" if it.get("游戏") == "MapleStory Classic World"
+                             else "万基纳")
+                    _u_s = ("/" + (it.get("展示单位") or "K")
+                            if it.get("游戏") == "MapleStory Classic World" else "/M")
                     if (it.get("定价来源级别") or 0) == 1:
-                        t.log("  [金币] %-22s DD373进货 $%s/M（%s 元/万基纳·可买 %s 万基纳）"
+                        t.log("  [金币] %-22s DD373进货 $%s%s（%s 元/%s·可买 %s %s）"
                               "÷(1−%.1f%%) → 目标采购成本 %s ｜ %s"
-                              % (it.get("中文名"), it.get("DD373成本_USD每M"),
-                                 it.get("DD373成本_元每万基纳"),
+                              % (it.get("中文名"), it.get("DD373成本_USD每M"), _u_s,
+                                 it.get("DD373成本_元每万基纳"), _u_dd,
                                  ("%.0f" % it["DD373可买_万基纳"])
-                                 if it.get("DD373可买_万基纳") is not None else "-",
+                                 if it.get("DD373可买_万基纳") is not None else "-", _u_dd,
                                  (it.get("利润率") or 0) * 100,
                                  it.get("采购成本_新"), it.get("动作") or "-"))
+                    elif it.get("本轮不出价原因"):
+                        # 2026-11-03：MSCW「数据不达标 ⇒ hold」，不是挂固定兜底价
+                        t.log("  [金币] %-22s ⏸ 本轮不出价（保持现价）：%s ｜ %s"
+                              % (it.get("中文名"), it["本轮不出价原因"],
+                                 it.get("动作") or "-"))
                     else:
                         t.log("  [金币] %-22s ⛔无货兜底 $%s/M ｜ %s ｜ %s"
                               % (it.get("中文名"), it.get("无货兜底售价_USD每M"),

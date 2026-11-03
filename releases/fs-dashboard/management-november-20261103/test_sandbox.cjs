@@ -1,0 +1,16 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const config=JSON.parse(fs.readFileSync('source/targets.json','utf8')).sandbox;
+config.games.forEach(g=>{g.proj.rev=0;});
+const elements=new Map();
+const el=()=>({textContent:'',innerHTML:'',value:'',style:{},className:'',appendChild(){},addEventListener(){},removeEventListener(){},select(){}});
+const document={getElementById(id){if(!elements.has(id))elements.set(id,el());return elements.get(id);},querySelectorAll(){return [];},createElement:el};
+let s=fs.readFileSync('source/sandbox-live.js','utf8');
+s=s.replace('loadDraft();render();return {','loadDraft();render();window.check={rebalance,weights:()=>W,exported:()=>document.getElementById("export").value};return {');
+const box={window:{},document,localStorage:{getItem(){return null;},setItem(){},removeItem(){}},alert(){},console};vm.createContext(box);vm.runInContext(s,box);
+box.window.createManagementSandbox(config,'fixture');
+assert.equal(elements.get('footName').textContent,'全盘 · 25 款');
+assert(!elements.get('warnBox').textContent.includes('Infinity'),'zero forecast must stay unassessed, never Infinity');
+let w=box.window.check.weights();assert.equal(w.find(x=>x.profile==='ODIN').rev,380);assert.equal(w.reduce((a,b)=>a+b.rev,0),2000680);
+assert(box.window.check.rebalance('ODIN',381).ok);w=box.window.check.weights();assert.equal(w.find(x=>x.profile==='ODIN').rev,381);assert.equal(w.reduce((a,b)=>a+b.rev,0),2000680);assert(w.every(x=>x.rev>=0));
+assert.equal(JSON.parse(box.window.check.exported()).total,2000680);
+console.log('sandbox: 25 games, 380 preserved, one-dollar adjustment, exact total, export passed');
