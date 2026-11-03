@@ -1063,3 +1063,11 @@ sync不要求job_id或响应回显未定义的site/template；原明确成功码
 2026-11-04补齐首次工具调用前的真实装配顺序：同一root600批准文件先存 `{intent,request,valid_from,valid_until,authority_ref}`，intent仅为实际FS actor/新cid/原sid/精确输入SHA（含唯一opID）；收件邮箱、原batch、模板hash、时限及已有用户授权引用只由受信宿主预置。它不是猜造的7binding，也不要求用户再批内部ID。原dispatch只POST一次/v1/runs，持久化实际run和完整binding、注册同scope/gateway/live后，在原readyFalse围栏内同步调用prepare_campaign_approval；inputSHA读原turns.input_sha256，沿原存储规范，不信模型自报，不改UI即时产生的client_request_id。只锁住原批准inode，在原service锁下完整复核root600/单链接/no-follow/九字段/父链与CAS、原IAM及有效期，再用原atomic(mode0600)写成原五字段final record（binding替换intent）；真实写回成功才readyTrue。
 
 其它cid/owner/session/input、不可信或未能识别的文件不增加普通聊天前置，原工具消费时仍严格拒绝不安全/未定稿授权。已明确匹配的过期/非法/漂移/占锁或写失败不放行ready，保留实际run/原请求/UNKNOWN，不重新POST。final不重绑定第二个run；同真实绑定重复与重启读取保持原文件/inode，不重写。直接测试实际执行dispatch→原atomic→final原reader→host/IAM/OperationLedger→最终Admin stub，并断言首次定稿时readyFalse、真实7binding已存、成功后readyTrue与grant单POST。Linux用真实原FD/flock，Windows仅锁/身份边界为明确fixture。当前仅候选，尚未生产定稿或发券。
+
+### 2026-11-04：9ca 安装核收与 pre-ready 干净导入小修
+
+最终源 `9ca600bef0bd09f3800e32981cc3251d1bf13dda` 已沿原 publisher 安装为 `nav-20261103T165152Z`。manifest `c90d0ce989eaa30ff2e5a91993b9847b64f22f81db03a3895b96ab5c616f5603`／journal `4c4f4b72d03792637309c0dd056150a0f0a8c6b3ab55f7951b3852b5191bcb76`；21 after／4 delta／其余784完整metadata相等，服务、readiness、health通过。28件稳定index位于 `.agent_runtime/native-coupon-release-20261103T165152Z/final/index.json`，4372B／SHA256 `1daacfd68a3c47c78c36a4e3e0bb4598f8b0a49247580569b1dc7eab04244f7b`。仅新建一个空会话，模型turn与业务POST均0；未写intent、未发券。原op、batch及turn0会话保留，两自建浏览器session已关闭。
+
+装配前本地真实dispatch复现：清除测试预加载的campaign_backend及backend目录后，pre-ready批准校验首次导入报ModuleNotFoundError，ready仍False、批准写0／Admin POST0。这不是生产已触发或旧failed run根因。小修只在匹配受信intent／同原final绑定后，沿runtime既有 `/opt/fs-campaign-dashboard/backend` 路径装配模块，再执行原批准校验；不匹配普通聊天不初始化campaign。原外部批准、7binding、inputSHA、IAM、锁／CAS／atomic、grant与services逻辑均保持。
+
+本候选沿同一native-capabilities followup钉上述9ca成功proof，保留完整698及更早历史来源验证：21existing／NEW0／767保护，仅conversation_user_data.py一项delta，其余20运行文件＋767保护＝787项不写。grant模块已存在，不能继续NEW1配方；固定before来自9ca Git字节及成功proof。原campaign、worker/range一致重载与失败先恢复代码后恢复服务，usagefresh／tombstone／UNKNOWN／审批与业务数据保持，不写Nginx、unit、timer或P0。干净导入真实dispatch→原atomic→final reader／IAM／ledger→最终Admin stub及不匹配普通聊天回归通过；tempFS prepare／inspect／apply及worker/range/campaign/readiness失败回退核787项完整metadata保持。OS身份、绝对mount路径及服务／最终Admin为明确夹具；此小修尚未安装、实际一次发券仍未验，不新增模型或现场探针。

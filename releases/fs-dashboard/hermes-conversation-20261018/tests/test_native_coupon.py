@@ -128,6 +128,41 @@ class NativeCouponIntentTests(unittest.TestCase):
             self.assertEqual(self.call('fs_grant_coupon',args,binding=bound),receipt)
             self.assertEqual(len(self.posts),1)
 
+    @contextmanager
+    def clean_campaign_imports(self):
+        # Map only the deployed absolute mount for the local OS fixture. Real
+        # campaign imports/validation/ledger and final Admin stub remain intact.
+        loaded={k:v for k,v in sys.modules.items() if k=='campaign_backend' or k.startswith('campaign_backend.')}
+        class RuntimePaths(list):
+            inserted=[]
+            def insert(self,index,value):
+                self.inserted.append(value)
+                super().insert(index,str(BACKEND) if value=='/opt/fs-campaign-dashboard/backend' else value)
+        paths=RuntimePaths(p for p in sys.path if 'campaign-analytics-20261023' not in str(p))
+        for name in loaded:del sys.modules[name]
+        try:
+            with patch.object(sys,'path',paths):yield paths
+        finally:
+            for name in list(sys.modules):
+                if name=='campaign_backend' or name.startswith('campaign_backend.'):del sys.modules[name]
+            sys.modules.update(loaded)
+
+    def test_clean_import_dispatch_finalizes_before_ready_and_original_grant_posts_once(self):
+        with self.clean_campaign_imports() as paths:
+            self.assertNotIn('campaign_backend',sys.modules)
+            self.test_real_dispatch_finalizes_stored_binding_before_ready_and_is_idempotent()
+            self.assertIn('/opt/fs-campaign-dashboard/backend',paths.inserted)
+            self.assertEqual(len(self.posts),1)
+
+    def test_unmatched_intent_does_not_assemble_campaign_modules(self):
+        self.intent['intent']['conversation_id']='0'*32
+        with self.clean_campaign_imports() as paths,self.root_file(self.intent):
+            self.dispatch()
+            self.assertEqual(self.transitions,[False,True])
+            self.assertEqual(paths.inserted,[])
+            self.assertNotIn('campaign_backend',sys.modules)
+            self.assertEqual(self.posts,[])
+
     def test_matching_expired_or_invalid_intent_never_releases_or_reposts(self):
         self.intent['valid_until']=self.now.isoformat()
         with self.root_file(self.intent) as path:

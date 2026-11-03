@@ -78,10 +78,14 @@ CAPABILITIES_PREVIOUS_PROOF = dict(sourceCommit='36d7d92540d9153e9b1cc764f900990
     backup='/var/backups/fs-navigation-20261006/nav-20261103T120348Z',
     manifestSha256='bd9da6f0bf945d194af8d3538c5686676b57bab97b2fd400c6bbcde398c2f029',
     journalSha256='44dba92d35d29427f4f85f44af82f0d138691113d5975e14ea21d788d063e8b7')
-NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='6987712266dec9100a83b0d4d4dae5ede98ccf13',
+CAPABILITIES_GRANT_HISTORY_PROOF = dict(sourceCommit='6987712266dec9100a83b0d4d4dae5ede98ccf13',
     backup='/var/backups/fs-navigation-20261006/nav-20261103T144300Z',
     manifestSha256='72468b70ae375d0878d45a78d8dac106eb84ec4dd91dfb577b445ccb06767f04',
     journalSha256='2d3546e8b9819b99ebf8347f28f9a7826d23720ba900005c411a2821ddc986b7')
+NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='9ca600bef0bd09f3800e32981cc3251d1bf13dda',
+    backup='/var/backups/fs-navigation-20261006/nav-20261103T165152Z',
+    manifestSha256='c90d0ce989eaa30ff2e5a91993b9847b64f22f81db03a3895b96ab5c616f5603',
+    journalSha256='4c4f4b72d03792637309c0dd056150a0f0a8c6b3ab55f7951b3852b5191bcb76')
 CAPABILITIES_STATIC_PROOF = dict(sourceCommit='d135d2b965ecdfc2d96a1e49cf9425e31eaca07e',
     backup='/var/backups/fs-navigation-20261006/nav-20261103T021812Z',
     manifestSha256='26b0de09b7b84d9d7634948c3177ca7cf919bac6ea4aab00c247bd6389e8cbb8',
@@ -213,7 +217,7 @@ CAPABILITIES_TARGETS = {'runtime/'+name:'/opt/fs-hermes-fc/'+name for name in (
     'native_chat.py','transport.py','direct_provider.py','proxy_gateway.py','fs_inprocess.py')}
 CAPABILITIES_TARGETS['http/conversation_http.py']='/opt/fs-exact-range-20261001/conversation_http.py'
 CAPABILITIES_INSTALLED_TARGETS=dict(CAPABILITIES_TARGETS)
-CAPABILITIES_NEW=frozenset({'campaign/backend/campaign_backend/coupon_grant.py'})
+CAPABILITIES_NEW=frozenset()
 CAPABILITIES_TARGETS.update({'runtime/'+name:'/opt/fs-hermes-fc/'+name for name in
     ('b2_customer_followup.py','user_runtime.py','conversation_user_data.py','a2_query_context.py','live_order_consumer.py','fs_native_readonly.py')})
 CAPABILITIES_RUNTIME_TARGETS = dict(CAPABILITIES_TARGETS)
@@ -232,12 +236,13 @@ CAMPAIGN_INITIAL_BEFORE = dict(zip(CAMPAIGN_TARGETS,(
 CAMPAIGN_BEFORE = dict(zip(CAMPAIGN_TARGETS,(
     ('eae552be976aed4d779aa31ef222130532ac07066acf6bbdedd0b19a73fa0fd2',17004),
     ('01e0fc6a8b238b18f465a0f71aa585d7645435cbb8d468a21d618007ea014840',23386),
-    ('01bd5344472071ccfb053c5b15bd4bf5b421186cfb810bb949e485e7317e60a1',6118),
+    ('7b31e272cefe74de35f6a3ea8a01b04a5a044d7852f77dc17a918d1199bba96a',6839),
     ('54c0382caf58537059bdb9fbb64db3eefcef425ff96539f30fd28f8893443bfe',2815))))
 CAPABILITIES_TARGETS.update(CAMPAIGN_TARGETS)
-CAPABILITIES_BASELINE_TARGETS=dict(CAPABILITIES_TARGETS)
+CAPABILITIES_GRANT_HISTORY_TARGETS=dict(CAPABILITIES_TARGETS)
 CAPABILITIES_TARGETS['campaign/backend/campaign_backend/coupon_grant.py']='/opt/fs-campaign-dashboard/backend/campaign_backend/coupon_grant.py'
-CAPABILITIES_CHANGED = ('runtime/conversation_native.py','runtime/conversation_user_data.py','campaign/backend/campaign_backend/services.py',*CAPABILITIES_NEW)
+CAPABILITIES_BASELINE_TARGETS=dict(CAPABILITIES_TARGETS)
+CAPABILITIES_CHANGED = ('runtime/conversation_user_data.py',)
 NATIVE_ADMISSION_CANDIDATE = 'runtime/conversation_native.py'
 NATIVE_ADMISSION_BEFORE_SHA = '030e36d5cf134fa1ef63c576211a3f1b4f2d9a3135ed44c15a7fd1d403e795c2'
 NATIVE_ADMISSION_AFTER_SHA = '72253b5ffee19cc2d0352c0bb1ee7d67fe801fcb515b3b711466e828a4c1a57a'
@@ -859,6 +864,51 @@ def capabilities_campaign_history(base,root,current,installed_rows):
         raise ValueError('native_campaign_success_chain_mismatch')
 
 
+def capabilities_grant_history(base,root,current,installed_rows):
+    """Verify the fixed 698 -> 9ca transition before using its 21 existing targets."""
+    proof=CAPABILITIES_GRANT_HISTORY_PROOF;records={}
+    fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+    for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
+        path=base.rooted(root,proof['backup']+'/'+name);base.no_target_link(path);before=path.lstat()
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>8*1024*1024 or
+                (before.st_uid,before.st_gid,stat.S_IMODE(before.st_mode))!=(0,0,0o600)):
+            raise ValueError('native_grant_history_boundary_drift')
+        with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('native_grant_history_changed')
+            raw=stream.read(8*1024*1024+1)
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('native_grant_history_changed')
+        after=path.lstat();base.no_target_link(path)
+        if any(getattr(before,k)!=getattr(after,k) for k in fields):raise ValueError('native_grant_history_changed')
+        if hashlib.sha256(raw).hexdigest()!=proof[key]:raise ValueError('native_grant_history_proof_drift')
+        records[name]=json.loads(raw)
+    manifest,journal=records['approved-manifest.json'],records['journal.json']
+    rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[]);written=journal.get('files',[])
+    old={r['target']:dict(path=r['target'],sha256=r['sha256'],owner=r.get('owner'),mode=r.get('mode')) for r in rows}
+    old.update({r['path']:dict(r) for r in protected})
+    if (manifest.get('sourceCommit')!=proof['sourceCommit'] or manifest.get('scope')!=SCOPE or
+            manifest.get('nativeCapabilities') is not True or manifest.get('nativeArchive') is not True or
+            manifest.get('nativeStaticBaseline')!=CAPABILITIES_STATIC_PROOF or
+            len(rows)!=20 or {r['candidate']:r['target'] for r in rows}!=CAPABILITIES_GRANT_HISTORY_TARGETS or
+            any(r.get('owner')!='0:0' or r.get('mode')!='0o644' for r in rows) or len(protected)!=767 or len(old)!=787 or
+            journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
+            any(journal.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
+            journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=proof['manifestSha256'] or
+            len(written)!=20 or {r['candidate'] for r in written}!=set(CAPABILITIES_GRANT_HISTORY_TARGETS) or
+            any(any(w.get(k)!=r.get(k) for k in ('candidate','target','beforeSha256','sha256','owner','mode')) or
+                w.get('intent') is not True or w.get('written') is not True or
+                any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten'))
+                for r in rows for w in written if r['candidate']==w['candidate'])):
+        raise ValueError('native_grant_history_success_required')
+    capabilities_campaign_history(base,root,old,rows)
+    if (set(current)!=set(old)|{CAPABILITIES_TARGETS['campaign/backend/campaign_backend/coupon_grant.py']} or
+            any(any(row.get(k)!=current[path].get(k) for k in
+                (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
+                for path,row in old.items() if path not in CAPABILITIES_GRANT_HISTORY_TARGETS.values()) or
+            any(r.get('beforeSha256')!=(None if r['candidate']=='campaign/backend/campaign_backend/coupon_grant.py'
+                else old[r['target']]['sha256']) for r in installed_rows)):
+        raise ValueError('native_grant_success_chain_mismatch')
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -894,7 +944,7 @@ def installed_baseline(root, git_baseline):
                 manifest.get('nativeCapabilities') is not True or manifest.get('nativeArchive') is not True or
                 len(rows)!=len(installed_targets) or {r['candidate']:r['target'] for r in rows}!=installed_targets or
                 any(r.get('owner')!='0:0' or r.get('mode')!='0o644' for r in rows) or
-                len(protected)!=(767 if NATIVE_CAPABILITIES_MODE else 769) or len(metadata)!=(787 if NATIVE_CAPABILITIES_MODE else 779) or
+                len(protected)!=(767 if NATIVE_CAPABILITIES_MODE else 769) or len(metadata)!=(788 if NATIVE_CAPABILITIES_MODE else 779) or
                 journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
                 any(journal.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
                 journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=INSTALLED_PROOF['manifestSha256'] or
@@ -912,7 +962,7 @@ def installed_baseline(root, git_baseline):
                      for name,target in TARGETS.items()})}):
             raise ValueError('composer_static_installed_proof_mismatch')
         if NATIVE_CAPABILITIES_MODE:
-            capabilities_campaign_history(base,root,metadata,rows)
+            capabilities_grant_history(base,root,metadata,rows)
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
