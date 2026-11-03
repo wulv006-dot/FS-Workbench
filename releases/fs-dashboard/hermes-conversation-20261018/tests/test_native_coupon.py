@@ -10,6 +10,7 @@ import stat
 import sys
 from types import SimpleNamespace
 import unittest
+from contextlib import contextmanager
 from unittest.mock import patch
 
 import test_native_user_data as native_user
@@ -20,6 +21,245 @@ BACKEND=HERE.parents[1]/'campaign-analytics-20261023/backend'
 sys.path.insert(0,str(BACKEND))
 spec=importlib.util.spec_from_file_location('coupon_original_fixture',BACKEND/'tests/test_benefit_operations.py')
 fixture=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixture)
+
+
+class NativeCouponIntentTests(unittest.TestCase):
+    make= native_user.NativeUserRelay.make
+    load= native_user.NativeUserRelay.load
+    bind= native_user.NativeUserRelay.bind
+    call= native_user.NativeUserRelay.call
+
+    def setUp(self):
+        NativeCouponTests.setUp(self)
+        self.now=datetime.now(timezone.utc)
+        created=self.conversation.store.create('operator');self.cid,self.sid=created['conversation_id'],created['session_id']
+        self.text='  Execute fs_grant_coupon with operation_id=synthetic-intent-operation only.  '
+        self.client_id='intent_original_request'
+        turn=self.conversation.submit('operator',self.cid,self.text,self.client_id)
+        self.turn_id=turn['turn_id']
+        from campaign_backend.benefits import row_hash
+        import hashlib
+        self.intent=dict(intent=dict(owner='operator',conversation_id=self.cid,session_id=self.sid,
+            input_sha256=hashlib.sha256(self.text.encode()).hexdigest()),
+            request=dict(action='coupon_grant',site_id='266',kind='coupon',native_id='123',
+                operation_id='synthetic-intent-operation',before_hash=row_hash(self.row),
+                grant_batch_no='synthetic-intent-batch',email='one@example.test'),
+            valid_from=(self.now-timedelta(minutes=1)).isoformat(),valid_until=(self.now+timedelta(minutes=10)).isoformat(),
+            authority_ref='synthetic-existing-user-authorization')
+        self.requests=[];self.transitions=[];self.final_writes=[];self.fail_write=False
+        def request(*args,**kw):
+            self.requests.append(args)
+            return 202,{'run_id':'run_'+'c'*32}
+        self.conversation._request=request
+
+    @contextmanager
+    def root_file(self,record):
+        import conversation_user_data as module
+        import secrets
+        path=Path(self.temp.name)/'approval/native-coupon-approval.json';path.parent.mkdir(exist_ok=True)
+        if record is not None:path.write_text(json.dumps(record),encoding='utf8');path.chmod(0o600)
+        real_lstat=Path.lstat;real_fstat=os.fstat
+        def view(info,directory=False):
+            values={k:getattr(info,k) for k in dir(info) if k.startswith('st_')}
+            values.update(st_uid=0,st_gid=0,st_mode=(stat.S_IFDIR|0o755) if directory else stat.S_IFREG|0o600)
+            if os.name=='nt':values['st_ctime_ns']=info.st_mtime_ns
+            return SimpleNamespace(**values)
+        def lstat(p,*a,**kw):
+            info=real_lstat(p,*a,**kw)
+            return view(info,p in path.parents) if p==path or p in path.parents else info
+        def fstat(fd):
+            info=real_fstat(fd)
+            if path.exists():
+                current=real_lstat(path)
+                if (info.st_dev,info.st_ino)==(current.st_dev,current.st_ino):return view(info)
+            return info
+        # Execute the actual existing atomic writer, not a synthetic approval write.
+        controller=sys.modules['controller'];source=HERE.parents[1]/'hermes-v2-core-20261020/source/controller.py'
+        node=next(n for n in ast.parse(source.read_text('utf8')).body if isinstance(n,ast.FunctionDef) and n.name=='atomic')
+        namespace=dict(Path=Path,secrets=secrets,json=json)
+        exec(compile(ast.Module(body=[node],type_ignores=[]),str(source),'exec'),namespace)
+        def atomic(destination,value,**kw):
+            destination=Path(destination);destination.parent.mkdir(parents=True,exist_ok=True)
+            if destination==path:
+                admission=json.loads((self.conversation.run_root/'admissions'/(self.sid+'.json')).read_bytes())
+                bound=value['binding'];row=self.conversation.native.row('operator',self.cid,self.turn_id)
+                self.assertFalse(admission['ready']);self.assertEqual(row['binding'],bound)
+                self.assertTrue(bound['run_id']);self.assertIn(self.turn_id,self.conversation.hermes.gateways)
+                self.assertIn(self.turn_id,self.conversation.live);self.assertEqual(len(self.requests),1)
+                self.final_writes.append(deepcopy(value))
+                if self.fail_write:raise OSError('synthetic approval write failure')
+            else:self.transitions.append(value.get('ready'))
+            namespace['atomic'](destination,value,**kw)
+        with patch.object(module,'CAMPAIGN_APPROVAL_FILE',path),patch.object(Path,'lstat',lstat),patch.object(os,'fstat',fstat),patch.object(controller,'atomic',atomic):
+            if os.name=='nt':
+                # Linux exercises the real no-follow FD/flock. Windows cannot
+                # replace an open target; only this OS locking boundary is a fixture.
+                with patch.object(module,'_campaign_approval_lock',lambda expected:__import__('contextlib').nullcontext(),create=True):yield path
+            else:yield path
+
+    def dispatch(self):
+        return self.conversation._dispatch('operator',self.cid,self.turn_id,self.sid,self.text,self.client_id)
+
+    def test_real_dispatch_finalizes_stored_binding_before_ready_and_is_idempotent(self):
+        import conversation_user_data as module
+        with self.root_file(self.intent) as path:
+            self.dispatch()
+            value=json.loads(path.read_bytes())
+            self.assertEqual(set(value),{'binding','request','valid_from','valid_until','authority_ref'},
+                'dispatch released worker without finalizing the matching intent')
+            self.assertEqual(value['request'],self.intent['request']);self.assertEqual(self.transitions,[False,True])
+            bound=self.conversation.native.row('operator',self.cid,self.turn_id)['binding']
+            self.assertEqual(value['binding'],bound);self.assertEqual(len(self.final_writes),1)
+            self.assertEqual(self.requests[0][2],{'input':self.text,'session_id':self.sid})
+            before=path.read_bytes();inode=path.stat().st_ino
+            self.assertTrue(module.prepare_campaign_approval(self.conversation.native,bound))
+            from conversation_native import NativeConversation
+            restarted=NativeConversation(self.conversation)
+            self.assertTrue(module.prepare_campaign_approval(restarted,bound))
+            self.dispatch()
+            self.assertEqual((path.read_bytes(),path.stat().st_ino),(before,inode))
+            self.assertEqual(len(self.requests),1);self.assertEqual(len(self.final_writes),1)
+            # The first actual host tool consumes the just-finalized file, not
+            # the unrelated pre-bound callback fixture from setUp.
+            self.data.campaign.approval_source=module.campaign_approval
+            args={'operation_id':self.intent['request']['operation_id']}
+            receipt=self.call('fs_grant_coupon',args,binding=bound)
+            self.assertTrue(receipt['business_confirmed']);self.assertEqual(len(self.posts),1)
+            self.assertEqual(self.call('fs_grant_coupon',args,binding=bound),receipt)
+            self.assertEqual(len(self.posts),1)
+
+    @contextmanager
+    def clean_campaign_imports(self):
+        # Map only the deployed absolute mount for the local OS fixture. Real
+        # campaign imports/validation/ledger and final Admin stub remain intact.
+        loaded={k:v for k,v in sys.modules.items() if k=='campaign_backend' or k.startswith('campaign_backend.')}
+        class RuntimePaths(list):
+            inserted=[]
+            def insert(self,index,value):
+                self.inserted.append(value)
+                super().insert(index,str(BACKEND) if value=='/opt/fs-campaign-dashboard/backend' else value)
+        paths=RuntimePaths(p for p in sys.path if 'campaign-analytics-20261023' not in str(p))
+        for name in loaded:del sys.modules[name]
+        try:
+            with patch.object(sys,'path',paths):yield paths
+        finally:
+            for name in list(sys.modules):
+                if name=='campaign_backend' or name.startswith('campaign_backend.'):del sys.modules[name]
+            sys.modules.update(loaded)
+
+    def test_clean_import_dispatch_finalizes_before_ready_and_original_grant_posts_once(self):
+        with self.clean_campaign_imports() as paths:
+            self.assertNotIn('campaign_backend',sys.modules)
+            self.test_real_dispatch_finalizes_stored_binding_before_ready_and_is_idempotent()
+            self.assertIn('/opt/fs-campaign-dashboard/backend',paths.inserted)
+            self.assertEqual(len(self.posts),1)
+
+    def test_unmatched_intent_does_not_assemble_campaign_modules(self):
+        self.intent['intent']['conversation_id']='0'*32
+        with self.clean_campaign_imports() as paths,self.root_file(self.intent):
+            self.dispatch()
+            self.assertEqual(self.transitions,[False,True])
+            self.assertEqual(paths.inserted,[])
+            self.assertNotIn('campaign_backend',sys.modules)
+            self.assertEqual(self.posts,[])
+
+    def test_matching_expired_or_invalid_intent_never_releases_or_reposts(self):
+        self.intent['valid_until']=self.now.isoformat()
+        with self.root_file(self.intent) as path:
+            before=path.read_bytes()
+            with self.assertRaisesRegex(PermissionError,'business_authorization_expired'):self.dispatch()
+            row=self.conversation.native.row('operator',self.cid,self.turn_id)
+            self.assertEqual((row['binding']['run_id'],row['stopped']),('run_'+'c'*32,1))
+            self.assertEqual(self.conversation.store.detail('operator',self.cid)['turns'][0]['state'],'dispatch_unknown')
+            self.assertNotIn(True,self.transitions);self.assertEqual(path.read_bytes(),before)
+            self.dispatch();self.assertEqual(len(self.requests),1)
+
+    def test_matching_atomic_failure_preserves_original_run_and_ready_false(self):
+        self.fail_write=True
+        with self.root_file(self.intent) as path:
+            before=path.read_bytes()
+            with self.assertRaisesRegex(OSError,'synthetic approval write failure'):self.dispatch()
+            self.assertNotIn(True,self.transitions);self.assertEqual(path.read_bytes(),before)
+            self.dispatch();self.assertEqual(len(self.requests),1)
+
+    def test_other_or_broken_approval_is_not_an_ordinary_chat_prerequisite(self):
+        import conversation_user_data as module
+        original=deepcopy(self.intent)
+        for key in ('owner','conversation_id','session_id','input_sha256'):
+            with self.subTest(key=key):
+                self.intent=deepcopy(original);self.intent['intent'][key]='different'
+                # Each case uses the same un-dispatched original turn; the
+                # private producer itself must decline without consuming it.
+                with self.root_file(self.intent) as path:
+                    before=path.read_bytes()
+                    self.assertFalse(module.prepare_campaign_approval(self.conversation.native,
+                        dict(self.binding,conversation_id=self.cid,session_id=self.sid,turn_id=self.turn_id)))
+                    self.assertEqual(path.read_bytes(),before)
+                path.unlink();path.parent.rmdir()
+        self.intent=original
+        with self.root_file(None) as path:
+            path.write_text('{broken',encoding='utf8')
+            self.dispatch();self.assertEqual(self.transitions,[False,True]);self.assertEqual(len(self.requests),1)
+
+    def test_matching_file_drift_or_lock_refusal_never_releases_ready(self):
+        import conversation_user_data as module
+        with self.root_file(self.intent) as path:
+            @contextmanager
+            def changed(expected):
+                value=json.loads(path.read_bytes());value['request']['grant_batch_no']='unapproved-drift'
+                path.write_text(json.dumps(value),encoding='utf8')
+                yield
+            with patch.object(module,'_campaign_approval_lock',changed),self.assertRaisesRegex(PermissionError,'business_authorization_file_changed'):
+                self.dispatch()
+            self.assertNotIn(True,self.transitions);self.assertEqual(self.final_writes,[])
+            self.dispatch();self.assertEqual(len(self.requests),1)
+
+    def test_final_record_cannot_rebind_to_another_original_run(self):
+        import conversation_user_data as module
+        with self.root_file(self.intent) as path:
+            self.dispatch();before=path.read_bytes()
+            actual=self.conversation.native.row('operator',self.cid,self.turn_id)['binding']
+            for changed in ({'run_id':'run_'+'d'*32},{'lease':'d'*32},{'turn_id':'d'*32}):
+                self.assertFalse(module.prepare_campaign_approval(self.conversation.native,dict(actual,**changed)))
+            self.assertEqual(path.read_bytes(),before);self.assertEqual(len(self.final_writes),1)
+
+    def test_matching_lock_holder_cannot_be_overtaken(self):
+        import conversation_user_data as module
+        with self.root_file(self.intent) as path:
+            before=path.read_bytes()
+            if os.name=='posix':
+                import fcntl
+                with path.open('rb') as holder:
+                    fcntl.flock(holder.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+                    with self.assertRaisesRegex(PermissionError,'business_authorization_file_locked'):self.dispatch()
+            else:
+                @contextmanager
+                def busy(expected):
+                    raise PermissionError('business_authorization_file_locked')
+                    yield
+                with patch.object(module,'_campaign_approval_lock',busy),self.assertRaisesRegex(PermissionError,'business_authorization_file_locked'):
+                    self.dispatch()
+            self.assertEqual(path.read_bytes(),before);self.assertNotIn(True,self.transitions)
+            self.dispatch();self.assertEqual(len(self.requests),1)
+
+    def test_matching_invalid_recipient_is_not_finalized(self):
+        self.intent['request']['email']='one@example.test two@example.test'
+        with self.root_file(self.intent) as path:
+            before=path.read_bytes()
+            with self.assertRaisesRegex(PermissionError,'business_authorization_mismatch'):self.dispatch()
+            self.assertEqual(path.read_bytes(),before);self.assertEqual(self.final_writes,[]);self.assertNotIn(True,self.transitions)
+
+    def test_permission_revoked_after_202_is_checked_before_finalizing(self):
+        original=self.conversation._request
+        def request(*args,**kw):
+            result=original(*args,**kw)
+            self.iam['bindings']['operator']['roles']=['Viewer'];self.policy_path.write_text(json.dumps(self.iam))
+            return result
+        self.conversation._request=request
+        with self.root_file(self.intent) as path:
+            before=path.read_bytes()
+            with self.assertRaisesRegex(PermissionError,'native_campaign_access_denied'):self.dispatch()
+            self.assertEqual(path.read_bytes(),before);self.assertNotIn(True,self.transitions)
 
 
 class NativeCouponTests(unittest.TestCase):
@@ -52,7 +292,12 @@ class NativeCouponTests(unittest.TestCase):
                 data={'list':[deepcopy(test.row)],'total':1} if route.endswith('/index') else {'row':deepcopy(test.row)}
                 return 200,{'code':1,'data':data}
             def post(self,url,**kwargs):
-                test.posts.append((url,kwargs));test.row.update(kwargs['json'])
+                test.posts.append((url,kwargs))
+                if url.endswith('/market.CouponGrant/import'):
+                    payload=dict(code=1,data=dict(mode='sync',success=1,rows=[dict(
+                        email=kwargs['json']['emails'],status='opaque-native-status',member_id=321,member_coupon_id=456)]))
+                    return type('Response',(),{'status_code':200,'content':json.dumps(payload).encode()})()
+                test.row.update(kwargs['json'])
                 if test.timeout:raise TimeoutError('synthetic unknown')
                 return type('Response',(),{'status_code':200,'content':b'{"code":1,"msg":"ok"}'})()
             def close(self):pass
@@ -71,6 +316,57 @@ class NativeCouponTests(unittest.TestCase):
         self.approval=dict(binding=deepcopy(self.binding),request=request,
             valid_from=(self.now-timedelta(minutes=1)).isoformat(),valid_until=(self.now+timedelta(minutes=1)).isoformat(),authority_ref='synthetic-external-approval')
         return dict(native_id='123',operation_id=request['operation_id'],before_hash=request['before_hash'],brief=request['changes']['brief'])
+
+    def issuance(self):
+        from campaign_backend.benefits import row_hash
+        request=dict(action='coupon_grant',site_id='266',kind='coupon',native_id='123',
+            operation_id='synthetic-issuance-operation',before_hash=row_hash(self.row),
+            grant_batch_no='synthetic-reviewed-batch',email='one@example.test')
+        self.approval=dict(binding=deepcopy(self.binding),request=request,
+            valid_from=(self.now-timedelta(minutes=1)).isoformat(),valid_until=(self.now+timedelta(minutes=1)).isoformat(),
+            authority_ref='synthetic-real-user-source-reference')
+        return {'operation_id':request['operation_id']}
+
+    def test_grant_uses_private_exact_approval_and_original_ledger_once(self):
+        import conversation_user_data as module
+        self.assertIn('fs_grant_coupon',module.COUPON_TOOLS,'normal native lacks reviewed grant consumer')
+        self.row['status']=1  # Actual grant selector is fetch_scene, not the brief editor gate.
+        args=self.issuance();approved=deepcopy(self.approval);self.approval=None
+        with self.assertRaisesRegex(PermissionError,'business_authorization_required'):self.call('fs_grant_coupon',args)
+        self.assertEqual(self.posts,[]);self.approval=approved
+        result=self.call('fs_grant_coupon',args)
+        self.assertTrue(result['business_confirmed']);self.assertEqual(self.call('fs_grant_coupon',args),result)
+        self.assertTrue(self.call('fs_coupon_operation',args)['business_confirmed'])
+        self.assertEqual(len(self.posts),1)
+        output=json.dumps(result)
+        for private in ('one@example.test','member-coupon:456','member_id','member_coupon_id'):
+            self.assertNotIn(private,output)
+
+    def test_grant_rejects_model_recipient_and_wrong_binding_or_expired_authority(self):
+        import conversation_user_data as module
+        self.assertIn('fs_grant_coupon',module.COUPON_TOOLS,'normal native lacks reviewed grant consumer')
+        args=self.issuance();approved=deepcopy(self.approval)
+        for change in ({'email':'other@example.test'},{'actor':'other'},{'native_id':'124'},
+                       {'grant_batch_no':'another'},{'approved':True}):
+            with self.subTest(fields=list(change)),self.assertRaises(ValueError):self.call('fs_grant_coupon',dict(args,**change))
+        for key in self.binding:
+            self.approval=deepcopy(approved);self.approval['binding'][key]='wrong'
+            with self.subTest(binding=key),self.assertRaises(PermissionError):self.call('fs_grant_coupon',args)
+        self.approval=deepcopy(approved);self.approval['valid_until']=self.now.isoformat()
+        with self.assertRaises(PermissionError):self.call('fs_grant_coupon',args)
+        self.approval=approved;self.iam['bindings']['operator']['roles']=['Viewer'];self.policy_path.write_text(json.dumps(self.iam))
+        with self.assertRaises(PermissionError):self.call('fs_grant_coupon',args)
+        self.assertEqual(self.posts,[])
+
+    def test_grant_expiring_during_template_read_cannot_post(self):
+        args=self.issuance();calls=[]
+        def clock():
+            calls.append(True)
+            return self.now if len(calls)<=3 else self.now+timedelta(minutes=2)
+        self.data.campaign.clock=clock
+        result=self.call('fs_grant_coupon',args)
+        self.assertEqual((result['state'],result['dispatch_state']),('rejected','not_started'))
+        self.assertFalse(result['business_confirmed']);self.assertEqual(self.posts,[])
 
     def test_real_host_IAM_service_and_ledger_require_exact_external_approval(self):
         page=self.call('fs_coupon_candidates',{'page':1,'limit':1})
@@ -258,10 +554,16 @@ class NativeCouponTests(unittest.TestCase):
         args=self.grant();self.assertTrue(call('fs_edit_coupon_brief',args)['business_confirmed'])
         self.assertTrue(call('fs_coupon_operation',{'operation_id':args['operation_id']})['business_confirmed'])
         self.assertEqual(len(self.posts),1);self.assertIn('fs.native.user_data',wire)
+        # Same real worker Request -> Grants/Proxy -> scope -> host -> IAM ->
+        # backend/SQLite; only the final Admin endpoint is synthetic.
+        grant_args=self.issuance();receipt=call('fs_grant_coupon',grant_args)
+        self.assertTrue(receipt['business_confirmed'])
+        self.assertEqual(call('fs_grant_coupon',grant_args),receipt)
+        self.assertEqual(len(self.posts),2);self.assertNotIn('one@example.test',json.dumps(receipt))
         with self.assertRaises(PermissionError):
             worker['call_tool']('fs.native.user_data',dict(binding=dict(self.binding,lease='d'*32),name='fs_coupon_detail',arguments={'native_id':'123'}),session_id=sid)
         with patch.dict(sys.modules,{'proxy_gateway':proxy_module}),self.assertRaises(PermissionError):
             proxy.dispatch('POST','/fc/tools/call',grants.mint('other',self.binding['turn_id'],self.binding['lease']),dict(name='fs.native.check',arguments={'binding':self.binding}))
         path.write_text(json.dumps(dict(item,ready=False)))
         with self.assertRaises(PermissionError):call('fs_coupon_detail',{'native_id':'123'})
-        self.assertEqual(len(self.posts),1)
+        self.assertEqual(len(self.posts),2)

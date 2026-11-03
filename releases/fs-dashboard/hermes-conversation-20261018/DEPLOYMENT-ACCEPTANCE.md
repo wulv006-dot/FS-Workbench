@@ -1047,3 +1047,27 @@ bd9/nav052236已真实安装，manifest4a6c58744029e3251d5ebf926a9161d977cf8bd24
 本地直接验证包含真实单页请求次数/路径参数、worker Request→Grants/Proxy→host→原IAM→真实BackendServices/临时OperationLedger（只替最终Admin边界）、缺批准/撤权/错绑定/对象/原ID与UNKNOWN、默认文件producer真实接入和详情读取期间过期仍拒写，以及真实临时FS prepare→inspect→apply和campaign/worker/range/readiness失败回退；782项bytes/owner/mode/inode/mtime保持。Windows身份/服务为明确fixture，不冒Linux现场权限或真实业务验收。本轮0新增模型/业务写，最终merge后才沿原publisher串行安装；对象情况以以下实际核对为准，不因本地批准fixture宣称生产可写。
 
 用户随后指定1307／TESTGPT及上述41字brief说明测试；实际来源为总控原用户消息 `40f534b7-c79b-4388-a653-a0d356ea294d` 与 `1d4b8f0d-1e2d-47ed-810e-c8052d23bc01`，不把总控当批准人。原owned浏览器沿真实FS登录、现有benefit_detail唯一读取1307：HTTP200/site266/title恰TESTGPT、status1/fetch0/used0、game/goods0、brief为空；before_hash `67aed0bb844b6d4d7c350e0505ed48e02b24981a44b6da3fb476812069d5fc70`。原allowed_changes为空，原因FULL_PRESERVE_EDIT_NOT_VERIFIED/NATIVE_WRITE_PROOFS_REQUIRED/PROJECT_OBJECT_NOT_VERIFIED。不满足现行status0及对象证明，故未生成生产授权配置、未改状态/政策/换券、0mutation/0model，自建session已关闭。此明确条件缺口独立于软件候选；不再用list寻找其它对象促通。
+
+## 2026-11-03：698正式安装与原API单目标发券候选
+
+总控已核 source `6987712266dec9100a83b0d4d4dae5ede98ccf13`／`nav-20261103T144300Z` 的20件收据：`C:/Users/Administrator/AppData/Local/Temp/FS-Hermes-Native-Coupon-Deploy-20261103T144300Z/final/index.json`（3107B／SHA256 `69f984bc9357d5f74d3a86347ce09189b6e319dbda16912382da969ff1224466`）。manifest `72468b70ae375d0878d45a78d8dac106eb84ec4dd91dfb577b445ccb06767f04`／journal `2d3546e8b9819b99ebf8347f28f9a7826d23720ba900005c411a2821ddc986b7`；20existing/767保护、5after及其余782完整metadata核收，原服务/readiness通过。软件安装不代表业务配置/发放成功，0新增模型/业务写。
+
+用户随后明确指定测试账号及1307／TESTGPT最多1张1次，入口为Admin优惠券定向发放的**手填邮箱**。本轮用户自行登录后，仅沿当前公开模块 `index-d2ab3e4b.js`（10779B／SHA256 `31b64d68980593849934db9da3727f72e515faef0b961ca2c4e2f9366565e13c`）和真实原API helper只读核对：site266 exact init选择1307返回唯一TESTGPT，原GET详情code1、fetch_scene4/status1/fetch0/used0。没有发送、改模板、账号历史查询或凭据导出；自建session已关闭。旧brief编辑的disabled/unused及独立proof限制不机械套到发放。
+
+本地候选仅把原 `POST /admin/market.CouponGrant/import` 的 `{site_id,coupon_id,grant_batch_no,emails}` 接入原OperationLedger及现有root受控批准文件。单收件邮箱、模板hash、批次、原operation、有效期与真实7字段run由宿主批准记录固定，模型仅给operation_id，不接actor/邮箱/approved/任意URL。原调用前落私有账本且最后一次GET后复核批准/权限，超时或不明沿原ID查回，不换批次或再POST。没有上游幂等字段就不自造；suggestBatchNo不是状态查询或防重发证明。
+
+sync不要求job_id或响应回显未定义的site/template；原明确成功码＋success1＋唯一匹配目标已发券row才确认，响应的可选统计缺失不补0、不单独阻断，矛盾/错目标/批次/缺少关键结果仍unknown。row.status的真实枚举未获生产返回证据，不从合成值发明语义；not_found/pending_register/skipped_limit/failed区别于成功。async先保存真实job_id，仅原jobStatus GET对账，pending不冒confirmed，丢ID不猜批次查询。模型仅见原operation和脱敏状态，不见邮箱/member ID/领取记录ID；不复制前端带batoken的报告URL。
+
+候选发布仍沿原native-capabilities followup与冻结writer，从上述已成功698的20项基线衔接：新增一个原package内grant模块，20existing＋NEW1／767保护；因补齐ready前批准装配，实际三个既有delta（native/user_data/services）＋新模块，其他784只CAS不写。36d7及3c45、旧native/Nginx/导航/审批/ledger/单锁历史校验完整保留，在各自metadata上核连续链，不对现役值重复赋旧before。原campaign＋worker/range一致重载、失败先恢复代码及移除本次NEW模块再恢复服务；usagefresh、原UNKNOWN/tombstone/审批/policy/账本不写，不动Nginx/unit/timer/FC。OS/服务与最终Admin为明确夹具；本地绿不冒线上发券。阶段2/3本次约定验收后先用户系统总验收与修复优化，不自动进入阶段4—6；后台账号→Goal及取消派发独立未验，不作本发券前置。
+
+2026-11-04补齐首次工具调用前的真实装配顺序：同一root600批准文件先存 `{intent,request,valid_from,valid_until,authority_ref}`，intent仅为实际FS actor/新cid/原sid/精确输入SHA（含唯一opID）；收件邮箱、原batch、模板hash、时限及已有用户授权引用只由受信宿主预置。它不是猜造的7binding，也不要求用户再批内部ID。原dispatch只POST一次/v1/runs，持久化实际run和完整binding、注册同scope/gateway/live后，在原readyFalse围栏内同步调用prepare_campaign_approval；inputSHA读原turns.input_sha256，沿原存储规范，不信模型自报，不改UI即时产生的client_request_id。只锁住原批准inode，在原service锁下完整复核root600/单链接/no-follow/九字段/父链与CAS、原IAM及有效期，再用原atomic(mode0600)写成原五字段final record（binding替换intent）；真实写回成功才readyTrue。
+
+其它cid/owner/session/input、不可信或未能识别的文件不增加普通聊天前置，原工具消费时仍严格拒绝不安全/未定稿授权。已明确匹配的过期/非法/漂移/占锁或写失败不放行ready，保留实际run/原请求/UNKNOWN，不重新POST。final不重绑定第二个run；同真实绑定重复与重启读取保持原文件/inode，不重写。直接测试实际执行dispatch→原atomic→final原reader→host/IAM/OperationLedger→最终Admin stub，并断言首次定稿时readyFalse、真实7binding已存、成功后readyTrue与grant单POST。Linux用真实原FD/flock，Windows仅锁/身份边界为明确fixture。当前仅候选，尚未生产定稿或发券。
+
+### 2026-11-04：9ca 安装核收与 pre-ready 干净导入小修
+
+最终源 `9ca600bef0bd09f3800e32981cc3251d1bf13dda` 已沿原 publisher 安装为 `nav-20261103T165152Z`。manifest `c90d0ce989eaa30ff2e5a91993b9847b64f22f81db03a3895b96ab5c616f5603`／journal `4c4f4b72d03792637309c0dd056150a0f0a8c6b3ab55f7951b3852b5191bcb76`；21 after／4 delta／其余784完整metadata相等，服务、readiness、health通过。28件稳定index位于 `.agent_runtime/native-coupon-release-20261103T165152Z/final/index.json`，4372B／SHA256 `1daacfd68a3c47c78c36a4e3e0bb4598f8b0a49247580569b1dc7eab04244f7b`。仅新建一个空会话，模型turn与业务POST均0；未写intent、未发券。原op、batch及turn0会话保留，两自建浏览器session已关闭。
+
+装配前本地真实dispatch复现：清除测试预加载的campaign_backend及backend目录后，pre-ready批准校验首次导入报ModuleNotFoundError，ready仍False、批准写0／Admin POST0。这不是生产已触发或旧failed run根因。小修只在匹配受信intent／同原final绑定后，沿runtime既有 `/opt/fs-campaign-dashboard/backend` 路径装配模块，再执行原批准校验；不匹配普通聊天不初始化campaign。原外部批准、7binding、inputSHA、IAM、锁／CAS／atomic、grant与services逻辑均保持。
+
+本候选沿同一native-capabilities followup钉上述9ca成功proof，保留完整698及更早历史来源验证：21existing／NEW0／767保护，仅conversation_user_data.py一项delta，其余20运行文件＋767保护＝787项不写。grant模块已存在，不能继续NEW1配方；固定before来自9ca Git字节及成功proof。原campaign、worker/range一致重载与失败先恢复代码后恢复服务，usagefresh／tombstone／UNKNOWN／审批与业务数据保持，不写Nginx、unit、timer或P0。干净导入真实dispatch→原atomic→final reader／IAM／ledger→最终Admin stub及不匹配普通聊天回归通过；tempFS prepare／inspect／apply及worker/range/campaign/readiness失败回退核787项完整metadata保持。OS身份、绝对mount路径及服务／最终Admin为明确夹具；此小修尚未安装、实际一次发券仍未验，不新增模型或现场探针。
