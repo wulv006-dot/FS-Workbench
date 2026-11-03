@@ -5,6 +5,13 @@ sys.path.insert(0,str(ROOT/'source'))
 spec=importlib.util.spec_from_file_location('management_facts',ROOT/'source/management_facts.py');facts=importlib.util.module_from_spec(spec);spec.loader.exec_module(facts)
 
 class NovemberTests(unittest.TestCase):
+ def test_game_pages_name_and_month(self):
+  c=json.loads((ROOT/'source/targets.json').read_text(encoding='utf8'))
+  for g in c['overview']['games']:
+   page=(ROOT/'source'/g['file']).read_text(encoding='utf8')
+   self.assertIn('<h1 class="vh">'+g['name']+' KPI 驾驶舱</h1>',page)
+   self.assertIn('11/1–11/30',page)
+   self.assertNotIn('10 月',page);self.assertNotIn('10/1–10/31',page)
  def test_shipping_registration_uses_verified_order_ids(self):
   import types
   sys.modules.setdefault('rs_admin',types.SimpleNamespace(number=lambda x:float(x)))

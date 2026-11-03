@@ -114,7 +114,7 @@ function render(){
   if(diff===0){vd.textContent="$0 ✓ 已平账";vd.style.color="#9ff0d0";bc.className="bal-card bal-ok";}
   else{vd.textContent=(diff>0?"+":"−")+"$"+fmt(Math.abs(diff));vd.style.color="#ffc7bb";bc.className="bal-card bal-bad";}
   // warnings
-  var over=G.filter(function(g){return Number.isFinite(g.proj.rev)&&wOf(g.profile)>g.proj.rev*1.10;});
+  var over=G.filter(function(g){return Number.isFinite(g.proj.rev)&&g.proj.rev>0&&wOf(g.profile)>g.proj.rev*1.10;});
   var wb=document.getElementById("warnBox");
   if(over.length){wb.style.display="block";
     wb.textContent="模拟提示：以下草稿目标超过当前线性情景的 110%，不是正式可行性结论："+over.map(function(g){return g.name+"（"+Math.round(wOf(g.profile)/g.proj.rev*100)+"%）";}).join("、");}
