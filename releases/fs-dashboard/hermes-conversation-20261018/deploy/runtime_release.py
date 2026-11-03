@@ -47,6 +47,7 @@ GUARD_MODE = False
 NATIVE_MODE = False
 NATIVE_ADMISSION_MODE = False
 ARCHIVE_MODE = False
+NATIVE_CAPABILITIES_MODE = False
 ARCHIVE_PROTECTED = {}
 ARCHIVE_USAGE_LEDGER = '/var/lib/fs-hermes-fc/profile/skills/.usage.json'
 ARCHIVE_NATIVE_PROOF = dict(backup='/var/backups/fs-navigation-20261006/nav-20261102T100758Z',
@@ -61,6 +62,15 @@ ARCHIVE_FC_FILES = {
     'source/fc_pricing_v3/sources.py':('/opt/fc27-cloud-browser/fc_pricing_v3/sources.py','449a53558c6607449abf1b070a11eff20aca58e689e0169331c28c24540ae635'),
     'source/hermes-copy/fc_pricing_v3/sources.py':('/opt/fs-hermes-fc/fc_pricing_v3/sources.py','449a53558c6607449abf1b070a11eff20aca58e689e0169331c28c24540ae635'),
     'source/server_quote_job.py':('/opt/fc27-cloud-browser/server_quote_job.py','139bd6d239330bad4770148188d31f2fcbdd0e31bc1f668e4056f0489debbee9')}
+NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='f1ed1da4f4863b66ec0895a8dae9a92d39c852b8',
+    backup='/var/backups/fs-navigation-20261006/nav-20261102T183302Z',
+    manifestSha256='88778d338bc0e35cf7cc91d62e245492c6a766f28bceceefe492506bd83b3437',
+    journalSha256='d047b3d4b3b721de0bc7f12ec41f275ed2e81fc90f63f92a745fd367cdeb0f9f')
+CAPABILITIES_STORE_BEFORE_SHA = 'e7713e32c22769686013e01e2d061c5a2ee23827ac67040161ac4482b22d15fb'
+CAPABILITIES_TARGETS = {'runtime/'+name:'/opt/fs-hermes-fc/'+name for name in (
+    'conversation_store.py','conversation_native.py','conversation_service.py','hermes_worker.py',
+    'native_chat.py','transport.py','direct_provider.py','proxy_gateway.py','fs_inprocess.py')}
+CAPABILITIES_TARGETS['http/conversation_http.py']='/opt/fs-exact-range-20261001/conversation_http.py'
 NATIVE_ADMISSION_CANDIDATE = 'runtime/conversation_native.py'
 NATIVE_ADMISSION_BEFORE_SHA = '030e36d5cf134fa1ef63c576211a3f1b4f2d9a3135ed44c15a7fd1d403e795c2'
 NATIVE_ADMISSION_AFTER_SHA = '72253b5ffee19cc2d0352c0bb1ee7d67fe801fcb515b3b711466e828a4c1a57a'
@@ -274,6 +284,17 @@ def configure_native_archive():
         journalSha256='340c44f080cd8edb96df0b012e66fa67b634ce5a2f49367292ae7838bc9cdfc9')
 
 
+def configure_native_capabilities():
+    """Exact existing-ten followup over the successful archive-aware installation."""
+    global NATIVE_CAPABILITIES_MODE, INSTALLED_COMMIT
+    if NATIVE_CAPABILITIES_MODE:return
+    configure_native_archive()
+    NATIVE_CAPABILITIES_MODE=True
+    INSTALLED_COMMIT=NATIVE_CAPABILITIES_PROOF['sourceCommit']
+    INSTALLED_PROOF.update(NATIVE_CAPABILITIES_PROOF)
+    TARGETS.clear();TARGETS.update(CAPABILITIES_TARGETS)
+
+
 def archive_store_module(source,expected_sha):
     raw=source.read_bytes()
     if hashlib.sha256(raw).hexdigest()!=expected_sha:raise ValueError('archive_store_source_drift')
@@ -365,8 +386,21 @@ def installed_baseline(root, git_baseline):
             raise ValueError('installed_release_proof_drift')
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
+    global ARCHIVE_PROTECTED
+    if NATIVE_CAPABILITIES_MODE:
+        rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[])
+        values={r['target']:r['sha256'] for r in rows};values.update({r['path']:r['sha256'] for r in protected})
+        old_targets={'runtime/'+n:'/opt/fs-hermes-fc/'+n for n in ('conversation_store.py','conversation_native.py','conversation_service.py')}
+        if (manifest.get('sourceCommit')!=INSTALLED_COMMIT or manifest.get('nativeArchive') is not True or manifest.get('nativeCapabilities') or
+                len(rows)!=3 or {r['candidate']:r['target'] for r in rows}!=old_targets or len(protected)!=776 or len(values)!=779 or
+                not set(TARGETS.values())<=set(values) or journal.get('manifest')!=manifest or
+                journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('approvedManifestSha256')!=INSTALLED_PROOF['manifestSha256'] or
+                len(journal.get('files',[]))!=3 or any(r.get('written') is not True or r.get('rollbackIntent') for r in journal['files']) or journal.get('failure') or
+                git_baseline!={'source_commit':INSTALLED_COMMIT,'files':{name:values.get(target) for name,target in TARGETS.items()}}):
+            raise ValueError('native_capabilities_installed_proof_mismatch')
+        ARCHIVE_PROTECTED={path:sha for path,sha in values.items() if path not in TARGETS.values()}
+        return dict(manifest,archive_all_hashes=values)
     if ARCHIVE_MODE:
-        global ARCHIVE_PROTECTED
         rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[])
         values={r['target']:r['sha256'] for r in rows}
         values.update({r['path']:r['sha256'] for r in protected})
@@ -727,6 +761,9 @@ def archive_rollback_guard(base, journal, root):
         db.execute('PRAGMA query_only=ON')
         exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='synthetic_turn_archives'").fetchone()
         if exists and db.execute('SELECT 1 FROM synthetic_turn_archives LIMIT 1').fetchone():
+            if (journal.get('manifest',{}).get('nativeCapabilities') is True and NATIVE_CAPABILITIES_MODE and
+                    any(r.get('target')=='/opt/fs-hermes-fc/conversation_store.py' and r.get('beforeSha256')==CAPABILITIES_STORE_BEFORE_SHA for r in journal.get('files',[]))):
+                return  # Original rollback still CAS-verifies these known archive-aware backup bytes.
             raise ValueError('archived_unknown_requires_archive_aware_forward_repair')
 
 
@@ -735,7 +772,8 @@ def load_base():
     if approved.get('nativeArchive') is True:
         if any(approved.get(key) is True for key in ('nativeAdmission','nativeChat','materialGuard','bindingsAuth','materialStream','materialTransport','workerDiagnostics','goalTaskIndexCompat','materialDiagnostics')):
             raise ValueError('conflicting_material_followup_modes')
-        configure_native_archive()
+        if approved.get('nativeCapabilities') is True:configure_native_capabilities()
+        else:configure_native_archive()
         global ARCHIVE_PROTECTED
         ARCHIVE_PROTECTED={r['path']:r['sha256'] for r in approved['unchangedRequired']}
     if approved.get('nativeAdmission') is True:
@@ -771,12 +809,12 @@ def load_base():
         controlled = ARCHIVE_MODE or DIAGNOSTICS_MODE or TASK_INDEX_MODE or WORKER_DIAGNOSTICS_MODE or TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE or NATIVE_MODE
         marker = 'nativeArchive' if ARCHIVE_MODE else 'nativeAdmission' if NATIVE_ADMISSION_MODE else 'nativeChat' if NATIVE_MODE else 'materialGuard' if GUARD_MODE else 'bindingsAuth' if BINDINGS_MODE else 'materialStream' if STREAM_MODE else 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
         allowed = tuple(TARGETS) if ARCHIVE_MODE else (NATIVE_ADMISSION_CANDIDATE,) if NATIVE_ADMISSION_MODE else NATIVE_ALLOWED if NATIVE_MODE else (BINDINGS_CANDIDATE,) if BINDINGS_MODE else (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
-        if controlled and (manifest.get(marker) is not True or
+        if controlled and (manifest.get('nativeCapabilities',False) is not NATIVE_CAPABILITIES_MODE or manifest.get(marker) is not True or
                 any(manifest.get(key) is True for key in ('nativeArchive','nativeAdmission','nativeChat','materialGuard', 'bindingsAuth', 'materialStream', 'materialTransport', 'workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
                 manifest.get('installedBaseline') != INSTALLED_PROOF or
                 manifest.get('runtimeBefore') != manifest.get('runtimeRequired') or
                 manifest.get('workerImageSource') != 'container' or
-                ARCHIVE_MODE and (len(manifest.get('files',[]))!=3 or manifest.get('materialChangedTargets')!=list(TARGETS.values())) or
+                ARCHIVE_MODE and (len(manifest.get('files',[]))!=len(TARGETS) or manifest.get('materialChangedTargets')!=list(TARGETS.values())) or
                 NATIVE_ADMISSION_MODE and manifest.get('materialChangedTargets') != [TARGETS[NATIVE_ADMISSION_CANDIDATE]] or
                 WORKER_DIAGNOSTICS_MODE and manifest.get('materialChangedTargets') != [TARGETS['runtime/hermes_worker.py']] or
                 (TRANSPORT_MODE or STREAM_MODE or GUARD_MODE) and manifest.get('materialChangedTargets') != [TRANSPORT_TARGET]
@@ -993,6 +1031,13 @@ def load_base():
     def restart(manifest, admission_fence=None):
         nonlocal before_restart
         before_restart = False
+        if manifest.get('nativeCapabilities'):
+            if admission_fence is None:raise ValueError('native_admission_fence_required')
+            admission_fence.stop_then_unlock_database()
+            readiness.restart_with_hermes_readiness(base,original_restart,dict(manifest,scope=base.HERMES_WORKER_SCOPE),admission_fence)
+            readiness.restart_with_hermes_readiness(base,original_restart,dict(manifest,scope=base.DEEP_SCOPE),admission_fence)
+            running_worker(manifest);native_runtime_readiness();base.guards(manifest,publish_root)
+            return
         if manifest.get('nativeArchive') or manifest.get('nativeAdmission'):
             if admission_fence is None:
                 raise ValueError('native_admission_fence_required')
@@ -1064,7 +1109,7 @@ def archive_synthetic_maintenance(release_id, approved_sha, root=Path('/')):
     if not re.fullmatch(r'nav-[0-9]{8}T[0-9]{6}Z',release_id):raise ValueError('fixed release id required')
     approved=json.loads((HERE/'approved-manifest.json').read_bytes())
     raw=(HERE/'approved-manifest.json').read_bytes()
-    if approved.get('nativeArchive') is not True or hashlib.sha256(raw).hexdigest()!=approved_sha:
+    if approved.get('nativeCapabilities') or approved.get('nativeArchive') is not True or hashlib.sha256(raw).hexdigest()!=approved_sha:
         raise ValueError('exact_archive_maintenance_manifest_required')
     base=load_base();backup=base.rooted(root,'/var/backups/fs-navigation-20261006/'+release_id)
     base.no_target_link(backup/'journal.json');journal=json.loads((backup/'journal.json').read_bytes())
