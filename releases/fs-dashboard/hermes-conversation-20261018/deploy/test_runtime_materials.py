@@ -1842,13 +1842,13 @@ class NativePublisher(unittest.TestCase):
     def test_native_capabilities_installed_followup(self):
         self.assertTrue(callable(getattr(prepare,'configure_native_capabilities',None)))
         prepare.configure_native_capabilities()
-        self.assertEqual((len(release.TARGETS),len(release.NEW)),(16,0))
-        self.assertEqual(release.INSTALLED_COMMIT,'3c45f02689cab4e1b70a3fe1227031f833e17b02')
-        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_native.py','runtime/hermes_worker.py','runtime/native_chat.py','runtime/proxy_gateway.py'))
+        self.assertEqual((len(release.TARGETS),len(release.NEW)),(20,0))
+        self.assertEqual(release.INSTALLED_COMMIT,'36d7d92540d9153e9b1cc764f900990ded17362d')
+        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_user_data.py',*release.CAMPAIGN_TARGETS))
         self.assertEqual(release.INSTALLED_PROOF,dict(sourceCommit=release.INSTALLED_COMMIT,
-            backup='/var/backups/fs-navigation-20261006/nav-20261103T065027Z',
-            manifestSha256='11fd2c4c2384913e7da9855028b50be05c3fc50836e658b5863fda3681c64eac',
-            journalSha256='c946e8cac39b1f0fde71a05f9dea49d86f9c76173a5d9e2dd767c712fc4819bf'))
+            backup='/var/backups/fs-navigation-20261006/nav-20261103T120348Z',
+            manifestSha256='bd9da6f0bf945d194af8d3538c5686676b57bab97b2fd400c6bbcde398c2f029',
+            journalSha256='44dba92d35d29427f4f85f44af82f0d138691113d5975e14ea21d788d063e8b7'))
         self.assertEqual(release.CAPABILITIES_STATIC_PROOF['sourceCommit'],'d135d2b965ecdfc2d96a1e49cf9425e31eaca07e')
         self.assertEqual(set(prepare.SOURCES),set(release.CAPABILITIES_TARGETS))
         self.assertEqual(prepare.SOURCES['http/conversation_http.py'],prepare.MODULE+'source/conversation_http.py')
@@ -2039,9 +2039,9 @@ class NativePublisher(unittest.TestCase):
 
     def test_native_capabilities_current_nginx_is_in_installed_proof(self):
         prepare.configure_native_capabilities();base=release.frozen()
-        source='3c45f02689cab4e1b70a3fe1227031f833e17b02'
+        source=release.INSTALLED_COMMIT
         nginx_sha='fde65e277cbb873673b7dc474483dada42e0da558756c69c63c38d0acc769da4'
-        rows=[dict(candidate=n,target=p,beforeSha256='0'*64,sha256=prepare.digest(n.encode()),owner='0:0',mode='0o644') for n,p in release.CAPABILITIES_TARGETS.items()]
+        rows=[dict(candidate=n,target=p,beforeSha256='0'*64,sha256=prepare.digest(n.encode()),owner='0:0',mode='0o644') for n,p in release.CAPABILITIES_RUNTIME_TARGETS.items()]
         first={}
         for _,_,_,_,changes in release.CAPABILITIES_NAVIGATION_PROOFS:
             for alias,(_,before,_) in changes.items():first.setdefault(alias,before)
@@ -2053,6 +2053,7 @@ class NativePublisher(unittest.TestCase):
         manifest=dict(sourceCommit=source,scope=release.SCOPE,nativeCapabilities=True,nativeArchive=True,
                       nativeStaticBaseline=release.CAPABILITIES_STATIC_PROOF,files=rows,unchangedRequired=protected)
         git=dict(source_commit=source,files={r['candidate']:r['sha256'] for r in rows})
+        git['files'].update({n:v[0] for n,v in release.CAMPAIGN_BEFORE.items()})
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);proof=deepcopy(release.INSTALLED_PROOF);owners={};kinds={}
             backup=base.rooted(root,proof['backup']);backup.mkdir(parents=True)
@@ -2061,6 +2062,11 @@ class NativePublisher(unittest.TestCase):
                 journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=m,approvedManifestSha256=proof['manifestSha256'],files=[dict(r,intent=True,written=True) for r in m['files']])
                 journal.update(changes);raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
             with self.native_metadata(owners,kinds,root=root),self.capabilities_nginx_fixture(root,base) as historical,patch.object(release,'INSTALLED_PROOF',proof),self.capabilities_navigation_fixture(root,base,{r['path']:r for r in protected},owners) as navigation,self.shared_update_fixture(root,base,owners) as shared:
+                history_manifest=deepcopy(manifest);history_manifest['sourceCommit']=release.CAPABILITIES_HISTORY_PROOF['sourceCommit']
+                history=self.save_capabilities_receipt(base,root,release.CAPABILITIES_HISTORY_PROOF,history_manifest,owners)
+                manifest['unchangedRequired']=[dict(navigation.after.get(r['path'],r)) for r in protected]
+                manifest['unchangedRequired']=[dict(shared.after.get(r['path'],r)) for r in manifest['unchangedRequired']]
+                history_patch=patch.object(release,'CAPABILITIES_HISTORY_PROOF',history);history_patch.start();self.addCleanup(history_patch.stop)
                 save(manifest)
                 for path in historical.backup.iterdir():owners[path]=(0,0,0o600)
                 for path in backup.iterdir():owners[path]=(0,0,0o600)
@@ -2068,15 +2074,27 @@ class NativePublisher(unittest.TestCase):
                 expected={r['target']:r['sha256'] for r in rows};expected.update({r['path']:r['sha256'] for r in protected})
                 expected.update({p:r['sha256'] for p,r in navigation.after.items()})
                 expected.update({p:r['sha256'] for p,r in shared.after.items()})
+                expected.update({release.CAMPAIGN_TARGETS[n]:v[0] for n,v in release.CAMPAIGN_BEFORE.items()})
                 self.assertEqual(result['archive_all_hashes'],expected)
                 self.assertEqual(len(release.ARCHIVE_PROTECTED),767)
                 self.assertTrue(historical.backup.is_dir())
+                for field in ('sourceCommit','nativeStaticBaseline'):
+                    bad=deepcopy(history_manifest);bad[field]='untrusted'
+                    history.update(self.save_capabilities_receipt(base,root,history,bad,owners))
+                    with self.assertRaisesRegex(ValueError,'native_history_success_required'):release.installed_baseline(root,git)
+                history.update(self.save_capabilities_receipt(base,root,history,history_manifest,owners))
+                history_journal=base.rooted(root,history['backup']+'/journal.json');saved_history=history_journal.read_bytes()
+                for update in ({'written':False},{'rollbackIntent':True}):
+                    bad=json.loads(saved_history);bad['files'][0].update(update);raw=json.dumps(bad).encode()
+                    history_journal.write_bytes(raw);history['journalSha256']=prepare.digest(raw)
+                    with self.assertRaisesRegex(ValueError,'native_history_success_required'):release.installed_baseline(root,git)
+                history_journal.write_bytes(saved_history);history['journalSha256']=prepare.digest(saved_history)
                 for change in (dict(source_commit='bd9cb44c4233f176fb15fd14f5560a5000c750d1',files=git['files']),
                                dict(source_commit=source,files=dict(git['files'],**{'runtime/proxy_gateway.py':'0'*64}))):
                     with self.assertRaisesRegex(ValueError,'composer_static_installed_proof_mismatch'):release.installed_baseline(root,change)
                 for key,value in (('sha256','75a9b57a7073771b105573ab59e4c0a227f8567a75c8accbde2991d171934b3d'),('owner','9876:9876'),('mode','0o644')):
                     bad=deepcopy(manifest);bad['unchangedRequired'][0][key]=value;save(bad)
-                    with self.assertRaisesRegex(ValueError,'native_nginx_transition_baseline_drift'):release.installed_baseline(root,git)
+                    with self.assertRaisesRegex(ValueError,'native_current_history_protection_mismatch'):release.installed_baseline(root,git)
                 bad=deepcopy(manifest);bad['sourceCommit']='bd9cb44c4233f176fb15fd14f5560a5000c750d1';save(bad)
                 with self.assertRaises(ValueError):release.installed_baseline(root,git)
                 save(manifest,files=[dict(r,intent=True,written=False) for r in rows])
@@ -2088,8 +2106,43 @@ class NativePublisher(unittest.TestCase):
                 save(manifest);(backup/'journal.json').write_bytes(b'changed proof')
                 with self.assertRaisesRegex(ValueError,'installed_release_proof_drift'):release.installed_baseline(root,git)
 
+    def test_native_campaign_fixed_git_before_boundary(self):
+        prepare.configure_native_capabilities();base=release.frozen()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owners={};kinds={}
+            with self.native_metadata(owners,kinds,root=root):
+                repo=Path(__file__).resolve().parents[4]
+                for name,target in release.CAMPAIGN_TARGETS.items():
+                    body=subprocess.check_output(['git','show',release.INSTALLED_COMMIT+':'+prepare.SOURCES[name]],cwd=repo)
+                    path=base.rooted(root,target);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(body);owners[path]=(0,0,0o644)
+                    self.assertEqual(prepare.file_metadata(base,root,target)['sha256'],release.CAMPAIGN_BEFORE[name][0])
+                    path.write_bytes(body+b'x')
+                    with self.assertRaisesRegex(ValueError,'campaign_before_boundary_drift'):prepare.file_metadata(base,root,target)
+                    path.write_bytes(b'x'+body[1:])
+                    with self.assertRaisesRegex(ValueError,'campaign_before_git_drift'):prepare.file_metadata(base,root,target)
+                    path.write_bytes(body)
+                    for identity in ((9876,9876,0o644),(0,0,0o666)):
+                        owners[path]=identity
+                        with self.assertRaises(ValueError):prepare.file_metadata(base,root,target)
+                    owners[path]=(0,0,0o644)
+                    link=path.with_name(path.name+'.link');os.link(path,link)
+                    with self.assertRaises(ValueError):prepare.file_metadata(base,root,target)
+                    link.unlink();kinds[path.parent]=stat.S_IFLNK
+                    with self.assertRaises(ValueError):prepare.file_metadata(base,root,target)
+                    kinds.clear()
+
     def test_native_capabilities_original_apply_rollback(self):
         self._archive_apply_contract(capabilities=True)
+
+    @staticmethod
+    def save_capabilities_receipt(base,root,pin,manifest,owners):
+        proof=deepcopy(pin);backup=base.rooted(root,proof['backup']);backup.mkdir(parents=True,exist_ok=True)
+        raw=json.dumps(manifest).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
+        journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=manifest,approvedManifestSha256=proof['manifestSha256'],
+                     files=[dict(r,intent=True,written=True) for r in manifest['files']])
+        raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+        for path in backup.iterdir():owners[path]=(0,0,0o600)
+        return proof
 
     @staticmethod
     def shared_update_paths():
@@ -2205,7 +2258,7 @@ class NativePublisher(unittest.TestCase):
         self._archive_apply_contract()
 
     def _archive_apply_contract(self, capabilities=False):
-        for failure in ((None,'range','readiness','worker') if capabilities else (None,'range','readiness')):
+        for failure in ((None,'campaign','range','readiness','worker') if capabilities else (None,'range','readiness')):
             self.tearDown();self.setUp()
             with self.subTest(failure=failure),tempfile.TemporaryDirectory() as directory,self.admission_fixture(Path(directory)) as f,ExitStack() as proof_stack:
                 root=Path(directory);base=f.base;old_proof=deepcopy(f.proof);old=deepcopy(f.previous)
@@ -2279,8 +2332,8 @@ class NativePublisher(unittest.TestCase):
                         target=base.rooted(f.system,release.TARGETS[name])
                         target.write_bytes(source_body if name=='runtime/conversation_store.py' else target.read_bytes()+b'\n# installed archive aware\n')
                     current=dict(merged);current.update({r['target']:r['sha256'] for r in records});current.update({target:sha for target,sha in fc_files.values()})
-                    installed_targets=dict(release.CAPABILITIES_TARGETS)
-                    for name,target in release.CAPABILITIES_TARGETS.items():
+                    installed_targets=dict(release.CAPABILITIES_RUNTIME_TARGETS)
+                    for name,target in installed_targets.items():
                         if target in current:continue
                         # These two existed in the pre-relay protected union;
                         # the four relay helpers were installed by bd9 itself.
@@ -2303,13 +2356,10 @@ class NativePublisher(unittest.TestCase):
                     cap_rows=[dict(candidate=name,target=target,beforeSha256='0'*64,sha256=base.digest(base.rooted(f.system,target)),owner='0:0',mode='0o644') for name,target in installed_targets.items()]
                     current.update({r['target']:r['sha256'] for r in cap_rows})
                     static_proof=deepcopy(release.CAPABILITIES_STATIC_PROOF)
-                    cap_manifest=dict(sourceCommit=release.NATIVE_CAPABILITIES_PROOF['sourceCommit'],scope=release.SCOPE,nativeArchive=True,nativeCapabilities=True,
+                    cap_manifest=dict(sourceCommit=release.CAPABILITIES_HISTORY_PROOF['sourceCommit'],scope=release.SCOPE,nativeArchive=True,nativeCapabilities=True,
                         nativeStaticBaseline=static_proof,files=cap_rows,unchangedRequired=[metadata(p) for p in current if p not in installed_targets.values()])
-                    proof=deepcopy(release.NATIVE_CAPABILITIES_PROOF);backup=base.rooted(f.system,proof['backup']);backup.mkdir(parents=True)
-                    cap_raw=json.dumps(cap_manifest).encode();(backup/'approved-manifest.json').write_bytes(cap_raw);proof['manifestSha256']=prepare.digest(cap_raw)
-                    cap_journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=cap_manifest,approvedManifestSha256=proof['manifestSha256'],files=[dict(r,intent=True,written=True) for r in cap_rows])
-                    cap_raw=json.dumps(cap_journal).encode();(backup/'journal.json').write_bytes(cap_raw);proof['journalSha256']=prepare.digest(cap_raw)
-                    for path in backup.iterdir():f.owners[path]=(0,0,0o600)
+                    history_proof=self.save_capabilities_receipt(base,f.system,release.CAPABILITIES_HISTORY_PROOF,cap_manifest,f.owners)
+                    proof_stack.enter_context(patch.object(release,'CAPABILITIES_HISTORY_PROOF',history_proof))
                     # Current successful 3c45 proof already protects this route;
                     # historical receipt remains verified without reassigning any SHA.
                     nginx=base.rooted(f.system,release.NGINX)
@@ -2323,8 +2373,17 @@ class NativePublisher(unittest.TestCase):
                     advanced_nginx=nginx.read_bytes()
                     shared=proof_stack.enter_context(self.shared_update_fixture(f.system,base,f.owners))
                     current.update({p:r['sha256'] for p,r in shared.after.items()})
+                    cap_manifest=dict(cap_manifest,sourceCommit=release.NATIVE_CAPABILITIES_PROOF['sourceCommit'],
+                        unchangedRequired=[dict(r,**metadata(r['path'])) for r in cap_manifest['unchangedRequired']])
+                    proof=self.save_capabilities_receipt(base,f.system,release.NATIVE_CAPABILITIES_PROOF,cap_manifest,f.owners)
                     with patch.object(store_module,'SYNTHETIC_ARCHIVE',pins):archived_before=store.archive_synthetic_unknown(owner)
                     prepare.configure_native_capabilities()
+                    repo=Path(__file__).resolve().parents[4]
+                    for name,target in release.CAMPAIGN_TARGETS.items():
+                        body=subprocess.check_output(['git','show',release.INSTALLED_COMMIT+':'+prepare.SOURCES[name]],cwd=repo)
+                        self.assertEqual((prepare.digest(body),len(body)),release.CAMPAIGN_BEFORE[name])
+                        path=base.rooted(f.system,target);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(body)
+                        f.owners[path]=(0,0,0o644);current[target]=prepare.digest(body)
                     # frozen() captures NEW at construction; this reused fixture
                     # base predates mode selection, unlike the staged runtime.
                     base.MATERIAL_NEW=release.NEW
@@ -2366,7 +2425,7 @@ class NativePublisher(unittest.TestCase):
                             for name,body in saved.items():(f.payload/name).write_bytes(body)
                             (f.payload.parent/'payload-manifest.json').write_bytes(raw)
                     prepare.prepare(f.payload,stage,'a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
-                manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),16 if capabilities else 3);self.assertEqual(len(manifest['unchangedRequired']),767 if capabilities else 776)
+                manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),20 if capabilities else 3);self.assertEqual(len(manifest['unchangedRequired']),767 if capabilities else 776)
                 untouched={r['path']:(base.rooted(f.system,r['path']).read_bytes(),base.rooted(f.system,r['path']).stat().st_ino,base.rooted(f.system,r['path']).stat().st_mtime_ns) for r in manifest['unchangedRequired']}
                 if capabilities:
                     self.assertEqual(manifest['nativeStaticBaseline'],static_proof)
@@ -2374,7 +2433,7 @@ class NativePublisher(unittest.TestCase):
                     for row in manifest['files']:
                         if row['candidate'] not in release.CAPABILITIES_CHANGED:
                             path=base.rooted(f.system,row['target']);untouched[row['target']]=(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns)
-                    self.assertEqual(len(untouched),779)
+                    self.assertEqual(len(untouched),782)
                     self.assertTrue(all(row['beforeSha256'] is not None for row in manifest['files']))
                 untouched_modes={p:(base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)) for p in untouched}
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -2384,6 +2443,7 @@ class NativePublisher(unittest.TestCase):
                     module.CAPABILITIES_NGINX_PROOF=nginx_proof.proof
                     module.CAPABILITIES_NAVIGATION_PROOFS=navigation.proofs
                     module.CAPABILITIES_SHARED_PROOF=shared.proof
+                    module.CAPABILITIES_HISTORY_PROOF=history_proof
                 module.ARCHIVE_FC_PROOF=fc_proof;module.ARCHIVE_FC_FILES=fc_files
                 base.hermes_quiescent=Mock();base.retirement=Mock();base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
                 fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock());base.hermes_admission_fence=lambda *a:nullcontext(fence)
@@ -2391,7 +2451,16 @@ class NativePublisher(unittest.TestCase):
                 restart=Mock(side_effect=effects);base.restart_for=restart
                 if os.name=='nt':base.directory_sync=lambda *a:None
                 readiness=Mock(side_effect=[None,None,RuntimeError('synthetic readiness failure'),None] if failure=='readiness' else None)
-                with patch.object(module,'frozen',return_value=base),patch.object(module,'running_worker'),patch.object(module,'native_runtime_readiness',readiness),patch.object(module.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ActiveState=active\n')):
+                service_calls=[]
+                def service_run(argv,**kwargs):
+                    service_calls.append(argv)
+                    if argv==['systemctl','restart','fs-campaign-dashboard.service']:
+                        count=service_calls.count(argv)
+                        if failure=='campaign' and count==1:raise RuntimeError('synthetic campaign failure')
+                        if failure and count>1:
+                            for row in manifest['files']:self.assertEqual(base.digest(base.rooted(f.system,row['target'])),row['beforeSha256'])
+                    return SimpleNamespace(returncode=0,stdout='ActiveState=active\n')
+                with patch.object(module,'frozen',return_value=base),patch.object(module,'running_worker'),patch.object(module,'native_runtime_readiness',readiness),patch.object(module.subprocess,'run',side_effect=service_run):
                     publisher=module.load_base();publisher.inspect(manifest,stage,f.system)
                     if capabilities:
                         nginx_row=next(r for r in manifest['unchangedRequired'] if r['path']==release.NGINX)
@@ -2469,6 +2538,10 @@ class NativePublisher(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError,'archive_audit_drift'):publisher.guards(manifest,f.system)
                     self.assertTrue(all(c.args[0]['scope'] in ({base.DEEP_SCOPE,base.HERMES_WORKER_SCOPE} if capabilities else {base.DEEP_SCOPE}) for c in restart.call_args_list))
                     if capabilities and not failure:self.assertEqual([c.args[0]['scope'] for c in restart.call_args_list],[base.HERMES_WORKER_SCOPE,base.DEEP_SCOPE])
+                    if capabilities:
+                        self.assertIn(['systemctl','restart','fs-campaign-dashboard.service'],service_calls)
+                        self.assertTrue(all(argv[1] in ('show','restart','is-active') for argv in service_calls if argv[0]=='systemctl'))
+                        self.assertTrue(all(argv[-1]=='fs-campaign-dashboard.service' for argv in service_calls if argv[:2]==['systemctl','restart']))
                 if capabilities:
                     with store.db() as db:self.assertEqual(json.loads(db.execute('SELECT receipt FROM synthetic_turn_archives WHERE turn_id=?',(turn['turn_id'],)).fetchone()[0]),archived_before)
                 for p,values in untouched.items():self.assertEqual((base.rooted(f.system,p).read_bytes(),base.rooted(f.system,p).stat().st_ino,base.rooted(f.system,p).stat().st_mtime_ns),values)

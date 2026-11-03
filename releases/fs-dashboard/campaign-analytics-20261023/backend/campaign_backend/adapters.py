@@ -226,6 +226,38 @@ class AdminRead:
         except Exception:
             raise ContractError('UPSTREAM_UNAVAILABLE') from None
 
+    def coupons_page(self, site_id, *, page=1, limit=100):
+        """One source page, never a local slice or an implicit coupon/discount sweep."""
+        if (str(site_id) != '266' or type(page) is not int or not 1 <= page <= 500
+                or type(limit) is not int or not 1 <= limit <= 200):
+            raise ContractError('COUPON_PAGE_SCOPE_OR_LIMIT')
+        data = self._get(LIST_ROUTES['coupons'], page=page, limit=limit, order='id,desc',
+                         **search([('site_id', '=', '266')]))
+        rows, total = data.get('list'), data.get('total')
+        if isinstance(total, str) and total.isascii() and total.isdecimal():total = int(total)
+        if not isinstance(rows,list) or len(rows)>limit or type(total) is not int or not 0<=total<=100000:
+            raise ContractError('INVALID_PAGE')
+        items=[];seen=set()
+        for row in rows:
+            if not isinstance(row,dict) or str(row.get('site_id'))!='266':
+                raise ContractError('UPSTREAM_SCOPE_MISMATCH')
+            ident=positive_id(row.get('id'))
+            if ident in seen:raise ContractError('DUPLICATE_PAGE')
+            seen.add(ident);item=dict(native_id=ident,site_id='266',
+                game_id=source_identity(row.get('game_id')),goods_id=source_identity(row.get('goods_id')))
+            for key in ('status','fetch_qty','used_qty'):
+                value=row.get(key)
+                if type(value) is str and value.isascii() and value.isdecimal():value=int(value)
+                if type(value) is not int or value<0:raise ContractError('INVALID_COUPON_ROW')
+                item[key]=value
+            items.append(item)
+        if ((not rows and (page-1)*limit<total) or len(rows)>total
+                or rows and (page-1)*limit+len(rows)>total):raise ContractError('INVALID_PAGE')
+        more=page*limit<total
+        if more and len(rows)!=limit:raise ContractError('INVALID_PAGE')
+        return dict(items=items,page=page,limit=limit,total=total,has_more=more,
+                    next_page=page+1 if more else None,coverage='single_page',complete=False)
+
     def pages(self, resource, filters=(), *, limit=100, validate=None):
         if resource not in LIST_ROUTES or type(limit) is not int or not 1 <= limit <= 200:
             raise ContractError('READ_ROUTE_NOT_ALLOWED')

@@ -49,6 +49,38 @@ class Reader:
 
 
 class BenefitTests(unittest.TestCase):
+    def test_coupon_candidates_calls_one_real_upstream_page_without_codes(self):
+        from campaign_backend.adapters import AdminRead
+        calls=[]
+        class Session:
+            def get_admin(self,route,**params):
+                calls.append((route,params))
+                return 200,{'code':1,'data':{'list':[dict(native_row(),code='PRIVATE_CODE')],'total':2}}
+            def close(self):pass
+        reader=AdminRead(Session())
+        result=BackendServices(self.temp.name,policy()).handle(
+            dict(action='coupon_candidates',site_id='266',page=1,limit=1),lambda:reader)
+        self.assertEqual(len(calls),1)
+        route,params=calls[0]
+        self.assertEqual(route,'/admin/market.Coupon/index')
+        self.assertEqual((params['page'],params['limit'],params['order']),(1,1,'id,desc'))
+        self.assertEqual((params['search[0][field]'],params['search[0][operator]'],params['search[0][val]']),('site_id','=','266'))
+        self.assertEqual((result['coverage'],result['complete'],result['has_more'],result['next_page']),('single_page',False,True,2))
+        self.assertEqual(result['items'],[dict(native_id='123',site_id='266',game_id='1327',goods_id='170014917',status=0,fetch_qty=0,used_qty=0)])
+        self.assertNotIn('PRIVATE',str(result));self.assertNotIn('brief',str(result))
+
+    def test_coupon_page_failure_scope_and_unknown_counters_do_not_become_empty(self):
+        from campaign_backend.adapters import AdminRead
+        for code,row,total in ((0,native_row(),1),(1,dict(native_row(),site_id=0),1),(1,dict(native_row(),fetch_qty=None),1),(1,native_row(),None)):
+            class Session:
+                def get_admin(self,route,**params):return 200,dict(code=code,data=dict(list=[row],total=total))
+                def close(self):pass
+            with self.subTest(code=code,site=row['site_id'],total=total),self.assertRaises(ContractError):
+                AdminRead(Session()).coupons_page('266',page=1,limit=1)
+        with self.assertRaises(ContractError):AdminRead(None).coupons_page('0')
+        with self.assertRaises(ContractError):AdminRead(None).coupons_page('266',page=True)
+        with self.assertRaises(ContractError):AdminRead(None).coupons_page('266',limit=201)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.ledger = OperationLedger(Path(self.temp.name) / 'operations.sqlite3')

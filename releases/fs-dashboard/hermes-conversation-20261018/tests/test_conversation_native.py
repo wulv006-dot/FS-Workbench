@@ -20,8 +20,10 @@ from conversation_files import ConversationFiles
 def load_tests(loader, tests, pattern):
     import test_native_user_data
     import test_native_compaction_relay
+    import test_native_coupon
     tests.addTests(loader.loadTestsFromModule(test_native_user_data))
     tests.addTests(loader.loadTestsFromModule(test_native_compaction_relay))
+    tests.addTests(loader.loadTestsFromModule(test_native_coupon))
     return tests
 
 

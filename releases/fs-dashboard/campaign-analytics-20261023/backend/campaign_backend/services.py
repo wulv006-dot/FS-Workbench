@@ -75,12 +75,15 @@ class BackendServices:
     def handle(self, request, reader_factory):
         allowed = {'action', 'site_id', 'kind', 'native_id', 'operation_id', 'before_hash', 'changes', 'enabled',
                    'from', 'to', 'activity_id', 'restore_of'}
+        if request.get('action') == 'coupon_candidates':allowed |= {'page','limit'}
         if set(request) - allowed:
             raise ContractError('REQUEST_FIELDS_NOT_ALLOWED')
         site_id = positive_id(request.get('site_id'))
         if site_id != '266':
             raise ContractError('PROJECT_SITE_REQUIRED')
         action = request['action']
+        if action == 'coupon_candidates' and set(request)-{'action','site_id','page','limit'}:
+            raise ContractError('REQUEST_FIELDS_NOT_ALLOWED')
         if action == 'analysis_summary':
             path = self.state_dir / 'analysis.sqlite3'
             store = AnalysisStore(path if path.is_file() else ':memory:')
@@ -95,6 +98,8 @@ class BackendServices:
             return benefits.operation(OperationLedger(path), None, site_id, request.get('operation_id'))
         reader = reader_factory()
         try:
+            if action == 'coupon_candidates':
+                return reader.coupons_page(site_id,page=request.get('page',1),limit=request.get('limit',100))
             if action == 'benefit_detail':
                 return benefits.detail(reader, self.policy, request.get('kind'), request.get('native_id'), site_id)
             if action in ('benefit_edit', 'benefit_toggle', 'benefit_restore', 'operation_reconcile'):

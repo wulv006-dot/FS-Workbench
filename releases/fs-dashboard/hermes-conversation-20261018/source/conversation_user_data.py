@@ -3,6 +3,7 @@ from copy import deepcopy
 from datetime import date, datetime, timezone
 import hashlib
 import json
+import re
 import sys
 
 from a2_query_context import QueryContext
@@ -39,6 +40,128 @@ TOOLS={
              max_pages={'type':'integer','minimum':1,'maximum':2000}),
         [*REFERENCE,'site_id','game_id','start','end_exclusive','max_pages']),
 }
+
+COUPON_TOOLS={
+    'fs_coupon_candidates':('Read exactly one original coupon page for project site266. Returns IDs/status/counters only, partial single-page coverage and next_page; no implicit next page or discount query.',
+        {'page':{'type':'integer','minimum':1,'maximum':500},'limit':{'type':'integer','minimum':1,'maximum':200}},[]),
+    'fs_coupon_detail':('Read one project coupon metadata/hash and original brief-edit eligibility. No coupon code or brief body; no business write.',{'native_id':TEXT},['native_id']),
+    'fs_edit_coupon_brief':('Change only an existing disabled, unused project coupon brief through the original executor. Requires exact external business approval bound by the host to this run, operation ID, object, before hash, text and time. Model approval or admin access is insufficient. Preserve original ID on unknown; tool/Goal completion is not business confirmation.',
+        {key:TEXT for key in ('native_id','operation_id','before_hash','brief')},['native_id','operation_id','before_hash','brief']),
+    'fs_coupon_operation':('Look up the same externally approved original coupon operation. reconcile uses only the original executor readback/fence, never another mutation POST.',
+        {'operation_id':TEXT,'reconcile':{'type':'boolean'}},['operation_id']),
+}
+TOOLS.update(COUPON_TOOLS)
+
+
+def authorize_campaign(owner,mutation):
+    from user_runtime import authorize
+    if authorize(owner,{'scope':'site','scope_id':'266'},True,resource='/dashboard/analytics/') is not True:return False
+    import rbac
+    endpoint='/dashboard/analytics/campaigns/analytics/api/center/backend-'+('mutate' if mutation else 'read')
+    return rbac.authorize(rbac.load_policy(),owner,'POST',endpoint)==200
+
+
+class NativeCouponActions:
+    """A narrow adapter to the original writer; no approval producer or new ledger."""
+    def __init__(self,native,backend,reader_factory,*,authorize,approval_source=None,clock=None):
+        self.native,self.backend,self.reader_factory=native,backend,reader_factory
+        self.authorize,self.approval_source=authorize,approval_source
+        self.clock=clock or (lambda:datetime.now(timezone.utc))
+
+    @classmethod
+    def runtime(cls,native,binding):
+        if native.authorized(binding) is not True or authorize_campaign(binding['owner'],False) is not True:
+            raise PermissionError('native_campaign_access_denied')
+        sys.path.insert(0,'/opt/fs-campaign-dashboard/backend')
+        from campaign_backend.services import BackendServices
+        from campaign_backend.adapters import AdminRead
+        # This callback is trusted host composition only. There is currently no
+        # business approval producer; absent it, mutation/operation access refuses.
+        return cls(native,BackendServices.from_environment(),AdminRead.from_shared_session,
+            authorize=authorize_campaign,approval_source=getattr(native.service,'campaign_approval',None))
+
+    def guard(self,binding,mutation=False):
+        if self.native.authorized(binding) is not True or self.authorize(binding['owner'],mutation) is not True:
+            raise PermissionError('native_campaign_access_denied')
+
+    def handle(self,binding,request):
+        mutation=request['action'] in ('benefit_edit','operation_reconcile')
+        self.guard(binding,mutation)
+        def reader():
+            self.guard(binding,mutation)
+            return self.reader_factory()
+        result=self.backend.handle(request,reader)
+        self.guard(binding,mutation)
+        return result
+
+    def approval(self,binding,operation_id,*,write):
+        self.guard(binding,write)
+        record=self.approval_source(binding,operation_id) if callable(self.approval_source) else None
+        if type(record) is not dict:raise PermissionError('business_authorization_required')
+        record=deepcopy(record)
+        if set(record)!={'binding','request','valid_from','valid_until','authority_ref'}:
+            raise PermissionError('business_authorization_invalid')
+        old=record['binding'];request=record['request']
+        if (type(old) is not dict or (old!=binding if write else any(old.get(k)!=binding[k] for k in ('owner','conversation_id','session_id')))
+                or type(request) is not dict or set(request)!={'action','site_id','kind','native_id','operation_id','before_hash','changes'}
+                or request['operation_id']!=operation_id or request['action']!='benefit_edit' or request['site_id']!='266' or request['kind']!='coupon'
+                or type(request['changes']) is not dict or set(request['changes'])!={'brief'}
+                or type(record['authority_ref']) is not str or not record['authority_ref']):
+            raise PermissionError('business_authorization_mismatch')
+        try:
+            start=datetime.fromisoformat(record['valid_from'].replace('Z','+00:00'))
+            end=datetime.fromisoformat(record['valid_until'].replace('Z','+00:00'));now=self.clock()
+            valid=start.tzinfo is not None and end.tzinfo is not None and start<end and start<=now and (not write or now<end)
+        except (ValueError,TypeError,AttributeError):valid=False
+        if not valid:raise PermissionError('business_authorization_expired')
+        return request
+
+    @staticmethod
+    def receipt(value):
+        # The original ledger/coupon adapter owns success audit and full native
+        # readback. Keep its operation identity; no synthetic Goal success receipt.
+        out={k:value[k] for k in ('operation_id','state','dispatched','payload_hash','dispatch_state','created_at','updated_at',
+            'object_busy','requested_operation_id','recovery_operation_id','recovery_operation_ids') if k in value}
+        result=value.get('result') or {}
+        out['result']={k:result[k] for k in ('state','reason_code','upstream_ref','dispatch_state') if k in result}
+        out['business_confirmed']=value['state']=='confirmed'
+        return out
+
+    def call(self,binding,name,args):
+        self.guard(binding)
+        if type(args) is not dict or name not in COUPON_TOOLS:raise ValueError('native_coupon_fields')
+        _,properties,required=COUPON_TOOLS[name]
+        if set(args)-set(properties) or not set(required)<=set(args):raise ValueError('native_coupon_fields')
+        for key,value in args.items():
+            if type(value) is not {'integer':int,'boolean':bool,'string':str}[properties[key]['type']]:
+                raise ValueError('native_coupon_value')
+        fixed={'site_id':'266','kind':'coupon'}
+        if name=='fs_coupon_candidates':return self.handle(binding,dict(action='coupon_candidates',site_id='266',**args))
+        if name=='fs_coupon_detail':
+            view=self.handle(binding,dict(fixed,action='benefit_detail',**args));fields=view['fields']
+            if str(fields.get('site_id'))!='266':raise PermissionError('native_coupon_scope')
+            brief=fields.get('brief')
+            if type(brief) is not str:raise ValueError('native_coupon_detail')
+            return dict(native_id=view['native_id'],before_hash=view['before_hash'],
+                fields={k:fields[k] for k in ('site_id','game_id','goods_id','status','fetch_qty','used_qty')},
+                brief_sha256=hashlib.sha256(brief.encode()).hexdigest(),brief_chars=len(brief),editability=view['editability'])
+        request=self.approval(binding,args['operation_id'],write=name=='fs_edit_coupon_brief')
+        if name=='fs_coupon_operation':
+            return self.receipt(self.handle(binding,dict(action='operation_reconcile' if args.get('reconcile') else 'operation_lookup',site_id='266',operation_id=args['operation_id'])))
+        actual=dict(fixed,action='benefit_edit',native_id=args['native_id'],operation_id=args['operation_id'],
+                    before_hash=args['before_hash'],changes={'brief':args['brief']})
+        if actual!=request:raise PermissionError('business_authorization_mismatch')
+        from campaign_backend.core import ContractError
+        try:existing=self.handle(binding,dict(action='operation_lookup',site_id='266',operation_id=args['operation_id']))
+        except ContractError as error:
+            if str(error)!='OPERATION_NOT_FOUND':raise
+            existing=None
+        if existing is None:
+            view=self.handle(binding,dict(fixed,action='benefit_detail',native_id=args['native_id']))
+            if (any(str(view['fields'].get(k))!='0' for k in ('status','fetch_qty','used_qty'))
+                    or 'brief' not in view['editability']['allowed_changes'] or str(view['fields'].get('site_id'))!='266'):
+                raise PermissionError('native_coupon_not_disabled_unused')
+        return self.receipt(self.handle(binding,actual))
 
 
 def canonical(value):
@@ -104,6 +227,9 @@ class NativeUserData:
                     query_required_fields=['scope','scope_id'],instruction=CUSTOMER_SCOPE_HELP)
 
     def call(self,binding,name,args):
+        if name in COUPON_TOOLS:
+            if getattr(self,'campaign',None) is None:self.campaign=NativeCouponActions.runtime(self.native,binding)
+            return self.campaign.call(binding,name,args)
         self.guard(binding,{'scope':'global','scope_id':''})
         if not isinstance(args,dict):raise ValueError('native_user_tool_fields')
         if name=='fs_query_user_analytics':

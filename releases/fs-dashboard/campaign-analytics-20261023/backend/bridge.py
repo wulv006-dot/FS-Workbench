@@ -199,7 +199,7 @@ def handle(request, reader_factory=AdminRead.from_shared_session, services=None)
         from campaign_backend.catalog import read_reference_mapping
         path = Path(os.environ.get('CAMPAIGN_CATALOG_MAPPING_PATH', str(Path(__file__).parent / 'catalog-mapping.json')))
         return read_reference_mapping(json.loads(path.read_text('utf-8')), request.get('reference_key'))
-    if action in ('benefit_detail', 'benefit_edit', 'benefit_toggle', 'benefit_restore', 'operation_lookup', 'operation_reconcile',
+    if action in ('coupon_candidates', 'benefit_detail', 'benefit_edit', 'benefit_toggle', 'benefit_restore', 'operation_lookup', 'operation_reconcile',
                   'analysis_reconcile', 'analysis_summary'):
         from campaign_backend.services import BackendServices
         return (services or BackendServices.from_environment()).handle(request, reader_factory)

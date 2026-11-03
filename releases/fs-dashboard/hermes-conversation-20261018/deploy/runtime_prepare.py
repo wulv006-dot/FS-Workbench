@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -173,6 +174,9 @@ def configure_native_capabilities():
         'runtime/live_order_consumer.py':'releases/fs-dashboard/tiered-data-access-20261101/source/live_order_consumer.py',
         'runtime/b2_customer_followup.py':CORE+'b2_customer_followup.py',
         'runtime/fs_native_readonly.py':'releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py'})
+    campaign='releases/fs-dashboard/campaign-analytics-20261023/'
+    SOURCES.update({name:campaign+('app/analytics/backend-client.mjs' if name.endswith('.mjs') else name[len('campaign/'):])
+                    for name in release.CAMPAIGN_TARGETS})
 
 
 def configure_native_composer_static():
@@ -257,6 +261,21 @@ def file_metadata(base, root, name, absent=False):
     info = path.stat()
     if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != 0 or info.st_gid != 0:
         raise ValueError('runtime_regular_root_file_required: ' + name)
+    import runtime_release as release
+    if release.NATIVE_CAPABILITIES_MODE and name in release.CAMPAIGN_TARGETS.values():
+        key=next(n for n,p in release.CAMPAIGN_TARGETS.items() if p==name)
+        expected_sha,expected_size=release.CAMPAIGN_BEFORE[key]
+        fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+        if info.st_size!=expected_size or stat.S_IMODE(info.st_mode)!=0o644:
+            raise ValueError('campaign_before_boundary_drift')
+        with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+            opened=os.fstat(stream.fileno())
+            if any(getattr(info,k)!=getattr(opened,k) for k in fields):raise ValueError('campaign_before_changed')
+            raw=stream.read(expected_size+1)
+        after=path.lstat();base.no_target_link(path)
+        if any(getattr(info,k)!=getattr(after,k) for k in fields):raise ValueError('campaign_before_changed')
+        if digest(raw)!=expected_sha:raise ValueError('campaign_before_git_drift')
+        return {'path':name,'sha256':expected_sha,'mode':'0o644'}
     return {'path': name, 'sha256': digest(path.read_bytes()), 'mode': oct(stat.S_IMODE(info.st_mode))}
 
 
