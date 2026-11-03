@@ -1,0 +1,35 @@
+<style>#tab-push [hidden]{display:none!important}</style>
+<section id="tab-push" hidden>
+  <div class="notice info">通过 Gravitec 发送浏览器通知。首次使用请验证连接；草稿保存在本后台，提交后由平台负责投递。</div>
+  <div id="pushNotice" role="status" aria-live="polite" style="margin:12px 0"></div>
+  <details class="card" open><summary>平台连接配置</summary>
+    <form id="pushConfig" class="grid g2" style="margin-top:16px">
+      <div><label for="pushSite">站点名称（备注）</label><input id="pushSite" name="site_name" value="Gravitec"></div>
+      <div><label>连接状态</label><p id="pushStatus">正在读取…</p></div>
+      <div><label for="pushKey">App Key</label><input id="pushKey" name="app_key" type="password" autocomplete="new-password" placeholder="留空保留已保存密钥"></div>
+      <div><label for="pushSecret">App Secret</label><input id="pushSecret" name="app_secret" type="password" autocomplete="new-password" placeholder="留空保留已保存密钥"></div>
+      <div class="row"><button class="primary">保存配置</button><button type="button" class="ghost" id="pushVerify">验证连接（不发送）</button></div>
+    </form>
+  </details>
+  <div class="grid g2">
+    <form class="card" id="pushCompose"><h2>创建推送</h2><p class="hint">先保存草稿或预览，再确认发送。定时使用当前设备的本地时间。</p>
+      <label for="pushTitle">通知标题</label><input id="pushTitle" name="title" maxlength="1000">
+      <label for="pushMessage">通知内容</label><textarea id="pushMessage" name="message" maxlength="1000" required></textarea>
+      <label for="pushLink">点击跳转链接</label><input id="pushLink" name="redirect_url" type="url" required placeholder="https://www.mmoexp.com/">
+      <div class="grid g2"><div><label for="pushIcon">图标链接（可留空）</label><input id="pushIcon" name="icon" type="url"></div><div><label for="pushImage">大图链接（可留空）</label><input id="pushImage" name="image" type="url"></div></div>
+      <label for="pushAudience">发送对象</label><select id="pushAudience" name="audience_mode"><option value="tokens">指定订阅者 Token</option><option value="aliases">指定别名</option><option value="tags">指定标签</option><option value="segment">平台已有分群</option><option value="all">全部订阅者</option></select>
+      <label for="pushValues">对象列表（每行一个；分群限一个）</label><textarea id="pushValues" name="audience_values"></textarea>
+      <div class="grid g2"><div><label for="pushWhen">定时发送（留空立即发送）</label><input id="pushWhen" name="when" type="datetime-local"></div><div><label for="pushTag">活动标签</label><input id="pushTag" name="push_tag" maxlength="100"></div></div>
+      <details><summary>有效期、展示时间和按钮</summary><div class="grid g2"><div><label for="pushTtl">离线有效期（秒）</label><input id="pushTtl" name="ttl" type="number" min="0" max="2419200" value="28800"></div><div><label for="pushDisplay">展示时间（秒）</label><input id="pushDisplay" name="display_time" type="number" min="0" max="2419200" value="60"></div></div>
+      <label for="pushB1">按钮一文字</label><input id="pushB1" name="button1_title" maxlength="48"><label for="pushB1url">按钮一链接</label><input id="pushB1url" name="button1_url" type="url">
+      <label for="pushB2">按钮二文字</label><input id="pushB2" name="button2_title" maxlength="48"><label for="pushB2url">按钮二链接</label><input id="pushB2url" name="button2_url" type="url"></details>
+      <div class="row"><button type="submit" class="primary">预览推送</button><button type="button" id="pushDraft" class="ghost">保存草稿</button><button type="button" id="pushNew" class="ghost">新建</button></div>
+    </form>
+    <div><div class="card"><h2>通知预览</h2><p class="hint">仅供内容核对，最终外观由设备和浏览器决定。</p><div id="pushPreview" class="empty">填写内容后点击预览</div><div id="pushTarget" class="notice" hidden></div><label id="pushAllLabel" hidden>输入“发送给全部订阅者”确认<input id="pushAllText" autocomplete="off"></label><button class="primary" id="pushSend" disabled>确认发送</button></div>
+      <div class="card"><h2>可接入范围</h2><p class="hint">支持定向/定时推送、草稿、活动统计和订阅者标签/别名。</p><p class="mini">订阅弹窗、平台自动化规则、套餐及完整历史列表仍需在 Gravitec 管理。现有订阅采集保持原配置。</p><a href="https://push.gravitec.net/" target="_blank" rel="noopener">打开 Gravitec</a></div>
+    </div>
+  </div>
+  <div class="card"><h2>草稿和发送记录</h2><p class="hint">最近50条本后台记录。平台受理不等于送达；结果待核实时请核对原记录，不要新建重发。</p><button type="button" class="ghost" id="pushRefresh">刷新记录</button><div id="pushRecords" style="overflow:auto"></div></div>
+  <div class="grid g2"><form class="card" id="pushStats"><h2>查询推送效果</h2><label for="pushCampaignId">Gravitec 推送编号</label><input id="pushCampaignId" name="campaign_id" inputmode="numeric" required><div class="row"><button class="ghost">查询统计</button></div><div id="pushStatsResult" role="status"></div></form>
+  <form class="card" id="pushSubscriber"><h2>订阅者管理</h2><label for="pushToken">订阅者 Token</label><input id="pushToken" name="regId" required autocomplete="off"><label for="pushAction">操作</label><select id="pushAction" name="action"><option value="get_alias">查询别名</option><option value="set_alias">设置别名</option><option value="add_tag">添加标签</option><option value="delete_tag">移除标签</option></select><label for="pushName">别名或标签（查询可留空）</label><input id="pushName" name="name" maxlength="255"><div class="row"><button class="ghost">执行所选操作</button></div><div id="pushSubscriberResult" role="status"></div></form></div>
+</section>

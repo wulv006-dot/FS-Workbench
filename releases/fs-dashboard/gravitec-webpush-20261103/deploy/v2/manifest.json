@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "scope": "gravitec-webpush-20261103",
+  "releaseReady": true,
+  "businessWrites": false,
+  "timersChanged": false,
+  "files": [
+    {
+      "candidate": "market_worker.py",
+      "target": "/opt/marketing-worker/market_worker.py",
+      "beforeSha256": "3e7e2ea775b7879bc74407fc4c0d9760f3847fc077c69225c032429e77325c34",
+      "sha256": "3e7e2ea775b7879bc74407fc4c0d9760f3847fc077c69225c032429e77325c34"
+    },
+    {
+      "candidate": "webpush.py",
+      "target": "/opt/marketing-worker/webpush.py",
+      "beforeSha256": "51849a5cf480bfc70b2bae894f0b9aadbaf5dd57bb5c616ab52b961e8b251e84",
+      "sha256": "51849a5cf480bfc70b2bae894f0b9aadbaf5dd57bb5c616ab52b961e8b251e84"
+    },
+    {
+      "candidate": "marketing.html",
+      "target": "/opt/marketing-worker/web/marketing.html",
+      "beforeSha256": "50352b41c9a66f8e26d9e2fe76c923bf0845daa95e17b2503cf4c002d2675ecb",
+      "sha256": "e7267ee01228bac850f98e873c3622dede133e6b14f728cca96737a1afb39b29"
+    }
+  ],
+  "unchangedRequired": [
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5ec1ac5ca2204f913f27f9b68a414d72e764e9c9bb3d563ee5a4aabdf4091475"
+    }
+  ],
+  "runtimeRequired": {
+    "nginx.service": {
+      "ActiveState": "active"
+    },
+    "fs-marketing-range.service": {
+      "ActiveState": "active"
+    }
+  }
+}
