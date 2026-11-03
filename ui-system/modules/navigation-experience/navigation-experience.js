@@ -1,9 +1,8 @@
 /* Progressive enhancement shared by static and dynamic navigation. No business APIs. */
 (function start(){
  'use strict';
- if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',start,{once:true});return;}
  if(window.parent!==window||window.__fsNavExperience)return;
- const nav=document.getElementById('hubNav');if(!nav)return;
+ const nav=document.getElementById('hubNav');if(!nav){document.addEventListener('DOMContentLoaded',start,{once:true});return;}
  window.__fsNavExperience=true;
  const registry=__FS_NAV_REGISTRY__;
  const root=document.documentElement,KEY='fs-nav-experience-v4';
@@ -81,8 +80,11 @@
  }
  document.addEventListener('fs-nav-account-ready',e=>{const incoming=e.detail?.account;if(!incoming)return;const footer=nav.querySelector('.hn-footer');if(!footer)return;footer.querySelector('.hn-account')?.remove();footer.prepend(incoming);});
  // A delayed identity/registry update can replace legacy tree contents once.
- const observer=new MutationObserver(()=>{if(!nav.querySelector('.hn-tree')&&!scheduled){scheduled=true;queueMicrotask(()=>{scheduled=false;build();});}});
- observer.observe(nav,{childList:true});
+ // Old cached shell scripts may still rewrite a group after this bundle runs.
+ // Repair only a broken structure; account updates and our own animations do not rebuild it.
+ function intact(){return nav.querySelectorAll('.hn-tree > .hn-group').length===registry.sections.filter(s=>valid(s.path)).length && !nav.querySelector('.hn-group .hn-group') && [...nav.querySelectorAll('.hn-tree > .hn-group')].every(g=>g.querySelector(':scope > .hn-row > .hn-expander'));}
+ const observer=new MutationObserver(()=>{if(!intact()&&!scheduled){scheduled=true;queueMicrotask(()=>{scheduled=false;build();});}});
+ observer.observe(nav,{childList:true,subtree:true});
  const toggle=document.getElementById('hubNavToggle'),scrim=document.getElementById('hubNavScrim');
  function mobile(open){nav.classList.toggle('open',open);nav.inert=innerWidth<900&&!open;if(scrim)scrim.hidden=!open;toggle?.setAttribute('aria-expanded',String(open));if(open)search.focus();}
  if(toggle)toggle.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();mobile(!nav.classList.contains('open'));},true);
@@ -96,5 +98,5 @@
  });
  nav.addEventListener('click',e=>{const a=e.target.closest('a[href]');if(a&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey&&e.button===0){saved.scroll=tree.scrollTop;persist();}});
  addEventListener('pagehide',()=>{observer.disconnect();cardsObserver?.disconnect();});
- addEventListener('pageshow',e=>{if(e.persisted){observer.observe(nav,{childList:true});if(cardsObserver)cardsObserver.observe(grid,{childList:true});mobile(false);}});
+ addEventListener('pageshow',e=>{if(e.persisted){observer.observe(nav,{childList:true,subtree:true});if(!intact())build();if(cardsObserver)cardsObserver.observe(grid,{childList:true});mobile(false);}});
 })();
