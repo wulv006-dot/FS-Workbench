@@ -1071,3 +1071,13 @@ sync不要求job_id或响应回显未定义的site/template；原明确成功码
 装配前本地真实dispatch复现：清除测试预加载的campaign_backend及backend目录后，pre-ready批准校验首次导入报ModuleNotFoundError，ready仍False、批准写0／Admin POST0。这不是生产已触发或旧failed run根因。小修只在匹配受信intent／同原final绑定后，沿runtime既有 `/opt/fs-campaign-dashboard/backend` 路径装配模块，再执行原批准校验；不匹配普通聊天不初始化campaign。原外部批准、7binding、inputSHA、IAM、锁／CAS／atomic、grant与services逻辑均保持。
 
 本候选沿同一native-capabilities followup钉上述9ca成功proof，保留完整698及更早历史来源验证：21existing／NEW0／767保护，仅conversation_user_data.py一项delta，其余20运行文件＋767保护＝787项不写。grant模块已存在，不能继续NEW1配方；固定before来自9ca Git字节及成功proof。原campaign、worker/range一致重载与失败先恢复代码后恢复服务，usagefresh／tombstone／UNKNOWN／审批与业务数据保持，不写Nginx、unit、timer或P0。干净导入真实dispatch→原atomic→final reader／IAM／ledger→最终Admin stub及不匹配普通聊天回归通过；tempFS prepare／inspect／apply及worker/range/campaign/readiness失败回退核787项完整metadata保持。OS身份、绝对mount路径及服务／最终Admin为明确夹具；此小修尚未安装、实际一次发券仍未验，不新增模型或现场探针。
+
+### 2026-11-04：单目标发放未明与8912局部通道修复候选
+
+fb70/nav171809已核21after与787项metadata。唯一普通UI验收的原op `coupon-grant-1307-c3bca0387c3744c99ab3a3e4f78dd458` 保留unknown/dispatched1：原intent→真实7binding定稿成功，client POST202一次，turn completed；原native response audit一条为HTTP200／business302，无jobID，原结果GRANT_RESPONSE_UNCONFIRMED。24件稳定index `.agent_runtime/coupon-grant-execution-20261103T174408Z/final/index.json`，3918B／SHA256 `2cf3827d85c74c2f92f46d48f01a3aaf4626e452adeb1fff0360c53eee2eab74`。不认已发或未发，不把chat完成当业务成功；没有第二客户端、换op/batch或重置unknown，session已关闭。
+
+两活动auth代码经固定SHA／九字段稳定的脱敏AST核实：Session.ADMIN_API为8912，标准requests.Session／HTTPAdapter无URL重写，而grant直接raw POST固定公网URL。此为确定当前局部通道接线偏差，不据SBC或旧源解释302为现场过期。候选仅把grant.dispatch_once URL接回AdminRead catalog既有 `http://127.0.0.1:8912`，保留原单次session.admin.post／max_retries.total0／timeout／no_redirect／最后批准IAM及原payload、ledger、audit、sync/async／unknown语义；不调用可刷新重POST的Session.post_admin，不改共享Session、签名、权限、模板、price或FC。原unknown不因修复可再发。
+
+新增直接RED证实模板GET8912而旧POST走公网；GREEN复用原Session消费方法体、原AdminRead／CouponGrant／OperationLedger临时SQLite及最终HTTP接口stub，原grant10项通过，重复原op与重建消费者后的unknown均不再出站。Session方法结构已与活动脱敏AST逐方法相等；本机未装requests，HTTP对象是明确不重写URL的最终边界fixture，不冒真实requests库／活动HMAC运行或第三文件签名已验。
+
+发布候选仍原native-capabilities followup／冻结writer，current fb70/nav171809 manifest `a754a025b573f59b8bc35eab233b140cf68d746f2e2d66e125a75bd005fa4b90`／journal `4d005e7c6b24d2f22762ed86a79609d6142a3a445be1b4094ba495b4a1b87402`；21existing／NEW0／767保护，仅coupon_grant.py一delta，其余787不写。9ca／698／36d7及原历史安全校验完整保留，在各历史metadata验证，不套旧before。原prepare／inspect／apply及四类服务/readiness失败回退直接检查通过；知识helper、native／worker／user_data、共享/P0不夹包，未部署／未新增模型或业务写。无jobID对账入口由总控独立静态核，不猜URL或凭template计数／无核销认未发。

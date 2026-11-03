@@ -82,10 +82,14 @@ CAPABILITIES_GRANT_HISTORY_PROOF = dict(sourceCommit='6987712266dec9100a83b0d4d4
     backup='/var/backups/fs-navigation-20261006/nav-20261103T144300Z',
     manifestSha256='72468b70ae375d0878d45a78d8dac106eb84ec4dd91dfb577b445ccb06767f04',
     journalSha256='2d3546e8b9819b99ebf8347f28f9a7826d23720ba900005c411a2821ddc986b7')
-NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='9ca600bef0bd09f3800e32981cc3251d1bf13dda',
+CAPABILITIES_IMPORT_HISTORY_PROOF = dict(sourceCommit='9ca600bef0bd09f3800e32981cc3251d1bf13dda',
     backup='/var/backups/fs-navigation-20261006/nav-20261103T165152Z',
     manifestSha256='c90d0ce989eaa30ff2e5a91993b9847b64f22f81db03a3895b96ab5c616f5603',
     journalSha256='4c4f4b72d03792637309c0dd056150a0f0a8c6b3ab55f7951b3852b5191bcb76')
+NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='fb70a3e9753dcfd7acd4571509bc836b1f03baec',
+    backup='/var/backups/fs-navigation-20261006/nav-20261103T171809Z',
+    manifestSha256='a754a025b573f59b8bc35eab233b140cf68d746f2e2d66e125a75bd005fa4b90',
+    journalSha256='4d005e7c6b24d2f22762ed86a79609d6142a3a445be1b4094ba495b4a1b87402')
 CAPABILITIES_STATIC_PROOF = dict(sourceCommit='d135d2b965ecdfc2d96a1e49cf9425e31eaca07e',
     backup='/var/backups/fs-navigation-20261006/nav-20261103T021812Z',
     manifestSha256='26b0de09b7b84d9d7634948c3177ca7cf919bac6ea4aab00c247bd6389e8cbb8',
@@ -242,7 +246,7 @@ CAPABILITIES_TARGETS.update(CAMPAIGN_TARGETS)
 CAPABILITIES_GRANT_HISTORY_TARGETS=dict(CAPABILITIES_TARGETS)
 CAPABILITIES_TARGETS['campaign/backend/campaign_backend/coupon_grant.py']='/opt/fs-campaign-dashboard/backend/campaign_backend/coupon_grant.py'
 CAPABILITIES_BASELINE_TARGETS=dict(CAPABILITIES_TARGETS)
-CAPABILITIES_CHANGED = ('runtime/conversation_user_data.py',)
+CAPABILITIES_CHANGED = ('campaign/backend/campaign_backend/coupon_grant.py',)
 NATIVE_ADMISSION_CANDIDATE = 'runtime/conversation_native.py'
 NATIVE_ADMISSION_BEFORE_SHA = '030e36d5cf134fa1ef63c576211a3f1b4f2d9a3135ed44c15a7fd1d403e795c2'
 NATIVE_ADMISSION_AFTER_SHA = '72253b5ffee19cc2d0352c0bb1ee7d67fe801fcb515b3b711466e828a4c1a57a'
@@ -909,6 +913,50 @@ def capabilities_grant_history(base,root,current,installed_rows):
         raise ValueError('native_grant_success_chain_mismatch')
 
 
+def capabilities_import_history(base,root,current,installed_rows):
+    """Verify the fixed 9ca -> fb70 import repair before the grant-only update."""
+    proof=CAPABILITIES_IMPORT_HISTORY_PROOF;records={}
+    fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+    for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
+        path=base.rooted(root,proof['backup']+'/'+name);base.no_target_link(path);before=path.lstat()
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>8*1024*1024 or
+                (before.st_uid,before.st_gid,stat.S_IMODE(before.st_mode))!=(0,0,0o600)):
+            raise ValueError('native_import_history_boundary_drift')
+        with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('native_import_history_changed')
+            raw=stream.read(8*1024*1024+1)
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('native_import_history_changed')
+        after=path.lstat();base.no_target_link(path)
+        if any(getattr(before,k)!=getattr(after,k) for k in fields):raise ValueError('native_import_history_changed')
+        if hashlib.sha256(raw).hexdigest()!=proof[key]:raise ValueError('native_import_history_proof_drift')
+        records[name]=json.loads(raw)
+    manifest,journal=records['approved-manifest.json'],records['journal.json']
+    rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[]);written=journal.get('files',[])
+    old={r['target']:dict(path=r['target'],sha256=r['sha256'],owner=r.get('owner'),mode=r.get('mode')) for r in rows}
+    old.update({r['path']:dict(r) for r in protected})
+    if (manifest.get('sourceCommit')!=proof['sourceCommit'] or manifest.get('scope')!=SCOPE or
+            manifest.get('nativeCapabilities') is not True or manifest.get('nativeArchive') is not True or
+            manifest.get('nativeStaticBaseline')!=CAPABILITIES_STATIC_PROOF or
+            len(rows)!=21 or {r['candidate']:r['target'] for r in rows}!=CAPABILITIES_BASELINE_TARGETS or
+            any(r.get('owner')!='0:0' or r.get('mode')!='0o644' for r in rows) or len(protected)!=767 or len(old)!=788 or
+            journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
+            any(journal.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
+            journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=proof['manifestSha256'] or
+            len(written)!=21 or {r['candidate'] for r in written}!=set(CAPABILITIES_BASELINE_TARGETS) or
+            any(any(w.get(k)!=r.get(k) for k in ('candidate','target','beforeSha256','sha256','owner','mode')) or
+                w.get('intent') is not True or w.get('written') is not True or
+                any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten'))
+                for r in rows for w in written if r['candidate']==w['candidate'])):
+        raise ValueError('native_import_history_success_required')
+    capabilities_grant_history(base,root,old,rows)
+    if (set(current)!=set(old) or
+            any(any(row.get(k)!=current[path].get(k) for k in
+                (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
+                for path,row in old.items() if path not in CAPABILITIES_BASELINE_TARGETS.values()) or
+            any(r.get('beforeSha256')!=old[r['target']]['sha256'] for r in installed_rows)):
+        raise ValueError('native_import_success_chain_mismatch')
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -962,7 +1010,7 @@ def installed_baseline(root, git_baseline):
                      for name,target in TARGETS.items()})}):
             raise ValueError('composer_static_installed_proof_mismatch')
         if NATIVE_CAPABILITIES_MODE:
-            capabilities_grant_history(base,root,metadata,rows)
+            capabilities_import_history(base,root,metadata,rows)
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
