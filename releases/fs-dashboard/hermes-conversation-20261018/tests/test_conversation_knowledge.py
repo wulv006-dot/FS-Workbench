@@ -248,6 +248,26 @@ class KnowledgeWiring(unittest.TestCase):
             self.assertIsNone(item['native_chat']['knowledge'])
             self.assertEqual(len(calls), 1)
 
+    def test_matching_fs_route_uses_original_owned_profile_without_host_sdk(self):
+        with self.runtime() as (service, cid, turn, sid, calls):
+            with patch.dict(sys.modules, {'hermes_constants': None}):
+                item = self.dispatch(service, cid, turn, sid)
+            reference = item['native_chat']['knowledge']
+            self.assertEqual(reference['info']['profile_name'], hashlib.sha256(b'alice').hexdigest())
+            self.assertEqual(len(calls), 1)
+
+    def test_wrong_environment_profile_is_rejected_before_runtime_post(self):
+        with self.runtime() as (service, cid, turn, sid, calls):
+            prepare = service.native.workspace.prepare
+            def wrong(*args, **kwargs):
+                environment = prepare(*args, **kwargs)
+                environment['profile'] = str(service.native.workspace.root/'profiles'/'other-owner')
+                return environment
+            with patch.object(service.native.workspace, 'prepare', side_effect=wrong):
+                with self.assertRaisesRegex(PermissionError, 'knowledge_profile'):
+                    self.dispatch(service, cid, turn, sid)
+            self.assertEqual(calls, [])
+
     def test_original_unknown_retains_durable_pin_without_new_post_or_selection(self):
         import conversation_native
         from conversation_knowledge import reference_for, host_paths

@@ -47,7 +47,7 @@ def reference_for(native, binding):
 
 def lock_knowledge(native, binding, environment):
     """Freeze before POST; the durable original turn never chooses current again."""
-    from conversation_native import regular_bytes
+    from conversation_native import regular_bytes, sha
     from controller import atomic
     root, path = host_paths(native, binding)
     if path.exists():
@@ -62,9 +62,13 @@ def lock_knowledge(native, binding, environment):
             and row.get('channel') == 'fs' and 'conversation' in row.get('task_types', [])
             for row in routes.get('routes', []))
     if configured:
-        from hermes_constants import profile_name_for_home
+        # Official SDK pin 71d34bad treats the stored profiles/<name> home as authoritative.
+        # NativeWorkspace already derives this exact home from _owned and sha(owner); no arbitrary basename.
+        profile_key = sha(binding['owner'].encode('utf-8'))
+        if Path(environment['profile']) != native.workspace.root / 'profiles' / profile_key:
+            raise PermissionError('native_knowledge_profile')
         info = dict(owner=binding['owner'], session_id=binding['session_id'], platform='api_server',
-                    profile_name=profile_name_for_home(Path(environment['profile'])))
+                    profile_name=profile_key)
         def authorized(candidate, turn):
             if candidate != info or turn != binding['turn_id'] or native.hermes.authorizer(info['owner']) is not True:
                 return False
