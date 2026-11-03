@@ -1005,3 +1005,11 @@ f43 新包 prepare/三目标+776保护 fresh CAS 已过，一次 inspect 在 `na
 继续原`--native-capabilities --followup`，唯一baseline为94b/nav033506成功manifest eec34e…c05f8及journal ae0327…b87e；原已验HTML包含在该成功保护链，不再回写旧HTML。16 targets／767保护／NEW4；9个必要delta（native/service/worker、B原样B2、user-runtime权限入口及4新helper），其余7只CAS/备份不写。既有user_query/user_store/live入口保持现役字节；不把当前Git候选当已装数据版本。新root模块使用官方registry的owner profile overlay，旧共享profile插件仍受保护，普通native无绑定时拒绝且不回落固定管理员。原worker+range同fence，原锁/准入/quiescent/usage freshCAS/tombstone/备份回退保持；不动unit、Nginx、timer或FC消费。
 
 普通客户问题只走真实A2/B2投影；live邮箱仅host成员校验后通过原private-body validator与既有共享Admin准入，逐页复核且不回传邮箱。显式追踪沿原ConversationGoals/TaskStore outbox持久CAS，fact版本绑定scope/identity/policy/data和有效cutoff；仅fresh CAS胜者在当前轮完成后交原native submit，取消/不确定或重启丢失的fresh派发权只沿原ID对账，不新建调度/执行器或重放。当前仅本地组合通过；尚未生产安装/调用客户模型或证明自然追踪周期。
+
+#### 客户调查范围衔接（bd9后续本地修复）
+
+bd9/nav052236已真实安装，manifest4a6c58744029e3251d5ebf926a9161d977cf8bd2487596682bb45352e1b3c7ce、journal a548cdcab2e06c8568a7ff2231a6e979ab23d5babfb4990f12c5e5b4ef07a1a5；普通问题可读目录/聚合，正常回答报告候选403，未取得客户ID、未验通持续跟踪。该次403来源尚未独立确认，不能冒认IAM缺权或本地复现就是现场原因。
+
+本地真实worker/host/Store/Service/QueryContext复现：公开工具允许默认/global聚合，但客户调查只接site/project快照。保留global/series聚合；目录、聚合回执和原工具声明给出实际授权的显式范围选择路径，客户工具对聚合快照返回unavailable及原因，不偷偷选站、不改快照或返回假零；真实private/撤权仍拒绝。只修host helper与原生工具声明，B两blob、SDK和现役数据源不变。
+
+沿原`--native-capabilities --followup`钉上述bd9成功proof：16现存／767保护／NEW0，仅conversation_user_data.py、fs_native_readonly.py两delta；其余14运行文件不写，共781项元数据保持。四helper已安装，不再沿94b/NEW4基线。原usage freshCAS、审批内容/索引、HTML/live、tombstone/UNKNOWN、锁/准入与同fence worker+range及兼容回退保持；不新模式/writer，不动Nginx/unit/timer/FC。本轮只有本地候选与直接回归，未发布、未新增现场读取或模型请求。
