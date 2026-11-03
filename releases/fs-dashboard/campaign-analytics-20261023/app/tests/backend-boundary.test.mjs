@@ -3,9 +3,17 @@ import {backendRead,backendMutate} from '../analytics/backend-client.mjs';
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 test('backend actions cannot cross read/mutation boundary before any subprocess',()=>{
  for(const action of ['benefit_edit','benefit_restore','benefit_toggle','operation_reconcile','analysis_reconcile'])assert.throws(()=>backendRead({action,site_id:'266'}),/ACTION_NOT_ALLOWED/);
- for(const action of ['benefit_detail','operation_lookup','analysis_summary','create','grant','capabilities'])assert.throws(()=>backendMutate({action,site_id:'266'}),/ACTION_NOT_ALLOWED/);
+ for(const action of ['benefit_detail','coupon_candidates','operation_lookup','analysis_summary','create','grant','capabilities'])assert.throws(()=>backendMutate({action,site_id:'266'}),/ACTION_NOT_ALLOWED/);
  assert.throws(()=>backendMutate({action:'benefit_toggle',site_id:'0'}),/SITE_SCOPE_REQUIRED/);
  assert.throws(()=>backendMutate({action:'benefit_restore',site_id:'0',original_operation_id:'synthetic-edit'}),/SITE_SCOPE_REQUIRED/);
+});
+test('coupon single-page arguments reach the original read subprocess unchanged',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'coupon-page-')),bridge=path.join(dir,'echo.cjs');
+ fs.writeFileSync(bridge,"let raw='';process.stdin.on('data',x=>raw+=x).on('end',()=>process.stdout.write(JSON.stringify({status:'ok',data:JSON.parse(raw)}))); ");
+ try{
+  const request={action:'coupon_candidates',site_id:'266',page:1,limit:1};
+  assert.deepEqual(await backendRead(request,{python:process.execPath,bridge}),request);
+ }finally{fs.unlinkSync(bridge);fs.rmdirSync(dir);}
 });
 test('catalog child timeout is explicit; ordinary backend failures are not mislabeled',async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'catalog-deadline-')),bridge=path.join(dir,'slow.cjs');
