@@ -47,6 +47,16 @@ sys.exit(0 if r.testsRun>0 and r.wasSuccessful() and not r.skipped else 1)
         prefix=["sudo"]
     subprocess.run(prefix+[sys.executable,"-I","-B","-c",code,str(ROOT),directory]+names,check=True,timeout=90,cwd=ROOT)
 
+def hermes_native_publisher_remaining():
+    """Unittest suite factory: keep the real loader, excluding only the separate heavy case."""
+    from test_runtime_materials import NativePublisher
+    cases=list(unittest.defaultTestLoader.loadTestsFromTestCase(NativePublisher))
+    heavy="test_runtime_materials.NativePublisher.test_native_capabilities_original_apply_rollback"
+    remaining=[case for case in cases if case.id()!=heavy]
+    if len(cases)-len(remaining)!=1 or not remaining:
+        raise RuntimeError("hermes_native_publisher_partition_changed_update_groups")
+    return unittest.TestSuite(remaining)
+
 def node(path):
     subprocess.run(["node",str(ROOT/path)],cwd=(ROOT/path).parent,check=True,timeout=30)
 
@@ -1333,7 +1343,8 @@ def main():
                 raise RuntimeError("hermes_deploy_test_layout_changed_update_groups")
             units(release+"/tests",["test_conversation_store","test_conversation_service","test_worker_admission","test_lazy_evidence"])
             units(release+"/deploy",["test_http","test_release","test_runtime_materials.RuntimeMaterials"])
-            units(release+"/deploy",["test_runtime_materials.NativePublisher"])
+            units(release+"/deploy",["test_runtime_materials.NativePublisher.test_native_capabilities_original_apply_rollback"])
+            units(release+"/deploy",["tools.pr_fast.hermes_native_publisher_remaining"])
             node(release+"/frontend/entry/test_data_handoff.cjs")
         elif group=="hermes-report-repair":
             release="releases/fs-dashboard/hermes-report-repair-20261019"
