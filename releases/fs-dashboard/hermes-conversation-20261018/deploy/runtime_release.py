@@ -163,7 +163,42 @@ CAPABILITIES_NAVIGATION_PROOFS = (('nav-20261103T070000Z',
              '08e22627230531e06c35e661302d6f23808e07a527bbff2485d6b174303a79a6'),
    'nginx': ('generated/navigation.conf',
              '52a73360649caee37b830269bb7409619b1369f25e62da5ef69192afc4a85e2a',
-             '2907ad948d16176fb42454afd496e82da8d55f2341f1466ef624cc1928a6aa2b')}))
+             '2907ad948d16176fb42454afd496e82da8d55f2341f1466ef624cc1928a6aa2b')}),
+ ('nav-20261103T084925Z',
+  '33aca91e3246344301b2baf4ac7329e6b6ba5d1d177de3e11c13da76f7b8e6d7',
+  'eb1deb2a3e47678902786c673dd75cf811e3fd1da1d43e7ab78d659ff0f34fa4',
+  'management-november-20261103',
+  {'nginx': ('generated/navigation.conf','2907ad948d16176fb42454afd496e82da8d55f2341f1466ef624cc1928a6aa2b','7fe051381c84049ac18aa010459b8ee2aff519a7998c991d226580863334760d')}),
+ ('nav-20261103T085857Z',
+  'cb4662fb2e396c214056f2c8ddae812d394d11688e83cd4925733dd046a6c389',
+  '6e15ff3db042ba5bb549216ee61ac9c92e1217c8a5d694e14c5279fca7ef1589',
+  'management-november-20261103',
+  {'nginx': ('generated/navigation.conf','7fe051381c84049ac18aa010459b8ee2aff519a7998c991d226580863334760d','5453045fd43cbc6efe178e97f40ae214004413d21100327da01974b41fd6294c')}),
+ ('nav-20261103T090248Z',
+  '9ce84c617c68e198498b9e3eff63db15cf1ce6a4216add32332ded9b0353e631',
+  '4a02323153455403adf96c31422440f5cb8f9da01597762a60aca01f736b577f',
+  'management-november-20261103',
+  {'nginx': ('generated/navigation.conf','5453045fd43cbc6efe178e97f40ae214004413d21100327da01974b41fd6294c','bc6040c4fb1ef9fbf6ed92b2a8e1e56ff5653a4698f60640093567e630c4f2a4')}),
+ ('nav-20261103T112000Z',
+  'a1757abc77c0f75fd25377799b815a7062babe6e462223d24ae74d07afb08cad',
+  'd86db3dac73fdbf360251bf11fc368717db9b941d99ba73b6d75d49419548d8a',
+  'management-config-20261103',
+  {'nginx': ('navigation.conf','bc6040c4fb1ef9fbf6ed92b2a8e1e56ff5653a4698f60640093567e630c4f2a4','c45e6fc9791edfd0c33c416e127dca23b343a12b9b802628204fd76a7efa580e')}))
+CAPABILITIES_SKILL_FILE = '/var/lib/fs-hermes-fc/profile/skills/data-storytelling/SKILL.md'
+CAPABILITIES_CURATOR_LEDGER = '/var/lib/fs-hermes-fc/profile/skills/.curator_ledger.jsonl'
+CAPABILITIES_SKILL_LOCK = '/var/lib/fs-hermes-fc/profile/skills/.locks/3a5f084db662a96c0e0055faa20055fa4a350a328b9f2223388f96b31af2fe9a.lock'
+CAPABILITIES_SHARED_PROOF = dict(
+    request_id='17cf23dc028b4ad4891b8b3ce363615bc531516137b2515234464e67bbf0b451',
+    receipt_sha='a7a43e352dee88d9aff930e53399567a1d598075cde5492225ca15393c16ae4a',
+    candidate_id='skill:6e5464d7',expected_sha='2d7d8a03095dae595d664a050fe3f77a34e567b998c500b12c743760b3cbfacc',
+    target_sha='e78baad0b59f88b6787572e27aa0e333bc2622957ba953bfef40d70ede725411',
+    after_sha='709a7f072f537ed17ef722ca876eecf20f197c86374b24818e01d15dbf708a68',
+    package_sha='c05826c237bc7020757b82c8a3651933cf71f1dba10b02e34faf17fe2a5fbfad',
+    skill_before='1169252aeb263e4916f1eb9d430c72b1d1ed3bca6290ee86922a31ce784ad51c',
+    skill_after='c6c8282420eb803d7a2794f483bbaafa3478b87dd4b9c5169abc136001a2927e',
+    ledger_before='97318addcedb59033ac12eda5eee362b4906b16c556a2569308d8ef531c65e32',
+    ledger_after='86e0056989ed293f60af6cd4e1dbdfa79a08692a4f1159296cd2005d952b6011',
+    ledger_prefix_bytes=149994,ledger_bytes=150832,ledger_last_id='15b63d181884')
 CAPABILITIES_CHANGED = ('runtime/conversation_native.py','runtime/hermes_worker.py','runtime/native_chat.py','runtime/proxy_gateway.py')
 CAPABILITIES_STORE_BEFORE_SHA = 'ffa3a03e567fcef5bdd503a9673ce425584eb9b248227b2102ee44108a6914bf'
 CAPABILITIES_TARGETS = {'runtime/'+name:'/opt/fs-hermes-fc/'+name for name in (
@@ -609,7 +644,9 @@ def capabilities_navigation_overlay(base, root, metadata):
                 any(len([w for w in written if all(w.get(k)==r.get(k) for k in
                     ('candidate','target','beforeSha256','sha256','owner','mode'))])!=1 for r in rows)):
             raise ValueError('native_navigation_exact_success_required')
-        selected=[r for r in rows if r.get('target') in paths.values()]
+        selected_paths=({NGINX} if release_id in ('nav-20261103T084925Z','nav-20261103T085857Z',
+            'nav-20261103T090248Z','nav-20261103T112000Z') else set(paths.values()))
+        selected=[r for r in rows if r.get('target') in selected_paths]
         if (len(selected)!=len(changes) or {r['target'] for r in selected}!={paths[a] for a in changes}):
             raise ValueError('native_navigation_transition_drift')
         for alias,(candidate,before_sha,after_sha) in changes.items():
@@ -626,6 +663,79 @@ def capabilities_navigation_overlay(base, root, metadata):
             # special case; the management manifest's0644 never changes it.
             result[target]=dict(old,sha256=after_sha)
     return result
+
+
+def capabilities_shared_overlay(base, root, metadata):
+    """Only the approved shared skill, its exact audit append and repaired lock."""
+    proof=CAPABILITIES_SHARED_PROOF;empty=hashlib.sha256(b'').hexdigest()
+    expected={CAPABILITIES_SKILL_FILE:proof['skill_before'],CAPABILITIES_CURATOR_LEDGER:proof['ledger_before'],CAPABILITIES_SKILL_LOCK:empty}
+    if (not NATIVE_CAPABILITIES_MODE or set(expected)&set(TARGETS.values()) or
+            any(metadata.get(p)!={'path':p,'sha256':sha,'owner':'0:0','mode':'0o644'} for p,sha in expected.items())):
+        raise ValueError('native_shared_baseline_drift')
+    fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+    runtime_dirs={base.rooted(root,p):identity for p,identity in (
+        ('/var/lib/fs-hermes-fc',(0,9876,0o750)),('/var/lib/fs-hermes-fc/profile',(9876,9876,0o700)),
+        ('/var/lib/fs-hermes-fc/profile/skills',(9876,9876,0o755)),('/var/lib/fs-hermes-fc/profile/skills/.locks',(9876,9876,0o755)))}
+    def read(path,identity,cap,runtime=False):
+        base.no_target_link(path);parents=[]
+        for parent in path.parents:
+            if parent!=root and root not in parent.parents:break
+            info=parent.lstat();owner=(info.st_uid,info.st_gid,stat.S_IMODE(info.st_mode))
+            if (not stat.S_ISDIR(info.st_mode) or
+                    (owner!=runtime_dirs[parent] if runtime and parent in runtime_dirs else owner[:2]!=(0,0) or info.st_mode&0o022)):
+                raise ValueError('native_shared_source_boundary_drift')
+            parents.append((parent,info.st_dev,info.st_ino,owner))
+        before=path.lstat()
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>cap or
+                (before.st_uid,before.st_gid,stat.S_IMODE(before.st_mode))!=identity):
+            raise ValueError('native_shared_source_boundary_drift')
+        with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+            opened=os.fstat(stream.fileno())
+            if any(getattr(before,k)!=getattr(opened,k) for k in fields):raise ValueError('native_shared_source_changed')
+            raw=stream.read(cap+1)
+        after=path.lstat();base.no_target_link(path)
+        if any(getattr(before,k)!=getattr(after,k) for k in fields) or len(raw)!=before.st_size:raise ValueError('native_shared_source_changed')
+        for parent,device,inode,owner in parents:
+            now=parent.lstat()
+            if not stat.S_ISDIR(now.st_mode) or (now.st_dev,now.st_ino,(now.st_uid,now.st_gid,stat.S_IMODE(now.st_mode)))!=(device,inode,owner):
+                raise ValueError('native_shared_source_changed')
+        return raw
+    canonical=lambda value:json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()
+    digest=lambda value:hashlib.sha256(value).hexdigest()
+    raw=read(base.rooted(root,'/var/lib/fs-hermes-memory-approval/'+proof['request_id']+'.json'),(0,0,0o600),1048576)
+    if digest(raw)!=proof['receipt_sha']:raise ValueError('native_shared_review_drift')
+    receipt=json.loads(raw);decision=receipt.get('decision',{});candidate=receipt.get('candidate',{});result=receipt.get('result') or {};backup=receipt.get('backup',{})
+    packages=[p for p in result.get('packages',[]) if p.get('path')=='data-storytelling']
+    snapshots=[p for p in backup.get('snapshots',[]) if p.get('path')=='data-storytelling']
+    select=lambda rows:[r for r in rows if r.get('path')=='SKILL.md' and r.get('kind')=='file']
+    if (receipt.get('request_id')!=proof['request_id'] or digest(canonical(decision))!=proof['request_id'] or
+            receipt.get('reviewer')!='Codex' or receipt.get('status')!='completed' or decision.get('decision')!='approve' or
+            any(decision.get(k)!=proof[v] for k,v in (('id','candidate_id'),('expected_sha','expected_sha'),('target_sha','target_sha'))) or
+            candidate.get('id')!=proof['candidate_id'] or candidate.get('sha256')!=proof['expected_sha'] or
+            digest(canonical(candidate.get('record')))!=proof['expected_sha'] or candidate.get('target_sha256')!=proof['target_sha'] or
+            backup.get('sha256')!=proof['target_sha'] or result.get('success') is not True or result.get('applied') is not True or
+            result.get('after_sha256')!=proof['after_sha'] or len(packages)!=1 or packages[0].get('sha256')!=proof['package_sha'] or
+            len(snapshots)!=1 or len(select(snapshots[0].get('entries',[])))!=1 or
+            select(snapshots[0]['entries'])[0].get('sha256')!=proof['skill_before'] or len(select(packages[0].get('entries',[])))!=1 or
+            any(select(packages[0]['entries'])[0].get(k)!=v for k,v in dict(sha256=proof['skill_after'],uid=0,gid=0,mode=0o644).items())):
+        raise ValueError('native_shared_review_drift')
+    raw=read(base.rooted(root,CAPABILITIES_CURATOR_LEDGER),(0,0,0o644),1048576,True)
+    tail=raw[proof['ledger_prefix_bytes']:];lines=tail.split(b'\n')
+    if (len(raw)!=proof['ledger_bytes'] or digest(raw)!=proof['ledger_after'] or
+            digest(raw[:proof['ledger_prefix_bytes']])!=proof['ledger_before'] or len(lines)!=3 or lines[-1]!=b'' or not all(lines[:2])):
+        raise ValueError('native_shared_ledger_drift')
+    entries=[json.loads(line) for line in lines[:2]];last=entries[-1];skill_path='/profile/skills/data-storytelling/SKILL.md'
+    if (any(type(e) is not dict for e in entries) or last.get('id')!=proof['ledger_last_id'] or last.get('action')!='patch' or
+            last.get('skill')!='data-storytelling' or
+            not any(x.get('path')==skill_path and x.get('sha256')==proof['skill_before'] for x in last.get('before',[])) or
+            not any(x.get('path')==skill_path and x.get('sha256')==proof['skill_after'] for x in last.get('after',[]))):
+        raise ValueError('native_shared_ledger_drift')
+    if digest(read(base.rooted(root,CAPABILITIES_SKILL_LOCK),(9876,9876,0o644),0,True))!=empty:raise ValueError('native_shared_lock_drift')
+    updated={p:dict(row) for p,row in metadata.items()}
+    updated[CAPABILITIES_SKILL_FILE]['sha256']=proof['skill_after']
+    updated[CAPABILITIES_CURATOR_LEDGER]['sha256']=proof['ledger_after']
+    updated[CAPABILITIES_SKILL_LOCK]['owner']='9876:9876'
+    return updated
 
 
 def installed_baseline(root, git_baseline):
@@ -666,6 +776,7 @@ def installed_baseline(root, git_baseline):
         if NATIVE_CAPABILITIES_MODE:
             metadata=capabilities_nginx_overlay(base,root,metadata)
             metadata=capabilities_navigation_overlay(base,root,metadata)
+            metadata=capabilities_shared_overlay(base,root,metadata)
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
