@@ -169,6 +169,14 @@ def configure_native_capabilities():
     SOURCES['http/conversation_http.py']=MODULE+'source/conversation_http.py'
 
 
+def configure_native_composer_static():
+    import runtime_release as release
+    global INSTALLED_COMMIT, NEW
+    release.configure_native_composer_static()
+    INSTALLED_COMMIT,NEW=release.INSTALLED_COMMIT,release.NEW
+    SOURCES.clear();SOURCES['frontend/index.html']=MODULE+'frontend/index.html'
+
+
 def admission_generated(repo):
     """Reproduce the installed v2 unit from pinned Git, never render live bytes."""
     import runtime_release as release
@@ -251,7 +259,7 @@ def observe(root=Path('/'), installed=None):
     import runtime_release as release
     rows = {name: file_metadata(base, root, target, name in NEW and (not installed or release.EXECUTION_MODE)) for name, target in TARGETS.items()}
     expected = {row['candidate']: row['sha256'] for row in installed['files']} if installed else KNOWN
-    if release.ARCHIVE_MODE and installed:
+    if (release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE) and installed:
         all_hashes=installed['archive_all_hashes']
         expected={name:all_hashes[target] for name,target in TARGETS.items()}
     if installed and release.NATIVE_MODE and not release.NATIVE_ADMISSION_MODE:
@@ -271,7 +279,7 @@ def observe(root=Path('/'), installed=None):
         expected_mode = '0o600' if row['path'] == NGINX else '0o644'
         if row['sha256'] is not None and row['mode'] != expected_mode:
             raise ValueError('runtime_mode_drift: ' + row['path'])
-    if release.ARCHIVE_MODE:
+    if release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE:
         protected=[]
         for name in sorted(protected_paths(base)):
             if name==release.ARCHIVE_USAGE_LEDGER:
@@ -286,16 +294,18 @@ def observe(root=Path('/'), installed=None):
         expected_protected[release.NATIVE_CLI] = release.NATIVE_CLI_SHA
         expected_protected[release.NATIVE_LEGACY_DAILY] = release.NATIVE_LEGACY_DAILY_SHA
         release.native_legacy_daily_guard(base,root)
-    if installed and release.ARCHIVE_MODE:
+    if installed and (release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE):
         expected_protected=dict(release.ARCHIVE_PROTECTED)
         for row in protected:
             if row['path']==release.ARCHIVE_USAGE_LEDGER and row['path'] in expected_protected:
                 expected_protected[row['path']]=row['sha256']
     if installed and {r['path']: r['sha256'] for r in protected} != expected_protected:
         raise ValueError('installed_protected_baseline_drift')
-    worker = worker_observation(allow_stopped=not (release.WORKER_DIAGNOSTICS_MODE or release.TRANSPORT_MODE or release.STREAM_MODE or release.BINDINGS_MODE or release.GUARD_MODE or release.NATIVE_MODE)) if root == Path('/') else {
-        'image': FROZEN_IMAGE_MARKER if release.ARCHIVE_MODE else 'sha256:' + '0' * 64, 'state': 'active', 'source': 'container'}
-    if installed and worker['image'] != (FROZEN_IMAGE_MARKER if release.ARCHIVE_MODE else installed['workerImageId']):
+    if release.COMPOSER_STATIC_MODE and any(any(r[k]!=release.COMPOSER_STATIC_METADATA[r['path']][k] for k in ('owner','mode')) for r in protected):
+        raise ValueError('composer_static_protected_metadata_drift')
+    worker = worker_observation(allow_stopped=not (release.COMPOSER_STATIC_MODE or release.WORKER_DIAGNOSTICS_MODE or release.TRANSPORT_MODE or release.STREAM_MODE or release.BINDINGS_MODE or release.GUARD_MODE or release.NATIVE_MODE)) if root == Path('/') else {
+        'image': FROZEN_IMAGE_MARKER if release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE else 'sha256:' + '0' * 64, 'state': 'active', 'source': 'container'}
+    if installed and worker['image'] != (FROZEN_IMAGE_MARKER if release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE else installed['workerImageId']):
         raise ValueError('installed_worker_image_drift')
     result = {'observed_at': datetime.now(timezone.utc).isoformat(), 'files': rows, 'protected': protected,
               'worker_image': worker['image'], 'worker_state': worker['state'], 'worker_image_source': worker['source']}
@@ -325,7 +335,10 @@ def pack(repo, output, commit):
     import runtime_release as release
     baseline = {name: (digest(generated_bodies[name]) if release.NATIVE_ADMISSION_MODE and name in generated_bodies else None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + (FC+'fc-pricing-v3-20261026/source/conversation_http.py' if release.NATIVE_CAPABILITIES_MODE and name=='http/conversation_http.py' else path)], cwd=repo)))
                 for name, path in SOURCES.items()}
-    if not release.ARCHIVE_MODE:baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
+    if not (release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE):baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
+    if release.COMPOSER_STATIC_MODE and (baseline!={'frontend/index.html':release.COMPOSER_BEFORE_SHA} or
+            hashes['payload/frontend/index.html']!=release.COMPOSER_AFTER_SHA):
+        raise ValueError('exact_composer_static_git_delta_required')
     if release.NATIVE_ADMISSION_MODE:
         changed = [name for name in SOURCES if hashes['payload/'+name] != baseline[name]]
         if (changed != [release.NATIVE_ADMISSION_CANDIDATE] or
@@ -351,6 +364,7 @@ def pack(repo, output, commit):
                       'native_admission':release.NATIVE_ADMISSION_MODE,
                       'native_archive':release.ARCHIVE_MODE and not release.NATIVE_CAPABILITIES_MODE,
                       'native_capabilities':release.NATIVE_CAPABILITIES_MODE,
+                      'native_composer_static':release.COMPOSER_STATIC_MODE,
                       'installed_baseline': installed_baseline},
                      sort_keys=True).encode('utf-8')
     (output / 'payload-manifest.json').write_bytes(raw)
@@ -364,8 +378,14 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
     if digest(raw) != payload_sha256:
         raise ValueError('approved_git_payload_required')
     descriptor = json.loads(raw)
-    if sum(descriptor.get(key) is True for key in ('native_capabilities','native_archive','native_admission','goal_task_index_compat', 'material_diagnostics', 'worker_diagnostics', 'material_transport', 'material_stream', 'bindings_auth', 'material_guard','native_chat')) > 1:
+    if sum(descriptor.get(key) is True for key in ('native_composer_static','native_capabilities','native_archive','native_admission','goal_task_index_compat', 'material_diagnostics', 'worker_diagnostics', 'material_transport', 'material_stream', 'bindings_auth', 'material_guard','native_chat')) > 1:
         raise ValueError('conflicting_material_followup_modes')
+    if descriptor.get('native_composer_static') is True:
+        if descriptor.get('material_execution') is not False or not followup:
+            raise ValueError('composer_static_requires_installed_followup')
+        configure_native_composer_static()
+    if __import__('runtime_release').COMPOSER_STATIC_MODE and descriptor.get('native_composer_static') is not True:
+        raise ValueError('composer_static_requires_installed_followup')
     if (descriptor.get('native_capabilities') is True or descriptor.get('native_archive') is True or descriptor.get('native_admission') is True or descriptor.get('native_chat') is True or descriptor.get('material_stream') is True or descriptor.get('bindings_auth') is True or descriptor.get('material_guard') is True) and descriptor.get('material_execution') is not True:
         raise ValueError('material_stream_requires_execution')
     if descriptor.get('material_execution') is True:
@@ -406,7 +426,7 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
             raise ValueError('native_unit_recipe_changed')
         bodies['unit/native-control.conf'] = render_native_unit(
             frozen().rooted(root, release.NATIVE_UNIT).read_bytes(), observed['native_dependencies'])
-    if not __import__('runtime_release').ARCHIVE_MODE:
+    if not (__import__('runtime_release').ARCHIVE_MODE or __import__('runtime_release').COMPOSER_STATIC_MODE):
         nginx = frozen().rooted(root, NGINX).read_bytes()
         if digest(nginx) != observed['files']['http/formal.conf']['sha256']:
             raise ValueError('nginx_changed_during_prepare')
@@ -421,7 +441,7 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
                 'imageId': FROZEN_IMAGE_MARKER, 'workerImageId': observed['worker_image'],
                 'readinessSha256': descriptor['files']['release_readiness.py'],
                 'businessWrites': False, 'timersChanged': False, 'files': files,
-                'unchangedRequired': [({k:r[k] for k in ('path','sha256','owner','mode')} if __import__('runtime_release').ARCHIVE_MODE else {'path':r['path'],'sha256':r['sha256']}) for r in observed['protected']],
+                'unchangedRequired': [({k:r[k] for k in ('path','sha256','owner','mode')} if __import__('runtime_release').ARCHIVE_MODE or __import__('runtime_release').COMPOSER_STATIC_MODE else {'path':r['path'],'sha256':r['sha256']}) for r in observed['protected']],
                 'runtimeRequired': {unit: {'ActiveState': 'active'} for unit in (
                     'fs-business-range.service', 'fs-hermes-fc.service', 'nginx.service')},
                 'runtimeBefore': {unit: {'ActiveState': observed['worker_state'] if unit == 'fs-hermes-fc.service' else 'active'}
@@ -430,6 +450,12 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
                 'baselineObservedAt': observed['observed_at'], 'approvedPayloadSha256': payload_sha256}
     if installed:
         manifest['installedBaseline'] = INSTALLED_PROOF
+        if __import__('runtime_release').COMPOSER_STATIC_MODE:
+            release=__import__('runtime_release')
+            if len(files)!=1 or files[0]['beforeSha256']!=release.COMPOSER_BEFORE_SHA or files[0]['sha256']!=release.COMPOSER_AFTER_SHA:
+                raise ValueError('exact_composer_static_delta_required')
+            manifest['nativeComposerStatic']=True
+            manifest['materialChangedTargets']=[files[0]['target']]
         if __import__('runtime_release').EXECUTION_MODE:manifest['materialExecution']=True
         if __import__('runtime_release').DIAGNOSTICS_MODE:manifest['materialDiagnostics']=True
         if __import__('runtime_release').TASK_INDEX_MODE:manifest['goalTaskIndexCompat']=True
@@ -499,10 +525,12 @@ if __name__ == '__main__':
     parser.add_argument('--native-admission', action='store_true')
     parser.add_argument('--native-archive', action='store_true')
     parser.add_argument('--native-capabilities', action='store_true')
+    parser.add_argument('--native-composer-static', action='store_true')
     args = parser.parse_args()
-    if sum((args.native_capabilities,args.native_archive,args.native_admission,args.native_chat,args.material_guard, args.bindings_auth, args.material_stream, args.material_transport, args.worker_diagnostics, args.goal_task_index_compat, args.materials_diagnostics)) > 1:
+    if sum((args.native_composer_static,args.native_capabilities,args.native_archive,args.native_admission,args.native_chat,args.material_guard, args.bindings_auth, args.material_stream, args.material_transport, args.worker_diagnostics, args.goal_task_index_compat, args.materials_diagnostics)) > 1 or args.native_composer_static and args.materials_execution:
         parser.error('choose one installed followup mode')
-    if args.native_capabilities:configure_native_capabilities()
+    if args.native_composer_static:configure_native_composer_static()
+    elif args.native_capabilities:configure_native_capabilities()
     elif args.native_archive:configure_native_archive()
     elif args.native_admission:configure_native_admission()
     elif args.native_chat:configure_native_chat()
