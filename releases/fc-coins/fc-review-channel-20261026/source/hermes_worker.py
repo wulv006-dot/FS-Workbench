@@ -215,7 +215,8 @@ def install_native_compaction_relay(agent, binding, effort, check, relay):
                 for item in attempt['events']:
                     now=item.get('compression_count');child=item.get('session_id')
                     valid=valid and (set(item)=={'platform','session_id','old_session_id','in_place','compression_count'} and
-                        item['platform']==agent.platform and item['old_session_id']==sid and
+                        item['platform']==agent.platform and
+                        (item['old_session_id']==sid or item['in_place'] is True and item['old_session_id']=='') and
                         type(item['in_place']) is bool and type(child) is str and bool(child) and
                         (not item['in_place'] or child==sid) and type(now) is int and now>previous)
                     sid=child;previous=now

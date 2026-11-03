@@ -19,7 +19,9 @@ from conversation_files import ConversationFiles
 
 def load_tests(loader, tests, pattern):
     import test_native_user_data
+    import test_native_compaction_relay
     tests.addTests(loader.loadTestsFromModule(test_native_user_data))
+    tests.addTests(loader.loadTestsFromModule(test_native_compaction_relay))
     return tests
 
 
@@ -315,7 +317,7 @@ class NativeDispatchTests(unittest.TestCase):
                 def _compress_context(self,messages,prompt,**kw):
                     self.context_compressor.compression_count+=1
                     self.event_callback('session:compress',dict(platform=self.platform,session_id=self.session_id,
-                        old_session_id=self.session_id,in_place=True,compression_count=self.context_compressor.compression_count))
+                        old_session_id='',in_place=True,compression_count=self.context_compressor.compression_count))
                     return [{'role':'user','content':'compacted'}],prompt
                 def _build_api_kwargs(self,messages,**kw):return dict(messages=messages)
             def rejected(value):raise PermissionError('synthetic revoked')
