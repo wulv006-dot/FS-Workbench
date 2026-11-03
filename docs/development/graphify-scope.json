@@ -199,6 +199,13 @@
       ],
       "basis": "Hermes current source map plus maintained data/memory/nightly groups; old conversation HTTP still excluded",
       "evidence_level": "maintained_source"
+    },
+    "marketing-webpush": {
+      "roots": [
+        "releases/fs-dashboard/gravitec-webpush-20261103/source"
+      ],
+      "basis": "Gravitec webpush Handler dispatch and deploy/v2/release_webpush.py explicit 3-file production mapping; README records actual acceptance separately.",
+      "evidence_level": "publisher_mapping"
     }
   },
   "limits": [
