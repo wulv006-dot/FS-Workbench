@@ -391,4 +391,136 @@ class PrivateReceipts(unittest.TestCase):
         self.assertEqual(retired['previous_active'], stale)
 
 
+class TrustedFS(unittest.TestCase):
+    save_index = Native.save_index
+    save_policy = Native.save_policy
+
+    def setUp(self):
+        PrivateReceipts.setUp(self)
+        self.info['platform'] = 'api_server'
+        self.fs_route = dict(self.policy['task_routes']['routes'][0], channel='fs',
+            baseline_compatibility=dict(mode='retain_full_baseline', sha256=self.row['source']['sha256']))
+        self.policy['task_routes']['routes'].append(self.fs_route)
+        self.save_policy()
+        self.adapter = NativeKnowledge(self.root, receipt_root=self.receipts)
+
+    def authorize(self, info, turn_id):
+        return info == self.info and turn_id == 'turn-1'
+
+    def pin(self, info=None, **kwargs):
+        return self.adapter.pin_fs_task(self.info if info is None else info, 'turn-1', **kwargs)
+
+    def test_explicit_host_adapter_uses_real_fs_route_and_original_pin_schema(self):
+        self.assertIsNone(self.adapter.pin_task(self.info, 'turn-1', 'turn-1'))
+        self.assertIsNone(self.adapter.pin(self.info))
+        pin = self.pin(authorize=self.authorize)
+        self.assertEqual(pin['platform'], 'api_server')
+        self.assertEqual(pin['scope']['platform'], 'api_server')
+        self.assertEqual(pin['scope']['owner'], self.info['owner'])
+        self.assertEqual(pin['identity'], dict(session_id=self.info['session_id'], task_key='turn-1'))
+        self.assertEqual(pin['native_task_id'], 'turn-1')
+        self.assertEqual(pin['contract'], 'fs-native-knowledge-task-v1')
+        self.assertIsNone(self.adapter.pin_task(self.info, 'turn-1', 'turn-1'))
+        self.assertFalse((self.root / 'knowledge/native').exists())
+        self.assertTrue((self.receipts / self.adapter._name('task', pin['identity'])).exists())
+
+    def test_authorization_is_callable_literal_true_and_errors_never_write_pin(self):
+        for callback in (None, True, {'approved': True}, lambda *a: False,
+                         lambda *a: 1, lambda *a: 'true'):
+            with self.subTest(callback=callback), self.assertRaises(PermissionError):
+                self.pin(authorize=callback)
+        with self.assertRaises(PermissionError):
+            self.pin()
+        def failed(*args):
+            raise RuntimeError('authorization unavailable')
+        with self.assertRaisesRegex(RuntimeError, 'authorization unavailable'):
+            self.pin(authorize=failed)
+        self.assertFalse(list(self.receipts.rglob('task-*.json')))
+
+    def test_authenticated_scope_is_checked_before_reusing_or_selecting_pin(self):
+        pin = self.pin(authorize=self.authorize)
+        for field in ('owner', 'session_id', 'profile_name'):
+            with self.subTest(field=field), self.assertRaises(PermissionError):
+                self.pin(dict(self.info, **{field: 'other'}), authorize=self.authorize)
+        with self.assertRaises(PermissionError):
+            self.adapter.pin_fs_task(self.info, 'turn-2', authorize=self.authorize)
+        with self.assertRaises(PermissionError):
+            self.pin(authorize=lambda *args: False)
+        self.assertEqual(self.adapter.load_task(self.info, 'turn-1', 'turn-1',
+            expected_sha256=pin['receipt_sha256']), pin)
+
+    def test_json_flags_platform_spoofing_and_missing_identity_do_not_authorize(self):
+        for changes in ({'platform': 'desktop'}, {'platform': 'fs'}, {'approved': True},
+                        {'channel': 'fs'}, {'profile_name': ''}, {'owner': ''},
+                        {'session_id': '../other'}, {'chat_id': 'invented-chat'}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.pin(dict(self.info, **changes), authorize=lambda *args: True)
+        for field in ('owner', 'profile_name', 'session_id', 'platform'):
+            info = dict(self.info)
+            del info[field]
+            with self.subTest(missing=field), self.assertRaises(ValueError):
+                self.pin(info, authorize=lambda *args: True)
+        self.assertFalse(list(self.receipts.rglob('task-*.json')))
+
+    def test_absent_fs_route_stays_optional_and_does_not_use_desktop_route(self):
+        self.policy['task_routes']['routes'].remove(self.fs_route)
+        self.save_policy()
+        self.assertIsNone(self.pin(authorize=self.authorize))
+        self.assertFalse(list(self.receipts.rglob('task-*.json')))
+        self.assertIsNone(self.adapter.guard('terminal', {}, session_id=self.info['session_id'], task_id='turn-1'))
+
+    def test_real_pinned_read_in_other_instance_keeps_release_and_use_receipt(self):
+        pin = self.pin(authorize=self.authorize)
+        self.policy['task_routes']['enabled'] = False
+        self.save_policy()
+        self.assertEqual(self.pin(authorize=self.authorize), pin)
+        worker = NativeKnowledge(self.root, receipt_root=self.receipts)
+        self.assertEqual(worker.load_task(self.info, 'turn-1', 'turn-1',
+            expected_sha256=pin['receipt_sha256']), pin)
+        with worker.activate_task(self.info, 'turn-1', 'turn-1', pin_sha256=pin['receipt_sha256']):
+            read = worker.call('fs_read_knowledge', {'modules': ['FC27']},
+                               session_id=self.info['session_id'], task_id='turn-1')
+            self.assertEqual(read['entries'][0]['content'], 'current rule')
+            alias = worker.link_task_session(pin, 'fs-compacted-child', 'turn-1')
+            try:
+                self.assertEqual(worker.active_task('fs-compacted-child', 'turn-1'), pin)
+            finally:
+                worker.unlink_task_session(alias, pin)
+        self.assertIsNone(worker.active_task(self.info['session_id'], 'turn-1'))
+        self.assertIsNone(worker.active_task('fs-compacted-child', 'turn-1'))
+        uses = list((self.receipts / 'knowledge/native').glob('use-*.json'))
+        self.assertEqual(len(uses), 1)
+        receipt = json.loads(uses[0].read_bytes())
+        self.assertEqual(receipt['pin_sha256'], pin['receipt_sha256'])
+        self.assertEqual(receipt['identity']['task_id'], 'turn-1')
+        self.assertEqual(receipt['result'], read)
+        with self.assertRaisesRegex(ValueError, 'pin_changed'):
+            worker.load_task(self.info, 'turn-1', 'turn-1', expected_sha256='0' * 64)
+        with self.assertRaises(FileNotFoundError):
+            NativeKnowledge(self.root).load_task(self.info, 'turn-1', 'turn-1',
+                expected_sha256=pin['receipt_sha256'])
+
+    def test_selected_fs_route_rejects_wrong_digest_candidate_conflict_and_archive(self):
+        self.fs_route['sha256'] = '0' * 64
+        self.save_policy()
+        with self.assertRaises(ValueError):
+            self.pin(authorize=self.authorize)
+        for state in ('candidate', 'conflict', 'archive'):
+            with self.subTest(state=state):
+                index = copy.deepcopy(self.index)
+                if state == 'candidate':
+                    self.index['release_state'] = 'candidate'
+                elif state == 'conflict':
+                    self.index['entries'].append(dict(self.row, revision='v3'))
+                else:
+                    self.index['entries'] = [dict(self.row, layer='archive', status='archived')]
+                self.save_index()
+                self.fs_route['sha256'] = self.route['sha256']
+                self.save_policy()
+                with self.assertRaises(ValueError):
+                    self.pin(authorize=self.authorize)
+                self.index = index
+        self.assertFalse(list(self.receipts.rglob('task-*.json')))
+
+
 if __name__=='__main__':unittest.main()

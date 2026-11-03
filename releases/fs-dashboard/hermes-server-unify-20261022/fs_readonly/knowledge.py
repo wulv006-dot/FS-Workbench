@@ -173,6 +173,29 @@ class NativeKnowledge:
             chat_id=info.get('chat_id'), thread_id=info.get('thread_id'))
 
     def pin_task(self, info, task_key, native_task_id):
+        if info.get('platform') not in ('desktop', 'tui', 'feishu'):
+            return None
+        return self._pin_task(info, task_key, native_task_id, lambda: self.task_selection(info))
+
+    def pin_fs_task(self, info, turn_id, *, authorize=None):
+        """Host-only FS admission; the Python callback authenticates this exact scope."""
+        fields = {'owner', 'session_id', 'platform', 'profile_name'}
+        if (type(info) is not dict or not fields.issubset(info)
+                or set(info) - fields - {'chat_id', 'thread_id'}
+                or info['platform'] != 'api_server'
+                or any(type(info[k]) is not str or not 1 <= len(info[k]) <= 200
+                       for k in ('owner', 'profile_name'))
+                or any(info.get(k) is not None for k in ('chat_id', 'thread_id'))):
+            raise ValueError('native_knowledge_fs_identity')
+        info = dict(info)
+        identity(info['session_id']); identity(turn_id)
+        if not callable(authorize) or authorize(dict(info), turn_id) is not True:
+            raise PermissionError('native_knowledge_fs_unauthorized')
+        return self._pin_task(info, turn_id, turn_id, lambda: catalog.task_selection(
+            self.root, owner=info['owner'], project='FS', channel='fs', task_type='conversation',
+            profile_name=info['profile_name']))
+
+    def _pin_task(self, info, task_key, native_task_id, select):
         session = identity(info.get('session_id'))
         identity(task_key); identity(native_task_id)
         key = dict(session_id=session, task_key=task_key)
@@ -184,7 +207,7 @@ class NativeKnowledge:
                 if pin['identity'] != key or pin['scope'] != scope or pin['native_task_id'] != native_task_id:
                     raise ValueError('native_knowledge_task_identity_changed')
                 return pin
-            selected = self.task_selection(info)
+            selected = select()
             if selected is None:
                 return None
             catalog.verify_selection(selected)
