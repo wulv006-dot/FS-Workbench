@@ -1,0 +1,3270 @@
+{
+  "period": "2026-10",
+  "overview": {
+    "games": [
+      {
+        "profile": "FC27",
+        "name": "EA SPORTS FC 27",
+        "grp": "球类运营组",
+        "owner": "吴律",
+        "tier": "S",
+        "regime": "成熟·微降",
+        "file": "fc27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 831000,
+          "ord": 12913,
+          "prof": 204000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "AION2",
+        "name": "AION 2",
+        "grp": "RPG运营组",
+        "owner": "陈超",
+        "tier": "S",
+        "regime": "上线爬坡趋稳",
+        "file": "aion2.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 223000,
+          "ord": 3615,
+          "prof": 26000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "D4",
+        "name": "Diablo IV",
+        "grp": "RPG运营组",
+        "owner": "陈超",
+        "tier": "S",
+        "regime": "成熟稳定",
+        "file": "d4.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 207000,
+          "ord": 11136,
+          "prof": 102000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "MAPLESTORY_CLASSIC",
+        "name": "MapleStory Classic World",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "A",
+        "regime": "新游爬坡·首周回落",
+        "file": "maplestory_classic.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 99000,
+          "ord": 1383,
+          "prof": 16000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "POE2",
+        "name": "Path of Exile 2",
+        "grp": "RPG运营组",
+        "owner": "陈超",
+        "tier": "S",
+        "regime": "赛季空窗",
+        "file": "poe2.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 43000,
+          "ord": 2150,
+          "prof": 13000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "NFL27",
+        "name": "Madden NFL 27",
+        "grp": "球类运营组",
+        "owner": "刘峻洋",
+        "tier": "A",
+        "regime": "成熟季节",
+        "file": "nfl27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 35000,
+          "ord": 995,
+          "prof": 10000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "ARC_RAIDERS",
+        "name": "ARC Raiders",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "S",
+        "regime": "早测波动",
+        "file": "arc_raiders.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 16000,
+          "ord": 780,
+          "prof": 9000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "MLB26",
+        "name": "MLB The Show 26",
+        "grp": "球类运营组",
+        "owner": "张星宇",
+        "tier": "A",
+        "regime": "赛季收尾",
+        "file": "mlb26.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 14000,
+          "ord": 301,
+          "prof": 4000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "CFB27",
+        "name": "CFB 27",
+        "grp": "球类运营组",
+        "owner": "刘峻洋",
+        "tier": "A",
+        "regime": "成熟",
+        "file": "cfb27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 13000,
+          "ord": 343,
+          "prof": 3000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "NBA2K27",
+        "name": "NBA 2K27",
+        "grp": "球类运营组",
+        "owner": "杜浩哲",
+        "tier": "B",
+        "regime": "成熟·赛季临近",
+        "file": "nba2k27.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 9000,
+          "ord": 231,
+          "prof": 3000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "DARK_AND_DARKER",
+        "name": "Dark and Darker",
+        "grp": "RPG运营组",
+        "owner": "耿毅迪",
+        "tier": "A",
+        "regime": "衰退趋零",
+        "file": "dark_and_darker.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2000,
+          "ord": 229,
+          "prof": 1000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "RS",
+        "name": "RuneScape",
+        "grp": "综合运营组",
+        "owner": "JIM",
+        "tier": "S",
+        "regime": "鲸鱼稀疏",
+        "file": "rs.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2000,
+          "ord": 13,
+          "prof": 0
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "COD_BO7",
+        "name": "CoD: Black Ops 7",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "A",
+        "regime": "发售前预热",
+        "file": "cod_bo7.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2000,
+          "ord": 74,
+          "prof": 1000
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "ARENA_BREAKOUT_INFINITE",
+        "name": "Arena Breakout: Infinite",
+        "grp": "综合运营组",
+        "owner": "金晟",
+        "tier": "B",
+        "regime": "稀疏",
+        "file": "arena_breakout_infinite.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2000,
+          "ord": 36,
+          "prof": 0
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      },
+      {
+        "profile": "WOW_FOREVER",
+        "name": "WoW Forever",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "长尾",
+        "regime": "长尾衰退",
+        "file": "wow_forever.html",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2000,
+          "ord": 156,
+          "prof": 0
+        },
+        "proj": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        }
+      }
+    ],
+    "groups": [
+      {
+        "key": "球类运营组",
+        "leader": "吴律"
+      },
+      {
+        "key": "RPG运营组",
+        "leader": "陈超"
+      },
+      {
+        "key": "综合运营组",
+        "leader": "刘乐"
+      }
+    ]
+  },
+  "models": {
+    "AION2": {
+      "slug": "AION2",
+      "name": "AION 2",
+      "grp": "RPG运营组",
+      "owner": "陈超",
+      "launch": "2026-10-01",
+      "kick": "AION 2 · MMORPG",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 223000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 3615,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 26000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 1200,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 62,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 53,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 91,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 12,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 27000,
+          "ord": 438,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 38000,
+          "ord": 616,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 45000,
+          "ord": 730,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 54000,
+          "ord": 875,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 60000,
+          "ord": 973,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "ARC_RAIDERS": {
+      "slug": "ARC_RAIDERS",
+      "name": "ARC Raiders",
+      "grp": "综合运营组",
+      "owner": "刘乐",
+      "launch": "2026-10-01",
+      "kick": "ARC Raiders",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 16000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 780,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 9000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 100,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 21,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 76,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 97,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 55,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 2000,
+          "ord": 98,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 3000,
+          "ord": 146,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 3000,
+          "ord": 146,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 4000,
+          "ord": 195,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 4000,
+          "ord": 195,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "ARENA_BREAKOUT_INFINITE": {
+      "slug": "ARENA_BREAKOUT_INFINITE",
+      "name": "Arena Breakout: Infinite",
+      "grp": "综合运营组",
+      "owner": "金晟",
+      "launch": "持续运营",
+      "kick": "Arena Breakout: Infinite",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 2000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 36,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 0,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 0,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 55,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 3,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 64,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 15,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 1000,
+          "ord": 18,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "CFB27": {
+      "slug": "CFB27",
+      "name": "CFB 27",
+      "grp": "球类运营组",
+      "owner": "刘峻洋",
+      "launch": "2026-09-19",
+      "kick": "EA Sports College Football 27",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 13000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 343,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 3000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 100,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 38,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 79,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 95,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 27,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 2000,
+          "ord": 53,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 2000,
+          "ord": 53,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 3000,
+          "ord": 79,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 3000,
+          "ord": 79,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 4000,
+          "ord": 106,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "COD_BO7": {
+      "slug": "COD_BO7",
+      "name": "CoD: Black Ops 7",
+      "grp": "综合运营组",
+      "owner": "刘乐",
+      "launch": "2026-11 发售",
+      "kick": "Call of Duty: Black Ops 7",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 2000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 74,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 1000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 9,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 27,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 49,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 66,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 60,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 1000,
+          "ord": 37,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "D4": {
+      "slug": "D4",
+      "name": "Diablo IV",
+      "grp": "RPG运营组",
+      "owner": "陈超",
+      "launch": "持续运营",
+      "kick": "Diablo IV · ARPG",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 207000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 11136,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 102000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 800,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 19,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 70,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 100,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 49,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 25000,
+          "ord": 1345,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 35000,
+          "ord": 1883,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 41000,
+          "ord": 2206,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 50000,
+          "ord": 2690,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 56000,
+          "ord": 3013,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "DARK_AND_DARKER": {
+      "slug": "DARK_AND_DARKER",
+      "name": "Dark and Darker",
+      "grp": "RPG运营组",
+      "owner": "耿毅迪",
+      "launch": "持续运营",
+      "kick": "Dark and Darker",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 2000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 229,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 1000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 5,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 9,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 50,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 91,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 41,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 1000,
+          "ord": 114,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "FC27": {
+      "slug": "FC27",
+      "name": "EA SPORTS FC 27",
+      "grp": "球类运营组",
+      "owner": "吴律",
+      "launch": "2026-09-26",
+      "kick": "EA SPORTS FC 27 · ULTIMATE TEAM",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 831000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 12913,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 204000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 5400,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 64,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 81,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 87,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 25,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 100000,
+          "ord": 1554,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 141000,
+          "ord": 2191,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 166000,
+          "ord": 2579,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 199000,
+          "ord": 3092,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 224000,
+          "ord": 3481,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "MAPLESTORY_CLASSIC": {
+      "slug": "MAPLESTORY_CLASSIC",
+      "name": "MapleStory Classic World",
+      "grp": "综合运营组",
+      "owner": "刘乐",
+      "launch": "2026-10-09",
+      "kick": "MapleStory Classic World",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 99000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 1383,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 16000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 800,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 72,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 26,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 40,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 16,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 12000,
+          "ord": 168,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 17000,
+          "ord": 237,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 20000,
+          "ord": 279,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 24000,
+          "ord": 335,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 27000,
+          "ord": 377,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "MLB26": {
+      "slug": "MLB26",
+      "name": "MLB The Show 26",
+      "grp": "球类运营组",
+      "owner": "张星宇",
+      "launch": "持续运营",
+      "kick": "MLB The Show 26",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 14000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 301,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 4000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 100,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 47,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 81,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 91,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 30,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 2000,
+          "ord": 43,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 2000,
+          "ord": 43,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 3000,
+          "ord": 65,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 3000,
+          "ord": 65,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 4000,
+          "ord": 86,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "NBA2K27": {
+      "slug": "NBA2K27",
+      "name": "NBA 2K27",
+      "grp": "球类运营组",
+      "owner": "杜浩哲",
+      "launch": "2026-09-05",
+      "kick": "NBA 2K27 · MyTEAM",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 9000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 231,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 3000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 200,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 39,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 95,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 59,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 33,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 1000,
+          "ord": 26,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 2000,
+          "ord": 51,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 2000,
+          "ord": 51,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 2000,
+          "ord": 51,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 2000,
+          "ord": 51,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "NFL27": {
+      "slug": "NFL27",
+      "name": "Madden NFL 27",
+      "grp": "球类运营组",
+      "owner": "刘峻洋",
+      "launch": "2026-09-19",
+      "kick": "Madden NFL 27 · MUT",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 35000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 995,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 10000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 300,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 35,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 86,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 83,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 28,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 4000,
+          "ord": 114,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 6000,
+          "ord": 171,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 7000,
+          "ord": 199,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 8000,
+          "ord": 227,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 9000,
+          "ord": 256,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "POE2": {
+      "slug": "POE2",
+      "name": "Path of Exile 2",
+      "grp": "RPG运营组",
+      "owner": "陈超",
+      "launch": "持续运营",
+      "kick": "Path of Exile 2 · ARPG",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 43000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 2150,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 13000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 100,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 20,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 67,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 100,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 30,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 5000,
+          "ord": 250,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 7000,
+          "ord": 350,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 9000,
+          "ord": 450,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 10000,
+          "ord": 500,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 12000,
+          "ord": 600,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "RS": {
+      "slug": "RS",
+      "name": "RuneScape",
+      "grp": "综合运营组",
+      "owner": "JIM",
+      "launch": "持续运营",
+      "kick": "RuneScape（独立项目经理 JIM）",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 2000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 13,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 0,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 200,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 155,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 51,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 96,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 6,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 1000,
+          "ord": 6,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    },
+    "WOW_FOREVER": {
+      "slug": "WOW_FOREVER",
+      "name": "WoW Forever",
+      "grp": "综合运营组",
+      "owner": "刘乐",
+      "launch": "2026-10-08",
+      "kick": "WoW Forever · 长尾托管",
+      "l1": [
+        {
+          "id": "rev",
+          "lab": "月营收",
+          "val": 2000,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "ord",
+          "lab": "月订单量",
+          "val": 156,
+          "unit": "单",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "prof",
+          "lab": "月预估利润",
+          "val": 0,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        },
+        {
+          "id": "new",
+          "lab": "月新客数",
+          "val": 100,
+          "unit": "人",
+          "dir": "hi",
+          "actual": null,
+          "ref": "原包 2026-10 规划目标；实际经营数据读取 FS"
+        }
+      ],
+      "l2": [
+        {
+          "id": "aov",
+          "lab": "客单价",
+          "grp": "效率",
+          "val": 13,
+          "unit": "$",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "rep",
+          "lab": "复购率",
+          "grp": "效率",
+          "val": 53,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "ful",
+          "lab": "发货完成率",
+          "grp": "质量",
+          "val": 100,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        },
+        {
+          "id": "mar",
+          "lab": "利润率",
+          "grp": "质量",
+          "val": 11,
+          "unit": "%",
+          "dir": "hi",
+          "actual": null,
+          "lw": null
+        }
+      ],
+      "weeks": [
+        {
+          "id": "w1",
+          "lab": "第1周 10/1-10/4",
+          "note": "按月末爬坡权重 12%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w2",
+          "lab": "第2周 10/5-10/11",
+          "note": "按月末爬坡权重 17%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w3",
+          "lab": "第3周 10/12-10/18",
+          "note": "按月末爬坡权重 20%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w4",
+          "lab": "第4周 10/19-10/25",
+          "note": "按月末爬坡权重 24%",
+          "rev": 0,
+          "ord": 0,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        },
+        {
+          "id": "w5",
+          "lab": "第5周 10/26-10/31",
+          "note": "按月末爬坡权重 27%",
+          "rev": 1000,
+          "ord": 78,
+          "actRev": null,
+          "actOrd": null,
+          "days": null
+        }
+      ],
+      "daily": [],
+      "elapsed": null,
+      "total": 31,
+      "cutoff": null,
+      "laws": [],
+      "rhythms": [
+        {
+          "d": "每周五-周日",
+          "e": "周末交付高峰，波峰固定",
+          "tag": "周更",
+          "cls": "week"
+        },
+        {
+          "d": "10/19-10/25",
+          "e": "第4周，版本/活动放量窗口",
+          "tag": "版本",
+          "cls": "ver"
+        },
+        {
+          "d": "10/26-10/31",
+          "e": "月末6天，冲刺与收尾",
+          "tag": "活动",
+          "cls": "promo"
+        }
+      ],
+      "events": [],
+      "snapshot": null
+    }
+  },
+  "sandbox": {
+    "games": [
+      {
+        "profile": "FC27",
+        "name": "EA SPORTS FC 27",
+        "grp": "球类运营组",
+        "owner": "吴律",
+        "tier": "S",
+        "regime": "成熟·微降",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 831000,
+          "ord": 12913,
+          "prof": 204000
+        },
+        "proj": {
+          "rev": 1032507,
+          "ord": 16044,
+          "prof": 253137
+        },
+        "aov": 64.35604033448107,
+        "mar": 24.516757629262056
+      },
+      {
+        "profile": "AION2",
+        "name": "AION 2",
+        "grp": "RPG运营组",
+        "owner": "陈超",
+        "tier": "S",
+        "regime": "上线爬坡趋稳",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 223000,
+          "ord": 3615,
+          "prof": 26000
+        },
+        "proj": {
+          "rev": 275821,
+          "ord": 4472,
+          "prof": 31804
+        },
+        "aov": 61.680674033149174,
+        "mar": 11.530658438462506
+      },
+      {
+        "profile": "D4",
+        "name": "Diablo IV",
+        "grp": "RPG运营组",
+        "owner": "陈超",
+        "tier": "S",
+        "regime": "成熟稳定",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 207000,
+          "ord": 11136,
+          "prof": 102000
+        },
+        "proj": {
+          "rev": 256190,
+          "ord": 13782,
+          "prof": 126708
+        },
+        "aov": 18.588137291280148,
+        "mar": 49.458459252344994
+      },
+      {
+        "profile": "MAPLESTORY_CLASSIC",
+        "name": "MapleStory Classic World",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "A",
+        "regime": "新游爬坡·首周回落",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 99000,
+          "ord": 1383,
+          "prof": 16000
+        },
+        "proj": {
+          "rev": 121906,
+          "ord": 1703,
+          "prof": 19412
+        },
+        "aov": 71.58875816993464,
+        "mar": 15.923329328371564
+      },
+      {
+        "profile": "POE2",
+        "name": "Path of Exile 2",
+        "grp": "RPG运营组",
+        "owner": "陈超",
+        "tier": "S",
+        "regime": "赛季空窗",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 43000,
+          "ord": 2150,
+          "prof": 13000
+        },
+        "proj": {
+          "rev": 52943,
+          "ord": 2647,
+          "prof": 15975
+        },
+        "aov": 20.003323782234958,
+        "mar": 30.173782007574673
+      },
+      {
+        "profile": "NFL27",
+        "name": "Madden NFL 27",
+        "grp": "球类运营组",
+        "owner": "刘峻洋",
+        "tier": "A",
+        "regime": "成熟季节",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 35000,
+          "ord": 995,
+          "prof": 10000
+        },
+        "proj": {
+          "rev": 43044,
+          "ord": 1223,
+          "prof": 12260
+        },
+        "aov": 35.18348684210526,
+        "mar": 28.482884527044
+      },
+      {
+        "profile": "ARC_RAIDERS",
+        "name": "ARC Raiders",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "S",
+        "regime": "早测波动",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 16000,
+          "ord": 780,
+          "prof": 9000
+        },
+        "proj": {
+          "rev": 19517,
+          "ord": 952,
+          "prof": 10741
+        },
+        "aov": 20.509739776951672,
+        "mar": 55.03396699727394
+      },
+      {
+        "profile": "MLB26",
+        "name": "MLB The Show 26",
+        "grp": "球类运营组",
+        "owner": "张星宇",
+        "tier": "A",
+        "regime": "赛季收尾",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 14000,
+          "ord": 301,
+          "prof": 4000
+        },
+        "proj": {
+          "rev": 17278,
+          "ord": 372,
+          "prof": 5196
+        },
+        "aov": 46.50162962962963,
+        "mar": 30.07461307608495
+      },
+      {
+        "profile": "CFB27",
+        "name": "CFB 27",
+        "grp": "球类运营组",
+        "owner": "刘峻洋",
+        "tier": "A",
+        "regime": "成熟",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 13000,
+          "ord": 343,
+          "prof": 3000
+        },
+        "proj": {
+          "rev": 15946,
+          "ord": 421,
+          "prof": 4283
+        },
+        "aov": 37.871974522292994,
+        "mar": 26.86187120536841
+      },
+      {
+        "profile": "NBA2K27",
+        "name": "NBA 2K27",
+        "grp": "球类运营组",
+        "owner": "杜浩哲",
+        "tier": "B",
+        "regime": "成熟·赛季临近",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 9000,
+          "ord": 231,
+          "prof": 3000
+        },
+        "proj": {
+          "rev": 10662,
+          "ord": 274,
+          "prof": 3469
+        },
+        "aov": 38.95808510638298,
+        "mar": 32.53906271333621
+      },
+      {
+        "profile": "DARK_AND_DARKER",
+        "name": "Dark and Darker",
+        "grp": "RPG运营组",
+        "owner": "耿毅迪",
+        "tier": "A",
+        "regime": "衰退趋零",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2000,
+          "ord": 229,
+          "prof": 1000
+        },
+        "proj": {
+          "rev": 2711,
+          "ord": 310,
+          "prof": 1123
+        },
+        "aov": 8.739841897233202,
+        "mar": 41.41770457402835
+      },
+      {
+        "profile": "RS",
+        "name": "RuneScape",
+        "grp": "综合运营组",
+        "owner": "JIM",
+        "tier": "S",
+        "regime": "鲸鱼稀疏",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2000,
+          "ord": 13,
+          "prof": 0
+        },
+        "proj": {
+          "rev": 2749,
+          "ord": 18,
+          "prof": 154
+        },
+        "aov": 154.86399999999998,
+        "mar": 5.602334951957847
+      },
+      {
+        "profile": "COD_BO7",
+        "name": "CoD: Black Ops 7",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "A",
+        "regime": "发售前预热",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2000,
+          "ord": 74,
+          "prof": 1000
+        },
+        "proj": {
+          "rev": 1222,
+          "ord": 45,
+          "prof": 736
+        },
+        "aov": 27.057391304347828,
+        "mar": 60.22946394138064
+      },
+      {
+        "profile": "ARENA_BREAKOUT_INFINITE",
+        "name": "Arena Breakout: Infinite",
+        "grp": "综合运营组",
+        "owner": "金晟",
+        "tier": "B",
+        "regime": "稀疏",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2000,
+          "ord": 36,
+          "prof": 0
+        },
+        "proj": {
+          "rev": 1920,
+          "ord": 35,
+          "prof": 292
+        },
+        "aov": 55.38923076923077,
+        "mar": 15.186234480459959
+      },
+      {
+        "profile": "WOW_FOREVER",
+        "name": "WoW Forever",
+        "grp": "综合运营组",
+        "owner": "刘乐",
+        "tier": "长尾",
+        "regime": "长尾衰退",
+        "act": {
+          "rev": null,
+          "ord": null,
+          "prof": null
+        },
+        "tgt": {
+          "rev": 2000,
+          "ord": 156,
+          "prof": 0
+        },
+        "proj": {
+          "rev": 1406,
+          "ord": 110,
+          "prof": 161
+        },
+        "aov": 12.830545454545454,
+        "mar": 11.421607527491213
+      }
+    ],
+    "total": 1500000,
+    "floor": 2000,
+    "cutoff": "2026-10-11"
+  }
+}

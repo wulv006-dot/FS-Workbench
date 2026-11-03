@@ -608,6 +608,8 @@ def select(paths):
             groups.add("hermes-learning-loop");continue
         if name.startswith("releases/fs-dashboard/desktop-learning-20261016/"):
             groups.add("desktop-learning");continue
+        if name.startswith("releases/fs-dashboard/management-november-20261103/"):
+            groups.add("management-november");continue
         if name.startswith("releases/fs-dashboard/management-all-sites-20261025/"):
             groups.add("management-all-sites");continue
         if name.startswith("releases/fs-dashboard/management-v2-20261015/"):
@@ -852,6 +854,13 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group=="management-november":
+            folder=ROOT/"releases/fs-dashboard/management-november-20261103"
+            units("releases/fs-dashboard/management-november-20261103",["test_november"])
+            subprocess.run(["node","test_sandbox.cjs"],cwd=folder,check=True,timeout=30)
+            subprocess.run(["node","test_target_hash.cjs",sys.executable],cwd=folder,check=True,timeout=30)
+            subprocess.run([sys.executable,"-B","check_linux.py"],cwd=folder,check=True,timeout=30)
+            continue
         if group=='email-channels':
             units('releases/fs-dashboard/email-channels-20261103/source',['test_email_channels'])
             continue
