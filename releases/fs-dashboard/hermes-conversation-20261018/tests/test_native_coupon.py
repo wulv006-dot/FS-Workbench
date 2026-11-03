@@ -138,9 +138,13 @@ class NativeCouponTests(unittest.TestCase):
             return SimpleNamespace(**values)
         def lstat(p,*a,**kw):
             info=real_lstat(p,*a,**kw)
-            return view(info,directory=True) if stat.S_ISDIR(info.st_mode) else view(info) if p==path else info
+            return view(info,directory=True) if p in path.parents else view(info) if p==path else info
         def fstat(fd):
-            result=view(real_fstat(fd))
+            info=real_fstat(fd)
+            if not path.exists():return info
+            approval=real_lstat(path)
+            if (info.st_dev,info.st_ino)!=(approval.st_dev,approval.st_ino):return info
+            result=view(info)
             if identity.get('drift'):result.st_ctime_ns+=1
             return result
         # Only OS root/mode identities are fixtures; the file bytes/FD/inode,
@@ -148,13 +152,21 @@ class NativeCouponTests(unittest.TestCase):
         with patch.object(module,'CAMPAIGN_APPROVAL_FILE',path),patch.object(Path,'lstat',lstat),patch.object(os,'fstat',fstat):
             from campaign_backend.adapters import AdminRead
             factory=self.data.campaign.reader_factory
-            state=self.backend.state_dir;state.mkdir(parents=True)
+            state=self.backend.state_dir;state.mkdir(mode=0o700,parents=True)
+            # Root approval identities must not replace the runner-owned
+            # private ledger directory/FD metadata consumed by the real writer.
+            self.assertEqual(Path.lstat(state),real_lstat(state))
             (state/'policy.json').write_text(json.dumps(fixture.policy()))
             with patch.dict(os.environ,{'CAMPAIGN_BACKEND_STATE_DIR':str(state)}),patch.object(AdminRead,'from_shared_session',side_effect=factory):
                 self.data.campaign=module.NativeCouponActions.runtime(self.conversation.native,self.binding)
             self.assertIs(self.data.campaign.approval_source,producer)
             with self.assertRaisesRegex(PermissionError,'business_authorization_required'):self.call('fs_edit_coupon_brief',args)
             path.write_text(json.dumps(record))
+            probe=state/'fixture-identity-check'
+            with probe.open('xb') as stream:
+                info=os.fstat(stream.fileno());actual=real_fstat(stream.fileno())
+                self.assertEqual((info.st_uid,info.st_gid,info.st_mode),(actual.st_uid,actual.st_gid,actual.st_mode))
+            probe.unlink()
             for key in self.binding:
                 bad=deepcopy(record);bad['binding'][key]='wrong';path.write_text(json.dumps(bad))
                 with self.subTest(key=key),self.assertRaisesRegex(PermissionError,'business_authorization_mismatch'):self.call('fs_edit_coupon_brief',args)
