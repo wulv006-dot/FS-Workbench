@@ -177,6 +177,11 @@ def configure_native_capabilities():
     campaign='releases/fs-dashboard/campaign-analytics-20261023/'
     SOURCES.update({name:campaign+('app/analytics/backend-client.mjs' if name.endswith('.mjs') else name[len('campaign/'):])
                     for name in (*release.CAMPAIGN_TARGETS,'campaign/backend/campaign_backend/coupon_grant.py')})
+    SOURCES.update({'runtime/conversation_knowledge.py':MODULE+'source/conversation_knowledge.py',
+        'runtime/fs_native_knowledge.py':'releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/knowledge.py',
+        'runtime/knowledge_catalog.py':'releases/fs-dashboard/knowledge-layering-20261023/source/knowledge_catalog.py',
+        'runtime/report_artifacts.py':'releases/fs-dashboard/hermes-data-workspace-20261018/source/report_artifacts.py',
+        'runtime/reviewed_skills.py':'releases/fs-dashboard/hermes-memory-approval-20261022/reviewed_skills.py'})
 
 
 def configure_native_composer_static():
@@ -262,9 +267,10 @@ def file_metadata(base, root, name, absent=False):
     if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != 0 or info.st_gid != 0:
         raise ValueError('runtime_regular_root_file_required: ' + name)
     import runtime_release as release
-    if release.NATIVE_CAPABILITIES_MODE and name in release.CAMPAIGN_TARGETS.values():
-        key=next(n for n,p in release.CAMPAIGN_TARGETS.items() if p==name)
-        expected_sha,expected_size=release.CAMPAIGN_BEFORE[key]
+    knowledge = release.NATIVE_CAPABILITIES_MODE and name in {release.TARGETS[n] for n in release.KNOWLEDGE_EXISTING}
+    if release.NATIVE_CAPABILITIES_MODE and (name in release.CAMPAIGN_TARGETS.values() or knowledge):
+        key=next(n for n,p in release.TARGETS.items() if p==name)
+        expected_sha,expected_size=(release.KNOWLEDGE_EXISTING if knowledge else release.CAMPAIGN_BEFORE)[key]
         fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
         if info.st_size!=expected_size or stat.S_IMODE(info.st_mode)!=0o644:
             raise ValueError('campaign_before_boundary_drift')
@@ -358,7 +364,7 @@ def pack(repo, output, commit):
         target.write_bytes(raw)
         hashes[name] = digest(raw)
     import runtime_release as release
-    baseline = {name: (digest(generated_bodies[name]) if release.NATIVE_ADMISSION_MODE and name in generated_bodies else None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo)))
+    baseline = {name: (release.KNOWLEDGE_EXISTING[name][0] if release.NATIVE_CAPABILITIES_MODE and name in release.KNOWLEDGE_EXISTING else digest(generated_bodies[name]) if release.NATIVE_ADMISSION_MODE and name in generated_bodies else None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo)))
                 for name, path in SOURCES.items()}
     if not (release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE):baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
     if release.COMPOSER_STATIC_MODE and (baseline!={'frontend/index.html':release.COMPOSER_BEFORE_SHA} or

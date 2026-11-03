@@ -901,15 +901,15 @@ FC写价成功沿最新用户口径：本次Order后台修改明确提示业务�
 |---|---|
 | 唯一主方案 | 本文件 |
 | 正式仓库存放路径 | docs/planning/fs-hermes-longterm-20261031/FS_Hermes_长期总施工方案_唯一主文件.md；当前由总控委托A单一维护，外部开工文件作为输入快照保留 |
-| 当前阶段 | 阶段1必要核心保持收口；阶段2当前DeepSeek用户分析＋显式持续追踪最小真实闭环已核收；阶段3推进单指定账号＋1307/TESTGPT最多1张1次的原API发放，业务动作未验；之后先系统总验收，不自动进4—6 |
+| 当前阶段 | 阶段1必要核心保持收口；阶段2当前DeepSeek用户分析＋显式持续追踪最小真实闭环已核收；阶段3原单指定账号＋1307/TESTGPT一次发放为UNKNOWN/dispatched1，不认已发或未发；2/3约定交付后先系统总验收，不自动进4—6 |
 | 主施工／总控 | 当前Personal总控会话 a65c784742cfb43977bd486372ebb3f2a0f0d7a629f0808741db77ff7f947444；负责统一协调、核收与发布窗口 |
 | 协同施工 | B专注Hermes原生能力与经营智能；A负责FS接线/UI/auth/storage及唯一现场publisher |
 | 公共代码归属 | Hermes核心/模型/记忆技能归B；FS接线、会话、前端、存储及publisher归A；共享文件按实际登记单owner，Git及生产发布串行 |
-| 现有FS/Hermes活动版本 | source6987712266dec9100a83b0d4d4dae5ede98ccf13／nav-20261103T144300Z；20existing/767保护/NEW0、5after及其余782完整metadata已总控核收。manifest72468b70ae375d0878d45a78d8dac106eb84ec4dd91dfb577b445ccb06767f04；journal2d3546e8b9819b99ebf8347f28f9a7826d23720ba900005c411a2821ddc986b7；原审批/UNKNOWN保持，0新模型/业务写。阶段2真实最小闭环证据仍为36d7/nav120348 |
+| 现有FS/Hermes活动版本 | source193223331dd2516ad211a9366f860d6fbebaefc2／nav-20261103T191430Z已核收：21existing/NEW0/767保护，仅grant URL一delta，其余787完整metadata不变；manifest21d6c0198b04f3ba20da91e6bd3d8db1d46d5b6501917f056e5f5bfa34395054，journal14d7aedeaede70c50b07beb4a797b9d82084310b8b707ab17cff76c8baf7a6ab。23件index c001550fd38d4208eced0d666cd8536b449893146368878ce7a9f648f5796d7c；审批/UNKNOWN保持。阶段2真实最小闭环仍引用36d7/nav120348，不把软件更新冒新业务成功 |
 | 新能力已验收范围 | CSV205行/合计70115/尾5行；真实XLSX下载仅Data!B3由20.75改77.25、Notes XML原字节保持；同cid无附件追问合计117.75和Notes!B3=93；刷新后turn POST仍3。生成物为新命名v1/parent null，不冒原文件v2 |
-| 下一步 | couponGrant候选补齐readyFalse内的同步intent→实际7binding定稿，再放行首次工具调用；复用原OperationLedger，目标邮箱仅宿主私有，原operation/batch先落账，sync凭明确单目标结果，async仅原job_id查回，UNKNOWN不重发。1307及单指定账号授权已明确，内部装配不重复索权；后台账号→Goal及取消派发独立，非发券前置。未来自然周期/压缩/OpenAI/06:10/UI及费用unknown保持 |
+| 下一步 | 统一知识consumer已合8587，尚未生产加载；A沿原publisher装配26targets（24existing/NEW2）：native/worker/catalog＋两new bridge五写，788项不写。三existing依赖只按已核Git/固定LF来源首次纳管，正式policy已选approved_current，不改policy/权限。原发券UNKNOWN不重发；一次MemberCoupon原账号只读返回HTTP200/code401后已停止，无ledger写。后台账号→Goal及取消派发、未来自然周期/压缩/OpenAI/06:10/UI和费用unknown独立保留 |
 | 已有生产业务 | 沿原系统、原权限、原调度运行；本次整理未改动 |
-| 本次文件交付 | 最小couponGrant原API/宿主/698发布衔接本地候选及直接回归；候选未上线、未真实发券。阶段1/2已核子项不重测，历史失败与原ID保留 |
+| 本次文件交付 | 193成功链之上的知识publisher本地候选与直接tempFS回归；原8consumer/helper/Core/SDK字节不改，未安装知识包、未新增知识加载模型验收。正式安装及最多一个新只读意图另行按总控串行安排；历史失败和原ID保持 |
 | PR702复用线索 | head `666814c9ae0376fe4f372cf9718508345da45ee0`，merge `30423f91c963228b41fe450f0c7993fa408cf12f`；完整独审与生产验收未在本包确认 |
 
 ## 16.2 Work 每轮更新格式

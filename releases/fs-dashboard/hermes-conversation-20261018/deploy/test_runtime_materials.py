@@ -1197,6 +1197,93 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 class NativePublisher(unittest.TestCase):
+    def test_native_knowledge_payload_closes_actual_imports_and_keeps_existing_helpers(self):
+        prepare.configure_native_capabilities()
+        self.assertEqual((len(release.TARGETS),len(release.NEW)),(26,2))
+        self.assertEqual(release.INSTALLED_COMMIT,'193223331dd2516ad211a9366f860d6fbebaefc2')
+        self.assertEqual(release.NEW,frozenset({'runtime/conversation_knowledge.py','runtime/fs_native_knowledge.py'}))
+        self.assertEqual(set(release.CAPABILITIES_CHANGED),{
+            'runtime/conversation_native.py','runtime/hermes_worker.py','runtime/knowledge_catalog.py',*release.NEW})
+        self.assertEqual(prepare.SOURCES['runtime/report_artifacts.py'],
+            'releases/fs-dashboard/hermes-data-workspace-20261018/source/report_artifacts.py')
+        self.assertEqual(prepare.SOURCES['runtime/fs_native_knowledge.py'],
+            'releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/knowledge.py')
+        self.assertEqual(set(release.KNOWLEDGE_EXISTING),{
+            'runtime/knowledge_catalog.py','runtime/report_artifacts.py','runtime/reviewed_skills.py'})
+        self.assertEqual(set(prepare.SOURCES),set(release.TARGETS))
+        # Import the exact closed bundle, not the older pilot report fixture.
+        names=('knowledge_catalog','report_artifacts','reviewed_skills','fs_native_knowledge','conversation_knowledge')
+        modules={}
+        with patch.dict(sys.modules):
+            for name in names:
+                path=Path(__file__).resolve().parents[4]/prepare.SOURCES['runtime/'+name+'.py']
+                spec=importlib.util.spec_from_file_location(name,path)
+                module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module);modules[name]=module
+            with tempfile.TemporaryDirectory() as directory:
+                root=Path(directory);path=root/'private-pin.json'
+                modules['report_artifacts'].write_file(path,b'bound receipt')
+                self.assertEqual(path.read_bytes(),b'bound receipt')
+                formal=root/'formal';folder=formal/'knowledge-releases/fixed';folder.mkdir(parents=True)
+                (folder/'rule.md').write_bytes(b'closed bundle rule')
+                row=dict(id='fs.rule',revision='v1',layer='current',status='effective',modules=['FS'],
+                    effective_at='2026-11-04',owner='fixture',authority='git',supersedes=[],provenance=['offline_fixture'],
+                    source=dict(path='rule.md',sha256=prepare.digest(b'closed bundle rule')))
+                index=dict(contract='fs-knowledge-index-v1',release='closed-fixed',release_state='published',
+                    source_commit='a'*40,source_root='knowledge-releases/fixed',entries=[row])
+                raw=json.dumps(index).encode();(folder/'index.json').write_bytes(raw)
+                info=dict(owner='fixture',session_id='closed-session',profile_name='fixture',platform='api_server')
+                route=dict(owner='fixture',project='FS',channel='fs',task_types=['conversation'],
+                    catalog='knowledge-releases/fixed/index.json',sha256=prepare.digest(raw),modules=['FS'],
+                    baseline_compatibility=dict(mode='retain_full_baseline',sha256=row['source']['sha256']))
+                (formal/'knowledge-load-policy.json').write_bytes(json.dumps(dict(contract='fs-knowledge-load-policy-v1',requests={},
+                    task_routes=dict(enabled=True,routes=[route]))).encode())
+                receipts=root/'private'
+                adapter=modules['fs_native_knowledge'].NativeKnowledge(formal,receipt_root=receipts)
+                pin=adapter.pin_fs_task(info,'closed-turn',authorize=lambda current,turn:current==info and turn=='closed-turn')
+                self.assertEqual(adapter.load_task(info,'closed-turn','closed-turn',expected_sha256=pin['receipt_sha256']),pin)
+                with adapter.activate_task(info,'closed-turn','closed-turn',pin_sha256=pin['receipt_sha256']):
+                    result=adapter.call('fs_read_knowledge',{'modules':['FS']},session_id=info['session_id'],task_id='closed-turn')
+                    self.assertEqual(result['entries'][0]['content'],'closed bundle rule')
+                self.assertTrue(list((receipts/'knowledge/native').glob('use-*.json')))
+                self.assertFalse((formal/'knowledge/native').exists())
+            self.assertTrue(callable(modules['fs_native_knowledge'].NativeKnowledge.pin_fs_task))
+
+    @staticmethod
+    def knowledge_before_bytes(name):
+        fixture=json.loads(Path(__file__).with_name('knowledge-before-193.json').read_bytes())
+        if name in fixture['files']:
+            row=fixture['files'][name];body=row['utf8'].encode('utf-8')
+            if name=='runtime/knowledge_catalog.py':
+                assert row['source_commit']=='1a1a42d81107c204fac699ccb69dd223deca33b3' and row['transform']=='CRLF_to_LF'
+            else:assert row['source_commit']=='193223331dd2516ad211a9366f860d6fbebaefc2'
+            assert len(body)==row['bytes'] and prepare.digest(body)==row['sha256']
+            expected={**release.KNOWLEDGE_EXISTING,
+                'runtime/conversation_native.py':('de968283f4928199d21bd623a4d7f39b7bfa1dc534b2548c515467817a3399f3',56701),
+                'runtime/hermes_worker.py':('51fda7e6f282628a32c3d12fb05fda5491b9137ccbc6bd9995d725b098a0b5cc',46881)}
+            assert (prepare.digest(body),len(body))==expected[name] and row['source']==prepare.SOURCES[name]
+            return body
+        raise AssertionError('frozen_knowledge_before_required')
+
+    def test_native_knowledge_existing_helper_before_boundary(self):
+        prepare.configure_native_capabilities();base=release.frozen()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owners={};kinds={}
+            with self.native_metadata(owners,kinds,root=root):
+                for name,(expected,size) in release.KNOWLEDGE_EXISTING.items():
+                    path=base.rooted(root,release.TARGETS[name]);path.parent.mkdir(parents=True,exist_ok=True)
+                    body=self.knowledge_before_bytes(name);self.assertEqual((prepare.digest(body),len(body)),(expected,size))
+                    path.write_bytes(body);owners[path]=(0,0,0o644)
+                    self.assertEqual(prepare.file_metadata(base,root,str('/opt/fs-hermes-fc/'+path.name))['sha256'],expected)
+                    for changed in (body+b'x',b'x'+body[1:]):
+                        path.write_bytes(changed)
+                        with self.assertRaises(ValueError):prepare.file_metadata(base,root,release.TARGETS[name])
+                    path.write_bytes(body);owners[path]=(0,0,0o666)
+                    with self.assertRaises(ValueError):prepare.file_metadata(base,root,release.TARGETS[name])
+                    owners[path]=(0,0,0o644)
+                    link=path.with_name(path.name+'.link');os.link(path,link)
+                    with self.assertRaises(ValueError):prepare.file_metadata(base,root,release.TARGETS[name])
+                    link.unlink()
+
     def test_composer_static_is_exact_existing_html_followup(self):
         self.assertTrue(callable(getattr(prepare, 'configure_native_composer_static', None)))
         prepare.configure_native_composer_static()
@@ -1842,13 +1929,13 @@ class NativePublisher(unittest.TestCase):
     def test_native_capabilities_installed_followup(self):
         self.assertTrue(callable(getattr(prepare,'configure_native_capabilities',None)))
         prepare.configure_native_capabilities()
-        self.assertEqual((len(release.TARGETS),len(release.NEW)),(21,0))
-        self.assertEqual(release.INSTALLED_COMMIT,'fb70a3e9753dcfd7acd4571509bc836b1f03baec')
-        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'campaign/backend/campaign_backend/coupon_grant.py'})
+        self.assertEqual((len(release.TARGETS),len(release.NEW)),(26,2))
+        self.assertEqual(release.INSTALLED_COMMIT,'193223331dd2516ad211a9366f860d6fbebaefc2')
+        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'runtime/hermes_worker.py','runtime/conversation_native.py','runtime/knowledge_catalog.py',*release.NEW})
         self.assertEqual(release.INSTALLED_PROOF,dict(sourceCommit=release.INSTALLED_COMMIT,
-            backup='/var/backups/fs-navigation-20261006/nav-20261103T171809Z',
-            manifestSha256='a754a025b573f59b8bc35eab233b140cf68d746f2e2d66e125a75bd005fa4b90',
-            journalSha256='4d005e7c6b24d2f22762ed86a79609d6142a3a445be1b4094ba495b4a1b87402'))
+            backup='/var/backups/fs-navigation-20261006/nav-20261103T191430Z',
+            manifestSha256='21d6c0198b04f3ba20da91e6bd3d8db1d46d5b6501917f056e5f5bfa34395054',
+            journalSha256='14d7aedeaede70c50b07beb4a797b9d82084310b8b707ab17cff76c8baf7a6ab'))
         self.assertEqual(release.CAPABILITIES_STATIC_PROOF['sourceCommit'],'d135d2b965ecdfc2d96a1e49cf9425e31eaca07e')
         self.assertEqual(set(prepare.SOURCES),set(release.CAPABILITIES_TARGETS))
         self.assertEqual(prepare.SOURCES['http/conversation_http.py'],prepare.MODULE+'source/conversation_http.py')
@@ -2086,7 +2173,14 @@ class NativePublisher(unittest.TestCase):
                 import_patch=patch.object(release,'CAPABILITIES_IMPORT_HISTORY_PROOF',import_history);import_patch.start();self.addCleanup(import_patch.stop)
                 rows[:]=[dict(r,beforeSha256=r['sha256']) for r in rows]
                 next(r for r in rows if r['candidate']=='runtime/conversation_user_data.py')['sha256']=prepare.digest(b'installed import dependency')
+                transport_manifest=deepcopy(manifest);transport_manifest['sourceCommit']=release.CAPABILITIES_TRANSPORT_HISTORY_PROOF['sourceCommit']
+                transport=self.save_capabilities_receipt(base,root,release.CAPABILITIES_TRANSPORT_HISTORY_PROOF,transport_manifest,owners)
+                transport_patch=patch.object(release,'CAPABILITIES_TRANSPORT_HISTORY_PROOF',transport);transport_patch.start();self.addCleanup(transport_patch.stop)
+                rows[:]=[dict(r,beforeSha256=r['sha256']) for r in rows]
+                next(r for r in rows if r['candidate']==grant)['sha256']=prepare.digest(b'installed direct channel grant')
                 git['files']={r['candidate']:r['sha256'] for r in rows}
+                git['files'].update({n:v[0] for n,v in release.KNOWLEDGE_EXISTING.items()})
+                git['files'].update({n:None for n in release.NEW})
                 history_patch=patch.object(release,'CAPABILITIES_HISTORY_PROOF',history);history_patch.start();self.addCleanup(history_patch.stop)
                 save(manifest)
                 for path in historical.backup.iterdir():owners[path]=(0,0,0o600)
@@ -2096,10 +2190,17 @@ class NativePublisher(unittest.TestCase):
                 expected.update({p:r['sha256'] for p,r in navigation.after.items()})
                 expected.update({p:r['sha256'] for p,r in shared.after.items()})
                 expected.update({release.CAMPAIGN_TARGETS[n]:v[0] for n,v in release.CAMPAIGN_BEFORE.items()})
+                expected.update({release.TARGETS[n]:v[0] for n,v in release.KNOWLEDGE_EXISTING.items()})
                 expected.update({release.TARGETS[n]:None for n in release.NEW})
                 self.assertEqual(result['archive_all_hashes'],expected)
                 self.assertEqual(len(release.ARCHIVE_PROTECTED),767)
                 self.assertTrue(historical.backup.is_dir())
+                transport_journal=base.rooted(root,transport['backup']+'/journal.json');saved_transport=transport_journal.read_bytes()
+                for changes in ({'written':False},{'rollbackWritten':True}):
+                    bad=json.loads(saved_transport);bad['files'][0].update(changes);raw=json.dumps(bad).encode()
+                    transport_journal.write_bytes(raw);transport['journalSha256']=prepare.digest(raw)
+                    with self.assertRaisesRegex(ValueError,'native_transport_history_success_required'):release.installed_baseline(root,git)
+                transport_journal.write_bytes(saved_transport);transport['journalSha256']=prepare.digest(saved_transport)
                 # Newly pinned 698 must still prove the exact original 36d7
                 # transition and all its older native/navigation/approval guards.
                 import_journal=base.rooted(root,import_history['backup']+'/journal.json');saved_import=import_journal.read_bytes()
@@ -2124,7 +2225,7 @@ class NativePublisher(unittest.TestCase):
                 previous_journal.write_bytes(saved_previous);previous['journalSha256']=prepare.digest(saved_previous)
                 for candidate in ('runtime/conversation_native.py','campaign/backend/campaign_backend/services.py'):
                     bad=deepcopy(manifest);next(r for r in bad['files'] if r['candidate']==candidate)['beforeSha256']='0'*64;save(bad)
-                    with self.assertRaisesRegex(ValueError,'native_import_success_chain_mismatch'):release.installed_baseline(root,git)
+                    with self.assertRaisesRegex(ValueError,'native_transport_success_chain_mismatch'):release.installed_baseline(root,git)
                 save(manifest)
                 for field in ('sourceCommit','nativeStaticBaseline'):
                     bad=deepcopy(history_manifest);bad[field]='untrusted'
@@ -2142,7 +2243,7 @@ class NativePublisher(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError,'composer_static_installed_proof_mismatch'):release.installed_baseline(root,change)
                 for key,value in (('sha256','75a9b57a7073771b105573ab59e4c0a227f8567a75c8accbde2991d171934b3d'),('owner','9876:9876'),('mode','0o644')):
                     bad=deepcopy(manifest);bad['unchangedRequired'][0][key]=value;save(bad)
-                    with self.assertRaisesRegex(ValueError,'native_import_success_chain_mismatch'):release.installed_baseline(root,git)
+                    with self.assertRaisesRegex(ValueError,'native_transport_success_chain_mismatch'):release.installed_baseline(root,git)
                 bad=deepcopy(manifest);bad['sourceCommit']='bd9cb44c4233f176fb15fd14f5560a5000c750d1';save(bad)
                 with self.assertRaises(ValueError):release.installed_baseline(root,git)
                 save(manifest,files=[dict(r,intent=True,written=False) for r in rows])
@@ -2180,10 +2281,9 @@ class NativePublisher(unittest.TestCase):
 
     def test_native_grant_uses_current_success_and_no_new_module(self):
         prepare.configure_native_capabilities()
-        self.assertEqual(release.INSTALLED_COMMIT,'fb70a3e9753dcfd7acd4571509bc836b1f03baec')
-        self.assertEqual((len(release.TARGETS),len(release.CAPABILITIES_BASELINE_TARGETS)),(21,21))
-        self.assertEqual(release.NEW,frozenset())
-        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'campaign/backend/campaign_backend/coupon_grant.py'})
+        self.assertEqual(release.INSTALLED_COMMIT,'193223331dd2516ad211a9366f860d6fbebaefc2')
+        self.assertEqual((len(release.TARGETS),len(release.CAPABILITIES_BASELINE_TARGETS)),(26,21))
+        self.assertNotIn('campaign/backend/campaign_backend/coupon_grant.py',release.NEW|set(release.CAPABILITIES_CHANGED))
         self.assertEqual(release.CAPABILITIES_PREVIOUS_PROOF['sourceCommit'],'36d7d92540d9153e9b1cc764f900990ded17362d')
 
     def campaign_before_bytes(self,name):
@@ -2472,8 +2572,25 @@ class NativePublisher(unittest.TestCase):
                     user_data=base.rooted(f.system,release.TARGETS['runtime/conversation_user_data.py'])
                     user_data.write_bytes(user_data.read_bytes()+b'\n# installed import dependency\n');current[release.TARGETS['runtime/conversation_user_data.py']]=base.digest(user_data)
                     installed_rows=[dict(r,beforeSha256=r['sha256'],sha256=current[r['target']]) for r in installed_rows]
+                    transport_manifest=dict(cap_manifest,sourceCommit=release.CAPABILITIES_TRANSPORT_HISTORY_PROOF['sourceCommit'],files=installed_rows)
+                    transport_proof=self.save_capabilities_receipt(base,f.system,release.CAPABILITIES_TRANSPORT_HISTORY_PROOF,transport_manifest,f.owners)
+                    proof_stack.enter_context(patch.object(release,'CAPABILITIES_TRANSPORT_HISTORY_PROOF',transport_proof))
+                    # The two changed runtime before files are exact installed
+                    # 193 Git bytes frozen before the offline runner starts.
+                    for name in ('runtime/conversation_native.py','runtime/hermes_worker.py'):
+                        target=release.TARGETS[name];base.rooted(f.system,target).write_bytes(self.knowledge_before_bytes(name));current[target]=base.digest(base.rooted(f.system,target))
+                        next(r for r in installed_rows if r['candidate']==name).update(sha256=current[target])
+                        next(r for r in transport_manifest['files'] if r['candidate']==name).update(sha256=current[target])
+                    # Save the actual unchanged runtime relationship in fb70,
+                    # then the one-URL grant transition in 193.
+                    transport_proof.update(self.save_capabilities_receipt(base,f.system,transport_proof,transport_manifest,f.owners))
+                    body=self.campaign_before_bytes(grant).replace(b"url='https://admin-api.p2pah.cn'+self.route",b"url='http://127.0.0.1:8912'+self.route")
+                    base.rooted(f.system,release.TARGETS[grant]).write_bytes(body);current[release.TARGETS[grant]]=prepare.digest(body)
+                    installed_rows=[dict(r,beforeSha256=r['sha256'],sha256=current[r['target']]) for r in installed_rows]
                     cap_manifest=dict(cap_manifest,sourceCommit=release.NATIVE_CAPABILITIES_PROOF['sourceCommit'],files=installed_rows)
                     proof=self.save_capabilities_receipt(base,f.system,release.NATIVE_CAPABILITIES_PROOF,cap_manifest,f.owners)
+                    for name in release.KNOWLEDGE_EXISTING:
+                        path=base.rooted(f.system,release.TARGETS[name]);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(self.knowledge_before_bytes(name));f.owners[path]=(0,0,0o644);current[release.TARGETS[name]]=base.digest(path)
                     # frozen() captures NEW at construction; this reused fixture
                     # base predates mode selection, unlike the staged runtime.
                     base.MATERIAL_NEW=release.NEW
@@ -2502,6 +2619,12 @@ class NativePublisher(unittest.TestCase):
                             prepare.prepare(f.payload,root/'usage-rejected','a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
                     f.owners[usage]=(0,0,0o600)
                     if capabilities:
+                        if failure is None:
+                            for name in release.NEW:
+                                path=base.rooted(f.system,release.TARGETS[name]);path.write_bytes(b'unexpected existing helper');f.owners[path]=(0,0,0o644)
+                                with self.assertRaisesRegex(ValueError,'runtime_source_baseline_drift'):
+                                    prepare.prepare(f.payload,root/'existing-new-rejected','a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
+                                path.unlink();f.owners.pop(path)
                         for zero,extra in ((True,False),(False,True)):
                             names=tuple(n for n in release.CAPABILITIES_CHANGED if n not in release.NEW) if zero else ('runtime/conversation_store.py',)
                             saved={name:(f.payload/name).read_bytes() for name in names}
@@ -2515,7 +2638,7 @@ class NativePublisher(unittest.TestCase):
                             for name,body in saved.items():(f.payload/name).write_bytes(body)
                             (f.payload.parent/'payload-manifest.json').write_bytes(raw)
                     prepare.prepare(f.payload,stage,'a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
-                manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),21 if capabilities else 3);self.assertEqual(len(manifest['unchangedRequired']),767 if capabilities else 776)
+                manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),26 if capabilities else 3);self.assertEqual(len(manifest['unchangedRequired']),767 if capabilities else 776)
                 untouched={r['path']:(base.rooted(f.system,r['path']).read_bytes(),base.rooted(f.system,r['path']).stat().st_ino,base.rooted(f.system,r['path']).stat().st_mtime_ns) for r in manifest['unchangedRequired']}
                 if capabilities:
                     self.assertEqual(manifest['nativeStaticBaseline'],static_proof)
@@ -2523,7 +2646,7 @@ class NativePublisher(unittest.TestCase):
                     for row in manifest['files']:
                         if row['candidate'] not in release.CAPABILITIES_CHANGED:
                             path=base.rooted(f.system,row['target']);untouched[row['target']]=(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns)
-                    self.assertEqual(len(untouched),787)
+                    self.assertEqual(len(untouched),788)
                     self.assertEqual({row['candidate'] for row in manifest['files'] if row['beforeSha256'] is None},set(release.NEW))
                 untouched_modes={p:(base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)) for p in untouched}
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -2533,6 +2656,7 @@ class NativePublisher(unittest.TestCase):
                     module.CAPABILITIES_PREVIOUS_PROOF=previous_proof
                     module.CAPABILITIES_GRANT_HISTORY_PROOF=grant_history_proof
                     module.CAPABILITIES_IMPORT_HISTORY_PROOF=import_history_proof
+                    module.CAPABILITIES_TRANSPORT_HISTORY_PROOF=transport_proof
                     module.CAPABILITIES_NGINX_PROOF=nginx_proof.proof
                     module.CAPABILITIES_NAVIGATION_PROOFS=navigation.proofs
                     module.CAPABILITIES_SHARED_PROOF=shared.proof
@@ -2551,11 +2675,19 @@ class NativePublisher(unittest.TestCase):
                         count=service_calls.count(argv)
                         if failure=='campaign' and count==1:raise RuntimeError('synthetic campaign failure')
                         if failure and count>1:
-                            for row in manifest['files']:self.assertEqual(base.digest(base.rooted(f.system,row['target'])),row['beforeSha256'])
+                            for row in manifest['files']:
+                                path=base.rooted(f.system,row['target']);self.assertEqual(base.digest(path) if path.exists() else None,row['beforeSha256'])
                     return SimpleNamespace(returncode=0,stdout='ActiveState=active\n')
                 with patch.object(module,'frozen',return_value=base),patch.object(module,'running_worker'),patch.object(module,'native_runtime_readiness',readiness),patch.object(module.subprocess,'run',side_effect=service_run):
                     publisher=module.load_base();publisher.inspect(manifest,stage,f.system)
                     if capabilities:
+                        if failure is None:
+                            for name in (*release.NEW,'runtime/knowledge_catalog.py'):
+                                path=base.rooted(f.system,release.TARGETS[name]);saved=path.read_bytes() if path.exists() else None
+                                path.write_bytes(b'helper changed after prepare');f.owners[path]=(0,0,0o644)
+                                with self.assertRaises(ValueError):publisher.inspect(manifest,stage,f.system)
+                                if saved is None:path.unlink();f.owners.pop(path)
+                                else:path.write_bytes(saved)
                         nginx_row=next(r for r in manifest['unchangedRequired'] if r['path']==release.NGINX)
                         self.assertEqual(nginx_row['sha256'],current[release.NGINX])
                         nginx.write_bytes(b'changed route after prepare')
@@ -2582,7 +2714,8 @@ class NativePublisher(unittest.TestCase):
                     cas_raw=(stage/'approved-manifest.json').read_bytes()
                     with self.assertRaisesRegex(ValueError,'archive_usage_cas_drift'):
                         publisher.apply(manifest,stage,prepare.digest(cas_raw),cas_raw,'nav-20261103T000000Z',f.system)
-                    for row in manifest['files']:self.assertEqual(base.digest(base.rooted(f.system,row['target'])),row['beforeSha256'])
+                    for row in manifest['files']:
+                        path=base.rooted(f.system,row['target']);self.assertEqual(base.digest(path) if path.exists() else None,row['beforeSha256'])
                     usage.write_bytes(b'fresh usage before prepare')
                     untouched[usage_path]=(usage.read_bytes(),usage.stat().st_ino,usage.stat().st_mtime_ns)
                     bad_manifest=deepcopy(manifest)
@@ -2640,7 +2773,10 @@ class NativePublisher(unittest.TestCase):
                 for p,values in untouched.items():self.assertEqual((base.rooted(f.system,p).read_bytes(),base.rooted(f.system,p).stat().st_ino,base.rooted(f.system,p).stat().st_mtime_ns),values)
                 for p,values in untouched_modes.items():self.assertEqual((base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)),values)
                 if failure:
-                    for row in manifest['files']:self.assertEqual(base.digest(base.rooted(f.system,row['target'])),row['beforeSha256'])
+                    for row in manifest['files']:
+                        path=base.rooted(f.system,row['target']);self.assertEqual(base.digest(path) if path.exists() else None,row['beforeSha256'])
+                    if capabilities:
+                        self.assertTrue(all(not base.rooted(f.system,release.TARGETS[name]).exists() for name in release.NEW))
 
     def test_archive_usage_requires_real_single_file_and_no_linked_parent(self):
         with tempfile.TemporaryDirectory() as directory:
