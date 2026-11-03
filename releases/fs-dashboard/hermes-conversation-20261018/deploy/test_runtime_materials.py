@@ -2111,9 +2111,8 @@ class NativePublisher(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);owners={};kinds={}
             with self.native_metadata(owners,kinds,root=root):
-                repo=Path(__file__).resolve().parents[4]
                 for name,target in release.CAMPAIGN_TARGETS.items():
-                    body=subprocess.check_output(['git','show',release.INSTALLED_COMMIT+':'+prepare.SOURCES[name]],cwd=repo)
+                    body=self.campaign_before_bytes(name)
                     path=base.rooted(root,target);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(body);owners[path]=(0,0,0o644)
                     self.assertEqual(prepare.file_metadata(base,root,target)['sha256'],release.CAMPAIGN_BEFORE[name][0])
                     path.write_bytes(body+b'x')
@@ -2130,6 +2129,17 @@ class NativePublisher(unittest.TestCase):
                     link.unlink();kinds[path.parent]=stat.S_IFLNK
                     with self.assertRaises(ValueError):prepare.file_metadata(base,root,target)
                     kinds.clear()
+
+    def campaign_before_bytes(self,name):
+        # Frozen Git bytes assembled before isolation; never launch Git inside
+        # the original offline runner or substitute current candidate bytes.
+        fixture=json.loads(Path(__file__).with_name('campaign-before-36d7.json').read_bytes())
+        self.assertEqual(fixture['source_commit'],release.INSTALLED_COMMIT)
+        self.assertEqual(set(fixture['files']),set(release.CAMPAIGN_TARGETS))
+        row=fixture['files'][name];self.assertEqual(row['source'],prepare.SOURCES[name])
+        body=row['utf8'].encode('utf8')
+        self.assertEqual((prepare.digest(body),len(body)),release.CAMPAIGN_BEFORE[name])
+        return body
 
     def test_native_capabilities_original_apply_rollback(self):
         self._archive_apply_contract(capabilities=True)
@@ -2378,10 +2388,8 @@ class NativePublisher(unittest.TestCase):
                     proof=self.save_capabilities_receipt(base,f.system,release.NATIVE_CAPABILITIES_PROOF,cap_manifest,f.owners)
                     with patch.object(store_module,'SYNTHETIC_ARCHIVE',pins):archived_before=store.archive_synthetic_unknown(owner)
                     prepare.configure_native_capabilities()
-                    repo=Path(__file__).resolve().parents[4]
                     for name,target in release.CAMPAIGN_TARGETS.items():
-                        body=subprocess.check_output(['git','show',release.INSTALLED_COMMIT+':'+prepare.SOURCES[name]],cwd=repo)
-                        self.assertEqual((prepare.digest(body),len(body)),release.CAMPAIGN_BEFORE[name])
+                        body=self.campaign_before_bytes(name)
                         path=base.rooted(f.system,target);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(body)
                         f.owners[path]=(0,0,0o644);current[target]=prepare.digest(body)
                     # frozen() captures NEW at construction; this reused fixture
