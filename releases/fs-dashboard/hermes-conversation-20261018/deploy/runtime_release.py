@@ -86,10 +86,14 @@ CAPABILITIES_IMPORT_HISTORY_PROOF = dict(sourceCommit='9ca600bef0bd09f3800e32981
     backup='/var/backups/fs-navigation-20261006/nav-20261103T165152Z',
     manifestSha256='c90d0ce989eaa30ff2e5a91993b9847b64f22f81db03a3895b96ab5c616f5603',
     journalSha256='4c4f4b72d03792637309c0dd056150a0f0a8c6b3ab55f7951b3852b5191bcb76')
-NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='fb70a3e9753dcfd7acd4571509bc836b1f03baec',
+CAPABILITIES_TRANSPORT_HISTORY_PROOF = dict(sourceCommit='fb70a3e9753dcfd7acd4571509bc836b1f03baec',
     backup='/var/backups/fs-navigation-20261006/nav-20261103T171809Z',
     manifestSha256='a754a025b573f59b8bc35eab233b140cf68d746f2e2d66e125a75bd005fa4b90',
     journalSha256='4d005e7c6b24d2f22762ed86a79609d6142a3a445be1b4094ba495b4a1b87402')
+NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='193223331dd2516ad211a9366f860d6fbebaefc2',
+    backup='/var/backups/fs-navigation-20261006/nav-20261103T191430Z',
+    manifestSha256='21d6c0198b04f3ba20da91e6bd3d8db1d46d5b6501917f056e5f5bfa34395054',
+    journalSha256='14d7aedeaede70c50b07beb4a797b9d82084310b8b707ab17cff76c8baf7a6ab')
 CAPABILITIES_STATIC_PROOF = dict(sourceCommit='d135d2b965ecdfc2d96a1e49cf9425e31eaca07e',
     backup='/var/backups/fs-navigation-20261006/nav-20261103T021812Z',
     manifestSha256='26b0de09b7b84d9d7634948c3177ca7cf919bac6ea4aab00c247bd6389e8cbb8',
@@ -246,7 +250,18 @@ CAPABILITIES_TARGETS.update(CAMPAIGN_TARGETS)
 CAPABILITIES_GRANT_HISTORY_TARGETS=dict(CAPABILITIES_TARGETS)
 CAPABILITIES_TARGETS['campaign/backend/campaign_backend/coupon_grant.py']='/opt/fs-campaign-dashboard/backend/campaign_backend/coupon_grant.py'
 CAPABILITIES_BASELINE_TARGETS=dict(CAPABILITIES_TARGETS)
-CAPABILITIES_CHANGED = ('campaign/backend/campaign_backend/coupon_grant.py',)
+# Exact first-managed helper identities from the bounded metadata/source check.
+# Catalog is 1a1a42d8's explicit LF publication; report and reviewed remain raw
+# current Git bytes. These are fixed expectations, never a disk-derived baseline.
+KNOWLEDGE_EXISTING = {
+    'runtime/knowledge_catalog.py':('9ebb9c5c51d3aec5e677500f6ecbbde73277e8a3b1cab0e4740908c8546a6d6b',13044),
+    'runtime/report_artifacts.py':('159728c954ead73d6962c37e0667e066ff676979b5ac1275d8f987680d56f11b',8505),
+    'runtime/reviewed_skills.py':('a3d546177396ba906f66c4f8411111aaefb3c96371dc628ac5ada2daf023e660',14072)}
+CAPABILITIES_TARGETS.update({'runtime/'+name:'/opt/fs-hermes-fc/'+name for name in (
+    'conversation_knowledge.py','fs_native_knowledge.py','knowledge_catalog.py','report_artifacts.py','reviewed_skills.py')})
+CAPABILITIES_NEW=frozenset({'runtime/conversation_knowledge.py','runtime/fs_native_knowledge.py'})
+CAPABILITIES_CHANGED = ('runtime/conversation_native.py','runtime/hermes_worker.py',
+    'runtime/conversation_knowledge.py','runtime/fs_native_knowledge.py','runtime/knowledge_catalog.py')
 NATIVE_ADMISSION_CANDIDATE = 'runtime/conversation_native.py'
 NATIVE_ADMISSION_BEFORE_SHA = '030e36d5cf134fa1ef63c576211a3f1b4f2d9a3135ed44c15a7fd1d403e795c2'
 NATIVE_ADMISSION_AFTER_SHA = '72253b5ffee19cc2d0352c0bb1ee7d67fe801fcb515b3b711466e828a4c1a57a'
@@ -957,6 +972,50 @@ def capabilities_import_history(base,root,current,installed_rows):
         raise ValueError('native_import_success_chain_mismatch')
 
 
+def capabilities_transport_history(base,root,current,installed_rows):
+    """Verify the fixed fb70 -> 193 transport release before knowledge assembly."""
+    proof=CAPABILITIES_TRANSPORT_HISTORY_PROOF;records={}
+    fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+    for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
+        path=base.rooted(root,proof['backup']+'/'+name);base.no_target_link(path);before=path.lstat()
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>8*1024*1024 or
+                (before.st_uid,before.st_gid,stat.S_IMODE(before.st_mode))!=(0,0,0o600)):
+            raise ValueError('native_transport_history_boundary_drift')
+        with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('native_transport_history_changed')
+            raw=stream.read(8*1024*1024+1)
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('native_transport_history_changed')
+        after=path.lstat();base.no_target_link(path)
+        if any(getattr(before,k)!=getattr(after,k) for k in fields):raise ValueError('native_transport_history_changed')
+        if hashlib.sha256(raw).hexdigest()!=proof[key]:raise ValueError('native_transport_history_proof_drift')
+        records[name]=json.loads(raw)
+    manifest,journal=records['approved-manifest.json'],records['journal.json']
+    rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[]);written=journal.get('files',[])
+    old={r['target']:dict(path=r['target'],sha256=r['sha256'],owner=r.get('owner'),mode=r.get('mode')) for r in rows}
+    old.update({r['path']:dict(r) for r in protected})
+    if (manifest.get('sourceCommit')!=proof['sourceCommit'] or manifest.get('scope')!=SCOPE or
+            manifest.get('nativeCapabilities') is not True or manifest.get('nativeArchive') is not True or
+            manifest.get('nativeStaticBaseline')!=CAPABILITIES_STATIC_PROOF or
+            len(rows)!=21 or {r['candidate']:r['target'] for r in rows}!=CAPABILITIES_BASELINE_TARGETS or
+            any(r.get('owner')!='0:0' or r.get('mode')!='0o644' for r in rows) or len(protected)!=767 or len(old)!=788 or
+            journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
+            any(journal.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
+            journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=proof['manifestSha256'] or
+            len(written)!=21 or {r['candidate'] for r in written}!=set(CAPABILITIES_BASELINE_TARGETS) or
+            any(any(w.get(k)!=r.get(k) for k in ('candidate','target','beforeSha256','sha256','owner','mode')) or
+                w.get('intent') is not True or w.get('written') is not True or
+                any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten'))
+                for r in rows for w in written if r['candidate']==w['candidate'])):
+        raise ValueError('native_transport_history_success_required')
+    capabilities_import_history(base,root,old,rows)
+    if (set(current)!=set(old) or
+            any(any(row.get(k)!=current[path].get(k) for k in
+                (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
+                for path,row in old.items() if path not in CAPABILITIES_BASELINE_TARGETS.values()) or
+            any(r.get('beforeSha256')!=old[r['target']]['sha256'] for r in installed_rows)):
+        raise ValueError('native_transport_success_chain_mismatch')
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -1006,15 +1065,17 @@ def installed_baseline(root, git_baseline):
                 NATIVE_CAPABILITIES_MODE and manifest.get('nativeStaticBaseline')!=CAPABILITIES_STATIC_PROOF or
                 git_baseline!={'source_commit':INSTALLED_COMMIT,'files':(
                     {'frontend/index.html':COMPOSER_BEFORE_SHA} if COMPOSER_STATIC_MODE else
-                    {name:(None if name in NEW else metadata.get(target,{}).get('sha256'))
+                    {name:(None if name in NEW else KNOWLEDGE_EXISTING[name][0] if name in KNOWLEDGE_EXISTING else metadata.get(target,{}).get('sha256'))
                      for name,target in TARGETS.items()})}):
             raise ValueError('composer_static_installed_proof_mismatch')
         if NATIVE_CAPABILITIES_MODE:
-            capabilities_import_history(base,root,metadata,rows)
+            capabilities_transport_history(base,root,metadata,rows)
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
         all_hashes={p:r['sha256'] for p,r in metadata.items()}
+        if NATIVE_CAPABILITIES_MODE:
+            all_hashes.update({TARGETS[name]:value[0] for name,value in KNOWLEDGE_EXISTING.items()})
         all_hashes.update({TARGETS[name]:None for name in NEW})
         return dict(manifest,archive_all_hashes=all_hashes)
     if ARCHIVE_MODE:
