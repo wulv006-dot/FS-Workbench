@@ -183,6 +183,84 @@ def _fs_no_implicit_dotenv(*, hermes_home=None, project_env=None, load_external_
     return []
 
 
+def install_native_compaction_relay(agent, binding, effort, check, relay):
+    """Confirm only an adopted, normally returned official SDK compaction."""
+    from copy import deepcopy
+    from functools import wraps
+    attempt_context=ContextVar('fs_native_compaction_attempt',default=None)
+    lock=RLock();state={'attempt':None,'pending':None}
+    original_compress=agent._compress_context;original_build=agent._build_api_kwargs
+    original_event=getattr(agent,'event_callback',None)
+    fixed=deepcopy(binding)
+
+    def event(name,payload):
+        attempt=attempt_context.get()
+        if name=='session:compress' and attempt is not None and type(payload) is dict:
+            with lock:
+                if attempt['active'] and state['attempt'] is attempt:
+                    attempt['events'].append(deepcopy(payload))
+        if callable(original_event):return original_event(name,payload)
+
+    @wraps(original_compress)
+    def compress(messages,*args,**kwargs):
+        check();before=deepcopy(messages)
+        count=agent.context_compressor.compression_count
+        attempt={'active':True,'events':[],'session':agent.session_id,'count':count}
+        with lock:state['attempt']=attempt
+        token=attempt_context.set(attempt)
+        try:
+            result=original_compress(messages,*args,**kwargs)
+            with lock:
+                sid=attempt['session'];previous=count;valid=type(count) is int
+                for item in attempt['events']:
+                    now=item.get('compression_count');child=item.get('session_id')
+                    valid=valid and (set(item)=={'platform','session_id','old_session_id','in_place','compression_count'} and
+                        item['platform']==agent.platform and item['old_session_id']==sid and
+                        type(item['in_place']) is bool and type(child) is str and bool(child) and
+                        (not item['in_place'] or child==sid) and type(now) is int and now>previous)
+                    sid=child;previous=now
+                actual=agent.context_compressor.compression_count
+                confirmed=(state['attempt'] is attempt and valid and attempt['events'] and
+                        type(actual) is int and actual>count and previous==actual and sid==agent.session_id and
+                        type(result) is tuple and len(result)==2 and type(result[0]) is list and result[0]!=before)
+            if confirmed:
+                check()
+                with lock:
+                    if state['attempt'] is attempt:state['pending']=(actual,sid)
+            return result
+        finally:
+            with lock:attempt['active']=False
+            attempt_context.reset(token)
+
+    @wraps(original_build)
+    def build(*args,**kwargs):
+        result=original_build(*args,**kwargs)
+        # Summarization inside the compression attempt is not its adopted request.
+        if attempt_context.get() is not None:return result
+        with lock:
+            pending=None if state['attempt'] is not None and state['attempt']['active'] else state['pending']
+        if pending is not None:
+            from agent.message_sanitization import sanitize_outbound_kwargs
+            from native_chat import native_messages_sha256
+            check()
+            if agent.session_id!=pending[1]:raise PermissionError('native_compaction_session_changed')
+            sanitize_outbound_kwargs(agent,result)
+            value={'binding':fixed,'compression_count':pending[0],
+                   'messages_sha256':native_messages_sha256(result,reasoning_effort=effort)}
+            receipt=relay(value)
+            if (type(receipt) is not dict or receipt.get('registered') is not True or
+                    receipt.get('compression_count')!=pending[0]):
+                raise PermissionError('native_compaction_not_registered')
+            check()
+            with lock:
+                if state['pending'] is pending:state['pending']=None
+        return result
+
+    agent.event_callback=event
+    agent._compress_context=compress
+    agent._build_api_kwargs=build
+
+
 def make_adapter(api_key):
     from hermes_cli import env_loader
     env_loader.load_hermes_dotenv = _fs_no_implicit_dotenv
@@ -566,7 +644,7 @@ def make_adapter(api_key):
                 enabled = sorted(set(_get_platform_tools(config, 'api_server')) | {'fs_readonly'})
                 callbacks = {key: kwargs[key] for key in ('stream_delta_callback','tool_progress_callback',
                     'tool_start_callback','tool_complete_callback','interim_assistant_callback','reasoning_callback',
-                    'status_callback') if key in kwargs}
+                    'status_callback','event_callback') if key in kwargs}
                 def pending(call_id, name, arguments, result):
                     backend.observe_pending(name, result, lambda value: call_tool(
                         'fs.native.pending_source', value, session_id=fixed['session_id']))
@@ -601,6 +679,8 @@ def make_adapter(api_key):
                 except BaseException:
                     agent.close()
                     raise
+                install_native_compaction_relay(agent,fixed,effort,backend.check,lambda value:json.loads(call_tool(
+                    'fs.native.compacted_request',value,session_id=fixed['session_id'])))
             original_run = agent.run_conversation
             @functools.wraps(original_run)
             def run(*args, **run_kwargs):
