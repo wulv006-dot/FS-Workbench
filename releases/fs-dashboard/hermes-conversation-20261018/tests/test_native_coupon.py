@@ -3,6 +3,7 @@ import ast
 from copy import deepcopy
 from datetime import datetime,timedelta,timezone
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -78,6 +79,8 @@ class NativeCouponIntentTests(unittest.TestCase):
         node=next(n for n in ast.parse(source.read_text('utf8')).body if isinstance(n,ast.FunctionDef) and n.name=='atomic')
         namespace=dict(Path=Path,secrets=secrets,json=json)
         exec(compile(ast.Module(body=[node],type_ignores=[]),str(source),'exec'),namespace)
+        admission_path=self.conversation.run_root/'admissions'/(self.sid+'.json')
+        reference_path=self.conversation.store.path.parent/'knowledge'/hashlib.sha256(b'operator').hexdigest()/(self.turn_id+'.json')
         def atomic(destination,value,**kw):
             destination=Path(destination);destination.parent.mkdir(parents=True,exist_ok=True)
             if destination==path:
@@ -88,8 +91,19 @@ class NativeCouponIntentTests(unittest.TestCase):
                 self.assertIn(self.turn_id,self.conversation.live);self.assertEqual(len(self.requests),1)
                 self.final_writes.append(deepcopy(value))
                 if self.fail_write:raise OSError('synthetic approval write failure')
-            else:self.transitions.append(value.get('ready'))
+            elif destination==admission_path:
+                self.assertIn('ready',value)
+                self.assertEqual(kw.get('mode',0o640),0o640)
+                self.transitions.append(value['ready'])
             namespace['atomic'](destination,value,**kw)
+            if destination==reference_path:
+                self.assertEqual(kw.get('mode'),0o600)
+                self.assertEqual(json.loads(destination.read_bytes()),value)
+                if os.name=='posix':
+                    self.assertEqual(stat.S_IMODE(destination.stat().st_mode),0o600)
+                    self.assertEqual(stat.S_IMODE(destination.parent.stat().st_mode),0o700)
+            elif destination==admission_path and os.name=='posix':
+                self.assertEqual(stat.S_IMODE(destination.stat().st_mode),0o640)
         with patch.object(module,'CAMPAIGN_APPROVAL_FILE',path),patch.object(Path,'lstat',lstat),patch.object(os,'fstat',fstat),patch.object(controller,'atomic',atomic):
             if os.name=='nt':
                 # Linux exercises the real no-follow FD/flock. Windows cannot
