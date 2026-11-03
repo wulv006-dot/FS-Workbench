@@ -1349,6 +1349,7 @@ class NativePublisher(unittest.TestCase):
                 with closing(sqlite3.connect(p)) as db:db.executescript(sql);db.commit()
             for name in ('/var/www/dashboard/fs-home/transactions/collector.lock','/var/lib/fs-hermes-fc/fs/admission.lock','/var/lib/fs-business-ranges/fc-daily/provider.lock'):
                 p=base.rooted(f.system,name);p.parent.mkdir(parents=True,exist_ok=True);p.touch();p.chmod(0o600)
+                f.owners[p]=(0,0,0o600)  # Project the real lock mode, not the default code-file0644.
             raw=f.save_descriptor();stage=root/'stage'
             prepare.prepare(f.payload,stage,'a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
             manifest_raw=(stage/'approved-manifest.json').read_bytes();manifest=json.loads(manifest_raw)
@@ -1360,15 +1361,9 @@ class NativePublisher(unittest.TestCase):
                 lock_module=SimpleNamespace(LOCK_EX=2,LOCK_NB=4,flock=Mock())
             else:import fcntl as lock_module
             with patch.dict(sys.modules,{'fcntl':lock_module}),ExitStack() as platform:
-                if os.name=='nt':
-                    original_fstat=os.fstat
-                    def root_lock_metadata(fd):
-                        info=original_fstat(fd)
-                        fields={k:getattr(info,k) for k in dir(info) if k.startswith('st_')}
-                        fields.update(st_uid=0,st_gid=0,st_mode=stat.S_IFMT(info.st_mode)|0o600)
-                        return SimpleNamespace(**fields)
-                    platform.enter_context(patch.object(os,'geteuid',return_value=0,create=True))
-                    platform.enter_context(patch.object(os,'fstat',side_effect=root_lock_metadata))
+                # Root identity is the existing synthetic filesystem contract on
+                # both platforms; keep native_metadata's path/FD projection.
+                platform.enter_context(patch.object(os,'geteuid',return_value=0,create=True))
                 # Runtime publishers retain their actual active-task/report refusals.
                 with self.assertRaisesRegex(ValueError,'active or unreconciled Hermes task'):base.guards(manifest,f.system)
                 with self.assertRaisesRegex(ValueError,'active or unreconciled Hermes task'):
