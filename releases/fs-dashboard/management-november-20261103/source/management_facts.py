@@ -106,7 +106,7 @@ def collect(at,targets,reader,*,cache=None,deadline_seconds=1800):
    return aggregate_components([query(key,start,end,pin=pin,required=required) for key in components])
   key=fingerprint([profile,start,end,SOURCE_CONTRACT,DATA_SCOPE])
   if pin and key in cache and cache[key].get('cacheCheckedOn')==day.isoformat() and all(numeric(cache[key]['values'].get(k)) for k in required):return cache[key]
-  if time.monotonic()>=deadline:return {'values':dict.fromkeys(METRICS),'status':'unavailable','error':'collection_deadline'}
+  if time.monotonic()>=deadline:return {'values':dict.fromkeys(METRICS),'status':'unavailable','error':'collection_deadline','period':{'start':start,'end':end}}
   try:
    row=read_query(reader,profile,start,end,deadline,required=required)
    if pin and row['status']=='available' and row['freshness']=='fresh':cache[key]=dict(row,cacheCheckedOn=day.isoformat())

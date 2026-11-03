@@ -53,7 +53,7 @@
     "management-live.js": "aa04a3c80869f0fd711534812f2f47fd21a91a2d40276ae298a2a0a31d8f4142",
     "management.css": "2b80c427dd916e88e6b03076ee39d818f26e8793ab19ffe1eda3fb93c90a9e94",
     "management_components.py": "65c52274d4b0bd422726366c9be22d0c63b24f3c2bc4decf46f524ac07deede2",
-    "management_facts.py": "e4996452f3dbaf728302c60274b74ff99d521d776e9b31801824a520ad2c3902",
+    "management_facts.py": "e42fec5b2c44f01fc0fc642994eda621b3cb976786cd349dc8a0b883130ff042",
     "management_profiles.py": "944befe9ac5b60b192845827d025eea380362863a869cc2f1485ca186df97d6d",
     "management_v2_runner.py": "77e060d14546e5a5b1077a191354e770ba5cd8930547c921255e4535d44cd018",
     "maplestory_classic.html": "a754577e744f54aab52200d027ea1f4f565650039eebc2fa19b80dd292160791",
@@ -74,5 +74,6 @@
     "torchlight_infinite.html": "52bd93a63e738cc078ff494e9c5d7f85d22a41648d8a5f3fd1c9aced5eae01dd",
     "wardogs.html": "a7a7a44ff3cc25fae2250cbbb6664c7412a602e2980abd91841d61b302b67ac9",
     "wow_forever.html": "b461dcdb8e16eb4c78685bbf7088982282fd67ad006e6c15d9e69dda71d763fd"
-  }
+  },
+  "deadlineReturnContract": "collection_deadline preserves requested period.start/end; see DEADLINE-REGRESSION.md; isolation proof does not establish a production incident"
 }
