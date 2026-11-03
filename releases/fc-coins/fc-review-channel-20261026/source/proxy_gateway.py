@@ -380,6 +380,10 @@ class UnifiedBudget:
         with self.db() as conn:
             rows=conn.execute("SELECT m.content,r.request_digest,r.turn FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn<? AND m.state='succeeded' ORDER BY r.turn",(owner,task,turn)).fetchall()
         messages=request['messages'];matched=[];baseline=0
+        # Existing title/summary requests have no tool history to restore.
+        # Do not adopt or mutate the main request's trusted compaction baseline.
+        if not request['tools'] and not any(m.get('tool_calls') for m in messages):
+            compaction=None
         if compaction is not None:
             from native_chat import native_messages_sha256
             baseline=compaction['baseline_length']
