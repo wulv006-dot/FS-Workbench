@@ -676,5 +676,91 @@ class NativeCompactionHistory(unittest.TestCase):
                 native_chat.native_messages_sha256(dict(messages=messages),reasoning_effort='none')
 
 
+
+    def summary_via_gateway(self,h):
+        # Execute the exact pinned _call_summary_llm body. Only its auxiliary
+        # client wire builder and observability dependencies are fixtures.
+        import logging, time
+        from contextlib import nullcontext
+        from unittest.mock import patch
+        sdk=fixtures.load('native_summary_sdk',CORE.parent/'fixtures/native_compaction_sdk_71d34bad.py')
+        captured=[]
+        def call_llm(**kwargs):
+            self.assertEqual(kwargs['task'],'compression')
+            self.assertEqual(kwargs['main_runtime']['base_url'],'http://synthetic-proxy/v1')
+            self.assertEqual(kwargs['main_runtime']['api_key'],h.f.token)
+            self.assertEqual(set(kwargs['messages'][0]),{'role','content'})
+            captured.append(deepcopy(kwargs['messages']))
+            # Existing auxiliary_client wire shape: no tools/max_tokens or
+            # client-supplied auxiliary flag. Actual Proxy derives that flag.
+            return h.proxy.dispatch('POST','/v1/chat/completions',h.f.token,
+                dict(model=h.body['model'],messages=kwargs['messages'],reasoning_effort='none'))
+        agent=SimpleNamespace(model=h.body['model'],provider='custom',
+            base_url='http://synthetic-proxy/v1',api_key=h.f.token,api_mode='chat_completions',
+            summary_model=None,context_length=100000,
+            _apply_summary_route=lambda *a:None,_record_aux_compression_call=lambda **k:None,
+            _compression_cancelled=lambda:False)
+        dependencies=dict(time=time,logger=logging.getLogger('summary-fixture'),
+            _pinned_summary_call_kwargs=lambda:None,aux_interrupt_protection=nullcontext,
+            call_llm=call_llm,extract_content_or_reasoning=lambda r,**k:r['choices'][0]['message']['content'],
+            _is_refusal_response=lambda *a:False,_response_finish_reason=lambda r:'stop')
+        with patch.dict(sdk._call_summary_llm.__globals__,dependencies):
+            result=sdk._call_summary_llm(agent,'Synthetic compression prompt',time.monotonic())
+        self.assertEqual(captured,[[dict(role='user',content='Synthetic compression prompt')]])
+        self.assertEqual(result,'synthetic answer')
+
+    def test_real_summary_call_after_confirmed_compaction_then_second_compaction(self):
+        with self.fixture() as h:
+            newer=deepcopy(h.calls)
+            for c in newer:c['function']['arguments']='{"round":1}'
+            h.responses.append(newer)
+            self.dispatch(h);h.body['messages']+=h.replay(h.calls)
+            self.sdk_compact(h);self.confirm(h);self.dispatch(h)
+            marker=deepcopy(self.gateway(h)._native_compaction)
+            self.summary_via_gateway(h)
+            self.assertEqual(self.gateway(h)._native_compaction,marker)
+            h.body['messages']+=h.replay(newer)
+            self.dispatch(h)
+            self.sdk_compact(h,count=2);self.confirm(h,count=2);self.dispatch(h)
+            self.assertEqual(len(h.wire),5)
+            with h.db() as conn:
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM model_calls WHERE state='succeeded'").fetchone()[0],5)
+
+    def test_auxiliary_before_first_adoption_does_not_consume_confirmation(self):
+        with self.fixture() as h:
+            self.dispatch(h);h.body['messages']+=h.replay(h.calls)
+            self.sdk_compact(h);self.confirm(h)
+            marker=deepcopy(self.gateway(h)._native_compaction)
+            self.assertIsNone(marker['baseline_length'])
+            self.summary_via_gateway(h)
+            self.assertEqual(self.gateway(h)._native_compaction,marker)
+            self.dispatch(h)
+            self.assertIsNotNone(self.gateway(h)._native_compaction['baseline_length'])
+            self.assertEqual(len(h.wire),3)
+
+    def test_auxiliary_cannot_exempt_tool_history_or_unlock_current_receipts(self):
+        for change in ('tools_present','history_present','name','arguments','index','missing','duplicate'):
+            with self.subTest(change=change),self.fixture() as h:
+                newer=deepcopy(h.calls)
+                for c in newer:c['function']['arguments']='{"round":1}'
+                h.responses.append(newer)
+                self.dispatch(h);h.body['messages']+=h.replay(h.calls)
+                self.sdk_compact(h);self.confirm(h);self.dispatch(h)
+                marker=deepcopy(self.gateway(h)._native_compaction)
+                self.summary_via_gateway(h)
+                h.body['messages']+=h.replay(newer)
+                if change=='tools_present':h.body['messages']=[dict(role='user',content='wrong prefix')]
+                elif change=='history_present':
+                    h.body.pop('tools');h.body.pop('max_tokens')
+                elif change=='name':h.body['messages'][-3]['tool_calls'][0]['function']['name']='tool_call'
+                elif change=='arguments':h.body['messages'][-3]['tool_calls'][0]['function']['arguments']='{"changed":true}'
+                elif change=='index':h.body['messages'][-3]['tool_calls'][0]['index']=9
+                elif change=='missing':del h.body['messages'][-3:]
+                else:h.body['messages']+=deepcopy(h.body['messages'][-3:])
+                if change=='missing':h.body['messages'].append(dict(role='user',content='missing paid reply'))
+                with self.assertRaises(ValueError):self.dispatch(h)
+                self.assertEqual(self.gateway(h)._native_compaction,marker)
+                self.assertEqual(len(h.wire),3)
+
 if __name__ == '__main__':
     unittest.main()
