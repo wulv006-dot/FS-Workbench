@@ -46,3 +46,7 @@ MLB 的旧固定凭据和日更任务的旧失败属于独立问题，UI 发布�
 ## 2026-10-17 ES订单结构增量
 
 `modules/native/business.js`基于业务刷新活动维护源（SHA256 ec074d393b3fb38446f2eca03bbc0f7ac81f7511fcb1c67db694a553842a4d66）转接为本任务可编辑源；独立FC27 ES结构不覆盖Admin主卡，也不改变现有明细筛选。Google广告组仅作展开细分，不叠加系列/账号总额。其他业务依赖仍固定原活动资产。新前端需在结构路由和广告组合同就绪后发布，历史release不改。最小发布准备入口为 `releases/fs-dashboard/traffic-hermes-20261017/prepare_ui.py`；复用既有受限发布器及锁、CAS、备份、账本与回退，不以完整UI构建输出替代本批5资产/2目标。
+
+## 2026-11-03 导航体验改造
+当前导航增强可编辑源与构建入口见 modules/navigation-experience/README.md。此目录以本次核实的静态nav.js和动态hubnav.js为输入，统一收纳、搜索、紧凑侧栏与原生切换；旧adapters基线保留历史职责，不能覆盖本批活动版本。真实入口检查、已知服务故障与逆序回滚见该文档。
+
