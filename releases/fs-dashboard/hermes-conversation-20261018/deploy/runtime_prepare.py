@@ -167,6 +167,12 @@ def configure_native_capabilities():
     SOURCES.update({'runtime/'+n:MODULE+'source/'+n for n in ('conversation_store.py','conversation_native.py')})
     SOURCES['runtime/conversation_service.py']=FC+'fc-pricing-v3-20261026/source/conversation_service.py'
     SOURCES['http/conversation_http.py']=MODULE+'source/conversation_http.py'
+    SOURCES.update({'runtime/conversation_user_data.py':MODULE+'source/conversation_user_data.py',
+        'runtime/a2_query_context.py':'releases/fs-dashboard/user-analytics-20261022/source/a2_query_context.py',
+        'runtime/user_runtime.py':'releases/fs-dashboard/user-analytics-20261022/source/user_runtime.py',
+        'runtime/live_order_consumer.py':'releases/fs-dashboard/tiered-data-access-20261101/source/live_order_consumer.py',
+        'runtime/b2_customer_followup.py':CORE+'b2_customer_followup.py',
+        'runtime/fs_native_readonly.py':'releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py'})
 
 
 def configure_native_composer_static():
@@ -345,7 +351,7 @@ def pack(repo, output, commit):
                 baseline[release.NATIVE_ADMISSION_CANDIDATE] != release.NATIVE_ADMISSION_BEFORE_SHA or
                 hashes['payload/'+release.NATIVE_ADMISSION_CANDIDATE] != release.NATIVE_ADMISSION_AFTER_SHA):
             raise ValueError('exact_native_admission_git_delta_required')
-    if release.NATIVE_CAPABILITIES_MODE and ({name for name in SOURCES if hashes['payload/'+name]!=baseline[name]}!=set(release.CAPABILITIES_CHANGED) or any(value is None for value in baseline.values())):
+    if release.NATIVE_CAPABILITIES_MODE and ({name for name in SOURCES if hashes['payload/'+name]!=baseline[name]}!=set(release.CAPABILITIES_CHANGED) or {name for name,value in baseline.items() if value is None}!=set(release.NEW)):
         raise ValueError('exact_native_capabilities_git_delta_required')
     installed_baseline={'source_commit': INSTALLED_COMMIT, 'files': baseline}
     if release.NATIVE_MODE:

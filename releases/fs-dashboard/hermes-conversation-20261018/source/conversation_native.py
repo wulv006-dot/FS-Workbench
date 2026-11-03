@@ -478,6 +478,22 @@ class NativeDockerBackend:
         if task_id not in (None, self.binding['turn_id']) or self.authorize() is not True:
             raise PermissionError('native_worker_inactive')
 
+    def user_data_call(self,name,arguments,task_id=None):
+        self.check(task_id)
+        if not callable(getattr(self,'data_call',None)):
+            raise PermissionError('native_user_relay_unavailable')
+        value=self.data_call(name,arguments)
+        self.check(task_id)
+        return value
+
+    def read_path(self,path,params,task_id=None):
+        self.check(task_id)
+        if not callable(getattr(self,'read_call',None)):
+            raise PermissionError('native_user_relay_unavailable')
+        value=self.read_call(path,params)
+        self.check(task_id)
+        return value
+
     @contextmanager
     def scope(self, *, check=True):
         from tools.terminal_scope import set_terminal_scope, reset_terminal_scope
@@ -770,6 +786,13 @@ class NativeConversation:
         return {'registered': True}
 
     def host_tool(self, binding, name, arguments):
+        if name == 'fs.native.user_data':
+            return self.user_data_tool(binding,arguments)
+        if name == 'fs.native.read':
+            if (type(arguments) is not dict or set(arguments)!={'binding','path','params'} or
+                    arguments['binding']!=binding or not self.authorized(binding)):
+                raise PermissionError('native_chat_inactive')
+            return self._user_data().read(binding,arguments['path'],arguments['params'])
         if name == 'fs.native.check':
             if arguments != {'binding': binding} or not self.authorized(binding):
                 raise PermissionError('native_chat_inactive')
@@ -779,6 +802,28 @@ class NativeConversation:
         if name == 'fs.native.pending_source':
             return self.register_pending(binding, arguments)
         raise PermissionError('native_host_tool_unavailable')
+
+    def user_data_tool(self,binding,value):
+        if (type(value) is not dict or set(value)!={'binding','name','arguments'} or
+                value['binding']!=binding or not self.authorized(binding)):
+            raise PermissionError('native_chat_inactive')
+        return self._user_data().call(binding,value['name'],value['arguments'])
+
+    def _user_data(self):
+        with self.service.lock:
+            data=getattr(self,'user_data',None)
+            if data is None:
+                from conversation_user_data import NativeUserData
+                data=self.user_data=NativeUserData.runtime(self)
+        return data
+
+    def finish_user_data(self,turn_id,state):
+        data=getattr(self,'user_data',None)
+        if data is None:
+            with self.store.db() as db:
+                row=db.execute('SELECT request_id FROM turns WHERE id=?',(turn_id,)).fetchone()
+            if row is not None and row['request_id'].startswith('followup_'):data=self._user_data()
+        return data.finish(turn_id,state) if data is not None else []
 
     def dispatch(self, owner, cid, turn_id, session_id, text, request_id):
         from conversation_file_bindings import FileBindings

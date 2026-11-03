@@ -490,6 +490,7 @@ class ConversationService:
         if self.native and self.native.row(user, conversation_id, turn_id):
             self.native.fence(user, conversation_id, turn_id)
             self._release_live(turn_id, live)
+            self.native.finish_user_data(turn_id,'dispatch_unknown')
             return
         task_id, _ = self.store.task_binding(user, conversation_id, turn_id)
         if task_id:
@@ -505,6 +506,7 @@ class ConversationService:
         if self.native and self.native.row(user, conversation_id, turn_id):
             self.native.fence(user, conversation_id, turn_id)
             self._release_live(turn_id, live)
+            self.native.finish_user_data(turn_id,state)
             return
         task_id, lease = self.store.task_binding(user, conversation_id, turn_id)
         try:

@@ -1209,7 +1209,7 @@ class NativePublisher(unittest.TestCase):
     @contextmanager
     def composer_fixture(self, root):
         base=release.frozen()
-        paths=release.protected_paths(base) | set(release.TARGETS.values()) | set(release.CAPABILITIES_TARGETS.values())
+        paths=release.protected_paths(base) | set(release.TARGETS.values()) | set(release.CAPABILITIES_INSTALLED_TARGETS.values())
         paths.add(release.ARCHIVE_USAGE_LEDGER)
         for i in range(779-len(paths)):paths.add('/opt/synthetic-protected/'+str(i)+'.py')
         prepare.configure_native_composer_static()
@@ -1225,8 +1225,8 @@ class NativePublisher(unittest.TestCase):
         def row(path):
             return dict(path=path,sha256=base.digest(base.rooted(system,path)),owner='0:0',mode=oct(owners[base.rooted(system,path)][2]))
         previous={'sourceCommit':release.INSTALLED_COMMIT,'scope':release.SCOPE,'nativeCapabilities':True,'nativeArchive':True,
-            'files':[dict(candidate=n,target=p,sha256=row(p)['sha256'],beforeSha256='0'*64,owner='0:0',mode='0o644') for n,p in release.CAPABILITIES_TARGETS.items()],
-            'unchangedRequired':[row(p) for p in sorted(paths-set(release.CAPABILITIES_TARGETS.values()))]}
+            'files':[dict(candidate=n,target=p,sha256=row(p)['sha256'],beforeSha256='0'*64,owner='0:0',mode='0o644') for n,p in release.CAPABILITIES_INSTALLED_TARGETS.items()],
+            'unchangedRequired':[row(p) for p in sorted(paths-set(release.CAPABILITIES_INSTALLED_TARGETS.values()))]}
         proof=dict(release.INSTALLED_PROOF);backup=base.rooted(system,proof['backup']);backup.mkdir(parents=True)
         def save_proof():
             raw=json.dumps(previous).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
@@ -1831,9 +1831,11 @@ class NativePublisher(unittest.TestCase):
     def test_native_capabilities_installed_followup(self):
         self.assertTrue(callable(getattr(prepare,'configure_native_capabilities',None)))
         prepare.configure_native_capabilities()
-        self.assertEqual((len(release.TARGETS),len(release.NEW)),(10,0))
-        self.assertEqual(release.INSTALLED_COMMIT,'20c481384fcd746ccb6b122c7fe57f3d6185c51f')
-        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'runtime/conversation_native.py','runtime/hermes_worker.py'})
+        self.assertEqual((len(release.TARGETS),len(release.NEW)),(16,4))
+        self.assertEqual(release.INSTALLED_COMMIT,'94b7c9fb0420817ce71115737e937cf7b69b8228')
+        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'runtime/conversation_native.py','runtime/hermes_worker.py',
+            'runtime/conversation_service.py','runtime/conversation_user_data.py','runtime/a2_query_context.py',
+            'runtime/live_order_consumer.py','runtime/fs_native_readonly.py','runtime/b2_customer_followup.py','runtime/user_runtime.py'})
         self.assertEqual(release.CAPABILITIES_STATIC_PROOF['sourceCommit'],'d135d2b965ecdfc2d96a1e49cf9425e31eaca07e')
         self.assertEqual(set(prepare.SOURCES),set(release.CAPABILITIES_TARGETS))
         self.assertEqual(prepare.SOURCES['http/conversation_http.py'],prepare.MODULE+'source/conversation_http.py')
@@ -1940,7 +1942,16 @@ class NativePublisher(unittest.TestCase):
                         target=base.rooted(f.system,release.TARGETS[name])
                         target.write_bytes(source_body if name=='runtime/conversation_store.py' else target.read_bytes()+b'\n# installed archive aware\n')
                     current=dict(merged);current.update({r['target']:r['sha256'] for r in records});current.update({target:sha for target,sha in fc_files.values()})
-                    old_three=dict(release.CAPABILITIES_TARGETS)
+                    old_three=dict(release.CAPABILITIES_INSTALLED_TARGETS)
+                    for name,target in release.CAPABILITIES_TARGETS.items():
+                        if name in release.CAPABILITIES_NEW or target in current:continue
+                        # The real 94b proof already protects these installed
+                        # sources; replace only a synthetic filler in this fixture.
+                        filler=next(p for p in current if p.startswith('/opt/live-protected/'))
+                        del current[filler]
+                        path=base.rooted(f.system,target);path.parent.mkdir(parents=True,exist_ok=True)
+                        path.write_bytes(b'# installed promoted consumer\n');f.owners[path]=(0,0,0o644)
+                        current[target]=base.digest(path)
                     html_path='/var/www/dashboard/fs-home/hermes/conversation/index.html'
                     html=(prepare.HERE.parent/'frontend/index.html').read_text('utf-8').encode('utf-8')
                     html_target=base.rooted(f.system,html_path)
@@ -1965,17 +1976,25 @@ class NativePublisher(unittest.TestCase):
                     static_journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=static_manifest,approvedManifestSha256=static_proof['manifestSha256'],files=[dict(static_row,intent=True,written=True)])
                     static_raw=json.dumps(static_journal).encode();(static_backup/'journal.json').write_bytes(static_raw);static_proof['journalSha256']=prepare.digest(static_raw)
                     html_target.write_bytes(html);current[html_path]=base.digest(html_target)
+                    cap_manifest['nativeStaticBaseline']=static_proof
+                    cap_manifest['unchangedRequired']=[metadata(p) for p in current if p not in old_three.values()]
+                    cap_raw=json.dumps(cap_manifest).encode();(backup/'approved-manifest.json').write_bytes(cap_raw);proof['manifestSha256']=prepare.digest(cap_raw)
+                    cap_journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=cap_manifest,approvedManifestSha256=proof['manifestSha256'],files=[dict(r,intent=True,written=True) for r in cap_rows])
+                    cap_raw=json.dumps(cap_journal).encode();(backup/'journal.json').write_bytes(cap_raw);proof['journalSha256']=prepare.digest(cap_raw)
                     with patch.object(store_module,'SYNTHETIC_ARCHIVE',pins):archived_before=store.archive_synthetic_unknown(owner)
                     prepare.configure_native_capabilities()
-                    before_cap={name:current[target] for name,target in release.TARGETS.items()}
+                    # frozen() captures NEW at construction; this reused fixture
+                    # base predates mode selection, unlike the staged runtime.
+                    base.MATERIAL_NEW=release.NEW
+                    before_cap={name:None if name in release.NEW else current[target] for name,target in release.TARGETS.items()}
                     compat_store_sha=current[release.TARGETS['runtime/conversation_store.py']]
                 descriptor=json.loads((f.payload.parent/'payload-manifest.json').read_bytes())
-                descriptor.update(native_admission=False,native_archive=not capabilities,native_capabilities=capabilities,native_chat=False,installed_baseline={'source_commit':release.INSTALLED_COMMIT,'files':{name:oldmap[target] for name,target in release.TARGETS.items()}})
+                descriptor.update(native_admission=False,native_archive=not capabilities,native_capabilities=capabilities,native_chat=False,installed_baseline={'source_commit':release.INSTALLED_COMMIT,'files':{name:oldmap.get(target) for name,target in release.TARGETS.items()}})
                 if capabilities:descriptor['installed_baseline']['files']=before_cap
                 descriptor['files']={key:value for key,value in descriptor['files'].items() if not key.startswith('payload/')}
                 for name in prepare.SOURCES:
                     p=f.payload/name;p.parent.mkdir(parents=True,exist_ok=True)
-                    p.write_bytes((base.rooted(f.system,release.TARGETS[name]).read_bytes()+(b'\n# stopped-turn isolation\n' if name in release.CAPABILITIES_CHANGED else b'')) if capabilities else source_body if name=='runtime/conversation_store.py' else (base.rooted(f.system,release.TARGETS[name]).read_bytes()+b'\n# archive consumer\n'))
+                    p.write_bytes(((b'# new native consumer\n' if name in release.NEW else base.rooted(f.system,release.TARGETS[name]).read_bytes())+(b'\n# actor relay\n' if name in release.CAPABILITIES_CHANGED else b'')) if capabilities else source_body if name=='runtime/conversation_store.py' else (base.rooted(f.system,release.TARGETS[name]).read_bytes()+b'\n# archive consumer\n'))
                     descriptor['files']['payload/'+name]=prepare.digest(p.read_bytes())
                 raw=json.dumps(descriptor).encode();(f.payload.parent/'payload-manifest.json').write_bytes(raw)
                 stage=root/'archive-stage'
@@ -1993,7 +2012,7 @@ class NativePublisher(unittest.TestCase):
                     f.owners[usage]=(0,0,0o600)
                     if capabilities:
                         for zero,extra in ((True,False),(False,True)):
-                            names=release.CAPABILITIES_CHANGED if zero else ('runtime/conversation_store.py',)
+                            names=tuple(n for n in release.CAPABILITIES_CHANGED if n not in release.NEW) if zero else ('runtime/conversation_store.py',)
                             saved={name:(f.payload/name).read_bytes() for name in names}
                             bad_descriptor=deepcopy(descriptor)
                             for name in names:
@@ -2005,7 +2024,7 @@ class NativePublisher(unittest.TestCase):
                             for name,body in saved.items():(f.payload/name).write_bytes(body)
                             (f.payload.parent/'payload-manifest.json').write_bytes(raw)
                     prepare.prepare(f.payload,stage,'a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
-                manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),10 if capabilities else 3);self.assertEqual(len(manifest['unchangedRequired']),769 if capabilities else 776)
+                manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),16 if capabilities else 3);self.assertEqual(len(manifest['unchangedRequired']),767 if capabilities else 776)
                 untouched={r['path']:(base.rooted(f.system,r['path']).read_bytes(),base.rooted(f.system,r['path']).stat().st_ino,base.rooted(f.system,r['path']).stat().st_mtime_ns) for r in manifest['unchangedRequired']}
                 if capabilities:
                     self.assertEqual(manifest['nativeStaticBaseline'],static_proof)
@@ -2013,7 +2032,7 @@ class NativePublisher(unittest.TestCase):
                     for row in manifest['files']:
                         if row['candidate'] not in release.CAPABILITIES_CHANGED:
                             path=base.rooted(f.system,row['target']);untouched[row['target']]=(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns)
-                    self.assertEqual(len(untouched),777)
+                    self.assertEqual(len(untouched),774)
                 untouched_modes={p:(base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)) for p in untouched}
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
                 module.configure_native_capabilities() if capabilities else module.configure_native_archive();module.INSTALLED_PROOF=proof;module.ARCHIVE_NATIVE_PROOF=old_proof

@@ -308,7 +308,13 @@ class WorkerEnvironmentTests(unittest.TestCase):
                 return [('GET', '/v1/capabilities'), ('POST', '/v1/runs'),
                         ('POST', '/v1/runs/{run_id}/stop'), ('POST', '/v1/chat/completions')]
         modules['gateway.platforms.api_server'].APIServerAdapter = Adapter
-        modules['tools.registry'].registry = types.SimpleNamespace(register=lambda **kw: calls['registered'].append(kw['name']))
+        registry_rows={}
+        def register(**kw):
+            calls['registered'].append(kw['name'])
+            registry_rows[(kw.get('scope'),kw['name'])]=types.SimpleNamespace(**kw)
+        modules['tools.registry'].registry = types.SimpleNamespace(register=register,
+            get_entry=lambda name,scope=None:registry_rows.get((scope,name)))
+        modules['fs_native_readonly']=load('fs_native_readonly',PACKAGES/'hermes-server-unify-20261022/fs_readonly/__init__.py')
         modules['toolsets'].create_custom_toolset = lambda name, *args, **kwargs: calls.setdefault('toolsets', {}).update({name:kwargs['tools']})
         class Compressor:
             _config_context_length = 1000
@@ -414,7 +420,7 @@ class WorkerEnvironmentTests(unittest.TestCase):
                 kwargs=calls['native_kwargs']
                 self.assertIs(kwargs['skip_memory'],False);self.assertIs(kwargs['skip_context_files'],False)
                 self.assertIs(kwargs['skip_background_review'],False);self.assertIs(kwargs['load_soul_identity'],True)
-                self.assertEqual(set(kwargs['enabled_toolsets']),{'file','terminal','memory','skills'})
+                self.assertEqual(set(kwargs['enabled_toolsets']),{'file','terminal','memory','skills','fs_readonly'})
                 self.assertEqual(registration[0][0],'fs.native.register_schemas')
                 self.assertEqual(registration[0][1]['binding'],bound)
                 self.assertEqual(registration[0][1]['model_schemas'],agent.tools)
