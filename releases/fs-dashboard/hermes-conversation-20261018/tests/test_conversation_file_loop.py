@@ -409,6 +409,8 @@ class WorkerEnvironmentTests(unittest.TestCase):
                     self.enabled_toolsets=kwargs['enabled_toolsets'];self.disabled_toolsets=kwargs['disabled_toolsets']
                     self._tool_snapshot_generation=7
                 def run_conversation(self,*a,**kw):calls['native_ran']=True;return {'completed':True}
+                def _compress_context(self,messages,prompt,**kw):return messages,prompt
+                def _build_api_kwargs(self,messages,**kw):return dict(messages=messages)
                 def close(self):pass
             config=types.ModuleType('hermes_cli.tools_config');config._get_platform_tools=lambda cfg,platform:{'file','terminal','memory','skills'}
             model_tools=types.ModuleType('model_tools');model_tools.get_tool_definitions=lambda **kw:[{'type':'function','function':{'name':'read_file','parameters':{'type':'object'}}}]

@@ -2,6 +2,7 @@
 from copy import deepcopy
 import json
 import re
+import threading
 from pilot import digest, encoded, TOOLS, SHANGHAI
 from runs_contract import WIRE_TOOLS, SEMANTIC_TOOLS
 
@@ -372,13 +373,28 @@ class UnifiedBudget:
                          'tokens INTEGER NOT NULL, microcny INTEGER NOT NULL, '
                          'UNIQUE(owner,task,turn))')
 
-    def restore_tool_indexes(self,owner,task,turn,request):
+    def restore_tool_indexes(self,owner,task,turn,request,*,compaction=None):
         # Pinned Hermes normalizes ToolCall into id/name/arguments and omits index.
         # Bind each reply to its paid request prefix, not a globally reusable ID.
         if type(turn) is not int or turn<0:raise ValueError('turn_invalid')
         with self.db() as conn:
-            rows=conn.execute("SELECT m.content,r.request_digest FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn<? AND m.state='succeeded' ORDER BY r.turn",(owner,task,turn)).fetchall()
-        messages=request['messages'];matched=[]
+            rows=conn.execute("SELECT m.content,r.request_digest,r.turn FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn<? AND m.state='succeeded' ORDER BY r.turn",(owner,task,turn)).fetchall()
+        messages=request['messages'];matched=[];baseline=0
+        # Existing title/summary requests have no tool history to restore.
+        # Do not adopt or mutate the main request's trusted compaction baseline.
+        if not request['tools'] and not any(m.get('tool_calls') for m in messages):
+            compaction=None
+        if compaction is not None:
+            from native_chat import native_messages_sha256
+            baseline=compaction['baseline_length']
+            size=len(messages) if baseline is None else baseline
+            identity=native_messages_sha256(dict(messages=messages[:size]),
+                                            reasoning_effort=request.get('reasoning_effort','none'))
+            if len(messages)<size or identity!=compaction['messages_sha256']:
+                raise ValueError('provider_tool_history_changed')
+            if baseline is None:
+                baseline=compaction['baseline_length']=size
+            rows=[r for r in rows if r[2]>compaction['paid_through']]
         for row in rows:
             originals=json.loads(row[0]).get('message',{}).get('tool_calls',[])
             if not originals:continue
@@ -386,6 +402,7 @@ class UnifiedBudget:
             if not request['tools'] and not any(m.get('tool_calls') for m in messages):continue
             positions=[]
             for position,message in enumerate(messages):
+                if position<baseline:continue
                 if message.get('role')!='assistant' or not message.get('tool_calls'):continue
                 if [c['id'] for c in message['tool_calls']]!=[c['id'] for c in originals]:continue
                 prefix=dict(request,messages=messages[:position])
@@ -403,6 +420,8 @@ class UnifiedBudget:
             matched.append(position)
         if matched and any(m.get('tool_calls') for i,m in enumerate(messages)
                            if i>=matched[0] and i not in matched):
+            raise ValueError('provider_tool_history_changed')
+        if compaction is not None and not matched and any(m.get('tool_calls') for m in messages[baseline:]):
             raise ValueError('provider_tool_history_changed')
         if len(encoded(request['messages']).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('context_rejected')
         return request
@@ -550,6 +569,8 @@ class UnifiedBudget:
 class ModelGateway:
     def __init__(self, scope, budget, provider_slot, provider, input_bound, daily_limit, preflight=None,transport_retries=0,retry_wait=None):
         self.scope, self.budget, self.slot = scope, budget, provider_slot
+        self._native_compaction=None
+        self._compaction_lock=threading.RLock()
         self.provider, self.input_bound, self.daily_limit = provider, input_bound, daily_limit
         self.preflight = preflight
         if type(transport_retries) is not int or transport_retries not in (0,2):raise ValueError('transport_retry_policy')
@@ -565,13 +586,44 @@ class ModelGateway:
             if remaining<=0:return
             time.sleep(min(0.2,remaining))
 
+    def confirm_native_compaction(self,binding,count,messages_sha256):
+        """Private host call after the bound SDK adopted a real compacted context."""
+        if not native_scope(self.scope) or type(binding) is not dict:
+            raise PermissionError('native_compaction_binding')
+        current=self.scope.context(binding.get('owner'),binding.get('turn_id'),binding.get('lease'))
+        if current!=binding:raise PermissionError('native_compaction_binding')
+        if (type(count) is not int or count<1 or type(messages_sha256) is not str or
+                not re.fullmatch(r'[a-f0-9]{64}',messages_sha256)):
+            raise ValueError('native_compaction_confirmation')
+        with self._compaction_lock:
+            old=self._native_compaction
+            confirmed=old
+            if old is not None and count<=old['count']:
+                if count!=old['count'] or messages_sha256!=old['messages_sha256']:
+                    raise ValueError('native_compaction_confirmation')
+            else:
+                with self.budget.db() as conn:
+                    rows=conn.execute('SELECT r.turn,m.state FROM hermes_reservations r '
+                        'LEFT JOIN model_calls m ON r.fingerprint=m.fingerprint '
+                        'WHERE r.owner=? AND r.task=? ORDER BY r.turn',
+                        (binding['owner'],binding['turn_id'])).fetchall()
+                if any(r[1]!='succeeded' for r in rows):raise ValueError('native_compaction_unsettled')
+                confirmed=dict(count=count,messages_sha256=messages_sha256,
+                    paid_through=max((r[0] for r in rows),default=-1),baseline_length=None)
+            if self.scope.context(binding['owner'],binding['turn_id'],binding['lease'])!=binding:
+                raise PermissionError('native_compaction_binding')
+            self._native_compaction=confirmed
+        return dict(registered=True,compression_count=count)
+
     def call(self, owner, task_id, lease, turn, body):
         self.scope.context(owner, task_id, lease)
         if type(turn) is not int or turn<0:raise ValueError('turn_invalid')
         # Logical turn identity remains in hermes_turns. Existing reservation slots encode
         # each physical attempt as turn*3+ordinal, with no schema migration or old-row rewrite.
         base_turn=turn*(self.transport_retries+1)
-        request = self.budget.restore_tool_indexes(owner,task_id,base_turn,request_body(body,self.budget.policy['model'], tool_schemas=task_schemas(getattr(self.scope, 'book', None)), native_chat=native_scope(self.scope)))
+        request=request_body(body,self.budget.policy['model'],tool_schemas=task_schemas(getattr(self.scope,'book',None)),native_chat=native_scope(self.scope))
+        with self._compaction_lock:
+            request=self.budget.restore_tool_indexes(owner,task_id,base_turn,request,compaction=self._native_compaction)
         if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
         require_context_window(request)  # Recheck after trusted replay metadata is restored.
         if self.preflight is not None:self.preflight(request)  # Final vendor wire before any reservation/network.

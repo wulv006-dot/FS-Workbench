@@ -786,6 +786,27 @@ class NativeConversation:
         return {'registered': True}
 
     def host_tool(self, binding, name, arguments):
+        if name == 'fs.native.compacted_request':
+            if (type(arguments) is not dict or set(arguments)!={'binding','compression_count','messages_sha256'} or
+                    arguments['binding']!=binding or type(arguments['compression_count']) is not int or
+                    arguments['compression_count']<=0 or type(arguments['messages_sha256']) is not str or
+                    not re.fullmatch('[a-f0-9]{64}',arguments['messages_sha256'])):
+                raise ValueError('native_compaction_confirmation')
+            if self.authorized(binding) is not True:raise PermissionError('native_chat_inactive')
+            path=self.service.run_root/'admissions'/(binding['session_id']+'.json')
+            item=json.loads(regular_bytes(path,2*1024*1024,root=self.service.run_root))
+            if (item.get('ready') is not True or item.get('run_id')!=binding['run_id'] or
+                    item.get('session_id')!=binding['session_id'] or
+                    item.get('native_chat',{}).get('binding')!=binding):
+                raise PermissionError('native_chat_inactive')
+            with self.hermes.lock:gateway=self.hermes.gateways.get(binding['turn_id'])
+            if gateway is None:raise PermissionError('native_gateway_unavailable')
+            result=gateway.confirm_native_compaction(binding,arguments['compression_count'],arguments['messages_sha256'])
+            with self.hermes.lock:
+                if self.hermes.gateways.get(binding['turn_id']) is not gateway:
+                    raise PermissionError('native_gateway_changed')
+            if self.authorized(binding) is not True:raise PermissionError('native_chat_inactive')
+            return result
         if name == 'fs.native.user_data':
             return self.user_data_tool(binding,arguments)
         if name == 'fs.native.read':

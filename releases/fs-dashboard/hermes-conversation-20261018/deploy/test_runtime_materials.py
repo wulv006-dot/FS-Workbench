@@ -1349,6 +1349,7 @@ class NativePublisher(unittest.TestCase):
                 with closing(sqlite3.connect(p)) as db:db.executescript(sql);db.commit()
             for name in ('/var/www/dashboard/fs-home/transactions/collector.lock','/var/lib/fs-hermes-fc/fs/admission.lock','/var/lib/fs-business-ranges/fc-daily/provider.lock'):
                 p=base.rooted(f.system,name);p.parent.mkdir(parents=True,exist_ok=True);p.touch();p.chmod(0o600)
+                f.owners[p]=(0,0,0o600)  # Project the real lock mode, not the default code-file0644.
             raw=f.save_descriptor();stage=root/'stage'
             prepare.prepare(f.payload,stage,'a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
             manifest_raw=(stage/'approved-manifest.json').read_bytes();manifest=json.loads(manifest_raw)
@@ -1360,15 +1361,9 @@ class NativePublisher(unittest.TestCase):
                 lock_module=SimpleNamespace(LOCK_EX=2,LOCK_NB=4,flock=Mock())
             else:import fcntl as lock_module
             with patch.dict(sys.modules,{'fcntl':lock_module}),ExitStack() as platform:
-                if os.name=='nt':
-                    original_fstat=os.fstat
-                    def root_lock_metadata(fd):
-                        info=original_fstat(fd)
-                        fields={k:getattr(info,k) for k in dir(info) if k.startswith('st_')}
-                        fields.update(st_uid=0,st_gid=0,st_mode=stat.S_IFMT(info.st_mode)|0o600)
-                        return SimpleNamespace(**fields)
-                    platform.enter_context(patch.object(os,'geteuid',return_value=0,create=True))
-                    platform.enter_context(patch.object(os,'fstat',side_effect=root_lock_metadata))
+                # Root identity is the existing synthetic filesystem contract on
+                # both platforms; keep native_metadata's path/FD projection.
+                platform.enter_context(patch.object(os,'geteuid',return_value=0,create=True))
                 # Runtime publishers retain their actual active-task/report refusals.
                 with self.assertRaisesRegex(ValueError,'active or unreconciled Hermes task'):base.guards(manifest,f.system)
                 with self.assertRaisesRegex(ValueError,'active or unreconciled Hermes task'):
@@ -1470,6 +1465,7 @@ class NativePublisher(unittest.TestCase):
         # Keep real filesystem types (including a real Unix socket on Linux).
         # Root/9876 ownership cannot be created by the unprivileged CI runner.
         kinds={} if kinds is None else kinds
+        opened_metadata={};original_fstat=os.fstat
         def metadata(path, *, follow_symlinks=True):
             path=Path(path);info=os.stat(path,follow_symlinks=follow_symlinks)
             inside=root is not None and (path==root or root in path.parents)
@@ -1480,11 +1476,26 @@ class NativePublisher(unittest.TestCase):
             fields[4]=uid;fields[5]=gid
             result={key:getattr(info,key) for key in dir(info) if key.startswith('st_')}
             result.update(st_mode=fields[0],st_uid=uid,st_gid=gid)
+            if os.name=='nt':result['st_ctime_ns']=info.st_mtime_ns
+            opened_metadata[(info.st_dev,info.st_ino)]=(uid,gid,mode)
+            return SimpleNamespace(**result)
+        def fd_metadata(fd):
+            # The same synthetic identity must describe the opened inode, too.
+            # Keep real identity/link/timestamp fields so production race checks run.
+            info=original_fstat(fd);identity=opened_metadata.get((info.st_dev,info.st_ino))
+            if identity is None:return info
+            uid,gid,mode=identity
+            result={key:getattr(info,key) for key in dir(info) if key.startswith('st_')}
+            result.update(st_mode=stat.S_IFMT(info.st_mode)|mode,st_uid=uid,st_gid=gid)
+            # Windows ChangeTime can refresh on handle open. This identity fixture
+            # supplies Linux-style stable ctime; the explicit drift case below
+            # still executes and requires the production ctime comparison.
+            if os.name=='nt':result['st_ctime_ns']=info.st_mtime_ns
             return SimpleNamespace(**result)
         def kind(path, check, follow):
             try:return check(metadata(path,follow_symlinks=follow).st_mode)
             except FileNotFoundError:return False
-        with patch.object(Path,'stat',lambda path,**kw:metadata(path,**kw)), patch.object(Path,'lstat',lambda path:metadata(path,follow_symlinks=False)), patch.object(Path,'is_file',lambda path:kind(path,stat.S_ISREG,True)), patch.object(Path,'is_symlink',lambda path:kind(path,stat.S_ISLNK,False)):
+        with patch.object(os,'fstat',fd_metadata),patch.object(Path,'stat',lambda path,**kw:metadata(path,**kw)), patch.object(Path,'lstat',lambda path:metadata(path,follow_symlinks=False)), patch.object(Path,'is_file',lambda path:kind(path,stat.S_ISREG,True)), patch.object(Path,'is_symlink',lambda path:kind(path,stat.S_ISLNK,False)):
             yield
 
     def test_native_metadata_keeps_formal_nginx_mode(self):
@@ -1833,7 +1844,7 @@ class NativePublisher(unittest.TestCase):
         prepare.configure_native_capabilities()
         self.assertEqual((len(release.TARGETS),len(release.NEW)),(16,0))
         self.assertEqual(release.INSTALLED_COMMIT,'3c45f02689cab4e1b70a3fe1227031f833e17b02')
-        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/proxy_gateway.py',))
+        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_native.py','runtime/hermes_worker.py','runtime/native_chat.py','runtime/proxy_gateway.py'))
         self.assertEqual(release.INSTALLED_PROOF,dict(sourceCommit=release.INSTALLED_COMMIT,
             backup='/var/backups/fs-navigation-20261006/nav-20261103T065027Z',
             manifestSha256='11fd2c4c2384913e7da9855028b50be05c3fc50836e658b5863fda3681c64eac',
@@ -1842,6 +1853,100 @@ class NativePublisher(unittest.TestCase):
         self.assertEqual(set(prepare.SOURCES),set(release.CAPABILITIES_TARGETS))
         self.assertEqual(prepare.SOURCES['http/conversation_http.py'],prepare.MODULE+'source/conversation_http.py')
         self.assertNotIn('unit/native-control.conf',release.TARGETS)
+
+    def test_native_capabilities_navigation_successful_six_path_chain(self):
+        self.assertTrue(callable(getattr(release,'capabilities_navigation_overlay',None)),
+                        'current six protected publication transitions are not consumed')
+        prepare.configure_native_capabilities();base=release.frozen()
+        first={}
+        for _,_,_,_,changes in release.CAPABILITIES_NAVIGATION_PROOFS:
+            for alias,(_,before,_) in changes.items():first.setdefault(alias,before)
+        metadata={p:dict(path=p,sha256=first[a],owner='0:0',mode='0o600' if p==release.NGINX else '0o644')
+                  for a,p in release.CAPABILITIES_NAVIGATION_TARGETS.items()}
+        metadata['/opt/unrelated.py']=dict(path='/opt/unrelated.py',sha256='f'*64,owner='0:0',mode='0o644')
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owners={};kinds={}
+            with self.native_metadata(owners,kinds,root=root),self.capabilities_navigation_fixture(root,base,metadata,owners) as f:
+                expected=f.after;original=deepcopy(metadata)
+                self.assertEqual(release.capabilities_navigation_overlay(base,root,metadata),expected)
+                self.assertEqual(metadata,original)
+                self.assertEqual(expected['/opt/unrelated.py'],metadata['/opt/unrelated.py'])
+                actual_fstat=os.fstat
+                def changed_ctime(fd):
+                    info=actual_fstat(fd)
+                    fields={k:getattr(info,k) for k in dir(info) if k.startswith('st_')}
+                    fields['st_ctime_ns']+=1
+                    return SimpleNamespace(**fields)
+                with patch.object(os,'fstat',changed_ctime),self.assertRaisesRegex(ValueError,'native_navigation_proof_changed'):
+                    release.capabilities_navigation_overlay(base,root,metadata)
+                for index in range(6):
+                    record=f.records[index];mp,jp=record['paths']
+                    raw=mp.read_bytes();mp.write_bytes(raw+b' ')
+                    with self.assertRaises(ValueError):release.capabilities_navigation_overlay(base,root,metadata)
+                    mp.write_bytes(raw)
+                    for key,value in (('status','prepared'),('failure','synthetic'),('rollbackAttempted',True)):
+                        bad=deepcopy(record['journal']);bad[key]=value;f.save(index,journal=bad)
+                        with self.subTest(index=index,key=key),self.assertRaises(ValueError):release.capabilities_navigation_overlay(base,root,metadata)
+                        f.save(index)
+                    for field,value in (('written',False),('intent',False),('beforeMode',0o777),('rollbackIntent',True)):
+                        bad=deepcopy(record['journal']);bad['files'][0][field]=value;f.save(index,journal=bad)
+                        with self.subTest(index=index,field=field),self.assertRaises(ValueError):release.capabilities_navigation_overlay(base,root,metadata)
+                        f.save(index)
+                    for field,value in (('target','/opt/unapproved.py'),('beforeSha256','0'*64),('sha256','0'*64)):
+                        bad=deepcopy(record['manifest']);bad['files'][0][field]=value;f.save(index,manifest=bad)
+                        with self.subTest(index=index,field=field),self.assertRaises(ValueError):release.capabilities_navigation_overlay(base,root,metadata)
+                        f.save(index)
+                mp=f.records[0]['paths'][0]
+                for values in ((9876,0,0o600),(0,0,0o644)):
+                    owners[mp]=values
+                    with self.assertRaisesRegex(ValueError,'native_navigation_proof_boundary_drift'):release.capabilities_navigation_overlay(base,root,metadata)
+                owners[mp]=(0,0,0o600)
+                alias=mp.with_name('hardlink');os.link(mp,alias)
+                with self.assertRaises(ValueError):release.capabilities_navigation_overlay(base,root,metadata)
+                alias.unlink();kinds[mp.parent]=stat.S_IFLNK
+                with self.assertRaises(ValueError):release.capabilities_navigation_overlay(base,root,metadata)
+                kinds.clear()
+                for field,value in (('owner','9876:9876'),('mode','0o644'),('sha256','0'*64)):
+                    bad=deepcopy(metadata);bad[release.NGINX][field]=value
+                    with self.assertRaises(ValueError):release.capabilities_navigation_overlay(base,root,bad)
+
+    @contextmanager
+    def capabilities_navigation_fixture(self,root,base,metadata,owners,materialize=False):
+        proofs=deepcopy(release.CAPABILITIES_NAVIGATION_PROOFS);working=deepcopy(metadata);records=[];bodies={}
+        proofs=list(proofs)
+        for index,(rid,_,_,scope,changes) in enumerate(proofs):
+            changes=dict(changes);rows=[]
+            for alias,(candidate,before,after) in changes.items():
+                target=release.CAPABILITIES_NAVIGATION_TARGETS[alias]
+                if materialize:
+                    before=working[target]['sha256'];bodies[target]=('synthetic '+rid+' '+alias).encode();after=prepare.digest(bodies[target])
+                    changes[alias]=(candidate,before,after)
+                rows.append(dict(candidate=candidate,target=target,beforeSha256=before,sha256=after))
+                working[target]=dict(working[target],sha256=after)
+            manifest=dict(scope=scope,releaseReady=True,files=rows)
+            journal=dict(status='applied-awaiting-actual-http-role-acceptance',files=[dict(r,intent=True,written=True,
+                beforeMode=0o600 if r['target']==release.NGINX else 0o644) for r in rows])
+            backup=base.rooted(root,'/var/backups/fs-navigation-20261006/'+rid);backup.mkdir(parents=True)
+            paths=[backup/'approved-manifest.json',backup/'journal.json']
+            for p in paths:owners[p]=(0,0,0o600)
+            records.append(dict(manifest=manifest,journal=journal,paths=paths))
+            proofs[index]=(rid,'','',scope,changes)
+        def save(index,manifest=None,journal=None):
+            record=records[index];m=deepcopy(record['manifest'] if manifest is None else manifest)
+            raw=json.dumps(m).encode();record['paths'][0].write_bytes(raw);mh=prepare.digest(raw)
+            j=deepcopy(record['journal'] if journal is None else journal)
+            if manifest is not None and journal is None:
+                j['files']=[dict(r,intent=True,written=True,beforeMode=0o600 if r['target']==release.NGINX else 0o644) for r in m['files']]
+            j.update(manifest=m,approvedManifestSha256=mh)
+            raw=json.dumps(j).encode();record['paths'][1].write_bytes(raw)
+            rid,_,_,scope,changes=proofs[index];proofs[index]=(rid,mh,prepare.digest(raw),scope,changes)
+        for index in range(6):save(index)
+        if materialize:
+            for target,body in bodies.items():
+                p=base.rooted(root,target);p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(body)
+                owners[p]=(0,0,0o600 if target==release.NGINX else 0o644)
+        with patch.object(release,'CAPABILITIES_NAVIGATION_PROOFS',proofs):
+            yield SimpleNamespace(proofs=proofs,records=records,save=save,after=working)
 
     @contextmanager
     def capabilities_nginx_fixture(self, root, base, *, before=None, after=None):
@@ -1932,9 +2037,12 @@ class NativePublisher(unittest.TestCase):
         source='3c45f02689cab4e1b70a3fe1227031f833e17b02'
         nginx_sha='fde65e277cbb873673b7dc474483dada42e0da558756c69c63c38d0acc769da4'
         rows=[dict(candidate=n,target=p,beforeSha256='0'*64,sha256=prepare.digest(n.encode()),owner='0:0',mode='0o644') for n,p in release.CAPABILITIES_TARGETS.items()]
-        protected=[dict(path=release.NGINX,sha256=nginx_sha,owner='0:0',mode='0o600'),
-                   dict(path='/var/www/dashboard/fs-home/hermes/conversation/index.html',sha256=release.COMPOSER_AFTER_SHA,owner='0:0',mode='0o644')]
-        protected += [dict(path='/opt/static/'+str(i),sha256='a'*64,owner='0:0',mode='0o644') for i in range(765)]
+        first={}
+        for _,_,_,_,changes in release.CAPABILITIES_NAVIGATION_PROOFS:
+            for alias,(_,before,_) in changes.items():first.setdefault(alias,before)
+        protected=[dict(path=p,sha256=first[a],owner='0:0',mode='0o600' if p==release.NGINX else '0o644')
+                   for a,p in release.CAPABILITIES_NAVIGATION_TARGETS.items()]
+        protected += [dict(path='/opt/static/'+str(i),sha256='a'*64,owner='0:0',mode='0o644') for i in range(761)]
         manifest=dict(sourceCommit=source,scope=release.SCOPE,nativeCapabilities=True,nativeArchive=True,
                       nativeStaticBaseline=release.CAPABILITIES_STATIC_PROOF,files=rows,unchangedRequired=protected)
         git=dict(source_commit=source,files={r['candidate']:r['sha256'] for r in rows})
@@ -1945,12 +2053,13 @@ class NativePublisher(unittest.TestCase):
                 raw=json.dumps(m).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
                 journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=m,approvedManifestSha256=proof['manifestSha256'],files=[dict(r,intent=True,written=True) for r in m['files']])
                 journal.update(changes);raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
-            with self.native_metadata(owners,kinds,root=root),self.capabilities_nginx_fixture(root,base) as historical,patch.object(release,'INSTALLED_PROOF',proof):
+            with self.native_metadata(owners,kinds,root=root),self.capabilities_nginx_fixture(root,base) as historical,patch.object(release,'INSTALLED_PROOF',proof),self.capabilities_navigation_fixture(root,base,{r['path']:r for r in protected},owners) as navigation:
                 save(manifest)
                 for path in historical.backup.iterdir():owners[path]=(0,0,0o600)
                 for path in backup.iterdir():owners[path]=(0,0,0o600)
                 result=release.installed_baseline(root,git)
                 expected={r['target']:r['sha256'] for r in rows};expected.update({r['path']:r['sha256'] for r in protected})
+                expected.update({p:r['sha256'] for p,r in navigation.after.items()})
                 self.assertEqual(result['archive_all_hashes'],expected)
                 self.assertEqual(len(release.ARCHIVE_PROTECTED),767)
                 self.assertTrue(historical.backup.is_dir())
@@ -2056,6 +2165,11 @@ class NativePublisher(unittest.TestCase):
                 usage=base.rooted(f.system,usage_path);usage.parent.mkdir(parents=True,exist_ok=True)
                 usage.write_bytes(b'historical usage');usage.chmod(0o600);f.owners[usage]=(0,0,0o600)
                 keep.append(dict(path=usage_path,sha256=base.digest(usage)))
+                if capabilities:
+                    for target in release.CAPABILITIES_NAVIGATION_TARGETS.values():
+                        if target in oldmap or target in live_targets or any(r['path']==target for r in keep):continue
+                        path=base.rooted(f.system,target);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'original shared static')
+                        f.owners[path]=(0,0,0o644);keep.append(dict(path=target,sha256=base.digest(path)))
                 while len(keep)<743:
                     p='/opt/live-protected/file'+str(len(keep))+'.py';target=base.rooted(f.system,p);target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(b'live protected')
                     keep.append(dict(path=p,sha256=base.digest(target)))
@@ -2110,6 +2224,10 @@ class NativePublisher(unittest.TestCase):
                     nginx_proof=proof_stack.enter_context(self.capabilities_nginx_fixture(f.system,base,
                         before=prepare.digest(b'historical route before transition'),after=current[release.NGINX]))
                     for path in nginx_proof.backup.iterdir():f.owners[path]=(0,0,0o600)
+                    navigation=proof_stack.enter_context(self.capabilities_navigation_fixture(f.system,base,
+                        {p:metadata(p) for p in current},f.owners,materialize=True))
+                    current.update({p:r['sha256'] for p,r in navigation.after.items()})
+                    advanced_nginx=nginx.read_bytes()
                     with patch.object(store_module,'SYNTHETIC_ARCHIVE',pins):archived_before=store.archive_synthetic_unknown(owner)
                     prepare.configure_native_capabilities()
                     # frozen() captures NEW at construction; this reused fixture
@@ -2161,7 +2279,7 @@ class NativePublisher(unittest.TestCase):
                     for row in manifest['files']:
                         if row['candidate'] not in release.CAPABILITIES_CHANGED:
                             path=base.rooted(f.system,row['target']);untouched[row['target']]=(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns)
-                    self.assertEqual(len(untouched),782)
+                    self.assertEqual(len(untouched),779)
                     self.assertTrue(all(row['beforeSha256'] is not None for row in manifest['files']))
                 untouched_modes={p:(base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)) for p in untouched}
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -2169,6 +2287,7 @@ class NativePublisher(unittest.TestCase):
                 if capabilities:
                     module.CAPABILITIES_STORE_BEFORE_SHA=compat_store_sha;module.CAPABILITIES_STATIC_PROOF=static_proof
                     module.CAPABILITIES_NGINX_PROOF=nginx_proof.proof
+                    module.CAPABILITIES_NAVIGATION_PROOFS=navigation.proofs
                 module.ARCHIVE_FC_PROOF=fc_proof;module.ARCHIVE_FC_FILES=fc_files
                 base.hermes_quiescent=Mock();base.retirement=Mock();base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
                 fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock());base.hermes_admission_fence=lambda *a:nullcontext(fence)

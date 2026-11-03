@@ -19,7 +19,9 @@ from conversation_files import ConversationFiles
 
 def load_tests(loader, tests, pattern):
     import test_native_user_data
+    import test_native_compaction_relay
     tests.addTests(loader.loadTestsFromModule(test_native_user_data))
+    tests.addTests(loader.loadTestsFromModule(test_native_compaction_relay))
     return tests
 
 
@@ -199,6 +201,132 @@ class NativeDispatchTests(unittest.TestCase):
         service._monitor=lambda *a:None
         cid=service.store.create('alice')['conversation_id']
         return service,cid
+
+    def test_private_compaction_relay_checks_real_binding_admission_and_gateway(self):
+        with tempfile.TemporaryDirectory() as root,patch.dict(sys.modules,self.modules):
+            service,cid=self.fixture(root)
+            turn=service.submit('alice',cid,'synthetic context','compaction_binding_01')
+            with service.store.db() as db:session=service.store._owned(db,'alice',cid)['session_id']
+            service._request=lambda *a,**kw:(202,{'run_id':'run_'+'a'*32})
+            service._dispatch('alice',cid,turn['turn_id'],session,'synthetic context','compaction_binding_01')
+            bound=service.native.row('alice',cid,turn['turn_id'])['binding']
+            calls=[]
+            def confirm(binding,count,digest):
+                calls.append((binding,count,digest));return {'registered':True,'compression_count':count}
+            service.hermes.gateways[turn['turn_id']].confirm_native_compaction=confirm
+            path=service.run_root/'admissions'/(session+'.json');path.parent.mkdir(parents=True)
+            admission=json.loads(json.dumps(self.admissions[-1]));path.write_text(json.dumps(admission),encoding='utf-8')
+            value=dict(binding=bound,compression_count=1,messages_sha256='b'*64)
+            call=lambda data:service.native.host_tool(bound,'fs.native.compacted_request',data)
+            self.assertEqual(call(value),{'registered':True,'compression_count':1})
+            self.assertEqual(calls,[(bound,1,'b'*64)])
+            for bad in (dict(value,extra=True),dict(value,compression_count=True),dict(value,compression_count=0),
+                        dict(value,messages_sha256='bad'),dict(value,binding=dict(bound,owner='other'))):
+                with self.subTest(value=bad),self.assertRaises((ValueError,PermissionError)):call(bad)
+            for change in ({'ready':False},{'run_id':'run_'+'c'*32},{'native_chat':{'binding':dict(bound,lease='d'*32)}}):
+                path.write_text(json.dumps(dict(admission,**change)),encoding='utf-8')
+                with self.subTest(admission=change),self.assertRaises(PermissionError):call(value)
+            path.write_text(json.dumps(admission),encoding='utf-8')
+            gateway=service.hermes.gateways.pop(turn['turn_id'])
+            with self.assertRaises(PermissionError):call(value)
+            service.hermes.gateways[turn['turn_id']]=gateway
+            def replace_gateway(*args):
+                service.hermes.gateways[turn['turn_id']]=types.SimpleNamespace()
+                return {'registered':True,'compression_count':1}
+            gateway.confirm_native_compaction=replace_gateway
+            with self.assertRaises(PermissionError):call(value)
+            service.hermes.gateways[turn['turn_id']]=gateway
+            gateway.confirm_native_compaction=confirm
+            service.hermes.authorizer=lambda _:False
+            with self.assertRaises(PermissionError):call(value)
+            service.hermes.authorizer=lambda _:True
+            service.native.fence('alice',cid,turn['turn_id'])
+            with self.assertRaises(PermissionError):call(value)
+            self.assertEqual(len(calls),1)
+
+    def test_worker_compaction_requires_return_event_count_and_next_real_build(self):
+        from copy import deepcopy
+        from datetime import timedelta,timezone
+        from test_conversation_file_loop import WorkerEnvironmentTests
+        with patch('zoneinfo.ZoneInfo',return_value=timezone(timedelta(hours=8))),WorkerEnvironmentTests().runtime() as (worker,adapter,calls,modules):
+            trace=[];sent=[];events=[]
+            bound=dict(owner='alice',conversation_id='b'*32,turn_id='c'*32,request_id='compaction_01',
+                       session_id='hc_'+'a'*64,lease='d'*32,run_id='run_'+'e'*32)
+            class Agent:
+                session_id=bound['session_id'];platform='api_server'
+                def __init__(self):
+                    self.context_compressor=types.SimpleNamespace(compression_count=0)
+                    self.event_callback=lambda name,payload:events.append((name,payload))
+                    self.behavior='success';self.last_kwargs=None;self.late=[]
+                def _compress_context(self,messages,prompt,**kwargs):
+                    if self.behavior=='noop':return messages,prompt
+                    if self.behavior=='late':
+                        from contextvars import copy_context
+                        self.late.append(copy_context());return messages,prompt
+                    old=self.session_id;self.session_id='sdk-child-'+str(self.context_compressor.compression_count+1)
+                    self.context_compressor.compression_count+=1
+                    self.event_callback('session:compress',dict(platform=self.platform,session_id=self.session_id,
+                        old_session_id=old,in_place=False,compression_count=self.context_compressor.compression_count))
+                    if self.behavior=='error':raise TimeoutError('synthetic timeout')
+                    return [{'role':'user','content':'actual returned compacted context'}],'compacted prompt'
+                def _build_api_kwargs(self,messages,**kwargs):
+                    trace.append('build');self.last_kwargs=dict(messages=deepcopy(messages),**kwargs);return self.last_kwargs
+            def sanitize(agent,kwargs):trace.append('sanitize')
+            def digest(kwargs,*,reasoning_effort):
+                trace.append(('digest',reasoning_effort));return 'f'*64
+            overrides={'native_chat':types.SimpleNamespace(native_messages_sha256=digest),
+                       'agent.message_sanitization':types.SimpleNamespace(sanitize_outbound_kwargs=sanitize)}
+            with patch.dict(sys.modules,overrides):
+                agent=Agent();worker.install_native_compaction_relay(agent,bound,'none',lambda:trace.append('check'),lambda value:sent.append(value) or {'registered':True,'compression_count':value['compression_count']})
+                raw=[{'role':'user','content':'before'}]
+                result=agent._compress_context(raw,'prompt',task_id=bound['turn_id'])
+                self.assertEqual(sent,[])
+                kwargs=agent._build_api_kwargs(result[0],tools=[])
+                self.assertIs(kwargs,agent.last_kwargs)
+                self.assertEqual(sent,[dict(binding=bound,compression_count=1,messages_sha256='f'*64)])
+                self.assertEqual(raw,[{'role':'user','content':'before'}])
+                self.assertEqual(trace[-5:],['build','check','sanitize',('digest','none'),'check'])
+                self.assertEqual(events[0][0],'session:compress')
+                agent._build_api_kwargs(result[0]);self.assertEqual(len(sent),1)
+                # An event by itself cannot register. Neither can a no-op or exception.
+                agent.event_callback('session:compress',dict(events[-1][1]))
+                for behavior in ('noop','late','error'):
+                    agent.behavior=behavior
+                    try:agent._compress_context(result[0],'prompt',task_id=bound['turn_id'])
+                    except TimeoutError:pass
+                    agent._build_api_kwargs(result[0])
+                    self.assertEqual(len(sent),1)
+                for context in agent.late:
+                    context.run(agent.event_callback,'session:compress',dict(events[0][1],compression_count=99))
+                agent._build_api_kwargs(result[0]);self.assertEqual(len(sent),1)
+                # A genuine later rotation keeps the original FS binding and uses its new count.
+                agent.behavior='success';result=agent._compress_context(result[0]+raw,'prompt',task_id=bound['turn_id'])
+                agent._build_api_kwargs(result[0]);self.assertEqual(len(sent),2)
+                self.assertEqual(sent[-1]['binding'],bound)
+                self.assertEqual(sent[-1]['compression_count'],3)
+
+    def test_worker_compaction_relay_failure_is_not_swallowed(self):
+        from datetime import timedelta,timezone
+        from test_conversation_file_loop import WorkerEnvironmentTests
+        with patch('zoneinfo.ZoneInfo',return_value=timezone(timedelta(hours=8))),WorkerEnvironmentTests().runtime() as (worker,adapter,calls,modules):
+            bound=dict(owner='alice',conversation_id='b'*32,turn_id='c'*32,request_id='compaction_02',
+                       session_id='hc_'+'a'*64,lease='d'*32,run_id='run_'+'e'*32)
+            class Agent:
+                session_id=bound['session_id'];platform='api_server';event_callback=None
+                def __init__(self):self.context_compressor=types.SimpleNamespace(compression_count=0)
+                def _compress_context(self,messages,prompt,**kw):
+                    self.context_compressor.compression_count+=1
+                    self.event_callback('session:compress',dict(platform=self.platform,session_id=self.session_id,
+                        old_session_id='',in_place=True,compression_count=self.context_compressor.compression_count))
+                    return [{'role':'user','content':'compacted'}],prompt
+                def _build_api_kwargs(self,messages,**kw):return dict(messages=messages)
+            def rejected(value):raise PermissionError('synthetic revoked')
+            overrides={'native_chat':types.SimpleNamespace(native_messages_sha256=lambda *a,**k:'f'*64),
+                       'agent.message_sanitization':types.SimpleNamespace(sanitize_outbound_kwargs=lambda *a:None)}
+            with patch.dict(sys.modules,overrides):
+                agent=Agent();worker.install_native_compaction_relay(agent,bound,'high',lambda:None,rejected)
+                messages,_=agent._compress_context([{'role':'user','content':'before'}],'prompt')
+                with self.assertRaises(PermissionError):agent._build_api_kwargs(messages)
 
     def test_stopped_writer_cannot_publish_through_the_next_turn(self):
         """A real old workspace write races the next real host completion."""
@@ -394,6 +522,8 @@ class NativeDispatchTests(unittest.TestCase):
                         self.tools=schemas;self.enabled_toolsets=kwargs['enabled_toolsets']
                         self.disabled_toolsets=kwargs['disabled_toolsets'];self._tool_snapshot_generation=7
                     def run_conversation(self,*a,**kw):return {'completed':True,'task_id':kw.get('task_id')}
+                    def _compress_context(self,messages,prompt,**kw):return messages,prompt
+                    def _build_api_kwargs(self,messages,**kw):return dict(messages=messages)
                     def close(self):pass
                 modules['run_agent'].AIAgent=Agent
                 config=types.ModuleType('hermes_cli.tools_config');config._get_platform_tools=lambda *a:{'file'}
