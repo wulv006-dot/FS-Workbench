@@ -374,22 +374,36 @@ class UnifiedBudget:
 
     def restore_tool_indexes(self,owner,task,turn,request):
         # Pinned Hermes normalizes ToolCall into id/name/arguments and omits index.
-        # Restore only metadata from this task's already-paid successful receipts.
+        # Bind each reply to its paid request prefix, not a globally reusable ID.
         if type(turn) is not int or turn<0:raise ValueError('turn_invalid')
         with self.db() as conn:
-            rows=conn.execute("SELECT m.content FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn<? AND m.state='succeeded' ORDER BY r.turn",(owner,task,turn)).fetchall()
-        calls={}
+            rows=conn.execute("SELECT m.content,r.request_digest FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn<? AND m.state='succeeded' ORDER BY r.turn",(owner,task,turn)).fetchall()
+        messages=request['messages'];matched=[]
         for row in rows:
-            for call in json.loads(row[0]).get('message',{}).get('tool_calls',[]):
-                if 'index' in call:calls[call['id']]=call
-        for message in request['messages']:
-            for call in message.get('tool_calls',[]):
-                original=calls.get(call['id'])
-                if original is None:continue
+            originals=json.loads(row[0]).get('message',{}).get('tool_calls',[])
+            if not originals:continue
+            # A title/compaction request with no tool history has nothing to replay.
+            if not request['tools'] and not any(m.get('tool_calls') for m in messages):continue
+            positions=[]
+            for position,message in enumerate(messages):
+                if message.get('role')!='assistant' or not message.get('tool_calls'):continue
+                if [c['id'] for c in message['tool_calls']]!=[c['id'] for c in originals]:continue
+                prefix=dict(request,messages=messages[:position])
+                if digest(prefix)==row[1]:positions.append(position)
+            if len(positions)!=1 or matched and positions[0]<=matched[-1]:
+                raise ValueError('provider_tool_history_changed')
+            position=positions[0];calls=messages[position]['tool_calls']
+            if len(calls)!=len(originals):raise ValueError('provider_tool_history_changed')
+            for call,original in zip(calls,originals):
+                if call['id']!=original['id']:raise ValueError('provider_tool_history_changed')
                 if (call['function']['name']!=original['function']['name'] or
                     json.loads(call['function']['arguments'])!=json.loads(original['function']['arguments']) or
-                    'index' in call and call['index']!=original['index']):raise ValueError('provider_tool_history_changed')
-                call['index']=original['index']
+                    'index' in call and call['index']!=original.get('index')):raise ValueError('provider_tool_history_changed')
+                if 'index' in original:call['index']=original['index']
+            matched.append(position)
+        if matched and any(m.get('tool_calls') for i,m in enumerate(messages)
+                           if i>=matched[0] and i not in matched):
+            raise ValueError('provider_tool_history_changed')
         if len(encoded(request['messages']).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('context_rejected')
         return request
 
