@@ -101,5 +101,199 @@ class B2Contracts(unittest.TestCase):
                 self.check(o)
 
 
+class CurrentFSConsumer(unittest.TestCase):
+    """Real current A2 Store/Service/context; only invented source orders."""
+    def setUp(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'user-analytics-20261022/tests'))
+        import test_a2_query_context as a2
+        import b2_customer_followup as b2
+        self.b2 = b2
+        self.a = a2.A2Context()
+        self.addCleanup(self.a.doCleanups)
+        self.a.setUp()
+        self.addCleanup(self.a.tearDown)
+        self.summary = self.a.summary()
+        self.snapshot = self.a.snapshot(self.summary)
+        self.customer = max(self.a.context.candidates(self.snapshot)['rows'],
+                            key=lambda row: row['purchases']['covered_history_orders'])['opaque_customer_id']
+
+    def describe(self):
+        return self.b2.describe_customer(self.a.context, snapshot_id=self.snapshot,
+                                         customer_id=self.customer, now=self.a.original.clock())
+
+    def test_real_current_frozen_projection_supports_ordinary_question_without_goal(self):
+        import json
+        from unittest.mock import patch
+        with patch.object(self.a.context, 'timeline', wraps=self.a.context.timeline) as read:
+            value = self.describe()
+        read.assert_called_once_with(self.snapshot, self.customer, limit=1)
+        self.assertEqual(value['customer_id'], self.customer)
+        self.assertEqual(value['source']['policy_version'], self.summary['source']['policy_version'])
+        self.assertEqual(value['source']['query'], self.summary['source']['query'])
+        self.assertEqual(value['facts']['covered_history_orders'], 2)
+        self.assertEqual(value['facts']['first_paid_at'], '2026-10-02T00:00:00+08:00')
+        self.assertFalse(value['business_write_performed'])
+        self.assertTrue(value['refund_review_needed'])
+        for forbidden in ('@example.test', 'synthetic-', 'goal_id', 'request_id', 'recheck_at', 'net_profit'):
+            self.assertNotIn(forbidden, json.dumps(value))
+
+    def test_period_first_seen_never_becomes_lifetime_first(self):
+        self.snapshot = self.a.snapshot(self.a.context.aggregate({'start': '2026-10-01'}))
+        value = self.describe()
+        self.assertIsNone(value['facts']['first_paid_at'])
+        self.assertIsNotNone(value['facts']['observed_first_at'])
+        self.assertIn('historical_first_purchase_unverified', value['limitations'])
+
+    def test_snapshot_read_at_is_not_effective_source_cutoff(self):
+        from copy import deepcopy
+        receipt = deepcopy(self.a.context.timeline(self.snapshot, self.customer))
+        receipt['source']['weekly_cutoff'] = '2026-10-21T00:00:00+08:00'
+        observation = self.b2.observation_from_a2(receipt, now=self.a.original.clock())
+        self.assertEqual(observation.as_of.isoformat(), '2026-10-21T00:00:00+08:00')
+
+    def test_source_and_host_permissions_are_live_literal_true(self):
+        self.a.host_allowed = False
+        with self.assertRaises(PermissionError):
+            self.describe()
+        self.a.host_allowed = True
+        self.a.source_allowed = False
+        with self.assertRaises(PermissionError):
+            self.describe()
+        self.a.source_allowed = True
+        self.a.context.validate = lambda *args: 1
+        with self.assertRaises(PermissionError):
+            self.describe()
+
+    def test_coverage_and_first_flags_cannot_promote_partial_history(self):
+        from copy import deepcopy
+        receipt = deepcopy(self.a.context.timeline(self.snapshot, self.customer))
+        receipt['source']['coverage']['period_complete'] = False
+        o = self.b2.observation_from_a2(receipt, now=self.a.original.clock())
+        self.assertFalse(o.complete)
+        self.assertIsNone(o.first_paid_at)
+        receipt['source']['coverage']['period_complete'] = True
+        receipt['customer']['first_paid']['complete'] = 1
+        o = self.b2.observation_from_a2(receipt, now=self.a.original.clock())
+        self.assertIsNone(o.first_paid_at)
+
+    def test_receipt_customer_and_snapshot_must_match_requested_scope(self):
+        from copy import deepcopy
+        from unittest.mock import patch
+        receipt = deepcopy(self.a.context.timeline(self.snapshot, self.customer))
+        for change in ('customer', 'snapshot'):
+            altered = deepcopy(receipt)
+            if change == 'customer':
+                altered['customer']['opaque_customer_id'] = 'c_' + 'a' * 32
+            else:
+                altered['source']['snapshot_id'] = 'us_' + 'a' * 32
+            with patch.object(self.a.context, 'timeline', return_value=altered):
+                with self.assertRaises(PermissionError):
+                    self.describe()
+
+    def test_live_pages_cannot_be_misread_as_complete_frozen_lifecycle(self):
+        with self.assertRaisesRegex(ValueError, 'a2_customer_receipt'):
+            self.b2.observation_from_a2({'status': 'partial', 'semantics': 'live_non_snapshot',
+                                        'complete': False, 'data': [], 'next_cursor': None},
+                                       now=self.a.original.clock())
+
+    def test_current_refund_and_invalid_order_policy_is_owned_by_real_FS(self):
+        import test_a2_query_context as a2
+        self.a.rows = [a2.order(10), a2.order(11, paid='2'),
+                       dict(a2.order(12, paid='2'), status='86'),
+                       dict(a2.order(13), status='22')]
+        self.a.load()
+        self.snapshot = self.a.snapshot(self.a.summary())
+        self.customer = self.a.cid(self.snapshot)
+        value = self.describe()
+        self.assertEqual(value['facts']['covered_history_orders'], 1)
+        self.assertEqual(value['facts']['covered_history_sales_usd'], '10.25')
+
+    def test_explicit_tracking_reuses_goal_state_and_original_pending_id(self):
+        from b2_goal_state import create_goal, plan_step
+        now = self.a.original.clock()
+        o = self.b2.observation_from_a2(self.a.context.timeline(self.snapshot, self.customer), now=now)
+        evidence = [dict(ref=o.evidence_ref, source=o.source, as_of=o.as_of.isoformat(),
+                         coverage='frozen_source_scope', missing=list(o.missing), version=o.version)]
+        goal = create_goal(goal_id='explicit-synthetic-followup', owner='operator',
+                           scope_ref='project:1327', objective='Review source changes only',
+                           constraints=['No business writes'], recheck_at=now+timedelta(days=1),
+                           now=now, explicit_goal=True, authorize=lambda *args: True)
+        first = plan_step(goal, expected_revision=goal['revision'], now=now,
+                          fact_version=o.version, request_id='original-followup', evidence=evidence,
+                          authorize=lambda *args: True)
+        pending = first['state']
+        second = plan_step(pending, expected_revision=pending['revision'], now=now+timedelta(days=2),
+                           fact_version=o.version+'-changed', request_id='must-not-dispatch',
+                           evidence=evidence, authorize=lambda *args: True)
+        self.assertEqual(second['action'], 'reconcile_original')
+        self.assertEqual(second['request_id'], 'original-followup')
+        self.assertIsNone(second['handoff'])
+        self.assertEqual(second['state'], pending)
+
+
+class CurrentFSLiveConsumer(unittest.TestCase):
+    def setUp(self):
+        import b2_customer_followup as b2
+        self.b2 = b2
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'tiered-data-access-20261101/source'))
+        self.now = datetime(2026, 11, 3, tzinfo=timezone.utc)
+
+    def observe(self, fetch, **changes):
+        arguments = dict(customer_id='c_'+'a'*32, site_id='266', game_id='1327',
+                         start='2026-10-01', end_exclusive='2026-10-30', max_pages=4, now=self.now)
+        arguments.update(changes)
+        return self.b2.observe_live_orders(fetch, **arguments)
+
+    def test_current_20_row_cursor_and_28_day_windows_are_serial_not_lifetime_history(self):
+        import json
+        calls = []
+        def fetch(query):
+            calls.append(dict(query))
+            self.assertNotIn('customer_email', query)  # Host privately injects its bound selector.
+            self.assertEqual((query['site_id'], query['game_id']), ('266', '1327'))
+            rows = 20 if len(calls) == 1 else 1
+            return dict(status='partial', complete=False, semantics='live_non_snapshot',
+                        data=[dict(order_id=str(n), customer_email='private@example.test', status='11', pay_status='1')
+                              for n in range(rows)], next_cursor='opaque-first-window' if len(calls) == 1 else None)
+        value = self.observe(fetch)
+        self.assertEqual([(q['start'], q['end_exclusive'], q.get('cursor')) for q in calls],
+                         [('2026-10-01', '2026-10-29', None),
+                          ('2026-10-01', '2026-10-29', 'opaque-first-window'),
+                          ('2026-10-29', '2026-10-30', None)])
+        self.assertEqual((value['pages'], value['observed_order_rows']), (3, 22))
+        self.assertEqual(value['status'], 'partial')
+        self.assertFalse(value['complete'])
+        self.assertIsNone(value['lifetime_first_paid_at'])
+        self.assertEqual(value['source_states'], [{'status': '11', 'pay_status': '1', 'rows': 22}])
+        for forbidden in ('private@example.test', 'opaque-first-window', 'order_id', 'goal_id'):
+            self.assertNotIn(forbidden, json.dumps(value))
+
+    def test_failed_or_revoked_later_page_and_exhausted_budget_never_return_zero_or_success(self):
+        calls = []
+        def fetch(query):
+            calls.append(query)
+            if len(calls) > 1:
+                raise PermissionError('host_scope_revoked')
+            return dict(status='partial', complete=False, semantics='live_non_snapshot',
+                        data=[], next_cursor='next')
+        with self.assertRaises(PermissionError):
+            self.observe(fetch)
+        calls.clear()
+        with self.assertRaisesRegex(ValueError, 'page_budget_exhausted'):
+            self.observe(fetch, max_pages=1)
+        self.assertEqual(len(calls), 1)
+
+    def test_window_boundary_is_live_only_and_metadata_only_rows_are_not_empty_customer_history(self):
+        from unittest.mock import Mock
+        fetch = Mock()
+        with self.assertRaisesRegex(ValueError, 'live_date_boundary'):
+            self.observe(fetch, start='2025-11-01', end_exclusive='2025-11-02')
+        fetch.assert_not_called()
+        fetch.return_value = dict(status='partial', complete=False, semantics='live_non_snapshot',
+                                  data=[], observed_page_rows=20, next_cursor=None)
+        with self.assertRaisesRegex(PermissionError, 'live_private_projection_required'):
+            self.observe(fetch)
+
+
 if __name__ == "__main__":
     unittest.main()
