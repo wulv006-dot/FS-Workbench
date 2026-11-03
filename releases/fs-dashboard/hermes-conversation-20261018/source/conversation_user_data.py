@@ -155,6 +155,7 @@ def prepare_campaign_approval(native,binding):
             raise PermissionError('business_authorization_mismatch')
     elif value.get('binding')==binding:final=value
     else:return False  # A finalized record must never be reassigned to another run.
+    sys.path.insert(0,'/opt/fs-campaign-dashboard/backend')
     actions=NativeCouponActions(native,None,None,authorize=authorize_campaign,approval_source=lambda *args:final)
     if type(final.get('request')) is not dict:raise PermissionError('business_authorization_invalid')
     operation_id=final['request'].get('operation_id')

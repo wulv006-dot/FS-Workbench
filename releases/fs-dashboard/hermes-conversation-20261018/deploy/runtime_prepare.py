@@ -176,7 +176,7 @@ def configure_native_capabilities():
         'runtime/fs_native_readonly.py':'releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py'})
     campaign='releases/fs-dashboard/campaign-analytics-20261023/'
     SOURCES.update({name:campaign+('app/analytics/backend-client.mjs' if name.endswith('.mjs') else name[len('campaign/'):])
-                    for name in (*release.CAMPAIGN_TARGETS,*release.CAPABILITIES_NEW)})
+                    for name in (*release.CAMPAIGN_TARGETS,'campaign/backend/campaign_backend/coupon_grant.py')})
 
 
 def configure_native_composer_static():

@@ -1842,13 +1842,13 @@ class NativePublisher(unittest.TestCase):
     def test_native_capabilities_installed_followup(self):
         self.assertTrue(callable(getattr(prepare,'configure_native_capabilities',None)))
         prepare.configure_native_capabilities()
-        self.assertEqual((len(release.TARGETS),len(release.NEW)),(21,1))
-        self.assertEqual(release.INSTALLED_COMMIT,'6987712266dec9100a83b0d4d4dae5ede98ccf13')
-        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'runtime/conversation_native.py','runtime/conversation_user_data.py','campaign/backend/campaign_backend/services.py',*release.NEW})
+        self.assertEqual((len(release.TARGETS),len(release.NEW)),(21,0))
+        self.assertEqual(release.INSTALLED_COMMIT,'9ca600bef0bd09f3800e32981cc3251d1bf13dda')
+        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'runtime/conversation_user_data.py'})
         self.assertEqual(release.INSTALLED_PROOF,dict(sourceCommit=release.INSTALLED_COMMIT,
-            backup='/var/backups/fs-navigation-20261006/nav-20261103T144300Z',
-            manifestSha256='72468b70ae375d0878d45a78d8dac106eb84ec4dd91dfb577b445ccb06767f04',
-            journalSha256='2d3546e8b9819b99ebf8347f28f9a7826d23720ba900005c411a2821ddc986b7'))
+            backup='/var/backups/fs-navigation-20261006/nav-20261103T165152Z',
+            manifestSha256='c90d0ce989eaa30ff2e5a91993b9847b64f22f81db03a3895b96ab5c616f5603',
+            journalSha256='4c4f4b72d03792637309c0dd056150a0f0a8c6b3ab55f7951b3852b5191bcb76'))
         self.assertEqual(release.CAPABILITIES_STATIC_PROOF['sourceCommit'],'d135d2b965ecdfc2d96a1e49cf9425e31eaca07e')
         self.assertEqual(set(prepare.SOURCES),set(release.CAPABILITIES_TARGETS))
         self.assertEqual(prepare.SOURCES['http/conversation_http.py'],prepare.MODULE+'source/conversation_http.py')
@@ -2073,6 +2073,15 @@ class NativePublisher(unittest.TestCase):
                 rows[:]=[dict(r,beforeSha256=r['sha256']) for r in old_rows]
                 rows.extend(dict(candidate=n,target=p,beforeSha256=release.CAMPAIGN_INITIAL_BEFORE[n][0],
                     sha256=release.CAMPAIGN_BEFORE[n][0],owner='0:0',mode='0o644') for n,p in release.CAMPAIGN_TARGETS.items())
+                old_service=json.loads(Path(__file__).with_name('campaign-before-698.json').read_bytes())['files']['campaign/backend/campaign_backend/services.py']['utf8'].encode()
+                next(r for r in rows if r['candidate']=='campaign/backend/campaign_backend/services.py')['sha256']=prepare.digest(old_service)
+                grant_history_manifest=deepcopy(manifest);grant_history_manifest['sourceCommit']=release.CAPABILITIES_GRANT_HISTORY_PROOF['sourceCommit']
+                grant_history=self.save_capabilities_receipt(base,root,release.CAPABILITIES_GRANT_HISTORY_PROOF,grant_history_manifest,owners)
+                grant_patch=patch.object(release,'CAPABILITIES_GRANT_HISTORY_PROOF',grant_history);grant_patch.start();self.addCleanup(grant_patch.stop)
+                rows[:]=[dict(r,beforeSha256=r['sha256'],sha256=release.CAMPAIGN_BEFORE[r['candidate']][0] if r['candidate'] in release.CAMPAIGN_BEFORE else r['sha256']) for r in rows]
+                grant='campaign/backend/campaign_backend/coupon_grant.py'
+                rows.append(dict(candidate=grant,target=release.TARGETS[grant],beforeSha256=None,sha256=prepare.digest(self.campaign_before_bytes(grant)),owner='0:0',mode='0o644'))
+                git['files']={r['candidate']:r['sha256'] for r in rows}
                 history_patch=patch.object(release,'CAPABILITIES_HISTORY_PROOF',history);history_patch.start();self.addCleanup(history_patch.stop)
                 save(manifest)
                 for path in historical.backup.iterdir():owners[path]=(0,0,0o600)
@@ -2088,6 +2097,12 @@ class NativePublisher(unittest.TestCase):
                 self.assertTrue(historical.backup.is_dir())
                 # Newly pinned 698 must still prove the exact original 36d7
                 # transition and all its older native/navigation/approval guards.
+                grant_journal=base.rooted(root,grant_history['backup']+'/journal.json');saved_grant=grant_journal.read_bytes()
+                for changes in ({'written':False},{'rollbackWritten':True}):
+                    bad=json.loads(saved_grant);bad['files'][0].update(changes);raw=json.dumps(bad).encode()
+                    grant_journal.write_bytes(raw);grant_history['journalSha256']=prepare.digest(raw)
+                    with self.assertRaisesRegex(ValueError,'native_grant_history_success_required'):release.installed_baseline(root,git)
+                grant_journal.write_bytes(saved_grant);grant_history['journalSha256']=prepare.digest(saved_grant)
                 previous_journal=base.rooted(root,previous['backup']+'/journal.json')
                 saved_previous=previous_journal.read_bytes()
                 for changes in ({'written':False},{'rollbackWritten':True}):
@@ -2098,7 +2113,7 @@ class NativePublisher(unittest.TestCase):
                 previous_journal.write_bytes(saved_previous);previous['journalSha256']=prepare.digest(saved_previous)
                 for candidate in ('runtime/conversation_native.py','campaign/backend/campaign_backend/services.py'):
                     bad=deepcopy(manifest);next(r for r in bad['files'] if r['candidate']==candidate)['beforeSha256']='0'*64;save(bad)
-                    with self.assertRaisesRegex(ValueError,'native_campaign_success_chain_mismatch'):release.installed_baseline(root,git)
+                    with self.assertRaisesRegex(ValueError,'native_grant_success_chain_mismatch'):release.installed_baseline(root,git)
                 save(manifest)
                 for field in ('sourceCommit','nativeStaticBaseline'):
                     bad=deepcopy(history_manifest);bad[field]='untrusted'
@@ -2116,7 +2131,7 @@ class NativePublisher(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError,'composer_static_installed_proof_mismatch'):release.installed_baseline(root,change)
                 for key,value in (('sha256','75a9b57a7073771b105573ab59e4c0a227f8567a75c8accbde2991d171934b3d'),('owner','9876:9876'),('mode','0o644')):
                     bad=deepcopy(manifest);bad['unchangedRequired'][0][key]=value;save(bad)
-                    with self.assertRaisesRegex(ValueError,'native_campaign_success_chain_mismatch'):release.installed_baseline(root,git)
+                    with self.assertRaisesRegex(ValueError,'native_grant_success_chain_mismatch'):release.installed_baseline(root,git)
                 bad=deepcopy(manifest);bad['sourceCommit']='bd9cb44c4233f176fb15fd14f5560a5000c750d1';save(bad)
                 with self.assertRaises(ValueError):release.installed_baseline(root,git)
                 save(manifest,files=[dict(r,intent=True,written=False) for r in rows])
@@ -2152,24 +2167,27 @@ class NativePublisher(unittest.TestCase):
                     with self.assertRaises(ValueError):prepare.file_metadata(base,root,target)
                     kinds.clear()
 
-    def test_native_grant_uses_current_success_and_one_absent_module(self):
+    def test_native_grant_uses_current_success_and_no_new_module(self):
         prepare.configure_native_capabilities()
-        self.assertEqual(release.INSTALLED_COMMIT,'6987712266dec9100a83b0d4d4dae5ede98ccf13')
-        self.assertEqual((len(release.TARGETS),len(release.CAPABILITIES_BASELINE_TARGETS)),(21,20))
-        self.assertEqual(release.NEW,frozenset({'campaign/backend/campaign_backend/coupon_grant.py'}))
-        self.assertEqual(set(release.CAPABILITIES_CHANGED),{
-            'runtime/conversation_native.py','runtime/conversation_user_data.py','campaign/backend/campaign_backend/services.py',*release.NEW})
+        self.assertEqual(release.INSTALLED_COMMIT,'9ca600bef0bd09f3800e32981cc3251d1bf13dda')
+        self.assertEqual((len(release.TARGETS),len(release.CAPABILITIES_BASELINE_TARGETS)),(21,21))
+        self.assertEqual(release.NEW,frozenset())
+        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'runtime/conversation_user_data.py'})
         self.assertEqual(release.CAPABILITIES_PREVIOUS_PROOF['sourceCommit'],'36d7d92540d9153e9b1cc764f900990ded17362d')
 
     def campaign_before_bytes(self,name):
         # Frozen Git bytes assembled before isolation; never launch Git inside
         # the original offline runner or substitute current candidate bytes.
-        fixture=json.loads(Path(__file__).with_name('campaign-before-698.json').read_bytes())
+        fixture=json.loads(Path(__file__).with_name('campaign-before-9ca.json').read_bytes())
+        historical=json.loads(Path(__file__).with_name('campaign-before-698.json').read_bytes())
+        self.assertEqual(historical['source_commit'],release.CAPABILITIES_GRANT_HISTORY_PROOF['sourceCommit'])
+        fixture['files']={**historical['files'],**fixture['files']}
         self.assertEqual(fixture['source_commit'],release.INSTALLED_COMMIT)
-        self.assertEqual(set(fixture['files']),set(release.CAMPAIGN_TARGETS))
+        self.assertEqual(set(fixture['files']),{*release.CAMPAIGN_TARGETS,'campaign/backend/campaign_backend/coupon_grant.py'})
         row=fixture['files'][name];self.assertEqual(row['source'],prepare.SOURCES[name])
         body=row['utf8'].encode('utf8')
-        self.assertEqual((prepare.digest(body),len(body)),release.CAMPAIGN_BEFORE[name])
+        if name in release.CAMPAIGN_BEFORE:self.assertEqual((prepare.digest(body),len(body)),release.CAMPAIGN_BEFORE[name])
+        else:self.assertEqual((prepare.digest(body),len(body)),(row['sha256'],row['bytes']))
         return body
 
     def test_native_capabilities_original_apply_rollback(self):
@@ -2427,6 +2445,16 @@ class NativePublisher(unittest.TestCase):
                     installed_rows=[dict(r,beforeSha256=r['sha256']) for r in cap_manifest['files']]
                     installed_rows.extend(dict(candidate=n,target=p,beforeSha256=release.CAMPAIGN_INITIAL_BEFORE[n][0],
                         sha256=current[p],owner='0:0',mode='0o644') for n,p in release.CAMPAIGN_TARGETS.items())
+                    old_service=json.loads(Path(__file__).with_name('campaign-before-698.json').read_bytes())['files']['campaign/backend/campaign_backend/services.py']['utf8'].encode()
+                    next(r for r in installed_rows if r['candidate']=='campaign/backend/campaign_backend/services.py')['sha256']=prepare.digest(old_service)
+                    grant_history_manifest=dict(cap_manifest,sourceCommit=release.CAPABILITIES_GRANT_HISTORY_PROOF['sourceCommit'],files=installed_rows)
+                    grant_history_proof=self.save_capabilities_receipt(base,f.system,release.CAPABILITIES_GRANT_HISTORY_PROOF,grant_history_manifest,f.owners)
+                    proof_stack.enter_context(patch.object(release,'CAPABILITIES_GRANT_HISTORY_PROOF',grant_history_proof))
+                    installed_rows=[dict(r,beforeSha256=r['sha256'],sha256=current[r['target']]) for r in installed_rows]
+                    grant='campaign/backend/campaign_backend/coupon_grant.py';target=release.TARGETS[grant]
+                    body=self.campaign_before_bytes(grant);path=base.rooted(f.system,target);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(body)
+                    f.owners[path]=(0,0,0o644);current[target]=prepare.digest(body)
+                    installed_rows.append(dict(candidate=grant,target=target,beforeSha256=None,sha256=current[target],owner='0:0',mode='0o644'))
                     cap_manifest=dict(cap_manifest,sourceCommit=release.NATIVE_CAPABILITIES_PROOF['sourceCommit'],files=installed_rows)
                     proof=self.save_capabilities_receipt(base,f.system,release.NATIVE_CAPABILITIES_PROOF,cap_manifest,f.owners)
                     # frozen() captures NEW at construction; this reused fixture
@@ -2478,7 +2506,7 @@ class NativePublisher(unittest.TestCase):
                     for row in manifest['files']:
                         if row['candidate'] not in release.CAPABILITIES_CHANGED:
                             path=base.rooted(f.system,row['target']);untouched[row['target']]=(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns)
-                    self.assertEqual(len(untouched),784)
+                    self.assertEqual(len(untouched),787)
                     self.assertEqual({row['candidate'] for row in manifest['files'] if row['beforeSha256'] is None},set(release.NEW))
                 untouched_modes={p:(base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)) for p in untouched}
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -2486,6 +2514,7 @@ class NativePublisher(unittest.TestCase):
                 if capabilities:
                     module.CAPABILITIES_STORE_BEFORE_SHA=compat_store_sha;module.CAPABILITIES_STATIC_PROOF=static_proof
                     module.CAPABILITIES_PREVIOUS_PROOF=previous_proof
+                    module.CAPABILITIES_GRANT_HISTORY_PROOF=grant_history_proof
                     module.CAPABILITIES_NGINX_PROOF=nginx_proof.proof
                     module.CAPABILITIES_NAVIGATION_PROOFS=navigation.proofs
                     module.CAPABILITIES_SHARED_PROOF=shared.proof
