@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 from urllib.parse import parse_qs
@@ -44,9 +45,37 @@ class ChannelsTest(unittest.TestCase):
         payload=json.loads(self.calls[0][1])
         self.assertEqual(payload["total"],1)
         self.assertEqual(payload["emails"],"test@example.com")
+        self.assertNotIn("biz_param",payload)
     def test_mamba_partial_not_success(self):
         self.result=(200,{"status":"part_success","batch_id":"b","total_accepted_recipients":1})
         self.assertEqual(self.service.test(self.request("mamba"),"admin")["state"],"unknown")
+    def test_callback_missing_error_is_visible_without_secret(self):
+        self.result=(200,{'status':'fail','batchId':'batch1','message':'CallBackUrl is null, please concat system manager','total_accepted_recipients':None})
+        self.assertEqual(self.service.test(self.request('mamba'),'admin')['state'],'rejected')
+        self.assertIn('CallBackUrl',self.service.records()['records'][0]['message'])
+    def test_error_redaction(self):
+        self.result=(400,{'message':'error PRIVATE_TEST_KEY'})
+        self.service.test(self.request('mamba'),'admin')
+        self.assertNotIn('PRIVATE_TEST_KEY',json.dumps(self.service.records()))
+    def test_callback_auth_dedup_and_matching(self):
+        self.result=(200,{'status':'all_success','batchId':'batch1','total_accepted_recipients':1})
+        self.service.test(self.request('mamba'),'admin')
+        token='a'*64
+        with open(os.path.join(self.temp.name,'mamba_callback_token'),'w') as stream: stream.write(token)
+        body={'results':[{'batch_id':'batch1','email':'test@example.com','deliver_status':'delivery','timestamp':'1793690000'}]}
+        with self.assertRaises(PermissionError): self.service.callback('b'*64,body)
+        self.service.callback(token,body);self.service.callback(token,body)
+        with self.service.connect() as db:self.assertEqual(db.execute('SELECT count(*) FROM events').fetchone()[0],1)
+        self.assertEqual(self.service.records()['records'][0]['delivery_event'],'delivery')
+        body['results'][0]['batch_id']='unknown'
+        with self.assertRaises(LookupError):self.service.callback(token,body)
+    def test_callback_invalid_event_rolls_back(self):
+        self.result=(200,{'status':'all_success','batchId':'batch1','total_accepted_recipients':1})
+        self.service.test(self.request('mamba'),'admin')
+        with open(os.path.join(self.temp.name,'mamba_callback_token'),'w') as stream: stream.write('a'*64)
+        body={'results':[{'batch_id':'batch1','email':'test@example.com','deliver_status':'delivery','timestamp':'1793690000'},{}]}
+        with self.assertRaises(m.Invalid):self.service.callback('a'*64,body)
+        with self.service.connect() as db:self.assertEqual(db.execute('SELECT count(*) FROM events').fetchone()[0],0)
     def test_validate_not_delivered(self):
         self.assertEqual(self.service.test(self.request(mode="validate"),"admin")["state"],"validated")
         self.assertEqual(parse_qs(self.calls[0][1].decode())["sandboxMode"],["validate"])

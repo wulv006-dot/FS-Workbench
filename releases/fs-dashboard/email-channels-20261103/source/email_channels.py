@@ -4,6 +4,7 @@ No customer export, campaign scheduler or automatic resend is enabled here.
 Secrets never leave this server; provider responses are reduced to known fields.
 """
 import hashlib
+import hmac
 from contextlib import contextmanager
 import http.client
 import json
@@ -41,7 +42,10 @@ def transport(url, data, headers):
         with urllib.request.build_opener(NoRedirect).open(request, timeout=25) as response:
             return response.status, json.loads(response.read(1048576))
     except urllib.error.HTTPError as exc:
-        return exc.code, {}
+        try:
+            return exc.code, json.loads(exc.read(65536))
+        except (ValueError, UnicodeError):
+            return exc.code, {}
 
 def authorize(headers, method, path):
     """Re-use the live portal role, never trust caller-supplied role headers."""
@@ -80,6 +84,8 @@ class Channels:
         self.db = os.path.join(directory, "tests.sqlite3")
         with self.connect() as db:
             db.execute("CREATE TABLE IF NOT EXISTS sends (id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, provider TEXT NOT NULL, recipient TEXT NOT NULL, state TEXT NOT NULL, provider_id TEXT, created REAL NOT NULL, actor TEXT NOT NULL, mode TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS diagnostics (id TEXT PRIMARY KEY, http_status INTEGER, message TEXT)")
+            db.execute("CREATE TABLE IF NOT EXISTS events (event_key TEXT PRIMARY KEY, batch_id TEXT NOT NULL, recipient TEXT NOT NULL, status TEXT NOT NULL, occurred INTEGER NOT NULL)")
         os.chmod(self.db, 0o600)
 
     @contextmanager
@@ -108,7 +114,7 @@ class Channels:
             safe["configured"] = bool(config.get("secret") and config.get("from_email") and config.get("reply_to") and (provider != "aurora" or config.get("api_user")))
             safe["status"] = "已保存，待平台联调" if safe["configured"] else "未配置完整"
             result[provider] = safe
-        return {"ok": True, "channels": result, "version": "email-config-20261103-v1", "campaigns_enabled": False, "webhooks_enabled": False}
+        return {"ok": True, "channels": result, "version": "email-config-20261103-v3", "campaigns_enabled": False, "webhooks_enabled": os.path.isfile(os.path.join(self.directory, "mamba_callback_token"))}
 
     def save(self, body):
         provider = body.get("provider")
@@ -183,13 +189,17 @@ class Channels:
             encoded = urllib.parse.urlencode(payload).encode()
             headers = {"Content-Type":"application/x-www-form-urlencoded"}
         else:
-            payload = {"request_id":request_id, "campaign_id":request_id, "from":config["from_email"], "from_name":config["from_name"], "reply_to":config["reply_to"], "emails":recipient, "total":1, "subject":subject, "content":content, "biz_param":{"fs_test_id":request_id}}
+            payload = {"request_id":request_id, "campaign_id":request_id, "from":config["from_email"], "from_name":config["from_name"], "reply_to":config["reply_to"], "emails":recipient, "total":1, "subject":subject, "content":content}
             url = "https://sending.mambasms.com/open/api/international/email/batch/send"
             encoded = json.dumps(payload).encode()
             headers = {"Content-Type":"application/json", "X-Mamba-Access-Token":config["secret"]}
-        state, provider_id = "unknown", None
+        state, provider_id, diagnostic, status = "unknown", None, "", None
         try:
             status, result = self.sender(url, encoded, headers)
+            # Keep only a bounded message; never persist an entire vendor response.
+            if isinstance(result, dict):
+                diagnostic = str(result.get("message") or "").replace(config["secret"], "[REDACTED]")
+                diagnostic = re.sub(r"[\x00-\x1f\x7f]", " ", diagnostic)[:256]
             if isinstance(result, dict) and status == 200:
                 if provider == "aurora":
                     ids = (result.get("info") or {}).get("emailIdList")
@@ -202,9 +212,13 @@ class Channels:
                         state = "rejected"
                 else:
                     batch = result.get("batch_id") or result.get("batchId")
+                    if batch:
+                        provider_id = str(batch)[:256]
                     if result.get("status") == "all_success" and result.get("total_accepted_recipients") == 1 and batch:
                         state, provider_id = "accepted", str(batch)[:256]
                     elif result.get("status") == "fail" and result.get("total_accepted_recipients") == 0:
+                        state = "rejected"
+                    elif result.get("status") == "fail" and result.get("message") == "CallBackUrl is null, please concat system manager":
                         state = "rejected"
             elif status in (400, 401, 403, 422, 429):
                 state = "rejected"
@@ -213,12 +227,49 @@ class Channels:
             state = "unknown"
         with self.connect() as db:
             db.execute("UPDATE sends SET state=?, provider_id=? WHERE id=?", (state,provider_id,request_id))
+            db.execute("INSERT OR REPLACE INTO diagnostics VALUES (?,?,?)", (request_id,status,diagnostic))
         return {"ok":True, "request_id":request_id, "state":state, "provider_id":provider_id}
 
     def records(self):
         with self.connect() as db:
             rows = db.execute("SELECT id,provider,recipient,state,provider_id,created,actor,mode FROM sends ORDER BY created DESC LIMIT 50").fetchall()
-        return {"ok":True,"records":[dict(zip(("id","provider","recipient","state","provider_id","created","actor","mode"),row)) for row in rows]}
+            result = []
+            for row in rows:
+                record = dict(zip(("id","provider","recipient","state","provider_id","created","actor","mode"),row))
+                detail = db.execute("SELECT http_status,message FROM diagnostics WHERE id=?", (row[0],)).fetchone()
+                event = db.execute("SELECT status FROM events WHERE batch_id=? AND recipient=? ORDER BY occurred DESC LIMIT 1", (row[4],row[2])).fetchone() if row[1] == 'mamba' else None
+                record.update(http_status=detail[0] if detail else None, message=detail[1] if detail else '', delivery_event=event[0] if event else '')
+                result.append(record)
+        return {"ok":True,"records":result}
+
+    def callback(self, token, body):
+        token_file = os.path.join(self.directory, 'mamba_callback_token')
+        if not os.path.isfile(token_file):
+            raise PermissionError('callback disabled')
+        with open(token_file, encoding='ascii') as stream:
+            expected = stream.read().strip()
+        if len(expected) != 64 or not hmac.compare_digest(expected, token):
+            raise PermissionError('invalid callback token')
+        results = body.get('results') if isinstance(body, dict) else None
+        if not isinstance(results, list) or not 1 <= len(results) <= 100:
+            raise Invalid('invalid callback results')
+        allowed = {'delivery','open','click','delay','bounce','spam_complaint','list_unsubscribe','link_unsubscribe'}
+        with self.connect() as db:
+            for event in results:
+                if not isinstance(event, dict):
+                    raise Invalid('invalid callback event')
+                batch, recipient, status = event.get('batch_id'), mailbox(event.get('email')), event.get('deliver_status')
+                if not isinstance(batch, str) or not 1 <= len(batch) <= 256 or status not in allowed:
+                    raise Invalid('invalid callback fields')
+                stamp = str(event.get('timestamp', ''))
+                if not stamp.isdigit() or not 1 <= len(stamp) <= 10:
+                    raise Invalid('invalid callback timestamp')
+                # Unknown batches are retried by Mamba; no unaffiliated customer data stored.
+                if not db.execute("SELECT 1 FROM sends WHERE provider='mamba' AND provider_id=? AND recipient=?", (batch,recipient)).fetchone():
+                    raise LookupError('batch not recorded yet')
+                key = hashlib.sha256(json.dumps([batch,recipient,status,stamp]).encode()).hexdigest()
+                db.execute('INSERT OR IGNORE INTO events VALUES (?,?,?,?,?)', (key,batch,recipient,status,int(stamp)))
+        return {'success': True}
 
 def handle(handler):
     path = urllib.parse.urlparse(handler.path).path
@@ -233,6 +284,26 @@ def handle(handler):
         handler.send_header("X-Content-Type-Options", "nosniff")
         handler.end_headers()
         handler.wfile.write(data)
+    if path.startswith('/api/email/callback/mamba/'):
+        try:
+            if handler.command != 'POST':
+                reply({'success':False},405)
+                return True
+            size = int(handler.headers.get('Content-Length','0'))
+            if not 0 < size <= 65536 or not handler.headers.get('Content-Type','').startswith('application/json'):
+                raise Invalid('invalid callback body')
+            token = path.removeprefix('/api/email/callback/mamba/')
+            if not re.fullmatch('[a-f0-9]{64}',token):
+                raise PermissionError('invalid callback token')
+            service = Channels(os.path.join(os.path.dirname(__file__), '_email_private'))
+            reply(service.callback(token,json.loads(handler.rfile.read(size))))
+        except PermissionError:
+            reply({'success':False},403)
+        except LookupError:
+            reply({'success':False},503)
+        except (ValueError,KeyError,TypeError):
+            reply({'success':False},400)
+        return True
     actor = authorize(handler.headers, handler.command, path)
     if not actor:
         reply({"ok":False,"error":"请使用具有配置权限的后台管理员账号登录"},403)

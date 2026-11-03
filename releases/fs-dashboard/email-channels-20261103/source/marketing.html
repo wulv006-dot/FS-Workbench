@@ -388,7 +388,7 @@ function emailCard(provider,c){
     finally{card.querySelectorAll('button').forEach(b=>b.disabled=false);}
   });return card;
 }
-async function emailRecords(){const j=await emailApi('records');$('#emailRecords').innerHTML='<table><thead><tr><th>时间</th><th>平台</th><th>测试邮箱</th><th>结果</th><th>请求编号</th></tr></thead><tbody>'+j.records.map(r=>`<tr><td>${esc(new Date(r.created*1000).toLocaleString())}</td><td>${esc(EMAIL_NAMES[r.provider])}</td><td>${esc(r.recipient)}</td><td>${esc(EMAIL_STATES[r.state]||r.state)}</td><td>${esc(r.id)}</td></tr>`).join('')+'</tbody></table>'+(j.records.length?'':'<p class="hint">暂无测试记录，尚未发送邮件。</p>');}
+async function emailRecords(){const j=await emailApi('records');$('#emailRecords').innerHTML='<table><thead><tr><th>时间</th><th>平台</th><th>测试邮箱</th><th>结果</th><th>请求编号</th></tr></thead><tbody>'+j.records.map(r=>`<tr><td>${esc(new Date(r.created*1000).toLocaleString())}</td><td>${esc(EMAIL_NAMES[r.provider])}</td><td>${esc(r.recipient)}</td><td>${esc(EMAIL_STATES[r.state]||r.state)}${r.delivery_event?' · '+esc(({delivery:'已送达',open:'已打开',click:'已点击',bounce:'退信',delay:'延迟',spam_complaint:'投诉',list_unsubscribe:'退订',link_unsubscribe:'退订'})[r.delivery_event]||r.delivery_event):''}${r.message?'<br><span class=mini>'+esc(r.message)+'</span>':''}</td><td>${esc(r.id)}</td></tr>`).join('')+'</tbody></table>'+(j.records.length?'':'<p class="hint">暂无测试记录，尚未发送邮件。</p>');}
 async function loadEmail(){try{const j=await emailApi('config');$('#emailChannels').replaceChildren(...Object.entries(j.channels).map(([p,c])=>emailCard(p,c)));await emailRecords();}catch(e){emailNotice(e.message);}}
 $('#emailRefresh').onclick=loadEmail;
 document.querySelector('[data-tab="mail"]').addEventListener('click',loadEmail);
