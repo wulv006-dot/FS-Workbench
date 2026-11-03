@@ -170,6 +170,7 @@
     },
     "management-channels": {
       "roots": [
+        "releases/fs-dashboard/management-november-20261103/source",
         "releases/fs-dashboard/management-all-sites-20261025/source",
         "releases/fs-dashboard/management-all-sites-20261025/tests",
         "releases/fs-dashboard/channel-effects-20261021/source",

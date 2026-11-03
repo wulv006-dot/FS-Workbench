@@ -1,0 +1,21 @@
+{
+  "status": "deployed_pending_final_actual_acceptance",
+  "releases": [
+    "nav-20261103T083725Z",
+    "nav-20261103T084305Z"
+  ],
+  "backend": {
+    "targets.json": "/opt/fs-boss-workspaces/source/management/targets.json",
+    "targets-2026-10.json": "/opt/fs-boss-workspaces/source/management/targets-2026-10.json",
+    "range_api.py": "/opt/fs-exact-range-20261001/range_api.py",
+    "admin_summary.py": "/opt/fs-exact-range-20261001/admin_summary.py",
+    "management_profiles.py": "/opt/fs-exact-range-20261001/management_profiles.py",
+    "management_facts.py": "/opt/fs-boss-workspaces/backend/management_facts.py",
+    "management_components.py": "/opt/fs-boss-workspaces/backend/management_components.py",
+    "management_v2_runner.py": "/opt/fs-boss-workspaces/backend/management_v2_runner.py",
+    "business_shipping.py": "/opt/fs-exact-range-20261001/business_shipping.py"
+  },
+  "frontend": "/dashboard/management/; alias per current Nginx exact routes",
+  "sourceLevel": "current files verified against live pre-change hashes; task-specific incremental publisher manifests retained locally",
+  "scope": "25 games, 2026-11; USD 2000680; user confirmed COD Admin1335/Order1302, WoW Forever, D2R Admin530/Order530, GTA5+GTA6"
+}

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>战犬 · 11月经营目标</title>
+<style>
+:root{
+  --bg:#edf1f4;--card:#fff;--ink:#1d2733;--muted:#76839a;--faint:#9aa6b8;
+  --line:#e7ecf1;--line2:#eef2f6;
+  --teal:#1f6f73;--teal-d:#12434b;--teal-l:#e3f0ef;
+  --green:#2f9e7d;--green-l:#e2f3ec;
+  --purple:#7c6bb4;--purple-l:#efeaf8;
+  --amber:#cf8a2e;--amber-l:#faf0dd;
+  --red:#c0563f;--red-l:#fbeae5;
+  --radius:18px;--shadow:0 1px 2px rgba(20,40,60,.04),0 10px 30px -18px rgba(20,40,60,.25);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1400px;margin:0 auto;padding:26px 30px 44px}
+.topbar{display:flex;align-items:center;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:13px}
+.logo{width:46px;height:46px;border-radius:13px;background:linear-gradient(150deg,#12434b,#1f6f73);display:grid;place-items:center;color:#cfe9e6;flex:none}
+.brand .t{font-weight:800;font-size:17px}
+.brand .s{font-size:11.5px;letter-spacing:2px;color:var(--muted);font-weight:600}
+.spacer{flex:1}
+.btn{border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:600;font-size:14px;padding:10px 18px;border-radius:11px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:transform .12s,box-shadow .12s}
+.btn:hover{box-shadow:0 6px 18px -10px rgba(20,40,60,.4)}
+.btn:active{transform:translateY(1px)}
+.btn.dark{background:#12323b;border-color:#12323b;color:#fff}
+.btn.amber{background:#b07a24;border-color:#b07a24;color:#fff}
+.btn.ghost{background:#fff}
+.lockst{font-size:12.5px;font-weight:700;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.lockst.open{color:var(--green)}
+.hero{position:relative;border-radius:24px;padding:32px 40px;color:#eaf4f2;overflow:hidden;min-height:220px;
+  background:linear-gradient(118deg,#0b2632 0%,#0f4048 44%,#13626a 78%,#1b7e78 100%);
+  box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.06)}
+.hero .hgrid{position:absolute;inset:0;opacity:.5;
+  background-image:linear-gradient(rgba(126,214,206,.06)1px,transparent 1px),linear-gradient(90deg,rgba(126,214,206,.06)1px,transparent 1px);
+  background-size:34px 34px;-webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,.9),rgba(0,0,0,.1)70%);mask-image:linear-gradient(90deg,rgba(0,0,0,.9),rgba(0,0,0,.1)70%)}
+.hero .in{position:relative;z-index:2}
+.hero .kick{font-size:12px;letter-spacing:3px;font-weight:700;color:#9fc8c3}
+.hero h1{font-size:36px;line-height:1.1;margin:10px 0 8px;font-weight:800}
+.hero .who{color:#c3dcd8;font-size:14.5px}
+.hero .who b{color:#eefaf8}
+.hero-tags{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.htag{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#eaf4f2}
+.htag i{width:8px;height:8px;border-radius:50%;background:#cfd9dd}
+.htag.good i{background:#7fe0b8} .htag.warn i{background:#e0a85a} .htag.purple i{background:#b7a6e6}
+.pace-row{position:relative;z-index:2;margin-top:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.pace{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px 16px}
+.pace .l{font-size:12px;color:#bfe0dc;font-weight:600}
+.pace .n{font-size:25px;font-weight:800;margin-top:4px;line-height:1.1}
+.pace .s{font-size:11.5px;color:#9fc8c3;margin-top:3px}
+.sec{margin-top:34px}
+.sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.sec-h h2{font-size:21px;font-weight:800;margin:0}
+.sec-h p{margin:0;font-size:13px;color:var(--muted)}
+.ov-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.ov{background:#fff;border-radius:15px;padding:16px 18px;box-shadow:var(--shadow);border:1px solid var(--line2)}
+.ov .lab{font-size:12.5px;color:var(--muted);font-weight:700}
+.ov .v{font-size:26px;font-weight:800;margin:7px 0 3px}
+.ov .ring{display:flex;align-items:center;gap:10px;margin-top:10px}
+.ring .rt{height:9px;border-radius:99px;background:#eef2f5;flex:1;overflow:hidden}
+.ring .rt i{display:block;height:100%;border-radius:99px}
+.ring .pc{font-size:12px;font-weight:800;width:52px;text-align:right}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;padding:3px 11px;border-radius:999px}
+.pill.good{color:var(--green);background:var(--green-l)}
+.pill.warn{color:var(--amber);background:var(--amber-l)}
+.pill.risk{color:var(--red);background:var(--red-l)}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi{background:#fff;border-radius:15px;padding:15px 17px;box-shadow:var(--shadow);border:1px solid var(--line2);position:relative;overflow:hidden}
+.kpi2{padding:16px 18px 15px}
+.kpi2 .ktop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.kpi2 .klab{font-size:14px;font-weight:800;color:var(--ink)}
+.kpi2 .kbadge{font-size:15px;font-weight:800;padding:3px 11px;border-radius:999px;line-height:1.2}
+.kpi2.good .kbadge{color:var(--green);background:var(--green-l)}
+.kpi2.warn .kbadge{color:var(--amber);background:var(--amber-l)}
+.kpi2.risk .kbadge{color:var(--red);background:var(--red-l)}
+.kpi2.flat .kbadge{color:var(--faint);background:#f2f5f7}
+.kpi2 .kactual{font-size:30px;font-weight:800;line-height:1.05;margin:13px 0 3px;letter-spacing:.3px}
+.kpi2 .kactual .ku{font-size:15px;font-weight:700;color:var(--muted);margin-left:4px}
+.kpi2 .ktrack{height:8px;border-radius:99px;background:#eef2f5;overflow:hidden;margin-top:11px}
+.kpi2 .ktrack i{display:block;height:100%;border-radius:99px}
+.kpi2 .kfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:11px;font-size:12px;color:var(--muted)}
+.kpi2 .kfoot b{color:#52606f;font-weight:800}
+.kpi2 .ktgt-edit{width:96px;padding:4px 7px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;font-weight:800;text-align:right;background:#fbfcfd}
+.kpi2 .ktgt-edit:focus{outline:none;border-color:var(--teal);background:#fff}
+.chart-box{position:relative;width:100%;overflow-x:auto}
+.bar-tip{position:absolute;z-index:20;min-width:128px;padding:8px 11px;border-radius:9px;
+  background:rgba(20,30,38,.93);color:#fff;font-size:11.5px;line-height:1.55;pointer-events:none;
+  box-shadow:0 8px 24px rgba(20,30,38,.22);opacity:0;transform:translateY(3px);transition:opacity .12s,transform .12s}
+.bar-tip.on{opacity:1;transform:translateY(0)}
+.bar-tip b{display:block;font-size:12px;margin-bottom:2px}
+.bar-tip span{display:block;color:#cdd7e0}
+.actloop{margin-top:13px;border-top:1px dashed var(--line)}
+.actloop-tg{margin-top:10px;padding:0;background:none;border:0;font-size:11.5px;font-weight:800;
+  color:var(--teal-d);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.actloop-tg .caret{font-size:10px;color:var(--faint)}
+.actloop-body{display:none;margin-top:9px}
+.actloop.on .actloop-body{display:block}
+.actrow{display:flex;gap:8px;align-items:flex-start;margin-bottom:7px}
+.actrow.two{flex-wrap:wrap;gap:8px 6px}
+.actrow .alab{flex:0 0 52px;font-size:11px;font-weight:800;color:var(--faint);padding-top:4px}
+.actrow .aval{font-size:11.5px;font-weight:700;color:#4a5664}
+.actrow.last{background:#f6f9fa;border-radius:6px;padding:6px 8px;margin:0 0 8px}
+.ainput{flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line);border-radius:7px;
+  font-size:11.5px;font-family:inherit;color:#33414f;background:#fbfcfd;resize:vertical}
+.ainput:focus{outline:none;border-color:var(--teal);background:#fff}
+.ainput.short{flex:0 0 64px}
+.inline{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)}
+.ainput:disabled{background:#f3f6f8;color:#98a3b1;cursor:default}
+.cards{background:#fff;border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow)}
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:700;padding:8px;border-bottom:1px solid var(--line)}
+.tbl td{padding:11px 8px;border-bottom:1px solid var(--line2);vertical-align:middle}
+.tbl td.r,.tbl th.r{text-align:right}
+.tbl tr:last-child td{border-bottom:none}
+.tk{height:9px;border-radius:99px;background:#eef2f5;overflow:hidden;min-width:90px}
+.tk i{display:block;height:100%;border-radius:99px}
+.wknote{font-size:11.5px;color:var(--faint)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.plan ul{margin:8px 0 0;padding-left:0;list-style:none}
+.plan li{position:relative;padding:9px 0 9px 30px;border-bottom:1px solid var(--line2);font-size:13.5px}
+.plan li:last-child{border-bottom:none}
+.plan li .ic{position:absolute;left:0;top:9px;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:12px;color:#fff}
+.plan li b{font-weight:800}
+.plan .cap{font-size:12px;color:var(--muted)}
+.event-tag{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:999px;margin-left:7px}
+.event-tag.ver{color:var(--teal);background:var(--teal-l)}
+.event-tag.promo{color:var(--red);background:var(--red-l)}
+.event-tag.week{color:var(--purple);background:var(--purple-l)}
+#dailySvg{display:block;min-width:760px}
+footer{margin-top:36px;padding-top:20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-size:12px;color:var(--faint);flex-wrap:wrap;gap:8px}
+@media(max-width:1080px){
+  .kpi-grid,.ov-grid{grid-template-columns:repeat(2,1fr)}
+  .pace-row{grid-template-columns:repeat(2,1fr)}
+  .grid-2{grid-template-columns:1fr}
+}
+</style>
+
+<link rel="stylesheet" href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-tokens.css"><script src="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/fs-theme.js"></script><link rel="stylesheet" href="management-live.css"><script defer src="management-live.js"></script></head>
+<body data-management-v2 data-view="game" data-profile="WARDOGS">
+<h1 class="vh">EA SPORTS FC 27 KPI 驾驶舱</h1>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <span class="logo">
+        <svg aria-hidden="true" focusable="false" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 18V9l8-5 8 5v9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 18v-5h6v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <div><div class="t">EA SPORTS FC 27 目标驾驶舱</div><div class="s">OBJECTIVE · KPI</div></div>
+    </div>
+    <div class="spacer"></div>
+    <a class="btn ghost" href="index.html">← 总览</a>
+    <a class="btn ghost" href="sandbox.html">🎯 目标沙盘</a>
+  </div>
+
+  <header class="hero" id="hero"></header>
+
+  <div class="sec">
+    <div class="sec-h"><h2>时间进度 vs KPI 完成</h2><p id="ovSub"></p></div>
+    <div class="ov-grid" id="ovGrid"></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><h2>一级目标 · 月度结果</h2><p>营收 / 订单 / 利润 / 新客（月度目标，权威只读；如需调整请在「目标沙盘」试算后由管理员重发布）。</p></div>
+    <div class="kpi-grid" id="l1Grid"></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><h2>二级目标 · 驱动指标</h2><p>效率 / 质量过程指标，领先于一级结果。</p></div>
+    <div class="kpi-grid" id="l2Grid"></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><h2>周目标分解</h2><p>考核周期 10/1–10/31，按版本节奏与周末波峰拆到各自然周，并非平均分摊。</p></div>
+    <div class="cards">
+      <table class="tbl">
+        <thead><tr><th>周期</th><th>节点说明</th><th class="r">营收目标</th><th class="r">实际营收</th><th style="width:170px">完成进度</th><th class="r">订单目标</th><th class="r">实际订单</th></tr></thead>
+        <tbody id="wkBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><h2>每日营收趋势</h2><p>柱为日营收，紫色底为周末；点柱子看当日营收/订单。</p></div>
+    <div class="cards chart-box" id="dailyChart"></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><h2>规律与 10 月规划依据</h2><p>每个建议值背后的数据逻辑。</p></div>
+    <div class="grid-2">
+      <div class="cards plan">
+        <h3 style="margin:0 0 4px;font-size:15px">从数据看到的要点</h3>
+        <ul id="lawList"></ul>
+      </div>
+      <div class="cards plan">
+        <h3 style="margin:0 0 4px;font-size:15px">10 月版本 / 活动 / 周末节奏</h3>
+        <ul id="rhythmList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span id="footSrc"></span>
+    <span>月度目标由管理员统一发布 · 调整入口：总览页「目标沙盘」</span>
+  </footer>
+</div>
+
+
+
+</body>
+</html>
