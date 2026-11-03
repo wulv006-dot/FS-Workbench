@@ -99,18 +99,22 @@ def validate_native_admission(item):
         raise PermissionError('native_admission_run')
     environment = value['environment']
     if (type(environment) is not dict or set(environment) != {'profile','workspace','files'} or
-            environment['workspace'] != NATIVE_ROOT+'/workspaces/'+bound['conversation_id'] or
+            environment['workspace'] != execution_workspace(bound) or
             environment['profile'] != NATIVE_ROOT+'/profiles/'+sha(bound['owner'].encode()) or
             type(environment['files']) is not list):
         raise PermissionError('native_admission_paths')
     return bound
 
 
+def execution_workspace(binding, root=None):
+    if any(not re.fullmatch('[a-f0-9]{32}', binding.get(key) or '')
+           for key in ('conversation_id','turn_id')):
+        raise ValueError('native_backend_turn')
+    return str(Path(NATIVE_ROOT if root is None else root) / 'executions' / binding['conversation_id'] / binding['turn_id'])
+
+
 def docker_policy(binding, root=NATIVE_ROOT):
-    cid = binding.get('conversation_id')
-    if not re.fullmatch('[a-f0-9]{32}', cid or ''):
-        raise ValueError('native_backend_conversation')
-    workspace = str(Path(root) / 'workspaces' / cid)
+    workspace = execution_workspace(binding, root)
     return {'TERMINAL_ENV': 'docker', 'TERMINAL_CWD': workspace,
             'TERMINAL_DOCKER_IMAGE': NATIVE_IMAGE, 'TERMINAL_DOCKER_IMAGE_PINNED': '1',
             'TERMINAL_DOCKER_MOUNT_CWD_TO_WORKSPACE': 'true',
@@ -326,16 +330,20 @@ class NativeWorkspace:
             self._own(current)
         return path
 
-    def paths(self, owner, cid):
+    def paths(self, owner, cid, *, turn_id=None):
         if not re.fullmatch('[a-f0-9]{32}', cid or ''):
             raise LookupError('conversation_not_found')
         with self.store.db() as db:
             self.store._owned(db, owner, cid)
-        return (self._directory('workspaces', cid), self._directory('profiles', sha(owner.encode('utf-8'))))
+        if turn_id is not None and not re.fullmatch('[a-f0-9]{32}', turn_id or ''):
+            raise ValueError('native_backend_turn')
+        workspace=(self._directory('executions',cid,turn_id) if turn_id is not None
+                   else self._directory('workspaces',cid))
+        return workspace, self._directory('profiles', sha(owner.encode('utf-8')))
 
-    def prepare(self, owner, cid, file_ids=()):
+    def prepare(self, owner, cid, file_ids=(), *, turn_id=None):
         from conversation_files import MAX_BYTES
-        workspace, profile = self.paths(owner, cid)
+        workspace, profile = self.paths(owner, cid, turn_id=turn_id)
         config = profile / 'config.yaml'
         expected = canonical(native_profile_config()).encode()
         with self.store.db() as db:
@@ -350,6 +358,21 @@ class NativeWorkspace:
                     os.chmod(config,0o600)
                     self._own(config)
                     stream.write(expected)
+            if turn_id is not None:
+                # Only immutable, previously published versions cross a turn
+                # boundary. A stopped terminal may still write its old mount.
+                for row in db.execute('SELECT * FROM native_workspace_files WHERE cid=? ORDER BY path',(cid,)):
+                    item=self.files.describe(owner,cid,row['file_id'],_db=db)
+                    if item['status']!='available':continue
+                    parent=workspace
+                    for part in Path(row['path']).parts[:-1]:
+                        parent=private_directory(parent,part);self._own(parent)
+                    if workspace_digest(workspace,row['path'],MAX_BYTES) is not None:continue
+                    item=self.files.read(owner,cid,row['file_id'],_db=db)
+                    with workspace_file(workspace,row['path'],os.O_WRONLY|os.O_CREAT|os.O_EXCL) as fd:
+                        if os.name=='posix':os.fchmod(fd,0o600)
+                        if self.runtime_owner is not None:os.fchown(fd,*self.runtime_owner)
+                        with os.fdopen(os.dup(fd),'wb') as stream:stream.write(item['content'])
             for fid in file_ids:
                 item = self.files.read(owner, cid, fid, _db=db)
                 # The display name never determines the storage root or a host path.
@@ -388,11 +411,11 @@ class NativeWorkspace:
                                         'path': row['path'], 'sha256': row['sha256'], 'size': item['size']})
         return {'workspace': str(workspace), 'profile': str(profile), 'files': attachments}
 
-    def collect(self, owner, cid, run_id, *, authorize=None, publish=None):
+    def collect(self, owner, cid, run_id, *, authorize=None, publish=None, turn_id=None):
         from conversation_files import MAX_BYTES
         if not re.fullmatch('run_[a-f0-9]{32}', run_id or ''):
             raise ValueError('native_run_id')
-        workspace, _ = self.paths(owner, cid)
+        workspace, _ = self.paths(owner, cid, turn_id=turn_id)
         with self.store.db() as db:
             db.execute('BEGIN IMMEDIATE')
             self.store._owned(db, owner, cid)
@@ -441,7 +464,7 @@ class NativeDockerBackend:
                 item.get('run_id') != bound['run_id'] or item['session_id'] != bound['session_id']):
             raise PermissionError('native_worker_binding')
         self.profile = Path(NATIVE_ROOT) / 'profiles' / sha(bound['owner'].encode())
-        self.workspace = Path(NATIVE_ROOT) / 'workspaces' / bound['conversation_id']
+        self.workspace = Path(execution_workspace(bound))
         if (self.environment['profile'] != str(self.profile) or
                 self.environment['workspace'] != str(self.workspace)):
             raise PermissionError('native_worker_paths')
@@ -452,7 +475,7 @@ class NativeDockerBackend:
             if key in inherited:self.policy[key]=inherited[key]
 
     def check(self, task_id=None):
-        if task_id not in (None, self.binding['session_id']) or self.authorize() is not True:
+        if task_id not in (None, self.binding['turn_id']) or self.authorize() is not True:
             raise PermissionError('native_worker_inactive')
 
     @contextmanager
@@ -476,20 +499,25 @@ class NativeDockerBackend:
         from tools.terminal_tool import register_task_env_overrides
         from tools.environments.docker import DockerEnvironment
         with self.scope():
-            register_task_env_overrides(self.binding['session_id'],
+            register_task_env_overrides(self.binding['turn_id'],
                                        {'env_type': 'docker', 'cwd': str(self.workspace),
                                         'cwd_source': 'session', 'docker_image': NATIVE_IMAGE})
-            environment = ensure_task_env(self.binding['session_id'])
+            environment = ensure_task_env(self.binding['turn_id'])
             if not isinstance(environment, DockerEnvironment):
                 raise PermissionError('native_backend_not_docker')
             previous=getattr(environment,'_fs_native_backend',None)
-            keys=('owner','conversation_id','session_id')
-            if (previous is None or any(previous.binding[key]!=self.binding[key] for key in keys) or
+            if (previous is None or previous.binding!=self.binding or
                     getattr(environment,'_image',None)!=NATIVE_IMAGE or
                     getattr(environment,'host_cwd',None)!=str(self.workspace)):
                 raise PermissionError('native_backend_cache_binding')
             environment._fs_native_backend=self
             return environment
+
+    def close_environment(self):
+        from tools.terminal_tool_lifecycle import cleanup_vm
+        from tools.terminal_tool import clear_task_env_overrides, _resolve_container_task_id
+        try:cleanup_vm(_resolve_container_task_id(self.binding['turn_id']))
+        finally:clear_task_env_overrides(self.binding['turn_id'])
 
     @contextmanager
     def empty_backend_home(self):
@@ -590,7 +618,7 @@ def install_native_backend_guards():
             backend = current_native_backend()
             if backend is not None:
                 task_id = kwargs.get('task_id', args[0] if args else None)
-                if task_id != backend.binding['session_id']:
+                if task_id != backend.binding['turn_id']:
                     raise PermissionError('native_tool_session_missing')
                 backend.check(task_id)
                 if name == 'skill_manage':
@@ -779,7 +807,7 @@ class NativeConversation:
         try:
             if self.hermes.authorizer(owner) is not True:
                 raise PermissionError('native_chat_revoked')
-            environment = self.workspace.prepare(owner, cid, files)
+            environment = self.workspace.prepare(owner, cid, files, turn_id=turn_id)
             self.store.bind_task(owner, cid, turn_id, turn_id, bound['lease'])
             token = self.hermes.grants.mint(owner, turn_id, bound['lease'], reasoning_effort='none')
             admission = {'session_id': session_id, 'token': token, 'model': 'deepseek-flash',
@@ -903,7 +931,7 @@ class NativeConversation:
             files = bindings.bound(db, owner, cid, turn_id)
             files['generated'] = sorted(set(files['generated']) | {item['file_id'] for item in cards})
             bindings.write(cid, turn_id, files)
-        return self.workspace.collect(owner,cid,run_id,authorize=authorized,publish=publish)
+        return self.workspace.collect(owner,cid,run_id,authorize=authorized,publish=publish,turn_id=turn_id)
 
     def append_event(self, owner, cid, turn_id, run_id, sequence, event):
         with self.store.db() as db:

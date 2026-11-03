@@ -70,11 +70,13 @@ ARCHIVE_FC_FILES = {
     'source/fc_pricing_v3/sources.py':('/opt/fc27-cloud-browser/fc_pricing_v3/sources.py','449a53558c6607449abf1b070a11eff20aca58e689e0169331c28c24540ae635'),
     'source/hermes-copy/fc_pricing_v3/sources.py':('/opt/fs-hermes-fc/fc_pricing_v3/sources.py','449a53558c6607449abf1b070a11eff20aca58e689e0169331c28c24540ae635'),
     'source/server_quote_job.py':('/opt/fc27-cloud-browser/server_quote_job.py','139bd6d239330bad4770148188d31f2fcbdd0e31bc1f668e4056f0489debbee9')}
-NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='f1ed1da4f4863b66ec0895a8dae9a92d39c852b8',
-    backup='/var/backups/fs-navigation-20261006/nav-20261102T183302Z',
-    manifestSha256='88778d338bc0e35cf7cc91d62e245492c6a766f28bceceefe492506bd83b3437',
-    journalSha256='d047b3d4b3b721de0bc7f12ec41f275ed2e81fc90f63f92a745fd367cdeb0f9f')
-CAPABILITIES_STORE_BEFORE_SHA = 'e7713e32c22769686013e01e2d061c5a2ee23827ac67040161ac4482b22d15fb'
+NATIVE_CAPABILITIES_PROOF = dict(COMPOSER_STATIC_PROOF)
+CAPABILITIES_STATIC_PROOF = dict(sourceCommit='d135d2b965ecdfc2d96a1e49cf9425e31eaca07e',
+    backup='/var/backups/fs-navigation-20261006/nav-20261103T021812Z',
+    manifestSha256='26b0de09b7b84d9d7634948c3177ca7cf919bac6ea4aab00c247bd6389e8cbb8',
+    journalSha256='e6dea978a851e0ac7017a7f06822c38574f3c0d754e70f7a9720ec0513dc972d')
+CAPABILITIES_CHANGED = ('runtime/conversation_native.py','runtime/hermes_worker.py')
+CAPABILITIES_STORE_BEFORE_SHA = 'ffa3a03e567fcef5bdd503a9673ce425584eb9b248227b2102ee44108a6914bf'
 CAPABILITIES_TARGETS = {'runtime/'+name:'/opt/fs-hermes-fc/'+name for name in (
     'conversation_store.py','conversation_native.py','conversation_service.py','hermes_worker.py',
     'native_chat.py','transport.py','direct_provider.py','proxy_gateway.py','fs_inprocess.py')}
@@ -293,7 +295,7 @@ def configure_native_archive():
 
 
 def configure_native_capabilities():
-    """Exact existing-ten followup over the successful archive-aware installation."""
+    """Two changed consumers over the accepted 20c runtime and static followup."""
     global NATIVE_CAPABILITIES_MODE, INSTALLED_COMMIT
     if NATIVE_CAPABILITIES_MODE:return
     configure_native_archive()
@@ -395,6 +397,40 @@ def archive_fc_baseline(base, root, values):
     return dict(values,**{r['target']:r['sha256'] for r in rows})
 
 
+def capabilities_static_overlay(base, root, metadata):
+    """Accept only the already successful single-HTML transition, not disk drift."""
+    records={}
+    for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
+        path=base.rooted(root,CAPABILITIES_STATIC_PROOF['backup']+'/'+name)
+        base.no_target_link(path);raw=path.read_bytes()
+        if hashlib.sha256(raw).hexdigest()!=CAPABILITIES_STATIC_PROOF[key]:
+            raise ValueError('native_static_successful_proof_drift')
+        records[name]=json.loads(raw)
+    manifest,journal=records['approved-manifest.json'],records['journal.json']
+    html='/var/www/dashboard/fs-home/hermes/conversation/index.html'
+    rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[]);written=journal.get('files',[])
+    if (manifest.get('sourceCommit')!=CAPABILITIES_STATIC_PROOF['sourceCommit'] or manifest.get('scope')!=SCOPE or
+            manifest.get('nativeComposerStatic') is not True or manifest.get('materialStaticOnly') is not True or
+            any(manifest.get(k) for k in ('nativeCapabilities','nativeArchive','nativeChat','materialExecution')) or
+            len(rows)!=1 or len(written)!=1 or len(protected)!=778 or
+            len({r['path'] for r in protected})!=778 or {r['path'] for r in protected}!=set(metadata)-{html} or
+            any(rows[0].get(k)!=v for k,v in dict(candidate='frontend/index.html',target=html,
+                beforeSha256=COMPOSER_BEFORE_SHA,sha256=COMPOSER_AFTER_SHA,owner='0:0',mode='0o644').items()) or
+            metadata[html]['sha256']!=COMPOSER_BEFORE_SHA or
+            journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
+            journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=CAPABILITIES_STATIC_PROOF['manifestSha256'] or
+            any(written[0].get(k)!=rows[0].get(k) for k in ('candidate','target','beforeSha256','sha256','owner','mode')) or
+            written[0].get('intent') is not True or written[0].get('written') is not True or
+            written[0].get('rollbackIntent') or written[0].get('rolledBack')):
+        raise ValueError('native_static_exact_success_required')
+    for row in protected:
+        before=metadata[row['path']]
+        keys=('owner','mode') if row['path']==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')
+        if any(row.get(k)!=before.get(k) for k in keys):
+            raise ValueError('native_static_protected_chain_drift')
+    return dict(metadata,**{html:dict(path=html,sha256=COMPOSER_AFTER_SHA,owner='0:0',mode='0o644')})
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -408,7 +444,7 @@ def installed_baseline(root, git_baseline):
         records[name] = json.loads(raw)
     manifest, journal = records['approved-manifest.json'], records['journal.json']
     global ARCHIVE_PROTECTED
-    if COMPOSER_STATIC_MODE:
+    if COMPOSER_STATIC_MODE or NATIVE_CAPABILITIES_MODE:
         rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[])
         metadata={r['target']:{'path':r['target'],'sha256':r['sha256'],'owner':r.get('owner'),'mode':r.get('mode')} for r in rows}
         metadata.update({r['path']:dict(r) for r in protected})
@@ -423,26 +459,17 @@ def installed_baseline(root, git_baseline):
                 any(any(w.get(k)!=r.get(k) for k in ('candidate','target','beforeSha256','sha256','owner','mode')) or
                     w.get('intent') is not True or w.get('written') is not True or w.get('rollbackIntent') or w.get('rolledBack')
                     for r in rows for w in written if r['candidate']==w['candidate']) or
-                metadata.get(TARGETS['frontend/index.html'],{}).get('sha256')!=COMPOSER_BEFORE_SHA or
-                git_baseline!={'source_commit':INSTALLED_COMMIT,'files':{'frontend/index.html':COMPOSER_BEFORE_SHA}}):
+                metadata.get('/var/www/dashboard/fs-home/hermes/conversation/index.html',{}).get('sha256')!=COMPOSER_BEFORE_SHA or
+                git_baseline!={'source_commit':INSTALLED_COMMIT,'files':(
+                    {'frontend/index.html':COMPOSER_BEFORE_SHA} if COMPOSER_STATIC_MODE else
+                    {name:metadata.get(target,{}).get('sha256') for name,target in TARGETS.items()})}):
             raise ValueError('composer_static_installed_proof_mismatch')
+        if NATIVE_CAPABILITIES_MODE:
+            metadata=capabilities_static_overlay(base,root,metadata)
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
         return dict(manifest,archive_all_hashes={p:r['sha256'] for p,r in metadata.items()})
-    if NATIVE_CAPABILITIES_MODE:
-        rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[])
-        values={r['target']:r['sha256'] for r in rows};values.update({r['path']:r['sha256'] for r in protected})
-        old_targets={'runtime/'+n:'/opt/fs-hermes-fc/'+n for n in ('conversation_store.py','conversation_native.py','conversation_service.py')}
-        if (manifest.get('sourceCommit')!=INSTALLED_COMMIT or manifest.get('nativeArchive') is not True or manifest.get('nativeCapabilities') or
-                len(rows)!=3 or {r['candidate']:r['target'] for r in rows}!=old_targets or len(protected)!=776 or len(values)!=779 or
-                not set(TARGETS.values())<=set(values) or journal.get('manifest')!=manifest or
-                journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('approvedManifestSha256')!=INSTALLED_PROOF['manifestSha256'] or
-                len(journal.get('files',[]))!=3 or any(r.get('written') is not True or r.get('rollbackIntent') for r in journal['files']) or journal.get('failure') or
-                git_baseline!={'source_commit':INSTALLED_COMMIT,'files':{name:values.get(target) for name,target in TARGETS.items()}}):
-            raise ValueError('native_capabilities_installed_proof_mismatch')
-        ARCHIVE_PROTECTED={path:sha for path,sha in values.items() if path not in TARGETS.values()}
-        return dict(manifest,archive_all_hashes=values)
     if ARCHIVE_MODE:
         rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[])
         values={r['target']:r['sha256'] for r in rows}
@@ -871,11 +898,13 @@ def load_base():
         marker = 'nativeArchive' if ARCHIVE_MODE else 'nativeAdmission' if NATIVE_ADMISSION_MODE else 'nativeChat' if NATIVE_MODE else 'materialGuard' if GUARD_MODE else 'bindingsAuth' if BINDINGS_MODE else 'materialStream' if STREAM_MODE else 'materialTransport' if TRANSPORT_MODE else 'workerDiagnostics' if WORKER_DIAGNOSTICS_MODE else 'goalTaskIndexCompat' if TASK_INDEX_MODE else 'materialDiagnostics'
         allowed = tuple(TARGETS) if ARCHIVE_MODE else (NATIVE_ADMISSION_CANDIDATE,) if NATIVE_ADMISSION_MODE else NATIVE_ALLOWED if NATIVE_MODE else (BINDINGS_CANDIDATE,) if BINDINGS_MODE else (TRANSPORT_CANDIDATE,) if TRANSPORT_MODE or STREAM_MODE or BINDINGS_MODE or GUARD_MODE else ('runtime/hermes_worker.py',) if WORKER_DIAGNOSTICS_MODE else ('runtime/conversation_goal_tasks.py',) if TASK_INDEX_MODE else ('http/conversation_http.py', 'http/range_api.py')
         if controlled and (manifest.get('nativeCapabilities',False) is not NATIVE_CAPABILITIES_MODE or manifest.get(marker) is not True or
+                NATIVE_CAPABILITIES_MODE and manifest.get('nativeStaticBaseline')!=CAPABILITIES_STATIC_PROOF or
                 any(manifest.get(key) is True for key in ('nativeArchive','nativeAdmission','nativeChat','materialGuard', 'bindingsAuth', 'materialStream', 'materialTransport', 'workerDiagnostics', 'goalTaskIndexCompat', 'materialDiagnostics') if key != marker) or
                 manifest.get('installedBaseline') != INSTALLED_PROOF or
                 manifest.get('runtimeBefore') != manifest.get('runtimeRequired') or
                 manifest.get('workerImageSource') != 'container' or
-                ARCHIVE_MODE and (len(manifest.get('files',[]))!=len(TARGETS) or manifest.get('materialChangedTargets')!=list(TARGETS.values())) or
+                ARCHIVE_MODE and (len(manifest.get('files',[]))!=len(TARGETS) or manifest.get('materialChangedTargets')!=
+                    ([TARGETS[n] for n in CAPABILITIES_CHANGED] if NATIVE_CAPABILITIES_MODE else list(TARGETS.values()))) or
                 NATIVE_ADMISSION_MODE and manifest.get('materialChangedTargets') != [TARGETS[NATIVE_ADMISSION_CANDIDATE]] or
                 WORKER_DIAGNOSTICS_MODE and manifest.get('materialChangedTargets') != [TARGETS['runtime/hermes_worker.py']] or
                 (TRANSPORT_MODE or STREAM_MODE or GUARD_MODE) and manifest.get('materialChangedTargets') != [TRANSPORT_TARGET]
@@ -1016,7 +1045,7 @@ def load_base():
                     if current!=row:raise ValueError('archive_usage_cas_drift')
                 elif row['sha256']!=ARCHIVE_PROTECTED.get(row['path']):
                     raise ValueError('archive_static_protection_drift')
-                if COMPOSER_STATIC_MODE and any(row.get(k)!=COMPOSER_STATIC_METADATA[row['path']].get(k) for k in ('owner','mode')):
+                if (COMPOSER_STATIC_MODE or NATIVE_CAPABILITIES_MODE) and any(row.get(k)!=COMPOSER_STATIC_METADATA[row['path']].get(k) for k in ('owner','mode')):
                     raise ValueError('composer_static_protected_metadata_drift')
                 info=base.rooted(root,row['path']).stat()
                 if row['owner']!=str(info.st_uid)+':'+str(info.st_gid) or row['mode']!=oct(stat.S_IMODE(info.st_mode)):
