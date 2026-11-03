@@ -78,6 +78,13 @@ CAPABILITIES_STATIC_PROOF = dict(sourceCommit='d135d2b965ecdfc2d96a1e49cf9425e31
     backup='/var/backups/fs-navigation-20261006/nav-20261103T021812Z',
     manifestSha256='26b0de09b7b84d9d7634948c3177ca7cf919bac6ea4aab00c247bd6389e8cbb8',
     journalSha256='e6dea978a851e0ac7017a7f06822c38574f3c0d754e70f7a9720ec0513dc972d')
+CAPABILITIES_NGINX_PROOF = dict(
+    backup='/var/backups/fs-navigation-native-20261006/workspace-native-20261006-07c816ca3c25',
+    manifestSha256='0df40939921c58fda8a089a5b37d6d49e1629f2dc46153690047dd217fbed171',
+    journalSha256='fa2355f41815a06633e6755388848d4864a901514e505fcb1c8a2336d28e95aa',
+    beforeSha256='75a9b57a7073771b105573ab59e4c0a227f8567a75c8accbde2991d171934b3d',
+    sha256='fde65e277cbb873673b7dc474483dada42e0da558756c69c63c38d0acc769da4',
+    pageSha256='46a9d8f52a733f17a588c96940a2e8d1c7a0c831ae20d95799166f192cf26bb0')
 CAPABILITIES_CHANGED = ('runtime/conversation_user_data.py','runtime/fs_native_readonly.py')
 CAPABILITIES_STORE_BEFORE_SHA = 'ffa3a03e567fcef5bdd503a9673ce425584eb9b248227b2102ee44108a6914bf'
 CAPABILITIES_TARGETS = {'runtime/'+name:'/opt/fs-hermes-fc/'+name for name in (
@@ -439,6 +446,52 @@ def capabilities_static_overlay(base, root, metadata):
     return dict(metadata,**{html:dict(path=html,sha256=COMPOSER_AFTER_SHA,owner='0:0',mode='0o644')})
 
 
+def capabilities_nginx_overlay(base, root, metadata):
+    """Only the accepted native publisher transition updates this protected SHA."""
+    if not NATIVE_CAPABILITIES_MODE:raise ValueError('native_nginx_capabilities_only')
+    proof=CAPABILITIES_NGINX_PROOF;old=metadata.get(NGINX,{})
+    if (NGINX in TARGETS.values() or any(old.get(k)!=v for k,v in
+            dict(path=NGINX,sha256=proof['beforeSha256'],owner='0:0',mode='0o600').items())):
+        raise ValueError('native_nginx_transition_baseline_drift')
+    records={}
+    for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
+        path=base.rooted(root,proof['backup']+'/'+name);base.no_target_link(path);before=path.lstat()
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or
+                (before.st_uid,before.st_gid,stat.S_IMODE(before.st_mode))!=(0,0,0o600)):
+            raise ValueError('native_nginx_proof_boundary_drift')
+        with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+            opened=os.fstat(stream.fileno())
+            if any(getattr(before,k)!=getattr(opened,k) for k in ('st_dev','st_ino','st_size','st_mtime_ns','st_nlink')):
+                raise ValueError('native_nginx_proof_changed')
+            raw=stream.read()
+        after=path.lstat();base.no_target_link(path)
+        if any(getattr(before,k)!=getattr(after,k) for k in
+               ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')):
+            raise ValueError('native_nginx_proof_changed')
+        if hashlib.sha256(raw).hexdigest()!=proof[key]:raise ValueError('native_nginx_proof_drift')
+        records[name]=json.loads(raw)
+    manifest,journal=records['approved-manifest.json'],records['journal.json'];name=Path(proof['backup']).name
+    expected=dict(target=NGINX,candidate='candidate/formal.conf',beforeSha256=proof['beforeSha256'],sha256=proof['sha256'])
+    select=lambda rows:[r for r in rows if r.get('target')==NGINX or r.get('candidate')==expected['candidate']]
+    rows=select(manifest.get('targets',[]));written=select(journal.get('files',[]))
+    page=dict(candidate='assets/game-monitor/index.html',target='/var/lib/fs-navigation-formal-static/'+name+'/game-monitor/index.html',sha256=proof['pageSha256'])
+    pages=[r for r in manifest.get('immutableAssets',[]) if r.get('target')==page['target'] or r.get('candidate')==page['candidate']]
+    if (manifest.get('releaseId')!=name or manifest.get('releaseReady') is not True or
+            manifest.get('scope')!='Hermes authorized data-only game-monitor content maintenance' or
+            journal.get('status')!='applied-awaiting-real-desktop-URL-QA' or journal.get('activationAttempted') is not True or
+            journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=proof['manifestSha256'] or
+            journal.get('failure') or any(journal.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
+            any(r.get(k) for r in journal.get('files',[]) for k in ('rollbackIntent','rolledBack','rollbackWritten')) or
+            len(rows)!=1 or len(written)!=1 or len(pages)!=1 or
+            any(rows[0].get(k)!=v or written[0].get(k)!=v for k,v in expected.items()) or
+            written[0].get('intent') is not True or written[0].get('mode')!=0o600 or
+            any(pages[0].get(k)!=v for k,v in page.items())):
+        raise ValueError('native_nginx_exact_success_required')
+    # Native schema records intent + a successful final-SHA check, not written
+    # or sourceCommit. Do not synthesize them or import its other protected rows.
+    return dict(metadata,**{NGINX:dict(old,sha256=proof['sha256'])})
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -474,6 +527,7 @@ def installed_baseline(root, git_baseline):
                     {'frontend/index.html':COMPOSER_BEFORE_SHA} if COMPOSER_STATIC_MODE else
                     {name:None if name in NEW else metadata.get(target,{}).get('sha256') for name,target in TARGETS.items()})}):
             raise ValueError('composer_static_installed_proof_mismatch')
+        if NATIVE_CAPABILITIES_MODE:metadata=capabilities_nginx_overlay(base,root,metadata)
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
