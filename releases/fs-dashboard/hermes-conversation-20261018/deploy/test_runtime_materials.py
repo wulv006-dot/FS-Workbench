@@ -1197,6 +1197,60 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 class NativePublisher(unittest.TestCase):
+    def desktop_atomic_fixture(self, base, root, approved):
+        import ast
+        original=base.atomic;calls=[]
+        def write(path,payload,mode=0o644):
+            calls.append((path,payload,mode));return original(path,payload,mode)
+        node=next(n for n in ast.walk(ast.parse(Path(release.__file__).read_bytes())) if isinstance(n,ast.FunctionDef) and n.name=='atomic')
+        namespace=dict(base=base,publish_root=root,approved=approved,original_atomic=write,
+            hashlib=__import__('hashlib'),DESKTOP_CONFIG=release.DESKTOP_CONFIG,NATIVE_CAPABILITIES_MODE=True)
+        exec(compile(ast.fix_missing_locations(ast.Module(body=[node],type_ignores=[])),'actual-publisher-atomic','exec'),namespace)
+        return namespace['atomic'],calls
+
+    def test_desktop_NEW_binding_is_private_and_original_rollback_removes_it(self):
+        prepare.configure_native_capabilities();base=release.frozen()
+        if os.name=='nt':base.directory_sync=lambda *args:None
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);backup=root/'backup';backup.mkdir();rows=[]
+            for name,target in release.TARGETS.items():
+                payload=('synthetic:'+name).encode();before=None if name in release.NEW else prepare.digest(payload)
+                row=dict(candidate=name,target=target,beforeSha256=before,sha256=prepare.digest(payload),owner='0:0',mode=release.payload_mode(target));rows.append(row)
+                if before is not None:
+                    base.atomic(base.rooted(root,target),payload,0o644)
+                    base.atomic(backup/'files'/name,payload,0o600)
+            approved=dict(schemaVersion=1,scope=release.SCOPE,nativeCapabilities=True,nativeArchive=True,files=rows)
+            atomic,calls=self.desktop_atomic_fixture(base,root,approved)
+            row=next(r for r in rows if r['target']==release.DESKTOP_CONFIG);payload=('synthetic:'+row['candidate']).encode();target=base.rooted(root,release.DESKTOP_CONFIG)
+            atomic(target,payload,0o644)
+            self.assertEqual(calls[-1][2],0o600)
+            self.assertEqual(target.read_bytes(),payload)
+            # Windows cannot express Unix0600; Linux CI asserts the actual inode mode.
+            if os.name=='posix':self.assertEqual(stat.S_IMODE(os.stat(target).st_mode),0o600)
+            raw=json.dumps(approved).encode();sha=prepare.digest(raw);base.atomic(backup/'approved-manifest.json',raw,0o600)
+            journal=dict(manifest=approved,approvedManifestSha256=sha,files=[dict(r,beforeMode=0o644,intent=r['target']==release.DESKTOP_CONFIG,written=r['target']==release.DESKTOP_CONFIG) for r in rows])
+            base.atomic=atomic;base.rollback_journal(backup,journal,root)
+            self.assertFalse(target.exists());self.assertEqual(journal['status'],'rolled-back')
+            self.assertEqual((backup/'removed-new-files'/row['candidate']).read_bytes(),payload)
+
+    def test_desktop_private_mode_exception_does_not_change_other_atomic_contracts(self):
+        prepare.configure_native_capabilities();base=release.frozen()
+        if os.name=='nt':base.directory_sync=lambda *args:None
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);payload=b'approved synthetic binding'
+            row=dict(candidate='desktop/fs-principal.json',target=release.DESKTOP_CONFIG,beforeSha256=None,sha256=prepare.digest(payload),owner='0:0',mode='0o600')
+            approved=dict(nativeCapabilities=True,nativeArchive=True,files=[row]);target=base.rooted(root,release.DESKTOP_CONFIG)
+            atomic,calls=self.desktop_atomic_fixture(base,root,approved)
+            atomic(target,payload,0o600);self.assertEqual(calls[-1][2],0o600)
+            calls.clear();prior=target.read_bytes()
+            with self.assertRaisesRegex(ValueError,'desktop_binding_payload_drift'):atomic(target,b'wrong bytes',0o644)
+            self.assertEqual(calls,[]);self.assertEqual(target.read_bytes(),prior)
+            other=root/'other-target';atomic(other,payload,0o644);self.assertEqual(calls[-1][2],0o644)
+            for changed in (dict(approved,nativeCapabilities=False),dict(approved,files=[dict(row,beforeSha256='a'*64)]),dict(approved,files=[dict(row,owner='9876:9876')]),dict(approved,files=[dict(row,mode='0o644')])):
+                method,observed=self.desktop_atomic_fixture(base,root,changed);method(target,payload,0o640)
+                self.assertEqual(observed[-1][2],0o640)
+                if os.name=='posix':self.assertEqual(stat.S_IMODE(os.stat(target).st_mode),0o640)
+
     @contextmanager
     def desktop_restart_fixture(self, ready_at, *, installed='after', import_error=None):
         import ast
@@ -2894,6 +2948,8 @@ class NativePublisher(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError,'exact_archive_maintenance_manifest_required'):module.archive_synthetic_maintenance(release_id,prepare.digest(manifest_raw),f.system)
                     else:
                         publisher.apply(manifest,stage,prepare.digest(manifest_raw),manifest_raw,release_id,f.system)
+                        if capabilities and os.name=='posix':
+                            self.assertEqual(stat.S_IMODE(os.stat(base.rooted(f.system,release.DESKTOP_CONFIG)).st_mode),0o600)
                         receipt=module.archive_synthetic_maintenance(release_id,prepare.digest(manifest_raw),f.system)
                         self.assertEqual((receipt['archived'],receipt['deleted'],receipt['outcome']),(1,0,'unknown'))
                         self.assertEqual(module.archive_synthetic_maintenance(release_id,prepare.digest(manifest_raw),f.system),receipt)
