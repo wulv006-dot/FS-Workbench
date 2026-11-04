@@ -44,8 +44,16 @@ def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
         raise ValueError('PUBLICATION_FINISH_MARGIN_REQUIRED')
     decisions = {}
     def admit():
-        extra = sum(footprint(Path(config[k])) for k in ('ai_root','control_root') if config.get(k))
-        decision = policy.admit(used=footprint(root)+extra, free=shutil.disk_usage(root).free, estimate=temporary_reserve(core,growth))
+        used = footprint(root)+(footprint(Path(config['control_root'])) if config.get('control_root') else 0)
+        try:
+            ai_bytes = footprint(Path(config['ai_root'])) if config.get('ai_root') else 0
+            decisions['ai_storage'] = dict(status='measured',physical_bytes=ai_bytes)
+            decisions['seo_total_physical_bytes'] = used+ai_bytes
+        except (OSError,ValueError) as error:
+            decisions['ai_storage'] = dict(status='unavailable',error=type(error).__name__)
+            decisions['seo_total_physical_bytes'] = None
+        # AI occupancy is recorded separately; host free space still includes its real disk use.
+        decision = policy.admit(used=used, free=shutil.disk_usage(root).free, estimate=temporary_reserve(core,growth))
         memory = memory_admission(config['memory_policy'])
         decisions['memory_'+memory['state']] = decisions.get('memory_'+memory['state'],0)+1
         decisions['memory_peak_rss_bytes'] = max(decisions.get('memory_peak_rss_bytes',0),memory['rss_bytes'])

@@ -80,6 +80,8 @@ def temporary_reserve(store, minimum):
 
 def cleanup_ai(root, today):
     root = Path(root)
+    if root.is_symlink():
+        raise ValueError('SEO_AI_ROOT_SYMLINK')
     if not root.exists():
         return dict(status='not_created', rows_deleted=0)
     with batch_lock(root):
