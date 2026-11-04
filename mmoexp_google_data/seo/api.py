@@ -70,14 +70,15 @@ class Service:
         if actor is None or scope not in actor.games:
             raise PermissionError('SEO_EXPORT_DENIED')
         cursor = 0
-        yield 'snapshot_id,facts_hash,game,source_date,gsc_clicks,gsc_impressions,ga4_sessions,seo_revenue_usd\r\n'
+        yield 'snapshot_id,facts_hash,game,source_date,gsc_clicks,gsc_impressions,ga4_sessions,purchase_events,admin_customer_price_usd,estimated_seo_revenue_usd,estimate_status\r\n'
         while cursor is not None:
             result = snapshot.read(self.root, ident, 'history', scope, cursor=cursor)
             for row in result['rows']:
                 m = row['metrics']
                 values = [ident, result['facts_hash'], scope, row['source_date'],
                     (m['gsc'] or {}).get('clicks'), (m['gsc'] or {}).get('impressions'),
-                    (m['ga4'] or {}).get('sessions'), (m['orders'] or {}).get('seo_revenue_usd')]
+                    (m['ga4'] or {}).get('sessions'), (m['ga4'] or {}).get('purchase_events'),
+                    (m.get('admin') or {}).get('admin_customer_price_usd'), row['estimate']['revenue_usd'], row['estimate']['status']]
                 text = io.StringIO(newline='')
                 csv.writer(text).writerow(values)
                 yield text.getvalue()

@@ -83,6 +83,7 @@ class GoogleSource:
             raise ValueError('INVALID_GOOGLE_CONFIG')
         self.name, self.request, self.resource, self.timezone = name, request, resource, timezone
         self.page_size, self.checked = page_size, False
+        self.ga_metrics = ('sessions', 'engagedSessions')
 
     def check_ga(self):
         base = 'https://analyticsdata.googleapis.com/v1beta/properties/' + self.resource
@@ -91,12 +92,14 @@ class GoogleSource:
         metrics = {m['apiName'] for m in metadata.get('metrics', [])}
         if not {'date', 'hostName', 'landingPage', 'sessionDefaultChannelGroup'} <= dimensions or not {'sessions', 'engagedSessions'} <= metrics:
             raise SourceError('GA4_REQUIRED_FIELDS_UNAVAILABLE')
-        body = dict(dimensions=[dict(name='date')], metrics=[dict(name=x) for x in ('sessions', 'engagedSessions')])
+        requested = self.ga_metrics + (('ecommercePurchases',) if 'ecommercePurchases' in metrics else ())
+        body = dict(dimensions=[dict(name='date')], metrics=[dict(name=x) for x in requested])
         check = self.request('ga4', base + ':checkCompatibility', body)
         dims = {v['dimensionMetadata']['apiName'] for v in check.get('dimensionCompatibilities', []) if v['compatibility'] == 'COMPATIBLE'}
         values = {v['metricMetadata']['apiName'] for v in check.get('metricCompatibilities', []) if v['compatibility'] == 'COMPATIBLE'}
         if 'date' not in dims or not {'sessions', 'engagedSessions'} <= values:
             raise SourceError('GA4_FIELDS_INCOMPATIBLE')
+        self.ga_metrics = tuple(x for x in requested if x in values)
         self.checked = True
 
     def pages(self, scope, day, cursor=0):
@@ -121,7 +124,7 @@ class GoogleSource:
                            dict(filter=dict(fieldName='sessionDefaultChannelGroup', stringFilter=dict(matchType='EXACT', value='Organic Search'))),
                            dict(filter=dict(fieldName='landingPage', stringFilter=dict(matchType='FULL_REGEXP', value=path_expression(scope, False) + '.*', caseSensitive=False)))]
                 body = dict(dateRanges=[dict(startDate=day, endDate=day)], dimensions=[dict(name='date')],
-                            metrics=[dict(name=x) for x in ('sessions', 'engagedSessions')],
+                            metrics=[dict(name=x) for x in self.ga_metrics],
                             dimensionFilter=dict(andGroup=dict(expressions=filters)), returnPropertyQuota=True,
                             offset=cursor, limit=self.page_size)
                 url = 'https://analyticsdata.googleapis.com/v1beta/properties/' + self.resource + ':runReport'
@@ -141,15 +144,18 @@ class GoogleSource:
                 metadata = result.get('metadata', {})
                 if metadata.get('timeZone') != self.timezone:
                     raise SourceError('GA4_TIMEZONE_REQUIRES_REBINDING')
-                if [d['name'] for d in result.get('dimensionHeaders', [])] != ['date'] or [m['name'] for m in result.get('metricHeaders', [])] != ['sessions', 'engagedSessions']:
+                if [d['name'] for d in result.get('dimensionHeaders', [])] != ['date'] or [m['name'] for m in result.get('metricHeaders', [])] != list(self.ga_metrics):
                     raise SourceError('GA4_RESPONSE_HEADERS_MISMATCH')
                 quality.update(data_state='provisional', subject_to_thresholding=bool(metadata.get('subjectToThresholding')),
                                sampling_present=bool(metadata.get('samplingMetadatas')), data_loss_from_other_row=bool(metadata.get('dataLossFromOtherRow')),
-                               property_quota=result.get('propertyQuota'))
+                               property_quota=result.get('propertyQuota'),
+                               purchase_events_status='available' if 'ecommercePurchases' in self.ga_metrics else 'unavailable')
                 for row in raw:
                     if [v['value'] for v in row['dimensionValues']] != [day.replace('-', '')]:
                         raise SourceError('GOOGLE_SOURCE_DATE_MISMATCH')
-                    rows.append(dict(key=day, metrics={n: str(number(v['value'])) for n, v in zip(('sessions', 'engagedSessions'), row['metricValues'])}))
+                    if len(row['metricValues']) != len(self.ga_metrics):
+                        raise SourceError('GA4_RESPONSE_METRIC_COUNT_MISMATCH')
+                    rows.append(dict(key=day, metrics={n: str(number(v['value'])) for n, v in zip(self.ga_metrics, row['metricValues'])}))
                 status = 'provisional' if rows else 'no_rows'
                 next_cursor = cursor + len(raw) if cursor + len(raw) < result.get('rowCount', 0) else None
                 if next_cursor is not None and not raw:

@@ -3,11 +3,12 @@ import argparse
 import datetime as dt
 import json
 import shutil
+import sqlite3
 from pathlib import Path
 
 from .contracts import make_daily_context
 from .daily import run_daily
-from .retention import ResourcePolicy, footprint, backup_verified, cleanup_owned_data
+from .retention import ResourcePolicy, footprint, backup_verified, cleanup_owned_data, cleanup_ai, memory_admission, temporary_reserve
 from .sources import GoogleSource, GoogleTransport
 from .store import Store
 
@@ -17,21 +18,24 @@ def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
     if not context.collection_allowed:
         return dict(status='outside_night_window')
     configured = config.get('sources', {})
-    missing = [name for name in ('gsc', 'ga4', 'orders') if not configured.get(name)]
-    if not config.get('resource_policy'):
+    missing = [name for name in ('gsc', 'ga4', 'admin') if not configured.get(name)]
+    if not config.get('resource_policy') or not config.get('memory_policy'):
         return dict(status='resource_baseline_missing', missing_sources=missing)
     policy = ResourcePolicy(**config['resource_policy'])
     root = Path(config['data_root'])
     limits = config['http']
     transport = GoogleTransport(**limits, clock=clock)
+    core = Store(root)
+    summary_reader = None
     sources = [GoogleSource(name, transport, **configured[name]) for name in ('gsc', 'ga4') if configured.get(name)]
+    if configured.get('admin'):
+        from .admin_summary import NativeSummaryReader, AdminSummarySource
+        summary_reader = NativeSummaryReader(clock=clock)
+        sources.append(AdminSummarySource(summary_reader))
     if configured.get('pages'):
         from .pages import PageSource
         sources.append(PageSource(configured['pages']['urls'], clock=clock,
             http={key:limits[key] for key in ('connect_seconds','idle_seconds','response_emergency_bytes')}))
-    if configured.get('orders'):
-        raise ValueError('ADMIN_ORDER_LIVE_BINDING_NOT_IMPLEMENTED')
-    core = Store(root)
     growth = config['temporary_reserve_bytes']
     if type(growth) is not int or growth <= 0:
         raise ValueError('TEMPORARY_RESERVE_REQUIRED')
@@ -40,22 +44,33 @@ def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
         raise ValueError('PUBLICATION_FINISH_MARGIN_REQUIRED')
     decisions = {}
     def admit():
-        decision = policy.admit(used=footprint(root), free=shutil.disk_usage(root).free, estimate=growth)
+        extra = sum(footprint(Path(config[k])) for k in ('ai_root','control_root') if config.get(k))
+        decision = policy.admit(used=footprint(root)+extra, free=shutil.disk_usage(root).free, estimate=temporary_reserve(core,growth))
+        memory = memory_admission(config['memory_policy'])
+        decisions['memory_'+memory['state']] = decisions.get('memory_'+memory['state'],0)+1
+        decisions['memory_peak_rss_bytes'] = max(decisions.get('memory_peak_rss_bytes',0),memory['rss_bytes'])
         decisions[decision['state']] = decisions.get(decision['state'], 0) + 1
-        return decision['allowed']
+        return decision['allowed'] and memory['allowed']
     try:
         result = run_daily(core, sources, clock=clock, admit=admit, finish_margin_seconds=margin)
     finally:
         transport.close()
-    result.update(missing_sources=missing, upstream_requests=transport.calls, resource_states=decisions)
-    if result['status'] == 'published':
+    result.update(missing_sources=missing, upstream_requests=transport.calls+(summary_reader.calls if summary_reader else 0), resource_states=decisions)
+    maintenance = {}
+    try:
+        maintenance['cleanup'] = cleanup_owned_data(core,dt.date.fromisoformat(context.publication_date))
+        if admit():
+            maintenance['backup'] = backup_verified(core)
+        else:
+            maintenance['status'] = 'resource_emergency_deferred'
+    except (OSError, ValueError, sqlite3.Error) as error:
+        maintenance.update(status='failed', error=type(error).__name__)
+    if config.get('ai_root'):
         try:
-            if admit():
-                result['maintenance'] = dict(backup=backup_verified(core), cleanup=cleanup_owned_data(core, dt.date.fromisoformat(context.publication_date)))
-            else:
-                result['maintenance'] = dict(status='resource_emergency_deferred')
-        except (OSError, ValueError) as error:
-            result['maintenance'] = dict(status='failed', error=type(error).__name__)
+            maintenance['ai_cleanup'] = cleanup_ai(config['ai_root'],dt.date.fromisoformat(context.publication_date))
+        except (OSError, ValueError, sqlite3.Error) as error:
+            maintenance['ai_cleanup'] = dict(status='failed',error=type(error).__name__)
+    result['maintenance'] = maintenance
     return result
 
 

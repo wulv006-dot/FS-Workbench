@@ -22,6 +22,8 @@ class PolicyStore:
     def __init__(self, root):
         self.root = Path(root)
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if self.root.is_symlink() or (self.root/'policy.db').is_symlink():
+            raise ValueError('SEO_CONTROL_SYMLINK')
         with self.db() as db:
             db.executescript('CREATE TABLE IF NOT EXISTS policy(id INTEGER PRIMARY KEY,body TEXT);'
                              'CREATE TABLE IF NOT EXISTS audit(revision INTEGER PRIMARY KEY,actor TEXT,at TEXT,patch TEXT);')

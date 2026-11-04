@@ -4,18 +4,18 @@ const root=__dirname,meta={snapshot_id:'seo-2026-11-05',facts_hash:'fixture-only
 let apiCalls=[];
 const server=http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost');
- if(url.pathname.startsWith('/api/seo/')){
+ if(url.pathname.startsWith('/dashboard/analytics/seo/api/v1/')){
   apiCalls.push(url.pathname+url.search);
   res.setHeader('Content-Type','application/json');
   if(url.pathname.endsWith('ai-policy')){res.statusCode=503;return res.end('{}');}
   if(url.pathname.endsWith('current')||url.pathname.endsWith('manifest'))return res.end(JSON.stringify(meta));
-  return res.end(JSON.stringify({snapshot_id:meta.snapshot_id,facts_hash:meta.facts_hash,game:url.searchParams.get('game'),next_cursor:null,rows:[{source_date:'2026-11-02',metrics:{gsc:{clicks:'3',impressions:'10',ctr:'.3'},ga4:null,orders:null}}]}));
+  return res.end(JSON.stringify({snapshot_id:meta.snapshot_id,facts_hash:meta.facts_hash,game:url.searchParams.get('game'),next_cursor:null,rows:[{source_date:'2026-11-02',metrics:{gsc:{clicks:'3',impressions:'10',ctr:'.3'},ga4:null,admin:null,orders:null},estimate:{status:'missing'}},{source_date:'2026-11-04',metrics:{gsc:null,ga4:{sessions:'10',purchase_events:'3'},admin:{admin_customer_price_usd:'7.25'},orders:null},estimate:{status:'estimated',revenue_usd:'21.75'}}]}));
  }
  const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
- const file=name==='fs-tokens.css'?path.resolve(root,'../../tokens/fs-tokens.css'):path.resolve(root,name);
- if(!file.startsWith(root)&&name!=='fs-tokens.css'){res.statusCode=403;return res.end();}
+ const file=name==='fs-tokens.css'?path.resolve(root,'../../tokens/fs-tokens.css'):name==='fs-theme.js'?path.resolve(root,'../../adapters/fs-theme.js'):path.resolve(root,name);
+ if(!file.startsWith(root)&&!['fs-tokens.css','fs-theme.js'].includes(name)){res.statusCode=403;return res.end();}
  if(!fs.existsSync(file)){res.statusCode=404;return res.end();}
- res.setHeader('Content-Type',name.endsWith('.css')?'text/css':name.endsWith('.mjs')?'text/javascript':'text/html');res.end(fs.readFileSync(file));
+ res.setHeader('Content-Type',name.endsWith('.css')?'text/css':(name.endsWith('.mjs')||name.endsWith('.js'))?'text/javascript':'text/html');res.end(fs.readFileSync(file));
 });
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
@@ -26,6 +26,10 @@ const server=http.createServer((req,res)=>{
   await page.getByLabel('游戏').selectOption('D4');
   await page.waitForFunction(()=>document.querySelector('#scope').value==='D4'&&document.querySelector('#panel table'));
   assert(apiCalls.filter(p=>p.includes('/history')).every(p=>p.includes('/seo-2026-11-05/')));
+  await page.getByRole('tab',{name:'自然搜索成交'}).click();
+  await page.getByRole('cell',{name:'21.75',exact:true}).waitFor();
+  await page.evaluate(()=>window.FSTheme.set('dark'));
+  assert.equal(await page.evaluate(()=>document.documentElement.dataset.fsTheme),'dark');
   await page.getByRole('tab',{name:'行动与AI分析'}).click();
   await page.getByText('AI 设置暂不可用').waitFor();
   await page.getByRole('tab',{name:'总览'}).click();await page.getByRole('table').waitFor();

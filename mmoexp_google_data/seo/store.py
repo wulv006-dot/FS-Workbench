@@ -67,6 +67,11 @@ class Store:
             if cursor is not None:
                 db.execute('INSERT OR REPLACE INTO cursors VALUES (?,?,?,?)', (*key, cursor))
                 return
+            expected_total = page['quality'].get('expected_total')
+            if expected_total is not None and db.execute('SELECT COUNT(*) FROM stages WHERE source=? AND game=? AND source_date=?', key).fetchone()[0] != expected_total:
+                error = ValueError('ORDER_PAGE_TOTAL_MISMATCH')
+                error.code = 'ORDER_PAGE_TOTAL_MISMATCH'
+                raise error
             db.execute('DELETE FROM facts WHERE source=? AND game=? AND source_date=?', key)
             db.execute('INSERT INTO facts SELECT * FROM stages WHERE source=? AND game=? AND source_date=?', key)
             db.execute('DELETE FROM stages WHERE source=? AND game=? AND source_date=?', key)

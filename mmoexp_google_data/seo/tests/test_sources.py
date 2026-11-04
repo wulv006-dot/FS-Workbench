@@ -42,6 +42,20 @@ class Sources(unittest.TestCase):
         self.assertEqual(page['status'],'no_rows')
         self.assertEqual(page['rows'],[])
 
+    def test_purchase_count_is_requested_when_compatible_without_transaction_ids(self):
+        calls=[]
+        names=('sessions','engagedSessions','ecommercePurchases')
+        def request(kind,url,body=None):
+            calls.append(body)
+            if url.endswith('/metadata'):
+                return dict(dimensions=[dict(apiName=x) for x in ('date','hostName','landingPage','sessionDefaultChannelGroup')],metrics=[dict(apiName=x) for x in names])
+            if url.endswith(':checkCompatibility'):
+                return dict(dimensionCompatibilities=[dict(dimensionMetadata=dict(apiName='date'),compatibility='COMPATIBLE')],metricCompatibilities=[dict(metricMetadata=dict(apiName=x),compatibility='COMPATIBLE') for x in names])
+            return dict(dimensionHeaders=[dict(name='date')],metricHeaders=[dict(name=x) for x in names],metadata=dict(timeZone='Asia/Shanghai'),rowCount=1,rows=[dict(dimensionValues=[dict(value='20261104')],metricValues=[dict(value=x) for x in ('10','4','2')])])
+        page=next(sources.GoogleSource('ga4',request,resource='541418940',timezone='Asia/Shanghai').pages('FC27','2026-11-04'))
+        self.assertEqual(page['rows'][0]['metrics']['ecommercePurchases'],'2')
+        self.assertNotIn('transactionId',str(calls))
+
     def test_wrong_response_date_rejected(self):
         source=sources.GoogleSource('gsc',lambda *a,**k:dict(rows=[dict(keys=['2020-01-01'],clicks=1,impressions=2,position=3)]),resource='sc-domain:mmoexp.com',timezone='America/Los_Angeles')
         with self.assertRaises(ValueError):next(source.pages('FC27','2026-11-02'))

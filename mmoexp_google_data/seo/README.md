@@ -1,33 +1,37 @@
-# SEO日更基础链 · 施工增量
+# FS四游戏SEO日更基础
 
-唯一规格：[seo-daily-optional-ai-r3-elastic](../../docs/planning/seo-daily-four-games-20261104/SPEC.md)。本目录是新增维护源，不是线上版本回执。
+维护源：本目录及 `ui-system/modules/seo/`。唯一技术方案：`docs/planning/seo-daily-four-games-20261104/SPEC.md`。当前现场、用户成交预估口径与真实验收状态见同目录BASELINE/PROGRESS。
 
-## 已实现的候选能力
+基础不导入AI桥接、模型SDK，不等待Hermes。GSC/GA4直接复用原受控身份，Admin直接调用现有 `site_summary.collect` 的MMOEXP原生汇总。使用GA4 `ecommercePurchases` × 同日/游戏/主站Admin `customer_price`，标记预估；不是逐单核验金额，不重新计算客单价。缺来源留空，源日/时区不改名。
 
-- 四游戏、北京时间日期与夜间门；源日未结束不当成完整昨日。
-- GSC/GA4日级汇总适配：复用 `details.collect_details.credential` 的现有受控身份，不调用旧Reader的160次硬上限；保留主站、游戏路径、自然搜索过滤与来源时区。未验证真实资源及账户权限。页面探测仅访问配置中批准的主站游戏页面，不跟随重定向、不带Cookie；当夜样本在下一夜才进入快照。
-- SQLite逐页提交、固定初始回填窗口、近14天小汇总修订、当前30天缺口续采；空响应保留已有可信事实并标过期。
-- 同日唯一发布、文件hash、候选/正式隔离、指针中断对账；查询、来源、规则提醒、分页和导出只读发布包。
-- 独立FS控制库：总开关、四游戏开关、CAS与审计；项目generation避免关开后复活旧任务。AI桥仅提供适配合同及隔离测试，生产Provider/账本未接入。
-- 独立备份恢复检查、两份已验证备份、35天事实和当前/上一快照保留；弹性磁盘策略区分预警与应急。
-- `ui-system/modules/seo/`提供独立加载的前端候选，沿用FS令牌；真实导航、登录宿主和发布入口尚未绑定。
+`runtime.py` 是唯一批次入口；四游戏按最新日期轮转，历史窗口30日、近期14日小汇总修订，失败/游标保留。白天调用在初始化凭据与工作库前返回，不回源。`snapshot.py` 在发布前生成指标和规则，只输出截止昨日合格日期的新SQLite包，之后只读。HTTP宿主在原FS数据分析前缀下复核FS Cookie，不采信身份头；开关独立控制库，校验原edit权限、同站Origin和revision。
 
-## 执行与配置
+## 相关检查
 
-`python -m mmoexp_google_data.seo.runtime --config /path/to/private-seo-config.json`
+    python -X utf8 -m unittest discover -s mmoexp_google_data/seo/tests -v
+    node ui-system/modules/seo/test_model.cjs
+    node ui-system/modules/seo/test_ui.cjs
 
-`config.example.json`无凭据，不能直接当作已校准部署配置。`sources.gsc`和`sources.ga4`分别需要现场核实的`resource`、`timezone`，可配置`page_size`。Google账户由原访问层读取，不复制Key。`resource_policy`字段见`retention.ResourcePolicy`，HTTP连接、无进展和应急响应字节及临时空间须由W0实测配置；不能把旧参考值写成拒绝线。
+正式CI使用现有pr-fast的seo-daily组。隔离Linux验证优先183；不停止共享Hermes或RPG，不拿183现代SQLite通过冒充187旧SQLite已验。浏览器测试需要现有Playwright环境，数字是独立测试夹具。
 
-现阶段配置`orders`会明确报`ADMIN_ORDER_LIVE_BINDING_NOT_IMPLEMENTED`；缺配置不会伪造SEO成交。SERP、关键词明细、退款修订、人工行动/复查与生产Hermes工具接线仍未实现。页面探测的`urls`须由W0核实；`publication_finish_seconds`按打包预计耗时配置收尾余量，打包结束越过06:30不会发布候选。现有自动化没有被修改或停用。
+## 配置和候选
 
-`api.Service.handle`由现有FS HTTP宿主调用。`Actor`必须来自该宿主真实会话与当前RBAC，禁止从公开请求头或用户传入的JSON构造；写设置还须通过宿主原CSRF检查。当前没有匿名独立HTTP服务，也没有假定某个生产端口可用。基础进程不导入Hermes，不探模型健康。AI桥只在单独进程按现役FS任务设施调用；尚未安装任何timer。
+config.example.json故意没有资源基线；不凭默认数值启动生产采集。config.187-calibrated.json是本轮少量现场样本及余量测得的脱敏候选，包含正常预警/运行/应急与宿主保留，未安装。HTTP响应和临时制作空间有充分有限余量；没有200请求、5天/10分钟或240秒业务硬限。
 
-## 验证
+候选构建输入为本次只读获取的baseline哈希、现役formal路由、navigation.json及校准配置。输出目录须不存在：
 
-`python -X utf8 -m unittest discover -s mmoexp_google_data/seo/tests -v`
+    python -m mmoexp_google_data.seo.prepare --baseline BASELINE.json --formal FORMAL.conf --navigation NAVIGATION.json --config mmoexp_google_data/seo/config.187-calibrated.json --output NEW_STAGE
 
-Windows使用项目已声明的`tzdata==2025.2`；Linux使用目标系统时区库。`node ui-system/modules/seo/test_model.cjs`验证版本绑定。浏览器合同另用现有Playwright环境执行`test_ui.cjs`，所有示例数字仅在测试文件中。正式CI复用pr-fast的`seo-daily`组。
+构建只追加SEO路由与导航项，不替换旧壳或整个导航；沿用仓库原FS发布器SHA256 5548d9c8411eb5bb888672b0e58246bfd9043a5e519decb1f8407d2da9e71357 的锁、CAS、私有备份、原ID对账和回滚。新资产/代码独立不可变目录；仅SEO web/daily/timer三个unit。03:20为单个timer，Persistent=false，不在白天补跑。新安装AI默认全关，已保存选择留在独立控制库，不随发布覆盖。
 
-## 发布与恢复边界
+只读授权不包含生产安装。批准具体manifest后，才从本机既有入口暂存，并顺序执行 `python release.py inspect`、`python release.py apply MANIFEST_SHA nav-YYYYMMDDTHHMMSSZ`。apply会启动SEO web及未来自然timer，不手动触发日报；执行前重新确认CAS、端口、资源、主业务服务和时区。部署异常沿原批journal/manifest核对后回滚，禁止换ID盲重放。回滚格式 `python release.py rollback BACKUP_DIR MANIFEST_SHA`，只还原本批代码/路由/SEO单元，不还原业务数据库或用户开关。
 
-尚未绑定现场installed manifest、精确CAS、原publisher、登录宿主或资源组，因此当前不提供可直接运行的生产安装命令。补齐这些必要接线后沿原publisher发布。新模块回退仅撤销本次入口与日更，保留SEO数据库、快照、控制审计、AI未知请求和备份；不能用旧整包覆盖其它模块。`backup_verified`用SQLite一致性备份，并在隔离只读连接执行完整性检查；`verify_backup`可复验备份清单。实际恢复需先隔离目标、校验整份清单，再通过原维护流程切换，不能把一次夹具恢复当生产恢复。
+## 维护和恢复
+
+基础事实默认35天；当前和上一快照，两份验证备份。备份包括一致工作库和快照，复制到隔离目录重新打开并核hash，成功后才轮换。制作/恢复临时空间和过期候选计入占用。清理只作用SEO登记目录；AI关闭仍本地清理。记录逻辑删除及物理字节，不强删WAL，不重建主库，不全FS VACUUM或drop_caches。
+
+`retention.restore_backup(backup, new_directory)`只允许不存在的目标目录，验证后返回可读工作库。正式恢复须沿本批维护授权先停SEO自身入口并保存现场，恢复到独立候选后读回，不能覆盖共享主库或凭据。
+
+## 当前边界
+
+基础四游戏真源小样本、快照/导出/复制恢复有证据；全30天覆盖、187旧SQLite、真实FS入口、正式部署、自然夜间及下一周期仍需验收。可选SERP/页面URL清单未配置，显示真实缺口。AI仅适配/隔离测试通过，未接现役Provider/费用账本/研究/主动问答，不会真实调用；不能据此宣布AI上线。人工行动状态尚未接入现有任务台。

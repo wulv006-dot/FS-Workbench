@@ -42,3 +42,7 @@ def source_day_ended(source_date, source_timezone, now):
 def eligible_observations(records, report_date):
     day = dt.date.fromisoformat(report_date)
     return [r for r in records if dt.datetime.fromisoformat(r['observed_at']).astimezone(BUSINESS_TZ).date() == day]
+
+# Verified MMOEXP main-site game bindings, 2026-11-05.
+GAME_IDS = dict(FC27='1327', D4='456', AION2='891', WOW_FOREVER='1367')
+SITE_ID = '266'

@@ -2,7 +2,7 @@ export const GAMES = ['FC27', 'D4', 'AION2', 'WOW_FOREVER'];
 export class SnapshotClient {
   constructor(read = globalThis.fetch.bind(globalThis)) { this.fetch = read; }
   async get(path, options = {}) {
-    const response = await this.fetch('/api/seo/v1/' + path, {credentials: 'same-origin', cache: 'no-store', redirect: 'error', ...options});
+    const response = await this.fetch('/dashboard/analytics/seo/api/v1/' + path, {credentials: 'same-origin', cache: 'no-store', redirect: 'error', ...options});
     if (!response.ok) throw Error(({401: '请重新登录', 403: '没有当前范围的权限', 404: '尚无已发布数据', 410: '该历史版本已过期', 409: '设置已被其他成员更新，请重新读取'})[response.status] || '读取暂不可用');
     return response.json();
   }

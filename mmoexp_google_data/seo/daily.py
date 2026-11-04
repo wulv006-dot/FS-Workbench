@@ -17,38 +17,46 @@ def run_daily(store, sources, clock=lambda: dt.datetime.now(dt.timezone.utc), ad
             if snapshot.current(store.root) != manifest:
                 snapshot.atomic_json(store.root/'current.json', manifest)
             return dict(manifest, status='published')
-        for source in sources:
-            blocked = False
+        tasks = []
+        for index, source in enumerate(sources):
             for scope in GAMES:
                 slices = [(context.publication_date, 0)] if getattr(source, 'is_observation', False) else store.slices(source.name, scope, context)
-                for day, cursor in slices:
-                    local = clock().astimezone(dt.timezone(dt.timedelta(hours=8)))
-                    remaining = (local.replace(hour=6, minute=30, second=0, microsecond=0)-local).total_seconds()
-                    if not make_daily_context(clock()).publication_allowed or remaining <= finish_margin_seconds or not admit():
+                tasks.extend((day, index, scope, cursor) for day,cursor in slices)
+        blocked = set()
+        # One batch, latest dates first across all games; no game's old backfill monopolizes the night.
+        tasks.sort(key=lambda item: (-dt.date.fromisoformat(item[0]).toordinal(), item[1], GAMES.index(item[2])))
+        for day, index, scope, cursor in tasks:
+            source = sources[index]
+            if source.name in blocked:
+                continue
+            local = clock().astimezone(dt.timezone(dt.timedelta(hours=8)))
+            remaining = (local.replace(hour=6, minute=30, second=0, microsecond=0)-local).total_seconds()
+            if not make_daily_context(clock()).publication_allowed or remaining <= finish_margin_seconds or not admit():
+                break
+            if not getattr(source, 'is_observation', False) and not source_day_ended(day, source.timezone, clock()):
+                store.mark(source.name, scope, day, source.timezone, 'pending', clock().isoformat(), 'SOURCE_DAY_NOT_ENDED')
+                continue
+            try:
+                for page in source.pages(scope, day, cursor):
+                    if not make_daily_context(clock()).publication_allowed or not admit():
                         break
-                    if not getattr(source, 'is_observation', False) and not source_day_ended(day, source.timezone, clock()):
-                        store.mark(source.name, scope, day, source.timezone, 'pending', clock().isoformat(), 'SOURCE_DAY_NOT_ENDED')
-                        continue
-                    try:
-                        for page in source.pages(scope, day, cursor):
-                            if not make_daily_context(clock()).publication_allowed or not admit():
-                                break
-                            store.ingest_page(source.name, scope, day, page, clock().isoformat())
-                    except (OSError, ValueError, RuntimeError) as error:
-                        # Persist only error class/codes, never provider response bodies or credentials.
-                        code = getattr(error, 'code', type(error).__name__)
-                        store.mark(source.name, scope, day, source.timezone, 'failed', clock().isoformat(), code)
-                        if isinstance(error, PermissionError):
-                            blocked = True
-                            for other in GAMES:
-                                if other != scope:
-                                    store.mark(source.name, other, day, source.timezone, 'failed', clock().isoformat(), code)
-                            break
-                if blocked:
-                    break
+                    store.ingest_page(source.name, scope, day, page, clock().isoformat())
+            except (OSError, ValueError, RuntimeError) as error:
+                # Persist only error class/codes, never provider response bodies or credentials.
+                code = getattr(error, 'code', type(error).__name__)
+                store.mark(source.name, scope, day, source.timezone, 'failed', clock().isoformat(), code)
+                if isinstance(error, PermissionError):
+                    blocked.add(source.name)
+                    for other in GAMES:
+                        if other != scope:
+                            store.mark(source.name, other, day, source.timezone, 'failed', clock().isoformat(), code)
         with store.db() as db:
             usable = db.execute('SELECT 1 FROM facts WHERE source_date BETWEEN ? AND ? LIMIT 1',
                                 (context.history_start, context.report_date)).fetchone()
+            if not usable:
+                import json
+                usable = any(json.loads(r[0]).get('expected_total') == 0 for r in db.execute(
+                    "SELECT quality FROM coverage WHERE source='orders' AND status='available' AND source_date BETWEEN ? AND ?", (context.history_start,context.report_date)))
         if not usable:
             return dict(status='no_usable_data')
         if not make_daily_context(clock()).publication_allowed:

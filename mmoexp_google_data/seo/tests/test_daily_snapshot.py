@@ -36,6 +36,16 @@ class DailySnapshot(unittest.TestCase):
         self.assertEqual(result['status'], 'outside_night_window')
         self.assertEqual(self.source.calls, 0)
 
+    def test_latest_days_are_collected_across_games_before_older_backfill(self):
+        calls=[]
+        class Sample(Source):
+            def pages(self,scope,day,cursor=0):
+                calls.append((scope,day))
+                yield from super().pages(scope,day,cursor)
+        daily.run_daily(self.store,[Sample()],clock=lambda:NIGHT)
+        self.assertEqual([scope for scope,day in calls[:4]],['FC27','D4','AION2','WOW_FOREVER'])
+        self.assertEqual(len({day for scope,day in calls[:4]}),1)
+
     def test_once_per_day_and_reads_never_open_work_db(self):
         receipt = self.run_batch()
         self.assertEqual(receipt['status'], 'published')
@@ -121,6 +131,25 @@ class DailySnapshot(unittest.TestCase):
             result=daily.run_daily(self.store,[self.source],clock=lambda:clock[0])
         self.assertEqual(result['status'],'publication_deadline')
         self.assertEqual(snapshot.current(self.root)['snapshot_id'],old['snapshot_id'])
+
+    def test_metric_code_changes_cannot_change_an_already_published_view(self):
+        result=self.run_batch()
+        before=snapshot.read(self.root,result['snapshot_id'],'history','FC27')
+        with patch.object(snapshot,'compute_metrics',side_effect=AssertionError('daytime recalculation')):
+            self.assertEqual(snapshot.read(self.root,result['snapshot_id'],'history','FC27'),before)
+
+    def test_today_working_bytes_are_not_in_published_database(self):
+        import sqlite3
+        marker='TODAY_WORKING_LAYER_MUST_NOT_LEAK_90817'
+        with self.store.db() as db:
+            db.execute('INSERT INTO facts VALUES (?,?,?,?,?)',('pages','FC27','2026-11-05','today',marker))
+        connect=sqlite3.connect
+        def without_secure_delete(*args,**kw):
+            db=connect(*args,**kw);db.execute('PRAGMA secure_delete=OFF');return db
+        with patch.object(snapshot.sqlite3,'connect',side_effect=without_secure_delete):
+            result=self.run_batch()
+        package=self.root/'snapshots'/(result['snapshot_id']+'.sqlite')
+        self.assertFalse(marker.encode() in package.read_bytes(), 'today working bytes leaked into published package')
 
 
 if __name__ == '__main__':

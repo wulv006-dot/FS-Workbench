@@ -1,8 +1,9 @@
 import {SnapshotClient, value} from './model.mjs';
 const client = new SnapshotClient(), select = document.querySelector('#scope'), panel = document.querySelector('#panel'), status = document.querySelector('#status');
-const views = {overview: ['总览', 'history'], rankings: ['关键词/竞品', 'rankings'], pages: ['页面健康', 'pages'], orders: ['自然搜索成交', 'orders'], ai: ['行动与AI分析', null], sources: ['数据/费用状态', 'sources']};
+const views = {overview: ['总览', 'history'], rankings: ['关键词/竞品', 'rankings'], pages: ['页面健康', 'pages'], orders: ['自然搜索成交', 'history'], ai: ['行动与AI分析', null], sources: ['数据/费用状态', 'sources']};
 let active = 'overview', epoch = 0;
-const detailColumns = {rankings: [['source_date', '来源日期'], ['keyword', '关键词'], ['rank', '自然名次'], ['status', '状态'], ['observed_at', '观察时间']], pages: [['source_date', '来源日期'], ['url', '页面'], ['status_code', 'HTTP状态'], ['title', '标题'], ['observed_at', '观察时间']], orders: [['source_date', '付款日期'], ['key', '记录引用']], sources: [['source_date', '源日期'], ['source', '来源'], ['status', '状态'], ['source_timezone', '源时区'], ['collected_at', '最近读取'], ['error', '原因']]};
+const detailColumns = {rankings: [['source_date', '来源日期'], ['keyword', '关键词'], ['rank', '自然名次'], ['status', '状态'], ['observed_at', '观察时间']], pages: [['source_date', '来源日期'], ['url', '页面'], ['status_code', 'HTTP状态'], ['title', '标题'], ['observed_at', '观察时间']], orders: [['source_date', '付款日期'], ['revenue_usd', '已付款金额（$）'], ['attribution', 'SEO归因'], ['landing_game', '入口游戏'], ['purchased_game', '购买游戏'], ['key', '记录引用']], sources: [['source_date', '源日期'], ['source', '来源'], ['status', '状态'], ['source_timezone', '源时区'], ['collected_at', '最近读取'], ['attribution_link_status', '交易关联状态'], ['error', '原因']]};
+const detailCells = (kind, row) => detailColumns[kind].map(([key]) => key === 'key' ? row.key?.slice(0, 12) : key === 'attribution_link_status' ? row.quality?.attribution_link_status : key === 'attribution' ? ({A: '后台已核验', B: 'GA4交易已匹配', U: '未知'})[row.metrics?.attribution] : row[key] ?? row.metrics?.[key]);
 const text = (tag, content, className) => {const e = document.createElement(tag); e.textContent = content; if (className) e.className = className; return e;};
 function table(headers, rows, caption) {
   const region = document.createElement('div'); region.className = 'table-wrapper'; region.tabIndex = 0; region.setAttribute('role', 'region'); region.setAttribute('aria-label', caption);
@@ -33,15 +34,25 @@ async function render() {
     if (active === 'overview') {
       const available = data.rows.filter(r => Object.values(r.metrics).some(v => v !== null)).length;
       panel.append(text('h2', `${scope} · 近30天`), text('p', `目标30天 · 可用${available}天 · 缺失${30-available}天`, 'muted'));
-      panel.append(table(['来源日期', 'GSC点击', 'GSC展示', 'GSC CTR', 'GA4自然会话', 'SEO付款额（$）'], data.rows.map(r => [r.source_date, value(r.metrics.gsc?.clicks), value(r.metrics.gsc?.impressions), value(r.metrics.gsc?.ctr, true), value(r.metrics.ga4?.sessions), value(r.metrics.orders?.seo_revenue_usd)]), '每日搜索与成交 · 各来源按自己的统计时区'));
+      const latest = data.rows[data.rows.length-1];
+      if (latest) {
+        panel.append(text('p', `业务目标 ${latest.source_date} · GA4自然会话 ${value(latest.metrics.ga4?.sessions)} · 购买次数 ${value(latest.metrics.ga4?.purchase_events)} · Admin客单价 $${value(latest.metrics.admin?.admin_customer_price_usd)} · 预估SEO成交额 $${value(latest.estimate?.revenue_usd)}`));
+        const recent = [...data.rows].reverse().find(r => r.metrics.gsc !== null);
+        if (recent) panel.append(text('p', `GSC最近源日 ${recent.source_date}（太平洋时间）· 点击 ${value(recent.metrics.gsc.clicks)}`, 'muted'));
+        if (latest.source_status?.orders?.quality?.attribution_link_status === 'transaction_id_not_populated') panel.append(text('p', 'GA4交易标识未记录，当前SEO成交无法核验；没有填成零。', 'muted'));
+      }
+      panel.append(table(['来源日期', 'GSC点击', 'GSC展示', 'GSC CTR', 'GA4自然会话', '自然搜索购买次数', 'Admin客单价（$）', '预估成交额（$）'], data.rows.map(r => [r.source_date, value(r.metrics.gsc?.clicks), value(r.metrics.gsc?.impressions), value(r.metrics.gsc?.ctr, true), value(r.metrics.ga4?.sessions), value(r.metrics.ga4?.purchase_events), value(r.metrics.admin?.admin_customer_price_usd), value(r.estimate?.revenue_usd)]), '每日搜索与成交 · 各来源按自己的统计时区'));
+    } else if (active === 'orders') {
+      panel.append(text('h2', '自然搜索成交预估'), text('p', 'GA4自然搜索购买事件次数 × 同日同游戏MMOEXP主站Admin客单价。交易标识为空，无法关联具体订单或用户；此金额为预估。后台客单价沿用原字段 customer_price（付费客户均额）。', 'muted'));
+      panel.append(table(['来源日期', '购买事件次数', 'Admin客单价（$）', '预估成交额（$）', '状态'], data.rows.map(r => [r.source_date, value(r.metrics.ga4?.purchase_events), value(r.metrics.admin?.admin_customer_price_usd), value(r.estimate?.revenue_usd), r.estimate?.status === 'estimated' ? '预估' : '缺少来源']), '按日预估 · 缺失不补零'));
     } else if (!data.rows.length) {
       panel.append(text('div', (client.meta.sources?.[kind === 'rankings' ? 'serp' : kind] === 'not_configured') ? '该数据源尚未接入。其他数据可正常查看。' : '此版本暂无可用记录，等待后续夜间采集。', 'empty'));
     } else if (active === 'sources') {
-      panel.append(table(['源日期', '来源', '状态', '源时区', '最近读取', '原因'], data.rows.map(r => [r.source_date, r.source, r.status, r.source_timezone, r.collected_at, r.error]), '数据来源与覆盖状态'));
+      panel.append(table(detailColumns.sources.map(c => c[1]), data.rows.map(r => detailCells('sources', r)), '数据来源与覆盖状态'));
       panel.append(text('p', 'AI未接入费用账本；暂无可核验的SEO模型费用。', 'muted'));
     } else {
       const columns = detailColumns[active];
-      panel.append(table(columns.map(c => c[1]), data.rows.map(r => columns.map(c => r[c[0]])), views[active][0]));
+      panel.append(table(columns.map(c => c[1]), data.rows.map(r => detailCells(active, r)), active === 'orders' ? '已付款记录与SEO归因 · 未知来源不计SEO收入' : views[active][0]));
     }
     if (data.next_cursor != null) {const next = text('button', '继续读取此版本'); next.type = 'button'; next.onclick = () => appendPage(kind, scope, data.next_cursor, request, next); panel.append(next);}
   } catch (error) {if (request === epoch) panel.replaceChildren(text('p', error.message, 'error'));}
@@ -52,7 +63,7 @@ async function appendPage(kind, scope, cursor, request, button) {
   try {
     const data = await client.load(kind, scope, cursor); if (request !== epoch) return;
     const columns = detailColumns[kind];
-    const rows = data.rows.map(r => columns.map(c => r[c[0]]));
+    const rows = data.rows.map(r => detailCells(kind, r));
     const tbody = panel.querySelector('tbody'); table([], rows, '续页').querySelectorAll('tbody tr').forEach(tr => tbody.append(tr));
     button.replaceWith(); if (data.next_cursor != null) {button.disabled = false; button.onclick = () => appendPage(kind, scope, data.next_cursor, request, button); panel.append(button);}
   } catch (error) {button.disabled = false; status.textContent = error.message;}
@@ -72,7 +83,7 @@ document.querySelector('#export').addEventListener('click', async event => {
   const button = event.currentTarget; button.disabled = true;
   try {
     const result = await client.load('history', select.value);
-    const rows = [['snapshot_id', 'facts_hash', 'game', 'source_date', 'gsc_clicks', 'ga4_sessions', 'seo_revenue_usd'], ...result.rows.map(r => [client.id, client.meta.facts_hash, select.value, r.source_date, r.metrics.gsc?.clicks, r.metrics.ga4?.sessions, r.metrics.orders?.seo_revenue_usd])];
+    const rows = [['snapshot_id', 'facts_hash', 'game', 'source_date', 'gsc_clicks', 'ga4_sessions', 'purchase_events', 'admin_customer_price_usd', 'estimated_seo_revenue_usd', 'estimate_status'], ...result.rows.map(r => [client.id, client.meta.facts_hash, select.value, r.source_date, r.metrics.gsc?.clicks, r.metrics.ga4?.sessions, r.metrics.ga4?.purchase_events, r.metrics.admin?.admin_customer_price_usd, r.estimate?.revenue_usd, r.estimate?.status])];
     const csv = rows.map(row => row.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8'})), link = document.createElement('a');
     link.href = url; link.download = `${client.id}-${select.value}.csv`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);

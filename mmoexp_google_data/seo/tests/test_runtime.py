@@ -12,7 +12,7 @@ class Runtime(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             result=runtime.run(dict(data_root=tmp,sources={},resource_policy=None),clock=lambda:NIGHT)
         self.assertEqual(result['status'],'resource_baseline_missing')
-        self.assertEqual(result['missing_sources'],['gsc','ga4','orders'])
+        self.assertEqual(result['missing_sources'],['gsc','ga4','admin'])
 
     def test_daytime_does_not_load_credentials_or_initialize_store(self):
         with patch.object(store,'Store',side_effect=AssertionError('daytime initialized store')):

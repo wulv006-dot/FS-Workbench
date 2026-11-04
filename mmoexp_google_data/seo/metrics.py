@@ -24,11 +24,22 @@ def compute_metrics(rows, contract):
         return dict(clicks=str(clicks), impressions=str(impressions),
                     ctr=ratio(clicks, impressions), position=ratio(weighted, impressions))
     if contract == 'ga4':
-        sessions = engaged = Decimal(0)
+        sessions = engaged = purchases = Decimal(0)
+        purchase_known = True
         for row in rows:
             sessions += number(row['sessions'])
             engaged += number(row['engagedSessions'])
-        return dict(sessions=str(sessions), engaged_sessions=str(engaged), engagement_rate=ratio(engaged, sessions))
+            if row.get('ecommercePurchases') is None:
+                purchase_known = False
+            else:
+                purchases += number(row['ecommercePurchases'])
+        return dict(sessions=str(sessions), engaged_sessions=str(engaged), engagement_rate=ratio(engaged, sessions),
+                    purchase_events=str(purchases) if purchase_known else None)
+    if contract == 'admin':
+        rows = list(rows)
+        if len(rows) != 1:
+            raise ValueError('ADMIN_SUMMARY_GRAIN_INVALID')
+        return rows[0]
     if contract == 'rankings':
         rows = list(rows)
         valid = [r for r in rows if r['status'] == 'found' or
@@ -48,7 +59,9 @@ def compute_metrics(rows, contract):
         seo = {r['order_ref'] for r in paid if r['attribution'] in ('A', 'B')}
         revenue = sum((number(r['revenue_usd']) for r in paid if r['attribution'] in ('A', 'B')), Decimal(0))
         known = {r['order_ref'] for r in paid if r['attribution'] in ('A', 'B', 'non_seo')}
-        return dict(paid_orders=len(orders), seo_orders=len(seo), seo_revenue_usd=str(revenue),
+        unknown = bool(orders) and not known
+        return dict(paid_orders=len(orders), seo_orders=None if unknown else len(seo), seo_revenue_usd=None if unknown else str(revenue),
                     average_order_usd=ratio(revenue, Decimal(len(seo))),
-                    attribution_coverage=ratio(Decimal(len(known)), Decimal(len(orders))))
+                    attribution_coverage=ratio(Decimal(len(known)), Decimal(len(orders))),
+                    attribution_status='unknown' if unknown else 'partial' if len(known)<len(orders) else 'available')
     raise ValueError('INVALID_METRIC_CONTRACT')

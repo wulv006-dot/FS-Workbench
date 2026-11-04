@@ -872,7 +872,7 @@ def main():
     selfcheck()
     for group in groups:
         if group=='seo-daily':
-            units('mmoexp_google_data/seo/tests', ['test_contracts','test_sources','test_pages','test_store','test_daily_snapshot','test_ai_policy','test_resources','test_api','test_rules','test_runtime'])
+            units('mmoexp_google_data/seo/tests', ['test_contracts','test_sources','test_pages','test_store','test_daily_snapshot','test_ai_policy','test_resources','test_api','test_rules','test_runtime','test_estimate','test_web','test_prepare'])
             for script in (ROOT/'ui-system/modules/seo').glob('*.mjs'):
                 subprocess.run(['node','--check',str(script)],check=True,timeout=30)
             node('ui-system/modules/seo/test_model.cjs')
