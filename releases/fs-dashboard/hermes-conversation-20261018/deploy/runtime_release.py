@@ -112,10 +112,14 @@ CAPABILITIES_DESKTOP_TIME_PROOF = dict(sourceCommit='3522fa5d969c3bd88880de00325
     backup='/var/backups/fs-navigation-20261006/nav-20261104T071648Z',
     manifestSha256='e7cbbce9adca1aeede25b270d944eb414e72d35453c60efac4f0b2a94c939cf6',
     journalSha256='f4e427e4cbcf543ec6dc2a31ac1de41e34fab8740b63b6028b6f527057c06a12')
-NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='67906a53259155a0df43a334e4c0d1270dd46f9b',
+CAPABILITIES_DESKTOP_SETUP_PROOF = dict(sourceCommit='67906a53259155a0df43a334e4c0d1270dd46f9b',
     backup='/var/backups/fs-navigation-20261006/nav-20261104T084256Z',
     manifestSha256='0965c10730425258525e16cb74de84e461e2304799572f978b24d34f8257b338',
     journalSha256='7563fa9478d5aaebd76ce38d770f284d6e95883fbc30d2118b47e818cfa49e05')
+NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='119e960a23cbe98255cce592795d7b5eb1f302d8',
+    backup='/var/backups/fs-navigation-20261006/nav-20261104T104931Z',
+    manifestSha256='892365c3b7be7295d4f6bdc3e83b0aa78bfbded954197ce7f0254393e51c2e12',
+    journalSha256='5057f33c0913810cd4fe96da704e2cfa0e4520f8460422db7ef2e9308b6c1805')
 DESKTOP_MODE_CORRECTION_SHA='d2352697a75d75545108cd03f260c264f3e918dc1b4be9d7f2b239a2cd2a947e'
 DESKTOP_NAVIGATION_PROOF=dict(backup='/var/backups/fs-navigation-20261006/nav-20261104T052012Z',
     manifestSha256='ec8550f11cc66b47799c92d3cf9649deee192bdfa17e25a399640e8a46ee3854',
@@ -321,7 +325,11 @@ for _name in ('runtime/conversation_desktop.py','desktop/conversation_desktop.py
 DESKTOP_TIME_INSTALLED_EXISTING=dict(DESKTOP_EXISTING)
 for _name in ('runtime/conversation_desktop.py','desktop/conversation_desktop.py'):
     DESKTOP_EXISTING[_name]=('6c4d0ba68acca499e8d10ce109fc5fb333fd6986f1dd9fbbff4889dd26d802f3',14438)
-CAPABILITIES_CHANGED = ('runtime/conversation_desktop.py','desktop/conversation_desktop.py','desktop/desktop_fs_gateway.py')
+DESKTOP_SETUP_INSTALLED_EXISTING=dict(DESKTOP_EXISTING)
+for _name in ('runtime/conversation_desktop.py','desktop/conversation_desktop.py'):
+    DESKTOP_EXISTING[_name]=('6a24b2ab18bad8223e659d1f7559c42a0c8ae4b07ff7850d30a9504ddfb8fd6d',14795)
+DESKTOP_EXISTING['desktop/desktop_fs_gateway.py']=('f46e88384555b919c8660ca16e0684bc9b477ab5b5adb443d0bd52b8d3a84bfc',10350)
+CAPABILITIES_CHANGED = ('runtime/transport.py','runtime/proxy_gateway.py')
 
 
 def payload_mode(target):
@@ -1127,10 +1135,11 @@ def capabilities_knowledge_history(base,root,current,installed_rows):
         raise ValueError('native_knowledge_success_chain_mismatch')
 
 
-def capabilities_desktop_history(base,root,current,installed_rows,*,stage=3):
-    """Verify the fixed aad/1f/c1/3522 chain; mode/nav belongs only to 1f."""
+def capabilities_desktop_history(base,root,current,installed_rows,*,stage=4):
+    """Verify fixed aad/1f/c1/3522/679 history; mode/nav belongs only to 1f."""
     proof=(CAPABILITIES_DESKTOP_HISTORY_PROOF,CAPABILITIES_DESKTOP_INSTALL_PROOF,
-           CAPABILITIES_DESKTOP_WS_PROOF,CAPABILITIES_DESKTOP_TIME_PROOF)[stage];records={}
+           CAPABILITIES_DESKTOP_WS_PROOF,CAPABILITIES_DESKTOP_TIME_PROOF,
+           CAPABILITIES_DESKTOP_SETUP_PROOF)[stage];records={}
     initial=stage==0
     expected=KNOWLEDGE_INSTALLED_TARGETS if initial else DESKTOP_INSTALLED_TARGETS
     fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
@@ -2070,17 +2079,18 @@ def load_base():
             if admission_fence is None:raise ValueError('native_admission_fence_required')
             admission_fence.stop_then_unlock_database()
             readiness.restart_with_hermes_readiness(base,original_restart,dict(manifest,scope=base.DEEP_SCOPE),admission_fence)
-            subprocess.run(['systemctl','restart','fs-hermes-desktop.service'],check=True,timeout=30)
-            subprocess.run(['systemctl','is-active','--quiet','fs-hermes-desktop.service'],check=True,timeout=10)
-            if publish_root==Path('/'):
-                serve=next(r for r in manifest['files'] if r['candidate']=='desktop/serve.py')
-                installed=base.digest(base.rooted(publish_root,serve['target']))
-                if installed not in (serve['sha256'],serve['beforeSha256']):raise ValueError('desktop_readiness_source_drift')
-                deadline=time.monotonic()+25
-                import_program=None
-                if installed==serve['sha256']:
-                    import_program="import sys;sys.path.insert(0,'/desktop');import conversation_desktop,desktop_fs_gateway;assert conversation_desktop.__file__=='/desktop/conversation_desktop.py';assert desktop_fs_gateway.__file__=='/desktop/desktop_fs_gateway.py'"
-                desktop_readiness(deadline,import_program)
+            if any(row['candidate'] in DESKTOP_TARGETS and row['beforeSha256']!=row['sha256'] for row in manifest['files']):
+                subprocess.run(['systemctl','restart','fs-hermes-desktop.service'],check=True,timeout=30)
+                subprocess.run(['systemctl','is-active','--quiet','fs-hermes-desktop.service'],check=True,timeout=10)
+                if publish_root==Path('/'):
+                    serve=next(r for r in manifest['files'] if r['candidate']=='desktop/serve.py')
+                    installed=base.digest(base.rooted(publish_root,serve['target']))
+                    if installed not in (serve['sha256'],serve['beforeSha256']):raise ValueError('desktop_readiness_source_drift')
+                    deadline=time.monotonic()+25
+                    import_program=None
+                    if installed==serve['sha256']:
+                        import_program="import sys;sys.path.insert(0,'/desktop');import conversation_desktop,desktop_fs_gateway;assert conversation_desktop.__file__=='/desktop/conversation_desktop.py';assert desktop_fs_gateway.__file__=='/desktop/desktop_fs_gateway.py'"
+                    desktop_readiness(deadline,import_program)
             running_worker(manifest);native_runtime_readiness();base.guards(manifest,publish_root)
             return
         if manifest.get('nativeArchive') or manifest.get('nativeAdmission'):
