@@ -1,0 +1,40 @@
+{
+  "data_root": "/var/lib/fs-seo",
+  "control_root": "/var/lib/fs-seo-control",
+  "ai_root": "/var/lib/fs-seo-ai",
+  "web_port": 8957,
+  "web_readers": 8,
+  "sources": {
+    "gsc": {
+      "resource": "sc-domain:mmoexp.com",
+      "timezone": "America/Los_Angeles"
+    },
+    "ga4": {
+      "resource": "541418940",
+      "timezone": "Asia/Shanghai"
+    },
+    "admin": true
+  },
+  "resource_policy": {
+    "warning_bytes": 4294967296,
+    "operating_ceiling_bytes": 17179869184,
+    "emergency_stop_bytes": 25769803776,
+    "host_reserve_bytes": 42949672960,
+    "measured_basis": "187 2026-11-05: disk free ~114GiB; representative actual-source core+snapshot+backup ~430KB. Includes temporary verified-restore space; warning does not reject."
+  },
+  "memory_policy": {
+    "warning_bytes": 536870912,
+    "operating_ceiling_bytes": 2147483648,
+    "emergency_stop_bytes": 3221225472,
+    "host_reserve_bytes": 6442450944,
+    "measured_basis": "187 RAM 15.25GiB, available ~10.2GiB; FC cgroup lifetime peak ~768MiB. Isolated Python3.9 69 tests plus actual-source sample peak 31.6MiB. Own base service only; shared Hermes excluded."
+  },
+  "temporary_reserve_bytes": 2147483648,
+  "publication_finish_seconds": 600,
+  "http": {
+    "response_emergency_bytes": 67108864,
+    "connect_seconds": 15,
+    "idle_seconds": 90,
+    "attempts": 3
+  }
+}

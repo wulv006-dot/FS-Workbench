@@ -1,0 +1,18 @@
+{
+  "data_root": "/var/lib/fs-seo",
+  "sources": {},
+  "resource_policy": null,
+  "temporary_reserve_bytes": null,
+  "publication_finish_seconds": null,
+  "http": {
+    "response_emergency_bytes": null,
+    "connect_seconds": null,
+    "idle_seconds": null,
+    "attempts": 3
+  },
+  "control_root": "/var/lib/fs-seo-control",
+  "ai_root": "/var/lib/fs-seo-ai",
+  "web_port": null,
+  "web_readers": null,
+  "memory_policy": null
+}

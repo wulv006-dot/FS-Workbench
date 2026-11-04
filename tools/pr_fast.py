@@ -451,6 +451,11 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith(('mmoexp_google_data/seo/', 'ui-system/modules/seo/')):
+            groups.add('seo-daily')
+            if Path(name).suffix in ('.html', '.css'):
+                groups.add('frontend')
+            continue
         if name.startswith('releases/fs-dashboard/gravitec-webpush-20261103/'):
             groups.add('gravitec-webpush');continue
         if name.startswith('releases/fs-dashboard/email-channels-20261103/'):
@@ -866,6 +871,12 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group=='seo-daily':
+            units('mmoexp_google_data/seo/tests', ['test_contracts','test_sources','test_pages','test_store','test_daily_snapshot','test_ai_policy','test_resources','test_api','test_rules','test_runtime','test_estimate','test_web','test_prepare'])
+            for script in (ROOT/'ui-system/modules/seo').glob('*.mjs'):
+                subprocess.run(['node','--check',str(script)],check=True,timeout=30)
+            node('ui-system/modules/seo/test_model.cjs')
+            continue
         if group=="management-november":
             folder=ROOT/"releases/fs-dashboard/management-november-20261103"
             units("releases/fs-dashboard/management-november-20261103",["test_november"])
