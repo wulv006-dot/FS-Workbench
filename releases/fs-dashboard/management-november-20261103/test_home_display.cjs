@@ -1,0 +1,21 @@
+const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert');
+const root=__dirname,source=fs.readFileSync(path.join(root,'source/management-live.js'),'utf8');
+function load(view){const box={module:{exports:{}},document:{body:{dataset:{view}}}};vm.runInNewContext(source,box);return box.module.exports;}
+const home=load('overview'),game=load('game');
+assert.equal(home.fmt(178119.46),'$178,119');
+assert.equal(home.fmt(49501.62,'prof'),'$49,502');
+assert.equal(home.fmt(-1234.56),'$-1,235');
+assert.equal(home.fmt(0),'$0');assert.equal(home.fmt(null),'—');assert.equal(home.fmt(NaN),'—');
+assert.equal(home.fmt(3431,'ord'),'3,431');assert.equal(home.fmt(27.83,'mar'),'27.83%');
+assert.equal(game.fmt(178119.46),'$178,119.46');assert.equal(game.fmt(12.34,'aov'),'$12.34');
+const progress=(period,date)=>home.monthProgress(period,new Date(date));
+assert.equal(progress('2026-11','2026-10-31T16:00:00Z').percent,0);
+assert.equal(progress('2026-11','2026-11-15T16:00:00Z').percent,50);
+assert.equal(progress('2026-11','2026-11-30T16:00:00Z').percent,100);
+assert.equal(progress('2026-11','2026-10-01T00:00:00Z').percent,0);
+assert.equal(progress('2026-11','2026-12-31T00:00:00Z').percent,100);
+assert.equal(progress('2028-02','2028-02-01T00:00:00Z').days,29);
+assert.equal(progress('2026-11','2026-11-04T10:00:00Z').clock,'2026-11-04 18:00');
+assert.equal(progress('2026-13','2026-11-04T10:00:00Z'),null);
+assert.equal(home.ratio(178119.46,2000680),178119.46/2000680*100);
+console.log('PASS: integer currency only on overview; raw ratios, game precision, missing values, Beijing month boundaries and leap year.');

@@ -870,6 +870,7 @@ def main():
             folder=ROOT/"releases/fs-dashboard/management-november-20261103"
             units("releases/fs-dashboard/management-november-20261103",["test_november"])
             subprocess.run(["node","test_sandbox.cjs"],cwd=folder,check=True,timeout=30)
+            subprocess.run(["node","test_home_display.cjs"],cwd=folder,check=True,timeout=30)
             subprocess.run(["node","test_target_hash.cjs",sys.executable],cwd=folder,check=True,timeout=30)
             subprocess.run([sys.executable,"-B","check_linux.py"],cwd=folder,check=True,timeout=30)
             continue

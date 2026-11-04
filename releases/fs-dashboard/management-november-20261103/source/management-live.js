@@ -2,9 +2,16 @@
 (function(){'use strict';
 const CONTRACT='fs-management-daily-v2',N=v=>typeof v==='number'&&Number.isFinite(v),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=(now=new Date())=>new Date(now.getTime()+28800000).toISOString().slice(0,10);
-const fmt=(v,k='rev')=>N(v)?(['rev','prof','aov'].includes(k)?'$':'')+v.toLocaleString('en-US',{maximumFractionDigits:['ord','new'].includes(k)?0:2})+(['rep','ful','mar'].includes(k)?'%':''):'—';
+const integerMoney=typeof document!=='undefined'&&document.body.dataset.view==='overview';
+const fmt=(v,k='rev')=>N(v)?(['rev','prof','aov'].includes(k)?'$':'')+v.toLocaleString('en-US',{maximumFractionDigits:['ord','new'].includes(k)||(integerMoney&&['rev','prof','aov'].includes(k))?0:2})+(['rep','ful','mar'].includes(k)?'%':''):'—';
 const pct=v=>N(v)?v.toFixed(1)+'%':'未评估',ratio=(a,t)=>N(a)&&N(t)&&t>0?a/t*100:null;
 const sum=xs=>xs.length&&xs.every(N)?xs.reduce((a,b)=>a+b,0):null;
+function monthProgress(period,now=new Date()){
+ if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(period))return null;
+ const [year,month]=period.split('-').map(Number),start=Date.UTC(year,month-1,1)-28800000,end=Date.UTC(year,month,1)-28800000;
+ const elapsed=Math.max(0,Math.min(now.getTime()-start,end-start));
+ return {percent:elapsed/(end-start)*100,days:(end-start)/86400000,elapsedDays:elapsed/86400000,clock:new Date(now.getTime()+28800000).toISOString().slice(0,16).replace('T',' ')};
+}
 function subtotal(xs){
  const known=xs.filter(N);
  return {value:known.length?known.reduce((a,b)=>a+b,0):null,count:known.length,total:xs.length,complete:known.length>0&&known.length===xs.length};
@@ -20,11 +27,12 @@ async function ensureTargetVersion(current,currentHash,required,loader,hasher){
  if(hash!==required)throw Error('每日事实与目标配置版本不一致，等待同版数据，暂不混用目标。');
  return {config:candidate,hash};
 }
-if(typeof module!=='undefined'&&module.exports){module.exports={N,esc,today,fmt,pct,ratio,sum,subtotal,adviceValid,validSnapshot,health,ensureTargetVersion,metricNote,advicePanelTag};return;}
-const $=id=>document.getElementById(id),view=document.body.dataset.view,profile=document.body.dataset.profile;
+if(typeof module!=='undefined'&&module.exports){module.exports={monthProgress,N,esc,today,fmt,pct,ratio,sum,subtotal,adviceValid,validSnapshot,health,ensureTargetVersion,metricNote,advicePanelTag};return;}
+const $=id=>document.getElementById(id),view=document.body.dataset.view,profile=new URLSearchParams(location.search).get('game')||document.body.dataset.profile;
 let sandbox=null,sandboxVersion=null;
 let config=null,configHash=null,data=null,statusInfo=null,identity=null,generation=0,controller=null,metric='rev',group='ALL',timer=null,expiryTimer=null;
 const root=document.querySelector('.wrap')||document.querySelector('main')||document.body;
+const configLink=document.createElement('a');configLink.href='config';configLink.textContent='目标配置';configLink.style.cssText='display:inline-block;margin:0 0 12px;font-weight:650';root.prepend(configLink);
 const status=document.createElement('div');status.className='fs-data-status';status.setAttribute('role','status');status.innerHTML='<span>正在读取服务器每日结果…</span><button type="button">检查更新</button>';
 const hero=root.querySelector('.hero');if(hero)hero.before(status);else root.prepend(status);
 const ai=document.createElement(advicePanelTag(view));ai.className='fs-ai-panel';ai.id='management-hermes';
@@ -34,7 +42,7 @@ const before=view==='overview'?$('groupCards'):hero;if(before)before.after(ai);e
 function note(text,error=false){status.querySelector('span').textContent=text;status.dataset.state=error?'error':'ready';}
 async function read(path,signal){const r=await fetch(path,{credentials:'same-origin',cache:'no-store',redirect:'error',signal});if(r.status===401||r.status===403){identity=null;data=null;clearViews();throw Error('登录失效或没有该模块权限，请重新登录。');}if(!r.ok)throw Error('读取失败（'+r.status+'）');return r;}
 async function verify(signal){try{const r=await read('/__auth/verify',signal);const user=r.headers.get('X-Auth-User');if(!user)throw Error('未确认登录身份');if(identity&&identity!==user){data=null;config=null;configHash=null;clearViews();}identity=user;return user;}catch(e){identity=null;data=null;config=null;configHash=null;clearViews();throw e;}}
-function clearViews(){clearTimeout(expiryTimer);sandbox?.destroy();sandbox=null;sandboxVersion=null;if(view==='game')$('hero')?.replaceChildren();for(const id of ['topKpis','groupCards','rows','footrow','hbGood','hbBad','chartBox','ovGrid','l1Grid','l2Grid','wkBody','dailyChart','lawList','rhythmList','tb','fAct','fFc','fPub','fMine','fOrd','fProf','export','vTotal','vDiff','vOrd','vProf','warnBox'])if($(id))$(id).replaceChildren();aiBody.replaceChildren();}
+function clearViews(){$('monthTimeProgress')?.remove();clearTimeout(expiryTimer);sandbox?.destroy();sandbox=null;sandboxVersion=null;if(view==='game')$('hero')?.replaceChildren();for(const id of ['topKpis','groupCards','rows','footrow','hbGood','hbBad','chartBox','ovGrid','l1Grid','l2Grid','wkBody','dailyChart','lawList','rhythmList','tb','fAct','fFc','fPub','fMine','fOrd','fProf','export','vTotal','vDiff','vOrd','vProf','warnBox'])if($(id))$(id).replaceChildren();aiBody.replaceChildren();}
 const monthEligible=()=>data?.period?.active&&data.targetPeriod===today().slice(0,7)&&data.period.observed>0;
 const timeP=()=>monthEligible()?data.period.observed/data.period.month_days*100:null;
 const rows=()=>data.projects.filter(x=>group==='ALL'||x.group===group);
@@ -42,7 +50,15 @@ const project=key=>data.projects.find(x=>x.profile===key);
 const targetModel=key=>config.models[key];
 const badges=(pc,tp)=>!N(pc)||!N(tp)?'flat':pc-tp>=15?'good':pc-tp<=-15?'risk':'warn';
 function bar(a,t,p){const pc=monthEligible()?ratio(a,t):null,pj=monthEligible()?ratio(p,t):null,tp=timeP();return '<div class="barwrap"><div class="bar">'+(N(pj)?'<i class="proj" style="width:'+Math.max(0,Math.min(pj,100))+'%"></i>':'')+(N(pc)?'<i class="now" style="width:'+Math.max(0,Math.min(pc,100))+'%"></i>':'')+(N(tp)?'<span class="timeline-mark" style="left:'+Math.min(tp,100)+'%"></span>':'')+'</div></div>';}
+function renderTimeProgress(){
+ let el=$('monthTimeProgress');
+ if(!el){el=document.createElement('div');el.id='monthTimeProgress';el.className='fs-month-time';$('overviewPeriod').after(el);}
+ const p=monthProgress(data.targetPeriod);
+ if(!p){el.textContent='本月时间进度暂不可用';return;}
+ el.innerHTML='<div class="fs-month-time-head"><label for="monthTimeBar">本月时间进度 <b>'+pct(p.percent)+'</b></label><span>北京时间 '+esc(p.clock)+'</span></div><progress id="monthTimeBar" max="100" value="'+p.percent+'"></progress><div class="fs-month-time-note">目标周期 '+esc(data.targetPeriod)+' · 已过 '+p.elapsedDays.toFixed(1)+' / '+p.days+' 天 · 业绩对比仍按数据截至日计算</div>';
+}
 function overview(){
+ renderTimeProgress();
  $('overviewPeriod').textContent='三组进度 · 健康度责任到人 · 目标沙盘与经营决策 · 目标周期 '+data.targetPeriod+' · 数据截至 '+data.period.end+' · 已过 '+data.period.observed+'/'+data.period.month_days+' 个完整日';
  $('timeLegend').textContent='时间进度 '+pct(timeP())+'（应到位置）';
  const all=data.projects,rev=subtotal(all.map(x=>x.month.values.rev)),ord=subtotal(all.map(x=>x.month.values.ord)),prof=subtotal(all.map(x=>x.month.values.prof)),tRev=sum(all.map(x=>x.targets.rev)),tOrd=sum(all.map(x=>x.targets.ord));
@@ -96,9 +112,9 @@ function renderSandbox(){
 
 function canonical(v){return Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;}
 async function targetHash(value){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(canonical(value))));return Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');}
-async function refresh(){const token=++generation;controller?.abort();controller=new AbortController();const signal=controller.signal;status.querySelector('button').disabled=true;try{await verify(signal);const r=await read('daily-v2.json',signal);const next=await r.json();if(token!==generation||signal.aborted)return;if(!validSnapshot(next))throw Error('每日数据版本尚未就绪，等待服务器生成。');const matched=await ensureTargetVersion(config,configHash,next.targetVersion,async()=>await(await read('targets.json',signal)).json(),targetHash);if(token!==generation||signal.aborted)return;config=matched.config;configHash=matched.hash;data=next;render();note('数据截至 '+data.period.end+' · 生成 '+data.generatedAt+' · '+(data.businessDate===today()?'今日版本':'历史版本，等待今日更新')+' · 全部网站 · '+(data.status==='available'?'数据已就绪':'部分来源待更新，保留同期间上次值'),data.businessDate!==today());}catch(e){if(token!==generation||e.name==='AbortError')return;note(e.message,true);if(data)render();else aiBody.innerHTML='<h2>Hermes · 当日经营分析</h2><p>等待同一批真实数据与分析结果，不显示参考包旧数值。</p>';}finally{if(token===generation)status.querySelector('button').disabled=false;}}
+async function refresh(){const token=++generation;controller?.abort();controller=new AbortController();const signal=controller.signal;status.querySelector('button').disabled=true;try{await verify(signal);const requested=new URLSearchParams(location.search).get('period');const r=await read('config/api/view'+(requested?'?period='+encodeURIComponent(requested):''),signal);const bundle=await r.json();const next=bundle.facts;if(token!==generation||signal.aborted)return;if(!validSnapshot(next))throw Error('每日数据版本尚未就绪，等待服务器生成。');const matched=await ensureTargetVersion(config,configHash,next.targetVersion,async()=>bundle.config,targetHash);if(token!==generation||signal.aborted)return;config=matched.config;configHash=matched.hash;data=next;render();note('数据截至 '+data.period.end+' · 生成 '+data.generatedAt+' · '+(data.businessDate===today()?'今日版本':'历史版本，等待今日更新')+' · 全部网站 · '+(data.status==='available'?'数据已就绪':'部分来源待更新，保留同期间上次值'),data.businessDate!==today());}catch(e){if(token!==generation||e.name==='AbortError')return;note(e.message,true);if(data)render();else aiBody.innerHTML='<h2>Hermes · 当日经营分析</h2><p>等待同一批真实数据与分析结果，不显示参考包旧数值。</p>';}finally{if(token===generation)status.querySelector('button').disabled=false;}}
 status.querySelector('button').onclick=refresh;
-root.addEventListener('click',e=>{const b=e.target.closest('#seg button');if(b){metric=b.dataset.k;root.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));if(data)overview();return;}const g=e.target.closest('#grpTab button,.gc[data-g]');if(g){group=g.dataset.g===group?'ALL':g.dataset.g;if(data)overview();return;}const row=e.target.closest('#rows tr[data-file]');if(row&&/^[a-z0-9_]+\.html$/.test(row.dataset.file)){location.href=row.dataset.file;return;}const act=e.target.closest('.actloop-tg');if(act)act.parentElement.classList.toggle('on');});
+root.addEventListener('click',e=>{const b=e.target.closest('#seg button');if(b){metric=b.dataset.k;root.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));if(data)overview();return;}const g=e.target.closest('#grpTab button,.gc[data-g]');if(g){group=g.dataset.g===group?'ALL':g.dataset.g;if(data)overview();return;}const row=e.target.closest('#rows tr[data-file]');if(row&&/^(?:[a-z0-9_]+\.html|game\.html\?game=[A-Z][A-Z0-9_]{1,79})$/.test(row.dataset.file)){location.href=row.dataset.file;return;}const act=e.target.closest('.actloop-tg');if(act)act.parentElement.classList.toggle('on');});
 root.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('.gc[data-g],#rows tr[data-file]')){e.preventDefault();e.target.click();}});
 addEventListener('visibilitychange',()=>{if(!document.hidden){if(data)render();refresh();}});
 refresh();timer=setInterval(()=>{if(!document.hidden)refresh();},60000);addEventListener('pagehide',()=>{generation++;controller?.abort();clearInterval(timer);clearTimeout(expiryTimer);});addEventListener('pageshow',e=>{if(e.persisted){refresh();clearInterval(timer);timer=setInterval(()=>{if(!document.hidden)refresh();},60000);}});
