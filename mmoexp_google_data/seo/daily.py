@@ -5,7 +5,7 @@ from .contracts import GAMES, make_daily_context, source_day_ended
 from . import snapshot
 
 
-def run_daily(store, sources, clock=lambda: dt.datetime.now(dt.timezone.utc), admit=lambda: True):
+def run_daily(store, sources, clock=lambda: dt.datetime.now(dt.timezone.utc), admit=lambda: True, finish_margin_seconds=0):
     context = make_daily_context(clock())
     if not context.collection_allowed:
         return dict(status='outside_night_window')
@@ -20,10 +20,13 @@ def run_daily(store, sources, clock=lambda: dt.datetime.now(dt.timezone.utc), ad
         for source in sources:
             blocked = False
             for scope in GAMES:
-                for day, cursor in store.slices(source.name, scope, context):
-                    if not make_daily_context(clock()).publication_allowed or not admit():
+                slices = [(context.publication_date, 0)] if getattr(source, 'is_observation', False) else store.slices(source.name, scope, context)
+                for day, cursor in slices:
+                    local = clock().astimezone(dt.timezone(dt.timedelta(hours=8)))
+                    remaining = (local.replace(hour=6, minute=30, second=0, microsecond=0)-local).total_seconds()
+                    if not make_daily_context(clock()).publication_allowed or remaining <= finish_margin_seconds or not admit():
                         break
-                    if not source_day_ended(day, source.timezone, clock()):
+                    if not getattr(source, 'is_observation', False) and not source_day_ended(day, source.timezone, clock()):
                         store.mark(source.name, scope, day, source.timezone, 'pending', clock().isoformat(), 'SOURCE_DAY_NOT_ENDED')
                         continue
                     try:
@@ -51,4 +54,7 @@ def run_daily(store, sources, clock=lambda: dt.datetime.now(dt.timezone.utc), ad
         if not make_daily_context(clock()).publication_allowed:
             return dict(status='publication_deadline', retained_work=True)
         candidate, meta = snapshot.build(store, context, source_names=[s.name for s in sources])
+        if not make_daily_context(clock()).publication_allowed:
+            candidate.unlink(missing_ok=True)
+            return dict(status='publication_deadline', retained_work=True)
         return dict(snapshot.publish_once(store.root, candidate, meta), status='published')

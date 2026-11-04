@@ -29,6 +29,7 @@ class Service:
                 value = self.policy.read()
                 value['projects'] = {g:p for g,p in value['projects'].items() if g in actor.games}
                 value['can_manage'] = actor.manage
+                value['runtime_status'] = 'not_configured'
                 return 200, value
             if method != 'GET':
                 return 405, dict(error='METHOD_NOT_ALLOWED')

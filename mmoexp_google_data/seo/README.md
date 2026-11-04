@@ -5,7 +5,7 @@
 ## 已实现的候选能力
 
 - 四游戏、北京时间日期与夜间门；源日未结束不当成完整昨日。
-- GSC/GA4日级汇总适配：复用 `details.collect_details.credential` 的现有受控身份，不调用旧Reader的160次硬上限；保留主站、游戏路径、自然搜索过滤与来源时区。未验证真实资源及账户权限。
+- GSC/GA4日级汇总适配：复用 `details.collect_details.credential` 的现有受控身份，不调用旧Reader的160次硬上限；保留主站、游戏路径、自然搜索过滤与来源时区。未验证真实资源及账户权限。页面探测仅访问配置中批准的主站游戏页面，不跟随重定向、不带Cookie；当夜样本在下一夜才进入快照。
 - SQLite逐页提交、固定初始回填窗口、近14天小汇总修订、当前30天缺口续采；空响应保留已有可信事实并标过期。
 - 同日唯一发布、文件hash、候选/正式隔离、指针中断对账；查询、来源、规则提醒、分页和导出只读发布包。
 - 独立FS控制库：总开关、四游戏开关、CAS与审计；项目generation避免关开后复活旧任务。AI桥仅提供适配合同及隔离测试，生产Provider/账本未接入。
@@ -18,7 +18,7 @@
 
 `config.example.json`无凭据，不能直接当作已校准部署配置。`sources.gsc`和`sources.ga4`分别需要现场核实的`resource`、`timezone`，可配置`page_size`。Google账户由原访问层读取，不复制Key。`resource_policy`字段见`retention.ResourcePolicy`，HTTP连接、无进展和应急响应字节及临时空间须由W0实测配置；不能把旧参考值写成拒绝线。
 
-现阶段配置`orders`会明确报`ADMIN_ORDER_LIVE_BINDING_NOT_IMPLEMENTED`；缺配置不会伪造SEO成交。SERP、页面探测、关键词明细、退款修订、人工行动/复查与生产Hermes工具接线仍未实现。现有自动化没有被修改或停用。
+现阶段配置`orders`会明确报`ADMIN_ORDER_LIVE_BINDING_NOT_IMPLEMENTED`；缺配置不会伪造SEO成交。SERP、关键词明细、退款修订、人工行动/复查与生产Hermes工具接线仍未实现。页面探测的`urls`须由W0核实；`publication_finish_seconds`按打包预计耗时配置收尾余量，打包结束越过06:30不会发布候选。现有自动化没有被修改或停用。
 
 `api.Service.handle`由现有FS HTTP宿主调用。`Actor`必须来自该宿主真实会话与当前RBAC，禁止从公开请求头或用户传入的JSON构造；写设置还须通过宿主原CSRF检查。当前没有匿名独立HTTP服务，也没有假定某个生产端口可用。基础进程不导入Hermes，不探模型健康。AI桥只在单独进程按现役FS任务设施调用；尚未安装任何timer。
 

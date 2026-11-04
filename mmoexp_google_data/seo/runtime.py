@@ -25,19 +25,26 @@ def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
     limits = config['http']
     transport = GoogleTransport(**limits, clock=clock)
     sources = [GoogleSource(name, transport, **configured[name]) for name in ('gsc', 'ga4') if configured.get(name)]
+    if configured.get('pages'):
+        from .pages import PageSource
+        sources.append(PageSource(configured['pages']['urls'], clock=clock,
+            http={key:limits[key] for key in ('connect_seconds','idle_seconds','response_emergency_bytes')}))
     if configured.get('orders'):
         raise ValueError('ADMIN_ORDER_LIVE_BINDING_NOT_IMPLEMENTED')
     core = Store(root)
     growth = config['temporary_reserve_bytes']
     if type(growth) is not int or growth <= 0:
         raise ValueError('TEMPORARY_RESERVE_REQUIRED')
+    margin = config.get('publication_finish_seconds')
+    if type(margin) not in (int, float) or not 0 <= margin < 6.5*3600:
+        raise ValueError('PUBLICATION_FINISH_MARGIN_REQUIRED')
     decisions = {}
     def admit():
         decision = policy.admit(used=footprint(root), free=shutil.disk_usage(root).free, estimate=growth)
         decisions[decision['state']] = decisions.get(decision['state'], 0) + 1
         return decision['allowed']
     try:
-        result = run_daily(core, sources, clock=clock, admit=admit)
+        result = run_daily(core, sources, clock=clock, admit=admit, finish_margin_seconds=margin)
     finally:
         transport.close()
     result.update(missing_sources=missing, upstream_requests=transport.calls, resource_states=decisions)

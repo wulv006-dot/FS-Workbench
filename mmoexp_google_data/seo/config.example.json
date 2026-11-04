@@ -3,6 +3,7 @@
   "sources": {},
   "resource_policy": null,
   "temporary_reserve_bytes": null,
+  "publication_finish_seconds": null,
   "http": {
     "response_emergency_bytes": null,
     "connect_seconds": null,

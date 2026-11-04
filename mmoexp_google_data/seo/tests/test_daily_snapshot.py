@@ -110,6 +110,18 @@ class DailySnapshot(unittest.TestCase):
         self.assertEqual(snapshot.current(self.root)['snapshot_id'],result['snapshot_id'])
         self.assertEqual(self.source.calls,calls)
 
+    def test_build_finishing_after_deadline_does_not_publish(self):
+        old=self.run_batch();clock=[NIGHT+dt.timedelta(days=1)]
+        original=snapshot.build
+        def slow_build(*args,**kw):
+            result=original(*args,**kw)
+            clock[0]=dt.datetime(2026,11,5,22,30,1,tzinfo=dt.timezone.utc)
+            return result
+        with patch.object(snapshot,'build',side_effect=slow_build):
+            result=daily.run_daily(self.store,[self.source],clock=lambda:clock[0])
+        self.assertEqual(result['status'],'publication_deadline')
+        self.assertEqual(snapshot.current(self.root)['snapshot_id'],old['snapshot_id'])
+
 
 if __name__ == '__main__':
     unittest.main()
