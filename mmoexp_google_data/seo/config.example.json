@@ -1,0 +1,12 @@
+{
+  "data_root": "/var/lib/fs-seo",
+  "sources": {},
+  "resource_policy": null,
+  "temporary_reserve_bytes": null,
+  "http": {
+    "response_emergency_bytes": null,
+    "connect_seconds": null,
+    "idle_seconds": null,
+    "attempts": 3
+  }
+}
