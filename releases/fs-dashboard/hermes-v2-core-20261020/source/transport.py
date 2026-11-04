@@ -13,7 +13,7 @@ import secrets
 import threading
 import time
 
-from proxy_gateway import MAX_PROVIDER_WIRE_BYTES
+from proxy_gateway import MAX_PROVIDER_WIRE_BYTES, _NativeModelGuardError, _NATIVE_GUARD_MESSAGES
 from background import background_index, read_section
 from pilot import encoded, digest
 from runs_contract import WIRE_TOOLS
@@ -339,6 +339,11 @@ def start_loopback(proxy, port=8940):
                     guard_code=error.args[0]
                     result['error'].update(message=_MATERIAL_GUARD_MESSAGES[guard_code],
                         source='fs_material_transport', diagnostic_version='material_guard_v1', code=guard_code)
+                if (type(error) is _NativeModelGuardError and len(error.args)==1
+                        and type(error.args[0]) is str and error.args[0] in _NATIVE_GUARD_MESSAGES):
+                    code=error.args[0]
+                    result['error'].update(message=_NATIVE_GUARD_MESSAGES[code],
+                        source='fs_native_gateway',diagnostic_version='native_guard_v1',code=code)
                 if (self.path=='/fc/tools/call' and isinstance(body,dict) and body.get('name') in ('fc.calculate','mcp__fcro__fc_calculate')
                         and isinstance(error,ValueError) and str(error) in SAFE_CALCULATION_ERRORS):
                     result={'error':{'message':'invalid calculation arguments','type':'invalid_request_error','code':str(error)}}

@@ -762,5 +762,12 @@ class NativeCompactionHistory(unittest.TestCase):
                 self.assertEqual(self.gateway(h)._native_compaction,marker)
                 self.assertEqual(len(h.wire),3)
 
+def load_tests(loader, tests, pattern):
+    from test_aad_knowledge_consumer import AadKnowledgeConsumer, NativeDiagnosticRed, NativeDiagnosticSafety
+    for group in (AadKnowledgeConsumer, NativeDiagnosticRed, NativeDiagnosticSafety):
+        tests.addTests(loader.loadTestsFromTestCase(group))
+    return tests
+
+
 if __name__ == '__main__':
     unittest.main()
