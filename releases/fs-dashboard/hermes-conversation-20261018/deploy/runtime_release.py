@@ -108,10 +108,14 @@ CAPABILITIES_DESKTOP_WS_PROOF = dict(sourceCommit='c1f9dd4b5358158822fe611de075a
     backup='/var/backups/fs-navigation-20261006/nav-20261104T063337Z',
     manifestSha256='5a9689f35f006a5120ded6ab6d563d769ad9c96172744d47638ed48848b7b0da',
     journalSha256='e502affc0579df1f86696338b947fb585f41f91e6101a4eca22fa1877f85960b')
-NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='3522fa5d969c3bd88880de0032548b3af97ec14f',
+CAPABILITIES_DESKTOP_TIME_PROOF = dict(sourceCommit='3522fa5d969c3bd88880de0032548b3af97ec14f',
     backup='/var/backups/fs-navigation-20261006/nav-20261104T071648Z',
     manifestSha256='e7cbbce9adca1aeede25b270d944eb414e72d35453c60efac4f0b2a94c939cf6',
     journalSha256='f4e427e4cbcf543ec6dc2a31ac1de41e34fab8740b63b6028b6f527057c06a12')
+NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='67906a53259155a0df43a334e4c0d1270dd46f9b',
+    backup='/var/backups/fs-navigation-20261006/nav-20261104T084256Z',
+    manifestSha256='0965c10730425258525e16cb74de84e461e2304799572f978b24d34f8257b338',
+    journalSha256='7563fa9478d5aaebd76ce38d770f284d6e95883fbc30d2118b47e818cfa49e05')
 DESKTOP_MODE_CORRECTION_SHA='d2352697a75d75545108cd03f260c264f3e918dc1b4be9d7f2b239a2cd2a947e'
 DESKTOP_NAVIGATION_PROOF=dict(backup='/var/backups/fs-navigation-20261006/nav-20261104T052012Z',
     manifestSha256='ec8550f11cc66b47799c92d3cf9649deee192bdfa17e25a399640e8a46ee3854',
@@ -314,7 +318,10 @@ CAPABILITIES_NEW=frozenset()
 DESKTOP_WS_INSTALLED_EXISTING=dict(DESKTOP_EXISTING)
 for _name in ('runtime/conversation_desktop.py','desktop/conversation_desktop.py'):
     DESKTOP_EXISTING[_name]=('c4624b1449cf979bb9ff1129d7f8310df6f371904b3a1be6e7b3d9a5d707f7c5',11453)
-CAPABILITIES_CHANGED = ('runtime/conversation_service.py','runtime/conversation_desktop.py','desktop/conversation_desktop.py')
+DESKTOP_TIME_INSTALLED_EXISTING=dict(DESKTOP_EXISTING)
+for _name in ('runtime/conversation_desktop.py','desktop/conversation_desktop.py'):
+    DESKTOP_EXISTING[_name]=('6c4d0ba68acca499e8d10ce109fc5fb333fd6986f1dd9fbbff4889dd26d802f3',14438)
+CAPABILITIES_CHANGED = ('runtime/conversation_desktop.py','desktop/conversation_desktop.py','desktop/desktop_fs_gateway.py')
 
 
 def payload_mode(target):
@@ -1120,10 +1127,11 @@ def capabilities_knowledge_history(base,root,current,installed_rows):
         raise ValueError('native_knowledge_success_chain_mismatch')
 
 
-def capabilities_desktop_history(base,root,current,installed_rows,*,initial=False,first_install=False):
-    """Verify aad -> 1f -> c1 -> 3522; apply mode/nav only to the 1f layer."""
-    proof=(CAPABILITIES_DESKTOP_HISTORY_PROOF if initial else
-           CAPABILITIES_DESKTOP_INSTALL_PROOF if first_install else CAPABILITIES_DESKTOP_WS_PROOF);records={}
+def capabilities_desktop_history(base,root,current,installed_rows,*,stage=3):
+    """Verify the fixed aad/1f/c1/3522 chain; mode/nav belongs only to 1f."""
+    proof=(CAPABILITIES_DESKTOP_HISTORY_PROOF,CAPABILITIES_DESKTOP_INSTALL_PROOF,
+           CAPABILITIES_DESKTOP_WS_PROOF,CAPABILITIES_DESKTOP_TIME_PROOF)[stage];records={}
+    initial=stage==0
     expected=KNOWLEDGE_INSTALLED_TARGETS if initial else DESKTOP_INSTALLED_TARGETS
     fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
     for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
@@ -1159,11 +1167,9 @@ def capabilities_desktop_history(base,root,current,installed_rows,*,initial=Fals
                 for r in rows for w in written if r['candidate']==w['candidate'])):
         raise ValueError('native_desktop_history_success_required')
     if not initial:
-        if first_install:
-            capabilities_desktop_history(base,root,old,rows,initial=True)
+        capabilities_desktop_history(base,root,old,rows,stage=stage-1)
+        if stage==1:
             old=capabilities_desktop_metadata(base,root,old,manifest)
-        else:
-            capabilities_desktop_history(base,root,old,rows,first_install=True)
         if (set(current)!=set(old) or
                 any(any(row.get(k)!=current[path].get(k) for k in
                     (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))

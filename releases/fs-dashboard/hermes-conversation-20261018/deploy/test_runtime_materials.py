@@ -1197,26 +1197,35 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 class NativePublisher(unittest.TestCase):
-    def test_desktop_setup_followup_uses_current_3522_success(self):
+    def test_desktop_control_followup_uses_current_679_success(self):
         prepare.configure_native_capabilities()
-        self.assertEqual(release.INSTALLED_COMMIT,'3522fa5d969c3bd88880de0032548b3af97ec14f')
+        self.assertEqual(release.INSTALLED_COMMIT,'67906a53259155a0df43a334e4c0d1270dd46f9b')
+        self.assertEqual((len(release.TARGETS),len(release.NEW)),(32,0))
+        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_desktop.py','desktop/conversation_desktop.py','desktop/desktop_fs_gateway.py'))
+        self.assertNotIn('runtime/conversation_service.py',release.CAPABILITIES_CHANGED)
+        self.assertEqual(release.DESKTOP_EXISTING['runtime/conversation_desktop.py'],('6c4d0ba68acca499e8d10ce109fc5fb333fd6986f1dd9fbbff4889dd26d802f3',14438))
+        self.assertEqual(release.DESKTOP_EXISTING['desktop/desktop_fs_gateway.py'],('eccfe20966b35713334a22fae9edf2f90daafc4cd978dd31a0de86f479d0edb0',9636))
+
+    def test_desktop_setup_history_and_control_current_success(self):
+        prepare.configure_native_capabilities()
+        self.assertEqual(release.INSTALLED_COMMIT,'67906a53259155a0df43a334e4c0d1270dd46f9b')
         self.assertEqual(release.NEW,frozenset())
-        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_service.py','runtime/conversation_desktop.py','desktop/conversation_desktop.py'))
-        self.assertEqual(release.DESKTOP_EXISTING['runtime/conversation_desktop.py'],('c4624b1449cf979bb9ff1129d7f8310df6f371904b3a1be6e7b3d9a5d707f7c5',11453))
+        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_desktop.py','desktop/conversation_desktop.py','desktop/desktop_fs_gateway.py'))
+        self.assertEqual(release.DESKTOP_EXISTING['runtime/conversation_desktop.py'],('6c4d0ba68acca499e8d10ce109fc5fb333fd6986f1dd9fbbff4889dd26d802f3',14438))
         self.assertEqual(release.DESKTOP_EXISTING['desktop/desktop_fs_gateway.py'],('eccfe20966b35713334a22fae9edf2f90daafc4cd978dd31a0de86f479d0edb0',9636))
 
     def test_desktop_time_history_and_setup_current_success(self):
         prepare.configure_native_capabilities()
-        self.assertEqual(release.INSTALLED_COMMIT,'3522fa5d969c3bd88880de0032548b3af97ec14f')
+        self.assertEqual(release.INSTALLED_COMMIT,'67906a53259155a0df43a334e4c0d1270dd46f9b')
         self.assertEqual(release.NEW,frozenset())
-        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_service.py','runtime/conversation_desktop.py','desktop/conversation_desktop.py'))
+        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_desktop.py','desktop/conversation_desktop.py','desktop/desktop_fs_gateway.py'))
         self.assertEqual(release.DESKTOP_EXISTING['desktop/desktop_fs_gateway.py'],('eccfe20966b35713334a22fae9edf2f90daafc4cd978dd31a0de86f479d0edb0',9636))
 
     def test_desktop_WS_history_keeps_first_install_and_fixed_gateway(self):
         prepare.configure_native_capabilities()
         self.assertEqual(release.NEW,frozenset())
         self.assertEqual(len(release.TARGETS),32)
-        self.assertEqual(release.INSTALLED_COMMIT,'3522fa5d969c3bd88880de0032548b3af97ec14f')
+        self.assertEqual(release.INSTALLED_COMMIT,'67906a53259155a0df43a334e4c0d1270dd46f9b')
         self.assertEqual(release.DESKTOP_FIRST_INSTALLED_EXISTING['desktop/desktop_fs_gateway.py'][0],'2409a854791293e1329098b071577e792595bb02ce4b2f19eef2d9745ba105fa')
         self.assertEqual(release.DESKTOP_EXISTING['desktop/desktop_fs_gateway.py'][0],'eccfe20966b35713334a22fae9edf2f90daafc4cd978dd31a0de86f479d0edb0')
         self.assertEqual(release.CAPABILITIES_DESKTOP_INSTALL_PROOF['manifestSha256'],'10c15f738dac42fe58a0c6e335669d5ff3f245c72e8db7b99a83274c09552a2b')
@@ -1342,7 +1351,7 @@ class NativePublisher(unittest.TestCase):
     def test_desktop_payload_contains_both_consumers_and_exact_before_sources(self):
         prepare.configure_native_capabilities()
         self.assertEqual(len(release.TARGETS),32,'Desktop consumers/config must be in original complete payload')
-        self.assertEqual(release.INSTALLED_COMMIT,'3522fa5d969c3bd88880de0032548b3af97ec14f')
+        self.assertEqual(release.INSTALLED_COMMIT,'67906a53259155a0df43a334e4c0d1270dd46f9b')
         self.assertEqual(release.TARGETS['runtime/conversation_desktop.py'],'/opt/fs-hermes-fc/conversation_desktop.py')
         self.assertEqual(release.TARGETS['desktop/conversation_desktop.py'],'/opt/fs-hermes-desktop/conversation_desktop.py')
         self.assertEqual(release.TARGETS['desktop/desktop_fs_gateway.py'],'/opt/fs-hermes-desktop/desktop_fs_gateway.py')
@@ -1358,9 +1367,9 @@ class NativePublisher(unittest.TestCase):
     def test_native_knowledge_payload_closes_actual_imports_and_keeps_existing_helpers(self):
         prepare.configure_native_capabilities()
         self.assertEqual((len(release.TARGETS),len(release.NEW)),(32,0))
-        self.assertEqual(release.INSTALLED_COMMIT,'3522fa5d969c3bd88880de0032548b3af97ec14f')
+        self.assertEqual(release.INSTALLED_COMMIT,'67906a53259155a0df43a334e4c0d1270dd46f9b')
         self.assertEqual(release.NEW,frozenset(set(release.DESKTOP_TARGETS)-set(release.DESKTOP_EXISTING)))
-        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_service.py','runtime/conversation_desktop.py','desktop/conversation_desktop.py'))
+        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_desktop.py','desktop/conversation_desktop.py','desktop/desktop_fs_gateway.py'))
         self.assertEqual(prepare.SOURCES['runtime/report_artifacts.py'],
             'releases/fs-dashboard/hermes-data-workspace-20261018/source/report_artifacts.py')
         self.assertEqual(prepare.SOURCES['runtime/fs_native_knowledge.py'],
@@ -1454,13 +1463,23 @@ class NativePublisher(unittest.TestCase):
         return body
 
     @staticmethod
+    def control_installed_bytes(name):
+        fixture=json.loads(Path(__file__).with_name('desktop-before-679.json').read_bytes())
+        assert fixture['source_commit']=='67906a53259155a0df43a334e4c0d1270dd46f9b'
+        row=fixture['files'][name];body=row['utf8'].encode('utf8')
+        expected={'runtime/conversation_desktop.py':('6c4d0ba68acca499e8d10ce109fc5fb333fd6986f1dd9fbbff4889dd26d802f3',14438),
+                  'runtime/conversation_service.py':('80fdbae538933026fde0185642283ffe12cef34a1a674a38b8d40dfb7c69ad2f',38989)}
+        assert (prepare.digest(body),len(body))==expected[name]==(row['sha256'],row['bytes']) and row['source']==prepare.SOURCES[name]
+        return body
+
+    @staticmethod
     def desktop_current_bytes(name):
         if name=='desktop/desktop_fs_gateway.py':
             fixture=json.loads(Path(__file__).with_name('desktop-before-c1.json').read_bytes())
             assert fixture['source_commit']=='c1f9dd4b5358158822fe611de075a69d951febc6'
             body=fixture['files'][name]['utf8'].encode('utf8')
         elif name in ('runtime/conversation_desktop.py','desktop/conversation_desktop.py'):
-            body=NativePublisher.setup_installed_bytes('runtime/conversation_desktop.py')
+            body=NativePublisher.control_installed_bytes('runtime/conversation_desktop.py')
         else:body=NativePublisher.desktop_installed_bytes(name)
         assert (prepare.digest(body),len(body))==release.DESKTOP_EXISTING[name]
         return body
@@ -2147,12 +2166,12 @@ class NativePublisher(unittest.TestCase):
         self.assertTrue(callable(getattr(prepare,'configure_native_capabilities',None)))
         prepare.configure_native_capabilities()
         self.assertEqual((len(release.TARGETS),len(release.NEW)),(32,0))
-        self.assertEqual(release.INSTALLED_COMMIT,'3522fa5d969c3bd88880de0032548b3af97ec14f')
-        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_service.py','runtime/conversation_desktop.py','desktop/conversation_desktop.py'))
+        self.assertEqual(release.INSTALLED_COMMIT,'67906a53259155a0df43a334e4c0d1270dd46f9b')
+        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_desktop.py','desktop/conversation_desktop.py','desktop/desktop_fs_gateway.py'))
         self.assertEqual(release.INSTALLED_PROOF,dict(sourceCommit=release.INSTALLED_COMMIT,
-            backup='/var/backups/fs-navigation-20261006/nav-20261104T071648Z',
-            manifestSha256='e7cbbce9adca1aeede25b270d944eb414e72d35453c60efac4f0b2a94c939cf6',
-            journalSha256='f4e427e4cbcf543ec6dc2a31ac1de41e34fab8740b63b6028b6f527057c06a12'))
+            backup='/var/backups/fs-navigation-20261006/nav-20261104T084256Z',
+            manifestSha256='0965c10730425258525e16cb74de84e461e2304799572f978b24d34f8257b338',
+            journalSha256='7563fa9478d5aaebd76ce38d770f284d6e95883fbc30d2118b47e818cfa49e05'))
         self.assertEqual(release.CAPABILITIES_STATIC_PROOF['sourceCommit'],'d135d2b965ecdfc2d96a1e49cf9425e31eaca07e')
         self.assertEqual(set(prepare.SOURCES),set(release.CAPABILITIES_TARGETS))
         self.assertEqual(prepare.SOURCES['http/conversation_http.py'],prepare.MODULE+'source/conversation_http.py')
@@ -2532,7 +2551,7 @@ class NativePublisher(unittest.TestCase):
 
     def test_native_grant_uses_current_success_and_no_new_module(self):
         prepare.configure_native_capabilities()
-        self.assertEqual(release.INSTALLED_COMMIT,'3522fa5d969c3bd88880de0032548b3af97ec14f')
+        self.assertEqual(release.INSTALLED_COMMIT,'67906a53259155a0df43a334e4c0d1270dd46f9b')
         self.assertEqual((len(release.TARGETS),len(release.CAPABILITIES_BASELINE_TARGETS)),(32,21))
         self.assertNotIn('campaign/backend/campaign_backend/coupon_grant.py',release.NEW|set(release.CAPABILITIES_CHANGED))
         self.assertEqual(release.CAPABILITIES_PREVIOUS_PROOF['sourceCommit'],'36d7d92540d9153e9b1cc764f900990ded17362d')
@@ -2670,14 +2689,22 @@ class NativePublisher(unittest.TestCase):
             gateway=base.rooted(root,release.TARGETS['desktop/desktop_fs_gateway.py']);gateway.write_bytes(self.desktop_current_bytes('desktop/desktop_fs_gateway.py'))
         ws_proof=self.save_capabilities_receipt(base,root,release.CAPABILITIES_DESKTOP_WS_PROOF,current,owners)
         stack.enter_context(patch.object(release,'CAPABILITIES_DESKTOP_WS_PROOF',ws_proof))
-        current=dict(current,sourceCommit=release.INSTALLED_COMMIT,
-            files=[dict(r,beforeSha256=r['sha256'],sha256=release.DESKTOP_EXISTING[r['candidate']][0] if r['candidate'] in release.DESKTOP_EXISTING else r['sha256']) for r in current['files']])
+        current=dict(current,sourceCommit=release.CAPABILITIES_DESKTOP_TIME_PROOF['sourceCommit'],
+            files=[dict(r,beforeSha256=r['sha256'],sha256=release.DESKTOP_TIME_INSTALLED_EXISTING[r['candidate']][0] if r['candidate'] in release.DESKTOP_TIME_INSTALLED_EXISTING else r['sha256']) for r in current['files']])
         if materialize:
             for name in release.DESKTOP_EXISTING:
                 base.rooted(root,release.TARGETS[name]).write_bytes(self.desktop_current_bytes(name))
+        time_proof=self.save_capabilities_receipt(base,root,release.CAPABILITIES_DESKTOP_TIME_PROOF,current,owners)
+        stack.enter_context(patch.object(release,'CAPABILITIES_DESKTOP_TIME_PROOF',time_proof))
+        current=dict(current,sourceCommit=release.INSTALLED_COMMIT,
+            files=[dict(r,beforeSha256=r['sha256'],sha256=prepare.digest(self.control_installed_bytes('runtime/conversation_service.py')) if r['candidate']=='runtime/conversation_service.py' else release.DESKTOP_EXISTING[r['candidate']][0] if r['candidate'] in release.DESKTOP_EXISTING else r['sha256']) for r in current['files']])
+        if materialize:
+            for name in release.DESKTOP_EXISTING:
+                base.rooted(root,release.TARGETS[name]).write_bytes(self.desktop_current_bytes(name))
+            base.rooted(root,release.TARGETS['runtime/conversation_service.py']).write_bytes(self.control_installed_bytes('runtime/conversation_service.py'))
         proof=self.save_capabilities_receipt(base,root,release.NATIVE_CAPABILITIES_PROOF,current,owners)
         stack.enter_context(patch.object(release,'NATIVE_CAPABILITIES_PROOF',proof))
-        return SimpleNamespace(manifest=current,proof=proof,initial_manifest=initial_manifest,initial_proof=initial_proof,ws_proof=ws_proof,history=history,mode_sha=mode_sha,mode=mode,nav=nav,nav_body=body)
+        return SimpleNamespace(manifest=current,proof=proof,initial_manifest=initial_manifest,initial_proof=initial_proof,ws_proof=ws_proof,time_proof=time_proof,history=history,mode_sha=mode_sha,mode=mode,nav=nav,nav_body=body)
 
     @staticmethod
     def save_capabilities_receipt(base,root,pin,manifest,owners):
@@ -3048,6 +3075,7 @@ class NativePublisher(unittest.TestCase):
                     module.CAPABILITIES_DESKTOP_HISTORY_PROOF=desktop.history
                     module.CAPABILITIES_DESKTOP_INSTALL_PROOF=desktop.initial_proof
                     module.CAPABILITIES_DESKTOP_WS_PROOF=desktop.ws_proof
+                    module.CAPABILITIES_DESKTOP_TIME_PROOF=desktop.time_proof
                     module.NATIVE_CAPABILITIES_PROOF=desktop.proof
                     module.DESKTOP_MODE_CORRECTION_SHA=desktop.mode_sha
                     module.DESKTOP_NAVIGATION_PROOF=desktop.nav
