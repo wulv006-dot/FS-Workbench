@@ -1197,14 +1197,22 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 class NativePublisher(unittest.TestCase):
-    def test_desktop_WS_followup_is_32_existing_and_only_gateway_changes(self):
+    def test_desktop_time_followup_uses_current_c1_success(self):
+        prepare.configure_native_capabilities()
+        self.assertEqual(release.INSTALLED_COMMIT,'c1f9dd4b5358158822fe611de075a69d951febc6')
+        self.assertEqual(release.NEW,frozenset())
+        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_desktop.py','desktop/conversation_desktop.py'))
+        self.assertEqual(release.DESKTOP_EXISTING['desktop/desktop_fs_gateway.py'],('eccfe20966b35713334a22fae9edf2f90daafc4cd978dd31a0de86f479d0edb0',9636))
+
+    def test_desktop_WS_history_keeps_first_install_and_fixed_gateway(self):
         prepare.configure_native_capabilities()
         self.assertEqual(release.NEW,frozenset())
         self.assertEqual(len(release.TARGETS),32)
-        self.assertEqual(release.INSTALLED_COMMIT,'1f09b5134747a4ca6bef2dca080e5e9036388e5e')
-        self.assertEqual(release.CAPABILITIES_CHANGED,('desktop/desktop_fs_gateway.py',))
-        self.assertEqual(release.INSTALLED_PROOF['manifestSha256'],'10c15f738dac42fe58a0c6e335669d5ff3f245c72e8db7b99a83274c09552a2b')
-        self.assertEqual(release.INSTALLED_PROOF['journalSha256'],'333cfdb381e30ccb3156d21d0004cf8d0e10990c4d68ecc94cf5f4c6a2864e9a')
+        self.assertEqual(release.INSTALLED_COMMIT,'c1f9dd4b5358158822fe611de075a69d951febc6')
+        self.assertEqual(release.DESKTOP_FIRST_INSTALLED_EXISTING['desktop/desktop_fs_gateway.py'][0],'2409a854791293e1329098b071577e792595bb02ce4b2f19eef2d9745ba105fa')
+        self.assertEqual(release.DESKTOP_EXISTING['desktop/desktop_fs_gateway.py'][0],'eccfe20966b35713334a22fae9edf2f90daafc4cd978dd31a0de86f479d0edb0')
+        self.assertEqual(release.CAPABILITIES_DESKTOP_INSTALL_PROOF['manifestSha256'],'10c15f738dac42fe58a0c6e335669d5ff3f245c72e8db7b99a83274c09552a2b')
+        self.assertEqual(release.CAPABILITIES_DESKTOP_INSTALL_PROOF['journalSha256'],'333cfdb381e30ccb3156d21d0004cf8d0e10990c4d68ecc94cf5f4c6a2864e9a')
 
     def desktop_atomic_fixture(self, base, root, approved):
         import ast
@@ -1326,7 +1334,7 @@ class NativePublisher(unittest.TestCase):
     def test_desktop_payload_contains_both_consumers_and_exact_before_sources(self):
         prepare.configure_native_capabilities()
         self.assertEqual(len(release.TARGETS),32,'Desktop consumers/config must be in original complete payload')
-        self.assertEqual(release.INSTALLED_COMMIT,'1f09b5134747a4ca6bef2dca080e5e9036388e5e')
+        self.assertEqual(release.INSTALLED_COMMIT,'c1f9dd4b5358158822fe611de075a69d951febc6')
         self.assertEqual(release.TARGETS['runtime/conversation_desktop.py'],'/opt/fs-hermes-fc/conversation_desktop.py')
         self.assertEqual(release.TARGETS['desktop/conversation_desktop.py'],'/opt/fs-hermes-desktop/conversation_desktop.py')
         self.assertEqual(release.TARGETS['desktop/desktop_fs_gateway.py'],'/opt/fs-hermes-desktop/desktop_fs_gateway.py')
@@ -1342,9 +1350,9 @@ class NativePublisher(unittest.TestCase):
     def test_native_knowledge_payload_closes_actual_imports_and_keeps_existing_helpers(self):
         prepare.configure_native_capabilities()
         self.assertEqual((len(release.TARGETS),len(release.NEW)),(32,0))
-        self.assertEqual(release.INSTALLED_COMMIT,'1f09b5134747a4ca6bef2dca080e5e9036388e5e')
+        self.assertEqual(release.INSTALLED_COMMIT,'c1f9dd4b5358158822fe611de075a69d951febc6')
         self.assertEqual(release.NEW,frozenset(set(release.DESKTOP_TARGETS)-set(release.DESKTOP_EXISTING)))
-        self.assertEqual(release.CAPABILITIES_CHANGED,('desktop/desktop_fs_gateway.py',))
+        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_desktop.py','desktop/conversation_desktop.py'))
         self.assertEqual(prepare.SOURCES['runtime/report_artifacts.py'],
             'releases/fs-dashboard/hermes-data-workspace-20261018/source/report_artifacts.py')
         self.assertEqual(prepare.SOURCES['runtime/fs_native_knowledge.py'],
@@ -1423,6 +1431,16 @@ class NativePublisher(unittest.TestCase):
         fixture=json.loads(Path(__file__).with_name('desktop-before-1f-utf8.json').read_bytes())
         assert fixture['source_commit']=='1f09b5134747a4ca6bef2dca080e5e9036388e5e'
         row=fixture['files'][name];body=row['utf8'].encode()
+        assert (prepare.digest(body),len(body))==release.DESKTOP_FIRST_INSTALLED_EXISTING[name]
+        return body
+
+    @staticmethod
+    def desktop_current_bytes(name):
+        if name=='desktop/desktop_fs_gateway.py':
+            fixture=json.loads(Path(__file__).with_name('desktop-before-c1.json').read_bytes())
+            assert fixture['source_commit']=='c1f9dd4b5358158822fe611de075a69d951febc6'
+            body=fixture['files'][name]['utf8'].encode('utf8')
+        else:body=NativePublisher.desktop_installed_bytes(name)
         assert (prepare.digest(body),len(body))==release.DESKTOP_EXISTING[name]
         return body
 
@@ -1449,7 +1467,7 @@ class NativePublisher(unittest.TestCase):
             with self.native_metadata(owners,kinds,root=root):
                 for name,(expected,size) in release.DESKTOP_EXISTING.items():
                     path=base.rooted(root,release.TARGETS[name]);path.parent.mkdir(parents=True,exist_ok=True)
-                    body=self.desktop_installed_bytes(name);self.assertEqual((prepare.digest(body),len(body)),(expected,size))
+                    body=self.desktop_current_bytes(name);self.assertEqual((prepare.digest(body),len(body)),(expected,size))
                     path.write_bytes(body);owners[path]=(0,0,int(release.payload_mode(release.TARGETS[name]),8))
                     self.assertEqual(prepare.file_metadata(base,root,release.TARGETS[name])['sha256'],expected)
                     for changed in (body+b'x',b'x'+body[1:]):
@@ -2108,12 +2126,12 @@ class NativePublisher(unittest.TestCase):
         self.assertTrue(callable(getattr(prepare,'configure_native_capabilities',None)))
         prepare.configure_native_capabilities()
         self.assertEqual((len(release.TARGETS),len(release.NEW)),(32,0))
-        self.assertEqual(release.INSTALLED_COMMIT,'1f09b5134747a4ca6bef2dca080e5e9036388e5e')
-        self.assertEqual(release.CAPABILITIES_CHANGED,('desktop/desktop_fs_gateway.py',))
+        self.assertEqual(release.INSTALLED_COMMIT,'c1f9dd4b5358158822fe611de075a69d951febc6')
+        self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/conversation_desktop.py','desktop/conversation_desktop.py'))
         self.assertEqual(release.INSTALLED_PROOF,dict(sourceCommit=release.INSTALLED_COMMIT,
-            backup='/var/backups/fs-navigation-20261006/nav-20261104T051404Z',
-            manifestSha256='10c15f738dac42fe58a0c6e335669d5ff3f245c72e8db7b99a83274c09552a2b',
-            journalSha256='333cfdb381e30ccb3156d21d0004cf8d0e10990c4d68ecc94cf5f4c6a2864e9a'))
+            backup='/var/backups/fs-navigation-20261006/nav-20261104T063337Z',
+            manifestSha256='5a9689f35f006a5120ded6ab6d563d769ad9c96172744d47638ed48848b7b0da',
+            journalSha256='e502affc0579df1f86696338b947fb585f41f91e6101a4eca22fa1877f85960b'))
         self.assertEqual(release.CAPABILITIES_STATIC_PROOF['sourceCommit'],'d135d2b965ecdfc2d96a1e49cf9425e31eaca07e')
         self.assertEqual(set(prepare.SOURCES),set(release.CAPABILITIES_TARGETS))
         self.assertEqual(prepare.SOURCES['http/conversation_http.py'],prepare.MODULE+'source/conversation_http.py')
@@ -2379,7 +2397,11 @@ class NativePublisher(unittest.TestCase):
                 save(manifest)
                 for path in historical.backup.iterdir():owners[path]=(0,0,0o600)
                 for path in backup.iterdir():owners[path]=(0,0,0o600)
-                result=release.installed_baseline(root,git)
+                with patch.object(release,'capabilities_desktop_metadata',wraps=release.capabilities_desktop_metadata) as supplement:
+                    result=release.installed_baseline(root,git)
+                self.assertEqual(supplement.call_count,1)
+                self.assertEqual(supplement.call_args.args[2][release.NGINX]['sha256'],desktop.nav['beforeSha256'])
+                self.assertEqual(next(r['sha256'] for r in manifest['unchangedRequired'] if r['path']==release.NGINX),desktop.nav['sha256'])
                 expected={r['target']:r['sha256'] for r in rows};expected.update({r['path']:r['sha256'] for r in protected})
                 expected.update({p:r['sha256'] for p,r in navigation.after.items()})
                 expected.update({p:r['sha256'] for p,r in shared.after.items()})
@@ -2389,6 +2411,12 @@ class NativePublisher(unittest.TestCase):
                 self.assertEqual(result['archive_all_hashes'],expected)
                 self.assertEqual(len(release.ARCHIVE_PROTECTED),766)
                 self.assertTrue(historical.backup.is_dir())
+                initial_journal=base.rooted(root,desktop.initial_proof['backup']+'/journal.json');saved_initial=initial_journal.read_bytes()
+                for changes in ({'written':False},{'rollbackWritten':True}):
+                    bad=json.loads(saved_initial);bad['files'][0].update(changes);raw=json.dumps(bad).encode();initial_journal.write_bytes(raw)
+                    desktop.initial_proof['journalSha256']=prepare.digest(raw)
+                    with self.assertRaisesRegex(ValueError,'native_desktop_history_success_required'):release.installed_baseline(root,git)
+                initial_journal.write_bytes(saved_initial);desktop.initial_proof['journalSha256']=prepare.digest(saved_initial)
                 transport_journal=base.rooted(root,transport['backup']+'/journal.json');saved_transport=transport_journal.read_bytes()
                 for changes in ({'written':False},{'rollbackWritten':True}):
                     bad=json.loads(saved_transport);bad['files'][0].update(changes);raw=json.dumps(bad).encode()
@@ -2475,7 +2503,7 @@ class NativePublisher(unittest.TestCase):
 
     def test_native_grant_uses_current_success_and_no_new_module(self):
         prepare.configure_native_capabilities()
-        self.assertEqual(release.INSTALLED_COMMIT,'1f09b5134747a4ca6bef2dca080e5e9036388e5e')
+        self.assertEqual(release.INSTALLED_COMMIT,'c1f9dd4b5358158822fe611de075a69d951febc6')
         self.assertEqual((len(release.TARGETS),len(release.CAPABILITIES_BASELINE_TARGETS)),(32,21))
         self.assertNotIn('campaign/backend/campaign_backend/coupon_grant.py',release.NEW|set(release.CAPABILITIES_CHANGED))
         self.assertEqual(release.CAPABILITIES_PREVIOUS_PROOF['sourceCommit'],'36d7d92540d9153e9b1cc764f900990ded17362d')
@@ -2501,11 +2529,11 @@ class NativePublisher(unittest.TestCase):
     def test_desktop_followup_pack_reads_all_installed_git_bytes(self):
         prepare.configure_native_capabilities();calls=[];before={}
         for name,path in prepare.SOURCES.items():
-            raw=self.desktop_installed_bytes(name) if name in release.DESKTOP_EXISTING else ('installed:'+name).encode()
+            raw=self.desktop_current_bytes(name) if name in release.DESKTOP_EXISTING else ('installed:'+name).encode()
             if name=='http/range_api.py':raw=raw.replace(b'\r\n',b'\n')
             if path in before:self.assertEqual(before[path],raw)
             before[path]=raw
-        gateway=prepare.SOURCES['desktop/desktop_fs_gateway.py'];after=dict(before);after[gateway]+=b'\n# synthetic WS-only delta\n'
+        gateway=prepare.SOURCES['desktop/desktop_fs_gateway.py'];after=dict(before);after[prepare.SOURCES['runtime/conversation_desktop.py']]+=b'\n# synthetic time-field delta\n'
         after.update({path:b'synthetic publisher boundary' for path in prepare.PUBLISHER_SOURCES.values()})
         def git_bytes(argv,**kwargs):
             self.assertEqual(argv[:2],['git','show']);ref,path=argv[2].split(':',1);calls.append((ref,path))
@@ -2514,7 +2542,7 @@ class NativePublisher(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory,patch.object(prepare.subprocess,'check_output',side_effect=git_bytes):
             root=Path(directory);prepare.pack(root,root/'valid','b'*40)
             descriptor=json.loads((root/'valid/payload-manifest.json').read_bytes())
-            self.assertEqual({n for n in prepare.SOURCES if descriptor['files']['payload/'+n]!=descriptor['installed_baseline']['files'][n]},{'desktop/desktop_fs_gateway.py'})
+            self.assertEqual({n for n in prepare.SOURCES if descriptor['files']['payload/'+n]!=descriptor['installed_baseline']['files'][n]},set(release.CAPABILITIES_CHANGED))
             self.assertFalse(any(v is None for v in descriptor['installed_baseline']['files'].values()))
             for name in prepare.SOURCES:self.assertIn((release.INSTALLED_COMMIT,prepare.SOURCES[name]),calls)
             self.assertEqual(descriptor['installed_baseline']['files']['http/range_api.py'],release.DESKTOP_EXISTING['http/range_api.py'][0])
@@ -2530,7 +2558,7 @@ class NativePublisher(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory,ExitStack() as stack:
             root=Path(directory);owners={};kinds={};stack.enter_context(self.native_metadata(owners,kinds,root=root))
             fixture=self.desktop_installed_fixture(base,root,dict(files=rows,unchangedRequired=protected),owners,stack)
-            manifest=fixture.manifest;metadata={r['target']:dict(path=r['target'],sha256=r['sha256'],owner=r['owner'],mode=r['mode']) for r in manifest['files']}
+            manifest=fixture.initial_manifest;metadata={r['target']:dict(path=r['target'],sha256=r['sha256'],owner=r['owner'],mode=r['mode']) for r in manifest['files']}
             metadata.update({r['path']:dict(r) for r in protected});original=deepcopy(metadata)
             result=release.capabilities_desktop_metadata(base,root,metadata,manifest)
             self.assertEqual(metadata,original)
@@ -2577,15 +2605,15 @@ class NativePublisher(unittest.TestCase):
         previous={r['candidate']:r for r in manifest['files']};rows=[]
         for name,target in release.TARGETS.items():
             prior=release.DESKTOP_INITIAL_EXISTING[name][0] if name in release.DESKTOP_INITIAL_EXISTING else None if name in release.DESKTOP_ORIGINAL_NEW else previous[name]['sha256']
-            sha=release.DESKTOP_EXISTING[name][0] if name in release.DESKTOP_EXISTING else previous[name]['sha256']
+            sha=release.DESKTOP_FIRST_INSTALLED_EXISTING[name][0] if name in release.DESKTOP_FIRST_INSTALLED_EXISTING else previous[name]['sha256']
             rows.append(dict(candidate=name,target=target,beforeSha256=prior,sha256=sha,owner='0:0',mode=release.payload_mode(target)))
             if materialize and name in release.DESKTOP_EXISTING:
                 path=base.rooted(root,target);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(self.desktop_installed_bytes(name))
                 owners[path]=(0,0,int(release.payload_mode(target),8))
-        current=dict(manifest,sourceCommit=release.INSTALLED_COMMIT,files=rows,
+        current=dict(manifest,sourceCommit=release.CAPABILITIES_DESKTOP_INSTALL_PROOF['sourceCommit'],files=rows,
             unchangedRequired=[dict(r) for r in manifest['unchangedRequired'] if r['path'] not in release.TARGETS.values()])
-        proof=self.save_capabilities_receipt(base,root,release.NATIVE_CAPABILITIES_PROOF,current,owners)
-        stack.enter_context(patch.object(release,'NATIVE_CAPABILITIES_PROOF',proof))
+        proof=self.save_capabilities_receipt(base,root,release.CAPABILITIES_DESKTOP_INSTALL_PROOF,current,owners)
+        stack.enter_context(patch.object(release,'CAPABILITIES_DESKTOP_INSTALL_PROOF',proof))
         state=dict(sha256=release.DESKTOP_EXISTING['desktop/fs-principal.json'][0],uid=0,gid=0,mode='0o644',size=106,inode=123,mtime_ns=456,ctime_ns=456,device=1,nlink=1,type='regular')
         receipt=dict(kind='single-approved-desktop-binding-mode-correction',source=proof['sourceCommit'],release=Path(proof['backup']).name,
             approved_manifest_sha256=proof['manifestSha256'],original_journal_sha256=proof['journalSha256'],target=release.DESKTOP_CONFIG,
@@ -2603,7 +2631,15 @@ class NativePublisher(unittest.TestCase):
         nav_journal=base.rooted(root,nav['backup']+'/journal.json');journal=json.loads(nav_journal.read_bytes());journal['files'][0]['beforeMode']=0o600
         nav_journal.write_bytes(json.dumps(journal).encode());nav['journalSha256']=prepare.digest(nav_journal.read_bytes())
         stack.enter_context(patch.object(release,'DESKTOP_NAVIGATION_PROOF',nav))
-        return SimpleNamespace(manifest=current,proof=proof,history=history,mode_sha=mode_sha,mode=mode,nav=nav,nav_body=body)
+        initial_manifest=current;initial_proof=proof
+        current=dict(current,sourceCommit=release.INSTALLED_COMMIT,
+            files=[dict(r,beforeSha256=r['sha256'],sha256=release.DESKTOP_EXISTING[r['candidate']][0] if r['candidate'] in release.DESKTOP_EXISTING else r['sha256']) for r in rows],
+            unchangedRequired=[dict(r,sha256=nav['sha256']) if r['path']==release.NGINX else dict(r) for r in current['unchangedRequired']])
+        if materialize:
+            gateway=base.rooted(root,release.TARGETS['desktop/desktop_fs_gateway.py']);gateway.write_bytes(self.desktop_current_bytes('desktop/desktop_fs_gateway.py'))
+        proof=self.save_capabilities_receipt(base,root,release.NATIVE_CAPABILITIES_PROOF,current,owners)
+        stack.enter_context(patch.object(release,'NATIVE_CAPABILITIES_PROOF',proof))
+        return SimpleNamespace(manifest=current,proof=proof,initial_manifest=initial_manifest,initial_proof=initial_proof,history=history,mode_sha=mode_sha,mode=mode,nav=nav,nav_body=body)
 
     @staticmethod
     def save_capabilities_receipt(base,root,pin,manifest,owners):
@@ -2959,7 +2995,7 @@ class NativePublisher(unittest.TestCase):
                     for row in manifest['files']:
                         if row['candidate'] not in release.CAPABILITIES_CHANGED:
                             path=base.rooted(f.system,row['target']);untouched[row['target']]=(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns)
-                    self.assertEqual(len(untouched),797)
+                    self.assertEqual(len(untouched),796)
                     self.assertEqual({row['candidate'] for row in manifest['files'] if row['beforeSha256'] is None},set(release.NEW))
                 untouched_modes={p:(base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)) for p in untouched}
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -2972,6 +3008,7 @@ class NativePublisher(unittest.TestCase):
                     module.CAPABILITIES_TRANSPORT_HISTORY_PROOF=transport_proof
                     module.CAPABILITIES_KNOWLEDGE_HISTORY_PROOF=knowledge_proof
                     module.CAPABILITIES_DESKTOP_HISTORY_PROOF=desktop.history
+                    module.CAPABILITIES_DESKTOP_INSTALL_PROOF=desktop.initial_proof
                     module.NATIVE_CAPABILITIES_PROOF=desktop.proof
                     module.DESKTOP_MODE_CORRECTION_SHA=desktop.mode_sha
                     module.DESKTOP_NAVIGATION_PROOF=desktop.nav

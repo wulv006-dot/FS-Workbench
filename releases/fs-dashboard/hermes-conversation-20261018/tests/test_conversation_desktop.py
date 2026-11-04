@@ -54,6 +54,29 @@ class DesktopProjectionTests(unittest.TestCase):
         with self.assertRaises(LookupError):
             self.adapter.dispatch('alice', 'session.resume', {'session_id': self.other['session_id']})
 
+    def test_list_exposes_stored_update_as_renderer_seconds_without_inventing_start(self):
+        updated = '2026-11-04T06:33:37.125000+00:00'
+        with self.store.db() as db:
+            db.execute('UPDATE conversations SET updated_at=? WHERE id=?',
+                       (updated, self.original['conversation_id']))
+        row, = self.adapter.dispatch('alice', 'session.list', {})['sessions']
+        # Shipped sidebar uses new Date((last_active || started_at) * 1e3).
+        self.assertEqual(row['last_active'], 1793774017.125)
+        self.assertEqual(row['updated_at'], updated)
+        self.assertNotIn('started_at', row)
+        self.assertEqual(row['source'], 'api_server')
+        self.assertEqual(row['id'], self.original['session_id'])
+        self.assertEqual(row['stored_session_id'], self.original['session_id'])
+        snap = self.adapter.dispatch('alice', 'session.resume', {'session_id': row['id']})
+        self.assertEqual(snap['session_id'], row['id'])
+        self.assertEqual(snap['session_key'], row['id'])
+        self.assertEqual(snap['stored_session_id'], row['id'])
+        self.assertEqual(snap['info']['stored_session_id'], row['id'])
+        self.assertEqual(snap['conversation_id'], row['conversation_id'])
+        self.assertEqual(snap['messages'], [])
+        self.assertEqual(snap['message_count'], 0)
+        self.assertEqual(snap['last_seq'], 0)
+
     def test_prompt_keeps_original_session_and_transport_request_id(self):
         params = dict(session_id=self.original['session_id'], text='connection probe')
         first = self.adapter.dispatch('alice', 'prompt.submit', params, request_id='desktop_probe_001')
