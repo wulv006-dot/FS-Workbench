@@ -19,7 +19,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from conversation_store import ConversationStore
 from conversation_desktop import ConversationDesktop, DesktopRPC, SIGNING_CONTEXT
-from desktop_fs_gateway import DesktopFSGateway, SignedHostClient
+from desktop_fs_gateway import DesktopFSGateway, SignedHostClient, install_fs_desktop
 
 
 class DesktopProjectionTests(unittest.TestCase):
@@ -127,6 +127,43 @@ class DesktopProjectionTests(unittest.TestCase):
 class DesktopWireTests(unittest.IsolatedAsyncioTestCase):
     setUp = DesktopProjectionTests.setUp
     check = DesktopProjectionTests.check
+
+    async def test_installed_auth_accepts_query_only_on_exact_fs_websocket(self):
+        from urllib.parse import parse_qs
+        token = 'synthetic-existing-desktop-token'
+        original = SimpleNamespace(state=SimpleNamespace(auth_required=False))
+        def connection(scope):
+            return SimpleNamespace(headers={k.decode(): v.decode() for k, v in scope['headers']},
+                query_params={k: v[0] for k, v in parse_qs(scope['query_string'].decode()).items()})
+        def header_auth(request):
+            return (hmac.compare_digest(request.headers.get('x-hermes-session-token', '').encode(), token.encode())
+                or hmac.compare_digest(request.headers.get('authorization', '').encode(), ('Bearer ' + token).encode()))
+        # Installed web_server.py SHA14428aa...: query tokens are download-only.
+        def official_query_auth(request, path):
+            return (path in frozenset({'/api/files/download'})
+                and hmac.compare_digest(request.query_params.get('token', '').encode(), token.encode()))
+        server = SimpleNamespace(app=original, _SESSION_TOKEN=token,
+            _has_valid_session_token=header_auth, _has_valid_query_token=official_query_auth)
+        # Only HTTPConnection construction is an IO fixture; token comparisons execute.
+        with patch.dict(sys.modules, {'starlette.requests': SimpleNamespace(HTTPConnection=connection)}):
+            install_fs_desktop(server)
+        def scope(path='/fs/api/ws', kind='websocket', query=None, headers=()):
+            return dict(type=kind, path=path, headers=list(headers),
+                        query_string=(('token=' + token) if query is None else query).encode())
+        self.assertFalse(official_query_auth(connection(scope()), '/api/ws'))
+        self.assertTrue(server.app.authenticate(scope()))
+        for candidate in (scope(query=''), scope(query='token='), scope(query='token=wrong'),
+                scope(query='token=%C3%A9'), scope(path='/fs/api/sessions'),
+                scope(path='/fs/api/ws/'), scope(path='/api/ws'), scope(kind='http')):
+            with self.subTest(path=candidate['path'], kind=candidate['type'], query=candidate['query_string']):
+                self.assertFalse(server.app.authenticate(candidate))
+        self.assertTrue(server.app.authenticate(scope(kind='http', query='',
+            headers=[(b'x-hermes-session-token', token.encode())])))
+        self.assertTrue(server.app.authenticate(scope(kind='http', query='',
+            headers=[(b'authorization', ('Bearer ' + token).encode())])))
+        original.state.auth_required = True
+        self.assertFalse(server.app.authenticate(scope()))
+        self.assertFalse(server.app.authenticate(scope(headers=[(b'x-hermes-session-token', token.encode())])))
 
     async def test_existing_shared_backend_is_preserved_and_fs_is_authenticated(self):
         delegated = []

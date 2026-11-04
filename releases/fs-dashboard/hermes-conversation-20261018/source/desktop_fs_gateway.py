@@ -54,8 +54,14 @@ def install_fs_desktop(server):
         if getattr(original.state, 'auth_required', False):
             return False
         request = HTTPConnection(dict(scope, app=original))
-        return bool(server._has_valid_session_token(request) or (
-            scope['type'] == 'websocket' and server._has_valid_query_token(request, '/api/ws')))
+        if server._has_valid_session_token(request):
+            return True
+        if scope['type'] != 'websocket' or scope.get('path') != '/fs/api/ws':
+            return False
+        # Official query-token auth is download-only; this FS socket uses the
+        # same existing credential without changing the official route allowlist.
+        token = request.query_params.get('token', '')
+        return bool(token) and hmac.compare_digest(token.encode(), server._SESSION_TOKEN.encode())
     server.app = DesktopFSGateway(original, SignedHostClient(server._SESSION_TOKEN.encode()), authenticate)
 
 
