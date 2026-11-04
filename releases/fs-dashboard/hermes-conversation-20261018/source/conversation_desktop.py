@@ -8,6 +8,7 @@ from pathlib import Path
 import stat
 import threading
 import time
+from datetime import datetime
 
 SIGNING_CONTEXT = b'FS Desktop conversation RPC v1\n'
 
@@ -154,7 +155,8 @@ class ConversationDesktop:
                 sid = self._session_id(owner, row['conversation_id'])
                 sessions.append(dict(id=sid, session_id=sid, stored_session_id=sid,
                     conversation_id=row['conversation_id'], title=row['title'],
-                    source='api_server', updated_at=row['updated_at']))
+                    source='api_server', updated_at=row['updated_at'],
+                    last_active=datetime.fromisoformat(row['updated_at']).timestamp()))
             return {'sessions': sessions}
         if method == 'session.create':
             allowed = {'cols', 'source', 'fast', 'profile', 'cwd', 'cwd_explicit', 'reasoning_effort'}
