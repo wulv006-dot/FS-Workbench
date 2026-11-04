@@ -100,10 +100,14 @@ CAPABILITIES_DESKTOP_HISTORY_PROOF = dict(sourceCommit='aad68048e0316ff7823e29ec
     backup='/var/backups/fs-navigation-20261006/nav-20261103T202302Z',
     manifestSha256='c8f8ef36e9186e9ba434f7490ce466132ccc4e6a979aef3f0951fdab0e66362a',
     journalSha256='63fb7af867bd97a124f4e3fe80ab3606b17ef431023f8719698f0c38ba7709db')
-NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='1f09b5134747a4ca6bef2dca080e5e9036388e5e',
+CAPABILITIES_DESKTOP_INSTALL_PROOF = dict(sourceCommit='1f09b5134747a4ca6bef2dca080e5e9036388e5e',
     backup='/var/backups/fs-navigation-20261006/nav-20261104T051404Z',
     manifestSha256='10c15f738dac42fe58a0c6e335669d5ff3f245c72e8db7b99a83274c09552a2b',
     journalSha256='333cfdb381e30ccb3156d21d0004cf8d0e10990c4d68ecc94cf5f4c6a2864e9a')
+NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='c1f9dd4b5358158822fe611de075a69d951febc6',
+    backup='/var/backups/fs-navigation-20261006/nav-20261104T063337Z',
+    manifestSha256='5a9689f35f006a5120ded6ab6d563d769ad9c96172744d47638ed48848b7b0da',
+    journalSha256='e502affc0579df1f86696338b947fb585f41f91e6101a4eca22fa1877f85960b')
 DESKTOP_MODE_CORRECTION_SHA='d2352697a75d75545108cd03f260c264f3e918dc1b4be9d7f2b239a2cd2a947e'
 DESKTOP_NAVIGATION_PROOF=dict(backup='/var/backups/fs-navigation-20261006/nav-20261104T052012Z',
     manifestSha256='ec8550f11cc66b47799c92d3cf9649deee192bdfa17e25a399640e8a46ee3854',
@@ -300,8 +304,10 @@ DESKTOP_EXISTING = {
     'desktop/serve.py':('87c24ed11a8894ee207a93d8701102d99e85a59c21e98945de14f53d411d42d2',1478),
     'http/range_api.py':('6cce30f18d285793dff36420b6d781ab751aed463308e05d22f7ff56cb8c46dd',34507),
     'desktop/fs-principal.json':('2d5a1ecad569190a1b5a59e9df87180e8920ee1d42fddd99610f9a0d57a6282b',106)}
+DESKTOP_FIRST_INSTALLED_EXISTING=dict(DESKTOP_EXISTING)
+DESKTOP_EXISTING['desktop/desktop_fs_gateway.py']=('eccfe20966b35713334a22fae9edf2f90daafc4cd978dd31a0de86f479d0edb0',9636)
 CAPABILITIES_NEW=frozenset()
-CAPABILITIES_CHANGED = ('desktop/desktop_fs_gateway.py',)
+CAPABILITIES_CHANGED = ('runtime/conversation_desktop.py','desktop/conversation_desktop.py')
 
 
 def payload_mode(target):
@@ -1107,9 +1113,10 @@ def capabilities_knowledge_history(base,root,current,installed_rows):
         raise ValueError('native_knowledge_success_chain_mismatch')
 
 
-def capabilities_desktop_history(base,root,current,installed_rows):
-    """Keep the accepted aad -> 1f Desktop installation in the proof chain."""
-    proof=CAPABILITIES_DESKTOP_HISTORY_PROOF;records={}
+def capabilities_desktop_history(base,root,current,installed_rows,*,initial=False):
+    """Verify fixed aad -> 1f -> c1 Desktop transitions, without replaying overlays on c1."""
+    proof=CAPABILITIES_DESKTOP_HISTORY_PROOF if initial else CAPABILITIES_DESKTOP_INSTALL_PROOF;records={}
+    expected=KNOWLEDGE_INSTALLED_TARGETS if initial else DESKTOP_INSTALLED_TARGETS
     fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
     for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
         path=base.rooted(root,proof['backup']+'/'+name);base.no_target_link(path);before=path.lstat()
@@ -1131,17 +1138,28 @@ def capabilities_desktop_history(base,root,current,installed_rows):
     if (manifest.get('sourceCommit')!=proof['sourceCommit'] or manifest.get('scope')!=SCOPE or
             manifest.get('nativeCapabilities') is not True or manifest.get('nativeArchive') is not True or
             manifest.get('nativeStaticBaseline')!=CAPABILITIES_STATIC_PROOF or
-            len(rows)!=26 or {r['candidate']:r['target'] for r in rows}!=KNOWLEDGE_INSTALLED_TARGETS or
-            any(r.get('owner')!='0:0' or r.get('mode')!='0o644' for r in rows) or len(protected)!=767 or len(old)!=793 or
+            len(rows)!=len(expected) or {r['candidate']:r['target'] for r in rows}!=expected or
+            any(r.get('owner')!='0:0' or r.get('mode')!=('0o644' if initial else payload_mode(r['target'])) for r in rows) or
+            len(protected)!=(767 if initial else 766) or len(old)!=(793 if initial else 798) or
             journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
             any(journal.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
             journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=proof['manifestSha256'] or
-            len(written)!=26 or {r['candidate'] for r in written}!=set(KNOWLEDGE_INSTALLED_TARGETS) or
+            len(written)!=len(expected) or {r['candidate'] for r in written}!=set(expected) or
             any(any(w.get(k)!=r.get(k) for k in ('candidate','target','beforeSha256','sha256','owner','mode')) or
                 w.get('intent') is not True or w.get('written') is not True or
                 any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten'))
                 for r in rows for w in written if r['candidate']==w['candidate'])):
         raise ValueError('native_desktop_history_success_required')
+    if not initial:
+        capabilities_desktop_history(base,root,old,rows,initial=True)
+        old=capabilities_desktop_metadata(base,root,old,manifest)
+        if (set(current)!=set(old) or
+                any(any(row.get(k)!=current[path].get(k) for k in
+                    (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
+                    for path,row in old.items() if path not in DESKTOP_INSTALLED_TARGETS.values()) or
+                any(r.get('beforeSha256')!=old.get(r['target'],{}).get('sha256') for r in installed_rows)):
+            raise ValueError('native_desktop_success_chain_mismatch')
+        return
     capabilities_knowledge_history(base,root,old,rows)
     if (set(current)!=set(old)|set(DESKTOP_TARGETS.values()) or
             any(any(row.get(k)!=current[path].get(k) for k in
@@ -1158,8 +1176,8 @@ def capabilities_desktop_history(base,root,current,installed_rows):
 
 def capabilities_desktop_metadata(base,root,metadata,manifest):
     """Only the recorded root600 repair and one later formal-Nginx release."""
-    records={};nav=DESKTOP_NAVIGATION_PROOF
-    inputs=(('mode',NATIVE_CAPABILITIES_PROOF['backup']+'/desktop-binding-mode-correction.json',DESKTOP_MODE_CORRECTION_SHA),
+    records={};nav=DESKTOP_NAVIGATION_PROOF;proof=CAPABILITIES_DESKTOP_INSTALL_PROOF
+    inputs=(('mode',proof['backup']+'/desktop-binding-mode-correction.json',DESKTOP_MODE_CORRECTION_SHA),
             ('nav_manifest',nav['backup']+'/approved-manifest.json',nav['manifestSha256']),
             ('nav_journal',nav['backup']+'/journal.json',nav['journalSha256']))
     fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
@@ -1179,10 +1197,10 @@ def capabilities_desktop_metadata(base,root,metadata,manifest):
     receipt=records['mode'];before=receipt.get('before',{});after=receipt.get('after',{})
     config=metadata.get(DESKTOP_CONFIG,{})
     if (receipt.get('kind')!='single-approved-desktop-binding-mode-correction' or
-            receipt.get('source')!=NATIVE_CAPABILITIES_PROOF['sourceCommit'] or
-            receipt.get('release')!=Path(NATIVE_CAPABILITIES_PROOF['backup']).name or
-            receipt.get('approved_manifest_sha256')!=NATIVE_CAPABILITIES_PROOF['manifestSha256'] or
-            receipt.get('original_journal_sha256')!=NATIVE_CAPABILITIES_PROOF['journalSha256'] or
+            receipt.get('source')!=proof['sourceCommit'] or
+            receipt.get('release')!=Path(proof['backup']).name or
+            receipt.get('approved_manifest_sha256')!=proof['manifestSha256'] or
+            receipt.get('original_journal_sha256')!=proof['journalSha256'] or
             receipt.get('target')!=DESKTOP_CONFIG or receipt.get('fchmod_calls')!=1 or
             receipt.get('content_writes')!=0 or receipt.get('manifest_journal_changed') is not False or
             before.get('mode')!='0o644' or after.get('mode')!='0o600' or
@@ -1264,7 +1282,6 @@ def installed_baseline(root, git_baseline):
             raise ValueError('composer_static_installed_proof_mismatch')
         if NATIVE_CAPABILITIES_MODE:
             capabilities_desktop_history(base,root,metadata,rows)
-            metadata=capabilities_desktop_metadata(base,root,metadata,manifest)
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}

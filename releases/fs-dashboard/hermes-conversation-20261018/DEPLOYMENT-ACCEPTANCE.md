@@ -1108,3 +1108,11 @@ Nginx 原 `c45e6fc9…580e` → `28165bbd…a9b2` 已由 `nav-20261104T052012Z` 
 唯一新 FS 会话已建，Desktop 在 WebSocket open 前失败，实际模型/ACK均0；没有用历史回放冒 live 双向通过。原官方 query helper 只允许 download，旧 wrapper 对 `/api/ws` 的 query-token 调用恒拒绝，已由 Desktop owner 固定官方函数直接 RED/GREEN；新 gateway 仅验证精确 `/fs/api/ws` 的 token，原 header、auth_required、创建者 HMAC、IAM/owner 均保留。此小修尚未安装，同一 cid/sid 保留，待最终安装和 live observer ready 后再串行最多两条技术 ACK。
 
 本候选继续原 native-capabilities followup：32existing／NEW0，仅 gateway 一项实际 delta，其余31runtime＋766protected＝797项不写。before 来自1f Git原件和成功proof，配置补正与独立 Nginx proof 分层衔接；完整 aad/193及更早安全历史、root600/no-follow/单链接/九字段/SHA/成功绑定、原锁/fence/usagefreshCAS/回退保留。be6d 已合的 NEW 配置0600窄修和25s readiness共享截止保持原字节；不重写配置、Nginx、token、profile、policy、审批索引或原业务账本。临时FS实际 prepare/inspect/apply 与 Desktop/range/readiness 失败回退核797项不写；OS身份/服务边界为明确fixture，正常CI及真实双向验收仍分层，不称软件候选即实际通过。
+
+### 2026-11-04：c1f 软件／WebSocket 核收与 Desktop 时间字段装配候选
+
+`c1f9dd4b5358158822fe611de075a69d951febc6/nav-20261104T063337Z` 已实际安装并由总控核收，manifest `5a9689f35f006a5120ded6ab6d563d769ad9c96172744d47638ed48848b7b0da`／journal `e502affc0579df1f86696338b947fb585f41f91e6101a4eca22fa1877f85960b`。32after 等最终源，唯一 gateway ECCFE 变化；未写797项中796项完整metadata相等，bundled manifest 同bytes/owner/mode，仅inode/时戳变化。config600与Nginx完整metadata保持，未再次fchmod或写配置；原服务/readiness/import通过。稳定23件index `.agent_runtime/desktop-release-20261104T063337Z/final/index.json`，6233B／SHA `346404ececba4370e9eb8c6607dd09b6774b592eb5c22c3c144bf33753e38a24`。
+
+Desktop owner 已在原19442/fs WebSocket 收到 gateway.ready，同一原SID resume 返回原cid／LastSeq0／ErrorCode null；WS鉴权已通过。实际列表 renderer 仍报 Invalid time value，尚未达到可用UI/live-ready，ACK与模型提交均0；原cid/sid保留，自建错误／验收窗口关闭，用户原窗口保持。实际二进制caller使用 last_active||started_at，原session.list两字段皆缺；owner用真实tempStore→实际dispatch→原renderer表达式直接RED/GREEN。最小consumer仅将真实updated_at aware ISO转为last_active Unix秒，不造started_at，不改Store/SDK/auth或调用额外模型。
+
+本publisher候选以已核c1f/nav063337成功链为当前before：32existing／NEW0，只写host/Desktop两份同源conversation_desktop.py，gateway ECCFE及其余30runtime＋766protected＝796项不写。继续原fence、25s共享readiness截止、NEW配置0600窄修、锁/CAS/usagefresh与失败先还原代码后恢复服务；不写token/profile/配置/Nginx/审批或业务账本。现有Desktop历史函数核固定aad→1f→c1链；mode补正及nav052012过渡只在对应1f历史metadata上消费，当前已含28165的c1 proof不重复要求c45。既有更早历史安全检查完整保留，不反射现盘或新建通用proof框架。临时FS原prepare/inspect/apply及两服务/readiness失败回退直接通过，OS身份和服务边界仍明确为fixture；正常组合CI、最终安装及同cid最多两条技术ACK另行验收，不拿本地修复当实际双向收发通过。
