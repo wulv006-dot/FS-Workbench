@@ -1209,6 +1209,186 @@
         "Hermes selected knowledge candidate"
       ],
       "pricing_scope": "100k_package_only"
+    },
+    {
+      "id": "fc.reporting.methods",
+      "revision": "20261105-1",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FC27",
+        "reporting"
+      ],
+      "effective_at": "2026-11-05",
+      "time_precision": "date_only",
+      "owner": "吴律；获授权Codex维护",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/reporting/fc27-monthly/README.md",
+        "sha256": "56b101c86e7f84c70bcf0ed5e1195074de775f5d107569d38bb853edc59305ee",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "direct_user_knowledge_consolidation",
+          "date": "2026-11-05",
+          "scope": "FC report methods and knowledge; no price, budget, schedule or permission change"
+        },
+        {
+          "kind": "existing_confirmed_methods",
+          "path": "docs/planning/report-methods-20261102/README.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes after original review and target-profile readback"
+      ]
+    },
+    {
+      "id": "fc.reporting.data",
+      "revision": "20261105-1",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FC27",
+        "reporting"
+      ],
+      "effective_at": "2026-11-05",
+      "time_precision": "date_only",
+      "owner": "吴律；获授权Codex维护",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/reporting/fc27-monthly/DATA.md",
+        "sha256": "d8ae2400a8d46ae1bf9154b94bc11239d88968e04eaa8fa0fd0de47a5f0a43ed",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "direct_user_knowledge_consolidation",
+          "date": "2026-11-05",
+          "scope": "FC report methods and knowledge; no price, budget, schedule or permission change"
+        },
+        {
+          "kind": "existing_confirmed_methods",
+          "path": "docs/planning/report-methods-20261102/README.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes after original review and target-profile readback"
+      ]
+    },
+    {
+      "id": "fc.reporting.report",
+      "revision": "20261105-1",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FC27",
+        "reporting"
+      ],
+      "effective_at": "2026-11-05",
+      "time_precision": "date_only",
+      "owner": "吴律；获授权Codex维护",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/reporting/fc27-monthly/REPORT.md",
+        "sha256": "aecd80e9fccd6f09c08adf90c7505ebd422758af13d9171dd2fa9e5a0d319705",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "direct_user_knowledge_consolidation",
+          "date": "2026-11-05",
+          "scope": "FC report methods and knowledge; no price, budget, schedule or permission change"
+        },
+        {
+          "kind": "existing_confirmed_methods",
+          "path": "docs/planning/report-methods-20261102/README.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes after original review and target-profile readback"
+      ]
+    },
+    {
+      "id": "fc.reporting.business",
+      "revision": "20261105-1",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FC27",
+        "reporting"
+      ],
+      "effective_at": "2026-11-05",
+      "time_precision": "date_only",
+      "owner": "吴律；获授权Codex维护",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/reporting/fc27-monthly/BUSINESS.md",
+        "sha256": "224c4ba7dd639aafc007dc036fc61369e2ac9cbb075be6ea4ae2d28fb5edb21d",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "direct_user_knowledge_consolidation",
+          "date": "2026-11-05",
+          "scope": "FC report methods and knowledge; no price, budget, schedule or permission change"
+        },
+        {
+          "kind": "existing_confirmed_methods",
+          "path": "docs/planning/report-methods-20261102/README.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes after original review and target-profile readback"
+      ]
+    },
+    {
+      "id": "fc.reporting.maintenance",
+      "revision": "20261105-1",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FC27",
+        "reporting"
+      ],
+      "effective_at": "2026-11-05",
+      "time_precision": "date_only",
+      "owner": "吴律；获授权Codex维护",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/reporting/fc27-monthly/MAINTENANCE.md",
+        "sha256": "0fe31d9bcdfed350271ff2db7921b12934609b27976e109bcef6acbc2543853d",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "direct_user_knowledge_consolidation",
+          "date": "2026-11-05",
+          "scope": "FC report methods and knowledge; no price, budget, schedule or permission change"
+        },
+        {
+          "kind": "existing_confirmed_methods",
+          "path": "docs/planning/report-methods-20261102/README.md"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes after original review and target-profile readback"
+      ]
     }
   ],
   "base_commit": "0e2d02efd7c894199ab0f62ca69a9c75ed7c2578"
