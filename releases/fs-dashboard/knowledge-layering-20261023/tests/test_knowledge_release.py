@@ -18,6 +18,49 @@ spec.loader.exec_module(scope)
 
 
 class Release(unittest.TestCase):
+    def test_knowledge_only_scope_admits_policy_and_new_immutable_documents_only(self):
+        release='fc-reporting-knowledge-20261105-'+('a'*8)
+        prefix='/var/lib/fs-hermes-fc/fs/knowledge-releases/'+release+'/'
+        value=dict(scope=scope.SCOPE,knowledgeOnly=True,knowledgeRelease=release,sourceCommit='a'*40,
+            businessWrites=False,timersChanged=False,files=[
+                dict(candidate='runtime/knowledge-load-policy.json',target='/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'),
+                dict(candidate='artifact/index.json',target=prefix+'index.json'),
+                dict(candidate='artifact/sources/knowledge/reporting/fc27-monthly/DATA.md',target=prefix+'sources/knowledge/reporting/fc27-monthly/DATA.md')])
+        self.assertEqual(len(scope.targets(value)),3)
+        for name,target in [('runtime/controller.py','/opt/fs-hermes-fc/controller.py'),
+                            ('runtime/business-baseline.md','/opt/fs-hermes-fc/business-baseline.md'),
+                            ('artifact/../escape',prefix+'../escape'),
+                            ('artifact/other','/etc/systemd/system/fs-hermes-desktop.service')]:
+            bad=copy.deepcopy(value);bad['files'].append(dict(candidate=name,target=target))
+            with self.assertRaises(ValueError):scope.targets(bad)
+        for key,wrong in [('sourceCommit','b'*40),('businessWrites',True),('timersChanged',True)]:
+            bad=copy.deepcopy(value);bad[key]=wrong
+            with self.assertRaises(ValueError):scope.targets(bad)
+
+    def test_knowledge_only_scope_keeps_original_fence_without_service_recovery(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stage=Path(tmp)/'stage'
+            with patch.object(prepare,'git_bytes',side_effect=lambda root,name:(root/name).read_bytes()):
+                value=prepare.prepare(ROOT,stage,'a'*40)
+            manifest=value['manifest'];release='fc-reporting-knowledge-20261105-'+('a'*8)
+            manifest.update(knowledgeOnly=True,knowledgeRelease=release)
+            manifest['files']=[r for r in manifest['files'] if r['candidate'].startswith('artifact/')]
+            for row in manifest['files']:row['target']=row['target'].replace(scope.RELEASE,release)
+            manifest['files'].append(dict(candidate='runtime/knowledge-load-policy.json',target='/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json',sha256='c'*64,beforeSha256='b'*64,owner='0:0',mode='0o644'))
+            (stage/'approved-manifest.json').write_text(json.dumps(manifest),encoding='utf-8')
+            with patch.object(scope,'HERE',stage):publisher=scope.load_base()
+            with patch('subprocess.run',side_effect=AssertionError('service operation forbidden')):
+                publisher.restart_for(manifest)
+            from contextlib import contextmanager
+            calls=[]
+            @contextmanager
+            def original_fence(value,root):
+                calls.append('locked');yield object();calls.append('unlocked')
+            with patch.object(publisher,'knowledge_original_fence',original_fence):
+                with publisher.hermes_admission_fence(manifest,Path('/')) as fence:
+                    self.assertIsNone(fence)
+            self.assertEqual(calls,['locked','unlocked'])
+
     def test_existing_publisher_used_and_immutable_package_can_be_read(self):
         with tempfile.TemporaryDirectory() as tmp:
             stage=Path(tmp)/'stage'
