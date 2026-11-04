@@ -1,7 +1,8 @@
 const fs=require('fs'),path=require('path');
 const dir=__dirname;
 const live=fs.readFileSync(path.join(dir,'hubnav.live.js'),'utf8');
-const reg=JSON.parse(live.match(/const BUILTIN=(.*);\r?\n/)[1]);
+const reg=JSON.parse(process.argv[2]?fs.readFileSync(process.argv[2],'utf8').replace(/^\uFEFF/,''):live.match(/const BUILTIN=(.*);\r?\n/)[1]);
+if(reg.schemaVersion!==1||!Array.isArray(reg.sections)||!Array.isArray(reg.tools))throw Error('Invalid navigation registry');
 const css=fs.readFileSync(path.join(dir,'navigation-experience.css'),'utf8');
 const enhancement=fs.readFileSync(path.join(dir,'navigation-experience.js'),'utf8').replace('__FS_NAV_REGISTRY__',JSON.stringify(reg));
 const style=`\n(function(){if(document.getElementById('fsNavExperienceStyle'))return;const s=document.createElement('style');s.id='fsNavExperienceStyle';s.textContent=${JSON.stringify(css)};document.head.append(s);})();\n`;
