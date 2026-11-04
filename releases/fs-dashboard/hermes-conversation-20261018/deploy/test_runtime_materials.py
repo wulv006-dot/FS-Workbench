@@ -1197,18 +1197,32 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 class NativePublisher(unittest.TestCase):
+    def test_desktop_payload_contains_both_consumers_and_exact_before_sources(self):
+        prepare.configure_native_capabilities()
+        self.assertEqual(len(release.TARGETS),32,'Desktop consumers/config must be in original complete payload')
+        self.assertEqual(release.INSTALLED_COMMIT,'aad68048e0316ff7823e29ec3f16a2834f16fe44')
+        self.assertEqual(release.TARGETS['runtime/conversation_desktop.py'],'/opt/fs-hermes-fc/conversation_desktop.py')
+        self.assertEqual(release.TARGETS['desktop/conversation_desktop.py'],'/opt/fs-hermes-desktop/conversation_desktop.py')
+        self.assertEqual(release.TARGETS['desktop/desktop_fs_gateway.py'],'/opt/fs-hermes-desktop/desktop_fs_gateway.py')
+        self.assertEqual(release.TARGETS['desktop/serve.py'],'/opt/fs-hermes-desktop/serve.py')
+        self.assertEqual(release.TARGETS['http/range_api.py'],'/opt/fs-exact-range-20261001/range_api.py')
+        self.assertEqual(release.NEW,frozenset({'runtime/conversation_desktop.py','desktop/conversation_desktop.py','desktop/desktop_fs_gateway.py','desktop/fs-principal.json'}))
+        self.assertEqual(set(prepare.SOURCES),set(release.TARGETS))
+        self.assertEqual(prepare.SOURCES['runtime/conversation_desktop.py'],prepare.SOURCES['desktop/conversation_desktop.py'])
+        self.assertEqual(release.DESKTOP_EXISTING['http/range_api.py'],('08e22627230531e06c35e661302d6f23808e07a527bbff2485d6b174303a79a6',34129))
+        self.assertEqual(release.DESKTOP_EXISTING['desktop/serve.py'],('8211079893a3afbfaa41a6a13c85a325a49329a03006cfb0e473d839f417da30',1346))
+
     def test_native_knowledge_payload_closes_actual_imports_and_keeps_existing_helpers(self):
         prepare.configure_native_capabilities()
-        self.assertEqual((len(release.TARGETS),len(release.NEW)),(26,2))
-        self.assertEqual(release.INSTALLED_COMMIT,'193223331dd2516ad211a9366f860d6fbebaefc2')
-        self.assertEqual(release.NEW,frozenset({'runtime/conversation_knowledge.py','runtime/fs_native_knowledge.py'}))
-        self.assertEqual(set(release.CAPABILITIES_CHANGED),{
-            'runtime/conversation_native.py','runtime/hermes_worker.py','runtime/knowledge_catalog.py',*release.NEW})
+        self.assertEqual((len(release.TARGETS),len(release.NEW)),(32,4))
+        self.assertEqual(release.INSTALLED_COMMIT,'aad68048e0316ff7823e29ec3f16a2834f16fe44')
+        self.assertEqual(release.NEW,frozenset(set(release.DESKTOP_TARGETS)-set(release.DESKTOP_EXISTING)))
+        self.assertEqual(set(release.CAPABILITIES_CHANGED),set(release.DESKTOP_TARGETS))
         self.assertEqual(prepare.SOURCES['runtime/report_artifacts.py'],
             'releases/fs-dashboard/hermes-data-workspace-20261018/source/report_artifacts.py')
         self.assertEqual(prepare.SOURCES['runtime/fs_native_knowledge.py'],
             'releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/knowledge.py')
-        self.assertEqual(set(release.KNOWLEDGE_EXISTING),{
+        self.assertEqual(set(release.KNOWLEDGE_INITIAL_EXISTING),{
             'runtime/knowledge_catalog.py','runtime/report_artifacts.py','runtime/reviewed_skills.py'})
         self.assertEqual(set(prepare.SOURCES),set(release.TARGETS))
         # Import the exact closed bundle, not the older pilot report fixture.
@@ -1248,6 +1262,35 @@ class NativePublisher(unittest.TestCase):
                 self.assertFalse((formal/'knowledge/native').exists())
             self.assertTrue(callable(modules['fs_native_knowledge'].NativeKnowledge.pin_fs_task))
 
+    def test_desktop_source_bytes_config_and_existing_runtime_dependencies(self):
+        prepare.configure_native_capabilities()
+        before=self.desktop_before_bytes('http/range_api.py')
+        self.assertEqual(prepare.payload_bytes('http/range_api.py',before.replace(b'\r\n',b'\n')),before)
+        self.assertEqual(prepare.payload_bytes('runtime/conversation_store.py',b'a\nb\r\n'),b'a\nb\r\n')
+        config=json.loads((Path(__file__).parent/'desktop-fs-principal.json').read_bytes())
+        self.assertEqual(config,dict(principal='wulv',credential_file='/var/lib/fs-hermes-fc/profile/.desktop-management/token'))
+        self.assertEqual(release.payload_mode(release.DESKTOP_CONFIG),'0o600')
+        metadata=dict(st_dev=1,st_ino=2,st_size=64,st_mtime_ns=3,st_ctime_ns=4,st_nlink=1,st_uid=9876,st_gid=9876,st_mode=stat.S_IFREG|0o600)
+        mounts=[dict(Destination='/desktop',Source='/opt/fs-hermes-desktop',RW=False,Type='bind'),
+                dict(Destination='/profile',Source='/var/lib/fs-hermes-fc/profile',RW=True,Type='bind')]
+        helpers=dict(source_sha256='14428aa34d4297b81f7dbeb7e8fe2abae0e205a3356d9e341eb22d457ae2e55f',official_helpers=True)
+        def response(value):return SimpleNamespace(stdout=json.dumps(value)+'\n"host"\ntrue\n')
+        with patch.object(release,'native_path_info',return_value=SimpleNamespace(**metadata)),patch.object(release.subprocess,'run') as run,patch.object(os,'open',side_effect=AssertionError('token_must_not_be_opened')):
+            run.side_effect=[response(mounts),SimpleNamespace(stdout=json.dumps(helpers))]
+            self.assertEqual(release.desktop_observation(release.frozen(),Path('/'))['helpers'],helpers)
+            self.assertEqual(run.call_count,2)
+            for bad in ([dict(mounts[0],RW=True),mounts[1]],mounts+[mounts[0]],mounts[:1]):
+                run.side_effect=[response(bad)]
+                with self.assertRaisesRegex(ValueError,'desktop_existing_mount_contract_drift'):release.desktop_observation(release.frozen(),Path('/'))
+            with patch.object(release,'native_path_info',return_value=SimpleNamespace(**dict(metadata,st_mode=stat.S_IFREG|0o644))):
+                with self.assertRaisesRegex(ValueError,'desktop_token_metadata_boundary'):release.desktop_observation(release.frozen(),Path('/'))
+
+    @staticmethod
+    def desktop_before_bytes(name):
+        row=json.loads(Path(__file__).with_name('desktop-before-aad.json').read_bytes())['files'][name]
+        body=row['utf8'].encode();assert (prepare.digest(body),len(body))==release.DESKTOP_EXISTING[name]
+        return body
+
     @staticmethod
     def knowledge_before_bytes(name):
         fixture=json.loads(Path(__file__).with_name('knowledge-before-193.json').read_bytes())
@@ -1257,7 +1300,7 @@ class NativePublisher(unittest.TestCase):
                 assert row['source_commit']=='1a1a42d81107c204fac699ccb69dd223deca33b3' and row['transform']=='CRLF_to_LF'
             else:assert row['source_commit']=='193223331dd2516ad211a9366f860d6fbebaefc2'
             assert len(body)==row['bytes'] and prepare.digest(body)==row['sha256']
-            expected={**release.KNOWLEDGE_EXISTING,
+            expected={**release.KNOWLEDGE_INITIAL_EXISTING,
                 'runtime/conversation_native.py':('de968283f4928199d21bd623a4d7f39b7bfa1dc534b2548c515467817a3399f3',56701),
                 'runtime/hermes_worker.py':('51fda7e6f282628a32c3d12fb05fda5491b9137ccbc6bd9995d725b098a0b5cc',46881)}
             assert (prepare.digest(body),len(body))==expected[name] and row['source']==prepare.SOURCES[name]
@@ -1269,11 +1312,11 @@ class NativePublisher(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);owners={};kinds={}
             with self.native_metadata(owners,kinds,root=root):
-                for name,(expected,size) in release.KNOWLEDGE_EXISTING.items():
+                for name,(expected,size) in release.DESKTOP_EXISTING.items():
                     path=base.rooted(root,release.TARGETS[name]);path.parent.mkdir(parents=True,exist_ok=True)
-                    body=self.knowledge_before_bytes(name);self.assertEqual((prepare.digest(body),len(body)),(expected,size))
+                    body=self.desktop_before_bytes(name);self.assertEqual((prepare.digest(body),len(body)),(expected,size))
                     path.write_bytes(body);owners[path]=(0,0,0o644)
-                    self.assertEqual(prepare.file_metadata(base,root,str('/opt/fs-hermes-fc/'+path.name))['sha256'],expected)
+                    self.assertEqual(prepare.file_metadata(base,root,release.TARGETS[name])['sha256'],expected)
                     for changed in (body+b'x',b'x'+body[1:]):
                         path.write_bytes(changed)
                         with self.assertRaises(ValueError):prepare.file_metadata(base,root,release.TARGETS[name])
@@ -1929,13 +1972,13 @@ class NativePublisher(unittest.TestCase):
     def test_native_capabilities_installed_followup(self):
         self.assertTrue(callable(getattr(prepare,'configure_native_capabilities',None)))
         prepare.configure_native_capabilities()
-        self.assertEqual((len(release.TARGETS),len(release.NEW)),(26,2))
-        self.assertEqual(release.INSTALLED_COMMIT,'193223331dd2516ad211a9366f860d6fbebaefc2')
-        self.assertEqual(set(release.CAPABILITIES_CHANGED),{'runtime/hermes_worker.py','runtime/conversation_native.py','runtime/knowledge_catalog.py',*release.NEW})
+        self.assertEqual((len(release.TARGETS),len(release.NEW)),(32,4))
+        self.assertEqual(release.INSTALLED_COMMIT,'aad68048e0316ff7823e29ec3f16a2834f16fe44')
+        self.assertEqual(set(release.CAPABILITIES_CHANGED),set(release.DESKTOP_TARGETS))
         self.assertEqual(release.INSTALLED_PROOF,dict(sourceCommit=release.INSTALLED_COMMIT,
-            backup='/var/backups/fs-navigation-20261006/nav-20261103T191430Z',
-            manifestSha256='21d6c0198b04f3ba20da91e6bd3d8db1d46d5b6501917f056e5f5bfa34395054',
-            journalSha256='14d7aedeaede70c50b07beb4a797b9d82084310b8b707ab17cff76c8baf7a6ab'))
+            backup='/var/backups/fs-navigation-20261006/nav-20261103T202302Z',
+            manifestSha256='c8f8ef36e9186e9ba434f7490ce466132ccc4e6a979aef3f0951fdab0e66362a',
+            journalSha256='63fb7af867bd97a124f4e3fe80ab3606b17ef431023f8719698f0c38ba7709db'))
         self.assertEqual(release.CAPABILITIES_STATIC_PROOF['sourceCommit'],'d135d2b965ecdfc2d96a1e49cf9425e31eaca07e')
         self.assertEqual(set(prepare.SOURCES),set(release.CAPABILITIES_TARGETS))
         self.assertEqual(prepare.SOURCES['http/conversation_http.py'],prepare.MODULE+'source/conversation_http.py')
@@ -1958,6 +2001,12 @@ class NativePublisher(unittest.TestCase):
                 self.assertEqual(release.capabilities_navigation_overlay(base,root,metadata),expected)
                 self.assertEqual(metadata,original)
                 self.assertEqual(expected['/opt/unrelated.py'],metadata['/opt/unrelated.py'])
+                for alias,path in release.CAPABILITIES_NAVIGATION_TARGETS.items():
+                    if alias=='range':continue
+                    with patch.dict(release.TARGETS,{'unapproved/'+alias:path}),self.assertRaisesRegex(ValueError,'native_navigation_baseline_drift'):
+                        release.capabilities_navigation_overlay(base,root,metadata)
+                with patch.dict(release.TARGETS,{'http/range_api.py':'/opt/other-range.py'}),self.assertRaisesRegex(ValueError,'native_navigation_baseline_drift'):
+                    release.capabilities_navigation_overlay(base,root,metadata)
                 actual_fstat=os.fstat
                 def changed_ctime(fd):
                     info=actual_fstat(fd)
@@ -2003,7 +2052,7 @@ class NativePublisher(unittest.TestCase):
                     with self.assertRaises(ValueError):release.capabilities_navigation_overlay(base,root,bad)
 
     @contextmanager
-    def capabilities_navigation_fixture(self,root,base,metadata,owners,materialize=False):
+    def capabilities_navigation_fixture(self,root,base,metadata,owners,materialize=False,range_body=None):
         proofs=deepcopy(release.CAPABILITIES_NAVIGATION_PROOFS);working=deepcopy(metadata);records=[];bodies={}
         proofs=list(proofs)
         for index,(rid,_,_,scope,changes) in enumerate(proofs):
@@ -2012,6 +2061,8 @@ class NativePublisher(unittest.TestCase):
                 target=release.CAPABILITIES_NAVIGATION_TARGETS[alias]
                 if materialize:
                     before=working[target]['sha256'];bodies[target]=('synthetic '+rid+' '+alias).encode();after=prepare.digest(bodies[target])
+                    if alias=='range' and range_body is not None:
+                        bodies[target]=range_body;after=prepare.digest(range_body)
                     changes[alias]=(candidate,before,after)
                 rows.append(dict(candidate=candidate,target=target,beforeSha256=before,sha256=after))
                 working[target]=dict(working[target],sha256=after)
@@ -2178,8 +2229,15 @@ class NativePublisher(unittest.TestCase):
                 transport_patch=patch.object(release,'CAPABILITIES_TRANSPORT_HISTORY_PROOF',transport);transport_patch.start();self.addCleanup(transport_patch.stop)
                 rows[:]=[dict(r,beforeSha256=r['sha256']) for r in rows]
                 next(r for r in rows if r['candidate']==grant)['sha256']=prepare.digest(b'installed direct channel grant')
+                knowledge_manifest=deepcopy(manifest);knowledge_manifest['sourceCommit']=release.CAPABILITIES_KNOWLEDGE_HISTORY_PROOF['sourceCommit']
+                knowledge=self.save_capabilities_receipt(base,root,release.CAPABILITIES_KNOWLEDGE_HISTORY_PROOF,knowledge_manifest,owners)
+                knowledge_patch=patch.object(release,'CAPABILITIES_KNOWLEDGE_HISTORY_PROOF',knowledge);knowledge_patch.start();self.addCleanup(knowledge_patch.stop)
+                rows[:]=[dict(r,beforeSha256=r['sha256']) for r in rows]
+                rows.extend(dict(candidate=n,target=p,beforeSha256=release.KNOWLEDGE_INITIAL_EXISTING.get(n,(None,))[0],
+                    sha256=prepare.digest(n.encode()),owner='0:0',mode='0o644') for n,p in release.KNOWLEDGE_INSTALLED_TARGETS.items()
+                    if n not in release.CAPABILITIES_BASELINE_TARGETS)
                 git['files']={r['candidate']:r['sha256'] for r in rows}
-                git['files'].update({n:v[0] for n,v in release.KNOWLEDGE_EXISTING.items()})
+                git['files'].update({n:v[0] for n,v in release.DESKTOP_EXISTING.items()})
                 git['files'].update({n:None for n in release.NEW})
                 history_patch=patch.object(release,'CAPABILITIES_HISTORY_PROOF',history);history_patch.start();self.addCleanup(history_patch.stop)
                 save(manifest)
@@ -2190,10 +2248,10 @@ class NativePublisher(unittest.TestCase):
                 expected.update({p:r['sha256'] for p,r in navigation.after.items()})
                 expected.update({p:r['sha256'] for p,r in shared.after.items()})
                 expected.update({release.CAMPAIGN_TARGETS[n]:v[0] for n,v in release.CAMPAIGN_BEFORE.items()})
-                expected.update({release.TARGETS[n]:v[0] for n,v in release.KNOWLEDGE_EXISTING.items()})
+                expected.update({release.TARGETS[n]:v[0] for n,v in release.DESKTOP_EXISTING.items()})
                 expected.update({release.TARGETS[n]:None for n in release.NEW})
                 self.assertEqual(result['archive_all_hashes'],expected)
-                self.assertEqual(len(release.ARCHIVE_PROTECTED),767)
+                self.assertEqual(len(release.ARCHIVE_PROTECTED),766)
                 self.assertTrue(historical.backup.is_dir())
                 transport_journal=base.rooted(root,transport['backup']+'/journal.json');saved_transport=transport_journal.read_bytes()
                 for changes in ({'written':False},{'rollbackWritten':True}):
@@ -2225,7 +2283,7 @@ class NativePublisher(unittest.TestCase):
                 previous_journal.write_bytes(saved_previous);previous['journalSha256']=prepare.digest(saved_previous)
                 for candidate in ('runtime/conversation_native.py','campaign/backend/campaign_backend/services.py'):
                     bad=deepcopy(manifest);next(r for r in bad['files'] if r['candidate']==candidate)['beforeSha256']='0'*64;save(bad)
-                    with self.assertRaisesRegex(ValueError,'native_transport_success_chain_mismatch'):release.installed_baseline(root,git)
+                    with self.assertRaisesRegex(ValueError,'native_knowledge_success_chain_mismatch'):release.installed_baseline(root,git)
                 save(manifest)
                 for field in ('sourceCommit','nativeStaticBaseline'):
                     bad=deepcopy(history_manifest);bad[field]='untrusted'
@@ -2243,7 +2301,7 @@ class NativePublisher(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError,'composer_static_installed_proof_mismatch'):release.installed_baseline(root,change)
                 for key,value in (('sha256','75a9b57a7073771b105573ab59e4c0a227f8567a75c8accbde2991d171934b3d'),('owner','9876:9876'),('mode','0o644')):
                     bad=deepcopy(manifest);bad['unchangedRequired'][0][key]=value;save(bad)
-                    with self.assertRaisesRegex(ValueError,'native_transport_success_chain_mismatch'):release.installed_baseline(root,git)
+                    with self.assertRaisesRegex(ValueError,'native_knowledge_success_chain_mismatch'):release.installed_baseline(root,git)
                 bad=deepcopy(manifest);bad['sourceCommit']='bd9cb44c4233f176fb15fd14f5560a5000c750d1';save(bad)
                 with self.assertRaises(ValueError):release.installed_baseline(root,git)
                 save(manifest,files=[dict(r,intent=True,written=False) for r in rows])
@@ -2281,8 +2339,8 @@ class NativePublisher(unittest.TestCase):
 
     def test_native_grant_uses_current_success_and_no_new_module(self):
         prepare.configure_native_capabilities()
-        self.assertEqual(release.INSTALLED_COMMIT,'193223331dd2516ad211a9366f860d6fbebaefc2')
-        self.assertEqual((len(release.TARGETS),len(release.CAPABILITIES_BASELINE_TARGETS)),(26,21))
+        self.assertEqual(release.INSTALLED_COMMIT,'aad68048e0316ff7823e29ec3f16a2834f16fe44')
+        self.assertEqual((len(release.TARGETS),len(release.CAPABILITIES_BASELINE_TARGETS)),(32,21))
         self.assertNotIn('campaign/backend/campaign_backend/coupon_grant.py',release.NEW|set(release.CAPABILITIES_CHANGED))
         self.assertEqual(release.CAPABILITIES_PREVIOUS_PROOF['sourceCommit'],'36d7d92540d9153e9b1cc764f900990ded17362d')
 
@@ -2428,7 +2486,7 @@ class NativePublisher(unittest.TestCase):
         self._archive_apply_contract()
 
     def _archive_apply_contract(self, capabilities=False):
-        for failure in ((None,'campaign','range','readiness','worker') if capabilities else (None,'range','readiness')):
+        for failure in ((None,'desktop','range','readiness') if capabilities else (None,'range','readiness')):
             self.tearDown();self.setUp()
             with self.subTest(failure=failure),tempfile.TemporaryDirectory() as directory,self.admission_fixture(Path(directory)) as f,ExitStack() as proof_stack:
                 root=Path(directory);base=f.base;old_proof=deepcopy(f.proof);old=deepcopy(f.previous)
@@ -2464,7 +2522,7 @@ class NativePublisher(unittest.TestCase):
                 live_targets=[release.NGINX,'/opt/fs-exact-range-20261001/range_api.py']+['/opt/fs-hermes-fc/live'+str(i)+'.py' for i in range(6)]
                 records=[]
                 for i,target in enumerate(live_targets):
-                    p=base.rooted(f.system,target);p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(('live:'+str(i)).encode())
+                    p=base.rooted(f.system,target);p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(self.desktop_before_bytes('http/range_api.py') if capabilities and target==release.DESKTOP_TARGETS['http/range_api.py'] else ('live:'+str(i)).encode())
                     records.append(dict(candidate='live/'+str(i),target=target,sha256=base.digest(p),beforeSha256='0'*64,owner='0:0',mode='0o600' if target==release.NGINX else '0o644'))
                 fc_paths={'/opt/fc27-cloud-browser/fc_pricing_v3/sources.py','/opt/fs-hermes-fc/fc_pricing_v3/sources.py','/opt/fc27-cloud-browser/server_quote_job.py'}
                 eligible=[p for p in oldmap if p not in live_targets and p not in (release.TARGETS['runtime/conversation_store.py'],release.TARGETS['runtime/conversation_native.py'])]
@@ -2538,7 +2596,7 @@ class NativePublisher(unittest.TestCase):
                         before=prepare.digest(b'historical route before transition'),after=current[release.NGINX]))
                     for path in nginx_proof.backup.iterdir():f.owners[path]=(0,0,0o600)
                     navigation=proof_stack.enter_context(self.capabilities_navigation_fixture(f.system,base,
-                        {p:metadata(p) for p in current},f.owners,materialize=True))
+                        {p:metadata(p) for p in current},f.owners,materialize=True,range_body=self.desktop_before_bytes('http/range_api.py')))
                     current.update({p:r['sha256'] for p,r in navigation.after.items()})
                     advanced_nginx=nginx.read_bytes()
                     shared=proof_stack.enter_context(self.shared_update_fixture(f.system,base,f.owners))
@@ -2587,10 +2645,23 @@ class NativePublisher(unittest.TestCase):
                     body=self.campaign_before_bytes(grant).replace(b"url='https://admin-api.p2pah.cn'+self.route",b"url='http://127.0.0.1:8912'+self.route")
                     base.rooted(f.system,release.TARGETS[grant]).write_bytes(body);current[release.TARGETS[grant]]=prepare.digest(body)
                     installed_rows=[dict(r,beforeSha256=r['sha256'],sha256=current[r['target']]) for r in installed_rows]
-                    cap_manifest=dict(cap_manifest,sourceCommit=release.NATIVE_CAPABILITIES_PROOF['sourceCommit'],files=installed_rows)
+                    cap_manifest=dict(cap_manifest,sourceCommit=release.CAPABILITIES_KNOWLEDGE_HISTORY_PROOF['sourceCommit'],files=installed_rows)
+                    knowledge_proof=self.save_capabilities_receipt(base,f.system,release.CAPABILITIES_KNOWLEDGE_HISTORY_PROOF,cap_manifest,f.owners)
+                    proof_stack.enter_context(patch.object(release,'CAPABILITIES_KNOWLEDGE_HISTORY_PROOF',knowledge_proof))
+                    knowledge_rows=[]
+                    for name,target in release.KNOWLEDGE_INSTALLED_TARGETS.items():
+                        prior=release.KNOWLEDGE_INITIAL_EXISTING.get(name,(current.get(target),))[0]
+                        if name in ('runtime/conversation_native.py','runtime/hermes_worker.py') or target not in current:
+                            path=base.rooted(f.system,target);path.parent.mkdir(parents=True,exist_ok=True)
+                            path.write_bytes((Path(__file__).resolve().parents[4]/prepare.SOURCES[name]).read_bytes());f.owners[path]=(0,0,0o644);current[target]=base.digest(path)
+                        knowledge_rows.append(dict(candidate=name,target=target,beforeSha256=prior,sha256=current[target],owner='0:0',mode='0o644'))
+                    # Range was protected in all earlier receipts: freeze its real bytes
+                    # before saving those receipts rather than manufacturing a new before.
+                    cap_manifest=dict(cap_manifest,sourceCommit=release.INSTALLED_COMMIT,files=knowledge_rows)
                     proof=self.save_capabilities_receipt(base,f.system,release.NATIVE_CAPABILITIES_PROOF,cap_manifest,f.owners)
-                    for name in release.KNOWLEDGE_EXISTING:
-                        path=base.rooted(f.system,release.TARGETS[name]);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(self.knowledge_before_bytes(name));f.owners[path]=(0,0,0o644);current[release.TARGETS[name]]=base.digest(path)
+                    serve=base.rooted(f.system,release.TARGETS['desktop/serve.py']);serve.parent.mkdir(parents=True,exist_ok=True)
+                    serve.write_bytes(self.desktop_before_bytes('desktop/serve.py'));f.owners[serve]=(0,0,0o644);current[release.TARGETS['desktop/serve.py']]=base.digest(serve)
+                    for name in release.NEW:base.rooted(f.system,release.TARGETS[name]).parent.mkdir(parents=True,exist_ok=True)
                     # frozen() captures NEW at construction; this reused fixture
                     # base predates mode selection, unlike the staged runtime.
                     base.MATERIAL_NEW=release.NEW
@@ -2603,6 +2674,7 @@ class NativePublisher(unittest.TestCase):
                 for name in prepare.SOURCES:
                     p=f.payload/name;p.parent.mkdir(parents=True,exist_ok=True)
                     p.write_bytes(((b'# new native consumer\n' if name in release.NEW else base.rooted(f.system,release.TARGETS[name]).read_bytes())+(b'\n# actor relay\n' if name in release.CAPABILITIES_CHANGED else b'')) if capabilities else source_body if name=='runtime/conversation_store.py' else (base.rooted(f.system,release.TARGETS[name]).read_bytes()+b'\n# archive consumer\n'))
+                    if capabilities and name=='desktop/fs-principal.json':p.write_bytes(json.dumps(dict(principal='wulv',credential_file='/var/lib/fs-hermes-fc/profile/.desktop-management/token')).encode())
                     descriptor['files']['payload/'+name]=prepare.digest(p.read_bytes())
                 raw=json.dumps(descriptor).encode();(f.payload.parent/'payload-manifest.json').write_bytes(raw)
                 stage=root/'archive-stage'
@@ -2622,7 +2694,7 @@ class NativePublisher(unittest.TestCase):
                         if failure is None:
                             for name in release.NEW:
                                 path=base.rooted(f.system,release.TARGETS[name]);path.write_bytes(b'unexpected existing helper');f.owners[path]=(0,0,0o644)
-                                with self.assertRaisesRegex(ValueError,'runtime_source_baseline_drift'):
+                                with self.assertRaisesRegex(ValueError,'desktop_new_target_already_exists'):
                                     prepare.prepare(f.payload,root/'existing-new-rejected','a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
                                 path.unlink();f.owners.pop(path)
                         for zero,extra in ((True,False),(False,True)):
@@ -2638,7 +2710,7 @@ class NativePublisher(unittest.TestCase):
                             for name,body in saved.items():(f.payload/name).write_bytes(body)
                             (f.payload.parent/'payload-manifest.json').write_bytes(raw)
                     prepare.prepare(f.payload,stage,'a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
-                manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),26 if capabilities else 3);self.assertEqual(len(manifest['unchangedRequired']),767 if capabilities else 776)
+                manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),32 if capabilities else 3);self.assertEqual(len(manifest['unchangedRequired']),766 if capabilities else 776)
                 untouched={r['path']:(base.rooted(f.system,r['path']).read_bytes(),base.rooted(f.system,r['path']).stat().st_ino,base.rooted(f.system,r['path']).stat().st_mtime_ns) for r in manifest['unchangedRequired']}
                 if capabilities:
                     self.assertEqual(manifest['nativeStaticBaseline'],static_proof)
@@ -2646,7 +2718,7 @@ class NativePublisher(unittest.TestCase):
                     for row in manifest['files']:
                         if row['candidate'] not in release.CAPABILITIES_CHANGED:
                             path=base.rooted(f.system,row['target']);untouched[row['target']]=(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns)
-                    self.assertEqual(len(untouched),788)
+                    self.assertEqual(len(untouched),792)
                     self.assertEqual({row['candidate'] for row in manifest['files'] if row['beforeSha256'] is None},set(release.NEW))
                 untouched_modes={p:(base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)) for p in untouched}
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -2657,6 +2729,7 @@ class NativePublisher(unittest.TestCase):
                     module.CAPABILITIES_GRANT_HISTORY_PROOF=grant_history_proof
                     module.CAPABILITIES_IMPORT_HISTORY_PROOF=import_history_proof
                     module.CAPABILITIES_TRANSPORT_HISTORY_PROOF=transport_proof
+                    module.CAPABILITIES_KNOWLEDGE_HISTORY_PROOF=knowledge_proof
                     module.CAPABILITIES_NGINX_PROOF=nginx_proof.proof
                     module.CAPABILITIES_NAVIGATION_PROOFS=navigation.proofs
                     module.CAPABILITIES_SHARED_PROOF=shared.proof
@@ -2664,16 +2737,16 @@ class NativePublisher(unittest.TestCase):
                 module.ARCHIVE_FC_PROOF=fc_proof;module.ARCHIVE_FC_FILES=fc_files
                 base.hermes_quiescent=Mock();base.retirement=Mock();base.locks=base.live_lock=base.model_release_lock=lambda *a:nullcontext()
                 fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock());base.hermes_admission_fence=lambda *a:nullcontext(fence)
-                effects=([None,RuntimeError('synthetic range failure'),None,None] if capabilities else [RuntimeError('synthetic range failure'),None]) if failure=='range' else [RuntimeError('synthetic worker failure'),None,None] if failure=='worker' else None
+                effects=([RuntimeError('synthetic range failure'),None] if capabilities else [RuntimeError('synthetic range failure'),None]) if failure=='range' else [RuntimeError('synthetic worker failure'),None,None] if failure=='worker' else None
                 restart=Mock(side_effect=effects);base.restart_for=restart
                 if os.name=='nt':base.directory_sync=lambda *a:None
                 readiness=Mock(side_effect=[None,None,RuntimeError('synthetic readiness failure'),None] if failure=='readiness' else None)
                 service_calls=[]
                 def service_run(argv,**kwargs):
                     service_calls.append(argv)
-                    if argv==['systemctl','restart','fs-campaign-dashboard.service']:
+                    if argv==['systemctl','restart','fs-hermes-desktop.service']:
                         count=service_calls.count(argv)
-                        if failure=='campaign' and count==1:raise RuntimeError('synthetic campaign failure')
+                        if failure=='desktop' and count==1:raise RuntimeError('synthetic campaign failure')
                         if failure and count>1:
                             for row in manifest['files']:
                                 path=base.rooted(f.system,row['target']);self.assertEqual(base.digest(path) if path.exists() else None,row['beforeSha256'])
@@ -2687,7 +2760,10 @@ class NativePublisher(unittest.TestCase):
                                 path.write_bytes(b'helper changed after prepare');f.owners[path]=(0,0,0o644)
                                 with self.assertRaises(ValueError):publisher.inspect(manifest,stage,f.system)
                                 if saved is None:path.unlink();f.owners.pop(path)
-                                else:path.write_bytes(saved)
+                                else:
+                                    path.write_bytes(saved)
+                                    if row_target:=next((r['target'] for r in manifest['files'] if r['candidate']==name and r['target'] in untouched),None):
+                                        untouched[row_target]=(saved,path.stat().st_ino,path.stat().st_mtime_ns)
                         nginx_row=next(r for r in manifest['unchangedRequired'] if r['path']==release.NGINX)
                         self.assertEqual(nginx_row['sha256'],current[release.NGINX])
                         nginx.write_bytes(b'changed route after prepare')
@@ -2763,11 +2839,11 @@ class NativePublisher(unittest.TestCase):
                         with store.db() as db:db.execute("UPDATE synthetic_turn_archives SET receipt_sha256='drift'")
                         with self.assertRaisesRegex(ValueError,'archive_audit_drift'):publisher.guards(manifest,f.system)
                     self.assertTrue(all(c.args[0]['scope'] in ({base.DEEP_SCOPE,base.HERMES_WORKER_SCOPE} if capabilities else {base.DEEP_SCOPE}) for c in restart.call_args_list))
-                    if capabilities and not failure:self.assertEqual([c.args[0]['scope'] for c in restart.call_args_list],[base.HERMES_WORKER_SCOPE,base.DEEP_SCOPE])
+                    if capabilities and not failure:self.assertEqual([c.args[0]['scope'] for c in restart.call_args_list],[base.DEEP_SCOPE])
                     if capabilities:
-                        self.assertIn(['systemctl','restart','fs-campaign-dashboard.service'],service_calls)
+                        self.assertIn(['systemctl','restart','fs-hermes-desktop.service'],service_calls)
                         self.assertTrue(all(argv[1] in ('show','restart','is-active') for argv in service_calls if argv[0]=='systemctl'))
-                        self.assertTrue(all(argv[-1]=='fs-campaign-dashboard.service' for argv in service_calls if argv[:2]==['systemctl','restart']))
+                        self.assertTrue(all(argv[-1]=='fs-hermes-desktop.service' for argv in service_calls if argv[:2]==['systemctl','restart']))
                 if capabilities:
                     with store.db() as db:self.assertEqual(json.loads(db.execute('SELECT receipt FROM synthetic_turn_archives WHERE turn_id=?',(turn['turn_id'],)).fetchone()[0]),archived_before)
                 for p,values in untouched.items():self.assertEqual((base.rooted(f.system,p).read_bytes(),base.rooted(f.system,p).stat().st_ino,base.rooted(f.system,p).stat().st_mtime_ns),values)

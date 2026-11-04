@@ -182,6 +182,10 @@ def configure_native_capabilities():
         'runtime/knowledge_catalog.py':'releases/fs-dashboard/knowledge-layering-20261023/source/knowledge_catalog.py',
         'runtime/report_artifacts.py':'releases/fs-dashboard/hermes-data-workspace-20261018/source/report_artifacts.py',
         'runtime/reviewed_skills.py':'releases/fs-dashboard/hermes-memory-approval-20261022/reviewed_skills.py'})
+    SOURCES.update({name:MODULE+'source/'+('desktop_serve.py' if name=='desktop/serve.py' else name.rsplit('/',1)[1])
+                    for name in release.DESKTOP_TARGETS if name not in ('http/range_api.py','desktop/fs-principal.json')})
+    SOURCES['http/range_api.py']='releases/fs-dashboard/management-november-20261103/source/range_api.py'
+    SOURCES['desktop/fs-principal.json']=MODULE+'deploy/desktop-fs-principal.json'
 
 
 def configure_native_composer_static():
@@ -267,10 +271,12 @@ def file_metadata(base, root, name, absent=False):
     if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != 0 or info.st_gid != 0:
         raise ValueError('runtime_regular_root_file_required: ' + name)
     import runtime_release as release
-    knowledge = release.NATIVE_CAPABILITIES_MODE and name in {release.TARGETS[n] for n in release.KNOWLEDGE_EXISTING}
-    if release.NATIVE_CAPABILITIES_MODE and (name in release.CAMPAIGN_TARGETS.values() or knowledge):
+    if release.NATIVE_CAPABILITIES_MODE and name in {release.TARGETS[n] for n in release.NEW}:
+        raise ValueError('desktop_new_target_already_exists')
+    desktop = release.NATIVE_CAPABILITIES_MODE and name in {release.TARGETS[n] for n in release.DESKTOP_EXISTING}
+    if release.NATIVE_CAPABILITIES_MODE and (name in release.CAMPAIGN_TARGETS.values() or desktop):
         key=next(n for n,p in release.TARGETS.items() if p==name)
-        expected_sha,expected_size=(release.KNOWLEDGE_EXISTING if knowledge else release.CAMPAIGN_BEFORE)[key]
+        expected_sha,expected_size=(release.DESKTOP_EXISTING if desktop else release.CAMPAIGN_BEFORE)[key]
         fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
         if info.st_size!=expected_size or stat.S_IMODE(info.st_mode)!=0o644:
             raise ValueError('campaign_before_boundary_drift')
@@ -307,7 +313,7 @@ def observe(root=Path('/'), installed=None):
     for name, row in rows.items():
         if (not installed and name in NEW and row['sha256'] is not None) or (name in expected and row['sha256'] != expected[name]):
             raise ValueError('runtime_source_baseline_drift: ' + row['path'])
-        expected_mode = '0o600' if row['path'] == NGINX else '0o644'
+        expected_mode = release.payload_mode(row['path'])
         if row['sha256'] is not None and row['mode'] != expected_mode:
             raise ValueError('runtime_mode_drift: ' + row['path'])
     if release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE:
@@ -342,7 +348,18 @@ def observe(root=Path('/'), installed=None):
               'worker_image': worker['image'], 'worker_state': worker['state'], 'worker_image_source': worker['source']}
     if release.NATIVE_MODE:
         result['native_dependencies'] = release.native_dependencies(base, root)
+    if release.NATIVE_CAPABILITIES_MODE and root==Path('/'):
+        result['desktop_dependencies']=release.desktop_observation(base,root)
     return result
+
+
+def payload_bytes(name, raw):
+    # This maintenance source has one established CRLF deployment identity.
+    # Other Git payloads keep their exact original bytes.
+    import runtime_release as release
+    if release.NATIVE_CAPABILITIES_MODE and name=='http/range_api.py':
+        return raw.replace(b'\r\n',b'\n').replace(b'\n',b'\r\n')
+    return raw
 
 
 def pack(repo, output, commit):
@@ -359,12 +376,13 @@ def pack(repo, output, commit):
         # Read exact Git bytes: neither Windows autocrlf nor a working copy is a
         # deployment input. This command cannot read credentials outside SOURCES.
         raw = generated[name] if name in generated else subprocess.check_output(['git', 'show', commit + ':' + path], cwd=repo)
+        if name.startswith('payload/'):raw=payload_bytes(name[len('payload/'):],raw)
         target = output / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(raw)
         hashes[name] = digest(raw)
     import runtime_release as release
-    baseline = {name: (release.KNOWLEDGE_EXISTING[name][0] if release.NATIVE_CAPABILITIES_MODE and name in release.KNOWLEDGE_EXISTING else digest(generated_bodies[name]) if release.NATIVE_ADMISSION_MODE and name in generated_bodies else None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo)))
+    baseline = {name: (release.DESKTOP_EXISTING[name][0] if release.NATIVE_CAPABILITIES_MODE and name in release.DESKTOP_EXISTING else digest(generated_bodies[name]) if release.NATIVE_ADMISSION_MODE and name in generated_bodies else None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo)))
                 for name, path in SOURCES.items()}
     if not (release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE):baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
     if release.COMPOSER_STATIC_MODE and (baseline!={'frontend/index.html':release.COMPOSER_BEFORE_SHA} or
@@ -463,7 +481,7 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
             raise ValueError('nginx_changed_during_prepare')
         bodies['http/formal.conf'] = nginx if installed else patch_nginx(nginx)
     files = [{'candidate': name, 'target': target, 'beforeSha256': observed['files'][name]['sha256'],
-              'sha256': digest(bodies[name]), 'owner': '0:0', 'mode': '0o600' if target == NGINX else '0o644'}
+              'sha256': digest(bodies[name]), 'owner': '0:0', 'mode': __import__('runtime_release').payload_mode(target)}
              for name, target in TARGETS.items()]
     from runtime_release import SCOPE
     manifest = {'schemaVersion': 1, 'scope': SCOPE, 'sourceCommit': commit, 'releaseReady': release_ready,
@@ -474,13 +492,16 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
                 'businessWrites': False, 'timersChanged': False, 'files': files,
                 'unchangedRequired': [({k:r[k] for k in ('path','sha256','owner','mode')} if __import__('runtime_release').ARCHIVE_MODE or __import__('runtime_release').COMPOSER_STATIC_MODE else {'path':r['path'],'sha256':r['sha256']}) for r in observed['protected']],
                 'runtimeRequired': {unit: {'ActiveState': 'active'} for unit in (
+                    *(('fs-hermes-desktop.service',) if __import__('runtime_release').NATIVE_CAPABILITIES_MODE else ()),
                     'fs-business-range.service', 'fs-hermes-fc.service', 'nginx.service')},
                 'runtimeBefore': {unit: {'ActiveState': observed['worker_state'] if unit == 'fs-hermes-fc.service' else 'active'}
-                                  for unit in ('fs-business-range.service', 'fs-hermes-fc.service', 'nginx.service')},
+                                  for unit in (('fs-hermes-desktop.service',) if __import__('runtime_release').NATIVE_CAPABILITIES_MODE else ()) + ('fs-business-range.service', 'fs-hermes-fc.service', 'nginx.service')},
                 'workerImageSource': observed['worker_image_source'],
                 'baselineObservedAt': observed['observed_at'], 'approvedPayloadSha256': payload_sha256}
     if installed:
         manifest['installedBaseline'] = INSTALLED_PROOF
+        if __import__('runtime_release').NATIVE_CAPABILITIES_MODE and root==Path('/'):
+            manifest['desktopDependencies']=observed['desktop_dependencies']
         if __import__('runtime_release').COMPOSER_STATIC_MODE:
             release=__import__('runtime_release')
             if len(files)!=1 or files[0]['beforeSha256']!=release.COMPOSER_BEFORE_SHA or files[0]['sha256']!=release.COMPOSER_AFTER_SHA:

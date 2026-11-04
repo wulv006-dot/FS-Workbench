@@ -1089,3 +1089,12 @@ source `193223331dd2516ad211a9366f860d6fbebaefc2`／`nav-20261103T191430Z` 已�
 知识consumer源8587已合，不代表生产加载。当前候选只沿原native-capabilities followup／冻结writer，以193成功proof衔接fb70及全部旧历史校验：26targets=24existing＋NEW2；实际写native、worker、catalog及新conversation_knowledge/fs_native_knowledge两bridge，其他21runtime＋767保护=788项不写。catalog before为固定1a1a42d8 Git仅CRLF→LF的13044B／9ebb9c5c…a6d6b；report_artifacts采用实际data-workspace原Git8505B／159728c9…56f11b，reviewed_skills为14072B／a3d54617…3e660，两者仅CAS/备份不写，不以旧pilot fixture覆盖。三路径首次纳管有明确用户授权、固定Git与一次9field/no-follow元信息相等依据；NEW2仍在fresh prepare重新证明缺失。policy原SHA34bfb04d…67ab且当前owner/FS/fs/conversation已选approved_current，配置与正式知识/审核索引不写。
 
 原21项装配的真实RED已保留；新import闭包实际使用8505B report模块完成私有pin/load/activate/read/use，不命中旧pilot sys.modules。tempFS原prepare/inspect/apply、campaign/worker/range/readiness失败回退、NEW意外已存在和prepare后helper CAS拒绝、NEW回退删除及788项不写通过。OS身份/服务为明确fixture，不冒生产加载；原15/203/78等同字节消费者证据复用，正常LinuxCI仍必需。首次本地夹具中的worktree CRLF、缺baseline_compatibility/显式FS module参数及delta顺序失配均纠正并保留日志，未改consumer或放松门禁。当前候选未部署，不发模型/业务请求，不将其作为原op对账或UI开工前置。
+### 2026-11-04：Desktop 与原 FS 会话接线装配候选（尚未安装）
+
+当前生产为 `aad68048e0316ff7823e29ec3f16a2834f16fe44/nav-20261103T202302Z`：manifest `c8f8ef36e9186e9ba434f7490ce466132ccc4e6a979aef3f0951fdab0e66362a`、journal `63fb7af867bd97a124f4e3fe80ab3606b17ef431023f8719698f0c38ba7709db`。知识 index/read/use 已有本轮回执，整轮 failed，不能将软件安装或工具完成写成完整模型验收通过。
+
+本次 Desktop 候选复用原 native-capabilities followup 和冻结 writer：32 targets＝28 existing＋NEW4，写双部署 conversation_desktop、desktop_fs_gateway、serve、实际 range 与创建者绑定配置共6项；其余26 runtime＋766 protected＝792项不写。range 原保护项仅此一路提升为写目标，固定 before 为34129B／`08e22627230531e06c35e661302d6f23808e07a527bbff2485d6b174303a79a6`，该维护源沿原单路径 CRLF 部署身份；serve before1346B／`8211079893a3afbfaa41a6a13c85a325a49329a03006cfb0e473d839f417da30`。其它 Git 原字节不作换行转换。NEW4 在 fresh prepare 证明缺失，意外存在拒绝。
+
+新增 root600 `/etc/fs-hermes-desktop/fs-principal.json` 仅保存已授权创建者 principal 与原 token 文件路径，不复制 token。准备检查原 Desktop host 网络、只读 `/desktop` 与原共享 `/profile` 映射、token600元信息及固定官方 helper 源接口；不读 token 正文。只重载原 range 和 Desktop 两服务，失败先按原 journal 恢复代码和清理本 release 新文件，再恢复服务；不迁移 Store/profile，不重启 worker/campaign，不改 unit、mount、网络、P0、知识 policy、已批记忆技能或业务账本。
+
+原八个历史验证函数与冻结 writer 保持原字节。navigation overlay 仅调整目标集合交集：历史范围仍核原固定写集合，当前六条保护路径中只能指定 range 被提升，另五条及错 range 映射均拒绝；完整历史 proof、安全身份、SHA、manifest/journal 绑定、intent/written 与无回退检查继续。原临时 FS prepare/inspect/apply 和 range/Desktop/readiness 失败回退为本地证据，consumer v2 的13项由原 owner 独立交付；尚未部署，未冒真实 UI 通过。合并安装后仅原 FS 与 Desktop 同 cid 最多两条纯技术 ACK 验收，不查客户/订单、创建 Goal、发券、改价支付或修改记忆技能。
