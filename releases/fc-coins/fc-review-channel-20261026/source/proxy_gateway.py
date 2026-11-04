@@ -637,14 +637,14 @@ class ModelGateway:
     def call(self, owner, task_id, lease, turn, body):
         binding = self.scope.context(owner, task_id, lease)
         guard = (self.scope, binding) if native_scope(self.scope) else None
-        diagnostic = {'_native_guard':guard} if guard is not None else {}
+        guard_kwargs = {'_native_guard':guard} if guard is not None else {}
         if type(turn) is not int or turn<0:raise ValueError('turn_invalid')
         # Logical turn identity remains in hermes_turns. Existing reservation slots encode
         # each physical attempt as turn*3+ordinal, with no schema migration or old-row rewrite.
         base_turn=turn*(self.transport_retries+1)
         request=request_body(body,self.budget.policy['model'],tool_schemas=task_schemas(getattr(self.scope,'book',None)),native_chat=native_scope(self.scope))
         with self._compaction_lock:
-            request=self.budget.restore_tool_indexes(owner,task_id,base_turn,request,compaction=self._native_compaction,**diagnostic)
+            request=self.budget.restore_tool_indexes(owner,task_id,base_turn,request,compaction=self._native_compaction,**guard_kwargs)
         if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
         require_context_window(request)  # Recheck after trusted replay metadata is restored.
         if self.preflight is not None:self.preflight(request)  # Final vendor wire before any reservation/network.
@@ -661,7 +661,7 @@ class ModelGateway:
                 self.scope.context(owner,task_id,lease)
                 if attempt:self.retry_wait(2**attempt,lambda:self.scope.context(owner,task_id,lease))
                 physical_turn=base_turn+attempt
-                try:fingerprint,prior=self.budget.reserve(owner,task_id,physical_turn,request,bound,limit,**diagnostic)
+                try:fingerprint,prior=self.budget.reserve(owner,task_id,physical_turn,request,bound,limit,**guard_kwargs)
                 except ValueError as error:
                     if str(error)=='unknown_previous_attempt' and self.transport_retries and self.budget.prior_transport_reset(owner,task_id,physical_turn,request):continue
                     raise
