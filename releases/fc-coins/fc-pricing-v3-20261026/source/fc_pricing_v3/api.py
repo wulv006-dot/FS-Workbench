@@ -98,7 +98,7 @@ def strategy_summary(decisions):
     """Keep every selectable action while leaving repeated proofs in the private ledger."""
     result={}
     for mode,decision in (decisions or {}).items():
-        if mode not in POLICIES:continue
+        if mode not in POLICIES and mode!='smart':continue
         candidates=[]
         for candidate in decision.get('candidates',[]):
             proof=candidate.get('financial_proof') or {}
@@ -300,7 +300,7 @@ def post(path,data,actor):
         if set(data)-{'request_key','mode','resources','parameters','starts_at','ends_at'}:
             raise ValueError('pricing_plan_fields_invalid')
         mode=data['mode']
-        if mode not in POLICIES:
+        if mode not in POLICIES and mode != 'smart':
             raise ValueError('pricing_strategy_unknown')
         ident=request_id(actor,data,'plan')
         client_hash=fingerprint(data)
@@ -317,13 +317,17 @@ def post(path,data,actor):
         if set(resources)-allowed:
             raise ValueError('pricing_plan_scope_invalid')
         resources=sorted(set(resources))
+        if mode=='smart' and any(r.startswith('region:21:') and r not in allowed for p in db.active_plans() for r in p['resources']):
+            raise ValueError('pricing_smart_region_evidence_missing')
+        if mode=='smart' and set(resources)!=allowed:
+            raise ValueError('pricing_smart_scope_requires_all_owned_resources')
         anchor={'base_prices':{g:str(max(number(snapshot['evidence']['storefront']['rows'][p]['package_usd']) for p in ps))
                                for g,ps in {'console':('PS','XBOX'),'pc':('PC',)}.items()},
                 'region_coefficients':{str(r['region_id'])+':'+p:str(r['factor']) for r in snapshot['evidence'].get('region_rules',[]) for p in r['platforms']}}
         if existing:
             resources,anchor=existing['resources'],existing['price_anchor']
         parameters=data.get('parameters') or {}
-        if not isinstance(parameters,dict) or set(parameters)-({'allocation','preferred_undercut_pct','sprint_policy_version'} if mode=='revenue_sprint' else {'allocation','offsets_pct'}):
+        if not isinstance(parameters,dict) or set(parameters)-({'allocation','preferred_undercut_pct','sprint_policy_version'} if mode in ('revenue_sprint','smart') else {'allocation','offsets_pct'}):
             raise ValueError('pricing_plan_parameters_invalid')
         plan=db.create_plan(mode,resources,anchor,starts_at=data.get('starts_at'),ends_at=data.get('ends_at'),
                             actor=actor,parameters=parameters,plan_id=ident)
@@ -376,7 +380,7 @@ def post(path,data,actor):
                 from .financial import FINANCIAL_CONTRACT_VERSION
                 from .engine import sprint_parameters
                 if plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:raise ValueError('pricing_financial_plan_migration_required')
-                if plan['mode']=='revenue_sprint':sprint_parameters(plan)
+                if plan['mode'] in ('revenue_sprint','smart'):sprint_parameters(plan)
             desired='SUSPENDED' if action=='pause' else 'ACTIVE'
             if plan['state']==desired:
                 return plan

@@ -903,13 +903,18 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
     """Server-local anonymous settlement records and window aggregates, never customer identities."""
     from .engine import replay_promotion
     archived, coupon_logs = archived or {}, coupon_logs or {}
+    orders_by_id = {str(o['order_no']): o for o in orders if o.get('order_no')}
+    bound_customers = {}
     valid = [w for w in windows if w.get('origin') == 'confirmed_public_price_window' and w.get('mode') == 'production']
     coverage = Counter()
     failures = Counter()
     blocked_windows = set()
+    unscoped_time_gaps = False
     blocked_groups = set()
+    gap_events = []
     counts = Counter()
     settlements = []
+    actual_outcomes = []
     source = fingerprint(dict(orders=orders, windows=valid, coupon_logs=coupon_logs, as_of=now.isoformat()))
     for order in orders:
         quantity = _quantity(order)
@@ -921,6 +926,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             created = _native_created_at(order)
         except ValueError as error:
             failures[str(error)] += 1
+            unscoped_time_gaps = True
             blocked_windows.update(w['operation_id'] for w in valid)
             continue
         active = [w for w in valid if _window_instant(w['opened_at']) <= created < now
@@ -928,17 +934,21 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
         if not active:
             coverage['created_outside_price_windows'] += 1
             continue
+        gap_amount = amount(order.get('amount_usd_format'))
+        gap_usd = str(gap_amount) if gap_amount is not None and gap_amount >= 0 else None
         platform = _platform(order)
         matches = []
         for window in active:
             if not platform:
                 blocked_windows.add(window['operation_id'])
+                gap_events.append(dict(price_window_id=window['operation_id'], group=None, occurred_at=created.isoformat(), reason='unknown_platform', amount_usd=gap_usd))
                 continue
             group = _window_group(window, order, platform)
             if group is None or created >= _window_end(window, group, valid, now):
                 continue
             if quantity is None:
                 blocked_groups.add((window['operation_id'], group))
+                gap_events.append(dict(price_window_id=window['operation_id'], group=group, occurred_at=created.isoformat(), reason='unknown_quantity', amount_usd=gap_usd))
                 continue
             try:
                 regular = _window_regular(window, window['action'], order, platform, quantity)
@@ -947,22 +957,38 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
                 else:
                     failures['actual_regular_price_not_window_price'] += 1
                     blocked_groups.add((window['operation_id'],group))
+                    gap_events.append(dict(price_window_id=window['operation_id'], group=group, occurred_at=created.isoformat(), reason='price_mismatch', amount_usd=gap_usd))
             except (ValueError, KeyError, TypeError, InvalidOperation) as error:
                 failures[str(error) if isinstance(error, ValueError) else type(error).__name__] += 1
                 blocked_groups.add((window['operation_id'],group))
+                gap_events.append(dict(price_window_id=window['operation_id'], group=group, occurred_at=created.isoformat(), reason='price_trace_unknown', amount_usd=gap_usd))
         if quantity is None:
             continue
         if len(matches) != 1:
             coverage['unbound_or_ambiguous_orders'] += 1
             blocked_groups.update((w['operation_id'],group) for w,group,_ in matches)
+            gap_events.extend(dict(price_window_id=w['operation_id'], group=group, occurred_at=created.isoformat(), reason='ambiguous_binding', amount_usd=gap_usd) for w,group,_ in matches)
             continue
         window, group, regular = matches[0]
         if str(order.get('pay_status')) != '1' or str(order.get('status_format') or '').startswith('已退款'):
             failures['refund_or_unpaid_requires_native_USD_reconciliation'] += 1
+            gap_events.append(dict(price_window_id=window['operation_id'], group=group, occurred_at=created.isoformat(), reason='refund_or_unpaid', amount_usd=gap_usd))
             continue
         coverage['created_and_actual_price_uniquely_bound'] += 1
         counts[(window['operation_id'], group)] += 1
         sn = str(order['order_no'])
+        net = amount(order.get('amount_usd_format'))
+        old = (archived.get(sn) or [None])[0]
+        contribution = None
+        if old and net is not None:
+            cost, cny, live_cny = amount(old.get('costCny')), amount(old.get('saleCny')), amount(order.get('amount_rmb_format'))
+            if old.get('status') == '已完成' and cost is not None and cny is not None and cny > 0 and cny == live_cny and amount(old.get('salesUsd')) == net:
+                contribution = str(net - cost * net / cny)
+        actual_outcomes.append(dict(order_key=hashlib.sha256(('FC27:266:' + sn).encode()).hexdigest(),
+            price_window_id=window['operation_id'], group=group, platform=platform, occurred_at=created.isoformat(),
+            actual_net_usd=str(net) if net is not None else None, actual_contribution_usd=contribution,
+            coupon_present=bool(coupon_logs.get(sn)), cost_status='same_order_confirmed' if contribution is not None else 'pending'))
+        bound_customers[sn]=len(actual_outcomes)-1
         if coupon_logs.get(sn):
             failures['budget_reference_historical_coupon_terms_pending'] += 1
             continue
@@ -983,13 +1009,6 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
         except (ValueError, KeyError, TypeError, InvalidOperation):
             failures['budget_reference_price_trace_missing'] += 1
             continue
-        contribution = None
-        old = archived.get(sn)
-        if old:
-            old = old[0]
-            cost, cny, live_cny = amount(old.get('costCny')), amount(old.get('saleCny')), amount(order.get('amount_rmb_format'))
-            if old.get('status') == '已完成' and cost is not None and cny is not None and cny > 0 and cny == live_cny and amount(old.get('salesUsd')) == net:
-                contribution = str(net - cost * net / cny)
         budget_source = fingerprint(dict(
             order={key: order.get(key) for key in ('order_no', 'timestamp', 'timestamp_format', 'before_discount', 'discount', 'points', 'amount_usd_format', 'amount_rmb_format', 'status', 'pay_status', 'is_region_price', 'region_price_factor', 'region_price_lang_region_id', 'content')},
             accounting={key: old.get(key) for key in ('costCny', 'saleCny', 'salesUsd', 'status')} if old else None,
@@ -1003,6 +1022,15 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             coverage=dict(created_epoch_display_verified=True, unique_regular_price_window=True,
                           cost='actual_same_order_CNY_cost_converted_at_observed_Admin_order_USD_CNY' if contribution is not None else 'pending; reservation_retained',
                           reference='same_realized_code_or_points_path; cash_residual_within_one_cent')))
+    customer_rows = {sn: archived[sn] for sn in bound_customers if archived.get(sn)}
+    identities, new_assignments, customer_coverage = _customer_assignments(customer_rows, orders_by_id)
+    if len(customer_rows) != len(bound_customers):
+        customer_coverage['status'] = 'partial'
+        customer_coverage['missing_archive_orders'] = len(bound_customers) - len(customer_rows)
+    for sn,index in bound_customers.items():
+        old=(archived.get(sn) or [None])[0]
+        actual_outcomes[index].update(customer_key=identities.get(sn),
+            new_customer=(new_assignments.get(identities[sn]) == sn) if sn in identities and old and old.get('customerType') in ('新客','老客') else None)
     training = []
     for window in valid:
         operation = window['operation_id']
@@ -1040,11 +1068,12 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
                 randomization_verified=window.get('randomization_verified') is True,
                 inference='randomized' if window.get('randomization_verified') is True else 'observational; not_causal',
                 as_of=now.isoformat(), source_sha256=source))
-    return dict(budget_settlements=settlements, training_observations=training,
+    return dict(budget_settlements=settlements, actual_outcomes=actual_outcomes, training_observations=training,
         learning_coverage=dict(status='available' if training else 'price_binding_coverage_pending',
             price_windows=len(valid), counts=dict(coverage), gaps=dict(failures), source_sha256=source,
             observed_at=now.isoformat(),blocked_price_groups=[dict(price_window_id=op,price_group=group) for op,group in sorted(blocked_groups)],
-            query_complete=query_complete, binding='native_creation_epoch_and_display plus actual_regular_price; never payment_time_assignment',
+            gap_events=gap_events, unscoped_time_gaps=unscoped_time_gaps,
+            query_complete=query_complete, customer_coverage=customer_coverage, binding='native_creation_epoch_and_display plus actual_regular_price; never payment_time_assignment',
             source_rows_returned=False, customer_identifiers_returned=False))
 
 

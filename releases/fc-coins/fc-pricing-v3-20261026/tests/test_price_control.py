@@ -1,5 +1,6 @@
 """Operator settings and the real quote/verification path, using synthetic prices only."""
 from copy import deepcopy
+from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 import json
 from pathlib import Path
@@ -46,6 +47,116 @@ class PriceControlTest(unittest.TestCase):
         result=self.quote();self.verify(result)
         self.assertEqual(result['decision_receipt']['price_control']['revision'],0)
         self.assertEqual(self.db.get('pricing_plans',self.plan['plan_id']),self.plan)
+
+    def test_smart_plan_executes_through_existing_quote_verifier(self):
+        with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
+            smart = self.db.create_plan('smart', ['base:console', 'base:pc'], engine.current_action(self.data))
+            self.db.activate_plan(smart['plan_id'], now=NOW)
+        result = self.quote()
+        self.assertEqual(result['decision_receipt']['mode'], 'smart')
+        self.assertIn(result['decision_receipt']['smart_assignment']['label'], ('A', 'B', 'C'))
+        self.verify(result)
+        changed=deepcopy(result)
+        changed['decision_receipt']['smart_assignment']['label']='Z'
+        receipt=changed['decision_receipt']
+        receipt['sha256']=fingerprint({k:v for k,v in receipt.items() if k!='sha256'})
+        with self.assertRaisesRegex(ValueError,'pricing_smart_assignment_changed'):
+            self.verify(changed)
+
+    def test_smart_inherits_original_base_plan_identity_and_parameters(self):
+        self.plan['parameters']['preferred_undercut_pct']='5'
+        self.db.put('pricing_plans',self.plan['plan_id'],self.plan)
+        with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
+            smart=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+        self.assertEqual(smart['baseline_plan']['plan_id'],self.plan['plan_id'])
+        self.assertEqual(smart['baseline_plan']['revision'],self.plan['revision'])
+        self.assertEqual(smart['baseline_plan']['parameters']['preferred_undercut_pct'],'5')
+        self.assertEqual(smart['baseline_plan']['price_anchor'],self.plan['price_anchor'])
+
+    def test_smart_p0_uses_original_sprint_assignment(self):
+        previous = self.quote()['decision_receipt']
+        with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
+            smart = self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            self.db.activate_plan(smart['plan_id'],now=NOW)
+        next_receipt = self.quote()['decision_receipt']
+        self.assertEqual(next_receipt['smart_assignment']['baseline_assignment']['assignment_id'],previous['assignment_id'])
+        self.assertEqual(next_receipt['smart_assignment']['baseline_candidate']['action'],previous['action'])
+
+    def test_smart_does_not_apply_temporary_uplift_twice(self):
+        self.save(uplift_enabled=True,uplift_pct='5')
+        previous=self.quote()['decision_receipt']
+        with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
+            smart=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            self.db.activate_plan(smart['plan_id'],now=NOW)
+        result=self.quote()
+        self.assertEqual(result['decision_receipt']['smart_assignment']['baseline_candidate']['action'],previous['action'])
+        self.verify(result)
+
+    def test_smart_execution_checks_persisted_original_assignment(self):
+        with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
+            smart=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            self.db.activate_plan(smart['plan_id'],now=NOW)
+        result=self.quote()
+        (self.root/'config').mkdir()
+        (self.root/'config'/'v3-control.json').write_text(json.dumps({'generation':'g','enabled':True}))
+        quote=dict(evidence=self.data,result=result)
+        runtime.verify_quote(quote,dict(minimum_gross_margin_pct='20'),['PS','XBOX','PC'],now=NOW,for_execution=True)
+        saved=result['decision_receipt']['smart_assignment']
+        key=fingerprint([saved['baseline_plan']['plan_id'],saved['baseline_plan']['revision'],int(NOW.timestamp())//21600])
+        self.db.put('experiment_assignments',key,dict(saved['baseline_assignment'],action={}))
+        with self.assertRaisesRegex(ValueError,'pricing_smart_baseline_assignment_changed'):
+            runtime.verify_quote(quote,dict(minimum_gross_margin_pct='20'),['PS','XBOX','PC'],now=NOW,for_execution=True)
+
+    def test_smart_activation_detects_owner_change_and_is_idempotent(self):
+        with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
+            smart=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            other=self.db.create_plan('revenue_sprint',['base:pc'],engine.current_action(self.data))
+            self.db.activate_plan(other['plan_id'],now=NOW)
+            with self.assertRaisesRegex(ValueError,'pricing_smart_owner_changed'):
+                self.db.activate_plan(smart['plan_id'],now=NOW)
+            self.db.activate_plan(self.plan['plan_id'],now=NOW)
+            fresh=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            first=self.db.activate_plan(fresh['plan_id'],now=NOW)
+            self.assertEqual(self.db.activate_plan(fresh['plan_id'],now=NOW),first)
+
+    def test_smart_api_requires_every_current_base_and_saudi_resource(self):
+        snapshot=deepcopy(self.data)
+        snapshot['regional_controls']=[dict(region_id=21,resource='region:21:PC',platforms=['PC'])]
+        snapshot['region_rules']=[]
+        self.db.put('pricing_snapshots','scope',dict(snapshot_id='scope',created_at=NOW.isoformat(),evidence=snapshot))
+        body=dict(request_key='smart-scope',mode='smart',resources=['base:console','base:pc'],parameters={})
+        with self.assertRaisesRegex(ValueError,'pricing_smart_scope_requires_all_owned_resources'):
+            api.post('plans',body,'wulv')
+        with patch('fc_pricing_v3.ledger.clock',return_value=NOW):
+            plan=api.post('plans',dict(body,resources=body['resources']+['region:21:PC']),'wulv')
+        self.assertEqual(set(plan['resources']),{'base:console','base:pc','region:21:PC'})
+
+    def test_smart_invalid_uplift_preserves_baseline_cycle(self):
+        from fc_pricing_v3 import smart as smart_module
+        with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
+            plan = self.db.create_plan('smart', ['base:console', 'base:pc'], engine.current_action(self.data))
+            self.db.activate_plan(plan['plan_id'], now=NOW)
+        build = smart_module.build_candidate
+        def selective(evidence, plan, current, baseline, label, now):
+            if label != 'A':
+                raise ValueError('NO_SAFE_COMMIT_PATH')
+            return build(evidence, plan, current, baseline, label, now)
+        with patch.object(smart_module, 'build_candidate', side_effect=selective):
+            result = self.quote()
+            self.verify(result)
+        self.assertTrue(result['decision_receipt']['smart_assignment']['no_uplift_space'])
+
+    def test_excluded_uplift_arms_have_no_randomized_exposure(self):
+        with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
+            plan = self.db.create_plan('smart', ['base:console', 'base:pc'], engine.current_action(self.data),
+                                       starts_at=(NOW-timedelta(hours=48)).isoformat())
+            self.db.activate_plan(plan['plan_id'], now=NOW)
+        self.db.put('metadata', 'smart-policy:'+plan['plan_id']+':1:1',
+                    {'status':'WAITING_MORE_DATA','winner':None,'excluded':['B','C']})
+        result=self.quote()['decision_receipt']
+        self.assertEqual(result['smart_assignment']['label'],'A')
+        self.assertEqual(result['assignment_probability'],1)
+        self.assertFalse(result['randomization_verified'])
 
     def test_uplift_uses_selected_price_once_and_off_restores_strategy(self):
         before=self.quote()['decision_receipt']['action']

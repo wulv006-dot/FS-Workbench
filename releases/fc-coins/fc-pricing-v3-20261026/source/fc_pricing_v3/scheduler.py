@@ -117,7 +117,7 @@ def cycle(body=None):
     db=ledger()
     body=body or {}
     requested=db.get('pricing_plans',body['plan_id']) if body.get('plan_id') else db.active_plan()
-    if not requested or requested['mode'] not in POLICIES or requested['state']!='ACTIVE' or body.get('revision',requested['revision'])!=requested['revision']:
+    if not requested or (requested['mode'] not in POLICIES and requested['mode']!='smart') or requested['state']!='ACTIVE' or body.get('revision',requested['revision'])!=requested['revision']:
         return dict(status='superseded')
     if body.get('_durable_job_id') and not cycle_matches_plan(db,requested,body,body['_durable_job_id']):
         return dict(status='superseded')

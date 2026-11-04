@@ -562,8 +562,18 @@ def current_action(evidence):
 
 def evaluate(evidence, mode, *, plan=None, now=None,evaluation_context=None,explicit_prices=None):
     now = now or datetime.now(timezone.utc)
-    if mode not in POLICIES:
+    if mode not in POLICIES and mode != 'smart':
         raise ValueError('pricing_strategy_unknown')
+    if mode == 'smart':
+        from .smart import candidate_or_baseline
+        sprint_plan = dict(plan, mode='revenue_sprint') if plan else None
+        result = evaluate(evidence, 'revenue_sprint', plan=sprint_plan, now=now, evaluation_context=evaluation_context, explicit_prices=explicit_prices)
+        if result['selected'] and explicit_prices is None:
+            scope = sprint_plan or dict(mode='revenue_sprint', resources=['base:console', 'base:pc'] + [r['resource'] for r in evidence.get('regional_controls', [])], parameters={})
+            result['candidates'] = [candidate_or_baseline(evidence, scope, result['current'], result['selected'], label, now) for label in 'ABC']
+            result['selected'] = result['candidates'][0]
+        result['mode'] = 'smart'
+        return result
     fresh(evidence['checked_at'],now)
     fresh(evidence['fx']['checked_at'],now)
     controls=evidence.get('regional_controls',[])

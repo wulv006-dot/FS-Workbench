@@ -35,10 +35,16 @@ def build(checkout, source_commit, output):
     raw_index = blob(checkout, checkout / 'knowledge/index.json')
     index = json.loads(raw_index)
     if index.get('contract') != 'fs-knowledge-index-v1' or index.get('release_state') != 'candidate' or \
-            index.get('source_commit') is not None or len(index.get('entries', [])) != 25:
+            index.get('source_commit') is not None or len(index.get('entries', [])) != 30:
         raise ValueError('exact_v3_candidate_index_required')
-    current = {row['id'] for row in index['entries'] if row['layer'] == 'current' and row['status'] == 'effective'}
-    if len(current) != 14 or 'fc.pricing.v3' not in current or 'fc.pricing.reference-weighting' in current:
+    current_rows = [row['id'] for row in index['entries'] if row['layer'] == 'current' and row['status'] == 'effective']
+    current = set(current_rows)
+    expected_current = {'fs.data.sources','fs.data.currency','fs.customer.identity','fs.finance.procurement',
+        'fc.pricing.constraints','fc.marketing.attribution','fs.procurement.inputs','fs.pricing.parameter-identity',
+        'fs.product.identity','fs.customer.lifecycle','fs.learning.methods','fs.project.execution',
+        'fs.dashboard.shipping-profit','fc.pricing.v3','fc.reporting.methods','fc.reporting.data',
+        'fc.reporting.report','fc.reporting.business','fc.reporting.maintenance'}
+    if len(current_rows) != len(expected_current) or current != expected_current:
         raise ValueError('v3_current_knowledge_selection_invalid')
     published = copy.deepcopy(index)
     published.update(release=RELEASE, release_state='published', source_commit=source_commit,
