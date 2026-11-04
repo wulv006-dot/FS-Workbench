@@ -3,7 +3,8 @@ const client = new SnapshotClient(), select = document.querySelector('#scope'), 
 const views = {overview: ['总览', 'history'], rankings: ['关键词/竞品', 'rankings'], pages: ['页面健康', 'pages'], orders: ['自然搜索成交', 'history'], ai: ['行动与AI分析', null], sources: ['数据/费用状态', 'sources']};
 let active = 'overview', epoch = 0;
 const detailColumns = {rankings: [['source_date', '来源日期'], ['keyword', '关键词'], ['rank', '自然名次'], ['status', '状态'], ['observed_at', '观察时间']], pages: [['source_date', '来源日期'], ['url', '页面'], ['status_code', 'HTTP状态'], ['title', '标题'], ['observed_at', '观察时间']], orders: [['source_date', '付款日期'], ['revenue_usd', '已付款金额（$）'], ['attribution', 'SEO归因'], ['landing_game', '入口游戏'], ['purchased_game', '购买游戏'], ['key', '记录引用']], sources: [['source_date', '源日期'], ['source', '来源'], ['status', '状态'], ['source_timezone', '源时区'], ['collected_at', '最近读取'], ['attribution_link_status', '交易关联状态'], ['error', '原因']]};
-const detailCells = (kind, row) => detailColumns[kind].map(([key]) => key === 'key' ? row.key?.slice(0, 12) : key === 'attribution_link_status' ? row.quality?.attribution_link_status : key === 'attribution' ? ({A: '后台已核验', B: 'GA4交易已匹配', U: '未知'})[row.metrics?.attribution] : row[key] ?? row.metrics?.[key]);
+const statusLabels = {available:'可用', provisional:'初步值', pending:'等待来源', no_rows:'暂无记录', failed:'失败', stale:'上次有效值（更新失败）'};
+const detailCells = (kind, row) => detailColumns[kind].map(([key]) => key === 'status' && kind === 'sources' ? statusLabels[row.status] ?? row.status : key === 'key' ? row.key?.slice(0, 12) : key === 'attribution_link_status' ? row.quality?.attribution_link_status : key === 'attribution' ? ({A: '后台已核验', B: 'GA4交易已匹配', U: '未知'})[row.metrics?.attribution] : row[key] ?? row.metrics?.[key]);
 const text = (tag, content, className) => {const e = document.createElement(tag); e.textContent = content; if (className) e.className = className; return e;};
 function table(headers, rows, caption) {
   const region = document.createElement('div'); region.className = 'table-wrapper'; region.tabIndex = 0; region.setAttribute('role', 'region'); region.setAttribute('aria-label', caption);
@@ -13,7 +14,7 @@ function table(headers, rows, caption) {
   rows.forEach(row => {const tr = document.createElement('tr'); row.forEach((v, n) => {const cell = text(n ? 'td' : 'th', v ?? '—'); if (!n) cell.scope = 'row'; tr.append(cell);}); body.append(tr);});
   region.append(t); return region;
 }
-function selectedURL() {const url = new URL(location.href); if (client.id) url.searchParams.set('snapshot_id', client.id); else url.searchParams.delete('snapshot_id'); url.searchParams.set('game', select.value); url.searchParams.set('tab', active); history.replaceState(null, '', url);}
+function selectedURL() {const url = new URL(location.href); if (client.id) url.searchParams.set('snapshot_id', client.id); else url.searchParams.delete('snapshot_id'); url.searchParams.set('game', select.value); url.searchParams.set('tab', active); history.replaceState(null, '', url); const download = document.querySelector('#export'); if (client.id) {download.href = client.exportURL(select.value); download.download = `${client.id}-${select.value}.csv`; download.setAttribute('aria-disabled','false');} else {download.removeAttribute('href'); download.setAttribute('aria-disabled','true');}}
 async function render() {
   const request = ++epoch, scope = select.value;
   selectedURL(); panel.replaceChildren(text('div', '正在读取已发布快照…', 'loading')); panel.setAttribute('aria-busy', 'true');
@@ -35,7 +36,7 @@ async function render() {
     panel.replaceChildren();
     if (active === 'overview') {
       const available = data.rows.filter(r => Object.values(r.metrics).some(v => v !== null)).length;
-      panel.append(text('h2', `${scope} · 近30天`), text('p', `目标30天 · 可用${available}天 · 缺失${30-available}天`, 'muted'));
+      panel.append(text('h2', `${scope} · 近30天`), text('p','GA4为初步值，后续夜间可能修订；本次快照内保持固定。','muted'), text('p', `目标30天 · 可用${available}天 · 缺失${30-available}天`, 'muted'));
       const latest = data.rows[data.rows.length-1];
       if (latest) {
         panel.append(text('p', `业务目标 ${latest.source_date} · GA4自然会话 ${value(latest.metrics.ga4?.sessions)} · 购买次数 ${value(latest.metrics.ga4?.purchase_events)} · Admin客单价 $${value(latest.metrics.admin?.admin_customer_price_usd)} · 预估SEO成交额 $${value(latest.estimate?.revenue_usd)}`));
@@ -45,7 +46,7 @@ async function render() {
       }
       panel.append(table(['来源日期', 'GSC点击', 'GSC展示', 'GSC CTR', 'GA4自然会话', '自然搜索购买次数', 'Admin客单价（$）', '预估成交额（$）'], data.rows.map(r => [r.source_date, value(r.metrics.gsc?.clicks), value(r.metrics.gsc?.impressions), value(r.metrics.gsc?.ctr, true), value(r.metrics.ga4?.sessions), value(r.metrics.ga4?.purchase_events), value(r.metrics.admin?.admin_customer_price_usd), value(r.estimate?.revenue_usd)]), '每日搜索与成交 · 各来源按自己的统计时区'));
     } else if (active === 'orders') {
-      panel.append(text('h2', '自然搜索成交预估'), text('p', 'GA4自然搜索购买事件次数 × 同日同游戏MMOEXP主站Admin客单价。交易标识为空，无法关联具体订单或用户；此金额为预估。后台客单价沿用原字段 customer_price（付费客户均额）。', 'muted'));
+      panel.append(text('h2', '自然搜索成交预估'), text('p', 'GA4自然搜索购买事件次数 × 同日同游戏MMOEXP主站Admin客单价。交易标识为空，无法关联具体订单或用户；此金额为预估。后台客单价为付费客户均额。GA4购买次数为初步值，后续夜间可能修订。', 'muted'));
       panel.append(table(['来源日期', '购买事件次数', 'Admin客单价（$）', '预估成交额（$）', '状态'], data.rows.map(r => [r.source_date, value(r.metrics.ga4?.purchase_events), value(r.metrics.admin?.admin_customer_price_usd), value(r.estimate?.revenue_usd), r.estimate?.status === 'estimated' ? '预估' : '缺少来源']), '按日预估 · 缺失不补零'));
     } else if (!data.rows.length) {
       panel.append(text('div', (client.meta.sources?.[kind === 'rankings' ? 'serp' : kind] === 'not_configured') ? '该数据源尚未接入。其他数据可正常查看。' : '此版本暂无可用记录，等待后续夜间采集。', 'empty'));
@@ -81,17 +82,6 @@ document.querySelector('#tabs').addEventListener('keydown', event => {
   document.querySelector('#tab-' + active).focus(); render();
 });
 select.addEventListener('change', render);
-document.querySelector('#export').addEventListener('click', async event => {
-  const button = event.currentTarget; button.disabled = true;
-  try {
-    const result = await client.load('history', select.value);
-    const rows = [['snapshot_id', 'facts_hash', 'game', 'source_date', 'gsc_clicks', 'ga4_sessions', 'purchase_events', 'admin_customer_price_usd', 'estimated_seo_revenue_usd', 'estimate_status'], ...result.rows.map(r => [client.id, client.meta.facts_hash, select.value, r.source_date, r.metrics.gsc?.clicks, r.metrics.ga4?.sessions, r.metrics.ga4?.purchase_events, r.metrics.admin?.admin_customer_price_usd, r.estimate?.revenue_usd, r.estimate?.status])];
-    const csv = rows.map(row => row.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
-    const url = URL.createObjectURL(new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8'})), link = document.createElement('a');
-    link.href = url; link.download = `${client.id}-${select.value}.csv`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } catch (error) {status.textContent = error.message;}
-  finally {button.disabled = false;}
-});
 (async () => {
   try {
     const params = new URLSearchParams(location.search), meta = await client.init(params.get('snapshot_id'));
@@ -100,6 +90,6 @@ document.querySelector('#export').addEventListener('click', async event => {
     active = Object.hasOwn(views, params.get('tab')) ? params.get('tab') : 'overview';
     document.querySelector('#version').textContent = `发布 ${meta.publication_date} · 业务目标 ${meta.report_date} · ${meta.snapshot_id}`;
     status.textContent = meta.data_status === 'partial' ? '已发布固定数据；部分来源待发布或尚未接入。' : '已发布固定数据。';
-    document.querySelector('#export').disabled = false; await render();
-  } catch (error) {document.querySelector('#version').textContent = '尚无已发布版本 · 每日03:20启动批次'; status.textContent = error.message; panel.replaceChildren(text('div', '暂无可读取的已发布数据。', 'empty')); panel.setAttribute('aria-busy', 'false');}
+    await render();
+  } catch (error) {document.querySelector('#version').textContent = '暂未读取数据版本 · 每日03:20启动批次'; status.textContent = error.message; panel.replaceChildren(text('div', '暂无可读取的已发布数据。', 'empty')); panel.setAttribute('aria-busy', 'false');}
 })();

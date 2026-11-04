@@ -27,6 +27,7 @@ const server=http.createServer((req,res)=>{
   await page.getByLabel('游戏').selectOption('D4');
   await page.waitForFunction(()=>document.querySelector('#scope').value==='D4'&&document.querySelector('#panel table'));
   assert(apiCalls.filter(p=>p.includes('/history')).every(p=>p.includes('/seo-2026-11-05/')));
+  assert((await page.getByRole('link',{name:'导出当前版本'}).getAttribute('href')).includes('/seo-2026-11-05/export.csv?game=D4'));
   await page.getByRole('tab',{name:'自然搜索成交'}).click();
   await page.getByRole('cell',{name:'21.75',exact:true}).waitFor();
   await page.evaluate(()=>window.FSTheme.set('dark'));

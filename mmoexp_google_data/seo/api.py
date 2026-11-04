@@ -70,7 +70,7 @@ class Service:
         if actor is None or scope not in actor.games:
             raise PermissionError('SEO_EXPORT_DENIED')
         cursor = 0
-        yield 'snapshot_id,facts_hash,game,source_date,gsc_clicks,gsc_impressions,ga4_sessions,purchase_events,admin_customer_price_usd,estimated_seo_revenue_usd,estimate_status\r\n'
+        yield 'snapshot_id,facts_hash,game,source_date,gsc_clicks,gsc_impressions,ga4_sessions,purchase_events,admin_customer_price_usd,estimated_seo_revenue_usd,estimate_status,ga4_data_status,ga4_timezone,admin_data_status,admin_timezone\r\n'
         while cursor is not None:
             result = snapshot.read(self.root, ident, 'history', scope, cursor=cursor)
             for row in result['rows']:
@@ -78,7 +78,9 @@ class Service:
                 values = [ident, result['facts_hash'], scope, row['source_date'],
                     (m['gsc'] or {}).get('clicks'), (m['gsc'] or {}).get('impressions'),
                     (m['ga4'] or {}).get('sessions'), (m['ga4'] or {}).get('purchase_events'),
-                    (m.get('admin') or {}).get('admin_customer_price_usd'), row['estimate']['revenue_usd'], row['estimate']['status']]
+                    (m.get('admin') or {}).get('admin_customer_price_usd'), row['estimate']['revenue_usd'], row['estimate']['status'],
+                    row['source_status']['ga4']['status'],row['source_status']['ga4'].get('source_timezone'),
+                    row['source_status']['admin']['status'],row['source_status']['admin'].get('source_timezone')]
                 text = io.StringIO(newline='')
                 csv.writer(text).writerow(values)
                 yield text.getvalue()

@@ -32,3 +32,18 @@ class Web(unittest.TestCase):
         with patch.object(ai_policy.PolicyStore,'__init__',side_effect=OSError('unavailable')):
             self.assertEqual(self.app.handle('GET',self.path,{'Cookie':'session=valid'},b'')[0],503)
             self.assertEqual(self.app.handle('GET',self.path.replace('ai-policy','snapshots/current'),{'Cookie':'session=valid'},b'')[0],404)
+
+    def test_authenticated_export_reads_one_fixed_snapshot_with_source_status(self):
+        import csv,io
+        from mmoexp_google_data.seo import store,daily
+        from test_daily_snapshot import NIGHT,Source
+        work=store.Store(self.temp.name)
+        manifest=daily.run_daily(work,[Source()],clock=lambda:NIGHT)
+        path=self.path.replace('ai-policy','snapshots/'+manifest['snapshot_id']+'/export.csv')+'?game=FC27'
+        self.assertEqual(self.app.handle('GET',path,{},b'')[0],401)
+        status,body=self.app.handle('GET',path,{'Cookie':'session=valid'},b'')
+        self.assertEqual(status,200)
+        rows=list(csv.DictReader(io.StringIO(body.text)))
+        self.assertEqual(len(rows),30)
+        self.assertEqual({r['facts_hash'] for r in rows},{manifest['facts_hash']})
+        self.assertIn('ga4_data_status',rows[0])

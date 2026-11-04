@@ -16,7 +16,9 @@ p{margin:.5rem 0}
 .heading>div{min-width:0}
 .toolbar{justify-content:flex-start;margin:1.5rem 0 .5rem}
 .toolbar p{font-size:.875rem;overflow-wrap:anywhere}
-button,select{font:inherit;color:var(--fs-text);border:1px solid var(--fs-line);background:var(--fs-surface);border-radius:var(--fs-input-radius);min-height:44px;padding:.4rem .9rem}
+button,select,.action-link{font:inherit;color:var(--fs-text);border:1px solid var(--fs-line);background:var(--fs-surface);border-radius:var(--fs-input-radius);min-height:44px;padding:.4rem .9rem}
+.action-link{display:inline-flex;align-items:center;text-decoration:none}
+.action-link[aria-disabled=true]{opacity:.6;pointer-events:none}
 button{cursor:pointer}
 button:hover{background:var(--fs-surface-2)}
 button:active{background:var(--fs-surface-3)}
