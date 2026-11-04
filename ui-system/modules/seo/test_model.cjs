@@ -1,4 +1,5 @@
 const assert=require('node:assert/strict');
+require('./test_navigation.cjs');
 (async()=>{
  const {SnapshotClient,value}=await import('./model.mjs');
  const calls=[];
