@@ -96,10 +96,20 @@ CAPABILITIES_KNOWLEDGE_HISTORY_PROOF = dict(sourceCommit='193223331dd2516ad211a9
     backup='/var/backups/fs-navigation-20261006/nav-20261103T191430Z',
     manifestSha256='21d6c0198b04f3ba20da91e6bd3d8db1d46d5b6501917f056e5f5bfa34395054',
     journalSha256='14d7aedeaede70c50b07beb4a797b9d82084310b8b707ab17cff76c8baf7a6ab')
-NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='aad68048e0316ff7823e29ec3f16a2834f16fe44',
+CAPABILITIES_DESKTOP_HISTORY_PROOF = dict(sourceCommit='aad68048e0316ff7823e29ec3f16a2834f16fe44',
     backup='/var/backups/fs-navigation-20261006/nav-20261103T202302Z',
     manifestSha256='c8f8ef36e9186e9ba434f7490ce466132ccc4e6a979aef3f0951fdab0e66362a',
     journalSha256='63fb7af867bd97a124f4e3fe80ab3606b17ef431023f8719698f0c38ba7709db')
+NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='1f09b5134747a4ca6bef2dca080e5e9036388e5e',
+    backup='/var/backups/fs-navigation-20261006/nav-20261104T051404Z',
+    manifestSha256='10c15f738dac42fe58a0c6e335669d5ff3f245c72e8db7b99a83274c09552a2b',
+    journalSha256='333cfdb381e30ccb3156d21d0004cf8d0e10990c4d68ecc94cf5f4c6a2864e9a')
+DESKTOP_MODE_CORRECTION_SHA='d2352697a75d75545108cd03f260c264f3e918dc1b4be9d7f2b239a2cd2a947e'
+DESKTOP_NAVIGATION_PROOF=dict(backup='/var/backups/fs-navigation-20261006/nav-20261104T052012Z',
+    manifestSha256='ec8550f11cc66b47799c92d3cf9649deee192bdfa17e25a399640e8a46ee3854',
+    journalSha256='d4406784bf17cb061815273498865bd52697fdc09a28f27fd93119249f0479bd',
+    beforeSha256='c45e6fc9791edfd0c33c416e127dca23b343a12b9b802628204fd76a7efa580e',
+    sha256='28165bbd11393696a11a6f9e20df650e605fde122bc6f97d208e4056a026a9b2')
 CAPABILITIES_STATIC_PROOF = dict(sourceCommit='d135d2b965ecdfc2d96a1e49cf9425e31eaca07e',
     backup='/var/backups/fs-navigation-20261006/nav-20261103T021812Z',
     manifestSha256='26b0de09b7b84d9d7634948c3177ca7cf919bac6ea4aab00c247bd6389e8cbb8',
@@ -280,8 +290,18 @@ DESKTOP_EXISTING = {
     'http/range_api.py':('08e22627230531e06c35e661302d6f23808e07a527bbff2485d6b174303a79a6',34129),
     'desktop/serve.py':('8211079893a3afbfaa41a6a13c85a325a49329a03006cfb0e473d839f417da30',1346)}
 CAPABILITIES_TARGETS.update(DESKTOP_TARGETS)
-CAPABILITIES_NEW=frozenset(set(DESKTOP_TARGETS)-set(DESKTOP_EXISTING))
-CAPABILITIES_CHANGED = tuple(DESKTOP_TARGETS)
+DESKTOP_INITIAL_EXISTING=dict(DESKTOP_EXISTING)
+DESKTOP_ORIGINAL_NEW=frozenset(set(DESKTOP_TARGETS)-set(DESKTOP_INITIAL_EXISTING))
+DESKTOP_INSTALLED_TARGETS=dict(CAPABILITIES_TARGETS)
+DESKTOP_EXISTING = {
+    'runtime/conversation_desktop.py':('2ca10bb9452995c2ce86af9592fe43777ab2812ba56e051cf5dd3b4b44c59aa0',11336),
+    'desktop/conversation_desktop.py':('2ca10bb9452995c2ce86af9592fe43777ab2812ba56e051cf5dd3b4b44c59aa0',11336),
+    'desktop/desktop_fs_gateway.py':('2409a854791293e1329098b071577e792595bb02ce4b2f19eef2d9745ba105fa',9306),
+    'desktop/serve.py':('87c24ed11a8894ee207a93d8701102d99e85a59c21e98945de14f53d411d42d2',1478),
+    'http/range_api.py':('6cce30f18d285793dff36420b6d781ab751aed463308e05d22f7ff56cb8c46dd',34507),
+    'desktop/fs-principal.json':('2d5a1ecad569190a1b5a59e9df87180e8920ee1d42fddd99610f9a0d57a6282b',106)}
+CAPABILITIES_NEW=frozenset()
+CAPABILITIES_CHANGED = ('desktop/desktop_fs_gateway.py',)
 
 
 def payload_mode(target):
@@ -1087,6 +1107,109 @@ def capabilities_knowledge_history(base,root,current,installed_rows):
         raise ValueError('native_knowledge_success_chain_mismatch')
 
 
+def capabilities_desktop_history(base,root,current,installed_rows):
+    """Keep the accepted aad -> 1f Desktop installation in the proof chain."""
+    proof=CAPABILITIES_DESKTOP_HISTORY_PROOF;records={}
+    fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+    for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
+        path=base.rooted(root,proof['backup']+'/'+name);base.no_target_link(path);before=path.lstat()
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>8*1024*1024 or
+                (before.st_uid,before.st_gid,stat.S_IMODE(before.st_mode))!=(0,0,0o600)):
+            raise ValueError('native_desktop_history_boundary_drift')
+        with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('native_desktop_history_changed')
+            raw=stream.read(8*1024*1024+1)
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('native_desktop_history_changed')
+        after=path.lstat();base.no_target_link(path)
+        if any(getattr(before,k)!=getattr(after,k) for k in fields):raise ValueError('native_desktop_history_changed')
+        if hashlib.sha256(raw).hexdigest()!=proof[key]:raise ValueError('native_desktop_history_proof_drift')
+        records[name]=json.loads(raw)
+    manifest,journal=records['approved-manifest.json'],records['journal.json']
+    rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[]);written=journal.get('files',[])
+    old={r['target']:dict(path=r['target'],sha256=r['sha256'],owner=r.get('owner'),mode=r.get('mode')) for r in rows}
+    old.update({r['path']:dict(r) for r in protected})
+    if (manifest.get('sourceCommit')!=proof['sourceCommit'] or manifest.get('scope')!=SCOPE or
+            manifest.get('nativeCapabilities') is not True or manifest.get('nativeArchive') is not True or
+            manifest.get('nativeStaticBaseline')!=CAPABILITIES_STATIC_PROOF or
+            len(rows)!=26 or {r['candidate']:r['target'] for r in rows}!=KNOWLEDGE_INSTALLED_TARGETS or
+            any(r.get('owner')!='0:0' or r.get('mode')!='0o644' for r in rows) or len(protected)!=767 or len(old)!=793 or
+            journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
+            any(journal.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
+            journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=proof['manifestSha256'] or
+            len(written)!=26 or {r['candidate'] for r in written}!=set(KNOWLEDGE_INSTALLED_TARGETS) or
+            any(any(w.get(k)!=r.get(k) for k in ('candidate','target','beforeSha256','sha256','owner','mode')) or
+                w.get('intent') is not True or w.get('written') is not True or
+                any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten'))
+                for r in rows for w in written if r['candidate']==w['candidate'])):
+        raise ValueError('native_desktop_history_success_required')
+    capabilities_knowledge_history(base,root,old,rows)
+    if (set(current)!=set(old)|set(DESKTOP_TARGETS.values()) or
+            any(any(row.get(k)!=current[path].get(k) for k in
+                (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
+                for path,row in old.items() if path not in KNOWLEDGE_INSTALLED_TARGETS.values()
+                and path!=DESKTOP_TARGETS['http/range_api.py']) or
+            any(r.get('beforeSha256')!=(DESKTOP_INITIAL_EXISTING[r['candidate']][0]
+                if r['candidate'] in DESKTOP_INITIAL_EXISTING else None if r['candidate'] in DESKTOP_ORIGINAL_NEW
+                else old.get(r['target'],{}).get('sha256')) for r in installed_rows)):
+        raise ValueError('native_desktop_success_chain_mismatch')
+
+
+
+
+def capabilities_desktop_metadata(base,root,metadata,manifest):
+    """Only the recorded root600 repair and one later formal-Nginx release."""
+    records={};nav=DESKTOP_NAVIGATION_PROOF
+    inputs=(('mode',NATIVE_CAPABILITIES_PROOF['backup']+'/desktop-binding-mode-correction.json',DESKTOP_MODE_CORRECTION_SHA),
+            ('nav_manifest',nav['backup']+'/approved-manifest.json',nav['manifestSha256']),
+            ('nav_journal',nav['backup']+'/journal.json',nav['journalSha256']))
+    fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+    for label,name,expected in inputs:
+        path=base.rooted(root,name);base.no_target_link(path);before=path.lstat()
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>8*1024*1024 or
+                (before.st_uid,before.st_gid,stat.S_IMODE(before.st_mode))!=(0,0,0o600)):
+            raise ValueError('desktop_supplement_boundary_drift')
+        with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('desktop_supplement_changed')
+            raw=stream.read(8*1024*1024+1)
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('desktop_supplement_changed')
+        base.no_target_link(path);after=path.lstat()
+        if any(getattr(before,k)!=getattr(after,k) for k in fields):raise ValueError('desktop_supplement_changed')
+        if hashlib.sha256(raw).hexdigest()!=expected:raise ValueError('desktop_supplement_proof_drift')
+        records[label]=json.loads(raw)
+    receipt=records['mode'];before=receipt.get('before',{});after=receipt.get('after',{})
+    config=metadata.get(DESKTOP_CONFIG,{})
+    if (receipt.get('kind')!='single-approved-desktop-binding-mode-correction' or
+            receipt.get('source')!=NATIVE_CAPABILITIES_PROOF['sourceCommit'] or
+            receipt.get('release')!=Path(NATIVE_CAPABILITIES_PROOF['backup']).name or
+            receipt.get('approved_manifest_sha256')!=NATIVE_CAPABILITIES_PROOF['manifestSha256'] or
+            receipt.get('original_journal_sha256')!=NATIVE_CAPABILITIES_PROOF['journalSha256'] or
+            receipt.get('target')!=DESKTOP_CONFIG or receipt.get('fchmod_calls')!=1 or
+            receipt.get('content_writes')!=0 or receipt.get('manifest_journal_changed') is not False or
+            before.get('mode')!='0o644' or after.get('mode')!='0o600' or
+            any(before.get(k)!=after.get(k) for k in ('sha256','uid','gid','size','inode','mtime_ns','device','nlink','type')) or
+            (after.get('uid'),after.get('gid'),after.get('nlink'),after.get('type'))!=(0,0,1,'regular') or
+            config.get('sha256')!=after.get('sha256') or config.get('owner')!='0:0' or config.get('mode')!='0o600'):
+        raise ValueError('desktop_mode_correction_binding_required')
+    m,j=records['nav_manifest'],records['nav_journal']
+    selected=[r for r in m.get('files',[]) if r.get('target')==NGINX]
+    written=[r for r in j.get('files',[]) if r.get('target')==NGINX]
+    if (m.get('releaseReady') is not True or j.get('status')!='applied-awaiting-actual-http-role-acceptance' or
+            j.get('manifest')!=m or j.get('approvedManifestSha256')!=nav['manifestSha256'] or
+            j.get('failure') or any(j.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
+            len(selected)!=1 or len(written)!=1):raise ValueError('desktop_navigation_success_required')
+    row,w=selected[0],written[0];old=metadata.get(NGINX,{})
+    if (row.get('candidate')!='generated/navigation.conf' or row.get('beforeSha256')!=nav['beforeSha256'] or
+            row.get('sha256')!=nav['sha256'] or row.get('owner')!='0:0' or
+            w.get('intent') is not True or w.get('written') is not True or w.get('beforeMode')!=0o600 or
+            any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten')) or
+            any(w.get(k)!=row.get(k) for k in ('candidate','target','beforeSha256','sha256','owner','mode')) or
+            old.get('sha256')!=nav['beforeSha256'] or old.get('owner')!='0:0' or old.get('mode')!='0o600'):
+        raise ValueError('desktop_navigation_transition_drift')
+    result={p:dict(value) for p,value in metadata.items()}
+    result[NGINX]=dict(old,sha256=nav['sha256'])
+    return result
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -1117,12 +1240,12 @@ def installed_baseline(root, git_baseline):
         metadata={r['target']:{'path':r['target'],'sha256':r['sha256'],'owner':r.get('owner'),'mode':r.get('mode')} for r in rows}
         metadata.update({r['path']:dict(r) for r in protected})
         written=journal.get('files',[])
-        installed_targets=KNOWLEDGE_INSTALLED_TARGETS if NATIVE_CAPABILITIES_MODE else CAPABILITIES_INSTALLED_TARGETS
+        installed_targets=DESKTOP_INSTALLED_TARGETS if NATIVE_CAPABILITIES_MODE else CAPABILITIES_INSTALLED_TARGETS
         if (manifest.get('sourceCommit')!=INSTALLED_COMMIT or manifest.get('scope')!=SCOPE or
                 manifest.get('nativeCapabilities') is not True or manifest.get('nativeArchive') is not True or
                 len(rows)!=len(installed_targets) or {r['candidate']:r['target'] for r in rows}!=installed_targets or
-                any(r.get('owner')!='0:0' or r.get('mode')!='0o644' for r in rows) or
-                len(protected)!=(767 if NATIVE_CAPABILITIES_MODE else 769) or len(metadata)!=(793 if NATIVE_CAPABILITIES_MODE else 779) or
+                any(r.get('owner')!='0:0' or r.get('mode')!=payload_mode(r['target']) for r in rows) or
+                len(protected)!=(766 if NATIVE_CAPABILITIES_MODE else 769) or len(metadata)!=(798 if NATIVE_CAPABILITIES_MODE else 779) or
                 journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
                 any(journal.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
                 journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=INSTALLED_PROOF['manifestSha256'] or
@@ -1136,19 +1259,16 @@ def installed_baseline(root, git_baseline):
                 NATIVE_CAPABILITIES_MODE and manifest.get('nativeStaticBaseline')!=CAPABILITIES_STATIC_PROOF or
                 git_baseline!={'source_commit':INSTALLED_COMMIT,'files':(
                     {'frontend/index.html':COMPOSER_BEFORE_SHA} if COMPOSER_STATIC_MODE else
-                    {name:(None if name in NEW else DESKTOP_EXISTING[name][0] if name in DESKTOP_EXISTING else metadata.get(target,{}).get('sha256'))
+                    {name:metadata.get(target,{}).get('sha256')
                      for name,target in TARGETS.items()})}):
             raise ValueError('composer_static_installed_proof_mismatch')
         if NATIVE_CAPABILITIES_MODE:
-            capabilities_knowledge_history(base,root,metadata,rows)
-            if metadata.get(DESKTOP_TARGETS['http/range_api.py'],{}).get('sha256')!=DESKTOP_EXISTING['http/range_api.py'][0]:
-                raise ValueError('desktop_range_protected_before_drift')
+            capabilities_desktop_history(base,root,metadata,rows)
+            metadata=capabilities_desktop_metadata(base,root,metadata,manifest)
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
         all_hashes={p:r['sha256'] for p,r in metadata.items()}
-        if NATIVE_CAPABILITIES_MODE:
-            all_hashes.update({TARGETS[name]:value[0] for name,value in DESKTOP_EXISTING.items()})
         all_hashes.update({TARGETS[name]:None for name in NEW})
         return dict(manifest,archive_all_hashes=all_hashes)
     if ARCHIVE_MODE:
