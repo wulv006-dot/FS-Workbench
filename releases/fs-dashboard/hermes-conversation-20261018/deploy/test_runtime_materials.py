@@ -2227,9 +2227,9 @@ class NativePublisher(unittest.TestCase):
         self.assertEqual(release.INSTALLED_COMMIT,'befa7cd8b4ccf8fa46221710831ec12d4371b294')
         self.assertEqual(release.CAPABILITIES_CHANGED,('runtime/proxy_gateway.py',))
         self.assertEqual(release.INSTALLED_PROOF,dict(sourceCommit=release.INSTALLED_COMMIT,
-            backup='/var/backups/fs-navigation-20261006/nav-20261104T104931Z',
-            manifestSha256='892365c3b7be7295d4f6bdc3e83b0aa78bfbded954197ce7f0254393e51c2e12',
-            journalSha256='5057f33c0913810cd4fe96da704e2cfa0e4520f8460422db7ef2e9308b6c1805'))
+            backup='/var/backups/fs-navigation-20261006/nav-20261104T114708Z',
+            manifestSha256='4190029007488787a65d0d25e07f122f4a85003b206b48678b5051cdf7bd6743',
+            journalSha256='497a5deae65fd860a0a355800c205e5aca8b447b1d3203248048252471fe058d'))
         self.assertEqual(release.CAPABILITIES_STATIC_PROOF['sourceCommit'],'d135d2b965ecdfc2d96a1e49cf9425e31eaca07e')
         self.assertEqual(set(prepare.SOURCES),set(release.CAPABILITIES_TARGETS))
         self.assertEqual(prepare.SOURCES['http/conversation_http.py'],prepare.MODULE+'source/conversation_http.py')
