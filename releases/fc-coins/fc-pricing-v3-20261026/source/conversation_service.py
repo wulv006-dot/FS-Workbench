@@ -251,7 +251,7 @@ class ConversationService:
         return self.submit(user,conversation_id,text,client_request_id,pricing_run_id=run_id)
 
     def _request(self, method, path, body=None, idempotency=None, timeout=30):
-        if not re.fullmatch(r"(?:/v1/runs(?:/run_[a-f0-9]{32}(?:/(?:events|steer|stop))?)?|/v1/native/hc_[a-f0-9]{64})", path):
+        if not ((method == "GET" and path == "/v1/capabilities") or re.fullmatch(r"(?:/v1/runs(?:/run_[a-f0-9]{32}(?:/(?:events|steer|stop))?)?|/v1/native/hc_[a-f0-9]{64})", path)):
             raise ValueError("runtime_route")
         key = (self.run_root / "api-key").read_text("ascii").strip()
         headers = {"Authorization": "Bearer " + key}

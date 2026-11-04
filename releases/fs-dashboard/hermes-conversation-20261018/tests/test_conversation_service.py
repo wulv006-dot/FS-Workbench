@@ -284,6 +284,84 @@ class ServiceTests(unittest.TestCase):
             self.assertLess(len(json.dumps(index, ensure_ascii=False).encode("utf-8")), 8000)
             self.assertLess(len(json.dumps(policy, ensure_ascii=False).encode("utf-8")), 8000)
 
+    def test_active_request_capabilities_exact_get_preserves_transport(self):
+        import ast
+        import io
+        import re
+        from email.message import Message
+        from urllib import request as http
+        from urllib.error import HTTPError
+        from urllib.response import addinfourl
+        root = Path(__file__).resolve().parents[4]
+        active = root / 'releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py'
+        tree = ast.parse(active.read_bytes())
+        node = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == '_request')
+        controller = ast.parse((root / 'releases/fs-dashboard/hermes-v2-core-20261020/source/controller.py').read_bytes())
+        redirect = next(n for n in controller.body if isinstance(n, ast.ClassDef) and n.name == 'NoRedirect')
+        scope = {'HTTPRedirectHandler': http.HTTPRedirectHandler, 're': re, 'Request': http.Request,
+                 'build_opener': http.build_opener, 'RUNNER': 'http://127.0.0.1:8941',
+                 'MAX_RESPONSE': 10 * 1024 * 1024, 'encoded': self.module.encoded, 'json': json}
+        exec(compile(ast.Module(body=[redirect, node], type_ignores=[]), str(active), 'exec'), scope)
+        self.assertTrue(issubclass(scope['NoRedirect'], http.HTTPRedirectHandler))
+        with tempfile.TemporaryDirectory() as directory:
+            run_root = Path(directory);(run_root / 'api-key').write_text('synthetic-capability-key', encoding='ascii')
+            service = types.SimpleNamespace(run_root=run_root)
+            call = lambda method, path, *a, **kw: scope['_request'](service, method, path, *a, **kw)
+            requests = []; reads = []; options = {'status': 200, 'large': False}
+            class Body(io.BytesIO):
+                def read(self, size=-1):
+                    reads.append(size)
+                    return b'x' * size if options['large'] else super().read(size)
+            def boundary(_handler, request):
+                requests.append(request)
+                headers = Message()
+                if options['status'] == 302:headers['Location'] = 'http://unreached.invalid/redirect'
+                body = json.dumps({'object': 'hermes.api_server.capabilities'}).encode()
+                response = addinfourl(Body(body), headers, request.full_url, options['status'])
+                response.msg = 'synthetic final HTTP boundary'
+                return response
+            with patch.object(http, 'getproxies', return_value={}), \
+                 patch.object(http.HTTPHandler, 'http_open', autospec=True, side_effect=boundary), \
+                 patch.object(http.HTTPSHandler, 'https_open', side_effect=AssertionError('no_real_network')):
+                status, result = call('GET', '/v1/capabilities', timeout=2.75)
+                self.assertEqual((status, result), (200, {'object': 'hermes.api_server.capabilities'}))
+                request = requests[-1]
+                self.assertIsInstance(request, http.Request)
+                self.assertEqual(request.full_url, 'http://127.0.0.1:8941/v1/capabilities')
+                self.assertEqual(request.get_method(), 'GET');self.assertIsNone(request.data)
+                self.assertEqual(request.get_header('Authorization'), 'Bearer synthetic-capability-key')
+                self.assertEqual(request.timeout, 2.75)
+                self.assertEqual(reads, [scope['MAX_RESPONSE'] + 1])
+                before = len(requests)
+                with patch.object(Path, 'read_text', side_effect=AssertionError('rejected_route_cannot_read_key')):
+                    for method, path in [('POST', '/v1/capabilities'), ('HEAD', '/v1/capabilities'),
+                            ('get', '/v1/capabilities'), ('GET', '/v1/capabilities/extra'),
+                            ('GET', '/v1/capabilities/'), ('GET', '/v1/capabilities?probe=1'),
+                            ('GET', '/health'), ('GET', '/v1/health'), ('GET', '/v1/models'),
+                            ('GET', '/api/sessions'), ('GET', '/v1/runs?limit=1')]:
+                        with self.subTest(method=method, path=path), self.assertRaisesRegex(ValueError, '^runtime_route$'):
+                            call(method, path)
+                self.assertEqual(len(requests), before)
+                run_id = 'run_' + 'a' * 32
+                for method, path in [('POST', '/v1/runs'), ('GET', '/v1/runs/' + run_id),
+                        ('GET', '/v1/runs/' + run_id + '/events'), ('POST', '/v1/runs/' + run_id + '/steer'),
+                        ('POST', '/v1/runs/' + run_id + '/stop'), ('GET', '/v1/native/hc_' + 'b' * 64)]:
+                    with self.subTest(legacy=path):
+                        body = {'input': 'synthetic'} if method == 'POST' else None
+                        self.assertEqual(call(method, path, body, 'original-id')[0], 200)
+                        request = requests[-1]
+                        self.assertEqual(request.timeout, 30)
+                        self.assertEqual(request.get_header('Idempotency-key'), 'original-id')
+                        self.assertEqual(request.data, self.module.encoded(body).encode() if body is not None else None)
+                        self.assertEqual(request.get_header('Authorization'), 'Bearer synthetic-capability-key')
+                options['large'] = True
+                with self.assertRaisesRegex(ValueError, '^runtime_response_size$'):call('GET', '/v1/capabilities')
+                options.update(large=False, status=302);before = len(requests)
+                with self.assertRaises(HTTPError) as denied:call('GET', '/v1/capabilities')
+                self.assertEqual(denied.exception.code, 302)
+                self.assertEqual(len(requests), before + 1)
+
+
 
 def load_tests(loader, tests, pattern):
     import test_conversation_knowledge

@@ -95,6 +95,28 @@ class ConversationDesktop:
     def __init__(self, service):
         self.service = service
 
+    def _setup_configuration(self):
+        native = getattr(self.service, 'native', None)
+        hermes = getattr(self.service, 'hermes', None)
+        if (native is None or hermes is None or getattr(native, 'service', None) is not self.service
+                or getattr(native, 'hermes', None) is not hermes
+                or getattr(native, 'store', None) is not self.service.store):
+            return False, 'fs_native_route_unavailable'
+        try:
+            from fs_inprocess import native_gateway
+            from direct_provider import _load_key
+            if not callable(native_gateway):
+                return False, 'fs_native_route_unavailable'
+            # The original FS reader validates its own secret in this process.
+            # Do not retain, return, hash or log the value it returns.
+            _load_key()
+        except ValueError as error:
+            reason = str(error)
+            return False, reason if reason in ('configuration_missing', 'configuration_invalid') else 'configuration_invalid'
+        except (ImportError, OSError, UnicodeError):
+            return False, 'configuration_unavailable'
+        return True, None
+
     @staticmethod
     def legacy_request_key(request_id, params, method):
         if isinstance(request_id, str) and re.fullmatch(r'r?[0-9]{1,20}', request_id):
@@ -147,6 +169,34 @@ class ConversationDesktop:
             raise ValueError('desktop_params')
         if any(k in params for k in ('owner', 'user', 'approved', 'authorization')):
             raise ValueError('desktop_client_identity_forbidden')
+        if method in ('setup.status', 'setup.runtime_check'):
+            configured, reason = self._setup_configuration()
+            if method == 'setup.status':
+                return dict(provider_configured=configured)
+            if not configured:
+                return dict(ok=False, error=reason)
+            request = getattr(self.service, '_request', None)
+            if not callable(request):
+                return dict(ok=False, error='fs_runtime_state_unverified')
+            try:
+                code, capabilities = request('GET', '/v1/capabilities', timeout=5)
+            except (OSError, ValueError, TypeError):
+                return dict(ok=False, error='fs_runtime_state_unavailable')
+            if code != 200 or not isinstance(capabilities, dict):
+                return dict(ok=False, error='fs_runtime_state_unavailable')
+            runtime = capabilities.get('runtime')
+            native = capabilities.get('fs_native_chat')
+            materials = capabilities.get('fs_materials')
+            if (capabilities.get('object') != 'hermes.api_server.capabilities'
+                    or not isinstance(runtime, dict) or runtime.get('mode') != 'server_agent'
+                    or not isinstance(native, dict) or native.get('version') != 'native_chat_v1'
+                    or any(native.get(key) is not True for key in
+                           ('single_post', 'readonly_original_lookup', 'schema_relay'))
+                    or not isinstance(materials, dict) or materials.get('verified_pin') is not True):
+                return dict(ok=False, error='fs_runtime_capabilities_unverified')
+            # Configuration parsed + authenticated original worker route available.
+            # This does not perform or certify a provider/model invocation.
+            return dict(ok=True)
         if method in ('ping', 'gateway.ping'):
             return {'pong': True}
         if method == 'session.list':

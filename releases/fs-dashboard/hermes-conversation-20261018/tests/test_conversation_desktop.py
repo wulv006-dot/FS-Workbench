@@ -13,13 +13,18 @@ import time
 import uuid
 import os
 import threading
+import re
+import stat
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.request import Request, build_opener, HTTPRedirectHandler
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 from conversation_store import ConversationStore
 from conversation_desktop import ConversationDesktop, DesktopRPC, SIGNING_CONTEXT
 from desktop_fs_gateway import DesktopFSGateway, SignedHostClient, install_fs_desktop
+
+SERVICE_SOURCE = Path(__file__).resolve().parents[4] / 'releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py'
 
 
 class DesktopProjectionTests(unittest.TestCase):
@@ -41,6 +46,156 @@ class DesktopProjectionTests(unittest.TestCase):
     def check(self, owner):
         if owner != 'alice':
             raise PermissionError('revoked')
+
+    def test_setup_without_trusted_native_state_is_not_reported_ready(self):
+        configured = self.adapter.dispatch('alice', 'setup.status', {})
+        runtime = self.adapter.dispatch('alice', 'setup.runtime_check', {})
+        self.assertIs(configured['provider_configured'], False)
+        self.assertIs(runtime['ok'], False)
+        self.assertTrue(runtime['error'])
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.store.detail('alice', self.original['conversation_id'])['turns'], [])
+        for method in ('setup.status', 'setup.runtime_check'):
+            with self.subTest(method=method), self.assertRaises(PermissionError):
+                self.adapter.dispatch('bob', method, {})
+            with self.subTest(method=method), self.assertRaises(ValueError):
+                self.adapter.dispatch('alice', method, {'owner': 'bob'})
+
+    def test_setup_reads_original_provider_configuration_without_claiming_runtime(self):
+        self.setup_cases = []
+        root = Path(__file__).resolve().parents[4]
+        provider_path = root / 'releases/fs-dashboard/hermes-v2-core-20261020/source/direct_provider.py'
+        provider_tree = ast.parse(provider_path.read_text('utf-8'))
+        reader = next(n for n in provider_tree.body if isinstance(n, ast.FunctionDef) and n.name == '_load_key')
+        route_path = root / 'releases/fc-coins/fc-review-channel-20261026/source/fs_inprocess.py'
+        route_tree = ast.parse(route_path.read_text('utf-8'))
+        route = next(n for n in route_tree.body if isinstance(n, ast.FunctionDef) and n.name == 'native_gateway')
+        routes = {}
+        exec(compile(ast.Module(body=[route], type_ignores=[]), str(route_path), 'exec'), routes)
+        credential = Path(self.temp.name) / 'synthetic-provider-key'
+        environment = {'FS_HERMES_DEEPSEEK_KEY_FILE': str(credential)}
+        namespace = dict(os=SimpleNamespace(environ=environment, geteuid=lambda: 0), Path=Path,
+                         stat=stat, re=re, KEY_ENV='FS_HERMES_DEEPSEEK_KEY_FILE', DEFAULT_KEY_FILE='/unused')
+        exec(compile(ast.Module(body=[reader], type_ignores=[]), str(provider_path), 'exec'), namespace)
+        # Only NTFS metadata is a POSIX fixture; bytes and the original parser are real.
+        original_lstat = Path.lstat
+        def posix_metadata(path):
+            info = original_lstat(path)
+            return SimpleNamespace(st_mode=stat.S_IFREG | 0o600, st_uid=0, st_size=info.st_size)
+        self.service.hermes = object()
+        self.service.native = SimpleNamespace(service=self.service, hermes=self.service.hermes, store=self.store)
+        with patch.dict(sys.modules, {'direct_provider': SimpleNamespace(_load_key=namespace['_load_key']),
+                'fs_inprocess': SimpleNamespace(native_gateway=routes['native_gateway'])}), patch.object(Path, 'lstat', posix_metadata):
+            for contents, configured, reason in [(None, False, 'configuration_missing'),
+                    ('invalid-synthetic-value', False, 'configuration_invalid'),
+                    ('\ufeffsk-synthetic-only\n', True, 'fs_runtime_state_unverified')]:
+                with self.subTest(configured=configured, reason=reason):
+                    if contents is not None:
+                        credential.write_text(contents, encoding='utf-8')
+                    status = self.adapter.dispatch('alice', 'setup.status', {})
+                    self.assertIs(status['provider_configured'], configured)
+                    runtime = self.adapter.dispatch('alice', 'setup.runtime_check', {})
+                    self.setup_cases.append(dict(name=reason, status=status, runtime=runtime))
+                    self.assertIs(runtime['ok'], False)
+                    self.assertEqual(runtime['error'], reason)
+                    self.assertNotIn('sk-synthetic', json.dumps(runtime))
+            self.service.native.hermes = object()
+            self.assertIs(self.adapter.dispatch('alice', 'setup.status', {})['provider_configured'], False)
+            self.assertEqual(self.adapter.dispatch('alice', 'setup.runtime_check', {})['error'],
+                             'fs_native_route_unavailable')
+            self.service.native.hermes = self.service.hermes
+            service_tree = ast.parse(SERVICE_SOURCE.read_text('utf-8'))
+            method = next(n for c in service_tree.body if isinstance(c, ast.ClassDef)
+                          and c.name == 'ConversationService' for n in c.body
+                          if isinstance(n, ast.FunctionDef) and n.name == '_request')
+            controller_path = root / 'releases/fs-dashboard/knowledge-layering-20261023/source/controller.py'
+            controller_tree = ast.parse(controller_path.read_text('utf-8'))
+            no_redirect = next(n for n in controller_tree.body if isinstance(n, ast.ClassDef) and n.name == 'NoRedirect')
+            namespace = dict(HTTPRedirectHandler=HTTPRedirectHandler, Request=Request,
+                             build_opener=build_opener, json=json, re=re, encoded=json.dumps,
+                             MAX_RESPONSE=1024 * 1024)
+            exec(compile(ast.Module(body=[no_redirect, method], type_ignores=[]), str(SERVICE_SOURCE), 'exec'), namespace)
+            received = []
+            capabilities = dict(object='hermes.api_server.capabilities', runtime=dict(mode='server_agent'),
+                fs_native_chat=dict(version='native_chat_v1', single_post=True,
+                                    readonly_original_lookup=True, schema_relay=True),
+                fs_materials=dict(verified_pin=True))
+            response_status = [200]
+            class Worker(BaseHTTPRequestHandler):
+                def do_GET(self):
+                    received.append((self.path, self.headers.get('Authorization') == 'Bearer synthetic-worker-key'))
+                    self.send_response(response_status[0])
+                    if response_status[0] == 302:
+                        self.send_header('Location', '/not-an-approved-capability-route')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(capabilities).encode())
+                def log_message(self, *args): pass
+            http = ThreadingHTTPServer(('127.0.0.1', 0), Worker)
+            thread = threading.Thread(target=http.serve_forever, daemon=True)
+            thread.start()
+            self.service.run_root = Path(self.temp.name) / 'worker'
+            self.service.run_root.mkdir()
+            (self.service.run_root / 'api-key').write_text('synthetic-worker-key', encoding='ascii')
+            namespace['RUNNER'] = 'http://127.0.0.1:%d' % http.server_port
+            self.service._request = namespace['_request'].__get__(self.service)
+            try:
+                status = self.adapter.dispatch('alice', 'setup.status', {})
+                runtime = self.adapter.dispatch('alice', 'setup.runtime_check', {})
+                self.setup_cases.append(dict(name='configured_and_authenticated_worker', status=status, runtime=runtime))
+                self.assertIs(status['provider_configured'], True)
+                self.assertIs(runtime['ok'], True)
+                self.assertEqual(received, [('/v1/capabilities', True)])
+                response_status[0] = 302
+                self.assertIs(self.adapter.dispatch('alice', 'setup.runtime_check', {})['ok'], False)
+                self.assertEqual(received, [('/v1/capabilities', True), ('/v1/capabilities', True)])
+                for forbidden_method, forbidden_path in [('POST', '/v1/capabilities'),
+                        ('GET', '/v1/capabilities/extra'), ('GET', '/health'), ('GET', '/v1/health')]:
+                    with self.subTest(method=forbidden_method, path=forbidden_path), self.assertRaises(ValueError):
+                        self.service._request(forbidden_method, forbidden_path)
+            finally:
+                http.shutdown()
+                http.server_close()
+                thread.join()
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.store.detail('alice', self.original['conversation_id'])['turns'], [])
+
+    def test_setup_runtime_uses_only_authenticated_neutral_worker_capabilities(self):
+        self.service.hermes = object()
+        self.service.native = SimpleNamespace(service=self.service, hermes=self.service.hermes, store=self.store)
+        calls = []
+        capabilities = dict(object='hermes.api_server.capabilities', runtime=dict(mode='server_agent'),
+            fs_native_chat=dict(version='native_chat_v1', single_post=True,
+                                readonly_original_lookup=True, schema_relay=True),
+            fs_materials=dict(verified_pin=True))
+        def request(method, path, body=None, idempotency=None, timeout=30):
+            calls.append((method, path, body, idempotency, timeout))
+            return 200, capabilities
+        self.service._request = request
+        # Configuration is exercised with the real reader above; this isolates
+        # the final HTTP boundary without starting SDK/Agent or a model.
+        with patch.object(self.adapter, '_setup_configuration', return_value=(True, None)):
+            result = self.adapter.dispatch('alice', 'setup.runtime_check', {})
+            self.assertIs(result['ok'], True)
+            self.assertEqual(calls, [('GET', '/v1/capabilities', None, None, 5)])
+            for key in ('single_post', 'readonly_original_lookup', 'schema_relay'):
+                capabilities['fs_native_chat'][key] = 1
+                self.assertIs(self.adapter.dispatch('alice', 'setup.runtime_check', {})['ok'], False)
+                capabilities['fs_native_chat'][key] = True
+            capabilities['fs_materials']['verified_pin'] = False
+            self.assertIs(self.adapter.dispatch('alice', 'setup.runtime_check', {})['ok'], False)
+            capabilities['fs_materials']['verified_pin'] = True
+            capabilities['runtime']['mode'] = 'other'
+            self.assertIs(self.adapter.dispatch('alice', 'setup.runtime_check', {})['ok'], False)
+            capabilities['runtime']['mode'] = 'server_agent'
+            capabilities['object'] = 'unexpected'
+            self.assertIs(self.adapter.dispatch('alice', 'setup.runtime_check', {})['ok'], False)
+            self.service._request = lambda *args, **kwargs: (503, {})
+            self.assertIs(self.adapter.dispatch('alice', 'setup.runtime_check', {})['ok'], False)
+            def unavailable(*args, **kwargs): raise OSError('synthetic unavailable')
+            self.service._request = unavailable
+            self.assertIs(self.adapter.dispatch('alice', 'setup.runtime_check', {})['ok'], False)
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.store.detail('alice', self.original['conversation_id'])['turns'], [])
 
     def test_fs_created_session_is_listed_and_resumed_without_copy(self):
         result = self.adapter.dispatch('alice', 'session.list', {})
