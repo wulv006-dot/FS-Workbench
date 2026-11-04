@@ -1833,6 +1833,11 @@ def load_base():
         base.rollback_journal = rollback_journal
 
     def atomic(path, payload, mode=0o644):
+        if approved.get('nativeCapabilities') is True and path==base.rooted(publish_root,DESKTOP_CONFIG):
+            row=next((r for r in approved['files'] if r.get('target')==DESKTOP_CONFIG),None)
+            if row and row.get('beforeSha256') is None and row.get('owner')=='0:0' and row.get('mode')=='0o600':
+                if hashlib.sha256(payload).hexdigest()!=row.get('sha256'):raise ValueError('desktop_binding_payload_drift')
+                if mode in (0o644,0o600):mode=0o600
         # Keep the original writer/journal and every per-row guard. Static-only
         # follow-ups leave identical active targets (including runtime) untouched.
         if approved.get('nativeArchive') or approved.get('nativeAdmission') or approved.get('nativeChat') or approved.get('materialStaticOnly') or approved.get('materialDiagnostics') or approved.get('goalTaskIndexCompat') or approved.get('workerDiagnostics') or approved.get('materialTransport') or approved.get('materialStream') or approved.get('bindingsAuth') or approved.get('materialGuard'):
