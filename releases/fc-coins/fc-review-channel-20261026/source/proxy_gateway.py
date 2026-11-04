@@ -65,6 +65,25 @@ def native_scope(scope):
     from native_chat import NativeChatScope
     return isinstance(scope, NativeChatScope)
 
+_NATIVE_GUARD_MESSAGES = {code: 'fs_native_gateway/native_guard_v1/'+code for code in (
+    'provider_tool_history_changed', 'trusted_token_bound_required', 'turn_conflict',
+    'unknown_previous_attempt', 'daily_model_limit', 'task_policy_changed', 'daily_limit_invalid')}
+
+
+class _NativeModelGuardError(ValueError):
+    """Minted only at finite local guards, never from provider/callback text."""
+
+
+def _raise_native_model_guard(code, guard):
+    if guard is not None and code in _NATIVE_GUARD_MESSAGES:
+        scope, binding = guard
+        if (not native_scope(scope) or scope.context(binding['owner'], binding['turn_id'],
+                binding['lease']) != binding):
+            raise PermissionError('native_chat_inactive')
+        raise _NativeModelGuardError(code) from None
+    raise ValueError(code)
+
+
 
 def task_schemas(book):
     if native_scope(book):
@@ -373,7 +392,7 @@ class UnifiedBudget:
                          'tokens INTEGER NOT NULL, microcny INTEGER NOT NULL, '
                          'UNIQUE(owner,task,turn))')
 
-    def restore_tool_indexes(self,owner,task,turn,request,*,compaction=None):
+    def restore_tool_indexes(self,owner,task,turn,request,*,compaction=None,_native_guard=None):
         # Pinned Hermes normalizes ToolCall into id/name/arguments and omits index.
         # Bind each reply to its paid request prefix, not a globally reusable ID.
         if type(turn) is not int or turn<0:raise ValueError('turn_invalid')
@@ -391,7 +410,7 @@ class UnifiedBudget:
             identity=native_messages_sha256(dict(messages=messages[:size]),
                                             reasoning_effort=request.get('reasoning_effort','none'))
             if len(messages)<size or identity!=compaction['messages_sha256']:
-                raise ValueError('provider_tool_history_changed')
+                _raise_native_model_guard('provider_tool_history_changed',_native_guard)
             if baseline is None:
                 baseline=compaction['baseline_length']=size
             rows=[r for r in rows if r[2]>compaction['paid_through']]
@@ -408,29 +427,29 @@ class UnifiedBudget:
                 prefix=dict(request,messages=messages[:position])
                 if digest(prefix)==row[1]:positions.append(position)
             if len(positions)!=1 or matched and positions[0]<=matched[-1]:
-                raise ValueError('provider_tool_history_changed')
+                _raise_native_model_guard('provider_tool_history_changed',_native_guard)
             position=positions[0];calls=messages[position]['tool_calls']
-            if len(calls)!=len(originals):raise ValueError('provider_tool_history_changed')
+            if len(calls)!=len(originals):_raise_native_model_guard('provider_tool_history_changed',_native_guard)
             for call,original in zip(calls,originals):
-                if call['id']!=original['id']:raise ValueError('provider_tool_history_changed')
+                if call['id']!=original['id']:_raise_native_model_guard('provider_tool_history_changed',_native_guard)
                 if (call['function']['name']!=original['function']['name'] or
                     json.loads(call['function']['arguments'])!=json.loads(original['function']['arguments']) or
-                    'index' in call and call['index']!=original.get('index')):raise ValueError('provider_tool_history_changed')
+                    'index' in call and call['index']!=original.get('index')):_raise_native_model_guard('provider_tool_history_changed',_native_guard)
                 if 'index' in original:call['index']=original['index']
             matched.append(position)
         if matched and any(m.get('tool_calls') for i,m in enumerate(messages)
                            if i>=matched[0] and i not in matched):
-            raise ValueError('provider_tool_history_changed')
+            _raise_native_model_guard('provider_tool_history_changed',_native_guard)
         if compaction is not None and not matched and any(m.get('tool_calls') for m in messages[baseline:]):
-            raise ValueError('provider_tool_history_changed')
+            _raise_native_model_guard('provider_tool_history_changed',_native_guard)
         if len(encoded(request['messages']).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('context_rejected')
         return request
 
-    def reserve(self, owner, task, turn, request, input_bound, daily_limit=0):
+    def reserve(self, owner, task, turn, request, input_bound, daily_limit=0, *, _native_guard=None):
         if type(turn) is not int or turn < 0:
             raise ValueError('turn_invalid')
         if type(input_bound) is not int or input_bound <= 0:
-            raise ValueError('trusted_token_bound_required')
+            _raise_native_model_guard('trusted_token_bound_required',_native_guard)
         day = self.clock().astimezone(SHANGHAI).date().isoformat()
         request_hash = digest(request)
         fingerprint = digest({'hermes': 1, 'owner': owner, 'task': task, 'turn': turn, 'request': request_hash})
@@ -444,13 +463,13 @@ class UnifiedBudget:
                                'ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn=?', (owner,task,turn)).fetchone()
             if old:
                 if old['request_digest'] != request_hash or old['policy'] != encoded(p):
-                    raise ValueError('turn_conflict')
+                    _raise_native_model_guard('turn_conflict',_native_guard)
                 if old['state'] != 'succeeded':
-                    raise ValueError('unknown_previous_attempt')
+                    _raise_native_model_guard('unknown_previous_attempt',_native_guard)
                 return fingerprint, json.loads(old['content'])
             count = conn.execute('SELECT COUNT(*) FROM model_calls WHERE day=?', (day,)).fetchone()[0]
             if daily_limit and count >= daily_limit:
-                raise ValueError('daily_model_limit')
+                _raise_native_model_guard('daily_model_limit',_native_guard)
             rows = conn.execute('SELECT r.*,m.state,m.content,m.day FROM hermes_reservations r JOIN model_calls m '
                                 'ON r.fingerprint=m.fingerprint').fetchall()
             transport_unknowns={row['fingerprint'] for row in rows if row['state']=='unknown' and row['owner']==owner and row['task']==task and row['content'] and transport_reset(json.loads(row['content']))}
@@ -464,7 +483,7 @@ class UnifiedBudget:
                     day_cost += receipt['cost_microcny'] if receipt['cost_microcny'] is not None else 0
                 if row['owner'] == owner and row['task'] == task:
                     if row['policy'] != encoded(p):
-                        raise ValueError('task_policy_changed')
+                        _raise_native_model_guard('task_policy_changed',_native_guard)
                     task_cost += receipt['cost_microcny'] if receipt['cost_microcny'] is not None else 0; task_tokens += receipt['usage']['total_tokens']; turns += 1
             conn.execute("INSERT INTO model_calls VALUES(?,?,'started',NULL)", (fingerprint,day))
             conn.execute('INSERT INTO hermes_reservations VALUES(?,?,?,?,?,?,?,?)',
@@ -616,14 +635,16 @@ class ModelGateway:
         return dict(registered=True,compression_count=count)
 
     def call(self, owner, task_id, lease, turn, body):
-        self.scope.context(owner, task_id, lease)
+        binding = self.scope.context(owner, task_id, lease)
+        guard = (self.scope, binding) if native_scope(self.scope) else None
+        diagnostic = {'_native_guard':guard} if guard is not None else {}
         if type(turn) is not int or turn<0:raise ValueError('turn_invalid')
         # Logical turn identity remains in hermes_turns. Existing reservation slots encode
         # each physical attempt as turn*3+ordinal, with no schema migration or old-row rewrite.
         base_turn=turn*(self.transport_retries+1)
         request=request_body(body,self.budget.policy['model'],tool_schemas=task_schemas(getattr(self.scope,'book',None)),native_chat=native_scope(self.scope))
         with self._compaction_lock:
-            request=self.budget.restore_tool_indexes(owner,task_id,base_turn,request,compaction=self._native_compaction)
+            request=self.budget.restore_tool_indexes(owner,task_id,base_turn,request,compaction=self._native_compaction,**diagnostic)
         if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')
         require_context_window(request)  # Recheck after trusted replay metadata is restored.
         if self.preflight is not None:self.preflight(request)  # Final vendor wire before any reservation/network.
@@ -634,13 +655,13 @@ class ModelGateway:
             self.scope.context(owner, task_id, lease)
             limit = self.daily_limit()
             if type(limit) is not int or limit < 0:
-                raise ValueError('daily_limit_invalid')
+                _raise_native_model_guard('daily_limit_invalid',guard)
             # Existing global call-count limit is checked atomically for new calls only.
             for attempt in range(self.transport_retries+1):
                 self.scope.context(owner,task_id,lease)
                 if attempt:self.retry_wait(2**attempt,lambda:self.scope.context(owner,task_id,lease))
                 physical_turn=base_turn+attempt
-                try:fingerprint,prior=self.budget.reserve(owner,task_id,physical_turn,request,bound,limit)
+                try:fingerprint,prior=self.budget.reserve(owner,task_id,physical_turn,request,bound,limit,**diagnostic)
                 except ValueError as error:
                     if str(error)=='unknown_previous_attempt' and self.transport_retries and self.budget.prior_transport_reset(owner,task_id,physical_turn,request):continue
                     raise
