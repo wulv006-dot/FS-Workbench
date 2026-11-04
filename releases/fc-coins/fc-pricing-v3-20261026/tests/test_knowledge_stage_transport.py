@@ -1,5 +1,6 @@
 """The knowledge release stage ships committed bytes, including frozen publisher."""
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
@@ -7,6 +8,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -15,6 +17,18 @@ PREFIX = json.loads(subprocess.check_output(['git','show','HEAD:knowledge/index.
 
 
 class KnowledgeStageTransportTest(unittest.TestCase):
+    def test_candidate_requires_exact_current_ids(self):
+        sys.path.insert(0, str(BUILDER.parent))
+        spec=importlib.util.spec_from_file_location('knowledge_stage_validation',BUILDER)
+        build_stage=importlib.util.module_from_spec(spec);spec.loader.exec_module(build_stage)
+        index=json.loads(subprocess.check_output(['git','show','HEAD:knowledge/index.json'],cwd=ROOT))
+        entry=next(row for row in index['entries'] if row['id']=='fc.reporting.methods')
+        entry['id']='unexpected.reporting.methods'
+        with patch.object(build_stage.subprocess,'check_output',return_value='a'*40), \
+             patch.object(build_stage,'blob',return_value=json.dumps(index).encode()):
+            with self.assertRaisesRegex(ValueError,'v3_current_knowledge_selection_invalid'):
+                build_stage.build(ROOT,'a'*40,ROOT/'unused.tar.gz')
+
     def test_stage_publisher_equals_committed_blob(self):
         commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
         with tempfile.TemporaryDirectory() as temporary:
