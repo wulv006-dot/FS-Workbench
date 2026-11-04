@@ -18,5 +18,9 @@ export class SnapshotClient {
     if (result.snapshot_id !== this.id || result.facts_hash !== this.meta.facts_hash) throw Error('数据版本不一致，请重新打开当前视图');
     return result;
   }
+  exportURL(game) {
+    if (!this.id || !this.meta.games.includes(game)) throw Error('游戏范围不可用');
+    return `/dashboard/analytics/seo/api/v1/snapshots/${this.id}/export.csv?` + new URLSearchParams({game});
+  }
 }
 export const value = (input, percentage = false) => input == null ? '—' : percentage ? `${(Number(input) * 100).toFixed(1)}%` : Number(input).toLocaleString('zh-CN', {maximumFractionDigits: 2});

@@ -8,6 +8,8 @@ const assert=require('node:assert/strict');
  assert(calls.slice(1).every(p=>p.includes('/seo-2026-11-05/')));
  assert(calls.every(p=>!p.includes('refresh')));
  await assert.rejects(()=>client.load('history','D4'));
+ assert(client.exportURL('FC27').includes('/seo-2026-11-05/export.csv?game=FC27'));
+ assert.throws(()=>client.exportURL('D4'));
  assert.equal(value(null),'—');assert.equal(value('0'),'0');assert.equal(value('.5',true),'50.0%');
  client.fetch=async()=>({ok:true,json:async()=>({snapshot_id:meta.snapshot_id,facts_hash:'different'})});
  await assert.rejects(()=>client.load('history','FC27'),/版本/);

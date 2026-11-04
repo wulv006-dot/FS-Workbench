@@ -6,15 +6,21 @@ import re
 import sqlite3
 import sys
 import threading
+from typing import NamedTuple
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 
 from .api import Service
 from .ai_policy import Actor, PolicyStore
-from .contracts import GAMES
+from .contracts import GAMES, game
 
 PREFIX = '/dashboard/analytics/seo/api/v1/'
+
+
+class Csv(NamedTuple):
+    filename: str
+    text: str
 
 
 def verify(cookie, method, path):
@@ -81,10 +87,20 @@ class Application:
                 manage = status == 200 and editor == subject
             actor = Actor(subject, GAMES, manage, False)
             internal = '/api/seo/v1/' + parsed.path[len(PREFIX):]
+            export = re.fullmatch(r'/api/seo/v1/snapshots/(seo-\d{4}-\d{2}-\d{2})/export\.csv',internal)
+            if method == 'GET' and export:
+                if set(dict(query))!={'game'}:
+                    raise ValueError('INVALID_EXPORT_QUERY')
+                scope=game(dict(query)['game'])
+                if scope not in actor.games:
+                    return 403,dict(error='SEO_EXPORT_DENIED')
+                return 200,Csv(export[1]+'-'+scope+'.csv',''.join(self.service.export(export[1],scope,actor)))
             if len(body) > 16384:
                 raise ValueError('POLICY_BODY_TOO_LARGE')
             data = json.loads(body) if method == 'PATCH' else None
             return self.service.handle(method, internal, dict(query), actor, body=data, mutation_authorized=method == 'PATCH')
+        except FileNotFoundError:
+            return 410,dict(error='SNAPSHOT_EXPIRED')
         except (OSError, sqlite3.Error, ImportError):
             return 503, dict(error='SEO_LOCAL_COMPONENT_UNAVAILABLE')
         except (ValueError, TypeError, UnicodeError):
@@ -113,9 +129,11 @@ class Handler(BaseHTTPRequestHandler):
             status, value = self.server.application.handle(self.command, self.path, self.headers, body)
         except (ValueError, OSError):
             status, value = 422, dict(error='INVALID_SEO_REQUEST')
-        payload = json.dumps(value, ensure_ascii=False, allow_nan=False).encode('utf-8')
+        payload = ('\ufeff'+value.text).encode('utf-8') if isinstance(value,Csv) else json.dumps(value, ensure_ascii=False, allow_nan=False).encode('utf-8')
         self.send_response(status)
-        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Type', 'text/csv; charset=utf-8' if isinstance(value,Csv) else 'application/json; charset=utf-8')
+        if isinstance(value,Csv):
+            self.send_header('Content-Disposition','attachment; filename="'+value.filename+'"')
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Content-Length', str(len(payload)))
