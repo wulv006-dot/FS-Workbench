@@ -28,7 +28,8 @@ CURRENT_IDS = {'fs.data.sources', 'fs.data.currency', 'fs.customer.identity', 'f
                'fs.finance.procurement', 'fc.pricing.constraints', 'fs.procurement.inputs',
                'fs.pricing.parameter-identity', 'fs.product.identity', 'fs.customer.lifecycle',
                'fs.learning.methods', 'fs.project.execution', 'fc.pricing.v3',
-               'fs.dashboard.shipping-profit'}
+               'fs.dashboard.shipping-profit', 'fc.reporting.methods', 'fc.reporting.data',
+               'fc.reporting.report', 'fc.reporting.business', 'fc.reporting.maintenance'}
 
 
 def lf(path):
@@ -246,11 +247,11 @@ class LearningCatalog(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'source_version'):
             kc.validate(value)
 
-    def test_fourteen_current_entries_cover_rules_and_twenty_five_preserve_history(self):
+    def test_current_entries_cover_rules_and_reporting_and_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 25)
+        self.assertEqual(len(entries), 30)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 25)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 30)
 
     def test_user_approved_reference_rule_is_indexed_without_changing_margin_constraints(self):
         entries = catalog()['entries']
@@ -334,7 +335,7 @@ class LearningCatalog(unittest.TestCase):
             self.assertLess(len(knowledge['text'].encode()), bc.MAX_TOTAL)
             loaded = bc.loaded_learning(root, knowledge['version'])
             receipt = bc.effective_learning(loaded, [dict(role='system', content=loaded['text'])])
-            self.assertEqual(len(receipt['knowledge_entries']), 14)
+            self.assertEqual(len(receipt['knowledge_entries']), 19)
             sections = read_all_sections(root, loaded)
             for row in selection['entries']:
                 path = 'knowledge/'+row['id']+'@'+row['revision']

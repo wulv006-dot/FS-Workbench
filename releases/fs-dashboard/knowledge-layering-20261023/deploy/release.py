@@ -2,7 +2,9 @@
 import hashlib
 import importlib.util
 import json
+import re
 import stat
+from contextlib import contextmanager
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -14,15 +16,26 @@ PREFIX = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + RELEASE + '/'
 
 
 def targets(manifest):
+    runtime, prefix = RUNTIME, PREFIX
+    if manifest.get('knowledgeOnly') is True:
+        commit = manifest.get('sourceCommit', '')
+        release = manifest.get('knowledgeRelease', '')
+        if (not re.fullmatch('[a-f0-9]{40}', commit) or
+                release != 'fc-reporting-knowledge-20261105-' + commit[:8] or
+                manifest.get('scope') != SCOPE or manifest.get('businessWrites') is not False or
+                manifest.get('timersChanged') is not False):
+            raise ValueError('knowledge_only_identity_or_authority')
+        runtime = {'runtime/knowledge-load-policy.json': '/var/lib/fs-hermes-fc/fs/knowledge-load-policy.json'}
+        prefix = '/var/lib/fs-hermes-fc/fs/knowledge-releases/' + release + '/'
     result = {r['candidate']: r['target'] for r in manifest['files']}
-    if len(result) != len(manifest['files']) or not RUNTIME.items() <= result.items():
+    if len(result) != len(manifest['files']) or not runtime.items() <= result.items():
         raise ValueError('knowledge_exact_runtime_targets')
     for name, target in result.items():
-        if name in RUNTIME:
+        if name in runtime:
             continue
-        if not name.startswith('artifact/') or '..' in Path(name).parts or '\\' in name or target != PREFIX + name[len('artifact/'):]:
+        if not name.startswith('artifact/') or '..' in Path(name).parts or '\\' in name or target != prefix + name[len('artifact/'):]:
             raise ValueError('knowledge_immutable_release_boundary')
-    if result.get('artifact/index.json') != PREFIX + 'index.json':
+    if result.get('artifact/index.json') != prefix + 'index.json':
         raise ValueError('knowledge_release_index_required')
     return result
 
@@ -37,7 +50,8 @@ def load_base():
     manifest = json.loads((HERE / 'approved-manifest.json').read_text(encoding='utf-8'))
     mapping = targets(manifest)
     adapter.HERE, adapter.SCOPE, adapter.TARGETS = HERE, SCOPE, mapping
-    adapter.NEW = frozenset(r['candidate'] for r in manifest['files'] if r['candidate'] not in RUNTIME
+    runtime = {'runtime/knowledge-load-policy.json'} if manifest.get('knowledgeOnly') is True else set(RUNTIME)
+    adapter.NEW = frozenset(r['candidate'] for r in manifest['files'] if r['candidate'] not in runtime
                             or r['candidate'] == 'runtime/knowledge_catalog.py' and r['beforeSha256'] is None)
     base = adapter.load_base()
     original_group = base.approved_daily_group
@@ -62,6 +76,16 @@ def load_base():
         restart(dict(value, scope=base.DEEP_SCOPE), admission_fence)
 
     base.restart_for = restart_changed_code
+    if manifest.get('knowledgeOnly') is True:
+        base.knowledge_original_fence = base.hermes_admission_fence
+
+        @contextmanager
+        def knowledge_fence(value, root):
+            # Immutable documents precede the atomic route; retain the original fence without code-recovery service stops.
+            with base.knowledge_original_fence(value, root):
+                yield None
+
+        base.hermes_admission_fence = knowledge_fence
     return base
 
 
