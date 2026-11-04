@@ -10,6 +10,8 @@ import re
 import sqlite3
 import stat
 import subprocess
+import socket
+import time
 import types
 
 HERE = Path(__file__).resolve().parent
@@ -1359,6 +1361,28 @@ def native_path_info(path):
     return info
 
 
+def desktop_readiness(deadline, import_program):
+    # The verified host-network listener binds after official lifespan startup.
+    while True:
+        remaining=deadline-time.monotonic()
+        if remaining<=0:raise ValueError('listener_not_ready')
+        try:
+            with socket.create_connection(('127.0.0.1',8942),timeout=min(1.0,remaining)):
+                break
+        except OSError:
+            remaining=deadline-time.monotonic()
+            if remaining<=0:raise ValueError('listener_not_ready') from None
+            time.sleep(min(0.1,remaining))
+    if import_program is not None:
+        remaining=deadline-time.monotonic()
+        if remaining<=0:raise ValueError('import_failed')
+        try:
+            subprocess.run(['docker','exec','fs-hermes-desktop','python','-I','-B','-c',import_program],
+                check=True,capture_output=True,timeout=remaining)
+        except (subprocess.CalledProcessError,subprocess.TimeoutExpired,OSError):
+            raise ValueError('import_failed') from None
+
+
 def desktop_observation(base,root):
     """Only the existing Desktop mounts and token metadata; never read its key."""
     token=base.rooted(root,'/var/lib/fs-hermes-fc/profile/.desktop-management/token')
@@ -1893,11 +1917,11 @@ def load_base():
                 serve=next(r for r in manifest['files'] if r['candidate']=='desktop/serve.py')
                 installed=base.digest(base.rooted(publish_root,serve['target']))
                 if installed not in (serve['sha256'],serve['beforeSha256']):raise ValueError('desktop_readiness_source_drift')
-                program="import socket; s=socket.create_connection(('127.0.0.1',8942),timeout=5); s.close()"
+                deadline=time.monotonic()+25
+                import_program=None
                 if installed==serve['sha256']:
-                    program+=";import sys;sys.path.insert(0,'/desktop');import conversation_desktop,desktop_fs_gateway;assert conversation_desktop.__file__=='/desktop/conversation_desktop.py';assert desktop_fs_gateway.__file__=='/desktop/desktop_fs_gateway.py'"
-                subprocess.run(['docker','exec','fs-hermes-desktop','python','-I','-B','-c',program],
-                    check=True,capture_output=True,timeout=25)
+                    import_program="import sys;sys.path.insert(0,'/desktop');import conversation_desktop,desktop_fs_gateway;assert conversation_desktop.__file__=='/desktop/conversation_desktop.py';assert desktop_fs_gateway.__file__=='/desktop/desktop_fs_gateway.py'"
+                desktop_readiness(deadline,import_program)
             running_worker(manifest);native_runtime_readiness();base.guards(manifest,publish_root)
             return
         if manifest.get('nativeArchive') or manifest.get('nativeAdmission'):
