@@ -73,7 +73,8 @@ def publisher(stage, manifest):
             for name in ('fs-seo','fs-seo-control','fs-seo-ai'):
                 Path('/var/lib',name).mkdir(mode=0o700,exist_ok=True)
             subprocess.run(['systemctl','daemon-reload'],check=True)
-            subprocess.run(['systemctl','enable','--now','fs-seo-web.service'],check=True)
+            subprocess.run(['systemctl','enable','fs-seo-web.service'],check=True)
+            subprocess.run(['systemctl','restart','fs-seo-web.service'],check=True)
             subprocess.run(['systemctl','enable','--now','fs-seo-daily.timer'],check=True)
             subprocess.run(['systemctl','is-active','--quiet','fs-seo-web.service','fs-seo-daily.timer'],check=True)
         else:

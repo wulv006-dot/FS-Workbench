@@ -67,15 +67,24 @@ def build(repo, baseline, formal, navigation, config, output):
                   'config.json':('/etc/fs-seo/config.json',(json.dumps(config,ensure_ascii=False,indent=2)+'\n').encode())}
     original = formal.decode('utf-8')
     start, end = '# >>> FS SEO daily >>>', '# <<< FS SEO daily <<<'
+    replacement = routes(package,assets,config['web_port'])
     if start in original or end in original:
-        raise ValueError('FIRST_INSTALL_ONLY_REBASE_EXISTING_SEO_ROUTES')
-    candidates['routes.conf'] = (FORMAL,(original.rstrip()+'\n\n'+routes(package,assets,config['web_port'])).encode())
+        if original.count(start)!=1 or original.count(end)!=1 or original.index(end)<original.index(start):
+            raise ValueError('SEO_ROUTE_MARKERS_INVALID')
+        a,b=original.index(start),original.index(end)+len(end)
+        amended=original[:a]+replacement.rstrip()+original[b:]
+    else:
+        amended=original.rstrip()+'\n\n'+replacement
+    candidates['routes.conf'] = (FORMAL,amended.encode())
     nav = json.loads(navigation)
-    if any(t['id']=='seo' for t in nav['tools']):
-        raise ValueError('SEO_NAVIGATION_ALREADY_INSTALLED')
+    existing=[t for t in nav['tools'] if t['id']=='seo']
+    if len(existing)>1 or existing and existing[0].get('path')!='/dashboard/analytics/seo/':
+        raise ValueError('SEO_NAVIGATION_ID_CONFLICT')
     section = next(s for s in nav['sections'] if s['id']=='analytics')
-    section['ids'].append('seo')
-    nav['tools'].append(dict(id='seo',label='SEO监控台',path='/dashboard/analytics/seo/',icon='▥',short='四游戏昨日固定数据与成交预估',scope='global-portal',section='analytics',requiredGroup='dashboard',serverGuard='/__nav_formal_native_session'))
+    if 'seo' not in section['ids']:
+        section['ids'].append('seo')
+    if not existing:
+        nav['tools'].append(dict(id='seo',label='SEO监控台',path='/dashboard/analytics/seo/',icon='▥',short='四游戏昨日固定数据与成交预估',scope='global-portal',section='analytics',requiredGroup='dashboard',serverGuard='/__nav_formal_native_session'))
     candidates['navigation.json']=(NAV,(json.dumps(nav,ensure_ascii=False,indent=2)+'\n').encode())
     output.mkdir(parents=True)
     files=[]
