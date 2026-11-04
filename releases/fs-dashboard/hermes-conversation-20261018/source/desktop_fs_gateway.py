@@ -8,7 +8,7 @@ import uuid
 from urllib.error import HTTPError
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
-from conversation_desktop import SIGNING_CONTEXT
+from conversation_desktop import SIGNING_CONTEXT, DesktopMethodNotFound
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -34,6 +34,14 @@ class SignedHostClient:
                         raise ValueError('desktop_rpc_response_size')
                     return json.loads(data)
             except HTTPError as error:
+                if error.code == 501:
+                    try:
+                        error_body = error.read(1025)
+                        missing = len(error_body) <= 1024 and json.loads(error_body) == {'error': 'desktop_method_not_found'}
+                    except (OSError, ValueError):
+                        missing = False
+                    if missing:
+                        raise DesktopMethodNotFound('desktop_method_unsupported') from None
                 if error.code in (401, 403):
                     raise PermissionError('desktop_owner_unavailable') from None
                 if error.code == 404:
@@ -167,7 +175,8 @@ class DesktopFSGateway:
                     request = json.loads(frame.get('text', ''))
                     rid, method = request['id'], request['method']
                     params = request.get('params', {})
-                    if request.get('jsonrpc') != '2.0' or not isinstance(params, dict):
+                    if (request.get('jsonrpc') != '2.0' or not isinstance(params, dict)
+                            or not isinstance(method, str) or not method):
                         raise ValueError('invalid_rpc')
                     if method == 'gateway.capabilities':
                         result = {'per_session_exclusive_submit': True, 'submission_id': True}
@@ -178,6 +187,8 @@ class DesktopFSGateway:
                     if method in ('session.resume', 'session.create', 'session.activate'):
                         cursors[result['session_id']] = result['last_seq']
                     await emit(dict(jsonrpc='2.0', id=rid, result=result))
+                except DesktopMethodNotFound:
+                    await emit(dict(jsonrpc='2.0', id=rid, error=dict(code=-32601, message='Method not found')))
                 except (PermissionError, LookupError, ValueError, RuntimeError) as error:
                     await emit(dict(jsonrpc='2.0', id=rid, error=dict(
                         code=4030 if isinstance(error, PermissionError) else 4000,
