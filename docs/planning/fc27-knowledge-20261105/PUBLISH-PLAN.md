@@ -31,14 +31,15 @@
 
 - [x] 写并运行失败测试：仅policy与新不可变文档可入清单，代码/目录逃逸/授权扩大拒绝。
 - [x] 最小实现：保留原fence获取与锁，只对非可执行知识载荷不激活代码恢复的服务动作。
-- [x] 原2项及新2项本地测试4/4；正式Linux pr-fast待执行。
+- [x] 原2项及新2项本地测试4/4；PR813正式Linux pr-fast通过并合并。
 
 ### Task 2: 精确载荷与批准
 
 - [x] 冻结原policy、原catalog与原文，哈希核对后克隆，原25条逐字保留。
 - [x] 新增五项为 `fc.reporting.methods/data/report/business/maintenance`；新FS路由为原13项加5项。
-- [ ] 采集原publisher要求的保护SHA、目标元数据和运行前值，生成最终manifest，主控核清单。
-- [ ] 正式PR/CI/合并后，按最终manifestSHA、唯一release ID调用原inspect/apply；发布与定价线串行。
+- [x] 采集原publisher要求的52个保护SHA、目标元数据和运行前值，生成21文件最终manifest，主控核清单。
+- [x] 正式PR813/CI/合并完成；原publisher inspect已执行。
+- [ ] 原inspect被另一条2026-11-02的历史`dispatch_unknown`会话保护阻断，原native GET对账503；未apply。待原业务支持对账恢复后，同stage复核CAS与保护项，沿当前授权接续；不清状态、不停服务或绕保护。
 
 ### Task 3: 读回与收尾
 
