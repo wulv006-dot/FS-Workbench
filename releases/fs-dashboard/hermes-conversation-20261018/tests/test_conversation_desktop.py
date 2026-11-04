@@ -306,6 +306,51 @@ class DesktopWireTests(unittest.IsolatedAsyncioTestCase):
     setUp = DesktopProjectionTests.setUp
     check = DesktopProjectionTests.check
 
+    async def test_only_unimplemented_methods_receive_method_not_found(self):
+        actor = ['alice']
+        async def rpc(method, params, **kwargs):
+            return self.adapter.dispatch(actor[0], method, params, **kwargs)
+        gateway = DesktopFSGateway(None, rpc, lambda scope: True)
+        incoming, outgoing = asyncio.Queue(), asyncio.Queue()
+        await incoming.put(dict(type='websocket.connect'))
+        task = asyncio.create_task(gateway(dict(type='websocket', path='/fs/api/ws'), incoming.get, outgoing.put))
+        async def response(method, params, rid):
+            await incoming.put(dict(type='websocket.receive', text=json.dumps(dict(
+                jsonrpc='2.0', id=rid, method=method, params=params))))
+            while True:
+                frame = await asyncio.wait_for(outgoing.get(), 2)
+                if frame['type'] == 'websocket.send':
+                    value = json.loads(frame['text'])
+                    if value.get('id') == rid:
+                        return value
+        try:
+            for method, params, code in [('session.control.read', {'session_id': self.original['session_id']}, -32601),
+                    ('unimplemented.method', {}, -32601), (None, {}, 4000), ('', {}, 4000),
+                    ('session.list', [], 4000), ('session.list', {'owner': 'bob'}, 4000)]:
+                with self.subTest(method=method, code=code):
+                    result = await response(method, params, 'read_' + str(code) + str(method))
+                    self.assertEqual(result['error']['code'], code)
+            actor[0] = 'bob'
+            self.assertEqual((await response('session.control.read', {}, 'revoked_001'))['error']['code'], 4030)
+            actor[0] = 'alice'
+            def broken(owner): raise ValueError('desktop_method_unsupported')
+            self.service.listed = broken
+            self.assertEqual((await response('session.list', {}, 'broken_001'))['error']['code'], 4000)
+        finally:
+            await incoming.put(dict(type='websocket.disconnect'))
+            await task
+
+    async def test_unrelated_http_501_is_still_a_failure(self):
+        from io import BytesIO
+        from urllib.error import HTTPError
+        for body in (b'{"error":"different"}', b'not JSON',
+                     b'{"error":"desktop_method_not_found","extra":true}', b'x' * 1025):
+            with self.subTest(size=len(body)), patch('desktop_fs_gateway.build_opener') as opener:
+                opener.return_value.open.side_effect = HTTPError('http://127.0.0.1/private', 501,
+                    'Not Implemented', {}, BytesIO(body))
+                with self.assertRaises(RuntimeError):
+                    await SignedHostClient(b'synthetic-key')('session.list', {})
+
     async def test_installed_auth_accepts_query_only_on_exact_fs_websocket(self):
         from urllib.parse import parse_qs
         token = 'synthetic-existing-desktop-token'
@@ -489,6 +534,32 @@ class CreatorBindingTests(unittest.TestCase):
             self.assertEqual(result['sessions'][0]['id'], self.original['session_id'])
             with self.assertRaises(PermissionError):
                 asyncio.run(SignedHostClient(b'wrong', client.endpoint)('session.list', {}))
+            async def private_wire(method, params):
+                gateway = DesktopFSGateway(None, client, lambda scope: True)
+                incoming, outgoing = asyncio.Queue(), asyncio.Queue()
+                await incoming.put(dict(type='websocket.connect'))
+                await incoming.put(dict(type='websocket.receive', text=json.dumps(dict(
+                    jsonrpc='2.0', id='private_read_001', method=method, params=params))))
+                task = asyncio.create_task(gateway(dict(type='websocket', path='/fs/api/ws'), incoming.get, outgoing.put))
+                try:
+                    while True:
+                        frame = await asyncio.wait_for(outgoing.get(), 3)
+                        if frame['type'] == 'websocket.send':
+                            response = json.loads(frame['text'])
+                            if response.get('id') == 'private_read_001':
+                                return response
+                finally:
+                    await incoming.put(dict(type='websocket.disconnect'))
+                    await task
+            response = asyncio.run(private_wire('session.control.read', {'session_id': self.original['session_id']}))
+            self.unsupported_wire_response = response
+            self.assertEqual(response['error'], dict(code=-32601, message='Method not found'))
+            self.assertEqual(asyncio.run(private_wire('session.list', {'owner': 'bob'}))['error']['code'], 4000)
+            def failed(owner): raise ValueError('Method not found')
+            self.service.listed = failed
+            self.assertEqual(asyncio.run(private_wire('session.list', {}))['error']['code'], 4000)
+            server.authorize = lambda owner: False
+            self.assertEqual(asyncio.run(private_wire('session.control.read', {}))['error']['code'], 4030)
         finally:
             http.shutdown()
             http.server_close()

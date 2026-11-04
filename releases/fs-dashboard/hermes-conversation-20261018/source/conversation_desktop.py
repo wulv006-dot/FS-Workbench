@@ -13,6 +13,10 @@ from datetime import datetime
 SIGNING_CONTEXT = b'FS Desktop conversation RPC v1\n'
 
 
+class DesktopMethodNotFound(ValueError):
+    """A well-formed request names a method this FS adapter does not implement."""
+
+
 def private_bytes(path, *, root_owned=False):
     path = Path(path)
     with os.fdopen(os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0)), 'rb') as stream:
@@ -81,6 +85,8 @@ class DesktopRPC:
                 raise ValueError('desktop_rpc_incomplete')
             result = self.call(raw, handler.headers.get('X-FS-Desktop-Signature'))
             respond(handler, 200, result)
+        except DesktopMethodNotFound:
+            respond(handler, 501, {'error': 'desktop_method_not_found'})
         except (PermissionError, FileNotFoundError):
             respond(handler, 403, {'error': 'desktop_access_denied'})
         except LookupError:
@@ -165,6 +171,8 @@ class ConversationDesktop:
     def dispatch(self, owner, method, params, *, request_id=None):
         # owner is supplied by the authenticated transport, never taken from params.
         self.service._admin(owner)
+        if not isinstance(method, str) or not method:
+            raise ValueError('desktop_method_invalid')
         if not isinstance(params, dict):
             raise ValueError('desktop_params')
         if any(k in params for k in ('owner', 'user', 'approved', 'authorization')):
@@ -256,4 +264,4 @@ class ConversationDesktop:
             if not active[-1]['run_id']:
                 raise RuntimeError('dispatch_unknown')
             return self.service.stop(owner, cid, active[-1]['run_id'], request_id)
-        raise ValueError('desktop_method_unsupported')
+        raise DesktopMethodNotFound('desktop_method_unsupported')
