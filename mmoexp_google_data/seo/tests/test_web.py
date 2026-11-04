@@ -47,3 +47,4 @@ class Web(unittest.TestCase):
         self.assertEqual(len(rows),30)
         self.assertEqual({r['facts_hash'] for r in rows},{manifest['facts_hash']})
         self.assertIn('ga4_data_status',rows[0])
+        self.assertEqual(rows[0]['gsc_timezone'],'America/Los_Angeles')
