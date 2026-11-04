@@ -49,8 +49,8 @@
     "gta_5_6.html": "55b2c431fcc7f0f49e0ed5cbe4b1869f086591c421cc7b4c39aac2e4c60591ca",
     "index.html": "15e1a9b23ff0f8692f4494f49100f9e36a6a28f267c86fd591199daca045b358",
     "last_epoch.html": "6055859c6619abbb8633dac3679bf515929785d9bbcaf0fad1b793a12d04d922",
-    "management-live.css": "dda84c35f403783f90f3d608acb7a9069e4a034327c799df96028152f866e4d5",
-    "management-live.js": "aa04a3c80869f0fd711534812f2f47fd21a91a2d40276ae298a2a0a31d8f4142",
+    "management-live.css": "225593b66fcd4aa69c9b324bd9bd0e986a47508aa34abf9100cd6d47e9ff9ebc",
+    "management-live.js": "988ef09bfa6c0dc1e197e64573c93c41d2cbbb33e4c67da9719e9de84570a473",
     "management.css": "2b80c427dd916e88e6b03076ee39d818f26e8793ab19ffe1eda3fb93c90a9e94",
     "management_components.py": "65c52274d4b0bd422726366c9be22d0c63b24f3c2bc4decf46f524ac07deede2",
     "management_facts.py": "e42fec5b2c44f01fc0fc642994eda621b3cb976786cd349dc8a0b883130ff042",
@@ -75,5 +75,34 @@
     "wardogs.html": "a7a7a44ff3cc25fae2250cbbb6664c7412a602e2980abd91841d61b302b67ac9",
     "wow_forever.html": "b461dcdb8e16eb4c78685bbf7088982282fd67ad006e6c15d9e69dda71d763fd"
   },
-  "deadlineReturnContract": "collection_deadline preserves requested period.start/end; see DEADLINE-REGRESSION.md; isolation proof does not establish a production incident"
+  "deadlineReturnContract": "collection_deadline preserves requested period.start/end; see DEADLINE-REGRESSION.md; isolation proof does not establish a production incident",
+  "presentation20261104": {
+    "releaseId": "nav-20261104T052012Z",
+    "version": "management-home-20261104-a6eb929bc3d8",
+    "status": "deployed_actual_logged_in_entry_verified",
+    "assets": {
+      "management-live.js": {
+        "deployedBytesSha256": "a2a6cc46a37f6b03ff2edb0dd41001ff2750c9ff39005550cf8e0dab2cab460a",
+        "gitLfSha256": "988ef09bfa6c0dc1e197e64573c93c41d2cbbb33e4c67da9719e9de84570a473"
+      },
+      "management-live.css": {
+        "deployedBytesSha256": "8fb6f3dd5b003a741aa85032c8fb363a48820c302f0e56163a6164584573c14c",
+        "gitLfSha256": "225593b66fcd4aa69c9b324bd9bd0e986a47508aa34abf9100cd6d47e9ff9ebc"
+      }
+    },
+    "frontendRoutes": [
+      "/dashboard/management/management-live.js",
+      "/dashboard/management/management-live.css"
+    ],
+    "activeStaticDirectory": "/var/lib/fs-navigation-formal-static/management-home-20261104-a6eb929bc3d8/",
+    "baselineJs": "management-config-20261103-v1; preserve existing config/api/view, target-config link and dynamic game links",
+    "baselineCss": "management-20261103-35b15739c381",
+    "scope": "overview integer dollar display; Beijing target-month time progress; existing data-date pace unchanged",
+    "actualEntry": "25 rows; revenue/profit/orders switched successfully; no decimal dollar values; Beijing displayed minute advanced",
+    "businessWrites": false,
+    "timerActions": 0,
+    "publishedFilesVerified": 3,
+    "protectedFilesVerified": 24,
+    "backupDirectory": "/var/backups/fs-navigation-20261006/nav-20261104T052012Z"
+  }
 }
