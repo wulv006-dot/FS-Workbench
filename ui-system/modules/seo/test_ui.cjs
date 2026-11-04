@@ -1,13 +1,14 @@
 const {chromium}=require('playwright');
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=__dirname,meta={snapshot_id:'seo-2026-11-05',facts_hash:'fixture-only',publication_date:'2026-11-05',report_date:'2026-11-04',history_start:'2026-10-06',history_end:'2026-11-04',games:['FC27','D4','AION2','WOW_FOREVER'],sources:{gsc:'configured',ga4:'not_configured',orders:'not_configured'},data_status:'partial'};
-let apiCalls=[];
+let apiCalls=[], empty=false;
 const server=http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost');
  if(url.pathname.startsWith('/dashboard/analytics/seo/api/v1/')){
   apiCalls.push(url.pathname+url.search);
   res.setHeader('Content-Type','application/json');
   if(url.pathname.endsWith('ai-policy')){res.statusCode=503;return res.end('{}');}
+  if(empty&&url.pathname.endsWith('current')){res.statusCode=404;return res.end('{}');}
   if(url.pathname.endsWith('current')||url.pathname.endsWith('manifest'))return res.end(JSON.stringify(meta));
   return res.end(JSON.stringify({snapshot_id:meta.snapshot_id,facts_hash:meta.facts_hash,game:url.searchParams.get('game'),next_cursor:null,rows:[{source_date:'2026-11-02',metrics:{gsc:{clicks:'3',impressions:'10',ctr:'.3'},ga4:null,admin:null,orders:null},estimate:{status:'missing'}},{source_date:'2026-11-04',metrics:{gsc:null,ga4:{sessions:'10',purchase_events:'3'},admin:{admin_customer_price_usd:'7.25'},orders:null},estimate:{status:'estimated',revenue_usd:'21.75'}}]}));
  }
@@ -37,6 +38,12 @@ const server=http.createServer((req,res)=>{
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
   assert.equal(await page.getByRole('button',{name:/实时|立即采集/}).count(),0);
   await page.screenshot({path:process.env.SEO_SCREENSHOT||path.join(root,'../../../../../seo-ui-mobile.png'),fullPage:true});
+  empty=true;await page.goto(new URL('/',page.url()).href);await page.getByText('暂无可读取的已发布数据。').waitFor();
+  await page.getByRole('tab',{name:'行动与AI分析'}).click();
+  await page.getByText('AI 设置暂不可用').waitFor();
+  assert(!new URL(page.url()).searchParams.has('snapshot_id'));
+  await page.getByRole('tab',{name:'总览'}).click();
+  await page.getByText('等待首个夜间批次发布。').waitFor();
   console.log('PASS: four-game selection, frozen URLs, AI failure isolation, mobile overflow and no real-time action');
  }finally{await browser.close();}
 })().then(()=>server.close()).catch(error=>{console.error(error);server.close();process.exitCode=1;});

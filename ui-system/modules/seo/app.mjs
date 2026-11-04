@@ -13,7 +13,7 @@ function table(headers, rows, caption) {
   rows.forEach(row => {const tr = document.createElement('tr'); row.forEach((v, n) => {const cell = text(n ? 'td' : 'th', v ?? '—'); if (!n) cell.scope = 'row'; tr.append(cell);}); body.append(tr);});
   region.append(t); return region;
 }
-function selectedURL() {const url = new URL(location.href); url.searchParams.set('snapshot_id', client.id); url.searchParams.set('game', select.value); url.searchParams.set('tab', active); history.replaceState(null, '', url);}
+function selectedURL() {const url = new URL(location.href); if (client.id) url.searchParams.set('snapshot_id', client.id); else url.searchParams.delete('snapshot_id'); url.searchParams.set('game', select.value); url.searchParams.set('tab', active); history.replaceState(null, '', url);}
 async function render() {
   const request = ++epoch, scope = select.value;
   selectedURL(); panel.replaceChildren(text('div', '正在读取已发布快照…', 'loading')); panel.setAttribute('aria-busy', 'true');
@@ -23,11 +23,13 @@ async function render() {
     if (active === 'ai') {
       panel.replaceChildren(text('h2', '行动与可选AI分析'));
       const reminders = document.createElement('div'); panel.append(reminders);
-      client.load('rules', scope).then(result => {if (request === epoch) result.rows.forEach(r => reminders.append(text('p', r.message)));}).catch(() => {if (request === epoch) reminders.append(text('p', '基础提醒暂不可用。', 'error'));});
+      if (client.id) client.load('rules', scope).then(result => {if (request === epoch) result.rows.forEach(r => reminders.append(text('p', r.message)));}).catch(() => {if (request === epoch) reminders.append(text('p', '基础提醒暂不可用。', 'error'));});
+      if (!client.id) reminders.append(text('p', '基础提醒等待首个夜间批次。', 'muted'));
       const box = document.createElement('div'); panel.append(box);
       import('./ai.mjs').then(module => {if (request === epoch) module.mount(box, client);}).catch(() => {if (request === epoch) box.replaceChildren(text('p', 'AI组件暂不可用，基础数据可继续查看。', 'error'));});
       return;
     }
+    if (!client.id) {panel.replaceChildren(text('div', '等待首个夜间批次发布。', 'empty')); return;}
     const kind = views[active][1], data = await client.load(kind, scope);
     if (request !== epoch) return;
     panel.replaceChildren();
@@ -99,5 +101,5 @@ document.querySelector('#export').addEventListener('click', async event => {
     document.querySelector('#version').textContent = `发布 ${meta.publication_date} · 业务目标 ${meta.report_date} · ${meta.snapshot_id}`;
     status.textContent = meta.data_status === 'partial' ? '已发布固定数据；部分来源待发布或尚未接入。' : '已发布固定数据。';
     document.querySelector('#export').disabled = false; await render();
-  } catch (error) {status.textContent = error.message; panel.replaceChildren(text('div', '暂无可读取的已发布数据。', 'empty')); panel.setAttribute('aria-busy', 'false');}
+  } catch (error) {document.querySelector('#version').textContent = '尚无已发布版本 · 每日03:20启动批次'; status.textContent = error.message; panel.replaceChildren(text('div', '暂无可读取的已发布数据。', 'empty')); panel.setAttribute('aria-busy', 'false');}
 })();
