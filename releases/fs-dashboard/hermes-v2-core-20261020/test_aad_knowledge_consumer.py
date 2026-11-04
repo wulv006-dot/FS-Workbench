@@ -152,6 +152,71 @@ class NativeDiagnosticRed(unittest.TestCase):
 class NativeDiagnosticSafety(unittest.TestCase):
     def fixture(self):return NativeToolHistory('runTest').history_fixture(older=False)
 
+    def retry_gateway(self, h, failures):
+        # The general FC lane has two configured reset retries. Its real scope,
+        # budget and SQLite remain in the test; only the final provider is fake.
+        from test_material_transport import load
+        module = load('reset_retry_gateway_under_test',
+            REPO/'releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py')
+        original = h.proxy.gateway_for(h.f.grants.resolve(h.f.token))
+        attempts, waits = [], []
+        def provider(request):
+            attempts.append(deepcopy(request))
+            if len(attempts) <= failures:
+                error = ValueError('provider_unknown_transport')
+                error.response = dict(status='unknown_transport',
+                    transport_error_type='ConnectionResetError')
+                raise error
+            return dict(id='synthetic-reset-success',model='deepseek-flash',
+                usage=dict(prompt_tokens=1,completion_tokens=1,total_tokens=2),
+                choices=[dict(message=dict(role='assistant',content='synthetic recovered'),
+                              finish_reason='stop')])
+        def wait(seconds, check):
+            waits.append(seconds)
+            check()
+        gateway = module.ModelGateway(h.f.gateway.scope,original.budget,
+            original.slot,provider,original.input_bound,original.daily_limit,
+            transport_retries=2,retry_wait=wait)
+        body = dict(messages=[dict(role='user',content='synthetic reset retry')],max_tokens=32)
+        return gateway, body, attempts, waits
+
+    def test_transport_reset_retry_succeeds_with_independent_budget_arguments(self):
+        with self.fixture() as h:
+            gateway, body, attempts, waits = self.retry_gateway(h,1)
+            try:
+                result = gateway.call('fixture-owner','fixture-task','fixture-lease',0,body)
+            except Exception as error:
+                self.fail('retry did not reach success: '+type(error).__name__)
+            self.assertEqual(result['message']['content'],'synthetic recovered')
+            self.assertEqual(len(attempts),2)
+            self.assertEqual(attempts[0],attempts[1])
+            self.assertEqual(waits,[2])
+            with h.db() as db:
+                rows=[tuple(r) for r in db.execute('SELECT r.turn,m.state FROM hermes_reservations r JOIN model_calls m ON m.fingerprint=r.fingerprint ORDER BY r.turn')]
+            self.assertEqual(rows,[(0,'unknown'),(1,'succeeded')])
+            prior = gateway.call('fixture-owner','fixture-task','fixture-lease',0,body)
+            self.assertEqual(prior,result)
+            self.assertEqual(len(attempts),2)
+
+    def test_transport_reset_exhaustion_keeps_three_unknown_attempts(self):
+        with self.fixture() as h:
+            gateway, body, attempts, waits = self.retry_gateway(h,3)
+            try:
+                gateway.call('fixture-owner','fixture-task','fixture-lease',0,body)
+            except Exception as error:
+                self.assertIsInstance(error,ValueError)
+                self.assertEqual(str(error),'provider_transport_recovery_exhausted')
+            else:
+                self.fail('three resets must not produce a success receipt')
+            self.assertEqual(len(attempts),3)
+            self.assertEqual(waits,[2,4])
+            with h.db() as db:
+                rows=[tuple(r) for r in db.execute('SELECT r.turn,m.state FROM hermes_reservations r JOIN model_calls m ON m.fingerprint=r.fingerprint ORDER BY r.turn')]
+            self.assertEqual(rows,[(0,'unknown'),(1,'unknown'),(2,'unknown')])
+            with self.assertRaisesRegex(ValueError,'^provider_transport_recovery_exhausted$'):
+                gateway.call('fixture-owner','fixture-task','fixture-lease',0,body)
+            self.assertEqual(len(attempts),3)
+
     def test_real_local_reservation_and_limit_guards_have_fixed_native_codes(self):
         for code in ('daily_model_limit','task_policy_changed','trusted_token_bound_required',
                      'daily_limit_invalid','turn_conflict','unknown_previous_attempt'):
