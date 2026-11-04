@@ -116,10 +116,14 @@ CAPABILITIES_DESKTOP_SETUP_PROOF = dict(sourceCommit='67906a53259155a0df43a334e4
     backup='/var/backups/fs-navigation-20261006/nav-20261104T084256Z',
     manifestSha256='0965c10730425258525e16cb74de84e461e2304799572f978b24d34f8257b338',
     journalSha256='7563fa9478d5aaebd76ce38d770f284d6e95883fbc30d2118b47e818cfa49e05')
-NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='119e960a23cbe98255cce592795d7b5eb1f302d8',
+CAPABILITIES_DIAGNOSTIC_HISTORY_PROOF = dict(sourceCommit='119e960a23cbe98255cce592795d7b5eb1f302d8',
     backup='/var/backups/fs-navigation-20261006/nav-20261104T104931Z',
     manifestSha256='892365c3b7be7295d4f6bdc3e83b0aa78bfbded954197ce7f0254393e51c2e12',
     journalSha256='5057f33c0913810cd4fe96da704e2cfa0e4520f8460422db7ef2e9308b6c1805')
+NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='befa7cd8b4ccf8fa46221710831ec12d4371b294',
+    backup='/var/backups/fs-navigation-20261006/nav-20261104T114708Z',
+    manifestSha256='4190029007488787a65d0d25e07f122f4a85003b206b48678b5051cdf7bd6743',
+    journalSha256='497a5deae65fd860a0a355800c205e5aca8b447b1d3203248048252471fe058d')
 DESKTOP_MODE_CORRECTION_SHA='d2352697a75d75545108cd03f260c264f3e918dc1b4be9d7f2b239a2cd2a947e'
 DESKTOP_NAVIGATION_PROOF=dict(backup='/var/backups/fs-navigation-20261006/nav-20261104T052012Z',
     manifestSha256='ec8550f11cc66b47799c92d3cf9649deee192bdfa17e25a399640e8a46ee3854',
@@ -329,7 +333,7 @@ DESKTOP_SETUP_INSTALLED_EXISTING=dict(DESKTOP_EXISTING)
 for _name in ('runtime/conversation_desktop.py','desktop/conversation_desktop.py'):
     DESKTOP_EXISTING[_name]=('6a24b2ab18bad8223e659d1f7559c42a0c8ae4b07ff7850d30a9504ddfb8fd6d',14795)
 DESKTOP_EXISTING['desktop/desktop_fs_gateway.py']=('f46e88384555b919c8660ca16e0684bc9b477ab5b5adb443d0bd52b8d3a84bfc',10350)
-CAPABILITIES_CHANGED = ('runtime/transport.py','runtime/proxy_gateway.py')
+CAPABILITIES_CHANGED = ('runtime/proxy_gateway.py',)
 
 
 def payload_mode(target):
@@ -1135,11 +1139,11 @@ def capabilities_knowledge_history(base,root,current,installed_rows):
         raise ValueError('native_knowledge_success_chain_mismatch')
 
 
-def capabilities_desktop_history(base,root,current,installed_rows,*,stage=4):
-    """Verify fixed aad/1f/c1/3522/679 history; mode/nav belongs only to 1f."""
+def capabilities_desktop_history(base,root,current,installed_rows,*,stage=5):
+    """Verify fixed aad/1f/c1/3522/679/119e history; mode/nav belongs only to 1f."""
     proof=(CAPABILITIES_DESKTOP_HISTORY_PROOF,CAPABILITIES_DESKTOP_INSTALL_PROOF,
            CAPABILITIES_DESKTOP_WS_PROOF,CAPABILITIES_DESKTOP_TIME_PROOF,
-           CAPABILITIES_DESKTOP_SETUP_PROOF)[stage];records={}
+           CAPABILITIES_DESKTOP_SETUP_PROOF,CAPABILITIES_DIAGNOSTIC_HISTORY_PROOF)[stage];records={}
     initial=stage==0
     expected=KNOWLEDGE_INSTALLED_TARGETS if initial else DESKTOP_INSTALLED_TARGETS
     fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
