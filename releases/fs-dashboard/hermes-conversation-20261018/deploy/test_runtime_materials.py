@@ -1197,6 +1197,69 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 class NativePublisher(unittest.TestCase):
+    @contextmanager
+    def desktop_restart_fixture(self, ready_at, *, installed='after', import_error=None):
+        import ast
+        clock=SimpleNamespace(now=0.0);calls=[]
+        def sleep(seconds):clock.now+=seconds
+        timer=SimpleNamespace(monotonic=lambda:clock.now,sleep=sleep)
+        def connect(address,timeout):
+            self.assertEqual(address,('127.0.0.1',8942));self.assertGreater(timeout,0)
+            calls.append(('connect',clock.now,timeout))
+            if clock.now<ready_at:raise ConnectionRefusedError('synthetic listener not ready')
+            return nullcontext()
+        def run(command,**kwargs):
+            calls.append(('run',command,kwargs))
+            if command[0]=='docker':
+                if 'socket.create_connection' in command[-1]:
+                    # The old exact Docker program attempted its one socket
+                    # immediately; only the final process boundary is a fixture.
+                    try:connect(('127.0.0.1',8942),timeout=5)
+                    except OSError:raise subprocess.CalledProcessError(1,['synthetic-old-readiness']) from None
+                    if import_error=='exit':raise subprocess.CalledProcessError(1,['synthetic-import'])
+                    if import_error=='timeout':raise subprocess.TimeoutExpired(['synthetic-import'],kwargs['timeout'])
+                else:
+                    self.assertGreaterEqual(clock.now,ready_at)
+                    self.assertIn('import conversation_desktop,desktop_fs_gateway',command[-1])
+                    self.assertGreater(kwargs['timeout'],0);self.assertLessEqual(kwargs['timeout'],25-clock.now)
+                    if import_error=='exit':raise subprocess.CalledProcessError(1,['synthetic-import'])
+                    if import_error=='timeout':raise subprocess.TimeoutExpired(['synthetic-import'],kwargs['timeout'])
+            return SimpleNamespace(returncode=0)
+        process=SimpleNamespace(run=run,CalledProcessError=subprocess.CalledProcessError,TimeoutExpired=subprocess.TimeoutExpired)
+        checked=Mock()
+        namespace=dict(Path=Path,publish_root=Path('/'),time=timer,subprocess=process,
+            readiness=SimpleNamespace(restart_with_hermes_readiness=lambda *args:calls.append(('range',))),original_restart=None,
+            base=SimpleNamespace(DEEP_SCOPE='fixture-range',rooted=lambda root,path:Path(path),digest=lambda path:installed,guards=checked),
+            running_worker=Mock(),native_runtime_readiness=Mock(),desktop_readiness=getattr(release,'desktop_readiness',None))
+        source=ast.parse(Path(release.__file__).read_bytes())
+        restart=next(n for n in ast.walk(source) if isinstance(n,ast.FunctionDef) and n.name=='restart')
+        factory=ast.parse('def factory():\n before_restart=True\n return None\n').body[0]
+        factory.body.insert(1,restart);factory.body[-1]=ast.Return(value=ast.Name(id='restart',ctx=ast.Load()))
+        exec(compile(ast.fix_missing_locations(ast.Module(body=[factory],type_ignores=[])),'actual-desktop-restart','exec'),namespace)
+        manifest=dict(nativeCapabilities=True,files=[dict(candidate='desktop/serve.py',target='/fixture/serve.py',sha256='after',beforeSha256='before')])
+        fence=SimpleNamespace(stop_then_unlock_database=Mock())
+        with patch.object(release,'time',timer,create=True),patch.object(release,'socket',SimpleNamespace(create_connection=connect),create=True),patch.object(release,'subprocess',process):
+            yield SimpleNamespace(call=lambda:namespace['factory']()(manifest,fence),calls=calls,clock=clock,guards=checked,fence=fence)
+
+    def test_desktop_restart_waits_listener_with_one_shared_budget_and_import(self):
+        for installed,ready_at,error,expected in (
+                ('after',6,None,None),('before',6,None,None),('after',100,None,'listener_not_ready'),
+                ('after',0,'exit','import_failed'),('after',0,'timeout','import_failed')):
+            with self.subTest(installed=installed,error=error,ready_at=ready_at),self.desktop_restart_fixture(ready_at,installed=installed,import_error=error) as f:
+                if expected:
+                    with self.assertRaisesRegex(ValueError,'^'+expected+'$'):f.call()
+                    f.guards.assert_not_called()
+                else:
+                    f.call();f.guards.assert_called_once()
+                f.fence.stop_then_unlock_database.assert_called_once()
+                self.assertEqual(sum(c[0]=='range' for c in f.calls),1)
+                commands=[c[1] for c in f.calls if c[0]=='run']
+                self.assertEqual(sum(c==['systemctl','restart','fs-hermes-desktop.service'] for c in commands),1)
+                self.assertFalse(any(c[:2]==['systemctl','start'] for c in commands))
+                self.assertEqual(sum(c[0]=='docker' for c in commands),0 if installed=='before' or ready_at>25 else 1)
+                self.assertLessEqual(f.clock.now,25)
+                if not expected:self.assertGreaterEqual(f.clock.now,6)
+
     def test_desktop_payload_contains_both_consumers_and_exact_before_sources(self):
         prepare.configure_native_capabilities()
         self.assertEqual(len(release.TARGETS),32,'Desktop consumers/config must be in original complete payload')
