@@ -184,6 +184,8 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
     if (job.get('request') or {}).get('v3_authorization_purpose')==UK_RETIREMENT:
         return calculate_uk_retirement(evidence,job,db)
     mode = plan['mode'] if plan else 'revenue_sprint'
+    base_plan = plan['baseline_plan'] if mode=='smart' else plan
+    smart_plan = dict(plan, mode='revenue_sprint', parameters=base_plan['parameters'], price_anchor=base_plan['price_anchor']) if mode=='smart' else None
     control=db.price_control()
     if (control['manual_enabled'] or control['uplift_enabled']) and not plan:raise ValueError('pricing_plan_required')
     if selected_action is not None and (control['manual_enabled'] or control['uplift_enabled']):
@@ -194,7 +196,7 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         evaluations={mode:dict(mode=mode,status='READY',current=before,anchor=plan['price_anchor'],
             candidates=[candidate],selected=candidate,failures=[],valid_until=(now+timedelta(seconds=900)).isoformat())}
     else:
-        evaluations = {mode:evaluate(evidence,mode,plan=plan,now=now)}
+        evaluations = {mode:evaluate(evidence,'revenue_sprint' if mode=='smart' else mode,plan=base_plan,now=now)}
     evaluation = evaluations[mode]
     if not evaluation['candidates']:
         result=dict(checked_at=evidence['checked_at'],rows=[],strategy_version=VERSION,status=evaluation['status'],
@@ -209,22 +211,57 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
             explicit=evaluate(evidence,mode,plan=plan,now=now,explicit_prices=selected_action['base_prices'])
             selected=next((c for c in explicit['candidates'] if c['action']==selected_action),None)
         if selected is None:raise ValueError('pricing_override_not_currently_feasible')
-        prior=db.assignment(plan,evaluation['candidates'],now=now) if plan else None
-        allocation=db.override_assignment(plan,prior,selected,override_reason) if prior else dict(assignment_id=str(uuid.uuid4()),action=selected_action,ends_at=evaluation['valid_until'],
+        prior=db.assignment(base_plan,evaluation['candidates'],now=now) if plan else None
+        allocation=db.override_assignment(base_plan,prior,selected,override_reason) if prior else dict(assignment_id=str(uuid.uuid4()),action=selected_action,ends_at=evaluation['valid_until'],
                         deterministic=True,labels=['explicit_override'],parent_assignment_id=(prior or {}).get('assignment_id'),
                         original_assignment=prior,deviation_reason=override_reason)
         db.put('experiment_assignments',allocation['assignment_id'],allocation)
     elif plan and not control['manual_enabled']:
-        allocation = db.assignment(plan,evaluation['candidates'],now=now)
+        allocation = db.assignment(base_plan,evaluation['candidates'],now=now)
         selected = next(c for c in evaluation['candidates'] if c['action']==allocation['action'])
     else:
         selected = evaluation['selected']
         allocation = dict(assignment_id=None,action=selected['action'],ends_at=evaluation['valid_until'],
                           deterministic=True,labels=['read_only_unowned'])
     if not control['manual_enabled'] and control['uplift_enabled']:
-        selected=controlled_candidate(evidence,evaluation['current'],control,plan,now,selected)
+        selected=controlled_candidate(evidence,evaluation['current'],control,base_plan,now,selected)
         evaluation['selected']=selected
-    if selected.get('price_control'):
+    smart_assignment = None
+    if mode=='smart' and plan and not control['manual_enabled'] and selected_action is None:
+        from .smart import assignment as smart_schedule, candidate_or_baseline, effective_key, epoch_policy, early_correction
+        epoch=int((now-instant(plan['starts_at'])).total_seconds()//(48*3600))
+        policy=epoch_policy(db,plan,now,epoch)
+        block=int((now-instant(plan['starts_at'])).total_seconds()//(3*3600))
+        correction=early_correction(db,plan,now,block)
+        schedule = smart_schedule(plan, now, policy=policy, correction=correction)
+        baseline = selected
+        variants = {label:candidate_or_baseline(evidence,smart_plan,evaluation['current'],baseline,label,now) for label in 'ABC'}
+        effective_probabilities = {}
+        for label, candidate in variants.items():
+            if not float(schedule['marginal_probabilities'][label]):continue
+            key=effective_key(evidence,candidate['action'])
+            effective_probabilities[key]=effective_probabilities.get(key,0)+float(schedule['marginal_probabilities'][label])
+        probabilities={fingerprint(c['action']):effective_probabilities[effective_key(evidence,c['action'])] for label,c in variants.items() if float(schedule['marginal_probabilities'][label])}
+        selected=variants[schedule['label']]
+        schedule_id=fingerprint([plan['plan_id'],plan['revision'],'smart_schedule',schedule['epoch']])
+        if not db.get('metadata',schedule_id):
+            db.put('metadata',schedule_id,dict(plan_id=plan['plan_id'],revision=plan['revision'],seed=schedule['seed'],schedule=schedule['schedule']))
+        ident=fingerprint([plan['plan_id'],plan['revision'],'smart',schedule['block'],evidence['run_id']])
+        smart_assignment=dict(schedule,assignment_id=ident,plan_id=plan['plan_id'],revision=plan['revision'],plan_starts_at=plan['starts_at'],policy=policy,correction=correction,
+            baseline_plan=base_plan,baseline_assignment=allocation,baseline_candidate=baseline,probabilities=probabilities,
+            variants={label:dict(action=c['action'],reason=c.get('smart_reason')) for label,c in variants.items()},
+            effective_action=selected['action'],effective_key=effective_key(evidence,selected['action']),
+            group_keys={g:effective_key(evidence,selected['action'],g) for g in GROUPS},
+            no_space_by_group={g:len({effective_key(evidence,c['action'],g) for c in variants.values()})==1 for g in GROUPS},
+            merged_with_A_by_group={g:effective_key(evidence,selected['action'],g)==effective_key(evidence,variants['A']['action'],g) for g in GROUPS},
+            effective_probabilities=effective_probabilities,no_uplift_space=len({effective_key(evidence,c['action']) for c in variants.values()})==1)
+        db.put('experiment_assignments',ident,smart_assignment)
+        allocation=dict(assignment_id=ident,action=selected['action'],ends_at=min(instant(schedule['ends_at']),instant(allocation['ends_at'])).isoformat(),
+                        probabilities=probabilities,labels=[schedule['label']],smart=schedule)
+        evaluation['mode']='smart'
+        evaluation['selected']=selected
+        evaluation['smart_assignment']=smart_assignment
+    if selected.get('price_control') and (mode!='smart' or control['manual_enabled']):
         allocation=dict(allocation,strategy_action=allocation['action'],action=selected['action'],
             effective_choice='operator_price_control')
     action = selected['action']
@@ -249,16 +286,16 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         catalog=evidence['promotion_envelope']['packages'],budget_reference=evidence.get('budget_reference',{}),
         affected_platforms=sorted({p for g,ps in GROUPS.items() if 'base:'+g in (mutable_resources or (plan or {}).get('resources',[])) for p in ps} | {r.split(':')[-1] for r in mutable_resources if r.startswith('region:')}),
         assignment_probability=allocation.get('probabilities',{}).get(fingerprint(action),1),
-        randomization_verified=bool(allocation.get('probabilities') and len(allocation['probabilities'])>1 and not allocation.get('effective_choice')),
+        randomization_verified=bool(allocation.get('probabilities') and (not smart_assignment or smart_assignment['randomization_verified'] and len(smart_assignment['effective_probabilities'])>1) and len(allocation['probabilities'])>1 and not allocation.get('effective_choice')),
         financial_proof=selected['financial_proof'],market_comparison=selected['market_comparison'],regional_market_comparison=selected.get('regional_market_comparison',{}),
         daily_reference=selected.get('daily_reference',{}),
         daily_pricing=selected.get('daily_pricing',{}),
         daily_average_target_proof=selected.get('daily_average_target_proof',{}),
-        financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT,sprint_policy_version=SPRINT_POLICY_VERSION if mode=='revenue_sprint' else None,
-        strategy_parameters=sprint_parameters(plan) if mode=='revenue_sprint' else (plan or {}).get('parameters',{}),
+        financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT,sprint_policy_version=SPRINT_POLICY_VERSION if mode in ('revenue_sprint','smart') else None,
+        strategy_parameters=sprint_parameters(plan) if mode in ('revenue_sprint','smart') else (plan or {}).get('parameters',{}),
         authorized_resources=(plan or {}).get('resources',[]),decision_type=selected.get('decision_type'),decision_reason=selected.get('decision_reason'),
         market_position=selected.get('market_position'),minimum_legal_price_proof=selected.get('minimum_legal_price_proof'),
-        strategy_decision=selected['score'],allocation=allocation,price_control=control,
+        strategy_decision=selected['score'],allocation=allocation,price_control=control,smart_assignment=smart_assignment,
         strategy_action=selected.get('strategy_action'),strategy_anchor=evaluation['anchor'],
         base_strategy_decision=selected.get('strategy_decision'),
         budget_policy='none',
@@ -436,7 +473,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
             actual_control=ledger().price_control()
             if receipt.get('price_control',{}).get('revision',0)!=actual_control['revision'] or receipt.get('price_control') is not None and receipt['price_control']!=actual_control:
                 raise ValueError('pricing_price_control_revision_changed')
-        if controlled:
+        if controlled and (receipt['mode']!='smart' or receipt['price_control']['manual_enabled']):
             plan=dict(mode=receipt['mode'],resources=receipt['authorized_resources'],parameters=receipt['strategy_parameters'],price_anchor=receipt['strategy_anchor'])
             raw=None
             if not receipt['price_control']['manual_enabled']:
@@ -446,6 +483,51 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
             checked=controlled_candidate(quote['evidence'],receipt['before_action'],receipt['price_control'],plan,now,raw)
             if checked['action']!=receipt['action'] or checked['financial_proof']!=receipt['financial_proof']:
                 raise ValueError('pricing_price_control_proof_changed')
+        smart_override=receipt['mode']=='smart' and (receipt.get('allocation') or {}).get('effective_choice')=='explicit_business_decision_not_new_random_draw'
+        if receipt['mode']=='smart' and not receipt['price_control']['manual_enabled'] and not smart_override:
+            from .smart import assignment as smart_schedule, candidate_or_baseline, effective_key
+            saved=receipt.get('smart_assignment') or {}
+            plan=dict(plan_id=receipt['plan_id'],revision=receipt['revision'],starts_at=saved.get('plan_starts_at'),
+                      mode='revenue_sprint',resources=receipt['authorized_resources'],parameters=receipt['strategy_parameters'],price_anchor=receipt['strategy_anchor'])
+            base_plan=saved.get('baseline_plan') or {}
+            if base_plan.get('mode')!='revenue_sprint' or base_plan.get('price_anchor')!=receipt['strategy_anchor']:
+                raise ValueError('pricing_smart_baseline_plan_changed')
+            schedule=smart_schedule(plan,instant(receipt['created_at']),policy=saved.get('policy'),correction=saved.get('correction'))
+            if any(saved.get(k)!=schedule[k] for k in ('epoch','block','slot','label','original_label','randomization_verified','seed','schedule','marginal_probabilities','starts_at','ends_at')):
+                raise ValueError('pricing_smart_assignment_changed')
+            if for_execution:
+                actual=ledger().get('experiment_assignments',saved.get('assignment_id'))
+                if actual!=saved or saved.get('assignment_id')!=receipt.get('assignment_id'):
+                    raise ValueError('pricing_smart_assignment_not_persisted')
+                policy_key='smart-policy:'+plan['plan_id']+':'+str(plan['revision'])+':'+str(schedule['epoch'])
+                if ledger().get('metadata',policy_key)!=saved.get('policy'):
+                    raise ValueError('pricing_smart_policy_changed')
+                live_plan=ledger().get('pricing_plans',plan['plan_id'])
+                if not live_plan or live_plan.get('baseline_plan')!=base_plan:
+                    raise ValueError('pricing_smart_baseline_plan_changed')
+                baseline_key=fingerprint([base_plan['plan_id'],base_plan['revision'],int(instant(receipt['created_at']).timestamp())//(6*3600)])
+                if ledger().get('experiment_assignments',baseline_key)!=(saved.get('baseline_assignment') or {}):
+                    raise ValueError('pricing_smart_baseline_assignment_changed')
+            evaluation=evaluate(quote['evidence'],'revenue_sprint',plan=base_plan,now=now)
+            raw_action=(saved.get('baseline_assignment') or {}).get('action')
+            raw=next((c for c in evaluation['candidates'] if c['action']==raw_action),None)
+            if raw is None:raise ValueError('pricing_smart_baseline_changed')
+            base=controlled_candidate(quote['evidence'],evaluation['current'],receipt['price_control'],base_plan,now,raw) if receipt['price_control']['uplift_enabled'] else raw
+            variants={label:candidate_or_baseline(quote['evidence'],plan,evaluation['current'],base,label,now) for label in 'ABC'}
+            expected_variants={label:dict(action=c['action'],reason=c.get('smart_reason')) for label,c in variants.items()}
+            if expected_variants!=saved.get('variants'):raise ValueError('pricing_smart_candidates_changed')
+            effective_probabilities={}
+            for label,candidate in variants.items():
+                if not float(schedule['marginal_probabilities'][label]):continue
+                key=effective_key(quote['evidence'],candidate['action'])
+                effective_probabilities[key]=effective_probabilities.get(key,0)+float(schedule['marginal_probabilities'][label])
+            if effective_probabilities!=saved.get('effective_probabilities'):
+                raise ValueError('pricing_smart_probability_changed')
+            checked=variants[schedule['label']]
+            if checked['action']!=receipt['action'] or checked['financial_proof']!=receipt['financial_proof']:
+                raise ValueError('pricing_smart_proof_changed')
+            if [s['intermediate'] for s in checked['steps']]!=[s['intermediate'] for s in receipt['steps']]:
+                raise ValueError('pricing_smart_commit_path_changed')
     regions=quote['evidence'].get('region_rules',[])
     if maintenance:
         authority_resources(receipt)
@@ -481,7 +563,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
             elif any(references[p]['average_margin_target_pct']=='30' for p in platforms):
                 if number(receipt['action']['base_prices'][group])!=floor:raise ValueError('pricing_daily_missing_market_not_minimum_average_30')
         if pricing!=receipt.get('daily_pricing',{}):raise ValueError('pricing_daily_item_target_proof_changed')
-    if receipt['mode']=='revenue_sprint' and not controlled:
+    if (receipt['mode']=='revenue_sprint' or receipt['mode']=='smart' and (receipt.get('allocation') or {}).get('effective_choice')=='explicit_business_decision_not_new_random_draw') and not controlled:
         market_plan=dict(mode='revenue_sprint',resources=receipt['authorized_resources'],parameters=receipt['strategy_parameters']) if receipt.get('plan_id') else None
         markets={}
         for group in receipt['market_comparison']:

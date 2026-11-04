@@ -150,21 +150,22 @@ class AdminDcTests(unittest.TestCase):
                 base = admin.API_BASES[0] if '--network host' in text else admin.API_BASES[2]
                 self.assertIn('FS_ADMIN_API_BASE=' + base, text)
 
-    def test_publisher_requires_exact_99_targets_with_cost_collector(self):
+    def test_publisher_requires_exact_targets_with_cost_collector(self):
         spec = importlib.util.spec_from_file_location('fc_admin_target_map', SOURCE.parent / 'deploy/target_map.py')
         targets = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(targets)
         mapping = targets.targets(SOURCE)
-        self.assertEqual(targets.TARGET_COUNT, 99)
+        self.assertEqual(targets.TARGET_COUNT, 101)
         self.assertEqual(len(mapping), targets.TARGET_COUNT)
         self.assertEqual(mapping['fc_shared_admin.py'], '/opt/fc27-cloud-browser/fc_shared_admin.py')
         self.assertNotIn('/opt/fs-order-session/fc_shared_admin.py', mapping.values())
         self.assertEqual(mapping['sync_players.sh'], '/opt/fc27-cloud-browser/sync_players.sh')
         self.assertEqual(mapping['collect_p2pah_cost.py'], '/opt/fc27-cloud-browser/collect_p2pah_cost.py')
-        expected={'source/fc_pricing_v3/scheduler.py','source/hermes-copy/fc_pricing_v3/scheduler.py'}
+        expected={prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in ('api.py','business_source.py','demand_model.py','engine.py','ledger.py','runtime.py','scheduler.py','selective_sources.py','smart.py')}
+        expected.update({'source/fc27-coins.html','source/fc-pricing-v3.js','source/pricing_simulation.py'})
         self.assertEqual(set(targets.DELTA_NAMES),expected)
-        self.assertEqual(len(targets.DELTA_NAMES),2)
-        self.assertEqual(targets.DELTA_NEW,frozenset())
+        self.assertEqual(len(targets.DELTA_NAMES),21)
+        self.assertEqual(targets.DELTA_NEW,frozenset({'source/fc_pricing_v3/smart.py','source/hermes-copy/fc_pricing_v3/smart.py'}))
         for name in ['build_stage.py', 'prepare_manifest.py']:
             text = (SOURCE.parent / 'deploy' / name).read_text(encoding='utf8')
             self.assertIn('!= TARGET_COUNT', text)

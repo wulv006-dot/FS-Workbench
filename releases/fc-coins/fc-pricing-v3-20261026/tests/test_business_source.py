@@ -284,6 +284,27 @@ class BusinessSourceTest(unittest.TestCase):
         self.assertEqual(result['training_observations'][0]['exposure'], '6.0')
         self.assertFalse(result['training_observations'][0]['randomization_verified'])
 
+    def test_coupon_actual_outcome_does_not_need_counterfactual_terms(self):
+        now, order, window = self.window_fixture()
+        order['amount_rmb_format'] = '60.00'
+        archived = {order['order_no']: [dict(status='已完成', costCny='42', saleCny='60', salesUsd='8.68')]}
+        result = source.bind_price_windows([order], [window], now, archived=archived,
+                                           coupon_logs={order['order_no']: [{'code': 'private-code'}]})
+        self.assertEqual(result['budget_settlements'], [])
+        self.assertEqual(result['actual_outcomes'][0]['actual_net_usd'], '8.68')
+        self.assertEqual(result['actual_outcomes'][0]['actual_contribution_usd'], '2.604')
+        self.assertTrue(result['actual_outcomes'][0]['coupon_present'])
+        self.assertNotIn('private-code', json.dumps(result))
+
+    def test_actual_outcome_retains_verified_new_customer_without_identity(self):
+        now, order, window = self.window_fixture()
+        order['email'] = 'person@example.com'
+        archived = {order['order_no']: [dict(customerType='新客', paidAt='2026-10-26 09:00:00')]}
+        result = source.bind_price_windows([order], [window], now, archived=archived)
+        self.assertTrue(result['actual_outcomes'][0]['new_customer'])
+        self.assertNotIn('person@example.com', json.dumps(result))
+        self.assertEqual(result['learning_coverage']['customer_coverage']['status'], 'complete')
+
     def test_payment_after_open_does_not_reassign_preexisting_order(self):
         now, order, window = self.window_fixture()
         order.update(timestamp=int(datetime(2026, 10, 25, 23, 30, tzinfo=timezone.utc).timestamp()), timestamp_format='2026-10-26 07:30:00')
@@ -297,6 +318,8 @@ class BusinessSourceTest(unittest.TestCase):
         wrong = dict(order, before_discount='9.99')
         self.assertEqual(source.bind_price_windows([wrong], [window], now)['training_observations'], [])
         self.assertEqual(source.bind_price_windows([order], [window, dict(window, operation_id='other')], now)['training_observations'], [])
+        gap = source.bind_price_windows([wrong], [window], now)['learning_coverage']['gap_events'][0]
+        self.assertEqual((gap['price_window_id'], gap['group'], gap['reason']), ('op','console','price_mismatch'))
 
     def test_unknown_cash_residual_keeps_budget_reservation_without_blocking_price_learning(self):
         now, order, window = self.window_fixture()

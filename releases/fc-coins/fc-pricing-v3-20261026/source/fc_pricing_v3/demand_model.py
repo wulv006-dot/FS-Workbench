@@ -28,7 +28,7 @@ def fit(observations):
     for group,rows in groups.items():
         if len({r['offset_kind'] for r in rows})!=1:
             raise ValueError('pricing_model_offset_mixed')
-        if len(rows)<3 or len({r['effective_price_usd'] for r in rows})<2:
+        if len(rows)<3 or len({r['effective_price_usd'] for r in rows})<2 or not sum(number(r['paid_orders'],zero=True) for r in rows):
             continue
         reference=number(rows[-1]['effective_price_usd'])
         best=None

@@ -134,10 +134,23 @@ class Ledger:
                     daily_budget=None, actor='wulv', manual_locked=True, generation=None,plan_id=None,parameters=None):
         from .engine import POLICIES,sprint_parameters
         from .financial import FINANCIAL_CONTRACT_VERSION,HISTORY_WINDOW_CONTRACT
-        if mode not in POLICIES or not resources:
+        if (mode not in POLICIES and mode != 'smart') or not resources:
             raise ValueError('pricing_plan_scope_invalid')
         now = clock()
         parameters=dict(parameters or {})
+        baseline_plan = None
+        owner_snapshot = None
+        if mode == 'smart':
+            source = next((p for p in self.active_plans() if p['state']=='ACTIVE' and {'base:console','base:pc'} <= set(p['resources']) and p['mode'] in ('revenue_sprint','smart')), None)
+            if not source:
+                raise ValueError('pricing_smart_original_base_plan_required')
+            baseline_plan = source.get('baseline_plan') if source['mode']=='smart' else source
+            if not baseline_plan or baseline_plan['mode']!='revenue_sprint':
+                raise ValueError('pricing_smart_original_base_plan_required')
+            parameters = dict(baseline_plan.get('parameters') or {})
+            with self.connect() as conn:
+                owner_snapshot = {row['resource']:[row['plan_id'],row['revision'],row['generation']]
+                                  for row in conn.execute('SELECT * FROM plan_ownership') if row['resource'] in resources}
         if set(parameters)-{'offsets_pct','allocation','capacity_reserve_ratio','preferred_undercut_pct','sprint_policy_version'}:
             raise ValueError('pricing_plan_parameters_invalid')
         allocation=parameters.get('allocation')
@@ -147,7 +160,7 @@ class Ledger:
             raise ValueError('pricing_offsets_invalid')
         if parameters.get('capacity_reserve_ratio') is not None and not 0<=number(parameters['capacity_reserve_ratio'],zero=True)<1:
             raise ValueError('pricing_capacity_reserve_invalid')
-        if mode=='revenue_sprint':
+        if mode in ('revenue_sprint','smart'):
             resolved=sprint_parameters(dict(parameters=parameters))
             parameters.update(sprint_policy_version=resolved['sprint_policy_version'],preferred_undercut_pct=resolved['preferred_undercut_pct'])
         request_hash=fingerprint(dict(mode=mode,resources=sorted(set(resources)),anchor=anchor,starts_at=starts_at,
@@ -172,6 +185,8 @@ class Ledger:
                     budget_policy='none', manual_locked=manual_locked,
                     parameters=parameters,request_hash=request_hash,
                     created_at=now.isoformat(), review_contract=PROGRAM_CONTRACT,financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT)
+        if mode=='smart':
+            plan.update(baseline_plan=baseline_plan, takeover_owners=owner_snapshot)
         with self.transaction() as db:
             self.put('pricing_plans', ident, plan, db)
             if end:
@@ -222,15 +237,23 @@ class Ledger:
             plan = self.get('pricing_plans', ident, db)
             if not plan:
                 raise ValueError('pricing_plan_missing')
-            if plan['mode'] not in POLICIES:raise ValueError('pricing_strategy_retired')
+            if plan['mode'] not in POLICIES and plan['mode'] != 'smart':raise ValueError('pricing_strategy_retired')
             if plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:raise ValueError('pricing_financial_plan_migration_required')
-            if plan['mode']=='revenue_sprint':sprint_parameters(plan)
+            if plan['mode'] in ('revenue_sprint','smart'):sprint_parameters(plan)
             if instant(plan['starts_at']) > now:
                 return plan
             if plan['ends_at'] and now >= instant(plan['ends_at']):
                 raise ValueError('pricing_plan_expired')
             if plan['generation'] != self.get('metadata', 'generation', db)['id']:
                 raise ValueError('pricing_generation_retired')
+            if plan['mode']=='smart':
+                actual={row['resource']:[row['plan_id'],row['revision'],row['generation']]
+                        for row in db.execute('SELECT * FROM plan_ownership') if row['resource'] in plan['resources']}
+                owned={resource:[ident,plan['revision'],plan['generation']] for resource in plan['resources']}
+                if plan['state']=='ACTIVE' and actual==owned:
+                    return plan
+                if actual!=plan.get('takeover_owners'):
+                    raise ValueError('pricing_smart_owner_changed')
             for resource in plan['resources']:
                 if db.execute('SELECT 1 FROM resource_leases WHERE resource=?', (resource,)).fetchone():
                     raise ValueError('pricing_resource_unresolved')
@@ -532,20 +555,38 @@ class Ledger:
     def record_price_window(self,op,db,*,no_change=False):
         operation_id=op['operation_id']
         opened=clock().isoformat()
+        original_resources=op['bundle'].get('mutable_resources',op['resources'])
+        remaining=set(original_resources)
         for row in db.execute('SELECT id,body FROM actual_price_windows').fetchall():
             window=json.loads(row[1])
-            affected=set(window.get('resources',[]))&set(op['bundle'].get('mutable_resources',op['resources']))
+            affected=(set(window.get('resources',[]))-set(window.get('resource_closed_at',{})))&remaining
             if not window.get('closed_at') and affected:
+                if no_change:
+                    def value(action,resource):
+                        kind,key=resource.split(':',1)
+                        return Decimal(action.get('base_prices' if kind=='base' else 'region_coefficients',{}).get(key,'1'))
+                    same={r for r in affected if value(window['action'],r)==value(op['bundle']['action'],r)}
+                    if same:
+                        window.setdefault('continuations',[]).append(dict(operation_id=operation_id,assignment_id=op['bundle']['assignment_id'],resources=sorted(same),at=opened))
+                        if window.get('assignment_id')!=op['bundle']['assignment_id']:
+                            window['randomization_verified']=False
+                        remaining-=same
+                        affected-=same
+                    if not affected:
+                        self.put('actual_price_windows',row[0],window,db)
+                        continue
                 closed=window.setdefault('resource_closed_at',{})
                 for resource in affected:closed.setdefault(resource,opened)
                 if all(resource in closed for resource in window.get('resources',[])):window['closed_at']=max(closed.values())
                 self.put('actual_price_windows',row[0],window,db)
+        if not remaining:
+            return
         self.put('actual_price_windows', operation_id, dict(operation_id=operation_id,plan_id=op.get('plan_id'),generation=op.get('generation'),
-                 resources=op['bundle'].get('mutable_resources',op['resources']),mutable_resources=op['bundle'].get('mutable_resources',op['resources']),
+                 resources=[r for r in original_resources if r in remaining],mutable_resources=[r for r in original_resources if r in remaining],
                  assignment_id=op['bundle']['assignment_id'],action=op['bundle']['action'],
                  catalog=op['bundle'].get('catalog',{}),budget_reference=op['bundle'].get('budget_reference',{}),
                  platforms=op['bundle'].get('affected_platforms',[]),assignment_probability=op['bundle'].get('assignment_probability'),
-                 randomization_verified=op['bundle'].get('randomization_verified',False),origin='confirmed_public_price_window',mode='production',
+                 randomization_verified=not no_change and op['bundle'].get('randomization_verified',False),origin='confirmed_public_price_window',mode='production',
                  opened_at=opened,no_change=no_change), db)
 
 

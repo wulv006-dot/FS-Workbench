@@ -56,7 +56,7 @@ def input_prove_price(unit,cost_cny,fx,delivered_k,base_k,ratio,minimum=_math.HA
 
 
 def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minutes=60):
-    if active_mode not in MODES:raise ValueError('selective_active_mode_invalid')
+    if active_mode not in MODES and active_mode!='smart':raise ValueError('selective_active_mode_invalid')
     scope=scope or {}
     interval_minutes=scope.get('interval_minutes',interval_minutes)
     if type(interval_minutes) is not int or interval_minutes<=0:raise ValueError('selective_interval_invalid')
@@ -64,13 +64,13 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
     if not platforms or set(platforms)-{'PS','XBOX','PC'}:raise ValueError('selective_platform_scope_invalid')
     regions=sorted(set(int(value) for value in known_region_ids)|set(int(value) for value in scope.get('region_ids',[])))
     markets=['Lootbar','ItemD2R']
-    if 21 in regions and set(platforms)&{'PS','XBOX'} and (active_mode=='revenue_sprint' or scope.get('compare_saudi') is True):markets.append('ArabUT')
+    if 21 in regions and set(platforms)&{'PS','XBOX'} and (active_mode in ('revenue_sprint','smart') or scope.get('compare_saudi') is True):markets.append('ArabUT')
     return dict(version=VERSION,active_mode=active_mode,platforms=list(platforms),region_ids=regions,
         required_markets=markets,market_platforms={name:([p for p in platforms if p in ('PS','XBOX')] if name=='ArabUT' else list(platforms)) for name in markets},
         retired_automatic_sources=list(RETIRED),price_interval_minutes=interval_minutes,
         quote_validity_seconds=900,hard_evidence=['current_cost','current_FX','current_catalog' if scope.get('catalog_only') is True else 'current_promotion_envelope','current_public_price','affected_region_contract'],
         history='D_minus_9_through_D_minus_2_eight_closed_days_and_original_hash_cache',
-        refresh_monthly_target=active_mode=='revenue_sprint' and scope.get('catalog_only') is not True,online_observation_job='preserved_separate_incremental_pipeline',
+        refresh_monthly_target=active_mode in ('revenue_sprint','smart') and scope.get('catalog_only') is not True,online_observation_job='preserved_separate_incremental_pipeline',
         historical_orders_in_quote=False,long_window_collection=False)
 
 

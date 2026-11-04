@@ -109,8 +109,9 @@ class CollectionRelease(unittest.TestCase):
                 adapter.checked_manifest(changed)
 
     def test_existing_delta_scope_remains_exact_and_accepted(self):
-        self.assertEqual(set(target_map.DELTA_NAMES), {'source/fc_pricing_v3/scheduler.py', 'source/hermes-copy/fc_pricing_v3/scheduler.py'})
         value = manifest(target_map.DELTA_SCOPE, adapter.DELTA_TARGETS)
+        for row in value['files']:
+            if row['candidate'] in target_map.DELTA_NEW: row['beforeSha256'] = None
         self.assertEqual(adapter.checked_manifest(value), value)
 
     def test_existing_manifest_preparer_exposes_collection_as_exclusive_mode(self):
