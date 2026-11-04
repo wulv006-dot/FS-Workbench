@@ -345,6 +345,8 @@ if HERMES is not None:
  HERMES.native_root=Path(NATIVE_ROOT)
  HERMES.native_ownership=(9876,9876)
 CONVERSATION=ConversationService(HERMES,'/var/lib/fs-hermes-fc/fs/conversations','/run/fs-hermes-fc') if HERMES is not None else None
+from conversation_desktop import DesktopRPC
+DESKTOP_RPC=DesktopRPC(CONVERSATION,hermes_authorizer,'/etc/fs-hermes-desktop/fs-principal.json') if CONVERSATION is not None else None
 bind_conversation_diagnostics(CONVERSATION,conversation_handle)
 if CONVERSATION is not None:
  from conversation_material_runs import MaterialService
@@ -507,6 +509,10 @@ class Handler(BaseHTTPRequestHandler):
   if uri.path==CONVERSATION_PREFIX or uri.path.startswith(CONVERSATION_PREFIX+'/'):
    if CONVERSATION is None:conversation_respond(self,503,{'error':'hermes_not_enabled'})
    else:conversation_handle(self,'POST',uri,self.headers.get('X-Auth-User'),CONVERSATION,hermes_authorizer)
+   return
+  if uri.path=='/internal/hermes/desktop' and not uri.query:
+   if DESKTOP_RPC is None:conversation_respond(self,503,{'error':'hermes_not_enabled'})
+   else:DESKTOP_RPC.handle(self)
    return
   if uri.path not in ('/advisor','/boss-insight') or uri.query:self.reply(405,{'error':'read_only'});return
   user=self.headers.get('X-Auth-User')
