@@ -1098,3 +1098,13 @@ source `193223331dd2516ad211a9366f860d6fbebaefc2`／`nav-20261103T191430Z` 已�
 新增 root600 `/etc/fs-hermes-desktop/fs-principal.json` 仅保存已授权创建者 principal 与原 token 文件路径，不复制 token。准备检查原 Desktop host 网络、只读 `/desktop` 与原共享 `/profile` 映射、token600元信息及固定官方 helper 源接口；不读 token 正文。只重载原 range 和 Desktop 两服务，失败先按原 journal 恢复代码和清理本 release 新文件，再恢复服务；不迁移 Store/profile，不重启 worker/campaign，不改 unit、mount、网络、P0、知识 policy、已批记忆技能或业务账本。
 
 原八个历史验证函数与冻结 writer 保持原字节。navigation overlay 仅调整目标集合交集：历史范围仍核原固定写集合，当前六条保护路径中只能指定 range 被提升，另五条及错 range 映射均拒绝；完整历史 proof、安全身份、SHA、manifest/journal 绑定、intent/written 与无回退检查继续。原临时 FS prepare/inspect/apply 和 range/Desktop/readiness 失败回退为本地证据，consumer v2 的13项由原 owner 独立交付；尚未部署，未冒真实 UI 通过。合并安装后仅原 FS 与 Desktop 同 cid 最多两条纯技术 ACK 验收，不查客户/订单、创建 Goal、发券、改价支付或修改记忆技能。
+
+### 2026-11-04：Desktop 安装与 WebSocket query-token 小修装配候选
+
+`1f09b5134747a4ca6bef2dca080e5e9036388e5e/nav-20261104T051404Z` 已实际安装；manifest `10c15f738dac42fe58a0c6e335669d5ff3f245c72e8db7b99a83274c09552a2b`、journal `333cfdb381e30ccb3156d21d0004cf8d0e10990c4d68ecc94cf5f4c6a2864e9a`。绑定配置的独立同 FD root0600 补正回执 SHA `d2352697a75d75545108cd03f260c264f3e918dc1b4be9d7f2b239a2cd2a947e`，未改原 manifest/journal。32after 均匹配；保护项按实际分层：790项完整 metadata 保持，bundled manifest 同 bytes/身份但 inode/时戳变化，formal Nginx 是另一合法发布，不能称792项完整相等。
+
+Nginx 原 `c45e6fc9…580e` → `28165bbd…a9b2` 已由 `nav-20261104T052012Z` 原 manifest `ec8550f11cc66b47799c92d3cf9649deee192bdfa17e25a399640e8a46ee3854`／journal `d4406784bf17cb061815273498865bd52697fdc09a28f27fd93119249f0479bd` 逐目标成功链核实；实际模式沿 journal.beforeMode 保留 root0600。该 receipt 无 sourceCommit，不补造。仅消费此一目标的固定过渡，不导入其余文件或信任任意现盘。
+
+唯一新 FS 会话已建，Desktop 在 WebSocket open 前失败，实际模型/ACK均0；没有用历史回放冒 live 双向通过。原官方 query helper 只允许 download，旧 wrapper 对 `/api/ws` 的 query-token 调用恒拒绝，已由 Desktop owner 固定官方函数直接 RED/GREEN；新 gateway 仅验证精确 `/fs/api/ws` 的 token，原 header、auth_required、创建者 HMAC、IAM/owner 均保留。此小修尚未安装，同一 cid/sid 保留，待最终安装和 live observer ready 后再串行最多两条技术 ACK。
+
+本候选继续原 native-capabilities followup：32existing／NEW0，仅 gateway 一项实际 delta，其余31runtime＋766protected＝797项不写。before 来自1f Git原件和成功proof，配置补正与独立 Nginx proof 分层衔接；完整 aad/193及更早安全历史、root600/no-follow/单链接/九字段/SHA/成功绑定、原锁/fence/usagefreshCAS/回退保留。be6d 已合的 NEW 配置0600窄修和25s readiness共享截止保持原字节；不重写配置、Nginx、token、profile、policy、审批索引或原业务账本。临时FS实际 prepare/inspect/apply 与 Desktop/range/readiness 失败回退核797项不写；OS身份/服务边界为明确fixture，正常CI及真实双向验收仍分层，不称软件候选即实际通过。

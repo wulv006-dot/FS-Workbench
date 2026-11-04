@@ -278,7 +278,7 @@ def file_metadata(base, root, name, absent=False):
         key=next(n for n,p in release.TARGETS.items() if p==name)
         expected_sha,expected_size=(release.DESKTOP_EXISTING if desktop else release.CAMPAIGN_BEFORE)[key]
         fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
-        if info.st_size!=expected_size or stat.S_IMODE(info.st_mode)!=0o644:
+        if info.st_size!=expected_size or stat.S_IMODE(info.st_mode)!=int(release.payload_mode(name),8):
             raise ValueError('campaign_before_boundary_drift')
         with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
             opened=os.fstat(stream.fileno())
@@ -287,7 +287,7 @@ def file_metadata(base, root, name, absent=False):
         after=path.lstat();base.no_target_link(path)
         if any(getattr(info,k)!=getattr(after,k) for k in fields):raise ValueError('campaign_before_changed')
         if digest(raw)!=expected_sha:raise ValueError('campaign_before_git_drift')
-        return {'path':name,'sha256':expected_sha,'mode':'0o644'}
+        return {'path':name,'sha256':expected_sha,'mode':release.payload_mode(name)}
     return {'path': name, 'sha256': digest(path.read_bytes()), 'mode': oct(stat.S_IMODE(info.st_mode))}
 
 
@@ -382,8 +382,10 @@ def pack(repo, output, commit):
         target.write_bytes(raw)
         hashes[name] = digest(raw)
     import runtime_release as release
-    baseline = {name: (release.DESKTOP_EXISTING[name][0] if release.NATIVE_CAPABILITIES_MODE and name in release.DESKTOP_EXISTING else digest(generated_bodies[name]) if release.NATIVE_ADMISSION_MODE and name in generated_bodies else None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo)))
+    baseline = {name: (digest(generated_bodies[name]) if release.NATIVE_ADMISSION_MODE and name in generated_bodies else None if release.EXECUTION_MODE and name in NEW else release.NATIVE_UNIT_BEFORE_SHA if release.NATIVE_MODE and name == 'unit/native-control.conf' else digest(payload_bytes(name,subprocess.check_output(['git', 'show', INSTALLED_COMMIT + ':' + path], cwd=repo))))
                 for name, path in SOURCES.items()}
+    if release.NATIVE_CAPABILITIES_MODE and any(baseline[n]!=value[0] for n,value in release.DESKTOP_EXISTING.items()):
+        raise ValueError('desktop_installed_git_before_drift')
     if not (release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE):baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
     if release.COMPOSER_STATIC_MODE and (baseline!={'frontend/index.html':release.COMPOSER_BEFORE_SHA} or
             hashes['payload/frontend/index.html']!=release.COMPOSER_AFTER_SHA):
