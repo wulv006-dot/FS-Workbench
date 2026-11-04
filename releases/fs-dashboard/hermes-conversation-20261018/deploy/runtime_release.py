@@ -90,10 +90,14 @@ CAPABILITIES_TRANSPORT_HISTORY_PROOF = dict(sourceCommit='fb70a3e9753dcfd7acd457
     backup='/var/backups/fs-navigation-20261006/nav-20261103T171809Z',
     manifestSha256='a754a025b573f59b8bc35eab233b140cf68d746f2e2d66e125a75bd005fa4b90',
     journalSha256='4d005e7c6b24d2f22762ed86a79609d6142a3a445be1b4094ba495b4a1b87402')
-NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='193223331dd2516ad211a9366f860d6fbebaefc2',
+CAPABILITIES_KNOWLEDGE_HISTORY_PROOF = dict(sourceCommit='193223331dd2516ad211a9366f860d6fbebaefc2',
     backup='/var/backups/fs-navigation-20261006/nav-20261103T191430Z',
     manifestSha256='21d6c0198b04f3ba20da91e6bd3d8db1d46d5b6501917f056e5f5bfa34395054',
     journalSha256='14d7aedeaede70c50b07beb4a797b9d82084310b8b707ab17cff76c8baf7a6ab')
+NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='aad68048e0316ff7823e29ec3f16a2834f16fe44',
+    backup='/var/backups/fs-navigation-20261006/nav-20261103T202302Z',
+    manifestSha256='c8f8ef36e9186e9ba434f7490ce466132ccc4e6a979aef3f0951fdab0e66362a',
+    journalSha256='63fb7af867bd97a124f4e3fe80ab3606b17ef431023f8719698f0c38ba7709db')
 CAPABILITIES_STATIC_PROOF = dict(sourceCommit='d135d2b965ecdfc2d96a1e49cf9425e31eaca07e',
     backup='/var/backups/fs-navigation-20261006/nav-20261103T021812Z',
     manifestSha256='26b0de09b7b84d9d7634948c3177ca7cf919bac6ea4aab00c247bd6389e8cbb8',
@@ -259,9 +263,27 @@ KNOWLEDGE_EXISTING = {
     'runtime/reviewed_skills.py':('a3d546177396ba906f66c4f8411111aaefb3c96371dc628ac5ada2daf023e660',14072)}
 CAPABILITIES_TARGETS.update({'runtime/'+name:'/opt/fs-hermes-fc/'+name for name in (
     'conversation_knowledge.py','fs_native_knowledge.py','knowledge_catalog.py','report_artifacts.py','reviewed_skills.py')})
-CAPABILITIES_NEW=frozenset({'runtime/conversation_knowledge.py','runtime/fs_native_knowledge.py'})
-CAPABILITIES_CHANGED = ('runtime/conversation_native.py','runtime/hermes_worker.py',
-    'runtime/conversation_knowledge.py','runtime/fs_native_knowledge.py','runtime/knowledge_catalog.py')
+KNOWLEDGE_INITIAL_EXISTING = dict(KNOWLEDGE_EXISTING)
+KNOWLEDGE_INSTALLED_TARGETS = dict(CAPABILITIES_TARGETS)
+KNOWLEDGE_EXISTING = {}
+DESKTOP_CONFIG = '/etc/fs-hermes-desktop/fs-principal.json'
+DESKTOP_TARGETS = {
+    'runtime/conversation_desktop.py':'/opt/fs-hermes-fc/conversation_desktop.py',
+    'desktop/conversation_desktop.py':'/opt/fs-hermes-desktop/conversation_desktop.py',
+    'desktop/desktop_fs_gateway.py':'/opt/fs-hermes-desktop/desktop_fs_gateway.py',
+    'desktop/serve.py':'/opt/fs-hermes-desktop/serve.py',
+    'http/range_api.py':'/opt/fs-exact-range-20261001/range_api.py',
+    'desktop/fs-principal.json':DESKTOP_CONFIG}
+DESKTOP_EXISTING = {
+    'http/range_api.py':('08e22627230531e06c35e661302d6f23808e07a527bbff2485d6b174303a79a6',34129),
+    'desktop/serve.py':('8211079893a3afbfaa41a6a13c85a325a49329a03006cfb0e473d839f417da30',1346)}
+CAPABILITIES_TARGETS.update(DESKTOP_TARGETS)
+CAPABILITIES_NEW=frozenset(set(DESKTOP_TARGETS)-set(DESKTOP_EXISTING))
+CAPABILITIES_CHANGED = tuple(DESKTOP_TARGETS)
+
+
+def payload_mode(target):
+    return '0o600' if target in (NGINX,DESKTOP_CONFIG) else '0o644'
 NATIVE_ADMISSION_CANDIDATE = 'runtime/conversation_native.py'
 NATIVE_ADMISSION_BEFORE_SHA = '030e36d5cf134fa1ef63c576211a3f1b4f2d9a3135ed44c15a7fd1d403e795c2'
 NATIVE_ADMISSION_AFTER_SHA = '72253b5ffee19cc2d0352c0bb1ee7d67fe801fcb515b3b711466e828a4c1a57a'
@@ -662,7 +684,8 @@ def capabilities_nginx_overlay(base, root, metadata):
 def capabilities_navigation_overlay(base, root, metadata):
     """Advance only six protected files through their pinned successful releases."""
     paths=CAPABILITIES_NAVIGATION_TARGETS
-    if (not NATIVE_CAPABILITIES_MODE or set(paths.values()) & set(TARGETS.values()) or
+    if (not NATIVE_CAPABILITIES_MODE or set(paths.values()) & set(CAPABILITIES_BASELINE_TARGETS.values()) or
+            set(paths.values()) & set(TARGETS.values())!={paths['range']} or TARGETS.get('http/range_api.py')!=paths['range'] or
             any(p not in metadata or metadata[p].get('owner')!='0:0' or
                 metadata[p].get('mode')!=('0o600' if p==NGINX else '0o644') for p in paths.values())):
         raise ValueError('native_navigation_baseline_drift')
@@ -1016,6 +1039,52 @@ def capabilities_transport_history(base,root,current,installed_rows):
         raise ValueError('native_transport_success_chain_mismatch')
 
 
+def capabilities_knowledge_history(base,root,current,installed_rows):
+    """Keep the accepted 193 -> aad knowledge installation in the proof chain."""
+    proof=CAPABILITIES_KNOWLEDGE_HISTORY_PROOF;records={}
+    fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+    for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
+        path=base.rooted(root,proof['backup']+'/'+name);base.no_target_link(path);before=path.lstat()
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>8*1024*1024 or
+                (before.st_uid,before.st_gid,stat.S_IMODE(before.st_mode))!=(0,0,0o600)):
+            raise ValueError('native_knowledge_history_boundary_drift')
+        with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('native_knowledge_history_changed')
+            raw=stream.read(8*1024*1024+1)
+            if any(getattr(before,k)!=getattr(os.fstat(stream.fileno()),k) for k in fields):raise ValueError('native_knowledge_history_changed')
+        after=path.lstat();base.no_target_link(path)
+        if any(getattr(before,k)!=getattr(after,k) for k in fields):raise ValueError('native_knowledge_history_changed')
+        if hashlib.sha256(raw).hexdigest()!=proof[key]:raise ValueError('native_knowledge_history_proof_drift')
+        records[name]=json.loads(raw)
+    manifest,journal=records['approved-manifest.json'],records['journal.json']
+    rows=manifest.get('files',[]);protected=manifest.get('unchangedRequired',[]);written=journal.get('files',[])
+    old={r['target']:dict(path=r['target'],sha256=r['sha256'],owner=r.get('owner'),mode=r.get('mode')) for r in rows}
+    old.update({r['path']:dict(r) for r in protected})
+    if (manifest.get('sourceCommit')!=proof['sourceCommit'] or manifest.get('scope')!=SCOPE or
+            manifest.get('nativeCapabilities') is not True or manifest.get('nativeArchive') is not True or
+            manifest.get('nativeStaticBaseline')!=CAPABILITIES_STATIC_PROOF or
+            len(rows)!=21 or {r['candidate']:r['target'] for r in rows}!=CAPABILITIES_BASELINE_TARGETS or
+            any(r.get('owner')!='0:0' or r.get('mode')!='0o644' for r in rows) or len(protected)!=767 or len(old)!=788 or
+            journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
+            any(journal.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
+            journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=proof['manifestSha256'] or
+            len(written)!=21 or {r['candidate'] for r in written}!=set(CAPABILITIES_BASELINE_TARGETS) or
+            any(any(w.get(k)!=r.get(k) for k in ('candidate','target','beforeSha256','sha256','owner','mode')) or
+                w.get('intent') is not True or w.get('written') is not True or
+                any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten'))
+                for r in rows for w in written if r['candidate']==w['candidate'])):
+        raise ValueError('native_knowledge_history_success_required')
+    capabilities_transport_history(base,root,old,rows)
+    additions=set(KNOWLEDGE_INSTALLED_TARGETS.values())-set(CAPABILITIES_BASELINE_TARGETS.values())
+    if (set(current)!=set(old)|additions or
+            any(any(row.get(k)!=current[path].get(k) for k in
+                (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
+                for path,row in old.items() if path not in CAPABILITIES_BASELINE_TARGETS.values()) or
+            any(r.get('beforeSha256')!=(KNOWLEDGE_INITIAL_EXISTING[r['candidate']][0]
+                if r['candidate'] in KNOWLEDGE_INITIAL_EXISTING else old.get(r['target'],{}).get('sha256')) for r in installed_rows)):
+        raise ValueError('native_knowledge_success_chain_mismatch')
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -1046,12 +1115,12 @@ def installed_baseline(root, git_baseline):
         metadata={r['target']:{'path':r['target'],'sha256':r['sha256'],'owner':r.get('owner'),'mode':r.get('mode')} for r in rows}
         metadata.update({r['path']:dict(r) for r in protected})
         written=journal.get('files',[])
-        installed_targets=CAPABILITIES_BASELINE_TARGETS if NATIVE_CAPABILITIES_MODE else CAPABILITIES_INSTALLED_TARGETS
+        installed_targets=KNOWLEDGE_INSTALLED_TARGETS if NATIVE_CAPABILITIES_MODE else CAPABILITIES_INSTALLED_TARGETS
         if (manifest.get('sourceCommit')!=INSTALLED_COMMIT or manifest.get('scope')!=SCOPE or
                 manifest.get('nativeCapabilities') is not True or manifest.get('nativeArchive') is not True or
                 len(rows)!=len(installed_targets) or {r['candidate']:r['target'] for r in rows}!=installed_targets or
                 any(r.get('owner')!='0:0' or r.get('mode')!='0o644' for r in rows) or
-                len(protected)!=(767 if NATIVE_CAPABILITIES_MODE else 769) or len(metadata)!=(788 if NATIVE_CAPABILITIES_MODE else 779) or
+                len(protected)!=(767 if NATIVE_CAPABILITIES_MODE else 769) or len(metadata)!=(793 if NATIVE_CAPABILITIES_MODE else 779) or
                 journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
                 any(journal.get(k) for k in ('rollback','rollbackIntent','rolledBack','rollbackAttempted')) or
                 journal.get('manifest')!=manifest or journal.get('approvedManifestSha256')!=INSTALLED_PROOF['manifestSha256'] or
@@ -1065,17 +1134,19 @@ def installed_baseline(root, git_baseline):
                 NATIVE_CAPABILITIES_MODE and manifest.get('nativeStaticBaseline')!=CAPABILITIES_STATIC_PROOF or
                 git_baseline!={'source_commit':INSTALLED_COMMIT,'files':(
                     {'frontend/index.html':COMPOSER_BEFORE_SHA} if COMPOSER_STATIC_MODE else
-                    {name:(None if name in NEW else KNOWLEDGE_EXISTING[name][0] if name in KNOWLEDGE_EXISTING else metadata.get(target,{}).get('sha256'))
+                    {name:(None if name in NEW else DESKTOP_EXISTING[name][0] if name in DESKTOP_EXISTING else metadata.get(target,{}).get('sha256'))
                      for name,target in TARGETS.items()})}):
             raise ValueError('composer_static_installed_proof_mismatch')
         if NATIVE_CAPABILITIES_MODE:
-            capabilities_transport_history(base,root,metadata,rows)
+            capabilities_knowledge_history(base,root,metadata,rows)
+            if metadata.get(DESKTOP_TARGETS['http/range_api.py'],{}).get('sha256')!=DESKTOP_EXISTING['http/range_api.py'][0]:
+                raise ValueError('desktop_range_protected_before_drift')
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
         all_hashes={p:r['sha256'] for p,r in metadata.items()}
         if NATIVE_CAPABILITIES_MODE:
-            all_hashes.update({TARGETS[name]:value[0] for name,value in KNOWLEDGE_EXISTING.items()})
+            all_hashes.update({TARGETS[name]:value[0] for name,value in DESKTOP_EXISTING.items()})
         all_hashes.update({TARGETS[name]:None for name in NEW})
         return dict(manifest,archive_all_hashes=all_hashes)
     if ARCHIVE_MODE:
@@ -1286,6 +1357,60 @@ def native_path_info(path):
         if stat.S_ISLNK(info.st_mode) or (current != path and not stat.S_ISDIR(info.st_mode)):
             raise ValueError('native_dependency_link_or_parent')
     return info
+
+
+def desktop_observation(base,root):
+    """Only the existing Desktop mounts and token metadata; never read its key."""
+    token=base.rooted(root,'/var/lib/fs-hermes-fc/profile/.desktop-management/token')
+    info=native_path_info(token)
+    if (info is None or not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or
+            stat.S_IMODE(info.st_mode)!=0o600 or not 16<=info.st_size<=4096):
+        raise ValueError('desktop_token_metadata_boundary')
+    fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+    before={k:getattr(info,k) for k in fields}
+    if root!=Path('/'):
+        raise ValueError('desktop_runtime_observation_requires_host')
+    result=subprocess.run(['docker','inspect','--format',
+        '{{json .Mounts}}\n{{json .HostConfig.NetworkMode}}\n{{json .State.Running}}','fs-hermes-desktop'],
+        capture_output=True,text=True,check=True,timeout=15)
+    lines=result.stdout.splitlines()
+    if len(lines)!=3:raise ValueError('desktop_container_metadata_shape')
+    mounts,network,running=map(json.loads,lines)
+    relevant=[m for m in mounts if m.get('Destination') in ('/desktop','/profile')]
+    selected={m.get('Destination'):m for m in relevant}
+    expected={'/desktop':('/opt/fs-hermes-desktop',False),'/profile':('/var/lib/fs-hermes-fc/profile',True)}
+    if (network!='host' or running is not True or len(relevant)!=2 or len(selected)!=2 or
+            any(selected[p].get('Type')!='bind' or selected[p].get('Source')!=source or selected[p].get('RW') is not rw
+                for p,(source,rw) in expected.items())):
+        raise ValueError('desktop_existing_mount_contract_drift')
+    program="""import ast,hashlib,json,os,stat
+from pathlib import Path
+p=Path('/opt/hermes/hermes_cli/web_server.py')
+for q in (p,*p.parents):
+ s=q.lstat()
+ assert not stat.S_ISLNK(s.st_mode) and (q==p or stat.S_ISDIR(s.st_mode))
+b=p.lstat();fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+assert stat.S_ISREG(b.st_mode) and b.st_nlink==1 and b.st_size==75935
+with os.fdopen(os.open(p,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK),'rb') as f:
+ assert all(getattr(b,k)==getattr(os.fstat(f.fileno()),k) for k in fields)
+ raw=f.read(75936)
+ assert all(getattr(b,k)==getattr(os.fstat(f.fileno()),k) for k in fields)
+assert all(getattr(b,k)==getattr(p.lstat(),k) for k in fields)
+sha=hashlib.sha256(raw).hexdigest()
+assert sha=='14428aa34d4297b81f7dbeb7e8fe2abae0e205a3356d9e341eb22d457ae2e55f'
+tree=ast.parse(raw);names={n.name for n in tree.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef))}
+assert {'start_server','_has_valid_session_token','_has_valid_query_token'}<=names
+assert any(isinstance(n,ast.Name) and n.id=='_SESSION_TOKEN' for n in ast.walk(tree))
+print(json.dumps(dict(source_sha256=sha,official_helpers=True)))
+"""
+    checked=subprocess.run(['docker','exec','fs-hermes-desktop','python','-I','-B','-c',program],
+        capture_output=True,text=True,check=True,timeout=20)
+    helpers=json.loads(checked.stdout)
+    if helpers!={'source_sha256':'14428aa34d4297b81f7dbeb7e8fe2abae0e205a3356d9e341eb22d457ae2e55f','official_helpers':True}:
+        raise ValueError('desktop_official_helpers_drift')
+    after=native_path_info(token)
+    if after is None or any(getattr(after,k)!=before[k] for k in fields):raise ValueError('desktop_token_metadata_changed')
+    return dict(network=network,mounts={p:dict(source=s,rw=rw) for p,(s,rw) in expected.items()},token=before,helpers=helpers)
 
 
 def native_dependencies(base, root):
@@ -1549,13 +1674,15 @@ def load_base():
                             else (row.get('beforeSha256') is None) != (row['candidate'] in NEW))
             if (wrong_before
                     or row.get('owner') != '0:0'
-                    or row.get('mode') != ('0o600' if row['target'] == NGINX else '0o644')):
+                    or row.get('mode') != payload_mode(row['target'])):
                 raise ValueError('material_existing_new_or_mode_boundary')
         if manifest.get('runtimeRequired') != {unit: {'ActiveState': 'active'} for unit in (
+                *(('fs-hermes-desktop.service',) if NATIVE_CAPABILITIES_MODE else ()),
                 'fs-business-range.service', 'fs-hermes-fc.service', 'nginx.service')}:
             raise ValueError('material_active_services_required')
         before = manifest.get('runtimeBefore', {})
         if (set(before) != set(manifest['runtimeRequired'])
+                or NATIVE_CAPABILITIES_MODE and before['fs-hermes-desktop.service'] != {'ActiveState':'active'}
                 or before['fs-business-range.service'] != {'ActiveState': 'active'}
                 or before['nginx.service'] != {'ActiveState': 'active'}
                 or before['fs-hermes-fc.service'] not in [
@@ -1637,6 +1764,8 @@ def load_base():
             running_worker(manifest)
         if NATIVE_MODE and native_dependencies(base, root) != manifest['nativeDependencies']:
             raise ValueError('native_dependencies_cas_drift')
+        if NATIVE_CAPABILITIES_MODE and root==Path('/') and desktop_observation(base,root)!=manifest.get('desktopDependencies'):
+            raise ValueError('desktop_dependencies_cas_drift')
         if NATIVE_MODE:
             native_legacy_daily_guard(base,root)
         if before_restart and manifest.get('scope') == SCOPE:
@@ -1705,6 +1834,8 @@ def load_base():
             running_worker(manifest)
         if NATIVE_MODE and native_dependencies(base, root) != manifest['nativeDependencies']:
             raise ValueError('native_dependencies_cas_drift')
+        if NATIVE_CAPABILITIES_MODE and root==Path('/') and desktop_observation(base,root)!=manifest.get('desktopDependencies'):
+            raise ValueError('desktop_dependencies_cas_drift')
         if ARCHIVE_MODE or NATIVE_ADMISSION_MODE:
             native_runtime_readiness()
         if root == Path('/'):
@@ -1730,10 +1861,12 @@ def load_base():
                 program += ';import transport;assert Path(transport.__file__).parent==Path(sys.argv[1])'
             if NATIVE_MODE:
                 program += ';import native_chat,conversation_native,transport;assert Path(conversation_native.__file__).parent==Path(sys.argv[1])'
+            if NATIVE_CAPABILITIES_MODE:
+                program += ';import conversation_desktop,desktop_fs_gateway;assert Path(conversation_desktop.__file__).parent==Path(sys.argv[1]);assert Path(desktop_fs_gateway.__file__).parent==Path(sys.argv[1]).parent/"desktop"'
             checked = subprocess.run(['/opt/python39/bin/python3.9', '-I', '-B', '-c', program,
                                       str((stage / 'candidate/runtime').resolve()),
                                       str((stage / 'candidate/http').resolve()), '/opt/fs-hermes-fc',
-                                      '/opt/fs-exact-range-20261001'], capture_output=True, timeout=25)
+                                      '/opt/fs-exact-range-20261001',str((stage/'candidate/desktop').resolve())], capture_output=True, timeout=25)
             if checked.returncode:
                 raise ValueError('material_composed_import_failed')
         return result
@@ -1753,12 +1886,18 @@ def load_base():
         if manifest.get('nativeCapabilities'):
             if admission_fence is None:raise ValueError('native_admission_fence_required')
             admission_fence.stop_then_unlock_database()
-            # backend-client is cached by the existing Node process. Reload it
-            # before exposing the new native tool catalog, on install and rollback.
-            subprocess.run(['systemctl','restart','fs-campaign-dashboard.service'],check=True,timeout=30)
-            subprocess.run(['systemctl','is-active','--quiet','fs-campaign-dashboard.service'],check=True,timeout=10)
-            readiness.restart_with_hermes_readiness(base,original_restart,dict(manifest,scope=base.HERMES_WORKER_SCOPE),admission_fence)
             readiness.restart_with_hermes_readiness(base,original_restart,dict(manifest,scope=base.DEEP_SCOPE),admission_fence)
+            subprocess.run(['systemctl','restart','fs-hermes-desktop.service'],check=True,timeout=30)
+            subprocess.run(['systemctl','is-active','--quiet','fs-hermes-desktop.service'],check=True,timeout=10)
+            if publish_root==Path('/'):
+                serve=next(r for r in manifest['files'] if r['candidate']=='desktop/serve.py')
+                installed=base.digest(base.rooted(publish_root,serve['target']))
+                if installed not in (serve['sha256'],serve['beforeSha256']):raise ValueError('desktop_readiness_source_drift')
+                program="import socket; s=socket.create_connection(('127.0.0.1',8942),timeout=5); s.close()"
+                if installed==serve['sha256']:
+                    program+=";import sys;sys.path.insert(0,'/desktop');import conversation_desktop,desktop_fs_gateway;assert conversation_desktop.__file__=='/desktop/conversation_desktop.py';assert desktop_fs_gateway.__file__=='/desktop/desktop_fs_gateway.py'"
+                subprocess.run(['docker','exec','fs-hermes-desktop','python','-I','-B','-c',program],
+                    check=True,capture_output=True,timeout=25)
             running_worker(manifest);native_runtime_readiness();base.guards(manifest,publish_root)
             return
         if manifest.get('nativeArchive') or manifest.get('nativeAdmission'):

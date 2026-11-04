@@ -287,7 +287,9 @@ class ServiceTests(unittest.TestCase):
 
 def load_tests(loader, tests, pattern):
     import test_conversation_knowledge
+    import test_conversation_desktop
     tests.addTests(loader.loadTestsFromModule(test_conversation_knowledge))
+    tests.addTests(loader.loadTestsFromModule(test_conversation_desktop))
     return tests
 
 
