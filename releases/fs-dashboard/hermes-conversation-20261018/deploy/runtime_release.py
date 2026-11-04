@@ -104,10 +104,14 @@ CAPABILITIES_DESKTOP_INSTALL_PROOF = dict(sourceCommit='1f09b5134747a4ca6bef2dca
     backup='/var/backups/fs-navigation-20261006/nav-20261104T051404Z',
     manifestSha256='10c15f738dac42fe58a0c6e335669d5ff3f245c72e8db7b99a83274c09552a2b',
     journalSha256='333cfdb381e30ccb3156d21d0004cf8d0e10990c4d68ecc94cf5f4c6a2864e9a')
-NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='c1f9dd4b5358158822fe611de075a69d951febc6',
+CAPABILITIES_DESKTOP_WS_PROOF = dict(sourceCommit='c1f9dd4b5358158822fe611de075a69d951febc6',
     backup='/var/backups/fs-navigation-20261006/nav-20261104T063337Z',
     manifestSha256='5a9689f35f006a5120ded6ab6d563d769ad9c96172744d47638ed48848b7b0da',
     journalSha256='e502affc0579df1f86696338b947fb585f41f91e6101a4eca22fa1877f85960b')
+NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='3522fa5d969c3bd88880de0032548b3af97ec14f',
+    backup='/var/backups/fs-navigation-20261006/nav-20261104T071648Z',
+    manifestSha256='e7cbbce9adca1aeede25b270d944eb414e72d35453c60efac4f0b2a94c939cf6',
+    journalSha256='f4e427e4cbcf543ec6dc2a31ac1de41e34fab8740b63b6028b6f527057c06a12')
 DESKTOP_MODE_CORRECTION_SHA='d2352697a75d75545108cd03f260c264f3e918dc1b4be9d7f2b239a2cd2a947e'
 DESKTOP_NAVIGATION_PROOF=dict(backup='/var/backups/fs-navigation-20261006/nav-20261104T052012Z',
     manifestSha256='ec8550f11cc66b47799c92d3cf9649deee192bdfa17e25a399640e8a46ee3854',
@@ -307,7 +311,10 @@ DESKTOP_EXISTING = {
 DESKTOP_FIRST_INSTALLED_EXISTING=dict(DESKTOP_EXISTING)
 DESKTOP_EXISTING['desktop/desktop_fs_gateway.py']=('eccfe20966b35713334a22fae9edf2f90daafc4cd978dd31a0de86f479d0edb0',9636)
 CAPABILITIES_NEW=frozenset()
-CAPABILITIES_CHANGED = ('runtime/conversation_desktop.py','desktop/conversation_desktop.py')
+DESKTOP_WS_INSTALLED_EXISTING=dict(DESKTOP_EXISTING)
+for _name in ('runtime/conversation_desktop.py','desktop/conversation_desktop.py'):
+    DESKTOP_EXISTING[_name]=('c4624b1449cf979bb9ff1129d7f8310df6f371904b3a1be6e7b3d9a5d707f7c5',11453)
+CAPABILITIES_CHANGED = ('runtime/conversation_service.py','runtime/conversation_desktop.py','desktop/conversation_desktop.py')
 
 
 def payload_mode(target):
@@ -1113,9 +1120,10 @@ def capabilities_knowledge_history(base,root,current,installed_rows):
         raise ValueError('native_knowledge_success_chain_mismatch')
 
 
-def capabilities_desktop_history(base,root,current,installed_rows,*,initial=False):
-    """Verify fixed aad -> 1f -> c1 Desktop transitions, without replaying overlays on c1."""
-    proof=CAPABILITIES_DESKTOP_HISTORY_PROOF if initial else CAPABILITIES_DESKTOP_INSTALL_PROOF;records={}
+def capabilities_desktop_history(base,root,current,installed_rows,*,initial=False,first_install=False):
+    """Verify aad -> 1f -> c1 -> 3522; apply mode/nav only to the 1f layer."""
+    proof=(CAPABILITIES_DESKTOP_HISTORY_PROOF if initial else
+           CAPABILITIES_DESKTOP_INSTALL_PROOF if first_install else CAPABILITIES_DESKTOP_WS_PROOF);records={}
     expected=KNOWLEDGE_INSTALLED_TARGETS if initial else DESKTOP_INSTALLED_TARGETS
     fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
     for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
@@ -1151,8 +1159,11 @@ def capabilities_desktop_history(base,root,current,installed_rows,*,initial=Fals
                 for r in rows for w in written if r['candidate']==w['candidate'])):
         raise ValueError('native_desktop_history_success_required')
     if not initial:
-        capabilities_desktop_history(base,root,old,rows,initial=True)
-        old=capabilities_desktop_metadata(base,root,old,manifest)
+        if first_install:
+            capabilities_desktop_history(base,root,old,rows,initial=True)
+            old=capabilities_desktop_metadata(base,root,old,manifest)
+        else:
+            capabilities_desktop_history(base,root,old,rows,first_install=True)
         if (set(current)!=set(old) or
                 any(any(row.get(k)!=current[path].get(k) for k in
                     (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
