@@ -1248,7 +1248,7 @@
     },
     {
       "id": "fc.reporting.data",
-      "revision": "20261105-1",
+      "revision": "20261105-2",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1262,10 +1262,12 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "d8ae2400a8d46ae1bf9154b94bc11239d88968e04eaa8fa0fd0de47a5f0a43ed",
+        "sha256": "cf0653072a83006d9061948bd178acdb4d6009df066cfe0842791539e64a6850",
         "hash_basis": "utf8_lf"
       },
-      "supersedes": [],
+      "supersedes": [
+        "fc.reporting.data@20261105-1"
+      ],
       "provenance": [
         {
           "kind": "direct_user_knowledge_consolidation",
@@ -1275,6 +1277,12 @@
         {
           "kind": "existing_confirmed_methods",
           "path": "docs/planning/report-methods-20261102/README.md"
+        },
+        {
+          "kind": "direct_user_identity_and_incremental_upgrade",
+          "date": "2026-11-05",
+          "path": "docs/planning/fc26-buyer-value-20261105/身份核验与重算进展.md",
+          "scope": "buyer/UID evidence and incremental daily methods; no claim of completed season recalculation"
         }
       ],
       "consumers": [
