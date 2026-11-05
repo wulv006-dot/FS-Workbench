@@ -65,7 +65,7 @@ button:disabled,select:disabled{opacity:.55;cursor:not-allowed}
 dl{margin:0}dt{font-size:.72rem;color:var(--fs-muted)}dd{margin:0;font-size:1.1rem;font-weight:600;font-variant-numeric:tabular-nums}
 .metric-pair,.sales-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem;margin-top:1rem}
 .metric-pair>div+div{border-left:1px solid var(--fs-line-soft);padding-left:1rem}
-.sales-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.sales-metrics dd{font-size:1rem}
+.sales-metrics{grid-template-columns:1fr;gap:.3rem;margin:1rem 0 .7rem}.sales-metrics>div{display:flex;align-items:center;justify-content:space-between;padding:.15rem 0}.sales-metrics dd{font-size:1rem}
 .sales .trend-chart{margin-top:.6rem}.sales>.quiet-button{align-self:flex-start;margin-bottom:.45rem}
 .dashboard-section{margin-top:1.8rem}
 .matrix-notice{font-size:.76rem;margin:-.15rem 0 .85rem;color:var(--fs-muted)}

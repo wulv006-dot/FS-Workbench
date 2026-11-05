@@ -33,7 +33,7 @@ function empty(title, message, view) {const e=text('div',null,'empty');e.append(
 function chart(rows, extract, title, tone='demand') {
   const segments=chartSegments(rows,extract), figure=text('figure',null,'trend-chart '+tone);
   if(!segments.length){figure.append(text('p','暂无可绘制的真实历史。','chart-empty'));return figure;}
-  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 480 142');svg.setAttribute('role','img');svg.setAttribute('aria-label',title+'，缺失日期留空。完整数值见每日明细。');
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 480 142');svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('role','img');svg.setAttribute('aria-label',title+'，缺失日期留空。完整数值见每日明细。');
   const titleNode=document.createElementNS(svg.namespaceURI,'title');titleNode.textContent=title;svg.append(titleNode);
   const max=Math.max(...segments.flat().map(p=>p.value),1),x=i=>12+i*456/Math.max(1,rows.length-1),y=v=>126-v*110/max;
   for(const height of [16,71,126]){const line=document.createElementNS(svg.namespaceURI,'line');for(const [k,v] of Object.entries({x1:12,x2:468,y1:height,y2:height}))line.setAttribute(k,v);line.setAttribute('class','chart-grid');svg.append(line);}
@@ -63,14 +63,14 @@ function selectedURL() {
   const selected=primary.includes(active)?active:'overview';document.querySelectorAll('[role=tab]').forEach(b=>{const on=b.dataset.view===selected;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;});panel.setAttribute('aria-labelledby','tab-'+selected);
 }
 function overview(history, scope, request) {
-  coverageStrip(history);panel.append(sectionHeading('从搜索需求到成交表现','以已发布数据观察业务，每个来源保留自己的统计日。','history'));
+  coverageStrip(history);panel.append(sectionHeading('全链路概览',null,'history'));
   const grid=text('div',null,'journey-grid'),latest=history.at(-1),gsc=latestRow(history,'gsc');
   const demand=card('上游 · 需求走势','GSC展示','demand');cardValue(demand,value(gsc?.metrics.gsc.impressions),'搜索展示');
   demand.append(text('p',gsc?'最近源日 '+gsc.source_date+' · 太平洋时间':'暂无有效GSC源日','source-caption'),chart(history,r=>r.metrics.gsc?.impressions,'近30日GSC搜索展示','demand'),text('p','用搜索展示观察需求；社区热度与Google Trends尚未接入。','card-note'));
   const search=card('中游 · 搜索表现','GSC','search');cardValue(search,value(gsc?.metrics.gsc.clicks),'自然搜索点击');
   search.append(keyValues([['点击率',value(gsc?.metrics.gsc.ctr,true)],['GSC平均位置',value(gsc?.metrics.gsc.position)]]),chart(history,r=>r.metrics.gsc?.clicks,'近30日GSC搜索点击','search'),text('p','GSC平均位置不作为固定条件的Google排名。','card-note'));
   const sales=card('下游 · 成交预估','GA4 + Admin','sales');cardValue(sales,latest?.estimate?.revenue_usd==null?'—':'$'+value(latest.estimate.revenue_usd),'预估SEO成交额');
-    sales.append(text('p','业务统计日 '+(latest?.source_date??client.meta.report_date)+' · 北京时间','source-caption'),keyValues([['自然会话',value(latest?.metrics.ga4?.sessions)],['购买次数',value(latest?.metrics.ga4?.purchase_events)],['Admin客单价',latest?.metrics.admin?.admin_customer_price_usd==null?'—':'$'+value(latest.metrics.admin.admin_customer_price_usd)]],'sales-metrics'),chart(history,r=>r.estimate?.revenue_usd,'近30日预估SEO成交额','sales'),viewButton('orders','查看成交预估明细'),text('p','购买次数 × Admin现成客单价；金额为预估，无法逐单归因。','card-note warn'));
+    sales.append(text('p','业务统计日 '+(latest?.source_date??client.meta.report_date)+' · 北京时间','source-caption'),keyValues([['自然会话',value(latest?.metrics.ga4?.sessions)],['购买次数',value(latest?.metrics.ga4?.purchase_events)],['Admin客单价',latest?.metrics.admin?.admin_customer_price_usd==null?'—':'$'+value(latest.metrics.admin.admin_customer_price_usd)]],'sales-metrics'),viewButton('orders','查看成交预估明细'),text('p','购买次数 × Admin现成客单价；金额为预估，无法逐单归因。','card-note warn'));
   grid.append(demand,search,sales);panel.append(grid);
   const matrix=text('section',null,'dashboard-section');matrix.append(sectionHeading('国家竞争矩阵','按国家、语言、设备与关键词分别观察真实竞争位置。','rankings'));panel.append(matrix);
   if(client.meta.sources?.serp==='not_configured')renderMarkets(matrix,scope);else loadOptional('rankings',scope,request,matrix,result=>renderMarkets(matrix,scope,result.rows));
@@ -146,6 +146,7 @@ async function render() {
     else if(active==='orders'){
       panel.append(sectionHeading('自然搜索成交预估','直接使用同日、同游戏MMOEXP主站Admin客单价。'));
       panel.append(text('p','GA4自然搜索购买事件次数 × Admin原生customer_price。交易标识为空，不能关联具体订单或用户；后台该字段口径为付费客户均额，GA4为初步值。','method-note'));
+      panel.append(chart(data.rows,r=>r.estimate?.revenue_usd,'近30日预估SEO成交额','sales'));
       panel.append(table(['来源日期','购买事件次数','Admin客单价（$）','预估成交额（$）','状态'],data.rows.map(r=>[r.source_date,value(r.metrics.ga4?.purchase_events),value(r.metrics.admin?.admin_customer_price_usd),value(r.estimate?.revenue_usd),r.estimate?.status==='estimated'?'预估':'缺少来源']),'按日预估，缺失不补零'));
     }else{
       panel.append(sectionHeading(views[active][0],'真实观察样本，按其源日期与观察时间展示。'));
