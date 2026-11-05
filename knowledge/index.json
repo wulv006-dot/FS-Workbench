@@ -1212,42 +1212,6 @@
     },
     {
       "id": "fc.reporting.methods",
-      "revision": "20261105-1",
-      "layer": "current",
-      "status": "effective",
-      "modules": [
-        "FC27",
-        "reporting"
-      ],
-      "effective_at": "2026-11-05",
-      "time_precision": "date_only",
-      "owner": "吴律；获授权Codex维护",
-      "authority": "git",
-      "source_commit": null,
-      "source": {
-        "path": "knowledge/reporting/fc27-monthly/README.md",
-        "sha256": "56b101c86e7f84c70bcf0ed5e1195074de775f5d107569d38bb853edc59305ee",
-        "hash_basis": "utf8_lf"
-      },
-      "supersedes": [],
-      "provenance": [
-        {
-          "kind": "direct_user_knowledge_consolidation",
-          "date": "2026-11-05",
-          "scope": "FC report methods and knowledge; no price, budget, schedule or permission change"
-        },
-        {
-          "kind": "existing_confirmed_methods",
-          "path": "docs/planning/report-methods-20261102/README.md"
-        }
-      ],
-      "consumers": [
-        "Codex",
-        "Hermes after original review and target-profile readback"
-      ]
-    },
-    {
-      "id": "fc.reporting.data",
       "revision": "20261105-2",
       "layer": "current",
       "status": "effective",
@@ -1261,12 +1225,57 @@
       "authority": "git",
       "source_commit": null,
       "source": {
-        "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "cf0653072a83006d9061948bd178acdb4d6009df066cfe0842791539e64a6850",
+        "path": "knowledge/reporting/fc27-monthly/README.md",
+        "sha256": "6e06c0fc201ea06a69ca2aacddc1658b3f038186dd0d5a4d016edc304d350fe8",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
-        "fc.reporting.data@20261105-1"
+        "fc.reporting.methods@20261105-1"
+      ],
+      "provenance": [
+        {
+          "kind": "direct_user_knowledge_consolidation",
+          "date": "2026-11-05",
+          "scope": "FC report methods and knowledge; no price, budget, schedule or permission change"
+        },
+        {
+          "kind": "existing_confirmed_methods",
+          "path": "docs/planning/report-methods-20261102/README.md"
+        },
+        {
+          "kind": "direct_user_daily_and_monthly_archive_policy",
+          "date": "2026-11-05",
+          "path": "docs/planning/es-monthly-archive-20261105/README.md",
+          "scope": "daily yesterday increments; Monday current and previous two calendar months; proven redundant export cleanup after publication; Git knowledge only, FS frozen knowledge and new-session learning not deployed"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes after original review and target-profile readback"
+      ]
+    },
+    {
+      "id": "fc.reporting.data",
+      "revision": "20261105-3",
+      "layer": "current",
+      "status": "effective",
+      "modules": [
+        "FC27",
+        "reporting"
+      ],
+      "effective_at": "2026-11-05",
+      "time_precision": "date_only",
+      "owner": "吴律；获授权Codex维护",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/reporting/fc27-monthly/DATA.md",
+        "sha256": "a9d24c2b66bceecb8f709ec10d3d9e0a453a9db83268ad9f3bdc7caead6a1741",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [
+        "fc.reporting.data@20261105-1",
+        "fc.reporting.data@20261105-2"
       ],
       "provenance": [
         {
@@ -1283,6 +1292,12 @@
           "date": "2026-11-05",
           "path": "docs/planning/fc26-buyer-value-20261105/身份核验与重算进展.md",
           "scope": "buyer/UID evidence and incremental daily methods; no claim of completed season recalculation"
+        },
+        {
+          "kind": "direct_user_daily_and_monthly_archive_policy",
+          "date": "2026-11-05",
+          "path": "docs/planning/es-monthly-archive-20261105/README.md",
+          "scope": "daily yesterday increments; Monday current and previous two calendar months; proven redundant export cleanup after publication; Git knowledge only, FS frozen knowledge and new-session learning not deployed"
         }
       ],
       "consumers": [
