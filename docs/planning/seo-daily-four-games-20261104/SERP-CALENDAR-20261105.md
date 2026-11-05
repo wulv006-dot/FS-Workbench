@@ -25,8 +25,16 @@
 
 现有游戏监控缓存读取时间为10月31日北京00:15，四目标游戏仅一条D4公告且event_date为空。EA、Blizzard等源有历史失败，Aion2没有可用事件；不能据此声称四游戏官方日程完整接通。新夜间直读将保留每源成功/失败和真实材料，不造补齐数据。
 
-Windows83项SEO回归通过；183既有Python3.9、无网络只读容器首轮81项通过、零skip、峰值RSS32764KiB，RPG与FC采集服务状态/启动时间未变。新增收尾与部分观察保留的失败测试已复现并修正；后续新增代码仍须最终Linux与PR CI，不能引用首轮81项代替最终版本。
+初版Windows与183 Python3.9均83项通过，PR #837的PR fast #1622通过并合并。经用户批准，37文件版本seo-daily-f83a869af88662ea于11月5日16:47上线，原发布器备份nav-20261105T090000Z；37文件与7保护文件读回一致，真实登录入口四游戏/八国及新增接口通过。当前seo-2026-11-05快照及AI策略未变，其他业务服务未重启。Web峰值约13.8MiB，183QA临时目录与187暂存tar已清理。
 
-当前为实现/配置候选；新运行代码尚未部署，SERP真实样本、首个夜间及下一自然周期待观察。账号配置完成不等于排名真数通过。
+用户随后明确要求“采集一波”，授权本次单次白天例外。仅一次性进程的采集准入改变，真实时钟、源日期、已安装代码、正式夜间入口和今日快照均不改；只采SERP/日程并写SEO待发布事实，带manual_daytime_exception和原run_id。首个真实Google请求已返回；96条件尚在执行，超时提交保留unknown、不盲重放。本次手动样本不作为自然周期验收。
+
+## 真实中转链接修复
+
+实采发现Google自然结果包含`google.com/goto`不透明中转地址；直接拿其域名匹配会误判未上榜。187对一个真实已保存地址的GET实测返回302及目标网站，且未跟随访问目标页。现复用HTTP标准库只向Google中转端点读取Location，保留原链接与自然位置；不再次提交Bright Data搜索，不消耗额外SERP查询。已完成响应解析后回写同一回执，避免重复解析请求；Google解析失败不把已完成的供应商请求改成unknown。
+
+未解析链接若可能位于目标品牌之前，品牌排名标unresolved/链接待解析，不给伪精确名次或未上榜；来源partial、前端状态与请求计数同步调整。原请求unknown仍不重发。新增四个失败复现/回归覆盖相对中转、位置不确定、成功缓存复用、解析失败与只读Location不跟随；Windows87项及界面回归通过，183无网络只读Python3.9最终87项、零skip，RSS32696KiB。该修复待正式CI和沿原发布器读回；自然批次与次日正式展示仍待观察。
+
+供应商仓库有同类原始报告：[brightdata-mcp #181](https://github.com/brightdata/brightdata-mcp/issues/181)。此处修复依据本次实际302与本地失败测试，不据未核验展示域名猜目标地址。
 
 参考：[Bright Data REST接入](https://docs.brightdata.com/products/serp-api/send-your-first-request)、[国家/语言/设备参数](https://docs.brightdata.com/products/serp-api/query-parameters/google)、[自然结果字段](https://docs.brightdata.com/products/serp-api/parsed-json-results)、[免费额度与共享池](https://docs.brightdata.com/general/account/billing-and-pricing/free-tier)。原生语义表格沿用FS组件和[Chrome可访问性指导](https://developer.chrome.com/docs/modern-web-guidance/guides/accessibility/accessibility)；本机无npx，未安装新前端工具。
