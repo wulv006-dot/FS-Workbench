@@ -957,11 +957,27 @@ class NativeConversation:
             if row is not None and row['request_id'].startswith('followup_'):data=self._user_data()
         return data.finish(turn_id,state) if data is not None else []
 
+    def fail_unsubmitted(self, owner, cid, turn_id, session_id, text, request_id):
+        # The original request must still be unbound and unpersisted. Holding
+        # this transaction prevents a concurrent dispatcher from starting it.
+        with self.store.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            conversation=self.store._owned(db,owner,cid)
+            turn=db.execute('SELECT * FROM turns WHERE id=? AND conversation_id=?',(turn_id,cid)).fetchone()
+            if (conversation['session_id']!=session_id or turn is None or
+                    turn['text']!=text or turn['request_id']!=request_id or
+                    turn['state']!='preparing' or any(turn[k] is not None for k in ('task_id','lease','run_id')) or
+                    db.execute('SELECT 1 FROM native_conversation_runs WHERE turn_id=?',(turn_id,)).fetchone()):
+                return False
+            db.execute("UPDATE turns SET state='failed' WHERE id=?",(turn_id,))
+            return True
+
     def dispatch(self, owner, cid, turn_id, session_id, text, request_id, *, pricing_context=None):
         from conversation_file_bindings import FileBindings
         from fs_inprocess import native_gateway
         from native_chat import NativeChatScope
         token = None
+        post_attempted = False
         if pricing_context is not None:
             validate_pricing_context(pricing_context,cid)
             if pricing_context != self.pricing_context(owner,cid):
@@ -1006,6 +1022,7 @@ class NativeConversation:
                     raise PermissionError('native_pricing_context_changed')
             self.write_admission(session_id, admission)
             # Exactly one POST. Loss of 202 leaves the original persisted key unknown.
+            post_attempted = True
             code, result = self.service._request('POST', '/v1/runs', body, key)
             if code != 202 or not re.fullmatch('run_[a-f0-9]{32}', result.get('run_id', '')):
                 raise ValueError('native_admission_unknown')
@@ -1034,7 +1051,8 @@ class NativeConversation:
             self.service._monitor(owner, cid, turn_id, bound['run_id'], live)
         except Exception:
             # Retain the mapping/body/key and every file; no alternate request is made.
-            self.store.set_state(owner, cid, turn_id, 'dispatch_unknown')
+            state='failed' if pricing_context is not None and not post_attempted else 'dispatch_unknown'
+            self.store.set_state(owner, cid, turn_id, state)
             if token:
                 self.hermes.grants.revoke(token)
             self.fence(owner,cid,turn_id)

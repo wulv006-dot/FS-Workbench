@@ -276,13 +276,16 @@ class ConversationService:
         if not pricing_lane and not self.pricing_only:
             return self.native.dispatch(user, conversation_id, turn_id, session_id, text, request_id)
         if pricing_lane:
-            pricing_context=self.native.pricing_context(user,conversation_id)
-            if pricing_context is not None:
-                return self.native.dispatch(user,conversation_id,turn_id,session_id,text,request_id,
-                                            pricing_context=pricing_context)
-            if not self._pricing_lane(user,conversation_id):
-                self.store.set_state(user,conversation_id,turn_id,'failed')
-                raise PermissionError('pricing_review_lane_required')
+            try:
+                pricing_context=self.native.pricing_context(user,conversation_id)
+                if pricing_context is not None:
+                    return self.native.dispatch(user,conversation_id,turn_id,session_id,text,request_id,
+                                                pricing_context=pricing_context)
+                if not self._pricing_lane(user,conversation_id):
+                    raise PermissionError('pricing_review_lane_required')
+            except Exception:
+                self.native.fail_unsubmitted(user,conversation_id,turn_id,session_id,text,request_id)
+                raise
         token = task = lease = run_id = None
         stage='evidence_book'
         admission_path = self.run_root / "admissions" / (session_id + ".json")

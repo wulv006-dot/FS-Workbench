@@ -213,11 +213,54 @@ class NativePricingService(unittest.TestCase):
                 with self.assertRaises(PermissionError):pricing.native.register_schemas(bound,measured)
                 measured['reasoning_effort']='high';pricing.native.register_schemas(bound,measured)
                 self.assertEqual(pricing.native.reasoning_effort(bound),'high')
+                with tasks.db() as db:db.execute('UPDATE pricing_grants SET expires_at=? WHERE conversation=?',((datetime.now(timezone.utc)-timedelta(seconds=1)).isoformat(),cid))
+                with self.assertRaises(PermissionError):pricing._dispatch('alice',cid,bound['turn_id'],bound['session_id'],'review daily','pricing_dispatch_01',True)
+                self.assertEqual(pricing.store.detail('alice',cid)['turns'][0]['state'],'queued')
+                self.assertFalse(pricing.native.row('alice',cid,bound['turn_id'])['stopped'])
+                self.assertEqual(len(posts),1)
+                with tasks.db() as db:db.execute('UPDATE pricing_grants SET expires_at=? WHERE conversation=?',(expires,cid))
                 pricing.store.set_state('alice',cid,bound['turn_id'],'completed')
                 pricing._finish_task('alice',cid,bound['turn_id'],pricing.live[bound['turn_id']],'completed')
                 self.assertTrue(pricing.native.row('alice',cid,bound['turn_id'])['stopped'])
                 with self.assertRaises(PermissionError):service.hermes.grants.resolve(admission['token'])
                 self.assertNotIn(cid,[item['conversation_id'] for item in service.store.listed('alice')['items']])
+    def test_expired_grant_before_post_finishes_reserved_turn_without_blocking_next(self):
+        for expire_on in (1,2,3):
+            with self.subTest(expire_on=expire_on),tempfile.TemporaryDirectory() as temp:
+                root=Path(temp);tasks=TaskStore(root/'tasks.sqlite3')
+                modules=dict(self.fixtures.modules,fs_inprocess=self.inprocess,proxy_gateway=self.proxy,transport=self.transport,fc_daily=self.daily_reports)
+                with patch.dict(sys.modules,modules):
+                    fixture=self.fixtures();service,_=fixture.fixture(root,tasks)
+                    service.hermes.clock=lambda:datetime.now(timezone.utc)
+                    service.hermes.grants=self.transport.Grants()
+                    service.hermes.daily=self.daily_reports.DailyReports(None,root/'daily')
+                    pricing=service.pricing;pending=[];posts=[]
+                    pricing.pricing_pool=pricing.pool=SimpleNamespace(submit=lambda *a:pending.append(a))
+                    pricing._request=lambda *a:posts.append(a)
+                    cid=pricing.store.create('alice')['conversation_id']
+                    daily='00000000-0000-4000-8000-000000000001'
+                    with tasks.db() as db:operations.grant(db,'alice',cid,daily,'daily_review',(datetime.now(timezone.utc)+timedelta(hours=2)).isoformat(),SOURCE)
+                    result=pricing.submit_pricing('alice',cid,'review daily','pricing_expiry_01',daily)
+                    original=pricing.native.pricing_context;calls=[]
+                    def expire(*args):
+                        calls.append(True)
+                        if len(calls)==expire_on:
+                            with tasks.db() as db:db.execute('UPDATE pricing_grants SET expires_at=? WHERE conversation=?',((datetime.now(timezone.utc)-timedelta(seconds=1)).isoformat(),cid))
+                        return original(*args)
+                    with patch.object(pricing.native,'pricing_context',side_effect=expire):
+                        fn,*args=pending.pop()
+                        with self.assertRaises(PermissionError):fn(*args)
+                    self.assertEqual(posts,[])
+                    turn=pricing.store.detail('alice',cid)['turns'][0]
+                    self.assertEqual(turn['state'],'failed')
+                    self.assertIsNone(turn['run_id'])
+                    self.assertEqual(pricing.live,{})
+                    with tasks.db() as db:self.assertEqual(db.execute('SELECT count(*) FROM tasks').fetchone()[0],0)
+                    row=pricing.native.row('alice',cid,result['turn_id'])
+                    if row is not None:self.assertTrue(row['stopped'])
+                    next_turn=pricing.store.reserve_turn('alice',cid,'later request','pricing_expiry_02',native=True)
+                    self.assertEqual(next_turn['state'],'preparing')
+
     def test_real_gateway_rejects_pricing_lane_without_current_host_context(self):
         DailyReports=self.daily_reports.DailyReports
         from native_chat import NativeChatScope
