@@ -6,9 +6,18 @@ from pathlib import Path
 DEPLOY=Path(__file__).resolve().parents[1]/'deploy'
 sys.path.insert(0,str(DEPLOY))
 import pmax_scope
+import cards_mapping
 
 
 class PMaxPublisher(unittest.TestCase):
+    def test_cards_mapping_only_updates_four_reading_consumers(self):
+        self.assertEqual(set(cards_mapping.TARGETS.values()), {
+            '/opt/mmoexp-marketing/details/game_mapping_20261019.json',
+            '/opt/mmoexp-marketing/details/game_dimensions.py',
+            '/opt/fs-hermes-fc/channel_effects.py',
+            '/opt/fs-hermes-fc/es_order_structure.py',
+        })
+
     def test_only_four_current_aliases_change_and_unknown_version_rejects(self):
         original=(b'auth_request /__session;\n'+b'alias /var/lib/fs-navigation-formal-static/channel-effects-a8c5835cbdf9/index.html;\n'+b'alias /var/lib/fs-navigation-formal-static/channel-effects-a8c5835cbdf9/channel.js;\n'+b'alias /var/lib/fs-navigation-formal-static/channel-effects-a8c5835cbdf9/channel.css;\n'+b'alias /var/lib/fs-navigation-formal-static/workspace-native-20261019-traffic-v3/google.js;\n')
         after=pmax_scope.candidate(original)

@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
 
-VERSION = 'traffic-game-projections-20261019-v1'
+VERSION = 'traffic-game-projections-20261105-cards-v2'
 ALIASES = {'FC27':'FC27','RS':'RS','D4':'D4','A2':'AION2','Madden':'MADDEN',
            'POE2':'POE2','ARC':'ARC','WOW Forever':'WOW_FOREVER',
            'Maplestory Classic World':'MSCW','Monopoly Go':'MONOPOLY_GO'}

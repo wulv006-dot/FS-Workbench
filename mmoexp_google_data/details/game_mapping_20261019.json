@@ -1,8 +1,18 @@
 {
-  "version": "user-adgroup-game-map-20261019-v1",
-  "source": "用户提供 广告组对应广告系列及游戏名(1).csv",
-  "key_scope": "campaign_name + ad_group_name; account IDs absent; verify against selected accounts",
+  "version": "user-game-map-20261105-cards-v2",
+  "source": "用户广告组映射表；Cards 新系列按用户确认及 Google Ads 实际落地页补充",
+  "key_scope": "campaign_name + ad_group_name/asset_group_name; legacy rows lack account IDs; verified Cards row includes account and campaign IDs",
   "rows": [
+    {
+      "campaign_name": "FC27-Pmax-Cards-EN",
+      "game_label": "FC27",
+      "asset_group_name": "AG-Cards-EN",
+      "campaign_id": "24428222804",
+      "customer_id": "1430398974",
+      "product_scope": "Players",
+      "verified_at": "2026-11-05",
+      "basis": "User confirmed FC27 player-card campaign; Google Ads asset-group final URL /Fc-27/Players.html with matching UTM and source=131"
+    },
     {
       "ad_group_name": "OSRS-Gold-General",
       "campaign_name": "RSOrders-SN-OSRS-Gold",

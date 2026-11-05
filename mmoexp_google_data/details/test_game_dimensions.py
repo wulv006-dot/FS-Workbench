@@ -5,6 +5,10 @@ from game_dimensions import classify_campaign, classify_page, project, aggregate
 class Games(unittest.TestCase):
  def test_global_overrides_fc_name(self):self.assertEqual(classify_campaign('google-FC27-PMAX-Coins-US')['game'],'GLOBAL')
  def test_explicit_mapping(self):self.assertEqual(classify_campaign('A2-SN-Kinah-US')['game'],'AION2')
+ def test_verified_player_cards_campaign(self):
+  for name in ('FC27-Pmax-Cards-EN','google-FC27-PMAX-Cards-EN'):
+   self.assertEqual(classify_campaign(name)['game'],'FC27')
+  self.assertEqual(classify_page('/Fc-27/Players.html?source=131')['game'],'FC27')
  def test_conflict_retained(self):self.assertEqual(classify_campaign('MG-SN-Stickers-EN-US')['game'],'UNKNOWN')
  def test_old_source_not_guessed(self):self.assertEqual(classify_campaign('google-FC27-SN-UK-Coins')['game'],'UNKNOWN')
  def test_language(self):self.assertEqual(classify_page('/fr/Fc-27/Coins.html?x=123')['game'],'FC27')

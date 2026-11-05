@@ -269,9 +269,9 @@ def source_attribution(rows):
         else:
             raw=str(row.get('sourceRaw') or '').strip()
             normalized=re.sub(r'^(?:google|bing)-','',raw,flags=re.I).casefold()
-            if normalized=='fc27-pmax-coins-us' or raw.casefold().startswith(('google-','bing-')):
+            if normalized in ('fc27-pmax-coins-us','fc27-pmax-cards-en') or raw.casefold().startswith(('google-','bing-')):
                 row['primaryProject']='广告来源'
-                if normalized=='fc27-pmax-coins-us' and row['gid']=='1327':pmax.append(row)
+                if normalized in ('fc27-pmax-coins-us','fc27-pmax-cards-en') and row['gid']=='1327':pmax.append(row)
             elif not raw:row['primaryProject']=row['project'] if row['codeKey'] or row['promoterUid'] else '自然流量（业务对照）'
             else:row['primaryProject']='其它来源 / 待核'
         if row['primaryProject']=='订单来源未核' and not row.get('testOrder') and not fraud(row):unknown+=1
