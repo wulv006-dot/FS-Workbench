@@ -1,5 +1,47 @@
 # FC知识库交付记录
 
+## 2026-11-05：新版方法与取数知识已同步
+
+本轮来源为[PR836](https://github.com/wulv006-dot/FS-Workbench/pull/836)合并`b55864d9ed9d69b4dbf118befd49cb92e9f8ae43`，methods为revision `20261105-2`、data为`20261105-3`。新增buyer身份字段不等于筛选生效、全年价值未重算边界，以及每日补新、周一当月与前两月复核、跨日截止和成功承接后的冗余清理。其余28条知识、原明确历史事实和其它用户路由保持。
+
+| 层次 | 本版结果 |
+|---|---|
+| 共享Hermes审核应用 | 原review_queue完成candidate `skill:c2a74616`、request `dfb5b66bb07d92b06c8ffee7c7100c9906664b3190e836dbb5375f571e480ad0`；3项更新、12个其它文件保护读回通过 |
+| 共享新会话实际学习 | `20261105_115204_46047f`只提交一次题；3次真实skill_view读取入口/index/data，回包SHA匹配；未输入教师答案 |
+| 共享未见迁移题 | 11月三自然月与跨日处理、成功承接才清理、Store历史保留、buyer筛选缺口及全年未重算、GA4事件与收入未知和Admin/Order来源均通过 |
+| FS新版发布 | 原ID `nav-20261105T114622Z`完成；21目标、72保护对象及owner/mode读回，methods2/data3与旧版loader可读；原成本PID14757仍持admission READ，0服务动作 |
+| 真实FS模型应用 | 同一真实Chrome会话的纠错新turn completed；明确正确工具协议提示后，实际索引及两份正文读取、版本/SHA与三题回答通过；首轮DeepSeek无提示工具使用失败保留，不称全自主通过 |
+| 未验边界 | native正式技能安装未做；日更/周复核自然窗口、自然报告与长期经营效果未验 |
+
+共享参考index SHA `e62ea6ed9bfa408326867f0aa9d6d454ffd9a1d53171beb78de2c0d9de6ca353`、data SHA `5c63bef176c81b37c3c13c0eab9d5e8f73d014e0bf1924625582791d7d086d3a`。共享沿既有OpenAI gpt-6.1-sol medium配置，3次模型调用、76,323总token、60%缓存命中；实际美元费用未返回，记unknown。未修改默认模型、权限或业务数据。
+
+### 本版发布与保护
+
+知识发布原先被28日渠道成本读取的admission READ阻断。必要修复[PR850](https://github.com/wulv006-dot/FS-Workbench/pull/850)已合并为`e587dc123c7de65f2c4e0131177714cbeb4ea826`：仅knowledgeOnly复用现役reader-entry准入，保留原任务事务及完整quiescent检查，原apply/CAS/备份/自动rollback仍全程受控；代码/运行时分支与人工rollback合同未扩改。183真实原apply/rollback红→绿7/7；[正式Python3.9.18 PR fast](https://github.com/wulv006-dot/FS-Workbench/actions/runs/42027112705)的knowledge组104/104，0失败、0错误、0 skip。
+
+沿原发布ID续发，manifest与正文载荷不变，只将stage adapter换为该合并实现；原失败回执及旧adapter保留。21目标为20个全新不可变文件和原policy一次CAS，全部正文落盘后原子切换policy。30条目录仅methods/data变更，原FS18个ID、其它路由及baseline保持；72保护对象含首版不可变目录，旧pin仍可读。没有停止成本任务、改服务/权限或新建发布器。
+
+| 固定对象 | 值 |
+|---|---|
+| stage | `/opt/fs-release-stage/fc-reporting-knowledge-20261105-b55864d9` |
+| manifest SHA256 | `b38db8bd994aa19aed249ff74e8813dd3b26cd9b9603daccdedeeb4d12db111e` |
+| catalog SHA256 | `d1b767485b1c2cdaa75d272759184ae872d31c8c96050ea01629ee90a6e8d9b3` |
+| 发布前policy SHA256 | `46fd5d8e172a77d985524b0fb71592b36b973862960872f71122764bdf768392` |
+| 发布后policy SHA256 | `13cbc03d490ba752f0e3af14d7d914407ada2d844b90b3ad4cb413da40db13fe` |
+| 原publisher备份/journal | `/var/backups/fs-navigation-20261006/nav-20261105T114622Z` |
+
+回退沿原publisher及该原ID备份，先核原journal、现值与已完成pin的原合同，不换ID或用旧整包覆盖。文档收尾不再次发布教材，也不更改五主题正文SHA。
+
+### 真实FS验收及首次失败边界
+
+真实Chrome会话`902fae2bb7394e97849fe5f4bd03bd27`首轮turn `f6f0e5d2fa1c405eb1d507a33b4d81a6`为failed。新版pin正确，但DeepSeek使用错误参数（index传modules、read传id），3次工具HTTP400；原SDK又将一个批量tool_call归一化为三项，下一模型请求触发`provider_tool_history_changed`。该轮不是成功读取，completed工具事件不代表正文可用；原错误和ID保留，没有重放failed turn或放宽guard。
+
+主控仅在同一会话发送一次新的协议纠错题：索引参数为`{}`，正文以`entry_ids`数组同时读methods/data，未给经营答案。新turn `d3191adb0218489cac9eb9abbf97fe86`、原run `run_181f04bb3be24bc9b7d4e815e4626223` completed；真实host pin冻结本版source/catalog，索引为index_only、两正文为available，内容SHA分别为methods `6e06c0fc201ea06a69ca2aacddc1658b3f038186dd0d5a4d016edc304d350fe8`、data `a9d24c2b66bceecb8f709ec10d3d9e0a453a9db83268ad9f3bdc7caead6a1741`。原SDK与UI均确认buyer筛选/未重算、跨日复核/成功清理、购买信号与收入未知三题正确。
+
+纠错run实际为既有deepseek-flash/custom，118,517输入token、5,147输出token，共123,664；实际美元费用unknown。现役真实FS入口未提供单会话/单turn模型参数，本次没有切换默认模型。
+
+证据保留私有`.agent_runtime/fc27-knowledge-refresh-20261105/`：`knowledge-refresh-readback.json`、`fs-native-acceptance-corrected.json`、`fs-protocol-corrected-sdk.json`、`fs-failed-sdk-summary.json`、`fs-failed-paid-receipt.json`、`fs-v3-acceptance.jpg`及共享`acceptance.json`/`HOLDOUT-RESULT.md`。教师标准、完整原消息、业务成品和生产回执不入Git。以下首版46034b08记录仅证明当时固定版本。
+
 ## 2026-11-05：统一入口与方法沉淀
 
 - 新增中文入口 `FC知识库/README.md`，业务知识、取数计算、报告方法、定价策略、更新记录可直接查找；详细内容统一位于本目录，后续持续维护同一主题，不按月复制。
