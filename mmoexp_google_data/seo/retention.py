@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .snapshot import atomic_json, batch_lock, current, digest_file
+from .contracts import SNAPSHOT_ID
 
 
 @dataclass(frozen=True)
@@ -204,8 +205,8 @@ def cleanup_owned_data(store, today):
                     for path in (meta, meta.with_suffix('.sqlite')):
                         checked_child(directory, path.name).unlink()
             for path in directory.iterdir():
-                temporary = bool(re.fullmatch(r'seo-\d{4}-\d{2}-\d{2}\.[a-f0-9]{32}\.tmp',path.name))
-                orphan = bool(re.fullmatch(r'seo-\d{4}-\d{2}-\d{2}\.sqlite',path.name)) and not path.with_suffix('.json').exists() and path.stem not in retained
+                temporary = bool(re.fullmatch(SNAPSHOT_ID+r'\.[a-f0-9]{32}\.tmp',path.name))
+                orphan = bool(re.fullmatch(SNAPSHOT_ID+r'\.sqlite',path.name)) and not path.with_suffix('.json').exists() and path.stem not in retained
                 if temporary or orphan:
                     checked_child(directory,path.name).unlink()
         backups = checked_child(store.root,'backups')
