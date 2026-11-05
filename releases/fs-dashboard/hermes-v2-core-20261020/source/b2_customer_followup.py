@@ -215,6 +215,8 @@ threshold, invented high-value definition, churn probability or net profit.
         evidence=dict(ref=o.evidence_ref, source=o.source, version=o.version,
                       as_of=o.as_of.isoformat(), complete=o.complete, missing=list(o.missing)),
         recheck_at=due.isoformat(),
+        limitations=list(o.missing),
+        refund_review_needed=o.refund_review_needed,
         options=[dict(action="no_intervention", reason="No business action authorized by this assessment")],
         business_write_performed=False,
         maturity={str(days): None for days in (7, 14, 30)},
@@ -224,18 +226,20 @@ threshold, invented high-value definition, churn probability or net profit.
     # Only complete, unambiguous history can establish a credible Day0.
     if (o.complete and o.identity_verified and not o.missing
             and not o.refund_review_needed and o.first_paid_at is not None):
-        elapsed = (o.as_of.astimezone(BEIJING).date() - o.first_paid_at.astimezone(BEIJING).date()).days
-        result["maturity"] = {str(days): elapsed >= days for days in (7, 14, 30)}
+        result["maturity"] = {str(days): o.as_of >= o.first_paid_at + timedelta(days=days)
+                              for days in (7, 14, 30)}
     def finish(state, reason):
         return dict(result, state=state, reason=reason)
     if not goal_active:
         return finish("stopped", "goal_inactive")
     if not o.identity_verified:
         return finish("needs_evidence", "identity_unresolved")
-    if not o.complete or o.missing:
+    # Financial contribution and an incomplete historical refund cursor remain
+    # limitations for Agent interpretation; they do not cancel a read-only due
+    # review or the fact of a purchase under the source's effective-order policy.
+    supplemental = {'purchase_cost', 'net_contribution', 'complete_refund_change_cursor'}
+    if not o.complete or any(field not in supplemental for field in o.missing):
         return finish("needs_evidence", "partial_or_missing_history")
-    if o.refund_review_needed:
-        return finish("needs_evidence", "refund_correction_requires_review")
     if o.as_of < anchor:
         return finish("needs_evidence", "source_predates_observation_anchor")
     # Preserve the observed fact separately: it must not suppress elapsed

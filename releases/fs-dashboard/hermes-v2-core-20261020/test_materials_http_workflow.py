@@ -76,7 +76,15 @@ class MaterialsHTTPWorkflow(unittest.TestCase):
         except HTTPError as error:
             response = error
         with response:
-            raw = response.read()
+            if "text/event-stream" in response.headers.get("Content-Type", ""):
+                # Read the seeded event, not EOF: the live SSE connection stays open.
+                raw = response.readline(65536)
+                self.assertTrue(raw.startswith(b"data: "))
+                separator = response.readline(2)
+                self.assertEqual(separator, b"\n")
+                raw += separator
+            else:
+                raw = response.read()
             value = json.loads(raw) if "application/json" in response.headers.get("Content-Type", "") else raw
             return response.status, value, response.headers
 

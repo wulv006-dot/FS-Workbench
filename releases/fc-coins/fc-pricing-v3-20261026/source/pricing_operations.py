@@ -34,21 +34,33 @@ def schema():
 
 def tables(db):
     db.execute('CREATE TABLE IF NOT EXISTS pricing_grants(conversation TEXT PRIMARY KEY,owner TEXT NOT NULL,mode TEXT NOT NULL,runs TEXT NOT NULL,expires_at TEXT NOT NULL,source TEXT NOT NULL,restore_sources TEXT NOT NULL)')
+    columns={row[1] for row in db.execute('PRAGMA table_info(pricing_grants)')}
+    for name in ('source_quote_run','source_quote_sha256'):
+        if name not in columns:
+            try:db.execute('ALTER TABLE pricing_grants ADD COLUMN '+name+' TEXT')
+            except sqlite3.OperationalError as error:
+                if (str(error)!='duplicate column name: '+name or
+                        not any(row[1]==name and row[2]=='TEXT' for row in db.execute('PRAGMA table_info(pricing_grants)'))):
+                    raise
     db.execute('CREATE TABLE IF NOT EXISTS pricing_operations(id TEXT PRIMARY KEY,owner TEXT NOT NULL,task TEXT NOT NULL,action TEXT NOT NULL,payload_hash TEXT NOT NULL,request_id TEXT NOT NULL,state TEXT NOT NULL,result TEXT,created_at TEXT NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS pricing_recommendations(id TEXT PRIMARY KEY,owner TEXT NOT NULL,task TEXT NOT NULL,conversation TEXT NOT NULL,run_id TEXT NOT NULL,quote_sha256 TEXT NOT NULL,content TEXT NOT NULL,created_at TEXT NOT NULL)')
 
 
-def grant(db,owner,conversation,run,mode,expires,source,restore_sources=()):
+def grant(db,owner,conversation,run,mode,expires,source,restore_sources=(),*,source_quote_run=None,source_quote_sha256=None):
     if mode!='daily_review' or not re.fullmatch('[a-f0-9]{32}',conversation):
         raise ValueError('pricing_grant_scope')
     uuid.UUID(run)
+    if source_quote_run is not None or source_quote_sha256 is not None:
+        source_quote_run=str(uuid.UUID(source_quote_run))
+        if not isinstance(source_quote_sha256,str) or not re.fullmatch('[a-f0-9]{64}',source_quote_sha256):
+            raise ValueError('pricing_source_quote_binding_invalid')
     if len(restore_sources)>1 or restore_sources and mode!='operator_workflow':raise ValueError('pricing_restore_grant_scope')
     sources=json.dumps([str(uuid.UUID(value)) for value in restore_sources]);tables(db)
     raw=json.dumps([run])
-    old=db.execute('SELECT owner,mode,runs,expires_at,source,restore_sources FROM pricing_grants WHERE conversation=?',(conversation,)).fetchone()
-    values=(owner,mode,raw,expires,source,sources)
+    old=db.execute('SELECT owner,mode,runs,expires_at,source,restore_sources,source_quote_run,source_quote_sha256 FROM pricing_grants WHERE conversation=?',(conversation,)).fetchone()
+    values=(owner,mode,raw,expires,source,sources,source_quote_run,source_quote_sha256)
     if old is not None and tuple(old)!=values:raise ValueError('pricing_grant_conflict')
-    db.execute('INSERT OR IGNORE INTO pricing_grants VALUES(?,?,?,?,?,?,?)',(conversation,*values))
+    db.execute('INSERT OR IGNORE INTO pricing_grants(conversation,owner,mode,runs,expires_at,source,restore_sources,source_quote_run,source_quote_sha256) VALUES(?,?,?,?,?,?,?,?,?)',(conversation,*values))
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -93,7 +105,9 @@ def authorization(scope,owner,task,now):
         r=db.execute('SELECT * FROM pricing_grants WHERE conversation=? AND owner=?',(bindings[0],owner)).fetchone()
     if r is None:return None
     value=dict(r)
-    if datetime.fromisoformat(value['expires_at'])<=now:return None
+    if datetime.fromisoformat(value['expires_at'])<=now:
+        if value['mode']=='daily_review':raise PermissionError('pricing_daily_grant_expired')
+        return None
     value['runs']=json.loads(value['runs'])
     value['restore_sources']=json.loads(value['restore_sources'])
     return value
@@ -105,18 +119,33 @@ def call(scope,owner,task,lease,args,request=native):
     if action not in ACTIONS or set(args)!=FIELDS[action]:
         raise ValueError('pricing_tool_fields')
     auth=authorization(scope,owner,task,scope.clock())
-    allowed=list(set(ACTIONS)-MUTATING-{'compare_strategies'} if auth and auth['mode']=='daily_review' else AUTO if auth and auth['mode']=='automatic_review' else ACTIONS if auth else
+    daily=bool(auth and auth['mode']=='daily_review')
+    bound=bool(daily and auth.get('source_quote_run') and auth.get('source_quote_sha256'))
+    if daily and action=='compare_strategies' and not bound:
+        raise ValueError('pricing_daily_compare_basis_unavailable')
+    allowed=list(set(ACTIONS)-MUTATING-({'compare_strategies'} if not bound else set()) if daily else AUTO if auth and auth['mode']=='automatic_review' else ACTIONS if auth else
                  set(ACTIONS)-MUTATING)
     if action not in allowed:
         raise PermissionError('pricing_task_not_authorized')
     if action=='capabilities':
         return dict(version='fc-pricing-v3-20261026',allowed_actions=allowed,
                     action_fields={a:sorted(FIELDS[a]) for a in allowed},scoped_runs=auth['runs'] if auth else [],
+                     source_quote_run=auth.get('source_quote_run') if daily else None,
+                     source_quote_sha256=auth.get('source_quote_sha256') if daily else None,
                     separate_shadow=True,unknown_replay=False,hard_margin_pct='20',average_hard_margin_pct='20')
     state=request('/pricing/v3/state',owner) if action in ('state','sprint_target') else None
     if action=='state':
         return state
     if action=='compare_strategies':
+        if daily:
+            run=auth['source_quote_run']
+            decisions=request('/pricing/v3/strategy-decisions/'+run,owner)
+            if (decisions.get('snapshot_id')!=run or decisions.get('snapshot_sha256')!=auth['source_quote_sha256'] or
+                    args['mode'] not in decisions.get('results',{})):
+                raise ValueError('pricing_review_run_basis_changed')
+            return dict(snapshot_id=run,snapshot_sha256=auth['source_quote_sha256'],
+                        results={args['mode']:decisions['results'][args['mode']]},
+                        execution_authorized=False,source='original_run_strategy_decisions')
         if auth and auth['mode'] in ('automatic_review','daily_review'):
             if len(auth['runs'])!=1:
                 raise ValueError('pricing_review_run_scope_invalid')

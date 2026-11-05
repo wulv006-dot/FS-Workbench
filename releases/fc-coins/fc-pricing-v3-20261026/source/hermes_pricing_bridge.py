@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sqlite3
 import sys
 import time
@@ -55,18 +56,41 @@ def turn_state(conversation,request_id,owner,channel='conversation'):
 
 def daily_review_text(quote):
     report=dict(quote['daily_report'])
-    report['actual']={k:v for k,v in (report.get('actual') or {}).items() if k!='hourly'}
     text=('FC27每日一次经营效果复盘。你负责效果判断和方案建议；正常每轮由程序定价，不等待你审核。'
         '本任务只读，不推荐待执行价格、不调用recommend、不创建/执行/切换计划、不补采竞品。'
-        '按附带真实六小时时段订单与收入分布比较低估期和高峰期，说明预测与实绩差异及其数据覆盖。'
+        '根据证据自主确定经营问题、比较窗口、需要补查的只读工具和呈现方式，说明预测与实绩差异及其数据覆盖。'
         '全天订单只是经营背景；只有确认价格曝光窗内按创建时间及实际价格绑定的订单可作本次策略效果样本。曝光开始前的成交不能归给V3。'
-        '前期先追踪；影子与真实样本成熟后才建议何时切策略，本次没有自动切换授权。'
+        '结合真实样本成熟度与覆盖判断能否提出策略调整建议，本次没有自动切换授权。'
         '说明当前策略参数、基数如何核算，哪些是实际、哪些是初始弹性等假设，下一日如何追踪和反证。'
         '双20%采购毛利底线、赠送/优惠/地区/舍入由程序每轮校验，不能豁免。目标未设就说明收入优化试验。'
-        '输出一次简明中文复盘：效果判断、分时段比较、基数与假设、建议及次日观察。模拟收益不能叫真实增收。'
+        '先回答最需要判断的问题，再用关键事实支持结论和行动建议；不预设固定章节。模拟收益不能叫真实增收。'
         '实际及影子摘要：'+json.dumps(report,ensure_ascii=False,separators=(',',':')))
     if len(text)>12000:raise ValueError('pricing_daily_prompt_too_long')
     return text
+
+
+def source_quote_basis(quote,owner):
+    basis=quote['daily_report'].get('decision_basis') or {}
+    run=basis.get('snapshot_id');sha=basis.get('snapshot_sha256')
+    missing=dict(source_quote_run=None,source_quote_sha256=None)
+    try:run=str(uuid.UUID(run))
+    except (ValueError,TypeError,AttributeError):
+        return dict(missing,compare_basis_gap='pricing_daily_compare_source_unbound')
+    if not isinstance(sha,str) or not re.fullmatch('[a-f0-9]{64}',sha):
+        return dict(missing,compare_basis_gap='pricing_daily_compare_source_unbound')
+    sys.path.insert(0,'/opt/fs-hermes-fc')
+    from pricing_operations import native
+    try:decisions=native('/pricing/v3/strategy-decisions/'+run,owner)
+    except ValueError as error:
+        if str(error)!='pricing_strategy_decision_missing':raise
+        return dict(missing,compare_basis_gap='pricing_daily_compare_source_unavailable:'+str(error))
+    except OSError as error:
+        return dict(missing,compare_basis_gap='pricing_daily_compare_source_unavailable:'+type(error).__name__)
+    if decisions.get('snapshot_id')!=run or decisions.get('snapshot_sha256')!=sha:
+        raise ValueError('pricing_daily_compare_basis_changed')
+    if not decisions.get('results'):
+        return dict(missing,compare_basis_gap='pricing_daily_compare_saved_modes_unavailable')
+    return dict(source_quote_run=run,source_quote_sha256=sha)
 
 
 def review(job,quote,*,mode='automatic_review',wait_seconds=180):
@@ -88,12 +112,17 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
         if record.get('owner')!=owner or record.get('run_id')!=quote['run_id'] or record.get('mode')!=mode or record.get('restore_source_execution_id')!=restore_source:
             raise ValueError('pricing_hermes_intent_conflict')
         if record.get('phase') in {'completed','failed','timeout','unknown'}:return record
+        if record.get('source_quote_run'):
+            basis=quote['daily_report'].get('decision_basis') or {}
+            if basis.get('snapshot_id')!=record['source_quote_run'] or basis.get('snapshot_sha256')!=record['source_quote_sha256']:
+                raise ValueError('pricing_hermes_intent_conflict')
         if not record.get('conversation_id'):
             record.update(phase='unknown',reason='original_create_receipt_required');save(path,record);return record
     else:
         record=dict(owner=owner,mode=mode,job_id=job['job_id'],run_id=quote['run_id'],request_id=request_id,
                     channel='pricing_review_v3',
                     phase='creating',created_at=created.isoformat(),price_write_performed=False,restore_source_execution_id=restore_source)
+        record.update(source_quote_basis(quote,owner))
         # O_EXCL reserves the intent before an FS call that may create or bill work.
         with path.open('x',encoding='utf-8') as stream:
             json.dump(record,stream,ensure_ascii=False);stream.flush();os.fsync(stream.fileno())
@@ -105,7 +134,8 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
             from pricing_operations import grant
             with closing(sqlite3.connect(FS/'tasks.sqlite3',timeout=5)) as db,db:
                 grant(db,owner,conversation,quote['run_id'],mode,(created+timedelta(hours=1)).isoformat(),
-                      'human_authorized_fc_pricing_v3_daily_effect_review_readonly' if mode=='daily_review' else 'human_authorized_fc_pricing_v3_20261026_inherited_review_and_dual10',restore_sources=[restore_source] if restore_source else [])
+                      'human_authorized_fc_pricing_v3_daily_effect_review_readonly' if mode=='daily_review' else 'human_authorized_fc_pricing_v3_20261026_inherited_review_and_dual10',restore_sources=[restore_source] if restore_source else [],
+                      source_quote_run=record.get('source_quote_run'),source_quote_sha256=record.get('source_quote_sha256'))
             record.update(phase='submitting',input_sha256=hashlib.sha256(text.encode()).hexdigest());save(path,record)
             submitted=request(owner,'/api/hermes/conversations/pricing-reviews/'+conversation+'/turns',
                               {'text':text,'client_request_id':request_id,'run_id':quote['run_id']})

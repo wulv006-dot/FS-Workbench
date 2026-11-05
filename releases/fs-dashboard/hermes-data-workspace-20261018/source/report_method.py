@@ -82,7 +82,7 @@ def data_request_context(body):
         windows['FC26_year_ago']={k:d.replace(year=d.year-1,day=min(d.day,monthrange(d.year-1,d.month)[1])).isoformat() for k,d in [('start',lo),('end',hi)]}
     return ('\nFS数据范围（请求窗口不代表已取齐；用户明确对照优先）：'+json.dumps(windows,ensure_ascii=False)+
             '\nFS只提供证据与归档，不替你规定报告章节或结论。先读已准备的当期事实和真实工具目录；缺项按价值补查。'
-            '主盘使用原生统计selected_totals/authoritative_fields，Admin优先含0，Order补缺；参考利润=Admin销售额×可用Order利润率÷100（Admin缺利润率时）。'
+            '付款销售与订单使用原生统计selected_totals/authoritative_fields，Admin优先含0，Order补缺。先核本任务实际可用的知识入口与数据工具，按已读取的现行来源合同核对利润口径；参考估算单独标示，不代替主毛利。未读取到现行知识或缺少匹配范围的来源时如实保留缺项，不把旧估算默认当当前口径。'
             '支付明细与ES仅作按各自来源/时间/分母的结构，不覆盖主盘；来源逐行写实。未取到的字段保留缺失，不能以未投影冒称后台没有。'
             'fc.query_action_history读取实际历史动作；建议不是执行，效果须回执。fc.query_es_order_structure按需取对应游戏与期间，不拿全局当FC。'
             'fc.query_marketing_snapshot的fc27_by_name已按名称在全量后筛选，明确全局品牌PMAX先排除FC专属。FC27/FC 27及独立Coins名称按用户确认归FC，搜索/落地页另按内容分类，保留币种覆盖，不分摊全局品牌ROAS。'
