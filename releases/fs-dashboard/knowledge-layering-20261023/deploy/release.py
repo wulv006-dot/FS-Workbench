@@ -2,7 +2,9 @@
 import hashlib
 import importlib.util
 import json
+import os
 import re
+import sqlite3
 import stat
 from contextlib import contextmanager
 from pathlib import Path
@@ -81,9 +83,34 @@ def load_base():
 
         @contextmanager
         def knowledge_fence(value, root):
-            # Immutable documents precede the atomic route; retain the original fence without code-recovery service stops.
-            with base.knowledge_original_fence(value, root):
+            # Drain admission entry, not already-admitted ordinary cost readers.
+            # PREPARING/native turns remain covered by the original DB and idle checks.
+            import fcntl
+            path = base.rooted(root, '/var/lib/fs-hermes-fc/fs/reader-entry.lock')
+            base.no_target_link(path)
+            fd, db = os.open(str(path), os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0)), None
+            try:
+                info, current = os.fstat(fd), path.stat()
+                if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or
+                        info.st_uid != os.geteuid() or info.st_mode & 0o077 or
+                        (info.st_dev, info.st_ino) != (current.st_dev, current.st_ino)):
+                    raise ValueError('unsafe knowledge admission entry')
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                database = base.rooted(root, '/var/lib/fs-hermes-fc/fs/tasks.sqlite3')
+                base.no_target_link(database)
+                db = sqlite3.connect(database.as_uri() + '?mode=rw', uri=True, timeout=0)
+                db.execute('BEGIN IMMEDIATE')
+                base.hermes_quiescent(root)
                 yield None
+            finally:
+                try:
+                    if db is not None:
+                        try:
+                            db.rollback()
+                        finally:
+                            db.close()
+                finally:
+                    os.close(fd)
 
         base.hermes_admission_fence = knowledge_fence
     return base

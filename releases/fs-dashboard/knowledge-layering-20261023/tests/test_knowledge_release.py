@@ -37,7 +37,7 @@ class Release(unittest.TestCase):
             bad=copy.deepcopy(value);bad[key]=wrong
             with self.assertRaises(ValueError):scope.targets(bad)
 
-    def test_knowledge_only_scope_keeps_original_fence_without_service_recovery(self):
+    def test_knowledge_only_scope_has_no_service_recovery(self):
         with tempfile.TemporaryDirectory() as tmp:
             stage=Path(tmp)/'stage'
             with patch.object(prepare,'git_bytes',side_effect=lambda root,name:(root/name).read_bytes()):
@@ -51,15 +51,6 @@ class Release(unittest.TestCase):
             with patch.object(scope,'HERE',stage):publisher=scope.load_base()
             with patch('subprocess.run',side_effect=AssertionError('service operation forbidden')):
                 publisher.restart_for(manifest)
-            from contextlib import contextmanager
-            calls=[]
-            @contextmanager
-            def original_fence(value,root):
-                calls.append('locked');yield object();calls.append('unlocked')
-            with patch.object(publisher,'knowledge_original_fence',original_fence):
-                with publisher.hermes_admission_fence(manifest,Path('/')) as fence:
-                    self.assertIsNone(fence)
-            self.assertEqual(calls,['locked','unlocked'])
 
     def test_existing_publisher_used_and_immutable_package_can_be_read(self):
         with tempfile.TemporaryDirectory() as tmp:
