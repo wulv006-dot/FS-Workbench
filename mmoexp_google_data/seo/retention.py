@@ -45,6 +45,11 @@ def checked_child(root, name):
     return path
 
 
+def snapshot_order(path):
+    meta=json.loads(checked_child(path.parent,path.name).read_text(encoding='utf-8'))
+    return meta['publication_date'],meta.get('published_at','')
+
+
 def footprint(root):
     size = 0
     for base, directories, files in os.walk(root, followlinks=False):
@@ -158,7 +163,7 @@ def backup_verified(store):
             active = current(store.root)
             if active:
                 snapshots = checked_child(store.root, 'snapshots')
-                retained = sorted(snapshots.glob('seo-*.json'), reverse=True)[:2]
+                retained = sorted(snapshots.glob('seo-*.json'), key=snapshot_order, reverse=True)[:2]
                 for meta in retained:
                     for path in (meta, meta.with_suffix('.sqlite')):
                         shutil.copyfile(checked_child(snapshots, path.name), candidate/path.name)
@@ -196,7 +201,7 @@ def cleanup_owned_data(store, today):
         directory = checked_child(store.root, 'snapshots')
         active = current(store.root)
         if directory.exists():
-            manifests = sorted(directory.glob('seo-*.json'), reverse=True)
+            manifests = sorted(directory.glob('seo-*.json'), key=snapshot_order, reverse=True)
             retained = {p.stem for p in manifests[:2]}
             if active:
                 retained.add(active['snapshot_id'])

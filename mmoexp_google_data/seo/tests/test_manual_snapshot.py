@@ -75,3 +75,12 @@ class ManualSnapshot(unittest.TestCase):
         self.assertEqual(meta['parent_snapshot_id'],old['snapshot_id'])
         self.assertEqual(snapshot.read(self.core.root,old['snapshot_id'],'markets','FC27')['rows'][0]['rank'],3)
         self.assertEqual(daily.run_daily(self.core,[self.source],clock=lambda:NIGHT)['snapshot_id'],meta['snapshot_id'])
+
+    def test_retention_uses_publication_time_instead_of_content_id_order(self):
+        for suffix,hour in [('ffffffffffff',10),('eeeeeeeeeeee',11),('000000000000',12)]:
+            candidate,meta=snapshot.build_manual(self.core,self.base['snapshot_id'],RUN)
+            meta.update(snapshot_id='seo-2026-11-05-manual-'+suffix,published_at='2026-11-05T'+str(hour)+':00:00+00:00')
+            snapshot.publish_once(self.core.root,candidate,meta)
+        self.assertTrue(backup_verified(self.core)['restore_checked'])
+        cleanup_owned_data(self.core,dt.date(2026,11,5))
+        self.assertEqual({p.stem for p in (self.core.root/'snapshots').glob('*.json')},{'seo-2026-11-05-manual-000000000000','seo-2026-11-05-manual-eeeeeeeeeeee'})
