@@ -3,8 +3,8 @@ const client = new SnapshotClient(), select = document.querySelector('#scope'), 
 const names = {FC27:'FC27', D4:'Diablo 4', AION2:'Aion2', WOW_FOREVER:'WowForever'};
 const views = {overview:['经营全景','history'], timeline:['游戏日程',null], sources:['数据来源','sources'], rankings:['关键词/竞品','rankings'], pages:['页面健康','pages'], orders:['自然搜索成交','history'], ai:['行动与AI分析',null], history:['每日明细','history']};
 const primary = ['overview','timeline','sources'];
-const labels = {available:'可用', provisional:'初步值', pending:'等待来源', no_rows:'暂无记录', failed:'采集失败', stale:'上次有效值', missing:'缺少来源', found:'已找到', not_found:'未找到'};
-const columns = {rankings:[['source_date','来源日期'],['keyword','关键词'],['rank','自然名次'],['status','状态'],['observed_at','观察时间']], pages:[['source_date','来源日期'],['url','页面'],['status_code','HTTP状态'],['title','标题'],['observed_at','观察时间']], sources:[['source_date','源日期'],['source','来源'],['status','状态'],['source_timezone','源时区'],['collected_at','最近读取'],['error','原因']]};
+const labels = {partial:'部分完成',unresolved:'链接待解析',insufficient_depth:'深度不足',available:'可用', provisional:'初步值', pending:'等待来源', no_rows:'暂无记录', failed:'采集失败', stale:'上次有效值', missing:'缺少来源', found:'已找到', not_found:'未找到'};
+const columns = {rankings:[['source_date','来源日期'],['country','国家'],['language','语言'],['device','设备'],['brand','网站'],['keyword','关键词'],['effective_depth','有效深度'],['rank','自然名次'],['status','状态'],['observed_at','观察时间']], pages:[['source_date','来源日期'],['url','页面'],['status_code','HTTP状态'],['title','标题'],['observed_at','观察时间']], sources:[['source_date','源日期'],['source','来源'],['status','状态'],['source_timezone','源时区'],['collected_at','最近读取'],['error','原因']]};
 let active = 'overview', epoch = 0;
 const text = (tag, content, className) => {const e=document.createElement(tag); if(content!=null)e.textContent=content; if(className)e.className=className; return e;};
 const badge = (content, tone='neutral') => text('span',content,'badge '+tone);
@@ -87,6 +87,7 @@ function overview(history, scope, request) {
   panel.append(details('展开每日数据，核对趋势与预估数值',historyTable(history)));
 }
 function renderMarkets(root, scope, rows=[], sourceState={}) {
+  if(client.meta.publication_mode==='manual_observation')root.append(text('p','手动观察 '+client.meta.observation_date+'；排名使用实际观察时间，经营指标仍为 '+client.meta.report_date+'。','matrix-notice'));
   if(['partial','failed','stale'].includes(sourceState.status))root.append(text('p','最近采样 '+sourceState.source_date+'：'+(labels[sourceState.status]??'部分完成')+'；下方保留实际观察时间，失败不视为掉榜。','matrix-notice'));
   if(rows.length){
     const groups=new Map();for(const row of rows){const key=JSON.stringify([row.country,row.language,row.device,row.location??'']);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);}
@@ -118,7 +119,7 @@ function timeline(scope,request) {
   else {
     const events=text('div',null,'calendar-events');events.append(text('p','正在读取此快照的日程…','pending'));panel.append(events);
     loadOptional('calendar',scope,request,events,result=>{events.replaceChildren(text('p','复用已发布资料。公告发布日期不代替事件日期；原来源读取时间单独保留。','muted'));if(!result.rows.length)events.append(empty('本游戏暂无已发布日程','缺少范围、来源或日期的项目保留缺口，不生成预测。','sources'));
-      for(const row of [...result.rows].sort((a,b)=>(a.event_date??'9999').localeCompare(b.event_date??'9999'))){const card=text('article',null,'source-card');card.append(text('h3',row.title),badge(row.verification==='user_provided'?'用户提供、未独立核验':row.source_status==='stale'?'来源已过期':'已有来源记录'),text('p',row.event_date?(row.event_date+(row.event_end_date?' → '+row.event_end_date:'')):'事件日期待核'));if(row.summary)card.append(text('p',row.summary));card.append(text('p','原来源读取 '+(row.upstream_observed_at??(row.upstream_source_date?row.upstream_source_date+'（时刻未记录）':'时刻未记录'))+' · 纳入观察 '+row.source_date,'muted'));if(row.published_at)card.append(text('p','公告发布 '+row.published_at,'muted'));if(row.source_url){const link=text('a','查看来源公告','quiet-button');link.href=row.source_url;link.target='_blank';link.rel='noopener noreferrer';card.append(link);}if(row.evidence)card.append(details('来源证据',text('p',row.evidence)));events.append(card);}
+      for(const row of [...result.rows].sort((a,b)=>(a.event_date??'9999').localeCompare(b.event_date??'9999'))){const card=text('article',null,'source-card');card.append(text('h3',row.title),badge(row.verification==='user_provided'?'用户提供、未独立核验':row.source_status==='stale'?'来源已过期':row.verification==='official_source'?(row.published_at?'官方公告':'官方资料，活动日期未核定'):'已有来源记录'),text('p',row.event_date?(row.event_date+(row.event_end_date?' → '+row.event_end_date:'')):'事件日期待核'));if(row.summary)card.append(text('p',row.summary));card.append(text('p','原来源读取 '+(row.upstream_observed_at??(row.upstream_source_date?row.upstream_source_date+'（时刻未记录）':'时刻未记录'))+' · 纳入观察 '+row.source_date,'muted'));if(row.published_at)card.append(text('p','公告发布 '+row.published_at,'muted'));if(row.source_url){const link=text('a','查看来源公告','quiet-button');link.href=row.source_url;link.target='_blank';link.rel='noopener noreferrer';card.append(link);}if(row.evidence)card.append(details('来源证据',text('p',row.evidence)));events.append(card);}
     });
   }
   const schedule=text('div',null,'schedule-note');schedule.append(text('h3','看板日更安排'),keyValues([['批次启动','每日03:20（北京时间）'],['基础发布','有效即发布，最晚06:30'],['白天读取','固定已发布快照']],'schedule-grid'));panel.append(schedule);
@@ -181,7 +182,7 @@ document.querySelector('#ai-settings-entry').onclick=()=>openView('ai');
 (async()=>{
   try{
     const initialEpoch=epoch,params=new URLSearchParams(location.search),meta=await client.init(params.get('snapshot_id'));Array.from(select.options).forEach(o=>{o.disabled=!meta.games.includes(o.value);});select.value=meta.games.includes(params.get('game'))?params.get('game'):meta.games[0];select.disabled=false;
-    if(epoch===initialEpoch)active=Object.hasOwn(views,params.get('tab'))?params.get('tab'):'overview';document.querySelector('#version').textContent='发布 '+meta.publication_date+' / 业务目标 '+meta.report_date+' / '+meta.snapshot_id;document.querySelector('#business-day').textContent='业务目标日 '+meta.report_date;
-    status.textContent=meta.data_status==='partial'?'已发布固定快照，部分来源延迟或未接入':'已发布固定快照';await render();
+    if(epoch===initialEpoch)active=Object.hasOwn(views,params.get('tab'))?params.get('tab'):'overview';document.querySelector('#version').textContent=(meta.publication_mode==='manual_observation'?'手动观察 '+meta.observation_date+' / ':'')+'发布 '+meta.publication_date+' / 业务目标 '+meta.report_date+' / '+meta.snapshot_id;document.querySelector('#business-day').textContent='业务目标日 '+meta.report_date;
+    status.textContent=meta.publication_mode==='manual_observation'?'手动采样已发布；经营数据保持昨日，采样缺口按实际状态展示':meta.data_status==='partial'?'已发布固定快照，部分来源延迟或未接入':'已发布固定快照';await render();
   }catch(error){document.querySelector('#version').textContent='暂未读取数据版本';status.textContent=error.message;if(active!=='ai'){panel.replaceChildren(empty('暂无可读取的已发布数据','每日03:20启动独立批次，基础有效即发布。'));panel.setAttribute('aria-busy','false');}}
 })();

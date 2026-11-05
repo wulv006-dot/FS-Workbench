@@ -10,7 +10,7 @@ import sqlite3
 import uuid
 from pathlib import Path
 
-from .contracts import GAMES, SCHEMA, game
+from .contracts import GAMES, SCHEMA, SNAPSHOT_ID, BUSINESS_TZ, game
 from .metrics import compute_metrics
 from .store import encode
 
@@ -86,6 +86,19 @@ def daily_metrics(db, scope, day):
     return dict(source_date=day,metrics=measures,source_status=states,estimate=calculate(measures['ga4'],measures['admin']))
 
 
+def facts_digest(db):
+    result=hashlib.sha256()
+    ordering=dict(facts='source,game,source_date,row_key',coverage='source,game,source_date',daily_metrics='game,source_date',reminders='game,row_key')
+    for table,order in ordering.items():
+        for row in db.execute('SELECT * FROM '+table+' ORDER BY '+order):
+            if table=='coverage':
+                quality=json.loads(row[6]);quality.pop('property_quota',None)
+                projection=[row[0],row[1],row[2],row[3],row[4],quality]
+            else:projection=list(row)
+            result.update((encode([table,projection])+'\n').encode('utf-8'))
+    return result.hexdigest()
+
+
 def build(store, context, source_names=()):
     directory = store.root / 'snapshots'
     directory.mkdir(exist_ok=True)
@@ -120,16 +133,7 @@ def build(store, context, source_names=()):
             unknown = connection.execute('SELECT DISTINCT game FROM facts').fetchall()
             if any(row[0] not in GAMES for row in unknown):
                 raise ValueError('INVALID_SNAPSHOT_SCOPE')
-            facts = hashlib.sha256()
-            ordering = dict(facts='source,game,source_date,row_key',coverage='source,game,source_date',daily_metrics='game,source_date',reminders='game,row_key')
-            for table, order in ordering.items():
-                for row in connection.execute('SELECT * FROM '+table+' ORDER BY '+order):
-                    if table == 'coverage':
-                        quality = json.loads(row[6]);quality.pop('property_quota',None)
-                        projection = [row[0],row[1],row[2],row[3],row[4],quality]
-                    else:
-                        projection = list(row)
-                    facts.update((encode([table,projection])+'\n').encode('utf-8'))
+            facts = facts_digest(connection)
             status = 'partial' if connection.execute("SELECT 1 FROM coverage WHERE status NOT IN ('available','provisional') LIMIT 1").fetchone() else 'available'
             complete_days = connection.execute("SELECT COUNT(*) FROM coverage WHERE source IN ('gsc','ga4','admin') AND status IN ('available','provisional')").fetchone()[0]
             if complete_days < 30*len(GAMES)*3 or not {'gsc', 'ga4', 'admin'} <= set(source_names):
@@ -143,11 +147,48 @@ def build(store, context, source_names=()):
         os.fsync(inp.fileno())
     manifest = dict(schema_version=SCHEMA, snapshot_id=ident, publication_date=context.publication_date,
                     report_date=context.report_date, history_start=context.history_start, history_end=context.report_date,
-                    business_timezone='Asia/Shanghai', games=list(GAMES), facts_hash=facts.hexdigest(),
+                    business_timezone='Asia/Shanghai', games=list(GAMES), facts_hash=facts,
                     metric_contract='seo-metrics-v2-native-admin-estimate', rule_contract='seo-rules-v1',
                     data_status=status, frozen=True, daytime_collection_enabled=False, sha256=digest_file(candidate),
                     sources={name:('configured' if name in source_names else 'not_configured') for name in ('gsc','ga4','admin','orders','serp','pages','calendar')})
     return candidate, manifest
+
+
+def build_manual(store, base_ident, run_id):
+    original,base=open_snapshot(store.root,base_ident)
+    day=base['publication_date']
+    if not isinstance(run_id,str) or not re.fullmatch('manual-seo-'+day.replace('-','')+r'T\d{6}Z',run_id):
+        original.close();raise ValueError('INVALID_MANUAL_RUN')
+    ident='seo-'+day+'-manual-'+hashlib.sha256(run_id.encode()).hexdigest()[:12]
+    candidate=store.root/'snapshots'/(ident+'.'+uuid.uuid4().hex+'.tmp')
+    connection=sqlite3.connect(str(candidate))
+    try:
+        original.backup(connection)
+        with connection,store.db() as db:
+            coverage=[r for r in db.execute("SELECT * FROM coverage WHERE source IN ('serp','calendar') AND source_date=?",(day,)) if json.loads(r['quality']).get('manual_run_id')==run_id]
+            if not coverage:raise ValueError('MANUAL_OBSERVATIONS_NOT_FOUND')
+            for row in coverage:
+                key=(row['source'],row['game'],day)
+                connection.execute('DELETE FROM facts WHERE source=? AND game=? AND source_date=?',key)
+                for fact in db.execute('SELECT * FROM facts WHERE source=? AND game=? AND source_date=?',key):
+                    observed=dt.datetime.fromisoformat(json.loads(fact['payload'])['observed_at'])
+                    if observed.tzinfo is None or observed.astimezone(BUSINESS_TZ).date().isoformat()!=day:
+                        raise ValueError('MANUAL_OBSERVATION_DATE_MISMATCH')
+                    connection.execute('INSERT INTO facts VALUES (?,?,?,?,?)',tuple(fact))
+                connection.execute('INSERT OR REPLACE INTO coverage VALUES (?,?,?,?,?,?,?,?)',tuple(row))
+            if connection.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise ValueError('INVALID_SNAPSHOT_DB')
+            facts=facts_digest(connection)
+        meta=dict(base,sources=dict(base['sources']),snapshot_id=ident,facts_hash=facts,sha256=digest_file(candidate),
+                  publication_mode='manual_observation',observation_date=day,manual_run_id=run_id,
+                  base_snapshot_id=base_ident,base_facts_hash=base['facts_hash'],published_at=dt.datetime.now(dt.timezone.utc).isoformat())
+        for source in {r['source'] for r in coverage}:meta['sources'][source]='configured'
+        if any(r['status'] not in ('available','provisional') for r in coverage):meta['data_status']='partial'
+    except BaseException:
+        connection.close();candidate.unlink(missing_ok=True);raise
+    finally:original.close()
+    connection.close()
+    with candidate.open('r+b') as stream:os.fsync(stream.fileno())
+    return candidate,meta
 
 
 def publish_once(root, candidate, manifest):
@@ -166,7 +207,7 @@ def publish_once(root, candidate, manifest):
 
 
 def open_snapshot(root, ident):
-    if not re.fullmatch(r'seo-\d{4}-\d{2}-\d{2}', ident):
+    if not re.fullmatch(SNAPSHOT_ID, ident):
         raise ValueError('INVALID_SNAPSHOT_ID')
     target = Path(root) / 'snapshots' / (ident + '.sqlite')
     if target.is_symlink():

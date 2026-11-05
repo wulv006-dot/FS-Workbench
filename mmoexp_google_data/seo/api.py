@@ -3,7 +3,7 @@ import csv
 import io
 import re
 
-from .contracts import game
+from .contracts import game, SNAPSHOT_ID
 from . import snapshot
 
 
@@ -41,14 +41,14 @@ class Service:
                     return 404, dict(error='NO_PUBLISHED_SNAPSHOT')
                 value = dict(value, games=[g for g in value['games'] if g in actor.games])
                 return 200, value
-            manifest = re.fullmatch(r'/api/seo/v1/snapshots/(seo-\d{4}-\d{2}-\d{2})/manifest', path)
+            manifest = re.fullmatch(r'/api/seo/v1/snapshots/('+SNAPSHOT_ID+r')/manifest', path)
             if manifest:
                 if query:
                     raise ValueError('INVALID_MANIFEST_QUERY')
                 db, value = snapshot.open_snapshot(self.root, manifest[1])
                 db.close()
                 return 200, dict(value, games=[g for g in value['games'] if g in actor.games])
-            match = re.fullmatch(r'/api/seo/v1/snapshots/(seo-\d{4}-\d{2}-\d{2})/(summary|history|sources|rankings|markets|calendar|pages|orders|rules)', path)
+            match = re.fullmatch(r'/api/seo/v1/snapshots/('+SNAPSHOT_ID+r')/(summary|history|sources|rankings|markets|calendar|pages|orders|rules)', path)
             if not match:
                 return 404, dict(error='NOT_FOUND')
             if not isinstance(query, dict) or set(query)-{'game', 'cursor', 'limit'}:
