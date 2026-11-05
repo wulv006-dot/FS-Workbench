@@ -260,8 +260,8 @@ def run_once(root, game_keys, client, model, at):
                 atomic(root/'game-monitor.json',payload,0o644)
                 status.update(status='succeeded', reason=None, version=snapshot['version'],
                               events=len(snapshot['events']), request_counts=getattr(client,'successful_requests',{}))
-            except (SourceError, ValueError, KeyError, TypeError) as error:
-                status['reason'] = str(error) if isinstance(error, SourceError) or str(error) in official.EVENT_REJECTION_REASONS else 'event_validation_failed'
+            except (SourceError, ValueError, KeyError, TypeError, OSError) as error:
+                status['reason'] = 'snapshot_io_failed' if isinstance(error,OSError) else str(error) if isinstance(error, SourceError) or str(error) in official.EVENT_REJECTION_REASONS else 'event_validation_failed'
         status['request_counts'] = getattr(client, 'successful_requests', {})
         atomic(root / 'intelligence.status.json', encoded(status), 0o644)
         report=dict(status=status['status'],phase='completed',day=official.moment(at).astimezone(timezone(timedelta(hours=8))).date().isoformat(),

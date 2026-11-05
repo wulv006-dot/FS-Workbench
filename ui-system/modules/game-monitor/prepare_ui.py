@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import sys
 
-FROZEN_PUBLICATION_BLOB = '6ee9ef5de724fad31c7156826b88fbeaba695ce3'
+FROZEN_PUBLICATION_BLOB = 'dfc5819645418e9af348b7a4d14eac3d88721619'
 OLD_ROUTE = '/dashboard/game-monitor/index.html'
 NEW_ROUTE = '/dashboard/game-monitor/operations.html'
 

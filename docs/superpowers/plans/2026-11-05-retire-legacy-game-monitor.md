@@ -56,3 +56,7 @@ Files: 新增必要退役函数和测试；现役 nightly-pipeline host 只移�
 - 日报读取器仍依赖旧public/game-monitor.json及.status.json；改由新任务提供同合同，避免修改/重启共享Hermes。
 - 原生Hermes计划运行身份为uid9876；root容器身份读取profile会被拒绝，使用原运行身份已验证可读，不改变ACL。
 - 新版继续复用原解析/翻译与发布库；这是新版依赖，旧计划与controller才是本次删除的活动对象。
+
+- 独立审阅完成：日报合同、新路由鉴权与资产删除范围通过；现场发现原publisher保护旧unit两文件，已用精确两路径退役合同修复并观察回归先失败后通过，其他保护对象保留。
+- 现场旧controller latest=rolled_back_verified，旧Hermes任务state=scheduled、fire_claim=null、latest_execution=completed、handoff_pending=0；默认uid9876确认。执行仍在原锁下复核这些条件。
+- 旧profile4MB、旧state125MB、磁盘余116GB；采用低压缩级别和流式归档SHA，不一次加载整个备份。

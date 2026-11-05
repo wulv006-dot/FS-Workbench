@@ -61,5 +61,13 @@ class PrepareTests(unittest.TestCase):
         block='location = /dashboard/game-monitor/index.html {\r\n    alias /static/index.html;\r\n}'
         self.assertEqual(publication.blocks(block)['/dashboard/game-monitor/index.html'],block)
 
+    def test_only_authorized_retired_units_leave_protection(self):
+        source=Path(__file__).resolve().parents[4]/'releases/fs-dashboard/game-monitor-autopublish-20261022/source'
+        sys.path.insert(0,str(source))
+        spec=importlib.util.spec_from_file_location('publication_retirement',source/'publication.py')
+        publication=importlib.util.module_from_spec(spec);spec.loader.exec_module(publication)
+        paths=['/etc/systemd/system/fs-boss-game-monitor.timer','/etc/systemd/system/fs-boss-game-monitor.service','/etc/systemd/system/fs-game-intelligence.timer','/etc/systemd/system/fs-hermes-ops-bridge.service']
+        self.assertEqual(publication.retained_protection([{'path':p} for p in paths]),set(paths[2:]))
+
 
 if __name__=='__main__':unittest.main()

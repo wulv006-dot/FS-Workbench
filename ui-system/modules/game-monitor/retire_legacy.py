@@ -56,6 +56,9 @@ def retire():
     with Path('/var/lib/fs-hermes-ops/lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         if HOST.read_bytes()!=before:raise ValueError('shared_host_concurrent_drift')
+        record=json.loads((Path('/var/lib/fs-hermes-ops/game-monitor')/'latest.json').read_bytes())
+        if record.get('status') not in ('published_file_and_route_readback_verified','no_content_change','rolled_back_verified'):
+            raise ValueError('original_controller_operation_requires_reconciliation')
         BACKUP.mkdir(mode=0o700)
         receipt=dict(change_id='retire-legacy-game-monitor-20261105',status='started',removed=[],host_before_sha256=HOST_SHA)
         save=lambda:atomic(BACKUP/'receipt.json',json.dumps(receipt,indent=2).encode(),0o600)
@@ -75,7 +78,7 @@ def retire():
         with archive.open('rb') as stream:
             for chunk in iter(lambda:stream.read(1024*1024),b''):digest.update(chunk)
         receipt['archive_sha256']=digest.hexdigest();save()
-        code="from cron.jobs import list_jobs,remove_job;import json;rows=list_jobs(include_disabled=True);old=[r for r in rows if r['id']=='6534331b5100'];assert len(old)==1 and '游戏监控台' in old[0]['name'];assert remove_job('6534331b5100');after=list_jobs(include_disabled=True);assert {r['id'] for r in after}=={r['id'] for r in rows}-{'6534331b5100'};print(json.dumps({'removed_job':'6534331b5100'}))"
+        code="from cron.jobs import list_jobs,remove_job;import json;rows=list_jobs(include_disabled=True);old=[r for r in rows if r['id']=='6534331b5100'];assert len(old)==1 and '游戏监控台' in old[0]['name'];job=old[0];assert not job.get('fire_claim') and (job.get('latest_execution') or {}).get('status') in (None,'completed','failed','cancelled') and not (job.get('latest_execution') or {}).get('handoff_pending');assert remove_job('6534331b5100');after=list_jobs(include_disabled=True);assert {r['id'] for r in after}=={r['id'] for r in rows}-{'6534331b5100'};print(json.dumps({'removed_job':'6534331b5100'}))"
         result=subprocess.run(['docker','exec','-w','/opt/hermes','fs-hermes-fc','/opt/hermes/.venv/bin/python','-B','-c',code],check=True,capture_output=True,universal_newlines=True)
         receipt['cron']=json.loads(result.stdout);save()
         subprocess.run(['systemctl','disable','--now','fs-boss-game-monitor.timer'],check=True,capture_output=True)
