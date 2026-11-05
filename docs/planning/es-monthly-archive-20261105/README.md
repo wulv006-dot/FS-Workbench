@@ -2,7 +2,9 @@
 
 ## 业务规则
 
-日常只补新完整日。每周复核本月及前两个月：已经结束的月份按完整自然月；本月只到该次复核开始时的昨日，不能称已封账。复核跨日仍优先发布新日数据。新完整归档与最新日发布都成功后，才清理已证明冗余的旧日导出及旧月重复版本。失败保留旧正式数据，不增加每月多版备份。
+用户2026-11-05最终规则：每日按北京时间补昨日完整付款日，不重复拉取全部历史。每周一复核本月及前两个月的全状态订单：已经结束的月份按完整自然月；本月只到该次复核开始时的昨日，不能称已封账。旧订单可能出现退款、争议和字段修订，因此保留周期复核，不能把“每日只补新”解释为历史永不更新。
+
+复核跨日仍优先补采并发布新日数据，原月复核周期、截止及请求身份不变。新完整归档与最新日发布都成功后，自动清理已证明冗余的旧日导出及旧月重复版本，不另备份这些冗余件。失败保留旧正式数据，不增加每月多版备份；最终正式月归档、当月已完成日以及Store历史重放记录保留。未覆盖日期、失败与复核中状态明确返回，不能把最大订单日期或HTTP成功当作完整日验收。
 
 ## 现有链路与改动
 
@@ -31,6 +33,10 @@
 
 ## 验证与上线边界
 
+归档helper已通过正式CI并合并[PR834](https://github.com/wulv006-dot/FS-Workbench/pull/834)，合并版本`2b96801d9905e635687ac67ed6d945bbaf6e109d`；[CI运行41979275770](https://github.com/wulv006-dot/FS-Workbench/actions/runs/41979275770)覆盖最后的空归档首次生成修复。调度[PR835](https://github.com/wulv006-dot/FS-Workbench/pull/835)合并`bd308d1a`，[CI41980053777](https://github.com/wulv006-dot/FS-Workbench/actions/runs/41980053777)通过。
+
 新增测试覆盖 fresh 两层复用、同周期成功/unknown 不重导、固定 manifest 不覆盖、完整月读日片、缺子行与唯一订单保护、同 SHA 保留、路径/符号链接拒绝、原 plan 中断恢复、次日日更后续清理、渠道真实读取、pinned identity 发布、无 raw 的旧 snapshot 重放和短锁释放。
 
-源码候选及隔离测试不等于生产清理。生产目标为 `/opt/fs-hermes-fc/es_order_structure.py`、`user_customer_types.py`、`user_query.py`、`channel_source.py`；调度线另外管理 weekly/jobs/UI。`user_query` 的 main 含尚未发布的其他能力，生产只应应用本轮短锁及状态字段差分，不整文件覆盖。`user_customer_types` 的主线新增身份方法也须与本轮实际部署的 weekly/Store 合同配套，不据 Git 合并推定已经上线。
+已应用release `nav-20261105T062800Z`（manifest `6147bf6dc96910d8717f55d9e134aabdc21cfb59650b40b466cb4d2fa5117d6a`），7目标SHA及实际reader加载通过，用户分析4917人旧快照与渠道2973单真实页面可读。原定价进程与timer保持运行。首日11月6日04:18—05:00、首周11月9日自然窗口未验，未人工触发全月采集或清理；不能把上线读回称为生产清理验证。完整范围见[本轮发布记录](../buyer-tracking-incremental-20261105/IMPLEMENTATION.md#2026-11-05月复核版本已应用)。
+
+归档相关生产目标为 `/opt/fs-hermes-fc/es_order_structure.py`、`user_customer_types.py`、`user_query.py`、`channel_source.py`；调度线另外管理 weekly/jobs/UI。`user_query` 的 main 含尚未发布的其他能力，生产只应应用本轮短锁及状态字段差分，不整文件覆盖。`user_customer_types` 的主线新增身份方法也须与本轮实际部署的 weekly/Store 合同配套，不据 Git 合并推定已经上线。
