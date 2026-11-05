@@ -62,3 +62,16 @@ class ManualSnapshot(unittest.TestCase):
         cleanup_owned_data(self.core,dt.date(2026,11,5))
         self.assertEqual(snapshot.current(self.core.root),meta)
         self.assertEqual(snapshot.read(self.core.root,meta['snapshot_id'],'history','FC27')['rows'],self.history)
+
+    def test_same_run_reinterpretation_creates_new_content_version(self):
+        old=self.publish()
+        changed=dict(self.page,rows=[dict(self.page['rows'][0],rank=None,status='not_found',effective_depth=8)])
+        self.core.ingest_page('serp','FC27','2026-11-05',changed,NIGHT.isoformat())
+        candidate,meta=snapshot.build_manual(self.core,old['snapshot_id'],RUN)
+        snapshot.publish_once(self.core.root,candidate,meta)
+        self.assertNotEqual(meta['snapshot_id'],old['snapshot_id'])
+        self.assertEqual(meta['base_snapshot_id'],self.base['snapshot_id'])
+        self.assertEqual(meta['base_facts_hash'],self.base['facts_hash'])
+        self.assertEqual(meta['parent_snapshot_id'],old['snapshot_id'])
+        self.assertEqual(snapshot.read(self.core.root,old['snapshot_id'],'markets','FC27')['rows'][0]['rank'],3)
+        self.assertEqual(daily.run_daily(self.core,[self.source],clock=lambda:NIGHT)['snapshot_id'],meta['snapshot_id'])
