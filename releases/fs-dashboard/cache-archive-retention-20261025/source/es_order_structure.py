@@ -16,7 +16,7 @@ import zipfile
 from xml.etree import ElementTree as ET
 
 from coupon_channels import retained, mapping
-RULE_VERSION='admin-es-structure-v6-pmax-fc-20261022-coupon-channel-'+mapping()[1]
+RULE_VERSION='admin-es-structure-v7-pmax-cards-20261105-coupon-channel-'+mapping()[1]
 GAME_LABELS={'FC27':'FC 27','D4':'Diablo 4','AION2':'Aion 2','POE2':'POE2','NBA2K27':'NBA 2K27','NFL27':'Madden NFL 27','MLB26':'MLB 26','CFB27':'College Football 27','RS':'RS','ARC_RAIDERS':'ARC Raiders','MAPLESTORY_CLASSIC':'MapleStory Classic World','DARK_AND_DARKER':'Dark and Darker','WOW_FOREVER':'WoW Forever','ARENA_BREAKOUT_INFINITE':'Arena Breakout: Infinite','COD_BO7':'CoD: Black Ops 7'}
 GAME_MAPPING_VERSION='es-exact-labels-20261017-v1'
 from admin_discount_analysis import GROUPS as DISCOUNT_GROUPS, FIELDS as DISCOUNT_FIELDS
@@ -166,7 +166,7 @@ def aggregate_rows(allrows,hashes,parse_failures,args,declared_files=None,failed
         item['orders'] += 1
         value = amount(row[COLUMNS['usd']])
         if value is not None: item['order_amount_usd'] += value; item['priced_orders'] += 1
-        if scope == 'global_brand':
+        if scope == 'global_brand' or re.sub(r'^(?:google|bing)-','',source,flags=re.I).casefold() == 'fc27-pmax-cards-en':
             item['pmax_orders'] += 1
             if value is not None: item['pmax_amount_usd'] += value; item['pmax_priced_orders'] += 1
     for item in paid.values():
