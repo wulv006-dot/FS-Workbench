@@ -800,7 +800,7 @@ def capabilities_navigation_overlay(base, root, metadata):
 
 
 def capabilities_shared_overlay(base, root, metadata):
-    """Only the approved shared skill, its exact audit append and repaired lock."""
+    """Keep the approved checkpoint; protect later audit rows without approving them."""
     proof=CAPABILITIES_SHARED_PROOF;empty=hashlib.sha256(b'').hexdigest()
     expected={CAPABILITIES_SKILL_FILE:proof['skill_before'],CAPABILITIES_CURATOR_LEDGER:proof['ledger_before'],CAPABILITIES_SKILL_LOCK:empty}
     if (not NATIVE_CAPABILITIES_MODE or set(expected)&set(TARGETS.values()) or
@@ -854,9 +854,10 @@ def capabilities_shared_overlay(base, root, metadata):
             any(select(packages[0]['entries'])[0].get(k)!=v for k,v in dict(sha256=proof['skill_after'],uid=0,gid=0,mode=0o644).items())):
         raise ValueError('native_shared_review_drift')
     raw=read(base.rooted(root,CAPABILITIES_CURATOR_LEDGER),(0,0,0o644),1048576,True)
-    tail=raw[proof['ledger_prefix_bytes']:];lines=tail.split(b'\n')
-    if (len(raw)!=proof['ledger_bytes'] or digest(raw)!=proof['ledger_after'] or
-            digest(raw[:proof['ledger_prefix_bytes']])!=proof['ledger_before'] or len(lines)!=3 or lines[-1]!=b'' or not all(lines[:2])):
+    checkpoint=raw[:proof['ledger_bytes']]
+    lines=checkpoint[proof['ledger_prefix_bytes']:].split(b'\n')
+    if (len(raw)<proof['ledger_bytes'] or digest(checkpoint)!=proof['ledger_after'] or
+            digest(checkpoint[:proof['ledger_prefix_bytes']])!=proof['ledger_before'] or len(lines)!=3 or lines[-1]!=b'' or not all(lines[:2])):
         raise ValueError('native_shared_ledger_drift')
     entries=[json.loads(line) for line in lines[:2]];last=entries[-1];skill_path='/profile/skills/data-storytelling/SKILL.md'
     if (any(type(e) is not dict for e in entries) or last.get('id')!=proof['ledger_last_id'] or last.get('action')!='patch' or
@@ -864,12 +865,23 @@ def capabilities_shared_overlay(base, root, metadata):
             not any(x.get('path')==skill_path and x.get('sha256')==proof['skill_before'] for x in last.get('before',[])) or
             not any(x.get('path')==skill_path and x.get('sha256')==proof['skill_after'] for x in last.get('after',[]))):
         raise ValueError('native_shared_ledger_drift')
+    appended=raw[proof['ledger_bytes']:].split(b'\n')
+    prefix_hashes={proof['ledger_after']};prefix_digest=hashlib.sha256(checkpoint)
+    if appended[-1]!=b'':raise ValueError('native_shared_ledger_drift')
+    try:
+        for line in appended[:-1]:
+            entry=json.loads(line)
+            if type(entry) is not dict:raise ValueError('audit_object_required')
+            json.dumps(entry,allow_nan=False)  # Reject decoder extensions such as NaN/Infinity.
+            prefix_digest.update(line+b'\n');prefix_hashes.add(prefix_digest.hexdigest())
+    except ValueError:
+        raise ValueError('native_shared_ledger_drift') from None
     if digest(read(base.rooted(root,CAPABILITIES_SKILL_LOCK),(9876,9876,0o644),0,True))!=empty:raise ValueError('native_shared_lock_drift')
     updated={p:dict(row) for p,row in metadata.items()}
     updated[CAPABILITIES_SKILL_FILE]['sha256']=proof['skill_after']
-    updated[CAPABILITIES_CURATOR_LEDGER]['sha256']=proof['ledger_after']
+    updated[CAPABILITIES_CURATOR_LEDGER]['sha256']=digest(raw)
     updated[CAPABILITIES_SKILL_LOCK]['owner']='9876:9876'
-    return updated
+    return updated,frozenset(prefix_hashes)
 
 
 def capabilities_history_matches(base, root, current):
@@ -911,12 +923,17 @@ def capabilities_history_matches(base, root, current):
         raise ValueError('native_history_success_required')
     metadata=capabilities_nginx_overlay(base,root,metadata)
     metadata=capabilities_navigation_overlay(base,root,metadata)
-    metadata=capabilities_shared_overlay(base,root,metadata)
+    metadata,prefix_hashes=capabilities_shared_overlay(base,root,metadata)
+    audit_snapshot=(metadata[CAPABILITIES_CURATOR_LEDGER]['sha256'],prefix_hashes)
+    # Historical receipts must still reconstruct the exact approved checkpoint.
+    # Carry the securely read complete-audit hash separately until the chain passes.
+    metadata[CAPABILITIES_CURATOR_LEDGER]=dict(metadata[CAPABILITIES_CURATOR_LEDGER],sha256=CAPABILITIES_SHARED_PROOF['ledger_after'])
     if set(metadata)!=set(current) or any(
             any(row.get(k)!=current[path].get(k) for k in
                 (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
             for path,row in metadata.items() if path not in CAPABILITIES_RUNTIME_TARGETS.values()):
         raise ValueError('native_current_history_protection_mismatch')
+    return audit_snapshot
 
 
 def capabilities_campaign_history(base,root,current,installed_rows):
@@ -954,7 +971,7 @@ def capabilities_campaign_history(base,root,current,installed_rows):
                 any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten'))
                 for r in rows for w in written if r['candidate']==w['candidate'])):
         raise ValueError('native_campaign_history_success_required')
-    capabilities_history_matches(base,root,old)
+    audit_snapshot=capabilities_history_matches(base,root,old)
     if (set(current)!=set(old)|set(CAMPAIGN_TARGETS.values()) or
             any(any(row.get(k)!=current[path].get(k) for k in
                 (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
@@ -962,6 +979,7 @@ def capabilities_campaign_history(base,root,current,installed_rows):
             any(r.get('beforeSha256')!=(CAMPAIGN_INITIAL_BEFORE[r['candidate']][0] if r['candidate'] in CAMPAIGN_INITIAL_BEFORE
                 else old[r['target']]['sha256']) for r in installed_rows)):
         raise ValueError('native_campaign_success_chain_mismatch')
+    return audit_snapshot
 
 
 def capabilities_grant_history(base,root,current,installed_rows):
@@ -999,7 +1017,7 @@ def capabilities_grant_history(base,root,current,installed_rows):
                 any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten'))
                 for r in rows for w in written if r['candidate']==w['candidate'])):
         raise ValueError('native_grant_history_success_required')
-    capabilities_campaign_history(base,root,old,rows)
+    audit_snapshot=capabilities_campaign_history(base,root,old,rows)
     if (set(current)!=set(old)|{CAPABILITIES_TARGETS['campaign/backend/campaign_backend/coupon_grant.py']} or
             any(any(row.get(k)!=current[path].get(k) for k in
                 (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
@@ -1007,6 +1025,7 @@ def capabilities_grant_history(base,root,current,installed_rows):
             any(r.get('beforeSha256')!=(None if r['candidate']=='campaign/backend/campaign_backend/coupon_grant.py'
                 else old[r['target']]['sha256']) for r in installed_rows)):
         raise ValueError('native_grant_success_chain_mismatch')
+    return audit_snapshot
 
 
 def capabilities_import_history(base,root,current,installed_rows):
@@ -1044,13 +1063,14 @@ def capabilities_import_history(base,root,current,installed_rows):
                 any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten'))
                 for r in rows for w in written if r['candidate']==w['candidate'])):
         raise ValueError('native_import_history_success_required')
-    capabilities_grant_history(base,root,old,rows)
+    audit_snapshot=capabilities_grant_history(base,root,old,rows)
     if (set(current)!=set(old) or
             any(any(row.get(k)!=current[path].get(k) for k in
                 (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
                 for path,row in old.items() if path not in CAPABILITIES_BASELINE_TARGETS.values()) or
             any(r.get('beforeSha256')!=old[r['target']]['sha256'] for r in installed_rows)):
         raise ValueError('native_import_success_chain_mismatch')
+    return audit_snapshot
 
 
 def capabilities_transport_history(base,root,current,installed_rows):
@@ -1088,13 +1108,14 @@ def capabilities_transport_history(base,root,current,installed_rows):
                 any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten'))
                 for r in rows for w in written if r['candidate']==w['candidate'])):
         raise ValueError('native_transport_history_success_required')
-    capabilities_import_history(base,root,old,rows)
+    audit_snapshot=capabilities_import_history(base,root,old,rows)
     if (set(current)!=set(old) or
             any(any(row.get(k)!=current[path].get(k) for k in
                 (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
                 for path,row in old.items() if path not in CAPABILITIES_BASELINE_TARGETS.values()) or
             any(r.get('beforeSha256')!=old[r['target']]['sha256'] for r in installed_rows)):
         raise ValueError('native_transport_success_chain_mismatch')
+    return audit_snapshot
 
 
 def capabilities_knowledge_history(base,root,current,installed_rows):
@@ -1132,7 +1153,7 @@ def capabilities_knowledge_history(base,root,current,installed_rows):
                 any(w.get(k) for k in ('rollbackIntent','rolledBack','rollbackWritten'))
                 for r in rows for w in written if r['candidate']==w['candidate'])):
         raise ValueError('native_knowledge_history_success_required')
-    capabilities_transport_history(base,root,old,rows)
+    audit_snapshot=capabilities_transport_history(base,root,old,rows)
     additions=set(KNOWLEDGE_INSTALLED_TARGETS.values())-set(CAPABILITIES_BASELINE_TARGETS.values())
     if (set(current)!=set(old)|additions or
             any(any(row.get(k)!=current[path].get(k) for k in
@@ -1141,6 +1162,7 @@ def capabilities_knowledge_history(base,root,current,installed_rows):
             any(r.get('beforeSha256')!=(KNOWLEDGE_INITIAL_EXISTING[r['candidate']][0]
                 if r['candidate'] in KNOWLEDGE_INITIAL_EXISTING else old.get(r['target'],{}).get('sha256')) for r in installed_rows)):
         raise ValueError('native_knowledge_success_chain_mismatch')
+    return audit_snapshot
 
 
 def capabilities_desktop_history(base,root,current,installed_rows,*,stage=6):
@@ -1185,26 +1207,31 @@ def capabilities_desktop_history(base,root,current,installed_rows,*,stage=6):
                 for r in rows for w in written if r['candidate']==w['candidate'])):
         raise ValueError('native_desktop_history_success_required')
     if not initial:
-        capabilities_desktop_history(base,root,old,rows,stage=stage-1)
+        audit_snapshot=capabilities_desktop_history(base,root,old,rows,stage=stage-1)
+        if any(rows.get(CAPABILITIES_CURATOR_LEDGER,{}).get('sha256') not in audit_snapshot[1] for rows in (old,current)):
+            raise ValueError('native_shared_ledger_drift')
         if stage==1:
             old=capabilities_desktop_metadata(base,root,old,manifest)
         if (set(current)!=set(old) or
                 any(any(row.get(k)!=current[path].get(k) for k in
-                    (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
+                    (('owner','mode') if path in (ARCHIVE_USAGE_LEDGER,CAPABILITIES_CURATOR_LEDGER) else ('sha256','owner','mode')))
                     for path,row in old.items() if path not in DESKTOP_INSTALLED_TARGETS.values()) or
                 any(r.get('beforeSha256')!=old.get(r['target'],{}).get('sha256') for r in installed_rows)):
             raise ValueError('native_desktop_success_chain_mismatch')
-        return
-    capabilities_knowledge_history(base,root,old,rows)
+        return audit_snapshot
+    audit_snapshot=capabilities_knowledge_history(base,root,old,rows)
+    if any(rows.get(CAPABILITIES_CURATOR_LEDGER,{}).get('sha256') not in audit_snapshot[1] for rows in (old,current)):
+        raise ValueError('native_shared_ledger_drift')
     if (set(current)!=set(old)|set(DESKTOP_TARGETS.values()) or
             any(any(row.get(k)!=current[path].get(k) for k in
-                (('owner','mode') if path==ARCHIVE_USAGE_LEDGER else ('sha256','owner','mode')))
+                (('owner','mode') if path in (ARCHIVE_USAGE_LEDGER,CAPABILITIES_CURATOR_LEDGER) else ('sha256','owner','mode')))
                 for path,row in old.items() if path not in KNOWLEDGE_INSTALLED_TARGETS.values()
                 and path!=DESKTOP_TARGETS['http/range_api.py']) or
             any(r.get('beforeSha256')!=(DESKTOP_INITIAL_EXISTING[r['candidate']][0]
                 if r['candidate'] in DESKTOP_INITIAL_EXISTING else None if r['candidate'] in DESKTOP_ORIGINAL_NEW
                 else old.get(r['target'],{}).get('sha256')) for r in installed_rows)):
         raise ValueError('native_desktop_success_chain_mismatch')
+    return audit_snapshot
 
 
 
@@ -1316,7 +1343,8 @@ def installed_baseline(root, git_baseline):
                      for name,target in TARGETS.items()})}):
             raise ValueError('composer_static_installed_proof_mismatch')
         if NATIVE_CAPABILITIES_MODE:
-            capabilities_desktop_history(base,root,metadata,rows)
+            audit_snapshot=capabilities_desktop_history(base,root,metadata,rows)
+            metadata[CAPABILITIES_CURATOR_LEDGER]=dict(metadata[CAPABILITIES_CURATOR_LEDGER],sha256=audit_snapshot[0])
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
