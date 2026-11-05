@@ -1,5 +1,5 @@
 [Unit]
-Description=FS supplementary game intelligence through the existing DeepSeek account
+Description=FS game intelligence and MMOEXP news through the existing DeepSeek account
 After=network-online.target
 Wants=network-online.target
 

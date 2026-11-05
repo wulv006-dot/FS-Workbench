@@ -225,10 +225,5 @@ def main():
             result = subprocess.run(['docker','exec','-u','0','fs-hermes-desktop','/opt/hermes/.venv/bin/python','-B',
                 '/profile/scripts/fs-ops-watchdog/watch.py','check'], capture_output=True, text=True, timeout=35)
             write(STATE/'nightly-delivery.json', {'at':now.isoformat(),'exit_code':result.returncode,'result':result.stdout[-1200:]})
-        try:
-            result = subprocess.run(['/opt/python39/bin/python3', '-B', str(HERE/'game_monitor/controller.py')], capture_output=True, text=True, timeout=100)
-            if result.returncode: print('game-monitor auto-publication needs attention; inspect its preserved status', flush=True)
-        except subprocess.TimeoutExpired:
-            print('game-monitor step timed out; reconcile its original journal on the next tick', flush=True)
 
 if __name__ == '__main__': main()

@@ -29,14 +29,22 @@ class PrepareTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'ambiguous_existing_route'):
             module.route('location = /x {\n alias /a;\n alias /b;\n}','/x','/new','/c')
 
-    def test_legacy_data_and_scripts_are_preserved(self):
-        original=b'<html><body><script>window.GAME_TIMELINE_DATA = {"games":[]};</script></body></html>'
-        result=module.legacy_entry(original,'a'*64)
-        self.assertIn(b'window.GAME_TIMELINE_DATA = {"games":[]};',result)
-        self.assertEqual(result.count(b'id="fs-operations-entry"'),1)
-        revised=module.legacy_entry(result,'b'*64)
-        self.assertEqual(revised.count(b'id="fs-operations-entry"'),1)
-        self.assertNotIn(b'asset: '+b'a'*64,revised)
+    def test_legacy_assets_are_not_in_new_release_inventory(self):
+        rows=module.current_assets({'game-monitor/index.html':'a','game-monitor/daily.js':'b','game-monitor/assets/tool.jpg':'c','management/index.html':'d'})
+        self.assertEqual(rows,{'game-monitor/index.html':'a','management/index.html':'d'})
+
+    def test_retired_routes_removed_without_touching_new_or_shared_routes(self):
+        block=lambda path:'location = '+path+' {\n alias /a;\n}'
+        paths=['/dashboard/game-monitor/daily.json','/dashboard/game-monitor/fs-integration.js','/dashboard/game-monitor/assets/tool.jpg','/dashboard/game-monitor/intelligence.json','/dashboard/management/index.html']
+        result=module.retire_routes('\n'.join(map(block,paths)),'new')
+        self.assertNotIn('daily.json',result)
+        self.assertNotIn('fs-integration.js',result)
+        self.assertNotIn('assets/tool.jpg',result)
+        self.assertIn('intelligence.json',result)
+        self.assertIn('management/index.html',result)
+        old=block('/dashboard/workspace-assets/old/game-monitor/daily.js')
+        current=block('/dashboard/workspace-assets/new/game-monitor/assets/index.html')
+        self.assertEqual(module.retire_routes(old+'\n'+current,'new'),old+'\n')
 
     def test_rebuilt_manifest_has_one_latest_row_for_existing_operations_asset(self):
         rows=module.asset_rows({'game-monitor/index.html':'a'*64,'game-monitor/operations.html':'b'*64},Path('/static'),'version-new')

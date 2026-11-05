@@ -49,7 +49,7 @@ def prepare(stage,before,after):
     manifest=json.loads((ORIGINAL/'release-manifest.json').read_bytes())
     base=current.parent.parent
     names={p.relative_to(base).as_posix() for p in base.rglob('*') if p.is_file()}
-    require(100<=len(names)<=1000,'unexpected_asset_inventory')
+    require(2<=len(names)<=1000,'unexpected_asset_inventory')
     identities={name:sha(safe(base/name).read_bytes()) for name in names}
     identities['game-monitor/index.html']=sha(after)
     version='workspace-native-20261006-'+sha(json.dumps(identities,sort_keys=True).encode())[:12]

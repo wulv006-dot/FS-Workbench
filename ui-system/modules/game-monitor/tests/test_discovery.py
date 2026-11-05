@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[4]
 sys.path[:0] = [str(ROOT / 'ui-system/modules/game-monitor/backend'),
@@ -30,6 +31,26 @@ class Source:
 
 
 class DiscoveryTests(unittest.TestCase):
+    def test_news_uses_new_schedule_instead_of_old_saturday_guard(self):
+        import mmoexp_news as news
+        value=dict(contract=news.CONTRACT,status='available',collected_at=AT.isoformat(),
+            stale_after='old',documents=[dict(document_id='article',title='News',summary='Source text')],coverage={})
+        enrich=news.enrich_zh
+        with tempfile.TemporaryDirectory() as directory, patch.object(news,'collect',return_value=value) as collect, patch.object(news,'enrich_zh',side_effect=lambda value,**kw:enrich(value,translator=lambda *a,**k:{'status':'failed'},**kw)):
+            result=discovery.refresh_news(Path(directory),AT)
+            self.assertEqual(result['status'],'available')
+            collect.assert_called_once_with(AT)
+            saved=json.loads((Path(directory)/'seo-news.json').read_bytes())
+            self.assertEqual(saved['stale_after'],'2026-11-06T02:10:00+00:00')
+
+    def test_news_failure_preserves_previous_success(self):
+        import mmoexp_news as news
+        with tempfile.TemporaryDirectory() as directory, patch.object(news,'collect',side_effect=OSError('source failed')):
+            root=Path(directory);(root/'seo-news.json').write_bytes(b'previous')
+            result=discovery.refresh_news(root,AT)
+            self.assertEqual(result['status'],'unavailable')
+            self.assertEqual((root/'seo-news.json').read_bytes(),b'previous')
+
     def test_next_refresh_follows_tuesday_friday_beijing_schedule(self):
         cases = {
             '2026-11-06T02:09:59+00:00': '2026-11-06T02:10:00+00:00',
@@ -138,6 +159,10 @@ class DiscoveryTests(unittest.TestCase):
             self.assertEqual(published['receipt'],'test-receipt-123')
             self.assertEqual(published['stale_after'],'2026-11-06T02:10:00+00:00')
             self.assertEqual(published['events'][0]['expires_at'],published['stale_after'])
+            self.assertEqual((root/'game-monitor.json').read_bytes(),(root/'intelligence.json').read_bytes())
+            compatibility=json.loads((root/'game-monitor.status.json').read_bytes())
+            self.assertEqual(compatibility['phase'],'completed')
+            self.assertEqual(compatibility['public_sha256'],discovery.sha256((root/'intelligence.json').read_bytes()).hexdigest())
 
     def test_no_game_query_exceeds_provider_contract(self):
         source=Source()
