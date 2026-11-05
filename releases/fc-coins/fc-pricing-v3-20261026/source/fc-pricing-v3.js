@@ -376,7 +376,9 @@
   for(const id of ['v3-execute-now','v3-execute'])$(id).addEventListener('click',executeCurrentPlan);
   $('v3-preview').addEventListener('click',()=>action(async()=>{
     const result=await request('preview',{mode:$('v3-mode').value});
-    $('v3-preview-output').textContent=Object.entries(result.results).map(([m,r])=>`${names[m]}：${statusText(r.status)}；${r.selected?`Console ${usd(r.selected.action.base_prices.console)} / PC ${usd(r.selected.action.base_prices.pc)}`:`当前不可执行 ${[...new Set((r.failures||[]).map(f=>statusText(f.code)))].join('；')}`}`).join('\n');
+    const owner=(current?.active_plans||[]).find(p=>['revenue_sprint','smart'].includes(p.mode)&&p.resources?.includes('base:console')&&p.resources?.includes('base:pc')),baseline=owner?.mode==='smart'?owner.baseline_plan:owner,pct=baseline?.parameters?.preferred_undercut_pct;
+    const note=$('v3-mode').value==='smart'?`默认7.5%基准候选排序的只读情景，未使用当前${pct!=null?pct+'%':'计划参数'}及真实6小时分配；不是本计划报价，不作为切换或审批依据。实际结果以启用后同轮采集和决策回执为准。\n`:'';
+    $('v3-preview-output').textContent=note+Object.entries(result.results).map(([m,r])=>`${names[m]}：${statusText(r.status)}；${r.selected?`Console ${usd(r.selected.action.base_prices.console)} / PC ${usd(r.selected.action.base_prices.pc)}`:`当前不可执行 ${[...new Set((r.failures||[]).map(f=>statusText(f.code)))].join('；')}`}`).join('\n');
   }));
   $('v3-manual-form').addEventListener('submit',event=>{event.preventDefault();action(async()=>{
     const restore=$('v3-restore-id').value.trim();
