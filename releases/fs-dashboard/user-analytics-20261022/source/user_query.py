@@ -1,4 +1,5 @@
 """Permission-injected query layer shared by UI and both Hermes readers."""
+from contextlib import ExitStack
 from datetime import datetime, timedelta
 from collections import OrderedDict
 from copy import deepcopy
@@ -56,41 +57,45 @@ class Service:
                     raise ValueError('snapshot_query_mismatch')
             self.permit_snapshot(user, old, public)
             return public
-        publication = None
-        if self.weekly_publication is not False and config.get('update_cadence') in ('weekly-v1', 'daily-v1'):
-            from user_weekly import publication as read_publication
-            publication = read_publication(self.store, self.clock())
-            config = dict(publication['config'], weekly_data_cutoff=publication['cutoff'])
-            args = {'start': (stamp(publication['cutoff'])-timedelta(days=7)).isoformat(), **args}
-        query = checked_query(args, config, self.clock())
-        self.permit(user, query)
-        period_cohort = query['state_basis'] == 'period_cohort'
-        flags, flag_source = ({}, dict(status='unavailable',source='Admin ES order-time new-customer flag'))
-        if period_cohort and self.customer_type_reader and not publication:
-            try:
-                flags, flag_source = self.customer_type_reader(query)
-            except (OSError,ValueError,KeyError,TypeError,ImportError) as error:
-                flag_source = dict(status='unavailable',source='Admin ES order-time new-customer flag',reason='source_contract_unavailable',error_type=type(error).__name__)
-        global_policy = query['policy_version'] if query['policy_version'] in OBSERVATION_POLICIES else config.get('global_policy_version', 'common-v1')
-        global_query = dict(query, scope='global', scope_id='', policy_version=global_policy)
-        global_allowed = self.authorizer(user, global_query, False) is True
-        proof_path = self.store.root/'history-origin.json'
-        bounded_path = self.store.root/'history-coverage.json'
-        refresh_health = publication['refresh_health'] if publication else self.store.job_health()
-        cache_key = digest([query, config, flag_source, publication['publication_id'] if publication else self.store.revision(), refresh_health, user, global_allowed,
-                            proof_path.read_text('utf-8') if not publication and proof_path.is_file() else None,
-                            bounded_path.read_text('utf-8') if not publication and bounded_path.is_file() else None])
-        with self.cache_lock:
-            if cache_key in self.cache:
-                self.cache.move_to_end(cache_key)
-                return deepcopy(self.cache[cache_key])
-        if period_cohort and publication:
-            from user_customer_types import read_pinned_flags
-            try:
-                flags, flag_source = read_pinned_flags(query, publication['flag_manifests'])
-            except (OSError, ValueError, KeyError, TypeError, ImportError) as error:
-                flag_source = dict(status='unavailable', source='Admin ES order-time new-customer flag',
-                                   reason='frozen_source_unavailable', error_type=type(error).__name__)
+        with ExitStack() as archive_read:
+            if self.weekly_publication is not False and config.get('update_cadence') in ('weekly-v1','daily-v1'):
+                from user_customer_types import publication_archive_access
+                archive_read.enter_context(publication_archive_access())
+            publication = None
+            if self.weekly_publication is not False and config.get('update_cadence') in ('weekly-v1', 'daily-v1'):
+                from user_weekly import publication as read_publication
+                publication = read_publication(self.store, self.clock())
+                config = dict(publication['config'], weekly_data_cutoff=publication['cutoff'])
+                args = {'start': (stamp(publication['cutoff'])-timedelta(days=7)).isoformat(), **args}
+            query = checked_query(args, config, self.clock())
+            self.permit(user, query)
+            period_cohort = query['state_basis'] == 'period_cohort'
+            flags, flag_source = ({}, dict(status='unavailable',source='Admin ES order-time new-customer flag'))
+            if period_cohort and self.customer_type_reader and not publication:
+                try:
+                    flags, flag_source = self.customer_type_reader(query)
+                except (OSError,ValueError,KeyError,TypeError,ImportError) as error:
+                    flag_source = dict(status='unavailable',source='Admin ES order-time new-customer flag',reason='source_contract_unavailable',error_type=type(error).__name__)
+            global_policy = query['policy_version'] if query['policy_version'] in OBSERVATION_POLICIES else config.get('global_policy_version', 'common-v1')
+            global_query = dict(query, scope='global', scope_id='', policy_version=global_policy)
+            global_allowed = self.authorizer(user, global_query, False) is True
+            proof_path = self.store.root/'history-origin.json'
+            bounded_path = self.store.root/'history-coverage.json'
+            refresh_health = publication['refresh_health'] if publication else self.store.job_health()
+            cache_key = digest([query, config, flag_source, publication['publication_id'] if publication else self.store.revision(), refresh_health, user, global_allowed,
+                                proof_path.read_text('utf-8') if not publication and proof_path.is_file() else None,
+                                bounded_path.read_text('utf-8') if not publication and bounded_path.is_file() else None])
+            with self.cache_lock:
+                if cache_key in self.cache:
+                    self.cache.move_to_end(cache_key)
+                    return deepcopy(self.cache[cache_key])
+            if period_cohort and publication:
+                from user_customer_types import read_pinned_flags
+                try:
+                    flags, flag_source = read_pinned_flags(query, publication['flag_manifests'])
+                except (OSError, ValueError, KeyError, TypeError, ImportError) as error:
+                    flag_source = dict(status='unavailable', source='Admin ES order-time new-customer flag',
+                                       reason='frozen_source_unavailable', error_type=type(error).__name__)
         period = dict(start=query['start'], end=query['end_exclusive']) if period_cohort else {}
         if publication:
             version, orders, jobs = publication['data_version'], self.store.read_at(publication['data_version'], **period), deepcopy(publication['jobs'])
@@ -245,6 +250,16 @@ class Service:
             state = small_state(self.store.root)
             if state and state.get('phase') != 'complete':
                 value['weekly_update']['pending'] = {k: state[k] for k in ('cutoff', 'phase', 'error', 'retryable') if k in state}
+                if state.get('review_policy') == 'calendar-months-v1' and state.get('review_start'):
+                    pending=value['weekly_update']['pending']
+                    pending['review_pending']=not state.get('review_complete',False)
+                    pending['cleanup_pending']=bool(state.get('review_complete'))
+                    pending['daily_current']=bool(value['weekly_update'].get('cutoff') and not state.get('daily_error') and stamp(value['weekly_update']['cutoff'])>=self.clock().astimezone(TZ).replace(hour=0,minute=0,second=0,microsecond=0))
+                    for key in ('daily_error','cleanup_error'):
+                        if key in state:
+                            error=state[key] if isinstance(state[key],dict) else {}
+                            code=error.get('error','source_error')
+                            pending[key]=dict(error=code if isinstance(code,str) and re.fullmatch('[A-Za-z_:]{1,120}',code) else 'source_error',retryable=error.get('retryable') is True)
         return value
 
     def search(self, args, user):
