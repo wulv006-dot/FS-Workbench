@@ -75,7 +75,11 @@
    let card=grid.querySelector('.workspace-card.'+section.id);
    if(!card){card=el('article','workspace-card '+section.id);const a=el('a','workspace-main');a.href=section.path;a.append(el('span','workspace-icon',section.icon),el('h3','',section.title),el('p','',section.intro),el('span','entry','进入工作区 →'));card.append(a);grid.append(card);}
    const a=card.querySelector('.workspace-main');if(a&&a.getAttribute('href')!==section.path)a.href=section.path;
-  }};
+  }
+   const rpgCard=grid.querySelector('.workspace-card.arpg'),salesCard=grid.querySelector('.workspace-card.sales'),marketingCard=grid.querySelector('.workspace-card.marketing');
+   if(rpgCard&&salesCard&&rpgCard.nextElementSibling!==salesCard)rpgCard.after(salesCard);
+   if(salesCard&&marketingCard&&salesCard.nextElementSibling!==marketingCard)salesCard.after(marketingCard);
+  };
   syncCards();cardsObserver=new MutationObserver(syncCards);cardsObserver.observe(grid,{childList:true});
  }
  document.addEventListener('fs-nav-account-ready',e=>{const incoming=e.detail?.account;if(!incoming)return;const footer=nav.querySelector('.hn-footer');if(!footer)return;footer.querySelector('.hn-account')?.remove();footer.prepend(incoming);});

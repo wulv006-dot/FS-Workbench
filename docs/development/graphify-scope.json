@@ -3,7 +3,10 @@
   "selection": "OWNERS module navigation and selected maintenance source scope. All production versions remain unverified. Evidence levels distinguish publisher mappings, partial/candidate maps and maintained source; dated directory names never establish live status.",
   "modules": {
     "seo-daily": {
-      "roots": ["mmoexp_google_data/seo", "ui-system/modules/seo"],
+      "roots": [
+        "mmoexp_google_data/seo",
+        "ui-system/modules/seo"
+      ],
       "basis": "seo-daily-optional-ai-r3-elastic; nightly runtime, immutable snapshot API and optional per-game AI candidate. No verified production mapping yet.",
       "evidence_level": "maintained_source"
     },
@@ -211,6 +214,14 @@
       ],
       "basis": "Gravitec webpush Handler dispatch and deploy/v2/release_webpush.py explicit 3-file production mapping; README records actual acceptance separately.",
       "evidence_level": "publisher_mapping"
+    },
+    "sales-system": {
+      "roots": [
+        "shared_backend_session/sales_regions.py",
+        "releases/sales/system-20261105"
+      ],
+      "basis": "Sales collector imports sales_regions and persists order_regions in history.db; source-map.json maps exact publisher targets. Actual deployment and acceptance recorded separately.",
+      "evidence_level": "publisher_mapping"
     }
   },
   "limits": [
@@ -228,4 +239,3 @@
     "maintained_source": "按模块、测试分组或回填选择的维护源码；现役发布映射尚未逐文件核对。"
   }
 }
-

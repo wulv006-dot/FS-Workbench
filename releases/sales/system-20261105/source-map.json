@@ -1,0 +1,29 @@
+{
+  "scope": "Sales source and navigation/permission metadata; no member grants changed",
+  "publisher": "release_sales.py reuses release_ui_finish and frozen navigation locks/CAS/rollback",
+  "targets": {
+    "hubnav.js": "/var/www/hub/hubnav.js",
+    "nav.js": "/var/www/hub/nav.js",
+    "z-main.conf": "/etc/nginx/conf.d/iggm-web.conf",
+    "zz-formal.conf": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+    "home.html": "/var/www/dashboard/fs-home/index.html",
+    "analytics.html": "/var/www/dashboard/modules/analytics/index.html",
+    "hermes.html": "/var/www/dashboard/modules/hermes/index.html",
+    "sports.html": "/var/www/dashboard/modules/sports/index.html",
+    "arpg.html": "/var/www/dashboard/modules/arpg/index.html",
+    "bots.html": "/var/www/dashboard/modules/bots/index.html",
+    "collaboration.html": "/var/www/dashboard/modules/collaboration/index.html",
+    "about.html": "/var/www/dashboard/modules/about/index.html",
+    "report.html": "/var/www/dashboard/fs-home/brain/index.html",
+    "conversation.html": "/var/www/dashboard/fs-home/hermes/conversation/index.html",
+    "tasks.html": "/var/www/dashboard/tasks/index.html",
+    "fc-coins.html": "/var/www/dashboard/fc27-coins.html",
+    "registry.json": "/var/www/dashboard/fs-home/navigation.json",
+    "rbac.py": "/opt/fs-access-policy/rbac.py",
+    "module_permissions.py": "/opt/auth-portal/registration-runtime/20261007-ca6258ad/module_permissions.py",
+    "sales.html": "/var/www/sales/index.html",
+    "aggregate.py": "/opt/sales-dashboard/collector/aggregate.py",
+    "fetch_all.py": "/opt/sales-dashboard/collector/fetch_all.py",
+    "sales_regions.py": "/opt/sales-dashboard/collector/sales_regions.py"
+  }
+}

@@ -91,6 +91,7 @@ SECTIONS = (
     ("brain", "Hermes 智体"),
     ("sports", "球类工作区"),
     ("arpg", "RPG 工作区"),
+    ("sales", "销售部系统"),
     ("marketing", "营销系统"),
     ("activities", "主站活动区"),
     ("bots", "机器人管理"),
@@ -127,7 +128,7 @@ RESOURCES = (
     # ---- RPG 工作区 ----
     ("d4", "RPG 游戏改价系统", "arpg", ("/d4",)),
     ("g2g", "G2G 自动改价", "arpg", ("/g2g",)),
-    ("sales", "销售部系统", "arpg", ("/sales",)),
+    ("sales", "销售部系统", "sales", ("/sales",)),
     # ---- 机器人管理 ----
     ("bot-console", "Discord 机器人控制台", "bots", ("/bots",)),
     # ---- 协作工具 ----
