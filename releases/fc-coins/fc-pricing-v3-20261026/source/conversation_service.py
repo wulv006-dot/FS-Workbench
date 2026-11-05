@@ -583,7 +583,7 @@ class ConversationService:
         elif self._csv_output(output):
             filename, mime = "hermes-original.csv", "text/csv"
         else:
-            filename, mime = "hermes-original.txt", "text/plain"
+            return
         self.store.save_original(user, conversation_id, run_id, raw, filename, mime)
 
     @staticmethod

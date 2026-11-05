@@ -66,7 +66,7 @@ class ServiceTests(unittest.TestCase):
         pilot.encoded = lambda obj: json.dumps(obj)
         with patch.dict(sys.modules, {"controller": controller, "fs_evidence": evidence,
                                       "fs_inprocess": inprocess, "pilot": pilot}):
-            spec = importlib.util.spec_from_file_location("candidate_conversation_service", SOURCE / "conversation_service.py")
+            spec = importlib.util.spec_from_file_location("candidate_conversation_service", getattr(cls, "SERVICE_SOURCE", SOURCE / "conversation_service.py"))
             cls.module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(cls.module)
 
@@ -361,6 +361,58 @@ class ServiceTests(unittest.TestCase):
                 self.assertEqual(denied.exception.code, 302)
                 self.assertEqual(len(requests), before + 1)
 
+
+
+class ActiveDeliveryTests(unittest.TestCase):
+    SERVICE_SOURCE = Path(__file__).resolve().parents[4] / "releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py"
+    setUpClass = classmethod(ServiceTests.setUpClass.__func__)
+
+    def test_plain_completion_persists_without_automatic_artifact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            hermes = types.SimpleNamespace(root=Path(directory), authorizer=lambda user: user == "admin",
+                                           daily=None, tasks=Tasks())
+            service = self.module.ConversationService(hermes, Path(directory) / "data", Path(directory) / "run")
+            service.pool.shutdown(wait=True)
+            cid = service.create("admin")["conversation_id"]
+            turn = service.store.reserve_turn("admin", cid, "hello", "request_001")
+            run_id = "run_" + "b" * 32
+            service.store.bind_run("admin", cid, turn["turn_id"], run_id)
+            reply = "ordinary reply, with punctuation"
+            with patch.object(service, "_request", return_value=(200, {"status": "completed", "output": reply})):
+                service._recover("admin", cid, turn["turn_id"], run_id)
+            service._terminal_from_status("admin", cid, run_id, reply)
+            store = self.module.ConversationStore(Path(directory) / "data")
+            snapshot = store.detail("admin", cid)["turns"][0]
+            self.assertEqual(snapshot["reply"], reply)
+            self.assertEqual(snapshot["state"], "completed")
+            self.assertEqual(snapshot["artifacts"], [])
+            events = store.events("admin", cid)
+            self.assertEqual([e["type"] for e in events], ["run.completed"])
+            self.assertEqual(events[0]["payload"]["output"], reply)
+            self.assertFalse((store.root / "artifacts").exists())
+
+    def test_csv_and_existing_text_artifacts_remain_downloadable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            hermes = types.SimpleNamespace(root=Path(directory), authorizer=lambda user: user == "admin",
+                                           daily=None, tasks=Tasks())
+            service = self.module.ConversationService(hermes, Path(directory) / "data", Path(directory) / "run")
+            service.pool.shutdown(wait=True)
+            cid = service.create("admin")["conversation_id"]
+            for index, reply in enumerate(["sep=,\nname,value\nexample,1", "<!doctype html><html><body>report</body></html>", "ordinary reply"]):
+                turn = service.store.reserve_turn("admin", cid, "report", "request_00" + str(index))
+                run_id = "run_" + str(index) * 32
+                service.store.bind_run("admin", cid, turn["turn_id"], run_id)
+                if index == 2:
+                    service.store.save_original("admin", cid, run_id, b"historical text")
+                for _ in range(2):
+                    service._terminal_from_status("admin", cid, run_id, reply)
+                service.store.set_state("admin", cid, turn["turn_id"], "completed")
+                snapshot = service.detail("admin", cid)["turns"][index]
+                self.assertEqual(len(snapshot["artifacts"]), 1)
+                item = snapshot["artifacts"][0]
+                downloaded = service.artifact("admin", cid, item["artifact_id"])
+                self.assertEqual(downloaded["content"], b"historical text" if index == 2 else reply.encode())
+                self.assertEqual(item["mime"], ["text/csv", "text/html", "text/plain"][index])
 
 
 def load_tests(loader, tests, pattern):
