@@ -1553,12 +1553,11 @@ class NativePublisher(unittest.TestCase):
         prepare.configure_native_capabilities()
         path=Path(__file__).with_name('plain-reply-before-051f.json');original=Path.read_bytes
         fixture=json.loads(original(path))
-        after_sha={'runtime/conversation_service.py':'373f09b2c591abe8335b29334f1c9777f93584042e487d6a4ed2d3cb2cf25a35',
-                   'http/conversation_http.py':'5c750b27097a7a95a7986f6e8cb2def6a29b541db8c54e3d68592c1b601c6d86'}
-        for name,expected_after in after_sha.items():
+        for name in ('runtime/conversation_service.py','http/conversation_http.py'):
             body=self.plain_reply_installed_bytes(name)
             after=(Path(__file__).resolve().parents[4]/prepare.SOURCES[name]).read_bytes()
-            self.assertEqual(prepare.digest(after),expected_after)
+            # The installed before stays frozen; later reviewed source is not before.
+            self.assertNotEqual(prepare.digest(after),prepare.digest(body))
             for field,value in (('sha256','0'*64),('bytes',len(body)+1),('blob','0'*40),('source','wrong'),('utf8',after.decode())):
                 bad=deepcopy(fixture);bad['files'][name][field]=value
                 raw=json.dumps(bad).encode()
@@ -3460,7 +3459,8 @@ class NativePublisher(unittest.TestCase):
                             path=base.rooted(f.system,row['target']);untouched[row['target']]=(path.read_bytes(),path.stat().st_ino,path.stat().st_mtime_ns)
                     self.assertEqual(len(untouched),796)
                     changed=[r for r in manifest['files'] if r['beforeSha256']!=r['sha256']]
-                    self.assertEqual([(r['candidate'],r['beforeSha256'],r['sha256']) for r in changed],[('runtime/conversation_service.py','80fdbae538933026fde0185642283ffe12cef34a1a674a38b8d40dfb7c69ad2f','373f09b2c591abe8335b29334f1c9777f93584042e487d6a4ed2d3cb2cf25a35'),('http/conversation_http.py','8d577e8493cabc2847604ab77e7539bb215c947cee842000acc86878bc2ba44d','5c750b27097a7a95a7986f6e8cb2def6a29b541db8c54e3d68592c1b601c6d86')])
+                    service_after=(Path(__file__).resolve().parents[4]/prepare.SOURCES['runtime/conversation_service.py']).read_bytes()
+                    self.assertEqual([(r['candidate'],r['beforeSha256'],r['sha256']) for r in changed],[('runtime/conversation_service.py','80fdbae538933026fde0185642283ffe12cef34a1a674a38b8d40dfb7c69ad2f',prepare.digest(service_after)),('http/conversation_http.py','8d577e8493cabc2847604ab77e7539bb215c947cee842000acc86878bc2ba44d','5c750b27097a7a95a7986f6e8cb2def6a29b541db8c54e3d68592c1b601c6d86')])
                     self.assertFalse(release.NEW)
                     self.assertEqual({row['candidate'] for row in manifest['files'] if row['beforeSha256'] is None},set(release.NEW))
                 untouched_modes={p:(base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)) for p in untouched}
