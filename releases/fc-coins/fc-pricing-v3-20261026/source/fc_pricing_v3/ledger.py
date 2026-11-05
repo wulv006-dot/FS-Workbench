@@ -282,15 +282,24 @@ class Ledger:
             if not row or (row['plan_id'], row['revision'], row['generation']) != (plan['plan_id'], plan['revision'], plan['generation']):
                 raise ValueError('pricing_resource_taken_over')
 
-    def assignment(self, plan, candidates, *, now=None, model_version='central-prior-e2'):
+    def assignment(self, plan, candidates, *, now=None, model_version='central-prior-e2', lifecycle_plan=None):
         from .engine import POLICIES
         now = now or clock()
         block = int(now.timestamp()) // (6*3600)
         key = fingerprint([plan['plan_id'], plan['revision'], block])
+        storage_key = fingerprint([key, 'smart_lifecycle', lifecycle_plan['plan_id'], lifecycle_plan['revision']]) if lifecycle_plan else key
+        deadline = lifecycle_plan.get('ends_at') if lifecycle_plan is not None else plan.get('ends_at')
+        end = min(now.replace(hour=(now.hour//6)*6, minute=0, second=0, microsecond=0)+timedelta(hours=6),
+                  instant(deadline) if deadline else now+timedelta(hours=6)).isoformat()
         with self.transaction() as db:
-            previous = self.get('experiment_assignments', key, db)
+            previous = self.get('experiment_assignments', storage_key, db)
+            if previous is None and lifecycle_plan is not None:
+                previous = self.get('experiment_assignments', key, db)
             actions = {fingerprint(c['action']): c for c in candidates}
             if previous and fingerprint(previous['action']) in actions:
+                if lifecycle_plan is not None:
+                    previous = dict(previous, ends_at=end)
+                    self.put('experiment_assignments', storage_key, previous, db)
                 return previous
             ordered = sorted(candidates, key=lambda c: (Decimal(c['score']['objective']),
                              Decimal(c['score'].get('revenue_index',c['score'].get('revenue') or '0'))), reverse=True)
@@ -323,11 +332,10 @@ class Ledger:
                 labels=labels[selected], seed=seed, draw=draw, model_version=model_version,
                 deterministic=len(probabilities)==1, created_at=now.isoformat(),
                 parent_assignment_id=previous['assignment_id'] if previous else None,
-                ends_at=min(now.replace(hour=(now.hour//6)*6, minute=0, second=0, microsecond=0)+timedelta(hours=6),
-                            instant(plan['ends_at']) if plan.get('ends_at') else now+timedelta(hours=6)).isoformat())
-            if previous:
+                ends_at=end)
+            if previous and lifecycle_plan is None:
                 self.put('experiment_assignments',previous['assignment_id'],previous,db)
-            self.put('experiment_assignments', key, assignment, db)
+            self.put('experiment_assignments', storage_key, assignment, db)
             return assignment
 
     def budget_usage(self,plan,now=None,db=None):
@@ -565,7 +573,11 @@ class Ledger:
                     def value(action,resource):
                         kind,key=resource.split(':',1)
                         return Decimal(action.get('base_prices' if kind=='base' else 'region_coefficients',{}).get(key,'1'))
-                    same={r for r in affected if value(window['action'],r)==value(op['bundle']['action'],r)}
+                    def catalog_matches(resource):
+                        platforms = ('PS','XBOX') if resource == 'base:console' else ('PC',) if resource == 'base:pc' else (resource.rsplit(':',1)[-1],)
+                        old, new = window.get('catalog',{}), op['bundle'].get('catalog',{})
+                        return all(old.get(platform) == new.get(platform) for platform in platforms)
+                    same={r for r in affected if value(window['action'],r)==value(op['bundle']['action'],r) and catalog_matches(r)}
                     if same:
                         window.setdefault('continuations',[]).append(dict(operation_id=operation_id,assignment_id=op['bundle']['assignment_id'],resources=sorted(same),at=opened))
                         if window.get('assignment_id')!=op['bundle']['assignment_id']:

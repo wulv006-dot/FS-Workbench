@@ -112,7 +112,7 @@ def assess(blocks, *, complete):
                 gross=sum(Decimal(row['actual_contribution_usd']) for row in rows if row.get('actual_contribution_usd') is not None)
                 uncertain=sum(Decimal(row['gap_usd']) for row in gap_rows)
                 uncovered=sum(Decimal(row['actual_net_usd']) for row in rows if row.get('actual_contribution_usd') is None) + uncertain
-                if not net or uncovered:
+                if uncovered:
                     break
                 covered=[abs(Decimal(row['actual_contribution_usd'])) for row in rows if row.get('actual_contribution_usd') is not None]
                 if covered and max(covered) > abs(gross) / 2:
@@ -123,7 +123,11 @@ def assess(blocks, *, complete):
                                     new_customers=len(new), customer_unknown=customer_unknown))
             if len(clipped)==2:
                 pairs.append(tuple(clipped))
-        if len(pairs) < 2 or any(sum(p[i]['orders'] for p in pairs) < 10 for i in (0, 1)):
+        if len(pairs) < 2 or sum(p[0]['orders'] for p in pairs) < 10:
+            continue
+        if all(Decimal(str(y['gross'])) / Decimal(str(y['hours'])) < Decimal('.90') * Decimal(str(x['gross'])) / Decimal(str(x['hours'])) for x,y in pairs):
+            excluded.append(label)
+        if sum(p[1]['orders'] for p in pairs) < 10:
             continue
         rates = []
         for index in (0, 1):
@@ -138,9 +142,7 @@ def assess(blocks, *, complete):
             rates[-1]['customer_unknown'] = totals['customer_unknown'] / totals['hours']
             rates[-1]['customer_coverage'] = 1 - totals['customer_unknown'] / totals['orders']
         a, b = rates
-        if all((Decimal(str(y['gross'])) + Decimal(str(y['uncovered']))) / Decimal(str(y['hours'])) < Decimal('.90') * Decimal(str(x['gross'])) / Decimal(str(x['hours'])) for x,y in pairs):
-            excluded.append(label)
-        if min(a['customer_coverage'],b['customer_coverage']) < Decimal('.90') or any(a[k] <= 0 for k in ('net','gross','new_customers')):
+        if min(a['customer_coverage'],b['customer_coverage']) < Decimal('.90') or any(a[k] <= 0 for k in ('net','gross','new_customers')) or b['net'] <= 0:
             continue
         consistent=all(Decimal(str(y['gross'])) > Decimal(str(x['gross'])) for x,y in pairs)
         if (consistent and b['gross'] >= (a['gross']+a['uncovered']) * Decimal('1.08') and b['net'] >= (a['net']+a['uncertain']) * Decimal('.95') and

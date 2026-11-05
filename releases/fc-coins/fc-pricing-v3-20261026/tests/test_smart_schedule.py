@@ -157,6 +157,18 @@ class SmartScheduleTest(unittest.TestCase):
         self.assertIn('B',result['excluded'])
         self.assertIsNone(result['winner'])
 
+    def test_fully_observed_zero_sales_can_stop_loss(self):
+        def block(slot,label,orders):
+            return dict(slot=slot,label=label,hours=3,complete=True,prices=[label],intervals=[[0,10800]],
+                events=[dict(offset=10+i,actual_net_usd='5',actual_contribution_usd='2',new_customer=None,customer_key=None) for i in range(orders)])
+        blocks=[block(0,'A',20),block(8,'B',0),block(1,'A',20),block(9,'B',0)]
+        result=assess(blocks,complete=True)
+        self.assertIn('B',result['excluded'])
+        self.assertIsNone(result['winner'])
+        self.assertEqual(assess(blocks,complete=False)['excluded'],[])
+        blocks[1]['complete']=False
+        self.assertEqual(assess(blocks,complete=True)['excluded'],[])
+
     def test_mature_loss_is_recorded_for_next_block(self):
         from pathlib import Path
         import tempfile
