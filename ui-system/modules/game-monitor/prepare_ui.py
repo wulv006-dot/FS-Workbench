@@ -65,7 +65,7 @@ def prepare(asset, stage, module=Path('/opt/fs-hermes-ops/game_monitor/publicati
     version='workspace-native-20261006-'+pub.sha(json.dumps(identities,sort_keys=True).encode())[:12]
     manifest['immutableAssets']=asset_rows(identities,pub.STATIC,version)
     fragment_row=next(row for row in manifest['targets'] if row['target']==str(pub.FRAGMENT))
-    fragment=default_entry((stage/fragment_row['candidate']).read_text().replace(old_version,version))
+    fragment=default_entry((stage/fragment_row['candidate']).read_bytes().decode().replace(old_version,version))
     blocks=pub.blocks(fragment)
     template=blocks[OLD_ROUTE]
     additions={NEW_ROUTE:route(template,OLD_ROUTE,NEW_ROUTE,pub.STATIC/version/name),
