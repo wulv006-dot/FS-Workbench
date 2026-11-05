@@ -2,6 +2,8 @@ import importlib.util
 from pathlib import Path
 import unittest
 import tempfile
+import hashlib
+import json
 from unittest.mock import patch
 
 path=Path(__file__).resolve().parents[1]/'retire_legacy.py'
@@ -11,6 +13,25 @@ spec.loader.exec_module(module)
 
 
 class RetireTests(unittest.TestCase):
+    def test_intake_error_after_resolved_rollback_is_not_unknown_publication(self):
+        release='workspace-native-20261006-'+'a'*12
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);backup=root/release;backup.mkdir()
+            manifest=b'{"scope":"old operation"}'
+            digest=hashlib.sha256(manifest).hexdigest()
+            (backup/'approved-manifest.json').write_bytes(manifest)
+            (backup/'journal.json').write_text(json.dumps(dict(status='rolled-back-immutable-history-retained',activationAttempted=False,approvedManifestSha256=digest)))
+            record=dict(status='blocked',error='literal_marker_ambiguous',publication=dict(release=release,manifest_sha256=digest),rollback_readback=dict(status='rolled_back_verified'))
+            self.assertTrue(module.operation_closed(record,root))
+            record['publication']['manifest_sha256']='b'*64
+            self.assertFalse(module.operation_closed(record,root))
+            record['publication']['manifest_sha256']=digest
+            record['status']='publishing_unknown'
+            self.assertFalse(module.operation_closed(record,root))
+            record['status']='blocked'
+            (backup/'journal.json').write_text(json.dumps(dict(status='applied-awaiting-real-desktop-URL-QA',activationAttempted=True,approvedManifestSha256=digest)))
+            self.assertFalse(module.operation_closed(record,root))
+
     def test_removes_only_old_controller_hook(self):
         before=b'import subprocess\ndef main():\n        existing_shared_task()\n'+module.HOOK.encode()+b'        other_shared_task()\n'
         self.assertEqual(module.strip_hook(before),b'import subprocess\ndef main():\n        existing_shared_task()\n        other_shared_task()\n')
