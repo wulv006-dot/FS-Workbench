@@ -7,7 +7,7 @@
 - `web/`：原生界面、现役 FS 主题、29 游戏目录、原有 18 条 FC 原表日历。
 - `web/source-model.js`：读取现役 `daily.json`、`seo-news.json`，以及补充的 `intelligence.json`、`intelligence.status.json`。相同事件选采集时间较新的记录；保留记录不续期；原表截图来源保留为说明，不伪造网址。
 - `backend/discovery.py`：供 Hermes 运维编排调用的固定公开情报任务。读取宿主既有 DeepSeek 账户；Search/Fetch 结果按游戏、公告路径/版块和原文校验。无合格搜索结果时复用现役官方读取器，并保留搜索缺项。模型调用复用现役 `direct_provider`，没有新试点额度。不是向所有 Hermes 会话全局开启任意搜索或写入权限。
-- `prepare_ui.py`：仅准备候选，复用现役不可变 publisher、锁、CAS、保护路径、备份和读回，不执行 apply。新增 `/dashboard/game-monitor/operations.html`；原 `/dashboard/game-monitor/index.html` 保留并增加新版入口。
+- `prepare_ui.py`：仅准备候选，复用现役不可变 publisher、锁、CAS、保护路径、备份和读回，不执行 apply。原首页路径 `/dashboard/game-monitor/` 指向新增的 `operations.html`；`index.html` 保留资料与自动维护，并增加新版入口。
 
 Search/Fetch 使用官方端点，成功非空请求分别为 $0.75/1,000 次；模型 token 仍按现役账户计费。本次用户已明确允许这部分费用，不新增内部试点预算或额度。
 

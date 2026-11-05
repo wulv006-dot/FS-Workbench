@@ -35,6 +35,16 @@ def asset_rows(identities, static, version):
         for name,digest in sorted(identities.items())]
 
 
+def default_entry(fragment):
+    old='location = /dashboard/game-monitor/ { rewrite ^ /dashboard/game-monitor/index.html last; }'
+    new='location = /dashboard/game-monitor/ { rewrite ^ /dashboard/game-monitor/operations.html last; }'
+    if fragment.count(old)==1 and new not in fragment:
+        return fragment.replace(old,new,1)
+    if fragment.count(new)==1 and old not in fragment:
+        return fragment
+    raise ValueError('default_entry_route_drift')
+
+
 def prepare(asset, stage, module=Path('/opt/fs-hermes-ops/game_monitor/publication.py')):
     raw=module.read_bytes()
     if hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()!=FROZEN_PUBLICATION_BLOB:
@@ -55,7 +65,7 @@ def prepare(asset, stage, module=Path('/opt/fs-hermes-ops/game_monitor/publicati
     version='workspace-native-20261006-'+pub.sha(json.dumps(identities,sort_keys=True).encode())[:12]
     manifest['immutableAssets']=asset_rows(identities,pub.STATIC,version)
     fragment_row=next(row for row in manifest['targets'] if row['target']==str(pub.FRAGMENT))
-    fragment=(stage/fragment_row['candidate']).read_text().replace(old_version,version)
+    fragment=default_entry((stage/fragment_row['candidate']).read_text().replace(old_version,version))
     blocks=pub.blocks(fragment)
     template=blocks[OLD_ROUTE]
     additions={NEW_ROUTE:route(template,OLD_ROUTE,NEW_ROUTE,pub.STATIC/version/name),
@@ -87,7 +97,7 @@ def prepare(asset, stage, module=Path('/opt/fs-hermes-ops/game_monitor/publicati
         raise ValueError('prepare_concurrent_drift')
     inspection=pub.run(['/opt/python39/bin/python3','-B',str(stage/'release_workspace.py'),'inspect'])
     return dict(stage=str(stage),release=version,asset_sha256=pub.sha(asset),original_page_sha256=pub.sha(before),
-        new_route=NEW_ROUTE,inspect=inspection,applied=False)
+        new_route=NEW_ROUTE,default_route='/dashboard/game-monitor/',inspect=inspection,applied=False)
 
 
 if __name__=='__main__':

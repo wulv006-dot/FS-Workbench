@@ -9,6 +9,14 @@ module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 
 
 class PrepareTests(unittest.TestCase):
+    def test_default_entry_targets_new_ui_without_replacing_legacy_data_route(self):
+        old='location = /dashboard/game-monitor/ { rewrite ^ /dashboard/game-monitor/index.html last; }'
+        result=module.default_entry(old)
+        self.assertIn('/dashboard/game-monitor/operations.html last;',result)
+        self.assertEqual(module.default_entry(result),result)
+        with self.assertRaisesRegex(ValueError,'default_entry_route_drift'):
+            module.default_entry(old+'\n'+old)
+
     def test_new_route_inherits_auth_instead_of_opening_public_access(self):
         old='location = /dashboard/game-monitor/index.html {\n auth_request /__auth;\n alias /old/index.html;\n add_header X-Frame-Options SAMEORIGIN;\n}'
         result=module.route(old,'/dashboard/game-monitor/index.html','/dashboard/game-monitor/operations.html','/new/operations.html')
