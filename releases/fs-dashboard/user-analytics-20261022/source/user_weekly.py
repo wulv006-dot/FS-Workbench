@@ -10,6 +10,7 @@ from user_store import safe
 CONTRACT = 'fs-users-weekly-publication-v1'
 WORK = 'weekly-work.json'
 META = 'weekly_publication'
+REVIEW_POLICY = 'calendar-months-v1'
 
 
 class WeeklyUnavailable(LookupError):
@@ -19,6 +20,14 @@ class WeeklyUnavailable(LookupError):
 def monday(now):
     now = now.astimezone(TZ).replace(hour=0, minute=0, second=0, microsecond=0)
     return now - timedelta(days=now.weekday())
+
+
+def calendar_review_start(cutoff):
+    """Current calendar month and the preceding two, through the cutoff midnight."""
+    cutoff = cutoff.astimezone(TZ)
+    month_index = cutoff.year * 12 + cutoff.month - 1 - 2
+    year, month = divmod(month_index, 12)
+    return cutoff.replace(year=year, month=month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
 def window(now):
@@ -154,11 +163,23 @@ def publication(store, now):
 def public_info(value):
     cutoff = stamp(value['cutoff'])
     days = 1 if value.get('cadence') == 'daily' else 7
-    return dict(cadence=value.get('cadence', 'weekly'), publication_id=value['publication_id'], data_version=value['data_version'],
+    result = dict(cadence=value.get('cadence', 'weekly'), publication_id=value['publication_id'], data_version=value['data_version'],
                 data_through=(cutoff - timedelta(days=1)).date().isoformat(), cutoff=value['cutoff'],
                 default_start=(cutoff - timedelta(days=7)).isoformat(), last_successful_update=value['published_at'],
                 next_planned_update=(cutoff + timedelta(days=days, hours=4, minutes=18)).isoformat(),
                 backup_policy='on_demand_only')
+    if value.get('review_pending'):
+        result['review_pending'] = value['review_pending']
+    return result
+
+
+def error_state(error):
+    code = str(error) if isinstance(error, (ValueError, RuntimeError)) and len(str(error)) < 120 else type(error).__name__
+    if any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_:' for c in code):
+        code = type(error).__name__
+    retryable = not isinstance(error, (ValueError, KeyError, TypeError, PermissionError)) and not any(
+        token in code.lower() for token in ('permission', 'denied', 'invalid', 'unmapped', 'contract', 'identity', 'sort', 'valueerror'))
+    return dict(error=code, retryable=retryable)
 
 
 def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly'):
@@ -167,10 +188,11 @@ def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly')
     if cadence not in ('daily', 'weekly'): raise ValueError('publication_cadence')
     latest = now.replace(hour=0, minute=0, second=0, microsecond=0) if cadence == 'daily' else monday(now)
     retiring_backup = state is not None and state['phase'] == 'backup'
-    if state and not retiring_backup and state.get('retryable') is False and not force:
+    calendar_review = bool(state and state.get('review_policy') == REVIEW_POLICY and state.get('review_start'))
+    if state and not calendar_review and not retiring_backup and state.get('retryable') is False and not force:
         return dict(status='requires_reconciliation', reason=state.get('error'), cutoff=state['cutoff'], source_calls=0)
     if state and not retiring_backup and (not window(now) or state['phase'] == 'complete' and stamp(state['cutoff']) >= latest
-                  or state.get('retryable') is False and not force):
+                  or not calendar_review and state.get('retryable') is False and not force):
         return dict(status='reused', reason='weekly_idle', cutoff=state['cutoff'], source_calls=0)
     store = loader()
     import fcntl
@@ -186,8 +208,8 @@ def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly')
             published = None
         if state is None and published and published.get('origin') in ('weekly', 'daily'):
             state = dict(contract='fs-users-weekly-work-v1', cutoff=published['cutoff'], phase='backup', cadence=published.get('cadence', 'weekly'))
-        if state and state['phase'] == 'backup':
-            if not published or published['cutoff'] != state['cutoff']:
+        if state and state['phase'] == 'backup' and not calendar_review:
+            if not published or published['cutoff'] != state.get('publication_cutoff', state['cutoff']):
                 return dict(status='requires_reconciliation', reason='weekly_publication_checkpoint_mismatch', source_calls=0)
             # Old pending copies are left intact; they no longer block the next weekly publication.
             return dict(finish_week(store, state, published, now), source_calls=0)
@@ -200,36 +222,105 @@ def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly')
                 record_state(store, dict(contract='fs-users-weekly-work-v1', cutoff=published['cutoff'], phase='complete', cadence=published.get('cadence', 'weekly')))
                 return dict(status='reused', reason='weekly_already_published', source_calls=0)
             start = min(stamp(published['cutoff']), latest-timedelta(days=7)) if published else latest-timedelta(days=7)
-            # Completed orders can later be refunded; recheck the usual three-month analysis horizon weekly.
-            review_start = max(stamp(store.config.get('history_backfill_start', '1970-01-01')), latest-timedelta(days=90))
-            if cadence != 'daily' or latest.weekday() == 0:
+            if cadence == 'daily':
+                # Date enumeration includes every order status. A weekly calendar-month
+                # review replaces the daily old-day rotation and targeted-ID pass.
+                if published:
+                    start = stamp(published['cutoff'])
+                review_start = calendar_review_start(latest) if latest.weekday() == 0 else None
+                if review_start is not None:
+                    start = min(start, review_start)
+            else:
+                # Preserve the legacy weekly caller and already running work contract.
+                review_start = max(stamp(store.config.get('history_backfill_start', '1970-01-01')), latest-timedelta(days=90))
                 start = min(start, review_start)
-            elif published:
-                start = stamp(published['cutoff'])
             state = dict(contract='fs-users-weekly-work-v1', cutoff=latest.isoformat(), phase='windows', cadence=cadence,
                          started_at=now.isoformat(), start=start.isoformat(), next_days={site: start.isoformat() for site in store.config['sites']},
                          base_publication=(published or {}).get('publication_id'), historical_done=[], backfill_done=[], targeted_done=[])
+            if cadence == 'daily':
+                state.update(review_policy=REVIEW_POLICY, review_start=review_start.isoformat() if review_start else None,
+                             initial_published_cutoff=(published or {}).get('cutoff'))
             record_state(store, state)
-        if state.get('retryable') is False and not force:
+        review_blocked = state.get('retryable') is False and not force
+        if review_blocked and not (state.get('review_policy') == REVIEW_POLICY and state.get('review_start')):
             return dict(status='requires_reconciliation', reason=state.get('error'), cutoff=state['cutoff'])
-        state.pop('error', None); state.pop('retryable', None)
+        if not review_blocked:
+            state.pop('error', None); state.pop('retryable', None)
         try:
             return run(store, state, published, now, clock, force=force)
         except (OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
-            code = str(error) if isinstance(error, (ValueError, RuntimeError)) and len(str(error)) < 120 else type(error).__name__
-            if any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_:' for c in code):
-                code = type(error).__name__
-            retryable = not isinstance(error, (ValueError, KeyError, TypeError, PermissionError)) and not any(
-                token in code.lower() for token in ('permission', 'denied', 'invalid', 'unmapped', 'contract', 'identity', 'sort', 'valueerror'))
-            state.update(error=code, retryable=retryable)
+            state.update(error_state(error))
             record_state(store, state)
-            return dict(status='deferred' if retryable else 'requires_reconciliation', reason=code, cutoff=state['cutoff'])
+            return dict(status='deferred' if state['retryable'] else 'requires_reconciliation', reason=state['error'], cutoff=state['cutoff'])
+
+
+def review_cycle_id(state):
+    return 'ur_' + digest({key: state[key] for key in ('review_policy', 'cutoff', 'started_at')})[:24]
+
+
+def snapshot_candidate(store, start, cutoff, now, cadence):
+    """Shared daily/review publication over complete facts and pinned ES files."""
+    from user_customer_types import manifest_inventory, read_pinned_flags, read_pinned_identities
+    from user_query import Service
+    manifests = manifest_inventory()
+    _, flags = read_pinned_flags(dict(start=min(stamp(start), cutoff-timedelta(days=7)).isoformat(), end_exclusive=cutoff.isoformat()), manifests)
+    if flags['status'] != 'complete':
+        return None, 'weekly_customer_type_pending'
+    identity_rows, identity_info = read_pinned_identities(dict(start=start, end_exclusive=cutoff.isoformat()), manifests)
+    if identity_info['status'] != 'complete':
+        return None, 'identity_archive_pending'
+    evidence = store.enrich_order_identities(start, cutoff.isoformat(), identity_rows, identity_info['sourceVersion'])
+    service = Service(store, lambda *_: True, clock=lambda: cutoff,
+                      customer_type_reader=lambda query: read_pinned_flags(query, manifests), weekly_publication=False)
+    result = service.query(dict(start=(cutoff-timedelta(days=7)).isoformat()), 'internal_weekly_calculation')
+    value = from_snapshot(store, result['snapshot_id'], cutoff, manifests, now.isoformat(), origin=cadence)
+    return value, evidence
+
+
+def advance_daily_during_review(store, state, published, now, checkpoint):
+    """Use the same lock/work file; keep the original monthly cursor untouched."""
+    from user_jobs import synchronize_day, has_window
+    from user_customer_types import ensure_period
+    from user_lifecycle import covered
+    cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if published and stamp(published['cutoff']) >= cutoff:
+        return None
+    start = stamp(published['cutoff']) if published else cutoff-timedelta(days=7)
+    for site in store.config['sites']:
+        day = start
+        while day < cutoff:
+            end = day + timedelta(days=1)
+            if not has_window(store.coverage(), site, day.isoformat(), end.isoformat()):
+                result = synchronize_day(store, site, day.isoformat(), end.isoformat())
+                if result['status'] == 'deferred':
+                    return dict(status='deferred', reason='daily_source_busy', cutoff=cutoff.isoformat())
+            day = end
+            if checkpoint():
+                return dict(status='continuing', phase='daily_priority', cutoff=cutoff.isoformat())
+    if not covered(store.coverage(), list(store.config['sites']), start, cutoff):
+        raise ValueError('daily_complete_day_coverage_required')
+    flags = ensure_period(min(start, cutoff-timedelta(days=7)).isoformat(), cutoff.isoformat(), now, daily=True)
+    if flags['status'] != 'complete':
+        return dict(status='deferred', reason='daily_customer_type_pending', cutoff=cutoff.isoformat())
+    value, evidence = snapshot_candidate(store, start.isoformat(), cutoff, now, 'daily')
+    if value is None:
+        return dict(status='deferred', reason=evidence, cutoff=cutoff.isoformat())
+    if not state.get('review_complete'):
+        value['review_pending'] = dict(cycle_id=review_cycle_id(state), start=state['review_start'], cutoff=state['cutoff'])
+    value['publication_id'] = 'uw_' + digest({k: v for k, v in value.items() if k != 'publication_id'})[:32]
+    # Save the exact candidate before the CAS write so an interrupted response is reconciled.
+    state['daily_publication_id'] = value['publication_id']; record_state(store, state)
+    write_publication(store, value, (published or {}).get('publication_id'))
+    state['base_publication'] = value['publication_id']; record_state(store, state)
+    return None
 
 
 def run(store, state, published, now, clock, force=False):
     from user_jobs import synchronize_day, targeted_refresh, payment_day_watermarks
-    from user_customer_types import ensure_period, manifest_inventory, read_pinned_flags, read_pinned_identities
+    from user_customer_types import ensure_period
     cutoff = stamp(state['cutoff'])
+    calendar_policy = state.get('review_policy') == REVIEW_POLICY
+    review_start = stamp(state['review_start']) if calendar_policy and state.get('review_start') else None
     started = clock()
     deadline = started + 360
     def at():
@@ -237,18 +328,52 @@ def run(store, state, published, now, clock, force=False):
     def checkpoint():
         record_state(store, state)
         return clock() >= deadline or not window(now + timedelta(seconds=clock()-started))
-    if published and published['cutoff'] == state['cutoff']:
+    if published and ((calendar_policy and state.get('final_publication_id') == published['publication_id'])
+                      or not calendar_policy and published['cutoff'] == state['cutoff']):
         state['phase'] = 'backup'  # Reconcile a commit whose checkpoint was interrupted.
-    if state['phase'] != 'backup' and cutoff - stamp(state['start']) > timedelta(days=90):
-        raise ValueError('weekly_gap_exceeds_three_months')
+    if calendar_policy and review_start is not None and state['phase'] == 'backup':
+        if not published or published['publication_id'] not in (state.get('final_publication_id'), state.get('daily_publication_id')):
+            raise ValueError('weekly_publication_checkpoint_mismatch')
+        state.update(review_complete=True, publication_cutoff=published['cutoff'])
+    if state['phase'] != 'backup':
+        if calendar_policy:
+            lower = min(calendar_review_start(cutoff), stamp(state['initial_published_cutoff'])
+                        if state.get('initial_published_cutoff') else cutoff-timedelta(days=7))
+            if (not lower <= stamp(state['start']) < cutoff
+                    or review_start is not None and (review_start != calendar_review_start(cutoff) or cutoff.weekday() != 0)):
+                raise ValueError('calendar_review_range')
+        elif cutoff - stamp(state['start']) > timedelta(days=90):
+            raise ValueError('weekly_gap_exceeds_three_months')
+    if calendar_policy and review_start is not None:
+        if state.get('daily_error', {}).get('retryable') is False and not force:
+            return dict(status='requires_reconciliation', reason=state['daily_error']['error'], phase='daily_priority', cutoff=state['cutoff'])
+        try:
+            priority = advance_daily_during_review(store, state, published, at(), checkpoint)
+        except (OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
+            state['daily_error'] = error_state(error); record_state(store, state)
+            return dict(status='deferred' if state['daily_error']['retryable'] else 'requires_reconciliation',
+                        reason=state['daily_error']['error'], phase='daily_priority', cutoff=state['cutoff'])
+        if priority is not None:
+            return priority
+        state.pop('daily_error', None)
+        published = stored_publication(store)
+        state['base_publication'] = (published or {}).get('publication_id')
+        if state.get('review_complete'):
+            state['publication_cutoff'] = published['cutoff']
+        record_state(store, state)
+        if state.get('retryable') is False and not force:
+            return dict(status='requires_reconciliation', reason=state['error'], cutoff=state['cutoff'], review_pending=True)
+        if checkpoint():return dict(status='continuing', phase='review', cutoff=state['cutoff'])
     if state['phase'] == 'windows':
         for site in store.config['sites']:
             day = stamp(state['next_days'][site])
             while day < cutoff:
                 end = day + timedelta(days=1)
+                reuse_archived = (not review_start or day < review_start) if calendar_policy else bool(
+                    state.get('cadence') == 'daily' and published and day >= stamp(published['cutoff']))
                 already = any(j['site'] == site and j['state'] == 'complete' and stamp(j['start']) <= day
                               and stamp(j['end']) >= end and (stamp(json.loads(j['body']).get('captured_at', '1970-01-01')) >= stamp(state['started_at'])
-                              or state.get('cadence') == 'daily' and published and day >= stamp(published['cutoff']))
+                              or reuse_archived)
                               for j in store.coverage())
                 if not already:
                     result = synchronize_day(store, site, day.isoformat(), end.isoformat())
@@ -257,7 +382,7 @@ def run(store, state, published, now, clock, force=False):
                 day = end; state['next_days'][site] = day.isoformat()
                 if checkpoint():
                     return dict(status='continuing', phase=state['phase'], cutoff=state['cutoff'])
-            if site not in state['historical_done']:
+            if not calendar_policy and site not in state['historical_done']:
                 days = payment_day_watermarks(store.coverage(), site, now)
                 older = [(at or datetime.min.replace(tzinfo=TZ), day) for day, at in days.items() if day < stamp(state['start'])]
                 if older:
@@ -276,7 +401,7 @@ def run(store, state, published, now, clock, force=False):
                     if result['status'] == 'deferred':return dict(status='deferred', reason='existing_source_busy', cutoff=state['cutoff'])
                 state.setdefault('backfill_done', []).append(site)
                 if checkpoint():return dict(status='continuing', phase=state['phase'], cutoff=state['cutoff'])
-        state['phase'] = 'targeted'; record_state(store, state)
+        state['phase'] = 'flags' if calendar_policy else 'targeted'; record_state(store, state)
     if state['phase'] == 'targeted':
         for site in store.config['sites']:
             if site in state['targeted_done']:continue
@@ -290,45 +415,88 @@ def run(store, state, published, now, clock, force=False):
             if checkpoint():return dict(status='continuing', phase=state['phase'], cutoff=state['cutoff'])
         state['phase'] = 'flags'; record_state(store, state)
     if state['phase'] == 'flags':
-        result = ensure_period(min(stamp(state['start']), cutoff-timedelta(days=7)).isoformat(), state['cutoff'], now, daily=state.get('cadence') == 'daily')
+        flag_start = min(stamp(state['start']), cutoff-timedelta(days=7))
+        options = dict(daily=state.get('cadence') == 'daily')
+        if calendar_policy and review_start is not None:
+            if flag_start < review_start:
+                gap = ensure_period(flag_start.isoformat(), review_start.isoformat(), now, daily=True)
+                if gap['status'] != 'complete':
+                    return dict(status='deferred', reason='weekly_customer_type_pending', cutoff=state['cutoff'])
+            flag_start = review_start
+            options.update(daily=False, fresh_after=state['started_at'], cycle_id=review_cycle_id(state))
+        result = ensure_period(flag_start.isoformat(), state['cutoff'], now, **options)
         if result['status'] != 'complete':
             return dict(status='deferred', reason='weekly_customer_type_pending', cutoff=state['cutoff'])
         state['phase'] = 'publish'; record_state(store, state)
         if checkpoint():return dict(status='continuing', phase=state['phase'], cutoff=state['cutoff'])
     if state['phase'] == 'publish':
-        from user_query import Service
         from user_lifecycle import covered
         jobs = store.coverage()
         if not covered(jobs, list(store.config['sites']), stamp(state['start']), cutoff):
             raise ValueError('weekly_complete_day_coverage_required')
-        manifests = manifest_inventory()
-        _, flags = read_pinned_flags(dict(start=min(stamp(state['start']), cutoff-timedelta(days=7)).isoformat(), end_exclusive=state['cutoff']), manifests)
-        if flags['status'] != 'complete':
+        publish_cutoff = max(cutoff, stamp(published['cutoff'])) if calendar_policy and published else cutoff
+        value, evidence = snapshot_candidate(store, state['start'], publish_cutoff, at(), 'daily' if state.get('cadence') == 'daily' else 'weekly')
+        if value is None:
             state['phase'] = 'flags'; record_state(store, state)
-            return dict(status='deferred', reason='weekly_customer_type_pending', cutoff=state['cutoff'])
-        identity_rows, identity_info = read_pinned_identities(dict(start=state['start'], end_exclusive=state['cutoff']), manifests)
-        if identity_info['status'] != 'complete':
-            return dict(status='deferred', reason='identity_archive_pending', cutoff=state['cutoff'])
-        state['identity_evidence'] = store.enrich_order_identities(state['start'], state['cutoff'], identity_rows, identity_info['sourceVersion'])
+            return dict(status='deferred', reason=evidence, cutoff=state['cutoff'])
+        state.update(identity_evidence=evidence, publication_cutoff=publish_cutoff.isoformat(), final_publication_id=value['publication_id'])
         record_state(store, state)
-        service = Service(store, lambda *_: True, clock=lambda: cutoff,
-                          customer_type_reader=lambda query: read_pinned_flags(query, manifests), weekly_publication=False)
-        result = service.query(dict(start=(cutoff-timedelta(days=7)).isoformat()), 'internal_weekly_calculation')
-        value = from_snapshot(store, result['snapshot_id'], cutoff, manifests, at().isoformat(), origin='daily' if state.get('cadence') == 'daily' else 'weekly')
         write_publication(store, value, state['base_publication'])
         state['phase'] = 'backup'; record_state(store, state)
-    return finish_week(store, state, stored_publication(store), at())
+    return finish_week(store, state, stored_publication(store), at(), force=force)
 
 
-def finish_week(store, state, published, now):
+def finalize_review_archive(store, state, published):
+    from user_customer_types import compact_after_publication
+    ident = published['publication_id']
+    previous = state.get('cleanup_plan_sha256')
+    result = None
+    if previous:
+        try:
+            result = compact_after_publication(store, ident, apply=True, expected_plan_sha256=previous)
+        except ValueError as error:
+            if str(error) not in ('es_archive_references_changed', 'es_archive_compaction_changed'):
+                raise
+            # The original receipt has been reconciled. A new dry plan re-evaluates
+            # remaining original candidates against the new publication/references.
+    if result is None:
+        plan = compact_after_publication(store, ident)
+        state['cleanup_plan_sha256'] = plan['plan_sha256']
+        if previous and previous != plan['plan_sha256']:
+            state['cleanup_previous_plan_sha256'] = previous
+        record_state(store, state)
+        result = compact_after_publication(store, ident, apply=True, expected_plan_sha256=plan['plan_sha256'])
+    if result.get('applied') is not True or result.get('plan_sha256') != state['cleanup_plan_sha256']:
+        raise ValueError('archive_cleanup_receipt_contract')
+    state['cleanup'] = dict(status='complete', plan_sha256=result['plan_sha256'], publication_id=ident,
+                           removed_manifests=result['removed_manifests'], removed_files=result['removed_files'])
+    state.pop('cleanup_error', None)
+    record_state(store, state)
+
+
+def finish_week(store, state, published, now, force=False):
     """Commit a tiny completion receipt; full database backups are explicit manual operations only."""
-    if not published or published['cutoff'] != state['cutoff']:
+    if not published or published['cutoff'] != state.get('publication_cutoff', state['cutoff']):
         raise ValueError('weekly_publication_checkpoint_mismatch')
+    if state.get('review_policy') == REVIEW_POLICY and state.get('review_start'):
+        state['review_complete'] = True
+        if state.get('cleanup_error', {}).get('retryable') is False and not force:
+            return dict(status='requires_reconciliation', reason=state['cleanup_error']['error'], cleanup_pending=True, cutoff=published['cutoff'])
+        if state.get('cleanup', {}).get('status') != 'complete':
+            try:
+                finalize_review_archive(store, state, published)
+            except (OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
+                state['cleanup_error'] = error_state(error); record_state(store, state)
+                return dict(status='deferred' if state['cleanup_error']['retryable'] else 'requires_reconciliation',
+                            reason=state['cleanup_error']['error'], cleanup_pending=True, cutoff=published['cutoff'])
     if state.get('error'):
         state['retired_backup_error'] = state.pop('error')
     state.pop('retryable', None)
     state.update(phase='complete', completed_at=now.isoformat(), backup_policy='on_demand_only',
                  data_version=published['data_version'])
     record_state(store, state)
-    return dict(status='complete', cutoff=state['cutoff'], data_version=published['data_version'],
-                backup_policy='on_demand_only', automatic_backup=False)
+    result = dict(status='complete', cutoff=published['cutoff'], data_version=published['data_version'],
+                  backup_policy='on_demand_only', automatic_backup=False)
+    if state.get('review_policy') == REVIEW_POLICY and state.get('review_start'):
+        result['review_cutoff'] = state['cutoff']
+    return result

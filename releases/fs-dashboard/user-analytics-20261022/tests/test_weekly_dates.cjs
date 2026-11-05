@@ -17,3 +17,14 @@ assert.equal(reportDates(null,new Date('2026-10-30T23:00:00Z')).cutoff,'2026-10-
 assert.deepEqual(reportDates({cutoff:'2026-11-02T00:00:00+08:00',default_start:'2026-10-26T00:00:00+08:00'}),
   {cutoff:'2026-11-02',start:'2026-10-26',end:'2026-11-01'});
 console.log('weekly UI date helper: four semantic checks passed');
+const pendingMatch=source.match(/function pendingUpdateText\(pending\)\{[\s\S]*?\n\}/);
+assert.ok(pendingMatch,'actual pending update helper missing');
+const pendingText=Function(pendingMatch[0]+'\nreturn pendingUpdateText;')();
+assert.equal(pendingText(null),'');
+assert.match(pendingText({review_pending:true,daily_current:true}),/月度复核进行中，新单正常更新/);
+assert.match(pendingText({review_pending:true,daily_current:false}),/新单更新尚未完成/);
+assert.match(pendingText({review_pending:true,daily_current:true,retryable:false}),/月度复核暂停/);
+assert.match(pendingText({cleanup_pending:true,daily_current:true}),/数据已更新，归档整理待完成/);
+assert.match(pendingText({cleanup_pending:true,daily_current:false,daily_error:{error:'fixture'}}),/新单更新尚未完成/);
+assert.match(pendingText({phase:'windows'}),/保留上次成功版本/);
+console.log('weekly UI pending helper: seven semantic checks passed');

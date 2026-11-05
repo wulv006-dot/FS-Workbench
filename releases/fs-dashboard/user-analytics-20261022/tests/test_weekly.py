@@ -30,6 +30,11 @@ def row(n, day='2026-10-21', paid='1'):
 
 
 class Dates(unittest.TestCase):
+    def test_calendar_review_uses_current_and_previous_two_months(self):
+        for cutoff, expected in [('2027-01-25', '2026-11-01'), ('2028-03-27', '2028-01-01'),
+                                 ('2026-08-31', '2026-06-01'), ('2026-11-02', '2026-09-01')]:
+            self.assertEqual(weekly.calendar_review_start(stamp(cutoff)), stamp(expected))
+
     def test_monday_and_shared_timer_window_use_beijing_time(self):
         self.assertEqual(weekly.monday(stamp('2026-11-01T23:59:59+08:00')), OLD)
         self.assertEqual(weekly.monday(MONDAY), stamp('2026-11-02'))
@@ -209,6 +214,8 @@ class Worker(WeeklyFixture):
         self.sync = self.stack.enter_context(patch.object(jobs, 'synchronize_day', side_effect=sync))
         self.targeted = self.stack.enter_context(patch.object(jobs, 'targeted_refresh', return_value=dict(status='complete')))
         self.ensure = self.stack.enter_context(patch.object(types, 'ensure_period', return_value=dict(status='complete')))
+        self.compact = self.stack.enter_context(patch.object(types, 'compact_after_publication', create=True,
+            side_effect=lambda *a,**k:dict(plan_sha256='c'*64,applied=bool(k.get('apply')),removed_manifests=1,removed_files=1)))
         self.stack.enter_context(patch.object(types, 'read_pinned_identities', return_value=({},dict(status='complete',sourceVersion='a'*64))))
 
     def wake(self, now=MONDAY, **kwargs):
@@ -258,13 +265,187 @@ class Worker(WeeklyFixture):
         self.assertEqual(weekly.stored_publication(self.store)['cutoff'], '2026-11-03T00:00:00+08:00')
         self.assertEqual(weekly.stored_publication(self.store)['cadence'], 'daily')
 
-    def test_daily_monday_preserves_ninety_day_revision_pass(self):
+    def test_daily_monday_reviews_exact_calendar_months_without_old_rotation_or_targeted(self):
         self.assertEqual(self.wake(cadence='daily')['status'], 'complete')
-        old_days = [a for _,a,_ in self.synced if a < OLD.isoformat()]
-        self.assertEqual(len(old_days), 84)  # 83 review days plus original older rotation.
-        self.assertIn('2026-08-04T00:00:00+08:00', old_days)
-        self.ensure.assert_called_once()
-        self.assertTrue(self.ensure.call_args.kwargs['daily'])
+        self.assertEqual(len(self.synced), 62)
+        self.assertEqual(min(a for _,a,_ in self.synced), '2026-09-01T00:00:00+08:00')
+        self.assertEqual(max(b for _,_,b in self.synced), '2026-11-02T00:00:00+08:00')
+        self.assertTrue(all(stamp(b)-stamp(a)==weekly.timedelta(days=1) for _,a,b in self.synced))
+        self.targeted.assert_not_called()
+        self.assertEqual(self.compact.call_count,2)
+        self.assertTrue(self.compact.call_args.kwargs['apply'])
+        self.assertEqual(self.ensure.call_args.args[:2],('2026-09-01T00:00:00+08:00','2026-11-02T00:00:00+08:00'))
+        self.assertEqual(self.ensure.call_args.kwargs['fresh_after'],MONDAY.isoformat())
+        self.assertTrue(self.ensure.call_args.kwargs['cycle_id'].startswith('ur_'))
+
+    def test_weekly_review_failure_does_not_block_daily_and_completion_never_regresses(self):
+        original=self.sync.side_effect
+        def failed_review(store,site,start,end):
+            if start=='2026-09-02T00:00:00+08:00':raise TimeoutError('fixture review failure')
+            return original(store,site,start,end)
+        self.sync.side_effect=failed_review
+        self.assertEqual(self.wake(cadence='daily')['status'],'deferred')
+        self.compact.assert_not_called()
+        cycle=weekly.small_state(self.store.root)
+        self.assertEqual(weekly.stored_publication(self.store)['cutoff'],'2026-11-02T00:00:00+08:00')
+        for date in ('2026-11-03','2026-11-04'):
+            self.assertEqual(self.wake(stamp(date+'T04:18:00+08:00'),cadence='daily')['status'],'deferred')
+            state=weekly.small_state(self.store.root)
+            self.assertEqual(state['cutoff'],cycle['cutoff'])
+            self.assertEqual(state['started_at'],cycle['started_at'])
+            self.assertEqual(state['next_days'],cycle['next_days'])
+            self.assertEqual(weekly.stored_publication(self.store)['cutoff'],stamp(date).isoformat())
+        count=sum(a=='2026-11-03T00:00:00+08:00' for _,a,_ in self.synced)
+        self.wake(stamp('2026-11-04T04:33:00+08:00'),cadence='daily')
+        self.assertEqual(sum(a=='2026-11-03T00:00:00+08:00' for _,a,_ in self.synced),count)
+        self.sync.side_effect=original
+        final=self.wake(stamp('2026-11-04T04:48:00+08:00'),cadence='daily')
+        self.assertEqual(final['status'],'complete')
+        self.assertEqual(final['cutoff'],'2026-11-04T00:00:00+08:00')
+        self.assertEqual(final['review_cutoff'],cycle['cutoff'])
+        self.assertEqual(weekly.stored_publication(self.store)['cutoff'],'2026-11-04T00:00:00+08:00')
+        self.assertEqual(weekly.small_state(self.store.root)['cutoff'],cycle['cutoff'])
+        self.targeted.assert_not_called()
+
+    def test_permanent_review_error_stops_old_retry_but_allows_new_daily_facts(self):
+        original=self.sync.side_effect
+        attempts=[]
+        def failed_review(store,site,start,end):
+            attempts.append(start)
+            if start=='2026-09-02T00:00:00+08:00':raise ValueError('unmapped_order_status')
+            return original(store,site,start,end)
+        self.sync.side_effect=failed_review
+        self.assertEqual(self.wake(cadence='daily')['status'],'requires_reconciliation')
+        self.assertEqual(attempts.count('2026-09-02T00:00:00+08:00'),1)
+        self.assertEqual(self.wake(stamp('2026-11-03T04:18:00+08:00'),cadence='daily')['status'],'requires_reconciliation')
+        self.assertEqual(attempts.count('2026-09-02T00:00:00+08:00'),1)
+        published=weekly.stored_publication(self.store)
+        self.assertEqual(published['cutoff'],'2026-11-03T00:00:00+08:00')
+        self.assertIn('review_pending',weekly.public_info(published))
+        self.assertEqual(weekly.small_state(self.store.root)['error'],'unmapped_order_status')
+        self.compact.assert_not_called()
+
+    def test_cleanup_failure_resumes_same_plan_after_next_day_publication(self):
+        def interrupted(*args,**kwargs):
+            if kwargs.get('apply'):raise OSError('fixture partial unlink')
+            return dict(plan_sha256='c'*64)
+        self.compact.side_effect=interrupted
+        self.assertEqual(self.wake(cadence='daily')['status'],'deferred')
+        pending=weekly.small_state(self.store.root)
+        self.assertEqual(pending['phase'],'backup')
+        self.assertEqual(pending['cleanup_plan_sha256'],'c'*64)
+        self.assertEqual(weekly.stored_publication(self.store)['cutoff'],'2026-11-02T00:00:00+08:00')
+        self.assertEqual(self.wake(stamp('2026-11-03T04:18:00+08:00'),cadence='daily')['status'],'deferred')
+        self.assertEqual(weekly.stored_publication(self.store)['cutoff'],'2026-11-03T00:00:00+08:00')
+        self.assertNotIn('review_pending',weekly.stored_publication(self.store))
+        self.assertEqual(weekly.small_state(self.store.root)['cleanup_plan_sha256'],'c'*64)
+        self.compact.side_effect=lambda *a,**k:dict(plan_sha256='c'*64,applied=bool(k.get('apply')),removed_manifests=1,removed_files=1)
+        self.assertEqual(self.wake(stamp('2026-11-03T04:33:00+08:00'),cadence='daily')['status'],'complete')
+        self.assertEqual(weekly.stored_publication(self.store)['cutoff'],'2026-11-03T00:00:00+08:00')
+        self.assertEqual(weekly.small_state(self.store.root)['cleanup']['status'],'complete')
+
+    def test_permanent_cleanup_error_does_not_retry_or_block_new_daily_data(self):
+        self.compact.side_effect=PermissionError('fixture cleanup denied')
+        self.assertEqual(self.wake(cadence='daily')['status'],'requires_reconciliation')
+        calls=self.compact.call_count
+        self.assertEqual(self.wake(stamp('2026-11-03T04:18:00+08:00'),cadence='daily')['status'],'requires_reconciliation')
+        self.assertEqual(self.compact.call_count,calls)
+        self.assertEqual(weekly.stored_publication(self.store)['cutoff'],'2026-11-03T00:00:00+08:00')
+
+    def test_real_compactor_reconciles_partial_delete_after_next_daily_publication(self):
+        sys.path.insert(0,str(BASE.parent/'cache-archive-retention-20261025/tests'))
+        from test_monthly_archive import module, archived
+        archive=Path(self.tmp.name)/'es';archive.mkdir(mode=0o700)
+        actual=module()
+        month,month_hash=archived(archive,b'month','2026-10-01','2026-10-31')
+        day,day_hash=archived(archive,b'day','2026-10-08','2026-10-08')
+        def compact(store,expected_publication_id,apply=False,expected_plan_sha256=None):
+            def refs():
+                ident=weekly.stored_publication(store)['publication_id']
+                self.assertEqual(ident,expected_publication_id)
+                return dict(complete=True,publication_id=ident,manifests=[month],file_hashes=[],inflight=[])
+            return actual['compact_archive'](archive,refs,apply,expected_plan_sha256)
+        self.compact.side_effect=compact
+        original=Path.unlink
+        def interrupt(path,*args,**kwargs):
+            if path==archive/(day_hash+'.xlsx'):raise OSError('fixture interrupted unlink')
+            return original(path,*args,**kwargs)
+        with patch.object(Path,'unlink',interrupt):
+            self.assertEqual(self.wake(cadence='daily')['status'],'deferred')
+        original_plan=weekly.small_state(self.store.root)['cleanup_plan_sha256']
+        self.assertFalse((archive/day).exists())
+        self.assertTrue((archive/(day_hash+'.xlsx')).exists())
+        self.assertEqual(self.wake(stamp('2026-11-03T04:18:00+08:00'),cadence='daily')['status'],'complete')
+        self.assertEqual(weekly.stored_publication(self.store)['cutoff'],'2026-11-03T00:00:00+08:00')
+        receipt=json.loads((archive/'.compaction.receipt').read_text('utf-8'))
+        self.assertEqual(receipt['status'],'complete')
+        self.assertEqual(receipt['plan']['resume_from'],original_plan)
+        self.assertFalse((archive/(day_hash+'.xlsx')).exists())
+        self.assertTrue((archive/(month_hash+'.xlsx')).exists())
+
+    def test_daily_priority_partial_flags_does_not_publish_or_advance_review(self):
+        self.ensure.return_value=dict(status='pending')
+        self.assertEqual(self.wake(cadence='daily')['status'],'deferred')
+        self.assertEqual(weekly.stored_publication(self.store),self.publication)
+        state=weekly.small_state(self.store.root)
+        self.assertEqual(state['next_days'],{'266':'2026-09-01T00:00:00+08:00'})
+        self.assertTrue(all(a>=OLD.isoformat() for _,a,_ in self.synced))
+
+    def test_gap_older_than_review_window_keeps_fixed_baseline_after_daily_publication(self):
+        state=dict(contract='fs-users-weekly-work-v1',cadence='daily',review_policy=weekly.REVIEW_POLICY,
+                   review_start='2026-09-01T00:00:00+08:00',cutoff='2026-11-02T00:00:00+08:00',
+                   start='2026-06-01T00:00:00+08:00',initial_published_cutoff='2026-06-01T00:00:00+08:00',
+                   started_at=MONDAY.isoformat(),phase='flags',next_days={'266':'2026-11-02T00:00:00+08:00'},
+                   historical_done=[],backfill_done=[],targeted_done=[],base_publication=self.publication['publication_id'])
+        weekly.record_state(self.store,state)
+        self.ensure.side_effect=lambda *a,**k:dict(status='pending' if k.get('fresh_after') else 'complete')
+        for date in ('2026-11-02','2026-11-03'):
+            result=self.wake(stamp(date+'T04:18:00+08:00'),cadence='daily')
+            self.assertEqual(result['status'],'deferred')
+            self.assertEqual(result['reason'],'weekly_customer_type_pending')
+            saved=weekly.small_state(self.store.root)
+            self.assertEqual(saved['initial_published_cutoff'],'2026-06-01T00:00:00+08:00')
+            self.assertEqual(saved['start'],state['start'])
+            self.assertEqual(weekly.stored_publication(self.store)['cutoff'],stamp(date).isoformat())
+
+    def test_daily_only_collects_new_or_missing_days_without_old_order_reads(self):
+        self.assertEqual(self.wake(stamp('2026-10-31T04:18:00+08:00'), cadence='daily')['status'], 'complete')
+        self.assertEqual(self.synced, [('266','2026-10-30T00:00:00+08:00','2026-10-31T00:00:00+08:00')])
+        self.targeted.assert_not_called()
+
+    def test_new_policy_preserves_first_missing_historical_day(self):
+        with self.store.db() as db:
+            db.execute("DELETE FROM jobs WHERE site='266'")
+        self.store.replace_window('266','2026-01-03','2026-10-30',[],FRIDAY.isoformat())
+        self.assertEqual(self.wake(stamp('2026-10-31T04:18:00+08:00'),cadence='daily')['status'],'complete')
+        self.assertIn(('266','2026-01-02T00:00:00+08:00','2026-01-03T00:00:00+08:00'),self.synced)
+        self.assertEqual(len(self.synced),2)
+        self.targeted.assert_not_called()
+
+    def test_calendar_review_can_cover_ninety_one_days_and_resume_failed_day(self):
+        cutoff=stamp('2027-05-31')  # Monday: Mar 31 + Apr 30 + May 30 = 91 days.
+        published=dict(self.publication,cutoff='2027-05-30T00:00:00+08:00')
+        state=dict(contract='fs-users-weekly-work-v1',cadence='daily',review_policy='calendar-months-v1',
+                   review_start='2027-03-01T00:00:00+08:00',cutoff=cutoff.isoformat(),start='2027-03-01T00:00:00+08:00',
+                   started_at='2027-05-31T04:18:00+08:00',phase='windows',next_days={'266':'2027-03-01T00:00:00+08:00'},
+                   historical_done=[],backfill_done=[],targeted_done=[],base_publication=self.publication['publication_id'])
+        original=self.sync.side_effect
+        def sync(store,site,start,end):
+            if start=='2027-04-15T00:00:00+08:00':raise TimeoutError('fixture retry')
+            result=original(store,site,start,end)
+            store.replace_window(site,start,end,[],'2027-05-31T04:18:00+08:00')
+            return result
+        self.sync.side_effect=sync
+        with self.assertRaises(TimeoutError):
+            weekly.run(self.store,state,published,stamp('2027-05-31T04:18:00+08:00'),lambda:0)
+        self.assertEqual(state['next_days']['266'],'2027-04-15T00:00:00+08:00')
+        self.assertEqual(weekly.stored_publication(self.store)['cutoff'],cutoff.isoformat())
+        self.sync.side_effect=lambda store,site,start,end: original(store,site,start,end)
+        self.ensure.return_value=dict(status='pending')
+        self.assertEqual(weekly.run(self.store,state,weekly.stored_publication(self.store),stamp('2027-05-31T04:33:00+08:00'),lambda:0)['status'],'deferred')
+        self.assertEqual(len(self.synced),91)
+        self.assertEqual(max(b for _,_,b in self.synced),cutoff.isoformat())
+        self.targeted.assert_not_called()
 
     def test_daily_pending_flags_prevents_publication_and_checks_last_seven_days(self):
         self.ensure.return_value = dict(status='pending')
