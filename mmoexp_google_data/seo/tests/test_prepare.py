@@ -28,6 +28,7 @@ class Prepare(unittest.TestCase):
             self.assertEqual(sum('OnCalendar=' in p.read_text() for p in (output/'candidate/units').iterdir()),1)
             self.assertNotIn('Hermes',(output/'candidate/units/fs-seo-daily.service').read_text())
             self.assertEqual(manifest['package'],result['package'])
+            self.assertTrue((output/'candidate/runtime/mmoexp_google_data/seo/calendar.fc27.user-provided.json').exists())
             bad=dict(manifest,files=manifest['files']+[dict(candidate='evil',target='/etc/shadow',sha256='0'*64,beforeSha256=None)])
             with self.assertRaises(ValueError):publisher.validate(bad,output)
             with self.assertRaises(FileExistsError):prepare.build(repo,baseline,formal,raw,config,output)

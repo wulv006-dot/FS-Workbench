@@ -146,7 +146,7 @@ def build(store, context, source_names=()):
                     business_timezone='Asia/Shanghai', games=list(GAMES), facts_hash=facts.hexdigest(),
                     metric_contract='seo-metrics-v2-native-admin-estimate', rule_contract='seo-rules-v1',
                     data_status=status, frozen=True, daytime_collection_enabled=False, sha256=digest_file(candidate),
-                    sources={name:('configured' if name in source_names else 'not_configured') for name in ('gsc','ga4','admin','orders','serp','pages')})
+                    sources={name:('configured' if name in source_names else 'not_configured') for name in ('gsc','ga4','admin','orders','serp','pages','calendar')})
     return candidate, manifest
 
 
@@ -181,7 +181,7 @@ def open_snapshot(root, ident):
 
 def read(root, ident, kind, scope, cursor=0, limit=100):
     game(scope)
-    if kind not in ('summary', 'history', 'sources', 'rankings', 'pages', 'orders', 'rules') or not 0 <= cursor or not 1 <= limit <= 100:
+    if kind not in ('summary', 'history', 'sources', 'rankings', 'markets', 'calendar', 'pages', 'orders', 'rules') or not 0 <= cursor or not 1 <= limit <= 100:
         raise ValueError('INVALID_SNAPSHOT_QUERY')
     db, meta = open_snapshot(root, ident)
     try:
@@ -198,11 +198,15 @@ def read(root, ident, kind, scope, cursor=0, limit=100):
         elif kind == 'rules':
             rows = [json.loads(r[0]) for r in db.execute('SELECT payload FROM reminders WHERE game=? ORDER BY row_key LIMIT ? OFFSET ?',(scope,limit+1,cursor))]
         else:
-            source = dict(rankings='serp', pages='pages', orders='orders')[kind]
+            source = dict(rankings='serp', markets='serp', calendar='calendar', pages='pages', orders='orders')[kind]
+            latest = ' AND source_date=(SELECT MAX(b.source_date) FROM facts b WHERE b.source=a.source AND b.game=a.game'+(' AND b.row_key=a.row_key' if kind=='calendar' else '')+')' if kind in ('markets','calendar') else ''
             rows = [dict(source_date=r['source_date'], **json.loads(r['payload'])) for r in db.execute(
-                'SELECT source_date,payload FROM facts WHERE game=? AND source=? ORDER BY source_date DESC,row_key LIMIT ? OFFSET ?',
+                'SELECT source_date,payload FROM facts a WHERE game=? AND source=?'+latest+' ORDER BY source_date DESC,row_key LIMIT ? OFFSET ?',
                 (scope, source, limit + 1, cursor))]
-        return dict(snapshot_id=ident, facts_hash=meta['facts_hash'], game=scope, rows=rows[:limit],
-                    next_cursor=cursor+limit if len(rows) > limit else None)
+        result=dict(snapshot_id=ident, facts_hash=meta['facts_hash'], game=scope, rows=rows[:limit],next_cursor=cursor+limit if len(rows)>limit else None)
+        if kind=='markets':
+            state=db.execute("SELECT source_date,status,error FROM coverage WHERE source='serp' AND game=? ORDER BY source_date DESC LIMIT 1",(scope,)).fetchone()
+            result['source_state']=dict(state) if state else dict(status='missing')
+        return result
     finally:
         db.close()

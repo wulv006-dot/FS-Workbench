@@ -1,7 +1,7 @@
 const {chromium}=require('playwright');
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=__dirname,meta={snapshot_id:'seo-2026-11-05',facts_hash:'fixture-only',publication_date:'2026-11-05',report_date:'2026-11-04',history_start:'2026-10-06',history_end:'2026-11-04',games:['FC27','D4','AION2','WOW_FOREVER'],sources:{gsc:'configured',ga4:'configured',admin:'configured',serp:'not_configured',pages:'not_configured',orders:'not_configured'},data_status:'partial'};
-let apiCalls=[],empty=false,historyError=false,hangAI=true,holdManifest=false;const pending=[],manifests=[];
+let apiCalls=[],empty=false,historyError=false,hangAI=true,holdManifest=false,extras=false;const pending=[],manifests=[];
 function historyRows(game){return [{source_date:'2026-11-02',metrics:{gsc:{clicks:'3',impressions:'10',ctr:'.3',position:'4'},ga4:null,admin:null,orders:null},source_status:{gsc:{status:'available',source_timezone:'America/Los_Angeles'}},estimate:{status:'missing'}},{source_date:'2026-11-04',metrics:{gsc:null,ga4:{sessions:'10',purchase_events:game==='WOW_FOREVER'?'0':'3'},admin:{admin_customer_price_usd:'7.25'},orders:null},source_status:{ga4:{status:'provisional',source_timezone:'Asia/Shanghai'},admin:{status:'available',source_timezone:'Asia/Shanghai'}},estimate:{status:'estimated',revenue_usd:game==='WOW_FOREVER'?'0.00':'21.75'}}];}
 const server=http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost');
@@ -12,6 +12,11 @@ const server=http.createServer((req,res)=>{
   if(url.pathname.endsWith('current')||url.pathname.endsWith('manifest')){if(holdManifest){manifests.push(res);return;}return res.end(JSON.stringify(meta));}
   if(historyError&&url.pathname.includes('/history')){res.statusCode=503;return res.end('{}');}
   const kind=url.pathname.split('/').at(-1),game=url.searchParams.get('game');
+  if(extras&&kind==='markets'){
+   const rows=[{country:'US',language:'en',device:'desktop',keyword:'fc27 coins',depth:10,source_date:'2026-11-04',observed_at:'2026-11-04T03:25:00+08:00',brand:'MMOEXP',rank:2,status:'found',effective_depth:8},{country:'US',language:'en',device:'desktop',keyword:'fc27 coins',depth:10,source_date:'2026-11-04',observed_at:'2026-11-04T03:25:00+08:00',brand:'IGGM',rank:null,status:'insufficient_depth',effective_depth:8}];
+   const cursor=Number(url.searchParams.get('cursor')||0);return res.end(JSON.stringify({snapshot_id:meta.snapshot_id,facts_hash:meta.facts_hash,game,rows:rows.slice(cursor,cursor+1),next_cursor:cursor===0?1:null}));
+  }
+  if(extras&&kind==='calendar')return res.end(JSON.stringify({snapshot_id:meta.snapshot_id,facts_hash:meta.facts_hash,game,next_cursor:null,rows:[{key:'dated',title:'已发布日期事件',event_date:'2026-11-08',source_url:'https://official.example/notice',upstream_observed_at:'2026-11-01T00:00:00Z',source_status:'published',source_date:'2026-11-04'},{key:'undated',title:'无日期公告',event_date:null,published_at:'2026-11-01T00:00:00Z',source_url:'https://official.example/notice2',upstream_observed_at:'2026-11-01T00:00:00Z',source_status:'stale',source_date:'2026-11-04'}]}));
   return res.end(JSON.stringify({snapshot_id:meta.snapshot_id,facts_hash:meta.facts_hash,game,next_cursor:null,rows:kind==='history'?historyRows(game):[]}));
  }
  const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
@@ -27,7 +32,7 @@ const server=http.createServer((req,res)=>{
   await page.getByRole('heading',{name:'上游 · 需求走势',exact:true}).waitFor();
   assert.equal(await page.locator('.journey-card').count(),3);assert.equal(await page.getByRole('img').count(),2);
   assert(await page.locator('.journey-card').evaluateAll(cards=>cards.every(c=>c.getBoundingClientRect().height<=380)));
-  assert.equal(await page.getByText('待核候选',{exact:true}).count(),4);
+  assert.equal(await page.getByText('等待采样',{exact:true}).count(),8);
   assert((await page.locator('.sales .primary-metric').innerText()).includes('21.75'));
   assert((await page.locator('.demand .primary-metric').innerText()).includes('10'));
   assert((await page.locator('.search .primary-metric').innerText()).includes('3'));
@@ -62,6 +67,12 @@ const server=http.createServer((req,res)=>{
   empty=false;holdManifest=true;await page.goto(new URL('/',page.url()).href);await page.getByRole('button',{name:'AI增强设置',exact:true}).click();await page.getByText('AI 设置暂不可用',{exact:true}).waitFor();
   holdManifest=false;manifests.splice(0).forEach(res=>res.end(JSON.stringify(meta)));await page.waitForFunction(()=>new URL(location.href).searchParams.get('snapshot_id')==='seo-2026-11-05');
   assert.equal(new URL(page.url()).searchParams.get('tab'),'ai');await page.getByRole('heading',{name:'行动与AI分析',exact:true}).waitFor();
+  extras=true;meta.sources.serp='configured';meta.sources.calendar='configured';await page.goto(new URL('/',page.url()).href);
+  await page.getByRole('cell',{name:'#2',exact:true}).waitFor({timeout:2500});assert((await page.getByRole('table').innerText()).includes('深度不足 8/10'));assert.equal(await page.getByText('等待采样',{exact:true}).count(),0);
+  await page.getByRole('tab',{name:'游戏日程',exact:true}).click();await page.getByRole('heading',{name:'已发布日期事件',exact:true}).waitFor();await page.getByText('事件日期待核',{exact:true}).waitFor();assert.equal(await page.getByRole('link',{name:'查看来源公告',exact:true}).count(),2);
+  assert((await page.locator('#panel').innerText()).includes('原来源读取'));assert((await page.locator('#panel').innerText()).includes('来源已过期'));
+  await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  assert(apiCalls.filter(p=>p.includes('/markets')||p.includes('/calendar')).every(p=>p.includes('/seo-2026-11-05/')));
   console.log('PASS: demo hierarchy, honest source gaps, four games, frozen URLs, AI hang/failure isolation, details, mobile, retry and empty state');
  }finally{await browser.close();}
 })().then(()=>server.close()).catch(error=>{console.error(error);server.close();process.exitCode=1;});

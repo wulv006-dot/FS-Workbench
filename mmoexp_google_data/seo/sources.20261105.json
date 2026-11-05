@@ -1,0 +1,835 @@
+{
+  "serp": {
+    "enabled": true,
+    "provider": "brightdata",
+    "zone": "fs_seo_google",
+    "api_key_env": "BRIGHTDATA_API_KEY",
+    "authorization": {
+      "reference": "user-approved-brightdata-free-20261105",
+      "renewal": "monthly_free_credits",
+      "request_allowance": 5000
+    },
+    "projects": {
+      "FC27": {
+        "conditions": [
+          {
+            "keyword": "fc 27 coins",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "buy fc 27 coins",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "cheap fc 27 coins",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "fc 27 coins",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "buy fc 27 coins",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "cheap fc 27 coins",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "fc 27 münzen",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "fc 27 münzen kaufen",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "günstig fc 27 münzen",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "crédits fc 27",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "acheter crédits fc 27",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "crédits fc 27 pas cher",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "monedas fc 27",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar monedas fc 27",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "monedas fc 27 barato",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "moedas fc 27",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar moedas fc 27",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "moedas fc 27 barato",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "fc 27 coins",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "fc 27 coins kopen",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "goedkope fc 27 coins",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "moedas fc 27",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar moedas fc 27",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "moedas fc 27 barato",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          }
+        ],
+        "brands": {
+          "MMOEXP": [
+            "https://www.mmoexp.com/fc-27/"
+          ],
+          "IGGM": [
+            "https://www.iggm.com/"
+          ],
+          "U4GM": [
+            "https://www.u4gm.com/"
+          ],
+          "U7BUY": [
+            "https://www.u7buy.com/"
+          ],
+          "LootBar": [
+            "https://lootbar.gg/"
+          ],
+          "G2G": [
+            "https://www.g2g.com/"
+          ],
+          "Eldorado": [
+            "https://www.eldorado.gg/"
+          ]
+        }
+      },
+      "D4": {
+        "conditions": [
+          {
+            "keyword": "diablo 4 gold",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "buy diablo 4 gold",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "cheap diablo 4 gold",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "diablo 4 gold",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "buy diablo 4 gold",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "cheap diablo 4 gold",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "diablo 4 gold",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "diablo 4 gold kaufen",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "günstig diablo 4 gold",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "or diablo 4",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "acheter or diablo 4",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "or diablo 4 pas cher",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "oro diablo 4",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar oro diablo 4",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "oro diablo 4 barato",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "ouro diablo 4",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar ouro diablo 4",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "ouro diablo 4 barato",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "diablo 4 goud",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "diablo 4 goud kopen",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "goedkope diablo 4 goud",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "ouro diablo 4",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar ouro diablo 4",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "ouro diablo 4 barato",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          }
+        ],
+        "brands": {
+          "MMOEXP": [
+            "https://www.mmoexp.com/diablo-4/"
+          ],
+          "IGGM": [
+            "https://www.iggm.com/"
+          ],
+          "U4GM": [
+            "https://www.u4gm.com/"
+          ],
+          "U7BUY": [
+            "https://www.u7buy.com/"
+          ],
+          "LootBar": [
+            "https://lootbar.gg/"
+          ],
+          "G2G": [
+            "https://www.g2g.com/"
+          ],
+          "Eldorado": [
+            "https://www.eldorado.gg/"
+          ]
+        }
+      },
+      "AION2": {
+        "conditions": [
+          {
+            "keyword": "aion 2 kinah",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "buy aion 2 kinah",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "cheap aion 2 kinah",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "aion 2 kinah",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "buy aion 2 kinah",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "cheap aion 2 kinah",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "aion 2 kinah",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "aion 2 kinah kaufen",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "günstig aion 2 kinah",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "kinah aion 2",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "acheter kinah aion 2",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "kinah aion 2 pas cher",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "kinah aion 2",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar kinah aion 2",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "kinah aion 2 barato",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "kinah aion 2",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar kinah aion 2",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "kinah aion 2 barato",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "aion 2 kinah",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "aion 2 kinah kopen",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "goedkope aion 2 kinah",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "kinah aion 2",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar kinah aion 2",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "kinah aion 2 barato",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          }
+        ],
+        "brands": {
+          "MMOEXP": [
+            "https://www.mmoexp.com/aion-2/",
+            "https://www.mmoexp.com/aion2/"
+          ],
+          "IGGM": [
+            "https://www.iggm.com/"
+          ],
+          "U4GM": [
+            "https://www.u4gm.com/"
+          ],
+          "U7BUY": [
+            "https://www.u7buy.com/"
+          ],
+          "LootBar": [
+            "https://lootbar.gg/"
+          ],
+          "G2G": [
+            "https://www.g2g.com/"
+          ],
+          "Eldorado": [
+            "https://www.eldorado.gg/"
+          ]
+        }
+      },
+      "WOW_FOREVER": {
+        "conditions": [
+          {
+            "keyword": "wow forever gold",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "buy wow forever gold",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "cheap wow forever gold",
+            "country": "US",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "wow forever gold",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "buy wow forever gold",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "cheap wow forever gold",
+            "country": "GB",
+            "language": "en",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "wow forever gold",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "wow forever gold kaufen",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "günstig wow forever gold",
+            "country": "DE",
+            "language": "de",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "or wow forever",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "acheter or wow forever",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "or wow forever pas cher",
+            "country": "FR",
+            "language": "fr",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "oro wow forever",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar oro wow forever",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "oro wow forever barato",
+            "country": "ES",
+            "language": "es",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "ouro wow forever",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar ouro wow forever",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "ouro wow forever barato",
+            "country": "PT",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "wow forever gold",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "wow forever gold kopen",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "goedkope wow forever gold",
+            "country": "NL",
+            "language": "nl",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "ouro wow forever",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "comprar ouro wow forever",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          },
+          {
+            "keyword": "ouro wow forever barato",
+            "country": "BR",
+            "language": "pt",
+            "device": "desktop",
+            "depth": 10
+          }
+        ],
+        "brands": {
+          "MMOEXP": [
+            "https://www.mmoexp.com/wow-forever/"
+          ],
+          "IGGM": [
+            "https://www.iggm.com/"
+          ],
+          "U4GM": [
+            "https://www.u4gm.com/"
+          ],
+          "U7BUY": [
+            "https://www.u7buy.com/"
+          ],
+          "LootBar": [
+            "https://lootbar.gg/"
+          ],
+          "G2G": [
+            "https://www.g2g.com/"
+          ],
+          "Eldorado": [
+            "https://www.eldorado.gg/"
+          ]
+        }
+      }
+    }
+  },
+  "calendar": {
+    "enabled": true,
+    "include_fc27_user_plan": true,
+    "source_emergency_bytes": 16777216,
+    "bindings": {
+      "FC27": {
+        "game_key": "ea-sports-fc",
+        "hosts": [
+          "news.ea.com",
+          "www.ea.com",
+          "ea.com"
+        ],
+        "required_pattern": "(?i)\\bfc\\s*27\\b",
+        "official_feeds": [
+          "ea-news"
+        ]
+      },
+      "D4": {
+        "game_key": "diablo4",
+        "hosts": [
+          "news.blizzard.com",
+          "store.steampowered.com"
+        ],
+        "official_feeds": [
+          "blizzard-news",
+          "steam-2344520"
+        ]
+      },
+      "AION2": {
+        "game_key": "aion2",
+        "hosts": [
+          "aion2.plaync.com"
+        ],
+        "official_feeds": [
+          "aion2-news"
+        ]
+      }
+    }
+  }
+}

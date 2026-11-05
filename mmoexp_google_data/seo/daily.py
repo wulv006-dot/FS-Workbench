@@ -20,11 +20,17 @@ def run_daily(store, sources, clock=lambda: dt.datetime.now(dt.timezone.utc), ad
         tasks = []
         for index, source in enumerate(sources):
             for scope in GAMES:
-                slices = [(context.publication_date, 0)] if getattr(source, 'is_observation', False) else store.slices(source.name, scope, context)
+                if getattr(source,'is_observation',False):
+                    import json
+                    with store.db() as db:
+                        coverage=db.execute('SELECT quality FROM coverage WHERE source=? AND game=? AND source_date=?',(source.name,scope,context.publication_date)).fetchone()
+                        cursor=db.execute('SELECT cursor FROM cursors WHERE source=? AND game=? AND source_date=?',(source.name,scope,context.publication_date)).fetchone()
+                    slices=[] if coverage and json.loads(coverage[0]).get('attempt_complete') else [(context.publication_date,cursor[0] if cursor else 0)]
+                else:slices=store.slices(source.name, scope, context)
                 tasks.extend((day, index, scope, cursor) for day,cursor in slices)
         blocked = set()
         # One batch, latest dates first across all games; no game's old backfill monopolizes the night.
-        tasks.sort(key=lambda item: (-dt.date.fromisoformat(item[0]).toordinal(), item[1], GAMES.index(item[2])))
+        tasks.sort(key=lambda item: (bool(getattr(sources[item[1]],'is_observation',False)),-dt.date.fromisoformat(item[0]).toordinal(),item[1],GAMES.index(item[2])))
         for day, index, scope, cursor in tasks:
             source = sources[index]
             if source.name in blocked:
@@ -37,15 +43,19 @@ def run_daily(store, sources, clock=lambda: dt.datetime.now(dt.timezone.utc), ad
                 store.mark(source.name, scope, day, source.timezone, 'pending', clock().isoformat(), 'SOURCE_DAY_NOT_ENDED')
                 continue
             try:
-                for page in source.pages(scope, day, cursor):
-                    if not make_daily_context(clock()).publication_allowed or not admit():
-                        break
+                pages=iter(source.pages(scope,day,cursor))
+                while True:
+                    local=clock().astimezone(dt.timezone(dt.timedelta(hours=8)))
+                    remaining=(local.replace(hour=6,minute=30,second=0,microsecond=0)-local).total_seconds()
+                    if not make_daily_context(clock()).publication_allowed or remaining<=finish_margin_seconds or not admit():break
+                    try:page=next(pages)
+                    except StopIteration:break
                     store.ingest_page(source.name, scope, day, page, clock().isoformat())
             except (OSError, ValueError, RuntimeError) as error:
                 # Persist only error class/codes, never provider response bodies or credentials.
                 code = getattr(error, 'code', type(error).__name__)
                 store.mark(source.name, scope, day, source.timezone, 'failed', clock().isoformat(), code)
-                if isinstance(error, PermissionError):
+                if isinstance(error, PermissionError) or getattr(error,'stop_source',False):
                     blocked.add(source.name)
                     for other in GAMES:
                         if other != scope:

@@ -190,6 +190,8 @@ def cleanup_owned_data(store, today):
             deleted = 0
             for table in ('facts', 'coverage', 'stages', 'cursors'):
                 deleted += db.execute('DELETE FROM ' + table + ' WHERE source_date<?', (cutoff,)).rowcount
+            # Keep an active grant's usage even when its older facts expire.
+            deleted += db.execute('DELETE FROM provider_requests WHERE source_date<? AND valid_until<?',(cutoff,today.isoformat())).rowcount
         directory = checked_child(store.root, 'snapshots')
         active = current(store.root)
         if directory.exists():

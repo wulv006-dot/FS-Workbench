@@ -73,7 +73,7 @@ function overview(history, scope, request) {
     sales.append(text('p','业务统计日 '+(latest?.source_date??client.meta.report_date)+' · 北京时间','source-caption'),keyValues([['自然会话',value(latest?.metrics.ga4?.sessions)],['购买次数',value(latest?.metrics.ga4?.purchase_events)],['Admin客单价',latest?.metrics.admin?.admin_customer_price_usd==null?'—':'$'+value(latest.metrics.admin.admin_customer_price_usd)]],'sales-metrics'),viewButton('orders','查看成交预估明细'),text('p','购买次数 × Admin现成客单价；金额为预估，无法逐单归因。','card-note warn'));
   grid.append(demand,search,sales);panel.append(grid);
   const matrix=text('section',null,'dashboard-section');matrix.append(sectionHeading('国家竞争矩阵','按国家、语言、设备与关键词分别观察真实竞争位置。','rankings'));panel.append(matrix);
-  if(client.meta.sources?.serp==='not_configured')renderMarkets(matrix,scope);else loadOptional('rankings',scope,request,matrix,result=>renderMarkets(matrix,scope,result.rows));
+  if(client.meta.sources?.serp==='not_configured')renderMarkets(matrix,scope);else loadOptional('markets',scope,request,matrix,result=>renderMarkets(matrix,scope,result.rows,result.source_state));
   const action=text('section',null,'dashboard-section');action.append(sectionHeading('行动与分析中心','基础规则独立运行，AI按游戏单独启用。','ai'));
   const actions=text('div',null,'action-grid'),rules=text('article',null,'action-card'),ai=text('article',null,'action-card');
   rules.append(text('h3','基础规则提醒'),text('p','正在读取此快照的规则结果…','muted pending'));ai.append(text('h3','可选AI增强'),text('p','正在读取独立控制配置…','muted'));actions.append(rules,ai);action.append(actions);panel.append(action);
@@ -86,26 +86,41 @@ function overview(history, scope, request) {
   }).catch(()=>{if(request===epoch&&ai.isConnected)ai.replaceChildren(text('h3','可选AI增强'),text('p','AI设置暂不可用，基础数据可继续查看。','muted'),viewButton('ai','查看AI设置'));});
   panel.append(details('展开每日数据，核对趋势与预估数值',historyTable(history)));
 }
-function renderMarkets(root, scope, rows=[]) {
+function renderMarkets(root, scope, rows=[], sourceState={}) {
+  if(['partial','failed','stale'].includes(sourceState.status))root.append(text('p','最近采样 '+sourceState.source_date+'：'+(labels[sourceState.status]??'部分完成')+'；下方保留实际观察时间，失败不视为掉榜。','matrix-notice'));
   if(rows.length){
-    root.append(table(columns.rankings.map(c=>c[1]),rows.map(r=>detailCells('rankings',r)),'已发布的真实排名样本'));return;
+    const groups=new Map();for(const row of rows){const key=JSON.stringify([row.country,row.language,row.device,row.location??'']);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);}
+    for(const group of groups.values()){
+      const first=group[0],box=text('article',null,'market-card'),order=['MMOEXP','IGGM','U4GM','U7BUY','LootBar','G2G','Eldorado'],brands=[...new Set(group.map(r=>r.brand))].sort((a,b)=>(order.indexOf(a)<0?99:order.indexOf(a))-(order.indexOf(b)<0?99:order.indexOf(b))||a.localeCompare(b)),queries=new Map();
+      box.append(text('h3',[first.country,first.language,first.device,first.location].filter(Boolean).join(' / ')),text('p','Google自然结果 · Bright Data · 固定快照','muted'));
+      for(const row of group){const key=JSON.stringify([row.keyword,row.source_date,row.depth]);if(!queries.has(key))queries.set(key,[]);queries.get(key).push(row);}
+      const cells=[...queries.values()].map(samples=>{const r=samples[0];return [r.keyword,...brands.map(brand=>{const cell=samples.find(x=>x.brand===brand);return !cell?'待采样':cell.status==='found'?'#'+cell.rank:cell.status==='not_found'?'前'+cell.depth+'未找到':cell.status==='insufficient_depth'?'深度不足 '+cell.effective_depth+'/'+cell.depth:'采集失败';}),r.observed_at??r.source_date];});
+      box.append(table(['关键词',...brands,'观察时间'],cells,'已发布国家竞争样本'));root.append(box);
+    }return;
   }
-  root.append(text('p','独立SERP尚无已发布样本。以下四个市场来自demo候选，尚未核定为该游戏的经营范围；未配置前不展示名次或涨跌。','matrix-notice'));
+  root.append(text('p','独立SERP尚无已发布样本。按已确认的八国范围等待配置与首次夜间采样；未采集前不展示名次或涨跌。','matrix-notice'));
   const grid=text('div',null,'market-grid');
-  for(const [code,name] of [['US','美国'],['GB','英国'],['DE','德国'],['SA','沙特']]){
-    const c=text('article',null,'market-card'),header=text('div',null,'market-heading'),title=text('div',null,'market-title');title.append(text('span',code,'country-code'),text('h3',name+' / '+names[scope]));header.append(title,badge('待核候选'));c.append(header);
-    const rank=text('div',null,'market-placeholder');rank.append(text('strong','—'),text('p','国家、语言、设备与关键词待配置','muted'));c.append(rank);
+  for(const [code,name] of [['US','美国'],['GB','英国'],['DE','德国'],['FR','法国'],['ES','西班牙'],['PT','葡萄牙'],['NL','荷兰'],['BR','巴西']]){
+    const c=text('article',null,'market-card'),header=text('div',null,'market-heading'),title=text('div',null,'market-title');title.append(text('span',code,'country-code'),text('h3',name+' / '+names[scope]));header.append(title,badge('等待采样'));c.append(header);
+    const rank=text('div',null,'market-placeholder');rank.append(text('strong','—'),text('p','等待首批固定条件Google排名','muted'));c.append(rank);
     c.append(text('p','MMOEXP / IGGM / U4GM / U7BUY / LootBar / G2G / Eldorado','brand-list'));grid.append(c);
   }
   root.append(grid);
 }
 function loadOptional(kind,scope,request,root,done) {
-  client.load(kind,scope).then(result=>{if(request===epoch&&root.isConnected)done(result);}).catch(error=>{if(request===epoch&&root.isConnected){root.querySelector('.pending')?.remove();root.append(text('p',(views[kind]?.[0]??'基础提醒')+'暂不可用：'+error.message,'error'));}});
+  const load=async()=>{let result=await client.load(kind,scope);if(['markets','calendar'].includes(kind))while(result.next_cursor!=null&&request===epoch){const next=await client.load(kind,scope,result.next_cursor);result={...next,rows:[...result.rows,...next.rows]};}return result;};
+  load().then(result=>{if(request===epoch&&root.isConnected)done(result);}).catch(error=>{if(request===epoch&&root.isConnected){root.querySelector('.pending')?.remove();root.append(text('p',(kind==='markets'?'国家竞争':kind==='calendar'?'游戏日程':views[kind]?.[0]??'基础提醒')+'暂不可用：'+error.message,'error'));}});
 }
 function detailCells(kind,row) {return columns[kind].map(([key])=>key==='status'?(labels[row.status]??row.status):row[key]??row.metrics?.[key]);}
-function timeline(scope) {
+function timeline(scope,request) {
   panel.append(sectionHeading(names[scope]+' 游戏日程','官方来源优先，事件按真实观察时间记录。'));
-  panel.append(empty('游戏日程来源尚未接入','当前没有可展示的已核验游戏事件。demo中的赛季、版本和运营日程不作为真实公告。','sources'));
+  if(client.meta.sources?.calendar!=='configured')panel.append(empty('游戏日程来源尚未接入','当前没有可展示的已核验游戏事件。demo中的赛季、版本和运营日程不作为真实公告。','sources'));
+  else {
+    const events=text('div',null,'calendar-events');events.append(text('p','正在读取此快照的日程…','pending'));panel.append(events);
+    loadOptional('calendar',scope,request,events,result=>{events.replaceChildren(text('p','复用已发布资料。公告发布日期不代替事件日期；原来源读取时间单独保留。','muted'));if(!result.rows.length)events.append(empty('本游戏暂无已发布日程','缺少范围、来源或日期的项目保留缺口，不生成预测。','sources'));
+      for(const row of [...result.rows].sort((a,b)=>(a.event_date??'9999').localeCompare(b.event_date??'9999'))){const card=text('article',null,'source-card');card.append(text('h3',row.title),badge(row.verification==='user_provided'?'用户提供、未独立核验':row.source_status==='stale'?'来源已过期':'已有来源记录'),text('p',row.event_date?(row.event_date+(row.event_end_date?' → '+row.event_end_date:'')):'事件日期待核'));if(row.summary)card.append(text('p',row.summary));card.append(text('p','原来源读取 '+(row.upstream_observed_at??(row.upstream_source_date?row.upstream_source_date+'（时刻未记录）':'时刻未记录'))+' · 纳入观察 '+row.source_date,'muted'));if(row.published_at)card.append(text('p','公告发布 '+row.published_at,'muted'));if(row.source_url){const link=text('a','查看来源公告','quiet-button');link.href=row.source_url;link.target='_blank';link.rel='noopener noreferrer';card.append(link);}if(row.evidence)card.append(details('来源证据',text('p',row.evidence)));events.append(card);}
+    });
+  }
   const schedule=text('div',null,'schedule-note');schedule.append(text('h3','看板日更安排'),keyValues([['批次启动','每日03:20（北京时间）'],['基础发布','有效即发布，最晚06:30'],['白天读取','固定已发布快照']],'schedule-grid'));panel.append(schedule);
 }
 async function sources(scope,request) {
@@ -117,7 +132,7 @@ async function sources(scope,request) {
     c.append(keyValues([['可用覆盖',history.rows.filter(r=>r.metrics[key]!=null).length+'/30日'],['最近源日',row?.source_date??'—'],['来源时区',row?.source_status?.[key]?.source_timezone??'—']]));grid.append(c);
   }
   panel.append(grid);
-  const note=text('div',null,'source-boundary');note.append(text('h3','可选来源与费用'),text('p','独立SERP：'+(client.meta.sources?.serp==='configured'?'已配置':'未配置')+'；页面检测：'+(client.meta.sources?.pages==='configured'?'已配置':'未配置')+'。社区热度、Google Trends与游戏日程尚未接入。','muted'),text('p','AI费用账本未接入，暂无可核验的SEO模型费用。','muted'),viewButton('ai','查看独立AI开关'));panel.append(note);
+  const note=text('div',null,'source-boundary');note.append(text('h3','可选来源与费用'),text('p','独立SERP：'+(client.meta.sources?.serp==='configured'?'已配置':'未配置')+'；页面检测：'+(client.meta.sources?.pages==='configured'?'已配置':'未配置')+'。游戏日程：'+(client.meta.sources?.calendar==='configured'?'已配置，按快照内实际材料展示':'未配置')+'。社区热度与Google Trends尚未接入。','muted'),text('p','AI费用账本未接入，暂无可核验的SEO模型费用。','muted'),viewButton('ai','查看独立AI开关'));panel.append(note);
   const result=await client.load('sources',scope);if(request!==epoch)return;
   const metadata=keyValues([['snapshot_id',client.id],['facts_hash',client.meta.facts_hash],['发布日期',client.meta.publication_date],['业务目标日',client.meta.report_date]],'snapshot-metadata');
   const ledger=text('div');ledger.append(metadata,table(columns.sources.map(c=>c[1]),result.rows.map(r=>detailCells('sources',r)),'数据来源与覆盖状态'));panel.append(details('查看快照校验与逐日来源明细',ledger));
@@ -138,7 +153,7 @@ async function render() {
       const box=text('div',null,'ai-settings');panel.append(box);import('./ai.mjs').then(m=>{if(request===epoch)m.mount(box,client);}).catch(()=>{if(request===epoch)box.append(text('p','AI组件暂不可用，基础数据可继续查看。','error'));});return;
     }
     if(!client.id){panel.replaceChildren(empty('等待首个夜间批次发布','没有可展示的已发布事实。'));return;}
-    if(active==='timeline'){panel.replaceChildren();timeline(scope);return;}
+    if(active==='timeline'){panel.replaceChildren();timeline(scope,request);return;}
     if(active==='sources'){await sources(scope,request);return;}
     const kind=views[active][1],data=await client.load(kind,scope);if(request!==epoch)return;panel.replaceChildren();
     if(active==='overview')overview(data.rows,scope,request);

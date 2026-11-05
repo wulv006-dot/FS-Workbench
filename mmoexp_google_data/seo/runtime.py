@@ -24,8 +24,12 @@ def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
     policy = ResourcePolicy(**config['resource_policy'])
     root = Path(config['data_root'])
     limits = config['http']
+    margin = config.get('publication_finish_seconds')
+    if type(margin) not in (int, float) or not 0 <= margin < 6.5*3600:
+        raise ValueError('PUBLICATION_FINISH_MARGIN_REQUIRED')
     transport = GoogleTransport(**limits, clock=clock)
     core = Store(root)
+    serp_transport = calendar_source = None
     summary_reader = None
     sources = [GoogleSource(name, transport, **configured[name]) for name in ('gsc', 'ga4') if configured.get(name)]
     if configured.get('admin'):
@@ -36,12 +40,17 @@ def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
         from .pages import PageSource
         sources.append(PageSource(configured['pages']['urls'], clock=clock,
             http={key:limits[key] for key in ('connect_seconds','idle_seconds','response_emergency_bytes')}))
+    if configured.get('serp') and (not isinstance(configured['serp'],dict) or configured['serp'].get('enabled') is True):
+        from .serp import BrightDataTransport, SerpSource
+        serp_transport=BrightDataTransport(core,configured['serp'],limits,clock=clock,finish_margin_seconds=margin)
+        sources.append(SerpSource(configured['serp'],serp_transport,clock=clock))
+    if configured.get('calendar') and (not isinstance(configured['calendar'],dict) or configured['calendar'].get('enabled') is True):
+        from .calendar import CalendarSource
+        calendar_source=CalendarSource(configured['calendar'],http=limits,clock=clock,finish_margin_seconds=margin)
+        sources.append(calendar_source)
     growth = config['temporary_reserve_bytes']
     if type(growth) is not int or growth <= 0:
         raise ValueError('TEMPORARY_RESERVE_REQUIRED')
-    margin = config.get('publication_finish_seconds')
-    if type(margin) not in (int, float) or not 0 <= margin < 6.5*3600:
-        raise ValueError('PUBLICATION_FINISH_MARGIN_REQUIRED')
     decisions = {}
     def admit():
         used = footprint(root)+(footprint(Path(config['control_root'])) if config.get('control_root') else 0)
@@ -63,7 +72,7 @@ def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
         result = run_daily(core, sources, clock=clock, admit=admit, finish_margin_seconds=margin)
     finally:
         transport.close()
-    result.update(missing_sources=missing, upstream_requests=transport.calls+(summary_reader.calls if summary_reader else 0), resource_states=decisions)
+    result.update(missing_sources=missing, upstream_requests=transport.calls+(summary_reader.calls if summary_reader else 0)+(serp_transport.calls if serp_transport else 0)+(calendar_source.calls if calendar_source else 0), resource_states=decisions)
     maintenance = {}
     try:
         maintenance['cleanup'] = cleanup_owned_data(core,dt.date.fromisoformat(context.publication_date))

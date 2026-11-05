@@ -23,7 +23,7 @@ def targets(manifest):
               **{'ui/'+n:'/var/lib/fs-navigation-formal-static/'+package+'/'+n for n in ('index.html','seo.css','app.mjs','model.mjs','ai.mjs','fs-tokens.css','fs-theme.js')}}
     for row in manifest.get('files',[]):
         rel=row.get('candidate','')
-        if re.fullmatch(r'runtime/mmoexp_google_data/(?:seo/[a-z_]+\.py|details/(?:collect_details\.py|game_dimensions\.py|game_mapping_20261019\.json))',rel):
+        if re.fullmatch(r'runtime/mmoexp_google_data/(?:seo/(?:[a-z_]+\.py|calendar\.fc27\.user-provided\.json)|details/(?:collect_details\.py|game_dimensions\.py|game_mapping_20261019\.json))',rel):
             result[rel]='/opt/fs-seo/releases/'+package+'/'+rel[len('runtime/'):]
     return result
 
