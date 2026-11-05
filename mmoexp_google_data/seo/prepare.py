@@ -19,7 +19,7 @@ def units(runtime):
     python = '/opt/mmoexp-marketing/venv-ssl/bin/python -B -m mmoexp_google_data.seo.'
     return {
         'fs-seo-web.service':'[Unit]\nDescription=FS SEO frozen snapshot API'+common+'Type=simple\nMemoryLimit=2G\nExecStart='+python+'web --config /etc/fs-seo/config.json\nRestart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n',
-        'fs-seo-daily.service':'[Unit]\nDescription=FS SEO single nightly base batch'+common+'Type=oneshot\nMemoryLimit=4G\nTimeoutStartSec=0\nExecStart='+python+'runtime --config /etc/fs-seo/config.json\n',
+        'fs-seo-daily.service':'[Unit]\nDescription=FS SEO single nightly base batch'+common+'Type=oneshot\nEnvironmentFile=-/etc/fs-seo/brightdata.env\nMemoryLimit=4G\nTimeoutStartSec=0\nExecStart='+python+'runtime --config /etc/fs-seo/config.json\n',
         'fs-seo-daily.timer':'[Unit]\nDescription=FS SEO four games one daily batch\n\n[Timer]\nOnCalendar=*-*-* 03:20:00\nAccuracySec=1s\nPersistent=false\nUnit=fs-seo-daily.service\n\n[Install]\nWantedBy=timers.target\n'
     }
 
@@ -51,6 +51,8 @@ def build(repo, baseline, formal, navigation, config, output):
     payloads = {}
     for path in sorted((repo/'mmoexp_google_data/seo').glob('*.py')):
         payloads['mmoexp_google_data/seo/'+path.name] = path.read_bytes()
+    plan='mmoexp_google_data/seo/calendar.fc27.user-provided.json'
+    payloads[plan]=(repo/plan).read_bytes()
     for name in ('collect_details.py','game_dimensions.py','game_mapping_20261019.json'):
         path = 'mmoexp_google_data/details/'+name
         payloads[path] = (repo/path).read_bytes()

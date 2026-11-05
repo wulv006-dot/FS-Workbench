@@ -33,6 +33,8 @@ class Store:
                     error TEXT, PRIMARY KEY(source, game, source_date));
                 CREATE TABLE IF NOT EXISTS cursors(source TEXT, game TEXT, source_date TEXT,
                     cursor INTEGER, PRIMARY KEY(source, game, source_date));
+                CREATE TABLE IF NOT EXISTS provider_requests(request_key TEXT PRIMARY KEY,
+                    authorization TEXT,source_date TEXT,state TEXT,request_id TEXT,response TEXT,error TEXT,valid_until TEXT,submitted_at TEXT);
             ''')
 
     @contextlib.contextmanager
@@ -64,10 +66,17 @@ class Store:
             for row in page['rows']:
                 db.execute('INSERT OR REPLACE INTO stages VALUES (?,?,?,?,?)', (*key, row['key'], encode(row)))
             cursor = page['next_cursor']
+            point=page['quality'].get('sample_kind')=='point_observation'
+            quality=dict(page['quality'],attempt_complete=cursor is None) if point else page['quality']
             if cursor is not None:
                 db.execute('INSERT OR REPLACE INTO cursors VALUES (?,?,?,?)', (*key, cursor))
+                if point:
+                    db.execute('INSERT OR REPLACE INTO facts SELECT * FROM stages WHERE source=? AND game=? AND source_date=?',key)
+                    db.execute('INSERT OR REPLACE INTO coverage VALUES (?,?,?,?,?,?,?,?)',(*key,page['source_timezone'],'partial',collected_at,encode(quality),None))
                 return
             expected_total = page['quality'].get('expected_total')
+            if source=='serp' and any(json.loads(r[0]).get('status')=='failed' for r in db.execute('SELECT payload FROM stages WHERE source=? AND game=? AND source_date=?',key)):
+                page=dict(page,status='partial')
             if expected_total is not None and db.execute('SELECT COUNT(*) FROM stages WHERE source=? AND game=? AND source_date=?', key).fetchone()[0] != expected_total:
                 error = ValueError('ORDER_PAGE_TOTAL_MISMATCH')
                 error.code = 'ORDER_PAGE_TOTAL_MISMATCH'
@@ -77,7 +86,7 @@ class Store:
             db.execute('DELETE FROM stages WHERE source=? AND game=? AND source_date=?', key)
             db.execute('DELETE FROM cursors WHERE source=? AND game=? AND source_date=?', key)
             db.execute('INSERT OR REPLACE INTO coverage VALUES (?,?,?,?,?,?,?,?)',
-                       (*key, page['source_timezone'], page['status'], collected_at, encode(page['quality']), None))
+                       (*key, page['source_timezone'], page['status'], collected_at, encode(quality), None))
 
     def mark(self, source, scope, day, timezone, status, collected_at, error):
         with self.db() as db:
