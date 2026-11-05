@@ -13,6 +13,15 @@ function reportDates(info,now=new Date()){
   const cutoff=info?.cutoff?.slice(0,10)||localDay(now);
   return {cutoff,end:addDay(cutoff,-1),start:info?.default_start?.slice(0,10)||addDay(cutoff,-30)};
 }
+function pendingUpdateText(pending){
+  if(!pending)return '';
+  if(pending.review_pending||pending.cleanup_pending){
+    if(!pending.daily_current||pending.daily_error)return ' · 新单更新尚未完成，保留上次成功版本；历史复核或归档整理待继续';
+    if(pending.cleanup_pending)return ` · 数据已更新，归档整理待完成${pending.cleanup_error?'（整理异常）':''}`;
+    return pending.retryable===false?' · 月度复核暂停，新单正常更新':' · 月度复核进行中，新单正常更新';
+  }
+  return pending.phase==='backup'?' · 数据已发布，原任务正在收尾':' · 本轮更新尚未完成，保留上次成功版本';
+}
 async function read(params,path='data.json',signal){
   const response=await fetch('./'+path+'?'+new URLSearchParams(params),{credentials:'same-origin',cache:'no-store',signal});
   if(!response.headers.get('content-type')?.includes('application/json'))throw new Error('登录状态或接口不可用');
@@ -98,7 +107,7 @@ function render(){
   text('freshness',`北京时间 ${time(q.start)} 至 ${time(q.end_exclusive)}（截止不含） · 最近来源读取 ${time(snapshot.captured_at)}`);
   if(snapshot.weekly_update){
     const w=snapshot.weekly_update,pending=catalog.weekly_update?.pending;
-    text('freshness',`${w.cadence==='daily'?'每日更新':'每周更新'} · 数据截至 ${w.data_through} · 最近成功更新 ${time(w.last_successful_update)} · 下次计划 ${time(w.next_planned_update)}${pending?pending.phase==='backup'?' · 数据已发布，原任务正在收尾':' · 本轮更新尚未完成，保留上次成功版本':''}`);
+    text('freshness',`${w.cadence==='daily'?'每日更新':'每周更新'} · 数据截至 ${w.data_through} · 最近成功更新 ${time(w.last_successful_update)} · 下次计划 ${time(w.next_planned_update)}${pendingUpdateText(pending)}`);
   }
   text('period-end',addDay(q.end_exclusive.slice(0,10),-1));
   text('stock-title',period?'截至观察日，这批期间购买客户处于什么阶段':'辅助：全部已覆盖客户在观察日的阶段');
