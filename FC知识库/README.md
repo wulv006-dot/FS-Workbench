@@ -11,9 +11,9 @@
 | 更新记录：版本、维护、审核与学习状态 | [维护协议](../knowledge/reporting/fc27-monthly/MAINTENANCE.md) · [交付记录](../knowledge/reporting/fc27-monthly/DELIVERY.md) |
 | Codex怎样使用 | [$fc27-monthly-report](../.agents/skills/fc27-monthly-report/SKILL.md) · [统一方法索引](../knowledge/reporting/fc27-monthly/README.md) |
 
-智能定价新策略当前标为**开发／未验**，实际进展以对应任务的版本与验收为准；不能因本知识入口存在就认为已切换或有经营收益。原现役定价计划照现行基准执行。
+智能定价的上线版本、真实写价与自然周期验收以对应任务交付记录为准；本知识入口不作为策略切换或经营收益证明。定价执行照现行基准。
 
-知识内容与Codex技能已通过正式CI并合并；Hermes共享版已审核应用，真实读取及本轮未见题通过。FS原生KB发布尚未应用：原发布器被另一条历史未决会话的对账保护阻断，对账接口当前503；候选和恢复步骤已保留，详见[交付记录](../knowledge/reporting/fc27-monthly/DELIVERY.md)。
+知识内容与Codex技能已通过正式CI并合并；Hermes共享版已审核应用，真实读取及本轮未见题通过。FS知识路由已发布，五主题正文与版本读回通过；正式Chrome FS新会话实际读取索引及取数正文，广告CAC短题回答正确。native正式技能安装未做；自然报告与长期效果未验。详见[交付记录](../knowledge/reporting/fc27-monthly/DELIVERY.md)。
 
 历史优秀报告仅供理解组织方法，经营数字不是当前阈值。本地受控成品位于项目的 `docs/planning/fc27-october-review-20261103/output/`，文件名 `FC27-2026年10月项目专项复盘.html`；Git不收录该私密成品，团队可共享方法已在上方入口。
 
