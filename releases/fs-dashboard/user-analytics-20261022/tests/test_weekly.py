@@ -73,6 +73,53 @@ class WeeklyFixture(unittest.TestCase):
 
 
 
+class BuyerEvidence(WeeklyFixture):
+    def evidence(self, buyer='buyer-opaque-A'):
+        return {hashlib.sha256(r['order_no'].encode()).hexdigest(): dict(buyer_id=buyer, uid='registered-9', status='verified') for r in self.rows}
+
+    def enrich(self, values=None):
+        return self.store.enrich_order_identities('2026-10-19', '2026-10-26', self.evidence() if values is None else values, 'a'*64)
+
+    def test_exact_order_identity_is_private_versioned_and_idempotent(self):
+        before=self.store.orders_at(self.publication['data_version'], self.store.find_email(self.rows[0]['email'], ['266']).pop())
+        result=self.enrich()
+        self.assertEqual(result['changed_rows'], 2)
+        self.assertNotIn('buyer-opaque-A', json.dumps(result))
+        self.assertEqual(self.enrich()['changed_rows'], 0)
+        with self.store.db() as db:
+            after=[dict(r) for r in db.execute('SELECT * FROM orders ORDER BY order_key')]
+        self.assertEqual(json.loads(after[0]['body'])['es_identity']['buyer_id'], 'buyer-opaque-A')
+        self.assertNotEqual(after[0]['customer_id'], after[1]['customer_id'])
+        self.assertNotIn('es_identity', json.loads(before[0]['body']))
+        old=self.store.orders_at(self.publication['data_version'], before[0]['customer_id'])
+        self.assertEqual(old,before)
+
+    def test_regular_refresh_preserves_es_evidence_and_original_identity(self):
+        self.enrich()
+        self.store.replace_window('266','2026-10-19','2026-10-26', self.rows, MONDAY.isoformat())
+        with self.store.db() as db:
+            body=json.loads(db.execute('SELECT body FROM orders ORDER BY order_key LIMIT 1').fetchone()[0])
+        self.assertEqual(body['es_identity']['buyer_id'],'buyer-opaque-A')
+
+    def test_ambiguous_order_number_across_sites_does_not_join(self):
+        with self.store.db() as db:
+            row=dict(db.execute('SELECT * FROM orders ORDER BY order_key LIMIT 1').fetchone())
+            db.execute('INSERT INTO orders VALUES(?,?,?,?,?,?,?,?)', ('admin:999:'+self.rows[0]['order_no'],'999',row['gid'],row['customer_id'],row['paid_at'],row['valid'],row['body'],row['revision']))
+        result=self.enrich()
+        self.assertEqual(result['ambiguous_rows'],2)
+        self.assertEqual(result['changed_rows'],1)
+
+    def test_conflicting_buyer_replaces_evidence_with_explicit_conflict(self):
+        self.enrich()
+        result=self.enrich(self.evidence('buyer-opaque-B'))
+        self.assertEqual(result['conflict_rows'],2)
+        with self.store.db() as db:
+            body=json.loads(db.execute('SELECT body FROM orders LIMIT 1').fetchone()[0])
+        self.assertEqual(body['es_identity']['status'],'conflict')
+        self.assertEqual(body['es_identity']['buyer_id'],'buyer-opaque-A')
+        self.assertEqual(body['es_identity']['candidate_buyer_id'],'buyer-opaque-B')
+
+
 class PublishedQueries(WeeklyFixture):
     def test_default_previous_complete_week_and_daily_start_choice(self):
         value = self.service.query({}, 'admin')
@@ -162,6 +209,7 @@ class Worker(WeeklyFixture):
         self.sync = self.stack.enter_context(patch.object(jobs, 'synchronize_day', side_effect=sync))
         self.targeted = self.stack.enter_context(patch.object(jobs, 'targeted_refresh', return_value=dict(status='complete')))
         self.ensure = self.stack.enter_context(patch.object(types, 'ensure_period', return_value=dict(status='complete')))
+        self.stack.enter_context(patch.object(types, 'read_pinned_identities', return_value=({},dict(status='complete',sourceVersion='a'*64))))
 
     def wake(self, now=MONDAY, **kwargs):
         return weekly.wake(self.store.root, lambda: self.store, now, clock=lambda: 0, **kwargs)
@@ -439,14 +487,24 @@ class PinnedFlags(unittest.TestCase):
         self.add_manifest('\u662f', '2026-11-01T02:00:00+08:00')
         self.inventory = types.manifest_inventory(self.root)
 
-    def add_manifest(self, label, captured, declared=1):
-        raw = json.dumps([dict(order=self.order, time='2026-10-21', new=label)]).encode()
+    def add_manifest(self, label, captured, declared=1, extras=None):
+        raw = json.dumps([dict(order=self.order, time='2026-10-21', new=label, **(extras or {}))]).encode()
         ident = hashlib.sha256(raw).hexdigest(); path = self.root/(ident+'.xlsx'); path.write_bytes(raw); path.chmod(0o600)
         value = dict(query=dict(profile='ALL', start='2026-10-01', end='2026-10-31'), captured_at=captured,
                      file_sha256=[ident], file_set=dict(declared_files=declared, failed_files=0))
         raw = json.dumps(value).encode(); name = hashlib.sha256(raw).hexdigest()+'.json'
         path = self.root/name; path.write_bytes(raw); path.chmod(0o600)
         return path
+
+    def test_identity_fields_are_read_only_from_verified_private_raw_rows(self):
+        self.add_manifest('是', '2026-11-02T02:00:00+08:00', extras=dict(buyer_id='opaque-buyer-X', uid='0'))
+        query=dict(start='2026-10-19',end_exclusive='2026-10-26')
+        identities, info=types.read_pinned_identities(query,types.manifest_inventory(self.root),self.root)
+        key=hashlib.sha256(self.order.encode()).hexdigest()
+        self.assertEqual(identities[key],dict(buyer_id='opaque-buyer-X',uid=None,status='verified'))
+        self.assertEqual(info['status'],'complete')
+        flags,public=types.read_pinned_flags(query,types.manifest_inventory(self.root),self.root)
+        self.assertNotIn('opaque-buyer-X',json.dumps([flags,public]))
 
     def test_later_export_does_not_change_frozen_customer_types(self):
         self.add_manifest('\u5426', '2026-11-02T02:00:00+08:00')

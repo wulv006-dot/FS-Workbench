@@ -220,8 +220,9 @@ class Store:
             changes = []
             for key, gid, paid, valid, body in normalized:
                 cid = self.identity(db, site, body['email'])
-                encoded = canonical(body)
                 old = db.execute('SELECT * FROM orders WHERE order_key=?', (key,)).fetchone()
+                if old and 'es_identity' in json.loads(old['body']):body['es_identity'] = json.loads(old['body'])['es_identity']
+                encoded = canonical(body)
                 values = (site, gid, cid, paid, int(valid), encoded)
                 if old and tuple(old[k] for k in ('site', 'gid', 'customer_id', 'paid_at', 'valid', 'body')) == values:
                     continue
@@ -290,6 +291,7 @@ class Store:
                 old = previous[ident]
                 if str(body.get('email') or '').strip() != str(json.loads(old['body']).get('email') or '').strip():
                     raise ValueError('targeted_customer_identity_mismatch')
+                if 'es_identity' in json.loads(old['body']):body['es_identity'] = json.loads(old['body'])['es_identity']
                 values = (site, gid, old['customer_id'], paid, int(valid), canonical(body))
                 if tuple(old[k] for k in ('site', 'gid', 'customer_id', 'paid_at', 'valid', 'body')) != values:
                     changes.append(old)
@@ -308,6 +310,57 @@ class Store:
             state = 'partial' if missing else 'complete'
             db.execute('INSERT INTO job_attempts(job_id,state,body) VALUES(?,?,?)', (job, state, canonical(payload)))
         return dict(job_id=job, state=state, **payload)
+
+    def enrich_order_identities(self, start, end, identities, source_version):
+        """Attach exact-order evidence; never merge customers or alter financial facts."""
+        start, end = stamp(start).isoformat(), stamp(end).isoformat()
+        if (not start < end or not isinstance(identities, dict)
+                or not isinstance(source_version,str) or not re.fullmatch('[a-f0-9]{64}',source_version)):
+            raise ValueError('order_identity_evidence_contract')
+        for key, value in identities.items():
+            if (not isinstance(key,str) or not re.fullmatch('[a-f0-9]{64}',key) or not isinstance(value,dict)
+                    or set(value)!={'buyer_id','uid','status'} or value['status'] not in ('verified','unknown','conflict')):
+                raise ValueError('order_identity_evidence_contract')
+            for field in ('buyer_id','uid'):
+                item=value[field]
+                if item is not None and (not isinstance(item,str) or not 0<len(item)<=160 or item=='0' or any(ord(c)<32 for c in item)):
+                    raise ValueError('order_identity_evidence_contract')
+            if (value['status']=='verified') != (value['buyer_id'] is not None):raise ValueError('order_identity_evidence_contract')
+        counts=dict(matched_rows=0,changed_rows=0,ambiguous_rows=0,conflict_rows=0,unknown_rows=0)
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            rev=int(db.execute("SELECT value FROM meta WHERE key='revision'").fetchone()[0])
+            rows=[dict(r) for r in db.execute('SELECT * FROM orders WHERE paid_at>=? AND paid_at<?',(start,end))]
+            keyed={}
+            for row in rows:
+                number=json.loads(row['body']).get('order_no')
+                if number:keyed.setdefault(hashlib.sha256(number.encode()).hexdigest(),[]).append(row)
+            changes=[]
+            for key, group in keyed.items():
+                incoming=identities.get(key)
+                if incoming is None:counts['unknown_rows']+=len(group);continue
+                if len(group)!=1:counts['ambiguous_rows']+=len(group);continue
+                row=group[0]
+                if row['site'] not in self.config['sites']:counts['ambiguous_rows']+=1;continue
+                counts['matched_rows']+=1
+                body=json.loads(row['body']);old=body.get('es_identity',{})
+                if incoming['status']=='unknown':counts['unknown_rows']+=1;continue
+                if old.get('status')=='conflict':counts['conflict_rows']+=1;continue
+                conflict=(incoming['status']=='conflict' or old.get('buyer_id') and old['buyer_id']!=incoming['buyer_id'])
+                if conflict:
+                    counts['conflict_rows']+=1
+                    evidence=dict(old,status='conflict',candidate_buyer_id=incoming['buyer_id'],conflict_source_version=source_version)
+                else:
+                    evidence=dict(incoming,source_version=source_version,join='unique_existing_order_site')
+                    if all(old.get(k)==incoming[k] for k in incoming):continue
+                body['es_identity']=evidence;changes.append(row)
+                db.execute('UPDATE orders SET body=?,revision=? WHERE order_key=?',(canonical(body),rev+1,row['order_key']))
+            if changes:
+                db.execute('INSERT INTO revisions VALUES(?,?,?)',(rev+1,'es_order_identity_evidence',canonical(changes)))
+                user_version_index.advance(db,rev,rev+1,changes)
+                rev+=1;db.execute("UPDATE meta SET value=? WHERE key='revision'",(str(rev),))
+            counts['changed_rows']=len(changes)
+        return dict(counts,data_version=str(rev),customer_keys_changed=False)
 
     def failed_window(self, site, start, end, error):
         # Failed attempts never erase a previously complete coverage record.

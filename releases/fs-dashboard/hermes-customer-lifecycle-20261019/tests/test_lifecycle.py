@@ -5,6 +5,9 @@ from unittest.mock import patch,Mock
 from pathlib import Path
 from datetime import date,datetime,timezone,timedelta
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
+# The active tracking model reads the shared Admin game registry.
+sys.path.append(str(Path(__file__).resolve().parents[2]/'hermes-generic-data-20261018/source'))
+sys.path.append(str(Path(__file__).resolve().parents[2]/'fs-business-baseline-20261021/source'))
 from customer_tracking import Store,lifecycle_clock,AdminService
 from pool_reports import PoolReports,pool_evidence
 
@@ -30,6 +33,38 @@ class Tests(unittest.TestCase):
  def track(self):
   r=self.s.track('b'*32,'1'*32,now=NOW,owner='tester');self.id=r['tracking_id'];return r
  def observe(self,complete=True):return self.s.observe(self.id,[self.row],observed_at=NOW.isoformat(),coverage={'complete':complete})
+ def test_buyer_evidence_survives_refresh_and_only_coverage_reaches_tools(self):
+  self.row['es_identity']={'buyer_id':'private-buyer-1','uid':None,'status':'verified'}
+  with self.s.db() as db:db.execute('UPDATE candidates SET latest_body=?,first_body=?',(json.dumps(self.row),json.dumps(self.row)))
+  self.track();self.observe()
+  detail=self.s.detail(self.id)
+  self.assertEqual(detail['orders'][0]['es_identity']['buyer_id'],'private-buyer-1')
+  self.assertEqual(detail['buyer_identity_evidence']['covered_orders'],1)
+  import importlib.util
+  spec=importlib.util.spec_from_file_location('actual_lifecycle_tool',Path(__file__).resolve().parents[1]/'source/tracking_tool.py')
+  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  public=module.anonymous_snapshot(detail)
+  self.assertIn('buyer_identity_evidence',public)
+  self.assertFalse(public['buyer_identity_evidence']['canonical_identity_updated'])
+  self.assertNotIn('private-buyer-1',json.dumps(public))
+  pool=pool_evidence(self.s,NOW)
+  self.assertIn('buyer_identity_evidence',pool['customers'][0])
+  self.assertNotIn('private-buyer-1',json.dumps(pool))
+
+ def test_buyer_candidates_require_exact_admin_order_and_conflicts_are_not_merged(self):
+  from customer_tracking import candidate_rows,DEFAULT_CONFIG
+  es={'游戏':'FC 27','产品类型':'货币(Gold)','订单号':'SYNTH-1','订单金额（美元）':'600','实付金额':'600','实付币种':'USD','折扣金额':'0','是否新客户':'是','付款时间':'2026-10-13 23:00:00','buyer_id':'opaque-buyer','uid':'0'}
+  admin=dict(self.row,amount='600')
+  rows,_=candidate_rows([es],{'SYNTH-1':admin},DEFAULT_CONFIG)
+  self.assertEqual(rows[0]['es_identity']['buyer_id'],'opaque-buyer')
+  self.assertEqual(rows[0]['es_identity']['source'],'ES exact order matched to Admin')
+  merged,_=candidate_rows([dict(es,buyer_id='N/A'),es],{'SYNTH-1':admin},DEFAULT_CONFIG)
+  self.assertEqual(len(merged),1)
+  self.assertEqual(merged[0]['es_identity']['buyer_id'],'opaque-buyer')
+  rows,coverage=candidate_rows([es,dict(es,buyer_id='different-buyer')],{'SYNTH-1':admin},DEFAULT_CONFIG)
+  self.assertEqual(rows,[])
+  self.assertEqual(coverage['conflicts'],1)
+
  def test_first_paid_day_one_and_seven(self):
   c=lifecycle_clock([self.row],{'complete':True},NOW);self.assertEqual(c['lifecycle_day'],7);self.assertTrue(c['stage_markers'][0]['reached']);self.assertEqual(c['stage_markers'][0]['date'],'2026-10-19')
  def test_unknown_partial_invalid_unpaid(self):

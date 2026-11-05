@@ -97,6 +97,20 @@ def checked_config(value):
     return dict(value,min_order_usd_exclusive=str(lo),max_discount_usd_exclusive=str(hi))
 
 
+def buyer_evidence(orders):
+    """Anonymous evidence coverage; the existing email pool is not silently merged."""
+    buyers=set();covered=conflicts=0
+    for row in orders:
+        identity=row.get('es_identity') or {}
+        if identity.get('status')=='conflict':conflicts+=1
+        buyer=identity.get('buyer_id')
+        if identity.get('status')=='verified' and isinstance(buyer,str) and buyer:
+            covered+=1;buyers.add((str(row.get('site_id')),buyer))
+    return dict(status='conflict' if conflicts or len(buyers)>1 else 'consistent_observed' if buyers else 'unknown',
+                covered_orders=covered,total_orders=len(orders),distinct_observed_buyers=len(buyers),
+                conflict_orders=conflicts,identity_basis='existing_exact_email_pool',canonical_identity_updated=False)
+
+
 def classify(row,config,apply_criteria=True):
     """Only exact approved ES labels; ambiguity stays out of a candidate list."""
     _,label=game_scope(config['profile'])
@@ -120,7 +134,10 @@ def classify(row,config,apply_criteria=True):
         parsed=datetime.fromisoformat(paid_at.replace('/','-'))
         if parsed.tzinfo is None:parsed=parsed.replace(tzinfo=timezone(timedelta(hours=8)))
     except ValueError:return None,'paid_at_missing'
-    return {'order_no':order,'paid_at':parsed.isoformat(),'es_order_usd':str(amount) if amount is not None else None,
+    buyer=row.get('buyer_id')
+    buyer=buyer.strip() if isinstance(buyer,str) and 0<len(buyer)<=160 and buyer.strip().lower() not in ('','0','null','none','n/a','nan','undefined','-') and not any(ord(c)<32 for c in buyer) else None
+    return {'es_identity':dict(buyer_id=buyer,status='verified' if buyer else 'unknown',source='ES original row; Admin match pending'),
+        'order_no':order,'paid_at':parsed.isoformat(),'es_order_usd':str(amount) if amount is not None else None,
         'payment':{'amount':str(paid) if paid is not None else None,'currency':currency or None},
         'discount_usd':str(discount),'customer_flag':flag,'product_type':product},None
 
@@ -142,6 +159,7 @@ def verified_identity(es,admin):
     return {'identity_status':'verified','email':email.strip(),'uid':uid,
             'site_id':266,'gid':gid,'pay_status':1,'selected_game':True,
             'admin_order_usd':str(admin_usd) if admin_usd is not None else None,
+            'es_identity':dict(es.get('es_identity',{}),source='ES exact order matched to Admin'),
             'identity_source':'Admin exact order_no, gid, site_id, paid status and customer email'}
 
 
@@ -163,12 +181,15 @@ def candidate_rows(es_rows,admin_by_order,config):
         item['product_types']=[item['product_type']]
         old=seen.get(number)
         if old is not None:
-            baseline={k:v for k,v in old.items() if k not in ('product_type','product_types')}
-            current={k:v for k,v in item.items() if k not in ('product_type','product_types')}
-            if baseline!=current:
+            baseline={k:v for k,v in old.items() if k not in ('product_type','product_types','es_identity')}
+            current={k:v for k,v in item.items() if k not in ('product_type','product_types','es_identity')}
+            old_buyer=(old.get('es_identity') or {}).get('buyer_id')
+            new_buyer=(item.get('es_identity') or {}).get('buyer_id')
+            if baseline!=current or old_buyer and new_buyer and old_buyer!=new_buyer:
                 conflicted.add(number)
             elif item['product_type'] not in old['product_types']:
                 old['product_types'].append(item['product_type'])
+            if not old_buyer and new_buyer:old['es_identity']=item['es_identity']
             continue
         seen[number]=item
     coverage['conflicts']=len(conflicted)
@@ -449,7 +470,7 @@ class Store:
                 previous=db.execute('SELECT body FROM orders WHERE track_id=? AND order_no=?',(tracking_id,item['order_no'])).fetchone()
                 if previous:
                     original=json.loads(previous['body'])
-                    for field in ('discount_usd','payment','product_type','product_types','customer_flag','es_order_usd'):
+                    for field in ('discount_usd','payment','product_type','product_types','customer_flag','es_order_usd','es_identity'):
                         if field in original and original[field] is not None:
                             projection[field]=original[field]
                 if previous and json.loads(previous['body'])!=projection:
@@ -497,7 +518,7 @@ class Store:
         history_body=json.loads(history['body']) if history else None
         return dict(lifecycle_clock(order_rows,history_body),**{'status':row['status'],'tracking_id':tracking_id,'email':row['email'],
             'uid':int(row['uid']) if row['uid'] is not None else None,'tracked_at':row['tracked_at'],'owner':row['owner'],
-            'orders':order_rows,
+            'orders':order_rows,'buyer_identity_evidence':buyer_evidence(order_rows),
             'milestones':[dict(item) for item in milestones],
             'history_coverage':json.loads(history['body']) if history else None,
             'history_observed_at':history['observed_at'] if history else None,'report_policy':'manual_pool_only'})
