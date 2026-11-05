@@ -210,6 +210,26 @@ class ConversationStore:
             db.execute('INSERT INTO synthetic_turn_archives VALUES(?,?,?,?)',(p['turn_id'],p['cid'],raw,digest(raw)))
             return receipt
 
+    def reserve_report_turn(self, owner, text, request_id, task_id):
+        """Private host-only reservation of one genuine report task and session."""
+        if (not isinstance(task_id,str) or not re.fullmatch('[a-f0-9]{32}',task_id) or
+                not isinstance(owner,str) or not owner or not isinstance(text,str) or not text.strip() or
+                not isinstance(request_id,str) or not REQUEST_ID.fullmatch(request_id)):
+            raise ValueError('report_turn_fields')
+        fingerprint=hashlib.sha256(text.encode('utf-8')).hexdigest()
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            old=db.execute('SELECT t.*,c.owner,c.session_id FROM turns t JOIN conversations c ON c.id=t.conversation_id WHERE t.id=?',(task_id,)).fetchone()
+            if old is not None:
+                if old['owner']!=owner:raise LookupError('conversation_not_found')
+                self._owned(db,owner,old['conversation_id'])
+                if old['request_id']!=request_id or old['input_sha256']!=fingerprint:raise ValueError('idempotency_conflict')
+                return dict(conversation_id=old['conversation_id'],turn_id=task_id,session_id=old['session_id'],run_id=old['run_id'],state=old['state'],reused=True)
+            cid=uuid.uuid4().hex;session='hc_'+uuid.uuid4().hex+uuid.uuid4().hex
+            db.execute('INSERT INTO conversations VALUES(?,?,?,?)',(cid,owner,session,datetime.now(timezone.utc).isoformat()))
+            db.execute("INSERT INTO turns(id,conversation_id,request_id,input_sha256,text,state) VALUES(?,?,?,?,?,'preparing')",(task_id,cid,request_id,fingerprint,text))
+            return dict(conversation_id=cid,turn_id=task_id,session_id=session,run_id=None,state='preparing',reused=False)
+
     def reserve_turn(self, owner, conversation_id, text, request_id, file_ids=None, *, native=False):
         if not isinstance(text, str) or not text.strip() or (not native and len(text.strip()) > 12000):
             raise ValueError("invalid_input")

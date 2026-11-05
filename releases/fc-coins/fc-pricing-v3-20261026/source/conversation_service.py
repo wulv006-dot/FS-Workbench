@@ -250,6 +250,23 @@ class ConversationService:
         return {"conversation_id": conversation_id, "turn_id": item["turn_id"], "run_id": item["run_id"],
                 "state": item["state"], "reused": item["reused"]}
 
+    def submit_report(self,user,key,text):
+        self._admin(user)
+        with admission_guard(self.hermes.root / 'admission.lock') as acquired:
+            if not acquired:raise RuntimeError('release_in_progress')
+            job=self.hermes.get_job(user,key)
+            if job is None or job['state'] not in {'DISPATCH_UNKNOWN','CANCEL_REQUESTED'}:
+                raise PermissionError('native_report_required')
+            task=self.hermes.tasks.get(job['task_id'],user)
+            if task['state'] not in {'DISPATCH_UNKNOWN','CANCEL_REQUESTED'} or not task['lease'] or task['run_id'] is not None:
+                raise PermissionError('native_report_dispatch_state')
+            item=self.store.reserve_report_turn(user,text,job['body']['request_id'],task['id'])
+            cid=item['conversation_id']
+        if item['reused']:
+            if self.native.row(user,cid,item['turn_id']):self.native.schedule_reconcile(user,cid,item['turn_id'])
+            return item
+        return self.native.dispatch(user,cid,item['turn_id'],item['session_id'],text,job['body']['request_id'],report_key=key)
+
     def submit_pricing(self,user,conversation_id,text,client_request_id,run_id):
         if not self.pricing_only or not re.fullmatch(r'[0-9a-f-]{36}',run_id or ''):
             raise ValueError('pricing_review_run_invalid')
@@ -403,17 +420,34 @@ class ConversationService:
 
     def _monitor(self, user, conversation_id, turn_id, run_id, live):
         if self.store.is_archived(user,conversation_id,turn_id):return
+        from native_reports import find,admitted
+        native_row=self.native.row(user,conversation_id,turn_id) if self.native else None
+        if native_row and find(self.native,native_row['binding']) is not None:admitted(self.native,native_row['binding'])
         path = "/v1/runs/" + run_id
         last_seq = self.store.last_upstream(user, conversation_id, run_id)
         missing_status = 0
         status_errors = 0
+        from native_reports import find
+        native_row=self.native.row(user,conversation_id,turn_id) if self.native else None
+        report=find(self.native,native_row['binding']) if native_row else None
         while True:
             if self.store.is_archived(user,conversation_id,turn_id):return
+            if report is not None:
+                deadline=self.hermes.nightly.deadline(report['id'])
+                if deadline is not None and self.hermes.clock()>=deadline+timedelta(minutes=1):
+                    self.store.set_state(user,conversation_id,turn_id,'dispatch_unknown')
+                    self._abandon_task(user,conversation_id,turn_id,live)
+                    return
+                if self.hermes.authorizer(user) is not True:
+                    self.hermes.cancel_job(user,report['id'],reason='native_report_revoked')
+                if deadline is not None and self.hermes.clock()>=deadline:
+                    self.hermes.cancel_job(user,report['id'],reason='nightly_deadline_exceeded')
             try:
                 key = (self.run_root / "api-key").read_text("ascii").strip()
                 query = urlencode({"last_seq": last_seq}) if last_seq >= 0 else ""
                 url = RUNNER + path + "/events" + ("?" + query if query else "")
                 req = Request(url, headers={"Authorization": "Bearer " + key})
+                if report is not None:raise OSError('report_status_poll')
                 with build_opener(NoRedirect()).open(req, timeout=40) as stream:
                     event_id = None
                     data = None
@@ -444,7 +478,8 @@ class ConversationService:
             except (OSError, TimeoutError, URLError, ValueError):
                 pass
             try:
-                _, status = self._request("GET", path)
+                timeout=min(30,max(0.1,(deadline+timedelta(minutes=1)-self.hermes.clock()).total_seconds())) if report is not None and deadline is not None else 30
+                _, status = self._request("GET", path,**({'timeout':timeout} if report is not None else {}))
                 missing_status = 0
                 status_errors = 0
             except HTTPError as error:
@@ -504,6 +539,9 @@ class ConversationService:
 
     def _abandon_task(self, user, conversation_id, turn_id, live):
         if self.native and self.native.row(user, conversation_id, turn_id):
+            from native_reports import find,abandon
+            row=self.native.row(user,conversation_id,turn_id)
+            if find(self.native,row['binding']) is not None:abandon(self.native,row['binding'])
             self.native.fence(user, conversation_id, turn_id)
             self._release_live(turn_id, live)
             self.native.finish_user_data(turn_id,'dispatch_unknown')
@@ -520,6 +558,9 @@ class ConversationService:
 
     def _finish_task(self, user, conversation_id, turn_id, live, state):
         if self.native and self.native.row(user, conversation_id, turn_id):
+            from native_reports import find,finish
+            row=self.native.row(user,conversation_id,turn_id)
+            if find(self.native,row['binding']) is not None and state!='completed':finish(self.native,row['binding'],state)
             self.native.fence(user, conversation_id, turn_id)
             self._release_live(turn_id, live)
             self.native.finish_user_data(turn_id,state)
@@ -546,6 +587,9 @@ class ConversationService:
         # A process restart loses in-memory grant/gateway bindings. Never run an
         # apparently healthy model with tool access silently broken or resubmit it.
         if self.store.is_archived(user,conversation_id,turn_id):return
+        from native_reports import find,admitted
+        native_row=self.native.row(user,conversation_id,turn_id) if self.native else None
+        if native_row and find(self.native,native_row['binding']) is not None:admitted(self.native,native_row['binding'])
         path = "/v1/runs/" + run_id
         with self.lock:live = self.live.get(turn_id)
         try:
@@ -582,9 +626,12 @@ class ConversationService:
         turn = self.store.run(user, conversation_id, run_id)
         native = self.native.row(user, conversation_id, turn['id']) if self.native else None
         if native:
-            if native['stopped']:
+            from native_reports import find,finish
+            report=find(self.native,native['binding'])
+            if native['stopped'] and report is None:
                 return
             self.native.complete(user, conversation_id, turn['id'], run_id)
+            if report is not None:finish(self.native,native['binding'],'completed',output)
         # The final status survives a lost SSE transport; duplicate terminal reads are safe.
         if not self.store.has_event(user, conversation_id, run_id, "run.completed"):
             event={"event":"run.completed","output":output,"run_id":run_id}
@@ -625,8 +672,25 @@ class ConversationService:
         # Explicit spreadsheet marker only; ordinary comma-delimited prose is text.
         return output.startswith("sep=,\n") or output.startswith("sep=,\r\n")
 
-    def _control(self, user, conversation_id, run_id, kind, request_id, text=""):
-        self._admin(user)
+    def stop_report(self,user,key):
+        """Private host cancellation of its already-bound original report run."""
+        job=self.hermes.get_job(user,key)
+        if not job or not job.get('native_cid') or not job.get('task_id'):
+            raise PermissionError('native_report_stop_binding')
+        row=self.native.row(user,job['native_cid'],job['task_id'])
+        if row is None or not row['binding']['run_id'] or job.get('run_id') not in (None,row['binding']['run_id']):
+            raise PermissionError('native_report_stop_binding')
+        return self._control(user,job['native_cid'],row['binding']['run_id'],'stop','report_stop_'+key,_report_key=key)
+
+    def _control(self, user, conversation_id, run_id, kind, request_id, text="", *, _report_key=None):
+        if _report_key is None:self._admin(user)
+        else:
+            job=self.hermes.get_job(user,_report_key)
+            turn=self.store.run(user,conversation_id,run_id)
+            if (kind!='stop' or not job or job.get('native_cid')!=conversation_id or
+                    job.get('task_id')!=turn['id'] or job.get('run_id') not in (None,run_id) or
+                    job['state'] not in {'CANCEL_REQUESTED','NEEDS_RECONCILE','DISPATCH_UNKNOWN','RUNNING'}):
+                raise PermissionError('native_report_stop_binding')
         with admission_guard(self.hermes.root / "admission.lock") as acquired:
             if not acquired:raise RuntimeError("release_in_progress")
             turn = self.store.run(user, conversation_id, run_id)
@@ -638,8 +702,10 @@ class ConversationService:
             if kind == 'stop' and self.native and self.native.row(user, conversation_id, turn['id']):
                 self.native.fence(user, conversation_id, turn['id'])
         try:
+            deadline=self.hermes.nightly.deadline(_report_key) if _report_key is not None else None
+            timeout=min(30,max(0.1,(deadline+timedelta(minutes=1)-self.hermes.clock()).total_seconds())) if deadline is not None else 30
             code, value = self._request("POST", "/v1/runs/" + run_id + "/" + kind,
-                                        {"input": text} if kind == "steer" else {})
+                                        {"input": text} if kind == "steer" else {},**({'timeout':timeout} if _report_key is not None else {}))
             state = "accepted" if code == 200 and (kind == "stop" or value.get("accepted") is True) else "rejected"
             self.store.action_result(user, conversation_id, run_id, request_id, state)
             return {"run_id": run_id, "state": state, "reused": False}

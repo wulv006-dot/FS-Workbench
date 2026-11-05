@@ -265,7 +265,7 @@ def live_native_statistics(read_range,args):
     status,raw=read_range(params)
     if raw.get('scopeContractId') not in (None,'admin-paid-order-labelled-supplement-v2'):raise ValueError('native_source_contract')
     profile=raw.get('profile') or {}
-    records={k:{field:profile[k][field] for field in ('system','status','period','currency','orders','revenueUsd','metrics','dimensions','capturedAt','sourceDataAsOf','stale','dimensions','normalisedScope','filters') if field in profile[k]} for k in ('primary','supplement') if isinstance(profile.get(k),dict)}
+    records={k:{field:profile[k][field] for field in ('system','status','period','currency','orders','revenueUsd','metrics','dimensions','capturedAt','sourceDataAsOf','stale','dimensions','normalisedScope','filters') if field in profile[k]} for k in ('primary','supplement','shipping') if isinstance(profile.get(k),dict)}
     return {'http_status':status,'status':raw.get('status'),'query':args,'source_contract':raw.get('scopeContractId'),
             'captured_at':datetime.now(timezone.utc).isoformat(),'capture_time_basis':'supplement_retrieved_at; each sourceDataAsOf retained below',
             'source_records':records,'authoritative_fields':authoritative_native_fields(records,args,raw.get('sources')),
@@ -273,19 +273,21 @@ def live_native_statistics(read_range,args):
             'rule':'authoritative_fields已逐字段执行Admin优先、Order补缺；所有同比/目标也采用该选择，0是有效值。source_records的primary/supplement只是旧容器名，不是优先级；原记录仅供追溯，不能另选Order同字段替代Admin。平台/范围差异不阻断。'}
 
 
-def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*,persist=None,deadline=None,recent_days=14,lazy_session=None):
+def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*,persist=None,deadline=None,recent_days=14,lazy_session=None,skills=None,lazy_report=None):
     lo,hi=date.fromisoformat(start),date.fromisoformat(end)
     read_start=min(lo-timedelta(days=max(13,(hi-lo).days+1)),hi-timedelta(days=recent_days-1)).isoformat()
-    if lazy_session is None:
+    if lazy_report is not None and lazy_session is not None:raise ValueError('lazy_capture_identity')
+    lazy_identity=lazy_session or lazy_report
+    if lazy_identity is None:
         dataset,config=source_capture(detail,read_start,end,deadline=deadline) if deadline is not None else source_capture(detail,read_start,end)
     else:
-        if not re.fullmatch(r'[a-f0-9]{32}',lazy_session):raise ValueError('lazy_session_identity')
+        if not re.fullmatch(r'[a-f0-9]{32}',lazy_identity):raise ValueError('lazy_session_identity')
         config=dict(detail.config)
-        dataset={'snapshot_id':'fc-detail-conversation-'+lazy_session,
+        dataset={'snapshot_id':('fc-detail-report-' if lazy_report is not None else 'fc-detail-conversation-')+lazy_identity,
                  'as_of':datetime.now(timezone.utc).isoformat(),
                  'coverage':{'period':{'start':read_start,'end':end},'status':'not_loaded'},
                  'orders':[],'backlog':[]}
-    skills=load_bundle(source_root)
+    if skills is None:skills=load_bundle(source_root)
     scope=secrets.token_hex(32)
     clue_read=AsyncRead(lambda:problem_projection(diagnostics(),scope))
     history=ReportHistory(daily)
@@ -400,6 +402,6 @@ def build_book(detail,daily,read_range,diagnostics,start,end,source_root,owner,*
     book.pricing_workflow=workflow_read
     from user_tools import runtime_invoke as user_analytics_read
     book.user_analytics=pins.wrap(lambda args:user_analytics_read(owner,args,detail=detail),'FS-purchase-customer-analytics')
-    if lazy_session is not None:
+    if lazy_identity is not None:
         lazy_paid_capture(book,lambda:source_capture(detail,read_start,end,deadline=deadline) if deadline is not None else source_capture(detail,read_start,end),config)
     return book

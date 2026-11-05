@@ -75,11 +75,6 @@ Hermes及Codex/ChatGPT产出、指导或审核任何报告、文字分析，优�
 
 用户已确认同范围旧值先展示、顶部提示刷新并替换；默认销售额、订单数、毛利、毛利率、新客人数、复购率、新客占比、客单价八卡，其他收起。来源、历史更正核验、当前积压与未支付来源缺口，见 `docs/planning/business-dashboard-refresh-20261025/CONTRACT.md`；活动源码与正式发布/验收见同目录SOURCE-MAP和ACCEPTANCE。不改变逐单毛利公式、权限、会话、调度、当前FC定价合同；Git候选知识不冒充生产目录或真实模型应用。
 
-<!-- dashboard-actual-profit-current-20261024 -->
-## 经营看板利润主展示（2026-10-24）
-
-用户已授权用逐单实际成本毛利、毛利率和覆盖情况替换发货利润卡与每日曲线。有效合同见`docs/planning/business-actual-profit-20261024/CONTRACT.md`；新活动源及上线状态见同目录SOURCE-MAP与ACCEPTANCE。Admin同批付款完成订单整单CNY收入减同网站同订单Order实际历史成本，覆盖单不外推全体；未完成、缺收入/成本和失败明确展示。每日按同批付款日期分组；发货统计主展示及自动读取退役，原Hermes按需查询保留。RS筛选保持，FC未核细分不显示整游戏利润。不改FC 当前FC定价合同、调度、权限与UNKNOWN。本段覆盖旧看板shipping主展示规则，旧证据保留。服务器业务基准仅追加本规则，并仅更新原wulv/FS/fs完整基准兼容SHA；不把Git候选目录声称为已发布知识目录或真实模型验收。
-
 <!-- business-shipping-profit-current-20261024 -->
 ## 经营看板利润计算规则（2026-10-24）
 
@@ -88,7 +83,7 @@ Hermes及Codex/ChatGPT产出、指导或审核任何报告、文字分析，优�
 <!-- fc27-report-method-current-20261024 -->
 ## FC27经营报告字段与呈现
 
-FC27经营报告先按[字段使用与呈现规则](docs/planning/fc27-daily-teaching-20261024/REPORT-RULES.md)定位相关教材：逐字段核来源、范围、单位、分母、计算、允许结论及主动补查；日期和数字是历史实例，新任务重取证。可比数据优先图表，多维指标按需切换；Ads/流量提高分析权重并置于发货履约之前，本次日报默认04获客、05利润目标、06履约。详细界面设计仍由Hermes自主，不扩为FS全站UI要求，不改预算或业务执行权。Git追溯、项目入口、正式技能、任务实际加载和长期应用分别验收；只入Git不等于服务器自动生效。Admin优先/Order补缺、现行业务基准、当前FC财务scope及原调度/权限保持。
+FC27经营报告先按[字段使用与呈现规则](docs/planning/fc27-daily-teaching-20261024/REPORT-RULES.md)定位相关教材：逐字段核来源、范围、单位、分母、计算、允许结论及主动补查；日期和数字是历史实例，新任务重取证。可比数据优先图表，多维指标按需切换；Ads/流量按经营重要性充分分析，阅读顺序由Hermes结合本次问题自主安排。详细界面设计仍由Hermes自主，不扩为FS全站UI要求，不改预算或业务执行权。Git追溯、项目入口、正式技能、任务实际加载和长期应用分别验收；只入Git不等于服务器自动生效。Admin优先/Order补缺、现行业务基准、当前FC财务scope及原调度/权限保持。
 
 <!-- fc-v3-current-20261026 -->
 现行FC规则以本文件顶部合同及[当前基线](docs/planning/fc-pricing-v3-20261026/CURRENT-BASELINE.md)为准；smart智能决策为本次待部署代码，现网以已发布版本为准，原daily、revenue_sprint保留；旧五策略、旧加权与预算不得覆盖新规则。

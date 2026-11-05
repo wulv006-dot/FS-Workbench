@@ -1197,6 +1197,364 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 
+    # Real tempFS and frozen writer; Git/OS/services are explicit fixtures.
+    BEFORE = '1' * 40
+    AFTER = '2' * 40
+    SELECTED = ('runtime/conversation_service.py', 'runtime/report_method.py',
+                'runtime/fs_native_readonly.py')
+
+    @contextmanager
+    def scope_fixture(self, new=()):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            before = {name: {'source_commit': self.BEFORE,
+                             'source_path': prepare.SOFTWARE_SOURCES[name]}
+                      for name in self.SELECTED}
+            for name in new:before[name]=None
+            blobs = {}
+            for name in self.SELECTED:
+                source = prepare.SOFTWARE_SOURCES[name]
+                blobs[self.BEFORE + ':' + source] = ('previous Git software ' + name).encode()
+                blobs[self.AFTER + ':' + source] = ('reviewed Git software ' + name).encode()
+                if name=='runtime/report_method.py' and 'http/range_api.py' in self.SELECTED:
+                    blobs[self.AFTER + ':' + source]+=b'\n'
+                if name=='http/range_api.py':
+                    blobs[self.BEFORE + ':' + source]=b'# Git before range\nvalue = 1\n'
+                    blobs[self.AFTER + ':' + source]=b'# Git after range\nvalue = 2\n'
+                if name in new:del blobs[self.BEFORE + ':' + source]
+            # One explicitly selected dependency has no byte change: never write it.
+            name = self.SELECTED[-1]
+            if name not in new:
+                blobs[self.AFTER + ':' + prepare.SOFTWARE_SOURCES[name]] = blobs[self.BEFORE + ':' + prepare.SOFTWARE_SOURCES[name]]
+            for name in prepare.PUBLISHER_SOURCES:
+                path = release.HERE/name
+                if name == 'release_readiness.py':
+                    path = next(parent/prepare.PUBLISHER_SOURCES[name] for parent in release.HERE.parents
+                                if (parent/prepare.PUBLISHER_SOURCES[name]).is_file())
+                blobs[self.AFTER + ':' + prepare.PUBLISHER_SOURCES[name]] = path.read_bytes()
+            def git(command, **kwargs):
+                self.assertEqual(command[:2], ['git', 'show'])
+                return blobs[command[2]]
+            bundle = root/'bundle'
+            with patch.object(prepare.subprocess, 'check_output', side_effect=git):
+                packed = prepare.pack(root, bundle, self.AFTER, software_before=before)
+            descriptor = json.loads((bundle/'payload-manifest.json').read_bytes())
+            system = root/'system'; system.mkdir()
+            base = release.frozen()
+            for name in self.SELECTED:
+                path = base.rooted(system, release.SOFTWARE_TARGETS[name])
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if name not in new:
+                    body=blobs[self.BEFORE + ':' + prepare.SOFTWARE_SOURCES[name]]
+                    if name=='http/range_api.py':body=body.replace(b'\n',b'\r\n')
+                    path.write_bytes(body)
+            # Protect the original required consumers using this prepare snapshot.
+            for target in release.software_protected_paths(base, set(release.SOFTWARE_TARGETS[n] for n in self.SELECTED)):
+                path = base.rooted(system, target)
+                path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b'legitimate independently updated software')
+            ledger = system/'business-ledger.db'; ledger.write_bytes(b'preserve data and original IDs')
+            def metadata(base, host, target, absent=False):
+                path=base.rooted(host,target);base.no_target_link(path)
+                if absent and not path.exists():return {'path':target,'sha256':None}
+                return {'path':target,'sha256':prepare.digest(path.read_bytes()),'mode':release.payload_mode(target),'owner':'0:0'}
+            with patch.object(prepare, 'file_metadata', side_effect=metadata):
+                yield SimpleNamespace(root=root,system=system,bundle=bundle,payload=bundle/'payload',
+                                      descriptor=descriptor,packed=packed,base=base,ledger=ledger)
+
+    def prepare_stage(self, f, name='stage'):
+        stage=f.root/name
+        prepare.prepare(f.payload, stage, self.AFTER, f.packed['payload_sha256'],
+                        root=f.system, followup=True, release_ready=True)
+        return stage, json.loads((stage/'approved-manifest.json').read_bytes())
+
+    @contextmanager
+    def publisher(self, f, stage):
+        spec=importlib.util.spec_from_file_location('scoped_software_release',stage/'runtime_release.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        base=module.load_base()
+        original_stat=Path.stat
+        def fixture_stat(path, *args, **kwargs):
+            info=original_stat(path,*args,**kwargs)
+            # CI need not run as root. Only the declared OS identity/mode fixture
+            # is synthetic; nlink, inode, sizes, timestamps and bytes stay real.
+            fields={k:getattr(info,k) for k in dir(info) if k.startswith('st_')}
+            fields.update(st_uid=0,st_gid=0)
+            if os.name=='nt':fields['st_mode']=info.st_mode & ~0o022
+            return SimpleNamespace(**fields)
+        if os.name=='nt':base.directory_sync=lambda path:None
+        base.retirement=lambda *args:None
+        base.hermes_quiescent=lambda *args:None
+        fence=SimpleNamespace(modified=False,confirmed=False,stop_then_unlock_database=Mock())
+        lock_calls=[]
+        def lock(*args):lock_calls.append(True);return nullcontext()
+        base.locks=base.live_lock=base.model_release_lock=lock
+        base.hermes_admission_fence=lambda *args:nullcontext(fence)
+        observed={'image':release.FROZEN_IMAGE_MARKER,'state':'active','source':'container'}
+        def command(args, **kwargs):
+            if args[:2]==['systemctl','show']:
+                return 'ActiveState=active\n'
+            raise AssertionError('unexpected service command: '+str(args))
+        with patch.object(Path,'stat',fixture_stat), patch.object(module,'worker_observation',return_value=observed), \
+                patch.object(base.subprocess,'check_output',side_effect=command), \
+                patch.object(base.subprocess,'run',side_effect=lambda args, **kw:SimpleNamespace(stdout=command(args,**kw),returncode=0)):
+            yield base,module,fence,lock_calls
+
+    def test_selected_git_scope_ignores_unrelated_history_and_omits_unchanged_dependency(self):
+        with self.scope_fixture() as f:
+            self.assertEqual(set(f.descriptor['installed_baseline']['files']),set(self.SELECTED))
+            stage,manifest=self.prepare_stage(f)
+            self.assertEqual([r['candidate'] for r in manifest['files']],list(self.SELECTED[:2]))
+            self.assertEqual(len(manifest['files']),2)
+            self.assertNotIn('protectedBaseline',manifest)
+            self.assertTrue(any(r['sha256']==prepare.digest(b'legitimate independently updated software')
+                                for r in manifest['unchangedRequired']))
+            with self.publisher(f,stage) as (base,module,fence,locks):
+                result=base.inspect(manifest,stage,f.system)
+                self.assertEqual(result['protectedCAS'],'passed')
+
+    def test_exact_git_before_mismatch_rejected_before_stage_creation(self):
+        with self.scope_fixture() as f:
+            path=f.base.rooted(f.system,release.SOFTWARE_TARGETS[self.SELECTED[0]])
+            path.write_bytes(b'arbitrary observed current bytes cannot become before')
+            with self.assertRaisesRegex(ValueError,'runtime_source_baseline_drift'):
+                self.prepare_stage(f)
+            self.assertFalse((f.root/'stage').exists())
+
+    def test_selected_before_source_and_payload_tampering_are_rejected(self):
+        with self.scope_fixture() as f:
+            descriptor=deepcopy(f.descriptor)
+            descriptor['installed_baseline']['sources'][self.SELECTED[0]]['source_path']='unreviewed/source.py'
+            raw=json.dumps(descriptor).encode();(f.bundle/'payload-manifest.json').write_bytes(raw)
+            f.packed['payload_sha256']=prepare.digest(raw)
+            with self.assertRaisesRegex(ValueError,'software_before_source'):
+                self.prepare_stage(f)
+            self.assertFalse((f.root/'stage').exists())
+
+    def test_unreviewed_target_mapping_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            with self.assertRaisesRegex(ValueError,'reviewed_software_selection'):
+                prepare.pack(root,root/'bundle',self.AFTER,software_before={'runtime/business.db':{
+                    'source_commit':self.BEFORE,'source_path':'unreviewed'}})
+            self.assertFalse((root/'bundle').exists())
+
+    def test_fresh_protection_after_prior_update_and_apply_window_cas(self):
+        with self.scope_fixture() as f:
+            stage,manifest=self.prepare_stage(f)
+            protected=f.base.rooted(f.system,manifest['unchangedRequired'][0]['path'])
+            protected.write_bytes(b'legitimate update after prepare')
+            with self.publisher(f,stage) as (base,module,fence,locks):
+                with self.assertRaisesRegex(ValueError,'protected'):
+                    base.apply(manifest,stage,prepare.digest((stage/'approved-manifest.json').read_bytes()),
+                               (stage/'approved-manifest.json').read_bytes(),'nav-20261106T010000Z',f.system)
+            self.assertFalse(f.base.rooted(f.system,'/var/backups/fs-navigation-20261006/nav-20261106T010000Z').exists())
+            fresh,fresh_manifest=self.prepare_stage(f,'fresh')
+            self.assertEqual(next(r['sha256'] for r in fresh_manifest['unchangedRequired']
+                                  if r['path']==manifest['unchangedRequired'][0]['path']),prepare.digest(protected.read_bytes()))
+            with self.publisher(f,fresh) as (base,module,fence,locks):
+                base.inspect(fresh_manifest,fresh,f.system)
+
+    def test_original_apply_journal_rollback_and_only_affected_restart_scope(self):
+        with self.scope_fixture() as f:
+            stage,manifest=self.prepare_stage(f)
+            raw=(stage/'approved-manifest.json').read_bytes()
+            protected_before={r['path']:f.base.rooted(f.system,r['path']).read_bytes() for r in manifest['unchangedRequired']}
+            with self.publisher(f,stage) as (base,module,fence,locks):
+                scopes=[]
+                # Service calls/readiness are a fixture; original apply/inspect/guards/rollback run.
+                with patch.object(module,'software_restart',side_effect=lambda b,r,m,admission:scopes.append(m['scope'])):
+                    result=base.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261106T020000Z',f.system)
+                    backup=Path(result['backup']);journal=json.loads((backup/'journal.json').read_bytes())
+                    self.assertEqual({r['candidate'] for r in journal['files']},set(self.SELECTED[:2]))
+                    self.assertTrue(all(r.get('intent') and r.get('written') for r in journal['files']))
+                    base.rollback(backup,prepare.digest(raw),f.system)
+                self.assertEqual(scopes,[base.DEEP_SCOPE,base.DEEP_SCOPE])
+                self.assertTrue(fence.modified and fence.confirmed);self.assertGreaterEqual(len(locks),6)
+            self.assertEqual(f.ledger.read_bytes(),b'preserve data and original IDs')
+            self.assertEqual({p:f.base.rooted(f.system,p).read_bytes() for p in protected_before},protected_before)
+            for row in manifest['files']:
+                self.assertEqual(prepare.digest(f.base.rooted(f.system,row['target']).read_bytes()),row['beforeSha256'])
+
+    def test_hardlinked_selected_target_is_refused_even_with_identical_bytes(self):
+        with self.scope_fixture() as f:
+            stage,manifest=self.prepare_stage(f)
+            target=f.base.rooted(f.system,manifest['files'][0]['target'])
+            link=f.system/'unexpected-hardlink.py'
+            os.link(target,link)
+            with self.publisher(f,stage) as (base,module,fence,locks):
+                with self.assertRaisesRegex(ValueError,'software_target_boundary'):
+                    base.inspect(manifest,stage,f.system)
+
+    def test_fenced_range_recovers_for_worker_or_pricing_only_apply_and_rollback(self):
+        for changed in ('runtime/hermes_worker.py','pricing/hermes_pricing_bridge.py','runtime/report_artifacts.py'):
+            selected=(changed,'runtime/fs_native_readonly.py')
+            with self.subTest(changed=changed),patch.object(self,'SELECTED',selected),self.scope_fixture() as f:
+                stage,manifest=self.prepare_stage(f)
+                raw=(stage/'approved-manifest.json').read_bytes()
+                with self.publisher(f,stage) as (base,module,fence,locks):
+                    state={'range':True};scopes=[]
+                    fence.stop_then_unlock_database.side_effect=lambda:state.update(range=False)
+                    def restart(b,original,m,admission):
+                        scopes.append(m['scope'])
+                        if m['scope']==base.DEEP_SCOPE:state['range']=True
+                    def show(args,**kwargs):
+                        if args[:2]==['systemctl','show']:
+                            active=state['range'] if any('fs-business-range' in str(a) for a in args) else True
+                            return 'ActiveState='+('active' if active else 'inactive')+'\n'
+                        raise AssertionError(args)
+                    with patch.object(module,'software_restart',side_effect=restart),patch.object(base.subprocess,'check_output',side_effect=show):
+                        failure=None
+                        try:result=base.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261106T050000Z',f.system)
+                        except (ValueError,RuntimeError) as error:failure=str(error)
+                        self.assertIsNone(failure,'The original admission fence stopped range and it was not restored')
+                        self.assertTrue(state['range'])
+                        base.rollback(Path(result['backup']),prepare.digest(raw),f.system)
+                        self.assertTrue(state['range'])
+                    one=[base.HERMES_WORKER_SCOPE,base.DEEP_SCOPE] if changed.startswith('runtime/') else [base.DEEP_SCOPE]
+                    self.assertEqual(scopes,one+one)
+
+    def test_worker_and_host_changes_restart_only_their_original_consumers(self):
+        selected=('runtime/hermes_worker.py','runtime/conversation_service.py','runtime/fs_native_readonly.py')
+        with patch.object(self,'SELECTED',selected),self.scope_fixture() as f:
+            stage,manifest=self.prepare_stage(f)
+            raw=(stage/'approved-manifest.json').read_bytes()
+            with self.publisher(f,stage) as (base,module,fence,locks):
+                scopes=[]
+                with patch.object(module,'software_restart',side_effect=lambda b,r,m,a:scopes.append(m['scope'])):
+                    base.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261106T030000Z',f.system)
+                self.assertEqual(scopes,[base.HERMES_WORKER_SCOPE,base.DEEP_SCOPE])
+
+    def test_readiness_failure_uses_original_automatic_rollback(self):
+        with self.scope_fixture() as f:
+            stage,manifest=self.prepare_stage(f)
+            raw=(stage/'approved-manifest.json').read_bytes()
+            with self.publisher(f,stage) as (base,module,fence,locks):
+                with patch.object(module,'software_restart',side_effect=[ValueError('fixture readiness failed'),None]), \
+                        self.assertRaisesRegex(ValueError,'fixture readiness failed'):
+                    base.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261106T040000Z',f.system)
+                backup=f.base.rooted(f.system,'/var/backups/fs-navigation-20261006/nav-20261106T040000Z')
+                journal=json.loads((backup/'journal.json').read_bytes())
+                self.assertEqual(journal['status'],'rolled-back')
+                self.assertEqual(len(journal['files']),2)
+                self.assertTrue(all(not r['written'] for r in journal['files']))
+            self.assertEqual(f.ledger.read_bytes(),b'preserve data and original IDs')
+            for row in manifest['files']:
+                self.assertEqual(f.base.digest(f.base.rooted(f.system,row['target'])),row['beforeSha256'])
+
+    def test_baseline_and_after_exact_bytes_are_bound_to_approved_descriptor(self):
+        for prefix in ('before/','payload/'):
+            with self.subTest(prefix=prefix),self.scope_fixture() as f:
+                (f.bundle/(prefix+self.SELECTED[0])).write_bytes(b'tampered software bytes')
+                with self.assertRaisesRegex(ValueError,'git_payload_changed'):
+                    self.prepare_stage(f)
+                self.assertFalse((f.root/'stage').exists())
+
+    def test_selected_unchanged_dependency_cannot_change_during_prepare(self):
+        with self.scope_fixture() as f:
+            original=prepare.file_metadata
+            target=release.SOFTWARE_TARGETS[self.SELECTED[-1]]
+            seen=[]
+            def race(base,root,path,absent=False):
+                if path==target:
+                    seen.append(True)
+                    if len(seen)==2:base.rooted(root,path).write_bytes(b'concurrent dependency update')
+                return original(base,root,path,absent)
+            with patch.object(prepare,'file_metadata',side_effect=race), \
+                    self.assertRaisesRegex(ValueError,'runtime_source_baseline_drift'):
+                self.prepare_stage(f)
+            self.assertFalse((f.root/'stage').exists())
+
+
+
+    def assert_report_mapping(self, name):
+        self.assertIn(name,prepare.SOFTWARE_SOURCES,'actual report source needs reviewed mapping')
+
+    def test_native_report_new_module_install_and_original_rollback_removes_only_own_file(self):
+        name='runtime/native_reports.py';self.assert_report_mapping(name)
+        selected=(name,'runtime/report_method.py','runtime/fs_native_readonly.py')
+        with patch.object(self,'SELECTED',selected),self.scope_fixture(new=(name,)) as f:
+            self.assertIsNone(f.descriptor['installed_baseline']['files'][name])
+            self.assertNotIn('before/'+name,f.descriptor['files'])
+            stage,manifest=self.prepare_stage(f);raw=(stage/'approved-manifest.json').read_bytes()
+            target=f.base.rooted(f.system,release.SOFTWARE_TARGETS[name])
+            self.assertFalse(target.exists())
+            with self.publisher(f,stage) as (base,module,fence,locks), \
+                    patch.object(module,'software_restart'):
+                result=base.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261106T050000Z',f.system)
+                self.assertTrue(target.is_file())
+                base.rollback(Path(result['backup']),prepare.digest(raw),f.system)
+            self.assertFalse(target.exists())
+            self.assertEqual(f.ledger.read_bytes(),b'preserve data and original IDs')
+
+    def test_native_report_new_module_unexpected_existing_file_rejected_at_prepare(self):
+        name='runtime/native_reports.py';self.assert_report_mapping(name)
+        selected=(name,'runtime/report_method.py','runtime/fs_native_readonly.py')
+        with patch.object(self,'SELECTED',selected),self.scope_fixture(new=(name,)) as f:
+            target=f.base.rooted(f.system,release.SOFTWARE_TARGETS[name]);target.write_bytes(b'unexpected current software')
+            with self.assertRaisesRegex(ValueError,'runtime_source_baseline_drift'):
+                self.prepare_stage(f)
+            self.assertFalse((f.root/'stage').exists())
+
+    def test_native_report_new_module_appearance_after_prepare_is_cas_conflict(self):
+        name='runtime/native_reports.py';self.assert_report_mapping(name)
+        selected=(name,'runtime/report_method.py','runtime/fs_native_readonly.py')
+        with patch.object(self,'SELECTED',selected),self.scope_fixture(new=(name,)) as f:
+            stage,manifest=self.prepare_stage(f);raw=(stage/'approved-manifest.json').read_bytes()
+            target=f.base.rooted(f.system,release.SOFTWARE_TARGETS[name]);target.write_bytes(b'appeared after prepare')
+            with self.publisher(f,stage) as (base,module,fence,locks):
+                with self.assertRaisesRegex(ValueError,'target baseline drift'):
+                    base.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261106T060000Z',f.system)
+            self.assertEqual(target.read_bytes(),b'appeared after prepare')
+
+    def test_existing_software_cannot_be_declared_new(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            with self.assertRaisesRegex(ValueError,'software_before_source'):
+                prepare.pack(root,root/'bundle',self.AFTER,software_before={'runtime/conversation_service.py':None})
+            self.assertFalse((root/'bundle').exists())
+
+    def test_range_git_and_rendered_before_after_are_both_bound(self):
+        name='http/range_api.py';self.assert_report_mapping(name)
+        selected=(name,'runtime/report_method.py','runtime/fs_native_readonly.py')
+        with patch.object(self,'SELECTED',selected),self.scope_fixture() as f:
+            files=f.descriptor['files']
+            before=b'# Git before range\nvalue = 1\n';after=b'# Git after range\nvalue = 2\n'
+            for prefix,body in (('git-before/',before),('git-after/',after),('before/',before.replace(b'\n',b'\r\n')),('payload/',after.replace(b'\n',b'\r\n'))):
+                self.assertEqual((f.bundle/(prefix+name)).read_bytes(),body)
+                self.assertEqual(files[prefix+name],prepare.digest(body))
+            # Ordinary source bytes have no blanket newline conversion.
+            self.assertEqual((f.payload/'runtime/report_method.py').read_bytes(),b'reviewed Git software runtime/report_method.py\n')
+            stage,manifest=self.prepare_stage(f)
+            row=next(r for r in manifest['files'] if r['candidate']==name)
+            self.assertEqual(row['beforeSha256'],prepare.digest(before.replace(b'\n',b'\r\n')))
+            self.assertEqual(row['sha256'],prepare.digest(after.replace(b'\n',b'\r\n')))
+            with self.publisher(f,stage) as (base,module,fence,locks):base.inspect(manifest,stage,f.system)
+
+    def test_range_render_must_match_exact_git_source_not_descriptor_claim(self):
+        name='http/range_api.py';self.assert_report_mapping(name)
+        selected=(name,'runtime/report_method.py','runtime/fs_native_readonly.py')
+        for prefix in ('git-before/','git-after/'):
+            with self.subTest(prefix=prefix),patch.object(self,'SELECTED',selected),self.scope_fixture() as f:
+                path=f.bundle/(prefix+name);path.write_bytes(b'wrong source\n')
+                f.descriptor['files'][prefix+name]=prepare.digest(path.read_bytes())
+                raw=json.dumps(f.descriptor).encode();(f.bundle/'payload-manifest.json').write_bytes(raw)
+                f.packed['payload_sha256']=prepare.digest(raw)
+                with self.assertRaisesRegex(ValueError,'software_render_source_drift'):
+                    self.prepare_stage(f)
+                self.assertFalse((f.root/'stage').exists())
+
+    def test_native_knowledge_import_changes_restart_worker_and_restore_range(self):
+        for name in ('runtime/conversation_knowledge.py','runtime/fs_native_knowledge.py'):
+            self.assert_report_mapping(name)
+            selected=(name,'runtime/report_method.py','runtime/fs_native_readonly.py')
+            with self.subTest(name=name),patch.object(self,'SELECTED',selected),self.scope_fixture() as f:
+                stage,manifest=self.prepare_stage(f);raw=(stage/'approved-manifest.json').read_bytes();scopes=[]
+                with self.publisher(f,stage) as (base,module,fence,locks), \
+                        patch.object(module,'software_restart',side_effect=lambda b,r,m,a:scopes.append(m['scope'])):
+                    base.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261106T070000Z',f.system)
+                self.assertEqual(scopes,[base.HERMES_WORKER_SCOPE,base.DEEP_SCOPE])
+
+
 class NativePublisher(unittest.TestCase):
     def test_plain_stream_uses_current_051f_and_two_range_consumers(self):
         prepare.configure_native_capabilities()
@@ -3959,6 +4317,8 @@ class NativePublisher(unittest.TestCase):
             mounts[:]=original
             with patch.object(Path,'read_bytes',return_value=b'{}'):
                 with self.assertRaisesRegex(ValueError,'native_control_contract_drift'):release.native_runtime_readiness()
+
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -164,3 +164,31 @@ def register_pricing_scope(registry,scope,capabilities):
     # subtracts this static name set last, while retaining native tools.
     excluded=set(CUSTOMER_TOOLS) | (set(resolve_toolset('fs_fc_readonly',include_registry=False))-{name})
     create_custom_toolset('fs_native_pricing_unavailable','Unavailable FS business tools in a daily review',tools=sorted(excluded))
+
+
+def register_report_scope(registry,scope,capabilities):
+    """Register original host-measured ResearchBook definitions, per owner profile."""
+    from toolsets import create_custom_toolset,resolve_toolset
+    schemas=capabilities.get('tool_schemas') if type(capabilities) is dict else None
+    if type(schemas) is not list or not schemas:raise PermissionError('native_report_schema_unavailable')
+    names=[]
+    for item in schemas:
+        function=item.get('function') if type(item) is dict else None
+        name=function.get('name') if type(function) is dict else None
+        if (item.get('type')!='function' or type(name) is not str or not name.startswith('mcp__fcro__fc_') or
+                name in names or name in {'mcp__fcro__fc_run_pricing_workflow','mcp__fcro__fc_read_skill'} or
+                type(function.get('parameters')) is not dict):
+            raise PermissionError('native_report_schema_unavailable')
+        names.append(name)
+        def handler(args,_name=name,**context):
+            from conversation_native import current_native_backend
+            backend=current_native_backend()
+            if backend is None:raise PermissionError('native_run_context_required')
+            return json.dumps(backend.report_call(_name,args,context.get('task_id')),ensure_ascii=False,allow_nan=False)
+        previous=registry.get_entry(name,scope=scope)
+        if not (previous is not None and previous.handler.__module__==__name__ and previous.schema==function):
+            registry.register(name=name,toolset='fs_fc_readonly',schema=function,handler=handler,scope=scope)
+    create_custom_toolset('fs_native_reports','FS native report reads',tools=names)
+    excluded=set(CUSTOMER_TOOLS)|set(TOOLS)|(set(resolve_toolset('fs_fc_readonly',include_registry=False))-set(names))
+    excluded.add('mcp__fcro__fs_pricing_control')
+    create_custom_toolset('fs_native_report_unavailable','Unavailable business tools in a report',tools=sorted(excluded))

@@ -41,9 +41,11 @@ def save_raw(root,task,text,evidence,metadata):
 
 def save_result(root,task,result,html):
     path=directory(root,task);raw=json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()
-    hashes={'html_sha256':write_file(path/'report.html',html.encode('utf-8')),'result_sha256':write_file(path/'result.json',raw)}
+    hashes={'result_sha256':write_file(path/'result.json',raw)}
+    if not result.get('native_report') or result.get('output_format')=='html':
+        hashes['html_sha256']=write_file(path/'report.html',html.encode('utf-8'))
     write_file(path/'ready.json',json.dumps(hashes,sort_keys=True).encode())
-    if not result.get('html_design'):
+    if not result.get('html_design') and not result.get('native_report'):
         try:save_boss(root,task)
         except Exception:
             # A layout failure must not replay paid research or invalidate its immutable files.
@@ -112,7 +114,8 @@ def read_file(root,task,kind):
     name,mime=names[kind]
     metadata=directory(root,task,create=False)/'metadata.json'
     if metadata.is_symlink():raise ValueError('report_path_linked')
-    if kind in ('boss','html') and json.loads(metadata.read_text('utf-8')).get('html_design'):
+    meta=json.loads(metadata.read_text('utf-8'))
+    if kind in ('boss','html') and (meta.get('html_design') or meta.get('native_report')):
         raw=read_file(root,task,'raw')
         content=raw['content']
         complete=bool(re.match(r'\s*<!doctype html[\s>]',content,re.I) and re.search(r'</body\s*>\s*</html\s*>\s*$',content,re.I))

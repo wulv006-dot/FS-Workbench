@@ -34,16 +34,15 @@ def schema():
 
 def tables(db):
     db.execute('CREATE TABLE IF NOT EXISTS pricing_grants(conversation TEXT PRIMARY KEY,owner TEXT NOT NULL,mode TEXT NOT NULL,runs TEXT NOT NULL,expires_at TEXT NOT NULL,source TEXT NOT NULL,restore_sources TEXT NOT NULL)')
-    columns={row[1] for row in db.execute('PRAGMA table_info(pricing_grants)')}
-    for name in ('source_quote_run','source_quote_sha256'):
-        if name not in columns:
-            try:db.execute('ALTER TABLE pricing_grants ADD COLUMN '+name+' TEXT')
-            except sqlite3.OperationalError as error:
-                if (str(error)!='duplicate column name: '+name or
-                        not any(row[1]==name and row[2]=='TEXT' for row in db.execute('PRAGMA table_info(pricing_grants)'))):
-                    raise
+    # Keep the installed writer's seven-column contract usable after rollback.
+    db.execute('CREATE TABLE IF NOT EXISTS pricing_grant_sources(conversation TEXT PRIMARY KEY,source_quote_run TEXT,source_quote_sha256 TEXT)')
     db.execute('CREATE TABLE IF NOT EXISTS pricing_operations(id TEXT PRIMARY KEY,owner TEXT NOT NULL,task TEXT NOT NULL,action TEXT NOT NULL,payload_hash TEXT NOT NULL,request_id TEXT NOT NULL,state TEXT NOT NULL,result TEXT,created_at TEXT NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS pricing_recommendations(id TEXT PRIMARY KEY,owner TEXT NOT NULL,task TEXT NOT NULL,conversation TEXT NOT NULL,run_id TEXT NOT NULL,quote_sha256 TEXT NOT NULL,content TEXT NOT NULL,created_at TEXT NOT NULL)')
+
+
+def quote_reference(db,conversation):
+    row=db.execute('SELECT source_quote_run,source_quote_sha256 FROM pricing_grant_sources WHERE conversation=?',(conversation,)).fetchone()
+    return tuple(row) if row is not None else (None,None)
 
 
 def grant(db,owner,conversation,run,mode,expires,source,restore_sources=(),*,source_quote_run=None,source_quote_sha256=None):
@@ -55,12 +54,26 @@ def grant(db,owner,conversation,run,mode,expires,source,restore_sources=(),*,sou
         if not isinstance(source_quote_sha256,str) or not re.fullmatch('[a-f0-9]{64}',source_quote_sha256):
             raise ValueError('pricing_source_quote_binding_invalid')
     if len(restore_sources)>1 or restore_sources and mode!='operator_workflow':raise ValueError('pricing_restore_grant_scope')
-    sources=json.dumps([str(uuid.UUID(value)) for value in restore_sources]);tables(db)
-    raw=json.dumps([run])
-    old=db.execute('SELECT owner,mode,runs,expires_at,source,restore_sources,source_quote_run,source_quote_sha256 FROM pricing_grants WHERE conversation=?',(conversation,)).fetchone()
-    values=(owner,mode,raw,expires,source,sources,source_quote_run,source_quote_sha256)
-    if old is not None and tuple(old)!=values:raise ValueError('pricing_grant_conflict')
-    db.execute('INSERT OR IGNORE INTO pricing_grants(conversation,owner,mode,runs,expires_at,source,restore_sources,source_quote_run,source_quote_sha256) VALUES(?,?,?,?,?,?,?,?,?)',(conversation,*values))
+    sources=json.dumps([str(uuid.UUID(value)) for value in restore_sources])
+    values=(owner,mode,json.dumps([run]),expires,source,sources)
+    reference=(source_quote_run,source_quote_sha256)
+    own_transaction=not db.in_transaction
+    db.execute('BEGIN IMMEDIATE' if own_transaction else 'SAVEPOINT pricing_grant_binding')
+    try:
+        tables(db)
+        old=db.execute('SELECT owner,mode,runs,expires_at,source,restore_sources FROM pricing_grants WHERE conversation=?',(conversation,)).fetchone()
+        if old is not None and (tuple(old)!=values or quote_reference(db,conversation)!=reference):
+            raise ValueError('pricing_grant_conflict')
+        db.execute('INSERT OR IGNORE INTO pricing_grants(conversation,owner,mode,runs,expires_at,source,restore_sources) VALUES(?,?,?,?,?,?,?)',(conversation,*values))
+        db.execute('INSERT OR IGNORE INTO pricing_grant_sources VALUES(?,?,?)',(conversation,*reference))
+        if own_transaction:db.commit()
+        else:db.execute('RELEASE pricing_grant_binding')
+    except Exception:
+        if own_transaction:db.rollback()
+        else:
+            db.execute('ROLLBACK TO pricing_grant_binding')
+            db.execute('RELEASE pricing_grant_binding')
+        raise
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -103,8 +116,9 @@ def authorization(scope,owner,task,now):
     with scope.tasks.db() as db:
         tables(db);db.row_factory=sqlite3.Row
         r=db.execute('SELECT * FROM pricing_grants WHERE conversation=? AND owner=?',(bindings[0],owner)).fetchone()
+        reference=quote_reference(db,bindings[0])
     if r is None:return None
-    value=dict(r)
+    value=dict(r,source_quote_run=reference[0],source_quote_sha256=reference[1])
     if datetime.fromisoformat(value['expires_at'])<=now:
         if value['mode']=='daily_review':raise PermissionError('pricing_daily_grant_expired')
         return None

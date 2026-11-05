@@ -54,7 +54,12 @@ def lock_knowledge(native, binding, environment):
         return reference_for(native, binding)
     reference = None
     configured = False
-    if (native.hermes.root / 'knowledge-load-policy.json').exists():
+    from native_reports import find,saved_selection
+    report=find(native,binding)
+    selected=saved_selection(native.hermes,report['id']) if report is not None else None
+    if report is not None:
+        configured=selected is not None
+    elif (native.hermes.root / 'knowledge-load-policy.json').exists():
         from knowledge_catalog import load_policy
         routes = load_policy(native.hermes.root).get('task_routes', {})
         configured = routes.get('enabled') is True and any(
@@ -76,7 +81,8 @@ def lock_knowledge(native, binding, environment):
             with native.store.db() as db:
                 conversation = native.store._owned(db, info['owner'], binding['conversation_id'])
             return row is not None and row['binding'] == binding and not row['stopped'] and conversation['session_id'] == info['session_id']
-        pin = helper(native.hermes.root, root).pin_fs_task(info, binding['turn_id'], authorize=authorized)
+        pin = helper(native.hermes.root, root).pin_fs_task(info, binding['turn_id'], authorize=authorized,
+            **({'selection':selected} if report is not None else {}))
         if pin is not None:
             reference = dict(info=info, pin_sha256=pin['receipt_sha256'])
     # Persist even the unconfigured result; a later publication cannot change this turn.

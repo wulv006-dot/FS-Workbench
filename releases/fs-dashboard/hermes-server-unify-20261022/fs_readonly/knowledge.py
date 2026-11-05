@@ -177,7 +177,7 @@ class NativeKnowledge:
             return None
         return self._pin_task(info, task_key, native_task_id, lambda: self.task_selection(info))
 
-    def pin_fs_task(self, info, turn_id, *, authorize=None):
+    def pin_fs_task(self, info, turn_id, *, authorize=None, selection=None):
         """Host-only FS admission; the Python callback authenticates this exact scope."""
         fields = {'owner', 'session_id', 'platform', 'profile_name'}
         if (type(info) is not dict or not fields.issubset(info)
@@ -191,6 +191,9 @@ class NativeKnowledge:
         identity(info['session_id']); identity(turn_id)
         if not callable(authorize) or authorize(dict(info), turn_id) is not True:
             raise PermissionError('native_knowledge_fs_unauthorized')
+        if selection is not None:
+            catalog.verify_selection(selection)
+            return self._pin_task(info,turn_id,turn_id,lambda:selection)
         return self._pin_task(info, turn_id, turn_id, lambda: catalog.task_selection(
             self.root, owner=info['owner'], project='FS', channel='fs', task_type='conversation',
             profile_name=info['profile_name']))

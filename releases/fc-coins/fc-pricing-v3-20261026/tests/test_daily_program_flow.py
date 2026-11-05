@@ -315,7 +315,7 @@ class SavedDailyComparison(unittest.TestCase):
             conn.execute('INSERT INTO pricing_grants VALUES(?,?,?,?,?,?,?)',old)
             pricing_operations.tables(conn)
             row=conn.execute('SELECT * FROM pricing_grants').fetchone()
-            self.assertEqual(row[:7],old);self.assertEqual(row[7:],(None,None))
+            self.assertEqual(row,old);self.assertEqual(pricing_operations.quote_reference(conn,'a'*32),(None,None))
 
     def test_saved_daily_bound_intent_rejects_changed_producer_basis_without_resubmit(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -342,7 +342,7 @@ class SavedDailyComparison(unittest.TestCase):
             old=json.loads(path.read_text('utf-8'))
             old.pop('source_quote_run');old.pop('source_quote_sha256')
             path.write_text(json.dumps(old),encoding='utf-8')
-            with p.scope.tasks.db() as conn:conn.execute('UPDATE pricing_grants SET source_quote_run=NULL,source_quote_sha256=NULL')
+            with p.scope.tasks.db() as conn:conn.execute('UPDATE pricing_grant_sources SET source_quote_run=NULL,source_quote_sha256=NULL')
             report={k:p.record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
             with patch.object(hermes_pricing_bridge,'ROOT',p.root),patch.object(hermes_pricing_bridge,'FS',p.root), \
                  patch.object(pricing_operations,'native') as reads,patch.object(hermes_pricing_bridge,'request') as submit, \
@@ -407,44 +407,32 @@ class SavedDailyComparison(unittest.TestCase):
             comparisons.assert_not_called()
             request.assert_called_once_with('wulv','/api/hermes/conversations/pricing-reviews/'+p.made['conversation_id'])
 
-    def test_source_quote_columns_upgrade_concurrently_without_duplicate_column_failure(self):
+    def test_source_reference_table_initializes_concurrently_without_changing_old_columns(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'existing.db'
             with closing(sqlite3.connect(path)) as db:
                 db.execute('CREATE TABLE pricing_grants(conversation TEXT PRIMARY KEY,owner TEXT NOT NULL,mode TEXT NOT NULL,runs TEXT NOT NULL,expires_at TEXT NOT NULL,source TEXT NOT NULL,restore_sources TEXT NOT NULL)')
             barrier=threading.Barrier(2)
-            def migrate():
+            def initialize():
                 with closing(sqlite3.connect(path,timeout=5)) as connection:
-                    class SimultaneousColumns:
-                        seen=False
-                        def execute(self,sql,*args):
-                            cursor=connection.execute(sql,*args)
-                            if sql=='PRAGMA table_info(pricing_grants)' and not self.seen:
-                                self.seen=True
-                                rows=cursor.fetchall()
-                                barrier.wait(timeout=5)
-                                return rows
-                            return cursor
-                    try:pricing_operations.tables(SimultaneousColumns())
-                    except sqlite3.OperationalError as error:return str(error)
-                    return None
-            with ThreadPoolExecutor(max_workers=2) as pool:
-                results=list(pool.map(lambda _:migrate(),range(2)))
-            self.assertEqual(results,[None,None])
+                    barrier.wait(timeout=5)
+                    pricing_operations.tables(connection)
+            with ThreadPoolExecutor(max_workers=2) as pool:list(pool.map(lambda _:initialize(),range(2)))
             with closing(sqlite3.connect(path)) as db:
-                columns={r[1]:r[2] for r in db.execute('PRAGMA table_info(pricing_grants)')}
+                self.assertEqual(len(list(db.execute('PRAGMA table_info(pricing_grants)'))),7)
+                columns={r[1]:r[2] for r in db.execute('PRAGMA table_info(pricing_grant_sources)')}
             self.assertEqual(columns['source_quote_run'],'TEXT')
             self.assertEqual(columns['source_quote_sha256'],'TEXT')
 
-    def test_source_quote_migration_keeps_other_database_errors_visible(self):
+    def test_source_reference_storage_keeps_other_database_errors_visible(self):
         with closing(sqlite3.connect(':memory:')) as connection:
-            class FailedAlter:
+            class FailedSourceTable:
                 def execute(self,sql,*args):
-                    if sql.startswith('ALTER TABLE'):
+                    if sql.startswith('CREATE TABLE IF NOT EXISTS pricing_grant_sources'):
                         raise sqlite3.OperationalError('database is locked')
                     return connection.execute(sql,*args)
             with self.assertRaisesRegex(sqlite3.OperationalError,'database is locked'):
-                pricing_operations.tables(FailedAlter())
+                pricing_operations.tables(FailedSourceTable())
 
 
 class DailyReviewBoundary(unittest.TestCase):

@@ -357,6 +357,38 @@ DESKTOP_EXISTING['desktop/desktop_fs_gateway.py']=('f46e88384555b919c8660ca16e06
 CAPABILITIES_CHANGED = ('runtime/conversation_service.py','http/conversation_http.py')
 
 
+# Reviewed software mappings; selection cannot supply an arbitrary source or target.
+SOFTWARE_MAPPINGS = {
+    'runtime/conversation_service.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py', '/opt/fs-hermes-fc/conversation_service.py'),
+    'runtime/conversation_native.py': ('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_native.py', '/opt/fs-hermes-fc/conversation_native.py'),
+    'runtime/native_chat.py': ('releases/fs-dashboard/hermes-v2-core-20261020/source/native_chat.py', '/opt/fs-hermes-fc/native_chat.py'),
+    'runtime/hermes_worker.py': ('releases/fc-coins/fc-review-channel-20261026/source/hermes_worker.py', '/opt/fs-hermes-fc/hermes_worker.py'),
+    'runtime/fs_inprocess.py': ('releases/fc-coins/fc-review-channel-20261026/source/fs_inprocess.py', '/opt/fs-hermes-fc/fs_inprocess.py'),
+    'runtime/fs_native_readonly.py': ('releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py', '/opt/fs-hermes-fc/fs_native_readonly.py'),
+    'runtime/report_method.py': ('releases/fs-dashboard/hermes-data-workspace-20261018/source/report_method.py', '/opt/fs-hermes-fc/report_method.py'),
+    'runtime/b2_customer_followup.py': ('releases/fs-dashboard/hermes-v2-core-20261020/source/b2_customer_followup.py', '/opt/fs-hermes-fc/b2_customer_followup.py'),
+    'runtime/pricing_operations.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/pricing_operations.py', '/opt/fs-hermes-fc/pricing_operations.py'),
+    'runtime/controller.py': ('releases/fs-dashboard/knowledge-layering-20261023/source/controller.py', '/opt/fs-hermes-fc/controller.py'),
+    'pricing/fc_pricing_v3/daily.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/daily.py', '/opt/fc27-cloud-browser/fc_pricing_v3/daily.py'),
+    'pricing/hermes_pricing_bridge.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/hermes_pricing_bridge.py', '/opt/fc27-cloud-browser/hermes_pricing_bridge.py'),
+    'runtime/conversation_store.py': ('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_store.py', '/opt/fs-hermes-fc/conversation_store.py'),
+    'runtime/conversation_knowledge.py': ('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_knowledge.py', '/opt/fs-hermes-fc/conversation_knowledge.py'),
+    'runtime/fs_native_knowledge.py': ('releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/knowledge.py', '/opt/fs-hermes-fc/fs_native_knowledge.py'),
+    'runtime/fs_evidence.py': ('releases/fs-dashboard/fc-coins-workflow-20261022/source/fs_evidence.py', '/opt/fs-hermes-fc/fs_evidence.py'),
+    'runtime/report_artifacts.py': ('releases/fs-dashboard/hermes-data-workspace-20261018/source/report_artifacts.py', '/opt/fs-hermes-fc/report_artifacts.py'),
+    'runtime/continuation.py': ('releases/fs-dashboard/hermes-data-workspace-20261018/source/continuation.py', '/opt/fs-hermes-fc/continuation.py'),
+    'http/range_api.py': ('releases/fs-dashboard/management-november-20261103/source/range_api.py', '/opt/fs-exact-range-20261001/range_api.py'),
+    'runtime/native_reports.py': ('releases/fs-dashboard/knowledge-layering-20261023/source/native_reports.py', '/opt/fs-hermes-fc/native_reports.py'),
+}
+SOFTWARE_TARGETS = {name: row[1] for name, row in SOFTWARE_MAPPINGS.items()}
+SOFTWARE_NEW = frozenset({'runtime/native_reports.py'})
+
+
+def software_payload_bytes(name, raw):
+    # This one existing deployment identity uses CRLF; every other source stays exact.
+    return raw.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n') if name == 'http/range_api.py' else raw
+
+
 def payload_mode(target):
     return '0o600' if target in (NGINX,DESKTOP_CONFIG) else '0o644'
 NATIVE_ADMISSION_CANDIDATE = 'runtime/conversation_native.py'
@@ -1517,7 +1549,7 @@ def installed_baseline(root, git_baseline):
     return manifest
 
 
-def frozen():
+def frozen(targets=None, new=None):
     raw = (HERE / 'release_navigation_base.py').read_bytes()
     if hashlib.sha256(raw).hexdigest() != BASE_SHA:
         raise ValueError('frozen_publisher_drift')
@@ -1528,11 +1560,12 @@ def frozen():
     source = source.replace(anchor, "r.get('beforeSha256') is None for r in files if r['candidate'] not in MATERIAL_NEW if not (", 1)
     base = types.ModuleType('original_material_publisher')
     base.__file__ = str(HERE / 'release_navigation_base.py')
-    base.MATERIAL_NEW = NEW
+    base.MATERIAL_NEW = NEW if new is None else frozenset(new)
     exec(compile(source, base.__file__, 'exec'), base.__dict__)
-    base.HERMES_HISTORY_SCOPE, base.HERMES_HISTORY_TARGETS = SCOPE, TARGETS
-    base.expected_files = lambda manifest: set(TARGETS) if manifest.get('scope') == SCOPE else set()
-    base.target_for = lambda name: TARGETS[name]
+    targets = TARGETS if targets is None else targets
+    base.HERMES_HISTORY_SCOPE, base.HERMES_HISTORY_TARGETS = SCOPE, targets
+    base.expected_files = lambda manifest: set(targets) if manifest.get('scope') == SCOPE else set()
+    base.target_for = lambda name: targets[name]
     return base
 
 
@@ -1861,8 +1894,169 @@ def archive_rollback_guard(base, journal, root):
             raise ValueError('archived_unknown_requires_archive_aware_forward_repair')
 
 
+def software_protected_paths(base, targets):
+    # Original frozen required consumers, plus the existing installed unit seam.
+    required = set(base.HERMES_TARGETS.values()) | {
+        '/opt/fs-exact-range-20261001/' + name for name in (
+            'boss_insights.py', 'fc_deep_model.py', 'fc_daily.py', 'fc_daily_model.py',
+            'fc_detail.py', 'fc_detail_model.py', 'fc_detail_reader.py',
+            'fc_detail_config.json', 'fc_deep_sources.py', 'summary_bridge.py')}
+    required.update(('/var/www/dashboard/index.html', '/var/www/dashboard/fs-home/index.html',
+        '/var/www/dashboard/fs-home/navigation.js', '/opt/fs-access-policy/access_policy.py',
+        '/etc/systemd/system/fs-hermes-fc.service.d/install-state-isolation.conf'))
+    return required - set(targets)
+
+
+def software_descriptor(descriptor, directory):
+    sources = descriptor.get('software_sources')
+    baseline = descriptor.get('installed_baseline', {})
+    before = baseline.get('sources', {})
+    if (not isinstance(sources, dict) or not sources or not set(sources) <= set(SOFTWARE_MAPPINGS)
+            or sources != {name: SOFTWARE_MAPPINGS[name][0] for name in sources}
+            or set(before) != set(sources) or set(baseline.get('files', {})) != set(sources)):
+        raise ValueError('reviewed_software_selection_required')
+    if not re.fullmatch('[a-f0-9]{40}', descriptor.get('source_commit', '')):
+        raise ValueError('exact_software_git_commit_required')
+    for name, proof in before.items():
+        if proof is None:
+            if name not in SOFTWARE_NEW or baseline['files'][name] is not None:
+                raise ValueError('software_before_source_required')
+            continue
+        if (not isinstance(proof, dict) or set(proof) != {'source_commit', 'source_path'}
+                or not re.fullmatch('[a-f0-9]{40}', proof.get('source_commit', ''))
+                or proof.get('source_path') != SOFTWARE_MAPPINGS[name][0]):
+            raise ValueError('software_before_source_required')
+        sha = baseline['files'][name]
+        if (not re.fullmatch('[a-f0-9]{64}', sha or '')
+                or descriptor['files'].get('before/' + name) != sha):
+            raise ValueError('software_before_source_hash_drift')
+    expected = {'payload/' + name for name in sources} | {'before/' + name for name in sources if before[name] is not None}
+    if 'http/range_api.py' in sources:
+        expected |= {'git-before/http/range_api.py', 'git-after/http/range_api.py'}
+    expected |= {'runtime_prepare.py', 'runtime_release.py', 'release_navigation_base.py', 'release_readiness.py'}
+    if set(descriptor.get('files', {})) != expected:
+        raise ValueError('exact_software_git_payload_required')
+    for name, sha in descriptor['files'].items():
+        path = directory/name
+        if path.is_symlink() or not re.fullmatch('[a-f0-9]{64}', sha or '') or hashlib.sha256(path.read_bytes()).hexdigest() != sha:
+            raise ValueError('git_payload_changed')
+    if 'http/range_api.py' in sources:
+        name='http/range_api.py'
+        for original,rendered in (('git-before/','before/'),('git-after/','payload/')):
+            if software_payload_bytes(name,(directory/(original+name)).read_bytes()) != (directory/(rendered+name)).read_bytes():
+                raise ValueError('software_render_source_drift')
+    return sources
+
+
+def software_restart(base, original_restart, manifest, admission_fence):
+    helper = HERE/'release_readiness.py'
+    spec = importlib.util.spec_from_file_location('software_readiness', helper)
+    readiness = importlib.util.module_from_spec(spec); spec.loader.exec_module(readiness)
+    return readiness.restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
+
+
+def software_base(approved):
+    raw = (HERE/'payload-manifest.json').read_bytes()
+    if hashlib.sha256(raw).hexdigest() != approved.get('approvedPayloadSha256'):
+        raise ValueError('installed_git_descriptor_drift')
+    descriptor = json.loads(raw)
+    sources = software_descriptor(descriptor, HERE)
+    baseline = descriptor['installed_baseline']['files']
+    changed = {name: SOFTWARE_TARGETS[name] for name in sources
+               if descriptor['files']['payload/' + name] != baseline[name]}
+    if not changed:
+        raise ValueError('software_change_required')
+    new = {name for name in changed if baseline[name] is None}
+    base = frozen(changed, new=new)
+    original_validate, original_guards = base.validate, base.guards
+    original_restart, original_idle = base.restart_for, base.hermes_quiescent
+    original_apply = base.apply
+    publish_root = Path('/')
+    required = software_protected_paths(base, set(changed.values()))
+    # The selected unchanged dependencies are fresh protected rows, never writes.
+    required |= {SOFTWARE_TARGETS[name] for name in sources if name not in changed}
+    def validate(manifest, stage):
+        if (manifest != approved or manifest.get('scope') != SCOPE
+                or manifest.get('sourceCommit') != descriptor['source_commit']
+                or manifest.get('softwareSources') != sources
+                or manifest.get('businessWrites') is not False or manifest.get('timersChanged') is not False):
+            raise ValueError('exact_material_manifest_required')
+        observed = datetime.fromisoformat(manifest['baselineObservedAt'])
+        if observed.tzinfo is None or not 0 <= (datetime.now(timezone.utc)-observed).total_seconds() <= 3600:
+            raise ValueError('fresh_material_baseline_required')
+        if (manifest.get('workerImageSource') != 'container'
+                or not re.fullmatch('sha256:[a-f0-9]{64}', manifest.get('workerImageId', ''))
+                or manifest.get('runtimeRequired') != {unit:{'ActiveState':'active'} for unit in (
+                    'fs-business-range.service','fs-hermes-fc.service')}
+                or manifest.get('runtimeBefore') != manifest['runtimeRequired']):
+            raise ValueError('material_active_services_required')
+        protected = manifest.get('unchangedRequired', [])
+        if len(protected) != len(required) or {r['path'] for r in protected} != required:
+            raise ValueError('material_protected_set_changed')
+        for row in manifest['files']:
+            name = row['candidate']
+            if (name not in changed or row.get('beforeSha256') != baseline[name]
+                    or row.get('sha256') != descriptor['files']['payload/' + name]
+                    or row.get('owner') != '0:0' or row.get('mode') != payload_mode(changed[name])):
+                raise ValueError('material_existing_new_or_mode_boundary')
+        if (manifest.get('readinessSha256') != descriptor['files']['release_readiness.py']
+                or hashlib.sha256((HERE/'release_readiness.py').read_bytes()).hexdigest() != manifest['readinessSha256']):
+            raise ValueError('current_readiness_helper_changed')
+        return original_validate(manifest, stage)
+    def idle(root):
+        original_idle(root)
+        quiescent(base, root)
+    def guards(manifest, root, reader_stopped=False):
+        running_worker(manifest)
+        for name,target in changed.items():
+            path=base.rooted(root,target);base.no_target_link(path)
+            if name in new and not path.exists():continue
+            info=path.stat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                    or (info.st_uid,info.st_gid) != (0,0)
+                    or oct(stat.S_IMODE(info.st_mode)) != payload_mode(target)):
+                raise ValueError('software_target_boundary_drift')
+        for row in manifest['unchangedRequired']:
+            path = base.rooted(root,row['path']);base.no_target_link(path);info=path.stat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                    or row.get('owner') != str(info.st_uid)+':'+str(info.st_gid)
+                    or row.get('mode') != oct(stat.S_IMODE(info.st_mode))):
+                raise ValueError('software_protected_metadata_drift')
+        return original_guards(manifest,root,reader_stopped=reader_stopped)
+    def restart_selected_software(manifest, admission_fence=None):
+        if admission_fence is None:raise ValueError('native_admission_fence_required')
+        admission_fence.stop_then_unlock_database()
+        # These modules are imported by the long-running worker as well as the host.
+        worker_sources = {'runtime/hermes_worker.py','runtime/conversation_native.py',
+                          'runtime/native_chat.py','runtime/fs_inprocess.py','runtime/fs_native_readonly.py',
+                          'runtime/conversation_knowledge.py','runtime/fs_native_knowledge.py',
+                          'runtime/report_artifacts.py'}
+        scopes = []
+        if worker_sources & set(changed):scopes.append(base.HERMES_WORKER_SCOPE)
+        # The original admission fence stops range even for worker/CLI-only writes.
+        # Restore that fenced service through its original readiness on apply and rollback.
+        scopes.append(base.DEEP_SCOPE)
+        # Pricing CLI modules are loaded for each invocation, without a scheduler restart.
+        result = None
+        for scope in scopes:
+            result = software_restart(base, original_restart, dict(manifest,scope=scope), admission_fence)
+        running_worker(manifest)
+        base.guards(manifest, publish_root)
+        return result
+    def apply(manifest, stage, approved_sha, manifest_bytes, release_id, root=Path('/')):
+        nonlocal publish_root
+        publish_root = root
+        return original_apply(manifest, stage, approved_sha, manifest_bytes, release_id, root)
+    base.apply = apply
+    base.validate, base.guards, base.hermes_quiescent = validate, guards, idle
+    base.restart_for = restart_selected_software
+    return base
+
+
 def load_base():
     approved = json.loads((HERE / 'approved-manifest.json').read_text('utf-8'))
+    if 'softwareSources' in approved:
+        return software_base(approved)
     if approved.get('nativeComposerStatic') is True:
         if any(approved.get(k) is True for k in ('nativeCapabilities','nativeArchive','nativeAdmission','nativeChat',
                 'materialExecution','materialGuard','bindingsAuth','materialStream','materialTransport',
