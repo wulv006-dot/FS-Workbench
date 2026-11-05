@@ -1,9 +1,10 @@
-"""Host-owned DeepSeek discovery for Hermes; preserves the existing official collector."""
+"""Host-owned game intelligence and news; replaces the retired monitor collectors."""
 import argparse
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import ipaddress
 import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 import socket
 import sys
@@ -12,6 +13,7 @@ import urllib.parse
 import urllib.request
 
 import game_intelligence as official
+import mmoexp_news as news
 from boss_daily import atomic, encoded, file_lock
 
 API = 'https://api.deepseek.com'
@@ -24,6 +26,25 @@ def next_refresh(at):
         candidate = (local + timedelta(days=offset)).replace(hour=10, minute=10, second=0, microsecond=0)
         if candidate.weekday() in (1, 4) and candidate > local:
             return candidate.astimezone(timezone.utc)
+
+
+def refresh_news(root, at):
+    # The retired refresh() skips non-Saturdays; reuse its readers and translation on the new schedule.
+    root=Path(root)
+    try:
+        value=news.collect(at)
+        if value['documents']:
+            try:previous=news.read_snapshot(root)
+            except (OSError,ValueError,KeyError,TypeError):previous=None
+            value['stale_after']=next_refresh(at).isoformat()
+            value=news.enrich_zh(value,previous=previous)
+            news.atomic(root/'seo-news.json',value)
+        status={k:value[k] for k in ('status','collected_at','version')}
+    except (OSError,ValueError,TypeError,ET.ParseError):
+        status=dict(status='unavailable',reason='news_fetch_or_parse_failed',collected_at=official.moment(at).isoformat(),last_success_preserved=True)
+    status['schema_version']=1
+    news.atomic(root/'seo-news.status.json',status)
+    return status
 
 
 class SourceError(Exception):
@@ -228,18 +249,26 @@ def run_once(root, game_keys, client, model, at):
                 previous = json.loads(previous_file.read_bytes()) if previous_file.exists() else None
                 snapshot = official.build_snapshot(batch, result, previous)
                 snapshot.update(stale_after=next_refresh(at).isoformat(),
-                    notice='Hermes 游戏情报采集任务：DeepSeek 搜索/抓取，沿现役原文、日期和游戏归属校验；既有官方及周度来源继续保留。',
+                    notice='游戏情报统一采集：每周二、周五北京时间10:10，DeepSeek 搜索/抓取与官方直采，保留原文、日期和游戏归属校验。',
                     method='deepseek_search_fetch', request_counts=getattr(client, 'successful_requests', {}))
                 for event in snapshot['events']:
                     event.setdefault('expires_at',next_refresh(event['collected_at']).isoformat())
                 snapshot['version'] = 'game-intel-' + sha256(encoded(snapshot)).hexdigest()[:20]
-                atomic(previous_file, encoded(snapshot), 0o644)
+                payload=encoded(snapshot)
+                atomic(previous_file, payload, 0o644)
+                # The active nightly reader requires this existing snapshot and SHA receipt contract.
+                atomic(root/'game-monitor.json',payload,0o644)
                 status.update(status='succeeded', reason=None, version=snapshot['version'],
                               events=len(snapshot['events']), request_counts=getattr(client,'successful_requests',{}))
-            except (SourceError, ValueError, KeyError, TypeError) as error:
-                status['reason'] = str(error) if isinstance(error, SourceError) or str(error) in official.EVENT_REJECTION_REASONS else 'event_validation_failed'
+            except (SourceError, ValueError, KeyError, TypeError, OSError) as error:
+                status['reason'] = 'snapshot_io_failed' if isinstance(error,OSError) else str(error) if isinstance(error, SourceError) or str(error) in official.EVENT_REJECTION_REASONS else 'event_validation_failed'
         status['request_counts'] = getattr(client, 'successful_requests', {})
         atomic(root / 'intelligence.status.json', encoded(status), 0o644)
+        report=dict(status=status['status'],phase='completed',day=official.moment(at).astimezone(timezone(timedelta(hours=8))).date().isoformat(),
+            collected_at=official.moment(at).isoformat(),reason=status.get('reason'),collector='fs-game-intelligence')
+        if status['status']=='succeeded':
+            report['public_sha256']=sha256((root/'game-monitor.json').read_bytes()).hexdigest()
+        atomic(root/'game-monitor.status.json',encoded(report),0o644)
         return status
 
 
@@ -253,6 +282,7 @@ def main():
     keys = args.game or list(official.GAMES)
     if args.publish:
         result = run_once(args.root, keys, client, client.model, at)
+        result['seo_news']=refresh_news(args.root,at)
     else:
         result = collect(keys, client, at)
         result['request_counts'] = client.successful_requests

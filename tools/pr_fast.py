@@ -1466,7 +1466,7 @@ def main():
             node(release+"/tests/check_frontend.cjs")
             node(release+"/tests/check_syntax.cjs")
         elif group=="fs-game-monitor":
-            units("ui-system/modules/game-monitor/tests",["test_discovery","test_build","test_prepare_ui"])
+            units("ui-system/modules/game-monitor/tests",["test_discovery","test_build","test_prepare_ui","test_retire_legacy"])
             node("ui-system/modules/game-monitor/tests/source-model.cjs")
         elif group=="fs-ui-system":
             units("ui-system/tests",["test_ui","test_release"])

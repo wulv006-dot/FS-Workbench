@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import sys
 
-FROZEN_PUBLICATION_BLOB = 'f96eda94cf3a446ca877c460cbba19c2824ab5f9'
+FROZEN_PUBLICATION_BLOB = 'dfc5819645418e9af348b7a4d14eac3d88721619'
 OLD_ROUTE = '/dashboard/game-monitor/index.html'
 NEW_ROUTE = '/dashboard/game-monitor/operations.html'
 
@@ -19,14 +19,21 @@ def route(template, old, new, target):
     return re.sub(r'(^\s*alias )[^;]+;',lambda m:m[1]+str(target)+';',result,flags=re.M)
 
 
-def legacy_entry(before, asset_sha):
-    marker=('<!-- FS game operations asset: '+asset_sha+' -->').encode()
-    raw=re.sub(rb'<!-- FS game operations asset: [a-f0-9]{64} -->',b'',before)
-    if raw.count(b'<body>')!=1 or raw.count(b'</body>')!=1:
-        raise ValueError('legacy_body_not_unique')
-    if b'id="fs-operations-entry"' not in raw:
-        raw=raw.replace(b'<body>',b'<body>\n<nav id="fs-operations-entry" aria-label="'+ '新版入口'.encode() +b'"><a href="operations.html">'+ '打开新版游戏情报台'.encode()+b'</a></nav>',1)
-    return raw.replace(b'</body>',marker+b'\n</body>',1)
+def current_assets(identities):
+    return {name:digest for name,digest in identities.items()
+        if not name.startswith('game-monitor/') or name in ('game-monitor/index.html','game-monitor/operations.html')}
+
+
+def retire_routes(fragment, version):
+    keep={'index.html','operations.html','intelligence.json','intelligence.status.json','seo-news.json','seo-news.status.json'}
+    pattern=r'^location = (\S+) \{\r?\n.*?^\}'
+    for match in list(re.finditer(pattern,fragment,re.M|re.S)):
+        path=match[1]
+        asset_prefix='/dashboard/workspace-assets/'+version+'/game-monitor/'
+        if (path.startswith('/dashboard/game-monitor/') and path.removeprefix('/dashboard/game-monitor/') not in keep
+                or path.startswith(asset_prefix) and path.removeprefix(asset_prefix) not in ('index.html','operations.html')):
+            fragment=fragment.replace(match[0],'',1)
+    return fragment
 
 
 def asset_rows(identities, static, version):
@@ -54,7 +61,7 @@ def prepare(asset, stage, module=Path('/opt/fs-hermes-ops/game_monitor/publicati
     import publication as pub
     before=pub.active().read_bytes()
     original_fragment=pub.FRAGMENT.read_bytes()
-    after=legacy_entry(before,pub.sha(asset))
+    after=asset
     prepared=pub.prepare(stage,before,after)
     manifest=json.loads((stage/'release-manifest.json').read_bytes())
     old_version=manifest['releaseId']
@@ -62,6 +69,10 @@ def prepare(asset, stage, module=Path('/opt/fs-hermes-ops/game_monitor/publicati
     (stage/'assets'/name).write_bytes(asset)
     identities={row['candidate'].removeprefix('assets/'):row['sha256'] for row in manifest['immutableAssets']}
     identities[name]=pub.sha(asset)
+    retained=current_assets(identities)
+    for retired in set(identities)-set(retained):
+        (stage/'assets'/retired).unlink()
+    identities=retained
     version='workspace-native-20261006-'+pub.sha(json.dumps(identities,sort_keys=True).encode())[:12]
     manifest['immutableAssets']=asset_rows(identities,pub.STATIC,version)
     fragment_row=next(row for row in manifest['targets'] if row['target']==str(pub.FRAGMENT))
@@ -77,16 +88,17 @@ def prepare(asset, stage, module=Path('/opt/fs-hermes-ops/game_monitor/publicati
             fragment+='\n'+block+'\n'
     # The supplementary JSON routes inherit the existing authenticated JSON route.
     current=pub.blocks(original_fragment.decode())
-    for old,new,target in [('/dashboard/game-monitor/daily.json','/dashboard/game-monitor/intelligence.json','/var/lib/fs-boss-workspaces/public/intelligence.json'),('/dashboard/game-monitor/daily.status.json','/dashboard/game-monitor/intelligence.status.json','/var/lib/fs-boss-workspaces/public/intelligence.status.json')]:
+    for old,new,target in [('/dashboard/game-monitor/intelligence.json','/dashboard/game-monitor/intelligence.json','/var/lib/fs-boss-workspaces/public/intelligence.json'),('/dashboard/game-monitor/intelligence.status.json','/dashboard/game-monitor/intelligence.status.json','/var/lib/fs-boss-workspaces/public/intelligence.status.json'),('/dashboard/game-monitor/intelligence.status.json','/dashboard/game-monitor/seo-news.status.json','/var/lib/fs-boss-workspaces/public/seo-news.status.json')]:
         if old not in current:
             raise ValueError('json_route_template_unavailable:'+old)
         block=route(current[old],old,new,target)
         if new in pub.blocks(fragment):fragment=fragment.replace(pub.blocks(fragment)[new],block,1)
         else:fragment+='\n'+block+'\n'
+    fragment=retire_routes(fragment,version)
     pub.blocks(fragment)
     fragment_bytes=fragment.encode();(stage/fragment_row['candidate']).write_bytes(fragment_bytes)
     fragment_row['sha256']=pub.sha(fragment_bytes)
-    manifest.update(scope='Game monitor supplementary operating view; original workspace, schedules and content maintenance retained',releaseId=version,releaseReady=False)
+    manifest.update(scope='Game intelligence replaces retired workspace and legacy collectors',releaseId=version,releaseReady=False)
     contract=(json.dumps(manifest,indent=2)+'\n').encode();(stage/'release-contract.json').write_bytes(contract)
     manifest['releaseReady']=True;(stage/'release-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     source=(stage/'release_workspace.py').read_text()
