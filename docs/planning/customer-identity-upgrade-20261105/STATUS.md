@@ -16,7 +16,7 @@
 - 准备目录：`/opt/fs-release-stage/user-daily-7312aa31-v1`；来源7312aa31经上述PR合并。9个现有目标。user_query沿实际生产363f7972版本应用本次三处日更改动，不顺带启用仓库尚未上线的分页功能。
 - 初次prepare发现候选包缺`candidate/`布局；在同stage按原清单SHA补齐相同字节，保留原检查记录。后续inspect曾等待Range成本采集持有的admission共享锁；只结束自有inspect，未终止业务进程或改锁。
 - 业务锁自然释放后，主控沿原stage重新capture。747项仅`.curator_state`和`.usage.json`内容hash变化，owner/mode未变，9目标与其他保护项无变化。原manifest/plan保留为`*-before-dynamic-review.json`；复核两动态hash后最终manifest SHA为`006f87c82fa253c4644682685cda5df2c42fbca738cddb105678c39011d6607c`，原清单SHA为`f5b154fcb4072c50b9365a3169aaa57ea335b66aeec13fd4a5f0ad30ec45b4ae`。
-- 主控完成发布`nav-20261105T052700Z`，备份`/var/backups/fs-navigation-20261006/nav-20261105T052700Z`。apply退出0，9目标SHA读回全部一致，host-runtime为all_readers_loaded，Range/Hermes均active且健康。
+- 主控完成发布`nav-20261105T052700Z`，备份`/var/backups/fs-navigation-20261006/nav-20261105T052700Z`。apply退出0，9目标SHA读回全部一致，host-runtime为all_readers_loaded，Range/Hermes均active，Range健康接口通过；未单独调用Hermes健康接口。
 - Chrome真实`/dashboard/users/`可读取4917人及完整原快照，顶部已显示每日更新。旧快照仍为weekly、截至2026-11-01、旧next为11月9日；保留其原冻结信息，不声称新日数据已产出。下一自然窗口2026-11-06北京时间04:18—05:00未验。
 
 ## 后续收束

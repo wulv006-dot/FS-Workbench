@@ -31,7 +31,7 @@
 
 本次部署保持9目标精确范围。`user_query.py`以生产363f7972来源仅应用3处cadence接线，不整文件携带main尚未部署的member_keyset/streaming-export能力。实际组合178项回归通过；before/after哈希留私有清单。
 
-主控于2026-11-05沿原stage `/opt/fs-release-stage/user-daily-7312aa31-v1` 发布，原发布ID `nav-20261105T052700Z`，备份 `/var/backups/fs-navigation-20261006/nav-20261105T052700Z`。apply退出0，9目标SHA读回全部一致，host-runtime为all_readers_loaded，Range/Hermes均active且健康。最终manifest SHA为`006f87c82fa253c4644682685cda5df2c42fbca738cddb105678c39011d6607c`。
+主控于2026-11-05沿原stage `/opt/fs-release-stage/user-daily-7312aa31-v1` 发布，原发布ID `nav-20261105T052700Z`，备份 `/var/backups/fs-navigation-20261006/nav-20261105T052700Z`。apply退出0，9目标SHA读回全部一致，host-runtime为all_readers_loaded，Range/Hermes均active，Range健康接口通过；未单独调用Hermes健康接口。最终manifest SHA为`006f87c82fa253c4644682685cda5df2c42fbca738cddb105678c39011d6607c`。
 
 此前等待中的只读inspect已结束；业务锁自然释放后重新capture发现仅`.curator_state`与`.usage.json`动态内容变化，9目标及其他保护项不变。旧plan/manifest保留为`*-before-dynamic-review.json`，只复核两动态hash后沿原publisher执行，没有取消锁保护或替换业务任务。
 
