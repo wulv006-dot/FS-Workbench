@@ -101,8 +101,13 @@ def apply_customer_types(data, request=False):
     sys.path.insert(0, '/opt/fs-hermes-fc')
     start, end = data['period']['start'], data['period']['end']
     def read():
-        names = tuple(sorted(p.name for p in ES_ARCHIVE.glob('*.json')))
-        return customer_types(start, end, names, str(ES_ARCHIVE))
+        if any(p.is_symlink() for p in (ES_ARCHIVE,*ES_ARCHIVE.parents)):raise ValueError('es_archive_symlink')
+        if not ES_ARCHIVE.exists():return customer_types(start,end,(),str(ES_ARCHIVE))
+        import es_order_structure as es
+        # The manifest list and its workbooks must survive as one read while compaction runs.
+        with es.SERVER_LOCK, es.archive_access(ES_ARCHIVE):
+            names = tuple(sorted(p.name for p in ES_ARCHIVE.glob('*.json')))
+            return customer_types(start, end, names, str(ES_ARCHIVE))
     try:
         index, info = read()
         if request and info['status'] != 'complete':

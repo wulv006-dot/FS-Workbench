@@ -222,7 +222,9 @@ class Period(unittest.TestCase):
             called.append(names);return {'hashed-order':'\u65b0\u5ba2'},dict(status='complete',sourceVersion='fixture',orderSources={'private':'must not leave'})
         module=types.ModuleType('channel_source');module.customer_types=original
         before_path=list(sys.path)
-        with patch.dict(sys.modules,channel_source=module):
+        dashboard=Path(__file__).resolve().parents[2]
+        dependencies=[str(dashboard/'cache-archive-retention-20261025/source'),str(dashboard/'fs-business-baseline-20261021/source')]
+        with patch.object(sys,'path',[*sys.path,*dependencies]),patch.dict(sys.modules,channel_source=module):
             flags,meta=read_flags(dict(start='2026-10-01',end_exclusive='2026-10-22'),root)
         self.assertEqual(sys.path,before_path)
         self.assertEqual(called,[('good.json',)]);self.assertEqual(flags['hashed-order'],'new');self.assertNotIn('orderSources',meta)

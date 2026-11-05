@@ -3,6 +3,8 @@ import io
 import sys
 import tempfile
 import unittest
+from contextlib import nullcontext
+from threading import RLock
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -168,7 +170,7 @@ class Effects(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); (root/'manifest.json').write_text(json.dumps(dict(query=self.period,captured_at=dataset['captured_at'])))
             customer_types.cache_clear()
-            with patch('channel_source.ES_ARCHIVE',root), patch.dict(sys.modules,{'es_order_structure':SimpleNamespace(archived_dataset=lambda *a,**kw:dataset)}):
+            with patch('channel_source.ES_ARCHIVE',root), patch.dict(sys.modules,{'es_order_structure':SimpleNamespace(SERVER_LOCK=RLock(),archive_access=lambda root:nullcontext(),archived_dataset=lambda *a,**kw:dataset)}):
                 apply_customer_types(data)
         self.assertEqual([r['customerType'] for r in data['orders']],['新客','老客','新老客未提供','新老客未提供'])
         self.assertEqual(data['sources']['customer']['matchedOrders'],2)
@@ -183,7 +185,7 @@ class Effects(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); (root/'manifest.json').write_text(json.dumps(dict(query=self.period)))
             customer_types.cache_clear()
-            with patch('channel_source.ES_ARCHIVE',root), patch.dict(sys.modules,{'es_order_structure':SimpleNamespace(archived_dataset=lambda *a,**kw:dataset)}):
+            with patch('channel_source.ES_ARCHIVE',root), patch.dict(sys.modules,{'es_order_structure':SimpleNamespace(SERVER_LOCK=RLock(),archive_access=lambda root:nullcontext(),archived_dataset=lambda *a,**kw:dataset)}):
                 data=apply_customer_types(self.data())
         self.assertEqual(data['orders'][0]['customerType'],'待核：新老客冲突')
 
@@ -192,10 +194,26 @@ class Effects(unittest.TestCase):
         export=Mock(return_value={'status':'unavailable','reason':'existing_attempt_unknown'})
         with tempfile.TemporaryDirectory() as folder:
             customer_types.cache_clear()
-            with patch('channel_source.ES_ARCHIVE',Path(folder)), patch.dict(sys.modules,{'es_order_structure':SimpleNamespace(server_bundle=export)}):
+            with patch('channel_source.ES_ARCHIVE',Path(folder)), patch.dict(sys.modules,{'es_order_structure':SimpleNamespace(SERVER_LOCK=RLock(),archive_access=lambda root:nullcontext(),server_bundle=export)}):
                 data=apply_customer_types(self.data(),request=True)
         self.assertTrue(all(r['customerType']=='新老客未提供' for r in data['orders']))
         self.assertEqual(export.call_count,1)
+
+    def test_first_export_still_initializes_a_missing_archive(self):
+        from unittest.mock import Mock
+        import hashlib
+        data=self.data();dataset=dict(rows=[{'订单号':hashlib.sha256(b'A').hexdigest(),'付款时间':'2026/10/20 12:00:00','是否新客户':'是'}],parse_failures=0,failed_files=0,declared_files=1,hashes=['a'*64],captured_at='2026-10-21T00:00:00Z')
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)/'missing'
+            def export(q):
+                root.mkdir(mode=0o700);(root/'manifest.json').write_text(json.dumps(dict(query=self.period,captured_at=dataset['captured_at'])))
+                return dict(status='available')
+            def access(path):
+                self.assertTrue(path.exists());return nullcontext()
+            reader=Mock(side_effect=export);customer_types.cache_clear()
+            es=SimpleNamespace(SERVER_LOCK=RLock(),archive_access=access,archived_dataset=lambda *a,**kw:dataset,server_bundle=reader)
+            with patch('channel_source.ES_ARCHIVE',root),patch.dict(sys.modules,es_order_structure=es):apply_customer_types(data,request=True)
+        reader.assert_called_once();self.assertEqual(data['orders'][0]['customerType'],'新客')
 
     def test_casefold_preserves_spelling_and_directory_precedence(self):
         a = Attribution(self.mapping, self.config, self.directory)

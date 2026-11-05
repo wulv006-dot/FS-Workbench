@@ -281,7 +281,7 @@ def export_bundle(manager,args,headers,download,archive=None,deadline=None,priva
     return {'kind':'es_order_structure_bundle','status':'available','snapshots':snapshots}
 
 
-def archive_files(files,args,root=Path('/var/lib/fc27-es-exports')):
+def archive_files(files,args,root=Path('/var/lib/fc27-es-exports'),capture_context=None):
     import os,stat,shutil
     root=Path(root)
     if any(p.is_symlink() for p in (root,*root.parents)):raise ValueError('es_archive_symlink')
@@ -305,15 +305,24 @@ def archive_files(files,args,root=Path('/var/lib/fc27-es-exports')):
                 if existing[name]>MAX_FILE or (root/name).read_bytes()!=raw:raise ValueError('es_archive_integrity')
             else:additions[name]=raw
         version=hashlib.sha256(json.dumps({'files':hashes,'rule':RULE_VERSION},sort_keys=True).encode()).hexdigest()
-        manifest_name=hashlib.sha256(json.dumps({'source_version':version,'start':args['start'],'end':args['end']},sort_keys=True).encode()).hexdigest()+'.json'
+        identity={'source_version':version,'start':args['start'],'end':args['end']}
+        if capture_context is not None:
+            if not isinstance(capture_context,str) or not re.fullmatch('[a-zA-Z0-9_-]{1,80}',capture_context):raise ValueError('es_capture_context')
+            identity['capture_context']=capture_context
+        manifest_name=hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()+'.json'
         if files and manifest_name not in existing:
             additions[manifest_name]=json.dumps({'source_version':version,'file_sha256':hashes,'query':{k:args[k] for k in ('profile','start','end')},'file_set':args.get('_file_set'),'captured_at':datetime.now(timezone.utc).isoformat(),'rule_version':RULE_VERSION},ensure_ascii=False).encode()
         extra=sum(map(len,additions.values()));used=sum(existing.values())
         if used+extra>MAX_ARCHIVE_BYTES or len(existing)+len(additions)>MAX_ARCHIVE_FILES or not files and (used>=MAX_ARCHIVE_BYTES or len(existing)>=MAX_ARCHIVE_FILES):raise ValueError('es_archive_capacity')
         if shutil.disk_usage(root).free<extra+ARCHIVE_RESERVE_BYTES:raise ValueError('es_archive_disk_reserve')
+        import tempfile
         for name,raw in additions.items():
-            fd=os.open(str(root/name),os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
-            with os.fdopen(fd,'wb') as stream:stream.write(raw);stream.flush();os.fsync(stream.fileno())
+            fd,temp=tempfile.mkstemp(prefix='.es-write-',dir=str(root))
+            try:
+                with os.fdopen(fd,'wb') as stream:stream.write(raw);stream.flush();os.fsync(stream.fileno())
+                os.replace(temp,root/name);_excel_sync(root)
+            finally:
+                if os.path.exists(temp):os.unlink(temp)
 
 
 def cache_seconds(end):
@@ -371,7 +380,11 @@ def _archived_dataset(args,root):
         info=path.lstat()
         if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size>1024*1024 or os.name=='posix' and (info.st_uid!=os.geteuid() or info.st_mode&0o077):raise ValueError('es_archive_manifest')
         value=json.loads(path.read_text('utf-8'));q=value.get('query') or {}
-        if (q.get('start'),q.get('end'))==(args['start'],args['end']):matches.append(value)
+        exact=(q.get('start'),q.get('end'))==(args['start'],args['end'])
+        integrity=value.get('file_set') or {}
+        covers=(q.get('profile')=='ALL' and q.get('start','')<=args['start']<=args['end']<=q.get('end','')
+                and integrity.get('failed_files')==0 and integrity.get('declared_files')==len(value.get('file_sha256',[])))
+        if exact or covers:matches.append(value)
     if not matches:return None
     value=max(matches,key=lambda v:v.get('captured_at',''));files=[]
     if args['end']>=datetime.now(SHANGHAI).date().isoformat():
@@ -388,7 +401,12 @@ def _archived_dataset(args,root):
         if len(files)>20 or sum(len(f) for f in files)>128*1024*1024:raise ValueError('es_archive_limit')
     if not files:raise ValueError('es_archive_empty')
     integrity=value.get('file_set') or {}
-    dataset=make_dataset(*parse_files(files),integrity.get('declared_files'),integrity.get('failed_files'))
+    rows,hashes,failures=parse_files(files)
+    # A complete monthly archive can serve a day/week without another download.
+    if (value['query']['start'],value['query']['end'])!=(args['start'],args['end']):
+        rows=[r for r in rows if not re.fullmatch(r'\d{4}[-/]\d{2}[-/]\d{2}.*',str(r.get(COLUMNS['time']) or ''))
+              or args['start']<=str(r[COLUMNS['time']]).replace('/','-')[:10]<=args['end']]
+    dataset=make_dataset(rows,hashes,failures,integrity.get('declared_files'),integrity.get('failed_files'))
     dataset.update(captured_at=value.get('captured_at'),origin='private_archive_reuse')
     return dataset
 
@@ -468,7 +486,7 @@ def retained_bundle(previous,reason,pending=False):
     return {'kind':'es_order_structure_bundle','status':'pending' if pending else 'unavailable','reason':reason,'retryAfter':3}
 
 
-def api_dataset(args,deadline):
+def api_dataset(args,deadline,*,capture_context=None,archive_root=Path('/var/lib/fc27-es-exports')):
     """Use the existing API client, sending export generation once only."""
     import sys
     from types import SimpleNamespace
@@ -485,7 +503,16 @@ def api_dataset(args,deadline):
         status,raw=request('/admin/index/index',timeout=8)
         return status==200 and json.loads(raw).get('code')==1
     manager=SimpleNamespace(lock=threading.RLock(),token=None,identity_ok=identity_ok,request=request)
-    try:return dict(export_dataset(manager,args,{'User-Agent':auth.UA},deadline),kind='es_order_structure_bundle')
+    try:
+        if capture_context is None:
+            return dict(export_dataset(manager,args,{'User-Agent':auth.UA},deadline),kind='es_order_structure_bundle')
+        def retain_complete(files,query):
+            integrity=query.get('_file_set') or {}
+            _,hashes,failures=parse_files(files)
+            if failures or integrity.get('failed_files') != 0 or integrity.get('declared_files') != len(hashes) or not hashes:
+                raise ValueError('es_monthly_incomplete_export')
+            archive_files(files,query,archive_root,capture_context=capture_context)
+        return dict(export_bundle(manager,args,{'User-Agent':auth.UA},lambda u,h:trusted_download(u,h,deadline),retain_complete,deadline,True),kind='es_order_structure_bundle')
     finally:client.close()
 
 
@@ -827,3 +854,191 @@ def maintain_archive(root=Path('/var/lib/fc27-es-exports'),now=None,apply=True):
             p.unlink();_excel_sync(root);result['archived_files']+=1;result['archived_bytes']+=item['bytes']
         _excel_atomic(cold/'last-maintenance.json',result)
         return result
+
+
+def server_bundle_after(args,fresh_after,cycle_id,root=Path('/var/lib/fs-hermes-fc/fs/es-structures'),source=None):
+    """Internal scheduled review only; public query/force contract is unchanged."""
+    query=checked_query(args)
+    after=datetime.fromisoformat(fresh_after)
+    if after.tzinfo is None or after>datetime.now(timezone.utc):raise ValueError('es_review_fresh_after')
+    if not isinstance(cycle_id,str) or not re.fullmatch('[a-zA-Z0-9_-]{1,80}',cycle_id):raise ValueError('es_review_cycle')
+    root=Path(root)/'.monthly-reviews'/cycle_id
+    # Cycle identity includes the requested freshness boundary; retry never changes it.
+    context=hashlib.sha256((cycle_id+'|'+after.isoformat()).encode()).hexdigest()
+    with SERVER_LOCK:
+        if any(p.is_symlink() for p in (root,*root.parents)):raise ValueError('es_cache_symlink')
+        index,attempt,legacy=_receipt_paths(query,root)
+        if index.is_file() and not attempt.exists() and not legacy.exists():
+            saved,_=_read_receipt(index);value=saved.get('value') or {}
+            if value.get('status')=='available' and not saved.get('last_attempt'):
+                items=value.get('snapshots') or []
+                if len(items)==1 and items[0]['value'].get('quality',{}).get('file_set_complete') is True and datetime.fromisoformat(items[0]['value']['captured_at'])>=after:
+                    return value
+        reader=source or (lambda q,d:api_dataset(q,d,capture_context=context))
+        value=_server_bundle(query,root,reader)
+        if value.get('status')=='available':
+            items=value.get('snapshots') or []
+            if len(items)!=1 or items[0]['value'].get('quality',{}).get('file_set_complete') is not True or datetime.fromisoformat(items[0]['value']['captured_at'])<after:
+                return {'kind':'es_order_structure_bundle','status':'unavailable','reason':'es_review_stale_capture','retryable':False}
+        return value
+
+
+def compact_archive(root,reference_reader,apply=False,expected_plan_sha256=None):
+    """Remove covered duplicate exports after publication; caller holds its publication lock.
+
+    reference_reader must read the current publication and pending ES attempts each time.
+    Frozen recipe snapshots embed their flags; revisions and snapshot tables are untouched.
+    """
+    import os
+    root=Path(root)
+    with archive_access(root):
+        _excel_private(root,True)
+        resume=root/'.compaction.receipt'
+        if apply and resume.exists():
+            if _excel_private(resume).st_size>4*1024*1024:raise ValueError('es_compaction_receipt_size')
+            receipt=json.loads(resume.read_text('utf-8'))
+            if receipt.get('status')=='partial' and receipt.get('plan',{}).get('plan_sha256')==expected_plan_sha256:
+                return _apply_archive_compaction(root,receipt['plan'],reference_reader)
+        refs=reference_reader()
+        if (not isinstance(refs,dict) or type(refs.get('complete')) is not bool
+                or not isinstance(refs.get('publication_id'),str)
+                or any(not isinstance(refs.get(k),list) for k in ('manifests','file_hashes','inflight'))):
+            raise ValueError('es_archive_reference_contract')
+        pins=set(refs['manifests']);file_pins=set(refs['file_hashes'])
+        if any(not isinstance(n,str) or not re.fullmatch('[a-f0-9]{64}\\.json',n) for n in pins):raise ValueError('es_archive_reference_name')
+        if any(not isinstance(h,str) or not re.fullmatch('[a-f0-9]{64}',h) for h in file_pins):raise ValueError('es_archive_reference_hash')
+        for q in refs['inflight']:
+            if not isinstance(q,dict) or set(q)!={'start','end'} or date.fromisoformat(q['start'])>date.fromisoformat(q['end']):raise ValueError('es_archive_inflight_period')
+        records={};protected=[];inventory=[]
+        for p in sorted(root.glob('*.json')):
+            if not re.fullmatch('[a-f0-9]{64}\\.json',p.name):
+                protected.append(dict(name=p.name,reason='unknown_manifest_name'));continue
+            if _excel_private(p).st_size>1024*1024:raise ValueError('es_archive_manifest')
+            raw=p.read_bytes();v=json.loads(raw);q=v.get('query') or {};ids=v.get('file_sha256') or []
+            if not q.get('start') or not q.get('end') or not ids or any(not re.fullmatch('[a-f0-9]{64}',h) for h in ids):raise ValueError('es_archive_manifest')
+            records[p.name]=(v,hashlib.sha256(raw).hexdigest());inventory.append([p.name,records[p.name][1]])
+        if not pins<=set(records):raise ValueError('es_archive_pinned_manifest_missing')
+        def complete(v):
+            f=v.get('file_set') or {};q=v['query']
+            return q.get('profile')=='ALL' and q.get('status','all')=='all' and f.get('failed_files')==0 and f.get('declared_files')==len(v['file_sha256']) and datetime.fromisoformat(v['captured_at']).astimezone(SHANGHAI).date()>date.fromisoformat(q['end'])
+        months=[(n,v) for n,(v,h) in records.items() if n in pins and complete(v) and date.fromisoformat(v['query']['start']).day==1 and v['query']['start'][:7]==v['query']['end'][:7]]
+        parsed={}
+        def order_keys(v):
+            ids=tuple(v['file_sha256'])
+            if ids not in parsed:
+                files=[]
+                for ident in ids:
+                    p=root/(ident+'.xlsx')
+                    if not p.exists():p=root/'.cold'/(ident+'.xlsx')
+                    if _excel_private(p).st_size>MAX_FILE or _excel_digest(p)!=ident:raise ValueError('es_archive_integrity')
+                    files.append(p.read_bytes())
+                    if len(files)>20 or sum(map(len,files))>128*1024*1024:raise ValueError('es_archive_limit')
+                rows,hashes,failures=parse_files(files)
+                keys=[r.get(COLUMNS['order'],'').strip() for r in rows]
+                if failures or len(hashes)!=len(ids) or any(not k for k in keys):raise ValueError('es_archive_coverage_unknown')
+                from collections import Counter
+                unique={json.dumps(r,sort_keys=True,ensure_ascii=False):r for r in rows}
+                parsed[ids]=Counter((r.get(COLUMNS['order'],''),r.get(COLUMNS['product'],''),r.get(COLUMNS['game'],'')) for r in unique.values())
+            return parsed[ids]
+        candidates=[]
+        for name,(v,sha) in records.items():
+            q=v['query'];reason=None
+            if not refs['complete']:reason='reference_scan_incomplete'
+            elif name in pins:reason='current_publication_or_consumer'
+            elif file_pins.intersection(v['file_sha256']):reason='file_consumer_reference'
+            elif any(q['start']<=x['end'] and x['start']<=q['end'] for x in refs['inflight']):reason='inflight_export'
+            replacements=[(n,m) for n,m in months if n!=name and m['query']['start']<=q['start']<=q['end']<=m['query']['end'] and m['captured_at']>=v.get('captured_at','')]
+            if reason is None and not replacements:reason='no_complete_published_month_cover'
+            if reason is None:
+                replacement=max(replacements,key=lambda x:x[1]['captured_at'])
+                try:
+                    old_members,new_members=order_keys(v),order_keys(replacement[1])
+                    covered=all(count<=new_members.get(key,0) for key,count in old_members.items())
+                except (OSError,ValueError,KeyError,TypeError):reason='order_membership_unverified'
+                else:
+                    if not covered:reason='unique_order_not_in_month'
+            if reason:protected.append(dict(name=name,reason=reason))
+            else:candidates.append(dict(name=name,sha256=sha,replacement=replacement[0],file_sha256=v['file_sha256'],period=dict(start=q['start'],end=q['end'])))
+        remaining={n for n in records}-{x['name'] for x in candidates}
+        needed=file_pins|{h for n in remaining for h in records[n][0]['file_sha256']}
+        removable={h for x in candidates for h in records[x['name']][0]['file_sha256']}-needed
+        files=[]
+        for ident in sorted(removable):
+            for base in (root,root/'.cold'):
+                p=base/(ident+'.xlsx')
+                if not p.exists():continue
+                info=_excel_private(p)
+                if _excel_digest(p)!=ident:raise ValueError('es_archive_integrity')
+                files.append(dict(path=p.relative_to(root).as_posix(),sha256=ident,bytes=info.st_size))
+        resumed=None
+        if resume.exists():
+            if _excel_private(resume).st_size>4*1024*1024:raise ValueError('es_compaction_receipt_size')
+            previous=json.loads(resume.read_text('utf-8'))
+            if previous.get('status')=='partial':
+                old=previous['plan']
+                proof=hashlib.sha256(json.dumps({k:v for k,v in old.items() if k!='plan_sha256'},sort_keys=True,separators=(',',':')).encode()).hexdigest()
+                if old.get('plan_sha256')!=proof or old.get('root')!=str(root.resolve()):raise ValueError('es_compaction_receipt_integrity')
+                old_inventory=dict(old['inventory']);resumed=proof
+                for item in old['files']:
+                    ident=item['sha256'];p=root/item['path']
+                    if not isinstance(ident,str) or not re.fullmatch('[a-f0-9]{64}',ident):raise ValueError('es_compaction_path')
+                    if item['path'] not in (ident+'.xlsx','.cold/'+ident+'.xlsx'):raise ValueError('es_compaction_path')
+                    if not p.exists() or any(x['path']==item['path'] for x in files):continue
+                    _excel_private(p)
+                    if _excel_digest(p)!=ident:raise ValueError('es_archive_file_changed')
+                    parents=[m for m in old['manifests'] if ident in m.get('file_sha256',[])]
+                    proven=bool(parents) and all(m['name'] not in records and m['replacement'] in records and records[m['replacement']][1]==old_inventory[m['replacement']] for m in parents)
+                    active=any(m['period']['start']<=q['end'] and q['start']<=m['period']['end'] for m in parents for q in refs['inflight'])
+                    if refs['complete'] and proven and ident not in needed and not active:
+                        files.append(item)
+                        for parent in parents:
+                            if not any(x['name']==parent['name'] for x in candidates):candidates.append(parent)
+                    else:protected.append(dict(name=item['path'],reason='original_compaction_remaining_reference_or_cover'))
+        plan=dict(contract='es-monthly-compaction-v1',root=str(root.resolve()),references=refs,inventory=inventory,manifests=candidates,files=files,protected=protected)
+        if resumed:plan['resume_from']=resumed
+        plan['plan_sha256']=hashlib.sha256(json.dumps(plan,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        if not apply:return plan
+        if plan['plan_sha256']!=expected_plan_sha256:raise ValueError('es_archive_compaction_changed')
+        if reference_reader()!=refs:raise ValueError('es_archive_references_changed')
+        return _apply_archive_compaction(root,plan,reference_reader)
+
+
+
+def _apply_archive_compaction(root,plan,reference_reader):
+    """Same-plan restart removes manifests before raw files; a partial run stays readable."""
+    _excel_private(root,True)
+    expected=hashlib.sha256(json.dumps({k:v for k,v in plan.items() if k!='plan_sha256'},sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    if expected!=plan.get('plan_sha256') or str(root.resolve())!=plan.get('root'):raise ValueError('es_compaction_receipt_integrity')
+    for name,sha in plan['inventory']:
+        if not isinstance(name,str) or not re.fullmatch(r'[a-f0-9]{64}\.json',name) or not isinstance(sha,str) or not re.fullmatch('[a-f0-9]{64}',sha):raise ValueError('es_compaction_path')
+    for item in plan['manifests']:
+        if any(not isinstance(item.get(k),str) or not re.fullmatch(r'[a-f0-9]{64}\.json',item[k]) for k in ('name','replacement')) or not isinstance(item.get('sha256'),str) or not re.fullmatch('[a-f0-9]{64}',item['sha256']):raise ValueError('es_compaction_path')
+    for item in plan['files']:
+        if not isinstance(item.get('sha256'),str) or not re.fullmatch('[a-f0-9]{64}',item['sha256']):raise ValueError('es_compaction_path')
+    if reference_reader()!=plan['references']:raise ValueError('es_archive_references_changed')
+    receipt=root/'.compaction.receipt';state=dict(status='partial',plan=plan,removed_manifests=[],removed_files=[])
+    # Validate survivors and candidates before any unlink, including on a resumed plan.
+    candidates={x['name']:x for x in plan['manifests']}
+    survivors={name:sha for name,sha in plan['inventory'] if name not in candidates}
+    actual={p.name for p in root.glob('*.json') if re.fullmatch(r'[a-f0-9]{64}\.json',p.name)}
+    if actual-set(candidates)!=set(survivors):raise ValueError('es_archive_compaction_changed')
+    for name,sha in dict(survivors,**{n:v['sha256'] for n,v in candidates.items() if n in actual}).items():
+        p=root/name;_excel_private(p)
+        if hashlib.sha256(p.read_bytes()).hexdigest()!=sha:raise ValueError('es_archive_compaction_changed')
+    for item in plan['files']:
+        if item['path'] not in (item['sha256']+'.xlsx','.cold/'+item['sha256']+'.xlsx'):raise ValueError('es_compaction_path')
+        p=root/item['path']
+        if p.exists():
+            _excel_private(p)
+            if _excel_digest(p)!=item['sha256']:raise ValueError('es_archive_file_changed')
+    _excel_atomic(receipt,state)
+    for item in plan['manifests']:
+        p=root/item['name']
+        if p.exists():p.unlink();_excel_sync(root)
+        state['removed_manifests'].append(item['name']);_excel_atomic(receipt,state)
+    for item in plan['files']:
+        p=root/item['path']
+        if p.exists():p.unlink();_excel_sync(p.parent)
+        state['removed_files'].append(item['path']);_excel_atomic(receipt,state)
+    state['status']='complete';_excel_atomic(receipt,state)
+    return dict(plan,applied=True,removed_manifests=len(plan['manifests']),removed_files=len(plan['files']),removed_bytes=sum(x['bytes'] for x in plan['files']))

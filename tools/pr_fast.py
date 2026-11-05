@@ -1028,7 +1028,7 @@ def main():
             units("releases/fs-dashboard/fc-coins-workflow-20261022/tests",["test_workflow"])
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="cache-archive-retention":
-            units("releases/fs-dashboard/cache-archive-retention-20261025/tests",["test_retention","test_admin_sharing","test_direct_es_api"])
+            units("releases/fs-dashboard/cache-archive-retention-20261025/tests",["test_retention","test_admin_sharing","test_direct_es_api","test_monthly_archive"])
         elif group=="fc-coins-evidence":
             units("releases/fs-dashboard/fc-coins-evidence-20261021/tests",["test_coins_evidence"])
         elif group=="daily-archive":
@@ -1058,7 +1058,7 @@ def main():
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_procurement.cjs")
             node("releases/fs-dashboard/business-procurement-20261022/tests/test_views.cjs")
         elif group=="user-analytics":
-            units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration","test_deploy","test_period","test_search_http","test_targeted_refresh","test_storage_recipe","test_backup_retention","test_weekly","test_a2_query_context","test_missing_store","test_revision_range","test_member_keyset"])
+            units("releases/fs-dashboard/user-analytics-20261022/tests",["test_users","test_integration","test_deploy","test_period","test_search_http","test_targeted_refresh","test_storage_recipe","test_backup_retention","test_weekly","test_a2_query_context","test_missing_store","test_revision_range","test_member_keyset","test_archive_publication"])
             node("releases/fs-dashboard/user-analytics-20261022/tests/test_weekly_dates.cjs")
         elif group=="tiered-data-access":
             units("releases/fs-dashboard/tiered-data-access-20261101/tests",["test_backup_inventory","test_date_policy","test_query_planner","test_daily_facts","test_range_jobs","test_query_checkpoint","test_eviction_policy","test_admin_orders_adapter","test_admin_live_page","test_admin_site_authorizer","test_admin_supervised_transport","test_admin_live_worker","test_admin_live_dispatch","test_admin_live_host","test_admin_live_admission","test_admin_live_session","test_live_global_authorization","test_admin_live_nginx","test_secure_live_route","test_live_order_pagination","test_live_order_consumer","test_live_customer_lookup"])

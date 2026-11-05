@@ -1,4 +1,5 @@
 """Order-time ES flags, joined by order hash; queries only read retained exports."""
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 import json
 import hashlib
@@ -12,7 +13,7 @@ from user_store import safe
 ARCHIVE = Path('/var/lib/fc27-es-exports')
 
 
-def read_flags(query, root=ARCHIVE):
+def _read_flags(query, root=ARCHIVE):
     start, end = stamp(query['start']).date().isoformat(), (stamp(query['end_exclusive'])-timedelta(microseconds=1)).date().isoformat()
     root = Path(root)
     safe(root)
@@ -52,7 +53,7 @@ def ensure_closed_month(now=None):
     return dict(status=value.get('status','unavailable'),start=start.isoformat(),end=end.isoformat(),reason=value.get('reason'),refresh_pending=value.get('refresh_pending',False))
 
 
-def manifest_inventory(root=ARCHIVE):
+def _manifest_inventory(root=ARCHIVE):
     """Pin existing immutable export manifests; later exports cannot change a published week."""
     root = Path(root)
     safe(root)
@@ -73,10 +74,22 @@ def manifest_inventory(root=ARCHIVE):
                 and query.get('start') and query.get('end') and value.get('captured_at')
                 and stamp(value['captured_at']) >= stamp(query['end'])+timedelta(days=1)):
             result.append(dict(name=path.name, sha256=hashlib.sha256(raw).hexdigest()))
-    return result
+    # Keep complete monthly replacements and only daily pieces extending their coverage.
+    values={item['name']:json.loads((root/item['name']).read_text('utf-8')) for item in result}
+    def complete(v):
+        f=v.get('file_set') or {}
+        return f.get('failed_files')==0 and f.get('declared_files')==len(v.get('file_sha256',[])) and bool(v.get('file_sha256'))
+    selected=[]
+    for item in result:
+        value=values[item['name']];q=value['query']
+        superseded=any(other['name']!=item['name'] and complete(values[other['name']])
+            and values[other['name']]['query']['start']<=q['start']<=q['end']<=values[other['name']]['query']['end']
+            and (stamp(values[other['name']]['captured_at']),other['name'])>(stamp(value['captured_at']),item['name']) for other in result)
+        if not superseded:selected.append(item)
+    return selected
 
 
-def read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False):
+def _read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False):
     """Read precisely the pinned file hashes, not archived_dataset's newest matching export."""
     root = Path(root); safe(root)
     start = stamp(query['start']).date().isoformat()
@@ -157,7 +170,7 @@ def read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False):
                         sourceVersion=hashlib.sha256(''.join(sorted(hashes)).encode()).hexdigest())
 
 
-def ensure_period(start, end, now=None, daily=False):
+def ensure_period(start, end, now=None, daily=False, fresh_after=None, cycle_id=None):
     """A week crossing a month boundary needs both monthly export portions."""
     now = now or datetime.now(TZ)
     begin, stop = stamp(start), stamp(end)
@@ -165,8 +178,16 @@ def ensure_period(start, end, now=None, daily=False):
         raise ValueError('closed_customer_type_period_required')
     while begin < stop:
         month = (begin.replace(day=28)+timedelta(days=4)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        finish = min(begin+timedelta(days=1) if daily else month, stop)
+        finish = min(begin+timedelta(days=1) if daily and fresh_after is None else month, stop)
         query = dict(start=begin.date().isoformat(), end_exclusive=finish.isoformat())
+        if fresh_after is not None:
+            import es_order_structure as es
+            value=es.server_bundle_after(dict(profile='ALL',start=query['start'],end=(finish-timedelta(days=1)).date().isoformat(),group_by='new_customer',status='all'),fresh_after,cycle_id)
+            if value.get('status')!='available':
+                reason=str(value.get('reason','')).lower()
+                if value.get('status') in ('failed','unavailable') and any(word in reason for word in ('permission','denied','invalid','contract','unsupported')):
+                    raise ValueError('weekly_customer_type_source_contract')
+                return dict(status='pending',source_status=value.get('status','unavailable'),reason=value.get('reason'))
         _, info = read_flags(query)
         if info['status'] != 'complete':
             import es_order_structure as es
@@ -183,3 +204,70 @@ def ensure_period(start, end, now=None, daily=False):
 def read_pinned_identities(query, manifests, root=ARCHIVE):
     """Private order-hash evidence only; never add IDs to the public ES dataset."""
     return read_pinned_flags(query, manifests, root, _identity=True)
+
+
+def read_flags(query,root=ARCHIVE):
+    if not Path(root).exists():return _read_flags(query,root)
+    import es_order_structure as es
+    with es.SERVER_LOCK,es.archive_access(root):return _read_flags(query,root)
+
+
+def manifest_inventory(root=ARCHIVE):
+    if not Path(root).exists():return []
+    import es_order_structure as es
+    with es.archive_access(root):return _manifest_inventory(root)
+
+
+def read_pinned_flags(query,manifests,root=ARCHIVE,_identity=False):
+    import es_order_structure as es
+    with es.archive_access(root):return _read_pinned_flags(query,manifests,root,_identity=_identity)
+
+
+def archive_reference_state(store,receipt_root=Path('/var/lib/fs-hermes-fc/fs/es-structures')):
+    """Known raw-ES consumers: current publication and unresolved durable exports.
+
+    Stored user recipes embed flags; source/report snapshots embed projections. Their
+    provenance hashes do not require reopening original XLSX. Keep those stores intact.
+    Caller retains the existing jobs/publication lock; no SERVER_LOCK is taken here.
+    """
+    from user_weekly import stored_publication
+    value=stored_publication(store)
+    if not value:return dict(complete=False,publication_id='',manifests=[],file_hashes=[],inflight=[],reason='current_publication_missing')
+    result=dict(complete=True,publication_id=value['publication_id'],manifests=sorted({x['name'] for x in value['flag_manifests']}),file_hashes=[],inflight=[],
+                consumers=['current-user-publication','durable-es-attempts','embedded-user-recipes','embedded-report-projections'])
+    receipt_root=Path(receipt_root);safe(receipt_root)
+    if not receipt_root.is_dir():
+        result.update(complete=False,reason='es_receipt_root_missing');return result
+    attempts=list(receipt_root.glob('*.attempt'))
+    reviews=receipt_root/'.monthly-reviews';safe(reviews)
+    if reviews.exists():
+        for cycle in reviews.iterdir():
+            safe(cycle)
+            if not cycle.is_dir():raise ValueError('es_review_receipt_directory')
+            attempts.extend(cycle.glob('*.attempt'))
+    for path in attempts:
+        safe(path)
+        if path.stat().st_size>1024*1024 or path.stat().st_uid!=os.geteuid() or path.stat().st_mode&0o077:raise ValueError('es_attempt_permissions')
+        q=json.loads(path.read_text('utf-8')).get('query') or {}
+        if not q.get('start') or not q.get('end'):raise ValueError('es_attempt_period')
+        result['inflight'].append(dict(start=q['start'],end=q['end']))
+    result['inflight']=sorted(result['inflight'],key=lambda q:(q['start'],q['end']))
+    return result
+
+
+def compact_after_publication(store,expected_publication_id,root=ARCHIVE,receipt_root=Path('/var/lib/fs-hermes-fc/fs/es-structures'),apply=False,expected_plan_sha256=None):
+    import es_order_structure as es
+    def references():
+        value=archive_reference_state(store,receipt_root)
+        if value['publication_id']!=expected_publication_id:raise ValueError('archive_publication_changed')
+        return value
+    return es.compact_archive(root,references,apply=apply,expected_plan_sha256=expected_plan_sha256)
+
+
+@contextmanager
+def publication_archive_access(root=ARCHIVE):
+    safe(Path(root))
+    if not Path(root).exists():
+        yield;return
+    import es_order_structure as es
+    with es.archive_access(root):yield
