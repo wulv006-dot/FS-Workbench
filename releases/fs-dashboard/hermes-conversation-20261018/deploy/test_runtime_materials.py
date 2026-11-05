@@ -2890,7 +2890,7 @@ class NativePublisher(unittest.TestCase):
             root=Path(directory);owners={};kinds={}
             with self.native_metadata(owners,kinds,root=root),self.shared_update_fixture(root,base,owners) as f:
                 original=deepcopy(f.before)
-                self.assertEqual(release.capabilities_shared_overlay(base,root,f.before),f.after)
+                self.assertEqual(release.capabilities_shared_overlay(base,root,f.before)[0],f.after)
                 self.assertEqual(f.before,original)
                 f.receipt_path.write_bytes(f.receipt_path.read_bytes()+b' ')
                 with self.assertRaisesRegex(ValueError,'native_shared_review_drift'):release.capabilities_shared_overlay(base,root,f.before)
@@ -2915,6 +2915,117 @@ class NativePublisher(unittest.TestCase):
                 with self.assertRaises(ValueError):release.capabilities_shared_overlay(base,root,f.before)
                 f.lock.write_bytes(b'')
                 with patch.object(release,'NATIVE_CAPABILITIES_MODE',False),self.assertRaises(ValueError):release.capabilities_shared_overlay(base,root,f.before)
+
+    def test_native_shared_complete_append_is_protected_without_reapproving_it(self):
+        prepare.configure_native_capabilities();base=release.frozen()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owners={}
+            with self.native_metadata(owners,root=root),self.shared_update_fixture(root,base,owners) as f:
+                checkpoint=f.ledger.read_bytes();proof=deepcopy(f.proof);before=deepcopy(f.before)
+                # This is audit data, not an instruction or an approval source.
+                appended=b'{"action":"approve","skill":"unrelated","after_sha256":"untrusted"}\n{"action":"read","skill":"data-storytelling"}\n'
+                audit=checkpoint+appended;f.ledger.write_bytes(audit)
+                identity=(f.ledger.stat().st_ino,f.ledger.stat().st_mtime_ns)
+                expected=deepcopy(f.after)
+                expected[release.CAPABILITIES_CURATOR_LEDGER]['sha256']=prepare.digest(audit)
+                try:observed,prefixes=release.capabilities_shared_overlay(base,root,f.before)
+                except ValueError as error:self.fail('complete append after the exact checkpoint was rejected: '+str(error))
+                self.assertEqual(observed,expected)
+                self.assertTrue({proof['ledger_after'],prepare.digest(audit)}<=prefixes)
+                self.assertEqual(f.proof,proof);self.assertEqual(f.before,before)
+                self.assertEqual(f.ledger.read_bytes(),audit)
+                self.assertEqual((f.ledger.stat().st_ino,f.ledger.stat().st_mtime_ns),identity)
+                self.assertNotEqual(observed[release.CAPABILITIES_CURATOR_LEDGER]['sha256'],proof['ledger_after'])
+                f.skill.write_bytes(b'unreviewed skill from an appended audit row')
+                # The overlay supplies the original approved skill SHA; normal observation
+                # must reject changed skill bytes instead of accepting appended claims.
+                self.assertNotEqual(base.digest(f.skill),observed[release.CAPABILITIES_SKILL_FILE]['sha256'])
+
+    def test_native_shared_append_keeps_historical_checkpoint_comparisons(self):
+        prepare.configure_native_capabilities();base=release.frozen();first={}
+        for _,_,_,_,changes in release.CAPABILITIES_NAVIGATION_PROOFS:
+            for alias,(_,before,_) in changes.items():first.setdefault(alias,before)
+        rows=[dict(candidate=n,target=p,beforeSha256='0'*64,sha256=prepare.digest(n.encode()),owner='0:0',mode='0o644')
+              for n,p in release.CAPABILITIES_RUNTIME_TARGETS.items()]
+        protected=[dict(path=p,sha256=first[a],owner='0:0',mode='0o600' if p==release.NGINX else '0o644')
+                   for a,p in release.CAPABILITIES_NAVIGATION_TARGETS.items()]
+        for p,body in zip(self.shared_update_paths(),(b'old reviewed skill',b'{"old":"ledger"}\n',b'')):
+            protected.append(dict(path=p,sha256=prepare.digest(body),owner='0:0',mode='0o644'))
+        protected += [dict(path='/opt/static/'+str(i),sha256='a'*64,owner='0:0',mode='0o644') for i in range(758)]
+        manifest=dict(sourceCommit=release.CAPABILITIES_HISTORY_PROOF['sourceCommit'],scope=release.SCOPE,
+                      nativeCapabilities=True,nativeArchive=True,nativeStaticBaseline=release.CAPABILITIES_STATIC_PROOF,
+                      files=rows,unchangedRequired=protected)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owners={}
+            with self.native_metadata(owners,root=root),self.capabilities_nginx_fixture(root,base) as nginx,self.capabilities_navigation_fixture(root,base,{r['path']:r for r in protected},owners) as navigation,self.shared_update_fixture(root,base,owners) as shared:
+                for path in nginx.backup.iterdir():owners[path]=(0,0,0o600)
+                proof=self.save_capabilities_receipt(base,root,release.CAPABILITIES_HISTORY_PROOF,manifest,owners)
+                current={r['target']:dict(path=r['target'],sha256=r['sha256'],owner=r['owner'],mode=r['mode']) for r in rows}
+                current.update(navigation.after);current.update(shared.after);original=deepcopy(current)
+                audit=shared.ledger.read_bytes()+b'{"action":"read"}\n';shared.ledger.write_bytes(audit)
+                with patch.object(release,'CAPABILITIES_HISTORY_PROOF',proof):
+                    self.assertEqual(release.capabilities_history_matches(base,root,current)[0],prepare.digest(audit))
+                    self.assertEqual(current,original)
+                    reflected=deepcopy(current);reflected[release.CAPABILITIES_CURATOR_LEDGER]['sha256']=prepare.digest(audit)
+                    with self.assertRaisesRegex(ValueError,'native_current_history_protection_mismatch'):
+                        release.capabilities_history_matches(base,root,reflected)
+                self.assertEqual(shared.ledger.read_bytes(),audit)
+
+    def test_native_shared_append_rejects_changed_checkpoint_and_malformed_tail(self):
+        prepare.configure_native_capabilities();base=release.frozen()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owners={}
+            with self.native_metadata(owners,root=root),self.shared_update_fixture(root,base,owners) as f:
+                checkpoint=f.ledger.read_bytes();append=b'{"action":"read"}\n'
+                for case,raw in (
+                        ('old_prefix',b'x'+checkpoint[1:]+append),
+                        ('authored_row',checkpoint.replace(b'15b63d181884',b'15b63d181885')+append),
+                        ('truncated',checkpoint[:-1]),
+                        ('partial_line',checkpoint+b'{"action":"read"}'),
+                        ('blank_line',checkpoint+b'\n'),
+                        ('malformed_json',checkpoint+b'{bad}\n'),
+                        ('non_object',checkpoint+b'[]\n'),
+                        ('null',checkpoint+b'null\n'),
+                        ('non_json_number',checkpoint+b'{"cost":NaN}\n'),
+                        ('invalid_utf8',checkpoint+b'{"action":"\xff"}\n')):
+                    f.ledger.write_bytes(raw)
+                    with self.subTest(case=case),self.assertRaises(ValueError):
+                        release.capabilities_shared_overlay(base,root,f.before)
+                    self.assertEqual(f.ledger.read_bytes(),raw)
+
+    def test_native_shared_append_keeps_link_metadata_and_open_descriptor_guards(self):
+        prepare.configure_native_capabilities();base=release.frozen()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owners={};kinds={}
+            with self.native_metadata(owners,kinds,root=root),self.shared_update_fixture(root,base,owners) as f:
+                f.ledger.write_bytes(f.ledger.read_bytes()+b'{"action":"read"}\n')
+                audit=f.ledger.read_bytes()
+                for identity in ((9876,0,0o644),(0,9876,0o644),(0,0,0o600)):
+                    owners[f.ledger]=identity
+                    with self.subTest(identity=identity),self.assertRaisesRegex(ValueError,'native_shared_source_boundary_drift'):
+                        release.capabilities_shared_overlay(base,root,f.before)
+                owners[f.ledger]=(0,0,0o644)
+                for linked in (f.ledger,f.ledger.parent):
+                    kinds[linked]=stat.S_IFLNK
+                    with self.subTest(linked=linked.name),self.assertRaises(ValueError):
+                        release.capabilities_shared_overlay(base,root,f.before)
+                    kinds.clear()
+                alias=f.ledger.with_name('synthetic-hard-link');os.link(f.ledger,alias)
+                try:
+                    with self.assertRaisesRegex(ValueError,'native_shared_source_boundary_drift'):
+                        release.capabilities_shared_overlay(base,root,f.before)
+                finally:alias.unlink()
+                original_fstat=os.fstat;ledger_identity=(f.ledger.stat().st_dev,f.ledger.stat().st_ino)
+                for field in ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode'):
+                    def changed(fd):
+                        info=original_fstat(fd)
+                        if (info.st_dev,info.st_ino)!=ledger_identity:return info
+                        values={k:getattr(info,k) for k in dir(info) if k.startswith('st_')}
+                        values[field]=getattr(info,field)+1
+                        return SimpleNamespace(**values)
+                    with self.subTest(field=field),patch.object(os,'fstat',changed),self.assertRaisesRegex(ValueError,'native_shared_source_changed'):
+                        release.capabilities_shared_overlay(base,root,f.before)
+                self.assertEqual(f.ledger.read_bytes(),audit)
 
     def test_native_capabilities_static_overlay_requires_exact_success(self):
         base=release.frozen();html='/var/www/dashboard/fs-home/hermes/conversation/index.html'
@@ -3138,6 +3249,20 @@ class NativePublisher(unittest.TestCase):
                     descriptor['files']['payload/'+name]=prepare.digest(p.read_bytes())
                 raw=json.dumps(descriptor).encode();(f.payload.parent/'payload-manifest.json').write_bytes(raw)
                 stage=root/'archive-stage'
+                if capabilities:
+                    # Historical manifests stay pinned to the approved two-row checkpoint;
+                    # current complete audit bytes, including later rows, must reach CAS.
+                    approved_checkpoint=shared.ledger.read_bytes()
+                    recorded_audit=approved_checkpoint+b'{"action":"read","skill":"unrelated"}\n'
+                    recorded_manifest=json.loads((base.rooted(f.system,proof['backup'])/'approved-manifest.json').read_bytes())
+                    for entry in recorded_manifest['unchangedRequired']:
+                        if entry['path']==release.CAPABILITIES_CURATOR_LEDGER:entry['sha256']=prepare.digest(recorded_audit)
+                    recorded_proof=self.save_capabilities_receipt(base,f.system,proof,recorded_manifest,f.owners)
+                    proof.update(recorded_proof)
+                    # A subsequent valid row must preserve the prior release's complete audit prefix.
+                    complete_audit=recorded_audit+b'{"action":"read","skill":"later"}\n'
+                    shared.ledger.write_bytes(complete_audit)
+                    current[release.CAPABILITIES_CURATOR_LEDGER]=prepare.digest(complete_audit)
                 usage.write_bytes(b'fresh usage before prepare')
                 with patch.object(release,'INSTALLED_PROOF',proof),patch.object(prepare,'INSTALLED_PROOF',proof),patch.object(release,'ARCHIVE_NATIVE_PROOF',old_proof),patch.object(release,'ARCHIVE_FC_PROOF',fc_proof,create=True),patch.object(release,'ARCHIVE_FC_FILES',fc_files,create=True),patch.object(release,'CAPABILITIES_STATIC_PROOF',static_proof if capabilities else release.CAPABILITIES_STATIC_PROOF):
                     static=base.rooted(f.system,keep[0]['path']);saved_static=static.read_bytes()
@@ -3145,6 +3270,12 @@ class NativePublisher(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError,'installed_protected_baseline_drift'):
                         prepare.prepare(f.payload,root/'static-rejected','a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
                     static.write_bytes(saved_static)
+                    if capabilities:
+                        rewritten=approved_checkpoint+b'{"action":"rewritten"}\n{"action":"read","skill":"later"}\n'
+                        shared.ledger.write_bytes(rewritten)
+                        with self.assertRaisesRegex(ValueError,'native_shared_ledger_drift'):
+                            prepare.prepare(f.payload,root/'rewritten-audit-rejected','a'*40,prepare.digest(raw),root=f.system,followup=True,release_ready=True)
+                        shared.ledger.write_bytes(complete_audit)
                     for owner_mode in ((9876,0,0o600),(0,9876,0o600),(0,0,0o644)):
                         f.owners[usage]=owner_mode
                         with self.subTest(owner_mode=owner_mode),self.assertRaisesRegex(ValueError,'archive_usage_boundary_drift'):
@@ -3173,6 +3304,10 @@ class NativePublisher(unittest.TestCase):
                 manifest=json.loads((stage/'approved-manifest.json').read_bytes());self.assertEqual(len(manifest['files']),32 if capabilities else 3);self.assertEqual(len(manifest['unchangedRequired']),766 if capabilities else 776)
                 untouched={r['path']:(base.rooted(f.system,r['path']).read_bytes(),base.rooted(f.system,r['path']).stat().st_ino,base.rooted(f.system,r['path']).stat().st_mtime_ns) for r in manifest['unchangedRequired']}
                 if capabilities:
+                    ledger_row=next(r for r in manifest['unchangedRequired'] if r['path']==release.CAPABILITIES_CURATOR_LEDGER)
+                    self.assertEqual(ledger_row['sha256'],prepare.digest(complete_audit))
+                    self.assertNotEqual(ledger_row['sha256'],shared.proof['ledger_after'])
+                    self.assertEqual(shared.ledger.read_bytes(),complete_audit)
                     self.assertEqual(manifest['nativeStaticBaseline'],static_proof)
                     self.assertEqual(manifest['materialChangedTargets'],[release.TARGETS[n] for n in release.CAPABILITIES_CHANGED])
                     for row in manifest['files']:
@@ -3249,7 +3384,8 @@ class NativePublisher(unittest.TestCase):
                         # measure non-writing apply/rollback from this point.
                         untouched[release.NGINX]=(nginx.read_bytes(),nginx.stat().st_ino,nginx.stat().st_mtime_ns)
                         for protected_path in self.shared_update_paths():
-                            path=base.rooted(f.system,protected_path);saved=path.read_bytes();path.write_bytes(saved+b'x')
+                            path=base.rooted(f.system,protected_path);saved=path.read_bytes()
+                            path.write_bytes(saved+(b'{"action":"read","skill":"late"}\n' if protected_path==release.CAPABILITIES_CURATOR_LEDGER else b'x'))
                             with self.assertRaises(ValueError):publisher.inspect(manifest,stage,f.system)
                             rejected_raw=(stage/'approved-manifest.json').read_bytes()
                             with self.assertRaises(ValueError):publisher.apply(manifest,stage,prepare.digest(rejected_raw),rejected_raw,'nav-20261103T000000Z',f.system)
