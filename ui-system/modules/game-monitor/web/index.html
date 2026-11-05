@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN" data-fs-theme="light">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="description" content="FS 游戏情报台：查看跨游戏变化、判断依据与经营下一步，保留来源和时间。">
+ <title>游戏情报台 | FS 工作台</title>
+ <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<div class="shell">
+ <aside class="sidebar" id="sidebar" aria-label="游戏导航">
+  <div class="brand"><span class="brand-mark">FS</span><div>丰实工作台<small>游戏情报台</small></div></div>
+  <button class="home-link active" data-game="all" id="overview-link">经营总览</button>
+  <label class="search"><span aria-hidden="true">⌕</span><input type="search" id="game-search" aria-label="搜索游戏" placeholder="搜索游戏"></label>
+  <div class="side-label"><span>重点游戏</span><span id="games-count">15</span></div>
+  <nav id="game-list" aria-label="重点游戏列表"></nav>
+  <div class="side-foot">沿用 FS 登录与权限<br>事实、判断与执行分开</div>
+ </aside>
+ <div class="workspace">
+  <header class="topbar">
+   <div class="breadcrumb"><button class="icon-button mobile-menu" id="menu-button" aria-label="展开游戏导航" aria-expanded="false" aria-controls="sidebar">☰</button><span class="muted">运营工作台</span><span class="muted" aria-hidden="true">/</span><strong>游戏情报台</strong></div>
+   <div class="top-actions"><span class="top-date small muted">UTC+8</span><button class="button quiet" id="design-button">使用说明</button><button class="icon-button" id="theme-button" aria-label="切换暗色主题"></button></div>
+  </header>
+  <main class="content" id="main" tabindex="-1">
+   <div class="page-head"><div><h1 id="page-title">今天，先关注什么？</h1><p id="page-description">从游戏变化中找行动，把依据留在每条建议旁。</p></div><div class="actions"><button class="button" id="notification-button">提醒预览</button><button class="button primary" id="refresh-button">刷新数据</button></div></div>
+   <div class="preview-note" role="note"><strong id="source-state">正在读取现役接口</strong><span>最新来源采集 <time id="snapshot-time"></time>（UTC+8）</span></div>
+   <div class="tabs" role="tablist" aria-label="情报视图" id="tabs"></div>
+   <section id="view" role="tabpanel" aria-labelledby="tab-overview"><div class="empty"><h2>正在读取游戏情报</h2><div class="skeleton"></div><div class="skeleton short"></div></div></section>
+   <p class="footnote">来源、采集时间和事件时间分别展示。建议需确认后进入原任务台；本页不执行改价、订单或消息发送。</p>
+   <noscript><p class="notice">游戏筛选与证据查看需要 JavaScript。请使用原游戏工作区：<a href="index.html">打开原工作区</a>。</p></noscript>
+  </main>
+ </div>
+</div>
+<dialog id="detail-dialog" aria-labelledby="detail-title"><div class="dialog-head"><h2 id="detail-title">情报依据</h2><form method="dialog"><button class="icon-button" aria-label="关闭" autofocus>✕</button></form></div><div id="detail-body" class="dialog-body"></div></dialog>
+<dialog id="design-dialog" aria-labelledby="design-title"><div class="dialog-head"><h2 id="design-title">把监控变成可判断的行动</h2><form method="dialog"><button class="icon-button" aria-label="关闭设计说明" autofocus>✕</button></form></div><div class="reading"><h3>先看行动，再看依据</h3><p>首页按事件时点列出变化。点开后看原文、采集时间、可能影响和建议；日期未确认时不造倒计时。</p><h3>来源与状态</h3><p>现役官方与 MMOEXP 新闻继续采集。DeepSeek 搜索/抓取任务成功写入后，页面自动重读；失败时保留已有记录并明确提示。资料与工具中保留原工作区。</p><h3>业务执行</h3><p>关注只在当前浏览器保存，提醒只预览文案。任务派发、改价和消息发送沿原系统权限与回执办理。</p></div></dialog>
+<script src="catalog.js"></script>
+<script src="source-model.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

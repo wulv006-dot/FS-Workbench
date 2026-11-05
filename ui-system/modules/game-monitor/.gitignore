@@ -1,0 +1,4 @@
+__pycache__/
+.hallmark/
+web/.hallmark/
+candidate/

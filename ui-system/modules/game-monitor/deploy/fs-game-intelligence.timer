@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly supplementary game intelligence; existing weekly collectors unchanged
+
+[Timer]
+OnCalendar=*-*-* *:10:00
+Persistent=false
+Unit=fs-game-intelligence.service
+
+[Install]
+WantedBy=timers.target
