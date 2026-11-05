@@ -631,6 +631,8 @@ def select(paths):
             groups.add("management-all-sites");continue
         if name.startswith("releases/fs-dashboard/management-v2-20261015/"):
             groups.add("fs-management-v2");continue
+        if name.startswith("ui-system/modules/game-monitor/"):
+            groups.add("fs-game-monitor");continue
         if name.startswith("releases/sales/system-20261105/"):
             groups.add("sales-system");continue
         if name.startswith(("ui-system/", "releases/fs-dashboard/ui-system-20261015/")):
@@ -1463,6 +1465,9 @@ def main():
             units(release+"/tests",["test_management_facts","test_management_context","test_management_runner","test_static_publisher","test_backend_publisher","test_skill_identity"])
             node(release+"/tests/check_frontend.cjs")
             node(release+"/tests/check_syntax.cjs")
+        elif group=="fs-game-monitor":
+            units("ui-system/modules/game-monitor/tests",["test_discovery","test_build","test_prepare_ui"])
+            node("ui-system/modules/game-monitor/tests/source-model.cjs")
         elif group=="fs-ui-system":
             units("ui-system/tests",["test_ui","test_release"])
             node("ui-system/tests/syntax.cjs")

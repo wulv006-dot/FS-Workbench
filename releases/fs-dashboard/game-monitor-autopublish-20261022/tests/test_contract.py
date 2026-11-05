@@ -1,6 +1,7 @@
 import copy,json,sys,unittest
 from datetime import datetime,timezone,timedelta
 from pathlib import Path
+from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'source'))
 import contract
@@ -64,7 +65,14 @@ class Contract(unittest.TestCase):
     def test_submitted_candidate_is_rebuilt_and_bound_to_proof(self):
         folder=ROOT/'candidate'
         if folder.exists():
-            proof=contract.verify_candidate(folder);self.assertTrue(proof['games'])
+            fixture_request=contract.strict_json((folder/'request.json').read_bytes())
+            fixture_time=max(datetime.fromisoformat(s['retrieved_at'].replace('Z','+00:00')) for s in fixture_request['sources'])+timedelta(seconds=1)
+            class FixtureClock(datetime):
+                @classmethod
+                def now(cls,tz=None):return fixture_time
+            with patch.object(contract,'datetime',FixtureClock):
+                proof=contract.verify_candidate(folder)
+            self.assertTrue(proof['games'])
         else:self.assertEqual(len(contract.snapshot(self.before)),30)
 
 
@@ -99,13 +107,13 @@ class StaticFill(unittest.TestCase):
         if not folder.exists():folder=ROOT.parent/'static-fill'
         self.assertTrue(folder.is_dir(),'static fill fixture missing')
         before=(folder/'before.html').read_bytes();current=before.decode()
-        patches=json.loads((folder/'renderer-patch.json').read_text())
+        patches=json.loads((folder/'renderer-patch.json').read_text(encoding='utf-8'))
         self.assertEqual(len(patches),2)
         self.assertEqual(patches[0],['  if(!isSA)return null;','  if(!isSA && !SA_INTEL[g.key])return null;'])
         self.assertEqual(patches[1],['items:pts.slice(),times:hasReal?realTimes:[]','items:Array.isArray(pts)?pts.slice():String(pts).split(" · "),times:hasReal?realTimes:[]'])
         for old,new in patches:self.assertEqual(current.count(old),1);current=current.replace(old,new,1)
         current=current.encode();games=[]
-        requests=json.loads((folder/'requests.json').read_text())
+        requests=json.loads((folder/'requests.json').read_text(encoding='utf-8'))
         fixture_time=max(datetime.fromisoformat(s['retrieved_at'].replace('Z','+00:00')) for r in requests for s in r['sources'])+timedelta(seconds=1)
         for request in requests:
             current,proof=contract.build(current,request,now=fixture_time);games.extend(proof['games'])
