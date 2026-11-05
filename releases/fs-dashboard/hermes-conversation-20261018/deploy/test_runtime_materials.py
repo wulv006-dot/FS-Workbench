@@ -2668,26 +2668,154 @@ class NativePublisher(unittest.TestCase):
     def test_native_capabilities_original_apply_rollback(self):
         self._archive_apply_contract(capabilities=True)
 
+    @staticmethod
+    def customer_daily_source_bytes(name, role):
+        fixture=json.loads(Path(__file__).with_name('customer-daily-source-7312.json').read_bytes())
+        row=fixture['files'][name][role];body=row['utf8'].encode('utf-8')
+        expected={
+            ('runtime/user_runtime.py','before'):('601c1b3e40930c4c8d2b7c48b4393e52b1dda8199747707cf6ac3373da2c99c9',5008,'404767812903568d423da2aefda82e1403497135'),
+            ('runtime/user_runtime.py','after'):('a41e138d1ea6f79688d3ba0044f53ad3f08134a4e46591f271c1b3483809015a',5007,'f8ae6fab0dea8bbcd213efe35899e2f85b9ad869'),
+            ('runtime/a2_query_context.py','before'):('31162d0c1d09c637c26a2f3a6f3afd6a84f7b9545bf21a942ed8c7cfae2f5bc6',20848,'ed8b864827ca96fa5c90c90ac864f16a938b7912'),
+            ('runtime/a2_query_context.py','after'):('980a6a27d539954c75f20753d8411babb20c910b0c6591dedd148e6671715df3',20921,'94fd8714540a030bf5ba7889b9a2cb6829139e17')}
+        assert row['source_commit']==('051f784d65b239f572cd40b319b0e1c71cad0644' if role=='before' else '7312aa3170724ba31dd12aedf1fd92dbe7bc7578')
+        assert row['source']=='releases/fs-dashboard/user-analytics-20261022/source/'+name.split('/')[1]
+        assert (prepare.digest(body),len(body),row['blob'])==expected[name,role]
+        assert row['sha256']==prepare.digest(body) and row['bytes']==len(body)
+        assert hashlib.sha1(b'blob '+str(len(body)).encode()+b'\0'+body).hexdigest()==row['blob']
+        return body
+
+    @contextmanager
+    def customer_daily_fixture(self, root, base, owners):
+        rows=[dict(candidate='source/'+n,target='/opt/fs-hermes-fc/'+n,beforeSha256=prepare.digest(('before:'+n).encode()),
+                   sha256=prepare.digest(('after:'+n).encode()),owner='0:0',mode='0o644')
+              for n in ('user_weekly.py','user_runtime.py','user_jobs.py','user_query.py','user_customer_types.py','user_tools.py','a2_query_context.py')]
+        rows += [dict(candidate='ui/'+n,target='/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/'+n,
+                      beforeSha256='1'*64,sha256='2'*64,owner='0:0',mode='0o644') for n in ('index.html','users.js')]
+        before={}
+        for name in ('runtime/user_runtime.py','runtime/a2_query_context.py'):
+            row=next(r for r in rows if r['target']==release.TARGETS[name])
+            row.update(beforeSha256=prepare.digest(self.customer_daily_source_bytes(name,'before')),
+                       sha256=prepare.digest(self.customer_daily_source_bytes(name,'after')))
+            before[row['target']]=dict(path=row['target'],sha256=row['beforeSha256'],owner='0:0',mode='0o644')
+        manifest=dict(scope='user-daily-20261105',sourceCommit='7312aa3170724ba31dd12aedf1fd92dbe7bc7578',releaseReady=True,schemaVersion=1,files=rows)
+        proof=deepcopy(release.CUSTOMER_DAILY_PROOF)
+        backup=base.rooted(root,proof['backup']);backup.mkdir(parents=True,exist_ok=True)
+        def save(m=manifest, **changes):
+            raw=json.dumps(m).encode();(backup/'approved-manifest.json').write_bytes(raw);proof['manifestSha256']=prepare.digest(raw)
+            journal=dict(status='applied-awaiting-actual-http-role-acceptance',manifest=m,approvedManifestSha256=proof['manifestSha256'],
+                         files=[dict(r,intent=True,written=True) for r in m['files']])
+            journal.update(changes);raw=json.dumps(journal).encode();(backup/'journal.json').write_bytes(raw);proof['journalSha256']=prepare.digest(raw)
+            for path in backup.iterdir():owners[path]=(0,0,0o600)
+        save()
+        with patch.object(release,'CUSTOMER_DAILY_PROOF',proof):
+            yield SimpleNamespace(proof=proof,before=before,manifest=manifest,backup=backup,save=save)
+
+    def test_customer_daily_source_fixture_is_exact_git_before_and_after(self):
+        prepare.configure_native_capabilities();path=Path(__file__).with_name('customer-daily-source-7312.json');original=Path.read_bytes
+        fixture=json.loads(original(path))
+        for name in fixture['files']:
+            for role in ('before','after'):
+                self.customer_daily_source_bytes(name,role)
+                for field,value in (('source_commit','0'*40),('source','wrong'),('blob','0'*40),('sha256','0'*64),('bytes',1),('utf8','wrong')):
+                    bad=deepcopy(fixture);bad['files'][name][role][field]=value;raw=json.dumps(bad).encode()
+                    with self.subTest(name=name,role=role,field=field),patch.object(Path,'read_bytes',lambda p:raw if p==path else original(p)):
+                        with self.assertRaises(AssertionError):self.customer_daily_source_bytes(name,role)
+
+    def test_customer_daily_overlay_exact_success_and_only_two_metadata_transitions(self):
+        prepare.configure_native_capabilities();base=release.frozen()
+        self.assertEqual(release.CUSTOMER_DAILY_PROOF,dict(sourceCommit='7312aa3170724ba31dd12aedf1fd92dbe7bc7578',
+            backup='/var/backups/fs-navigation-20261006/nav-20261105T052700Z',
+            manifestSha256='006f87c82fa253c4644682685cda5df2c42fbca738cddb105678c39011d6607c',
+            journalSha256='5fc992b0712ca778ec6b9f5581ecd3c364ce7aa9d70e66fcb22f6f004a349ed8'))
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owners={}
+            with self.native_metadata(owners,root=root),self.customer_daily_fixture(root,base,owners) as f:
+                metadata=dict(f.before,unrelated=dict(path='unrelated',sha256='3'*64,owner='0:0',mode='0o600'));original=deepcopy(metadata)
+                updated=release.capabilities_customer_daily_overlay(base,root,metadata)
+                self.assertEqual(metadata,original);self.assertEqual(set(updated),set(metadata))
+                self.assertEqual({p for p in metadata if metadata[p]!=updated[p]},set(f.before))
+                for name in ('runtime/user_runtime.py','runtime/a2_query_context.py'):
+                    self.assertEqual(updated[release.TARGETS[name]]['sha256'],prepare.digest(self.customer_daily_source_bytes(name,'after')))
+                for field,value in (('sourceCommit','0'*40),('scope','wrong'),('releaseReady',1),('schemaVersion',2)):
+                    bad=deepcopy(f.manifest);bad[field]=value;f.save(bad)
+                    with self.subTest(field=field),self.assertRaisesRegex(ValueError,'customer_daily_success_required'):release.capabilities_customer_daily_overlay(base,root,metadata)
+                for change in (dict(status='rolled-back'),dict(failure='failed'),dict(rollback=True),dict(rollbackIntent=True),dict(rolledBack=True),dict(rollbackAttempted=True),dict(manifest={}),dict(approvedManifestSha256='0'*64)):
+                    f.save(**change)
+                    with self.subTest(change=change),self.assertRaisesRegex(ValueError,'customer_daily_success_required'):release.capabilities_customer_daily_overlay(base,root,metadata)
+                for field,value in (('intent',False),('intent',1),('written',False),('rollbackIntent',True),('rolledBack',True),('rollbackWritten',True),('target','/other'),('beforeSha256','0'*64),('sha256','0'*64),('owner','1:0'),('mode','0o600')):
+                    rows=[dict(r,intent=True,written=True) for r in f.manifest['files']];rows[0][field]=value;f.save(files=rows)
+                    with self.subTest(field=field),self.assertRaisesRegex(ValueError,'customer_daily_success_required'):release.capabilities_customer_daily_overlay(base,root,metadata)
+                for change in (lambda m:m['files'].pop(),lambda m:m['files'].append(m['files'][0]),lambda m:m['files'][1].update(beforeSha256='0'*64),lambda m:m['files'][1].update(sha256='0'*64),lambda m:m['files'][1].update(target='/other')):
+                    bad=deepcopy(f.manifest);change(bad);f.save(bad)
+                    with self.assertRaises(ValueError):release.capabilities_customer_daily_overlay(base,root,metadata)
+                f.save()
+                for field,value in (('sha256','0'*64),('owner','1:0'),('mode','0o600')):
+                    bad=deepcopy(metadata);bad[next(iter(f.before))][field]=value
+                    with self.subTest(metadata_field=field),self.assertRaisesRegex(ValueError,'customer_daily_transition_drift'):release.capabilities_customer_daily_overlay(base,root,bad)
+                with patch.object(release,'NATIVE_CAPABILITIES_MODE',False),self.assertRaises(ValueError):release.capabilities_customer_daily_overlay(base,root,metadata)
+
+    def test_customer_daily_proof_keeps_nine_fields_cap_links_and_nofollow(self):
+        prepare.configure_native_capabilities();base=release.frozen()
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);owners={};kinds={}
+            with self.native_metadata(owners,kinds,root=root),self.customer_daily_fixture(root,base,owners) as f:
+                path=f.backup/'journal.json';saved=path.read_bytes();actual_fstat=os.fstat;identity=(path.stat().st_dev,path.stat().st_ino)
+                path.write_bytes(saved+b' ')
+                with self.assertRaisesRegex(ValueError,'customer_daily_proof_drift'):release.capabilities_customer_daily_overlay(base,root,f.before)
+                path.write_bytes(saved)
+                for value in ((1,0,0o600),(0,1,0o600),(0,0,0o644)):
+                    owners[path]=value
+                    with self.assertRaisesRegex(ValueError,'customer_daily_proof_boundary_drift'):release.capabilities_customer_daily_overlay(base,root,f.before)
+                owners[path]=(0,0,0o600)
+                for linked in (path,path.parent):
+                    kinds[linked]=stat.S_IFLNK
+                    with self.assertRaises(ValueError):release.capabilities_customer_daily_overlay(base,root,f.before)
+                    kinds.clear()
+                alias=path.with_name('hardlink');os.link(path,alias)
+                try:
+                    with self.assertRaisesRegex(ValueError,'customer_daily_proof_boundary_drift'):release.capabilities_customer_daily_overlay(base,root,f.before)
+                finally:alias.unlink()
+                for phase in ('opened','read'):
+                    for field in ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode'):
+                        calls=[0]
+                        def changed(fd):
+                            info=actual_fstat(fd)
+                            if (info.st_dev,info.st_ino)!=identity:return info
+                            calls[0]+=1
+                            if calls[0]!=(1 if phase=='opened' else 2):return info
+                            values={k:getattr(info,k) for k in dir(info) if k.startswith('st_')};values[field]+=1
+                            return SimpleNamespace(**values)
+                        with self.subTest(phase=phase,field=field),patch.object(os,'fstat',changed),self.assertRaisesRegex(ValueError,'customer_daily_proof_changed'):
+                            release.capabilities_customer_daily_overlay(base,root,f.before)
+                path.write_bytes(b'x'*(8*1024*1024+1))
+                with self.assertRaisesRegex(ValueError,'customer_daily_proof_boundary_drift'):release.capabilities_customer_daily_overlay(base,root,f.before)
+
     def test_desktop_followup_pack_reads_all_installed_git_bytes(self):
         prepare.configure_native_capabilities();calls=[];before={}
         changed=('runtime/conversation_service.py','http/conversation_http.py')
         for name,path in prepare.SOURCES.items():
-            raw=self.plain_reply_installed_bytes(name) if name in changed else self.desktop_current_bytes(name) if name in release.DESKTOP_EXISTING else ('installed:'+name).encode()
+            raw=self.plain_reply_installed_bytes(name) if name in changed else self.desktop_current_bytes(name) if name in release.DESKTOP_EXISTING else self.customer_daily_source_bytes(name,'before') if name in ('runtime/user_runtime.py','runtime/a2_query_context.py') else ('installed:'+name).encode()
             if name=='http/range_api.py':raw=raw.replace(b'\r\n',b'\n')
             if path in before:self.assertEqual(before[path],raw)
             before[path]=raw
         gateway=prepare.SOURCES['desktop/desktop_fs_gateway.py'];after=dict(before)
         for name in changed:
             path=prepare.SOURCES[name];after[path]=before[path]+b'\n# synthetic setup delta\n'
+        daily={prepare.SOURCES[n]:self.customer_daily_source_bytes(n,'after') for n in ('runtime/user_runtime.py','runtime/a2_query_context.py')}
+        after.update(daily)
         after.update({path:b'synthetic publisher boundary' for path in prepare.PUBLISHER_SOURCES.values()})
         def git_bytes(argv,**kwargs):
             self.assertEqual(argv[:2],['git','show']);ref,path=argv[2].split(':',1);calls.append((ref,path))
-            self.assertIn(ref,(release.INSTALLED_COMMIT,'b'*40))
-            return (before if ref==release.INSTALLED_COMMIT else after)[path]
+            self.assertIn(ref,(release.INSTALLED_COMMIT,'b'*40,'7312aa3170724ba31dd12aedf1fd92dbe7bc7578'))
+            return (before if ref==release.INSTALLED_COMMIT else daily if ref=='7312aa3170724ba31dd12aedf1fd92dbe7bc7578' else after)[path]
         with tempfile.TemporaryDirectory() as directory,patch.object(prepare.subprocess,'check_output',side_effect=git_bytes):
             root=Path(directory);prepare.pack(root,root/'valid','b'*40)
             descriptor=json.loads((root/'valid/payload-manifest.json').read_bytes())
             self.assertEqual({n for n in prepare.SOURCES if descriptor['files']['payload/'+n]!=descriptor['installed_baseline']['files'][n]},set(changed))
+            self.assertEqual(descriptor['installed_baseline']['source_overlays'],{n:'7312aa3170724ba31dd12aedf1fd92dbe7bc7578' for n in ('runtime/user_runtime.py','runtime/a2_query_context.py')})
+            for name in ('runtime/user_runtime.py','runtime/a2_query_context.py'):
+                self.assertEqual(descriptor['installed_baseline']['files'][name],prepare.digest(self.customer_daily_source_bytes(name,'after')))
+                self.assertIn(('7312aa3170724ba31dd12aedf1fd92dbe7bc7578',prepare.SOURCES[name]),calls)
             self.assertFalse(any(v is None for v in descriptor['installed_baseline']['files'].values()))
             for name in prepare.SOURCES:self.assertIn((release.INSTALLED_COMMIT,prepare.SOURCES[name]),calls)
             self.assertEqual(descriptor['installed_baseline']['files']['http/range_api.py'],release.DESKTOP_EXISTING['http/range_api.py'][0])
@@ -2696,6 +2824,12 @@ class NativePublisher(unittest.TestCase):
                 with self.subTest(missing_delta=name),self.assertRaisesRegex(ValueError,'exact_native_capabilities_git_delta_required'):
                     prepare.pack(root,root/('missing-'+name.replace('/','-')),'b'*40)
                 after[path]=saved
+            for name in ('runtime/user_runtime.py','runtime/a2_query_context.py'):
+                path=prepare.SOURCES[name]
+                for mapping,body in ((before,self.customer_daily_source_bytes(name,'after')),(daily,self.customer_daily_source_bytes(name,'before')),(after,self.customer_daily_source_bytes(name,'before'))):
+                    saved=mapping[path];mapping[path]=body
+                    with self.subTest(daily_drift=name),self.assertRaises(ValueError):prepare.pack(root,root/('daily-'+str(len(list(root.iterdir())))),'b'*40)
+                    mapping[path]=saved
             original=before[gateway];before[gateway]+=b'x'
             with self.assertRaisesRegex(ValueError,'desktop_installed_git_before_drift'):prepare.pack(root,root/'bad-before','b'*40)
             before[gateway]=original;after[prepare.SOURCES['runtime/conversation_store.py']]+=b'x'
@@ -3154,6 +3288,10 @@ class NativePublisher(unittest.TestCase):
                     def metadata(path):
                         info=base.rooted(f.system,path).stat()
                         return dict(path=path,sha256=current[path],owner=str(info.st_uid)+':'+str(info.st_gid),mode=oct(stat.S_IMODE(info.st_mode)))
+                    # The two read-only daily consumers keep their real 051f Git identity throughout history.
+                    for name in ('runtime/user_runtime.py','runtime/a2_query_context.py'):
+                        target=installed_targets[name];path=base.rooted(f.system,target)
+                        path.write_bytes(self.customer_daily_source_bytes(name,'before'));current[target]=base.digest(path)
                     cap_rows=[dict(candidate=name,target=target,beforeSha256='0'*64,sha256=base.digest(base.rooted(f.system,target)),owner='0:0',mode='0o644') for name,target in installed_targets.items()]
                     current.update({r['target']:r['sha256'] for r in cap_rows})
                     static_proof=deepcopy(release.CAPABILITIES_STATIC_PROOF)
@@ -3241,7 +3379,14 @@ class NativePublisher(unittest.TestCase):
                     compat_store_sha=current[release.TARGETS['runtime/conversation_store.py']]
                 descriptor=json.loads((f.payload.parent/'payload-manifest.json').read_bytes())
                 descriptor.update(native_admission=False,native_archive=not capabilities,native_capabilities=capabilities,native_chat=False,installed_baseline={'source_commit':release.INSTALLED_COMMIT,'files':{name:oldmap.get(target) for name,target in release.TARGETS.items()}})
-                if capabilities:descriptor['installed_baseline']['files']=before_cap
+                if capabilities:
+                    daily=proof_stack.enter_context(self.customer_daily_fixture(f.system,base,f.owners))
+                    for name in ('runtime/user_runtime.py','runtime/a2_query_context.py'):
+                        self.assertEqual(before_cap[name],prepare.digest(self.customer_daily_source_bytes(name,'before')))
+                        body=self.customer_daily_source_bytes(name,'after')
+                        base.rooted(f.system,release.TARGETS[name]).write_bytes(body);before_cap[name]=prepare.digest(body)
+                    descriptor['installed_baseline']['files']=before_cap
+                    descriptor['installed_baseline']['source_overlays']={n:'7312aa3170724ba31dd12aedf1fd92dbe7bc7578' for n in ('runtime/user_runtime.py','runtime/a2_query_context.py')}
                 descriptor['files']={key:value for key,value in descriptor['files'].items() if not key.startswith('payload/')}
                 for name in prepare.SOURCES:
                     p=f.payload/name;p.parent.mkdir(parents=True,exist_ok=True)
@@ -3322,6 +3467,7 @@ class NativePublisher(unittest.TestCase):
                 spec=importlib.util.spec_from_file_location('archive_publisher_fixture',stage/'runtime_release.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
                 module.configure_native_capabilities() if capabilities else module.configure_native_archive();module.INSTALLED_PROOF=proof;module.ARCHIVE_NATIVE_PROOF=old_proof
                 if capabilities:
+                    module.CUSTOMER_DAILY_PROOF=daily.proof
                     module.CAPABILITIES_STORE_BEFORE_SHA=compat_store_sha;module.CAPABILITIES_STATIC_PROOF=static_proof
                     module.CAPABILITIES_PREVIOUS_PROOF=previous_proof
                     module.CAPABILITIES_GRANT_HISTORY_PROOF=grant_history_proof
@@ -3409,6 +3555,18 @@ class NativePublisher(unittest.TestCase):
                     bad_git=deepcopy(descriptor['installed_baseline']);bad_git['files']['runtime/conversation_native.py']='0'*64
                     with self.assertRaisesRegex(ValueError,'composer_static_installed_proof_mismatch' if capabilities else 'archive_installed_git_mismatch'):module.installed_baseline(f.system,bad_git)
                     if capabilities:
+                        for overlays in ({},{'runtime/user_runtime.py':'7312aa3170724ba31dd12aedf1fd92dbe7bc7578'},
+                                         dict(descriptor['installed_baseline']['source_overlays'],unexpected='7312aa3170724ba31dd12aedf1fd92dbe7bc7578'),
+                                         dict(descriptor['installed_baseline']['source_overlays'],**{'runtime/user_runtime.py':'0'*40})):
+                            bad_git=deepcopy(descriptor['installed_baseline']);bad_git['source_overlays']=overlays
+                            with self.assertRaisesRegex(ValueError,'composer_static_installed_proof_mismatch'):module.installed_baseline(f.system,bad_git)
+                        for name in descriptor['installed_baseline']['source_overlays']:
+                            daily_row=next(r for r in manifest['files'] if r['candidate']==name)
+                            self.assertEqual(daily_row['beforeSha256'],daily_row['sha256'])
+                            self.assertEqual(daily_row['sha256'],prepare.digest(self.customer_daily_source_bytes(name,'after')))
+                            path=base.rooted(f.system,daily_row['target']);saved=path.read_bytes();path.write_bytes(b'daily CAS drift')
+                            with self.assertRaises(ValueError):publisher.inspect(manifest,stage,f.system)
+                            path.write_bytes(saved);untouched[daily_row['target']]=(saved,path.stat().st_ino,path.stat().st_mtime_ns)
                         for bad_git in (dict(descriptor['installed_baseline'],source_commit='94b7c9fb0420817ce71115737e937cf7b69b8228'),
                                         dict(descriptor['installed_baseline'],files=dict(descriptor['installed_baseline']['files'],**{'runtime/conversation_user_data.py':None}))):
                             with self.assertRaisesRegex(ValueError,'composer_static_installed_proof_mismatch'):module.installed_baseline(f.system,bad_git)

@@ -128,6 +128,23 @@ NATIVE_CAPABILITIES_PROOF = dict(sourceCommit='051f784d65b239f572cd40b319b0e1c71
     backup='/var/backups/fs-navigation-20261006/nav-20261104T130137Z',
     manifestSha256='ae4ea179bf0ce107f4487e5dc87c618f13769e9c035bef6bce44754ed5bbde5f',
     journalSha256='2e6cdffd9316b6f4d4ee778c3248fc4c120cc567245db08f41bdd25a69e51534')
+# PR830 advanced only these two managed sources; its other seven files are not payloads.
+CUSTOMER_DAILY_PROOF = dict(sourceCommit='7312aa3170724ba31dd12aedf1fd92dbe7bc7578',
+    backup='/var/backups/fs-navigation-20261006/nav-20261105T052700Z',
+    manifestSha256='006f87c82fa253c4644682685cda5df2c42fbca738cddb105678c39011d6607c',
+    journalSha256='5fc992b0712ca778ec6b9f5581ecd3c364ce7aa9d70e66fcb22f6f004a349ed8')
+CUSTOMER_DAILY_FILES = {
+    'runtime/user_runtime.py':('601c1b3e40930c4c8d2b7c48b4393e52b1dda8199747707cf6ac3373da2c99c9',5008,
+        'a41e138d1ea6f79688d3ba0044f53ad3f08134a4e46591f271c1b3483809015a',5007),
+    'runtime/a2_query_context.py':('31162d0c1d09c637c26a2f3a6f3afd6a84f7b9545bf21a942ed8c7cfae2f5bc6',20848,
+        '980a6a27d539954c75f20753d8411babb20c910b0c6591dedd148e6671715df3',20921)}
+CUSTOMER_DAILY_SOURCES = {n:'releases/fs-dashboard/user-analytics-20261022/source/'+n.split('/')[1]
+                          for n in CUSTOMER_DAILY_FILES}
+CUSTOMER_DAILY_SOURCE_OVERLAYS = {n:CUSTOMER_DAILY_PROOF['sourceCommit'] for n in CUSTOMER_DAILY_FILES}
+CUSTOMER_DAILY_TARGETS = {'source/'+n:'/opt/fs-hermes-fc/'+n for n in (
+    'user_weekly.py','user_runtime.py','user_jobs.py','user_query.py','user_customer_types.py','user_tools.py','a2_query_context.py')}
+CUSTOMER_DAILY_TARGETS.update({'ui/'+n:'/var/lib/fs-navigation-formal-static/user-analytics-20261022-v1/'+n
+                               for n in ('index.html','users.js')})
 DESKTOP_MODE_CORRECTION_SHA='d2352697a75d75545108cd03f260c264f3e918dc1b4be9d7f2b239a2cd2a947e'
 DESKTOP_NAVIGATION_PROOF=dict(backup='/var/backups/fs-navigation-20261006/nav-20261104T052012Z',
     manifestSha256='ec8550f11cc66b47799c92d3cf9649deee192bdfa17e25a399640e8a46ee3854',
@@ -1290,6 +1307,52 @@ def capabilities_desktop_metadata(base,root,metadata,manifest):
     return result
 
 
+def capabilities_customer_daily_overlay(base, root, metadata):
+    """Verify the complete fixed PR830 receipt, then advance only two managed hashes."""
+    if not NATIVE_CAPABILITIES_MODE:raise ValueError('customer_daily_capabilities_only')
+    proof=CUSTOMER_DAILY_PROOF;records={}
+    fields=('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns','st_nlink','st_uid','st_gid','st_mode')
+    for name,key in (('approved-manifest.json','manifestSha256'),('journal.json','journalSha256')):
+        path=base.rooted(root,proof['backup']+'/'+name);base.no_target_link(path);before=path.lstat()
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink!=1 or before.st_size>8*1024*1024 or
+                (before.st_uid,before.st_gid,stat.S_IMODE(before.st_mode))!=(0,0,0o600)):
+            raise ValueError('customer_daily_proof_boundary_drift')
+        with os.fdopen(os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)),'rb') as stream:
+            opened=os.fstat(stream.fileno())
+            if any(getattr(before,k)!=getattr(opened,k) for k in fields):raise ValueError('customer_daily_proof_changed')
+            raw=stream.read(8*1024*1024+1)
+            read=os.fstat(stream.fileno())
+            if any(getattr(before,k)!=getattr(read,k) for k in fields):raise ValueError('customer_daily_proof_changed')
+        after=path.lstat();base.no_target_link(path)
+        if any(getattr(before,k)!=getattr(after,k) for k in fields):raise ValueError('customer_daily_proof_changed')
+        if hashlib.sha256(raw).hexdigest()!=proof[key]:raise ValueError('customer_daily_proof_drift')
+        records[name]=json.loads(raw)
+    manifest,journal=records['approved-manifest.json'],records['journal.json']
+    rows=manifest.get('files',[]);written=journal.get('files',[])
+    rollback=('rollback','rollbackIntent','rolledBack','rollbackAttempted','rollbackWritten')
+    if (manifest.get('sourceCommit')!=proof['sourceCommit'] or manifest.get('scope')!='user-daily-20261105' or
+            manifest.get('releaseReady') is not True or type(manifest.get('schemaVersion')) is not int or manifest['schemaVersion']!=1 or
+            len(rows)!=9 or {r['candidate']:r['target'] for r in rows}!=CUSTOMER_DAILY_TARGETS or
+            any(r.get('owner')!='0:0' or r.get('mode')!='0o644' or
+                not all(isinstance(r.get(k),str) and re.fullmatch('[a-f0-9]{64}',r[k]) for k in ('beforeSha256','sha256')) for r in rows) or
+            journal.get('status')!='applied-awaiting-actual-http-role-acceptance' or journal.get('failure') or
+            any(journal.get(k) for k in rollback) or journal.get('manifest')!=manifest or
+            journal.get('approvedManifestSha256')!=proof['manifestSha256'] or
+            len(written)!=9 or {r['candidate'] for r in written}!=set(CUSTOMER_DAILY_TARGETS) or
+            any(any(w.get(k)!=r.get(k) for k in ('candidate','target','beforeSha256','sha256','owner','mode')) or
+                w.get('intent') is not True or w.get('written') is not True or w.get('failure') or any(w.get(k) for k in rollback)
+                for r in rows for w in written if r['candidate']==w['candidate'])):
+        raise ValueError('customer_daily_success_required')
+    updated={p:dict(r) for p,r in metadata.items()}
+    for name,(before_sha,_,after_sha,_) in CUSTOMER_DAILY_FILES.items():
+        target=TARGETS[name];row=next(r for r in rows if r['target']==target);old=metadata.get(target,{})
+        if (row['beforeSha256']!=before_sha or row['sha256']!=after_sha or
+                any(old.get(k)!=v for k,v in (('sha256',before_sha),('owner','0:0'),('mode','0o644')))):
+            raise ValueError('customer_daily_transition_drift')
+        updated[target]['sha256']=after_sha
+    return updated
+
+
 def installed_baseline(root, git_baseline):
     """Bind an installed baseline to both the successful journal and Git bytes."""
     base = frozen()
@@ -1321,6 +1384,11 @@ def installed_baseline(root, git_baseline):
         metadata.update({r['path']:dict(r) for r in protected})
         written=journal.get('files',[])
         installed_targets=DESKTOP_INSTALLED_TARGETS if NATIVE_CAPABILITIES_MODE else CAPABILITIES_INSTALLED_TARGETS
+        expected_git={'source_commit':INSTALLED_COMMIT,'files':(
+            {'frontend/index.html':COMPOSER_BEFORE_SHA} if COMPOSER_STATIC_MODE else
+            {name:metadata.get(target,{}).get('sha256') for name,target in TARGETS.items()})}
+        overlay_git=dict(expected_git,files=dict(expected_git['files'],**{n:v[2] for n,v in CUSTOMER_DAILY_FILES.items()}),
+                         source_overlays=CUSTOMER_DAILY_SOURCE_OVERLAYS) if NATIVE_CAPABILITIES_MODE else None
         if (manifest.get('sourceCommit')!=INSTALLED_COMMIT or manifest.get('scope')!=SCOPE or
                 manifest.get('nativeCapabilities') is not True or manifest.get('nativeArchive') is not True or
                 len(rows)!=len(installed_targets) or {r['candidate']:r['target'] for r in rows}!=installed_targets or
@@ -1337,14 +1405,12 @@ def installed_baseline(root, git_baseline):
                     [changes['conversation'][2] for _,_,_,_,changes in CAPABILITIES_NAVIGATION_PROOFS if 'conversation' in changes][-1]
                     if NATIVE_CAPABILITIES_MODE else COMPOSER_BEFORE_SHA) or
                 NATIVE_CAPABILITIES_MODE and manifest.get('nativeStaticBaseline')!=CAPABILITIES_STATIC_PROOF or
-                git_baseline!={'source_commit':INSTALLED_COMMIT,'files':(
-                    {'frontend/index.html':COMPOSER_BEFORE_SHA} if COMPOSER_STATIC_MODE else
-                    {name:metadata.get(target,{}).get('sha256')
-                     for name,target in TARGETS.items()})}):
+                (git_baseline!=expected_git and (not NATIVE_CAPABILITIES_MODE or git_baseline!=overlay_git))):
             raise ValueError('composer_static_installed_proof_mismatch')
         if NATIVE_CAPABILITIES_MODE:
             audit_snapshot=capabilities_desktop_history(base,root,metadata,rows)
             metadata[CAPABILITIES_CURATOR_LEDGER]=dict(metadata[CAPABILITIES_CURATOR_LEDGER],sha256=audit_snapshot[0])
+            if git_baseline==overlay_git:metadata=capabilities_customer_daily_overlay(base,root,metadata)
         COMPOSER_STATIC_METADATA.clear()
         COMPOSER_STATIC_METADATA.update({p:r for p,r in metadata.items() if p not in TARGETS.values()})
         ARCHIVE_PROTECTED={p:r['sha256'] for p,r in COMPOSER_STATIC_METADATA.items()}
