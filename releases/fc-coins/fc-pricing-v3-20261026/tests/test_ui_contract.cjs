@@ -60,6 +60,7 @@ market.saudi_missing_price_policy='follow_global';
 market.price_basis={historical_retained_ratio:'.9',rows:{PS:{cost_usd_per_1k:'.04',cost_cny_per_1k:'.28',package_cost_usd:'4.2',delivered_k:'105',regular_floor_usd:'5.30',average_floor_usd:'5.80',current_regular_margin_pct:'40',current_average_margin_pct:'30',cost_checked_at:'2026-10-27T00:00:00Z'}}};
 
 const normalFetch = async (url, options = {}) => ({ ok: true, json: async () => url.endsWith('/pricing/v3/interval') ? (intervalBody = JSON.parse(options.body), { revision: 4 })
+  : url.endsWith('/pricing/v3/preview') ? {results:{smart:{status:'READY',selected:{action:{base_prices:{console:'10',pc:'11'}}}}}}
   : url.endsWith('/pricing/v3/market') ? (marketError?Promise.reject(Error('fixture unavailable')):market)
   : url.endsWith('/pricing/collect') ? {job_id:'collect-test'} : url.endsWith('/jobs/collect-test') ? {status:'ready',result:{status:'INFEASIBLE'}}
   : url.endsWith('/pricing/v3/state') ? state : url.endsWith('/automation') ? (options.body?(intervalBody=JSON.parse(options.body),{revision:4}):{ ...automation, can_manage_v3: canWrite })
@@ -88,6 +89,14 @@ vm.runInNewContext(script, { document, fetch, sessionStorage, crypto: { randomUU
 const tick = () => new Promise(resolve => setTimeout(resolve, 5));
 (async () => {
   await tick();
+  state.active_plans.push({mode:'revenue_sprint',resources:['base:console','base:pc'],parameters:{preferred_undercut_pct:'5'}});
+  elements['v3-mode'].value='smart';elements['v3-mode'].events.change();
+  await elements['v3-preview'].events.click();
+  assert.match(elements['v3-preview-output'].textContent,/默认7\.5%.*情景/);
+  assert.match(elements['v3-preview-output'].textContent,/未使用当前5%.*6小时.*分配/);
+  assert.match(elements['v3-preview-output'].textContent,/不是本计划报价.*不作为切换或审批依据/);
+  state.active_plans.pop();
+  elements['v3-mode'].value='daily';elements['v3-mode'].events.change();
   assert.match(elements['v3-current-plan'].textContent, /已暂停/);
   assert.match(elements['v3-next-cycle'].textContent, /已暂停，无下一自然写价轮/);
   assert.match(elements['v3-review-source'].textContent, /历史原操作.*未获模型审核.*当前规则无需逐轮审核/);

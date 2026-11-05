@@ -82,6 +82,49 @@ class PriceControlTest(unittest.TestCase):
         self.assertEqual(next_receipt['smart_assignment']['baseline_assignment']['assignment_id'],previous['assignment_id'])
         self.assertEqual(next_receipt['smart_assignment']['baseline_candidate']['action'],previous['action'])
 
+    def test_smart_assignment_outlives_baseline_without_mutating_it(self):
+        from datetime import timedelta
+        instant=runtime.instant
+        self.plan['ends_at']=(NOW+timedelta(minutes=1)).isoformat()
+        self.db.put('pricing_plans',self.plan['plan_id'],self.plan)
+        old=self.quote()['decision_receipt']
+        key=fingerprint([self.plan['plan_id'],self.plan['revision'],int(NOW.timestamp())//21600])
+        previous=self.db.get('experiment_assignments',key)
+        with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
+            smart=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            self.db.activate_plan(smart['plan_id'],now=NOW)
+        after=NOW+timedelta(minutes=2)
+        with patch.object(runtime,'clock',return_value=after):
+            result=self.quote()
+        baseline=result['decision_receipt']['smart_assignment']['baseline_assignment']
+        self.assertEqual(baseline['action'],old['action'])
+        self.assertGreater(instant(baseline['ends_at']), NOW+timedelta(minutes=1))
+        self.assertEqual(self.db.get('experiment_assignments',key),previous)
+        (self.root/'config').mkdir()
+        (self.root/'config'/'v3-control.json').write_text(json.dumps({'generation':'g','enabled':True}))
+        runtime.verify_quote(dict(evidence=self.data,result=result),dict(minimum_gross_margin_pct='20'),['PS','XBOX','PC'],now=after,for_execution=True)
+
+    def test_smart_assignment_uses_own_finite_deadline_after_baseline_expiry(self):
+        from datetime import timedelta
+        previous_deadline=NOW+timedelta(minutes=1)
+        self.plan['ends_at']=previous_deadline.isoformat()
+        candidates=engine.evaluate(self.data,'revenue_sprint',plan=self.plan,now=NOW)['candidates']
+        original=self.db.assignment(self.plan,candidates,now=NOW)
+        key=fingerprint([self.plan['plan_id'],self.plan['revision'],int(NOW.timestamp())//21600])
+        for minutes in (3, 10, None):
+            lifecycle={'plan_id':str(minutes),'revision':1,'ends_at':(NOW+timedelta(minutes=minutes)).isoformat() if minutes else None}
+            result=self.db.assignment(self.plan,candidates,now=NOW+timedelta(minutes=2),lifecycle_plan=lifecycle)
+            self.assertEqual(result['action'],original['action'])
+            if minutes:
+                self.assertEqual(runtime.instant(result['ends_at']),NOW+timedelta(minutes=minutes))
+            else:
+                self.assertGreater(runtime.instant(result['ends_at']),previous_deadline)
+            self.assertEqual(self.db.get('experiment_assignments',key),original)
+        next_time=NOW+timedelta(hours=6)
+        later=self.db.assignment(self.plan,candidates,now=next_time,lifecycle_plan={'plan_id':'later','revision':1,'ends_at':None})
+        self.assertEqual(later['seed'],fingerprint([fingerprint([self.plan['plan_id'],self.plan['revision'],int(next_time.timestamp())//21600]),None,'central-prior-e2']))
+        self.assertGreater(runtime.instant(later['ends_at']),next_time)
+
     def test_smart_does_not_apply_temporary_uplift_twice(self):
         self.save(uplift_enabled=True,uplift_pct='5')
         previous=self.quote()['decision_receipt']
@@ -103,6 +146,7 @@ class PriceControlTest(unittest.TestCase):
         runtime.verify_quote(quote,dict(minimum_gross_margin_pct='20'),['PS','XBOX','PC'],now=NOW,for_execution=True)
         saved=result['decision_receipt']['smart_assignment']
         key=fingerprint([saved['baseline_plan']['plan_id'],saved['baseline_plan']['revision'],int(NOW.timestamp())//21600])
+        key=fingerprint([key,'smart_lifecycle',saved['plan_id'],saved['revision']])
         self.db.put('experiment_assignments',key,dict(saved['baseline_assignment'],action={}))
         with self.assertRaisesRegex(ValueError,'pricing_smart_baseline_assignment_changed'):
             runtime.verify_quote(quote,dict(minimum_gross_margin_pct='20'),['PS','XBOX','PC'],now=NOW,for_execution=True)

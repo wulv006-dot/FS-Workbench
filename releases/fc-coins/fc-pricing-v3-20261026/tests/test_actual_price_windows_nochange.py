@@ -29,6 +29,43 @@ class ActualPriceWindowTest(unittest.TestCase):
             self.assertIsNone(db.get('actual_price_windows', 'next'))
             self.assertEqual(db.get('operations', 'next')['bundle']['assignment_id'], 'b')
 
+    def test_changed_pc_catalog_opens_only_pc_window(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'ledger.db')
+            catalog={p:{'tiers':[{'base_k':'100','bonus_k':'5','retained_ratio':'1'}]} for p in ('PS','XBOX','PC')}
+            from copy import deepcopy
+            changed=deepcopy(catalog); changed['PC']['tiers'][0]['bonus_k']='10'
+            action={'base_prices':{'console':'10','pc':'9'},'region_coefficients':{}}
+            resources=['base:console','base:pc']
+            op={'operation_id':'old','resources':resources,'bundle':{'action':action,'assignment_id':'a','mutable_resources':resources,'catalog':catalog}}
+            with db.transaction() as conn: db.record_price_window(op,conn)
+            new=dict(op,operation_id='new',bundle=dict(op['bundle'],assignment_id='b',catalog=changed))
+            with db.transaction() as conn: db.record_price_window(new,conn,no_change=True)
+            self.assertEqual(db.get('actual_price_windows','new')['resources'],['base:pc'])
+            old=db.get('actual_price_windows','old')
+            self.assertIn('base:pc',old['resource_closed_at'])
+            self.assertEqual(old['continuations'][0]['resources'],['base:console'])
+
+    def test_new_bonus_binds_order_to_new_window(self):
+        from datetime import datetime, timedelta, timezone
+        from unittest.mock import patch
+        from test_business_source import BusinessSourceTest
+        from fc_pricing_v3.business_source import bind_price_windows
+        now, order, template=BusinessSourceTest().window_fixture()
+        start=datetime(2026,10,26,tzinfo=timezone.utc)
+        action={'base_prices':{'pc':'8.68'},'region_coefficients':{}}
+        old_catalog={'PC':{'tiers':[{'base_k':'100','bonus_k':'5','retained_ratio':'1'}]}}
+        new_catalog={'PC':{'tiers':[{'base_k':'100','bonus_k':'10','retained_ratio':'1'}]}}
+        with tempfile.TemporaryDirectory() as folder:
+            db=Ledger(Path(folder)/'ledger.db')
+            op={'operation_id':'old','resources':['base:pc'],'bundle':{'action':action,'assignment_id':'a','mutable_resources':['base:pc'],'affected_platforms':['PC'],'catalog':old_catalog,'budget_reference':{'base_prices':{'pc':'10'},'region_coefficients':{}}}}
+            with patch('fc_pricing_v3.ledger.clock',return_value=start),db.transaction() as conn: db.record_price_window(op,conn)
+            new=dict(op,operation_id='new',bundle=dict(op['bundle'],catalog=new_catalog,assignment_id='b'))
+            with patch('fc_pricing_v3.ledger.clock',return_value=start+timedelta(hours=2)),db.transaction() as conn: db.record_price_window(new,conn,no_change=True)
+            order.update(aid=21589,timestamp=int((start+timedelta(hours=3)).timestamp()),timestamp_format='2026-10-26 11:00:00',content='<span class="item">100 K coins+10K Free x 1 = $8.68</span>')
+            result=bind_price_windows([order],[db.get('actual_price_windows','old'),db.get('actual_price_windows','new')],now)
+            self.assertEqual(result['budget_settlements'][0]['operation_id'],'new')
+
     def test_first_no_change_starts_observation_at_confirmation(self):
         with tempfile.TemporaryDirectory() as folder:
             db = Ledger(Path(folder) / 'ledger.db')

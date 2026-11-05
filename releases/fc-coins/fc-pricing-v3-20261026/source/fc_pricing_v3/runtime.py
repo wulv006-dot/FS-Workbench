@@ -211,13 +211,13 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
             explicit=evaluate(evidence,mode,plan=plan,now=now,explicit_prices=selected_action['base_prices'])
             selected=next((c for c in explicit['candidates'] if c['action']==selected_action),None)
         if selected is None:raise ValueError('pricing_override_not_currently_feasible')
-        prior=db.assignment(base_plan,evaluation['candidates'],now=now) if plan else None
+        prior=db.assignment(base_plan,evaluation['candidates'],now=now,lifecycle_plan=plan if mode=='smart' else None) if plan else None
         allocation=db.override_assignment(base_plan,prior,selected,override_reason) if prior else dict(assignment_id=str(uuid.uuid4()),action=selected_action,ends_at=evaluation['valid_until'],
                         deterministic=True,labels=['explicit_override'],parent_assignment_id=(prior or {}).get('assignment_id'),
                         original_assignment=prior,deviation_reason=override_reason)
         db.put('experiment_assignments',allocation['assignment_id'],allocation)
     elif plan and not control['manual_enabled']:
-        allocation = db.assignment(base_plan,evaluation['candidates'],now=now)
+        allocation = db.assignment(base_plan,evaluation['candidates'],now=now,lifecycle_plan=plan if mode=='smart' else None)
         selected = next(c for c in evaluation['candidates'] if c['action']==allocation['action'])
     else:
         selected = evaluation['selected']
@@ -506,6 +506,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
                 if not live_plan or live_plan.get('baseline_plan')!=base_plan:
                     raise ValueError('pricing_smart_baseline_plan_changed')
                 baseline_key=fingerprint([base_plan['plan_id'],base_plan['revision'],int(instant(receipt['created_at']).timestamp())//(6*3600)])
+                baseline_key=fingerprint([baseline_key,'smart_lifecycle',plan['plan_id'],plan['revision']])
                 if ledger().get('experiment_assignments',baseline_key)!=(saved.get('baseline_assignment') or {}):
                     raise ValueError('pricing_smart_baseline_assignment_changed')
             evaluation=evaluate(quote['evidence'],'revenue_sprint',plan=base_plan,now=now)
