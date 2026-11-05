@@ -17,7 +17,7 @@ class SerpCalendar(unittest.TestCase):
         response=dict(organic=[dict(link='https://other.example/a',global_rank=2),dict(link='https://www.mmoexp.com/Fc-27/Coins.html',global_rank=4)],top_ads=[dict(link='https://www.iggm.com/',global_rank=1)])
         rows=parse_results(response,self.condition(),{'MMOEXP':['https://www.mmoexp.com/Fc-27/'],'IGGM':['https://www.iggm.com/']})
         self.assertEqual(rows[0]['rank'],2)
-        self.assertEqual(rows[1]['status'],'insufficient_depth')
+        self.assertEqual(rows[1]['status'],'not_found')
         self.assertIsNone(rows[1]['rank'])
         self.assertEqual(rows[1]['effective_depth'],2)
         rows=parse_results(dict(organic=[dict(link='https://other.example/'+str(n)) for n in range(10)]),self.condition(),{'MMOEXP':['https://www.mmoexp.com/Fc-27/']})
@@ -28,6 +28,14 @@ class SerpCalendar(unittest.TestCase):
         from mmoexp_google_data.seo.serp import parse_results
         for response in [dict(organic=[],general=dict(query='different')),dict(organic=[dict(link='javascript:alert(1)')]),dict(organic=[],general=dict(country_code='DE'))]:
             with self.assertRaises(ValueError):parse_results(response,self.condition(),{'MMOEXP':['https://www.mmoexp.com/Fc-27/']})
+
+    def test_absence_uses_returned_organic_count_without_requiring_ten(self):
+        from mmoexp_google_data.seo.serp import parse_results
+        for count in [0,3,8,9]:
+            result=parse_results(dict(organic=[dict(link='https://other.example/'+str(i)) for i in range(count)]),self.condition(),{'MMOEXP':['https://www.mmoexp.com/Fc-27/']})[0]
+            self.assertEqual(result['status'],'not_found' if count else 'no_results')
+            self.assertEqual(result['effective_depth'],count)
+            self.assertIsNone(result['rank'])
 
     def test_unresolved_google_links_never_become_absent_or_a_precise_later_rank(self):
         from mmoexp_google_data.seo.serp import parse_results

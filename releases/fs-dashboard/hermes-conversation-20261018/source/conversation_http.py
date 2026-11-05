@@ -245,7 +245,6 @@ def stream_events(handler, service, user, conversation_id, after):
                 cursor = max(cursor, row["seq"])
                 handler.wfile.write(b"data: " + json.dumps(row, ensure_ascii=False).encode("utf-8") + b"\n\n")
             handler.wfile.flush()
-            if rows: break
             time.sleep(1)
     except Exception:
         # The stream already has 200 headers; the browser reconnects and rechecks the cursor.
