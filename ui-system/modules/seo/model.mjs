@@ -7,7 +7,7 @@ export class SnapshotClient {
     return response.json();
   }
   async init(id) {
-    if (id && !/^seo-\d{4}-\d{2}-\d{2}$/.test(id)) throw Error('快照版本无效');
+    if (id && !/^seo-\d{4}-\d{2}-\d{2}(?:-manual-[a-f0-9]{12})?$/.test(id)) throw Error('快照版本无效');
     this.meta = await this.get(id ? `snapshots/${id}/manifest` : 'snapshots/current');
     this.id = this.meta.snapshot_id;
     return this.meta;

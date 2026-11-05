@@ -73,6 +73,10 @@ const server=http.createServer((req,res)=>{
   assert((await page.locator('#panel').innerText()).includes('原来源读取'));assert((await page.locator('#panel').innerText()).includes('来源已过期'));
   await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   assert(apiCalls.filter(p=>p.includes('/markets')||p.includes('/calendar')).every(p=>p.includes('/seo-2026-11-05/')));
+  meta.snapshot_id='seo-2026-11-05-manual-0123456789ab';meta.publication_mode='manual_observation';meta.observation_date='2026-11-05';
+  await page.goto(new URL('/?snapshot_id='+meta.snapshot_id,page.url()).href);await page.getByText('手动观察 2026-11-05',{exact:false}).first().waitFor({timeout:2500});await page.getByRole('cell',{name:'#2',exact:true}).waitFor({timeout:2500});
+  assert((await page.getByRole('link',{name:'导出当前版本',exact:true}).getAttribute('href')).includes(meta.snapshot_id));
+  assert((await page.locator('#business-day').innerText()).includes('2026-11-04'));
   console.log('PASS: demo hierarchy, honest source gaps, four games, frozen URLs, AI hang/failure isolation, details, mobile, retry and empty state');
  }finally{await browser.close();}
 })().then(()=>server.close()).catch(error=>{console.error(error);server.close();process.exitCode=1;});

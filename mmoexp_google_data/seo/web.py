@@ -13,7 +13,7 @@ from urllib.parse import parse_qsl, urlsplit
 
 from .api import Service
 from .ai_policy import Actor, PolicyStore
-from .contracts import GAMES, game
+from .contracts import GAMES, SNAPSHOT_ID, game
 
 PREFIX = '/dashboard/analytics/seo/api/v1/'
 
@@ -87,7 +87,7 @@ class Application:
                 manage = status == 200 and editor == subject
             actor = Actor(subject, GAMES, manage, False)
             internal = '/api/seo/v1/' + parsed.path[len(PREFIX):]
-            export = re.fullmatch(r'/api/seo/v1/snapshots/(seo-\d{4}-\d{2}-\d{2})/export\.csv',internal)
+            export = re.fullmatch(r'/api/seo/v1/snapshots/('+SNAPSHOT_ID+r')/export\.csv',internal)
             if method == 'GET' and export:
                 if set(dict(query))!={'game'}:
                     raise ValueError('INVALID_EXPORT_QUERY')

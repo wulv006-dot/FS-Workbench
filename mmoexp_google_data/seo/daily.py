@@ -14,6 +14,10 @@ def run_daily(store, sources, clock=lambda: dt.datetime.now(dt.timezone.utc), ad
         if existing.exists():
             db, manifest = snapshot.open_snapshot(store.root, 'seo-' + context.publication_date)
             db.close()
+            active=snapshot.current(store.root)
+            if active and active.get('base_snapshot_id')==manifest['snapshot_id']:
+                db,active=snapshot.open_snapshot(store.root,active['snapshot_id']);db.close()
+                return dict(active,status='published')
             if snapshot.current(store.root) != manifest:
                 snapshot.atomic_json(store.root/'current.json', manifest)
             return dict(manifest, status='published')
