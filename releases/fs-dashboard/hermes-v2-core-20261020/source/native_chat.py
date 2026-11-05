@@ -43,7 +43,7 @@ class NativeChatScope:
     _FIELDS = frozenset({'owner', 'conversation_id', 'turn_id', 'request_id',
                          'session_id', 'lease', 'run_id'})
 
-    def __init__(self, binding, authorize, *, model_schemas, call_tool=None, reasoning_effort=None):
+    def __init__(self, binding, authorize, *, model_schemas, call_tool=None, reasoning_effort=None, pricing_context=None):
         if (type(binding) is not dict or set(binding) != self._FIELDS or
                 any(type(value) is not str or not 1 <= len(value) <= 256 or
                     any(ord(char) < 32 or ord(char) == 127 for char in value)
@@ -55,6 +55,7 @@ class NativeChatScope:
             raise ValueError('native_chat_tool_callback')
         if reasoning_effort is not None and not callable(reasoning_effort):
             raise ValueError('native_chat_reasoning_callback')
+        self.pricing_context=deepcopy(pricing_context)
         self._reasoning=reasoning_effort
         self._binding = deepcopy(binding)
         self._authorize, self._schemas, self._call = authorize, model_schemas, call_tool

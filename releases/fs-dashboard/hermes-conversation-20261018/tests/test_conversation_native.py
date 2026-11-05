@@ -21,9 +21,13 @@ def load_tests(loader, tests, pattern):
     import test_native_user_data
     import test_native_compaction_relay
     import test_native_coupon
+    import test_native_pricing
     tests.addTests(loader.loadTestsFromModule(test_native_user_data))
     tests.addTests(loader.loadTestsFromModule(test_native_compaction_relay))
     tests.addTests(loader.loadTestsFromModule(test_native_coupon))
+    tests.addTests(loader.loadTestsFromModule(test_native_pricing))
+    import test_native_pricing_worker
+    tests.addTests(loader.loadTestsFromModule(test_native_pricing_worker))
     return tests
 
 
@@ -889,7 +893,7 @@ class NativeArchiveTests(unittest.TestCase):
                 body={'input':text,'session_id':session};canonical=lambda v:json.dumps(v,sort_keys=True,separators=(',',':'),ensure_ascii=False)
                 key='hn-'+hashlib.sha256(canonical([owner,cid,request]).encode()).hexdigest()
                 fp=hashlib.sha256(canonical({'body':body,'gateway_session_key':''}).encode()).hexdigest()
-                db.execute('INSERT INTO native_conversation_runs VALUES(?,?,?,?,?,NULL,1)',(turn['turn_id'],canonical(binding),canonical(body),key,fp))
+                db.execute('INSERT INTO native_conversation_runs(turn_id,binding,body,idempotency_key,fingerprint,schemas,stopped) VALUES(?,?,?,?,?,NULL,1)',(turn['turn_id'],canonical(binding),canonical(body),key,fp))
             store.set_state(owner,cid,turn['turn_id'],'dispatch_unknown')
             pins=dict(cid=cid,turn_id=turn['turn_id'],request_id=request,session_id=session,lease=lease,owner_sha256=hashlib.sha256(owner.encode()).hexdigest(),fingerprint=fp,input_sha256=hashlib.sha256(text.encode()).hexdigest(),file_ids=[file['file_id']],file_sha256=file['sha256'],file_size=file['size'])
             other=store.create('other')['conversation_id'];before=store.active()

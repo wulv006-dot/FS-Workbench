@@ -135,14 +135,14 @@ class DailyProgramFlow(unittest.TestCase):
             def active(self):return []
         ns=dict(Path=Path,ConversationStore=Store,ThreadPoolExecutor=ThreadPoolExecutor,threading=threading)
         exec(compile(ast.Module(body=[cls],type_ignores=[]),'conversation_service.py','exec'),ns)
-        native=Mock()
+        native=Mock(side_effect=lambda service:SimpleNamespace(service=service))
         # This AST fixture tests queue/store separation, not the native runtime.
         # Supply its constructor dependency just like the synthetic Store above.
         with patch.dict(sys.modules,{'conversation_native':SimpleNamespace(NativeConversation=native)}):
             service=ns['ConversationService'](Mock(),Path('fs/conversations'),Path('runtime'))
-        native.assert_called_once_with(service)
-        self.assertIs(service.native,native.return_value)
-        self.assertIsNone(service.pricing.native)
+        self.assertEqual([call.args[0] for call in native.call_args_list],[service,service.pricing])
+        self.assertIs(service.native.service,service)
+        self.assertIs(service.pricing.native.service,service.pricing)
         gate=threading.Event()
         try:
             occupied=service.pricing.pool.submit(gate.wait,3)
@@ -157,7 +157,7 @@ class DailyProgramFlow(unittest.TestCase):
         for item in ('Type=oneshot','--once','Restart=no','PrivateNetwork=yes','User=nobody','ReadOnlyDirectories=/var/lib/fc27-cloud'):
             self.assertIn(item,unit)
 
-    def test_pricing_only_does_not_import_native_runtime(self):
+    def test_pricing_only_uses_native_runtime_in_original_review_queue(self):
         tree=ast.parse((SOURCE/'conversation_service.py').read_text(encoding='utf-8'))
         cls=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=='ConversationService')
         class Store:
@@ -165,10 +165,12 @@ class DailyProgramFlow(unittest.TestCase):
             def active(self):return []
         ns=dict(Path=Path,ConversationStore=Store,ThreadPoolExecutor=ThreadPoolExecutor,threading=threading)
         exec(compile(ast.Module(body=[cls],type_ignores=[]),'conversation_service.py','exec'),ns)
-        with patch.dict(sys.modules,{'conversation_native':None}):
+        native=Mock()
+        with patch.dict(sys.modules,{'conversation_native':SimpleNamespace(NativeConversation=native)}):
             service=ns['ConversationService'](Mock(),Path('fs/pricing-reviews'),Path('runtime'),pricing_only=True)
         try:
-            self.assertIsNone(service.native)
+            native.assert_called_once_with(service)
+            self.assertIs(service.native,native.return_value)
             self.assertIsNone(service.pricing)
             self.assertIs(service.pool,service.pricing_pool)
         finally:

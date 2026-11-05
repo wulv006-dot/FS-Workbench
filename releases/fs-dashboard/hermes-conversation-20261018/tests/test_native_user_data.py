@@ -50,7 +50,7 @@ class NativeUserRelay(unittest.TestCase):
         store.bind_run(owner,cid,turn['turn_id'],binding['run_id'])
         body={'input':'Synthetic customer question','session_id':turn['session_id']}
         with store.db() as db:
-            db.execute('INSERT INTO native_conversation_runs VALUES(?,?,?,?,?,NULL,0)',
+            db.execute('INSERT INTO native_conversation_runs(turn_id,binding,body,idempotency_key,fingerprint,schemas,stopped) VALUES(?,?,?,?,?,NULL,0)',
                        (turn['turn_id'],canonical(binding),canonical(body),request,'c'*64))
         return binding
 

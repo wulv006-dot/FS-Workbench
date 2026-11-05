@@ -87,8 +87,17 @@ def gateway(daily, tasks, book, deadline=None, provider_lane="general", *, mater
     from proxy_gateway import schemas, task_schemas, native_scope
     native = native_chat_scope is not None
     if native and (not native_scope(native_chat_scope) or book is not native_chat_scope or
-                   not callable(active_native_tasks) or provider_lane != 'general' or material_execution):
+                   not callable(active_native_tasks) or material_execution):
         raise ValueError('native_gateway_identity')
+    if native:
+        bound=native_chat_scope._binding
+        native_chat_scope.context(bound['owner'],bound['turn_id'],bound['lease'])
+        pricing=native_chat_scope.pricing_context
+        expected='pricing' if pricing is not None else 'general'
+        if provider_lane != expected:raise PermissionError('native_provider_lane')
+        if pricing is not None:
+            from conversation_native import validate_pricing_context
+            validate_pricing_context(pricing,bound['conversation_id'])
     if material_execution is not bool(getattr(book, 'material_execution', False)):
         raise ValueError('material_gateway_identity')
     if material_execution and provider_lane != 'general':
@@ -124,9 +133,9 @@ def gateway(daily, tasks, book, deadline=None, provider_lane="general", *, mater
                           model_daily_limit, preflight=lambda req:prepare_request(req,effective_schemas(),native_chat=True) if native else prepare_request(req,effective_schemas()),transport_retries=0 if material_execution or native else 2)
 
 
-def native_gateway(daily, scope, *, active_tasks, deadline=None):
+def native_gateway(daily, scope, *, active_tasks, deadline=None, provider_lane="general"):
     """Use the existing provider, limits and usage ledger without an FC TaskStore."""
-    return gateway(daily, None, scope, deadline=deadline, native_chat_scope=scope,
+    return gateway(daily, None, scope, deadline=deadline, provider_lane=provider_lane, native_chat_scope=scope,
                    active_native_tasks=active_tasks)
 
 

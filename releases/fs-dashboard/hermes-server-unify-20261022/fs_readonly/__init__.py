@@ -128,3 +128,39 @@ def register_scope(registry,scope):
                 previous.schema==tool['schema']):return
         registry.register(**tool,scope=scope)
     register(SimpleNamespace(register_tool=install),native_only=True,include_knowledge=False)
+
+
+def register_pricing_scope(registry,scope,capabilities):
+    """Use the host's original schema and the existing pure-read handlers."""
+    from toolsets import create_custom_toolset, resolve_toolset
+    name='mcp__fcro__fs_pricing_control'
+    allowed=capabilities.get('allowed_actions') if type(capabilities) is dict else None
+    schema=capabilities.get('tool_schema') if type(capabilities) is dict else None
+    function=schema.get('function') if type(schema) is dict else None
+    params=function.get('parameters') if type(function) is dict else None
+    properties=params.get('properties') if type(params) is dict else None
+    action=properties.get('action') if type(properties) is dict else None
+    if (type(allowed) is not list or not allowed or any(type(value) is not str for value in allowed)
+            or len(set(allowed))!=len(allowed) or 'capabilities' not in allowed
+            or set(allowed)&{'recommend','simulate','plan_propose','plan_execute_authorized'}
+            or type(schema) is not dict or schema.get('type')!='function'
+            or type(function) is not dict or function.get('name')!=name
+            or type(params) is not dict or params.get('type')!='object'
+            or params.get('required')!=['action'] or params.get('additionalProperties') is not False
+            or type(action) is not dict or action.get('enum')!=allowed):
+        raise PermissionError('native_pricing_schema_unavailable')
+    def handler(args,**context):
+        from conversation_native import current_native_backend
+        backend=current_native_backend()
+        if backend is None:raise PermissionError('native_run_context_required')
+        return json.dumps(backend.pricing_call(args,context.get('task_id')),ensure_ascii=False,allow_nan=False)
+    previous=registry.get_entry(name,scope=scope)
+    if not (previous is not None and previous.handler.__module__==__name__ and previous.schema==function):
+        # Keep the original global legacy registration. The owner overlay uses
+        # its existing toolset ownership, selected through the static set below.
+        registry.register(name=name,toolset='fs_fc_readonly',schema=function,handler=handler,scope=scope)
+    create_custom_toolset('fs_native_pricing_readonly','FS native daily pricing reads',tools=[*TOOLS,name])
+    # Composite/all selections can reintroduce FS writes. The official SDK
+    # subtracts this static name set last, while retaining native tools.
+    excluded=set(CUSTOMER_TOOLS) | (set(resolve_toolset('fs_fc_readonly',include_registry=False))-{name})
+    create_custom_toolset('fs_native_pricing_unavailable','Unavailable FS business tools in a daily review',tools=sorted(excluded))

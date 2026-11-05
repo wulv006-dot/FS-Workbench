@@ -543,6 +543,7 @@ class NativeCouponTests(unittest.TestCase):
             dict(Path=Path,re=re,json=json,Request=Request,HTTPRedirectHandler=HTTPRedirectHandler,HTTPError=HTTPError,
                  build_opener=opening,ADMISSIONS=path.parent,MAX_PROVIDER_WIRE_BYTES=10*1024*1024,PROXY='http://127.0.0.1:8940'))
         worker['fixed']=self.binding
+        worker['pricing']=None  # The extracted active closure is a general conversation.
         # Execute the exact worker-native active callback and data_call lambda.
         create=next(n for n in ast.walk(ast.parse((channel/'hermes_worker.py').read_text('utf-8'))) if isinstance(n,ast.FunctionDef) and n.name=='_create_native_agent')
         active=next(n for n in create.body if isinstance(n,ast.FunctionDef) and n.name=='active')
