@@ -94,7 +94,7 @@ function renderMarkets(root, scope, rows=[], sourceState={}) {
       const first=group[0],box=text('article',null,'market-card'),order=['MMOEXP','IGGM','U4GM','U7BUY','LootBar','G2G','Eldorado'],brands=[...new Set(group.map(r=>r.brand))].sort((a,b)=>(order.indexOf(a)<0?99:order.indexOf(a))-(order.indexOf(b)<0?99:order.indexOf(b))||a.localeCompare(b)),queries=new Map();
       box.append(text('h3',[first.country,first.language,first.device,first.location].filter(Boolean).join(' / ')),text('p','Google自然结果 · Bright Data · 固定快照','muted'));
       for(const row of group){const key=JSON.stringify([row.keyword,row.source_date,row.depth]);if(!queries.has(key))queries.set(key,[]);queries.get(key).push(row);}
-      const cells=[...queries.values()].map(samples=>{const r=samples[0];return [r.keyword,...brands.map(brand=>{const cell=samples.find(x=>x.brand===brand);return !cell?'待采样':cell.status==='found'?'#'+cell.rank:cell.status==='not_found'?'前'+cell.depth+'未找到':cell.status==='insufficient_depth'?'深度不足 '+cell.effective_depth+'/'+cell.depth:'采集失败';}),r.observed_at??r.source_date];});
+      const cells=[...queries.values()].map(samples=>{const r=samples[0];return [r.keyword,...brands.map(brand=>{const cell=samples.find(x=>x.brand===brand);return !cell?'待采样':cell.status==='found'?'#'+cell.rank:cell.status==='not_found'?'前'+cell.depth+'未找到':cell.status==='unresolved'?'链接待解析':cell.status==='insufficient_depth'?'深度不足 '+cell.effective_depth+'/'+cell.depth:'采集失败';}),r.observed_at??r.source_date];});
       box.append(table(['关键词',...brands,'观察时间'],cells,'已发布国家竞争样本'));root.append(box);
     }return;
   }

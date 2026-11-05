@@ -14,6 +14,11 @@ from .sources import SourceError
 from .store import encode
 
 
+def google_redirect(url):
+    parts=urlsplit(url)
+    return parts.hostname in ('google.com','www.google.com') and parts.path=='/goto'
+
+
 def condition(value):
     if (not isinstance(value, dict) or set(value)-{'keyword','country','language','device','depth','location'} or
             not isinstance(value.get('keyword'),str) or not 0 < len(value['keyword'].strip()) <= 512 or
@@ -47,8 +52,9 @@ def compact(result):
     organic=[]
     for row in result['organic']:
         if not isinstance(row,dict) or not isinstance(row.get('link'),str):raise SourceError('INVALID_SERP_ORGANIC')
-        public_url(row['link'])
-        organic.append(dict(link=row['link'],global_rank=row.get('global_rank')))
+        link='https://www.google.com'+row['link'] if row['link'].startswith('/goto?') else row['link']
+        public_url(link)
+        organic.append(dict(link=link,global_rank=row.get('global_rank'),**{k:row[k] for k in ('original_link','resolution_error') if isinstance(row.get(k),str)}))
     return dict(organic=organic,general={k:general[k] for k in ('query','detected_query','country_code','language','is_mobile') if k in general})
 
 
@@ -68,18 +74,20 @@ def parse_results(result, query, brands):
     rows=[]
     for brand,prefixes in brands.items():
         found=next(((i+1,row['link']) for i,row in enumerate(organic) if any(matches(row['link'],p) for p in prefixes)),None)
-        rows.append(dict(brand=brand,rank=found[0] if found else None,url=found[1] if found else None,
-                         status='found' if found else 'not_found' if depth>=query['depth'] else 'insufficient_depth',
-                         effective_depth=depth,**query))
+        uncertain=any(google_redirect(row['link']) for row in organic[:found[0] if found else depth])
+        rows.append(dict(brand=brand,rank=found[0] if found and not uncertain else None,url=found[1] if found and not uncertain else None,
+                         status='unresolved' if uncertain else 'found' if found else 'not_found' if depth>=query['depth'] else 'insufficient_depth',
+                         effective_depth=depth,unresolved_links=sum(google_redirect(row['link']) for row in organic),**query))
     return rows
 
 
 class BrightDataTransport:
     def __init__(self, core, config, limits, *, key_loader=lambda name:os.environ.get(name), post=None,
-                 clock=lambda:dt.datetime.now(dt.timezone.utc),finish_margin_seconds=0):
+                 clock=lambda:dt.datetime.now(dt.timezone.utc),finish_margin_seconds=0,redirect=None):
         self.core,self.config,self.limits,self.key_loader=core,config,limits,key_loader
         self.clock,self.post,self.calls=clock,post or self._post,0
         self.margin=finish_margin_seconds
+        self.redirect,self.resolution_calls=redirect or self._redirect,0
 
     def remaining(self):
         local=self.clock().astimezone(BUSINESS_TZ)
@@ -105,6 +113,37 @@ class BrightDataTransport:
             return compact(json.loads(content)), response.getheader('x-brd-request-id')
         finally:connection.close()
 
+    def _redirect(self,url):
+        parts=public_url(url)
+        if not google_redirect(url) or self.remaining()<=0:raise SourceError('GOOGLE_REDIRECT_NOT_ALLOWED')
+        connection=http.client.HTTPSConnection(parts.hostname,timeout=min(self.remaining(),self.limits['connect_seconds']))
+        try:
+            connection.connect();connection.sock.settimeout(min(self.remaining(),self.limits['idle_seconds']))
+            connection.request('GET',parts.path+'?'+parts.query,headers={'User-Agent':'Mozilla/5.0','Accept':'text/html','Accept-Encoding':'identity'})
+            response=connection.getresponse();location=response.getheader('Location')
+            if response.status not in (301,302,303,307,308) or not location:raise SourceError('GOOGLE_REDIRECT_UNRESOLVED')
+            public_url(location)
+            if google_redirect(location):raise SourceError('GOOGLE_REDIRECT_UNRESOLVED')
+            return location  # Do not follow to the destination website.
+        finally:connection.close()
+
+    def resolve_result(self,result,ident):
+        result=compact(result);changed=False
+        for row in result['organic']:
+            if not google_redirect(row['link']) or row.get('resolution_error'):continue
+            changed=True
+            try:
+                if self.remaining()<=0:raise SourceError('NIGHT_DEADLINE')
+                self.resolution_calls+=1
+                target=self.redirect(row['link']);public_url(target)
+                if google_redirect(target):raise SourceError('GOOGLE_REDIRECT_UNRESOLVED')
+                row['original_link'],row['link']=row['link'],target
+            except (OSError,http.client.HTTPException,ValueError) as error:
+                row['resolution_error']=getattr(error,'code','GOOGLE_REDIRECT_UNRESOLVED')
+        if changed:
+            with self.core.db() as db:db.execute("UPDATE provider_requests SET response=? WHERE request_key=? AND state='completed'",(encode(result),ident))
+        return result
+
     def __call__(self, query, scope, day):
         context=make_daily_context(self.clock())
         if not context.publication_allowed or self.remaining()<=0 or day!=context.publication_date:raise SourceError('SERP_OBSERVATION_TIME_REQUIRED')
@@ -124,12 +163,13 @@ class BrightDataTransport:
         ident=hashlib.sha256(encode([auth['reference'],day,query]).encode()).hexdigest()
         with self.core.db() as db:
             old=db.execute('SELECT state,response FROM provider_requests WHERE request_key=?',(ident,)).fetchone()
-            if old:
-                if old[0]=='completed':return json.loads(old[1])
-                raise SourceError('SUBMISSION_UNKNOWN' if old[0] in ('pending','unknown') else 'SERP_PREVIOUS_REQUEST_FAILED')
-            used=db.execute('SELECT COUNT(*) FROM provider_requests WHERE authorization=?',(auth['reference'],)).fetchone()[0]
-            if used>=auth['request_allowance']:raise SourceError('SERP_AUTHORIZED_ALLOWANCE_EXHAUSTED')
-            db.execute('INSERT INTO provider_requests VALUES (?,?,?,?,?,?,?,?,?)',(ident,auth['reference'],day,'pending',None,None,None,auth['valid_until'],self.clock().isoformat()))
+            if not old:
+                used=db.execute('SELECT COUNT(*) FROM provider_requests WHERE authorization=?',(auth['reference'],)).fetchone()[0]
+                if used>=auth['request_allowance']:raise SourceError('SERP_AUTHORIZED_ALLOWANCE_EXHAUSTED')
+                db.execute('INSERT INTO provider_requests VALUES (?,?,?,?,?,?,?,?,?)',(ident,auth['reference'],day,'pending',None,None,None,auth['valid_until'],self.clock().isoformat()))
+        if old:
+            if old[0]=='completed':return self.resolve_result(json.loads(old[1]),ident)
+            raise SourceError('SUBMISSION_UNKNOWN' if old[0] in ('pending','unknown') else 'SERP_PREVIOUS_REQUEST_FAILED')
         params=dict(q=query['keyword'],gl=query['country'].lower(),hl=query['language'],brd_mobile='0' if query['device']=='desktop' else '1',brd_json='1')
         if query.get('location'):params['uule']=query['location']
         self.calls+=1
@@ -144,7 +184,7 @@ class BrightDataTransport:
             failure.stop_source=code in ('HTTP_400','HTTP_401','HTTP_402','HTTP_403','HTTP_410','HTTP_422','HTTP_429')
             raise failure from None
         with self.core.db() as db:db.execute('UPDATE provider_requests SET state=?,request_id=?,response=? WHERE request_key=?',('completed',request_id,encode(result),ident))
-        return result
+        return self.resolve_result(result,ident)
 
 
 class SerpSource:
@@ -181,6 +221,7 @@ class SerpSource:
             observed=self.clock().isoformat()
             try:
                 rows=parse_results(self.request(query,scope,day),query,brands)
+                failed=failed or any(row['status']=='unresolved' for row in rows)
             except (OSError,ValueError,RuntimeError,TypeError,KeyError) as error:
                 if getattr(error,'stop_source',False):raise
                 failed=True
