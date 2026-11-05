@@ -386,6 +386,15 @@ def pack(repo, output, commit):
                 for name, path in SOURCES.items()}
     if release.NATIVE_CAPABILITIES_MODE and any(baseline[n]!=value[0] for n,value in release.DESKTOP_EXISTING.items()):
         raise ValueError('desktop_installed_git_before_drift')
+    if release.NATIVE_CAPABILITIES_MODE:
+        for name,(before_sha,before_size,after_sha,after_size) in release.CUSTOMER_DAILY_FILES.items():
+            if SOURCES[name]!=release.CUSTOMER_DAILY_SOURCES[name] or baseline[name]!=before_sha:
+                raise ValueError('customer_daily_installed_git_before_drift')
+            old=subprocess.check_output(['git','show',INSTALLED_COMMIT+':'+SOURCES[name]],cwd=repo)
+            raw=subprocess.check_output(['git','show',release.CUSTOMER_DAILY_SOURCE_OVERLAYS[name]+':'+SOURCES[name]],cwd=repo)
+            if (digest(old),len(old))!=(before_sha,before_size) or (digest(raw),len(raw))!=(after_sha,after_size):
+                raise ValueError('customer_daily_fixed_git_source_drift')
+            baseline[name]=after_sha
     if not (release.ARCHIVE_MODE or release.COMPOSER_STATIC_MODE):baseline['http/formal.conf'] = INSTALLED_NGINX_SHA
     if release.COMPOSER_STATIC_MODE and (baseline!={'frontend/index.html':release.COMPOSER_BEFORE_SHA} or
             hashes['payload/frontend/index.html']!=release.COMPOSER_AFTER_SHA):
@@ -399,6 +408,7 @@ def pack(repo, output, commit):
     if release.NATIVE_CAPABILITIES_MODE and ({name for name in SOURCES if hashes['payload/'+name]!=baseline[name]}!=set(release.CAPABILITIES_CHANGED) or {name for name,value in baseline.items() if value is None}!=set(release.NEW)):
         raise ValueError('exact_native_capabilities_git_delta_required')
     installed_baseline={'source_commit': INSTALLED_COMMIT, 'files': baseline}
+    if release.NATIVE_CAPABILITIES_MODE:installed_baseline['source_overlays']=dict(release.CUSTOMER_DAILY_SOURCE_OVERLAYS)
     if release.NATIVE_MODE:
         legacy=digest(subprocess.check_output(['git','show',('23a27325b00f27a5c5696657c7c4141a06135f18' if release.NATIVE_ADMISSION_MODE else INSTALLED_COMMIT)+':'+SOURCES['approval/daily_review.py']],cwd=repo))
         if legacy!=release.NATIVE_LEGACY_DAILY_SHA:raise ValueError('native_legacy_daily_git_drift')
