@@ -92,7 +92,7 @@ def region_of_delivery(ds):
     if not hit:
         return ""
     # 同一单多行发货时取出现次数最多的那个
-    return sorted(hit.items(), key=lambda x: -x[1])[0][0]
+    return next(iter(hit)) if len(hit) == 1 else ""
 
 
 def norm_area(area, region):
