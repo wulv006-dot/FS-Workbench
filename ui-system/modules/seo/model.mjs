@@ -24,3 +24,15 @@ export class SnapshotClient {
   }
 }
 export const value = (input, percentage = false) => input == null ? '—' : percentage ? `${(Number(input) * 100).toFixed(1)}%` : Number(input).toLocaleString('zh-CN', {maximumFractionDigits: 2});
+
+export const latestRow = (rows, source) => [...rows].reverse().find(row => row.metrics[source] != null);
+export function chartSegments(rows, extract) {
+  const segments = []; let current;
+  rows.forEach((row, index) => {
+    const raw = extract(row), number = raw == null || raw === '' ? NaN : Number(raw);
+    if (!Number.isFinite(number)) {current = null; return;}
+    if (!current) {current = []; segments.push(current);}
+    current.push({index, value: number});
+  });
+  return segments;
+}

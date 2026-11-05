@@ -16,7 +16,7 @@
 
 ## 配置和候选
 
-config.example.json故意没有资源基线；不凭默认数值启动生产采集。config.187-calibrated.json是本轮少量现场样本及余量测得的脱敏候选，包含正常预警/运行/应急与宿主保留，未安装。HTTP响应和临时制作空间有充分有限余量；没有200请求、5天/10分钟或240秒业务硬限。
+config.example.json故意没有资源基线；不凭默认数值启动生产采集。config.187-calibrated.json采用本轮现场样本及余量，包含正常预警/运行/应急与宿主保留，已用于187基础安装；首夜实际峰值及后续观察边界见ACCEPTANCE-20261105.md。HTTP响应和临时制作空间有充分有限余量；没有200请求、5天/10分钟或240秒业务硬限。
 
 候选构建输入为本次只读获取的baseline哈希、现役formal路由、navigation.json及校准配置。输出目录须不存在：
 
@@ -24,7 +24,9 @@ config.example.json故意没有资源基线；不凭默认数值启动生产采�
 
 构建只追加SEO路由与导航项，不替换旧壳或整个导航；沿用仓库原FS发布器SHA256 5548d9c8411eb5bb888672b0e58246bfd9043a5e519decb1f8407d2da9e71357 的锁、CAS、私有备份、原ID对账和回滚。新资产/代码独立不可变目录；仅SEO web/daily/timer三个unit。03:20为单个timer，Persistent=false，不在白天补跑。新安装AI默认全关，已保存选择留在独立控制库，不随发布覆盖。
 
-只读授权不包含生产安装。批准具体manifest后，才从本机既有入口暂存，并顺序执行 `python release.py inspect`、`python release.py apply MANIFEST_SHA nav-YYYYMMDDTHHMMSSZ`。apply会启动SEO web及未来自然timer，不手动触发日报；执行前重新确认CAS、端口、资源、主业务服务和时区。部署异常沿原批journal/manifest核对后回滚，禁止换ID盲重放。回滚格式 `python release.py rollback BACKUP_DIR MANIFEST_SHA`，只还原本批代码/路由/SEO单元，不还原业务数据库或用户开关。
+前端按参考demo分为经营全景、游戏日程、数据来源；概览呈现需求/搜索/成交预估、国家矩阵和行动中心。原明细与AI设置保留下钻和旧tab地址，无快照时也可独立打开AI设置。展示只读已发布事实，不回源、补采、模拟排名或更改日期；未配置的国家/日程/AI显示实际边界。说明见`docs/planning/seo-daily-four-games-20261104/UI-DEMO-ALIGNMENT-20261105.md`。
+
+只读授权不自动包含生产安装；已获本轮安装范围授权后，从本机既有入口暂存，核本批manifest和实际CAS，并顺序执行 `python release.py inspect`、`python release.py apply MANIFEST_SHA nav-YYYYMMDDTHHMMSSZ`。apply会启动SEO web及未来自然timer，不手动触发日报；执行前重新确认CAS、端口、资源、主业务服务和时区。部署异常沿原批journal/manifest核对后回滚，禁止换ID盲重放。回滚格式 `python release.py rollback BACKUP_DIR MANIFEST_SHA`，只还原本批代码/路由/SEO单元，不还原业务数据库或用户开关。
 
 ## 维护和恢复
 
@@ -34,4 +36,4 @@ config.example.json故意没有资源基线；不凭默认数值启动生产采�
 
 ## 当前边界
 
-基础四游戏真源小样本、快照/导出/复制恢复有证据；全30天覆盖、187旧SQLite、真实FS入口、正式部署、自然夜间及下一周期仍需验收。可选SERP/页面URL清单未配置，显示真实缺口。AI仅适配/隔离测试通过，未接现役Provider/费用账本/研究/主动问答，不会真实调用；不能据此宣布AI上线。人工行动状态尚未接入现有任务台。
+四游戏Admin/GA4各30日、GSC各28日已真实发布；187旧SQLite、FS入口、部署、首夜自然批次、白天固定读取抽验和基础备份实际恢复有证据，完整白天持续/下一自然周期仍待观察。可选SERP/页面URL清单未配置，显示真实缺口。AI仅适配/隔离测试通过，未接现役Provider/费用账本/研究/主动问答，不会真实调用；不能据此宣布AI上线。人工行动状态尚未接入现有任务台。最新回执以同目录规划文档的ACCEPTANCE、NAVIGATION和UI-DEMO-ALIGNMENT记录为准。

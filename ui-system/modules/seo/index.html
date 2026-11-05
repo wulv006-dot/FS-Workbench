@@ -15,13 +15,16 @@
 <body class="fs-ui-page">
   <a class="skip" href="#main">跳到主内容</a>
   <header id="platform-header"><a href="/dashboard/">FS 工作台</a><span>数据分析 / SEO监控台</span></header>
-  <main id="main">
-    <div class="heading"><div><h1>SEO监控台</h1><p>MMOEXP 主站 · 夜间日更</p></div><a id="export" class="action-link" aria-disabled="true">导出当前版本</a></div>
-    <div class="toolbar"><label for="scope">游戏</label><select id="scope" disabled><option value="FC27">FC27</option><option value="D4">D4</option><option value="AION2">Aion2</option><option value="WOW_FOREVER">WowForever</option></select><p id="version">正在读取数据版本…</p></div>
-    <p id="status" role="status" aria-live="polite">正在读取已发布数据…</p>
-    <div id="tabs" role="tablist" aria-label="SEO分析视图"></div>
+  <main id="main" tabindex="-1">
+    <div class="heading"><div><h1>SEO监控台</h1><p>搜索需求、竞争位置与自然搜索成交</p></div><div id="tabs" role="tablist" aria-label="SEO分析视图"></div></div>
+    <section class="monitor-bar" aria-label="监控范围">
+      <div class="scope-row"><label for="scope">监控游戏</label><select id="scope" disabled><option value="FC27">FC27</option><option value="D4">Diablo 4</option><option value="AION2">Aion2</option><option value="WOW_FOREVER">WowForever</option></select><span class="scope-pill">MMOEXP 主站</span><span class="scope-pill">全部商品</span><span id="business-day" class="muted">业务目标日待发布</span><button id="ai-settings-entry" type="button" class="quiet-button">AI增强设置</button><a id="export" class="action-link" aria-disabled="true">导出当前版本</a></div>
+      <div id="source-strip" class="source-strip"><span class="muted">每日03:20一个批次，白天只读已发布数据</span></div>
+    </section>
+    <div class="publication-row"><p id="version">正在读取数据版本…</p><p id="status" role="status" aria-live="polite">正在读取已发布数据…</p></div>
+    <nav id="detail-nav" aria-label="当前分析位置"></nav>
     <section id="panel" role="tabpanel" aria-labelledby="tab-overview" aria-busy="true"><div class="loading">正在读取已发布快照…</div></section>
-    <footer>业务统计日按北京时间；GSC、GA4 保留各自源日期与时区。缺失数据不计为零。</footer>
+    <footer><span>来源可追溯，缺失不补零，AI关闭仍运行基础数据。</span><span>GSC保留太平洋源日；GA4与Admin保留实际统计日。</span></footer>
     <noscript>请启用 JavaScript 查看数据。页面操作只读取已发布快照。</noscript>
   </main>
 </body>
