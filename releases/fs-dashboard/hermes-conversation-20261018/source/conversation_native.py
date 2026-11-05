@@ -83,7 +83,7 @@ def validate_native_profile(config, profile):
 def validate_native_admission(item):
     value = item.get('native_chat')
     fields = {'owner','conversation_id','turn_id','request_id','session_id','lease','run_id'}
-    if (type(value) is not dict or set(value) - {'binding','environment','key','fingerprint','knowledge'}
+    if (type(value) is not dict or set(value) - {'binding','environment','key','fingerprint','knowledge','pricing'}
             or not {'binding','environment','key','fingerprint'}.issubset(value)):
         raise PermissionError('native_admission_invalid')
     bound = value['binding']
@@ -98,6 +98,10 @@ def validate_native_admission(item):
     if item.get('ready') is True and (bound['run_id'] != item.get('run_id') or
             not re.fullmatch('run_[a-f0-9]{32}', bound['run_id'] or '')):
         raise PermissionError('native_admission_run')
+    if 'pricing' in value:
+        validate_pricing_context(value['pricing'], bound['conversation_id'])
+        if item.get('reasoning_effort') != 'high':
+            raise PermissionError('native_pricing_reasoning')
     environment = value['environment']
     if 'knowledge' in value:
         from conversation_knowledge import validate_reference
@@ -108,6 +112,29 @@ def validate_native_admission(item):
             type(environment['files']) is not list):
         raise PermissionError('native_admission_paths')
     return bound
+
+
+def validate_pricing_context(value, cid):
+    from datetime import datetime
+    import uuid
+    fields = {'conversation','mode','runs','expires_at','source','source_quote_run','source_quote_sha256'}
+    if (type(value) is not dict or set(value) != fields or value['conversation'] != cid or
+            value['mode'] != 'daily_review' or
+            value['source'] != 'human_authorized_fc_pricing_v3_daily_effect_review_readonly' or
+            type(value['runs']) is not list or not value['runs'] or
+            any(type(run) is not str for run in value['runs'])):
+        raise PermissionError('native_pricing_context')
+    try:
+        for run in value['runs']:uuid.UUID(run)
+        expires = datetime.fromisoformat(value['expires_at'])
+        if expires.tzinfo is None:raise ValueError('timezone_required')
+        quote, digest = value['source_quote_run'], value['source_quote_sha256']
+        if quote is not None or digest is not None:
+            uuid.UUID(quote)
+            if type(digest) is not str or not re.fullmatch('[a-f0-9]{64}', digest):raise ValueError('hash_required')
+    except (ValueError, TypeError, AttributeError):
+        raise PermissionError('native_pricing_context') from None
+    return value
 
 
 def execution_workspace(binding, root=None):
@@ -490,6 +517,14 @@ class NativeDockerBackend:
         self.check(task_id)
         return value
 
+    def pricing_call(self,arguments,task_id=None):
+        self.check(task_id)
+        if not callable(getattr(self,'pricing_rpc',None)):
+            raise PermissionError('native_pricing_relay_unavailable')
+        value=self.pricing_rpc(arguments)
+        self.check(task_id)
+        return value
+
     def read_path(self,path,params,task_id=None):
         self.check(task_id)
         if not callable(getattr(self,'read_call',None)):
@@ -670,15 +705,26 @@ class NativeConversation:
                        'turn_id TEXT PRIMARY KEY,binding TEXT NOT NULL,body TEXT NOT NULL,'
                        'idempotency_key TEXT NOT NULL UNIQUE,fingerprint TEXT NOT NULL,'
                        'schemas TEXT,stopped INTEGER NOT NULL DEFAULT 0)')
+            if 'pricing_context' not in {row[1] for row in db.execute('PRAGMA table_info(native_conversation_runs)')}:
+                db.execute('ALTER TABLE native_conversation_runs ADD COLUMN pricing_context TEXT')
             db.execute('CREATE TABLE IF NOT EXISTS native_pending_sources ('
                        'owner TEXT NOT NULL,cid TEXT NOT NULL,turn_id TEXT NOT NULL,session_id TEXT NOT NULL,'
                        'run_id TEXT NOT NULL,profile_key TEXT NOT NULL,lease TEXT NOT NULL,subsystem TEXT NOT NULL,'
                        'pending_id TEXT NOT NULL,record_sha256 TEXT NOT NULL,'
                        'PRIMARY KEY(owner,subsystem,pending_id,record_sha256))')
         previous=getattr(self.hermes.tasks,'_native_active_model_tasks',None)
-        if previous is not None and getattr(getattr(getattr(previous,'__self__',None),'store',None),'path',None) != self.store.path:
+        if previous is None:
+            self.hermes.tasks._native_conversation_stores={}
+            self.hermes.tasks._native_active_model_tasks=self._registered_active_tasks
+        elif getattr(previous,'__func__',None) is not NativeConversation._registered_active_tasks:
             raise RuntimeError('native_liveness_store_conflict')
-        self.hermes.tasks._native_active_model_tasks=self.native_only_active_tasks
+        # Replace the same store on reconstruction; retain the other native store.
+        self.hermes.tasks._native_conversation_stores[self.store.path]=self
+
+    def _registered_active_tasks(self):
+        # Direct native SELECTs only: active_tasks already consumes this union.
+        stores=tuple(self.hermes.tasks._native_conversation_stores.values())
+        return {task for native in stores for task in native.native_only_active_tasks()}
 
     def row(self, owner, cid, turn_id):
         if self.store.is_archived(owner,cid,turn_id):return None
@@ -689,6 +735,8 @@ class NativeConversation:
             return None
         result = dict(row)
         result['binding'] = json.loads(result['binding'])
+        if result['pricing_context'] is not None:
+            result['pricing_context'] = json.loads(result['pricing_context'])
         if (result['binding']['owner'], result['binding']['conversation_id']) != (owner, cid):
             raise PermissionError('native_binding_owner')
         return result
@@ -700,8 +748,32 @@ class NativeConversation:
         if row is None or row['stopped'] or row['binding'] != binding or not binding['run_id']:
             return False
         turn = self.store.run(binding['owner'], binding['conversation_id'], binding['run_id'])
+        try:
+            current = self.pricing_context(binding['owner'],binding['conversation_id']) if row['pricing_context'] is not None else None
+        except PermissionError:
+            return False
         return (turn['state'] in {'queued', 'running'} and
-                (turn['task_id'], turn['lease']) == (binding['turn_id'], binding['lease']))
+                (turn['task_id'], turn['lease']) == (binding['turn_id'], binding['lease']) and
+                (row['pricing_context'] is None or
+                 row['pricing_context'] == current))
+
+    def pricing_context(self, owner, cid):
+        # This is the original tasks DB and authenticated conversation owner.
+        with self.store.db() as db:self.store._owned(db,owner,cid)
+        with self.hermes.tasks.db() as db:
+            if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='pricing_grants'").fetchone():
+                return None
+            from pricing_operations import tables
+            tables(db)
+            row=db.execute('SELECT conversation,mode,runs,expires_at,source,source_quote_run,source_quote_sha256 '
+                           'FROM pricing_grants WHERE owner=? AND conversation=?',(owner,cid)).fetchone()
+        if row is None or row[1] != 'daily_review':return None
+        fields=('conversation','mode','runs','expires_at','source','source_quote_run','source_quote_sha256')
+        value=dict(zip(fields,row));value['runs']=json.loads(value['runs'])
+        validate_pricing_context(value,cid)
+        from datetime import datetime
+        if datetime.fromisoformat(value['expires_at']) <= self.hermes.clock():return None
+        return value
 
     def active_tasks(self):
         from fs_inprocess import active_model_tasks
@@ -739,6 +811,9 @@ class NativeConversation:
                 not re.fullmatch('[a-f0-9]{64}', value['catalog_sha256'] or '') or
                 type(value['registry_generation']) is not int or value['registry_generation'] < 0):
             raise ValueError('native_schema_registration')
+        row=self.row(binding['owner'],binding['conversation_id'],binding['turn_id'])
+        if row['pricing_context'] is not None and value['reasoning_effort'] != 'high':
+            raise PermissionError('native_pricing_reasoning')
         if value['reasoning_effort'] not in ('none','minimal','low','medium','high','xhigh','max','ultra'):
             raise ValueError('native_reasoning_config')
         raw = canonical(value)
@@ -814,6 +889,32 @@ class NativeConversation:
                     raise PermissionError('native_gateway_changed')
             if self.authorized(binding) is not True:raise PermissionError('native_chat_inactive')
             return result
+        if name == 'fs.native.pricing':
+            if (type(arguments) is not dict or set(arguments)!={'binding','arguments'} or
+                    arguments['binding']!=binding or not self.authorized(binding)):
+                raise PermissionError('native_chat_inactive')
+            row=self.row(binding['owner'],binding['conversation_id'],binding['turn_id'])
+            if row['pricing_context'] is None:raise PermissionError('native_pricing_required')
+            from types import SimpleNamespace
+            from pricing_operations import call, schema, native
+            def context(owner,turn,lease):
+                if ((owner,turn,lease)!=(binding['owner'],binding['turn_id'],binding['lease']) or
+                        not self.authorized(binding)):
+                    raise PermissionError('native_chat_inactive')
+                return dict(binding)
+            scope=SimpleNamespace(tasks=self.hermes.tasks,clock=self.hermes.clock,context=context)
+            def readonly_request(path,owner,body=None):
+                context(owner,binding['turn_id'],binding['lease'])
+                if body is not None:raise PermissionError('native_pricing_readonly')
+                return native(path,owner)
+            result=call(scope,binding['owner'],binding['turn_id'],binding['lease'],arguments['arguments'],
+                        request=readonly_request)
+            if arguments['arguments'].get('action')=='capabilities':
+                tool=schema()
+                tool['function']['parameters']['properties']['action']['enum']=result['allowed_actions']
+                result=dict(result,tool_schema=tool)
+            context(binding['owner'],binding['turn_id'],binding['lease'])
+            return result
         if name == 'fs.native.user_data':
             return self.user_data_tool(binding,arguments)
         if name == 'fs.native.read':
@@ -835,6 +936,9 @@ class NativeConversation:
         if (type(value) is not dict or set(value)!={'binding','name','arguments'} or
                 value['binding']!=binding or not self.authorized(binding)):
             raise PermissionError('native_chat_inactive')
+        row=self.row(binding['owner'],binding['conversation_id'],binding['turn_id'])
+        if row['pricing_context'] is not None and value['name'] not in {'fs_get_data_catalog','fs_query_user_analytics'}:
+            raise PermissionError('native_pricing_readonly')
         return self._user_data().call(binding,value['name'],value['arguments'])
 
     def _user_data(self):
@@ -853,11 +957,15 @@ class NativeConversation:
             if row is not None and row['request_id'].startswith('followup_'):data=self._user_data()
         return data.finish(turn_id,state) if data is not None else []
 
-    def dispatch(self, owner, cid, turn_id, session_id, text, request_id):
+    def dispatch(self, owner, cid, turn_id, session_id, text, request_id, *, pricing_context=None):
         from conversation_file_bindings import FileBindings
         from fs_inprocess import native_gateway
         from native_chat import NativeChatScope
         token = None
+        if pricing_context is not None:
+            validate_pricing_context(pricing_context,cid)
+            if pricing_context != self.pricing_context(owner,cid):
+                raise PermissionError('native_pricing_context_changed')
         bound = dict(owner=owner, conversation_id=cid, turn_id=turn_id, request_id=request_id,
                      session_id=session_id, lease=secrets.token_hex(16), run_id=None)
         body = {'input': text, 'session_id': session_id}
@@ -875,8 +983,9 @@ class NativeConversation:
             if turn['state'] != 'preparing':
                 raise PermissionError('native_turn_state')
             files = FileBindings(self.store).bound(db, owner, cid, turn_id)['inputs']
-            db.execute('INSERT INTO native_conversation_runs(turn_id,binding,body,idempotency_key,fingerprint) '
-                       'VALUES(?,?,?,?,?)', (turn_id, canonical(bound), canonical(body), key, fingerprint))
+            db.execute('INSERT INTO native_conversation_runs(turn_id,binding,body,idempotency_key,fingerprint,pricing_context) '
+                       'VALUES(?,?,?,?,?,?)', (turn_id, canonical(bound), canonical(body), key, fingerprint,
+                                              canonical(pricing_context) if pricing_context is not None else None))
         try:
             if self.hermes.authorizer(owner) is not True:
                 raise PermissionError('native_chat_revoked')
@@ -884,11 +993,17 @@ class NativeConversation:
             from conversation_knowledge import lock_knowledge
             knowledge = lock_knowledge(self, bound, environment)
             self.store.bind_task(owner, cid, turn_id, turn_id, bound['lease'])
-            token = self.hermes.grants.mint(owner, turn_id, bound['lease'], reasoning_effort='none')
+            effort='high' if pricing_context is not None else 'none'
+            token = self.hermes.grants.mint(owner, turn_id, bound['lease'], reasoning_effort=effort)
             admission = {'session_id': session_id, 'token': token, 'model': 'deepseek-flash',
                          'prompt': '', 'conversation': True, 'ready': False,
                          'native_chat': {'binding': bound, 'environment': environment,
                                          'key': key, 'fingerprint': fingerprint, 'knowledge': knowledge}}
+            if pricing_context is not None:
+                admission['native_chat']['pricing']=pricing_context
+                admission['reasoning_effort']='high'
+                if pricing_context != self.pricing_context(owner,cid):
+                    raise PermissionError('native_pricing_context_changed')
             self.write_admission(session_id, admission)
             # Exactly one POST. Loss of 202 leaves the original persisted key unknown.
             code, result = self.service._request('POST', '/v1/runs', body, key)
@@ -899,8 +1014,10 @@ class NativeConversation:
             with self.store.db() as db:
                 db.execute('UPDATE native_conversation_runs SET binding=? WHERE turn_id=?', (canonical(bound), turn_id))
             scope = NativeChatScope(bound, lambda: self.authorized(bound), model_schemas=lambda: self.schemas(bound),
-                                    reasoning_effort=lambda: self.reasoning_effort(bound), call_tool=lambda name, args: self.host_tool(bound, name, args))
-            item_gateway = native_gateway(self.hermes.daily, scope, active_tasks=self.active_tasks)
+                                    reasoning_effort=lambda: self.reasoning_effort(bound), call_tool=lambda name, args: self.host_tool(bound, name, args),
+                                    pricing_context=pricing_context)
+            item_gateway = native_gateway(self.hermes.daily, scope, active_tasks=self.active_tasks,
+                                          provider_lane='pricing' if pricing_context is not None else 'general')
             with self.hermes.lock:
                 self.hermes.tokens[turn_id] = token
                 self.hermes.books[turn_id] = scope
@@ -908,8 +1025,9 @@ class NativeConversation:
             live = (turn_id, bound['lease'], token)
             with self.service.lock:
                 self.service.live[turn_id] = live
-            from conversation_user_data import prepare_campaign_approval
-            prepare_campaign_approval(self,bound)
+            if pricing_context is None:
+                from conversation_user_data import prepare_campaign_approval
+                prepare_campaign_approval(self,bound)
             admission['native_chat']['binding'] = bound
             admission.update(run_id=bound['run_id'], ready=True)
             self.write_admission(session_id, admission)

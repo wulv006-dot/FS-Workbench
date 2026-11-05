@@ -160,15 +160,19 @@ class ConversationService:
         self.live = {}
         self.customer_tracking = None
         self.lock = threading.RLock()
-        self.native = None
-        if not pricing_only:
-            from conversation_native import NativeConversation
-            self.native = NativeConversation(self)
+        from conversation_native import NativeConversation
+        self.native = NativeConversation(self)
         # Pricing reviews have their own durable store and execution queue. They
         # are not visible in the ordinary conversation list or report pool.
         self.pricing = None if pricing_only else ConversationService(hermes_service,
             self.store.root.parent / 'pricing-reviews', run_root, pricing_only=True)
-        # Existing runs are reconciled by original run id, never submitted again.
+        # The root constructs both native stores before either recovery can spend.
+        if not pricing_only:
+            self._recover_active()
+            self.pricing._recover_active()
+
+    def _recover_active(self):
+        # Existing legacy/native runs retain their original execution identity.
         for row in self.store.active():
             if row["run_id"]:
                 self.pool.submit(self._recover, row["owner"], row["conversation_id"], row["turn_id"], row["run_id"])
@@ -232,8 +236,9 @@ class ConversationService:
                 raise PermissionError("pricing_review_lane_required")
             if pricing_lane and file_ids:
                 raise PermissionError("pricing_file_attachments_unavailable")
+            pricing_context=self.native.pricing_context(user,conversation_id) if pricing_lane else None
             item = self.store.reserve_turn(user, conversation_id, text, client_request_id, file_ids=file_ids,
-                                           native=not pricing_lane and not self.pricing_only)
+                                           native=not pricing_lane or pricing_context is not None)
             if not item["reused"]:
                 hold = (spending_hold(self.hermes.daily,self.hermes.tasks,user,active_tasks=self.native.active_tasks)
                         if self.native else spending_hold(self.hermes.daily,self.hermes.tasks,user))
@@ -270,6 +275,14 @@ class ConversationService:
     def _dispatch(self, user, conversation_id, turn_id, session_id, text, request_id, pricing_lane=False):
         if not pricing_lane and not self.pricing_only:
             return self.native.dispatch(user, conversation_id, turn_id, session_id, text, request_id)
+        if pricing_lane:
+            pricing_context=self.native.pricing_context(user,conversation_id)
+            if pricing_context is not None:
+                return self.native.dispatch(user,conversation_id,turn_id,session_id,text,request_id,
+                                            pricing_context=pricing_context)
+            if not self._pricing_lane(user,conversation_id):
+                self.store.set_state(user,conversation_id,turn_id,'failed')
+                raise PermissionError('pricing_review_lane_required')
         token = task = lease = run_id = None
         stage='evidence_book'
         admission_path = self.run_root / "admissions" / (session_id + ".json")
@@ -616,7 +629,7 @@ class ConversationService:
             turn = self.store.run(user, conversation_id, run_id)
             if turn["state"] in TERMINAL:
                 return {"run_id": run_id, "state": turn["state"], "reused": True}
-            reserved = self.store.action(user, conversation_id, run_id, kind, request_id, text, native=self.native is not None)
+            reserved = self.store.action(user, conversation_id, run_id, kind, request_id, text, native=bool(self.native and self.native.row(user,conversation_id,turn['id'])))
             if reserved["reused"]:
                 return {"run_id": run_id, **reserved}
             if kind == 'stop' and self.native and self.native.row(user, conversation_id, turn['id']):

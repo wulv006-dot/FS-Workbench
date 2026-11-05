@@ -629,10 +629,12 @@ def make_adapter(api_key):
             from conversation_native import (NativeDockerBackend, install_native_backend_guards, canonical, validate_native_profile)
             install_native_backend_guards()
             fixed = item['native_chat']['binding']
+            pricing = item['native_chat'].get('pricing')
             def active():
                 current = admission(fixed['session_id'])
                 if not (current.get('ready') is True and current.get('run_id') == fixed['run_id'] and
-                        current.get('native_chat', {}).get('binding') == fixed):
+                        current.get('native_chat', {}).get('binding') == fixed and
+                        current.get('native_chat', {}).get('pricing') == pricing):
                     return False
                 checked = json.loads(call_tool('fs.native.check', {'binding': fixed},session_id=fixed['session_id']))
                 return checked.get('authorized') is True
@@ -641,6 +643,8 @@ def make_adapter(api_key):
                 {'binding':fixed,'name':name,'arguments':args},session_id=fixed['session_id']))
             backend.read_call=lambda path,params:json.loads(call_tool('fs.native.read',
                 {'binding':fixed,'path':path,'params':params},session_id=fixed['session_id']))
+            backend.pricing_rpc=lambda arguments:json.loads(call_tool('fs.native.pricing',
+                {'binding':fixed,'arguments':arguments},session_id=fixed['session_id']))
             with backend.scope():
                 config = validate_native_profile(hermes_config.load_config(),backend.profile)
                 backend.ensure_environment()
@@ -648,8 +652,22 @@ def make_adapter(api_key):
                 from fs_native_readonly import register_scope
                 register_scope(registry,str(backend.profile))
                 from hermes_constants import resolve_reasoning_config
-                reasoning = resolve_reasoning_config(config,item['model'])
-                enabled = sorted((set(_get_platform_tools(config, 'api_server')) - {'fs_native_knowledge'}) | {'fs_readonly'})
+                if pricing is not None:
+                    if item.get('reasoning_effort') != 'high':
+                        raise PermissionError('native_pricing_reasoning_changed')
+                    from fs_native_readonly import register_pricing_scope
+                    register_pricing_scope(registry, str(backend.profile), backend.pricing_call({'action':'capabilities'}))
+                    reasoning = {'enabled':True,'effort':item['reasoning_effort']}
+                    enabled = sorted((set(_get_platform_tools(config, 'api_server')) -
+                        {'fs_readonly','fs_fc_readonly','fs_materials','fs_native_knowledge'}) | {'fs_native_pricing_readonly'})
+                    # The official SDK subtracts disabled sets by tool name.
+                    # Disabling fs_fc_readonly here would remove the pricing
+                    # name explicitly selected by our independent static set.
+                    disabled = ['fs_materials','fs_native_pricing_unavailable']
+                else:
+                    reasoning = resolve_reasoning_config(config,item['model'])
+                    enabled = sorted((set(_get_platform_tools(config, 'api_server')) - {'fs_native_knowledge'}) | {'fs_readonly'})
+                    disabled = ['fs_materials','fs_fc_readonly']
                 knowledge = None
                 if item['native_chat'].get('knowledge') is not None:
                     from conversation_knowledge import WorkerKnowledge, register_scope as knowledge_scope
@@ -673,7 +691,7 @@ def make_adapter(api_key):
                     prompt += '\n' + knowledge.prompt()
                 agent = AIAgent(base_url=PROXY+'/v1', api_key=item['token'], provider='custom',
                     api_mode='chat_completions', model=item['model'], enabled_toolsets=enabled,
-                    disabled_toolsets=['fs_materials','fs_fc_readonly'], session_id=fixed['session_id'],
+                    disabled_toolsets=disabled, session_id=fixed['session_id'],
                     cwd=backend.environment['workspace'], ephemeral_system_prompt=prompt, platform='api_server',
                     skip_context_files=False, load_soul_identity=True, skip_memory=False,
                     skip_background_review=False, fallback_model=None, quiet_mode=True,
