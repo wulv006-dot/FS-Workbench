@@ -80,18 +80,39 @@ class FollowupSources(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'continuation_management_context_missing'):
             mod.FrozenEvidenceBook(task,{row['evidence_id']:row},{'version':'fixture'})
 
-    def test_source_loading_guards_are_unchanged(self):
+    def test_legacy_source_loading_guards_are_preserved_with_native_metadata(self):
         import ast
         original=ROOT/'releases/fs-dashboard/hermes-followup-evidence-20261017/source/continuation.py'
         old=ast.parse(original.read_text(encoding='utf-8'));new=ast.parse((SOURCE/'continuation.py').read_text(encoding='utf-8'))
         for name in ('load_report_followup','load_continuation','can_continue','compatible_version'):
-            def node(tree):
+            def node(tree,native=False):
                 fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name==name)
+                if native and name in ('load_report_followup','load_continuation'):
+                    self.assertEqual([a.arg for a in fn.args.kwonlyargs],['skills'])
+                    self.assertEqual([ast.literal_eval(v) for v in fn.args.kw_defaults],[None])
+                    fn.args.kwonlyargs=[];fn.args.kw_defaults=[]
+                    body=[]
+                    for statement in fn.body:
+                        if isinstance(statement,ast.If) and ast.dump(statement.test)==ast.dump(ast.parse('skills is None',mode='eval').body):
+                            if len(statement.body)==1 and isinstance(statement.body[0],ast.Assign):
+                                self.assertEqual(ast.dump(statement.body[0]),ast.dump(ast.parse('skills=load_bundle(root)').body[0]))
+                                body.extend(statement.body)
+                            else:
+                                self.assertTrue(any(isinstance(n,ast.ImportFrom) and n.module=='native_reports' for n in statement.body))
+                            continue
+                        if isinstance(statement,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='native' for t in statement.targets):
+                            self.assertEqual(ast.dump(statement.value),ast.dump(ast.parse('skills is not None',mode='eval').body))
+                            continue
+                        if isinstance(statement,ast.If) and isinstance(statement.test,ast.BoolOp) and ast.dump(statement.test.values[0])==ast.dump(ast.parse('not native',mode='eval').body):
+                            remaining=statement.test.values[1:]
+                            statement.test=remaining[0] if len(remaining)==1 else ast.BoolOp(op=statement.test.op,values=remaining)
+                        body.append(statement)
+                    fn.body=body
                 if name=='load_report_followup':
                     end=next(i for i,n in enumerate(fn.body) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='book' for t in n.targets))
                     fn.body=fn.body[:end+1]
                 return ast.dump(fn)
-            self.assertEqual(node(old),node(new))
+            self.assertEqual(node(old),node(new,native=True))
 
     def test_publisher_changes_one_source_and_reloads_only_reader(self):
         import io,json,tempfile

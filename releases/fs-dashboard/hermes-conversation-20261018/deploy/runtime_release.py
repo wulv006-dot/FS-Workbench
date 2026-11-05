@@ -376,7 +376,7 @@ SOFTWARE_MAPPINGS = {
     'runtime/fs_native_knowledge.py': ('releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/knowledge.py', '/opt/fs-hermes-fc/fs_native_knowledge.py'),
     'runtime/fs_evidence.py': ('releases/fs-dashboard/fc-coins-workflow-20261022/source/fs_evidence.py', '/opt/fs-hermes-fc/fs_evidence.py'),
     'runtime/report_artifacts.py': ('releases/fs-dashboard/hermes-data-workspace-20261018/source/report_artifacts.py', '/opt/fs-hermes-fc/report_artifacts.py'),
-    'runtime/continuation.py': ('releases/fs-dashboard/hermes-data-workspace-20261018/source/continuation.py', '/opt/fs-hermes-fc/continuation.py'),
+    'runtime/continuation.py': ('releases/fs-dashboard/hermes-report-repair-20261019/source/continuation.py', '/opt/fs-hermes-fc/continuation.py'),
     'http/range_api.py': ('releases/fs-dashboard/management-november-20261103/source/range_api.py', '/opt/fs-exact-range-20261001/range_api.py'),
     'runtime/native_reports.py': ('releases/fs-dashboard/knowledge-layering-20261023/source/native_reports.py', '/opt/fs-hermes-fc/native_reports.py'),
 }

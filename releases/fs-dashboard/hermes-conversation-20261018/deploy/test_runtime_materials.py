@@ -1466,6 +1466,26 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 
+    def test_continuation_pack_reads_the_active_report_repair_git_source(self):
+        name='runtime/continuation.py'
+        source='releases/fs-dashboard/hermes-report-repair-20261019/source/continuation.py'
+        before={name:dict(source_commit=self.BEFORE,source_path=source)}
+        with self.scope_fixture() as f:
+            blobs={self.BEFORE+':'+source:b'original richer ReportRepair continuation',
+                   self.AFTER+':'+source:b'native continuation on the original richer source'}
+            for file,path in prepare.PUBLISHER_SOURCES.items():
+                blobs[self.AFTER+':'+path]=(f.bundle/file).read_bytes()
+            def git(command,**kwargs):
+                self.assertEqual(command[:2],['git','show'])
+                return blobs[command[2]]
+            output=f.root/'active-continuation-pack'
+            with patch.object(prepare.subprocess,'check_output',side_effect=git):
+                prepare.pack(f.root,output,self.AFTER,software_before=before)
+            descriptor=json.loads((output/'payload-manifest.json').read_bytes())
+            self.assertEqual(descriptor['software_sources'],{name:source})
+            self.assertEqual((output/'before'/name).read_bytes(),blobs[self.BEFORE+':'+source])
+            self.assertEqual((output/'payload'/name).read_bytes(),blobs[self.AFTER+':'+source])
+
     def assert_report_mapping(self, name):
         self.assertIn(name,prepare.SOFTWARE_SOURCES,'actual report source needs reviewed mapping')
 

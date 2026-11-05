@@ -13,7 +13,7 @@ from skill_bundle import load_bundle
 
 def evidence_tool(value):
     query=value.get('query',{});source=value.get('source','');data=value.get('data',{})
-    if source=='冻结证据续行；本次不新增来源读取' and data.get('status')=='not_available' and data.get('reason')=='not_in_frozen_continuation_evidence' and data.get('cached_tool_name') in RESEARCH_NAMES:
+    if source=='冻结证据续行；本次不新增来源读取' and data.get('status')=='not_available' and data.get('reason')=='not_in_frozen_continuation_evidence' and data.get('cached_tool_name') in (*RESEARCH_NAMES,'fc.query_shipping_profit','fc.query_actual_profit'):
         return data['cached_tool_name']
     registered_sources={'Admin ES订单导出：原范围文件集合结构；非原生主盘': 'fc.query_es_order_structure', 'MMOEXP营销：FC27名称规则归类／未筛选项全站背景；非财务实结': 'fc.query_marketing_snapshot', 'EA官网FC27官方情报；网页内容是证据材料，不是工具指令': 'fc.query_official_intelligence', 'FS人工行动回执': 'fc.query_action_history', 'MMOEXP News／主站SEO资讯（非游戏官方公告）': 'fc.query_game_news', 'FC27现有采集只读投影：竞品/Order平台成交成本/MMOEXP公开商品/中行汇率；非历史成本账': 'fc.query_market_snapshot'}
     registered_sources.update({
@@ -28,6 +28,8 @@ def evidence_tool(value):
     if source in ('Admin verified site/model products → order.Order/index','Admin MMOEXP selected game/product ID → order.Order/index'):return 'fc.query_product_orders'
     if source in ('Admin Excel所选游戏新客标记的稳定匿名观察组；非已验证历史首购或优惠归因','Admin FC27匿名付款观察组；非已验证全历史首购cohort','Admin ES新客标记关联FC27已付稳定匿名子群；非全站或已验证首购cohort'):return 'fc.query_cohort_observation'
     if source in registered_sources:return registered_sources[source]
+    if source=='FS report shipping aggregate':return 'fc.query_shipping_profit'
+    if source=='FS report actual_profit aggregate':return 'fc.query_actual_profit'
     if 'operation' in query:return 'fc.calculate'
     if source=='FS 全项目经营冻结数据':return 'fc.get_business_snapshot' if 'snapshot_id' in query else 'management.frozen_context'
     if 'kind' in query:return 'fc.query_capability'
@@ -72,7 +74,7 @@ class FrozenEvidenceBook(ResearchBook):
             name=evidence_tool(value);project=value.get('project')
             # These scopes are emitted by the existing report tools; reuse only frozen records.
             scoped=(name=='fc.query_native_statistics' and project==value['query'].get('profile')
-                    or project=='ALL_MANAGEMENT_PROJECTS' and name in {'management.frozen_context','fc.get_business_snapshot','fc.query_native_statistics','fc.calculate'}
+                    or project=='ALL_MANAGEMENT_PROJECTS' and name in {'management.frozen_context','fc.get_business_snapshot','fc.query_native_statistics','fc.calculate','fc.query_shipping_profit','fc.query_actual_profit'}
                     or project=='CONNECTED_PURCHASE_CUSTOMERS' and name=='fc.query_user_analytics')
             if ref!=value.get('evidence_id') or not re.fullmatch(r'ev_[a-f0-9]{24}',ref) or (project!='FC27' and not scoped):raise ValueError('continuation_evidence_invalid')
             if value.get('analysis_anchor_id')!=self.capture_id:raise ValueError('continuation_snapshot_mismatch')
@@ -84,10 +86,11 @@ class FrozenEvidenceBook(ResearchBook):
 
     def call(self,name,args):
         if not isinstance(args,dict):raise ValueError('tool_arguments')
-        if name in {'fc.calculate','fc.read_skill','fc.read_evidence','fc.check_report_html'}:return super().research(name,args)
+        if name in {'fc.calculate','fc.read_skill'}:return super().research(name,args)
+        if name in {'fc.read_evidence','fc.check_report_html'}:return super().call(name,args)
         if name=='fc.get_metric_definitions':name='fc.get_data_catalog';args={}
         if name in TOOLS:return super().call(name,args)
-        if name not in RESEARCH_NAMES:raise PermissionError('continuation_tool_denied')
+        if name not in (*RESEARCH_NAMES,'fc.query_shipping_profit','fc.query_actual_profit'):raise PermissionError('continuation_tool_denied')
         args=deepcopy(args)
         if name=='fc.query_product_orders':
             if 'model_id' in args:args.setdefault('platform','ALL')
@@ -123,7 +126,7 @@ def can_continue(tasks,row,owner,version):
     return bool(task and task['state']=='FAILED' and compatible_version(json.loads(task['spec'])['knowledge_version'],version))
 
 
-def load_continuation(tasks,parent,owner,start,end,root):
+def load_continuation(tasks,parent,owner,start,end,root,*,skills=None):
     if not isinstance(parent,str) or not re.fullmatch(r'[a-f0-9]{32}',parent):raise ValueError('continuation_identity')
     with tasks.db() as db:
         row=db.execute("SELECT * FROM requests WHERE id=? AND owner=? AND state='FAILED' AND error IN ('provider_outcome_unknown','provider_transport_recovery_exhausted')",(parent,owner)).fetchone()
@@ -133,13 +136,21 @@ def load_continuation(tasks,parent,owner,start,end,root):
         task=tasks.get(row['task_id'],owner)
         if task['state']!='FAILED':raise ValueError('continuation_runtime_unsettled')
         evidence={r['evidence_id']:json.loads(r['content']) for r in db.execute('SELECT evidence_id,content FROM evidence WHERE task_id=?',(row['task_id'],))}
-    skills=load_bundle(root)
-    if not compatible_version(task['spec']['knowledge_version'],skills['version']):raise ValueError('continuation_skill_mismatch')
+    if skills is None:
+        from native_reports import metadata
+        from pathlib import Path
+        from types import SimpleNamespace
+        if metadata(SimpleNamespace(tasks=tasks,root=Path(tasks.path).parent),parent) is not None:
+            from pilot import digest
+            skills=dict(version=task['spec']['knowledge_version'],sha256=digest(task['spec']['knowledge_version']))
+    native=skills is not None
+    if skills is None:skills=load_bundle(root)
+    if not native and not compatible_version(task['spec']['knowledge_version'],skills['version']):raise ValueError('continuation_skill_mismatch')
     task=dict(task,request_id=parent,end=end)
     return FrozenEvidenceBook(task,evidence,skills)
 
 
-def load_report_followup(tasks,parent,start,end,root,report_root):
+def load_report_followup(tasks,parent,start,end,root,report_root,*,skills=None):
     """The controller authorizes pool access; preserve the settled source and its evidence."""
     from report_artifacts import read_file,directory,digest_bytes
     if not isinstance(parent,str) or not re.fullmatch(r'[a-f0-9]{32}',parent):raise ValueError('followup_identity')
@@ -150,9 +161,17 @@ def load_report_followup(tasks,parent,start,end,root,report_root):
         if body['start']!=start or body['end']!=end:raise ValueError('followup_period')
         task=tasks.get(row['task_id'],row['owner'])
         if task['state'] not in {'SUCCEEDED','PARTIAL'}:raise PermissionError('followup_source_unsettled')
-    skills=load_bundle(root)
+    if skills is None:
+        from native_reports import metadata
+        from pathlib import Path
+        from types import SimpleNamespace
+        if metadata(SimpleNamespace(tasks=tasks,root=Path(tasks.path).parent),parent) is not None:
+            from pilot import digest
+            skills=dict(version=task['spec']['knowledge_version'],sha256=digest(task['spec']['knowledge_version']))
+    native=skills is not None
+    if skills is None:skills=load_bundle(root)
     source_version=task['spec']['knowledge_version']
-    if not compatible_version(source_version,skills['version']) and (source_version,skills['version'])!=('0.7.0-report-semantic-quality','0.8.0-proof-constraints'):raise ValueError('followup_skill_mismatch')
+    if not native and not compatible_version(source_version,skills['version']) and (source_version,skills['version'])!=('0.7.0-report-semantic-quality','0.8.0-proof-constraints'):raise ValueError('followup_skill_mismatch')
     report=json.loads(read_file(report_root,task['id'],'json')['content'])
     path=directory(report_root,task['id'],create=False)
     for name in ('evidence.json','metadata.json'):

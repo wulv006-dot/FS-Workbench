@@ -26,6 +26,7 @@ P='releases/fc-coins/fc-pricing-v3-20261026/source'
 R='releases/fc-coins/fc-review-channel-20261026/source'
 V='releases/fs-dashboard/hermes-v2-core-20261020/source'
 W='releases/fs-dashboard/hermes-data-workspace-20261018/source'
+RP='releases/fs-dashboard/hermes-report-repair-20261019/source'
 PILOT='releases/fs-dashboard/hermes-fc-pilot-20261013'
 paths=[K,P,R,F,V,C,W,PILOT,'releases/fs-dashboard/nightly-reschedule-20261025/source',
        'releases/fs-dashboard/hermes-admin-recovery-20261020/source','releases/fs-dashboard/fc-daily-20261013/source',
@@ -80,6 +81,7 @@ class ReportRoute(unittest.TestCase):
         self.cid=self.store.create('alice')['conversation_id'];self.lease='c'*32
     def helper(self):
         path=HERE/K/'native_reports.py'
+        if not path.exists():path=REF/K/'native_reports.py'
         self.assertTrue(path.exists(),'native report host bridge is missing')
         return load('native_reports',K+'/native_reports.py')
     def prepare(self):
@@ -201,6 +203,8 @@ class ReportRoute(unittest.TestCase):
             sys.modules.pop(name,None)
         self.os_patch=patch.dict(sys.modules,{'fcntl':types.SimpleNamespace(LOCK_EX=2,LOCK_NB=4,LOCK_UN=8,LOCK_SH=1,flock=lambda *a:None)})
         self.os_patch.start();self.addCleanup(self.os_patch.stop)
+        # Resolve the verified runtime continuation source, independently of sys.path.
+        sys.modules['continuation']=load('continuation',RP+'/continuation.py')
         import controller,conversation_service
         from fc_daily import DailyReports
         from transport import Grants
@@ -460,5 +464,159 @@ class ReportRoute(unittest.TestCase):
         self.h.recover_reports()
         self.assertEqual(self.h.get_job('alice','a'*32)['state'],'COMPLETED')
         self.assertEqual(artifacts.read_file(self.root,self.task['id'],'raw')['content'],'An ordinary short answer.')
+
+    def active_continuation(self):
+        research=load('runtime_research',F+'/research.py')
+        with patch.dict(sys.modules,{'research':research}):
+            module=load('runtime_continuation',RP+'/continuation.py')
+        expected=HERE/RP/'continuation.py'
+        if not expected.exists():expected=REF/RP/'continuation.py'
+        self.assertEqual(Path(module.__file__),expected)
+        self.assertEqual(module.ResearchBook,research.ResearchBook)
+        return module
+
+    def continuation_fixture(self,completed=False,legacy=False):
+        self.prepare()
+        module=self.active_continuation()
+        book=module.ResearchBook(dict(snapshot_id=self.spec['snapshot_id'],as_of=NOW.isoformat()),{},
+                          dict(start='2026-11-04',end='2026-11-04'))
+        book.register('fc.get_data_catalog',{},dict(main_source='Admin'),'Admin FC支付明细')
+        version='legacy-version' if legacy else self.spec['knowledge_version']
+        spec=dict(self.spec,knowledge_version=version)
+        with self.tasks.db() as db:
+            db.executescript('CREATE TABLE evidence(task_id TEXT,evidence_id TEXT,content TEXT);CREATE TABLE report_trash(id TEXT PRIMARY KEY)')
+            db.execute('UPDATE tasks SET state=?,spec=? WHERE id=?',('SUCCEEDED' if completed else 'FAILED',encoded(spec),self.task['id']))
+            db.execute('UPDATE requests SET state=?,error=?',('COMPLETED' if completed else 'FAILED',None if completed else 'provider_outcome_unknown'))
+            for ref,value in book.evidence.items():db.execute('INSERT INTO evidence VALUES(?,?,?)',(self.task['id'],ref,encoded(value)))
+            if legacy:db.execute('DELETE FROM request_knowledge')
+        if completed:
+            artifacts=load('report_artifacts',W+'/report_artifacts.py')
+            artifacts.save_raw(self.root,self.task['id'],'Original answer.',book.evidence,dict(native_report=True))
+            artifacts.save_result(self.root,self.task['id'],dict(native_report=True,output_format='text',research_text='Original answer.'),'')
+            module_patch=patch.dict(sys.modules,{'report_artifacts':artifacts})
+            module_patch.start();self.addCleanup(module_patch.stop)
+        return module,book.evidence
+
+    def test_active_continuation_uses_native_metadata_without_skill_preload(self):
+        module,evidence=self.continuation_fixture()
+        supplied=dict(version='current-native-selection',sha256='saved-selection-reference')
+        with patch.object(module,'load_bundle',side_effect=AssertionError('full Skill preload')):
+            for metadata in (supplied,None):
+                with self.subTest(explicit_metadata=metadata is not None):
+                    book=module.load_continuation(self.tasks,'a'*32,'alice','2026-11-04','2026-11-04',self.root,skills=metadata)
+                    self.assertEqual(book.evidence,evidence)
+                    self.assertEqual(book.skills['version'],supplied['version'] if metadata else self.spec['knowledge_version'])
+
+    def test_active_followup_uses_native_metadata_and_preserves_evidence_hash(self):
+        module,evidence=self.continuation_fixture(completed=True)
+        supplied=dict(version='current-native-selection',sha256='saved-selection-reference')
+        with patch.object(module,'load_bundle',side_effect=AssertionError('full Skill preload')):
+            for metadata in (supplied,None):
+                with self.subTest(explicit_metadata=metadata is not None):
+                    book=module.load_report_followup(self.tasks,'a'*32,'2026-11-04','2026-11-04',self.root,self.root,skills=metadata)
+                    self.assertEqual(book.evidence,evidence)
+                    self.assertEqual(json.loads(book.continuation_context)['original_report'],'Original answer.')
+            path=self.root/'reports'/self.task['id']/'evidence.json'
+            path.write_bytes(b'{}')
+            with self.assertRaisesRegex(ValueError,'followup_evidence_changed'):
+                module.load_report_followup(self.tasks,'a'*32,'2026-11-04','2026-11-04',self.root,self.root,skills=supplied)
+
+    def test_active_legacy_continuation_keeps_owner_period_state_and_version_checks(self):
+        module,evidence=self.continuation_fixture(legacy=True)
+        with patch.object(module,'load_bundle',return_value=dict(version='incompatible')) as bundle:
+            with self.assertRaisesRegex(PermissionError,'continuation_owner_or_state'):
+                module.load_continuation(self.tasks,'a'*32,'bob','2026-11-04','2026-11-04',self.root)
+            with self.assertRaisesRegex(ValueError,'continuation_period'):
+                module.load_continuation(self.tasks,'a'*32,'alice','2026-11-03','2026-11-04',self.root)
+            self.assertEqual(bundle.call_count,0)
+            with self.assertRaisesRegex(ValueError,'continuation_skill_mismatch'):
+                module.load_continuation(self.tasks,'a'*32,'alice','2026-11-04','2026-11-04',self.root)
+            bundle.return_value=dict(version='legacy-version',sha256='original-bundle')
+            self.assertEqual(module.load_continuation(self.tasks,'a'*32,'alice','2026-11-04','2026-11-04',self.root).evidence,evidence)
+            with self.tasks.db() as db:db.execute("UPDATE tasks SET state='RUNNING'")
+            with self.assertRaisesRegex(ValueError,'continuation_runtime_unsettled'):
+                module.load_continuation(self.tasks,'a'*32,'alice','2026-11-04','2026-11-04',self.root)
+
+    def test_active_legacy_followup_keeps_period_version_and_trash_checks(self):
+        module,evidence=self.continuation_fixture(completed=True,legacy=True)
+        with patch.object(module,'load_bundle',return_value=dict(version='incompatible')) as bundle:
+            with self.assertRaisesRegex(ValueError,'followup_period'):
+                module.load_report_followup(self.tasks,'a'*32,'2026-11-03','2026-11-04',self.root,self.root)
+            self.assertEqual(bundle.call_count,0)
+            with self.assertRaisesRegex(ValueError,'followup_skill_mismatch'):
+                module.load_report_followup(self.tasks,'a'*32,'2026-11-04','2026-11-04',self.root,self.root)
+            bundle.return_value=dict(version='legacy-version',sha256='original-bundle')
+            self.assertEqual(module.load_report_followup(self.tasks,'a'*32,'2026-11-04','2026-11-04',self.root,self.root).evidence,evidence)
+            with self.tasks.db() as db:db.execute('INSERT INTO report_trash VALUES(?)',('a'*32,))
+            with self.assertRaisesRegex(PermissionError,'followup_source_unavailable'):
+                module.load_report_followup(self.tasks,'a'*32,'2026-11-04','2026-11-04',self.root,self.root)
+
+    def frozen_record(self,source,query,data,project='FC27',anchor=None,captured_at=None):
+        anchor=anchor or self.spec['snapshot_id']
+        value=dict(source=source,query=query,data=data,project=project,snapshot_id=anchor,
+                   analysis_anchor_id=anchor,captured_at=captured_at or NOW.isoformat())
+        value['evidence_id']='ev_'+hashlib.sha256(encoded(value).encode()).hexdigest()[:24]
+        return value
+
+    def test_active_continuation_preserves_management_nonfc_and_connected_purchase_evidence(self):
+        module=self.active_continuation()
+        with patch.dict(sys.modules,{'fcntl':types.SimpleNamespace()}):
+            management=load('runtime_management',RP+'/management_context.py')
+        anchor='management-'+'d'*24
+        facts=dict(snapshotId=anchor,generatedAt=NOW.isoformat(),projects=[])
+        context=self.frozen_record('FS 经营管理台已冻结的全项目汇总；Admin 主站 + 显式 Order 参考',{},facts,'ALL_MANAGEMENT_PROJECTS',anchor)
+        native_query=dict(profile='D4',start='2026-11-04',end='2026-11-04')
+        native=self.frozen_record('Admin原生统计优先、Order补缺；管理台按已登记profile补查',native_query,dict(status='available',total=9),'D4',anchor)
+        connected=self.frozen_record('FS购买客户事实的冻结聚合',dict(kind='retention'),dict(status='available',customers=3),'CONNECTED_PURCHASE_CUSTOMERS',anchor)
+        original=management.ManagementBook(facts,dict(start='2026-11-04',end='2026-11-04'))
+        finance=[]
+        for kind,name in (('shipping','shipping_profit'),('actual_profit','actual_profit')):
+            finance.append(original.register('fc.query_'+name,native_query,dict(status='partial',profitCny=10),source='FS report '+kind+' aggregate'))
+        self.assertEqual({v['project'] for v in finance},{'ALL_MANAGEMENT_PROJECTS'})
+        records={v['evidence_id']:v for v in (context,native,connected,*finance)}
+        task=dict(spec=dict(self.spec,snapshot_id=anchor),request_id='a'*32,end='2026-11-04')
+        with patch.dict(sys.modules,{'management_context':management}):
+            book=module.FrozenEvidenceBook(task,records,dict(version='native'))
+        self.assertEqual(book.facts,facts)
+        self.assertEqual(book.call('fc.query_native_statistics',native_query),native)
+        self.assertEqual(book.call('fc.query_user_analytics',dict(kind='retention')),connected)
+        for name,record in zip(('shipping_profit','actual_profit'),finance):
+            self.assertEqual(book.call('fc.query_'+name,native_query),record)
+        self.assertEqual(book.call('fc.read_evidence',dict(evidence_id=native['evidence_id'],path='/data/total'))['value'],9)
+        self.assertEqual(book.call('fc.check_report_html',dict(html='<!doctype html><html><body>report</body></html>'))['issue_count'],0)
+        with self.assertRaises(PermissionError):book.call('fc.read_evidence',dict(evidence_id='ev_'+'f'*24))
+        for bad in (dict(native,project='UNRELATED'),dict(native,analysis_anchor_id='management-'+'f'*24)):
+            invalid=dict(records);invalid[native['evidence_id']]=bad
+            with self.subTest(invalid_scope=bad),patch.dict(sys.modules,{'management_context':management}),self.assertRaises(ValueError):
+                module.FrozenEvidenceBook(task,invalid,dict(version='native'))
+
+    def test_active_continuation_keeps_terminal_cache_rank_query_and_deepcopy(self):
+        module=self.active_continuation()
+        query=dict(start='2026-11-04',end='2026-11-04',group_by=[],filters={},page=1)
+        complete=self.frozen_record('Admin FC支付明细',query,dict(status='available',orders=5),captured_at='2026-11-04T00:00:00+00:00')
+        pending=self.frozen_record('Admin FC支付明细',query,dict(status='pending'),captured_at='2026-11-05T00:00:00+00:00')
+        newer=self.frozen_record('Admin FC支付明细',query,dict(status='available',orders=8),captured_at='2026-11-06T00:00:00+00:00')
+        task=dict(spec=self.spec,request_id='a'*32,end='2026-11-04')
+        book=module.FrozenEvidenceBook(task,{v['evidence_id']:v for v in (newer,pending,complete)},dict(version='native'))
+        value=book.query(query)
+        self.assertEqual(value,newer)
+        value['data']['orders']=100
+        self.assertEqual(book.query(query)['data']['orders'],8)
+        self.assertEqual(book.trace[-1]['basis'],'cached_original_source_evidence')
+
+    def test_active_continuation_finance_aliases_reuse_frozen_values_and_missing_reads_stay_frozen(self):
+        module=self.active_continuation()
+        query=dict(profile='FC27',start='2026-11-04',end='2026-11-04')
+        records=[self.frozen_record('FS report '+kind+' aggregate',query,dict(status='partial',profitCny=10)) for kind in ('shipping','actual_profit')]
+        task=dict(spec=self.spec,request_id='a'*32,end='2026-11-04')
+        book=module.FrozenEvidenceBook(task,{v['evidence_id']:v for v in records},dict(version='native'))
+        for kind,record in zip(('shipping_profit','actual_profit'),records):
+            with self.subTest(kind=kind):
+                self.assertEqual(book.call('fc.query_'+kind,query),record)
+                missing=book.call('fc.query_'+kind,dict(query,profile='D4'))
+                self.assertEqual(missing['data']['status'],'not_available')
+                self.assertFalse(missing['data']['new_source_reads'])
+        resumed=module.FrozenEvidenceBook(task,book.evidence,dict(version='native'))
+        self.assertEqual(resumed.call('fc.query_shipping_profit',dict(query,profile='D4'))['data']['status'],'not_available')
 
 if __name__=='__main__':unittest.main(verbosity=2)
