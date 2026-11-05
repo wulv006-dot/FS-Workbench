@@ -1,5 +1,6 @@
 const assert=require('node:assert/strict');
 require('./test_navigation.cjs');
+require('./test_prepare_ui.cjs');
 (async()=>{
  const {SnapshotClient,value,latestRow,chartSegments}=await import('./model.mjs');
  const history=[{source_date:'2026-11-01',metrics:{gsc:{clicks:'10'}}},{source_date:'2026-11-02',metrics:{gsc:null}},{source_date:'2026-11-03',metrics:{gsc:{clicks:'0'}}},{source_date:'2026-11-04',metrics:{gsc:null}}];

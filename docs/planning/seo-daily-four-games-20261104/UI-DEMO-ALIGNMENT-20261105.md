@@ -21,4 +21,10 @@ Node合同覆盖固定版本/游戏权限、缺失不补零、0不丢失、曲�
 
 相关Python71项通过，基础金额/备份/发布等合同未变。Hallmark app scope静态扫描0 FAIL、0 REFLEX，保留用户demo要求的卡片分区（同容器样式提示已评估）；其render插件不可用，实际绘制由既有隔离Playwright完成。现代界面命令行工具不可用，已通过Chrome官方Modern Web Guidance及MDN核对原生控件、可访问图表、语义表格和响应式规则，未增加前端框架/图表依赖。
 
+## 界面发布候选
+
+为使视觉调整不带动后台版本，`prepare-ui.cjs`只制作8个目标：7份不可变SEO界面资产（index.html、seo.css、app.mjs、model.mjs、ai.mjs、FS tokens/theme）及1份现役formal路由。路由仅替换SEO块内7个静态alias，保留API、登录、导航和其它模块字节。AI控制脚本与FS tokens/theme核现役hash；SEO配置与三个unit列入不变保护，不包含运行代码、凭据、数据库或定时器写入。
+
+发布复用现役UI-only原publisher及其锁、CAS、备份、Nginx检查/reload；不新增publisher，不重启SEO API或采集服务。本批生产暂存尚未获新UI发布授权：原34文件候选的上传/检查被自动审批拒绝且未执行，随后收窄为上述8文件候选。取得该具体范围授权后才暂存、inspect、安装及真实入口验收。
+
 本文件先记录本地实现与验证，正式CI、部署及真实入口回执在完成后补充；不把本地样本截图当生产真数验收。
