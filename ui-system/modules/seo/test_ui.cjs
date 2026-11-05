@@ -25,7 +25,8 @@ const server=http.createServer((req,res)=>{
  try{
   const page=await browser.newPage({viewport:{width:1600,height:1100}});await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.getByRole('heading',{name:'上游 · 需求走势',exact:true}).waitFor();
-  assert.equal(await page.locator('.journey-card').count(),3);assert.equal(await page.getByRole('img').count(),3);
+  assert.equal(await page.locator('.journey-card').count(),3);assert.equal(await page.getByRole('img').count(),2);
+  assert(await page.locator('.journey-card').evaluateAll(cards=>cards.every(c=>c.getBoundingClientRect().height<=380)));
   assert.equal(await page.getByText('待核候选',{exact:true}).count(),4);
   assert((await page.locator('.sales .primary-metric').innerText()).includes('21.75'));
   assert((await page.locator('.demand .primary-metric').innerText()).includes('10'));
@@ -42,7 +43,7 @@ const server=http.createServer((req,res)=>{
    if(game==='WOW_FOREVER')assert((await page.locator('.sales .primary-metric').innerText()).includes('$0'));
   }
   assert(apiCalls.filter(p=>p.includes('/history')).every(p=>p.includes('/seo-2026-11-05/')));
-  await page.getByRole('button',{name:'查看成交预估明细',exact:true}).click();await page.getByRole('cell',{name:'21.75',exact:true}).waitFor();
+  await page.getByRole('button',{name:'查看成交预估明细',exact:true}).click();await page.getByRole('cell',{name:'21.75',exact:true}).waitFor();assert.equal(await page.getByRole('img').count(),1);
   await page.getByRole('tab',{name:'游戏日程',exact:true}).click();await page.getByRole('heading',{name:'游戏日程来源尚未接入',exact:true}).waitFor();
   await page.getByRole('tab',{name:'数据来源',exact:true}).click();await page.getByRole('heading',{name:'Google Search Console',exact:true}).waitFor();
   await page.getByText('查看快照校验与逐日来源明细').click();await page.getByText('fixture-only',{exact:true}).waitFor();
