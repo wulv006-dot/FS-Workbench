@@ -25,6 +25,8 @@ Node语法检查通过。UI交互验证由浏览器实际操作完成；静态�
 
 ## 活动源与发布
 
+2026-11-05 SEO注册修复：`build.cjs <现役navigation.json>`显式使用当前清单，避免增强导航用历史内嵌清单覆盖新增项。`prepare-current.cjs <16文件捕获目录> <捕获manifest> <现役navigation.json> <新输出目录>`核固定16目标和捕获SHA，确认现役脚本与维护源逻辑一致后，仅替换两脚本的registry常量与14个消费者的导航缓存引用，保留其余字节。输入不符即停止；不覆盖他人修改。它只制作候选，发布仍使用已核SHA的现役原publisher、双锁、CAS、备份、Nginx检查和reload；不新增发布器或操作业务worker/timer。
+
 可编辑增强源：navigation-experience.js、navigation-experience.css。build.cjs将增强代码编译到已读取线上基线hubnav.live.js和nav.live.js后。基线为本批历史输入，后续发布必须重新核对当前线上基线，不直接重放。
 
 服务器目标：/var/www/hub/hubnav.js、nav.js、navigation-experience.css；11个静态入口仅更新版本/样式引用；主站及formal路由仅更新导航资源注入。复用现有release_ui_finish发布器、共享锁、逐文件CAS、备份与回滚。没有修改业务数据库、定价参数、权限、采集、writer或定时任务。
