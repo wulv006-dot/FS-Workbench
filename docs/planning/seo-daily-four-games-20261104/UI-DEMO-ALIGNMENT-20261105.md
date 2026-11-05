@@ -25,6 +25,17 @@ Node合同覆盖固定版本/游戏权限、缺失不补零、0不丢失、曲�
 
 为使视觉调整不带动后台版本，`prepare-ui.cjs`只制作8个目标：7份不可变SEO界面资产（index.html、seo.css、app.mjs、model.mjs、ai.mjs、FS tokens/theme）及1份现役formal路由。路由仅替换SEO块内7个静态alias，保留API、登录、导航和其它模块字节。AI控制脚本与FS tokens/theme核现役hash；SEO配置与三个unit列入不变保护，不包含运行代码、凭据、数据库或定时器写入。
 
-发布复用现役UI-only原publisher及其锁、CAS、备份、Nginx检查/reload；不新增publisher，不重启SEO API或采集服务。本批生产暂存尚未获新UI发布授权：原34文件候选的上传/检查被自动审批拒绝且未执行，随后收窄为上述8文件候选。取得该具体范围授权后才暂存、inspect、安装及真实入口验收。
+发布复用现役UI-only原publisher及其锁、CAS、备份、Nginx检查/reload；不新增publisher，不重启SEO API或采集服务。用户于2026-11-05明确允许该8文件新版界面上线，随后完成暂存、inspect、备份安装及真实入口读回。早先34文件候选被自动审批拒绝且从未上传，本次未使用该候选。
 
-本文件先记录本地实现与验证，正式CI、部署及真实入口回执在完成后补充；不把本地样本截图当生产真数验收。
+## 上线回执（2026-11-05，北京时间）
+
+- 代码PR #826、#828已合并；最终代码合并版本`1c03de48ae5c89244163ee08597f5647f4610ff6`。PR fast #1608/run41953330873与#1609/run41954535409均success。
+- 11:25:28沿现役原发布器安装`seo-ui-0c9e901e6d1a19ce`；8目标源CAS/保护CAS、Nginx语法及逐文件安装摘要通过，业务worker/timer动作0。manifest SHA256 `5d980abea73e02778ca61cfd99578a727b2feede000839ff1788b60ba652469e`；回退备份`/var/backups/fs-navigation-20261006/nav-20261105T032528Z`。后台仍为`seo-daily-d0ce351d33df24fe`，本批没有部署后台新代码。
+- 已登录真实入口`/dashboard/analytics/seo/`显示新版与单份FS统一导航；四游戏切换均绑定`seo-2026-11-05`。业务目标日11月4日，预估美元金额FC27 1526.98、D4 156、Aion2 1035.65、WowForever 0，0值保留。成交明细30行/一条趋势、来源明细90行、三个主标签和AI独立控制入口已读回。
+- 11:28:37真实点击导出，Nginx回执HTTP200、6755字节，URL仍绑定同snapshot/game。浏览器下载事件未返回本地保存路径，未核验下载文件落盘；不将HTTP200称为本地文件验收。
+- 上线前11:24:19与操作后11:30:27，`facts_hash=32236b7d7339329fd25f2ce12f2376785cb7a7df6c9f2181b36f4b01d012f788`、快照文件SHA256 `2d2058479e031e9b9cffde513785eb36799b0d0f6d6a52ca9325d48e7e4a2772`、core.db修改时间及AI控制库摘要相同。FC服务、worker、RPG链路、登录、SEO API和Nginx主进程启动时间不变；日更最近启动仍为03:20，下一次11月6日03:20，没有白天补跑。
+- AI总/四游戏开关均保持关闭；运行状态未配置，没有模型调用或新增费用。SERP、社区热度、Google Trends及游戏事件仍未接入，不作真数接通声明。下一自然周期尚未到来，待观察，不手工模拟。
+- 本批已安装UI资源、候选manifest及回退文件共3126510字节；54293字节上传临时包已按原摘要核验删除，保留生产与回退证据。未修改订单、价格、权限、凭据或其它服务。
+
+验收证据位于本机`.agent_runtime/seo-demo-ui-20261105/`：`ui-preflight.json`、`ui-inspect.log`、`ui-apply.log`、`ui-post-browser.json`、`ui-live-games.json`、`seo-ui-live-20261105.png`及`ui-cleanup.json`。这些真实运行证据留本机，不将快照、日志或测试样本打包入仓。
+
