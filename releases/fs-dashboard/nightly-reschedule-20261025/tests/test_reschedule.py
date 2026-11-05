@@ -283,6 +283,53 @@ class RealScheduledAdmission(unittest.TestCase):
 class MaintainedScheduledAdmission(RealScheduledAdmission):
     controller_source=ROOT.parent/'knowledge-layering-20261023/source/controller.py'
 
+    def setUp(self):
+        super().setUp()
+        def load(name,path):
+            spec=importlib.util.spec_from_file_location(name,path)
+            module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+            return module
+        # The maintained controller now reserves genuine native metadata rather
+        # than invoking the historical frozen-bundle/legacy prompt executor.
+        self.native_bridge=load('scheduled_native_reports',self.controller_source.with_name('native_reports.py'))
+        self.catalog=load('scheduled_knowledge_catalog',self.controller_source.with_name('knowledge_catalog.py'))
+        self.artifacts=load('scheduled_report_artifacts',ROOT.parent/'hermes-data-workspace-20261018/source/report_artifacts.py')
+
+    def patches(self):
+        stack=super().patches()
+        stack.enter_context(patch.dict(sys.modules,{'native_reports':self.native_bridge,'report_artifacts':self.artifacts}))
+        return stack
+
+    def test_real_controller_boundary_accepts_large_gap_context_and_keeps_original_id(self):
+        with self.patches():self.service.nightly.tick()
+        self.assertEqual(len(self.queued),1)
+        args,kwargs=self.queued[0];key,owner,body=args[1:]
+        self.assertEqual(body['request_id'],'night_daily_20261102')
+        self.assertLessEqual(len(body['question']),600)
+        self.assertNotIn('es_export_permission_denied',body['question'])
+        context=kwargs['scheduled_context']
+        self.assertGreater(len(encoded(context)),600)
+        self.assertEqual(context['archive_status'],self.observed)
+        self.assertEqual(context['preparation_gaps'],['marketing_preparation_missing'])
+        self.assertIn('真实数据暂未提供',context['rule'])
+        self.assertEqual(self.service.get_job(owner,key)['state'],'PREPARING')
+        with self.patches():
+            self.assertEqual(self.service._submit_report(body,owner,True)[0],200)
+            saved=self.native_bridge.metadata(self.service,key)
+        self.assertEqual(saved['identity']['contract'],'fs-native-report-knowledge-v1')
+        self.assertEqual(saved['identity']['owner'],owner)
+        self.assertEqual(len(self.queued),1)
+        # This producer test stops at the real native helper boundary. Its
+        # downstream task/turn/worker lifecycle has separate real-store tests.
+        class DispatchProbe(BaseException):pass
+        dispatched=[]
+        def native_execute(*values):dispatched.append(values);raise DispatchProbe()
+        with self.patches(),patch.object(self.native_bridge,'execute',side_effect=native_execute),self.assertRaises(DispatchProbe):
+            args[0](*args[1:],**kwargs)
+        self.assertEqual(dispatched,[(self.service,key,owner,body,context)])
+        self.assertEqual(self.writes,[])
+        self.assertEqual(self.remote_inputs,[])
+
     def seed_original(self):
         body=dict(kind='hermes_report',request_id='night_daily_20261102',start='2026-11-01',end='2026-11-01',mode='daily',question='检查经营变化')
         key=self.namespace['digest']({'owner':'wulv','request_id':body['request_id']})[:32]
