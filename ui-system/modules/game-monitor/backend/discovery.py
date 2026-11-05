@@ -16,7 +16,14 @@ from boss_daily import atomic, encoded, file_lock
 
 API = 'https://api.deepseek.com'
 RESPONSE_BYTES = 10000000
-TTL = timedelta(hours=4)
+
+
+def next_refresh(at):
+    local = official.moment(at).astimezone(timezone(timedelta(hours=8)))
+    for offset in range(8):
+        candidate = (local + timedelta(days=offset)).replace(hour=10, minute=10, second=0, microsecond=0)
+        if candidate.weekday() in (1, 4) and candidate > local:
+            return candidate.astimezone(timezone.utc)
 
 
 class SourceError(Exception):
@@ -220,11 +227,11 @@ def run_once(root, game_keys, client, model, at):
                 previous_file = root / 'intelligence.json'
                 previous = json.loads(previous_file.read_bytes()) if previous_file.exists() else None
                 snapshot = official.build_snapshot(batch, result, previous)
-                snapshot.update(stale_after=(official.moment(at)+TTL).isoformat(),
+                snapshot.update(stale_after=next_refresh(at).isoformat(),
                     notice='Hermes 游戏情报采集任务：DeepSeek 搜索/抓取，沿现役原文、日期和游戏归属校验；既有官方及周度来源继续保留。',
                     method='deepseek_search_fetch', request_counts=getattr(client, 'successful_requests', {}))
                 for event in snapshot['events']:
-                    event.setdefault('expires_at',(official.moment(event['collected_at'])+TTL).isoformat())
+                    event.setdefault('expires_at',next_refresh(event['collected_at']).isoformat())
                 snapshot['version'] = 'game-intel-' + sha256(encoded(snapshot)).hexdigest()[:20]
                 atomic(previous_file, encoded(snapshot), 0o644)
                 status.update(status='succeeded', reason=None, version=snapshot['version'],

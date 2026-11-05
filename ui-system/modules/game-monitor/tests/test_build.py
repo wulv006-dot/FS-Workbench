@@ -17,6 +17,9 @@ class BuildTests(unittest.TestCase):
         self.assertIn("intelligence:'intelligence.json'",raw)
         self.assertNotIn('window.MONITOR_DATA',raw)
         self.assertNotIn('fs-monitor-preview',raw)
+        self.assertIn('id="game-filter"',raw)
+        self.assertNotIn('id="sidebar"',raw)
+        self.assertNotIn('id="game-list"',raw)
 
 
 if __name__=='__main__':

@@ -30,6 +30,16 @@ class Source:
 
 
 class DiscoveryTests(unittest.TestCase):
+    def test_next_refresh_follows_tuesday_friday_beijing_schedule(self):
+        cases = {
+            '2026-11-06T02:09:59+00:00': '2026-11-06T02:10:00+00:00',
+            '2026-11-06T02:10:00+00:00': '2026-11-10T02:10:00+00:00',
+            '2026-11-10T02:10:01+00:00': '2026-11-13T02:10:00+00:00',
+        }
+        for at, expected in cases.items():
+            with self.subTest(at=at):
+                self.assertEqual(discovery.next_refresh(at).isoformat(), expected)
+
     def test_unknown_game_never_calls_paid_api(self):
         source = Source()
         with self.assertRaisesRegex(ValueError, 'unregistered_game'):
@@ -126,7 +136,8 @@ class DiscoveryTests(unittest.TestCase):
             published=json.loads((root/'intelligence.json').read_bytes())
             self.assertEqual(published['events'][0]['event_date'],'2026-11-07')
             self.assertEqual(published['receipt'],'test-receipt-123')
-            self.assertEqual(published['stale_after'],'2026-11-05T12:00:00+00:00')
+            self.assertEqual(published['stale_after'],'2026-11-06T02:10:00+00:00')
+            self.assertEqual(published['events'][0]['expires_at'],published['stale_after'])
 
     def test_no_game_query_exceeds_provider_contract(self):
         source=Source()

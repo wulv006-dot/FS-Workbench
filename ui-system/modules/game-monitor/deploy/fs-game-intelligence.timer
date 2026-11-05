@@ -1,8 +1,9 @@
 [Unit]
-Description=Hourly supplementary game intelligence; existing weekly collectors unchanged
+Description=Tuesday and Friday game intelligence; existing collectors unchanged
 
 [Timer]
-OnCalendar=*-*-* *:10:00
+# Host timezone verified as Asia/Shanghai; systemd 219 has no calendar timezone suffix.
+OnCalendar=Tue,Fri *-*-* 10:10:00
 Persistent=false
 Unit=fs-game-intelligence.service
 
