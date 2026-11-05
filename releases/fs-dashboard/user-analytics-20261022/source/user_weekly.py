@@ -228,7 +228,7 @@ def wake(root, loader, now=None, force=False, clock=monotonic, cadence='weekly')
 
 def run(store, state, published, now, clock, force=False):
     from user_jobs import synchronize_day, targeted_refresh, payment_day_watermarks
-    from user_customer_types import ensure_period, manifest_inventory, read_pinned_flags
+    from user_customer_types import ensure_period, manifest_inventory, read_pinned_flags, read_pinned_identities
     cutoff = stamp(state['cutoff'])
     started = clock()
     deadline = started + 360
@@ -306,6 +306,11 @@ def run(store, state, published, now, clock, force=False):
         if flags['status'] != 'complete':
             state['phase'] = 'flags'; record_state(store, state)
             return dict(status='deferred', reason='weekly_customer_type_pending', cutoff=state['cutoff'])
+        identity_rows, identity_info = read_pinned_identities(dict(start=state['start'], end_exclusive=state['cutoff']), manifests)
+        if identity_info['status'] != 'complete':
+            return dict(status='deferred', reason='identity_archive_pending', cutoff=state['cutoff'])
+        state['identity_evidence'] = store.enrich_order_identities(state['start'], state['cutoff'], identity_rows, identity_info['sourceVersion'])
+        record_state(store, state)
         service = Service(store, lambda *_: True, clock=lambda: cutoff,
                           customer_type_reader=lambda query: read_pinned_flags(query, manifests), weekly_publication=False)
         result = service.query(dict(start=(cutoff-timedelta(days=7)).isoformat()), 'internal_weekly_calculation')

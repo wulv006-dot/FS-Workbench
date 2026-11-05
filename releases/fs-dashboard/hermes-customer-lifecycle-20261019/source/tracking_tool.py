@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from customer_tracking import ID, money
+from customer_tracking import ID, money, buyer_evidence
 
 
 def _moment(value):
@@ -49,5 +49,6 @@ def anonymous_snapshot(detail):
         'tracking_id':tracking_id,'profile':'FC27','site_id':266,'tracked_at':tracked.isoformat(),'first_paid_at':detail.get('first_paid_at'),'lifecycle_day':detail.get('lifecycle_day'),'phase':detail.get('phase'),'report_policy':'manual_pool_only',
         'observed_at':detail.get('history_observed_at'),'source_complete':coverage.get('complete') is True,
         'source_total':coverage.get('source_total'),'source_received':coverage.get('received'),
+        'buyer_identity_evidence':buyer_evidence(detail.get('orders',[])),
         'groups':groups,'unknown_payment_time_orders':unknown_time,'non_paid_orders_excluded':unpaid,
-        'rule':'仅已核客户邮箱在站点266的匹配订单参与，分FC27与其他游戏、加入前后；首次付款日独立记录为生命周期第1天，加入前后仅为人工观察行为分界，不能当作首付时间；仅pay_status=1计付费单。未知金额不补零，退款状态需人工复核；无联系、发券、改单权限。'}
+        'rule':'客户主键仍按已核邮箱，buyer仅作覆盖与冲突证据，尚未按buyer重算客户或跨邮箱历史；仅站点266匹配订单参与，分FC27与其他游戏、加入前后；首次付款日独立记录为生命周期第1天，加入前后仅为人工观察行为分界，不能当作首付时间；仅pay_status=1计付费单。未知金额不补零，退款状态需人工复核；无联系、发券、改单权限。'}

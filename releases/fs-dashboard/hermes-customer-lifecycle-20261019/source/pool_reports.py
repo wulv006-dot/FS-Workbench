@@ -42,7 +42,7 @@ def pool_evidence(store,now=None):
         for (scope,bucket),g in sorted(groups.items()):
             rows.append(dict(g,scope=scope,bucket=bucket,usd=str(g['usd']) if g['known_usd_count'] else None,discount=str(g['discount']) if g['known_discount_count'] else None))
         customers.append({'customer_ref':track['tracking_id'],'label':'追踪客户'+str(index),'first_paid_at':d['first_paid_at'],
-            'lifecycle_day':d['lifecycle_day'],'phase':d['phase'],'history_complete':complete,'history_stale':stale,
+            'lifecycle_day':d['lifecycle_day'],'phase':d['phase'],'buyer_identity_evidence':d['buyer_identity_evidence'],'history_complete':complete,'history_stale':stale,
             'source_observed_at':d.get('history_observed_at'),'unknown_payment_time_orders':bad_dates,'groups':rows})
     return {'as_of':now.isoformat(),'site_id':266,'profile':'FC27 tracking pool','totals':totals,'phase_counts':dict(phase_counts),'customers':customers,
         'rules':'只含生成时仍在追踪池的客户；Admin主源。首次付款为站点266跨游戏已付款历史最早日期，需完整覆盖；首次付款日为北京时间第1天。近7/14/30分段按生成日向前统计，包含今日且今日未完整；历史金额不是扣退款净收入。未知折扣不补零，不推断利润。7/14/30为生命周期标记，不是单人自动报告。数据是最近一次真实拉取快照，陈旧或不全须明确说明。'}

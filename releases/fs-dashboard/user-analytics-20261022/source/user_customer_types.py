@@ -76,7 +76,7 @@ def manifest_inventory(root=ARCHIVE):
     return result
 
 
-def read_pinned_flags(query, manifests, root=ARCHIVE):
+def read_pinned_flags(query, manifests, root=ARCHIVE, _identity=False):
     """Read precisely the pinned file hashes, not archived_dataset's newest matching export."""
     root = Path(root); safe(root)
     start = stamp(query['start']).date().isoformat()
@@ -102,7 +102,7 @@ def read_pinned_flags(query, manifests, root=ARCHIVE):
         item = max(options, key=lambda v: (v['query']['end'], v['captured_at']))
         selected.append(item)
         cursor = (stamp(item['query']['end'])+timedelta(days=1)).date().isoformat()
-    flags, hashes, captures = {}, set(), []
+    flags, hashes, captures, identities = {}, set(), [], {}
     complete = cursor > end
     if selected:
         import es_order_structure as es
@@ -128,6 +128,17 @@ def read_pinned_flags(query, manifests, root=ARCHIVE):
             integrity = item.get('file_set') or {}
             complete &= (failures == 0 and integrity.get('failed_files') == 0
                          and integrity.get('declared_files') == len(parsed_hashes))
+            if _identity:
+                for row in rows:
+                    paid = str(row.get(es.COLUMNS['time']) or '').replace('/', '-')[:10]
+                    order = row.get(es.COLUMNS['order'])
+                    if start <= paid <= end and isinstance(order, str) and order:
+                        key = hashlib.sha256(order.encode()).hexdigest()
+                        values = identities.setdefault(key, dict(buyer_id=set(), uid=set()))
+                        for field in ('buyer_id', 'uid'):
+                            ident = row.get(field)
+                            if isinstance(ident, str) and ident.strip().lower() not in ('', '0', 'null', 'none', 'n/a', 'nan', 'undefined', '-') and len(ident) <= 160 and not any(ord(c)<32 for c in ident):
+                                values[field].add(ident.strip())
             dataset = es.make_dataset(rows, parsed_hashes, failures, integrity.get('declared_files'), integrity.get('failed_files'))
             hashes.update(parsed_hashes); captures.append(item['captured_at'])
             for row in dataset['rows']:
@@ -137,7 +148,11 @@ def read_pinned_flags(query, manifests, root=ARCHIVE):
                     flags.setdefault(ident, set()).add(str(row.get(es.COLUMNS['new_customer']) or '').strip())
     labels = {ident: ('new' if next(iter(items)) == '\u662f' else 'old' if next(iter(items)) == '\u5426' else 'unknown')
               if len(items) == 1 else 'conflict' for ident, items in flags.items()}
-    return labels, dict(status='complete' if complete else 'partial', source='Admin ES order-time new-customer flag',
+    if _identity:
+        labels = {key: dict(status='verified' if len(v['buyer_id']) == 1 else 'conflict' if len(v['buyer_id']) > 1 else 'unknown',
+                            buyer_id=next(iter(v['buyer_id'])) if len(v['buyer_id']) == 1 else None,
+                            uid=next(iter(v['uid'])) if len(v['uid']) == 1 else None) for key,v in identities.items()}
+    return labels, dict(status='complete' if complete else 'partial', source='Admin ES exact-order buyer/UID evidence' if _identity else 'Admin ES order-time new-customer flag',
                         generatedAt=max(captures, default=None), files=len(hashes),
                         sourceVersion=hashlib.sha256(''.join(sorted(hashes)).encode()).hexdigest())
 
@@ -163,3 +178,8 @@ def ensure_period(start, end, now=None, daily=False):
             return dict(status='pending', source_status=value.get('status', 'unavailable'))
         begin = finish
     return dict(status='complete', start=start, end_exclusive=end)
+
+
+def read_pinned_identities(query, manifests, root=ARCHIVE):
+    """Private order-hash evidence only; never add IDs to the public ES dataset."""
+    return read_pinned_flags(query, manifests, root, _identity=True)
