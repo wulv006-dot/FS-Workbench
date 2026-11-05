@@ -1,7 +1,7 @@
 const {chromium}=require('playwright');
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const root=__dirname,meta={snapshot_id:'seo-2026-11-05',facts_hash:'fixture-only',publication_date:'2026-11-05',report_date:'2026-11-04',history_start:'2026-10-06',history_end:'2026-11-04',games:['FC27','D4','AION2','WOW_FOREVER'],sources:{gsc:'configured',ga4:'configured',admin:'configured',serp:'not_configured',pages:'not_configured',orders:'not_configured'},data_status:'partial'};
-let apiCalls=[],empty=false,historyError=false,hangAI=true;const pending=[];
+let apiCalls=[],empty=false,historyError=false,hangAI=true,holdManifest=false;const pending=[],manifests=[];
 function historyRows(game){return [{source_date:'2026-11-02',metrics:{gsc:{clicks:'3',impressions:'10',ctr:'.3',position:'4'},ga4:null,admin:null,orders:null},source_status:{gsc:{status:'available',source_timezone:'America/Los_Angeles'}},estimate:{status:'missing'}},{source_date:'2026-11-04',metrics:{gsc:null,ga4:{sessions:'10',purchase_events:game==='WOW_FOREVER'?'0':'3'},admin:{admin_customer_price_usd:'7.25'},orders:null},source_status:{ga4:{status:'provisional',source_timezone:'Asia/Shanghai'},admin:{status:'available',source_timezone:'Asia/Shanghai'}},estimate:{status:'estimated',revenue_usd:game==='WOW_FOREVER'?'0.00':'21.75'}}];}
 const server=http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost');
@@ -9,7 +9,7 @@ const server=http.createServer((req,res)=>{
   apiCalls.push(url.pathname+url.search);res.setHeader('Content-Type','application/json');
   if(url.pathname.endsWith('ai-policy')){if(hangAI){pending.push(res);return;}res.statusCode=503;return res.end('{}');}
   if(empty&&url.pathname.endsWith('current')){res.statusCode=404;return res.end('{}');}
-  if(url.pathname.endsWith('current')||url.pathname.endsWith('manifest'))return res.end(JSON.stringify(meta));
+  if(url.pathname.endsWith('current')||url.pathname.endsWith('manifest')){if(holdManifest){manifests.push(res);return;}return res.end(JSON.stringify(meta));}
   if(historyError&&url.pathname.includes('/history')){res.statusCode=503;return res.end('{}');}
   const kind=url.pathname.split('/').at(-1),game=url.searchParams.get('game');
   return res.end(JSON.stringify({snapshot_id:meta.snapshot_id,facts_hash:meta.facts_hash,game,next_cursor:null,rows:kind==='history'?historyRows(game):[]}));
@@ -58,6 +58,9 @@ const server=http.createServer((req,res)=>{
   historyError=true;await page.reload();await page.getByRole('button',{name:'重试读取此快照'}).waitFor();historyError=false;await page.getByRole('button',{name:'重试读取此快照'}).click();await page.getByRole('heading',{name:'上游 · 需求走势',exact:true}).waitFor();
   empty=true;await page.goto(new URL('/',page.url()).href);await page.getByRole('heading',{name:'暂无可读取的已发布数据',exact:true}).waitFor();
   await page.getByRole('button',{name:'AI增强设置',exact:true}).click();await page.getByText('AI 设置暂不可用',{exact:true}).waitFor();assert(!new URL(page.url()).searchParams.has('snapshot_id'));
+  empty=false;holdManifest=true;await page.goto(new URL('/',page.url()).href);await page.getByRole('button',{name:'AI增强设置',exact:true}).click();await page.getByText('AI 设置暂不可用',{exact:true}).waitFor();
+  holdManifest=false;manifests.splice(0).forEach(res=>res.end(JSON.stringify(meta)));await page.waitForFunction(()=>new URL(location.href).searchParams.get('snapshot_id')==='seo-2026-11-05');
+  assert.equal(new URL(page.url()).searchParams.get('tab'),'ai');await page.getByRole('heading',{name:'行动与AI分析',exact:true}).waitFor();
   console.log('PASS: demo hierarchy, honest source gaps, four games, frozen URLs, AI hang/failure isolation, details, mobile, retry and empty state');
  }finally{await browser.close();}
 })().then(()=>server.close()).catch(error=>{console.error(error);server.close();process.exitCode=1;});

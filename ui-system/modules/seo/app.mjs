@@ -164,8 +164,8 @@ select.addEventListener('change',()=>{document.querySelector('#source-strip').re
 document.querySelector('#ai-settings-entry').onclick=()=>openView('ai');
 (async()=>{
   try{
-    const params=new URLSearchParams(location.search),meta=await client.init(params.get('snapshot_id'));Array.from(select.options).forEach(o=>{o.disabled=!meta.games.includes(o.value);});select.value=meta.games.includes(params.get('game'))?params.get('game'):meta.games[0];select.disabled=false;
-    active=Object.hasOwn(views,params.get('tab'))?params.get('tab'):'overview';document.querySelector('#version').textContent='发布 '+meta.publication_date+' / 业务目标 '+meta.report_date+' / '+meta.snapshot_id;document.querySelector('#business-day').textContent='业务目标日 '+meta.report_date;
+    const initialEpoch=epoch,params=new URLSearchParams(location.search),meta=await client.init(params.get('snapshot_id'));Array.from(select.options).forEach(o=>{o.disabled=!meta.games.includes(o.value);});select.value=meta.games.includes(params.get('game'))?params.get('game'):meta.games[0];select.disabled=false;
+    if(epoch===initialEpoch)active=Object.hasOwn(views,params.get('tab'))?params.get('tab'):'overview';document.querySelector('#version').textContent='发布 '+meta.publication_date+' / 业务目标 '+meta.report_date+' / '+meta.snapshot_id;document.querySelector('#business-day').textContent='业务目标日 '+meta.report_date;
     status.textContent=meta.data_status==='partial'?'已发布固定快照，部分来源延迟或未接入':'已发布固定快照';await render();
   }catch(error){document.querySelector('#version').textContent='暂未读取数据版本';status.textContent=error.message;if(active!=='ai'){panel.replaceChildren(empty('暂无可读取的已发布数据','每日03:20启动独立批次，基础有效即发布。'));panel.setAttribute('aria-busy','false');}}
 })();
