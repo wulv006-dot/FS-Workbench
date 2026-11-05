@@ -267,7 +267,7 @@ def fetch_orders(s, start, end, full=False):
         before = have
         lo_s, hi_s = _fmt(lo), _fmt(hi)
         known = HDB.ids_in_range(conn, "orders", lo_s, hi_s)
-        rows = fetch_orders_range(s, lo_s, hi_s, known)
+        rows = fetch_orders_range(s, lo_s, hi_s)
         HDB.upsert_orders(conn, rows)
         HDB.bump_watermark(conn, "orders", rows)
         if deep:
@@ -488,7 +488,7 @@ def fetch_deliveries(s, start, end, full=False, gid=ORDER_GID, genre=GENRE_ORDER
         before = have
         lo_s, hi_s = _fmt(lo), _fmt(hi)
         known = HDB.ids_in_range(conn, "deliveries", lo_s, hi_s)
-        rows = fetch_deliveries_range(s, lo_s, hi_s, gid, genre, known)
+        rows = fetch_deliveries_range(s, lo_s, hi_s, gid, genre)
         HDB.upsert_deliveries(conn, rows, gid)
         HDB.bump_watermark(conn, "deliveries", rows)
         if deep:
@@ -534,6 +534,11 @@ def main():
         print("[3/4] 发货记录（gid=%d Aion 2，仅「订单发货」）" % ORDER_GID, flush=True)
         deliveries = fetch_deliveries(s, start, end, full)
         _dump("deliveries.json", deliveries)
+
+        import sales_regions
+        from aggregate import parse_content
+        region_stats = sales_regions.resolve_regions(s, db(), orders, deliveries, parse_content)
+        print("大区历史补查：%s" % json.dumps(region_stats, ensure_ascii=False), flush=True)
 
         print("[4/4] 会员身份（订单里出现过的 uid）", flush=True)
         code2uid = {}

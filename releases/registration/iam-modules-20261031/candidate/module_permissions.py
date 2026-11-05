@@ -16,6 +16,7 @@ SECTIONS = (
     ('brain',         'Hermes 智体'),
     ('sports',        '球类工作区'),
     ('arpg',          'RPG 工作区'),
+    ('sales',         '销售部系统'),
     ('bots',          '机器人管理'),
     ('collaboration', '协作工具'),
 )
@@ -39,7 +40,7 @@ MODULES = (
     ('madden',              'Madden 金币看板',    'sports',        False, '/dashboard/madden27-coins.html'),
     ('d4',                  'RPG 游戏改价系统',   'arpg',          False, '/d4/'),
     ('g2g',                 'G2G 自动改价',       'arpg',          False, '/g2g/'),
-    ('sales',               '销售部系统',         'arpg',          False, '/sales/'),
+    ('sales',               '销售部系统',         'sales',          False, '/sales/'),
     ('bot-console',         'Discord 机器人控制台','bots',         False, '/bots/'),
     ('tasks',               '项目工作任务台',     'collaboration', True,  '/dashboard/tasks/'),
     ('green_plan',          '绿茵计划',           'collaboration', True,  '/dashboard/tasks/green-plan/'),
@@ -235,5 +236,5 @@ def verify(adapter, cookies, method, uri, group):
             writable = any(a in matrix.get(resource, []) for a in ('edit', 'execute'))
             headers['X-Auth-Role'] = 'editor' if resource in ('tasks', 'green_plan', 'task_session') and writable else 'readonly'
             if group == 'deploy':
-                headers['X-Auth-Groups'] = 'dashboard,deploy' 
+                headers['X-Auth-Groups'] = 'dashboard,deploy'
         return code,headers

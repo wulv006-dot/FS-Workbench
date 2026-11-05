@@ -633,6 +633,8 @@ def select(paths):
             groups.add("fs-management-v2");continue
         if name.startswith("ui-system/modules/game-monitor/"):
             groups.add("fs-game-monitor");continue
+        if name.startswith("releases/sales/system-20261105/"):
+            groups.add("sales-system");continue
         if name.startswith(("ui-system/", "releases/fs-dashboard/ui-system-20261015/")):
             groups.add("fs-ui-system");continue
         if name.startswith("releases/fs-dashboard/hermes-weekly-upgrade-20261015/"):
@@ -1071,6 +1073,9 @@ def main():
             units("admin_session_continuity_20261021",["test_continuity"])
             units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch"])
         elif group=="order-global-session":units("order_global_session_20261021",["test_session","test_fc_admin","test_deploy","test_admin_read_patch"])
+        elif group=="sales-system":
+            units("shared_backend_session",["test_sales_regions","test_history_db"])
+            node("releases/sales/system-20261105/test_ui.cjs")
         elif group=="admin-single-owner":units("shared_backend_session",["test_shared_admin","test_consumers","test_manual_captcha","test_sales_pagination"])
         elif group=="engine":units(".",["test_fc27_quote_engine"])
         elif group=="admin-entry":node("releases/auth/admin-entry-20261009/check-entry.cjs")
