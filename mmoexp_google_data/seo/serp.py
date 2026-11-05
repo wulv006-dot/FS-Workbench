@@ -76,7 +76,7 @@ def parse_results(result, query, brands):
         found=next(((i+1,row['link']) for i,row in enumerate(organic) if any(matches(row['link'],p) for p in prefixes)),None)
         uncertain=any(google_redirect(row['link']) for row in organic[:found[0] if found else depth])
         rows.append(dict(brand=brand,rank=found[0] if found and not uncertain else None,url=found[1] if found and not uncertain else None,
-                         status='unresolved' if uncertain else 'found' if found else 'not_found' if depth>=query['depth'] else 'insufficient_depth',
+                         status='unresolved' if uncertain else 'found' if found else 'not_found' if depth else 'no_results',
                          effective_depth=depth,unresolved_links=sum(google_redirect(row['link']) for row in organic),**query))
     return rows
 

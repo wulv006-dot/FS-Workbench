@@ -7,6 +7,7 @@ GAMES = ('FC27', 'D4', 'AION2', 'WOW_FOREVER')
 BUSINESS_TZ = ZoneInfo('Asia/Shanghai')
 SCHEMA = 'seo_daily_core_v2'
 SNAPSHOT_ID = r'seo-\d{4}-\d{2}-\d{2}(?:-manual-[a-f0-9]{12})?'
+RANK_CONTRACT = 'google-organic-returned-depth-v1'
 
 
 def game(value):

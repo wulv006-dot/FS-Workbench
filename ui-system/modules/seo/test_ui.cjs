@@ -68,7 +68,7 @@ const server=http.createServer((req,res)=>{
   holdManifest=false;manifests.splice(0).forEach(res=>res.end(JSON.stringify(meta)));await page.waitForFunction(()=>new URL(location.href).searchParams.get('snapshot_id')==='seo-2026-11-05');
   assert.equal(new URL(page.url()).searchParams.get('tab'),'ai');await page.getByRole('heading',{name:'行动与AI分析',exact:true}).waitFor();
   extras=true;meta.sources.serp='configured';meta.sources.calendar='configured';await page.goto(new URL('/',page.url()).href);
-  await page.getByRole('cell',{name:'#2',exact:true}).waitFor({timeout:2500});assert((await page.getByRole('table').innerText()).includes('深度不足 8/10'));assert.equal(await page.getByText('等待采样',{exact:true}).count(),0);assert((await page.getByRole('table').innerText()).includes('链接待解析'));
+  await page.getByRole('cell',{name:'#2',exact:true}).waitFor({timeout:2500});assert((await page.getByRole('table').innerText()).includes('未在前8名'));assert.equal(await page.getByText('等待采样',{exact:true}).count(),0);assert((await page.getByRole('table').innerText()).includes('链接待解析'));
   await page.getByRole('tab',{name:'游戏日程',exact:true}).click();await page.getByRole('heading',{name:'已发布日期事件',exact:true}).waitFor();await page.getByText('事件日期待核',{exact:true}).waitFor();assert.equal(await page.getByRole('link',{name:'查看来源公告',exact:true}).count(),2);
   assert((await page.locator('#panel').innerText()).includes('原来源读取'));assert((await page.locator('#panel').innerText()).includes('来源已过期'));
   await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));

@@ -10,7 +10,7 @@ import sqlite3
 import uuid
 from pathlib import Path
 
-from .contracts import GAMES, SCHEMA, SNAPSHOT_ID, BUSINESS_TZ, game
+from .contracts import GAMES, SCHEMA, SNAPSHOT_ID, BUSINESS_TZ, RANK_CONTRACT, game
 from .metrics import compute_metrics
 from .store import encode
 
@@ -148,7 +148,7 @@ def build(store, context, source_names=()):
     manifest = dict(schema_version=SCHEMA, snapshot_id=ident, publication_date=context.publication_date,
                     report_date=context.report_date, history_start=context.history_start, history_end=context.report_date,
                     business_timezone='Asia/Shanghai', games=list(GAMES), facts_hash=facts,
-                    metric_contract='seo-metrics-v2-native-admin-estimate', rule_contract='seo-rules-v1',
+                    metric_contract='seo-metrics-v2-native-admin-estimate', rule_contract='seo-rules-v1',rank_contract=RANK_CONTRACT,
                     data_status=status, frozen=True, daytime_collection_enabled=False, sha256=digest_file(candidate),
                     sources={name:('configured' if name in source_names else 'not_configured') for name in ('gsc','ga4','admin','orders','serp','pages','calendar')})
     return candidate, manifest
@@ -178,9 +178,11 @@ def build_manual(store, base_ident, run_id):
                 connection.execute('INSERT OR REPLACE INTO coverage VALUES (?,?,?,?,?,?,?,?)',tuple(row))
             if connection.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise ValueError('INVALID_SNAPSHOT_DB')
             facts=facts_digest(connection)
+            ident='seo-'+day+'-manual-'+hashlib.sha256((run_id+':'+facts).encode()).hexdigest()[:12]
         meta=dict(base,sources=dict(base['sources']),snapshot_id=ident,facts_hash=facts,sha256=digest_file(candidate),
                   publication_mode='manual_observation',observation_date=day,manual_run_id=run_id,
-                  base_snapshot_id=base_ident,base_facts_hash=base['facts_hash'],published_at=dt.datetime.now(dt.timezone.utc).isoformat())
+                  base_snapshot_id=base.get('base_snapshot_id',base_ident),base_facts_hash=base.get('base_facts_hash',base['facts_hash']),
+                  parent_snapshot_id=base_ident,rank_contract=RANK_CONTRACT,published_at=dt.datetime.now(dt.timezone.utc).isoformat())
         for source in {r['source'] for r in coverage}:meta['sources'][source]='configured'
         if any(r['status'] not in ('available','provisional') for r in coverage):meta['data_status']='partial'
     except BaseException:

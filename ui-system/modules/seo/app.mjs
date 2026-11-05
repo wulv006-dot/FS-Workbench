@@ -95,7 +95,7 @@ function renderMarkets(root, scope, rows=[], sourceState={}) {
       const first=group[0],box=text('article',null,'market-card'),order=['MMOEXP','IGGM','U4GM','U7BUY','LootBar','G2G','Eldorado'],brands=[...new Set(group.map(r=>r.brand))].sort((a,b)=>(order.indexOf(a)<0?99:order.indexOf(a))-(order.indexOf(b)<0?99:order.indexOf(b))||a.localeCompare(b)),queries=new Map();
       box.append(text('h3',[first.country,first.language,first.device,first.location].filter(Boolean).join(' / ')),text('p','Google自然结果 · Bright Data · 固定快照','muted'));
       for(const row of group){const key=JSON.stringify([row.keyword,row.source_date,row.depth]);if(!queries.has(key))queries.set(key,[]);queries.get(key).push(row);}
-      const cells=[...queries.values()].map(samples=>{const r=samples[0];return [r.keyword,...brands.map(brand=>{const cell=samples.find(x=>x.brand===brand);return !cell?'待采样':cell.status==='found'?'#'+cell.rank:cell.status==='not_found'?'前'+cell.depth+'未找到':cell.status==='unresolved'?'链接待解析':cell.status==='insufficient_depth'?'深度不足 '+cell.effective_depth+'/'+cell.depth:'采集失败';}),r.observed_at??r.source_date];});
+      const cells=[...queries.values()].map(samples=>{const r=samples[0];return [r.keyword,...brands.map(brand=>{const cell=samples.find(x=>x.brand===brand);return !cell?'待采样':cell.status==='found'?'#'+cell.rank:['not_found','insufficient_depth'].includes(cell.status)?'未在前'+cell.effective_depth+'名':cell.status==='unresolved'?'链接待解析':cell.status==='no_results'?'本次未返回自然结果':'采集失败';}),r.observed_at??r.source_date];});
       box.append(table(['关键词',...brands,'观察时间'],cells,'已发布国家竞争样本'));root.append(box);
     }return;
   }
@@ -112,7 +112,7 @@ function loadOptional(kind,scope,request,root,done) {
   const load=async()=>{let result=await client.load(kind,scope);if(['markets','calendar'].includes(kind))while(result.next_cursor!=null&&request===epoch){const next=await client.load(kind,scope,result.next_cursor);result={...next,rows:[...result.rows,...next.rows]};}return result;};
   load().then(result=>{if(request===epoch&&root.isConnected)done(result);}).catch(error=>{if(request===epoch&&root.isConnected){root.querySelector('.pending')?.remove();root.append(text('p',(kind==='markets'?'国家竞争':kind==='calendar'?'游戏日程':views[kind]?.[0]??'基础提醒')+'暂不可用：'+error.message,'error'));}});
 }
-function detailCells(kind,row) {return columns[kind].map(([key])=>key==='status'?(labels[row.status]??row.status):row[key]??row.metrics?.[key]);}
+function detailCells(kind,row) {return columns[kind].map(([key])=>key==='status'?(kind==='rankings'&&['not_found','insufficient_depth'].includes(row.status)?'未在前'+row.effective_depth+'名':row.status==='no_results'?'本次未返回自然结果':labels[row.status]??row.status):row[key]??row.metrics?.[key]);}
 function timeline(scope,request) {
   panel.append(sectionHeading(names[scope]+' 游戏日程','官方来源优先，事件按真实观察时间记录。'));
   if(client.meta.sources?.calendar!=='configured')panel.append(empty('游戏日程来源尚未接入','当前没有可展示的已核验游戏事件。demo中的赛季、版本和运营日程不作为真实公告。','sources'));
