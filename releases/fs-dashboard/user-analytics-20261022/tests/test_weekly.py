@@ -72,6 +72,7 @@ class WeeklyFixture(unittest.TestCase):
         self.addCleanup(lambda: self.service.private_cache_timer.cancel() if self.service.private_cache_timer else None)
 
 
+
 class PublishedQueries(WeeklyFixture):
     def test_default_previous_complete_week_and_daily_start_choice(self):
         value = self.service.query({}, 'admin')
@@ -164,6 +165,64 @@ class Worker(WeeklyFixture):
 
     def wake(self, now=MONDAY, **kwargs):
         return weekly.wake(self.store.root, lambda: self.store, now, clock=lambda: 0, **kwargs)
+
+    def test_daily_publication_advances_non_monday_and_reuses_same_day(self):
+        now=stamp('2026-10-31T04:18:00+08:00')
+        value=self.wake(now,cadence='daily')
+        self.assertEqual(value['status'],'complete')
+        published=weekly.stored_publication(self.store)
+        self.assertEqual(published['cutoff'],'2026-10-31T00:00:00+08:00')
+        self.assertEqual(weekly.public_info(published)['cadence'],'daily')
+        self.assertEqual(weekly.public_info(published)['next_planned_update'],'2026-11-01T04:18:00+08:00')
+        self.assertEqual([a for _,a,_ in self.synced if a>=OLD.isoformat()],['2026-10-30T00:00:00+08:00'])
+        count=self.sync.call_count
+        self.assertEqual(self.wake(now,cadence='daily')['status'],'reused')
+        self.assertEqual(self.sync.call_count,count)
+        self.assertEqual(weekly.checked(self.publication),self.publication)
+        self.automatic_copy.assert_not_called()
+
+    def test_daily_gap_before_later_complete_day_is_repaired(self):
+        self.store.failed_window('266','2026-10-27','2026-10-28','fixture_failure')
+        with self.store.db() as db:
+            db.execute("DELETE FROM jobs WHERE site='266'")
+        self.store.replace_window('266','2026-01-01','2026-10-27',[],FRIDAY.isoformat())
+        self.store.replace_window('266','2026-10-28','2026-10-30',[],FRIDAY.isoformat())
+        self.assertEqual(self.wake(stamp('2026-10-31T04:18:00+08:00'),cadence='daily')['status'],'complete')
+        self.assertIn(('266','2026-10-27T00:00:00+08:00','2026-10-28T00:00:00+08:00'),self.synced)
+
+    def test_daily_failed_day_keeps_previous_publication(self):
+        self.sync.side_effect=TimeoutError('fixture source timeout')
+        self.assertEqual(self.wake(stamp('2026-10-31T04:18:00+08:00'),cadence='daily')['status'],'deferred')
+        self.assertEqual(weekly.stored_publication(self.store),self.publication)
+
+    def test_daily_finishes_original_weekly_work_before_next_day(self):
+        original = self.sync.side_effect
+        self.sync.side_effect = TimeoutError('fixture source timeout')
+        self.assertEqual(self.wake()['status'], 'deferred')
+        state = weekly.small_state(self.store.root)
+        self.sync.side_effect = original
+        tuesday = stamp('2026-11-03T04:18:00+08:00')
+        self.assertEqual(self.wake(tuesday, cadence='daily')['status'], 'complete')
+        completed = weekly.stored_publication(self.store)
+        self.assertEqual(completed['cutoff'], state['cutoff'])
+        self.assertEqual(completed['cadence'], 'weekly')
+        self.assertEqual(self.wake(stamp('2026-11-03T04:33:00+08:00'), cadence='daily')['status'], 'complete')
+        self.assertEqual(weekly.stored_publication(self.store)['cutoff'], '2026-11-03T00:00:00+08:00')
+        self.assertEqual(weekly.stored_publication(self.store)['cadence'], 'daily')
+
+    def test_daily_monday_preserves_ninety_day_revision_pass(self):
+        self.assertEqual(self.wake(cadence='daily')['status'], 'complete')
+        old_days = [a for _,a,_ in self.synced if a < OLD.isoformat()]
+        self.assertEqual(len(old_days), 84)  # 83 review days plus original older rotation.
+        self.assertIn('2026-08-04T00:00:00+08:00', old_days)
+        self.ensure.assert_called_once()
+        self.assertTrue(self.ensure.call_args.kwargs['daily'])
+
+    def test_daily_pending_flags_prevents_publication_and_checks_last_seven_days(self):
+        self.ensure.return_value = dict(status='pending')
+        self.assertEqual(self.wake(stamp('2026-10-31T04:18:00+08:00'), cadence='daily')['status'], 'deferred')
+        self.assertEqual(weekly.stored_publication(self.store), self.publication)
+        self.assertEqual(self.ensure.call_args.args[:2], ('2026-10-24T00:00:00+08:00', '2026-10-31T00:00:00+08:00'))
 
     def test_weekday_idle_does_not_open_store_collect_compute_or_backup(self):
         loader = Mock(side_effect=AssertionError('weekday opened store'))
@@ -321,6 +380,17 @@ class Worker(WeeklyFixture):
 
 
 class FlagPeriods(unittest.TestCase):
+    def test_daily_flags_reuse_previous_six_days_and_export_only_missing_day(self):
+        export = Mock(return_value=dict(status='pending'))
+        def reader(query):
+            return {}, dict(status='partial' if query['start'] == '2026-11-01' else 'complete')
+        with patch.object(types, 'read_flags', side_effect=reader), patch.dict(sys.modules, {'es_order_structure': Mock(server_bundle=export)}):
+            value = types.ensure_period('2026-10-26', '2026-11-02', MONDAY, daily=True)
+        self.assertEqual(value['status'], 'pending')
+        export.assert_called_once()
+        self.assertEqual(export.call_args.args[0]['start'], '2026-11-01')
+        self.assertEqual(export.call_args.args[0]['end'], '2026-11-01')
+
     def test_cross_month_ensures_both_portions_then_reuses(self):
         periods = []
         def reader(query):

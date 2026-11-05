@@ -47,7 +47,7 @@ def configuration(path=CONFIG, accounting=ACCOUNTING, statuses=STATUSES):
                 raise ValueError('reviewed_status_evidence_required')
         value['known_order_statuses'] = sorted(set(value['known_order_statuses']) | set(reviewed['statuses']))
         value['source_status_rule_sha256'] = hashlib.sha256(raw).hexdigest()
-    value['update_cadence'] = 'weekly-v1'
+    value['update_cadence'] = 'daily-v1'
     value.setdefault('snapshot_storage', 'recipe-v1')
     return value
 
