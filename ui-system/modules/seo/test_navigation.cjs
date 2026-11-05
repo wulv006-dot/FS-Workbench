@@ -12,7 +12,7 @@ try{
  const baseline=path.join(temp,'baseline');fs.mkdirSync(baseline);
  const sha=raw=>require('node:crypto').createHash('sha256').update(raw).digest('hex');
  const files=Object.entries(targets).map(([candidate,target])=>{
-  const raw=Buffer.from(candidate.endsWith('.js')?fs.readFileSync(path.join(temp,'candidate',candidate),'utf8').replace(/\n/g,'\r\n'):'<script src="/__hub/nav.js?v=old"></script>\r\nKEEP BUSINESS CONTENT\r\n');
+  const raw=Buffer.from(candidate.endsWith('.js')?fs.readFileSync(path.join(temp,'candidate',candidate),'utf8').replace(/\r\n/g,'\n').replace(/\n/g,'\r\n'):'<script src="/__hub/nav.js?v=old"></script>\r\nKEEP BUSINESS CONTENT\r\n');
   fs.writeFileSync(path.join(baseline,candidate),raw);return {candidate,target,beforeSha256:sha(raw),sha256:sha(raw)};
  });
  const manifest=path.join(temp,'manifest.json');fs.writeFileSync(manifest,JSON.stringify({scope:'traffic-source-tabs-ui-finish-20261019',businessWrites:false,timersChanged:false,files}));
@@ -33,3 +33,4 @@ try{
  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(temp,'hubnav.live.js'),'utf8').match(/const BUILTIN=(.*);\r?\n/)[1]),before);
  console.log('PASS: captured navigation registry, exact 16-file scope, preserved bytes, cache references and drift rejection');
 }finally{fs.rmSync(temp,{recursive:true,force:true});}
+
