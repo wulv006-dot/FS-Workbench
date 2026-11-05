@@ -72,7 +72,7 @@ def run(config, clock=lambda: dt.datetime.now(dt.timezone.utc)):
         result = run_daily(core, sources, clock=clock, admit=admit, finish_margin_seconds=margin)
     finally:
         transport.close()
-    result.update(missing_sources=missing, upstream_requests=transport.calls+(summary_reader.calls if summary_reader else 0)+(serp_transport.calls if serp_transport else 0)+(calendar_source.calls if calendar_source else 0), resource_states=decisions)
+    result.update(missing_sources=missing, upstream_requests=transport.calls+(summary_reader.calls if summary_reader else 0)+(serp_transport.calls+serp_transport.resolution_calls if serp_transport else 0)+(calendar_source.calls if calendar_source else 0), resource_states=decisions)
     maintenance = {}
     try:
         maintenance['cleanup'] = cleanup_owned_data(core,dt.date.fromisoformat(context.publication_date))

@@ -75,7 +75,7 @@ class Store:
                     db.execute('INSERT OR REPLACE INTO coverage VALUES (?,?,?,?,?,?,?,?)',(*key,page['source_timezone'],'partial',collected_at,encode(quality),None))
                 return
             expected_total = page['quality'].get('expected_total')
-            if source=='serp' and any(json.loads(r[0]).get('status')=='failed' for r in db.execute('SELECT payload FROM stages WHERE source=? AND game=? AND source_date=?',key)):
+            if source=='serp' and any(json.loads(r[0]).get('status') in ('failed','unresolved') for r in db.execute('SELECT payload FROM stages WHERE source=? AND game=? AND source_date=?',key)):
                 page=dict(page,status='partial')
             if expected_total is not None and db.execute('SELECT COUNT(*) FROM stages WHERE source=? AND game=? AND source_date=?', key).fetchone()[0] != expected_total:
                 error = ValueError('ORDER_PAGE_TOTAL_MISMATCH')

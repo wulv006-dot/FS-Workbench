@@ -2,7 +2,7 @@ import datetime as dt
 import json
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock,patch
 
 from mmoexp_google_data.seo import daily, snapshot, store
 from test_daily_snapshot import NIGHT, Source
@@ -28,6 +28,56 @@ class SerpCalendar(unittest.TestCase):
         from mmoexp_google_data.seo.serp import parse_results
         for response in [dict(organic=[],general=dict(query='different')),dict(organic=[dict(link='javascript:alert(1)')]),dict(organic=[],general=dict(country_code='DE'))]:
             with self.assertRaises(ValueError):parse_results(response,self.condition(),{'MMOEXP':['https://www.mmoexp.com/Fc-27/']})
+
+    def test_unresolved_google_links_never_become_absent_or_a_precise_later_rank(self):
+        from mmoexp_google_data.seo.serp import parse_results
+        brands={'MMOEXP':['https://www.mmoexp.com/Fc-27/'],'IGGM':['https://www.iggm.com/']}
+        direct=dict(link='https://www.mmoexp.com/Fc-27/Coins.html')
+        opaque=dict(link='https://www.google.com/goto?url=CAESopaque')
+        rows=parse_results(dict(organic=[direct,opaque]),self.condition(),brands)
+        self.assertEqual(rows[0]['rank'],1)
+        self.assertEqual(rows[1]['status'],'unresolved')
+        rows=parse_results(dict(organic=[opaque,direct]),self.condition(),brands)
+        self.assertTrue(all(r['status']=='unresolved' and r['rank'] is None for r in rows))
+
+    def test_google_redirect_resolves_once_without_repeating_provider_search(self):
+        from mmoexp_google_data.seo.serp import BrightDataTransport,parse_results
+        config=dict(zone='existing',api_key_env='KEY',authorization=dict(reference='grant',valid_until='2026-11-30',request_allowance=2))
+        post=Mock(return_value=(dict(organic=[dict(link='/goto?url=CAESopaque')]),'provider-id'))
+        redirect=Mock(return_value='https://www.mmoexp.com/Fc-27/Coins.html')
+        with tempfile.TemporaryDirectory() as tmp:
+            core=store.Store(tmp)
+            transport=BrightDataTransport(core,config,dict(connect_seconds=5,idle_seconds=10,response_emergency_bytes=100000),key_loader=lambda _:'secret',post=post,redirect=redirect,clock=lambda:NIGHT)
+            for _ in range(2):
+                result=transport(self.condition(),'FC27','2026-11-05')
+                self.assertEqual(parse_results(result,self.condition(),{'MMOEXP':['https://www.mmoexp.com/Fc-27/']})[0]['rank'],1)
+            self.assertEqual(post.call_count,1)
+            self.assertEqual(redirect.call_count,1)
+            self.assertEqual(transport.resolution_calls,1)
+            with core.db() as db:self.assertEqual(db.execute('SELECT state FROM provider_requests').fetchone()[0],'completed')
+
+    def test_redirect_failure_keeps_completed_provider_receipt_and_unknown_rank(self):
+        from mmoexp_google_data.seo.serp import BrightDataTransport,parse_results
+        config=dict(zone='existing',api_key_env='KEY',authorization=dict(reference='grant',valid_until='2026-11-30',request_allowance=2))
+        post=Mock(return_value=(dict(organic=[dict(link='https://www.google.com/goto?url=CAESopaque')]),None))
+        with tempfile.TemporaryDirectory() as tmp:
+            core=store.Store(tmp)
+            transport=BrightDataTransport(core,config,dict(connect_seconds=5,idle_seconds=10,response_emergency_bytes=100000),key_loader=lambda _:'secret',post=post,redirect=Mock(side_effect=TimeoutError()),clock=lambda:NIGHT)
+            result=transport(self.condition(),'FC27','2026-11-05')
+            self.assertEqual(parse_results(result,self.condition(),{'MMOEXP':['https://www.mmoexp.com/Fc-27/']})[0]['status'],'unresolved')
+            with core.db() as db:self.assertEqual(db.execute('SELECT state FROM provider_requests').fetchone()[0],'completed')
+
+    def test_google_resolution_reads_only_location_and_never_follows_destination(self):
+        from mmoexp_google_data.seo.serp import BrightDataTransport
+        transport=BrightDataTransport(None,{},dict(connect_seconds=5,idle_seconds=10),clock=lambda:NIGHT)
+        with patch('http.client.HTTPSConnection') as client:
+            connection=client.return_value
+            connection.getresponse.return_value.status=302
+            connection.getresponse.return_value.getheader.return_value='https://www.mmoexp.com/Fc-27/Coins.html'
+            self.assertEqual(transport._redirect('https://www.google.com/goto?url=CAESopaque'),'https://www.mmoexp.com/Fc-27/Coins.html')
+            client.assert_called_once_with('www.google.com',timeout=5)
+            self.assertEqual(connection.request.call_args.args[:2],('GET','/goto?url=CAESopaque'))
+            connection.getresponse.return_value.read.assert_not_called()
 
     def test_serp_uses_one_request_for_all_brands_and_waits_until_next_day(self):
         from mmoexp_google_data.seo.serp import SerpSource
