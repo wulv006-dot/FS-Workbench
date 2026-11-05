@@ -1,48 +1,20 @@
-# FC知识只读接入 Implementation Plan
+# FC知识只读接入交付
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+目标：让真实FS新turn通过现有知识工具读取五项FC知识；复用原知识scope及publisher，不改native程序、权限、服务、定价和排程。
 
-**Goal:** 通过既有知识发布器让真实FS原生新turn读取本次五项FC知识，不改native程序或服务。
+## 已完成
 
-**Architecture:** 在原知识scope适配器增加明确的knowledge-only分支，继续复用原冻结publisher的锁、CAS、备份、journal及rollback。克隆现场原25条已发布索引及原文，只追加本次五项，最后原子切换原FS路由；旧任务继续使用原冻结版本。
+- [x] PR813的knowledgeOnly分支合并且正式pr-fast通过；原锁、CAS、备份、journal和rollback保留，0代码/服务目标。
+- [x] 原25条已发布知识逐项克隆并核SHA，增加`fc.reporting.methods/data/report/business/maintenance`五项；原FS路由13ID保留，现18ID；其它用户路由及baseline保持。
+- [x] 原合成CSV样本已归档；用户后续明确要求单对象彻底清理，主控完成5行、5文件和4专属空目录删除，原始备份/审计保留，outcome/cost unknown不改写。不提交此前拟议的archive-aware修复。
+- [x] 原21目标/52保护清单重检，仅首页保护SHA来自合法独立发布而变化。保留原88a清单，核准仅此保护前值更新为230ec6a3…52672，首页不是本次目标。
+- [x] 单次发布`nav-20261105T002653Z`；本次manifest SHA256 `fb979b890afefcc1a90c691bcbedacef415d4fc8b9ee578263d2bd834e4bcb0a`。
+- [x] 21目标与52保护SHA、owner/mode、原知识/其它路由/PID读回通过；真实已发布policy task_selection与五主题正文loader均available。0服务动作。
 
-**Tech Stack:** 现有Python标准库、原知识适配器与固定publisher、既有FS原生knowledge host-call。
+## 正式入口与后验
 
-**Spec:** 用户本次授权FC知识库供Hermes使用；现行HOTFIX、知识CLOSEOUT和本目录交付记录。
+- [x] Chrome FS持续对话UI新建正式会话并只发一次虚构短题，原turn completed；真实`fs_get_knowledge_index`及单份`fs_read_knowledge`的pin/receipt/正文SHA通过，广告CAC $40与知识revision 20261105-1回答正确。使用既有模型，保留正式验收会话，不造binding、不手写冻结文件、不改API设置。
+- [x] 正式FS通过KB使用本次知识，不要求另装native技能；native正式技能安装未做，新增会话实际美元费用unknown。
+- [ ] 自然报告与长期经营效果另验；不以loader或共享独立题通过替代。
 
-## Global Constraints
-
-- 不改native代码、模型/API、权限、价格、广告、排程或服务；本模式禁止停止/重启服务。
-- 原13个FS条目、baseline兼容和其它用户路由保持；原25条知识及内容保持，新增五项按Git固定提交取源。
-- 未知写入先核原release ID、journal、备份和实际状态；不盲重放。
-- 无新增付费模型测试；真实FS模型报告与自然周期仍另列未验。
-
-## Review Focus
-
-- 载荷含代码/基准/服务或目录逃逸：拒绝；旧发布分支原行为和测试保持。
-- sourceCommit与本次不可变目录不匹配：拒绝；旧目录不可覆盖。
-- 原路由前值变化：CAS拒绝，不覆盖他人更新。
-- 中途失败：沿原备份/journal回退；仅本模式没有可执行载荷，不进入代码恢复的服务停止分支。
-- 真实FS冻结：使用原host授权链核读五个条目及SHA，不手写session或伪造来源。
-
-### Task 1: 原scope知识-only分支
-
-**Files:** 原 `releases/fs-dashboard/knowledge-layering-20261023/deploy/release.py` 与其现有 `tests/test_knowledge_release.py`。
-
-- [x] 写并运行失败测试：仅policy与新不可变文档可入清单，代码/目录逃逸/授权扩大拒绝。
-- [x] 最小实现：保留原fence获取与锁，只对非可执行知识载荷不激活代码恢复的服务动作。
-- [x] 原2项及新2项本地测试4/4；PR813正式Linux pr-fast通过并合并。
-
-### Task 2: 精确载荷与批准
-
-- [x] 冻结原policy、原catalog与原文，哈希核对后克隆，原25条逐字保留。
-- [x] 新增五项为 `fc.reporting.methods/data/report/business/maintenance`；新FS路由为原13项加5项。
-- [x] 采集原publisher要求的52个保护SHA、目标元数据和运行前值，生成21文件最终manifest，主控核清单。
-- [x] 正式PR813/CI/合并完成；原publisher inspect已执行。
-- [ ] 原inspect被另一条2026-11-02的历史`dispatch_unknown`会话保护阻断，原native GET对账503；未apply。待原业务支持对账恢复后，同stage复核CAS与保护项，沿当前授权接续；不清状态、不停服务或绕保护。
-
-### Task 3: 读回与收尾
-
-- [ ] 核policy只改变原FS路由catalog/SHA与新增5个ID，原文SHA、其它路由及保护对象保持。
-- [ ] 用真实受支持FS知识host链固定原identity，核5项可检索读取；不调用模型、不写伪造冻结文件。
-- [ ] 记录原backup与回滚方法、实际入口/模型/自然周期未验边界，补交付记录与中文入口。
+本次原publisher备份为`/var/backups/fs-navigation-20261006/nav-20261105T002653Z`。回退沿同publisher及该原backup/批准SHA；未知结果先核原ID/journal，不换ID重放，不恢复旧整包。详细版本、实际回执及证据见[知识库交付记录](../../../knowledge/reporting/fc27-monthly/DELIVERY.md)。
