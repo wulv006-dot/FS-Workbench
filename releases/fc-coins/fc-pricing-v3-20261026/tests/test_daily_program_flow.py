@@ -214,4 +214,278 @@ class DailyProgramFlow(unittest.TestCase):
             self.assertEqual(state['source_coverage']['status'],'not_required_without_active_plan')
 
 
+class SavedDailyComparison(unittest.TestCase):
+    def producer(self, folder, *, missing=False):
+        import importlib.util
+        releases=Path(__file__).resolve().parents[3]
+        sys.path.insert(0,str(releases/'fs-dashboard/hermes-conversation-20261018/source'))
+        def load(name,path):
+            spec=importlib.util.spec_from_file_location(name,path)
+            module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+            return module
+        pilot=load('saved_daily_pilot',releases/'fs-dashboard/hermes-fc-pilot-20261013/pilot.py')
+        store_module=load('saved_daily_store',releases/'fs-dashboard/hermes-conversation-20261018/source/conversation_store.py')
+        from fc_pricing_v3 import api,history
+        root=Path(folder);(root/'evidence').mkdir()
+        db=Ledger(root/'control.db');tasks=pilot.TaskStore(root/'tasks.sqlite3')
+        store=store_module.ConversationStore(root/'pricing-reviews')
+        source='00000000-0000-4000-8000-000000000002'
+        snapshot=dict(snapshot_id=source,origin='live_collector',policy_version='fc-pricing-v3-20261026',evidence={'original':'evidence'},result={})
+        db.put('pricing_snapshots',source,snapshot)
+        if not missing:db.put('strategy_decisions',source,dict(daily=dict(status='READY',candidates=[])))
+        day='2026-11-04'
+        db.put('metadata','daily:'+day,dict(local_date=day,request_id='00000000-0000-4000-8000-000000000001',phase='created',actual={'status':'partial'}))
+        made={};native_calls=[]
+        def native(path,owner,body=None):
+            native_calls.append((path,owner,body))
+            self.assertIsNone(body,'Saved daily comparison must never POST')
+            with patch.object(api,'ledger',return_value=db):return api.read(path.removeprefix('/pricing/v3/'))
+        def http(owner,path,body=None,timeout=30):
+            if path=='/api/hermes/conversations/pricing-reviews':
+                made.update(store.create(owner));return made
+            self.assertTrue(path.endswith('/turns'))
+            turn=store.reserve_turn(owner,made['conversation_id'],body['text'],body['client_request_id'],native=True)
+            store.bind_task(owner,made['conversation_id'],turn['turn_id'],turn['turn_id'],'a'*32)
+            made.update(turn);return turn
+        def save(path,value):path.write_text(json.dumps(value),encoding='utf-8')
+        with patch.object(runtime,'ledger',return_value=db),patch.object(scheduler,'export_shadow_snapshot'), \
+             patch.object(history,'ensure_shadow',return_value=dict(status='completed',result={})), \
+             patch.object(hermes_pricing_bridge,'ROOT',root),patch.object(hermes_pricing_bridge,'FS',root), \
+             patch.object(hermes_pricing_bridge,'request',side_effect=http),patch.object(hermes_pricing_bridge,'save',side_effect=save), \
+             patch.object(hermes_pricing_bridge.os,'chown',create=True),patch.object(pricing_operations,'native',side_effect=native):
+            try:record=daily.run(dict(local_date=day))
+            except ValueError as error:
+                if str(error)!='pricing_daily_hermes_pending':raise
+                record=db.get('metadata','daily:'+day)
+        def context(owner,task,lease):
+            if owner!='wulv' or task!=made['turn_id'] or lease!='a'*32:raise PermissionError('test_owned_lease')
+        scope=SimpleNamespace(tasks=tasks,clock=lambda:datetime.now(timezone.utc),context=context)
+        return SimpleNamespace(record=record,store=store,db=db,scope=scope,made=made,source=source,snapshot=snapshot,native=native,calls=native_calls,root=root)
+
+    def test_saved_daily_real_producer_binds_snapshot_hash_and_gets_original_comparison(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=self.producer(folder)
+            basis=p.record['decision_basis']
+            self.assertEqual(basis.get('snapshot_sha256'),runtime.fingerprint(p.snapshot['evidence']))
+            auth=pricing_operations.authorization(p.scope,'wulv',p.made['turn_id'],p.scope.clock())
+            self.assertEqual(auth['runs'],[p.record['request_id']])
+            self.assertEqual(auth.get('source_quote_run'),p.source)
+            self.assertEqual(auth.get('source_quote_sha256'),basis['snapshot_sha256'])
+            self.assertEqual(p.record['hermes'].get('source_quote_run'),p.source)
+            result=pricing_operations.call(p.scope,'wulv',p.made['turn_id'],'a'*32,dict(action='compare_strategies',mode='daily'),request=p.native)
+            self.assertEqual(result['snapshot_id'],p.source)
+            self.assertEqual(result['snapshot_sha256'],basis['snapshot_sha256'])
+            self.assertFalse(result['execution_authorized'])
+            self.assertTrue(all(call[0]=='/pricing/v3/strategy-decisions/'+p.source and call[2] is None for call in p.calls))
+
+    def test_saved_daily_missing_decision_still_submits_review_without_compare(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=self.producer(folder,missing=True)
+            self.assertEqual(p.record['hermes']['phase'],'submitted')
+            self.assertIn('compare_basis_gap',p.record['hermes'])
+            caps=pricing_operations.call(p.scope,'wulv',p.made['turn_id'],'a'*32,dict(action='capabilities'),request=p.native)
+            self.assertNotIn('compare_strategies',caps['allowed_actions'])
+            with self.assertRaisesRegex(ValueError,'pricing_daily_compare_basis_unavailable'):
+                pricing_operations.call(p.scope,'wulv',p.made['turn_id'],'a'*32,dict(action='compare_strategies',mode='daily'),request=p.native)
+
+    def test_saved_daily_rejects_changed_hash_missing_mode_and_expired_or_wrong_owner(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=self.producer(folder)
+            p.db.put('pricing_snapshots',p.source,dict(p.snapshot,evidence={'changed':True}))
+            try:
+                with self.assertRaisesRegex(ValueError,'pricing_review_run_basis_changed'):
+                    pricing_operations.call(p.scope,'wulv',p.made['turn_id'],'a'*32,dict(action='compare_strategies',mode='daily'),request=p.native)
+            except PermissionError as error:self.fail('Saved basis is not connected: '+str(error))
+            p.db.put('pricing_snapshots',p.source,p.snapshot)
+            with self.assertRaisesRegex(ValueError,'pricing_review_run_basis_changed'):
+                pricing_operations.call(p.scope,'wulv',p.made['turn_id'],'a'*32,dict(action='compare_strategies',mode='revenue_sprint'),request=p.native)
+            with self.assertRaises(PermissionError):
+                pricing_operations.call(p.scope,'other',p.made['turn_id'],'a'*32,dict(action='compare_strategies',mode='daily'),request=p.native)
+            with p.scope.tasks.db() as conn:conn.execute("UPDATE pricing_grants SET expires_at='2000-01-01T00:00:00+00:00'")
+            with self.assertRaises(PermissionError):
+                pricing_operations.call(p.scope,'wulv',p.made['turn_id'],'a'*32,dict(action='compare_strategies',mode='daily'),request=p.native)
+            self.assertTrue(all(call[2] is None for call in p.calls))
+
+    def test_saved_daily_old_grant_columns_migrate_without_upgrading_scope(self):
+        with closing(sqlite3.connect(':memory:')) as conn,conn:
+            conn.execute('CREATE TABLE pricing_grants(conversation TEXT PRIMARY KEY,owner TEXT NOT NULL,mode TEXT NOT NULL,runs TEXT NOT NULL,expires_at TEXT NOT NULL,source TEXT NOT NULL,restore_sources TEXT NOT NULL)')
+            old=('a'*32,'wulv','daily_review','["daily"]','2099-01-01T00:00:00+00:00','old-source','[]')
+            conn.execute('INSERT INTO pricing_grants VALUES(?,?,?,?,?,?,?)',old)
+            pricing_operations.tables(conn)
+            row=conn.execute('SELECT * FROM pricing_grants').fetchone()
+            self.assertEqual(row[:7],old);self.assertEqual(row[7:],(None,None))
+
+    def test_saved_daily_bound_intent_rejects_changed_producer_basis_without_resubmit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=self.producer(folder)
+            report={k:p.record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
+            report['decision_basis']=dict(report['decision_basis'],snapshot_id='00000000-0000-4000-8000-000000000003')
+            with patch.object(hermes_pricing_bridge,'ROOT',p.root),patch.object(hermes_pricing_bridge,'FS',p.root), \
+                 patch.object(pricing_operations,'native',side_effect=p.native),patch.object(hermes_pricing_bridge,'request') as submit, \
+                 patch.object(hermes_pricing_bridge,'save',side_effect=lambda path,value:path.write_text(json.dumps(value),encoding='utf-8')):
+                with self.assertRaisesRegex(ValueError,'pricing_hermes_intent_conflict'):
+                    hermes_pricing_bridge.review(dict(job_id=p.record['request_id']),dict(run_id=p.record['request_id'],daily_report=report),mode='daily_review',wait_seconds=0)
+            submit.assert_not_called()
+
+    def test_saved_daily_bridge_does_not_hide_unexpected_api_errors(self):
+        quote=dict(daily_report=dict(decision_basis=dict(snapshot_id='00000000-0000-4000-8000-000000000002',snapshot_sha256='a'*64)))
+        with patch.object(pricing_operations,'native',side_effect=ValueError('unexpected_parser_failure')):
+            with self.assertRaisesRegex(ValueError,'unexpected_parser_failure'):
+                hermes_pricing_bridge.source_quote_basis(quote,'wulv')
+
+    def test_saved_daily_original_unbound_intent_is_not_upgraded_on_reconnect(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=self.producer(folder)
+            path=p.root/'evidence'/('hermes-pricing-'+p.record['request_id']+'.json')
+            old=json.loads(path.read_text('utf-8'))
+            old.pop('source_quote_run');old.pop('source_quote_sha256')
+            path.write_text(json.dumps(old),encoding='utf-8')
+            with p.scope.tasks.db() as conn:conn.execute('UPDATE pricing_grants SET source_quote_run=NULL,source_quote_sha256=NULL')
+            report={k:p.record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
+            with patch.object(hermes_pricing_bridge,'ROOT',p.root),patch.object(hermes_pricing_bridge,'FS',p.root), \
+                 patch.object(pricing_operations,'native') as reads,patch.object(hermes_pricing_bridge,'request') as submit, \
+                 patch.object(hermes_pricing_bridge,'save',side_effect=lambda path,value:path.write_text(json.dumps(value),encoding='utf-8')):
+                result=hermes_pricing_bridge.review(dict(job_id=p.record['request_id']),dict(run_id=p.record['request_id'],daily_report=report),mode='daily_review',wait_seconds=0)
+            reads.assert_not_called();submit.assert_not_called()
+            self.assertNotIn('source_quote_run',result)
+            auth=pricing_operations.authorization(p.scope,'wulv',p.made['turn_id'],p.scope.clock())
+            self.assertIsNone(auth['source_quote_run']);self.assertIsNone(auth['source_quote_sha256'])
+
+    def test_saved_daily_existing_automatic_and_operator_compare_contracts_remain(self):
+        scope=Mock();scope.clock.return_value=NOW
+        response=dict(snapshot_id='original',results=dict(daily={'status':'READY'}))
+        request=Mock(return_value=response)
+        with patch.object(pricing_operations,'authorization',return_value=dict(mode='automatic_review',runs=['original'])):
+            result=pricing_operations.call(scope,'wulv','task','lease',dict(action='compare_strategies',mode='daily'),request=request)
+        self.assertEqual(result['snapshot_id'],'original')
+        request.assert_called_once_with('/pricing/v3/strategy-decisions/original','wulv')
+        request.reset_mock()
+        with patch.object(pricing_operations,'authorization',return_value=dict(mode='operator_workflow',runs=[])):
+            self.assertEqual(pricing_operations.call(scope,'wulv','task','lease',dict(action='compare_strategies',mode='daily'),request=request),response)
+        request.assert_called_once_with('/pricing/v3/evaluate','wulv',dict(mode='daily'))
+
+
+    def test_saved_daily_terminal_receipt_needs_no_new_api_or_submission(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=self.producer(folder)
+            path=p.root/'evidence'/('hermes-pricing-'+p.record['request_id']+'.json')
+            original=json.loads(path.read_text('utf-8'))
+            report={k:p.record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
+            for phase in ('completed','failed','timeout','unknown'):
+                with self.subTest(phase=phase):
+                    receipt=dict(original,phase=phase)
+                    path.write_text(json.dumps(receipt),encoding='utf-8')
+                    with patch.object(hermes_pricing_bridge,'ROOT',p.root), \
+                         patch.object(pricing_operations,'native',side_effect=AssertionError('terminal_receipt_must_not_requery')) as reads, \
+                         patch.object(hermes_pricing_bridge,'request') as submits:
+                        result=hermes_pricing_bridge.review(dict(job_id=p.record['request_id']),
+                            dict(run_id=p.record['request_id'],daily_report=report),mode='daily_review',wait_seconds=0)
+                    self.assertEqual(result,receipt)
+                    reads.assert_not_called();submits.assert_not_called()
+
+
+    def test_saved_daily_submitted_turn_reconciles_when_comparison_api_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=self.producer(folder)
+            p.store.set_state('wulv',p.made['conversation_id'],p.made['turn_id'],'completed')
+            report={k:p.record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
+            with patch.object(hermes_pricing_bridge,'ROOT',p.root),patch.object(hermes_pricing_bridge,'FS',p.root), \
+                 patch.object(pricing_operations,'native',side_effect=OSError('comparison_temporarily_unavailable')) as comparisons, \
+                 patch.object(hermes_pricing_bridge,'turn_state',wraps=hermes_pricing_bridge.turn_state) as reads, \
+                 patch.object(hermes_pricing_bridge,'request',return_value={'state':'completed'}) as request, \
+                 patch.object(hermes_pricing_bridge,'save',side_effect=lambda path,value:path.write_text(json.dumps(value),encoding='utf-8')):
+                try:
+                    result=hermes_pricing_bridge.review(dict(job_id=p.record['request_id']),
+                        dict(run_id=p.record['request_id'],daily_report=report),mode='daily_review',wait_seconds=0)
+                except ValueError as error:
+                    self.fail('Original turn reconciliation blocked: '+str(error))
+            self.assertEqual(result['phase'],'completed')
+            self.assertEqual(result['turn']['id'],p.made['turn_id'])
+            reads.assert_called_once()
+            comparisons.assert_not_called()
+            request.assert_called_once_with('wulv','/api/hermes/conversations/pricing-reviews/'+p.made['conversation_id'])
+
+    def test_source_quote_columns_upgrade_concurrently_without_duplicate_column_failure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'existing.db'
+            with closing(sqlite3.connect(path)) as db:
+                db.execute('CREATE TABLE pricing_grants(conversation TEXT PRIMARY KEY,owner TEXT NOT NULL,mode TEXT NOT NULL,runs TEXT NOT NULL,expires_at TEXT NOT NULL,source TEXT NOT NULL,restore_sources TEXT NOT NULL)')
+            barrier=threading.Barrier(2)
+            def migrate():
+                with closing(sqlite3.connect(path,timeout=5)) as connection:
+                    class SimultaneousColumns:
+                        seen=False
+                        def execute(self,sql,*args):
+                            cursor=connection.execute(sql,*args)
+                            if sql=='PRAGMA table_info(pricing_grants)' and not self.seen:
+                                self.seen=True
+                                rows=cursor.fetchall()
+                                barrier.wait(timeout=5)
+                                return rows
+                            return cursor
+                    try:pricing_operations.tables(SimultaneousColumns())
+                    except sqlite3.OperationalError as error:return str(error)
+                    return None
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results=list(pool.map(lambda _:migrate(),range(2)))
+            self.assertEqual(results,[None,None])
+            with closing(sqlite3.connect(path)) as db:
+                columns={r[1]:r[2] for r in db.execute('PRAGMA table_info(pricing_grants)')}
+            self.assertEqual(columns['source_quote_run'],'TEXT')
+            self.assertEqual(columns['source_quote_sha256'],'TEXT')
+
+    def test_source_quote_migration_keeps_other_database_errors_visible(self):
+        with closing(sqlite3.connect(':memory:')) as connection:
+            class FailedAlter:
+                def execute(self,sql,*args):
+                    if sql.startswith('ALTER TABLE'):
+                        raise sqlite3.OperationalError('database is locked')
+                    return connection.execute(sql,*args)
+            with self.assertRaisesRegex(sqlite3.OperationalError,'database is locked'):
+                pricing_operations.tables(FailedAlter())
+
+
+class DailyReviewBoundary(unittest.TestCase):
+    def quote(self):
+        # Equal six-hour totals hide the different hourly demand peaks.
+        hourly = [dict(hour=h, orders=6 if h in (2, 9, 13, 23) else 0,
+                       net_paid_usd='60' if h in (2, 9, 13, 23) else '0')
+                  for h in range(24)]
+        return dict(daily_report=dict(
+            local_date='2026-11-04',
+            actual=dict(status='complete', hourly=hourly,
+                        periods=[dict(start_hour=h, end_hour=h+6, orders=6, net_paid_usd='60')
+                                 for h in range(0, 24, 6)],
+                        missing_hours_are_zero=True),
+            decision_basis=dict(mode='smart'),
+            learning_coverage=dict(status='partial'),
+            price_exposure=dict(attribution='bound_orders_only'),
+            shadow=dict(status='estimate')))
+
+    def test_review_retains_original_hourly_and_coverage_evidence(self):
+        quote = self.quote()
+        before = json.loads(json.dumps(quote))
+        prompt = hermes_pricing_bridge.daily_review_text(quote)
+        report = json.loads(prompt.split('实际及影子摘要：', 1)[1])
+        self.assertEqual(report, before['daily_report'])
+        self.assertEqual(quote, before)
+
+    def test_review_leaves_analysis_window_and_structure_to_model(self):
+        prompt = hermes_pricing_bridge.daily_review_text(self.quote())
+        self.assertNotIn('按附带真实六小时时段订单与收入分布比较低估期和高峰期', prompt)
+        self.assertNotIn('输出一次简明中文复盘：效果判断、分时段比较、基数与假设、建议及次日观察', prompt)
+
+    def test_review_keeps_readonly_and_effect_evidence_boundaries(self):
+        prompt = hermes_pricing_bridge.daily_review_text(self.quote())
+        for boundary in ('本任务只读', '不调用recommend', '不创建/执行/切换计划',
+                         '曝光开始前的成交不能归给V3', '双20%', '不能豁免',
+                         '模拟收益不能叫真实增收'):
+            self.assertIn(boundary, prompt)
+
+    def test_review_keeps_existing_prompt_size_limit(self):
+        quote = self.quote()
+        quote['daily_report']['large'] = 'x' * 12000
+        with self.assertRaisesRegex(ValueError, '^pricing_daily_prompt_too_long$'):
+            hermes_pricing_bridge.daily_review_text(quote)
+
 if __name__=='__main__':unittest.main()

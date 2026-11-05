@@ -21,10 +21,22 @@ class B2Contracts(unittest.TestCase):
         args.update(changes)
         return assess(observation or self.o, **args)
 
-    def test_partial_identity_and_refund_need_evidence(self):
+    def test_partial_identity_and_required_history_need_evidence(self):
         for change in (dict(complete=False), dict(identity_verified=False),
-                       dict(missing=("cost",)), dict(refund_review_needed=True)):
+                       dict(missing=("effective_order_policy",))):
             self.assertEqual(self.check(replace(self.o, **change))["state"], "needs_evidence")
+
+    def test_financial_limitations_preserve_due_and_freshness_checks(self):
+        missing = ("purchase_cost", "net_contribution", "complete_refund_change_cursor")
+        o = replace(self.o, missing=missing, refund_review_needed=True, latest_paid_at=self.now-timedelta(days=1))
+        value = self.check(o, recheck_at=self.now)
+        self.assertEqual(value["state"], "review_due")
+        self.assertTrue(value["purchase_since_anchor"])
+        self.assertEqual(value["limitations"], list(missing))
+        self.assertTrue(value["refund_review_needed"])
+        self.assertEqual(value["maturity"], {"7": None, "14": None, "30": None})
+        self.assertFalse(value["business_write_performed"])
+        self.assertEqual(self.check(replace(o, as_of=self.now-timedelta(hours=1)), recheck_at=self.now)["state"], "refresh_required")
 
     def test_due_without_new_purchase(self):
         value = self.check(recheck_at=self.now)
@@ -58,6 +70,24 @@ class B2Contracts(unittest.TestCase):
     def test_stopped_goal_stays_stopped(self):
         self.assertEqual(self.check(goal_active=False)["state"], "stopped")
 
+    def test_maturity_requires_the_full_elapsed_observation_window(self):
+        first = datetime(2026, 10, 1, 23, 55, tzinfo=timezone(timedelta(hours=8)))
+        cases = (
+            (datetime(2026, 10, 8, 0, 0, tzinfo=first.tzinfo), {"7": False, "14": False, "30": False}),
+            (datetime(2026, 10, 8, 23, 54, tzinfo=first.tzinfo), {"7": False, "14": False, "30": False}),
+            (datetime(2026, 10, 8, 23, 55, tzinfo=first.tzinfo), {"7": True, "14": False, "30": False}),
+            (datetime(2026, 10, 8, 15, 54, tzinfo=timezone.utc), {"7": False, "14": False, "30": False}),
+            (datetime(2026, 10, 8, 15, 55, tzinfo=timezone.utc), {"7": True, "14": False, "30": False}),
+            (datetime(2026, 10, 15, 23, 54, tzinfo=first.tzinfo), {"7": True, "14": False, "30": False}),
+            (datetime(2026, 10, 15, 23, 55, tzinfo=first.tzinfo), {"7": True, "14": True, "30": False}),
+            (datetime(2026, 10, 31, 23, 54, tzinfo=first.tzinfo), {"7": True, "14": True, "30": False}),
+            (datetime(2026, 10, 31, 23, 55, tzinfo=first.tzinfo), {"7": True, "14": True, "30": True}))
+        for cutoff, expected in cases:
+            with self.subTest(cutoff=cutoff):
+                o = replace(self.o, as_of=cutoff, first_paid_at=first, latest_paid_at=first)
+                value = self.check(o, now=cutoff, observation_anchor=first, recheck_at=cutoff+timedelta(days=1))
+                self.assertEqual(value["maturity"], expected)
+
     def test_maturity_uses_source_cutoff_not_current_time(self):
         o = replace(self.o, first_paid_at=self.now-timedelta(days=7),
                     latest_paid_at=self.now-timedelta(days=7), as_of=self.now-timedelta(days=1))
@@ -66,10 +96,11 @@ class B2Contracts(unittest.TestCase):
 
     def test_missing_or_corrected_first_payment_does_not_publish_maturity(self):
         old = replace(self.o, first_paid_at=self.now-timedelta(days=35))
-        for change in (dict(missing=("first_paid_history",)), dict(refund_review_needed=True)):
+        for change, expected in ((dict(missing=("first_paid_history",)), "needs_evidence"),
+                                 (dict(refund_review_needed=True), "investigate")):
             with self.subTest(change=change):
                 value = self.check(replace(old, **change))
-                self.assertEqual(value["state"], "needs_evidence")
+                self.assertEqual(value["state"], expected)
                 self.assertEqual(value["maturity"], {"7": None, "14": None, "30": None})
 
     def test_earlier_purchase_does_not_suppress_due_recheck(self):
@@ -136,6 +167,22 @@ class CurrentFSConsumer(unittest.TestCase):
         self.assertTrue(value['refund_review_needed'])
         for forbidden in ('@example.test', 'synthetic-', 'goal_id', 'request_id', 'recheck_at', 'net_profit'):
             self.assertNotIn(forbidden, json.dumps(value))
+
+    def test_current_a2_limitations_do_not_cancel_a_due_readonly_review(self):
+        now = self.a.original.clock()
+        receipt = self.a.context.timeline(self.snapshot, self.customer)
+        observation = self.b2.observation_from_a2(receipt, now=now)
+        self.assertTrue(observation.complete)
+        self.assertTrue(observation.refund_review_needed)
+        self.assertIn("purchase_cost", observation.missing)
+        result = self.b2.assess(observation, now=now,
+                                observation_anchor=observation.as_of-timedelta(days=5),
+                                recheck_at=observation.as_of)
+        self.assertEqual(result["state"], "review_due")
+        self.assertEqual(result["limitations"], list(observation.missing))
+        self.assertTrue(result["refund_review_needed"])
+        self.assertFalse(result["business_write_performed"])
+        self.assertEqual(result["maturity"], {"7": None, "14": None, "30": None})
 
     def test_period_first_seen_never_becomes_lifetime_first(self):
         self.snapshot = self.a.snapshot(self.a.context.aggregate({'start': '2026-10-01'}))

@@ -16,13 +16,17 @@ Admin沿现役8912 HMAC（容器8913桥），8767已退役。运行源按[当前
 
 # FS 用户分析
 
+当前日更与周一自然月复核见[实施与实际状态](../../../docs/planning/buyer-tracking-incremental-20261105/IMPLEMENTATION.md)及[月复核合同](../../../docs/planning/buyer-tracking-incremental-20261105/MONTHLY-RECONCILIATION.md)：平日补昨日与真实缺日，周一复核当月及前两月；旧在途任务沿原ID和原合同完成。首次自然日更和周一窗口的验收状态按上述记录核对，不用页面可读代替自然周期。历史覆盖与各次部署事实见原交付、JANUARY-ACCEPTANCE及SEARCH-ACCEPTANCE，不从旧阶段待确认文字恢复现行限制。
+
+## 已有部署与验收记录
+
 2026-10-23后续用户已验收OK：范围名称统一“全部”，PR395/nav-20261023T072552Z已部署，1月订单补数进程已启动，1—6月新老客ES标签已完成。当前补数仍进行中，原7月完整覆盖证明保留；不得将目标下限当已齐。详JANUARY-ACCEPTANCE及交付尾部。以下旧阶段“待用户OK/不启动1月”已被本次确认取代。
 
-2026-10-23后续：PR388/390/392已部署完整邮箱查询、字段问号与FS主题适配，最终nav-20261023T065100Z。实际本机Chrome与8目标/105保护已核；详交付尾部和SEARCH-ACCEPTANCE。原截止昨日口径及用户OK前不补1月保持。
+2026-10-23后续：PR388/390/392已部署完整邮箱查询、字段问号与FS主题适配，最终nav-20261023T065100Z。实际本机Chrome与8目标/105保护已核；详交付尾部和SEARCH-ACCEPTANCE。该阶段的等待用户OK限制已由上段后续验收取代。
 
-按 [原始施工说明第17节](../../../docs/planning/fs-user-analytics-20261022/IMPLEMENTATION-SPEC.md) 完成W0后连续推进。最新PR384/mergea4580dd2、nav-20261023T024225Z已部署读回；默认期间邮箱建池，只有开始日，结束固定昨日，首单取ES新老标记，期间复购及复购后沉睡提供交叉筛选。85项隔离Linux、正式CI、四范围独立对账、已有Chrome与两工具完成，用户尚未验收OK；此前全历史模式保留辅助。当前只补到7月1日，1月回补必须等用户验收后，不能以自验替代。真实午夜仍待10月24日，详 [DELIVERY](../../../docs/planning/fs-user-analytics-20261022/DELIVERY.md)、[SOURCE-MAP](../../../docs/planning/fs-user-analytics-20261022/SOURCE-MAP.json) 与[通俗使用说明](../../../docs/planning/fs-user-analytics-20261022/USER-GUIDE.md)。
+原施工参考：[原始施工说明第17节](../../../docs/planning/fs-user-analytics-20261022/IMPLEMENTATION-SPEC.md)（不再作为当前执行清单）。最新PR384/mergea4580dd2、nav-20261023T024225Z已部署读回；默认期间邮箱建池，只有开始日，结束固定昨日，首单取ES新老标记，期间复购及复购后沉睡提供交叉筛选。85项隔离Linux、正式CI、四范围独立对账、已有Chrome与两工具完成，该次记录时用户尚未验收OK；此前全历史模式保留辅助。该次记录时只补到7月1日；之后用户验收与1月启动以上段后续记录为准。真实午夜仍待10月24日，详 [DELIVERY](../../../docs/planning/fs-user-analytics-20261022/DELIVERY.md)、[SOURCE-MAP](../../../docs/planning/fs-user-analytics-20261022/SOURCE-MAP.json) 与[通俗使用说明](../../../docs/planning/fs-user-analytics-20261022/USER-GUIDE.md)。
 
-`source/` 提供独立客户事实库、可续跑日片、生命周期/成熟二购、冻结快照、权限查询、HTTP与两类Hermes工具。共享源复用现有Admin批量分页和8767会话，不重新登录或逐客户扫描。`user_runtime.py` 绑定当前IAM，`user_jobs.py` 使用原渠道采集锁并为前台采集让路，日推进不依赖新增订单。
+`source/` 提供独立客户事实库、可续跑日片、生命周期/成熟二购、冻结快照、权限查询、HTTP与两类Hermes工具。共享源复用现役Admin直接8912 HMAC API（容器8913桥）与原批量分页，不恢复8767会话。`user_runtime.py` 绑定当前IAM，`user_jobs.py` 使用原渠道采集锁并为前台采集让路，日推进不依赖新增订单。
 
 `ui/` 复用当前FS令牌、浅暗主题和导航，展示所选期间截至昨日的阶段、复购细分与辅助全历史回看、趋势及替代表格、项目对比、成熟队列。管理员名单/详情/导出与购买沉睡时间线均冻结到同一snapshot；现有Hermes会话提交保留请求ID，未知结果核原回执后处理。
 

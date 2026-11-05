@@ -356,7 +356,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "5637ff08ce9aa6f5813d8011e3e549400cf21a2fa00cb3834952381bb30390d3",
+        "sha256": "9b913368ccf70f3b73a80b97289b0c751d01e3119e21cfbaab6a9b3905610b06",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -1156,26 +1156,27 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "fc-v3-100k-source-availability-20261030",
+      "revision": "fc-v3-smart-native-boundaries-20261105",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-10-30",
+      "effective_at": "2026-11-05",
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "5637ff08ce9aa6f5813d8011e3e549400cf21a2fa00cb3834952381bb30390d3",
+        "sha256": "9b913368ccf70f3b73a80b97289b0c751d01e3119e21cfbaab6a9b3905610b06",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
         "fc.pricing.reference-weighting@fc-reference-weighting-20261024-v2",
         "fc.pricing.v3@fc-v3-lag1-eight-day-20261029",
-        "fc.pricing.v3@fc-v3-sprint-baseline-20261029"
+        "fc.pricing.v3@fc-v3-sprint-baseline-20261029",
+        "fc.pricing.v3@fc-v3-100k-source-availability-20261030"
       ],
       "provenance": [
         {
@@ -1201,6 +1202,11 @@
         {
           "kind": "direct_user_competitor_source_fallback_and_daily_30_margin",
           "date": "2026-10-30",
+          "decision": "docs/planning/fc-pricing-v3-20261026/CURRENT-BASELINE.md"
+        },
+        {
+          "kind": "existing_confirmed_smart_mode_and_native_agent_boundary",
+          "date": "2026-11-05",
           "decision": "docs/planning/fc-pricing-v3-20261026/CURRENT-BASELINE.md"
         }
       ],

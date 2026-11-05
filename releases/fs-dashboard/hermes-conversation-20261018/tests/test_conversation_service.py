@@ -250,7 +250,7 @@ class ServiceTests(unittest.TestCase):
             checked_source.chmod(0o600)
             original_loop = (source.parent / "learning-loop.md").read_bytes()
             self.assertEqual(hashlib.sha256(original_loop).hexdigest(),
-                             "a52370bc39936efd92ab66214784c5d8e414566d5ab54dab10761a1e3f0e8f46")
+                             "74088799f0027b70c836fe7c258d51391de7d46a4e05bd1faeddffbe7233edc0")
             loop = runtime / "learning-loop.md"
             loop.write_bytes(original_loop)
             loop.chmod(0o600)
