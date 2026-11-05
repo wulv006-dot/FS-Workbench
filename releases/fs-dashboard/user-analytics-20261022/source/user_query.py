@@ -57,7 +57,7 @@ class Service:
             self.permit_snapshot(user, old, public)
             return public
         publication = None
-        if self.weekly_publication is not False and config.get('update_cadence') == 'weekly-v1':
+        if self.weekly_publication is not False and config.get('update_cadence') in ('weekly-v1', 'daily-v1'):
             from user_weekly import publication as read_publication
             publication = read_publication(self.store, self.clock())
             config = dict(publication['config'], weekly_data_cutoff=publication['cutoff'])
@@ -236,12 +236,12 @@ class Service:
                     policies=self.store.config['policies'], full_company_coverage=self.store.config.get('full_company_coverage', False),
                     metric_definitions=METRIC_DEFINITIONS, history_backfill_start=self.store.config.get('history_backfill_start'),
                     can_read_private=self.authorizer(user, {'scope': 'global', 'scope_id': ''}, True) is True)
-        if self.store.config.get('update_cadence') == 'weekly-v1':
+        if self.store.config.get('update_cadence') in ('weekly-v1', 'daily-v1'):
             from user_weekly import publication, public_info, small_state, WeeklyUnavailable
             try:
                 value['weekly_update'] = public_info(publication(self.store, self.clock()))
             except WeeklyUnavailable:
-                value['weekly_update'] = dict(cadence='weekly', status='initial_publication_pending')
+                value['weekly_update'] = dict(cadence='daily' if self.store.config.get('update_cadence') == 'daily-v1' else 'weekly', status='initial_publication_pending')
             state = small_state(self.store.root)
             if state and state.get('phase') != 'complete':
                 value['weekly_update']['pending'] = {k: state[k] for k in ('cutoff', 'phase', 'error', 'retryable') if k in state}

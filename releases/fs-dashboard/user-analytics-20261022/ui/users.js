@@ -17,7 +17,7 @@ async function read(params,path='data.json',signal){
   const response=await fetch('./'+path+'?'+new URLSearchParams(params),{credentials:'same-origin',cache:'no-store',signal});
   if(!response.headers.get('content-type')?.includes('application/json'))throw new Error('登录状态或接口不可用');
   const data=await response.json();
-  if(!response.ok)throw new Error(response.status===403?'当前账号无此范围或客户明细权限':response.status===401?'登录已过期':data.error==='weekly_initial_publication_pending'?'首次周更新尚未完成，暂未发布可用数据':data.error||'查询失败');
+  if(!response.ok)throw new Error(response.status===403?'当前账号无此范围或客户明细权限':response.status===401?'登录已过期':data.error==='weekly_initial_publication_pending'?'首次更新尚未完成，暂未发布可用数据':data.error||'查询失败');
   return data;
 }
 const columnHelp={
@@ -98,7 +98,7 @@ function render(){
   text('freshness',`北京时间 ${time(q.start)} 至 ${time(q.end_exclusive)}（截止不含） · 最近来源读取 ${time(snapshot.captured_at)}`);
   if(snapshot.weekly_update){
     const w=snapshot.weekly_update,pending=catalog.weekly_update?.pending;
-    text('freshness',`每周更新 · 数据截至 ${w.data_through} · 最近成功更新 ${time(w.last_successful_update)} · 下次计划 ${time(w.next_planned_update)}${pending?pending.phase==='backup'?' · 本周数据已发布，备份待完成':' · 本轮更新尚未完成，保留上次成功版本':''}`);
+    text('freshness',`${w.cadence==='daily'?'每日更新':'每周更新'} · 数据截至 ${w.data_through} · 最近成功更新 ${time(w.last_successful_update)} · 下次计划 ${time(w.next_planned_update)}${pending?pending.phase==='backup'?' · 数据已发布，原任务正在收尾':' · 本轮更新尚未完成，保留上次成功版本':''}`);
   }
   text('period-end',addDay(q.end_exclusive.slice(0,10),-1));
   text('stock-title',period?'截至观察日，这批期间购买客户处于什么阶段':'辅助：全部已覆盖客户在观察日的阶段');
@@ -206,7 +206,7 @@ el('hermes').addEventListener('click',async()=>{const selected=el('hermes-conver
 });
 el('theme').addEventListener('change',event=>{if(window.FSTheme?.set)window.FSTheme.set(event.target.value);});
 function addFieldHelp(){
-  const fields={'state-basis':'默认只看所选期间买过的人。辅助模式保留全体已覆盖历史客户，含期间以前购买的人。','period-start':'开始日包含当天，可按日期选择；结束固定到最新成功更新日。','period-end':'每周一补齐上一完整周；平日沿用同一成功版本，更新失败不把缺失当零。',policy_version:'按距末次有效购买的北京时间日数分阶段。短期效果：满7天沉默、14天流失、30天长期流失；长期追踪：满14天沉默、30天流失、60天长期流失。全部项目使用所选规则；短期效果不代表活动因果归因。',policy_mode:'短期效果与长期追踪均让各项目沿用所选天数，便于整体与项目比较。旧快照仍保留原各项目规则。',H:'从期间第一笔有效购买起，观察7或30天内是否再买。只把已走完这段时间的人放进分母。'};
+  const fields={'state-basis':'默认只看所选期间买过的人。辅助模式保留全体已覆盖历史客户，含期间以前购买的人。','period-start':'开始日包含当天，可按日期选择；结束固定到最新成功更新日。','period-end':'每日补齐昨天新增订单并更新可见截止日；旧快照保留，更新失败沿用上次成功版本，不把缺失当零。',policy_version:'按距末次有效购买的北京时间日数分阶段。短期效果：满7天沉默、14天流失、30天长期流失；长期追踪：满14天沉默、30天流失、60天长期流失。全部项目使用所选规则；短期效果不代表活动因果归因。',policy_mode:'短期效果与长期追踪均让各项目沿用所选天数，便于整体与项目比较。旧快照仍保留原各项目规则。',H:'从期间第一笔有效购买起，观察7或30天内是否再买。只把已走完这段时间的人放进分母。'};
   for(const [key,description] of Object.entries(fields)){const input=el(key)||el('filters').elements[key],label=input.closest('label'),name=label.firstChild.textContent.trim(),heading=document.createElement('span');heading.className='field-label';heading.textContent=name;label.firstChild.replaceWith(heading);if(!input.id)input.id='users-field-'+key;label.htmlFor=input.id;input.setAttribute('aria-label',name);heading.append(help(name,description));}
 
 }

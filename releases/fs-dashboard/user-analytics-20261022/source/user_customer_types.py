@@ -142,7 +142,7 @@ def read_pinned_flags(query, manifests, root=ARCHIVE):
                         sourceVersion=hashlib.sha256(''.join(sorted(hashes)).encode()).hexdigest())
 
 
-def ensure_period(start, end, now=None):
+def ensure_period(start, end, now=None, daily=False):
     """A week crossing a month boundary needs both monthly export portions."""
     now = now or datetime.now(TZ)
     begin, stop = stamp(start), stamp(end)
@@ -150,7 +150,7 @@ def ensure_period(start, end, now=None):
         raise ValueError('closed_customer_type_period_required')
     while begin < stop:
         month = (begin.replace(day=28)+timedelta(days=4)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        finish = min(month, stop)
+        finish = min(begin+timedelta(days=1) if daily else month, stop)
         query = dict(start=begin.date().isoformat(), end_exclusive=finish.isoformat())
         _, info = read_flags(query)
         if info['status'] != 'complete':

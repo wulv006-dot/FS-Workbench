@@ -114,12 +114,12 @@ class QueryContext:
                                policies=config['policies'], metric_definitions=METRIC_DEFINITIONS,
                                full_company_coverage=config.get('full_company_coverage', False),
                                history_backfill_start=config.get('history_backfill_start')))
-        if config.get('update_cadence') == 'weekly-v1':
+        if config.get('update_cadence') in ('weekly-v1', 'daily-v1'):
             from user_weekly import publication, public_info, small_state
             try:
                 result['weekly_update'] = public_info(publication(self.original.store, self.original.clock()))
             except WeeklyUnavailable:
-                result['weekly_update'] = {'cadence': 'weekly', 'status': 'initial_publication_pending'}
+                result['weekly_update'] = {'cadence': 'daily' if config.get('update_cadence') == 'daily-v1' else 'weekly', 'status': 'initial_publication_pending'}
             state = small_state(self.original.store.root)
             if state and state.get('phase') != 'complete':
                 result['weekly_update']['pending'] = {k: state[k] for k in

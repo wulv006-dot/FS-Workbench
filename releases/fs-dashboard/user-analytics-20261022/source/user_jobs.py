@@ -360,6 +360,7 @@ def targeted_refresh(store, site, now, reader=shared_correct, lock_path=SOURCE_L
     return dict(attempt,site=site,mode='targeted')
 
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=('sync', 'tick', 'backup', 'backup-plan', 'backup-verify'))
@@ -370,7 +371,7 @@ def main():
     now = datetime.now(TZ)
     if args.action == 'tick':
         from user_weekly import wake
-        print(canonical(wake(ROOT, load_store, now, force=args.recheck)), flush=True)
+        print(canonical(wake(ROOT, load_store, datetime.now(TZ), force=args.recheck, cadence='daily')), flush=True)
         return
     store = load_store()
     with (store.root / 'jobs.lock').open('a+b') as lock:
@@ -410,8 +411,8 @@ def main():
                 targeted = targeted_refresh(store,site,datetime.now(TZ),force=args.recheck)
                 print(canonical(targeted),flush=True)
                 if targeted['status']=='deferred':return
-        if store.config.get('update_cadence') == 'weekly-v1':
-            print(canonical(dict(status='complete', publication='unchanged_until_weekly_cycle')), flush=True)
+        if store.config.get('update_cadence') in ('weekly-v1', 'daily-v1'):
+            print(canonical(dict(status='complete', publication='unchanged_until_publication_cycle')), flush=True)
             return
         advance_day(store, datetime.now(TZ))
         print(canonical(dict(backup=daily_backup_status(store, now))), flush=True)
