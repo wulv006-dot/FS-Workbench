@@ -9,11 +9,18 @@ spec.loader.exec_module(build)
 
 
 class BuildTests(unittest.TestCase):
-    def test_standalone_bundle_reads_same_origin_and_preserves_original_entry(self):
+    def test_service_preserves_news_translation_ledger_dependency(self):
+        service=(MODULE/'deploy/fs-game-intelligence.service').read_text(encoding='utf-8')
+        self.assertIn('/opt/fs-exact-range-20261001',service)
+
+    def test_standalone_bundle_has_no_retired_workspace_or_daily_reader(self):
         raw=build.build().decode('utf-8')
         self.assertNotIn('<script src=',raw)
         self.assertNotIn('@import',raw)
-        self.assertIn('src="index.html"',raw)
+        self.assertNotIn('src="index.html"',raw)
+        self.assertNotIn('legacy-frame',raw)
+        self.assertNotIn('资料与工具',raw)
+        self.assertNotIn("daily:'daily.json'",raw)
         self.assertIn("intelligence:'intelligence.json'",raw)
         self.assertNotIn('window.MONITOR_DATA',raw)
         self.assertNotIn('fs-monitor-preview',raw)

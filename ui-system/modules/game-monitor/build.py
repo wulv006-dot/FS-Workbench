@@ -1,4 +1,4 @@
-"""Build one immutable UI asset; existing index.html and its publisher stay unchanged."""
+"""Build the current UI asset for both index.html and operations.html."""
 import argparse
 import hashlib
 from pathlib import Path

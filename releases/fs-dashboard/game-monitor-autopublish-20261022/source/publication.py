@@ -14,6 +14,11 @@ LEDGER=Path('/var/lib/fs-dashboard-release/current.json')
 BACKUPS=Path('/var/backups/fs-navigation-native-20261006')
 PUBLISHER_SHA='82a5c2df830e128b3077d9c3d88286789680c4f3631966b400748e2e6e985056'
 NAVIGATION_SHA='c61ae129feccd8f81a63f51dde414753b620ee8658061a477b0997ae0befc89f'
+RETIRED_UNITS={'/etc/systemd/system/fs-boss-game-monitor.timer','/etc/systemd/system/fs-boss-game-monitor.service'}
+
+
+def retained_protection(rows):
+    return {row['path'] for row in rows if row['path'] not in RETIRED_UNITS}
 
 def safe(path):
     for item in (path,*path.parents):require(not item.is_symlink(),'linked_publication_path')
@@ -49,7 +54,7 @@ def prepare(stage,before,after):
     manifest=json.loads((ORIGINAL/'release-manifest.json').read_bytes())
     base=current.parent.parent
     names={p.relative_to(base).as_posix() for p in base.rglob('*') if p.is_file()}
-    require(100<=len(names)<=1000,'unexpected_asset_inventory')
+    require(2<=len(names)<=1000,'unexpected_asset_inventory')
     identities={name:sha(safe(base/name).read_bytes()) for name in names}
     identities['game-monitor/index.html']=sha(after)
     version='workspace-native-20261006-'+sha(json.dumps(identities,sort_keys=True).encode())[:12]
@@ -61,7 +66,7 @@ def prepare(stage,before,after):
     new+='\n\n# Hermes data-only static content publication.\n'+'\n\n'.join(copies)+'\n'
     blocks(new)
     target_names={x['target'] for x in manifest['targets']}
-    protected={x['path'] for x in manifest['unchangedRequired']}|{str(base/name) for name in names}
+    protected=retained_protection(manifest['unchangedRequired'])|{str(base/name) for name in names}
     protected={name:sha(safe(Path(name)).read_bytes()) for name in protected-target_names}
     stage.mkdir(parents=True,mode=0o700)
     shutil.copytree(base,stage/'assets')

@@ -1,5 +1,5 @@
 [Unit]
-Description=FS supplementary game intelligence through the existing DeepSeek account
+Description=FS game intelligence and MMOEXP news through the existing DeepSeek account
 After=network-online.target
 Wants=network-online.target
 
@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 User=root
 WorkingDirectory=/opt/fs-game-monitor-intelligence
-Environment=PYTHONPATH=/opt/fs-boss-workspaces/backend:/opt/fs-hermes-fc
+Environment=PYTHONPATH=/opt/fs-boss-workspaces/backend:/opt/fs-hermes-fc:/opt/fs-exact-range-20261001
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/opt/python39/bin/python3 /opt/fs-game-monitor-intelligence/discovery.py --publish
 TimeoutStartSec=3600
