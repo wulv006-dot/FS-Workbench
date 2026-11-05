@@ -411,14 +411,14 @@ function nameOfKey(k, codeMap, r){
 const dimName = r => nameOfKey(dimKey(r), null, r);
 
 // ---------------------------------------------------------------- 区服：大区 / 小区
-const REGIONS = ['NA East','NA West','EU','Asia','SA','无大区'];
-const REGION_COLOR = {'NA East':'#0071e3','NA West':'#34a853','EU':'#7d3cce','Asia':'#c2410c','SA':'#0a7f8f','无大区':'#b9b9bf'};
+const REGIONS = ['NA East','NA West','EU','Asia','SA','Korea','TW','待核实'];
+const REGION_COLOR = {'NA East':'#0071e3','NA West':'#34a853','EU':'#7d3cce','Asia':'#c2410c','SA':'#0a7f8f','Korea':'#b25000','TW':'#0a6ea8','待核实':'#b9b9bf'};
 const PALETTE = ['#0071e3','#7d3cce','#0a7f8f','#c2410c','#34a853','#b25000','#0a6ea8','#8e8e93'];
 // 小区级配色（一个区常有 10+ 个小区，8 色会撞，这里备 14 色）
 const PAL14 = ['#0071e3','#0a8f4d','#7d3cce','#c2410c','#0a7f8f','#b25000','#0a6ea8','#3f8ae2',
                '#8e8e93','#2f6fd0','#3fa06b','#9a5bd6','#d4682a','#1f9aa8'];
 function regionOf(area){
-  const m = /\b(NA East|NA West|Asia|EU|SA)\b/.exec(area||'');
+  const m = /\b(NA East|NA West|Asia|EU|SA|Korea|TW)\b/.exec(area||'');
   return m ? m[1] : '待核实';
 }
 function serverOf(area){

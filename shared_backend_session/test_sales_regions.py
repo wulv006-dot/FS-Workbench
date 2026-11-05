@@ -34,6 +34,14 @@ class RegionTests(unittest.TestCase):
     def test_session_or_layout_failure(self):
         for text in ['<input name="password">','<h1>error</h1>']:
             with self.assertRaises(RuntimeError):R.parse_order_region(text,'DTEST123')
+    def test_native_area_id_distinguishes_taiwan_and_korea(self):
+        for aid,expected in [('19910','TW'),('19972','Korea'),('0','')]:
+            body=page(game='▶克羅梅德 - 魔族').replace('data-gid="826"','data-gid="826" data-aid="%s"' % aid)
+            self.assertEqual(R.parse_order_region(body,'DTEST123'),expected)
+    def test_native_mapping_complete_and_unambiguous(self):
+        self.assertEqual(len(R.AREA_REGIONS),182)
+        self.assertEqual(R.AREA_REGIONS[('826','19910')],'TW')
+        self.assertEqual(R.AREA_REGIONS[('826','19972')],'Korea')
     def test_persisted_and_no_repeated_lookup(self):
         s=Session(page());self.assertEqual(self.resolve(s)['lookups'],1)
         self.assertEqual(self.resolve(s)['cached'],1);self.assertEqual(len(s.calls),1)
