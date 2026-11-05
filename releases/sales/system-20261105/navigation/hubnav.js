@@ -104,7 +104,7 @@ function mountHomeCards(user,tools){
  const grid=document.getElementById('workspaces');if(!grid)return;
  function place(){
   if(stopped||currentUser?.name!==user.name)return;
-  let after=grid.querySelector('.workspace-card.arpg');if(!after)return;
+  let after=grid.querySelector('.workspace-card.marketing')||grid.querySelector('.workspace-card.arpg');if(!after)return;
   for(const id of ['management','game-monitor']){
    const tool=tools.find(t=>t.id===id);if(!tool?.available)continue;
    let card=grid.querySelector('[data-fs-home-shortcut="'+id+'"]');

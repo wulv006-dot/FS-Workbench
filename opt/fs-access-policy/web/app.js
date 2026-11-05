@@ -584,7 +584,7 @@
      不再自己画一套顶栏/侧栏。只在确认已登录且是管理员之后挂：
      这个 URL 同时是全站未登录的登录落点，不能给匿名访问者摆出整条导航。
      版本号与 nginx 里 sub_filter 注入的那个保持一致，共用浏览器缓存。 */
-  var HUBNAV_SRC = '/__hub/hubnav.js?v=hermes-nav-20261020-v2';
+  var HUBNAV_SRC = '/__hub/hubnav.js?v=sales-system-20261105-v2';
   function mountSharedNav() {
     if (window.__fsIamHubNav) return;
     window.__fsIamHubNav = true;

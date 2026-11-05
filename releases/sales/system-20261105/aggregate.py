@@ -70,7 +70,7 @@ def parse_content(raw):
 # 两者都有的 1334 单做过交叉校验，一致率 99.8%（仅 3 单 美东 与 EU 冲突）。
 CN2REGION = {"美东": "NA East", "美西": "NA West", "欧服": "EU",
              "亚服": "Asia", "南美": "SA"}
-REGION_RE = re.compile(r"\b(NA East|NA West|Asia|EU|SA)\b")
+REGION_RE = re.compile(r"\b(NA East|NA West|Asia|EU|SA|Korea|TW)\b")
 
 
 def region_of_area(area):
@@ -97,7 +97,7 @@ def region_of_delivery(ds):
 
 def norm_area(area, region):
     """把区服统一成「服务器 - 阵营 [大区]」，前端 regionOf() 直接就能解析。"""
-    base = re.sub(r"\s*\[?(NA East|NA West|Asia|EU|SA)\s*\]?$", "", (area or "").strip()).strip()
+    base = re.sub(r"\s*\[?(NA East|NA West|Asia|EU|SA|Korea|TW)\s*\]?$", "", (area or "").strip()).strip()
     base = base.strip("[]").strip()
     if region:
         return "%s [%s]" % (base, region)
