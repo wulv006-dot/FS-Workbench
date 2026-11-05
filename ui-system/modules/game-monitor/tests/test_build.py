@@ -9,6 +9,10 @@ spec.loader.exec_module(build)
 
 
 class BuildTests(unittest.TestCase):
+    def test_service_preserves_news_translation_ledger_dependency(self):
+        service=(MODULE/'deploy/fs-game-intelligence.service').read_text(encoding='utf-8')
+        self.assertIn('/opt/fs-exact-range-20261001',service)
+
     def test_standalone_bundle_has_no_retired_workspace_or_daily_reader(self):
         raw=build.build().decode('utf-8')
         self.assertNotIn('<script src=',raw)

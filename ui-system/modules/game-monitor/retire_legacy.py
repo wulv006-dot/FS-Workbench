@@ -2,6 +2,7 @@
 import ast
 import hashlib
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -37,6 +38,25 @@ def safe(path):
     return path
 
 
+def operation_closed(record, backup_root):
+    if record.get('status') in ('published_file_and_route_readback_verified','no_content_change','rolled_back_verified'):
+        return True
+    # The retired intake parses the old HTML before noticing its already rolled-back operation.
+    if record.get('status')!='blocked' or record.get('error')!='literal_marker_ambiguous' or record.get('rollback_readback',{}).get('status')!='rolled_back_verified':
+        return False
+    publication=record.get('publication',{})
+    release=publication.get('release','')
+    if not re.fullmatch(r'workspace-native-20261006-[a-f0-9]{12}',release):return False
+    folder=safe(backup_root/release)
+    try:
+        manifest=safe(folder/'approved-manifest.json').read_bytes()
+        journal=json.loads(safe(folder/'journal.json').read_bytes())
+    except (OSError,ValueError):return False
+    digest=hashlib.sha256(manifest).hexdigest()
+    return (digest==publication.get('manifest_sha256')==journal.get('approvedManifestSha256')
+        and journal.get('status')=='rolled-back-immutable-history-retained' and journal.get('activationAttempted') is False)
+
+
 def retire():
     import fcntl
     sys.path.insert(0,'/opt/fs-hermes-ops')
@@ -57,10 +77,11 @@ def retire():
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         if HOST.read_bytes()!=before:raise ValueError('shared_host_concurrent_drift')
         record=json.loads((Path('/var/lib/fs-hermes-ops/game-monitor')/'latest.json').read_bytes())
-        if record.get('status') not in ('published_file_and_route_readback_verified','no_content_change','rolled_back_verified'):
+        if not operation_closed(record,Path('/var/backups/fs-navigation-native-20261006')):
             raise ValueError('original_controller_operation_requires_reconciliation')
         BACKUP.mkdir(mode=0o700)
-        receipt=dict(change_id='retire-legacy-game-monitor-20261105',status='started',removed=[],host_before_sha256=HOST_SHA)
+        receipt=dict(change_id='retire-legacy-game-monitor-20261105',status='started',removed=[],host_before_sha256=HOST_SHA,
+            original_controller_state=record['status'],original_operation_closed=True)
         save=lambda:atomic(BACKUP/'receipt.json',json.dumps(receipt,indent=2).encode(),0o600)
         save()
         archive=BACKUP/'retired-runtime.tar.gz'
