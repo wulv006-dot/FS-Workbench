@@ -20,7 +20,7 @@ def safe(path):
     return path
 
 def blocks(text):
-    rows=list(re.finditer(r'^location = (\S+) \{\n.*?^\}',text,re.M|re.S))
+    rows=list(re.finditer(r'^location = (\S+) \{\r?\n.*?^\}',text,re.M|re.S))
     require(len({m[1] for m in rows})==len(rows),'duplicate_nginx_route')
     return {m[1]:m[0] for m in rows}
 

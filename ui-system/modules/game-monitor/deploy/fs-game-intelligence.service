@@ -1,0 +1,18 @@
+[Unit]
+Description=FS supplementary game intelligence through the existing DeepSeek account
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/fs-game-monitor-intelligence
+Environment=PYTHONPATH=/opt/fs-boss-workspaces/backend:/opt/fs-hermes-fc
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/python39/bin/python3 /opt/fs-game-monitor-intelligence/discovery.py --publish
+TimeoutStartSec=3600
+UMask=0022
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
