@@ -7,6 +7,7 @@ import ast
 import hashlib
 import os
 import secrets
+import sqlite3
 import stat
 import asyncio
 import builtins
@@ -133,7 +134,10 @@ class WorkerFileLoop(unittest.TestCase):
             module.attach_current_learning = lambda *a: None
             module.attach_customer_tracking = lambda *a: None
             task = {'id': 'a' * 32, 'state': 'QUEUED'}
-            tasks = types.SimpleNamespace(db=lambda: nullcontext(None), create=lambda *a: task,
+            @contextmanager
+            def task_database():
+                with sqlite3.connect(Path(directory)/'tasks.sqlite3') as db:yield db
+            tasks = types.SimpleNamespace(db=task_database, create=lambda *a: task,
                 reserve_dispatch=lambda *a: None, bind_run=lambda *a: None)
             hermes = types.SimpleNamespace(root=Path(directory), lock=threading.RLock(), daily=None,
                 authorizer=lambda user: user == 'alice', tasks=tasks, detail=None, read_range=None,

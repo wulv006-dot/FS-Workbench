@@ -28,6 +28,8 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromModule(test_native_pricing))
     import test_native_pricing_worker
     tests.addTests(loader.loadTestsFromModule(test_native_pricing_worker))
+    import test_native_reports
+    tests.addTests(loader.loadTestsFromModule(test_native_reports))
     return tests
 
 

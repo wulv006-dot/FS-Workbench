@@ -630,11 +630,13 @@ def make_adapter(api_key):
             install_native_backend_guards()
             fixed = item['native_chat']['binding']
             pricing = item['native_chat'].get('pricing')
+            report = item['native_chat'].get('report')
             def active():
                 current = admission(fixed['session_id'])
                 if not (current.get('ready') is True and current.get('run_id') == fixed['run_id'] and
                         current.get('native_chat', {}).get('binding') == fixed and
-                        current.get('native_chat', {}).get('pricing') == pricing):
+                        current.get('native_chat', {}).get('pricing') == pricing and
+                        current.get('native_chat', {}).get('report') == report):
                     return False
                 checked = json.loads(call_tool('fs.native.check', {'binding': fixed},session_id=fixed['session_id']))
                 return checked.get('authorized') is True
@@ -645,6 +647,8 @@ def make_adapter(api_key):
                 {'binding':fixed,'path':path,'params':params},session_id=fixed['session_id']))
             backend.pricing_rpc=lambda arguments:json.loads(call_tool('fs.native.pricing',
                 {'binding':fixed,'arguments':arguments},session_id=fixed['session_id']))
+            backend.report_rpc=lambda name,args:json.loads(call_tool('fs.native.report',
+                {'binding':fixed,'name':name,'arguments':args},session_id=fixed['session_id']))
             with backend.scope():
                 config = validate_native_profile(hermes_config.load_config(),backend.profile)
                 backend.ensure_environment()
@@ -652,7 +656,16 @@ def make_adapter(api_key):
                 from fs_native_readonly import register_scope
                 register_scope(registry,str(backend.profile))
                 from hermes_constants import resolve_reasoning_config
-                if pricing is not None:
+                if report is not None:
+                    if item.get('reasoning_effort') not in ('high','max'):
+                        raise PermissionError('native_report_reasoning_changed')
+                    from fs_native_readonly import register_report_scope
+                    register_report_scope(registry,str(backend.profile),backend.report_call('capabilities',{}))
+                    reasoning={'enabled':True,'effort':item['reasoning_effort']}
+                    enabled=sorted((set(_get_platform_tools(config,'api_server'))-
+                        {'fs_readonly','fs_fc_readonly','fs_materials','fs_native_knowledge'})|{'fs_native_reports'})
+                    disabled=['fs_materials','fs_native_report_unavailable']
+                elif pricing is not None:
                     if item.get('reasoning_effort') != 'high':
                         raise PermissionError('native_pricing_reasoning_changed')
                     from fs_native_readonly import register_pricing_scope
@@ -663,11 +676,11 @@ def make_adapter(api_key):
                     # The official SDK subtracts disabled sets by tool name.
                     # Disabling fs_fc_readonly here would remove the pricing
                     # name explicitly selected by our independent static set.
-                    disabled = ['fs_materials','fs_native_pricing_unavailable']
+                    disabled = ['fs_materials','fs_native_pricing_unavailable','fs_native_reports']
                 else:
                     reasoning = resolve_reasoning_config(config,item['model'])
                     enabled = sorted((set(_get_platform_tools(config, 'api_server')) - {'fs_native_knowledge'}) | {'fs_readonly'})
-                    disabled = ['fs_materials','fs_fc_readonly']
+                    disabled = ['fs_materials','fs_fc_readonly','fs_native_reports']
                 knowledge = None
                 if item['native_chat'].get('knowledge') is not None:
                     from conversation_knowledge import WorkerKnowledge, register_scope as knowledge_scope

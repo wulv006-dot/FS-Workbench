@@ -1262,21 +1262,21 @@
     },
     {
       "id": "fc.reporting.data",
-      "revision": "20261105-3",
+      "revision": "20261106-1",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-05",
+      "effective_at": "2026-11-06",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "a9d24c2b66bceecb8f709ec10d3d9e0a453a9db83268ad9f3bdc7caead6a1741",
+        "sha256": "9ef6fe395a3e2bfd69a639f27c7917f0f5a694971c224ad175b227316c247e08",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1304,6 +1304,11 @@
           "date": "2026-11-05",
           "path": "docs/planning/es-monthly-archive-20261105/README.md",
           "scope": "daily yesterday increments; Monday current and previous two calendar months; proven redundant export cleanup after publication; Git knowledge only, FS frozen knowledge and new-session learning not deployed"
+        },
+        {
+          "kind": "direct_user_native_hermes_boundary_cleanup",
+          "date": "2026-11-06",
+          "scope": "Native read-only report tool contract and on-demand knowledge teaching; business formulas unchanged; installation and use tracked separately"
         }
       ],
       "consumers": [
@@ -1385,21 +1390,21 @@
     },
     {
       "id": "fc.reporting.maintenance",
-      "revision": "20261105-1",
+      "revision": "20261106-1",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-05",
+      "effective_at": "2026-11-06",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/MAINTENANCE.md",
-        "sha256": "0fe31d9bcdfed350271ff2db7921b12934609b27976e109bcef6acbc2543853d",
+        "sha256": "e5680c7bd34334ed1e4de6acb9dffd12e9055ce737b5e62e720dd93e1be8dc0d",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [],
@@ -1412,6 +1417,11 @@
         {
           "kind": "existing_confirmed_methods",
           "path": "docs/planning/report-methods-20261102/README.md"
+        },
+        {
+          "kind": "direct_user_native_hermes_boundary_cleanup",
+          "date": "2026-11-06",
+          "scope": "Remove obsolete instruction copies while preserving actual ledgers and receipts; Git source update only, target-profile readback separate"
         }
       ],
       "consumers": [

@@ -98,6 +98,8 @@ class HermesService:
         self.server=None;self.thread=None
         self.recovery_stop=threading.Event();self.recovery_thread=None
         self.delivery_retries={}
+        self.report_books={}
+        self.report_budget_policy_id=POLICY_ID
         with self.tasks.db() as db:
             from learning_registry import schema as learning_schema,recover_interrupted
             learning_schema(db)
@@ -170,7 +172,7 @@ class HermesService:
             result=json.loads(read_file(self.root,task['id'],'json')['content']);read_file(self.root,task['id'],'html')
             hashes=json.loads((path/'ready.json').read_text('utf-8'))
         else:
-            if meta.get('html_design'):
+            if meta.get('html_design') or meta.get('native_report'):
                 output_format='html' if re.match(r'\s*<!doctype html[\s>]',output,re.I) and re.search(r'</body\s*>\s*</html\s*>\s*$',output,re.I) else 'text'
                 result=dict(output_format=output_format,summary='Hermes原稿已生成，待用户验收。' if output_format=='html' else output[:1600],research_text=output,findings=[],actions=[],reviews=[],limitations=['内容、排版和交互待用户验收。'])
             else:
@@ -188,7 +190,8 @@ class HermesService:
             if management_facts:
                 result['management_context']=management_context.metadata(body)
                 result['management_context']['evidenceId']=next((k for k,v in book.evidence.items() if v.get('snapshot_id')==management_facts['snapshotId'] and v.get('project')=='ALL_MANAGEMENT_PROJECTS'),None)
-            html=output if meta.get('html_design') else management_context.render_html(result,management_facts) if management_facts else render_report(result,book.evidence,result['period'])
+            if meta.get('native_report'):result['native_report']=True
+            html=output if meta.get('html_design') or meta.get('native_report') else management_context.render_html(result,management_facts) if management_facts else render_report(result,book.evidence,result['period'])
             hashes=save_result(self.root,task['id'],result,html)
         receipt=dict(result);receipt.pop('raw_model_text',None);receipt.pop('raw_model_json',None)
         receipt['artifact']=dict(task=task['id'],raw_sha256=meta['raw_sha256'],**hashes)
@@ -242,6 +245,10 @@ class HermesService:
             if not canonical:raise ValueError('canonical_request_missing')
             return self.get_job(owner,canonical[0])
         item=dict(row);item['body']=json.loads(item['body']);item['result']=json.loads(item['result']) if item['result'] else None
+        from native_reports import conversation_for
+        if item['task_id']:
+            cid=conversation_for(self,owner,item['task_id'],item['request_id'])
+            if cid is not None:item['native_cid']=cid
         context=self.root/'contexts'/(item['id']+'.json')
         if context.is_file() and not context.is_symlink():item['context_loading']=json.loads(context.read_text('utf-8'))
         if item['task_id']:
@@ -281,7 +288,7 @@ class HermesService:
 
     def matching_report(self,db,body,user,knowledge_version=None):
         if body.get('force_generate') or body.get('continuation_from'):return None
-        version=load_bundle(self.source_root)['version']
+        version=knowledge_version or load_bundle(self.source_root)['version']
         fields=('start','end','mode','question','parent_report')
         rows=db.execute("SELECT r.*,t.spec FROM requests r LEFT JOIN tasks t ON t.id=r.task_id WHERE r.state IN ('PREPARING','DISPATCH_UNKNOWN','RUNNING','REPORT_PENDING','COMPLETED') AND NOT EXISTS(SELECT 1 FROM report_trash d WHERE d.id=r.id) ORDER BY r.rowid DESC")
         for row in rows:
@@ -416,6 +423,10 @@ class HermesService:
                 if token:self.grants.revoke(token)
         if task and task['run_id']:
             try:
+                if job.get('native_cid'):
+                    receipt=self.conversation.stop_report(user,key)
+                    if receipt.get('state') not in {'accepted','cancelled','completed'}:self.update(job['id'],error='stop_ack_unknown')
+                    return 202,self.get_job(user,job['id'])
                 deadline=self.nightly.deadline(key)
                 if deadline is not None:self.remote('POST',run_path(task['run_id'],'stop')['path'],{},deadline=deadline+timedelta(minutes=1))
                 else:self.remote('POST',run_path(task['run_id'],'stop')['path'],{})
@@ -469,18 +480,15 @@ class HermesService:
                 try:load_report_followup(self.tasks,body['parent_report'],body['start'],body['end'],self.source_root,self.root)
                 except PermissionError:return 403,{'error':'followup_source_unavailable'}
                 except (ValueError,TypeError,KeyError,OSError):return 422,{'error':'followup_source_incompatible'}
-            from learning_registry import manifest
-            experiences=manifest(db,user,'FS',self.clock())
-            from knowledge_catalog import report_selection
-            selection=report_selection(self.root,body,owner=user)
-            knowledge=freeze_learning(self.root,load_bundle(self.source_root,question=body['question'],mode=body['mode']),self.proxy.background,body['mode'],owner=user,experience_manifest=experiences,selection=selection)
+            from native_reports import prepare_knowledge
+            knowledge=prepare_knowledge(self,body,user)
             reused=self.matching_report(db,body,user,knowledge['version'])
             if reused:return 200,reused
             hold = spending_hold(self.daily, self.tasks, user)
             if hold:
                 return 503, {'error': hold}
-            db.execute("INSERT INTO requests VALUES(?,?,?,?,'PREPARING',NULL,NULL,NULL)",(key,user,body['request_id'],encoded(body)))
-            db.execute('INSERT INTO request_knowledge VALUES(?,?)',(key,knowledge['version']))
+            db.execute("INSERT INTO requests(id,owner,request_id,body,state) VALUES(?,?,?,?,'PREPARING')",(key,user,body['request_id'],encoded(body)))
+            db.execute('INSERT INTO request_knowledge(id,version) VALUES(?,?)',(key,knowledge['version']))
         if defer_submit:return 202,self.get_job(user,key),(key,user,body)
         self.pool.submit(self.execute,key,user,body)
         return 202,self.get_job(user,key)
@@ -599,6 +607,11 @@ class HermesService:
                     'business_acceptance':'user_review_required','default_entry_replaced':False,'reasoning_policy':'analysis high; investigation/pricing max; no none fallback'}
 
     def execute(self,key,owner,body,scheduled_context=None):
+        from native_reports import execute,metadata
+        if metadata(self,key) is None:return self._execute_legacy(key,owner,body,scheduled_context)
+        return execute(self,key,owner,body,scheduled_context)
+
+    def _execute_legacy(self,key,owner,body,scheduled_context=None):
         task=None;token=None;session_id=None;completed_stopped=False;deadline=None
         try:
             design_text,design_receipt=html_design_context(body['question'])

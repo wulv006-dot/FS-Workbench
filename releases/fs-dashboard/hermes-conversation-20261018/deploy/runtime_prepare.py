@@ -31,6 +31,7 @@ SOURCES.update({'runtime/conversation_service.py': FC + 'fc-pricing-v3-20261026/
                 'http/conversation_http.py': FC + 'fc-pricing-v3-20261026/source/conversation_http.py'})
 SOURCES.update({'frontend/' + name: MODULE + 'frontend/' + name
                 for name in ('index.html', 'conversation.js', 'conversation.css')})
+SOFTWARE_SOURCES = {name: row[0] for name, row in __import__('runtime_release').SOFTWARE_MAPPINGS.items()}
 KNOWN = {
     'runtime/conversation_service.py': 'cfb06ef0321b9b2c1454956e585583809ec904be74e9803dd28e983edd3cbcc6',
     'runtime/conversation_store.py': '43d4f8bf1e67b86f9beb0ee87903c41cb62d9c86079c2c6a68a8d7b0c586fb45',
@@ -358,11 +359,110 @@ def payload_bytes(name, raw):
     # Other Git payloads keep their exact original bytes.
     import runtime_release as release
     if release.NATIVE_CAPABILITIES_MODE and name=='http/range_api.py':
-        return raw.replace(b'\r\n',b'\n').replace(b'\n',b'\r\n')
+        return release.software_payload_bytes(name, raw)
     return raw
 
 
-def pack(repo, output, commit):
+def pack_software(repo, output, commit, before):
+    import runtime_release as release
+    if (not isinstance(before, dict) or not before or not set(before) <= set(SOFTWARE_SOURCES)):
+        raise ValueError('reviewed_software_selection_required')
+    if output.exists() or not re.fullmatch('[a-f0-9]{40}', commit):
+        raise ValueError('new_payload_and_exact_commit_required')
+    sources = {name: SOFTWARE_SOURCES[name] for name in before}
+    bodies, baseline = {}, {}
+    for name, proof in before.items():
+        if proof is None:
+            if name not in release.SOFTWARE_NEW:
+                raise ValueError('software_before_source_required')
+            baseline[name] = None
+        else:
+            if (not isinstance(proof, dict) or set(proof) != {'source_commit','source_path'}
+                    or not re.fullmatch('[a-f0-9]{40}',proof.get('source_commit',''))
+                    or proof.get('source_path') != sources[name]):
+                raise ValueError('software_before_source_required')
+            # Exact Git bytes establish provenance; one fixed rendering establishes deployment identity.
+            raw = subprocess.check_output(['git','show',proof['source_commit']+':'+proof['source_path']],cwd=repo)
+            if name=='http/range_api.py':bodies['git-before/'+name]=raw
+            bodies['before/'+name] = release.software_payload_bytes(name, raw)
+            baseline[name] = digest(bodies['before/'+name])
+        raw = subprocess.check_output(['git','show',commit+':'+sources[name]],cwd=repo)
+        if name=='http/range_api.py':bodies['git-after/'+name]=raw
+        bodies['payload/'+name] = release.software_payload_bytes(name, raw)
+    for name, source in PUBLISHER_SOURCES.items():
+        bodies[name] = subprocess.check_output(['git','show',commit+':'+source],cwd=repo)
+    descriptor = {'source_commit':commit,'software_sources':sources,
+                  'files':{name:digest(body) for name,body in bodies.items()},
+                  'installed_baseline':{'files':baseline,'sources':before}}
+    output.mkdir(parents=True,mode=0o700)
+    for name,body in bodies.items():
+        target=output/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(body)
+    raw=json.dumps(descriptor,sort_keys=True).encode()
+    (output/'payload-manifest.json').write_bytes(raw)
+    return {'source_commit':commit,'payload_files':len(sources),'payload_sha256':digest(raw)}
+
+
+def prepare_software(payload, stage, commit, payload_sha256, descriptor, root, release_ready):
+    import runtime_release as release
+    if descriptor.get('source_commit') != commit:
+        raise ValueError('payload_source_commit_mismatch')
+    sources = release.software_descriptor(descriptor, payload.parent)
+    baseline = descriptor['installed_baseline']['files']
+    selected = {name:release.SOFTWARE_TARGETS[name] for name in sources}
+    new = {name for name in sources if baseline[name] is None}
+    base = release.frozen(selected, new=new)
+    observed = {}
+    for name,target in selected.items():
+        row=file_metadata(base,root,target,absent=name in new)
+        if row['sha256'] != baseline[name]:
+            raise ValueError('runtime_source_baseline_drift: '+target)
+        if row['sha256'] is not None and row['mode'] != release.payload_mode(target):
+            raise ValueError('runtime_mode_drift: '+target)
+        observed[name]=row
+    files=[{'candidate':name,'target':target,'beforeSha256':baseline[name],
+            'sha256':descriptor['files']['payload/'+name],'owner':'0:0','mode':release.payload_mode(target)}
+           for name,target in selected.items() if baseline[name] != descriptor['files']['payload/'+name]]
+    if not files:raise ValueError('software_change_required')
+    protected=release.software_protected_paths(base,{row['target'] for row in files})
+    protected |= {selected[name] for name in sources if baseline[name] == descriptor['files']['payload/'+name]}
+    protected_rows=[]
+    for target in sorted(protected):
+        row=file_metadata(base,root,target)
+        dependency=next((name for name,path in selected.items() if path==target),None)
+        if dependency is not None and row['sha256'] != baseline[dependency]:
+            raise ValueError('runtime_source_baseline_drift: '+target)
+        if 'owner' not in row:
+            info=base.rooted(root,target).stat();row['owner']=str(info.st_uid)+':'+str(info.st_gid)
+        protected_rows.append(row)
+    worker = release.worker_observation() if root == Path('/') else {
+        'image':FROZEN_IMAGE_MARKER,'state':'active','source':'container'}
+    if worker['state'] != 'active' or worker['source'] != 'container':
+        raise ValueError('software_requires_running_worker')
+    manifest={'schemaVersion':1,'scope':release.SCOPE,'sourceCommit':commit,
+        'releaseReady':release_ready,'imageId':FROZEN_IMAGE_MARKER,'workerImageId':worker['image'],
+        'workerImageSource':worker['source'],'businessWrites':False,'timersChanged':False,
+        'softwareSources':sources,'files':files,'unchangedRequired':protected_rows,
+        'runtimeRequired':{unit:{'ActiveState':'active'} for unit in ('fs-business-range.service','fs-hermes-fc.service')},
+        'runtimeBefore':{unit:{'ActiveState':'active'} for unit in ('fs-business-range.service','fs-hermes-fc.service')},
+        'baselineObservedAt':datetime.now(timezone.utc).isoformat(),
+        'approvedPayloadSha256':payload_sha256,'readinessSha256':descriptor['files']['release_readiness.py']}
+    stage.mkdir(parents=True,mode=0o700)
+    # Keep exact Git proof bytes beside the approved descriptor for inspect/apply.
+    for name in descriptor['files']:
+        path=stage/name;path.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(payload.parent/name,path)
+        if name.startswith('payload/'):
+            candidate=stage/'candidate'/name[len('payload/'):]
+            candidate.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(path,candidate);candidate.chmod(0o600)
+    raw=json.dumps(manifest,ensure_ascii=False,indent=2).encode()
+    (stage/'approved-manifest.json').write_bytes(raw)
+    shutil.copyfile(payload.parent/'payload-manifest.json',stage/'payload-manifest.json')
+    return {'stage':str(stage),'manifest_sha256':digest(raw),'files':len(files),
+            'release_ready':release_ready,'production_writes':0}
+
+
+def pack(repo, output, commit, *, software_before=None):
+    if software_before is not None:
+        return pack_software(repo, output, commit, software_before)
     if output.exists() or not re.fullmatch('[a-f0-9]{40}', commit):
         raise ValueError('new_payload_and_exact_commit_required')
     output.mkdir(parents=True, mode=0o700)
@@ -439,6 +539,9 @@ def prepare(payload, stage, commit, payload_sha256, *, root=Path('/'), release_r
     if digest(raw) != payload_sha256:
         raise ValueError('approved_git_payload_required')
     descriptor = json.loads(raw)
+    if 'software_sources' in descriptor:
+        if not followup:raise ValueError('software_requires_installed_followup')
+        return prepare_software(payload, stage, commit, payload_sha256, descriptor, root, release_ready)
     if sum(descriptor.get(key) is True for key in ('native_composer_static','native_capabilities','native_archive','native_admission','goal_task_index_compat', 'material_diagnostics', 'worker_diagnostics', 'material_transport', 'material_stream', 'bindings_auth', 'material_guard','native_chat')) > 1:
         raise ValueError('conflicting_material_followup_modes')
     if descriptor.get('native_composer_static') is True:

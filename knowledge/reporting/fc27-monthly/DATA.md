@@ -1,6 +1,6 @@
 # FC27 月报：取数路径与计算口径
 
-核查基准：2026-11-05项目规则；工具示例源于2026-11-02／03已核教材。运行时以实际 schema 和当前权限为准。完整说明见[团队规范](../../../docs/planning/report-methods-20261102/01-团队经营报告取数与分析规范.md)，本页给查找路线。
+核查基准：2026-11-06项目规则；原有工具示例源于2026-11-02／03已核教材，原生报告合同补充见下。运行时以实际 schema 和当前权限为准，安装及真实应用分层见[交付记录](DELIVERY.md)。完整说明见[团队规范](../../../docs/planning/report-methods-20261102/01-团队经营报告取数与分析规范.md)，本页给查找路线。
 
 ## 先固定范围，再取核心数
 
@@ -16,6 +16,19 @@
 | Ads、GA4、GSC | 已发布营销快照/原只读Reader | `fc.query_marketing_snapshot`当前示例为FC27；完整计算集合与显示Top分开 |
 | 客户后续消费 | 成熟首购群体、私有稳定客户关联 | `fc.query_cohort_observation(action=read)`；核实际截止、关联覆盖与成熟度，不新建追踪计划 |
 | 履约/售后、实际动作 | Order详情/日志、已冻结同窗发货和原执行账本 | `fc.query_queue`是当前池，`fc.get_problem_clues`是样本线索；`fc.query_action_history`与历史证据区分建议/执行 |
+
+
+### 原生报告的实际工具合同
+
+上表 `fc.*` 为原始研究工具的语义名。原生报告沿真实任务、会话和原请求运行，模型按本轮 schema 选择工具；这些源码合同不等于已经安装或完成真实模型验收。旧工具、工作站脚本和原生工具不能只改名称互相替代。
+
+需要核当前口径时，`fs_get_knowledge_index` 用 `{}` 取得本任务冻结目录，再用 `fs_read_knowledge` 的 `modules` 与 `entry_ids` 读取相应正文；例如目录确有 FC27/reporting 条目时可读 `{"modules":["FC27","reporting"],"entry_ids":["fc.reporting.data"]}`。历史版本须显式选择，技能按目录中的已审 `skill_id` 读取；Git 文件存在不证明本任务目录或正式技能已更新。原生报告不通过旧 `fc.read_skill` 整包预塞教材。
+
+- `mcp__fcro__fc_query_native_statistics` 等原生研究工具保留原 ResearchBook 的范围、来源、证据 ID 及展开协议。实际工具列表与参数以本轮 schema 为准，不从本页拼接任意 HTTP 路径。
+- `mcp__fcro__fc_query_shipping_profit` 只读取现有发货统计聚合，保留同一响应的人民币销售、采购、利润、筛选与覆盖。`mcp__fcro__fc_query_actual_profit` 按需读取已有同批实际成本聚合，缺成本或接口不可用保留缺项；它不替代主发货毛利，也不是报告成功前置。
+- 两个利润工具必填字符串 `profile/start/end`；可选字符串仅 `rs_site/rs_server/rs_category/profit_site/profit_category`。日期、网站与类目按实际数据源验证，不新增强刷、任意 URL、凭据或私有客户行参数。失败、部分覆盖与 `not_available` 不当零值或完整结果。
+
+工具提供数据、计算方法和真实执行边界；调查顺序、比较窗口、分析结论、是否补证以及文字／图表／HTML由 Hermes 根据任务自主决定。报告只读能力不包含改价工作流、发券或绕过真实 actor/session 的客户订单查询，不能借 `all` 或自定义工具集恢复这些写权限。
 
 维护工作站通过现有 `server_187/access/Invoke-Server187.ps1` 使用已授权只读适配器。Admin走HMAC主8912、备用8911、容器桥8913；本机 `127.0.0.1` 不是云会话或同事电脑的可直连地址。8767模拟登录已退役。读取不借用FC writer；报表不靠运行定价或刷新采集取得历史。
 

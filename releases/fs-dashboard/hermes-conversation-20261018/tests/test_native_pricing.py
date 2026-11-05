@@ -74,9 +74,10 @@ class NativePricingBoundaries(unittest.TestCase):
         self.assertTrue(native.authorized(bound))
         for column,value in [('mode','operator_workflow'),('runs','[]'),('source','changed'),('source_quote_run','00000000-0000-4000-8000-000000000003'),('source_quote_sha256','b'*64),('expires_at',(NOW+timedelta(hours=3)).isoformat()),('expires_at',(NOW-timedelta(seconds=1)).isoformat())]:
             with self.subTest(column=column,value=value):
-                with self.tasks.db() as db:old=db.execute('SELECT '+column+' FROM pricing_grants').fetchone()[0];db.execute('UPDATE pricing_grants SET '+column+'=?',(value,))
+                table='pricing_grant_sources' if column.startswith('source_quote_') else 'pricing_grants'
+                with self.tasks.db() as db:old=db.execute('SELECT '+column+' FROM '+table).fetchone()[0];db.execute('UPDATE '+table+' SET '+column+'=?',(value,))
                 self.assertFalse(native.authorized(bound))
-                with self.tasks.db() as db:db.execute('UPDATE pricing_grants SET '+column+'=?',(old,))
+                with self.tasks.db() as db:db.execute('UPDATE '+table+' SET '+column+'=?',(old,))
         for field in ('owner','conversation_id','turn_id','lease','run_id','session_id','request_id'):
             bad=dict(bound,**{field:'bad'})
             try:allowed=native.authorized(bad)

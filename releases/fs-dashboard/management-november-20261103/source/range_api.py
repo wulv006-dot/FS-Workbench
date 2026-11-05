@@ -365,6 +365,8 @@ if HERMES is not None:
  CHANNELS.admission=maintenance_admission
  from actual_profit import ActualProfitService
  ACTUAL_PROFITS=ActualProfitService(CHANNELS,PROFILE_MAP)
+ HERMES.conversation=CONVERSATION
+ HERMES.actual_profits=ACTUAL_PROFITS
 ADVISOR=Advisor(snapshot,get_range,FC_DAILY,CACHE/'advisor',deep=DEEP)
 USERS=None;USERS_ERROR=None
 try:

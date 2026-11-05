@@ -68,7 +68,7 @@ class NativePricingWorkerTests(unittest.TestCase):
                 agent=adapter._create_native_agent(item)
                 config=calls['native_kwargs']
                 self.assertEqual(set(config['enabled_toolsets']),{'file','terminal','memory','skills','fs_native_pricing_readonly'})
-                self.assertEqual(config['disabled_toolsets'],['fs_materials','fs_native_pricing_unavailable'])
+                self.assertEqual(config['disabled_toolsets'],['fs_materials','fs_native_pricing_unavailable','fs_native_reports'])
                 self.assertEqual(config['reasoning_config'],{'enabled':True,'effort':'high'})
                 self.assertIs(config['session_db'],session_db)
                 for key in ('skip_memory','skip_context_files','skip_background_review'):self.assertIs(config[key],False)
@@ -108,6 +108,64 @@ class NativePricingWorkerTests(unittest.TestCase):
                         self.assertTrue(native_names<=selected)
                         self.assertIn('mcp__fcro__fs_pricing_control',selected)
         self.assertIn('recommend',original['function']['parameters']['properties']['action']['enum'])
+
+
+class NativeReportWorkerTests(unittest.TestCase):
+    def test_report_keeps_native_memory_context_and_original_measured_schemas(self):
+        import conversation_native as native
+        from native_reports import tool_schemas
+        schemas=tool_schemas()
+        bound=dict(owner='alice',conversation_id='b'*32,turn_id='c'*32,request_id='report_native_01',
+                   session_id='hc_'+'a'*64,lease='d'*32,run_id='run_'+'e'*32)
+        item=dict(session_id=bound['session_id'],model='deepseek-flash',token='f'*43,conversation=True,
+            ready=True,run_id=bound['run_id'],prompt='',reasoning_effort='max',native_chat=dict(
+            binding=bound,environment={'files':[]},report='1'*32))
+        with fixture.WorkerEnvironmentTests().runtime() as (worker,adapter,calls,modules):
+            worker.admission=lambda sid:item
+            session_db=object();adapter._ensure_session_db=lambda:session_db
+            @contextmanager
+            def scope(**kwargs):yield
+            def check(task_id=None):
+                if not backend.authorize() or task_id not in (None,bound['turn_id']):raise PermissionError('native_worker_inactive')
+            backend=types.SimpleNamespace(profile=Path('/native/alice'),environment={'workspace':'/workspace'},
+                scope=scope,check=check,ensure_environment=lambda:None,observe_pending=lambda *a:None,close_environment=lambda:None)
+            def report_call(name,arguments,task_id=None):
+                check(task_id);value=backend.report_rpc(name,arguments);check(task_id);return value
+            backend.report_call=report_call
+            def build_backend(value,authorize):backend.authorize=authorize;return backend
+            class Agent:
+                def __init__(self,**kwargs):
+                    calls['native_kwargs']=kwargs;self.enabled_toolsets=kwargs['enabled_toolsets']
+                    self.disabled_toolsets=kwargs['disabled_toolsets'];self.tools=schemas;self._tool_snapshot_generation=9
+                def run_conversation(self,*a,**kw):check(kw.get('task_id'));return kw['task_id']
+                def close(self):pass
+            modules['run_agent'].AIAgent=Agent
+            modules['toolsets'].resolve_toolset=lambda name,**kw:list(calls['toolsets'].get(name,()))
+            registered=[];rpc=[]
+            def call_tool(name,arguments,**kwargs):
+                rpc.append((name,deepcopy(arguments)))
+                if name=='fs.native.check':return '{"authorized":true}'
+                if name=='fs.native.report':return json.dumps(dict(tool_schemas=schemas))
+                if name=='fs.native.register_schemas':registered.append(arguments);return '{"registered":true}'
+                raise AssertionError(name)
+            worker.call_tool=call_tool
+            overrides={'hermes_cli.tools_config':types.SimpleNamespace(_get_platform_tools=lambda *a:{'file','terminal','memory','skills','fs_readonly'}),
+                'model_tools':types.SimpleNamespace(get_tool_definitions=lambda **kw:schemas),
+                'hermes_constants':types.SimpleNamespace(resolve_reasoning_config=lambda *a:{'enabled':False}),
+                'agent.reasoning_params':types.SimpleNamespace(unset_reasoning_default=lambda a:{'enabled':False})}
+            with patch.dict(sys.modules,overrides),patch.object(native,'NativeDockerBackend',side_effect=build_backend), \
+                    patch.object(native,'install_native_backend_guards'),patch.object(worker,'install_native_compaction_relay'), \
+                    patch.object(modules['hermes_cli.config'],'load_config',return_value={'memory':{'write_approval':True},'skills':{'write_approval':True}},create=True):
+                agent=adapter._create_native_agent(item);config=calls['native_kwargs']
+                self.assertEqual(set(config['enabled_toolsets']),{'file','terminal','memory','skills','fs_native_reports'})
+                self.assertEqual(config['disabled_toolsets'],['fs_materials','fs_native_report_unavailable'])
+                self.assertEqual(config['reasoning_config'],{'enabled':True,'effort':'max'})
+                self.assertIs(config['session_db'],session_db)
+                for key in ('skip_memory','skip_context_files','skip_background_review'):self.assertIs(config[key],False)
+                self.assertIs(config['load_soul_identity'],True)
+                self.assertEqual(registered[0]['model_schemas'],schemas)
+                self.assertEqual(agent.run_conversation('Original report input.'),bound['turn_id'])
+                self.assertIn(('fs.native.report',dict(binding=bound,name='capabilities',arguments={})),rpc)
 
 
 if __name__=='__main__':unittest.main()
