@@ -42,6 +42,10 @@ class RegionTests(unittest.TestCase):
         self.assertEqual(len(R.AREA_REGIONS),182)
         self.assertEqual(R.AREA_REGIONS[('826','19910')],'TW')
         self.assertEqual(R.AREA_REGIONS[('826','19972')],'Korea')
+    def test_match_original_order_site_without_changing_scope(self):
+        body=page(site='www.aion2kinah.com')
+        self.assertEqual(R.parse_order_region(body,'DTEST123'),'')
+        self.assertEqual(R.parse_order_region(body,'DTEST123','www.aion2kinah.com'),'NA East')
     def test_persisted_and_no_repeated_lookup(self):
         s=Session(page());self.assertEqual(self.resolve(s)['lookups'],1)
         self.assertEqual(self.resolve(s)['cached'],1);self.assertEqual(len(s.calls),1)

@@ -62,7 +62,7 @@ class OrderTable(HTMLParser):
         if tag=='table' and self.depth:self.depth-=1
 
 
-def parse_order_region(text, order_no):
+def parse_order_region(text, order_no, expected_site='www.mmoexp.com'):
     """Require exact merchant order number, MMOEXP site and Aion2 game ID."""
     doc=OrderTable();doc.feed(text)
     if doc.login:
@@ -76,7 +76,7 @@ def parse_order_region(text, order_no):
         source = cells[2]
         # Do not accept a substring, another site, or another order in the page.
         tokens = re.findall(r'[A-Za-z0-9._-]+', source)
-        if order_no not in tokens or 'www.mmoexp.com' not in tokens:
+        if order_no not in tokens or expected_site.lower() not in [t.lower() for t in tokens]:
             continue
         game = cells[3]
         region = region_in(game) or AREA_REGIONS.get((gid,aid), '')
@@ -130,7 +130,8 @@ def resolve_regions(session, conn, orders, deliveries, parse_content, max_lookup
                 status, text = session.get_order('/order/admin_order/index.html', sn=no, status='all')
                 if status != 200:
                     raise RuntimeError('order_lookup_http_%s' % status)
-                region = parse_order_region(text, no)
+                site = o.get('site_format') or (o.get('site') or {}).get('full_title') or 'www.mmoexp.com'
+                region = parse_order_region(text, no, expected_site=site)
                 source = 'order-order-list' if region else 'pending'
                 retry = now + min(86400, 21600 * attempts) if not region else 0
             except Exception:

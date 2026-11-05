@@ -1,5 +1,5 @@
 {
-  "version": "admin-game-area-20261105",
+  "version": "admin-game-area-20261105-sites-v2",
   "source": "Authenticated Admin goods/gameArea UI; 184 Aion2 rows, 182 explicit Order game 826/area mappings; two unmapped rows excluded.",
   "order_gid": "826",
   "groups": {
