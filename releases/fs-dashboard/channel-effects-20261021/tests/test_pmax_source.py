@@ -12,7 +12,10 @@ sys.path.insert(0, str(ROOT / 'mmoexp_google_data/details'))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'source'))
 sys.path.insert(0, str(ROOT / 'releases/fs-dashboard/dashboard-refresh-20261025/source'))
 from traffic_contract import campaign_scope
-from channel_effects import view
+spec = importlib.util.spec_from_file_location('current_cards_channel_effects', ROOT / 'releases/fs-dashboard/dashboard-refresh-20261025/source/channel_effects.py')
+current_channel = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(current_channel)
+view = current_channel.view
 import test_channel_effects as baseline
 
 
