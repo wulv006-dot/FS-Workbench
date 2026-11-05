@@ -5,6 +5,8 @@ from unittest.mock import patch,Mock
 from pathlib import Path
 from datetime import date,datetime,timezone,timedelta
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
+# The active tracking model reads the shared Admin game registry.
+sys.path.append(str(Path(__file__).resolve().parents[2]/'hermes-generic-data-20261018/source'))
 from customer_tracking import Store,lifecycle_clock,AdminService
 from pool_reports import PoolReports,pool_evidence
 
