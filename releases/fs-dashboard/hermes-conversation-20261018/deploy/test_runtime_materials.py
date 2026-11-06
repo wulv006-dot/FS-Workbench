@@ -1466,6 +1466,39 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 
+    def test_gateway_pack_uses_current_source_and_original_host_only_rollback(self):
+        name='runtime/proxy_gateway.py'
+        source='releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py'
+        before={name:dict(source_commit=self.BEFORE,source_path=source)}
+        with self.scope_fixture() as f:
+            blobs={self.BEFORE+':'+source:b'original installed gateway',
+                   self.AFTER+':'+source:b'reviewed native replay gateway'}
+            for file,path in prepare.PUBLISHER_SOURCES.items():
+                blobs[self.AFTER+':'+path]=(f.bundle/file).read_bytes()
+            def git(command,**kwargs):
+                self.assertEqual(command[:2],['git','show'])
+                return blobs[command[2]]
+            output=f.root/'active-gateway-pack'
+            with patch.object(prepare.subprocess,'check_output',side_effect=git):
+                prepare.pack(f.root,output,self.AFTER,software_before=before)
+            descriptor=json.loads((output/'payload-manifest.json').read_bytes())
+            self.assertEqual(descriptor['software_sources'],{name:source})
+            self.assertEqual((output/'before'/name).read_bytes(),b'original installed gateway')
+            self.assertEqual((output/'payload'/name).read_bytes(),b'reviewed native replay gateway')
+        with patch.object(self,'SELECTED',(name,'runtime/conversation_store.py')),self.scope_fixture() as f:
+            stage,manifest=self.prepare_stage(f)
+            self.assertEqual([(x['candidate'],x['target']) for x in manifest['files']],
+                             [(name,'/opt/fs-hermes-fc/proxy_gateway.py')])
+            raw=(stage/'approved-manifest.json').read_bytes()
+            with self.publisher(f,stage) as (base,module,fence,locks):
+                scopes=[]
+                with patch.object(module,'software_restart',side_effect=lambda b,r,m,a:scopes.append(m['scope'])):
+                    result=base.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261106T090000Z',f.system)
+                    base.rollback(Path(result['backup']),prepare.digest(raw),f.system)
+                self.assertEqual(scopes,[base.DEEP_SCOPE,base.DEEP_SCOPE])
+            self.assertEqual(f.ledger.read_bytes(),b'preserve data and original IDs')
+            self.assertEqual(prepare.digest(f.base.rooted(f.system,'/opt/fs-hermes-fc/proxy_gateway.py').read_bytes()),manifest['files'][0]['beforeSha256'])
+
     def test_continuation_pack_reads_the_active_report_repair_git_source(self):
         name='runtime/continuation.py'
         source='releases/fs-dashboard/hermes-report-repair-20261019/source/continuation.py'
@@ -1914,6 +1947,7 @@ class NativePublisher(unittest.TestCase):
     @staticmethod
     def plain_reply_installed_bytes(name):
         expected={
+            'runtime/proxy_gateway.py':('releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py','29467fd4deb8d128ab157825db37429456b23503a5b34f5b9c4fe41f8abaa6e8',44186,'d5093fe3dae36d41a45335e73b44a322c2e128c2'),
             'runtime/conversation_service.py':('releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py','80fdbae538933026fde0185642283ffe12cef34a1a674a38b8d40dfb7c69ad2f',38989,'b49488b50bb33191424ecf698ab7b0e61457c386'),
             'http/conversation_http.py':('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py','8d577e8493cabc2847604ab77e7539bb215c947cee842000acc86878bc2ba44d',13570,'e1b5943db3b49214f09fe107df367ce81f885b8b')}
         fixture=json.loads(Path(__file__).with_name('plain-reply-before-051f.json').read_bytes())
@@ -3324,7 +3358,7 @@ class NativePublisher(unittest.TestCase):
                 base.rooted(root,release.TARGETS[name]).write_bytes(self.diagnostic_current_bytes(name))
         retry_history=self.save_capabilities_receipt(base,root,release.CAPABILITIES_RETRY_HISTORY_PROOF,current,owners)
         stack.enter_context(patch.object(release,'CAPABILITIES_RETRY_HISTORY_PROOF',retry_history))
-        bodies={'runtime/proxy_gateway.py':(Path(__file__).resolve().parents[4]/prepare.SOURCES['runtime/proxy_gateway.py']).read_bytes(),
+        bodies={'runtime/proxy_gateway.py':self.plain_reply_installed_bytes('runtime/proxy_gateway.py'),
                 'runtime/conversation_service.py':self.plain_reply_installed_bytes('runtime/conversation_service.py'),
                  'http/conversation_http.py':self.plain_reply_installed_bytes('http/conversation_http.py')}
         assert (prepare.digest(bodies['runtime/proxy_gateway.py']),len(bodies['runtime/proxy_gateway.py']))==('29467fd4deb8d128ab157825db37429456b23503a5b34f5b9c4fe41f8abaa6e8',44186)
