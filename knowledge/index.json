@@ -350,13 +350,13 @@
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-10-29",
+      "effective_at": "2026-11-06",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "9b913368ccf70f3b73a80b97289b0c751d01e3119e21cfbaab6a9b3905610b06",
+        "sha256": "b3b8c0c1ddff1083d192bc4cca08bbe9dd4e6943b6002d4d57148374afc56353",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -387,6 +387,11 @@
           "kind": "direct_user_competitor_source_fallback_and_daily_30_margin",
           "date": "2026-10-30",
           "decision": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md"
+        },
+        {
+          "kind": "direct_user_current_knowledge_cleanup",
+          "date": "2026-11-06",
+          "scope": "Current smart state and read-only review method; no pricing thresholds or writer change"
         }
       ],
       "consumers": [
@@ -399,8 +404,8 @@
     {
       "id": "fc.pricing.decision-v15",
       "revision": "2026-10-22",
-      "layer": "decision",
-      "status": "confirmed",
+      "layer": "archive",
+      "status": "retired",
       "modules": [
         "FC27"
       ],
@@ -428,7 +433,8 @@
         "Codex",
         "Hermes selected knowledge candidate"
       ],
-      "time_precision": "date_only"
+      "time_precision": "date_only",
+      "superseded_by": "fc.pricing.v3@20261106-current"
     },
     {
       "id": "fs.experience.archive-cycle",
@@ -1156,27 +1162,28 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "fc-v3-smart-native-boundaries-20261105",
+      "revision": "20261106-current",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-05",
+      "effective_at": "2026-11-06",
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "9b913368ccf70f3b73a80b97289b0c751d01e3119e21cfbaab6a9b3905610b06",
+        "sha256": "b3b8c0c1ddff1083d192bc4cca08bbe9dd4e6943b6002d4d57148374afc56353",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
         "fc.pricing.reference-weighting@fc-reference-weighting-20261024-v2",
         "fc.pricing.v3@fc-v3-lag1-eight-day-20261029",
         "fc.pricing.v3@fc-v3-sprint-baseline-20261029",
-        "fc.pricing.v3@fc-v3-100k-source-availability-20261030"
+        "fc.pricing.v3@fc-v3-100k-source-availability-20261030",
+        "fc.pricing.v3@fc-v3-smart-native-boundaries-20261105"
       ],
       "provenance": [
         {
@@ -1208,6 +1215,11 @@
           "kind": "existing_confirmed_smart_mode_and_native_agent_boundary",
           "date": "2026-11-05",
           "decision": "docs/planning/fc-pricing-v3-20261026/CURRENT-BASELINE.md"
+        },
+        {
+          "kind": "direct_user_current_knowledge_cleanup",
+          "date": "2026-11-06",
+          "scope": "Current smart state and read-only review method; no pricing thresholds or writer change"
         }
       ],
       "consumers": [
@@ -1354,24 +1366,26 @@
     },
     {
       "id": "fc.reporting.business",
-      "revision": "20261105-1",
+      "revision": "20261106-current",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-05",
+      "effective_at": "2026-11-06",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/BUSINESS.md",
-        "sha256": "224c4ba7dd639aafc007dc036fc61369e2ac9cbb075be6ea4ae2d28fb5edb21d",
+        "sha256": "77f0ca970817752ac6c5720516e8eaee87a8733a43e493fcdd852b6563a7a3d8",
         "hash_basis": "utf8_lf"
       },
-      "supersedes": [],
+      "supersedes": [
+        "fc.reporting.business@20261105-1"
+      ],
       "provenance": [
         {
           "kind": "direct_user_knowledge_consolidation",
@@ -1381,6 +1395,11 @@
         {
           "kind": "existing_confirmed_methods",
           "path": "docs/planning/report-methods-20261102/README.md"
+        },
+        {
+          "kind": "direct_user_current_knowledge_cleanup",
+          "date": "2026-11-06",
+          "scope": "Current smart state and read-only review method; no pricing thresholds or writer change"
         }
       ],
       "consumers": [

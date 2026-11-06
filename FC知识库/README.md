@@ -18,3 +18,5 @@
 历史优秀报告仅供理解组织方法，经营数字不是当前阈值。本地受控成品位于项目的 `docs/planning/fc27-october-review-20261103/output/`，文件名 `FC27-2026年10月项目专项复盘.html`；Git不收录该私密成品，团队可共享方法已在上方入口。
 
 后续活动、商品、客户、履约及定价知识从对应主题继续扩充；不每月复制同一教材。当前规则、历史案例、估计与未验结果分别保留，更新走现有知识收尾与审核路径。
+
+2026-11-06 定价知识核准：smart已在线上接管，当前计划及判断方法见[现行基线](../docs/planning/fc-pricing-v3-20261026/CURRENT-BASELINE.md)和[Hermes经营合同](../docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md)。旧v15决策仅保留为归档，不再作为现行条目。仓库更新与Hermes线上知识装载分别验收。
