@@ -17,6 +17,21 @@ PREFIX = json.loads(subprocess.check_output(['git','show','HEAD:knowledge/index.
 
 
 class KnowledgeStageTransportTest(unittest.TestCase):
+    def test_unpublished_candidate_does_not_change_effective_inventory(self):
+        sys.path.insert(0,str(BUILDER.parent))
+        spec=importlib.util.spec_from_file_location('knowledge_stage_candidate',BUILDER)
+        builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
+        original_blob=builder.blob
+        index=json.loads(original_blob(ROOT,ROOT/'knowledge/index.json'))
+        candidate=next(row.copy() for row in index['entries'] if row['layer']=='candidate')
+        candidate['id']='test.unpublished';index['entries'].append(candidate)
+        commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+        def source(checkout,path):
+            return json.dumps(index).encode() if path==ROOT/'knowledge/index.json' else original_blob(checkout,path)
+        with tempfile.TemporaryDirectory() as folder,patch.object(builder,'blob',side_effect=source):
+            result=builder.build(ROOT,commit,Path(folder)/'candidate.tar.gz')
+            self.assertEqual(result['sourceCommit'],commit)
+
     def test_candidate_requires_exact_current_ids(self):
         sys.path.insert(0, str(BUILDER.parent))
         spec=importlib.util.spec_from_file_location('knowledge_stage_validation',BUILDER)
