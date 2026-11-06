@@ -117,6 +117,23 @@ class DailyProgramFlow(unittest.TestCase):
         self.assertEqual(result['confirmed_operation_count'],1)
         self.assertEqual(daily.exposure_scope([window],'2026-10-25')['status'],'no_confirmed_exposure')
 
+    def test_active_http_adapter_preserves_pricing_route(self):
+        import importlib.util
+        path = SOURCE.parents[2] / 'fs-dashboard/hermes-conversation-20261018/source/conversation_http.py'
+        spec = importlib.util.spec_from_file_location('active_conversation_http', path)
+        adapter = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(adapter)
+        headers = Message()
+        for key, value in {'X-FS-Advisor-Action':'submit', 'Sec-Fetch-Site':'same-origin', 'Content-Length':'2', 'Content-Type':'application/json'}.items():
+            headers[key] = value
+        handler = SimpleNamespace(headers=headers, connection=Mock(), rfile=io.BytesIO(b'{}'), wfile=io.BytesIO(), send_response=Mock(), send_header=Mock(), end_headers=Mock())
+        service = Mock()
+        service.pricing.create.return_value = {'conversation_id':'a'*32}
+        adapter.handle(handler, 'POST', urlsplit(adapter.PREFIX+'/pricing-reviews'), 'wulv', service, lambda _:True)
+        handler.send_response.assert_called_once_with(201)
+        service.pricing.create.assert_called_once_with('wulv')
+        service.create.assert_not_called()
+
     def test_pricing_turn_route_validates_real_id_not_literal_turns(self):
         body=dict(text='daily',client_request_id='fc_pricing_daily',run_id='00000000-0000-4000-8000-000000000099')
         raw=json.dumps(body).encode();headers=Message()
