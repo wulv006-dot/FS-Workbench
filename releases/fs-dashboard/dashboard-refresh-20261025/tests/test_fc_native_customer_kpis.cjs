@@ -8,13 +8,14 @@ const native={newCustomers:24,repeatRatePct:12.5,newCustomerSharePct:20};
 const supplemental={payingCustomers:43,newCustomerRevenueUsd:4800,pureSalesUsd:6400,refundAmountUsd:80,refundOrders:2,fulfillmentRatePct:93.75,paymentSuccessRatePct:88.2,averageCustomerUsd:150.7};
 const supplementalText={payingCustomers:'43',newCustomerRevenueUsd:'$4,800.00',pureSalesUsd:'$6,400.00',refundAmountUsd:'$80.00',refundOrders:'2',fulfillmentRatePct:'93.75%',paymentSuccessRatePct:'88.20%',averageCustomerUsd:'$150.70'};
 const expected=['24','12.50%','20.00%'];
+const allNativeExpected={newCustomers:'24',repeatRatePct:'12.50%',newCustomerSharePct:'20.00%',...supplementalText};
 const selection={b_site:'all',b_profile:'FC27',b_group:'sports',b_grain:'day',b_range:'custom',b_start:'2026-10-17',b_end:'2026-10-23',b_fc_product:'all',b_fc_platform:'all',b_fc_site_group:'all',b_fc_customer:'all',b_fc_bucket:'all'};
 const failures=[];
 async function check(name,run){try{await run();console.log('PASS '+name);}catch(error){failures.push(name+': '+error.message);console.error('FAIL '+name+': '+error.message);}}
 (async()=>{
  const url=await serve(),browser=await chromium.launch({headless:true});
  try{
-  const page=await browser.newPage(),errors=[];let revision=0,scenario='native';
+  const page=await browser.newPage(),errors=[],cacheResponses=[];let revision=0,scenario='native';
   page.setDefaultTimeout(5000);page.on('pageerror',error=>errors.push(error.message));
   await page.route('**/*',async route=>{
    const request=new URL(route.request().url()),q=Object.fromEntries(request.searchParams);
@@ -29,7 +30,11 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
     return route.fulfill({json:response});
    }
    if(q.mode==='summary'&&q.profile==='FC27'){
-    const requestedRevision=revision,upstream=await route.fetch(),response=await upstream.json(),p=response.profile,a=p.supplement;
+    // The shared fixture's refresh=true path adds an unrelated 800ms delay.
+    // These are source-contract checks; retain the request metadata but obtain
+    // its fictional base envelope without that race-test delay.
+    const upstreamURL=new URL(request);upstreamURL.searchParams.delete('refresh');
+    const requestedRevision=revision,upstream=await route.fetch({url:upstreamURL.href}),response=await upstream.json(),p=response.profile,a=p.supplement;
     response.fixture_native_revision=requestedRevision;
     const main=q.profit_site!=='all';
     a.status='available';a.normalisedScope=main?'main-website':'all-websites';a.system='admin.p2pah.cn';a.currency='USD';
@@ -43,6 +48,33 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
      response.query.period={start:'2026-10-24 14:00',end:'2026-10-24 14:37'};
      a.period={...response.query.period};
      if(scenario==='wrong-hour-actual-period')a.period.end='2026-10-24 14:38';
+     p.period={...a.period};p.primary.period={...a.period};
+    }
+    if(scenario==='cache-cutoff-first'||scenario==='cache-cutoff-advanced'){
+     // SummaryCache.key_of excludes period. get_live returns the new request
+     // cutoff while both profile.period and the cached source retain a.period.
+     // This is a valid cache hit, not an arbitrary profile/source mismatch.
+     const advanced=scenario==='cache-cutoff-advanced';
+     response.query.period={start:'2026-10-24 13:00',end:advanced?'2026-10-24 14:39':'2026-10-24 14:37'};
+     a.period={start:'2026-10-24 13:00',end:'2026-10-24 14:37'};
+     p.period={...a.period};p.primary.period={...a.period};
+     a.capturedAt='2026-10-24T06:37:00+00:00';a.sourceDataAsOf=null;a.asOfStatus='not_provided_by_upstream';a.stale=false;
+     response.generatedAt=a.capturedAt;response.status='available';response.stale=false;
+     response.origin='live-cache';response.cachePolicy='today';response.refreshSeconds=600;
+     response.clientCheckSeconds=600;response.expiresInSeconds=advanced?598:600;response.consistentPeriod=true;
+     response.sources.Admin={...response.sources.Admin,status:'available',stale:false,capturedAt:a.capturedAt,sourceDataAsOf:null,asOfStatus:'upstream_watermark_unknown'};
+     cacheResponses.push({raw:{start:q.start,end:q.end,grain:q.grain},requestRefresh:q.refresh||null,actual:{...response.query.period},profile:{...p.period},admin:{...a.period},rangeId:response.rangeId,capturedAt:a.capturedAt});
+    }
+    if(scenario.startsWith('hour-boundary-')){
+     response.query.period={start:'2026-10-24 14:00',end:'2026-10-24 14:37'};
+     a.period={...response.query.period};
+     if(scenario==='hour-boundary-wrong-start')a.period.start='2026-10-24 13:59';
+     if(scenario==='hour-boundary-empty-request')response.query.period={};
+     if(scenario==='hour-boundary-partial-request')response.query.period={start:'2026-10-24 14:00'};
+     if(scenario==='hour-boundary-reversed-request')response.query.period.end='2026-10-24 13:59';
+     if(scenario==='hour-boundary-beyond-selected-hour'){a.period.end='2026-10-24 15:01';response.query.period.end=a.period.end;}
+     if(scenario==='hour-boundary-closed-no-request'){delete response.query.period;a.period.end='2026-10-24 15:00';}
+     if(scenario==='hour-boundary-open-no-request')delete response.query.period;
      p.period={...a.period};p.primary.period={...a.period};
     }
     a.filters.date=[a.period.start,a.period.end];
@@ -66,6 +98,7 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
   });
   await page.goto(url);await page.waitForFunction(()=>window.api&&window.lastState?.b_profile==='MMOEXP');
   const values=()=>Promise.all(keys.map(key=>page.locator(`[data-metric=${key}] strong`).innerText()));
+  const allNativeValues=async()=>Object.fromEntries(await Promise.all(Object.keys(allNativeExpected).map(async key=>[key,await page.locator(`[data-metric=${key}] strong`).innerText()])));
   async function choose(changes={},kind='native'){
    scenario=kind;revision++;
    await page.evaluate(state=>window.api.apply(state),{...selection,...changes});
@@ -110,9 +143,37 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
    await choose({b_grain:'hour',b_start:'2026-10-24 14:00',b_end:'2026-10-24 14:00'},'open-hour');
    assert.deepEqual(await values(),expected);
   });
-  await check('same raw hourly selection rejects mismatched actual native period',async()=>{
+  await check('advancing request cutoff retains all eleven metrics from a valid unchanged hourly cache',async()=>{
+   const raw={b_grain:'hour',b_start:'2026-10-24 13:00',b_end:'2026-10-24 14:00'};
+   await choose(raw,'cache-cutoff-first');assert.deepEqual(await allNativeValues(),allNativeExpected);
+   scenario='cache-cutoff-advanced';revision++;
+   // Invalidate only the browser cache. An explicit api.update would send
+   // refresh=true and would test an upstream reload rather than this cache hit.
+   await page.evaluate(()=>{window.scope.window.FSExactRange.force(false);window.api.apply(window.api.state());});
+   await page.waitForFunction(value=>window.scope.summary?.fixture_native_revision===value,revision);
+   await page.waitForTimeout(120);
+   const last=cacheResponses.at(-1),first=cacheResponses.find(row=>row.actual.end==='2026-10-24 14:37');
+   assert.deepEqual(last.raw,first.raw);assert.equal(last.requestRefresh,null);
+   assert.equal(last.rangeId,first.rangeId);assert.equal(last.capturedAt,first.capturedAt);
+   assert.deepEqual(last.profile,first.profile);assert.deepEqual(last.admin,first.admin);
+   assert.equal(last.actual.end,'2026-10-24 14:39');assert.equal(last.admin.end,'2026-10-24 14:37');
+   assert.deepEqual(await allNativeValues(),allNativeExpected);
+   for(const key of Object.keys(allNativeExpected)){
+    const label=await page.locator(`[data-metric=${key}] small`).innerText();
+    assert.match(label,/统计截至 2026-10-24 14:37/);assert.doesNotMatch(label,/14:39|旧采集值/);
+   }
+  });
+  await check('actual native cutoff beyond current request cutoff is rejected',async()=>{
    await choose({b_grain:'hour',b_start:'2026-10-24 14:00',b_end:'2026-10-24 14:00'},'wrong-hour-actual-period');
-   assert.deepEqual(await values(),['暂缺','暂缺','暂缺']);
+   assert.deepEqual(await allNativeValues(),Object.fromEntries(Object.keys(allNativeExpected).map(key=>[key,'暂缺'])));
+  });
+  for(const kind of ['wrong-start','empty-request','partial-request','reversed-request','beyond-selected-hour','open-no-request'])await check('hour boundary '+kind+' rejects all native metrics',async()=>{
+   await choose({b_grain:'hour',b_start:'2026-10-24 14:00',b_end:'2026-10-24 14:00'},'hour-boundary-'+kind);
+   assert.deepEqual(await allNativeValues(),Object.fromEntries(Object.keys(allNativeExpected).map(key=>[key,'暂缺'])));
+  });
+  await check('missing request.period accepts only the exact closed final hour',async()=>{
+   await choose({b_grain:'hour',b_start:'2026-10-24 14:00',b_end:'2026-10-24 14:00'},'hour-boundary-closed-no-request');
+   assert.deepEqual(await allNativeValues(),allNativeExpected);
   });
   await check('missing native share stays unknown and is not divided by identified customers',async()=>{
    await choose({},'missing-share');assert.deepEqual(await values(),['24','12.50%','暂缺']);
