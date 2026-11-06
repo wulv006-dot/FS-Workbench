@@ -152,19 +152,93 @@ class ReportRoute(unittest.TestCase):
         with self.assertRaises(ValueError):bridge.finance(self.native,bound,'shipping',dict(email='private@example.test'))
         self.h.read_range=lambda params:(200,dict(status='available',profile={}))
         self.assertEqual(bridge.finance(self.native,bound,'shipping',dict(profile='FC27',start='2026-11-04',end='2026-11-04'))['status'],'not_available')
+    def finance_evidence(self,bridge,bound,kind,query):
+        from research import ResearchBook
+        if not getattr(self.h,'report_books',None):
+            book=ResearchBook(dict(snapshot_id=self.spec['snapshot_id'],as_of=NOW.isoformat()),{},dict(start='2026-11-04',end='2026-11-04'))
+            self.h.report_books={self.task['id']:book}
+        with patch('zoneinfo.ZoneInfo',return_value=timezone(timedelta(hours=8))):
+            return bridge.call(self.native,bound,dict(binding=bound,name='mcp__fcro__fc_query_'+kind+'_profit',arguments=query))['data']
+    def test_shipping_real_cache_failure_retains_values_with_quality_in_model_evidence(self):
+        bridge,bound=self.admit()
+        summary=load('finance_summary','releases/fs-dashboard/dashboard-refresh-20261025/source/live_summary.py')
+        q=dict(profile='FC27',period=dict(start='2026-11-04 00:00',end='2026-11-05 00:00'),cacheSeconds=600,cachePolicy='historical',profit_basis='shipping')
+        cache=summary.SummaryCache(lambda q:self.fail('unexpected read'),lambda q:self.fail('unexpected read'),{'FC27':(None,'FC27')},clock=lambda:1000,shipping_read=lambda q:self.fail('unexpected read'))
+        self.addCleanup(cache.close)
+        record=dict(status='available',period=q['period'],capturedAt=NOW.isoformat(),currency='CNY',metrics={'profitCny':dict(value=20,unit='CNY')})
+        entry={name:dict(state='available',at=1000,valueAt=1000,value=dict(record),phase='available') for name in ('Admin','Order','Shipping')}
+        entry['Shipping'].update(state='unavailable',valueAt=390,phase='failed',error='source_read_failed')
+        cache.entries[summary.key_of(q)]=entry
+        self.h.read_range=lambda params:cache.get_live(q)
+        value=self.finance_evidence(bridge,bound,'shipping',dict(profile='FC27',start='2026-11-04',end='2026-11-04'))
+        self.assertEqual(value['shipping']['metrics']['profitCny']['value'],20)
+        self.assertTrue(value['shipping']['stale']);self.assertEqual(value['shipping']['readPhase'],'failed')
+        self.assertEqual(value['source_status']['Shipping']['error'],'source_read_failed')
+        self.assertIn('stale',value);self.assertEqual(value['origin'],'live-cache')
+        self.assertEqual(value['refreshSeconds'],600);self.assertEqual(value['generatedAt'],NOW.isoformat())
+        # Existing archive fallback retains its old values and its expired marker.
+        archived=dict(cache.get_live(q)[1],stale=True,refreshing=False,expiresInSeconds=0)
+        archived['sources']['Shipping'].update(error='private@example.test /internal/path',raw={'orders':['private']})
+        self.h.read_range=lambda params:(200,archived)
+        retained=self.finance_evidence(bridge,bound,'shipping',dict(profile='FC27',start='2026-11-04',end='2026-11-04'))
+        self.assertTrue(retained['stale']);self.assertEqual(retained['expiresInSeconds'],0)
+        self.assertEqual(retained['shipping']['metrics']['profitCny']['value'],20)
+        self.assertNotIn('private',json.dumps(retained));self.assertNotIn('/internal',json.dumps(retained))
+    def test_actual_real_services_keep_refresh_failures_and_coverage_in_model_evidence(self):
+        bridge,bound=self.admit();d='releases/fs-dashboard/dashboard-refresh-20261025/source/'
+        with patch.dict(sys.modules,{'fcntl':types.SimpleNamespace(LOCK_EX=2,LOCK_NB=4,flock=lambda *a:None)}):
+            summary=load('quality_summary',d+'live_summary.py')
+            rs=load('quality_rs','releases/fs-dashboard/rs-adapter-20261024/source/rs_admin.py')
+            with patch.dict(sys.modules,{'rs_admin':rs}):shipping=load('quality_shipping','releases/fs-dashboard/management-november-20261103/source/business_shipping.py')
+            channels_module=load('quality_channels',d+'channel_effects.py')
+            with patch.dict(sys.modules,{'live_summary':summary,'rs_admin':rs,'channel_effects':channels_module,'business_shipping':shipping}):
+                actual=load('quality_actual',d+'actual_profit.py')
+                rows=actual.normalized([dict(id=i,order_no='PrivateOrder'+str(i),gid=506,site_id=266,site={'full_title':'www.mmoexp.com'},amount_usd_format='$ 10',amount_rmb_format='70',paytime='2026-11-04 12:00:00',status_format='已完成',pay_status=1) for i in (1,2)],[])
+                rows[0]['costCny']=50
+                data=dict(period=dict(start='2026-11-04',end='2026-11-04'),generatedAt=NOW.isoformat(),orders=rows,sources=dict(orders=dict(status='complete',generatedAt=NOW.isoformat(),coverage=dict(complete=True,sourceScanned=2,uniqueOrders=2,rawMembership=['PrivateOrder1'])),cost=dict(status='pending',generatedAt=NOW.isoformat())),costOverrides={},testOrders={})
+                channels=channels_module.ChannelService(self.root/'quality-finance',lambda owner:owner=='alice',source=lambda p:self.fail('unexpected read'))
+                self.addCleanup(lambda:channels.pool.shutdown(wait=True))
+                service=actual.ActualProfitService(channels,{'RS':(None,'RS','506','506')})
+                self.h.actual_profits=service
+                for site in ('mmoexp','all'):
+                    query=dict(profile='RS',start='2026-11-04',end='2026-11-04',rs_site=site)
+                    params={k:[v] for k,v in query.items()};params.update(mode=['actual-profit'],grain=['day'])
+                    q=actual.selection(params,service.profiles)
+                    if site=='mmoexp':
+                        key=hashlib.sha256((channels_module.VERSION+json.dumps(data['period'],sort_keys=True)).encode()).hexdigest()[:24]
+                        target=channels.root/(key+'.json');payload=data;jobs=channels.jobs;starts=channels.starts;clock=channels_module.time.monotonic
+                    else:
+                        key=hashlib.sha256(json.dumps({k:v for k,v in q.items() if k not in ('period','refresh')},sort_keys=True).encode()).hexdigest()
+                        target=service.root/(key+'.json');payload=dict(data=data,query=q,capturedAt=0);jobs=service.jobs;starts=service.starts;clock=service.clock
+                    target.parent.mkdir(parents=True,exist_ok=True);target.write_text(json.dumps(payload),encoding='utf-8')
+                    for state in ('pending','cost_pending','cost_failed','source_failed' if site=='mmoexp' else 'orders_failed'):
+                        with self.subTest(site=site,state=state):
+                            jobs[key]=state;starts[key]=clock()
+                            value=self.finance_evidence(bridge,bound,'actual',query)
+                            self.assertEqual(value['status'],'available');self.assertTrue(value['stale'])
+                            self.assertEqual(value['refreshing'],state in ('pending','cost_pending'))
+                            self.assertEqual(value['costRefreshing'],state=='cost_pending')
+                            self.assertEqual(value['costError'],state=='cost_failed')
+                            self.assertEqual(value['sourceError'],state in ('source_failed','orders_failed'))
+                            self.assertEqual(value['denominator']['profitCny'],20)
+                            self.assertEqual(value['denominator']['missingCostOrders'],1)
+                            self.assertEqual(value['sources']['cost']['status'],'pending')
+                            self.assertTrue(value['sources']['orders']['coverage']['complete'])
+                            self.assertNotIn('PrivateOrder',json.dumps(value));self.assertNotIn('rawMembership',json.dumps(value))
     def test_actual_profit_uses_original_authenticated_service_and_projects_only_aggregates(self):
         bridge,bound=self.admit()
         seen=[]
         class ExistingService:
             def get(_,params,owner):
                 seen.append((params,owner))
-                return 200,dict(status='partial',actualContract='same-order-actual-profit-v1',currency='CNY',
+                return 200,dict(status='partial',actualContract='same-order-actual-profit-v1',currency='CNY',error={'detail':'do-not-leak'},
                     denominator=dict(profitCny=20,missingCostOrders=3,coverageStatus='partial',email='do-not-leak'),
                     trend=[dict(key='2026-11-04',profitCny=20,orderNo='do-not-leak')],orders=[{'email':'do-not-leak'}],rawMembership=['do-not-leak'])
         self.h.actual_profits=ExistingService()
         result=bridge.finance(self.native,bound,'actual_profit',dict(profile='FC27',start='2026-11-04',end='2026-11-04'))
         self.assertEqual(seen[0][1],'alice');self.assertEqual(seen[0][0]['mode'],['actual-profit'])
         self.assertEqual(result['denominator']['missingCostOrders'],3)
+        self.assertEqual(result['error'],'source_read_failed')
         self.assertNotIn('do-not-leak',json.dumps(result))
     def archive_host(self):
         artifacts=load('report_artifacts',W+'/report_artifacts.py');sys.modules['report_artifacts']=artifacts

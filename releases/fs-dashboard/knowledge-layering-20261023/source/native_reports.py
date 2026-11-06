@@ -262,20 +262,41 @@ def finance(native,binding,kind,args):
     value=context(native,binding)
     if type(args) is not dict or set(args)-set(FINANCE_FIELDS) or not {'profile','start','end'}<=set(args) or any(type(v) is not str for v in args.values()):raise ValueError('report_finance_fields')
     params={k:[v] for k,v in args.items()};host=native.hermes
+    errors={'admin_required','actual_source_permission_denied','source_permission_denied','permission_denied','collector_busy','scheduled_collection_due','source_read_failed','maintenance_in_progress','source_capacity_busy'}
     if kind=='shipping':
         code,raw=host.read_range(dict(params,mode=['summary'],grain=['day'],profit_basis=['shipping']))
         shipping=raw.get('profile',{}).get('shipping')
         allowed={'system','endpoint','sourceContract','status','period','timezone','currency','filters','shippingSelection','profileKey','gameRows','scopeLabel','normalisedScope','capturedAt','timeBasis','orders','transactions','metrics','labelsVerified','stale','readPhase'}
         result=dict(http_status=code,status=raw.get('status'),shipping={k:v for k,v in shipping.items() if k in allowed} if isinstance(shipping,dict) else None,
-                    source_contract=raw.get('scopeContractId'),source_status=raw.get('sources'),missingDays=raw.get('missingDays'))
+                    source_contract=raw.get('scopeContractId'),source_status={},missingDays=raw.get('missingDays'))
+        # Availability can accompany retained old amounts. Preserve the service's
+        # freshness contract separately from the source record's status.
+        result.update({k:deepcopy(raw[k]) for k in ('stale','refreshing','origin','generatedAt','cachePolicy','refreshSeconds','expiresInSeconds','consistentPeriod','retryAfter') if k in raw})
+        fields={'status','capturedAt','sourceDataAsOf','asOfStatus','stale','phase','queueSeconds','readSeconds'}
+        for name,row in (raw.get('sources') or {}).items():
+            if name not in {'Admin','Order','Shipping'} or not isinstance(row,dict):continue
+            result['source_status'][name]={k:v for k,v in row.items() if k in fields and (v is None or type(v) in (int,float,str,bool))}
+            if row.get('error') is not None:result['source_status'][name]['error']=row['error'] if type(row['error']) is str and row['error'] in errors else 'source_read_failed'
+        if raw.get('error') is not None:result['error']=raw['error'] if type(raw['error']) is str and raw['error'] in errors else 'source_read_failed'
         if isinstance(shipping,dict):result['status']=shipping.get('status',raw.get('status'))
         else:result.update(status='not_available',reason='shipping_not_in_source_response')
     elif kind=='actual_profit':
         service=getattr(host,'actual_profits',None)
         if service is None:return dict(status='not_available',reason='actual_profit_service_unavailable')
         code,raw=service.get(dict(params,mode=['actual-profit'],grain=['day']),binding['owner'])
-        keys={'version','status','error','reason','retryAfter','actualContract','revenueBasis','currency','period','actualPeriod','generatedAt','denominator','trend','completeDayOnly','definition','membershipBasis','selection'}
+        keys={'refreshing','costRefreshing','costError','sourceError','stale','version','status','retryAfter','actualContract','revenueBasis','currency','period','actualPeriod','generatedAt','denominator','trend','completeDayOnly','definition','membershipBasis','selection'}
         result={k:deepcopy(v) for k,v in raw.items() if k in keys};result['http_status']=code
+        if raw.get('error') is not None:result['error']=raw['error'] if type(raw['error']) is str and raw['error'] in errors else 'source_read_failed'
+        if 'sources' in raw:
+            result['sources']={}
+            for name,row in raw['sources'].items():
+                if name not in {'orders','cost','cache'} or not isinstance(row,dict):continue
+                fields={'status','generatedAt','until','rows','unassignedSourceRows','days','oldest','deliveryDayComplete','customerDayComplete'}
+                clean={k:v for k,v in row.items() if k in fields and (v is None or type(v) in (int,float,str,bool))}
+                if isinstance(row.get('coverage'),dict):
+                    fields={'complete','sourceScanned','uniqueOrders','duplicateJoinRows','dateBasis','site','days','completeDays','deliveryRows','contract'}
+                    clean['coverage']={k:v for k,v in row['coverage'].items() if k in fields and (v is None or type(v) in (int,float,str,bool))}
+                result['sources'][name]=clean
         # These fields are aggregate service contracts; raw order/member/source
         # records and arbitrary service extensions never cross this relay.
         metric_keys={'orders','completedOrders','coveredOrders','pendingOrders','missingCostOrders','saleCny','costCny','profitCny','profitMarginPct','costCoveragePct','coverageStatus','key'}
