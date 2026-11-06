@@ -1,0 +1,69 @@
+{
+  "status": "candidate_not_deployed",
+  "asset_version": "fc-dashboard-20261106-c4ba30a28b34",
+  "contractId": "fc-dashboard-category-v1-20261106",
+  "base": "d14f21b3aca01fc2f8b26861d425f450fbfb8d67",
+  "publisher_adapter": "releases/fs-dashboard/dashboard-refresh-20261025/deploy/fc_dashboard_release.py",
+  "files": [
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/business.js",
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-c4ba30a28b34/business.js",
+      "sha256": "8632707d1bc1565a470319819490f16e99daedcf465ac57a76d18ea1e76bd1a6"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/home-business.js",
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-c4ba30a28b34/home-business.js",
+      "sha256": "8b8526c76ba3ca304ff1fbfe9ca90d005530ac8337f7dd2a7695d79c6cad7f9b"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/legacy-business.js",
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-c4ba30a28b34/legacy-business.js",
+      "sha256": "de5a0e641550f845f21ad3d743f90b9e831b4e4ad2e0f57e56faa17809a6ac28"
+    },
+    {
+      "source": "ui-system/modules/native/business.css",
+      "candidate": "source/business.css",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-c4ba30a28b34/business.css",
+      "sha256": "dfbfb2c09cd6d3fd6a3bd9ede58598b61a76e05c4c32b4d81f927997ccfda26d"
+    },
+    {
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail.py",
+      "candidate": "source/fc_detail.py",
+      "target": "/opt/fs-exact-range-20261001/fc_detail.py",
+      "sha256": "87fac399f46bec4928a9784a27936a26e52f17fc78aedb2331b10e56e688835f"
+    },
+    {
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail_reader.py",
+      "candidate": "source/fc_detail_reader.py",
+      "target": "/opt/fs-exact-range-20261001/fc_detail_reader.py",
+      "sha256": "45395301e81435c05ac9e134d69289bf5780bc239b6f5a3a80b972d94e325e9a"
+    },
+    {
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail_model.py",
+      "candidate": "source/fc_detail_model.py",
+      "target": "/opt/fs-exact-range-20261001/fc_detail_model.py",
+      "sha256": "406fffbd9b1adb7d5afcd9cfeebb5195b68513daa52ac6531f00972ea0ac66a5"
+    },
+    {
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_dashboard.py",
+      "candidate": "source/fc_dashboard.py",
+      "target": "/opt/fs-exact-range-20261001/fc_dashboard.py",
+      "sha256": "acb4a435bfd3e1641384275cf7e8c655e807efda1182c91f39ce9a20cbaee685"
+    }
+  ],
+  "additional_exact_target": {
+    "candidate": "generated/navigation.conf",
+    "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+    "status": "must_generate_from_current_active_routes_and_refresh_CAS_before_release"
+  },
+  "preserve": [
+    "live range_api.py not part of payload",
+    "FC pricing/session/writer/worker/timers",
+    "existing immutable asset URLs and role policy"
+  ],
+  "production_actions": false,
+  "initial_base": "07d2a1d5"
+}

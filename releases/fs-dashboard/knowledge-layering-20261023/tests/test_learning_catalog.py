@@ -249,9 +249,9 @@ class LearningCatalog(unittest.TestCase):
 
     def test_current_entries_cover_rules_and_reporting_and_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 30)
+        self.assertEqual(len(entries), 31)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 30)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 31)
 
     def test_user_approved_reference_rule_is_indexed_without_changing_margin_constraints(self):
         entries = catalog()['entries']

@@ -83,10 +83,12 @@ if(require.main===module)(async()=>{
   await page.locator('[data-profit-day]').waitFor();assert.match(await page.locator('#lblProfit').innerText(),/^发货毛利率走势/);assert.match(await page.locator('#pfPane .pane-ttl').innerText(),/发货毛利率走势/);
   assert.doesNotMatch(await page.locator('#supplement-insights').innerText(),/逐单实际成本|预估利润|独立核对/);
   await page.getByRole('combobox',{name:'范围',exact:true}).selectOption('all');await waitGross('¥500.00');assert.match(await margin.innerText(),/25.00%/);assert.match(await page.locator('#chartProfit svg').textContent(),/25.00%/);
-  for(const key of ['D4','AION2','FC27']){
+  for(const key of ['D4','AION2']){
    await page.evaluate(k=>window.api.apply({b_profile:k,b_group:k==='FC27'?'sports':'rpg',b_grain:'day',b_range:'yesterday',b_profit_site:'main'}),key);
    await waitGross('¥250.00');assert.match(await margin.innerText(),/25.00%/);assert.equal(await page.locator('[data-metric="coveredOrders"]').count(),0);await page.locator('[data-profit-day]').waitFor({state:'visible'});
   }
+  // FC's complete detail contract is exercised in test_fc_dashboard; unavailable detail must never borrow a whole-game margin.
+  await page.evaluate(()=>window.api.apply({b_profile:'FC27',b_group:'sports',b_grain:'day',b_range:'yesterday',b_profit_site:'main'}));await waitGross('读取失败');assert.doesNotMatch(await margin.innerText(),/25.00%/);
   await page.evaluate(()=>window.api.apply({b_profile:'RS',b_group:'general',b_grain:'day',b_range:'yesterday',b_rs_site:'rsorders',b_rs_category:'all'}));await waitGross('¥400.00');
   assert.equal(await coverage.count(),0);
   assert.equal(await page.locator('#business-site').inputValue(),'rsorders');assert.equal(await page.locator('#business-scope').inputValue(),'RS');assert.equal(await page.locator('#business-scope').isDisabled(),true);
@@ -97,10 +99,10 @@ if(require.main===module)(async()=>{
   await page.getByRole('combobox',{name:'范围',exact:true}).selectOption('rsmalls');await waitGross('¥60.00');
   await page.getByRole('combobox',{name:'范围',exact:true}).selectOption('rsfast');await waitGross('¥80.00');assert.equal(await page.locator('#business-scope').isDisabled(),true);
   await page.getByRole('combobox',{name:'范围',exact:true}).selectOption('mmoexp');await waitGross('¥0.00');assert.equal(await page.locator('#business-scope').isDisabled(),false);
-  await page.getByRole('combobox',{name:'游戏',exact:true}).selectOption('FC27');await waitGross('¥250.00');
+  await page.getByRole('combobox',{name:'游戏',exact:true}).selectOption('FC27');await waitGross('读取失败');
   assert.ok(queries.filter(q=>q.mode==='summary'&&q.profile==='FC27').every(q=>!('rs_site'in q)));
-  await page.getByRole('combobox',{name:'范围',exact:true}).selectOption('all');await waitGross('¥500.00');await page.waitForFunction(v=>document.querySelector('#app').shadowRoot.querySelector('[data-fc-filter=site_group]')?.value===v,'all');assert.equal(await page.getByRole('combobox',{name:'FC站点范围',exact:true}).inputValue(),'all');assert.equal(await page.getByRole('combobox',{name:'FC站点范围',exact:true}).isDisabled(),false);
-  await page.getByRole('combobox',{name:'范围',exact:true}).selectOption('mmoexp');await waitGross('¥250.00');await page.waitForFunction(v=>document.querySelector('#app').shadowRoot.querySelector('[data-fc-filter=site_group]')?.value===v,'main');assert.equal(await page.getByRole('combobox',{name:'FC站点范围',exact:true}).inputValue(),'main');assert.equal(await page.getByRole('combobox',{name:'FC站点范围',exact:true}).isDisabled(),true);
+  await page.getByRole('combobox',{name:'范围',exact:true}).selectOption('all');await waitGross('读取失败');await page.waitForFunction(v=>document.querySelector('#app').shadowRoot.querySelector('[data-fc-filter=site_group]')?.value===v,'all');assert.equal(await page.locator('[data-fc-filter=site_group]').inputValue(),'all');assert.equal(await page.locator('[data-fc-filter=site_group]').isDisabled(),false);
+  await page.getByRole('combobox',{name:'范围',exact:true}).selectOption('mmoexp');await waitGross('读取失败');await page.waitForFunction(v=>document.querySelector('#app').shadowRoot.querySelector('[data-fc-filter=site_group]')?.value===v,'main');assert.equal(await page.locator('[data-fc-filter=site_group]').inputValue(),'main');assert.equal(await page.locator('[data-fc-filter=site_group]').isDisabled(),true);
   await page.evaluate(()=>window.api.apply({b_site:'rsorders',b_profile:'FC27',b_grain:'day',b_range:'yesterday'}));await waitGross('¥400.00');assert.equal(await page.locator('#business-scope').inputValue(),'RS');
   await page.evaluate(()=>window.api.apply({b_profile:'FC26',b_group:'sports',b_profit_site:'main',b_grain:'day',b_range:'yesterday'}));await waitGross('¥250.00');assert.equal(await page.locator('#business-scope').inputValue(),'FC26');
   await page.evaluate(()=>window.api.apply({b_site:'mmoexp',b_profile:'RS',b_grain:'day',b_range:'yesterday'}));await waitGross('¥0.00');assert.match(await margin.innerText(),/不适用/);

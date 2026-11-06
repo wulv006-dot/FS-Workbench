@@ -8,6 +8,7 @@ function fsPeriodPolicy(){
 export function mount(scope){
 const {window,document,fetch,URL,setTimeout,setInterval,clearTimeout,clearInterval,requestAnimationFrame,cancelAnimationFrame,MutationObserver,ResizeObserver,addEventListener,matchMedia}=scope;
 const globalThis=window;
+let fcPermissionDenied=false;
 let fcDetailState={key:'',data:null,error:'',tab:scope.seed?.fc_tab||'overview'};
 // Admin values (including zero) take priority; Order fills missing fields with its original scope.
 function fsProcurementProjection(data, selection) {
@@ -561,7 +562,7 @@ function queriedRows(hour){
 }
 
 
-function exactPermissionDenied(){return !!window.FSExactRange?.permissionStatus?.();}
+function exactPermissionDenied(){return fcPermissionDenied||!!window.FSExactRange?.permissionStatus?.();}
 function renderExactPermissionFailure(){
  const message='读取失败 · 登录或访问权限失效，请重新登录后重试。';
  for(const id of ['kpisRange','chartMain']){const e=document.getElementById(id);if(e)e.innerHTML='<div class="empty" data-exact-permission-error>'+message+'</div>';}
@@ -572,6 +573,7 @@ function renderExactPermissionFailure(){
 }
 function currentExact(){return !exactPermissionDenied()&&INSIGHTS_SNAPSHOT?window.FSExactRange?.peek(INSIGHTS_SNAPSHOT,KEY,currentSelection()):null;}
 function rowsInRange(){
+ if(KEY==='FC27'){const d=fcDetailState.data;if(exactPermissionDenied()||!fcSameQuery(d?.query,fcQuery())||!d?.coverage.paid_complete)return [];return (d.fc_dashboard?.trend||d.trend||[]).map(r=>({date:r.date,ts:r.date,orders:r.orders,amount:r.revenue_usd}));}
  if(KEY==='FC27'&&fcDetailState.data?.coverage.paid_complete&&GRAIN==='day'&&fcDetailState.data.query.start===currentSelection().start&&fcDetailState.data.query.end===currentSelection().end&&fcDetailState.data.query.site_group===fcQuery().site_group)return fcDetailState.data.trend.map(r=>({date:r.date,ts:r.date,orders:r.orders,amount:r.revenue_usd}));
   if(exactPermissionDenied())return [];
 
@@ -608,7 +610,7 @@ function renderHeader(){
 /* ---------------- kpi ---------------- */
 function kpiCards(){
  for(const note of document.querySelectorAll('.order-reference-label'))note.remove();
- const d=INSIGHTS_SNAPSHOT||{profiles:{},dashboard:{profiles:{}}};const s=INSIGHTS_SNAPSHOT?currentSelection():{start:todayStr(),end:todayStr(),grain:'day'};FSSupplementInsights.render(document.getElementById('supplement-insights'),d,KEY||'MMOEXP',s);
+ const d=INSIGHTS_SNAPSHOT||{profiles:{},dashboard:{profiles:{}}};const s=INSIGHTS_SNAPSHOT?currentSelection():{start:todayStr(),end:todayStr(),grain:'day'};FSSupplementInsights.render(document.getElementById('supplement-insights'),d,KEY||'MMOEXP',s);if(KEY==='FC27')fcUpdateMetrics();
  workspaceSync();
 }
 
@@ -780,6 +782,7 @@ function bindProfitTip(el, pts, x, W){
 
 /* ---------------- main chart ---------------- */
 function renderMain(){
+ if(KEY==='FC27')return;
   if(exactPermissionDenied()){renderExactPermissionFailure();return;}
   const rows = rowsInRange();
   const IH = isHour();
@@ -2108,7 +2111,8 @@ const dailyErrorNames={source_timeout:'读取源数据超时',source_unavailable
 
 function dailyHost(){return fcHost?.querySelector('#fc-daily-report');}
 function dailyMount(){
- const review=fcHost?.querySelector('#fc-panel-review');if(!review||dailyHost())return;
+ if(exactPermissionDenied())return;
+ const review=fcHost?.querySelector('[data-fc-content=review]');if(!review||dailyHost())return;
  const host=document.createElement('article');host.id='fc-daily-report';host.className='fc-card';review.prepend(host);
  host.addEventListener('change',e=>{if(e.target.matches('[data-daily-date],[data-daily-history]')){dailyDate=e.target.value;dailyData=null;dailyLoad();}if(e.target.matches('[data-daily-version]'))dailyLoad(false,e.target.value);});
  host.addEventListener('click',e=>{if(e.target.closest('[data-daily-refresh]'))dailyLoad();});
@@ -2131,14 +2135,53 @@ async function dailyLoad(run=false,revision=''){
 scope.signal.addEventListener('abort',()=>{dailyAbort?.abort();clearTimeout(dailyTimer);},{once:true});
 
 // This fragment runs inside the existing business mount and shares its date/auth lifecycle.
-const fcTabs=[['overview','总览'],['consumption','用户与消费'],['fulfillment','履约与问题'],['structure','结构与分布'],['review','日报与复盘']];
-const fcLabels={main:'MMOEXP主站',satellite:'卫星子站',new:'新客',returning:'老客',unknown:'未知'};
+const fcTabs=[['overview','概览'],['trend','利润率与销售趋势'],['structure','结构分析'],['consumption','用户与消费'],['fulfillment','履约与问题'],['review','日报与复盘']];
+const fcProducts=[['all','全部商品'],['Coins','金币'],['Players','球员卡'],['SBC','SBC'],['Packs','Packs'],['Other','其他']];
+const fcPalette=['var(--ac)','#77a5ae','#a68ad7','#d49a50','#d76f86','#8291a7'];
+let fcStructureMetric='revenue_usd',fcMoreOpen=false;
+const fcLabels={main:'MMOEXP主站',satellite:'卫星子站',new:'新客',returning:'老客',unknown:'未知',Coins:'金币',Players:'球员卡',Other:'其他',all:'全部'};
 let fcHost=null,fcAbort=null,fcDrawerAbort=null,fcDrawerQuery=null,fcDrawerData=null,fcUserView=false,fcDimension='platform',fcPool='paid',fcNote='',fcDetailTimer=null,fcDetailPending=false,fcDetailNextCheck=0;
 const fcSetText=(node,text)=>{if(node&&node.textContent!==text)node.textContent=text;};
 const fcWait=(ms,signal)=>new Promise((resolve,reject)=>{const cancel=()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'));};const timer=setTimeout(()=>{signal.removeEventListener('abort',cancel);resolve();},ms);if(signal.aborted)cancel();else signal.addEventListener('abort',cancel,{once:true});});
 const fcFilters={platform:'all',site_group:businessSite==='mmoexp'?'main':'all',customer:'all',product:'all',bucket:'all'};
+for(const [key,values] of Object.entries({platform:['all','PS','XBOX','PC','unknown'],site_group:['all','main','satellite'],customer:['all','new','returning','unknown'],product:fcProducts.map(r=>r[0])})){const v=scope.seed?.['b_fc_'+key];if(values.includes(v))fcFilters[key]=v;}
 const fcMoney=v=>v==null?'暂缺':'$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fcName=v=>fcLabels[v]||v;
+const fcPaidComplete=d=>!!d?.coverage?.paid_complete&&d.data_status!=='partial';
+const fcKnown=(r,k)=>Number.isFinite(r?.[k])?r[k]:Number.isFinite(r?.['known_'+k])?r['known_'+k]:null;
+function fcUpdateMetrics(){
+ if(KEY!=='FC27')return;
+ const d=!exactPermissionDenied()&&fcSameQuery(fcDetailState.data?.query,fcQuery())?fcDetailState.data:null,t=d?.fc_dashboard?.totals;
+ const metric={revenueUsd:t?.revenue_usd,orders:t?.orders,profitCny:t?.gross_profit_cny,profitMarginPct:t?.gross_margin_pct,newCustomers:t?.new_customers,payingCustomers:t?.paying_customers,repeatRatePct:t?.repeat_rate_pct,newCustomerSharePct:t?.new_customer_share_pct,averageOrderUsd:t?.orders>0&&Number.isFinite(t.revenue_usd)?t.revenue_usd/t.orders:null};
+ for(const card of document.querySelectorAll('#supplement-insights .fsi-metric')){const key=card.dataset.metric,v=metric[key],known=Number.isFinite(v),profit=['profitCny','profitMarginPct'].includes(key),label=card.querySelector('small');fcSetText(card.querySelector('strong'),known?(key==='profitCny'?'¥'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):key.endsWith('Pct')?v.toFixed(2)+'%':['revenueUsd','averageOrderUsd'].includes(key)?fcMoney(v):fmtN(v)):exactPermissionDenied()?'读取失败':fcDetailState.error?'读取失败':fcDetailPending&&!d?'待读取':'暂缺');fcSetText(label,profit?'Order发货统计 · 交易时间 · 人民币 · 同一筛选'+(!known?' · 当前细分未提供':''):'Admin已付款订单 · USD · 同一筛选'+(['newCustomers','payingCustomers','repeatRatePct','newCustomerSharePct'].includes(key)?' · 站内客户ID，未验证口径不计算':''));}
+ const head=document.querySelector('#supplement-insights .fsi-heading h3');fcSetText(head,'FC27 · '+fcName(fcFilters.product)+' · '+fcName(fcQuery().site_group));
+}
+function fcRing(records,metric,label,dimension='product'){
+ const rows=records.filter(r=>Number.isFinite(r[metric])&&r[metric]>0),total=rows.reduce((n,r)=>n+r[metric],0);if(!total)return '<div class="empty">当前范围暂无可展示的'+esc(label)+'</div>';
+ let offset=0;const slices=rows.map((r,i)=>{const start=offset;offset+=r[metric]/total*100;return `${fcPalette[i%fcPalette.length]} ${start}% ${offset}%`;});
+ return `<div class="fc-donut-grid"><div class="fc-donut" role="img" aria-label="${esc(label)}，合计 ${esc(metric==='revenue_usd'?fcMoney(total):fmtN(total))}" style="background:conic-gradient(${slices.join(',')})"><span>${metric==='revenue_usd'?fcMoney(total):fmtN(total)}<small>${esc(label)}</small></span></div><div class="fc-chart-legend">${rows.map((r,i)=>`<button type="button" data-fc-chart-dimension="${dimension}" data-fc-chart-key="${esc(r.key)}"><i style="background:${fcPalette[i%fcPalette.length]}"></i><span>${esc(r.label||fcName(r.key))}</span><b>${metric==='revenue_usd'?fcMoney(r[metric]):fmtN(r[metric])}</b><small>${(r[metric]/total*100).toFixed(1)}%</small></button>`).join('')}</div></div>`;
+}
+function fcLine(rows,series,label,format=fmtN){
+ const W=1120,H=270,L=70,R=20,T=25,B=40,iw=W-L-R,ih=H-T-B;
+ const known=rows.flatMap(r=>series.map(s=>s.get(r))).filter(Number.isFinite);if(!rows.length||!known.length)return '<div class="empty">当前范围暂无'+esc(label)+'；缺失保留为空。</div>';
+ const lo=Math.min(0,...known),hi=Math.max(1,...known),span=hi-lo||1,x=i=>L+iw*(rows.length===1?.5:i/(rows.length-1)),y=v=>T+ih-(v-lo)/span*ih;
+ let out='';for(let i=0;i<=4;i++){const v=lo+span*i/4,py=y(v);out+=`<line x1="${L}" y1="${py}" x2="${W-R}" y2="${py}" stroke="currentColor" opacity=".12"/><text x="${L-10}" y="${py+4}" text-anchor="end" fill="currentColor" font-size="11">${esc(format(v))}</text>`;}
+ for(const [index,s] of series.entries()){let path='';rows.forEach((r,i)=>{const v=s.get(r);if(!Number.isFinite(v)){path='';return;}const point=`${x(i)},${y(v)}`;if(path)out+=`<line x1="${path.split(',')[0]}" y1="${path.split(',')[1]}" x2="${x(i)}" y2="${y(v)}" stroke="${fcPalette[index%fcPalette.length]}" stroke-width="2"/>`;path=point;out+=`<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${fcPalette[index%fcPalette.length]}"><title>${esc(r.date)} · ${esc(s.label)} ${esc(format(v))}</title></circle>`;});}
+ rows.forEach((r,i)=>{if(i%Math.ceil(rows.length/8)===0||i===rows.length-1)out+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" fill="currentColor" font-size="11">${esc(r.date.slice(5))}</text>`;});
+ return `<div class="fc-line"><svg role="img" aria-label="${esc(label)}" viewBox="0 0 ${W} ${H}">${out}</svg></div><div class="fc-line-legend">${series.map((s,i)=>`<span><i style="background:${fcPalette[i%fcPalette.length]}"></i>${esc(s.label)}</span>`).join('')}</div><details class="fc-chart-values"><summary>查看${esc(label)}数据</summary>${fcTable(['日期',...series.map(s=>s.label)],rows.map(r=>`<tr><td>${esc(r.date)}</td>${series.map(s=>`<td>${Number.isFinite(s.get(r))?esc(format(s.get(r))):'暂缺'}</td>`).join('')}</tr>`))}</details>`;
+}
+function fcDashboardDraw(d){
+ const dashboard=d.fc_dashboard,rows=dashboard?.trend||[],categories=(dashboard?.categories||[]).filter(c=>fcFilters.product==='all'||c.key===fcFilters.product),metric=fcStructureMetric,label=metric==='orders'?'订单数':'USD销售额';
+ const coverage=dashboard?.coverage;if(coverage?.classification_status==='partial')fcHost.querySelector('.fc-state').append(' · 商品身份或完整性待核，分类未完整');
+ const trend=fcHost.querySelector('[data-fc-content=trend]');
+ trend.innerHTML=`<article class="card"><h3>发货毛利率走势</h3><p class="hint">Order发货统计 · 交易时间 · 人民币 · 同一商品与区服；缺失不套用FC总值。</p>${fcLine(rows,[{label:'发货毛利率',get:r=>r.gross_margin_pct}],'发货毛利率',v=>v.toFixed(1)+'%')}</article><article class="card"><h3>销售趋势</h3><p class="hint">Admin已付款订单 · USD · 北京时间${d.query.grain==='hour'?'小时':'自然日'}</p>${fcLine(rows,[{label:'销售额（USD）',get:r=>r.revenue_usd}],'销售趋势',fcMoney)}</article>`;
+ const structure=fcHost.querySelector('[data-fc-content=structure]');
+ structure.insertAdjacentHTML('afterbegin',`<article class="card"><h3>商品分类结构</h3><div class="fc-actions">${[['revenue_usd','销售额'],['orders','订单数']].map(([key,title])=>`<button type="button" data-fc-metric="${key}" aria-pressed="${metric===key}">${title}</button>`).join('')}</div>${fcRing(categories,metric,label)}<p class="hint">每单唯一归属：球员卡 → SBC → Packs → 其他 → 金币；未识别项保留未知。</p></article><article class="card"><h3>分类${label}趋势</h3><p class="hint">跟随当前日期与${d.query.grain==='hour'?'小时':'日'}粒度 · Admin付款时间</p>${fcLine(rows,categories.map(c=>({label:c.label||fcName(c.key),get:r=>r.categories?.find(v=>v.key===c.key)?.[metric]})),'分类'+label+'趋势',metric==='orders'?fmtN:fcMoney)}</article>`);
+ const consumption=fcHost.querySelector('[data-fc-content=consumption] .fc-card');
+ if(consumption&&!fcUserView)consumption.insertAdjacentHTML('beforeend',`<h3>订单金额档占比</h3>${fcRing(d.buckets,'orders',fcPaidComplete(d)?'订单数':'已知订单数（子集）','bucket')}`);
+ fcUpdateMetrics();
+}
+
 function fcRiskOverview(d){
  const r=d.current_risks,ready=r&&['available','partial'].includes(r.status);
  const count=v=>Number.isSafeInteger(v)&&v>=0?String(v):'暂缺';
@@ -2156,21 +2199,26 @@ function fcRiskOverview(d){
  return `<div class="fc-site-groups" data-fc-current-risks>${rows}</div>${aging}<p class="fc-subtle">${ready?'Admin 当前运营状态 · 读取 '+esc(captured):'当前池完整性或新汇总暂缺'}；不受所选支付日期限制。三组可重叠，不相加。</p><button type="button" data-fc-backlog>查看当前待跟进订单 →</button>`;
 }
 const fcTable=(heads,rows)=>`<div class="fc-table-wrap"><table><thead><tr>${heads.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')||`<tr><td colspan="${heads.length}">当前筛选暂无记录。</td></tr>`}</tbody></table></div>`;
-const fcQuery=(extra={})=>({mode:'fc-detail',profile:'FC27',...baseSelection(),...fcFilters,site_group:businessSite==='mmoexp'?'main':fcFilters.site_group,pool:fcDetailState.tab==='fulfillment'?fcPool:'paid',...extra});
+const fcQuery=(extra={})=>{const q=baseSelection();return {mode:'fc-detail',profile:'FC27',...q,start:q.start,end:q.end,...fcFilters,site_group:businessSite==='mmoexp'?'main':fcFilters.site_group,pool:fcPool,...extra};};
+function fcSameQuery(a,b){return !!a&&['start','end','platform','site_group','customer','product','bucket','pool'].every(k=>(a[k]||'all')===(b[k]||'all'))&&(a.grain||'day')===(b.grain||'day');}
 const fcDownload=(name,content,type)=>{const a=document.createElement('a'),url=URL.createObjectURL(new Blob([content],{type}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 
 function fcDetailInit(){
  if(fcHost)return;
  fcHost=document.createElement('section');fcHost.id='fc-detail';document.getElementById('supplement-insights').after(fcHost);
- fcHost.innerHTML=`<div class="fc-toolbar"><div class="fc-heading"><b>FC27 经营看板</b><span>主站详细分析 · 子站汇总</span></div><label>平台 <select data-fc-filter="platform" aria-label="FC游戏平台"><option value="all">全部</option><option>PS</option><option>XBOX</option><option>PC</option><option value="unknown">未知</option></select></label><label class="fc-scope-filter">站点 <select data-fc-filter="site_group" aria-label="FC站点范围"><option value="all">主站 + 卫星子站</option><option value="main">MMOEXP主站</option><option value="satellite">卫星子站合计</option></select></label><details class="fc-more-filters"><summary>更多筛选</summary><div class="fc-more"><label>客户 <select data-fc-filter="customer" aria-label="FC客户类型"><option value="all">全部</option><option value="new">新客</option><option value="returning">老客</option><option value="unknown">未知</option></select></label><label>商品 <select data-fc-filter="product" aria-label="FC商品分类"><option value="all">全部</option>${['Coins','Items','Boosting','Accounts','Top Up','多品类','待分类'].map(v=>`<option>${v}</option>`).join('')}</select></label><label>金额档 <select data-fc-filter="bucket" aria-label="FC金额档"><option value="all">全部</option></select></label></div></details><div class="fc-toolbar-actions"><button type="button" data-fc-retry>更新明细</button><button type="button" data-fc-csv>导出明细</button></div></div><nav class="fc-tabs" role="tablist" aria-label="FC详细分析">${fcTabs.map(([key,label])=>`<button type="button" role="tab" data-fc-tab="${key}" aria-controls="fc-panel-${key}">${label}</button>`).join('')}</nav><p class="fc-state" role="status"></p><div class="fc-filter-tags"></div><div class="fc-panels">${fcTabs.map(([key,label])=>`<section id="fc-panel-${key}" role="tabpanel" aria-label="${label}" hidden></section>`).join('')}</div><dialog class="fc-drawer" aria-label="FC订单下钻"><header><h2>订单下钻</h2><button type="button" data-fc-close aria-label="关闭订单抽屉">关闭</button></header><div class="fc-drawer-content"></div></dialog>`;
- fcHost.addEventListener('change',e=>{const key=e.target.dataset.fcFilter;if(key){fcFilters[key]=e.target.value;fcDetailState.key='';fcDetailSync();}});
+ fcHost.innerHTML=`<div class="fc-toolbar toolbar" role="group" aria-label="FC 分析范围"><label class="scope-select">商品类目 <select data-fc-filter="product" aria-label="FC商品分类">${fcProducts.map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label><details class="fc-more-filters"><summary>更多筛选</summary><div class="fc-more"><label>游戏区服 <select data-fc-filter="platform" aria-label="FC游戏区服"><option value="all">全部区服</option><option value="PS">PS</option><option value="XBOX">Xbox</option><option value="PC">PC</option><option value="unknown">未知</option></select></label><label class="fc-scope-filter">站点 <select data-fc-filter="site_group" aria-label="FC站点范围"><option value="all">主站 + 卫星子站</option><option value="main">MMOEXP主站</option><option value="satellite">卫星子站合计</option></select></label><label>客户 <select data-fc-filter="customer" aria-label="FC客户类型"><option value="all">全部</option><option value="new">新客</option><option value="returning">老客</option><option value="unknown">未知</option></select></label><label>金额档 <select data-fc-filter="bucket" aria-label="FC金额档"><option value="all">全部</option></select></label></div></details><div class="fc-toolbar-actions"><button type="button" data-fc-retry>更新明细</button><button type="button" data-fc-csv>导出明细</button><button type="button" data-fc-tab="review">日报与复盘</button></div><span class="hint">卡片、趋势、结构、消费和订单共用筛选。</span></div><p class="fc-state" role="status" aria-live="polite"></p><div class="fc-filter-tags"></div><div class="fc-panels">${fcTabs.map(([key,label],i)=>`<section id="fc-panel-${key}" aria-label="${label}"><h2 class="sec-head"><span class="sec-num">${String(i+1).padStart(2,'0')}</span><span class="sec-title">${label}</span></h2><div data-fc-content="${key}"></div></section>`).join('')}</div><dialog class="fc-drawer" aria-label="FC订单下钻"><header><h2>订单下钻</h2><button type="button" data-fc-close aria-label="关闭订单抽屉">关闭</button></header><div class="fc-drawer-content"></div></dialog>`;
+ const more=fcHost.querySelector('.fc-more-filters');more.open=fcMoreOpen;more.ontoggle=()=>{fcMoreOpen=more.open;rsPositionMore(more);};more.addEventListener('keydown',e=>{if(e.key==='Escape'){more.open=false;more.querySelector('summary').focus();}});
+ addEventListener('resize',()=>rsPositionMore(more),{signal:scope.signal});
+ fcHost.addEventListener('change',e=>{const key=e.target.dataset.fcFilter;if(key){fcFilters[key]=e.target.value;fcDrawerAbort?.abort();fcHost.querySelector('dialog').close();fcDetailState.key='';fcDetailSync();workspaceSync();}});
  fcHost.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
-  if(b.dataset.fcTab){fcDetailState.tab=b.dataset.fcTab;fcDetailShow();workspaceSync();}
+  if(b.dataset.fcTab){fcDetailState.tab=b.dataset.fcTab;fcHost.querySelector('#fc-panel-'+b.dataset.fcTab)?.scrollIntoView({behavior:'smooth',block:'start'});workspaceSync();}
+  if(b.dataset.fcChartKey)fcDrill({[b.dataset.fcChartDimension]:b.dataset.fcChartKey,pool:'paid'});
+  if(b.dataset.fcMetric){fcStructureMetric=b.dataset.fcMetric;fcDetailDraw();}
   if(b.hasAttribute('data-fc-yesterday')){GRAIN='day';RANGE='yesterday';CUSTOM=null;selectionAnchor=todayStr();renderTabs();renderToolbar();renderAll();fcDetailState.tab='overview';fcDetailState.key='';fcDetailSync();workspaceSync();}
   if(b.dataset.fcDrill!==undefined)fcDrill({bucket:b.dataset.fcDrill,issue:b.dataset.fcIssue||'false',pool:'paid'});
   if(b.hasAttribute('data-fc-backlog'))fcDrill({pool:'current',list:'orders'});
-  if(b.dataset.fcOrder)fcOrder(b.dataset.fcOrder);
+  if(b.dataset.fcOrder!==undefined)fcOrder(b.dataset.fcOrder);
   if(b.hasAttribute('data-fc-return'))fcDrawerRender();
   if(b.hasAttribute('data-fc-close'))fcHost.querySelector('dialog').close();
   if(b.dataset.fcPage)fcDrill({...fcDrawerQuery,page:b.dataset.fcPage});
@@ -2183,33 +2231,32 @@ function fcDetailInit(){
   if(b.hasAttribute('data-fc-retry')){fcDetailState.key='';fcDetailSync(true);}
   if(b.dataset.fcClear){fcFilters[b.dataset.fcClear]='all';fcHost.querySelector(`[data-fc-filter="${b.dataset.fcClear}"]`).value='all';fcDetailState.key='';fcDetailSync();}
  });
- fcHost.querySelector('.fc-tabs').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const tabs=[...fcHost.querySelectorAll('[role=tab]')],i=tabs.indexOf(document.activeElement),n=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[n].click();tabs[n].focus();});
- fcHost.querySelector('dialog').addEventListener('close',()=>{fcDrawerAbort?.abort();fcHost.querySelector(`[data-fc-tab="${fcDetailState.tab}"]`)?.focus();});
- scope.signal.addEventListener('abort',()=>{clearTimeout(fcDetailTimer);fcAbort?.abort();fcDrawerAbort?.abort();},{once:true});
+ fcHost.querySelector('dialog').addEventListener('close',()=>{fcDrawerAbort?.abort();fcHost.querySelector('[data-fc-retry]')?.focus();});
+ scope.signal.addEventListener('abort',()=>{clearTimeout(fcDetailTimer);fcAbort?.abort();fcDrawerAbort?.abort();fcDetailState.data=null;fcDrawerData=null;fcHost?.replaceChildren();},{once:true});
  for(const [key,value]of Object.entries(fcFilters))fcHost.querySelector(`[data-fc-filter="${key}"]`).value=value;
 }
 
 function fcDetailShow(){
  if(!fcHost)return;
  const on=KEY==='FC27';fcHost.hidden=!on;
- const body=fcHost.closest('.native-body');if(body.classList.contains('fc-view')!==on)body.classList.toggle('fc-view',on);
- if(!on){clearTimeout(fcDetailTimer);fcAbort?.abort();fcDrawerAbort?.abort();fcDetailPending=false;fcDetailState.key='';}
- for(const id of ['sideNav','secStruct','gameCard','geoCard','payRow','secDetail','tblCard','secCross','crossCard','profitWrap','calCard','fc-types']){const node=document.getElementById(id);if(node){if(on&&node.dataset.fcPreviousHidden===undefined)node.dataset.fcPreviousHidden=String(node.hidden);node.hidden=on?true:node.dataset.fcPreviousHidden==='true';if(!on)delete node.dataset.fcPreviousHidden;}}
- for(const id of ['secTrend','trendCard']){const node=document.getElementById(id);if(node)node.hidden=on&&fcDetailState.tab!=='overview';}
- const metrics=document.getElementById('supplement-insights');if(metrics){metrics.hidden=false;if(on){if(metrics.parentNode!==fcHost)fcHost.insertBefore(metrics,fcHost.querySelector('.fc-tabs'));[...metrics.querySelectorAll(':scope > .fsi-metrics > .fsi-metric')].forEach((card,index)=>{card.hidden=!scope.metrics&&!['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageOrderUsd'].includes(card.dataset.metric);});}else if(metrics.parentNode===fcHost)fcHost.before(metrics);}
- for(const id of ['pfPane','pfDiv']){const node=document.getElementById(id);if(node)node.hidden=false;}
- if(!on)return;
- for(const b of fcHost.querySelectorAll('[role=tab]')){const active=b.dataset.fcTab===fcDetailState.tab;b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;}
- for(const [key] of fcTabs)fcHost.querySelector('#fc-panel-'+key).hidden=key!==fcDetailState.tab;
+ const body=fcHost.closest('.native-body');if(body?.classList.contains('fc-view')!==on)body?.classList.toggle('fc-view',on);
+ if(!on){clearTimeout(fcDetailTimer);fcAbort?.abort();fcDrawerAbort?.abort();fcDetailPending=false;fcDetailState.key='';fcHost.querySelector('dialog').close();}
+ const compare=on&&fcFilters.product==='all';
+ for(const id of ['sideNav','secStruct','gameCard','geoCard','payRow','secDetail','tblCard','profitWrap','calCard','fc-types','secTrend','trendCard','pfPane','pfDiv']){const node=document.getElementById(id);if(node){if(on&&node.dataset.fcPreviousHidden===undefined)node.dataset.fcPreviousHidden=String(node.hidden);node.hidden=on?true:node.dataset.fcPreviousHidden==='true';if(!on)delete node.dataset.fcPreviousHidden;}}
+ for(const id of ['secCross','crossCard','crossSec']){const node=document.getElementById(id);if(node)node.hidden=on&&!compare;}
+ const metrics=document.getElementById('supplement-insights');if(metrics){metrics.hidden=false;if(on){const panel=fcHost.querySelector('#fc-panel-overview');if(metrics.parentNode!==panel)panel.insertBefore(metrics,panel.querySelector('[data-fc-content]'));}else if(fcHost.contains(metrics))fcHost.before(metrics);}
+ if(on){const cross=document.getElementById('crossSec');if(cross&&!cross.dataset.fcPlaced){cross.dataset.fcPlaced='true';cross.before(Object.assign(document.createElement('span'),{id:'fc-cross-position',hidden:true}));}if(cross&&cross.parentNode!==fcHost.querySelector('.fc-panels'))fcHost.querySelector('.fc-panels').insertBefore(cross,fcHost.querySelector('#fc-panel-fulfillment'));fcUpdateMetrics();}
+ else {const cross=document.getElementById('crossSec'),mark=document.getElementById('fc-cross-position');if(cross&&mark&&cross.parentNode!==mark.parentNode)mark.after(cross);}
 }
 
 async function fcRead(query,signal,onSnapshot){
  const q={...query};
  const deadline=Date.now()+920000;
- do{if(signal.aborted)throw new DOMException('Aborted','AbortError');let r,d;try{r=await fetch('/dashboard/fs-home/range.json?'+new URLSearchParams(q),{signal:AbortSignal.any([signal,AbortSignal.timeout(Math.max(1,Math.min(20000,deadline-Date.now())))]),credentials:'same-origin',cache:'no-store'});d=await r.json();}catch(e){if(signal.aborted||scope.signal.aborted||e.message==='session_denied')throw e;await fcWait(3000,signal);continue;}
+ do{if(signal.aborted)throw new DOMException('Aborted','AbortError');let r,d;try{r=await fetch('/dashboard/fs-home/range.json?'+new URLSearchParams(q),{signal:AbortSignal.any([signal,AbortSignal.timeout(Math.max(1,Math.min(20000,deadline-Date.now())))]),credentials:'same-origin',cache:'no-store'});d=await r.json();}catch(e){if(e.message==='session_denied'){fcPermissionDenied=true;fcDetailState.data=null;fcDrawerData=null;fcDrawerAbort?.abort();dailyAbort?.abort();dailyData=null;fcDetailState.error='登录或来源权限失效';fcDetailDraw();window.dispatchEvent(new CustomEvent('fs-exact-permission-denied',{detail:{status:e.status||403}}));throw e;}if(signal.aborted||scope.signal.aborted)throw e;await fcWait(3000,signal);continue;}
   delete q.refresh;
   if(r.status===202||r.status===429){await fcWait(Math.min(30,Math.max(3,d.retryAfter||3))*1000,signal);continue;}
-  if(!r.ok||d.contractId!=='fc27-detail-analytics-v1'||d.query?.start!==q.start||d.query?.end!==q.end||!d.snapshot_id)throw Error('FC明细暂不可用，未将失败显示成零。');
+  if(r.status===401||r.status===403){window.dispatchEvent(new CustomEvent('fs-exact-permission-denied',{detail:{status:r.status}}));throw Error('登录或来源权限失效');}
+  if(!r.ok||!fcSameQuery(d.query,q)||d.contractId!=='fc27-detail-analytics-v1'||d.query?.start!==q.start||d.query?.end!==q.end||!d.snapshot_id)throw Error('FC明细暂不可用，未将失败显示成零。');
   // Cached data is usable during refresh; only the visible dashboard follows the refresh.
   if(onSnapshot)onSnapshot(d);
   if(onSnapshot&&d.refreshing){await fcWait(10000,signal);continue;}
@@ -2218,42 +2265,44 @@ async function fcRead(query,signal,onSnapshot){
 }
 
 function fcDetailSync(refresh=false){
+ if(scope.signal.aborted)return;
  if(KEY!=='FC27'){fcDetailShow();return;}
+ if(exactPermissionDenied()){fcAbort?.abort();fcDrawerAbort?.abort();fcDetailState.data=null;dailyAbort?.abort();dailyData=null;dailyHost()?.replaceChildren();fcDetailState.error='登录或来源权限失效';fcDetailPending=false;fcDetailDraw();return;}
  fcDetailInit();fcDetailShow();const q=fcQuery(),key=JSON.stringify(q);
  const site=fcHost.querySelector('[data-fc-filter=site_group]');site.value=q.site_group;site.disabled=businessSite==='mmoexp';site.title=site.disabled?'范围已限定为 MMOEXP；切换到全部站点后可细分网站':'';
  if(fcDetailState.key===key&&!refresh&&(fcDetailPending||Date.now()<fcDetailNextCheck))return;
  if(refresh)q.refresh='true';
  clearTimeout(fcDetailTimer);fcAbort?.abort();fcAbort=new AbortController();fcDetailPending=true;fcDetailState.key=key;fcDetailState.error='';kpiCards();renderProfit();
- if(fcDetailState.data?.query.start!==q.start||fcDetailState.data?.query.end!==q.end||JSON.stringify(fcDetailState.data.query.platform)!==JSON.stringify(q.platform)||fcDetailState.data.query.customer!==q.customer||fcDetailState.data.query.bucket!==q.bucket||fcDetailState.data.query.site_group!==q.site_group||fcDetailState.data.query.product!==q.product)fcDetailState.data=null;
+ if(!fcSameQuery(fcDetailState.data?.query,q))fcDetailState.data=null;
  fcDetailDraw();
- if(q.grain!=='day'){fcDetailPending=false;fcDetailNextCheck=Date.now()+900000;fcDetailState.error='FC明细暂按自然日提供；小时粒度可继续查看原总览。';fcDetailDraw();return;}
  const controller=fcAbort;
  const present=d=>{if(scope.signal.aborted||controller!==fcAbort||controller.signal.aborted)return;const previous=fcDetailState.data;fcDetailState.data=d;if(previous?.snapshot_id===d.snapshot_id&&previous.stale===d.stale&&previous.refreshing===d.refreshing&&previous.refresh_error===d.refresh_error&&previous.refresh_phase===d.refresh_phase)return;fcDetailDraw();kpiCards();renderMain();fcDetailShow();workspaceSync();};
- (async()=>{try{await fcRead(q,controller.signal,present);}catch(e){if(scope.signal.aborted||controller!==fcAbort||controller.signal.aborted)return;fcDetailState.error=e.message;if(fcDetailState.data)fcDetailState.data={...fcDetailState.data,stale:true};fcDetailDraw();}finally{if(scope.signal.aborted||controller!==fcAbort||controller.signal.aborted)return;fcDetailPending=false;const d=fcDetailState.data,seconds=fcDetailState.error||d?.refresh_error?60:d?.stale?10:Math.max(1,(Date.parse(d?.as_of)+(d?.refreshSeconds||900)*1000-Date.now())/1000);fcDetailNextCheck=Date.now()+seconds*1000;fcDetailTimer=setTimeout(()=>{if(!document.hidden&&KEY==='FC27')fcDetailSync();},seconds*1000);}})();
+ (async()=>{try{await fcRead(q,controller.signal,present);}catch(e){if(scope.signal.aborted||controller!==fcAbort||controller.signal.aborted)return;fcDetailState.error=e.message;if(fcDetailState.data)fcDetailState.data={...fcDetailState.data,stale:true};fcDetailDraw();}finally{if(scope.signal.aborted||controller!==fcAbort||controller.signal.aborted)return;fcDetailPending=false;fcDetailDraw();const d=fcDetailState.data,seconds=fcDetailState.error||d?.refresh_error?60:d?.stale?10:Math.max(1,(Date.parse(d?.as_of)+(d?.refreshSeconds||900)*1000-Date.now())/1000);fcDetailNextCheck=Date.now()+seconds*1000;fcDetailTimer=setTimeout(()=>{if(!document.hidden&&KEY==='FC27')fcDetailSync();},seconds*1000);}})();
 }
 
 function fcDetailDraw(){
  if(!fcHost)return;const d=fcDetailState.data;
- fcHost.querySelector('.fc-state').textContent=fcDetailState.error||(d?`${d.scope_label} · ${d.query.start} 至 ${d.query.end} · 读取 ${new Date(d.as_of).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})} 北京时间${d.stale?(d.refreshing?(d.refresh_phase==='queued'?' · 显示上次快照，后台排队中':' · 显示上次快照，后台更新中'): ' · 上次快照，尚未更新'):''}${d.data_status==='partial'?' · 部分可用，缺失日不补零':''}${d.refresh_error?' · 最近刷新失败，保留原快照':''}`:'首次读取这个日期范围，正在采集订单。完成后页签和筛选共用快照，可先切换其他视图。');
+ fcHost.querySelector('.fc-state').textContent=fcDetailState.error||(d?`${d.scope_label} · ${d.query.start} 至 ${d.query.end} · 读取 ${new Date(d.as_of).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})} 北京时间${d.stale?(d.refreshing?(d.refresh_phase==='queued'?' · 显示上次快照，后台排队中':' · 显示上次快照，后台更新中'): ' · 上次快照，尚未更新'):''}${d.data_status==='partial'?' · 部分可用，缺失日不补零':''}${d.refresh_error?' · 最近刷新失败，保留原快照':''}`:'首次读取这个范围，正在读取订单；各分析区块共用同一范围。');
  fcHost.querySelector('.fc-filter-tags').innerHTML=Object.entries(fcFilters).filter(([k,v])=>v!=='all'&&!['platform','site_group'].includes(k)).map(([k,v])=>`<button type="button" data-fc-clear="${k}">${esc(fcName(v))} ×</button>`).join('');
- if(!d){for(const [key]of fcTabs)fcHost.querySelector('#fc-panel-'+key).innerHTML=fcDetailState.error?'<button type="button" data-fc-retry>重试 FC 明细</button>':'';dailyMount();return;}
+ if(!d){fcUpdateMetrics();for(const [key]of fcTabs)fcHost.querySelector('[data-fc-content='+key+']').innerHTML=fcDetailState.error?'<button type="button" data-fc-retry>重试 FC 明细</button>':'';dailyMount();return;}
  const bucketSelect=fcHost.querySelector('[data-fc-filter=bucket]');if(bucketSelect.options.length===1){for(const b of d.buckets){const option=document.createElement('option');option.value=b.key;option.textContent=b.label;bucketSelect.append(option);}}
  for(const option of fcHost.querySelectorAll('[data-fc-filter=customer] option'))if(['new','returning'].includes(option.value))option.disabled=d.customer_status!=='available';
- const groupRows=['main','satellite'].map(group=>{const r=d.site_groups.find(r=>r.key===group)||{orders:0,revenue_usd:0};return `<div><b>${esc(fcName(group))}</b><span>${r.orders} 单 · ${fcMoney(r.revenue_usd)}</span></div>`;}).join('');
- fcHost.querySelector('#fc-panel-overview').innerHTML=`<div class="fc-overview-grid"><article class="fc-card fc-site-card"><h3>销售来源</h3><div class="fc-site-groups">${groupRows}</div><p>MMOEXP 为主要分析对象；其他站点按 FC 项目合计。</p></article><article class="fc-card fc-attention-card"><h3>运营关注</h3>${fcRiskOverview(d)}${d.signals.length?`<details><summary>其他关注提示</summary>${d.signals.map(s=>`<p>${esc(s.text)} <button type="button" data-fc-tab="${s.tab}">查看 →</button></p>`).join('')}</details>`:''}</article></div><div class="fc-shortcuts"><button type="button" data-fc-tab="consumption">消费结构 · ${d.totals.orders} 单 →</button><button type="button" data-fc-tab="fulfillment">当前未结案 · ${d.backlog_summary?.orders??'暂缺'} 单 →</button></div><details class="fc-explanation"><summary>FC明细的数据说明与缺口</summary><p>${esc(d.customer_basis)}；用户按站内客户 ID 去重，访客未伪造用户 ID。</p><p>订单金额为后台 USD 字段；缺金额 ${d.totals.unpriced_orders} 单。商品按订单主分类，多品类不重复计金额。</p><p>站点按你本轮口径分为主站与卫星子站，卫星站不逐站拆分。独立分销店铺标识尚未取得，未按引荐词或双源差额扣数据；当前覆盖为 Admin 网站订单。</p><p>缺失日期：${esc(d.coverage.missing_days?.join('、')||'无')}；当前未结案池：${d.coverage.backlog_status==='partial'?'部分可用，合计暂缺':'分页读取完成'}。</p><p>当前原因保留“待确认”，未读取账号资料或原始客服备注。支付日与当前未结案池分别统计；后者没有支付日期截断。</p></details>`;
- const total=d.totals.orders;
- const bucketRows=d.buckets.map(b=>`<tr><td><button type="button" data-fc-drill="${b.key}">${b.key==='unpriced'?'':'$'}${esc(b.label)}</button></td><td>${b.orders}</td><td>${total?(b.orders/total*100).toFixed(1)+'%':'—'}</td>${d.customer_status==='available'?`<td>${b.new}</td><td>${b.returning}</td><td>${b.unknown}</td>`:''}<td>${fcMoney(b.revenue_usd)}</td><td><button type="button" data-fc-drill="${b.key}" data-fc-issue="true">${b.issues}</button></td></tr>`);
- const chart=d.buckets.filter(b=>b.key!=='unpriced').map(b=>{const max=Math.max(...d.buckets.map(r=>r.orders),1);return `<div class="fc-bar-row"><button type="button" data-fc-drill="${b.key}">$${esc(b.label)}</button><div class="fc-bar-track">${[['new','新客'],['returning','老客'],['unknown','未知']].map(([key,label])=>`<span data-customer="${key}" style="width:${b[key]/max*100}%" title="${label} ${b[key]} 单"></span>`).join('')}</div><span>${b.orders}</span></div>`;}).join('');
- const userRows=d.user_buckets.map(b=>`<tr><td>$${esc(b.label)}</td><td>${b.users}</td><td>${fcMoney(b.revenue_usd)}</td></tr>`);
- fcHost.querySelector('#fc-panel-consumption').innerHTML=`<div class="fc-actions"><button type="button" data-fc-view="order" aria-pressed="${!fcUserView}">按订单金额</button><button type="button" data-fc-view="user" aria-pressed="${fcUserView}">按用户累计</button></div><article class="fc-card"><h3>${fcUserView?'用户累计消费':'订单金额分布'}</h3>${fcUserView?fcTable(['累计金额档','可识别用户数','金额小计'],userRows):`<p class="fc-subtle">${esc(d.customer_basis)}</p><div class="fc-consumption-grid"><div class="fc-bars">${chart}</div>${fcTable(['金额档','订单数','占比',...(d.customer_status==='available'?['新客','老客','未知']:[]),'USD','问题单'],bucketRows)}</div>`}<p>${fcUserView?`按站内 ID 去重；${d.orders_without_customer_id} 单没有可用客户 ID，未计为独立用户。跨站同人可能重复。`:'各档 + 金额暂缺回到本视图订单总数；$20 进入 20–40 档。'}</p></article>`;
+ const groupRows=['main','satellite'].map(group=>{const r=d.site_groups.find(r=>r.key===group)||{orders:null,revenue_usd:null};return `<div><b>${esc(fcName(group))}</b><span>${r.orders==null?'已知 ':''}${fmtN(fcKnown(r,'orders'))} 单 · ${fcMoney(fcKnown(r,'revenue_usd'))}</span></div>`;}).join('');
+ fcHost.querySelector('[data-fc-content=overview]').innerHTML=`<div class="fc-overview-grid"><article class="fc-card fc-site-card"><h3>销售来源${fcPaidComplete(d)?'':' · 已知小计'}</h3><div class="fc-site-groups">${groupRows}</div><p>MMOEXP 为主要分析对象；其他站点按 FC 项目合计。</p></article><article class="fc-card fc-attention-card"><h3>运营关注</h3>${fcRiskOverview(d)}${d.signals.length?`<details><summary>其他关注提示</summary>${d.signals.map(s=>`<p>${esc(s.text)} <button type="button" data-fc-tab="${s.tab}">查看 →</button></p>`).join('')}</details>`:''}</article></div><div class="fc-shortcuts"><button type="button" data-fc-tab="consumption">消费结构 · ${fmtN(d.totals.orders)} 已知单 →</button><button type="button" data-fc-tab="fulfillment">当前未结案 · ${d.backlog_summary?.orders??'暂缺'} 单 →</button></div><details class="fc-explanation"><summary>FC明细的数据说明与缺口</summary><p>${esc(d.customer_basis)}；用户按站内客户 ID 去重，访客未伪造用户 ID。</p><p>订单金额为后台 USD 字段；缺金额 ${d.totals.unpriced_orders} 单。订单唯一归属：球员卡 → SBC → Packs → 其他 → 金币；不重复计金额。</p><p>站点按你本轮口径分为主站与卫星子站，卫星站不逐站拆分。独立分销店铺标识尚未取得，未按引荐词或双源差额扣数据；当前覆盖为 Admin 网站订单。</p><p>缺失日期：${esc(d.coverage.missing_days?.join('、')||'无')}；当前未结案池：${d.coverage.backlog_status==='partial'?'部分可用，合计暂缺':'分页读取完成'}。</p><p>当前原因保留“待确认”，未读取账号资料或原始客服备注。支付日与当前未结案池分别统计；后者没有支付日期截断。</p></details>`;
+ const total=fcPaidComplete(d)?d.totals.orders:null;
+ const bucketRows=d.buckets.map(b=>`<tr><td><button type="button" data-fc-drill="${b.key}">${b.key==='unpriced'?'':'$'}${esc(b.label)}</button></td><td>${b.orders==null?'已知 ':''}${fmtN(fcKnown(b,'orders'))}</td><td>${total?(b.orders/total*100).toFixed(1)+'%':'—'}</td>${d.customer_status==='available'?`<td>${b.new}</td><td>${b.returning}</td><td>${b.unknown}</td>`:''}<td>${fcMoney(fcKnown(b,'revenue_usd'))}</td><td><button type="button" data-fc-drill="${b.key}" data-fc-issue="true">${b.issues}</button></td></tr>`);
+ const chart=d.buckets.filter(b=>b.key!=='unpriced'&&Number.isFinite(fcKnown(b,'orders'))).map(b=>{const max=Math.max(...d.buckets.map(r=>fcKnown(r,'orders')||0),1);return `<div class="fc-bar-row"><button type="button" data-fc-drill="${b.key}">$${esc(b.label)}</button><div class="fc-bar-track">${[['new','新客'],['returning','老客'],['unknown','未知']].map(([key,label])=>`<span data-customer="${key}" style="width:${b[key]/max*100}%" title="${label} ${b[key]} 单"></span>`).join('')}</div><span>${b.orders==null?'已知 ':''}${fmtN(fcKnown(b,'orders'))}</span></div>`;}).join('');
+ const userRows=d.user_buckets.map(b=>`<tr><td>$${esc(b.label)}</td><td>${b.users}</td><td>${fcMoney(fcKnown(b,'revenue_usd'))}</td></tr>`);
+ fcHost.querySelector('[data-fc-content=consumption]').innerHTML=`<div class="fc-actions"><button type="button" data-fc-view="order" aria-pressed="${!fcUserView}">按订单金额</button><button type="button" data-fc-view="user" aria-pressed="${fcUserView}">按用户累计</button></div><article class="fc-card"><h3>${fcUserView?'用户累计消费':'订单金额分布'}${fcPaidComplete(d)?'':' · 已知子集'}</h3>${fcUserView?fcTable(['累计金额档','可识别用户数','金额小计'],userRows):`<p class="fc-subtle">${esc(d.customer_basis)}</p><div class="fc-consumption-grid"><div class="fc-bars">${chart}</div>${fcTable(['金额档','订单数','占比',...(d.customer_status==='available'?['新客','老客','未知']:[]),'USD','问题单'],bucketRows)}</div>`}<p>${fcPaidComplete(d)?'':'当前仅已读取订单小计；缺失日期不补零，未提供完整区间占比。'}${fcUserView?`按站内 ID 去重；${d.orders_without_customer_id} 单没有可用客户 ID，未计为独立用户。跨站同人可能重复。`:fcPaidComplete(d)?'各档 + 金额暂缺回到本视图订单总数；$20 进入 20–40 档。':'各档为已知订单子集；$20 进入 20–40 档。'}</p></article>`;
  const problem=fcPool==='current'?d.backlog_summary:d.totals;
- fcHost.querySelector('#fc-panel-fulfillment').innerHTML=`<div class="fc-actions"><button type="button" data-fc-pool="paid" aria-pressed="${fcPool==='paid'}">所选支付日订单</button><button type="button" data-fc-pool="current" aria-pressed="${fcPool==='current'}">当前积压</button></div><p>${fcPool==='current'?'当前全部未结案 · 不按所选支付日期截断':'所选支付日期订单的当前状态；不代表当日新增或解决事件。'}</p><article class="fc-card"><h3>履约与问题</h3><div class="fc-status-grid">${[['问题单',problem?.issues],['待交付',problem?.unfinished],['资金待处理',problem?.funding],['涉及金额',fcMoney(problem?.revenue_usd)]].map(([label,value])=>`<div><span>${label}</span><strong>${value??'暂缺'}</strong></div>`).join('')}</div><p>当前等待超过 24 小时：${d.slow_orders??'暂缺'} 单（待跟进排序，非 SLA 违约判定）。</p><button type="button" data-fc-backlog>查看当前优先跟进订单 →</button><details><summary>当前原因与单龄说明</summary><p>缺结构化原因的订单为待确认；已完成、已退款和已结案记录不计当前积压。单龄优先按支付时间，只有下单时间时明确标注。</p></details></article>`;
- const dimensions=[['platform','游戏平台'],['product','商品分类'],['country','国家'],['payment','支付'],['device','访问设备'],['hour','时段'],['site_group','主站 / 子站']];
+ fcHost.querySelector('[data-fc-content=fulfillment]').innerHTML=`<div class="fc-actions"><button type="button" data-fc-pool="paid" aria-pressed="${fcPool==='paid'}">所选支付日订单</button><button type="button" data-fc-pool="current" aria-pressed="${fcPool==='current'}">当前积压</button></div><p>${fcPool==='current'?'当前全部未结案 · 不按所选支付日期截断':'所选支付日期订单的当前状态；不代表当日新增或解决事件。'}</p><article class="fc-card"><h3>履约与问题</h3><div class="fc-status-grid">${[['问题单',problem?.issues],['待交付',problem?.unfinished],['资金待处理',problem?.funding],['涉及金额',fcMoney(problem?.revenue_usd)]].map(([label,value])=>`<div><span>${label}</span><strong>${value??'暂缺'}</strong></div>`).join('')}</div><p>当前等待超过 24 小时：${d.slow_orders??'暂缺'} 单（待跟进排序，非 SLA 违约判定）。</p><button type="button" data-fc-backlog>查看当前优先跟进订单 →</button><details><summary>当前原因与单龄说明</summary><p>缺结构化原因的订单为待确认；已完成、已退款和已结案记录不计当前积压。单龄优先按支付时间，只有下单时间时明确标注。</p></details></article>`;
+ const dimensions=[['platform','游戏平台'],['country','国家'],['payment','支付'],['device','访问设备'],['hour','时段'],['site_group','主站 / 子站']];
  const records=d.dimensions[fcDimension]||[],head=dimensions.find(r=>r[0]===fcDimension)?.[1]||'分布';
- const dimensionRows=records.slice(0,10).map(r=>`<tr><td><button type="button" data-fc-slice="${esc(r.key)}">${esc(fcName(r.key))}</button></td><td>${r.orders}</td><td>${fcMoney(r.revenue_usd)}</td><td>${r.issues}</td></tr>`);
- const remaining=records.slice(10);if(remaining.length)dimensionRows.push(`<tr><td>其他 ${remaining.length} 项</td><td>${remaining.reduce((n,r)=>n+r.orders,0)}</td><td>${fcMoney(remaining.reduce((n,r)=>n+(r.revenue_usd||0),0))}</td><td>${remaining.reduce((n,r)=>n+r.issues,0)}</td></tr>`);
- fcHost.querySelector('#fc-panel-structure').innerHTML=`<div class="fc-actions">${dimensions.map(([key,label])=>`<button type="button" data-fc-dimension="${key}" aria-pressed="${fcDimension===key}">${label}</button>`).join('')}</div><article class="fc-card"><h3>${head}</h3>${fcTable([head,'订单数','USD','问题单'],dimensionRows)}<p>前十项，其他合并；游戏平台 PC 与访问设备 Desktop 分开。</p></article>`;
- fcHost.querySelector('#fc-panel-review').innerHTML=`<article class="fc-card"><h3>事实日报与复盘</h3><p>完整导出包括核心、消费分档、问题池、已接通的各项结构、生成时间与范围，不受折叠或当前页签影响。</p><button type="button" data-fc-report>生成并导出 HTML 日报</button><label class="fc-note-label">运营备注与下一步<textarea aria-label="FC运营备注" placeholder="写下需核查的问题、负责人和复核日期；备注随本次日报导出。"></textarea></label><p>共享跟进复用已有任务台：<a href="/dashboard/tasks/" target="_blank" rel="noopener">打开项目工作任务台</a>。此处备注尚不写入服务器。</p><details><summary>已保存日报说明</summary><p>规则日报快照由服务器保存，原版本保留；人工备注仅进入本次下载。本下载为当前筛选的事实快照；新运营报告见上方 Hermes 入口；旧日报只读归档。</p></details><p class="fc-report-status" role="status"></p></article>`;
+ const dimensionRows=records.slice(0,10).map(r=>`<tr><td><button type="button" data-fc-slice="${esc(r.key)}">${esc(fcName(r.key))}</button></td><td>${r.orders==null?'已知 ':''}${fmtN(fcKnown(r,'orders'))}</td><td>${fcMoney(fcKnown(r,'revenue_usd'))}</td><td>${r.issues??'暂缺'}</td></tr>`);
+ const remaining=records.slice(10);if(remaining.length)dimensionRows.push(`<tr><td>其他 ${remaining.length} 项</td><td>${remaining.reduce((n,r)=>n+(fcKnown(r,'orders')||0),0)}</td><td>${fcMoney(remaining.reduce((n,r)=>n+(fcKnown(r,'revenue_usd')||0),0))}</td><td>${remaining.reduce((n,r)=>n+r.issues,0)}</td></tr>`);
+ fcHost.querySelector('[data-fc-content=structure]').innerHTML=`<div class="fc-actions">${dimensions.map(([key,label])=>`<button type="button" data-fc-dimension="${key}" aria-pressed="${fcDimension===key}">${label}</button>`).join('')}</div><article class="fc-card"><h3>${head}</h3>${fcTable([head,'订单数','USD','问题单'],dimensionRows)}<p>前十项，其他合并；游戏平台 PC 与访问设备 Desktop 分开。</p></article>`;
+ fcHost.querySelector('[data-fc-content=review]').innerHTML=`<article class="fc-card"><h3>事实日报与复盘</h3><p>完整导出包括核心、消费分档、问题池、已接通的各项结构、生成时间与范围，不受折叠或当前页签影响。</p><button type="button" data-fc-report>生成并导出 HTML 日报</button><label class="fc-note-label">运营备注与下一步<textarea aria-label="FC运营备注" placeholder="写下需核查的问题、负责人和复核日期；备注随本次日报导出。"></textarea></label><p>共享跟进复用已有任务台：<a href="/dashboard/tasks/" target="_blank" rel="noopener">打开项目工作任务台</a>。此处备注尚不写入服务器。</p><details><summary>已保存日报说明</summary><p>规则日报快照由服务器保存，原版本保留；人工备注仅进入本次下载。本下载为当前筛选的事实快照；新运营报告见上方 Hermes 入口；旧日报只读归档。</p></details><p class="fc-report-status" role="status"></p></article>`;
+ fcDashboardDraw(d);
  dailyMount();
  const note=fcHost.querySelector('textarea');note.value=fcNote;note.addEventListener('input',()=>{fcNote=note.value;});
  fcDetailShow();
@@ -2266,17 +2315,19 @@ async function fcDrill(extra={}){
 }
 function fcDrawerRender(){
  const d=fcDrawerData;if(!d)return;
- const rows=d.orders.map(r=>`<tr><td><button type="button" data-fc-order="${esc(r.id)}">${esc(r.id)}</button></td><td>${esc(fcName(r.site_group))} / ${esc(r.platform)}<br>${esc(r.product)}</td><td>${fcMoney(r.amount_usd)}</td><td>${esc(fcName(r.customer))}</td><td>${r.age_hours==null?'—':r.age_hours+' 小时'}<br>${esc(r.age_basis||'')}</td><td>${esc(r.status)}<br>${esc(r.reason)}</td></tr>`);
- fcHost.querySelector('.fc-drawer-content').innerHTML=`<p>${d.stale?'上次快照 · ':''}${new Date(d.as_of).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})} 北京时间<br>${esc(d.query.start)} 至 ${esc(d.query.end)} · ${d.query.pool==='current'?'当前全部未结案（日期不截断）':'支付日订单'} · ${esc(fcName(d.query.platform))} · ${esc(fcName(d.query.customer))} · 金额档 ${esc(d.query.bucket||'all')}</p>${fcTable(['订单','范围 / 商品','USD','客户','等待','当前状态'],rows)}<div class="fc-pagination"><button type="button" data-fc-page="${d.page-1}" ${d.page===1?'disabled':''}>上一页</button><span>第 ${d.page} 页 · ${d.list_total} 单 · 10 条/页</span><button type="button" data-fc-page="${d.page+1}" ${d.page*10>=d.list_total?'disabled':''}>下一页</button></div>`;
+ const rows=d.orders.map((r,index)=>`<tr><td><button type="button" data-fc-order="${index}">${esc(r.id)}</button></td><td>${esc(fcName(r.site_group))} / ${esc(r.platform)}<br>${esc(fcName(r.category||r.product))}</td><td>${fcMoney(r.amount_usd)}</td><td>${esc(fcName(r.customer))}</td><td>${r.age_hours==null?'—':r.age_hours+' 小时'}<br>${esc(r.age_basis||'')}</td><td>${esc(r.status)}<br>${esc(r.reason)}</td></tr>`);
+ fcHost.querySelector('.fc-drawer-content').innerHTML=`<p>${d.stale?'上次快照 · ':''}${new Date(d.as_of).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})} 北京时间<br>${esc(d.query.start)} 至 ${esc(d.query.end)} · ${d.query.pool==='current'?'当前全部未结案（日期不截断）':'支付日订单'} · ${esc(fcName(d.query.platform))} · ${esc(fcName(d.query.customer))} · 金额档 ${esc(d.query.bucket||'all')}</p>${fcTable(['订单','范围 / 商品','USD','客户','等待','当前状态'],rows)}<div class="fc-pagination"><button type="button" data-fc-page="${d.page-1}" ${d.page===1?'disabled':''}>上一页</button><span>第 ${d.page} 页 · ${d.list_total==null?'已知 '+d.list_known_total+' 单 · 完整总数暂缺':d.list_total+' 单'} · 10 条/页</span><button type="button" data-fc-page="${d.page+1}" ${d.page*10>=(d.list_total??d.list_known_total)?'disabled':''}>下一页</button></div>`;
 }
-function fcOrder(id){const r=fcDrawerData?.orders.find(r=>r.id===id);if(!r)return;fcHost.querySelector('.fc-drawer-content').innerHTML=`<button type="button" data-fc-return>← 返回订单列表</button><h3>${esc(r.id)}</h3><dl>${[['范围',fcName(r.site_group)],['平台',r.platform],['商品',r.product],['USD',fcMoney(r.amount_usd)],['客户',fcName(r.customer)],['支付时间',r.paid_at||'暂缺'],['当前状态',r.status],['原因',r.reason],['等待时长',r.age_hours==null?'暂缺':r.age_hours+' 小时'],['优先关注',(r.attention||[]).join('、')||'无已命中规则']].map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl><a href="/dashboard/tasks/" target="_blank" rel="noopener">到已有任务台记录跟进</a><p>看板跟进不改变订单后台状态。</p>`;}
-async function fcExportCsv(){try{const d=await fcRead(fcQuery({format:'csv'}),scope.signal);fcDownload(`FC27_${d.query.start}_${d.query.end}.csv`,d.csv,'text/csv;charset=utf-8');}catch(e){fcHost.querySelector('.fc-state').textContent=e.message;}}
+function fcOrder(id){const r=fcDrawerData?.orders[Number(id)];if(!r)return;fcHost.querySelector('.fc-drawer-content').innerHTML=`<button type="button" data-fc-return>← 返回订单列表</button><h3>${esc(r.id)}</h3><dl>${[['范围',fcName(r.site_group)],['平台',r.platform],['商品',fcName(r.category||r.product)],['USD',fcMoney(r.amount_usd)],['客户',fcName(r.customer)],['支付时间',r.paid_at||'暂缺'],['当前状态',r.status],['原因',r.reason],['等待时长',r.age_hours==null?'暂缺':r.age_hours+' 小时'],['优先关注',(r.attention||[]).join('、')||'无已命中规则']].map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl><a href="/dashboard/tasks/" target="_blank" rel="noopener">到已有任务台记录跟进</a><p>看板跟进不改变订单后台状态。</p>`;}
+async function fcExportCsv(){try{const d=await fcRead(fcQuery({format:'csv'}),scope.signal);fcDownload(`FC27_${d.query.start}_${d.query.end}.csv`,d.csv,'text/csv;charset=utf-8');if(d.dashboard_csv)fcDownload('FC27分类趋势_'+d.query.start+'_'+d.query.end+'.csv',d.dashboard_csv,'text/csv;charset=utf-8');}catch(e){fcHost.querySelector('.fc-state').textContent=e.message;}}
 async function fcReport(){
+ const reportFilters={...fcFilters};
+  const core=[...document.querySelectorAll('#supplement-insights .fsi-metric')].filter(c=>['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageOrderUsd'].includes(c.dataset.metric)).map(c=>[c.querySelector('span').textContent,c.querySelector('strong').textContent,c.querySelector('small').textContent]);
  const status=fcHost.querySelector('.fc-report-status');status.textContent='正在保存同一快照的事实日报…';
  try{const d=await fcRead(fcQuery({mode:'fc-report',page:'1',format:'json'}),scope.signal),r=d.report;
-  const core=[...document.querySelectorAll('#supplement-insights .fsi-metric')].filter(c=>['revenueUsd','orders','profitCny','profitMarginPct','newCustomers','repeatRatePct','newCustomerSharePct','averageOrderUsd'].includes(c.dataset.metric)).map(c=>[c.querySelector('span').textContent,c.querySelector('strong').textContent,c.querySelector('small').textContent]);
+
   const section=(title,records,keyLabel)=>`<h2>${esc(title)}</h2>${fcTable([keyLabel,'数量','USD','问题单'],records.map(x=>`<tr><td>${esc(fcName(x.key||x.label))}</td><td>${x.orders??x.users}</td><td>${fcMoney(x.revenue_usd)}</td><td>${x.issues??'—'}</td></tr>`))}`;
-  const text=`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FC27事实日报 ${esc(r.query.start)}</title><style>body{font:15px system-ui;max-width:1080px;margin:32px auto;padding:0 20px;color:#202a35}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:9px;border-bottom:1px solid #ddd}h2{margin-top:30px}p{line-height:1.7}pre{white-space:pre-wrap}</style><h1>FC27 · 事实日报</h1><p>${esc(r.query.start)} 至 ${esc(r.query.end)} · ${esc(r.scope_label)}<br>数据读取 ${esc(r.as_of)} · 报告生成 ${esc(r.generated_at)} · 版本 ${esc(r.report_id)}</p><p>当前筛选：${esc(JSON.stringify(fcFilters))}</p><h2>00 核心指标与来源参考</h2>${fcTable(['指标','值','来源与口径'],core.map(c=>`<tr>${c.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`))}<p>订单 ${r.totals.orders} · USD ${fcMoney(r.totals.revenue_usd)} · 问题 ${r.totals.issues} · 新 / 老 / 未知 ${r.customer_status==='available'?r.totals.new:'待接通'} / ${r.customer_status==='available'?r.totals.returning:'待接通'} / ${r.totals.unknown}</p>${section('01 主站与卫星子站',r.site_groups,'范围')}${section('02 订单金额分档',r.buckets.map(b=>({...b,key:b.label})),'金额档')}${section('02B 用户累计消费',r.user_buckets.map(b=>({...b,key:b.label})),'累计金额档')}<h2>03 当前未结案池</h2><p>${r.backlog_summary?.orders??'暂缺'} 单；涉及 ${fcMoney(r.backlog_summary?.revenue_usd)}，资金待处理 ${r.backlog_summary?.funding??'暂缺'} 单；等待超过 24 小时 ${r.slow_orders??'暂缺'} 单；不按所选支付日期截断。</p>${Object.entries(r.dimensions).map(([key,rows])=>section('结构 · '+key,rows,key)).join('')}<h2>运营备注与跟进</h2><pre>${esc(fcNote||'未填写；不代运营确认。')}</pre><h2>数据说明</h2><p>状态 ${esc(r.data_status)}；缺失日期 ${esc(r.coverage.missing_days?.join('、')||'无')}；积压池 ${esc(r.coverage.backlog_status||'未验证')}。</p><p>${esc(r.customer_basis)}；按站内客户 ID 去重，访客缺标识不造人数。缺 USD ${r.totals.unpriced_orders} 单。原始联系方式、EA 资料及客服备注未导出。当前原因保留待确认。Admin 网站订单按用户本轮口径分主站与卫星子站；独立分销店铺字段未取得，不声称已完整排除。此为规则事实日报，AI未开启。</p></html>`;
+  const text=`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FC27事实日报 ${esc(r.query.start)}</title><style>body{font:15px system-ui;max-width:1080px;margin:32px auto;padding:0 20px;color:#202a35}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:9px;border-bottom:1px solid #ddd}h2{margin-top:30px}p{line-height:1.7}pre{white-space:pre-wrap}</style><h1>FC27 · 事实日报</h1><p>${esc(r.query.start)} 至 ${esc(r.query.end)} · ${esc(r.scope_label)}<br>数据读取 ${esc(r.as_of)} · 报告生成 ${esc(r.generated_at)} · 版本 ${esc(r.report_id)}</p><p>当前筛选：${esc(JSON.stringify(reportFilters))}</p><h2>00 核心指标与来源参考</h2>${fcTable(['指标','值','来源与口径'],core.map(c=>`<tr>${c.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`))}<p>订单 ${r.totals.orders} · USD ${fcMoney(r.totals.revenue_usd)} · 问题 ${r.totals.issues} · 新 / 老 / 未知 ${r.customer_status==='available'?r.totals.new:'待接通'} / ${r.customer_status==='available'?r.totals.returning:'待接通'} / ${r.totals.unknown}</p>${section('01 主站与卫星子站',r.site_groups,'范围')}${section('02 订单金额分档',r.buckets.map(b=>({...b,key:b.label})),'金额档')}${section('02B 用户累计消费',r.user_buckets.map(b=>({...b,key:b.label})),'累计金额档')}<h2>03 当前未结案池</h2><p>${r.backlog_summary?.orders??'暂缺'} 单；涉及 ${fcMoney(r.backlog_summary?.revenue_usd)}，资金待处理 ${r.backlog_summary?.funding??'暂缺'} 单；等待超过 24 小时 ${r.slow_orders??'暂缺'} 单；不按所选支付日期截断。</p>${Object.entries(r.dimensions).map(([key,rows])=>section('结构 · '+key,rows,key)).join('')}<h2>运营备注与跟进</h2><pre>${esc(fcNote||'未填写；不代运营确认。')}</pre><h2>数据说明</h2><p>状态 ${esc(r.data_status)}；缺失日期 ${esc(r.coverage.missing_days?.join('、')||'无')}；积压池 ${esc(r.coverage.backlog_status||'未验证')}。</p><p>${esc(r.customer_basis)}；按站内客户 ID 去重，访客缺标识不造人数。缺 USD ${r.totals.unpriced_orders} 单。原始联系方式、EA 资料及客服备注未导出。当前原因保留待确认。Admin 网站订单按用户本轮口径分主站与卫星子站；独立分销店铺字段未取得，不声称已完整排除。此为规则事实日报，AI未开启。</p></html>`;
   fcDownload(`FC27事实日报_${r.query.start}_${r.report_id}.html`,text,'text/html;charset=utf-8');status.textContent='服务器规则日报已保存 · '+r.report_id+'；已导出含本次人工备注的 HTML。';
  }catch(e){status.textContent=e.message;}
 }
@@ -2285,14 +2336,14 @@ function workspaceState(){
  const phase=document.getElementById('supplement-insights')?.dataset.rangeReadState;
  const snapshot=INSIGHTS_SNAPSHOT,selection=currentSelection();
  return {b_site:businessSite,b_group:GROUP,b_profile:KEY,b_grain:GRAIN,b_align:String(HALIGN),b_range:curCustom()?'custom':String(curRange()),b_start:curCustom()?.start||'',b_end:curCustom()?.end||'',
-  b_profit_category:shippingCategory,b_profit_site:['all','combined'].includes(scope.referenceScope)?'all':'main',...Object.fromEntries(Object.entries(rsFilters).map(([k,v])=>['b_'+k,v])),fc_tab:KEY==='FC27'?fcDetailState.tab:'',b_section:scope.section||'overview',b_metrics:scope.metrics?'all':'core',snapshotId:snapshot?.snapshotId,
+  b_profit_category:shippingCategory,b_profit_site:['all','combined'].includes(scope.referenceScope)?'all':'main',...Object.fromEntries(Object.entries(rsFilters).map(([k,v])=>['b_'+k,v])),fc_tab:KEY==='FC27'?fcDetailState.tab:'',...Object.fromEntries(Object.entries(fcFilters).map(([k,v])=>['b_fc_'+k,v])),b_section:scope.section||'overview',b_metrics:scope.metrics?'all':'core',snapshotId:snapshot?.snapshotId,
   generatedAt:currentExact()?.generatedAt,businessUntil:currentExact()?.profile.period.end,checkedAt:scope.checkedAt,
   phase:phase==='error'?'error':currentExact()?(currentExact().stale?'stale':'available'):phase==='loading'?'loading':scope.snapshotState?.status==='stale'?'stale':scope.snapshotState?.status==='unavailable'?'unavailable':phase||'loading',
   period:selection,details:(currentExact()?'当前指标采用Admin按需读取；上游水位未提供，详情见指标来源。历史图表仍读已发布快照。 · ':'')+document.getElementById('meta')?.textContent};
 }
 function workspaceApply(s){
  if(!Object.keys(PROFILES).length)return false;
- shippingCategory='-1';businessSite=businessRestoreSite(s);fcFilters.site_group=businessSite==='mmoexp'?'main':'all';rsFilters=rsChecked(s);workspaceRestoring=true;fcDetailState.tab=fcTabs.some(r=>r[0]===s.fc_tab)?s.fc_tab:'overview';
+ shippingCategory='-1';businessSite=businessRestoreSite(s);fcFilters.site_group=businessSite==='mmoexp'?'main':'all';rsFilters=rsChecked(s);for(const key of Object.keys(fcFilters)){const v=s['b_fc_'+key]||'all';const options={product:fcProducts.map(r=>r[0]),platform:['all','PS','XBOX','PC','unknown'],site_group:['all','main','satellite'],customer:['all','new','returning','unknown']};fcFilters[key]=key==='bucket'?(/^[a-zA-Z0-9_.-]{1,40}$/.test(v)?v:'all'):(options[key]?.includes(v)?v:'all');}if(fcHost)for(const [k,v]of Object.entries(fcFilters))fcHost.querySelector('[data-fc-filter='+k+']').value=v;workspaceRestoring=true;fcDetailState.tab=fcTabs.some(r=>r[0]===s.fc_tab)?s.fc_tab:'overview';
  const group=GROUPS.find(g=>g.key===s.b_group),p=PROFILES[s.b_profile];
  if(p){KEY=s.b_profile;GROUP=GROUPS.find(g=>g.profiles.includes(KEY))?.key||GROUP;}
  else if(group){GROUP=group.key;KEY=group.profiles[0];}
@@ -2326,7 +2377,7 @@ function requestDailyProfit(){
  }catch(e){if(state!==dailyQuery||state.abort.signal.aborted||scope.signal.aborted)return;state.pending=false;state.error=e.message;renderProfit();}})();
 }
 
-function workspaceSync(){if(workspaceQueued)return;workspaceQueued=true;requestAnimationFrame(()=>{
+function workspaceSync(){if(scope.signal.aborted||workspaceQueued)return;workspaceQueued=true;requestAnimationFrame(()=>{
  workspaceQueued=false;if(workspaceRestoring)return;
  const root=scope.root;
  requestDailyProfit();workspaceFCTypes();fcDetailSync();rsBacklogSync();
@@ -2335,8 +2386,8 @@ function workspaceSync(){if(workspaceQueued)return;workspaceQueued=true;requestA
   if(insights&&grid){
    let status=root.getElementById('business-refresh-status');if(!status){status=document.createElement('p');status.id='business-refresh-status';status.className='fsi-note';status.setAttribute('role','status');status.setAttribute('aria-live','polite');insights.before(status);}
    if(status.nextSibling!==insights)insights.before(status);
-   const failed=scope.summaryError||scope.summary?.sources?.Admin?.status==='unavailable'||procurementRead?.phase==='failed'||procurementRead?.data?.costError||procurementRead?.data?.sourceError;
-   const refreshing=scope.summaryRefreshing||procurementRead?.loading||procurementRead?.data?.refreshing;
+   const failed=KEY==='FC27'&&fcDetailState.error||scope.summaryError||scope.summary?.sources?.Admin?.status==='unavailable'||procurementRead?.phase==='failed'||procurementRead?.data?.costError||procurementRead?.data?.sourceError;
+   const refreshing=KEY==='FC27'&&fcDetailPending||scope.summaryRefreshing||procurementRead?.loading||procurementRead?.data?.refreshing;
    fcSetText(status,refreshing?'刷新中…':failed?(scope.summary||procurementRead?.data?'本次刷新未完成，保留上次读取值；可点更新视图重试。':'本次读取未完成，可点更新视图重试。'):'');
   }
  if(insights&&grid&&!insights.querySelector('.metric-audit')){const audit=document.createElement('details');audit.className='source-details metric-audit';audit.append(document.createElement('summary'));audit.firstChild.textContent='所选区间、指标来源与口径';
