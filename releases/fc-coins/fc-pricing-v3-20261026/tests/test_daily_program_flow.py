@@ -505,6 +505,36 @@ class DailyReviewBoundary(unittest.TestCase):
                          '模拟收益不能叫真实增收'):
             self.assertIn(boundary, prompt)
 
+    def test_review_aggregates_gap_events_without_losing_unknown_amounts_or_source(self):
+        quote = self.quote()
+        coverage = quote['daily_report']['learning_coverage']
+        coverage.update(source_sha256='f'*64, query_complete=False,
+            gap_events=[dict(reason='price_mismatch', group='console', amount_usd='2.50') for _ in range(2000)] + [dict(reason='cost_pending', group='pc', amount_usd=None)],
+            blocked_price_groups=[dict(price_window_id=str(i), price_group='console') for i in range(100)])
+        before = json.loads(json.dumps(quote))
+        prompt = hermes_pricing_bridge.daily_review_text(quote)
+        report = json.loads(prompt.split('实际及影子摘要：', 1)[1])
+        cov = report['learning_coverage']
+        self.assertEqual(cov['gap_event_summary']['price_mismatch:console'], dict(count=2000, known_amount_usd='5000.00', unknown_amount_count=0))
+        self.assertEqual(cov['gap_event_summary']['cost_pending:pc']['unknown_amount_count'], 1)
+        self.assertFalse(cov['query_complete'])
+        self.assertEqual(cov['source_sha256'], 'f'*64)
+        self.assertEqual(cov['detail_source']['section'], 'daily_review.learning_coverage')
+        self.assertEqual(cov['blocked_price_group_counts'], {'console':100})
+        self.assertEqual(quote, before)
+
+    def test_review_preserves_unit_price_fx_and_elasticity_precision(self):
+        quote = self.quote()
+        quote['daily_report']['decision_basis']['unit_cost_usd'] = '0.123456789'
+        quote['daily_report']['decision_basis']['fx'] = '6.68512345'
+        quote['daily_report']['decision_basis']['elasticity'] = '1.23456789'
+        quote['daily_report']['actual']['hourly'][0]['net_paid_usd'] = '1.2399999999999999'
+        prompt = hermes_pricing_bridge.daily_review_text(quote)
+        report = json.loads(prompt.split('实际及影子摘要：', 1)[1])
+        self.assertEqual(report['decision_basis'], quote['daily_report']['decision_basis'])
+        self.assertEqual(report['actual']['hourly'][0]['net_paid_usd'], '1.24')
+        self.assertEqual(quote['daily_report']['actual']['hourly'][0]['net_paid_usd'], '1.2399999999999999')
+
     def test_review_keeps_existing_prompt_size_limit(self):
         quote = self.quote()
         quote['daily_report']['large'] = 'x' * 12000

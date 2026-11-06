@@ -296,6 +296,19 @@ class BusinessSourceTest(unittest.TestCase):
         self.assertTrue(result['actual_outcomes'][0]['coupon_present'])
         self.assertNotIn('private-code', json.dumps(result))
 
+    def test_actual_cost_uses_same_order_shipping_margin_despite_admin_cny_display(self):
+        now, order, window = self.window_fixture()
+        order['amount_rmb_format'] = '59.97'
+        row = dict(status='已完成', costCny='42', saleCny='60', salesUsd='8.68')
+        result = source.bind_price_windows([order], [window], now, archived={order['order_no']:[row]})
+        actual = result['actual_outcomes'][0]
+        self.assertEqual(actual['actual_contribution_usd'], '2.604')
+        self.assertEqual(actual['cost_basis'], 'same_order_Order_shipping_CNY_margin_at_actual_USD_receipt')
+        for changes in ({'salesUsd':'8.69'}, {'status':'问题订单'}, {'costCny':None}, {'costCny':'-1'}, {'saleCny':'0'}):
+            with self.subTest(changes=changes):
+                pending = source.bind_price_windows([order], [window], now, archived={order['order_no']:[dict(row, **changes)]})
+                self.assertIsNone(pending['actual_outcomes'][0]['actual_contribution_usd'])
+
     def test_actual_outcome_retains_verified_new_customer_without_identity(self):
         now, order, window = self.window_fixture()
         order['email'] = 'person@example.com'

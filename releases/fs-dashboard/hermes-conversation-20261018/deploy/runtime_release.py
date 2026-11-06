@@ -359,6 +359,8 @@ CAPABILITIES_CHANGED = ('runtime/conversation_service.py','http/conversation_htt
 
 # Reviewed software mappings; selection cannot supply an arbitrary source or target.
 SOFTWARE_MAPPINGS = {
+    'pricing/fc_pricing_v3/business_source.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/business_source.py', '/opt/fc27-cloud-browser/fc_pricing_v3/business_source.py'),
+    'runtime/fc_pricing_v3/business_source.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/business_source.py', '/opt/fs-hermes-fc/fc_pricing_v3/business_source.py'),
     'http/conversation_http.py': ('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py', '/opt/fs-exact-range-20261001/conversation_http.py'),
     'runtime/proxy_gateway.py': ('releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py', '/opt/fs-hermes-fc/proxy_gateway.py'),
     'runtime/conversation_service.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py', '/opt/fs-hermes-fc/conversation_service.py'),
