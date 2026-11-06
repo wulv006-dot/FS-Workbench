@@ -21,9 +21,12 @@
       "roots": [
         "fs_transaction_snapshot_20260930",
         "releases/fs-dashboard/shipping-profit-20261024/source",
-        "releases/fs-dashboard/dashboard-refresh-20261025/source"
+        "releases/fs-dashboard/dashboard-refresh-20261025/source",
+        "releases/fs-dashboard/fc-detail-analytics-20261012/source",
+        "releases/fs-dashboard/fc-detail-analytics-20261012/tests",
+        "releases/fs-dashboard/dashboard-refresh-20261025/deploy"
       ],
-      "basis": "OWNERS business snapshot; current shipping-profit and cache contracts in AGENTS/pr_fast",
+      "basis": "OWNERS business snapshot; current shipping-profit and cache contracts in AGENTS/pr_fast; FCDetails runtime caller and FC dashboard candidate target adapter; source hash observations in docs/planning/fc-dashboard-20261106/READONLY-EVIDENCE.json do not certify candidate deployment",
       "evidence_level": "maintained_source"
     },
     "exact-range": {

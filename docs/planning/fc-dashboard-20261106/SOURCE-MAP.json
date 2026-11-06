@@ -1,0 +1,91 @@
+{
+  "status": "candidate_not_deployed",
+  "asset_version": "fc-dashboard-20261106-405be66dd0e0",
+  "contractId": "fc-dashboard-category-v1-20261106",
+  "base": "eefd69e8d89c709994919d0c62b2083e8c04678b",
+  "initial_base": "07d2a1d5",
+  "publisher_adapter": "releases/fs-dashboard/dashboard-refresh-20261025/deploy/fc_dashboard_release.py",
+  "files": [
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/business.js",
+      "candidate": "source/business.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-405be66dd0e0/business.js",
+      "sha256": "ea330dc0d24d5ccdce2580f1e91976e88f094f24b73639403b0440e85ac94b8d"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/home-business.js",
+      "candidate": "source/home-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-405be66dd0e0/home-business.js",
+      "sha256": "5ba99a5322e9eb1d4ea0ffa1c345a3e472f8331aec74239c62af8f4368af46a1"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/legacy-business.js",
+      "candidate": "source/legacy-business.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-405be66dd0e0/legacy-business.js",
+      "sha256": "811a2688a889e615198d816b86c35b38c931775ce9b5e100c2aea9a96ba7848a"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/shell.js",
+      "candidate": "source/shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-405be66dd0e0/shell.js",
+      "sha256": "a0f9bab9c7850232a807ae9e9e64274f0d7f9414c95f94328ef230c9e0eeee2d"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/home-shell.js",
+      "candidate": "source/home-shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-405be66dd0e0/home-shell.js",
+      "sha256": "de3b3515bb09f6047805da7057b21ccb9531cd2043b1855affec28641c296390"
+    },
+    {
+      "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/legacy-shell.js",
+      "candidate": "source/legacy-shell.js",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-405be66dd0e0/legacy-shell.js",
+      "sha256": "05021d1330d05a667f867c481dbadca1ae585b2c5c041ffd9ff53b658d6ed385"
+    },
+    {
+      "source": "ui-system/modules/native/business.css",
+      "candidate": "source/business.css",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-405be66dd0e0/business.css",
+      "sha256": "dfbfb2c09cd6d3fd6a3bd9ede58598b61a76e05c4c32b4d81f927997ccfda26d"
+    },
+    {
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail.py",
+      "candidate": "source/fc_detail.py",
+      "target": "/opt/fs-exact-range-20261001/fc_detail.py",
+      "sha256": "87fac399f46bec4928a9784a27936a26e52f17fc78aedb2331b10e56e688835f"
+    },
+    {
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail_reader.py",
+      "candidate": "source/fc_detail_reader.py",
+      "target": "/opt/fs-exact-range-20261001/fc_detail_reader.py",
+      "sha256": "7c79c69466ef9e3ed12075d443efcf09330f2fd3d1c4d2f520a35c1c3499f44b"
+    },
+    {
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail_model.py",
+      "candidate": "source/fc_detail_model.py",
+      "target": "/opt/fs-exact-range-20261001/fc_detail_model.py",
+      "sha256": "406fffbd9b1adb7d5afcd9cfeebb5195b68513daa52ac6531f00972ea0ac66a5"
+    },
+    {
+      "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_dashboard.py",
+      "candidate": "source/fc_dashboard.py",
+      "target": "/opt/fs-exact-range-20261001/fc_dashboard.py",
+      "sha256": "acb4a435bfd3e1641384275cf7e8c655e807efda1182c91f39ce9a20cbaee685"
+    }
+  ],
+  "additional_exact_target": {
+    "candidate": "generated/navigation.conf",
+    "target": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+    "status": "local_route_candidate_generated_not_approved_refresh_live_CAS_before_release",
+    "sha256": "fc751c5b1c41dca2839d211e5a60be73db88aeb7831d28694f857c24469a0948",
+    "observed_before_sha256": "c5733fbd88d63005ecc7c3ce350acddb91ce6fe4a2af2a1712075843602ffffe",
+    "route_plan": "generated/navigation-plan.json",
+    "route_aliases_changed": 9
+  },
+  "preserve": [
+    "live range_api.py not part of payload",
+    "FC pricing/session/writer/worker/timers",
+    "existing immutable asset URLs and role policy"
+  ],
+  "production_actions": false
+}
