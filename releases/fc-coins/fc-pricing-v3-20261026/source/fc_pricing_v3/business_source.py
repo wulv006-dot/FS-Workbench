@@ -981,13 +981,15 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
         old = (archived.get(sn) or [None])[0]
         contribution = None
         if old and net is not None:
-            cost, cny, live_cny = amount(old.get('costCny')), amount(old.get('saleCny')), amount(order.get('amount_rmb_format'))
-            if old.get('status') == '已完成' and cost is not None and cny is not None and cny > 0 and cny == live_cny and amount(old.get('salesUsd')) == net:
-                contribution = str(net - cost * net / cny)
+            cost, cny = amount(old.get('costCny')), amount(old.get('saleCny'))
+            # Order shipping CNY margin is authoritative; Admin display CNY can use another FX rounding.
+            if old.get('status') == '已完成' and cost is not None and cost >= 0 and cny is not None and cny > 0 and amount(old.get('salesUsd')) == net:
+                contribution = str((cny - cost) * net / cny)
         actual_outcomes.append(dict(order_key=hashlib.sha256(('FC27:266:' + sn).encode()).hexdigest(),
             price_window_id=window['operation_id'], group=group, platform=platform, occurred_at=created.isoformat(),
             actual_net_usd=str(net) if net is not None else None, actual_contribution_usd=contribution,
-            coupon_present=bool(coupon_logs.get(sn)), cost_status='same_order_confirmed' if contribution is not None else 'pending'))
+            coupon_present=bool(coupon_logs.get(sn)), cost_status='same_order_confirmed' if contribution is not None else 'pending',
+            cost_basis='same_order_Order_shipping_CNY_margin_at_actual_USD_receipt' if contribution is not None else None))
         bound_customers[sn]=len(actual_outcomes)-1
         if coupon_logs.get(sn):
             failures['budget_reference_historical_coupon_terms_pending'] += 1
@@ -1020,7 +1022,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             actual_net_usd=str(net), actual_contribution_usd=contribution, source_sha256=budget_source,
             refund=False, status=str(order.get('status_format') or ''),
             coverage=dict(created_epoch_display_verified=True, unique_regular_price_window=True,
-                          cost='actual_same_order_CNY_cost_converted_at_observed_Admin_order_USD_CNY' if contribution is not None else 'pending; reservation_retained',
+                          cost='same_order_Order_shipping_CNY_margin_at_actual_USD_receipt' if contribution is not None else 'pending; reservation_retained',
                           reference='same_realized_code_or_points_path; cash_residual_within_one_cent')))
     customer_rows = {sn: archived[sn] for sn in bound_customers if archived.get(sn)}
     identities, new_assignments, customer_coverage = _customer_assignments(customer_rows, orders_by_id)
