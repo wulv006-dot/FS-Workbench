@@ -3,11 +3,28 @@
   "checked_on": "2026-11-06",
   "repository_base": "07d2a1d5",
   "source_hashes": {
-    "business.js": {"main_and_active_equal": true, "sha256": "9ad0c2349b0b4fe15518f9f5f37444aea3e39bee33068d2541225fab5d1d6385"},
-    "fc_detail.py": {"main_and_active_equal": true, "sha256": "d4edbd6f2ce134abd7475a1639066e1ef4f25281aa860989bc8ac508d4e52c05"},
-    "fc_detail_reader.py": {"main_and_active_equal": true, "sha256": "9d281149c65490df76bf09e6ad2ffe275fd2f4542037537741b7e49d6772f7b4"},
-    "fc_detail_model.py": {"main_and_active_equal": false, "active_sha256": "e59a195605d7c1298fe450b15249df797c851604fdeb043047d82aba2186af78", "preserved_delta": "current backlog ascending waiting time, unknown age last, matching signal and order_sort"},
-    "range_api.py": {"main_and_active_equal": false, "active_sha256": "2b10d7bb1ef3dce886247163163552466103ed189fc377a29b66e62a53c7846b", "action": "not modified; preserve live management profiles, desktop and live-order routes"}
+    "business.js": {
+      "main_and_active_equal": true,
+      "sha256": "9ad0c2349b0b4fe15518f9f5f37444aea3e39bee33068d2541225fab5d1d6385"
+    },
+    "fc_detail.py": {
+      "main_and_active_equal": true,
+      "sha256": "d4edbd6f2ce134abd7475a1639066e1ef4f25281aa860989bc8ac508d4e52c05"
+    },
+    "fc_detail_reader.py": {
+      "main_and_active_equal": true,
+      "sha256": "9d281149c65490df76bf09e6ad2ffe275fd2f4542037537741b7e49d6772f7b4"
+    },
+    "fc_detail_model.py": {
+      "main_and_active_equal": false,
+      "active_sha256": "e59a195605d7c1298fe450b15249df797c851604fdeb043047d82aba2186af78",
+      "preserved_delta": "current backlog ascending waiting time, unknown age last, matching signal and order_sort"
+    },
+    "range_api.py": {
+      "main_and_active_equal": false,
+      "active_sha256": "2b10d7bb1ef3dce886247163163552466103ed189fc377a29b66e62a53c7846b",
+      "action": "not modified; preserve live management profiles, desktop and live-order routes"
+    }
   },
   "native_product_probe": {
     "period_shanghai": "2026-11-05",
@@ -16,8 +33,22 @@
     "code": 1,
     "product_group_total": 54,
     "sample": [
-      {"pid": "163329311", "native_type": "1", "goods_id": "163329311", "goods_cid": 9623, "pid_filter_order_total": 215, "native_group_order_count": 219},
-      {"pid": "163329345", "native_type": "1", "goods_id": "163329345", "goods_cid": 9623, "pid_filter_order_total": 52, "native_group_order_count": 51}
+      {
+        "pid": "163329311",
+        "native_type": "1",
+        "goods_id": "163329311",
+        "goods_cid": 9623,
+        "pid_filter_order_total": 215,
+        "native_group_order_count": 219
+      },
+      {
+        "pid": "163329345",
+        "native_type": "1",
+        "goods_id": "163329345",
+        "goods_cid": 9623,
+        "pid_filter_order_total": 52,
+        "native_group_order_count": 51
+      }
     ],
     "limit": "two PID filters sampled; whole-order identity, all categories, mixed orders, cross-platform and range-wide enumeration not proven by this probe",
     "count_semantics": "native_group_order_count is not substituted for distinct paid whole orders",
@@ -48,7 +79,14 @@
     "elapsed_seconds": 16.94,
     "paid_orders": 322,
     "native_products": 54,
-    "categories": {"Coins": 297, "Players": 15, "SBC": 5, "Packs": 1, "Other": 2, "unknown": 2},
+    "categories": {
+      "Coins": 297,
+      "Players": 15,
+      "SBC": 5,
+      "Packs": 1,
+      "Other": 2,
+      "unknown": 2
+    },
     "mixed_native_orders": 11,
     "unmatched_orders": 2,
     "limit": "one closed payment day; unknown retained; not a deployed UI or full historical acceptance"
@@ -69,14 +107,70 @@
     "reconciliation_status": "matched",
     "detail_rows": 301,
     "projection_orders": "intentionally absent to verify exact native overall cohort is independent of order/category membership",
-    "all": {"sales_cny": 142228.96, "cost_cny": 105287.85, "gross_profit_cny": 36941.11, "gross_margin_pct": 25.97298749846726},
-    "main": {"sales_cny": 142228.96, "cost_cny": 105287.85, "gross_profit_cny": 36941.11, "gross_margin_pct": 25.97298749846726},
+    "all": {
+      "sales_cny": 142228.96,
+      "cost_cny": 105287.85,
+      "gross_profit_cny": 36941.11,
+      "gross_margin_pct": 25.97298749846726
+    },
+    "main": {
+      "sales_cny": 142228.96,
+      "cost_cny": 105287.85,
+      "gross_profit_cny": 36941.11,
+      "gross_margin_pct": 25.97298749846726
+    },
     "players_without_membership": null,
     "pc_without_membership": null,
     "limit": "actual financial source with minimal projection harness; final complete historical-backlog capture and production UI not claimed"
   },
-  "runtime": {"python": "/opt/python39/bin/python3", "delivery_module_directory": "/opt/fs-hermes-fc"},
-  "reference_images": {"materialization": "blocked", "reason": "official Library helper on Windows fails applying xattrs: os.setxattr unavailable", "visual_basis": "existing RS maintained source; screenshot details not guessed"},
+  "runtime": {
+    "python": "/opt/python39/bin/python3",
+    "delivery_module_directory": "/opt/fs-hermes-fc"
+  },
+  "reference_images": {
+    "materialization": "blocked",
+    "reason": "official Library helper on Windows fails applying xattrs: os.setxattr unavailable",
+    "visual_basis": "existing RS maintained source; screenshot details not guessed"
+  },
   "production_mutations": false,
-  "pii_in_evidence": false
+  "pii_in_evidence": false,
+  "predeployment_read_only_20261106": {
+    "status": "observations_not_deployment_approval_or_current_CAS",
+    "observed_utc_window": "2026-11-06 06:16 to 06:35 UTC",
+    "local_capture_hashes": {
+      "navigation.conf": {
+        "remote_path": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "sha256": "c5733fbd88d63005ecc7c3ce350acddb91ce6fe4a2af2a1712075843602ffffe"
+      },
+      "shell.js": {
+        "remote_path": "/var/lib/fs-navigation-formal-static/dashboard-shipping-profit-20261030-90438c6024b9/shell.js",
+        "sha256": "dca3ea6ed17296bb5efded9b7d8dab835ace6a35cb74c342b9965ed365d10595"
+      },
+      "shell-72d.js": {
+        "remote_path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-72d7ba0dbca8/shell.js",
+        "sha256": "66278928104b1edf1e78b9123b6f18c2781f8065423d886918b2ca2776c613d5"
+      },
+      "legacy-shell.js": {
+        "remote_path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/shell.js",
+        "sha256": "f6c776a5ec169f5d77338a83d312e55185410ab56f224e694bb7c181edb07047"
+      },
+      "shell-37fe.js": {
+        "remote_path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-37fe775358df/shell.js",
+        "sha256": "a5d2a8b8832cb8d4993638aeeb429ff79fa32199f043910b1b97684cee14bb3b"
+      },
+      "business.css": {
+        "remote_path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-8b7908ecad30/business.css",
+        "sha256": "e04751bafbfe3ae3ff706ee55c313d4578337f5fd02cc8d1556c9b489d6b90bd"
+      },
+      "legacy-business.css": {
+        "remote_path": "/var/lib/fs-navigation-formal-static/workspace-native-20261006-fd4cfd0a70aa/business.css",
+        "sha256": "7c5c406d58632e16933a78e4eae420d92789c1b5aeb0f13d3e9d4a16130941e4"
+      }
+    },
+    "shell_state_reproduction": "Five b_fc_* fields excluded by actual readURL/capture/save allowlists; reload/popstate/mode-return drops filters. Three distinct maintained shells must be patched individually.",
+    "landing_37fe": "fs-home/index.html data-page=home executes homeData branch, not FC nativeLoad; preserve.",
+    "range_service": "active PID18742 at observation; /opt/python39/bin/python3 -B /opt/fs-exact-range-20261001/range_api.py; local8931 health ok",
+    "release_gate": "Existing publisher stops range after file replacements; prove controlled before-write quiescence and recovery before production apply.",
+    "production_mutation": false
+  }
 }

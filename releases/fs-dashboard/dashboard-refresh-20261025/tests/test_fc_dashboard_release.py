@@ -17,11 +17,15 @@ class ReleaseTargetTest(unittest.TestCase):
         adapter = types.SimpleNamespace(load_base=lambda: original)
         with patch.dict(sys.modules, {'actual_release': adapter}):
             self.assertIs(release.load_base('fc-dashboard-20261106-0123456789ab'), original)
-        self.assertEqual(len(adapter.TARGETS), 9)
+        self.assertEqual(len(adapter.TARGETS), 12)
         self.assertEqual(adapter.SCOPE, release.SCOPE)
         self.assertEqual(adapter.TARGETS['source/fc_dashboard.py'], '/opt/fs-exact-range-20261001/fc_dashboard.py')
         self.assertEqual(adapter.NEW, frozenset('source/' + name for name in
-            ('business.js', 'home-business.js', 'legacy-business.js', 'business.css', 'fc_dashboard.py')))
+            ('business.js', 'home-business.js', 'legacy-business.js', 'business.css',
+             'shell.js', 'home-shell.js', 'legacy-shell.js', 'fc_dashboard.py')))
+        for name in ('shell.js', 'home-shell.js', 'legacy-shell.js'):
+            self.assertEqual(adapter.TARGETS['source/' + name],
+                '/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-0123456789ab/' + name)
         self.assertNotIn('source/range_api.py', adapter.TARGETS)
         self.assertFalse(any('timer' in path or 'credential' in path for path in adapter.TARGETS.values()))
 

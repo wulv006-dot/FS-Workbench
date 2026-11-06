@@ -10,7 +10,8 @@ def load_base(version=None):
     if not re.fullmatch(r'fc-dashboard-20261106-[0-9a-f]{12}', version):
         raise ValueError('explicit_fc_dashboard_asset_version_required')
     import actual_release
-    assets = ('business.js', 'home-business.js', 'legacy-business.js', 'business.css')
+    assets = ('business.js', 'home-business.js', 'legacy-business.js', 'business.css',
+              'shell.js', 'home-shell.js', 'legacy-shell.js')
     modules = ('fc_detail.py', 'fc_detail_model.py', 'fc_detail_reader.py', 'fc_dashboard.py')
     actual_release.SCOPE = SCOPE
     actual_release.TARGETS = {

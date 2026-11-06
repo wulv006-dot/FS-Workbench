@@ -1,6 +1,8 @@
 // The real business renderer; every API value is fictional and all routes are local.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {chromium}=require('playwright');
+// This CI entry also verifies the real independently maintained shell state paths.
+if(!process.env.RS_VARIANT)require('node:child_process').execFileSync(process.execPath,[path.join(__dirname,'test_fc_shell.cjs')],{stdio:'inherit',timeout:20000});
 const {start,server}=require('./test_browser.cjs');
 const repo=path.resolve(__dirname,'../../../..');
 const vm=require('node:vm');

@@ -26,6 +26,14 @@
 - 已 matched 的原生发货读取和 Admin 订单关联分开保留状态。关联超时只使 `membership_status=partial`，不清空已核实总体；指定品类仍不套总体。PermissionError 仍传播到 CLI 77 且无输出，原生发货本身失败仍 unavailable。
 - 新增环图四种数据情形×三个实际渲染入口的回归，并在三个入口各执行缺价场景 Playwright。后端新增超时、权限和源失败边界后，相关 61 项测试在 Windows 与 183 Linux 均通过；183 包 SHA256 为 `884331421a8cc33752b3f23dd52b2e3632fa8389b5b4d4f75ccab523cb283bb7`。本轮未重新调用生产数据接口，模拟故障不能冒充生产故障演练。
 
+## 生产外壳预检补充（合并前）
+
+实际主外壳、72d 工作区外壳、fd4 旧入口外壳的 `allowed` 白名单遗漏了五个 `b_fc_*` 字段，会在刷新、popstate、跨模块返回时丢失 FC 筛选。三个维护源分别保留各自活动字节，只增加 platform/site_group/customer/product/bucket；不以主外壳覆盖其他入口。原主外壳 SHA256 为 `dca3ea6ed17296bb5efded9b7d8dab835ace6a35cb74c342b9965ed365d10595`；72d 为 `66278928104b1edf1e78b9123b6f18c2781f8065423d886918b2ca2776c613d5`；fd4 为 `f6c776a5ec169f5d77338a83d312e55185410ab56f224e694bb7c181edb07047`。37fe 外壳用于 `data-page=home` 的落地页分支，不挂载 FC，此次不替换。
+
+发布适配器扩展为三个经营 JS、三个外壳、一个 CSS、四个 FC Python 模块及 navigation.conf，共十二个精确目标。候选版本和文件哈希以最新 SOURCE-MAP 为准。业务模块自己的 state/apply 测试不能替代真实外壳的 URL/capture/save/popstate 回归。真实壳回归同时定位并修复了金额档选项异步装载后未回填已保存值的问题，三个业务入口均回填当前查询；未知选项不悄悄切回全部。
+
+生产部署仍未执行。准备阶段确认原发布器会在文件替换后才停止 range；写入前的受控排空/静默与恢复方案尚须实现并验证，不能把原 admission fence 当成所有 HTTP 读取已排空。现网 `range_api.py` 和所有定价/凭据/权限、worker/timer 继续属于保护项。完整现场 CAS、所有者/模式、服务状态须在获批部署窗口重新读取。
+
 ## 未验与限制
 
 用户三张参考图的官方 Library helper 在 Windows xattr 步骤失败，未绕过元数据要求；视觉以现有 RS 源码为依据。一次早期整链只读探针因 SSH 断开无返回，结果未知，已确认临时进程结束；不将它计为通过。最终整链及生产新页面的状态分别记录，不能用截图、语法或离线测试推定上线。
