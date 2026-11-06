@@ -2170,11 +2170,19 @@ function fcNativeAdminMetrics(query){
  if(String(filters.game)!=='1327'||String(filters.pay_status)!=='1'||filters.order_status!==''||['cid','product_type','client','country_code','pay_type','discount_code'].some(k=>filters[k]!=null&&filters[k]!==''))return null;
  if(!['start','end','grain'].every(k=>exact.query?.[k]===selection[k]&&selection[k]===query[k]))return null;
  if(query.grain==='hour'){
-  const stamp=v=>/^\d{4}-\d{2}-\d{2} \d{2}:00$/.test(v||'')?Date.parse(v.replace(' ','T')+':00Z'):NaN;
+  const stamp=v=>{
+   if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(v))return NaN;
+   const value=Date.parse(v.replace(' ','T')+':00Z');
+   return Number.isFinite(value)&&new Date(value).toISOString().slice(0,16).replace('T',' ')===v?value:NaN;
+  };
   if(admin.period?.start!==profile.period?.start||admin.period?.end!==profile.period?.end)return null;
-  const actual=exact.query?.period;
-  if(actual?.start&&actual?.end){if(admin.period.start!==actual.start||admin.period.end!==actual.end)return null;}
-  else if(stamp(admin.period?.start)!==stamp(query.start)||stamp(admin.period?.end)!==stamp(query.end)+3600000)return null;
+  const start=stamp(query.start),last=stamp(query.end),from=stamp(admin.period?.start),to=stamp(admin.period?.end),limit=last+3600000;
+  if(![start,last,from,to].every(Number.isFinite)||!query.start.endsWith(':00')||!query.end.endsWith(':00')||last<start||from!==start||to<=from||to>limit)return null;
+  const requested=exact.query?.period;
+  if(requested!=null){
+   const requestStart=stamp(requested.start),requestEnd=stamp(requested.end);
+   if(![requestStart,requestEnd].every(Number.isFinite)||requestStart!==start||requestEnd<=requestStart||requestEnd>limit||to>requestEnd)return null;
+  }else if(to!==limit)return null;
  }else if(!FSBusinessRange.matches(admin.period,query))return null;
  let site;
  if(query.site_group==='all'&&selection.profit_site==='all'&&admin.normalisedScope==='all-websites'&&['',0,'0'].includes(filters.site))site='全部网站';
@@ -2183,7 +2191,7 @@ function fcNativeAdminMetrics(query){
   if(!Array.isArray(channels)||(channels.length?channels.length!==1||(channels[0].code||channels[0].name)!=='www.mmoexp.com':admin.metrics?.orders?.value!==0))return null;
   site='MMOEXP主站';
  }else return null;
- return {metrics:admin.metrics||{},site,stale:!!(admin.stale||exact.stale||exact.sources?.Admin?.stale)};
+ return {metrics:admin.metrics||{},site,cutoff:admin.period?.end,capturedAt:admin.capturedAt,stale:!!(admin.stale||exact.stale||exact.sources?.Admin?.stale)};
 }
 function fcUpdateMetrics(){
  if(KEY!=='FC27')return;
@@ -2194,7 +2202,7 @@ function fcUpdateMetrics(){
   const key=card.dataset.metric,isNative=nativeKeys.includes(key),item=isNative?native?.metrics[key]:null,v=isNative?(item?.status==='available'?item.value:null):metric[key],known=Number.isFinite(v),profit=['profitCny','profitMarginPct'].includes(key),label=card.querySelector('small');
   const formatted=known?(key==='profitCny'?'¥'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):key.endsWith('Pct')?v.toFixed(2)+'%':key.endsWith('Usd')?fcMoney(v):fmtN(v)):exactPermissionDenied()?'读取失败':fcDetailState.error?'读取失败':isNative&&scope.summaryPolling||fcDetailPending&&!d?'待读取':'暂缺';
   fcSetText(card.querySelector('strong'),formatted);
-  fcSetText(label,isNative?'Admin原生汇总 · '+(native?native.site+(native.stale||item?.stale?' · 缓存旧值':'')+(!known?' · 该指标未提供':''):'当前筛选未提供'):profit?'Order发货统计 · 交易时间 · 人民币 · 同一筛选'+(!known?' · 当前细分未提供':''):'Admin已付款订单 · USD · 同一筛选');
+  fcSetText(label,isNative?'Admin原生汇总 · '+(native?native.site+(native.cutoff?' · 统计截至 '+native.cutoff:'')+(native.stale||item?.stale?' · 缓存旧值':'')+(!known?' · 该指标未提供':''):'当前筛选未提供'):profit?'Order发货统计 · 交易时间 · 人民币 · 同一筛选'+(!known?' · 当前细分未提供':''):'Admin已付款订单 · USD · 同一筛选');
  }
  const head=document.querySelector('#supplement-insights .fsi-heading h3');fcSetText(head,'FC27 · '+fcName(fcFilters.product)+' · '+fcName(fcQuery().site_group));
 }
