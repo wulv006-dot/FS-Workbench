@@ -367,6 +367,7 @@ class NativeKnowledge:
             summary['reviewed_skills'] = {k: v for k, v in pin['reviewed_skills'].items() if k != 'documents'}
             summary['reviewed_skills'].update(items=list(pin['reviewed_skills']['items']), additional_items=0)
             header = header.rstrip('\n') + ('已审技能目录及SKILL.md按本任务模块及包哈希冻结；'
+                       'modules只能选索引顶层modules；技能条目modules是适用范围，读技能取两者交集，不增加任务权限。'
                        '用fs_read_knowledge传modules及skill_id按需读固定正文，原skill_view能力保持。'
                        '目录存在不代表本轮已读正文或已成功运用；缺失目录不取消原技能能力。\n')
         while len(header + json.dumps(summary, ensure_ascii=False, sort_keys=True)) > 4000:
@@ -505,7 +506,8 @@ def register(ctx):
     adapter = NativeKnowledge()
     ctx.register_system_prompt_section('fs.knowledge', adapter.prompt, max_chars=4000)
     ctx.register_hook('pre_tool_call', adapter.guard)
-    fields = {'modules': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1},
+    fields = {'modules': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1,
+                         'description': 'Choose only from the pinned index top-level modules. Skill item modules describe skill applicability, not additional task permissions; for a skill use their intersection with top-level modules.'},
               'skill_id': {'type': 'string', 'description': 'Ordinary approved task only: read a selected reviewed skill SKILL.md frozen for this task. Combine only with modules; never available in isolated readonly tests.'},
               'entry_ids': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1},
               'revision': {'type': 'string', 'description': 'Exact historical revision; requires history=true. Use when an id has multiple versions.'},
