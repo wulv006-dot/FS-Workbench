@@ -421,10 +421,11 @@ class UnifiedBudget:
             if not originals:continue
             # A title/compaction request with no tool history has nothing to replay.
             if not request['tools'] and not any(m.get('tool_calls') for m in messages):continue
+            native_key='native_dialogue_sha256' if 'native_dialogue_sha256' in receipt else 'native_messages_sha256'
             native_prefix=(_native_guard is not None and native_scope(_native_guard[0])
-                           and 'native_messages_sha256' in receipt)
-            if native_prefix and (type(receipt['native_messages_sha256']) is not str or
-                                  not re.fullmatch('[a-f0-9]{64}',receipt['native_messages_sha256'])):
+                           and native_key in receipt)
+            if native_prefix and (type(receipt[native_key]) is not str or
+                                  not re.fullmatch('[a-f0-9]{64}',receipt[native_key])):
                 _raise_native_model_guard('provider_tool_history_changed',_native_guard)
             positions=[]
             for position,message in enumerate(messages):
@@ -432,7 +433,9 @@ class UnifiedBudget:
                 if message.get('role')!='assistant' or not message.get('tool_calls'):continue
                 if [c['id'] for c in message['tool_calls']]!=[c['id'] for c in originals]:continue
                 prefix=messages[:position] if native_prefix else dict(request,messages=messages[:position])
-                expected=receipt['native_messages_sha256'] if native_prefix else row[1]
+                if native_prefix and native_key=='native_dialogue_sha256':
+                    prefix=[m for m in prefix if m.get('role')!='system']
+                expected=receipt[native_key] if native_prefix else row[1]
                 if digest(prefix)==expected:positions.append(position)
             if len(positions)!=1 or matched and positions[0]<=matched[-1]:
                 _raise_native_model_guard('provider_tool_history_changed',_native_guard)
@@ -555,7 +558,9 @@ class UnifiedBudget:
             # Server-produced metadata only; never an input field or authority
             # for tools. Full request identity stays in the budget reservation.
             if _native_guard is not None and native_scope(_native_guard[0]):
-                receipt['native_messages_sha256']=digest(request['messages'])
+                # Official SDK ephemeral system context may change each call.
+                # User/assistant/tool history still binds the paid tool reply.
+                receipt['native_dialogue_sha256']=digest([m for m in request['messages'] if m.get('role')!='system'])
             receipt['finish_reason']=finish_reason
             validation=response.get('model_validation')
             if isinstance(validation,dict):

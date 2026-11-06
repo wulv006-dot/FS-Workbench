@@ -490,6 +490,28 @@ class NativeToolHistory(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'^provider_tool_history_changed$'):self.dispatch(h)
             self.assertEqual(len(h.wire),1)
 
+    def test_pinned_sdk_ephemeral_context_can_change_after_paid_tools(self):
+        from fixed_sdk_aad_wire import build_wire
+        with self.history_fixture() as h:
+            history=deepcopy(h.body['messages'])
+            h.body['messages']=build_wire(history,h.body['tools'],ephemeral_system_prompt='Original runtime context')
+            self.dispatch(h)
+            history+=h.replay(h.calls)
+            h.body['messages']=build_wire(history,h.body['tools'],ephemeral_system_prompt='Updated runtime context')
+            self.assertEqual(self.dispatch(h)['choices'][0]['message']['content'],'synthetic answer')
+            self.assertEqual(len(h.wire),2)
+            self.assertNotEqual(h.wire[0]['messages'][0]['content'],h.wire[1]['messages'][0]['content'])
+
+    def test_system_messages_are_not_native_dialogue_identity(self):
+        for action in ('insert','remove'):
+            with self.subTest(action=action),self.history_fixture() as h:
+                if action=='remove':h.body['messages'].insert(0,dict(role='system',content='Original context'))
+                self.dispatch(h);h.body['messages']+=h.replay(h.calls)
+                if action=='insert':h.body['messages'].insert(0,dict(role='system',content='Current context'))
+                else:h.body['messages'].pop(0)
+                self.assertEqual(self.dispatch(h)['choices'][0]['message']['content'],'synthetic answer')
+                self.assertEqual(len(h.wire),2)
+
     def test_native_output_controls_do_not_lock_paid_tool_replay(self):
         # Native Hermes may change valid request controls while continuing the
         # same paid tools. They are not tool identity or business authority.
@@ -514,7 +536,7 @@ class NativeToolHistory(unittest.TestCase):
             self.dispatch(h)
             with h.db() as conn:
                 fingerprint,raw=conn.execute('SELECT fingerprint,content FROM model_calls').fetchone()
-                receipt=json.loads(raw);receipt.pop('native_messages_sha256',None)
+                receipt=json.loads(raw);receipt.pop('native_messages_sha256',None);receipt.pop('native_dialogue_sha256',None)
                 conn.execute('UPDATE model_calls SET content=? WHERE fingerprint=?',(json.dumps(receipt),fingerprint))
             h.body['messages']+=h.replay(h.calls);h.body['max_tokens']=16
             with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
@@ -527,7 +549,7 @@ class NativeToolHistory(unittest.TestCase):
                 self.dispatch(h)
                 with h.db() as conn:
                     fingerprint,raw=conn.execute('SELECT fingerprint,content FROM model_calls').fetchone()
-                    receipt=json.loads(raw);receipt['native_messages_sha256']=marker
+                    receipt=json.loads(raw);receipt['native_dialogue_sha256']=marker
                     conn.execute('UPDATE model_calls SET content=? WHERE fingerprint=?',(json.dumps(receipt),fingerprint))
                 h.body['messages']+=h.replay(h.calls)
                 with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
@@ -540,7 +562,7 @@ class NativeToolHistory(unittest.TestCase):
             with h.db() as conn:
                 import json
                 fingerprint,raw=conn.execute('SELECT fingerprint,content FROM model_calls').fetchone()
-                receipt=json.loads(raw);receipt.pop('native_messages_sha256',None)
+                receipt=json.loads(raw);receipt.pop('native_messages_sha256',None);receipt.pop('native_dialogue_sha256',None)
                 conn.execute('UPDATE model_calls SET content=? WHERE fingerprint=?',(json.dumps(receipt),fingerprint))
                 conn.execute("UPDATE hermes_reservations SET request_digest=?",('0'*64,))
             with self.assertRaisesRegex(ValueError,'^provider_tool_history_changed$'):self.dispatch(h)
@@ -601,6 +623,17 @@ class NativeCompactionHistory(unittest.TestCase):
             self.sdk_compact(h)
             with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
             self.assertEqual(len(h.wire),1)
+
+    def test_pinned_sdk_system_context_can_update_after_compaction(self):
+        from fixed_sdk_aad_wire import build_wire
+        with self.fixture() as h:
+            self.dispatch(h);h.body['messages']+=h.replay(h.calls);self.sdk_compact(h)
+            dialogue=[m for m in h.body['messages'] if m.get('role')!='system']
+            h.body['messages']=build_wire(dialogue,h.body['tools'],ephemeral_system_prompt='Original system context')
+            self.confirm(h)
+            h.body['messages']=build_wire(dialogue,h.body['tools'],ephemeral_system_prompt='Updated system context')
+            self.assertEqual(self.dispatch(h)['choices'][0]['message']['content'],'synthetic answer')
+            self.assertEqual(len(h.wire),2)
 
     def test_paid_tools_official_compaction_then_more_paid_tools_complete(self):
         for keep_tail in (False,True):
