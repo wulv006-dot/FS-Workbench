@@ -68,7 +68,7 @@ def handle(handler, method, uri, user, service, authorized):
         if material_route and status == 404:
             data = dict(data, stage=material_stage, source='material_http')
         return respond(handler, status, data, *args, **kwargs)
-    ids = ([parts[0]] if parts else []) + ([parts[2]] if len(parts) > 2 else [])
+    ids = ([parts[1]] if len(parts)>1 else []) if parts and parts[0]=='pricing-reviews' else (([parts[0]] if parts else []) + ([parts[2]] if len(parts)>2 else []))
     if any(not re.fullmatch(IDENT, part) for part in ids):
         reply(404, {"error": "not_found"})
         return True
@@ -78,6 +78,21 @@ def handle(handler, method, uri, user, service, authorized):
         return True
     try:
         params = parse_qs(uri.query, keep_blank_values=True, max_num_fields=2)
+        if parts and parts[0] == 'pricing-reviews':
+            # This route has a separate store and one-slot model lane. It never
+            # creates a turn in the ordinary investigation/report conversation.
+            if method == 'POST' and len(parts) == 1 and not params:
+                body = read_json(handler)
+                if body: raise ValueError('pricing_review_create_body')
+                respond(handler, 201,service.pricing.create(user))
+            elif method == 'POST' and len(parts) == 3 and parts[2] == 'turns' and not params and re.fullmatch(IDENT,parts[1]):
+                body = read_json(handler, {'text','client_request_id','run_id'})
+                respond(handler, 202,service.pricing.submit_pricing(user,parts[1],body['text'],body['client_request_id'],body['run_id']))
+            elif method == 'GET' and len(parts) == 2 and not params and re.fullmatch(IDENT,parts[1]):
+                respond(handler, 200,service.pricing.detail(user,parts[1]))
+            else:
+                respond(handler, 404,{'error':'not_found'})
+            return True
         if diagnostic_route:
             if method == 'GET' and len(parts) == 2 and not uri.query:
                 diagnostics = getattr(service, 'runtime_diagnostics', None)
