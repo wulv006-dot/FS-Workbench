@@ -210,6 +210,26 @@ def expected_state(snapshot, preview, changed):
             raise ValueError("before_b2c_changed:" + platform)
 
 
+def save_cost(page, preview, record, platform):
+    old=next(row for row in preview['backend_before']['rows'] if row['platform']==platform)
+    target=next(row for row in preview['targets'] if row['platform']==platform)
+    try:
+        page.evaluate("args => FC27RepricingDOM.setCost(...args)",
+                      [platform,target['id'],old['costPrice'],target['targetCost'],old['b2c']])
+    except Exception as error:
+        # The inline AJAX save can finish after its UI polling timeout; never post it again.
+        previous=None
+        for _ in range(2):
+            page.reload(wait_until='domcontentloaded',timeout=35000)
+            observed=read_backend(page,preview['targets'],prepare=True)
+            expected_state(observed,preview,record['changed']+[platform])
+            if previous is not None and previous!=observed['rows']:
+                raise ValueError('save_readback_unstable:'+platform) from error
+            previous=observed['rows']
+        record.setdefault('cost_save_readbacks',{})[platform]=dict(
+            status='saved_after_inline_timeout',inline_error=type(error).__name__,rows=previous)
+
+
 def mirror_after_order_confirmation(record):
     """A failed ALL login before any dispatch cannot undo confirmed Order prices."""
     policy = load_policy()
@@ -353,9 +373,7 @@ def execute(preview_id, execution_id, actor, selected, margin_confirmed=None, ch
                                    current_quote=lambda: current_cycle_quote(preview_id, selected, policy_revision))
                 BUSINESS_DISPATCH_STARTED=True
                 stage(record, "saving_" + platform)
-                page.evaluate("args => FC27RepricingDOM.setCost(...args)",
-                              [platform, target["id"], old["costPrice"],
-                               target["targetCost"], old["b2c"]])
+                save_cost(page, preview, record, platform)
                 current = read_backend(page, preview["targets"])
                 if not same_money(next(row for row in current["rows"] if row["platform"] == platform)["costPrice"], target["targetCost"]):
                     raise ValueError("save_readback_mismatch:" + platform)

@@ -1,0 +1,15 @@
+# Inline save confirmation recovery — 2026-11-06
+
+The active smart plan is blocked by original operation `8b47dc58-dcfd-587e-9af2-62aa72bf2ace`, created at 2026-11-05 22:27 UTC+8. Its audit stopped during `saving_PS`. Two independent Order reads confirmed PS at the target, Xbox at its before value, and PC unchanged. There is no original sync success receipt. This is a partial write, not a successful completed cycle.
+
+The writer now handles an inline-save exception by reloading and checking the full expected platform state twice. It never repeats that save. An unchanged, unexpected or unstable row still fails. The existing explicit Order sync feedback, Admin confirmation, ALL completion and original-operation protections remain in place.
+
+The one-file patch was backed up and published using the existing FC publisher's atomic replacement and the price-writer lock. The deployed SHA-256 is `c036000015ece4201c3262a22bd08b7859a6d7a9b7a5d6689f10f73695876ffa`; backup: `/var/lib/fc27-cloud/rollback/inline-save-readback-20261106`. No service restart or plan/policy change was needed.
+
+Validation: five new behavioral tests passed locally and on 183 in an isolated temporary directory. The related Order-close suite ran 82 tests (three platform-dependent skips); original reconciliation ran ten tests successfully. A read-only real-Order check exercised the new recovery branch with a forced inline exception, two independent refreshed reads, and zero price requests.
+
+The broader local pr-fast run failed: the sparse Windows checkout was missing daily-review dependencies, legacy source hashes differ with Windows line endings, and the historical knowledge-stage test rejects the current index. These failures are not a passing formal CI result. Missing daily-review source directories have subsequently been restored; formal CI is tracked on the repair PR.
+
+For the outstanding operation, collection `061bbbd5-aef4-5e6a-95d1-54442f5c9e9a` rechecked current costs, FX, competition and the current eight-day discount cohort. Its original target passed double-20 validation at that time. A read-only continuation preflight confirmed PS already saved and Xbox not yet sent. A recovery-script parameter mistake earlier updated the recovery audit, but its Xbox invocation failed with `ReferenceError: FC27RepricingDOM is not defined` before any price request. Two subsequent Order reads confirmed Xbox unchanged. Original audit backup and the failed attempt are preserved; do not infer a sent price request from that audit's `saving_XBOX` intent alone.
+
+The actual Xbox continuation and first sync were rejected by automatic approval review for lack of explicit authorization for that specific live business write. They have not been executed. User authorization is pending. On authorization, refresh the financial evidence if its TTL has elapsed, reconcile this same original operation and its saved audit first, then continue only the proven unsent stages. Do not create a replacement operation, clear its state or replay PS. Natural-cycle recovery is not yet verified.
