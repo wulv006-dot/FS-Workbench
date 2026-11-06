@@ -705,7 +705,7 @@ function renderPublishedProfitHistory(rateIn){
  const pts=KEY==='FC27'?(fd?.fc_dashboard?.trend||[]).map(r=>({day:r.date,rate:Number.isFinite(r.gross_margin_pct)?r.gross_margin_pct:null,sales:r.shipping_sales_cny,orders:null,profit:r.gross_profit_cny})):publishedProfitDays(INSIGHTS_SNAPSHOT,KEY,q.start,q.end);if(pts===null)return false;
  const wrap=document.getElementById('profitWrap'),pane=document.getElementById('pfPane'),div=document.getElementById('pfDiv'),el=document.getElementById('chartProfit'),hint=document.getElementById('profitHint'),legend=document.getElementById('profitLegend'),label=document.getElementById('lblProfit');
  if(wrap)wrap.style.display='none';if(pane)pane.style.display='';if(div)div.style.display='';if(!el)return true;
- if(KEY==='FC27'&&pts.length===1){hint.textContent='Order发货统计 · 同一筛选 · '+(q.grain==='hour'?'小时':'单日');label.textContent='发货毛利率';legend.innerHTML='';el.innerHTML='<div class="empty">'+(pts[0].rate==null?'毛利率暂缺':esc(pts[0].rate.toFixed(2)+'%'))+(q.grain==='hour'?' · 单小时汇总':' · 单日汇总；可切换小时查看销售明细')+'</div>';return true;}
+ if(KEY==='FC27'&&pts.length===1){hint.textContent='Order发货统计 · 同一筛选 · '+(q.grain==='hour'?'小时':'单日');label.textContent='发货毛利率';legend.innerHTML='';el.innerHTML='<div class="empty">'+(pts[0].rate==null?'毛利率暂缺':esc(pts[0].rate.toFixed(2)+'%'))+(q.grain==='hour'?' · 单小时汇总':' · 单日汇总')+'</div>';return true;}
  const noSales=pts.filter(p=>p.notApplicable).length;
  const known=pts.filter(p=>p.rate!==null),fresh=known.filter(p=>!p.stale),stale=known.length-fresh.length;
  hint.textContent=KEY==='FC27'?`Order发货统计 · 同一筛选 · ${q.grain==='hour'?'小时':'自然日'} · ${known.length}/${pts.length} 已提供，缺失不补零`:`所选 ${pts.length} 日 · 已提供 ${known.length} 日 · ${dailyQuery?.pending?'其余日期按需读取中':'缺失 '+(pts.length-known.length-noSales)+' 日'+(noSales?' · '+noSales+' 日无销售额，利润率不适用':'')}${dailyQuery?.error?' · '+dailyQuery.error:''}${stale?' · '+stale+' 日保留旧值（过期）':''} · 完整北京自然日；今日未结束不计入完整日利润`;
@@ -788,8 +788,8 @@ function bindProfitTip(el, pts, x, W){
 function renderMain(){
   if(exactPermissionDenied()){renderExactPermissionFailure();return;}
   const fd=KEY==='FC27'&&fcSameQuery(fcDetailState.data?.query,fcQuery())?fcDetailState.data:null;
-  const raw=fd?.fc_dashboard?.trend||[];
-  const IH = isHour();
+  const sales=fcSalesProjection(fd),raw=sales.rows;
+  const IH = KEY==='FC27'?sales.grain==='hour':isHour();
   const rows = KEY==='FC27'?(raw.every(r=>Number.isFinite(r.orders)&&Number.isFinite(r.revenue_usd))?raw.map(r=>({...r,orders:r.orders,amount:r.revenue_usd,...(IH?{day:r.date.slice(0,10),idx:Number(r.date.slice(11,13))}:{})})):[]):rowsInRange();
   const el = document.getElementById('chartMain');
   const hint = document.getElementById('mainHint');
@@ -797,14 +797,15 @@ function renderMain(){
   const note = document.getElementById('mainNote');
   const leg = document.getElementById('mainLegend');
   if(!rows.length){
+    if(KEY==='FC27'&&sales.automatic){title.textContent='每小时订单量与销售额';hint.textContent=sales.cutoffLabel;leg.innerHTML='';note.style.display='none';el.innerHTML='<div class="empty">小时订单与销售趋势暂缺或部分小时缺失；缺失不补零。</div>';return;}
     el.innerHTML='<div class="empty">'+(KEY==='FC27'?'同筛选趋势待读取或部分数据缺失，缺失不补零':scope.summary?.profile?.primary?.status==='available'&&scope.summary.profile.primary.seriesGranularity!=='day-or-hour'?'上游未提供带实际日期的逐日/小时序列，区间汇总见上方。':'该区间未提供日期序列。')+'</div>'; hint.textContent='';
     note.style.display='none'; return;
   }
-  if(KEY==='FC27'&&raw.length===1){title.textContent=IH?'单小时订单量与销售额':'当日订单量与销售额';hint.textContent=raw[0].date;leg.innerHTML='';note.style.display='none';el.innerHTML='<div class="empty">订单 '+(Number.isFinite(raw[0].orders)?fmtN(raw[0].orders):'暂缺')+' · 销售额 '+fcMoney(raw[0].revenue_usd)+(IH?' · 单小时汇总':' · 可切换小时查看明细')+'</div>';return;}
+  if(KEY==='FC27'&&raw.length===1&&!sales.automatic){title.textContent=IH?'单小时订单量与销售额':'当日订单量与销售额';hint.textContent=raw[0].date;leg.innerHTML='';note.style.display='none';el.innerHTML='<div class="empty">订单 '+(Number.isFinite(raw[0].orders)?fmtN(raw[0].orders):'暂缺')+' · 销售额 '+fcMoney(raw[0].revenue_usd)+(IH?' · 单小时汇总':' · 可切换小时查看明细')+'</div>';return;}
   const meta = P().hourlyMeta || {};
-  const lastIsNow = IH && !!meta.incompleteHour;
+  const lastIsNow = sales.automatic?sales.partialHour:IH && !!meta.incompleteHour;
   title.textContent = IH ? '每小时订单量与销售额' : '每日订单量与销售额';
-  hint.textContent = `${rows[0].date} ~ ${rows[rows.length-1].date}，共 ${rows.length} ${IH?'小时':'天'}`;
+  hint.textContent = `${rows[0].date} ~ ${rows[rows.length-1].date}，共 ${rows.length} ${IH?'小时':'天'}`+(sales.automatic&&sales.cutoffLabel?' · '+sales.cutoffLabel:'');
   const tdesc = document.getElementById('trendDesc');
   if(tdesc) tdesc.textContent = IH ? '按小时粒度' : '按天粒度';
   leg.innerHTML = `<span><i style="background:#0071e3"></i>订单量（左轴）</span>`
@@ -816,6 +817,7 @@ function renderMain(){
       + (lastIsNow ? ` <span class="warn">最后一根是尚未过完的小时，数值仍会增长。</span>` : '');
   }
 
+  if(sales.automatic){note.innerHTML=sales.cutoffLabel?esc(sales.cutoffLabel):'';note.style.display=sales.cutoffLabel?'':'none';}
   const W=KEY==='FC27'?Math.max(560,el.clientWidth||560):1320,H=KEY==='FC27'?240:340,PL=64,PR=74,PT=16,PB=IH?52:42;
   const iw=W-PL-PR, ih=H-PT-PB;
   const maxO=Math.max(...rows.map(r=>r.orders),1);
@@ -868,10 +870,10 @@ function renderMain(){
       <linearGradient id="gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0071e3" stop-opacity=".95"/><stop offset="100%" stop-color="#0071e3" stop-opacity=".35"/></linearGradient>
       <linearGradient id="gbt" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f5a623" stop-opacity=".95"/><stop offset="100%" stop-color="#f5a623" stop-opacity=".35"/></linearGradient>
     </defs>${g}</svg>`;
-  bindTip(el, rows, x, W);
+  bindTip(el, rows, x, W, KEY==='FC27'?lastIsNow:undefined);
 }
 
-function bindTip(el, rows, x, W){
+function bindTip(el, rows, x, W, lastIncomplete){
   const tip=document.getElementById('tip');
   el.querySelectorAll('.hz').forEach(hz=>{
     hz.addEventListener('mousemove',ev=>{
@@ -879,7 +881,7 @@ function bindTip(el, rows, x, W){
       const prev=i>0?rows[i-1]:null;
       const dod=prev&&prev.orders?((r.orders-prev.orders)/prev.orders*100):null;
       const prov = !r.day && r.date===todayStr() ? ' <span class="pill warn">当日进行中</span>' : '';
-      const now = r.day && (P().hourlyMeta||{}).incompleteHour && i===rows.length-1
+      const now = r.day && (lastIncomplete===undefined?(P().hourlyMeta||{}).incompleteHour:lastIncomplete) && i===rows.length-1
                 ? ' <span class="pill warn">未过完</span>' : '';
       const unitTxt = r.day ? '环比上一小时' : '';
       tip.innerHTML=`<b>${esc(r.date)}</b> ${WD[weekdayOf(r.day||r.date)]}${prov}${now}<br>`+
@@ -2220,15 +2222,25 @@ function fcLine(rows,series,label,format=fmtN){
  const lo=Math.min(0,...known),hi=Math.max(1,...known),span=hi-lo||1,x=i=>L+iw*(rows.length===1?.5:i/(rows.length-1)),y=v=>T+ih-(v-lo)/span*ih;
  let out='';for(let i=0;i<=4;i++){const v=lo+span*i/4,py=y(v);out+=`<line x1="${L}" y1="${py}" x2="${W-R}" y2="${py}" stroke="currentColor" opacity=".12"/><text x="${L-10}" y="${py+4}" text-anchor="end" fill="currentColor" font-size="11">${esc(format(v))}</text>`;}
  for(const [index,s] of series.entries()){let path='';rows.forEach((r,i)=>{const v=s.get(r);if(!Number.isFinite(v)){path='';return;}const point=`${x(i)},${y(v)}`;if(path)out+=`<line x1="${path.split(',')[0]}" y1="${path.split(',')[1]}" x2="${x(i)}" y2="${y(v)}" stroke="${fcPalette[index%fcPalette.length]}" stroke-width="2"/>`;path=point;out+=`<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${fcPalette[index%fcPalette.length]}"><title>${esc(r.date)} · ${esc(s.label)} ${esc(format(v))}</title></circle>`;});}
- rows.forEach((r,i)=>{if(i%Math.ceil(rows.length/8)===0||i===rows.length-1)out+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" fill="currentColor" font-size="11">${esc(r.date.slice(5))}</text>`;});
+ rows.forEach((r,i)=>{if(i%Math.ceil(rows.length/8)===0||i===rows.length-1)out+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" fill="currentColor" font-size="11">${esc(rows[0]?.date.slice(0,10)===rows[rows.length-1]?.date.slice(0,10)&&r.date.length>10?r.date.slice(11):r.date.slice(5))}</text>`;});
  return `<div class="fc-line"><svg role="img" aria-label="${esc(label)}" viewBox="0 0 ${W} ${H}">${out}</svg></div><div class="fc-line-legend">${series.map((s,i)=>`<span><i style="background:${fcPalette[i%fcPalette.length]}"></i>${esc(s.label)}</span>`).join('')}</div><details class="fc-chart-values"><summary>查看${esc(label)}数据</summary>${fcTable(['日期',...series.map(s=>s.label)],rows.map(r=>`<tr><td>${esc(r.date)}</td>${series.map(s=>`<td>${Number.isFinite(s.get(r))?esc(format(s.get(r))):'暂缺'}</td>`).join('')}</tr>`))}</details>`;
 }
+// Display-only projection: the selected query and daily financial totals stay intact.
+function fcSalesProjection(d){
+ const q=d?.query,automatic=q?.grain==='day'&&/^\d{4}-\d{2}-\d{2}$/.test(q.start||'')&&q.start===q.end;
+ const rows=automatic?d?.fc_dashboard?.hourly_trend:d?.fc_dashboard?.trend,points=Array.isArray(rows)?rows:[];
+ const cutoff=automatic?(d?.source_period?.end||q?.period?.end):null,validCutoff=typeof cutoff==='string'&&/^\d{4}-\d{2}-\d{2} (?:[01]\d|2[0-3]):[0-5]\d$/.test(cutoff);
+ const partialHour=validCutoff&&!cutoff.endsWith(':00')&&points[points.length-1]?.date===cutoff.slice(0,13)+':00';
+ const cutoffLabel=validCutoff?'统计截至 '+cutoff+(!cutoff.endsWith(':00')?'；最后小时未完整':''):'';
+ return {rows:points,grain:automatic?'hour':q?.grain||(isHour()?'hour':'day'),automatic,partialHour,cutoffLabel};
+}
 function fcDashboardDraw(d){
- const dashboard=d.fc_dashboard,rows=dashboard?.trend||[],categories=(dashboard?.categories||[]).filter(c=>fcFilters.product==='all'||c.key===fcFilters.product),metric=fcStructureMetric,label=metric==='orders'?'订单数':'USD销售额';
+ const dashboard=d.fc_dashboard,sales=fcSalesProjection(d),rows=sales.rows,categories=(dashboard?.categories||[]).filter(c=>fcFilters.product==='all'||c.key===fcFilters.product),metric=fcStructureMetric,label=metric==='orders'?'订单数':'USD销售额';
  const state=fcHost.querySelector('.fc-state');let classificationNote=state.querySelector('[data-fc-classification-note]');if(dashboard?.coverage?.classification_status==='partial'){if(!classificationNote){classificationNote=document.createElement('span');classificationNote.dataset.fcClassificationNote='';state.append(classificationNote);}classificationNote.textContent=' · 商品身份或完整性待核，分类未完整';}else classificationNote?.remove();
  const structure=fcHost.querySelector('[data-fc-content=structure]');
  const incomplete=categories.some(c=>!Number.isFinite(c[metric]))||rows.some(r=>(r.categories||[]).some(c=>!Number.isFinite(c[metric])))||!fcPaidComplete(d);
- structure.innerHTML=`<div class="row2 eq"><article class="card"><h3>商品分类结构</h3><div class="fc-actions">${[['revenue_usd','销售额'],['orders','订单数']].map(([key,title])=>`<button type="button" data-fc-metric="${key}" aria-pressed="${metric===key}">${title}</button>`).join('')}</div>${fcRing(categories,metric,incomplete?'已知'+label+'（子集）':label)}<p class="hint">每单唯一归属；未识别项保留未知。</p></article><article class="card"><h3>分类${incomplete?'已知':''}${label}趋势${incomplete?'（子集）':''}</h3><p class="hint">跟随当前日期与粒度 · Admin付款时间${incomplete?' · 缺失分类或日期不补零':''}</p>${rows.length===1?'<div class="empty">'+(isHour()?'单小时分类汇总见分类结构。':'单日分类汇总见分类结构；可切换小时查看趋势。')+'</div>':fcLine(rows,categories.map(c=>({label:c.label||fcName(c.key),get:r=>d.coverage?.missing_days?.includes(r.date.slice(0,10))?null:fcKnown(r.categories?.find(v=>v.key===c.key),metric)})),'分类'+label+'趋势',metric==='orders'?fmtN:fcMoney)}</article></div>`;
+ structure.innerHTML=`<div class="row2 eq"><article class="card"><h3>商品分类结构</h3><div class="fc-actions">${[['revenue_usd','销售额'],['orders','订单数']].map(([key,title])=>`<button type="button" data-fc-metric="${key}" aria-pressed="${metric===key}">${title}</button>`).join('')}</div>${fcRing(categories,metric,incomplete?'已知'+label+'（子集）':label)}<p class="hint">每单唯一归属；未识别项保留未知。</p></article><article class="card"><h3>分类${incomplete?'已知':''}${label}趋势${incomplete?'（子集）':''}</h3><p class="hint">跟随当前日期与粒度 · Admin付款时间${incomplete?' · 缺失分类或日期不补零':''}</p>${!rows.length&&sales.automatic?'<div class="empty">小时分类趋势暂缺；未提供可验证的小时数据，缺失不补零。</div>':rows.length===1&&!sales.automatic?'<div class="empty">'+(isHour()?'单小时分类汇总见分类结构。':'单日分类汇总见分类结构；可切换小时查看趋势。')+'</div>':fcLine(rows,categories.map(c=>({label:c.label||fcName(c.key),get:r=>d.coverage?.missing_days?.includes(r.date.slice(0,10))?null:fcKnown(r.categories?.find(v=>v.key===c.key),metric)})),'分类'+label+'趋势',metric==='orders'?fmtN:fcMoney)}</article></div>`;
+ if(sales.automatic)structure.querySelector('.row2 > article:last-child .hint')?.prepend('小时趋势 · '+(sales.cutoffLabel?sales.cutoffLabel+' · ':''));
  fcUpdateMetrics();renderProfit();renderMain();renderStructure();
 }
 

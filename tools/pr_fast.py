@@ -1046,7 +1046,7 @@ def main():
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_shipping_ui.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_fc_dashboard.cjs")
             for variant in ("business.js", "home-business.js", "legacy-business.js"):
-                for script in ("test_fc_rs_visual.cjs", "test_fc_native_customer_kpis.cjs"):
+                for script in ("test_fc_rs_visual.cjs", "test_fc_native_customer_kpis.cjs", "test_fc_single_day_hourly.cjs"):
                     subprocess.run(["node", str(ROOT/"releases/fs-dashboard/dashboard-refresh-20261025/tests"/script)],
                         cwd=ROOT, check=True, timeout=60,
                         env=dict(os.environ, RS_VARIANT=variant, FC_RS_VISUAL_EVIDENCE=str(ROOT/".qa/fc-rs-visual"/variant)))
@@ -1165,7 +1165,7 @@ def main():
             subprocess.run([sys.executable,"-B",str(ROOT/release/"ai/run_regression.py")],check=True,timeout=90,cwd=ROOT)
         elif group=="fc-detail-analytics":
             release="releases/fs-dashboard/fc-detail-analytics-20261012"
-            units(release+"/tests",["test_fc_detail","test_fc_reader","test_fc_dashboard","test_fc_publisher"])
+            units(release+"/tests",["test_fc_detail","test_fc_reader","test_fc_dashboard","test_fc_hourly_projection","test_fc_publisher"])
             units(release+"/frontend",["test_release_workspace"],root_owned=True)
             node(release+"/tests/test_fc_query.cjs")
         elif group=="fs-on-demand":
