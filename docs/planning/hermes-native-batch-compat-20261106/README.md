@@ -60,3 +60,13 @@
 候选沿原 runtime_prepare.pack_software / runtime_release，仅目标 conversation_knowledge.py 与 fs_native_knowledge.py；原发布器将等待空闲并重载原 Hermes worker 和 range，保留 admission fence 与 readiness。回退沿本次 release ID 的原 journal/备份，仅恢复这两个文件并按同一发布器重载；保留数据库、费用、UNKNOWN、业务回执及他人后续修改，不回退旧整包。
 
 私有证据均留原 `.agent_runtime/hermes-report-repair-20261106/`：`iteration-live-state.json`、`iteration-core-state.json`、`iteration-r1-daily.json`、`iteration-knowledge-index.json`、`iteration-knowledge-trace.json`、`iteration-linux-tests.txt`、`iteration-red-tests.txt`、`iteration-r1-ui.png`。下一步是候选正式 CI/发布授权与真实模型回归，再观察连续两个原定时日报；内容计算和证据覆盖仍待剩余任务验证，不能宣称七天目标已完成。
+
+### 22:22 后接续：#881 已发布，忙碌错误单点修复
+
+用户明确批准后，#881 合并为 `dffb33cf`（正式 CI `42220517615` success），沿原发布器完成 `nav-20261106T124849Z`。两文件哈希匹配，49 项保护文件完整元数据一致；worker PID 27726、range PID 27918，Desktop/Nginx 未重启，businessWorkerTimerActions=0。Manifest `3615374ed55aa80446895a912b01a1bc57b6c05513f0985ff31b02ec4ab6b00a`；备份 `/var/backups/fs-navigation-20261006/nav-20261106T124849Z`。此状态证明发布及服务重载，实际新模型使用与内容质量继续分别验收。
+
+追问原日报的新任务 `bf7b0a121a29579863d2b002357d1306` 已自主成稿（31 次模型调用），保留原稿并更正部分错误，独立评分中。并行提交的第二次昨日复盘 task `e281d964a91c03ac74cb83845e2cd832` / run `run_17289534ded544caac46a4689e862b8e` 在零模型调用、零证据时失败：`HTTP 400: FC model request blocked: model_busy`。该次失败保留，不换请求编号重放；不能因零付费而删除失败成绩。
+
+根因是共享 provider_slot 临时未取得，尚未进行费用预留或供应商请求，却被 transport 映射成参数错误400，原生SDK因此终止。用户进一步授权“最小修复”：仅模型路由确切 ValueError(model_busy) 返回503，复用原SDK的有限退避；没有放大并发锁、改预算或新建队列。原SDK实际纯函数证明503为overloaded/retryable且分类阶段不要求压缩、凭据轮换或fallback；持续忙碌仍可能耗尽原重试，不能承诺无限等待或必成。UNKNOWN及其他参数/权限拒绝保持原样。
+
+直接回归在183/Python3.9.18隔离容器67项通过，另4项原发布器基线/CAS/回退范围检查通过；新测试在原代码400失败、补丁后503通过，验证忙碌零预留、释放后同一逻辑turn只付费一次、再次同请求复用回执。沿原发布器仅补登记 transport.py 的现役源码/目标对应，不新增发布机制。SDK纯函数与候选独立审查证据留 `iteration-busy-sdk-proof.json`，测试原日志留 `iteration-busy-red.txt`、`iteration-busy-linux.txt`、`iteration-busy-publisher-linux.txt`。

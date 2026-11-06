@@ -332,6 +332,10 @@ def start_loopback(proxy, port=8940):
                 code = str(error) if isinstance(error, ValueError) and str(error) in SAFE_MODEL_ERRORS else None
                 message = 'FC model request blocked: '+code if code else 'invalid or unreconciled request'
                 status, result = 400, {'error': {'message': message, 'type': 'invalid_request_error'}}
+                if self.path=='/v1/chat/completions' and type(error) is ValueError and code=='model_busy':
+                    # No reservation or provider call occurred; let the native SDK retry this same request.
+                    status=503
+                    result['error'].update(type='server_error',code='model_busy')
                 if (type(error) is _MaterialGuardError and len(error.args)==1
                         and type(error.args[0]) is str and error.args[0] in _MATERIAL_GUARD_MESSAGES):
                     # Hermes summarizes message only. Select a finite literal
