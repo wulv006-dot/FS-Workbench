@@ -184,12 +184,16 @@ def register_scope(registry, scope):
     from toolsets import create_custom_toolset
     fields = dict(modules=dict(type='array', items=dict(type='string'), minItems=1,
         description='Choose only from the pinned index top-level modules. Skill item modules describe skill applicability, not additional task permissions; for a skill use their intersection with top-level modules.'),
-        entry_ids=dict(type='array', items=dict(type='string')),
+        entry_ids=dict(type='array', items=dict(type='string'),
+            description='Select the relevant entry ids from fs_get_knowledge_index. Omission reads all pinned entries in the selected modules; prefer explicit ids for the current question and fetch additional entries when needed.'),
         revision=dict(type='string', description='Exact historical revision; requires history=true.'),
         history=dict(type='boolean', description='Default false: current effective content. True only for explicit historical questions; archived content is not a current rule.'),
         skill_id=dict(type='string', description='Exact reviewed_skills item id from the pinned index. Combine only with modules to read its frozen SKILL.md; do not pass entry_ids, revision or history.'))
     for name in sorted(READ_TOOLS):
-        schema = dict(name=name, description='Read the current turn pinned formal knowledge; no business action.',
+        description = ('Read the current turn pinned knowledge index without full document text. Use its entry ids to select relevant original documents with fs_read_knowledge.'
+            if name == 'fs_get_knowledge_index' else
+            'Read selected original documents from the current turn pinned knowledge. First inspect fs_get_knowledge_index, then pass modules and relevant entry_ids; expand the selection if evidence is insufficient. Omit entry_ids only when the whole module is needed. Reuse already read entries from the same pinned version. No business action.')
+        schema = dict(name=name, description=description,
             parameters=dict(type='object', properties={'history': fields['history']} if name == 'fs_get_knowledge_index' else fields,
                             required=[] if name == 'fs_get_knowledge_index' else ['modules'], additionalProperties=False))
         def handler(arguments, _name=name, **context):
@@ -198,7 +202,7 @@ def register_scope(registry, scope):
             knowledge = getattr(backend, 'knowledge', None)
             if knowledge is None:
                 raise PermissionError('native_knowledge_inactive')
-            return json.dumps(knowledge.read(_name, arguments, context.get('task_id')), ensure_ascii=False)
+            return json.dumps(knowledge.read(_name, arguments, context.get('task_id')), ensure_ascii=False, separators=(',', ':'))
         previous = registry.get_entry(name, scope=scope)
         if previous is None or previous.handler.__module__ != __name__ or previous.schema != schema:
             registry.register(name=name, toolset='fs_native_knowledge', schema=schema, handler=handler, scope=scope)

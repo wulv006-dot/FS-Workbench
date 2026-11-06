@@ -187,7 +187,9 @@ class KnowledgeWiring(unittest.TestCase):
                     entry = registry.get_entry('fs_read_knowledge', scope=str(profile))
                     arguments = dict(modules=['FS'])
                     if behavior == 'skill': arguments['skill_id'] = 'methods/test-method'
-                    return json.loads(entry.handler(arguments, task_id=kwargs['task_id']))
+                    if behavior == 'selected': arguments['entry_ids'] = ['fs.rule']
+                    self.knowledge_result_text = entry.handler(arguments, task_id=kwargs['task_id'])
+                    return json.loads(self.knowledge_result_text)
                 def close(self): pass
             constants = types.SimpleNamespace(profile_name_for_home=lambda home: hashlib.sha256(b'alice').hexdigest(),
                 resolve_reasoning_config=lambda config, model: dict(enabled=False))
@@ -334,6 +336,24 @@ class KnowledgeWiring(unittest.TestCase):
             with self.worker_runtime(service, item, behavior='stop') as (worker, agent, rpc):
                 with self.assertRaises(PermissionError): agent.run_conversation('question')
                 self.assertIsNone(agent._fs_native_knowledge.knowledge.active_task(sid, turn))
+
+    def test_selected_knowledge_keeps_original_content_and_receipt_in_compact_result(self):
+        from conversation_knowledge import host_paths
+        with self.runtime() as (service, cid, turn, sid, calls):
+            item = self.dispatch(service, cid, turn, sid)
+            with self.worker_runtime(service, item, behavior='selected') as (worker, agent, rpc):
+                result = agent.run_conversation('question')
+                self.assertEqual([row['id'] for row in result['entries']], ['fs.rule'])
+                self.assertEqual(result['entries'][0]['content'], 'formal fixture rule')
+                root, _ = host_paths(service.native, item['native_chat']['binding'])
+                receipts = [json.loads(path.read_bytes()) for path in (root/'knowledge/native').glob('use-*.json')]
+                receipt = next(row for row in receipts if row['identity']['args'].get('entry_ids') == ['fs.rule'])
+                self.assertEqual(json.loads(agent.knowledge_result_text), receipt['result'])
+                self.assertLess(len(agent.knowledge_result_text), len(json.dumps(result, ensure_ascii=False)))
+                schemas = {tool['function']['name']: tool['function'] for tool in agent.tools}
+                self.assertIn('without full document text', schemas['fs_get_knowledge_index']['description'])
+                self.assertIn('Omit entry_ids only', schemas['fs_read_knowledge']['description'])
+                self.assertIn('Omission reads all', schemas['fs_read_knowledge']['parameters']['properties']['entry_ids']['description'])
 
     def test_official_compaction_fence_links_same_pin_child_then_cleans_it(self):
         with self.runtime() as (service, cid, turn, sid, calls):
