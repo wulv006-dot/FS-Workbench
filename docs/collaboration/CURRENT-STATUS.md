@@ -1,5 +1,7 @@
 # 仓库与模块状态快照
 
+2026-11-06 Hermes 局部更新：[原生批量取数兼容修复](../planning/hermes-native-batch-compat-20261106/README.md)已合并上线，真实日报成稿及独立阅读通过；连续追问未确认，下一自然周期未验。
+
 2026-10-17局部更新：已上线修复回补及剩余清单见 [SERVER-GITHUB-BACKFILL](SERVER-GITHUB-BACKFILL-20261017.md)。PR #193/#64/#110已按最新组合CI合并；当前FC浏览器、结果页、今日经营刷新、Players cloud10与FC运营前端在本次独立回补中归档。Hermes交原聊天，不在此页宣称其最终验收；下方10/8为历史快照。
 
 

@@ -35,7 +35,7 @@ def build(checkout, source_commit, output):
     raw_index = blob(checkout, checkout / 'knowledge/index.json')
     index = json.loads(raw_index)
     if index.get('contract') != 'fs-knowledge-index-v1' or index.get('release_state') != 'candidate' or \
-            index.get('source_commit') is not None or len(index.get('entries', [])) != 30:
+            index.get('source_commit') is not None or len([row for row in index.get('entries', []) if row.get('layer')!='candidate']) != 29:
         raise ValueError('exact_v3_candidate_index_required')
     current_rows = [row['id'] for row in index['entries'] if row['layer'] == 'current' and row['status'] == 'effective']
     current = set(current_rows)
