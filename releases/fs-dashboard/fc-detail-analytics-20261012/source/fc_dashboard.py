@@ -349,7 +349,33 @@ def project(dataset, query, config, selected):
         if missing: values.update(orders=None, revenue_usd=None)
         trend.append(dict(date=key, **values, categories=[dict(key=category, **metrics([r for r in by_paid[key] if r.get('category', 'unknown')==category], [(r,s) for r,s in by_ship[key] if r.get('category','unknown')==category], True)) for category,_ in CATEGORIES]))
         cursor += timedelta(days=1) if grain == 'day' else timedelta(hours=1)
-    return dict(contractId=CONTRACT, category_priority=PRIORITY, grain=grain, totals=totals, categories=categories, trend=trend,
+    hourly = {}
+    if grain == 'day' and query['start'] == query['end']:
+        # Re-project the same paid-order cohort; no new read, source key or financial series.
+        hours = defaultdict(list)
+        for row in paid:
+            if row.get('paid_at'): hours[row['paid_at'][:13].replace('T',' ')+':00'].append(row)
+        time_incomplete = bool(dataset['coverage'].get('missing_payment_time') or
+                               query['start'] in dataset['coverage'].get('missing_days', []))
+        def hourly_facts(batch, category_scope=False):
+            values = metrics(batch, [], category_scope)
+            result = {key:values[key] for key in ('orders','revenue_usd','known_orders','known_revenue_usd')}
+            priced = [row['amount_cents'] for row in batch if row.get('amount_cents') is not None]
+            result['unpriced_orders'] = len(batch)-len(priced)
+            if time_incomplete: result.update(orders=None,revenue_usd=None)
+            if not batch and result['orders'] is None:
+                result.update(known_orders=None,known_revenue_usd=None)
+            elif batch and not priced:
+                result['known_revenue_usd'] = None
+            return result
+        points, cursor = [], datetime.fromisoformat(period['start']).replace(minute=0,second=0,microsecond=0)
+        while cursor < stop:
+            key = cursor.strftime('%Y-%m-%d %H:00');batch=hours[key]
+            points.append(dict(date=key, **hourly_facts(batch),
+                categories=[dict(key=category, **hourly_facts([row for row in batch if row.get('category','unknown')==category],True)) for category,_ in CATEGORIES]))
+            cursor += timedelta(hours=1)
+        hourly['hourly_trend'] = points
+    return dict(contractId=CONTRACT, category_priority=PRIORITY, grain=grain, totals=totals, categories=categories, trend=trend, **hourly,
                 basis=dict(orders='Admin paytime; whole-order unique category', revenue_usd='Admin paid order USD',
                            financial='Order delivery trade_at; sale_total minus cost_total CNY', margin='total gross profit / total shipping sales'),
                 coverage=dict(source, duplicate_shipping_rows=duplicate, conflicting_shipping_rows=conflict,
