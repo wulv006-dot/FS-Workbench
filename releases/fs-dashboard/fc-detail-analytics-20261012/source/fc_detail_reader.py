@@ -147,11 +147,21 @@ def collect(request, query, config, shipping_reader=None):
     content['shipping'], content['shipping_orders'] = [], []
     content['shipping_coverage'] = {'status': 'unavailable', 'reason': 'shipping_reader_unavailable'}
     if shipping_reader is not None:
+        shipping_read_complete, known = False, {}
         try:
             from fc_dashboard import shipping_membership
             shipping_payload = shipping_reader(query['period'])
             shipping = shipping_payload['rows'] if isinstance(shipping_payload,dict) else shipping_payload
             reconciliation = shipping_payload.get('coverage',{}) if isinstance(shipping_payload,dict) else {}
+            if not isinstance(shipping,list) or not isinstance(reconciliation,dict): raise ValueError('shipping_source_contract')
+            # Publish the independent Order read before optional Admin enrichment.
+            # A later membership failure cannot invalidate its native reconciliation.
+            content['shipping'] = shipping
+            content['shipping_coverage'] = {'source': 'Order /order/admin_delivery/index.html', 'game_id':1322,
+                'date_basis':'trade_at', 'period':query['period'],
+                'reconciliation_status':'not_verified', 'native_summary_reconciled':False, **reconciliation,
+                'status':'partial', 'membership_status':'pending'}
+            shipping_read_complete = True
             # Payment membership is insufficient for transaction-time deliveries; resolve their exact whole orders.
             known = {(r.get('site'), r['id']): r for r in backlog + in_period if r.get('site') and r.get('category_status')=='verified'}
             missing = [r for r in shipping if (r['source'], r['sn']) not in known]
@@ -176,13 +186,19 @@ def collect(request, query, config, shipping_reader=None):
             known.update({(r.get('site'), r['id']): r for r in resolved})
             content['shipping'], content['shipping_orders'] = shipping, list(known.values())
             content['shipping_coverage'] = {'status': 'available' if not failures else 'partial',
+                'membership_status': 'available' if not failures else 'partial',
                 'source': 'Order /order/admin_delivery/index.html', 'game_id': 1322,
                 'date_basis': 'trade_at', 'period': query['period'], 'membership_failures': failures,
                 'reconciliation_status': 'not_verified', 'native_summary_reconciled': False,
                 'outside_payment_classification_failures': classification_failures, **reconciliation}
         except PermissionError: raise
         except Exception:
-            content['shipping_coverage'] = {'status': 'unavailable', 'reason': 'shipping_source_or_membership_failed'}
+            if shipping_read_complete:
+                content['shipping_orders'] = list(known.values())
+                content['shipping_coverage'].update(status='partial', membership_status='partial',
+                    classification_status='partial', reason='shipping_membership_failed')
+            else:
+                content['shipping_coverage'] = {'status': 'unavailable', 'reason': 'shipping_source_failed'}
     if shipping_reader is not None:
         by_date = {}
         for row in active:

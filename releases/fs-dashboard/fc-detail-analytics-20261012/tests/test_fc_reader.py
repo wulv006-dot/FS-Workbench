@@ -1,7 +1,7 @@
-import importlib.util,json,sys,types,unittest
+import contextlib,importlib.util,io,json,runpy,sys,types,unittest
 from pathlib import Path
 from urllib.parse import parse_qs,urlsplit
-from unittest.mock import patch
+from unittest.mock import Mock,patch
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'source'))
 dummy=types.ModuleType('p2pah_session_service');dummy.SessionManager=object;dummy.read_private_config=lambda:None
@@ -9,7 +9,58 @@ with patch.dict(sys.modules,{'p2pah_session_service':dummy}):
     spec=importlib.util.spec_from_file_location('detail_reader',ROOT/'source/fc_detail_reader.py')
     reader=importlib.util.module_from_spec(spec);spec.loader.exec_module(reader)
 from test_fc_detail import raw,CFG
+from fc_detail_model import aggregate
 class ReaderTest(unittest.TestCase):
+    def shipping_failure_case(self, membership_error=None, source_error=None):
+        def request(path):
+            if 'siteList' in path:return 200,json.dumps({'code':1,'data':{'list':[{'id':266}]}})
+            p={k:v[0] for k,v in parse_qs(urlsplit(path).query).items()}
+            if any(v=='order_no' for k,v in p.items() if k.endswith('[field]')):
+                raise membership_error or TimeoutError('old_order_timeout')
+            return 200,json.dumps({'code':1,'data':{'total':0,'list':[]}})
+        rows=[dict(delivery_id='1',source='www.mmoexp.com',sn='OLD-ORDER',trade_at='2026-10-11 14:00:00',sale_total='100',cost_total='80')]
+        def shipping(period):
+            if source_error is not None:raise source_error
+            return dict(rows=rows,coverage=dict(native_summary_reconciled=True,reconciliation_status='matched'))
+        period={'start':'2026-10-11 00:00','end':'2026-10-12 00:00'}
+        with patch('fc_dashboard.native_membership',return_value=({}, {'status':'available'})):
+            return reader.collect(request,{'period':period},CFG,shipping_reader=shipping)
+    def test_membership_timeout_preserves_independently_matched_native_financials(self):
+        result=self.shipping_failure_case()
+        self.assertEqual(len(result['shipping']),1)
+        self.assertTrue(result['shipping_coverage']['native_summary_reconciled'])
+        self.assertEqual(result['shipping_coverage']['reconciliation_status'],'matched')
+        self.assertEqual(result['shipping_coverage']['status'],'partial')
+        self.assertEqual(result['shipping_coverage']['membership_status'],'partial')
+        q={'start':'2026-10-11','end':'2026-10-11','period':result['coverage']['period']}
+        projected=aggregate(result,q,CFG)['fc_dashboard']
+        self.assertEqual(projected['coverage']['membership_status'],'partial')
+        self.assertTrue(projected['coverage']['native_summary_reconciled'])
+        totals=projected['totals']
+        self.assertEqual([totals[k] for k in ('shipping_sales_cny','cost_cny','gross_profit_cny','gross_margin_pct')],[100,80,20,20])
+        self.assertIsNone(aggregate(result,{**q,'product':'Players'},CFG)['fc_dashboard']['totals']['gross_profit_cny'])
+    def test_membership_permission_error_still_blocks_native_output(self):
+        with self.assertRaises(PermissionError):
+            self.shipping_failure_case(membership_error=PermissionError('admin_denied'))
+    def test_cli_membership_denial_still_exits_77_and_closes_session(self):
+        client=Mock()
+        client.get_admin.side_effect=lambda path:(200,{'code':1,'data':{'list':[{'id':266}]}}) if 'siteList' in path else (200,{'code':1,'data':{'total':0,'list':[]}})
+        args={'query':{'period':{'start':'2026-10-11 00:00','end':'2026-10-12 00:00'}},'config':CFG}
+        shipping=dict(rows=[dict(delivery_id='1',source='www.mmoexp.com',sn='OLD',trade_at='2026-10-11 12:00:00',sale_total='100',cost_total='80')],coverage={'native_summary_reconciled':True})
+        output=io.StringIO()
+        with patch.dict(sys.modules,p2pah_auth=types.SimpleNamespace(Session=lambda:client)),patch.object(sys,'argv',['reader',json.dumps(args)]),patch.object(sys,'path',list(sys.path)),patch('fc_dashboard.native_membership',return_value=({},{})),patch('fc_dashboard.collect_shipping',return_value=shipping),patch('fc_dashboard.shipping_membership',side_effect=PermissionError('denied')),contextlib.redirect_stdout(output):
+            with self.assertRaises(SystemExit) as stopped:
+                runpy.run_path(str(ROOT/'source/fc_detail_reader.py'),run_name='__main__')
+        self.assertEqual(stopped.exception.code,77)
+        self.assertEqual(output.getvalue(),'')
+        client.close.assert_called_once()
+    def test_shipping_source_failure_does_not_invent_native_coverage(self):
+        result=self.shipping_failure_case(source_error=TimeoutError('shipping_timeout'))
+        self.assertEqual(result['shipping'],[])
+        self.assertEqual(result['shipping_coverage']['status'],'unavailable')
+        self.assertIsNot(result['shipping_coverage'].get('native_summary_reconciled'),True)
+        q={'start':'2026-10-11','end':'2026-10-11','period':result['coverage']['period']}
+        self.assertIsNone(aggregate(result,q,CFG)['fc_dashboard']['totals']['gross_profit_cny'])
     def test_shipping_membership_classifies_before_current_backlog_and_does_not_skip_unknown_active(self):
         events=[];exact_lookups=[]
         def source(n,paid):

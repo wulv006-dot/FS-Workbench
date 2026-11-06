@@ -3,11 +3,36 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const {chromium}=require('playwright');
 const {start,server}=require('./test_browser.cjs');
 const repo=path.resolve(__dirname,'../../../..');
-let deny=false,revision=0,partial=false,failRefresh=false;
+const vm=require('node:vm');
+for(const variant of ['business.js','home-business.js','legacy-business.js']){
+ const source=fs.readFileSync(path.join(__dirname,'../source',variant),'utf8'),begin=source.indexOf('function fcRing('),end=source.indexOf('function fcLine(',begin);
+ assert.ok(begin>=0&&end>begin,variant);
+ const render=records=>vm.runInNewContext(source.match(/^const fcKnown=.*$/m)[0]+'\n'+source.slice(begin,end)+'\nfcRing(records,"revenue_usd","USD销售额")',{
+  records,esc:v=>String(v),fcName:v=>v,fcMoney:v=>'$'+v.toFixed(2),fmtN:String,fcPalette:['teal','blue']
+ });
+ const complete=[{key:'Coins',label:'金币',revenue_usd:100},{key:'Players',label:'球员卡',revenue_usd:100}];
+ assert.equal((render(complete).match(/50\.0%/g)||[]).length,2,variant+' complete revenue shares');
+ assert.doesNotMatch(render(complete),/data-fc-incomplete-chart|已知USD销售额/);
+ const incomplete=[complete[0],{...complete[1],revenue_usd:null,known_revenue_usd:100}];
+ const known=render(incomplete);
+ assert.match(known,/data-fc-incomplete-chart/,variant+' missing revenue must be disclosed');
+ assert.match(known,/已知USD销售额（子集）/);
+ assert.match(known,/不代表完整销售额占比/);
+ assert.equal((known.match(/50\.0%/g)||[]).length,2,variant+' both known amounts remain in denominator');
+ assert.match(known,/\$200\.00/);
+ const unavailable=render([complete[0],{...complete[1],revenue_usd:null}]);
+ assert.match(unavailable,/球员卡/);assert.match(unavailable,/已知USD销售额（子集）/);
+ assert.match(unavailable,/不代表完整销售额占比/);
+ const empty=render([{...complete[1],revenue_usd:null}]);
+ assert.match(empty,/data-fc-incomplete-chart/);assert.doesNotMatch(empty,/class="fc-donut"|100\.0%/);
+}
+console.log('FC ring: complete, known-subset, missing-subtotal and all-missing cases passed for three actual renderers');
+let deny=false,revision=0,partial=false,failRefresh=false,missingMoney=false;
 function fixture(q){
  const product=q.product||'all',n=product==='Other'?0:product==='all'?10:product==='Coins'?7:3;
  const row={orders:n,revenue_usd:n*20,shipping_sales_cny:null,cost_cny:null,gross_profit_cny:null,gross_margin_pct:null};
  const categories=(product==='all'?['Coins','Players']:[product]).map((key,i)=>({key,label:key==='Coins'?'金币':'球员卡',...row,orders:product==='all'?(i?3:7):n,revenue_usd:product==='all'?(i?60:140):n*20}));
+ if(missingMoney&&product==='all'){Object.assign(categories[0],{revenue_usd:100,known_revenue_usd:100});Object.assign(categories[1],{revenue_usd:null,known_revenue_usd:100});Object.assign(row,{revenue_usd:null,known_revenue_usd:200});}
  const trend=q.grain==='hour'?[0,1,2].map((i)=>{const date=new Date(Date.parse(q.start.replace(' ','T')+':00Z')+i*3600000).toISOString().slice(0,16).replace('T',' ');const parts=categories.map(c=>({...c,orders:i===0?c.orders-2*Math.floor(c.orders/3):Math.floor(c.orders/3),revenue_usd:(i===0?c.orders-2*Math.floor(c.orders/3):Math.floor(c.orders/3))*20}));return {...row,date,orders:parts.reduce((n,c)=>n+c.orders,0),revenue_usd:parts.reduce((n,c)=>n+c.revenue_usd,0),categories:parts};}):[{date:q.start,...row,categories}];
  const buckets=[{key:'20-40',label:'20–40',orders:n,revenue_usd:n*20,new:0,returning:0,unknown:n,issues:1}];
  return {contractId:'fc27-detail-analytics-v1',query:{...q},snapshot_id:'fictional-'+product+'-'+revision,as_of:'2026-10-24T08:00:00Z',refreshSeconds:900,scope_label:'模拟 FC27',data_status:partial?'partial':'complete',customer_status:'unavailable',customer_basis:'站内客户ID；历史首次购买未验证',orders_without_customer_id:1,coverage:{paid_complete:!partial,missing_days:partial?['2026-10-22']:[],backlog_status:'complete'},totals:{...row,new:0,returning:0,unknown:n,unpriced_orders:0,issues:1,unfinished:2,funding:1},site_groups:[{key:'main',orders:n,revenue_usd:n*20},{key:'satellite',orders:0,revenue_usd:0}],signals:[],buckets,user_buckets:[{key:'20-40',label:'20–40',users:2,revenue_usd:60}],dimensions:{platform:[{key:'PS',...row,issues:1}],product:categories},backlog_summary:{orders:2,issues:1,unfinished:2,funding:1,revenue_usd:40},slow_orders:1,trend,orders:[{id:'fictional-1',site_id:'266',site_group:'main',platform:'PS',product:'Items',category:product,amount_usd:20,customer:'unknown',age_hours:1,status:'处理中',reason:'待确认'}],page:1,list_total:1,fc_dashboard:{contractId:'fc-dashboard-category-v1-20261106',categories,trend,totals:{...row,...(partial?{orders:null,revenue_usd:null}:{}),paying_customers:2,new_customers:null,repeat_rate_pct:null,new_customer_share_pct:null},coverage:{classification_status:partial?'partial':'complete'}}};
@@ -37,6 +62,15 @@ function fixture(q){
   assert.equal(await page.locator('#crossSec').isVisible(),true);
   assert.equal(await page.locator('[data-metric=orders] strong').innerText(),'10');
   assert.equal(await page.locator('[data-metric=profitCny] strong').innerText(),'暂缺');
+  missingMoney=true;revision++;await host.locator('[data-fc-retry]').click();
+  await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('[data-metric=revenueUsd] strong')?.textContent==='暂缺');
+  const revenueCard=host.locator('[data-fc-content=structure] .card').first();
+  assert.match(await revenueCard.locator('[data-fc-incomplete-chart]').innerText(),/球员卡.*不代表完整销售额占比/);
+  assert.deepEqual(await revenueCard.locator('.fc-chart-legend small').allTextContents(),['50.0%','50.0%']);
+  assert.match(await revenueCard.locator('.fc-donut').innerText(),/\$200\.00.*已知USD销售额（子集）/s);
+  if(process.env.FC_DASHBOARD_EVIDENCE){fs.mkdirSync(process.env.FC_DASHBOARD_EVIDENCE,{recursive:true});await revenueCard.screenshot({path:path.join(process.env.FC_DASHBOARD_EVIDENCE,'fc-incomplete-revenue-simulated.png')});}
+  missingMoney=false;revision++;await host.locator('[data-fc-retry]').click();
+  await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('[data-metric=revenueUsd] strong')?.textContent==='$200.00');
   await product.selectOption('Coins');await product.selectOption('Players');
   await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('[data-metric=orders] strong')?.textContent==='3');
   await page.waitForTimeout(250);assert.equal(await page.locator('[data-metric=orders] strong').innerText(),'3');

@@ -1,32 +1,33 @@
 {
   "status": "candidate_not_deployed",
-  "asset_version": "fc-dashboard-20261106-c4ba30a28b34",
+  "asset_version": "fc-dashboard-20261106-1f2b14ea326c",
   "contractId": "fc-dashboard-category-v1-20261106",
   "base": "d14f21b3aca01fc2f8b26861d425f450fbfb8d67",
+  "initial_base": "07d2a1d5",
   "publisher_adapter": "releases/fs-dashboard/dashboard-refresh-20261025/deploy/fc_dashboard_release.py",
   "files": [
     {
       "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/business.js",
       "candidate": "source/business.js",
-      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-c4ba30a28b34/business.js",
-      "sha256": "8632707d1bc1565a470319819490f16e99daedcf465ac57a76d18ea1e76bd1a6"
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-1f2b14ea326c/business.js",
+      "sha256": "b1e7484749e0b4648015c0d41cbaa01efc4ac0b5cb178028da4b2e25899ab28c"
     },
     {
       "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/home-business.js",
       "candidate": "source/home-business.js",
-      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-c4ba30a28b34/home-business.js",
-      "sha256": "8b8526c76ba3ca304ff1fbfe9ca90d005530ac8337f7dd2a7695d79c6cad7f9b"
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-1f2b14ea326c/home-business.js",
+      "sha256": "16d9922d7d15ed779efe6ef1029409ccadc1eeedf396a2b1469e3fa27da524f4"
     },
     {
       "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/legacy-business.js",
       "candidate": "source/legacy-business.js",
-      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-c4ba30a28b34/legacy-business.js",
-      "sha256": "de5a0e641550f845f21ad3d743f90b9e831b4e4ad2e0f57e56faa17809a6ac28"
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-1f2b14ea326c/legacy-business.js",
+      "sha256": "5f6589cbd8384b45577fa99f01863d389d533e41d86781b1029f2f30b83481f3"
     },
     {
       "source": "ui-system/modules/native/business.css",
       "candidate": "source/business.css",
-      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-c4ba30a28b34/business.css",
+      "target": "/var/lib/fs-navigation-formal-static/fc-dashboard-20261106-1f2b14ea326c/business.css",
       "sha256": "dfbfb2c09cd6d3fd6a3bd9ede58598b61a76e05c4c32b4d81f927997ccfda26d"
     },
     {
@@ -39,7 +40,7 @@
       "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail_reader.py",
       "candidate": "source/fc_detail_reader.py",
       "target": "/opt/fs-exact-range-20261001/fc_detail_reader.py",
-      "sha256": "45395301e81435c05ac9e134d69289bf5780bc239b6f5a3a80b972d94e325e9a"
+      "sha256": "7c79c69466ef9e3ed12075d443efcf09330f2fd3d1c4d2f520a35c1c3499f44b"
     },
     {
       "source": "releases/fs-dashboard/fc-detail-analytics-20261012/source/fc_detail_model.py",
@@ -64,6 +65,5 @@
     "FC pricing/session/writer/worker/timers",
     "existing immutable asset URLs and role policy"
   ],
-  "production_actions": false,
-  "initial_base": "07d2a1d5"
+  "production_actions": false
 }

@@ -20,6 +20,12 @@
 
 [FC 分类合同](../fc-dashboard-category-20261106/CONTRACT.md) 为用户已确认口径；AGENTS 与 `knowledge/index.json` 已指向它。Hermes 条目 `fc.dashboard.category` 仍是待发布候选，原通用 `fs.dashboard.shipping-profit` 保留。未执行生产知识发布或 Notion 同步。
 
+## 独立复核后的修正
+
+- 环图发现分类完整金额为 null 时会漏掉该分类并重算成完整 100%。三个入口现在使用已有 `known_*` 小计，明确标“已知金额子集”、列出缺失分类，并说明不代表完整销售额占比。金币已知 100、球员卡已知 100 且有缺价订单的示例显示已知子集各 50%；没有任何已知金额时不绘制环图。
+- 已 matched 的原生发货读取和 Admin 订单关联分开保留状态。关联超时只使 `membership_status=partial`，不清空已核实总体；指定品类仍不套总体。PermissionError 仍传播到 CLI 77 且无输出，原生发货本身失败仍 unavailable。
+- 新增环图四种数据情形×三个实际渲染入口的回归，并在三个入口各执行缺价场景 Playwright。后端新增超时、权限和源失败边界后，相关 61 项测试在 Windows 与 183 Linux 均通过；183 包 SHA256 为 `884331421a8cc33752b3f23dd52b2e3632fa8389b5b4d4f75ccab523cb283bb7`。本轮未重新调用生产数据接口，模拟故障不能冒充生产故障演练。
+
 ## 未验与限制
 
 用户三张参考图的官方 Library helper 在 Windows xattr 步骤失败，未绕过元数据要求；视觉以现有 RS 源码为依据。一次早期整链只读探针因 SSH 断开无返回，结果未知，已确认临时进程结束；不将它计为通过。最终整链及生产新页面的状态分别记录，不能用截图、语法或离线测试推定上线。
