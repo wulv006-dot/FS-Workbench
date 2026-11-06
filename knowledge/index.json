@@ -505,7 +505,7 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/CANDIDATES.md",
-        "sha256": "37ec1e248fe7d3044d300a472242596b2d63baf20806b298f7d395632503bd81",
+        "sha256": "bb35eb776090ac6560feff4272f26bca9e299649fd4264187bc0fedca54c4596",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [],
@@ -1427,6 +1427,42 @@
       "consumers": [
         "Codex",
         "Hermes after original review and target-profile readback"
+      ]
+    },
+    {
+      "id": "fc.dashboard.category",
+      "revision": "fc-dashboard-category-v1-20261106",
+      "layer": "candidate",
+      "status": "candidate",
+      "modules": [
+        "FC27",
+        "reporting"
+      ],
+      "effective_at": "2026-11-06",
+      "time_precision": "date_only",
+      "owner": "吴律；FC看板维护者",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "docs/planning/fc-dashboard-category-20261106/CONTRACT.md",
+        "sha256": "8f01d98bab5ad317d51c4624dce8c339e98dd2a5018f6499ec716e7d51e87ff6",
+        "hash_basis": "utf8_lf",
+        "selector": {
+          "start": "# FC 经营看板商品分类与订单利润规则"
+        }
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "direct_user_confirmed_business_rule_candidate",
+          "date": "2026-11-06",
+          "contract_id": "fc-dashboard-category-v1-20261106",
+          "implementation_status": "source_candidate_only_not_deployed"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes selected knowledge candidate"
       ]
     }
   ],

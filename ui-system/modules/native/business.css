@@ -533,7 +533,7 @@ tbody tr:last-child td{border-bottom:0}
 [data-range-retry],#fcTypeRange button{border:1px solid var(--line,#dce4f1);border-radius:7px;background:var(--card,#fff);color:var(--blue,#245eea);padding:6px 12px;font:inherit;cursor:pointer}
 
 /* FC stays inside the existing business theme and date controls. */
-.fc-view .ctrl{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);align-items:center}
+
 .fc-view #btnCsv{display:none}.fc-view #secTrend .sec-num{display:none}.fc-view #secTrend{margin-top:16px}
 #fc-detail{margin:14px 0 0;color:var(--tx);min-width:0}#fc-detail [hidden]{display:none!important}
 .fc-toolbar,.fc-actions,.fc-shortcuts,.fc-pagination{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -561,3 +561,33 @@ tbody tr:last-child td{border-bottom:0}
 .fc-note-label{display:block;margin-top:16px;font-size:13px}.fc-note-label textarea{display:block;box-sizing:border-box;width:100%;min-height:110px;margin-top:8px;padding:10px;background:var(--surface);color:var(--tx);border:1px solid var(--line);border-radius:7px;font:inherit}#fc-detail p{font-size:12px;line-height:1.7}#fc-detail .fc-subtle,.fc-site-card>p{color:var(--tx2)}#fc-detail a{color:var(--ac)}#fc-detail button:focus-visible,#fc-detail select:focus-visible,#fc-detail summary:focus-visible,#fc-detail textarea:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
 @media(max-width:1050px){.fc-heading{width:100%}.fc-toolbar{gap:10px}.fc-overview-grid{grid-template-columns:1fr 1fr}.fc-consumption-grid{grid-template-columns:1fr;gap:16px}.fc-bars{max-width:600px}.fc-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.fc-view .ctrl{padding:10px}.fc-overview-grid{grid-template-columns:1fr}.fc-toolbar{gap:8px}.fc-toolbar-actions{margin-left:auto}.fc-tabs{gap:0}#fc-detail .fc-tabs button{padding:9px 12px}.fc-drawer{border-radius:0;padding:16px}.fc-site-groups>div{flex-wrap:wrap}.fc-card{padding:14px}#fc-detail .fsi-metric{padding:12px}#fc-detail .fsi-metric strong{font-size:23px}.fc-status-grid strong{font-size:20px}.fc-more{right:auto;left:0;width:min(260px,80vw)}.fc-table-wrap th,.fc-table-wrap td{padding:9px 8px}}
+
+/* FC analysis uses the existing continuous business sections and theme tokens. */
+#fc-detail .fc-toolbar{margin:0 0 10px;gap:12px}
+#fc-detail .fc-toolbar>.hint{flex-basis:100%}
+#fc-detail .fc-toolbar .fc-more{width:min(280px,calc(100vw - 24px))}
+#fc-detail .fc-more label{display:grid;gap:6px}
+#fc-detail .fc-more select{width:100%;min-width:0;max-width:100%}
+#fc-detail .fc-panels>section{min-width:0;scroll-margin-top:24px}
+#fc-detail .sec-head{margin-top:30px}
+#fc-detail .fc-card{border-radius:var(--r);padding:18px 20px}
+#fc-detail .card{margin:14px 0;min-width:0}
+#fc-detail .card h3{font-size:15px;margin:0 0 12px}
+#fc-detail .card>.hint{line-height:1.7;margin:8px 0 14px}
+.fc-donut-grid{display:grid;grid-template-columns:minmax(160px,.7fr) minmax(230px,1fr);gap:24px;align-items:center;padding:16px 0}
+.fc-donut{width:190px;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;justify-self:center;position:relative}
+.fc-donut:before{content:'';position:absolute;inset:25px;border-radius:50%;background:var(--surface)}
+.fc-donut>span{position:relative;display:grid;text-align:center;font-size:19px;font-weight:650;font-variant-numeric:tabular-nums}
+.fc-donut small{display:block;font-size:11px;color:var(--tx2);font-weight:400;margin-top:5px}
+#fc-detail .fc-chart-legend button{width:100%;display:grid;grid-template-columns:10px minmax(60px,1fr) auto 46px;align-items:center;gap:10px;border:0;border-radius:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;font-size:12px;padding:10px 0}
+.fc-chart-legend i,.fc-line-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none}
+.fc-chart-legend b{font-weight:550;font-variant-numeric:tabular-nums}
+.fc-chart-legend small{color:var(--tx2);text-align:right}
+.fc-line{width:100%;overflow:auto;color:var(--tx2)}
+.fc-line svg{display:block;width:100%;min-width:1120px;height:auto;max-height:310px}
+.fc-line-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--tx2);margin:8px 0}
+.fc-line-legend span{display:inline-flex;align-items:center;gap:6px}
+.fc-chart-values{font-size:11px;color:var(--tx2);margin-top:12px}
+.fc-chart-values summary{cursor:pointer;padding:5px 0}
+.fc-chart-values .fc-table-wrap{margin-top:8px}
+@media(max-width:680px){.fc-donut-grid{grid-template-columns:1fr;gap:12px}.fc-donut{width:170px}#fc-detail .fc-card{padding:14px}#fc-detail .sec-title{font-size:18px}#fc-detail .fc-toolbar-actions{margin-left:0;flex-wrap:wrap}.fc-line svg{min-width:1120px}}

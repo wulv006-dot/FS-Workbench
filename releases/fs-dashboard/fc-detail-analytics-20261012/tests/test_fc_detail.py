@@ -37,7 +37,7 @@ class FactsTest(unittest.TestCase):
         with patch.dict(sys.modules,p2pah_auth=SimpleNamespace(Session=lambda:client)),patch.object(sys,'argv',['reader',json.dumps(args)]),patch.object(sys,'path',list(sys.path)),contextlib.redirect_stdout(output):
             runpy.run_path(str(ROOT/'source/fc_detail_reader.py'),run_name='__main__')
         value=json.loads(output.getvalue());self.assertTrue(value['coverage']['paid_complete']);client.close.assert_called_once()
-        self.assertEqual(client.get_admin.call_count,11)
+        self.assertEqual(client.get_admin.call_count,15)
     def test_source_runner_is_original_host_reader_not_a_container(self):
         result=SimpleNamespace(returncode=0,stdout=json.dumps(data([])).encode())
         with patch('fc_detail.subprocess.run',return_value=result) as run:

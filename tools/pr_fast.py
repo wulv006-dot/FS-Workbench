@@ -519,6 +519,8 @@ def select(paths):
             groups.add('pricing-followup');continue
         if name.startswith('releases/ops/pricing-recovery-20261023/'):
             groups.add('pricing-recovery');continue
+        if name in ('tools/test_fc_dashboard_rules.py', 'docs/planning/fc-dashboard-category-20261106/CONTRACT.md'):
+            groups.add('knowledge-layering');continue
         if name.startswith(('releases/fs-dashboard/knowledge-layering-20261023/', 'knowledge/')) or name in ('tools/knowledge_closeout.py','tools/prepare_knowledge_release.py','tools/prepare_native_knowledge_release.py','tools/export_fs_space.py'):
             groups.add('knowledge-layering')
             if name=='releases/fs-dashboard/knowledge-layering-20261023/source/controller.py':groups.add('nightly-reschedule')
@@ -999,6 +1001,7 @@ def main():
             units('releases/ops/pricing-recovery-20261023/order',['test_service'])
             continue
         if group=='knowledge-layering':
+            subprocess.run([sys.executable, '-I', '-B', str(ROOT/'tools/test_fc_dashboard_rules.py')], check=True, timeout=30, cwd=ROOT)
             units('releases/fs-dashboard/knowledge-layering-20261023/tests',['test_knowledge','test_closeout','test_knowledge_release','test_knowledge_reader_fence','test_native_plan','test_native_release','test_native_prepare','test_native_registration_guard','test_task_selection','test_learning_catalog','test_space_export'])
             continue
         if group=='hermes-memory-approval':
@@ -1038,9 +1041,10 @@ def main():
         elif group=="daily-archive":
             units("releases/fs-dashboard/daily-archive-20261021/tests",["test_archive","test_jobs","test_release","test_report_readiness","test_marketing_ttl"])
         elif group=="business-dashboard-refresh":
-            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness","test_site_filters","test_direct_admin","test_concurrent_ranges","test_admission_fairness","test_admission_rollout"])
+            units("releases/fs-dashboard/dashboard-refresh-20261025/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_refresh","test_release","test_shipping_readiness","test_site_filters","test_direct_admin","test_fc_dashboard_release","test_concurrent_ranges","test_admission_fairness","test_admission_rollout"])
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_actual_ui.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_shipping_ui.cjs")
+            node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_fc_dashboard.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_browsers.cjs")
         elif group=="business-actual-profit":
             units("releases/fs-dashboard/actual-profit-20261024/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_release","test_shipping_readiness","test_rules_sync"])
@@ -1156,7 +1160,7 @@ def main():
             subprocess.run([sys.executable,"-B",str(ROOT/release/"ai/run_regression.py")],check=True,timeout=90,cwd=ROOT)
         elif group=="fc-detail-analytics":
             release="releases/fs-dashboard/fc-detail-analytics-20261012"
-            units(release+"/tests",["test_fc_detail","test_fc_reader","test_fc_publisher"])
+            units(release+"/tests",["test_fc_detail","test_fc_reader","test_fc_dashboard","test_fc_publisher"])
             units(release+"/frontend",["test_release_workspace"],root_owned=True)
             node(release+"/tests/test_fc_query.cjs")
         elif group=="fs-on-demand":
