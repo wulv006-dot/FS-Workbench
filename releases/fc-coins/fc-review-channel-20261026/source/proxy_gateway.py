@@ -1,5 +1,6 @@
 """In-process candidate adapters. Inject existing DB/lock/provider; no sockets or keys."""
 from copy import deepcopy
+import hashlib
 import json
 import re
 import threading
@@ -72,6 +73,55 @@ _NATIVE_GUARD_MESSAGES = {code: 'fs_native_gateway/native_guard_v1/'+code for co
 
 class _NativeModelGuardError(ValueError):
     """Minted only at finite local guards, never from provider/callback text."""
+
+
+def native_expanded_tool_calls(originals):
+    """Replay pinned Hermes 71d34bad local batch expansion from the paid receipt.
+
+    This predicts history only; it neither dispatches tools nor changes billing.
+    Connector-only batches retain their original wire shape in the SDK.
+    """
+    expanded=[]
+    for original in originals:
+        entries=[]
+        if original['function']['name']=='tool_call':
+            try:
+                args=json.loads(original['function']['arguments'])
+                raw=args.get('calls')
+                if isinstance(raw,str):raw=json.loads(raw)
+                if isinstance(raw,dict):raw=[raw]
+                if isinstance(raw,list) and 1<len(raw)<=10:
+                    for item in raw:
+                        name=str(item.get('name') or '').strip()
+                        value=item.get('arguments')
+                        if value is None or isinstance(value,str) and not value.strip():value={}
+                        if isinstance(value,str):value=json.loads(value)
+                        if not name or name in ('tool_call','tool_search','tool_describe') or not isinstance(value,dict):
+                            raise ValueError('invalid_batch')
+                        entries.append({'name':name,'arguments':value})
+            except (ValueError,TypeError,AttributeError):
+                entries=[]
+        if not entries or all(e['name'].startswith('connectors__') for e in entries):
+            expanded.append(deepcopy(original));continue
+        parent_id=original['id'].strip().split('|',1)[0].strip()
+        for index,entry in enumerate(entries):
+            arguments=json.dumps({'calls':[entry]},ensure_ascii=False)
+            if index==0:
+                child=deepcopy(original);child['function']['arguments']=arguments
+            else:
+                seed=f'tool_call:{parent_id+arguments}:{index}'
+                child={'id':'call_'+hashlib.sha256(seed.encode('utf-8',errors='replace')).hexdigest()[:12],
+                       'type':'function','function':{'name':'tool_call','arguments':arguments}}
+            expanded.append(child)
+    seen=set()
+    for call in expanded:
+        cid=call['id'].strip().split('|',1)[0]
+        if cid in seen:
+            replacement=next(f'{cid}_d{n}' for n in range(2,len(seen)+3) if f'{cid}_d{n}' not in seen)
+            call['id']=replacement+('|' + call['id'].split('|',1)[1] if '|' in call['id'] else '')
+            cid=replacement
+        seen.add(cid)
+    return expanded
 
 
 def _raise_native_model_guard(code, guard):
@@ -427,16 +477,22 @@ class UnifiedBudget:
             if native_prefix and (type(receipt[native_key]) is not str or
                                   not re.fullmatch('[a-f0-9]{64}',receipt[native_key])):
                 _raise_native_model_guard('provider_tool_history_changed',_native_guard)
-            positions=[]
+            variants=[originals]
+            if native_prefix:
+                expanded=native_expanded_tool_calls(originals)
+                if expanded!=originals:variants.append(expanded)
+            positions=[];position_calls={}
             for position,message in enumerate(messages):
                 if position<baseline:continue
                 if message.get('role')!='assistant' or not message.get('tool_calls'):continue
-                if [c['id'] for c in message['tool_calls']]!=[c['id'] for c in originals]:continue
+                candidates=[v for v in variants if [c['id'] for c in message['tool_calls']]==[c['id'] for c in v]]
+                if not candidates:continue
                 prefix=messages[:position] if native_prefix else dict(request,messages=messages[:position])
                 if native_prefix and native_key=='native_dialogue_sha256':
                     prefix=[m for m in prefix if m.get('role')!='system']
                 expected=receipt[native_key] if native_prefix else row[1]
-                if digest(prefix)==expected:positions.append(position)
+                if digest(prefix)==expected:
+                    positions.append(position);position_calls[position]=candidates[0]
             # A paid reply is not necessarily adopted: the official SDK may
             # discard it on redirect/retry. Only new server-minted receipts
             # prove that the exact input dialogue remains the request prefix.
@@ -452,6 +508,7 @@ class UnifiedBudget:
             if len(positions)!=1 or matched and positions[0]<=matched[-1]:
                 _raise_native_model_guard('provider_tool_history_changed',_native_guard)
             position=positions[0];calls=messages[position]['tool_calls']
+            originals=position_calls[position]
             if len(calls)!=len(originals):_raise_native_model_guard('provider_tool_history_changed',_native_guard)
             for call,original in zip(calls,originals):
                 if call['id']!=original['id']:_raise_native_model_guard('provider_tool_history_changed',_native_guard)
