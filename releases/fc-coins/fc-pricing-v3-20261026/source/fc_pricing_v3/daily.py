@@ -77,6 +77,7 @@ def collect_outcomes(date,windows):
     from .selective_sources import history_period
     now=datetime.now(timezone.utc)
     learning_rows,_=_period_population(history_period(now))
+    learning_rows = dict(learning_rows or {}, **(selected or {}))
     try:online=online_window_context(session,pages,windows,now,learning_rows or {})
     finally:session.close()
     return dict(actual=hourly_actual(selected,coverage,date),online=online)
