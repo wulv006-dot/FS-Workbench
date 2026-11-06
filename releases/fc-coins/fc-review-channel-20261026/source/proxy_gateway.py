@@ -394,7 +394,8 @@ class UnifiedBudget:
 
     def restore_tool_indexes(self,owner,task,turn,request,*,compaction=None,_native_guard=None):
         # Pinned Hermes normalizes ToolCall into id/name/arguments and omits index.
-        # Bind each reply to its paid request prefix, not a globally reusable ID.
+        # Bind each reply to its paid messages, not to unrelated request controls.
+        # Legacy receipts retain their original full-request comparison.
         if type(turn) is not int or turn<0:raise ValueError('turn_invalid')
         with self.db() as conn:
             rows=conn.execute("SELECT m.content,r.request_digest,r.turn FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn<? AND m.state='succeeded' ORDER BY r.turn",(owner,task,turn)).fetchall()
@@ -415,17 +416,24 @@ class UnifiedBudget:
                 baseline=compaction['baseline_length']=size
             rows=[r for r in rows if r[2]>compaction['paid_through']]
         for row in rows:
-            originals=json.loads(row[0]).get('message',{}).get('tool_calls',[])
+            receipt=json.loads(row[0])
+            originals=receipt.get('message',{}).get('tool_calls',[])
             if not originals:continue
             # A title/compaction request with no tool history has nothing to replay.
             if not request['tools'] and not any(m.get('tool_calls') for m in messages):continue
+            native_prefix=(_native_guard is not None and native_scope(_native_guard[0])
+                           and 'native_messages_sha256' in receipt)
+            if native_prefix and (type(receipt['native_messages_sha256']) is not str or
+                                  not re.fullmatch('[a-f0-9]{64}',receipt['native_messages_sha256'])):
+                _raise_native_model_guard('provider_tool_history_changed',_native_guard)
             positions=[]
             for position,message in enumerate(messages):
                 if position<baseline:continue
                 if message.get('role')!='assistant' or not message.get('tool_calls'):continue
                 if [c['id'] for c in message['tool_calls']]!=[c['id'] for c in originals]:continue
-                prefix=dict(request,messages=messages[:position])
-                if digest(prefix)==row[1]:positions.append(position)
+                prefix=messages[:position] if native_prefix else dict(request,messages=messages[:position])
+                expected=receipt['native_messages_sha256'] if native_prefix else row[1]
+                if digest(prefix)==expected:positions.append(position)
             if len(positions)!=1 or matched and positions[0]<=matched[-1]:
                 _raise_native_model_guard('provider_tool_history_changed',_native_guard)
             position=positions[0];calls=messages[position]['tool_calls']
@@ -496,7 +504,7 @@ class UnifiedBudget:
             row=conn.execute('SELECT r.request_digest,r.policy,m.state,m.content FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn=?',(owner,task,turn)).fetchone()
         return bool(row and row['state']=='unknown' and row['request_digest']==digest(request) and row['policy']==encoded(self.policy) and row['content'] and transport_reset(json.loads(row['content'])))
 
-    def settle(self, fingerprint, response, request, input_bound):
+    def settle(self, fingerprint, response, request, input_bound, *, _native_guard=None):
         try:
             usage = {key: response['usage'][key] for key in ('prompt_tokens','completion_tokens','total_tokens')}
             if any(type(x) is not int or x < 0 for x in usage.values()):
@@ -544,6 +552,10 @@ class UnifiedBudget:
                        'price_version':p['price_version'], 'model':p['model'], 'message':message,
                        'cost_basis':'configured_public_rate_estimate_not_account_invoice' if p['input_microcny'] is not None else 'amount_unknown_no_cny_invoice_or_fx',
                        'enable_thinking':request['enable_thinking'],'reasoning_effort':request.get('reasoning_effort')}
+            # Server-produced metadata only; never an input field or authority
+            # for tools. Full request identity stays in the budget reservation.
+            if _native_guard is not None and native_scope(_native_guard[0]):
+                receipt['native_messages_sha256']=digest(request['messages'])
             receipt['finish_reason']=finish_reason
             validation=response.get('model_validation')
             if isinstance(validation,dict):
@@ -674,7 +686,7 @@ class ModelGateway:
                     self.budget.hold(fingerprint,diagnostic)
                     if attempt<self.transport_retries and transport_reset(diagnostic):continue
                     raise ValueError('provider_transport_recovery_exhausted' if self.transport_retries and transport_reset(diagnostic) else 'provider_outcome_unknown') from None
-                receipt = self.budget.settle(fingerprint,response,request,bound)
+                receipt = self.budget.settle(fingerprint,response,request,bound,**guard_kwargs)
                 # Each real request keeps its own record, including unknown cost after reset.
                 self.scope.context(owner,task_id,lease)
                 return receipt
