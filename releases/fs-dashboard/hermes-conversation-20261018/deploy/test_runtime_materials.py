@@ -1947,6 +1947,7 @@ class NativePublisher(unittest.TestCase):
     @staticmethod
     def plain_reply_installed_bytes(name):
         expected={
+            'runtime/proxy_gateway.py':('releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py','29467fd4deb8d128ab157825db37429456b23503a5b34f5b9c4fe41f8abaa6e8',44186,'d5093fe3dae36d41a45335e73b44a322c2e128c2'),
             'runtime/conversation_service.py':('releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py','80fdbae538933026fde0185642283ffe12cef34a1a674a38b8d40dfb7c69ad2f',38989,'b49488b50bb33191424ecf698ab7b0e61457c386'),
             'http/conversation_http.py':('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py','8d577e8493cabc2847604ab77e7539bb215c947cee842000acc86878bc2ba44d',13570,'e1b5943db3b49214f09fe107df367ce81f885b8b')}
         fixture=json.loads(Path(__file__).with_name('plain-reply-before-051f.json').read_bytes())
@@ -3357,7 +3358,7 @@ class NativePublisher(unittest.TestCase):
                 base.rooted(root,release.TARGETS[name]).write_bytes(self.diagnostic_current_bytes(name))
         retry_history=self.save_capabilities_receipt(base,root,release.CAPABILITIES_RETRY_HISTORY_PROOF,current,owners)
         stack.enter_context(patch.object(release,'CAPABILITIES_RETRY_HISTORY_PROOF',retry_history))
-        bodies={'runtime/proxy_gateway.py':(Path(__file__).resolve().parents[4]/prepare.SOURCES['runtime/proxy_gateway.py']).read_bytes(),
+        bodies={'runtime/proxy_gateway.py':self.plain_reply_installed_bytes('runtime/proxy_gateway.py'),
                 'runtime/conversation_service.py':self.plain_reply_installed_bytes('runtime/conversation_service.py'),
                  'http/conversation_http.py':self.plain_reply_installed_bytes('http/conversation_http.py')}
         assert (prepare.digest(bodies['runtime/proxy_gateway.py']),len(bodies['runtime/proxy_gateway.py']))==('29467fd4deb8d128ab157825db37429456b23503a5b34f5b9c4fe41f8abaa6e8',44186)
