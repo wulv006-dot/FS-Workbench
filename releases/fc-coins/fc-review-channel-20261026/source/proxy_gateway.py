@@ -399,7 +399,7 @@ class UnifiedBudget:
         if type(turn) is not int or turn<0:raise ValueError('turn_invalid')
         with self.db() as conn:
             rows=conn.execute("SELECT m.content,r.request_digest,r.turn FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND r.turn<? AND m.state='succeeded' ORDER BY r.turn",(owner,task,turn)).fetchall()
-        messages=request['messages'];matched=[];baseline=0
+        messages=request['messages'];matched=[];baseline=0;unadopted_start=None
         # Existing title/summary requests have no tool history to restore.
         # Do not adopt or mutate the main request's trusted compaction baseline.
         if not request['tools'] and not any(m.get('tool_calls') for m in messages):
@@ -437,6 +437,18 @@ class UnifiedBudget:
                     prefix=[m for m in prefix if m.get('role')!='system']
                 expected=receipt[native_key] if native_prefix else row[1]
                 if digest(prefix)==expected:positions.append(position)
+            # A paid reply is not necessarily adopted: the official SDK may
+            # discard it on redirect/retry. Only new server-minted receipts
+            # prove that the exact input dialogue remains the request prefix.
+            # Every tool batch after that prefix is still verified below.
+            if native_prefix and native_key=='native_dialogue_sha256' and not positions:
+                count=receipt.get('native_dialogue_length')
+                dialogue=[(i,m) for i,m in enumerate(messages) if m.get('role')!='system']
+                if (type(count) is int and 0<count<=len(dialogue) and
+                        digest([m for _,m in dialogue[:count]])==receipt[native_key]):
+                    start=dialogue[count-1][0]+1
+                    unadopted_start=start if unadopted_start is None else min(unadopted_start,start)
+                    continue
             if len(positions)!=1 or matched and positions[0]<=matched[-1]:
                 _raise_native_model_guard('provider_tool_history_changed',_native_guard)
             position=positions[0];calls=messages[position]['tool_calls']
@@ -448,8 +460,9 @@ class UnifiedBudget:
                     'index' in call and call['index']!=original.get('index')):_raise_native_model_guard('provider_tool_history_changed',_native_guard)
                 if 'index' in original:call['index']=original['index']
             matched.append(position)
-        if matched and any(m.get('tool_calls') for i,m in enumerate(messages)
-                           if i>=matched[0] and i not in matched):
+        starts=([matched[0]] if matched else [])+([unadopted_start] if unadopted_start is not None else [])
+        if starts and any(m.get('tool_calls') for i,m in enumerate(messages)
+                            if i>=min(starts) and i not in matched):
             _raise_native_model_guard('provider_tool_history_changed',_native_guard)
         if compaction is not None and not matched and any(m.get('tool_calls') for m in messages[baseline:]):
             _raise_native_model_guard('provider_tool_history_changed',_native_guard)
@@ -560,7 +573,9 @@ class UnifiedBudget:
             if _native_guard is not None and native_scope(_native_guard[0]):
                 # Official SDK ephemeral system context may change each call.
                 # User/assistant/tool history still binds the paid tool reply.
-                receipt['native_dialogue_sha256']=digest([m for m in request['messages'] if m.get('role')!='system'])
+                dialogue=[m for m in request['messages'] if m.get('role')!='system']
+                receipt['native_dialogue_sha256']=digest(dialogue)
+                receipt['native_dialogue_length']=len(dialogue)
             receipt['finish_reason']=finish_reason
             validation=response.get('model_validation')
             if isinstance(validation,dict):

@@ -463,10 +463,14 @@ class NativeToolHistory(unittest.TestCase):
                 elif change=='missing':history=[dict(role='user',content='new request with the paid reply absent')]
                 elif change=='duplicate':history+=deepcopy(history)
                 h.body['messages']+=history
-                with self.assertRaisesRegex(ValueError,'^provider_tool_history_changed$'):self.dispatch(h)
-                self.assertEqual(len(h.wire),1)
+                if change=='missing':
+                    self.assertEqual(self.dispatch(h)['choices'][0]['message']['content'],'synthetic answer')
+                    self.assertTrue(all('index' not in c for c in h.wire[-1]['messages'][1]['tool_calls']))
+                else:
+                    with self.assertRaisesRegex(ValueError,'^provider_tool_history_changed$'):self.dispatch(h)
+                self.assertEqual(len(h.wire),2 if change=='missing' else 1)
                 with h.db() as conn:
-                    self.assertEqual(conn.execute('SELECT COUNT(*) FROM hermes_reservations').fetchone()[0],1)
+                    self.assertEqual(conn.execute('SELECT COUNT(*) FROM hermes_reservations').fetchone()[0],2 if change=='missing' else 1)
 
     def test_multiple_receipts_restore_in_order_even_when_ids_repeat(self):
         with self.history_fixture(older=True) as h:
@@ -487,8 +491,11 @@ class NativeToolHistory(unittest.TestCase):
             h.body['messages'][1:4]=h.replay(h.calls)
             self.dispatch(h)
             h.body['messages'].append(dict(role='user',content='changed request without current paid reply'))
-            with self.assertRaisesRegex(ValueError,'^provider_tool_history_changed$'):self.dispatch(h)
-            self.assertEqual(len(h.wire),1)
+            self.assertEqual(self.dispatch(h)['choices'][0]['message']['content'],'synthetic answer')
+            self.assertTrue(all('index' not in c for c in h.wire[-1]['messages'][1]['tool_calls']))
+            self.assertEqual(len(h.wire),2)
+            with h.db() as conn:
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM model_calls WHERE state='succeeded'").fetchone()[0],2)
 
     def test_pinned_sdk_ephemeral_context_can_change_after_paid_tools(self):
         from fixed_sdk_aad_wire import build_wire
@@ -670,6 +677,8 @@ class NativeCompactionHistory(unittest.TestCase):
                 self.sdk_compact(h);binding,value=self.confirm(h)
                 self.dispatch(h)
                 self.gateway(h).confirm_native_compaction(binding,1,value)
+                marker=deepcopy(self.gateway(h)._native_compaction)
+                with h.db() as conn:paid=list(conn.execute('SELECT fingerprint,state,content FROM model_calls ORDER BY fingerprint'))
                 h.body['messages']+=h.replay(newer)
                 if change=='arguments':h.body['messages'][-3]['tool_calls'][0]['function']['arguments']='{"changed":true}'
                 elif change=='name':h.body['messages'][-3]['tool_calls'][0]['function']['name']='tool_call'
@@ -680,8 +689,15 @@ class NativeCompactionHistory(unittest.TestCase):
                     del h.body['messages'][-3:];h.body['messages'].append(dict(role='user',content='new request missing paid tool reply'))
                 elif change=='duplicate':h.body['messages']+=deepcopy(h.body['messages'][-3:])
                 else:h.body['messages'][0]['content']+=' changed'
-                with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
-                self.assertEqual(len(h.wire),2)
+                if change=='missing':
+                    self.assertEqual(self.dispatch(h)['choices'][0]['message']['content'],'synthetic answer')
+                else:
+                    with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
+                self.assertEqual(self.gateway(h)._native_compaction,marker)
+                self.assertEqual(len(h.wire),3 if change=='missing' else 2)
+                with h.db() as conn:
+                    current={row[0]:tuple(row) for row in conn.execute('SELECT fingerprint,state,content FROM model_calls')}
+                    self.assertTrue(all(current[row[0]]==tuple(row) for row in paid))
 
     def test_second_official_compaction_uses_only_new_server_watermark(self):
         with self.fixture() as h:
@@ -828,6 +844,7 @@ class NativeCompactionHistory(unittest.TestCase):
                 self.sdk_compact(h);self.confirm(h);self.dispatch(h)
                 marker=deepcopy(self.gateway(h)._native_compaction)
                 self.summary_via_gateway(h)
+                with h.db() as conn:paid=list(conn.execute('SELECT fingerprint,state,content FROM model_calls ORDER BY fingerprint'))
                 h.body['messages']+=h.replay(newer)
                 if change=='tools_present':h.body['messages']=[dict(role='user',content='wrong prefix')]
                 elif change=='history_present':
@@ -839,9 +856,72 @@ class NativeCompactionHistory(unittest.TestCase):
                 elif change=='missing':del h.body['messages'][-3:]
                 else:h.body['messages']+=deepcopy(h.body['messages'][-3:])
                 if change=='missing':h.body['messages'].append(dict(role='user',content='missing paid reply'))
-                with self.assertRaises(ValueError):self.dispatch(h)
+                if change=='missing':
+                    self.assertEqual(self.dispatch(h)['choices'][0]['message']['content'],'synthetic answer')
+                else:
+                    with self.assertRaises(ValueError):self.dispatch(h)
                 self.assertEqual(self.gateway(h)._native_compaction,marker)
-                self.assertEqual(len(h.wire),3)
+                self.assertEqual(len(h.wire),4 if change=='missing' else 3)
+                with h.db() as conn:
+                    current={row[0]:tuple(row) for row in conn.execute('SELECT fingerprint,state,content FROM model_calls')}
+                    self.assertTrue(all(current[row[0]]==tuple(row) for row in paid))
+
+
+class NativeSDKUnadoptedReplies(unittest.TestCase):
+    def test_original_sdk_redirect_successor_can_continue_without_adopting_reply(self):
+        from fixed_sdk_redirect_wire import run_case
+        for visible in ('Synthetic partial visible answer', ''):
+            with self.subTest(visible=bool(visible)):
+                result = run_case(visible)
+                self.assertTrue(result['completed'], result)
+                self.assertEqual(result['provider_stubs'], 2)
+                self.assertEqual(result['paid_reservations'], [('succeeded', 2)])
+
+    def test_redirect_then_more_tools_keeps_every_physical_call_accounted(self):
+        from fixed_sdk_redirect_wire import run_case
+        for prior_tools in (False, True):
+            with self.subTest(prior_tools=prior_tools):
+                result = run_case('', more_tools=True, after_adopted=prior_tools)
+                count = 4 if prior_tools else 3
+                self.assertTrue(result['completed'], result)
+                self.assertEqual(result['provider_stubs'], count)
+                self.assertEqual(result['paid_reservations'], [('succeeded', count)])
+
+    def test_redirect_retry_reused_ids_take_indexes_only_from_adopted_reply(self):
+        from fixed_sdk_redirect_wire import run_case
+        result = run_case('', more_tools=True, reused_ids=True)
+        self.assertTrue(result['completed'], result)
+        self.assertEqual(result['provider_stubs'], 3)
+        self.assertEqual(result['paid_reservations'], [('succeeded', 3)])
+        self.assertEqual(result['resumed_indexes'], [10, 11])
+
+
+    def test_unadopted_reply_requires_original_input_and_server_receipt_metadata(self):
+        import json
+        helper = NativeToolHistory()
+        for change in ('missing_metadata', 'boolean_length', 'negative_length', 'long_length', 'changed_input', 'unknown_batch', 'body_marker'):
+            with self.subTest(change=change), helper.history_fixture() as h:
+                helper.dispatch(h)
+                h.body['messages'] += [dict(role='assistant',content='Partial synthetic answer'),
+                                       dict(role='user',content='Synthetic correction')]
+                if change in ('missing_metadata', 'boolean_length', 'negative_length', 'long_length'):
+                    with h.db() as db:
+                        fingerprint, raw = db.execute('SELECT fingerprint,content FROM model_calls').fetchone()
+                        receipt = json.loads(raw)
+                        if change == 'missing_metadata': receipt.pop('native_dialogue_length')
+                        else: receipt['native_dialogue_length'] = {'boolean_length':True,'negative_length':-1,'long_length':999}[change]
+                        db.execute('UPDATE model_calls SET content=? WHERE fingerprint=?',(json.dumps(receipt),fingerprint))
+                elif change == 'changed_input': h.body['messages'][0]['content'] = 'Different original input'
+                elif change == 'unknown_batch':
+                    calls = deepcopy(h.calls)
+                    for call in calls: call['id'] += '-unpaid'
+                    h.body['messages'] += h.replay(calls)
+                else: h.body['native_dialogue_length'] = 1
+                with self.assertRaises(ValueError): helper.dispatch(h)
+                self.assertEqual(len(h.wire),1)
+                with h.db() as db:
+                    self.assertEqual(db.execute('SELECT COUNT(*) FROM model_calls').fetchone()[0],1)
+
 
 def load_tests(loader, tests, pattern):
     from test_aad_knowledge_consumer import AadKnowledgeConsumer, NativeDiagnosticRed, NativeDiagnosticSafety
