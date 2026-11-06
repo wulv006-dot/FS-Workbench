@@ -356,7 +356,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "b3b8c0c1ddff1083d192bc4cca08bbe9dd4e6943b6002d4d57148374afc56353",
+        "sha256": "4d57c7de21ebf59932a6aad55dd9d2393acb2a44fb0a8288002f4330e8b3bc13",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -392,6 +392,11 @@
           "kind": "direct_user_current_knowledge_cleanup",
           "date": "2026-11-06",
           "scope": "Current smart state and read-only review method; no pricing thresholds or writer change"
+        },
+        {
+          "kind": "direct_user_pricing_knowledge_cleanup",
+          "date": "2026-11-06",
+          "scope": "Program/model split, actual-outcome retrieval and current-day archive; no price threshold or authority change"
         }
       ],
       "consumers": [
@@ -1162,7 +1167,7 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "20261106-current",
+      "revision": "20261106-clean",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1175,7 +1180,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "b3b8c0c1ddff1083d192bc4cca08bbe9dd4e6943b6002d4d57148374afc56353",
+        "sha256": "4d57c7de21ebf59932a6aad55dd9d2393acb2a44fb0a8288002f4330e8b3bc13",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1183,7 +1188,8 @@
         "fc.pricing.v3@fc-v3-lag1-eight-day-20261029",
         "fc.pricing.v3@fc-v3-sprint-baseline-20261029",
         "fc.pricing.v3@fc-v3-100k-source-availability-20261030",
-        "fc.pricing.v3@fc-v3-smart-native-boundaries-20261105"
+        "fc.pricing.v3@fc-v3-smart-native-boundaries-20261105",
+        "fc.pricing.v3@20261106-current"
       ],
       "provenance": [
         {
@@ -1220,6 +1226,11 @@
           "kind": "direct_user_current_knowledge_cleanup",
           "date": "2026-11-06",
           "scope": "Current smart state and read-only review method; no pricing thresholds or writer change"
+        },
+        {
+          "kind": "direct_user_pricing_knowledge_cleanup",
+          "date": "2026-11-06",
+          "scope": "Program/model split, actual-outcome retrieval and current-day archive; no price threshold or authority change"
         }
       ],
       "consumers": [
@@ -1274,7 +1285,7 @@
     },
     {
       "id": "fc.reporting.data",
-      "revision": "20261106-1",
+      "revision": "20261106-clean",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1288,12 +1299,13 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "9ef6fe395a3e2bfd69a639f27c7917f0f5a694971c224ad175b227316c247e08",
+        "sha256": "ec01a8c31b21bbd3aa87979e04b634b50929a722996110a9305ea84186a5a6ad",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
         "fc.reporting.data@20261105-1",
-        "fc.reporting.data@20261105-2"
+        "fc.reporting.data@20261105-2",
+        "fc.reporting.data@20261106-1"
       ],
       "provenance": [
         {
@@ -1321,6 +1333,11 @@
           "kind": "direct_user_native_hermes_boundary_cleanup",
           "date": "2026-11-06",
           "scope": "Native read-only report tool contract and on-demand knowledge teaching; business formulas unchanged; installation and use tracked separately"
+        },
+        {
+          "kind": "direct_user_pricing_knowledge_cleanup",
+          "date": "2026-11-06",
+          "scope": "Program/model split, actual-outcome retrieval and current-day archive; no price threshold or authority change"
         }
       ],
       "consumers": [
@@ -1366,7 +1383,7 @@
     },
     {
       "id": "fc.reporting.business",
-      "revision": "20261106-current",
+      "revision": "20261106-clean",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1380,11 +1397,12 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/BUSINESS.md",
-        "sha256": "77f0ca970817752ac6c5720516e8eaee87a8733a43e493fcdd852b6563a7a3d8",
+        "sha256": "a697bf7a78cf50f590f44a9d0313c4eb5cf07f9d92b3b618b9ba43295cc62bc5",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
-        "fc.reporting.business@20261105-1"
+        "fc.reporting.business@20261105-1",
+        "fc.reporting.business@20261106-current"
       ],
       "provenance": [
         {
@@ -1400,6 +1418,11 @@
           "kind": "direct_user_current_knowledge_cleanup",
           "date": "2026-11-06",
           "scope": "Current smart state and read-only review method; no pricing thresholds or writer change"
+        },
+        {
+          "kind": "direct_user_pricing_knowledge_cleanup",
+          "date": "2026-11-06",
+          "scope": "Program/model split, actual-outcome retrieval and current-day archive; no price threshold or authority change"
         }
       ],
       "consumers": [
@@ -1409,7 +1432,7 @@
     },
     {
       "id": "fc.reporting.maintenance",
-      "revision": "20261106-1",
+      "revision": "20261106-clean",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1423,10 +1446,12 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/MAINTENANCE.md",
-        "sha256": "e5680c7bd34334ed1e4de6acb9dffd12e9055ce737b5e62e720dd93e1be8dc0d",
+        "sha256": "319e0b1c18b277a1555275db65a673f81469131f15147dd225dfaf3e56f1283a",
         "hash_basis": "utf8_lf"
       },
-      "supersedes": [],
+      "supersedes": [
+        "fc.reporting.maintenance@20261106-1"
+      ],
       "provenance": [
         {
           "kind": "direct_user_knowledge_consolidation",
@@ -1441,6 +1466,11 @@
           "kind": "direct_user_native_hermes_boundary_cleanup",
           "date": "2026-11-06",
           "scope": "Remove obsolete instruction copies while preserving actual ledgers and receipts; Git source update only, target-profile readback separate"
+        },
+        {
+          "kind": "direct_user_pricing_knowledge_cleanup",
+          "date": "2026-11-06",
+          "scope": "Program/model split, actual-outcome retrieval and current-day archive; no price threshold or authority change"
         }
       ],
       "consumers": [

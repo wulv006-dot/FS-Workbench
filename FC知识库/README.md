@@ -11,12 +11,12 @@
 | 更新记录：版本、维护、审核与学习状态 | [维护协议](../knowledge/reporting/fc27-monthly/MAINTENANCE.md) · [交付记录](../knowledge/reporting/fc27-monthly/DELIVERY.md) |
 | Codex怎样使用 | [$fc27-monthly-report](../.agents/skills/fc27-monthly-report/SKILL.md) · [统一方法索引](../knowledge/reporting/fc27-monthly/README.md) |
 
-智能定价的上线版本、真实写价与自然周期验收以对应任务交付记录为准；本知识入口不作为策略切换或经营收益证明。定价执行照现行基准。
+## 自动定价从这里开始
 
-新版methods `20261105-2`、data `20261105-3`已同步FS及Hermes共享知识；共享新会话实际读取和未见迁移题通过。正式Chrome FS在明确正确工具协议提示后，实际读取新版两份正文并正确应用；首轮DeepSeek无提示工具使用失败保留，不称全自主通过。native正式技能安装未做；日更/周复核自然窗口、自然报告与长期效果未验。详见[交付记录](../knowledge/reporting/fc27-monthly/DELIVERY.md)。
+[当前定价基准](../docs/planning/fc-pricing-v3-20261026/CURRENT-BASELINE.md)说明运行模式和分工；[定价效果取数与计算](../knowledge/reporting/fc27-monthly/DATA.md#定价效果取数与计算)说明怎样核实哪一档更赚钱。
+
+每小时候选选择、试验分配、纠偏和成熟后领先档选择由程序完成；Hermes每日只读复盘并提出经营建议。运行、模型建议和实际增益分别看证据。具体学习与发布回执放在[交付记录](../knowledge/reporting/fc27-monthly/DELIVERY.md)，本入口只保留现行方法。
 
 历史优秀报告仅供理解组织方法，经营数字不是当前阈值。本地受控成品位于项目的 `docs/planning/fc27-october-review-20261103/output/`，文件名 `FC27-2026年10月项目专项复盘.html`；Git不收录该私密成品，团队可共享方法已在上方入口。
 
 后续活动、商品、客户、履约及定价知识从对应主题继续扩充；不每月复制同一教材。当前规则、历史案例、估计与未验结果分别保留，更新走现有知识收尾与审核路径。
-
-2026-11-06 定价知识核准：smart已在线上接管，当前计划及判断方法见[现行基线](../docs/planning/fc-pricing-v3-20261026/CURRENT-BASELINE.md)和[Hermes经营合同](../docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md)。旧v15决策仅保留为归档，不再作为现行条目。仓库更新与Hermes线上知识装载分别验收。
