@@ -1466,6 +1466,39 @@ class RuntimeMaterials(unittest.TestCase):
 
 
 
+    def test_gateway_pack_uses_current_source_and_original_host_only_rollback(self):
+        name='runtime/proxy_gateway.py'
+        source='releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py'
+        before={name:dict(source_commit=self.BEFORE,source_path=source)}
+        with self.scope_fixture() as f:
+            blobs={self.BEFORE+':'+source:b'original installed gateway',
+                   self.AFTER+':'+source:b'reviewed native replay gateway'}
+            for file,path in prepare.PUBLISHER_SOURCES.items():
+                blobs[self.AFTER+':'+path]=(f.bundle/file).read_bytes()
+            def git(command,**kwargs):
+                self.assertEqual(command[:2],['git','show'])
+                return blobs[command[2]]
+            output=f.root/'active-gateway-pack'
+            with patch.object(prepare.subprocess,'check_output',side_effect=git):
+                prepare.pack(f.root,output,self.AFTER,software_before=before)
+            descriptor=json.loads((output/'payload-manifest.json').read_bytes())
+            self.assertEqual(descriptor['software_sources'],{name:source})
+            self.assertEqual((output/'before'/name).read_bytes(),b'original installed gateway')
+            self.assertEqual((output/'payload'/name).read_bytes(),b'reviewed native replay gateway')
+        with patch.object(self,'SELECTED',(name,'runtime/conversation_store.py')),self.scope_fixture() as f:
+            stage,manifest=self.prepare_stage(f)
+            self.assertEqual([(x['candidate'],x['target']) for x in manifest['files']],
+                             [(name,'/opt/fs-hermes-fc/proxy_gateway.py')])
+            raw=(stage/'approved-manifest.json').read_bytes()
+            with self.publisher(f,stage) as (base,module,fence,locks):
+                scopes=[]
+                with patch.object(module,'software_restart',side_effect=lambda b,r,m,a:scopes.append(m['scope'])):
+                    result=base.apply(manifest,stage,prepare.digest(raw),raw,'nav-20261106T090000Z',f.system)
+                    base.rollback(Path(result['backup']),prepare.digest(raw),f.system)
+                self.assertEqual(scopes,[base.DEEP_SCOPE,base.DEEP_SCOPE])
+            self.assertEqual(f.ledger.read_bytes(),b'preserve data and original IDs')
+            self.assertEqual(prepare.digest(f.base.rooted(f.system,'/opt/fs-hermes-fc/proxy_gateway.py').read_bytes()),manifest['files'][0]['beforeSha256'])
+
     def test_continuation_pack_reads_the_active_report_repair_git_source(self):
         name='runtime/continuation.py'
         source='releases/fs-dashboard/hermes-report-repair-20261019/source/continuation.py'

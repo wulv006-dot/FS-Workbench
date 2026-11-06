@@ -359,6 +359,7 @@ CAPABILITIES_CHANGED = ('runtime/conversation_service.py','http/conversation_htt
 
 # Reviewed software mappings; selection cannot supply an arbitrary source or target.
 SOFTWARE_MAPPINGS = {
+    'runtime/proxy_gateway.py': ('releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py', '/opt/fs-hermes-fc/proxy_gateway.py'),
     'runtime/conversation_service.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py', '/opt/fs-hermes-fc/conversation_service.py'),
     'runtime/conversation_native.py': ('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_native.py', '/opt/fs-hermes-fc/conversation_native.py'),
     'runtime/native_chat.py': ('releases/fs-dashboard/hermes-v2-core-20261020/source/native_chat.py', '/opt/fs-hermes-fc/native_chat.py'),
