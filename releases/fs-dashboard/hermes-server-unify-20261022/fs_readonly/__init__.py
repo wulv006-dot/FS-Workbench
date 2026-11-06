@@ -184,7 +184,7 @@ def register_report_scope(registry,scope,capabilities):
             from conversation_native import current_native_backend
             backend=current_native_backend()
             if backend is None:raise PermissionError('native_run_context_required')
-            return json.dumps(backend.report_call(_name,args,context.get('task_id')),ensure_ascii=False,allow_nan=False)
+            return json.dumps(backend.report_call(_name,args,context.get('task_id')),ensure_ascii=False,allow_nan=False,separators=(',',':'))
         previous=registry.get_entry(name,scope=scope)
         if not (previous is not None and previous.handler.__module__==__name__ and previous.schema==function):
             registry.register(name=name,toolset='fs_fc_readonly',schema=function,handler=handler,scope=scope)

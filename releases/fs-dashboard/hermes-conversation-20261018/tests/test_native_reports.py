@@ -64,6 +64,31 @@ def original_function(rel,name):
     return namespace[name]
 
 class ReportRoute(unittest.TestCase):
+    def test_report_tool_compact_serialization_preserves_evidence_and_arguments(self):
+        register=original_function('releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly/__init__.py','register_report_scope')
+        register.__globals__.update(json=json,CUSTOMER_TOOLS={},TOOLS={})
+        name='mcp__fcro__fc_query_native_statistics'
+        schema=dict(type='function',function=dict(name=name,parameters=dict(type='object')))
+        result=dict(evidence_id='frozen-1',source='Admin',timezone='Asia/Shanghai',
+            period=dict(start='2026-11-04',end='2026-11-05'),
+            data=dict(revenue=dict(value=0,unit='USD',status='available'),
+                      cost=dict(value=None,status='missing'),coverage='partial',stale=True),
+            authoritative_fact_table=[dict(value=0,value_path='/data/revenue/value',evidence_id='frozen-1')])
+        calls=[];installed=[]
+        def report_call(tool,args,task):
+            calls.append((tool,args,task));return result
+        backend=SimpleNamespace(report_call=report_call)
+        registry=SimpleNamespace(get_entry=lambda *a,**kw:None,register=lambda **kw:installed.append(kw))
+        toolsets=SimpleNamespace(create_custom_toolset=lambda *a,**kw:None,resolve_toolset=lambda *a,**kw:[])
+        import conversation_native
+        with patch.dict(sys.modules,{'toolsets':toolsets}),patch.object(conversation_native,'current_native_backend',return_value=backend):
+            register(registry,'owner-profile',dict(tool_schemas=[schema]))
+            args=dict(start='2026-11-04');text=installed[0]['handler'](args,task_id='original-turn')
+        self.assertEqual(calls,[(name,args,'original-turn')])
+        self.assertEqual(json.loads(text),result)
+        self.assertLess(len(text),len(json.dumps(result,ensure_ascii=False,allow_nan=False)))
+        self.assertNotIn('unit',json.loads(text)['data']['cost'])
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name);self.tasks=TaskStore(self.root/'tasks.sqlite3')
