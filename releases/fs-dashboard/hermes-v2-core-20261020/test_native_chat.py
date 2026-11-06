@@ -450,6 +450,51 @@ class NativeToolHistory(unittest.TestCase):
                 with h.db() as conn:
                     self.assertEqual([tuple(r) for r in conn.execute('SELECT r.turn,m.state FROM hermes_reservations r JOIN model_calls m ON r.fingerprint=m.fingerprint ORDER BY r.turn')],[(0,'succeeded'),(1,'succeeded')])
 
+    def test_native_local_batch_expansion_replays_without_changing_paid_receipt(self):
+        import hashlib, json
+        with self.history_fixture() as h:
+            entries=[{'name':'fs_track_customer','arguments':{'round':i}} for i in range(3)]
+            parent=dict(id='batch-parent',type='function',index=0,
+                        function=dict(name='tool_call',arguments=json.dumps({'calls':entries})))
+            h.responses[:]=[[parent],None,None]
+            self.dispatch(h)
+            expanded=[]
+            for i,entry in enumerate(entries):
+                args=json.dumps({'calls':[entry]},ensure_ascii=False)
+                cid=parent['id'] if i==0 else 'call_'+hashlib.sha256(
+                    f"tool_call:{parent['id']+args}:{i}".encode()).hexdigest()[:12]
+                expanded.append(dict(id=cid,type='function',function=dict(name='tool_call',arguments=args)))
+            h.body['messages']+=h.replay(expanded)
+            self.assertEqual(self.dispatch(h)['choices'][0]['message']['content'],'synthetic answer')
+            h.body['messages']+=[dict(role='assistant',content='synthetic answer'),dict(role='user',content='continue')]
+            self.dispatch(h)
+            with h.db() as conn:
+                receipts=[json.loads(r[0]) for r in conn.execute('SELECT content FROM model_calls ORDER BY rowid')]
+            self.assertEqual(receipts[0]['message']['tool_calls'],[parent])
+            self.assertEqual(len(receipts),3)
+
+    def test_expanded_batch_cannot_add_change_or_reorder_paid_arguments(self):
+        import hashlib,json
+        for change in ('argument','id','order','extra','missing'):
+            with self.subTest(change=change),self.history_fixture() as h:
+                entries=[{'name':'fs_track_customer','arguments':{'round':i}} for i in range(2)]
+                parent=dict(id='batch-parent',type='function',index=0,
+                            function=dict(name='tool_call',arguments=json.dumps({'calls':entries})))
+                h.responses[:]=[[parent]];self.dispatch(h)
+                expanded=[]
+                for i,entry in enumerate(entries):
+                    args=json.dumps({'calls':[entry]},ensure_ascii=False)
+                    cid=parent['id'] if i==0 else 'call_'+hashlib.sha256(f"tool_call:{parent['id']+args}:{i}".encode()).hexdigest()[:12]
+                    expanded.append(dict(id=cid,type='function',function=dict(name='tool_call',arguments=args)))
+                if change=='argument':expanded[1]['function']['arguments']='{"calls":[{"name":"fs_track_customer","arguments":{"round":99}}]}'
+                elif change=='id':expanded[1]['id']='forged-child'
+                elif change=='order':expanded.reverse()
+                elif change=='extra':expanded.append(dict(id='extra',type='function',function=dict(name='tool_call',arguments='{}')))
+                else:expanded.pop()
+                h.body['messages']+=h.replay(expanded)
+                with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
+                self.assertEqual(len(h.wire),1)
+
     def test_current_call_changes_cannot_fall_back_to_older_matching_ids(self):
         for change in ('name','arguments','index','id','missing','duplicate'):
             with self.subTest(change=change),self.history_fixture(older=True) as h:
