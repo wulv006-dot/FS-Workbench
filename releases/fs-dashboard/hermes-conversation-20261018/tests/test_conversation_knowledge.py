@@ -396,7 +396,7 @@ class KnowledgeWiring(unittest.TestCase):
             package = reviewed_skills.package(skills, 'methods/test-method')
             material = dict(contract=reviewed_skills.CONTRACT, items=[dict(id='methods/test-method',
                 package_sha256=package['sha256'], sha256=package['sha256'], files=package['entries'],
-                modules=['FS'], description='Approved fixture', review_request_id='fixture-review')])
+                modules=['FS', 'FC', 'RPG'], description='Approved fixture', review_request_id='fixture-review')])
             index = dict(material, sha256=reviewed_skills.digest(material))
             folder = service.hermes.root / 'knowledge'
             folder.mkdir()
@@ -414,6 +414,15 @@ class KnowledgeWiring(unittest.TestCase):
                     self.assertEqual(result['content'], 'approved fixture method')
                     self.assertEqual(agent._fs_native_knowledge.pin['reviewed_skills']['index_sha256'], index['sha256'])
                     self.assertNotIn('approved fixture method', agent.ephemeral_system_prompt)
+                    schema = next(t['function'] for t in agent.tools if t['function']['name'] == 'fs_read_knowledge')
+                    self.assertIn('top-level', schema['parameters']['properties']['modules']['description'])
+                    self.assertIn('skill applicability', schema['parameters']['properties']['modules']['description'])
+                    bound = item['native_chat']['binding']
+                    for modules in (['FS', 'FC'], ['FS', 'RPG']):
+                        with self.assertRaisesRegex(ValueError, 'native_knowledge_module_scope'):
+                            service.native.host_tool(bound, 'fs.native.knowledge', dict(binding=bound,
+                                reference=item['native_chat']['knowledge'], operation='read', name='fs_read_knowledge',
+                                arguments=dict(modules=modules, skill_id='methods/test-method')))
             self.assertEqual(len(calls), 1)
 
 

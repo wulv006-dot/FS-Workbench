@@ -182,9 +182,12 @@ class WorkerKnowledge:
 def register_scope(registry, scope):
     """Only the admitted native agent explicitly enables this profile overlay."""
     from toolsets import create_custom_toolset
-    fields = dict(modules=dict(type='array', items=dict(type='string'), minItems=1),
-        entry_ids=dict(type='array', items=dict(type='string')), revision=dict(type='string'),
-        history=dict(type='boolean'), skill_id=dict(type='string'))
+    fields = dict(modules=dict(type='array', items=dict(type='string'), minItems=1,
+        description='Choose only from the pinned index top-level modules. Skill item modules describe skill applicability, not additional task permissions; for a skill use their intersection with top-level modules.'),
+        entry_ids=dict(type='array', items=dict(type='string')),
+        revision=dict(type='string', description='Exact historical revision; requires history=true.'),
+        history=dict(type='boolean', description='Default false: current effective content. True only for explicit historical questions; archived content is not a current rule.'),
+        skill_id=dict(type='string', description='Exact reviewed_skills item id from the pinned index. Combine only with modules to read its frozen SKILL.md; do not pass entry_ids, revision or history.'))
     for name in sorted(READ_TOOLS):
         schema = dict(name=name, description='Read the current turn pinned formal knowledge; no business action.',
             parameters=dict(type='object', properties={'history': fields['history']} if name == 'fs_get_knowledge_index' else fields,
