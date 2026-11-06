@@ -113,6 +113,14 @@ async function permissionCase(browser,url,status,format){
    assert.equal(await page.locator('[data-metric=orders] strong').innerText(),'暂缺');
    await page.screenshot({path:path.join(evidence,'desktop-light-partial-MOCK.png'),fullPage:true});partial=false;
   });
+  await check('classification warning stays singular after repeated responsive redraws',async()=>{
+   for(const width of [1280,390,1920,900,1920]){
+    await page.setViewportSize({width,height:1080});
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    assert.equal(await page.locator('.fc-state [data-fc-classification-note]').count(),1);
+    assert.equal((await page.locator('.fc-state').innerText()).match(/分类未完整/g)?.length,1);
+   }
+  });
   await check('single hour uses hourly wording and known USD value',async()=>{
    const start='2026-10-23 12:00',end=start;
    await choose(page,{b_grain:'hour',b_range:'custom',b_start:start,b_end:end});
@@ -120,6 +128,12 @@ async function permissionCase(browser,url,status,format){
    const amount=detail({product:'all',start,end,grain:'hour'}).fc_dashboard.trend[0].revenue_usd;
    assert.match(await page.locator('#chartMain').innerText(),new RegExp(amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
    assert.doesNotMatch(await page.locator('#chartMain').innerText(),/切换小时/);
+  });
+  await check('same-day hourly structure uses inclusive hour count and one calendar day',async()=>{
+   await choose(page,{b_grain:'hour',b_range:'custom',b_start:'2026-10-23 08:00',b_end:'2026-10-23 20:00'});
+   for(const id of ['geoHint','payStyleHint','payDevHint']){assert.match(await page.locator('#'+id).innerText(),/13\s*小时/);assert.doesNotMatch(await page.locator('#'+id).innerText(),/2\s*天/);}
+   assert.match(await page.locator('#structDesc').innerText(),/1\s*天/);
+   assert.doesNotMatch(await page.locator('#structDesc').innerText(),/2\s*天/);
   });
   await check('FC to RS restores original node parents and contains no duplicate IDs',async()=>{
    await choose(page,{b_site:'rsorders',b_profile:'RS',b_group:'general',b_grain:'day',b_range:'yesterday'});
