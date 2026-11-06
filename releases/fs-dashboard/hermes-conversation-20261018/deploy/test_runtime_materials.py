@@ -1932,16 +1932,18 @@ class NativePublisher(unittest.TestCase):
 
     @staticmethod
     def diagnostic_current_bytes(name):
+        fixture=json.loads(Path(__file__).with_name('retry-before-befa.json').read_bytes())
+        assert fixture['source_commit']=='befa7cd8b4ccf8fa46221710831ec12d4371b294' and set(fixture['files'])=={'runtime/proxy_gateway.py','runtime/transport.py'}
+        row=fixture['files'][name];body=row['utf8'].encode('utf-8')
+        assert row['source']==prepare.SOURCES[name]
+        assert hashlib.sha1(b'blob '+str(len(body)).encode()+b'\0'+body).hexdigest()==row['blob']
         if name=='runtime/proxy_gateway.py':
-            fixture=json.loads(Path(__file__).with_name('retry-before-befa.json').read_bytes())
-            assert fixture['source_commit']=='befa7cd8b4ccf8fa46221710831ec12d4371b294' and set(fixture['files'])=={name}
-            row=fixture['files'][name];body=row['utf8'].encode('utf-8')
             assert row['source']==prepare.SOURCES[name] and row['blob']=='055d3d098a47af7149215a76daf4fc0637525701'
             assert (prepare.digest(body),len(body))==(row['sha256'],row['bytes'])==('31c13a1b2ca439e873f4f0c4a450156766d43b6c15338b7745fe3c8e444030e7',44180)
         else:
             assert name=='runtime/transport.py'
-            body=(Path(__file__).resolve().parents[4]/prepare.SOURCES[name]).read_bytes()
-            assert (prepare.digest(body),len(body))==('88350c09814b61b7bdcd2abe6f117a5754190bd753299ab6701aeef75f312c76',21373)
+            assert row['blob']=='3db92887cd9b39c1403af6c149fe2f9f296cc423'
+            assert (prepare.digest(body),len(body))==(row['sha256'],row['bytes'])==('88350c09814b61b7bdcd2abe6f117a5754190bd753299ab6701aeef75f312c76',21373)
         return body
 
     @staticmethod
