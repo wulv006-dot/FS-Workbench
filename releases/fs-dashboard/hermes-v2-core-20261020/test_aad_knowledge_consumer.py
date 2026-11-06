@@ -299,13 +299,42 @@ class NativeDiagnosticSafety(unittest.TestCase):
             status,result=actual_handler(f.transport,f.proxy,dict(f.body,unexpected='PRIVATE_SENTINEL'),f.token)
             self.assertEqual(status,400);self.assertEqual(result['error']['source'],'fs_material_transport')
             self.assertEqual(result['error']['code'],'request_fields')
-            for code in ('model_busy','context_rejected','provider_payload_too_large','pilot_usage_hold'):
+            for code in ('context_rejected','provider_payload_too_large','pilot_usage_hold','provider_outcome_unknown'):
                 def reject(*a,code=code):raise ValueError(code)
                 status,result=actual_handler(f.transport,SimpleNamespace(dispatch=reject),f.body,f.token)
                 self.assertEqual(status,400);self.assertEqual(result['error']['message'],'FC model request blocked: '+code)
             def reject(*a):raise ValueError('calculation_operand_mismatch')
             status,result=actual_handler(f.transport,SimpleNamespace(dispatch=reject),{'name':'fc.calculate'},f.token,'/fc/tools/call')
             self.assertEqual((status,result),(400,{'error':{'message':'invalid calculation arguments','type':'invalid_request_error','code':'calculation_operand_mismatch'}}))
+
+    def test_busy_model_retries_same_identity_without_reserving_or_charging_twice(self):
+        from contextlib import contextmanager
+        from unittest.mock import patch
+        with self.fixture() as h:
+            h.body['stream']=False
+            h.body.pop('stream_options',None)
+            gateway=h.proxy.gateway_for(h.f.grants.resolve(h.f.token))
+            @contextmanager
+            def busy():yield False
+            with patch.object(gateway,'slot',busy):
+                status,result=actual_handler(h.f.transport,h.proxy,h.body,h.f.token)
+                self.assertEqual(status,503)
+                self.assertEqual(result['error']['code'],'model_busy')
+                self.assertEqual(h.wire,[])
+                with h.db() as conn:
+                    self.assertEqual(conn.execute('SELECT count(*) FROM hermes_reservations').fetchone()[0],0)
+                    self.assertEqual(conn.execute('SELECT count(*) FROM model_calls').fetchone()[0],0)
+            for _ in range(2):
+                status,result=actual_handler(h.f.transport,h.proxy,h.body,h.f.token)
+                self.assertEqual(status,200)
+            self.assertEqual(len(h.wire),1)
+            with h.db() as conn:
+                self.assertEqual(conn.execute('SELECT count(*) FROM hermes_turns').fetchone()[0],1)
+                self.assertEqual(conn.execute('SELECT count(*) FROM hermes_reservations').fetchone()[0],1)
+                self.assertEqual(conn.execute('SELECT count(*) FROM model_calls').fetchone()[0],1)
+            def reject(*a):raise ValueError('model_busy')
+            status,result=actual_handler(h.f.transport,SimpleNamespace(dispatch=reject),{'name':'fc.calculate'},h.f.token,'/fc/tools/call')
+            self.assertEqual(status,400)
 
     def test_fixed_sdk_summary_preserves_each_static_message_code(self):
         import re

@@ -363,6 +363,7 @@ SOFTWARE_MAPPINGS = {
     'runtime/fc_pricing_v3/business_source.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/business_source.py', '/opt/fs-hermes-fc/fc_pricing_v3/business_source.py'),
     'http/conversation_http.py': ('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py', '/opt/fs-exact-range-20261001/conversation_http.py'),
     'runtime/proxy_gateway.py': ('releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py', '/opt/fs-hermes-fc/proxy_gateway.py'),
+    'runtime/transport.py': ('releases/fs-dashboard/hermes-v2-core-20261020/source/transport.py', '/opt/fs-hermes-fc/transport.py'),
     'runtime/conversation_service.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py', '/opt/fs-hermes-fc/conversation_service.py'),
     'runtime/conversation_native.py': ('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_native.py', '/opt/fs-hermes-fc/conversation_native.py'),
     'runtime/native_chat.py': ('releases/fs-dashboard/hermes-v2-core-20261020/source/native_chat.py', '/opt/fs-hermes-fc/native_chat.py'),
