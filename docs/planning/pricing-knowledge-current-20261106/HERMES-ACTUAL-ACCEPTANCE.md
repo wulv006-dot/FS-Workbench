@@ -1,5 +1,7 @@
 # Hermes 定价实测：当前阅读入口
 
+最新修复、真实模型读取及自然周期边界见[当前统一交付](../pricing-review-recovery-20261106/README.md)。本页的原时点记录仅作历史证据。
+
 新版知识正文已由真实SDK工具读取；该事实只证明读取和部分方法应用，不代表完整效果数据链路已验收。
 
 早期附件误用旧预算settlements摘要来描述实际样本，相关“没有归属样本”的判断已失效。smart实际读取`daily_online_context.actual_outcomes`；当前取数和计算按[定价效果取数与计算](../../../knowledge/reporting/fc27-monthly/DATA.md#定价效果取数与计算)。
