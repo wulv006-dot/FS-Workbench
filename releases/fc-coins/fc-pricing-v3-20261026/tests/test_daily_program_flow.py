@@ -523,6 +523,18 @@ class DailyReviewBoundary(unittest.TestCase):
         self.assertEqual(cov['blocked_price_group_counts'], {'console':100})
         self.assertEqual(quote, before)
 
+    def test_review_preserves_unit_price_fx_and_elasticity_precision(self):
+        quote = self.quote()
+        quote['daily_report']['decision_basis']['unit_cost_usd'] = '0.123456789'
+        quote['daily_report']['decision_basis']['fx'] = '6.68512345'
+        quote['daily_report']['decision_basis']['elasticity'] = '1.23456789'
+        quote['daily_report']['actual']['hourly'][0]['net_paid_usd'] = '1.2399999999999999'
+        prompt = hermes_pricing_bridge.daily_review_text(quote)
+        report = json.loads(prompt.split('实际及影子摘要：', 1)[1])
+        self.assertEqual(report['decision_basis'], quote['daily_report']['decision_basis'])
+        self.assertEqual(report['actual']['hourly'][0]['net_paid_usd'], '1.24')
+        self.assertEqual(quote['daily_report']['actual']['hourly'][0]['net_paid_usd'], '1.2399999999999999')
+
     def test_review_keeps_existing_prompt_size_limit(self):
         quote = self.quote()
         quote['daily_report']['large'] = 'x' * 12000

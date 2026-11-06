@@ -1,7 +1,7 @@
 """Use original FS conversations/model receipts; never retry unknown model submissions."""
 from contextlib import closing
 from copy import deepcopy
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import datetime,timezone,timedelta
 import hashlib
 import json
@@ -77,6 +77,31 @@ def daily_review_text(quote):
                 group=str(row.get('price_group') or 'unknown');counts[group]=counts.get(group,0)+1
             coverage['blocked_price_group_counts']=counts
         coverage['detail_source']=dict(tool='fs_pricing_control',action='state',section='daily_review.learning_coverage',local_date=report.get('local_date'),sha256=original_sha)
+    basis=report.get('decision_basis')
+    if isinstance(basis,dict):
+        model=basis.get('demand_model')
+        if isinstance(model,dict) and isinstance(model.get('groups'),dict):
+            for group in model['groups'].values():
+                if isinstance(group,dict):
+                    group.pop('metrics',None)
+                    group.pop('forecast_status',None)
+            basis['model_detail_source']=dict(tool='fs_pricing_control',action='state',section='daily_review.decision_basis.demand_model',sha256=hashlib.sha256(json.dumps(quote['daily_report']['decision_basis']['demand_model'],sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest())
+        plan=basis.get('source_plan')
+        if isinstance(plan,dict):
+            basis['source_plan']={k:plan[k] for k in ('version','active_mode','price_interval_minutes','history') if k in plan}
+    money_rendered=[]
+    def display_money(value,key=''):
+        if isinstance(value,dict):return {k:display_money(v,k) for k,v in value.items()}
+        if isinstance(value,list):return [display_money(v,key) for v in value]
+        if isinstance(value,str) and key in ('net_paid_usd','observed_net_usd_per_order','target_revenue_per_order_usd'):
+            try:amount=Decimal(value)
+            except InvalidOperation:return value
+            if amount.is_finite() and amount.as_tuple().exponent < -2:
+                money_rendered.append(key)
+                return str(amount.quantize(Decimal('.01'),rounding=ROUND_HALF_UP))
+        return value
+    report=display_money(report)
+    if money_rendered:report['amount_display']='USD rounded to cents for display; original precision remains in the source evidence'
     text=('FC27每日一次经营效果复盘。你负责效果判断和方案建议；正常每轮由程序定价，不等待你审核。'
         '本任务只读，不推荐待执行价格、不调用recommend、不创建/执行/切换计划、不补采竞品。'
         '根据证据自主确定经营问题、比较窗口、需要补查的只读工具和呈现方式，说明预测与实绩差异及其数据覆盖。'
