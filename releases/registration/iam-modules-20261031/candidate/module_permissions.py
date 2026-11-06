@@ -230,11 +230,14 @@ def verify(adapter, cookies, method, uri, group):
         if code == 200 and headers['X-Auth-User'].startswith('reg:'):
             subject = headers['X-Auth-User']
             # Legacy consumers accept editor only for registered taskboard members.
-            # Do not turn module operators into platform administrators.
+            # Preserve a real IAM super administrator across legacy consumers;
+            # scoped module operators must never acquire that role.
             matrix = adapter.store.policy.matrix(subject)
             resource = module_for(uri)
-            writable = any(a in matrix.get(resource, []) for a in ('edit', 'execute'))
-            headers['X-Auth-Role'] = 'editor' if resource in ('tasks', 'green_plan', 'task_session') and writable else 'readonly'
+            resources = ('tasks', 'green_plan') if resource == 'task_session' else (resource,)
+            writable = any(a in matrix.get(r, []) for r in resources for a in ('edit', 'execute'))
+            headers['X-Auth-Role'] = ('admin' if subject in adapter.store.policy.ADMINS else
+                'editor' if resource in ('tasks', 'green_plan', 'task_session') and writable else 'readonly')
             if group == 'deploy':
                 headers['X-Auth-Groups'] = 'dashboard,deploy'
         return code,headers
