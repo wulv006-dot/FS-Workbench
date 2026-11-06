@@ -110,6 +110,22 @@ class DailyProgramFlow(unittest.TestCase):
             self.assertEqual(result['phase'],'failed')
             self.assertEqual(db.all('incidents')[0]['error'],'original_request_id:original')
 
+    def test_daily_effects_include_reviewed_day_cost_and_customer_rows(self):
+        from fc_pricing_v3 import business_source, selective_sources
+        current = {'today-order': [{'costCny':'20', 'customerType':'新客'}, {}]}
+        historical = {'older-order': [{'costCny':'10'}, {}]}
+        session = Mock()
+        auth = SimpleNamespace(Session=Mock(return_value=session), admin_token_from_service=lambda:('token',None))
+        channel = SimpleNamespace(pages=Mock(), COLLECTOR='unused-test-path')
+        def online(session_arg, pages, windows, now, rows):
+            self.assertEqual(rows['today-order'][0]['costCny'], '20')
+            self.assertEqual(rows['today-order'][0]['customerType'], '新客')
+            self.assertIn('older-order', rows)
+            return {'actual_outcomes':[]}
+        with patch.dict(sys.modules, {'p2pah_auth':auth, 'channel_source':channel}), patch.object(business_source, '_period_population', side_effect=[(current,{}),(historical,{})]), patch.object(business_source, 'online_window_context', side_effect=online), patch.object(daily, 'hourly_actual', return_value={}), patch.object(selective_sources, 'history_period', return_value={}):
+            daily.collect_outcomes('2026-11-05', [])
+        session.close.assert_called_once()
+
     def test_daily_context_does_not_attribute_pretrial_day_to_V3(self):
         window=dict(origin='confirmed_public_price_window',mode='production',opened_at='2026-10-26T14:36:00+00:00',operation_id='original',mutable_resources=['base:console'])
         result=daily.exposure_scope([window],'2026-10-26')
