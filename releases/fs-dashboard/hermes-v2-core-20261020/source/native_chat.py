@@ -12,7 +12,7 @@ import hashlib
 
 
 def native_messages_sha256(kwargs, *, reasoning_effort):
-    """Identity of SDK wire messages under the existing native carrier rules."""
+    """Identity of SDK dialogue; system context is not tool or writer authority."""
     if type(kwargs) is not dict or type(kwargs.get('messages')) is not list:
         raise ValueError('native_compaction_messages')
     if reasoning_effort not in ('none','minimal','low','medium','high','xhigh','max','ultra'):
@@ -34,7 +34,8 @@ def native_messages_sha256(kwargs, *, reasoning_effort):
                 if pad is not None and (len(pad)>8 or pad.strip()):raise ValueError('reasoning_content_policy')
                 message.pop('reasoning_content')
             elif pad is None:message.pop('reasoning_content')
-    return hashlib.sha256(json.dumps(messages,sort_keys=True,ensure_ascii=False,
+    dialogue=[m for m in messages if m.get('role')!='system']
+    return hashlib.sha256(json.dumps(dialogue,sort_keys=True,ensure_ascii=False,
                                     allow_nan=False,separators=(',',':')).encode()).hexdigest()
 
 

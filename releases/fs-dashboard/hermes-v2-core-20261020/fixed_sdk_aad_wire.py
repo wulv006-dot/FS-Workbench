@@ -84,7 +84,7 @@ def functions(path,roots,namespace=None):
     USED.extend((str(path),name) for name in sorted(selected))
     return ns
 
-def build_wire(messages,tools):
+def build_wire(messages,tools,*,ephemeral_system_prompt=''):
     metadata=metadata_constants()
     msg=functions(NEW/'message_sanitization.py',[
         'coalesce_tool_call_id','coerce_tool_name','tool_call_id_variants','tool_result_id_variants',
@@ -118,7 +118,7 @@ def build_wire(messages,tools):
         return 0
     agent=SimpleNamespace(tools=tools,prefill_messages=[],_use_prompt_caching=False,provider='custom',api_mode='chat_completions',
         context_compressor=None,_force_ascii_payload=False,_usage_anchor=None,
-        _current_turn_timestamp=0,ephemeral_system_prompt='',
+        _current_turn_timestamp=0,ephemeral_system_prompt=ephemeral_system_prompt,
         _reasoning_replay_route=lambda:(False,frozenset()),_should_sanitize_tool_calls=lambda:False,
         _sanitize_api_messages=helper['sanitize_api_messages'],
         _drop_thinking_only_and_merge_users=helper['drop_thinking_only_and_merge_users'])
