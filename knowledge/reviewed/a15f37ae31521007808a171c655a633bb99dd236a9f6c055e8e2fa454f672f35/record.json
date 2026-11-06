@@ -1,0 +1,114 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "skill:8d83e7bc",
+  "candidate_sha256": "68275f866259a66ae69d559c23862ee924a8ce9fb69e0cb5dc38b364d4309ec3",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "reusable",
+  "evidence": "Original completed approve receipt with success=true and applied=true; original candidate and request hashes verified. Complete 17-file package matches the applied manifest, with 16 support files unchanged from the prior archived-source observation. Privacy review and existing export checks passed; only the reviewed SKILL entry changed. Runtime dependency resolution, natural task use and model learning are not established by this archive.",
+  "formal_rule_change": false,
+  "kind": "skill",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "packages": [
+    {
+      "exists": true,
+      "files": [
+        {
+          "mode": 420,
+          "path": "ACCEPTANCE.md",
+          "sha256": "7873f2cf683e8afb6928f85e9355c40ddb2d4a161a993ea7d9fe57081ddc5fac"
+        },
+        {
+          "mode": 420,
+          "path": "APPLICATIONS.md",
+          "sha256": "6b0d7b49001223be531991cc4125fe8824b537318d005e483cc9a53e6fc4aa73"
+        },
+        {
+          "mode": 420,
+          "path": "METHOD.md",
+          "sha256": "b6700b79801370a5b974df414ebef95246962583d67c754c075e730a76d0a651"
+        },
+        {
+          "mode": 420,
+          "path": "SKILL.md",
+          "sha256": "b5bbcd0bbe417d91e6f40bd661db1d226a4fe1ee1a79c624b4c3340fdad09fe6"
+        },
+        {
+          "mode": 420,
+          "path": "assets/fs-tokens.css",
+          "sha256": "c88351ce12f9ab3e3ada169bb5e9ee6fe8d82bb53f93b2073050be93f3569df6"
+        },
+        {
+          "mode": 420,
+          "path": "assets/fs-ui.css",
+          "sha256": "4cfd403f6958ed235159adaf65d882099f36fb310619a558fa89cb83217c0615"
+        },
+        {
+          "mode": 420,
+          "path": "examples/daily-20261016.html",
+          "sha256": "c5ccaea5dc72f7dced267108c303f0cd86e26e6115e48d4cb765b020100af491"
+        },
+        {
+          "mode": 420,
+          "path": "examples/daily-20261016.md",
+          "sha256": "b3d40748920acbb9972626f1ed4d2ae85370a8c930311d6f4eb0d67081d2a34c"
+        },
+        {
+          "mode": 420,
+          "path": "examples/weekly-20261005-11.html",
+          "sha256": "d5831af6c776ae3d79148c075b2d89f2df16b8d90fcb05b37bb63de58231ccd2"
+        },
+        {
+          "mode": 420,
+          "path": "examples/weekly-20261005-11.md",
+          "sha256": "1bb623155aa0a580228df82f12f1d617ee75d825fd7429bb7e9e567d2452d03d"
+        },
+        {
+          "mode": 420,
+          "path": "references/applications-20261024.md",
+          "sha256": "f278b09318e116b0e9a0dac378bb5acf59bf3afcbe9d1bcaf84d88de08def621"
+        },
+        {
+          "mode": 420,
+          "path": "references/build_reference_reports.cjs",
+          "sha256": "0304f1c2e7b787fb7a6da1a704fa881bdfa1e57141b4244307624c1bf7b3a14d"
+        },
+        {
+          "mode": 420,
+          "path": "references/example-notes.md",
+          "sha256": "eb42e129a615716b5171e33cf407d3ac5f13505f29cd37c61848cb11cfe187e5"
+        },
+        {
+          "mode": 420,
+          "path": "references/final-checklist-20261024.md",
+          "sha256": "a1f74bb2eb47d5708e3a99e35a94fec42e2fbd32991de806245269bfdb5ce7fa"
+        },
+        {
+          "mode": 420,
+          "path": "references/layout-patterns.md",
+          "sha256": "55069fca841420885f4c16297c2c79b523880b6871138d168ab334d05db9beb2"
+        },
+        {
+          "mode": 420,
+          "path": "references/operator-report-core-20261025.md",
+          "sha256": "ad908982f5a45b79870e208244ad16c9c499f8ab6f65a5ecf70ece07dc6341e4"
+        },
+        {
+          "mode": 420,
+          "path": "references/verification.md",
+          "sha256": "e97386eb2c302e958fd81e2776f255bcbbb677599dac5adaec55bbf16c495e5d"
+        }
+      ],
+      "path": "report-html-authoring",
+      "sha256": "fef3e9b45e330a409c74c26aeaa42e39cfc1c6991131c5a52aac4cedba2242c8"
+    }
+  ],
+  "receipt_sha256": "4f4c159b3b574aa6b6657eeded3b1d647214a1ee0eac0a5274eb7841d6634255",
+  "request_id": "a15f37ae31521007808a171c655a633bb99dd236a9f6c055e8e2fa454f672f35",
+  "runtime_activation": false,
+  "summary": "Complete report-html-authoring 1.5.12 snapshot after the original approved application. It preserves source, financial and write boundaries while allowing Hermes to choose an appropriate report form. All 17 package files are archived byte for byte. Historical examples remain dated teaching material; relative references retain their original runtime context. This archive does not activate a loader or change business rules."
+}
