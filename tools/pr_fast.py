@@ -1045,6 +1045,11 @@ def main():
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_actual_ui.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_shipping_ui.cjs")
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_fc_dashboard.cjs")
+            for variant in ("business.js", "home-business.js", "legacy-business.js"):
+                for script in ("test_fc_rs_visual.cjs", "test_fc_native_customer_kpis.cjs"):
+                    subprocess.run(["node", str(ROOT/"releases/fs-dashboard/dashboard-refresh-20261025/tests"/script)],
+                        cwd=ROOT, check=True, timeout=60,
+                        env=dict(os.environ, RS_VARIANT=variant, FC_RS_VISUAL_EVIDENCE=str(ROOT/".qa/fc-rs-visual"/variant)))
             node("releases/fs-dashboard/dashboard-refresh-20261025/tests/test_browsers.cjs")
         elif group=="business-actual-profit":
             units("releases/fs-dashboard/actual-profit-20261024/tests",["test_actual_profit","test_channel_effects","test_existing_archive","test_existing_refresh","test_release","test_shipping_readiness","test_rules_sync"])
