@@ -43,7 +43,7 @@ function fixture(q){
  const url=await start(),browser=await chromium.launch({headless:true});
  try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],queries=[];
-  page.on('pageerror',e=>errors.push(e.stack));
+  page.on('pageerror',e=>{errors.push(e.stack);console.error(e.stack);});
   await page.addInitScript(()=>{const OriginalDate=Date;window.Date=class extends OriginalDate{constructor(...args){super(...(args.length?args:['2026-10-24T08:00:00Z']));}static now(){return new OriginalDate('2026-10-24T08:00:00Z').getTime();}};});
   await page.route('**/business.css',route=>route.fulfill({contentType:'text/css',body:fs.readFileSync(path.join(repo,'ui-system/modules/native/business.css'),'utf8')}));
   await page.route('**/dashboard/fs-home/range.json?**',async route=>{
@@ -77,7 +77,7 @@ function fixture(q){
   await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('[data-metric=orders] strong')?.textContent==='3');
   await page.waitForTimeout(250);assert.equal(await page.locator('[data-metric=orders] strong').innerText(),'3');
   assert.equal(await page.locator('#crossSec').isVisible(),false);
-  assert.equal(await host.locator('[data-fc-content=structure] .fc-line-legend').first().innerText(),'球员卡');
+  assert.deepEqual(await host.locator('[data-fc-content=structure] [data-fc-chart-dimension=product]').evaluateAll(nodes=>nodes.map(node=>node.dataset.fcChartKey)),['Players']);
   await host.locator('[data-fc-view=user]').click();assert.match(await host.locator('[data-fc-content=consumption]').innerText(),/用户累计消费/);
   await host.locator('[data-fc-view=order]').click();await host.locator('[data-fc-drill]').first().click();
   await host.locator('.fc-drawer-content [data-fc-order]').waitFor();assert.equal(queries.at(-1).product,'Players');
@@ -88,7 +88,7 @@ function fixture(q){
   await page.evaluate(()=>window.api.apply({...window.api.state(),b_fc_product:'all',b_fc_platform:'all',b_grain:'hour',b_range:'24'}));
   await page.waitForFunction(()=>document.querySelector('#app').shadowRoot.querySelector('[data-metric=orders] strong')?.textContent==='10');
   assert.equal(queries.at(-1).grain,'hour');assert.match(queries.at(-1).start,/ \d\d:00$/);
-  const themeColors=[];for(const theme of ['light','dark']){await page.locator('#app').evaluate((e,t)=>{e.dataset.theme=t;e.dataset.fsTheme=t;e.ownerDocument.documentElement.dataset.theme=t;e.ownerDocument.documentElement.dataset.fsTheme=t;},theme);assert.equal(await host.locator('.fc-donut').first().isVisible(),true);themeColors.push(await host.locator('.fc-card').first().evaluate(e=>[getComputedStyle(e).backgroundColor,getComputedStyle(e).color]));}assert.notDeepEqual(themeColors[0],themeColors[1]);
+  const themeColors=[];for(const theme of ['light','dark']){await page.locator('#app').evaluate((e,t)=>{e.dataset.theme=t;e.dataset.fsTheme=t;e.ownerDocument.documentElement.dataset.theme=t;e.ownerDocument.documentElement.dataset.fsTheme=t;},theme);assert.equal(await host.locator('.fc-donut').first().isVisible(),true);themeColors.push(await host.locator('[data-fc-content=structure] .card').first().evaluate(e=>[getComputedStyle(e).backgroundColor,getComputedStyle(e).color]));}assert.notDeepEqual(themeColors[0],themeColors[1]);
   if(process.env.FC_DASHBOARD_EVIDENCE){
    const dir=process.env.FC_DASHBOARD_EVIDENCE;fs.mkdirSync(dir,{recursive:true});
    for(const theme of ['light','dark']){await page.locator('#app').evaluate((e,t)=>{e.dataset.theme=t;e.dataset.fsTheme=t;e.ownerDocument.documentElement.dataset.theme=t;e.ownerDocument.documentElement.dataset.fsTheme=t;},theme);for(const section of ['structure','consumption']){const box=host.locator('#fc-panel-'+section);await box.locator('h2').evaluate(e=>{e.querySelector('[data-fixture]')?.remove();const note=document.createElement('span');note.dataset.fixture='true';note.textContent='模拟数据 · 本地行为验收';note.style.cssText='font-size:11px;font-weight:400;margin-left:auto';e.append(note);});await box.screenshot({path:path.join(dir,`fc-${theme}-desktop-${section}-simulated.png`)});}}

@@ -554,7 +554,7 @@ tbody tr:last-child td{border-bottom:0}
 .fc-card,.fc-explanation{border:1px solid var(--line);border-radius:12px;padding:18px;margin:12px 0;background:var(--surface);min-width:0}.fc-card h3{font-size:15px;margin:0 0 12px}.fc-card>p:last-child{margin-bottom:0}.fc-explanation{padding:10px 14px;color:var(--tx2);font-size:12px}.fc-explanation summary{cursor:pointer}
 .fc-overview-grid{display:grid;grid-template-columns:minmax(280px,.85fr) minmax(320px,1.15fr);gap:12px}.fc-overview-grid .fc-card{margin:0}.fc-site-groups{display:grid;gap:0}.fc-site-groups>div{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px}.fc-site-groups>div:last-child{border:0;color:var(--tx2)}.fc-site-groups span{font-variant-numeric:tabular-nums}
 .fc-attention-card p{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0;padding:9px 0}.fc-attention-card button{flex:none}.fc-shortcuts{margin:10px 0}.fc-actions{margin:12px 0}
-.fc-consumption-grid{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(400px,1.2fr);gap:28px;align-items:start}.fc-table-wrap{max-width:100%;overflow:auto;border:1px solid var(--line);border-radius:8px}.fc-table-wrap table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}.fc-table-wrap th,.fc-table-wrap td{text-align:right;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}.fc-table-wrap th:first-child,.fc-table-wrap td:first-child{text-align:left}.fc-table-wrap tr:last-child td{border-bottom:0}.fc-table-wrap tbody tr:hover td{background:var(--surface-2)}#fc-detail .fc-table-wrap button{border:0;min-height:22px;background:transparent;color:var(--ac);padding:1px 0;text-align:inherit}
+.fc-consumption-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:26px;align-items:start}.fc-consumption-grid>*{min-width:0}.fc-table-wrap{max-width:100%;overflow:auto;border:1px solid var(--line);border-radius:8px}.fc-table-wrap table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}.fc-table-wrap th,.fc-table-wrap td{text-align:right;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}.fc-table-wrap th:first-child,.fc-table-wrap td:first-child{text-align:left}.fc-table-wrap tr:last-child td{border-bottom:0}.fc-table-wrap tbody tr:hover td{background:var(--surface-2)}#fc-detail .fc-table-wrap button{border:0;min-height:22px;background:transparent;color:var(--ac);padding:1px 0;text-align:inherit}
 .fc-bars{margin:4px 0}.fc-bar-row{display:grid;grid-template-columns:80px minmax(0,1fr) 38px;align-items:center;gap:10px;margin:6px 0;font-size:12px;font-variant-numeric:tabular-nums}#fc-detail .fc-bar-row button{border:0;padding:5px 0;min-height:28px;text-align:left;background:none;color:var(--tx2)}.fc-bar-row>span{text-align:right}.fc-bar-track{height:14px;background:var(--surface-2);display:flex;border-radius:4px;overflow:hidden}.fc-bar-track span[data-customer=new]{background:#467ae8}.fc-bar-track span[data-customer=returning]{background:#77a5ae}.fc-bar-track span[data-customer=unknown]{background:#718ab9}
 .fc-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}.fc-status-grid>div{display:grid;gap:8px;padding:14px;background:var(--surface-2);border-radius:8px}.fc-status-grid span{font-size:12px;color:var(--tx2)}.fc-status-grid strong{font-size:24px;font-variant-numeric:tabular-nums}
 .fc-drawer{box-sizing:border-box;width:min(820px,100vw);height:100dvh;max-height:100dvh;max-width:100vw;margin:0 0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--tx);padding:24px;overflow:auto;border-radius:14px 0 0 14px}.fc-drawer::backdrop{background:#14233366}.fc-drawer header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.fc-drawer h2{margin:0;font-size:20px}.fc-drawer dt{font-size:12px;color:var(--tx2);margin-top:14px}.fc-drawer dd{margin:4px 0}.fc-pagination{justify-content:space-between;margin-top:14px;font-size:12px}
@@ -571,23 +571,46 @@ tbody tr:last-child td{border-bottom:0}
 #fc-detail .fc-panels>section{min-width:0;scroll-margin-top:24px}
 #fc-detail .sec-head{margin-top:30px}
 #fc-detail .fc-card{border-radius:var(--r);padding:18px 20px}
-#fc-detail .card{margin:14px 0;min-width:0}
+#fc-detail .card{min-width:0}
 #fc-detail .card h3{font-size:15px;margin:0 0 12px}
 #fc-detail .card>.hint{line-height:1.7;margin:8px 0 14px}
-.fc-donut-grid{display:grid;grid-template-columns:minmax(160px,.7fr) minmax(230px,1fr);gap:24px;align-items:center;padding:16px 0}
+.fc-donut-grid{display:grid;grid-template-columns:minmax(130px,.7fr) minmax(0,1fr);gap:20px;align-items:center;padding:16px 0}
 .fc-donut{width:190px;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;justify-self:center;position:relative}
 .fc-donut:before{content:'';position:absolute;inset:25px;border-radius:50%;background:var(--surface)}
 .fc-donut>span{position:relative;display:grid;text-align:center;font-size:19px;font-weight:650;font-variant-numeric:tabular-nums}
 .fc-donut small{display:block;font-size:11px;color:var(--tx2);font-weight:400;margin-top:5px}
-#fc-detail .fc-chart-legend button{width:100%;display:grid;grid-template-columns:10px minmax(60px,1fr) auto 46px;align-items:center;gap:10px;border:0;border-radius:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;font-size:12px;padding:10px 0}
+#fc-detail .fc-chart-legend button,#fc-detail .fc-chart-legend .fc-chart-item{width:100%;display:grid;grid-template-columns:10px minmax(60px,1fr) auto 46px;align-items:center;gap:10px;border:0;border-radius:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;font-size:12px;padding:10px 0}
 .fc-chart-legend i,.fc-line-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none}
 .fc-chart-legend b{font-weight:550;font-variant-numeric:tabular-nums}
 .fc-chart-legend small{color:var(--tx2);text-align:right}
 .fc-line{width:100%;overflow:auto;color:var(--tx2)}
-.fc-line svg{display:block;width:100%;min-width:1120px;height:auto;max-height:310px}
+.fc-line svg{display:block;width:100%;min-width:560px;height:auto;max-height:310px}
 .fc-line-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--tx2);margin:8px 0}
 .fc-line-legend span{display:inline-flex;align-items:center;gap:6px}
 .fc-chart-values{font-size:11px;color:var(--tx2);margin-top:12px}
 .fc-chart-values summary{cursor:pointer;padding:5px 0}
 .fc-chart-values .fc-table-wrap{margin-top:8px}
-@media(max-width:680px){.fc-donut-grid{grid-template-columns:1fr;gap:12px}.fc-donut{width:170px}#fc-detail .fc-card{padding:14px}#fc-detail .sec-title{font-size:18px}#fc-detail .fc-toolbar-actions{margin-left:0;flex-wrap:wrap}.fc-line svg{min-width:1120px}}
+@media(max-width:680px){.fc-donut-grid{grid-template-columns:1fr;gap:12px}.fc-donut{width:170px}#fc-detail .fc-card{padding:14px}#fc-detail .sec-title{font-size:18px}#fc-detail .fc-toolbar-actions{margin-left:0;flex-wrap:wrap}.fc-line svg{min-width:560px}}
+
+/* Reuse the RS cards without introducing another FC page layout. */
+#fc-detail .row2>.card{margin-top:0}
+#fc-detail .row2{margin-top:16px}
+#fc-detail .fc-chart-values{margin-top:12px}
+#fc-detail .fc-consumption-grid .fc-donut{width:min(170px,100%)}
+#fc-detail .fc-native-single{padding:16px 0;font-size:14px;color:var(--tx2)}
+@media(max-width:1050px){#fc-detail .fc-consumption-grid{grid-template-columns:1fr;gap:16px}}
+@media(max-width:680px){#fc-detail .fc-donut-grid{grid-template-columns:1fr;gap:12px}#fc-detail .fc-line{max-width:100%}}
+
+#fc-detail #chartMain,#fc-detail #chartProfit{max-width:100%;overflow-x:auto}
+#fc-detail #chartMain svg,#fc-detail #chartProfit svg{display:block;width:100%;min-width:560px;height:auto}
+
+#fc-detail #chartMain .empty,#fc-detail #chartProfit .empty,#fc-detail [data-fc-content=structure] .empty{padding:20px 0;min-height:0}
+.fc-consumption-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:11px;color:var(--tx2)}
+.fc-consumption-legend span:before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;background:#4477ee}
+.fc-consumption-legend [data-customer=returning]:before{background:#73a6b1}.fc-consumption-legend [data-customer=unknown]:before{background:#758eb8}
+
+/* FC structure is continuously visible; RS keeps its saved fold preference. */
+#fc-detail #fc-panel-structure #geoCard{display:block}
+#fc-detail #fc-panel-structure #payRow{display:grid}
+
+@media(max-width:680px){#fc-detail #secCross{flex-wrap:wrap;gap:8px}#fc-detail #secCross .sec-title{white-space:nowrap;flex-shrink:0}#fc-detail #secCross .fchev{margin-left:auto}#fc-detail #crossHint{order:4;flex-basis:100%;margin-left:0}}
