@@ -490,11 +490,58 @@ class NativeToolHistory(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'^provider_tool_history_changed$'):self.dispatch(h)
             self.assertEqual(len(h.wire),1)
 
+    def test_native_output_controls_do_not_lock_paid_tool_replay(self):
+        # Native Hermes may change valid request controls while continuing the
+        # same paid tools. They are not tool identity or business authority.
+        for control in ('max_tokens','response_format','tool_choice'):
+            with self.subTest(control=control),self.history_fixture() as h:
+                self.dispatch(h)
+                h.body['messages']+=h.replay(h.calls)
+                if control=='max_tokens':h.body['max_tokens']=16
+                elif control=='response_format':h.body['response_format']={'type':'json_object'}
+                else:h.body['tool_choice']='none'
+                self.assertEqual(self.dispatch(h)['choices'][0]['message']['content'],'synthetic answer')
+                self.assertEqual(len(h.wire),2)
+                self.assertEqual([c['index'] for c in h.wire[-1]['messages'][-3]['tool_calls']],[0,1])
+                with h.db() as conn:
+                    self.assertEqual(conn.execute("SELECT COUNT(*) FROM model_calls WHERE state='succeeded'").fetchone()[0],2)
+                    digests=[r[0] for r in conn.execute('SELECT request_digest FROM hermes_reservations ORDER BY turn')]
+                    self.assertNotEqual(digests[0],digests[1])
+
+    def test_native_legacy_receipts_keep_original_full_request_binding(self):
+        import json
+        with self.history_fixture() as h:
+            self.dispatch(h)
+            with h.db() as conn:
+                fingerprint,raw=conn.execute('SELECT fingerprint,content FROM model_calls').fetchone()
+                receipt=json.loads(raw);receipt.pop('native_messages_sha256',None)
+                conn.execute('UPDATE model_calls SET content=? WHERE fingerprint=?',(json.dumps(receipt),fingerprint))
+            h.body['messages']+=h.replay(h.calls);h.body['max_tokens']=16
+            with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
+            self.assertEqual(len(h.wire),1)
+
+    def test_invalid_native_paid_prefix_is_not_adopted(self):
+        import json
+        for marker in ('bad',True,None):
+            with self.subTest(marker=marker),self.history_fixture() as h:
+                self.dispatch(h)
+                with h.db() as conn:
+                    fingerprint,raw=conn.execute('SELECT fingerprint,content FROM model_calls').fetchone()
+                    receipt=json.loads(raw);receipt['native_messages_sha256']=marker
+                    conn.execute('UPDATE model_calls SET content=? WHERE fingerprint=?',(json.dumps(receipt),fingerprint))
+                h.body['messages']+=h.replay(h.calls)
+                with self.assertRaisesRegex(ValueError,'provider_tool_history_changed'):self.dispatch(h)
+                self.assertEqual(len(h.wire),1)
+
     def test_no_guess_when_the_paid_request_prefix_cannot_be_verified(self):
         with self.history_fixture(older=True) as h:
             self.dispatch(h)
             h.body['messages']+=h.replay(h.calls)
             with h.db() as conn:
+                import json
+                fingerprint,raw=conn.execute('SELECT fingerprint,content FROM model_calls').fetchone()
+                receipt=json.loads(raw);receipt.pop('native_messages_sha256',None)
+                conn.execute('UPDATE model_calls SET content=? WHERE fingerprint=?',(json.dumps(receipt),fingerprint))
                 conn.execute("UPDATE hermes_reservations SET request_digest=?",('0'*64,))
             with self.assertRaisesRegex(ValueError,'^provider_tool_history_changed$'):self.dispatch(h)
             self.assertEqual(len(h.wire),1)
@@ -752,6 +799,7 @@ class NativeCompactionHistory(unittest.TestCase):
                 if change=='tools_present':h.body['messages']=[dict(role='user',content='wrong prefix')]
                 elif change=='history_present':
                     h.body.pop('tools');h.body.pop('max_tokens')
+                    h.body['messages'][-3]['tool_calls'][0]['function']['arguments']='{"changed":true}'
                 elif change=='name':h.body['messages'][-3]['tool_calls'][0]['function']['name']='tool_call'
                 elif change=='arguments':h.body['messages'][-3]['tool_calls'][0]['function']['arguments']='{"changed":true}'
                 elif change=='index':h.body['messages'][-3]['tool_calls'][0]['index']=9
