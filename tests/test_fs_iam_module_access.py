@@ -1,4 +1,4 @@
-import sys,json,unittest,types,contextlib,copy
+import sys,json,unittest,types,contextlib,copy,sqlite3,importlib.util
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'opt/fs-access-policy'),str(ROOT/'releases/registration/iam-modules-20261031/candidate'),str(ROOT/'releases/registration/iam-modules-20261031'),str(ROOT/'releases/fs-dashboard/fs-revision-20261015/accounts/candidate/runtime/vendor')]
@@ -15,6 +15,8 @@ class Policy:
     def status(self):return {'degraded':''}
     def authorize(self,*args):return rbac.authorize(self.p,*args)
     def matrix(self,s):return rbac.grant_matrix(self.p,s)
+    @property
+    def ADMINS(self):return rbac.admins(self.p)
 class Store:
     def __init__(self,p):
         self.policy=Policy(p);self.namespace=types.SimpleNamespace(fence=contextlib.nullcontext)
@@ -63,6 +65,37 @@ class Fix(unittest.TestCase):
         self.assertEqual(self.verify('/api/unknown'),403)
         for verb,path,code in [('GET','/api/fc27/cloud/automation',200),('GET','/d4/',403),('POST','/api/fc27/cloud/automation',403)]:
             self.assertEqual(rbac.authorize(self.p,'dot_fc_observer',verb,path),code)
+    def test_registered_super_role_is_preserved_without_promoting_operators(self):
+        for roles,expected in [(['PlatformAdmin'],'admin'),(['ArpgOps'],'readonly'),(['Viewer'],'readonly')]:
+            self.p['bindings'][USER]={'roles':roles}
+            code,headers=m.verify(self.adapter,{core.COOKIE:'test'},'GET','/d4/','dashboard')
+            self.assertEqual(code,200)
+            self.assertEqual(headers['X-Auth-Role'],expected)
+        self.p['bindings'][USER]={'roles':['PlatformAdmin'],'deny':[{'resources':['d4'],'actions':['view']}]}
+        self.assertEqual(self.verify('/d4/'),403)
+    def test_registered_admin_consumers_recheck_live_super_role(self):
+        source=ROOT/'releases/registration/iam-modules-20261031/candidate/consumer_seams.py'
+        spec=importlib.util.spec_from_file_location('current_consumer_seams',source)
+        consumers=importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules,{'runtime':types.SimpleNamespace(core=core)}):
+            spec.loader.exec_module(consumers)
+        headers={'X-Auth-User':USER,'X-Auth-Role':'admin'}
+        with sqlite3.connect(':memory:') as db:
+            db.execute('CREATE TABLE members(username TEXT,active INTEGER)')
+            self.p['bindings'][USER]={'roles':['PlatformAdmin']}
+            policy=self.store.policy
+            self.assertEqual(consumers.taskboard_member(db,USER,'admin',None,policy),('admin',True))
+            self.assertEqual(consumers.fc_identity(200,headers,policy),(USER,True))
+            self.p['bindings'][USER]={'roles':['ArpgOps']}
+            with self.assertRaises(core.Denied):consumers.taskboard_member(db,USER,'admin',None,policy)
+            self.assertEqual(consumers.fc_identity(200,headers,policy),(None,False))
+            self.assertEqual(consumers.taskboard_member(db,USER,'readonly',None,policy),('viewer',True))
+            self.assertEqual(consumers.fc_identity(200,dict(headers,**{'X-Auth-Role':'readonly'}),policy),(USER,False))
+    def test_task_session_projects_task_permissions_instead_of_virtual_resource(self):
+        for roles,role in [(['CollabOps'],'editor'),(['Viewer'],'readonly'),(['PlatformAdmin'],'admin')]:
+            self.p['bindings'][USER]={'roles':roles}
+            code,headers=m.verify(self.adapter,{core.COOKIE:'test'},'GET','/dashboard/tasks/api/session','dashboard')
+            self.assertEqual((code,headers.get('X-Auth-Role')),(200,role))
     def test_role_migration_preserves_existing(self):
         for user in P['bindings']:
             if user=='dot_fc_observer':continue

@@ -74,6 +74,14 @@ def _cookie_of(portal, handler, name):
 
 
 def _session_user(portal, handler):
+    bridge = getattr(portal, "_registration_bridge", None)
+    if bridge is not None:
+        # The installed adapter validates both cookie types, revocation, disabled
+        # accounts and mixed identities. Authenticate against a fixed identity
+        # bootstrap route; each consumer still checks its own live RBAC below.
+        cookies = portal.parse_cookies(handler.headers.get("Cookie", ""))
+        code, headers = bridge.adapter.verify(cookies, "GET", "/verify", "")
+        return headers.get("X-Auth-User", "") if code == 200 else ""
     token = _cookie_of(portal, handler, portal.CFG["cookie"])
     payload = portal.read_token(token) if token else None
     return (payload or {}).get("u") or ""

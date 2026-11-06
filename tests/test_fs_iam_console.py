@@ -87,6 +87,13 @@ def fake_portal(policy_path, audit_path):
     return module
 
 
+def native_test_adapter():
+    def verify(cookies, method, uri, group):
+        user = cookies.get("MMOEXP_AUTH")
+        return (200, {"X-Auth-User": user}) if user else (401, {})
+    return types.SimpleNamespace(verify=verify)
+
+
 # ---------------------------------------------------------------- 改密码替身
 #
 # iam_console._password_core() 是「借 account_management 模块顶部的
@@ -225,6 +232,37 @@ class ConsoleTest(unittest.TestCase):
         self.call(h2, "/iam/api/overview")
         self.assertEqual(401, h2.response["code"])
 
+    def test_registered_session_uses_trusted_adapter_and_live_rbac(self):
+        subject = "reg:11111111-1111-4111-8111-111111111111"
+        calls = []
+        def verify(cookies, method, uri, group):
+            calls.append((cookies, method, uri, group))
+            return 200, {"X-Auth-User": subject}
+        self.portal._registration_bridge = types.SimpleNamespace(
+            adapter=types.SimpleNamespace(verify=verify))
+        h = FakeHandler(headers={"Cookie": "FS_ACCESS_CANDIDATE=opaque",
+                                 "X-Auth-User": ADMIN,
+                                 "X-Original-URI": "/d4/api/update"})
+        self.assertEqual(subject, iam_console._session_user(self.portal, h))
+        self.assertEqual(({"FS_ACCESS_CANDIDATE": "opaque"}, "GET", "/verify", ""), calls[0])
+        self.call(h, "/iam/api/overview")
+        self.assertEqual(403, h.response["code"])
+        policy = rbac.load_policy()
+        policy["bindings"][subject] = {"roles": ["PlatformAdmin"]}
+        rbac.save_policy(policy, actor=ADMIN, note="test registered admin")
+        access_policy._refresh(force=True)
+        self.call(h, "/iam/api/overview")
+        self.assertEqual(200, h.response["code"])
+
+    def test_installed_adapter_denial_never_falls_back_to_native_cookie(self):
+        for status in (401, 403, 503):
+            with self.subTest(status=status):
+                self.portal._registration_bridge = types.SimpleNamespace(
+                    adapter=types.SimpleNamespace(verify=lambda *args: (status, {})))
+                h = FakeHandler(cookie_user=ADMIN, headers={"X-Auth-User": ADMIN})
+                self.call(h, "/iam/api/overview")
+                self.assertEqual(401, h.response["code"])
+
     def test_page_serves_to_admin(self):
         h = FakeHandler("GET", cookie_user=ADMIN)
         self.call(h, "/iam/")
@@ -258,7 +296,7 @@ class ConsoleTest(unittest.TestCase):
         def route(handler, unused):
             seen.append(handler.path)
             return handler._send(200, '{}')
-        self.portal._registration_bridge = types.SimpleNamespace(route=route)
+        self.portal._registration_bridge = types.SimpleNamespace(route=route, adapter=native_test_adapter())
         h = FakeHandler("GET")
         h.path = "/iam/api/registration/bootstrap"
         self.call(h, h.path)
@@ -308,7 +346,7 @@ class ConsoleTest(unittest.TestCase):
                     headers=handler.headers, cookies=self.portal.parse_cookies(handler.headers.get('Cookie', '')),
                     body=handler.rfile.read(int(handler.headers['Content-Length'])))
                 return handler._send(code, json.dumps(result), headers=list(headers.items()))
-            self.portal._registration_bridge = types.SimpleNamespace(route=route)
+            self.portal._registration_bridge = types.SimpleNamespace(route=route, adapter=native_test_adapter())
             def request(operation, method='GET', cookie='', form=None, origin='http://localhost', token=''):
                 raw = json.dumps(form).encode() if form is not None else b''
                 h = FakeHandler(method, headers={'Cookie': cookie, 'Origin': origin,
@@ -479,7 +517,7 @@ class ConsoleTest(unittest.TestCase):
         db = _memory_db()
         store = FakeStore(db, FakeAccounts(rows, has_schema=has_schema))
         self.portal._registration_bridge = types.SimpleNamespace(
-            adapter=types.SimpleNamespace(store=store))
+            adapter=types.SimpleNamespace(store=store, verify=native_test_adapter().verify))
         return store, db
 
     def test_password_requires_super_admin(self):
