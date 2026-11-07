@@ -134,6 +134,10 @@ def candidates(today,definitions,daily):
             from nightly import closed_period
             spans += [closed_period(today,kind) for kind in ('management','weekly','monthly') if kind!='monthly' or today.day==1]
             for start,range_end in dict.fromkeys(spans):
+                # Match page selectors exactly; legacy/default archives have different site keys.
+                for selection in ([dict(rs_site='all',rs_server='all',rs_category='all')] if profile=='RS' else
+                                  [dict(profit_site=site,profit_category='-1') for site in ('all','main')]):
+                    yield dict(mode='summary',profile=profile,start=start,end=range_end,profit_basis='shipping',**selection)
                 yield dict(mode='summary',profile=profile,start=start,end=range_end)
                 yield dict(archiveFamily='native',profile=profile,start=start,end=range_end)
         return

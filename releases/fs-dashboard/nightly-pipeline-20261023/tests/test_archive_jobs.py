@@ -390,4 +390,24 @@ class Transport(unittest.TestCase):
             code,value=jobs.read_route({})
         self.assertTrue(jobs.unavailable(code,value)[2])
 
+class ScheduledScopes(unittest.TestCase):
+    def test_daily_warms_exact_page_keys_without_repeating_native_reads(self):
+        import types
+        sys.modules.setdefault('pilot',types.SimpleNamespace(encoded=encoded,digest=lambda v:jobs.hashlib.sha256(encoded(v)).hexdigest()))
+        from live_summary import query
+        from daily_archive import summary_key
+        today=jobs.date(2026,11,7)
+        definitions={'FC27':('FC27','FC27',1322,1327,'sports'),'RS':('RS','RS',1,2,'general')}
+        work=list(jobs.candidates(today,definitions,True))
+        for profile in definitions:
+            scope=[q for q in work if q['profile']==profile and q['start']=='2026-10-08' and q['end']=='2026-11-06']
+            keys=[summary_key(query({k:[v] for k,v in q.items()},definitions)) for q in scope if q.get('mode')=='summary']
+            self.assertEqual(len(keys),len({json.dumps(k,sort_keys=True) for k in keys}))
+            self.assertEqual(sum(q.get('archiveFamily')=='native' for q in scope),1)
+            filters=[dict(rs_site='all',rs_server='all',rs_category='all')] if profile=='RS' else [dict(profit_site=site,profit_category='-1') for site in ('all','main')]
+            for selection in filters:
+                page=dict(mode='summary',profile=profile,start='2026-10-08',end='2026-11-06',grain='day',profit_basis='shipping',**selection)
+                self.assertIn(summary_key(query({k:[v] for k,v in page.items()},definitions)),keys)
+        self.assertEqual(len(work),len({json.dumps(q,sort_keys=True) for q in work}))
+
 if __name__=='__main__':unittest.main()

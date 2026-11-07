@@ -249,42 +249,32 @@ class LearningCatalog(unittest.TestCase):
 
     def test_current_entries_cover_rules_and_reporting_and_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 31)
+        self.assertEqual(len(entries), 25)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 31)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 25)
 
-    def test_user_approved_reference_rule_is_indexed_without_changing_margin_constraints(self):
+    def test_retired_rules_are_removed_without_changing_current_margin_constraints(self):
         entries = catalog()['entries']
-        row = next(r for r in entries if r['id']=='fc.pricing.reference-weighting')
-        self.assertEqual(row['revision'], 'fc-reference-weighting-20261024-v2')
-        self.assertEqual((row['layer'], row['status']), ('archive', 'retired'))
+        self.assertFalse(any(row['status']=='retired' for row in entries))
+        self.assertFalse(any(row['id']=='fc.pricing.reference-weighting' for row in entries))
         self.assertEqual(len([r for r in entries if r['id']=='fc.pricing.v3' and r['layer']=='current' and r['status']=='effective']), 1)
-        text = lf(ROOT/row['source']['path']).decode('utf-8')
-        for required in ('80%', '15%', '5%', '缺项贡献为0', 'model_unavailable_fallback_usd', 'v15'):
-            self.assertIn(required, text)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
         self.assertEqual(margin['revision'], 'fc27_dual20_d9_d2_v2')
         self.assertEqual(margin['source']['path'],'docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md')
 
-    def test_actual_profit_replaces_shipping_primary_and_preserves_on_demand_history(self):
+    def test_current_dashboard_uses_native_summary_and_shipping_without_loading_retired_rules(self):
         path = ROOT / 'knowledge/index.json'
         result = kc.select(ROOT, 'knowledge/index.json', hashlib.sha256(lf(path)).hexdigest(),
-                           ['FS'], ['fs.data.sources', 'fs.dashboard.shipping-profit'], preview=True)
+                           ['FS'], ['fs.dashboard.shipping-profit'], preview=True)
         self.assertEqual(result['status'], 'available_preview')
-        rows = {r['id']: r for r in result['entries']}
-        rule = rows['fs.dashboard.shipping-profit']
-        self.assertEqual(rule['revision'], 'dashboard-refresh-paid-aov-state-20261028-v4')
-        self.assertEqual(rule['source_commit'], '5825115b3f0b17562371163edf9a88cb9c1d6021')
-        for required in ('逐单实际成本毛利', '付款时间', '不平均订单/游戏/每日比例', '缺成本',
-                         'FC客户', '逐日金额和数量加总须等于区间值', 'Hermes按需能力保留', '八张大卡', '权限拒绝', '2 小时', '独立5分钟缓存'):
+        rule = result['entries'][0]
+        self.assertEqual(rule['revision'], 'native-summary-shipping-20261107')
+        for required in ('北京时间昨日', '原生汇总', 'Order「统计管理→发货统计」', '不是净利润',
+                         '不等待 fc-detail', '不能借全游戏总数', '权限拒绝', 'UNKNOWN', '主视图不自动请求 actual-profit'):
             self.assertIn(required, rule['content'])
-        for required in ('订单客单价（AOV）','付款客户均额（ARPU）','持久订单均满足现有 `final_order_statuses`','问题、暂停、处理中','原600秒 TTL','主站委托 channel-effects 的历史7天/当日600秒合同保持'):
-            self.assertIn(required, rule['content'])
-        self.assertIn('逐单实际成本毛利', rows['fs.data.sources']['content'])
         historical = kc.select(ROOT, 'knowledge/index.json', hashlib.sha256(lf(path)).hexdigest(),
                                ['FS'], ['fs.dashboard.shipping-profit'], revision='shipping-profit-20261024-v1',history=True,preview=True)
-        self.assertEqual(historical['entries'][0]['status'], 'retired')
-        self.assertIn('/stats/admin_index/delivery.html', historical['entries'][0]['content'])
+        self.assertEqual(historical['entries'], [])
         self.assertEqual(catalog()['release_state'], 'candidate')
 
     def test_every_source_hash_and_selector_resolves_against_real_files(self):
@@ -294,13 +284,9 @@ class LearningCatalog(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(data).hexdigest(), row['source']['sha256'])
                 self.assertTrue(kc.extract(data.decode('utf-8-sig'), row['source'].get('selector')).strip())
 
-    def test_historical_copy_tracks_original_location_without_claiming_old_commit_contains_new_path(self):
-        row = next(r for r in catalog()['entries'] if r['source']['path']==HISTORY)
-        self.assertIsNone(row['source_commit'])
-        self.assertEqual(row['original_source']['source']['path'], 'releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md')
-        self.assertEqual(row['original_source']['source']['sha256'], row['source']['sha256'])
-        self.assertEqual(row['original_source']['source_commit'], '4722f20e231ffe306095a211009d25770c478d24')
-        self.assertEqual(hashlib.sha256(lf(ROOT/HISTORY)).hexdigest(), '1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb')
+    def test_obsolete_rule_copies_are_not_catalog_sources(self):
+        self.assertFalse(any(r['source']['path'].startswith('knowledge/history/') for r in catalog()['entries']))
+        self.assertTrue(any(r['id']=='fc.history.natural-1821' for r in catalog()['entries']))
 
     def test_existing_contract_index_dates_do_not_invent_original_policy_effective_dates(self):
         rows = [r for r in catalog()['entries'] if r['id'] in {
@@ -320,8 +306,7 @@ class LearningCatalog(unittest.TestCase):
         self.assertIn('优惠码 `Aion2` 由 TikTok 改归**分销**', current['entries'][0]['content'])
         old = kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'], ['fc.marketing.attribution'],
                         revision='v15-pmax-20261022', history=True, preview=True)
-        self.assertNotIn('2026-10-23用户更正覆盖', old['entries'][0]['content'])
-        self.assertEqual(old['entries'][0]['source']['path'], HISTORY)
+        self.assertEqual(old['entries'], [])
         self.assertEqual(kc.select(ROOT, 'knowledge/index.json', sha, ['FC27'])['status'], 'not_published')
 
     def test_real_baseline_methods_catalog_freeze_effective_input_budget_and_paginated_bodies(self):
