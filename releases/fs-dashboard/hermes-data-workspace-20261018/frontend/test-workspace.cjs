@@ -18,7 +18,7 @@ const { chromium } = require('playwright');
  const originalFcHide=businessSource.split('\n').find(line=>line.includes("for(const id of ['sideNav','secStruct'"));
  assert.ok(originalRenderNav.includes("nav.innerHTML=''")&&originalFcHide,'real navigation lifecycle fragments required');
  const baseline=fs.readFileSync(path.join(ui,'modules/native/shell.js'));
- assert.equal(crypto.createHash('sha256').update(baseline).digest('hex'),'84c8a2846349faca2f8902b19ffe0d37b252bd868138ce2019be12ae66101ee8','frozen shell baseline changed');
+ assert.equal(crypto.createHash('sha256').update(baseline).digest('hex'),'48f47244693f47ffc12b66e934b3324700bb227ee5c92ba88f55cdd30df49cca','frozen shell baseline changed');
  const candidate=fs.readFileSync(path.join(__dirname,'shell.js'),'utf8');
  assert.equal(candidate.replace("import {mountBusinessDataWorkspace} from './data-workspace.js';\n",'').replace("if(state.mode==='business')mountBusinessDataWorkspace(scope,state,url=>location.assign(url),halt);",''),baseline.toString('utf8'),'only intended host wiring');
  await page.setContent('<div id="host"></div>');

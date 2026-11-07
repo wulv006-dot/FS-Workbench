@@ -29,4 +29,10 @@ Worker 通过原 /opt/pilot 挂载读取同一源码；发布后须核当前任�
 
 本地报告 32 项、native gateway 58 项通过。183 隔离目录 Sol 4 项、报告 32 项、worker 2 项、native gateway 58 项通过。初次 Linux 测试缺 RS 夹具，补齐后通过；组合进程测试夹具互相污染，按原测试独立进程执行，不放宽断言。
 
-生产 Sol 切换、管理台新结果及 FC 实际复盘消费尚待发布验收。周报自然周期为北京时间周一 02:40，下一次 2026-11-09，不用通用探针代替自然运行验收。
+PR901 已合并（c5f896f99c8219a917f192de5e75858b0b531322），正式 CI 42385488401 成功。生产发布 nav-20261107T151800Z，7 个目标逐项哈希一致；备份 /var/backups/fs-navigation-20261006/nav-20261107T151800Z。原 worker 在确认没有活动任务后重启，真实报告调用通过。
+
+管理台真实入口新请求 web_3fe7342a159d44b398294932ac0c78a9，报告 68467a43a0f799764df8aaa33e64e212，任务 63c6dd65852113ba3a285f53f11556a3：报告 COMPLETED，无错误；底层 TaskStore 保留 PARTIAL 原状态，不能用它宣称所有证据无缺口。12 次模型调用全部 succeeded，实际 response_model=gpt-6.1-sol，Responses/high，共 839341 tokens，未核供应商实际费用。页面显示事实截至 2026-11-06、生成 2026-11-07 23:20:55、当日有效，已读取实际三段经营分析；截图 .qa/hermes-sol/management-live.jpg。
+
+日程配置读回仅 weekly、management；管理台每日 02:10，周报周一 02:40（北京时间）。下一周报 2026-11-09，管理台下一自然运行 2026-11-08，尚未到期，不以手动入口验收冒充自然周期。FC pricing_review_v3 真实业务消费由对应 FC 任务独立验收。
+
+报告中心和调查入口的日程展示改为读取 report_kinds/starts，明确已暂停报告，既有结果标为历史记录；不删除报告与账本。活动目标：hermes-report-repair-20261019/source/brain.js → /var/www/dashboard/fs-home/brain/brain.js；hermes-data-workspace-20261018/source/hermes-index.html → /var/www/dashboard/fs-home/hermes/index.html。
