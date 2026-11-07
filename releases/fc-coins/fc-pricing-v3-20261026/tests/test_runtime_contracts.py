@@ -486,7 +486,8 @@ class RuntimeContracts(unittest.TestCase):
         calls=[]
         def request(path,owner,body=None):
             calls.append((path,body))
-            if path.endswith('/state'):return state
+            self.assertEqual(owner,'wulv')
+            if path.endswith('/review-state'):return state
             if path.endswith('/evaluate'):return dict(snapshot_id=run,results={'daily':dict(status='READY',selected={'action':{}},failures=[])},execution_authorized=False)
             return dict(status='queued')
         scope=Mock()
@@ -508,6 +509,8 @@ class RuntimeContracts(unittest.TestCase):
                 state['snapshot_id']='a-newer-run'
                 pricing_operations.call(scope,'wulv','task','lease',execute,request)
         self.assertFalse(proposed['plan_created'])
+        self.assertEqual([path for path,body in calls if path.endswith('/review-state')],['/pricing/v3/review-state'])
+        self.assertFalse(any(path.endswith('/state') for path,body in calls))
         self.assertFalse(any(path.endswith('/plans') for path,_ in calls))
         self.assertTrue(any(path.endswith('/simulations') and body['kind']=='fixed_orders_reprice' and body['request_key'] for path,body in calls if body))
         self.assertTrue(any(path.endswith('/simulations/'+run) and body is None for path,body in calls))

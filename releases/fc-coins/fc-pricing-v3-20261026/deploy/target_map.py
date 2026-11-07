@@ -6,6 +6,10 @@ TARGET_COUNT = 101
 COLLECTION_SCOPE='fc-pricing-v3-collection-routing-20261102'
 COLLECTION_NAMES=('source/fc_pricing_v3/sources.py','source/hermes-copy/fc_pricing_v3/sources.py','source/server_quote_job.py')
 
+REPAIR_SCOPE='fc-pricing-v3-quote-tool-repair-20261107'
+REPAIR_NAMES=('source/server_quote_job.py','source/pricing_operations.py',
+              'source/fc_pricing_v3/api.py','source/hermes-copy/fc_pricing_v3/api.py')
+
 BIDIRECTIONAL_SCOPE='fc-pricing-smart-bidirectional-20261107'
 BIDIRECTIONAL_NAMES=tuple(prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in (
     'api.py','business_source.py','daily.py','engine.py','ledger.py','market_registry.py','observations.py',

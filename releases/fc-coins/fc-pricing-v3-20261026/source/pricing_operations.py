@@ -23,12 +23,15 @@ FIELDS.update(read_quote={'action','run_id','path'},candidate_detail={'action','
 def schema():
     props={name:{'type':'string'} for name in ('action','mode','request_key','run_id','path','plan_id','operation_id','simulation_id','bundle_sha256','action_sha256','reason','kind')}
     props['action']={'enum':list(ACTIONS)}
+    props['action']['description']='Use exactly the fields listed for this action: '+json.dumps({action:sorted(fields) for action,fields in FIELDS.items()},sort_keys=True)
+    props['path']['description']='Required for read_quote: JSON pointer into the original quote, starting with /evidence, /result or /edits (for example /result/decision_receipt). Omit for state; state returns daily_review directly.'
+    props['mode']['description']='Required for compare_strategies. Use an available mode from state.strategies or the returned available_modes; a saved smart run may contain only smart. This read never computes missing alternatives.'
     props['action_sha256']['description']='SHA256 of the exact candidate action canonical JSON from the same run; this selects the reviewed candidate, including a nondefault feasible candidate.'
     props['bundle_sha256']['description']='Original V3 decision receipt SHA256 from read_quote for run_id.'
     props['reason']['description']='Explain why this candidate serves the chosen objective, its actual order/AOV/cost and competitor basis, tradeoffs against alternatives, and missing evidence.'
     props['evidence_refs']={'type':'array','items':{'type':'string'},'description':'Include pricing:<bundle_sha256> and any inspected same-run evidence references.'}
     props['simulation_id']['description']='Original ID returned by simulate; read the result with simulation_read.'
-    return {'type':'function','function':{'name':'mcp__fcro__fs_pricing_control','description':'FC27 Pricing V3 review and decision tool. Use state, compare_strategies and the same-run quote receipt to inspect daily operations and revenue sprint, real paid-order/AOV and delivered-K units, dual 20% proofs, scope and missing evidence. State lists every action and its hash with compact score and margins; use candidate_detail with the exact run, mode and action hash for its full original proof. Hermes reviews effects once daily without recommend or price approval. Only separately authorized strategy research may record a candidate recommendation with its exact action hash and substantive reason. Routine cycles choose and reprove candidates in the program without waiting for Hermes. There are no pricing budgets or spending caps. Use operation_read and simulation_read for outcomes and historical review. Old 80/15/5 and parity are read-only historical replays, never current pricing rules. UNKNOWN must reconcile the original operation ID. Shadow projections are estimates, never observed profit or execution authority.','parameters':{'type':'object','properties':props,'required':['action'],'additionalProperties':False}}}
+    return {'type':'function','function':{'name':'mcp__fcro__fs_pricing_control','description':'FC27 Pricing V3 review and decision tool. state requires only action; read_quote requires action, run_id, path; compare_strategies requires action, mode. Other exact fields are listed in action.description and capabilities.action_fields. State returns the saved daily_review (missing historical profit fields remain unavailable), compact operation references and available strategy results; use operation_read for each full original operation. Use state, compare_strategies and the same-run quote receipt to inspect daily operations and revenue sprint, real paid-order/AOV and delivered-K units, dual 20% proofs, scope and missing evidence. State lists every action and its hash with compact score and margins; use candidate_detail with the exact run, mode and action hash for its full original proof. Hermes reviews effects once daily without recommend or price approval. Only separately authorized strategy research may record a candidate recommendation with its exact action hash and substantive reason. Routine cycles choose and reprove candidates in the program without waiting for Hermes. There are no pricing budgets or spending caps. Use operation_read and simulation_read for outcomes and historical review. Old 80/15/5 and parity are read-only historical replays, never current pricing rules. UNKNOWN must reconcile the original operation ID. Shadow projections are estimates, never observed profit or execution authority.','parameters':{'type':'object','properties':props,'required':['action'],'additionalProperties':False}}}
 
 
 
@@ -131,7 +134,9 @@ def call(scope,owner,task,lease,args,request=native):
     scope.context(owner,task,lease)
     action=args.get('action') if isinstance(args,dict) else None
     if action not in ACTIONS or set(args)!=FIELDS[action]:
-        raise ValueError('pricing_tool_fields')
+        return dict(status='invalid_arguments',error_code='pricing_tool_fields',
+                    required_fields=sorted(FIELDS.get(action,{'action'})),execution_authorized=False,
+                    help='Pass exactly the required_fields for this action; state takes only action. read_quote requires a path such as /result/decision_receipt.')
     auth=authorization(scope,owner,task,scope.clock())
     daily=bool(auth and auth['mode']=='daily_review')
     bound=bool(daily and auth.get('source_quote_run') and auth.get('source_quote_sha256'))
@@ -147,16 +152,19 @@ def call(scope,owner,task,lease,args,request=native):
                      source_quote_run=auth.get('source_quote_run') if daily else None,
                      source_quote_sha256=auth.get('source_quote_sha256') if daily else None,
                     separate_shadow=True,unknown_replay=False,hard_margin_pct='20',average_hard_margin_pct='20')
-    state=request('/pricing/v3/state',owner) if action in ('state','sprint_target') else None
+    state=request('/pricing/v3/review-state',owner) if action in ('state','sprint_target') else None
     if action=='state':
         return state
     if action=='compare_strategies':
         if daily:
             run=auth['source_quote_run']
             decisions=request('/pricing/v3/strategy-decisions/'+run,owner)
-            if (decisions.get('snapshot_id')!=run or decisions.get('snapshot_sha256')!=auth['source_quote_sha256'] or
-                    args['mode'] not in decisions.get('results',{})):
+            if decisions.get('snapshot_id')!=run or decisions.get('snapshot_sha256')!=auth['source_quote_sha256']:
                 raise ValueError('pricing_review_run_basis_changed')
+            if args['mode'] not in decisions.get('results',{}):
+                return dict(status='invalid_arguments',error_code='pricing_review_mode_unavailable',
+                            snapshot_id=run,available_modes=sorted(decisions.get('results',{})),execution_authorized=False,
+                            help='Only these modes were calculated for the original snapshot; select one to read its saved result.')
             return dict(snapshot_id=run,snapshot_sha256=auth['source_quote_sha256'],
                         results={args['mode']:decisions['results'][args['mode']]},
                         execution_authorized=False,source='original_run_strategy_decisions')
@@ -165,8 +173,11 @@ def call(scope,owner,task,lease,args,request=native):
                 raise ValueError('pricing_review_run_scope_invalid')
             run=auth['runs'][0]
             decisions=request('/pricing/v3/strategy-decisions/'+run,owner)
-            if decisions.get('snapshot_id')!=run or args['mode'] not in decisions.get('results',{}):
+            if decisions.get('snapshot_id')!=run:
                 raise ValueError('pricing_review_run_basis_changed')
+            if args['mode'] not in decisions.get('results',{}):
+                return dict(status='invalid_arguments',error_code='pricing_review_mode_unavailable',
+                            snapshot_id=run,available_modes=sorted(decisions.get('results',{})),execution_authorized=False)
             return dict(snapshot_id=run,results={args['mode']:decisions['results'][args['mode']]},
                         execution_authorized=False,source='original_run_strategy_decisions')
         return request('/pricing/v3/evaluate',owner,dict(mode=args['mode']))
@@ -270,7 +281,7 @@ def call(scope,owner,task,lease,args,request=native):
         if old and tuple(old)!=(owner,task,action,payload_hash):
             raise ValueError('pricing_operation_payload_conflict')
         if not old:
-            current=request('/pricing/v3/state',owner)
+            current=request('/pricing/v3/review-state',owner)
             plan=next((p for p in current.get('active_plans',[]) if p['plan_id']==args['plan_id']),None)
             if not plan or plan['state']!='ACTIVE' or current['snapshot_id'] not in auth['runs']:
                 raise PermissionError('pricing_plan_not_granted')

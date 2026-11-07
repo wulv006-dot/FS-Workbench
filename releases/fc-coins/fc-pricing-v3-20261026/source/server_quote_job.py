@@ -228,7 +228,7 @@ def _quote_for_run(run_id: str, edits=None, *, draft_rules=None, persist=True, e
                 or offer.get("currency") != "USD" or not age_ok(offer["captured_at"], now)):
             continue
         offers[platform][site] = {
-            "usd_price": offer["gross_usd"], "base_k": offer["purchase_k"],
+            "currency": offer["currency"], "usd_price": offer["gross_usd"], "base_k": offer["purchase_k"],
             "bonus_k": offer["bonus_k"], "conditional": offer.get("conditional", False),
             "comparable": offer.get("comparable", True), "url": offer["url"],
             "checked_at": offer["captured_at"], "status": "已核对",

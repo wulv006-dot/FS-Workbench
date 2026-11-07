@@ -140,24 +140,34 @@ def read(path):
                                     for name,(filename,_) in SOURCES.items()},
                     execution_authorized=False)
     db=ledger()
-    snapshot=latest(db,public=True) if path in ('state','','region-rules','market') else None
-    if path in ('state',''):
+    snapshot=latest(db,public=True) if path in ('state','review-state','','region-rules','market') else None
+    if path in ('state','review-state',''):
         target=(snapshot or {}).get('evidence',{}).get('monthly_target') or {}
         configured=db.get('monthly_targets','current')
         if configured:
             target=dict(target,amount=configured['amount'],target_scope=configured['target_scope'],target_basis=configured['target_basis'],currency='USD')
-        return dict(version=VERSION,generation=db.generation(),plan=db.active_plan(),price_control=db.price_control(),
+        operations=sorted(db.all('operations'),key=lambda o:o['created_at'],reverse=True)[:30]
+        if path=='review-state':
+            # Full bundles repeat proofs and exceed the model reader's wire limit.
+            # Keep every operation ID and the original per-operation read endpoint.
+            operations=[dict({key:operation[key] for key in ('operation_id','plan_id','status','created_at','completed_at','resources','error') if key in operation},
+                             action=(operation.get('bundle') or {}).get('action'),
+                             detail_source=dict(action='operation_read',operation_id=operation['operation_id'])) for operation in operations]
+        result=dict(version=VERSION,generation=db.generation(),plan=db.active_plan(),price_control=db.price_control(),
                     plans=sorted(db.all('pricing_plans'),key=lambda p:p['created_at'],reverse=True),active_plans=db.active_plans(),
                     snapshot_id=snapshot['snapshot_id'] if snapshot else None,
                     captured_at=snapshot['created_at'] if snapshot else None,
                     strategies=strategy_summary(db.get('strategy_decisions',snapshot['snapshot_id'])) if snapshot else {},
-                    operations=sorted(db.all('operations'),key=lambda o:o['created_at'],reverse=True)[:30],
+                    operations=operations,
                     incidents=db.all('incidents'),target=target,
                     region_rules=(snapshot or {}).get('evidence',{}).get('region_rules',[]),
                     regional_controls=(snapshot or {}).get('evidence',{}).get('regional_controls',[]),
                     current_prices=(snapshot or {}).get('result',{}).get('rows',[]),
                     latest_market_observations=recent_market_observations(db),
                     daily_review=db.get('metadata','latest_daily_review'),retirement=db.all('retirement_inventory'),effect_status='long_term_business_effect_not_established')
+        if path=='review-state':
+            result['daily_review_profit_status']='available' if isinstance((result['daily_review'] or {}).get('actual_profit_summary'),dict) else 'not_recorded'
+        return result
     if path=='daily-review':
         return db.get('metadata','latest_daily_review') or dict(status='not_started',schedule='daily_02:20_Asia_Shanghai',per_cycle_model_required=False)
     if path=='strategies':
