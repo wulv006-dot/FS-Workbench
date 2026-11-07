@@ -430,6 +430,9 @@ class UnifiedBudget:
         unknown_price = (policy['id']=='no-pilot-quotas-deepseek-direct-stream-tokens-only-v2' and policy['model']=='deepseek-flash' and
                          policy['price_version']=='deepseek-direct-no-cny-invoice-or-fx-v1' and
                          policy['input_microcny'] is None and policy['output_microcny'] is None)
+        unknown_price = unknown_price or (policy['id']=='openai-sol-responses-tokens-only-v1' and policy['model']=='gpt-6.1-sol' and
+                         policy['price_version']=='openai-sol-no-cny-invoice-or-fx-v1' and
+                         policy['input_microcny'] is None and policy['output_microcny'] is None)
         if not unknown_price and any(type(policy[k]) is not int or policy[k] <= 0 for k in required-{'id','model','price_version'}):
             raise ValueError('positive_price_required')
         self.policy = deepcopy(policy)
