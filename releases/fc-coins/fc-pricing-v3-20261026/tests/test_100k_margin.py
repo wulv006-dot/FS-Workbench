@@ -23,6 +23,41 @@ def saved():
 
 
 class HundredKMargin(unittest.TestCase):
+    def test_fixed_and_capped_regional_paths_keep_exact_dual20_minimum(self):
+        paths = [
+            dict(kind='fixed', discount_usd='2', threshold_usd='0', cap_usd=None),
+            dict(kind='sequence', paths=[dict(kind='ratio', retained_ratio='.9'),
+                dict(kind='fixed', discount_usd='2', threshold_usd='0', cap_usd='1')]),
+            dict(kind='ratio', retained_ratio='0', threshold_usd='0', cap_usd='2'),
+            dict(kind='points', credit_usd='2', cap_ratio='1'),
+        ]
+        for path in paths:
+            with self.subTest(path=path):
+                data,now=saved()
+                region=deepcopy(data['region_rules'][0])
+                region.update(platforms=['PS'],factor='1')
+                region['history']['replay_paths']=[dict(weight_usd='1',
+                    denominator_basis='regional_regular',promotion_path_excludes_region=True,
+                    promotion_path=path)]
+                data.update(region_rules=[region],regional_controls=[])
+                floor=engine.required_base_bound(data,'PS',now)
+                action=dict(base_prices=dict(console=str(floor),pc='20'),region_coefficients={})
+                proof=engine.financial(data,action,now,regions=[region])
+                self.assertGreaterEqual(Decimal(proof['prices']['21:PS']['catalog']['minimum_estimated_average_margin_pct']),20)
+                action['base_prices']['console']=str(floor-Decimal('.01'))
+                with self.assertRaisesRegex(ValueError,'margin_floor'):
+                    engine.financial(data,action,now,regions=[region])
+
+    def test_unrecoverable_or_unknown_regional_path_still_rejected(self):
+        for path in (dict(kind='ratio',retained_ratio='0'),dict(kind='unsupported')):
+            with self.subTest(path=path):
+                data,now=saved()
+                region=deepcopy(data['region_rules'][0])
+                region['history']['replay_paths'][0]['promotion_path']=path
+                region['history']['replay_paths']=region['history']['replay_paths'][:1]
+                with self.assertRaises(ValueError):
+                    engine.required_unit_bound(data,'PS',now,region)
+
     def test_original_global_minimum_and_previous_cent(self):
         data,now=saved()
         expected={'PS':'7.26','XBOX':'7.26','PC':'8.11'}
