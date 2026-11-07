@@ -30,10 +30,10 @@ FILES |= {'source/fc_pricing_v3/' + name for name in ('__init__.py', 'api.py', '
           'shadow_worker.py', 'simulation.py', 'selective_sources.py', 'daily.py', 'engine.py', 'demand_model.py', 'smart.py')}
 FILES |= {'tests/' + name for name in ('collection_cases.py', 'test_collection_contracts.py',
           'test_collection_leases.py', 'test_collection_limits.py', 'test_collection_worker.py',
-          'test_collection_public_source.py', 'test_collection_bidirectional.py', 'test_collection_protocol.py', 'test_collection_service.py',
+          'test_collection_public_source.py', 'test_collection_bidirectional.py', 'test_collection_bidirectional_release.py', 'test_collection_protocol.py', 'test_collection_service.py',
           'test_collection_node_package.py', 'test_collection_pilot.py', 'test_collection_install.py',
           'test_collection_routing.py', 'test_collection_failover.py', 'test_collection_release.py')} | {
-          'deploy/build_collection_node.py', 'deploy/install_collection_node.py', 'deploy/prepare_collection_control.py',
+          'deploy/build_collection_node.py', 'deploy/update_collection_bidirectional.py', 'deploy/install_collection_node.py', 'deploy/prepare_collection_control.py',
           'deploy/target_map.py', 'deploy/fc_v3_release_adapter.py', 'deploy/prepare_manifest.py', 'deploy/release_readiness.py'}
 
 

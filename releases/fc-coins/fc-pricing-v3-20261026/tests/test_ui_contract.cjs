@@ -39,6 +39,9 @@ class Element {
   focus() {}
 }
 const elements = Object.fromEntries(ids.map(id => [id, new Element()]));
+const marketTag = new Element();
+marketTag.textContent='Lootbar 无券 · ItemD2R · Saudi Arabia 普通发货';
+elements['v3-market-title'].parentElement={querySelector:selector=>selector==='.tag'?marketTag:null};
 elements['v3-mode'].value = 'daily';
 const document = { getElementById: id => elements[id], createElement: () => new Element(), activeElement: null, hidden: false };
 const store = new Map();
@@ -329,6 +332,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.doesNotMatch(elements['v3-mode-purpose'].textContent,/上调6%/);
   assert.match(elements['v3-proof-notes'].textContent,/Lootbar.*主.*Arab.*次.*ItemD2R.*辅助/);
   assert.match(elements['v3-proof-notes'].textContent,/全球.*系数1/);
+  assert.match(marketTag.textContent,/Lootbar.*主锚.*Arab.*次锚.*ItemD2R.*辅助/);
   assert.match(JSON.stringify(elements['v3-market-cards'].children[2]),/PC.*独立.*标准/);
   assert.match(JSON.stringify(elements['v3-market-cards'].children[2]),/\$9\.47/);
   plan.mode='daily';state.strategies.daily.selected.daily_pricing={pc:{driver_source:'ArabUT',driver_platform:'PC',
@@ -339,5 +343,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   plan.mode='smart';delete plan.smart_strategy_version;delete plan.parameters;
   elements['v3-mode'].value='smart';elements['v3-mode'].events.change();
   assert.match(elements['v3-mode-purpose'].textContent,/上调3%.*上调6%/,'legacy plans retain their actual policy');
+  await elements['v3-refresh'].events.click();
+  assert.equal(marketTag.textContent,'Lootbar 无券 · ItemD2R · Saudi Arabia 普通发货','legacy plans keep the original market heading');
   console.log('UI contract and state smoke passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });
