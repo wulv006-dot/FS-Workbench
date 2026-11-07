@@ -65,11 +65,18 @@ ES缺档时沿已有导出请求轮询和读回，超时先查原ID和文件，�
 | 订单归属与实收 | Admin真实创建时间、商品购买/赠送K、平台/地区、实际原价和实付；匹配后的 `daily_online_context.actual_outcomes` | 按创建时点和实际规格/价格唯一匹配价格窗；`actual_net_usd`已经包含实际优惠 |
 | 同单成本与客户标记 | 对应完整日的现有归档，经 `_period_population` 投影；`costCny`、`saleCny`、`salesUsd`、`status`、`customerType` | 每个复盘日都带入该日已有归档，再合并所需历史；完整日范围、付款/退款状态及同单金额分别核 |
 | 智能效果样本 | `metadata.daily_online_context.actual_outcomes`；`price_window_id`、`actual_net_usd`、`actual_contribution_usd`、`new_customer`、`customer_key`及覆盖 | 这是smart纠偏和成熟比较消费的实际样本；只导出脱敏聚合，缺成本或客户标记保持未知 |
+| 每日复盘的实际盈利摘要 | `daily:<日期>.actual_profit_summary`，也随 `latest_daily_review` 由 `fs_pricing_control` 的只读state返回 | 由上述既有样本汇总并随原daily任务冻结；不能用只有归属数量的learning_coverage替代实际成本和毛利 |
 | 旧预算参考核算 | `budget_settlements`、`settlements`、`reference_net_usd` | 记录反事实参考价、历史优惠重放或折让；它为空或报参考价残差，不等于实际样本不存在 |
 
 实际采购毛利为该单实收USD减该单全部交付采购成本折USD；换算依据使用已核该笔金额角色和汇率。付款人民币换算额、Order发货人民币销售额和采购成本是不同字段，不能未经接口语义核实就要求前两者相等。计算要保留实际成本、所用换算基数、归属窗口和状态；缺成本时统计已知覆盖、已知毛利和未核金额，不能把未知补零或用全量收入除以部分已知成本。它是采购毛利，不是扣完广告和支付费后的净利润。同单换算公式为：`实际采购毛利USD = (Order发货销售CNY − Order全部采购成本CNY) × Admin该单实际USD实收 ÷ Order发货销售CNY`。仍须订单键一致、归档状态已完成、成本有效且非负、Order销售CNY为正、归档USD与Admin该单实收USD一致；Admin展示CNY不作为与Order发货销售CNY精确相等的门槛。该方法将同单Order人民币采购毛利折为该单实收美元口径，不是套当前新汇率估值。
 
 财务硬线使用D-9至D-2的8个完整日优惠结构；**效果跟踪使用目标生效窗口内的真实订单，包含刚复盘当天已有的归档**。两个时间范围用途不同。`learning_coverage.counts`可能覆盖一个历史观察窗，不自动当作单日订单数。
+
+每日模型输入中的`actual_profit_summary`分两层：`review_day`按北京时间订单创建日筛选，按计划、PS/Xbox或PC、A/B/C标签汇总；`active_plan`是当前计划截至`observed_at`、在本次来源中已绑定的累计样本。它们都不是全天付款日总销售。每层同时给出订单/已知实收、成本已核单数及对应实收、同单采购成本与采购毛利、成本未知单数及其已知实收、客户标记覆盖和后台标记新客去重数。`procurement_cost_usd = covered_paid_usd - procurement_gross_usd`，仅对同批成本已核订单计算。
+
+**部分成本覆盖不等于没有成本数据。**没有已核成本时，采购成本和毛利为null；已核结果确实为0时才展示0。已核子群毛利率用`procurement_gross_usd ÷ covered_paid_usd`，不除以全部实收，不把子群外推为全量。`status`说明成本/收入覆盖；`unknown_customer_orders`另列客户缺口。后台新客标记和当前窗口去重不等于完整生命周期核验。
+
+模型摘要的逐小时和分组行可采用`hourly_columns`、`group_columns`列名加数据行的无损表格，按列名对应读取；金额只在展示时到分，原冻结摘要保留计算精度和`source_sha256`。完整结构可在只读state的`daily_review.actual_profit_summary`查看。知识读取、具体摘要进入模型输入、模型完成及下一自然任务实际采用分别验收，不能互相代替；已提交/已完成的旧任务沿原ID与原冻结输入，不为补摘要重放。
 
 经营背景按完整付款日看单量、销售额、客单及同小时变化；价格效果按创建时点归单、实际生效窗口和有效观察小时比较。主毛利日报仍按上方Order发货统计的发货日口径，不能直接拿它替代同一价格组订单的逐单毛利。相同订单ID下的付款、创建、发货时点各有用途。
 

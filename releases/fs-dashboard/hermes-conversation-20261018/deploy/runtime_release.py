@@ -375,6 +375,7 @@ SOFTWARE_MAPPINGS = {
     'runtime/pricing_operations.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/pricing_operations.py', '/opt/fs-hermes-fc/pricing_operations.py'),
     'runtime/controller.py': ('releases/fs-dashboard/knowledge-layering-20261023/source/controller.py', '/opt/fs-hermes-fc/controller.py'),
     'pricing/fc_pricing_v3/daily.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/daily.py', '/opt/fc27-cloud-browser/fc_pricing_v3/daily.py'),
+    'runtime/fc_pricing_v3/daily.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/daily.py', '/opt/fs-hermes-fc/fc_pricing_v3/daily.py'),
     'pricing/hermes_pricing_bridge.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/hermes_pricing_bridge.py', '/opt/fc27-cloud-browser/hermes_pricing_bridge.py'),
     'runtime/conversation_store.py': ('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_store.py', '/opt/fs-hermes-fc/conversation_store.py'),
     'runtime/conversation_knowledge.py': ('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_knowledge.py', '/opt/fs-hermes-fc/conversation_knowledge.py'),
