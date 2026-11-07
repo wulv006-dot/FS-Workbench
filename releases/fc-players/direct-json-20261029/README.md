@@ -2,7 +2,9 @@
 
 原新卡入口、人工确认、source policy 与 manual narrow 权限继续使用。新计划冻结原 selected XLSX、候选、API 21属性表单和逐人 payload SHA；系数、折扣、PlayersType、展示 Price 遵守下述用户确认的规则，不套测试值。图片允许明确无图，保留原手工图片维护流程。
 
-用户已确认系数1.1、折扣90、模型展示Price9999。PlayersType从同次完整转换文件按同name+Version比较IS：低normal、高Signature；不能只看勾选的单人，不使用固定normal。完整context路径/SHA随plan和每人item冻结，运行前重新核验；单卡、缺IS及歧义组只阻断该人。缺行情采用用户确认的fallback_9999：模型PS/PC市场币输入仍为None/blank，原同步后只对对应缺价平台的商品unit_price兜底9999，有价平台不覆盖，六商品均可启用。后台后续正常自动更新保留。
+用户已确认系数1.1、折扣90、模型展示Price9999。PlayersType从同次完整转换文件按同name+Version分组：2026-11-07用户补充，只有一张卡时默认normal，因为Signature是基础卡之后额外推出的升级款；有两张卡时仍按IS低normal、高Signature。分类依据完整context，不仅看勾选人数，也不跨name或Version比较。完整context路径/SHA随plan和每人item冻结，运行前重新核验；双卡缺IS、同IS及多于两张的歧义组只阻断该人，其他必填属性校验保持。缺行情采用用户确认的fallback_9999：模型PS/PC市场币输入仍为None/blank，原同步后只对对应缺价平台的商品unit_price兜底9999，有价平台不覆盖，六商品均可启用。后台后续正常自动更新保留。
+
+本次只更新分类代码、对应测试与本规则，不自动改变旧计划冻结的payload/digest，不解除旧scope或补跑24076/24078，也不重做已成功的60名。发布及真实新建另按实际授权和回执记录，规则入Git不代表生产已生效。
 
 执行使用原 SQLite/events，按原 execution/FUTBIN/phase/payload SHA 事务认领，再发一次 JSON。add、shelves、tags、sync、逐商品状态均留 intent/accepted/readback。intent/unknown 重入只核 GET，不自动重 POST；已落 accepted 但回读失败保留原接受证据，后续只读补验。sync 无接受回执时，不能只凭产品现价宣称同步成功。
 
