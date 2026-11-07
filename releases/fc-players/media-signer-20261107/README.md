@@ -12,6 +12,8 @@
 
 原任务只读对账：`559abeea45014d0bb8a8c8fa0d35b891`、`12d5036171db49f9bac4e8449e2bdb70`两图片计划是相同60模型/PNG/原icon范围，均1个not_started+59个planned，未派发上传POST；不能把两个计划都补跑成重复上传。`942d57f3cbff4e0da38291a7dc0b5c9d`上新任务已有60人verified，仅24076/24078因原来源PlayersType不明阻断；已完成者不重做，不通过猜类型或删除检查将其视为软件修复。
 
-当前仅候选与上述回归完成，正式CI、合并、生产发布及真实图片上传分别记录，尚不称图片恢复。未生产POST、重启或任务重放。需要发布时沿本清单及当前授权执行；原失败/UNKNOWN、任务和业务回执保留。回退沿本次publisher备份，仅本次模块代码/版本/镜像与原unit绑定；保留数据库及后续合法业务修改，不全库回滚。
+代码候选、18项Windows及18项183 Linux媒体回归、2项本release检查和16项原publisher仿真均通过；独立复核无阻塞。运行/测试代码head `466cf716b1e5c71954bb6d594f987c9b411b6027`的正式pr-fast已通过：[run 42332320814](https://github.com/wulv006-dot/FS-Workbench/actions/runs/42332320814)。本记录后续纯文档head仍须满足PR实际检查，不能借用旧绿绕过门禁。
+
+尚未合并、生产发布或进行真实图片上传，尚不称图片恢复；未生产POST、重启或任务重放。发布请求限定为PR #887的cloud.20两文件delta、原publisher和必要Players服务重载，并在原失败范围内用一张图片验证上传与icon读回，不整批重跑或新增上新/改价权限。原失败/UNKNOWN、任务和业务回执保留。回退沿本次publisher备份，仅本次模块代码/版本/镜像与原unit绑定；保留数据库及后续合法业务修改，不全库回滚。
 
 私有证据留原任务目录`.agent_runtime/players-repair-20261107/`：`media-public-get.json`、`media-current-*.json`、`media-protocol-proof.json`、`media-endpoint-proof.json`、`live-state-v2.json`、`red-test.txt`、`green-windows.txt`、`green-linux183.txt`、`linux-tests-manifest.json`。不包含真实签名材料。无业务知识、模型、定价或Notion正文变更。
