@@ -458,6 +458,12 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith(('opt/mmoexp-fc-community/', 'opt/mmoexp-fc-quotes/', 'opt/fc27-news-fetch/')):
+            groups.add('fc-community');continue
+        if name in ('opt/bot-console/test_fc_console.py', 'opt/bot-console/static/fc27.html'):
+            groups.add('fc-community')
+        if name == 'opt/bot-console/server.py':
+            groups.add('fc-community')
         if name.startswith(('mmoexp_google_data/seo/', 'ui-system/modules/seo/')):
             groups.add('seo-daily')
             if Path(name).suffix in ('.html', '.css'):
@@ -1120,6 +1126,10 @@ def main():
         elif group=="rpg":units("tools",["pr_fast_tests.RPGGuards","pr_fast_tests.RPGModuleContracts"])
         elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
         elif group=="bots":units("tools",["pr_fast_tests.BotModuleContracts"])
+        elif group=="fc-community":
+            subprocess.run([sys.executable,"-I","-B",str(ROOT/"opt/mmoexp-fc-community/ci_check.py")],
+                           cwd=ROOT,check=True,timeout=180)
+            units("opt/bot-console",["test_fc_console"])
         elif group=="ops-modules":
             units("tools",["pr_fast_tests.OpsModuleContracts"])
             units("opt/mlb-online",["test_writeback_guards"])

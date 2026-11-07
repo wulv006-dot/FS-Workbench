@@ -1,5 +1,11 @@
 # Discord 机器人控制台
 
+## FC27 独立控制台（2026-11-08 回灌）
+
+`/bots/fc27.html` 提供独立的报价频道配置和新闻中心，沿用 FS 登录、管理员写权限和同源校验；不加入原 Guard/Shugo 的服务注册表。FC27 服务为 `mmoexp-fc-community`，配置文件为 `/opt/mmoexp-fc-community/content.config.json`，凭据不通过页面读取。新闻支持小时设置、采集节点选择、最近采集/发布记录及手动新闻/X 链接发布。
+
+相关源及运行路径见 [FC27 来源映射](../mmoexp-fc-community/docs/SOURCE-MAP-20261108.md)。本次保留线上原有品牌表改造，不恢复 Git 旧版品牌逻辑；下面“两机器人”说明仍描述旧 Guard/Shugo 页面，不能用于判断 FC 功能是否存在。新增离线回归：在本目录运行 `python -m unittest test_fc_console -v`。生产验收以对应日期记录和现场状态为准。
+
 服务器 `47.85.224.112`（play187）上的可视化控制台，用来管两个 Discord 机器人。
 
 **入口：** https://47.85.224.112/bots/ （走全站统一登录门户；只有登录后可见）

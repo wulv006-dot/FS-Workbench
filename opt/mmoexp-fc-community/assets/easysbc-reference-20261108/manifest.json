@@ -1,0 +1,440 @@
+{
+  "checked_at": "2026-11-08 Asia/Shanghai",
+  "evidence_id": "ev_73fce2447dddebcceb4967486222d7cb8a29b737fea3cb05b210e876fa5594cc",
+  "scope": "homepage network + downloaded public bundle literals; not full site or Discord app",
+  "assets": [
+    {
+      "name": "coin",
+      "source_url": "https://assets.easysbc.io/misc/coin-tmp.png",
+      "provenance": "runtime",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/coin.png",
+      "bytes": 880,
+      "sha256": "ba8cc7e53aeb8a1d0743a12b020cc1d9bc52b4344aeb6517f56040aabc44a74b",
+      "format": "png",
+      "dimensions": [
+        46,
+        46
+      ]
+    },
+    {
+      "name": "sbc",
+      "source_url": "https://assets.easysbc.io/misc/sbc-tmp.png",
+      "provenance": "runtime",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/sbc.png",
+      "bytes": 39142,
+      "sha256": "75376778a5827da3d5c3f293cbbffb4dc572ced960b87bf3ed477d069c3d131f",
+      "format": "png",
+      "dimensions": [
+        463,
+        483
+      ]
+    },
+    {
+      "name": "objective",
+      "source_url": "https://assets.easysbc.io/misc/obj-tmp.png",
+      "provenance": "runtime",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/objective.png",
+      "bytes": 84817,
+      "sha256": "4fca3a3c2f7a2aa9fca0cd1c509afd0f288d01da04d5ef369786addec2ee55df",
+      "format": "png",
+      "dimensions": [
+        286,
+        286
+      ]
+    },
+    {
+      "name": "season-points",
+      "source_url": "https://assets.easysbc.io/misc/sp-tmp.png",
+      "provenance": "runtime",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/season-points.png",
+      "bytes": 96958,
+      "sha256": "51c4d8b23444d592b20196eb89767762c6f9d403f192ae3903224916c66fd0d4",
+      "format": "png",
+      "dimensions": [
+        286,
+        286
+      ]
+    },
+    {
+      "name": "pack-tradable",
+      "source_url": "https://assets.easysbc.io/misc/pack-tradable.png",
+      "provenance": "runtime",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/pack-tradable.png",
+      "bytes": 8412,
+      "sha256": "42f7473d579853b0542d3f16662e9b984304ba4469569b4ff82bee2c0ecc5382",
+      "format": "png",
+      "dimensions": [
+        291,
+        423
+      ]
+    },
+    {
+      "name": "sbc-set-108",
+      "source_url": "https://assets.easysbc.io/fc27/sbcs/sets/icons/108.png",
+      "provenance": "runtime",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/sbc-set-108.png",
+      "bytes": 92799,
+      "sha256": "5a30c5d9445731857bf280c15efa8574d756961f5b00ce962744dcde8734bb76",
+      "format": "png",
+      "dimensions": [
+        420,
+        460
+      ]
+    },
+    {
+      "name": "pack-4",
+      "source_url": "https://assets.easysbc.io/fc27/packs/4.png",
+      "provenance": "runtime",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/pack-4.png",
+      "bytes": 148518,
+      "sha256": "f019147c6bd767fea143e4b2a0ba3166497aec6955d70c33f803514aca8243a2",
+      "format": "png",
+      "dimensions": [
+        252,
+        366
+      ]
+    },
+    {
+      "name": "event-token-1",
+      "source_url": "https://assets.easysbc.io/fc27/eventtokens/1.png",
+      "provenance": "runtime",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/event-token-1.png",
+      "bytes": 932,
+      "sha256": "d3c0d5f46dec55a90e323f2e6fed2fd614a769a9672f02d91354f332653201f4",
+      "format": "png",
+      "dimensions": [
+        56,
+        56
+      ]
+    },
+    {
+      "name": "sbc-purple",
+      "source_url": "https://assets.easysbc.io/misc/ea/sbc-purple.png",
+      "provenance": "bundle literal",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/sbc-purple.png",
+      "bytes": 39142,
+      "sha256": "75376778a5827da3d5c3f293cbbffb4dc572ced960b87bf3ed477d069c3d131f",
+      "format": "png",
+      "dimensions": [
+        463,
+        483
+      ]
+    },
+    {
+      "name": "objective-ea",
+      "source_url": "https://assets.easysbc.io/misc/ea/obj.png",
+      "provenance": "bundle literal",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/objective-ea.png",
+      "bytes": 6116,
+      "sha256": "93963cc3a27f291d5f7ca2cbad4e3c32ab0bcf052b1cff2a9e8471980fc82dab",
+      "format": "png",
+      "dimensions": [
+        56,
+        56
+      ]
+    },
+    {
+      "name": "season-points-ea",
+      "source_url": "https://assets.easysbc.io/misc/ea/sp.png",
+      "provenance": "bundle literal",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/season-points-ea.png",
+      "bytes": 96958,
+      "sha256": "51c4d8b23444d592b20196eb89767762c6f9d403f192ae3903224916c66fd0d4",
+      "format": "png",
+      "dimensions": [
+        286,
+        286
+      ]
+    },
+    {
+      "name": "points-ea",
+      "source_url": "https://assets.easysbc.io/misc/ea/points.png",
+      "provenance": "bundle literal",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/points-ea.png",
+      "bytes": 819,
+      "sha256": "7cd913596b6be7328fee5b824587ae5ebdf52c8081a9ef3cacb14a5aa830324b",
+      "format": "png",
+      "dimensions": [
+        46,
+        42
+      ]
+    },
+    {
+      "name": "ball",
+      "source_url": "https://assets.easysbc.io/misc/ea/ball.png",
+      "provenance": "bundle literal",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/ball.png",
+      "bytes": 1624,
+      "sha256": "9be46dad851bc88a42a11b78044123dddc44200e042e712824026a4fff4c3f4f",
+      "format": "png",
+      "dimensions": [
+        56,
+        56
+      ]
+    },
+    {
+      "name": "default-sbc",
+      "source_url": "https://assets.easysbc.io/misc/default-sbc.png",
+      "provenance": "bundle literal",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/default-sbc.png",
+      "bytes": 30132,
+      "sha256": "50c77afd0851c5992798c18d7b6be5b32b27fd031c8dca8a8abaa0a188a37cf2",
+      "format": "png",
+      "dimensions": [
+        561,
+        515
+      ]
+    },
+    {
+      "name": "player-pick",
+      "source_url": "https://assets.easysbc.io/misc/playerpick_v2.png",
+      "provenance": "bundle literal",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/player-pick.png",
+      "bytes": 31669,
+      "sha256": "09f1ad29257dd93901239bd39c0f1fe5b819186e0593bed4cee70982a1e1fa02",
+      "format": "png",
+      "dimensions": [
+        516,
+        716
+      ]
+    },
+    {
+      "name": "coin-large",
+      "source_url": "https://assets.easysbc.io/misc/fut-coin-large.png",
+      "provenance": "bundle literal",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/png",
+      "file": "images/coin-large.png",
+      "bytes": 876156,
+      "sha256": "87058f754d739aab318e3a46702b9daf18a2d75e0ca23e13ec5879715da07c90",
+      "format": "png",
+      "dimensions": [
+        826,
+        826
+      ]
+    },
+    {
+      "name": "pitch",
+      "source_url": "https://assets.easysbc.io/misc/pitch.svg",
+      "provenance": "bundle literal",
+      "license": "unknown; no reuse license established",
+      "production_ready": false,
+      "content_type": "image/svg+xml",
+      "file": "images/pitch.svg",
+      "bytes": 21900,
+      "sha256": "f526c65aa14dba396f5caaa80d688e80aa999e04d14ba74abab5abede2755ec3",
+      "format": "svg",
+      "dimensions": {
+        "width": "934",
+        "height": "779",
+        "viewBox": "0 0 934 779"
+      }
+    },
+    {
+      "name": "Clock",
+      "source_url": "https://www.easysbc.io/assets/index-Dhfro0H2.js",
+      "provenance": "literal Lucide shape array extracted from public bundle",
+      "bundle_char_offset": 1047337,
+      "file": "lucide/Clock.svg",
+      "bytes": 258,
+      "sha256": "192ea3f743149a3df9f79acce848c4b856f62bfaf6811d159e67a6b03daa8331",
+      "format": "svg",
+      "dimensions": [
+        24,
+        24
+      ],
+      "license": "ISC (lucide-react v0.454.0 per adjacent bundle license comment); retain LICENSE",
+      "production_ready": true
+    },
+    {
+      "name": "Dna",
+      "source_url": "https://www.easysbc.io/assets/index-Dhfro0H2.js",
+      "provenance": "literal Lucide shape array extracted from public bundle",
+      "bundle_char_offset": 1048702,
+      "file": "lucide/Dna.svg",
+      "bytes": 560,
+      "sha256": "2ccf0e6030c937565806eb6da8493d41440f6bb5246a63b905382f0ad6b3f7a9",
+      "format": "svg",
+      "dimensions": [
+        24,
+        24
+      ],
+      "license": "ISC (lucide-react v0.454.0 per adjacent bundle license comment); retain LICENSE",
+      "production_ready": true
+    },
+    {
+      "name": "Images",
+      "source_url": "https://www.easysbc.io/assets/index-Dhfro0H2.js",
+      "provenance": "literal Lucide shape array extracted from public bundle",
+      "bundle_char_offset": 1056114,
+      "file": "lucide/Images.svg",
+      "bytes": 366,
+      "sha256": "9160b0ab37bb812500c3ff41728ea7d846e4449b24a658e78f54772eea868277",
+      "format": "svg",
+      "dimensions": [
+        24,
+        24
+      ],
+      "license": "ISC (lucide-react v0.454.0 per adjacent bundle license comment); retain LICENSE",
+      "production_ready": true
+    },
+    {
+      "name": "GalleryVerticalEnd",
+      "source_url": "https://www.easysbc.io/assets/index-Dhfro0H2.js",
+      "provenance": "literal Lucide shape array extracted from public bundle",
+      "bundle_char_offset": 1052514,
+      "file": "lucide/GalleryVerticalEnd.svg",
+      "bytes": 278,
+      "sha256": "65fa8f748afdc462144bfc4c800229f2812897ef149989b5661b094c245d08bf",
+      "format": "svg",
+      "dimensions": [
+        24,
+        24
+      ],
+      "license": "ISC (lucide-react v0.454.0 per adjacent bundle license comment); retain LICENSE",
+      "production_ready": true
+    },
+    {
+      "name": "Puzzle",
+      "source_url": "https://www.easysbc.io/assets/index-Dhfro0H2.js",
+      "provenance": "literal Lucide shape array extracted from public bundle",
+      "bundle_char_offset": 1064615,
+      "file": "lucide/Puzzle.svg",
+      "bytes": 1055,
+      "sha256": "64c314ed16d714a4b09e480a370f6d285e312baf8a9894ec13393e4e3c9e55d6",
+      "format": "svg",
+      "dimensions": [
+        24,
+        24
+      ],
+      "license": "ISC (lucide-react v0.454.0 per adjacent bundle license comment); retain LICENSE",
+      "production_ready": true
+    },
+    {
+      "name": "Target",
+      "source_url": "https://www.easysbc.io/assets/index-Dhfro0H2.js",
+      "provenance": "literal Lucide shape array extracted from public bundle",
+      "bundle_char_offset": 1072167,
+      "file": "lucide/Target.svg",
+      "bytes": 284,
+      "sha256": "7b72e9a29ed662b951fad08e3e1bac8c84597c7d3f2336895104dea8bcbd4911",
+      "format": "svg",
+      "dimensions": [
+        24,
+        24
+      ],
+      "license": "ISC (lucide-react v0.454.0 per adjacent bundle license comment); retain LICENSE",
+      "production_ready": true
+    },
+    {
+      "name": "Gamepad2",
+      "source_url": "https://www.easysbc.io/assets/index-Dhfro0H2.js",
+      "provenance": "literal Lucide shape array extracted from public bundle",
+      "bundle_char_offset": 1052861,
+      "file": "lucide/Gamepad2.svg",
+      "bytes": 644,
+      "sha256": "1f6cb4bbdfed17b660796e046dab7daff8afddf5ef1125827be109b3e49e602d",
+      "format": "svg",
+      "dimensions": [
+        24,
+        24
+      ],
+      "license": "ISC (lucide-react v0.454.0 per adjacent bundle license comment); retain LICENSE",
+      "production_ready": true
+    },
+    {
+      "name": "Newspaper",
+      "source_url": "https://www.easysbc.io/assets/index-Dhfro0H2.js",
+      "provenance": "literal Lucide shape array extracted from public bundle",
+      "bundle_char_offset": 1062411,
+      "file": "lucide/Newspaper.svg",
+      "bytes": 381,
+      "sha256": "25132094ad50228cdd08b4749e9fa19c7a35a558b0d31a70e1b01df402cb605d",
+      "format": "svg",
+      "dimensions": [
+        24,
+        24
+      ],
+      "license": "ISC (lucide-react v0.454.0 per adjacent bundle license comment); retain LICENSE",
+      "production_ready": true
+    },
+    {
+      "name": "Search",
+      "source_url": "https://www.easysbc.io/assets/index-Dhfro0H2.js",
+      "provenance": "literal Lucide shape array extracted from public bundle",
+      "bundle_char_offset": 1067008,
+      "file": "lucide/Search.svg",
+      "bytes": 246,
+      "sha256": "10f1ee41ec39805ffef38b3e94e2debd1841af0a427410e7c336820cdc50c1bb",
+      "format": "svg",
+      "dimensions": [
+        24,
+        24
+      ],
+      "license": "ISC (lucide-react v0.454.0 per adjacent bundle license comment); retain LICENSE",
+      "production_ready": true
+    },
+    {
+      "name": "ExternalLink",
+      "source_url": "https://www.easysbc.io/assets/index-Dhfro0H2.js",
+      "provenance": "literal Lucide shape array extracted from public bundle",
+      "bundle_char_offset": 1050476,
+      "file": "lucide/ExternalLink.svg",
+      "bytes": 302,
+      "sha256": "6e3ba56712f390d5ec80600c05c9e37be726a47b761a8ebec5dc322025d647c1",
+      "format": "svg",
+      "dimensions": [
+        24,
+        24
+      ],
+      "license": "ISC (lucide-react v0.454.0 per adjacent bundle license comment); retain LICENSE",
+      "production_ready": true
+    }
+  ]
+}

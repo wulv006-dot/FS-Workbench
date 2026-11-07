@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "guild_id": "1565922092518613064",
+  "staff_user_ids": [],
+  "binding_database": "var/bindings.sqlite3",
+  "admin_adapter_enabled": false,
+  "note": "配置模板尚未接入启动器。不要填写 Token 或邮箱；客服ID须现场核验。"
+}
