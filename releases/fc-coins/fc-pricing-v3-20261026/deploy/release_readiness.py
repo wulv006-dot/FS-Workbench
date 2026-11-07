@@ -6,7 +6,7 @@ import urllib.request
 
 
 def superseded_all_code_release(tick, health, *, locks_held=False):
-    """Prove current convergence for code release; never resolve or replay old writes."""
+    """Prove same-ID Order/Admin closure or later ALL convergence for code release."""
     from contextlib import ExitStack
     from datetime import datetime, timezone
     import hashlib, os, stat
@@ -26,7 +26,7 @@ def superseded_all_code_release(tick, health, *, locks_held=False):
             result=datetime.fromisoformat(value.replace('Z','+00:00'))
             if result.tzinfo is None:raise ValueError('all_evidence_time_unknown')
             return result
-        pending=[]; confirmed=[]
+        pending=[]; confirmed=[]; closed=[]
         for path in (root/'all-coin-sync').glob('*.json'):
             record,digest=read(path)
             if record.get('execution_id')!=path.stem:return False
@@ -36,7 +36,15 @@ def superseded_all_code_release(tick, health, *, locks_held=False):
             audit,audit_sha=read(root/'executions'/path.name)
             if (audit.get('execution_id')!=path.stem or not tick.resolved_execution(audit)
                     or audit.get('sync_confirmed') is not True):return False
+            from fc_pricing_v3.order_close import ledger_operation_status
+            if (audit.get('status') in ('ORDER_ADMIN_CONFIRMED','PUBLIC_CONFIRMED')
+                    and ledger_operation_status(path.stem,root=root,require_order_admin_close=True)=='COMPLETED'):
+                closed.append(dict(execution_id=path.stem,all_sha256=digest,audit_sha256=audit_sha))
+                continue
             pending.append((path.stem,digest,audit_sha,stamp(audit['updated_at'])))
+        if closed and not pending:
+            print(json.dumps({'code_release_order_admin_closed':closed,'price_posts':0}),flush=True)
+            return True
         if not pending or not confirmed:return False
         path,record,record_sha=max(confirmed,key=lambda item:stamp(item[1]['completed_at']))
         completed=stamp(record['completed_at'])
