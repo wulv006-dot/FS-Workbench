@@ -63,6 +63,7 @@ class GiveawayModule(Module):
         super().__init__(bot, config, store)
         ch = self.resolve_feature_channel("channel")
         self.channels = {ch} if ch else set()
+        self._spinning = set()
 
     # ------------------------------------------------------------ 配置
     @property
@@ -95,7 +96,8 @@ class GiveawayModule(Module):
         """库存行：🟢 充足 / 🟡 过半 / 🔴 见底。Discord 没有文字颜色，只能用色点。"""
         if left is None:
             return "♾️ **unlimited**"
-        total = int(prize.get("stock") or 0)
+        total = int((self.store.get("giveaway_stock_limits") or {}).get(
+            prize["key"], prize.get("stock") or 0))
         if left <= 0:
             return "🔴 **sold out**"
         ratio = (left / float(total)) if total else 1.0
@@ -105,30 +107,31 @@ class GiveawayModule(Module):
     def panel_payload(self):
         total = self.total_chance()
         cap = self.spins_allowed()
-        spins = ("**%d free spins**" % cap) if cap else "**as many spins as you like**"
-
-        hero = discord.Embed(
-            title=self.feature.get("panel_title") or "WOW FOREVER · Lucky Loot",
-            colour=GOLD)
+        spins = ("%d free spins" % cap) if cap else "Free spins"
+        hero = discord.Embed(title="🎰 Lucky Loot", colour=GOLD)
         hero.description = (
-            "## Two spins. Zero gold. No catch.\n\n"
-            "This disgustingly handsome bot just handed you %s — "
-            "pull the lever and see what the Light drops in your bag.\n\n"
-            "## Prize pool" % spins)
-        hero.set_footer(text="One prize per spin · stock is real, not infinite")
+            "**%s · Every spin wins**\n"
+            "Pull the lever. Let Blingtron handle the luck.\n\n"
+            "### 🎒 Bags\n" % spins)
+        for kind, heading in (("bag", ""), ("coupon", "### 🎟️ Coupons\n")):
+            lines = []
+            for p in self.prizes:
+                if p.get("type", "coupon") != kind:
+                    continue
+                label = p.get("label") or p["key"]
+                left = self.stock_left(p["key"])
+                stock = self.stock_line(p, left) if left is not None else "Unlimited"
+                lines.append("**%s** · %g%%\n%s" % (
+                    label, float(p.get("chance") or 0), stock))
+            if lines:
+                hero.description += heading + "\n\n".join(lines) + "\n\n"
+        hero.description = hero.description.rstrip()
+        hero.set_author(name="WOW FOREVER · BLINGTRON-9000")
+        hero.set_footer(text="Bags delivered in game · Coupons used at checkout")
         if abs(total - 100) > 0.01:
             hero.set_footer(text="⚠️ prize odds add up to %.0f%% (config error)" % total)
 
-        # 每个奖品一张独立卡片：色条不同 + 卡片间距天然留白，不再挤成一段
-        embeds = [hero]
-        for p in self.prizes:
-            left = self.stock_left(p["key"])
-            embeds.append(discord.Embed(
-                title="%s %s" % (p.get("emoji") or "•", p.get("label") or p["key"]),
-                description="**%.0f%%** chance · %s"
-                            % (float(p.get("chance") or 0), self.stock_line(p, left)),
-                colour=int(str(p.get("color") or "#8B6914").lstrip("#"), 16)))
-        return embeds
+        return [hero]
 
     def staff_mention(self):
         sid = self.feature.get("staff_contact")
@@ -178,8 +181,59 @@ class GiveawayModule(Module):
         try:
             msg = await channel.fetch_message(int(mid))
             await msg.edit(embeds=self.panel_payload(), view=GiveawayView(self))
+            return True
         except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError):
             log.debug("抽奖面板刷新失败（不影响抽奖）")
+            return False
+
+    # -------------------------------------------------------- 私聊奖池管理
+    def stock_summary(self):
+        return "\n".join("%s：%s" % (p.get("label") or p["key"],
+                                    self.stock_line(p, self.stock_left(p["key"])))
+                         for p in self.prizes if "stock" in p)
+
+    def reset_stock(self, actor_id, quantities=None):
+        limited = [p for p in self.prizes if "stock" in p]
+        values = quantities if quantities is not None else [int(p["stock"]) for p in limited]
+        if len(values) != len(limited) or any(type(v) is not int or v < 0 or v > 100000 for v in values):
+            raise ValueError("库存数量必须是 0–100000 的整数，并与限量奖品数量一致。")
+        before = {p["key"]: self.stock_left(p["key"]) for p in limited}
+        after = {p["key"]: value for p, value in zip(limited, values)}
+        audit = list(self.store.get("giveaway_stock_resets") or [])
+        audit.append({"actor": str(actor_id), "ts": int(time.time()),
+                      "before": before, "after": after})
+        self.store.update(giveaway_stock=after, giveaway_stock_limits=after.copy(),
+                          giveaway_stock_resets=audit[-100:])
+        log.info("奖池重置 actor=%s before=%s after=%s", actor_id, before, after)
+
+    async def on_dm(self, message):
+        parts = (message.content or "").strip().split()
+        if not parts or parts[0].lower() not in ("!奖池", "!pool"):
+            return
+        admins = {str(x) for x in (self.feature.get("admin_users") or [])}
+        if str(message.author.id) not in admins:
+            await message.channel.send("只有奖池管理员可以使用这个指令。")
+            return
+        help_text = ("**奖池管理**\n`!奖池` 查看库存\n"
+                     "`!奖池 重置` 恢复默认数量\n"
+                     "`!奖池 重置 10 50` 按奖池中限量奖品顺序设置数量\n"
+                     "仅调整库存；抽奖次数、中奖及发货记录保留。")
+        if len(parts) == 1:
+            await message.channel.send(self.stock_summary() + "\n\n" + help_text)
+            return
+        if parts[1].lower() not in ("重置", "reset"):
+            await message.channel.send(help_text)
+            return
+        try:
+            values = [int(x) for x in parts[2:]] if len(parts) > 2 else None
+            self.reset_stock(message.author.id, values)
+        except ValueError:
+            await message.channel.send("数量格式不正确，未修改库存。\n" + help_text)
+            return
+        refreshed = await self.refresh_panel()
+        await message.channel.send("✅ 奖池已重置\n" + self.stock_summary() +
+                                   "\n抽奖次数、中奖及发货记录保留。" +
+                                   ("" if refreshed else "\n⚠️ 库存已保存，公开面板暂未刷新。"))
 
     # ------------------------------------------------------- 次数 / 冷却
     def spins_allowed(self):
@@ -306,21 +360,38 @@ class GiveawayModule(Module):
         return next((p for p in self.prizes if p.get("key") == key), None)
 
     # ------------------------------------------------------------ 抽
-    def reel_embed(self, frame):
-        reels = " | ".join(random.choice(["🎒", "🎟️", "💎", "✨", "🪙"]) for _ in range(3))
-        embed = discord.Embed(title="🎰 Spinning…", colour=GOLD,
-                              description="## | %s |" % reels)
-        embed.set_footer(text="rolling…" if frame == 0 else "still rolling…")
+    def reel_embed(self, frame, prize=None, stopped=0):
+        symbol = (prize or {}).get("emoji") or "🎒"
+        symbols = [symbol if i < stopped else random.choice(
+            ["🎒", "🎟️", "💎", "✨", "🪙"]) for i in range(3)]
+        embed = discord.Embed(title="🎰 Lucky Loot", colour=GOLD,
+                              description="### %s\n%s" % (
+                                  "　│　".join(symbols),
+                                  ("Almost there…" if stopped else
+                                   ["A little goblin engineering…", "Shaking up the loot…",
+                                    "Feeling lucky, champion?"][frame % 3])))
+        embed.set_footer(text="BLINGTRON-9000 · %s" % (
+            "▰" * min(frame + 1, 8) + "▱" * max(0, 7 - frame)))
         return embed
 
     async def do_spin(self, itx):
+        uid = str(itx.user.id)
+        if uid in self._spinning:
+            await _reply(itx, "Your reels are still spinning — hang tight!")
+            return
+        self._spinning.add(uid)
+        try:
+            await self._do_spin(itx)
+        finally:
+            self._spinning.discard(uid)
+
+    async def _do_spin(self, itx):
         if not self.enabled:
             await _reply(itx, "Giveaway is not active right now.")
             return
         left = self.spins_left(itx.user.id)
         if left == 0:
-            await _reply(itx, "You have burned both spins, champion. "
-                              "Come back when we restock the loot table.")
+            await _reply(itx, "You've used all your free spins, champion. Thanks for playing!")
             return
         cd = self.cooldown_left(itx.user.id)
         if cd > 0:
@@ -330,9 +401,9 @@ class GiveawayModule(Module):
 
         await itx.response.defer(ephemeral=True, thinking=True)
         try:
-            for frame in range(3):
+            for frame in range(5):
                 await itx.edit_original_response(embed=self.reel_embed(frame))
-                await asyncio.sleep(0.55)
+                await asyncio.sleep(0.35)
 
             prize = self.draw()
             if prize is None:
@@ -343,63 +414,60 @@ class GiveawayModule(Module):
 
             self.mark_spin(itx.user.id)
             kind = (prize.get("type") or "coupon").lower()
-
             if kind == "bag":
                 pid = self.add_pending(itx.user.id, prize)
-                await itx.edit_original_response(embed=self.bag_win_embed(prize))
-                await itx.followup.send(
-                    "Tap below to tell us where to deliver it. "
-                    "You can come back to this message later — the button stays live.",
-                    view=DeliveryView(self), ephemeral=True)
                 self.record_win(itx.user.id, prize)
+                embed, view = self.bag_win_embed(prize), DeliveryView(self)
                 log.info("抽奖(背包) user=%s(%s) prize=%s pending=%s",
                          itx.user, itx.user.id, prize.get("key"), pid)
-                await self.refresh_panel()        # 库存变了，公开面板要跟着走
             else:
                 # 奖池里配了固定码（wowexp / wowexp10）就用它，否则兜底生成唯一码
                 code = prize.get("code") or gen_code(prize["key"])
                 self.record_win(itx.user.id, prize, code)
-                await itx.edit_original_response(
-                    embed=self.coupon_win_embed(prize, code),
-                    view=CouponView(self, code))
+                embed, view = self.coupon_win_embed(prize, code), CouponView(self, code)
                 log.info("抽奖(券) user=%s(%s) prize=%s code=%s",
                          itx.user, itx.user.id, prize.get("key"), code)
+            # 结果已落盘，再依次停下卷轴；最后一帧始终与实际奖品一致。
+            try:
+                for stopped in range(1, 4):
+                    await itx.edit_original_response(
+                        embed=self.reel_embed(4 + stopped, prize, stopped))
+                    await asyncio.sleep(0.35 if stopped < 3 else 0.6)
+            except discord.HTTPException:
+                log.debug("停轮动画失败，直接显示已保存的奖品")
+            remaining = self.spins_left(itx.user.id)
+            embed.set_footer(text="%s · %s" % (
+                "BLINGTRON-9000", "%d spins left" % remaining if remaining >= 0 else "Unlimited spins"))
+            await itx.edit_original_response(embed=embed, view=view)
         except discord.HTTPException:
             log.exception("抽奖交互异常")
+        finally:
+            # 即使中奖消息发送失败，也同步已经扣除的库存。
+            await self.refresh_panel()
 
     # ------------------------------------------------------------ 中奖卡
     def bag_win_embed(self, prize):
         embed = discord.Embed(
             title="🎉 You won a bag!",
             colour=int(str(prize.get("color") or "#7F77DD").lstrip("#"), 16))
-        embed.description = ("## %s\n\nTap **Add delivery details** below and enter "
-                             "your **server**, **sub-realm** and **character name**."
-                             % (prize.get("label") or prize["key"]))
-        embed.add_field(name="Odds", value="%.0f%%" % float(prize.get("chance") or 0),
-                        inline=True)
-        embed.add_field(name="Delivery", value="In game, by %s" % self.staff_name(),
-                        inline=True)
-        embed.set_footer(text="We'll mail it — give it a little time. "
-                              "Nothing after a day? Ping staff.")
+        symbol = prize.get("emoji") or "🎒"
+        embed.description = ("### %s　│　%s　│　%s\n**%s**\n\n"
+                             "Add your delivery details below.\n"
+                             "**%s** will mail your bag in game.\n"
+                             "Not there after a day? Contact staff."
+                             % (symbol, symbol, symbol,
+                                prize.get("label") or prize["key"], self.staff_name()))
         return embed
 
     def coupon_win_embed(self, prize, code):
-        fixed = bool(prize.get("code"))
         embed = discord.Embed(
             title="🎉 You won a coupon!",
             colour=int(str(prize.get("color") or "#EF9F27").lstrip("#"), 16))
-        embed.description = (
-            "## %s\n\n%s" % (
-                prize.get("label") or prize["key"],
-                "Paste this at checkout. Same code for this tier — "
-                "it's yours to use, no rush." if fixed else
-                "Your code is below — it's unique to you."))
+        symbol = prize.get("emoji") or "🎟️"
+        embed.description = ("### %s　│　%s　│　%s\n**%s**\n\n"
+                             "Use your code at checkout." % (
+                                 symbol, symbol, symbol, prize.get("label") or prize["key"]))
         embed.add_field(name="Your code", value="```\n%s\n```" % code, inline=False)
-        embed.add_field(name="Odds", value="%.0f%%" % float(prize.get("chance") or 0),
-                        inline=True)
-        embed.add_field(name="Where to use it", value="At checkout on the shop",
-                        inline=True)
-        embed.set_footer(text="Screenshot this — the panel won't show your code again.")
         return embed
 
     # ------------------------------------------------------------ 落库 / 通知
@@ -458,7 +526,7 @@ class GiveawayModule(Module):
 class SpinButton(discord.ui.Button):
     def __init__(self, module):
         self.module = module
-        super().__init__(label="SPIN", emoji="🎰",
+        super().__init__(label="Spin to win", emoji="🎰",
                          style=discord.ButtonStyle.success, custom_id=SPIN_CID)
 
     async def callback(self, itx):

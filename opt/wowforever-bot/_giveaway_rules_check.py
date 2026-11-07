@@ -128,15 +128,14 @@ embeds = m.panel_payload()
 main = embeds[0]
 blob = json.dumps([e.to_dict() for e in embeds], ensure_ascii=False)
 ok("Lucky Loot" in (main.title or ""), "标题 = Lucky Loot", main.title)
-ok("disgustingly handsome" in main.description, "含「帅的掉渣」的英文说法")
+ok("Blingtron" in main.description, "保留工程机器人风格")
 ok("2 free spins" in main.description, "文案写明 2 次机会")
-ok(len(embeds) == 5, "1 张主卡 + 4 张奖品卡（模块化）", "%d 张" % len(embeds))
+ok(len(embeds) == 1, "1 张卡片按奖品类型分组", "%d 张" % len(embeds))
 ok(not any((e.title or "") == "How it works" for e in embeds), "已删掉 How it works 说明块")
 ok("10 / 10 left" in blob and "50 / 50 left" in blob,
    "库存按「剩余/总数 left」显示")
 ok("🟢" in blob, "库存带颜色标记（满库存=绿）")
-titles = [e.title for e in embeds[1:]]
-ok(all("🎒" in t or "🎟️" in t for t in titles), "奖品卡各带 emoji 标题", str(titles)[:60])
+ok("### 🎒 Bags" in blob and "### 🎟️ Coupons" in blob, "背包/券各有分组标题")
 
 print("\n== 5b. 库存颜色随余量变化 ==")
 mm = make()

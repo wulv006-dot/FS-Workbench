@@ -112,7 +112,16 @@ class Client(discord.Client):
 
     # ------------------------------------------------------------- 事件路由
     async def on_message(self, message):
-        if message.author.bot or message.guild is None:
+        if message.author.bot:
+            return
+        if message.guild is None:
+            giveaway = next((m for m in self.modules if m.name == "giveaway"), None)
+            if giveaway and giveaway.enabled:
+                try:
+                    await giveaway.on_dm(message)
+                except Exception:
+                    log.exception("私聊奖池指令失败")
+                    await message.channel.send("操作失败，请稍后查询奖池确认状态。")
             return
         ctx = Context(message, message.guild, self.config, self.store, self)
         for m in self.modules:

@@ -255,6 +255,7 @@
     },
     "giveaway": {
       "enabled": true,
+      "admin_users": ["000000000000000000"],
       "channel": "giveaway",
       "claim_channel": "order_logs",
       "panel_title": "WOW FOREVER · Lucky Loot",
