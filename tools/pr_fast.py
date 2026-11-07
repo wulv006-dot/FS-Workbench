@@ -414,6 +414,11 @@ def selfcheck():
         raise RuntimeError("fc_coupon_parity_doc_scope_missing")
     if select(["releases/fs-dashboard/metrics-fix-20261009/assets/runtime.js"]) != ["fs-metrics-fix"]:
         raise RuntimeError("fs_metrics_fix_mapping_missing")
+    for path in ("opt/wowforever-bot/bot.py", "opt/wowforever-bot/modules/giveaway.py",
+                 "opt/wowforever-bot/deploy/wowforever-bot.service",
+                 "opt/wowforever-bot/deploy/wowforever-goldsync.timer"):
+        if select([path]) != ["bots"]:
+            raise RuntimeError("wowforever_bot_mapping_missing:"+path)
     # ops-modules 覆盖 6 个 /opt 模块；漏一条就等于放一条改动能不跑测试地进主干。
     for path in ("opt/auth-portal/auth_portal.py","opt/auth-portal/fs_ip_alert.py",
                  "opt/fs-access-policy/access_policy.py","opt/iggm-web/core.py",
@@ -805,6 +810,8 @@ def select(paths):
         # 由 pr_fast_tests.BotModuleContracts 做离线契约检查（纯 AST / 文本，
         # 不 exec、不联网）。.mjs 一并归组：它不在下面的按后缀分流表里，
         # 不入组就只有 selfcheck 会跑，改了也没人看。
+        if name.startswith("opt/wowforever-bot/") and suffix in (".py", ".service", ".timer"):
+            groups.add("bots");continue
         if name.startswith(("opt/mmoexp-guardbot/","opt/shugo-bot/","opt/bot-console/")) \
                 and suffix in (".py",".js",".cjs",".mjs",".service"):
             groups.add("bots");continue

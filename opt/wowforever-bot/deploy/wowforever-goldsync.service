@@ -1,0 +1,8 @@
+[Unit]
+Description=Pull WoW gold price snapshot from play183 reprice system
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/wowforever-bot
+ExecStart=/opt/wowforever-bot/.venv/bin/python /opt/wowforever-bot/sync_wow_gold.py

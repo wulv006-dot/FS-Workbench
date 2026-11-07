@@ -1,0 +1,11 @@
+[Unit]
+Description=Every 10 min: pull WoW gold prices from play183
+
+[Timer]
+# CentOS 7 是 systemd 219，只认单调时钟目标；OnBootSec 会把触发点算成过去
+OnActiveSec=45
+OnUnitInactiveSec=10min
+Unit=wowforever-goldsync.service
+
+[Install]
+WantedBy=timers.target
