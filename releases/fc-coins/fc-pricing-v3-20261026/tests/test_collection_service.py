@@ -17,7 +17,7 @@ class ServiceBoundary(unittest.TestCase):
         session = object.__new__(Session)
         session.send = lambda _: None
         session.read = lambda: dict(kind='health', protocol=1, node_id='183', node_boot_id='a' * 32,
-            worker_digest='b' * 64, adapters={'ArabUT': 'arab-public-quote-collection-v2'},
+            worker_digest='b' * 64, adapters={'ArabUT': 'arab-public-quote-collection-v3'},
             clock_utc=datetime.now(timezone.utc).isoformat(), uid=0)
         with self.assertRaisesRegex(ValueError, 'health'):
             session.health('183', 'b' * 64)
@@ -56,7 +56,7 @@ class ServiceBoundary(unittest.TestCase):
                 response.seek(0)
                 answers.append(read_message(response))
             self.assertEqual(answers[0]['node_boot_id'], answers[1]['node_boot_id'])
-            self.assertEqual(answers[0]['adapters'], {'ArabUT': 'arab-public-quote-collection-v2'})
+            self.assertEqual(answers[0]['adapters'], {'ArabUT': 'arab-public-quote-collection-v3'})
             request = BytesIO(b'{"method":"shell","command":"id"}\n')
             with self.assertRaises(ValueError):
                 collector.handle(request, BytesIO())

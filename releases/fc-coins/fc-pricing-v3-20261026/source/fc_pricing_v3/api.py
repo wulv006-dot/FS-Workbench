@@ -329,8 +329,10 @@ def post(path,data,actor):
         parameters=data.get('parameters') or {}
         if not isinstance(parameters,dict) or set(parameters)-({'allocation','preferred_undercut_pct','sprint_policy_version'} if mode in ('revenue_sprint','smart') else {'allocation','offsets_pct'}):
             raise ValueError('pricing_plan_parameters_invalid')
+        from .smart import STRATEGY_VERSION
         plan=db.create_plan(mode,resources,anchor,starts_at=data.get('starts_at'),ends_at=data.get('ends_at'),
-                            actor=actor,parameters=parameters,plan_id=ident)
+                            actor=actor,parameters=parameters,plan_id=ident,
+                            smart_strategy_version=STRATEGY_VERSION if mode=='smart' else None)
         if plan.get('client_request_sha256')!=client_hash:
             plan['client_request_sha256']=client_hash
             db.put('pricing_plans',ident,plan)
@@ -358,12 +360,18 @@ def post(path,data,actor):
         return value
     if path.startswith('plans/'):
         _,ident,action=path.split('/')
+        if action=='migrate-smart-strategy':
+            if set(data)!={'expected_revision'}:raise ValueError('pricing_migration_fields_invalid')
+            return db.migrate_smart_strategy(ident,data['expected_revision'],actor)
         if action=='migrate-financial-contract':
             if set(data)!={'expected_revision'}:raise ValueError('pricing_migration_fields_invalid')
             return db.migrate_financial_contract(ident,data['expected_revision'],actor)
         if action=='activate':
             result=db.activate_plan(ident)
-            db.enqueue('cycle','initial:'+ident,clock(),dict(plan_id=ident,revision=result['revision']))
+            body=dict(plan_id=ident,revision=result['revision'])
+            if result.get('smart_strategy_version'):
+                body['scheduled_at']=result['smart_started_at']
+            db.enqueue('cycle','initial:'+ident,clock(),body)
             return result
         if action=='stop':
             plan=db.get('pricing_plans',ident)

@@ -65,8 +65,11 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
     regions=sorted(set(int(value) for value in known_region_ids)|set(int(value) for value in scope.get('region_ids',[])))
     markets=['Lootbar','ItemD2R']
     if 21 in regions and set(platforms)&{'PS','XBOX'} and (active_mode in ('revenue_sprint','smart') or scope.get('compare_saudi') is True):markets.append('ArabUT')
+    core_policy=scope.get('competitor_policy')=='lootbar_primary_arabut_secondary_v1'
+    if core_policy:markets=['Lootbar','ArabUT']
     return dict(version=VERSION,active_mode=active_mode,platforms=list(platforms),region_ids=regions,
-        required_markets=markets,market_platforms={name:([p for p in platforms if p in ('PS','XBOX')] if name=='ArabUT' else list(platforms)) for name in markets},
+        required_markets=markets,auxiliary_markets=['ItemD2R'] if core_policy else [],
+        market_platforms={name:([p for p in platforms if p in ('PS','XBOX')] if name=='ArabUT' and not core_policy else list(platforms)) for name in markets},
         retired_automatic_sources=list(RETIRED),price_interval_minutes=interval_minutes,
         quote_validity_seconds=900,hard_evidence=['current_cost','current_FX','current_catalog' if scope.get('catalog_only') is True else 'current_promotion_envelope','current_public_price','affected_region_contract'],
         history='D_minus_9_through_D_minus_2_eight_closed_days_and_original_hash_cache',
@@ -98,8 +101,8 @@ def planned_source_coverage(snapshot,plan,now,*,reference_market=None):
             gaps.append(dict(platform=key[0],source=key[1],reason='public_amount_or_quantity_invalid'));continue
         if (row.get('currency')!='USD' or purchase!=100 or row.get('conditional') is True or row.get('comparable') is False):
             gaps.append(dict(platform=key[0],source=key[1],reason='public_no_coupon_100K_scope_invalid'));continue
-        if key[1]=='ArabUT' and (row.get('delivery')!='normal' or row.get('selection_verified') is not True):
-            gaps.append(dict(platform=key[0],source=key[1],reason='normal_delivery_not_verified'));continue
+        if key[1]=='ArabUT' and (row.get('delivery')!=('standard' if key[0]=='PC' else 'normal') or row.get('selection_verified') is not True):
+            gaps.append(dict(platform=key[0],source=key[1],reason='platform_delivery_not_verified'));continue
         if not amount.is_finite() or amount<=0:
             gaps.append(dict(platform=key[0],source=key[1],reason='public_amount_invalid'));continue
         found[key]=row

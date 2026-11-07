@@ -113,7 +113,7 @@ def profit_summary(online,windows,operations,date,plan_id):
         platform=row.get('platform')
         if actual is None or expected is None or Decimal(actual)!=Decimal(expected) or regional or platform and window.get('catalog',{}).get(platform)!=context['catalog'].get(platform):
             return None,group,'unlabelled'
-        return context['plan_id'],group,context['assignment'].get('label') or 'unlabelled'
+        return context['plan_id'],group,(context['assignment'].get('group_labels') or {}).get(group) or context['assignment'].get('label') or 'unlabelled'
     def totals(selected):
         paid=[r for r in selected if r.get('actual_net_usd') is not None]
         known=[r for r in paid if r.get('actual_contribution_usd') is not None]
@@ -157,7 +157,9 @@ def run(body):
         outcomes=json.loads(process.stdout)
         record['actual']=outcomes['actual']
         record['price_exposure']=exposure_scope(db.all('actual_price_windows'),date)
-        db.put('metadata','daily_online_context',outcomes['online'])
+        from .smart import STRATEGY_VERSION
+        if not any(p.get('smart_strategy_version')==STRATEGY_VERSION for p in db.active_plans()):
+            db.put('metadata','daily_online_context',outcomes['online'])
         for settlement in outcomes['online'].get('budget_settlements',[]):db.settle_order(settlement)
         record['learning_coverage']=outcomes['online'].get('learning_coverage')
         record['actual_profit_summary']=profit_summary(outcomes['online'],db.all('actual_price_windows'),db.all('operations'),date,(db.active_plan() or {}).get('plan_id'))
@@ -203,6 +205,58 @@ def run(body):
     return record
 
 
+def collect_hourly_outcomes(windows,previous):
+    import sys
+    sys.path.insert(0,'/opt/fs-hermes-fc')
+    from channel_source import pages,COLLECTOR
+    sys.path.insert(0,COLLECTOR)
+    import p2pah_auth as auth
+    from .business_source import incremental_window_context
+    session=auth.Session()
+    try:
+        token,_=auth.admin_token_from_service()
+        if not token:raise ValueError('pricing_hourly_shared_admin_unavailable')
+        session.bind_admin_token(token);del token
+        return incremental_window_context(session,pages,windows,datetime.now(timezone.utc),previous)
+    finally:session.close()
+
+
+def run_hourly(body):
+    from .runtime import ledger
+    from .smart import STRATEGY_VERSION,policy_suffix,strategy_start
+    db=ledger();plan=db.get('pricing_plans',body['plan_id'])
+    if not plan or plan['state']!='ACTIVE' or plan['revision']!=body['revision'] or plan.get('smart_strategy_version')!=STRATEGY_VERSION:
+        return dict(status='superseded')
+    start=strategy_start(plan)
+    # Include a physically unchanged earlier window when its confirmed continuation enters this version.
+    windows=[w for w in db.all('actual_price_windows') if not w.get('closed_at') or instant(w['closed_at'])>=start]
+    for window in windows:
+        window['observation_original_opened_at']=window['opened_at']
+        window['opened_at']=max(start,instant(window['opened_at'])).isoformat()
+    if not windows:return dict(status='await_first_confirmed_exposure')
+    key='smart-outcome-source:'+policy_suffix(plan)
+    process=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
+        input=json.dumps(dict(action='hourly_outcomes',windows=windows,previous=db.get('metadata',key) or {})),
+        text=True,capture_output=True,timeout=240,cwd='/opt/fc27-cloud-browser')
+    if process.returncode:raise ValueError('pricing_hourly_outcome_collection_failed')
+    result=json.loads(process.stdout)
+    online=result['online']
+    if online.get('learning_coverage',{}).get('query_complete') is not True:
+        raise ValueError('pricing_hourly_outcome_coverage_incomplete')
+    online.update(smart_strategy_version=STRATEGY_VERSION,smart_plan_id=plan['plan_id'],smart_revision=plan['revision'])
+    with db.transaction() as conn:
+        current=db.get('pricing_plans',plan['plan_id'],conn)
+        if not current or current['state']!='ACTIVE' or current['revision']!=plan['revision'] or current.get('smart_started_at')!=plan.get('smart_started_at'):
+            return dict(status='superseded')
+        db.put('metadata',key,result['state'],conn)
+        db.put('metadata','daily_online_context',online,conn)
+    for settlement in online.get('budget_settlements',[]):db.settle_order(settlement)
+    return dict(status='updated',plan_id=plan['plan_id'],strategy_version=STRATEGY_VERSION,
+                observed_at=online['learning_coverage']['observed_at'],outcomes=len(online.get('actual_outcomes',[])),
+                gaps=len(online['learning_coverage']['gap_events']),price_write_performed=False,model_called=False)
+
+
 if __name__=='__main__':
     data=json.load(__import__('sys').stdin)
-    print(json.dumps(collect_outcomes(data['local_date'],data['windows'])))
+    print(json.dumps(collect_hourly_outcomes(data['windows'],data.get('previous',{})) if data.get('action')=='hourly_outcomes'
+                     else collect_outcomes(data['local_date'],data['windows'])))

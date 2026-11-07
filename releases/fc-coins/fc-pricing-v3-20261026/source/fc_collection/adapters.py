@@ -84,7 +84,9 @@ class RestrictedHTTP:
                     query = dict(platform='playstation', delivery='normal', quantity='100000')
                     if (source != 'ArabUT' or item['host'] != 'www.arab-ut.com'
                             or not ((template in ARAB_WARM_PATHS and item['path'] == ARAB_WARM_PATHS[template] and item['query'] == dict(query, currency='USD'))
-                                    or (template == 'quote' and item['path'] == '/coins/quote' and item['query'] == query))):
+                                    or (template == 'quote' and item['path'] == '/en/coins/quote' and item['query'] == query)
+                                    or (template == 'quote_pc' and item['path'] == '/en/coins/quote'
+                                        and item['query'] == dict(platform='pc', quantity='100000')))):
                         raise ValueError('template_query_invalid')
                 integer(item['max_bytes'], 1, 2097153)
 
@@ -124,7 +126,7 @@ class RestrictedHTTP:
                               headers={'Accept': accept, 'User-Agent': 'Mozilla/5.0'})
             if source_id == 'ArabUT':
                 self.cookies.add_cookie_header(request)
-                if template_id == 'quote':
+                if template_id in ('quote', 'quote_pc'):
                     request.add_header('Referer', 'https://www.arab-ut.com/?' + urlencode(self.registry['ArabUT']['warm']['query']))
             if len(request.get_header('Cookie', '')) > 4096:
                 raise SourceUnavailable('visitor_cookie_limit')

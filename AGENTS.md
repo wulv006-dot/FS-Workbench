@@ -1,3 +1,7 @@
+## 2026-11-07 FC智能定价新授权
+
+本轮用户授权按[双向试验合同](docs/planning/fc-smart-bidirectional-20261107/CONTRACT.md)施工：Lootbar核心、Arab-UT替代ItemD2R的强观测角色，Item辅助；Console/PC独立双向试验，各自全球统一、暂不地区优惠但保留配置；月目标仅背景。新版本生效须有部署/迁移/实际验收，旧账本语义与未决操作不改。共享Sol接入由“优化FS经营指标读取与展示”任务统一维护，FC只消费pricing_review_v3，避免覆盖周报、经营管理台配置或恢复已暂停日报/月报。
+
 ## FC 看板分类（2026-11-06 用户确认）
 
 修改 FC 看板、趋势、导出或订单组利润时，读取[商品整单归属合同](docs/planning/fc-dashboard-category-20261106/CONTRACT.md)。知识源候选与真实数据验收状态见[本轮施工记录](docs/planning/fc-dashboard-20261106/IMPLEMENTATION.md)；代码存在不代表已部署。

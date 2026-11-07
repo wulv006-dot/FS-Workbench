@@ -342,16 +342,19 @@ def build_replay(selected, orders, logs, templates, provenance, *, include_regio
     return result
 
 
-def _customer_assignments(selected, orders):
+def _customer_assignments(selected, orders, customer_keys=None):
     identities = {}
     assigned = {}
     known_flags = 0
     for sn in sorted(selected, key=lambda key: (str(selected[key][0].get('paidAt') or ''), key)):
         row = selected[sn][0]
         email = str(orders[sn].get('email') or '').strip().casefold()
-        if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
+        identity=(customer_keys or {}).get(sn)
+        if identity is not None and not re.fullmatch(r'[a-f0-9]{64}',identity):
+            raise ValueError('pricing_customer_hash_invalid')
+        if identity is None and not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
             continue
-        identity = hashlib.sha256(email.encode()).hexdigest()
+        identity = identity or hashlib.sha256(email.encode()).hexdigest()
         identities[sn] = identity
         if row.get('customerType') in ('新客', '老客'):
             known_flags += 1
@@ -899,7 +902,7 @@ def _window_regular(window, action, order, platform, quantity):
     return total
 
 
-def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None, query_complete=True):
+def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None, query_complete=True,customer_keys=None):
     """Server-local anonymous settlement records and window aggregates, never customer identities."""
     from .engine import replay_promotion
     archived, coupon_logs = archived or {}, coupon_logs or {}
@@ -970,9 +973,11 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             gap_events.extend(dict(price_window_id=w['operation_id'], group=group, occurred_at=created.isoformat(), reason='ambiguous_binding', amount_usd=gap_usd) for w,group,_ in matches)
             continue
         window, group, regular = matches[0]
-        if str(order.get('pay_status')) != '1' or str(order.get('status_format') or '').startswith('已退款'):
+        excluded_state=str(order.get('status')) in ('22','111','112','191')
+        if excluded_state or str(order.get('pay_status')) != '1' or str(order.get('status_format') or '').startswith('已退款'):
             failures['refund_or_unpaid_requires_native_USD_reconciliation'] += 1
-            gap_events.append(dict(price_window_id=window['operation_id'], group=group, occurred_at=created.isoformat(), reason='refund_or_unpaid', amount_usd=gap_usd))
+            reason='excluded_native_order_state' if excluded_state and not str(order.get('status_format') or '').startswith('已退款') else 'refund_or_unpaid'
+            gap_events.append(dict(price_window_id=window['operation_id'], group=group, occurred_at=created.isoformat(), reason=reason, amount_usd=gap_usd))
             continue
         coverage['created_and_actual_price_uniquely_bound'] += 1
         counts[(window['operation_id'], group)] += 1
@@ -1025,7 +1030,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
                           cost='same_order_Order_shipping_CNY_margin_at_actual_USD_receipt' if contribution is not None else 'pending; reservation_retained',
                           reference='same_realized_code_or_points_path; cash_residual_within_one_cent')))
     customer_rows = {sn: archived[sn] for sn in bound_customers if archived.get(sn)}
-    identities, new_assignments, customer_coverage = _customer_assignments(customer_rows, orders_by_id)
+    identities, new_assignments, customer_coverage = _customer_assignments(customer_rows, orders_by_id,customer_keys)
     if len(customer_rows) != len(bound_customers):
         customer_coverage['status'] = 'partial'
         customer_coverage['missing_archive_orders'] = len(bound_customers) - len(customer_rows)
@@ -1077,6 +1082,116 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             gap_events=gap_events, unscoped_time_gaps=unscoped_time_gaps,
             query_complete=query_complete, customer_coverage=customer_coverage, binding='native_creation_epoch_and_display plus actual_regular_price; never payment_time_assignment',
             source_rows_returned=False, customer_identifiers_returned=False))
+
+
+def hourly_accounting(rows, logs, start, now, cost_since):
+    """Recompute existing same-order accounting using the shared delivery cache and ES flags."""
+    import channel_source as channel
+    from channel_effects import accounting_row
+    deliveries,cost_info=channel.load_costs()
+    normalized=channel.normalize(rows,[],[log for values in logs.values() for log in values],[],deliveries,{},dict(entries=[]))
+    data=dict(orders=normalized,period=dict(start=cost_since.astimezone(TZ).date().isoformat(),end=now.astimezone(TZ).date().isoformat()),
+              sources=dict(cost=cost_info))
+    channel.enrich(data)
+    data['period']['start']=start.astimezone(TZ).date().isoformat()
+    channel.apply_customer_types(data,request=False)
+    channel.apply_cost_overrides(data)
+    # Preserve the binder's existing Order shipping-CNY margin basis, not Admin display-CNY conversion.
+    cost=data['sources']['cost']
+    covered=(cost.get('period',{}).get('start','9999')<=cost_since.astimezone(TZ).date().isoformat() and
+             cost.get('period',{}).get('end','')>=now.astimezone(TZ).date().isoformat())
+    return dict(archived={row['orderNo']:[accounting_row(row,data['costOverrides'],data['testOrders'],admin_revenue=False)] for row in data['orders']},
+                cost_source=cost,cost_cursor_at=cost.get('generatedAt') if covered else None)
+
+
+def incremental_window_context(session,pages,windows,now,previous):
+    """Increment paid membership; keep the full private cohort and rebind late costs to original windows."""
+    from copy import deepcopy
+    valid=[w for w in windows if w.get('origin')=='confirmed_public_price_window' and w.get('mode')=='production']
+    if not valid:
+        return dict(state=previous,online=dict(actual_outcomes=[],learning_coverage=dict(status='await_first_confirmed_exposure',query_complete=False)))
+    start=min(_window_instant(w['opened_at']) for w in valid)
+    state=deepcopy(previous)
+    rows=state.setdefault('rows',{})
+    logs=state.setdefault('coupon_logs',{})
+    checks=state.setdefault('rechecked_days',{})
+    missing=state.setdefault('missing_rows',{})
+    cursor=_window_instant(state['cursor_at']) if state.get('cursor_at') else start
+    if cursor>now:raise ValueError('pricing_outcome_cursor_in_future')
+    lower=max(start,cursor-timedelta(minutes=1))
+    ranges=[(lower.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S'),now.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S'))]
+    first_day,last_day=start.astimezone(TZ).date(),now.astimezone(TZ).date()
+    days=[(first_day+timedelta(days=index)).isoformat() for index in range((last_day-first_day).days+1)]
+    pending={str(row['paytime'])[:10] for row in rows.values() if str(row.get('pay_status'))=='1' and
+             _quantity(row) is not None and str(row.get('status')) not in ('22','111','112','191') and
+             row.get('status_format')!='已完成' and not str(row.get('status_format','')).startswith('已退款')}
+    if days:pending.add(min(days,key=lambda day:(checks.get(day,''),day)))
+    for day in sorted(pending):
+        begin=max(start.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S'),day+' 00:00:00')
+        end=min(now.astimezone(TZ).strftime('%Y-%m-%d %H:%M:%S'),day+' 23:59:59')
+        if begin<=end:ranges.append((begin,end))
+    fields=('id','order_no','site_id','gid','aid','timestamp','timestamp_format','paytime','pay_status','status',
+            'status_format','content','show_game_pro','before_discount','discount','points','amount_usd_format','is_region_price',
+            'region_price_factor','region_price_lang_region_id')
+    changed={}
+    for begin,end in ranges:
+        # Respect the existing Admin detail limit even after a prolonged outage.
+        day=datetime.fromisoformat(begin[:10]).date();stop=datetime.fromisoformat(end[:10]).date()
+        while day<=stop:
+            last=min(stop,day+timedelta(days=27))
+            lo,hi=max(begin,day.isoformat()+' 00:00:00'),min(end,last.isoformat()+' 23:59:59')
+            batch=pages(session,'/admin/order.Order/index',[('site_id','=','266'),('gid','=','1327'),('paytime','RANGE',lo+','+hi)],100)
+            fresh={}
+            for row in batch:
+                ident=str(row.get('id') or '')
+                if not ident or ident in fresh or str(row.get('site_id'))!='266' or str(row.get('gid'))!='1327' or not lo<=str(row.get('paytime'))<=hi:
+                    raise ValueError('pricing_incremental_outcome_scope_invalid')
+                item={key:row.get(key) for key in fields}
+                email=str(row.get('email') or '').strip().casefold()
+                item['customer_key']=hashlib.sha256(email.encode()).hexdigest() if re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email) else None
+                fresh[ident]=item
+            for ident,row in list(rows.items()):
+                if lo<=str(row['paytime'])<=hi and ident not in fresh:
+                    missing[ident]=dict(occurred_at=_native_created_at(row).isoformat(),reason='previous_paid_order_not_returned',amount_usd=row.get('amount_usd_format'))
+                    del rows[ident]
+            for ident,row in fresh.items():
+                missing.pop(ident,None);changed[row['order_no']]=row;rows[ident]=row
+            day=last+timedelta(days=1)
+    for day in pending:checks[day]=now.isoformat()
+    if not previous.get('cursor_at'):
+        checks.update({day:now.isoformat() for day in days})
+    names=sorted(sn for sn,row in changed.items() if _quantity(row))
+    for offset in range(0,len(names),100):
+        batch_names=names[offset:offset+100]
+        for sn in batch_names:logs[sn]=[]
+        for log in pages(session,'/admin/user.MemberCouponLog/index',[('site_id','=','266'),('order_no','IN',','.join(batch_names))]):
+            sn=str(log.get('order_no'))
+            if sn not in batch_names or str(log.get('site_id'))!='266':raise ValueError('window_coupon_log_scope_invalid')
+            logs[sn].append({key:log.get(key) for key in ('id','order_no','site_id','use_time','coupon_id','status')})
+    live=list(rows.values())
+    cost_cursor=_window_instant(state['cost_cursor_at']) if state.get('cost_cursor_at') else start
+    cost_days=pending | set(state.get('pending_cost_days',[]))
+    cost_since=min([cost_cursor-timedelta(days=1)]+[datetime.fromisoformat(day).replace(tzinfo=TZ) for day in cost_days])
+    accounting=hourly_accounting(live,logs,start,now,max(start,cost_since))
+    archived=accounting['archived']
+    if accounting.get('cost_cursor_at'):state['cost_cursor_at']=accounting['cost_cursor_at']
+    state['pending_cost_days']=sorted({str(row['paytime'])[:10] for row in live
+        if _quantity(row) is not None and str(row.get('pay_status'))=='1' and str(row.get('status')) not in ('22','111','112','191') and
+        not str(row.get('status_format','')).startswith('已退款') and not (archived.get(row['order_no']) or [{}])[0].get('testOrder') and
+        any((archived.get(row['order_no']) or [{}])[0].get(key) is None for key in ('costCny','saleCny'))})
+    filtered=[row for row in live if not (archived.get(row['order_no']) or [{}])[0].get('testOrder')]
+    online=bind_price_windows(filtered,valid,now,archived=archived,coupon_logs=logs,
+                customer_keys={row['order_no']:row['customer_key'] for row in filtered if row.get('customer_key')})
+    online['learning_coverage']['gap_events'].extend(dict(gap,group=None,amount_usd=str(amount(gap['amount_usd'])) if amount(gap['amount_usd']) is not None else None) for gap in missing.values())
+    online['learning_coverage'].update(refresh_mode='incremental_paid_membership_and_all_saved_outcome_rebinding',
+        cost_source=accounting['cost_source'],
+        cost_recheck_from=max(start,cost_since).isoformat(),
+        cost_recheck_basis='recent_transactions_plus_pending_cost_days_and_fixed_historical_day_rotation; capture_time_is_not_a_change_watermark',
+        paid_cursor_at=now.isoformat(),historical_recheck_days=sorted(pending),
+        oldest_status_rechecked_at=min(checks.values()) if checks else None,
+        status_recheck_basis='one_oldest_paid_day_each_hour_plus_unfinished_days; not_final_refund_clearance')
+    state['cursor_at']=now.isoformat()
+    return dict(state=state,online=online)
 
 
 def online_window_context(session, pages, windows, now, archived):
