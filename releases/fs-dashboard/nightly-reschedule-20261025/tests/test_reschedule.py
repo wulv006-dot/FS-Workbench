@@ -35,6 +35,28 @@ class Scheduler(nightly.NightlyScheduler):
     def config(self):return {'owner':'wulv'}
 
 class Scheduling(unittest.TestCase):
+    def test_weekly_only_keeps_original_period_and_skips_other_reports(self):
+        s,n=self.scheduler(self.at(5,day=9))
+        n.config=lambda:{'owner':'wulv','report_kinds':['weekly']}
+        n.tick()
+        self.assertEqual(s.calls,['night_weekly_20261109'])
+        self.assertEqual([r[0] for r in s.connection.execute('SELECT kind FROM nightly_requests')],['weekly'])
+        self.assertEqual(n.status('wulv')['report_kinds'],['weekly'])
+        self.assertEqual(nightly.closed_period(self.at(5,day=9).date(),'weekly'),('2026-11-02','2026-11-08'))
+    def test_paused_reports_do_not_raise_missing_report_alerts(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            (root/'nightly-schedule.json').write_text(json.dumps({'report_kinds':['weekly']}))
+            with sqlite3.connect(root/'tasks.sqlite3') as db:
+                db.execute('CREATE TABLE nightly_requests(kind,state,error,request_id)')
+                db.execute("INSERT INTO nightly_requests VALUES('daily','FAILED','old','night_daily_20261109')")
+            db.close()
+            self.assertEqual(nightly_ops.inspect_reports(self.at(8,day=8),root),[])
+            self.assertEqual(nightly_ops.inspect_reports(self.at(8,day=9),root),['nightly_report_weekly_not_completed'])
+    def test_schedule_kinds_validate_without_changing_legacy_default(self):
+        self.assertEqual(nightly.enabled_kinds({}),list(nightly.STARTS))
+        for invalid in ('weekly',['weekly','weekly'],['other'],[{}]):
+            with self.assertRaisesRegex(ValueError,'nightly_report_kinds'):nightly.enabled_kinds({'report_kinds':invalid})
     def at(self,h,m=0,day=2):return datetime(2026,11,day,h,m,tzinfo=nightly.SHANGHAI)
     def scheduler(self,now):
         s=Service(now);self.addCleanup(s.connection.close)
