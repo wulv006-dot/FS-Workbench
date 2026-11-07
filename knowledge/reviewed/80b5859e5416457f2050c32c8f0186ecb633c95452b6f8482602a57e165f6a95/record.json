@@ -1,0 +1,34 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "skill:016c11fa",
+  "candidate_sha256": "1bfc666b796c88e5824e6c391850aaf96e0cda5371c4daae1fd7d02d18e6ce18",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "reusable",
+  "evidence": "原生approve/completed/success/applied及完整前后包核对。183隔离执行现役源码：85项原检查通过，另2个dry-run分支证实写盘。仅保存方法，不称生产漏洞已修复或模型已掌握。",
+  "formal_rule_change": false,
+  "kind": "skill",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "packages": [
+    {
+      "exists": true,
+      "files": [
+        {
+          "mode": 420,
+          "path": "SKILL.md",
+          "sha256": "30f0e57738be53287401ea13f1f6839baa71447efe9ccb5376bc90212a9390a0"
+        }
+      ],
+      "path": "fs-operations/fs-evidence-reconciliation",
+      "sha256": "14ea5284f0f5b781479d6ee96ce0205ad65c9fdffb5f01643938859dede01b7f"
+    }
+  ],
+  "receipt_sha256": "c2ebfcf14dabab9dbb8114c71f97ab739234d99b4947f765fa81a458e565eafc",
+  "request_id": "80b5859e5416457f2050c32c8f0186ecb633c95452b6f8482602a57e165f6a95",
+  "runtime_activation": false,
+  "summary": "证据对账技能1.0.5：合并候选中的通用取证方法，明确健康不等于业务成功、按入口核工具、dry-run全分支验证及告警与自修分开；不新增业务动作。"
+}
