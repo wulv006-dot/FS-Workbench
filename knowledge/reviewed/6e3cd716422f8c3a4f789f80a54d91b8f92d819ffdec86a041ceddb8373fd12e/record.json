@@ -1,0 +1,34 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "skill:5bc64ec8",
+  "candidate_sha256": "a5de0ca8a645d3b7869a59c4e1e01b94358036f2aaaf462eb60adb03b0b23fa2",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "reusable",
+  "evidence": "2026-11-07集中确认第二项直接用户授权；原生候选5bc64ec8经完整前值及2操作审阅、CAS和原成功回执应用；实际技能字节读回一致。自然群回合未测试，不以保存冒称已回复。",
+  "formal_rule_change": false,
+  "kind": "skill",
+  "modules": [
+    "FS",
+    "FC",
+    "RPG"
+  ],
+  "packages": [
+    {
+      "exists": true,
+      "files": [
+        {
+          "mode": 420,
+          "path": "SKILL.md",
+          "sha256": "7d0a5a27eba371dcfa1859422212af8ae700c1145486dd906fd75a75f8beb523"
+        }
+      ],
+      "path": "fs-operations/fs-evidence-reconciliation",
+      "sha256": "af6a809ca0366556959cccfea9aa9c31b9b94a66cee939e30b8527a91d72e8d6"
+    }
+  ],
+  "receipt_sha256": "090504d74a2bd4fae59e95cf4aa16ee1a8dc340c91165a687efd4bbe34fd50be",
+  "request_id": "6e3cd716422f8c3a4f789f80a54d91b8f92d819ffdec86a041ceddb8373fd12e",
+  "runtime_activation": false,
+  "summary": "证据对账技能1.0.6：用户明确批准Hermes仅在自己派单线程内收到对应接管回执后，免再次被@回复一条确认；不改网关或扩大其他回复范围。"
+}

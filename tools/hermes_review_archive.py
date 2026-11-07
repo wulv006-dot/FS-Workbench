@@ -49,17 +49,20 @@ def collect():
     return dict(contract=CONTRACT, receipts=rows)
 
 
-def safe_text(value, *, allow_empty=False):
+def safe_text(value, *, allow_empty=False, references=()):
     if not isinstance(value, str) or (not allow_empty and not value.strip()):
         raise ValueError('reviewed_text_required')
-    # This catches common accidental disclosure; Codex must still inspect the full package.
-    if re.search(r'(?i)(-----BEGIN .*PRIVATE KEY|\b(?:gh[pousr]_|sk-)[a-z0-9_-]{16,}|'
+    # Only exact reviewed operational references can be exported; secrets stay blocked.
+    if not isinstance(references, (list, tuple)) or any(not isinstance(x, str) or not re.fullmatch(
+            r'(?:/var/lib/|/profile/|/fs-source/|(?:\d{1,3}\.){3}\d{1,3})', x) for x in references):
+        raise ValueError('export_reference_kind')
+    matches = re.finditer(r'(?i)(-----BEGIN .*PRIVATE KEY|\b(?:gh[pousr]_|sk-)[a-z0-9_-]{16,}|'
                  r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|'
                  r'\b(?:token|password|api[_-]?key)\s*[:=]\s*["\x27]?\S{8,}|'
-                 r'\b(?:\d{1,3}\.){3}\d{1,3}\b|/var/lib/|/profile/|/fs-source/)', value):
+                 r'\b(?:\d{1,3}\.){3}\d{1,3}\b|/var/lib/|/profile/|/fs-source/)', value)
+    if any(match.group() not in references for match in matches):
         raise ValueError('possible_private_material')
     return value
-
 
 def relative(value):
     path = PurePosixPath(value)
@@ -120,6 +123,14 @@ def render(snapshot, selections):
         if kind == 'experience':
             record['expires_at'] = candidate['record'].get('expires_at')
             record['original_content_sha256'] = candidate['record'].get('content_hash')
+        exports = selection.get('reference_exports')
+        if exports is not None:
+            if (kind != 'skill' or exports.get('source') != 'direct_user'
+                    or not exports.get('message_reference') or not isinstance(exports.get('files'), dict)):
+                raise PermissionError('explicit_reference_export_approval_required')
+            safe_text(exports['message_reference'])
+            record['reference_exports'] = exports
+        reviewed_files = set()
         if kind == 'skill':
             if selection['disposition'] != 'reusable':
                 raise ValueError('approved_skills_require_complete_package')
@@ -147,7 +158,13 @@ def render(snapshot, selections):
                     if len(raw) != entry['bytes'] or sha(raw) != entry['sha256']:
                         raise ValueError('skill_file_changed')
                     # shortcut: binary skill assets require a separately reviewed export scope.
-                    text = safe_text(raw.decode('utf-8'), allow_empty=True)
+                    reference = (exports['files'].get(pkg['path'] + '/' + rel) if exports else None)
+                    if reference is not None:
+                        if reference.get('sha256') != entry['sha256']:
+                            raise ValueError('export_reference_file_changed')
+                        reviewed_files.add(pkg['path'] + '/' + rel)
+                    text = safe_text(raw.decode('utf-8'), allow_empty=True,
+                                     references=reference['values'] if reference else ())
                     files[prefix + '/skills/' + pkg['path'] + '/' + rel] = text
                     copied.append(dict(path=rel, sha256=entry['sha256'], mode=entry['mode']))
                 if pkg['exists'] and not any(e['path'] == 'SKILL.md' for e in copied):
@@ -158,6 +175,8 @@ def render(snapshot, selections):
             raise ValueError('unsupported_learning_kind')
         if kind != 'skill' and selection['disposition'] == 'reusable':
             files[prefix + '/NOTE.md'] = safe_text(selection['content'])
+        if exports and reviewed_files != set(exports['files']):
+            raise ValueError('export_reference_unused_file')
         files[prefix + '/record.json'] = json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + '\n'
     return files
 

@@ -114,6 +114,49 @@ class ArchiveTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'duplicate_source'):
             archive.render(source, [selection(source)])
 
+    def test_exact_reviewed_path_reference_preserves_bytes_and_cannot_allow_secrets(self):
+        raw = b'# Example\nSource /profile/evidence on 127.0.0.1; read only.\n'
+        def source_with(raw):
+            source, chosen = skill_source()
+            row = source['receipts'][0]['receipt']
+            pkg = source['receipts'][0]['packages'][0]
+            entry = pkg['entries'][1]
+            entry.update(bytes=len(raw), sha256=archive.sha(raw), bytes_base64=base64.b64encode(raw).decode())
+            expected = dict(pkg, entries=[{k:v for k,v in e.items() if k != 'bytes_base64'} for e in pkg['entries']])
+            expected['sha256'] = archive.digest({k:v for k,v in expected.items() if k != 'sha256'})
+            pkg['sha256'] = expected['sha256']
+            row['result']['packages'] = [expected]
+            original = json.dumps(row).encode()
+            source['receipts'][0].update(receipt_sha256=archive.sha(original), receipt_bytes_base64=base64.b64encode(original).decode())
+            chosen['receipt_sha256'] = archive.sha(original)
+            chosen['reference_exports'] = dict(source='direct_user', message_reference='explicit file/hash/reference export approval', files={
+                'example/SKILL.md':dict(sha256=archive.sha(raw), values=['/profile/', '127.0.0.1'])})
+            return source, chosen
+        source, chosen = source_with(raw)
+        files = archive.render(source, [chosen])
+        self.assertEqual(next(v for k,v in files.items() if k.endswith('SKILL.md')).encode(), raw)
+        metadata = json.loads(next(v for k,v in files.items() if k.endswith('record.json')))
+        self.assertEqual(metadata['reference_exports'], chosen['reference_exports'])
+        for mutate in ('hash', 'missing', 'authority', 'secret'):
+            source, chosen = source_with(raw)
+            if mutate == 'hash': chosen['reference_exports']['files']['example/SKILL.md']['sha256'] = '0'*64
+            if mutate == 'missing': del chosen['reference_exports']
+            if mutate == 'authority': chosen['reference_exports']['source'] = 'model'
+            if mutate == 'secret':
+                source, chosen = source_with(raw + b'password=secretvalue\n')
+                chosen['reference_exports']['files']['example/SKILL.md']['values'].append('password=secretvalue')
+            with self.subTest(mutate=mutate), self.assertRaises((ValueError, PermissionError)):
+                archive.render(source, [chosen])
+
+    def test_reference_metadata_cannot_smuggle_private_text_or_unused_files(self):
+        for mutate in ('message', 'unused_file'):
+            source, chosen = skill_source()
+            chosen['reference_exports'] = dict(source='direct_user', message_reference='approved', files={})
+            if mutate == 'message': chosen['reference_exports']['message_reference'] = 'password=secretvalue'
+            else: chosen['reference_exports']['files']['unused.txt'] = dict(sha256='0'*64, values=['/profile/'])
+            with self.subTest(mutate=mutate), self.assertRaises(ValueError):
+                archive.render(source, [chosen])
+
     def test_complete_skill_bytes_and_mode_preserved(self):
         source, chosen = skill_source()
         files = archive.render(source, [chosen])
