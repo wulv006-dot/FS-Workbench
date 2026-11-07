@@ -256,7 +256,7 @@ class AdminClient:
             "/admin/goods.GoodsMould/index",
             "/admin/goods.GoodsMould/edit",
             "/admin/goods.GoodsMould/importPlayersProgress",
-            "/admin/goods.GoodsTag/tagSelect",
+            "/admin/goods.GoodsTag/index",
             "/admin/goods.Goods/index",
             "/admin/goods.Goods/edit",
         }),
@@ -478,15 +478,53 @@ class AdminClient:
 
     def list_tags(self, *, gid: int = SUPPORTED_GID, cid: int = SUPPORTED_CID) -> tuple[Mapping[str, Any], ...]:
         _check_scope(gid, cid)
-        envelope = self._request_json("GET", "/admin/goods.GoodsTag/tagSelect", params={"gid": gid, "cid": cid})
-        data = envelope.get("data")
-        if not isinstance(data, Mapping) or not isinstance(data.get("list"), list):
-            raise AdminContractError("标签响应缺少 data.list")
-        result: list[Mapping[str, Any]] = []
-        for item in data["list"]:
-            if not isinstance(item, Mapping) or "id" not in item:
-                raise AdminContractError("标签响应含无 id 的条目")
-            result.append(item)
+        # tagSelect has no usable permission node; index requires a nonempty search.
+        rows = []
+        seen = set()
+        expected_total = None
+        for page in range(1, 41):
+            envelope = self._request_json("GET", "/admin/goods.GoodsTag/index",
+                params={"page": page, "limit": 500, "quick_search": "%", "order": "sort,desc"})
+            data = envelope.get("data")
+            if not isinstance(data, Mapping) or not isinstance(data.get("list"), list):
+                raise AdminContractError("Invalid tag list response")
+            raw_total = data.get("total")
+            if isinstance(raw_total, bool) or not str(raw_total).isascii() or not str(raw_total).isdecimal():
+                raise AdminContractError("Invalid tag total")
+            total = int(raw_total)
+            if expected_total is None:
+                expected_total = total
+            if total != expected_total:
+                raise AdminContractError("Tag catalog changed during pagination; retry")
+            batch = data["list"]
+            if len(batch) > 500:
+                raise AdminContractError("Invalid tag page size")
+            for item in batch:
+                if not isinstance(item, Mapping):
+                    raise AdminContractError("Invalid tag row")
+                tag_id = item.get("id")
+                if isinstance(tag_id, bool) or not str(tag_id).isascii() or not str(tag_id).isdecimal() or int(tag_id) <= 0:
+                    raise AdminContractError("Invalid tag id")
+                tag_id = int(tag_id)
+                if tag_id in seen:
+                    raise AdminContractError("Duplicate tag page; retry")
+                seen.add(tag_id)
+                rows.append(item)
+            if len(rows) > total:
+                raise AdminContractError("Tag rows exceed total")
+            if len(rows) == total:
+                break
+            if not batch:
+                raise AdminContractError("Incomplete tag catalog")
+        else:
+            raise AdminContractError("Tag catalog exceeds page limit")
+        result = []
+        for item in rows:
+            categories = item.get("cate_id")
+            if not isinstance(categories, (list, tuple)):
+                categories = str(categories).split(",")
+            if str(item.get("gid")) == str(gid) and str(cid) in [str(value).strip() for value in categories]:
+                result.append(item)
         return tuple(result)
 
     def get_import_progress(self, job_id: str) -> Mapping[str, Any]:
