@@ -1,6 +1,6 @@
 {
   "contract": "fs-knowledge-index-v1",
-  "release": "fc-pricing-v3-20261026-12",
+  "release": "dashboard-archive-cleanup-20261107",
   "release_state": "candidate",
   "source_commit": null,
   "entries": [
@@ -19,7 +19,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "c596ac793a029be7e741493104e1aed2447f7c2117bd8d1a9fe7dd230ba7a41f",
+        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 1. 取数原则与来源分工",
@@ -100,7 +100,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "c596ac793a029be7e741493104e1aed2447f7c2117bd8d1a9fe7dd230ba7a41f",
+        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- 订单金额 USD；",
@@ -167,7 +167,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "c596ac793a029be7e741493104e1aed2447f7c2117bd8d1a9fe7dd230ba7a41f",
+        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "- UID=0 是正常游客",
@@ -220,62 +220,6 @@
       "time_precision": "date_only"
     },
     {
-      "id": "fc.marketing.attribution",
-      "revision": "v15-pmax-20261022",
-      "layer": "archive",
-      "status": "retired",
-      "modules": [
-        "FC27"
-      ],
-      "effective_at": "2026-10-22",
-      "owner": "吴律；原模块维护者",
-      "authority": "git",
-      "source_commit": null,
-      "source": {
-        "path": "knowledge/history/fc-business-baseline-before-aion2-20261023.md",
-        "sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb",
-        "hash_basis": "utf8_lf",
-        "selector": {
-          "start": "## 7. 折扣码、订单来源与流量归因",
-          "end": "## 8. 产品身份和查询边界"
-        }
-      },
-      "supersedes": [
-        "fc.marketing.attribution@baseline-v15"
-      ],
-      "provenance": [
-        {
-          "kind": "direct_user_confirmation",
-          "date": "2026-10-23",
-          "decision": "knowledge/decisions/pmax-authority-20261023.md"
-        },
-        {
-          "kind": "existing_fc_source",
-          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md"
-        }
-      ],
-      "consumers": [
-        "Codex",
-        "Hermes selected knowledge candidate"
-      ],
-      "time_precision": "date_only",
-      "topics": [
-        "marketing"
-      ],
-      "original_source": {
-        "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
-        "source": {
-          "path": "releases/fc-coins/fc-pricing-v2-20261022/source/business-baseline.md",
-          "sha256": "1c586eb45460f6209703a747191cfc21e506d4ce796d63eae3c01accd8883ecb",
-          "hash_basis": "utf8_lf",
-          "selector": {
-            "start": "## 7. 折扣码、订单来源与流量归因",
-            "end": "## 8. 产品身份和查询边界"
-          }
-        }
-      }
-    },
-    {
       "id": "fs.finance.procurement",
       "revision": "fc-v3-20261026",
       "layer": "current",
@@ -290,7 +234,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "c596ac793a029be7e741493104e1aed2447f7c2117bd8d1a9fe7dd230ba7a41f",
+        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 采购毛利逐单核算更正（v10，2026-10-22）",
@@ -417,41 +361,6 @@
       "pricing_scope": "100k_package_only"
     },
     {
-      "id": "fc.pricing.decision-v15",
-      "revision": "2026-10-22",
-      "layer": "archive",
-      "status": "retired",
-      "modules": [
-        "FC27"
-      ],
-      "effective_at": "2026-10-22",
-      "owner": "吴律；原模块维护者",
-      "authority": "git",
-      "source_commit": "4722f20e231ffe306095a211009d25770c478d24",
-      "source": {
-        "path": "docs/planning/fc-pricing-v2-20261022/MARGIN-REDLINES.md",
-        "sha256": "663c5b9613d6e58d3cd8dc227715c6fb25488c7619489b4099ea23805cb38740",
-        "hash_basis": "utf8_lf",
-        "selector": {
-          "start": "# FC Coins 当前双红线（v15）",
-          "end": "\n同一候选同时满足："
-        }
-      },
-      "supersedes": [],
-      "provenance": [
-        {
-          "kind": "existing_confirmed_document",
-          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fc-pricing-v2-20261022/MARGIN-REDLINES.md"
-        }
-      ],
-      "consumers": [
-        "Codex",
-        "Hermes selected knowledge candidate"
-      ],
-      "time_precision": "date_only",
-      "superseded_by": "fc.pricing.v3@20261106-current"
-    },
-    {
       "id": "fs.experience.archive-cycle",
       "revision": "2026-10-22",
       "layer": "experience",
@@ -543,55 +452,6 @@
       "time_precision": "date_only"
     },
     {
-      "id": "fc.marketing.attribution",
-      "revision": "baseline-v15",
-      "layer": "archive",
-      "status": "retired",
-      "modules": [
-        "FC27"
-      ],
-      "effective_at": "2026-10-22",
-      "owner": "吴律；原模块维护者",
-      "authority": "git",
-      "source_commit": "34ebc6903b705ebd2418b879e40364e1b50b9a33",
-      "source": {
-        "path": "knowledge/history/business-baseline-before-management-all-sites-20261025.md",
-        "sha256": "ae81a6e4f4639b76f8d2a94530eefe9f55f250c00788a709e48cefa347d2eccb",
-        "hash_basis": "utf8_lf",
-        "selector": {
-          "start": "## 7. 折扣码、订单来源与流量归因",
-          "end": "## 8. 产品身份和查询边界"
-        }
-      },
-      "supersedes": [],
-      "provenance": [
-        {
-          "kind": "existing_confirmed_document",
-          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/4722f20e231ffe306095a211009d25770c478d24/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
-        },
-        {
-          "kind": "dashboard_scope_rule_sync",
-          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
-        },
-        {
-          "kind": "direct_user_dashboard_actual_profit",
-          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/abc492146f15525cd4f5124637f114f9afaad363/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
-        },
-        {
-          "kind": "direct_user_dashboard_refresh",
-          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/34ebc6903b705ebd2418b879e40364e1b50b9a33/docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md"
-        }
-      ],
-      "consumers": [
-        "Codex",
-        "Hermes selected knowledge candidate"
-      ],
-      "time_precision": "date_only",
-      "topics": [
-        "marketing"
-      ]
-    },
-    {
       "id": "fs.decision.pmax-authority-20261023",
       "revision": "2026-10-23",
       "layer": "decision",
@@ -632,7 +492,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "c596ac793a029be7e741493104e1aed2447f7c2117bd8d1a9fe7dd230ba7a41f",
+        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 7. 折扣码、订单来源与流量归因",
@@ -702,7 +562,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "c596ac793a029be7e741493104e1aed2447f7c2117bd8d1a9fe7dd230ba7a41f",
+        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 4. 履约采购、供应商与成本",
@@ -756,7 +616,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "c596ac793a029be7e741493104e1aed2447f7c2117bd8d1a9fe7dd230ba7a41f",
+        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 6. 金币价格管理：四个同名陷阱",
@@ -810,7 +670,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "c596ac793a029be7e741493104e1aed2447f7c2117bd8d1a9fe7dd230ba7a41f",
+        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 8. 产品身份和查询边界",
@@ -864,7 +724,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "c596ac793a029be7e741493104e1aed2447f7c2117bd8d1a9fe7dd230ba7a41f",
+        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 9. 客户追踪与按需查证",
@@ -925,7 +785,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "c596ac793a029be7e741493104e1aed2447f7c2117bd8d1a9fe7dd230ba7a41f",
+        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 10. Hermes 的学习和决策方法",
@@ -1022,112 +882,8 @@
       ]
     },
     {
-      "id": "fc.pricing.reference-weighting",
-      "revision": "fc-reference-weighting-20261024-v2",
-      "layer": "archive",
-      "status": "retired",
-      "modules": [
-        "FC27"
-      ],
-      "effective_at": "2026-10-24",
-      "owner": "吴律；FC模块维护者",
-      "authority": "git",
-      "source_commit": null,
-      "source": {
-        "path": "docs/planning/fc-competitor-weighting-20261024/CONTRACT.md",
-        "sha256": "74bd96d5a85ecb2dcbe9fbe8efaf231e1b7be1a667be592fcdaf6d853fa47e13",
-        "hash_basis": "utf8_lf"
-      },
-      "supersedes": [],
-      "provenance": [
-        {
-          "kind": "direct_user_approved_business_rule",
-          "message_reference": "好，就按80/15/5最终版。我已切换到6.1Sol 模型 去执行施工吧",
-          "implementation_status": "not_deployed_at_candidate_preparation"
-        }
-      ],
-      "superseded_by": "fc.pricing.v3@2026-10-26"
-    },
-    {
       "id": "fs.dashboard.shipping-profit",
-      "revision": "shipping-profit-20261024-v1",
-      "layer": "archive",
-      "status": "retired",
-      "modules": [
-        "FS",
-        "FC27",
-        "reporting"
-      ],
-      "effective_at": "2026-10-24",
-      "owner": "吴律；原经营看板维护者",
-      "authority": "git",
-      "source_commit": "cf9f29e1077f1485b4ec03b393975e75d37f4abe",
-      "source": {
-        "path": "docs/planning/business-shipping-profit-20261024/CONTRACT.md",
-        "sha256": "4fe08547ffce32e6b875562cffdd73a7ba1f40ea5d4d94ac2471534d3b331f4c",
-        "hash_basis": "utf8_lf",
-        "selector": {
-          "start": "## 来源与范围",
-          "end": "## 真实只读核对"
-        }
-      },
-      "supersedes": [],
-      "provenance": [
-        {
-          "kind": "direct_user_confirmed_dashboard_scope",
-          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/business-shipping-profit-20261024/CONTRACT.md"
-        }
-      ],
-      "consumers": [
-        "Codex",
-        "Hermes selected knowledge candidate"
-      ],
-      "time_precision": "date_only"
-    },
-    {
-      "id": "fs.dashboard.shipping-profit",
-      "revision": "same-order-actual-profit-20261024-v2",
-      "layer": "archive",
-      "status": "retired",
-      "modules": [
-        "FS",
-        "FC27",
-        "reporting"
-      ],
-      "effective_at": "2026-10-24",
-      "owner": "吴律；原经营看板维护者",
-      "authority": "git",
-      "source_commit": "abc492146f15525cd4f5124637f114f9afaad363",
-      "source": {
-        "path": "docs/planning/business-actual-profit-20261024/CONTRACT.md",
-        "sha256": "d4c12646d1564f22ce25cd3816aebb13f6dff060d88499a19fd9bc2553a55211",
-        "hash_basis": "utf8_lf",
-        "selector": {
-          "start": "# 经营看板逐单实际成本毛利"
-        }
-      },
-      "supersedes": [
-        "fs.dashboard.shipping-profit@shipping-profit-20261024-v1"
-      ],
-      "provenance": [
-        {
-          "kind": "direct_user_confirmed_dashboard_scope",
-          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/cf9f29e1077f1485b4ec03b393975e75d37f4abe/docs/planning/business-shipping-profit-20261024/CONTRACT.md"
-        },
-        {
-          "kind": "direct_user_confirmed_actual_profit_primary",
-          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/abc492146f15525cd4f5124637f114f9afaad363/docs/planning/business-actual-profit-20261024/CONTRACT.md"
-        }
-      ],
-      "consumers": [
-        "Codex",
-        "Hermes selected knowledge candidate"
-      ],
-      "time_precision": "date_only"
-    },
-    {
-      "id": "fs.dashboard.shipping-profit",
-      "revision": "dashboard-refresh-paid-aov-state-20261028-v4",
+      "revision": "native-summary-shipping-20261107",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1135,13 +891,13 @@
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-10-28",
+      "effective_at": "2026-11-07",
       "owner": "吴律；原经营看板维护者",
       "authority": "git",
-      "source_commit": "5825115b3f0b17562371163edf9a88cb9c1d6021",
+      "source_commit": null,
       "source": {
         "path": "docs/planning/business-dashboard-refresh-20261025/CONTRACT.md",
-        "sha256": "b19ed9c56738ef14c64e5363751dbb0b5f9a8ecd3d83dd11f90ac8126bc42621",
+        "sha256": "fbd2c0cf9979d89aad6e61e3a546926f3203bf13c6faff2dacc0d4b393d02347",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "# 经营看板展示与刷新规则"
@@ -1149,7 +905,8 @@
       },
       "supersedes": [
         "fs.dashboard.shipping-profit@same-order-actual-profit-20261024-v2",
-        "fs.dashboard.shipping-profit@dashboard-refresh-20261025-v3"
+        "fs.dashboard.shipping-profit@dashboard-refresh-20261025-v3",
+        "fs.dashboard.shipping-profit@dashboard-refresh-paid-aov-state-20261028-v4"
       ],
       "provenance": [
         {
@@ -1167,6 +924,10 @@
         {
           "kind": "confirmed_order_aov_and_unfinished_profit_refresh",
           "url": "https://github.com/wulv006-dot/FS-Workbench/pull/613"
+        },
+        {
+          "kind": "direct_user_summary_first_and_retired_knowledge_cleanup",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/pull/896"
         }
       ],
       "consumers": [
