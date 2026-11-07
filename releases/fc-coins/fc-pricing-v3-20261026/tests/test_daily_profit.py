@@ -15,8 +15,9 @@ import hermes_pricing_bridge as bridge
 
 class DailyProfit(unittest.TestCase):
     def setUp(self):
-        self.windows=[dict(operation_id='w',plan_id='p',mode='production',opened_at='2026-11-06T00:00:00+00:00',resources=['base:console','base:pc'])]
-        self.ops=[dict(operation_id='w',plan_id='p',bundle=dict(smart_assignment=dict(label='B')))]
+        self.action=dict(base_prices=dict(console='7.50',pc='8.00'))
+        self.windows=[dict(operation_id='w',plan_id='p',mode='production',opened_at='2026-11-06T00:00:00+00:00',resources=['base:console','base:pc'],action=self.action)]
+        self.ops=[dict(operation_id='w',plan_id='p',status='COMPLETED',completed_at='2026-11-06T00:00:00+00:00',resources=['base:console','base:pc'],bundle=dict(action=self.action,smart_assignment=dict(label='B')))]
         self.rows=[dict(order_key='private-order',customer_key='private-customer',price_window_id='w',
             occurred_at='2026-11-06T15:59:00+00:00',group='console',actual_net_usd='100',
             actual_contribution_usd='25',new_customer=True),
@@ -27,7 +28,22 @@ class DailyProfit(unittest.TestCase):
     def continuation(self,ident,at,plan,label,resources):
         self.windows[0].setdefault('continuations',[]).append(dict(operation_id=ident,at=at,resources=resources))
         self.ops.append(dict(operation_id=ident,plan_id=plan,status='NO_CHANGE',completed_at=at,
-            bundle=dict(smart_assignment=dict(label=label,starts_at='2026-11-06T14:00:00+00:00'))))
+            resources=resources,bundle=dict(action=self.action,smart_assignment=dict(label=label,starts_at='2026-11-06T14:00:00+00:00'))))
+
+    def test_other_platform_price_change_still_changes_this_platform_confirmed_policy(self):
+        self.ops.append(dict(operation_id='pc-changed',plan_id='next',status='COMPLETED',completed_at='2026-11-06T15:00:00+00:00',resources=['base:pc'],
+            bundle=dict(authorized_resources=['base:console','base:pc'],action=dict(base_prices=dict(console='7.50',pc='9.00')),smart_assignment=dict(label='C'))))
+        # Console keeps the old physical window; only PC actually changed price.
+        result=daily.profit_summary(self.online,self.windows,self.ops,'2026-11-06','next')
+        self.assertEqual((result['review_day']['groups'][0]['plan_id'],result['review_day']['groups'][0]['label']),('next','C'))
+        self.assertEqual(result['active_plan']['totals']['orders'],1)
+
+    def test_latest_confirmed_price_mismatch_does_not_fall_back_to_old_matching_plan(self):
+        self.ops.append(dict(operation_id='changed',plan_id='next',status='COMPLETED',completed_at='2026-11-06T15:00:00+00:00',resources=['base:console'],
+            bundle=dict(action=dict(base_prices=dict(console='9.00')),smart_assignment=dict(label='C'))))
+        result=daily.profit_summary(self.online,self.windows,self.ops,'2026-11-06','p')
+        self.assertIsNone(result['review_day']['groups'][0]['plan_id'])
+        self.assertEqual(result['review_day']['totals']['procurement_gross_usd'],'25')
 
     def test_same_price_plan_switch_uses_confirmed_time_not_window_owner_or_planned_start(self):
         self.continuation('next','2026-11-06T16:00:00+00:00','next-plan','A',['base:console','base:pc'])
