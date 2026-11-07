@@ -87,7 +87,33 @@ def profit_summary(online,windows,operations,date,plan_id):
     """Freeze existing same-order outcomes; never collect or infer missing costs."""
     rows=online.get('actual_outcomes',[])
     by_window={w['operation_id']:w for w in windows}
-    assignments={o['operation_id']:(o.get('bundle') or {}).get('smart_assignment') or {} for o in operations}
+    contexts={o['operation_id']:dict(plan_id=o.get('plan_id'),status=o.get('status'),completed_at=o.get('completed_at'),
+        resources=(o.get('bundle') or {}).get('authorized_resources') or o.get('resources',[]),
+        action=o.get('actual_action') or (o.get('bundle') or {}).get('action') or {},catalog=(o.get('bundle') or {}).get('catalog') or {},
+        assignment=(o.get('bundle') or {}).get('smart_assignment') or {}) for o in operations}
+    confirmed=[(instant(v['completed_at']),key,set(v['resources'])) for key,v in contexts.items() if v['status'] in ('COMPLETED','NO_CHANGE') and v['completed_at']]
+    def attribution(row):
+        # A policy can change while this platform's physical price window stays open.
+        window=by_window.get(row['price_window_id'],{})
+        group=row['group'] if row['group'] in ('console','pc') else 'pc' if row['group'].endswith(':PC') else 'console'
+        resources={'base:'+group}
+        if ':' in row['group']:resources.add('region:'+row['group'])
+        created=instant(row['occurred_at'])
+        events=[(at,index,key) for index,(at,key,scope) in enumerate(confirmed) if at<=created and resources.intersection(scope)]
+        saved=[dict(operation_id=window.get('operation_id'),at=window.get('opened_at'),resources=window.get('resources',[]))]+window.get('continuations',[])
+        events += [(instant(e['at']),len(confirmed)+index,e['operation_id']) for index,e in enumerate(saved) if e.get('at') and instant(e['at'])<=created and resources.intersection(e.get('resources',[]))]
+        if not events:return None,group,'unlabelled'
+        operation_id=max(events,key=lambda item:(item[0],item[1]))[2]
+        context=contexts.get(operation_id)
+        if context is None:
+            return (window.get('plan_id') if operation_id==window.get('operation_id') else None),group,'unlabelled'
+        actual=(window.get('action') or {}).get('base_prices',{}).get(group)
+        expected=context['action'].get('base_prices',{}).get(group)
+        regional=':' in row['group'] and Decimal((window.get('action') or {}).get('region_coefficients',{}).get(row['group'],'1'))!=Decimal(context['action'].get('region_coefficients',{}).get(row['group'],'1'))
+        platform=row.get('platform')
+        if actual is None or expected is None or Decimal(actual)!=Decimal(expected) or regional or platform and window.get('catalog',{}).get(platform)!=context['catalog'].get(platform):
+            return None,group,'unlabelled'
+        return context['plan_id'],group,context['assignment'].get('label') or 'unlabelled'
     def totals(selected):
         paid=[r for r in selected if r.get('actual_net_usd') is not None]
         known=[r for r in paid if r.get('actual_contribution_usd') is not None]
@@ -102,20 +128,17 @@ def profit_summary(online,windows,operations,date,plan_id):
             unknown_cost_orders=len(selected)-len(known),unknown_cost_paid_usd=amount(unknown,'actual_net_usd'),
             customer_known_orders=len(customers),new_customers=len({r['customer_key'] for r in customers if r.get('new_customer') and r.get('customer_key')}) if customers else None,
             unknown_customer_orders=sum(r.get('new_customer') is None or r.get('new_customer') and not r.get('customer_key') for r in selected))
-    selected=[r for r in rows if instant(r['occurred_at']).astimezone(LOCAL).date().isoformat()==date]
+    attributed=[(row,attribution(row)) for row in rows]
+    selected=[(r,key) for r,key in attributed if instant(r['occurred_at']).astimezone(LOCAL).date().isoformat()==date]
     grouped={}
-    for row in selected:
-        window=by_window.get(row['price_window_id'],{});assignment=assignments.get(row['price_window_id'],{})
-        group=row['group'] if row['group'] in ('console','pc') else 'pc' if row['group'].endswith(':PC') else 'console'
-        key=(window.get('plan_id'),group,assignment.get('label') or 'unlabelled')
-        grouped.setdefault(key,[]).append(row)
+    for row,key in selected:grouped.setdefault(key,[]).append(row)
     coverage=online.get('learning_coverage') or {}
     return dict(version='pricing-daily-profit-v1',currency='USD',observed_at=coverage.get('observed_at'),
-        query_complete=coverage.get('query_complete'),attribution='confirmed_price_and_creation_day_not_full_payment_day',
+        query_complete=coverage.get('query_complete'),attribution='confirmed_window_continuations_at_creation_time_not_full_payment_day',
         cost_basis='same_order_actual_USD_receipt_minus_all_Order_procurement_USD; before_ads_payment_and_other_fees',
-        review_day=dict(local_date=date,totals=totals(selected),groups=[dict(plan_id=p,group=g,label=l,**totals(rr)) for (p,g,l),rr in sorted(grouped.items(),key=lambda item:str(item[0]))]),
-        active_plan=dict(plan_id=plan_id,totals=totals([r for r in rows if by_window.get(r['price_window_id'],{}).get('plan_id')==plan_id])) if plan_id else None,
-        source_sha256=fingerprint(dict(date=date,plan_id=plan_id,rows=rows,windows=windows,assignments=assignments)))
+        review_day=dict(local_date=date,totals=totals([r for r,_ in selected]),groups=[dict(plan_id=p,group=g,label=l,**totals(rr)) for (p,g,l),rr in sorted(grouped.items(),key=lambda item:str(item[0]))]),
+        active_plan=dict(plan_id=plan_id,totals=totals([r for r,key in attributed if key[0]==plan_id])) if plan_id else None,
+        source_sha256=fingerprint(dict(date=date,plan_id=plan_id,rows=rows,windows=windows,contexts=contexts)))
 
 
 def run(body):
