@@ -6,6 +6,8 @@
 
 原成功测试增强：旧URL模拟404，新URL才返回合成模块；固定时点核时间戳、合成签名和multipart原字段/PNG，不打印签名或请求体。旧源码准确复现预检失败，补丁后18项Windows回归及183/Python3.10.12、Pillow9.0.1隔离Linux回归全部通过，无跳过。Linux正式测试无网络、1CPU/512MiB、无端口、只读根及挂载；临时容器已释放。hash变化拒绝、POST仅一次、超时UNKNOWN、附件保留/原ID读回、授权/CSRF/重复确认保护保持。
 
+首次正式CI `42331643075`失败保留：新发布器目录未登记测试映射。已在原pr-fast增加该目录的实际测试映射，执行本release两项固定manifest/51基线与原wrapper等价检查，并复用原发布器成功/回退仿真；没有忽略文件、跳过必需检查或放宽原断言。后续正式CI以PR #887最终head为准。
+
 发布复用原10/29 publisher和cloud.19窄适配方式，51源基线逐SHA匹配。实际运行delta只有`player_web/media_client.py`和`VERSION`；固定manifest、两次CAS、deployment.lock、SQLite在线备份、原子current切换及失败回退保持。ENV、UID992:987、只读/内存/共享价格锁、既有人工权限、600秒按需退出及其它服务保持。Docker沿当前已装镜像无网络构建，不新增依赖。新release目录沿既有.gitattributes保原始字节，发布器依赖固定Git原始blob而非Windows换行转换副本。变更运行文件、前后SHA及publisher依赖见SOURCE-MAP.json。
 
 原任务只读对账：`559abeea45014d0bb8a8c8fa0d35b891`、`12d5036171db49f9bac4e8449e2bdb70`两图片计划是相同60模型/PNG/原icon范围，均1个not_started+59个planned，未派发上传POST；不能把两个计划都补跑成重复上传。`942d57f3cbff4e0da38291a7dc0b5c9d`上新任务已有60人verified，仅24076/24078因原来源PlayersType不明阻断；已完成者不重做，不通过猜类型或删除检查将其视为软件修复。
