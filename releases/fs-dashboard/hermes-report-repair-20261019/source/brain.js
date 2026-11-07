@@ -75,8 +75,10 @@
     $('nightly').replaceChildren();$('nightly').className='';
     if(!data?.enabled){node('p','当前账号没有已启用的自动报告计划。',$('nightly'),'muted');return;}
     const titles={management:'全项目 · 当日经营简述',daily:'FC · 昨日经营日报',weekly:'FC · 上周周报',management_weekly:'全项目 · 上周经营复盘',monthly:'FC · 上月月报'};
-    for(const [kind,time] of Object.entries(data.starts||{})){const row=node('div',null,$('nightly'),'schedule-row');node('span',titles[kind]||kind,row);node('strong',time,row);}
-    for(const plan of data.items||[])node('p',(titles[plan.kind]||plan.kind)+' · '+(labels[plan.state]||plan.state)+(plan.error?' · '+plan.error:''),$('nightly'),'muted');
+    for(const [kind,time] of Object.entries(data.starts||{}).filter(([kind])=>(data.report_kinds||Object.keys(data.starts||{})).includes(kind))){const row=node('div',null,$('nightly'),'schedule-row');node('span',titles[kind]||kind,row);node('strong',time,row);}
+    const paused=Object.keys(data.starts||{}).filter(kind=>data.report_kinds&&!data.report_kinds.includes(kind));
+    if(paused.length)node('p','已暂停：'+paused.map(kind=>titles[kind]||kind).join('、'),$('nightly'),'muted');
+    for(const plan of data.items||[])node('p','历史记录 · '+(titles[plan.kind]||plan.kind)+' · '+(labels[plan.state]||plan.state)+(plan.error?' · '+plan.error:''),$('nightly'),'muted');
   }
   const HTML_MARKER='【完整HTML创作】';
   function htmlQuestion(value) {
