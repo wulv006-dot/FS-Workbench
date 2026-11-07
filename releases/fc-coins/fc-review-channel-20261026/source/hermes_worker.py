@@ -109,7 +109,8 @@ def admission(session_id):
     if 'ready' in item and type(item['ready']) is not bool:
         raise PermissionError('admission_invalid')
     if item.get('reasoning_effort','none') not in ('none','low','high','max'):raise PermissionError('admission_reasoning')
-    if item['model'] != 'deepseek-flash' or not re.fullmatch(r'[A-Za-z0-9_-]{40,80}', item['token']):
+    sol_admitted = (item['model']=='gpt-6.1-sol' and bool(item.get('native_chat',{}).get('report') or item.get('native_chat',{}).get('pricing')))
+    if (item['model'] != 'deepseek-flash' and not sol_admitted) or not re.fullmatch(r'[A-Za-z0-9_-]{40,80}', item['token']):
         raise PermissionError('admission_invalid')
     if not isinstance(item['prompt'], str):
         raise PermissionError('admission_invalid')
@@ -708,7 +709,7 @@ def make_adapter(api_key):
                     cwd=backend.environment['workspace'], ephemeral_system_prompt=prompt, platform='api_server',
                     skip_context_files=False, load_soul_identity=True, skip_memory=False,
                     skip_background_review=False, fallback_model=None, quiet_mode=True,
-                    max_tokens=MAX_HERMES_OUTPUT_TOKENS, reasoning_config=reasoning,
+                    max_tokens=128000 if item['model']=='gpt-6.1-sol' else MAX_HERMES_OUTPUT_TOKENS, reasoning_config=reasoning,
                     session_db=session_db, tool_result_metadata_callback=pending, **callbacks)
                 if knowledge is not None:
                     knowledge.agent = agent

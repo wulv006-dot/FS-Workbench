@@ -81,10 +81,13 @@ def spending_hold(daily, tasks, owner, *, active_tasks=None):
 
 
 def gateway(daily, tasks, book, deadline=None, provider_lane="general", *, material_execution=False,
-            native_chat_scope=None, active_native_tasks=None):
+            native_chat_scope=None, active_native_tasks=None, sol=False):
     from fc_daily import provider_slot, model_daily_limit
     from direct_provider import MODEL, POLICY_ID, request_model, prepare_request
     from proxy_gateway import schemas, task_schemas, native_scope
+    if sol:
+        if native_chat_scope is None:raise PermissionError("sol_native_scope_required")
+        from openai_provider import MODEL, POLICY_ID, request_model, prepare_request
     native = native_chat_scope is not None
     if native and (not native_scope(native_chat_scope) or book is not native_chat_scope or
                    not callable(active_native_tasks) or material_execution):
@@ -105,7 +108,7 @@ def gateway(daily, tasks, book, deadline=None, provider_lane="general", *, mater
     def effective_schemas():
         return task_schemas(book) if material_execution or native else schemas()
     policy = {'id': POLICY_ID, 'model': MODEL,
-              'price_version': 'deepseek-direct-no-cny-invoice-or-fx-v1',
+              'price_version': 'openai-sol-no-cny-invoice-or-fx-v1' if sol else 'deepseek-direct-no-cny-invoice-or-fx-v1',
               'input_microcny': None, 'output_microcny': None}
     def provider(request):
         options={'native_chat':True} if native else {}
@@ -133,10 +136,10 @@ def gateway(daily, tasks, book, deadline=None, provider_lane="general", *, mater
                           model_daily_limit, preflight=lambda req:prepare_request(req,effective_schemas(),native_chat=True) if native else prepare_request(req,effective_schemas()),transport_retries=0 if material_execution or native else 2)
 
 
-def native_gateway(daily, scope, *, active_tasks, deadline=None, provider_lane="general"):
+def native_gateway(daily, scope, *, active_tasks, deadline=None, provider_lane="general", sol=False):
     """Use the existing provider, limits and usage ledger without an FC TaskStore."""
     return gateway(daily, None, scope, deadline=deadline, provider_lane=provider_lane, native_chat_scope=scope,
-                   active_native_tasks=active_tasks)
+                   active_native_tasks=active_tasks, sol=sol)
 
 
 def approved_background(root):
