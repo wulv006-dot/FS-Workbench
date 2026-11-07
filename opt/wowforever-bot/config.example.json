@@ -308,12 +308,19 @@
         "000000000000000000",
         "000000000000000000"
       ],
-      "spins_per_user": 2,
+      "spins_per_user": 1,
       "_spins_per_user说明": "每人可抽次数；0=不限。bypass_users 里的号不受限。",
       "fallback_prize": "coupon5",
       "_fallback_prize说明": "抽到库存为 0 的奖品时自动降级成这个",
       "staff_name": "Ryan Brooks",
       "_staff_name说明": "公开面板里显示的名字（纯文本，不触发 @）；staff_contact 只在登记通知里 @"
+    },
+    "news": {
+      "enabled": true,
+      "channel": "news",
+      "daily_limit": 2,
+      "publish_hours": [12, 20],
+      "_说明": "北京时间12点/20点后各最多一篇；官方与Reddit合计硬上限2篇/自然日。仅最新Forever公告和r/wowforever当天热门，不补旧闻，无新内容可少发。"
     }
   },
   "exempt": {

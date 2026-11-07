@@ -99,6 +99,11 @@
       "basis": "Current RPG operational modules in main; code only, no connection to 183 or writer session",
       "evidence_level": "maintained_source"
     },
+    "WOWFOREVER": {
+      "roots": ["opt/wowforever-bot"],
+      "basis": "PR895 maintained bot source; /opt/wowforever-bot on play187. Includes giveaway, news and their isolated tests; live versions must still be read back.",
+      "evidence_level": "maintained_source"
+    },
     "NBA": {
       "roots": [
         "opt/nba-reprice"

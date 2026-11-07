@@ -45,7 +45,7 @@ PRIZES = [
 ]
 
 
-def make(prizes=None, cap=2):
+def make(prizes=None, cap=1):
     m = object.__new__(G.GiveawayModule)
     m.store = FakeStore()
     m._feature = {
@@ -65,13 +65,11 @@ G.GiveawayModule.feature = property(lambda self: self._feature)
 print("== 1. 每次抽奖次数上限 ==")
 m = make()
 U = "555"
-ok(m.spins_allowed() == 2, "spins_allowed = 2")
-ok(m.spins_left(U) == 2, "初始剩 2 次")
+ok(m.spins_allowed() == 1, "spins_allowed = 1")
+ok(m.spins_left(U) == 1, "初始剩 1 次")
 m.mark_spin(U)
-ok(m.spins_left(U) == 1, "抽 1 次后剩 1 次")
-m.mark_spin(U)
-ok(m.spins_left(U) == 0, "抽 2 次后剩 0 次")
-ok(m.spins_used(U) == 2, "spins_used 记账正确")
+ok(m.spins_left(U) == 0, "抽 1 次后剩 0 次")
+ok(m.spins_used(U) == 1, "spins_used 记账正确")
 ok(m.spins_left("1037677694487384104") == -1, "白名单用户不受限（-1）")
 m2 = make(cap=0)
 ok(m2.spins_left(U) == -1, "cap=0 时全员不限次")
@@ -129,7 +127,9 @@ main = embeds[0]
 blob = json.dumps([e.to_dict() for e in embeds], ensure_ascii=False)
 ok("Lucky Loot" in (main.title or ""), "标题 = Lucky Loot", main.title)
 ok("Blingtron" in main.description, "保留工程机器人风格")
-ok("2 free spins" in main.description, "文案写明 2 次机会")
+ok("1 free spin" in main.description, "文案写明 1 次机会")
+ok("· 2%" not in main.description and "· 30%" not in main.description,
+   "不展示抽奖概率（优惠幅度保留）")
 ok(len(embeds) == 1, "1 张卡片按奖品类型分组", "%d 张" % len(embeds))
 ok(not any((e.title or "") == "How it works" for e in embeds), "已删掉 How it works 说明块")
 ok("10 / 10 left" in blob and "50 / 50 left" in blob,
