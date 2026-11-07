@@ -1,0 +1,101 @@
+{
+  "application": "completed_applied",
+  "candidate_id": "skill:71c8198f",
+  "candidate_sha256": "9131915bf74bb2ff6a4a9e83e066a58c4d99cacdef5c39de2e66286f92987819",
+  "contract": "hermes-review-archive-v1",
+  "decision": "approve",
+  "disposition": "reusable",
+  "evidence": "原completed/approve/success/applied回执与候选哈希已核；101个历史文件按原成功manifest从后续完整前值或同版本源恢复，字节未修改。",
+  "formal_rule_change": false,
+  "kind": "skill",
+  "modules": [
+    "FS",
+    "FC",
+    "reporting"
+  ],
+  "packages": [
+    {
+      "exists": true,
+      "files": [
+        {
+          "mode": 420,
+          "path": "SKILL.md",
+          "sha256": "1169252aeb263e4916f1eb9d430c72b1d1ed3bca6290ee86922a31ce784ad51c"
+        },
+        {
+          "mode": 420,
+          "path": "references/decline-diagnosis.md",
+          "sha256": "4890800524fd4fe288d115f7dffbeaad9af1a7463cc17c1a153192f9287bd913"
+        },
+        {
+          "mode": 420,
+          "path": "references/fc-weekly-evidence-case-20261024.md",
+          "sha256": "ed044b76573433aca38254d1b50578de69fc288be58c73c1269003ac6662dddc"
+        },
+        {
+          "mode": 420,
+          "path": "references/fields-20261024.md",
+          "sha256": "4adce67ad27734be80a02f49001e412864b0beba488a832a618722108912d0ac"
+        },
+        {
+          "mode": 420,
+          "path": "references/hermes-report-training-20261102.md",
+          "sha256": "c165f7f2459084ff4cf1676b01ee5bdbf6212b85ffc2735d47fa0ce8023dc691"
+        },
+        {
+          "mode": 420,
+          "path": "references/operator-report-core-20261025.md",
+          "sha256": "ad908982f5a45b79870e208244ad16c9c499f8ab6f65a5ecf70ece07dc6341e4"
+        },
+        {
+          "mode": 420,
+          "path": "references/pc-product-orders-20261024.md",
+          "sha256": "2ac3b18071b5365d8d2aa0e742fe1da03a0b71ab10f30bc53d394fbaa3a856ce"
+        },
+        {
+          "mode": 420,
+          "path": "references/project-lead-diagnosis.md",
+          "sha256": "f2e4d728a55734c3fc7b8dce50f6e3494020ba78eb17132deb07a91a2128ab0a"
+        },
+        {
+          "mode": 420,
+          "path": "references/team-report-methods-20261102.md",
+          "sha256": "1737db6b5fff974622649ed57ba0eabd5153b7f06214743d385bd290f2ae22ea"
+        }
+      ],
+      "path": "data-storytelling",
+      "sha256": "009413d1d9c81474b2f5de34b286fe7f37ab4ceb1941f015bae68bd6114d7965"
+    }
+  ],
+  "receipt_sha256": "03446d1bf2627844fe9977cc1196cbe9367d29cefcd7c05a84e6d7e42441ad24",
+  "reference_exports": {
+    "files": {
+      "data-storytelling/references/fc-weekly-evidence-case-20261024.md": {
+        "sha256": "ed044b76573433aca38254d1b50578de69fc288be58c73c1269003ac6662dddc",
+        "values": [
+          "/profile/"
+        ]
+      },
+      "data-storytelling/references/hermes-report-training-20261102.md": {
+        "sha256": "c165f7f2459084ff4cf1676b01ee5bdbf6212b85ffc2735d47fa0ce8023dc691",
+        "values": [
+          "127.0.0.1"
+        ]
+      },
+      "data-storytelling/references/team-report-methods-20261102.md": {
+        "sha256": "1737db6b5fff974622649ed57ba0eabd5153b7f06214743d385bd290f2ae22ea",
+        "values": [
+          "/profile/",
+          "/var/lib/",
+          "127.0.0.1",
+          "47.85.224.112"
+        ]
+      }
+    },
+    "message_reference": "Direct user approval 2026-11-07: call_85ebceeabcb2458fa75f7dfe8dfa7a18 item0; exact CONFIRMATION.md export scope",
+    "source": "direct_user"
+  },
+  "request_id": "2da902f8d32faacd1e517324a580f2698214d0d308522c3e5498ce1dbab5ae14",
+  "runtime_activation": false,
+  "summary": "已审应用的历史报告方法完整包归档；各历史版本独立保留，不作为当前正式规则或生产加载授权。"
+}
