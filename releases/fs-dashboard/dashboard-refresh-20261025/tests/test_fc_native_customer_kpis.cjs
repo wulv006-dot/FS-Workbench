@@ -186,8 +186,8 @@ async function check(name,run){try{await run();console.log('PASS '+name);}catch(
   await check('same-scope native supplemental metrics are preserved and retain units',async()=>{
    await choose();
    for(const [key,value]of Object.entries(supplementalText))assert.equal(await page.locator(`[data-metric=${key}] strong`).innerText(),value,key);
-   assert.equal(await page.locator('[data-metric=orders] strong').innerText(),'120','native fallback must not replace FC category order totals');
-   assert.equal(await page.locator('[data-metric=revenueUsd] strong').innerText(),'$6,480.00','native fallback must not replace FC category sales');
+   assert.equal(await page.locator('[data-metric=orders] strong').innerText(),'120','unfiltered order total uses native summary');
+   assert.equal(await page.locator('[data-metric=revenueUsd] strong').innerText(),'$1,000.00','unfiltered sales use native summary independently of detail totals');
   });
   assert.deepEqual(errors,[],'real renderer page errors');
   if(failures.length)throw new Error(failures.length+' native customer KPI checks failed:\n'+failures.join('\n'));

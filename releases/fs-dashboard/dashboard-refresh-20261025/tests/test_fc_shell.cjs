@@ -14,7 +14,12 @@ const cases=[
 for(const [name,,baseline]of cases){
  const code=fs.readFileSync(path.join(source,name),'utf8');
  assert.equal(code.split(added).length-1,1,name+' only adds the five state keys once');
- assert.equal(crypto.createHash('sha256').update(code.replace(added,'')).digest('hex'),baseline,name+' preserves the exact independently verified production baseline');
+ const beforeSummaryFix=code.replace(added,'')
+  .replace("data.scopeContractId!=='admin-paid-order-labelled-supplement-v2'",name==='shell.js'?"data.scopeContractId!=='admin-paid-order-labelled-supplement-v2'":"data.scopeContractId!=='admin-main-order-labelled-supplement-v1'")
+  .replace("const day=fsPeriodPolicy().shift(FSHomeMetrics.beijingDate(),-1);","const day=FSHomeMetrics.beijingDate();")
+  .replace("'昨日MMOEXP '","'今日MMOEXP '")
+  .replace(" const heading=document.querySelector('.section-heading h2');if(heading)heading.textContent='昨日经营';\n document.querySelector('.home-kpis')?.setAttribute('aria-label','MMOEXP 昨日经营');\n",'');
+ assert.equal(crypto.createHash('sha256').update(beforeSummaryFix).digest('hex'),baseline,name+' preserves baseline outside explicit summary/date changes');
 }
 function detail(q){
  const row={orders:1,revenue_usd:20,issues:0,new:1,returning:0,unknown:0,unpriced_orders:0,unfinished:0,funding:0};

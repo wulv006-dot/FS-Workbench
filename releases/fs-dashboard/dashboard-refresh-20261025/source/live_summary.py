@@ -152,25 +152,27 @@ class SummaryCache:
                 if 0<=age<ttl:
                     archived.update(expiresInSeconds=ttl-age,refreshSeconds=ttl,stale=False)
                     return 200, archived
-        derived = derive_summary(selector) if not q.get('refresh') else None
-        if derived is not None: derived['query'] = copy.deepcopy(q)
         code, value = self.get_live(q)
         if code == 200 and complete_summary(value):
             try:
                 with self.admission():save('summary',selector,value)
             except BlockingIOError:
                 value['archive']={**(value.get('archive') or {}),'refreshDeferred':True,'reason':'maintenance_in_progress'}
-        elif archived is not None and code != 403:
+        elif code != 200 and archived is not None and code != 403:
             archived.update(stale=True,refreshing=code in (202,429),expiresInSeconds=0,
                 refreshSeconds=q.get('cacheSeconds',TTL))
             archived['sources']['Admin'].update(status='pending' if code in (202,429) else 'unavailable')
             return 200, archived
-        elif derived is not None and code != 403:
-            derived['archive']['nativeStatus'] = value.get('status')
-            derived.update(stale=True,refreshing=code in (202,429),expiresInSeconds=0,
-                refreshSeconds=q.get('cacheSeconds',TTL))
-            derived['sources']['Admin'].update(status='pending' if code in (202,429) else 'unavailable')
-            return 200, derived
+        elif code not in (200,403) and not q.get('refresh'):
+            # Native Admin can be ready before Order; do not replace it with old daily totals.
+            derived = derive_summary(selector)
+            if derived is not None:
+                derived['query'] = copy.deepcopy(q)
+                derived['archive']['nativeStatus'] = value.get('status')
+                derived.update(stale=True,refreshing=code in (202,429),expiresInSeconds=0,
+                    refreshSeconds=q.get('cacheSeconds',TTL))
+                derived['sources']['Admin'].update(status='pending' if code in (202,429) else 'unavailable')
+                return 200, derived
         return code, value
 
     def get_live(self, q):
