@@ -1,0 +1,31 @@
+<!-- Generated reference; source 46034b081c7a132f73fb684200859493dd6b6304 knowledge/reporting/fc27-monthly/README.md; utf8_lf_sha256=56b101c86e7f84c70bcf0ed5e1195074de775f5d107569d38bb853edc59305ee -->
+# FC27 月报与经营复盘知识入口
+
+版本：2026-11-05。维护者：FC27 项目负责人／获授权 Codex；消费者：Codex、经审核接入的 Hermes。本文与分册是可检索的方法源，也适用于日周报及专题；月报是本版深化的主要场景。生效范围、服务器版本和实际读取证据见维护记录，文件存在不代表 Hermes 已加载。
+
+| 你要解决的问题 | 先读这里 | 继续查的原始规范 |
+|---|---|---|
+| 销售、订单、毛利从哪里取，如何调用 | [取数与计算](fc27-monthly-20261105-data.md) | [团队规范第4—6节](https://github.com/wulv006-dot/FS-Workbench/blob/46034b081c7a132f73fb684200859493dd6b6304/docs/planning/report-methods-20261102/01-团队经营报告取数与分析规范.md) |
+| 广告 CAC、新客价值、回本期怎么判断 | [取数与计算：获客](fc27-monthly-20261105-data.md#获客与客户价值) | [获客成本与客户价值方法](https://github.com/wulv006-dot/FS-Workbench/blob/46034b081c7a132f73fb684200859493dd6b6304/docs/planning/report-methods-20261102/04-获客成本与客户价值复盘方法.md) |
+| GA4 流量、自然购买与 GSC 怎样区分 | [取数与计算：自然搜索](fc27-monthly-20261105-data.md#自然搜索与页面购买) | 同上第1、6节 |
+| 月报怎样从全盘走到行动，哪些内容值得展开 | [分析与表达](fc27-monthly-20261105-report.md) | [报告审核核心](https://github.com/wulv006-dot/FS-Workbench/blob/46034b081c7a132f73fb684200859493dd6b6304/docs/planning/operator-report-review-20261025/REVIEW-STANDARD.md) |
+| Coins／Players／SBC／活动／自动化怎样解释 | [FC业务知识](fc27-monthly-20261105-business.md) | [当前项目规则](https://github.com/wulv006-dot/FS-Workbench/blob/46034b081c7a132f73fb684200859493dd6b6304/AGENTS.md)、现行定价基准 |
+| 怎样更新、处理冲突并验证真实学习 | [维护与接入](fc27-monthly-20261105-maintenance.md) | [知识收尾入口](https://github.com/wulv006-dot/FS-Workbench/blob/46034b081c7a132f73fb684200859493dd6b6304/docs/planning/knowledge-layering-20261023/CLOSEOUT.md) |
+
+## 依据与复用方式
+
+- 2026年10月 FC27 专项复盘：用户认可的组织与表达参照，最新领导阅读版为2026-11-04修订。只提炼决策主线和图表逻辑，不复制私密成品或业务明细入Git；原HTML由报告负责人在本地受控报告目录保存，中文本地入口另给位置。本库使用[获客价值方法](https://github.com/wulv006-dot/FS-Workbench/blob/46034b081c7a132f73fb684200859493dd6b6304/docs/planning/report-methods-20261102/04-获客成本与客户价值复盘方法.md)作为可共享的方法参考。
+- [团队取数规范](https://github.com/wulv006-dot/FS-Workbench/blob/46034b081c7a132f73fb684200859493dd6b6304/docs/planning/report-methods-20261102/01-团队经营报告取数与分析规范.md)与[Hermes教学规范](https://github.com/wulv006-dot/FS-Workbench/blob/46034b081c7a132f73fb684200859493dd6b6304/docs/planning/report-methods-20261102/02-Hermes经营分析教学与验收规范.md)：详细工具课和迁移方法，不重复复制全文。
+- [11月2日加载记录](https://github.com/wulv006-dot/FS-Workbench/blob/46034b081c7a132f73fb684200859493dd6b6304/docs/planning/report-methods-20261102/03-Hermes加载与学习验收.md)与[11月3日状态](https://github.com/wulv006-dot/FS-Workbench/blob/46034b081c7a132f73fb684200859493dd6b6304/docs/planning/report-methods-20261102/05-本轮加载状态与验收交接-20261103.md)：仅证明各自版本、profile和入口，不能替代本版验收。
+
+## 事实有效期与冲突取舍
+
+1. 当前用户明确指令和现行项目基准优先；业务口径回源 AGENTS、对应模块合同和已发布源码。旧案例冲突时保留原件，使用当前规则并说明差异。不得按文件修改时间猜权威版本。
+2. 方法按版本维护，直到明确修订；经营数字仅在记录的日期、网站、游戏、状态、币种与观察截止内成立。历史约 $53／$42／$46 是2026-11-03月报复盘案例，不是当前预算或永久阈值。
+3. 工具路径是截至核查日的定位线索。每次任务先看实际工具 schema、权限和来源回显；同名工具、健康检查或文件清单不证明本轮已取到数据。
+4. 证据依次区分：内容已落盘 → Git/正式CI → 审核应用 → 目标profile读回 → 新会话实际读取 → 未见题应用 → 真实报告/自然周期。只声明已验的层次。
+5. 缺项保持 unknown／partial。只有可能改变方向、主次、重要金额或行动风险的差异才继续下钻；有效核心证据足以支持判断时，明确给判断和行动。
+
+知识只存脱敏方法、来源、版本和限制。客户身份、订单明细、凭据、原会话及教师答案留在受控证据目录；不随教材进入 Git、团队共享空间或长期记忆。
+
+维护与验收更新见[交付记录](https://github.com/wulv006-dot/FS-Workbench/blob/46034b081c7a132f73fb684200859493dd6b6304/knowledge/reporting/fc27-monthly/DELIVERY.md)；不同业务主题持续更新同一分册或索引，不按每月复制一本教材。

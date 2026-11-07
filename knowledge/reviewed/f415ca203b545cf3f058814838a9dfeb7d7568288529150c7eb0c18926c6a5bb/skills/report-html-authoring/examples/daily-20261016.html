@@ -1,0 +1,170 @@
+<!doctype html><html lang="zh-CN" data-fs-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>FC27 经营日报 · 2026年10月16日</title><style>/* FS UI 1.0 — single semantic token source; explicit theme resolved by fs-theme.js. */
+:root,[data-fs-theme="light"]{
+ color-scheme:light;--fs-bg:#e9edf2;--fs-surface:#ffffff;--fs-surface-2:#f7f9fb;--fs-surface-3:#eef2f6;
+ --fs-text:#1b2632;--fs-muted:#596980;--fs-faint:#596980;--fs-line:#dce3eb;--fs-line-soft:#e8edf3;
+ --fs-brand:#1f6f73;--fs-brand-hover:#16575b;--fs-brand-soft:#e3f0ef;--fs-brand-on:#ffffff;
+ --fs-ok:#1f7d61;--fs-ok-soft:#e2f3ec;--fs-ok-on:#ffffff;--fs-danger:#a8412c;--fs-danger-soft:#fbeae5;--fs-danger-on:#ffffff;
+ --fs-warn:#825a13;--fs-warn-soft:#faf0dd;--fs-warn-on:#ffffff;--fs-info:#2f5a86;--fs-info-soft:#e7eef7;--fs-info-on:#ffffff;
+ --fs-up:#b42f24;--fs-down:#177647;--fs-violet:#65509b;--fs-shadow:0 1px 3px #14283c08,0 14px 34px -25px #14283c55;
+ --fs-radius:16px;--fs-input-radius:9px;--fs-modal-radius:18px;--fs-nav-width:236px;--fs-focus:#147a80;
+ --fs-font:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+}
+:root[data-fs-theme="dark"],[data-fs-theme="dark"]{
+ color-scheme:dark;--fs-bg:#0a1424;--fs-surface:#121d31;--fs-surface-2:#182641;--fs-surface-3:#22314c;
+ --fs-text:#e8eef6;--fs-muted:#b6c4d7;--fs-faint:#b6c4d7;--fs-line:#35465f;--fs-line-soft:#293a51;
+ --fs-brand:#4db8b0;--fs-brand-hover:#7fd0c9;--fs-brand-soft:#183a40;--fs-brand-on:#07191d;
+ --fs-ok:#70cfa7;--fs-ok-soft:#17392e;--fs-ok-on:#08251b;--fs-danger:#ffad99;--fs-danger-soft:#402b2c;--fs-danger-on:#35120c;
+ --fs-warn:#f0c478;--fs-warn-soft:#3b3020;--fs-warn-on:#302006;--fs-info:#9bc5f3;--fs-info-soft:#22344e;--fs-info-on:#10233d;
+ --fs-up:#ffad99;--fs-down:#70cfa7;--fs-violet:#c5b4f3;--fs-shadow:0 12px 28px -24px #000b;--fs-focus:#7fd0c9;
+}
+
+/* Low-specificity primitives. Module layouts retain their business DOM contracts. */
+:where(.fs-ui-page){background:var(--fs-bg);color:var(--fs-text);font-family:var(--fs-font);font-size:14.5px;line-height:1.55}
+:where(.fs-ui-page) *{box-sizing:border-box}
+:where(.fs-ui-page) :where(button,input,select,textarea){font:inherit}
+:where(.fs-ui-page) :where(button,input,select,textarea){border-radius:var(--fs-input-radius)}
+:where(.fs-ui-page) :where(button,a,input,select,textarea,summary):focus-visible{outline:3px solid var(--fs-focus);outline-offset:3px}
+:where(.fs-ui-page) :where(button:disabled,input:disabled,select:disabled){cursor:not-allowed;opacity:.6}
+:where(.fs-ui-page) :where(h1,h2,h3){font-weight:700;letter-spacing:-.02em}
+:where(.fs-ui-page) :where(th){font-weight:600}
+:where(.fs-ui-page) :where(table){font-size:13px;font-variant-numeric:tabular-nums}
+:where(.fs-ui-page) :where(.card,.panel,.workspace-card,.module-card,.tool-card){border-radius:var(--fs-radius);box-shadow:var(--fs-shadow)}
+:where(.fs-ui-page) :where(dialog){border-radius:var(--fs-modal-radius);background:var(--fs-surface);color:var(--fs-text);border:1px solid var(--fs-line)}
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:8px 14px;border:1px solid var(--fs-line);background:var(--fs-surface);color:var(--fs-text);border-radius:var(--fs-input-radius);font-weight:600;text-decoration:none}
+.fs-btn--primary{background:var(--fs-brand);color:var(--fs-brand-on);border-color:var(--fs-brand)}
+.fs-btn--ok{background:var(--fs-ok);color:var(--fs-ok-on)}.fs-btn--danger{background:var(--fs-danger);color:var(--fs-danger-on)}.fs-btn--amber{background:var(--fs-warn);color:var(--fs-warn-on)}
+.fs-note{padding:12px 16px;border:1px solid var(--fs-line);border-radius:12px;color:var(--fs-muted);background:var(--fs-surface-2);font-size:12px}
+.fs-table-scroll{max-width:100%;overflow:auto}.fs-number{font-variant-numeric:tabular-nums}.fs-muted{color:var(--fs-muted)}
+.fs-switch{display:inline-flex;align-items:center;gap:9px;cursor:pointer}.fs-switch input{appearance:none;width:38px;height:22px;border:1px solid var(--fs-line);border-radius:99px;background:var(--fs-surface-3);position:relative;flex:none;margin:0}
+.fs-switch input:before{content:'';position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:var(--fs-muted);transition:transform .16s}
+.fs-switch input:checked{background:var(--fs-brand);border-color:var(--fs-brand)}.fs-switch input:checked:before{transform:translateX(16px);background:var(--fs-brand-on)}
+@media(prefers-reduced-motion:reduce){.fs-ui-page *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+body{margin:0}main{max-width:1180px;margin:auto;padding:32px 28px 80px}a{color:var(--fs-brand)}nav{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:28px}.spacer{flex:1}.eyebrow{color:var(--fs-brand);font-weight:700;letter-spacing:.1em;font-size:12px}h1{font-size:clamp(28px,4vw,44px);line-height:1.2;margin:12px 0}h2{font-size:23px;margin:0 0 18px}h3{font-size:18px;margin:28px 0 12px}p{line-height:1.9;margin:12px 0}header{margin-bottom:26px}.lede{font-size:18px;max-width:960px}.meta{color:var(--fs-muted)}.panel{padding:28px;background:var(--fs-surface);border:1px solid var(--fs-line);margin:20px 0}.hero{border-top:4px solid var(--fs-brand)}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kpi{background:var(--fs-surface);border:1px solid var(--fs-line);border-radius:var(--fs-radius);padding:20px}.kpi span{display:block;color:var(--fs-muted);font-size:13px}.kpi strong{font-size:25px;display:block;margin:9px 0;white-space:nowrap}.up{color:var(--fs-up)}.down{color:var(--fs-down)}.kpi small{font-size:13px}.chart-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:20px}.chart-grid>.panel{min-width:0}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}button{cursor:pointer}button[aria-pressed=true]{background:var(--fs-brand);color:var(--fs-brand-on);border-color:var(--fs-brand)}svg{display:block;width:100%;height:auto;color:var(--fs-text)}svg text{fill:currentColor;font-family:var(--fs-font);font-size:14px}.legend{display:flex;gap:16px;color:var(--fs-muted);font-size:12px}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}table{width:100%;border-collapse:collapse;line-height:1.65}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--fs-line);padding:12px 10px}th{background:var(--fs-surface-2)}td:first-child{font-weight:600}details{border:1px solid var(--fs-line);border-radius:var(--fs-radius);padding:18px 22px;background:var(--fs-surface);margin:16px 0}summary{cursor:pointer;font-weight:700;line-height:1.7}.preview{color:var(--fs-muted);font-size:13px;margin:7px 0 0}details[open]>.preview{display:none}.section-no{color:var(--fs-brand);margin-right:12px;font-size:12px;letter-spacing:.1em}blockquote{margin:12px 0;padding:12px 18px;border-left:3px solid var(--fs-brand);background:var(--fs-surface-2)}li{margin:10px 0;line-height:1.8}.toc{display:flex;gap:8px 18px;flex-wrap:wrap;font-size:13px;margin:20px 0}.footer{font-size:12px;color:var(--fs-muted);line-height:1.8;margin-top:28px}.chart-caption{font-size:12px;line-height:1.7;color:var(--fs-muted);margin:12px 0}.chart-data{padding:12px;font-size:12px}.metric-readout{min-height:44px;color:var(--fs-muted)}@media(max-width:750px){main{padding:18px 16px 50px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{padding:15px}.kpi strong{font-size:21px}.chart-grid{grid-template-columns:1fr;gap:0}.panel{padding:20px}details{padding:16px}.fs-table-scroll table{min-width:650px}h2{font-size:21px}.spacer{display:none}}@media print{nav,.controls,.toc{display:none}body{background:white!important;color:black!important}main{padding:0;max-width:none}.panel,details,.kpi{box-shadow:none;break-inside:avoid}.chart-grid{display:block}details{display:block}.fs-table-scroll{overflow:visible}table{min-width:0!important;font-size:10px}a{color:inherit}.panel{padding:16px}}</style></head><body class="fs-ui-page"><main><nav aria-label="报告导航"><a class="fs-btn fs-btn--primary" href="daily-20261016.html" aria-current="page">日报</a><a class="fs-btn " href="weekly-20261005-11.html" >周报</a><span class="spacer"></span><button class="fs-btn" id="theme" aria-pressed="false">深色模式</button><button class="fs-btn" id="print">打印 / 存为PDF</button><a class="fs-btn" href="daily-20261016.md" download>文字版</a></nav><header><div class="eyebrow">MMOEXP · FC27 · OPERATING REVIEW</div><h1>FC27 经营日报 · 2026年10月16日</h1><p class="meta">独立示范报告 · 回顾10/16 · 行动日10/17 · 主对比10/9（同为周五） · 数据读取截至2026年10月17日 · USD</p></header><section class="panel hero"><h2>今天先抓什么</h2><div class="lede"><p><strong>收入少了21.3%，主要少在订单数量；每单金额和参考利润率反而上升。先核履约下降与金币销量，再查获客和商品承接。</strong> 昨日435单、销售额$29,273.54；比上周五少144单、少$7,938.09。每单金额升至$67.30，参考利润约$7,634.54，仅下降3.4%。这说明“销售变少”和“每笔生意更差”不是一回事。</p>
+<p>今天先做两件事：核发货完成率下降背后的未完成订单与处理进度；查金币销量和新客减少。美国广告与球队组合包作为销售调查的细分线索，活动入口先确认供货与交付，不直接追加预算或发布新折扣。</p>
+</div></section><div class="kpis" aria-label="核心经营指标"><div class="kpi"><span>销售额</span><strong>$29,273.54</strong><small class="down">-21.3% · 较上周五</small></div><div class="kpi"><span>订单数</span><strong>435</strong><small class="down">-24.9% · 较上周五</small></div><div class="kpi"><span>每单金额</span><strong>$67.30</strong><small class="up">+4.7% · 较上周五</small></div><div class="kpi"><span>参考利润</span><strong>$7,634.54</strong><small class="down">-3.4% · 较上周五</small></div></div><div class="chart-grid"><section class="panel"><h2>切换看核心变化</h2><div class="controls" aria-label="选择比较指标"><button class="fs-btn" data-metric="revenueUsd" aria-pressed="true">销售额</button><button class="fs-btn" data-metric="orders" aria-pressed="false">订单数</button><button class="fs-btn" data-metric="selectedAovUsd" aria-pressed="false">每单金额</button><button class="fs-btn" data-metric="referenceProfitUsd" aria-pressed="false">参考利润</button></div><div id="comparison-chart"></div><p class="metric-readout" id="metric-readout" aria-live="polite"></p><p class="chart-caption">主盘Admin优先；参考利润采用Order补充利润率。涨红跌绿仅表示方向。</p></section><section class="panel"><h2>收入差额，拆开看</h2><svg viewBox="0 0 510 225" role="img" aria-label="收入差额的数学分解"><text x="0" y="24">订单量变化 −$9,472.63</text><rect x="0" y="34" width="460" height="23" rx="4" fill="var(--fs-down)"/><text x="0" y="96">每单金额变化 +$1,534.54</text><rect x="0" y="106" width="74.51867507052933" height="23" rx="4" fill="var(--fs-up)"/><text x="0" y="168">收入净变化 −$7,938.09</text><rect x="0" y="178" width="385.48132492947065" height="23" rx="4" fill="var(--fs-down)"/></svg><p class="chart-caption">对称分解：订单变化×平均每单金额；每单金额变化×平均订单数。仅是数学分解，不证明运营因果。</p></section></div><section class="panel"><h2>销售少了，履约也要盯紧</h2><p>新客减少，金币销量回落；发货完成率下降6.45个百分点，先核未完成订单的等待时间与处理进度。退款金额下降，不能把两个方向混为售后全面恶化。</p><div class="legend"><span>灰色：对比期</span><span>品牌色：本期</span></div><div><strong>发货完成率</strong> <span class="fs-muted">91.54% → 85.09%</span><svg viewBox="0 0 510 40" role="img" aria-label="发货完成率：对比期91.54%，本期85.09%"><rect width="490" y="4" height="10" rx="3" fill="var(--fs-muted)"/><rect width="455.4741096788289" y="23" height="10" rx="3" fill="var(--fs-brand)"/></svg></div><div><strong>退款金额</strong> <span class="fs-muted">$2,247.06 → $939.79</span><svg viewBox="0 0 510 40" role="img" aria-label="退款金额：对比期$2,247.06，本期$939.79"><rect width="490" y="4" height="10" rx="3" fill="var(--fs-muted)"/><rect width="204.9331571030591" y="23" height="10" rx="3" fill="var(--fs-brand)"/></svg></div><div><strong>新客人数</strong> <span class="fs-muted">241人 → 144人</span><svg viewBox="0 0 510 40" role="img" aria-label="新客人数：对比期241人，本期144人"><rect width="490" y="4" height="10" rx="3" fill="var(--fs-muted)"/><rect width="292.78008298755185" y="23" height="10" rx="3" fill="var(--fs-brand)"/></svg></div><p class="chart-caption">Admin原生指标 · 各行使用独立尺度，不能比较不同指标的柱长。发货完成率不是问题单解决率；退款金额不等于本期订单退款率。</p></section><details><summary>流量辅助证据 · 广告规模与效率对照</summary><p class="preview">先看经营、销售与交付，再展开广告线索；平台价值不是营收。</p><p>英国Buy的ROAS基本持平，美国Buy出现明显走弱。先看系列差异，避免把问题一概归为预算减少。</p><div class="legend"><span><i class="dot" style="background:var(--fs-muted)"></i>对比期</span><span><i class="dot" style="background:var(--fs-brand)"></i>本期</span></div><div><strong>花费</strong> <span class="fs-muted">$3,320.89 → $2,037.01</span><svg viewBox="0 0 510 40" role="img" aria-label="花费，对比期3320.89，本期2037.01"><rect x="0" y="4" width="490" height="10" rx="3" fill="var(--fs-muted)"/><rect x="0" y="23" width="300.5617286882597" height="10" rx="3" fill="var(--fs-brand)"/></svg></div><div><strong>平台转化价值</strong> <span class="fs-muted">$8,888.87 → $4,934.81</span><svg viewBox="0 0 510 40" role="img" aria-label="平台转化价值，对比期8888.87，本期4934.81"><rect x="0" y="4" width="490" height="10" rx="3" fill="var(--fs-muted)"/><rect x="0" y="23" width="272.0320874074768" height="10" rx="3" fill="var(--fs-brand)"/></svg></div><div><strong>CPA</strong> <span class="fs-muted">$20.49 → $32.56</span><svg viewBox="0 0 510 40" role="img" aria-label="CPA，对比期20.49，本期32.56"><rect x="0" y="4" width="308.3624316108398" height="10" rx="3" fill="var(--fs-muted)"/><rect x="0" y="23" width="490" height="10" rx="3" fill="var(--fs-brand)"/></svg></div><div><strong>ROAS</strong> <span class="fs-muted">2.68 → 2.42</span><svg viewBox="0 0 510 40" role="img" aria-label="ROAS，对比期2.68，本期2.42"><rect x="0" y="4" width="490" height="10" rx="3" fill="var(--fs-muted)"/><rect x="0" y="23" width="443.4886750598807" height="10" rx="3" fill="var(--fs-brand)"/></svg></div><p class="chart-caption">Google Ads · FC项目完整32系列 · 全局品牌PMAX独立。各行独立尺度，不能比较不同指标的柱长；平台数据可回补，不是Admin收入。</p><details class="chart-data"><summary>查看图表原值与单位</summary><div class="fs-table-scroll" tabindex="0" role="region" aria-label="广告图表原值"><table><thead><tr><th>指标</th><th>对比期</th><th>本期</th><th>单位</th></tr></thead><tbody><tr><td>花费</td><td>3320.892664</td><td>2037.006612</td><td>USD</td></tr><tr><td>平台转化价值</td><td>8888.872905</td><td>4934.813573</td><td>USD</td></tr><tr><td>CPA</td><td>20.488963</td><td>32.557765</td><td>USD</td></tr><tr><td>ROAS</td><td>2.676652</td><td>2.422581</td><td>倍</td></tr></tbody></table></div></details></details><nav class="toc" aria-label="本页目录"><a href="#s2">经营温度计</a><a href="#s3">今日销售与履约，先看这两组变化</a><a href="#s4">收入下降，沿三条线调查</a><a href="#s5">现实节点，如何落成今天的工作</a><a href="#s6">10月18日如何判断有没有进展</a><a href="#s7">数据与判断边界</a></nav><details id="s2"><summary><span class="section-no">02</span>经营温度计<span class="preview" style="display:block;font-weight:400">5项核心指标与前一日对照；来源和计算保持一致。</span></summary><div class="fs-table-scroll" tabindex="0" role="region" aria-label="经营温度计数据表"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th align="right">10/16</th>
+<th align="right">10/9</th>
+<th align="right">变化</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Admin销售额</td>
+<td align="right">$29,273.54</td>
+<td align="right">$37,211.63</td>
+<td align="right">−21.3%</td>
+</tr>
+<tr>
+<td>Admin订单数</td>
+<td align="right">435</td>
+<td align="right">579</td>
+<td align="right">−24.9%</td>
+</tr>
+<tr>
+<td>同口径每单金额（销售额÷订单）</td>
+<td align="right">$67.30</td>
+<td align="right">$64.27</td>
+<td align="right">+4.7%</td>
+</tr>
+<tr>
+<td>Order补充利润率</td>
+<td align="right">26.08%</td>
+<td align="right">21.24%</td>
+<td align="right">+4.84个百分点</td>
+</tr>
+<tr>
+<td>参考利润（Admin销售额×补充利润率）</td>
+<td align="right">$7,634.54</td>
+<td align="right">$7,903.75</td>
+<td align="right">−3.4%</td>
+</tr>
+</tbody></table></div>
+<p>与前一天10/15相比，销售额从$33,644.00降至$29,273.54，下降13.0%；参考利润从$6,251.06升至$7,634.54，增长22.1%。单日利润率变化不能直接证明策略成功，还要看商品结构、采购成本及履约后的结果。</p>
+<p>**把$7,938的收入差额拆开看：**订单数量变化对应约−$9,472.63，每单金额变化抵消约+$1,534.54。这是对称数学分解，帮助确定调查方向；它不能证明是哪一项运营动作造成变化。</p>
+</details><section class="panel" id="s3"><h2><span class="section-no">03</span>今日销售与履约，先看这两组变化</h2><p><strong>收入下降主要落在金币，物品小幅增长。</strong> Admin原生品类：金币379单/$25,997.19，对比523单/$33,669.05，少144单、少$7,671.86；Items为46单/$2,402.67，对比44单/$2,217.10，金额增加8.4%。先查金币各平台、供货和成交结构，再判断是否要调整商品入口。没有品类成本和利润细分，不能把整体利润率上升解释为物品策略成功。</p>
+<p><strong>履约是今天必须处理的信号。</strong> Admin原生发货完成率85.09%，上周五91.54%，下降6.45个百分点；较前一天87.30%也下降2.21个百分点。先核未完成订单等待时长、状态与责任岗位，再区分近期订单尚未完成和实际延误；当前不能把14.91%全部认定为超时或问题单。</p>
+<p>Admin退款金额$939.79，上周五$2,247.06，下降58.2%；这与履约率下降方向不同，不能合并成“售后全面恶化”。问题单的解决率需要跟踪同一批订单的处理结果，目前没有该闭环分母，不能用全体履约率代替。</p>
+<p>新客144人，上周五241人，下降40.2%；新客收入$9,233.07，对比$13,634.65，下降32.3%。付费客户413人对556人，减少25.7%。原生复购率升至90.56%，但新客减少也会改变结构，不能仅据这一比例宣布复购活动有效。以上原生指标直接沿用已确认Admin优先口径。</p>
+</section><details id="s4"><summary><span class="section-no">04</span>收入下降，沿三条线调查<span class="preview" style="display:block;font-weight:400">英国量缩，美国效率走弱；自然来源结构变化与组合包信号分开判断。</span></summary><h3>1. 广告：英国是量缩，美国还出现效率变差</h3>
+<p>FC项目广告全量32个系列汇总：花费$2,037.01，较上周五$3,320.89下降38.7%；点击1,472，原生转化约62.57，平台转化价值$4,934.81。平台ROAS从2.68降至2.42，CPA从$20.49升至$32.56。转化是平台归因数，可能带小数，不能称为成交订单。</p>
+<div class="fs-table-scroll" tabindex="0" role="region" aria-label="收入下降，沿三条线调查数据表"><table>
+<thead>
+<tr>
+<th>优先查看的系列</th>
+<th>本日花费 / 上周五</th>
+<th>本日ROAS / 上周五</th>
+<th>我的判断与下一步</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>UK Buy</td>
+<td>$385.10 / $668.94</td>
+<td>3.73 / 3.67</td>
+<td>效率基本持平、花费减少。先查展示份额、预算受限与竞价记录，不能仅凭花费减少断言“砍预算”。</td>
+</tr>
+<tr>
+<td>US Buy</td>
+<td>$93.14 / $231.99</td>
+<td>0.85 / 3.86</td>
+<td>花费与效率同时下降。优先核转化延迟、目标设置，再查看搜索意图、设备及落地页。</td>
+</tr>
+<tr>
+<td>DE Buy</td>
+<td>$254.79 / $419.81</td>
+<td>1.02 / 1.50</td>
+<td>有效率走弱信号；与美国一起排查，不据一天ROAS直接停投。</td>
+</tr>
+</tbody></table></div>
+<p>读数说明：ROAS表示每花$1广告费对应多少平台归因转化价值；CPA表示获得一次平台归因转化的平均广告费。两者都不直接代表有效订单利润。</p>
+<p>全局品牌PMAX花费$551.52、平台ROAS5.73，单独列示；它不能并入FC项目ROAS，也不能按名称把其全部转化当FC成交。上述平台回报也不是净利润率或盈利保本线。</p>
+<h3>2. 订单来源：自然来源的下降更值得追问</h3>
+<p>ES导出原范围、全部原始状态：10/16共439条去重订单、结构金额$29,972.39。其中业务自然310单/$19,410.18，全局品牌来源58单/$5,490.55，FC项目来源71单/$5,071.66。上周五自然来源438单/$28,897.87，项目来源99单/$5,351.66，品牌来源44单/$3,777.58。</p>
+<p>自然来源结构金额少了$9,487.69，项目来源少了$280.00，品牌来源增加$1,712.97。<strong>这是ES结构内的变化，不是Admin收入下降的渠道归因。</strong>“业务自然”是导出来源标签，不等于纯SEO，还可能包含未被广告标签识别的访问。</p>
+<p>10/16的GSC日数据尚未返回，不能用今天的报告宣布自然搜索下降。先等当日搜索数据齐全，再对照FC相关页面的曝光、点击和排名。全站GA4会话只能作为大盘背景，不能拿它除FC订单算FC转化率。</p>
+<h3>3. 已有活动：组合包出现购买信号，还缺有效成交闭环</h3>
+<p>10/13运营记录表示曼城／巴黎11人基础金卡组合包一期已落地。只读商品聚合中，10/14与10/15的PS曼城组合包累计出现order_count=4、金额$76.96。它支持“已有初步购买信号”；不是已核实的4笔有效支付订单，也不能证明活动带来增量。巴黎未匹配到名称，不能写成零销售。</p>
+<p>用户已明确：这一轮先验证球队组合包能否卖动、带动销售，复购是后续目标。报告因此先检查商品入口、订单对应关系与履约；返购券仍是待验证能力，不能写成已上线且有效。</p>
+</details><section class="panel" id="s5"><h2><span class="section-no">05</span>现实节点，如何落成今天的工作</h2><p>EA在10/9发布的Future Stars说明中列出：PlayStyle+ Lab及首批UEFA Star Performers的相关升级从10/17开始。<strong>今天可借这个节点做一份“资格与玩法说明＋购买前提示”，但不能把现有基础金卡组合包宣传成自动获得这些升级。</strong> 上架前由运营核对游戏内实际可用内容、商品卡种及资格，再决定是否关联具体商品。<a href="https://www.ea.com/games/ea-sports-fc/fc-27/news/fc-27-future-stars">EA官方说明</a></p>
+<p><strong>建议活动：球队阵容入门指南＋现有11人组合包入口。</strong> 面向有球队偏好、希望快速组建基础阵容的访客；这是建议客群，不是已验证的用户画像。机制是先说明卡种、平台及活动资格，再引导到已经存在的对应组合包，不增设折扣或抽奖。优先核验PS曼城商品pid185327195；巴黎对应商品ID、活动落地页与实际入口链接待确认，不先填推测链接。</p>
+<p>资源预计为运营1—2小时、内容2—3小时、页面接入与检查1—2小时、数据和客服首轮核验各1小时，合计约6—9人时；这是规划估计，接单时确认。优先复用现有页面与素材，本方案不申请额外媒体预算；若现有页面无法承接，先交内容稿和接线清单，不承诺当天上线。</p>
+<p>以下为建议排期，责任岗位待负责人落实，未替团队执行或发通知。</p>
+<div class="fs-table-scroll" tabindex="0" role="region" aria-label="现实节点，如何落成今天的工作数据表"><table>
+<thead>
+<tr>
+<th>优先级 / 建议责任岗位</th>
+<th>截止与交付物</th>
+<th>先决条件</th>
+<th>成功、停止与复查</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>P0 客服＋履约＋数据</td>
+<td>接单后半个工作日：核未完成与问题订单，按金额、等待时长、原因及责任岗位排队；次日复查同批订单</td>
+<td>使用真实订单状态及时间，不把未完成都算超时</td>
+<td>每个重点订单有下一步及复查时间；无法确认交付能力时暂缓扩入口，不能把清单建立当问题已解决</td>
+</tr>
+<tr>
+<td>P1 FC运营＋数据</td>
+<td>接单后1个工作日：拆金币主要平台/商品销量、新客与供货变化，US/UK广告作对应线索</td>
+<td>真实商品与订单范围，原生成本可得时才核利润结构</td>
+<td>给出主要销量差额和待验证原因；没有依据不改预算或售价，T+3复查承接与销售</td>
+</tr>
+<tr>
+<td>P1 FC运营＋内容＋客服</td>
+<td>10/18前核资格说明、曼城样本、巴黎商品及实际入口</td>
+<td>官方节点、供货与交付确认，样本付款/取消/退款/完成可区分</td>
+<td>审核后再上线；T+1走查、T+3核有效成交与履约，无法关联仍只称购买信号</td>
+</tr>
+</tbody></table></div>
+<p>短期先把“可正常购买、记录可追踪、交付无误”验明，再谈扩大活动。点击增加但没有有效成交时，检查需求与商品承接；成交增加但取消、退款或交付问题恶化时，暂停新增活动入口并排查。当前没有足够样本支持承诺提升百分比。</p>
+</section><section class="panel" id="s6"><h2><span class="section-no">06</span>10月18日如何判断有没有进展</h2><ol>
+<li>未完成与问题订单是否有明确处理结果；同批订单的完成、取消、退款分别变化多少，不用新快照总量冒充解决率。</li>
+<li>活动说明是否通过资格、商品与交付核对；页面是否可正常完成购买路径。</li>
+<li>曼城样本是否完成订单级核验；巴黎是否找到了精确商品对应关系。</li>
+<li>GSC 10/16数据若补齐，补写搜索判断；未补齐就继续标缺失，不拿上周数据代替。</li>
+</ol>
+</section><details id="s7"><summary><span class="section-no">07</span>数据与判断边界<span class="preview" style="display:block;font-weight:400">Admin优先、ES结构、Google归因及未验证项。</span></summary><p>Admin同字段优先，Order仅补Admin缺项；参考利润是估算口径，不是财务实结。ES按支付时间文本筛选、在已读文件集内去重，来源时区、网站/分销范围及后台全量完整性尚未证实。ES已完成状态370单/$24,235.66属于结构说明，不与Admin总盘强行对账。Ads按互动日期归因，仍可回补；广告组、系列、国家等维度不可相加。经营数据10/17读取；游戏节点核验日期10/17；历史运营资料来自本地FC27决策档案。上述行动均为本报告建议，未自动改价、改预算、发券或上线活动。</p>
+</details><footer class="footer">作者：Codex Sol独立撰写；Astra审校状态见同目录验收记录。本文为有日期的学习示例，未来报告必须重新取数，禁止沿用其中数字。页面复用当前FS统一设计令牌与基础组件；无外部脚本、无数据上传。</footer></main><script type="application/json" id="chart-source">{"metrics":{"revenueUsd":{"label":"销售额","values":[37211.63,29273.54],"note":"销售额较对比期下降21.3%。"},"orders":{"label":"订单数","values":[579,435],"note":"订单数较对比期下降24.9%。"},"selectedAovUsd":{"label":"每单金额","values":[64.26879101899827,67.29549425287357],"note":"每单金额较对比期增加4.7%。由主盘销售额÷订单数计算，保持分母一致。"},"referenceProfitUsd":{"label":"参考利润","values":[7903.750212,7634.539232],"note":"参考利润较对比期下降3.4%。估算口径，不是财务实结。"}},"periods":["10/9 上周五","10/16 本日"]}</script><script>const data=JSON.parse(document.getElementById('chart-source').textContent);const money=x=>'$'+Number(x).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});const fmt=(v,k)=>k==='orders'?Number(v).toLocaleString('en-US'):money(v);function draw(k){const row=data.metrics[k],max=Math.max(...row.values,1),w=360;document.getElementById('comparison-chart').innerHTML='<svg viewBox="0 0 510 160" role="img" aria-label="'+row.label+'：'+data.periods[0]+' '+fmt(row.values[0],k)+'；'+data.periods[1]+' '+fmt(row.values[1],k)+'">'+row.values.map((v,i)=>'<text x="0" y="'+(25+i*70)+'">'+data.periods[i]+'</text><rect x="0" y="'+(35+i*70)+'" width="'+v/max*w+'" height="22" rx="4" fill="var(--fs-'+(i?'brand':'muted')+')"/><text x="'+(v/max*w+8)+'" y="'+(51+i*70)+'">'+fmt(v,k)+'</text>').join('')+'</svg>';document.getElementById('metric-readout').textContent=row.note;document.querySelectorAll('[data-metric]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.metric===k)));}document.querySelectorAll('[data-metric]').forEach(b=>b.addEventListener('click',()=>draw(b.dataset.metric)));draw('revenueUsd');document.getElementById('theme').addEventListener('click',()=>{const dark=document.documentElement.dataset.fsTheme!=='dark';document.documentElement.dataset.fsTheme=dark?'dark':'light';document.getElementById('theme').setAttribute('aria-pressed',String(dark));});let closed=[];window.addEventListener('beforeprint',()=>{closed=[...document.querySelectorAll('details:not([open])')];closed.forEach(d=>d.open=true);});window.addEventListener('afterprint',()=>closed.forEach(d=>d.open=false));document.getElementById('print').addEventListener('click',()=>window.print());</script></body></html>
