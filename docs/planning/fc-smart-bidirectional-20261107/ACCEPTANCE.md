@@ -1,6 +1,6 @@
 # FC 双向定价上线验收
 
-补记至2026-11-08的读取修复及窄验收。源码已合并、上线与首轮确认分别有据；Sol的报价片段读取仍未恢复、00:36自然轮仍待验，尚不宣称稳定增利。
+截至2026-11-08（UTC+8），双向策略已上线，原自然轮自动重试恢复，新鲜Lootbar主锚、固定节拍、Sol实际工具读取及修后缺价只读预览均有回执。仍无成熟收益或长期稳定结论；以下历史检查点的待验状态以后续同项回执为准。
 
 ## 实施与发布
 
@@ -76,3 +76,21 @@ PR907正式CI42391849421通过，head2db65f74fb5cf064749ef53e53a03596debc5449，
 原job自动attempt1重采后00:47:56.269844完成confirmed，原operation58923da5-b2eb-5a2d-b6fb-2dc26f1c1164已CONFIRMED/readback_confirmed且三平台有回执；未手动触发、换ID或补写。它是自然重试恢复，不是首次准点成功。新JS仅在新competitor_policy且financial_proof.pass_all为true时允许Lootbar缺价，原有报价的币种/时效、成本、金额与writer前财务重证保持；精确3目标发布及修后真实片段验收待补。
 
 自然attempt1补充：新snapshot9e725a37-930c-53f9-8e3b-74333c5e9c6e中Lootbar三平台00:45:46鲜价/USD/100K+5K，均LOOTBAR_PRIMARY_VALID_QUOTE，无source_gaps。原操作COMPLETED于00:47:56.219919、job完成略后；套餐基价Console7.89美元、PC7.25美元，Order after.b2c单位价0.0789/0.0725与目标一致，公开三平台verified。该正常PUBLIC路径未另存admin_unit_prices字段，不冒称取得独立Admin单位价明细。双20通过/100k_package_only；A/A仍slot0，财务底价导致Console回退、PC竞争价，不把基准变动归因于±3%试验。last_cycle_at保持00:36:56.5895，下轮01:36:56.5895；pending0、无UNKNOWN。证据.agent_runtime/t2/natural-{confirmed,source-confirmed}-20261108T0048.json及natural-units-20261108T0049.json。
+
+## 三目标最终修复发布
+
+PR908 head014d2a799a2d4088762386b8f228062199b3c794，正式CI42393440357成功，合并511d49f07bb8e85968c5c60255eb0c95e9241f08。新Node3项、原daily35项通过，183发布合同38/38、0skip（collection12/repair3/publisher23），冻结包f9669533a20894161608954a395f948c12323f392924099bc865d8d2e05f9ab3，199文件匹配固定commit且无漂移；报价片段等未变源码的既有83项证据按文件hash复用，不重复计数。
+
+沿原adapter新精确3目标scope一次发布nav-20261107T165500Z，manifest02584e2a2f478c4e9a2ba9a1ca105e6fc2359c41c72d279ee3a7a96a5f754518，archive4b3516a80074488a77e60c96007e3afd53c1926f1010d7e2baa1e2ce2baba7f4；3目标与163保护项及5个原服务active读回通过。PR907仅2目标暂存包未apply，未执行nav163500Z；旧2/4/25范围保留。发布原锁/备份/模型空闲/FC读回保护保持，price_posts0。原备份/var/backups/fs-navigation-20261006/nav-20261107T165500Z。修后Sol单项turn41c3d7fa0d2344339062525886fa4464已提交，及原failed报价只读预览复验分别待记，不重跑价格或原研究。
+
+修后真实只读预览通过：原failed run e95c070e-098c-586b-a0f9-a2d6d43c1ed0于00:55:27生成preview7a92a1f8-426a-4222-a8ee-0fb411c563a7，exit0/status review_only；缺Lootbar+原ArabUT备锚的三平台方案均构建成功，财务证明保持。原quote SHA未变，operation IDs前后均相同214项，未调用save/sync/writer/cycle。后台当前单位价仍Console0.0789/PC0.0725，不等于旧预览目标0.0797/0.0867，未把历史预览写入现价。证据.agent_runtime/t2/original-preview-repaired.jsonl。
+
+## Sol原片段真实恢复
+
+修后单项turn41c3d7fa0d2344339062525886fa4464 completed；3次实际provider响应均gpt-6.1-sol、Responses、requested与echo effort high。仅一次read_quote，原run88aebd83-fa1e-5e83-b37e-02c37c8367da、path/result/decision_receipt。原call_xzNB2nPmDOuqvIGL9QtAVFOq临时结果89,206字符已读取核验，run/path一致、execution_authorized=false，whole-quote SHA4bf34ddb15141308c8bc087f2d98214bb0bcf4d4d41613eb918540245c1bae4c，receipt.schema_version=fc-pricing-v3-20261026与snapshot_id一致。模型最终文字因预览截断未独立读全schema/snapshot，验收依据是原工具完整结果，不把模型文字当替代。未追加价格写入、历史复盘或其他模型调用。
+
+已完成实现、正式CI、合并、生产文件/服务读回、实际界面、自然原ID重试、新鲜Lootbar主锚、小时效果更新、修后缺价只读预览及Sol真实工具读取。尚未完成成熟48小时对照、实际B/C标签跨时段效果、连续多日稳定性或增利结论；现有小时程序与每日只读Sol复盘继续积累，无额外报告定时，地区配置保留但系数1，11月目标仅背景。
+
+同一知识变更KL-2001022625084b2d3b0f4f25已更新原两Notion页自己的唯一摘要区块，保留人工内容和其他任务摘要；工具完成无警告。没有新增报告定时或覆盖共享Sol配置。
+
+Sol完整工具结果最终校验：whole SHA等于原quote canonical全文SHA；receipt.snapshot_sha256=0acaac1cde48481e83992d7483953a27add841dabd1013ed129ab7614d959149等于该turn授予的原evidence SHA，两类SHA不同语义、不应互比相等。该turn仅describe1/skill_view1/read_quote1；provider输入50,107、输出960、合计51,067 tokens，实际费用未核。脱敏简报.agent_runtime/t1-collection/sol-fragment-acceptance-redacted.md，原证据sol-fragment-{inspect,exact,sha}.jsonl。
