@@ -51,4 +51,3 @@ class SmartMigrationTest(unittest.TestCase):
                 api.post('plans/p/migrate-smart-strategy',dict(expected_revision=1,extra=True),'wulv')
             result=api.post('plans/p/migrate-smart-strategy',dict(expected_revision=1),'wulv')
         self.assertEqual(result['smart_strategy_version'],'smart-bidirectional-v2')
-
