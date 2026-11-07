@@ -62,6 +62,29 @@ def public_artifact(payload, include_quote_sha=False):
     return payload
 
 
+def quote_fragment(payload, path):
+    """Select from the public quote projection, never from private source fields."""
+    if not isinstance(path,str) or not path.startswith('/'):
+        raise ValueError('pricing_quote_path_invalid')
+    parts=path[1:].split('/')
+    if parts[0] not in ('evidence','result','edits'):
+        raise ValueError('pricing_quote_path_invalid')
+    value=payload
+    try:
+        for key in parts:
+            if re.search(r'~(?![01])',key):raise ValueError('pricing_quote_path_invalid')
+            key=key.replace('~1','/').replace('~0','~')
+            if isinstance(value,list):
+                if not re.fullmatch(r'0|[1-9][0-9]*',key):raise ValueError('pricing_quote_path_invalid')
+                value=value[int(key)]
+            elif isinstance(value,dict):value=value[key]
+            else:raise ValueError('pricing_quote_path_invalid')
+    except (KeyError,IndexError,ValueError) as error:
+        raise ValueError('pricing_quote_path_invalid') from error
+    return dict(run_id=payload['run_id'],path=path,value=value,
+                original_quote_sha256=payload['original_quote_sha256'],execution_authorized=False)
+
+
 def valid_id(value):
     return isinstance(value, str) and ID_PATTERN.fullmatch(value) is not None
 
@@ -705,6 +728,14 @@ class Handler(BaseHTTPRequestHandler):
                 payload = read_json(path)
                 if parts[0] in {"quotes", "snapshots"}:
                     payload = public_artifact(payload, include_quote_sha=parts[0] == "quotes")
+                if parts[0]=='quotes' and parsed.query:
+                    try:
+                        query=parse_qs(parsed.query,keep_blank_values=True)
+                        if set(query)!={'path'} or len(query['path'])!=1:raise ValueError('pricing_quote_path_invalid')
+                        payload=quote_fragment(payload,query['path'][0])
+                    except ValueError:
+                        self.respond(400,{'error':'pricing_quote_path_invalid'})
+                        return
                 self.respond(200, payload)
                 return
             self.respond(404, {"error": "not_found"})

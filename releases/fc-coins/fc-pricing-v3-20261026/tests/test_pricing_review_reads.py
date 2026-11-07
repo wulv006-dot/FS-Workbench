@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
+from urllib.parse import urlencode
 
 SOURCE=Path(__file__).resolve().parents[1]/'source'
 sys.path.insert(0,str(SOURCE))
@@ -45,10 +46,10 @@ class PricingReviewReads(unittest.TestCase):
     def test_valid_quote_pointer_preserves_original_fragment(self):
         run='00000000-0000-4000-8000-000000000071'
         receipt={'sha256':'a'*64,'financial_proof':{'pass_all':True}}
-        request=Mock(return_value={'result':{'decision_receipt':receipt}})
+        request=Mock(return_value=dict(run_id=run,path='/result/decision_receipt',value=receipt,original_quote_sha256='b'*64,execution_authorized=False))
         with patch.object(tools,'authorization',return_value=None):
             result=tools.call(Mock(),'owner','turn','lease',dict(action='read_quote',run_id=run,path='/result/decision_receipt'),request)
-        request.assert_called_once_with('/quotes/'+run,'owner')
+        request.assert_called_once_with('/quotes/'+run+'?'+urlencode({'path':'/result/decision_receipt'}),'owner')
         self.assertEqual(result['value'],receipt)
         self.assertFalse(result['execution_authorized'])
 

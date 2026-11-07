@@ -8,6 +8,7 @@ import re
 import sqlite3
 import uuid
 from urllib.error import HTTPError
+from urllib.parse import urlencode
 from urllib.request import Request,build_opener,HTTPRedirectHandler
 
 NAME='fs.pricing.control'
@@ -193,13 +194,15 @@ def call(scope,owner,task,lease,args,request=native):
         return request('/pricing/v3/simulations/'+str(uuid.UUID(args['simulation_id'])),owner)
     if action=='read_quote':
         run=str(uuid.UUID(args['run_id']))
-        quote=request('/quotes/'+run,owner)
-        if not args['path'].startswith(('/evidence','/result','/edits')):
+        path=args['path']
+        if not isinstance(path,str) or not path.startswith('/') or path.split('/')[1] not in ('evidence','result','edits'):
             raise ValueError('pricing_quote_path_invalid')
-        value=quote
-        for key in args['path'].strip('/').split('/'):
-            value=value[int(key)] if isinstance(value,list) else value[key]
-        return dict(run_id=run,path=args['path'],value=value,execution_authorized=False)
+        fragment=request('/quotes/'+run+'?'+urlencode({'path':path}),owner)
+        if (fragment.get('run_id')!=run or fragment.get('path')!=path or
+                not re.fullmatch('[a-f0-9]{64}',str(fragment.get('original_quote_sha256',''))) or
+                fragment.get('execution_authorized') is not False or 'value' not in fragment):
+            raise ValueError('pricing_quote_fragment_basis_changed')
+        return fragment
     if action=='candidate_detail':
         run=str(uuid.UUID(args['run_id']))
         mode=args['mode']
