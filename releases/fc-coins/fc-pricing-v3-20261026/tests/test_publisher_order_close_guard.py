@@ -211,9 +211,9 @@ class SupersededAllCodePublish(unittest.TestCase):
         restart=next(n for n in load.body if isinstance(n,ast.FunctionDef) and n.name=='restart')
         process=SimpleNamespace(run=Mock())
         scope=dict(subprocess=process,base=SimpleNamespace(),original_restart=Mock(),restart_with_hermes_readiness=Mock(),
-                   SCOPE='full',DELTA_SCOPE='delta',SHADOW_SCOPE='shadow',OPERATING_SCOPE='operating',COLLECTION_SCOPE='collection',BIDIRECTIONAL_SCOPE='bidirectional',REPAIR_SCOPE='repair',QUOTE_FRAGMENT_SCOPE='quote-fragment')
+                   SCOPE='full',DELTA_SCOPE='delta',SHADOW_SCOPE='shadow',OPERATING_SCOPE='operating',COLLECTION_SCOPE='collection',BIDIRECTIONAL_SCOPE='bidirectional',REPAIR_SCOPE='repair',QUOTE_FRAGMENT_SCOPE='quote-fragment',QUOTE_PREVIEW_SCOPE='quote-preview')
         exec(compile(ast.Module(body=[restart],type_ignores=[]),str(path),'exec'),scope)
-        for kind in ('full','delta','shadow','operating','bidirectional','repair','quote-fragment'):
+        for kind in ('full','delta','shadow','operating','bidirectional','repair','quote-fragment','quote-preview'):
             process.run.reset_mock();scope['restart_with_hermes_readiness'].reset_mock();scope['restart']({'scope':kind})
             restarts=[c.args[0] for c in process.run.call_args_list if c.args[0][:2]==['systemctl','restart']]
             self.assertEqual(restarts,[['systemctl','restart',name] for name in ('fc27-cloud-api.service','fc27-cloud-worker.service','fc-pricing-v3.service')])

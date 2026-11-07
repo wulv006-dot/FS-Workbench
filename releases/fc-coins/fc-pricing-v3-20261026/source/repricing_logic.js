@@ -341,6 +341,8 @@
     // Server V2 receipts are re-proved with Decimal immediately before each write.
     const result = payload.result?.strategy_version === 'fc-pricing-v3-20261026'
       ? payload.result : fail('旧报价已退役，请使用当前定价引擎');
+    const optionalPrimary = result.decision_receipt?.strategy_parameters?.competitor_policy ===
+      'lootbar_primary_arabut_secondary_v1' && result.decision_receipt?.financial_proof?.pass_all === true;
 
     const targets = [];
     for (const platform of Object.keys(PLATFORMS)) {
@@ -354,7 +356,7 @@
 
       for (const site of (result.decision_receipt?.price_control?.manual_enabled ? [] : SITES)) {
         const offer = evidence.offers?.[platform]?.[site];
-        if (!offer && evidence.storefront && site!=='Lootbar') continue;
+        if (!offer && evidence.storefront && (site!=='Lootbar' || optionalPrimary)) continue;
         if (!offer) fail(`${platform} ${site} 竞品报价缺失`);
         if (offer.currency !== undefined && offer.currency !== 'USD') fail(`${platform} ${site} 竞品币种不符`);
         decimal(offer.usd_price, `${platform} ${site} 售价`);

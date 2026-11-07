@@ -93,6 +93,10 @@ class CollectionRelease(unittest.TestCase):
         exec(compile(module,'quote-fragment-fences','exec'),environment)
         self.assertIs(base.hermes_admission_fence,original)
         self.assertIs(base.model_release_lock,original)
+        environment.update(scope=target_map.QUOTE_PREVIEW_SCOPE,base=base)
+        exec(compile(module,'quote-preview-fences','exec'),environment)
+        self.assertIs(base.hermes_admission_fence,original)
+        self.assertIs(base.model_release_lock,original)
         environment.update(scope=target_map.REPAIR_SCOPE,base=base)
         exec(compile(module,'repair-fences','exec'),environment)
         self.assertIs(base.hermes_admission_fence,original)
@@ -113,6 +117,25 @@ class CollectionRelease(unittest.TestCase):
             else:altered[mutation]=True
             with self.subTest(mutation=mutation),self.assertRaises(ValueError):adapter.checked_manifest(altered)
         self.assertEqual(len(adapter.REPAIR_TARGETS),4)
+
+    def test_quote_preview_scope_is_exactly_three_targets_without_changing_older_scopes(self):
+        expected={'source/fc27_cloud_api.py':'/opt/fc27-cloud-browser/fc27_cloud_api.py',
+                  'source/pricing_operations.py':'/opt/fs-hermes-fc/pricing_operations.py',
+                  'source/repricing_logic.js':'/opt/fc27-cloud-browser/repricing_logic.js'}
+        self.assertEqual(set(target_map.QUOTE_PREVIEW_NAMES),set(expected))
+        self.assertEqual(adapter.QUOTE_PREVIEW_TARGETS,expected)
+        value=manifest(target_map.QUOTE_PREVIEW_SCOPE,expected)
+        self.assertEqual(adapter.checked_manifest(value),value)
+        for change in ('extra','missing','new','businessWrites','timersChanged'):
+            altered=deepcopy(value)
+            if change=='extra':altered['files'].append(manifest('x',{'source/price_writer.py':'/opt/fc27-cloud-browser/price_writer.py'})['files'][0])
+            elif change=='missing':altered['files'].pop()
+            elif change=='new':altered['files'][0]['beforeSha256']=None
+            else:altered[change]=True
+            with self.subTest(change=change),self.assertRaises(ValueError):adapter.checked_manifest(altered)
+        self.assertEqual(len(adapter.QUOTE_FRAGMENT_TARGETS),2)
+        self.assertEqual(len(adapter.REPAIR_TARGETS),4)
+        self.assertEqual(len(adapter.BIDIRECTIONAL_TARGETS),25)
 
     def test_repair_scope_is_exactly_four_existing_targets_and_preserves_old_25(self):
         expected={
@@ -181,6 +204,7 @@ class CollectionRelease(unittest.TestCase):
         self.assertIn('--collection', result.stdout)
         self.assertIn('--repair', result.stdout)
         self.assertIn('--quote-fragment',result.stdout)
+        self.assertIn('--quote-preview',result.stdout)
         result=subprocess.run([sys.executable,'-B',str(DEPLOY/'prepare_manifest.py'),'--repair','--collection'],
                               capture_output=True,text=True,timeout=10)
         self.assertNotEqual(result.returncode,0)
