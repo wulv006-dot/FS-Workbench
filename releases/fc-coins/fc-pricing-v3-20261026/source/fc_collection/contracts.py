@@ -85,8 +85,6 @@ def build_job(parent_run, source_id, context, deadline_at):
             or not regions or len(set(regions)) != len(regions)
             or any(type(value) is not int or value < 0 for value in regions)):
         raise ValueError('scope_invalid')
-    if source_id == 'ArabUT' and 'PC' in platforms:
-        raise ValueError('arabut_pc_not_provided')
     q = context['quantity_scope']
     if not isinstance(q, dict) or set(q) != {'purchase_quantity', 'quantity_unit'}:
         raise ValueError('quantity_scope_invalid')
@@ -113,7 +111,7 @@ def build_job(parent_run, source_id, context, deadline_at):
 
 
 def validate_observation(body, task, now):
-    if (not isinstance(body, dict) or set(body) - {'retry_after_seconds'} != OBSERVATION
+    if (not isinstance(body, dict) or set(body) - {'retry_after_seconds', 'platform_errors'} != OBSERVATION
             or type(body['schema_version']) is not int or body['schema_version'] != 1):
         raise ValueError('observation_schema_invalid')
     if 'retry_after_seconds' in body:
@@ -125,6 +123,13 @@ def validate_observation(body, task, now):
         raise ValueError('observation_binding_invalid')
     if body['status'] not in ('ok', 'partial', 'failed', 'blocked'):
         raise ValueError('observation_status_invalid')
+    if 'platform_errors' in body:
+        errors = body['platform_errors']
+        if (task['source_id'] != 'ArabUT' or not isinstance(errors, dict) or not errors
+                or set(errors) - set(task['requested_platforms'])):
+            raise ValueError('platform_errors_invalid')
+        for reason in errors.values():
+            label(reason)
     if body['reason_code'] is not None:
         label(body['reason_code'])
     integer(body['request_budget_used'], 0, task['total_request_budget'])
@@ -151,7 +156,9 @@ def validate_observation(body, task, now):
         if 'source_metadata' in row:
             meta = row['source_metadata']
             if (task['source_id'] != 'ArabUT' or not isinstance(meta, dict)
-                    or set(meta) != {'original_currency', 'original_amount_minor', 'price_version', 'priced_at'}
+                    or set(meta) not in ({'original_currency', 'original_amount_minor', 'price_version', 'priced_at'},
+                        {'original_currency', 'original_amount_minor', 'price_version', 'priced_at',
+                         'original_platform', 'original_market', 'original_delivery'})
                     or meta['original_currency'] != 'SAR'):
                 raise ValueError('source_metadata_invalid')
             integer(meta['original_amount_minor'], 1, 2**63 - 1)
@@ -160,6 +167,14 @@ def validate_observation(body, task, now):
                     or isinstance(version, str) and 0 < len(version) <= 120):
                 raise ValueError('source_metadata_invalid')
             instant(meta['priced_at'])
+            if 'original_platform' in meta:
+                pc = row['platform'] == 'PC'
+                if (meta['original_platform'] != ('pc' if pc else 'playstation')
+                        or meta['original_market'] != ('pc' if pc else 'console')
+                        or meta['original_delivery'] != (None if pc else 'normal')
+                        or row['delivery_method'] != ('standard' if pc else 'normal')):
+                    raise ValueError('source_metadata_invalid')
+                fresh(meta['priced_at'], now)
         key = row['platform'], row['region_id']
         if (row['platform'] not in task['requested_platforms'] or type(row['region_id']) is not int
                 or row['region_id'] not in task['region_scope'] or key in seen):
@@ -221,15 +236,10 @@ def to_fc_quote_rows(accepted, expected_context, now):
                 selection_verified=True, observation_id=body['observation_id'])
             row.update(settlement_currency=offer['settlement_currency'], conversion_source=offer['conversion_source'])
             if body['source_id'] == 'ArabUT':
-                if offer['delivery_method'] != 'normal':
+                expected_delivery = 'standard' if offer['platform'] == 'PC' else 'normal'
+                if offer['delivery_method'] != expected_delivery:
                     continue
-                row.update(total_usd=offer['amount'], delivery='normal')
-                if 'source_metadata' in offer:
-                    row.update(deepcopy(offer['source_metadata']), delivered_k=str(purchase + bonus),
-                        comparison_currency='USD', quantity_basis='official_quote_quantity_bonus_not_advertised',
-                        platform_mapping='official_playstation_market_console_shared_PS_Xbox',
-                        parser_version='arab-public-quote-v1',
-                        url='https://www.arab-ut.com/coins/quote?platform=playstation&delivery=normal&quantity=100000')
+                row.update(arab_quote_details(offer))
             rows.append(row)
     if times and (max(times) - min(times)).total_seconds() > 300:
         raise ValueError('observation_span_invalid')
@@ -240,21 +250,57 @@ def to_fc_quote_rows(accepted, expected_context, now):
                 offers=rows, missing=missing)
 
 
-def to_arab_status(accepted, task, now):
-    """Production requires both sides of the single official Console quote."""
-    if task['source_id'] != 'ArabUT':
-        raise ValueError('arab_source_invalid')
-    rows = to_fc_quote_rows(accepted, task, now)['offers']
-    if len(rows) != 2 or {row['platform'] for row in rows} != {'PS', 'XBOX'}:
-        raise ValueError('arab_console_quote_incomplete')
+def arab_quote_details(offer):
+    pc = offer['platform'] == 'PC'
+    result = dict(total_usd=offer['amount'], delivery=offer['delivery_method'])
+    if 'source_metadata' in offer:
+        modern = 'original_platform' in offer['source_metadata']
+        query = 'platform=pc&quantity=100000' if pc else 'platform=playstation&delivery=normal&quantity=100000'
+        result.update(deepcopy(offer['source_metadata']),
+            delivered_k=str(quantity(offer['delivered_quantity'], offer['quantity_unit'])),
+            comparison_currency='USD', quantity_basis='official_quote_quantity_bonus_not_advertised',
+            platform_mapping='official_pc_market_independent' if pc else 'official_playstation_market_console_shared_PS_Xbox',
+            parser_version='arab-public-quote-v2' if modern else 'arab-public-quote-v1',
+            url='https://www.arab-ut.com' + ('/en' if modern else '') + '/coins/quote?' + query,
+            reference_scope='global', source_region_id=21)
+    return result
+
+
+def arab_status(rows, requested_platforms, errors=None):
+    """Keep valid platform quotes when the other independent market is missing."""
+    errors = errors or {}
     for row in rows:
+        pc = row['platform'] == 'PC'
         if (not {'original_currency', 'original_amount_minor', 'price_version', 'priced_at'} <= set(row)
                 or row['region_id'] != 21 or decimal(row['bonus_k'], True) != 0
                 or row['settlement_currency'] != 'SAR' or row['conversion_source'] != 'official_display_quote'
                 or row['price_basis'] != 'public_merchandise' or row['auth_state'] != 'public'
-                or row['discount_source'] != 'official_no_coupon'):
+                or row['discount_source'] != 'official_no_coupon'
+                or row['delivery'] != ('standard' if pc else 'normal')
+                or pc and (row.get('original_platform') != 'pc' or row.get('original_market') != 'pc'
+                           or row.get('original_delivery', 'missing') is not None)):
             raise ValueError('arab_source_metadata_required')
-    if {k:v for k,v in rows[0].items() if k != 'platform'} != {k:v for k,v in rows[1].items() if k != 'platform'}:
+    console = [row for row in rows if row['platform'] in ('PS', 'XBOX')]
+    if len(console) == 2 and {k:v for k,v in console[0].items() if k != 'platform'} != {k:v for k,v in console[1].items() if k != 'platform'}:
         raise ValueError('arab_console_quote_inconsistent')
-    return dict(status='available', offers=rows,
-                coverage=dict(PS='normal_verified', XBOX='official_shared_console', PC='normal_not_offered'))
+    present = {row['platform'] for row in rows}
+    missing = [dict(platform=p, region_id=21, reason=errors.get(p, 'same_run_valid_quote_missing'))
+               for p in requested_platforms if p not in present]
+    labels = dict(PS='normal_verified', XBOX='official_shared_console', PC='independent_standard_verified')
+    coverage = {p: labels[p] if p in present else errors.get(p, 'same_run_valid_quote_missing') if p in requested_platforms else 'not_requested'
+                for p in ('PS', 'XBOX', 'PC')}
+    return dict(status='partial' if rows and missing else 'available' if rows else 'unavailable',
+                offers=rows, coverage=coverage, missing=missing)
+
+
+def to_arab_status(accepted, task, now):
+    if task['source_id'] != 'ArabUT':
+        raise ValueError('arab_source_invalid')
+    rows = to_fc_quote_rows(accepted, task, now)['offers']
+    errors = {}
+    for body in accepted:
+        errors.update(body.get('platform_errors', {}))
+        if body.get('reason_code'):
+            for platform in task['requested_platforms']:
+                errors.setdefault(platform, body['reason_code'])
+    return arab_status(rows, task['requested_platforms'], errors)

@@ -50,9 +50,10 @@ def check_routing(expected):
         raise SourceUnavailable('collection_routing_changed')
 
 
-def source_ready(coordinator, routing):
+def source_ready(coordinator, routing, *, consume_only=False):
     with coordinator.transaction() as db:
-        source = coordinator._source_ready(db, 'ArabUT', utc())
+        source = (coordinator._get(db, 'collection_sources', 'ArabUT') if consume_only
+                  else coordinator._source_ready(db, 'ArabUT', utc()))
     if (not source or source['mode'] != 'consume' or source['generation'] != routing['assignment_generation']
             or source['origin'] != 'https://www.arab-ut.com' or source['nodes'][0] != '183'
             or source['adapter_version'] != VERSIONS['ArabUT']):
@@ -67,12 +68,12 @@ def collect_remote(parent, routing):
     if DATABASE.is_symlink() or not DATABASE.is_file():
         raise ValueError('collection_original_ledger_required')
     coordinator = Coordinator(DATABASE)
-    source = source_ready(coordinator, routing)
-    task = build_job(parent, 'ArabUT', dict(requested_platforms=['PS', 'XBOX'], region_scope=[21],
+    source = source_ready(coordinator, routing, consume_only=True)
+    task = build_job(parent, 'ArabUT', dict(requested_platforms=['PS', 'XBOX', 'PC'], region_scope=[21],
         quantity_scope=dict(purchase_quantity='100', quantity_unit='K'), discount_scope='coupon_excluded', currency='USD',
         policy_version=source['policy_version'], adapter_version=source['adapter_version'],
         assignment_generation=source['generation'], total_attempt_limit=2 if '187' in source['nodes'] else 1,
-        total_request_budget=6 if '187' in source['nodes'] else 3), parent['deadline_at'])
+        total_request_budget=8 if '187' in source['nodes'] else 4), parent['deadline_at'])
     with coordinator.transaction() as db:
         key = fingerprint(['ArabUT', parent['run_id']])
         pin = dict(routing, created_at=task['created_at'], task_context_hash=task['task_context_hash'])
@@ -90,6 +91,7 @@ def collect_remote(parent, routing):
     accepted = coordinator.accepted(task['job_id'], utc())
     if not accepted:
         try:
+            source_ready(coordinator, routing)
             remaining = (instant(task['deadline_at']) - utc()).total_seconds()
             if remaining <= 0:
                 raise ValueError('collection_original_pending_or_expired')
@@ -146,7 +148,7 @@ def collect_remote(parent, routing):
         accepted = coordinator.accepted(task['job_id'], utc())
     if read_routing() != routing:
         raise ValueError('collection_routing_changed')
-    source_ready(coordinator, routing)
+    source_ready(coordinator, routing, consume_only=True)
     with coordinator.transaction() as db:
         task = coordinator._get(db, 'collection_jobs', task['job_id'])
     if utc() >= instant(task['deadline_at']):

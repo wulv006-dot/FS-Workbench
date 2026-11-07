@@ -41,7 +41,7 @@ class OptionalCollection(unittest.TestCase):
         self.assertEqual(collected[2]['reason'],'itemd2r_price_invalid:PC')
         page.close.assert_called_once()
         payload=dict(source='ItemD2R',status='partial',offers=collected)
-        collect=function('collect_reference_market','fc27_cloud_worker.py',dict(re=re,datetime=datetime,timezone=timezone))
+        collect=function('collect_reference_market','fc_pricing_v3/observations.py',dict(re=re,datetime=datetime,timezone=timezone))
         with patch.object(reader.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=json.dumps(payload))):
             raw=collect('same-run')
         ref=function('reference_context','server_quote_job.py',dict(PLATFORMS=engine.PLATFORMS,re=re))
@@ -104,7 +104,7 @@ class OptionalCollection(unittest.TestCase):
 
     def test_worker_preserves_safe_source_failure_without_inventing_403(self):
         scope=dict(re=re,datetime=datetime,timezone=timezone)
-        collect=function('collect_reference_market','fc27_cloud_worker.py',scope)
+        collect=function('collect_reference_market','fc_pricing_v3/observations.py',scope)
         for error,expected in [(ValueError('itemd2r_cloudflare_403'),'itemd2r_cloudflare_403'),(ValueError('itemd2r_http_403'),'itemd2r_http_403'),(TimeoutError(),'TimeoutError')]:
             with self.subTest(expected=expected),patch.dict(sys.modules,{'itemd2r_reader':SimpleNamespace(public_read=Mock(side_effect=error))}):
                 result=collect('same-run')

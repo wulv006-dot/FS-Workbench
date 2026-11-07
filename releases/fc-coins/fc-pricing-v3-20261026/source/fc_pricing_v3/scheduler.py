@@ -16,7 +16,7 @@ from .financial import fingerprint, instant
 from .ledger import clock
 from .runtime import ledger, ROOT, STORE, execute_run, reconcile, complete_player_followup
 
-PRIORITY={'deadline':0,'exit':1,'reconcile':2,'start':3,'postwrite_refresh':3,'uk_retirement':3,'cycle':4,'observe':5,'daily':5,'history':5}
+PRIORITY={'deadline':0,'exit':1,'reconcile':2,'start':3,'postwrite_refresh':3,'uk_retirement':3,'cycle':4,'outcomes':5,'observe':5,'daily':5,'history':5}
 BACKOFF=(5,15,30,60)
 SHADOW_EXPORT=STORE/'shadow-readonly.sqlite3'
 
@@ -50,14 +50,21 @@ def next_cycle_at(db,plan,policy=None):
         from automation_policy import load_policy
         policy=load_policy()
     if policy.get('updated_at'):anchors.append(instant(policy['updated_at']))
-    return max(anchors)+cycle_interval(policy)
+    interval=cycle_interval(policy)
+    from .smart import STRATEGY_VERSION, strategy_start
+    if plan.get('smart_strategy_version')==STRATEGY_VERSION:
+        start=strategy_start(plan)
+        last=max(anchors+[start])
+        return start+(max(0,(last-start)//interval)+1)*interval
+    return max(anchors)+interval
 
 
 def finish_cycle(db,conn,body,result,at):
     if result.get('status')=='superseded':return
     plan=db.get('pricing_plans',body.get('plan_id'),conn) if body.get('plan_id') else None
     if plan:
-        plan['last_cycle_at']=at
+        from .smart import STRATEGY_VERSION
+        plan['last_cycle_at']=body['scheduled_at'] if body.get('scheduled_at') and plan.get('smart_strategy_version')==STRATEGY_VERSION else at
         db.put('pricing_plans',plan['plan_id'],plan,conn)
 
 
@@ -140,6 +147,8 @@ def cycle(body=None):
     if pending:
         return dict(status='original_operation_reconciliation_pending')
     policy=load_policy()
+    if body.get('scheduled_at') and clock()>=instant(body['scheduled_at'])+cycle_interval(policy):
+        return dict(status='expired_cycle',scheduled_at=body['scheduled_at'])
     if not policy['system_enabled'] or not body.get('manual_requested') and policy['mode']!='auto':
         return dict(status='operator_paused')
     from .business_source import history_ES_blocker
@@ -157,6 +166,11 @@ def cycle(body=None):
     try:
         collected=worker.collect_quote(job)
         quote=json.loads((ROOT/'quotes'/(collected['run_id']+'.json')).read_text())
+        if body.get('scheduled_at') and clock()>=instant(body['scheduled_at'])+cycle_interval(policy):
+            result=dict(status='expired_cycle',scheduled_at=body['scheduled_at'])
+            job.update(status='ready',result=result,completed_at=clock().isoformat())
+            worker.save_job(job)
+            return result
         if body.get('manual_preview_id'):
             manual=db.get('manual_previews',body['manual_preview_id'])
             if not manual or manual['actor']!=body.get('actor') or manual['plan_id']!=requested['plan_id'] or manual['revision']!=requested['revision']:
@@ -298,6 +312,9 @@ def run_job(job):
         elif kind=='daily':
             from .daily import run as daily_run
             result=daily_run(body)
+        elif kind=='outcomes':
+            from .daily import run_hourly
+            result=run_hourly(body)
         elif kind=='observe':
             from .observations import observe
             result=observe(body['snapshot_id'])
@@ -351,13 +368,28 @@ def tick(executors, running):
     plans=db.active_plans()
     for plan in plans:
       if plan and plan['state']=='ACTIVE':
+        from .smart import STRATEGY_VERSION,policy_suffix
+        if plan.get('smart_strategy_version')==STRATEGY_VERSION:
+            with db.connect() as conn:
+                pending_outcomes=any(json.loads(row[0]).get('plan_id')==plan['plan_id'] and json.loads(row[0]).get('revision')==plan['revision'] for row in
+                    conn.execute("SELECT body FROM durable_jobs WHERE kind='outcomes' AND state IN ('queued','running')"))
+            if not pending_outcomes:
+                key='outcomes:'+policy_suffix(plan)+':'+str(int(now.timestamp())//3600)
+                db.enqueue('outcomes',key,now,dict(plan_id=plan['plan_id'],revision=plan['revision']))
         due_at=next_cycle_at(db,plan)
         with db.connect() as conn:
             pending=any(cycle_matches_plan(db,plan,json.loads(row['body']),row['id'],conn) for row in
                         conn.execute('SELECT id,body FROM durable_jobs WHERE kind=\'cycle\' AND state IN (\'queued\',\'running\')'))
         if not pending and now>=due_at:
+            from .smart import STRATEGY_VERSION, strategy_start
+            scheduled={}
+            if plan.get('smart_strategy_version')==STRATEGY_VERSION:
+                interval=cycle_interval()
+                start=strategy_start(plan)
+                due_at=start+((now-start)//interval)*interval
+                scheduled['scheduled_at']=due_at.isoformat()
             key='cycle:'+plan['plan_id']+':'+str(int(due_at.timestamp()))+':r'+str(plan.get('resume_count',0))
-            db.enqueue('cycle',key,now,dict(plan_id=plan['plan_id'],revision=plan['revision']))
+            db.enqueue('cycle',key,now,dict(plan_id=plan['plan_id'],revision=plan['revision'],**scheduled))
     for op in db.all('operations'):
         if op['status'] in ('DISPATCHED','UNKNOWN','PARTIALLY_APPLIED','BACKEND_CONFIRMED','CACHE_CONFIRMED','PUBLIC_PENDING','KNOWN_PARTIAL_PUBLIC_PENDING'):
             with db.connect() as conn:
@@ -382,7 +414,7 @@ def tick(executors, running):
         due=[dict(row) for row in conn.execute('SELECT * FROM durable_jobs WHERE state=\'queued\' AND due_at<=?',(now.isoformat(),))]
 
     for job in sorted(due,key=lambda j:(PRIORITY[j['kind']],j['due_at'])):
-        lane='observation' if job['kind'] in ('observe','daily','history') else 'collection' if job['kind'] in ('cycle','postwrite_refresh','uk_retirement') else 'control'
+        lane='outcomes' if job['kind']=='outcomes' else 'observation' if job['kind'] in ('observe','daily','history') else 'collection' if job['kind'] in ('cycle','postwrite_refresh','uk_retirement') else 'control'
         if lane in running:
             continue
         with db.transaction() as conn:
@@ -403,7 +435,7 @@ def main():
     keeper=db.connect()
     stop=[]
     signal.signal(signal.SIGTERM,lambda *_:stop.append(True))
-    executors={lane:ThreadPoolExecutor(max_workers=1) for lane in ('collection','control','observation')}
+    executors={lane:ThreadPoolExecutor(max_workers=1) for lane in ('collection','control','observation','outcomes')}
     running={}
     try:
         # SQLite opens WAL lazily; keep its sidecars alive for read-only writer mounts.

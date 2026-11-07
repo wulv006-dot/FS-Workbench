@@ -1,13 +1,26 @@
 """Stable randomized three-hour policy blocks, independent of hourly prices."""
 from datetime import timedelta
 from copy import deepcopy
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal, ROUND_DOWN, ROUND_UP
 import random
 
 from .financial import fingerprint, instant
 
+STRATEGY_VERSION = 'smart-bidirectional-v2'
+
+
+def strategy_start(plan):
+    return instant(plan['smart_started_at'] if plan.get('smart_strategy_version') == STRATEGY_VERSION else plan['starts_at'])
+
+
+def policy_suffix(plan):
+    suffix = plan['plan_id'] + ':' + str(plan['revision'])
+    return suffix + ':' + STRATEGY_VERSION if plan.get('smart_strategy_version') == STRATEGY_VERSION else suffix
+
 
 def observed_blocks(plan, operations, outcomes, windows, now, *, epoch, group=None):
+    if plan.get('smart_strategy_version')==STRATEGY_VERSION and group not in ('console','pc'):
+        raise ValueError('pricing_smart_platform_required')
     group_filter = group
     windows_by_id = {w['operation_id']: w for w in windows}
     confirmed = sorted((o for o in operations if o.get('status') in ('COMPLETED', 'NO_CHANGE') and o.get('completed_at')),
@@ -16,7 +29,9 @@ def observed_blocks(plan, operations, outcomes, windows, now, *, epoch, group=No
     for index, op in enumerate(confirmed):
         info = (op.get('bundle') or {}).get('smart_assignment') or {}
         effective = (info.get('group_keys') or {}).get(group_filter) if group_filter else info.get('effective_key')
-        if op.get('plan_id') != plan['plan_id'] or info.get('epoch') != epoch or not effective:
+        if (op.get('plan_id') != plan['plan_id'] or epoch is not None and info.get('epoch') != epoch or not effective or
+                plan.get('smart_strategy_version') == STRATEGY_VERSION and
+                (info.get('strategy_version') != STRATEGY_VERSION or info.get('revision') != plan['revision'])):
             continue
         begin = max(instant(op['completed_at']), instant(info['starts_at']))
         end = min(now, instant(info['ends_at']))
@@ -27,12 +42,16 @@ def observed_blocks(plan, operations, outcomes, windows, now, *, epoch, group=No
         if end <= begin or instant(info['ends_at']) > now:
             continue
         slot = info['slot']
-        block = blocks.setdefault(slot, dict(slot=slot, label=info['label'], hours=Decimal(0), orders=0,
+        label = (info.get('group_labels') or {}).get(group_filter, info['label'])
+        block = blocks.setdefault((info['epoch'], slot), dict(slot=slot, epoch=info['epoch'], block=info.get('block',slot),
+                    starts_at=info['starts_at'], label=label, hours=Decimal(0), orders=0,
                     net=Decimal(0), gross=Decimal(0), uncovered=Decimal(0), new_keys=set(),
                     complete=True, customer_complete=True, prices=set(), intervals=[], events=[], no_space=True, has_no_space=False))
+        if info.get('strategy_version') == STRATEGY_VERSION:
+            block['pair_id'] = info['group_pair_ids'][group_filter]
         if group_filter:
             block['no_space'] = block['no_space'] and (info.get('no_space_by_group') or {}).get(group_filter) is True
-            if info['label'] != 'A':
+            if label != 'A':
                 block['has_no_space'] = block['has_no_space'] or (info.get('merged_with_A_by_group') or {}).get(group_filter) is not False
         block_start=instant(info['starts_at'])
         block['intervals'].append([(begin-block_start).total_seconds(), (end-block_start).total_seconds()])
@@ -82,24 +101,38 @@ def observed_blocks(plan, operations, outcomes, windows, now, *, epoch, group=No
     return result
 
 
+def paired_exposure(first, second):
+    for a in first:
+        for b in second:
+            overlaps=[(max(x[0],y[0]),min(x[1],y[1])) for x in a.get('intervals',[]) for y in b.get('intervals',[])
+                      if min(x[1],y[1])>max(x[0],y[0])]
+            hours=sum(Decimal(str(end-start)) for start,end in overlaps)/3600
+            if hours>=2:
+                return a,b,overlaps,hours
+    return None
+
+
 def assess(blocks, *, complete):
     if not complete:
         return dict(status='WAITING_MORE_DATA', winner=None, excluded=[], causal_effect_estimated=False)
-    by_slot = {b['slot']: b for b in blocks if b.get('complete') and Decimal(str(b.get('hours', 0))) > 0}
+    # Freeze each pair's first sufficiently exposed attempt independently of sales and cost results.
+    by_pair = {}
+    for b in sorted(blocks, key=lambda b: (b.get('epoch',0),b.get('block',b['slot']))):
+        if Decimal(str(b.get('hours', 0))) < 2:
+            continue
+        pair_id = b.get('pair_id', str(b.get('epoch',0))+':'+str(b['slot'] % 8))
+        by_pair.setdefault(pair_id, {}).setdefault(b['label'], []).append(b)
     scores, excluded = {}, []
     for label in ('B', 'C'):
         pairs = []
-        for slot in range(8):
-            pair = (by_slot.get(slot), by_slot.get(slot + 8))
-            if not all(pair) or {pair[0]['label'], pair[1]['label']} != {'A', label}:
+        for pair_rows in by_pair.values():
+            exposure = paired_exposure(pair_rows.get('A',[]),pair_rows.get(label,[]))
+            if exposure is None:
                 continue
-            a, b = pair if pair[0]['label'] == 'A' else pair[::-1]
+            a,b,overlaps,hours=exposure
+            if not a.get('complete') or not b.get('complete'):
+                continue
             if b.get('has_no_space') or set(a['prices']) & set(b['prices']):
-                continue
-            overlaps = [(max(x[0], y[0]), min(x[1], y[1])) for x in a.get('intervals', []) for y in b.get('intervals', [])
-                        if min(x[1], y[1]) > max(x[0], y[0])]
-            hours = sum(Decimal(str(end - start)) for start,end in overlaps) / Decimal(3600)
-            if hours < 2:
                 continue
             clipped = []
             for block in (a, b):
@@ -157,7 +190,7 @@ def assess(blocks, *, complete):
 
 def scope_gaps(plan, rows, group, epoch, coverage):
     for row in rows:
-        block_start=instant(plan['starts_at'])+timedelta(hours=3*(epoch*16+row['slot']))
+        block_start=instant(row['starts_at']) if row.get('starts_at') else strategy_start(plan)+timedelta(hours=3*(epoch*16+row['slot']))
         for gap in coverage['gap_events']:
             gap_group=gap.get('group')
             gap_base=gap_group if gap_group in ('console','pc') else 'pc' if gap_group and gap_group.endswith(':PC') else 'console' if gap_group else None
@@ -170,6 +203,8 @@ def scope_gaps(plan, rows, group, epoch, coverage):
 
 
 def early_correction(db, plan, now, block):
+    if plan.get('smart_strategy_version') == STRATEGY_VERSION:
+        return bidirectional_correction(db, plan, now, block)
     suffix=plan['plan_id']+':'+str(plan['revision'])
     key='smart-correction:'+suffix
     correction=db.get('metadata',key) or dict(effective_blocks={})
@@ -201,6 +236,8 @@ def early_correction(db, plan, now, block):
 
 
 def epoch_policy(db, plan, now, epoch):
+    if plan.get('smart_strategy_version') == STRATEGY_VERSION:
+        return bidirectional_policy(db, plan, now, epoch)
     suffix = plan['plan_id'] + ':' + str(plan['revision'])
     key = 'smart-policy:' + suffix + ':' + str(epoch)
     pending_key = 'smart-pending:' + suffix
@@ -267,6 +304,25 @@ def effective_key(evidence, action, only_group=None):
 
 
 def candidate_or_baseline(evidence, plan, current, baseline, label, now):
+    if plan.get('smart_strategy_version') == STRATEGY_VERSION:
+        requested = label if isinstance(label, dict) else {g:label for g in ('console','pc')}
+        chosen, reasons = dict(requested), {}
+        for group in ('console','pc'):
+            group_labels={g:requested.get(g,'A') if g==group else 'A' for g in ('console','pc')}
+            try:
+                build_candidate(evidence,plan,current,baseline,group_labels,now)
+            except ValueError as error:
+                if requested.get(group,'A')=='A' or str(error) not in {'NO_SAFE_COMMIT_PATH', 'pricing_hard_margin_floor',
+                        'pricing_average_catalog_margin_floor', 'pricing_catalog_hard_margin_floor',
+                        'INFEASIBLE_REGION_FINANCIAL_AND_BASE_PRICE', 'INFEASIBLE_REGION_COEFFICIENT_AND_COMPETITIVE_BAND'}:
+                    raise
+                chosen[group]='A'
+                reasons[group]=str(error)
+        result=build_candidate(evidence,plan,current,baseline,chosen,now)
+        result['smart_reasons_by_group']=reasons
+        if reasons:
+            result['smart_reason']='PLATFORM_LEGAL_BASELINE_FALLBACK'
+        return result
     try:
         return build_candidate(evidence, plan, current, baseline, label, now)
     except ValueError as error:
@@ -284,14 +340,20 @@ def build_candidate(evidence, plan, current, baseline, label, now):
     from . import engine
     action = deepcopy(baseline['action'])
     markets = baseline['market_comparison']
+    labels = label if isinstance(label,dict) else {g:label for g in engine.GROUPS}
     for group, platforms in engine.GROUPS.items():
         if 'base:' + group not in plan['resources']:
             continue
         market = markets.get(group, {})
         tiers = {p: engine.package_100k(evidence['promotion_envelope']['packages'][p]) for p in platforms}
         anchors = {p: (market.get('anchors', {}).get(p) or {}).get('unit_100k') for p in platforms}
-        action['base_prices'][group] = candidates(action['base_prices'][group], tiers, anchors)[label]
-    no_uplift = label != 'A' and all(Decimal(action['base_prices'][g]) == Decimal(baseline['action']['base_prices'][g]) for g in engine.GROUPS)
+        action['base_prices'][group] = candidates(action['base_prices'][group], tiers, anchors,
+                    version=plan.get('smart_strategy_version','smart-v1'))[labels.get(group,'A')]
+        if plan.get('smart_strategy_version')==STRATEGY_VERSION and labels.get(group)=='B':
+            floor=max(engine.required_base_bound(evidence,p,now,plan) for p in platforms)
+            action['base_prices'][group]=str(min(Decimal(baseline['action']['base_prices'][group]),max(floor,Decimal(action['base_prices'][group]))))
+    unchanged = all(Decimal(action['base_prices'][g]) == Decimal(baseline['action']['base_prices'][g]) for g in engine.GROUPS)
+    no_uplift = any(v!='A' for v in labels.values()) and unchanged
     regional = {}
     for control in evidence.get('regional_controls', []):
         p = control['platforms'][0]
@@ -339,16 +401,16 @@ def build_candidate(evidence, plan, current, baseline, label, now):
                 positions[scope][platform] = dict(competition_available=False, competitive_band_met=False, reason='BOTH_COMPETITOR_QUOTES_MISSING')
     result.update(action=action, action_sha256=fingerprint(action), financial_proof=proof, steps=steps,
                   regional_market_comparison=regional, market_position=positions,
-                  decision_type=baseline.get('decision_type') if label=='A' or no_uplift else 'smart',
-                  decision_reason=baseline.get('decision_reason') if label=='A' or no_uplift else 'SMART_' + label, smart_baseline_action=baseline['action'],
+                  decision_type=baseline.get('decision_type') if unchanged else 'smart',
+                  decision_reason=baseline.get('decision_reason') if unchanged else 'SMART_' + (label if isinstance(label,str) else '_'.join(g+'_'+v for g,v in sorted(labels.items()))), smart_baseline_action=baseline['action'],
                   score=engine.score('revenue_sprint', action, evidence, proof, plan.get('price_anchor') or current,
                                      parameters=plan.get('parameters')))
     if no_uplift:
-        result['smart_reason'] = 'NO_UPLIFT_SPACE'
+        result['smart_reason'] = 'NO_PRICE_DIFFERENCE' if plan.get('smart_strategy_version')==STRATEGY_VERSION else 'NO_UPLIFT_SPACE'
     return result
 
 
-def candidates(p0, tiers, anchors):
+def candidates(p0, tiers, anchors, *, version='smart-v1'):
     from .engine import render
     if not tiers:
         raise ValueError('pricing_smart_platforms_missing')
@@ -358,8 +420,12 @@ def candidates(p0, tiers, anchors):
                    Decimal(render(value / 100, tier)['delivered_unit_100k']) <= Decimal(anchors[p]) * Decimal('1.03')
                    for p, tier in tiers.items())
     result = {'A': str(base)}
-    for label, factor in (('B', Decimal('1.03')), ('C', Decimal('1.06'))):
-        desired = (base * factor).quantize(Decimal('.01'), rounding=ROUND_DOWN)
+    factors = (('B', Decimal('.97')), ('C', Decimal('1.03'))) if version == STRATEGY_VERSION else (('B', Decimal('1.03')), ('C', Decimal('1.06')))
+    for label, factor in factors:
+        desired = (base * factor).quantize(Decimal('.01'), rounding=ROUND_UP if factor<1 else ROUND_DOWN)
+        if factor < 1:
+            result[label] = str(desired)
+            continue
         if not within(base):
             result[label] = str(base)
             continue
@@ -375,6 +441,8 @@ def candidates(p0, tiers, anchors):
 
 
 def assignment(plan, now, *, policy=None, correction=None):
+    if plan.get('smart_strategy_version') == STRATEGY_VERSION:
+        return bidirectional_assignment(plan, now, policy=policy, correction=correction)
     start = instant(plan['starts_at'])
     block = int((now - start).total_seconds() // (3 * 3600))
     if block < 0:
@@ -408,3 +476,149 @@ def assignment(plan, now, *, policy=None, correction=None):
                 schedule=schedule,
                 starts_at=(start + timedelta(hours=3 * block)).isoformat(),
                 ends_at=(start + timedelta(hours=3 * (block + 1))).isoformat())
+
+
+def bidirectional_assignment(plan, now, *, policy=None, correction=None):
+    policy, correction = policy or {}, correction or {}
+    groups = {}
+    for group in ('console', 'pc'):
+        legacy = dict(plan, starts_at=strategy_start(plan).isoformat(), smart_strategy_version='smart-v1',
+                      plan_id=plan['plan_id']+':'+STRATEGY_VERSION+':'+group)
+        info = assignment(legacy, now, policy=(policy.get('group_results') or {}).get(group),
+                          correction=(correction.get('groups') or {}).get(group))
+        repairs = (policy.get('repairs_by_group') or {}).get(group, {})
+        schedule = list(info['schedule'])
+        for slot, repair in repairs.items():
+            schedule[int(slot)] = repair['label']
+        repair = repairs.get(str(info['slot']))
+        if repair:
+            label = repair['label']
+            stops = ((correction.get('groups') or {}).get(group) or {}).get('effective_blocks', {})
+            if label in stops and info['block'] >= stops[label]:
+                label = 'A'
+            info.update(label=label, original_label=repair['label'], randomization_verified=False,
+                        marginal_probabilities={name:'1' if name==label else '0' for name in 'ABC'})
+        info['schedule'] = schedule
+        info['pair_id'] = repair['pair_id'] if repair else str(info['epoch'])+':'+str(info['slot']%8)
+        groups[group] = info
+    result = dict(groups['console'])
+    labels = {g:info['label'] for g,info in groups.items()}
+    result.update(strategy_version=STRATEGY_VERSION, revision=plan['revision'], group_labels=labels,
+                  label=next(iter(set(labels.values()))) if len(set(labels.values()))==1 else 'MIXED',
+                  group_pair_ids={g:info['pair_id'] for g,info in groups.items()},
+                  group_schedules={g:info['schedule'] for g,info in groups.items()},
+                  group_probabilities={g:info['marginal_probabilities'] for g,info in groups.items()},
+                  randomization_verified=all(info['randomization_verified'] for info in groups.values()))
+    return result
+
+
+def missing_repeats(db, plan, epoch, rows_by_group, *, excluded_by_group=None):
+    """Reserve same-clock retries by execution coverage only, before viewing financial results."""
+    repairs = {g:{} for g in ('console','pc')}
+    for group, rows in rows_by_group.items():
+        expected, seen = {}, {}
+        for old_epoch in range(epoch):
+            old = db.get('metadata','smart-policy:'+policy_suffix(plan)+':'+str(old_epoch))
+            if old is None:
+                continue
+            for slot in range(16):
+                info = assignment(plan,strategy_start(plan)+timedelta(hours=48*old_epoch+3*slot),policy=old)
+                pair_id = info['group_pair_ids'][group]
+                expected.setdefault(pair_id,dict(clock_slot=slot%8,labels=set()))['labels'].add(info['group_labels'][group])
+        for row in sorted(rows,key=lambda r:(r['epoch'],r['slot'])):
+            if Decimal(row['hours']) >= 2:
+                seen.setdefault(row['pair_id'],{}).setdefault(row['label'],[]).append(row)
+        for pair_id, pair in expected.items():
+            labels = pair['labels']
+            if 'A' not in labels or len(labels)!=2 or labels & set((excluded_by_group or {}).get(group,[])):
+                continue
+            observed = seen.get(pair_id,{})
+            # Same-price execution is disclosed as unavailable exploration, never a price experiment.
+            if any(row.get('has_no_space') for attempts in observed.values() for row in attempts):
+                continue
+            missing = [label for label in sorted(labels) if label not in observed]
+            if not missing:
+                a,b = [observed[label] for label in sorted(labels)]
+                if paired_exposure(a,b) is None:
+                    missing=list(sorted(labels))
+            for label in missing:
+                slot = next((s for s in (pair['clock_slot'],pair['clock_slot']+8) if str(s) not in repairs[group]),None)
+                if slot is not None:
+                    repairs[group][str(slot)]=dict(label=label,pair_id=pair_id)
+    return repairs
+
+
+def bidirectional_policy(db, plan, now, epoch):
+    suffix = policy_suffix(plan)
+    key, pending_key = 'smart-policy:'+suffix+':'+str(epoch), 'smart-pending:'+suffix
+    existing = db.get('metadata',key)
+    previous = db.get('metadata','smart-policy:'+suffix+':'+str(epoch-1)) or {}
+    pending = db.get('metadata',pending_key) or {}
+    online = db.get('metadata','daily_online_context') or {}
+    coverage = online.get('learning_coverage') or {}
+    observed = coverage.get('observed_at')
+    checkpoint = strategy_start(plan)+timedelta(hours=48*epoch)
+    operations,windows = db.all('operations'),db.all('actual_price_windows')
+    cutoff=min(now,instant(observed)) if observed else now
+    groups={g:observed_blocks(plan,operations,online.get('actual_outcomes',[]),windows,cutoff,epoch=None,group=g)
+            for g in ('console','pc')}
+    complete=(epoch>0 and coverage.get('query_complete') is True and 'gap_events' in coverage and
+              coverage.get('unscoped_time_gaps') is False and observed and instant(observed)>=checkpoint)
+    if complete:
+        results={}
+        for group,rows in groups.items():
+            scope_gaps(plan,rows,group,None,coverage)
+            result=assess(rows,complete=True)
+            prior=(pending.get('group_results') or previous.get('group_results') or {}).get(group,{})
+            result['excluded']=sorted(set(result['excluded']) | set(prior.get('excluded',[])))
+            if result['winner'] in result['excluded']:
+                result.update(winner=None,status='WAITING_MORE_DATA')
+            results[group]=result
+        pending=dict(group_results=results,assessed_epoch=epoch-1,observed_at=observed,
+                     strategy_version=STRATEGY_VERSION,causal_effect_estimated=False)
+        db.put('metadata',pending_key,pending)
+    if existing:
+        return existing
+    policy=dict(pending or previous)
+    policy.update(strategy_version=STRATEGY_VERSION,causal_effect_estimated=False)
+    correction=db.get('metadata','smart-correction:'+suffix) or {}
+    policy['group_results']=deepcopy(policy.get('group_results') or {})
+    for group in ('console','pc'):
+        result=policy['group_results'].setdefault(group,dict(winner=None,excluded=[],status='WAITING_MORE_DATA'))
+        stops=((correction.get('groups') or {}).get(group) or {}).get('effective_blocks',{})
+        result['excluded']=sorted(set(result['excluded']) | {label for label,block in stops.items() if block<=epoch*16})
+        if result['winner'] in result['excluded']:
+            result.update(winner=None,status='WAITING_MORE_DATA')
+    # Repair eligibility uses wall-clock exposure, including when the sales feed is late.
+    execution={g:observed_blocks(plan,operations,[],windows,now,epoch=None,group=g) for g in ('console','pc')}
+    policy['repairs_by_group']=missing_repeats(db,plan,epoch,execution,
+                    excluded_by_group={g:r['excluded'] for g,r in policy['group_results'].items()})
+    db.put('metadata',key,policy)
+    return policy
+
+
+def bidirectional_correction(db, plan, now, block):
+    key='smart-correction:'+policy_suffix(plan)
+    correction=deepcopy(db.get('metadata',key) or dict(groups={}))
+    online=db.get('metadata','daily_online_context') or {}
+    coverage=online.get('learning_coverage') or {}
+    observed=coverage.get('observed_at')
+    if not (coverage.get('query_complete') is True and 'gap_events' in coverage and
+            coverage.get('unscoped_time_gaps') is False and observed):
+        return correction
+    operations,windows=db.all('operations'),db.all('actual_price_windows')
+    changed=False
+    for group in ('console','pc'):
+        rows=observed_blocks(plan,operations,online.get('actual_outcomes',[]),windows,min(now,instant(observed)),epoch=None,group=group)
+        scope_gaps(plan,rows,group,None,coverage)
+        stops=correction['groups'].setdefault(group,dict(effective_blocks={}))['effective_blocks']
+        for label in assess(rows,complete=True)['excluded']:
+            if label not in stops:
+                stops[label]=block+1
+                changed=True
+    if changed:
+        correction.update(detected_at=now.isoformat(),source_observed_at=observed)
+        with db.transaction() as conn:
+            db.put('metadata',key+':event:'+str(block),dict(correction,detected_block=block),conn)
+            db.put('metadata',key,correction,conn)
+    return correction

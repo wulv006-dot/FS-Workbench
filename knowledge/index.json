@@ -300,7 +300,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "95a91bd0af4618654b6be0b439617703ec711557e8f8903da0e6425010fcf6f9",
+        "sha256": "fe12d35acc198b7c3e39cb622be83ea98cc45abcfb0e701416e1455e84408ccd",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -351,6 +351,12 @@
           "kind": "direct_user_same_price_attribution_review_fix",
           "date": "2026-11-07",
           "scope": "Confirmed continuation time and resource attribution only; financial rules and writer unchanged"
+        },
+        {
+          "kind": "direct_user_bidirectional_global_pricing",
+          "date": "2026-11-07",
+          "decision": "docs/planning/fc-smart-bidirectional-20261107/CONTRACT.md",
+          "scope": "Versioned smart strategy, core source priority and global regions; financial dual20 unchanged"
         }
       ],
       "consumers": [
@@ -938,7 +944,7 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "20261107-time-attribution",
+      "revision": "20261107-bidirectional-v2",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -951,7 +957,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "95a91bd0af4618654b6be0b439617703ec711557e8f8903da0e6425010fcf6f9",
+        "sha256": "fe12d35acc198b7c3e39cb622be83ea98cc45abcfb0e701416e1455e84408ccd",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -962,7 +968,8 @@
         "fc.pricing.v3@fc-v3-smart-native-boundaries-20261105",
         "fc.pricing.v3@20261106-current",
         "fc.pricing.v3@20261106-clean",
-        "fc.pricing.v3@20261107-profit-summary"
+        "fc.pricing.v3@20261107-profit-summary",
+        "fc.pricing.v3@20261107-time-attribution"
       ],
       "provenance": [
         {
@@ -1014,6 +1021,12 @@
           "kind": "direct_user_same_price_attribution_review_fix",
           "date": "2026-11-07",
           "scope": "Confirmed continuation time and resource attribution only; financial rules and writer unchanged"
+        },
+        {
+          "kind": "direct_user_bidirectional_global_pricing",
+          "date": "2026-11-07",
+          "decision": "docs/planning/fc-smart-bidirectional-20261107/CONTRACT.md",
+          "scope": "Versioned smart strategy, core source priority and global regions; financial dual20 unchanged"
         }
       ],
       "consumers": [

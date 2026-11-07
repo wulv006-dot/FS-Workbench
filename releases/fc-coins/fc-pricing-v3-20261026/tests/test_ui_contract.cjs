@@ -311,5 +311,33 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(sessionStorage.getItem('fc-v3-price-control-pending'),null);
   assert.match(elements['v3-effective-control'].textContent,/临时上浮 10%/);
   assert.match(elements['v3-price-control-result'].textContent,/保存没有立即写价/);
+  plan.mode='smart';plan.smart_strategy_version='smart-bidirectional-v2';
+  market.snapshot_id=state.snapshot_id;
+  plan.parameters={competitor_policy:'lootbar_primary_arabut_secondary_v1',region_pricing:'global'};
+  state.strategies.smart={status:'READY',smart_assignment:{strategy_version:'smart-bidirectional-v2',label:'MIXED',block:0,
+    group_labels:{console:'B',pc:'C'},group_pair_ids:{console:'0:1',pc:'0:2'},no_space_by_group:{console:true,pc:false},
+    merged_with_A_by_group:{console:true,pc:false},policy:{group_results:{console:{winner:'B'},pc:{winner:'C'}}}},
+    selected:{action:{base_prices:{console:'8.51',pc:'8.59'}},score:{absolute_forecast_available:false}}};
+  market.arab=[{platform:'PC',region_id:21,source_region_id:21,reference_scope:'global',delivery:'standard',
+    total_usd:'9.47',purchase_k:'100',bonus_k:'0',captured_at:new Date().toISOString(),selection_verified:true}];
+  elements['v3-mode'].value='smart';elements['v3-mode'].events.change();await elements['v3-refresh'].events.click();
+  const smartText=JSON.stringify(elements['v3-strategies'].children);
+  assert.match(smartText,/Console.*B.*PC.*C/);
+  assert.match(smartText,/Console.*候选.*合并/);
+  assert.match(smartText,/Console.*B.*领先.*PC.*C.*领先/);
+  assert.match(elements['v3-mode-purpose'].textContent,/降3%.*涨3%/);
+  assert.doesNotMatch(elements['v3-mode-purpose'].textContent,/上调6%/);
+  assert.match(elements['v3-proof-notes'].textContent,/Lootbar.*主.*Arab.*次.*ItemD2R.*辅助/);
+  assert.match(elements['v3-proof-notes'].textContent,/全球.*系数1/);
+  assert.match(JSON.stringify(elements['v3-market-cards'].children[2]),/PC.*独立.*标准/);
+  assert.match(JSON.stringify(elements['v3-market-cards'].children[2]),/\$9\.47/);
+  plan.mode='daily';state.strategies.daily.selected.daily_pricing={pc:{driver_source:'ArabUT',driver_platform:'PC',
+    target_public_usd:'9.94',selected_base_total:'9.94',item_target_met:true,platforms:{}}};
+  elements['v3-mode'].value='daily';await elements['v3-refresh'].events.click();
+  assert.match(JSON.stringify(elements['v3-strategies'].children),/PC按ArabUT PC当轮实际交付价定价/);
+  assert.doesNotMatch(JSON.stringify(elements['v3-strategies'].children),/ItemD2R/);
+  plan.mode='smart';delete plan.smart_strategy_version;delete plan.parameters;
+  elements['v3-mode'].value='smart';elements['v3-mode'].events.change();
+  assert.match(elements['v3-mode-purpose'].textContent,/上调3%.*上调6%/,'legacy plans retain their actual policy');
   console.log('UI contract and state smoke passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

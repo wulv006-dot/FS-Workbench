@@ -52,7 +52,7 @@ class NodePackage(unittest.TestCase):
             digest = hashlib.sha256((code / 'manifest.json').read_bytes()).hexdigest()
             with Session([sys.executable, '-I', '-B', str(code / 'entry.py'), 'stdio'], max_seconds=10) as session:
                 result = session.health('187', digest)
-                self.assertEqual(result['adapters'], {'ArabUT': 'arab-public-quote-collection-v2'})
+                self.assertEqual(result['adapters'], {'ArabUT': 'arab-public-quote-collection-v3'})
                 session.send(dict(method='shell', command='must-not-execute'))
                 message = session.read()
                 self.assertEqual(message['kind'], 'error')

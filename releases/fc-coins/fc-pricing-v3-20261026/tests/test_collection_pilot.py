@@ -26,7 +26,7 @@ class ReadOnlyPilot(unittest.TestCase):
                 priceVersion=False, pricedAt=NOW.isoformat())
             def fetch(*args):
                 calls.append(args)
-                return json.dumps(value).encode()
+                return json.dumps(dict(value, pricedAt=current[0].isoformat())).encode()
             def historical_adapter(task, transport):
                 try:
                     return arab_adapter(task, transport)

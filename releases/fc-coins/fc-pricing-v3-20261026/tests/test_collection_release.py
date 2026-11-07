@@ -114,6 +114,15 @@ class CollectionRelease(unittest.TestCase):
             if row['candidate'] in target_map.DELTA_NEW: row['beforeSha256'] = None
         self.assertEqual(adapter.checked_manifest(value), value)
 
+    def test_bidirectional_scope_excludes_shared_sol_and_writer_configuration(self):
+        value=manifest(target_map.BIDIRECTIONAL_SCOPE,adapter.BIDIRECTIONAL_TARGETS)
+        self.assertEqual(adapter.checked_manifest(value),value)
+        self.assertEqual(len(value['files']),25)
+        self.assertFalse(any(name.rsplit('/',1)[-1] in ('conversation_native.py','conversation_service.py',
+            'conversation_http.py','fs_inprocess.py','direct_provider.py','price_writer.py') for name in adapter.BIDIRECTIONAL_TARGETS))
+        altered=deepcopy(value);altered['files'].pop()
+        with self.assertRaisesRegex(ValueError,'exact_fc_v3_targets'):adapter.checked_manifest(altered)
+
     def test_existing_manifest_preparer_exposes_collection_as_exclusive_mode(self):
         result = subprocess.run([sys.executable, '-B', str(DEPLOY/'prepare_manifest.py'), '--help'],
                                 capture_output=True, text=True, timeout=10)

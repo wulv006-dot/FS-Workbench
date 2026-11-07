@@ -43,6 +43,11 @@ class BudgetedTransport:
         except WarmLanguageRedirect:
             self.endpoint.complete_request(self.identity, task['job_id'], task['lease_epoch'], permit['permit_id'], self.clock())
             raise
+        except SourceUnavailable as exc:
+            # An HTTP response is complete; unknown transport outcomes retain their original permit.
+            if re.fullmatch(r'http_[1-5][0-9]{2}', str(exc)):
+                self.endpoint.complete_request(self.identity, task['job_id'], task['lease_epoch'], permit['permit_id'], self.clock())
+            raise
         self.endpoint.complete_request(self.identity, task['job_id'], task['lease_epoch'], permit['permit_id'], self.clock())
         return result
 
@@ -63,7 +68,7 @@ def collect_job(task, adapter, transport, clock):
     body = {key: task[key] for key in BINDING}
     body.update(schema_version=1, observation_id=uuid.uuid4().hex, request_budget_used=transport.used,
                 capture_started_at=instant(started).isoformat(), capture_finished_at=instant(clock()).isoformat())
-    if not isinstance(result, dict) or set(result) - {'status', 'reason_code', 'offers', 'evidence_hash', 'retry_after_seconds'}:
+    if not isinstance(result, dict) or set(result) - {'status', 'reason_code', 'offers', 'evidence_hash', 'retry_after_seconds', 'platform_errors'}:
         raise ValueError('adapter_result_invalid')
     body.update(result)
     validate_observation(body, task, clock())

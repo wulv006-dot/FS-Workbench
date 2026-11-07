@@ -131,11 +131,14 @@ class Ledger:
                    (key, kind, due.isoformat() if isinstance(due, datetime) else due, json.dumps(body)))
 
     def create_plan(self, mode, resources, anchor, *, starts_at=None, ends_at=None,
-                    daily_budget=None, actor='wulv', manual_locked=True, generation=None,plan_id=None,parameters=None):
+                    daily_budget=None, actor='wulv', manual_locked=True, generation=None,plan_id=None,parameters=None,smart_strategy_version=None):
         from .engine import POLICIES,sprint_parameters
         from .financial import FINANCIAL_CONTRACT_VERSION,HISTORY_WINDOW_CONTRACT
         if (mode not in POLICIES and mode != 'smart') or not resources:
             raise ValueError('pricing_plan_scope_invalid')
+        from .smart import STRATEGY_VERSION
+        if smart_strategy_version is not None and (mode!='smart' or smart_strategy_version!=STRATEGY_VERSION):
+            raise ValueError('pricing_smart_strategy_version_invalid')
         now = clock()
         parameters=dict(parameters or {})
         baseline_plan = None
@@ -148,10 +151,16 @@ class Ledger:
             if not baseline_plan or baseline_plan['mode']!='revenue_sprint':
                 raise ValueError('pricing_smart_original_base_plan_required')
             parameters = dict(baseline_plan.get('parameters') or {})
+            if smart_strategy_version:
+                baseline_plan=json.loads(json.dumps(baseline_plan))
+                parameters.update(competitor_policy='lootbar_primary_arabut_secondary_v1',region_pricing='global')
+                baseline_plan['parameters']=dict(parameters)
             with self.connect() as conn:
                 owner_snapshot = {row['resource']:[row['plan_id'],row['revision'],row['generation']]
                                   for row in conn.execute('SELECT * FROM plan_ownership') if row['resource'] in resources}
-        if set(parameters)-{'offsets_pct','allocation','capacity_reserve_ratio','preferred_undercut_pct','sprint_policy_version'}:
+        if set(parameters)-{'offsets_pct','allocation','capacity_reserve_ratio','preferred_undercut_pct','sprint_policy_version','competitor_policy','region_pricing'}:
+            raise ValueError('pricing_plan_parameters_invalid')
+        if parameters.get('competitor_policy') not in (None,'lootbar_primary_arabut_secondary_v1') or parameters.get('region_pricing') not in (None,'global'):
             raise ValueError('pricing_plan_parameters_invalid')
         allocation=parameters.get('allocation')
         if allocation and (set(allocation)!={'control','exploit','explore'} or sum(number(v,zero=True) for v in allocation.values())!=1):
@@ -187,12 +196,49 @@ class Ledger:
                     created_at=now.isoformat(), review_contract=PROGRAM_CONTRACT,financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT)
         if mode=='smart':
             plan.update(baseline_plan=baseline_plan, takeover_owners=owner_snapshot)
+            if smart_strategy_version:
+                plan.update(smart_strategy_version=smart_strategy_version,smart_started_at=start.isoformat())
         with self.transaction() as db:
             self.put('pricing_plans', ident, plan, db)
             if end:
                 self.enqueue('deadline', 'deadline:'+ident+':1', end, dict(plan_id=ident, revision=1), db)
             self.enqueue('start', 'start:'+ident+':1', start, dict(plan_id=ident, revision=1), db)
         return plan
+
+    def migrate_smart_strategy(self, ident, expected_revision, actor):
+        from .smart import STRATEGY_VERSION
+        now=clock();key='smart-strategy-migration:'+ident+':'+str(expected_revision)
+        with self.transaction() as conn:
+            prior=self.get('metadata',key,conn)
+            if prior:
+                if prior['actor']!=actor:raise ValueError('pricing_migration_actor_conflict')
+                return self.get('pricing_plans',ident,conn)
+            plan=self.get('pricing_plans',ident,conn)
+            if type(expected_revision) is not int or not plan or plan['revision']!=expected_revision:
+                raise ValueError('pricing_plan_revision_changed')
+            if plan['mode']!='smart' or plan['state']!='ACTIVE':raise ValueError('pricing_smart_active_plan_required')
+            self.owns(plan,plan['resources'],conn)
+            if plan.get('smart_strategy_version')==STRATEGY_VERSION:return plan
+            if plan.get('ends_at') and now>=instant(plan['ends_at']):raise ValueError('pricing_plan_expired')
+            for row in conn.execute('SELECT body FROM operations'):
+                op=json.loads(row['body'])
+                if op['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT') and set(op['resources'])&set(plan['resources']):
+                    raise ValueError('pricing_resource_unresolved')
+            for row in conn.execute("SELECT body FROM durable_jobs WHERE kind='cycle' AND state='running'"):
+                if json.loads(row['body']).get('plan_id')==ident:raise ValueError('pricing_migration_cycle_running')
+            before=json.loads(json.dumps(plan))
+            plan.update(revision=expected_revision+1,smart_strategy_version=STRATEGY_VERSION,
+                        smart_started_at=now.isoformat(),smart_migration_id=key)
+            for target in (plan,plan['baseline_plan']):
+                target.setdefault('parameters',{}).update(competitor_policy='lootbar_primary_arabut_secondary_v1',region_pricing='global')
+            self.put('pricing_plans',ident,plan,conn)
+            conn.execute('UPDATE plan_ownership SET revision=? WHERE plan_id=? AND revision=?',(plan['revision'],ident,expected_revision))
+            if plan.get('ends_at'):
+                self.enqueue('deadline','deadline:'+ident+':'+str(plan['revision']),plan['ends_at'],dict(plan_id=ident,revision=plan['revision']),conn)
+            self.enqueue('cycle',key+':initial',now,dict(plan_id=ident,revision=plan['revision'],scheduled_at=now.isoformat()),conn)
+            self.put('metadata',key,dict(actor=actor,created_at=now.isoformat(),before=before,after=plan,
+                original_operations_preserved=True,price_write_performed=False),conn)
+            return plan
 
     def migrate_financial_contract(self,ident,expected_revision,actor):
         from .financial import FINANCIAL_CONTRACT_VERSION,HISTORY_WINDOW_CONTRACT
