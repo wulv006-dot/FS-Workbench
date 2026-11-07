@@ -242,6 +242,7 @@ class BotModuleContracts(unittest.TestCase):
     GUARD = "opt/mmoexp-guardbot/"
     SHUGO = "opt/shugo-bot/"
     CONSOLE = "opt/bot-console/"
+    WOW = "opt/wowforever-bot/"
 
     PY_MODULES = (
         SHUGO + "bot.py",
@@ -255,7 +256,7 @@ class BotModuleContracts(unittest.TestCase):
         CONSOLE + "_e2e_nav_control.py",
         GUARD + "_ops_set_dryrun.py",
         GUARD + "_ops_xcheck.py",
-    )
+    ) + tuple(p.relative_to(ROOT).as_posix() for p in (ROOT / WOW).rglob("*.py"))
 
     # 疑似凭据：私钥块 / 裸 Bearer token / JWT / Discord Bot Token。
     # Discord 的三段式里，中段固定是 6 位 base64 时间戳、尾段 ≥27 位。
@@ -379,6 +380,37 @@ class BotModuleContracts(unittest.TestCase):
         for rel in self.PY_MODULES + (self.GUARD + "index.js",):
             self.assertIsNone(self.CREDENTIAL.search(self._text(rel)),
                               "%s 里出现疑似凭据" % rel)
+
+    def test_wowforever_runtime_files_stay_out_of_git(self):
+        rules = self._rules(self.WOW + ".gitignore")
+        for entry in ("secrets/", "token.txt", "config.json", "state/", "logs/", ".venv/"):
+            self.assertIn(entry, rules)
+        config = self._text(self.WOW + "config.example.json")
+        self.assertTrue(all(set(value) == {"0"} for value in re.findall(r'\d{17,20}', config)))
+        self.assertIsNone(self.CREDENTIAL.search(config))
+
+    def test_wowforever_prize_configuration_is_consistent(self):
+        import json
+        config = json.loads(self._text(self.WOW + "config.example.json"))
+        giveaway = config["features"]["giveaway"]
+        prizes = giveaway["prizes"]
+        self.assertEqual(len({p["key"] for p in prizes}), len(prizes))
+        self.assertAlmostEqual(sum(p["chance"] for p in prizes), 100)
+        fallback = next(p for p in prizes if p["key"] == giveaway["fallback_prize"])
+        self.assertNotIn("stock", fallback)
+        self.assertEqual(fallback["type"], "coupon")
+        self.assertTrue(all(isinstance(p["stock"], int) and p["stock"] >= 0
+                            for p in prizes if "stock" in p))
+
+    def test_wowforever_systemd_targets_shipped_entrypoints(self):
+        service = self._text(self.WOW + "deploy/wowforever-bot.service")
+        self.assertIn("WorkingDirectory=/opt/wowforever-bot", service)
+        self.assertIn("ExecStart=/opt/wowforever-bot/.venv/bin/python /opt/wowforever-bot/bot.py", service)
+        sync = self._text(self.WOW + "deploy/wowforever-goldsync.service")
+        self.assertIn("/opt/wowforever-bot/sync_wow_gold.py", sync)
+        self.assertTrue((ROOT / self.WOW / "deploy/sync_wow_gold.py").is_file())
+        timer = self._text(self.WOW + "deploy/wowforever-goldsync.timer")
+        self.assertIn("Unit=wowforever-goldsync.service", timer)
 
 class OpsModuleContracts(unittest.TestCase):
     """6 个 /opt 运营模块（2026-10-17 补登记进闸门）的最小离线合同。
