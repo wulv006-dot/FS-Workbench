@@ -16,7 +16,7 @@ def message(mid, *, channel=12, guild=11, author=AUTHOR, bot=True, created=1000,
     values = dict(id=mid, guild=SimpleNamespace(id=guild), channel=SimpleNamespace(id=channel),
                   author=SimpleNamespace(id=author, bot=bot),
                   created_at=datetime.fromtimestamp(created, timezone.utc), type=0,
-                  interaction=None, interaction_metadata=None, webhook_id=None)
+                  interaction=None, interaction_metadata=None, webhook_id=None, embeds=[object()], attachments=[])
     values.update(extra)
     return SimpleNamespace(**values)
 
@@ -40,47 +40,72 @@ class RelayTests(unittest.TestCase):
             with self.subTest(mid=item.id):
                 self.assertFalse(self.store.accept(item, 1000))
         self.assertTrue(self.store.accept(message(12), 1000))
-        self.assertEqual(self.store.due(1029), [])
-        self.assertEqual(self.store.due(1030), [{'channel_id': 12, 'kind': 'sbc', 'message_id': 12}])
+        self.assertEqual(self.store.due(1299), [])
+        self.assertEqual(self.store.due(1300), [{'channel_id': 12, 'kind': 'sbc', 'message_id': 12}])
 
     def test_coalesces_updates_and_respects_cooldown(self):
         self.assertTrue(self.store.accept(message(100), 1000))
         self.assertTrue(self.store.accept(message(101, created=1010), 1010))
-        self.assertEqual(self.store.claim(12, 1029), None)
-        self.assertEqual(self.store.claim(12, 1030)['message_id'], 101)
-        self.assertEqual(self.store.claim(12, 1030), None)
-        self.assertTrue(self.store.accept(message(102, created=1040), 1040))
-        self.store.complete(12, 101, 1041)
-        self.assertEqual(self.store.due(1640), [])
-        self.assertEqual(self.store.claim(12, 1641)['message_id'], 102)
+        self.assertEqual(self.store.claim(12, 1299), None)
+        self.assertIsNone(self.store.claim(12, 1300))
+        self.assertEqual(self.store.claim(12, 1310)['message_id'], 101)
+        self.assertEqual(self.store.claim(12, 1300), None)
+        self.assertTrue(self.store.accept(message(102, created=1320), 1320))
+        self.store.complete(12, 101, 1311)
+        self.assertEqual(self.store.due(1910), [])
+        self.assertEqual(self.store.claim(12, 1911)['message_id'], 102)
+
+    def test_metadata_mode_coalesces_events_without_privileged_intent(self):
+        store = RelayStore(self.path, {12: 'sbc'}, 11, require_content=False)
+        self.assertTrue(store.accept(message(100, embeds=[]), 1000))
+        self.assertTrue(store.accept(message(101, embeds=[], created=1200), 1200))
+        self.assertEqual(store.due(1499), [])
+        self.assertEqual(store.claim(12, 1500)['message_id'], 101)
+
+    def test_plain_confirmation_does_not_trigger_or_extend_batch(self):
+        self.assertFalse(self.store.accept(message(100, embeds=[], content='SBC alerts will be sent in this channel'), 1000))
+        self.assertEqual(self.store.due(2000), [])
+        self.assertTrue(self.store.accept(message(101), 1000))
+        self.assertFalse(self.store.accept(message(102, embeds=[], created=1200), 1200))
+        self.assertEqual(self.store.claim(12, 1300)['message_id'], 101)
+
+    def test_long_burst_waits_for_last_card_and_survives_restart(self):
+        for i in range(20):
+            now = 1000 + i * 120
+            self.assertTrue(self.store.accept(message(100+i, created=now), now))
+            self.assertEqual(self.store.due(now+119), [])
+        restarted = RelayStore(self.path, {12: 'sbc'}, 11)
+        self.assertEqual(restarted.due(now+299), [])
+        self.assertEqual(restarted.claim(12, now+300)['message_id'], 119)
+        self.assertEqual(restarted.due(now+900), [])
 
     def test_restart_does_not_replay_or_resend_claimed_message(self):
         self.assertTrue(self.store.accept(message(100), 1000))
-        self.assertEqual(self.store.claim(12, 1030)['message_id'], 100)
+        self.assertEqual(self.store.claim(12, 1300)['message_id'], 100)
         restarted = RelayStore(self.path, {12: 'sbc', 13: 'packs', 14: 'gallery'}, 11)
-        self.assertFalse(restarted.accept(message(100), 1030))
-        self.assertEqual(restarted.due(1030), [])
-        self.assertTrue(restarted.accept(message(101, created=1040), 1040))
-        self.assertEqual(restarted.claim(12, 1629), None)
-        self.assertEqual(restarted.claim(12, 1630)['message_id'], 101)
+        self.assertFalse(restarted.accept(message(100), 1300))
+        self.assertEqual(restarted.due(1300), [])
+        self.assertTrue(restarted.accept(message(101, created=1320), 1320))
+        self.assertEqual(restarted.claim(12, 1899), None)
+        self.assertEqual(restarted.claim(12, 1900)['message_id'], 101)
 
     def test_failure_and_mismatched_completion_cannot_replay(self):
         self.store.accept(message(100), 1000)
-        self.store.claim(12, 1030)
+        self.store.claim(12, 1300)
         with self.assertRaises(ValueError):
-            self.store.complete(12, 99, 1031)
-        self.store.fail(12, 100, 1031)
+            self.store.complete(12, 99, 1301)
+        self.store.fail(12, 100, 1301)
         self.assertEqual(self.store.due(2000), [])
         self.assertFalse(self.store.accept(message(100, created=1999), 2000))
 
     def test_channels_and_mapping_are_isolated(self):
         self.store.accept(message(100), 1000)
         self.store.accept(message(50, channel=13), 1000)
-        self.assertEqual({x['kind'] for x in self.store.due(1030)}, {'sbc', 'packs'})
+        self.assertEqual({x['kind'] for x in self.store.due(1300)}, {'sbc', 'packs'})
         changed = RelayStore(self.path, {12: 'gallery', 13: 'packs'}, 11)
-        self.assertEqual(changed.due(1030), [{'channel_id': 13, 'kind': 'packs', 'message_id': 50}])
+        self.assertEqual(changed.due(1300), [{'channel_id': 13, 'kind': 'packs', 'message_id': 50}])
         self.assertTrue(changed.accept(message(101), 1000))
-        self.assertEqual(changed.claim(12, 1030)['kind'], 'gallery')
+        self.assertEqual(changed.claim(12, 1300)['kind'], 'gallery')
 
     def test_simultaneous_claims_only_return_one_batch(self):
         self.store.accept(message(100), 1000)
@@ -88,7 +113,7 @@ class RelayTests(unittest.TestCase):
 
         def claim():
             barrier.wait()
-            return self.store.claim(12, 1030)
+            return self.store.claim(12, 1300)
 
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(lambda _: claim(), range(2)))
@@ -106,7 +131,7 @@ class ExtendedRelayTests(unittest.TestCase):
             store = RelayStore(path, routes, 11)
             self.assertTrue(store.accept(message(77, channel=15), 1000))
             self.assertTrue(store.accept(message(78, channel=16), 1000))
-            self.assertEqual({row['kind'] for row in store.due(1030)}, {'evolutions', 'boosting'})
+            self.assertEqual({row['kind'] for row in store.due(1300)}, {'evolutions', 'boosting'})
             for bad in ({12: 'coins'}, dict(routes, **{'17': 'sbc'}), {12: 'sbc', 13: 'sbc'}):
                 with self.assertRaises(ValueError):
                     RelayStore(path, bad, 11)

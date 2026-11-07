@@ -105,7 +105,7 @@ class AlertPreferencesView(discord.ui.View):
             await interaction.response.send_message('Please reopen the alert menu.', ephemeral=True,
                                                     allowed_mentions=MENTIONS)
             return
-        await interaction.response.defer(ephemeral=True, thinking=True)
+        await interaction.response.defer(thinking=False)
         message = 'Could not save alerts. Reopen to check your settings.'
         # Shared lock also serializes team-role updates; atomic single-role APIs preserve other roles.
         async with ROLE_CHANGE_LOCK:
@@ -141,13 +141,8 @@ class AlertPreferencesView(discord.ui.View):
                                 await self._apply(current, roles, now, before, rollback=True)
                         except API_ERRORS:
                             pass  # No success claim: next open reads the real membership again.
-        if self.origin and message.startswith(('✅', '🔕')):
-            try:
-                await self.origin.edit_original_response(content='🔔 **Your alerts**\nChoose topics, then save.',
-                                                         view=self, allowed_mentions=MENTIONS)
-            except API_ERRORS:
-                pass
-        await interaction.followup.send(message, ephemeral=True, allowed_mentions=MENTIONS)
+        await interaction.edit_original_response(content=message, view=self,
+                                                 allowed_mentions=MENTIONS)
 
     @staticmethod
     async def _apply(member, roles, current, desired, rollback=False):

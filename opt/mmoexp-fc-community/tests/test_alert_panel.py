@@ -54,7 +54,11 @@ class AlertTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_save_and_disable_preserve_other_roles(self):
         self.panel.selected = {'news', 'evolutions'}
-        await self.panel.save(self.interaction())
+        interaction = self.interaction()
+        await self.panel.save(interaction)
+        interaction.response.defer.assert_awaited_once_with(thinking=False)
+        interaction.followup.send.assert_not_awaited()
+        self.assertEqual(interaction.edit_original_response.await_args.kwargs['content'], '✅ Alerts saved.')
         self.assertEqual({r.id for r in self.member.roles}, {99, 12, 14})
         await self.panel.save(self.interaction(), clear=True)
         self.assertEqual({r.id for r in self.member.roles}, {99})
@@ -80,7 +84,8 @@ class AlertTests(unittest.IsolatedAsyncioTestCase):
         interaction = self.interaction()
         await self.panel.save(interaction)
         self.assertEqual({r.id for r in self.member.roles}, {99, 11})
-        self.assertNotIn('secret', str(interaction.followup.send.await_args))
+        interaction.followup.send.assert_not_awaited()
+        self.assertNotIn('secret', str(interaction.edit_original_response.await_args))
 
     async def test_lost_reply_after_mutation_is_reconciled(self):
         self.panel.selected = {'news'}
