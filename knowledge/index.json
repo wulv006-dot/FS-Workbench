@@ -356,7 +356,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "840be65e74b03a4c05385d2e02be78d51b6194cecfbbf2d325005a9a3c3d3d31",
+        "sha256": "2bbad9f24b8f073e7aceb7c357e6ac86d486ace00c035a26bb70d66e0d0e1c1b",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -402,6 +402,11 @@
           "kind": "shared_source_daily_profit_summary_metadata",
           "date": "2026-11-07",
           "scope": "Refresh shared operating-contract source hash only; financial revision and rules unchanged"
+        },
+        {
+          "kind": "direct_user_same_price_attribution_review_fix",
+          "date": "2026-11-07",
+          "scope": "Confirmed continuation time and resource attribution only; financial rules and writer unchanged"
         }
       ],
       "consumers": [
@@ -1172,7 +1177,7 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "20261107-profit-summary",
+      "revision": "20261107-time-attribution",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1185,7 +1190,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "840be65e74b03a4c05385d2e02be78d51b6194cecfbbf2d325005a9a3c3d3d31",
+        "sha256": "2bbad9f24b8f073e7aceb7c357e6ac86d486ace00c035a26bb70d66e0d0e1c1b",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1195,7 +1200,8 @@
         "fc.pricing.v3@fc-v3-100k-source-availability-20261030",
         "fc.pricing.v3@fc-v3-smart-native-boundaries-20261105",
         "fc.pricing.v3@20261106-current",
-        "fc.pricing.v3@20261106-clean"
+        "fc.pricing.v3@20261106-clean",
+        "fc.pricing.v3@20261107-profit-summary"
       ],
       "provenance": [
         {
@@ -1242,6 +1248,11 @@
           "kind": "direct_user_daily_actual_profit_handoff_fix",
           "date": "2026-11-07",
           "scope": "Frozen reviewed-day and active-plan same-order cost/gross summaries; no price, parameter, writer or schedule change"
+        },
+        {
+          "kind": "direct_user_same_price_attribution_review_fix",
+          "date": "2026-11-07",
+          "scope": "Confirmed continuation time and resource attribution only; financial rules and writer unchanged"
         }
       ],
       "consumers": [
@@ -1296,7 +1307,7 @@
     },
     {
       "id": "fc.reporting.data",
-      "revision": "20261107-profit-summary",
+      "revision": "20261107-time-attribution",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1310,14 +1321,15 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "15687103ec2b1c1795ad1dbd39ae7935f1d1628e4d85615ecdd9ad2343bc6b32",
+        "sha256": "be7857fc407827c73bae1e624b531cdaca2f84a9b02d1a86d229cd88a86661a0",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
         "fc.reporting.data@20261105-1",
         "fc.reporting.data@20261105-2",
         "fc.reporting.data@20261106-1",
-        "fc.reporting.data@20261106-clean"
+        "fc.reporting.data@20261106-clean",
+        "fc.reporting.data@20261107-profit-summary"
       ],
       "provenance": [
         {
@@ -1355,6 +1367,11 @@
           "kind": "direct_user_daily_actual_profit_handoff_fix",
           "date": "2026-11-07",
           "scope": "Frozen reviewed-day and active-plan same-order cost/gross summaries; no price, parameter, writer or schedule change"
+        },
+        {
+          "kind": "direct_user_same_price_attribution_review_fix",
+          "date": "2026-11-07",
+          "scope": "Confirmed continuation time and resource attribution only; financial rules and writer unchanged"
         }
       ],
       "consumers": [
@@ -1449,7 +1466,7 @@
     },
     {
       "id": "fc.reporting.maintenance",
-      "revision": "20261107-profit-summary",
+      "revision": "20261107-time-attribution",
       "layer": "current",
       "status": "effective",
       "modules": [
@@ -1463,12 +1480,13 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/MAINTENANCE.md",
-        "sha256": "2bb55dc43f0f72457533dee9480166af2f9beaa5f5515597e54037d876625185",
+        "sha256": "6993d7497b9587c79f5beaf14e159ea8c50ceed4244ea06c405e2cba6f5ff68a",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
         "fc.reporting.maintenance@20261106-1",
-        "fc.reporting.maintenance@20261106-clean"
+        "fc.reporting.maintenance@20261106-clean",
+        "fc.reporting.maintenance@20261107-profit-summary"
       ],
       "provenance": [
         {
@@ -1494,6 +1512,11 @@
           "kind": "direct_user_daily_actual_profit_handoff_fix",
           "date": "2026-11-07",
           "scope": "Frozen reviewed-day and active-plan same-order cost/gross summaries; no price, parameter, writer or schedule change"
+        },
+        {
+          "kind": "direct_user_same_price_attribution_review_fix",
+          "date": "2026-11-07",
+          "scope": "Confirmed continuation time and resource attribution only; financial rules and writer unchanged"
         }
       ],
       "consumers": [
