@@ -11,6 +11,7 @@
     return purposes[mode];
   }
   const $=id=>document.getElementById(id);
+  const marketTag=$('v3-market-title').parentElement.querySelector('.tag'),legacyMarketTag=marketTag.textContent;
   let current,loading=false,acting=false,manualPreview=null,selectedPlanId=null,displayedMode='smart',canWrite=false,permissionKnown=false,playerRevision=null,playerDirty=false,collectPending=sessionStorage.getItem('fc-v3-collect-job'),automationRevision=null,lastAutomation=null,lastMonitor=null;
   const statuses={DRAFT:'待启用',SCHEDULED:'等待开始',ACTIVE:'执行中',SUSPENDED:'已暂停新写入',ENDING:'正在退出',ENDED:'已结束',
     READY:'已有可行方案',INFEASIBLE:'当前证据下无可行报价',DATA_PENDING:'数据待补齐',
@@ -280,6 +281,7 @@
     if(!plans.some(p=>p.plan_id===selectedPlanId))selectedPlanId=state.active_plans?.[0]?.plan_id||plans[0]?.plan_id||null;
     list.value=selectedPlanId||'';
     const plan=chosenPlan(),active=(state.active_plans||[]).find(p=>p.plan_id===selectedPlanId)||state.active_plans?.[0]||state.plan;
+    marketTag.textContent=primaryPolicy(plan)?'Lootbar 主锚 · Arab-UT 次锚（主机Normal / PC标准）· ItemD2R 辅助':legacyMarketTag;
     if(firstRender&&active?.mode&&names[active.mode]){$('v3-mode').value=active.mode;displayedMode=active.mode;setMode(active.mode);}
     $('v3-state').textContent=(active?`${names[active.mode]} · ${statusText(active.state)} · 数据 ${state.captured_at||'尚未取得'} · ${state.generation?'统一控制权已登记':'尚未切换'}`:'无活动计划；历史价格与原操作保留')+
       (permissionKnown?(canWrite?' · 当前账户可操作':' · 当前账户仅可查看'):' · 操作权限待核');
