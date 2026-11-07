@@ -135,6 +135,7 @@ class ContentClient(discord.Client):
         intents = discord.Intents.none()
         intents.guilds = True
         intents.guild_messages = True
+        intents.message_content = bool((config.get('quote_relay') or {}).get('content_filter', False))
         super().__init__(intents=intents, allowed_mentions=discord.AllowedMentions.none())
         self.tree = app_commands.CommandTree(self)
         self.store = store
@@ -161,7 +162,7 @@ class ContentClient(discord.Client):
             from quote_relay import RelayStore
             relay = config['quote_relay']
             self.quote_relay = RelayStore(Path(store.path).parent / 'quote-relay.sqlite3',
-                routes={int(c): k for c, k in relay['channels'].items()}, guild_id=relay['guild_id'])
+                routes={int(c): k for c, k in relay['channels'].items()}, guild_id=relay['guild_id'], require_content=bool(relay.get('content_filter', False)))
 
     def quote_routes(self, kind):
         routes = {}

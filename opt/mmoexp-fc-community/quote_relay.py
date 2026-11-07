@@ -5,7 +5,7 @@ from contextlib import closing
 
 EASYSBC_AUTHOR = 1167033335256731658
 KINDS = frozenset(('sbc', 'packs', 'gallery', 'evolutions', 'boosting'))
-MERGE_SECONDS = 30
+MERGE_SECONDS = 300  # Trailing quiet window: reset on every content card.
 COOLDOWN_SECONDS = 600
 MAX_AGE_SECONDS = 300
 
@@ -20,7 +20,8 @@ def _id(value):
 
 
 class RelayStore:
-    def __init__(self, path, routes, guild_id, author_id=EASYSBC_AUTHOR, self_id=None):
+    def __init__(self, path, routes, guild_id, author_id=EASYSBC_AUTHOR, self_id=None, require_content=True):
+        self.require_content = require_content
         self.path = str(path)
         self.guild_id = _id(guild_id)
         self.author_id = _id(author_id)
@@ -49,6 +50,7 @@ class RelayStore:
                     or getattr(message, 'interaction_metadata', None) is not None
                     or getattr(message, 'interaction', None) is not None
                     or getattr(message, 'webhook_id', None) is not None
+                    or (self.require_content and not (getattr(message, 'embeds', None) or getattr(message, 'attachments', None)))
                     or not -30 <= age <= MAX_AGE_SECONDS):
                 return False
         except (AttributeError, TypeError, ValueError, OverflowError):
@@ -61,8 +63,6 @@ class RelayStore:
             if row and mid <= int(row[0]):
                 return False
             deadline = float(now) + MERGE_SECONDS
-            if row and row[1] is not None and row[2] == kind:
-                deadline = row[3]
             if row and row[4] is not None:
                 deadline = max(deadline, row[4] + COOLDOWN_SECONDS)
             if row:

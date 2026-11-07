@@ -16,7 +16,7 @@ class RelayIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.channel_id = 1568610700463710278
         self.config = {'guild_id': TEST_GUILD, 'staff_user_ids': [],
             'quote_channel_id': 1568260661010497627, 'quote_socket': '/unused',
-            'quote_relay': {'guild_id': OFFICIAL_GUILD, 'channels': {str(self.channel_id): 'packs'}}}
+            'quote_relay': {'content_filter': True, 'guild_id': OFFICIAL_GUILD, 'channels': {str(self.channel_id): 'packs'}}}
         self.client = ContentClient(self.config, CommunityStore(Path(self.temp.name)/'db.sqlite3', []))
         self.addAsyncCleanup(self.client.close)
         self.channel = SimpleNamespace(id=self.channel_id, guild=SimpleNamespace(id=OFFICIAL_GUILD),
@@ -27,7 +27,7 @@ class RelayIntegrationTests(unittest.IsolatedAsyncioTestCase):
         return SimpleNamespace(id=1568616943907250267, channel=self.channel,
             guild=self.channel.guild, author=SimpleNamespace(id=1167033335256731658, bot=True),
             type=0, created_at=datetime.fromtimestamp(1000, timezone.utc), webhook_id=None,
-            interaction_metadata=None, interaction=None)
+            interaction_metadata=None, interaction=None, embeds=[object()], attachments=[])
 
     async def test_actual_sender_path_sends_once_without_mentions_and_enforces_routes(self):
         self.assertTrue(self.client.quote_relay.accept(self.event(), 1000))
@@ -39,7 +39,7 @@ class RelayIntegrationTests(unittest.IsolatedAsyncioTestCase):
         view = kwargs['view']
         self.assertEqual(view.kind, 'packs')
         self.assertEqual(view.allowed_routes[OFFICIAL_GUILD], {self.channel_id: 'packs'})
-        self.assertFalse(self.client.intents.message_content)
+        self.assertTrue(self.client.intents.message_content)
 
     async def test_wrong_resolved_guild_never_sends(self):
         self.client.quote_relay.accept(self.event(), 1000)
