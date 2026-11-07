@@ -1,4 +1,5 @@
 """New plans use primary Lootbar, independent ArabUT fallback and global regions."""
+import ast
 from copy import deepcopy
 from datetime import timedelta
 from decimal import Decimal
@@ -31,6 +32,43 @@ def evidence():
 
 
 class BidirectionalMarkets(unittest.TestCase):
+    def projected_source(self, currency='USD'):
+        # Exercise the production projection and its USD guard, not a hand-built engine row.
+        path=Path(__file__).resolve().parents[1]/'source/server_quote_job.py'
+        fn=next(n for n in ast.parse(path.read_text(encoding='utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='_quote_for_run')
+        projection=next(n for n in fn.body if isinstance(n,ast.For) and isinstance(n.target,ast.Name) and n.target.id=='offer')
+        from server_quote_job import age_ok
+        rows=[dict(run_id='same',source='Lootbar',platform=p,status='valid',purchase_k='100',bonus_k='5',
+                   gross_usd='8.25' if p!='PC' else '7.88',captured_at=NOW.isoformat(),url='https://www.lootbar.com/game-coins/fc27',
+                   conditional=False,comparable=True) for p in engine.PLATFORMS]
+        if currency is not None:
+            for row in rows:row['currency']=currency
+        data=evidence()
+        scope=dict(snapshot=dict(competitors=rows),planned=dict(required_markets=['Lootbar','ArabUT']),
+            PLATFORMS=engine.PLATFORMS,SITES=('Lootbar',),offers={p:{} for p in engine.PLATFORMS},
+            run_id='same',now=NOW,age_ok=age_ok)
+        exec(compile(ast.Module(body=[projection],type_ignores=[]),str(path),'exec'),scope)
+        data['offers']=scope['offers']
+        return data
+
+    def test_verified_lootbar_USD_survives_real_quote_projection_and_remains_primary(self):
+        data=self.projected_source()
+        self.assertTrue(all(data['offers'][p]['Lootbar'].get('currency')=='USD' for p in engine.PLATFORMS))
+        quotes,gaps=engine.current_market_quotes(data,engine.PLATFORMS,NOW,plan=plan())
+        self.assertEqual(gaps,[])
+        anchors={p:engine.resolve_anchor(data,p,quotes,NOW,plan=plan()) for p in engine.PLATFORMS}
+        self.assertEqual({row['source'] for row in anchors.values()},{'Lootbar'})
+        self.assertEqual(Decimal(anchors['PC']['unit_100k']),Decimal('7.88')/Decimal('105')*100)
+
+    def test_quote_projection_never_assigns_USD_to_missing_or_non_USD_source_currency(self):
+        for currency in (None,'SAR','EUR'):
+            with self.subTest(currency=currency):
+                data=self.projected_source(currency)
+                self.assertTrue(all(not data['offers'][p] for p in engine.PLATFORMS))
+                quotes,gaps=engine.current_market_quotes(data,engine.PLATFORMS,NOW,plan=plan())
+                self.assertEqual({engine.resolve_anchor(data,p,quotes,NOW,plan=plan())['source'] for p in engine.PLATFORMS},{'ArabUT'})
+                self.assertEqual({gap['source'] for gap in gaps},{'Lootbar'})
+
     def test_lootbar_wins_lower_arab_and_item_without_altering_legacy(self):
         data=evidence()
         market=engine.competition(data, engine.PLATFORMS, NOW, plan=plan())

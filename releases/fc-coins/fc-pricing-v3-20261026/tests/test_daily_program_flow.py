@@ -332,8 +332,11 @@ class SavedDailyComparison(unittest.TestCase):
                     pricing_operations.call(p.scope,'wulv',p.made['turn_id'],'a'*32,dict(action='compare_strategies',mode='daily'),request=p.native)
             except PermissionError as error:self.fail('Saved basis is not connected: '+str(error))
             p.db.put('pricing_snapshots',p.source,p.snapshot)
-            with self.assertRaisesRegex(ValueError,'pricing_review_run_basis_changed'):
-                pricing_operations.call(p.scope,'wulv',p.made['turn_id'],'a'*32,dict(action='compare_strategies',mode='revenue_sprint'),request=p.native)
+            unavailable=pricing_operations.call(p.scope,'wulv',p.made['turn_id'],'a'*32,dict(action='compare_strategies',mode='revenue_sprint'),request=p.native)
+            self.assertEqual(unavailable['status'],'invalid_arguments')
+            self.assertEqual(unavailable['error_code'],'pricing_review_mode_unavailable')
+            self.assertEqual(unavailable['available_modes'],['daily'])
+            self.assertFalse(unavailable['execution_authorized'])
             with self.assertRaises(PermissionError):
                 pricing_operations.call(p.scope,'other',p.made['turn_id'],'a'*32,dict(action='compare_strategies',mode='daily'),request=p.native)
             with p.scope.tasks.db() as conn:conn.execute("UPDATE pricing_grants SET expires_at='2000-01-01T00:00:00+00:00'")

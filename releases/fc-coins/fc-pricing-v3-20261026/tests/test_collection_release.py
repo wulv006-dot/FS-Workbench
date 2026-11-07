@@ -58,6 +58,9 @@ class CollectionRelease(unittest.TestCase):
         environment['scope']='operating'
         with self.assertRaisesRegex(ValueError,'other Hermes unknown'):
             environment['quiescent'](Path('/'))
+        environment['scope']=target_map.REPAIR_SCOPE
+        with self.assertRaisesRegex(ValueError,'other Hermes unknown'):
+            environment['quiescent'](Path('/'))
         guard=next(n for n in load.body if isinstance(n,ast.FunctionDef) and n.name=='guards')
         checked=Mock()
         environment=dict(original_guards=checked,fc_release_quiescent=lambda *a,**kw:False,
@@ -86,6 +89,34 @@ class CollectionRelease(unittest.TestCase):
         exec(compile(module,'collection-fences','exec'),environment)
         self.assertIs(base.hermes_admission_fence,original)
         self.assertIs(base.model_release_lock,original)
+        environment.update(scope=target_map.REPAIR_SCOPE,base=base)
+        exec(compile(module,'repair-fences','exec'),environment)
+        self.assertIs(base.hermes_admission_fence,original)
+        self.assertIs(base.model_release_lock,original)
+
+    def test_repair_scope_is_exactly_four_existing_targets_and_preserves_old_25(self):
+        expected={
+            'source/server_quote_job.py':'/opt/fc27-cloud-browser/server_quote_job.py',
+            'source/pricing_operations.py':'/opt/fs-hermes-fc/pricing_operations.py',
+            'source/fc_pricing_v3/api.py':'/opt/fc27-cloud-browser/fc_pricing_v3/api.py',
+            'source/hermes-copy/fc_pricing_v3/api.py':'/opt/fs-hermes-fc/fc_pricing_v3/api.py'}
+        self.assertEqual(set(target_map.REPAIR_NAMES),set(expected))
+        self.assertEqual(adapter.REPAIR_TARGETS,expected)
+        value=manifest(target_map.REPAIR_SCOPE,expected)
+        self.assertEqual(adapter.checked_manifest(value),value)
+        for mutation in ('missing','extra','new','businessWrites','timersChanged'):
+            altered=deepcopy(value)
+            if mutation=='missing':altered['files'].pop()
+            elif mutation=='extra':altered['files'].append(manifest('x',{'source/price_writer.py':'/opt/fc27-cloud-browser/price_writer.py'})['files'][0])
+            elif mutation=='new':altered['files'][0]['beforeSha256']=None
+            else:altered[mutation]=True
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):adapter.checked_manifest(altered)
+        old={prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in (
+            'api.py','business_source.py','daily.py','engine.py','ledger.py','market_registry.py','observations.py',
+            'runtime.py','scheduler.py','selective_sources.py','smart.py')}
+        old.update(('source/fc27_cloud_worker.py','source/fc-pricing-v3.js','source/pricing_simulation.py'))
+        self.assertEqual(set(target_map.BIDIRECTIONAL_NAMES),old)
+        self.assertEqual(len(adapter.BIDIRECTIONAL_TARGETS),25)
 
     def test_collection_scope_is_exactly_three_existing_entry_files(self):
         self.assertEqual(set(target_map.COLLECTION_NAMES), {
@@ -128,6 +159,10 @@ class CollectionRelease(unittest.TestCase):
                                 capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('--collection', result.stdout)
+        self.assertIn('--repair', result.stdout)
+        result=subprocess.run([sys.executable,'-B',str(DEPLOY/'prepare_manifest.py'),'--repair','--collection'],
+                              capture_output=True,text=True,timeout=10)
+        self.assertNotEqual(result.returncode,0)
 
 
 if __name__ == '__main__':

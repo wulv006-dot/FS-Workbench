@@ -34,3 +34,19 @@
 本机任务.qa/fc-smart-bidirectional/的apply-main.log、readback-main.log、apply-183.log、apply-187-role.log、activate-collection.log、natural-initial.json、collection-initial.json、knowledge-readback.log、sol-review-submit.log。生产原备份位于/var/backups/fs-navigation-20261006/对应发布ID；原业务与模型回执保持原ID。
 
 知识收尾KL-2001022625084b2d3b0f4f25取代未执行的早期候选KL-ad9ccbb8d6393819be0b0513；同一有效变更记录完成原两Notion页摘要追加，人工正文与历史保留。
+
+## 后续读回（2026-11-07）
+
+PR904正式CI42387875545成功，合并01e8fc5e16cca8ea71b28f7b4f582ce76168db72；单JS静态发布nav-20261107T155100Z完成，1目标和85保护项读回一致，仅nginx校验/reload。真实页面显示Lootbar主锚、Arab-UT次锚（主机Normal/PC标准）、ItemD2R辅助，原60分钟运行及23:40公开确认可见。
+
+原FC Sol验收turn e54c0c7270ec411c885bca010d65bc89、native run_a89d2d8969fd44f4a53db4c1f6adec0e已completed。13次实际provider调用全部succeeded、response_model=gpt-6.1-sol、Responses/high及供应商回显一致；输入1,355,534、输出11,518，合计1,367,052 tokens，实际费用未核。3次知识读取有具体条目回执；未逐条复核返回revision/hash，不把准入pin当全部内容应用证明。
+
+复盘正确区分11/6背景361单/$23,527.80、旧3247条绑定与新版本有效样本，未以影子预测认定增收。但state/read_quote返回400、ES结构503，缺当日同单毛利与A/B/C完整证据，故完整业务读取未验收通过。定价400由本任务排查，ES503交共享经营指标任务沿同turn原事件核对；不重发模型，不因此改参数或降低自动化。
+
+## 真实入口发现的读取修复（待部署）
+
+- Lootbar原run已验证USD且price_basis为“当前无券商品价”；coupon_excluded=false表示原站没有当前券，不能改成true。server_quote_job在验证后投影漏currency，导致新锚点严格校验拒绝。只保留已验证的币种字段，SAR/缺币种仍拒绝；历史报价不作新报价。
+- 正常state约3,787,169字节，30个完整operations本身约3,345,695字节，超过原native1MiB限制。review-state仅把operations换成含原operation_read指针的摘要，原完整state/明细能力与上限保持；state/sprint_target及授权execute内部状态读取一并修复。
+- 模型read_quote缺path、state多path现在返回明确invalid_arguments及所需字段；保存smart快照没有daily候选时返回available_modes，原SHA/身份错仍拒绝，不临时重算或冒充原日快照。
+- 旧11/6复盘未记录actual_profit_summary，明确not_recorded；不补零、不重跑旧daily。
+- ES503由并行经营指标任务独立修正原生请求误分流至旧Advisor，双方保持共享模型配置不动并串行发布。
