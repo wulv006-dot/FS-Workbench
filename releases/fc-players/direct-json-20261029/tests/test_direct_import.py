@@ -351,7 +351,22 @@ class DirectImportTests(unittest.TestCase):
         self.assertFalse(item["blocked_error"])
         candidates = [{"futbin_id": "23700", "rating": 92}]
         isolated = direct.prepare_direct_items(self.frozen["artifact_path"], candidates, form(), business_defaults=DEFAULTS)
-        self.assertEqual(isolated[0]["blocked_error"], "DIRECT_PLAYERS_TYPE_UNKNOWN")
+        self.assertIsNone(isolated[0]["blocked_error"])
+        self.assertEqual(isolated[0]["players_type"], "normal")
+        signature = direct._source_rows(self.frozen["context_artifact_path"])[1]
+        selected = self.root / "selected-signature.xlsx"
+        workbook = Workbook()
+        workbook.active.append(EN_HEADERS)
+        workbook.active.append([signature[column] for column in EN_HEADERS])
+        workbook.save(selected)
+        workbook.close()
+        schema = form()
+        prop = next(p for p in schema["row"]["more"]["baseprop"] if p["name"] == "PlayersType")
+        prop["pvs"].append({"id": 9999, "name": "Signature", "checked": False})
+        items = direct.prepare_direct_items(selected, [{"futbin_id": "33700"}], schema,
+                    business_defaults=DEFAULTS, context_artifact_path=self.frozen["context_artifact_path"])
+        self.assertEqual(items[0]["players_type"], "Signature")
+        self.assertIsNone(items[0]["blocked_error"])
 
     def test_concurrent_reentry_cannot_reclaim_inflight_add(self):
         self.plan()

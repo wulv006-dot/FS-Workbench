@@ -22,8 +22,8 @@ EXTEND_COLUMNS = {"player_id": "FUTBIN ID", "is_score": "IS", "ps_price": "PS", 
 def resolve_players_types(rows: Sequence[Mapping[str, Any]]) -> dict[str, str | None]:
     """Resolve the user's same-name/version IS pairs from the full source export.
 
-    None is explicitly unknown: a singleton, duplicate IS or a group larger than two
-    cannot establish which card is Signature. Never infer from another version/name.
+    A single card is normal: Signature upgrades follow the base card (2026-11-07 rule).
+    Duplicate/missing IS in pairs or groups larger than two remain unknown.
     """
     groups: dict[tuple[str, str], list[tuple[str, Decimal | None]]] = {}
     result: dict[str, str | None] = {}
@@ -46,6 +46,9 @@ def resolve_players_types(rows: Sequence[Mapping[str, Any]]) -> dict[str, str | 
             score = None
         groups.setdefault(key, []).append((fid, score))
     for pairs in groups.values():
+        if len(pairs) == 1:
+            result[pairs[0][0]] = "normal"
+            continue
         if len(pairs) != 2 or any(score is None for _, score in pairs) or pairs[0][1] == pairs[1][1]:
             continue
         low, high = sorted(pairs, key=lambda item: item[1])

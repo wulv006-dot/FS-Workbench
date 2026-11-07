@@ -466,6 +466,8 @@ def select(paths):
             groups.add("fs-graphify");continue
         if name.startswith("releases/registration/iam-modules-20261031/") or name == "tests/test_fs_iam_module_access.py":
             groups.add("iam"); continue
+        if name.startswith('releases/fc-players/single-card-normal-20261107/'):
+            groups.add('fc-players-single-card');continue
         if name.startswith('releases/fc-players/media-signer-20261107/'):
             groups.add('fc-players-media-signer');continue
         if name.startswith('releases/fc-players/empty-market-recovery-20261031/'):
@@ -959,7 +961,10 @@ def main():
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/halloween52-browser.cjs")
             continue
         print("affected group:",group,flush=True)
-        if group == 'fc-players-media-signer':
+        if group == 'fc-players-single-card':
+            units('releases/fc-players/single-card-normal-20261107', ['test_publisher'])
+            units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
+        elif group == 'fc-players-media-signer':
             units('releases/fc-players/media-signer-20261107', ['test_publisher'])
             units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
         elif group == 'fc-players-empty-market':

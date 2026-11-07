@@ -138,18 +138,24 @@ class PayloadTests(unittest.TestCase):
         selected = next(p for p in result["more"]["baseprop"] if p["name"] == "PlayersType")
         self.assertEqual(selected["base"], 9999)
 
-    def test_signature_cannot_be_resolved_from_selected_singleton(self):
-        self.assertEqual(payload.resolve_players_types([source_row()]), {"23691": None})
+    def test_single_card_defaults_to_normal(self):
+        self.assertEqual(payload.resolve_players_types([source_row()]), {"23691": "normal"})
+        for fid, name in ((24076, "Aleix Garcia Serrano"), (24078, "Lois Openda")):
+            row = {**source_row(), "FUTBIN ID": fid, "name": name, "Version": "UEL RTTK", "IS": 2625}
+            kind = payload.resolve_players_types([row])[str(fid)]
+            self.assertEqual(kind, "normal")
+            result = build(row, business_defaults={**DEFAULTS, "players_type": kind})
+            self.assertFalse(result["title"].endswith("/Signature"))
         with self.assertRaises(ValueError):
             build(business_defaults={**DEFAULTS, "players_type": None})
 
     def test_signature_does_not_compare_other_names_or_versions(self):
         row = source_row()
         other = {**row, "FUTBIN ID": 23692, "IS": 56250, "Version": "Other Version"}
-        self.assertEqual(payload.resolve_players_types([row, other]), {"23691": None, "23692": None})
+        self.assertEqual(payload.resolve_players_types([row, other]), {"23691": "normal", "23692": "normal"})
         other["Version"] = row["Version"]
         other["name"] = "Different Player"
-        self.assertEqual(payload.resolve_players_types([row, other]), {"23691": None, "23692": None})
+        self.assertEqual(payload.resolve_players_types([row, other]), {"23691": "normal", "23692": "normal"})
 
     def test_signature_equal_is_for_multiple_ids_stays_unknown(self):
         row = source_row()

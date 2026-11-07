@@ -1,0 +1,21 @@
+{
+  "version": "2026.11.07-cloud.21",
+  "base_version": "2026.11.07-cloud.20",
+  "runtime_files": {
+    "player_web/direct_model_payload.py": {
+      "source": "releases/fc-players/direct-json-20261029/source/direct_model_payload.py",
+      "before_sha256": "7542069967f9a9bcbe65e94e151f076959f8b029f75e80f2596105ddac10baba",
+      "sha256": "5a187611e572a4c6edc13ad893b5f5a82083f2edd4af03be703d6572678fdde3"
+    },
+    "VERSION": {
+      "source": "releases/fc-players/single-card-normal-20261107/VERSION",
+      "before_sha256": "cd7ec9d351970346f82da1ad55c8a0c457567178cf8fa123f484a4a2b1a7d1ce",
+      "sha256": "32267c2d965a4a4ec7d89ec511b5a61c037af2f58380ba44aee163bdf11d6ab6"
+    }
+  },
+  "manifest_sha256": "006e20c7631c8028090d94407027da55030d773080945e324752eec40771e989",
+  "publisher_dependency_sha256": "37b2b48020be180f2b2b00ab3ff2a51766edd8cfd9c7843096b9c623e6d5c1ea",
+  "policy_changes": true,
+  "knowledge_impact": false,
+  "notion_sync_required": false
+}
