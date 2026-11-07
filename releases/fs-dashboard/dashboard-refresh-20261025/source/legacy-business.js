@@ -2200,11 +2200,17 @@ function fcUpdateMetrics(){
  const d=!exactPermissionDenied()&&fcSameQuery(fcDetailState.data?.query,fcQuery())?fcDetailState.data:null,t=d?.fc_dashboard?.totals;
  const metric={revenueUsd:t?.revenue_usd,orders:t?.orders,profitCny:t?.gross_profit_cny,profitMarginPct:t?.gross_margin_pct,averageOrderUsd:t?.orders>0&&Number.isFinite(t.revenue_usd)?t.revenue_usd/t.orders:null};
  const native=fcNativeAdminMetrics(fcQuery()),nativeKeys=['newCustomers','payingCustomers','newCustomerRevenueUsd','repeatRatePct','newCustomerSharePct','pureSalesUsd','refundAmountUsd','refundOrders','fulfillmentRatePct','paymentSuccessRatePct','averageCustomerUsd'];
+ if(native){
+  for(const key of ['orders','revenueUsd'])metric[key]=native.metrics[key]?.status==='available'?native.metrics[key].value:null;
+  metric.averageOrderUsd=metric.orders>0&&Number.isFinite(metric.revenueUsd)?metric.revenueUsd/metric.orders:null;
+  const shipping=shippingMetrics(currentExact()?.profile,fcQuery().site_group==='all');
+  for(const key of ['profitCny','profitMarginPct'])metric[key]=shipping[key]?.status==='available'?shipping[key].value:null;
+ }
  for(const card of document.querySelectorAll('#supplement-insights .fsi-metric')){
   const key=card.dataset.metric,isNative=nativeKeys.includes(key),item=isNative?native?.metrics[key]:null,v=isNative?(item?.status==='available'?item.value:null):metric[key],known=Number.isFinite(v),profit=['profitCny','profitMarginPct'].includes(key),label=card.querySelector('small');
   const formatted=known?(key==='profitCny'?'¥'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):key.endsWith('Pct')?v.toFixed(2)+'%':key.endsWith('Usd')?fcMoney(v):fmtN(v)):exactPermissionDenied()?'读取失败':fcDetailState.error?'读取失败':isNative&&scope.summaryPolling||fcDetailPending&&!d?'待读取':'暂缺';
   fcSetText(card.querySelector('strong'),formatted);
-  fcSetText(label,isNative?'Admin原生汇总 · '+(native?native.site+(native.cutoff?' · 统计截至 '+native.cutoff:'')+(native.stale||item?.stale?' · 缓存旧值':'')+(!known?' · 该指标未提供':''):'当前筛选未提供'):profit?'Order发货统计 · 交易时间 · 人民币 · 同一筛选'+(!known?' · 当前细分未提供':''):'Admin已付款订单 · USD · 同一筛选');
+  fcSetText(label,isNative?'Admin原生汇总 · '+(native?native.site+(native.cutoff?' · 统计截至 '+native.cutoff:'')+(native.stale||item?.stale?' · 缓存旧值':'')+(!known?' · 该指标未提供':''):'当前筛选未提供'):profit?'Order发货统计 · 交易时间 · 人民币 · 同一筛选'+(!known?' · 当前细分未提供':''):native?'Admin原生汇总 · '+native.site+' · 统计截至 '+native.cutoff+(native.stale?' · 缓存旧值':''):'Admin已付款订单 · USD · 同一筛选');
  }
  const head=document.querySelector('#supplement-insights .fsi-heading h3');fcSetText(head,'FC27 · '+fcName(fcFilters.product)+' · '+fcName(fcQuery().site_group));
 }
