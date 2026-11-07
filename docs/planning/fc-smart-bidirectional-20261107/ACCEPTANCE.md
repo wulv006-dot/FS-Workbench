@@ -1,6 +1,6 @@
 # FC 双向定价上线验收
 
-截至2026-11-07 23:45（UTC+8）。源码已合并、上线与首轮确认分别有据；尚不宣称稳定增利。
+补记至2026-11-08的读取修复及窄验收。源码已合并、上线与首轮确认分别有据；Sol的报价片段读取仍未恢复、00:36自然轮仍待验，尚不宣称稳定增利。
 
 ## 实施与发布
 
@@ -43,10 +43,24 @@ PR904正式CI42387875545成功，合并01e8fc5e16cca8ea71b28f7b4f582ce76168db72�
 
 复盘正确区分11/6背景361单/$23,527.80、旧3247条绑定与新版本有效样本，未以影子预测认定增收。但state/read_quote返回400、ES结构503，缺当日同单毛利与A/B/C完整证据，故完整业务读取未验收通过。定价400由本任务排查，ES503交共享经营指标任务沿同turn原事件核对；不重发模型，不因此改参数或降低自动化。
 
-## 真实入口发现的读取修复（待部署）
+## 真实入口发现的读取修复（已部署，真实复验待补）
+
+PR906最终head为edcc5812，正式CI42389777035成功，合并69e6bcbd；修复载荷固定源3620da087feb97f5f67e0afc9440c09ef415a062。沿原fc_v3_release_adapter的精确4目标scope发布nav-20261107T161100Z，根manifest SHA256为b8d3a9305fdc30722c87da406c1ecd24acad066050484f73fc037d85d67bbb74。4目标、162保护项SHA及5个原服务active已读回；原锁、CAS、备份与重启readiness保留，没有扩大原25目标或修改共享模型配置。
+
+受影响Linux回归共144个不同用例通过：core115、Admin14、原shell补测2、临时容器补CHOWN的最终单项1，以及相同核心输入逐字节匹配后复用的Lootbar币种12。最初/tmp执行权限及CAP_CHOWN装配错误的日志保留，修正测试环境后仅重测受影响项，没有放宽断言或重复计数。汇总见.agent_runtime/t1-collection/repair-pr906/acceptance-summary.json，最终单项日志为linux183-admin-metadata.log。独立只读审查确认身份、授权、原ID幂等、完整明细及非法参数非成功语义保持。
 
 - Lootbar原run已验证USD且price_basis为“当前无券商品价”；coupon_excluded=false表示原站没有当前券，不能改成true。server_quote_job在验证后投影漏currency，导致新锚点严格校验拒绝。只保留已验证的币种字段，SAR/缺币种仍拒绝；历史报价不作新报价。
 - 正常state约3,787,169字节，30个完整operations本身约3,345,695字节，超过原native1MiB限制。review-state仅把operations换成含原operation_read指针的摘要，原完整state/明细能力与上限保持；state/sprint_target及授权execute内部状态读取一并修复。
 - 模型read_quote缺path、state多path现在返回明确invalid_arguments及所需字段；保存smart快照没有daily候选时返回available_modes，原SHA/身份错仍拒绝，不临时重算或冒充原日快照。
 - 旧11/6复盘未记录actual_profit_summary，明确not_recorded；不补零、不重跑旧daily。
 - ES503由并行经营指标任务独立修正原生请求误分流至旧Advisor，双方保持共享模型配置不动并串行发布。
+
+本次发布证据见.qa/fc-smart-bidirectional/repair-package.json、repair-prepare.log及repair-apply-window.log；原备份为/var/backups/fs-navigation-20261006/nav-20261107T161100Z。2026-11-08 00:36:56固定自然轮尚待验收。48小时有效对照与长期经营效果继续待验。
+
+## 窄验收及报价片段修复（代码完成，待183/CI/上线）
+
+新Sol专项turn10455d10b86d43d5b2f7f8cbfb358776已completed，真实state与compare_strategies(mode=smart)读取成功；同turn对原run88aebd83-fa1e-5e83-b37e-02c37c8367da、path=/result/decision_receipt的read_quote仍返回HTTP400，不能认定完整读取恢复。原dump客户端未保存HTTP错误body；具体参数及返回见.agent_runtime/t1-collection/sol-narrow-exact-returns.jsonl。同turn还有范围外terminal尝试，单独保留原事件记录，不因此扩大授权或泛化停用已有能力。
+
+只读核原文件及现役public_artifact投影：完整公开报价响应2,236,817字节，大于原native上限1,048,576字节；所需decision_receipt完整片段88,985字节（约89KB）。调用方先整份取回、再本地按path裁切，必在裁切前触发原上限。原whole-quote SHA256为4bf34ddb15141308c8bc087f2d98214bb0bcf4d4d41613eb918540245c1bae4c，不使用新快照替代。
+
+最小修复代码已完成：原/quotes/<run>增加严格path查询，在原公开过滤后服务端裁切；调用方沿原身份读取片段并核run/path/原SHA字段。无path原完整路由、原1MiB上限、明细能力和采集/写价逻辑保持。新增原adapter精确2目标scope，仅fc27_cloud_api.py与pricing_operations.py，不改既有4目标及25目标scope。实际HTTP红绿覆盖大报价的小片段、原完整响应与过大片段仍受上限、私有字段过滤、非法路径400和同run约束。本地通过；183隔离回归、正式CI、发布及原入口复验尚待完成，不能以代码完成替代真实恢复。

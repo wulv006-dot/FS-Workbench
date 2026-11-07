@@ -89,10 +89,30 @@ class CollectionRelease(unittest.TestCase):
         exec(compile(module,'collection-fences','exec'),environment)
         self.assertIs(base.hermes_admission_fence,original)
         self.assertIs(base.model_release_lock,original)
+        environment.update(scope=target_map.QUOTE_FRAGMENT_SCOPE,base=base)
+        exec(compile(module,'quote-fragment-fences','exec'),environment)
+        self.assertIs(base.hermes_admission_fence,original)
+        self.assertIs(base.model_release_lock,original)
         environment.update(scope=target_map.REPAIR_SCOPE,base=base)
         exec(compile(module,'repair-fences','exec'),environment)
         self.assertIs(base.hermes_admission_fence,original)
         self.assertIs(base.model_release_lock,original)
+
+    def test_quote_fragment_scope_is_exactly_two_existing_targets(self):
+        expected={'source/fc27_cloud_api.py':'/opt/fc27-cloud-browser/fc27_cloud_api.py',
+                  'source/pricing_operations.py':'/opt/fs-hermes-fc/pricing_operations.py'}
+        self.assertEqual(set(target_map.QUOTE_FRAGMENT_NAMES),set(expected))
+        self.assertEqual(adapter.QUOTE_FRAGMENT_TARGETS,expected)
+        value=manifest(target_map.QUOTE_FRAGMENT_SCOPE,expected)
+        self.assertEqual(adapter.checked_manifest(value),value)
+        for mutation in ('missing','new','extra','businessWrites','timersChanged'):
+            altered=deepcopy(value)
+            if mutation=='missing':altered['files'].pop()
+            elif mutation=='new':altered['files'][0]['beforeSha256']=None
+            elif mutation=='extra':altered['files'].append(manifest('x',{'source/server_quote_job.py':'/opt/fc27-cloud-browser/server_quote_job.py'})['files'][0])
+            else:altered[mutation]=True
+            with self.subTest(mutation=mutation),self.assertRaises(ValueError):adapter.checked_manifest(altered)
+        self.assertEqual(len(adapter.REPAIR_TARGETS),4)
 
     def test_repair_scope_is_exactly_four_existing_targets_and_preserves_old_25(self):
         expected={
@@ -160,6 +180,7 @@ class CollectionRelease(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('--collection', result.stdout)
         self.assertIn('--repair', result.stdout)
+        self.assertIn('--quote-fragment',result.stdout)
         result=subprocess.run([sys.executable,'-B',str(DEPLOY/'prepare_manifest.py'),'--repair','--collection'],
                               capture_output=True,text=True,timeout=10)
         self.assertNotEqual(result.returncode,0)
