@@ -105,9 +105,8 @@ class GiveawayModule(Module):
         return "%s **%d / %d left**" % (dot, left, total)
 
     def panel_payload(self):
-        total = self.total_chance()
         cap = self.spins_allowed()
-        spins = ("%d free spins" % cap) if cap else "Free spins"
+        spins = ("1 free spin" if cap == 1 else "%d free spins" % cap) if cap else "Free spins"
         hero = discord.Embed(title="🎰 Lucky Loot", colour=GOLD)
         hero.description = (
             "**%s · Every spin wins**\n"
@@ -121,16 +120,12 @@ class GiveawayModule(Module):
                 label = p.get("label") or p["key"]
                 left = self.stock_left(p["key"])
                 stock = self.stock_line(p, left) if left is not None else "Unlimited"
-                lines.append("**%s** · %g%%\n%s" % (
-                    label, float(p.get("chance") or 0), stock))
+                lines.append("**%s**\n%s" % (label, stock))
             if lines:
                 hero.description += heading + "\n\n".join(lines) + "\n\n"
         hero.description = hero.description.rstrip()
         hero.set_author(name="WOW FOREVER · BLINGTRON-9000")
         hero.set_footer(text="Bags delivered in game · Coupons used at checkout")
-        if abs(total - 100) > 0.01:
-            hero.set_footer(text="⚠️ prize odds add up to %.0f%% (config error)" % total)
-
         return [hero]
 
     def staff_mention(self):
