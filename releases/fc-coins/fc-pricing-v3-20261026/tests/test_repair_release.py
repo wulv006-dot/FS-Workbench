@@ -58,5 +58,8 @@ class RepairManifest(unittest.TestCase):
     def test_quote_fragment_selects_two_existing_files_and_preserves_other_code(self):
         self.check_manifest(target_map.QUOTE_FRAGMENT_NAMES,target_map.QUOTE_FRAGMENT_SCOPE,quote_fragment=True)
 
+    def test_quote_preview_selects_three_existing_files_and_preserves_other_code(self):
+        self.check_manifest(target_map.QUOTE_PREVIEW_NAMES,target_map.QUOTE_PREVIEW_SCOPE,quote_preview=True)
+
 
 if __name__=='__main__':unittest.main()

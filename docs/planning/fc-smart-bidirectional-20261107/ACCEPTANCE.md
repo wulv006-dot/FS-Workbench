@@ -57,12 +57,22 @@ PR906最终head为edcc5812，正式CI42389777035成功，合并69e6bcbd；修复
 
 本次发布证据见.qa/fc-smart-bidirectional/repair-package.json、repair-prepare.log及repair-apply-window.log；原备份为/var/backups/fs-navigation-20261006/nav-20261107T161100Z。2026-11-08 00:36:56固定自然轮尚待验收。48小时有效对照与长期经营效果继续待验。
 
-## 窄验收及报价片段修复（代码完成，待183/CI/上线）
+## 窄验收及报价片段修复（已合并，待合并发布）
 
 新Sol专项turn10455d10b86d43d5b2f7f8cbfb358776已completed，真实state与compare_strategies(mode=smart)读取成功；同turn对原run88aebd83-fa1e-5e83-b37e-02c37c8367da、path=/result/decision_receipt的read_quote仍返回HTTP400，不能认定完整读取恢复。原dump客户端未保存HTTP错误body；最新核验见.agent_runtime/t1-collection/sol-narrow-audit-redacted.md，具体参数及返回见sol-narrow-exact-returns.jsonl。本turn没有terminal；额外工具为tool_describe1、execute_code1、read_file1、search_files17，单独记录范围外查询，不因此扩大授权或泛化停用已有能力。state完整结果所在一次性容器已不存在，旧daily利润摘要归属未完整核实，不能从模型最终文字代替证明。
 
 只读核原文件及现役public_artifact投影：完整公开报价响应2,236,817字节，大于原native上限1,048,576字节；所需decision_receipt完整片段88,985字节（约89KB）。调用方先整份取回、再本地按path裁切，必在裁切前触发原上限。原whole-quote SHA256为4bf34ddb15141308c8bc087f2d98214bb0bcf4d4d41613eb918540245c1bae4c，不使用新快照替代。
 
-最小修复代码已完成：原/quotes/<run>增加严格path查询，在原公开过滤后服务端裁切；调用方沿原身份读取片段并核run/path/原SHA字段。无path原完整路由、原1MiB上限、明细能力和采集/写价逻辑保持。新增原adapter精确2目标scope，仅fc27_cloud_api.py与pricing_operations.py，不改既有4目标及25目标scope。实际HTTP红绿覆盖大报价的小片段、原完整响应与过大片段仍受上限、私有字段过滤、非法路径400和同run约束。本地通过；183隔离回归、正式CI、发布及原入口复验尚待完成，不能以代码完成替代真实恢复。
+最小修复代码已完成：原/quotes/<run>增加严格path查询，在原公开过滤后服务端裁切；调用方沿原身份读取片段并核run/path/原SHA字段。无path原完整路由、原1MiB上限、明细能力和采集/写价逻辑保持。新增原adapter精确2目标scope，仅fc27_cloud_api.py与pricing_operations.py，不改既有4目标及25目标scope。实际HTTP红绿覆盖大报价的小片段、原完整响应与过大片段仍受上限、私有字段过滤、非法路径400和同run约束。本地通过；独立审查无阻断项，183六套件83/83通过、0skip，结束199个冻结文件无漂移。证据见.agent_runtime/t1-collection/quote-fragment/acceptance-summary.json、linux183.log及snapshot.json，LF快照SHA256为e4081ee8d99145b09b5f39b3d6eb3da32d56a32c4f36a8760691541aa1dcfbc8。正式CI、发布及原入口复验尚待完成，不能以回归通过替代真实恢复。
 
 片段修复183受影响回归83/83通过、0跳过：quote_fragment6、review_reads6、runtime_contracts35、collection_release11、repair_release2、publisher_guard23。冻结LF源码SHA e4081ee8d99145b09b5f39b3d6eb3da32d56a32c4f36a8760691541aa1dcfbc8，独立复核无阻断问题；测试后199文件无漂移。证据.agent_runtime/t1-collection/quote-fragment/acceptance-summary.json。正式CI/部署/真实工具复验另记。
+
+## 自然轮与预览合同修复
+
+PR907正式CI42391849421通过，head2db65f74fb5cf064749ef53e53a03596debc5449，合并62100a40d967bbf2dd545a5e883d11dfbc877d46。两目标片段包已暂存/清单核验，尚未应用；将与以下必要预览修复一次发布，避免重复重启。
+
+00:36:56固定自然job cycle:5cecacfd-19f7-584a-8845-16adbef9b13d:1794069416:r0首尝试写前失败，原操作未创建；原失败文件明确PS Lootbar竞品报价缺失。原采集因Lootbar:platform_timeout:XBOX而缺该来源，engine已按新policy以ArabUT同轮主机8.4300/PC9.1700每100K合法备锚计算；预览JS旧检查仍要求Lootbar，与已授权缺价替代合同不一致。现役wrapper确传完整V3 result，排除历史wrapper漏传的早期假设。
+
+原job自动attempt1重采后00:47:56.269844完成confirmed，原operation58923da5-b2eb-5a2d-b6fb-2dc26f1c1164已CONFIRMED/readback_confirmed且三平台有回执；未手动触发、换ID或补写。它是自然重试恢复，不是首次准点成功。新JS仅在新competitor_policy且financial_proof.pass_all为true时允许Lootbar缺价，原有报价的币种/时效、成本、金额与writer前财务重证保持；精确3目标发布及修后真实片段验收待补。
+
+自然attempt1补充：新snapshot9e725a37-930c-53f9-8e3b-74333c5e9c6e中Lootbar三平台00:45:46鲜价/USD/100K+5K，均LOOTBAR_PRIMARY_VALID_QUOTE，无source_gaps。原操作COMPLETED于00:47:56.219919、job完成略后；套餐基价Console7.89美元、PC7.25美元，Order after.b2c单位价0.0789/0.0725与目标一致，公开三平台verified。该正常PUBLIC路径未另存admin_unit_prices字段，不冒称取得独立Admin单位价明细。双20通过/100k_package_only；A/A仍slot0，财务底价导致Console回退、PC竞争价，不把基准变动归因于±3%试验。last_cycle_at保持00:36:56.5895，下轮01:36:56.5895；pending0、无UNKNOWN。证据.agent_runtime/t2/natural-{confirmed,source-confirmed}-20261108T0048.json及natural-units-20261108T0049.json。

@@ -13,6 +13,9 @@ REPAIR_NAMES=('source/server_quote_job.py','source/pricing_operations.py',
 QUOTE_FRAGMENT_SCOPE='fc-pricing-v3-quote-fragment-20261108'
 QUOTE_FRAGMENT_NAMES=('source/fc27_cloud_api.py','source/pricing_operations.py')
 
+QUOTE_PREVIEW_SCOPE='fc-pricing-v3-quote-preview-20261108'
+QUOTE_PREVIEW_NAMES=QUOTE_FRAGMENT_NAMES+('source/repricing_logic.js',)
+
 BIDIRECTIONAL_SCOPE='fc-pricing-smart-bidirectional-20261107'
 BIDIRECTIONAL_NAMES=tuple(prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in (
     'api.py','business_source.py','daily.py','engine.py','ledger.py','market_registry.py','observations.py',
