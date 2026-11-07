@@ -21,6 +21,10 @@ class UIContract(unittest.TestCase):
   self.assertNotRegex(layout,r'#[a-fA-F0-9]{3,8}');self.assertNotIn('font-size',layout);self.assertIn('repeat(2,minmax(0,1fr))',layout)
  def test_shell_data_functions_preserved(self):
   old=(ROOT.parent/'releases/fs-dashboard/business-refresh-20261016/assets/shell.js').read_text(encoding='utf8');new=(ROOT/'modules/native/shell.js').read_text(encoding='utf8')
+  backend=(ROOT.parent/'releases/fs-dashboard/dashboard-refresh-20261025/source/live_summary.py').read_text(encoding='utf8')
+  contract=re.search(r"^CONTRACT = '([^']+)'",backend,re.M).group(1)
+  self.assertIn("data.scopeContractId!=='"+contract+"'",new)
+  old=old.replace("data.scopeContractId!=='admin-main-order-labelled-supplement-v1'","data.scopeContractId!=='"+contract+"'")
   self.assertEqual(old[:old.index('const $=')],new[:new.index('const $=')])
  def test_no_unknown_price_rules(self):
   for p in (ROOT/'adapters').glob('*.js'):

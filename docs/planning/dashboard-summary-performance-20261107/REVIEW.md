@@ -7,6 +7,7 @@
 1. 首页空白存在已复现的前后端合同错配。2026-11-07 20:36 北京时间，通过用户已登录 Chrome 的真实首页观察：summary HTTP 200、status=available、scopeContractId=admin-paid-order-labelled-supplement-v2；Admin readSeconds=0.47。首页实际加载的 37fe 资产仍只接受 v1，因此显示“经营指标暂不可用”。Order/Shipping 当时 pending，不应取消已取得的 Admin 销售和订单。
 2. FC 全部商品核心卡原来由 fc-detail 的 `fc_dashboard.totals` 覆盖；原生 Admin 客户字段则独立显示。用户截图中“客户卡有值、销售/订单待读取”与此代码链路一致。真实当前页面还观察到明细截至18:47、原生客户汇总截至20:35；不能把两者说成同一读取水位。
 3. SummaryCache 原先在取得内存原生结果之前调用 derive_summary。30天完整派生最多逐日读取30份归档；即便 Admin 已可用，只要 Order/Shipping 尚不完整，也可能被旧归档或日合计替换。本地失败测试复现了“当前原生值被替换”。
+4. 同日追加真实页面验证：FC27、全部站点、全部商品、2026-10-08至11-06，summary返回HTTP200、origin=dated-archive、archive.read=exact_complete_archive，Admin/Order/Shipping均available；fc-detail仍202/pending，销售、订单和毛利卡仍“待读取”，客户卡已有值。该精确区间归档确实已命中，问题位于消费展示；此观察不代表所有游戏和日期归档均完整。
 
 ## 当前架构
 
@@ -38,6 +39,8 @@
 - Windows pr-fast实际未通过：219项，1失败、29错误、14跳过；包括缺lxml、Linux os.geteuid/flock/fork和/dev/null符号链接行为。保留检查要求，未放宽断言或跳过门禁；日志在本地 `.qa/summary-performance/pr-fast.log`。正式Linux CI待验。
 - 本机项目部署配置SSH连接被服务器拒绝（publickey）；未修改身份验证设置或尝试绕过。已向用户请求当前有效运维入口。183隔离测试、线上归档完整性/延迟基准、生产Python/路由版本核对、发布与真实新页面均未完成。
 - CodeGraph增量同步返回 already up to date。尚未合并或部署，线上问题仍不能宣称恢复。
+- 首轮正式Linux CI：经营模块219项Python检查无失败/错误/跳过，经营浏览器回归通过；UI历史字节断言因本次有意更新首页合同失败。已将该断言对齐实际后端CONTRACT，其他历史数据处理函数仍逐字比较，新增首页行为回归保留；最终CI状态以PR #896最新提交为准。
+- 统一知识收尾plan已使用现成含时区库的Python运行，未识别受影响正式知识条目、无冲突；没有发布知识或同步Notion。
 
 ## 后续验收
 
