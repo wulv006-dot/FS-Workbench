@@ -1,6 +1,6 @@
 """Exercise the original publisher guard functions against a real read-only ledger."""
 import ast,json,sqlite3,sys,tempfile,unittest,os,re,shutil,urllib.request
-from contextlib import contextmanager,ExitStack
+from contextlib import contextmanager,ExitStack,closing
 from datetime import datetime,timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -259,6 +259,24 @@ class SupersededAllCodePublish(unittest.TestCase):
         self.assertTrue(self.check())
         self.assertEqual(before,{str(p):p.read_bytes() for folder in ('all-coin-sync','executions') for p in (self.root/folder).glob('*.json')})
         self.assertEqual(self.tick.retry_guard(),'all_sync_unconfirmed')
+    def test_same_id_order_admin_close_allows_code_release_without_all_replay(self):
+        (self.root/'all-coin-sync/later.json').unlink()
+        (self.root/'executions/later.json').unlink()
+        (self.root/'v3').mkdir()
+        operation=dict(operation_id='original',status='COMPLETED',
+            order_close={'reason':'order_write_confirmed_admin_price_matched'})
+        with closing(sqlite3.connect(str(self.root/'v3/control.sqlite3'))) as db,db:
+            db.execute('CREATE TABLE operations(id TEXT PRIMARY KEY,body TEXT NOT NULL)')
+            db.execute('INSERT INTO operations VALUES (?,?)',('original',json.dumps(operation)))
+        before=(self.root/'all-coin-sync/original.json').read_bytes()
+        self.assertTrue(self.check())
+        self.assertEqual((self.root/'all-coin-sync/original.json').read_bytes(),before)
+        self.assertEqual(self.tick.retry_guard(),'all_sync_unconfirmed')
+        for field,value in [('status','UNKNOWN'),('operation_id','another'),('order_close',{})]:
+            changed=dict(operation,**{field:value})
+            with closing(sqlite3.connect(str(self.root/'v3/control.sqlite3'))) as db,db:
+                db.execute('UPDATE operations SET body=?',(json.dumps(changed),))
+            self.assertFalse(self.check())
     def test_dispatch_unknown_or_unclosed_original_still_blocks(self):
         for state in ('dispatching','unknown'):
             self.old['steps'][0]['status']=state;self.persist();self.assertFalse(self.check())
