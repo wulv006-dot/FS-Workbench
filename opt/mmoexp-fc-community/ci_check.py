@@ -21,7 +21,7 @@ def local_connect(sock, address):
 
 
 if __name__ == '__main__':
-    for name in ('quote_bridge.py', 'quote_catalog.py'):
+    for name in ('quote_bridge.py', 'quote_catalog.py', 'player_service.py', 'player_catalog.py', 'player_config.py'):
         if (ROOT/name).read_bytes() != (ROOT.parent/'mmoexp-fc-quotes'/name).read_bytes():
             raise RuntimeError('Quote service mirror differs: '+name)
     if (ROOT/'deploy/news_collector_worker.py').read_bytes() != (ROOT.parent/'fc27-news-fetch/worker.py').read_bytes():

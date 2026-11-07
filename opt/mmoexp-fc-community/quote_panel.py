@@ -20,6 +20,7 @@ CATEGORIES = {
     'evolutions': ('Evolutions', '🧬', 0x23A85D, 'Explore Evolution services and their current prices.'),
     'boosting': ('Boosting', '🏆', 0xDAA520, 'Explore Boosting services and their starting prices.'),
     'coins': ('Coins', '🪙', 0xD29A21, 'Choose a Coins amount and check its current price.'),
+    'players': ('Players', '⚽', 0x2688E8, 'Find your next player. Compare versions and live prices.'),
 }
 PLATFORMS = ('PC', 'Xbox Series X|S', 'PlayStation 5')
 PLATFORM_EMOJI = {'PC': '🖥️', 'Xbox Series X|S': '🟢', 'PlayStation 5': '🎮'}
@@ -173,6 +174,12 @@ class OpenButton(discord.ui.Button):
 
 
 async def load_catalog(interaction, provider, kind, owner, allowed_routes, presentation=None):
+    if kind == 'players':
+        from player_panel import load_players
+        source = GuardedView(provider, owner, kind, allowed_routes, presentation)
+        await load_players(interaction, source, 'featured', '', 1)
+        source.stop()
+        return
     try:
         rows = entries(await call_provider(provider.catalog, kind))
         message = None if rows else 'No products are available yet. Try reloading later.'

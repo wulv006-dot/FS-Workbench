@@ -19,6 +19,11 @@ QUOTE_KINDS = ('sbc', 'packs', 'gallery', 'evolutions', 'boosting', 'coins')
 
 
 def validate_config(config):
+    if config.get('player_panel') is not None:
+        from player_service import validate_player_config
+        validate_player_config(config['player_panel'])
+        if not config.get('quote_socket'):
+            raise ValueError('Players require the quote socket.')
     if config.get('alert_preferences'):
         from alert_panel import validate_alert_config
         alerts = validate_alert_config(config['alert_preferences'])
@@ -186,6 +191,16 @@ class ContentClient(discord.Client):
             for kind in QUOTE_KINDS:
                 self.add_view(CategoryHomeView(self.quote_provider, kind, allowed_routes=self.quote_routes(kind),
                                               presentation=self.config.get('quote_presentation')))
+        player = self.config.get('player_panel')
+        if self.quote_provider and player and player['enabled']:
+            from player_panel import PlayerHomeView, PlayerCardView
+            routes = {player['guild_id']: {player['channel_id']: 'players'}}
+            self.add_view(PlayerHomeView(self.quote_provider, routes, self.config.get('quote_presentation')))
+            for model_id in player['featured_model_ids']:
+                self.add_view(PlayerCardView(self.quote_provider, model_id, routes,
+                                            self.config.get('quote_presentation')))
+            self.add_view(CategoryHomeView(self.quote_provider, 'players', allowed_routes=routes,
+                                           presentation=self.config.get('quote_presentation')))
         if self.config.get('club_panels'):
             from club_panel import ClubPanelView
             from onboarding_panel import WelcomeView, ClubSectionView, PopularClubView
@@ -330,6 +345,8 @@ class ContentClient(discord.Client):
             await self.setup_quote_panel()
             if self.config.get('quote_static'):
                 await self.setup_quote_static_panel()
+        if self.config.get('player_panel', {}).get('enabled'):
+            await self.setup_player_panel()
         if self.config.get('club_panels'):
             await self.setup_club_panels()
 
@@ -413,6 +430,45 @@ class ContentClient(discord.Client):
                 temp.replace(marker)
             except Exception as exc:
                 print('Static quote panel setup failed: ' + type(exc).__name__, flush=True)
+
+    async def setup_player_panel(self):
+        from quote_panel import category_embed
+        from player_panel import PlayerHomeView
+        static = self.config['player_panel']
+        channel_id = static['channel_id']
+        channel = self.get_channel(channel_id)
+        if (not self.quote_provider or not channel or channel.id != channel_id
+                or channel.guild.id != static['guild_id']):
+            return
+        marker = Path(self.store.path).parent / 'player-panel.json'
+        async with self.quote_lock:
+            try:
+                if marker.exists():
+                    saved = json.loads(marker.read_text(encoding='utf-8'))
+                    if (not isinstance(saved, dict) or set(saved) != {'guild_id', 'channel_id', 'message_id'}
+                            or saved['guild_id'] != static['guild_id'] or saved['channel_id'] != channel_id
+                            or type(saved['message_id']) is not int or saved['message_id'] <= 0):
+                        print('Player panel needs reconciliation.', flush=True)
+                        return
+                    await channel.get_partial_message(saved['message_id']).edit(
+                        embed=category_embed('players', self.config.get('quote_presentation')),
+                        view=PlayerHomeView(self.quote_provider, allowed_routes={static['guild_id']: {channel_id: 'players'}},
+                                              presentation=self.config.get('quote_presentation')),
+                        allowed_mentions=discord.AllowedMentions.none())
+                    return
+                saved = {'guild_id': static['guild_id'], 'channel_id': channel_id, 'message_id': 'pending'}
+                temp = marker.with_suffix('.tmp')
+                temp.write_text(json.dumps(saved), encoding='utf-8')
+                temp.replace(marker)
+                message = await channel.send(embed=category_embed('players', self.config.get('quote_presentation')),
+                    view=PlayerHomeView(self.quote_provider, allowed_routes={static['guild_id']: {channel_id: 'players'}},
+                                          presentation=self.config.get('quote_presentation')),
+                    allowed_mentions=discord.AllowedMentions.none())
+                saved['message_id'] = message.id
+                temp.write_text(json.dumps(saved), encoding='utf-8')
+                temp.replace(marker)
+            except Exception as exc:
+                print('Player panel setup failed: ' + type(exc).__name__, flush=True)
 
     async def setup_club_panels(self):
         from club_panel import club_embed, welcome_embed

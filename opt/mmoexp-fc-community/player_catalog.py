@@ -38,7 +38,8 @@ def _card(row):
         futbin = str(_integer(ids[0])) if ids else None
         return {'id': 'players:' + str(mid), 'title': title, 'name': parts[0], 'rating': rating,
                 'position': parts[2], 'card_version': parts[3],
-                'card_type': parts[4] if len(parts) == 5 else '', 'futbin_player_id': futbin}
+                'card_type': parts[4] if len(parts) == 5 else '', 'futbin_player_id': futbin,
+                'recommended': _equals(row.get('is_rec'), 1)}
     except (KeyError, TypeError, AttributeError):
         raise ValueError('invalid player') from None
 
@@ -105,7 +106,7 @@ class PlayerCatalog:
         return [self._model(mid) for mid in ids]
 
     def tags(self):
-        if self.tag_client is None:
+        if self.tag_client is None or not self.allowed_tag_ids:
             return []
         result, seen = [], set()
         for row in self.tag_client.list_tags(gid=GID, cid=CID):
@@ -125,22 +126,32 @@ class PlayerCatalog:
                 continue
         return result
 
+    def recommended(self, limit=25, page=1):
+        return self._filtered_page(limit, page, lambda row: _equals(row.get('is_rec'), 1))
+
     def browse_tag(self, tag_id, limit=25, page=1):
         tag_id = _integer(tag_id)
         if str(tag_id) not in {tag['id'] for tag in self.tags()}:
             raise ValueError('tag unavailable')
-        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 25:
+        def matches(row):
+            tids = row.get('tid', row.get('tag_ids'))
+            if isinstance(tids, str):
+                tids = tids.replace('，', ',').split(',')
+            return isinstance(tids, (list, tuple)) and tag_id in {_integer(v) for v in tids}
+        return self._filtered_page(limit, page, matches)
+
+    def _filtered_page(self, limit, page, matches):
+        if type(limit) is not int or not 1 <= limit <= 25:
             raise ValueError('invalid limit')
-        if isinstance(page, bool) or not isinstance(page, int) or not 1 <= page <= 200:
+        if type(page) is not int or not 1 <= page <= 200:
             raise ValueError('invalid page')
         result = self.client.list_models(gid=GID, cid=CID, page=page, limit=limit)
-        if len(result.rows) > limit or not isinstance(result.total, int) or result.total < 0:
-            raise ValueError('invalid tag result')
+        if len(result.rows) > limit or type(result.total) is not int or result.total < 0:
+            raise ValueError('invalid player result')
         items, seen = [], set()
         for row in result.rows:
             try:
-                tids = row.get('tid')
-                if not isinstance(tids, (list, tuple)) or tag_id not in {_integer(v) for v in tids}:
+                if not matches(row):
                     continue
                 card = _card(row)
                 if card['id'] in seen:
@@ -164,6 +175,13 @@ class PlayerCatalog:
                     or more.get('saleprop') != [] or more.get('skuTableSet') != []):
                 return False
             _integer(row['id'])
+            # auto_off=0 / total=0 is a live unlimited-stock contract, not sold out.
+            auto_off = row['auto_off']
+            stock = Decimal(str(row['total']))
+            if (not (_equals(auto_off, 0) or _equals(auto_off, 1))
+                    or not stock.is_finite() or stock < 0
+                    or (_equals(auto_off, 1) and stock < _decimal(row['num']))):
+                return False
             price, unit, discount = (_decimal(row['price']), _decimal(row['unit_price']),
                                      _decimal(row['discount']))
             return price < 9999 and discount <= 100 and abs(price - unit * discount / 100) <= Decimal('0.01')

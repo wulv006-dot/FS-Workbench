@@ -28,9 +28,9 @@ class BridgeTests(unittest.TestCase):
 
     def test_new_category_identifiers_are_allowed_but_arbitrary_paths_remain_blocked(self):
         p = Provider()
-        for product in ('evolutions:42', 'boosting:9711', 'coins:100'):
+        for product in ('evolutions:42', 'boosting:9711', 'coins:100', 'players:123'):
             with self.subTest(product=product):
                 self.assertEqual(dispatch(p, {'action': 'quote', 'args': [product, '21589']})['title'], product)
-        for product in ('coins:0', 'coins:100:extra', 'coins:../../etc', 'players:123'):
+        for product in ('coins:0', 'coins:100:extra', 'coins:../../etc'):
             with self.assertRaises(ValueError):
                 dispatch(p, {'action': 'quote', 'args': [product, '21589']})
