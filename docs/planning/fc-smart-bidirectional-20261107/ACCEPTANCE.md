@@ -92,3 +92,5 @@ PR908 head014d2a799a2d4088762386b8f228062199b3c794，正式CI42393440357成功�
 已完成实现、正式CI、合并、生产文件/服务读回、实际界面、自然原ID重试、新鲜Lootbar主锚、小时效果更新、修后缺价只读预览及Sol真实工具读取。尚未完成成熟48小时对照、实际B/C标签跨时段效果、连续多日稳定性或增利结论；现有小时程序与每日只读Sol复盘继续积累，无额外报告定时，地区配置保留但系数1，11月目标仅背景。
 
 同一知识变更KL-2001022625084b2d3b0f4f25已更新原两Notion页自己的唯一摘要区块，保留人工内容和其他任务摘要；工具完成无警告。没有新增报告定时或覆盖共享Sol配置。
+
+Sol完整工具结果最终校验：whole SHA等于原quote canonical全文SHA；receipt.snapshot_sha256=0acaac1cde48481e83992d7483953a27add841dabd1013ed129ab7614d959149等于该turn授予的原evidence SHA，两类SHA不同语义、不应互比相等。该turn仅describe1/skill_view1/read_quote1；provider输入50,107、输出960、合计51,067 tokens，实际费用未核。脱敏简报.agent_runtime/t1-collection/sol-fragment-acceptance-redacted.md，原证据sol-fragment-{inspect,exact,sha}.jsonl。
