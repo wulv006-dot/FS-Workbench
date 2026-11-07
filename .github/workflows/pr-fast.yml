@@ -38,6 +38,16 @@ jobs:
           if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^releases/(fc-players/direct-json-20261029/|fs-dashboard/hermes-conversation-20261018/)'; then
             python -m pip install --disable-pip-version-check --no-deps openpyxl==3.1.5 et_xmlfile==2.0.0
           fi
+      - name: Prepare FC community runtime dependency
+        shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^opt/(mmoexp-fc-community/|mmoexp-fc-quotes/|fc27-news-fetch/|bot-console/(server.py|test_fc_console.py|static/fc27.html)$)'; then
+            python -m pip install --disable-pip-version-check -r opt/mmoexp-fc-community/requirements.txt
+          fi
       - name: Prepare affected browser check
         shell: bash
         env:

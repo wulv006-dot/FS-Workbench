@@ -100,7 +100,9 @@
       "evidence_level": "maintained_source"
     },
     "WOWFOREVER": {
-      "roots": ["opt/wowforever-bot"],
+      "roots": [
+        "opt/wowforever-bot"
+      ],
       "basis": "PR895 maintained bot source; /opt/wowforever-bot on play187. Includes giveaway, news and their isolated tests; live versions must still be read back.",
       "evidence_level": "maintained_source"
     },
@@ -230,6 +232,16 @@
       ],
       "basis": "Sales collector imports sales_regions and persists order_regions in history.db; source-map.json maps exact publisher targets. Actual deployment and acceptance recorded separately.",
       "evidence_level": "publisher_mapping"
+    },
+    "fc-community": {
+      "roots": [
+        "opt/mmoexp-fc-community",
+        "opt/mmoexp-fc-quotes",
+        "opt/fc27-news-fetch",
+        "opt/bot-console"
+      ],
+      "basis": "FC27 community source backfill; runtime mapping and exclusions in opt/mmoexp-fc-community/docs/SOURCE-MAP-20261108.md. Includes production-facing bot, read-only quote bridge, fixed-source 183 news worker and FS console; player catalog and binding remain candidate modules.",
+      "evidence_level": "partial_mapping"
     }
   },
   "limits": [

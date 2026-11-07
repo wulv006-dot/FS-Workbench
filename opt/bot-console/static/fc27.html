@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FC27 控制台</title>
+<style>
+:root{color-scheme:dark;--bg:#11111b;--bg2:#181825;--bg3:#252536;--line:#45475a;--tx:#cdd6f4;--muted:#a6adc8;--blue:#89b4fa;--green:#a6e3a1;--red:#f38ba8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.55 system-ui,-apple-system,"Microsoft YaHei",sans-serif}a{color:var(--blue)}
+header{position:sticky;top:0;z-index:2;background:rgba(17,17,27,.96);border-bottom:1px solid var(--line);padding:14px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+header h1{font-size:16px;margin:0}header span{margin-left:auto;color:var(--muted);font-size:12px}
+main{max-width:1000px;margin:auto;padding:24px 20px 60px}.intro{margin:0 0 22px;color:var(--muted)}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:20px;margin:0 0 16px}.card h2{font-size:15px;margin:0 0 6px}.hint{color:var(--muted);font-size:12px;margin:0 0 14px}
+.status{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.badge{border:1px solid var(--line);border-radius:99px;padding:3px 9px;font-size:12px}.good{color:var(--green)}.bad{color:var(--red)}
+.rows{display:grid;gap:12px}.row{display:grid;grid-template-columns:135px minmax(180px,1fr) 100px;gap:12px;align-items:end;padding:12px;background:var(--bg3);border-radius:9px}
+.row label{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}.row strong{display:block;padding-bottom:7px}.toggle{display:flex;gap:8px;align-items:center;padding-bottom:9px;white-space:nowrap}
+input[type=text],input[type=url],input[type=number],select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px;color:var(--tx);font:13px ui-monospace,Consolas,monospace}input:focus,select:focus,textarea:focus{outline:2px solid var(--blue)}input[type=checkbox]{accent-color:var(--blue);width:16px;height:16px}textarea{resize:vertical;min-height:90px}
+button{background:var(--bg3);border:1px solid var(--line);border-radius:8px;color:var(--tx);padding:8px 14px;font:600 13px inherit;cursor:pointer}button.primary{background:var(--blue);border-color:var(--blue);color:#11111b}button:disabled,input:disabled{opacity:.55;cursor:not-allowed}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#message{font-size:13px;white-space:pre-wrap}.error{color:var(--red)}.success{color:var(--green)}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:400px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;color:var(--muted);font:12px/1.5 ui-monospace,Consolas,monospace}
+@media(max-width:600px){.row{grid-template-columns:1fr}.row strong{padding:0}.toggle{padding:0}header span{margin-left:0}}
+[hidden]{display:none!important}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;border-bottom:1px solid var(--line);padding-bottom:12px}.tabs [aria-selected=true]{color:var(--blue);border-color:var(--blue);background:var(--bg3)}.subtabs{margin-top:18px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.grid .card{margin:0}.field{margin:0 0 14px}.field label{display:block;margin-bottom:5px;color:var(--muted)}.record{border-top:1px solid var(--line);padding:12px 0;overflow-wrap:anywhere}.record:first-child{border-top:0}.record p{margin:4px 0}.record .meta{font-size:12px;color:var(--muted)}.record .badge{display:inline-block;margin-right:6px}.empty{color:var(--muted);padding:10px 0}.news-feedback{white-space:pre-wrap;min-height:24px}.source-row{padding:10px 0;border-top:1px solid var(--line)}@media(max-width:700px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><a href="/dashboard/modules/bots/">← 机器人管理</a><h1>FC27 控制台</h1><span id="access">正在读取权限…</span></header>
+<main>
+ <p class="intro">管理 MMOEXP FC Assistant 的频道入口与运行状态。</p>
+ <nav class="tabs" role="tablist" aria-label="FC27 功能" data-tabs="main"><button type="button" id="tab-quotes" role="tab" aria-controls="quotes-panel" aria-selected="true">报价与服务</button><button type="button" id="tab-news" role="tab" aria-controls="news-panel" aria-selected="false" tabindex="-1">新闻中心</button><button type="button" id="tab-player" role="tab" aria-controls="player-panel" aria-selected="false" tabindex="-1">Player</button></nav>
+ <div id="quotes-panel" role="tabpanel" aria-labelledby="tab-quotes">
+ <section class="card"><h2>服务状态</h2><p class="hint">报价机器人与其他站点机器人独立运行；日志仅向管理员展示事件与错误类型。</p><div class="status"><span id="status" class="badge">读取中…</span><button id="refresh" type="button">刷新状态</button><button id="logs" type="button" disabled>查看日志</button></div><pre id="logtext" hidden></pre></section>
+ <section class="card"><h2>分类频道</h2><p class="hint">开启并填写正式群频道 ID。SBC、Packs、Gallery、Evolutions、Boosting 在匹配更新时发布；Boosting 包含 OBJ 与 Rush。Coins 为固定入口，不监听更新；五个金币档位由机器人维护。关闭分类不会删除已发布消息；已创建的 Coins 入口更换频道前需先核对旧消息。</p>
+  <form id="form"><div id="routes" class="rows"></div><div class="actions" style="margin-top:16px"><button class="primary" id="save" type="submit" disabled>保存并重启生效</button><span id="message" role="status" aria-live="polite"></span></div></form>
+ </section>
+ </div>
+ <div id="news-panel" role="tabpanel" aria-labelledby="tab-news" hidden>
+  <div class="actions"><div><h2 style="margin:0">新闻中心</h2><p class="hint" style="margin:3px 0">自动采集每轮最多发布 6 条；手动发布不限条数，同一链接可重复提交。</p></div><button id="news-refresh" type="button" style="margin-left:auto">刷新新闻状态</button></div><div id="news-message" class="news-feedback" role="status" aria-live="polite"></div>
+  <nav class="tabs subtabs" role="tablist" aria-label="新闻中心" data-tabs="news"><button type="button" id="tab-news-settings" role="tab" aria-controls="news-settings" aria-selected="true">采集设置</button><button type="button" id="tab-news-records" role="tab" aria-controls="news-records" aria-selected="false" tabindex="-1">新闻记录</button><button type="button" id="tab-news-manual" role="tab" aria-controls="news-manual" aria-selected="false" tabindex="-1">手动发布</button></nav>
+  <div id="news-settings" role="tabpanel" aria-labelledby="tab-news-settings">
+   <section class="card"><h2>自动采集</h2><p class="hint">EA 官方优先，MMOEXP 其次；同一来源按发布时间从新到旧。每轮自动采集最多发布 6 条，这个发布额度与记录列表展示数量分别计算。保存节点后从下一轮生效；重启不会重置本轮 6 条额度。</p><form id="news-form"><div class="row"><strong>News</strong><div><label for="news-channel">发布频道 ID</label><input id="news-channel" type="text" inputmode="numeric"></div><label class="toggle"><input id="news-enabled" type="checkbox">启用</label></div><div class="grid" style="margin-top:16px"><div class="field"><label for="news-hours">采集间隔（小时）</label><input id="news-hours" type="number" min="0.25" max="24" step="0.25" value="6" required><p class="hint">最少 0.25 小时，最多 24 小时。</p></div><div class="field"><label for="news-collector">采集节点</label><select id="news-collector"><option value="187">187</option><option value="183">183</option><option value="auto">自动选择（auto）</option></select></div></div><button class="primary" id="news-save" disabled>保存采集配置并重启</button></form></section>
+   <section class="card"><h2>来源状态</h2><p id="collection-summary" class="hint">正在读取…</p><div id="collection-sources"></div></section>
+  </div>
+  <div id="news-records" role="tabpanel" aria-labelledby="tab-news-records" hidden><p class="hint">以下各组仅展示最近 6 条记录。自动发布额度仍为每轮最多 6 条；已发布文章也可出现在最近采集中。</p><div class="grid"><section class="card"><h2>最近采集 6 条</h2><p class="hint">自动采集的新闻及当前发布状态。</p><div id="news-collected"></div></section><section class="card"><h2>待发布 / 发送中</h2><p class="hint">按发送优先级列出最多 6 条：手动优先，自动项仍受本轮额度控制。</p><div id="news-pending"></div></section><section class="card"><h2>最近发布 6 条</h2><p class="hint">已确认发送成功，含自动与手动发布。</p><div id="news-published"></div></section><section class="card"><h2>失败 / 结果不确定</h2><p class="hint">最近 6 条。系统不会自动重试，请先核对 Discord。</p><div id="news-failed"></div></section></div></div>
+  <div id="news-manual" role="tabpanel" aria-labelledby="tab-news-manual" hidden><p class="hint">自动采集失败时也可使用手动发布。每次提交都是独立发布，同一链接可重复；不受自动每轮 6 条额度限制。</p><div class="grid"><section class="card"><h2>发布新闻链接</h2><p class="hint">仅接受已接入的官方新闻链接，可补充标题和简短摘要。</p><form id="article-form"><div class="field"><label for="article-url">新闻原文 URL</label><input id="article-url" type="url" placeholder="https://www.mmoexp.com/News/..." required></div><div class="field"><label for="article-title">标题（可选，最多 240 字）</label><input id="article-title" type="text" maxlength="240"></div><div class="field"><label for="article-summary">摘要（可选，最多 350 字）</label><textarea id="article-summary" maxlength="350"></textarea></div><button id="article-send" class="primary" disabled>提交新闻发布</button></form></section><section class="card"><h2>发布 X 推文</h2><p class="hint">发布原文引用与人工摘要，不读取 X 私有接口。同一推文可以重复提交。</p><form id="x-form"><div class="field"><label for="x-url">X / Twitter 推文链接</label><input id="x-url" type="url" placeholder="https://x.com/account/status/123456789" required></div><div class="field"><label for="x-summary">人工摘要（可选，最多 600 字）</label><textarea id="x-summary" maxlength="600"></textarea></div><button id="x-send" class="primary" disabled>提交推文发布</button></form></section></div><section class="card" style="margin-top:16px"><h2>最近手动提交 6 条</h2><p class="hint">发送结果未确认时先核对记录，避免误操作。你可以主动重复提交同一链接。</p><div id="news-manual-items"></div></section></div>
+ </div>
+ <div id="player-panel" role="tabpanel" aria-labelledby="tab-player" hidden><section class="card"><h2>Player</h2><p class="hint">精选 Player 与标签尚未接入，当前不会保存或生效。</p></section></div>
+</main>
+<script>
+'use strict';
+const kinds=[['sbc','SBC'],['packs','Packs'],['gallery','Gallery'],['evolutions','Evolutions'],['boosting','Boosting'],['coins','Coins']];
+const base=location.pathname.replace(/fc27\.html$/, '');
+const $=s=>document.querySelector(s);
+let revision='', newsRevision='', writable=false, newsWritable=false, xBusy=false, articleBusy=false, newsPollSeconds=21600;
+for(const tabs of document.querySelectorAll('[data-tabs]')){
+ const buttons=[...tabs.querySelectorAll('[role=tab]')];
+ function activate(button){for(const item of buttons){const selected=item===button;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;document.getElementById(item.getAttribute('aria-controls')).hidden=!selected;}}
+ for(const button of buttons){button.onclick=()=>activate(button);button.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let index=buttons.indexOf(button);index=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;activate(buttons[index]);buttons[index].focus();};}
+}
+async function api(path,options={}){
+ const init={credentials:'same-origin',cache:'no-store',...options};
+ if(init.body){init.body=JSON.stringify(init.body);init.headers={'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'};}
+ const response=await fetch(base+'api/fc/'+path,init);
+ if(response.status===401){location.href='/__auth/access/?next='+encodeURIComponent(location.pathname);throw Error('请先登录');}
+ const data=await response.json();if(!response.ok)throw Error(data.error||('HTTP '+response.status));return data;
+}
+function message(text,ok=false){const el=$('#message');el.textContent=text;el.className=ok?'success':'error';}
+async function loadConfig(){
+ const data=await api('config');revision=data.revision;writable=data.can_write;
+ $('#access').textContent=writable?'管理员 · 可配置':'只读';
+ $('#logs').disabled=!writable;
+ const root=$('#routes');root.textContent='';
+ for(const [kind,label] of kinds){
+  const row=document.createElement('div');row.className='row';
+  const title=document.createElement('strong');title.textContent=label;row.appendChild(title);
+  const field=document.createElement('div');const caption=document.createElement('label');caption.htmlFor='channel-'+kind;caption.textContent='频道 ID';field.appendChild(caption);
+  const input=document.createElement('input');input.type='text';input.id='channel-'+kind;input.inputMode='numeric';input.value=data.routes[kind]||'';input.disabled=!writable;field.appendChild(input);row.appendChild(field);
+  const toggle=document.createElement('label');toggle.className='toggle';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.id='enabled-'+kind;checkbox.checked=!!data.routes[kind];checkbox.disabled=!writable;toggle.appendChild(checkbox);toggle.appendChild(document.createTextNode('启用'));row.appendChild(toggle);root.appendChild(row);
+ }
+ $('#save').disabled=!writable;
+}
+async function loadStatus(){try{const s=await api('status');$('#status').textContent=s.active?'运行中 · PID '+s.pid:'未运行 · '+s.state;$('#status').className='badge '+(s.active?'good':'bad');}catch(e){$('#status').textContent='状态不可用';$('#status').className='badge bad';message(e.message);}}
+$('#refresh').onclick=loadStatus;
+$('#logs').onclick=async()=>{try{const data=await api('logs');$('#logtext').textContent=data.text||'暂无日志';$('#logtext').hidden=false;}catch(e){message(e.message);}};
+$('#form').onsubmit=async event=>{
+ event.preventDefault();if(!writable)return;const routes={};
+ for(const [kind] of kinds){const value=$('#channel-'+kind).value.trim();const enabled=$('#enabled-'+kind).checked;if(enabled&&!/^[1-9][0-9]{16,19}$/.test(value)){message('请为已启用的分类填写有效频道 ID。');return;}routes[kind]=enabled?value:'';}
+ $('#save').disabled=true;message('正在保存…',true);
+ try{const result=await api('config',{method:'POST',body:{routes,revision,restart:true}});await Promise.all([loadConfig(),loadNews(),loadStatus()]);message(result.restarted?'已保存并重启服务。':'配置已保存，但服务重启或就绪检查失败，请查看状态与日志。',result.restarted);}
+ catch(e){message(e.message);$('#save').disabled=!writable;}
+};
+function newsMessage(text,ok=false){const el=$('#news-message');el.textContent=text;el.className='news-feedback '+(ok?'success':'error');}
+async function loadNews(){
+ const data=await api('news/config');newsRevision=data.revision;newsWritable=data.can_write;const cfg=data.news_publish;newsPollSeconds=cfg?cfg.poll_seconds:21600;
+ $('#news-channel').value=cfg?cfg.channel_id:'';$('#news-enabled').checked=!!(cfg&&cfg.enabled);$('#news-hours').value=cfg?cfg.poll_seconds/3600:6;$('#news-collector').value=cfg&&cfg.collector?cfg.collector:'187';
+ for(const id of ['news-channel','news-enabled','news-hours','news-collector','news-save','article-url','article-title','article-summary','article-send','x-url','x-summary','x-send'])$('#'+id).disabled=!newsWritable;
+ await loadNewsItems();
+}
+const localTimeZone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+const statusLabels={duplicate:'已跳过重复',pending:'待发布',sending:'发送中',published:'已发布',failed:'失败',uncertain:'结果不确定，请核对 Discord'};
+function dateText(value){return value?new Date(value*1000).toLocaleString('zh-CN',{hour12:false}):'暂无';}
+function safeUrl(value){try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password&&(!url.port||url.port==='443')&&['www.ea.com','ea.com','www.mmoexp.com','x.com','twitter.com'].includes(url.hostname)?url.href:null;}catch{return null;}}
+function renderItems(selector,items,group){
+ const root=$(selector);root.textContent='';
+ for(const item of items){const box=document.createElement('article');box.className='record';const url=safeUrl(item.url),title=document.createElement(url?'a':'strong');title.textContent=item.title;if(url){title.href=url;title.target='_blank';title.rel='noopener noreferrer';}box.appendChild(title);const meta=document.createElement('p');meta.className='meta';const badge=document.createElement('span');badge.className='badge '+(item.status==='published'?'good':item.status==='failed'||item.status==='uncertain'?'bad':'');badge.textContent=statusLabels[item.status]||item.status;meta.appendChild(badge);meta.appendChild(document.createTextNode(item.source+(item.published_date?' · '+item.published_date:'')));box.appendChild(meta);if(item.summary){const summary=document.createElement('p');summary.textContent=item.summary;box.appendChild(summary);}const time=document.createElement('p');time.className='meta';time.textContent=(group==='collected'?'采集时间：'+dateText(item.last_seen_at):item.status==='published'?'发布时间：'+dateText(item.completed_at):'记录时间：'+dateText(item.created_at))+' · 本机时间';box.appendChild(time);if(item.error_code){const error=document.createElement('p');error.className='meta';error.textContent='错误类型：'+item.error_code;box.appendChild(error);}if(item.status==='published'&&/^[1-9][0-9]{16,19}$/.test(String(item.channel_id))&&/^[1-9][0-9]{16,19}$/.test(String(item.message_id))){const link=document.createElement('a');link.textContent='查看 Discord 消息';link.href='https://discord.com/channels/1041923524601851914/'+item.channel_id+'/'+item.message_id;link.target='_blank';link.rel='noopener noreferrer';box.appendChild(link);}root.appendChild(box);}
+ if(!items.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='暂无记录';root.appendChild(empty);}
+}
+async function loadNewsItems(){
+ const data=await api('news/items');for(const [key,id] of [['collected','news-collected'],['pending','news-pending'],['published','news-published'],['failed','news-failed'],['manual','news-manual-items']])renderItems('#'+id,data[key]||[],key);
+ const state=data.collection||{},errors={partial_failure:'部分来源失败，可手动发布补充',all_sources_failed:'本轮采集失败，可使用手动发布',collection_error:'采集状态异常，请查看来源'};
+ $('#collection-summary').textContent='最近尝试：'+dateText(state.last_attempt_at)+' · 最近成功：'+dateText(state.last_success_at)+' · 预计下一轮：'+dateText(state.last_attempt_at?state.last_attempt_at+newsPollSeconds:null)+'（按当前间隔估算，本机时区：'+localTimeZone+'）'+(state.last_error_code?' · '+(errors[state.last_error_code]||'采集失败'):'');
+ const sources=$('#collection-sources');sources.textContent='';for(const [name,value] of Object.entries(state.sources||{})){const row=document.createElement('div');row.className='source-row';const title=document.createElement('strong');title.textContent=(name==='ea'?'EA 官方':name==='mmoexp'?'MMOEXP':name)+' · '+(value.ok?'成功':'失败');title.className=value.ok?'good':'bad';row.appendChild(title);const detail=document.createElement('p');detail.className='hint';detail.textContent='节点：'+(value.collector||'暂无')+(value.fallback?'（已切换备用节点）':'')+' · '+dateText(value.checked_at)+(value.error?' · '+value.error:'');row.appendChild(detail);for(const attempt of value.attempts||[]){const p=document.createElement('p');p.className='hint';p.textContent='尝试 '+(attempt.collector||'未知节点')+'：'+(attempt.ok?'成功':'失败')+(attempt.error?' · '+attempt.error:'')+(Number.isInteger(attempt.elapsed_ms)?' · '+attempt.elapsed_ms+'ms':'');row.appendChild(p);}sources.appendChild(row);}if(!Object.keys(state.sources||{}).length)sources.textContent='尚无来源采集回执。';
+}
+$('#news-form').onsubmit=async event=>{
+ event.preventDefault();if(!newsWritable)return;$('#news-save').disabled=true;
+ try{const channel=$('#news-channel').value.trim(),hours=Number($('#news-hours').value),seconds=hours*3600,collector=$('#news-collector').value;if(!/^[1-9][0-9]{16,19}$/.test(channel)||!Number.isInteger(seconds)||seconds<900||seconds>86400||!['187','183','auto'].includes(collector))throw Error('请检查频道 ID、采集节点和 0.25–24 小时的间隔。');const result=await api('news/config',{method:'POST',body:{news_publish:{guild_id:1041923524601851914,channel_id:channel,enabled:$('#news-enabled').checked,poll_seconds:seconds,collector},revision:newsRevision,restart:true}});await Promise.all([loadConfig(),loadNews(),loadStatus()]);newsMessage(result.restarted?'采集配置已保存并重启。':'已保存，服务重启未确认，请核对状态。',result.restarted);}
+ catch(e){newsMessage(e.message);}finally{$('#news-save').disabled=!newsWritable;}
+};
+$('#x-form').onsubmit=async event=>{
+ event.preventDefault();if(!newsWritable||xBusy)return;xBusy=true;$('#x-send').disabled=true;
+ try{const item=await api('news/x',{method:'POST',body:{url:$('#x-url').value.trim(),summary:$('#x-summary').value.trim(),revision:newsRevision}});newsMessage('推文已提交 #'+item.id+'：'+(statusLabels[item.status]||item.status),true);await loadNewsItems();}catch(e){newsMessage(e.message);}finally{xBusy=false;$('#x-send').disabled=!newsWritable;}
+};
+$('#article-form').onsubmit=async event=>{event.preventDefault();if(!newsWritable||articleBusy)return;articleBusy=true;$('#article-send').disabled=true;try{const item=await api('news/article',{method:'POST',body:{url:$('#article-url').value.trim(),title:$('#article-title').value.trim(),summary:$('#article-summary').value.trim(),revision:newsRevision}});newsMessage('新闻已提交 #'+item.id+'：'+(statusLabels[item.status]||item.status),true);await loadNewsItems();}catch(e){newsMessage(e.message);}finally{articleBusy=false;$('#article-send').disabled=!newsWritable;}};
+$('#news-refresh').onclick=()=>loadNewsItems().catch(e=>newsMessage(e.message));
+Promise.allSettled([loadConfig().catch(e=>message(e.message)),loadStatus(),loadNews().catch(e=>newsMessage(e.message))]);
+</script>
+</body>
+</html>

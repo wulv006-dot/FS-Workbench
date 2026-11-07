@@ -1,0 +1,24 @@
+[Unit]
+Description=MMOEXP FC27 community pilot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mmoexp-fc-community
+Group=mmoexp-fc-community
+WorkingDirectory=/opt/mmoexp-fc-community
+EnvironmentFile=/etc/mmoexp-fc-community.env
+ExecStart=/opt/mmoexp-fc-community/.venv-ssl/bin/python /opt/mmoexp-fc-community/content_bot.py --config /opt/mmoexp-fc-community/content.config.json
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWriteDirectories=/opt/mmoexp-fc-community/var
+UMask=0077
+MemoryLimit=256M
+CPUQuota=25%
+
+[Install]
+WantedBy=multi-user.target

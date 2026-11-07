@@ -40,11 +40,15 @@ Discord 机器人控制台 · 后端服务
 from __future__ import annotations
 
 import json
+import hashlib
+import importlib.util
 import os
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -53,6 +57,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+from contextlib import closing
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -76,6 +81,23 @@ CFG["data_dir"].mkdir(parents=True, exist_ok=True)
 (CFG["data_dir"] / "backups").mkdir(parents=True, exist_ok=True)
 
 AUDIT_LOG = CFG["data_dir"] / "audit.log"
+
+# FC 社区助手配置独立于守卫与迎新机器人，不接受客户端指定文件或服务。
+FC_CONFIG = Path('/opt/mmoexp-fc-community/content.config.json')
+FC_STATIC_MARKER = Path('/opt/mmoexp-fc-community/var/quote-static-panel.json')
+FC_SERVICE = 'mmoexp-fc-community'
+FC_GUILD = 1041923524601851914
+FC_KINDS = ('sbc', 'packs', 'gallery', 'evolutions', 'boosting', 'coins')
+FC_LOCK = threading.Lock()
+FC_NEWS_DB = Path('/opt/mmoexp-fc-community/var/news.sqlite3')
+FC_NEWS_CODE = Path('/opt/mmoexp-fc-community/news_feed.py')
+
+
+def fc_news_module():
+    spec = importlib.util.spec_from_file_location('fc_news_feed', FC_NEWS_CODE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 # ---------------------------------------------------------------- 机器人注册表
 
@@ -130,9 +152,26 @@ SUFFIX_OK = [
     "store", "sale", "sales", "gift", "giveaway", "airdrop", "claim", "reward",
     "promo", "bot", "mod", "manager", "agent", "online", "shop", "market",
     "trade", "vip", "global", "hq", "inc", "llc", "top", "buy", "sell",
+    # 2026-11-06 补：竞品站点名常带的域名/广告尾巴
+    "com", "net", "org", "gg", "site", "web", "gold", "cheap", "coins", "coin",
+    "currency", "delivery", "boost", "boosting", "account", "accounts", "powerleveling",
 ]
 
+# 长的排前面，避免短后缀抢先吃掉
+SUFFIX_ALT = "|".join(re.escape(s) for s in sorted(SUFFIX_OK, key=len, reverse=True))
+
 DEFAULT_BRAND_PATTERN = r"^(?:the)?(?:mm[o0]+)exp([a-z0-9]*)$"
+
+# 逐字符「易混写法」表（与 index.js 的 BRAND_CLASS 逐项一致）
+BRAND_CLASS = {
+    "a": "[a4]", "b": "[b8]", "c": "c", "d": "d", "e": "[e3]", "f": "f",
+    "g": "[g69]", "h": "h", "i": "[i1l]", "j": "j", "k": "k", "l": "[l1i]",
+    "m": "m", "n": "n", "o": "[o0]", "p": "p", "q": "q", "r": "r",
+    "s": "[s5]", "t": "[t7]", "u": "[uv]", "v": "[uv]", "w": "w", "x": "x",
+    "y": "y", "z": "z",
+    "0": "[0o]", "1": "[1il]", "3": "[3e]", "4": "[4a]", "5": "[5s]",
+    "6": "[6g9]", "7": "[7t]", "8": "[8b]", "9": "[9g6]",
+}
 
 
 def canon(raw) -> str:
@@ -148,81 +187,140 @@ def squash(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", s)
 
 
-def drop_one_char(a: str, b: str) -> bool:
-    """a 删掉恰好 1 个字符后是否等于 b。"""
-    if len(a) - len(b) != 1:
-        return False
-    return any(a[:i] + a[i + 1:] == b for i in range(len(a)))
+def class_of(text: str) -> str:
+    """把品牌词逐字符换成「易混字符组」。"""
+    out = []
+    for ch in str(text):
+        if ch in BRAND_CLASS:
+            out.append(BRAND_CLASS[ch])
+        else:
+            out.append(re.escape(ch))
+    return "".join(out)
 
 
-def one_char_diff(a: str, b: str) -> bool:
-    """等长且恰好 1 个位置不同。"""
-    if len(a) != len(b):
-        return False
-    return sum(1 for i in range(len(a)) if a[i] != b[i]) == 1
+def _compile_brands(cfg: dict):
+    """把 cfg.brandList 编译成规则表（与 index.js compileBrands 同构）。"""
+    global_mode = "loose" if cfg.get("matchMode") == "loose" else "strict"
+    raw_list = cfg.get("brandList")
+    items = [b for b in raw_list if isinstance(b, dict)] if isinstance(raw_list, list) else []
+    if not items:
+        items = [{
+            "label": "MMOEXP",
+            "core": cfg.get("brandCore") or "mmoexp",
+            "fuzzy": cfg.get("brandTokenFuzzy") or 0,
+            "pattern": cfg.get("brandPattern") or DEFAULT_BRAND_PATTERN,
+            "token": cfg.get("brandTokenMatch", True) is not False,
+            "official": True,
+        }]
 
-
-def token_match(raw_name, cfg: dict):
-    """片段式匹配：品牌词作为「独立片段」出现在名字任意位置即命中。
-
-    背景：旧的前缀正则只认「开头」，抓不到 nick.mmoexp（品牌词在中间/结尾）
-    和 service_mmoex（品牌词拼错少个字母）这两类。这里按非字母数字切分后的
-    独立片段比对品牌词核心，并允许 1 个字符的拼写容错。
-    只匹配独立片段，所以 mmoexpert / mmoexpfan 这类粘连名字不会被误伤。
-    """
-    if not cfg.get("brandTokenMatch", True):
-        return None
-    core = squash(canon(cfg.get("brandCore") or "mmoexp"))
-    if len(core) < 4:
-        return None
-    try:
-        fuzzy = int(cfg.get("brandTokenFuzzy") or 0)
-    except (TypeError, ValueError):
-        fuzzy = 0
-    for p in re.split(r"[^a-z0-9]+", canon(raw_name)):
-        if len(p) < 4:
+    rules = []
+    for b in items:
+        core = squash(canon(b.get("core") or b.get("label") or ""))
+        if len(core) < 3:
             continue
-        if p == core:
-            return {"tail": "", "via": "token", "token": p}
-        if fuzzy >= 1 and (drop_one_char(core, p) or one_char_diff(core, p)):
-            return {"tail": "", "via": "token-approx", "token": p}
+        cls = class_of(core)
+        try:
+            fuzzy = int(b.get("fuzzy") if b.get("fuzzy") is not None
+                        else (cfg.get("brandTokenFuzzy") or 0))
+        except (TypeError, ValueError):
+            fuzzy = 0
+        fuzzy = max(0, min(2, fuzzy))
+        mode = b.get("matchMode") if b.get("matchMode") in ("strict", "loose") else global_mode
+
+        # 近似串只对 6 字母以上的品牌开（与 index.js 注释同因）
+        approx = []
+        if fuzzy >= 1 and len(core) >= 6:
+            for i in range(len(core)):
+                dele = "".join(class_of(c) for j, c in enumerate(core) if j != i)
+                if dele:
+                    approx.append(re.compile("^" + dele + "$", re.I))
+                ins = ("".join(class_of(c) for c in core[:i]) + "."
+                       + "".join(class_of(c) for c in core[i:]))
+                approx.append(re.compile("^" + ins + "$", re.I))
+
+        pattern = b.get("pattern")
+        try:
+            prefix_re = re.compile(str(pattern), re.I) if pattern else re.compile("^" + cls + "([a-z0-9]*)$", re.I)
+        except re.error:
+            prefix_re = re.compile("^" + cls + "([a-z0-9]*)$", re.I)
+
+        rules.append({
+            "label": str(b.get("label") or b.get("core") or core).upper(),
+            "core": core,
+            "cls": cls,
+            "fuzzy": fuzzy,
+            "mode": mode,
+            "token": b.get("token") is not False,
+            "prefix": b.get("prefix") is not False,
+            "glued": b.get("glued") is not False,
+            "official": bool(b.get("official")),
+            "prefix_re": prefix_re,
+            "exact_re": re.compile("^" + cls + "$", re.I),
+            "approx": approx,
+            "glued_re": re.compile("(" + cls + ")(" + SUFFIX_ALT + ")", re.I),
+        })
+    return rules
+
+
+def match_token(parts, rule):
+    """片段式匹配：独立片段等于品牌词（或差 1 个字符）即命中。"""
+    if not rule["token"]:
+        return None
+    for p in parts:
+        if len(p) >= 3 and rule["exact_re"].match(p):
+            return {"tail": "", "via": "token", "brand": rule["label"], "official": rule["official"]}
+    if rule["fuzzy"] >= 1:
+        for p in parts:
+            if abs(len(p) - len(rule["core"])) > 1:
+                continue
+            if any(r.match(p) for r in rule["approx"]):
+                return {"tail": "", "via": "token-approx", "brand": rule["label"], "official": rule["official"]}
     return None
 
 
 def classify(raw_name, cfg: dict):
-    """冒充判定。命中返回 dict，否则 None。与 index.js 的 classify 行为一致。"""
+    """命中判定。返回 dict 或 None。与 index.js 的 classify 行为逐条一致。"""
     sq = squash(canon(raw_name))
-    if len(sq) < 6:
+    if len(sq) < 4:
         return None
 
     for token in cfg.get("extraStartsWith") or []:
         t = squash(canon(token))
         if t and sq.startswith(t):
-            return {"tail": sq[len(t):], "via": "extraStartsWith"}
+            return {"tail": sq[len(t):], "via": "extraStartsWith", "brand": "EXTRA"}
 
-    # 片段式匹配（品牌词在任意位置的独立片段）——先于前缀正则，命中信息更准确
-    tk = token_match(raw_name, cfg)
-    if tk:
-        return tk
+    parts = [p for p in re.split(r"[^a-z0-9]+", canon(raw_name)) if p]
 
-    pattern = cfg.get("brandPattern") or DEFAULT_BRAND_PATTERN
-    try:
-        m = re.match(pattern, sq, re.I)
-    except re.error as e:
-        return {"error": "正则无效：%s" % e}
-    if not m:
-        return None
-    tail = (m.group(1) if m.groups() else "") or ""
+    for rule in _compile_brands(cfg):
+        # 名字整体比品牌词还短 —— 不判（同 index.js 的边界）
+        if len(sq) < len(rule["core"]):
+            continue
 
-    if cfg.get("matchMode") == "loose":
-        return {"tail": tail, "via": "loose"}
-    if tail == "":
-        return {"tail": tail, "via": "exact"}
-    if re.fullmatch(r"[0-9]+", tail):
-        return {"tail": tail, "via": "digits"}
-    for s in SUFFIX_OK:
-        if tail.startswith(s):
-            return {"tail": tail, "via": "suffix"}
+        tk = match_token(parts, rule)
+        if tk:
+            return tk
+
+        if rule["prefix"]:
+            m = rule["prefix_re"].match(sq)
+            if m:
+                tail = (m.group(1) if m.groups() else "") or ""
+                is_digits = bool(re.fullmatch(r"[0-9]+", tail))
+                is_suffix = any(tail.startswith(s) for s in SUFFIX_OK)
+                if rule["mode"] == "loose":
+                    return {"tail": tail, "via": "loose", "brand": rule["label"], "official": rule["official"]}
+                if tail == "" or is_digits or is_suffix:
+                    return {
+                        "tail": tail,
+                        "via": "exact" if tail == "" else ("digits" if is_digits else "suffix"),
+                        "brand": rule["label"],
+                        "official": rule["official"],
+                    }
+
+        if rule["glued"]:
+            g = rule["glued_re"].search(sq)
+            if g:
+                return {"tail": g.group(2) or "", "via": "glued-suffix",
+                        "brand": rule["label"], "official": rule["official"]}
     return None
 
 
@@ -297,6 +395,15 @@ def audit(actor: str, action: str, target: str, detail: str = "") -> None:
             fh.write(line + "\n")
     except OSError:
         pass
+
+
+def fc_audit(actor: str, action: str, detail: str) -> None:
+    record = {'ts': datetime.now(timezone.utc).astimezone().isoformat(timespec='seconds'),
+              'actor': actor, 'action': action, 'target': 'fc-community', 'detail': detail}
+    with open(AUDIT_LOG, 'a', encoding='utf-8') as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + '\n')
+        fh.flush()
+        os.fsync(fh.fileno())
 
 
 # ------------------------------------------------------------- 机器人状态/配置
@@ -971,6 +1078,8 @@ class Handler(BaseHTTPRequestHandler):
         # --- 静态资源与健康检查（不需要登录，nginx 已挡） ---
         if path in ("/", "/index.html"):
             return self._serve_static("index.html")
+        if path == "/fc27.html":
+            return self._serve_static("fc27.html")
         if path == "/healthz":
             return self._json(200, {
                 "ok": True,
@@ -991,6 +1100,16 @@ class Handler(BaseHTTPRequestHandler):
         seg = [p for p in path.split("/") if p]
 
         if method == "GET":
+            if path == '/api/fc/news/config':
+                return self._fc_news_config()
+            if path == '/api/fc/news/items':
+                return self._fc_news_items()
+            if path == "/api/fc/config":
+                return self._fc_get_config()
+            if path == "/api/fc/status":
+                return self._fc_status()
+            if path == "/api/fc/logs":
+                return self._fc_logs()
             if path == "/api/overview":
                 return self._api_overview()
             if bot and action == "config":
@@ -1021,7 +1140,17 @@ class Handler(BaseHTTPRequestHandler):
 
         if method == "POST":
             if not self._check_csrf():
+                if path == "/api/fc/config" or path.startswith('/api/fc/news/'):
+                    self._fc_discard_body()
                 return
+            if path == '/api/fc/news/config':
+                return self._fc_news_save()
+            if path == '/api/fc/news/x':
+                return self._fc_news_enqueue()
+            if path == '/api/fc/news/article':
+                return self._fc_news_enqueue('article')
+            if path == "/api/fc/config":
+                return self._fc_save_config()
             if seg[:1] != ["api"]:
                 return self._json(404, {"ok": False, "error": "not found"})
             if not bot:
@@ -1093,6 +1222,313 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(200, f.read_bytes(), ctype, extra)
 
     # ---------------- 业务接口 ----------------
+
+    def _fc_discard_body(self):
+        # Drain bounded unauthorized requests before closing to avoid resetting the response.
+        try:
+            length = int(self.headers.get('Content-Length') or 0)
+            if 0 < length <= CFG['max_body']:
+                self.rfile.read(length)
+        except (OSError, ValueError):
+            pass
+        self.close_connection = True
+
+    def _fc_read(self):
+        raw = FC_CONFIG.read_bytes()
+        config = json.loads(raw.decode('utf-8'))
+        if not isinstance(config, dict):
+            raise ValueError('当前 FC 配置格式不受支持')
+        routes = {kind: '' for kind in FC_KINDS}
+        for key, kinds in (('quote_relay', FC_KINDS[:-1]), ('quote_static', ('coins',))):
+            section = config.get(key)
+            if section is None:
+                continue
+            if (not isinstance(section, dict) or set(section) != {'guild_id', 'channels'}
+                    or section['guild_id'] != FC_GUILD or not isinstance(section['channels'], dict)):
+                raise ValueError('当前 FC 配置格式不受支持，未修改')
+            for channel, kind in section['channels'].items():
+                if kind not in kinds or routes[kind] or not isinstance(channel, str) or not re.fullmatch(r'[1-9][0-9]{16,19}', channel):
+                    raise ValueError('当前 FC 频道配置不受支持，未修改')
+                routes[kind] = channel
+        if len([v for v in routes.values() if v]) != len(set(v for v in routes.values() if v)):
+            raise ValueError('当前 FC 频道重复，未修改')
+        return config, routes, hashlib.sha256(raw).hexdigest()
+
+    def _fc_get_config(self):
+        if not self._require_login():
+            return
+        try:
+            _, routes, revision = self._fc_read()
+        except (OSError, ValueError, KeyError, TypeError):
+            return self._json(500, {'ok': False, 'error': '无法读取 FC 配置或配置格式不受支持'})
+        return self._json(200, {'ok': True, 'routes': routes, 'revision': revision,
+                                'can_write': self.role == 'admin'})
+
+    def _fc_news_config(self):
+        if not self._require_login():
+            return
+        try:
+            config, _, revision = self._fc_read()
+            news = config.get('news_publish')
+            if news is not None:
+                news = fc_news_module().validate_config(news, FC_GUILD)
+                news.setdefault('collector', '187')
+        except (OSError, ValueError, KeyError, TypeError, ImportError):
+            return self._json(500, {'ok': False, 'error': '无法读取新闻配置'})
+        return self._json(200, {'ok': True, 'news_publish': news, 'revision': revision,
+                                'can_write': self.role == 'admin'})
+
+    def _fc_news_items(self):
+        if not self._require_login():
+            return
+        try:
+            # Reader never initializes or changes SQLite ownership or publish state.
+            empty = {'collected': [], 'pending': [], 'published': [], 'failed': [], 'manual': [],
+                     'collection': {'last_attempt_at': None, 'last_success_at': None,
+                                    'last_error_code': '', 'sources': {}}}
+            if not FC_NEWS_DB.is_file():
+                return self._json(200, dict(empty, ok=True))
+            with closing(sqlite3.connect(FC_NEWS_DB.as_uri() + '?mode=ro', uri=True, timeout=5)) as db:
+                db.row_factory = sqlite3.Row
+                columns = {row[1] for row in db.execute('PRAGMA table_info(news_items)')}
+                fields = 'id,kind,title,summary,url,source,published_date,created_at,status,channel_id,message_id,error_code,attempted_at,completed_at'
+                auto = "delivery_mode='auto'" if 'delivery_mode' in columns else "actor='official-source'"
+                manual = "delivery_mode='manual'" if 'delivery_mode' in columns else "kind='x'"
+                seen = 'last_seen_at' if 'last_seen_at' in columns else 'created_at'
+                fields += ',COALESCE(' + seen + ',created_at) AS last_seen_at'
+                def rows(where, order):
+                    return [dict(row) for row in db.execute('SELECT ' + fields + ' FROM news_items WHERE ' + where + ' ORDER BY ' + order + ' LIMIT 6')]
+                data = {'collected': rows("kind IN ('ea','mmoexp') AND " + auto + " AND status!='baseline'", seen + ' DESC,published_at DESC,id DESC'),
+                        'pending': rows("status IN ('pending','sending')", 'CASE WHEN (' + manual + ') THEN 0 ELSE 1 END,CASE WHEN (' + manual + ") THEN id END ASC,CASE kind WHEN 'ea' THEN 0 ELSE 1 END,published_at DESC,id DESC"),
+                        'published': rows("status='published'", 'completed_at DESC,id DESC'),
+                        'failed': rows("status IN ('failed','uncertain')", 'completed_at DESC,id DESC'),
+                        'manual': rows(manual + " AND status!='baseline'", 'created_at DESC,id DESC')}
+                metadata = dict(db.execute("SELECT key,value FROM news_meta WHERE key IN ('last_attempt_at','last_poll_at','last_poll_error','collector_status')"))
+                def timestamp(value):
+                    return int(value) if isinstance(value, str) and re.fullmatch(r'[0-9]{1,12}', value) else None
+                code = metadata.get('last_poll_error', '')
+                code = code if code in ('', 'partial_failure', 'all_sources_failed') else 'collection_error'
+                sources = {}
+                try:
+                    raw_sources = json.loads(metadata.get('collector_status', '{}'))
+                    if not isinstance(raw_sources, dict):
+                        raise ValueError('Invalid source status')
+                    for source, value in raw_sources.items():
+                        if not re.fullmatch(r'[A-Za-z0-9_-]{1,40}', source) or not isinstance(value, dict):
+                            continue
+                        safe = {'ok': value.get('ok') is True}
+                        for key in ('collector', 'source', 'error'):
+                            text = value.get(key)
+                            if isinstance(text, str) and re.fullmatch(r'[A-Za-z0-9_.:-]{1,100}', text):
+                                safe[key] = text
+                        if type(value.get('fallback')) is bool:
+                            safe['fallback'] = value['fallback']
+                        if type(value.get('checked_at')) is int:
+                            safe['checked_at'] = value['checked_at']
+                        safe['attempts'] = []
+                        for attempt in value.get('attempts', [])[:4] if isinstance(value.get('attempts'), list) else []:
+                            if not isinstance(attempt, dict):
+                                continue
+                            item = {'ok': attempt.get('ok') is True}
+                            for key in ('collector', 'error'):
+                                text = attempt.get(key)
+                                if isinstance(text, str) and re.fullmatch(r'[A-Za-z0-9_.:-]{1,100}', text):
+                                    item[key] = text
+                            if type(attempt.get('elapsed_ms')) is int and attempt['elapsed_ms'] >= 0:
+                                item['elapsed_ms'] = attempt['elapsed_ms']
+                            safe['attempts'].append(item)
+                        sources[source] = safe
+                except (ValueError, TypeError):
+                    sources = {}
+                data['collection'] = {'last_attempt_at': timestamp(metadata.get('last_attempt_at')),
+                                      'last_success_at': timestamp(metadata.get('last_poll_at')),
+                                      'last_error_code': code, 'sources': sources}
+        except (OSError, ValueError, sqlite3.Error):
+            return self._json(503, {'ok': False, 'error': '新闻队列尚未就绪'})
+        return self._json(200, dict(data, ok=True))
+
+    def _fc_news_save(self):
+        if not self._require_admin():
+            self._fc_discard_body()
+            return
+        try:
+            body = self._read_body()
+            if not isinstance(body, dict) or set(body) != {'news_publish', 'revision', 'restart'}:
+                raise ValueError('Invalid request')
+            news = fc_news_module().validate_config(body['news_publish'], FC_GUILD)
+            if (not isinstance(body['revision'], str) or not re.fullmatch(r'[0-9a-f]{64}', body['revision'])
+                    or type(body['restart']) is not bool):
+                raise ValueError('Invalid revision')
+        except (ValueError, TypeError, KeyError, UnicodeError):
+            self.close_connection = True
+            return self._json(400, {'ok': False, 'error': '新闻配置无效：请检查频道、采集节点及 0.25–24 小时的间隔'})
+        with FC_LOCK:
+            try:
+                config, _, revision = self._fc_read()
+                if revision != body['revision']:
+                    return self._json(409, {'ok': False, 'error': '配置已变化，请刷新后重试'})
+                config['news_publish'] = news
+                backup = CFG['data_dir'] / 'backups' / ('fc-config-%s.json' % time.time_ns())
+                shutil.copy2(FC_CONFIG, backup)
+                os.chmod(backup, 0o600)
+                fc_audit(self.user, 'save_news_attempt', 'backup=' + backup.name)
+                st = FC_CONFIG.stat()
+                fd, tmp = tempfile.mkstemp(prefix='.fc-config-', dir=str(FC_CONFIG.parent))
+                try:
+                    with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as f:
+                        json.dump(config, f, ensure_ascii=False, indent=2)
+                        f.write('\n')
+                        f.flush()
+                        os.fsync(f.fileno())
+                    os.chmod(tmp, st.st_mode & 0o777)
+                    if hasattr(os, 'chown'):
+                        os.chown(tmp, st.st_uid, st.st_gid)
+                    if hashlib.sha256(FC_CONFIG.read_bytes()).hexdigest() != revision:
+                        return self._json(409, {'ok': False, 'error': '配置已变化，请刷新后重试'})
+                    os.replace(tmp, FC_CONFIG)
+                finally:
+                    if os.path.exists(tmp):
+                        os.unlink(tmp)
+                restarted = None
+                if body['restart']:
+                    rc, _, _ = _run(['systemctl', 'restart', FC_SERVICE], timeout=60)
+                    status_rc, state, _ = _run(['systemctl', 'show', FC_SERVICE, '-p', 'ActiveState'], timeout=10)
+                    restarted = rc == 0 and status_rc == 0 and 'ActiveState=active' in state.splitlines()
+                fc_audit(self.user, 'save_news_config', 'backup=%s restart=%s' % (backup.name, restarted))
+            except (OSError, ValueError, KeyError, TypeError):
+                return self._json(500, {'ok': False, 'error': '新闻配置保存未确认，请刷新核对'})
+        return self._json(200, {'ok': True, 'backup': backup.name, 'restarted': restarted})
+
+    def _fc_news_enqueue(self, kind='x'):
+        if not self._require_admin():
+            self._fc_discard_body()
+            return
+        try:
+            body = self._read_body()
+            fields = {'url', 'summary', 'revision'} | ({'title'} if kind == 'article' else set())
+            if not isinstance(body, dict) or set(body) != fields:
+                raise ValueError('Invalid request')
+            module = fc_news_module()
+            url = module.canonical_x_url(body['url']) if kind == 'x' else body['url']
+            if not isinstance(url, str) or not url or len(url) > 600:
+                raise ValueError('Invalid URL')
+            if (not isinstance(body['summary'], str) or len(body['summary']) > (350 if kind == 'article' else 600)
+                    or (kind == 'article' and (not isinstance(body['title'], str) or len(body['title']) > 240))):
+                raise ValueError('Invalid summary')
+        except (ValueError, TypeError, KeyError, UnicodeError):
+            self.close_connection = True
+            return self._json(400, {'ok': False, 'error': '请检查新闻链接、标题和摘要' if kind == 'article' else '仅接受 X / Twitter 的公开 status 数字链接，摘要最多 600 字'})
+        with FC_LOCK:
+            try:
+                config, _, revision = self._fc_read()
+                if body['revision'] != revision:
+                    return self._json(409, {'ok': False, 'error': '配置已变化，请刷新后重试'})
+                news = module.validate_config(config.get('news_publish'), FC_GUILD)
+                if not FC_NEWS_DB.is_file():
+                    return self._json(409, {'ok': False, 'error': '请先保存有效新闻频道并等待机器人初始化队列'})
+                fc_audit(self.user, 'enqueue_' + kind + '_attempt', 'source=' + kind)
+                item = (module.enqueue_article(FC_NEWS_DB, url, title=body['title'], summary=body['summary'], actor=self.user)
+                        if kind == 'article' else module.NewsStore(FC_NEWS_DB).enqueue_x(url, body['summary'], self.user))
+                fc_audit(self.user, 'enqueue_' + kind, 'item=%s status=%s' % (item['id'], item['status']))
+            except (ValueError, TypeError, KeyError):
+                return self._json(400, {'ok': False, 'error': '新闻配置或摘要无效'})
+            except Exception:
+                return self._json(503, {'ok': False, 'error': '入队未确认，请先刷新记录核对；系统不会自动重试'})
+        return self._json(200, {'ok': True, 'id': item['id'], 'status': item['status'], 'url': item['url']})
+
+    def _fc_status(self):
+        if not self._require_login():
+            return
+        rc, out, _ = _run(['systemctl', 'show', FC_SERVICE, '-p', 'ActiveState', '-p', 'SubState', '-p', 'MainPID'], timeout=10)
+        if rc:
+            return self._json(503, {'ok': False, 'error': '无法读取服务状态'})
+        values = dict(line.split('=', 1) for line in out.splitlines() if '=' in line)
+        return self._json(200, {'ok': True, 'active': values.get('ActiveState') == 'active',
+                                'state': values.get('SubState', 'unknown'), 'pid': values.get('MainPID', '0')})
+
+    def _fc_logs(self):
+        if not self._require_admin():
+            return
+        rc, out, _ = _run(['journalctl', '-u', FC_SERVICE, '--no-pager', '-n', '200', '-o', 'cat'], timeout=20)
+        if rc:
+            return self._json(503, {'ok': False, 'error': '无法读取服务日志'})
+        safe = re.compile(r'(?:Quote relay sent: [0-9]{17,20}|Quote relay (?:send|loop) failed: [A-Za-z_][A-Za-z0-9_]{0,79}|(?:Quote|Home|Information|Club|Static quote) panel setup failed: [A-Za-z_][A-Za-z0-9_]{0,79}|(?:Quote panel|Static quote panel) needs reconciliation\.|News (?:collection|publication) failed: [A-Za-z_][A-Za-z0-9_]{0,79}|Club panels need manual reconciliation\.)')
+        return self._json(200, {'ok': True, 'text': '\n'.join(line for line in out.splitlines() if safe.fullmatch(line))})
+
+    def _fc_save_config(self):
+        if not self._require_admin():
+            self._fc_discard_body()
+            return
+        try:
+            payload = self._read_body()
+            if not isinstance(payload, dict) or set(payload) - {'routes', 'revision', 'restart'}:
+                raise ValueError('请求格式无效')
+            routes, revision = payload.get('routes'), payload.get('revision')
+            if (not isinstance(routes, dict) or set(routes) != set(FC_KINDS)
+                    or not isinstance(revision, str) or not re.fullmatch(r'[0-9a-f]{64}', revision)
+                    or type(payload.get('restart', False)) is not bool):
+                raise ValueError('请求格式无效')
+            if any(not isinstance(v, str) or (v and not re.fullmatch(r'[1-9][0-9]{16,19}', v)) for v in routes.values()):
+                raise ValueError('频道 ID 必须是有效数字，关闭时留空')
+            enabled = [v for v in routes.values() if v]
+            if len(enabled) != len(set(enabled)):
+                raise ValueError('各分类必须使用不同频道')
+        except (ValueError, TypeError, UnicodeError):
+            self.close_connection = True
+            return self._json(400, {'ok': False, 'error': '配置无效：请检查频道 ID 和分类'})
+        with FC_LOCK:
+            try:
+                config, _, current_revision = self._fc_read()
+                if current_revision != revision:
+                    return self._json(409, {'ok': False, 'error': '配置已变化，请刷新后重试'})
+                if enabled and not config.get('quote_socket'):
+                    return self._json(400, {'ok': False, 'error': '报价服务未配置'})
+                if routes['coins'] and FC_STATIC_MARKER.exists():
+                    marker = read_json(FC_STATIC_MARKER, None)
+                    if (not isinstance(marker, dict) or marker.get('guild_id') != FC_GUILD
+                            or str(marker.get('channel_id')) != routes['coins']
+                            or type(marker.get('message_id')) is not int or marker['message_id'] <= 0):
+                        return self._json(409, {'ok': False, 'error': 'Coins 旧入口需先核对，暂不能更换频道或重新发布'})
+                for section in ('quote_relay', 'quote_static'):
+                    config.pop(section, None)
+                dynamic = {channel: kind for kind, channel in routes.items() if channel and kind != 'coins'}
+                if dynamic:
+                    config['quote_relay'] = {'guild_id': FC_GUILD, 'channels': dynamic}
+                if routes['coins']:
+                    config['quote_static'] = {'guild_id': FC_GUILD, 'channels': {routes['coins']: 'coins'}}
+                backup = CFG['data_dir'] / 'backups' / ('fc-config-%s.json' % time.time_ns())
+                shutil.copy2(FC_CONFIG, backup)
+                os.chmod(backup, 0o600)
+                fc_audit(self.user, 'save_config_attempt', 'fields=quote_relay,quote_static backup=' + backup.name)
+                st = FC_CONFIG.stat()
+                fd, tmp = tempfile.mkstemp(prefix='.fc-config-', dir=str(FC_CONFIG.parent))
+                try:
+                    with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as f:
+                        json.dump(config, f, ensure_ascii=False, indent=2)
+                        f.write('\n')
+                        f.flush()
+                        os.fsync(f.fileno())
+                    os.chmod(tmp, st.st_mode & 0o777)
+                    if hasattr(os, 'chown'):
+                        os.chown(tmp, st.st_uid, st.st_gid)
+                    if hashlib.sha256(FC_CONFIG.read_bytes()).hexdigest() != revision:
+                        return self._json(409, {'ok': False, 'error': '配置已变化，请刷新后重试'})
+                    os.replace(tmp, FC_CONFIG)
+                finally:
+                    if os.path.exists(tmp):
+                        os.unlink(tmp)
+            except (OSError, ValueError, KeyError, TypeError):
+                return self._json(500, {'ok': False, 'error': '保存失败，配置未确认更新'})
+            restarted = None
+            if payload.get('restart'):
+                rc, _, _ = _run(['systemctl', 'restart', FC_SERVICE], timeout=60)
+                status_rc, status, _ = _run(['systemctl', 'show', FC_SERVICE, '-p', 'ActiveState'], timeout=10)
+                restarted = rc == 0 and status_rc == 0 and 'ActiveState=active' in status.splitlines()
+            try:
+                fc_audit(self.user, 'save_config', 'backup=%s restart=%s' % (backup.name, restarted))
+            except OSError:
+                return self._json(500, {'ok': False, 'error': '配置可能已保存，但审计失败；请先刷新核对'})
+        return self._json(200, {'ok': True, 'backup': backup.name, 'restarted': restarted})
 
     def _api_overview(self):
         if not self._require_login():
@@ -1215,6 +1651,36 @@ class Handler(BaseHTTPRequestHandler):
             bf = incoming.get("brandTokenFuzzy")
             if bf is not None and (isinstance(bf, bool) or not isinstance(bf, (int, float)) or bf < 0 or bf > 2):
                 errs.append("brandTokenFuzzy 必须是 0~2 的数字")
+            # 多品牌关键词（2026-11-06）
+            bl = incoming.get("brandList")
+            if bl is not None:
+                if not isinstance(bl, list):
+                    errs.append("brandList 必须是数组")
+                else:
+                    for i, b in enumerate(bl):
+                        if not isinstance(b, dict):
+                            errs.append("brandList[%d] 必须是对象" % i)
+                            continue
+                        core = b.get("core") or b.get("label") or ""
+                        if not isinstance(core, str) or len(squash(canon(core))) < 3:
+                            errs.append("brandList[%d] 品牌词太短（至少要 3 个字母）" % i)
+                        if b.get("matchMode") not in (None, "strict", "loose"):
+                            errs.append("brandList[%d].matchMode 只能是 strict / loose" % i)
+                        for f in ("token", "prefix", "glued", "official"):
+                            if f in b and not isinstance(b[f], bool):
+                                errs.append("brandList[%d].%s 必须是布尔值" % (i, f))
+                        fz = b.get("fuzzy")
+                        if fz is not None and (isinstance(fz, bool) or not isinstance(fz, (int, float)) or fz < 0 or fz > 2):
+                            errs.append("brandList[%d].fuzzy 必须是 0~2 的数字" % i)
+                        pat = b.get("pattern")
+                        if pat:
+                            try:
+                                re.compile(str(pat))
+                            except re.error as e:
+                                errs.append("brandList[%d].pattern 正则无效：%s" % (i, e))
+            for f in ("competitorKickReason", "competitorBanReason"):
+                if f in incoming and incoming[f] is not None and not isinstance(incoming[f], str):
+                    errs.append("%s 必须是字符串" % f)
         elif bot == "shugo":
             if "news_boards" in incoming and not isinstance(incoming["news_boards"], list):
                 errs.append("news_boards 必须是数组")
@@ -1352,6 +1818,7 @@ class Handler(BaseHTTPRequestHandler):
 
         real = read_json(bot_paths("guard")["config"], {}) or {}
         override = payload.get("overrides") or {}
+        ob = override.get("brandList")
         cfg = {
             "matchMode": override.get("matchMode") or real.get("matchMode") or "strict",
             "brandPattern": override.get("brandPattern") or real.get("brandPattern") or DEFAULT_BRAND_PATTERN,
@@ -1365,6 +1832,7 @@ class Handler(BaseHTTPRequestHandler):
             "brandTokenFuzzy": override.get("brandTokenFuzzy")
             if isinstance(override.get("brandTokenFuzzy"), (int, float))
             else real.get("brandTokenFuzzy", 1),
+            "brandList": ob if isinstance(ob, list) else (real.get("brandList") or []),
         }
 
         results = []
@@ -1377,6 +1845,7 @@ class Handler(BaseHTTPRequestHandler):
                 "error": (hit or {}).get("error"),
                 "via": (hit or {}).get("via"),
                 "tail": (hit or {}).get("tail"),
+                "brand": (hit or {}).get("brand"),
             })
         return self._json(200, {"ok": True, "effective": cfg, "results": results})
 

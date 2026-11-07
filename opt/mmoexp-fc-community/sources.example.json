@@ -1,0 +1,28 @@
+{
+  "sources": {
+    "fut-sheriff": {
+      "enabled": false, "transport": "harness", "allowed_hosts": ["x.com"],
+      "allowed_path_prefix": "/REPLACE_WITH_EXACT_ACCOUNT/", "category": "leak", "auto_publish": false
+    },
+    "futgg": {
+      "enabled": false, "transport": "harness", "allowed_hosts": ["fut.gg"],
+      "category": "guide", "auto_publish": false
+    },
+    "futbin": {
+      "enabled": false, "transport": "harness", "allowed_hosts": ["futbin.com"],
+      "category": "guide", "auto_publish": false
+    },
+    "easysbc": {
+      "enabled": false, "transport": "harness", "allowed_hosts": ["easysbc.io"],
+      "category": "sbc", "auto_publish": false
+    },
+    "reddit": {
+      "enabled": false, "transport": "harness", "allowed_hosts": ["reddit.com"],
+      "category": "topic", "auto_publish": false
+    },
+    "mmoexp": {
+      "enabled": false, "transport": "harness", "allowed_hosts": ["mmoexp.com"],
+      "category": "news", "auto_publish": false
+    }
+  }
+}

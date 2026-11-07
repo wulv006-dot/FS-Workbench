@@ -1,0 +1,6 @@
+{
+  "guild_id": 1565922092518613064,
+  "home_channel_id": 1568260661010497627,
+  "staff_user_ids": ["1237241595674361962"],
+  "database": "var/community.sqlite3"
+}
