@@ -28,12 +28,13 @@ from lib.store import Store                                     # noqa: E402
 from modules.base import Context, STOP, PASS                    # noqa: E402
 from modules.guard import GuardModule                           # noqa: E402
 from modules.giveaway import GiveawayModule                      # noqa: E402
+from modules.news import NewsModule                              # noqa: E402
 from modules.priceboard import PriceBoardModule                 # noqa: E402
 from modules.tickets import TicketsModule                       # noqa: E402
 from modules.welcome import WelcomeModule                       # noqa: E402
 
 MODULE_CLASSES = [GuardModule, PriceBoardModule, TicketsModule, WelcomeModule,
-                  GiveawayModule]
+                  GiveawayModule, NewsModule]
 
 # custom_id 第 2 段 → 真实模块名。
 # 不能省：历史面板（欢迎四级菜单、金币看板）当初用了短名 `wf:role:*` / `wf:price:*`，

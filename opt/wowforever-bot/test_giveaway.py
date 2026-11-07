@@ -148,6 +148,27 @@ class GiveawayTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(GiveawayView(self.m).is_persistent())
         self.assertTrue(DeliveryView(self.m).is_persistent())
 
+    async def test_one_spin_wins_coupon_and_second_click_is_rejected(self):
+        self.feature["bypass_users"] = []
+        self.assertEqual(self.m.spins_allowed(), 1)
+        self.m.refresh_panel = AsyncMock(return_value=True)
+        with patch("modules.giveaway.weighted_pick", return_value=self.m.prize_by_key("coupon5")) as draw, \
+                patch("modules.giveaway.asyncio.sleep", new_callable=AsyncMock):
+            first = self.interaction()
+            await self.m.do_spin(first)
+            second = self.interaction()
+            await self.m.do_spin(second)
+        self.assertEqual(draw.call_count, 1)
+        self.assertEqual(self.m.spins_left(55), 0)
+        self.assertEqual(len(self.m.store.get("giveaway_coupon_log")), 1)
+        self.assertIn("wowexp", first.edit_original_response.call_args.kwargs["embed"].fields[0].value)
+        second.response.send_message.assert_awaited_once()
+        panel = self.m.panel_payload()[0]
+        self.assertIn("1 free spin", panel.description)
+        self.assertIn("Every spin wins", panel.description)
+        for prize in self.m.prizes:
+            self.assertNotIn("· %g%%" % prize["chance"], panel.description)
+
 
 if __name__ == "__main__":
     unittest.main()
