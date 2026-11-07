@@ -33,3 +33,19 @@ class BidirectionalSourcesTest(unittest.TestCase):
             collect.assert_called_once_with('r')
             self.assertEqual(db.get('pricing_snapshots','r'),snapshot)
             self.assertEqual(result['reference_market']['status'],'captured')
+
+    def test_market_page_uses_same_snapshot_auxiliary_without_changing_quote(self):
+        from fc_pricing_v3 import api
+        with tempfile.TemporaryDirectory() as tmp:
+            db=Ledger(Path(tmp)/'db')
+            snapshot=dict(snapshot_id='r',created_at='2026-11-07T15:00:00+00:00',
+                evidence=dict(source_plan=dict(auxiliary_markets=['ItemD2R']),reference_market=dict(status='not_required')))
+            db.put('pricing_snapshots','r',snapshot)
+            db.put('metadata','latest_snapshot_summary',snapshot)
+            reference=dict(status='captured',offers=[dict(platform='PC',gross_usd='9')])
+            db.put('market_observations','r',dict(reference_market=reference))
+            with patch.object(api,'ledger',return_value=db),patch('fc_pricing_v3.engine.price_basis',return_value={}):
+                market=api.read('market')
+            self.assertEqual(market['reference']['offers'],reference['offers'])
+            self.assertTrue(market['reference']['observation_only'])
+            self.assertEqual(db.get('pricing_snapshots','r'),snapshot)

@@ -202,6 +202,10 @@ def read(path):
         try:basis=price_basis(original['evidence'],instant(original['created_at'])) if original else dict(status='unavailable')
         except (ValueError,KeyError,TypeError) as error:basis=dict(status='unavailable',reason=str(error) if isinstance(error,ValueError) else type(error).__name__)
         reference=dict((snapshot or {}).get('evidence',{}).get('reference_market') or {})
+        if original and 'ItemD2R' in (original['evidence'].get('source_plan') or {}).get('auxiliary_markets',[]):
+            observation=db.get('market_observations',snapshot['snapshot_id']) or {}
+            reference=dict(observation.get('reference_market') or dict(status='pending',offers=[]),
+                           observation_only=True,source_snapshot_id=snapshot['snapshot_id'])
         return dict(snapshot_id=(snapshot or {}).get('snapshot_id'),
                     global_offers=(snapshot or {}).get('evidence',{}).get('offers'),
                     reference=reference,
