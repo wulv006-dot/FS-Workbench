@@ -6,6 +6,12 @@ TARGET_COUNT = 101
 COLLECTION_SCOPE='fc-pricing-v3-collection-routing-20261102'
 COLLECTION_NAMES=('source/fc_pricing_v3/sources.py','source/hermes-copy/fc_pricing_v3/sources.py','source/server_quote_job.py')
 
+BIDIRECTIONAL_SCOPE='fc-pricing-smart-bidirectional-20261107'
+BIDIRECTIONAL_NAMES=tuple(prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in (
+    'api.py','business_source.py','daily.py','engine.py','ledger.py','market_registry.py','observations.py',
+    'runtime.py','scheduler.py','selective_sources.py','smart.py'))
+BIDIRECTIONAL_NAMES+=('source/fc27_cloud_worker.py','source/fc-pricing-v3.js','source/pricing_simulation.py')
+
 DELTA_SCOPE='fc-pricing-v3-smart-decision-20261105'
 DELTA_NAMES=tuple(prefix+'fc_pricing_v3/'+name for prefix in ('source/','source/hermes-copy/') for name in (
     'api.py','business_source.py','demand_model.py','engine.py','ledger.py','runtime.py','scheduler.py','selective_sources.py','smart.py'))

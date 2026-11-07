@@ -36,7 +36,7 @@ class Provenance(unittest.TestCase):
     def test_full_original_quote_contract_and_native_version_survive_projection(self):
         from fc_collection.contracts import to_arab_status
         result = to_arab_status([self.body], self.task, NOW)
-        self.assertEqual(result['coverage']['PC'], 'normal_not_offered')
+        self.assertEqual(result['coverage']['PC'], 'not_requested')
         self.assertEqual([r['platform'] for r in result['offers']], ['PS', 'XBOX'])
         for row in result['offers']:
             self.assertEqual((row['original_currency'], row['original_amount_minor']), ('SAR', 3750))
@@ -48,7 +48,7 @@ class Provenance(unittest.TestCase):
             self.assertEqual(row['comparison_currency'], 'USD')
             self.assertEqual(row['quantity_basis'], 'official_quote_quantity_bonus_not_advertised')
             self.assertEqual(row['platform_mapping'], 'official_playstation_market_console_shared_PS_Xbox')
-            self.assertEqual(row['url'], 'https://www.arab-ut.com/coins/quote?platform=playstation&delivery=normal&quantity=100000')
+            self.assertEqual(row['url'], 'https://www.arab-ut.com/en/coins/quote?platform=playstation&delivery=normal&quantity=100000')
 
     def test_old_observation_can_be_ACKed_but_cannot_supply_incomplete_production_quote(self):
         from fc_collection.contracts import to_arab_status
@@ -106,7 +106,7 @@ class Routing(unittest.TestCase):
 
     def accepted(self):
         self.coordinator.register_node(identity(), ['ArabUT'], NOW - timedelta(seconds=6))
-        job = build_job(self.parent, 'ArabUT', arab_context(), self.parent['deadline_at'])
+        job = build_job(self.parent, 'ArabUT', dict(arab_context(), requested_platforms=['PS','XBOX','PC'], total_request_budget=4), self.parent['deadline_at'])
         self.coordinator.enqueue(job)
         task = self.coordinator.claim_job(identity(), ['ArabUT'], NOW)
         body = observation(task)
@@ -150,7 +150,7 @@ class Routing(unittest.TestCase):
             source['blocked'] = True
             self.coordinator._put(db, 'collection_sources', 'ArabUT', source)
         with patch.object(self.client, 'Session', side_effect=AssertionError('blocked')):
-            self.assertEqual(self.collect()['offers'], [])
+            self.assertEqual(len(self.collect()['offers']), 2)
         self.local.assert_not_called()
 
     def test_inflight_turnoff_does_not_consume_or_restart_direct_collection(self):
@@ -224,6 +224,19 @@ class Routing(unittest.TestCase):
         self.local.assert_not_called()
         with self.coordinator.transaction() as db:
             self.assertEqual(db.execute('SELECT SUM(count) FROM collection_permits').fetchone()[0], 1)
+
+    def test_valid_original_platform_receipt_survives_later_origin_block_without_new_request(self):
+        self.accepted()
+        with self.coordinator.transaction() as db:
+            source=self.coordinator._get(db,'collection_sources','ArabUT')
+            source['blocked']=True
+            self.coordinator._put(db,'collection_sources','ArabUT',source)
+        with patch.object(self.client,'Session',side_effect=AssertionError('blocked source cannot request')):
+            result=self.collect()
+        self.assertEqual(result['status'],'partial')
+        self.assertEqual({row['platform'] for row in result['offers']},{'PS','XBOX'})
+        self.assertEqual([row['platform'] for row in result['missing']],['PC'])
+        self.local.assert_not_called()
 
     def test_failed_health_does_not_start_local_or_source_request(self):
         self.client.ACCESS.write_text('{}')

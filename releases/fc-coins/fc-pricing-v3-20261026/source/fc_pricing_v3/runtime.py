@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 import hashlib
+import itertools
 import json
 import os
 from pathlib import Path
@@ -94,8 +95,10 @@ def collection_scope(db,run_id):
     resources=(plan or {}).get('resources',[])
     regions=sorted({int(r.split(':')[1]) for r in resources if r.startswith('region:')})
     from automation_policy import load_policy
+    parameters=(plan or {}).get('parameters',{})
     return dict(active_mode=(plan or {}).get('mode','revenue_sprint'),scope=dict(
-        platforms=list(PLATFORMS),region_ids=regions,interval_minutes=load_policy()['interval_minutes']))
+        platforms=list(PLATFORMS),region_ids=regions,interval_minutes=load_policy()['interval_minutes'],
+        **{k:parameters[k] for k in ('competitor_policy','region_pricing') if k in parameters}))
 
 
 def context(evidence):
@@ -164,6 +167,24 @@ def enrich_segments(evidence):
     return evidence
 
 
+def smart_choices(evidence,plan,current,baseline,schedule,now):
+    """Independent group draws share one physical price/probability proof."""
+    from .smart import STRATEGY_VERSION,candidate_or_baseline,effective_key
+    bidirectional=plan.get('smart_strategy_version')==STRATEGY_VERSION
+    labels={a+b:dict(console=a,pc=b) for a,b in itertools.product('ABC',repeat=2)} if bidirectional else {v:v for v in 'ABC'}
+    variants={key:candidate_or_baseline(evidence,plan,current,baseline,label,now) for key,label in labels.items()}
+    weights={key:float(Decimal(schedule['group_probabilities']['console'][key[0]])*Decimal(schedule['group_probabilities']['pc'][key[1]]))
+             if bidirectional else float(schedule['marginal_probabilities'][key]) for key in variants}
+    effective_probabilities={}
+    for key,candidate in variants.items():
+        if not weights[key]:continue
+        effective=effective_key(evidence,candidate['action'])
+        effective_probabilities[effective]=effective_probabilities.get(effective,0)+weights[key]
+    probabilities={fingerprint(c['action']):effective_probabilities[effective_key(evidence,c['action'])] for key,c in variants.items() if weights[key]}
+    choice=''.join(schedule['group_labels'][g] for g in GROUPS) if bidirectional else schedule['label']
+    return variants,effective_probabilities,probabilities,choice
+
+
 def calculate(evidence, edits=None, *, selected_action=None,override_reason=None,operation_id=None):
     edits = edits or {}
     if edits.get('costs') or edits.get('offers') or edits.get('quotes'):
@@ -228,33 +249,29 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         evaluation['selected']=selected
     smart_assignment = None
     if mode=='smart' and plan and not control['manual_enabled'] and selected_action is None:
-        from .smart import assignment as smart_schedule, candidate_or_baseline, effective_key, epoch_policy, early_correction
-        epoch=int((now-instant(plan['starts_at'])).total_seconds()//(48*3600))
+        from .smart import STRATEGY_VERSION,assignment as smart_schedule, effective_key, epoch_policy, early_correction,strategy_start,policy_suffix
+        bidirectional=plan.get('smart_strategy_version')==STRATEGY_VERSION
+        epoch=int((now-strategy_start(plan)).total_seconds()//(48*3600))
         policy=epoch_policy(db,plan,now,epoch)
-        block=int((now-instant(plan['starts_at'])).total_seconds()//(3*3600))
+        block=int((now-strategy_start(plan)).total_seconds()//(3*3600))
         correction=early_correction(db,plan,now,block)
         schedule = smart_schedule(plan, now, policy=policy, correction=correction)
         baseline = selected
-        variants = {label:candidate_or_baseline(evidence,smart_plan,evaluation['current'],baseline,label,now) for label in 'ABC'}
-        effective_probabilities = {}
-        for label, candidate in variants.items():
-            if not float(schedule['marginal_probabilities'][label]):continue
-            key=effective_key(evidence,candidate['action'])
-            effective_probabilities[key]=effective_probabilities.get(key,0)+float(schedule['marginal_probabilities'][label])
-        probabilities={fingerprint(c['action']):effective_probabilities[effective_key(evidence,c['action'])] for label,c in variants.items() if float(schedule['marginal_probabilities'][label])}
-        selected=variants[schedule['label']]
-        schedule_id=fingerprint([plan['plan_id'],plan['revision'],'smart_schedule',schedule['epoch']])
+        variants,effective_probabilities,probabilities,choice=smart_choices(evidence,smart_plan,evaluation['current'],baseline,schedule,now)
+        selected=variants[choice]
+        schedule_id=fingerprint([policy_suffix(plan),'smart_schedule',schedule['epoch']]) if bidirectional else fingerprint([plan['plan_id'],plan['revision'],'smart_schedule',schedule['epoch']])
         if not db.get('metadata',schedule_id):
             db.put('metadata',schedule_id,dict(plan_id=plan['plan_id'],revision=plan['revision'],seed=schedule['seed'],schedule=schedule['schedule']))
-        ident=fingerprint([plan['plan_id'],plan['revision'],'smart',schedule['block'],evidence['run_id']])
+        ident=fingerprint([policy_suffix(plan),'smart',schedule['block'],evidence['run_id']]) if bidirectional else fingerprint([plan['plan_id'],plan['revision'],'smart',schedule['block'],evidence['run_id']])
         smart_assignment=dict(schedule,assignment_id=ident,plan_id=plan['plan_id'],revision=plan['revision'],plan_starts_at=plan['starts_at'],policy=policy,correction=correction,
             baseline_plan=base_plan,baseline_assignment=allocation,baseline_candidate=baseline,probabilities=probabilities,
-            variants={label:dict(action=c['action'],reason=c.get('smart_reason')) for label,c in variants.items()},
+            variants={label:dict(action=c['action'],reason=c.get('smart_reason'),**(dict(reasons_by_group=c.get('smart_reasons_by_group')) if bidirectional else {})) for label,c in variants.items()},
             effective_action=selected['action'],effective_key=effective_key(evidence,selected['action']),
             group_keys={g:effective_key(evidence,selected['action'],g) for g in GROUPS},
             no_space_by_group={g:len({effective_key(evidence,c['action'],g) for c in variants.values()})==1 for g in GROUPS},
-            merged_with_A_by_group={g:effective_key(evidence,selected['action'],g)==effective_key(evidence,variants['A']['action'],g) for g in GROUPS},
+            merged_with_A_by_group={g:effective_key(evidence,selected['action'],g)==effective_key(evidence,variants['AA' if bidirectional else 'A']['action'],g) for g in GROUPS},
             effective_probabilities=effective_probabilities,no_uplift_space=len({effective_key(evidence,c['action']) for c in variants.values()})==1)
+        if bidirectional:smart_assignment['smart_started_at']=plan['smart_started_at']
         db.put('experiment_assignments',ident,smart_assignment)
         allocation=dict(assignment_id=ident,action=selected['action'],ends_at=min(instant(schedule['ends_at']),instant(allocation['ends_at'])).isoformat(),
                         probabilities=probabilities,labels=[schedule['label']],smart=schedule)
@@ -292,7 +309,7 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         daily_pricing=selected.get('daily_pricing',{}),
         daily_average_target_proof=selected.get('daily_average_target_proof',{}),
         financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT,sprint_policy_version=SPRINT_POLICY_VERSION if mode in ('revenue_sprint','smart') else None,
-        strategy_parameters=sprint_parameters(plan) if mode in ('revenue_sprint','smart') else (plan or {}).get('parameters',{}),
+        strategy_parameters=dict((plan or {}).get('parameters',{}),**sprint_parameters(plan)) if mode in ('revenue_sprint','smart') else (plan or {}).get('parameters',{}),
         authorized_resources=(plan or {}).get('resources',[]),decision_type=selected.get('decision_type'),decision_reason=selected.get('decision_reason'),
         market_position=selected.get('market_position'),minimum_legal_price_proof=selected.get('minimum_legal_price_proof'),
         strategy_decision=selected['score'],allocation=allocation,price_control=control,smart_assignment=smart_assignment,
@@ -342,6 +359,7 @@ def render_result(evidence,selected,bundle,mode):
         market=selected.get('market_comparison',{}).get(group,{})
         daily_reference=selected.get('daily_reference',{}).get(p)
         daily_pricing=selected.get('daily_pricing',{}).get(group)
+        daily_source=(daily_pricing or {}).get('driver_source','ItemD2R')
         offers=[dict(source=s,**value) for s,value in evidence['offers'][p].items()]
         rows.append(dict(platform=p,proposal=format(target/100,'.4f'),auto_proposal=format(target/100,'.4f'),
             raw_cost_cny=cost['cny_per_1k'],cost_cny=cost['cny_per_1k'],raw_cost_record_id=cost['record_id'],
@@ -362,7 +380,7 @@ def render_result(evidence,selected,bundle,mode):
             source_gaps=daily_reference['source_gaps'] if daily_reference is not None else [gap for gap in market.get('source_gaps',[]) if gap['platform']==p],
             daily_reference=daily_reference,daily_pricing=daily_pricing,
             change_pct=str((target/number(own['package_usd'])-1)*100),
-            warning='双20%红线；单笔合法优惠仍可亏损。预测不是实绩。',status='舍入导致目标未命中 · 未达到ItemD2R目标' if daily_pricing and daily_pricing['unmet_reason']=='public_cent_not_reachable' else '财务底价抬高 · 未达到ItemD2R目标' if daily_pricing and not daily_pricing['item_target_met'] else '按ItemD2R实际交付价定价 · 待执行' if daily_pricing else '财务底价兜底 · 未达到竞争降幅' if selected.get('decision_type')=='floor_fallback' else '双模式引擎核算通过 · 待执行'))
+            warning='双20%红线；单笔合法优惠仍可亏损。预测不是实绩。',status='舍入导致目标未命中 · 未达到'+daily_source+'目标' if daily_pricing and daily_pricing['unmet_reason']=='public_cent_not_reachable' else '财务底价抬高 · 未达到'+daily_source+'目标' if daily_pricing and not daily_pricing['item_target_met'] else '按'+daily_source+'实际交付价定价 · 待执行' if daily_pricing else '财务底价兜底 · 未达到竞争降幅' if selected.get('decision_type')=='floor_fallback' else '双模式引擎核算通过 · 待执行'))
     result=dict(checked_at=evidence['checked_at'],fx=evidence['fx'],minimum_gross_margin_pct=str(HARD_MARGIN),
                 rows=rows,decision_receipt=bundle,strategy_version=VERSION)
     return result
@@ -485,26 +503,32 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
                 raise ValueError('pricing_price_control_proof_changed')
         smart_override=receipt['mode']=='smart' and (receipt.get('allocation') or {}).get('effective_choice')=='explicit_business_decision_not_new_random_draw'
         if receipt['mode']=='smart' and not receipt['price_control']['manual_enabled'] and not smart_override:
-            from .smart import assignment as smart_schedule, candidate_or_baseline, effective_key
+            from .smart import STRATEGY_VERSION,assignment as smart_schedule,effective_key,policy_suffix
             saved=receipt.get('smart_assignment') or {}
+            bidirectional=saved.get('strategy_version')==STRATEGY_VERSION
             plan=dict(plan_id=receipt['plan_id'],revision=receipt['revision'],starts_at=saved.get('plan_starts_at'),
                       mode='revenue_sprint',resources=receipt['authorized_resources'],parameters=receipt['strategy_parameters'],price_anchor=receipt['strategy_anchor'])
+            if bidirectional:plan.update(smart_strategy_version=STRATEGY_VERSION,smart_started_at=saved.get('smart_started_at'))
             base_plan=saved.get('baseline_plan') or {}
             if base_plan.get('mode')!='revenue_sprint' or base_plan.get('price_anchor')!=receipt['strategy_anchor']:
                 raise ValueError('pricing_smart_baseline_plan_changed')
             schedule=smart_schedule(plan,instant(receipt['created_at']),policy=saved.get('policy'),correction=saved.get('correction'))
-            if any(saved.get(k)!=schedule[k] for k in ('epoch','block','slot','label','original_label','randomization_verified','seed','schedule','marginal_probabilities','starts_at','ends_at')):
+            fields=('epoch','block','slot','label','original_label','randomization_verified','seed','schedule','marginal_probabilities','starts_at','ends_at')
+            if bidirectional:fields+=('strategy_version','revision','group_labels','group_pair_ids','group_schedules','group_probabilities')
+            if any(saved.get(k)!=schedule[k] for k in fields):
                 raise ValueError('pricing_smart_assignment_changed')
             if for_execution:
                 actual=ledger().get('experiment_assignments',saved.get('assignment_id'))
                 if actual!=saved or saved.get('assignment_id')!=receipt.get('assignment_id'):
                     raise ValueError('pricing_smart_assignment_not_persisted')
-                policy_key='smart-policy:'+plan['plan_id']+':'+str(plan['revision'])+':'+str(schedule['epoch'])
+                policy_key='smart-policy:'+policy_suffix(plan)+':'+str(schedule['epoch'])
                 if ledger().get('metadata',policy_key)!=saved.get('policy'):
                     raise ValueError('pricing_smart_policy_changed')
                 live_plan=ledger().get('pricing_plans',plan['plan_id'])
                 if not live_plan or live_plan.get('baseline_plan')!=base_plan:
                     raise ValueError('pricing_smart_baseline_plan_changed')
+                if bidirectional and (live_plan.get('smart_strategy_version')!=STRATEGY_VERSION or live_plan.get('smart_started_at')!=plan['smart_started_at']):
+                    raise ValueError('pricing_smart_strategy_version_changed')
                 baseline_key=fingerprint([base_plan['plan_id'],base_plan['revision'],int(instant(receipt['created_at']).timestamp())//(6*3600)])
                 baseline_key=fingerprint([baseline_key,'smart_lifecycle',plan['plan_id'],plan['revision']])
                 if ledger().get('experiment_assignments',baseline_key)!=(saved.get('baseline_assignment') or {}):
@@ -514,17 +538,21 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
             raw=next((c for c in evaluation['candidates'] if c['action']==raw_action),None)
             if raw is None:raise ValueError('pricing_smart_baseline_changed')
             base=controlled_candidate(quote['evidence'],evaluation['current'],receipt['price_control'],base_plan,now,raw) if receipt['price_control']['uplift_enabled'] else raw
-            variants={label:candidate_or_baseline(quote['evidence'],plan,evaluation['current'],base,label,now) for label in 'ABC'}
-            expected_variants={label:dict(action=c['action'],reason=c.get('smart_reason')) for label,c in variants.items()}
+            variants,effective_probabilities,probabilities,choice=smart_choices(quote['evidence'],plan,evaluation['current'],base,schedule,now)
+            expected_variants={label:dict(action=c['action'],reason=c.get('smart_reason'),**(dict(reasons_by_group=c.get('smart_reasons_by_group')) if bidirectional else {})) for label,c in variants.items()}
             if expected_variants!=saved.get('variants'):raise ValueError('pricing_smart_candidates_changed')
-            effective_probabilities={}
-            for label,candidate in variants.items():
-                if not float(schedule['marginal_probabilities'][label]):continue
-                key=effective_key(quote['evidence'],candidate['action'])
-                effective_probabilities[key]=effective_probabilities.get(key,0)+float(schedule['marginal_probabilities'][label])
             if effective_probabilities!=saved.get('effective_probabilities'):
                 raise ValueError('pricing_smart_probability_changed')
-            checked=variants[schedule['label']]
+            checked=variants[choice]
+            if bidirectional:
+                expected=dict(probabilities=probabilities,effective_action=checked['action'],effective_key=effective_key(quote['evidence'],checked['action']),
+                    group_keys={g:effective_key(quote['evidence'],checked['action'],g) for g in GROUPS},
+                    no_space_by_group={g:len({effective_key(quote['evidence'],c['action'],g) for c in variants.values()})==1 for g in GROUPS},
+                    merged_with_A_by_group={g:effective_key(quote['evidence'],checked['action'],g)==effective_key(quote['evidence'],variants['AA']['action'],g) for g in GROUPS},
+                    no_uplift_space=len({effective_key(quote['evidence'],c['action']) for c in variants.values()})==1)
+                if any(saved.get(k)!=v for k,v in expected.items()):raise ValueError('pricing_smart_group_proof_changed')
+                if receipt['allocation'].get('probabilities')!=probabilities or receipt['assignment_probability']!=probabilities.get(fingerprint(checked['action'])):
+                    raise ValueError('pricing_smart_probability_changed')
             if checked['action']!=receipt['action'] or checked['financial_proof']!=receipt['financial_proof']:
                 raise ValueError('pricing_smart_proof_changed')
             if [s['intermediate'] for s in checked['steps']]!=[s['intermediate'] for s in receipt['steps']]:
@@ -547,17 +575,17 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         if number(row['proposal'])*100!=number(receipt['action']['base_prices'][group]):
             raise ValueError('pricing_action_row_changed')
     if receipt['mode']=='daily' and not controlled and not maintenance and purpose!='original_unsent_ALL_steps_only':
-        from .engine import daily_reference,required_base_bound,daily_average_target_proof,daily_item_target
-        references=daily_reference(quote['evidence'],PLATFORMS,now)
+        from .engine import daily_reference,required_base_bound,daily_average_target_proof,daily_competitor_target
+        daily_plan=dict(mode='daily',resources=receipt['authorized_resources'],parameters=receipt['strategy_parameters'])
+        references=daily_reference(quote['evidence'],PLATFORMS,now,plan=daily_plan)
         if references!=receipt.get('daily_reference'):raise ValueError('pricing_daily_reference_changed')
         targets=[p for g,ps in GROUPS.items() if not receipt.get('plan_id') or 'base:'+g in receipt['authorized_resources'] for p in ps if references[p]['average_margin_target_pct']=='30']
         if daily_average_target_proof(quote['evidence'],proof,targets)!=receipt.get('daily_average_target_proof'):raise ValueError('pricing_daily_average_target_proof_changed')
-        daily_plan=dict(mode='daily',resources=receipt['authorized_resources'])
         pricing={}
         for group,platforms in GROUPS.items():
             if receipt.get('plan_id') and 'base:'+group not in receipt['authorized_resources']:continue
             floor=max(required_base_bound(quote['evidence'],p,now,daily_plan,average_minimum='30' if references[p]['average_margin_target_pct']=='30' else HARD_MARGIN) for p in platforms)
-            item_target=daily_item_target(quote['evidence'],platforms,references,floor)
+            item_target=daily_competitor_target(quote['evidence'],platforms,references,floor,plan=daily_plan)
             if item_target:
                 pricing[group]=item_target
                 if number(receipt['action']['base_prices'][group])!=number(item_target['selected_base_total']):raise ValueError('pricing_daily_item_target_price_changed')

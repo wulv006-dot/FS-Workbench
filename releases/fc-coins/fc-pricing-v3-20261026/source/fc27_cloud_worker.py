@@ -59,22 +59,7 @@ def run_writer_request(job, script, request, timeout):
         request_path.unlink(missing_ok=True)
 
 
-def collect_reference_market(run_id):
-    """Reuse the existing ItemD2R reader once, before this run's model decision."""
-    from itemd2r_reader import public_read
-    try:
-        offers = public_read()
-        if (not isinstance(offers,list) or any(not isinstance(r,dict) or r.get('platform') not in ('PS','XBOX','PC') for r in offers)
-                or len({r['platform'] for r in offers})!=len(offers)):
-            raise ValueError('itemd2r_platform_coverage_invalid')
-        return dict(status='captured',run_id=run_id,offers=[dict(r,run_id=run_id) for r in offers])
-    except Exception as exc:
-        # Optional reference failure remains visible; it cannot disable the original source chain.
-        reason=str(exc) if isinstance(exc,ValueError) and re.fullmatch(r'itemd2r_[a-zA-Z0-9_:]{1,100}',str(exc)) else type(exc).__name__
-        failed=dict(status='unavailable',run_id=run_id,offers=[],reason=reason,captured_at=datetime.now(timezone.utc).isoformat())
-        if reason=='itemd2r_cloudflare_403':
-            failed.update(status='blocked',http_status=403,blocked_by='cloudflare',captured_at=datetime.now(timezone.utc).isoformat())
-        return failed
+from fc_pricing_v3.observations import collect_reference_market
 
 
 def collect_quote(job):

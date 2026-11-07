@@ -62,7 +62,7 @@ class PublicSource(unittest.TestCase):
             self.assertEqual(http.fetch('ArabUT', 'warm', 2), b'fixture')
             self.assertEqual(http.fetch('ArabUT', 'quote', 2), b'fixture')
         self.assertEqual(calls[0][1], '/?platform=playstation&delivery=normal&quantity=100000&currency=USD')
-        self.assertEqual(calls[1][1], '/coins/quote?platform=playstation&delivery=normal&quantity=100000')
+        self.assertEqual(calls[1][1], '/en/coins/quote?platform=playstation&delivery=normal&quantity=100000')
         self.assertEqual({k.lower(): v for k, v in calls[0][2].items()}['accept'], 'text/html')
         self.assertEqual({k.lower(): v for k, v in calls[1][2].items()}['accept'], 'application/json')
         self.assertEqual({k.lower(): v for k, v in calls[1][2].items()}['cookie'], 'visitor=fixture')
@@ -232,7 +232,7 @@ class PublicSource(unittest.TestCase):
         from fc_collection.public_sources import arab_offers
         value = dict(platform='playstation', delivery='normal', quantity=100000, market='console',
             total=dict(currency='SAR', amountHalalah=3200), displayTotal=dict(currency='USD', amountMinor=853),
-            priceVersion=2841, pricedAt='2026-11-02T11:09:20+00:00')
+            priceVersion=2841, pricedAt=NOW.isoformat())
         rows = arab_offers(value, NOW)
         self.assertEqual([r['amount'] for r in rows], ['8.53', '8.53'])
         for version in (True, False, None, -1, 1.5, {}, [], ''):
