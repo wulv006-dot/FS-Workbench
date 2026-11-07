@@ -12,6 +12,8 @@ MMOEXP 独立 FC27 Discord 应用的维护源码。机器人运行在 187；FS `
 - [新闻中心运行说明](docs/NEWS-CENTER-20261108.md)
 - [183 固定来源采集部署](deploy/NEWS-COLLECTOR-183.md)
 - [报价过期与刷新](docs/QUOTE-EXPIRY-20261108.md)
+- [欢迎页、俱乐部和提醒验收](docs/COMMUNITY-UX-RELEASE-20261108.md)
+- [全游戏 Start Here 引导入口](docs/START-HERE-GATEWAY-20261108.md)
 - [Player 适配器接口与未验范围](docs/PLAYER-CATALOG-DEVELOPMENT.md)
 - [采集结果导入合同](docs/FUT-COLLECTION-CONTRACT.md)
 
