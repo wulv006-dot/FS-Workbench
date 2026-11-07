@@ -85,18 +85,18 @@ def replay_history(regular, history, coefficient='1'):
     return net/gross
 
 
-def mixed_ratio_lower_bound(history):
-    def lower(path):
-        if path['kind']=='none':return Decimal(1)
-        if path['kind']=='ratio':return number(path['retained_ratio'],zero=True)
-        if path['kind']=='points':return 1-number(path['cap_ratio'],zero=True)
+def mixed_replay_growth(history):
+    """Ensure the exact cent search can grow; finite credits do not bound every amount."""
+    def growth(path):
+        if path['kind'] in ('none','fixed','points'):return Decimal(1)
+        if path['kind']=='ratio':return Decimal(1) if path.get('cap_usd') is not None else number(path['retained_ratio'],zero=True)
         if path['kind']=='sequence':
             result=Decimal(1)
-            for child in path['paths']:result*=lower(child)
+            for child in path['paths']:result*=growth(child)
             return result
-        raise ValueError('pricing_region_exact_fixed_path_bound_required')
+        raise ValueError('pricing_promotion_path_unverified')
     weights=sum(number(p['weight_usd']) for p in history['replay_paths'])
-    return sum(number(p['weight_usd'])*lower(p['promotion_path']) for p in history['replay_paths'])/weights
+    return sum(number(p['weight_usd'])*growth(p['promotion_path']) for p in history['replay_paths'])/weights
 
 
 def market_quote(evidence, platform, source, now, region=None):
@@ -171,7 +171,7 @@ def required_unit_bound(evidence,platform,now,region=None,evaluation_context=Non
     if region:
         history=region.get('history') or {}
         if history.get('replay_paths'):
-            number(mixed_ratio_lower_bound(history))
+            number(mixed_replay_growth(history))
             tier=package_100k(rules)
             required=cost/number(evidence['fx']['cny_per_usd'])*(100+number(tier['bonus_k'],zero=True))/(1-number(average_minimum)/100)
             regular=required.quantize(CENT,rounding=ROUND_UP)
