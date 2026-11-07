@@ -55,6 +55,7 @@ class KnowledgeStageTransportTest(unittest.TestCase):
             with tarfile.open(archive, 'r:gz') as bundle:
                 release = PREFIX.removesuffix('deploy/')
                 catalog = json.load(bundle.extractfile(release + 'candidate/artifact/index.json'))
+                self.assertFalse(any(row['status'] == 'retired' for row in catalog['entries']))
                 baseline = bundle.extractfile(release + 'candidate/runtime/business-baseline.md').read()
                 expected = {row['source']['sha256'] for row in catalog['entries']
                             if row['source']['path'] == 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'}
