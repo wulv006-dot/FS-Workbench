@@ -59,8 +59,10 @@ PR906最终head为edcc5812，正式CI42389777035成功，合并69e6bcbd；修复
 
 ## 窄验收及报价片段修复（代码完成，待183/CI/上线）
 
-新Sol专项turn10455d10b86d43d5b2f7f8cbfb358776已completed，真实state与compare_strategies(mode=smart)读取成功；同turn对原run88aebd83-fa1e-5e83-b37e-02c37c8367da、path=/result/decision_receipt的read_quote仍返回HTTP400，不能认定完整读取恢复。原dump客户端未保存HTTP错误body；具体参数及返回见.agent_runtime/t1-collection/sol-narrow-exact-returns.jsonl。同turn还有范围外terminal尝试，单独保留原事件记录，不因此扩大授权或泛化停用已有能力。
+新Sol专项turn10455d10b86d43d5b2f7f8cbfb358776已completed，真实state与compare_strategies(mode=smart)读取成功；同turn对原run88aebd83-fa1e-5e83-b37e-02c37c8367da、path=/result/decision_receipt的read_quote仍返回HTTP400，不能认定完整读取恢复。原dump客户端未保存HTTP错误body；最新核验见.agent_runtime/t1-collection/sol-narrow-audit-redacted.md，具体参数及返回见sol-narrow-exact-returns.jsonl。本turn没有terminal；额外工具为tool_describe1、execute_code1、read_file1、search_files17，单独记录范围外查询，不因此扩大授权或泛化停用已有能力。state完整结果所在一次性容器已不存在，旧daily利润摘要归属未完整核实，不能从模型最终文字代替证明。
 
 只读核原文件及现役public_artifact投影：完整公开报价响应2,236,817字节，大于原native上限1,048,576字节；所需decision_receipt完整片段88,985字节（约89KB）。调用方先整份取回、再本地按path裁切，必在裁切前触发原上限。原whole-quote SHA256为4bf34ddb15141308c8bc087f2d98214bb0bcf4d4d41613eb918540245c1bae4c，不使用新快照替代。
 
 最小修复代码已完成：原/quotes/<run>增加严格path查询，在原公开过滤后服务端裁切；调用方沿原身份读取片段并核run/path/原SHA字段。无path原完整路由、原1MiB上限、明细能力和采集/写价逻辑保持。新增原adapter精确2目标scope，仅fc27_cloud_api.py与pricing_operations.py，不改既有4目标及25目标scope。实际HTTP红绿覆盖大报价的小片段、原完整响应与过大片段仍受上限、私有字段过滤、非法路径400和同run约束。本地通过；183隔离回归、正式CI、发布及原入口复验尚待完成，不能以代码完成替代真实恢复。
+
+片段修复183受影响回归83/83通过、0跳过：quote_fragment6、review_reads6、runtime_contracts35、collection_release11、repair_release2、publisher_guard23。冻结LF源码SHA e4081ee8d99145b09b5f39b3d6eb3da32d56a32c4f36a8760691541aa1dcfbc8，独立复核无阻断问题；测试后199文件无漂移。证据.agent_runtime/t1-collection/quote-fragment/acceptance-summary.json。正式CI/部署/真实工具复验另记。
