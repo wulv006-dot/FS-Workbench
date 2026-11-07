@@ -23,7 +23,7 @@ class LiveSummary {
     const data=await r.json();
     if(epoch!==this.epoch)return;
     if(r.status===202||r.status===429){this.state({phase:'loading',message:'后台正在读取或队列繁忙；尚无新结果。'});await new Promise(resolve=>setTimeout(resolve,2000));continue;}
-    if(!r.ok||!['available','stale'].includes(data.status)||data.scopeContractId!=='admin-main-order-labelled-supplement-v1'||data.profile?.key!==selection.profile||data.query?.start!==selection.start||data.query?.end!==selection.end)throw Error('summary_unavailable');
+    if(!r.ok||!['available','stale'].includes(data.status)||data.scopeContractId!=='admin-paid-order-labelled-supplement-v2'||data.profile?.key!==selection.profile||data.query?.start!==selection.start||data.query?.end!==selection.end)throw Error('summary_unavailable');
     this.current=data;this.nextRefreshAt=Date.now()+((Object.values(data.sources||{}).some(x=>x.status==='pending')?900:Math.max(1,(data.expiresInSeconds??900)+1))*1000);this.update(data);this.state({phase:'available'});
     // Retry temporary Order contention only inside the initial read budget;
     // do not wait a whole 15-minute cache cycle after a short lock conflict.
@@ -149,11 +149,13 @@ function homeEntries(registry){const user=identity?.name;if(!user)return;const g
 }
 function homeData(){
  watcher?.stop();homeController?.abort();homeController=new AbortController();const id=++epoch;
- watcher=new LiveSummary(()=>{const day=FSHomeMetrics.beijingDate();return {profile:'MMOEXP',start:day,end:day,grain:'day'};},data=>{
+ const heading=document.querySelector('.section-heading h2');if(heading)heading.textContent='昨日经营';
+ document.querySelector('.home-kpis')?.setAttribute('aria-label','MMOEXP 昨日经营');
+ watcher=new LiveSummary(()=>{const day=fsPeriodPolicy().shift(FSHomeMetrics.beijingDate(),-1);return {profile:'MMOEXP',start:day,end:day,grain:'day'};},data=>{
   if(id!==epoch||!identity)return;const p=data.profile,m=fsMainSite(p).metrics;
   for(const [k,metric] of [['orders','orders'],['revenueUsd','revenueUsd'],['newCustomers','estimatedProfitUsd']]){
    const v=m[metric].value;$(k).textContent=v!=null?new Intl.NumberFormat('en-US',{maximumFractionDigits:k==='orders'?0:2,minimumFractionDigits:k==='orders'?0:2}).format(v):fsMetricText(m[metric],()=> '—');
-   $('label-'+k).textContent='今日MMOEXP '+{orders:'订单数',revenueUsd:'销售额',newCustomers:'预估利润'}[k];
+   $('label-'+k).textContent='昨日MMOEXP '+{orders:'订单数',revenueUsd:'销售额',newCustomers:'预估利润'}[k];
   }
   $('status').dataset.state=data.stale?'error':'available';
   $('status').textContent=(data.stale?'⚠ 已过期，保留故障兜底 · ':'')+'Admin主站 · 查询截至 '+p.period.end+' 北京时间 · Admin读取 '+(data.sources.Admin.capturedAt||'—')+' · 上游统计水位 '+(data.sources.Admin.sourceDataAsOf||'未提供')+' · Order '+fsOrderLabel(data.sources.Order)+' · 共享缓存 '+(data.refreshSeconds||900)+'秒';
