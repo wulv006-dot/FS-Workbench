@@ -471,6 +471,8 @@ def select(paths):
             groups.add("fs-graphify");continue
         if name.startswith("releases/registration/iam-modules-20261031/") or name == "tests/test_fs_iam_module_access.py":
             groups.add("iam"); continue
+        if name.startswith('releases/fc-players/batch-recovery-20261107/'):
+            groups.add('fc-players-batch-recovery');continue
         if name.startswith('releases/fc-players/single-card-normal-20261107/'):
             groups.add('fc-players-single-card');continue
         if name.startswith('releases/fc-players/media-signer-20261107/'):
@@ -968,7 +970,10 @@ def main():
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/halloween52-browser.cjs")
             continue
         print("affected group:",group,flush=True)
-        if group == 'fc-players-single-card':
+        if group == 'fc-players-batch-recovery':
+            units('releases/fc-players/batch-recovery-20261107', ['test_publisher'])
+            units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
+        elif group == 'fc-players-single-card':
             units('releases/fc-players/single-card-normal-20261107', ['test_publisher'])
             units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
         elif group == 'fc-players-media-signer':
@@ -985,7 +990,7 @@ def main():
             node('releases/fc-players/admin-api-repair-20261031/check_image_batch.cjs')
             node('releases/fc-players/direct-json-20261029/tests/check_resume.cjs')
         elif group == 'fc-players-direct-json':
-            units('releases/fc-players/direct-json-20261029/tests', ['test_payload','test_client','test_direct_import','test_resume','test_model_labels','test_api_repair','test_mixed_scope','test_empty_market_recovery'])
+            units('releases/fc-players/direct-json-20261029/tests', ['test_payload','test_client','test_direct_import','test_resume','test_classification_context','test_model_labels','test_api_repair','test_mixed_scope','test_empty_market_recovery'])
             units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
             units('releases/fc-players/direct-json-20261029/tag-labels', ['test_upgrade_tag_labels'])
             node('releases/fc-players/direct-json-20261029/tests/check_resume.cjs')

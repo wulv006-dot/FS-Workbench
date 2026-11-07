@@ -562,13 +562,13 @@ class App:
         plan = self.repository.get_plan(job["plan_id"], job["owner"])
         if plan.get("kind") != "new_cards":
             raise StateError("DIRECT_PLAN_REQUIRED")
-        if plan.get("import_mode") == "direct_json_v1":
-            return plan
         for event in reversed(job["events"]):
             if event["step"] == "direct_plan_migration" and event["detail"].get("root_controlled") is True:
                 derived = event["detail"].get("direct_plan")
                 if isinstance(derived, dict) and derived.get("import_mode") == "direct_json_v1":
                     return derived
+        if plan.get("import_mode") == "direct_json_v1":
+            return plan
         raise StateError("DIRECT_PLAN_REQUIRED")
 
     def _run_job(self, client: Any, execution_id: str, plan: dict[str, Any], stop: threading.Event) -> None:

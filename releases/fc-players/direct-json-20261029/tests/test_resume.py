@@ -215,6 +215,19 @@ class ResumeTests(unittest.TestCase):
         self.assertEqual((status,result['error']),(409,'DIRECT_MIGRATION_PROOF_REQUIRED'))
         self.assertEqual(self.pool.submissions,[]);self.assertEqual(self.backend.calls,[])
 
+    def test_corrected_direct_plan_resumes_latest_proved_derivation_under_same_id(self):
+        original=self.repo.get_plan(self.flow.frozen['plan_id'],'operator')
+        derived={**original,'origin_plan_digest':original['plan_digest'],'recovery_reason':'approved single-card rule'}
+        self.repo.set_execution(self.execution,'needs_reconcile','direct_plan_migration',{
+            'root_controlled':True,'direct_plan':derived,'direct_plan_sha256':digest(derived),
+            'original_request_no_enqueue_evidence':{'only_futbin_ids':['23700'],'no_add_event_for_targets':True}})
+        self.assertEqual(self.resume()[0],202)
+        self.assertEqual(self.pool.submissions[0][1][2],derived)
+        self.pool.drain()
+        self.assertEqual(self.repo.get_execution(self.execution,'operator')['status'],'completed_readback')
+        self.assertEqual(self.repo.get_plan(original['plan_id'],'operator'),original)
+        self.assertEqual(self.backend.calls.count(('add','23700')),1)
+
     def test_old_multipart_without_migration_is_not_resumable(self):
         self.legacy(proof=False)
         with self.repo.connection() as db:db.execute("DELETE FROM events WHERE execution_id=? AND step='direct_plan_migration'",(self.execution,))

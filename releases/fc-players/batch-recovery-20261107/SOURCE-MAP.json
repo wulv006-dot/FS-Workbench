@@ -1,0 +1,31 @@
+{
+  "version": "2026.11.07-cloud.22",
+  "base_version": "2026.11.07-cloud.21",
+  "runtime_files": {
+    "player_web/main.py": {
+      "source": "releases/fc-players/direct-json-20261029/source/main.py",
+      "before_sha256": "cfc54531a725e420dc9ed9293445bf7a3ae3230e921d7822784227b3f69081a9",
+      "sha256": "0422f5041c92c41c140859d9fbdba8f47cca45eda6d4c382a2aec41e3136a5a2"
+    },
+    "player_web/new_card_service.py": {
+      "source": "releases/fc-players/direct-json-20261029/source/new_card_service.py",
+      "before_sha256": "31735b61750c8017d7fc9a6dde4adf4e79a77fc3250ecf0e6be134091d84ce05",
+      "sha256": "fc9a714f23b738277bb14be9627f6916b9e610a4c389d3b423fb3f38a7b0e24a"
+    },
+    "player_web/direct_model_import.py": {
+      "source": "releases/fc-players/direct-json-20261029/source/direct_model_import.py",
+      "before_sha256": "6bbd740f81d7b12a55553bcc8603b5973d1e2d5187973c8358e3c83c3a1a34b7",
+      "sha256": "289707aae990751c947ffcf3d62197835bf3a3e52cdd70a0bbf43d0229fe4e63"
+    },
+    "VERSION": {
+      "source": "releases/fc-players/batch-recovery-20261107/VERSION",
+      "before_sha256": "32267c2d965a4a4ec7d89ec511b5a61c037af2f58380ba44aee163bdf11d6ab6",
+      "sha256": "3580abb9e3dd5e1c8b3a131bc8f5e212c4187f0c7679ef4ef0e24683cd445469"
+    }
+  },
+  "manifest_sha256": "7dc20f95690515d1ed1eca4808e97c0ffd9c1c32ec8d155878ef1d3dcd640f73",
+  "publisher_dependency_sha256": "37b2b48020be180f2b2b00ab3ff2a51766edd8cfd9c7843096b9c623e6d5c1ea",
+  "policy_changes": false,
+  "knowledge_impact": false,
+  "notion_sync_required": false
+}
