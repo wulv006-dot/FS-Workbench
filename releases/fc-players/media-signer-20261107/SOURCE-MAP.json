@@ -1,0 +1,21 @@
+{
+  "version": "2026.11.07-cloud.20",
+  "base_version": "2026.10.31-cloud.19",
+  "runtime_files": {
+    "player_web/media_client.py": {
+      "source": "fc27_players_cloud/player_web/media_client.py",
+      "before_sha256": "058651a7ce22cb6efb2f1dbfe8e489c03141bfd7aa5ae4d1bc1df51e2103c255",
+      "sha256": "7352ea4308b5f2ec76e8b2c73125791d70d2d979f0c205f051c53103b6907bf9"
+    },
+    "VERSION": {
+      "source": "releases/fc-players/media-signer-20261107/VERSION",
+      "before_sha256": "c872671427dc4b6e69a2e1697730bbac1d79a40044a4d7ee50a173acefbcb511",
+      "sha256": "cd7ec9d351970346f82da1ad55c8a0c457567178cf8fa123f484a4a2b1a7d1ce"
+    }
+  },
+  "manifest_sha256": "7ae00976931d0b2d314781154dac5b8b92d34428d683abea3cacce6ba55c2eb2",
+  "publisher_dependency_sha256": "37b2b48020be180f2b2b00ab3ff2a51766edd8cfd9c7843096b9c623e6d5c1ea",
+  "policy_changes": false,
+  "knowledge_impact": false,
+  "notion_sync_required": false
+}

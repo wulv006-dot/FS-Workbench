@@ -263,22 +263,46 @@ class MediaContractTests(unittest.TestCase):
         self.assertEqual([call.args[0].get_method() for call in opening.call_args_list], ['GET', 'POST'])
 
     def test_upload_one_post_with_official_signature_and_attachment_id(self):
-        script = b'const UPLOAD_AUTH_SECRET="synthetic-test-material";'
+        import urllib.error
+        material = 'synthetic-test-material'
+        script = ('const UPLOAD_AUTH_SECRET=' + json.dumps(material) + ';').encode()
+        current_module = 'https://admin.p2pah.cn/assets/uploadAuth-ac6fbfe3.js'
+        retired_module = 'https://admin.p2pah.cn/assets/uploadAuth-4cd714b6.js'
+        fixed_time = 1793980000.125
+        expected_timestamp = 1793980000125
         response = {'upload':{'picture':{'code':200,'file':{'id':778,'full_url':'https://example.test/778.png'}}}}
         calls = []
         def opening(request, timeout):
             calls.append(request)
-            return io.BytesIO(script if len(calls) == 1 else json.dumps(response).encode())
+            if request.get_method() == 'GET':
+                if request.full_url == retired_module:
+                    raise urllib.error.HTTPError(retired_module, 404, 'missing', {}, None)
+                self.assertEqual(request.full_url, current_module)
+                return io.BytesIO(script)
+            self.assertEqual(request.get_method(), 'POST')
+            self.assertEqual(request.full_url, 'https://b2c-api.p2pah.cn/upload/file')
+            return io.BytesIO(json.dumps(response).encode())
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / '400000.png'
-            path.write_bytes(png())
+            image = png()
+            path.write_bytes(image)
             with patch('player_web.media_client.AUTH_MODULE_SHA', hashlib.sha256(script).hexdigest()), \
+                 patch('player_web.media_client.time.time', return_value=fixed_time), \
                  patch('player_web.media_client.urllib.request.build_opener', return_value=SimpleNamespace(open=opening)):
                 result = upload_png(SimpleNamespace(authenticated=True, timeout=3), path)
         self.assertEqual(result['attachment_id'], 778)
         self.assertEqual([request.get_method() for request in calls], ['GET', 'POST'])
-        self.assertNotIn('Ba-Token', calls[-1].headers)
-        self.assertIn(b'name="watermark"\r\n\r\n0', calls[-1].data)
+        self.assertFalse(any(name.lower() == 'ba-token' for name in calls[-1].headers))
+        fields = {'token': hashlib.md5((str(expected_timestamp) + material).encode()).hexdigest(),
+                  'timestamp': expected_timestamp, 'id': 0, 'view': 1, 'type': 0, 'watermark': 0}
+        # Inspect synthetic signing values only in memory; assertion failures never dump the multipart.
+        for name, value in fields.items():
+            part = ('name="' + name + '"\r\n\r\n' + str(value) + '\r\n').encode()
+            self.assertTrue(part in calls[-1].data, 'multipart field mismatch: ' + name)
+        self.assertTrue(b'name="file"; filename="400000.png"' in calls[-1].data,
+                        'multipart file identity mismatch')
+        self.assertTrue(image in calls[-1].data, 'multipart PNG bytes changed')
+        self.assertFalse(material.encode() in calls[-1].data, 'signing material must not be uploaded')
 
     def test_icon_write_uses_narrow_official_model_field(self):
         calls = []
