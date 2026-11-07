@@ -12,7 +12,7 @@ def model(mid=101, title='Erling Haaland/91/ST++/Gold Non Rare'):
 def goods(mid=101, aid=21587):
     return {'id': 201, 'mid': mid, 'gid': 1327, 'cid': 9627, 'aid': aid,
             'site_id': 266, 'title': model(mid)['title'], 'status': 1, 'num': 1,
-            'sku_switch': 0, 'attr_switch': 1, 'price': '4.40501',
+            'sku_switch': 0, 'attr_switch': 1, 'auto_off': 0, 'total': 0, 'price': '4.40501',
             'unit_price': '4.40501', 'discount': 100,
             'more': {'saleprop': [], 'skuTableSet': []}}
 
@@ -94,6 +94,29 @@ class PlayerCatalogTests(unittest.TestCase):
                 catalog.quote('players:101', '201')
             self.client.row = original
 
+    def test_stock_contract_distinguishes_unlimited_from_auto_off_stock(self):
+        catalog = PlayerCatalog(self.client, verified_prices={101: [21587]})
+        # Live contract: auto_off=0 / total=0 is not an out-of-stock product.
+        self.assertEqual(catalog.quote('players:101', '201')['amount'], '4.41')
+        self.client.row.update(auto_off=1, total='1')
+        self.assertEqual(catalog.quote('players:101', '201')['amount'], '4.41')
+        for change in ({'total': 0}, {'total': '-1'}, {'total': 'NaN'}, {'total': True},
+                       {'auto_off': 2}, {'auto_off': None}, {'total': None}):
+            original = self.client.row
+            self.client.row = {**original, **change}
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                catalog.quote('players:101', '201')
+            self.client.row = original
+        for key in ('total', 'auto_off'):
+            original = self.client.row
+            self.client.row = {k: v for k, v in original.items() if k != key}
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                catalog.quote('players:101', '201')
+            self.client.row = original
+        self.client.models[0]['status'] = 0
+        with self.assertRaises(ValueError):
+            catalog.quote('players:101', '201')
+
     def test_tag_browsing_is_configured_and_filters_one_bounded_page(self):
         self.client.models[0]['tid'] = ['12']
         self.client.models[1]['tid'] = ['13']
@@ -103,6 +126,23 @@ class PlayerCatalogTests(unittest.TestCase):
         self.assertEqual([item['id'] for item in result['items']], ['players:101'])
         with self.assertRaises(ValueError):
             catalog.browse_tag(13)
+
+
+    def test_recommended_uses_admin_flag_and_keeps_raw_page_cursor(self):
+        self.client.models[0]['is_rec'] = 0
+        self.client.models[1]['is_rec'] = '1'
+        result = self.catalog.recommended(limit=1)
+        self.assertEqual(result['items'], [])
+        self.assertTrue(result['has_more'])
+        result = self.catalog.recommended(limit=2)
+        self.assertEqual([r['id'] for r in result['items']], ['players:102'])
+        self.client.models[1]['status'] = 0
+        self.assertEqual(self.catalog.recommended(limit=2)['items'], [])
+
+    def test_tag_ids_can_use_the_existing_comma_separated_contract(self):
+        self.client.models[0]['tid'] = '12,13'
+        catalog = PlayerCatalog(self.client, tag_client=self.client, allowed_tag_ids=[12])
+        self.assertEqual(catalog.browse_tag(12)['items'][0]['id'], 'players:101')
 
 
 if __name__ == '__main__':

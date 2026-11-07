@@ -66,6 +66,34 @@ class FCConsoleTests(unittest.TestCase):
         conn.close()
         return status, result
 
+    def test_player_save_is_revision_checked_and_preserves_route_and_verified_prices(self):
+        source = ROOT.parent / 'mmoexp-fc-community' / 'player_config.py'
+        if not source.exists():
+            source = ROOT.parent.parent / 'mmoexp-fc-pilot' / 'player_config.py'
+        (self.path.parent / 'player_config.py').write_bytes(source.read_bytes())
+        player = dict(enabled=True, guild_id=1565922092518613064, channel_id=1568610700463710278,
+                      featured_model_ids=[101], allowed_tag_ids=[], verified_prices={'101': [21587]})
+        self.config['player_panel'] = player
+        self.path.write_text(json.dumps(self.config))
+        status, before = self.request('GET', '/api/fc/player/config')
+        self.assertEqual(status, 200)
+        self.assertEqual(before['player_panel']['guild_id'], str(player['guild_id']))
+        edit = dict(enabled=True, featured_model_ids=[102, 101], allowed_tag_ids=[],
+                    easysbc=dict(template='card', selection='featured', tag_match='any', mappings=[
+                        dict(model_id=101, easysbc_id='50524153', easysbc_role_id='44', easysbc_url='')]))
+        body = dict(player_panel=edit, revision=before['revision'], restart=False)
+        self.assertEqual(self.request('POST', '/api/fc/player/config', body, role='readonly')[0], 403)
+        self.assertEqual(self.request('POST', '/api/fc/player/config', body, csrf=False)[0], 403)
+        invalid = dict(body, player_panel=dict(edit, featured_model_ids=[101, 101]))
+        self.assertEqual(self.request('POST', '/api/fc/player/config', invalid)[0], 400)
+        invalid = dict(body, player_panel=dict(edit, verified_prices={'102': [21589]}))
+        self.assertEqual(self.request('POST', '/api/fc/player/config', invalid)[0], 400)
+        self.assertEqual(self.request('POST', '/api/fc/player/config', body)[0], 200)
+        result = json.loads(self.path.read_text())
+        self.assertEqual(result['player_panel'], dict(player, **edit))
+        self.assertEqual(result['quote_relay'], self.config['quote_relay'])
+        self.assertEqual(self.request('POST', '/api/fc/player/config', body)[0], 409)
+
     def test_routes_save_and_disable_without_overwriting_unrelated_config(self):
         status, before = self.request('GET', '/api/fc/config')
         self.assertEqual(status, 200)

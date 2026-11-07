@@ -99,6 +99,13 @@ def fc_news_module():
     spec.loader.exec_module(module)
     return module
 
+
+def fc_player_module():
+    spec = importlib.util.spec_from_file_location('fc_player_config', FC_CONFIG.parent / 'player_config.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 # ---------------------------------------------------------------- 机器人注册表
 
 BOTS = {
@@ -1100,6 +1107,8 @@ class Handler(BaseHTTPRequestHandler):
         seg = [p for p in path.split("/") if p]
 
         if method == "GET":
+            if path == '/api/fc/player/config':
+                return self._fc_player_config()
             if path == '/api/fc/news/config':
                 return self._fc_news_config()
             if path == '/api/fc/news/items':
@@ -1140,9 +1149,11 @@ class Handler(BaseHTTPRequestHandler):
 
         if method == "POST":
             if not self._check_csrf():
-                if path == "/api/fc/config" or path.startswith('/api/fc/news/'):
+                if path == "/api/fc/config" or path.startswith('/api/fc/news/') or path.startswith('/api/fc/player/'):
                     self._fc_discard_body()
                 return
+            if path == '/api/fc/player/config':
+                return self._fc_player_save()
             if path == '/api/fc/news/config':
                 return self._fc_news_save()
             if path == '/api/fc/news/x':
@@ -1346,6 +1357,82 @@ class Handler(BaseHTTPRequestHandler):
         except (OSError, ValueError, sqlite3.Error):
             return self._json(503, {'ok': False, 'error': '新闻队列尚未就绪'})
         return self._json(200, dict(data, ok=True))
+
+    def _fc_player_config(self):
+        if not self._require_login():
+            return
+        try:
+            config, _, revision = self._fc_read()
+            player = config.get('player_panel')
+            if player is not None:
+                player = dict(fc_player_module().validate_player_config(player))
+                player['guild_id'] = str(player['guild_id'])
+                player['channel_id'] = str(player['channel_id'])
+        except (OSError, ValueError, KeyError, TypeError, ImportError):
+            return self._json(500, {'ok': False, 'error': '无法读取 Player 配置'})
+        return self._json(200, {'ok': True, 'player_panel': player, 'revision': revision,
+                                'can_write': self.role == 'admin'})
+
+    def _fc_player_save(self):
+        if not self._require_admin():
+            self._fc_discard_body()
+            return
+        try:
+            body = self._read_body()
+            if not isinstance(body, dict) or set(body) != {'player_panel', 'revision', 'restart'}:
+                raise ValueError('Invalid request')
+            player = body['player_panel']
+            if not isinstance(player, dict) or set(player) not in ({'enabled', 'featured_model_ids', 'allowed_tag_ids'},
+                        {'enabled', 'featured_model_ids', 'allowed_tag_ids', 'easysbc'}):
+                raise ValueError('Invalid player fields')
+            if (not isinstance(body['revision'], str) or not re.fullmatch(r'[0-9a-f]{64}', body['revision'])
+                    or type(body['restart']) is not bool):
+                raise ValueError('Invalid revision')
+        except (ValueError, TypeError, KeyError, UnicodeError):
+            self.close_connection = True
+            return self._json(400, {'ok': False, 'error': 'Player 配置无效：请检查精选模型 ID、标签 ID（各最多 25 项）'})
+        with FC_LOCK:
+            try:
+                config, _, revision = self._fc_read()
+                if revision != body['revision']:
+                    return self._json(409, {'ok': False, 'error': '配置已变化，请刷新后重试'})
+                current = config.get('player_panel')
+                if not current:
+                    raise ValueError('Player route must be installed first')
+                try:
+                    config['player_panel'] = fc_player_module().validate_player_config({**current, **player})
+                except (ValueError, TypeError, KeyError):
+                    return self._json(400, {'ok': False, 'error': 'Player 列表无效'})
+                backup = CFG['data_dir'] / 'backups' / ('fc-config-%s.json' % time.time_ns())
+                shutil.copy2(FC_CONFIG, backup)
+                os.chmod(backup, 0o600)
+                fc_audit(self.user, 'save_player_attempt', 'backup=' + backup.name)
+                st = FC_CONFIG.stat()
+                fd, tmp = tempfile.mkstemp(prefix='.fc-config-', dir=str(FC_CONFIG.parent))
+                try:
+                    with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as f:
+                        json.dump(config, f, ensure_ascii=False, indent=2)
+                        f.write('\n')
+                        f.flush()
+                        os.fsync(f.fileno())
+                    os.chmod(tmp, st.st_mode & 0o777)
+                    if hasattr(os, 'chown'):
+                        os.chown(tmp, st.st_uid, st.st_gid)
+                    if hashlib.sha256(FC_CONFIG.read_bytes()).hexdigest() != revision:
+                        return self._json(409, {'ok': False, 'error': '配置已变化，请刷新后重试'})
+                    os.replace(tmp, FC_CONFIG)
+                finally:
+                    if os.path.exists(tmp):
+                        os.unlink(tmp)
+                restarted = None
+                if body['restart']:
+                    rc, _, _ = _run(['systemctl', 'restart', FC_SERVICE], timeout=60)
+                    status_rc, state, _ = _run(['systemctl', 'show', FC_SERVICE, '-p', 'ActiveState'], timeout=10)
+                    restarted = rc == 0 and status_rc == 0 and 'ActiveState=active' in state.splitlines()
+                fc_audit(self.user, 'save_player_config', 'backup=%s restart=%s' % (backup.name, restarted))
+            except (OSError, ValueError, KeyError, TypeError):
+                return self._json(500, {'ok': False, 'error': 'Player 配置保存未确认，请刷新核对'})
+        return self._json(200, {'ok': True, 'backup': backup.name, 'restarted': restarted})
 
     def _fc_news_save(self):
         if not self._require_admin():

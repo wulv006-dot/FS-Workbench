@@ -8,22 +8,38 @@ import socketserver
 import sys
 
 MAX_RESPONSE = 1024 * 1024
-CATEGORIES = {'sbc', 'packs', 'evolutions', 'boosting', 'gallery', 'coins'}
+CATEGORIES = {'sbc', 'packs', 'evolutions', 'boosting', 'gallery', 'coins', 'players'}
 
 
 def dispatch(provider, request):
     if not isinstance(request, dict) or set(request) != {'action', 'args'}:
         raise ValueError('Invalid request')
     action, args = request['action'], request['args']
-    counts = {'catalog': 1, 'options': 1, 'quote': 2}
+    counts = {'catalog': 1, 'options': 1, 'quote': 2,
+              'player_search': 2, 'player_tags': 0, 'player_tag': 2, 'player_featured': 1, 'player_preview': 1}
     if not isinstance(action, str) or action not in counts or not isinstance(args, list) or len(args) != counts[action]:
         raise ValueError('Invalid operation')
-    if action == 'catalog':
+    if action in ('player_search', 'player_tag'):
+        if type(args[1]) is not int or not 1 <= args[1] <= (10 if action == 'player_search' else 200):
+            raise ValueError('Invalid page')
+        if (not isinstance(args[0], str) or (action == 'player_search' and
+                (not 2 <= len(args[0].strip()) <= 80 or any(ord(c) < 32 or c in '%_\\' for c in args[0])))
+                or (action == 'player_tag' and not re.fullmatch(r'[1-9][0-9]{0,11}', args[0]))):
+            raise ValueError('Invalid player query')
+    elif action == 'player_preview':
+        if not isinstance(args[0], str) or not re.fullmatch(r'[1-9][0-9]{0,11}', args[0]):
+            raise ValueError('Invalid player ID')
+    elif action == 'player_featured':
+        if type(args[0]) is not int or not 1 <= args[0] <= 200:
+            raise ValueError('Invalid page')
+    elif action == 'player_tags':
+        pass
+    elif action == 'catalog':
         if not isinstance(args[0], str) or args[0] not in CATEGORIES:
             raise ValueError('Invalid category')
     else:
         if not isinstance(args[0], str) or not re.fullmatch(
-                r'(?:sbc|packs|gallery|evolutions|boosting|coins):[1-9][0-9]{0,11}', args[0]):
+                r'(?:sbc|packs|gallery|evolutions|boosting|coins|players):[1-9][0-9]{0,11}', args[0]):
             raise ValueError('Invalid product ID')
         if action == 'quote' and (not isinstance(args[1], str) or not re.fullmatch(r'[1-9][0-9]{0,11}', args[1])):
             raise ValueError('Invalid option ID')
@@ -57,6 +73,21 @@ class SocketProvider:
     def quote(self, product_id, option_id):
         return self.call('quote', [str(product_id), str(option_id)])
 
+    def player_search(self, query, page=1):
+        return self.call('player_search', [query, page])
+
+    def player_preview(self, model_id):
+        return self.call('player_preview', [str(model_id)])
+
+    def player_featured(self, page=1):
+        return self.call('player_featured', [page])
+
+    def player_tags(self):
+        return self.call('player_tags', [])
+
+    def player_tag(self, tag_id, page=1):
+        return self.call('player_tag', [str(tag_id), page])
+
 
 def serve(provider, path):
     class Handler(socketserver.StreamRequestHandler):
@@ -86,8 +117,11 @@ def serve(provider, path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--socket', required=True)
+    parser.add_argument('--config', default='/opt/mmoexp-fc-community/content.config.json')
     args = parser.parse_args()
     sys.path.insert(0, '/opt/fc27-sbc-tool')
     from admin_client import AdminClient
     from quote_catalog import QuoteCatalog
-    serve(QuoteCatalog(AdminClient()), args.socket)
+    from player_service import ProductProvider
+    client = AdminClient()
+    serve(ProductProvider(QuoteCatalog(client), client, args.config, tag_client=client), args.socket)
