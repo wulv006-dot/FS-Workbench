@@ -356,7 +356,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "4d57c7de21ebf59932a6aad55dd9d2393acb2a44fb0a8288002f4330e8b3bc13",
+        "sha256": "840be65e74b03a4c05385d2e02be78d51b6194cecfbbf2d325005a9a3c3d3d31",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -397,6 +397,11 @@
           "kind": "direct_user_pricing_knowledge_cleanup",
           "date": "2026-11-06",
           "scope": "Program/model split, actual-outcome retrieval and current-day archive; no price threshold or authority change"
+        },
+        {
+          "kind": "shared_source_daily_profit_summary_metadata",
+          "date": "2026-11-07",
+          "scope": "Refresh shared operating-contract source hash only; financial revision and rules unchanged"
         }
       ],
       "consumers": [
@@ -1167,20 +1172,20 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "20261106-clean",
+      "revision": "20261107-profit-summary",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-06",
+      "effective_at": "2026-11-07",
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "4d57c7de21ebf59932a6aad55dd9d2393acb2a44fb0a8288002f4330e8b3bc13",
+        "sha256": "840be65e74b03a4c05385d2e02be78d51b6194cecfbbf2d325005a9a3c3d3d31",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -1189,7 +1194,8 @@
         "fc.pricing.v3@fc-v3-sprint-baseline-20261029",
         "fc.pricing.v3@fc-v3-100k-source-availability-20261030",
         "fc.pricing.v3@fc-v3-smart-native-boundaries-20261105",
-        "fc.pricing.v3@20261106-current"
+        "fc.pricing.v3@20261106-current",
+        "fc.pricing.v3@20261106-clean"
       ],
       "provenance": [
         {
@@ -1231,6 +1237,11 @@
           "kind": "direct_user_pricing_knowledge_cleanup",
           "date": "2026-11-06",
           "scope": "Program/model split, actual-outcome retrieval and current-day archive; no price threshold or authority change"
+        },
+        {
+          "kind": "direct_user_daily_actual_profit_handoff_fix",
+          "date": "2026-11-07",
+          "scope": "Frozen reviewed-day and active-plan same-order cost/gross summaries; no price, parameter, writer or schedule change"
         }
       ],
       "consumers": [
@@ -1285,27 +1296,28 @@
     },
     {
       "id": "fc.reporting.data",
-      "revision": "20261106-clean",
+      "revision": "20261107-profit-summary",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-06",
+      "effective_at": "2026-11-07",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/DATA.md",
-        "sha256": "ec01a8c31b21bbd3aa87979e04b634b50929a722996110a9305ea84186a5a6ad",
+        "sha256": "15687103ec2b1c1795ad1dbd39ae7935f1d1628e4d85615ecdd9ad2343bc6b32",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
         "fc.reporting.data@20261105-1",
         "fc.reporting.data@20261105-2",
-        "fc.reporting.data@20261106-1"
+        "fc.reporting.data@20261106-1",
+        "fc.reporting.data@20261106-clean"
       ],
       "provenance": [
         {
@@ -1338,6 +1350,11 @@
           "kind": "direct_user_pricing_knowledge_cleanup",
           "date": "2026-11-06",
           "scope": "Program/model split, actual-outcome retrieval and current-day archive; no price threshold or authority change"
+        },
+        {
+          "kind": "direct_user_daily_actual_profit_handoff_fix",
+          "date": "2026-11-07",
+          "scope": "Frozen reviewed-day and active-plan same-order cost/gross summaries; no price, parameter, writer or schedule change"
         }
       ],
       "consumers": [
@@ -1432,25 +1449,26 @@
     },
     {
       "id": "fc.reporting.maintenance",
-      "revision": "20261106-clean",
+      "revision": "20261107-profit-summary",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27",
         "reporting"
       ],
-      "effective_at": "2026-11-06",
+      "effective_at": "2026-11-07",
       "time_precision": "date_only",
       "owner": "吴律；获授权Codex维护",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "knowledge/reporting/fc27-monthly/MAINTENANCE.md",
-        "sha256": "319e0b1c18b277a1555275db65a673f81469131f15147dd225dfaf3e56f1283a",
+        "sha256": "2bb55dc43f0f72457533dee9480166af2f9beaa5f5515597e54037d876625185",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
-        "fc.reporting.maintenance@20261106-1"
+        "fc.reporting.maintenance@20261106-1",
+        "fc.reporting.maintenance@20261106-clean"
       ],
       "provenance": [
         {
@@ -1471,6 +1489,11 @@
           "kind": "direct_user_pricing_knowledge_cleanup",
           "date": "2026-11-06",
           "scope": "Program/model split, actual-outcome retrieval and current-day archive; no price threshold or authority change"
+        },
+        {
+          "kind": "direct_user_daily_actual_profit_handoff_fix",
+          "date": "2026-11-07",
+          "scope": "Frozen reviewed-day and active-plan same-order cost/gross summaries; no price, parameter, writer or schedule change"
         }
       ],
       "consumers": [

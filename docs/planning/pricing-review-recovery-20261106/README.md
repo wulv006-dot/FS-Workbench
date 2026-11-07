@@ -35,3 +35,29 @@
 12份项目文档清理落库，5个知识ID同步FS；重复合同退出默认入口，旧错误判断失效。原账本、原失败请求、审计/备份和不可变历史知识不删除、不重写；其他账号/profile不扩大修改。所有恢复沿原publisher、来源哈希、保护项和原回执；未知先对账，不换ID重放。
 
 私有证据：`.agent_runtime/pricing-cost-final-20261106/`、`.agent_runtime/pricing-knowledge-cleanup-20261106/`、`.agent_runtime/pricing-review-restore-20261106/`。
+
+
+## 2026-11-07首48小时只读跟进
+
+已在原HTML及审定MD续写，未另生成日报。原smart计划与资源归属仍有效，10:03已有第二周期完成操作；效果上下文只到02:20，首轮政策仍WAITING_MORE_DATA。原16分块中的确认操作及有效A对照存在缺口，不能将48小时已过写成试验成熟。
+
+11月6日原自然daily及原turn均completed。另发现现役daily仅交接learning_coverage等摘要，没有实际成本/毛利聚合；当天已有68笔成本，模型仍误述未覆盖。该问题已定位并记录，**本次只读检查未修代码、未发布、未重放模型**。后续应沿原链路补交既有聚合，避免将加载知识误当数据结果已提供。
+
+现场聚合与同钟点配对证据：`.agent_runtime/pricing-48h-20261107/`；业务数值不入Git。本次一次性fc-48已由原自动化工具删除，回执deleteStatus=deleted；其他自动化与业务调度保持。
+
+
+## 2026-11-07每日实际成本与毛利漏交修复
+
+用户授权修复实际交接链路并同步知识与项目MD。本次仅复用已有actual_outcomes，在新daily原采集完成时冻结actual_profit_summary，并随原请求送入模型；复盘日按创建归属，当前计划累计另列，成本已核部分与未知金额并列。没有已核成本记null，真实零毛利保留0；不是全盘净利润。逐小时和分组在模型输入用列名表格无损压缩，原state保留完整结构与精度。
+
+原已提交/完成日报不重写、不重放，未改变价格、阈值、模式、业务排程或writer。两个daily部署副本与桥接器通过原publisher同步；知识更新v3/data/maintenance，约束条目因共用同一合同正文同步来源哈希（财务revision不变）。代码、CI、上线、真实装配及下一自然任务分别记证据。
+
+源码提交`5399b7f7cfd36031754da9e01cc2d99f0db8e7c6`；[PR888](https://github.com/wulv006-dot/FS-Workbench/pull/888)的首次正式Linux检查`42332856160`及合入最新主线后的`42333297538`均通过。新增4项摘要回归在本机及183单进程隔离环境通过，原daily流程35项本机通过；Windows完整知识套件受缺tzdata及Linux专属检查限制，不称全通过，正式Linux结果单列。
+
+沿原publisher发布代码`nav-20261107T031348Z`（3目标、49保护项无变化）和知识`nav-20261107T031911Z`（21目标、72保护项无变化、0服务动作）。实际两个daily副本及桥接器SHA匹配；原wulv/FS路由新选择与v3/data/maintenance正文加载均为`20261107-profit-summary`，约束正文财务revision仍为`fc27_dual20_d9_d2_v2`，其他路由保持。
+
+线上Python3.9实际模块已用既有冻结账本装配模型payload，已核成本及采购毛利确实存在，输入长度在原限额内；原6日已完成记录SHA保持不变，无新增模型提交或业务写入。原调度器仅在无运行任务/待写操作且下一任务有空档时重载；原writer PID、资源归属与队列到期时间前后保持。没有更改价格、策略、预算、权限或业务排程。
+
+**已验：代码发布、真实盈利摘要装配、知识路由与正文加载、相关回归。未验：下一份自然daily是否实际带入摘要并被模型正确使用；未新增付费模型验收，不将装配通过说成自然成稿通过。**首48小时一次性fc-48已结束，不新增跟踪或恢复旧任务。
+
+私有回执与脱敏聚合：`.agent_runtime/pricing-daily-gross-20261107/`的`software-install-result.jsonl`、`knowledge-readback.json`、`deployed-input-readback.json`、`scheduler-reload.json`及`linux183-result.json`。业务数字、原逐单材料和完整模型输入不入Git。

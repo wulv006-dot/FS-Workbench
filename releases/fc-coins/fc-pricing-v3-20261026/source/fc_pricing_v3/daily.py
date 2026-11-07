@@ -83,6 +83,41 @@ def collect_outcomes(date,windows):
     return dict(actual=hourly_actual(selected,coverage,date),online=online)
 
 
+def profit_summary(online,windows,operations,date,plan_id):
+    """Freeze existing same-order outcomes; never collect or infer missing costs."""
+    rows=online.get('actual_outcomes',[])
+    by_window={w['operation_id']:w for w in windows}
+    assignments={o['operation_id']:(o.get('bundle') or {}).get('smart_assignment') or {} for o in operations}
+    def totals(selected):
+        paid=[r for r in selected if r.get('actual_net_usd') is not None]
+        known=[r for r in paid if r.get('actual_contribution_usd') is not None]
+        unknown=[r for r in paid if r.get('actual_contribution_usd') is None]
+        customers=[r for r in selected if r.get('new_customer') is not None]
+        amount=lambda rr,key:str(sum((Decimal(r[key]) for r in rr),Decimal(0))) if rr else None
+        covered=amount(known,'actual_net_usd');gross=amount(known,'actual_contribution_usd')
+        return dict(status='no_sample' if not selected else 'complete' if len(known)==len(selected) else 'partial',
+            orders=len(selected),paid_usd=amount(paid,'actual_net_usd'),unknown_revenue_orders=len(selected)-len(paid),
+            cost_known_orders=len(known),covered_paid_usd=covered,procurement_gross_usd=gross,
+            procurement_cost_usd=str(Decimal(covered)-Decimal(gross)) if known else None,
+            unknown_cost_orders=len(selected)-len(known),unknown_cost_paid_usd=amount(unknown,'actual_net_usd'),
+            customer_known_orders=len(customers),new_customers=len({r['customer_key'] for r in customers if r.get('new_customer') and r.get('customer_key')}) if customers else None,
+            unknown_customer_orders=sum(r.get('new_customer') is None or r.get('new_customer') and not r.get('customer_key') for r in selected))
+    selected=[r for r in rows if instant(r['occurred_at']).astimezone(LOCAL).date().isoformat()==date]
+    grouped={}
+    for row in selected:
+        window=by_window.get(row['price_window_id'],{});assignment=assignments.get(row['price_window_id'],{})
+        group=row['group'] if row['group'] in ('console','pc') else 'pc' if row['group'].endswith(':PC') else 'console'
+        key=(window.get('plan_id'),group,assignment.get('label') or 'unlabelled')
+        grouped.setdefault(key,[]).append(row)
+    coverage=online.get('learning_coverage') or {}
+    return dict(version='pricing-daily-profit-v1',currency='USD',observed_at=coverage.get('observed_at'),
+        query_complete=coverage.get('query_complete'),attribution='confirmed_price_and_creation_day_not_full_payment_day',
+        cost_basis='same_order_actual_USD_receipt_minus_all_Order_procurement_USD; before_ads_payment_and_other_fees',
+        review_day=dict(local_date=date,totals=totals(selected),groups=[dict(plan_id=p,group=g,label=l,**totals(rr)) for (p,g,l),rr in sorted(grouped.items(),key=lambda item:str(item[0]))]),
+        active_plan=dict(plan_id=plan_id,totals=totals([r for r in rows if by_window.get(r['price_window_id'],{}).get('plan_id')==plan_id])) if plan_id else None,
+        source_sha256=fingerprint(dict(date=date,plan_id=plan_id,rows=rows,windows=windows,assignments=assignments)))
+
+
 def run(body):
     from .runtime import ledger,write_json,ROOT
     from .scheduler import export_shadow_snapshot
@@ -102,6 +137,7 @@ def run(body):
         db.put('metadata','daily_online_context',outcomes['online'])
         for settlement in outcomes['online'].get('budget_settlements',[]):db.settle_order(settlement)
         record['learning_coverage']=outcomes['online'].get('learning_coverage')
+        record['actual_profit_summary']=profit_summary(outcomes['online'],db.all('actual_price_windows'),db.all('operations'),date,(db.active_plan() or {}).get('plan_id'))
         db.put('metadata',key,record)
     export_shadow_snapshot(db,force=True)
     from .history import ensure_shadow
@@ -127,6 +163,8 @@ def run(body):
             demand_model={k:model.get(k) for k in ('status','elasticity','groups','observed_window_hours','rate_window_hours')},
             source_plan=evidence.get('source_plan'),basis_is_latest_saved_input=True)
     report={k:record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
+    # Existing submitted reviews keep their original frozen input and request ID.
+    if 'actual_profit_summary' in record:report['actual_profit_summary']=record['actual_profit_summary']
     quote=dict(run_id=record['request_id'],daily_report=report,result=dict(decision_receipt=dict(sha256=fingerprint(report))))
     record['phase']='review_prepared'
     db.put('metadata',key,record);db.put('metadata','latest_daily_review',record)

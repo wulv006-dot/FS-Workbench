@@ -58,6 +58,15 @@ def turn_state(conversation,request_id,owner,channel='conversation'):
 
 def daily_review_text(quote):
     report=deepcopy(quote['daily_report'])
+    profit=report.get('actual_profit_summary')
+    if isinstance(profit,dict):
+        profit['detail_source']=dict(tool='fs_pricing_control',action='state',section='daily_review.actual_profit_summary')
+        for period in (report.get('shadow') or {}).get('periods',[]):
+            # Zero saved inputs already explain the absent forecasts; retain counts.
+            if period.get('snapshots')==0:
+                for result in period.get('results',{}).values():
+                    if result.get('latest_action') is None:result.pop('latest_action',None)
+                    if result.get('evaluated')==0 and all(v is None for v in (result.get('forecast') or {}).values()):result.pop('forecast',None)
     coverage=report.get('learning_coverage')
     if isinstance(coverage,dict) and ('gap_events' in coverage or 'blocked_price_groups' in coverage):
         original_sha=hashlib.sha256(json.dumps(coverage,sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
@@ -86,6 +95,9 @@ def daily_review_text(quote):
                     group.pop('metrics',None)
                     group.pop('forecast_status',None)
             basis['model_detail_source']=dict(tool='fs_pricing_control',action='state',section='daily_review.decision_basis.demand_model',sha256=hashlib.sha256(json.dumps(quote['daily_report']['decision_basis']['demand_model'],sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest())
+            if 'actual_profit_summary' in report:
+                keys=('status','elasticity','elasticity_support_interval','causal_effect_estimated','orders_per_block','rate_window_hours','observed_net_usd_per_order','delivered_k_per_order','reference_regular_usd','training_end')
+                model['groups']={name:{k:group[k] for k in keys if k in group} for name,group in model['groups'].items()}
         plan=basis.get('source_plan')
         if isinstance(plan,dict):
             basis['source_plan']={k:plan[k] for k in ('version','active_mode','price_interval_minutes','history') if k in plan}
@@ -93,7 +105,10 @@ def daily_review_text(quote):
     def display_money(value,key=''):
         if isinstance(value,dict):return {k:display_money(v,k) for k,v in value.items()}
         if isinstance(value,list):return [display_money(v,key) for v in value]
-        if isinstance(value,str) and key in ('net_paid_usd','observed_net_usd_per_order','target_revenue_per_order_usd'):
+        money_keys=('net_paid_usd','observed_net_usd_per_order','target_revenue_per_order_usd')
+        if 'actual_profit_summary' in report:
+            money_keys+=('paid_usd','covered_paid_usd','procurement_cost_usd','procurement_gross_usd','unknown_cost_paid_usd','net_order_usd','discount_usd','undiscounted_order_usd','known_amount_usd','revenue','contribution')
+        if isinstance(value,str) and key in money_keys:
             try:amount=Decimal(value)
             except InvalidOperation:return value
             if amount.is_finite() and amount.as_tuple().exponent < -2:
@@ -101,7 +116,17 @@ def daily_review_text(quote):
                 return str(amount.quantize(Decimal('.01'),rounding=ROUND_HALF_UP))
         return value
     report=display_money(report)
+    if isinstance(profit,dict):
+        actual=report.get('actual') or {}
+        if actual.get('hourly'):
+            actual['hourly_columns']=['hour','orders','net_paid_usd']
+            actual['hourly']=[[row[k] for k in actual['hourly_columns']] for row in actual['hourly']]
+        day=report['actual_profit_summary']['review_day']
+        if day['groups']:
+            day['group_columns']=list(day['groups'][0])
+            day['groups']=[[row[k] for k in day['group_columns']] for row in day['groups']]
     if money_rendered:report['amount_display']='USD rounded to cents for display; original precision remains in the source evidence'
+    profit_note=('实际成本与采购毛利见actual_profit_summary；部分覆盖不能说成没有成本。review_day按创建日归属，active_plan为截至observed_at的累计，不与全天付款销售混算。未知成本不记零，已知子群毛利不是全量毛利或净利润。' if 'actual_profit_summary' in report else '')
     text=('FC27每日一次经营效果复盘。你负责效果判断和方案建议；正常每轮由程序定价，不等待你审核。'
         '本任务只读，不推荐待执行价格、不调用recommend、不创建/执行/切换计划、不补采竞品。'
         '根据证据自主确定经营问题、比较窗口、需要补查的只读工具和呈现方式，说明预测与实绩差异及其数据覆盖。'
@@ -110,7 +135,7 @@ def daily_review_text(quote):
         '说明当前策略参数、基数如何核算，哪些是实际、哪些是初始弹性等假设，下一日如何追踪和反证。'
         '双20%采购毛利底线、赠送/优惠/地区/舍入由程序每轮校验，不能豁免。目标未设就说明收入优化试验。'
         '先回答最需要判断的问题，再用关键事实支持结论和行动建议；不预设固定章节。模拟收益不能叫真实增收。'
-        '实际及影子摘要：'+json.dumps(report,ensure_ascii=False,separators=(',',':')))
+        +profit_note+'实际及影子摘要：'+json.dumps(report,ensure_ascii=False,separators=(',',':')))
     if len(text)>12000:raise ValueError('pricing_daily_prompt_too_long')
     return text
 
