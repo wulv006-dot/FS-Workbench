@@ -21,6 +21,13 @@ QUESTIONS = {
 TERMINAL = {'COMPLETED', 'FAILED', 'CANCELLED', 'NEEDS_RECONCILE', 'REPORT_PENDING'}
 
 
+def enabled_kinds(config):
+    kinds = config.get('report_kinds', list(STARTS))
+    if type(kinds) is not list or any(type(k) is not str or k not in STARTS for k in kinds) or len(set(kinds)) != len(kinds):
+        raise ValueError('nightly_report_kinds')
+    return kinds
+
+
 def civil(now):
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError('timezone_required')
@@ -130,7 +137,8 @@ class NightlyScheduler:
         if os.name == 'posix' and (info.st_uid != os.geteuid() or info.st_mode & 0o077):
             raise ValueError('nightly_configuration_owner')
         value = json.loads(path.read_text('utf-8'))
-        if value != {'contract': 'fs-hermes-nightly-v1', 'enabled': True, 'owner': 'wulv', 'timezone': 'Asia/Shanghai'}:
+        enabled_kinds(value)
+        if {k:v for k,v in value.items() if k != 'report_kinds'} != {'contract': 'fs-hermes-nightly-v1', 'enabled': True, 'owner': 'wulv', 'timezone': 'Asia/Shanghai'}:
             raise ValueError('nightly_configuration_contract')
         if not self.service.authorizer(value['owner']):
             raise PermissionError('nightly_owner_not_authorized')
@@ -146,6 +154,7 @@ class NightlyScheduler:
             items=[dict(row) for row in db.execute('SELECT kind,id,deadline,state,error FROM nightly_requests WHERE owner=? ORDER BY rowid DESC LIMIT 12',(owner,))]
         configured=self.config()
         return {'enabled':bool(configured and configured['owner']==owner),'timezone':'Asia/Shanghai',
+                'report_kinds':enabled_kinds(configured) if configured else [],
                 'starts':{'daily':'01:40','management':'02:10','weekly':'周一 02:40',
                           'management_weekly':'周一 03:25','monthly':'每月1日 04:10'},
                 'stop_at':'07:49','complete_before':'07:50','daytime_catchup':False,'items':items}
@@ -188,6 +197,7 @@ class NightlyScheduler:
             if db.execute("SELECT 1 FROM requests WHERE state IN ('PREPARING','DISPATCH_UNKNOWN','RUNNING','CANCEL_REQUESTED') LIMIT 1").fetchone():
                 return
         for item in due(now):
+            if item['kind'] not in enabled_kinds(config):continue
             key = digest({'owner': owner, 'request_id': item['request_id']})[:32]
             with self.service.tasks.db() as db:
                 old = db.execute('SELECT state FROM nightly_requests WHERE id=?', (key,)).fetchone()

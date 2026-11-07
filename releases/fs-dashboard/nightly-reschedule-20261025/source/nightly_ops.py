@@ -1,6 +1,7 @@
 """Use the original five-minute bridge, source services and notification outbox."""
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from contextlib import closing
 import json
 import sqlite3
 import subprocess
@@ -60,18 +61,22 @@ def retry_decision(now, state, attempts):
 
 
 def inspect_reports(now, fs=FS):
+    sys.path.insert(0, '/opt/fs-hermes-fc')
+    from nightly import enabled_kinds
+    config_path = fs/'nightly-schedule.json'
+    enabled = set(enabled_kinds(json.loads(config_path.read_text()))) if config_path.exists() else set()
     day = now.astimezone(TZ).strftime('%Y%m%d')
-    with sqlite3.connect((fs/'tasks.sqlite3').as_uri()+'?mode=ro', uri=True, timeout=2) as db:
+    with closing(sqlite3.connect((fs/'tasks.sqlite3').as_uri()+'?mode=ro', uri=True, timeout=2)) as db:
         db.row_factory = sqlite3.Row
         rows = [dict(r) for r in db.execute('SELECT kind,state,error FROM nightly_requests WHERE request_id LIKE ?', ('night_%_'+day,))]
     issues = ['nightly_report_'+r['kind']+'_'+r['state'].lower() for r in rows
-              if r['state'] in ('FAILED','NEEDS_RECONCILE','EXPIRED','CANCELLED')]
+              if r['kind'] in enabled and r['state'] in ('FAILED','NEEDS_RECONCILE','EXPIRED','CANCELLED')]
     if now.astimezone(TZ).hour >= 7:
         expected = {'management','daily'}
         if now.astimezone(TZ).weekday() == 0: expected.update(('weekly','management_weekly'))
         if now.astimezone(TZ).day == 1: expected.add('monthly')
         complete = {r['kind'] for r in rows if r['state'] == 'COMPLETED'}
-        issues += ['nightly_report_'+kind+'_not_completed' for kind in sorted(expected-complete)]
+        issues += ['nightly_report_'+kind+'_not_completed' for kind in sorted((expected & enabled)-complete)]
     return issues
 
 
