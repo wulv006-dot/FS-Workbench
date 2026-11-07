@@ -35,8 +35,9 @@ def _source_rows(path):
         workbook.close()
 
 
-def prepare_direct_items(artifact_path, candidates, add_form, *, business_defaults, icons=None, context_artifact_path=None):
-    """Selected data is frozen; classification uses the same export's full context."""
+def prepare_direct_items(artifact_path, candidates, add_form, *, business_defaults, icons=None, context_artifact_path=None,
+                         classification_errors=None):
+    """Selected rows stay frozen; classification uses complete name/version groups."""
     artifact = Path(artifact_path)
     context = Path(context_artifact_path) if context_artifact_path is not None else artifact
     source_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
@@ -44,6 +45,9 @@ def prepare_direct_items(artifact_path, candidates, add_form, *, business_defaul
     candidates = {str(row["futbin_id"]): row for row in candidates}
     context_rows = _source_rows(context)
     types = resolve_players_types(context_rows)
+    classification_errors = classification_errors or {}
+    if set(classification_errors) - set(candidates):
+        raise StateError('DIRECT_CLASSIFICATION_ERROR_SCOPE_CHANGED')
     by_id = {str(row["FUTBIN ID"]).strip(): row for row in context_rows}
     result, seen = [], set()
     for source in _source_rows(artifact):
@@ -55,6 +59,8 @@ def prepare_direct_items(artifact_path, candidates, add_form, *, business_defaul
         image = (icons or {}).get(futbin, {"icon": 0, "icon_url": ""})
         payload, error = None, None
         try:
+            if futbin in classification_errors:
+                raise StateError(classification_errors[futbin])
             if (str(reference["name"]).strip(), str(reference["Version"]).strip(), str(reference["IS"]).strip()) != (
                     str(source["name"]).strip(), str(source["Version"]).strip(), str(source["IS"]).strip()):
                 raise StateError("DIRECT_CONTEXT_IDENTITY_CHANGED")
@@ -65,7 +71,8 @@ def prepare_direct_items(artifact_path, candidates, add_form, *, business_defaul
         except ValueError as exc:
             error = str(exc).split(":", 1)[0]
         result.append({"futbin_id": futbin, "payload": payload, "payload_sha256": digest(payload),
-                       "players_type": types.get(futbin), "blocked_error": error, "missing_platforms": missing_platforms(source),
+                       "players_type": None if futbin in classification_errors else types.get(futbin),
+                       "blocked_error": error, "missing_platforms": missing_platforms(source),
                        "missing_price_policy": business_defaults.get("missing_price_policy", "reject"),
                        "shelves_payload": {"site_ids": [266], "aids": [21587, 21585, 21589],
                                            "status": "0", "min_qty": 1, "num": 1, "total": 0,
@@ -381,9 +388,16 @@ def execute_direct_plan(settings, repo, client, execution_id, plan, should_stop=
                 break
             try:
                 if item.get("blocked_error"):
+                    with repo.connection() as db:
+                        db.execute("BEGIN IMMEDIATE")
+                        not_dispatched = _latest(db, execution_id, fid, "add") is None
+                        if not_dispatched:
+                            db.execute("DELETE FROM active_scope WHERE execution_id=? AND futbin_id=?", (execution_id, fid))
+                        db.commit()
                     unresolved.append(fid)
                     repo.set_execution(execution_id, "running", "direct_person_blocked",
-                                       {"futbin_id": fid, "error_code": item["blocked_error"], "retryable": False})
+                                       {"futbin_id": fid, "error_code": item["blocked_error"], "retryable": False,
+                                        "scope_released": not_dispatched})
                     continue
                 with repo.connection() as db:
                     old_add = _latest(db, execution_id, fid, "add")

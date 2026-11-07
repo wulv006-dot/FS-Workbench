@@ -179,7 +179,8 @@ class DirectImportTests(unittest.TestCase):
         self.lock.stop()
         self.temp.cleanup()
 
-    def plan(self, count=1, *, missing_pc=False, missing_ps=False, missing_policy="reject", existing=False, wrong_existing=False):
+    def plan(self, count=1, *, missing_pc=False, missing_ps=False, missing_policy="reject", existing=False, wrong_existing=False,
+             classification_failure=False):
         artifact = self.root / "selected.xlsx"
         workbook = Workbook()
         sheet = workbook.active
@@ -208,7 +209,8 @@ class DirectImportTests(unittest.TestCase):
         context_workbook.close()
         items = direct.prepare_direct_items(artifact, candidates, form(),
                     business_defaults={**DEFAULTS, "missing_price_policy": missing_policy},
-                    context_artifact_path=context)
+                    context_artifact_path=context,
+                    classification_errors={"23700": "DIRECT_CLASSIFICATION_LOOKUP_FAILED"} if classification_failure else None)
         ids = [item["futbin_id"] for item in items]
         extra = {}
         if existing:
@@ -308,6 +310,29 @@ class DirectImportTests(unittest.TestCase):
         self.assertEqual(self.scopes(), ["23700"])
         self.run_plan()
         self.assertEqual(self.backend.calls.count(("add", "23700")), 1)
+
+    def test_classification_failure_skips_only_that_person_and_reports_it(self):
+        self.plan(2, classification_failure=True)
+        result=self.run_plan()
+        self.assertEqual(result['completed_futbin_ids'], ['23701'])
+        self.assertEqual(result['unresolved_futbin_ids'], ['23700'])
+        self.assertNotIn(('add', '23700'), self.backend.calls)
+        self.assertEqual(self.backend.calls.count(('add', '23701')), 1)
+        errors=[event['detail'] for event in self.repo.get_execution(self.execution,'operator')['events']
+                if event['step']=='direct_person_blocked']
+        self.assertEqual(errors[0]['futbin_id'], '23700')
+        self.assertEqual(errors[0]['error_code'], 'DIRECT_CLASSIFICATION_LOOKUP_FAILED')
+        self.assertTrue(errors[0]['scope_released'])
+        self.assertEqual(self.scopes(), [])
+
+    def test_classification_failure_never_releases_a_previously_dispatched_scope(self):
+        self.plan(2, classification_failure=True)
+        item=self.frozen['direct_items'][0]
+        direct._receipt(self.repo,self.execution,item,'add','unknown',digest(item['payload']))
+        result=self.run_plan()
+        self.assertEqual(result['completed_futbin_ids'], ['23701'])
+        self.assertEqual(self.scopes(), ['23700'])
+        self.assertNotIn(('add', '23700'), self.backend.calls)
 
     def test_busy_sync_resumes_without_repeating_prior_steps(self):
         self.plan()

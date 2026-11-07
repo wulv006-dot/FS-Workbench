@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import uuid
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -9,15 +10,16 @@ from typing import Any, Mapping, Sequence
 from 球员维护工具.admin_adapter import AdminAdapter, build_existing_model_map, extract_futbin_id, extract_model_id
 from 球员维护工具.models import ExportFilters
 from 球员维护工具.new_card_selection import filter_rows_by_ids, validate_intent_scope
-from 球员维护工具.player_database import read_futbin_ids, validate_xlsx
+from 球员维护工具.player_database import PlayerDatabaseError, read_futbin_ids, validate_xlsx
 from 球员维护工具.rating_rules import is_low_rating_player
-from 球员维护工具.transformer import convert_workbook
+from 球员维护工具.transformer import convert_workbook, _write_xlsx
 
 from .client_factory import player_client
+from .collection import read_all_candidate_pages
 from .repository import Repository, StateError
 from .price_lock import shared_price_lock
 from .settings import Settings
-from .direct_model_import import prepare_direct_items, execute_direct_plan
+from .direct_model_import import prepare_direct_items, execute_direct_plan, _source_rows
 
 
 # User-confirmed defaults; PlayersType is resolved per player from full source context.
@@ -40,6 +42,67 @@ def _sha(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             value.update(chunk)
     return value.hexdigest()
+
+
+def prepare_classification_context(source, selected: Path, run_dir: Path, maximum: int):
+    """Freeze full name/version groups without extending the selected upload scope."""
+    groups = {}
+    for row in _source_rows(selected):
+        groups.setdefault(str(row['name']).strip(), []).append(row)
+    context_rows, errors, evidence = [], {}, []
+    for index, (name, selected_rows) in enumerate(groups.items()):
+        ids = [str(row['FUTBIN ID']).strip() for row in selected_rows]
+        versions = {str(row['Version']).strip() for row in selected_rows}
+        record = {'query': {'q': name}, 'selected_ids': ids}
+        try:
+            if not name or '' in versions:
+                raise StateError('DIRECT_CLASSIFICATION_IDENTITY_MISSING')
+            total, listed = read_all_candidate_pages(source, {'q': name}, maximum)
+            record['listed_total'] = total
+            listed_groups = {version: [str(row['futbin_id']).strip() for row in listed
+                if str(row.get('name', '')).strip() == name
+                and str(row.get('rare_type_name', '')).strip() == version] for version in versions}
+            record['listed_group_ids'] = listed_groups
+            raw = run_dir / ('classification-' + str(index) + '.xlsx')
+            source.export_players(ExportFilters({'q': name}), raw, overwrite=False)
+            record.update(artifact_path=str(raw), artifact_sha256=_sha(raw))
+            converted = convert_workbook(raw, run_dir / ('classification-' + str(index) + '-converted.xlsx'))
+            exported = _source_rows(Path(converted.output_path))
+            complete = [row for row in exported if str(row['name']).strip() == name
+                        and str(row['Version']).strip() in versions]
+            record['groups'] = []
+            for version in sorted(versions):
+                listed_ids = listed_groups[version]
+                exported_ids = [str(row['FUTBIN ID']).strip() for row in complete
+                                if str(row['Version']).strip() == version]
+                selected_ids = {str(row['FUTBIN ID']).strip() for row in selected_rows
+                                if str(row['Version']).strip() == version}
+                if (len(listed_ids) != len(set(listed_ids))
+                        or len(exported_ids) != len(set(exported_ids))
+                        or set(listed_ids) != set(exported_ids)
+                        or not selected_ids <= set(exported_ids)):
+                    code = 'DIRECT_CLASSIFICATION_GROUP_DRIFT'
+                    errors.update({fid: code for fid in selected_ids})
+                    context_rows.extend(row for row in selected_rows if str(row['Version']).strip() == version)
+                    record['groups'].append({'version': version, 'status': 'blocked',
+                        'error_code': code, 'listed_ids': listed_ids, 'exported_ids': exported_ids})
+                else:
+                    context_rows.extend(row for row in complete if str(row['Version']).strip() == version)
+                    record['groups'].append({'version': version, 'status': 'complete', 'group_ids': exported_ids})
+            blocked = [group for group in record['groups'] if group['status'] == 'blocked']
+            record['status'] = 'blocked' if len(blocked) == len(versions) else 'partial' if blocked else 'complete'
+        except (PlayerDatabaseError, OSError, ValueError) as exc:
+            # A failed lookup blocks only this name; never classify its windowed singleton.
+            code = str(getattr(exc, 'code', str(exc))).split(':', 1)[0]
+            if not re.fullmatch(r'[A-Z][A-Z0-9_]{2,79}', code):
+                code = 'DIRECT_CLASSIFICATION_LOOKUP_FAILED'
+            errors.update({fid: code for fid in ids})
+            context_rows.extend(selected_rows)
+            record.update(status='blocked', error_code=code, error_type=type(exc).__name__)
+        evidence.append(record)
+    context = run_dir / 'classification-context.xlsx'
+    _write_xlsx(context, context_rows)
+    return context, errors, evidence
 
 
 def _adapter(settings: Settings, admin_client: Any, stop_event: Any = None) -> AdminAdapter:
@@ -135,6 +198,7 @@ def prepare_plan(
     direct_items = []
     context_path = ""
     context_sha = ""
+    classification_evidence = []
     if upload and not active_conflicts:
         source = source_client or player_client(settings)
         run_dir = settings.data_root / "runs" / uuid.uuid4().hex
@@ -153,11 +217,14 @@ def prepare_plan(
         defaults = business_defaults if business_defaults is not None else DIRECT_BUSINESS_DEFAULTS
         if defaults is None:
             raise StateError("DIRECT_BUSINESS_DEFAULTS_REQUIRED")
+        full_context, classification_errors, classification_evidence = prepare_classification_context(
+            source, selected, run_dir, settings.max_candidates)
         direct_items = prepare_direct_items(selected, [candidate_by_id[item] for item in upload],
                                             admin_client.get_model_add_form(),
                                             business_defaults=defaults, icons=icons,
-                                            context_artifact_path=transformed.output_path)
-        context_path, context_sha = str(transformed.output_path), _sha(Path(transformed.output_path))
+                                            context_artifact_path=full_context,
+                                            classification_errors=classification_errors)
+        context_path, context_sha = str(full_context), _sha(full_context)
     low = [item for item in scope if is_low_rating_player(candidate_by_id[item], rating_threshold)]
     missing_rating = [item for item in scope if candidate_by_id[item].get("rating") in {None, ""}]
     blockers: list[str] = []
@@ -183,6 +250,7 @@ def prepare_plan(
         "import_mode": "direct_json_v1" if upload else "existing_actions_only",
         "direct_items": direct_items,
         "context_artifact_path": context_path, "context_sha256": context_sha,
+        "classification_evidence": classification_evidence,
         "low_rating_ids": low, "missing_rating_ids": missing_rating,
         "rating_threshold": rating_threshold,
         "blockers": blockers, "active_conflicts": active_conflicts,
