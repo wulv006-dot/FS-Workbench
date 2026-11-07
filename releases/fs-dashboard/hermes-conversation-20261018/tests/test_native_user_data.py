@@ -68,6 +68,24 @@ class NativeUserRelay(unittest.TestCase):
         return self.conversation.native.host_tool(bound,'fs.native.user_data',
             {'binding':bound,'name':name,'arguments':args})
 
+    def test_structure_read_uses_hermes_route_and_rechecks_actor(self):
+        data=self.data();calls=[]
+        query=dict(mode='hermes',structure='es',profile='FC27',start='2026-11-06',end='2026-11-06',group_by='product')
+        def get(params,owner):
+            calls.append((params,owner));return 200,{'status':'available','groups':[]}
+        host=sys.modules['__main__']
+        with patch('user_runtime.authorize',return_value=True), patch.object(host,'HERMES',types.SimpleNamespace(get=get),create=True), patch.object(host,'ADVISOR',types.SimpleNamespace(get=lambda *args:(422,{'error':'invalid_parameters'})),create=True):
+            self.assertEqual(data.read(self.binding,'/advisor',query)['status'],'available')
+            self.assertEqual(calls,[({k:[str(v)] for k,v in query.items()},'operator')])
+            self.source_allowed=False
+            with self.assertRaises(PermissionError):data.read(self.binding,'/advisor',query)
+            self.assertEqual(len(calls),1)
+            self.source_allowed=True
+            def revoke(params,owner):
+                self.source_allowed=False;return 200,{'status':'available'}
+            host.HERMES.get=revoke
+            with self.assertRaises(PermissionError):data.read(self.binding,'/advisor',query)
+
     def test_actual_host_binding_context_and_b2_projection_do_not_create_goals(self):
         self.data()
         receipt=self.call('fs_query_user_analytics',dict(fixtures.SCOPE,start='2026-10-01',
