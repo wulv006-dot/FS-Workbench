@@ -1,0 +1,25 @@
+# WOW FOREVER 频道机器人（Blingtron-9000）—— 2026-11-07 纳入版本管理。
+# 原则：源码与文案口径入仓；**凭据、运行时状态、虚拟环境一律不入仓**。
+
+# ===== 凭据：绝不入库 =====
+# token.txt（线上权限 600）只留服务器副本；入仓的是 config.example.json。
+# bot.py 取令牌顺序：环境变量 WOWFOREVER_TOKEN > 同目录 secrets/token.txt
+secrets/
+token.txt
+**/token.txt
+
+# config.json 含频道与身份组 ID，按仓库根 `**/config.json*` 同口径只留服务器副本。
+# 入仓的是把 ID 归零的 config.example.json。
+config.json
+
+# ===== 运行时状态 =====
+# state.json 存已发面板 id、抽奖次数、库存、待登记队列、中奖流水 —— 每轮改写，不属于源码。
+state/
+logs/
+*.log
+
+# ===== 虚拟环境与缓存 =====
+.venv/
+venv/
+__pycache__/
+*.pyc

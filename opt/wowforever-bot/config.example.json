@@ -1,0 +1,334 @@
+{
+  "_说明": "WOW FOREVER [MMO] · Blingtron-9000 配置。功能按频道白名单绑定，模块之间互不监听全局。",
+  "guild_id": "000000000000000000",
+  "prefix": "wf",
+  "intents": {
+    "_说明": "特权意图，必须在 https://discord.com/developers/applications 的 Bot 页面手动打开，否则网关拒绝连接。",
+    "members": true,
+    "message_content": true
+  },
+  "channels": {
+    "welcome": "000000000000000000",
+    "rules": "000000000000000000",
+    "news": "000000000000000000",
+    "chat": "000000000000000000",
+    "exchange": "000000000000000000",
+    "gold_price": "000000000000000000",
+    "support": "000000000000000000",
+    "order_logs": "000000000000000000",
+    "mod_log": "000000000000000000",
+    "admin": "000000000000000000",
+    "moderator_only": "000000000000000000",
+    "giveaway": "000000000000000000"
+  },
+  "features": {
+    "welcome": {
+      "enabled": true,
+      "panel_channel": "welcome",
+      "panel_title": "Get your roles · WOW FOREVER",
+      "send_join_message": true,
+      "_send_join_message说明": "true = 入群发一条克制版欢迎（embed，只 @ 本人，不 @everyone）。Zira 已于 2026-11-07 移除。",
+      "role_hub": {
+        "_说明": "四级反应式选择：regions → factions → rulesets → classes，每级单选，选完四级一次性挂 4 个组",
+        "regions": [
+          {
+            "key": "en",
+            "label": "English",
+            "emoji": "🇬🇧",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "de",
+            "label": "Deutsch",
+            "emoji": "🇩🇪",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "fr",
+            "label": "Français",
+            "emoji": "🇫🇷",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "es",
+            "label": "Español",
+            "emoji": "🇪🇸",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "pt",
+            "label": "Português",
+            "emoji": "🇵🇹",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "ko",
+            "label": "한국어",
+            "emoji": "🇰🇷",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "ja",
+            "label": "日本語",
+            "emoji": "🇯🇵",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "zh",
+            "label": "Chinese (Traditional)",
+            "emoji": "🇨🇳",
+            "role_id": "000000000000000000"
+          }
+        ],
+        "factions": [
+          {
+            "key": "alliance",
+            "label": "Alliance",
+            "emoji": "🛡️",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "horde",
+            "label": "Horde",
+            "emoji": "🪓",
+            "role_id": "000000000000000000"
+          }
+        ],
+        "rulesets": [
+          {
+            "key": "pve",
+            "label": "PVE",
+            "emoji": "🌿",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "pvp",
+            "label": "PVP",
+            "emoji": "⚔️",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "rpg",
+            "label": "RPG",
+            "emoji": "🎭",
+            "role_id": "000000000000000000"
+          }
+        ],
+        "classes": [
+          {
+            "key": "warrior",
+            "label": "Warrior",
+            "emoji": "⚔️",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "paladin",
+            "label": "Paladin",
+            "emoji": "🔨",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "hunter",
+            "label": "Hunter",
+            "emoji": "🏹",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "rogue",
+            "label": "Rogue",
+            "emoji": "🗡️",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "priest",
+            "label": "Priest",
+            "emoji": "✨",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "shaman",
+            "label": "Shaman",
+            "emoji": "⚡",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "mage",
+            "label": "Mage",
+            "emoji": "❄️",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "warlock",
+            "label": "Warlock",
+            "emoji": "💀",
+            "role_id": "000000000000000000"
+          },
+          {
+            "key": "druid",
+            "label": "Druid",
+            "emoji": "🐾",
+            "role_id": "000000000000000000"
+          }
+        ]
+      },
+      "panel_body": "Pick your **region**, **faction**, **ruleset** and **class** — each answer unlocks the next menu.\n\nIt only takes a few taps and you can change it any time."
+    },
+    "tickets": {
+      "enabled": false,
+      "panel_channel": "support",
+      "archive_channel": "order_logs",
+      "log_channel": "mod_log"
+    },
+    "priceboard": {
+      "enabled": true,
+      "channel": "gold_price",
+      "gid": "1364",
+      "unit": "1G",
+      "refresh_minutes": 10,
+      "_shop说明": "卡片上的跳转 CTA：embed 标题超链 + 紫色链接按钮。改地址只改这一处。",
+      "unit_label": "1 Gold",
+      "_unit说明": "后台 b2c 是每 1 金的价，显示单位写这里，禁止再除以 1000",
+      "_source说明": "数据来自 183 RPG 改价系统台账（每 10 分钟一轮），由分机 sync_wow_gold.py 拉取，不再直连后台页面",
+      "price_suffix": "/G",
+      "accent": "#8B6914",
+      "_accent说明": "卡片左色条颜色（embed color），改这里即可；按钮颜色 Discord 不允许自定义（链接按钮固定灰色）",
+      "shop_button_style": "link",
+      "_shop_button_style说明": "link=灰色链接按钮，一键直达（默认）；green=绿色按钮，颜色深但要多点一次才到站"
+    },
+    "guard": {
+      "enabled": true,
+      "dry_run": false,
+      "action": "ban",
+      "timeout_minutes": 10080,
+      "log_channel": "mod_log",
+      "extra_starts": [],
+      "whitelist": {
+        "user_ids": [
+          "000000000000000000",
+          "000000000000000000"
+        ],
+        "role_ids": [
+          "000000000000000000"
+        ]
+      },
+      "brandList": [
+        {
+          "label": "MMOEXP",
+          "core": "mmoexp",
+          "official": true,
+          "fuzzy": 1,
+          "matchMode": "loose",
+          "token": true,
+          "prefix": true,
+          "pattern": "^(?:the)?(?:mmo+exp)([a-z0-9]*)$",
+          "_pattern说明": "经 leet 归一后 0→o，所以只需 mmo+exp"
+        },
+        {
+          "label": "U4GM",
+          "core": "u4gm",
+          "official": false,
+          "fuzzy": 0,
+          "matchMode": "strict",
+          "token": true,
+          "prefix": true
+        },
+        {
+          "label": "IGGM",
+          "core": "iggm",
+          "official": false,
+          "fuzzy": 0,
+          "matchMode": "strict",
+          "token": true,
+          "prefix": true
+        },
+        {
+          "label": "LOOTBAR",
+          "core": "lootbar",
+          "official": false,
+          "fuzzy": 0,
+          "matchMode": "strict",
+          "token": true,
+          "prefix": true,
+          "_fuzzy说明": "0：WoW 服里 lootbag / footbar 之类是正常名字，1 字符容错会误伤"
+        }
+      ]
+    },
+    "giveaway": {
+      "enabled": true,
+      "channel": "giveaway",
+      "claim_channel": "order_logs",
+      "panel_title": "WOW FOREVER · Lucky Loot",
+      "panel_body": "Hit **SPIN** and see what you get.\n-# One prize per spin · staff hands out the reward.",
+      "cooldown_hours": 0,
+      "prizes": [
+        {
+          "key": "bag10",
+          "type": "bag",
+          "label": "10-Slot Bag",
+          "emoji": "🎒",
+          "chance": 2,
+          "stock": 10,
+          "color": "#7F77DD",
+          "role_id": null
+        },
+        {
+          "key": "bag8",
+          "type": "bag",
+          "label": "8-Slot Bag",
+          "emoji": "🎒",
+          "chance": 30,
+          "stock": 50,
+          "color": "#378ADD",
+          "role_id": null
+        },
+        {
+          "key": "coupon5",
+          "type": "coupon",
+          "label": "5% Off Coupon",
+          "emoji": "🎟️",
+          "chance": 50,
+          "code": "wowexp",
+          "color": "#97C459",
+          "role_id": null
+        },
+        {
+          "key": "coupon8",
+          "type": "coupon",
+          "label": "8% Off Coupon",
+          "emoji": "🎟️",
+          "chance": 18,
+          "code": "wowexp8",
+          "color": "#EF9F27",
+          "role_id": null
+        }
+      ],
+      "staff_contact": "000000000000000000",
+      "bypass_users": [
+        "000000000000000000",
+        "000000000000000000"
+      ],
+      "spins_per_user": 2,
+      "_spins_per_user说明": "每人可抽次数；0=不限。bypass_users 里的号不受限。",
+      "fallback_prize": "coupon5",
+      "_fallback_prize说明": "抽到库存为 0 的奖品时自动降级成这个",
+      "staff_name": "Ryan Brooks",
+      "_staff_name说明": "公开面板里显示的名字（纯文本，不触发 @）；staff_contact 只在登记通知里 @"
+    }
+  },
+  "exempt": {
+    "_说明": "豁免表：这些消息/用户/角色永不被清理类逻辑删除或处罚。看板与工单面板消息必须登记在此。",
+    "messages": [],
+    "users": [
+      "000000000000000000"
+    ],
+    "roles": [
+      "000000000000000000"
+    ]
+  },
+  "shop": {
+    "url": "https://www.mmoexp.com/wow-gold.html",
+    "label": "Buy Cheap Gold Now",
+    "_说明": "金币看板与抽奖页共用的下单跳转，改这里两边同步"
+  },
+  "_example说明": "占位版本：所有 Discord 雪花 ID 已替换为 0，避免环境信息入库。部署时复制为 config.json 并填回 guild_id / channels / 身份组 / bypass_users 等真实值。本文件不含任何凭据——Bot Token 只放 secrets/token.txt（不入仓）。"
+}

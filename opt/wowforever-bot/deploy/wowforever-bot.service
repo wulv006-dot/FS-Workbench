@@ -1,0 +1,19 @@
+[Unit]
+Description=Blingtron-9000 - WOW FOREVER [MMO] Discord bot
+Documentation=file:///opt/wowforever-bot/README_部署.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/wowforever-bot
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+ExecStart=/opt/wowforever-bot/.venv/bin/python /opt/wowforever-bot/bot.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target
