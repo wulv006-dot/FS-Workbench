@@ -432,7 +432,8 @@ class NativeUserData:
             if not callable(read):raise RuntimeError('native_fs_source_unavailable')
             status,value=read({k:[str(v)] for k,v in params.items()})
         else:
-            read=getattr(getattr(host,'ADVISOR',None),'get',None)
+            controller='HERMES' if params.get('mode')=='hermes' else 'ADVISOR'
+            read=getattr(getattr(host,controller,None),'get',None)
             if not callable(read):raise RuntimeError('native_fs_source_unavailable')
             status,value=read({k:[str(v)] for k,v in params.items()},binding['owner'])
         self.guard(binding,{'scope':'global','scope_id':''})
