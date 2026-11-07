@@ -1,0 +1,3 @@
+name: fs-codegraph
+version: 1.0.0
+description: "CodeGraph source navigation for approved FS development workspaces and dated production-source snapshots."

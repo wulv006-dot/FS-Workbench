@@ -591,6 +591,8 @@ def select(paths):
             groups.add("hermes-v2-review-repair");continue
         if name.startswith("releases/fs-dashboard/hermes-v2-core-20261020/"):
             groups.add("hermes-v2-core");continue
+        if name.startswith("releases/fs-dashboard/hermes-codegraph-20261107/"):
+            groups.add("hermes-codegraph");continue
         if name.startswith("releases/fs-dashboard/hermes-server-unify-20261022/"):
             groups.add("hermes-server-unify");continue
         if name.startswith("releases/fs-dashboard/hermes-ops-20261020/"):
@@ -1426,6 +1428,8 @@ def main():
             node(workspace+"/frontend/test-workspace.cjs")
             browser_python(workspace+"/frontend/tools-page/test_page.py")
             node("releases/fs-dashboard/hermes-conversation-20261018/frontend/entry/test_data_handoff.cjs")
+        elif group=="hermes-codegraph":
+            units("releases/fs-dashboard/hermes-codegraph-20261107",["test_plugin","test_inventory"])
         elif group=="hermes-server-unify":
             units("releases/fs-dashboard/hermes-server-unify-20261022",["test_migrate","test_fs_readonly","test_native_knowledge","test_native_entry","test_knowledge_audit","test_native_task_learning"])
         elif group=="hermes-ops":

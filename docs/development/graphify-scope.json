@@ -158,9 +158,10 @@
         "releases/fs-dashboard/hermes-v2-core-20261020/source",
         "releases/fs-dashboard/hermes-v2-strategy-20261021/source",
         "releases/fs-dashboard/hermes-server-unify-20261022/fs_readonly",
-        "releases/fs-dashboard/hermes-conversation-20261018/tests"
+        "releases/fs-dashboard/hermes-conversation-20261018/tests",
+        "releases/fs-dashboard/hermes-codegraph-20261107"
       ],
-      "basis": "AGENTS live order contract; user SOURCE-MAP; hermes CURRENT-SOURCE-MAP and current source dependencies. Old conversation HTTP source deliberately excluded in favor of V3 target_map; tiered-data SOURCE-MAP explicitly candidate/not deployed; the current HTTP contract in AGENTS does not certify every source in this group.",
+      "basis": "AGENTS live order contract; user SOURCE-MAP; hermes CURRENT-SOURCE-MAP and current source dependencies. Old conversation HTTP source deliberately excluded in favor of V3 target_map; tiered-data SOURCE-MAP explicitly candidate/not deployed; the current HTTP contract in AGENTS does not certify every source in this group.; CodeGraph native plugin is mapped to the Hermes profile plugin directory by its native admission/activation receipt (2026-11-07); cache snapshots and indexes are excluded from repository scope and do not certify the rest of this group.",
       "evidence_level": "partial_mapping"
     },
     "campaigns": {
