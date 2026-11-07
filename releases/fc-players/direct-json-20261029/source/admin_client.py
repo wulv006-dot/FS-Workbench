@@ -257,7 +257,6 @@ class AdminClient:
             "/admin/goods.GoodsMould/add",
             "/admin/goods.GoodsMould/edit",
             "/admin/goods.GoodsMould/importPlayersProgress",
-            "/admin/goods.GoodsTag/tagSelect",
             "/admin/goods.GoodsTag/index",
             "/admin/goods.Goods/index",
             "/admin/goods.Goods/edit",
@@ -481,53 +480,54 @@ class AdminClient:
         return data["row"]
 
     def list_tags(self, *, gid: int = SUPPORTED_GID, cid: int = SUPPORTED_CID) -> tuple[Mapping[str, Any], ...]:
-        # 2026-10-28：改走 goodsTag/index（=后台「商品标签管理」列表）。
-        # 原因：goodsTag/tagSelect 在权限规则表里没有独立节点（只有 index/add/edit），
-        # 所以非超管账号无论怎么授权它都恒返回 401 You have no permission。
-        # index 的行为有两个坑，必须在客户端兜住：
-        #   1) 只认 quick_search / page / limit / order；gid、cid、search、filter 全部被忽略；
-        #   2) quick_search 为空串时直接返回 0 行，必须给 "%"（服务端是 LIKE '%kw%'）。
-        # 因此这里拉全量后在本地按 gid 与 cate_id 过滤。
         _check_scope(gid, cid)
-        rows: list[Mapping[str, Any]] = []
-        page = 1
-        limit = 500
-        expected_total: Optional[int] = None
-        while True:
-            envelope = self._request_json(
-                "GET",
-                "/admin/goods.GoodsTag/index",
-                params={"page": page, "limit": limit, "quick_search": "%", "order": "sort,desc"},
-            )
+        # tagSelect has no usable permission node; index requires a nonempty search.
+        rows = []
+        seen = set()
+        expected_total = None
+        for page in range(1, 41):
+            envelope = self._request_json("GET", "/admin/goods.GoodsTag/index",
+                params={"page": page, "limit": 500, "quick_search": "%", "order": "sort,desc"})
             data = envelope.get("data")
             if not isinstance(data, Mapping) or not isinstance(data.get("list"), list):
-                raise AdminContractError("标签响应缺少 data.list")
-            page_rows = data["list"]
+                raise AdminContractError("Invalid tag list response")
+            raw_total = data.get("total")
+            if isinstance(raw_total, bool) or not str(raw_total).isascii() or not str(raw_total).isdecimal():
+                raise AdminContractError("Invalid tag total")
+            total = int(raw_total)
             if expected_total is None:
-                try:
-                    expected_total = int(data.get("total"))
-                except (TypeError, ValueError) as exc:
-                    raise AdminContractError("标签响应 data.total 不是整数") from exc
-                if expected_total < 0:
-                    raise AdminContractError("标签响应 data.total 不得为负数")
-            rows.extend(page_rows)
-            if not page_rows or len(rows) >= expected_total or page >= 40:
+                expected_total = total
+            if total != expected_total:
+                raise AdminContractError("Tag catalog changed during pagination; retry")
+            batch = data["list"]
+            if len(batch) > 500:
+                raise AdminContractError("Invalid tag page size")
+            for item in batch:
+                if not isinstance(item, Mapping):
+                    raise AdminContractError("Invalid tag row")
+                tag_id = item.get("id")
+                if isinstance(tag_id, bool) or not str(tag_id).isascii() or not str(tag_id).isdecimal() or int(tag_id) <= 0:
+                    raise AdminContractError("Invalid tag id")
+                tag_id = int(tag_id)
+                if tag_id in seen:
+                    raise AdminContractError("Duplicate tag page; retry")
+                seen.add(tag_id)
+                rows.append(item)
+            if len(rows) > total:
+                raise AdminContractError("Tag rows exceed total")
+            if len(rows) == total:
                 break
-            page += 1
-        result: list[Mapping[str, Any]] = []
+            if not batch:
+                raise AdminContractError("Incomplete tag catalog")
+        else:
+            raise AdminContractError("Tag catalog exceeds page limit")
+        result = []
         for item in rows:
-            if not isinstance(item, Mapping) or item.get("id") is None:
-                raise AdminContractError("标签响应含无 id 的条目")
-            if str(item.get("gid")) != str(gid):
-                continue
-            cate = item.get("cate_id")
-            if isinstance(cate, (list, tuple)):
-                matched = str(cid) in [str(value) for value in cate]
-            else:
-                matched = str(cate).strip() == str(cid) or f",{cid}," in f",{cate},"
-            if not matched:
-                continue
-            result.append(item)
+            categories = item.get("cate_id")
+            if not isinstance(categories, (list, tuple)):
+                categories = str(categories).split(",")
+            if str(item.get("gid")) == str(gid) and str(cid) in [str(value).strip() for value in categories]:
+                result.append(item)
         return tuple(result)
 
     def get_model_add_form(self, *, gid: int = SUPPORTED_GID, cid: int = SUPPORTED_CID) -> Mapping[str, Any]:

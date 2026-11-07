@@ -487,7 +487,7 @@ def select(paths):
             groups.add('fc-players-mixed-plan');continue
         if name.startswith('releases/fc-players/admin-api-repair-20261031/'):
             groups.add('fc-players-api-repair');continue
-        if name.startswith('releases/fc-players/direct-json-20261029/') or name == 'fc27_players_cloud/player_web/model_service.py':
+        if name.startswith(('releases/fc-players/direct-json-20261029/', 'releases/fc-sbc/tag-index-20261108/')) or name in ('fc27_players_cloud/player_web/model_service.py', 'fc27_players_cloud/球员维护工具/admin_client.py'):
             groups.add('fc-players-direct-json');continue
         if name in ('releases/fs-dashboard/dashboard-refresh-20261025/source/daily_archive.py',
                     'releases/fs-dashboard/shipping-profit-20261024/source/profit_queries.py'):
@@ -991,6 +991,7 @@ def main():
             node('releases/fc-players/admin-api-repair-20261031/check_image_batch.cjs')
             node('releases/fc-players/direct-json-20261029/tests/check_resume.cjs')
         elif group == 'fc-players-direct-json':
+            subprocess.run([sys.executable, '-I', '-B', str(ROOT/'releases/fc-sbc/tag-index-20261108/test_tags.py')], check=True, timeout=30)
             units('releases/fc-players/direct-json-20261029/tests', ['test_payload','test_client','test_direct_import','test_resume','test_model_labels','test_api_repair','test_mixed_scope','test_empty_market_recovery'])
             units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
             units('releases/fc-players/direct-json-20261029/tag-labels', ['test_upgrade_tag_labels'])
