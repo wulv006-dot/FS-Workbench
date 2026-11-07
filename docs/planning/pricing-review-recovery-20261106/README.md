@@ -52,4 +52,12 @@
 
 原已提交/完成日报不重写、不重放，未改变价格、阈值、模式、业务排程或writer。两个daily部署副本与桥接器通过原publisher同步；知识更新v3/data/maintenance，约束条目因共用同一合同正文同步来源哈希（财务revision不变）。代码、CI、上线、真实装配及下一自然任务分别记证据。
 
-当前：相关回归及真实冻结数据装配已通过，发布和自然周期尚待验收，不能据此称线上已修复。私有证据`.agent_runtime/pricing-daily-gross-20261107/`；业务数字与逐单数据不入Git。
+源码提交`5399b7f7cfd36031754da9e01cc2d99f0db8e7c6`；[PR888](https://github.com/wulv006-dot/FS-Workbench/pull/888)的首次正式Linux检查`42332856160`及合入最新主线后的`42333297538`均通过。新增4项摘要回归在本机及183单进程隔离环境通过，原daily流程35项本机通过；Windows完整知识套件受缺tzdata及Linux专属检查限制，不称全通过，正式Linux结果单列。
+
+沿原publisher发布代码`nav-20261107T031348Z`（3目标、49保护项无变化）和知识`nav-20261107T031911Z`（21目标、72保护项无变化、0服务动作）。实际两个daily副本及桥接器SHA匹配；原wulv/FS路由新选择与v3/data/maintenance正文加载均为`20261107-profit-summary`，约束正文财务revision仍为`fc27_dual20_d9_d2_v2`，其他路由保持。
+
+线上Python3.9实际模块已用既有冻结账本装配模型payload，已核成本及采购毛利确实存在，输入长度在原限额内；原6日已完成记录SHA保持不变，无新增模型提交或业务写入。原调度器仅在无运行任务/待写操作且下一任务有空档时重载；原writer PID、资源归属与队列到期时间前后保持。没有更改价格、策略、预算、权限或业务排程。
+
+**已验：代码发布、真实盈利摘要装配、知识路由与正文加载、相关回归。未验：下一份自然daily是否实际带入摘要并被模型正确使用；未新增付费模型验收，不将装配通过说成自然成稿通过。**首48小时一次性fc-48已结束，不新增跟踪或恢复旧任务。
+
+私有回执与脱敏聚合：`.agent_runtime/pricing-daily-gross-20261107/`的`software-install-result.jsonl`、`knowledge-readback.json`、`deployed-input-readback.json`、`scheduler-reload.json`及`linux183-result.json`。业务数字、原逐单材料和完整模型输入不入Git。

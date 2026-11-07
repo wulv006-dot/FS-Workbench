@@ -96,3 +96,8 @@
 正式FS新会话已由主控从Chrome持续对话UI新建并只发送一次虚构练习，题目仅要求读取索引和fc.reporting.data，以12000美元广告费、300名广告归因新客核广告CAC；原回答$40，拒绝用全渠道1000新客作广告CAC分母，并标注revision 20261105-1。主控实际UI与只读原turn回答一致，未另发、重放或伪造binding。
 
 原cid为`638c9bae8f2b4cd58d62a9f6e6072933`，turn为`cfaed713481543b48f9118181ffb02eb`，run为`run_e0115479f68d46abb1bf07cd758d835d`，状态completed；00:47:35 UTC抽验的真实pin SHA为`dc75c8dd2ea6122324bdff8b8ea5b5a5d0215871f40fa2649d5ff5b17a145286`，绑定来源46034b08及上述catalog。真实index receipt为`d3fa54874060e1c4d8f820ccedca230fea1d40e6f6475422c1bee868a128abb1`；正文receipt为`5f4eb4190e2288163c902ebb1bb9a25508b23035d23edaacc5b6f1ef70ffd97f`，参数只有FC27模块和fc.reporting.data，正文SHA与Git原文一致。正式验收会话保留；新增会话实际美元费用未回报，保留unknown，不猜实付。native正式技能安装未做，自然周期和长期经营效果未验。受控证据目录`.agent_runtime/fc27-knowledge-20261105/`含`publisher-apply-result.json`、`knowledge-publish-readback.json`、`fs-formal-knowledge-acceptance.json`、`fs-formal-output.json`、私有UI截图、`synthetic-delete-apply-receipt.json`和`SYNTHETIC-DELETE-PLAN.md`；原始凭据与业务文件不入Git。计划见[发布计划](../../../docs/planning/fc27-knowledge-20261105/PUBLISH-PLAN.md)。
+
+
+## 2026-11-07：每日定价复盘盈利摘要交接
+
+修复原daily仅给覆盖说明、未给实际成本毛利的问题。新任务冻结实际盈利摘要，复盘日创建归属与当前计划累计分开，已核部分与未知金额并列；不重跑已完成旧日报。v3/data/maintenance采用`20261107-profit-summary`，约束条目的财务版本不变。代码和知识已沿原publisher读回，实际线上模块装配的模型payload确实含已核成本和毛利；下一自然日报及模型实际使用仍未验。完整源码、CI、发布、只读验收与边界见[项目交付记录](../../../docs/planning/pricing-review-recovery-20261106/README.md#2026-11-07每日实际成本与毛利漏交修复)。本次无新增付费模型、无改价或业务排程调整。
