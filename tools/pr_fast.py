@@ -397,6 +397,8 @@ def selfcheck():
         if select([path]) != [group]:raise RuntimeError("deployed_source_mapping_missing:"+path)
     for path in ("fc27_players_cloud/player_web/media_client.py","fc27_players_cloud/player_web/model_image_service.py","fc27_players_cloud/tests_cloud/test_model_images.py"):
         if select([path]) != ["fc-players-cloud10"]:raise RuntimeError("players_image_mapping_missing:"+path)
+    if select(['releases/fc-players/media-signer-20261107/upgrade_media_signer.py']) != ['fc-players-media-signer']:
+        raise RuntimeError('players_media_signer_mapping_missing')
     for path in ("fc27_players_cloud/player_web/shared_session.py","fc27_players_cloud/tests_cloud/test_shared_session.py","releases/fc-players/shared-login-20261018/source/session/fc27-p2pah-session.service"):
         if select([path]) != ["fc-players-shared-login"]:raise RuntimeError("shared_login_mapping_missing:"+path)
     if select(["releases/fc-players/history-five-20261024/source/player_web/static/app.js"]) != ["fc-players-history-five"]:raise RuntimeError("players_history_mapping_missing")
@@ -464,6 +466,8 @@ def select(paths):
             groups.add("fs-graphify");continue
         if name.startswith("releases/registration/iam-modules-20261031/") or name == "tests/test_fs_iam_module_access.py":
             groups.add("iam"); continue
+        if name.startswith('releases/fc-players/media-signer-20261107/'):
+            groups.add('fc-players-media-signer');continue
         if name.startswith('releases/fc-players/empty-market-recovery-20261031/'):
             groups.add('fc-players-empty-market');continue
         if name.startswith('releases/fc-players/mixed-plan-20261031/'):
@@ -955,7 +959,10 @@ def main():
             node("releases/fs-dashboard/campaign-analytics-20261023/seasonal-source/tests/halloween52-browser.cjs")
             continue
         print("affected group:",group,flush=True)
-        if group == 'fc-players-empty-market':
+        if group == 'fc-players-media-signer':
+            units('releases/fc-players/media-signer-20261107', ['test_publisher'])
+            units('releases/fc-players/direct-json-20261029/publisher', ['test_upgrade_direct_json'])
+        elif group == 'fc-players-empty-market':
             units('releases/fc-players/empty-market-recovery-20261031', ['test_publisher'])
         elif group == 'fc-players-mixed-plan':
             units('releases/fc-players/mixed-plan-20261031', ['test_publisher'])

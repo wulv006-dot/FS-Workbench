@@ -12,8 +12,8 @@ from typing import Any
 
 from 球员维护工具.admin_client import AdminAuthError, AdminContractError, _multipart_body, _NoRedirect
 
-AUTH_MODULE_URL = "https://admin.p2pah.cn/assets/uploadAuth-4cd714b6.js"
-AUTH_MODULE_SHA = "54a3421c9fc1c47ae2678c69d5112ec8d6f9075bd0dde2ece156d7a55789e45e"
+AUTH_MODULE_URL = "https://admin.p2pah.cn/assets/uploadAuth-ac6fbfe3.js"
+AUTH_MODULE_SHA = "c0d52ec2c4b3e0eea0ab57331135e5bec5eed714b7e3171c3969dc4bbd95b5d2"
 UPLOAD_URL = "https://b2c-api.p2pah.cn/upload/file"
 
 
