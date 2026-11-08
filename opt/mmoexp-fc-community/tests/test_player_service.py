@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, Mock
 
 from player_service import ProductProvider, validate_player_config
 from quote_bridge import dispatch
-from tests.test_player_catalog import Client
+from tests.test_player_catalog import Client, goods, model
 
 
 def config():
@@ -116,6 +116,49 @@ class ServiceTests(unittest.TestCase):
             client.models[1]['cid'] = 9625
             with self.assertRaises(ValueError):
                 service.player_manage_search('102', 1)
+
+    def test_signature_quotes_use_real_verified_standard_goods_and_never_relabel_price(self):
+        class MultiClient(Client):
+            def __init__(self):
+                super().__init__()
+                self.goods = {201: goods(101), 202: dict(goods(102), id=202, title=self.models[1]['title'], price='10', unit_price='10')}
+            def list_goods(self, **kwargs):
+                rows=[row for row in self.goods.values() if row['mid']==kwargs['mid']]
+                return SimpleNamespace(rows=rows,total=len(rows))
+            def get_goods(self, goods_id):
+                return self.goods[goods_id].copy()
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/'config.json'
+            cfg=config();cfg['verified_prices']['102']=[21587]
+            path.write_text(json.dumps({'player_panel':cfg}))
+            client=MultiClient();service=ProductProvider(Mock(),client,path,client)
+            self.assertEqual(service.options('players:102'), [{'id':'201','label':'PlayStation 5'}])
+            quote=service.quote('players:102','201')
+            self.assertEqual(quote['amount'],'4.41')
+            self.assertEqual(quote['quoted_product_id'],'players:101')
+            self.assertNotIn('Signature',quote['title'])
+            with self.assertRaises(ValueError):service.quote('players:102','202')
+            self.assertEqual(client.goods[202]['price'],'10')
+            # Broken signature inventory must not discard the verified ordinary option.
+            original_list_goods = client.list_goods
+            def broken_signature(**kwargs):
+                if kwargs['mid'] == 102:
+                    return SimpleNamespace(rows=[], total=1)
+                return original_list_goods(**kwargs)
+            client.list_goods = broken_signature
+            self.assertEqual(service.options('players:102'), [{'id':'201','label':'PlayStation 5'}])
+            self.assertEqual(service.quote('players:102','201')['amount'], '4.41')
+            with self.assertRaises(ValueError):
+                service.quote('players:102','202')
+            client.list_goods = original_list_goods
+            cfg['verified_prices']={'102':[21587]}
+            path.write_text(json.dumps({'player_panel':cfg}))
+            self.assertEqual(service.options('players:102'), [{'id':'202','label':'PlayStation 5'}])
+            self.assertEqual(service.quote('players:102','202')['amount'],'10.00')
+            cfg['verified_prices']['101']=[21587]
+            path.write_text(json.dumps({'player_panel':cfg}))
+            client.models.append(model(103))
+            self.assertEqual(service.options('players:102'), [{'id':'202','label':'PlayStation 5'}])
 
     def test_invalid_configuration_and_queries_never_reach_provider(self):
         for change in ({'enabled': 1}, {'guild_id': 1}, {'channel_id': True},

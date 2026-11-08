@@ -13,9 +13,10 @@ test('actual picker handlers search, deduplicate, reorder, select named tags and
  const elements=new Map(), $=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
  let cfg={enabled:true,guild_id:'1565922092518613064',channel_id:'1568260661010497627',featured_model_ids:[],allowed_tag_ids:[],verified_prices:{'101':[21587]}};
  const cards=[{model_id:101,title:'Haaland/91/ST/Gold',model_available:true,verified_platforms:['PlayStation 5']},{model_id:102,title:'Haaland/92/ST/Special',model_available:true,verified_platforms:[]},{model_id:103,title:'Haaland/90/ST/Old',model_available:false,verified_platforms:[]}];
- let saved, deferMatch=false, finishMatch;
+ let saved, deferMatch=false, finishMatch, plans=0, deferPlan=false, finishPlan;
  const api=async (route,options)=>{
   if(options){saved=options.body;cfg={...cfg,...saved.player_panel};return {restarted:true};}
+  if(route.startsWith('player/dispatch-plan?')){plans++;if(deferPlan)return new Promise(resolve=>{finishPlan=resolve;});return {plan:{text:'Saved execution instructions',items:cfg.featured_model_ids.map(id=>cards.find(c=>c.model_id===id))}};}
   if(route==='player/config')return {revision:'a'.repeat(64),can_write:true,player_panel:cfg};
   if(route==='player/selection')return {items:cfg.featured_model_ids.map(id=>cards.find(c=>c.model_id===id))};
   if(route.startsWith('player/inspect?'))return {model_id:Number(route.split('=')[1]),platforms:[{platform:'PlayStation 5',goods_id:201,available:true,sale_price:'4.41',quote_enabled:false}],checked_at:1700000000};
@@ -41,6 +42,8 @@ test('actual picker handlers search, deduplicate, reorder, select named tags and
  const tag=$('#player-tags').children[0].children[0];tag.checked=true;tag.onchange();
  await $('#player-form').onsubmit({preventDefault(){}});
  assert.deepEqual(Array.from(saved.player_panel.featured_model_ids),[102,101]);
+ assert.equal(plans,1);assert.equal($('#player-dispatch-text').value,'Saved execution instructions');
+ assert.ok(vm.runInContext('currentPlayerDispatch()',context));
  assert.deepEqual(Array.from(saved.player_panel.allowed_tag_ids),[12]);
  assert.equal(saved.player_panel.easysbc.template,'card');
  assert.ok($('#player-message').textContent.includes('尚未发送消息'));
@@ -49,6 +52,8 @@ test('actual picker handlers search, deduplicate, reorder, select named tags and
  assert.ok($('#player-mappings').value.includes('1101'));
  $('#player-selected').children[0].children.at(-1).children[3].onclick();
  assert.equal(vm.runInContext('playerSelected.length',context),1);
+ assert.equal(vm.runInContext('currentPlayerDispatch()',context),null);
+ const beforePlans=plans;await vm.runInContext('generatePlayerDispatch()',context);assert.equal(plans,beforePlans);
  // A result started before reload must not overwrite a newly loaded mapping.
  deferMatch=true;
  vm.runInContext('playerMappings.delete(101)',context);
@@ -57,4 +62,14 @@ test('actual picker handlers search, deduplicate, reorder, select named tags and
  finishMatch({status:'matched',mapping:{model_id:101,easysbc_id:'9999',easysbc_role_id:'44',easysbc_url:'https://www.easysbc.io/players/9999?player-role-id=44'}});
  await stale;
  assert.equal(vm.runInContext('playerMappings.get(101).easysbc_id',context),'1101');
+ // Unsaved style changes cannot export; target changes invalidate a pending preview.
+ $('#player-with-card').checked=!$('#player-with-card').checked;
+ const oldPlans=plans;await vm.runInContext('generatePlayerDispatch()',context);assert.equal(plans,oldPlans);
+ await vm.runInContext('loadPlayer()',context);
+ deferPlan=true;$('#player-dispatch-target').value='test';
+ const stalePlan=vm.runInContext('generatePlayerDispatch()',context);
+ $('#player-dispatch-target').value='official';$('#player-dispatch-target').onchange();
+ finishPlan({plan:{text:'Wrong target',items:[]}});await stalePlan;
+ assert.equal($('#player-dispatch-text').value,'');assert.equal($('#player-dispatch-copy').disabled,true);
+
 });

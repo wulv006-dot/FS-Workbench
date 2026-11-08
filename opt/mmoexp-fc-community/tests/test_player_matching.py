@@ -23,12 +23,13 @@ class MatchingTests(unittest.TestCase):
         self.assertEqual(result['mapping']['easysbc_role_id'], '44')
         self.assertEqual(len(result['candidates']), 2)
 
-    def test_signature_not_inferred_from_foil_and_unknown_version_not_guessed(self):
+    def test_signature_prefers_real_standard_base_card_but_unknown_version_not_guessed(self):
         result = resolve(dict(CARD, title=CARD['title']+'/Signature'), source=Source())
-        self.assertEqual(result['status'], 'ambiguous')
-        self.assertNotIn('mapping', result)
+        self.assertEqual(result['status'], 'matched')
+        self.assertEqual(result['mapping']['easysbc_id'], '50524153')
         result = resolve(dict(CARD, card_version='Future Stars'), source=Source())
-        self.assertEqual(result['status'], 'ambiguous')
+        self.assertEqual(result['status'], 'unavailable')
+        self.assertEqual(result['candidates'], [])
 
     def test_saved_canonical_url_identity_is_rechecked(self):
         mapping = {'model_id':45490779,'easysbc_id':'50524153','easysbc_role_id':'44',
@@ -71,3 +72,18 @@ class MatchingTests(unittest.TestCase):
         self.assertEqual(len(result['candidates']),2)
         mapping={key:result['candidates'][0][key] for key in ('model_id','easysbc_id','easysbc_role_id','easysbc_url')}
         self.assertEqual(resolve(card,mapping,source=Source())['status'],'matched')
+
+    def test_saved_cosmetic_now_prefers_verified_same_asset_standard(self):
+        existing={'model_id':45490779,'easysbc_id':'67301369','easysbc_role_id':'44','easysbc_url':''}
+        result=resolve(CARD,existing,source=Source())
+        self.assertEqual(result['status'],'matched')
+        self.assertEqual(result['mapping']['easysbc_id'],'50524153')
+
+    def test_cosmetic_fallback_requires_same_base_and_confirmed_detail(self):
+        source=Source();source.data['search']=[source.data['search'][1]]
+        source.data['detail']=dict(source.data['detail'],resourceId=67301369,foil=source.data['search'][0]['foil'],
+                                   alternativeVersions=[{'resourceId':67301369,'rating':87,'versionId':50}])
+        result=resolve(dict(CARD,card_type='Signature'),source=source)
+        self.assertEqual(result['status'],'matched')
+        self.assertEqual(result['mapping']['easysbc_id'],'67301369')
+        self.assertEqual(resolve(dict(CARD,card_type='Evolution'),source=source)['status'],'ambiguous')

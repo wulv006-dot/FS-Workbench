@@ -121,12 +121,12 @@ def _candidate(row, target, versions, role=None):
     compatible = _name_compatible(row['name'], target['name']) and core
     cosmetic = bool(row.get('foil') or row.get('cosmetics'))
     # Foil is observed, but no public Signature label was verified. Do not invent one.
-    automatic = bool(exact and not target['kind'] and not cosmetic)
+    automatic = bool(exact and _normal(target['kind']) in ('', 'signature'))
     return {'model_id': target['model_id'], 'easysbc_id': rid, 'easysbc_role_id': role,
             'easysbc_url': SITE + '/players/' + rid + '?player-role-id=' + role,
             'label': str(row['name']) + ' · ' + str(row['rating']) + ' · ' + (version or 'Unknown version') + (' · Special cosmetic' if cosmetic else ''),
             'name': row['name'], 'rating': row['rating'], 'version': version, 'season': 27,
-            'cosmetic': cosmetic, 'identity_exact': bool(exact), 'identity_compatible': bool(compatible),
+            'asset_id': str(row.get('assetId', '')), 'cosmetic': cosmetic, 'identity_exact': bool(exact), 'identity_compatible': bool(compatible),
             'automatic_eligible': automatic}
 
 
@@ -171,7 +171,7 @@ def resolve(card, existing_mapping=None, *, source=None):
             try:
                 candidate = _candidate(row, target, versions)
                 # Only plausible same-person / same-rating results are offered for confirmation.
-                if _name_compatible(candidate['name'], target['name']) and candidate['rating'] == target['rating']:
+                if candidate['identity_compatible']:
                     candidates.append(candidate)
             except (KeyError, TypeError, ValueError):
                 continue
@@ -196,10 +196,24 @@ def resolve(card, existing_mapping=None, *, source=None):
                 if checked['identity_compatible']:
                     chosen = checked
                     previously_confirmed = True
-        if chosen is None:
-            automatic = [c for c in result['candidates'] if c['automatic_eligible']]
-            if len(automatic) == 1:
-                chosen = automatic[0]
+        automatic = [c for c in result['candidates'] if c['automatic_eligible']]
+        normal = [c for c in automatic if not c['cosmetic']]
+        preferred = normal if normal else automatic
+        # The user treats standard and animated/Signature cards as one base item.
+        # Never extend this tie-break to different players, ratings, versions, or unknown kinds.
+        same_asset = (preferred and all(c['asset_id'].isdigit() for c in preferred)
+                      and len({c['asset_id'] for c in preferred}) == 1)
+        if len(normal) == 1 and (chosen is None or chosen['cosmetic'] and chosen['asset_id'] == normal[0]['asset_id']):
+            chosen = normal[0]
+            previously_confirmed = False
+        elif chosen is None and preferred and (len(preferred) == 1 or same_asset and all(c['cosmetic'] for c in preferred)):
+            chosen = min(preferred, key=lambda c: int(c['easysbc_id']))
+        elif chosen and chosen['cosmetic'] and _normal(target['kind']) in ('', 'signature'):
+            compatible_normal = [c for c in result['candidates'] if not c['cosmetic'] and c['identity_compatible']
+                                 and c['asset_id'].isdigit() and c['asset_id'] == chosen['asset_id']]
+            if len(compatible_normal) == 1:
+                chosen = compatible_normal[0]
+                previously_confirmed = True
         if chosen is None:
             return result
         detail = source.detail(chosen['easysbc_id'], chosen['easysbc_role_id'])
@@ -214,10 +228,11 @@ def resolve(card, existing_mapping=None, *, source=None):
             return result
         confirmed = _candidate(detail, target, versions, chosen['easysbc_role_id'])
         if (confirmed['easysbc_id'] != chosen['easysbc_id'] or not confirmed['identity_compatible' if previously_confirmed else 'identity_exact']
-                or confirmed['cosmetic'] != chosen['cosmetic']):
+                or confirmed['cosmetic'] != chosen['cosmetic'] or confirmed['asset_id'] != chosen['asset_id']):
             result['reason'] = 'detail_mismatch'
             return result
-        result.update(status='matched', mapping=_mapping(confirmed), reason='public_identity_verified')
+        result.update(status='matched', mapping=_mapping(confirmed), reason='public_identity_verified',
+                      selection_policy='same_base_standard_first_else_cosmetic')
         return result
     except Exception:
         result['reason'] = 'source_unavailable_or_invalid'

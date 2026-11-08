@@ -194,7 +194,9 @@ class ContentClient(discord.Client):
         player = self.config.get('player_panel')
         if self.quote_provider and player and player['enabled']:
             from player_panel import PlayerHomeView, PlayerCardView
-            routes = {player['guild_id']: {player['channel_id']: 'players'}}
+            from player_publish import TEST_CHANNEL
+            routes = {TEST_GUILD: {TEST_CHANNEL: 'players'}}
+            routes.setdefault(player['guild_id'], {})[player['channel_id']] = 'players'
             self.add_view(PlayerHomeView(self.quote_provider, routes, self.config.get('quote_presentation')))
             for model_id in player['featured_model_ids']:
                 self.add_view(PlayerCardView(self.quote_provider, model_id, routes,

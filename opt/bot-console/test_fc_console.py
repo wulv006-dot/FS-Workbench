@@ -66,6 +66,47 @@ class FCConsoleTests(unittest.TestCase):
         conn.close()
         return status, result
 
+    def test_dispatch_plan_loads_real_pure_module_and_never_creates_state(self):
+        source = ROOT.parent / 'mmoexp-fc-community'
+        if not source.exists():
+            source = ROOT.parent.parent / 'mmoexp-fc-pilot'
+        for name in ('player_config.py', 'player_publish.py'):
+            (self.path.parent / name).write_bytes((source / name).read_bytes())
+        panel = dict(enabled=True, guild_id=1041923524601851914, channel_id=1568610700463710278,
+                     featured_model_ids=[101], allowed_tag_ids=[], verified_prices={})
+        plan = console.fc_player_dispatch_plan(panel, [{'model_id': 101, 'title': 'Player/90/ST/Gold', 'model_available': True}], 'official')
+        self.assertIn('plan --target official', plan['text'])
+        self.assertEqual(plan['items'][0]['model_id'], 101)
+        self.assertFalse((self.path.parent / 'var').exists())
+
+    def test_player_dispatch_plan_is_saved_revision_only_admin_read(self):
+        self.config['player_panel'] = {'featured_model_ids': [101], 'enabled': True}
+        self.path.write_text(json.dumps(self.config))
+        revision = console.hashlib.sha256(self.path.read_bytes()).hexdigest()
+        provider = Mock()
+        provider.player_manage_selection.return_value = [{'model_id': 101, 'title': 'Saved player'}]
+        plan = {'target': 'official', 'items': [{'title': 'Saved player'}], 'text': 'Read saved list'}
+        route = '/api/fc/player/dispatch-plan?target=official&revision=' + revision
+        before = self.path.read_bytes()
+        with patch.object(console, 'fc_player_bridge', return_value=provider), patch.object(console, 'fc_player_dispatch_plan', return_value=plan) as build:
+            self.assertEqual(self.request('GET', route, user='')[0], 401)
+            self.assertEqual(self.request('GET', route, role='readonly')[0], 403)
+            self.assertEqual(self.request('GET', route.replace('official', 'other'))[0], 400)
+            self.assertEqual(self.request('GET', route + '&target=test')[0], 400)
+            self.assertEqual(self.request('GET', route.replace(revision, '0'*64))[0], 409)
+            build.assert_not_called()
+            status, result = self.request('GET', route)
+            self.assertEqual(status, 200)
+            self.assertEqual(result['plan'], plan)
+            build.assert_called_once_with(self.config['player_panel'], provider.player_manage_selection.return_value, 'official')
+            self.assertEqual(self.path.read_bytes(), before)
+            self.assertEqual(provider.mock_calls, [unittest.mock.call.player_manage_selection()])
+            def changed():
+                self.path.write_text(json.dumps(dict(self.config, changed=True)))
+                return []
+            provider.player_manage_selection.side_effect = changed
+            self.assertEqual(self.request('GET', route)[0], 409)
+
     def test_player_save_is_revision_checked_and_preserves_route_and_verified_prices(self):
         source = ROOT.parent / 'mmoexp-fc-community' / 'player_config.py'
         if not source.exists():

@@ -5,7 +5,7 @@ import unittest
 import uuid
 from pathlib import Path
 
-from player_publish import PlayerPublishStore, TEST_GUILD, TEST_CHANNEL
+from player_publish import PlayerPublishStore, TEST_GUILD, TEST_CHANNEL, OFFICIAL_GUILD, build_dispatch_plan
 
 
 def url(mid):
@@ -94,9 +94,9 @@ class PlayerPublishTests(unittest.TestCase):
         self.create()
         self.record()
         path = Path(self.temp.name) / (self.key + '.json')
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding='utf-8'))
         data['status'] = 'sending'
-        path.write_text(json.dumps(data))
+        path.write_text(json.dumps(data), encoding='utf-8')
         with self.assertRaises(ValueError):
             PlayerPublishStore(self.temp.name).finalize(self.key, lambda batch: self.fail('Crash retry'))
         self.assertEqual(self.store.get(self.key)['status'], 'unknown')
@@ -139,6 +139,79 @@ class PlayerPublishTests(unittest.TestCase):
         self.config['easysbc']['mappings'][0]['easysbc_id'] = '9999'
         self.record()
         self.assertEqual(self.store.get(self.key)['items'][0]['mapping']['easysbc_id'], '50524153')
+
+    def test_official_explicit_destination_snapshot_and_receipts(self):
+        self.config['guild_id'] = OFFICIAL_GUILD
+        self.config['channel_id'] = 1569999999999999999
+        batch = self.store.create(self.config, self.key, lambda mid: 'Lukaku/87/ST/RTTK', target='official')
+        self.assertEqual(batch['guild_id'], OFFICIAL_GUILD)
+        self.assertEqual(batch['execution_plan']['target'], 'official')
+        self.assertEqual(batch['execution_plan']['items'][0]['search_terms'], ['Lukaku'])
+        self.config['channel_id'] = 1569999999999999998
+        self.assertEqual(self.store.get(self.key)['channel_id'], 1569999999999999999)
+        official_url = f'https://discord.com/channels/{OFFICIAL_GUILD}/1569999999999999999/1569000000000000001'
+        self.store.record(self.key, 45490779, official_url, self.identity, 1237241595674361962)
+        result = self.store.finalize(self.key, lambda batch: official_url[:-1] + '2')
+        self.assertEqual(result['status'], 'sent')
+
+    def test_same_request_cannot_switch_target(self):
+        self.create()
+        with self.assertRaises(ValueError):
+            self.store.create(self.config, self.key, lambda mid: 'Lukaku', target='official')
+
+    def test_official_rejects_test_config_and_unknown_target(self):
+        self.config['guild_id'] = TEST_GUILD
+        with self.assertRaises(ValueError):
+            self.store.create(self.config, self.key, lambda mid: 'Lukaku', target='official')
+        with self.assertRaises(ValueError):
+            self.store.create(self.config, self.key, lambda mid: 'Lukaku', target='arbitrary')
+
+    def test_plan_is_pure_saved_order_and_contains_dispatch_text(self):
+        selected = [{'model_id': 45490779, 'title': 'Lukaku/87/ST/RTTK', 'model_available': True}]
+        before = copy.deepcopy(self.config)
+        plan = build_dispatch_plan(self.config, selected)
+        self.assertEqual(self.config, before)
+        self.assertEqual(plan['items'][0]['command'], '/player info')
+        self.assertTrue(plan['items'][0]['with_card'])
+        self.assertEqual(plan['final_action']['count'], 1)
+        self.assertIn('plan --target test', plan['text'])
+        self.assertEqual(list(Path(self.temp.name).glob('*.json')), [])
+        with self.assertRaises(ValueError):
+            build_dispatch_plan(self.config, [])
+
+    def test_verified_standard_mapping_replaces_cosmetic_only_in_snapshot(self):
+        standard = dict(self.config['easysbc']['mappings'][0], easysbc_id='123456',
+                        easysbc_url='https://www.easysbc.io/players/123456?player-role-id=44')
+        batch = self.store.create(self.config, self.key, lambda mid: 'Lukaku',
+            lambda mid: {'status': 'matched', 'mapping': standard, 'candidates': []})
+        item = batch['items'][0]
+        self.assertEqual(item['mapping']['easysbc_id'], '123456')
+        self.assertEqual(item['source_mapping']['easysbc_id'], '50524153')
+        self.assertEqual(self.config['easysbc']['mappings'][0]['easysbc_id'], '50524153')
+
+    def test_verified_same_asset_cosmetic_receipt_allowed_but_wrong_base_rejected(self):
+        base = dict(model_id=45490779, easysbc_id='50524153', easysbc_role_id='44',
+                    asset_id='12345', name='Romelu Lukaku', rating=87, version='RTTK',
+                    season=27, cosmetic=False, identity_compatible=True)
+        alternate = dict(base, easysbc_id='999999', cosmetic=True)
+        identity = dict(self.identity, easysbc_id='999999',
+                        easysbc_url='https://www.easysbc.io/players/999999?player-role-id=44')
+        for field, value in [(None, None), ('asset_id', '111'), ('rating', 88), ('version', 'TOTW'),
+                             ('identity_compatible', False), ('name', 'Another player')]:
+            with self.subTest(field=field):
+                key = str(uuid.uuid4())
+                candidate = dict(alternate)
+                if field:
+                    candidate[field] = value
+                match = dict(status='matched', mapping=self.config['easysbc']['mappings'][0],
+                             selection_policy='same_base_standard_first_else_cosmetic', candidates=[base, candidate])
+                self.store.create(self.config, key, lambda mid: 'Lukaku', lambda mid: match)
+                if field:
+                    with self.assertRaises(ValueError):
+                        self.store.record(key, 45490779, url(1569000000000000001), identity, 1237241595674361962)
+                else:
+                    batch = self.store.record(key, 45490779, url(1569000000000000001), identity, 1237241595674361962)
+                    self.assertEqual(batch['items'][0]['receipt']['identity']['easysbc_id'], '999999')
 
 
 if __name__ == '__main__':

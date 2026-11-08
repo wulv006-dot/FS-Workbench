@@ -1,4 +1,6 @@
 import asyncio
+import contextlib
+import io
 import json
 import tempfile
 import unittest
@@ -7,7 +9,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import player_publish_cli as cli
-from player_publish import EASYSBC_AUTHOR, TEST_CHANNEL, TEST_GUILD
+from player_publish import EASYSBC_AUTHOR, TEST_CHANNEL, TEST_GUILD, OFFICIAL_GUILD
 
 
 class RecordReceiptTests(unittest.TestCase):
@@ -62,6 +64,14 @@ class RecordReceiptTests(unittest.TestCase):
             self.record()
         self.store.record.assert_not_called()
 
+    def test_official_receipt_uses_frozen_channel(self):
+        channel = 1569999999999999999
+        self.store.get.return_value.update(target='official', guild_id=OFFICIAL_GUILD, channel_id=channel)
+        self.message_url = f'https://discord.com/channels/{OFFICIAL_GUILD}/{channel}/{self.mid}'
+        self.message['channel_id'] = str(channel)
+        self.record()
+        self.request.assert_called_once_with('GET', f'/channels/{channel}/messages/{self.mid}')
+
 
 class SendHomeTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -102,8 +112,8 @@ class SendHomeTests(unittest.IsolatedAsyncioTestCase):
                          ['fc:players:search', 'fc:players:featured', 'fc:players:tags'])
         self.assertEqual(len(payload['embeds']), 1)
 
-    async def test_production_or_disabled_config_rejected(self):
-        for key, value in [('guild_id', 1041923524601851914), ('channel_id', 111111111111111111), ('enabled', False)]:
+    async def test_disabled_config_rejected(self):
+        for key, value in [('enabled', False)]:
             with self.subTest(key=key):
                 original = self.panel[key]
                 self.panel[key] = value
@@ -111,6 +121,12 @@ class SendHomeTests(unittest.IsolatedAsyncioTestCase):
                     await self.send()
                 self.panel[key] = original
         self.assertEqual(self.calls, [])
+
+    async def test_test_send_stays_fixed_after_config_moves_official(self):
+        self.panel.update(guild_id=OFFICIAL_GUILD, channel_id=1568878333087719454)
+        result = await self.send()
+        self.assertIn(f'/channels/{TEST_GUILD}/{TEST_CHANNEL}/', result)
+        self.assertEqual([c[1] for c in self.calls if c[0] == 'POST'], [f'/channels/{TEST_CHANNEL}/messages'])
 
     async def test_wrong_bot_rejected_without_post(self):
         request = Mock(return_value={'id': '111111111111111111', 'bot': True})
@@ -123,6 +139,68 @@ class SendHomeTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await self.send(request)
         self.assertEqual(request.call_count, 2)
+
+    async def test_official_send_uses_snapshot_and_checks_live_route(self):
+        channel = 1569999999999999999
+        batch = {'target': 'official', 'guild_id': OFFICIAL_GUILD, 'channel_id': channel}
+        self.panel.update(guild_id=OFFICIAL_GUILD, channel_id=channel)
+        self.config()
+        request = Mock(side_effect=[{'id': '1568239618111832094', 'bot': True},
+            {'guild_id': str(OFFICIAL_GUILD)}, {'id': '1569000000000000002'}])
+        with patch.object(cli, 'ROOT', self.root), patch.object(cli, 'discord_request', request), \
+             patch.object(cli, 'SocketProvider', return_value=Mock()):
+            result = await cli.send_home(batch)
+        self.assertEqual(result, f'https://discord.com/channels/{OFFICIAL_GUILD}/{channel}/1569000000000000002')
+        self.assertEqual(request.call_args.args[:2], ('POST', f'/channels/{channel}/messages'))
+        self.panel['channel_id'] = channel - 1
+        self.config()
+        with patch.object(cli, 'ROOT', self.root), patch.object(cli, 'discord_request', Mock()) as rest:
+            with self.assertRaises(ValueError):
+                await cli.send_home(batch)
+            rest.assert_not_called()
+
+
+class PlanCliTests(unittest.TestCase):
+    def test_test_create_works_after_config_moves_official(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = dict(enabled=True, guild_id=OFFICIAL_GUILD, channel_id=1568878333087719454,
+                          featured_model_ids=[42], allowed_tag_ids=[], verified_prices={})
+            (root / 'content.config.json').write_text(json.dumps({'player_panel': config}), encoding='utf-8')
+            provider = Mock()
+            provider.player_manage_selection.return_value = [{'model_id': 42, 'title': 'Player', 'model_available': True}]
+            provider.player_manage_match.return_value = {'status': 'unavailable', 'candidates': []}
+            import uuid
+            output = io.StringIO()
+            with patch.object(cli, 'ROOT', root), patch.object(cli, 'SocketProvider', return_value=provider), \
+                 patch.object(cli, 'discord_request', return_value={'guild_id': str(TEST_GUILD)}) as request, \
+                 patch('sys.argv', ['player_publish_cli.py', 'create', '--request-id', str(uuid.uuid4())]), \
+                 contextlib.redirect_stdout(output):
+                cli.main()
+            result = json.loads(output.getvalue())
+            self.assertEqual((result['guild_id'], result['channel_id']), (TEST_GUILD, TEST_CHANNEL))
+            request.assert_called_once_with('GET', f'/channels/{TEST_CHANNEL}')
+
+    def test_plan_does_not_create_state_or_send_messages(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = dict(enabled=True, guild_id=OFFICIAL_GUILD, channel_id=1569999999999999999,
+                          featured_model_ids=[42], allowed_tag_ids=[], verified_prices={})
+            (root / 'content.config.json').write_text(json.dumps({'player_panel': config}), encoding='utf-8')
+            provider = Mock()
+            provider.player_manage_selection.return_value = [{'model_id': 42, 'title': 'Player / 90 / ST / Gold', 'model_available': True}]
+            provider.player_manage_match.return_value = {'status': 'unavailable', 'candidates': []}
+            output = io.StringIO()
+            with patch.object(cli, 'ROOT', root), patch.object(cli, 'SocketProvider', return_value=provider), \
+                 patch.object(cli, 'discord_request') as request, \
+                 patch('sys.argv', ['player_publish_cli.py', 'plan', '--target', 'official']), \
+                 contextlib.redirect_stdout(output):
+                cli.main()
+            result = json.loads(output.getvalue())
+            self.assertEqual(result['target'], 'official')
+            self.assertEqual(result['items'][0]['model_id'], 42)
+            self.assertFalse((root / 'var').exists())
+            request.assert_not_called()
 
 
 if __name__ == '__main__':

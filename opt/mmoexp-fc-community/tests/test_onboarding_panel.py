@@ -97,3 +97,12 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.click('join')
         self.assertNotIn('secret', str(interaction.followup.send.await_args))
 
+    async def test_official_players_link_and_private_navigation(self):
+        from onboarding_panel import WelcomeView, CHANNELS, OFFICIAL_GUILD, PLAYER_CHANNEL
+        welcome = WelcomeView(dict(self.clubs, guild_id=OFFICIAL_GUILD))
+        links = [b for b in welcome.children if b.url]
+        self.assertEqual([(b.label, b.url) for b in links], [('Players',
+            f'https://discord.com/channels/{OFFICIAL_GUILD}/{PLAYER_CHANNEL}')])
+        for section in ('prices', 'daily'):
+            self.assertIn(('⚽ Players', PLAYER_CHANNEL), CHANNELS[section])
+

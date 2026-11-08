@@ -1,4 +1,4 @@
-"""Local operator CLI for a DSH-assisted, test-guild-only Player batch."""
+"""Local operator CLI for explicit test or official DSH-assisted Player batches."""
 import argparse
 import asyncio
 from datetime import datetime
@@ -7,7 +7,8 @@ from pathlib import Path
 import sys
 from urllib.parse import urlsplit, parse_qs
 
-from player_publish import PlayerPublishStore, TEST_GUILD, TEST_CHANNEL, EASYSBC_AUTHOR, _message
+from player_publish import (PlayerPublishStore, TEST_GUILD, TEST_CHANNEL, OFFICIAL_GUILD,
+                            EASYSBC_AUTHOR, _message, destination, build_dispatch_plan)
 from quote_bridge import SocketProvider
 
 ROOT = Path(__file__).resolve().parent
@@ -21,12 +22,13 @@ def discord_request(method, route, payload=None):
 
 
 def record_receipt(store, batch_id, model_id, message_url, player_url, label, request=discord_request):
-    message_id = _message(message_url)
     batch = store.get(batch_id)
-    message = request('GET', f'/channels/{TEST_CHANNEL}/messages/{message_id}')
-    if (message.get('id') != message_id or message.get('channel_id') != str(TEST_CHANNEL)
+    guild, channel = destination(batch)
+    message_id = _message(message_url, guild, channel)
+    message = request('GET', f'/channels/{channel}/messages/{message_id}')
+    if (message.get('id') != message_id or message.get('channel_id') != str(channel)
             or message.get('author', {}).get('id') != str(EASYSBC_AUTHOR)):
-        raise ValueError('Not an EasySBC message in the test channel')
+        raise ValueError('Not an EasySBC message in the batch channel')
     sent_at = datetime.fromisoformat(message['timestamp'].replace('Z', '+00:00'))
     if sent_at < datetime.fromisoformat(batch['created_at']):
         raise ValueError('Receipt predates this batch')
@@ -45,20 +47,22 @@ async def send_home(batch):
     from quote_panel import category_embed
     config = json.loads((ROOT/'content.config.json').read_text(encoding='utf-8'))
     panel = config['player_panel']
-    if not panel['enabled'] or panel['guild_id'] != TEST_GUILD or panel['channel_id'] != TEST_CHANNEL:
-        raise ValueError('Player interactions are not installed in the test destination')
+    guild, channel_id = destination(batch)
+    if not panel['enabled'] or (batch.get('target', 'test') == 'official'
+            and (panel['guild_id'] != guild or panel['channel_id'] != channel_id)):
+        raise ValueError('Player route changed or is disabled; inspect this batch before publishing')
     me = discord_request('GET', '/users/@me')
     if me.get('id') != '1568239618111832094' or me.get('bot') is not True:
         raise ValueError('Wrong application')
-    channel = discord_request('GET', f'/channels/{TEST_CHANNEL}')
-    if channel.get('guild_id') != str(TEST_GUILD):
+    channel = discord_request('GET', f'/channels/{channel_id}')
+    if channel.get('guild_id') != str(guild):
         raise ValueError('Wrong destination')
     provider = SocketProvider('/run/mmoexp-fc-quotes/quotes.sock')
-    view = PlayerHomeView(provider, {TEST_GUILD: {TEST_CHANNEL: 'players'}}, config.get('quote_presentation'))
-    result = discord_request('POST', f'/channels/{TEST_CHANNEL}/messages', {
+    view = PlayerHomeView(provider, {guild: {channel_id: 'players'}}, config.get('quote_presentation'))
+    result = discord_request('POST', f'/channels/{channel_id}/messages', {
         'embeds': [category_embed('players', config.get('quote_presentation')).to_dict()],
         'components': view.to_components(), 'allowed_mentions': {'parse': []}})
-    return f"https://discord.com/channels/{TEST_GUILD}/{TEST_CHANNEL}/{result['id']}"
+    return f"https://discord.com/channels/{guild}/{channel_id}/{result['id']}"
 
 
 def main():
@@ -66,6 +70,8 @@ def main():
     sub = parser.add_subparsers(dest='action', required=True)
     create = sub.add_parser('create')
     create.add_argument('--request-id', required=True, help='A UUID, reused for every retry of the same dispatch')
+    create.add_argument('--target', choices=('test', 'official'), default='test')
+    sub.add_parser('plan').add_argument('--target', choices=('test', 'official'), default='test')
     for name in ('show', 'finalize'):
         sub.add_parser(name).add_argument('--batch-id', required=True)
     record = sub.add_parser('record')
@@ -73,6 +79,13 @@ def main():
         record.add_argument('--'+option, required=True)
     record.add_argument('--model-id', type=int, required=True)
     args = parser.parse_args()
+    if args.action == 'plan':
+        cfg = json.loads((ROOT/'content.config.json').read_text(encoding='utf-8'))['player_panel']
+        provider = SocketProvider('/run/mmoexp-fc-quotes/quotes.sock')
+        result = build_dispatch_plan(cfg, provider.player_manage_selection(), args.target,
+            {mid: provider.player_manage_match(str(mid)) for mid in cfg['featured_model_ids']})
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
     store = PlayerPublishStore(ROOT/'var/player-publish')
     if args.action == 'create':
         try:
@@ -80,16 +93,23 @@ def main():
         except FileNotFoundError:
             result = None
         if result is not None:
+            if result.get('target', 'test') != args.target:
+                raise ValueError('Request UUID already belongs to another target')
             print(json.dumps(result, ensure_ascii=False, indent=2))
             return
         cfg = json.loads((ROOT/'content.config.json').read_text(encoding='utf-8'))['player_panel']
-        if not cfg['enabled'] or cfg['guild_id'] != TEST_GUILD or cfg['channel_id'] != TEST_CHANNEL:
-            raise ValueError('Enable the fixed test Player route before creating a batch')
+        expected_guild = OFFICIAL_GUILD if args.target == 'official' else TEST_GUILD
+        if not cfg['enabled'] or args.target == 'official' and cfg['guild_id'] != expected_guild:
+            raise ValueError('Enable and save the selected Player route before creating a batch')
+        channel_id = cfg['channel_id'] if args.target == 'official' else TEST_CHANNEL
+        channel = discord_request('GET', f'/channels/{channel_id}')
+        if channel.get('guild_id') != str(expected_guild):
+            raise ValueError('Saved channel is not in the selected guild')
         provider = SocketProvider('/run/mmoexp-fc-quotes/quotes.sock')
         cards = provider.player_manage_selection()
         titles = {c['model_id']: c['title'] for c in cards if c.get('model_available')}
         result = store.create(cfg, args.request_id, lambda mid: titles[mid],
-                              lambda mid: provider.player_manage_match(str(mid)))
+                              lambda mid: provider.player_manage_match(str(mid)), target=args.target)
     elif args.action == 'show':
         result = store.get(args.batch_id)
     elif args.action == 'record':
