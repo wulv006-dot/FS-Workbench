@@ -14,7 +14,7 @@ import urllib.request
 
 BASE = 'https://www.bijiaqi.com'
 REGIONS = {10109: '美服', 10110: '欧服', 10111: '亚服', 10116: '韩服'}
-VERSION = 'wow-dual-stock-v1-20261108'
+VERSION = 'wow-dual-stock-v2-20261108'
 
 
 def number(value):
@@ -181,9 +181,17 @@ def source_cost(page, source, parameters, now=None):
             continue
         valid.append(offer)
     valid.sort(key=lambda x: x['unit_rmb'])
-    available = sum(x['stock'] for x in valid)
-    if available <= minimum_stock:
+    # A cheap 20G quote cannot borrow the stock of a dearer quote to pass >20G.
+    # Pick the lowest PRICE LEVEL whose own independently listed stock qualifies.
+    levels = {}
+    for offer in valid:
+        levels.setdefault(Decimal(str(offer['unit_rmb'])), []).append(offer)
+    qualified = [offers for _, offers in sorted(levels.items())
+                 if sum(x['stock'] for x in offers) > minimum_stock]
+    if not qualified:
         return None
+    valid = qualified[0]
+    available = sum(x['stock'] for x in valid)
     amount, cost, legs = 0., 0., []
     for offer in valid:
         if amount >= target:
@@ -242,6 +250,6 @@ def price_pair(dd_page, bjq_page, parameters, fx, iggm_usd=None):
             'cost_usd': float(cost), 'iggm': iggm_usd, 'b2c': float(price),
             'gold_used': chosen['gold_used'], 'n_items': chosen['n_items'],
             'n_used': chosen['n_used'], 'avail_gold': chosen['avail_gold'],
-            'note': '以本轮可买报价为成本；来源%s；库存严格>20G；未下单锁货' % chosen['source'],
+            'note': '以本轮可买报价为成本；来源%s；同一价位库存严格>20G；未下单锁货' % chosen['source'],
             'selected_source': chosen['source'], 'source_quotes': quotes,
             'floor_usd': float(floor), 'ceiling_usd': float(ceiling), 'rule': VERSION}

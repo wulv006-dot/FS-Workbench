@@ -26,6 +26,21 @@ def listing(**kw):
 class StockAndPrice(unittest.TestCase):
     def test_exact_twenty_rejected(self):
         self.assertIsNone(S.source_cost(page(stock=20),'x',P))
+    def test_twenty_cannot_borrow_dearer_inventory(self):
+        q=page(2.7,20,20)
+        q['items'] += [{'unit_rmb':7.9364,'stock':9,'min_qty':9},
+                       {'unit_rmb':8,'stock':40,'min_qty':10,'step_qty':10}]
+        r=S.source_cost(q,'x',P)
+        self.assertEqual(r['avg_rmb'],8);self.assertEqual(r['avail_gold'],40)
+        self.assertTrue(all(x['price']==8 for x in r['legs']))
+    def test_only_same_price_can_combine(self):
+        q=page(10,11)
+        q['items'] += [{'unit_rmb':10,'stock':10,'min_qty':1}]
+        self.assertEqual(S.source_cost(q,'x',P)['avail_gold'],21)
+    def test_mixed_thin_prices_do_not_qualify(self):
+        q=page(10,11)
+        q['items'] += [{'unit_rmb':11,'stock':10,'min_qty':1}]
+        self.assertIsNone(S.source_cost(q,'x',P))
     def test_over_twenty_accepted(self):
         self.assertGreater(S.source_cost(page(stock=20.01),'x',P)['gold_used'],20)
     def test_thin_low_source_cannot_win(self):
