@@ -1124,7 +1124,9 @@ def main():
         elif group=="player-price-rule":units("releases/fc-coins/player-price-verification-off-20261007",["test_rule"])
         elif group=="supersession":units("tools",["pr_fast_tests.CurrentSupersession"])
         elif group=="players":units("tools",["pr_fast_tests.PlayersLock"])
-        elif group=="rpg":units("tools",["pr_fast_tests.RPGGuards","pr_fast_tests.RPGModuleContracts"])
+        elif group=="rpg":
+            units("tools",["pr_fast_tests.RPGGuards","pr_fast_tests.RPGModuleContracts"])
+            units("opt/d4follow",["test_wow_sources"])
         elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
         elif group=="bots":units("tools",["pr_fast_tests.BotModuleContracts"])
         elif group=="fc-community":
