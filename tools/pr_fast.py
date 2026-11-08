@@ -342,13 +342,9 @@ def selfcheck():
             raise RuntimeError("hermes_scope_missing")
     if select(["README.md"]) or select(["tools/pr_fast.py"])!=["self"]:
         raise RuntimeError("docs_or_dispatcher_scope_changed")
-    for name in ("tools/fs_graphify.py", "docs/development/graphify-scope.json"):
-        if select([name]) != ["fs-graphify"]:
-            raise RuntimeError("fs_graphify_scope_missing")
-    try:select(["tools/fs_graphify_other.py"])
-    except RuntimeError as error:
-        if "UNMAPPED" not in str(error):raise
-    else:raise RuntimeError("fs_graphify_scope_too_broad")
+    retired_tool = "tools/fs_graphify.py"
+    if (ROOT/retired_tool).exists() or select([retired_tool]) != ["self"]:
+        raise RuntimeError("retired_development_tool_present")
     if select(["releases/auth/admin-entry-20261009/source/shell.js"]) != ["admin-entry"]:
         raise RuntimeError("admin_entry_scope_missing")
     if select(["mlb_admin_import_20261012/src/mlb_write_cards.py"]) != ["mlb-admin"]:
@@ -473,8 +469,9 @@ def select(paths):
             groups.add('gravitec-webpush');continue
         if name.startswith('releases/fs-dashboard/email-channels-20261103/'):
             groups.add('email-channels');continue
-        if name in ("tools/fs_graphify.py", "docs/development/graphify-scope.json"):
-            groups.add("fs-graphify");continue
+        # Retired local tool: validate its removal, never invoke the deleted CLI.
+        if name == "tools/fs_graphify.py" and not (ROOT/name).exists():
+            groups.add("self");continue
         if name.startswith("releases/registration/iam-modules-20261031/") or name == "tests/test_fs_iam_module_access.py":
             groups.add("iam"); continue
         if name.startswith('releases/fc-players/single-card-normal-20261107/'):
@@ -915,9 +912,6 @@ def main():
             continue
         if group=='email-channels':
             units('releases/fs-dashboard/email-channels-20261103/source',['test_email_channels'])
-            continue
-        if group=="fs-graphify":
-            subprocess.run([sys.executable,"-I","-B",str(ROOT/"tools/fs_graphify.py"),"self-test"],check=True,timeout=30,cwd=ROOT)
             continue
         if group=="fc-cost-timeout":
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"releases/fc-coins/cost-timeout-20261025/tests/test_timeout.py")],check=True,timeout=30,cwd=ROOT)
