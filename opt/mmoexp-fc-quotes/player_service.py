@@ -57,8 +57,7 @@ class ProductProvider:
             if len(seen) != expected or len(matches) != 1:
                 return player, [product_id]
             ordinary = next(iter(matches))
-            if config['verified_prices'].get(ordinary.split(':')[1]):
-                return player, [ordinary, product_id]
+            return player, [ordinary, product_id]
         except (ValueError, KeyError, TypeError):
             pass
         return player, [product_id]
@@ -132,7 +131,7 @@ class ProductProvider:
                 or not config['featured_model_ids'] and not card['recommended']):
             raise ValueError('Player is not featured')
         if not self.options(card['id']):
-            raise ValueError('Player has no verified available price')
+            raise ValueError('Player has no valid available price')
         return card
 
     def _management_card(self, row, config):

@@ -1,4 +1,4 @@
-"""Bounded, read-only Players lookup; price verification is opt-in per model/platform."""
+"""Bounded, read-only Players lookup with live model/platform/price validation."""
 import time
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -163,11 +163,11 @@ class PlayerCatalog:
                 continue
         return {'items': items, 'page': page, 'has_more': page < 200 and page * limit < result.total}
 
-    def _valid_goods(self, row, mid, card, require_verified=True):
+    def _valid_goods(self, row, mid, card):
         try:
             more = row['more']
             aid = _integer(row['aid'])
-            if (require_verified and aid not in self.verified_prices.get(mid, set()) or _integer(row['mid']) != mid
+            if (aid not in AREAS or _integer(row['mid']) != mid
                     or _integer(row['gid']) != GID or _integer(row['cid']) != CID
                     or _integer(row['site_id']) != SITE or not _equals(row['status'], 1)
                     or not _equals(row.get('is_put', 1), 1) or not _equals(row['sku_switch'], 0)
@@ -190,7 +190,7 @@ class PlayerCatalog:
             return False
 
     def inspect_goods(self, product_id):
-        """Check live goods structure and sale price without approving new quote mappings."""
+        """Check live goods structure and sale price; historical website checks remain metadata."""
         mid = _product(product_id)
         card = self._model(mid)
         result = self.client.list_goods(gid=GID, mid=mid, site_id=SITE, page=1, limit=25)
@@ -211,9 +211,9 @@ class PlayerCatalog:
                                 and _integer(detail['cid']) == CID and _integer(detail['site_id']) == SITE)
                     if scope_ok:
                         item['goods_id'] = goods_id
-                    available = scope_ok and self._valid_goods(detail, mid, card, require_verified=False)
+                    available = scope_ok and self._valid_goods(detail, mid, card)
                     item['available'] = bool(available)
-                    item['quote_enabled'] = bool(available and item['verified'])
+                    item['quote_enabled'] = bool(available)
                     item['reason'] = 'available' if available else 'unavailable_or_unsupported'
                     if available:
                         item['sale_price'] = str(_decimal(detail['price']).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
@@ -221,20 +221,18 @@ class PlayerCatalog:
                     item['reason'] = 'read_failed'
             platforms.append(item)
         return {'model_id': mid, 'title': card['title'], 'platforms': platforms, 'checked_at': int(time.time()),
-                'verification_note': 'Live Admin goods checked; website price verification is unchanged.'}
+                'verification_note': 'Live product/platform mapping checked; website verification is historical only.'}
 
     def options(self, product_id):
         mid = _product(product_id)
         card = self._model(mid)
-        if not self.verified_prices.get(mid):
-            return []
         result = self.client.list_goods(gid=GID, mid=mid, site_id=SITE, page=1, limit=25)
-        if result.total != len(result.rows) or len(result.rows) > 25:
+        if type(result.total) is not int or result.total != len(result.rows) or len(result.rows) > 25:
             raise ValueError('incomplete player goods')
         options, seen = [], set()
         for row in result.rows:
             aid = _integer(row['aid'])
-            if aid not in self.verified_prices[mid]:
+            if aid not in AREAS:
                 continue
             if aid in seen:
                 raise ValueError('ambiguous player platform')
@@ -247,8 +245,14 @@ class PlayerCatalog:
     def quote(self, product_id, option_id):
         mid, goods_id = _product(product_id), _integer(option_id)
         card = self._model(mid)
+        # Revalidate the unique live model/platform mapping even for direct quote requests.
+        options = self.options(product_id)
+        if str(goods_id) not in {option['id'] for option in options}:
+            raise ValueError('player mapping unavailable')
         row = self.client.get_goods(goods_id)
-        if not self._valid_goods(row, mid, card) or _integer(row['id']) != goods_id:
+        if (not self._valid_goods(row, mid, card) or _integer(row['id']) != goods_id
+                or not any(option['id'] == str(goods_id) and option['label'] == AREAS[_integer(row['aid'])]
+                           for option in options)):
             raise ValueError('player quote unavailable')
         amount = _decimal(row['price']).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         return {'title': card['title'], 'option_label': AREAS[_integer(row['aid'])], 'amount': str(amount),
