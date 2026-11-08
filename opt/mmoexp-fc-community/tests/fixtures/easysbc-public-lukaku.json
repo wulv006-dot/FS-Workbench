@@ -28,7 +28,8 @@
           "metaRating": 78.35556919191316
         }
       ],
-      "versionId": 50
+      "versionId": 50,
+      "assetId": 192505
     },
     {
       "resourceId": 67301369,
@@ -63,7 +64,8 @@
         "static": "https://assets.easysbc.io/fc27/hypercosmetics/1_0/static.png",
         "animated": "https://assets.easysbc.io/fc27/hypercosmetics/1_0/anim.png",
         "frames": 27
-      }
+      },
+      "assetId": 192505
     },
     {
       "resourceId": 192505,
@@ -93,7 +95,8 @@
           "metaRating": 60.425637366731195
         }
       ],
-      "versionId": 0
+      "versionId": 0,
+      "assetId": 192505
     }
   ],
   "base": {
@@ -142,6 +145,7 @@
       {
         "playerRoleId": 44
       }
-    ]
+    ],
+    "assetId": 192505
   }
 }
