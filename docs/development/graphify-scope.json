@@ -96,7 +96,7 @@
         "aion2_dashboard_20261004",
         "aion2_dd373_local_collect_20261006"
       ],
-      "basis": "Current RPG operational modules in main; code only, no connection to 183 or writer session",
+      "basis": "Current RPG operational modules in main; WoW standalone source/core_wow_gold.py + core_wow_sources.py + wow_gold_apply.py were reconciled with 183 on 2026-11-08, see opt/d4follow/WOW-DUAL-STOCK.md; other RPG mappings remain maintained-source evidence, no graph connection to writer sessions",
       "evidence_level": "maintained_source"
     },
     "WOWFOREVER": {
