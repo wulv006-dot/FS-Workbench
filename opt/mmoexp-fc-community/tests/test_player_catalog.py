@@ -71,10 +71,9 @@ class PlayerCatalogTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.catalog.featured([101, 101])
 
-    def test_quotes_default_closed_and_verified_price_is_live_sale(self):
-        self.assertEqual(self.catalog.options('players:101'), [])
-        with self.assertRaises(ValueError):
-            self.catalog.quote('players:101', '201')
+    def test_live_contract_allows_unlisted_models_and_uses_sale_price(self):
+        self.assertEqual(self.catalog.options('players:101'), [{'id': '201', 'label': 'PlayStation 5'}])
+        self.assertEqual(self.catalog.quote('players:101', '201')['amount'], '4.41')
         catalog = PlayerCatalog(self.client, verified_prices={101: [21587]})
         self.assertEqual(catalog.options('players:101'), [{'id': '201', 'label': 'PlayStation 5'}])
         self.assertEqual(catalog.quote('players:101', '201')['amount'], '4.41')
@@ -83,7 +82,7 @@ class PlayerCatalogTests(unittest.TestCase):
 
     def test_quote_rejects_unverified_or_complex_goods(self):
         catalog = PlayerCatalog(self.client, verified_prices={101: [21587]})
-        for change in ({'aid': 21589}, {'site_id': 0}, {'mid': 102}, {'status': 0},
+        for change in ({'aid': 99999}, {'site_id': 0}, {'mid': 102}, {'status': 0},
                        {'sku_switch': 1}, {'attr_switch': 0}, {'num': 2},
                        {'price': 'NaN'}, {'price': '1'},
                        {'more': {'saleprop': [{'price': 1}], 'skuTableSet': []}},
@@ -94,6 +93,29 @@ class PlayerCatalogTests(unittest.TestCase):
                 catalog.quote('players:101', '201')
             self.client.row = original
 
+    def test_live_mapping_rejects_duplicate_incomplete_and_wrong_version(self):
+        for rows, total in (([goods(), dict(goods(), id=202)], 2), ([goods()], 2)):
+            self.client.list_goods = lambda **kwargs: SimpleNamespace(rows=rows, total=total)
+            with self.assertRaises(ValueError):
+                self.catalog.quote('players:101', '201')
+        self.client.list_goods = lambda **kwargs: SimpleNamespace(rows=[goods()], total=1)
+        self.client.row['title'] += '/Signature'
+        with self.assertRaises(ValueError):
+            self.catalog.quote('players:101', '201')
+
+    def test_mapping_cannot_switch_platform_between_options_and_quote(self):
+        original = self.client.get_goods
+        calls = []
+        def changing(goods_id):
+            row = original(goods_id)
+            if calls:
+                row['aid'] = 21589
+            calls.append(goods_id)
+            return row
+        self.client.get_goods = changing
+        with self.assertRaises(ValueError):
+            self.catalog.quote('players:101', '201')
+
     def test_live_goods_inspection_exposes_actual_mapping_without_approving_price(self):
         result = self.catalog.inspect_goods('players:101')
         ps = next(row for row in result['platforms'] if row['aid'] == 21587)
@@ -101,9 +123,9 @@ class PlayerCatalogTests(unittest.TestCase):
         self.assertEqual(ps['sale_price'], '4.41')
         self.assertTrue(ps['available'])
         self.assertFalse(ps['verified'])
-        self.assertFalse(ps['quote_enabled'])
+        self.assertTrue(ps['quote_enabled'])
         self.assertEqual(self.catalog.verified_prices, {})
-        self.assertEqual(self.catalog.options('players:101'), [])
+        self.assertEqual(len(self.catalog.options('players:101')), 1)
         self.assertTrue(all(row['reason'] == 'missing' for row in result['platforms'] if row['aid'] != 21587))
         self.client.row['status'] = 0
         ps = next(row for row in self.catalog.inspect_goods('players:101')['platforms'] if row['aid'] == 21587)

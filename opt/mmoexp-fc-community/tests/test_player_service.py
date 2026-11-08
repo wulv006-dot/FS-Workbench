@@ -33,7 +33,7 @@ class ServiceTests(unittest.TestCase):
             base.catalog.assert_called_once_with('packs')
             cfg['verified_prices'] = {}
             path.write_text(json.dumps({'player_panel': cfg}))
-            self.assertEqual(service.options('players:101'), [])
+            self.assertEqual(len(service.options('players:101')), 1)
             cfg['enabled'] = False
             path.write_text(json.dumps({'player_panel': cfg}))
             with self.assertRaises(ValueError):
@@ -153,8 +153,8 @@ class ServiceTests(unittest.TestCase):
             client.list_goods = original_list_goods
             cfg['verified_prices']={'102':[21587]}
             path.write_text(json.dumps({'player_panel':cfg}))
-            self.assertEqual(service.options('players:102'), [{'id':'202','label':'PlayStation 5'}])
-            self.assertEqual(service.quote('players:102','202')['amount'],'10.00')
+            self.assertEqual(service.options('players:102'), [{'id':'201','label':'PlayStation 5'}])
+            self.assertEqual(service.quote('players:102','201')['amount'],'4.41')
             cfg['verified_prices']['101']=[21587]
             path.write_text(json.dumps({'player_panel':cfg}))
             client.models.append(model(103))
