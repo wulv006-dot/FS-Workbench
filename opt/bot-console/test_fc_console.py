@@ -100,6 +100,7 @@ class FCConsoleTests(unittest.TestCase):
         provider.player_manage_selection.return_value = [{'model_id': 101}]
         provider.player_manage_tags.return_value = [{'id': '12', 'name': 'Popular'}]
         provider.player_manage_inspect.return_value = {'model_id': 101, 'platforms': []}
+        provider.player_manage_match.return_value = {'status': 'unavailable', 'candidates': []}
         with patch.object(console, 'fc_player_bridge', return_value=provider):
             self.assertEqual(self.request('GET', '/api/fc/player/search?q=Haaland', user='')[0], 401)
             provider.player_manage_search.assert_not_called()
@@ -113,6 +114,9 @@ class FCConsoleTests(unittest.TestCase):
             self.assertEqual(self.request('GET', '/api/fc/player/selection')[0], 200)
             self.assertEqual(self.request('GET', '/api/fc/player/inspect?model_id=101')[0], 200)
             provider.player_manage_inspect.assert_called_once_with('101')
+            self.assertEqual(self.request('GET', '/api/fc/player/match?model_id=101')[0], 200)
+            provider.player_manage_match.assert_called_once_with('101')
+            self.assertEqual(self.request('GET', '/api/fc/player/match?model_id=101&url=https://example.com')[0], 400)
             self.assertEqual(self.request('GET', '/api/fc/player/inspect?model_id=0')[0], 400)
             self.assertEqual(self.request('GET', '/api/fc/player/inspect?model_id=101&site_id=1')[0], 400)
             self.assertEqual(self.request('GET', '/api/fc/player/tags?gid=1')[0], 400)

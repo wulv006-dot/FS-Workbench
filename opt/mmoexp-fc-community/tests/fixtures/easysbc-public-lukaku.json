@@ -1,0 +1,147 @@
+{
+  "search": [
+    {
+      "resourceId": 50524153,
+      "name": "Romelu Lukaku",
+      "rating": 87,
+      "positions": [
+        "ST"
+      ],
+      "possiblePositions": [
+        "ST"
+      ],
+      "metaRatings": [
+        {
+          "playerRoleId": 44,
+          "metaRating": 87.1462476274881
+        },
+        {
+          "playerRoleId": 43,
+          "metaRating": 81.90001433877254
+        },
+        {
+          "playerRoleId": 41,
+          "metaRating": 81.36767112691412
+        },
+        {
+          "playerRoleId": 42,
+          "metaRating": 78.35556919191316
+        }
+      ],
+      "versionId": 50
+    },
+    {
+      "resourceId": 67301369,
+      "name": "Romelu Lukaku",
+      "rating": 87,
+      "positions": [
+        "ST"
+      ],
+      "possiblePositions": [
+        "ST"
+      ],
+      "metaRatings": [
+        {
+          "playerRoleId": 44,
+          "metaRating": 87.1462476274881
+        },
+        {
+          "playerRoleId": 43,
+          "metaRating": 81.90001433877254
+        },
+        {
+          "playerRoleId": 41,
+          "metaRating": 81.36767112691412
+        },
+        {
+          "playerRoleId": 42,
+          "metaRating": 78.35556919191316
+        }
+      ],
+      "versionId": 50,
+      "foil": {
+        "static": "https://assets.easysbc.io/fc27/hypercosmetics/1_0/static.png",
+        "animated": "https://assets.easysbc.io/fc27/hypercosmetics/1_0/anim.png",
+        "frames": 27
+      }
+    },
+    {
+      "resourceId": 192505,
+      "name": "Romelu Lukaku",
+      "rating": 82,
+      "positions": [
+        "ST"
+      ],
+      "possiblePositions": [
+        "ST"
+      ],
+      "metaRatings": [
+        {
+          "playerRoleId": 44,
+          "metaRating": 74.89381118756721
+        },
+        {
+          "playerRoleId": 43,
+          "metaRating": 64.54923520699725
+        },
+        {
+          "playerRoleId": 41,
+          "metaRating": 64.51253859761536
+        },
+        {
+          "playerRoleId": 42,
+          "metaRating": 60.425637366731195
+        }
+      ],
+      "versionId": 0
+    }
+  ],
+  "base": {
+    "versionAssets": {
+      "0": {
+        "name": "Common"
+      },
+      "1": {
+        "name": "Rare"
+      },
+      "50": {
+        "name": "UEFA Champions League RTTK"
+      }
+    }
+  },
+  "detail": {
+    "resourceId": 50524153,
+    "playerRoleId": 44,
+    "alternativeVersions": [
+      {
+        "resourceId": 50524153,
+        "rating": 87,
+        "metalId": 3,
+        "versionId": 50
+      },
+      {
+        "resourceId": 67301369,
+        "rating": 87,
+        "metalId": 3,
+        "versionId": 50
+      },
+      {
+        "resourceId": 192505,
+        "rating": 82,
+        "metalId": 3,
+        "versionId": 0
+      }
+    ],
+    "name": "Romelu Lukaku",
+    "rating": 87,
+    "possiblePositions": [
+      "ST"
+    ],
+    "versionId": 50,
+    "metaRatings": [
+      {
+        "playerRoleId": 44
+      }
+    ]
+  }
+}
