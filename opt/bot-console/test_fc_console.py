@@ -4,7 +4,7 @@ import os
 import tempfile
 import threading
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from http.client import HTTPConnection
 from pathlib import Path
 
@@ -93,6 +93,35 @@ class FCConsoleTests(unittest.TestCase):
         self.assertEqual(result['player_panel'], dict(player, **edit))
         self.assertEqual(result['quote_relay'], self.config['quote_relay'])
         self.assertEqual(self.request('POST', '/api/fc/player/config', body)[0], 409)
+
+    def test_player_lookup_requires_login_and_only_calls_fixed_read_methods(self):
+        provider = Mock()
+        provider.player_manage_search.return_value = {'items': [{'model_id': 101, 'title': 'Player'}], 'page': 1, 'has_more': False}
+        provider.player_manage_selection.return_value = [{'model_id': 101}]
+        provider.player_manage_tags.return_value = [{'id': '12', 'name': 'Popular'}]
+        provider.player_manage_inspect.return_value = {'model_id': 101, 'platforms': []}
+        with patch.object(console, 'fc_player_bridge', return_value=provider):
+            self.assertEqual(self.request('GET', '/api/fc/player/search?q=Haaland', user='')[0], 401)
+            provider.player_manage_search.assert_not_called()
+            status, result = self.request('GET', '/api/fc/player/search?q=Haaland&page=1', role='readonly')
+            self.assertEqual(status, 200)
+            self.assertEqual(result['items'][0]['model_id'], 101)
+            provider.player_manage_search.assert_called_once_with('Haaland', 1)
+            for suffix in ('?q=%25abc', '?q=a', '?q=Haaland&page=0', '?q=Haaland&path=/admin', '?q=x&q=y'):
+                self.assertEqual(self.request('GET', '/api/fc/player/search'+suffix)[0], 400)
+            self.assertEqual(self.request('GET', '/api/fc/player/tags')[1]['items'][0]['name'], 'Popular')
+            self.assertEqual(self.request('GET', '/api/fc/player/selection')[0], 200)
+            self.assertEqual(self.request('GET', '/api/fc/player/inspect?model_id=101')[0], 200)
+            provider.player_manage_inspect.assert_called_once_with('101')
+            self.assertEqual(self.request('GET', '/api/fc/player/inspect?model_id=0')[0], 400)
+            self.assertEqual(self.request('GET', '/api/fc/player/inspect?model_id=101&site_id=1')[0], 400)
+            self.assertEqual(self.request('GET', '/api/fc/player/tags?gid=1')[0], 400)
+            provider.player_manage_search.side_effect = RuntimeError('sensitive backend message')
+            status, result = self.request('GET', '/api/fc/player/search?q=Haaland')
+            self.assertEqual(status, 503)
+            self.assertNotIn('sensitive', json.dumps(result))
+            self.assertTrue(console.FC_PLAYER_READS.acquire(blocking=False))
+            console.FC_PLAYER_READS.release()
 
     def test_routes_save_and_disable_without_overwriting_unrelated_config(self):
         status, before = self.request('GET', '/api/fc/config')

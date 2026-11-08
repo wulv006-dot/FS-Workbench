@@ -100,6 +100,16 @@ def fc_news_module():
     return module
 
 
+FC_PLAYER_READS = threading.BoundedSemaphore(2)
+
+
+def fc_player_bridge():
+    spec = importlib.util.spec_from_file_location('fc_quote_bridge', FC_CONFIG.parent / 'quote_bridge.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.SocketProvider('/run/mmoexp-fc-quotes/quotes.sock')
+
+
 def fc_player_module():
     spec = importlib.util.spec_from_file_location('fc_player_config', FC_CONFIG.parent / 'player_config.py')
     module = importlib.util.module_from_spec(spec)
@@ -1107,6 +1117,8 @@ class Handler(BaseHTTPRequestHandler):
         seg = [p for p in path.split("/") if p]
 
         if method == "GET":
+            if path in ('/api/fc/player/search', '/api/fc/player/selection', '/api/fc/player/tags', '/api/fc/player/inspect'):
+                return self._fc_player_lookup(path.rsplit('/', 1)[1], query)
             if path == '/api/fc/player/config':
                 return self._fc_player_config()
             if path == '/api/fc/news/config':
@@ -1357,6 +1369,44 @@ class Handler(BaseHTTPRequestHandler):
         except (OSError, ValueError, sqlite3.Error):
             return self._json(503, {'ok': False, 'error': '新闻队列尚未就绪'})
         return self._json(200, dict(data, ok=True))
+
+    def _fc_player_lookup(self, kind, query):
+        if not self._require_login():
+            return
+        try:
+            if kind == 'search':
+                if set(query) - {'q', 'page'} or any(len(v) != 1 for v in query.values()):
+                    raise ValueError('Invalid query')
+                term = query.get('q', [''])[0].strip()
+                page = int(query.get('page', ['1'])[0])
+                if not 1 <= len(term) <= 80 or not 1 <= page <= 10 or any(ord(c) < 32 or c in '%_\\' for c in term):
+                    raise ValueError('Invalid query')
+                if not term.isdecimal() and len(term) < 2:
+                    raise ValueError('Short query')
+            elif kind == 'inspect':
+                if set(query) != {'model_id'} or len(query['model_id']) != 1 or not re.fullmatch(r'[1-9][0-9]{0,11}', query['model_id'][0]):
+                    raise ValueError('Invalid model ID')
+            elif query:
+                raise ValueError('Unexpected query')
+        except (ValueError, TypeError):
+            return self._json(400, {'ok': False, 'error': '请输入球员名称（至少两个字符）或模型 ID'})
+        if not FC_PLAYER_READS.acquire(blocking=False):
+            return self._json(503, {'ok': False, 'error': '球员目录正在读取，请稍后重试'})
+        try:
+            provider = fc_player_bridge()
+            if kind == 'search':
+                result = provider.player_manage_search(term, page)
+            elif kind == 'inspect':
+                result = provider.player_manage_inspect(query['model_id'][0])
+            elif kind == 'selection':
+                result = {'items': provider.player_manage_selection()}
+            else:
+                result = {'items': provider.player_manage_tags()}
+            return self._json(200, {'ok': True, **result})
+        except Exception:
+            return self._json(503, {'ok': False, 'error': '球员目录暂时不可用，请重试；已有选择不会被清空'})
+        finally:
+            FC_PLAYER_READS.release()
 
     def _fc_player_config(self):
         if not self._require_login():
