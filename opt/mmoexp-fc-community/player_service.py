@@ -123,3 +123,14 @@ class ProductProvider:
         if not isinstance(model_id, str) or not model_id.isascii() or not model_id.isdigit() or not 1 <= int(model_id) < 10**12:
             raise ValueError('Invalid model ID')
         return self.players(require_enabled=False)[0].inspect_goods('players:' + model_id)
+
+    def player_manage_match(self, model_id):
+        from player_matching import resolve
+        if not isinstance(model_id, str) or not model_id.isascii() or not model_id.isdigit() or not 1 <= int(model_id) < 10**12:
+            raise ValueError('Invalid model ID')
+        player, config = self.players(require_enabled=False)
+        card = player.featured([int(model_id)])[0]
+        card['model_id'] = int(model_id)
+        existing = next((item for item in config.get('easysbc', {}).get('mappings', [])
+                         if item['model_id'] == int(model_id)), None)
+        return resolve(card, existing_mapping=existing)

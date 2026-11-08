@@ -17,7 +17,7 @@ def dispatch(provider, request):
     action, args = request['action'], request['args']
     counts = {'catalog': 1, 'options': 1, 'quote': 2,
               'player_search': 2, 'player_tags': 0, 'player_tag': 2, 'player_featured': 1, 'player_preview': 1, 'player_manage_search': 2,
-              'player_manage_selection': 0, 'player_manage_tags': 0, 'player_manage_inspect': 1}
+              'player_manage_selection': 0, 'player_manage_tags': 0, 'player_manage_inspect': 1, 'player_manage_match': 1}
     if not isinstance(action, str) or action not in counts or not isinstance(args, list) or len(args) != counts[action]:
         raise ValueError('Invalid operation')
     if action == 'player_manage_search':
@@ -32,7 +32,7 @@ def dispatch(provider, request):
                 (not 2 <= len(args[0].strip()) <= 80 or any(ord(c) < 32 or c in '%_\\' for c in args[0])))
                 or (action == 'player_tag' and not re.fullmatch(r'[1-9][0-9]{0,11}', args[0]))):
             raise ValueError('Invalid player query')
-    elif action in ('player_preview', 'player_manage_inspect'):
+    elif action in ('player_preview', 'player_manage_inspect', 'player_manage_match'):
         if not isinstance(args[0], str) or not re.fullmatch(r'[1-9][0-9]{0,11}', args[0]):
             raise ValueError('Invalid player ID')
     elif action == 'player_featured':
@@ -84,6 +84,9 @@ class SocketProvider:
 
     def player_manage_inspect(self, model_id):
         return self.call('player_manage_inspect', [str(model_id)])
+
+    def player_manage_match(self, model_id):
+        return self.call('player_manage_match', [str(model_id)])
 
     def player_manage_search(self, query, page=1):
         return self.call('player_manage_search', [query, page])

@@ -1117,7 +1117,7 @@ class Handler(BaseHTTPRequestHandler):
         seg = [p for p in path.split("/") if p]
 
         if method == "GET":
-            if path in ('/api/fc/player/search', '/api/fc/player/selection', '/api/fc/player/tags', '/api/fc/player/inspect'):
+            if path in ('/api/fc/player/search', '/api/fc/player/selection', '/api/fc/player/tags', '/api/fc/player/inspect', '/api/fc/player/match'):
                 return self._fc_player_lookup(path.rsplit('/', 1)[1], query)
             if path == '/api/fc/player/config':
                 return self._fc_player_config()
@@ -1383,7 +1383,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('Invalid query')
                 if not term.isdecimal() and len(term) < 2:
                     raise ValueError('Short query')
-            elif kind == 'inspect':
+            elif kind in ('inspect', 'match'):
                 if set(query) != {'model_id'} or len(query['model_id']) != 1 or not re.fullmatch(r'[1-9][0-9]{0,11}', query['model_id'][0]):
                     raise ValueError('Invalid model ID')
             elif query:
@@ -1398,6 +1398,8 @@ class Handler(BaseHTTPRequestHandler):
                 result = provider.player_manage_search(term, page)
             elif kind == 'inspect':
                 result = provider.player_manage_inspect(query['model_id'][0])
+            elif kind == 'match':
+                result = provider.player_manage_match(query['model_id'][0])
             elif kind == 'selection':
                 result = {'items': provider.player_manage_selection()}
             else:
