@@ -94,6 +94,26 @@ class PlayerCatalogTests(unittest.TestCase):
                 catalog.quote('players:101', '201')
             self.client.row = original
 
+    def test_live_goods_inspection_exposes_actual_mapping_without_approving_price(self):
+        result = self.catalog.inspect_goods('players:101')
+        ps = next(row for row in result['platforms'] if row['aid'] == 21587)
+        self.assertEqual(ps['goods_id'], 201)
+        self.assertEqual(ps['sale_price'], '4.41')
+        self.assertTrue(ps['available'])
+        self.assertFalse(ps['verified'])
+        self.assertFalse(ps['quote_enabled'])
+        self.assertEqual(self.catalog.verified_prices, {})
+        self.assertEqual(self.catalog.options('players:101'), [])
+        self.assertTrue(all(row['reason'] == 'missing' for row in result['platforms'] if row['aid'] != 21587))
+        self.client.row['status'] = 0
+        ps = next(row for row in self.catalog.inspect_goods('players:101')['platforms'] if row['aid'] == 21587)
+        self.assertFalse(ps['available'])
+        self.assertIsNone(ps['sale_price'])
+        self.client.row['mid'] = 102
+        ps = next(row for row in self.catalog.inspect_goods('players:101')['platforms'] if row['aid'] == 21587)
+        self.assertIsNone(ps['goods_id'])
+        self.assertFalse(ps['available'])
+
     def test_stock_contract_distinguishes_unlimited_from_auto_off_stock(self):
         catalog = PlayerCatalog(self.client, verified_prices={101: [21587]})
         # Live contract: auto_off=0 / total=0 is not an out-of-stock product.

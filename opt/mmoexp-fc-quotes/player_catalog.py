@@ -15,11 +15,11 @@ def _product(value):
     return _integer(value[8:])
 
 
-def _card(row):
+def _card(row, include_unavailable=False):
     try:
         mid = _integer(row['id'])
         if (_integer(row['gid']) != GID or _integer(row['cid']) != CID
-                or not _equals(row['status'], 1) or not _equals(row.get('is_put', 1), 1)):
+                or not include_unavailable and (not _equals(row['status'], 1) or not _equals(row.get('is_put', 1), 1))):
             raise ValueError('player unavailable')
         title = row['title']
         if not isinstance(title, str) or len(title) > 200 or any(ord(c) < 32 for c in title):
@@ -39,7 +39,8 @@ def _card(row):
         return {'id': 'players:' + str(mid), 'title': title, 'name': parts[0], 'rating': rating,
                 'position': parts[2], 'card_version': parts[3],
                 'card_type': parts[4] if len(parts) == 5 else '', 'futbin_player_id': futbin,
-                'recommended': _equals(row.get('is_rec'), 1)}
+                'recommended': _equals(row.get('is_rec'), 1),
+                'model_available': _equals(row['status'], 1) and _equals(row.get('is_put', 1), 1)}
     except (KeyError, TypeError, AttributeError):
         raise ValueError('invalid player') from None
 
@@ -105,8 +106,8 @@ class PlayerCatalog:
             raise ValueError('duplicate player')
         return [self._model(mid) for mid in ids]
 
-    def tags(self):
-        if self.tag_client is None or not self.allowed_tag_ids:
+    def tags(self, include_all=False):
+        if self.tag_client is None or not include_all and not self.allowed_tag_ids:
             return []
         result, seen = [], set()
         for row in self.tag_client.list_tags(gid=GID, cid=CID):
@@ -115,7 +116,7 @@ class PlayerCatalog:
                 categories = row['cate_id']
                 categories = categories if isinstance(categories, (list, tuple)) else str(categories).split(',')
                 name = row['name']
-                if (tid not in self.allowed_tag_ids or tid in seen or _integer(row['gid']) != GID
+                if (not include_all and tid not in self.allowed_tag_ids or tid in seen or _integer(row['gid']) != GID
                         or str(CID) not in [str(value).strip() for value in categories]
                         or not _equals(row['status'], 1) or not isinstance(name, str)
                         or not name.strip() or len(name) > 80 or any(ord(c) < 32 for c in name)):
@@ -162,11 +163,11 @@ class PlayerCatalog:
                 continue
         return {'items': items, 'page': page, 'has_more': page < 200 and page * limit < result.total}
 
-    def _valid_goods(self, row, mid, card):
+    def _valid_goods(self, row, mid, card, require_verified=True):
         try:
             more = row['more']
             aid = _integer(row['aid'])
-            if (aid not in self.verified_prices.get(mid, set()) or _integer(row['mid']) != mid
+            if (require_verified and aid not in self.verified_prices.get(mid, set()) or _integer(row['mid']) != mid
                     or _integer(row['gid']) != GID or _integer(row['cid']) != CID
                     or _integer(row['site_id']) != SITE or not _equals(row['status'], 1)
                     or not _equals(row.get('is_put', 1), 1) or not _equals(row['sku_switch'], 0)
@@ -187,6 +188,40 @@ class PlayerCatalog:
             return price < 9999 and discount <= 100 and abs(price - unit * discount / 100) <= Decimal('0.01')
         except (KeyError, TypeError, ValueError, ArithmeticError):
             return False
+
+    def inspect_goods(self, product_id):
+        """Check live goods structure and sale price without approving new quote mappings."""
+        mid = _product(product_id)
+        card = self._model(mid)
+        result = self.client.list_goods(gid=GID, mid=mid, site_id=SITE, page=1, limit=25)
+        if type(result.total) is not int or result.total != len(result.rows) or len(result.rows) > 25:
+            raise ValueError('incomplete player goods')
+        platforms = []
+        for aid, label in AREAS.items():
+            rows = [row for row in result.rows if _equals(row.get('aid'), aid)]
+            item = {'aid': aid, 'platform': label, 'goods_id': None, 'available': False,
+                    'sale_price': None, 'currency': 'USD', 'verified': aid in self.verified_prices.get(mid, set()),
+                    'quote_enabled': False, 'reason': 'missing' if not rows else 'ambiguous'}
+            if len(rows) == 1:
+                try:
+                    goods_id = _integer(rows[0]['id'])
+                    detail = self.client.get_goods(goods_id)
+                    scope_ok = (_integer(detail['id']) == goods_id and _integer(detail['mid']) == mid
+                                and _integer(detail['aid']) == aid and _integer(detail['gid']) == GID
+                                and _integer(detail['cid']) == CID and _integer(detail['site_id']) == SITE)
+                    if scope_ok:
+                        item['goods_id'] = goods_id
+                    available = scope_ok and self._valid_goods(detail, mid, card, require_verified=False)
+                    item['available'] = bool(available)
+                    item['quote_enabled'] = bool(available and item['verified'])
+                    item['reason'] = 'available' if available else 'unavailable_or_unsupported'
+                    if available:
+                        item['sale_price'] = str(_decimal(detail['price']).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+                except Exception:
+                    item['reason'] = 'read_failed'
+            platforms.append(item)
+        return {'model_id': mid, 'title': card['title'], 'platforms': platforms, 'checked_at': int(time.time()),
+                'verification_note': 'Live Admin goods checked; website price verification is unchanged.'}
 
     def options(self, product_id):
         mid = _product(product_id)

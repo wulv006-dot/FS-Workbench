@@ -2,7 +2,8 @@
 import json
 from pathlib import Path
 
-from player_catalog import PlayerCatalog
+from player_catalog import PlayerCatalog, _card
+from quote_catalog import AREAS, GID
 
 from player_config import validate_player_config
 
@@ -12,9 +13,9 @@ class ProductProvider:
         self.base_catalog, self.client = catalog, client
         self.config_path, self.tag_client = Path(config_path), tag_client
 
-    def players(self):
+    def players(self, require_enabled=True):
         cfg = validate_player_config(json.loads(self.config_path.read_text(encoding='utf-8'))['player_panel'])
-        if not cfg['enabled']:
+        if require_enabled and not cfg['enabled']:
             raise ValueError('Players are disabled')
         return PlayerCatalog(self.client, cfg['verified_prices'], self.tag_client,
                              cfg['allowed_tag_ids']), cfg
@@ -61,3 +62,64 @@ class ProductProvider:
         if not player.options(card['id']):
             raise ValueError('Player has no verified available price')
         return card
+
+    def _management_card(self, row, config):
+        card = _card(row, include_unavailable=True)
+        mid = card['id'].split(':')[1]
+        card['model_id'] = int(mid)
+        card['verified_platforms'] = [AREAS[aid] for aid in config['verified_prices'].get(mid, [])]
+        card['goods_availability'] = 'not_checked'
+        card['easysbc_mapping'] = 'configured' if any(m['model_id'] == int(mid) for m in config.get('easysbc', {}).get('mappings', [])) else 'missing'
+        return card
+
+    def player_manage_search(self, query, page):
+        player, config = self.players(require_enabled=False)
+        if (not isinstance(query, str) or not 1 <= len(query.strip()) <= 80
+                or any(ord(c) < 32 or c in '%_\\' for c in query)
+                or type(page) is not int or not 1 <= page <= 10):
+            raise ValueError('Invalid player search')
+        query = query.strip()
+        if query.isascii() and query.isdigit():
+            if not 1 <= int(query) < 10**12 or page != 1:
+                raise ValueError('Invalid model ID')
+            row = self.client.get_model(int(query))['data']['row']
+            if int(row['id']) != int(query):
+                raise ValueError('Model mismatch')
+            return {'items': [self._management_card(row, config)], 'page': 1, 'has_more': False}
+        if len(query) < 2:
+            raise ValueError('Name must contain at least two characters')
+        result = self.client.list_models(gid=GID, cid=9627, title_like=query, page=page, limit=25)
+        if type(result.total) is not int or result.total < 0 or len(result.rows) > 25:
+            raise ValueError('Invalid player response')
+        items, seen = [], set()
+        for row in result.rows:
+            try:
+                card = self._management_card(row, config)
+                if query.casefold() in card['title'].casefold() and card['id'] not in seen:
+                    items.append(card)
+                    seen.add(card['id'])
+            except (ValueError, TypeError, KeyError):
+                continue
+        return {'items': items, 'page': page, 'has_more': page < 10 and page * 25 < result.total}
+
+    def player_manage_selection(self):
+        _, config = self.players(require_enabled=False)
+        items = []
+        for mid in config['featured_model_ids']:
+            try:
+                row = self.client.get_model(mid)['data']['row']
+                if int(row['id']) != mid:
+                    raise ValueError('Model mismatch')
+                items.append(self._management_card(row, config))
+            except Exception:
+                items.append({'model_id': mid, 'title': '无法读取模型 #' + str(mid), 'model_available': False,
+                              'verified_platforms': [], 'goods_availability': 'unknown', 'easysbc_mapping': 'unknown'})
+        return items
+
+    def player_manage_tags(self):
+        return self.players(require_enabled=False)[0].tags(include_all=True)
+
+    def player_manage_inspect(self, model_id):
+        if not isinstance(model_id, str) or not model_id.isascii() or not model_id.isdigit() or not 1 <= int(model_id) < 10**12:
+            raise ValueError('Invalid model ID')
+        return self.players(require_enabled=False)[0].inspect_goods('players:' + model_id)

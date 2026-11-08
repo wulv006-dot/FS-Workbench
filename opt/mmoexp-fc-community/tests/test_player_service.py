@@ -89,6 +89,34 @@ class ServiceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 service.player_preview('101')
 
+    def test_management_search_selection_and_named_tags_are_narrow_read_only(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'config.json'
+            cfg = config()
+            cfg.update(enabled=False, allowed_tag_ids=[], featured_model_ids=[101, 999])
+            path.write_text(json.dumps({'player_panel': cfg}))
+            client = Client()
+            service = ProductProvider(Mock(), client, path, client)
+            rows = dispatch(service, {'action': 'player_manage_search', 'args': ['Haaland', 1]})['items']
+            self.assertEqual([r['model_id'] for r in rows], [101, 102])
+            self.assertEqual(rows[0]['verified_platforms'], ['PlayStation 5'])
+            self.assertEqual(rows[1]['verified_platforms'], [])
+            self.assertEqual(rows[0]['goods_availability'], 'not_checked')
+            self.assertEqual(service.player_manage_search('102', 1)['items'][0]['model_id'], 102)
+            client.models[0]['status'] = 0
+            self.assertFalse(service.player_manage_search('101', 1)['items'][0]['model_available'])
+            self.assertEqual(service.player_manage_selection()[1]['model_id'], 999)
+            self.assertFalse(service.player_manage_selection()[1]['model_available'])
+            self.assertEqual(dispatch(service, {'action': 'player_manage_tags', 'args': []}), [{'id': '12', 'name': 'Popular'}])
+            with self.assertRaises(ValueError):
+                service.player_search('Haaland', 1)
+            for args in (['%abc', 1], ['abc', True], ['abc', 11], ['../admin', 0]):
+                with self.assertRaises(ValueError):
+                    dispatch(service, {'action': 'player_manage_search', 'args': args})
+            client.models[1]['cid'] = 9625
+            with self.assertRaises(ValueError):
+                service.player_manage_search('102', 1)
+
     def test_invalid_configuration_and_queries_never_reach_provider(self):
         for change in ({'enabled': 1}, {'guild_id': 1}, {'channel_id': True},
                        {'verified_prices': {'101': [1]}}, {'featured_model_ids': [101, 101]}):

@@ -1133,6 +1133,7 @@ def main():
             subprocess.run([sys.executable,"-I","-B",str(ROOT/"opt/mmoexp-fc-community/ci_check.py")],
                            cwd=ROOT,check=True,timeout=180)
             units("opt/bot-console",["test_fc_console"])
+            node("opt/bot-console/test_player_picker.cjs")
         elif group=="ops-modules":
             units("tools",["pr_fast_tests.OpsModuleContracts"])
             units("opt/mlb-online",["test_writeback_guards"])
