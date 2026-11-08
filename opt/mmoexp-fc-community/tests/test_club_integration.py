@@ -32,7 +32,7 @@ class ClubIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.channel.send.await_count, 3)
         calls = self.channel.send.await_args_list
         self.assertIn('Welcome', calls[0].kwargs['embed'].title)
-        self.assertEqual(len(calls[0].kwargs['view'].children), 4)
+        self.assertEqual(len(calls[0].kwargs['view'].children), 5)
         self.assertEqual(len(calls[1].kwargs['view'].children), 6)
         self.assertIsNone(calls[2].kwargs['view'])
         self.assertFalse(calls[0].kwargs['allowed_mentions'].everyone)

@@ -4,12 +4,13 @@ import discord
 from club_panel import CLUBS, ClubButton, ClubPanelView, MENTIONS, ROLE_CHANGE_LOCK, club_embed, safe_club_role
 
 OFFICIAL_GUILD = 1041923524601851914
+PLAYER_CHANNEL = 1568878333087719454
 CHANNELS = {
     'news': (('📰 Latest news', 1501757710381748254),),
-    'daily': (('🧩 SBCs', 1301379787696377926), ('🧬 Evolutions', 1372781247847465000),
+    'daily': (('⚽ Players', PLAYER_CHANNEL), ('🧩 SBCs', 1301379787696377926), ('🧬 Evolutions', 1372781247847465000),
               ('💎 Objectives & Rush', 1568610224502345758), ('🖼️ Gallery', 1568610467587563591),
               ('🎁 Store packs', 1568610700463710278)),
-    'prices': (('💰 Coins', 1568663210901504041), ('🧩 SBCs', 1301379787696377926),
+    'prices': (('⚽ Players', PLAYER_CHANNEL), ('💰 Coins', 1568663210901504041), ('🧩 SBCs', 1301379787696377926),
                ('🧬 Evolutions', 1372781247847465000), ('💎 Boosting', 1568610224502345758),
                ('🖼️ Gallery', 1568610467587563591), ('🎁 Packs', 1568610700463710278)),
 }
@@ -42,6 +43,9 @@ class WelcomeView(OnboardingView):
                                      ('join', 'Join FC27', '👋')]:
             self.add_item(WelcomeButton(action, label, emoji))
         self.children[-1].disabled = self.community_role_id is None
+        if self.guild_id == OFFICIAL_GUILD:
+            self.add_item(discord.ui.Button(label='Players', emoji='⚽',
+                url=f'https://discord.com/channels/{OFFICIAL_GUILD}/{PLAYER_CHANNEL}'))
 
 
 class PopularClubView(OnboardingView):

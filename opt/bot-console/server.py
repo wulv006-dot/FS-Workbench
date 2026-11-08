@@ -116,6 +116,15 @@ def fc_player_module():
     spec.loader.exec_module(module)
     return module
 
+
+def fc_player_dispatch_plan(config, selection, target):
+    if 'player_config' not in sys.modules:
+        sys.modules.setdefault('player_config', fc_player_module())
+    spec = importlib.util.spec_from_file_location('fc_player_publish', FC_CONFIG.parent / 'player_publish.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.build_dispatch_plan(config, selection, target)
+
 # ---------------------------------------------------------------- 机器人注册表
 
 BOTS = {
@@ -1121,6 +1130,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._fc_player_lookup(path.rsplit('/', 1)[1], query)
             if path == '/api/fc/player/config':
                 return self._fc_player_config()
+            if path == '/api/fc/player/dispatch-plan':
+                return self._fc_player_dispatch_plan(query)
             if path == '/api/fc/news/config':
                 return self._fc_news_config()
             if path == '/api/fc/news/items':
@@ -1407,6 +1418,29 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {'ok': True, **result})
         except Exception:
             return self._json(503, {'ok': False, 'error': '球员目录暂时不可用，请重试；已有选择不会被清空'})
+        finally:
+            FC_PLAYER_READS.release()
+
+    def _fc_player_dispatch_plan(self, query):
+        if not self._require_admin():
+            return
+        if (set(query) != {'target', 'revision'} or any(len(v) != 1 for v in query.values())
+                or query['target'][0] not in ('test', 'official')
+                or not re.fullmatch(r'[a-f0-9]{64}', query['revision'][0])):
+            return self._json(400, {'ok': False, 'error': '请选择测试或正式目标，并先保存或重新读取配置'})
+        if not FC_PLAYER_READS.acquire(blocking=False):
+            return self._json(503, {'ok': False, 'error': '球员目录忙，请稍后重试'})
+        try:
+            config, _, revision = self._fc_read()
+            if query['revision'][0] != revision:
+                return self._json(409, {'ok': False, 'error': '配置已更新，请重新读取后导出'})
+            selection = fc_player_bridge().player_manage_selection()
+            plan = fc_player_dispatch_plan(config['player_panel'], selection, query['target'][0])
+            if self._fc_read()[2] != revision:
+                return self._json(409, {'ok': False, 'error': '生成期间配置已更新，请重新读取后导出'})
+            return self._json(200, {'ok': True, 'revision': revision, 'plan': plan})
+        except Exception:
+            return self._json(503, {'ok': False, 'error': '无法生成执行说明，请确认已保存精选名单、目标频道及球员目录可用'})
         finally:
             FC_PLAYER_READS.release()
 

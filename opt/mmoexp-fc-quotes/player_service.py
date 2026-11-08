@@ -25,11 +25,83 @@ class ProductProvider:
             return self.base_catalog.catalog(kind)
         return self.player_featured(1)['items']
 
+    def _player_quote_targets(self, product_id):
+        player, config = self.players()
+        card = player.featured([int(product_id.removeprefix('players:'))])[0]
+        if card['card_type'].casefold() != 'signature':
+            return player, [product_id]
+        # Resolve the ordinary product from the real Admin directory, never from an EasySBC ID.
+        ordinary_title = card['title'].rsplit('/', 1)[0]
+        matches, seen, expected = {}, set(), None
+        try:
+            for page in range(1, 11):
+                result = self.client.list_models(gid=GID, cid=9627, title_like=card['name'], page=page, limit=25)
+                if type(result.total) is not int or result.total < 0 or len(result.rows) > 25:
+                    raise ValueError('Invalid model listing')
+                if expected is None:
+                    expected = result.total
+                if expected != result.total:
+                    raise ValueError('Changed model listing')
+                for row in result.rows:
+                    mid = int(row['id'])
+                    if mid in seen:
+                        raise ValueError('Repeated model listing')
+                    seen.add(mid)
+                    if row.get('title') == ordinary_title:
+                        standard = _card(row)
+                        matches[standard['id']] = standard
+                if len(seen) == expected:
+                    break
+                if not result.rows or len(seen) > expected:
+                    raise ValueError('Incomplete model listing')
+            if len(seen) != expected or len(matches) != 1:
+                return player, [product_id]
+            ordinary = next(iter(matches))
+            if config['verified_prices'].get(ordinary.split(':')[1]):
+                return player, [ordinary, product_id]
+        except (ValueError, KeyError, TypeError):
+            pass
+        return player, [product_id]
+
     def options(self, product_id):
-        return (self.players()[0] if product_id.startswith('players:') else self.base_catalog).options(product_id)
+        if not product_id.startswith('players:'):
+            return self.base_catalog.options(product_id)
+        player, targets = self._player_quote_targets(product_id)
+        result, labels = [], set()
+        for target in targets:
+            try:
+                options = player.options(target)
+            except ValueError:
+                if target == product_id and not result:
+                    raise
+                continue
+            for option in options:
+                if option['label'] not in labels:
+                    labels.add(option['label'])
+                    result.append(option)
+        return result
 
     def quote(self, product_id, option_id):
-        return (self.players()[0] if product_id.startswith('players:') else self.base_catalog).quote(product_id, option_id)
+        if not product_id.startswith('players:'):
+            return self.base_catalog.quote(product_id, option_id)
+        player, targets = self._player_quote_targets(product_id)
+        if len(targets) == 1:
+            return player.quote(product_id, option_id)
+        seen_platforms = set()
+        for target in targets:
+            try:
+                options = player.options(target)
+            except ValueError:
+                if target == product_id:
+                    raise
+                continue
+            for option in options:
+                if option['label'] not in seen_platforms and option['id'] == str(option_id):
+                    quote = player.quote(target, option_id)
+                    quote.update(requested_product_id=product_id, quoted_product_id=target)
+                    return quote
+                seen_platforms.add(option['label'])
+        raise ValueError('Selected player option is no longer available')
 
     def player_search(self, query, page):
         return self.players()[0].search(query, page=page)
@@ -59,7 +131,7 @@ class ProductProvider:
         if (config['featured_model_ids'] and mid not in config['featured_model_ids']
                 or not config['featured_model_ids'] and not card['recommended']):
             raise ValueError('Player is not featured')
-        if not player.options(card['id']):
+        if not self.options(card['id']):
             raise ValueError('Player has no verified available price')
         return card
 
