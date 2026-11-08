@@ -147,7 +147,7 @@ def main(argv):
               "gid": cfg.get("gid"), "ts": dt.datetime.now().isoformat(timespec="seconds"),
               "汇率": fx, "count": len(todo),
               "系统总开关": bool(cfg.get("启用")), "clearcache": True,
-              "口径": "同轮DD373/比价器出货；低价库存>20G；有货才跟IGGM×1.03；毛利率15%-30%",
+              "口径": "同轮DD373/比价器出货；同价位库存>20G；有货才跟IGGM×1.03；毛利率15%-40%",
               "策略版本": WS.VERSION,
               "items": [{"key": r["key"], "中文名": r["后台名"], "游戏": "WoW Forever",
                          "后台行ID": r["后台行ID"],

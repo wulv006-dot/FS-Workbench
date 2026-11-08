@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""WoW Forever public SELL offers and stock-backed 15%-30% pricing.
+"""WoW Forever public SELL offers and stock-backed 15%-40% pricing.
 
 No demand/buy-order endpoint is used. Public published offers are availability
 evidence, not an executed purchase. Only this round's source observations count.
@@ -14,7 +14,7 @@ import urllib.request
 
 BASE = 'https://www.bijiaqi.com'
 REGIONS = {10109: '美服', 10110: '欧服', 10111: '亚服', 10116: '韩服'}
-VERSION = 'wow-dual-stock-v2-20261108'
+VERSION = 'wow-dual-stock-v3-20261108'
 
 
 def number(value):
@@ -227,7 +227,7 @@ def price_pair(dd_page, bjq_page, parameters, fx, iggm_usd=None):
     chosen = min(quotes, key=lambda q: q['avg_rmb'])
     cost = Decimal(str(chosen['avg_rmb'])) / Decimal(str(fx))
     lo = Decimal(str(parameters.get('毛利率下限', .15)))
-    hi = Decimal(str(parameters.get('毛利率上限', .30)))
+    hi = Decimal(str(parameters.get('毛利率上限', .40)))
     if not Decimal('0') <= lo <= hi < Decimal('1'):
         raise ValueError('invalid margin bounds')
     quantum = Decimal('.000001')
@@ -238,7 +238,7 @@ def price_pair(dd_page, bjq_page, parameters, fx, iggm_usd=None):
     if number(iggm_usd) and iggm_usd > 0:
         target = Decimal(str(iggm_usd)) * Decimal(str(parameters.get('IGGM锚定倍数', 1.03)))
         mode = ('15%毛利兜底·不跟IGGM' if target < floor else
-                '30%毛利封顶·不跟IGGM' if target > ceiling else '有货·IGGM×1.03')
+                '%d%%毛利封顶·不跟IGGM' % round(float(hi)*100) if target > ceiling else '有货·IGGM×1.03')
     else:
         margin = Decimal(str(parameters.get('常规利润率', .30)))
         margin = max(lo, min(hi, margin))

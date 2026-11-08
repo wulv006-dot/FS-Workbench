@@ -3,7 +3,7 @@
 
 2026-11-08: DD373 and Bijiaqi SELL offers collected in the same round.
 Only confirmed available cost batches >20G qualify. IGGM x1.03 is clamped
-to 15%-30% procurement gross margin. Unknown/no supply freezes the row.
+to 15%-40% procurement gross margin. Unknown/no supply freezes the row.
 Hardcore remains untouched. Backend cost is synthetic: target price times
 FX times (1-backend row margin); true procurement costs live in the ledger.
 See core_wow_sources.py for availability, unit, stock and pricing rules.
@@ -30,7 +30,7 @@ CFG_PATH = os.path.join(HERE, "wow_gold_config.json")
 DEFAULTS = {
     "目标金": 21.0, "跳过最低条数": 0,
     "常规利润率": 0.30, "薄区利润率": 0.30, "兜底价USD": 7.99,
-    "毛利率下限": 0.15, "毛利率上限": 0.30,
+    "毛利率下限": 0.15, "毛利率上限": 0.40,
     "低价最小库存金": 20.0, "成本采样金": 21.0, "报价最长时效秒": 1200,
     "后台利润率": 0.20, "写入口径": "cost",
 }

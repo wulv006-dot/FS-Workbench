@@ -7,7 +7,7 @@ from unittest.mock import patch
 import core_wow_sources as S
 import core_wow_gold as W
 
-P={'毛利率下限':.15,'毛利率上限':.30,'IGGM锚定倍数':1.03,'常规利润率':.30,
+P={'毛利率下限':.15,'毛利率上限':.40,'IGGM锚定倍数':1.03,'常规利润率':.30,
    '低价最小库存金':20,'成本采样金':21,'报价最长时效秒':1200,'变动闸百分比':.5,'写入口径':'cost'}
 def page(price=10,stock=50,minimum=1,**kw):
     return dict({'items':[{'unit_rmb':price,'stock':stock,'min_qty':minimum}],
@@ -75,21 +75,27 @@ class StockAndPrice(unittest.TestCase):
     def test_fifteen_percent_floor(self):
         r=S.price_pair(page(10),None,P,6.65,.01)
         self.assertGreaterEqual(r['margin'],.15);self.assertLess(r['margin'],.15001)
-    def test_thirty_percent_ceiling(self):
+    def test_forty_percent_ceiling(self):
         r=S.price_pair(page(10),None,P,6.65,100)
-        self.assertLessEqual(r['margin'],.30);self.assertGreater(r['margin'],.29999)
+        self.assertLessEqual(r['margin'],.40);self.assertGreater(r['margin'],.39999)
+        self.assertIn('40%',r['mode'])
+    def test_margin_between_thirty_and_forty_can_follow(self):
+        r=S.price_pair(page(10),None,P,6.65,2.30/1.03)
+        self.assertEqual(r['b2c'],2.30)
+        self.assertGreater(r['margin'],.30);self.assertLess(r['margin'],.40)
     def test_no_iggm_still_capped(self):
         r=S.price_pair(page(10),None,P,6.65)
-        self.assertLessEqual(r['margin'],.30);self.assertGreaterEqual(r['margin'],.15)
+        self.assertAlmostEqual(r['margin'],.30,places=6)
+        self.assertLessEqual(r['margin'],.40);self.assertGreaterEqual(r['margin'],.15)
     def test_invalid_fx_rejected(self):
         with self.assertRaises(ValueError):S.price_pair(page(),None,P,0,2)
     def test_invalid_margin_rejected(self):
-        with self.assertRaises(ValueError):S.price_pair(page(),None,dict(P,毛利率下限=.4),6.65,2)
+        with self.assertRaises(ValueError):S.price_pair(page(),None,dict(P,毛利率下限=.5),6.65,2)
     def test_floor_rounding_many_costs(self):
         for c in [.0001,.01,.17,1,3.33,17.513135,25,49.99999,1000]:
             for ig in [.0001,.3,1,10,1000,None]:
                 m=S.price_pair(page(c),None,P,6.65,ig)['margin']
-                self.assertGreaterEqual(m,.15-1e-12);self.assertLessEqual(m,.30+1e-12)
+                self.assertGreaterEqual(m,.15-1e-12);self.assertLessEqual(m,.40+1e-12)
 
 class PublicSellContract(unittest.TestCase):
     def parse(self,rows):return S.parse_offers(rows,10109,'美服',('美服','PVP','A'))
