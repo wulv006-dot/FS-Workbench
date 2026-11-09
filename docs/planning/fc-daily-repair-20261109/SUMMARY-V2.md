@@ -22,4 +22,16 @@ HTTP正式源为 `releases/fs-dashboard/hermes-conversation-20261018/source/conv
 - Windows直接每日程序42项、利润12项、读取6项、scope14项、原生普通HTTP边界1项通过。扩大FC812项仍为原6项CRLF固定哈希差异与11平台skip，具体名字及已有Linux对应证明沿同目录ACCEPTANCE.md；没有新增失败，不修改固定哈希校验。
 - 183现有Python3.9.18断网、只读、无capabilities、0.25核/256MiB/64PID独立容器，最终相关80项全部通过、0skip。独立审查发现跨日明细问题后已修复，复审无遗留阻断项。
 - 仅渲染生产原冻结输入：11/7为10,631字符、11/8为11,351字符；均为v2且在常态目标内。开工固定两日完成记录、原intent及请求身份/输入/会话数量哈希，候选核验全部未变；模型POST为0。
-- 知识收尾、正式CI、发布及真实HTTP/文件/完成记录读回继续沿本任务记录。以上候选验证不冒充已上线，完成后补实际回执。
+- 知识收尾 `KL-a1dad8e52e9811f16635fbe5` 无正式条目影响、无额外发布/Notion步骤。
+
+## 已发布及实际验收
+
+PR925 合并 `0ec365e30c222e0d26ee3868a7cbbca74079962f`。正式CI首轮42556069070发现共享 `NativePublisher.test_native_capabilities_original_apply_rollback` 仍预期旧HTTP after哈希；测试改为独立读取当前正式源码的精确after哈希，原安装before哈希、精确目标、保护对象、CAS和回退断言保留，复审确认未削弱历史证明。最终head `a6e75b53a24468862c0fd64937a731ceecef9e21` 的正式CI42556405788成功；该补充仅改测试，线上载荷源码仍为 `7795dcf55763234162ca701822c50ef87d911aea`。
+
+沿原发布器应用 `nav-20261109T033000Z`，manifest SHA256 `2ab7d710adde3a5fec0f1f226d273035fb4ab994153c259d44ddd58b403465be`。五目标哈希、161保护对象及五个原服务全部读回一致/active；原备份 `/var/backups/fs-navigation-20261006/nav-20261109T033000Z`，原回滚仍通过同一adapter和manifest。未修改业务worker/timer策略或触发改价。
+
+真实HTTP定价入口使用事先确认不存在、没有grant的探针身份：24,000个中文字符通过完整传输和字符校验后被原grant权限以403拒绝；24,001字符在提交前以422拒绝。探针会话/turn/grant新增均为0，不用创建模型来验证边界。原请求专属 `review-state/<request_uuid>` 实际分别返回11/7、11/8对应的completed记录，普通最新复盘仍为11/8。
+
+已上线渲染器对真实冻结输入仍得到10,631/11,351字符v2摘要，均在12,000常态目标内。开工两日完成记录保护基线SHA256 `18f6065a191440f0382d2c58873f6ee6ee13cdc0f8eb53c67471e5295e00134b`；发布及HTTP验收后，两日metadata、原intent、请求/输入身份、结果和会话数量全部逐项相同。没有调用daily作业或新建/重跑模型，原已完成复盘保持原输入/结果。
+
+小时定价与效果更新服务active，最近自然小时轮done/no_price_change、效果更新done/updated。此次实际验收范围为生产格式渲染、真实HTTP边界、原日明细读取及原结果保护；下一个自然日的模型生成和长期跨日稳定性继续由原任务自然积累，不把边界验证冒充新模型输出验收。
