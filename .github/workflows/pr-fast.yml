@@ -86,6 +86,27 @@ jobs:
           if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^releases/fs-dashboard/hermes-conversation-20261018/'; then
             python -m pip install --disable-pip-version-check --no-deps -r releases/fs-dashboard/hermes-conversation-20261018/requirements-files.txt
           fi
+      - name: Detect connector checks
+        id: connector
+        shell: bash
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -q '^fs_mcp_connector/'; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        if: steps.connector.outputs.changed == 'true'
+        id: connector-python
+        with:
+          python-version: '3.12.10'
+          architecture: x64
+          check-latest: false
+      - name: Prepare connector SDK
+        if: steps.connector.outputs.changed == 'true'
+        run: '"${{ steps.connector-python.outputs.python-path }}" -m pip install --disable-pip-version-check -r fs_mcp_connector/requirements.txt'
       - name: Diff and isolated affected checks
         shell: bash
         env:
@@ -100,5 +121,5 @@ jobs:
           sudo unshare --net -- bash -c '
             set -euo pipefail
             ip link set lo up
-            exec env -i PATH="/usr/bin:/bin:$7" LD_LIBRARY_PATH="$1" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 NODE_PATH="$8" PLAYWRIGHT_BROWSERS_PATH="$9" "$2" -I -B "$3/tools/pr_fast.py" "$4" "$5" "$6"
-          ' bash "$QA_LIBRARY" "$QA_PYTHON" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pr-paths" "$PR_BASE" "$PR_HEAD" "$QA_NODE_DIR" "$RUNNER_TEMP/fs-browser/node_modules" "$RUNNER_TEMP/fs-browser/browsers"
+            exec env -i PATH="/usr/bin:/bin:$7" LD_LIBRARY_PATH="$1" PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 NODE_PATH="$8" PLAYWRIGHT_BROWSERS_PATH="$9" FS_CONNECTOR_PYTHON="${10}" "$2" -I -B "$3/tools/pr_fast.py" "$4" "$5" "$6"
+          ' bash "$QA_LIBRARY" "$QA_PYTHON" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pr-paths" "$PR_BASE" "$PR_HEAD" "$QA_NODE_DIR" "$RUNNER_TEMP/fs-browser/node_modules" "$RUNNER_TEMP/fs-browser/browsers" "${{ steps.connector-python.outputs.python-path }}"

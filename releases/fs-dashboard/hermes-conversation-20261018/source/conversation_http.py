@@ -69,6 +69,8 @@ def handle(handler, method, uri, user, service, authorized):
             data = dict(data, stage=material_stage, source='material_http')
         return respond(handler, status, data, *args, **kwargs)
     ids = ([parts[1]] if len(parts)>1 else []) if parts and parts[0]=='pricing-reviews' else (([parts[0]] if parts else []) + ([parts[2]] if len(parts)>2 else []))
+    if len(parts) >= 2 and parts[1] == 'connector':
+        ids = [parts[0]] + ([parts[3]] if len(parts) > 3 else [])
     if any(not re.fullmatch(IDENT, part) for part in ids):
         reply(404, {"error": "not_found"})
         return True
@@ -78,6 +80,16 @@ def handle(handler, method, uri, user, service, authorized):
         return True
     try:
         params = parse_qs(uri.query, keep_blank_values=True, max_num_fields=2)
+        if len(parts) >= 2 and parts[1] == 'connector':
+            if method == 'GET' and len(parts) == 3 and parts[2] == 'files' and not uri.query:
+                from conversation_readonly import files_list
+                reply(200, files_list(service, user, parts[0], authorized))
+            elif method == 'GET' and len(parts) == 4 and parts[2] == 'materials' and not uri.query:
+                from conversation_readonly import material_metadata
+                reply(200, material_metadata(service, user, parts[0], parts[3], authorized))
+            else:
+                reply(404, {'error': 'not_found'})
+            return True
         if parts and parts[0] == 'pricing-reviews':
             # This route has a separate store and one-slot model lane. It never
             # creates a turn in the ordinary investigation/report conversation.

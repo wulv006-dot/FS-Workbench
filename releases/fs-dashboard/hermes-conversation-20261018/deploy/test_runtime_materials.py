@@ -1204,7 +1204,7 @@ class RuntimeMaterials(unittest.TestCase):
                 'runtime/fs_native_readonly.py')
 
     @contextmanager
-    def scope_fixture(self, new=()):
+    def scope_fixture(self, new=(), payloads=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             before = {name: {'source_commit': self.BEFORE,
@@ -1226,6 +1226,8 @@ class RuntimeMaterials(unittest.TestCase):
             name = self.SELECTED[-1]
             if name not in new:
                 blobs[self.AFTER + ':' + prepare.SOFTWARE_SOURCES[name]] = blobs[self.BEFORE + ':' + prepare.SOFTWARE_SOURCES[name]]
+            for name, body in (payloads or {}).items():
+                blobs[self.AFTER + ':' + prepare.SOFTWARE_SOURCES[name]] = body
             for name in prepare.PUBLISHER_SOURCES:
                 path = release.HERE/name
                 if name == 'release_readiness.py':
@@ -1266,6 +1268,45 @@ class RuntimeMaterials(unittest.TestCase):
         prepare.prepare(f.payload, stage, self.AFTER, f.packed['payload_sha256'],
                         root=f.system, followup=True, release_ready=True)
         return stage, json.loads((stage/'approved-manifest.json').read_bytes())
+
+    def test_connector_material_metadata_packages_http_and_readonly_helper_together(self):
+        http, helper = 'http/conversation_http.py', 'http/conversation_readonly.py'
+        module = release.HERE.parent
+        payloads = {http: (module/'source/conversation_http.py').read_bytes(),
+                    helper: (module/'source/conversation_readonly.py').read_bytes()}
+        self.assertEqual(release.SOFTWARE_TARGETS[helper],
+                         '/opt/fs-exact-range-20261001/conversation_readonly.py')
+        with patch.object(self, 'SELECTED', (http, helper)), self.scope_fixture(new=(helper,), payloads=payloads) as f:
+            self.assertEqual(prepare.SOFTWARE_SOURCES[helper],
+                             'releases/fs-dashboard/hermes-conversation-20261018/source/conversation_readonly.py')
+            self.assertEqual((f.payload/helper).read_bytes(), payloads[helper])
+            incomplete = deepcopy(f.descriptor)
+            del incomplete['software_sources'][helper]
+            del incomplete['installed_baseline']['sources'][helper]
+            del incomplete['installed_baseline']['files'][helper]
+            del incomplete['files']['payload/' + helper]
+            with self.assertRaisesRegex(ValueError, 'software_dependency_missing'):
+                release.software_descriptor(incomplete, f.bundle)
+            stage, manifest = self.prepare_stage(f)
+            files = {row['candidate']: row for row in manifest['files']}
+            self.assertEqual(set(files), {http, helper})
+            self.assertIsNone(files[helper]['beforeSha256'])
+            raw = (stage/'approved-manifest.json').read_bytes()
+            with self.publisher(f, stage) as (base, publisher, fence, locks):
+                with patch.object(publisher, 'software_restart'):
+                    result = base.apply(manifest, stage, prepare.digest(raw), raw, 'nav-20261109T010000Z', f.system)
+                    installed = base.rooted(f.system, files[helper]['target'])
+                    self.assertEqual(installed.read_bytes(), payloads[helper])
+                    base.rollback(Path(result['backup']), prepare.digest(raw), f.system)
+                    self.assertFalse(installed.exists())
+            self.assertEqual(f.ledger.read_bytes(), b'preserve data and original IDs')
+
+    def test_connector_http_import_cannot_ship_without_its_readonly_helper(self):
+        http = 'http/conversation_http.py'
+        body = (release.HERE.parent/'source/conversation_http.py').read_bytes()
+        with patch.object(self, 'SELECTED', (http,)), self.assertRaisesRegex(ValueError, 'software_dependency_missing'):
+            with self.scope_fixture(payloads={http: body}):
+                pass
 
     @contextmanager
     def publisher(self, f, stage):

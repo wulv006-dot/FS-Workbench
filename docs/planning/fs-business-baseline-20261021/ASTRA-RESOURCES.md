@@ -22,7 +22,7 @@
 | Admin原生统计 / fc.query_native_statistics | 经营销售、参考利润与目标等按字段来源；同字段Admin优先，Order补缺。总盘与ES结构不强行核平。此轮未重新拉全期间数值，不冒充全量已审。 |
 | Admin支付明细、fc.query_business/history/queue | 订单结构、时段对照、当前状态池；历史支付日各状态成熟度不同，不是历史日末积压或履约率。 |
 | fc.query_reference / Order订单及发货统计 | 参考毛利与履约，可能含分销；不是历史逐单COGS。实际浏览器样本见BROWSER-READBACK.md，不能据来源筛选相等就断定分销为0。 |
-| Order详情/日志、有界问题线索工具 | 逐单原因人工复核，模型只有注册的有界样本；后台入口不等于无限日志工具。邮箱不出普通模型报告。 |
+| Order详情/日志、有界问题线索工具 | 逐单原因人工复核，模型只有注册的有界样本；后台入口不等于无限日志工具。原读取权限下模型可使用邮箱、UID和原订单号核对；不额外强制匿名。 |
 | fc.query_es_order_structure | 同窗口ES原状态订单USD结构，保留来源、品类、国家、支付、新老客；范围与主站不同。 |
 | fc.query_discount_analysis / channel,type,day,new_customer | 原始实际优惠USD；同窗口复用导出，不重复扣收入优惠。373码推广分类独立于站点、原来源及因果归因；type等仍走原session，故本次可能pending/不可用。 |
 | fc.query_product_orders/capability product_sales | Admin真实游戏/模型/PID层级与订单/商品行；平台PS聚合PID不代表单档位SKU，不以整单关联USD冒充SKU收入。 |

@@ -52,7 +52,7 @@ def tool_schemas():
     product_schema=product_orders_schema()
     for schema in (discount_schema,product_schema):schema['function']['parameters']['properties']['evidence_id']={'type':'string','description':'Exact ws_ aggregate archive from FS workspace; read this evidence without another source query'}
     customer_schema={'type':'function','function':{'name':'mcp__fcro__fc_query_customer_tracking',
-        'description':'Read only anonymized paid-order aggregates for an existing administrator-owned FC27 customer tracking ID. Never accepts email, UID, order number or arbitrary search. Includes source coverage and separates selected game from other games and pre/post enrollment. No creation, outreach, coupon or order write.',
+        'description':'Read authorized customer email, UID, original order numbers and stored business order detail for an existing administrator-owned FC27 customer tracking ID, together with paid-order aggregates and source coverage. Separates selected game from other games and pre/post enrollment. Credentials are excluded. No creation, outreach, coupon or order write.',
         'parameters':{'type':'object','properties':{'tracking_id':{'type':'string','pattern':'^[a-f0-9]{32}$'}},
             'required':['tracking_id'],'additionalProperties':False}}}
     return [action_schema,es_schema,discount_schema,product_schema,cohort_schema(),customer_schema]+[{'type':'function','function':{'name':'mcp__fcro__'+n.replace('.','_'),'description':description,

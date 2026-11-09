@@ -72,8 +72,8 @@ class ReportsTests(unittest.TestCase):
     def test_initial_report_private_html_and_idempotent_recovery(self):
         self.reports.tick()
         self.assertEqual(self.conversation.calls, 1)
-        self.assertNotIn('guest@example.invalid', self.conversation.last_text)
-        self.assertNotIn('PRIVATE-ORDER', self.conversation.last_text)
+        self.assertIn('guest@example.invalid', self.conversation.last_text)
+        self.assertIn(self.tid, self.conversation.last_text)
         self.assertIn('首次维护建议', self.conversation.last_text)
         self.conversation.completed = True
         self.reports.tick()
@@ -130,7 +130,7 @@ class ReportsTests(unittest.TestCase):
     def test_long_history_is_bounded_without_dropping_old_totals(self):
         detail = self.store.detail(self.tid)
         first = detail['orders'][0]
-        detail['orders'] = [dict(first, order_no=str(i), paid_at=(self.start - timedelta(days=i + 1)).isoformat()) for i in range(1000)]
+        detail['orders'] = [dict(first, order_no='ORDER-20261109-'+str(i).zfill(9), paid_at=(self.start - timedelta(days=i + 1)).isoformat()) for i in range(1000)]
         value = anonymous_evidence(detail, 0, self.now)
         self.assertEqual(sum(row['orders'] for row in value['paid_order_groups']), 1000)
         self.assertLess(len(report_prompt(detail, 0)), 12000)

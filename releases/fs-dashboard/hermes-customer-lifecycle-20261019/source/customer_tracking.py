@@ -551,8 +551,8 @@ class Store:
         allowed={'state','conversation_id','turn_id','artifact_id','evidence_id','prompt'}
         if not ID.fullmatch(tracking_id) or days not in (0,7,14,30) or not fields or set(fields)-allowed:
             raise ValueError('report_binding')
-        if 'prompt' in fields and (not isinstance(fields['prompt'],str) or len(fields['prompt'])>16000 or re.search(r'[\w.+-]+@[\w.-]+',fields['prompt'])):
-            raise ValueError('report_prompt_private_data')
+        if 'prompt' in fields and (not isinstance(fields['prompt'],str) or len(fields['prompt'])>16000):
+            raise ValueError('report_prompt')
         with self.db() as db:
             db.execute('BEGIN IMMEDIATE')
             row=db.execute('SELECT state FROM milestones WHERE track_id=? AND days=?',(tracking_id,days)).fetchone()

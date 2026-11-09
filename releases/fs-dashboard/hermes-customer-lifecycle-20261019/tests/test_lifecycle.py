@@ -33,7 +33,7 @@ class Tests(unittest.TestCase):
  def track(self):
   r=self.s.track('b'*32,'1'*32,now=NOW,owner='tester');self.id=r['tracking_id'];return r
  def observe(self,complete=True):return self.s.observe(self.id,[self.row],observed_at=NOW.isoformat(),coverage={'complete':complete})
- def test_buyer_evidence_survives_refresh_and_only_coverage_reaches_tools(self):
+ def test_buyer_evidence_and_authorized_identifiers_survive_refresh(self):
   self.row['es_identity']={'buyer_id':'private-buyer-1','uid':None,'status':'verified'}
   with self.s.db() as db:db.execute('UPDATE candidates SET latest_body=?,first_body=?',(json.dumps(self.row),json.dumps(self.row)))
   self.track();self.observe()
@@ -47,6 +47,16 @@ class Tests(unittest.TestCase):
   self.assertIn('buyer_identity_evidence',public)
   self.assertFalse(public['buyer_identity_evidence']['canonical_identity_updated'])
   self.assertNotIn('private-buyer-1',json.dumps(public))
+  business=module.customer_snapshot(detail)
+  self.assertEqual(business['email'],self.row['email'])
+  self.assertEqual(business['uid'],0)
+  self.assertEqual(business['orders'][0]['order_no'],self.row['order_no'])
+  self.assertEqual(business['orders'][0]['es_identity']['buyer_id'],'private-buyer-1')
+  self.assertTrue(business['history_coverage']['complete'])
+  detail['orders'][0]['token']='fixture-credential'
+  detail['orders'][0]['payment']={'amount':'12','currency':'USD','password':'fixture-credential'}
+  detail['orders'][0]['es_identity']['secret']='fixture-credential'
+  self.assertNotIn('fixture-credential',json.dumps(module.customer_snapshot(detail)))
   pool=pool_evidence(self.s,NOW)
   self.assertIn('buyer_identity_evidence',pool['customers'][0])
   self.assertNotIn('private-buyer-1',json.dumps(pool))
@@ -84,19 +94,44 @@ class Tests(unittest.TestCase):
   Store(self.tmp.name)
   with self.s.db() as db:states=dict(db.execute('SELECT days,state FROM milestones').fetchall())
   self.assertEqual(states,{0:'completed',7:'cancelled',14:'dispatch_unknown'})
+ def test_existing_report_binding_accepts_authorized_identity_and_keeps_type_size_cas(self):
+  self.track()
+  with self.s.db() as db:
+   db.execute('INSERT INTO milestones(track_id,days,due_at,state,request_id) VALUES(?,?,?,?,?)',(self.id,7,NOW.isoformat(),'completed','7'*32))
+  prompt=self.row['email']+' UID 0 '+self.row['order_no']
+  self.s.bind_report(self.id,7,'completed',prompt=prompt)
+  self.assertEqual(self.s.detail(self.id)['milestones'][0]['state'],'completed')
+  with self.s.db() as db:self.assertEqual(db.execute('SELECT prompt FROM milestones WHERE track_id=?',(self.id,)).fetchone()['prompt'],prompt)
+  for bad in (None,'x'*16001):
+   with self.assertRaisesRegex(ValueError,'report_prompt'):self.s.bind_report(self.id,7,'completed',prompt=bad)
+  with self.assertRaisesRegex(ValueError,'report_state_changed'):self.s.bind_report(self.id,7,'queued',prompt=prompt)
  def test_daily_calendar_not_24h(self):
   self.track();self.observe();self.assertEqual(self.s.due_histories(now=NOW+timedelta(hours=1)),[])
   self.assertEqual(self.s.due_histories(now=NOW+timedelta(hours=13)),[self.id])
- def test_manual_only_anonymous_once(self):
+ def test_manual_only_authorized_identifiers_once(self):
   self.track();self.observe();f=FakeConversation();p=PoolReports(f,self.s);self.assertEqual(f.calls,0)
   r=p.generate('tester','4'*32);self.assertEqual(r['customer_count'],1);self.assertEqual(f.calls,1)
   self.assertTrue(p.generate('tester','4'*32)['reused']);self.assertEqual(f.calls,1)
-  self.assertNotIn(self.row['email'],f.prompt);self.assertNotIn(self.row['order_no'],f.prompt)
+  self.assertIn(self.row['email'],f.prompt);self.assertIn(self.id,f.prompt)
+  evidence=pool_evidence(self.s,NOW)['customers'][0]
+  self.assertEqual(evidence['uid'],0);self.assertEqual(evidence['customer_ref'],self.id)
   with self.assertRaisesRegex(ValueError,'already_running'):p.generate('tester','5'*32)
   self.assertEqual(p.listed('tester')['items'][0]['state'],'completed')
   self.s.stop(self.id,'6'*32,'tester')
   self.assertEqual(pool_evidence(self.s)['totals']['customers'],0)
   with self.assertRaisesRegex(ValueError,'empty'):p.generate('tester','7'*32)
+ def test_pool_report_long_realistic_order_ids_keep_complete_aggregate_and_detail_reference(self):
+  self.track();self.observe();detail=self.s.detail(self.id)
+  detail['orders']=[dict(self.row,order_no='ORDER-20261109-'+str(i).zfill(9)) for i in range(1000)]
+  with patch.object(self.s,'detail',return_value=detail):
+   evidence=pool_evidence(self.s,NOW)
+   f=FakeConversation();result=PoolReports(f,self.s).generate('tester','a'*32)
+  customer=evidence['customers'][0]
+  self.assertEqual(sum(row['paid_orders'] for row in customer['groups']),1000)
+  self.assertEqual(customer['email'],self.row['email']);self.assertEqual(customer['uid'],0)
+  self.assertEqual(customer['customer_ref'],self.id)
+  self.assertEqual(result['customer_count'],1);self.assertEqual(f.calls,1)
+  self.assertLess(len(f.prompt),12000)
  def test_unknown_dispatch_never_replayed(self):
   self.track();self.observe();f=FakeConversation();f.fail=True;p=PoolReports(f,self.s)
   self.assertEqual(p.generate('tester','8'*32)['state'],'dispatch_unknown');p.generate('tester','8'*32);self.assertEqual(f.calls,1)
