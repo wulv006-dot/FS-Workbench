@@ -1,5 +1,7 @@
 # FC27 周更运营台左侧入口
 
+最新状态：用户明确批准后，18文件已沿原UI publisher部署为`nav-20261109T145952Z`。全部目标与保护项SHA读回匹配，Nginx检查/reload成功；真实登录页面已显示并实际点击“FC27 周更运营台”进入原运营台。见[实际验收](deploy/page-pending/LIVE-ACCEPTANCE.md)。下文候选“尚未激活”描述为本次部署前历史。
+
 本轮在现役 FS 全局清单的主站活动区加入 `campaign-weekly`，地址 `/dashboard/analytics/campaigns/analytics/weekly.html`，沿用 dashboard 权限与现有侧栏交互。
 
 可维护差异：`releases/fs-dashboard/campaign-analytics-20261023/navigation/prepare_weekly.py`。输入是服务器当前清单与脚本，不用历史清单覆盖新入口。脚本只加入同一菜单项、更新两个编译脚本内的清单、刷新14个消费者的导航缓存引用，并同步两份现役清单；保持其余脚本和配置字节。冲突身份、脚本清单漂移或缺少引用即停止。4项直接测试通过。
