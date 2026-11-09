@@ -1,5 +1,7 @@
 # 原任务恢复与 curl 热修复 — 2026-11-09
 
+> 历史操作证据，保留当时事实；不作为当前选品或自动执行规则。当前入口见[发布证据索引](README.md)，本轮修正验收见[selection-corrections](selection-corrections/ACCEPTANCE.md)。
+
 本记录归档总控执行的恢复、发布及独立读回，不含生产数据库行、凭据或模型原文。原41目标发布另见 [README](README.md)。
 
 ## 原操作：已确认未派发

@@ -34,17 +34,16 @@ test('weekly console uses real center fixtures, FS role, origin and CSRF without
   const existing=await (await originalFetch(root+'api/center',{headers:{Cookie:'reader'}})).json();assert.equal(existing.revision,0);assert.equal(existing.published,null);assert.equal(fs.existsSync(path.join(tmp,'public/current.json')),false);
   response=await originalFetch(url,{method:'POST',headers,body:JSON.stringify({revision:1,operation_id:randomUUID(),action:'publish'})});assert.equal(response.status,400);
   const update={id:'sbc-test-update',observed_at:new Date().toISOString(),context:'Test only',sources:[{url:'https://www.ea.com/games/ea-sports-fc',title:'Test source',observed_at:new Date().toISOString()}]};
-  response=await originalFetch(url+'/recommend',{method:'POST',headers,body:JSON.stringify({revision:0,operation_id:randomUUID(),sbc_update:update})});assert.equal(response.status,200);assert.equal((await response.json()).status,'disabled');
-  response=await originalFetch(url,{method:'POST',headers,body:JSON.stringify({revision:1,operation_id:randomUUID(),action:'hermes',enabled:true})});assert.equal(response.status,200);
-  response=await originalFetch(url+'/recommend',{method:'POST',headers,body:JSON.stringify({revision:0,operation_id:randomUUID(),sbc_update:update})});assert.equal(response.status,200);assert.equal((await response.json()).status,'unavailable');
-  const recommendations=await (await originalFetch(url+'/recommend',{headers:{Cookie:'reader'}})).json();assert.equal(recommendations.last.status,'unavailable');
+  const legacyBody={revision:0,operation_id:randomUUID(),sbc_update:update};
+  response=await originalFetch(url+'/recommend',{method:'POST',headers,body:JSON.stringify(legacyBody)});assert.equal(response.status,410);assert.match((await response.json()).message,/按当前规则取品并生成草稿/);assert.equal(hostCalls.length,0);
   assert.equal((await originalFetch(url+'/recommend',{method:'POST',headers:{...headers,Cookie:'reader'},body:'{}'})).status,403);
-  hostMode='pending';hostCalls=[];const asyncRequest={revision:0,operation_id:randomUUID(),sbc_update:{...update,id:'sbc-async-test'}};
-  response=await originalFetch(url+'/recommend',{method:'POST',headers:{...headers,'X-FS-Actor':'forged-browser-actor'},body:JSON.stringify(asyncRequest)});assert.equal(response.status,200);assert.equal((await response.json()).status,'pending');assert.equal(hostCalls.length,1);
-  response=await originalFetch(url+'/recommend',{method:'POST',headers,body:JSON.stringify(asyncRequest)});assert.equal((await response.json()).status,'pending');assert.equal(hostCalls.length,1);
-  hostMode='completed';response=await originalFetch(url+'/reconcile',{method:'POST',headers,body:JSON.stringify({operation_id:asyncRequest.operation_id})});assert.equal(response.status,200);assert.equal((await response.json()).status,'completed');assert.deepEqual(hostCalls.map(call=>call.method),['POST','GET']);
-  response=await originalFetch(url+'/recommend',{method:'POST',headers,body:JSON.stringify({...asyncRequest,operation_id:randomUUID(),actor:'forged'})});assert.equal(response.status,400);assert.equal(hostCalls.length,2);
-  const stored=fs.readFileSync(path.join(tmp,'private/center/weekly-recommendations/weekly-recommendations.json'),'utf8');assert(!stored.includes('forged-browser-actor'));assert(!stored.includes('Cookie'));
+  const historyDir=path.join(tmp,'private/center/weekly-recommendations');fs.mkdirSync(historyDir,{recursive:true});
+  const {canonical,digest}=await import('../../runtime/snapshot.mjs');
+  const record={operation_id:legacyBody.operation_id,submitted_by:'fixture',sbc_update:update,prepared:{model:'gpt-6.1-sol',dedupe_key:'history',input:{source_revision:'0',sbc_update:{...update,id:'sbc-async-test'},catalog:[],pages:[]}},result:{status:'pending',source_revision:'0',candidates:[]}};
+  fs.writeFileSync(path.join(historyDir,'weekly-recommendations.json'),JSON.stringify({operations:[{id:legacyBody.operation_id,hash:digest(canonical(legacyBody)),request_id:legacyBody.operation_id}],requests:[record]}));
+  response=await originalFetch(url+'/recommend',{method:'POST',headers,body:JSON.stringify(legacyBody)});assert.equal(response.status,200);assert.equal((await response.json()).status,'pending');assert.equal(hostCalls.length,0);
+  hostMode='completed';response=await originalFetch(url+'/reconcile',{method:'POST',headers,body:JSON.stringify({operation_id:legacyBody.operation_id})});assert.equal(response.status,200);assert.equal((await response.json()).status,'completed');assert.deepEqual(hostCalls.map(call=>call.method),['GET']);
+  const recommendations=await (await originalFetch(url+'/recommend',{headers:{Cookie:'reader'}})).json();assert.equal(recommendations.last.status,'completed');
   for(const name of ['weekly.html','weekly.js','weekly.css'])assert.equal((await originalFetch(root+name,{headers:{Cookie:'reader'}})).status,200);
  }finally{if(server)await new Promise(resolve=>server.close(resolve));globalThis.fetch=originalFetch;fs.rmSync(tmp,{recursive:true,force:true});}
 });

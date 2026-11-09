@@ -1,4 +1,10 @@
-# 已批准发布 — 2026-11-09
+# 发布证据索引 — 2026-11-09
+
+- 当前执行合同：[周更规则](../WEEKLY-RULES.md)、[接口](../INTERFACES.md)、[Hermes合同](../HERMES-CONTRACT.md)。
+- 当前修正：[selection-corrections/ACCEPTANCE.md](selection-corrections/ACCEPTANCE.md)，尚待部署及真实验收。
+- 本页以下初始41目标、curl-fix、cardinality-fix、RECOVERY及LIVE-ACCEPTANCE均为历史操作证据，不作为当前选品或自动执行指令；归档release脚本与curl-recovery审计工具保留用于原ID核对和获批恢复，不由周更调度加载。
+
+## 初始已批准发布（历史证据）
 
 用户批准PR930合并部署，真实Sol三页草稿验收通过后启用周日12:00（UTC+8）计划。活动发布、优惠券写入和社区消息不在本次自动执行范围。
 
