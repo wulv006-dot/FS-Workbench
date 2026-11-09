@@ -49,6 +49,13 @@ class GamePickerTests(unittest.IsolatedAsyncioTestCase):
         await self.view.children[index].callback(interaction)
         return interaction
 
+    def panel_items(self, interaction):
+        return list(interaction.followup.send.await_args.kwargs['view'].walk_children())
+
+    def panel_text(self, interaction):
+        return '\n'.join(item.content for item in self.panel_items(interaction)
+                         if isinstance(item, discord.ui.TextDisplay))
+
     async def test_24_persistent_colored_buttons_use_five_columns(self):
         self.assertTrue(self.view.is_persistent())
         self.assertEqual(len(self.view.children), 24)
@@ -65,13 +72,15 @@ class GamePickerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.member.add_roles.await_count, 2)
         self.assertTrue(first.followup.send.await_args.kwargs['ephemeral'])
         self.assertFalse(first.followup.send.await_args.kwargs['allowed_mentions'].everyone)
-        self.assertIn('Channels & Roles', first.followup.send.await_args.args[0])
+        self.assertIn('Channels & Roles', self.panel_text(first))
+        self.assertEqual(first.followup.send.await_args.args, ())
 
     async def test_private_remove_checks_owner_and_preserves_other_games(self):
         joined = await self.click()
         await self.click(1)
         panel = joined.followup.send.await_args.kwargs['view']
-        remove = next(button for button in panel.children if button.custom_id)
+        remove = next(button for button in panel.walk_children()
+                      if isinstance(button, discord.ui.Button) and button.custom_id)
         outsider = self.interaction(user_id=8)
         await remove.callback(outsider)
         self.member.remove_roles.assert_not_awaited()
@@ -126,19 +135,49 @@ class GamePickerTests(unittest.IsolatedAsyncioTestCase):
         interaction = await self.click()
         self.assertEqual({role.id for role in self.member.roles}, {99})
         self.assertNotIn('secret', str(interaction.followup.send.await_args))
-        self.assertIn('could not', interaction.followup.send.await_args.args[0].lower())
+        self.assertIn('could not', self.panel_text(interaction).lower())
 
     async def test_links_are_member_visible_and_empty_game_uses_honest_general_fallback(self):
         self.channels[301].permissions_for = lambda member: discord.Permissions.none()
         interaction = await self.click()
-        self.assertFalse(any(button.url for button in interaction.followup.send.await_args.kwargs['view'].children))
+        self.assertFalse(any(isinstance(item, discord.ui.Button) and item.url
+                             for item in self.panel_items(interaction)))
         self.config['games'][1]['channel_ids'] = []
         from game_picker import GamePickerView, GENERAL_CHAT_CHANNEL_ID
         self.view = GamePickerView(self.config)
         interaction = await self.click(1)
-        self.assertIn('no dedicated', interaction.followup.send.await_args.args[0].lower())
-        links = [button.url for button in interaction.followup.send.await_args.kwargs['view'].children if button.url]
+        self.assertIn('no dedicated', self.panel_text(interaction).lower())
+        links = [item.url for item in self.panel_items(interaction)
+                 if isinstance(item, discord.ui.Button) and item.url]
         self.assertEqual(links, [f'https://discord.com/channels/{GUILD}/{GENERAL_CHAT_CHANNEL_ID}'])
+
+    async def test_fc_guide_groups_links_by_purpose_filters_permissions_and_puts_leave_last(self):
+        from game_picker import FC_GUIDE_GROUPS, SUPPORT_LINKS, GamePickerView
+        ids = [channel_id for _, links in FC_GUIDE_GROUPS for channel_id, _ in links]
+        self.config['games'][0]['channel_ids'] = list(reversed(ids))
+        for channel_id in ids + [channel_id for channel_id, _ in SUPPORT_LINKS]:
+            self.channels[channel_id] = SimpleNamespace(id=channel_id, guild=SimpleNamespace(id=GUILD),
+                name='channel-' + str(channel_id),
+                permissions_for=lambda member: discord.Permissions(view_channel=True, read_message_history=True))
+        # One inaccessible help destination must never appear, even for a configured guide.
+        self.channels[SUPPORT_LINKS[1][0]].permissions_for = lambda member: discord.Permissions.none()
+        self.view = GamePickerView(self.config)
+        interaction = await self.click()
+        panel = interaction.followup.send.await_args.kwargs['view']
+        items = self.panel_items(interaction)
+        headings = [item.content.split('\n')[0] for item in items
+                    if isinstance(item, discord.ui.TextDisplay) and item.content.startswith('### ')]
+        self.assertEqual(headings, ['### ' + title for title, _ in FC_GUIDE_GROUPS] + ['### 🎧 Support & help'])
+        buttons = [item for item in items if isinstance(item, discord.ui.Button)]
+        self.assertEqual([button.url for button in buttons if button.url],
+            [f'https://discord.com/channels/{GUILD}/{channel_id}' for channel_id in ids] +
+            [f'https://discord.com/channels/{GUILD}/{SUPPORT_LINKS[index][0]}' for index in (0, 2)])
+        self.assertEqual(buttons[-1].custom_id, 'mmoexp:game:remove')
+        self.assertIs(buttons[-1].view, panel)
+        self.assertLessEqual(panel.total_children_count, 40)
+        self.assertIn('quote replies are private', self.panel_text(interaction))
+        self.assertTrue(panel.has_components_v2())
+        self.assertTrue(interaction.followup.send.await_args.kwargs['ephemeral'])
 
     async def test_simultaneous_game_joins_keep_both_preferences(self):
         await asyncio.gather(self.click(), self.click(1))
