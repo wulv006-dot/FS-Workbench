@@ -48,6 +48,12 @@ test('management preview URL is authenticated, read-only, expiring and renders t
    assert([400,422].includes(invalid.status),'invalid draft status '+invalid.status);
   }
   for(const name of fs.readdirSync(proposalDir))fs.unlinkSync(path.join(proposalDir,name));
+  const brokenProposal=path.join(proposalDir,randomUUID()+'.json');fs.writeFileSync(brokenProposal,'{broken',{mode:0o600});
+  const seasonal=await priorFetch(base+'api/center/preview',{method:'POST',headers,body:JSON.stringify({...request,page_id:'seasonal-vault'})});
+  assert.equal(seasonal.status,200,'FC proposal corruption must not affect other campaigns');
+  assert.equal(fs.existsSync(path.join(dir,'http/center/state.json')),false);assert.equal(fs.existsSync(path.join(dir,'public/current.json')),false);
+  const brokenFc=await priorFetch(base+'api/center/preview',{method:'POST',headers,body:JSON.stringify(request)});assert.equal(brokenFc.status,502,'FC evidence corruption must retain the original server error');assert.equal((await brokenFc.json()).message,'配置格式无效');
+  fs.unlinkSync(brokenProposal);
   const response=await priorFetch(base+'api/center/preview',{method:'POST',headers,body:JSON.stringify(request)});assert.equal(response.status,200);const preview=await response.json();assert.match(preview.preview_url,/analytics\/preview\/[a-f0-9]{48}\/Weekly-Scout.html$/);
   assert.equal((await priorFetch(origin+preview.preview_url)).status,401);const page=await(await priorFetch(origin+preview.preview_url,{headers})).text();assert(page.includes('Unsaved whole page'));assert(page.includes('Unsaved draft preview'));assert(page.includes('data-campaign-runtime='));
   const root=preview.preview_url.replace('Weekly-Scout.html',''),config=await(await priorFetch(origin+root+'api/campaign/config',{headers})).json();assert.deepEqual(config.native_checkout,{status:'unconfigured'});assert.equal(config.live_checkout,false);assert.equal(config.fc_models[model().key].title,model().title);assert.equal(config.products.find(p=>p.key===productKey).title,product().title);

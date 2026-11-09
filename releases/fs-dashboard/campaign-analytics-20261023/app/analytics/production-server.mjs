@@ -170,7 +170,7 @@ export const server=http.createServer(async(req,res)=>{
     return json(res,200,{...centerState(publish?center.publish(body,auth.user,details,products):center.save(body,auth.user,details,products)),csrf,canEdit:true});
    }
    if(relative==='analytics/api/center/preview'){
-    const reference=weeklyCommerce.previewCatalog(body,auth.user);
+    const reference=['fc27-trio','fc27-weekly','fc27-sbc'].includes(body.page_id)?weeklyCommerce.previewCatalog(body,auth.user):null;
     const seed=reference?mergeNativeCatalog(pageSeed(body.draft.fc_layout,body.draft.fc_models||{}),reference):undefined;
     if(seed)Object.assign(seed.seasonal_model_contracts,structuredClone(reference.model_contracts));
     const snapshot=center.preview(body,await pendingModelDetails(body),await pendingProductDetails(body),{seed}),page=snapshot.pages.find(p=>p.page_id===body.page_id);if(!page)return json(res,400,{message:'INVALID_CAMPAIGN_PAGE'});
