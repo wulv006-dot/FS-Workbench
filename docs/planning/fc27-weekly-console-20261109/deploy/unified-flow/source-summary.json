@@ -1,0 +1,14 @@
+{
+  "source_commit": "e0dcfcd802fbac0130f11039d24f234813cb881a",
+  "targets": 16,
+  "guards": 45,
+  "new_files": [
+    "/opt/fs-campaign-dashboard/analytics/weekly-commerce-install.py",
+    "/opt/fs-campaign-dashboard/analytics/weekly-commerce.mjs",
+    "/opt/fs-campaign-dashboard/analytics/weekly-workflow.mjs"
+  ],
+  "static_changed": [],
+  "manifest_sha": "7209cd6d9cb49a123644360a42d2b6a22b5df222edd2c3b1d289c0f59bf760f6",
+  "launcher_sha": "8248757a64a03b07d169cf732eaae0be963b5313ec52a6c9197c1facee0a7d6c",
+  "business_publish": false
+}

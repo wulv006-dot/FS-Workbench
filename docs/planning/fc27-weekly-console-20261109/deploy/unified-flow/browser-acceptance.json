@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-09",
+  "source_pr": 950,
+  "entry": "/dashboard/analytics/campaigns/analytics/weekly.html",
+  "actor": "wulv",
+  "run_operation_id": "4c09cd43-d93b-4223-8e93-f5905e6aaac3",
+  "draft_revision": 25,
+  "public_release": "campaign-preview-24",
+  "work_orders": {"week": "2026-W46", "count": 3, "status": "draft_ready"},
+  "preview_pages_verified": ["fc27-trio", "fc27-weekly", "fc27-sbc"],
+  "preview_missing_price_labels": 0,
+  "sbc_core_options": 9,
+  "companion_options_per_select": [18, 18],
+  "embedded_editor": {"loaded": true, "save_visible": true, "independent_publish_visible": false, "nested_navigation_visible": false},
+  "confirmation": {"opened": true, "bound_revision": 25, "cancelled": true, "final_publish_clicked": false},
+  "production_publication_requests": 0,
+  "production_draft_save": "not_executed_preserved_user_draft",
+  "production_policy_install": "not_executed",
+  "model_redispatch": false,
+  "positive_save_publish_receipt_paths": "isolated_real_center_and_editor_tests_only",
+  "natural_weekly_cycle": "pending"
+}
