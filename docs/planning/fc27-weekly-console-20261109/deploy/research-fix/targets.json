@@ -1,0 +1,11 @@
+{
+  "app/activity-content.js": "/opt/fs-campaign-dashboard/activity-content.js",
+  "app/Sbc-Companions.html": "/opt/fs-campaign-dashboard/Sbc-Companions.html",
+  "app/Weekly-Scout.html": "/opt/fs-campaign-dashboard/Weekly-Scout.html",
+  "app/index.html": "/opt/fs-campaign-dashboard/index.html",
+  "app/analytics/products.js": "/opt/fs-campaign-dashboard/analytics/products.js",
+  "app/analytics-config.js": "/opt/fs-campaign-dashboard/analytics-config.js",
+  "app/analytics/activity-registry.json": "/opt/fs-campaign-dashboard/analytics/activity-registry.json",
+  "shared/campaign_evidence.py": "/opt/fs-hermes-fc/campaign_evidence.py",
+  "derived/static-manifest.json": "/opt/fs-campaign-dashboard/runtime/static-manifest.json"
+}

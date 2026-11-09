@@ -1,0 +1,1239 @@
+{
+  "schema_version": 1,
+  "status": "checks_passed",
+  "scope": "local_center_draft_and_receipts_not_publication_or_natural_run",
+  "operation_id": "fa02f31d-36b2-46a5-9365-ec8bf8852c2d",
+  "before_revision": 19,
+  "draft_revision": 20,
+  "current_revision": 20,
+  "checks": {
+    "operation_receipt": true,
+    "live_center_matches_receipt": true,
+    "before_matches_plan": true,
+    "published_hash_unchanged": true,
+    "published_metadata_hash_unchanged": true,
+    "other_pages_hash_unchanged": true,
+    "all_page_benefits_hash_unchanged": true,
+    "halloween_hash_unchanged": true,
+    "fc_page_copy_hash_unchanged": true,
+    "scout_source_order": true,
+    "trio_source_pool": true,
+    "sbc_source_order": true,
+    "three_platform_identities": true,
+    "sbc_companion_structure": true,
+    "sbc_has_multiple_choices": true,
+    "scout_and_trio_normal": true,
+    "trio_newest_complete": true,
+    "trio_newest_membership": true,
+    "sbc_nine_cores": true,
+    "sbc_eighteen_distinct_normal": true,
+    "sbc_shared_eighteen_pool": true,
+    "selected_images_have_sources": true,
+    "source_goods_coverage": true
+  },
+  "source": {
+    "observed_at": "2026-11-09T08:27:13.895152+00:00",
+    "rules_version": "fc27_weekly_selection_v1",
+    "latest_order": "id,desc",
+    "latest_semantics": "newest_model_identity_not_creation_timestamp",
+    "newest_tag_id": "12307",
+    "newest_scanned": 1100,
+    "newest_total": 1100,
+    "newest_tagged_count": 61,
+    "newest_normal_count": 31,
+    "newest_complete": true,
+    "trio_selection": "model_market_judgment_from_complete_newest_normal_pool",
+    "popular_tag_id": "12305",
+    "popular_order": "storefront_default_recommendation_priority",
+    "popular_scanned": 12,
+    "popular_total": 46,
+    "snapshot_atomic": false,
+    "latest_player_ids": [
+      "45496989",
+      "45491449",
+      "45490845",
+      "45490829",
+      "45490827",
+      "45490825",
+      "45490823",
+      "45490821",
+      "45490819",
+      "45490817",
+      "45490815",
+      "45490813",
+      "45490811",
+      "45490809",
+      "45490807",
+      "45490805",
+      "45490803",
+      "45490801",
+      "45490799",
+      "45490797",
+      "45490795",
+      "45490793",
+      "45490791",
+      "45490789"
+    ],
+    "trio_pool_ids": [
+      "45496989",
+      "45491449",
+      "45490845",
+      "45490829",
+      "45490827",
+      "45490825",
+      "45490823",
+      "45490821",
+      "45490819",
+      "45490817",
+      "45490815",
+      "45490813",
+      "45490811",
+      "45490809",
+      "45490807",
+      "45490805",
+      "45490803",
+      "45490801",
+      "45490799",
+      "45490797",
+      "45490795",
+      "45490793",
+      "45490791",
+      "45490789",
+      "45490787",
+      "45490785",
+      "45490783",
+      "45490781",
+      "45490779",
+      "45490773",
+      "45490771"
+    ],
+    "scout_model_ids": [
+      "43167707",
+      "43167389",
+      "44921285"
+    ],
+    "sbc_model_ids": [
+      "45525985",
+      "45505721",
+      "45505719",
+      "45505717",
+      "45505715",
+      "45498255",
+      "45453659",
+      "45436443",
+      "44714235"
+    ]
+  },
+  "layout": {
+    "weekly": [
+      "43167707",
+      "43167389",
+      "44921285"
+    ],
+    "trio": [
+      "45490817",
+      "45490797",
+      "45490829"
+    ],
+    "default_core": "45525985",
+    "routes": [
+      {
+        "core_model_id": "45525985",
+        "pick_model_ids": [
+          "45490845",
+          "45490789"
+        ],
+        "alternative_model_ids": [
+          "45490827",
+          "45490815",
+          "45490821",
+          "45490791",
+          "45490795",
+          "45490823",
+          "45491449",
+          "45490813",
+          "43167389",
+          "45490819",
+          "45490805",
+          "45490801",
+          "45490799",
+          "45490811",
+          "43167707",
+          "45490807"
+        ]
+      },
+      {
+        "core_model_id": "45505721",
+        "pick_model_ids": [
+          "45490827",
+          "45490815"
+        ],
+        "alternative_model_ids": [
+          "45490845",
+          "45490789",
+          "45490821",
+          "45490791",
+          "45490795",
+          "45490823",
+          "45491449",
+          "45490813",
+          "43167389",
+          "45490819",
+          "45490805",
+          "45490801",
+          "45490799",
+          "45490811",
+          "43167707",
+          "45490807"
+        ]
+      },
+      {
+        "core_model_id": "45505719",
+        "pick_model_ids": [
+          "45490821",
+          "45490791"
+        ],
+        "alternative_model_ids": [
+          "45490845",
+          "45490789",
+          "45490827",
+          "45490815",
+          "45490795",
+          "45490823",
+          "45491449",
+          "45490813",
+          "43167389",
+          "45490819",
+          "45490805",
+          "45490801",
+          "45490799",
+          "45490811",
+          "43167707",
+          "45490807"
+        ]
+      },
+      {
+        "core_model_id": "45505717",
+        "pick_model_ids": [
+          "45490795",
+          "45490823"
+        ],
+        "alternative_model_ids": [
+          "45490845",
+          "45490789",
+          "45490827",
+          "45490815",
+          "45490821",
+          "45490791",
+          "45491449",
+          "45490813",
+          "43167389",
+          "45490819",
+          "45490805",
+          "45490801",
+          "45490799",
+          "45490811",
+          "43167707",
+          "45490807"
+        ]
+      },
+      {
+        "core_model_id": "45505715",
+        "pick_model_ids": [
+          "45491449",
+          "45490813"
+        ],
+        "alternative_model_ids": [
+          "45490845",
+          "45490789",
+          "45490827",
+          "45490815",
+          "45490821",
+          "45490791",
+          "45490795",
+          "45490823",
+          "43167389",
+          "45490819",
+          "45490805",
+          "45490801",
+          "45490799",
+          "45490811",
+          "43167707",
+          "45490807"
+        ]
+      },
+      {
+        "core_model_id": "45498255",
+        "pick_model_ids": [
+          "43167389",
+          "45490819"
+        ],
+        "alternative_model_ids": [
+          "45490845",
+          "45490789",
+          "45490827",
+          "45490815",
+          "45490821",
+          "45490791",
+          "45490795",
+          "45490823",
+          "45491449",
+          "45490813",
+          "45490805",
+          "45490801",
+          "45490799",
+          "45490811",
+          "43167707",
+          "45490807"
+        ]
+      },
+      {
+        "core_model_id": "45453659",
+        "pick_model_ids": [
+          "45490805",
+          "45490801"
+        ],
+        "alternative_model_ids": [
+          "45490845",
+          "45490789",
+          "45490827",
+          "45490815",
+          "45490821",
+          "45490791",
+          "45490795",
+          "45490823",
+          "45491449",
+          "45490813",
+          "43167389",
+          "45490819",
+          "45490799",
+          "45490811",
+          "43167707",
+          "45490807"
+        ]
+      },
+      {
+        "core_model_id": "45436443",
+        "pick_model_ids": [
+          "45490799",
+          "45490811"
+        ],
+        "alternative_model_ids": [
+          "45490845",
+          "45490789",
+          "45490827",
+          "45490815",
+          "45490821",
+          "45490791",
+          "45490795",
+          "45490823",
+          "45491449",
+          "45490813",
+          "43167389",
+          "45490819",
+          "45490805",
+          "45490801",
+          "43167707",
+          "45490807"
+        ]
+      },
+      {
+        "core_model_id": "44714235",
+        "pick_model_ids": [
+          "43167707",
+          "45490807"
+        ],
+        "alternative_model_ids": [
+          "45490845",
+          "45490789",
+          "45490827",
+          "45490815",
+          "45490821",
+          "45490791",
+          "45490795",
+          "45490823",
+          "45491449",
+          "45490813",
+          "43167389",
+          "45490819",
+          "45490805",
+          "45490801",
+          "45490799",
+          "45490811"
+        ]
+      }
+    ]
+  },
+  "models": [
+    {
+      "key": "model-266-1327-43167707",
+      "model_id": "43167707",
+      "title": "Harry Kane/90/ST++/Gold Non Rare",
+      "kind": "player",
+      "image_provenance": "storefront_player_id_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "170015221",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "170026697",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "170015225",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-43167389",
+      "model_id": "43167389",
+      "title": "Kylian Mbappé/91/ST++/Gold Non Rare",
+      "kind": "player",
+      "image_provenance": "storefront_player_id_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "170014933",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "170026881",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "170014937",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-44921285",
+      "model_id": "44921285",
+      "title": "Lamine Yamal Nasraoui Ebana/91/RW++/Star Performer",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "185916959",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "185916967",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "185916963",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490817",
+      "model_id": "45490817",
+      "title": "Géraldine Reuteler/86/CM++/UWCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277401",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277405",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277409",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490797",
+      "model_id": "45490797",
+      "title": "Yui Hasegawa/89/CDM++/UWCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277281",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277285",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277289",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490829",
+      "model_id": "45490829",
+      "title": "Diogo Martins Travassos/85/RB++/UECL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277473",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277477",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277481",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45525985",
+      "model_id": "45525985",
+      "title": "Riccardo Calafiori",
+      "kind": "sbc",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187348721",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187348757",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187348793",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45505721",
+      "model_id": "45505721",
+      "title": "Naomie Feller",
+      "kind": "sbc",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187310429",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187310465",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187310501",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45505719",
+      "model_id": "45505719",
+      "title": "Franziska Kett",
+      "kind": "sbc",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187310321",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187310357",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187310393",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45505717",
+      "model_id": "45505717",
+      "title": "Sydney Schertenleib",
+      "kind": "sbc",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187310213",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187310249",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187310285",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45505715",
+      "model_id": "45505715",
+      "title": "Olivia Smith",
+      "kind": "sbc",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187310105",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187310141",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187310177",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45498255",
+      "model_id": "45498255",
+      "title": "Loïs Openda",
+      "kind": "sbc",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187292685",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187292721",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187292757",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45453659",
+      "model_id": "45453659",
+      "title": "Martín Ojeda",
+      "kind": "sbc",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187173231",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187173267",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187173303",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45436443",
+      "model_id": "45436443",
+      "title": "Ethan Ampadu",
+      "kind": "sbc",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187137351",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187137387",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187137423",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-44714235",
+      "model_id": "44714235",
+      "title": "Ligue 1 POTM September",
+      "kind": "sbc",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "185493031",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "185493067",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "185493103",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490845",
+      "model_id": "45490845",
+      "title": "Alessandro Bastoni/88/CB++/UCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277569",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277573",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277577",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490789",
+      "model_id": "45490789",
+      "title": "Fikayo Tomori/86/CB++/UEL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277233",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277237",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277241",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490827",
+      "model_id": "45490827",
+      "title": "Tabitha Chawinga/89/LW++/UWCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277461",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277465",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277469",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490815",
+      "model_id": "45490815",
+      "title": "Andreia de Jesus Jacinto/86/CM++/UWCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277389",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277393",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277397",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490821",
+      "model_id": "45490821",
+      "title": "Alyssa Thompson/87/LM++/UWCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277425",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277429",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277433",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490791",
+      "model_id": "45490791",
+      "title": "Sakina Karchaoui/88/RM++/UWCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277245",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277249",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277253",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490795",
+      "model_id": "45490795",
+      "title": "Aitana Bonmatí Conca/90/CM++/UWCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277269",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277273",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277277",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490823",
+      "model_id": "45490823",
+      "title": "Lamine Camara/85/CM++/UECL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277437",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277441",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277445",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45491449",
+      "model_id": "45491449",
+      "title": "Rafael da Conceição Leão/87/LW++/UCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281637",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281641",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281645",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490813",
+      "model_id": "45490813",
+      "title": "Francisco Conceição/87/CAM++/UEL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277377",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277381",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277385",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490819",
+      "model_id": "45490819",
+      "title": "Matías Soulé/85/RW++/UCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277413",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277417",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277421",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490805",
+      "model_id": "45490805",
+      "title": "Pedri/91/CM++/UCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277329",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277333",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277337",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490801",
+      "model_id": "45490801",
+      "title": "Jérémy Doku/87/LW++/UCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277305",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277309",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277313",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490799",
+      "model_id": "45490799",
+      "title": "Ryan Gravenberch/88/CDM++/UCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277293",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277297",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277301",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490811",
+      "model_id": "45490811",
+      "title": "Zaid Romero/85/CB++/UECL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277365",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277369",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277373",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45490807",
+      "model_id": "45490807",
+      "title": "Senne Lammens/86/GK++/UCL RTTK",
+      "kind": "player",
+      "image_provenance": "admin_model_uploaded_asset",
+      "has_image": true,
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187277341",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187277345",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187277349",
+          "same_model": true
+        }
+      ]
+    }
+  ],
+  "publication_executed": false,
+  "price_and_checkout_verification": "not_asserted"
+}
