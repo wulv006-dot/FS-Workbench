@@ -22,7 +22,7 @@ if 'pilot' not in sys.modules:
  spec=importlib.util.spec_from_file_location('pilot',ROOT/'releases/fs-dashboard/hermes-fc-pilot-20261013/pilot.py')
  module=importlib.util.module_from_spec(spec);sys.modules['pilot']=module;spec.loader.exec_module(module)
 from pilot import TaskStore
-from campaign_recommendations import CampaignRecommendations, CampaignRecommendationScope, checked_input, output_schema
+from campaign_recommendations import CampaignRecommendations, CampaignRecommendationScope, checked_input, output_schema, PROMPT
 
 @contextmanager
 def guard(*args):yield True
@@ -78,6 +78,29 @@ class CampaignTests(unittest.TestCase):
   item=schema['properties']['recommendations']['items'];self.assertEqual(set(item['required']),set(item['properties']));self.assertEqual(item['properties']['core_product_key'],{'type':'null'})
   value['catalog'][0]['product_ref']['game_id']='999'
   with self.assertRaises(ValueError):checked_input(value)
+
+ def test_weekly_generation_contract_exposes_counts_and_alternatives_but_keeps_manual_minimum(self):
+  from test_campaign_weekly import pool_input,selection
+  value=pool_input();schema=output_schema(checked_input(value))
+  self.assertEqual(schema['properties']['recommendations']['minItems'],8)
+  self.assertIn('2 primary picks',PROMPT);self.assertIn('2 alternatives',PROMPT);self.assertIn('scout_top_keys',PROMPT)
+  value['sbc_update']['sources']=[dict(url='https://www.futbin.com/fixture',title='Fixture',observed_at=value['sbc_update']['observed_at'])]
+  from campaign_recommendations import checked_result
+  self.assertEqual(checked_result(selection(value),value)['recommendations'][-1]['page_id'],'fc27-sbc')
+  self.assertNotIn('minItems',output_schema(input_data())['properties']['recommendations'])
+
+ def test_paid_cardinality_and_page_pool_failures_retain_specific_safe_reason(self):
+  from test_campaign_weekly import pool_input
+  for failure,code in [('cardinality','campaign_weekly_selection'),('pool_mismatch','campaign_page_pool_mismatch')]:
+   with self.subTest(failure=failure):
+    # A fresh isolated fixture per case; the prior paid result is never replayed.
+    other=CampaignTests();other.setUp()
+    try:
+     value=pool_input();value['sbc_update']['sources']=[dict(url='https://www.futbin.com/fixture',title='Fixture',observed_at=value['sbc_update']['observed_at'])];other.body['input']=value
+     with other.pipeline(failure=failure):
+      other.service.submit(other.body,'alice','private-session');other.finish();result=other.service.lookup(other.body['operation_id'],'alice','private-session')
+      self.assertEqual(result['status'],'failed');self.assertEqual(result['diagnostic']['code'],code);self.assertEqual(result['receipt']['usage']['total_tokens'],9)
+    finally:other.doCleanups()
 
  def test_actual_gateway_proxy_budget_and_openai_payload_preserve_original_lane_and_usage(self):
   with self.pipeline() as (provider,active):
@@ -251,6 +274,11 @@ class CampaignTests(unittest.TestCase):
       return dict(proof,status='local_rejected')
      if failure=='http':return dict(status='http_rejected',http_status=400,curl_exit_code=0,provider_http_request_id='req_fixture',provider_error_code='invalid_json_schema')
      result=dict(model='gpt-6.1-sol',source_revision='7',sbc_update_id='update-7',recommendations=[dict(page_id='fc27-weekly',product_key='fc-player-ps',core_product_key=None,reason='Synthetic reason',evidence_indices=[])])
+     if failure in ('cardinality','pool_mismatch'):
+      from test_campaign_weekly import selection
+      result=selection(json.loads(request['messages'][-1]['content']))
+      if failure=='cardinality':result['recommendations'].pop()
+      else:result['recommendations'][3]['product_key']='fc-core-ps'
      return dict(id='provider_fixture',model='gpt-6.1-sol',choices=[dict(message=dict(role='assistant',content='invalid JSON' if failure=='json' else json.dumps(result)),finish_reason='stop')],usage=dict(prompt_tokens=4,completion_tokens=5,total_tokens=9))
     with patch.dict(sys.modules,{'fs_inprocess':SimpleNamespace(campaign_gateway=factory),'fc_daily':SimpleNamespace(provider_slot=slot,model_daily_limit=limit),'openai_provider':openai}),patch.object(openai,'request_model',side_effect=request),patch.dict(os.environ,{'FS_MODEL_DAILY_LIMIT':'0'}):
      yield calls,liveness
