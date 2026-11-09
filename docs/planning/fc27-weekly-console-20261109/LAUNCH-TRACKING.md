@@ -80,3 +80,9 @@ UUID 使用一个新生成的合法 UUID；它只是非敏感测试分组，不�
 三次分别替换 activity 为 fc27-weekly/fc27-sbc/fc27-trio。时间为 UTC。返回 `testRun.eventIds` 可与浏览器回执的 event_id 比对（原 HTTP 查询提取完整登记白名单中的本次标记，eventIds 可能含三页；diagnostics/report 再按 activity 筛选）；`diagnostics.eventCounts` 和 `report.steps` 给实际各阶段数量。原查询按 `environment=test` 与 `test_run_id` 同时过滤，正式 mode=live 固定 production，不混测试。
 
 只读服务器辅助脚本：`.agent_runtime/weekly-console/read-tracking-test.mjs`，在187上传至本次独立stage后 `/usr/local/bin/node <脚本路径> <UUID> <UTC日期>`。脚本复用现役 analytics/server.mjs 的 report、服务器本地 Query Read 密钥和原项目配置；只输出三页聚合、测试 event_id、查询状态，不导出密钥、身份或原始事件。无写入、无 Capture 请求。脚本目前仅语法检查通过，尚未查询任何新测试事件。少量供应商索引延迟可按原标记重新只读查询；不要因暂未读到就重放加购或换 ID。
+
+## 合并与生产边界
+
+PR960已合并，CI1850成功；23目标实际apply被自动审批拒绝，未执行，故正式静态开关仍为false。拒绝理由是这批生产写入与追踪开启尚缺最终整批批准；不改用单独开关写入或其他发布方式绕过。登记revision11和查询读取已完成，与尚未完成的静态启用、真实收数分别记账。
+
+13:33 UTC，原PostHog Query三页均HTTP200/available。本轮新测试标记 `6f672eb9-f1c3-4bfc-985c-7f445cecd983` 的三页eventCount及eventIds均为空，证明读取权限和干净基线；尚未通过真实浏览器发送该标记，不能作为Capture收数成功。现役Node实际路径为 `/usr/local/node/bin/node`；辅助调用应取现役服务的真实程序，不能把历史路径当事实。

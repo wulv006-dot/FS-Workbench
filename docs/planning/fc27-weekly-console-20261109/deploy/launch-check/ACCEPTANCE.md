@@ -44,6 +44,26 @@
 
 CI1847暴露两条旧合同：canonical-editor仍只预期三个球员平台引用；activity-bundle-scope仍硬编码只有Weekly/Trio的选择分支。已核实际21个FC引用准确等于该fixture的一个候选Player×三平台，加原FS已配六个Bundle×三平台，成员唯一，无重复或目录扩散。测试改为完整21成员加唯一新导入项的精确数组断言，并逐页核共享组合成员；范围测试执行实际selector/scoped及公开投影，覆盖三页×三平台、未绑定变体/其他页/未知商品不泄漏，以及显式空SBC范围不借用Trio。仅改这两个测试文件，本地六项全部通过，未放宽业务校验。
 
-按总控回执，CI1848的425项Node检查通过，但weekly-console浏览器用例因popup通知/close时序失败，不能记为整次CI通过。后端代理随后只修测试等待close的时序，相关23 checks连续三次通过。**本记录写入时CI1849仍在运行，尚无正式通过结论。**
+CI1848的425项Node检查通过，但weekly-console浏览器用例因popup通知/close时序失败，不能记为整次CI通过。随后只修测试等待close的时序，相关23 checks连续三次通过。CI1849已通过该用例，但products-page-flow仍等待客户页已隐藏的映射文字，原30秒超时；已准确改验PS/PC商品身份及内部信息不可见，未提高超时、删除交易校验或修改生产源码。相应七个浏览器脚本及两项原生模型测试通过。
+
+最终正式CI1850 / run42626190019 **success**，PR960成功合并，main `bbaab74262161808b44f7ff88da67ab80e379331`。最新21个生产源码逐一与固定候选SHA匹配，测试后未再修改生产代码。
 
 生产部署、公开页面、新正式追踪及本轮业务新绑定的发布/真实入口验收，均由总控取得实际回执后另行补充。本节不将先前版本27的交易证据复述为本轮新验收；旧证据仅按其原范围参见[既有独立编辑流程验收](../paged-workflow/ACCEPTANCE.md)及[既有商业接入验收](../commerce/ACCEPTANCE.md)。
+
+## 尚未部署：自动审批要求最终批准
+
+2026-11-09 13:35 UTC准备执行原publisher的23目标apply，自动审批在创建进程前拒绝，动作没有运行。理由：该批会写入生产公开页面并开启追踪，审核认为缺少对整批实际写入的最终明确批准，且原任务要求真实发布/生产配置变更等待人工批准。未重试、拆成单独开关、另用脚本或换发布方式绕过。
+
+独立侧栏18目标原publisher最终inspect仍通过，mutations=false；同样保留候选、待整批确认。没有将菜单候选、代码合并或HTTP200称为已上线。当前业务版本27、新24条组合包绑定与追踪Capture验收的状态见[具体待批准清单](APPROVAL-SCOPE.md)。
+
+13:39:37 UTC只读读回：23/23部署前SHA匹配；三服务active，center/public27、原配置/规则/policy SHA及发布操作 `e2bb13b1-e20c-4d61-a782-c2f771d50f90` 保持；正式enabled=false，追踪登记11/布局摘要正确。缓存ready78；Scout每平台3/3、SBC每平台27/27有fresh USD，Trio每平台7个选项中仅3球员有价，4个legacy包缺价，未将其算作全覆盖。证据 `.agent_runtime/weekly-console/launch-live-readback.json`。
+
+补查发现旧4包seed仅有site/game/goods引用，不满足现代model_card_key的报价及snapshot投影合同。撤回“只fresh review即可完整可售”的早先推断；实际执行清单须先用原model_imports/save将同4包变为真实模型，再沿原review/publish，不能只看policy候选绑定数。相关真实旧形状回归另记结果，当前不宣称新版生产已修复。
+
+### 旧四包转换：原接口完整回归
+
+新增weekly-commerce端到端测试使用当前数据形状：33个现代Player/SBC模型、4个legacy包、三页implicit product_keys、Trio原有12条包平台绑定。先证明仅prepare虽有候选却不能生成公开原生报价别名；再通过实际隔离production-server的HTTP center/save，提交4条model_imports，由原服务器model_resolve读可信details，一次保存追加到37模型，只更换同4个bundle键，原33记录、weekly/trio/sbc/routes保持。原ID重放读回原回执，不重新读取/保存。
+
+后续沿原commerce prepare、私有preview、模拟明确确认publish和原price producer刷新缓存，证明三页共36条包平台绑定、仅新增Weekly/SBC24条、Trio原12条精确保留；4×3×3公共报价ready，私有preview保持不可购买。观察价格完全为隔离fixture，未冒充生产读取。未知模型请求不造兜底观察；原保留Seasonal模型仅作为明确独立fixture并验证不进入FC三页。
+
+相关commerce/workflow17项通过、0fail/0skip。只新增测试，无生产源码变更，23文件候选保持同一SHA。该测试证明现有一次可信导入/保存足够，不另加自动迁移、兼容层或付费Sol调用；生产转换和正式报价仍须批准后执行与读回。
