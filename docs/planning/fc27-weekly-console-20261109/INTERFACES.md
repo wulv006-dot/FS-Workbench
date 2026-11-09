@@ -1,5 +1,7 @@
 # 周更接入与发布清单
 
+当前部署、真实Sol草稿与计划启用回执见[真实验收](deploy/LIVE-ACCEPTANCE.md)。下文的初始禁用与审批要求描述安装/接口合同，不代表本次计划仍未启用。
+
 ## 已实现入口
 
 原服务前缀 `/dashboard/analytics/campaigns/analytics/`：
