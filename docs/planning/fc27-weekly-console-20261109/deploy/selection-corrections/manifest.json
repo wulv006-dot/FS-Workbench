@@ -30,10 +30,6 @@
       "sha256": "719199ef1e34e89143e4d74f45bc3154cc00072f4567cb48dd02a34b27eecd44"
     },
     {
-      "path": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
-      "sha256": "3ec461327c164ca97171ed8ca8d3ccc939df88daa6abdd99592011669a16998a"
-    },
-    {
       "path": "/opt/fs-campaign-dashboard/analytics/products.html",
       "sha256": "3d0e2020026ea5c9ff4631d46d8f560938adf2eb345418a721f74119ea7d2ac1"
     },
@@ -54,16 +50,8 @@
       "sha256": "4b6c5931fe660fcf1e1184ccaa559c1613990ff0eb24ce12fa54474a71eceb40"
     },
     {
-      "path": "/opt/fs-campaign-dashboard/analytics/weekly-hermes.mjs",
-      "sha256": "4a37b854e8b9aeb975724b29daf83754d359af16a8beffaa83bb3e4d72aad170"
-    },
-    {
       "path": "/opt/fs-campaign-dashboard/analytics/weekly-native-candidates.mjs",
       "sha256": "253232058ed22346f576b0ff6a08b6e6a7c9f40431e2d3ef0b665531d61a942a"
-    },
-    {
-      "path": "/opt/fs-campaign-dashboard/analytics/weekly-recommendations.mjs",
-      "sha256": "54b5e05e6726eff44984c9c616d72bb421b2d13e912ddeec11cbae33c621c8eb"
     },
     {
       "path": "/opt/fs-campaign-dashboard/analytics/weekly-run-client.mjs",
@@ -76,14 +64,6 @@
     {
       "path": "/opt/fs-campaign-dashboard/analytics/weekly.css",
       "sha256": "7b19296865ed098de5b462ef8f7ad66d69f7607d36c4674afb9d2dc9f6167516"
-    },
-    {
-      "path": "/opt/fs-campaign-dashboard/analytics/weekly.html",
-      "sha256": "0a1ae08d6ec88da58d0669799ba5ff84615b6712d22927724d4261e42722a5d5"
-    },
-    {
-      "path": "/opt/fs-campaign-dashboard/analytics/weekly.js",
-      "sha256": "428c520eb381a5e49b809076cf3a9a5d61d5bcb57f308b8f65832d96a970e372"
     },
     {
       "path": "/opt/fs-campaign-dashboard/runtime/presentation.mjs",
@@ -166,6 +146,36 @@
       "beforeSha256": "f9320c5804965f16ead6c532c60cb9dafae2478ef7298d9103f7b78a43c5b285"
     },
     {
+      "candidate": "app/analytics/weekly.html",
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly.html",
+      "sha256": "8389f3766b63aaca644c18937770847a0d53d9af0bcae8d7551b8ac45656f8b3",
+      "beforeSha256": "0a1ae08d6ec88da58d0669799ba5ff84615b6712d22927724d4261e42722a5d5"
+    },
+    {
+      "candidate": "app/analytics/production-server.mjs",
+      "target": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
+      "sha256": "239ef86a5ddf13230c2d4f3bfcf918df974dfd74fcf33d936ba29a36e5c37505",
+      "beforeSha256": "3ec461327c164ca97171ed8ca8d3ccc939df88daa6abdd99592011669a16998a"
+    },
+    {
+      "candidate": "app/analytics/weekly-recommendations.mjs",
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-recommendations.mjs",
+      "sha256": "b0dfb0a78197da73b71a546bf4f29b5925128faf49a725448b99d533f2c69b83",
+      "beforeSha256": "54b5e05e6726eff44984c9c616d72bb421b2d13e912ddeec11cbae33c621c8eb"
+    },
+    {
+      "candidate": "app/analytics/weekly-hermes.mjs",
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-hermes.mjs",
+      "sha256": "bc2ff7b6f37678a96fd72c29d0ac26eaf8521b5afe2c8a7e1773ac3f391e4922",
+      "beforeSha256": "4a37b854e8b9aeb975724b29daf83754d359af16a8beffaa83bb3e4d72aad170"
+    },
+    {
+      "candidate": "app/analytics/weekly.js",
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly.js",
+      "sha256": "d546feb7cbd067a258a657ec8d4aded7b8296995c88e9ce586cc86a2a383516d",
+      "beforeSha256": "428c520eb381a5e49b809076cf3a9a5d61d5bcb57f308b8f65832d96a970e372"
+    },
+    {
       "candidate": "app/analytics/store.mjs",
       "target": "/opt/fs-campaign-dashboard/analytics/store.mjs",
       "sha256": "4f7ed25753d14c2a650cd5da44d5725715c2c87a326974aa243284b9fec993c3",
@@ -210,7 +220,7 @@
     {
       "candidate": "shared/campaign_recommendations.py",
       "target": "/opt/fs-hermes-fc/campaign_recommendations.py",
-      "sha256": "b10cb1a9dc9d177b97a04d0e7a20fcb6f8c300e60d8dafc7429b506e396b299d",
+      "sha256": "ca66d804dbe83b53169c1b5502b5dad402ea15fbdbb83ff6ad864a24cbd00ea8",
       "beforeSha256": "9a70af59a9459956f6e4db363cc7966d7313cf0583e8cd3460d73a261be5073a"
     },
     {
