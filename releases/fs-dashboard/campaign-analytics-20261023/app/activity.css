@@ -364,3 +364,26 @@
 .fca-guide p{max-width:82ch;font-size:16px;line-height:1.85;margin:10px 0 18px}.fca-guide .fca-guide-players{list-style:none;padding:0;margin:14px 0;max-width:82ch;display:block}
 .fca-guide-players li{padding:12px 0;border-bottom:1px solid var(--fca-line)}.fca-guide-players strong,.fca-guide-players span{display:block}.fca-guide-players strong{font-size:16px}.fca-guide-players span{font-size:14px;color:var(--fca-muted);line-height:1.7;margin-top:3px;overflow-wrap:anywhere}
 @media(max-width:700px){.fca-platforms{padding:18px 10px}.fca-platforms legend{font-size:14px}.fca-platform > span{min-height:52px;font-size:12px}.fca-offer-banner{padding:15px 16px;font-size:15px}.fca-guide{padding:24px 0;margin:32px 0}.fca-guide p{font-size:15px}.fca-guide h3{font-size:17px}.fca-guide-players strong{font-size:15px}.fca-guide-players span{font-size:13px}}
+
+/* Offer emphasis belongs to the items and their shared checkout summary. */
+.fca-platforms{margin:12px 0 24px;background:#f0f6ff;border-bottom:3px solid #0875ff}
+.fca-price-origin{display:flex;align-items:center;gap:10px;margin:10px 0 4px}
+.fca-price-origin del{color:var(--fca-muted);font-size:15px;font-weight:500}
+.fca-price-origin span{background:#0865d7;color:#fff;padding:5px 9px;border-radius:5px;font-size:13px;font-weight:800}
+.fca-card:has(.fca-price-origin)>.fca-price,.fca-bundle-card:has(.fca-price-origin) .fca-price{color:#075bc0}
+.fca-selection-summary{align-items:stretch;gap:28px;border-top:4px solid #168aff;background:#092342}
+.fca-selection-summary>div:first-child{flex:1;min-width:0}
+.fca-summary-checkout{align-content:center;border-left:1px solid #ffffff30;padding-left:28px}
+.fca-summary-total-label{font-size:13px;font-weight:600;max-width:240px}
+.fca-summary-checkout>strong{font-size:34px;color:#fff}
+.fca-price-breakdown{display:grid;gap:9px;max-width:430px;font-size:14px}
+.fca-price-breakdown>span{display:flex;justify-content:space-between;gap:20px}
+.fca-saving-row{color:#93d5ff;font-weight:700}
+.fca-price-terms{display:block;max-width:470px;margin-top:12px;font-size:11px;line-height:1.6;color:inherit;opacity:.85}
+.fca-review-total{background:#edf5ff;border-top:3px solid #0875ff;border-radius:6px;padding:16px;margin-top:18px}
+.fca-review-total>span{font-size:14px;font-weight:700}
+.fca-review-total>strong{color:#075bc0;font-size:30px}
+#review-savings{padding:0 16px 15px;color:var(--fca-ink)}
+#review-savings .fca-price-breakdown{max-width:none}
+#review-savings .fca-saving-row{color:#075bc0}
+@media(max-width:700px){.fca-platforms{padding:18px 12px;margin:12px 0 20px}.fca-selection-summary{gap:18px;padding:22px 18px}.fca-summary-checkout{border-left:0;border-top:1px solid #ffffff30;padding:18px 0 0}.fca-summary-checkout>strong{font-size:30px}.fca-summary-total-label{font-size:12px}.fca-price-breakdown{font-size:13px}.fca-price-origin{gap:6px}.fca-price-origin del{font-size:13px}.fca-price-origin span{font-size:11px}.fca-review-total{gap:12px}.fca-review-total>strong{font-size:26px}}

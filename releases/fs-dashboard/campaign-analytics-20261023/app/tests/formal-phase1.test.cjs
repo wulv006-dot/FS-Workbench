@@ -22,7 +22,7 @@ test('Unconfigured phase1 has no invented benefit and cannot unlock legacy live 
 test('Generated public pages and metadata never advertise legacy stacking or snapshot prices',async()=>{
  const {buildOutputs,loadConfig}=await import('../build-seo.mjs');const outputs=buildOutputs(loadConfig());
  for(const name of ['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html']){
-  const html=outputs[name];assert.match(html,/10% OFF at checkout with the activity code\./);assert.doesNotMatch(html,/Campaign offer not configured/);
+  const html=outputs[name];assert.match(html,/<[^>]+id="activity-offer"[^>]*hidden[^>]*><\/[^>]+>/);assert.match(html,/10% OFF/);assert.doesNotMatch(html,/Campaign offer not configured/);
   assert.match(html,/cannot be combined with coupons or member points/);
   assert.match(html,/\$\d+\.\d{2}/);assert.doesNotMatch(html,/Stack eligible|stack eligible|Activity price preview|Public price snapshot/);
   assert.match(html,/<button[^>]+id="submit-selection"[^>]+disabled/);

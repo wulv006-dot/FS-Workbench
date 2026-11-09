@@ -54,3 +54,23 @@ FS 登记 state revision 8：三页仍为 `/Fc-27/...`、`testing`；万圣节�
 查询窗口 `[2026-11-09 00:00:00Z, 2026-11-10 00:00:00Z)`，按 Admin 北京时间付款字段转为 `[11-09 08:00, 11-10 08:00)`。截至读取时已完成分页，`coverage.complete=true`、source_rows=0、unique_orders=0；FCSCOUT10 / discount6049 原码身份核验通过。返回用码付款订单 **0**、整单 USD **$0.00**、含退款付款订单 **0**。当天尚未结束，此数仅为该次读取观察，不是全天最终数。
 
 这证明查询合同、真实码身份和当次完整空结果可读；尚无非零付款样本，不能据此声称正例付款事件或三页成交已验证。原真实购物车 Apply 成功也不替代付款。无逐页、逐访客、商品行分摊或退款净额证据。
+
+## 启用后的真实标记行为验收（待执行）
+
+正式三页分别打开：
+
+- `https://www.mmoexp.com/events/Weekly-Scout.html?analytics_test=1&analytics_run=<同一UUID>`
+- `https://www.mmoexp.com/events/Sbc-Companions.html?analytics_test=1&analytics_run=<同一UUID>`
+- `https://www.mmoexp.com/events/Player-Trio.html?analytics_test=1&analytics_run=<同一UUID>`
+
+UUID 使用一个新生成的合法 UUID；它只是非敏感测试分组，不是登录信息。三个页面复用该标记，通过 activity_id 分开读回。此正式域名标记不会关闭交易：仅将 PostHog `environment=test`、`test_run_id` 固定，且不加载 Google 测试事件。购物车操作仍应按已有真实购物车验收授权执行并恢复测试前状态，不能当模拟购物。
+
+顺序：打开 Analytics preferences，先 No thanks，确认没有发送；点击 Allow analytics，观察页面和商品曝光；改变一个实际选择；需要验证加购时沿页面原按钮完成真实 Cart/add，查看原购物车。只期待 `activity_view`、`activity_product_view`、`activity_selection`、`activity_review`、`activity_cart_result`、`activity_add_to_cart` 中实际触发的事件。原 native callback 仅对 confirmed 行产生加购成功，既有 operation journal 重读不应再发购物车请求。再撤回同意、进行一个选择，确认后续不再发送。不得手动 dispatch DOM 事件或调用 capture 伪造正例，不触发 purchase。
+
+发送端 `seasonal:analytics-receipt` 的 `detail={event_id,status,http}` 可核 accepted/rejected/unknown；accepted 仅证明 Capture API 接收。浏览器 `fcactivity:analytics-debug` 可核同一 event_id/test_run_id/environment，但 debug 本身不是发送证明，不读取/导出 Cookie。最终以服务器查询匹配同 event_id 为接收读回证据。
+
+原已登录 FS GET 入口：
+`/dashboard/analytics/campaigns/analytics/api/report?activity=fc27-weekly&mode=test&from=YYYY-MM-DD&to=YYYY-MM-DD&testRunId=<同一UUID>&windowHours=24`
+三次分别替换 activity 为 fc27-weekly/fc27-sbc/fc27-trio。时间为 UTC。返回 `testRun.eventIds` 可与浏览器回执的 event_id 比对（原 HTTP 查询提取完整登记白名单中的本次标记，eventIds 可能含三页；diagnostics/report 再按 activity 筛选）；`diagnostics.eventCounts` 和 `report.steps` 给实际各阶段数量。原查询按 `environment=test` 与 `test_run_id` 同时过滤，正式 mode=live 固定 production，不混测试。
+
+只读服务器辅助脚本：`.agent_runtime/weekly-console/read-tracking-test.mjs`，在187上传至本次独立stage后 `/usr/local/bin/node <脚本路径> <UUID> <UTC日期>`。脚本复用现役 analytics/server.mjs 的 report、服务器本地 Query Read 密钥和原项目配置；只输出三页聚合、测试 event_id、查询状态，不导出密钥、身份或原始事件。无写入、无 Capture 请求。脚本目前仅语法检查通过，尚未查询任何新测试事件。少量供应商索引延迟可按原标记重新只读查询；不要因暂未读到就重放加购或换 ID。
