@@ -1,0 +1,77 @@
+{
+  "sourceCommit": "412c185707ce3afd02811c79f807ac66c78cfb7e",
+  "baselineCommit": "30d28c20308ec1d68ac29b8decd397b4ea507ce2",
+  "files": 9,
+  "unchanged_guards": 38,
+  "activation": [
+    "fs-campaign-dashboard.service",
+    "fs-campaign-runtime.service",
+    "fs-business-range.service"
+  ],
+  "static_entries": 110,
+  "changed_static": [
+    "Sbc-Companions.html",
+    "Weekly-Scout.html",
+    "activity-content.js",
+    "analytics-config.js",
+    "index.html"
+  ],
+  "manifestSha256": "b398f2a251b50f91f67f535ba00c747fd19e6d3adbcd859192d794b2679f34f1",
+  "launcherSha256": "64d6c7f8d836c00acccb91b09a03846a1f81967dbfa13c0025cc95db3bc6de6f",
+  "files_detail": [
+    {
+      "candidate": "app/activity-content.js",
+      "target": "/opt/fs-campaign-dashboard/activity-content.js",
+      "sha256": "3cfd8a1f0f464e231e1660ae7bf07810eda773bdd2c1a24ff3e28494f047aa6a",
+      "beforeSha256": "27188bc70003c34832457682518958f305603d1681158fe6ecc051da529f65be"
+    },
+    {
+      "candidate": "app/Sbc-Companions.html",
+      "target": "/opt/fs-campaign-dashboard/Sbc-Companions.html",
+      "sha256": "69b7ff1ec1136f379ee5e2b0f1191b77aed0cc5fe4716b2f077ae0b73ea685c3",
+      "beforeSha256": "b18b92b8bd339bec4aa7d03ccef17b56b59833838dedfadf88db4d9ce8498afe"
+    },
+    {
+      "candidate": "app/Weekly-Scout.html",
+      "target": "/opt/fs-campaign-dashboard/Weekly-Scout.html",
+      "sha256": "47d0f793fd17a76e463d2100c780ac18f4d8f02d24db9d335703b0e8909614df",
+      "beforeSha256": "d41430b35731e97a0b55ff6137bf637d52a89dde36c5fb9fbb28eec6496e4c00"
+    },
+    {
+      "candidate": "app/index.html",
+      "target": "/opt/fs-campaign-dashboard/index.html",
+      "sha256": "9c94475d1fad1409f8aa357c2072913ae0982fa5a23e7e2aa941c454118fb1ed",
+      "beforeSha256": "f5cdfe3d21dc5e94aee461b79f1acabfa46e8e18475c257ad7932354edd38435"
+    },
+    {
+      "candidate": "app/analytics/products.js",
+      "target": "/opt/fs-campaign-dashboard/analytics/products.js",
+      "sha256": "74b5af7d8d9b935233bcf2f42976b1019c55717b9fe59b9faa012d285a6cada6",
+      "beforeSha256": "72b30c3488964945d945ae5e3ece9957f0cc9ce8b43ceee0d294bf63d51f0b91"
+    },
+    {
+      "candidate": "app/analytics-config.js",
+      "target": "/opt/fs-campaign-dashboard/analytics-config.js",
+      "sha256": "7dbe7278e45ee652a3df134c3e450fba696db35a2ab8bebce1b21156f79f1d32",
+      "beforeSha256": "b6cc7e73632020bc24f2cc51a94d8f6d68578946475d514825e2f506466cc652"
+    },
+    {
+      "candidate": "app/analytics/activity-registry.json",
+      "target": "/opt/fs-campaign-dashboard/analytics/activity-registry.json",
+      "sha256": "96f7559735e86f57ca7155f2c42aab6cb96922d6561e11c8cd0fb6e8ae309f2b",
+      "beforeSha256": "311ca145407f5308f26a4492c7e9a43616299bc13f90667f733ead38181332af"
+    },
+    {
+      "candidate": "shared/campaign_evidence.py",
+      "target": "/opt/fs-hermes-fc/campaign_evidence.py",
+      "sha256": "83935163db351da1f74f6f7ea87dd12f6d48ce1022bfc783d80f88dd28c4ff89",
+      "beforeSha256": "891d0253599824f5cafd9448d8f97c4ddbcfb23e767f60b5ae043adf4d16bb36"
+    },
+    {
+      "candidate": "derived/static-manifest.json",
+      "target": "/opt/fs-campaign-dashboard/runtime/static-manifest.json",
+      "sha256": "b3f2a8bada82011516fcf77ed4bbbecedde0f1a8eea413dc0a775d86e426376e",
+      "beforeSha256": "537448ed541f5a3c460383cc6213dda283997c43e27c270f80b3a388c172c45a"
+    }
+  ]
+}

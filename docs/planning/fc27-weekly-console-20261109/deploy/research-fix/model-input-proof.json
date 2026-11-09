@@ -1,0 +1,18 @@
+{
+  "operation_id": "fa02f31d-36b2-46a5-9365-ec8bf8852c2d",
+  "input_source_count": 4,
+  "external_sources": [
+    "https://www.futbin.com/27/player/24076/aleix-garcia-serrano",
+    "https://www.fut.gg/players/264936-geraldine-reuteler/27-50596584/",
+    "https://www.easysbc.io/news/fc-27-best-starter-players/",
+    "https://www.futbin.com/27/player/24084/diogo-martins-travassos"
+  ],
+  "external_context_marker": true,
+  "context_sha256": "d9bff3bdfaf9fc7668b3d0cbdc04d39e4fe560bf64e63eb83099e6e3db4b3004",
+  "selection_shape": [
+    "model",
+    "recommendations",
+    "sbc_update_id",
+    "source_revision"
+  ]
+}

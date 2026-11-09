@@ -1,0 +1,6 @@
+{
+  "backup": "/var/backups/fs-navigation-20261006/nav-20261109T082600Z",
+  "status": "applied-awaiting-actual-http-role-acceptance",
+  "staticFiles": 9,
+  "businessWorkerTimerActions": 0
+}
