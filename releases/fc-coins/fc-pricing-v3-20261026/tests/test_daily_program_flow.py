@@ -457,6 +457,34 @@ class SavedDailyComparison(unittest.TestCase):
             self.assertTrue(result['do_not_replay'])
             self.assertEqual(result['turn']['id'],p.made['turn_id'])
 
+    def test_original_completed_event_recovers_stale_unknown_without_model_replay(self):
+        for matched in (False,True):
+            with self.subTest(matched=matched),tempfile.TemporaryDirectory() as folder:
+                p=self.producer(folder)
+                run='run_'+'1'*32
+                p.store.bind_run('wulv',p.made['conversation_id'],p.made['turn_id'],run)
+                p.store.append_event('wulv',p.made['conversation_id'],run,74,
+                    dict(event='run.completed',run_id=run if matched else 'run_'+'2'*32,output='Original daily review'))
+                p.store.set_state('wulv',p.made['conversation_id'],p.made['turn_id'],'dispatch_unknown')
+                path=p.root/'evidence'/('hermes-pricing-'+p.record['request_id']+'.json')
+                receipt=json.loads(path.read_text())
+                receipt.update(phase='unknown',reason='original_turn_dispatch_unknown',do_not_replay=True)
+                path.write_text(json.dumps(receipt),encoding='utf-8')
+                def original_detail(owner,url,body=None,timeout=30):
+                    self.assertIsNone(body,'Reconciliation must never submit a new model turn')
+                    self.assertEqual(url,'/api/hermes/conversations/pricing-reviews/'+p.made['conversation_id'])
+                    return p.store.detail(owner,p.made['conversation_id'])
+                with patch.object(hermes_pricing_bridge,'ROOT',p.root),patch.object(hermes_pricing_bridge,'FS',p.root), \
+                     patch.object(hermes_pricing_bridge,'request',side_effect=original_detail), \
+                     patch.object(hermes_pricing_bridge,'save',side_effect=lambda path,value:path.write_text(json.dumps(value),encoding='utf-8')):
+                    result=hermes_pricing_bridge.review(dict(job_id=p.record['request_id']),
+                        dict(run_id=p.record['request_id'],daily_report=dict(decision_basis=p.record['decision_basis'])),mode='daily_review',wait_seconds=0)
+                self.assertEqual(result['phase'],'completed' if matched else 'unknown')
+                self.assertEqual(result['input_sha256'],receipt['input_sha256'])
+                if matched:
+                    self.assertEqual(result['turn']['state_source'],'original_terminal_event')
+                    self.assertEqual(result['evaluation']['turns'][0]['reply'],'Original daily review')
+
     def test_source_reference_table_initializes_concurrently_without_changing_old_columns(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'existing.db'
