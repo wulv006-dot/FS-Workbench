@@ -14,5 +14,7 @@
   "backend/campaign_backend/models.py": "/opt/fs-campaign-dashboard/backend/campaign_backend/models.py",
   "backend/campaign_backend/weekly.py": "/opt/fs-campaign-dashboard/backend/campaign_backend/weekly.py",
   "shared/campaign_recommendations.py": "/opt/fs-hermes-fc/campaign_recommendations.py",
+  "shared/campaign_evidence.py": "/opt/fs-hermes-fc/campaign_evidence.py",
+  "shared/campaign_weekly.py": "/opt/fs-hermes-fc/campaign_weekly.py",
   "derived/static-manifest.json": "/opt/fs-campaign-dashboard/runtime/static-manifest.json"
 }

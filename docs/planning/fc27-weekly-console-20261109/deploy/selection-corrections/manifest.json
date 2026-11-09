@@ -106,14 +106,6 @@
       "sha256": "213cca2a7a02218f67aff6ca3bf905aac9fe3ba0165017b590949b3828bac35e"
     },
     {
-      "path": "/opt/fs-hermes-fc/campaign_evidence.py",
-      "sha256": "6e021874581d860a8b8182a8d6388dbb418ca49fee45c4b8fd0555f68132f85f"
-    },
-    {
-      "path": "/opt/fs-hermes-fc/campaign_weekly.py",
-      "sha256": "4970c100f29f1b123324734d737baebc06b19001de9565ca5b1e76de29817d67"
-    },
-    {
       "path": "/opt/fs-hermes-fc/openai_provider.py",
       "sha256": "206b8578d55ba083d7885501193b3591c220195e35e9bb8266f155acd60f96a9"
     },
@@ -134,25 +126,25 @@
     {
       "candidate": "app/Player-Trio.html",
       "target": "/opt/fs-campaign-dashboard/Player-Trio.html",
-      "sha256": "1779d7184b682f4447f2ba51a126002ebae09ffb77bf3fc440cc192248fa6b97",
+      "sha256": "ade480d9c38a9ee0f2e2c68ac080b63da004b87978ccb2edc871715ec75d1df7",
       "beforeSha256": "e54076d5d335f7ffa723924a5854bbb2da921de661026a304513a55e828b52ec"
     },
     {
       "candidate": "app/Sbc-Companions.html",
       "target": "/opt/fs-campaign-dashboard/Sbc-Companions.html",
-      "sha256": "99bd1079f007b9a6d0f23da36219b4cdc6c3815a6ac38c172e68d9ca791d4cdd",
+      "sha256": "b18b92b8bd339bec4aa7d03ccef17b56b59833838dedfadf88db4d9ce8498afe",
       "beforeSha256": "d26f590520c7dc7c77c3bd4c3812e9361c27b7e2d91fe643d0d39c2fd7301656"
     },
     {
       "candidate": "app/Weekly-Scout.html",
       "target": "/opt/fs-campaign-dashboard/Weekly-Scout.html",
-      "sha256": "7de5d3edc9b06d95a8a5509360e226bb2a6da64e748194b6045e43984e4c9cd8",
+      "sha256": "d41430b35731e97a0b55ff6137bf637d52a89dde36c5fb9fbb28eec6496e4c00",
       "beforeSha256": "8c1b28369a10536c2e365aa1137424bf4e39bb77ea687252bf9a04d8e9270b13"
     },
     {
       "candidate": "app/index.html",
       "target": "/opt/fs-campaign-dashboard/index.html",
-      "sha256": "7cda4b21be579fbb820280fd7761f4a9038cbb2a723ac7d0d7a0a023ace31724",
+      "sha256": "f5cdfe3d21dc5e94aee461b79f1acabfa46e8e18475c257ad7932354edd38435",
       "beforeSha256": "d6c88966b30850156708313837ab38834f315eb50be1199b41dcf430368fc3e3"
     },
     {
@@ -182,7 +174,7 @@
     {
       "candidate": "app/analytics/weekly-pipeline.mjs",
       "target": "/opt/fs-campaign-dashboard/analytics/weekly-pipeline.mjs",
-      "sha256": "c4592385a221a03cfe7f3314c6b6bdf8a78821479e99cb621ea5f5971703a7d5",
+      "sha256": "7be7250f58bdd62f8f799ef017f0c69e306f5c39a7f3dfaa051aa84ae7f6d164",
       "beforeSha256": "1ffe2dbdacac2994349925a555cca5414467b489cfc42c20214f5fd7090759c3"
     },
     {
@@ -212,19 +204,31 @@
     {
       "candidate": "backend/campaign_backend/weekly.py",
       "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/weekly.py",
-      "sha256": "ebecca941cd6d77e9a0edb5f70dccb1a0cb4280390bef1cb989bf7cc642b17da",
+      "sha256": "605aa54152358fb475f70049179e0e76f406a2638c62aa6d3dce9f514e02e906",
       "beforeSha256": "c7f87f53b1cfd77c8dd7b604c905b351601b756965707476af603fd7169e4c25"
     },
     {
       "candidate": "shared/campaign_recommendations.py",
       "target": "/opt/fs-hermes-fc/campaign_recommendations.py",
-      "sha256": "06483a8c6ebea38a36f7ab0adefec725dd63f73e4b8a5e360318e282954626b8",
+      "sha256": "b10cb1a9dc9d177b97a04d0e7a20fcb6f8c300e60d8dafc7429b506e396b299d",
       "beforeSha256": "9a70af59a9459956f6e4db363cc7966d7313cf0583e8cd3460d73a261be5073a"
+    },
+    {
+      "candidate": "shared/campaign_evidence.py",
+      "target": "/opt/fs-hermes-fc/campaign_evidence.py",
+      "sha256": "891d0253599824f5cafd9448d8f97c4ddbcfb23e767f60b5ae043adf4d16bb36",
+      "beforeSha256": "6e021874581d860a8b8182a8d6388dbb418ca49fee45c4b8fd0555f68132f85f"
+    },
+    {
+      "candidate": "shared/campaign_weekly.py",
+      "target": "/opt/fs-hermes-fc/campaign_weekly.py",
+      "sha256": "ce80b03009e03d741dd198e834762cebc2764516fab84be86f85cbd4dfe5a3f5",
+      "beforeSha256": "4970c100f29f1b123324734d737baebc06b19001de9565ca5b1e76de29817d67"
     },
     {
       "candidate": "derived/static-manifest.json",
       "target": "/opt/fs-campaign-dashboard/runtime/static-manifest.json",
-      "sha256": "ffec69f647cfc80797294a1139fce6de491761c5ee27d319af5477f1a2a632fc",
+      "sha256": "537448ed541f5a3c460383cc6213dda283997c43e27c270f80b3a388c172c45a",
       "beforeSha256": "bc828dc60a9edb19b42805e9e5e1deb8a68d5a6a17e277eead42b68b123b752d"
     }
   ]
