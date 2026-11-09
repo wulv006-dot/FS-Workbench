@@ -66,7 +66,16 @@ test('published snapshot carries the operator copy; invalid copy blocks publish'
 test('hero renderer applies published copy and keeps defaults when absent',()=>{
   const raw=JSON.parse(fs.readFileSync(path.join(root,'catalog.json'),'utf8'));
   const plain=content.create(content.publicConfig(structuredClone(raw)),false).heroes.weekly;
-  assert.match(plain.heading[1],/Ballon d’Or|shortlist/i);
+  assert.equal(plain.heading[1],'Current Popular player picks');
+  const defaults=content.create(raw,false).heroes;
+  assert(!/Ballon|BALLON|winners|Kane|Putellas|Yamal|C罗|帕尔默|卢克巴|罗纳尔多/.test(JSON.stringify(defaults)));
+
+  const sbc=content.create(raw,false).heroes.sbc;
+  for(const key of ['body','heading','intro'])assert(!/Emre Mor|Nick Woltemade|Ultimate Scream|actually link|chemistry-matched/.test(sbc[key][1]));
+  assert.match(sbc.intro[1],/do not guarantee full chemistry/);
+  const customSbc=structuredClone(raw);customSbc.copy={sbc:{body:'Operator SBC body',heading:'Operator SBC heading',intro:'Operator SBC intro'}};
+  const custom=content.create(customSbc,false).heroes.sbc;
+  for(const key of ['body','heading','intro'])assert.equal(custom[key][1],customSbc.copy.sbc[key]);
 
   const overridden=structuredClone(raw);
   overridden.copy={weekly:{heading:'Copy from the admin',intro:'Intro from the admin',body:'Body from the admin'}};

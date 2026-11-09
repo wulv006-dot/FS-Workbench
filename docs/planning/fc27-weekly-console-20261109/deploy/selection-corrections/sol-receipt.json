@@ -1,0 +1,69 @@
+{
+  "status": "receipt_read",
+  "operation_id": "a6989e19-fd19-4d0b-b519-6968f7d8a717",
+  "recommendation_state": "completed",
+  "network_started": true,
+  "task_id": "811fa5cd05f5298be6e5a2716f58d80d",
+  "run_id": "campaign_7047f0ca199aafe976fe13bfd8c6fc97",
+  "task_state": "SUCCEEDED",
+  "task_run_matches": true,
+  "selection_counts": {
+    "status": "observed",
+    "rows": 24,
+    "page_counts": {
+      "fc27-trio": 3,
+      "fc27-weekly": 3,
+      "fc27-sbc": 18
+    },
+    "core_count": 9,
+    "per_core_counts": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "distinct_companion_models": 18,
+    "binding_matches": true,
+    "nine_by_two": true
+  },
+  "receipt_model": "gpt-6.1-sol",
+  "receipt_usage": {
+    "input_tokens": 6582,
+    "output_tokens": 4435,
+    "total_tokens": 11017
+  },
+  "ledger_call_count": 1,
+  "ledger_calls": [
+    {
+      "turn": 0,
+      "state": "succeeded",
+      "policy_model": "gpt-6.1-sol",
+      "response_model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "finish_reason": "stop",
+      "usage": {
+        "completion_tokens": 4435,
+        "prompt_tokens": 6582,
+        "total_tokens": 11017
+      },
+      "model_validation": {
+        "status": "provider_metadata_confirmed",
+        "requested_model": "gpt-6.1-sol",
+        "response_model": "gpt-6.1-sol",
+        "actual_backend_version": "unknown",
+        "provider_response_id": "resp_07f1720abdf51c39016af17ee0ffdc87d1aebd8c8628da45ad",
+        "requested_effort": "high",
+        "provider_effort_echo": "high"
+      },
+      "forwarded_verified": true
+    }
+  ],
+  "cost_usd": null,
+  "cost_note": "No invoice or verified rate supplied; tokens are not a monetary charge receipt.",
+  "scope": "original_operation_only_no_prompt_or_session_output"
+}

@@ -1,0 +1,67 @@
+{
+  "status": "partial",
+  "operation_id": "a6989e19-fd19-4d0b-b519-6968f7d8a717",
+  "candidate_sha256": "83935163db351da1f74f6f7ea87dd12f6d48ce1022bfc783d80f88dd28c4ff89",
+  "started_at": "2026-11-09T08:19:05.778244+00:00",
+  "elapsed_seconds": 50.15,
+  "calls": {
+    "search": 12,
+    "fetch": 8
+  },
+  "query_lengths": [
+    109,
+    114,
+    118,
+    119,
+    107,
+    112,
+    111,
+    98,
+    107,
+    116,
+    115,
+    122
+  ],
+  "queried_player_count": 31,
+  "players": 31,
+  "verified_documents": 4,
+  "categories": [
+    "vertical"
+  ],
+  "failure_classes": {
+    "player_or_season_unmatched": 1,
+    "fetch_failed": 1,
+    "research_fetch_budget": 1,
+    "coverage_partial": 31
+  },
+  "reader_errors": {
+    "fetch:SourceError:research_probe_failed": 1
+  },
+  "sources": [
+    {
+      "url": "https://www.futbin.com/27/player/24076/aleix-garcia-serrano",
+      "category": "vertical",
+      "observed_at": "2026-11-09T08:19:05.778244+00:00",
+      "content_sha256": "d794de75e6990c114bbf44734350d70d827f77ce6754610d1b625cc46986ac74"
+    },
+    {
+      "url": "https://www.fut.gg/players/264936-geraldine-reuteler/27-50596584/",
+      "category": "vertical",
+      "observed_at": "2026-11-09T08:19:05.778244+00:00",
+      "content_sha256": "39681c9faae9fddbe8fe8439ccb790ce7854a0dc78b35d53411104c100b04c28"
+    },
+    {
+      "url": "https://www.easysbc.io/news/fc-27-best-starter-players/",
+      "category": "vertical",
+      "observed_at": "2026-11-09T08:19:05.778244+00:00",
+      "content_sha256": "af53c38c7c46f880236ef273d2ebe8d264b446addc2ac16b600bd87546df72da"
+    },
+    {
+      "url": "https://www.futbin.com/27/player/24084/diogo-martins-travassos",
+      "category": "vertical",
+      "observed_at": "2026-11-09T08:19:05.778244+00:00",
+      "content_sha256": "5ddd7fc8a339c4b6a13b38e9e4a46adb2b2edf01deb41dc7592cab9c4408326a"
+    }
+  ],
+  "scope": "research_only_no_model_no_database_or_service_write"
+}
