@@ -500,6 +500,10 @@ def load_iggm(path=None, max_age_h=12, log=print):
             stale = True
 
     if stale:
+        import net_util
+        if net_util.iggm_local_preferred():
+            log("  [IGGM] 本机在线优先本机，跳过 Decodo 兜底，本轮不锚定")
+            return {}, (doc or {}).get("ts")
         mode = str((load_cfg().get("参数") or {}).get("IGGM兜底", "auto") or "auto")
         if mode == "off":
             log("  [IGGM] 兜底已关闭（参数.IGGM兜底=off），本轮不锚定")
