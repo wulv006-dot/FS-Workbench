@@ -2,6 +2,15 @@
 
 本文件接续开发期 ACCEPTANCE.md；各阶段分别记实，不以公开入口通过替代登录后数据验收。
 
+## 当前状态
+
+- 已上线：113项命名业务读取、按模块提供参数/口径、按需展开大结果及数组展示分页；不接Hermes会话或报告生成。
+- 当前生产版本：PR #938 / source593c1a2 / image8eed105b；184项Linux检查全部通过。后续章节按时间保留早期失败与发布前记录，不代表当前仍运行旧版本。
+- Codex已真实授权并读到业务数据；新版模型完整显示验收见本文件末尾。
+- ChatGPT尚未接通：浏览器授权回跳已通过，云端token兑换503；单次诊断有浏览器阳性对照但无token POST，根因仍未定位。DeepSeek副机和普通成员/工作区矩阵未实机验收。
+- 原上游存在网站范围冲突，跨源分析须读实际filters/normalisedScope，不按请求标签假定同范围。全量数据面的剩余缺项见DATA-SOURCES.md。
+
+
 ## 合并
 
 - PR #929 已合并：`cb87b4901a81ffd313e06e4882a3b33918519ea2`，最终 PR fast `42563340661` 成功。
@@ -98,3 +107,23 @@ CLI 0.167.0-alpha.3.2沿原账号正常授权成功，浏览器callback显示Aut
 原上游范围冲突已从实际响应核实：query.site为www.mmoexp.com，但profile.primary标all-websites且filters无网站字段，profile.supplement标all-websites且filters.site为空；shipping才为www.mmoexp.com且source[]=该站、selection.site=main。故website_scope_consistent=false；不得把三个来源当相同网站/人群合算，不能仅凭consistentPeriod宣全口径一致。本连接器保留该证据，不修改原业务聚合。
 
 本轮响应展开本地验收：184项，183通过、1项Windows POSIX文件权限跳过；目录按module与data_path/数组展示分页覆盖，744行合成数据全部分页重组一致，祖先来源scope冲突保留。pr-fast显式纳入test_response_view，selfcheck通过。仍待Linux、组合CI、发布及模型真实读取无截断验收。
+
+
+## 分块读取版本已发布（PR #938）
+
+source `593c1a2c1c62d4ad6c8c61647180f18e7d932ff5`，正式组合head `2c7bbaaea975da92988015f930c5cc6550203224`，CI `42576784379`成功，合并 `8fbdbb0f22117e1ac7f711d169b6d63af4471087`。组合中无关周报交付未改变连接器运行、测试或6项方法源。183派生镜像实际184/184通过、0跳过，27运行文件hash一致，新增仅response_view.py；publicprobe/DCR正负向通过，测试资料未打入运行载荷。
+
+镜像 `sha256:8eed105bffce5cf27cde1cc2aaae59dbeccb4a691e29fc70ec65ac4e903b7716`，gzip SHA `0a3bd8f9d404c246e71bb0c6a84554196c8defed5c213eeb5161a5b88ad03e78`，更新载荷SHA `2bb2d294caf12332b162a583e42ea2f2e5493630a32a0526a3c0dd9264648013`。187 stage `/opt/fs-release-stage/fs-connector-navigation-593c1a2`，校验与只读CAS预检通过后apply一次，回执 `/var/backups/fs-data-connector/navigation-593c1a2/receipt.json` 为updated_anonymous_entry_verified，原业务服务、nginx、OAuth状态保持。
+
+实际月响应的离线展示复核：默认索引3517B、Admin metrics6228B、Order primary13989B、Shipping4922B、games首段5727B、rows前两页4214/4217B。返回分支与切片SHA均等于原始值，原响应SHA不变；Admin祖先all-websites及空site过滤完整保留。这是已取得响应的离线验证，模型无截断结论以之后真实客户端读回为准。
+
+
+## 新版Codex模型可见性通过
+
+复用原OAuth，原生exec退出0，9次既定FS只读调用完成：简短导航10753B、unified-business模块10819B、月根index3517B、Admin metrics6228B、Order primary13989B、Shipping4922B、rows前两页4214/4217B、games首页5727B。模型最终逐项确认无truncated/省略标记；正确读取rows的0→20→40/total744及games的0→20/total90。没有为了验收读取全部744行。
+
+模型明确识别Admin/Order全站与Shipping主站及币种不同，没有把consistentPeriod当同网站、value_complete当业务全覆盖。0重试、0重新登录、0Hermes调用，不生成长月报。跨源网站冲突属于原数据问题，本次保留而未重算。
+
+知识收尾plan `KL-03c6a2f65d6b246bcbb5a32d`，SHA `056fdc13b928695fa7776662176cbc57cd1ac574186aef11e35fd2797f47ed4d`，affected_ids/steps为空、无冲突，无知识发布、Notion写入或额外重启。
+
+根索引中的/rangeId另补一次同arguments的原生读取，HTTP200且原生exec退出0，与首次202请求的`0653850f9be18264672bc77a22cd7a88113eacb58fe7c2f3f51038f88153b81e`一致。此后停止取数；新版真实验收合计9+1次，不更换任务或查询范围。
