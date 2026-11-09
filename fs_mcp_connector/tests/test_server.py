@@ -121,6 +121,32 @@ class ServerTests(unittest.TestCase):
     def test_default_code_only_registration_does_not_issue_refresh(self):
         self.assertNotIn('refresh_token', self.approve())
 
+    def test_installed_codex_native_dcr_metadata_is_accepted(self):
+        payload = dict(application_type='native', client_name='Codex',
+            redirect_uris=['http://127.0.0.1:1455/callback'],
+            grant_types=['authorization_code', 'refresh_token'], response_types=['code'],
+            scope='fs.read', token_endpoint_auth_method='none')
+        response = self.client.post('/connector/oauth/register', json=payload)
+        self.assertEqual(response.status_code, 201, response.text)
+        registered = response.json()
+        self.assertEqual(registered['redirect_uris'], payload['redirect_uris'])
+        self.assertEqual(registered['grant_types'], payload['grant_types'])
+        self.assertEqual(registered['token_endpoint_auth_method'], 'none')
+        self.assertNotIn('client_secret', registered)
+
+    def test_dcr_application_type_keeps_core_registration_checks(self):
+        payload = dict(application_type='native', client_name='Codex',
+            redirect_uris=['http://127.0.0.1:1455/callback'],
+            grant_types=['authorization_code', 'refresh_token'], response_types=['code'],
+            scope='fs.read', token_endpoint_auth_method='none')
+        for change in ({'application_type': 'unknown'}, {'application_type': []},
+                {'application_type': None}, {'scope': 'fs.write'}, {'grant_types': ['refresh_token']},
+                {'redirect_uris': ['http://remote.example/callback']},
+                {'token_endpoint_auth_method': 'client_secret_basic'}, {'unexpected': 'metadata'}):
+            with self.subTest(change=change):
+                response = self.client.post('/connector/oauth/register', json=dict(payload, **change))
+                self.assertEqual(response.status_code, 400)
+
     def test_duplicate_json_oauth_parameter_rejected(self):
         response = self.client.post('/connector/oauth/register',
             content='{"redirect_uris":["https://client.example/callback"],"client_name":"one","client_name":"two"}',
