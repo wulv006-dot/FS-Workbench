@@ -1,6 +1,6 @@
 # campaign_recommendation_v1
 
-本轮新增已授权推荐消费者及周日12:00（Asia/Shanghai）草稿编排；不修改周报、管理台、普通聊天或pricing配置。用户后续确认自动加手动、允许Hermes使用本人身份及真实模型做页面商品更新测试。当前候选代码以假provider和隔离中心验证；部署、真实模型和自然周期须另附回执。计划初始禁用，活动对外发布仍等批准。
+本轮新增已授权推荐消费者及周日12:00（Asia/Shanghai）草稿编排；不修改周报、管理台、普通聊天或pricing配置。用户后续确认自动加手动、允许Hermes使用本人身份及真实模型做页面商品更新测试。部署及真实模型草稿已验证，计划已按本次批准启用，见[真实验收](deploy/LIVE-ACCEPTANCE.md)；初始安装仍默认禁用，活动对外发布仍等批准，自然周期单独验收。
 
 沿现役 `management-november-20261103/source/range_api.py` 的8931进程增加内部路由 `/internal/hermes/campaign-recommendations`，不新增端口、服务或凭据。POST接受 `{contract,operation_id,input}`；input为三页、FC27目录身份和本期SBC来源的限定投影。模型固定gpt-6.1-sol/high；浏览器不能选择模型、工具、actor或文件路径。GET仅按原operation_id查询，不派发。
 

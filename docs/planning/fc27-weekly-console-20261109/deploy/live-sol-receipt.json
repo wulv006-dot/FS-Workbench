@@ -1,0 +1,41 @@
+{
+  "status": "receipt_read",
+  "operation_id": "f9c3a00c-0837-41ee-ad32-a2fe531fbc14",
+  "recommendation_state": "completed",
+  "network_started": true,
+  "task_id": "0686eb4fd468646fabfedcd9a673b5ff",
+  "run_id": "campaign_af79f178bd4efe494a501d179f712546",
+  "receipt_model": "gpt-6.1-sol",
+  "receipt_usage": {
+    "input_tokens": 4410,
+    "output_tokens": 2986,
+    "total_tokens": 7396
+  },
+  "ledger_call_count": 1,
+  "ledger_calls": [
+    {
+      "turn": 0,
+      "state": "succeeded",
+      "policy_model": "gpt-6.1-sol",
+      "response_model": "gpt-6.1-sol",
+      "usage": {
+        "completion_tokens": 2986,
+        "prompt_tokens": 4410,
+        "total_tokens": 7396
+      },
+      "model_validation": {
+        "status": "provider_metadata_confirmed",
+        "requested_model": "gpt-6.1-sol",
+        "response_model": "gpt-6.1-sol",
+        "actual_backend_version": "unknown",
+        "provider_response_id": "resp_016df12da45df1c2016af16bd1d75487d1989f65482016787b",
+        "requested_effort": "high",
+        "provider_effort_echo": "high"
+      },
+      "forwarded_verified": true
+    }
+  ],
+  "cost_usd": null,
+  "cost_note": "No invoice or verified rate supplied; tokens are not a monetary charge receipt.",
+  "scope": "original_operation_only_no_prompt_or_session_output"
+}

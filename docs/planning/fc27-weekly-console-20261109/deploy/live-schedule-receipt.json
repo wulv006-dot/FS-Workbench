@@ -1,0 +1,45 @@
+{
+  "status": "verified",
+  "grant": {
+    "revision": 1,
+    "owner": "wulv",
+    "enabled": 1,
+    "operation_id": "88540366-c0d6-4df1-afc0-0c3d4d56da7f",
+    "granted_at": "2026-11-09T06:46:46.435240+00:00"
+  },
+  "receipt": {
+    "enabled": true,
+    "operation_id": "88540366-c0d6-4df1-afc0-0c3d4d56da7f",
+    "owner": "wulv",
+    "publication": false,
+    "revision": 1,
+    "schedule": {
+      "hour": 12,
+      "minute": 0,
+      "timezone": "Asia/Shanghai",
+      "weekday": 6
+    },
+    "scope": "prepare_model_apply_center_draft",
+    "status": "configured"
+  },
+  "runs": [
+    {
+      "operation_id": "8dd85cc4-32c3-4cb7-9af1-ae46dea6aa7a",
+      "state": "unavailable",
+      "trigger": "manual",
+      "due_day": null
+    },
+    {
+      "operation_id": "45f35de9-b9d7-4294-9f51-6f814a1c51d8",
+      "state": "failed",
+      "trigger": "manual",
+      "due_day": null
+    },
+    {
+      "operation_id": "f9c3a00c-0837-41ee-ad32-a2fe531fbc14",
+      "state": "completed",
+      "trigger": "manual",
+      "due_day": null
+    }
+  ]
+}

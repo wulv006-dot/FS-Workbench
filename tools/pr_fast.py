@@ -463,6 +463,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('docs/planning/fc27-weekly-console-20261109/deploy/') or name in ('tools/campaign_weekly_readonly_acceptance.mjs', 'tools/campaign_weekly_model_receipt_readonly.py', 'tools/test_campaign_weekly_acceptance.py'):
+            groups.add('fc27-weekly-acceptance');continue
         if name.startswith('docs/planning/fs-data-connector-20261109/deploy/'):
             groups.add('fs-connector-deployment');continue
         if name.startswith('fs_mcp_connector/'):
@@ -906,6 +908,12 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group == 'fc27-weekly-acceptance':
+            # CLI fixtures spawn only the local Node/Python read-only helpers.
+            subprocess.run([sys.executable, '-B', 'tools/test_campaign_weekly_acceptance.py'], cwd=ROOT, check=True, timeout=90)
+            units('docs/planning/fc27-weekly-console-20261109/deploy/curl-recovery', ['test_reconcile_curl_local_failure'])
+            units('docs/planning/fc27-weekly-console-20261109/deploy', ['test_archive_contract'])
+            continue
         if group == 'fs-connector-deployment':
             python = os.environ.get('FS_CONNECTOR_PYTHON')
             if not python:raise RuntimeError('connector_python_312_required')

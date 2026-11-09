@@ -1,0 +1,6 @@
+{
+  "shared/fs_inprocess.py": "/opt/fs-hermes-fc/fs_inprocess.py",
+  "shared/proxy_gateway.py": "/opt/fs-hermes-fc/proxy_gateway.py",
+  "shared/campaign_recommendations.py": "/opt/fs-hermes-fc/campaign_recommendations.py",
+  "shared/openai_provider.py": "/opt/fs-hermes-fc/openai_provider.py"
+}

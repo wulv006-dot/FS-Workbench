@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 1,
+  "scope": "traffic-source-tabs-ui-finish-20261019",
+  "releaseReady": true,
+  "businessWrites": false,
+  "timersChanged": false,
+  "runtimeRequired": {
+    "nginx.service": {
+      "ActiveState": "active"
+    },
+    "fs-marketing-range.service": {
+      "ActiveState": "active"
+    }
+  },
+  "unchangedRequired": [
+    {
+      "path": "/var/www/dashboard/index.html",
+      "sha256": "5ec1ac5ca2204f913f27f9b68a414d72e764e9c9bb3d563ee5a4aabdf4091475"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/Player-Trio.html",
+      "sha256": "e54076d5d335f7ffa723924a5854bbb2da921de661026a304513a55e828b52ec"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/Sbc-Companions.html",
+      "sha256": "d26f590520c7dc7c77c3bd4c3812e9361c27b7e2d91fe643d0d39c2fd7301656"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/Weekly-Scout.html",
+      "sha256": "8c1b28369a10536c2e365aa1137424bf4e39bb77ea687252bf9a04d8e9270b13"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/activity-content.js",
+      "sha256": "d14af00aceab9ec20384ba9b84592ea1475d9d01c61709c1ebe4095bbd037315"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/activity.css",
+      "sha256": "74e5e5ae4906c043d1acfbd243418119261a032d1fd363f5367f6cfc48b51194"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/activity.js",
+      "sha256": "7a3e3cd3610e7aa1940b684a5e57ec0cd557c0123727acdd100004d8bfdb7972"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/backend-client.mjs",
+      "sha256": "133be0fa359ca6fc6aeee44ba0cd1a69b5195cd642e33169b5d6a2554ba0999c"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/center-store.mjs",
+      "sha256": "f9320c5804965f16ead6c532c60cb9dafae2478ef7298d9103f7b78a43c5b285"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/index.html",
+      "sha256": "719199ef1e34e89143e4d74f45bc3154cc00072f4567cb48dd02a34b27eecd44"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
+      "sha256": "3ec461327c164ca97171ed8ca8d3ccc939df88daa6abdd99592011669a16998a"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/products.html",
+      "sha256": "3d0e2020026ea5c9ff4631d46d8f560938adf2eb345418a721f74119ea7d2ac1"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/products.js",
+      "sha256": "72b30c3488964945d945ae5e3ece9957f0cc9ce8b43ceee0d294bf63d51f0b91"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/store.mjs",
+      "sha256": "f9236fa17180a11c34835dc64a55c0cb3661c4031df118bafcf050fa9c1a59f9"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly-bridge.mjs",
+      "sha256": "443a7322c80ee9eb918f832764b3fd474b7274df3ec0e3db541d658e54a9aa1b"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly-cli.mjs",
+      "sha256": "0404e14c1bd2f9ebc613d8e9669b76b1f0851056ca1ea402610fc34f9d688ea0"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly-hermes-provider.mjs",
+      "sha256": "4b6c5931fe660fcf1e1184ccaa559c1613990ff0eb24ce12fa54474a71eceb40"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly-hermes.mjs",
+      "sha256": "4a37b854e8b9aeb975724b29daf83754d359af16a8beffaa83bb3e4d72aad170"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly-native-candidates.mjs",
+      "sha256": "253232058ed22346f576b0ff6a08b6e6a7c9f40431e2d3ef0b665531d61a942a"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly-pipeline.mjs",
+      "sha256": "1ffe2dbdacac2994349925a555cca5414467b489cfc42c20214f5fd7090759c3"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly-recommendations.mjs",
+      "sha256": "54b5e05e6726eff44984c9c616d72bb421b2d13e912ddeec11cbae33c621c8eb"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly-run-client.mjs",
+      "sha256": "5214d0fc210a7a155b3240fe2f235ed52afaa404f1cc18854631e3193a1f1fd6"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly-store.mjs",
+      "sha256": "689ac0265ef4f732057b3e3e7ffe555f2e4ee0d8798e74eedb6756adbe96d18e"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly.css",
+      "sha256": "7b19296865ed098de5b462ef8f7ad66d69f7607d36c4674afb9d2dc9f6167516"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly.html",
+      "sha256": "0a1ae08d6ec88da58d0669799ba5ff84615b6712d22927724d4261e42722a5d5"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/analytics/weekly.js",
+      "sha256": "428c520eb381a5e49b809076cf3a9a5d61d5bcb57f308b8f65832d96a970e372"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/index.html",
+      "sha256": "d6c88966b30850156708313837ab38834f315eb50be1199b41dcf430368fc3e3"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/runtime/presentation.mjs",
+      "sha256": "9fdcfd170d329313c03c4e9d7fe15a277c94651f8d654ced405b05be526b74cd"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/seasonal/activity-analytics.js",
+      "sha256": "15a18d9c15925cb2cf778fa31c63cc8bc0f02bf01a9ab7315ed96b22cc67b199"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/backend/bridge.py",
+      "sha256": "7a6aa5f46363a18dc9b99262fc498d1910441f820406eba1f1e2d21a0d1c1c24"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/backend/campaign_backend/weekly.py",
+      "sha256": "c7f87f53b1cfd77c8dd7b604c905b351601b756965707476af603fd7169e4c25"
+    },
+    {
+      "path": "/opt/fs-campaign-dashboard/runtime/static-manifest.json",
+      "sha256": "bc828dc60a9edb19b42805e9e5e1deb8a68d5a6a17e277eead42b68b123b752d"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/fc_daily.py",
+      "sha256": "213cca2a7a02218f67aff6ca3bf905aac9fe3ba0165017b590949b3828bac35e"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/campaign_evidence.py",
+      "sha256": "6e021874581d860a8b8182a8d6388dbb418ca49fee45c4b8fd0555f68132f85f"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/campaign_weekly.py",
+      "sha256": "4970c100f29f1b123324734d737baebc06b19001de9565ca5b1e76de29817d67"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/transport.py",
+      "sha256": "0a897a704c2d15662ef9112d1696cf03f3d0f6dddabcf3b8e3bca1fefc83f45a"
+    },
+    {
+      "path": "/opt/fs-hermes-fc/controller.py",
+      "sha256": "104e16a785240c471fc8d9f209b9430cfc1286111e4c093f8e12b3eca4f5fa29"
+    },
+    {
+      "path": "/opt/fs-exact-range-20261001/range_api.py",
+      "sha256": "ac0c9ff2465f6824879f69d00f07bf24e909f5fb9ee76c00e79cb9c510d67b10"
+    }
+  ],
+  "files": [
+    {
+      "candidate": "shared/fs_inprocess.py",
+      "target": "/opt/fs-hermes-fc/fs_inprocess.py",
+      "sha256": "9b6a5aa0246b780dc8ee4f5cac59770111f653c9f77421316c92c61276177d2d",
+      "beforeSha256": "e78233a4af57fd95b99072e530b23cbc8a3e547a2803d1db0c2854c1a3e16cd8"
+    },
+    {
+      "candidate": "shared/proxy_gateway.py",
+      "target": "/opt/fs-hermes-fc/proxy_gateway.py",
+      "sha256": "47d97c93ba414cd44e2ba3549e88087458b37a31efee3df077223c743a6fde2a",
+      "beforeSha256": "fa5b2d05e2375117b3d85d0ab92f2a28e1fd6cf68fbb322fa57abb3accd41e4e"
+    },
+    {
+      "candidate": "shared/campaign_recommendations.py",
+      "target": "/opt/fs-hermes-fc/campaign_recommendations.py",
+      "sha256": "24b2bde3905cc0d747fc7342997bd1f518fd4cceae666f56471e768a0a2716e8",
+      "beforeSha256": "186abb17fb19e1d721df5bb3114a2b6c3aeb4bfa8c9c46a89668320898fb32c1"
+    },
+    {
+      "candidate": "shared/openai_provider.py",
+      "target": "/opt/fs-hermes-fc/openai_provider.py",
+      "sha256": "206b8578d55ba083d7885501193b3591c220195e35e9bb8266f155acd60f96a9",
+      "beforeSha256": "681afc43b0a7ce6f3664b92b31cba2092ad029ec3cdbb14ea112557f757fe19a"
+    }
+  ]
+}

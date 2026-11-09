@@ -1,0 +1,594 @@
+{
+  "schema_version": 1,
+  "status": "checks_passed",
+  "scope": "local_center_draft_and_receipts_not_publication_or_natural_run",
+  "operation_id": "f9c3a00c-0837-41ee-ad32-a2fe531fbc14",
+  "before_revision": 16,
+  "draft_revision": 17,
+  "current_revision": 17,
+  "checks": {
+    "operation_receipt": true,
+    "live_center_matches_receipt": true,
+    "before_matches_plan": true,
+    "published_hash_unchanged": true,
+    "published_metadata_hash_unchanged": true,
+    "other_pages_hash_unchanged": true,
+    "all_page_benefits_hash_unchanged": true,
+    "halloween_hash_unchanged": true,
+    "fc_page_copy_hash_unchanged": true,
+    "scout_source_order": true,
+    "trio_source_pool": true,
+    "sbc_source_order": true,
+    "three_platform_identities": true,
+    "sbc_companion_structure": true,
+    "sbc_has_multiple_choices": true,
+    "source_goods_coverage": true
+  },
+  "source": {
+    "observed_at": "2026-11-09T06:43:46.340980+00:00",
+    "rules_version": "fc27_weekly_selection_v1",
+    "latest_order": "id,desc",
+    "latest_semantics": "newest_model_identity_not_creation_timestamp",
+    "popular_tag_id": "12305",
+    "popular_order": "sort,desc",
+    "popular_scanned": 400,
+    "popular_total": 1100,
+    "snapshot_atomic": false,
+    "latest_player_ids": [
+      "45496989",
+      "45492791",
+      "45492789",
+      "45492787",
+      "45492785",
+      "45492783",
+      "45492781",
+      "45492779",
+      "45492777",
+      "45492775",
+      "45492773",
+      "45492771",
+      "45492769",
+      "45492767",
+      "45492765",
+      "45492763"
+    ],
+    "trio_pool_ids": [
+      "45496989",
+      "45492791",
+      "45492789",
+      "45492787",
+      "45492785",
+      "45492783"
+    ],
+    "scout_model_ids": [
+      "44921285",
+      "44921275",
+      "44921269"
+    ],
+    "sbc_model_ids": [
+      "45525985",
+      "45505721",
+      "45505719"
+    ]
+  },
+  "layout": {
+    "weekly": [
+      "44921285",
+      "44921275",
+      "44921269"
+    ],
+    "trio": [
+      "45496989",
+      "45492791",
+      "45492789"
+    ],
+    "default_core": "45525985",
+    "routes": [
+      {
+        "core_model_id": "45525985",
+        "pick_model_ids": [
+          "45492789",
+          "45492763"
+        ],
+        "alternative_model_ids": [
+          "45492787",
+          "45492781"
+        ]
+      },
+      {
+        "core_model_id": "45505721",
+        "pick_model_ids": [
+          "45492785",
+          "45492771"
+        ],
+        "alternative_model_ids": [
+          "45492779",
+          "45492777"
+        ]
+      },
+      {
+        "core_model_id": "45505719",
+        "pick_model_ids": [
+          "45492775",
+          "45492779"
+        ],
+        "alternative_model_ids": [
+          "45492773",
+          "45492785"
+        ]
+      }
+    ]
+  },
+  "models": [
+    {
+      "key": "model-266-1327-44921285",
+      "model_id": "44921285",
+      "title": "Lamine Yamal Nasraoui Ebana/91/RW++/Star Performer",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "185916959",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "185916967",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "185916963",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-44921275",
+      "model_id": "44921275",
+      "title": "Bradley Barcola/86/LW++/Star Performer",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "185916899",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "185916907",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "185916903",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-44921269",
+      "model_id": "44921269",
+      "title": "Désiré Doué/87/RW++/Star Performer",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "185916863",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "185916871",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "185916867",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45496989",
+      "model_id": "45496989",
+      "title": "Aleix García Serrano/85/CM++/UEL RTTK",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187290037",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187290041",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187290045",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45492791",
+      "model_id": "45492791",
+      "title": "Rafael da Conceição Leão/87/LW++/UCL RTTK/Signature",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281625",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281629",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281633",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45492789",
+      "model_id": "45492789",
+      "title": "Alessandro Bastoni/88/CB++/UCL RTTK/Signature",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281613",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281617",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281621",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45525985",
+      "model_id": "45525985",
+      "title": "Riccardo Calafiori",
+      "kind": "sbc",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187348721",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187348757",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187348793",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45505721",
+      "model_id": "45505721",
+      "title": "Naomie Feller",
+      "kind": "sbc",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187310429",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187310465",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187310501",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45505719",
+      "model_id": "45505719",
+      "title": "Franziska Kett",
+      "kind": "sbc",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187310321",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187310357",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187310393",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45492763",
+      "model_id": "45492763",
+      "title": "Pedri/91/CM++/UCL RTTK/Signature",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281457",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281461",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281465",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45492787",
+      "model_id": "45492787",
+      "title": "Diogo Martins Travassos/85/RB++/UECL RTTK/Signature",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281601",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281605",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281609",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45492781",
+      "model_id": "45492781",
+      "title": "Lamine Camara/85/CM++/UECL RTTK/Signature",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281565",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281569",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281573",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45492785",
+      "model_id": "45492785",
+      "title": "Tabitha Chawinga/89/LW++/UWCL RTTK/Signature",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281589",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281593",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281597",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45492771",
+      "model_id": "45492771",
+      "title": "Francisco Conceição/87/CAM++/UEL RTTK/Signature",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281505",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281509",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281513",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45492779",
+      "model_id": "45492779",
+      "title": "Alyssa Thompson/87/LM++/UWCL RTTK/Signature",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281553",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281557",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281561",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45492777",
+      "model_id": "45492777",
+      "title": "Matías Soulé/85/RW++/UCL RTTK/Signature",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281541",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281545",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281549",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45492775",
+      "model_id": "45492775",
+      "title": "Géraldine Reuteler/86/CM++/UWCL RTTK/Signature",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281529",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281533",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281537",
+          "same_model": true
+        }
+      ]
+    },
+    {
+      "key": "model-266-1327-45492773",
+      "model_id": "45492773",
+      "title": "Andreia de Jesus Jacinto/86/CM++/UWCL RTTK/Signature",
+      "kind": "player",
+      "platforms": [
+        {
+          "platform": "ps",
+          "state": "verified",
+          "goods_id": "187281517",
+          "same_model": true
+        },
+        {
+          "platform": "xbox",
+          "state": "verified",
+          "goods_id": "187281521",
+          "same_model": true
+        },
+        {
+          "platform": "pc",
+          "state": "verified",
+          "goods_id": "187281525",
+          "same_model": true
+        }
+      ]
+    }
+  ],
+  "publication_executed": false,
+  "price_and_checkout_verification": "not_asserted"
+}
