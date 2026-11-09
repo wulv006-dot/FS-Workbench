@@ -64,6 +64,21 @@ export function makeWeeklyCommerce({dir,readPolicy,catalog,call=backendRead,now=
   return proposal;
  }
  return {
+  previewCatalog({revision,draft},owner){
+   if(!Number.isSafeInteger(revision)||revision<0||!draft||typeof draft!=='object'||Array.isArray(draft))return null;
+   if(!fs.existsSync(dir))return null;
+   const proposals=fs.readdirSync(dir).filter(name=>/^[0-9a-f-]{36}\.json$/.test(name)).map(name=>JSON.parse(privateFile(path.join(dir,name)))).filter(proposal=>proposal.owner===owner);
+   for(const proposal of proposals)if(!Number.isFinite(Date.parse(proposal.created_at)))fail('WEEKLY_COMMERCE_PROPOSAL_INVALID');
+   proposals.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at));
+   for(const proposal of proposals){
+    try{check(proposal,{revision,draft},owner);}catch(error){
+     if(['WEEKLY_COMMERCE_DRAFT_CHANGED','WEEKLY_COMMERCE_PROPOSAL_EXPIRED','WEEKLY_COMMERCE_POLICY_CHANGED'].includes(error.code))continue;
+     throw error;
+    }
+    return structuredClone(proposal.preview_catalog);
+   }
+   return null;
+  },
   async prepare({operation_id,revision,draft},owner){
    try{
    uuid(operation_id);if(!Number.isSafeInteger(revision)||revision<0||!draft||typeof owner!=='string'||!/^[-A-Za-z0-9_]{1,80}$/.test(owner))fail('WEEKLY_COMMERCE_REQUEST_INVALID');

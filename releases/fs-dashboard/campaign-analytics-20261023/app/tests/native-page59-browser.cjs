@@ -40,6 +40,7 @@ const handoff=require('../native-code-handoff.js');
    // This fixture blocks the main-site catalog route, so the published snapshot
    // price must take over instead of leaving an unresolved price state.
    await page.waitForFunction(()=>/\$/.test(document.querySelector('#summary-total')?.textContent||''),null,{timeout:5000}).catch(()=>{});
+   assert.equal(await page.locator('[data-i18n="demoFooter"]').textContent(),'Final prices and availability are confirmed in the original MMOEXP cart.');
    await page.locator('#review-selection').click();await page.locator('#review-dialog[open]').waitFor();};
   return {context,page,posts,applies,events,open};
  }

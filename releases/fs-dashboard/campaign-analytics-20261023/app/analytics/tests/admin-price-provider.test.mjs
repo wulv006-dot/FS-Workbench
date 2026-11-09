@@ -191,3 +191,18 @@ test('more than 100 same-game models retain all observations through bounded bac
   const status=await provider.refresh();assert.equal(status.status,'reference_price_ready_not_checkout',JSON.stringify(status));assert.deepEqual(sizes,[100,5]);assert.equal(Object.keys(readPublicPriceCache(provider.cacheFile).model_contracts).length,105);
  }finally{provider?.stop();f.clean();}
 });
+
+test('retained unselected policy entries do not block the current release; selected partial mappings still fail',async()=>{
+ const f=fixture();let provider;
+ try{
+  await f.provider.refresh();f.store.publish({revision:2,operation_id:randomUUID()},'synthetic');
+  const release=JSON.parse(fs.readFileSync(path.join(f.publicDir,'current.json'))),entry=structuredClone(f.config.entries[0]);
+  const config={schema_version:2,refresh_interval_ms:60000,entries:[entry,{...structuredClone(entry),model_ref:{...REF,model_id:'99991'},verified_goods_ids:['99992']}]},before=JSON.stringify(config);
+  provider=makeAdminPriceProvider({...f.options,readPolicy:()=>config,readSnapshot:()=>release});
+  const status=await provider.refresh();assert.equal(status.status,'reference_price_ready_not_checkout',JSON.stringify(status));
+  const cache=readPublicPriceCache(provider.cacheFile);assert.deepEqual(Object.keys(cache.model_contracts),[REF.model_id]);assert.equal(JSON.stringify(config),before);
+  const calls=f.calls;await provider.refresh();assert.equal(f.calls,calls,'inactive history must not break active freshness-count shortcut');
+  config.entries[0].verified_goods_ids.push('99999');assert.equal((await provider.refresh()).reason,'PUBLISHED_SELECTION_REQUIRED');assert.equal(f.calls,calls);
+  config.entries[0].verified_goods_ids=[PS];delete release.seasonal_model_contracts;assert.equal((await provider.refresh()).reason,'PRIVATE_NATIVE_CATALOG_REQUIRED');assert.equal(f.calls,calls);
+ }finally{provider?.stop();f.clean();}
+});

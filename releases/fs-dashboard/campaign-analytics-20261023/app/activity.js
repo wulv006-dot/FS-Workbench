@@ -117,6 +117,8 @@
     document.querySelectorAll('.fc-activity [data-i18n],.fca-demo-header [data-i18n],.fca-demo-footer [data-i18n],.fca-skip[data-i18n]').forEach(el=>{const pair=words[el.dataset.i18n];if(pair)el.textContent=pair[state.lang==='zh'?0:1].replaceAll('Star Performer',config.trio.series);if(el.dataset.i18n==='navTrio')el.innerHTML=escape(config.trio.series)+'<span class="fca-trio-label">'+escape(t(' 三人组',' Trio'))+'</span>';});
     document.querySelectorAll('.fc-activity [data-i18n-aria],.fca-demo-header [data-i18n-aria]').forEach(el=>{const pair=words[el.dataset.i18nAria];if(pair)el.setAttribute('aria-label',pair[state.lang==='zh'?0:1]);});
     $('lang-zh')?.setAttribute('aria-pressed',String(state.lang==='zh'));$('lang-en')?.setAttribute('aria-pressed',String(state.lang==='en'));
+    const footer=document.querySelector('[data-i18n="demoFooter"]');
+    if(standalone&&published&&footer)footer.textContent='Final prices and availability are confirmed in the original MMOEXP cart.';
     document.documentElement.lang='en';guardPublishedEnglish();
     root.querySelectorAll('button[data-view]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.view===state.view)));
     root.querySelectorAll('a[data-view]').forEach(el=>{if(el.dataset.view===state.view)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});
