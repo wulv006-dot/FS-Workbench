@@ -39,11 +39,11 @@ ChatGPT真实新增页面能打开，但自动发现未通过。正常UI重试�
 ## 原服务发布与数据连接器范围
 
 - 原服务9文件增量已发布，release `nav-20261109T051930Z`，9目标及48保护文件SHA读回一致。worker和range在原保护内以原镜像重新加载；FC定价相关PID/启动时间保持。实际worker加载的客户追踪描述允许按权限返回邮箱、UID、原订单号。详见 deploy/original-services/ACCEPTANCE.md。
-- 用户明确收窄为“FS数据＋调取方法＋计算口径，由调用方自己的AI分析、归因与生成报告”，不连接Hermes会话/代理/报告生成。相关目录收窄仍在施工，不能把此范围声明当已上线。
+- 用户明确收窄为“FS数据＋调取方法＋计算口径，由调用方自己的AI分析、归因与生成报告”，不连接Hermes会话/代理/报告生成。该目录收窄已在PR #933发布，详见下方版本回执。
 - 额外Hermes报告技能管理器升级已停止，候选移至忽略目录，派生镜像未激活、原服务未切换。此前技能patch为blocked_not_applied，原失败回执保留；旧活跃技能并未被修改，不作为本连接器的报告执行入口或验收依赖。
 - ChatGPT个人/工作区、Codex登录后查询、DeepSeek副机及普通成员权限矩阵尚未全部通过；全量读取面的剩余缺项仍见DATA-SOURCES.md。
 
-## 数据范围调整的收尾验证（尚未合并/发布）
+## 数据范围调整的发布前验证（历史阶段）
 
 部署目录沿原pr-fast新增受影响分组。连接器部署9项及旧评审精确清理5项已通过原units隔离入口，0跳过；pr-fast路径/结构/失败传播selfcheck通过。清理测试仅保留表结构与合成记录，不携带生产preview。原服务overlay测试仍依赖私有现场输入，不能由此宣称CI已覆盖。
 
@@ -63,7 +63,7 @@ PR #933：正式PR fast `42569578638`成功，source `153e066a8489ab1ae564857494
 
 ChatGPT自动发现与自动DCR仍未通过；正常UI提供的手动配置已注册一个public none客户端并成功创建FS数据插件配置（尚未授权/取数）。后续原跳转带标准ui_locales=zh-CN，被当前授权参数allowlist拒绝；正在最小兼容，未修改URL绕过或弱化FS权限。不能将配置创建成功写成连接成功。
 
-## 真实客户端授权兼容修复（待发布）
+## 真实客户端授权兼容修复的发布前证据
 
 ChatGPT的ui_locales语言提示经有限格式/长度检查后丢弃；不改变scope、state、PKCE、redirect或身份，原AuthStore闭合参数保持。Codex真实同意提交失败时，原pending尚未过期且未消费，code/grant/token为0；无凭据Chrome原生表单复现no-referrer导致POST Origin=null，same-origin保留精确原origin。修复只改响应Referrer-Policy为same-origin，不向外部回调发送Referrer，继续拒绝null/缺失/异源Origin。
 
@@ -72,3 +72,29 @@ ChatGPT的ui_locales语言提示经有限格式/长度检查后丢弃；不改�
 Chrome无凭据回跳对照补充：同源POST正常而form-action self阻止跨源302，callback未收到；仅加入对应callback origin后页面到达成功页且callback服务器收到请求。修复只在原validate_authorization通过后，将选中的已注册callback origin加入本次同意页form-action；查询串不入策略，CSP分隔符/通配符编码，原表单action、精确redirect、Origin和CSRF保持。最新相关66项65通过、1项Windows POSIX跳过，独立复核无阻断。
 
 一次性自动发现诊断已结束：原三处location仅在90秒窗口记录time/method/无query URI/status，单次正常UI发现仍失败，限定日志为空。原include逐字节恢复、临时格式文件已移除，回执 `/var/backups/fs-data-connector/discovery-once-20261109/receipt.json` 为restored；不把空记录解释为ChatGPT未请求（未覆盖fallback/前置拒绝或服务端缓存）。无ACL、路由或鉴权变更，无常驻诊断。
+
+
+## 浏览器授权修复已合并发布（PR #935）
+
+最终组合head `764bb1638930165095b515f26f10a2324efbbb98`，正式CI `42573890860`成功，合并 `ad50dc2e020152d025b642956c8231189595b917`。实际169项Linux测试运行于7889a6e；运行源码5c2b5c2的26文件、6方法源及全部连接器测试与该测试版本、最终组合head逐字节一致。运行镜像 `sha256:5b08ab82517e8e9a1abf70a4ad4868a99f39d25cfe963079871e565455cca7db`；不将不同源码标签冒充同一次测试。
+
+187固定stage `/opt/fs-release-stage/fs-connector-client-5c2b5c2`，包SHA/7成员/清单及现役镜像预检通过后仅apply一次。回执 `/var/backups/fs-data-connector/client-5c2b5c2/receipt.json` 为updated_anonymous_entry_verified；TLS及公开探测通过，原服务状态、nginx和OAuth目录保持。
+
+ChatGPT沿已有FS数据插件重新连接，真实ui_locales授权GET已显示原账号同意页，原生提交成功回跳ChatGPT `/connector/oauth_callback`。但插件仍显示继续连接；只读数据库计数为该ChatGPT客户端code=1、redeemed=0、grant=0、token=0。浏览器授权回跳已恢复，云端令牌兑换与实际取数仍未完成，不能称ChatGPT已接通。未读取凭据值，未降低鉴权或TLS。
+
+ChatGPT浏览器已有回调响应进一步确认：`/backend-api/aip/connectors/links/oauth/callback`返回503，`OAuth token request failed, try again later`；这条响应证明兑换失败，不证明具体网络或参数根因。
+
+一次独立token诊断窗口已结束：浏览器授权GET 200及POST 302记录正常，同窗ChatGPT回调仍503，观察location无token POST。回执`/var/backups/fs-data-connector/token-once-20261109/receipt.json`确认原include逐字节恢复、临时格式移除。此证据定位为外部通道未定位，不能判定具体TLS/ACL/平台网络原因；未反复重试或放宽权限。
+
+
+## Codex原生取数验收与响应截断修复
+
+CLI 0.167.0-alpha.3.2沿原账号正常授权成功，浏览器callback显示Authentication complete，login退出0。两次原生exec退出0，9次FS调用、0其它工具，无Hermes调用；目录返回113操作及10方法，4项客户追踪与原Store数据SHA一致；身份覆盖subject=admin返回422。月汇总按同一2026-10范围与rangeId从202续读一次到200 available，stale=false、consistentPeriod=true，各源status=available；时间一致不自动证明跨源网站/人群口径一致。
+
+但实际模型明确报告目录（原58232 tokens）及月summary响应被截断，所以本阶段不能宣称模型完整接收或日覆盖已验。原始SDK事件完整不等于模型上下文完整。私有验收回执SHA `c973867b2a1487109244b93077147b16f491162e1cc7c5efca68009e05ef4919`，原始明细不入Git。
+
+针对真实截断，目录改为无参简短导航、按module读取完整参数与方法；默认10753字节，各模块不超过13315字节。月数据保留原业务值，按需展开与展示分页仍在施工及验收，不将已部署5b08镜像误称已含该改动。普通成员权限矩阵、强制会话失效、DeepSeek副机尚未实机验收。
+
+原上游范围冲突已从实际响应核实：query.site为www.mmoexp.com，但profile.primary标all-websites且filters无网站字段，profile.supplement标all-websites且filters.site为空；shipping才为www.mmoexp.com且source[]=该站、selection.site=main。故website_scope_consistent=false；不得把三个来源当相同网站/人群合算，不能仅凭consistentPeriod宣全口径一致。本连接器保留该证据，不修改原业务聚合。
+
+本轮响应展开本地验收：184项，183通过、1项Windows POSIX文件权限跳过；目录按module与data_path/数组展示分页覆盖，744行合成数据全部分页重组一致，祖先来源scope冲突保留。pr-fast显式纳入test_response_view，selfcheck通过。仍待Linux、组合CI、发布及模型真实读取无截断验收。

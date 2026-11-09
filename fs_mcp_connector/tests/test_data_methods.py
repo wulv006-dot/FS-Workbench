@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from fs_mcp_connector.catalog import Catalog, CatalogUnavailable, CatalogPermissionError
+from fs_mcp_connector.catalog import Catalog, CatalogUnavailable, CatalogPermissionError, ValidationError
 from fs_mcp_connector.portal import Principal
 
 
@@ -20,7 +20,7 @@ class DataMethodsTests(unittest.TestCase):
         self.assertFalse({'hermes-conversation', 'brain', 'weekly'} & {row['module'] for row in listing['coverage']})
         for name in ('customer_tracking.detail', 'campaigns.report', 'knowledge.read'):
             self.assertIn(name, catalog.operations)
-        methods = listing['data_methods']
+        methods = catalog.document['data_methods']
         root = Path(__file__).resolve().parents[2]
         sources = {row['id'] for row in methods['sources']}
         for row in methods['guides']:
@@ -42,11 +42,46 @@ class DataMethodsTests(unittest.TestCase):
         methods = listing['data_methods']
         for row in methods['guides']:
             self.assertEqual(row['operations'], ['orders.customer'])
-        referenced = {source for row in methods['guides'] for source in row['sources']}
-        self.assertEqual({row['id'] for row in methods['sources']}, referenced)
+        detailed = restricted.list(self.principal, module='user-analytics')['data_methods']
+        referenced = {source for row in detailed['guides'] for source in row['sources']}
+        self.assertEqual({row['id'] for row in detailed['sources']}, referenced)
         denied = Catalog(lambda *_: 403).list(self.principal)
         self.assertEqual(denied['data_methods']['guides'], [])
         self.assertEqual(denied['data_methods']['sources'], [])
+
+    def test_navigation_is_complete_and_small_with_explicit_module_details(self):
+        catalog = Catalog(lambda *_: 200)
+        listing = catalog.list(self.principal)
+        self.assertEqual(listing['view'], 'navigation')
+        self.assertEqual(listing['details_require'], 'module')
+        self.assertEqual({row['name'] for row in listing['operations']}, set(catalog.operations))
+        self.assertTrue(all(set(row) == {'name', 'module'} for row in listing['operations']))
+        self.assertTrue(all('guidance' not in row for row in listing['data_methods']['guides']))
+        self.assertLess(len(json.dumps(listing, ensure_ascii=False).encode()), 15000)
+        for module in {row['module'] for row in listing['coverage']}:
+            detailed = catalog.list(self.principal, module=module)
+            self.assertEqual(detailed['view'], 'module')
+            self.assertTrue(all(row['module'] == module for row in detailed['operations']))
+            self.assertTrue(all(row['module'] == module for row in detailed['coverage']))
+            names = {row['name'] for row in detailed['operations']}
+            for row in detailed['operations']:
+                self.assertEqual(row['input_schema'], catalog.operation(row['name'])['input_schema'])
+                self.assertIn('provenance', row)
+                self.assertIn('limits', row)
+            for guide in detailed['data_methods']['guides']:
+                self.assertTrue(guide['guidance'])
+                self.assertTrue(set(guide['operations']) <= names)
+            self.assertLess(len(json.dumps(detailed, ensure_ascii=False).encode()), 15000, module)
+
+    def test_unknown_and_invisible_module_share_error_and_auth_outages_are_not_hidden(self):
+        catalog = Catalog(lambda _, path, method: 200 if path.startswith('/dashboard/users/') else 403)
+        for module in ('unknown-module', 'coins', '', 1):
+            with self.subTest(module=module), self.assertRaises(ValidationError):
+                catalog.list(self.principal, module=module)
+        self.assertTrue(catalog.list(self.principal, module='user-analytics')['operations'])
+        for status, error in ((401, CatalogPermissionError), (503, CatalogUnavailable)):
+            with self.subTest(status=status), self.assertRaises(error):
+                Catalog(lambda *_: status).list(self.principal, module='user-analytics')
 
     def test_method_discovery_does_not_hide_authentication_or_outage(self):
         for status, error in ((401, CatalogPermissionError), (503, CatalogUnavailable)):

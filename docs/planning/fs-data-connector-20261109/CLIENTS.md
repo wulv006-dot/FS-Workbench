@@ -1,10 +1,10 @@
-# FS 客户端接入（待发布验收）
+# FS 客户端接入
 
-候选公共地址：`https://47.85.224.112/connector/mcp`。当前尚未发布，以下配置不能当作已接通回执。每个成员用自己的 FS 账号授权；主机、副机各自完成登录，其他电脑不会改变服务器数据权限。
+服务已发布：`https://47.85.224.112/connector/mcp`。2026-11-09 Codex真实OAuth登录已通过，已通过目录、客户追踪及同一月范围查询；响应过长的显示修复仍在验收；ChatGPT手动配置的授权回跳通过，但云端令牌兑换返回503，尚未接通。客户端进度见 [LIVE-ACCEPTANCE.md](LIVE-ACCEPTANCE.md)。每个成员用自己的 FS 账号授权；主机、副机各自完成登录，其他电脑不会改变服务器数据权限。
 
 ## Codex
 
-发布并验证 discovery 后运行：
+首次配置运行（已添加过fs则只需登录，不重复添加）：
 
 ```text
 codex mcp add fs --url https://47.85.224.112/connector/mcp
@@ -47,6 +47,12 @@ Business/Enterprise 工作区与个人账号分别现场验收；个人账号是
 这里的 `http-only` 是桥接器的 Streamable HTTP 传输选择，URL仍为HTTPS，不关闭TLS校验。首次调用会打开本机浏览器登录，OAuth令牌由桥接器保存在该电脑；不放进共享仓库。副机安装及真实登录尚未执行。
 
 参考：[DeepSeek Harness MCP 客户端](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/mcp/mcp-client/README.md)、[mcp-remote 参数](https://github.com/geelen/mcp-remote)。
+
+## 月报等分析的用法
+
+连接器只提供本人可读的FS数据、调用参数、计算口径和覆盖说明。用户自己的AI按问题选择查询，独立分析、归因并生成报告；不连接Hermes会话或调用其报告生成。先通过`fs_list_data_sources`取得简短导航，再传`module`取得该模块完整参数与`data_methods`，然后用`fs_query_data`按真实参数查询。按模块导航的发布状态见验收记录，勿在旧版本猜测参数。口径包含销售/毛利来源、日期/网站范围、分页、缺口及归因限制；指南可选，不强制模板。
+
+大结果返回字段索引时，AI继续按`data_path`读取所需指标、维度或明细；数组展示按`next_offset`续页，业务查询参数保持。所选来源的实际网站/时间/币种与上游覆盖说明必须一起核对；展示分页不会替代上游订单分页或修正原数据口径。
 
 ## 数据验收
 

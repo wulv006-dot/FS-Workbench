@@ -1,11 +1,13 @@
 # FS数据与方法发现
 
-2026-11-09：当前AI连接FS后，使用原业务数据和方法自主分析、归因。本轮不接入Hermes会话、代理或历史报告池，不新增报告模板、生成任务或分析模型。当前本地目录113项操作、36项范围记录；本轮变更须发布后生效，原服务及客户端真实状态见 [LIVE-ACCEPTANCE.md](LIVE-ACCEPTANCE.md)。
+2026-11-09：当前AI连接FS后，使用原业务数据和方法自主分析、归因。本轮不接入Hermes会话、代理或历史报告池，不新增报告模板、生成任务或分析模型。已发布目录113项操作、36项范围记录；原服务及客户端真实状态见 [LIVE-ACCEPTANCE.md](LIVE-ACCEPTANCE.md)。
 
 ## 现有两工具
 
-1. `fs_list_data_sources`：返回实际用户获准的操作、闭合参数schema、来源、分页/资源预算、覆盖缺项和`data_methods`。方法指南引用的操作和来源同步过滤，权限服务故障明确报错，不伪装空目录。
-2. `fs_query_data(operation, arguments)`：只调用目录内的命名业务读取。身份来自OAuth及原FS会话，每次沿原权限校验。原始来源、期间、游标、部分覆盖、错误和实时非快照语义保留。
+1. `fs_list_data_sources`：无参数返回实际用户获准的简短导航；传`module`取得该模块闭合参数schema、来源、分页/资源预算、覆盖缺项和完整`data_methods`。这是实际客户端目录截断后的最小修复，发布状态见验收记录。方法指南引用的操作和来源同步过滤，权限服务故障明确报错，不伪装空目录。
+2. `fs_query_data(operation, arguments, data_path?, offset?, limit?)`：只调用目录内的命名业务读取。身份来自OAuth及原FS会话，每次沿原权限校验。原始来源、期间、游标、部分覆盖、错误和实时非快照语义保留。
+
+大响应先返回字段索引，按返回的`data_path`（JSON Pointer）展开；数组用`offset/limit`展示分页，沿`next_offset`继续。这些参数只选择已授权返回值，不改变业务查询范围；`response_view.value_complete`仅说明所选值是否展开，不能替代上游complete/partial/coverage。祖先路径下的来源、日期、币种、实际filters及normalisedScope应与指标一起阅读；跨源网站不一致时不能直接合算。多次读取仍遵循原实时/快照语义，不宣称形成新快照。过大单一字符串或无法展开的大字段索引会明确报response_too_large，不静默截断。
 
 方法导航按本次问题选用，不要求每次全拉或照固定顺序写报告。先查看实际范围目录，选择有效网站、游戏/项目、日期和快照；不能猜ID或使用历史示例数字冒充现值。业务知识读取仅返回真实用户获准的published文本，无匹配路由明确不可用，不创建代理任务。
 
@@ -31,6 +33,6 @@
 
 方法源复用 [月报数据教材](../../../knowledge/reporting/fc27-monthly/DATA.md)、[月报索引](../../../knowledge/reporting/fc27-monthly/README.md)、[发货毛利合同](../business-shipping-profit-20261024/CONTRACT.md)、[管理台范围合同](../management-all-sites-20261025/CONTRACT.md)、[整单归属合同](../fc-dashboard-category-20261106/CONTRACT.md)及[实时订单合同](../../../releases/fs-dashboard/tiered-data-access-20261101/LIVE-ORDER-PAGINATION.md)。历史`fc.*`研究工具示例不等于本连接器注册操作，实际调用只以当前目录为准。
 
-## 本轮本地验证
+## 发布前本地验证（历史阶段）
 
 Windows独立Python环境运行`python -m unittest discover -s fs_mcp_connector/tests -v`：164项，163通过、1项POSIX文件权限测试因平台跳过。新增方法合同覆盖真实来源及LF哈希、注册引用闭合、按原权限过滤、401与503不伪装空目录；原扩展合同核实移除操作在网络前拒绝，并保留客户业务身份和活动统计。该结果不代替Linux、正式CI、本轮发布及真实客户端读取验收；本轮未执行Git或部署。

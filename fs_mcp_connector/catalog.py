@@ -80,7 +80,9 @@ class Catalog:
             raise error
         return deepcopy(self.operations[name])
 
-    def list(self, principal):
+    def list(self, principal, module=None):
+        if module is not None and (not isinstance(module, str) or not module):
+            raise ValidationError('invalid_module')
         visible = []
         checked = {}
         def allowed(path, method):
@@ -100,6 +102,14 @@ class Catalog:
                 continue
             visible.append({key: deepcopy(operation[key]) for key in ('name', 'module', 'description', 'input_schema', 'provenance', 'limits')})
         modules = {item['module'] for item in visible}
+        coverage = [deepcopy(row) for row in self.document['coverage']
+                    if row['module'] in modules or row.get('permission_path')
+                    and allowed(row['permission_path'], 'GET')]
+        if module is not None:
+            if module not in modules | {row['module'] for row in coverage}:
+                raise ValidationError('invalid_module')
+            visible = [row for row in visible if row['module'] == module]
+            coverage = [row for row in coverage if row['module'] == module]
         names = {item['name'] for item in visible}
         methods = deepcopy(self.document.get('data_methods', {}))
         if methods:
@@ -107,8 +117,11 @@ class Catalog:
                                  for row in methods['guides'] if names.intersection(row['operations'])]
             referenced = {source for row in methods['guides'] for source in row.get('sources', [])}
             methods['sources'] = [row for row in methods['sources'] if row['id'] in referenced]
-        return {'schema_version': 1, 'operations': visible,
-                'data_methods': methods,
-                'coverage': [deepcopy(row) for row in self.document['coverage']
-                    if row['module'] in modules or row.get('permission_path')
-                    and allowed(row['permission_path'], 'GET')]}
+        if module is None:
+            visible = [{key: row[key] for key in ('name', 'module')} for row in visible]
+            coverage = [{key: row[key] for key in ('module', 'status', 'operations')} for row in coverage]
+            methods = {'version': methods.get('version'), 'sources': [],
+                       'guides': [{key: row[key] for key in ('id', 'operations')} for row in methods.get('guides', [])]}
+        return {'schema_version': 1, 'view': 'navigation' if module is None else 'module',
+                'details_require': 'module', 'operations': visible,
+                'data_methods': methods, 'coverage': coverage}

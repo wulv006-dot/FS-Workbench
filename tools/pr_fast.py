@@ -924,7 +924,7 @@ def main():
             python = os.environ.get('FS_CONNECTOR_PYTHON')
             if not python:
                 raise RuntimeError('connector_python_312_required')
-            units('fs_mcp_connector/tests', ['test_auth', 'test_portal', 'test_backend', 'test_server', 'test_catalog_extended', 'test_knowledge', 'test_documents', 'test_g2g', 'test_players', 'test_gallery', 'test_accounts', 'test_consent', 'test_sales', 'test_evolutions', 'test_tracking', 'test_redaction', 'test_data_methods'], python=python)
+            units('fs_mcp_connector/tests', ['test_auth', 'test_portal', 'test_backend', 'test_server', 'test_catalog_extended', 'test_knowledge', 'test_documents', 'test_g2g', 'test_players', 'test_gallery', 'test_accounts', 'test_consent', 'test_sales', 'test_evolutions', 'test_tracking', 'test_redaction', 'test_data_methods', 'test_response_view'], python=python)
             continue
         if group=='seo-daily':
             units('mmoexp_google_data/seo/tests', ['test_contracts','test_sources','test_pages','test_store','test_daily_snapshot','test_ai_policy','test_resources','test_api','test_rules','test_runtime','test_estimate','test_web','test_prepare'])
