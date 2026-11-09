@@ -389,6 +389,7 @@ def pack_software(repo, output, commit, before):
         raw = subprocess.check_output(['git','show',commit+':'+sources[name]],cwd=repo)
         if name=='http/range_api.py':bodies['git-after/'+name]=raw
         bodies['payload/'+name] = release.software_payload_bytes(name, raw)
+    release.software_dependencies(sources, bodies.get('payload/http/conversation_http.py', b''))
     for name, source in PUBLISHER_SOURCES.items():
         bodies[name] = subprocess.check_output(['git','show',commit+':'+source],cwd=repo)
     descriptor = {'source_commit':commit,'software_sources':sources,

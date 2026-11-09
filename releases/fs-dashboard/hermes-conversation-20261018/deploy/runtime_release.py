@@ -362,6 +362,7 @@ SOFTWARE_MAPPINGS = {
     'pricing/fc_pricing_v3/business_source.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/business_source.py', '/opt/fc27-cloud-browser/fc_pricing_v3/business_source.py'),
     'runtime/fc_pricing_v3/business_source.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/fc_pricing_v3/business_source.py', '/opt/fs-hermes-fc/fc_pricing_v3/business_source.py'),
     'http/conversation_http.py': ('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py', '/opt/fs-exact-range-20261001/conversation_http.py'),
+    'http/conversation_readonly.py': ('releases/fs-dashboard/hermes-conversation-20261018/source/conversation_readonly.py', '/opt/fs-exact-range-20261001/conversation_readonly.py'),
     'runtime/proxy_gateway.py': ('releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py', '/opt/fs-hermes-fc/proxy_gateway.py'),
     'runtime/transport.py': ('releases/fs-dashboard/hermes-v2-core-20261020/source/transport.py', '/opt/fs-hermes-fc/transport.py'),
     'runtime/conversation_service.py': ('releases/fc-coins/fc-pricing-v3-20261026/source/conversation_service.py', '/opt/fs-hermes-fc/conversation_service.py'),
@@ -387,7 +388,12 @@ SOFTWARE_MAPPINGS = {
     'runtime/native_reports.py': ('releases/fs-dashboard/knowledge-layering-20261023/source/native_reports.py', '/opt/fs-hermes-fc/native_reports.py'),
 }
 SOFTWARE_TARGETS = {name: row[1] for name, row in SOFTWARE_MAPPINGS.items()}
-SOFTWARE_NEW = frozenset({'runtime/native_reports.py'})
+SOFTWARE_NEW = frozenset({'runtime/native_reports.py', 'http/conversation_readonly.py'})
+
+
+def software_dependencies(sources, http_body):
+    if b'from conversation_readonly import ' in http_body and 'http/conversation_readonly.py' not in sources:
+        raise ValueError('software_dependency_missing: conversation_readonly.py')
 
 
 def software_payload_bytes(name, raw):
@@ -1946,6 +1952,8 @@ def software_descriptor(descriptor, directory):
         path = directory/name
         if path.is_symlink() or not re.fullmatch('[a-f0-9]{64}', sha or '') or hashlib.sha256(path.read_bytes()).hexdigest() != sha:
             raise ValueError('git_payload_changed')
+    software_dependencies(sources, (directory/'payload/http/conversation_http.py').read_bytes()
+                          if 'http/conversation_http.py' in sources else b'')
     if 'http/range_api.py' in sources:
         name='http/range_api.py'
         for original,rendered in (('git-before/','before/'),('git-after/','payload/')):

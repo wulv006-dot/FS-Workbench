@@ -1,0 +1,7 @@
+# Python >=3.10; MCP wire protocol and HTTP transport are owned by the official SDK.
+mcp==1.26.0
+httpx==0.28.1
+starlette==1.10.0
+uvicorn==0.54.0
+jsonschema==4.26.0
+tzdata==2026.6; sys_platform == 'win32'

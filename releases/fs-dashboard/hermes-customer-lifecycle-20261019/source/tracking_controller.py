@@ -143,8 +143,8 @@ class TrackingController:
         if detail['history_coverage'] is None:
             return {'status':'pending' if refresh_status=='pending' else 'unavailable',
                 'tracking_id':tracking_id,'refresh_status':refresh_status,'retryAfter':5 if refresh_status=='pending' else None}
-        from tracking_tool import anonymous_snapshot
-        value=anonymous_snapshot(detail)
+        from tracking_tool import customer_snapshot
+        value=customer_snapshot(detail)
         value['refresh_status']=refresh_status
         value['stale']=refresh_status in ('pending','unavailable')
         return value
@@ -222,6 +222,9 @@ class TrackingController:
             time.sleep(60)
 
     def get(self,user,params):
+        if isinstance(params,dict) and 'stored_only' in params:
+            from tracking_readonly import stored_get
+            return stored_get(self,user,params)
         self.admin._admin(user)
         if not isinstance(params,dict) or params.get('mode')!=['hermes'] or params.get('structure')!=['customer_tracking'] or any(len(value)!=1 for value in params.values()):
             raise ValueError('tracking_query')

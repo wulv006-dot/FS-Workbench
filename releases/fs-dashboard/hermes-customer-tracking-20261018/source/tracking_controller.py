@@ -87,8 +87,8 @@ class TrackingController:
         if detail['history_coverage'] is None:
             return {'status':'pending' if refresh_status=='pending' else 'unavailable',
                 'tracking_id':tracking_id,'refresh_status':refresh_status,'retryAfter':5 if refresh_status=='pending' else None}
-        from tracking_tool import anonymous_snapshot
-        value=anonymous_snapshot(detail)
+        from tracking_tool import customer_snapshot
+        value=customer_snapshot(detail)
         value['refresh_status']=refresh_status
         value['stale']=refresh_status in ('pending','unavailable')
         return value
