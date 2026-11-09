@@ -98,7 +98,9 @@ def handle(handler, method, uri, user, service, authorized):
                 if body: raise ValueError('pricing_review_create_body')
                 respond(handler, 201,service.pricing.create(user))
             elif method == 'POST' and len(parts) == 3 and parts[2] == 'turns' and not params and re.fullmatch(IDENT,parts[1]):
-                body = read_json(handler, {'text','client_request_id','run_id'})
+                body = read_json(handler, {'text','client_request_id','run_id'}, maximum=256*1024)
+                if not isinstance(body['text'],str) or len(body['text'])>24000:
+                    raise ValueError('pricing_review_input_limit')
                 respond(handler, 202,service.pricing.submit_pricing(user,parts[1],body['text'],body['client_request_id'],body['run_id']))
             elif method == 'GET' and len(parts) == 2 and not params and re.fullmatch(IDENT,parts[1]):
                 respond(handler, 200,service.pricing.detail(user,parts[1]))

@@ -140,6 +140,11 @@ def read(path):
                                     for name,(filename,_) in SOURCES.items()},
                     execution_authorized=False)
     db=ledger()
+    daily_request=None
+    if path.startswith('review-state/'):
+        parts=path.split('/')
+        if len(parts)!=2:raise ValueError('pricing_daily_review_request_invalid')
+        daily_request=str(uuid.UUID(parts[1]));path='review-state'
     snapshot=latest(db,public=True) if path in ('state','review-state','','region-rules','market') else None
     if path in ('state','review-state',''):
         target=(snapshot or {}).get('evidence',{}).get('monthly_target') or {}
@@ -166,6 +171,12 @@ def read(path):
                     latest_market_observations=recent_market_observations(db),
                     daily_review=db.get('metadata','latest_daily_review'),retirement=db.all('retirement_inventory'),effect_status='long_term_business_effect_not_established')
         if path=='review-state':
+            if daily_request:
+                with db.connect() as conn:
+                    matches=[value for row in conn.execute("SELECT body FROM metadata WHERE id LIKE 'daily:%' AND body LIKE ?",('%'+daily_request+'%',))
+                             if (value:=json.loads(row[0])).get('request_id')==daily_request]
+                if len(matches)!=1:raise ValueError('pricing_daily_review_missing')
+                result['daily_review']=matches[0]
             result['daily_review_profit_status']='available' if isinstance((result['daily_review'] or {}).get('actual_profit_summary'),dict) else 'not_recorded'
         return result
     if path=='daily-review':
