@@ -58,3 +58,9 @@ Trio取证复用 `campaign_evidence.collect_player_evidence`，懒加载现役 `
 依赖闭包须沿原publisher/admission锁协调安装，等待原模型/报告/native在途任务结束，不停FC每60分钟调度与writer。一起激活fs-business-range，验证reader版本及原入口；不因本任务重启官方Hermes worker。DB、tasks、usage、凭据和业务配置不进入回退包。
 
 新状态一旦入账，不得整包回退到不识别该状态的旧reader。回退撤回campaign入口/消费者，同时保留proxy对not_dispatched的兼容读取及fc_daily排除未派发计数补丁；不删除或改写账本。若额外旧reader不能同窗升级，则不启用campaign消费，保护原P0链。
+
+## 三页实价与共用码的现役来源
+
+价格、数量、平台/区服和原生加购规格由原Admin只读观察、native_catalog/model-options及native_checkout提供，完整商品身份匹配后展示参考价；购买需有效原生绑定并在原站重新核价。周更模型只选商品，不生成金额、折扣或结账参数。原operation_id的交易审批清单是候选，不自动安装生产策略。
+
+三页共用FCSCOUT10/6049，限定FC27顶级Items2；新草稿继承统一benefit_refs和现役私有策略。旧分页面码仅作受限兼容，不是未来生成模板。当前部署、实价、购物车正例/金币反例和原ID回执见[正式交易验收](deploy/commerce/ACCEPTANCE.md)。

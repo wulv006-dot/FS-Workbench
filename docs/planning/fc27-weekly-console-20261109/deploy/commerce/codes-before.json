@@ -1,0 +1,53 @@
+[
+  {
+    "expected_code": "FCSCOUT10",
+    "rows": [
+      {
+        "id": 6049,
+        "site_id": 266,
+        "gid": "1327",
+        "uid": 0,
+        "code": "FCSCOUT10",
+        "status": 0,
+        "discount": "90.00",
+        "start_at": null,
+        "end_at": null,
+        "expire": null
+      }
+    ]
+  },
+  {
+    "expected_code": "FCSBC10",
+    "rows": [
+      {
+        "id": 6051,
+        "site_id": 266,
+        "gid": "1327",
+        "uid": 0,
+        "code": "FCSBC10",
+        "status": 0,
+        "discount": "90.00",
+        "start_at": null,
+        "end_at": null,
+        "expire": null
+      }
+    ]
+  },
+  {
+    "expected_code": "FCTRIO10",
+    "rows": [
+      {
+        "id": 6053,
+        "site_id": 266,
+        "gid": "1327",
+        "uid": 0,
+        "code": "FCTRIO10",
+        "status": 0,
+        "discount": "90.00",
+        "start_at": null,
+        "end_at": null,
+        "expire": null
+      }
+    ]
+  }
+]

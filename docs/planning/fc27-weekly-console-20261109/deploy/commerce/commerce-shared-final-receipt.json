@@ -1,0 +1,13 @@
+{
+  "status": "verified",
+  "revision": 22,
+  "release_id": "campaign-preview-22",
+  "operation_id": "384e93cd-fb1a-4784-b8a2-89a952a0fba4",
+  "receipt_matches": true,
+  "shared_codes": [
+    "FCSCOUT10"
+  ],
+  "config_hash": "9d769969a331a377f6dd2ad00fd08622d822fe95fe98d20e877dc70d8c39e566",
+  "rule_hash": "ffb202883d0fecbb5e53777a62ae56d362d4cfdab6eccd87ac3961178e4d1e0a",
+  "policy_sha256": "16e1681da0b4124766dd64d7184235f03a7ae9349ee8a8f6f058804f7f569572"
+}

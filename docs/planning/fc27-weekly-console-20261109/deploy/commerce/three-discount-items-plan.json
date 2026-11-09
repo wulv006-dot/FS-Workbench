@@ -1,0 +1,46 @@
+{
+  "contract": "fc27_three_discount_items_scope_v1",
+  "mode": "readonly_inspect",
+  "records": [
+    {
+      "native_id": "6049",
+      "code": "FCSCOUT10",
+      "operation_id": "0fc96e7e-ae7f-4b5d-99c2-2586051279f5",
+      "before_hash": "d0a452201bb064c8297cc9f0c58799d5dfe7734a54569d9c2ccd562f69eab602",
+      "current_status": 1,
+      "current_cid": [
+        -1
+      ],
+      "target_cid": [
+        2
+      ]
+    },
+    {
+      "native_id": "6051",
+      "code": "FCSBC10",
+      "operation_id": "956392fb-0a16-48cf-9f07-199783d76e96",
+      "before_hash": "7ca5169f3f8d90c0cd2ef250b4a8fa988bee9a3cc9a1a85928df3a57e1933f08",
+      "current_status": 1,
+      "current_cid": [
+        -1
+      ],
+      "target_cid": [
+        2
+      ]
+    },
+    {
+      "native_id": "6053",
+      "code": "FCTRIO10",
+      "operation_id": "26f62c68-195a-4f5c-a484-d73f47ba311b",
+      "before_hash": "080fa20b55110469fbf06849d86420a42dbc1d5fca47421063e96c369aae87c1",
+      "current_status": 1,
+      "current_cid": [
+        -1
+      ],
+      "target_cid": [
+        2
+      ]
+    }
+  ],
+  "invariant": "Existing IDs only; preserve enabled status1, 10 percent, UID0, site266, game1327 and original dates. Change cid [-1] to top-level Items [2] only."
+}

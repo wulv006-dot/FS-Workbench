@@ -1,0 +1,14 @@
+{
+  "status": "verified",
+  "revision": 21,
+  "release_id": "campaign-preview-21",
+  "operation_id": "cf9ce7d3-4f47-4c25-b180-69f1068a2764",
+  "receipt_matches": true,
+  "draft_unchanged_from_20": true,
+  "config_hash": "914bcefc1a89f5549b9e0da83f11eb9bc1a94576ca7f1e58c4e17c98ae58a44b",
+  "rule_hash": "ffb202883d0fecbb5e53777a62ae56d362d4cfdab6eccd87ac3961178e4d1e0a",
+  "private_policy_sha256": "0747ef79acceeb85c494b86de01a87ac5fcf98d4e5024cd95feb7f2d8cd22a2f",
+  "native_bindings": 1551,
+  "mode": null,
+  "native_checkout_status": "configured"
+}

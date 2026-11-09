@@ -1,0 +1,28 @@
+{
+  "draft_revision": 20,
+  "before_policy_sha256": "bff53dc730504d2a90d8af5c6451b0acb19b14f95903acc20d4790eee82d79fe",
+  "candidate_sha256": "0747ef79acceeb85c494b86de01a87ac5fcf98d4e5024cd95feb7f2d8cd22a2f",
+  "selected_models": 31,
+  "platform_products": 93,
+  "price_entries": 88,
+  "native_catalog_products": 343,
+  "native_catalog_models": 85,
+  "added_bindings": 99,
+  "total_bindings": 1587,
+  "pages": {
+    "fc27-weekly": 3,
+    "fc27-trio": 3,
+    "fc27-sbc": 27
+  },
+  "coupon_write": false,
+  "public_config_published": false,
+  "previous_candidate_sha256": "8ad62553f46a41194e93498a0f2bc4dcae9bc7b444f7de6a40960a3297ec1b38",
+  "verified_group_enrichment": [
+    "admin-266-1327-170026881-21585",
+    "admin-266-1327-170014937-21589",
+    "admin-266-1327-170014933-21587",
+    "admin-266-1327-170026697-21585",
+    "admin-266-1327-170015225-21589",
+    "admin-266-1327-170015221-21587"
+  ]
+}
