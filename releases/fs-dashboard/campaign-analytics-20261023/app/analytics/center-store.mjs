@@ -199,9 +199,9 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
   }
   const stored=storedDraft(draft);selectionScope(draftOf(stored),seedNow(stored));return stored;
  }
- function snapshotFor(draft,revision,native_checkout){
+ function snapshotFor(draft,revision,native_checkout,previewSeed){
   const release_id='campaign-preview-'+revision;
-   const seed=seedNow(draft);selectionScope(draft,seed);
+   const seed=previewSeed||seedNow(draft);selectionScope(draft,seed);
    const selected=Object.fromEntries(draft.pages.map(p=>[p.page_id,Object.hasOwn(p,'product_keys')?p.product_keys:seed.pageProductKeys[p.page_id]||[]]));
    for(const pageId of ['fc27-trio','fc27-weekly','fc27-sbc']){const keys=selected[pageId]||[];selected[pageId]=[...new Set([...keys,...keys.flatMap(key=>seed.nativeModelKeys?.[key]?[seed.nativeModelKeys[key]]:[])])];}
    if(draft.halloween)selected['seasonal-vault']=[...new Set([...selected['seasonal-vault'],...halloweenProductKeys(draft.halloween,[...seed.seedProducts,...(draft.imported_products||[])])])];
@@ -239,7 +239,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
  }
  return {read,recoverSave:request=>recover(request,'save'),recoverPublish:request=>recover(request,'publish'),recoverImport:request=>recover(request,'import'),recoverModel:request=>recover(request,'model-import'),restoreCandidate:state=>previousDraft(state||read())?.summary||null,
   uploadAsset:(operationId,bytes,mime,user)=>assets.stage(operationId,bytes,mime,user),readAsset:assetId=>assets.read(assetId),
-  preview(request,details=[],productDetails=[]){if(fs.existsSync(pendingFile))fail('PENDING_OPERATION_RECOVERY_REQUIRED',409);const current=rawRead();if(request.revision!==current.revision)fail('REVISION_CONFLICT',409);const draft=draftOf(candidate(current,request,details,productDetails));return snapshotFor(draft,current.revision+1,{status:'unconfigured'});},
+  preview(request,details=[],productDetails=[],{seed}={}){if(fs.existsSync(pendingFile))fail('PENDING_OPERATION_RECOVERY_REQUIRED',409);const current=rawRead();if(request.revision!==current.revision)fail('REVISION_CONFLICT',409);const draft=draftOf(candidate(current,request,details,productDetails));return snapshotFor(draft,current.revision+1,{status:'unconfigured'},seed);},
   save(request,user,details=[],productDetails=[],trustedOptions={}){return recover(request,'save')||operation(request,'save',user,current=>{
    const draft=candidate(current,request,details,productDetails,trustedOptions);
    return {result:{...current,revision:current.revision+1,draft}};

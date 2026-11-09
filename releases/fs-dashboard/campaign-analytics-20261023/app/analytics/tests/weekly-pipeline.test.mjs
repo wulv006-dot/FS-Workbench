@@ -9,10 +9,10 @@ import {startWeeklyBridge,callWeeklyBridge} from '../weekly-bridge.mjs';
 
 const model=(id,kind='player')=>({key:'model-266-1327-'+id,site_id:'266',game_id:'1327',model_id:id,kind,title:'Fixture Player '+id+'/Edition '+id,version_label:'Edition '+id,image_url:null,image_provenance:null,site_association:'observed',verification_scope:'catalog_identity_only',available:false,authoritative:false,checkout_enabled:false,
  platforms:Object.fromEntries(['ps','xbox','pc'].map((p,i)=>[p,{state:'verified',product_ref:{site_id:'266',game_id:'1327',model_id:id,goods_id:id+String(i)},observed_quantity:{minimum:'1',group:'1',unit:''}}]))});
-function fixture(t,{enabledProvider=()=>true}={}){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'weekly-pipeline-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));let reads=0;
+function fixture(t,{enabledProvider=()=>true,onDraftSaved=()=>{}}={}){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'weekly-pipeline-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));let reads=0;
  const players=Array.from({length:18},(_,i)=>String(i+11)),cores=Array.from({length:9},(_,i)=>String(i+101));
  const source={rules_version:'fc27_weekly_selection_v1',observed_at:new Date().toISOString(),models:players.map(id=>model(id)).concat(cores.map(id=>model(id,'sbc'))),latest_player_ids:[...players].reverse(),trio_player_ids:['14','13','12'],scout_model_ids:['11','12','13'],sbc_model_ids:cores,observations:players.map(model_id=>({model_id,player_type:'normal'})),evidence:{popular_tag_id:'12305',newest_tag_id:'fixture-newest',newest_normal_count:3,newest_complete:true}};
- const pipeline=weeklyRuntime({dir,enabledProvider,publicDir:path.join(dir,'public'),sourceProvider:async()=>{reads++;return source;}});return {dir,pipeline,source,reads:()=>reads};}
+ const pipeline=weeklyRuntime({dir,enabledProvider,onDraftSaved,publicDir:path.join(dir,'public'),sourceProvider:async()=>{reads++;return source;}});return {dir,pipeline,source,reads:()=>reads};}
 function response(prepared){const p=prepared.input.pages,rows=[];for(const page of p){if(page.page_id==='fc27-sbc'){const players=page.product_keys.filter(k=>!page.core_product_keys.includes(k));for(const [index,core] of page.core_product_keys.entries())for(const key of players.slice(index*2,index*2+2))rows.push({page_id:page.page_id,product_key:key,core_product_key:core,reason:'Fixture',evidence_indices:[0]});}else for(const key of page.product_keys.slice(0,3))rows.push({page_id:page.page_id,product_key:key,core_product_key:null,reason:'Fixture',evidence_indices:[0]});}
  return {model:'gpt-6.1-sol',source_revision:prepared.input.source_revision,sbc_update_id:prepared.input.sbc_update.id,recommendations:rows};}
 const sources=()=>[{url:'https://example.com/football',title:'Fixture source',observed_at:new Date(Date.now()-1000).toISOString()}];
@@ -71,4 +71,15 @@ test('commerce approval bundle is original-owner read-only and never extends pri
  const before=fs.readFileSync(filename,'utf8'),bundle=f.pipeline.commercePlan({operation_id},'fixture');
  assert.equal(bundle.approval_required,true);assert.equal(bundle.policy_written,false);assert.equal(bundle.stale,false);assert.equal(bundle.expired,true);assert.equal(bundle.native_catalog_candidate.valid_until,expires);assert.equal(f.pipeline.draftTrade(),null);
  assert.throws(()=>f.pipeline.commercePlan({operation_id},'other'),{code:'WEEKLY_OPERATION_OWNER_MISMATCH'});assert.equal(fs.readFileSync(filename,'utf8'),before);
+});
+
+test('draft receipt survives work-order callback failure and original inspect/apply recover without source replay',async t=>{
+ let fail=true,calls=[];const f=fixture(t,{onDraftSaved:record=>{calls.push(record);if(fail)throw Error('WORK_ORDER_WRITE_INTERRUPTED');}}),operation_id=randomUUID();
+ const prepared=await f.pipeline.prepare({operation_id,trigger:'scheduled'},'fixture'),body={operation_id,plan_ref:operation_id,recommendation:response(prepared),evidence_sources:sources()};
+ assert.throws(()=>f.pipeline.apply(body,'fixture'),/WORK_ORDER_WRITE_INTERRUPTED/);assert.equal(JSON.parse(fs.readFileSync(path.join(f.dir,'center/state.json'))).revision,1);
+ fail=false;assert.equal(f.pipeline.inspect(body,'fixture').draft_revision,1);assert.equal(f.pipeline.apply(body,'fixture').draft_revision,1);assert.equal(f.reads(),1);
+ assert(calls.every(r=>r.operation_id===operation_id&&r.owner==='fixture'&&r.draft_revision===1&&r.trigger==='scheduled'));
+ const planFile=path.join(f.dir,'center/weekly-plans',operation_id+'.json'),plan=JSON.parse(fs.readFileSync(planFile));delete plan.applied;fs.writeFileSync(planFile,JSON.stringify(plan));
+ const recovered=f.pipeline.workflowPlan(operation_id,'fixture');assert.equal(recovered.applied.result.draft_revision,1);assert.equal(recovered.created_at,calls[0].created_at);
+ recovered.owner='changed';assert.equal(f.pipeline.workflowPlan(operation_id,'fixture').owner,'fixture');assert.throws(()=>f.pipeline.workflowPlan(operation_id,'other'),{code:'WEEKLY_OPERATION_OWNER_MISMATCH'});
 });

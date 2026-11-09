@@ -15,9 +15,8 @@ export function readAdminPricePolicy(stateDir){
    ||process.platform!=='win32'&&((d.mode&0o077)!==0||(s.mode&0o077)!==0))throw Error('PRIVATE_PRICE_POLICY_REQUIRED');
  return JSON.parse(fs.readFileSync(file,'utf8')).admin_reference_prices??null;
 }
-// Current approved union is 88 entries (59 retained + 29 new selected FC models).
-// Bounded batch transport and the existing refresh deadline remain unchanged.
-const MAX_PRICE_ENTRIES=100;
+// Retained Halloween contracts and successive FC drafts share the bounded catalogue.
+const MAX_PRICE_ENTRIES=300;
 function configuration(value,now){
  if(!value||![1,2].includes(value.schema_version)||Object.keys(value).some(k=>!['schema_version','refresh_interval_ms','entries'].includes(k))
    ||!Number.isSafeInteger(value.refresh_interval_ms)||value.refresh_interval_ms<60000||value.refresh_interval_ms>300000
@@ -101,7 +100,8 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
       if(!games.has(gameKey))games.set(gameKey,[]);
       games.get(gameKey).push([readKey,p]);
     }
-    for(const members of games.values()){
+    for(const gameMembers of games.values())for(let offset=0;offset<gameMembers.length;offset+=100){
+      const members=gameMembers.slice(offset,offset+100);
       const items=members.map(([readKey,p])=>({key:readKey,site_id:p.model_ref.site_id,
         game_id:p.model_ref.game_id,model_id:p.model_ref.model_id,category_id:p.category_id}));
       const started=[];
