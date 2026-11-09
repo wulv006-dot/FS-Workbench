@@ -200,3 +200,10 @@ test('trusted native identity joins explicit FC model selection without changing
  const wrong=structuredClone(native);wrong.platform.attribute_id='21589';
  assert.deepEqual(mergeNativeCatalog(options.seedProvider(undefined,{[card.key]:card}),{products:[wrong],model_contracts:{}}).nativeModelKeys,{});
 });
+
+
+test('fresh bundle cards retain accepted listing and included-player metadata only after all platform goods match',()=>{
+ const key=catalog.bundles.ids[0],accepted=catalog.products[key],m=model();m.kind='bundle';m.title='Refreshed bundle title';for(const code of ['ps','xbox','pc'])m.platforms[code]={state:'verified',product_ref:{...m.platforms.ps.product_ref,goods_id:String(accepted.platforms[code].id)},observed_quantity:null};
+ const projected=effectiveFcCatalog(catalog,{[m.key]:m}).products[m.key];assert.equal(projected.listingUrl,accepted.listingUrl);assert.deepEqual(projected.included,accepted.included||[]);assert.equal(projected.title,m.title);
+ m.platforms.pc.product_ref.goods_id='999999991';const changed=effectiveFcCatalog(catalog,{[m.key]:m}).products[m.key];assert.equal(changed.listingUrl,undefined);assert.equal(changed.included,undefined,'changed native identity cannot inherit another bundle contents');
+});

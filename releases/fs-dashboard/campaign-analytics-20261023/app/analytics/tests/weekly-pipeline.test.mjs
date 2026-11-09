@@ -9,10 +9,10 @@ import {startWeeklyBridge,callWeeklyBridge} from '../weekly-bridge.mjs';
 
 const model=(id,kind='player')=>({key:'model-266-1327-'+id,site_id:'266',game_id:'1327',model_id:id,kind,title:'Fixture Player '+id+'/Edition '+id,version_label:'Edition '+id,image_url:null,image_provenance:null,site_association:'observed',verification_scope:'catalog_identity_only',available:false,authoritative:false,checkout_enabled:false,
  platforms:Object.fromEntries(['ps','xbox','pc'].map((p,i)=>[p,{state:'verified',product_ref:{site_id:'266',game_id:'1327',model_id:id,goods_id:id+String(i)},observed_quantity:{minimum:'1',group:'1',unit:''}}]))});
-function fixture(t,{enabledProvider=()=>true,onDraftSaved=()=>{}}={}){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'weekly-pipeline-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));let reads=0;
+function fixture(t,{enabledProvider=()=>true,onDraftSaved=()=>{}}={}){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'weekly-pipeline-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));let reads=0,selectionRequests=[];
  const players=Array.from({length:18},(_,i)=>String(i+11)),cores=Array.from({length:9},(_,i)=>String(i+101));
  const source={rules_version:'fc27_weekly_selection_v1',observed_at:new Date().toISOString(),models:players.map(id=>model(id)).concat(cores.map(id=>model(id,'sbc'))),latest_player_ids:[...players].reverse(),trio_player_ids:['14','13','12'],scout_model_ids:['11','12','13'],sbc_model_ids:cores,observations:players.map(model_id=>({model_id,player_type:'normal'})),evidence:{popular_tag_id:'12305',newest_tag_id:'fixture-newest',newest_normal_count:3,newest_complete:true}};
- const pipeline=weeklyRuntime({dir,enabledProvider,onDraftSaved,publicDir:path.join(dir,'public'),sourceProvider:async()=>{reads++;return source;}});return {dir,pipeline,source,reads:()=>reads};}
+ const pipeline=weeklyRuntime({dir,enabledProvider,onDraftSaved,publicDir:path.join(dir,'public'),sourceProvider:async request=>{reads++;selectionRequests.push(request);return source;}});return {dir,pipeline,source,reads:()=>reads,selectionRequests};}
 function response(prepared){const p=prepared.input.pages,rows=[];for(const page of p){if(page.page_id==='fc27-sbc'){const players=page.product_keys.filter(k=>!page.core_product_keys.includes(k));for(const [index,core] of page.core_product_keys.entries())for(const key of players.slice(index*2,index*2+2))rows.push({page_id:page.page_id,product_key:key,core_product_key:core,reason:'Fixture',evidence_indices:[0]});}else for(const key of page.product_keys.slice(0,3))rows.push({page_id:page.page_id,product_key:key,core_product_key:null,reason:'Fixture',evidence_indices:[0]});}
  return {model:'gpt-6.1-sol',source_revision:prepared.input.source_revision,sbc_update_id:prepared.input.sbc_update.id,recommendations:rows};}
 const sources=()=>[{url:'https://example.com/football',title:'Fixture source',observed_at:new Date(Date.now()-1000).toISOString()}];
@@ -82,4 +82,28 @@ test('draft receipt survives work-order callback failure and original inspect/ap
  const planFile=path.join(f.dir,'center/weekly-plans',operation_id+'.json'),plan=JSON.parse(fs.readFileSync(planFile));delete plan.applied;fs.writeFileSync(planFile,JSON.stringify(plan));
  const recovered=f.pipeline.workflowPlan(operation_id,'fixture');assert.equal(recovered.applied.result.draft_revision,1);assert.equal(recovered.created_at,calls[0].created_at);
  recovered.owner='changed';assert.equal(f.pipeline.workflowPlan(operation_id,'fixture').owner,'fixture');assert.throws(()=>f.pipeline.workflowPlan(operation_id,'other'),{code:'WEEKLY_OPERATION_OWNER_MISMATCH'});
+});
+
+
+test('current fixed bundles refresh once and bind all three FC pages without entering the 24 model recommendations',async t=>{
+ const f=fixture(t),ids=['201','202','203','204'],extra=['31','32','33','55','56','57'];f.source.models.push(...extra.map(id=>model(id)));f.source.observations.push(...extra.map(model_id=>({model_id,player_type:'normal'})));f.source.trio_player_ids=['31','32','33'];f.source.scout_model_ids=['55','56','57'];f.source.models.push(...ids.map(id=>model(id,'bundle')));f.source.bundle_model_ids=ids;f.source.evidence.bundles_complete=true;
+ const p=await f.pipeline.prepare({operation_id:randomUUID()},'fixture'),recommendation=response(p);assert.equal(recommendation.recommendations.length,24);
+ f.pipeline.apply({operation_id:p.operation_id,plan_ref:p.plan_ref,recommendation,evidence_sources:sources()},'fixture');
+ const state=JSON.parse(fs.readFileSync(path.join(f.dir,'center/state.json'))),keys=ids.map(id=>'model-266-1327-'+id);assert.deepEqual(state.draft.fc_layout.bundles,keys);assert.equal(state.published,null);
+ for(const page of state.draft.pages.filter(p=>p.page_id.startsWith('fc27-')))for(const key of keys)for(const code of ['ps','xbox','pc']){const ref='fc-'+key+'-'+code;assert(page.product_keys.includes(ref));assert.equal(page.product_roles[ref],'bundle');}
+ assert.equal(Object.keys(state.draft.fc_models).length,37);assert.equal(state.draft.fc_layout.sbc.length,9);assert.equal(new Set(state.draft.fc_layout.sbc.flatMap(core=>state.draft.fc_layout.routes[core].picks)).size,18);
+ f.source.models.find(m=>m.model_id==='201').title='Updated current bundle';const second=await f.pipeline.prepare({operation_id:randomUUID()},'fixture');f.pipeline.apply({operation_id:second.operation_id,plan_ref:second.plan_ref,recommendation:response(second),evidence_sources:sources()},'fixture');assert.equal(JSON.parse(fs.readFileSync(path.join(f.dir,'center/state.json'))).draft.fc_models[keys[0]].title,'Updated current bundle');assert.deepEqual(f.selectionRequests[1].bundle_refs,ids.map(model_id=>({model_id})));assert(f.selectionRequests[0].bundle_refs.every(ref=>ref.goods_id),'legacy selected cards resolve their actual accepted goods rather than guessing model IDs');
+ const file=path.join(f.dir,'center/state.json'),edited=JSON.parse(fs.readFileSync(file));edited.draft.fc_layout.bundles=keys.slice(1);edited.revision++;fs.writeFileSync(file,JSON.stringify(edited));f.source.bundle_model_ids=ids.slice(1);
+ const third=await f.pipeline.prepare({operation_id:randomUUID()},'fixture');assert.deepEqual(f.selectionRequests[2].bundle_refs,ids.slice(1).map(model_id=>({model_id})),'the next run follows the manually changed configured range');f.pipeline.apply({operation_id:third.operation_id,plan_ref:third.plan_ref,recommendation:response(third),evidence_sources:sources()},'fixture');const changed=JSON.parse(fs.readFileSync(file));for(const page of changed.draft.pages.filter(p=>p.page_id.startsWith('fc27-')))assert(!page.product_keys.some(ref=>ref.startsWith('fc-'+keys[0]+'-')),'removed bundle cannot leak through old explicit masks');
+});
+
+
+test('an interrupted pre-upgrade save retains its frozen request rather than materializing new page masks',async t=>{
+ const f=fixture(t),p=await f.pipeline.prepare({operation_id:randomUUID()},'fixture'),body={operation_id:p.operation_id,plan_ref:p.plan_ref,recommendation:response(p),evidence_sources:sources()};
+ f.pipeline.apply(body,'fixture');const planFile=path.join(f.dir,'center/weekly-plans',p.operation_id+'.json'),plan=JSON.parse(fs.readFileSync(planFile));delete plan.applied;
+ // Emulate an old version frozen before the single center writer began: no saved state/receipt.
+ fs.rmSync(path.join(f.dir,'center/state.json'));fs.rmSync(path.join(f.dir,'center/operations',p.operation_id+'.json'));
+ for(const page of plan.save_request.draft.pages.filter(p=>p.page_id.startsWith('fc27-'))){delete page.product_keys;delete page.product_roles;}
+ fs.writeFileSync(planFile,JSON.stringify(plan));const exact=structuredClone(plan.save_request),saved=f.pipeline.apply(body,'fixture');assert.equal(saved.status,'draft_saved');assert.deepEqual(JSON.parse(fs.readFileSync(planFile)).save_request,exact);
+ assert.equal(f.reads(),1);assert.equal(f.pipeline.inspect(body,'fixture').draft_revision,1);
 });

@@ -64,8 +64,8 @@ export function centerSeed(fc,seasonal,{adminObservations=[],now=Date.now()}={})
  const keys=ids=>[...new Set(ids.flatMap(id=>byOriginal[id]||[]))];
  return {seedProducts:products,...(Object.keys(seasonal_model_contracts).length?{seasonal_model_contracts}:{}),admin_projection_status,...(Object.keys(fc_models).length?{fc_models}:{}),fc_layout:{weekly:[...fc.weekly.ids],trio:[...fc.trio.ids],bundles:[...fc.bundles.ids],sbc:[...fc.sbc.ids],defaultCore:fc.sbc.defaultId??null,
   routes:Object.fromEntries(Object.entries(fc.sbc.routes).map(([key,r])=>[key,{picks:[...r.picks],alternatives:[...(r.alternatives||[])],...(r.label?{label:structuredClone(r.label)}:{})}]))},pageProductKeys:{
-  'fc27-weekly':keys(fc.weekly.ids),
-  'fc27-sbc':keys([...fc.sbc.ids,...Object.values(fc.sbc.routes).flatMap(r=>[...r.picks,...r.alternatives])]),
+  'fc27-weekly':keys([...fc.weekly.ids,...fc.bundles.ids]),
+  'fc27-sbc':keys([...fc.sbc.ids,...fc.bundles.ids,...Object.values(fc.sbc.routes).flatMap(r=>[...r.picks,...r.alternatives])]),
   'fc27-trio':keys([...fc.trio.ids,...fc.bundles.ids]),
   'seasonal-vault':seasonal.products.map(p=>'seasonal-'+p.id)
  }};

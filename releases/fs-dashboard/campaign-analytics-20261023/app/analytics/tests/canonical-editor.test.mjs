@@ -37,7 +37,12 @@ test('candidate FC layout is validated for save and import; import expands membe
  const {store,legacy,seen}=fixture(t),draft=initialCenterDraft();draft.fc_layout=structuredClone(legacy);draft.fc_layout.weekly=['170014917'];
  const data=detail(),body={revision:0,operation_id:randomUUID(),draft,page_id:'fc27-weekly',product_ref:data.product_ref};
  const imported=store.importProduct(body,'fixture',data);assert.deepEqual(seen.at(-1).weekly,['170014917']);
- const keys=imported.draft.pages[0].product_keys;assert(keys.includes('fc-170014917-ps'));assert.equal(keys.filter(k=>k.startsWith('fc-')).length,3);assert(keys.includes(imported.draft.imported_products[0].key));
+ const keys=imported.draft.pages[0].product_keys,expectedFc=['170014917',...draft.fc_layout.bundles].flatMap(key=>['ps','xbox','pc'].map(code=>'fc-'+key+'-'+code));
+ assert.equal(expectedFc.length,21,'one selected player and six configured fixed bundles each contribute exactly three platform references');assert.equal(new Set(expectedFc).size,21);
+ assert.deepEqual(keys,[...expectedFc,imported.draft.imported_products[0].key],'import extends precisely the candidate player and shared configured bundles; no unrelated source products enter the page');
+ const candidateSeed=centerSeed(previewCatalog(catalog,imported.draft.fc_layout),{products:[]});
+ for(const page_id of ['fc27-weekly','fc27-trio','fc27-sbc']){const bundleRefs=candidateSeed.pageProductKeys[page_id].filter(ref=>draft.fc_layout.bundles.some(key=>ref.startsWith('fc-'+key+'-')));assert.deepEqual(bundleRefs,draft.fc_layout.bundles.flatMap(key=>['ps','xbox','pc'].map(code=>'fc-'+key+'-'+code)));assert.equal(new Set(bundleRefs).size,bundleRefs.length);}
+
  assert.deepEqual(imported.draft.fc_layout.weekly,['170014917']);assert.deepEqual(store.recoverImport(body),imported);
  const invalid=structuredClone(imported.draft);invalid.fc_layout.trio=['170014917'];
  assert.throws(()=>store.save({revision:1,operation_id:randomUUID(),draft:invalid},'fixture'),{code:'INVALID_FC_LAYOUT'});

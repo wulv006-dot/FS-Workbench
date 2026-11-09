@@ -39,8 +39,8 @@ const localPath = value => {
   return value;
 };
 const hash = value => { if (!/^[a-f0-9]{64}$/.test(value || '')) fail('INVALID_RELEASE'); return value; };
-export const pageRoleOptions=Object.freeze({'fc27-weekly':['preview','player'],'fc27-trio':['preview','player','bundle'],
-  'fc27-sbc':['preview','core','companion'],'seasonal-vault':['preview','pool','fixed','both']});
+export const pageRoleOptions=Object.freeze({'fc27-weekly':['preview','player','bundle'],'fc27-trio':['preview','player','bundle'],
+  'fc27-sbc':['preview','core','companion','bundle'],'seasonal-vault':['preview','pool','fixed','both']});
 const rolePageByPath={'Weekly-Scout.html':'fc27-weekly','Player-Trio.html':'fc27-trio','Sbc-Companions.html':'fc27-sbc','seasonal/index.html':'seasonal-vault'};
 // Visible hero copy (heading / intro / body) is operator-editable so a weekly
 // refresh no longer needs a code change. Public pages are English-only, so the

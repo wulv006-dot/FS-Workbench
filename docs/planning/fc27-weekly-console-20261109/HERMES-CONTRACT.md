@@ -64,3 +64,10 @@ Trio取证复用 `campaign_evidence.collect_player_evidence`，懒加载现役 `
 价格、数量、平台/区服和原生加购规格由原Admin只读观察、native_catalog/model-options及native_checkout提供，完整商品身份匹配后展示参考价；购买需有效原生绑定并在原站重新核价。周更模型只选商品，不生成金额、折扣或结账参数。原operation_id的交易审批清单是候选，不自动安装生产策略。
 
 三页共用FCSCOUT10/6049，限定FC27顶级Items2；新草稿继承统一benefit_refs和现役私有策略。旧分页面码仅作受限兼容，不是未来生成模板。当前部署、实价、购物车正例/金币反例和原ID回执见[正式交易验收](deploy/commerce/ACCEPTANCE.md)。
+
+
+## 当前已选固定组合的共享刷新（2026-11-09）
+
+用户本轮选择先同步Trio现有4个固定Player Bundle到三页。范围来自每次prepare读取的FS `effective_fc_layout.bundles`，而不是硬编码四个模型、全部Packs类目或模型自行推荐。Node从已存 `fc_models` 取model_id，旧卡则从center目录取精确PS goods_id；原 `weekly_selection` 只接收这批最多8个 `bundle_refs`，核实真实goods→model、site266/game1327/Bundle类目，并记录当前在架/排除与三平台身份观察。人工改选改变下一轮输入；旧已冻结plan与原ID回执保持可核对，不重写历史请求。
+
+Bundle不进入24行Sol选品结果。apply在同一center CAS草稿内更新组合范围及三页相同的平台keys/`bundle`角色；公开投影分别消费各页范围，SBC不再借Trio的活跃状态。原商业prepare为三页生成同组合的真实报价/原生binding提案，code仍FCSCOUT10、Discount6049，仅FC27 Items。旧游戏/万圣节策略保留；是否安装与发布仍由现有明确确认端点决定。公开Bundle沿原独立审阅及原生加购动作，参考报价或仅模型身份不足时购买保持不可用。

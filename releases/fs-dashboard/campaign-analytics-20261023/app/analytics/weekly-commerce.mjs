@@ -32,15 +32,15 @@ function discountEvidence(detail,now){
 }
 async function selected(draft,catalog,policy,call){
  const l=draft?.fc_layout;if(!l||!Array.isArray(l.weekly)||!Array.isArray(l.trio)||!Array.isArray(l.sbc))fail('WEEKLY_COMMERCE_LAYOUT_REQUIRED');
- const scope={'fc27-weekly':l.weekly,'fc27-trio':[...l.trio,...(l.bundles||[])],'fc27-sbc':[...l.sbc,...l.sbc.flatMap(k=>[...(l.routes?.[k]?.picks||[]),...(l.routes?.[k]?.alternatives||[])])]};
- const models=new Map(),legacyPlatforms=new Map();
+ const scope={'fc27-weekly':[...l.weekly,...(l.bundles||[])],'fc27-trio':[...l.trio,...(l.bundles||[])],'fc27-sbc':[...(l.bundles||[]),...l.sbc,...l.sbc.flatMap(k=>[...(l.routes?.[k]?.picks||[]),...(l.routes?.[k]?.alternatives||[])])]};
+ const models=new Map(),legacyPlatforms=new Map(),legacyModels=new Map();
  for(const [page,keys] of Object.entries(scope)){
   const selectedMids=[];for(const key of [...new Set(keys)]){
-   const model=draft.fc_models?.[key],legacy=catalog?.products?.[key];let mid=model?.model_id,kind=model?.kind||legacy?.kind;
+   const model=draft.fc_models?.[key],legacy=catalog?.products?.[key];let mid=model?.model_id||legacyModels.get(key),kind=model?.kind||legacy?.kind;
    if(!mid&&legacy){const goods=Object.values(legacy.platforms||{}).map(p=>String(p.id));const ids=new Set((policy.native_catalog?.products||[]).filter(p=>p.product_ref.game_id==='1327'&&goods.includes(p.product_ref.goods_id)).map(p=>p.product_ref.model_id));if(ids.size===1)mid=[...ids][0];}
    if(!mid&&legacy){const goods_id=String(legacy.platforms?.ps?.id||'');if(!/^[1-9]\d*$/.test(goods_id))fail('WEEKLY_COMMERCE_MODEL_UNVERIFIED');const row=(await call({action:'product_read',site_id:'266',game_id:'1327',goods_id}))?.product?.product_ref;if(row?.site_id!=='266'||row.game_id!=='1327'||row.goods_id!==goods_id)fail('WEEKLY_COMMERCE_MODEL_UNVERIFIED');mid=row.model_id;}
    if(!/^[1-9]\d{0,19}$/.test(mid||'')||!categories[kind])fail('WEEKLY_COMMERCE_MODEL_UNVERIFIED');
-   if(models.has(mid)&&models.get(mid)!==kind)fail('WEEKLY_COMMERCE_MODEL_UNVERIFIED');models.set(mid,kind);selectedMids.push(mid);if(legacy)legacyPlatforms.set(mid,legacy.platforms);
+   if(models.has(mid)&&models.get(mid)!==kind)fail('WEEKLY_COMMERCE_MODEL_UNVERIFIED');models.set(mid,kind);selectedMids.push(mid);if(legacy){legacyPlatforms.set(mid,legacy.platforms);legacyModels.set(key,mid);}
   }scope[page]=[...new Set(selectedMids)];
  }
  if(models.size>60)fail('WEEKLY_COMMERCE_SELECTION_LIMIT');

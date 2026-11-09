@@ -177,7 +177,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
   if(Object.hasOwn(request,'model_refresh_digest')&&(!refreshModels||request.model_refresh_digest!==digest(canonical(details))))fail('MODEL_REFRESH_SERVER_OWNED');
   if(refreshModels&&!Object.hasOwn(request,'model_refresh_digest'))fail('MODEL_REFRESH_DIGEST_REQUIRED');
   preserveImports(current,request.draft);const draft=structuredClone(request.draft),imports=Object.hasOwn(request,'model_imports')?request.model_imports:[];
-  if(!Array.isArray(imports)||imports.length>33||details.length!==imports.length)fail('INVALID_MODEL_IMPORTS');
+  if(!Array.isArray(imports)||imports.length>41||details.length!==imports.length)fail('INVALID_MODEL_IMPORTS');
   const seen=new Set();for(let i=0;i<imports.length;i++){
    const entry=imports[i],model=projectModelCard(details[i]);if(!entry)fail('INVALID_MODEL_IMPORTS');const scope=entry.page_id+':'+entry.model_id;
    if(Object.keys(entry).some(k=>!['page_id','model_id','kind'].includes(k))||!['fc27-weekly','fc27-sbc','fc27-trio'].includes(entry.page_id)||entry.model_id!==model.model_id||entry.kind!==model.kind||seen.has(scope))fail('INVALID_MODEL_IMPORTS');seen.add(scope);

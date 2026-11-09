@@ -107,3 +107,11 @@ test('preview selects newest valid exact proposal and invalid draft shapes do no
  const file=path.join(f.dir,latest.proposal_id+'.json'),expired=JSON.parse(fs.readFileSync(file));expired.valid_until=new Date(at).toISOString();fs.writeFileSync(file,JSON.stringify(expired));
  assert.deepEqual(f.service.previewCatalog(f.body,'alice'),first.preview_catalog);
 });
+
+
+test('one real fixed bundle creates priced native bindings on all three FC pages without installing',async t=>{
+ const f=fixture(t),bundle=facts('60','bundle');f.values.push(bundle);f.draft.fc_models[bundle.model.key]=bundle.model;f.draft.fc_layout.bundles=[bundle.model.key];
+ const before=Buffer.from(f.getPolicy()),p=await f.service.prepare(f.body,'alice');assert.equal(p.can_publish,true);assert.equal(p.models_count,5);assert(p.preview_catalog.model_contracts['60']);
+ const candidate=JSON.parse(fs.readFileSync(p.candidate_path));for(const page_id of ['fc27-weekly','fc27-trio','fc27-sbc']){const bindings=candidate.native_checkout.bindings.filter(b=>b.page_id===page_id&&bundle.observation.products.some(p=>p.product_ref.goods_id===b.native.id));assert.equal(bindings.length,3);assert(bindings.every(b=>b.code==='FCSCOUT10'));}
+ assert.deepEqual(f.getPolicy(),before);assert.equal(f.installs.length,0);
+});

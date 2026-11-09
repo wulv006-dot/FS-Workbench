@@ -16,7 +16,7 @@ export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,na
   if(!plan||plan.owner!==owner)fail('WEEKLY_OPERATION_OWNER_MISMATCH',403);
   const current=center.read(),revision=plan.applied?.result?.draft_revision??null;
   if(revision===null)fail('WEEKLY_COMMERCE_DRAFT_NOT_SAVED',409);
-  const layout=current.draft.fc_layout,selected=new Set([...(layout?.weekly||[]),...(layout?.trio||[]),...(layout?.sbc||[]),...Object.values(layout?.routes||{}).flatMap(r=>[...(r.picks||[]),...(r.alternatives||[])])].map(key=>current.draft.fc_models?.[key]?.model_id).filter(Boolean));
+  const layout=current.draft.fc_layout,selected=new Set([...(layout?.weekly||[]),...(layout?.trio||[]),...(layout?.bundles||[]),...(layout?.sbc||[]),...Object.values(layout?.routes||{}).flatMap(r=>[...(r.picks||[]),...(r.alternatives||[])])].map(key=>current.draft.fc_models?.[key]?.model_id).filter(Boolean));
   const proposal=plan.native_candidates,candidate=proposal?.native_catalog_candidate;
   const models=candidate?Object.fromEntries(Object.entries(candidate.model_contracts||{}).filter(([id])=>selected.has(id))):{};
   const products=candidate?.products.filter(p=>selected.has(p.product_ref.model_id))||[];
@@ -55,7 +55,13 @@ export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,na
    if(!['manual','scheduled','unknown'].includes(trigger))fail('INVALID_WEEKLY_TRIGGER');
    uuid(operation_id);actor(owner);if(!enabledProvider())return {status:'disabled',operation_id,reason:'hermes_disabled',publication:false};const prior=read(operation_id);
    if(prior){if(prior.owner!==owner)fail('WEEKLY_OPERATION_OWNER_MISMATCH',403);return output(prior);}
-   const current=center.read(),context=contextProvider(current),source=await sourceProvider();
+   const current=center.read(),context=contextProvider(current);
+   const bundle_refs=(context.effective_fc_layout.bundles||[]).map(key=>{
+    const stored=current.draft.fc_models?.[key];if(stored?.kind==='bundle')return {model_id:stored.model_id};
+    const product=context.catalog_products?.find(p=>p.key==='fc-'+key+'-ps');
+    if(!product?.product_ref?.goods_id)fail('WEEKLY_BUNDLE_SELECTION_UNVERIFIED');return {goods_id:product.product_ref.goods_id};
+   });
+   const source=await sourceProvider({bundle_refs});
    if(!enabledProvider())return {status:'disabled',operation_id,reason:'hermes_disabled',publication:false};if(center.read().revision!==current.revision)fail('REVISION_CONFLICT',409);
    if(source.rules_version!=='fc27_weekly_selection_v1'||!Array.isArray(source.models))fail('WEEKLY_SOURCE_INVALID');
    const models=projectModels(Object.fromEntries(source.models.map(model=>[model.key,model])));
@@ -106,19 +112,32 @@ export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,na
    if(input.pages.find(p=>p.page_id==='fc27-sbc').core_product_keys.length!==9||companionPool.length!==18||new Set(companionPool).size!==18)fail('WEEKLY_SELECTION_RULE_MISMATCH');
    const layout=structuredClone(plan.layout);layout.weekly=weekly.map(r=>logical(r.product_key));layout.trio=trio.map(r=>logical(r.product_key));
    layout.sbc=input.pages.find(p=>p.page_id==='fc27-sbc').core_product_keys.map(logical);layout.defaultCore=layout.sbc[0];
-   // Existing dormant routes, bundles and all other pages remain in their source draft.
+   // Old frozen plans retain their historical bundle selection. Fresh source snapshots
+   // refresh only the bundles selected in the current FS configuration, never all Packs.
+   if(Array.isArray(plan.source.bundle_model_ids)){
+    if(plan.source.evidence?.bundles_complete!==true||plan.source.bundle_model_ids.length>8||new Set(plan.source.bundle_model_ids).size!==plan.source.bundle_model_ids.length)fail('WEEKLY_BUNDLE_SELECTION_UNVERIFIED');
+    layout.bundles=plan.source.bundle_model_ids.map(mid=>{const key='model-266-1327-'+mid;if(plan.models[key]?.kind!=='bundle')fail('WEEKLY_BUNDLE_SELECTION_UNVERIFIED');return key;});
+   }
+   // Dormant routes and all non-FC configuration remain in their original draft.
    for(const core of input.pages.find(p=>p.page_id==='fc27-sbc').core_product_keys){const companions=sbc.filter(r=>r.core_product_key===core).map(r=>logical(r.product_key));
     if(companions.length!==2||new Set(companions).size!==2)fail('WEEKLY_SELECTION_RULE_MISMATCH');
     layout.routes[logical(core)]={picks:companions,alternatives:companionPool.filter(key=>!companions.includes(key))};
    }
    const draft=structuredClone(plan.draft);draft.fc_layout=layout;
-   // FC page keys inherit the real layout, replacing only these three selections.
-   for(const page of draft.pages)if(pageIds.includes(page.page_id))delete page.product_keys;
-   const used=[...new Set([...layout.weekly,...layout.trio,...layout.sbc,...layout.sbc.flatMap(k=>[...layout.routes[k].picks,...layout.routes[k].alternatives])])];
-   const imports=used.filter(key=>!same(draft.fc_models?.[key]??null,plan.models[key]??null)).map(key=>{const model=plan.models[key];if(!model)fail('WEEKLY_SOURCE_INVALID');return {page_id:layout.weekly.includes(key)?'fc27-weekly':layout.trio.includes(key)?'fc27-trio':'fc27-sbc',model_id:model.model_id,kind:model.kind};});
-   const details=imports.map(i=>plan.models['model-266-1327-'+i.model_id]);
-   const request={operation_id,revision:plan.base_revision,draft,model_imports:imports,model_refresh_digest:digest(canonical(details))};
-   if(plan.save_request&&!same(plan.save_request,request))fail('REQUEST_CONFLICT',409);
+   // One fixed-bundle selection is shared by the three pages. Materialize exact
+   // platform references/roles so explicit legacy masks cannot hide the new source.
+   const pageKeys={'fc27-weekly':[...layout.weekly,...layout.bundles],'fc27-trio':[...layout.trio,...layout.bundles],'fc27-sbc':[...layout.sbc,...layout.sbc.flatMap(k=>[...layout.routes[k].picks,...layout.routes[k].alternatives]),...layout.bundles]};
+   for(const page of draft.pages)if(pageIds.includes(page.page_id)){
+    page.product_keys=[...new Set(pageKeys[page.page_id])].flatMap(key=>['ps','xbox','pc'].map(code=>'fc-'+key+'-'+code));
+    page.product_roles=Object.fromEntries(page.product_keys.map(ref=>{const key=ref.slice(3).replace(/-(ps|xbox|pc)$/,'');return [ref,layout.bundles.includes(key)?'bundle':page.page_id==='fc27-sbc'?(layout.sbc.includes(key)?'core':'companion'):'player'];}));
+    delete page.sbc_companions;
+   }
+   const used=[...new Set([...layout.weekly,...layout.trio,...layout.sbc,...layout.sbc.flatMap(k=>[...layout.routes[k].picks,...layout.routes[k].alternatives]),...(Array.isArray(plan.source.bundle_model_ids)?layout.bundles:[])])];
+   const imports=used.filter(key=>!same(draft.fc_models?.[key]??null,plan.models[key]??null)).map(key=>{const model=plan.models[key];if(!model)fail('WEEKLY_SOURCE_INVALID');return {page_id:layout.bundles.includes(key)?'fc27-trio':layout.weekly.includes(key)?'fc27-weekly':layout.trio.includes(key)?'fc27-trio':'fc27-sbc',model_id:model.model_id,kind:model.kind};});
+   const freshDetails=imports.map(i=>plan.models['model-266-1327-'+i.model_id]);
+   // A dispatched/unknown original save keeps its exact frozen request across code upgrades.
+   const request=plan.save_request??{operation_id,revision:plan.base_revision,draft,model_imports:imports,model_refresh_digest:digest(canonical(freshDetails))};
+   const details=request.model_imports.map(i=>plan.models['model-266-1327-'+i.model_id]);
    plan.save_request=request;plan.apply_hash=hash;atomic(file(operation_id),plan);
    let saved=center.recoverSave(request);if(!saved){beforeDraftSave();saved=center.save(request,owner,details,[],{refreshModels:true});}
    const persisted=JSON.parse(fs.readFileSync(path.join(path.dirname(dir),'operations',operation_id+'.json'),'utf8'));

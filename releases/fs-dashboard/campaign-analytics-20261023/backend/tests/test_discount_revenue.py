@@ -112,5 +112,26 @@ class DiscountRevenueTests(unittest.TestCase):
                 read_revenue(reader,self.request)
             self.assertFalse(any('Order' in route for route,p in reader.calls))
 
+    def test_fc_shared_code_actual_paid_orders_not_single_page_conversion(self):
+        class Reader:
+            def __init__(self): self.calls = []
+            def pages(self, resource, filters, **kwargs):
+                self.calls.append((resource, filters))
+                if resource == 'discounts': return [dict(id='6049', code='FCSCOUT10', site_id=266)]
+                paid = order(gid=1327, discount_code='FCSCOUT10')
+                return [paid, paid, order(order_no='unpaid', gid=1327, discount_code='FCSCOUT10', pay_status=0), order(order_no='refunded', gid=1327, discount_code='FCSCOUT10', pay_status=2)]
+            def close(self): pass
+        reader = Reader()
+        result = handle(dict(self.request, activity='fc27-season2'), reader_factory=lambda:reader)
+        self.assertEqual(result['activity_id'], 'fc27-season2')
+        self.assertEqual(result['attribution_level'], 'shared_activity_group')
+        self.assertEqual(result['page_allocation'], 'not_available')
+        self.assertEqual(result['visitor_join'], 'not_available')
+        self.assertEqual(result['totals'], dict(paid_orders=2, paid_usd_minor=31382, refunded_orders=1))
+        self.assertEqual([x['code'] for x in result['codes']], ['FCSCOUT10'])
+        self.assertIn(('discount_code', 'IN', 'FCSCOUT10'), reader.calls[1][1])
+        for changes in [dict(activity='fc27-weekly'), dict(activity='fc27-season2',game='891')]:
+            with self.assertRaises(ContractError): handle(dict(self.request, **changes), reader_factory=lambda:self.fail('invalid scope must not read'))
+
 
 if __name__=='__main__':unittest.main()
