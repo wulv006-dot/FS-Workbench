@@ -1,0 +1,70 @@
+{
+  "image_id": "sha256:3caead07927408c26da245d25ad3aeeef8ba795a8b0936b2e909b772b85dc152",
+  "python": "Python 3.12.15",
+  "base_image_id": "sha256:df18428df8a0f9189c84e7424d214b4c50092af1f9dca5842a00c41c39bda316",
+  "base_digest": "python@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1",
+  "pip_freeze": [
+    "annotated-types==0.8.0",
+    "anyio==4.16.0",
+    "attrs==26.1.0",
+    "certifi==2026.10.23",
+    "cffi==2.1.1",
+    "click==8.5.1",
+    "cryptography==50.0.2",
+    "h11==0.16.0",
+    "httpcore==1.0.9",
+    "httpx==0.28.1",
+    "httpx-sse==0.4.3",
+    "idna==3.20",
+    "jsonschema==4.26.0",
+    "jsonschema-specifications==2025.9.1",
+    "mcp==1.26.0",
+    "pycparser==3.12",
+    "pydantic==2.14.3",
+    "pydantic-settings==2.16.2",
+    "pydantic_core==2.50.4",
+    "PyJWT==2.15.1",
+    "python-dotenv==1.2.4",
+    "python-multipart==0.0.33",
+    "referencing==0.37.0",
+    "rpds-py==2026.9.1",
+    "sse-starlette==3.7.0",
+    "starlette==1.10.0",
+    "typing-inspection==0.4.5",
+    "typing_extensions==4.16.0",
+    "uvicorn==0.54.0"
+  ],
+  "smoke": {
+    "local_image_test": true,
+    "tls_verified": false,
+    "metadata": {
+      "issuer": true,
+      "endpoints": true,
+      "pkce_s256": true,
+      "public_client": true,
+      "resource": true,
+      "authorization_server": true,
+      "read_scope": true
+    },
+    "unauthenticated_mcp_status": 401,
+    "assets": {
+      "fs-tokens.css": 200,
+      "fs-ui.css": 200,
+      "fs-theme.js": 200,
+      "consent.css": 200
+    },
+    "error_csp": true,
+    "unknown_route_status": 404,
+    "oauth_state_created": false
+  },
+  "runtime_boundaries": {
+    "database_private": true,
+    "knowledge_0700_readable": true,
+    "rootfs_and_knowledge_readonly": true,
+    "uid": 0
+  },
+  "container_settings": "true 1000000000 805306368 128 [\"ALL\"] [\"no-new-privileges\"]",
+  "image_gzip_sha256": "c80fc62ef3531fb63947343b29d333a9c70673f35e32bd697b9d022d6cf5cbc5",
+  "image_gzip_bytes": 62283164,
+  "remaining_test_containers": []
+}

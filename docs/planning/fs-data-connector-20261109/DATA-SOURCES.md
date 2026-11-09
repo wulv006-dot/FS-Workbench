@@ -1,10 +1,14 @@
 # FS 读取面与连接器映射
 
-2026-11-09，本地候选快照；已提交至草稿PR #929、未部署，不能视为全量接通。
+2026-11-09，当前业务数据目录快照；本轮目录收窄及方法新增尚待单独发布。已有发布与真实结果见 [LIVE-ACCEPTANCE.md](LIVE-ACCEPTANCE.md)，不以操作数量视为全量接通。
 
-机器清单`fs_mcp_connector/catalog.json`保留全部33导航模块及6项非导航范围，登记命名读取操作、周报/站点目录/Google数据的共享入口及未完成项；精确数量以该清单为准。数量只表示候选适配，不表示模块全部数据或真实用户验收通过。调用只接受对应schema，未知字段、任意URL/SQL/文件路径和身份覆盖都不是查询入口。
+机器清单`fs_mcp_connector/catalog.json`保留30项业务导航范围及6项非导航范围，共113个命名读取操作，登记站点目录/Google数据的共享入口及未完成项；精确数量以该清单为准。数量只表示候选适配，不表示模块全部数据或真实用户验收通过。调用只接受对应schema，未知字段、任意URL/SQL/文件路径和身份覆盖都不是查询入口。
 
 2026-11-09用户明确撤销模型不能读取客户身份的旧限制：在原FS管理员、private、owner/session及对象权限内，邮箱、UID、原订单号和业务明细可以返回，用于客户与订单查询；只过滤凭据，不再将这些业务标识当作secret或强制匿名。匿名聚合仍可按需使用。旧不可变reviewed快照保留哈希历史，不能恢复为本轮有效规则；生产知识索引及实际加载另按版本发布验收。
+
+本轮按用户最新范围退出5项`conversations.*`及6项`reports.*`：前者属于Hermes会话，后者是历史生成/导入报告池，不是Admin订单或原始经营数据。weekly/brain报告导航不再作为连接器缺口；原FS能力不删除。`campaigns.report`是活动统计，`customer_tracking.*`是客户业务数据，`knowledge.*`只读获准发布文本，均保留。固定业务传输参数或源码路径含Hermes不表示接入代理。
+
+当前AI可从`fs_list_data_sources.data_methods`取得按权限过滤的可选方法/口径；详见 [DATA-METHODS.md](DATA-METHODS.md)。
 
 ## 来源与现场证据
 
@@ -26,8 +30,6 @@
 | 活动商品 | `campaigns.catalog` | 原商品catalog/registry/layout；编辑器center、connection、config等含csrf的接口未作为数据导出；待独立业务投影，未降低原编辑功能 |
 | SEO/日历 | `seo.current/manifest/summary/history/sources/rankings/markets/calendar/pages/orders/rules` | `mmoexp_google_data/seo/{web,api,snapshot}.py`，已发布快照、原4游戏范围、每页1–100及原cursor；不提交新采集 |
 | 任务 | `tasks.board/members/detail/events` | `opt/mmoexp-taskboard/taskboard_server.py`，当前 `/dashboard/tasks/api/` 到8932 `/api/`；原成员与对象权限；不导出含会话令牌的session辅助接口 |
-| Hermes持续对话 | `conversations.list/detail/files/pricing_review/material_metadata` | 原`conversation_http.py`与`_owned`；新增`conversation_readonly.py`以SQLite mode=ro读取材料元数据、原coverage和文件状态，不reconcile/stop/续grant；材料终态正文与实际文件内容仍缺读取 |
-| 报告/周报 | `reports.list/detail/thread/actions/evidence/artifact` | 当前 `nightly-reschedule-20261025/source/controller.py` 的原 `visible_job` 及导入报告分支；原owner/admin/shared/trash、40条分页与证据ID；不生成/重试报告 |
 | 游戏情报 | `game_monitor.intelligence/intelligence_status/seo_news/seo_news_status` | `ui-system/modules/game-monitor/{README.md,web/app.js,prepare_ui.py}`；当日四条JSON路由，内容与状态独立；未恢复退役工作区或采集计划 |
 | 经营管理 | `management.targets/daily_v2/daily_status` | `management-november-20261103/SOURCE-MAP.json`、原runner和当日路由；全站目标、发布事实和状态仅读；按期配置bundle、历史期仍待适配 |
 | FC金币 | `coins.monitor/automation/player_sync/jobs/snapshots/quotes/previews/audits/restore_previews` | `fc27_cloud_browser/fc27_cloud_api.py` 与当日 `/api/fc27/cloud/` 网关；UUID白名单，仅读原状态/结果，不重放原操作；新版smart扩展读取面仍须继续核查 |
@@ -52,7 +54,7 @@
 
 ## 未接通面及必要工作
 
-以下均仍在用户全量范围内，不以候选数量替代完成。
+以下为当前FS业务数据范围的剩余面，不以目录数量替代完成；Hermes会话与历史生成报告已按用户要求退出，不能再列为本轮取数缺口。
 
 | 导航/非导航范围 | 已定位依据 | 缺口及需要的最小适配 |
 |---|---|---|
@@ -61,9 +63,8 @@
 | 销售系统其余状态文字 | 当前`/sales/api/status`到8905 | snapshot业务数据已接；phase/detail/log_tail仍待去凭据后的字段合同，不注册可能触发更新的GET refresh |
 | 进化商品原错误正文 | 当前`/dashboard/fc27-evolutions/`到8914 | 已接全部已核业务状态；raw后端payload及未核错误正文仍withheld，需要去凭据后保留有用错误，不能称全部执行结果已输出 |
 | 账号本人辅助信息 | 原IAM本人/管理边界 | overview/audit已接；bootstrap含CSRF且创建会话，不能直接作为读取。若另有独有可读账号业务字段，须沿原本人/manage权限接入 |
-| 已部分映射模块剩余独有内容 | 见上表及各原服务路由 | 活动编辑商品业务投影、经营历史bundle、新版FC扩展、独有附件正文等仍待核对。CSV/SSE/二进制若只是已接JSON的重复格式，不另算数据缺失；未核与已证实缺项分别记录 |
-| 客单追踪新入口发布 | `tracking_readonly.py`与原publisher | 本地SELECT-only候选/详情和五view投影已完成；尚未发布helper/controller增量，线上没有stored_only分支。保留原网页、调度、observe/queue，不据本地测试称真实读取已通过 |
-| 对话材料终态正文/文件内容 | 原材料服务及`conversation_readonly.py` | 新增owned SELECT-only元数据已完成，明确result_available=false与missing；终态正文/实际生成文件内容仍缺纯读接口，不将元数据视作正文或恢复有副作用的旧入口 |
+| 已部分映射模块剩余独有内容 | 见上表及各原服务路由 | 活动编辑商品业务投影、经营历史bundle、新版FC扩展等仍待核对。CSV/SSE/二进制若只是已接JSON的重复格式，不另算数据缺失；未核与已证实缺项分别记录 |
+| 客单追踪覆盖 | `tracking_readonly.py`与原publisher | SELECT-only候选/详情及五view投影已完成，原服务增量发布记录见真实验收；业务查询仍应检查stored_only/refreshed/history/complete及实际日期，不据已有存储宣称实时全量。 |
 | FC活动记录 | `fc27_cloud_api.activity_feed` | GET会调用 `activity_log_store.capture`。需明确这是原读取必需审计缓存还是包含业务写入，并提供保留原语义的纯查询适配；未把它混入当前纯读取候选 |
 | 独立machine query API | `on-demand-20261012/source/query_api.py`，当前8933 | 使用独立Bearer fsq身份，不是FS Cookie入口；不复制固定token或固定用户。可复用其底层原range读取合同，不以此绕过当前用户授权 |
 

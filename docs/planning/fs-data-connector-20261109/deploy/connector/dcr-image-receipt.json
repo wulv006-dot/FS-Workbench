@@ -1,0 +1,96 @@
+{
+  "source_commit": "1d9ebb452772e8aa6f5dddca8fa85a9cf8382d95",
+  "merged_commit": "f291f5306df70b5af7dfc3c526c6e14dc33f7aa3",
+  "image_id": "sha256:abfab1a8a0f5abed1591a0d71c66c833dba068c62ca62644708aa14639e03b59",
+  "base_image_id": "sha256:3caead07927408c26da245d25ad3aeeef8ba795a8b0936b2e909b772b85dc152",
+  "server_sha256": "497e26d767dfc282554e018ebd528377faafc5e7db1357ebce007f10cd70a8e1",
+  "python": "3.12.15",
+  "tests": {
+    "run": 57,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "smoke": {
+    "local_image_test": true,
+    "tls_verified": false,
+    "metadata": {
+      "issuer": true,
+      "endpoints": true,
+      "pkce_s256": true,
+      "public_client": true,
+      "resource": true,
+      "authorization_server": true,
+      "read_scope": true
+    },
+    "unauthenticated_mcp_status": 401,
+    "assets": {
+      "fs-tokens.css": 200,
+      "fs-ui.css": 200,
+      "fs-theme.js": 200,
+      "consent.css": 200
+    },
+    "error_csp": true,
+    "unknown_route_status": 404,
+    "oauth_state_created": false
+  },
+  "dcr": {
+    "application_types": {
+      "native": 201,
+      "web": 201
+    },
+    "core_invalid_fields_rejected": [
+      400,
+      400,
+      400,
+      400,
+      400,
+      400,
+      400,
+      400
+    ],
+    "fixture_clients_registered": 2,
+    "user_authorizations_created": 0
+  },
+  "pip_freeze": [
+    "annotated-types==0.8.0",
+    "anyio==4.16.0",
+    "attrs==26.1.0",
+    "certifi==2026.10.23",
+    "cffi==2.1.1",
+    "click==8.5.1",
+    "cryptography==50.0.2",
+    "h11==0.16.0",
+    "httpcore==1.0.9",
+    "httpx==0.28.1",
+    "httpx-sse==0.4.3",
+    "idna==3.20",
+    "jsonschema==4.26.0",
+    "jsonschema-specifications==2025.9.1",
+    "mcp==1.26.0",
+    "pycparser==3.12",
+    "pydantic==2.14.3",
+    "pydantic-settings==2.16.2",
+    "pydantic_core==2.50.4",
+    "PyJWT==2.15.1",
+    "python-dotenv==1.2.4",
+    "python-multipart==0.0.33",
+    "referencing==0.37.0",
+    "rpds-py==2026.9.1",
+    "sse-starlette==3.7.0",
+    "starlette==1.10.0",
+    "typing-inspection==0.4.5",
+    "typing_extensions==4.16.0",
+    "uvicorn==0.54.0"
+  ],
+  "image_export_sha256": "8320c07f39c9098401c764a977b73258eb2d80463bb0f21878203d0811e916ff",
+  "image_export_bytes": 62298140,
+  "test_containers_remaining": [],
+  "live_readback": {
+    "reported_by": "release_owner",
+    "status": "updated_anonymous_entry_verified",
+    "receipt_path": "/var/backups/fs-data-connector/dcr-1d9ebb/receipt.json",
+    "nginx_unchanged": true,
+    "oauth_directory_preserved": true
+  }
+}
