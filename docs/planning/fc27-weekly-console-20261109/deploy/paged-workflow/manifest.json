@@ -230,13 +230,13 @@
     {
       "candidate": "code/activity.js",
       "target": "/opt/fs-campaign-dashboard/activity.js",
-      "sha256": "173d4f5b4ed22d5d51aa2e679f44f4cadd31be1e56effee974a35dd0d19bf071",
+      "sha256": "00c7d5daf222c5d3a2209bc1d4d0a63d318ec2d9d48fe86953923baf509792cf",
       "beforeSha256": "2647eaec495397950fcedd0dd1f1e92acced68820921872d334efd863d0e1b7d"
     },
     {
       "candidate": "code/analytics/admin-price-provider.mjs",
       "target": "/opt/fs-campaign-dashboard/analytics/admin-price-provider.mjs",
-      "sha256": "4477050b8dfb1ebb1c1f894cd97517a23eafda9ededcf5c98933050b2f401718",
+      "sha256": "d54bc2d28b1834717b850bca84616c57f4cf57954e8a47bd55871e605a3e9905",
       "beforeSha256": "97113be3700cfb1f769136f94df9a5a2380418fb0d1834a2d77be97eed20a1b2"
     },
     {
@@ -272,7 +272,7 @@
     {
       "candidate": "derived/static-manifest.json",
       "target": "/opt/fs-campaign-dashboard/runtime/static-manifest.json",
-      "sha256": "5fabf5dd2087fe5015547aca8986fe8f73eec4a74375bc9c227deb341dc208de",
+      "sha256": "d067f2e2c091886fad4f86cea95776f05f7af658c593d08ef728154c30041ed4",
       "beforeSha256": "82838fa6d36809185f6aec882d20f3441392f6cd577e21546406c783671fa953"
     }
   ]
