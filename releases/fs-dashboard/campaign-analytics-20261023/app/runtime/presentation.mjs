@@ -3,11 +3,11 @@ import {effectiveFcCatalog} from './model-cards.mjs';
 // Public copy policy only: preserve the management draft and immutable release.
 // Unsupported demo text gets a neutral English identity, never an invented offer.
 const hasHan=value=>typeof value==='string'&&/\p{Script=Han}/u.test(value);
-const pageTitles={'Weekly-Scout.html':'Weekly Player Picks','Sbc-Companions.html':'SBC Companions','Player-Trio.html':'Star Performer Trio','seasonal/index.html':'MMOEXP Seasonal Vault'};
+const pageTitles={'Weekly-Scout.html':'Weekly Player Picks','Sbc-Companions.html':'SBC Companions','Player-Trio.html':'Player Trio','seasonal/index.html':'MMOEXP Seasonal Vault'};
 export function publicEnglishRelease(snapshot){
  if(!snapshot)return snapshot;
  const result=structuredClone(snapshot);
- result.pages=(result.pages||[]).map(page=>({...page,title:hasHan(page.title)?pageTitles[page.path]||'MMOEXP Activity':page.title,
+ result.pages=(result.pages||[]).map(page=>({...page,title:page.page_id==='fc27-trio'&&['Star Performer Trio','Star Performer 三人组'].includes(page.title)?'Player Trio':hasHan(page.title)?pageTitles[page.path]||'MMOEXP Activity':page.title,
   ...(hasHan(page.description)?{description:''}:{}),default_language:'en'}));
  result.products=(result.products||[]).map(product=>({...product,...(hasHan(product.title)?{title:'Product ID '+product.product_ref.goods_id,...(product.preview_only?{title_source:'identity_fallback'}:{})}:{}),
   ...(product.observed_quantity&&hasHan(product.observed_quantity.unit)?{observed_quantity:{...product.observed_quantity,unit:null}}:{})}));
@@ -165,7 +165,9 @@ export function projectFcCatalog(originalCatalog,snapshot) {
   const trioKeys=keys('Player-Trio.html'),sbcKeys=keys('Sbc-Companions.html'),sbcSet=new Set(sbcKeys);
   catalog.weekly.ids=weekly;
   if(weekly.some(key=>products[key].version!=='Team of the Week'))catalog.weekly.edition={zh:'已发布球员精选',en:'Published player picks'};
-  catalog.trio.ids=trioKeys.filter(key=>products[key].kind==='player'&&products[key].version===catalog.trio.series);
+  catalog.trio.ids=trioKeys.filter(key=>products[key].kind==='player');
+  const trioVersions=[...new Set(catalog.trio.ids.map(key=>products[key].version).filter(Boolean))];
+  catalog.trio.series=trioVersions.length===1?trioVersions[0]:'Player Picks';
   catalog.bundles.ids=trioKeys.filter(key=>products[key].kind==='bundle');
   catalog.weekly.bundleIds=keys('Weekly-Scout.html').filter(key=>products[key].kind==='bundle');
   catalog.sbc.ids=sbcKeys.filter(key=>products[key].kind==='sbc');

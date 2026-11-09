@@ -138,6 +138,11 @@ class HermesService:
             except Exception as error:
                 atomic(self.root/'nightly-status.json', {'error': 'nightly_'+type(error).__name__, 'at': self.clock().isoformat()}, mode=0o600)
             try:
+                campaign=getattr(self,'campaign_weekly',None)
+                if campaign is not None:campaign.tick()
+            except Exception as error:
+                atomic(self.root/'campaign-weekly-status.json',{'error':'campaign_weekly_'+type(error).__name__,'at':self.clock().isoformat()},mode=0o600)
+            try:
                 from cohort_reader import reader_for as cohort_reader_for
                 cohort_reader_for(self.detail).tick()
             except Exception as error:

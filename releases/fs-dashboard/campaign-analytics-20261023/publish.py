@@ -20,6 +20,7 @@ STATS_PAYLOAD=set(STATS_SPECIAL)|{'app/analytics/statistics-refresh.mjs','app/an
 BACKEND_FILES={'bridge.py','catalog-mapping.json','campaign_backend/__init__.py','campaign_backend/adapters.py','campaign_backend/attribution.py','campaign_backend/catalog.py','campaign_backend/models.py','campaign_backend/provider.py','campaign_backend/core.py','campaign_backend/ledger.py','campaign_backend/coupon_draft.py','campaign_backend/benefits.py','campaign_backend/analysis.py','campaign_backend/services.py','campaign_backend/discount_revenue.py'}
 BACKEND_FILES.add('statistics_refresh.py')
 BACKEND_FILES.add('google_traffic.py')
+BACKEND_FILES.add('campaign_backend/weekly.py')
 
 def target(rel):
  if rel in SPECIAL:return SPECIAL[rel]

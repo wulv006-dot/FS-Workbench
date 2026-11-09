@@ -16,6 +16,10 @@ import {makeCenterStore} from './center-store.mjs';
 import {makeWeeklyStore} from './weekly-store.mjs';
 import {makeWeeklyRecommendations} from './weekly-recommendations.mjs';
 import {createWeeklyHermesProvider} from './weekly-hermes-provider.mjs';
+import {weeklyRunCall} from './weekly-run-client.mjs';
+import {makeWeeklyPipeline} from './weekly-pipeline.mjs';
+import {startWeeklyBridge} from './weekly-bridge.mjs';
+import {weeklyNativeCandidates} from './weekly-native-candidates.mjs';
 import {centerSeed,effectivePageBindings} from './center-seed.mjs';
 import {backendRead,backendMutate} from './backend-client.mjs';
 import {effectiveFcCatalog} from '../runtime/model-cards.mjs';
@@ -50,10 +54,11 @@ const centerState=s=>{const effective=effectiveFcCatalog(catalog,s.draft.fc_mode
  csrf:undefined};};
 const weekly=makeWeeklyStore({dir:path.join(dir,'center'),centerProvider:()=>{const state=centerState(center.read()),seed=pageSeed(state.effective_fc_layout,state.draft.fc_models||{});return {...state,price_contracts:seed.seasonal_model_contracts||{},native_checkout:readNativeCheckoutPolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))};}});
 const weeklyRecommendations=makeWeeklyRecommendations({timeout_ms:120000,dir:path.join(dir,'center','weekly-recommendations'),enabledProvider:()=>weekly.read().hermes.enabled,contextProvider:()=>{const state=centerState(center.read());return {draft:{...state.draft,fc_layout:state.effective_fc_layout},catalog_products:state.catalog_products,page_bindings:state.page_bindings,source_revision:String(state.revision)};}});
+const weeklyPipeline=makeWeeklyPipeline({dir:path.join(dir,'center','weekly-plans'),center,contextProvider:centerState,enabledProvider:()=>weekly.read().hermes.enabled,sourceProvider:()=>backendRead({action:'weekly_selection',site_id:'266',game_id:'1327'}),nativeCandidateProvider:source=>{const stateDir=process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend');return weeklyNativeCandidates({source,pricePolicy:readAdminPricePolicy(stateDir),nativeCatalog:readNativeLaunchPolicy(stateDir).catalog});}});
 const secret=()=>fs.existsSync(secretFile)?JSON.parse(fs.readFileSync(secretFile,'utf8')).key:null;
 const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
 const publicState=s=>({revision:s.revision,registry:s.registry,layout:s.layout,updatedAt:s.updatedAt,updatedBy:s.updatedBy});
-const publicNames=new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','native-code-handoff.js','activity-analytics.js','ANALYTICS-INTEGRATION.md','MATCHDAY-ANALYTICS-PLAN.md','analytics/index.html','analytics/connect.html','analytics/connect.js','analytics/dashboard.js','analytics/dashboard.css','analytics/fs-tokens.css','analytics/fs-ui.css','analytics/funnel-core.cjs','analytics/demo-data.js','analytics/server-client.js','analytics/products.html','analytics/products.js']);
+const publicNames=new Set(['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','activity.css','activity.js','activity-core.js','activity-content.js','host-adapter.js','native-code-handoff.js','activity-analytics.js','seasonal/activity-analytics.js','ANALYTICS-INTEGRATION.md','MATCHDAY-ANALYTICS-PLAN.md','analytics/index.html','analytics/connect.html','analytics/connect.js','analytics/dashboard.js','analytics/dashboard.css','analytics/fs-tokens.css','analytics/fs-ui.css','analytics/funnel-core.cjs','analytics/demo-data.js','analytics/server-client.js','analytics/products.html','analytics/products.js']);
 for(const name of ['weekly.html','weekly.js','weekly.css'])publicNames.add('analytics/'+name);
 publicNames.add('analytics/operations.html');publicNames.add('analytics/operations.js');
 const previews=new Map();let previewFiles=null;
@@ -101,6 +106,7 @@ export const server=http.createServer(async(req,res)=>{
    }
    if(req.headers['content-type']!=='application/json')return json(res,403,{message:'请求来源或会话校验失败，请刷新页面'});
    let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>300000)return json(res,413,{message:'配置过大'});}const body=JSON.parse(raw);
+   if(relative==='analytics/api/weekly/run')return json(res,200,await weeklyRunCall({method:'POST',body,cookie:req.headers.cookie||'',actor:auth.user}));
    if(relative==='analytics/api/weekly/reconcile')return json(res,200,await weeklyRecommendations.reconcile(body,auth.user,{provider:createWeeklyHermesProvider({cookie:req.headers.cookie||'',actor:auth.user})}));
    if(relative==='analytics/api/weekly/recommend')return json(res,200,await weeklyRecommendations.recommend(body,auth.user,{provider:createWeeklyHermesProvider({cookie:req.headers.cookie||'',actor:auth.user})}));
    if(relative==='analytics/api/weekly')return json(res,200,{...weekly.mutate(body,auth.user),csrf,canEdit:true});
@@ -145,6 +151,11 @@ export const server=http.createServer(async(req,res)=>{
    const type=({'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.jpeg':'image/jpeg','.woff2':'font/woff2'})[path.extname(name)];res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'SAMEORIGIN','X-Robots-Tag':'noindex, nofollow'});return res.end(req.method==='HEAD'?undefined:body);
   }
   if(relative==='analytics/api/connection')return json(res,200,{configured:!!secret(),csrf:auth.admin?csrf:null,canEdit:auth.admin,storage:'server-persistent',projectId:cfg.projectId});
+  if(relative==='analytics/api/weekly/run'){
+   if(!auth.admin)return json(res,403,{message:'ADMIN_REQUIRED'});
+   if([...url.searchParams.keys()].some(k=>k!=='operation_id'))return json(res,400,{message:'WEEKLY_RUN_REQUEST_INVALID'});
+   return json(res,200,await weeklyRunCall({method:'GET',operation_id:url.searchParams.get('operation_id'),cookie:req.headers.cookie||'',actor:auth.user}));
+  }
   if(relative==='analytics/api/weekly/recommend')return json(res,200,weeklyRecommendations.read());
   if(relative==='analytics/api/weekly')return json(res,200,{...weekly.read(),csrf:auth.admin?csrf:null,canEdit:auth.admin});
   if(relative==='analytics/api/center')return json(res,200,{...centerState(center.read()),csrf:auth.admin?csrf:null,canEdit:auth.admin});
@@ -178,5 +189,6 @@ export const server=http.createServer(async(req,res)=>{
 });
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  void adminPrices.start().catch(()=>{});server.on('close',()=>adminPrices.stop());
+ if(process.platform!=='win32')void startWeeklyBridge({pipeline:weeklyPipeline}).then(bridge=>{server.on('close',()=>bridge.close());}).catch(()=>console.error('WEEKLY_LOCAL_BRIDGE_UNAVAILABLE'));
  server.listen(Number(process.env.PORT||8948),'127.0.0.1',()=>console.log('FS campaign service listening on loopback'));
 }

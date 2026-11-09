@@ -2,41 +2,40 @@
 
 ## 当前结论
 
-运营台与真实Sol宿主接线代码已实现；没有部署到FS生产，没有付费模型调用。人工输入本期SBC来源后可请求候选的链路已做隔离验证。用户最终确认手动触发，允许Hermes使用本人身份及真实模型进行页面商品更新测试；自动检测/定时不属于本次实施终点。真实模型及草稿更新验收已获授权，待生产代码部署获批后经实际FS会话执行。批准记录不会执行发布等生产动作。
+代码已实现自动与手动周更，沿原FS活动中心保存草稿。周日12:00 Asia/Shanghai的计划可由真实管理员明确批准启用；目前未部署、未启用。用户已授权真实Sol和页面商品更新测试，待本批生产代码部署批准后执行，不重复请求模型测试授权。
+
+三页规则：最新SBC核心及Sol搭档、Popular原排序前三名、最新Player结合公开信息生成跨系列Trio。管理台沿原编辑器调整球员、素材、文案；自动刷新只查询状态，保留未保存编辑。核心/两搭档/多备选沿原fc_layout.routes消费。球员卡身份、规格、报价及跨域结账复用万圣节链，未把预览导入当作真实可售。
 
 ## 已通过
 
-- 最终周更、推荐、provider、原ID恢复与HTTP权限测试：48/48（Windows Node24.22.1），包括真实center seed到三页任务上下文、CSRF/角色拒绝、原中心无发布写入、异步provider、严格终态回执、跨用户去重隔离、原任务查询、迟到响应不回退已完成结果。
-- 最终共享Sol宿主17/17在183禁网隔离容器通过：实际Proxy→ModelGateway→UnifiedBudget→OpenAI请求构造，token账本、额度、无工具strict schema、原ID去重、会话撤销、无效输出真实用量、队列失败、重启恢复只影响campaign、原report/pricing账本不变、campaign初始化失败不影响原health。仅外部模型和登录校验响应使用替身；未付费调用。
-- 183隔离Linux容器：Node24.22.1、Python3.12.3，禁网、1CPU/1GB、只读挂载源码、专用临时结果目录。原活动Node测试首轮347项通过；因测试包缺目录fixture/Playwright引用而失败的4个文件，补齐后5项全部通过。没有放宽断言或删除测试。
-- 发布器/包装/保留策略32项通过；后台模块先受包缺少sales_auth和catalog_probe源码影响，补齐后复用231项通过证据，catalog_probe单独3项通过（对应完整234项）；统计进程隔离4项通过。
-- 原活动浏览器检查及新增周更检查共15个脚本：14个183通过；provider54硬要求Chrome，183镜像没有该浏览器，改在已装Chrome的Windows同源码检查通过。未在187生产跑测试。
-- 最终周更浏览器19类场景通过：空、失败、只读、三页、周次维护、审批不执行、暂停恢复、刷新后的原ID恢复、历史比较、URL筛选、Hermes开关、SBC关联及缺证/过期、异步原ID查询、有界商品查询/翻页、可选到期时间、真实嵌套task/run/usage回执、深浅主题及390px窄屏。此测试使用隔离API fixture；HTTP集成测试另核真实production-server代码与原center。
-- pr_fast自检通过；新浏览器脚本已加入原campaign-analytics组，不新增workflow。
-- 独立审查及总控复查修复并补回归：平台code与aid严格一致、当前release不能套给旧周次、宿主回执持久化、跨用户去重、迟到响应竞争、原任务已知未派发与查询故障区分，以及campaign异常恢复不得改动其他任务用量记录。
+- 最终活动Node回归383/383通过，覆盖原活动中心、HTTP权限、版本/CAS、媒体、目录、金额、原ID恢复、周更、共享追踪及同意流程。首次381通过、2处旧同系列断言失败，按用户跨系列规则调整为真实类型/身份/数量/重复验证后全部通过，未放宽业务保护。
+- 183隔离Linux：Python3.12.3、Node24.22.1，禁网、1CPU/1GB、只读代码。共享Sol/自动计划/公开证据37/37；周更与目录Node84/84；取品Python4/4及原目录12/12。原目录首次因runner缺tests导入路径失败，修正运行环境后单独12项通过，不修改断言。
+- 共享核心完整测试338项通过。发布目标新增精确weekly.py映射，发布器12项回归通过。此前原发布/保留32、后台234、统计隔离4项及15个浏览器脚本已验证；本次改变消费者后另复测相关页面。
+- 周更浏览器22类通过：三页总览、深浅主题/窄屏、只读/空/失败、显式计划审批、手动草稿、原ID查询/恢复、配置回执丢失后的读回、30秒可见页刷新、未保存编辑保留、原商品编辑深链。
+- 公开三页、原商品流程与native-page59浏览器通过；共享追踪使用万圣节引擎及原cfg.enabled/同意流程。真实确认加购才记成功，未知/部分结果不冒充成功，恢复不重复上报。管理HTTP已核共享脚本200，未向生产分析发送事件。
 
-## 环境失败与限制
+## 真实只读取证与隔离写入
 
-Windows默认Python缺tzdata，初次保留策略/知识收尾检查报错；业务保留策略已在183通过，知识收尾复用已安装runtime的tzdata后完成。最新知识plan无受影响正式条目、无重启、无Notion发布；其104项测试有7项既有平台跳过，不声明该套零跳过。知识变更ID `KL-3a472cc012b0e08d4943ff14`。
+2026-11-09约12:58–13:14北京时间，实际Admin目录识别Players 9627、SBC Players 10203；扫描2015标签，动态识别当前有效Popular。前三个是44921285 Lamine Yamal、44921275 Bradley Barcola、44921269 Désiré Doué，含不同卡版本信息；这是目录排序，不冒称统计热度排名。实际最新SBC模型45525985，最新Player45496989。model.time为空，只能证明原模型ID倒序，不能证明创建时间。
 
-Hallmark渲染检查工具缺puppeteer-core，使用现有Playwright实际截图替代。旧共享样式的扫描提示未通过修改全局CSS消除；本次页面沿FS令牌，未改变其他页面风格。
+真实目录22个模型、66个平台映射输入隔离center，使用明确标记的替身模型，成功写回三个页面草稿revision 1并核原回执；published仍为空。这不是Sol或生产写入验收。候选native映射与价格策略保持prepared_not_installed，未安装真实销售策略。
 
-## 生产只读核对
+复用原搜索/抓取工具实测Aleix García Serrano，读到FUTBIN FC27页面 https://www.futbin.com/27/player/24076/aleix-garcia-serrano （2026-11-09T05:03:41Z）。社媒未获得匹配记录，状态partial；生成可保留metadata-only待审草稿，不以资料不全新增阻断自动化的门槛。不得宣称已证明同一卡版本或信息发布时间。
 
-管理服务与公开运行服务均active，weekly.html不存在。production-server/index/products线上字节与main 2b0f735一致。operations.html有线上独立差异，本批完全不改。源版本/目标/候选哈希见RELEASE-CANDIDATE.json；该清单未批准，不能直接宣称已上线。
+本地证据：`.agent_runtime/weekly-console/selection-live-full.json`、`real-source-isolated-result.json`、`node-final-2.log`；183日志在本任务独立临时测试目录。截图在`.agent_runtime/weekly-ui/`，内容为隔离测试数据。
 
-共享fs_inprocess/proxy_gateway/transport/openai_provider/fc_daily线上字节与本分支HEAD基线一致。线上range_api按文本逐行与management-november-20261103/source/range_api.py一致；dashboard-refresh旧源缺实时订单、管理台与Desktop接线，已撤销对旧源的修改，本批只改现役management-november入口。生产原文件哈希单列，换行差异不冒充字节一致。
+## 生产基线与发布
 
-## 明确未执行
+40个候选目标已只读逐项核哈希/缺席状态，见RELEASE-CANDIDATE.json；执行前仍须刷新原CAS。管理与公开服务active，weekly页面未部署。现役range入口为management-november源，与旧dashboard-refresh不同；保留最新main的其他模块入口。operations.html有线上独立差异，本批不改。products.js另有现役万圣节wow修正，必须保留，不用旧main覆盖。
 
-GitHub正式CI与PR状态以PR实时记录为准，本文不预先宣布通过；无合并或生产部署。没有优惠券写入、活动发布、定时启用、回退、社区消息、订单/支付或真实付费模型调用。
+管理端沿原增量publisher；公开消费者/presentation及共享追踪也在载荷内，需单独明确公开运行服务激活，不能把仅管理重启冒充整个载荷生效。主站结账与该活动runtime独立；不宣称活动runtime重启零中断。共享Sol沿原宿主，等在途模型任务完成再激活，FC P0调度不降频/停用。回退保留center、原ID、账本，以及已产生not_dispatched后的兼容读者，不整包覆盖数据。
 
-真实Sol沿新增campaign任务身份及原Grants/Proxy/额度调用；不借report/pricing上下文或固定owner。代码具备人工会话触发与原ID查询，但部署、真实模型返回、三页真实可售/优惠/成交链路仍未验收。用户最终选择手动触发；自动更新来源与调度身份未接入，现有周二/周五游戏监控不等于每期SBC监控，也不列为本轮已具备能力。
+GitHub正式CI以PR930最新提交检查为准，旧成功记录不替代当前载荷；未合并和部署。
 
-## 证据位置与重跑
+## 未执行与证据缺口
 
-本地：`.agent_runtime/weekly-ui/`截图、`.agent_runtime/weekly-console/`测试打包及知识plan日志。183：`/tmp/fs-fc27-weekly-20261109-check/results/`原始结果；失败日志保留，后续通过证据分别记录，不涂改首轮结果。
+没有真实Sol付费调用、生产草稿写入、活动发布、优惠券写入、定时启用、回退、社区消息或订单/支付操作。新商品实际报价/规格、优惠码、跨域购物车和成交追踪未完成生产验收；公开goods探测返回403后停止，没有绕过。真实可售映射、价格策略须沿原验证/审批入口完成，不能由AI身份匹配自动升级。
 
-最终共享Linux结果：`/tmp/fs-fc27-weekly-20261109-check/sol-results/campaign_sol_host.log`、`sol-results.json`；源码只读挂载、网络禁用、容器已退出，无服务变更。
+自然周更必须等获批启用后的一个真实周日周期，手动测试不能替代。知识收尾计划及最终CI状态在本批收尾记录更新；本文件不预先声明已通过。
 
-直接回归：`node --test releases/fs-dashboard/campaign-analytics-20261023/app/analytics/tests/weekly-*.test.mjs`；浏览器：`node releases/fs-dashboard/campaign-analytics-20261023/app/tests/weekly-console-browser.cjs`（使用现有Playwright）。正式CI继续走tools/pr_fast.py的受影响campaign组。
+知识收尾plan `KL-0b4ac9e7500ad586972b4f78` 已完成，104项检查含7项既有平台跳过；affected_ids为空，识别宿主代码需原范围激活，Notion摘要仍为候选未同步。

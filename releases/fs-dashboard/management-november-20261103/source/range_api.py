@@ -353,6 +353,13 @@ if HERMES is not None:
   CAMPAIGN_RECOMMENDATIONS=CampaignRecommendations(HERMES)
  except Exception:
   CAMPAIGN_RECOMMENDATIONS_ERROR='campaign_initialization_failed'
+CAMPAIGN_WEEKLY=None
+if CAMPAIGN_RECOMMENDATIONS is not None:
+ try:
+  from campaign_weekly import CampaignWeekly,handle as campaign_weekly_handle
+  CAMPAIGN_WEEKLY=CampaignWeekly(HERMES,CAMPAIGN_RECOMMENDATIONS)
+ except Exception:
+  CAMPAIGN_RECOMMENDATIONS_ERROR='campaign_weekly_initialization_failed'
 from conversation_desktop import DesktopRPC
 DESKTOP_RPC=DesktopRPC(CONVERSATION,hermes_authorizer,'/etc/fs-hermes-desktop/fs-principal.json') if CONVERSATION is not None else None
 bind_conversation_diagnostics(CONVERSATION,conversation_handle)
@@ -412,6 +419,10 @@ def campaign_unavailable(handler,method,uri):
 class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   uri=urlsplit(self.path)
+  if uri.path=='/internal/hermes/campaign-weekly':
+   if CAMPAIGN_WEEKLY is None:self.reply(503,{'error':'campaign_weekly_unavailable'})
+   else:campaign_weekly_handle(self,'GET',uri,CAMPAIGN_WEEKLY)
+   return
   if uri.path=='/internal/hermes/campaign-recommendations':
    if CAMPAIGN_RECOMMENDATIONS is None:campaign_unavailable(self,'GET',uri)
    else:campaign_recommendations_handle(self,'GET',uri,CAMPAIGN_RECOMMENDATIONS)
@@ -493,6 +504,10 @@ class Handler(BaseHTTPRequestHandler):
   except Exception:self.reply(503,{'error':'query_unavailable'})
  def do_POST(self):
   uri=urlsplit(self.path)
+  if uri.path=='/internal/hermes/campaign-weekly':
+   if CAMPAIGN_WEEKLY is None:self.reply(503,{'error':'campaign_weekly_unavailable'})
+   else:campaign_weekly_handle(self,'POST',uri,CAMPAIGN_WEEKLY)
+   return
   if uri.path=='/internal/hermes/campaign-recommendations':
    if CAMPAIGN_RECOMMENDATIONS is None:campaign_unavailable(self,'POST',uri)
    else:campaign_recommendations_handle(self,'POST',uri,CAMPAIGN_RECOMMENDATIONS)

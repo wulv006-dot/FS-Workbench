@@ -36,7 +36,7 @@ def checked_input(value):
         if type(item) is not str or not item or len(item)>maximum or re.search(r'[<>\x00-\x1f]',item):raise ValueError('campaign_input_text')
     def key(item):
         if type(item) is not str or not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}',item):raise ValueError('campaign_input_key')
-    fields(value,('source_revision','sbc_update','pages','catalog'));text(value['source_revision'],160)
+    fields(value,('source_revision','sbc_update','pages','catalog','rules') if 'rules' in value else ('source_revision','sbc_update','pages','catalog'));text(value['source_revision'],160)
     if len(encoded(value).encode())>250000:raise ValueError('campaign_input_size')
     update=value['sbc_update'];fields(update,('id','observed_at','expires_at','context','sources'));key(update['id'])
     if type(update['context']) is not str or not update['context'].strip() or len(update['context'])>8000 or re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]',update['context']):raise ValueError('campaign_input_text')
@@ -68,17 +68,22 @@ def checked_input(value):
             rows=page[name]
             if type(rows) is not list or len(rows)>2000 or any(type(k) is not str or k not in keys for k in rows) or len(set(rows))!=len(rows):raise ValueError('campaign_page_keys')
         if not set(page.get('core_product_keys',())).issubset(page['product_keys']):raise ValueError('campaign_core_keys')
+    if 'rules' in value:
+        rules=value['rules'];fields(rules,('version','scout_top_keys'))
+        weekly=next(p for p in value['pages'] if p['page_id']=='fc27-weekly')['product_keys']
+        if rules['version']!='fc27_weekly_selection_v1' or type(rules['scout_top_keys']) is not list or len(rules['scout_top_keys'])!=3 or len(set(rules['scout_top_keys']))!=3 or any(k not in weekly for k in rules['scout_top_keys']):raise ValueError('campaign_weekly_rules')
     return json.loads(encoded(value))
 
 
 def output_schema(value):
     keys=[p['key'] for p in value['catalog']];cores=next(p['core_product_keys'] for p in value['pages'] if p['page_id']=='fc27-sbc')
     properties=dict(model={'type':'string','enum':[MODEL]},source_revision={'type':'string','enum':[value['source_revision']]},sbc_update_id={'type':'string','enum':[value['sbc_update']['id']]},recommendations={'type':'array','maxItems':60,'items':{'type':'object','additionalProperties':False,'required':['page_id','product_key','core_product_key','reason','evidence_indices'],'properties':dict(page_id={'type':'string','enum':list(PAGES)},product_key={'type':'string','enum':keys},core_product_key={'anyOf':[{'type':'string','enum':cores},{'type':'null'}]} if cores else {'type':'null'},reason={'type':'string','maxLength':800},evidence_indices={'type':'array','items':{'type':'integer'},'maxItems':20})}})
+    if 'rules' in value:properties['recommendations']['maxItems']=96
     return {'type':'object','additionalProperties':False,'required':list(properties),'properties':properties}
 
 
 def checked_result(result,value):
-    if type(result) is not dict or set(result)!={'model','source_revision','sbc_update_id','recommendations'} or result['model']!=MODEL or result['source_revision']!=value['source_revision'] or result['sbc_update_id']!=value['sbc_update']['id'] or type(result['recommendations']) is not list or len(result['recommendations'])>60:raise ValueError('campaign_result_invalid')
+    if type(result) is not dict or set(result)!={'model','source_revision','sbc_update_id','recommendations'} or result['model']!=MODEL or result['source_revision']!=value['source_revision'] or result['sbc_update_id']!=value['sbc_update']['id'] or type(result['recommendations']) is not list or len(result['recommendations'])>(96 if 'rules' in value else 60):raise ValueError('campaign_result_invalid')
     catalog={p['key']:p for p in value['catalog']};cores=next(p['core_product_keys'] for p in value['pages'] if p['page_id']=='fc27-sbc');seen=set()
     for row in result['recommendations']:
         if type(row) is not dict or set(row)!={'page_id','product_key','core_product_key','reason','evidence_indices'} or row['page_id'] not in PAGES or row['product_key'] not in catalog or type(row['reason']) is not str or not row['reason'].strip() or len(row['reason'])>800 or re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]',row['reason']):raise ValueError('campaign_result_invalid')
@@ -87,8 +92,16 @@ def checked_result(result,value):
             if row['core_product_key'] not in cores or row['core_product_key']==row['product_key']:raise ValueError('campaign_result_invalid')
         elif row['core_product_key'] is not None:raise ValueError('campaign_result_invalid')
         identity=(row['page_id'],row['product_key'],row['core_product_key'])
+        if row['product_key'] not in next(p['product_keys'] for p in value['pages'] if p['page_id']==row['page_id']):raise ValueError('campaign_page_pool_mismatch')
         if identity in seen:raise ValueError('campaign_result_invalid')
         seen.add(identity)
+    if 'rules' in value:
+        rows=result['recommendations'];scout=[r['product_key'] for r in rows if r['page_id']=='fc27-weekly'];trio=[r for r in rows if r['page_id']=='fc27-trio']
+        if scout!=value['rules']['scout_top_keys'] or len(trio)!=3:raise ValueError('campaign_weekly_selection')
+        if any(not catalog[r['product_key']]['product_ref'].get('model_id') for r in trio) or len({catalog[r['product_key']]['product_ref']['model_id'] for r in trio})!=3:raise ValueError('campaign_weekly_selection')
+        for core in cores:
+            companions=[r['product_key'] for r in rows if r['page_id']=='fc27-sbc' and r['core_product_key']==core]
+            if not 2<=len(companions)<=10 or any(k in cores for k in companions):raise ValueError('campaign_weekly_selection')
     return result
 
 
@@ -132,7 +145,11 @@ class CampaignRecommendations:
             state='unknown' if network_started else 'not_dispatched'
             db.execute("UPDATE model_calls SET state=?,content=? WHERE (state='started' OR (state='unknown' AND ?='not_dispatched')) AND fingerprint IN (SELECT fingerprint FROM hermes_reservations WHERE task=?)",(state,encoded({'status':state,'provider_outcome':state}),state,task_id))
     def authorized(self,owner,cookie):
-        if self.verify(cookie,owner) is not True or self.host.authorizer(owner) is not True:raise PermissionError('campaign_session_required')
+        if getattr(cookie,'campaign_delegation',False) is True:
+            from campaign_weekly import CampaignDelegation
+            valid=isinstance(cookie,CampaignDelegation) and cookie.authorized(self.host,owner)
+        else:valid=self.verify(cookie,owner) is True
+        if not valid or self.host.authorizer(owner) is not True:raise PermissionError('campaign_session_required')
     def _record(self,operation_id,owner):
         if not re.fullmatch('[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}',operation_id or ''):raise ValueError('campaign_operation_id')
         with self.host.tasks.db() as db:row=db.execute('SELECT * FROM campaign_recommendations WHERE owner=? AND operation_id=?',(owner,operation_id)).fetchone()
@@ -142,7 +159,7 @@ class CampaignRecommendations:
         if row is None:raise LookupError('campaign_not_found')
         if row['result']:return json.loads(row['result'])
         return dict(status=row['state'],operation_id=operation_id,task_id=row['task_id'],run_id=row['run_id'],**({'provider_outcome':'unknown','error':'WEEKLY_HERMES_PROVIDER_OUTCOME_UNKNOWN'} if row['state']=='unknown' else {}))
-    def submit(self,body,owner,cookie):
+    def submit(self,body,owner,cookie,*,dispatch=True):
         self.authorized(owner,cookie)
         if type(body) is not dict or set(body)!={'contract','operation_id','input'} or body['contract']!=CONTRACT:raise ValueError('campaign_request_fields')
         value=checked_input(body['input']);request_hash=digest(body);old=self._record(body['operation_id'],owner)
@@ -167,6 +184,7 @@ class CampaignRecommendations:
                     db.execute("INSERT INTO tasks VALUES(?,?,?,?,?,0,NULL,?,0,0)",(task_id,owner,digest({'type':CONTRACT,'request':request_hash}),encoded(spec),'DISPATCH_UNKNOWN',lease))
                     db.execute("INSERT INTO campaign_recommendations VALUES(?,?,?,?,?,?,NULL,?,NULL,0)",(owner,body['operation_id'],request_hash,encoded(value),'pending',task_id,lease))
             if prior:return self.lookup(body['operation_id'],owner,cookie)
+        if not dispatch:return dict(status='pending',operation_id=body['operation_id'],task_id=task_id,run_id=None)
         try:self.host.pool.submit(self._execute,owner,body['operation_id'],cookie)
         except RuntimeError:
             self.host.tasks.fence(task_id,owner)

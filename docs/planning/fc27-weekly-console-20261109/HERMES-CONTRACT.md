@@ -1,6 +1,6 @@
 # campaign_recommendation_v1
 
-本轮新增已授权只读推荐消费者；不修改周报、管理台、普通聊天或pricing配置。用户后续确认手动触发、允许Hermes使用本人身份及真实模型做页面商品更新测试；当前尚未部署或付费调用，不启定时。实际模型及草稿测试沿真实FS会话，活动对外发布仍等批准。
+本轮新增已授权推荐消费者及周日12:00（Asia/Shanghai）草稿编排；不修改周报、管理台、普通聊天或pricing配置。用户后续确认自动加手动、允许Hermes使用本人身份及真实模型做页面商品更新测试。当前候选代码以假provider和隔离中心验证；部署、真实模型和自然周期须另附回执。计划初始禁用，活动对外发布仍等批准。
 
 沿现役 `management-november-20261103/source/range_api.py` 的8931进程增加内部路由 `/internal/hermes/campaign-recommendations`，不新增端口、服务或凭据。POST接受 `{contract,operation_id,input}`；input为三页、FC27目录身份和本期SBC来源的限定投影。模型固定gpt-6.1-sol/high；浏览器不能选择模型、工具、actor或文件路径。GET仅按原operation_id查询，不派发。
 
@@ -14,17 +14,40 @@ POST异步返回202 pending；GET最终返回200 completed/result/receipt，已�
 
 共享改动仅新宿主模块、原scope/provider分派及现役range路由。`openai_provider`仅在明确campaign参数下允许空工具；原native请求合同不放宽。strict schema全部字段required，非SBC核心为null，禁止空enum。源码与本地假provider测试不证明部署及真实调用。
 
-## 手动触发与未实施的自动能力
+## 自动与手动使用同一草稿流水线
 
-用户最终选择手动触发。当前代码具备当前用户会话提交SBC update后异步推荐、原ID查询和候选校验；没有实现无人值守的SBC逐期检测及自动派发，该能力不属于本次实施终点。现役游戏情报入口为 `ui-system/modules/game-monitor/backend/discovery.py` 的run_once/main，在现有周二/周五任务中原子发布带version、event_id、source_sha256的快照；没有campaign消费hook，通用事件合同没有SBC完整目录/逐期身份。
+新 `campaign_weekly.py` 在现役 `knowledge-layering-20261023/source/controller.py` 原5秒恢复循环中加独立tick，不新建后台、端口或定时器。默认禁用；人工配置须当前真实会话，owner由二次核验的actor产生，配置采用revision CAS及原operation_id去重。持久授权只含owner、active、grant_revision及操作回执，不存Cookie。每轮及研究前后、模型和草稿应用前，用类型化CampaignDelegation核对原宿主、当前授权revision/active和原authorizer；撤权立即阻止后续阶段。旧report scheduler固定owner及其执行时段不借用。
 
-后续可在该任务成功发布后消费FC事件，以快照version及事件/原文SHA去重，不新定时。仍须确认SBC逐期权威来源与更新范围，接入限定campaign作用域的可信调度grant。现有人工session不能冒充长期调度身份，不能固定账号或持久Cookie。这个自动触发代码缺口与“代码已写但尚未批准启用/自然周期未验”不同，当前不能宣称自动周更完成。
+宿主路由 `/internal/hermes/campaign-weekly`：GET无query读取当前配置及当前owner最近20条流水线；GET `?operation_id=UUID`只查询/对账原模型和原草稿回执，不派发或应用。POST仅接受 `{action:'run'|'reconcile'|'resume',operation_id}` 或 `{action:'configure',operation_id,revision,enabled}`。configure超时可按原ID读取immutable配置回执，再读最新配置；不能以历史回执重启已撤销计划。恢复草稿应用是当前真实会话显式resume，复用原模型和原center操作ID，不重派模型。
+
+周日当地12:00后原tick按due_day只提交一次；手动run走同一prepare→证据→模型→apply_draft流水线。Node CLI `/opt/fs-campaign-dashboard/analytics/weekly-cli.mjs` 只连接原管理进程root-only Unix socket，由原center唯一writer完成prepare、apply_draft和inspect_operation。冻结plan_ref/owner/源revision，apply只保存原center草稿，CAS/未知态沿原ID，不发布。Hermes辅助开关与周更授权分别核验；schedule.enabled不绕过辅助关闭。
+
+选品规则为 `fc27_weekly_selection_v1`：Weekly Scout严格使用真实Popular前三顺序；Player Trio恰好3个不同最新Player模型；每个最新SBC core匹配2首选及最多8替代，稳定顺序决定槽位。输出必须属于对应page允许池，不仅全catalog。源时间缺失明示ID排序依据，售价不证明可售，游戏实际SBC到期未知时为null。
+
+Trio取证复用 `campaign_evidence.collect_player_evidence`，懒加载现役 `/opt/fs-game-monitor-intelligence/discovery.py` 的DeepSeek.search/fetch，不调用其模型。最多6球员、有界社媒/垂类查询，正文姓名匹配才接纳真实URL、观察时间和内容SHA；来源/context带入空tools Sol input。partial或无资料不阻断草稿：保留coverage/gaps，允许metadata-only推断及空evidence_indices，标明provisional/review_required，不伪称社媒已核。共享模型只生成候选，最终Node仍按冻结源和页池核对。
+
+原游戏情报周二/周五快照仍无campaign消费hook；本轮实现的是用户指定周日周期读取最新sbcplayer/Popular/Player，不宣称每个游戏内SBC事件即时触发。可核实范围以最新目录和证据覆盖为准；自然周日、长期授权撤销及外部来源稳定性仍待真实验收。
 
 会话校验只证明调用者及权限；内部端点接收的目录仍为候选请求，不能据此声称真实目录/可售/当前版本已经核验。campaign调用方继续用冻结prepared真实key及revision核对回传，不从管理员输入扩出财务或写入工具。
 
 ## 发布、兼容与回退
 
-来源目标：hermes-v2-core/source/{campaign_recommendations,transport,openai_provider}.py、fc-review-channel/source/{fs_inprocess,proxy_gateway}.py → `/opt/fs-hermes-fc/`同名；management-november/source/range_api.py、hermes-admin-recovery/source/fc_daily.py → `/opt/fs-exact-range-20261001/`同名。共7个共享文件。现役range由总控现场核实与management-november源码按行一致，旧dashboard-refresh不进入载荷。
+共享源码→目标（发布载荷不含测试、账本或凭据）：
+
+| 仓库源码 | 目标 |
+| --- | --- |
+| releases/fs-dashboard/hermes-v2-core-20261020/source/campaign_recommendations.py | /opt/fs-hermes-fc/campaign_recommendations.py |
+| releases/fs-dashboard/hermes-v2-core-20261020/source/campaign_weekly.py | /opt/fs-hermes-fc/campaign_weekly.py |
+| releases/fs-dashboard/hermes-v2-core-20261020/source/campaign_evidence.py | /opt/fs-hermes-fc/campaign_evidence.py |
+| releases/fs-dashboard/hermes-v2-core-20261020/source/transport.py | /opt/fs-hermes-fc/transport.py |
+| releases/fs-dashboard/hermes-v2-core-20261020/source/openai_provider.py | /opt/fs-hermes-fc/openai_provider.py |
+| releases/fc-coins/fc-review-channel-20261026/source/fs_inprocess.py | /opt/fs-hermes-fc/fs_inprocess.py |
+| releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py | /opt/fs-hermes-fc/proxy_gateway.py |
+| releases/fs-dashboard/knowledge-layering-20261023/source/controller.py | /opt/fs-hermes-fc/controller.py |
+| releases/fs-dashboard/management-november-20261103/source/range_api.py | /opt/fs-exact-range-20261001/range_api.py |
+| releases/fs-dashboard/hermes-admin-recovery-20261020/source/fc_daily.py | /opt/fs-exact-range-20261001/fc_daily.py |
+
+共10个共享文件。现役range由总控现场核实与management-november源码按行一致；controller与knowledge-layering源码字节一致，旧dashboard-refresh和hermes-conversation历史副本不进入载荷。campaign Node CLI/IPC及界面沿原campaign app发布闭包，见本任务总发布清单。
 
 新增共享model_calls状态not_dispatched只用于本类型有明确网络未开始依据的调用；原not-started行、未知态和其他任务不得修改。统一预算及旧DailyReports计数均识别该状态。源码定位显示预算/日账本读取在原8931宿主；worker与FC pricing bridge使用原HTTP而非直接读账本，但发布前仍须核现场没有额外旧CLI/第二宿主。
 

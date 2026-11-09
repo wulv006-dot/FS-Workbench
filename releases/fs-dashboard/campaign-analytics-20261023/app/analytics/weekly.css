@@ -16,3 +16,7 @@ html,body{overflow-x:clip}
 @media(prefers-reduced-motion:reduce){.weekly-main *{animation:none;transition:none;scroll-behavior:auto}}
 
 .recommendation-mapping{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.recommendation-mapping dt{color:var(--fs-muted);font-size:13px}.recommendation-mapping dd{margin:6px 0 0;overflow-wrap:anywhere}.history-item h4{margin:4px 0 12px;font-size:16px}@media(max-width:640px){.recommendation-mapping{grid-template-columns:minmax(0,1fr)}}
+
+.weekly-main .auto-read{flex-direction:row;align-items:center;margin:0;gap:8px}.weekly-main .auto-read input{width:20px;min-height:20px;accent-color:var(--fs-brand)}
+
+#run-result{overflow-wrap:anywhere}#run-result pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
