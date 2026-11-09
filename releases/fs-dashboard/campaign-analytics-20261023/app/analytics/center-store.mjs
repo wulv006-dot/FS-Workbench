@@ -12,7 +12,7 @@ import {makeMediaStore} from './media-store.mjs';
 const pages=[
  ['fc27-weekly','fc27-season2','Weekly-Scout.html','每周好卡'],
  ['fc27-sbc','fc27-season2','Sbc-Companions.html','SBC 核心搭档'],
- ['fc27-trio','fc27-season2','Player-Trio.html','Star Performer 三人组'],
+ ['fc27-trio','fc27-season2','Player-Trio.html','Player Trio'],
  ['seasonal-vault','mmoexp-seasonal','seasonal/index.html','MMOEXP Seasonal Vault']
 ];
 const safeText=(v,max)=>{if(typeof v!=='string'||v.length>max||/[\u0000-\u001f<>]/.test(v))fail('INVALID_CAMPAIGN_CONFIG');return v;};
@@ -101,7 +101,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
  const draftOf=input=>validateDraft(input,{validateFcLayout});
  const storedDraft=input=>preserveDraftShape(input,{validateFcLayout});
  const requestHash=(request,kind)=>digest(canonical({kind,revision:request.revision,draft:request.draft??null,
-  ...(kind==='import'?{page_id:request.page_id,product_ref:request.product_ref}: {}),...(kind==='model-import'?{page_id:request.page_id,model_id:request.model_id,model_kind:request.kind}:{}),...(kind==='restore'?{restore_revision:request.restore_revision}:{}),...(Object.hasOwn(request,'model_imports')?{model_imports:request.model_imports}:{}),...(Object.hasOwn(request,'product_imports')?{product_imports:request.product_imports}:{})}));
+  ...(kind==='import'?{page_id:request.page_id,product_ref:request.product_ref}: {}),...(kind==='model-import'?{page_id:request.page_id,model_id:request.model_id,model_kind:request.kind}:{}),...(kind==='restore'?{restore_revision:request.restore_revision}:{}),...(Object.hasOwn(request,'model_imports')?{model_imports:request.model_imports}:{}),...(Object.hasOwn(request,'product_imports')?{product_imports:request.product_imports}:{}),...(Object.hasOwn(request,'model_refresh_digest')?{model_refresh_digest:request.model_refresh_digest}:{})}));
  function preserveImports(current,draft){
   if(canonical(current.draft.imported_products||[])!==canonical(draft?.imported_products||[]))fail('IMPORTED_PRODUCTS_SERVER_OWNED');
   if(Object.hasOwn(current.draft,'fc_models')!==Object.hasOwn(draft||{},'fc_models')||canonical(current.draft.fc_models)!==canonical(draft?.fc_models))fail('MODELS_SERVER_OWNED');
@@ -166,19 +166,21 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
   const operation_id=uuid(request.operation_id),opFile=path.join(dir,'operations',operation_id+'.json'),hash=requestHash(request,kind);
   const current=read();if(request.revision!==current.revision)fail('REVISION_CONFLICT',409);
   const {result,snapshot}=action(current);
-  result.last_operation={operation_id,hash,kind,...(kind==='restore'?{restore_revision:request.restore_revision}:{}),...(Object.hasOwn(request,'model_imports')?{model_imports:request.model_imports}:{})};result.updated_by=user;result.updated_at=new Date().toISOString();
+  result.last_operation={operation_id,hash,kind,...(kind==='restore'?{restore_revision:request.restore_revision}:{}),...(Object.hasOwn(request,'model_imports')?{model_imports:request.model_imports}:{}),...(Object.hasOwn(request,'model_refresh_digest')?{model_refresh_digest:request.model_refresh_digest}:{})};result.updated_by=user;result.updated_at=new Date().toISOString();
   const plan={operation_id,hash,previous:current,result,...(snapshot?{snapshot}:{})};
   // Freeze the exact payload and release before any externally visible publication step.
   atomic(pendingFile,plan);checkpoint('prepared');return finish(plan);
  }
  function recover(request,kind){uuid(request.operation_id);read();const file=path.join(dir,'operations',request.operation_id+'.json'),hash=requestHash(request,kind);if(fs.existsSync(file)){const prior=readJSON(file);if(prior.hash!==hash)fail('REQUEST_CONFLICT',409);return prior.result;}return null;}
- function candidate(current,request,details=[],productDetails=[]){
+ function candidate(current,request,details=[],productDetails=[],{refreshModels=false}={}){
+  if(Object.hasOwn(request,'model_refresh_digest')&&(!refreshModels||request.model_refresh_digest!==digest(canonical(details))))fail('MODEL_REFRESH_SERVER_OWNED');
+  if(refreshModels&&!Object.hasOwn(request,'model_refresh_digest'))fail('MODEL_REFRESH_DIGEST_REQUIRED');
   preserveImports(current,request.draft);const draft=structuredClone(request.draft),imports=Object.hasOwn(request,'model_imports')?request.model_imports:[];
   if(!Array.isArray(imports)||imports.length>30||details.length!==imports.length)fail('INVALID_MODEL_IMPORTS');
   const seen=new Set();for(let i=0;i<imports.length;i++){
    const entry=imports[i],model=projectModelCard(details[i]);if(!entry)fail('INVALID_MODEL_IMPORTS');const scope=entry.page_id+':'+entry.model_id;
    if(Object.keys(entry).some(k=>!['page_id','model_id','kind'].includes(k))||!['fc27-weekly','fc27-sbc','fc27-trio'].includes(entry.page_id)||entry.model_id!==model.model_id||entry.kind!==model.kind||seen.has(scope))fail('INVALID_MODEL_IMPORTS');seen.add(scope);
-   const prior=draft.fc_models?.[model.key];if(prior&&canonical(prior)!==canonical(model))fail('MODEL_BINDING_CHANGED',409);
+   const prior=draft.fc_models?.[model.key];if(prior&&canonical(prior)!==canonical(model)&&(!refreshModels||['site_id','game_id','model_id','kind'].some(k=>prior[k]!==model[k])))fail('MODEL_BINDING_CHANGED',409);
    const layout=draft.fc_layout,keys=entry.page_id==='fc27-weekly'?layout?.weekly:entry.page_id==='fc27-trio'?[...(layout?.trio||[]),...(layout?.bundles||[])]:[...(layout?.sbc||[]),...Object.values(layout?.routes||{}).flatMap(row=>[...(row.picks||[]),...(row.alternatives||[])])];
    if(!keys?.includes(model.key))fail('MODEL_TARGET_SELECTION_REQUIRED');
    draft.fc_models={...(draft.fc_models||{}),[model.key]:model};
@@ -230,8 +232,8 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
  return {read,recoverSave:request=>recover(request,'save'),recoverPublish:request=>recover(request,'publish'),recoverImport:request=>recover(request,'import'),recoverModel:request=>recover(request,'model-import'),restoreCandidate:state=>previousDraft(state||read())?.summary||null,
   uploadAsset:(operationId,bytes,mime,user)=>assets.stage(operationId,bytes,mime,user),readAsset:assetId=>assets.read(assetId),
   preview(request,details=[],productDetails=[]){if(fs.existsSync(pendingFile))fail('PENDING_OPERATION_RECOVERY_REQUIRED',409);const current=rawRead();if(request.revision!==current.revision)fail('REVISION_CONFLICT',409);const draft=draftOf(candidate(current,request,details,productDetails));return snapshotFor(draft,current.revision+1,{status:'unconfigured'});},
-  save(request,user,details=[],productDetails=[]){return recover(request,'save')||operation(request,'save',user,current=>{
-   const draft=candidate(current,request,details,productDetails);
+  save(request,user,details=[],productDetails=[],trustedOptions={}){return recover(request,'save')||operation(request,'save',user,current=>{
+   const draft=candidate(current,request,details,productDetails,trustedOptions);
    return {result:{...current,revision:current.revision+1,draft}};
   });},
   importModel(request,user,detail){return recover(request,'model-import')||operation(request,'model-import',user,current=>{

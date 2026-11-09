@@ -5,6 +5,27 @@ import importlib.util
 from unittest.mock import patch
 
 class Release(unittest.TestCase):
+ def test_weekly_backend_exact_mapping_and_existing_navigation_adapter(self):
+  import runpy, sys, types
+  names=['backend/bridge.py','backend/campaign_backend/weekly.py','app/analytics/weekly-bridge.mjs','app/analytics/weekly-cli.mjs']
+  targets={name:p.target(name) for name in names}
+  self.assertEqual(targets['backend/campaign_backend/weekly.py'],'/opt/fs-campaign-dashboard/backend/campaign_backend/weekly.py')
+  self.assertEqual(targets['backend/bridge.py'],'/opt/fs-campaign-dashboard/backend/bridge.py')
+  for invalid in ['backend/campaign_backend/weekly_extra.py','backend/campaign_backend/weekly.pyc','backend/campaign_backend/./weekly.py','backend/campaign_backend/x/../weekly.py','backend//campaign_backend/weekly.py']:
+   with self.subTest(invalid=invalid),self.assertRaises(ValueError):p.target(invalid)
+  # The existing navigation adapter takes this release's exact targets.json;
+  # it does not constrain payloads to HTML or import the general runtime restart.
+  with tempfile.TemporaryDirectory() as tmp:
+   stage=Path(tmp);adapter=stage/'release_ui.py';adapter.write_bytes((Path(__file__).parent/'navigation/release_ui.py').read_bytes())
+   (stage/'targets.json').write_text(json.dumps(targets));manifest={'scope':'traffic-source-tabs-ui-finish-20261019','files':[dict(candidate=k,target=v) for k,v in targets.items()]};(stage/'manifest.json').write_text(json.dumps(manifest))
+   calls=[];ui=types.ModuleType('release_ui_finish')
+   def publisher():
+    self.assertEqual(ui.TARGETS,targets)
+    return types.SimpleNamespace(restart_for=lambda *args:None,inspect=lambda m,s:calls.append((m,s)) or {'sourceCAS':'fixture'})
+   ui.publisher=publisher
+   with patch.dict(sys.modules,{'release_ui_finish':ui}),patch.object(sys,'argv',[str(adapter),'inspect']),patch('builtins.print'):
+    runpy.run_path(str(adapter))
+   self.assertEqual(calls,[(manifest,stage.resolve())])
  def test_google_endpoint_requires_both_reader_files(self):
   with tempfile.TemporaryDirectory() as tmp:
    stage=Path(tmp);rows=[]

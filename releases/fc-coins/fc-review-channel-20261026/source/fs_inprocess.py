@@ -142,6 +142,23 @@ def native_gateway(daily, scope, *, active_tasks, deadline=None, provider_lane="
                    active_native_tasks=active_tasks, sol=sol)
 
 
+def campaign_gateway(daily,tasks,scope,*,deadline):
+    from campaign_recommendations import CampaignRecommendationScope
+    from openai_provider import MODEL,POLICY_ID,request_model,prepare_request
+    from fc_daily import provider_slot,model_daily_limit
+    if not isinstance(scope,CampaignRecommendationScope):raise PermissionError('campaign_scope_required')
+    policy=dict(id=POLICY_ID,model=MODEL,price_version='openai-sol-no-cny-invoice-or-fx-v1',input_microcny=None,output_microcny=None)
+    budget=UnifiedBudget(daily.db,policy,lambda:datetime.now(timezone.utc),allow_unknown_costs=True)
+    budget.active_tasks=lambda:active_model_tasks(tasks)
+    def provider(request):
+        response=request_model(request,[],deadline=deadline,campaign=True,on_dispatch=scope.mark_dispatch)
+        if not isinstance(response,dict) or response.get('model')!=MODEL:
+            error=ValueError('provider_outcome_unknown');error.response=response;raise error
+        return response
+    return ModelGateway(scope,budget,lambda:provider_slot(daily.root),provider,conservative_input_bound,model_daily_limit,
+        preflight=lambda request:prepare_request(request,[],campaign=True),transport_retries=0)
+
+
 def approved_background(root):
     root = Path(root)/'assets'
     meta = json.loads((root/'knowledge-derived.json').read_text('utf-8'))

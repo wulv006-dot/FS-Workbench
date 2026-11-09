@@ -21,6 +21,7 @@ test('FS authenticated persistence and secret boundary',async()=>{
   assert.equal((await post('api/center/import-product',{},'fixture-viewer')).status,403);
   assert.equal((await post('api/center/import-product',{},'fixture-admin','https://evil.example')).status,403);
   assert.equal((await get('operations.html','fixture-admin')).status,200);
+  const shared=await get('../seasonal/activity-analytics.js','fixture-admin');assert.equal(shared.status,200);assert.match(shared.headers.get('content-type'),/javascript/);assert.match(await shared.text(),/fcactivity:published/);
   const body={revision:state.revision,operationId:randomUUID(),registry:state.registry,layout:state.layout};assert.equal((await post('api/config',body)).status,200);assert.equal((await post('api/config',{...body,operationId:randomUUID()})).status,409);
   const secret='phx_'+randomUUID().replaceAll('-','');assert.equal((await post('api/connection',{key:secret})).status,200);assert.equal(JSON.parse(fs.readFileSync(path.join(dir,'posthog-secret.json'))).key,secret);
   assert.equal((await(await get('api/connection','fixture-admin')).json()).configured,true);assert(!(await(await get('api/connection','fixture-admin')).text()).includes(secret));

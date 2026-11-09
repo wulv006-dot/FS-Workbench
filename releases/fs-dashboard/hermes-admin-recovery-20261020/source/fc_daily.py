@@ -209,7 +209,7 @@ class DailyReports:
             db.execute('BEGIN IMMEDIATE')
             prior = db.execute('SELECT state,content FROM model_calls WHERE fingerprint=?', (fingerprint,)).fetchone()
             if prior: return json.loads(prior['content']) if prior['content'] else {'status': 'unknown_previous_attempt'}
-            count = db.execute('SELECT COUNT(*) FROM model_calls WHERE day=?', (self.clock().date().isoformat(),)).fetchone()[0]
+            count = db.execute("SELECT COUNT(*) FROM model_calls WHERE day=? AND state!='not_dispatched'", (self.clock().date().isoformat(),)).fetchone()[0]
             if limit and count >= limit: return {'status': 'daily_model_limit'}
             db.execute("INSERT INTO model_calls VALUES(?,?,'started',NULL)", (fingerprint, self.clock().date().isoformat()))
         # Receipt is durable before the request; uncertain delivery is never silently retried.

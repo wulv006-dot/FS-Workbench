@@ -15,7 +15,7 @@ export function validateLayout(d,c){
  if(!d||typeof d!=='object')throw Error('商品配置缺失');
  const ids=(a,min,max,kind)=>{if(!Array.isArray(a)||a.length<min||a.length>max||new Set(a).size!==a.length||a.some(id=>typeof id!=='string'||!c.products[id]||kind&&c.products[id].kind!==kind))throw Error('商品数量、身份或类型无效');return [...a];};
  const weekly=ids(d.weekly,1,6,'player'),trio=ids(d.trio,3,3,'player'),bundles=ids(d.bundles,0,8,'bundle'),sbc=ids(d.sbc,1,9,'sbc');
- if(trio.some(id=>c.products[id].version!==c.trio.series))throw Error('三人组必须使用当前系列的真实卡版本');
+ // Weekly selection may combine real player cards across series (2026-11-09 rules).
  if(!sbc.includes(d.defaultCore))throw Error('默认 SBC 必须在已选核心内');
  const routes={};for(const id of sbc){const row=d.routes?.[id];if(!row)throw Error('每个 SBC 核心都需设置搭档');const picks=ids(row.picks,2,2,'player'),alternatives=ids(row.alternatives||[],0,8,'player');if(alternatives.some(x=>picks.includes(x)))throw Error('搭档与备选不可重复');routes[id]={picks,alternatives,label:c.sbc.routes[id]?.label||{zh:'自选搭配方向',en:'Companion ideas'}};}
  return {weekly,trio,bundles,sbc,defaultCore:d.defaultCore,routes};
