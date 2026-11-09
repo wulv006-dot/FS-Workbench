@@ -46,6 +46,7 @@
   async function publishedConfig(view=state.view){
     let client;
     try{client=window.CampaignStandalone.create({element:document.documentElement,pageId:'fc27-'+view,activityId:'fc27-season2'});await client.load();published=client.config;}catch(error){published=error.code==='PAGE_UNAVAILABLE'?client?.config:null;}
+    window.dispatchEvent(new CustomEvent('fcactivity:published',{detail:published}));
     publishedReady=true;
     scheduleBoundary();
   }
@@ -206,7 +207,7 @@
         await publishedConfig();const fresh=nativePlan(review);
         if(fresh.signature!==nativeReview.signature){nativeReview=null;status('Published configuration changed. Close this review and check the selection again. No cart request was sent.');return;}
         const selection=nativeSelection(review),host=window.FCActivityHost.createNative(published,selection);
-        const result=await window.CampaignNativeCodeHandoff.checkoutPublished({snapshot:published,selection,storage:window.sessionStorage,host,origin:window.location.origin,navigate:url=>window.location.assign(url)});
+        const result=await window.CampaignNativeCodeHandoff.checkoutPublished({snapshot:published,selection,storage:window.sessionStorage,host,origin:window.location.origin,onCartConfirmed:({items})=>signal('cart-result',{outcomes:items.map(item=>({id:item.native_payload.id,state:'confirmed'})),complete:true}),navigate:url=>window.location.assign(url)});
         state.submitted=true;status(result.state==='navigation_attempted_not_applied'?'Native cart handoff attempted. Discount Apply and final totals are not confirmed by this page.':'The original native operation requires inspection. Do not submit again; check the original cart.');
       }catch(error){status((error.code||error.message||'NATIVE_HANDOFF_UNAVAILABLE')+'. No successful checkout is confirmed. Inspect the original operation before another attempt.');}
       finally{state.busy=false;render();}

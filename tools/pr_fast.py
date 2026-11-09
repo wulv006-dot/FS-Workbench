@@ -984,6 +984,7 @@ def main():
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/preview-entry-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/provider54-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/operations-browser.cjs")
+            node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/weekly-console-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/ops-presentation-browser.mjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/fc-published-browser.cjs")
             node("releases/fs-dashboard/campaign-analytics-20261023/app/tests/native-page59-browser.cjs")

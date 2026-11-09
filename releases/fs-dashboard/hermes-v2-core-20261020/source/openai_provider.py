@@ -17,11 +17,11 @@ WIRE_BYTES = 10000000
 REASONING_PREFIX = 'fs-openai-encrypted-reasoning-v1:'
 
 
-def prepare_request(request, approved_tools, *, native_chat=False):
+def prepare_request(request, approved_tools, *, native_chat=False,campaign=False):
     from proxy_gateway import native_tool_choice, native_response_format
-    if (not native_chat or request.get('model') != MODEL or
+    if ((not native_chat and not campaign) or campaign and native_chat or request.get('model') != MODEL or
             set(request)-{'model','messages','max_tokens','tools','tool_choice','stream','enable_thinking','reasoning_effort','response_format'} or
-            request.get('tools') not in (approved_tools, []) or not approved_tools or
+            request.get('tools') not in (approved_tools, []) or not approved_tools and not campaign or campaign and (approved_tools or request.get('tools')!=[]) or
             request.get('stream') is not False or type(request.get('max_tokens')) is not int or
             not 1 <= request['max_tokens'] <= OUTPUT_TOKENS or
             request.get('reasoning_effort') not in (None,'low','medium','high','xhigh','max')):
@@ -76,7 +76,7 @@ def _key():
     return key
 
 
-def _open(payload,deadline=None):
+def _open(payload,deadline=None,on_dispatch=None):
     remaining=1800 if deadline is None else min(1800,(deadline-datetime.now(timezone.utc)).total_seconds())
     if remaining<=0:return dict(status='scheduled_deadline',network_started=False)
     trace=dict(local_trace_id=uuid.uuid4().hex,request_started_at=datetime.now(timezone.utc).isoformat(),transport_phase='opening')
@@ -84,6 +84,7 @@ def _open(payload,deadline=None):
     config='url = "https://api.openai.com/v1/responses"\nheader = "Authorization: Bearer '+_key()+'"\nheader = "Content-Type: application/json"\ndata = '+json.dumps(payload.decode())+'\n'
     with tempfile.TemporaryFile() as output:
         try:
+            if on_dispatch is not None:on_dispatch()
             result=subprocess.run(['curl','--silent','--show-error','--proto','=https','--max-time',str(remaining),
                 '--max-filesize',str(WIRE_BYTES),'--config','-'],input=config.encode(),stdout=output,stderr=subprocess.PIPE,timeout=remaining+1)
         except subprocess.TimeoutExpired:return dict(trace,status='unknown_transport')
@@ -96,9 +97,10 @@ def _open(payload,deadline=None):
     return dict(value,**trace)
 
 
-def request_model(request, approved_tools, deadline=None, *, native_chat=False):
-    payload=prepare_request(request,approved_tools,native_chat=native_chat)
-    value=_open(payload,deadline)
+def request_model(request, approved_tools, deadline=None, *, native_chat=False,campaign=False,on_dispatch=None):
+    if on_dispatch is not None and not campaign:raise ValueError('configuration_invalid')
+    payload=prepare_request(request,approved_tools,native_chat=native_chat,campaign=campaign)
+    value=_open(payload,deadline,on_dispatch) if campaign else _open(payload,deadline)
     if value.get('status') not in ('completed','incomplete'):return value
     if value.get('model')!=MODEL:return dict(status='invalid_response')
     text=[];calls=[];reasoning=[]

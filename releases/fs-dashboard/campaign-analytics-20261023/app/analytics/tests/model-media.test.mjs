@@ -53,8 +53,9 @@ test('one fc_layout model card publishes three metadata variants in the original
 test('server model facts cannot be forged, silently refreshed across pages, or duplicated with an accepted original card',t=>{
  const {store}=fixture(t),card=model();let saved=store.importModel(request(store,card),'fixture',card);
  const forged=structuredClone(saved.draft);forged.fc_models[card.key].title='Client changed';assert.throws(()=>store.save({revision:1,operation_id:randomUUID(),draft:forged},'fixture'),{code:'MODELS_SERVER_OWNED'});
+ assert.throws(()=>store.save({revision:1,operation_id:randomUUID(),draft:saved.draft,model_refresh_digest:'0'.repeat(64)},'fixture'),{code:'MODEL_REFRESH_SERVER_OWNED'});
  const changed=model();changed.platforms.pc.state='offline';assert.throws(()=>store.importModel(request(store,changed),'fixture',changed),{code:'MODEL_BINDING_CHANGED'});
- const unknownSeries=structuredClone(saved.draft);unknownSeries.fc_layout.trio[0]=card.key;assert.throws(()=>store.save({revision:1,operation_id:randomUUID(),draft:unknownSeries},'fixture'),{code:'INVALID_FC_LAYOUT'});
+ const mixedSeries=structuredClone(saved.draft);mixedSeries.fc_layout.trio[0]=card.key;assert.equal(validateLayout(mixedSeries.fc_layout,effectiveFcCatalog(catalog,mixedSeries.fc_models)).trio[0],card.key);
  const original=model();original.model_id='43167385';original.key='model-266-1327-'+original.model_id;
  for(const [code,offer] of Object.entries(catalog.products['170014917'].platforms))original.platforms[code]={state:'verified',product_ref:{site_id:'266',game_id:'1327',model_id:original.model_id,goods_id:String(offer.id)},observed_quantity:null};
  const duplicate=request(store,original);duplicate.draft.fc_layout.weekly=['170014917',original.key];assert.throws(()=>store.importModel(duplicate,'fixture',original),{code:'DUPLICATE_PAGE_PRODUCT'});

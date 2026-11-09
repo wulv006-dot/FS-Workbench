@@ -66,6 +66,13 @@ def native_scope(scope):
     from native_chat import NativeChatScope
     return isinstance(scope, NativeChatScope)
 
+
+def structured_scope(scope):
+    if native_scope(scope):return True
+    if getattr(scope,'campaign_recommendation',False) is not True:return False
+    from campaign_recommendations import CampaignRecommendationScope
+    return isinstance(scope,CampaignRecommendationScope)
+
 _NATIVE_GUARD_MESSAGES = {code: 'fs_native_gateway/native_guard_v1/'+code for code in (
     'provider_tool_history_changed', 'trusted_token_bound_required', 'turn_conflict',
     'unknown_previous_attempt', 'daily_model_limit', 'task_policy_changed', 'daily_limit_invalid')}
@@ -136,7 +143,7 @@ def _raise_native_model_guard(code, guard):
 
 
 def task_schemas(book):
-    if native_scope(book):
+    if structured_scope(book):
         return book.schemas()
     if getattr(book, 'material_execution', False):
         from conversation_file_tools import tool_schemas
@@ -402,7 +409,7 @@ def require_reconciled_usage(rows, accepted_unknowns, owner, task, allow_unknown
             raise ValueError('invalid_previous_result')
         if row['state']=='started' and row['task']!=task and (row['owner'],row['task']) in active_tasks:
             continue  # Accounted in-flight work in another live lane is not an unknown outcome.
-        if row['state'] not in ('succeeded', 'invalid_response'):
+        if row['state'] not in ('succeeded', 'invalid_response','not_dispatched'):
             if (row['state'] == 'unknown' and (row['task'] != task or allow_unknown_costs and row['fingerprint'] in current_transport_unknowns) and
                     (allow_unknown_costs or row['owner'] == owner and accepted_unknowns.get(row['fingerprint']) == row['microcny'])):
                 continue
@@ -551,7 +558,7 @@ class UnifiedBudget:
                 if old['state'] != 'succeeded':
                     _raise_native_model_guard('unknown_previous_attempt',_native_guard)
                 return fingerprint, json.loads(old['content'])
-            count = conn.execute('SELECT COUNT(*) FROM model_calls WHERE day=?', (day,)).fetchone()[0]
+            count = conn.execute("SELECT COUNT(*) FROM model_calls WHERE day=? AND state!='not_dispatched'", (day,)).fetchone()[0]
             if daily_limit and count >= daily_limit:
                 _raise_native_model_guard('daily_model_limit',_native_guard)
             rows = conn.execute('SELECT r.*,m.state,m.content,m.day FROM hermes_reservations r JOIN model_calls m '
@@ -734,7 +741,7 @@ class ModelGateway:
         # Logical turn identity remains in hermes_turns. Existing reservation slots encode
         # each physical attempt as turn*3+ordinal, with no schema migration or old-row rewrite.
         base_turn=turn*(self.transport_retries+1)
-        request=request_body(body,self.budget.policy['model'],tool_schemas=task_schemas(getattr(self.scope,'book',None)),native_chat=native_scope(self.scope))
+        request=request_body(body,self.budget.policy['model'],tool_schemas=task_schemas(getattr(self.scope,'book',None)),native_chat=structured_scope(self.scope))
         with self._compaction_lock:
             request=self.budget.restore_tool_indexes(owner,task_id,base_turn,request,compaction=self._native_compaction,**guard_kwargs)
         if len(encoded(request).encode())>MAX_PROVIDER_WIRE_BYTES:raise ValueError('provider_payload_too_large')

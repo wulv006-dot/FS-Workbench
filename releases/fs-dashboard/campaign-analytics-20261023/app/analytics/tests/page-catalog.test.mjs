@@ -7,7 +7,7 @@ import {randomUUID} from 'node:crypto';
 import {makeCenterStore,initialCenterDraft,validateDraft} from '../center-store.mjs';
 import {projectImportedProduct,addImportedProduct,centerSeed} from '../center-seed.mjs';
 import {projectPreviewProduct,projectRelease} from '../../runtime/snapshot.mjs';
-import {presentPage,projectFcCatalog} from '../../runtime/presentation.mjs';
+import {presentPage,projectFcCatalog,publicEnglishRelease} from '../../runtime/presentation.mjs';
 import {createCommerce} from '../../runtime/commerce.mjs';
 
 const original=JSON.parse(fs.readFileSync(new URL('../../catalog.json',import.meta.url),'utf8'));
@@ -119,4 +119,15 @@ test('FC imported previews are page-isolated, escaped and excluded from original
  assert.equal((presentPage({name:'Weekly-Scout.html',body,snapshot}).body.match(/id="campaign-imported-products"/g)||[]).length,1);
  for(const name of ['Sbc-Companions.html','Player-Trio.html','seasonal/index.html'])assert.doesNotMatch(presentPage({name,body:source,snapshot}).body,/Synthetic new item/);
  const catalog=projectFcCatalog(original,snapshot);assert.equal(catalog.imported_products['fc27-weekly'][0].key,product.key);assert(!Object.hasOwn(catalog.products,product.key));assert.deepEqual(catalog.sbc.ids,[]);assert.deepEqual(catalog.trio.ids,[]);assert.equal(catalog.mode,'preview');
+});
+
+test('published Trio retains cross-series players and labels mixed versions honestly',()=>{
+ const source=structuredClone(original),ids=source.trio.ids;source.products[ids[0]].version='Different verified card series';
+ const snapshot={schema_version:1,release_id:'mixed-trio',products:[],pages:initialCenterDraft().pages.map(p=>({...p,active:true,product_keys:p.page_id==='fc27-trio'?ids.flatMap(id=>['ps','xbox','pc'].map(platform=>'fc-'+id+'-'+platform)):[]}))};
+ const projected=projectFcCatalog(source,snapshot);assert.deepEqual(projected.trio.ids,ids);assert.equal(projected.trio.series,'Player Picks');
+});
+
+test('known former Trio default title becomes neutral while custom titles survive',()=>{
+ for(const title of ['Star Performer Trio','Star Performer 三人组'])assert.equal(publicEnglishRelease({pages:[{page_id:'fc27-trio',path:'Player-Trio.html',title}],products:[]}).pages[0].title,'Player Trio');
+ assert.equal(publicEnglishRelease({pages:[{page_id:'fc27-trio',path:'Player-Trio.html',title:'My custom lineup'}],products:[]}).pages[0].title,'My custom lineup');
 });

@@ -72,6 +72,15 @@ def benefit_projection(row, kind, site_id=None):
 
 def handle(request, reader_factory=AdminRead.from_shared_session, services=None):
     action = request.get('action')
+    if action == 'weekly_selection':
+        if set(request) != {'action','site_id','game_id'} or str(request.get('site_id')) != '266' or str(request.get('game_id')) != '1327':
+            raise ContractError('WEEKLY_PROJECT_SCOPE_REQUIRED')
+        from campaign_backend.weekly import weekly_selection
+        reader = reader_factory()
+        try:
+            return weekly_selection(reader)
+        finally:
+            reader.close()
     if action == 'capabilities':
         return capabilities()
     if action == 'discount_revenue':
