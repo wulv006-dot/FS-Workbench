@@ -62,13 +62,53 @@ def version_label(row,kind):
     return label(matches[0].get('name'))
 
 
+def player_type(row):
+    """Observed Admin PlayersType selection; missing facts never mean normal."""
+    more=row.get('more');base=more.get('baseprop') if isinstance(more,dict) else None
+    # Index uses the compact persisted property identity; edit expands choices.
+    if isinstance(base,dict):
+        selection=base.get('393')
+        return {'8067':'normal','8115':'Signature'}.get(str(selection.get('a'))) if isinstance(selection,dict) else None
+    if not isinstance(base,list):return None
+    props=[p for p in base if isinstance(p,dict) and str(p.get('id'))=='393' and p.get('name')=='PlayersType']
+    if len(props)!=1:return None
+    prop=props[0];default=prop.get('default');choices=prop.get('pvs')
+    if not isinstance(default,dict) or not isinstance(choices,list):return None
+    chosen=str(default.get('checked_item'))
+    names={'8067':'normal','8115':'Signature'}
+    matches=[p for p in choices if isinstance(p,dict) and str(p.get('id'))==chosen]
+    if chosen not in names or len(matches)!=1:return None
+    value=matches[0]
+    if str(value.get('prop_id'))!='393' or value.get('name')!=names[chosen] or value.get('status') not in (1,'1') or value.get('checked') is not True:return None
+    if any(p.get('checked') is True and str(p.get('id'))!=chosen for p in choices if isinstance(p,dict)):return None
+    return names[chosen]
+
+
+def model_image(row,kind):
+    formatted=row.get('_format')
+    image=formatted.get('icon_format') if isinstance(formatted,dict) else None
+    if isinstance(image,str) and image:
+        parsed=urlsplit(image)
+        if (parsed.scheme=='https' and parsed.netloc in ('b2c-static.p2pah.cn','assets.mmoexp.com')
+                and not parsed.query and not parsed.fragment and '..' not in parsed.path.split('/')
+                and re.fullmatch(r'/[A-Za-z0-9_./-]+\.(?:png|jpe?g|webp)',parsed.path,re.I)):
+            return image,'admin_model_uploaded_asset'
+    if kind=='player':
+        more=row.get('more');extend=more.get('extend') if isinstance(more,dict) else None
+        ids=[str(x.get('value')) for x in extend if isinstance(x,dict) and x.get('key')=='player_id'] if isinstance(extend,list) else []
+        if len(ids)==1 and re.fullmatch(r'[1-9]\d{0,19}',ids[0]):
+            return 'https://assets.mmoexp.com/player/fc27/'+ids[0]+'.png','storefront_player_id_asset'
+    return None,None
+
+
 def project_model(row,kind):
     if not isinstance(kind,str) or kind not in KINDS:raise ContractError('MODEL_KIND_REQUIRED')
     if (not isinstance(row,dict) or positive_id(row.get('gid'))!='1327' or positive_id(row.get('cid'))!=KINDS[kind]):
         raise ContractError('MODEL_SCOPE_MISMATCH')
     model_id=positive_id(row.get('id'))
+    image,provenance=model_image(row,kind)
     return dict(key='model-266-1327-'+model_id,site_id='266',game_id='1327',model_id=model_id,kind=kind,
-        title=label(row.get('title')),version_label=version_label(row,kind),image_url=None,image_provenance=None,
+        title=label(row.get('title')),version_label=version_label(row,kind),image_url=image,image_provenance=provenance,
         platforms={p:dict(state='unknown',product_ref=None,observed_quantity=None) for p in PLATFORMS},
         verification_scope='catalog_identity_only',site_association='not_yet_verified',available=False,
         authoritative=False,checkout_enabled=False)

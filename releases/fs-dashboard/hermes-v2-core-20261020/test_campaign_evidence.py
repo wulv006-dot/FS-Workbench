@@ -9,8 +9,9 @@ from campaign_evidence import collect_player_evidence
 AT=datetime(2026,11,9,5,tzinfo=timezone.utc)
 
 class Client:
-    def __init__(self):self.fetched=[]
+    def __init__(self):self.fetched=[];self.queries=[]
     def search(self,query):
+        self.queries.append(query)
         return {'results':[
             {'url':'https://www.futbin.com/27/player/1/test','title':'FC 27 Player guide'},
             {'url':'https://www.reddit.com/r/EASportsFC/comments/abc/test/','title':'Player discussion'},
@@ -52,8 +53,17 @@ class EvidenceTests(unittest.TestCase):
 
     def test_invalid_scope_is_rejected_before_network(self):
         client=Client()
-        for players in ([],[{'name':'x','model_id':'../bad'}],[{'name':'x','model_id':'1'}]*7):
+        for players in ([],[{'name':'x','model_id':'../bad'}],[{'name':'x','model_id':'1'}]*301):
             with self.assertRaises(ValueError):collect_player_evidence(players,AT,client)
         self.assertEqual(client.fetched,[])
+
+    def test_full_newest_pool_uses_grouped_market_queries_with_original_total_budget(self):
+        client=Client();players=[{'name':'Candidate '+str(i),'model_id':str(i+1)} for i in range(31)]
+        client.fetch=lambda url:{'content':'FC 27 '+', '.join(p['name'] for p in players)+' market discussion, not seller sales.'}
+        result=collect_player_evidence(players,AT,client)
+        self.assertEqual(len(client.queries),12);self.assertTrue(any('market price popularity' in q for q in client.queries));self.assertTrue(all(' OR ' in q for q in client.queries))
+        for player in players:self.assertTrue(any('"'+player['name']+'"' in q for q in client.queries))
+        self.assertEqual(result['coverage']['players'],31);self.assertEqual(len(result['documents'][0]['model_ids']),31)
+        self.assertIn('外部热度不是我方销量',result['context']);self.assertLessEqual(len(result['sources']),8)
 
 if __name__=='__main__':unittest.main()

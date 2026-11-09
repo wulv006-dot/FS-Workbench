@@ -19,17 +19,20 @@ from campaign_weekly import CampaignWeekly,CampaignDelegation
 
 
 def pool_input():
-    catalog=[dict(key='fc-'+name+'-ps',title=name,product_ref=dict(site_id='266',game_id='1327',goods_id=str(100+i),model_id=str(200+i)),platform=dict(code='ps',attribute_id='21587'),available=False,binding_state='unknown') for i,name in enumerate(('core','a','b','c','d','e','f'))]
-    keys=[p['key'] for p in catalog]
+    core_names=['core']+['core'+str(i) for i in range(2,10)];player_names=list('abcdefghijklmnopqr')
+    catalog=[dict(key='fc-'+name+'-ps',title=name,product_ref=dict(site_id='266',game_id='1327',goods_id=str(100+i),model_id=str(200+i)),platform=dict(code='ps',attribute_id='21587'),available=False,binding_state='unknown') for i,name in enumerate(core_names+player_names)]
+    cores=['fc-'+name+'-ps' for name in core_names];players=['fc-'+name+'-ps' for name in player_names]
     return dict(source_revision='7',sbc_update=dict(id='weekly-source',observed_at='2026-11-15T04:00:00+00:00',expires_at=None,context='Fresh pools',sources=[]),catalog=catalog,
-        pages=[dict(page_id='fc27-weekly',product_keys=keys[1:4]),dict(page_id='fc27-trio',product_keys=keys[1:]),dict(page_id='fc27-sbc',product_keys=keys[:5],core_product_keys=keys[:1])],rules=dict(version='fc27_weekly_selection_v1',scout_top_keys=keys[1:4]))
+        pages=[dict(page_id='fc27-weekly',product_keys=players[:3]),dict(page_id='fc27-trio',product_keys=players[3:9]),dict(page_id='fc27-sbc',product_keys=cores+players,core_product_keys=cores)],rules=dict(version='fc27_weekly_selection_v1',scout_top_keys=players[:3]))
 
 
 def selection(value):
     rows=[]
     for key in value['rules']['scout_top_keys']:rows.append(dict(page_id='fc27-weekly',product_key=key,core_product_key=None,reason='Popular order',evidence_indices=[]))
     for key in ('fc-d-ps','fc-e-ps','fc-f-ps'):rows.append(dict(page_id='fc27-trio',product_key=key,core_product_key=None,reason='Grounded trio',evidence_indices=[0]))
-    for key in ('fc-a-ps','fc-b-ps'):rows.append(dict(page_id='fc27-sbc',product_key=key,core_product_key='fc-core-ps',reason='Companion',evidence_indices=[]))
+    page=next(p for p in value['pages'] if p['page_id']=='fc27-sbc');players=[k for k in page['product_keys'] if k not in page['core_product_keys']]
+    for index,core in enumerate(page['core_product_keys']):
+        for key in players[2*index:2*index+2]:rows.append(dict(page_id='fc27-sbc',product_key=key,core_product_key=core,reason='Companion',evidence_indices=[]))
     return dict(model='gpt-6.1-sol',source_revision=value['source_revision'],sbc_update_id=value['sbc_update']['id'],recommendations=rows)
 
 

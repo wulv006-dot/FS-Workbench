@@ -27,10 +27,22 @@ from campaign_recommendations import CampaignRecommendations, CampaignRecommenda
 @contextmanager
 def guard(*args):yield True
 
-def input_data():
+def legacy_input():
  return dict(source_revision='7',sbc_update=dict(id='update-7',observed_at='2026-11-09T09:00:00+00:00',expires_at=None,context='Synthetic update',sources=[]),
   pages=[dict(page_id=page,product_keys=['fc-player-ps'],**({'core_product_keys':[]} if page=='fc27-sbc' else {})) for page in ('fc27-trio','fc27-weekly','fc27-sbc')],
   catalog=[dict(key='fc-player-ps',title='Synthetic player',product_ref=dict(site_id='266',game_id='1327',goods_id='12'),platform=dict(code='ps',attribute_id='21587'),available=False,binding_state='unknown')])
+
+def input_data():
+ from test_campaign_weekly import pool_input
+ value=pool_input();value['sbc_update']['id']='update-7'
+ return value
+
+def current_selection(value):
+ from test_campaign_weekly import selection
+ result=selection(value)
+ if not value['sbc_update']['sources']:
+  for row in result['recommendations']:row['evidence_indices']=[]
+ return result
 
 class CampaignTests(unittest.TestCase):
  def setUp(self):
@@ -41,10 +53,31 @@ class CampaignTests(unittest.TestCase):
   self.auth=True;self.calls=0
   def execute(scope,request):
    scope.context('alice',scope.task_id,scope.lease);scope.mark_dispatch();self.calls+=1
-   return dict(model='gpt-6.1-sol',source_revision='7',sbc_update_id='update-7',recommendations=[dict(page_id='fc27-weekly',product_key='fc-player-ps',core_product_key=None,reason='Synthetic choice',evidence_indices=[])])
+   return current_selection(request)
   self.service=CampaignRecommendations(self.host,session_verify=lambda cookie,actor:self.auth and cookie=='private-session' and actor=='alice',admission=guard,execute=execute)
   self.body=dict(contract='campaign_recommendation_v1',operation_id=str(uuid.uuid4()),input=input_data())
  def finish(self):self.pool.shutdown(wait=True)
+ def test_new_generation_requires_current_rules_before_admission_or_dispatch(self):
+  self.body['input']=legacy_input()
+  with self.assertRaisesRegex(ValueError,'campaign_input_fields'):self.service.submit(self.body,'alice','private-session')
+  self.assertEqual(self.calls,0)
+  with self.tasks.db() as db:
+   self.assertEqual(db.execute('SELECT COUNT(*) FROM campaign_recommendations').fetchone()[0],0)
+   self.assertEqual(db.execute('SELECT COUNT(*) FROM tasks').fetchone()[0],0)
+ def test_legacy_original_id_same_hash_is_history_only_and_never_redispatched(self):
+  from pilot import digest,encoded
+  self.body['input']=legacy_input();operation_id=self.body['operation_id']
+  for state in ('completed','unknown'):
+   receipt=dict(status=state,operation_id=operation_id,historical=True)
+   with self.tasks.db() as db:
+    db.execute('INSERT OR REPLACE INTO campaign_recommendations VALUES(?,?,?,?,?,?,?,?,?,?)',('alice',operation_id,digest(self.body),encoded(self.body['input']),state,'historical-task','historical-run',None,encoded(receipt),1))
+    before=dict(db.execute('SELECT * FROM campaign_recommendations').fetchone())
+   self.assertEqual(self.service.submit(self.body,'alice','private-session'),receipt)
+   self.assertEqual(self.service.lookup(operation_id,'alice','private-session'),receipt)
+   changed=json.loads(json.dumps(self.body));changed['input']['source_revision']='8'
+   with self.assertRaisesRegex(ValueError,'campaign_request_conflict'):self.service.submit(changed,'alice','private-session')
+   with self.tasks.db() as db:self.assertEqual(dict(db.execute('SELECT * FROM campaign_recommendations').fetchone()),before)
+  self.assertEqual(self.calls,0)
  def test_real_host_task_is_async_deduplicated_and_never_creates_report_or_worker_identity(self):
   result=self.service.submit(self.body,'alice','private-session');self.assertEqual(result['status'],'pending');self.finish()
   result=self.service.lookup(self.body['operation_id'],'alice','private-session');self.assertEqual(result['status'],'completed')
@@ -75,19 +108,39 @@ class CampaignTests(unittest.TestCase):
   self.assertEqual(self.service.lookup(self.body['operation_id'],'alice','private-session')['status'],'unknown')
  def test_input_and_strict_schema_have_no_foreign_scope_or_empty_enums(self):
   value=checked_input(input_data());schema=output_schema(value)
-  item=schema['properties']['recommendations']['items'];self.assertEqual(set(item['required']),set(item['properties']));self.assertEqual(item['properties']['core_product_key'],{'type':'null'})
+  item=schema['properties']['recommendations']['items'];self.assertEqual(set(item['required']),set(item['properties']));self.assertEqual(item['properties']['core_product_key']['anyOf'][1],{'type':'null'});self.assertEqual(len(item['properties']['core_product_key']['anyOf'][0]['enum']),9)
   value['catalog'][0]['product_ref']['game_id']='999'
   with self.assertRaises(ValueError):checked_input(value)
 
- def test_weekly_generation_contract_exposes_counts_and_alternatives_but_keeps_manual_minimum(self):
+ def test_weekly_generation_contract_assigns_global_eighteen_without_model_alternatives(self):
   from test_campaign_weekly import pool_input,selection
   value=pool_input();schema=output_schema(checked_input(value))
-  self.assertEqual(schema['properties']['recommendations']['minItems'],8)
-  self.assertIn('2 primary picks',PROMPT);self.assertIn('2 alternatives',PROMPT);self.assertIn('scout_top_keys',PROMPT)
+  self.assertEqual(schema['properties']['recommendations']['minItems'],24);self.assertEqual(schema['properties']['recommendations']['maxItems'],24)
+  self.assertIn('18 different',PROMPT);self.assertIn('exactly 2',PROMPT);self.assertIn('scout_top_keys',PROMPT);self.assertNotIn('2 alternatives',PROMPT)
+  self.assertIn('complete Newest-tag pool',PROMPT);self.assertIn('External popularity is not our sales',PROMPT)
   value['sbc_update']['sources']=[dict(url='https://www.futbin.com/fixture',title='Fixture',observed_at=value['sbc_update']['observed_at'])]
   from campaign_recommendations import checked_result
   self.assertEqual(checked_result(selection(value),value)['recommendations'][-1]['page_id'],'fc27-sbc')
-  self.assertNotIn('minItems',output_schema(input_data())['properties']['recommendations'])
+  with self.assertRaisesRegex(ValueError,'campaign_input_fields'):checked_input(legacy_input())
+
+ def test_weekly_input_requires_nine_cores_and_eighteen_distinct_model_candidates(self):
+  from test_campaign_weekly import pool_input
+  value=pool_input();page=next(p for p in value['pages'] if p['page_id']=='fc27-sbc');page['core_product_keys'].pop()
+  with self.assertRaisesRegex(ValueError,'campaign_sbc_core_count'):checked_input(value)
+  value=pool_input();page=next(p for p in value['pages'] if p['page_id']=='fc27-sbc');page['product_keys'].pop()
+  with self.assertRaisesRegex(ValueError,'campaign_sbc_pool_unavailable'):checked_input(value)
+  value=pool_input();value['catalog'][0]['product_ref'].pop('model_id')
+  with self.assertRaisesRegex(ValueError,'campaign_sbc_core_count'):checked_input(value)
+  value=pool_input();value['catalog'][-1]['product_ref']['model_id']=value['catalog'][-2]['product_ref']['model_id']
+  with self.assertRaisesRegex(ValueError,'campaign_sbc_pool_unavailable'):checked_input(value)
+
+ def test_weekly_companions_are_unique_across_all_nine_core_assignments(self):
+  from test_campaign_weekly import pool_input,selection
+  from campaign_recommendations import checked_result
+  value=pool_input();value['sbc_update']['sources']=[dict(url='https://www.futbin.com/fixture',title='Fixture',observed_at=value['sbc_update']['observed_at'])];result=selection(value)
+  self.assertEqual(len(checked_result(result,value)['recommendations']),24)
+  result['recommendations'][8]['product_key']=result['recommendations'][6]['product_key']
+  with self.assertRaisesRegex(ValueError,'campaign_weekly_selection'):checked_result(result,value)
 
  def test_paid_cardinality_and_page_pool_failures_retain_specific_safe_reason(self):
   from test_campaign_weekly import pool_input
@@ -273,7 +326,7 @@ class CampaignTests(unittest.TestCase):
       proof=dict(network_started=False,curl_exit_code=2,provider_error_code='curl_option_invalid',transport_phase='local_validation');options['on_not_dispatched'](proof)
       return dict(proof,status='local_rejected')
      if failure=='http':return dict(status='http_rejected',http_status=400,curl_exit_code=0,provider_http_request_id='req_fixture',provider_error_code='invalid_json_schema')
-     result=dict(model='gpt-6.1-sol',source_revision='7',sbc_update_id='update-7',recommendations=[dict(page_id='fc27-weekly',product_key='fc-player-ps',core_product_key=None,reason='Synthetic reason',evidence_indices=[])])
+     result=current_selection(json.loads(request['messages'][-1]['content']))
      if failure in ('cardinality','pool_mismatch'):
       from test_campaign_weekly import selection
       result=selection(json.loads(request['messages'][-1]['content']))

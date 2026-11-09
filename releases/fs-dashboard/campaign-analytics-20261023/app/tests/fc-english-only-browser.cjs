@@ -1,10 +1,17 @@
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 (async()=>{
  const app=path.resolve(__dirname,'..'),raw=JSON.parse(fs.readFileSync(path.join(app,'catalog.json'),'utf8')),config=structuredClone(raw),han=/[\u3400-\u9fff\uf900-\ufaff]/u;config.defaultLanguage='zh';config.manageDocumentLanguage=false;config.platforms.ps.label='中文平台';config.weekly.edition.en='中文推荐';config.trio.roles.forEach(r=>r.en='中文角色');Object.values(config.sbc.routes).forEach(r=>r.label.en='中文搭配');for(const p of Object.values(config.products)){p.name='中文商品';p.title='中文标题';p.league='中文联赛';p.club='中文球队';p.included?.forEach(row=>{row.name='中文队员';});}
+ const coreTemplate=structuredClone(config.products[config.sbc.defaultId]),playerTemplate=structuredClone(config.products[config.sbc.routes[config.sbc.defaultId].picks[0]]);
+ const sharedPlayers=Array.from({length:18},(_,i)=>'pool-player-'+i),coreIds=Array.from({length:9},(_,i)=>'pool-core-'+i);
+ sharedPlayers.forEach((key,i)=>{config.products[key]={...structuredClone(playerTemplate),key,name:'Player '+i,title:'Player '+i};});
+ config.sbc.ids=coreIds;config.sbc.defaultId=coreIds[0];config.sbc.routes={};
+ coreIds.forEach((key,i)=>{config.products[key]={...structuredClone(coreTemplate),key,name:'Core '+i,title:'Core '+i};const picks=sharedPlayers.slice(i*2,i*2+2);config.sbc.routes[key]={label:{en:'Shared player pool'},picks,alternatives:sharedPlayers.filter(p=>!picks.includes(p))};});
  const snapshot={pages:['weekly','sbc','trio'].map(view=>({activity_id:'fc27-season2',page_id:'fc27-'+view,active:true,default_language:'zh',title:'中文活动标题',description:'中文描述',product_keys:Object.keys(config.products).flatMap(key=>['ps','xbox','pc'].map(platform=>'fc-'+key+'-'+platform))})),products:Object.values(config.products).flatMap(p=>['ps','xbox','pc'].map(platform=>({key:'fc-'+p.key+'-'+platform,available:true,quantity:{min:String(p.platforms[platform].quantity),unit:'item',group:String(p.platforms[platform].group)}})))};
+ const fixtureImages=['https://assets.mmoexp.com/player/fc27/55.png','https://b2c-static.p2pah.cn/images/202611/82f234c2a94d023d9c36e0db64b78b27b76b0220.png'],imageRequests=new Set();
+ const imageBytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aS2kAAAAASUVORK5CYII=','base64');
  const browser=await chromium.launch({headless:true,...(process.env.FC_TEST_BROWSER_CHANNEL?{channel:process.env.FC_TEST_BROWSER_CHANNEL}:{})}),page=await browser.newPage();page.setDefaultTimeout(5000);const errors=[],posts=[];page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{localStorage.setItem('lang','zh');localStorage.setItem('language','zh-CN');});
- await page.route('**/*',async route=>{const req=route.request(),url=new URL(req.url());if(url.origin!=='http://127.0.0.1:8566')return route.abort();
+ await page.route('**/*',async route=>{const req=route.request(),url=new URL(req.url());if(fixtureImages.includes(url.href)){imageRequests.add(url.href);return route.fulfill({body:imageBytes,contentType:'image/png'});}if(url.origin!=='http://127.0.0.1:8566')return route.abort();
   if(url.pathname.endsWith('/api/campaign/config'))return route.fulfill({json:snapshot});if(url.pathname.endsWith('/api/campaign/capabilities'))return route.fulfill({json:{integration_mode:'preview',live_checkout:false}});
   if(req.method()==='POST'){posts.push(req.postDataJSON());return route.fulfill({status:400,json:{code:'中文错误'}});}
   const name=url.pathname.replace(/^\/events\//,''),file=path.join(app,name);if(!file.startsWith(app)||!fs.existsSync(file))return route.fulfill({status:404,body:''});let body=fs.readFileSync(file);if(name==='catalog.js')body='window.FC_ACTIVITY_CONFIG='+JSON.stringify(config)+';';
@@ -14,7 +21,28 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  const check=async()=>{const text=await page.evaluate(()=>[document.title,document.body.innerText,...[...document.querySelectorAll('meta[content]')].map(el=>el.content),...[...document.querySelectorAll('[aria-label],[alt],select option')].map(el=>el.getAttribute('aria-label')||el.getAttribute('alt')||el.textContent),...[...document.querySelectorAll('script[type="application/ld+json"]')].map(el=>el.textContent)].join('\n'));assert(!han.test(text),text);assert(!/Stack eligible|stack eligible|Activity price preview|Public price snapshot/.test(text),text);assert(/\$\d/.test(text),text);
  assert.equal(await page.locator('html').getAttribute('lang'),'en');assert.equal(await page.locator('#lang-zh,#lang-en,.fca-language').count(),0);};
  try{
-  for(const filename of ['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','index.html']){await page.goto('http://127.0.0.1:8566/events/'+filename+'?lang=zh');await page.waitForFunction(()=>!document.querySelector('#activity-message').textContent.includes('Loading published'));await check();if(filename==='Sbc-Companions.html'){assert.equal(await page.locator('#summary-count').innerText(),'2');await page.locator('input[name=core-mode][value=service]').check();assert.equal(await page.locator('#summary-count').innerText(),'3');await page.locator('input[name=platform][value=pc]').check();await check();}await page.locator('#review-selection').click();await page.waitForFunction(()=>document.querySelector('#review-dialog').open);await check();assert.equal(await page.locator('#submit-selection').isDisabled(),true);await check();}
+  for(const filename of ['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','index.html']){await page.goto('http://127.0.0.1:8566/events/'+filename+'?lang=zh');await page.waitForFunction(()=>!document.querySelector('#activity-message').textContent.includes('Loading published'));await check();if(filename==='Sbc-Companions.html'){assert.equal(await page.locator('#core-select option').count(),9);await page.locator('#core-select').selectOption(coreIds[8]);assert.equal(await page.locator('#companion-0 option').count(),18);assert.equal(await page.locator('#companion-0').inputValue(),sharedPlayers[16]);await page.locator('#companion-0').selectOption(sharedPlayers[0]);assert.equal(await page.locator('#companion-1 option[value="'+sharedPlayers[0]+'"]').isDisabled(),true);assert.equal(await page.locator('#summary-count').innerText(),'2');await page.locator('input[name=core-mode][value=service]').check();assert.equal(await page.locator('#summary-count').innerText(),'3');await page.locator('input[name=platform][value=pc]').check();await check();}await page.locator('#review-selection').click();await page.waitForFunction(()=>document.querySelector('#review-dialog').open);await check();assert.equal(await page.locator('#submit-selection').isDisabled(),true);await check();}
+  // Exercise catalog metadata and equal art/button rows with existing CSS at both widths.
+  const content=require('../activity-content.js');
+  const fixtures=[{key:'normal',title:'RiccardoCalafiori',image:fixtureImages[0],kind:'player'},{key:'long',title:'Alessandro Bastoni/88/CB++/UCL RTTK/Signature',image:fixtureImages[1],kind:'player'},{key:'sbc',title:'Pedri/91/CM++/UCLRTTK/Signature',image:null,kind:'sbc'}];
+  for(const width of [1280,390]){
+    await page.setViewportSize({width,height:1000});
+    await page.setContent('<style>'+fs.readFileSync(path.join(app,'activity.css'),'utf8')+'</style><main class="fc-activity"><section class="fca-grid fca-lineup">'+fixtures.map(p=>content.previewCard(p)).join('')+'</section></main>');
+    assert.deepEqual(await page.locator('.fca-card h3').allTextContents(),['Riccardo Calafiori','Alessandro Bastoni','Pedri']);
+    assert((await page.locator('.fca-card').nth(1).locator('.fca-meta').innerText()).includes('88 · CB++ · UCL RTTK · Signature'));
+    assert.equal(await page.locator('.fca-card').nth(1).locator('h3').getAttribute('title'),fixtures[1].title);
+    assert.equal(await page.locator('.fca-card-art-missing').count(),1);
+    await page.waitForFunction(()=>[...document.querySelectorAll('img.fca-card-art')].every(img=>img.complete&&img.naturalWidth>0));
+    if(process.env.FC_CARD_SCREENSHOTS){fs.mkdirSync(process.env.FC_CARD_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.FC_CARD_SCREENSHOTS,'cards-'+width+'.png'),fullPage:true});}
+    for(const selector of ['.fca-card-art','.fca-action']){
+      const boxes=await page.locator(selector).evaluateAll(nodes=>nodes.map(n=>({y:n.getBoundingClientRect().y,height:n.getBoundingClientRect().height})));
+      assert(Math.max(...boxes.map(b=>b.y))-Math.min(...boxes.map(b=>b.y))<1,JSON.stringify({width,selector,boxes}));
+      assert(Math.max(...boxes.map(b=>b.height))-Math.min(...boxes.map(b=>b.height))<1);
+    }
+    assert(await page.locator('.fca-action').first().isDisabled());
+  }
+  assert.deepEqual([...imageRequests].sort(),[...fixtureImages].sort());
+  assert(!content.previewCard({key:'safe',title:'<img src=x onerror=alert(1)>/91/CM++/Signature'}).includes('<img src=x'));
   assert.equal(posts.length,0);assert.deepEqual(errors,[]);console.log('PASS FC English-only SSR and dynamic legacy zh config/query/localStorage/snapshot/title/description/product/layout/route labels; review/error/SBC/platform flows');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exit(1)});

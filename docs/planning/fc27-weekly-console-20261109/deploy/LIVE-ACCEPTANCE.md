@@ -1,5 +1,7 @@
 # 真实入口验收与计划启用 — 2026-11-09
 
+> 历史操作证据，保留当时事实；不作为当前选品或自动执行规则。当前入口见[发布证据索引](README.md)，本轮修正验收见[selection-corrections](selection-corrections/ACCEPTANCE.md)。
+
 运营台已部署，真实 Sol 已生成三页草稿并沿原活动中心保存、读回 revision 17；随后按用户批准启用周日12:00 Asia/Shanghai计划。活动公开发布、优惠券写入及自然周更不属于本次已验证结果。
 
 ## 最终结果

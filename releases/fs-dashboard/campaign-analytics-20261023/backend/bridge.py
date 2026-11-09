@@ -27,6 +27,7 @@ from campaign_backend.discount_revenue import read_revenue, query_window
 
 def model_image(model):
     """Fixed server artifacts; no client paths, name matching, or fresh Admin image claim."""
+    if model.get('image_url'):return model
     try:
         from campaign_backend.catalog import read_reference_mapping
         backend=Path(__file__).parent

@@ -3,42 +3,23 @@ import path from 'node:path';
 import {projectWeeklyProviderReceipt} from './weekly-hermes-provider.mjs';
 import {atomic} from './store.mjs';
 import {canonical,digest,fail} from '../runtime/snapshot.mjs';
-import {prepareWeeklyRequest,recommendWeekly,projectWeeklyResponse,weeklyHermesModel} from './weekly-hermes.mjs';
+import {projectWeeklyResponse} from './weekly-hermes.mjs';
 
-export function makeWeeklyRecommendations({dir,contextProvider,enabledProvider=()=>false,provider,now=Date.now,timeout_ms}){
+export function makeWeeklyRecommendations({dir,contextProvider,provider,now=Date.now}){
  const file=path.join(dir,'weekly-recommendations.json');
  const raw=()=>fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{operations:[],requests:[]};
  const view=(record,context=contextProvider())=>({...record.result,operation_id:record.operation_id,submitted_at:record.submitted_at,updated_at:record.updated_at,
   ...(record.id?{id:record.id}:{}),...(record.page_id?{page_id:record.page_id}:{}),sbc_update:record.sbc_update,
   stale:record.result.source_revision!==context.source_revision||Boolean(record.sbc_update.expires_at&&Date.parse(record.sbc_update.expires_at)<=now())});
  function read(){const state=raw(),context=contextProvider(),history=state.requests.map(record=>view(record,context)).reverse();return {last:history[0]??null,history};}
- async function recommend(body,user,{provider:requestProvider}={}){
+ async function recommend(body,user){
   if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(key=>!['revision','operation_id','id','page_id','sbc_update'].includes(key))||!Number.isSafeInteger(body.revision)||body.revision<0)fail('INVALID_WEEKLY_RECOMMENDATION');
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.operation_id||''))fail('INVALID_OPERATION_ID');
   if(typeof user!=='string'||!user||user.length>160||/[<>\u0000-\u001f]/.test(user))fail('INVALID_WEEKLY_RECOMMENDATION');
   if(body.id!=null&&!/^\d{4}-W(?:0[1-9]|[1-4]\d|5[0-3])$/.test(body.id)||body.page_id!=null&&!['fc27-trio','fc27-weekly','fc27-sbc'].includes(body.page_id))fail('INVALID_WEEKLY_RECOMMENDATION');
   const state=raw(),hash=digest(canonical(body)),original=state.operations.find(operation=>operation.id===body.operation_id);
   if(original){const saved=state.requests.find(record=>record.operation_id===original.request_id);if(saved.submitted_by!==user)fail('WEEKLY_RECOMMENDATION_OWNER_REQUIRED',403);if(original.hash!==hash)fail('REQUEST_CONFLICT',409);return view(saved);}
-  const context=contextProvider();if(String(body.revision)!==context.source_revision)fail('REVISION_CONFLICT',409);
-  const prepared=prepareWeeklyRequest({...context,sbc_update:body.sbc_update,now:now()});
-  const duplicate=state.requests.find(record=>record.submitted_by===user&&record.dedupe_key===prepared.dedupe_key&&!['disabled','unavailable'].includes(record.result.status));
-  if(duplicate){state.operations.push({id:body.operation_id,hash,request_id:duplicate.operation_id});atomic(file,state);return {...view(duplicate),duplicate_of:duplicate.operation_id};}
-  const at=new Date(now()).toISOString(),record={operation_id:body.operation_id,dedupe_key:prepared.dedupe_key,prepared,submitted_by:user,submitted_at:at,updated_at:at,
-   ...(body.id?{id:body.id}:{}),...(body.page_id?{page_id:body.page_id}:{}),sbc_update:prepared.input.sbc_update,
-   result:{status:'pending',model:weeklyHermesModel,schedule_enabled:false,publication:false,verification_scope:'recommendation_only',candidates:[],
-    source_revision:context.source_revision,sbc_update_id:prepared.input.sbc_update.id,dedupe_key:prepared.dedupe_key,provider_outcome:'unknown'}};
-  state.operations.push({id:body.operation_id,hash,request_id:body.operation_id});state.requests.push(record);
-  // Persist the original identity before dispatch; a restart leaves pending unknown, never an automatic replay.
-  atomic(file,state);
-  const effectiveProvider=requestProvider??provider;
-  const result=await recommendWeekly({...context,sbc_update:prepared.input.sbc_update,enabled:enabledProvider()===true,provider:effectiveProvider,operation_id:body.operation_id,now:now(),...(timeout_ms==null?{}:{timeout_ms})});
-  const current=raw(),saved=current.requests.find(entry=>entry.operation_id===body.operation_id);
-  // A later POST acknowledgement must not overwrite a result already reconciled from the original task.
-  if(!['pending','unknown'].includes(saved.result.status)&&saved.result.provider_outcome!=='unknown')return view(saved);
-  const receipt=projectWeeklyProviderReceipt(effectiveProvider?.receipt,body.operation_id);
-  saved.result={...record.result,...result,...(receipt?{receipt}:{})};if(!Object.hasOwn(result,'provider_outcome'))delete saved.result.provider_outcome;
-  saved.updated_at=new Date(now()).toISOString();atomic(file,current);
-  return view(saved);
+  throw Object.assign(new Error('旧推荐入口已停用，请使用顶部“按当前规则取品并生成草稿”；新版会按当前规则生成并保存待审草稿。'),{code:'WEEKLY_LEGACY_GENERATION_RETIRED_USE_WEEKLY_RUN',status:410});
  }
  async function reconcile(body,user,{provider:requestProvider}={}){
   if(!body||typeof body!=='object'||Object.keys(body).length!==1||typeof body.operation_id!=='string')fail('INVALID_WEEKLY_RECOMMENDATION');

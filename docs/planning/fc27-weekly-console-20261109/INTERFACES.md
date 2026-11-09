@@ -12,13 +12,13 @@
 | `GET api/weekly` | 当前三页映射、校验、工作单、历史、审批、原操作摘要与Hermes状态 |
 | `POST api/weekly` | 工作单与证据/审核记录；继承FS管理员、Origin与CSRF验证 |
 | `GET api/weekly/recommend` | 持久候选历史、原operation_id及过期状态 |
-| `POST api/weekly/recommend` | 显式准备/请求本期候选；固定模型gpt-6.1-sol、高推理；不发布 |
+| `POST api/weekly/recommend` | 旧生成入口停止接受新ID；仅保留既有原ID历史核对，不派发旧规则任务 |
 | `POST api/weekly/reconcile` | 按原operation_id查询异步宿主；不再次派发模型调用 |
 | `GET api/weekly/run` | 周更委派配置及当前操作者最近20条运行摘要 |
 | `GET api/weekly/run?operation_id=UUID` | 查询原运行/配置回执；必要时只读对账原模型及原center操作，不派发或应用 |
 | `POST api/weekly/run` | configure、run、reconcile、resume；配置周日计划或执行同一草稿流水线，不发布 |
 
-写入请求保留 UUID `operation_id`；同ID不同内容409，同ID同内容核原结果。周更记录请求的revision来自GET api/weekly；推荐请求的revision是当前活动中心revision，不能用周更账本revision代替。
+写入请求保留 UUID `operation_id`；同ID不同内容409，同ID同内容核原结果。周更记录请求的revision来自GET api/weekly；历史推荐记录保留当时活动中心revision，不把周更账本revision代入旧请求或重派。
 
 `api/weekly`动作：create、update、review、approval、pause、retry、evidence、hermes。scope为publish/coupon_write/schedule_enable/rollback只描述待批准动作，不直接执行。页面显示的operationId是计划创建ID；真实执行/回执使用独立execution_operation_id，并保留关联关系，不混同。
 
@@ -30,7 +30,7 @@
 
 本地provider消费 `prepareWeeklyRequest` 结果及超时AbortSignal，跨宿主只提交固定contract、operation_id和限定input；模型、high推理、instructions及schema由共享宿主控制。返回对象必须回显model、source_revision、sbc_update_id，并只引用输入对应page允许池内的product_key。SBC同时要求合法core_product_key，平台错配/可售未知/过期/来源缺失均带待核原因。
 
-单次候选更新输入包括id、observed_at、可选expires_at、context与sources（HTTPS来源、title、observed_at），仍保留人工登记入口。另有用户指定的周日12:00（Asia/Shanghai）自动草稿流水线，采用现有宿主tick，不新建定时器或后台；首次安装默认禁用，生产启用待批准。读取最新sbcplayer、Popular前三及最新Player真实目录，由当前冻结规则生成候选；未知游戏到期时间保持null，不以目录缓存TTL冒充。推荐准备与身份匹配不等于SBC阵容规则已验证，不自动发社区消息。
+旧单次候选输入与过期信息只用于历史记录展示和原ID核对；旧独立生成表单及提交分支已删除。新手动生成与用户指定的周日12:00（Asia/Shanghai）自动草稿共用唯一流水线，采用现有宿主tick，不新建定时器或后台；首次安装默认禁用；原计划已批准启用并保持。本轮流水线读取最新9个sbcplayer、主站Popular推荐优先前三普通球员及完整Newest普通候选池，由当前冻结规则生成候选；未知游戏到期时间保持null，不以目录缓存TTL冒充。推荐准备与身份匹配不等于SBC阵容规则已验证，不自动发社区消息。
 
 调用前持久pending，operation_id/hash与输入内容按操作者去重，超时/中断保留unknown；不得换ID重放未知模型请求。持久保存经过限定的task/run/usage回执，显式reconcile只查询原ID。关闭辅助层不影响center、公开页面、已有计划与候选历史。
 
@@ -55,7 +55,9 @@ configure和手动动作沿原管理员、Origin/CSRF及当前会话；共享宿
 
 ### 真实来源与单writer草稿桥
 
-Trio外部资料复用现役discovery的search/fetch，最多6名球员，有界检索社媒和垂类来源。仅接纳实际取回且正文姓名匹配的资料，保存真实URL、观察时间、内容SHA及coverage；partial/unavailable明确显示缺口。证据不足仍可据真实产品元数据生成provisional、review_required草稿，允许空引用并说明未经外部核实，不能伪称完成社媒研究。Scout严格保留真实Popular前三顺序；Trio恰好3个不同模型；每个最新SBC core按稳定顺序生成2首选及最多8替代。
+Trio外部资料复用现役discovery的search/fetch，完整Newest普通候选传入，按最多6组姓名OR查询覆盖候选，沿原12次Search、8次Fetch和180秒总预算检索市场、社媒及垂类来源；不能把分组查询当作每位球员都有证据。仅接纳实际取回且正文姓名匹配的资料，保存真实URL、观察时间、内容SHA及coverage；partial/unavailable明确显示缺口。证据不足仍可据真实产品元数据生成provisional、review_required草稿，允许空引用并说明未经外部核实，不能伪称完成社媒研究。Scout按主站Popular默认推荐优先顺序过滤普通Player后取前三；Trio从当次真实Newest标签的普通Player候选中，结合市场资料与Sol判断选恰好3个不同热门球员，不固定人选或卡系列；全目录ID倒序不能替代标签成员证明，热门判断不能冒充已核销量排名。周更规则输入要求9个最新SBC核心，模型为每核心输出2个首选，9组全局共18个不同普通Player，不输出额外替代；应用层将这18人构成共享池，为每核心保存2首选＋其余16备选到原fc_layout.routes，消费者下拉复用该池。普通版依据当次PlayersType事实，不凭名称推断。所有新生成须携带当前周更rules并走统一流水线；历史无rules任务仅允许原ID读取与核对，不继续生成、不重派，也不改写其历史结果。
+
+本轮规则、图片来源及展示修正为代码与相关离线测试状态，尚未部署；此前启用的周日计划保持，历史真实回执不能证明本轮新规则已执行。
 
 宿主通过固定Node CLI调用 `/run/fs-campaign-weekly/operations.sock`，目录0700、socket0600；无新TCP端口或凭据。CLI只作客户端，prepare、apply_draft、inspect_operation在原活动管理进程内调用同一个center实例，保持单writer及原CAS。prepare持久冻结原operation_id/owner/plan_ref、真实源revision和选品池；apply仅接受该计划的推荐及实际证据来源，保存原center草稿；inspect只查原操作回执。CLI或socket失败不转到第二个写入进程，保留原ID核验。草稿完成不是活动发布。
 
@@ -77,4 +79,4 @@ Trio外部资料复用现役discovery的search/fetch，最多6名球员，有界
 
 发布沿原活动增量发布能力，保留原锁/CAS/备份/回执；管理进程和UNIX桥需激活 `fs-campaign-dashboard.service`，公开消费者/共享tracker及runtime模块亦需在 `fs-campaign-runtime.service` 实际生效。是否需重启/重新加载按本次准确依赖闭包和现役publisher确认，不能以“绝不重启public runtime”遗漏新增消费者，也不直接套用全服务restart。共享宿主另沿其现役发布入口协调激活，保护既有模型在途任务及FC P0链路；账本新状态兼容与回退约束见HERMES-CONTRACT.md。本文件是候选接口清单，不是已批准部署manifest；执行前必须刷新现场CAS并核原publisher输入。
 
-仅部署管理端而未部署共享宿主时，推荐明确不可用。生产部署、计划启用及对外发布待具体批准；用户已授权的真实模型/草稿测试仍须实际回执，不能据源码或离线测试宣称完成。本接口文档更新不执行部署、启用、模型调用、活动发布或券写。回退保留center数据库、周次/推荐记录、原ID及所有运行账本。
+仅部署管理端而未部署共享宿主时，推荐明确不可用。基础链路此前部署及计划启用见deploy/LIVE-ACCEPTANCE.md；本轮新增选品与展示修正尚未部署，对外发布仍待具体批准。真实模型/草稿测试须对应本轮实际回执，不能据源码、旧回执或离线测试宣称完成。本接口文档更新不执行部署、启用、模型调用、活动发布或券写。回退保留center数据库、周次/推荐记录、原ID及所有运行账本。

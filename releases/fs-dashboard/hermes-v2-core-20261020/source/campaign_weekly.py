@@ -125,7 +125,7 @@ class CampaignWeekly:
             operation(prepared.get('plan_ref'));value=prepared['input']
             self._update(key,prepared=prepared,stage='evidence');stage='evidence'
             players=prepared.get('trio_players')
-            if type(players) is not list or not 1<=len(players)<=6:raise ValueError('campaign_player_pool')
+            if type(players) is not list or not 1<=len(players)<=300:raise ValueError('campaign_player_pool')
             if self.evidence is None:
                 from campaign_evidence import collect_player_evidence
                 evidence=collect_player_evidence([dict(name=p['name'].split('/',1)[0].strip(),model_id=p['model_id']) for p in players],self.host.clock())

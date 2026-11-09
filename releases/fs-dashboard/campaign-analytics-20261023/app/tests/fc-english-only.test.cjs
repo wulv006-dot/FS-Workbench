@@ -11,5 +11,9 @@ test('public content stays English for old zh inputs and contaminated display fi
 });
 test('every generated FC page, fragment, SEO/JSON-LD and template is English with no locale switch',async()=>{
  const {buildOutputs}=await import('../build-seo.mjs');const out=buildOutputs(original);for(const [name,body] of Object.entries(out)){if(/^(?:index.html|Weekly-Scout.html|Sbc-Companions.html|Player-Trio.html|activity-fragment-|seo-head-|structured-data-|validation\/)/.test(name)){assert(!han.test(body),name);assert(!body.includes('id="lang-zh"'),name);}}
+ for(const name of ['index.html','Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html']){
+  assert.equal((out[name].match(/src="seasonal\/activity-analytics\.js"/g)||[]).length,1,name+' shares published tracking');
+  assert(!out[name].includes('src="activity-analytics.js"'),name+' does not restore legacy preview tracker');
+ }
  for(const name of ['page-template.html','locale-controls.html'])assert(!han.test(fs.readFileSync(require.resolve('../'+name),'utf8')),name);
 });

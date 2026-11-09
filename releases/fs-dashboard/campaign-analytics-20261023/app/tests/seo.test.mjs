@@ -30,8 +30,8 @@ test('a future configured series and player change updates SSR, metadata, ItemLi
  assert.equal(schema['@graph'][2].itemListElement[0].item.name,next.products[first].title);
  assert(out['structured-data-trio.json'].includes(next.products[first].title));assert(out['activity-fragment-trio.html'].includes('Meet the '+next.trio.series));
 });
-test('configuration errors fail generation instead of shipping mismatched card versions or duplicate routes',()=>{
- for(const alter of [c=>c.trio.series='Different Invalid Series',c=>c.trio.ids[1]=c.trio.ids[0],c=>c.seo.pages.trio.path=c.seo.pages.weekly.path,c=>c.seo.pages.trio.path='/../Cart.html']){
+test('invalid player identities, duplicate cards and invalid routes fail generation',()=>{
+ for(const alter of [c=>c.trio.ids[0]='missing-player',c=>c.products[c.trio.ids[0]].kind='sbc',c=>c.trio.ids[1]=c.trio.ids[0],c=>c.seo.pages.trio.path=c.seo.pages.weekly.path,c=>c.seo.pages.trio.path='/../Cart.html']){
   const bad=structuredClone(config);alter(bad);assert.throws(()=>buildOutputs(bad));
  }
 });

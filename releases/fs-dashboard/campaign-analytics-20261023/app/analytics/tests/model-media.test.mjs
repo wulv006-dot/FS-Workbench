@@ -40,6 +40,16 @@ test('resolver facts preserve unknown platform/version/image and cannot manufact
  const remote=model();remote.image_url='https://untrusted.invalid/image.png';assert.equal(projectModelCard(remote).image_url,null);
 });
 
+test('uploaded Admin images survive model projection and SBC accepts eighteen shared players',()=>{
+ const card=model();card.image_url='https://b2c-static.p2pah.cn/images/202611/example.png';card.image_provenance='admin_model_uploaded_asset';
+ assert.equal(projectModelCard(card).image_url,card.image_url);assert.equal(projectModelCard(card).image_provenance,card.image_provenance);
+ const c=structuredClone(catalog),layout=structuredClone(initialLayout(catalog)),players=Array.from({length:18},(_,i)=>'normal-'+i);
+ for(const key of players)c.products[key]={kind:'player'};
+ for(const core of layout.sbc)layout.routes[core]={picks:players.slice(0,2),alternatives:players.slice(2)};
+ assert.equal(validateLayout(layout,c).routes[layout.sbc[0]].alternatives.length,16);
+ c.products.overflow={kind:'player'};layout.routes[layout.sbc[0]].alternatives.push('overflow');assert.throws(()=>validateLayout(layout,c));
+});
+
 test('one fc_layout model card publishes three metadata variants in the original card catalog, never a price or native purchase',t=>{
  const {store,options,dir}=fixture(t),card=model(),body=request(store,card),saved=store.importModel(body,'fixture',card);
  assert.deepEqual(store.recoverModel(body),saved);assert.equal(saved.draft.fc_models[card.key].platforms.pc.state,'unknown');
