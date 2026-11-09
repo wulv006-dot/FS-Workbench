@@ -21,6 +21,23 @@ def manifest(scope, mapping):
 
 
 class CollectionRelease(unittest.TestCase):
+    def test_summary_release_selects_only_summary_http_and_bound_daily_readers(self):
+        expected={'source/hermes_pricing_bridge.py':'/opt/fc27-cloud-browser/hermes_pricing_bridge.py',
+                  'source/conversation_http.py':'/opt/fs-exact-range-20261001/conversation_http.py',
+                  'source/pricing_operations.py':'/opt/fs-hermes-fc/pricing_operations.py',
+                  'source/fc_pricing_v3/api.py':'/opt/fc27-cloud-browser/fc_pricing_v3/api.py',
+                  'source/hermes-copy/fc_pricing_v3/api.py':'/opt/fs-hermes-fc/fc_pricing_v3/api.py'}
+        self.assertEqual(adapter.DAILY_SUMMARY_TARGETS,expected)
+        self.assertEqual(adapter.checked_manifest(manifest(target_map.DAILY_SUMMARY_SCOPE,expected))['scope'],target_map.DAILY_SUMMARY_SCOPE)
+        load=next(n for n in ast.parse((DEPLOY/'fc_v3_release_adapter.py').read_text('utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
+        selection=next(n for n in load.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='active_targets' for t in n.targets))
+        namespace=dict(vars(adapter),scope=target_map.DAILY_SUMMARY_SCOPE)
+        exec(compile(ast.Module(body=[selection],type_ignores=[]),'summary-release-targets','exec'),namespace)
+        self.assertEqual(namespace['active_targets'],expected)
+        value=manifest(target_map.DAILY_SUMMARY_SCOPE,expected)
+        value['files'].append(manifest('x',{'source/price_writer.py':'/opt/fc27-cloud-browser/price_writer.py'})['files'][0])
+        with self.assertRaises(ValueError):adapter.checked_manifest(value)
+
     def test_daily_repair_scope_limits_release_to_bridge_and_both_daily_consumers(self):
         expected={'source/hermes_pricing_bridge.py':'/opt/fc27-cloud-browser/hermes_pricing_bridge.py',
                   'source/fc_pricing_v3/daily.py':'/opt/fc27-cloud-browser/fc_pricing_v3/daily.py',

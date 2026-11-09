@@ -153,7 +153,11 @@ def call(scope,owner,task,lease,args,request=native):
                      source_quote_run=auth.get('source_quote_run') if daily else None,
                      source_quote_sha256=auth.get('source_quote_sha256') if daily else None,
                     separate_shadow=True,unknown_replay=False,hard_margin_pct='20',average_hard_margin_pct='20')
-    state=request('/pricing/v3/review-state',owner) if action in ('state','sprint_target') else None
+    state_path='/pricing/v3/review-state'
+    if daily and action=='state':
+        if len(auth['runs'])!=1:raise ValueError('pricing_daily_review_request_invalid')
+        state_path+='/'+str(uuid.UUID(auth['runs'][0]))
+    state=request(state_path,owner) if action in ('state','sprint_target') else None
     if action=='state':
         return state
     if action=='compare_strategies':

@@ -16,6 +16,8 @@ from urllib.request import Request,build_opener,HTTPRedirectHandler
 
 ROOT=Path('/var/lib/fc27-cloud')
 FS=Path('/var/lib/fs-hermes-fc/fs')
+DAILY_SUMMARY_FORMAT='pricing-daily-summary-v2'
+MAX_DAILY_PROMPT_CHARS=24000
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -66,6 +68,7 @@ def turn_state(conversation,request_id,owner,channel='conversation'):
 
 def daily_review_text(quote):
     report=deepcopy(quote['daily_report'])
+    report['summary_format']=DAILY_SUMMARY_FORMAT
     profit=report.get('actual_profit_summary')
     if isinstance(profit,dict):
         profit['detail_source']=dict(tool='fs_pricing_control',action='state',section='daily_review.actual_profit_summary')
@@ -124,15 +127,15 @@ def daily_review_text(quote):
                 return str(amount.quantize(Decimal('.01'),rounding=ROUND_HALF_UP))
         return value
     report=display_money(report)
+    actual=report.get('actual') or {}
+    if actual.get('hourly'):
+        actual['hourly_columns']=['hour','orders','net_paid_usd']
+        actual['hourly']=[[row[k] for k in actual['hourly_columns']] for row in actual['hourly']]
     if isinstance(profit,dict):
-        actual=report.get('actual') or {}
-        if actual.get('hourly'):
-            actual['hourly_columns']=['hour','orders','net_paid_usd']
-            actual['hourly']=[[row[k] for k in actual['hourly_columns']] for row in actual['hourly']]
         day=report['actual_profit_summary']['review_day']
         if day['groups']:
-            day['group_columns']=list(day['groups'][0])
-            day['groups']=[[row[k] for k in day['group_columns']] for row in day['groups']]
+            day['group_columns']=sorted({k for row in day['groups'] for k in row})
+            day['groups']=[[row.get(k) for k in day['group_columns']] for row in day['groups']]
     if money_rendered:report['amount_display']='USD rounded to cents for display; original precision remains in the source evidence'
     profit_note=('实际成本与采购毛利见actual_profit_summary；部分覆盖不能说成没有成本。review_day按创建日归属，active_plan为截至observed_at的累计，不与全天付款销售混算。未知成本不记零，已知子群毛利不是全量毛利或净利润。' if 'actual_profit_summary' in report else '')
     instructions=('FC27每日一次经营效果复盘。你负责效果判断和方案建议；正常每轮由程序定价，不等待你审核。'
@@ -144,30 +147,53 @@ def daily_review_text(quote):
         '双20%采购毛利底线、赠送/优惠/地区/舍入由程序每轮校验，不能豁免。目标未设就说明收入优化试验。'
         '先回答最需要判断的问题，再用关键事实支持结论和行动建议；不预设固定章节。模拟收益不能叫真实增收。'
         +profit_note+'实际及影子摘要：')
-    text=instructions+json.dumps(report,ensure_ascii=False,separators=(',',':'))
-    if len(text)>12000:
-        # Repeated field names are presentation overhead; keep every row/value.
-        model=(report.get('decision_basis') or {}).get('demand_model') or {}
-        groups=model.get('groups') or {}
-        if groups and all(isinstance(row,dict) for row in groups.values()):
-            columns=list(dict.fromkeys(k for row in groups.values() for k in row))
-            model['group_columns']=columns
-            model['groups']={name:[row.get(k) for k in columns] for name,row in groups.items()}
-        shadow=report.get('shadow') or {}
-        results=[row for period in shadow.get('periods',[]) for row in period.get('results',{}).values()]
-        forecasts=[row['forecast'] for row in results if isinstance(row.get('forecast'),dict)]
-        if forecasts:
-            columns=list(dict.fromkeys(k for row in forecasts for k in row))
-            shadow['forecast_columns']=columns
-            for row in results:
-                if isinstance(row.get('forecast'),dict):row['forecast']=[row['forecast'].get(k) for k in columns]
-        if results:
-            columns=list(dict.fromkeys(k for row in results for k in row))
-            shadow['result_columns']=columns
-            for period in shadow['periods']:
-                period['results']={mode:[row.get(k) for k in columns] for mode,row in period.get('results',{}).items()}
-        text=instructions+json.dumps(report,ensure_ascii=False,separators=(',',':'))
-    if len(text)>12000:raise ValueError('pricing_daily_prompt_too_long')
+    # Fixed v2 representation for every review, independent of its current size.
+    model=(report.get('decision_basis') or {}).get('demand_model') or {}
+    groups=model.get('groups') or {}
+    if groups and all(isinstance(row,dict) for row in groups.values()):
+        columns=sorted({k for row in groups.values() for k in row})
+        model['group_columns']=columns
+        model['groups']={name:[row.get(k) for k in columns] for name,row in groups.items()}
+    shadow=report.get('shadow') or {}
+    results=[row for period in shadow.get('periods',[]) for row in period.get('results',{}).values()]
+    actions=[];action_index={}
+    for row in results:
+        action=row.pop('latest_action',None)
+        if action is not None:
+            key=json.dumps(action,sort_keys=True,separators=(',',':'))
+            if key not in action_index:
+                action_index[key]=len(actions);actions.append(action)
+            row['latest_action_index']=action_index[key]
+    if actions:shadow['actions']=actions
+    forecasts=[row['forecast'] for row in results if isinstance(row.get('forecast'),dict)]
+    if forecasts:
+        columns=sorted({k for row in forecasts for k in row})
+        shadow['forecast_columns']=columns
+        for row in results:
+            if isinstance(row.get('forecast'),dict):row['forecast']=[row['forecast'].get(k) for k in columns]
+    if results:
+        columns=sorted({k for row in results for k in row})
+        shadow['result_columns']=columns
+        for period in shadow['periods']:
+            period['results']={mode:[row.get(k) for k in columns] for mode,row in period.get('results',{}).items()}
+    text=instructions+json.dumps(report,ensure_ascii=False,sort_keys=True,separators=(',',':'))
+    if len(text)>MAX_DAILY_PROMPT_CHARS:
+        # Keep actual totals, hourly context and coverage; defer named detail blocks explicitly.
+        day=(report.get('actual_profit_summary') or {}).get('review_day') or {}
+        deferred=[]
+        for container,key,section in ((model,'groups','decision_basis.demand_model.groups'),
+                (day,'groups','actual_profit_summary.review_day.groups'),
+                (shadow,'periods','shadow.periods'),(shadow,'actions','shadow.periods[*].results[*].latest_action'),
+                (shadow,'input_gaps','shadow.input_gaps')):
+            if container.get(key):
+                container[key+'_count']=len(container.pop(key));deferred.append(section)
+        if deferred:
+            report['deferred_details']=deferred
+            report['detail_source']=dict(tool='fs_pricing_control',action='state',section='daily_review',
+                local_date=report.get('local_date'),fields=sorted(quote['daily_report']),hash_basis='canonical_json_of_fields_utf8',
+                sha256=hashlib.sha256(json.dumps(quote['daily_report'],sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest())
+            text=instructions+json.dumps(report,ensure_ascii=False,sort_keys=True,separators=(',',':'))
+    if len(text)>MAX_DAILY_PROMPT_CHARS:raise ValueError('pricing_daily_prompt_too_long')
     return text
 
 
