@@ -79,15 +79,34 @@ class CampaignTests(unittest.TestCase):
   value['catalog'][0]['product_ref']['game_id']='999'
   with self.assertRaises(ValueError):checked_input(value)
 
- def test_weekly_generation_contract_exposes_counts_and_alternatives_but_keeps_manual_minimum(self):
+ def test_weekly_generation_contract_assigns_global_eighteen_without_model_alternatives(self):
   from test_campaign_weekly import pool_input,selection
   value=pool_input();schema=output_schema(checked_input(value))
-  self.assertEqual(schema['properties']['recommendations']['minItems'],8)
-  self.assertIn('2 primary picks',PROMPT);self.assertIn('2 alternatives',PROMPT);self.assertIn('scout_top_keys',PROMPT)
+  self.assertEqual(schema['properties']['recommendations']['minItems'],24);self.assertEqual(schema['properties']['recommendations']['maxItems'],24)
+  self.assertIn('18 different',PROMPT);self.assertIn('exactly 2',PROMPT);self.assertIn('scout_top_keys',PROMPT);self.assertNotIn('2 alternatives',PROMPT)
   value['sbc_update']['sources']=[dict(url='https://www.futbin.com/fixture',title='Fixture',observed_at=value['sbc_update']['observed_at'])]
   from campaign_recommendations import checked_result
   self.assertEqual(checked_result(selection(value),value)['recommendations'][-1]['page_id'],'fc27-sbc')
   self.assertNotIn('minItems',output_schema(input_data())['properties']['recommendations'])
+
+ def test_weekly_input_requires_nine_cores_and_eighteen_distinct_model_candidates(self):
+  from test_campaign_weekly import pool_input
+  value=pool_input();page=next(p for p in value['pages'] if p['page_id']=='fc27-sbc');page['core_product_keys'].pop()
+  with self.assertRaisesRegex(ValueError,'campaign_sbc_core_count'):checked_input(value)
+  value=pool_input();page=next(p for p in value['pages'] if p['page_id']=='fc27-sbc');page['product_keys'].pop()
+  with self.assertRaisesRegex(ValueError,'campaign_sbc_pool_unavailable'):checked_input(value)
+  value=pool_input();value['catalog'][0]['product_ref'].pop('model_id')
+  with self.assertRaisesRegex(ValueError,'campaign_sbc_core_count'):checked_input(value)
+  value=pool_input();value['catalog'][-1]['product_ref']['model_id']=value['catalog'][-2]['product_ref']['model_id']
+  with self.assertRaisesRegex(ValueError,'campaign_sbc_pool_unavailable'):checked_input(value)
+
+ def test_weekly_companions_are_unique_across_all_nine_core_assignments(self):
+  from test_campaign_weekly import pool_input,selection
+  from campaign_recommendations import checked_result
+  value=pool_input();value['sbc_update']['sources']=[dict(url='https://www.futbin.com/fixture',title='Fixture',observed_at=value['sbc_update']['observed_at'])];result=selection(value)
+  self.assertEqual(len(checked_result(result,value)['recommendations']),24)
+  result['recommendations'][8]['product_key']=result['recommendations'][6]['product_key']
+  with self.assertRaisesRegex(ValueError,'campaign_weekly_selection'):checked_result(result,value)
 
  def test_paid_cardinality_and_page_pool_failures_retain_specific_safe_reason(self):
   from test_campaign_weekly import pool_input

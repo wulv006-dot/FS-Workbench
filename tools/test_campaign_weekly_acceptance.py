@@ -51,8 +51,8 @@ class AcceptanceHelpers(unittest.TestCase):
             root=Path(temp);center=root/'data'/'center';pub=root/'public'
             center.mkdir(parents=True);pub.mkdir();(center/'weekly-plans').mkdir();(center/'operations').mkdir()
             key=lambda i:'model-266-1327-'+str(i)
-            models={key(i):dict(key=key(i),model_id=str(i),kind='sbc' if i==7 else 'player',title='Fixture '+str(i),platforms={code:dict(state='verified',product_ref=dict(site_id='266',game_id='1327',model_id=str(i),goods_id=str(100*i+n))) for n,code in enumerate(['ps','xbox','pc'])}) for i in range(1,8)}
-            layout=dict(weekly=[key(i) for i in [1,2,3]],trio=[key(i) for i in [4,5,6]],sbc=[key(7)],defaultCore=key(7),routes={key(7):dict(picks=[key(1),key(2)],alternatives=[key(3)])})
+            models={key(i):dict(key=key(i),model_id=str(i),kind='sbc' if i>=19 else 'player',title='Fixture '+str(i),image_url='https://assets.mmoexp.com/player/fc27/'+str(i)+'.png',image_provenance='storefront_player_id_asset',platforms={code:dict(state='verified',product_ref=dict(site_id='266',game_id='1327',model_id=str(i),goods_id=str(100*i+n))) for n,code in enumerate(['ps','xbox','pc'])}) for i in range(1,28)}
+            layout=dict(weekly=[key(i) for i in [1,2,3]],trio=[key(i) for i in [4,5,6]],sbc=[key(i) for i in range(19,28)],defaultCore=key(19),routes={key(i):dict(picks=[key((i-19)*2+1),key((i-19)*2+2)],alternatives=[key(j) for j in range(1,19) if j not in [(i-19)*2+1,(i-19)*2+2]]) for i in range(19,28)})
             draft=dict(pages=[dict(page_id=x,title=x) for x in ['fc27-trio','fc27-weekly','fc27-sbc','seasonal-vault']],fc_layout=layout,fc_models=models)
             original=dict(revision=1,draft=draft,published=None,updated_by='PRIVATE_OWNER')
             write(center/'state.json',original);write(pub/'current.json',{'fixture':'unchanged'})
@@ -63,7 +63,7 @@ class AcceptanceHelpers(unittest.TestCase):
             request=dict(revision=1,draft=draft,model_imports=[]);signature=digest(dict(kind='save',**request))
             current=dict(revision=2,draft=draft,published=None,updated_by='PRIVATE_OWNER',last_operation=dict(kind='save',operation_id=OP,hash=signature))
             write(center/'state.json',current)
-            source=dict(scout_model_ids=['1','2','3'],trio_player_ids=['4','5','6'],sbc_model_ids=['7'],observations=[dict(goods_complete=True)],evidence={})
+            source=dict(scout_model_ids=['1','2','3'],trio_player_ids=['4','5','6'],sbc_model_ids=[str(i) for i in range(19,28)],observations=[dict(model_id=str(i),goods_complete=True,player_type='normal' if i<19 else None) for i in range(1,28)],evidence={})
             write(center/'weekly-plans'/(OP+'.json'),dict(base_revision=1,save_request=request,source=source,owner='PRIVATE_OWNER'))
             write(center/'operations'/(OP+'.json'),dict(hash=signature,result=current))
             verify=command+['verify','--operation-id',OP,'--before',str(root/'before.json')]+opts
@@ -71,6 +71,25 @@ class AcceptanceHelpers(unittest.TestCase):
             checked=subprocess.run(verify,capture_output=True,text=True,check=True);value=json.loads(checked.stdout)
             self.assertEqual(value['status'],'checks_passed');self.assertTrue(value['checks']['three_platform_identities']);self.assertTrue(value['checks']['sbc_has_multiple_choices'])
             self.assertNotIn('PRIVATE_OWNER',checked.stdout);self.assertEqual(baseline,{str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()})
+            # Invalid business contracts fail even when their receipt hash is self-consistent.
+            def check_mutation(change, check_name):
+                candidate=json.loads(json.dumps(current));candidate_source=json.loads(json.dumps(source))
+                change(candidate['draft'],candidate_source)
+                req=dict(revision=1,draft=candidate['draft'],model_imports=[]);sig=digest(dict(kind='save',**req))
+                candidate['last_operation']['hash']=sig
+                write(center/'state.json',candidate)
+                write(center/'operations'/(OP+'.json'),dict(hash=sig,result=candidate))
+                write(center/'weekly-plans'/(OP+'.json'),dict(base_revision=1,save_request=req,source=candidate_source))
+                result=subprocess.run(verify,capture_output=True,text=True)
+                self.assertEqual(result.returncode,2);self.assertFalse(json.loads(result.stdout)['checks'][check_name])
+            check_mutation(lambda d,s:s['observations'][0].update(player_type='Signature'),'scout_and_trio_normal')
+            check_mutation(lambda d,s:s['observations'][9].update(player_type='Signature'),'sbc_eighteen_distinct_normal')
+            check_mutation(lambda d,s:d['fc_layout']['routes'][key(20)].update(picks=[key(1),key(2)]),'sbc_eighteen_distinct_normal')
+            check_mutation(lambda d,s:d['fc_layout']['routes'][key(19)]['alternatives'].pop(),'sbc_shared_eighteen_pool')
+            check_mutation(lambda d,s:d['fc_models'][key(19)].update(image_url=None),'selected_images_have_sources')
+            check_mutation(lambda d,s:d['fc_models'][key(1)].update(image_url='https://private.invalid/a.png?session=SECRET'),'selected_images_have_sources')
+            write(center/'state.json',current);write(center/'operations'/(OP+'.json'),dict(hash=signature,result=current))
+            write(center/'weekly-plans'/(OP+'.json'),dict(base_revision=1,save_request=request,source=source))
             write(pub/'current.json',{'fixture':'changed'})
             changed=subprocess.run(verify,capture_output=True,text=True);self.assertEqual(changed.returncode,2);self.assertFalse(json.loads(changed.stdout)['checks']['published_hash_unchanged'])
             write(pub/'current.json',{'fixture':'unchanged'});current['draft']['pages'][-1]['title']='Changed unrelated page';write(center/'state.json',current)

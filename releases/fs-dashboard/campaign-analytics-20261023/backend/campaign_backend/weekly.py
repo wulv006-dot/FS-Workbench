@@ -5,7 +5,7 @@ Identity observations do not authorize prices, cart attributes or publication.
 from datetime import datetime, timezone
 from .adapters import search
 from .core import ContractError
-from .models import KINDS, resolve_model
+from .models import KINDS, resolve_model, player_type
 from .provider import project_source
 
 
@@ -57,35 +57,66 @@ def weekly_selection(reader):
             raise ContractError('MODEL_SCOPE_MISMATCH')
         return rows, total
     eligible = lambda r: str(r.get('status')) == '1' and str(r.get('auto_off')) == '0' and str(r.get('is_put')) == '1'
-    latest, player_total = models('9627', 'id,desc', limit=20)
-    if any(int(a['id']) <= int(b['id']) for a, b in zip(latest, latest[1:])):
-        raise ContractError('PAGINATION_ORDER_CHANGED')
-    players = [r for r in latest if eligible(r)][:16]
-    cores, core_total = models('10203', 'id,desc', limit=20)
-    if any(int(a['id']) <= int(b['id']) for a, b in zip(cores, cores[1:])):
-        raise ContractError('PAGINATION_ORDER_CHANGED')
-    cores = [r for r in cores if eligible(r)][:3]
-    popular, scanned, seen, anchor, popular_total = [], 0, set(), None, None
-    for page in range(1, 7):
-        rows, total = models('9627', 'sort,desc', page=page)
-        if popular_total is not None and popular_total != total: raise ContractError('PAGINATION_CHANGED')
-        popular_total = total
-        if page == 1: anchor = rows
+    players, latest, player_total, previous_id = [], [], None, None
+    for latest_page in range(1, 61):
+        rows, total = models('9627', 'id,desc', page=latest_page, limit=20)
+        if player_total is not None and total != player_total:raise ContractError('PAGINATION_CHANGED')
+        player_total = total
         for row in rows:
-            key = str(row['id'])
-            if key in seen: raise ContractError('PAGINATION_CHANGED')
-            seen.add(key)
-            if tag_id in [str(x) for x in row.get('tid', [])] and eligible(row): popular.append(row)
-        scanned += len(rows)
-        if len(popular) >= 3 or scanned >= total: break
-    if len(popular) < 3: raise ContractError('WEEKLY_POPULAR_TOP_THREE_UNAVAILABLE')
-    if page > 1 and models('9627', 'sort,desc')[0] != anchor: raise ContractError('PAGINATION_CHANGED')
-    popular = popular[:3]
+            current_id = int(row['id'])
+            if previous_id is not None and current_id >= previous_id:raise ContractError('PAGINATION_ORDER_CHANGED')
+            previous_id = current_id
+            latest.append(row)
+            if eligible(row) and player_type(row) == 'normal':players.append(row)
+        if len(players) >= 24 or len(latest) >= total:break
+    players = players[:24]
+    if len(players)<18:raise ContractError('WEEKLY_SBC_COMPANION_POOL_INSUFFICIENT')
+    cores, core_total, core_scanned, previous_core_id = [], None, 0, None
+    for core_page in range(1,61):
+        rows,total = models('10203','id,desc',page=core_page,limit=20)
+        if core_total is not None and core_total!=total:raise ContractError('PAGINATION_CHANGED')
+        core_total=total
+        for row in rows:
+            current_id=int(row['id'])
+            if previous_core_id is not None and current_id>=previous_core_id:raise ContractError('PAGINATION_ORDER_CHANGED')
+            previous_core_id=current_id
+            if eligible(row):cores.append(row)
+        core_scanned+=len(rows)
+        if len(cores)>=9 or core_scanned>=total:break
+        if not rows:raise ContractError('PAGINATION_CHANGED')
+    cores=cores[:9]
+    if len(cores)!=9:raise ContractError('WEEKLY_SBC_CORE_COVERAGE_INCOMPLETE')
+    popular, scanned, seen, popular_total = [], 0, set(), None
+    for page in range(1, 101):
+        public = reader.storefront_popular_page(tag_id,page)
+        rows,total = public['rows'],public['total']
+        if popular_total is not None and popular_total != total:raise ContractError('PAGINATION_CHANGED')
+        popular_total=total
+        for item in rows:
+            if any(str(item.get(k))!=v for k,v in (('site_id','266'),('gid','1327'),('cid','9627'),('aid','21587'))):raise ContractError('MODEL_SCOPE_MISMATCH')
+            mid=str(item.get('mid'))
+            if mid in seen:raise ContractError('PAGINATION_CHANGED')
+            seen.add(mid)
+            props=item.get('baseprop',{});normal=props.get('393',{}) if isinstance(props,dict) else {}
+            if normal.get('code')!='players_type' or normal.get('name')!='normal':continue
+            reader.begin_catalog_read();row=reader.catalog_model(mid)
+            if str(row.get('id'))!=mid or tag_id not in [str(x) for x in row.get('tid',[])]:raise ContractError('MODEL_SCOPE_MISMATCH')
+            if eligible(row) and player_type(row)=='normal':popular.append(row)
+            if len(popular)==3:break
+        scanned+=len(rows)
+        if len(popular)==3 or scanned>=total:break
+        if not rows:raise ContractError('PAGINATION_CHANGED')
+    if len(popular)!=3:raise ContractError('WEEKLY_POPULAR_TOP_THREE_UNAVAILABLE')
     if len(players) < 3 or not cores: raise ContractError('WEEKLY_SOURCE_POOL_EMPTY')
     chosen = {str(r['id']): (r, 'player') for r in players + popular}
     chosen.update({str(r['id']): (r, 'sbc') for r in cores})
     resolved, observations, provider_observations = [], [], []
     for mid, (row, kind) in chosen.items():
+        reader.begin_catalog_read()
+        detail_model = reader.catalog_model(mid)
+        if str(detail_model.get('id')) != mid:raise ContractError('MODEL_SCOPE_MISMATCH')
+        if kind == 'player' and player_type(detail_model) != 'normal':raise ContractError('WEEKLY_PLAYER_TYPE_CHANGED')
+        row = detail_model
         reader.begin_catalog_read()
         goods = reader.search_goods_page('266', '1327', model_id=mid, category_id=KINDS[kind], page=1, limit=20)
         model = resolve_model(row, kind, goods)
@@ -104,11 +135,11 @@ def weekly_selection(reader):
             model=project_source(row,args,True), products=details, coverage=dict(complete=goods['total']==len(goods['rows'])),
             authoritative=False, available=False, checkout_enabled=False))
         source_roles = []
-        if any(str(r['id']) == mid for r in popular): source_roles.append(dict(role='scout_popular', order='sort,desc'))
+        if any(str(r['id']) == mid for r in popular): source_roles.append(dict(role='scout_popular', order='storefront_default_recommendation_priority'))
         if any(str(r['id']) == mid for r in players): source_roles.append(dict(role='latest_player', order='id,desc'))
         if any(str(r['id']) == mid for r in cores): source_roles.append(dict(role='latest_sbc', order='id,desc'))
         observations.append(dict(model_id=mid, source_roles=source_roles, shelf_time=row.get('shelf_time'),
-            created_at=None, goods_complete=goods['total'] == len(goods['rows']),
+            created_at=None, player_type=player_type(row) if kind == 'player' else None, goods_complete=goods['total'] == len(goods['rows']),
             platforms=[dict(goods_id=str(g['id']), attribute_id=str(g.get('aid')), region_id=str(g.get('sid')),
                 quantity_group=g.get('num'), minimum=g.get('min_qty'), attributes_required=str(g.get('attr_switch')) == '1',
                 sku_required=str(g.get('sku_switch')) == '1') for g in goods['rows']],
@@ -118,7 +149,7 @@ def weekly_selection(reader):
         trio_player_ids=[str(r['id']) for r in players[:6]], scout_model_ids=[str(r['id']) for r in popular],
         sbc_model_ids=[str(r['id']) for r in cores], observations=observations, provider_observations=provider_observations,
         evidence=dict(categories=found, popular_tag_id=tag_id, tag_count=len(tags), tags_complete=True,
-            popular_order='sort,desc', popular_scanned=scanned, popular_total=popular_total,
+            popular_order='storefront_default_recommendation_priority', popular_scanned=scanned, popular_total=popular_total,
             latest_order='id,desc', latest_semantics='newest_model_identity_not_creation_timestamp',
             player_total=player_total, sbc_total=core_total, snapshot_atomic=False),
         publication=False, authoritative_quote=False, checkout_enabled=False)

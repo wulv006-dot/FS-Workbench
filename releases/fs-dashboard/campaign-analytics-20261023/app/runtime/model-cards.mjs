@@ -7,14 +7,14 @@ const label=(value,max=200)=>{if(typeof value!=='string'||!value.length||value.l
 export const fcPlatforms=Object.freeze({ps:'21587',xbox:'21585',pc:'21589'});
 export function publicImage(value){
  if(value==null)return null;
- try{const u=new URL(value);if(u.protocol==='https:'&&u.hostname==='assets.mmoexp.com'&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&/\.(?:png|jpe?g|webp)$/i.test(u.pathname))return u.href;}catch{}
+ try{const u=new URL(value);if(u.protocol==='https:'&&['assets.mmoexp.com','b2c-static.p2pah.cn'].includes(u.hostname)&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&/\.(?:png|jpe?g|webp)$/i.test(u.pathname))return u.href;}catch{}
  return null;
 }
 export function projectModelCard(input){
  if(!only(input,['key','site_id','game_id','model_id','kind','title','version_label','image_url','image_provenance','site_association','platforms','verification_scope','available','authoritative','checkout_enabled'])
   ||input.site_id!=='266'||input.game_id!=='1327'||!positive(input.model_id)||input.key!=='model-266-1327-'+input.model_id
   ||input.verification_scope!=='catalog_identity_only'||input.site_association!=='observed'||input.available!==false||input.authoritative!==false||input.checkout_enabled!==false
-  ||input.image_provenance!=null&&input.image_provenance!=='historical_accepted_model_asset')error('INVALID_MODEL_CARD');
+  ||input.image_provenance!=null&&!['historical_accepted_model_asset','admin_model_uploaded_asset','storefront_player_id_asset'].includes(input.image_provenance))error('INVALID_MODEL_CARD');
  if(!['player','sbc','bundle'].includes(input.kind))error('MODEL_KIND_UNVERIFIED');
  if(!only(input.platforms,Object.keys(fcPlatforms))||Object.keys(input.platforms).length!==3)error('INVALID_MODEL_CARD');
  const goods=new Set(),platforms=Object.fromEntries(Object.keys(fcPlatforms).map(code=>{
@@ -36,7 +36,7 @@ export function projectModelCard(input){
   return [code,{state:p.state,product_ref,observed_quantity}];
  }));
  return {key:input.key,site_id:input.site_id,game_id:input.game_id,model_id:input.model_id,kind:input.kind,title:label(input.title),
-  version_label:input.version_label==null?null:label(input.version_label,100),image_url:publicImage(input.image_url),image_provenance:input.image_provenance==='historical_accepted_model_asset'?input.image_provenance:null,platforms,
+  version_label:input.version_label==null?null:label(input.version_label,100),image_url:publicImage(input.image_url),image_provenance:['historical_accepted_model_asset','admin_model_uploaded_asset','storefront_player_id_asset'].includes(input.image_provenance)?input.image_provenance:null,platforms,
   verification_scope:'catalog_identity_only',site_association:'observed',available:false,authoritative:false,checkout_enabled:false};
 }
 export function projectModels(input){

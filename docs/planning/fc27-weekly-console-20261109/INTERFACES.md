@@ -55,7 +55,9 @@ configure和手动动作沿原管理员、Origin/CSRF及当前会话；共享宿
 
 ### 真实来源与单writer草稿桥
 
-Trio外部资料复用现役discovery的search/fetch，最多6名球员，有界检索社媒和垂类来源。仅接纳实际取回且正文姓名匹配的资料，保存真实URL、观察时间、内容SHA及coverage；partial/unavailable明确显示缺口。证据不足仍可据真实产品元数据生成provisional、review_required草稿，允许空引用并说明未经外部核实，不能伪称完成社媒研究。Scout严格保留真实Popular前三顺序；Trio恰好3个不同模型；每个最新SBC core按稳定顺序生成2首选及最多8替代。
+Trio外部资料复用现役discovery的search/fetch，最多6名球员，有界检索社媒和垂类来源。仅接纳实际取回且正文姓名匹配的资料，保存真实URL、观察时间、内容SHA及coverage；partial/unavailable明确显示缺口。证据不足仍可据真实产品元数据生成provisional、review_required草稿，允许空引用并说明未经外部核实，不能伪称完成社媒研究。Scout按主站Popular默认推荐优先顺序过滤普通Player后取前三；Trio从最新普通Player池选恰好3个不同模型。周更规则输入要求9个最新SBC核心，模型为每核心输出2个首选，9组全局共18个不同普通Player，不输出额外替代；应用层将这18人构成共享池，为每核心保存2首选＋其余16备选到原fc_layout.routes，消费者下拉复用该池。普通版依据当次PlayersType事实，不凭名称推断。此数量合同仅适用于携带周更rules的流水线，不把历史无rules手动候选接口扩成强制9核心任务。
+
+本轮规则、图片来源及展示修正为代码与相关离线测试状态，尚未部署；此前启用的周日计划保持，历史真实回执不能证明本轮新规则已执行。
 
 宿主通过固定Node CLI调用 `/run/fs-campaign-weekly/operations.sock`，目录0700、socket0600；无新TCP端口或凭据。CLI只作客户端，prepare、apply_draft、inspect_operation在原活动管理进程内调用同一个center实例，保持单writer及原CAS。prepare持久冻结原operation_id/owner/plan_ref、真实源revision和选品池；apply仅接受该计划的推荐及实际证据来源，保存原center草稿；inspect只查原操作回执。CLI或socket失败不转到第二个写入进程，保留原ID核验。草稿完成不是活动发布。
 
@@ -77,4 +79,4 @@ Trio外部资料复用现役discovery的search/fetch，最多6名球员，有界
 
 发布沿原活动增量发布能力，保留原锁/CAS/备份/回执；管理进程和UNIX桥需激活 `fs-campaign-dashboard.service`，公开消费者/共享tracker及runtime模块亦需在 `fs-campaign-runtime.service` 实际生效。是否需重启/重新加载按本次准确依赖闭包和现役publisher确认，不能以“绝不重启public runtime”遗漏新增消费者，也不直接套用全服务restart。共享宿主另沿其现役发布入口协调激活，保护既有模型在途任务及FC P0链路；账本新状态兼容与回退约束见HERMES-CONTRACT.md。本文件是候选接口清单，不是已批准部署manifest；执行前必须刷新现场CAS并核原publisher输入。
 
-仅部署管理端而未部署共享宿主时，推荐明确不可用。生产部署、计划启用及对外发布待具体批准；用户已授权的真实模型/草稿测试仍须实际回执，不能据源码或离线测试宣称完成。本接口文档更新不执行部署、启用、模型调用、活动发布或券写。回退保留center数据库、周次/推荐记录、原ID及所有运行账本。
+仅部署管理端而未部署共享宿主时，推荐明确不可用。基础链路此前部署及计划启用见deploy/LIVE-ACCEPTANCE.md；本轮新增选品与展示修正尚未部署，对外发布仍待具体批准。真实模型/草稿测试须对应本轮实际回执，不能据源码、旧回执或离线测试宣称完成。本接口文档更新不执行部署、启用、模型调用、活动发布或券写。回退保留center数据库、周次/推荐记录、原ID及所有运行账本。

@@ -3,6 +3,8 @@ import sys
 import json
 import threading
 import time
+import urllib.request
+import urllib.parse
 from pathlib import Path
 from .core import ContractError, identity, source_identity
 from .catalog import positive_id
@@ -50,6 +52,23 @@ def search(filters):
 
 
 class AdminRead:
+    def storefront_popular_page(self, tag_id, page=1):
+        """Original public FC AJAX listing. No Admin cookie or credentials forwarded."""
+        tag_id=positive_id(tag_id)
+        if type(page) is not int or not 1<=page<=100:raise ContractError('INVALID_CATALOG_PAGE')
+        params=dict(site_id='266',Game_id='1327',page=str(page),top_cid='2',category_id='',cid='9627',aid='21587',keyword='',tid=tag_id,perpage='12',orderBy='',prop_ids='',is_search_category='1')
+        request=urllib.request.Request('https://www.mmoexp.com/ajax/goods',data=urllib.parse.urlencode(params).encode(),headers={'User-Agent':'Mozilla/5.0','Content-Type':'application/x-www-form-urlencoded','Referer':'https://www.mmoexp.com/Fc-27/Players.html','X-Requested-With':'XMLHttpRequest'})
+        try:
+            with urllib.request.urlopen(request,timeout=20) as response:
+                if response.geturl()!='https://www.mmoexp.com/ajax/goods':raise ContractError('WEEKLY_STOREFRONT_REDIRECT')
+                raw=response.read(2000001)
+                if len(raw)>2000000:raise ContractError('WEEKLY_STOREFRONT_RESPONSE_LIMIT')
+                data=json.loads(raw)['goods']['index']
+        except ContractError:raise
+        except Exception:raise ContractError('WEEKLY_STOREFRONT_UNAVAILABLE') from None
+        if not isinstance(data,dict) or not isinstance(data.get('list'),list) or len(data['list'])>12 or type(data.get('total')) is not int:raise ContractError('WEEKLY_STOREFRONT_SHAPE_INVALID')
+        return dict(rows=data['list'],total=data['total'])
+
     # A first (cold) lookup of a large model measured 20.2s on 2026-10-28 -- 189 child
     # goods, no warm page cache -- which overran the original 20s budget and left the
     # whole reference-price cache unavailable. The ceiling now covers the measured worst

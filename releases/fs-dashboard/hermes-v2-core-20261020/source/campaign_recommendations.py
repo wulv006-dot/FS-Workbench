@@ -16,9 +16,10 @@ PROMPT=('Recommend FC27 campaign candidates using the supplied catalog and evide
         'Every product must belong to its page.product_keys pool; preserve platform identity. '
         'When rules.version is fc27_weekly_selection_v1: return exactly 3 fc27-weekly products in rules.scout_top_keys order; '
         'return exactly 3 fc27-trio products with different product_ref.model_id values. '
-        'For EVERY core in fc27-sbc.core_product_keys return 2 to 10 distinct companion products, each with that core_product_key. '
-        'For each core, order 2 primary picks first, followed by 2 alternatives by default; include at least 1 alternative when at least 3 eligible companions exist. '
-        'A companion must not be any SBC core. Never omit a core or return only one companion. Other pages must use core_product_key:null. '
+        'For EVERY one of the 9 cores in fc27-sbc.core_product_keys return exactly 2 companion products, each with that core_product_key. '
+        'Across all SBC assignments choose 18 different Player model identities; never reuse a companion for another core. '
+        'Choose only from the supplied SBC Player pool, excluding every SBC core. Return no additional alternative rows: the application builds the shared 18-player dropdown from these assignments. '
+        'The complete response must have exactly 24 rows: 3 Trio, 3 Scout and 18 SBC assignments. Other pages must use core_product_key:null. '
         'Use evidence_indices only for actual supplied sources; leave them empty and label metadata-only inference when external evidence is missing. '
         'Do not claim verification, availability, prices, publication or execution. No tools or business writes are authorized.')
 
@@ -80,18 +81,22 @@ def checked_input(value):
         rules=value['rules'];fields(rules,('version','scout_top_keys'))
         weekly=next(p for p in value['pages'] if p['page_id']=='fc27-weekly')['product_keys']
         if rules['version']!='fc27_weekly_selection_v1' or type(rules['scout_top_keys']) is not list or len(rules['scout_top_keys'])!=3 or len(set(rules['scout_top_keys']))!=3 or any(k not in weekly for k in rules['scout_top_keys']):raise ValueError('campaign_weekly_rules')
+        sbc=next(p for p in value['pages'] if p['page_id']=='fc27-sbc');catalog={p['key']:p for p in value['catalog']}
+        if len(sbc['core_product_keys'])!=9 or any(not catalog[k]['product_ref'].get('model_id') for k in sbc['core_product_keys']) or len({catalog[k]['product_ref'].get('model_id') for k in sbc['core_product_keys']})!=9:raise ValueError('campaign_sbc_core_count')
+        player_ids={catalog[k]['product_ref'].get('model_id') for k in sbc['product_keys'] if k not in sbc['core_product_keys']};player_ids.discard(None)
+        if len(player_ids)<18:raise ValueError('campaign_sbc_pool_unavailable')
     return json.loads(encoded(value))
 
 
 def output_schema(value):
     keys=[p['key'] for p in value['catalog']];cores=next(p['core_product_keys'] for p in value['pages'] if p['page_id']=='fc27-sbc')
     properties=dict(model={'type':'string','enum':[MODEL]},source_revision={'type':'string','enum':[value['source_revision']]},sbc_update_id={'type':'string','enum':[value['sbc_update']['id']]},recommendations={'type':'array','maxItems':60,'items':{'type':'object','additionalProperties':False,'required':['page_id','product_key','core_product_key','reason','evidence_indices'],'properties':dict(page_id={'type':'string','enum':list(PAGES)},product_key={'type':'string','enum':keys},core_product_key={'anyOf':[{'type':'string','enum':cores},{'type':'null'}]} if cores else {'type':'null'},reason={'type':'string','maxLength':800},evidence_indices={'type':'array','items':{'type':'integer'},'maxItems':20})}})
-    if 'rules' in value:properties['recommendations'].update(minItems=6+2*len(cores),maxItems=96)
+    if 'rules' in value:properties['recommendations'].update(minItems=24,maxItems=24)
     return {'type':'object','additionalProperties':False,'required':list(properties),'properties':properties}
 
 
 def checked_result(result,value):
-    if type(result) is not dict or set(result)!={'model','source_revision','sbc_update_id','recommendations'} or result['model']!=MODEL or result['source_revision']!=value['source_revision'] or result['sbc_update_id']!=value['sbc_update']['id'] or type(result['recommendations']) is not list or len(result['recommendations'])>(96 if 'rules' in value else 60):raise ValueError('campaign_result_invalid')
+    if type(result) is not dict or set(result)!={'model','source_revision','sbc_update_id','recommendations'} or result['model']!=MODEL or result['source_revision']!=value['source_revision'] or result['sbc_update_id']!=value['sbc_update']['id'] or type(result['recommendations']) is not list or len(result['recommendations'])>(24 if 'rules' in value else 60):raise ValueError('campaign_result_invalid')
     catalog={p['key']:p for p in value['catalog']};cores=next(p['core_product_keys'] for p in value['pages'] if p['page_id']=='fc27-sbc');seen=set()
     for row in result['recommendations']:
         if type(row) is not dict or set(row)!={'page_id','product_key','core_product_key','reason','evidence_indices'} or row['page_id'] not in PAGES or row['product_key'] not in catalog or type(row['reason']) is not str or not row['reason'].strip() or len(row['reason'])>800 or re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]',row['reason']):raise ValueError('campaign_result_invalid')
@@ -107,9 +112,11 @@ def checked_result(result,value):
         rows=result['recommendations'];scout=[r['product_key'] for r in rows if r['page_id']=='fc27-weekly'];trio=[r for r in rows if r['page_id']=='fc27-trio']
         if scout!=value['rules']['scout_top_keys'] or len(trio)!=3:raise ValueError('campaign_weekly_selection')
         if any(not catalog[r['product_key']]['product_ref'].get('model_id') for r in trio) or len({catalog[r['product_key']]['product_ref']['model_id'] for r in trio})!=3:raise ValueError('campaign_weekly_selection')
+        sbc=[r for r in rows if r['page_id']=='fc27-sbc']
+        if len(cores)!=9 or len(sbc)!=18 or len({catalog[r['product_key']]['product_ref'].get('model_id') for r in sbc})!=18 or any(not catalog[r['product_key']]['product_ref'].get('model_id') for r in sbc):raise ValueError('campaign_weekly_selection')
         for core in cores:
             companions=[r['product_key'] for r in rows if r['page_id']=='fc27-sbc' and r['core_product_key']==core]
-            if not 2<=len(companions)<=10 or any(k in cores for k in companions):raise ValueError('campaign_weekly_selection')
+            if len(companions)!=2 or any(k in cores for k in companions):raise ValueError('campaign_weekly_selection')
     return result
 
 

@@ -22,7 +22,9 @@ POST异步返回202 pending；GET最终返回200 completed/result/receipt，已�
 
 周日当地12:00后原tick按due_day只提交一次；手动run走同一prepare→证据→模型→apply_draft流水线。Node CLI `/opt/fs-campaign-dashboard/analytics/weekly-cli.mjs` 只连接原管理进程root-only Unix socket，由原center唯一writer完成prepare、apply_draft和inspect_operation。冻结plan_ref/owner/源revision，apply只保存原center草稿，CAS/未知态沿原ID，不发布。Hermes辅助开关与周更授权分别核验；schedule.enabled不绕过辅助关闭。
 
-选品规则为 `fc27_weekly_selection_v1`：Weekly Scout严格使用真实Popular前三顺序；Player Trio恰好3个不同最新Player模型；每个最新SBC core匹配2首选及最多8替代，稳定顺序决定槽位。输出必须属于对应page允许池，不仅全catalog。源时间缺失明示ID排序依据，售价不证明可售，游戏实际SBC到期未知时为null。
+选品规则为 `fc27_weekly_selection_v1`：Weekly Scout保留主站Popular默认推荐优先顺序，过滤普通Player后取前三；Player Trio从最新普通Player池选恰好3个不同模型。9个最新SBC核心各输出2个普通Player首选，合计18个全局不同球员，不由模型额外输出替代。应用层由这18人组成共享池，给每核心保存2首选＋其余16备选到原fc_layout.routes；首选稳定顺序决定默认槽位。输出必须属于对应page允许池，且普通版有当次PlayersType事实，不仅全catalog或按名字判断。源时间缺失明示ID排序依据，售价不证明可售，游戏实际SBC到期未知时为null。
+
+9核心/18人约束仅适用于输入携带该周更rules的流水线；未携带rules的既有手动推荐保持其原候选合同，不自动扩成9核心周更。规则标识沿用原版本字符串，不能仅据同名版本认定历史输入或回执已满足本轮新增数量与普通版规则。本轮修正处于代码及相关离线测试阶段，未部署；原已批准开启的周日计划保持，部署读回与新规则真实运行另行验收。
 
 Trio取证复用 `campaign_evidence.collect_player_evidence`，懒加载现役 `/opt/fs-game-monitor-intelligence/discovery.py` 的DeepSeek.search/fetch，不调用其模型。最多6球员、有界社媒/垂类查询，正文姓名匹配才接纳真实URL、观察时间和内容SHA；来源/context带入空tools Sol input。partial或无资料不阻断草稿：保留coverage/gaps，允许metadata-only推断及空evidence_indices，标明provisional/review_required，不伪称社媒已核。共享模型只生成候选，最终Node仍按冻结源和页池核对。
 

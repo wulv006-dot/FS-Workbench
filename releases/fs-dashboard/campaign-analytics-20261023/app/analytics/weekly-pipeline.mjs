@@ -38,9 +38,13 @@ export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,na
    const representative=mid=>'fc-model-266-1327-'+mid+'-ps';
    const catalog=modelVariants(models).filter(p=>p.platform.code==='ps').map(p=>({key:p.key,title:p.title,product_ref:p.product_ref,platform:p.platform,available:false,binding_state:p.binding_state}));
    const keys=new Set(catalog.map(p=>p.key)),pool=ids=>{if(!Array.isArray(ids)||ids.some(id=>!keys.has(representative(id))))fail('WEEKLY_SOURCE_INVALID');return ids.map(representative);};
-   const scout=pool(source.scout_model_ids),trio=pool(source.trio_player_ids),cores=pool(source.sbc_model_ids),players=[...new Set([...pool(source.latest_player_ids),...scout])];
-   if(scout.length!==3||trio.length<3||!cores.length||cores.length>9)fail('WEEKLY_SOURCE_INVALID');
-   const input={source_revision:String(current.revision),sbc_update:{id:operation_id,observed_at:source.observed_at,expires_at:null,context:'Current FC27 Admin model identities. Latest ordering is model id descending; creation timestamps are not provided. Scout uses the current active Popular tag and native sort descending. Preserve real card versions; do not assert prices or checkout readiness. Actual game SBC expiry is not supplied.',sources:[]},
+   const scout=pool(source.scout_model_ids),trio=pool(source.trio_player_ids),cores=pool(source.sbc_model_ids);
+   const normal=new Set((source.observations||[]).filter(o=>o.player_type==='normal').map(o=>o.model_id));
+   const players=[...new Set([...pool(source.latest_player_ids),...scout])].filter(key=>{const mid=catalog.find(p=>p.key===key).product_ref.model_id;return normal.has(mid)&&models['model-266-1327-'+mid]?.kind==='player';});
+   if(scout.length!==3||trio.length<3)fail('WEEKLY_SOURCE_INVALID');
+   if(cores.length!==9||new Set(cores).size!==9)fail('WEEKLY_SBC_CORE_COVERAGE_INCOMPLETE');
+   if(players.length<18)fail('WEEKLY_SBC_COMPANION_POOL_INSUFFICIENT');
+   const input={source_revision:String(current.revision),sbc_update:{id:operation_id,observed_at:source.observed_at,expires_at:null,context:'Current FC27 Admin model identities. Latest ordering is model id descending; creation timestamps are not provided. Scout preserves the supplied Popular source order. The SBC Player pool is restricted to observed normal Player types. Assign exactly 2 different players to each of the 9 SBC cores, using 18 distinct Player models globally; do not output extra alternatives. The application makes the shared 18-player dropdown from these assignments. Preserve real card versions; do not assert prices or checkout readiness. Actual game SBC expiry is not supplied.',sources:[]},
     pages:[{page_id:'fc27-trio',product_keys:trio},{page_id:'fc27-weekly',product_keys:scout},{page_id:'fc27-sbc',product_keys:[...cores,...players],core_product_keys:cores}],catalog,
     rules:{version:'fc27_weekly_selection_v1',scout_top_keys:scout}};
    const native_candidates=nativeCandidateProvider(source);
@@ -62,7 +66,7 @@ export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,na
     try{const u=new URL(s.url);return u.protocol!=='https:'||u.username||u.password||u.search||u.hash||typeof s.title!=='string'||s.title.length>240||!Number.isFinite(Date.parse(s.observed_at))||Date.parse(s.observed_at)>now();}catch{return true;}
    }))fail('WEEKLY_EVIDENCE_INVALID');
    const input=plan.input,result=recommendation;
-   if(result?.model!=='gpt-6.1-sol'||result.source_revision!==input.source_revision||result.sbc_update_id!==input.sbc_update.id||!Array.isArray(result.recommendations)||result.recommendations.length>60)fail('INVALID_WEEKLY_HERMES_INPUT');
+   if(result?.model!=='gpt-6.1-sol'||result.source_revision!==input.source_revision||result.sbc_update_id!==input.sbc_update.id||!Array.isArray(result.recommendations)||result.recommendations.length!==24)fail('INVALID_WEEKLY_HERMES_INPUT');
    const catalog=new Map(input.catalog.map(p=>[p.key,p])),rows=result.recommendations,seen=new Set();
    for(const row of rows){const page=input.pages.find(p=>p.page_id===row.page_id),sig=canonical([row.page_id,row.product_key,row.core_product_key??null]);
     if(!page?.product_keys.includes(row.product_key)||seen.has(sig)||!Array.isArray(row.evidence_indices)||row.evidence_indices.some(i=>!Number.isInteger(i)||i<0||i>=evidence_sources.length))fail('INVALID_WEEKLY_HERMES_INPUT');seen.add(sig);
@@ -73,12 +77,14 @@ export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,na
    if(!same(weekly.map(r=>r.product_key),input.rules.scout_top_keys)||trio.length!==3||new Set(trio.map(r=>catalog.get(r.product_key).product_ref.model_id)).size!==3)fail('WEEKLY_SELECTION_RULE_MISMATCH');
    plan.checks.external_evidence=trio.every(r=>r.evidence_indices.length)?'provided_unverified':trio.some(r=>r.evidence_indices.length)?'partial':'metadata_only';
    const logical=key=>'model-266-1327-'+catalog.get(key).product_ref.model_id;
+   const companionPool=sbc.map(r=>logical(r.product_key));
+   if(input.pages.find(p=>p.page_id==='fc27-sbc').core_product_keys.length!==9||companionPool.length!==18||new Set(companionPool).size!==18)fail('WEEKLY_SELECTION_RULE_MISMATCH');
    const layout=structuredClone(plan.layout);layout.weekly=weekly.map(r=>logical(r.product_key));layout.trio=trio.map(r=>logical(r.product_key));
    layout.sbc=input.pages.find(p=>p.page_id==='fc27-sbc').core_product_keys.map(logical);layout.defaultCore=layout.sbc[0];
    // Existing dormant routes, bundles and all other pages remain in their source draft.
    for(const core of input.pages.find(p=>p.page_id==='fc27-sbc').core_product_keys){const companions=sbc.filter(r=>r.core_product_key===core).map(r=>logical(r.product_key));
-    if(companions.length<2||companions.length>10||new Set(companions).size!==companions.length)fail('WEEKLY_SELECTION_RULE_MISMATCH');
-    layout.routes[logical(core)]={picks:companions.slice(0,2),alternatives:companions.slice(2)};
+    if(companions.length!==2||new Set(companions).size!==2)fail('WEEKLY_SELECTION_RULE_MISMATCH');
+    layout.routes[logical(core)]={picks:companions,alternatives:companionPool.filter(key=>!companions.includes(key))};
    }
    const draft=structuredClone(plan.draft);draft.fc_layout=layout;
    // FC page keys inherit the real layout, replacing only these three selections.

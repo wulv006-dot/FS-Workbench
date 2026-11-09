@@ -25,6 +25,20 @@ def goods(goods_id,aid,**changes):
 
 
 class ModelTests(unittest.TestCase):
+    def test_uploaded_model_image_and_native_player_id_asset_are_distinct(self):
+        uploaded='https://b2c-static.p2pah.cn/images/202611/82f234c2a94d023d9c36e0db64b78b27b76b0220.png'
+        card=project_model(model(cid=10203,_format={'icon_format':uploaded}),'sbc')
+        self.assertEqual((card['image_url'],card['image_provenance']),(uploaded,'admin_model_uploaded_asset'))
+        row=model(more={'extend':[{'key':'player_id','value':'55'}]})
+        card=project_model(row,'player')
+        self.assertEqual(card['image_url'],'https://assets.mmoexp.com/player/fc27/55.png')
+        row['_format']={'icon_format':uploaded}
+        self.assertEqual(project_model(row,'player')['image_url'],uploaded)
+        row['more']={}
+        for url in ('https://evil.example/a.png','https://b2c-static.p2pah.cn/a.svg',uploaded+'?token=x'):
+            row['_format']['icon_format']=url
+            self.assertIsNone(project_model(row,'player')['image_url'])
+
     def search(self,**changes):
         req=dict(action='model_search',site_id='266',game_id='1327',kind='player',keyword='Haal',page=1,page_size=10)
         req.update(changes);return req

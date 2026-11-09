@@ -17,7 +17,7 @@ export function validateLayout(d,c){
  const weekly=ids(d.weekly,1,6,'player'),trio=ids(d.trio,3,3,'player'),bundles=ids(d.bundles,0,8,'bundle'),sbc=ids(d.sbc,1,9,'sbc');
  // Weekly selection may combine real player cards across series (2026-11-09 rules).
  if(!sbc.includes(d.defaultCore))throw Error('默认 SBC 必须在已选核心内');
- const routes={};for(const id of sbc){const row=d.routes?.[id];if(!row)throw Error('每个 SBC 核心都需设置搭档');const picks=ids(row.picks,2,2,'player'),alternatives=ids(row.alternatives||[],0,8,'player');if(alternatives.some(x=>picks.includes(x)))throw Error('搭档与备选不可重复');routes[id]={picks,alternatives,label:c.sbc.routes[id]?.label||{zh:'自选搭配方向',en:'Companion ideas'}};}
+ const routes={};for(const id of sbc){const row=d.routes?.[id];if(!row)throw Error('每个 SBC 核心都需设置搭档');const picks=ids(row.picks,2,2,'player'),alternatives=ids(row.alternatives||[],0,16,'player');if(alternatives.some(x=>picks.includes(x)))throw Error('搭档与备选不可重复');routes[id]={picks,alternatives,label:c.sbc.routes[id]?.label||{zh:'自选搭配方向',en:'Companion ideas'}};}
  return {weekly,trio,bundles,sbc,defaultCore:d.defaultCore,routes};
 }
 export function previewCatalog(c,d){const copy=structuredClone(c);copy.mode='preview';copy.weekly.ids=d.weekly;copy.weekly.edition=d.weekly.every(id=>c.products[id].version==='Team of the Week')?c.weekly.edition:{zh:'本周好卡精选',en:'WEEKLY PLAYER PICKS'};copy.trio.ids=d.trio;copy.bundles.ids=d.bundles;copy.sbc.ids=d.sbc;copy.sbc.defaultId=d.defaultCore;copy.sbc.routes=d.routes;return copy;}
