@@ -1,0 +1,32 @@
+{
+  "status": "confirmed",
+  "operations": [
+    {
+      "native_id": "6049",
+      "operation_id": "0fc96e7e-ae7f-4b5d-99c2-2586051279f5",
+      "state": "confirmed",
+      "result": {
+        "state": "confirmed",
+        "upstream_ref": "6049"
+      }
+    },
+    {
+      "native_id": "6051",
+      "operation_id": "956392fb-0a16-48cf-9f07-199783d76e96",
+      "state": "confirmed",
+      "result": {
+        "state": "confirmed",
+        "upstream_ref": "6051"
+      }
+    },
+    {
+      "native_id": "6053",
+      "operation_id": "26f62c68-195a-4f5c-a484-d73f47ba311b",
+      "state": "confirmed",
+      "result": {
+        "state": "confirmed",
+        "upstream_ref": "6053"
+      }
+    }
+  ]
+}

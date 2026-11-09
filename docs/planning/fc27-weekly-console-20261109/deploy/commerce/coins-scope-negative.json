@@ -1,0 +1,23 @@
+[
+  {
+    "code": "FCSCOUT10",
+    "status": 0,
+    "message": "Invalid Code!",
+    "totals": "Order Details\nAPPLY\nProduct Price:\n$ 8.31\nDiscount Amount:\n-$ 0.00\nPayment Fee?:\n+$ 0.54\nTotal Amount:\n$ 8.85\nPay Now\nTrustPilot Reviews\n4.8\n\n34,219 reviews\n\nMoney-back Guarantee",
+    "order_submitted": false
+  },
+  {
+    "code": "FCSBC10",
+    "status": 0,
+    "message": "Invalid Code!",
+    "totals": "Order Details\nAPPLY\nProduct Price:\n$ 8.31\nDiscount Amount:\n-$ 0.00\nPayment Fee?:\n+$ 0.54\nTotal Amount:\n$ 8.85\nPay Now\nTrustPilot Reviews\n4.8\n\n34,219 reviews\n\nMoney-back Guarantee",
+    "order_submitted": false
+  },
+  {
+    "code": "FCTRIO10",
+    "status": 0,
+    "message": "Invalid Code!",
+    "totals": "Order Details\nAPPLY\nProduct Price:\n$ 8.31\nDiscount Amount:\n-$ 0.00\nPayment Fee?:\n+$ 0.54\nTotal Amount:\n$ 8.85\nPay Now\nTrustPilot Reviews\n4.8\n\n34,219 reviews\n\nMoney-back Guarantee",
+    "order_submitted": false
+  }
+]

@@ -1,0 +1,802 @@
+{
+  "release_id": "campaign-preview-22",
+  "config_hash": "9d769969a331a377f6dd2ad00fd08622d822fe95fe98d20e877dc70d8c39e566",
+  "rows": [
+    {
+      "page": "fc27-weekly",
+      "model_id": "43167707",
+      "platform": "ps",
+      "goods_id": "170015221",
+      "base_minor": 327,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-weekly",
+      "model_id": "43167707",
+      "platform": "xbox",
+      "goods_id": "170026697",
+      "base_minor": 327,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-weekly",
+      "model_id": "43167707",
+      "platform": "pc",
+      "goods_id": "170015225",
+      "base_minor": 206,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-weekly",
+      "model_id": "43167389",
+      "platform": "ps",
+      "goods_id": "170014933",
+      "base_minor": 26783,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-weekly",
+      "model_id": "43167389",
+      "platform": "xbox",
+      "goods_id": "170026881",
+      "base_minor": 26783,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-weekly",
+      "model_id": "43167389",
+      "platform": "pc",
+      "goods_id": "170014937",
+      "base_minor": 20490,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-weekly",
+      "model_id": "44921285",
+      "platform": "ps",
+      "goods_id": "185916959",
+      "base_minor": 26500,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-weekly",
+      "model_id": "44921285",
+      "platform": "xbox",
+      "goods_id": "185916967",
+      "base_minor": 26500,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-weekly",
+      "model_id": "44921285",
+      "platform": "pc",
+      "goods_id": "185916963",
+      "base_minor": 27412,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-trio",
+      "model_id": "45490817",
+      "platform": "ps",
+      "goods_id": "187277401",
+      "base_minor": 1161,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-trio",
+      "model_id": "45490817",
+      "platform": "xbox",
+      "goods_id": "187277405",
+      "base_minor": 1161,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-trio",
+      "model_id": "45490817",
+      "platform": "pc",
+      "goods_id": "187277409",
+      "base_minor": 843,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-trio",
+      "model_id": "45490797",
+      "platform": "ps",
+      "goods_id": "187277281",
+      "base_minor": 3839,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-trio",
+      "model_id": "45490797",
+      "platform": "xbox",
+      "goods_id": "187277285",
+      "base_minor": 3839,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-trio",
+      "model_id": "45490797",
+      "platform": "pc",
+      "goods_id": "187277289",
+      "base_minor": 3050,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-trio",
+      "model_id": "45490829",
+      "platform": "ps",
+      "goods_id": "187277473",
+      "base_minor": 277,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-trio",
+      "model_id": "45490829",
+      "platform": "xbox",
+      "goods_id": "187277477",
+      "base_minor": 277,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-trio",
+      "model_id": "45490829",
+      "platform": "pc",
+      "goods_id": "187277481",
+      "base_minor": 207,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45525985",
+      "platform": "ps",
+      "goods_id": "187348721",
+      "base_minor": 1618,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45525985",
+      "platform": "xbox",
+      "goods_id": "187348757",
+      "base_minor": 1618,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45525985",
+      "platform": "pc",
+      "goods_id": "187348793",
+      "base_minor": 1279,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490845",
+      "platform": "ps",
+      "goods_id": "187277569",
+      "base_minor": 2687,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490845",
+      "platform": "xbox",
+      "goods_id": "187277573",
+      "base_minor": 2687,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490845",
+      "platform": "pc",
+      "goods_id": "187277577",
+      "base_minor": 1706,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490789",
+      "platform": "ps",
+      "goods_id": "187277233",
+      "base_minor": 2130,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490789",
+      "platform": "xbox",
+      "goods_id": "187277237",
+      "base_minor": 2130,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490789",
+      "platform": "pc",
+      "goods_id": "187277241",
+      "base_minor": 1576,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490827",
+      "platform": "ps",
+      "goods_id": "187277461",
+      "base_minor": 14891,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490827",
+      "platform": "xbox",
+      "goods_id": "187277465",
+      "base_minor": 14891,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490827",
+      "platform": "pc",
+      "goods_id": "187277469",
+      "base_minor": 14289,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490815",
+      "platform": "ps",
+      "goods_id": "187277389",
+      "base_minor": 471,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490815",
+      "platform": "xbox",
+      "goods_id": "187277393",
+      "base_minor": 471,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490815",
+      "platform": "pc",
+      "goods_id": "187277397",
+      "base_minor": 367,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490821",
+      "platform": "ps",
+      "goods_id": "187277425",
+      "base_minor": 960,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490821",
+      "platform": "xbox",
+      "goods_id": "187277429",
+      "base_minor": 960,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490821",
+      "platform": "pc",
+      "goods_id": "187277433",
+      "base_minor": 795,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490791",
+      "platform": "ps",
+      "goods_id": "187277245",
+      "base_minor": 8026,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490791",
+      "platform": "xbox",
+      "goods_id": "187277249",
+      "base_minor": 8026,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490791",
+      "platform": "pc",
+      "goods_id": "187277253",
+      "base_minor": 6366,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490795",
+      "platform": "ps",
+      "goods_id": "187277269",
+      "base_minor": 12797,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490795",
+      "platform": "xbox",
+      "goods_id": "187277273",
+      "base_minor": 12797,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490795",
+      "platform": "pc",
+      "goods_id": "187277277",
+      "base_minor": 10005,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490823",
+      "platform": "ps",
+      "goods_id": "187277437",
+      "base_minor": 277,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490823",
+      "platform": "xbox",
+      "goods_id": "187277441",
+      "base_minor": 277,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490823",
+      "platform": "pc",
+      "goods_id": "187277445",
+      "base_minor": 207,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45491449",
+      "platform": "ps",
+      "goods_id": "187281637",
+      "base_minor": 4479,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45491449",
+      "platform": "xbox",
+      "goods_id": "187281641",
+      "base_minor": 4479,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45491449",
+      "platform": "pc",
+      "goods_id": "187281645",
+      "base_minor": 3084,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490813",
+      "platform": "ps",
+      "goods_id": "187277377",
+      "base_minor": 2057,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490813",
+      "platform": "xbox",
+      "goods_id": "187277381",
+      "base_minor": 2057,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490813",
+      "platform": "pc",
+      "goods_id": "187277385",
+      "base_minor": 1309,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "43167389",
+      "platform": "ps",
+      "goods_id": "170014933",
+      "base_minor": 26783,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "43167389",
+      "platform": "xbox",
+      "goods_id": "170026881",
+      "base_minor": 26783,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "43167389",
+      "platform": "pc",
+      "goods_id": "170014937",
+      "base_minor": 20490,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490819",
+      "platform": "ps",
+      "goods_id": "187277413",
+      "base_minor": 640,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490819",
+      "platform": "xbox",
+      "goods_id": "187277417",
+      "base_minor": 640,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490819",
+      "platform": "pc",
+      "goods_id": "187277421",
+      "base_minor": 291,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490805",
+      "platform": "ps",
+      "goods_id": "187277329",
+      "base_minor": 30074,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490805",
+      "platform": "xbox",
+      "goods_id": "187277333",
+      "base_minor": 30074,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490805",
+      "platform": "pc",
+      "goods_id": "187277337",
+      "base_minor": 30146,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490801",
+      "platform": "ps",
+      "goods_id": "187277305",
+      "base_minor": 5850,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490801",
+      "platform": "xbox",
+      "goods_id": "187277309",
+      "base_minor": 5850,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490801",
+      "platform": "pc",
+      "goods_id": "187277313",
+      "base_minor": 5578,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490799",
+      "platform": "ps",
+      "goods_id": "187277293",
+      "base_minor": 4543,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490799",
+      "platform": "xbox",
+      "goods_id": "187277297",
+      "base_minor": 4543,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490799",
+      "platform": "pc",
+      "goods_id": "187277301",
+      "base_minor": 3015,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490811",
+      "platform": "ps",
+      "goods_id": "187277365",
+      "base_minor": 343,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490811",
+      "platform": "xbox",
+      "goods_id": "187277369",
+      "base_minor": 343,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490811",
+      "platform": "pc",
+      "goods_id": "187277373",
+      "base_minor": 247,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "43167707",
+      "platform": "ps",
+      "goods_id": "170015221",
+      "base_minor": 327,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "43167707",
+      "platform": "xbox",
+      "goods_id": "170026697",
+      "base_minor": 327,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "43167707",
+      "platform": "pc",
+      "goods_id": "170015225",
+      "base_minor": 206,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490807",
+      "platform": "ps",
+      "goods_id": "187277341",
+      "base_minor": 608,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490807",
+      "platform": "xbox",
+      "goods_id": "187277345",
+      "base_minor": 608,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45490807",
+      "platform": "pc",
+      "goods_id": "187277349",
+      "base_minor": 397,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505721",
+      "platform": "ps",
+      "goods_id": "187310429",
+      "base_minor": 163,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505721",
+      "platform": "xbox",
+      "goods_id": "187310465",
+      "base_minor": 163,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505721",
+      "platform": "pc",
+      "goods_id": "187310501",
+      "base_minor": 133,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505719",
+      "platform": "ps",
+      "goods_id": "187310321",
+      "base_minor": 163,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505719",
+      "platform": "xbox",
+      "goods_id": "187310357",
+      "base_minor": 163,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505719",
+      "platform": "pc",
+      "goods_id": "187310393",
+      "base_minor": 133,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505717",
+      "platform": "ps",
+      "goods_id": "187310213",
+      "base_minor": 211,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505717",
+      "platform": "xbox",
+      "goods_id": "187310249",
+      "base_minor": 211,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505717",
+      "platform": "pc",
+      "goods_id": "187310285",
+      "base_minor": 171,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505715",
+      "platform": "ps",
+      "goods_id": "187310105",
+      "base_minor": 211,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505715",
+      "platform": "xbox",
+      "goods_id": "187310141",
+      "base_minor": 211,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45505715",
+      "platform": "pc",
+      "goods_id": "187310177",
+      "base_minor": 171,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45498255",
+      "platform": "ps",
+      "goods_id": "187292685",
+      "base_minor": 1148,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45498255",
+      "platform": "xbox",
+      "goods_id": "187292721",
+      "base_minor": 1148,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45498255",
+      "platform": "pc",
+      "goods_id": "187292757",
+      "base_minor": 913,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45453659",
+      "platform": "ps",
+      "goods_id": "187173231",
+      "base_minor": 302,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45453659",
+      "platform": "xbox",
+      "goods_id": "187173267",
+      "base_minor": 302,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45453659",
+      "platform": "pc",
+      "goods_id": "187173303",
+      "base_minor": 243,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45436443",
+      "platform": "ps",
+      "goods_id": "187137351",
+      "base_minor": 279,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45436443",
+      "platform": "xbox",
+      "goods_id": "187137387",
+      "base_minor": 279,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "45436443",
+      "platform": "pc",
+      "goods_id": "187137423",
+      "base_minor": 225,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "44714235",
+      "platform": "ps",
+      "goods_id": "185493031",
+      "base_minor": 1546,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "44714235",
+      "platform": "xbox",
+      "goods_id": "185493067",
+      "base_minor": 1546,
+      "checkout_ready": true
+    },
+    {
+      "page": "fc27-sbc",
+      "model_id": "44714235",
+      "platform": "pc",
+      "goods_id": "185493103",
+      "base_minor": 1224,
+      "checkout_ready": true
+    }
+  ],
+  "rows_count": 99,
+  "unique_products": 93,
+  "ready": 99,
+  "all_ready": true
+}
