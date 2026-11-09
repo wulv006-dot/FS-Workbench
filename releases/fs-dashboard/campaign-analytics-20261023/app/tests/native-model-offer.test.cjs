@@ -32,3 +32,16 @@ test('mismatched quantity/attributes, expired policy and other origin cannot ena
  const f=fixture();f.model.native_offers={ps:nativeModelOffer(f.model,'ps',f.trade,'fc27-weekly')};
  assert.match(content.previewCard(f.model,{nativeOffer:null}),/Price unavailable/,'fresh missing quote must not fall back to stale catalog projection');
 });
+
+test('real model-options quantity omits group; checkout uses only catalog native group',()=>{
+ const f=fixture(),combo=f.trade.seasonal_model_contracts[99].combinations[0];
+ combo.quantity={min:'1',max:'1',step:'1',unit:'item'};
+ let offer=nativeModelOffer(f.model,'ps',f.trade,'fc27-weekly');
+ assert.equal(offer.checkout_ready,true);assert.equal(offer.quantity.group,'1');assert.equal(offer.price.base_minor,1234);
+ combo.quantity.group='2';assert.equal(nativeModelOffer(f.model,'ps',f.trade,'fc27-weekly'),null,'explicit conflicting quote group is rejected');delete combo.quantity.group;
+ delete f.trade.products[1].quantity.group;
+ offer=nativeModelOffer(f.model,'ps',f.trade,'fc27-weekly');assert.equal(offer.price.base_minor,1234);assert.equal(offer.quantity.group,null);assert.equal(offer.checkout_ready,false);assert.deepEqual(offer.bindings,[]);
+ assert.match(content.previewCard(f.model,{nativeOffer:offer}),/Current reference price/);
+ delete f.trade.native_checkout.bindings[0].native.group;
+ assert.equal(nativeModelOffer(f.model,'ps',f.trade,'fc27-weekly').checkout_ready,false,'two missing groups never count as a native binding');
+});
