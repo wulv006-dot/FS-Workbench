@@ -38,7 +38,7 @@ class ExtendedCatalogTests(unittest.TestCase):
 
     def test_unmapped_scope_stays_visible_and_none_is_claimed_complete(self):
         coverage = self.catalog.list(self.principal)['coverage']
-        self.assertEqual(len(coverage), 39)
+        self.assertEqual(len(coverage), 36)
         self.assertTrue(all(row['status'].startswith(('partially_mapped', 'not_yet_mapped')) for row in coverage))
         for row in coverage:
             self.assertEqual(row['operations'], sum(op['module'] == row['module']
@@ -133,14 +133,12 @@ class ExtendedCatalogTests(unittest.TestCase):
                 self.assertNotIn(row['name'], ('players.bootstrap', 'tasks.session'))
                 self.assertNotIn(row['name'], ('conversations.material', 'conversations.material_result'))
 
-    def test_report_lookup_keeps_original_identity_and_object_id(self):
-        self.backend.query(self.principal, 'reports.evidence', {'id': 'report_123', 'evidence': 'ev_'+'b'*24})
-        method, target, headers, body, _ = self.calls[-1]
-        self.assertEqual(urlsplit(target).path, '/dashboard/fs-home/advisor.json')
-        self.assertEqual(parse_qs(urlsplit(target).query)['id'], ['report_123'])
-        self.assertEqual(headers['Cookie'], self.principal.session_cookie)
-        self.assertFalse(any('user' in key.lower() or 'role' in key.lower() for key in headers))
-        self.assertIsNone(body)
+    def test_hermes_report_reads_are_outside_current_data_scope(self):
+        for view in ('list', 'detail', 'thread', 'actions', 'evidence', 'artifact'):
+            with self.subTest(view=view), self.assertRaises(ValidationError) as caught:
+                self.backend.query(self.principal, 'reports.'+view, {})
+            self.assertEqual(caught.exception.code, 'unknown_operation')
+        self.assertFalse(self.calls)
 
     def test_existing_static_documents_use_fixed_routes_and_table_projection(self):
         self.backend.transport = lambda *args: (200, b'<title>Historical FC26</title><table><tr><th>Item</th><th>Count</th></tr><tr><td>Fixture</td><td>3</td></tr></table><script>private</script>')
@@ -172,12 +170,12 @@ class ExtendedCatalogTests(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 self.backend.query(self.principal, 'customer_tracking.'+view, {**arguments, 'stored_only': '0'})
 
-    def test_file_directory_uses_owned_readonly_route_without_expiry_cleanup(self):
-        self.backend.query(self.principal, 'conversations.files', {'conversation_id': 'a'*32})
-        self.assertEqual(self.calls[-1][1], '/api/hermes/conversations/'+'a'*32+'/connector/files')
-        for cid in ('../files', 'not-a-conversation', 'A'*32):
-            with self.assertRaises(ValidationError):
-                self.backend.query(self.principal, 'conversations.files', {'conversation_id': cid})
+    def test_hermes_conversations_are_outside_current_data_scope(self):
+        for view in ('list', 'detail', 'files', 'pricing_review', 'material_metadata'):
+            with self.subTest(view=view), self.assertRaises(ValidationError) as caught:
+                self.backend.query(self.principal, 'conversations.'+view, {'conversation_id': 'a'*32})
+            self.assertEqual(caught.exception.code, 'unknown_operation')
+        self.assertFalse(self.calls)
 
 
 if __name__ == '__main__':

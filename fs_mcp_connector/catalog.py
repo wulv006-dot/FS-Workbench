@@ -69,6 +69,9 @@ class Catalog:
         self.operations = {row['name']: row for row in self.document['operations']}
         if len(self.operations) != len(self.document['operations']):
             raise ValueError('duplicate_operation')
+        for row in self.document.get('data_methods', {}).get('guides', []):
+            if not row['operations'] or set(row['operations']) - self.operations.keys():
+                raise ValueError('unknown_method_operation')
 
     def operation(self, name):
         if not isinstance(name, str) or name not in self.operations:
@@ -97,7 +100,15 @@ class Catalog:
                 continue
             visible.append({key: deepcopy(operation[key]) for key in ('name', 'module', 'description', 'input_schema', 'provenance', 'limits')})
         modules = {item['module'] for item in visible}
+        names = {item['name'] for item in visible}
+        methods = deepcopy(self.document.get('data_methods', {}))
+        if methods:
+            methods['guides'] = [dict(row, operations=[name for name in row['operations'] if name in names])
+                                 for row in methods['guides'] if names.intersection(row['operations'])]
+            referenced = {source for row in methods['guides'] for source in row.get('sources', [])}
+            methods['sources'] = [row for row in methods['sources'] if row['id'] in referenced]
         return {'schema_version': 1, 'operations': visible,
+                'data_methods': methods,
                 'coverage': [deepcopy(row) for row in self.document['coverage']
                     if row['module'] in modules or row.get('permission_path')
                     and allowed(row['permission_path'], 'GET')]}

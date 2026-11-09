@@ -1,0 +1,33 @@
+{
+  "tested_source_commit": "9c1fac9c4e6c49ef40b4c58cabe75a71e01159b5",
+  "approved_pr_head": "787b5c0",
+  "merged_commit": "cb87b4901a81ffd313e06e4882a3b33918519ea2",
+  "files": {
+    "fs_mcp_connector/__init__.py": "6f98e3ecedf6191471a2b17e7f656bf1031e87d01f07c1c609038ef2c609a3f4",
+    "fs_mcp_connector/__main__.py": "76ec89742040ae87c53c1c9996677cecb9b6c0ce48344e69362b334708ba9c0b",
+    "fs_mcp_connector/accounts.py": "42209711648cf8e739df4f19b165796f7e0446a069fbad17168355c69011406f",
+    "fs_mcp_connector/auth.py": "952ff8c0f4556d794443fecd27a51489301ec3a5bdf547a797ecd10b8eb09bda",
+    "fs_mcp_connector/backend.py": "d302b50478dcee09078d693d2d5eee388139a7460114acc5d6759de53781f309",
+    "fs_mcp_connector/catalog.json": "ba5851dc019140d1ebe1d8858ebd2619901af76605c8f570a958d5f0bc6eace1",
+    "fs_mcp_connector/catalog.py": "6a1ed0c0cc3d32a20684959fe3198167f3b49e2082578e393973250d4837220b",
+    "fs_mcp_connector/consent.css": "f2a0d79db9915178173f908ef4b3be9bc6154f781533c07fcafa4f387701dc36",
+    "fs_mcp_connector/consent.py": "92e3ffda1ba07ee8703f7d7ea03e9a14372a74268fbf9e6d6bb9c1fc66840c61",
+    "fs_mcp_connector/documents.py": "7bb79835aaf3cdaaa6d772076650a32710633b115c0faef7ed1c7a1ae4f0921f",
+    "fs_mcp_connector/evolutions.py": "730592159b9454d1eea4deb2986acac1279a0747f72ed746897c74ef74d1101f",
+    "fs_mcp_connector/g2g.py": "6451fd8587d6719f9119737b81f0793c7278a241a999d076f5628905e0ba9ff8",
+    "fs_mcp_connector/gallery.py": "5691ead80fdd7d39daa19f560f14326183788ecb7d641875deea47091e907404",
+    "fs_mcp_connector/knowledge.py": "7f9461d8384ebd949a9a195a5b239aa947581769a73f9e6e7c94bf467bc9d553",
+    "fs_mcp_connector/players.py": "856290eb71123f657d1a896e2af83e105ef59fa4b3f69cab7f124f3d6da10d62",
+    "fs_mcp_connector/portal.py": "d041e50363e44132080f112148b1ac4a62ee2118c584b5791100d71f4ac0627b",
+    "fs_mcp_connector/redaction.py": "b752cfbdb7c572cc32134571af0bb47cdb84f0d85fb4365dad68689298cba22e",
+    "fs_mcp_connector/requirements.txt": "26f10d47e48815a6bff731eb32cad51ef503b9536135bf9fe331b4dda55d95a0",
+    "fs_mcp_connector/sales.py": "e082331afbb39a47f6f0c626430916fef4e101cf85a7e21ffe9e6fe6e8ba2447",
+    "fs_mcp_connector/server.py": "24533fd35ef3358a63336fb318cd277c37b3299f0a604629a7b150860a2461c7",
+    "fs_mcp_connector/tracking.py": "3fa552f33cace9cf86ddfd301adf9961e7c6db11ff2a5f3df6de385df993e51b",
+    "releases/fs-dashboard/knowledge-layering-20261023/source/knowledge_catalog.py": "ffd8e82a25fc2a756122418751eaeb41105da944df74b274cf3c2d974f7b33e2",
+    "tools/export_fs_space.py": "a5ea06dfc5d723184c0d75ec5e4b17a7363db1c2407a3b88fdd1e98d127a18dc",
+    "ui-system/adapters/fs-theme.js": "b9fa6f6a30fafab089db7a9b7d3f5190c08ca05b8232b57064cd5171cbe54910",
+    "ui-system/components/fs-ui.css": "4cfd403f6958ed235159adaf65d882099f36fb310619a558fa89cb83217c0615",
+    "ui-system/tokens/fs-tokens.css": "c88351ce12f9ab3e3ada169bb5e9ee6fe8d82bb53f93b2073050be93f3569df6"
+  }
+}
