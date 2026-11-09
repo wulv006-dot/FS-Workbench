@@ -3874,7 +3874,8 @@ class NativePublisher(unittest.TestCase):
                     self.assertEqual(len(untouched),796)
                     changed=[r for r in manifest['files'] if r['beforeSha256']!=r['sha256']]
                     service_after=(Path(__file__).resolve().parents[4]/prepare.SOURCES['runtime/conversation_service.py']).read_bytes()
-                    self.assertEqual([(r['candidate'],r['beforeSha256'],r['sha256']) for r in changed],[('runtime/conversation_service.py','80fdbae538933026fde0185642283ffe12cef34a1a674a38b8d40dfb7c69ad2f',prepare.digest(service_after)),('http/conversation_http.py','8d577e8493cabc2847604ab77e7539bb215c947cee842000acc86878bc2ba44d','12b503819097f75730228b824acf934562b6876522dc2db808765373e4c5a1ba')])
+                    http_after=(Path(__file__).resolve().parents[4]/prepare.SOURCES['http/conversation_http.py']).read_bytes()
+                    self.assertEqual([(r['candidate'],r['beforeSha256'],r['sha256']) for r in changed],[('runtime/conversation_service.py','80fdbae538933026fde0185642283ffe12cef34a1a674a38b8d40dfb7c69ad2f',prepare.digest(service_after)),('http/conversation_http.py','8d577e8493cabc2847604ab77e7539bb215c947cee842000acc86878bc2ba44d',prepare.digest(http_after))])
                     self.assertFalse(release.NEW)
                     self.assertEqual({row['candidate'] for row in manifest['files'] if row['beforeSha256'] is None},set(release.NEW))
                 untouched_modes={p:(base.rooted(f.system,p).stat().st_uid,base.rooted(f.system,p).stat().st_gid,stat.S_IMODE(base.rooted(f.system,p).stat().st_mode)) for p in untouched}

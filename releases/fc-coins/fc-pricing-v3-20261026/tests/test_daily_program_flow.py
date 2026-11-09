@@ -160,6 +160,36 @@ class DailyProgramFlow(unittest.TestCase):
         handler.send_response.assert_called_once_with(202)
         service.pricing.submit_pricing.assert_called_once_with('wulv','a'*32,'daily','fc_pricing_daily',body['run_id'])
 
+    def test_pricing_http_accepts_24000_unicode_characters_in_real_native_store(self):
+        import importlib.util
+        path=Path(__file__).resolve().parents[3]/'fs-dashboard/hermes-conversation-20261018/source/conversation_http.py'
+        spec=importlib.util.spec_from_file_location('summary_native_http',path)
+        active=importlib.util.module_from_spec(spec);spec.loader.exec_module(active)
+        with tempfile.TemporaryDirectory() as folder:
+            p=SavedDailyComparison().producer(folder)
+            for adapter in (conversation_http,active):
+                cid=p.store.create('wulv')['conversation_id']
+                text='复盘'*12000
+                body=dict(text=text,client_request_id='fc_summary_boundary_20261109',run_id='00000000-0000-4000-8000-000000000099')
+                raw=json.dumps(body,ensure_ascii=False).encode();headers=Message()
+                for k,v in {'X-FS-Advisor-Action':'submit','Sec-Fetch-Site':'same-origin','Content-Type':'application/json','Content-Length':str(len(raw))}.items():headers[k]=v
+                handler=SimpleNamespace(headers=headers,rfile=io.BytesIO(raw),wfile=io.BytesIO(),connection=Mock(),send_response=Mock(),send_header=Mock(),end_headers=Mock())
+                def reserve(owner,conversation,text,request,run):
+                    return p.store.reserve_turn(owner,conversation,text,request,native=True)
+                service=SimpleNamespace(pricing=SimpleNamespace(submit_pricing=reserve))
+                adapter.handle(handler,'POST',urlsplit(adapter.PREFIX+'/pricing-reviews/'+cid+'/turns'),'wulv',service,lambda _:True)
+                self.assertEqual(handler.send_response.call_args.args[0],202)
+                self.assertEqual(p.store.detail('wulv',cid)['turns'][0]['text'],text)
+                handler.rfile=io.BytesIO(raw)
+                with self.assertRaises(ValueError):adapter.read_json(handler)
+                other=p.store.create('wulv')['conversation_id']
+                oversized=json.dumps(dict(body,text=text+'额'),ensure_ascii=False).encode()
+                handler.headers.replace_header('Content-Length',str(len(oversized)))
+                handler.rfile=io.BytesIO(oversized);handler.send_response.reset_mock()
+                adapter.handle(handler,'POST',urlsplit(adapter.PREFIX+'/pricing-reviews/'+other+'/turns'),'wulv',service,lambda _:True)
+                self.assertEqual(handler.send_response.call_args.args[0],422)
+                self.assertEqual(p.store.detail('wulv',other)['turns'],[])
+
     def test_pricing_store_and_queue_do_not_block_ordinary_conversations(self):
         tree=ast.parse((SOURCE/'conversation_service.py').read_text(encoding='utf-8'))
         cls=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=='ConversationService')
@@ -313,6 +343,24 @@ class SavedDailyComparison(unittest.TestCase):
             self.assertFalse(result['execution_authorized'])
             self.assertTrue(all(call[0]=='/pricing/v3/strategy-decisions/'+p.source and call[2] is None for call in p.calls))
 
+    def test_deferred_state_reads_its_original_daily_after_a_newer_review_exists(self):
+        from fc_pricing_v3 import api
+        with tempfile.TemporaryDirectory() as folder:
+            p=self.producer(folder)
+            p.db.put('pricing_snapshots',p.source,dict(p.snapshot,created_at=NOW.isoformat()))
+            newer=dict(local_date='2026-11-05',request_id='00000000-0000-4000-8000-000000000003',actual={'status':'newer'})
+            p.db.put('metadata','latest_daily_review',newer)
+            p.db.put('metadata','daily:2026-11-05',newer)
+            value=pricing_operations.call(p.scope,'wulv',p.made['turn_id'],'a'*32,dict(action='state'),request=p.native)
+            self.assertEqual(value['daily_review']['local_date'],'2026-11-04')
+            self.assertEqual(value['daily_review']['request_id'],p.record['request_id'])
+            self.assertTrue(all(call[2] is None for call in p.calls))
+            with patch.object(api,'ledger',return_value=p.db):
+                self.assertEqual(api.read('review-state')['daily_review']['local_date'],'2026-11-05')
+            with p.db.connect() as conn:conn.execute("DELETE FROM metadata WHERE id='daily:2026-11-04'")
+            with self.assertRaisesRegex(ValueError,'pricing_daily_review_missing'):
+                pricing_operations.call(p.scope,'wulv',p.made['turn_id'],'a'*32,dict(action='state'),request=p.native)
+
     def test_saved_daily_missing_decision_still_submits_review_without_compare(self):
         with tempfile.TemporaryDirectory() as folder:
             p=self.producer(folder,missing=True)
@@ -409,6 +457,7 @@ class SavedDailyComparison(unittest.TestCase):
             path=p.root/'evidence'/('hermes-pricing-'+p.record['request_id']+'.json')
             original=json.loads(path.read_text('utf-8'))
             report={k:p.record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
+            report['large']='x'*30000
             for phase in ('completed','failed','timeout','unknown'):
                 with self.subTest(phase=phase):
                     receipt=dict(original,phase=phase)
@@ -535,6 +584,10 @@ class DailyReviewBoundary(unittest.TestCase):
         before = json.loads(json.dumps(quote))
         prompt = hermes_pricing_bridge.daily_review_text(quote)
         report = json.loads(prompt.split('实际及影子摘要：', 1)[1])
+        self.assertEqual(report.pop('summary_format'),'pricing-daily-summary-v2')
+        actual=report['actual']
+        actual['hourly']=[dict(zip(actual['hourly_columns'],row)) for row in actual['hourly']]
+        actual.pop('hourly_columns')
         self.assertEqual(report, before['daily_report'])
         self.assertEqual(quote, before)
 
@@ -577,14 +630,54 @@ class DailyReviewBoundary(unittest.TestCase):
         prompt = hermes_pricing_bridge.daily_review_text(quote)
         report = json.loads(prompt.split('实际及影子摘要：', 1)[1])
         self.assertEqual(report['decision_basis'], quote['daily_report']['decision_basis'])
-        self.assertEqual(report['actual']['hourly'][0]['net_paid_usd'], '1.24')
+        self.assertEqual(dict(zip(report['actual']['hourly_columns'],report['actual']['hourly'][0]))['net_paid_usd'], '1.24')
         self.assertEqual(quote['daily_report']['actual']['hourly'][0]['net_paid_usd'], '1.2399999999999999')
 
-    def test_review_keeps_existing_prompt_size_limit(self):
+    def test_review_accepts_growth_above_12000_and_enforces_exact_24000_limit(self):
         quote = self.quote()
-        quote['daily_report']['large'] = 'x' * 12000
+        quote['daily_report']['large']=''
+        baseline=len(hermes_pricing_bridge.daily_review_text(quote))
+        quote['daily_report']['large']='x'*(24000-baseline)
+        self.assertEqual(len(hermes_pricing_bridge.daily_review_text(quote)),24000)
+        quote['daily_report']['large']+='x'
         with self.assertRaisesRegex(ValueError, '^pricing_daily_prompt_too_long$'):
             hermes_pricing_bridge.daily_review_text(quote)
+
+    def test_small_review_always_compacts_and_deduplicates_shadow_actions(self):
+        quote=self.quote();report=quote['daily_report']
+        report['decision_basis']['demand_model']=dict(groups=dict(pc=dict(elasticity='1.123456789',status='fit')))
+        action=dict(base_prices=dict(console='7.5',pc='8.0'),region_coefficients={})
+        result=dict(evaluated=3,gaps=1,latest_action=action,forecast=dict(revenue='10',contribution=None,absolute_forecast_available=False))
+        report['shadow']['periods']=[dict(start_hour=h,end_hour=h+6,snapshots=3,results=dict(daily=result)) for h in (0,6)]
+        before=json.loads(json.dumps(quote))
+        text=hermes_pricing_bridge.daily_review_text(quote)
+        self.assertLess(len(text),12000)
+        value=json.loads(text.split('实际及影子摘要：',1)[1]);shadow=value['shadow']
+        self.assertEqual(value['decision_basis']['demand_model']['group_columns'],['elasticity','status'])
+        self.assertEqual(shadow['actions'],[action])
+        for period in shadow['periods']:
+            row=dict(zip(shadow['result_columns'],period['results']['daily']))
+            self.assertEqual(row['latest_action_index'],0)
+            forecast=dict(zip(shadow['forecast_columns'],row['forecast']))
+            self.assertEqual(forecast,dict(revenue='10',contribution=None,absolute_forecast_available=False))
+            self.assertEqual((row['evaluated'],row['gaps']),(3,1))
+        self.assertEqual(quote,before)
+
+    def test_oversized_details_defer_to_original_source_while_preserving_core_totals(self):
+        quote=self.quote()
+        quote['daily_report']['decision_basis']['demand_model']=dict(status='fit',groups={str(i):dict(status='fit',elasticity='1.123456789') for i in range(2000)})
+        quote['daily_report']['actual_profit_summary']=dict(review_day=dict(totals=dict(orders=3,procurement_gross_usd='12.34',unknown_cost_orders=1),groups=[]))
+        before=json.loads(json.dumps(quote))
+        text=hermes_pricing_bridge.daily_review_text(quote)
+        value=json.loads(text.split('实际及影子摘要：',1)[1])
+        self.assertLessEqual(len(text),24000)
+        self.assertIn('decision_basis.demand_model.groups',value['deferred_details'])
+        self.assertEqual(value['decision_basis']['demand_model']['groups_count'],2000)
+        self.assertEqual(value['actual_profit_summary']['review_day']['totals'],dict(orders=3,procurement_gross_usd='12.34',unknown_cost_orders=1))
+        self.assertEqual(value['detail_source']['tool'],'fs_pricing_control')
+        self.assertEqual(value['detail_source']['local_date'],'2026-11-04')
+        self.assertEqual(value['detail_source']['fields'],sorted(before['daily_report']))
+        self.assertEqual(quote,before)
 
     def test_large_structured_review_compacts_repeated_columns_without_losing_evidence(self):
         quote=self.quote()
@@ -598,7 +691,8 @@ class DailyReviewBoundary(unittest.TestCase):
         payload=json.loads(text.split('实际及影子摘要：',1)[1])
         model=payload['decision_basis']['demand_model']
         self.assertEqual({name:dict(zip(model['group_columns'],row)) for name,row in model['groups'].items()},before['daily_report']['decision_basis']['demand_model']['groups'])
-        self.assertEqual(payload['actual'],before['daily_report']['actual'])
+        actual=payload['actual'];actual['hourly']=[dict(zip(actual['hourly_columns'],row)) for row in actual['hourly']];actual.pop('hourly_columns')
+        self.assertEqual(actual,before['daily_report']['actual'])
         self.assertEqual(quote,before)
 
 if __name__=='__main__':unittest.main()

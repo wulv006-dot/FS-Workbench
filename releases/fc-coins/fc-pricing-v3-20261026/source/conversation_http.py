@@ -86,7 +86,9 @@ def handle(handler, method, uri, user, service, authorized):
                 if body: raise ValueError('pricing_review_create_body')
                 respond(handler, 201,service.pricing.create(user))
             elif method == 'POST' and len(parts) == 3 and parts[2] == 'turns' and not params and re.fullmatch(IDENT,parts[1]):
-                body = read_json(handler, {'text','client_request_id','run_id'})
+                body = read_json(handler, {'text','client_request_id','run_id'}, maximum=256*1024)
+                if not isinstance(body['text'],str) or len(body['text'])>24000:
+                    raise ValueError('pricing_review_input_limit')
                 respond(handler, 202,service.pricing.submit_pricing(user,parts[1],body['text'],body['client_request_id'],body['run_id']))
             elif method == 'GET' and len(parts) == 2 and not params and re.fullmatch(IDENT,parts[1]):
                 respond(handler, 200,service.pricing.detail(user,parts[1]))
@@ -163,7 +165,11 @@ def handle(handler, method, uri, user, service, authorized):
             else:
                 respond(handler, 404, {'error': 'not_found'})
         elif method == "POST" and len(parts) == 2 and parts[1] == "turns" and not params:
-            body = read_json(handler)
+            maximum = 16384
+            if getattr(service, 'native', None):
+                from conversation_files import MAX_BYTES
+                maximum = MAX_BYTES
+            body = read_json(handler, maximum=maximum)
             if set(body) not in ({'text', 'client_request_id'}, {'text', 'client_request_id', 'file_ids'}):
                 raise ValueError('turn_fields')
             extra = {'file_ids': body['file_ids']} if 'file_ids' in body else {}
@@ -172,7 +178,11 @@ def handle(handler, method, uri, user, service, authorized):
             stream_events(handler, service, user, parts[0], params["after"][0])
         elif method == "POST" and len(parts) == 4 and parts[1] == "runs" and parts[3] in {"steer", "stop"} and not params:
             names = {"text", "client_request_id"} if parts[3] == "steer" else {"client_request_id"}
-            body = read_json(handler, names)
+            maximum = 16384
+            if getattr(service, 'native', None):
+                from conversation_files import MAX_BYTES
+                maximum = MAX_BYTES
+            body = read_json(handler, names, maximum=maximum)
             result = (service.steer(user, parts[0], parts[2], body["text"], body["client_request_id"])
                       if parts[3] == "steer" else service.stop(user, parts[0], parts[2], body["client_request_id"]))
             respond(handler, 202, result)
@@ -204,11 +214,11 @@ def handle(handler, method, uri, user, service, authorized):
     return True
 
 
-def read_json(handler, fields=None):
+def read_json(handler, fields=None, *, maximum=16384):
     if handler.headers.get("Transfer-Encoding") or handler.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
         raise ValueError("json_required")
     lengths = handler.headers.get_all("Content-Length", [])
-    if len(lengths) != 1 or not re.fullmatch(r"[0-9]{1,5}", lengths[0]) or not 1 <= int(lengths[0]) <= 16384:
+    if len(lengths) != 1 or not re.fullmatch(r"[0-9]{1,8}", lengths[0]) or not 1 <= int(lengths[0]) <= maximum:
         raise ValueError("body_size")
     handler.connection.settimeout(15)
     raw = handler.rfile.read(int(lengths[0]))
@@ -252,7 +262,6 @@ def stream_events(handler, service, user, conversation_id, after):
                 cursor = max(cursor, row["seq"])
                 handler.wfile.write(b"data: " + json.dumps(row, ensure_ascii=False).encode("utf-8") + b"\n\n")
             handler.wfile.flush()
-            if rows: break
             time.sleep(1)
     except Exception:
         # The stream already has 200 headers; the browser reconnects and rechecks the cursor.

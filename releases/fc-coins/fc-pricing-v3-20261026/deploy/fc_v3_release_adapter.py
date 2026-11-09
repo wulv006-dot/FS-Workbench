@@ -10,7 +10,7 @@ import types
 
 from release_readiness import restart_with_hermes_readiness,fc_release_quiescent
 
-from target_map import DAILY_REPAIR_NAMES, DAILY_REPAIR_SCOPE, QUOTE_PREVIEW_NAMES, QUOTE_PREVIEW_SCOPE, QUOTE_FRAGMENT_NAMES, QUOTE_FRAGMENT_SCOPE, REPAIR_NAMES, REPAIR_SCOPE, BIDIRECTIONAL_NAMES, BIDIRECTIONAL_SCOPE, DELTA_NAMES, DELTA_SCOPE, DELTA_NEW, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, COLLECTION_SCOPE, COLLECTION_NAMES, targets
+from target_map import DAILY_SUMMARY_NAMES, DAILY_SUMMARY_SCOPE, DAILY_REPAIR_NAMES, DAILY_REPAIR_SCOPE, QUOTE_PREVIEW_NAMES, QUOTE_PREVIEW_SCOPE, QUOTE_FRAGMENT_NAMES, QUOTE_FRAGMENT_SCOPE, REPAIR_NAMES, REPAIR_SCOPE, BIDIRECTIONAL_NAMES, BIDIRECTIONAL_SCOPE, DELTA_NAMES, DELTA_SCOPE, DELTA_NEW, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, COLLECTION_SCOPE, COLLECTION_NAMES, targets
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
@@ -25,6 +25,7 @@ REPAIR_TARGETS = {name: TARGETS[name] for name in REPAIR_NAMES}
 QUOTE_FRAGMENT_TARGETS = {name: TARGETS[name] for name in QUOTE_FRAGMENT_NAMES}
 QUOTE_PREVIEW_TARGETS = {name: TARGETS[name] for name in QUOTE_PREVIEW_NAMES}
 DAILY_REPAIR_TARGETS = {name: TARGETS[name] for name in DAILY_REPAIR_NAMES}
+DAILY_SUMMARY_TARGETS = {name: TARGETS[name] for name in DAILY_SUMMARY_NAMES}
 DELTA_TARGETS = {name: TARGETS[name] for name in DELTA_NAMES}
 SHADOW_TARGETS = {name: TARGETS[name] for name in SHADOW_NAMES}
 OPERATING_TARGETS={name:TARGETS[name] for name in OPERATING_NAMES}
@@ -36,7 +37,7 @@ COLLECTION_TARGETS={name:TARGETS[name] for name in COLLECTION_NAMES}
 def checked_manifest(value):
     rows = value.get('files', [])
     scope = value.get('scope')
-    expected = (DAILY_REPAIR_TARGETS if scope == DAILY_REPAIR_SCOPE else QUOTE_PREVIEW_TARGETS if scope == QUOTE_PREVIEW_SCOPE else QUOTE_FRAGMENT_TARGETS if scope == QUOTE_FRAGMENT_SCOPE else REPAIR_TARGETS if scope == REPAIR_SCOPE else BIDIRECTIONAL_TARGETS if scope == BIDIRECTIONAL_SCOPE else COLLECTION_TARGETS if scope == COLLECTION_SCOPE else TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else
+    expected = (DAILY_SUMMARY_TARGETS if scope == DAILY_SUMMARY_SCOPE else DAILY_REPAIR_TARGETS if scope == DAILY_REPAIR_SCOPE else QUOTE_PREVIEW_TARGETS if scope == QUOTE_PREVIEW_SCOPE else QUOTE_FRAGMENT_TARGETS if scope == QUOTE_FRAGMENT_SCOPE else REPAIR_TARGETS if scope == REPAIR_SCOPE else BIDIRECTIONAL_TARGETS if scope == BIDIRECTIONAL_SCOPE else COLLECTION_TARGETS if scope == COLLECTION_SCOPE else TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else
                 SHADOW_TARGETS if scope == SHADOW_SCOPE else OPERATING_TARGETS if scope==OPERATING_SCOPE else {})
     if not expected or len(rows) != len(expected) or \
             {r['candidate']: r['target'] for r in rows} != expected:
@@ -63,7 +64,7 @@ def load_base():
         raise ValueError('frozen_publisher_drift')
     approved = checked_manifest(json.loads((HERE / 'approved-manifest.json').read_text('utf-8')))
     scope = approved['scope']
-    active_targets = DAILY_REPAIR_TARGETS if scope == DAILY_REPAIR_SCOPE else QUOTE_PREVIEW_TARGETS if scope == QUOTE_PREVIEW_SCOPE else QUOTE_FRAGMENT_TARGETS if scope == QUOTE_FRAGMENT_SCOPE else REPAIR_TARGETS if scope == REPAIR_SCOPE else BIDIRECTIONAL_TARGETS if scope == BIDIRECTIONAL_SCOPE else COLLECTION_TARGETS if scope == COLLECTION_SCOPE else TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else OPERATING_TARGETS if scope==OPERATING_SCOPE else SHADOW_TARGETS
+    active_targets = DAILY_SUMMARY_TARGETS if scope == DAILY_SUMMARY_SCOPE else DAILY_REPAIR_TARGETS if scope == DAILY_REPAIR_SCOPE else QUOTE_PREVIEW_TARGETS if scope == QUOTE_PREVIEW_SCOPE else QUOTE_FRAGMENT_TARGETS if scope == QUOTE_FRAGMENT_SCOPE else REPAIR_TARGETS if scope == REPAIR_SCOPE else BIDIRECTIONAL_TARGETS if scope == BIDIRECTIONAL_SCOPE else COLLECTION_TARGETS if scope == COLLECTION_SCOPE else TARGETS if scope == SCOPE else DELTA_TARGETS if scope == DELTA_SCOPE else OPERATING_TARGETS if scope==OPERATING_SCOPE else SHADOW_TARGETS
     new = frozenset(r['candidate'] for r in approved['files'] if r['beforeSha256'] is None)
     source = raw.decode('utf-8')
     anchor = "r.get('beforeSha256') is None for r in files if not ("
@@ -176,7 +177,7 @@ def load_base():
         if manifest.get('scope') == COLLECTION_SCOPE:
             return
         restart_with_hermes_readiness(base, original_restart, manifest, admission_fence)
-        if manifest.get('scope') in (SCOPE,DELTA_SCOPE,SHADOW_SCOPE,OPERATING_SCOPE,COLLECTION_SCOPE,BIDIRECTIONAL_SCOPE,REPAIR_SCOPE,QUOTE_FRAGMENT_SCOPE,QUOTE_PREVIEW_SCOPE,DAILY_REPAIR_SCOPE):
+        if manifest.get('scope') in (SCOPE,DELTA_SCOPE,SHADOW_SCOPE,OPERATING_SCOPE,COLLECTION_SCOPE,BIDIRECTIONAL_SCOPE,REPAIR_SCOPE,QUOTE_FRAGMENT_SCOPE,QUOTE_PREVIEW_SCOPE,DAILY_REPAIR_SCOPE,DAILY_SUMMARY_SCOPE):
             subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=30)
             for name in ('fc27-cloud-api.service', 'fc27-cloud-worker.service', 'fc-pricing-v3.service'):
                 subprocess.run(['systemctl', 'restart', name], check=True, timeout=30)
