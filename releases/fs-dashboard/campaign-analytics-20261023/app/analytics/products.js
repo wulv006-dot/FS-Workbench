@@ -131,7 +131,7 @@
     $('center-error').textContent='';state.draft=readForm();if(!$('center-form').reportValidity())return null;
     try{if(!collectHalloween())throw Error($('halloween-status').textContent);applyPendingMedia();lock();return structuredClone(state.draft);}catch(error){$('center-error').textContent=error.message;return null;}
   }
-  function modelImports(){return stagedModels.filter(m=>state?.draft.pages.find(p=>p.page_id===m.page_id)?.product_keys?.some(key=>key.startsWith('fc-model-266-1327-'+m.model_id+'-')));}
+  function modelImports(){return stagedModels.filter(m=>layoutIds(layout(),m.page_id).includes('model-266-1327-'+m.model_id));}
   function productImports(){return stagedProducts.filter(m=>state?.draft.pages.find(p=>p.page_id===m.page_id)?.product_keys?.includes(m.key)).map(({page_id,product_ref})=>({page_id,product_ref}));}
   $('center-form').addEventListener('submit',event=>{event.preventDefault();const draft=collectPage();if(!draft)return;if(same(draft,savedDraft)){$('center-status').textContent='没有配置变化，未提交保存。';return;}mutate('api/center',draft,{model_imports:modelImports(),product_imports:productImports()});});
   $('restore-draft').addEventListener('click',()=>{
@@ -287,7 +287,7 @@
   const productFor=key=>{const p=state.fc_catalog?.products?.[key];if(!p||p.platforms)return p;const variants=(state.catalog_products||[]).filter(row=>row.key.startsWith('fc-'+key+'-'));return {...p,image:p.image||variants.find(row=>row.image)?.image,platforms:Object.fromEntries(['ps','xbox','pc'].map(code=>{const row=variants.find(row=>row.key==='fc-'+key+'-'+code);return [code,{id:row?.product_ref?.goods_id??null,binding_state:row?'accepted_snapshot':'unknown'}];}))};};
   const refsFor=key=>['ps','xbox','pc'].map(platform=>'fc-'+key+'-'+platform);
   const selectedPlatforms=key=>['ps','xbox','pc'].filter(platform=>pageKeys(page()).includes('fc-'+key+'-'+platform));
-  function layoutIds(d){return selectedPage==='fc27-weekly'?d.weekly:selectedPage==='fc27-trio'?[...d.trio,...d.bundles]:[...d.sbc,...d.sbc.flatMap(key=>[...(d.routes[key]?.picks||[]),...(d.routes[key]?.alternatives||[])])];}
+  function layoutIds(d,pageId=selectedPage){return pageId==='fc27-weekly'?d.weekly:pageId==='fc27-trio'?[...d.trio,...d.bundles]:[...d.sbc,...d.sbc.flatMap(key=>[...(d.routes[key]?.picks||[]),...(d.routes[key]?.alternatives||[])])];}
   function bindingMarkup(p){return '<details><summary>三平台关联 / 当前本页选择'+(refsFor(p.key).some(ref=>page().product_roles?.[ref]==='preview')?' · 仅资料预览，不进入此业务位':'')+'</summary>'+['ps','xbox','pc'].map(code=>{const row=p.platforms?.[code],selected=selectedPlatforms(p.key).includes(code);const role=page().product_roles?.['fc-'+p.key+'-'+code];return '<p class="platform-row">'+platformNames[code]+' · '+(selected?'本页已选':'本页未选')+' · 商品 '+escape(row?.id??row?.product_ref?.goods_id??'暂无可用关联')+' · '+escape(row?.binding_state??row?.state??(row?.id?'原快照':'unknown'))+' · 原角色 '+escape(role||'继承原业务')+(role==='preview'?'（仅资料预览，不进入此业务位）':'')+'</p>';}).join('')+'</details>';}
   function modelCard(key,actions=''){
     const p=productFor(key);if(!p)return '<article class="model-card">保留的模型 '+escape(key)+'：资料暂不可读，请核对后再修改。</article>';
@@ -338,6 +338,17 @@
 
   function modelKind(){return $('model-target').selectedOptions[0]?.dataset.kind;}
   function modelIdentity(p){return ['ps','xbox','pc'].map(code=>{const row=(p.platforms? p:productFor(p.key))?.platforms?.[code];return row?.id??row?.product_ref?.goods_id??null;});}
+  function legacyBundleUpgrade(model,d=layout()){
+    if(model.kind!=='bundle'||$('model-target').value!=='bundle'||productFor(model.key))return null;
+    const ids=modelIdentity(model);if(ids.some(x=>!x)||['ps','xbox','pc'].some(code=>model.platforms?.[code]?.state!=='verified'))return null;
+    const matches=Object.values(state.fc_catalog.products).filter(p=>p.kind==='bundle'&&!p.key.startsWith('model-')&&modelIdentity(p).every((id,i)=>id!=null&&String(id)===String(ids[i])));
+    return matches.length===1&&d.bundles.includes(matches[0].key)?matches[0].key:null;
+  }
+  function upgradeBundleSelection(p,oldKey,newKey){
+    const replacements=new Map(refsFor(oldKey).map((ref,i)=>[ref,refsFor(newKey)[i]])),rename=key=>replacements.get(key)||key;
+    if(Object.hasOwn(p,'product_keys'))p.product_keys=p.product_keys.map(rename);
+    if(p.product_roles)p.product_roles=Object.fromEntries(Object.entries(p.product_roles).map(([key,role])=>[rename(key),role]));
+  }
   function matchingKey(model){
     if(productFor(model.key))return model.key;const ids=modelIdentity(model);if(ids.some(x=>!x))return model.key;
     return Object.values(state.fc_catalog.products).find(p=>modelIdentity(p).every((id,i)=>id!=null&&String(id)===String(ids[i])))?.key||model.key;
@@ -357,8 +368,8 @@
     if(busy||pending)return;busy=true;lock();modelDetail=null;$('model-detail').hidden=true;
     try{const result=await request('api/center/backend-read',{action:'model_resolve',site_id:'266',game_id:'1327',kind:modelKind(),model_id:id});modelDetail=result.data?.model;if(!modelDetail||modelDetail.model_id!==id)throw Error('模型回执 ID 不匹配。');
       const normalized={...modelDetail,version:modelDetail.version_label,image:modelDetail.image_url,preview_only:true};
-      $('model-detail').innerHTML='<h4>'+escape(modelDetail.title||'模型标题未知')+'</h4><p>模型 '+escape(id)+' · '+escape(modelDetail.version_label||'版本未验证')+'</p><div class="fc-activity" id="resolved-preview">'+window.FCActivityContent.previewCard(normalized,{platform:modelPreviewPlatform})+'</div><p>这份回执只核对身份和平台，不是报价或成交。</p>'+(modelKind()==='sbc'?[0,1].map(i=>'<label>新核心搭档 '+(i+1)+'<select id="new-core-pick-'+i+'"><option value="">请选择已有 Player 版本</option>'+Object.values(state.fc_catalog.products).filter(p=>p.kind==='player').map(p=>'<option value="'+escape(p.key)+'">'+escape(p.title||p.name)+'</option>').join('')+'</select></label>').join(''):'')+'<button id="choose-model" class="fs-btn" type="button">'+(selectedPage==='fc27-weekly'?'添加到推荐首位':'加入当前业务位置')+(matchingKey(modelDetail)!==modelDetail.key?'（复用原卡）':'（未保存）')+'</button>';$('model-detail').hidden=false;
-      $('model-status').textContent=matchingKey(modelDetail)!==modelDetail.key?'三平台商品与已接受卡精确相同，将复用原卡，避免重复。':'请核对完整版本与三平台状态；缺图须上传本版本素材。';
+      $('model-detail').innerHTML='<h4>'+escape(modelDetail.title||'模型标题未知')+'</h4><p>模型 '+escape(id)+' · '+escape(modelDetail.version_label||'版本未验证')+'</p><div class="fc-activity" id="resolved-preview">'+window.FCActivityContent.previewCard(normalized,{platform:modelPreviewPlatform})+'</div><p>这份回执只核对身份和平台，不是报价或成交。</p>'+(modelKind()==='sbc'?[0,1].map(i=>'<label>新核心搭档 '+(i+1)+'<select id="new-core-pick-'+i+'"><option value="">请选择已有 Player 版本</option>'+Object.values(state.fc_catalog.products).filter(p=>p.kind==='player').map(p=>'<option value="'+escape(p.key)+'">'+escape(p.title||p.name)+'</option>').join('')+'</select></label>').join(''):'')+'<button id="choose-model" class="fs-btn" type="button">'+(selectedPage==='fc27-weekly'?'添加到推荐首位':'加入当前业务位置')+(legacyBundleUpgrade(modelDetail)?'（升级原固定包）':matchingKey(modelDetail)!==modelDetail.key?'（复用原卡）':'（未保存）')+'</button>';$('model-detail').hidden=false;
+      $('model-status').textContent=legacyBundleUpgrade(modelDetail)?'三平台商品与原固定包精确相同，将原位置升级为当前模型；保留页面原有平台选择，统一保存。':matchingKey(modelDetail)!==modelDetail.key?'三平台商品与已接受卡精确相同，将复用原卡，避免重复。':'请核对完整版本与三平台状态；缺图须上传本版本素材。';
     }catch(error){$('model-status').textContent=modelError(error);}finally{busy=false;lock();}
   }
   $('model-target').addEventListener('change',()=>{modelDetail=null;$('model-detail').hidden=true;$('model-results').innerHTML='';$('model-status').textContent='业务位置已变更，请重新检索对应模型类型。';});
@@ -376,8 +387,8 @@
   $('model-detail').addEventListener('click',async event=>{
     const platform=event.target.closest('[data-preview-platform]');if(platform&&modelDetail){modelPreviewPlatform=platform.dataset.previewPlatform;$('resolved-preview').innerHTML=window.FCActivityContent.previewCard({...modelDetail,version:modelDetail.version_label,image:modelDetail.image_url,preview_only:true},{platform:modelPreviewPlatform});return;}
     if(event.target.id!=='choose-model'||busy||pending||!modelDetail||!state?.canEdit)return;
-    try{state.draft=readForm();const previous=structuredClone(layout()),key=matchingKey(modelDetail),d=targetLayout(structuredClone(previous),key);if(layoutIds(previous).includes(key)&&same(previous,d)&&selectedPlatforms(key).length===3&&!refsFor(key).some(ref=>page().product_roles?.[ref]==='preview')){$('model-status').textContent='同一模型版本已在本页该结构内，未重复添加或改变旧平台选择。';return;}
-      const draft=structuredClone(state.draft);state.draft=draft;state.draft.fc_layout=d;syncLayoutSelection(page(),d,previous,[key]);
+    try{state.draft=readForm();const previous=structuredClone(layout()),upgrade=legacyBundleUpgrade(modelDetail,previous),key=upgrade?modelDetail.key:matchingKey(modelDetail),d=upgrade?{...structuredClone(previous),bundles:previous.bundles.map(id=>id===upgrade?key:id)}:targetLayout(structuredClone(previous),key);if(layoutIds(previous).includes(key)&&same(previous,d)&&selectedPlatforms(key).length===3&&!refsFor(key).some(ref=>page().product_roles?.[ref]==='preview')){$('model-status').textContent='同一模型版本已在本页该结构内，未重复添加或改变旧平台选择。';return;}
+      const draft=structuredClone(state.draft);state.draft=draft;state.draft.fc_layout=d;if(upgrade)upgradeBundleSelection(page(),upgrade,key);else syncLayoutSelection(page(),d,previous,[key]);
       if(productFor(key)&&!key.startsWith('model-')){modelDetail=null;render();return;}
       if(!productFor(key)){
         stagedModels.push({page_id:selectedPage,model_id:modelDetail.model_id,kind:modelKind()});
