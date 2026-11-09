@@ -863,7 +863,7 @@ def select(paths):
         elif name.startswith("ops/hooks/"):groups.add("hooks")
         elif name.startswith("fc27_cloud_browser/"):groups.add("fc-control")
         elif name=="fc27_players_cloud/player_web/price_lock.py":groups.add("players")
-        elif name.startswith("opt/d4follow/") or name.startswith("aion2_dd373_local_collect_20261006/") or name=="tools/release_d4follow.py":groups.add("rpg")
+        elif name.startswith("opt/d4follow/") or name.startswith("releases/iggm/local-first-20261109/") or name.startswith("aion2_dd373_local_collect_20261006/") or name=="tools/release_d4follow.py":groups.add("rpg")
         elif name.startswith("aion2_dashboard_20261004/"):groups.add("aion")
         elif name.startswith("opt/nba-reprice/backend/api_security") or name=="tests/integration/test_nba_pure_guards.cjs":groups.add("nba")
         elif name in ("tools/build_business_html.py","tools/test_business_html_build.py"):groups.add("builder")
@@ -1120,7 +1120,7 @@ def main():
         elif group=="players":units("tools",["pr_fast_tests.PlayersLock"])
         elif group=="rpg":
             units("tools",["pr_fast_tests.RPGGuards","pr_fast_tests.RPGModuleContracts"])
-            units("opt/d4follow",["test_wow_sources"])
+            units("opt/d4follow",["test_wow_sources","test_iggm_local_first"])
         elif group=="g2g":units("tools",["pr_fast_tests.G2GModuleContracts"])
         elif group=="bots":units("tools",["pr_fast_tests.BotModuleContracts"])
         elif group=="fc-community":

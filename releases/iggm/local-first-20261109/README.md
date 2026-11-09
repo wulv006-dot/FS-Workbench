@@ -1,0 +1,11 @@
+# IGGM local-first repair — 2026-11-09
+
+The item collector already honors fresh local pushes, but the gold side channel reads a separate stale file and could call Decodo while the desktop is active. Share the current `auto` freshness window with gold and Decodo gates; return unavailable when local data for a zone is missing instead of spending credits. Existing stale-data, pricing, and explicit server/alternate behavior remain unchanged. WoW's separate stale-snapshot fallback observes the same guard.
+
+The existing Windows IGGM_Guard_10min task keeps its schedule. Its probe and gold upload now target production play183, rather than play187's frozen migration copy. Gold refresh covers the existing eight ARC/D4/MSCW zones; the AION2 IGGM stop remains in force. Existing local files remain at their installed paths; copies here are maintenance sources, not a new task.
+
+Activity source: captured play183 `/opt/d4follow/{net_util,core_gold,core_wow_gold}.py`, before hashes in the release record. Main was missing the previously deployed Decodo net helper and AION2 IGGM opt-out; those current blocks are retained in this source reconciliation. No config or pricing values are published. Decodo rendering options remain unchanged because its exhausted credits prevent a meaningful cheaper-request live test.
+
+Tests: six offline behavior checks cover fresh/expired local status, paid request prevention, missing-zone behavior, successful pushed quotes, server fallback, and WoW fallback. Existing WoW procurement tests remain required. Live verification uses the real local collector and natural server cycle; offline simulation is not evidence of real paid fallback execution.
+
+Release uses `tools/release_d4follow.py` for only the three production files, retaining its backup, lock, hash verification and rollback ledger. Reload the existing service only after the running collection is finished. Rollback restores only these files and the two Windows script backups; keep fresh quote data, all configuration, databases and receipts.

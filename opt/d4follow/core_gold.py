@@ -967,6 +967,8 @@ class IggmGold(object):
             self.log("  [金币/IGGM] sid=%s 用本机代抓（$%s/M，%d 档）"
                      % (server_id, _pushed.get("unit_price"), len(_pushed.get("tiers") or [])))
             return _pushed
+        if net_util.iggm_local_preferred():
+            raise RuntimeError("本机优先：本区无新鲜金币推送，跳过服务器IGGM采集")
         qs = urllib.parse.urlencode({
             "template_type": "golds", "server_id": str(server_id), "cate_id": 0,
         })
@@ -1134,6 +1136,14 @@ def iggm_biggest_tier(tiers):
 
 
 # ------------------------------------------------------------------ 计划
+class _Aion2IggmOff(Exception):
+    """AION2 已停用 IGGM 查价（老板 2026-11-07：「AION2 取消 IGGM 跟价，不需要」）。
+
+    只用于在 `build_plan` 的 IGGM 抓取段落里**短路**，不参与任何对外逻辑。
+    恢复办法：把 `config.金币.AION2_IGGM停用` 改成 false（或删掉下面 raise 的那段）。
+    """
+
+
 def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known=None,
                dd373_costs=None, actual=None):
     """抓双方价 → 算每个服务区的目标采购成本。**只算不改。**
@@ -1268,11 +1278,18 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
                "利润率": rl, "对标档位": tier,
                "展示倍率": _dm, "展示单位": _ul}
         _ig = ig
-        if gm == "AION2" and iggm_obj is None:
+        # ⛔ 【2026-11-07 老板定案】AION2 取消 IGGM 查价与跟价 —— 它只跟 DD373。
+        #   86 个区每轮 86 次 IGGM 请求，纯展示用，性价比太低；而且服务器出口被 CF 拦，
+        #   每轮都白撞一次 403。恢复办法：把 config 的「金币.AION2_IGGM停用」改 false。
+        _aion2_ig_off = (gm == "AION2"
+                         and bool((cfg.get("金币") or {}).get("AION2_IGGM停用", True)))
+        if gm == "AION2" and iggm_obj is None and not _aion2_ig_off:
             if _ig_aion2[0] is None:
                 _ig_aion2[0] = IggmGold(log=log, sess=_ci.AION2_SESSION)
             _ig = _ig_aion2[0]
         try:
+            if _aion2_ig_off:
+                raise _Aion2IggmOff("AION2 IGGM 查价已停用")
             igd = _ig.fetch(sv.get("iggm_sid"), page=gp["IGGM金币页"])
             rec["IGGM每M"] = igd.get("unit_price")
             rec["IGGM档位"] = igd.get("tiers")
@@ -1282,6 +1299,11 @@ def build_plan(cfg, log=print, iggm_obj=None, front_fn=None, servers=None, known
             rec["IGGM最大档"] = _bn            # 用户口径：用最大档位对照价格
             rec["IGGM最大档总价"] = _ba
             rec["IGGM最大档每M"] = _bpm
+        except _Aion2IggmOff:
+            # AION2 停用 IGGM：展示字段留空（看板显示「-」），不报警、不计入熔断
+            for _k in ("IGGM每M", "IGGM档位", "IGGM标题", "IGGM更新时间",
+                       "IGGM最大档", "IGGM最大档总价", "IGGM最大档每M"):
+                rec[_k] = None
         except Exception as e:
             rec["IGGM每M"] = None
             if _is_iggm_blocked(e):

@@ -41,6 +41,122 @@ import urllib.request
 
 _PROXY = (os.environ.get("FS_OUTBOUND_PROXY") or "").strip()
 
+# ---------------------------------------------------------------- Decodo 出网
+# 【2026-11-07】IGGM / U4GM 在机房出口被 Cloudflare managed challenge 拦（换 TLS 指纹、
+#   自建 CF Worker 反代均无效 —— Worker 出口也是 AS13335，目标站照样挑战）。
+#   这里接 Decodo（原 Smartproxy）Web Data API 作为「非机房出口」：
+#     · 只在调用方显式使用（core_iggm 按会话开关），**不改变 urlopen 的既有行为**
+#     · 凭据读 data/decodo.json（chmod 600），未配置则整条通道静默关闭
+#     · 服务级失败（401/402/403/429/5xx）落冷却标记，30 分钟内不再试，避免白烧额度
+DECODO_CONF = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "data", "decodo.json")
+_DECODO_FAIL = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "data", "_decodo_fail.json")
+DECODO_HOSTS = ("iggm.com", "u4gm.com")
+_DECODO = {"mtime": None, "key": None}
+
+
+def _decodo_conf():
+    try:
+        mt = os.path.getmtime(DECODO_CONF)
+    except OSError:
+        return None
+    if _DECODO["mtime"] != mt:
+        try:
+            with open(DECODO_CONF, encoding="utf-8") as fh:
+                d = json.load(fh) or {}
+            _DECODO["key"] = (d.get("key") or "").strip() or None
+        except Exception:
+            _DECODO["key"] = None
+        _DECODO["mtime"] = mt
+    return _DECODO["key"]
+
+
+def iggm_local_preferred():
+    """Share the main collector's local-first decision with gold side channels."""
+    import datetime as dt
+    root = os.path.dirname(os.path.abspath(__file__))
+    try:
+        with open(os.path.join(root, "config.json"), encoding="utf-8") as f:
+            cfg = (json.load(f) or {}).get("iggm") or {}
+        mode = str(cfg.get("抓取来源") or "auto").strip().lower()
+        if mode == "local":
+            return True
+        if mode not in ("auto",):
+            return False
+        with open(os.path.join(root, "data", "iggm_local_push.json"), encoding="utf-8") as f:
+            doc = json.load(f) or {}
+        age = (dt.datetime.now() - dt.datetime.fromisoformat(doc["pushed_at"])).total_seconds()
+        window = max(60.0, float(cfg.get("本机推送有效分钟", 70) or 70) * 60)
+        return 0 <= age <= window and int(doc.get("saved") or 0) > 0
+    except (OSError, ValueError, TypeError, KeyError):
+        return False
+
+
+def decodo_on(host=None):
+    """Decodo 通道是否可用：配了 key、不在冷却、且（可选）该域在白名单里。"""
+    if host:
+        h = host.lower()
+        if not any(h == x or h.endswith("." + x) for x in DECODO_HOSTS):
+            return False
+    if iggm_local_preferred():
+        return False
+    if not _decodo_conf():
+        return False
+    try:
+        import datetime as _dt
+        ts = json.load(open(_DECODO_FAIL, encoding="utf-8")).get("ts")
+        if (_dt.datetime.now()
+                - _dt.datetime.fromisoformat(ts)).total_seconds() < 1800:
+            return False
+    except Exception:
+        pass
+    return True
+
+
+def _decodo_note_fail():
+    try:
+        import datetime as _dt
+        json.dump({"ts": _dt.datetime.now().isoformat(timespec="seconds")},
+                  open(_DECODO_FAIL, "w", encoding="utf-8"))
+    except Exception:
+        pass
+
+
+def decodo_get(url, timeout=120):
+    """经 Decodo Web Data API 取一个 URL 的正文（HTML 或 JSON 文本）。
+
+    失败抛 RuntimeError，由调用方决定回落直连还是判熔断。
+    """
+    if iggm_local_preferred():
+        raise RuntimeError("本机优先：跳过 Decodo 请求")
+    key = _decodo_conf()
+    if not key:
+        raise RuntimeError("未配置 data/decodo.json")
+    payload = json.dumps({"url": url, "headless": "html"}).encode("utf-8")
+    req = urllib.request.Request(
+        "https://data.decodo.com/v1/scrape", data=payload,
+        headers={"Authorization": "Bearer " + key,
+                 "Content-Type": "application/json",
+                 "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            j = json.loads(r.read().decode("utf-8", "ignore"))
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 402, 403, 429, 500, 502, 503):
+            _decodo_note_fail()      # 服务级故障 / 额度耗尽 ⇒ 整体冷却
+        raise RuntimeError("Decodo HTTP %s" % e.code)
+    except Exception as e:                            # noqa: BLE001
+        raise RuntimeError("Decodo 请求失败: %r" % (e,))
+    res = (j.get("results") or [{}])[0]
+    txt = res.get("content") or ""
+    if not txt:
+        if str(res.get("status_code")) not in ("200", "None"):
+            _decodo_note_fail()
+        raise RuntimeError("Decodo 空内容 status=%s" % res.get("status_code"))
+    return txt
+
+
 # ---------------------------------------------------------------- Worker 出网
 _WORKER_HOSTS = ("mmoexp.com", "p2pah.com", "u4gm.com")
 _WORKER_CONF = os.path.join(os.path.dirname(os.path.abspath(__file__)),
