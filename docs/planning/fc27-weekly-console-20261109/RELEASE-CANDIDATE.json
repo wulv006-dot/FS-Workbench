@@ -1,0 +1,71 @@
+{
+  "status": "candidate_not_approved_not_deployed",
+  "source_base": "2b0f735d19a0dcc4ad1b686167ec82afa9a958e6",
+  "production_baseline_read": "2026-11-09",
+  "new_files_absence_verified": [
+    "weekly.html"
+  ],
+  "other_new_paths_require_preflight": true,
+  "public_runtime_restart": false,
+  "business_configuration_write": false,
+  "coupon_write": false,
+  "schedule_enable": false,
+  "community_messages": false,
+  "files": [
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/production-server.mjs",
+      "target": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
+      "sha256": "24c7bdc2c290630ed106ae81c522abfd8505f4fe7a564a50096dc0f0e85f0b70",
+      "base_sha256": "d8888d3bb03f4d568c765defa5d72eb28642e4f51f408e9344098118e33fcdc8"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/index.html",
+      "target": "/opt/fs-campaign-dashboard/analytics/index.html",
+      "sha256": "719199ef1e34e89143e4d74f45bc3154cc00072f4567cb48dd02a34b27eecd44",
+      "base_sha256": "66608803fe2868f88d24fad68329301f952b7e3481a694240e95572a76d3972c"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/products.html",
+      "target": "/opt/fs-campaign-dashboard/analytics/products.html",
+      "sha256": "3d0e2020026ea5c9ff4631d46d8f560938adf2eb345418a721f74119ea7d2ac1",
+      "base_sha256": "65cfa1c6315727956d89e51f8fb1096a6a6521d9daf2bfc2e72a33ca9871f1c8"
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly.html",
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly.html",
+      "sha256": "80a3ad846e2e257412eb14be1748858ba3308f2fbdf9e8961505f591e10a08a6",
+      "base_sha256": null
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly.js",
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly.js",
+      "sha256": "97560de7dec95cde3a089183de333242a9ad0f05f5443a5f98c813280e69663d",
+      "base_sha256": null
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly.css",
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly.css",
+      "sha256": "20feecd496eeda127a1373364ac154f881d8bf60f2748e89cc41c640064e15cd",
+      "base_sha256": null
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly-store.mjs",
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-store.mjs",
+      "sha256": "ee22b74dc555798c8d463d0b80f29a13d24e498fafccf802c0d2ae4a9f944b8e",
+      "base_sha256": null
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly-hermes.mjs",
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-hermes.mjs",
+      "sha256": "b498df80e23a42392470784986801be3b86ae2ab201c0658b945910f97c136cb",
+      "base_sha256": null
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly-recommendations.mjs",
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-recommendations.mjs",
+      "sha256": "1d2d15beac2a761c350e7f068d924b3fed725b80d9cd9b9bf985e4d2517fb429",
+      "base_sha256": null
+    }
+  ],
+  "candidate_bytes": "git-index-export"
+}
