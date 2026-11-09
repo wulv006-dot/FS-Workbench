@@ -76,8 +76,8 @@ print(json.dumps({'status':'ok','data':d}))
   assert.equal(await page.locator('iframe').count(),0,'editor never nests the activity preview');await frame.locator('[data-preview-model="'+model.key+'"]').waitFor();
   assert.equal(await frame.locator('title').innerText(),'Whole page fixture');
   await frame.locator('#hero-image').evaluate(img=>new Promise((resolve,reject)=>{if(img.complete&&img.naturalWidth>0)return resolve();img.addEventListener('load',resolve,{once:true});img.addEventListener('error',reject,{once:true});}));
-  assert.match(await frame.locator('#hero-image').getAttribute('src'),/media/);assert.match(await frame.locator('[data-preview-model] .fca-platform-reference').innerText(),/950001/);
-  await frame.locator('input[name=platform][value=pc]').check();assert.match(await frame.locator('[data-preview-model] .fca-platform-reference').innerText(),/950003/);
+  assert.match(await frame.locator('#hero-image').getAttribute('src'),/media/);assert.equal(await frame.locator('[data-preview-model]').getAttribute('data-product'),'950001');assert.equal(await frame.locator('[data-preview-model] .fca-platform-reference').count(),0);
+  await frame.locator('input[name=platform][value=pc]').check();assert.equal(await frame.locator('[data-preview-model]').getAttribute('data-product'),'950003');assert.equal(await frame.locator('[data-preview-model] .fca-platform-reference').count(),0);
   assert.deepEqual(read(),original,'whole page preview must not save or publish');await frame.close();
   // Invalid effective dates are rejected before any publish request.
   await page.locator('#start-0').fill('2026-10-29T12:00');await page.locator('#end-0').fill('2026-10-28T12:00');await page.locator('#publish-center').click();assert.equal(publishIds.length,0);assert.deepEqual(read(),original);

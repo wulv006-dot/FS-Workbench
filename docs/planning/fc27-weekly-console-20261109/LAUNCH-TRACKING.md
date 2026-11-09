@@ -47,6 +47,12 @@ FS 登记 state revision 8：三页仍为 `/Fc-27/...`、`testing`；万圣节�
 
 未新增 collector、分析平台、业务权限或定时任务；未改优惠资格、原订单 writer、主站结账和正式版本27的商品配置。
 
+## 正式登记读回
+
+2026-11-09 13:13–13:15 UTC，总控经原管理UI分别保存三条登记，revision 8→11。三页均为上述/events地址、active。整份registry SHA `5f051051380e9dd719137a7f34be2982a1260f94932f9863ace6619ad4bcf623` 精确等于保存前仅改三条path/status的预期；layout SHA `c1afbc9b5c49a2879872c7255e4ae4fc4e24577337929a4e2cfe6fcbd5cebf5e` 保持，其他活动/布局没有改动。
+
+另核正式静态配置三条path原本已为/events；追踪桥仅按registry.view取活动id，正式URL与发布page_id/activity_id独立匹配，不依赖静态registry.path/status。静态候选只改enabled即可；此项读回时开关仍false，尚不代表正式采集已开启。
+
 ## 当前日真实只读查询（候选代码，未部署）
 
 2026-11-09 13:07:34 UTC，187 使用现有 `AdminRead.from_shared_session()` 和上述候选 `discount_revenue.py` 在进程内只读执行。候选工作树原字节 SHA256：`c910bc59df78ffbe3561ef797957c7b920e07efe2cfdc51be581ebaab738c08a`（提交/部署采用 Git 字节时应另核换行归一后的 SHA，不混称现场已安装）。脚本 `.agent_runtime/weekly-console/read-fc-code-revenue.py`；没有订单写入、分析事件或生产文件修改，也没有输出客户/订单标识。
