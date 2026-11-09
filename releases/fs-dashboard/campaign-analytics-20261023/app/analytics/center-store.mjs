@@ -205,6 +205,12 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
    const selected=Object.fromEntries(draft.pages.map(p=>[p.page_id,Object.hasOwn(p,'product_keys')?p.product_keys:seed.pageProductKeys[p.page_id]||[]]));
    for(const pageId of ['fc27-trio','fc27-weekly','fc27-sbc']){const keys=selected[pageId]||[];selected[pageId]=[...new Set([...keys,...keys.flatMap(key=>seed.nativeModelKeys?.[key]?[seed.nativeModelKeys[key]]:[])])];}
    if(draft.halloween)selected['seasonal-vault']=[...new Set([...selected['seasonal-vault'],...halloweenProductKeys(draft.halloween,[...seed.seedProducts,...(draft.imported_products||[])])])];
+   // Private policy retains historical bindings; a release exposes only the
+   // current page selections. Remaining bindings still pass the native guard.
+   if(native_checkout?.status==='configured'&&Array.isArray(native_checkout.bindings)){
+    const bindings=native_checkout.bindings.filter(b=>selected[b.page_id]?.includes(b.product_key));
+    native_checkout=bindings.length?{...native_checkout,bindings}:{status:'unconfigured'};
+   }
    const used=new Set(Object.values(selected).flat());
    const products=seed.seedProducts.map(p=>({...p,available:false}));
    for(const imported of (draft.imported_products||[]).filter(p=>used.has(p.key))){
