@@ -40,6 +40,20 @@ test('management preview URL is authenticated, read-only, expiring and renders t
  try{
   const state=await(await priorFetch(base+'api/center',{headers:{Cookie:'synthetic-admin'}})).json(),headers={Cookie:'synthetic-admin',Origin:'http://127.0.0.1','Content-Type':'application/json','X-CSRF-Token':state.csrf},request=body();request.product_imports=[{page_id:'seasonal-vault',product_ref:product().product_ref}];request.draft.pages[3].product_keys=[productKey];
   assert.equal((await priorFetch(base+'api/center/preview',{method:'POST',headers:{...headers,'X-CSRF-Token':'bad'},body:JSON.stringify(request)})).status,403);
+  // A same-revision persisted proposal must not make malformed drafts hash(undefined).
+  const proposalDir=path.join(dir,'http/center/weekly-commerce');fs.mkdirSync(proposalDir,{recursive:true});
+  fs.writeFileSync(path.join(proposalDir,randomUUID()+'.json'),JSON.stringify({owner:'synthetic',revision:0,created_at:new Date().toISOString()}),{mode:0o600});
+  for(const draft of [undefined,null,'invalid',[],42]){
+   const invalid=await priorFetch(base+'api/center/preview',{method:'POST',headers,body:JSON.stringify({revision:0,page_id:'fc27-weekly',draft})});
+   assert([400,422].includes(invalid.status),'invalid draft status '+invalid.status);
+  }
+  for(const name of fs.readdirSync(proposalDir))fs.unlinkSync(path.join(proposalDir,name));
+  const brokenProposal=path.join(proposalDir,randomUUID()+'.json');fs.writeFileSync(brokenProposal,'{broken',{mode:0o600});
+  const seasonal=await priorFetch(base+'api/center/preview',{method:'POST',headers,body:JSON.stringify({...request,page_id:'seasonal-vault'})});
+  assert.equal(seasonal.status,200,'FC proposal corruption must not affect other campaigns');
+  assert.equal(fs.existsSync(path.join(dir,'http/center/state.json')),false);assert.equal(fs.existsSync(path.join(dir,'public/current.json')),false);
+  const brokenFc=await priorFetch(base+'api/center/preview',{method:'POST',headers,body:JSON.stringify(request)});assert.equal(brokenFc.status,502,'FC evidence corruption must retain the original server error');assert.equal((await brokenFc.json()).message,'配置格式无效');
+  fs.unlinkSync(brokenProposal);
   const response=await priorFetch(base+'api/center/preview',{method:'POST',headers,body:JSON.stringify(request)});assert.equal(response.status,200);const preview=await response.json();assert.match(preview.preview_url,/analytics\/preview\/[a-f0-9]{48}\/Weekly-Scout.html$/);
   assert.equal((await priorFetch(origin+preview.preview_url)).status,401);const page=await(await priorFetch(origin+preview.preview_url,{headers})).text();assert(page.includes('Unsaved whole page'));assert(page.includes('Unsaved draft preview'));assert(page.includes('data-campaign-runtime='));
   const root=preview.preview_url.replace('Weekly-Scout.html',''),config=await(await priorFetch(origin+root+'api/campaign/config',{headers})).json();assert.deepEqual(config.native_checkout,{status:'unconfigured'});assert.equal(config.live_checkout,false);assert.equal(config.fc_models[model().key].title,model().title);assert.equal(config.products.find(p=>p.key===productKey).title,product().title);

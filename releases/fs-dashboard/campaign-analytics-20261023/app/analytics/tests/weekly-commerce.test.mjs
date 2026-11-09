@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
+import vm from 'node:vm';
+import {createSnapshot} from '../../runtime/snapshot.mjs';
 import {makeWeeklyCommerce} from '../weekly-commerce.mjs';
 import {weeklyNativeCandidates} from '../weekly-native-candidates.mjs';
 const at=Date.parse('2026-11-09T10:00:00Z'),platforms={ps:'21587',xbox:'21585',pc:'21589'};
@@ -73,4 +75,35 @@ test('native aid zero permits all platforms while a concrete aid must match only
  const f=fixture(t);f.discount.fields.aid=21587;assert.deepEqual((await f.service.prepare(f.body,'alice')).blockers,['WEEKLY_COMMERCE_DISCOUNT_PLATFORM_SCOPE']);
  f.draft.pages[0].product_keys=['fc-model-266-1327-22-ps'];f.draft.pages[1].product_keys=['22','23','24'].map(id=>'fc-model-266-1327-'+id+'-ps');f.draft.pages[2].product_keys=['22','23','24','25'].map(id=>'fc-model-266-1327-'+id+'-ps');
  assert.equal((await f.service.prepare(f.body,'alice')).can_publish,true);
+});
+test('private reviewed new-player preview reuses exact fresh proposal without reads or writes',async t=>{
+ const f=fixture(t),p=await f.service.prepare(f.body,'alice'),count=f.calls.length;
+ const catalog=f.service.previewCatalog(f.body,'alice');assert.equal(catalog.products.length,12);
+ assert.equal(catalog.model_contracts['22'].combinations[0].price.source,'admin_current');
+ const preview=createSnapshot({schema_version:1,publication_status:'published',release_id:'isolated-new-draft',source_revision:'test',config_hash:'a'.repeat(64),rule_hash:'b'.repeat(64),products:catalog.products,seasonal_model_contracts:catalog.model_contracts,native_checkout:{status:'unconfigured'},pages:[{activity_id:'fc27-season2',page_id:'fc27-weekly',path:'Weekly-Scout.html',title:'New draft',active:true,rule_version:'test',benefit_binding_version:'test',product_keys:catalog.products.map(p=>p.key)}]});
+ const box={};vm.runInNewContext(fs.readFileSync(new URL('../../activity-core.js',import.meta.url),'utf8'),box);
+ for(const platform of ['ps','xbox','pc']){
+  const offer=box.FCActivityCore.nativeModelOffer(f.values[0].model,platform,preview,'fc27-weekly',at);
+  assert.equal(offer.price.base_minor,1013);assert.equal(offer.checkout_ready,false);
+ }
+ assert.equal(f.policy.native_catalog.model_contracts['22'],undefined,'new model is not installed or published');
+
+ assert.equal(f.service.previewCatalog(f.body,'bob'),null);
+ assert.equal(f.service.previewCatalog({...f.body,revision:8},'alice'),null);
+ assert.equal(f.service.previewCatalog({...f.body,draft:{...f.draft,copy:'unsaved'}},'alice'),null);
+ assert.equal(f.calls.length,count);assert.equal(f.installs.length,0);
+ f.setClock(at+300001);assert.equal(f.service.previewCatalog(f.body,'alice'),null);
+ f.setClock(at);fs.writeFileSync(path.join(f.dir,p.proposal_id+'.json'),'{broken');
+ assert.throws(()=>f.service.previewCatalog(f.body,'alice'),SyntaxError);
+});
+
+test('preview selects newest valid exact proposal and invalid draft shapes do not hash',async t=>{
+ const f=fixture(t),first=await f.service.prepare(f.body,'alice');
+ for(const draft of [undefined,null,'invalid',[],42])assert.equal(f.service.previewCatalog({revision:7,draft},'alice'),null);
+ f.setClock(at+1000);for(const v of f.values)for(const product of v.observation.products)product.source_unit_price='20.00';
+ const latest=await f.service.prepare({...f.body,operation_id:randomUUID()},'alice');
+ assert.notEqual(first.preview_catalog.model_contracts['22'].combinations[0].price.base_minor,latest.preview_catalog.model_contracts['22'].combinations[0].price.base_minor);
+ assert.deepEqual(f.service.previewCatalog(f.body,'alice'),latest.preview_catalog);
+ const file=path.join(f.dir,latest.proposal_id+'.json'),expired=JSON.parse(fs.readFileSync(file));expired.valid_until=new Date(at).toISOString();fs.writeFileSync(file,JSON.stringify(expired));
+ assert.deepEqual(f.service.previewCatalog(f.body,'alice'),first.preview_catalog);
 });

@@ -26,10 +26,11 @@ import {centerSeed,effectivePageBindings} from './center-seed.mjs';
 import {backendRead,backendMutate} from './backend-client.mjs';
 import {effectiveFcCatalog} from '../runtime/model-cards.mjs';
 import {mediaLimits,pageMedia} from '../runtime/media-contract.mjs';
-import {digest,loadStatic} from '../runtime/snapshot.mjs';
+import {canonical,digest,loadStatic} from '../runtime/snapshot.mjs';
 import {presentPage,projectFcCatalog,publicEnglishRelease} from '../runtime/presentation.mjs';
 import {makeAdminPriceProvider,readAdminPricePolicy} from './admin-price-provider.mjs';
 import {mergeNativeCatalog,readNativeLaunchPolicy} from './native-catalog.mjs';
+import {applyPublicPriceCache,readPublicPriceCache} from '../runtime/admin-price-cache.mjs';
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),box={window:{}};
 vm.runInNewContext(fs.readFileSync(path.join(base,'analytics-config.js'),'utf8'),box);
 const cfg=box.window.FC_ANALYTICS_CONFIG,catalog=JSON.parse(fs.readFileSync(path.join(base,'catalog.json'),'utf8'));
@@ -69,7 +70,26 @@ const previews=new Map();let previewFiles=null;
 const weeklyCommerce=makeWeeklyCommerce({dir:path.join(dir,'center','weekly-commerce'),catalog,readPolicy:()=>{
  const stateDir=process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend');readNativeLaunchPolicy(stateDir);readAdminPricePolicy(stateDir);return fs.readFileSync(path.join(stateDir,'policy.json'));
 }});
+// Reference prices only: never transfer availability, checkout bindings or options.
+export function previewReferencePrices(snapshot,published,cache,{now=Date.now()}={}){
+ const result=structuredClone(snapshot);if(!published)return result;
+ const trusted=applyPublicPriceCache(published,cache,{now});
+ for(const [id,target] of Object.entries(result.seasonal_model_contracts||{})){
+  const source=trusted.seasonal_model_contracts?.[id];
+  if(!source||canonical(source.model_ref)!==canonical(target.model_ref)||canonical(source.fields)!==canonical(target.fields))continue;
+  for(const row of target.combinations||[]){
+   if(row.price&&Date.parse(row.price.expires_at)>now)continue;
+   const product=result.products.find(p=>p.key===row.product_key),original=trusted.products.find(p=>p.key===row.product_key);
+   if(!product||!original||canonical(product.product_ref)!==canonical(original.product_ref)||canonical(product.platform)!==canonical(original.platform))continue;
+   const match=source.combinations.find(r=>r.product_key===row.product_key&&canonical(r.choices)===canonical(row.choices)&&canonical(r.attributes)===canonical(row.attributes)&&canonical(r.quantity)===canonical(row.quantity));
+   if(match?.price&&Date.parse(match.price.expires_at)>now)row.price=structuredClone(match.price);
+  }
+ }
+ return result;
+}
 function privatePreview(snapshot,user,scope){
+ const publishedFile=path.join(publicDir,'current.json');
+ if(fs.existsSync(publishedFile))snapshot=previewReferencePrices(snapshot,JSON.parse(fs.readFileSync(publishedFile,'utf8')),readPublicPriceCache(path.join(publicDir,'admin-reference-prices.json')));
  for(const [key,value] of previews)if(value.expires<=Date.now()||scope&&value.user===user&&value.scope===scope)previews.delete(key);
  if(previews.size>=20)throw Object.assign(Error('PREVIEW_LIMIT'),{status:429});
  const token=randomBytes(24).toString('hex'),expires=Date.now()+10*60*1000;previews.set(token,{snapshot,expires,user,scope});
@@ -150,7 +170,10 @@ export const server=http.createServer(async(req,res)=>{
     return json(res,200,{...centerState(publish?center.publish(body,auth.user,details,products):center.save(body,auth.user,details,products)),csrf,canEdit:true});
    }
    if(relative==='analytics/api/center/preview'){
-    const snapshot=center.preview(body,await pendingModelDetails(body),await pendingProductDetails(body)),page=snapshot.pages.find(p=>p.page_id===body.page_id);if(!page)return json(res,400,{message:'INVALID_CAMPAIGN_PAGE'});
+    const reference=['fc27-trio','fc27-weekly','fc27-sbc'].includes(body.page_id)?weeklyCommerce.previewCatalog(body,auth.user):null;
+    const seed=reference?mergeNativeCatalog(pageSeed(body.draft.fc_layout,body.draft.fc_models||{}),reference):undefined;
+    if(seed)Object.assign(seed.seasonal_model_contracts,structuredClone(reference.model_contracts));
+    const snapshot=center.preview(body,await pendingModelDetails(body),await pendingProductDetails(body),{seed}),page=snapshot.pages.find(p=>p.page_id===body.page_id);if(!page)return json(res,400,{message:'INVALID_CAMPAIGN_PAGE'});
     const preview=privatePreview(snapshot,auth.user);return json(res,200,{preview_url:preview.base+page.path,expires_at:preview.expires_at});
    }
    if(relative==='analytics/api/center/restore')return json(res,200,{...centerState(center.restoreDraft(body,auth.user)),csrf,canEdit:true});
