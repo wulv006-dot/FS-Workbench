@@ -9,6 +9,21 @@ from club_panel import MENTIONS, ROLE_CHANGE_LOCK
 OFFICIAL_GUILD = 1041923524601851914
 TEST_GUILD = 1565922092518613064
 GENERAL_CHAT_CHANNEL_ID = 1264777473283981336
+# Deliberate product order, independent of Discord's channel/configuration order.
+FC_GUIDE_GROUPS = (
+    ('⚽ Club & identity', ((1568663362567413820, 'Choose club & FC27 badge'),)),
+    ('📰 Automatic updates & prices', (
+        (1501757710381748254, 'News'), (1568878333087719454, 'Players'),
+        (1301379787696377926, 'SBCs'), (1372781247847465000, 'Evolutions'),
+        (1568610224502345758, 'Objectives & Rush'), (1568610467587563591, 'Gallery tiers'),
+        (1568610700463710278, 'Store packs'), (1568663210901504041, 'Coins'),)),
+    ('💬 Community', (
+        (1200330251016867880, 'FC27 chat'), (1257955311650607156, 'Squad reviews'),
+        (1280777367219998786, 'Pack pulls'), (1361550473244709014, 'Leaks & discussion'),
+        (1501758022886752296, 'Giveaways'), (1202767862457172058, 'Player feedback'),)),
+)
+SUPPORT_LINKS = ((1326761935487635466, 'Open support ticket'),
+                 (1501751399833403483, 'Website help'), (1302098361683279882, 'Report a scam'))
 API_ERRORS = (discord.HTTPException, OSError, asyncio.TimeoutError)
 UPDATE_ERRORS = API_ERRORS + (ValueError,)
 # Native game roles may grant ordinary channel access. Anything outside this list fails closed.
@@ -139,7 +154,7 @@ class GameButton(discord.ui.Button):
         await interaction.response.defer(ephemeral=True, thinking=True)
         game = next(game for game in self.view.config['games'] if game['key'] == self.key)
         content, panel = await game_result(interaction, self.view.config, game, self.view.role_allowlist, True)
-        await interaction.followup.send(content, view=panel, ephemeral=True, allowed_mentions=MENTIONS)
+        await interaction.followup.send(view=panel, ephemeral=True, allowed_mentions=MENTIONS)
 
 
 async def game_result(interaction, config, game, allowlist, join):
@@ -160,30 +175,64 @@ async def game_result(interaction, config, game, allowlist, join):
     fallback = not game['channel_ids'] or game['channel_ids'] == [GENERAL_CHAT_CHANNEL_ID]
     if fallback:
         text += '\nThis game has no dedicated section yet. Use the shared community lounge below.'
-    text += ('\n\nGame roles do not automatically add channels to your sidebar. '
-             'Open **Channels & Roles** in the server to customize your channel list.')
-    panel = GameSelectionView(config, game, interaction.user.id, member, interaction.guild, allowlist)
-    if not any(button.url for button in panel.children):
-        text += '\nNo readable channel links are available right now. Please ask a moderator.'
+    panel = GameSelectionView(config, game, interaction.user.id, member, interaction.guild, allowlist, text)
     return text, panel
 
 
-class GameSelectionView(discord.ui.View):
-    def __init__(self, config, game, owner, member, guild, allowlist):
+class GameSelectionView(discord.ui.LayoutView):
+    def __init__(self, config, game, owner, member, guild, allowlist, status='Your game guide'):
         super().__init__(timeout=180)
         self.config, self.game, self.owner, self.role_allowlist = config, game, owner, allowlist
+        card = discord.ui.Container(discord.ui.TextDisplay(status), accent_color=0x3498DB)
+        self.add_item(card)
+        channel_ids = game['channel_ids'] or ([GENERAL_CHAT_CHANNEL_ID] if guild.id == OFFICIAL_GUILD else [])
+        fc_ids = {channel_id for _, links in FC_GUIDE_GROUPS for channel_id, _ in links}
+        is_fc = guild.id == OFFICIAL_GUILD and bool(fc_ids.intersection(channel_ids))
+        if is_fc:
+            groups = [(title, [(channel_id, label) for channel_id, label in links if channel_id in channel_ids])
+                      for title, links in FC_GUIDE_GROUPS]
+            # Preserve future configured destinations without mixing them into the named groups.
+            extra = [channel_id for channel_id in channel_ids if channel_id not in fc_ids]
+            if extra:
+                groups.append(('More channels', [(channel_id, None) for channel_id in extra]))
+            groups.append(('🎧 Support & help', SUPPORT_LINKS))
+        else:
+            groups = [('Your channels', [(channel_id, None) for channel_id in channel_ids])]
+        readable = 0
+        for title, links in groups:
+            buttons = []
+            for channel_id, label in links:
+                channel = guild.get_channel(channel_id)
+                if member is None or channel is None or channel.guild.id != config['guild_id']:
+                    continue
+                permissions = channel.permissions_for(member)
+                if permissions.view_channel and permissions.read_message_history:
+                    label = label or ('Community lounge' if channel_id == GENERAL_CHAT_CHANNEL_ID else channel.name)
+                    buttons.append(discord.ui.Button(label=label[:80],
+                        url='https://discord.com/channels/{}/{}'.format(config['guild_id'], channel_id)))
+            if not buttons:
+                continue
+            readable += len(buttons)
+            if title == 'More channels':
+                card.add_item(discord.ui.TextDisplay('### More channels\n' + ' · '.join(
+                    '[{}]({})'.format(discord.utils.escape_markdown(button.label), button.url)
+                    for button in buttons)))
+                continue
+            card.add_item(discord.ui.Separator())
+            card.add_item(discord.ui.TextDisplay('### ' + title))
+            if is_fc and title == '📰 Automatic updates & prices':
+                card.children[-1].content += '\nPublic updates · quote replies are private.'
+            # Three short buttons per row keep each section readable on narrow screens.
+            width = 3 if len(channel_ids) <= 15 else 5
+            for index in range(0, len(buttons), width):
+                card.add_item(discord.ui.ActionRow(*buttons[index:index + width]))
+        if not readable:
+            card.add_item(discord.ui.TextDisplay('No readable channels right now. Please ask a moderator.'))
+        card.add_item(discord.ui.Separator())
+        card.add_item(discord.ui.TextDisplay('-# Missing channels? Use Channels & Roles → choose your game.'))
         selected = member is not None and bool({role.id for role in member.roles} & set(game['role_ids']))
         if selected:
-            self.add_item(RemoveGameButton())
-        for channel_id in game['channel_ids'] or ([GENERAL_CHAT_CHANNEL_ID] if guild.id == OFFICIAL_GUILD else []):
-            channel = guild.get_channel(channel_id)
-            if member is None or channel is None or channel.guild.id != config['guild_id']:
-                continue
-            permissions = channel.permissions_for(member)
-            if permissions.view_channel and permissions.read_message_history:
-                label = 'Community lounge' if channel_id == GENERAL_CHAT_CHANNEL_ID else channel.name
-                self.add_item(discord.ui.Button(label=label[:80],
-                    url='https://discord.com/channels/{}/{}'.format(config['guild_id'], channel_id)))
+            card.add_item(discord.ui.ActionRow(RemoveGameButton()))
 
 
 class RemoveGameButton(discord.ui.Button):
@@ -197,4 +246,4 @@ class RemoveGameButton(discord.ui.Button):
             return
         await interaction.response.defer()
         content, panel = await game_result(interaction, view.config, view.game, view.role_allowlist, False)
-        await interaction.edit_original_response(content=content, view=panel, allowed_mentions=MENTIONS)
+        await interaction.edit_original_response(content=None, view=panel, allowed_mentions=MENTIONS)
