@@ -110,7 +110,8 @@ def detail(reader, policy, kind, native_id, site_id):
     entry, reasons = object_policy(policy, kind, native_id, site_id, row)
     allowed = [] if reasons or entry.get('full_preserve_edit_verified') is not True or entry.get('fs_bridge_acceptance_verified') is not True else ['title', 'brief']
     fields = {}
-    for key in (COUPON_FIELDS if kind == 'coupon' else DISCOUNT_FIELDS):
+    # Read-only identity facts; the native writer's DISCOUNT_FIELDS contract stays unchanged.
+    for key in (COUPON_FIELDS if kind == 'coupon' else DISCOUNT_FIELDS + ('code', 'uid')):
         if key not in row:
             continue
         value = row[key]

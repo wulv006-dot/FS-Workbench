@@ -83,6 +83,12 @@ class ModelTests(unittest.TestCase):
         self.assertNotIn('PRIVATE_',json.dumps(result));self.assertEqual(len(session.calls),2)
         self.assertEqual(session.calls[1][1]['search[2][field]'],'mid');self.assertEqual(session.calls[1][1]['search[3][val]'],'9627')
 
+    def test_resolve_preserves_player_type_as_read_only_fact_outside_model_card(self):
+        for selection,expected in ((8067,'normal'),(8115,'Signature'),(9999,None)):
+            row=model(more={'baseprop':{'393':{'a':selection}}})
+            result,_=self.invoke(self.resolve(),[detail(row),response([goods(1001,21587),goods(1002,21585),goods(1003,21589)],3)])
+            self.assertEqual(result['player_type'],expected);self.assertNotIn('player_type',result['model'])
+
     def test_missing_offline_ambiguous_and_unknown_never_fill_another_platform(self):
         rows=[goods(1001,21587),goods(1002,21585,status=0),goods(1003,21589),goods(1004,21589)]
         card=resolve_model(model(),'player',dict(rows=rows,total=4))

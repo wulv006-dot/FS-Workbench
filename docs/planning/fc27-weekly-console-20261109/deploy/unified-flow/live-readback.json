@@ -1,0 +1,139 @@
+{
+  "code_readback": [
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/admin-price-provider.mjs",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/center-store.mjs",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/products.html",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/products.js",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-commerce-install.py",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-commerce.mjs",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-pipeline.mjs",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-store.mjs",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-workflow.mjs",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly.css",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly.html",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly.js",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/runtime/model-options.mjs",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/backend/bridge.py",
+      "matched": true
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/benefits.py",
+      "matched": true
+    }
+  ],
+  "all_code_matched": true,
+  "services": {
+    "fs-campaign-dashboard.service": "active",
+    "fs-campaign-runtime.service": "active",
+    "fs-business-range.service": "active"
+  },
+  "center_revision": 25,
+  "public_release_id": "campaign-preview-24",
+  "public_config_hash": "0b459836cbe61af039893e05065182aac735f719bd5d0910fb2ef1e87b5638ad",
+  "private_policy_sha256": "16e1681da0b4124766dd64d7184235f03a7ae9349ee8a8f6f058804f7f569572",
+  "work_orders": [
+    {
+      "id": "2026-W46",
+      "page_id": "fc27-trio",
+      "status": "draft_ready",
+      "activity_revision": 25,
+      "run_operation_id": "4c09cd43-d93b-4223-8e93-f5905e6aaac3",
+      "approval": null
+    },
+    {
+      "id": "2026-W46",
+      "page_id": "fc27-weekly",
+      "status": "draft_ready",
+      "activity_revision": 25,
+      "run_operation_id": "4c09cd43-d93b-4223-8e93-f5905e6aaac3",
+      "approval": null
+    },
+    {
+      "id": "2026-W46",
+      "page_id": "fc27-sbc",
+      "status": "draft_ready",
+      "activity_revision": 25,
+      "run_operation_id": "4c09cd43-d93b-4223-8e93-f5905e6aaac3",
+      "approval": null
+    }
+  ],
+  "workflow_publication_operations": 0,
+  "review_summaries": [
+    {
+      "revision": 25,
+      "can_publish": true,
+      "blockers": [],
+      "models_count": 32,
+      "diff": {
+        "added": {
+          "prices": 3,
+          "products": 9,
+          "contracts": 3,
+          "bindings": 39
+        },
+        "replaced": {
+          "prices": 4,
+          "products": 87,
+          "bindings": 0
+        },
+        "price_entries": 91,
+        "native_products": 352,
+        "bindings": 1626
+      },
+      "pages": 3,
+      "coupon_checked": {
+        "native_field_contract": "existing_fc_one_item",
+        "player_type": "observed_normal",
+        "price": "admin_current_reference",
+        "discount_code": "FCSCOUT10",
+        "benefit_id": "6049",
+        "coupon_write": false,
+        "publication": false
+      }
+    }
+  ]
+}
