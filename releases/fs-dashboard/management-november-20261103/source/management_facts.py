@@ -72,7 +72,7 @@ def calculate(values,targets,observed,total):
 def read_query(reader,profile,start,end,deadline,*,required=('rev','ord','prof'),sleep=time.sleep,monotonic=time.monotonic):
  from urllib.parse import urlencode
  path='/dashboard/fs-home/range.json?'+urlencode({'mode':'summary','profile':profile,'start':start,'end':end})
- local=min(deadline,monotonic()+100);best=None
+ local=min(deadline,monotonic()+100);best=None;contract_error=None
  while monotonic()<local:
   try:reply=reader(path)
   except OSError as error:
@@ -81,10 +81,15 @@ def read_query(reader,profile,start,end,deadline,*,required=('rev','ord','prof')
   code=reply.get('http_status');raw=reply.get('body') or {}
   if code in (401,403):raise ValueError('source_denied')
   if code==200:
-   row=project_summary(raw,profile,start,end)
-   if all(numeric(row['values'][k]) for k in required):return row
-   score=lambda x:sum(numeric(v) for v in x['values'].values())
-   if best is None or score(row)>=score(best):best=row
+   try:row=project_summary(raw,profile,start,end)
+   except ValueError as error:
+    if str(error) not in ('source_contract_mismatch','admin_all_sites_contract_mismatch'):raise
+    # Retry a warming source, but never accept its mismatched scope.
+    contract_error=str(error)
+   else:
+    if all(numeric(row['values'][k]) for k in required):return row
+    score=lambda x:sum(numeric(v) for v in x['values'].values())
+    if best is None or score(row)>=score(best):best=row
   elif code not in (202,429,503):
    if best is not None:return best
    raise ValueError('source_http_'+str(code))
@@ -94,6 +99,7 @@ def read_query(reader,profile,start,end,deadline,*,required=('rev','ord','prof')
   if not numeric(delay) or delay<1:delay=5
   sleep(min(delay,remaining))
  if best is not None:return best
+ if contract_error is not None:raise ValueError(contract_error)
  raise TimeoutError('source_query_deadline')
 
 def collect(at,targets,reader,*,cache=None,deadline_seconds=1800):
