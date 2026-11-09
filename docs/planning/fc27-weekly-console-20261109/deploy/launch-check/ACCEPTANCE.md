@@ -67,3 +67,15 @@ CI1848的425项Node检查通过，但weekly-console浏览器用例因popup通知
 后续沿原commerce prepare、私有preview、模拟明确确认publish和原price producer刷新缓存，证明三页共36条包平台绑定、仅新增Weekly/SBC24条、Trio原12条精确保留；4×3×3公共报价ready，私有preview保持不可购买。观察价格完全为隔离fixture，未冒充生产读取。未知模型请求不造兜底观察；原保留Seasonal模型仅作为明确独立fixture并验证不进入FC三页。
 
 相关commerce/workflow17项通过、0fail/0skip。只新增测试，无生产源码变更，23文件候选保持同一SHA。该测试证明现有一次可信导入/保存足够，不另加自动迁移、兼容层或付费Sol调用；生产转换和正式报价仍须批准后执行与读回。
+
+## 后续明确授权：仅追踪6文件已部署
+
+用户再次明确“允许追踪”后，沿同一原publisher只激活4个已合并追踪源码、追踪开关及只改2项的静态摘要。manifest `1d8d686405640c290912688f7d1a21b984a6aa51f11aaf89944fcec0f7958b5c`，release/backup `nav-20261109T140059Z`。6 after SHA、其余59守卫与三服务active均读回；enabled=true、原center/public27/policy/发布操作及登记11保持。首次cache unavailable保留为initial证据，未主动刷新，14:03:13 UTC原producer自然恢复ready78。
+
+真实浏览器使用同一新测试标记，既有同意状态下先收到1次访问；显式拒绝后切平台/刷新未增加，恢复允许后3页分别操作卡片曝光和选择。14:18 UTC Query三页HTTP200/available，读回独立事件ID，诊断为test：Scout 8、SBC 6、Trio 6，含各页view/product_view/selection；没有伪造checkout/purchase。实际正式统计未混入本次测试。
+
+已登录FS真实付款面板在14:16 UTC读取当日FCSCOUT10合计0笔/$0，明确不拆单页收入或访客付款率。用户原购物车有2件PS商品，未修改数量、优惠或信息；本轮未新增加购/下单/付款，旧版27的先前真实7项购物车证据按原范围保留，不能称本轮新Capture加购已验。
+
+旧四包可见价另经只读源追踪及公开目录核实，来自既存main_catalog通道而非静态种子；Admin/model缓存3/7只表示现代模型报价覆盖。页面成功价无独立TTL的限制保留，四模型转换后仍须验证新的统一链路。不再将“4旧包缺现代别名/缓存投影”写成“页面完全无价格”。
+
+PR961 / CI1851成功，main `2a5ffda91f4c759c59ce7b5ed03ca8bbd78b4399`。剩余页面18文件已按新6文件基线重建、原publisher inspect通过，未激活；导航18及四包正式业务发布仍待当前清单批准。原23包仅留历史且不可重放。
