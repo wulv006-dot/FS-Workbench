@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from contextlib import asynccontextmanager
 from http.cookies import SimpleCookie
 from pathlib import Path
-from urllib.parse import parse_qs, urlencode, urlsplit
+from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 import jsonschema
 from mcp.server.lowlevel import Server
@@ -80,7 +81,8 @@ def create_app(*, store, portal, catalog, backend, issuer: str, resource_url: st
     asset_base = prefix + "/assets"
     resource_metadata = "/.well-known/oauth-protected-resource" + resource.path
     secure_headers = {"Cache-Control": "no-store", "Pragma": "no-cache"}
-    browser_headers = {**secure_headers, "Content-Security-Policy": "default-src 'none'; style-src 'self'; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff"}
+    # Preserve the consent POST Origin without sending referrers to external callbacks.
+    browser_headers = {**secure_headers, "Content-Security-Policy": "default-src 'none'; style-src 'self'; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'", "Referrer-Policy": "same-origin", "X-Content-Type-Options": "nosniff"}
     root = Path(__file__).resolve().parents[1]
     assets = {
         asset_base + '/fs-tokens.css': (root/'ui-system/tokens/fs-tokens.css', 'text/css'),
@@ -193,6 +195,11 @@ def create_app(*, store, portal, catalog, backend, issuer: str, resource_url: st
             if request.method == "GET":
                 items = parse_qs(request.url.query, keep_blank_values=True)
                 params = _oauth_values(items)
+                # The current consent UI is fixed-language; this standard hint never changes authorization.
+                locales = params.pop('ui_locales', None)
+                if locales is not None and (len(locales) > 128 or not re.fullmatch(
+                        r'[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*(?: [A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*)*', locales)):
+                    raise ValueError('invalid_request')
                 if set(params) == {"request_id"}:
                     params = await run_in_threadpool(store.consume_login_request, params["request_id"])
                 if set(params) - {"client_id", "redirect_uri", "resource", "code_challenge", "code_challenge_method", "response_type", "scope", "state"} or params.get("response_type") != "code" or params.get("code_challenge_method") != "S256":
@@ -207,7 +214,12 @@ def create_app(*, store, portal, catalog, backend, issuer: str, resource_url: st
                 page = render_consent(principal=principal, client_name=client.get('client_name') or client['client_id'],
                     redirect_uri=params['redirect_uri'], pending_id=pending, csrf_token=csrf,
                     oauth_base=oauth_base, asset_base=asset_base)
-                return HTMLResponse(page, headers=browser_headers)
+                # Chrome also checks the form's redirect against form-action.
+                callback = urlsplit(params['redirect_uri'])
+                callback_source = quote(f'{callback.scheme}://{callback.netloc}', safe=':/[]')
+                consent_headers = {**browser_headers, 'Content-Security-Policy': browser_headers['Content-Security-Policy'].replace(
+                    "form-action 'self';", f"form-action 'self' {callback_source};")}
+                return HTMLResponse(page, headers=consent_headers)
             if request.headers.get("origin") != f"{origin.scheme}://{origin.netloc}":
                 return browser_error('invalid_request', 403)
             form = await _params(request)

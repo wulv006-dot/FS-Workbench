@@ -1,6 +1,7 @@
 import base64
 import asyncio
 import hashlib
+import json
 import re
 from pathlib import Path
 import tempfile
@@ -204,6 +205,34 @@ class ServerTests(unittest.TestCase):
                 self.assertIn('access_token', self.store.exchange_code(code, self.cid,
                     self.params['redirect_uri'], RESOURCE, VERIFIER))
 
+    def test_chatgpt_locale_hint_reaches_consent_without_changing_authorization(self):
+        self.client.cookies.set('MMOEXP_AUTH', 'alice')
+        response = self.client.get('/connector/oauth/authorize', params=dict(self.params, ui_locales='zh-CN en-US'))
+        self.assertEqual(response.status_code, 200)
+        with self.store._db(write=False) as db:
+            saved = json.loads(db.execute('SELECT params FROM pending').fetchone()[0])
+        self.assertEqual(saved, self.params)
+
+    def test_locale_hint_also_preserves_original_login_request_contract(self):
+        response = self.client.get('/connector/oauth/authorize', params=dict(self.params, ui_locales='zh-CN'),
+            follow_redirects=False)
+        self.assertEqual(response.status_code, 302)
+        with self.store._db(write=False) as db:
+            saved = json.loads(db.execute('SELECT params FROM login_requests').fetchone()[0])
+        self.assertEqual(saved, self.params)
+
+    def test_invalid_or_repeated_locale_hint_never_creates_pending(self):
+        self.client.cookies.set('MMOEXP_AUTH', 'alice')
+        for hint in ('', 'a' * 129, 'zh-CN\n', '<script>', 'zh_CN'):
+            with self.subTest(hint=hint):
+                response = self.client.get('/connector/oauth/authorize', params=dict(self.params, ui_locales=hint))
+                self.assertEqual(response.status_code, 400)
+        response = self.client.get('/connector/oauth/authorize?' + urlencode(
+            list(self.params.items()) + [('ui_locales', 'zh-CN'), ('ui_locales', 'zh-CN')]))
+        self.assertEqual(response.status_code, 400)
+        with self.store._db(write=False) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM pending').fetchone()[0], 0)
+
     def test_long_oauth_request_survives_existing_login_next_limit(self):
         params = dict(self.params, state='s' * 1800)
         response = self.client.get('/connector/oauth/authorize', params=params, follow_redirects=False)
@@ -256,6 +285,43 @@ class ServerTests(unittest.TestCase):
             headers={'Origin': 'https://attacker.example'})
         self.assertEqual(response.status_code, 403)
 
+    def test_null_and_missing_origin_do_not_consume_consent(self):
+        self.client.cookies.set('MMOEXP_AUTH', 'alice')
+        consent = self.client.get('/connector/oauth/authorize', params=self.params)
+        form = {key: re.search(f'name="{key}" value="([^"]+)"', consent.text)[1]
+                for key in ('pending_id', 'csrf_token')}
+        form['decision'] = 'approve'
+        for headers in ({'Origin': 'null'}, {}):
+            with self.subTest(headers=headers):
+                response = self.client.post('/connector/oauth/authorize', data=form,
+                    headers=headers, follow_redirects=False)
+                self.assertEqual(response.status_code, 403)
+        response = self.client.post('/connector/oauth/authorize', data=form,
+            headers={'Origin': ORIGIN}, follow_redirects=False)
+        self.assertEqual(response.status_code, 302)
+
+    def test_consent_csp_allows_only_selected_registered_callback_origin(self):
+        self.client.cookies.set('MMOEXP_AUTH', 'alice')
+        redirects = ['https://client.example/callback?hint=fixture', 'http://127.0.0.1:32123/callback',
+            'https://host.example;script-src/return', 'https://*.example/return']
+        client = self.store.register_client(redirects)
+        expected = ['https://client.example', 'http://127.0.0.1:32123',
+            'https://host.example%3Bscript-src', 'https://%2A.example']
+        for target, source in zip(redirects, expected):
+            with self.subTest(target=target):
+                response = self.client.get('/connector/oauth/authorize', params=dict(
+                    self.params, client_id=client['client_id'], redirect_uri=target))
+                self.assertEqual(response.status_code, 200)
+                policy = response.headers['content-security-policy']
+                directives = dict(part.strip().split(' ', 1) for part in policy.split(';'))
+                self.assertEqual(directives['form-action'], "'self' " + source)
+                self.assertEqual(directives['script-src'], "'self'")
+                self.assertNotIn('hint=', policy)
+        response = self.client.get('/connector/oauth/authorize', params=dict(self.params,
+            client_id=client['client_id'], redirect_uri='https://unregistered.example/callback'))
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn('unregistered.example', response.headers['content-security-policy'])
+
     def test_non_string_json_consent_is_rejected_without_consuming_request(self):
         self.client.cookies.set('MMOEXP_AUTH', 'alice')
         response = self.client.get('/connector/oauth/authorize', params=self.params)
@@ -275,6 +341,7 @@ class ServerTests(unittest.TestCase):
         response = self.client.get('/connector/oauth/authorize', params=self.params)
         self.assertEqual(response.status_code, 200)
         self.assertIn('text/html', response.headers['content-type'])
+        self.assertEqual(response.headers['referrer-policy'], 'same-origin')
         self.assertIn('alice', response.text)
         self.assertIn('Fixture', response.text)
         self.assertIn('原有 private 权限', response.text)
