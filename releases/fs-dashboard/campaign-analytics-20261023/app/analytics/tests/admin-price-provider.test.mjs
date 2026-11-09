@@ -161,12 +161,33 @@ test('current FC pages use the same producer and public price overlay',async()=>
   assert.equal(projected.seasonal_model_contracts[REF.model_id].combinations[0].price.base_minor,2000);
  }finally{provider?.stop();f.clean();}
 });
-test('approved 88-model union fits bounded policy without admitting unlimited entries',async()=>{
+test('retained and new weekly models fit bounded 300-model policy without admitting unlimited entries',async()=>{
  const f=fixture();
  try{
   const entry=f.config.entries[0];f.config={schema_version:2,refresh_interval_ms:60000,entries:Array.from({length:88},(_,i)=>({...entry,model_ref:{...REF,model_id:String(1000+i)}}))};
   assert.equal((await f.provider.refresh()).reason,'PUBLISHED_SELECTION_REQUIRED');assert.equal(f.calls,0);
-  f.config.entries=Array.from({length:101},(_,i)=>({...entry,model_ref:{...REF,model_id:String(1000+i)}}));
+  f.config.entries=Array.from({length:300},(_,i)=>({...entry,model_ref:{...REF,model_id:String(1000+i)}}));
+  assert.equal((await f.provider.refresh()).reason,'PUBLISHED_SELECTION_REQUIRED');assert.equal(f.calls,0);
+  f.config.entries=Array.from({length:301},(_,i)=>({...entry,model_ref:{...REF,model_id:String(1000+i)}}));
   assert.equal((await f.provider.refresh()).reason,'PRIVATE_PRICE_POLICY_REQUIRED');assert.equal(f.calls,0);
  }finally{f.clean();}
+});
+test('more than 100 same-game models retain all observations through bounded backend batches',async()=>{
+ const f=fixture();let provider;
+ try{
+  await f.provider.refresh();f.store.publish({revision:2,operation_id:randomUUID()},'synthetic');
+  const release=JSON.parse(fs.readFileSync(path.join(f.publicDir,'current.json'))),baseProduct=release.products.find(p=>p.product_ref.goods_id===PS),baseContract=release.seasonal_model_contracts[REF.model_id],baseEntry=f.config.entries[0],sizes=[];
+  const products=[],contracts={},entries=[];
+  for(let i=0;i<105;i++){
+   const model_id=String(2000+i),goods_id=String(80000+i),key='batch-'+i,p=structuredClone(baseProduct),c=structuredClone(baseContract);
+   p.key=key;p.product_ref={...p.product_ref,model_id,goods_id};c.model_ref={...c.model_ref,model_id};c.combinations.forEach(x=>x.product_key=key);products.push(p);contracts[model_id]=c;
+   entries.push({...baseEntry,model_ref:{...REF,model_id},verified_goods_ids:[goods_id]});
+  }
+  release.products=products;release.seasonal_model_contracts=contracts;release.pages.forEach(p=>{p.product_keys=p.page_id==='seasonal-vault'?products.map(p=>p.key):[];delete p.product_roles;});
+  const config={schema_version:2,refresh_interval_ms:60000,entries}; (await import('../../runtime/snapshot.mjs')).projectRelease(release);
+  provider=makeAdminPriceProvider({...f.options,readPolicy:()=>config,readSnapshot:()=>release,call:async request=>{
+   sizes.push(request.items.length);const readings={};for(const item of request.items){const o=f.observe();o.model.model_id=item.model_id;o.products.forEach((p,i)=>p.product_ref={...p.product_ref,model_id:item.model_id,goods_id:i===0?String(80000+Number(item.model_id)-2000):String(900000+Number(item.model_id)*10+i)});readings[item.key]={status:'ok',data:o};}return {readings};
+  }});
+  const status=await provider.refresh();assert.equal(status.status,'reference_price_ready_not_checkout',JSON.stringify(status));assert.deepEqual(sizes,[100,5]);assert.equal(Object.keys(readPublicPriceCache(provider.cacheFile).model_contracts).length,105);
+ }finally{provider?.stop();f.clean();}
 });

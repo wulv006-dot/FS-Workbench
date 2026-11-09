@@ -20,3 +20,5 @@ html,body{overflow-x:clip}
 .weekly-main .auto-read{flex-direction:row;align-items:center;margin:0;gap:8px}.weekly-main .auto-read input{width:20px;min-height:20px;accent-color:var(--fs-brand)}
 
 #run-result{overflow-wrap:anywhere}#run-result pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
+
+.workflow-frame{display:block;width:100%;height:720px;border:1px solid var(--fs-line);background:var(--fs-surface);border-radius:8px}#workflow-tabs button[aria-pressed=true]{border-color:var(--fs-accent);font-weight:700}#workflow-orders{display:flex;flex-wrap:wrap;gap:12px}#workflow-orders p{min-width:0;overflow-wrap:anywhere}#workflow-edit{margin-top:18px}#workflow pre{white-space:pre-wrap;overflow-wrap:anywhere}@media(max-width:650px){.workflow-frame{height:600px}}

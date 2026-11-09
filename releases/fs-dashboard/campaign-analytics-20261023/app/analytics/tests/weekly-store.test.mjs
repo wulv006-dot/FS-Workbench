@@ -103,3 +103,74 @@ test('current release receipt cannot verify a historical week from another cente
  assert.throws(()=>store.recordEvidence(receipt),e=>e.code==='PUBLISH_RECEIPT_MISMATCH');
  assert.equal(store.read().weeks[0].stage_status.deployed_readback,'evidence_gap');
 });
+
+test('Shanghai ISO week uses local Monday and ISO week-year at year boundaries',async()=>{
+ const {shanghaiIsoWeek}=await import('../weekly-store.mjs');
+ assert.equal(shanghaiIsoWeek('2026-11-08T15:59:59Z'),'2026-W45');assert.equal(shanghaiIsoWeek('2026-11-08T16:00:00Z'),'2026-W46');
+ assert.equal(shanghaiIsoWeek('2027-01-03T15:59:59Z'),'2026-W53');assert.equal(shanghaiIsoWeek('2027-01-03T16:00:00Z'),'2027-W01');
+});
+test('automatic three-page work orders preserve manual history and multiple same-week runs',t=>{
+ const {store,center}=setup(t);store.mutate(request(store,'create'),'admin');store.mutate(request(store,'review',{note:'Keep this review'}),'admin');
+ const operation_id=randomUUID(),body={operation_id,owner:'admin',draft_revision:7,trigger:'scheduled',created_at:'2026-11-09T04:00:00Z'};
+ const first=store.syncRun(body);assert.equal(first.weeks.length,3);assert(first.weeks.every(w=>w.run_history.length===1));assert.equal(first.weeks.find(w=>w.page_id==='fc27-sbc').reviews[0].note,'Keep this review');
+ assert.equal(store.syncRun(body).revision,first.revision);assert.throws(()=>store.syncRun({...body,owner:'other'}),{code:'WEEKLY_OPERATION_OWNER_MISMATCH'});
+ center.revision=8;const second=store.syncRun({...body,operation_id:randomUUID(),draft_revision:8});assert(second.weeks.every(w=>w.run_history.length===2));assert(second.weeks.every(w=>w.stage_status.natural_weekly_run==='evidence_gap'));
+ assert.equal(store.syncRun(body).revision,second.revision);assert(second.weeks.every(w=>w.operationId!==operation_id));
+});
+test('historical receipt recovery creates its original week without asserting current checks as history',t=>{
+ const {store,center}=setup(t);center.revision=9;
+ const state=store.syncRun({operation_id:randomUUID(),owner:'admin',draft_revision:7,created_at:'2026-11-08T15:00:00Z'});
+ assert(state.weeks.every(w=>w.id==='2026-W45'&&w.activity_revision===7&&w.product_revision===null&&w.check_snapshot.scope==='current_center_not_historical'));
+});
+test('manual draft linkage invalidates prior approval and records each revision only once',t=>{
+ const {store,center}=setup(t),operation_id=randomUUID();store.syncRun({operation_id,owner:'admin',draft_revision:7});
+ store.mutate(request(store,'approval',{scope:'publish',decision:'requested',note:'review'}),'admin');store.mutate(request(store,'approval',{scope:'publish',decision:'approved',note:'approved'}),'admin');
+ center.revision=8;const linked=store.syncDraft({operation_id,owner:'admin',revision:8});assert(linked.weeks.every(w=>w.approval===null&&w.activity_revision===8));assert(linked.weeks.find(w=>w.page_id==='fc27-sbc').approval_history.some(a=>a.reason==='draft_edited'));
+ assert.equal(store.syncDraft({operation_id,owner:'admin',revision:8}).revision,linked.revision);assert.throws(()=>store.syncDraft({operation_id,owner:'admin',revision:9}),{code:'REVISION_CONFLICT'});
+});
+test('publication records explicit approval and verified readback once, never live commerce or natural proof',t=>{
+ const {store,center}=setup(t),operation_id=randomUUID(),publication_operation_id=randomUUID();store.syncRun({operation_id,owner:'admin',draft_revision:7});
+ const published={release_id:'campaign-preview-8',config_hash:'a'.repeat(64),rule_hash:'b'.repeat(64)},result={revision:8,updated_by:'admin',published,last_operation:{operation_id:publication_operation_id,kind:'publish',hash:'c'.repeat(64)}},body={run_operation_id:operation_id,publication_operation_id,owner:'admin',before_revision:7,result,readback:{...published}};
+ center.revision=8;center.published=published;
+ assert.throws(()=>store.recordPublication({...body,readback:{...published,config_hash:'wrong'}}),{code:'PUBLISH_RECEIPT_MISMATCH'});
+ const state=store.recordPublication(body);assert(state.weeks.every(w=>w.status==='published'&&w.approval.status==='approved'&&!w.approval.stale&&w.run_history[0].publications.length===1));
+ assert(state.weeks.every(w=>w.stage_status.deployed_readback==='pass'&&w.stage_status.production_verified==='evidence_gap'&&w.stage_status.natural_weekly_run==='evidence_gap'));
+ center.revision=9;assert.equal(store.recordPublication(body).revision,state.revision);
+ assert.throws(()=>store.recordPublication({...body,before_revision:6}),{code:'REQUEST_CONFLICT'});
+});
+
+test('late older run recovery appends history without replacing the newer same-week draft',t=>{
+ const {store,center}=setup(t);center.revision=9;const latest=randomUUID();store.syncRun({operation_id:latest,owner:'admin',draft_revision:9});
+ const state=store.syncRun({operation_id:randomUUID(),owner:'admin',draft_revision:7});
+ assert(state.weeks.every(w=>w.operationId===latest&&w.activity_revision===9&&w.run_history.length===2));
+});
+
+test('explicit confirmation persists before installation, survives failure, and publication reuses one approval',t=>{
+ const {store,center}=setup(t),run_operation_id=randomUUID(),publication_operation_id=randomUUID();store.syncRun({operation_id:run_operation_id,owner:'admin',draft_revision:7});
+ const confirmation={run_operation_id,publication_operation_id,owner:'admin',revision:7,review_hash:'d'.repeat(64)},approved=store.recordConfirmation(confirmation);
+ assert(approved.weeks.every(w=>w.approval.status==='approved'&&!w.approval.stale&&w.approval.execution_status==='not_recorded'&&w.approval_history.length===1));
+ assert.equal(store.recordConfirmation(confirmation).revision,approved.revision);assert.throws(()=>store.recordConfirmation({...confirmation,review_hash:'e'.repeat(64)}),{code:'REQUEST_CONFLICT'});
+ // No successful publication is needed to retain a valid human approval.
+ const published={release_id:'campaign-preview-8',config_hash:'a'.repeat(64),rule_hash:'b'.repeat(64)},result={revision:8,updated_by:'admin',published,last_operation:{operation_id:publication_operation_id,kind:'publish',hash:'c'.repeat(64)}};
+ const body={run_operation_id,publication_operation_id,owner:'admin',before_revision:7,result,readback:published};
+ assert.throws(()=>store.recordPublication({...body,readback:{...published,config_hash:'wrong'}}),{code:'PUBLISH_RECEIPT_MISMATCH'});assert(store.read().weeks.every(w=>w.approval.review_hash===confirmation.review_hash));
+ center.revision=8;center.published=published;const done=store.recordPublication(body);assert(done.weeks.every(w=>w.approval_history.length===1&&w.approval.review_hash===confirmation.review_hash&&w.approval.execution_status==='published'&&!w.approval.stale));
+ assert.equal(store.recordConfirmation(confirmation).revision,done.revision);assert.equal(store.recordPublication(body).revision,done.revision);
+ assert.throws(()=>store.recordConfirmation({...confirmation,publication_operation_id:randomUUID()}),{code:'APPROVAL_STALE'});
+});
+
+test('late publication receipt records history after draft edits or a newer run without rolling current state back',t=>{
+ for(const newerRun of [false,true]){
+  const {store,center}=setup(t),run_operation_id=randomUUID(),publication_operation_id=randomUUID();store.syncRun({operation_id:run_operation_id,owner:'admin',draft_revision:7});
+  store.recordConfirmation({run_operation_id,publication_operation_id,owner:'admin',revision:7,review_hash:'d'.repeat(64)});
+  const published={release_id:'campaign-preview-8',config_hash:'a'.repeat(64),rule_hash:'b'.repeat(64)},result={revision:8,updated_by:'admin',published,last_operation:{operation_id:publication_operation_id,kind:'publish',hash:'c'.repeat(64)}};
+  center.revision=9;center.published={release_id:'later',config_hash:'e'.repeat(64),rule_hash:'f'.repeat(64)};
+  if(newerRun)store.syncRun({operation_id:randomUUID(),owner:'admin',draft_revision:9});else store.syncDraft({operation_id:run_operation_id,owner:'admin',revision:9});
+  const before=store.read().weeks.map(w=>({operationId:w.operationId,activity_revision:w.activity_revision,status:w.status,approval:w.approval}));
+  const body={run_operation_id,publication_operation_id,owner:'admin',before_revision:7,result,readback:{...published,current:false}},saved=store.recordPublication(body);
+  assert.deepEqual(saved.weeks.map(w=>({operationId:w.operationId,activity_revision:w.activity_revision,status:w.status,approval:w.approval})),before);
+  for(const w of saved.weeks){assert.equal(w.run_history.find(r=>r.operation_id===run_operation_id).publications.length,1);assert.equal(w.approval_history.find(a=>a.publication_operation_id===publication_operation_id).execution_status,'published');assert.equal(w.stage_status.deployed_readback,'evidence_gap');}
+  assert.equal(store.recordPublication(body).revision,saved.revision);
+  assert.throws(()=>store.recordPublication({...body,publication_operation_id:randomUUID()}),{code:'PUBLISH_RECEIPT_MISMATCH'});
+ }
+});
