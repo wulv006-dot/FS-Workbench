@@ -1,4 +1,5 @@
-"""Anonymous, read-only customer aggregate for a selected opaque tracking ID."""
+"""Authorized customer detail and optional anonymous aggregates for a tracking ID."""
+from copy import deepcopy
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -15,7 +16,7 @@ def _moment(value):
 
 
 def anonymous_snapshot(detail):
-    """No email, UID, original order number or free-text Admin fields survive."""
+    """Optional identity-free aggregate; callers may also request business detail."""
     tracking_id=detail.get('tracking_id')
     if not isinstance(tracking_id,str) or not ID.fullmatch(tracking_id):raise ValueError('tracking_identity')
     tracked=_moment(detail.get('tracked_at'))
@@ -51,3 +52,23 @@ def anonymous_snapshot(detail):
         'source_total':coverage.get('source_total'),'source_received':coverage.get('received'),
         'groups':groups,'unknown_payment_time_orders':unknown_time,'non_paid_orders_excluded':unpaid,
         'rule':'仅已核客户邮箱在站点266的匹配订单参与，分FC27与其他游戏、加入前后；仅pay_status=1计付费单。未知金额不补零，退款状态需人工复核；无联系、发券、改单权限。'}
+
+
+def customer_snapshot(detail):
+    """Original admin/owner authorization permits identifiers and stored order detail."""
+    value=anonymous_snapshot(detail)
+    for key in ('email','uid','owner','first_paid_status','first_paid_scope','stage_markers',
+                'clock_rule','history_coverage','history_observed_at','milestones'):
+        if key in detail:value[key]=deepcopy(detail[key])
+    value['tracking_status']=detail.get('status')
+    fields=('order_no','email','uid','gid','site_id','paid_at','observed_at','pay_status',
+        'current_status','order_usd','order_usd_source','admin_order_usd','es_order_usd',
+        'selected_game','discount_usd','product_type','product_types','customer_flag',
+        'profile','identity_status','identity_reason','identity_source','amount_conflict')
+    value['orders']=[]
+    for order in detail.get('orders',[]):
+        row={key:deepcopy(order[key]) for key in fields if key in order}
+        for key,names in (('payment',('amount','currency')),('es_identity',('buyer_id','uid','status','source'))):
+            if isinstance(order.get(key),dict):row[key]={name:deepcopy(order[key][name]) for name in names if name in order[key]}
+        value['orders'].append(row)
+    return value

@@ -34,7 +34,16 @@ class LegacyConsumers(unittest.TestCase):
         spec.loader.exec_module(module)
         module.SOURCE = NEW
         self.assertEqual(module.SOURCE, NEW)
-        suite = unittest.defaultTestLoader.loadTestsFromModule(module)
+        # Exercise the original consumer contract; current-only tests have their own source and loader.
+        names = ('test_admin_on_every_read_write_and_exact_owner',
+                 'test_completed_original_is_deduplicated',
+                 'test_restart_reconciles_original_run_and_persisted_task',
+                 'test_html_fence_keeps_reply_and_extracts_exact_document',
+                 'test_embedded_single_complete_html_is_archived_verbatim',
+                 'test_unconfirmed_worker_status_keeps_task_for_reconciliation',
+                 'test_current_method_and_reviewed_owner_learning_are_on_demand',
+                 'test_business_policy_question_can_read_current_reviewed_memory')
+        suite = unittest.TestSuite(module.ServiceTests(name) for name in names)
         self.assertEqual(suite.countTestCases(), 8)
         result = unittest.TestResult()
         suite.run(result)

@@ -18,7 +18,7 @@ def require_success(result):
     if result.testsRun <= 0 or not result.wasSuccessful() or result.skipped:
         raise RuntimeError("required_tests_failed_or_empty_or_skipped")
 
-def units(directory, names, root_owned=False):
+def units(directory, names, root_owned=False, python=None):
     # Each group runs in a fresh interpreter: avoid module-name/path collisions.
     code = """
 import io,json,socket,subprocess,sys,unittest
@@ -33,8 +33,15 @@ def local(self,address):
         raise AssertionError('offline_test_external_network')
     return real(self,address)
 socket.socket.connect=local
-def reject(*a,**k):raise AssertionError('offline_test_external_process')
-subprocess.Popen=reject
+class RejectPopen:
+    @classmethod
+    def __class_getitem__(cls,item):return cls
+    def __new__(cls,*a,**k):raise AssertionError('offline_test_external_process')
+subprocess.Popen=RejectPopen
+assert subprocess.Popen[bytes] is RejectPopen
+try:subprocess.Popen(['offline_guard_probe'])
+except AssertionError as error:assert str(error)=='offline_test_external_process'
+else:raise AssertionError('offline_process_guard_missing')
 suite=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in sys.argv[3:])
 r=unittest.TextTestRunner(verbosity=2).run(suite)
 print(json.dumps({'testsRun':r.testsRun,'failures':len(r.failures),'errors':len(r.errors),'skipped':len(r.skipped)}))
@@ -45,7 +52,7 @@ sys.exit(0 if r.testsRun>0 and r.wasSuccessful() and not r.skipped else 1)
         # The publisher requires root-owned staging; reproduce it inside the disposable CI checkout.
         subprocess.run(["sudo","chown","-R","0:0",str(ROOT/directory)],check=True,timeout=30)
         prefix=["sudo"]
-    subprocess.run(prefix+[sys.executable,"-I","-B","-c",code,str(ROOT),directory]+names,check=True,timeout=90,cwd=ROOT)
+    subprocess.run(prefix+[python or sys.executable,"-I","-B","-c",code,str(ROOT),directory]+names,check=True,timeout=90,cwd=ROOT)
 
 def hermes_native_publisher_remaining():
     """Unittest suite factory: keep the real loader, excluding only the separate heavy case."""
@@ -454,6 +461,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('fs_mcp_connector/'):
+            groups.add('fs-mcp-connector');continue
         if name.startswith(('opt/mmoexp-fc-community/', 'opt/mmoexp-fc-quotes/', 'opt/fc27-news-fetch/')):
             groups.add('fc-community');continue
         if name in ('opt/bot-console/test_fc_console.py', 'opt/bot-console/static/fc27.html'):
@@ -893,6 +902,12 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group == 'fs-mcp-connector':
+            python = os.environ.get('FS_CONNECTOR_PYTHON')
+            if not python:
+                raise RuntimeError('connector_python_312_required')
+            units('fs_mcp_connector/tests', ['test_auth', 'test_portal', 'test_backend', 'test_server', 'test_catalog_extended', 'test_knowledge', 'test_documents', 'test_g2g', 'test_players', 'test_gallery', 'test_accounts', 'test_consent', 'test_sales', 'test_evolutions', 'test_tracking', 'test_redaction'], python=python)
+            continue
         if group=='seo-daily':
             units('mmoexp_google_data/seo/tests', ['test_contracts','test_sources','test_pages','test_store','test_daily_snapshot','test_ai_policy','test_resources','test_api','test_rules','test_runtime','test_estimate','test_web','test_prepare'])
             for script in (ROOT/'ui-system/modules/seo').glob('*.mjs'):
@@ -1399,7 +1414,7 @@ def main():
             if ({n.name for n in ast.walk(layout) if isinstance(n,ast.ClassDef)}!={"NativePublisher","RuntimeMaterials"}
                     or any(getattr(n,"name",None)=="load_tests" or getattr(n,"id",None)=="load_tests" for n in ast.walk(layout))):
                 raise RuntimeError("hermes_deploy_test_layout_changed_update_groups")
-            units(release+"/tests",["test_conversation_store","test_conversation_service","test_worker_admission","test_lazy_evidence"])
+            units(release+"/tests",["test_conversation_store","test_conversation_service","test_worker_admission","test_lazy_evidence","test_conversation_readonly"])
             units(release+"/deploy",["test_http","test_release","test_runtime_materials.RuntimeMaterials"])
             units(release+"/deploy",["test_runtime_materials.NativePublisher.test_native_capabilities_original_apply_rollback"])
             units(release+"/deploy",["tools.pr_fast.hermes_native_publisher_remaining"])
@@ -1423,7 +1438,7 @@ def main():
         elif group=="fc-wait-sort":
             units("releases/fs-dashboard/fc-order-wait-sort-20261020/tests",["test_wait_sort"])
         elif group=="customer-lifecycle":
-            units("releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests",["test_lifecycle"])
+            units("releases/fs-dashboard/hermes-customer-lifecycle-20261019/tests",["test_lifecycle","test_readonly"])
             units("releases/fs-dashboard/hermes-customer-tracking-20261018/tests",["test_private_tracking"])
         elif group=="hermes-navigation-range":
             units("releases/fs-dashboard/hermes-navigation-range-20261019/tests",["test_contract"])

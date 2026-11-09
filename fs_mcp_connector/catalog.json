@@ -1,0 +1,5499 @@
+{
+  "schema_version": 1,
+  "operations": [
+    {
+      "name": "business.catalog",
+      "module": "unified-business",
+      "path": "/dashboard/fs-home/range.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/range.json",
+      "description": "经营可用范围目录；日期覆盖可能有空缺",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "catalog"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-business-range.locations.conf",
+        "route_prefix": "/dashboard/fs-home/range.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "business.archives",
+      "module": "unified-business",
+      "path": "/dashboard/fs-home/range.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/range.json",
+      "description": "经营可用范围目录；日期覆盖可能有空缺",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "archive-catalog"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-business-range.locations.conf",
+        "route_prefix": "/dashboard/fs-home/range.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "business.summary",
+      "module": "unified-business",
+      "path": "/dashboard/fs-home/range.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/range.json",
+      "description": "原经营汇总/发货毛利；保留异步pending与原筛选",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "[A-Za-z0-9_-]{1,80}"
+          },
+          "start": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "end": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "grain": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "day",
+              "hour"
+            ]
+          },
+          "rs_site": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "rs_server": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "rs_category": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "profit_site": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "profit_category": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "profit_basis": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "actual",
+              "shipping"
+            ]
+          }
+        },
+        "required": [
+          "profile",
+          "start",
+          "end"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "summary"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py; releases/fs-dashboard/dashboard-refresh-20261025/source/live_summary.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-business-range.locations.conf",
+        "route_prefix": "/dashboard/fs-home/range.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "business.profit_history",
+      "module": "unified-business",
+      "path": "/dashboard/fs-home/range.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/range.json",
+      "description": "原经营汇总/发货毛利；保留异步pending与原筛选",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "[A-Za-z0-9_-]{1,80}"
+          },
+          "start": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "end": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "grain": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "day",
+              "hour"
+            ]
+          },
+          "rs_site": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "rs_server": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "rs_category": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "profit_site": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "profit_category": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "profit_basis": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "actual",
+              "shipping"
+            ]
+          }
+        },
+        "required": [
+          "profile",
+          "start",
+          "end"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "profit-history"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py; releases/fs-dashboard/dashboard-refresh-20261025/source/live_summary.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-business-range.locations.conf",
+        "route_prefix": "/dashboard/fs-home/range.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "business.native_range",
+      "module": "unified-business",
+      "path": "/dashboard/fs-home/range.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/range.json",
+      "description": "原生区间；snapshotId先从business.catalog读取",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "[A-Za-z0-9_-]{1,80}"
+          },
+          "start": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "end": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "snapshotId": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "grain": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "day",
+              "hour"
+            ]
+          },
+          "analysis": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "fc27-categories",
+              "fc27-products"
+            ]
+          },
+          "until": {
+            "type": "string",
+            "maxLength": 16
+          }
+        },
+        "required": [
+          "profile",
+          "start",
+          "end",
+          "snapshotId"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/range_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-business-range.locations.conf",
+        "route_prefix": "/dashboard/fs-home/range.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "users.catalog",
+      "module": "user-analytics",
+      "path": "/dashboard/users/data.json",
+      "method": "GET",
+      "permission_path": "/dashboard/users/data.json",
+      "description": "原用户分析口径/可用范围目录",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "action": "catalog"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/user-analytics-20261022/source/user_http.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/users/data.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "users.summary",
+      "module": "user-analytics",
+      "path": "/dashboard/users/data.json",
+      "method": "GET",
+      "permission_path": "/dashboard/users/data.json",
+      "description": "原用户分析汇总；权限和快照合同由原服务核验",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "summary",
+              "trend",
+              "projects",
+              "transitions",
+              "cohort",
+              "migration",
+              "trajectories"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "global",
+              "site",
+              "project",
+              "series"
+            ]
+          },
+          "scope_id": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "start": {
+            "type": "string",
+            "maxLength": 35
+          },
+          "end_exclusive": {
+            "type": "string",
+            "maxLength": 35
+          },
+          "as_of": {
+            "type": "string",
+            "maxLength": 35
+          },
+          "state_basis": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "current",
+              "period_end",
+              "period_cohort"
+            ]
+          },
+          "policy_version": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "policy_mode": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "per_project",
+              "uniform"
+            ]
+          },
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "H": {
+            "type": "integer",
+            "minimum": 7,
+            "maximum": 30,
+            "enum": [
+              7,
+              30
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/user-analytics-20261022/source/user_http.py; releases/fs-dashboard/user-analytics-20261022/source/user_contract.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/users/data.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "users.members",
+      "module": "user-analytics",
+      "path": "/dashboard/users/private.json",
+      "method": "GET",
+      "permission_path": "/dashboard/users/private.json",
+      "description": "private成员分页，最大200，原private权限再次校验",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "group": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "repeat_status": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "customer_type": {
+            "type": "string",
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "group"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "action": "members"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/user-analytics-20261022/source/user_query.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/users/private.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "users.detail",
+      "module": "user-analytics",
+      "path": "/dashboard/users/private.json",
+      "method": "GET",
+      "permission_path": "/dashboard/users/private.json",
+      "description": "private客户明细，仅按原快照客户ID",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "customer_id": {
+            "type": "string",
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "customer_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "action": "detail"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/user-analytics-20261022/source/user_query.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/users/private.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "users.search",
+      "module": "user-analytics",
+      "path": "/dashboard/users/search.json",
+      "method": "POST",
+      "permission_path": "/dashboard/users/search.json",
+      "description": "精确邮箱仅POST，原private权限",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "pattern": "[^\\s@]+@[^\\s@]+\\.[^\\s@]+"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "email"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/user-analytics-20261022/source/user_query.py; releases/fs-dashboard/user-analytics-20261022/deploy/patch_search.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/users/search.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "orders.live",
+      "module": "user-analytics",
+      "path": "/dashboard/users/live-orders.json",
+      "method": "GET",
+      "permission_path": "/dashboard/users/live-orders.json",
+      "description": "实时非快照；20条/页，1–28天，365天边界，保留partial/游标",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "[0-9]{1,20}"
+          },
+          "game_id": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "[0-9]{1,20}"
+          },
+          "start": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "end_exclusive": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "site_id",
+          "game_id",
+          "start",
+          "end_exclusive"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 8192,
+        "response_bytes": 262144,
+        "timeout_seconds": 10
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/tiered-data-access-20261101/LIVE-ORDER-PAGINATION.md",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/users/live-orders.json",
+        "route_observed_date": "2026-11-09"
+      },
+      "date_contract": "live_orders"
+    },
+    {
+      "name": "orders.customer",
+      "module": "user-analytics",
+      "path": "/dashboard/users/live-orders.json",
+      "method": "POST",
+      "permission_path": "/dashboard/users/live-orders.json",
+      "description": "实时非快照；20条/页，1–28天，365天边界，保留partial/游标",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "site_id": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "[0-9]{1,20}"
+          },
+          "game_id": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "[0-9]{1,20}"
+          },
+          "start": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "end_exclusive": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "customer_email": {
+            "type": "string",
+            "maxLength": 254,
+            "pattern": "[^\\s@]+@[^\\s@]+\\.[^\\s@]+"
+          }
+        },
+        "required": [
+          "site_id",
+          "game_id",
+          "start",
+          "end_exclusive",
+          "customer_email"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 262144,
+        "timeout_seconds": 10
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/tiered-data-access-20261101/LIVE-ORDER-PAGINATION.md",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/users/live-orders.json",
+        "route_observed_date": "2026-11-09"
+      },
+      "date_contract": "live_orders"
+    },
+    {
+      "name": "channels.code",
+      "module": "channel-effects",
+      "path": "/dashboard/channel-effects/data.json",
+      "method": "GET",
+      "permission_path": "/dashboard/channel-effects/data.json",
+      "description": "原渠道分析；50条/页，原汇总与来源归因",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "end": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "gid": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "[0-9]{1,20}"
+          },
+          "project": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "status": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "valid",
+              "all",
+              "refund"
+            ]
+          },
+          "country": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "payment": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999
+          },
+          "sort": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "paidAt",
+              "salesUsd",
+              "costCny",
+              "profitCny",
+              "orderNo"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "code"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/channel_effects.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/channel-effects/data.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "channels.coupon",
+      "module": "channel-effects",
+      "path": "/dashboard/channel-effects/data.json",
+      "method": "GET",
+      "permission_path": "/dashboard/channel-effects/data.json",
+      "description": "原渠道分析；50条/页，原汇总与来源归因",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "end": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "gid": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "[0-9]{1,20}"
+          },
+          "project": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "status": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "valid",
+              "all",
+              "refund"
+            ]
+          },
+          "country": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "payment": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999
+          },
+          "sort": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "paidAt",
+              "salesUsd",
+              "costCny",
+              "profitCny",
+              "orderNo"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "coupon"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/channel_effects.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/channel-effects/data.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "channels.profit",
+      "module": "channel-effects",
+      "path": "/dashboard/channel-effects/data.json",
+      "method": "GET",
+      "permission_path": "/dashboard/channel-effects/data.json",
+      "description": "原渠道分析；50条/页，原汇总与来源归因",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "end": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "gid": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "[0-9]{1,20}"
+          },
+          "project": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "status": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "valid",
+              "all",
+              "refund"
+            ]
+          },
+          "country": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "payment": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999
+          },
+          "sort": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "paidAt",
+              "salesUsd",
+              "costCny",
+              "profitCny",
+              "orderNo"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "profit"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/dashboard-refresh-20261025/source/channel_effects.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/channel-effects/data.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "seo.current",
+      "module": "seo",
+      "path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "description": "读取已发布SEO快照ID",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "mmoexp_google_data/seo/web.py; mmoexp_google_data/seo/api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/seo/api/v1/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "seo.manifest",
+      "module": "seo",
+      "path": "/dashboard/analytics/seo/api/v1/snapshots/{snapshot_id}/manifest",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "description": "读取指定SEO快照来源与覆盖",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "seo-\\d{4}-\\d{2}-\\d{2}(?:-manual-[a-f0-9]{12})?"
+          }
+        },
+        "required": [
+          "snapshot_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "snapshot_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "mmoexp_google_data/seo/api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/seo/api/v1/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "seo.summary",
+      "module": "seo",
+      "path": "/dashboard/analytics/seo/api/v1/snapshots/{snapshot_id}/summary",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "description": "SEO已发布快照分页；100条上限，保留来源状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "seo-\\d{4}-\\d{2}-\\d{2}(?:-manual-[a-f0-9]{12})?"
+          },
+          "game": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "FC27",
+              "D4",
+              "AION2",
+              "WOW_FOREVER"
+            ]
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "game"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "snapshot_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "mmoexp_google_data/seo/api.py; mmoexp_google_data/seo/snapshot.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/seo/api/v1/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "seo.history",
+      "module": "seo",
+      "path": "/dashboard/analytics/seo/api/v1/snapshots/{snapshot_id}/history",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "description": "SEO已发布快照分页；100条上限，保留来源状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "seo-\\d{4}-\\d{2}-\\d{2}(?:-manual-[a-f0-9]{12})?"
+          },
+          "game": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "FC27",
+              "D4",
+              "AION2",
+              "WOW_FOREVER"
+            ]
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "game"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "snapshot_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "mmoexp_google_data/seo/api.py; mmoexp_google_data/seo/snapshot.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/seo/api/v1/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "seo.sources",
+      "module": "seo",
+      "path": "/dashboard/analytics/seo/api/v1/snapshots/{snapshot_id}/sources",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "description": "SEO已发布快照分页；100条上限，保留来源状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "seo-\\d{4}-\\d{2}-\\d{2}(?:-manual-[a-f0-9]{12})?"
+          },
+          "game": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "FC27",
+              "D4",
+              "AION2",
+              "WOW_FOREVER"
+            ]
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "game"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "snapshot_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "mmoexp_google_data/seo/api.py; mmoexp_google_data/seo/snapshot.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/seo/api/v1/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "seo.rankings",
+      "module": "seo",
+      "path": "/dashboard/analytics/seo/api/v1/snapshots/{snapshot_id}/rankings",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "description": "SEO已发布快照分页；100条上限，保留来源状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "seo-\\d{4}-\\d{2}-\\d{2}(?:-manual-[a-f0-9]{12})?"
+          },
+          "game": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "FC27",
+              "D4",
+              "AION2",
+              "WOW_FOREVER"
+            ]
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "game"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "snapshot_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "mmoexp_google_data/seo/api.py; mmoexp_google_data/seo/snapshot.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/seo/api/v1/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "seo.markets",
+      "module": "seo",
+      "path": "/dashboard/analytics/seo/api/v1/snapshots/{snapshot_id}/markets",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "description": "SEO已发布快照分页；100条上限，保留来源状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "seo-\\d{4}-\\d{2}-\\d{2}(?:-manual-[a-f0-9]{12})?"
+          },
+          "game": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "FC27",
+              "D4",
+              "AION2",
+              "WOW_FOREVER"
+            ]
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "game"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "snapshot_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "mmoexp_google_data/seo/api.py; mmoexp_google_data/seo/snapshot.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/seo/api/v1/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "seo.calendar",
+      "module": "seo",
+      "path": "/dashboard/analytics/seo/api/v1/snapshots/{snapshot_id}/calendar",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "description": "SEO已发布快照分页；100条上限，保留来源状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "seo-\\d{4}-\\d{2}-\\d{2}(?:-manual-[a-f0-9]{12})?"
+          },
+          "game": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "FC27",
+              "D4",
+              "AION2",
+              "WOW_FOREVER"
+            ]
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "game"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "snapshot_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "mmoexp_google_data/seo/api.py; mmoexp_google_data/seo/snapshot.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/seo/api/v1/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "seo.pages",
+      "module": "seo",
+      "path": "/dashboard/analytics/seo/api/v1/snapshots/{snapshot_id}/pages",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "description": "SEO已发布快照分页；100条上限，保留来源状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "seo-\\d{4}-\\d{2}-\\d{2}(?:-manual-[a-f0-9]{12})?"
+          },
+          "game": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "FC27",
+              "D4",
+              "AION2",
+              "WOW_FOREVER"
+            ]
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "game"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "snapshot_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "mmoexp_google_data/seo/api.py; mmoexp_google_data/seo/snapshot.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/seo/api/v1/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "seo.orders",
+      "module": "seo",
+      "path": "/dashboard/analytics/seo/api/v1/snapshots/{snapshot_id}/orders",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "description": "SEO已发布快照分页；100条上限，保留来源状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "seo-\\d{4}-\\d{2}-\\d{2}(?:-manual-[a-f0-9]{12})?"
+          },
+          "game": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "FC27",
+              "D4",
+              "AION2",
+              "WOW_FOREVER"
+            ]
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "game"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "snapshot_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "mmoexp_google_data/seo/api.py; mmoexp_google_data/seo/snapshot.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/seo/api/v1/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "seo.rules",
+      "module": "seo",
+      "path": "/dashboard/analytics/seo/api/v1/snapshots/{snapshot_id}/rules",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/seo/api/v1/snapshots/current",
+      "description": "SEO已发布快照分页；100条上限，保留来源状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "seo-\\d{4}-\\d{2}-\\d{2}(?:-manual-[a-f0-9]{12})?"
+          },
+          "game": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "FC27",
+              "D4",
+              "AION2",
+              "WOW_FOREVER"
+            ]
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "game"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "snapshot_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "mmoexp_google_data/seo/api.py; mmoexp_google_data/seo/snapshot.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/seo/api/v1/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "tasks.board",
+      "module": "tasks",
+      "path": "/dashboard/tasks/api/board",
+      "method": "GET",
+      "permission_path": "/dashboard/tasks/api/board",
+      "description": "任务台原board读取；保留原成员权限",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/mmoexp-taskboard/taskboard_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/taskboard.locations.conf",
+        "route_prefix": "/dashboard/tasks/api/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "tasks.members",
+      "module": "tasks",
+      "path": "/dashboard/tasks/api/members",
+      "method": "GET",
+      "permission_path": "/dashboard/tasks/api/members",
+      "description": "任务台原members读取；保留原成员权限",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/mmoexp-taskboard/taskboard_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/taskboard.locations.conf",
+        "route_prefix": "/dashboard/tasks/api/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "tasks.detail",
+      "module": "tasks",
+      "path": "/dashboard/tasks/api/tasks/{task_id}",
+      "method": "GET",
+      "permission_path": "/dashboard/tasks/",
+      "description": "任务详情/事件（最多200）；原权限",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "task_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "task_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/mmoexp-taskboard/taskboard_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/taskboard.locations.conf",
+        "route_prefix": "/dashboard/tasks/api/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "tasks.events",
+      "module": "tasks",
+      "path": "/dashboard/tasks/api/tasks/{task_id}/events",
+      "method": "GET",
+      "permission_path": "/dashboard/tasks/",
+      "description": "任务详情/事件（最多200）；原权限",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "task_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "task_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/mmoexp-taskboard/taskboard_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/taskboard.locations.conf",
+        "route_prefix": "/dashboard/tasks/api/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "conversations.list",
+      "module": "hermes-conversation",
+      "path": "/api/hermes/conversations",
+      "method": "GET",
+      "permission_path": "/api/hermes/conversations",
+      "description": "仅列出当前真实用户自己的会话",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/api/hermes/conversations",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "conversations.detail",
+      "module": "hermes-conversation",
+      "path": "/api/hermes/conversations/{conversation_id}",
+      "method": "GET",
+      "permission_path": "/api/hermes/conversations",
+      "description": "原会话对象所有权校验；读取不提交任务",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "[A-Za-z0-9_-]{8,80}"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "conversation_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/api/hermes/conversations/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "conversations.files",
+      "module": "hermes-conversation",
+      "path": "/api/hermes/conversations/{conversation_id}/connector/files",
+      "method": "GET",
+      "permission_path": "/api/hermes/conversations",
+      "description": "原owned权限下只读附件元数据；保留过期/缺失状态，不创建目录或清理附件",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "[a-f0-9]{32}"
+          }
+        },
+        "required": [
+          "conversation_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "conversation_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_readonly.py; releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py",
+        "mapping_status": "new_owned_readonly_files_adapter; adapter_deployment_and_authenticated_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/api/hermes/conversations/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "conversations.pricing_review",
+      "module": "hermes-conversation",
+      "path": "/api/hermes/conversations/pricing-reviews/{review_id}",
+      "method": "GET",
+      "permission_path": "/api/hermes/conversations",
+      "description": "原会话对象所有权校验；读取不提交任务",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "review_id": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "[A-Za-z0-9_-]{8,80}"
+          }
+        },
+        "required": [
+          "review_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "review_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/api/hermes/conversations/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "game_monitor.intelligence",
+      "module": "game-monitor",
+      "path": "/dashboard/game-monitor/intelligence.json",
+      "method": "GET",
+      "permission_path": "/dashboard/game-monitor/intelligence.json",
+      "description": "游戏情报已发布只读数据；状态与内容分开",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "ui-system/modules/game-monitor/web/app.js; ui-system/modules/game-monitor/prepare_ui.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/game-monitor/intelligence.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "game_monitor.intelligence_status",
+      "module": "game-monitor",
+      "path": "/dashboard/game-monitor/intelligence.status.json",
+      "method": "GET",
+      "permission_path": "/dashboard/game-monitor/intelligence.status.json",
+      "description": "游戏情报已发布只读数据；状态与内容分开",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "ui-system/modules/game-monitor/web/app.js; ui-system/modules/game-monitor/prepare_ui.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/game-monitor/intelligence.status.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "game_monitor.seo_news",
+      "module": "game-monitor",
+      "path": "/dashboard/game-monitor/seo-news.json",
+      "method": "GET",
+      "permission_path": "/dashboard/game-monitor/seo-news.json",
+      "description": "游戏情报已发布只读数据；状态与内容分开",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "ui-system/modules/game-monitor/web/app.js; ui-system/modules/game-monitor/prepare_ui.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/game-monitor/seo-news.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "game_monitor.seo_news_status",
+      "module": "game-monitor",
+      "path": "/dashboard/game-monitor/seo-news.status.json",
+      "method": "GET",
+      "permission_path": "/dashboard/game-monitor/seo-news.status.json",
+      "description": "游戏情报已发布只读数据；状态与内容分开",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "ui-system/modules/game-monitor/web/app.js; ui-system/modules/game-monitor/prepare_ui.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/game-monitor/seo-news.status.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "marketing.range",
+      "module": "marketing",
+      "path": "/dashboard/marketing/range.json",
+      "method": "GET",
+      "permission_path": "/dashboard/marketing/range.json",
+      "description": "Original GA4/GSC/Ads traffic range or business links. Preserve partial, stale, source contracts and timezone.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "end": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 8388608,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/daily-archive-20261021/source/marketing_range_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/marketing/range.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "marketing.business_links",
+      "module": "marketing",
+      "path": "/dashboard/marketing/business-links.json",
+      "method": "GET",
+      "permission_path": "/dashboard/marketing/business-links.json",
+      "description": "Original GA4/GSC/Ads traffic range or business links. Preserve partial, stale, source contracts and timezone.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "end": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 8388608,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/daily-archive-20261021/source/marketing_range_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/marketing/business-links.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "campaigns.statistics_snapshot",
+      "module": "campaign-analytics",
+      "path": "/dashboard/analytics/campaigns/analytics/api/statistics-snapshot",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/campaigns/analytics/api/statistics-snapshot",
+      "description": "Read published scheduled campaign statistics; does not submit refresh.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "today",
+              "campaign",
+              "yesterday"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/production-server.mjs",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/campaigns/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "campaigns.catalog",
+      "module": "campaign-products",
+      "path": "/dashboard/analytics/campaigns/analytics/api/catalog",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/campaigns/analytics/api/catalog",
+      "description": "Published business product catalog and current layout; no credential-bearing editor bootstrap.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/production-server.mjs",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/campaigns/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "campaigns.report",
+      "module": "campaign-analytics",
+      "path": "/dashboard/analytics/campaigns/analytics/api/report",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/campaigns/analytics/api/report",
+      "description": "Read bounded PostHog funnel; upstream rejects capped results. Maximum 31 dates.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "activity": {
+            "type": "string",
+            "maxLength": 100,
+            "pattern": "[A-Za-z0-9_-]{1,100}"
+          },
+          "from": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "to": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "mode": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "live",
+              "test"
+            ]
+          },
+          "template": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "commerce",
+              "prediction",
+              "reward"
+            ]
+          },
+          "game": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "all|[0-9]{1,20}"
+          },
+          "windowHours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 720
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "device": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "platform": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "testRunId": {
+            "type": "string",
+            "maxLength": 36,
+            "pattern": "[a-fA-F0-9-]{36}"
+          },
+          "match": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "activity",
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/production-server.mjs; releases/fs-dashboard/campaign-analytics-20261023/app/analytics/server.mjs",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/campaigns/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "campaigns.discount_revenue",
+      "module": "campaign-analytics",
+      "path": "/dashboard/analytics/campaigns/analytics/api/discount-revenue",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/campaigns/analytics/api/discount-revenue",
+      "description": "Read authoritative seasonal paid-order discount revenue, maximum 31 dates.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "to": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "game": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "all",
+              "1327",
+              "891",
+              "1333",
+              "456"
+            ]
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "activity": "mmoexp-seasonal",
+        "mode": "live"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/discount-revenue.mjs",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/campaigns/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "campaigns.origin_traffic",
+      "module": "campaign-analytics",
+      "path": "/dashboard/analytics/campaigns/analytics/api/origin-traffic",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/campaigns/analytics/api/origin-traffic",
+      "description": "Aggregate existing origin access logs, maximum 31 dates; no client identifiers.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "to": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "activity": "mmoexp-seasonal"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/origin-traffic.mjs",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/campaigns/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "campaigns.ga4",
+      "module": "campaign-analytics",
+      "path": "/dashboard/analytics/campaigns/analytics/api/google-traffic",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/campaigns/analytics/api/google-traffic",
+      "description": "Read original ga4 campaign traffic, maximum 31 dates; no credential response.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "to": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "activity": "mmoexp-seasonal",
+        "source": "ga4"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 250000,
+        "timeout_seconds": 95
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/google-traffic.mjs",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/campaigns/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "campaigns.gsc",
+      "module": "campaign-analytics",
+      "path": "/dashboard/analytics/campaigns/analytics/api/google-traffic",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/campaigns/analytics/api/google-traffic",
+      "description": "Read original gsc campaign traffic, maximum 31 dates; no credential response.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "to": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "activity": "mmoexp-seasonal",
+        "source": "gsc"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 250000,
+        "timeout_seconds": 95
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/google-traffic.mjs",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/campaigns/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "campaigns.ads",
+      "module": "campaign-analytics",
+      "path": "/dashboard/analytics/campaigns/analytics/api/google-traffic",
+      "method": "GET",
+      "permission_path": "/dashboard/analytics/campaigns/analytics/api/google-traffic",
+      "description": "Read original ads campaign traffic, maximum 31 dates; no credential response.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "to": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "activity": "mmoexp-seasonal",
+        "source": "ads"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 250000,
+        "timeout_seconds": 95
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/google-traffic.mjs",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/analytics/campaigns/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "management.targets",
+      "module": "management",
+      "path": "/dashboard/management/targets.json",
+      "method": "GET",
+      "permission_path": "/dashboard/management/targets.json",
+      "description": "Read original management targets, published daily facts or status; never generate advice.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/management-november-20261103/SOURCE-MAP.json; releases/fs-dashboard/management-november-20261103/source/management_v2_runner.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/management/targets.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "management.daily_v2",
+      "module": "management",
+      "path": "/dashboard/management/daily-v2.json",
+      "method": "GET",
+      "permission_path": "/dashboard/management/daily-v2.json",
+      "description": "Read original management targets, published daily facts or status; never generate advice.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/management-november-20261103/SOURCE-MAP.json; releases/fs-dashboard/management-november-20261103/source/management_v2_runner.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/management/daily-v2.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "management.daily_status",
+      "module": "management",
+      "path": "/dashboard/management/daily.status.json",
+      "method": "GET",
+      "permission_path": "/dashboard/management/daily.status.json",
+      "description": "Read original management targets, published daily facts or status; never generate advice.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/management-november-20261103/SOURCE-MAP.json; releases/fs-dashboard/management-november-20261103/source/management_v2_runner.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/management/daily.status.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "mlb.stats",
+      "module": "mlb",
+      "path": "/mlb/api/stats",
+      "method": "GET",
+      "permission_path": "/mlb/api/stats",
+      "description": "Original MLB stats business read; no force refresh or writeback.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/mlb-online/mlb_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/mlb/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "mlb.coins_rate",
+      "module": "mlb",
+      "path": "/mlb/api/coins-rate",
+      "method": "GET",
+      "permission_path": "/mlb/api/coins-rate",
+      "description": "Original MLB coins-rate business read; no force refresh or writeback.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/mlb-online/mlb_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/mlb/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "mlb.tasks",
+      "module": "mlb",
+      "path": "/mlb/api/tasks",
+      "method": "GET",
+      "permission_path": "/mlb/api/tasks",
+      "description": "Read latest MLB tasks, original 300 row limit.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/mlb-online/mlb_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/mlb/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "mlb.task",
+      "module": "mlb",
+      "path": "/mlb/api/tasks/{task_id}",
+      "method": "GET",
+      "permission_path": "/mlb/",
+      "description": "Read existing MLB task by opaque ID; original gateway permissions.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "maxLength": 12,
+            "pattern": "[a-f0-9]{12}"
+          }
+        },
+        "required": [
+          "task_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "task_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/mlb-online/mlb_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/mlb/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "nba.read",
+      "module": "nba",
+      "path": "/nba2k27/api/read",
+      "method": "GET",
+      "permission_path": "/nba2k27/api/read",
+      "description": "Original NBA price/competitor read; no apply operation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 95
+      },
+      "provenance": {
+        "source": "opt/nba-reprice/backend/server.js",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/nba2k27/api/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "nba.current",
+      "module": "nba",
+      "path": "/nba2k27/api/current",
+      "method": "GET",
+      "permission_path": "/nba2k27/api/current",
+      "description": "Original NBA price/competitor read; no apply operation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 95
+      },
+      "provenance": {
+        "source": "opt/nba-reprice/backend/server.js",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/nba2k27/api/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "nba.competitors",
+      "module": "nba",
+      "path": "/nba2k27/api/competitors",
+      "method": "GET",
+      "permission_path": "/nba2k27/api/competitors",
+      "description": "Original NBA price/competitor read; no apply operation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 95
+      },
+      "provenance": {
+        "source": "opt/nba-reprice/backend/server.js",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/nba2k27/api/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "deployment.sites",
+      "module": "deploy",
+      "path": "/deploy/api/sites",
+      "method": "GET",
+      "permission_path": "/deploy/api/sites",
+      "description": "Read existing deployed site list or audit records; original owner gateway identity.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/deploy-hub/deploy_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/deploy/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "deployment.log",
+      "module": "deploy",
+      "path": "/deploy/api/log",
+      "method": "GET",
+      "permission_path": "/deploy/api/log",
+      "description": "Read existing deployed site list or audit records; original owner gateway identity.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/deploy-hub/deploy_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/deploy/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "bundles.state",
+      "module": "fc27-bundles",
+      "path": "/dashboard/fc27-bundles-api/api/state",
+      "method": "GET",
+      "permission_path": "/dashboard/fc27-bundles-api/api/state",
+      "description": "Read existing bundle prices, product bindings or up to 12 cached player matches.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fc27_pack_bundles_20261013/src/pack_bundles_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/dashboard/fc27-bundles-api/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "bundles.search",
+      "module": "fc27-bundles",
+      "path": "/dashboard/fc27-bundles-api/api/search",
+      "method": "GET",
+      "permission_path": "/dashboard/fc27-bundles-api/api/search",
+      "description": "Read existing bundle prices, product bindings or up to 12 cached player matches.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "q"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fc27_pack_bundles_20261013/src/pack_bundles_server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/dashboard/fc27-bundles-api/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "rpg.cost_status",
+      "module": "d4",
+      "path": "/d4/api/cost/status",
+      "method": "GET",
+      "permission_path": "/d4/api/cost/status",
+      "description": "Read saved RPG costs/source status/shelf observations; does not collect, execute or patch.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/d4follow/app.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/d4/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "rpg.iggm_source",
+      "module": "d4",
+      "path": "/d4/api/iggm_source",
+      "method": "GET",
+      "permission_path": "/d4/api/iggm_source",
+      "description": "Read saved RPG costs/source status/shelf observations; does not collect, execute or patch.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/d4follow/app.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/d4/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "rpg.shelf_drift",
+      "module": "d4",
+      "path": "/d4/api/shelf_drift",
+      "method": "GET",
+      "permission_path": "/d4/api/shelf_drift",
+      "description": "Read saved RPG costs/source status/shelf observations; does not collect, execute or patch.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/d4follow/app.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/d4/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "rpg.history",
+      "module": "d4",
+      "path": "/d4/api/history/{item_key}",
+      "method": "GET",
+      "permission_path": "/d4/",
+      "description": "Read up to 60 historical price decisions for one registered item key.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "item_key": {
+            "type": "string",
+            "maxLength": 160,
+            "pattern": "[A-Za-z0-9_.:-]{1,160}"
+          }
+        },
+        "required": [
+          "item_key"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "item_key"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/d4follow/app.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/d4/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "sbc.status",
+      "module": "fc27-sbc",
+      "path": "/dashboard/fc27-sbc/api/status",
+      "method": "GET",
+      "permission_path": "/dashboard/fc27-sbc/api/status",
+      "description": "Read existing SBC status; original admin restriction for rows and original automation unchanged.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fc-sbc/security-20261015/source/webapp.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fc27-sbc-location.conf",
+        "route_prefix": "/dashboard/fc27-sbc/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "sbc.rows",
+      "module": "fc27-sbc",
+      "path": "/dashboard/fc27-sbc/api/rows",
+      "method": "GET",
+      "permission_path": "/dashboard/fc27-sbc/api/rows",
+      "description": "Read existing SBC rows; original admin restriction for rows and original automation unchanged.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fc-sbc/security-20261015/source/webapp.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fc27-sbc-location.conf",
+        "route_prefix": "/dashboard/fc27-sbc/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "sbc.automation",
+      "module": "fc27-sbc",
+      "path": "/dashboard/fc27-sbc/api/auto",
+      "method": "GET",
+      "permission_path": "/dashboard/fc27-sbc/api/auto",
+      "description": "Read existing SBC automation; original admin restriction for rows and original automation unchanged.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fc-sbc/security-20261015/source/webapp.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fc27-sbc-location.conf",
+        "route_prefix": "/dashboard/fc27-sbc/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "bots.fc_status",
+      "module": "bot-console",
+      "path": "/bots/api/fc/status",
+      "method": "GET",
+      "permission_path": "/bots/api/fc/status",
+      "description": "Read FC bot service status, saved news records or already-filtered safe logs; original admin check remains.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/bot-console/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/bot-console.locations.conf",
+        "route_prefix": "/bots/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "bots.fc_news_items",
+      "module": "bot-console",
+      "path": "/bots/api/fc/news/items",
+      "method": "GET",
+      "permission_path": "/bots/api/fc/news/items",
+      "description": "Read FC bot service status, saved news records or already-filtered safe logs; original admin check remains.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/bot-console/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/bot-console.locations.conf",
+        "route_prefix": "/bots/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "bots.fc_logs",
+      "module": "bot-console",
+      "path": "/bots/api/fc/logs",
+      "method": "GET",
+      "permission_path": "/bots/api/fc/logs",
+      "description": "Read FC bot service status, saved news records or already-filtered safe logs; original admin check remains.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/bot-console/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/bot-console.locations.conf",
+        "route_prefix": "/bots/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "bots.service_status",
+      "module": "bot-console",
+      "path": "/bots/api/{bot}/status",
+      "method": "GET",
+      "permission_path": "/bots/",
+      "description": "Read status of an existing registered bot, no arbitrary service names.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "bot": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "guard",
+              "shugo"
+            ]
+          }
+        },
+        "required": [
+          "bot"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "bot"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/bot-console/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/bot-console.locations.conf",
+        "route_prefix": "/bots/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "reports.list",
+      "module": "brain",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "Read visible existing reports, original owner/admin and trash scope; at most 40 native rows.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "shared",
+              "mine",
+              "trash"
+            ]
+          },
+          "before": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "[0-9]{1,20}"
+          },
+          "q": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "start": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "end": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "reports.detail",
+      "module": "brain",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "Read one existing report request, preserving original object visibility.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 160,
+            "pattern": "[A-Za-z0-9_-]{1,160}"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "reports.thread",
+      "module": "brain",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "Read original report thread after visible_job ownership check; does not submit or retry.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 160,
+            "pattern": "[A-Za-z0-9_-]{1,160}"
+          },
+          "thread": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "1"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "thread"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "reports.actions",
+      "module": "brain",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "Read original report actions after visible_job ownership check; does not submit or retry.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 160,
+            "pattern": "[A-Za-z0-9_-]{1,160}"
+          },
+          "actions": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "1"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "actions"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "reports.evidence",
+      "module": "brain",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "Read original report evidence after visible_job ownership check; does not submit or retry.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 160,
+            "pattern": "[A-Za-z0-9_-]{1,160}"
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 27,
+            "pattern": "ev_[a-f0-9]{24}"
+          }
+        },
+        "required": [
+          "id",
+          "evidence"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "reports.artifact",
+      "module": "brain",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "Read original report artifact after visible_job ownership check; does not submit or retry.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 160,
+            "pattern": "[A-Za-z0-9_-]{1,160}"
+          },
+          "artifact": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "html",
+              "boss",
+              "md",
+              "json"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "artifact"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "customer_tracking.config",
+      "module": "customer-tracking",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "Read existing customer-tracking config under original admin gate; no scan/history poll or task queue.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes",
+        "structure": "customer_tracking",
+        "view": "config"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-customer-tracking-20261018/source/tracking_controller.py; releases/fs-dashboard/hermes-customer-tracking-20261018/source/customer_tracking.py; fs_mcp_connector/tracking.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      },
+      "response_adapter": "tracking"
+    },
+    {
+      "name": "customer_tracking.tracked",
+      "module": "customer-tracking",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "Read existing customer-tracking tracked under original admin gate; no scan/history poll or task queue.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes",
+        "structure": "customer_tracking",
+        "view": "tracked"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-customer-tracking-20261018/source/tracking_controller.py; releases/fs-dashboard/hermes-customer-tracking-20261018/source/customer_tracking.py; fs_mcp_connector/tracking.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      },
+      "response_adapter": "tracking"
+    },
+    {
+      "name": "customer_tracking.request",
+      "module": "customer-tracking",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "Read existing tracking request receipt only; no scan/history poll.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "[a-f0-9]{32}"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes",
+        "structure": "customer_tracking",
+        "view": "request"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-customer-tracking-20261018/source/tracking_controller.py; fs_mcp_connector/tracking.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      },
+      "response_adapter": "tracking"
+    },
+    {
+      "name": "analytics.user_section",
+      "module": "data-analysis-tools",
+      "path": "/dashboard/users/data.json",
+      "method": "GET",
+      "permission_path": "/dashboard/users/data.json",
+      "description": "Read named section of original frozen customer aggregate; preserve evidence and snapshot identity.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "summary",
+              "trend",
+              "projects",
+              "transitions",
+              "cohort",
+              "migration",
+              "trajectories"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "global",
+              "site",
+              "project",
+              "series"
+            ]
+          },
+          "scope_id": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "start": {
+            "type": "string",
+            "maxLength": 35
+          },
+          "end_exclusive": {
+            "type": "string",
+            "maxLength": 35
+          },
+          "as_of": {
+            "type": "string",
+            "maxLength": 35
+          },
+          "state_basis": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "current",
+              "period_end",
+              "period_cohort"
+            ]
+          },
+          "policy_version": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "policy_mode": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "per_project",
+              "uniform"
+            ]
+          },
+          "snapshot_id": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "H": {
+            "type": "integer",
+            "minimum": 7,
+            "maximum": 30,
+            "enum": [
+              7,
+              30
+            ]
+          },
+          "section": {
+            "type": "string",
+            "maxLength": 160,
+            "enum": [
+              "summary",
+              "trend",
+              "projects",
+              "transitions",
+              "cohort",
+              "migration",
+              "trajectories",
+              "coverage"
+            ]
+          },
+          "evidence_id": {
+            "type": "string",
+            "maxLength": 35,
+            "pattern": "ua_[a-f0-9]{32}"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "action": "tool"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/user-analytics-20261022/source/user_tools.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/users/data.json",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "coins.monitor",
+      "module": "coins",
+      "path": "/api/fc27/cloud/monitor",
+      "method": "GET",
+      "permission_path": "/api/fc27/cloud/monitor",
+      "description": "Read current FC collection, automatic schedule or player synchronization state only; no new cycle or reconcile.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fc27_cloud_browser/fc27_cloud_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/api/fc27/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "coins.automation",
+      "module": "coins",
+      "path": "/api/fc27/cloud/automation",
+      "method": "GET",
+      "permission_path": "/api/fc27/cloud/automation",
+      "description": "Read current FC collection, automatic schedule or player synchronization state only; no new cycle or reconcile.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fc27_cloud_browser/fc27_cloud_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/api/fc27/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "coins.player_sync",
+      "module": "coins",
+      "path": "/api/fc27/cloud/player-sync",
+      "method": "GET",
+      "permission_path": "/api/fc27/cloud/player-sync",
+      "description": "Read current FC collection, automatic schedule or player synchronization state only; no new cycle or reconcile.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fc27_cloud_browser/fc27_cloud_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/api/fc27/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "coins.jobs",
+      "module": "coins",
+      "path": "/api/fc27/cloud/jobs/{record_id}",
+      "method": "GET",
+      "permission_path": "/api/fc27/cloud/",
+      "description": "Read existing FC jobs JSON by original UUID; no replay, new ID or state mutation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "maxLength": 36,
+            "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "record_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fc27_cloud_browser/fc27_cloud_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/api/fc27/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "coins.snapshots",
+      "module": "coins",
+      "path": "/api/fc27/cloud/snapshots/{record_id}",
+      "method": "GET",
+      "permission_path": "/api/fc27/cloud/",
+      "description": "Read existing FC snapshots JSON by original UUID; no replay, new ID or state mutation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "maxLength": 36,
+            "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "record_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fc27_cloud_browser/fc27_cloud_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/api/fc27/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "coins.quotes",
+      "module": "coins",
+      "path": "/api/fc27/cloud/quotes/{record_id}",
+      "method": "GET",
+      "permission_path": "/api/fc27/cloud/",
+      "description": "Read existing FC quotes JSON by original UUID; no replay, new ID or state mutation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "maxLength": 36,
+            "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "record_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fc27_cloud_browser/fc27_cloud_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/api/fc27/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "coins.previews",
+      "module": "coins",
+      "path": "/api/fc27/cloud/previews/{record_id}",
+      "method": "GET",
+      "permission_path": "/api/fc27/cloud/",
+      "description": "Read existing FC previews JSON by original UUID; no replay, new ID or state mutation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "maxLength": 36,
+            "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "record_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fc27_cloud_browser/fc27_cloud_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/api/fc27/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "coins.audits",
+      "module": "coins",
+      "path": "/api/fc27/cloud/audits/{record_id}",
+      "method": "GET",
+      "permission_path": "/api/fc27/cloud/",
+      "description": "Read existing FC audits JSON by original UUID; no replay, new ID or state mutation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "maxLength": 36,
+            "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "record_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fc27_cloud_browser/fc27_cloud_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/api/fc27/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "coins.restore_previews",
+      "module": "coins",
+      "path": "/api/fc27/cloud/restore-previews/{record_id}",
+      "method": "GET",
+      "permission_path": "/api/fc27/cloud/",
+      "description": "Read existing FC restore-previews JSON by original UUID; no replay, new ID or state mutation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "maxLength": 36,
+            "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "record_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fc27_cloud_browser/fc27_cloud_api.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/api/fc27/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "madden.monitor",
+      "module": "madden",
+      "path": "/api/madden/cloud/monitor",
+      "method": "GET",
+      "permission_path": "/api/madden/cloud/monitor",
+      "description": "Read original Madden monitor without running collection, writing prices or recovery.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/ops/madden-browser-isolation-20261023/source/dashboard/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/madden-location.conf",
+        "route_prefix": "/api/madden/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "madden.automation",
+      "module": "madden",
+      "path": "/api/madden/cloud/automation",
+      "method": "GET",
+      "permission_path": "/api/madden/cloud/automation",
+      "description": "Read original Madden automation without running collection, writing prices or recovery.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/ops/madden-browser-isolation-20261023/source/dashboard/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/madden-location.conf",
+        "route_prefix": "/api/madden/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "madden.activity",
+      "module": "madden",
+      "path": "/api/madden/cloud/activity",
+      "method": "GET",
+      "permission_path": "/api/madden/cloud/activity",
+      "description": "Read existing Madden events, maximum 500 records; no retain or mutation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "maxLength": 10,
+            "pattern": "\\d{4}-\\d{2}-\\d{2}"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/ops/madden-browser-isolation-20261023/source/dashboard/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/madden-location.conf",
+        "route_prefix": "/api/madden/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "madden.jobs",
+      "module": "madden",
+      "path": "/api/madden/cloud/jobs/{record_id}",
+      "method": "GET",
+      "permission_path": "/api/madden/cloud/",
+      "description": "Read existing Madden jobs by opaque ID, original service controls unchanged.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "[A-Za-z0-9_-]{8,80}"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "record_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/ops/madden-browser-isolation-20261023/source/dashboard/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/madden-location.conf",
+        "route_prefix": "/api/madden/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "madden.quotes",
+      "module": "madden",
+      "path": "/api/madden/cloud/quotes/{record_id}",
+      "method": "GET",
+      "permission_path": "/api/madden/cloud/",
+      "description": "Read existing Madden quotes by opaque ID, original service controls unchanged.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "[A-Za-z0-9_-]{8,80}"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "record_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/ops/madden-browser-isolation-20261023/source/dashboard/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/madden-location.conf",
+        "route_prefix": "/api/madden/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "madden.previews",
+      "module": "madden",
+      "path": "/api/madden/cloud/previews/{record_id}",
+      "method": "GET",
+      "permission_path": "/api/madden/cloud/",
+      "description": "Read existing Madden previews by opaque ID, original service controls unchanged.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "[A-Za-z0-9_-]{8,80}"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "record_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/ops/madden-browser-isolation-20261023/source/dashboard/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/madden-location.conf",
+        "route_prefix": "/api/madden/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "madden.restore_previews",
+      "module": "madden",
+      "path": "/api/madden/cloud/restore-previews/{record_id}",
+      "method": "GET",
+      "permission_path": "/api/madden/cloud/",
+      "description": "Read existing Madden restore-previews by opaque ID, original service controls unchanged.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "[A-Za-z0-9_-]{8,80}"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "record_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/ops/madden-browser-isolation-20261023/source/dashboard/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/madden-location.conf",
+        "route_prefix": "/api/madden/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "madden.audits",
+      "module": "madden",
+      "path": "/api/madden/cloud/audits/{record_id}",
+      "method": "GET",
+      "permission_path": "/api/madden/cloud/",
+      "description": "Read existing Madden audits by opaque ID, original service controls unchanged.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "[A-Za-z0-9_-]{8,80}"
+          }
+        },
+        "required": [
+          "record_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "record_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/ops/madden-browser-isolation-20261023/source/dashboard/server.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
+        "route_config": "/etc/nginx/madden-location.conf",
+        "route_prefix": "/api/madden/cloud/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "ops.health",
+      "module": "ops",
+      "path": "/s/wulv/fc27-ops/api/health",
+      "method": "GET",
+      "permission_path": "/s/wulv/fc27-ops/api/",
+      "description": "Read original FC operations health or existing saved job; no collection submission.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "docs/planning/fs-data-connector-20261109/REMOTE-SOURCES.md",
+        "deployed_source": "/opt/fc27-ops/ops_api.py",
+        "deployed_source_sha256": "8b2ca1b97274dbc480da5afe8e2d2c15dd4cd6c16205e2935b1986d2630f8ebf",
+        "source_observed_date": "2026-11-09",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/s/wulv/fc27-ops/api/",
+        "route_observed_date": "2026-11-09",
+        "mapping_status": "current_FS_nginx_route_and_remote_GET_source; business_read_not_verified"
+      }
+    },
+    {
+      "name": "ops.job",
+      "module": "ops",
+      "path": "/s/wulv/fc27-ops/api/jobs/{job_id}",
+      "method": "GET",
+      "permission_path": "/s/wulv/fc27-ops/api/",
+      "description": "Read original FC operations health or existing saved job; no collection submission.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "pattern": "[a-f0-9]{32}",
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "job_id"
+      ],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "docs/planning/fs-data-connector-20261109/REMOTE-SOURCES.md",
+        "deployed_source": "/opt/fc27-ops/ops_api.py",
+        "deployed_source_sha256": "8b2ca1b97274dbc480da5afe8e2d2c15dd4cd6c16205e2935b1986d2630f8ebf",
+        "source_observed_date": "2026-11-09",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/s/wulv/fc27-ops/api/",
+        "route_observed_date": "2026-11-09",
+        "mapping_status": "current_FS_nginx_route_and_remote_GET_source; business_read_not_verified"
+      }
+    },
+    {
+      "name": "evolutions.state",
+      "module": "fc27-evolutions",
+      "path": "/dashboard/fc27-evolutions/api/state",
+      "method": "GET",
+      "permission_path": "/dashboard/fc27-evolutions/api/state",
+      "description": "原进化商品配置、快照、报价、任务与历史业务状态；不刷新或执行，原后台payload和错误正文不导出",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "docs/planning/fs-data-connector-20261109/REMOTE-SOURCES.md; fs_mcp_connector/evolutions.py",
+        "deployed_source": "/opt/fc27-evolutions/source/evolutions.py",
+        "deployed_source_sha256": "02931d6dbd00a7ce7c6dcf349f77999d6257111f444a8075a8433ae6ee0d14cd",
+        "source_observed_date": "2026-11-09",
+        "route_config": "/etc/nginx/fc27-evolutions.locations.conf",
+        "route_prefix": "/dashboard/fc27-evolutions/",
+        "route_observed_date": "2026-11-09",
+        "mapping_status": "current_FS_nginx_route_and_remote_GET_source; business_read_not_verified"
+      },
+      "response_adapter": "evolutions"
+    },
+    {
+      "name": "sales.status",
+      "module": "sales",
+      "path": "/sales/api/status",
+      "method": "GET",
+      "permission_path": "/sales/api/status",
+      "description": "Read only audited business fields from original saved state/status. Other fields remain explicitly unavailable.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "response_fields": [
+        "running",
+        "elapsed",
+        "generated_at",
+        "orders"
+      ],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "docs/planning/fs-data-connector-20261109/REMOTE-SOURCES.md",
+        "deployed_source": "/opt/sales-dashboard/api.py",
+        "deployed_source_sha256": "b88c961e1f40921acf698825554d5123963c9e943c77a2aa26ba3baba5a04039",
+        "source_observed_date": "2026-11-09",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/sales/api/status",
+        "route_observed_date": "2026-11-09",
+        "mapping_status": "current_FS_nginx_route_and_remote_GET_source; business_read_not_verified"
+      }
+    },
+    {
+      "name": "conversations.material_metadata",
+      "module": "hermes-conversation",
+      "path": "/api/hermes/conversations/{conversation_id}/connector/materials/{request_id}",
+      "method": "GET",
+      "permission_path": "/api/hermes/conversations",
+      "description": "Stored material metadata only; does not reconcile, stop or renew tasks. Terminal result is not included.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "[a-f0-9]{32}"
+          },
+          "request_id": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "[A-Za-z0-9_-]{8,80}"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "conversation_id",
+        "request_id"
+      ],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_readonly.py",
+        "mapping_status": "new_select_only_route_not_deployed_business_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf"
+      }
+    },
+    {
+      "name": "knowledge.index",
+      "module": "knowledge",
+      "adapter": "knowledge",
+      "path": "/dashboard/fs-home/brain/",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/brain/",
+      "description": "Read published knowledge through the original authenticated subject route; current entries by default, explicitly authorized history only. Requires configured published root.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "history": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 1048576,
+        "timeout_seconds": 10
+      },
+      "provenance": {
+        "source": "fs_mcp_connector/knowledge.py; releases/fs-dashboard/knowledge-layering-20261023/source/knowledge_catalog.py; tools/export_fs_space.py",
+        "mapping_status": "published_root_adapter_not_deployed_business_read_not_verified"
+      }
+    },
+    {
+      "name": "knowledge.read",
+      "module": "knowledge",
+      "adapter": "knowledge",
+      "path": "/dashboard/fs-home/brain/",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/brain/",
+      "description": "Read published knowledge through the original authenticated subject route; current entries by default, explicitly authorized history only. Requires configured published root.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "entry_id": {
+            "type": "string",
+            "maxLength": 101,
+            "pattern": "[a-z0-9][a-z0-9_.-]{1,100}"
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "history": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entry_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 1048576,
+        "timeout_seconds": 10
+      },
+      "provenance": {
+        "source": "fs_mcp_connector/knowledge.py; releases/fs-dashboard/knowledge-layering-20261023/source/knowledge_catalog.py; tools/export_fs_space.py",
+        "mapping_status": "published_root_adapter_not_deployed_business_read_not_verified"
+      }
+    },
+    {
+      "name": "docs.handbook",
+      "module": "docs",
+      "path": "/docs/",
+      "method": "GET",
+      "permission_path": "/docs/",
+      "response_format": "html_text",
+      "description": "Read the existing department handbook through original FS authentication, extracting HTML text with existing document redaction. No script execution.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 2097152,
+        "timeout_seconds": 15
+      },
+      "provenance": {
+        "source": "docs/planning/fs-data-connector-20261109/REMOTE-SOURCES.md; fs_mcp_connector/documents.py; tools/export_fs_space.py",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "mapping_status": "existing_docs_route_and_single_html_inventory_business_read_not_verified",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "g2g.state",
+      "module": "g2g",
+      "path": "/g2g/api/state",
+      "method": "GET",
+      "permission_path": "/g2g/api/state",
+      "description": "Read saved G2G business configuration, plan rows, summary and last 30 write receipts. Credential health is status only. Unverified raw error details are explicitly withheld; no collect, release or execute.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "response_adapter": "g2g",
+      "response_fields": [
+        "now",
+        "config",
+        "token",
+        "cost_at",
+        "cost_zones",
+        "cheapold_at",
+        "cheapold_zones",
+        "offers_at",
+        "plan_at",
+        "summary",
+        "rows",
+        "job",
+        "logs",
+        "writes"
+      ],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/g2gfollow/app.py; opt/g2gfollow/store.py; opt/g2gfollow/pricing.py; fs_mcp_connector/g2g.py; tools/export_fs_space.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_GET_source; projected_candidate_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/g2g/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "g2g.job",
+      "module": "g2g",
+      "path": "/g2g/api/job",
+      "method": "GET",
+      "permission_path": "/g2g/api/job",
+      "description": "Read current G2G job phase, times and summary plus known safe stored log events; unverified error bodies remain explicitly incomplete. Does not start or modify a job.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "response_adapter": "g2g",
+      "response_fields": [
+        "running",
+        "phase",
+        "logs",
+        "started",
+        "finished",
+        "ok",
+        "summary"
+      ],
+      "limits": {
+        "request_bytes": 4096,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "opt/g2gfollow/app.py; fs_mcp_connector/g2g.py; tools/export_fs_space.py",
+        "mapping_status": "current_FS_nginx_route_and_repository_GET_source; projected_candidate_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/g2g/",
+        "route_observed_date": "2026-11-09"
+      }
+    },
+    {
+      "name": "players.status",
+      "module": "players",
+      "adapter": "players",
+      "path": "/tools/fc27-players/api/status",
+      "method": "GET",
+      "permission_path": "/tools/fc27-players/",
+      "description": "Read original Players data with server-held per-user sub-session. Reuses original authentication; does not collect, refresh models or write business data.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 8192,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fs_mcp_connector/players.py; fc27_players_cloud/player_web/main.py",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "mapping_status": "original_browser_subsession_adapter_business_read_not_verified"
+      }
+    },
+    {
+      "name": "players.candidates",
+      "module": "players",
+      "adapter": "players",
+      "path": "/tools/fc27-players/api/candidates",
+      "method": "GET",
+      "permission_path": "/tools/fc27-players/",
+      "description": "Read original Players data with server-held per-user sub-session. Reuses original authentication; does not collect, refresh models or write business data.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "pattern": "[0-9a-f]{32}",
+            "minLength": 32,
+            "maxLength": 32
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 8192,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fs_mcp_connector/players.py; fc27_players_cloud/player_web/main.py",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "mapping_status": "original_browser_subsession_adapter_business_read_not_verified"
+      }
+    },
+    {
+      "name": "players.models",
+      "module": "players",
+      "adapter": "players",
+      "path": "/tools/fc27-players/api/models",
+      "method": "GET",
+      "permission_path": "/tools/fc27-players/",
+      "description": "Read original Players data with server-held per-user sub-session. Reuses original authentication; does not collect, refresh models or write business data.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "pattern": "[0-9a-f]{32}",
+            "minLength": 32,
+            "maxLength": 32
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "per_page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "is_rec": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "tag_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "tag_name": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "keyword": {
+            "type": "string",
+            "maxLength": 160
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 8192,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fs_mcp_connector/players.py; fc27_players_cloud/player_web/main.py",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "mapping_status": "original_browser_subsession_adapter_business_read_not_verified"
+      }
+    },
+    {
+      "name": "players.tags",
+      "module": "players",
+      "adapter": "players",
+      "path": "/tools/fc27-players/api/tags",
+      "method": "GET",
+      "permission_path": "/tools/fc27-players/",
+      "description": "Read original Players data with server-held per-user sub-session. Reuses original authentication; does not collect, refresh models or write business data.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 8192,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fs_mcp_connector/players.py; fc27_players_cloud/player_web/main.py",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "mapping_status": "original_browser_subsession_adapter_business_read_not_verified"
+      }
+    },
+    {
+      "name": "players.jobs",
+      "module": "players",
+      "adapter": "players",
+      "path": "/tools/fc27-players/api/jobs",
+      "method": "GET",
+      "permission_path": "/tools/fc27-players/",
+      "description": "Read original Players data with server-held per-user sub-session. Reuses original authentication; does not collect, refresh models or write business data.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 8192,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fs_mcp_connector/players.py; fc27_players_cloud/player_web/main.py",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "mapping_status": "original_browser_subsession_adapter_business_read_not_verified"
+      }
+    },
+    {
+      "name": "players.job",
+      "module": "players",
+      "adapter": "players",
+      "path": "/tools/fc27-players/api/jobs/{job_id}",
+      "method": "GET",
+      "permission_path": "/tools/fc27-players/",
+      "description": "Read original Players data with server-held per-user sub-session. Reuses original authentication; does not collect, refresh models or write business data.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "pattern": "[0-9a-f]{32}",
+            "minLength": 32,
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "job_id"
+      ],
+      "limits": {
+        "request_bytes": 8192,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fs_mcp_connector/players.py; fc27_players_cloud/player_web/main.py",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "mapping_status": "original_browser_subsession_adapter_business_read_not_verified"
+      }
+    },
+    {
+      "name": "players.plan",
+      "module": "players",
+      "adapter": "players",
+      "path": "/tools/fc27-players/api/plans/{plan_id}",
+      "method": "GET",
+      "permission_path": "/tools/fc27-players/",
+      "description": "Read original Players data with server-held per-user sub-session. Reuses original authentication; does not collect, refresh models or write business data.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "pattern": "[0-9a-f]{32}",
+            "minLength": 32,
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "plan_id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [
+        "plan_id"
+      ],
+      "limits": {
+        "request_bytes": 8192,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "fs_mcp_connector/players.py; fc27_players_cloud/player_web/main.py",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "mapping_status": "original_browser_subsession_adapter_business_read_not_verified"
+      }
+    },
+    {
+      "name": "gallery.state",
+      "module": "gallery",
+      "path": "/tools/fc27-gallery/api/state",
+      "method": "GET",
+      "permission_path": "/tools/fc27-gallery/api/state",
+      "description": "原画廊商品报价、计划、最近30条任务及调度状态；不触发采集或执行",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "docs/planning/fs-data-connector-20261109/REMOTE-SOURCES.md",
+        "mapping_status": "current_remote_source_and_route_audited; authenticated_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/tools/fc27-gallery/api/state",
+        "route_observed_date": "2026-11-09",
+        "deployed_source_sha256": "7be950e3016e5324429381bdb5cf64119ab5ea47b5f074636742e4edd048b031"
+      },
+      "response_adapter": "gallery"
+    },
+    {
+      "name": "odds.reference",
+      "module": "odds",
+      "path": "/s/wulv/fc-odds/",
+      "method": "GET",
+      "permission_path": "/s/wulv/fc-odds/",
+      "description": "原受限FC26赔率静态参考；历史页面，不代表当前FC27实时数据",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "docs/planning/fs-data-connector-20261109/REMOTE-SOURCES.md",
+        "mapping_status": "current_remote_source_and_route_audited; authenticated_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/s/wulv/fc-odds/",
+        "route_observed_date": "2026-11-09",
+        "deployed_source_sha256": "e0cbd89b359e69431192aabb7d9adcf3512b7688a6722b95252c8f5163175f1d"
+      },
+      "response_format": "html_text"
+    },
+    {
+      "name": "accounts.overview",
+      "module": "accounts",
+      "path": "/__auth/access/api/overview",
+      "method": "GET",
+      "permission_path": "/__auth/access/api/overview",
+      "description": "原管理员成员、角色与资源权限目录；保留原manage权限检查",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "docs/planning/fs-data-connector-20261109/REMOTE-SOURCES.md",
+        "mapping_status": "current_remote_source_and_route_audited; authenticated_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/__auth/access/api/overview",
+        "route_observed_date": "2026-11-09",
+        "deployed_source_sha256": "3e06442f11f59b88653ef033bfa2ad1ac3c22e752165dc87cb505aaa15bd4689"
+      },
+      "response_adapter": "accounts"
+    },
+    {
+      "name": "accounts.audit",
+      "module": "accounts",
+      "path": "/__auth/access/api/audit",
+      "method": "GET",
+      "permission_path": "/__auth/access/api/audit",
+      "description": "原账号权限变更审计；保留原管理员权限与返回上限",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "docs/planning/fs-data-connector-20261109/REMOTE-SOURCES.md",
+        "mapping_status": "current_remote_source_and_route_audited; authenticated_business_read_not_verified",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/__auth/access/api/audit",
+        "route_observed_date": "2026-11-09",
+        "deployed_source_sha256": "3e06442f11f59b88653ef033bfa2ad1ac3c22e752165dc87cb505aaa15bd4689"
+      },
+      "response_adapter": "accounts",
+      "response_view": "audit"
+    },
+    {
+      "name": "sales.snapshot",
+      "module": "sales",
+      "path": "/sales/data/dashboard.json",
+      "method": "GET",
+      "permission_path": "/sales/data/dashboard.json",
+      "description": "已发布销售快照的订单、推广员、负责人及优惠码；分段读取，续页必须携带原快照hash，金额保持原币种与来源",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "dataset": {
+            "type": "string",
+            "enum": [
+              "orders",
+              "promoters",
+              "owners",
+              "codes"
+            ]
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "snapshot_sha256": {
+            "type": "string",
+            "pattern": "[a-f0-9]{64}",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "dataset"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {},
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 16777216,
+        "timeout_seconds": 25
+      },
+      "response_adapter": "sales",
+      "provenance": {
+        "source": "docs/planning/fs-data-connector-20261109/REMOTE-SOURCES.md; fs_mcp_connector/sales.py",
+        "route_config": "/etc/nginx/conf.d/iggm-web.conf",
+        "route_prefix": "/sales/",
+        "route_observed_date": "2026-11-09",
+        "mapping_status": "current_protected_static_snapshot_shape_audited; authenticated_business_read_not_verified"
+      }
+    },
+    {
+      "name": "customer_tracking.candidates",
+      "module": "customer-tracking",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "只读原已存客单追踪candidates；不轮询、不产生报告任务，保持原管理员范围与完整性状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}",
+            "maxLength": 10
+          }
+        },
+        "required": [
+          "day"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes",
+        "structure": "customer_tracking",
+        "view": "candidates",
+        "stored_only": "1"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/tracking_readonly.py; releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/tracking_controller.py; fs_mcp_connector/tracking.py",
+        "mapping_status": "new_stored_only_adapter; adapter_deployment_and_authenticated_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      },
+      "response_adapter": "tracking"
+    },
+    {
+      "name": "customer_tracking.detail",
+      "module": "customer-tracking",
+      "path": "/dashboard/fs-home/advisor.json",
+      "method": "GET",
+      "permission_path": "/dashboard/fs-home/advisor.json",
+      "description": "只读原已存客单追踪detail；不轮询、不产生报告任务，保持原管理员范围与完整性状态",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "[a-f0-9]{32}",
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "fixed": {
+        "mode": "hermes",
+        "structure": "customer_tracking",
+        "view": "detail",
+        "stored_only": "1"
+      },
+      "path_parameters": [],
+      "limits": {
+        "request_bytes": 16384,
+        "response_bytes": 4194304,
+        "timeout_seconds": 25
+      },
+      "provenance": {
+        "source": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/tracking_readonly.py; releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/tracking_controller.py; fs_mcp_connector/tracking.py",
+        "mapping_status": "new_stored_only_adapter; adapter_deployment_and_authenticated_read_not_verified",
+        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
+        "route_prefix": "/dashboard/fs-home/advisor.json",
+        "route_observed_date": "2026-11-09"
+      },
+      "response_adapter": "tracking"
+    }
+  ],
+  "coverage": [
+    {
+      "module": "campaign-analytics",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 7,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/analytics/campaigns/analytics/"
+    },
+    {
+      "module": "user-analytics",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 7,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/users/"
+    },
+    {
+      "module": "fc27-sbc",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 3,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/fc27-sbc/"
+    },
+    {
+      "module": "channel-effects",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 3,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/channel-effects/"
+    },
+    {
+      "module": "data-analysis-tools",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 1,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/data-tools/"
+    },
+    {
+      "module": "unified-business",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 5,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/analytics/"
+    },
+    {
+      "module": "tasks",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 4,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/tasks/"
+    },
+    {
+      "module": "coins",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 9,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/fc27-coins.html"
+    },
+    {
+      "module": "ops",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 2,
+      "reason": "Current remote GET source verified for health/jobs; actual FS account read and other operation data remain pending.",
+      "permission_path": "/s/wulv/fc27-ops/"
+    },
+    {
+      "module": "players",
+      "status": "partially_mapped",
+      "operations": 7,
+      "reason": "Seven original read routes with isolated FS-owned sub-sessions; real reads, exports and other artifact types not verified.",
+      "permission_path": "/tools/fc27-players/"
+    },
+    {
+      "module": "gallery",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 1,
+      "reason": "Current fixed read and business fields mapped; actual user reads remain unverified.",
+      "permission_path": "/tools/fc27-gallery/"
+    },
+    {
+      "module": "mlb",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 4,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/mlb/"
+    },
+    {
+      "module": "nba",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 3,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/nba2k27/"
+    },
+    {
+      "module": "d4",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 4,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/d4/"
+    },
+    {
+      "module": "docs",
+      "status": "partially_mapped",
+      "operations": 1,
+      "reason": "Existing single HTML handbook route mapped; authenticated business read not verified.",
+      "permission_path": "/docs/"
+    },
+    {
+      "module": "sites",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 0,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/s/",
+      "via_module": "deploy"
+    },
+    {
+      "module": "deploy",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 2,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/deploy/"
+    },
+    {
+      "module": "weekly",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 0,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/fs-home/brain/index.html",
+      "via_module": "brain"
+    },
+    {
+      "module": "madden",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 8,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/madden27-coins.html"
+    },
+    {
+      "module": "odds",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 1,
+      "reason": "Current fixed read and business fields mapped; actual user reads remain unverified.",
+      "permission_path": "/s/wulv/fc-odds/"
+    },
+    {
+      "module": "game-monitor",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 4,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/game-monitor/"
+    },
+    {
+      "module": "management",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 3,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/management/"
+    },
+    {
+      "module": "brain",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 6,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/fs-home/brain/index.html"
+    },
+    {
+      "module": "fc27-bundles",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 2,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/modules/sports/bundles/"
+    },
+    {
+      "module": "g2g",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 2,
+      "reason": "Fixed saved state and job candidates preserve business rows, config, summary and last 30 write receipts. Unverified error bodies, CSV, older snapshots and full history remain pending; no live user acceptance yet.",
+      "permission_path": "/g2g/"
+    },
+    {
+      "module": "sales",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 2,
+      "reason": "Status plus existing published sales snapshot paged by fixed datasets; live user acceptance pending.",
+      "permission_path": "/sales/"
+    },
+    {
+      "module": "bot-console",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 4,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/bots/"
+    },
+    {
+      "module": "hermes-conversation",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 5,
+      "reason": "Conversation list/detail/files/pricing review are candidates. Material detail/result have execution side effects and require an owned SELECT-only adapter; other formats remain pending.",
+      "permission_path": "/dashboard/fs-home/hermes/conversation/"
+    },
+    {
+      "module": "customer-tracking",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 5,
+      "reason": "Existing reads plus SELECT-only candidates/detail adapter; new helper deployment and real user reads pending.",
+      "permission_path": "/dashboard/fs-home/hermes/customer-tracking/"
+    },
+    {
+      "module": "fc27-evolutions",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 1,
+      "reason": "Current state includes config, snapshot, rows, jobs and history business projection; raw upstream error bodies withheld; actual user reads pending.",
+      "permission_path": "/dashboard/fc27-evolutions/"
+    },
+    {
+      "module": "campaign-products",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 1,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/analytics/campaigns/analytics/products.html"
+    },
+    {
+      "module": "marketing",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 2,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/modules/marketing/"
+    },
+    {
+      "module": "seo",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 11,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "permission_path": "/dashboard/analytics/seo/"
+    },
+    {
+      "module": "knowledge",
+      "status": "partially_mapped",
+      "operations": 2,
+      "reason": "Published subject-scoped index/read adapter; production root, original route availability and live access remain unverified.",
+      "permission_path": "/dashboard/fs-home/brain/"
+    },
+    {
+      "module": "google-ads",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 0,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "via_module": "marketing",
+      "permission_path": "/dashboard/marketing/"
+    },
+    {
+      "module": "ga4",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 0,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "via_module": "marketing",
+      "permission_path": "/dashboard/marketing/"
+    },
+    {
+      "module": "gsc",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 0,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "via_module": "marketing",
+      "permission_path": "/dashboard/marketing/"
+    },
+    {
+      "module": "traffic",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 0,
+      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
+      "via_module": "marketing",
+      "permission_path": "/dashboard/marketing/"
+    },
+    {
+      "module": "accounts",
+      "status": "partially_mapped_not_live_verified",
+      "operations": 2,
+      "reason": "Existing administrator overview/audit mapped; core account details are not exposed by the current gateway; real member/admin acceptance pending.",
+      "permission_path": "/__auth/access/api/overview"
+    }
+  ]
+}

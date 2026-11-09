@@ -32,7 +32,7 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(schema['parameters']['required'],['tracking_id'])
         self.assertFalse(schema['parameters']['additionalProperties'])
 
-    def test_anonymous_tool_owner_guard_and_no_private_identifiers(self):
+    def test_authorized_tool_preserves_customer_identifiers_and_owner_guard(self):
         class Client:
             def read(self,body):
                 return {'status':'available','orders':[],
@@ -51,9 +51,14 @@ class ToolTests(unittest.TestCase):
             with self.assertRaises(PermissionError):service.tool_read('otheradmin',tracking)
             value=service.tool_read('admin',tracking)
             encoded=json.dumps(value)
-            self.assertNotIn('secret@example.invalid',encoded)
-            self.assertNotIn('SECRET-ORDER',encoded)
-            self.assertNotIn('uid',encoded.lower())
+            self.assertEqual(value['email'],'secret@example.invalid')
+            self.assertEqual(value['uid'],0)
+            self.assertEqual(value['orders'][0]['order_no'],'SECRET-ORDER')
+            self.assertEqual(value['orders'][0]['email'],'secret@example.invalid')
+            self.assertEqual(value['orders'][0]['uid'],0)
+            anonymous=anonymous_snapshot(service.store.detail(tracking))
+            self.assertNotIn('secret@example.invalid',json.dumps(anonymous))
+            self.assertNotIn('SECRET-ORDER',json.dumps(anonymous))
             self.assertEqual(value['groups'][0]['order_usd'],'501')
             service.client.read=lambda body:{'status':'unavailable','reason':'upstream_offline'}
             stale=service.tool_read('admin',tracking)

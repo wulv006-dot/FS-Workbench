@@ -24,7 +24,7 @@ def moment(value):
 
 
 def anonymous_evidence(detail, days, now=None):
-    """Allowlist numerical aggregates; never forward raw rows, IDs or free text."""
+    """Optional numerical aggregate; report callers can also include authorized detail."""
     now = now or datetime.now(timezone.utc)
     tracked = moment(detail.get('tracked_at'))
     tracking_id = detail.get('tracking_id')
@@ -97,13 +97,14 @@ def anonymous_evidence(detail, days, now=None):
 
 def report_prompt(detail, days):
     evidence = anonymous_evidence(detail, days)
-    return ('请为这名匿名FC27客户生成' + ('首次维护建议' if days == 0 else f'加入观察后第{days}天维护复盘') +
+    evidence.update(email=detail.get('email'),uid=detail.get('uid'))
+    return ('请为这名经授权读取的FC27客户生成' + ('首次维护建议' if days == 0 else f'加入观察后第{days}天维护复盘') +
             '。先读取现行报告方法和客户维护业务知识，再独立分析以下冻结证据。'
             '保持经营者视角：判断优先级、主要依据、有理由的假设、可落实的人工维护步骤和复查条件。'
             '高消费低优惠不自动证明忠诚；分清加入前后、同游戏与其他游戏、未付款与退款状态，不把维护后复购直接当因果。'
             '历史覆盖不足时限制相应结论，仍可给出有依据的建议。数据尽量用合适大小图表，文字提炼结论与动作，'
             '布局、配色和交互自主，涨红跌绿。输出完整可离线打开的HTML原稿，必要明细折叠；不要返回JSON报告封套。'
-            '客户身份保留在管理员工具页，不索取或输出邮箱、UID、原单号；只引用追踪ID。'
+            '在原管理员、private及对象权限内可使用邮箱、UID、原订单号与业务明细查询客户和订单；完整订单可沿tracking_id读取客户追踪详情，不必将所有原单号重复加入汇总报告输入。凭据不属于业务证据。'
             '这是分析任务，不执行联系、发券、改价、改订单或长期记忆写入。\n'
             '<frozen_customer_evidence>\n' + json.dumps(evidence, ensure_ascii=False, separators=(',', ':')) +
             '\n</frozen_customer_evidence>')

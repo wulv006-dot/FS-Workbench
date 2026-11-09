@@ -40,6 +40,7 @@ taskboard_module_20261001/tests/evidence/live/.tb-session
 **/.tb-session
 
 # ===== 本地核对包的可再生副本 =====
+.venv/
 # bundle/ 可由 `python server_187/refresh_local.py` 重建，源文件均在库内；
 # manifest.json（同步记录）保留入库。
 server_187/bundle/

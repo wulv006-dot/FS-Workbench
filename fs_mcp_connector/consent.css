@@ -1,0 +1,27 @@
+/* Hallmark · shape: app screen · theme: existing FS UI · scope: app · signature: real account and client consent */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R5 V3 · weakest: V, retained familiar FS form structure for authorization clarity */
+html,body{overflow-x:clip}
+.connector-page{margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;font-size:16px}
+.connector-consent{width:100%;max-width:42rem;margin-inline:auto;padding:32px;background:var(--fs-surface);border:1px solid var(--fs-line);border-radius:var(--fs-radius);box-shadow:var(--fs-shadow)}
+.connector-brand{color:var(--fs-muted);font-weight:600;margin-bottom:24px}
+.connector-consent h1{font-size:28px;line-height:1.3;margin:0 0 12px;overflow-wrap:break-word;min-width:0;text-wrap:balance}
+.connector-consent h2{font-size:18px;line-height:1.4;margin:0 0 8px;overflow-wrap:break-word;min-width:0;text-wrap:balance}
+.connector-lead,.connector-scope p,.connector-help{max-width:65ch;margin:0;color:var(--fs-muted);line-height:1.65}
+.connector-identity{margin:24px 0;padding-block:8px;border-block:1px solid var(--fs-line)}
+.connector-identity div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:16px;padding-block:12px}
+.connector-identity dt{font-size:14px;color:var(--fs-muted)}
+.connector-identity dd{margin:0;overflow-wrap:anywhere;font-weight:600}
+.connector-scope{margin:24px 0}
+.connector-callback{border-top:1px solid var(--fs-line);padding-top:12px}
+.connector-callback summary{width:fit-content;min-height:44px;padding-block:8px;color:var(--fs-muted);cursor:pointer;font-size:14px}
+.connector-callback summary:hover{color:var(--fs-text)}
+.connector-address{margin:4px 0 16px;font-size:14px;overflow-wrap:anywhere;color:var(--fs-muted)}
+.connector-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+.connector-actions .fs-btn{min-height:44px;padding:8px 16px;cursor:pointer}
+.connector-actions .fs-btn:hover{background:var(--fs-surface-2)}
+.connector-actions .fs-btn--primary:hover{background:var(--fs-brand-hover)}
+.connector-actions .fs-btn:active{transform:translateY(1px)}
+.connector-consent :is(button,a,summary):focus-visible{outline:3px solid var(--fs-focus);outline-offset:3px}
+.connector-help{margin-top:16px;font-size:14px}
+@media(max-width:480px){.connector-page{padding:16px}.connector-consent{padding:24px}.connector-consent h1{font-size:24px}.connector-identity div{grid-template-columns:minmax(0,1fr);gap:4px}.connector-actions .fs-btn{flex:1}}
+@media(prefers-reduced-motion:reduce){.connector-actions .fs-btn:active{transform:none}}
