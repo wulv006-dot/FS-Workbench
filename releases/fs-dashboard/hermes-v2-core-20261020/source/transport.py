@@ -129,8 +129,8 @@ class Proxy:
         grant = self.grants.resolve(token)
         gateway = self.gateway_for(grant)
         gateway.scope.context(grant.owner, grant.task_id, grant.lease)
-        from proxy_gateway import native_scope
-        native = native_scope(gateway.scope)
+        from proxy_gateway import structured_scope
+        native = structured_scope(gateway.scope)
         if (method, path) == ('POST', '/fc/tools/call'):
             if not isinstance(body, dict) or set(body) != {'name', 'arguments'}:
                 raise ValueError('tool_request')

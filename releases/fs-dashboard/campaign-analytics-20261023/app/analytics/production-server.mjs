@@ -15,6 +15,7 @@ import {atomic,makeStore,previewCatalog,validateLayout} from './store.mjs';
 import {makeCenterStore} from './center-store.mjs';
 import {makeWeeklyStore} from './weekly-store.mjs';
 import {makeWeeklyRecommendations} from './weekly-recommendations.mjs';
+import {createWeeklyHermesProvider} from './weekly-hermes-provider.mjs';
 import {centerSeed,effectivePageBindings} from './center-seed.mjs';
 import {backendRead,backendMutate} from './backend-client.mjs';
 import {effectiveFcCatalog} from '../runtime/model-cards.mjs';
@@ -48,7 +49,7 @@ const centerState=s=>{const effective=effectiveFcCatalog(catalog,s.draft.fc_mode
  capabilities:{catalog_source:'accepted_design_snapshot',live_checkout:false,authoritative_quote:false,coupon_mutation:false},
  csrf:undefined};};
 const weekly=makeWeeklyStore({dir:path.join(dir,'center'),centerProvider:()=>{const state=centerState(center.read()),seed=pageSeed(state.effective_fc_layout,state.draft.fc_models||{});return {...state,price_contracts:seed.seasonal_model_contracts||{},native_checkout:readNativeCheckoutPolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))};}});
-const weeklyRecommendations=makeWeeklyRecommendations({dir:path.join(dir,'center','weekly-recommendations'),enabledProvider:()=>weekly.read().hermes.enabled,contextProvider:()=>{const state=centerState(center.read());return {draft:{...state.draft,fc_layout:state.effective_fc_layout},catalog_products:state.catalog_products,page_bindings:state.page_bindings,source_revision:String(state.revision)};}});
+const weeklyRecommendations=makeWeeklyRecommendations({timeout_ms:120000,dir:path.join(dir,'center','weekly-recommendations'),enabledProvider:()=>weekly.read().hermes.enabled,contextProvider:()=>{const state=centerState(center.read());return {draft:{...state.draft,fc_layout:state.effective_fc_layout},catalog_products:state.catalog_products,page_bindings:state.page_bindings,source_revision:String(state.revision)};}});
 const secret=()=>fs.existsSync(secretFile)?JSON.parse(fs.readFileSync(secretFile,'utf8')).key:null;
 const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(body));};
 const publicState=s=>({revision:s.revision,registry:s.registry,layout:s.layout,updatedAt:s.updatedAt,updatedBy:s.updatedBy});
@@ -100,7 +101,8 @@ export const server=http.createServer(async(req,res)=>{
    }
    if(req.headers['content-type']!=='application/json')return json(res,403,{message:'请求来源或会话校验失败，请刷新页面'});
    let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>300000)return json(res,413,{message:'配置过大'});}const body=JSON.parse(raw);
-   if(relative==='analytics/api/weekly/recommend')return json(res,200,await weeklyRecommendations.recommend(body,auth.user));
+   if(relative==='analytics/api/weekly/reconcile')return json(res,200,await weeklyRecommendations.reconcile(body,auth.user,{provider:createWeeklyHermesProvider({cookie:req.headers.cookie||'',actor:auth.user})}));
+   if(relative==='analytics/api/weekly/recommend')return json(res,200,await weeklyRecommendations.recommend(body,auth.user,{provider:createWeeklyHermesProvider({cookie:req.headers.cookie||'',actor:auth.user})}));
    if(relative==='analytics/api/weekly')return json(res,200,{...weekly.mutate(body,auth.user),csrf,canEdit:true});
    if(relative==='analytics/api/center'){const prior=center.recoverSave(body);return json(res,200,{...centerState(prior||center.save(body,auth.user,await pendingModelDetails(body),await pendingProductDetails(body))),csrf,canEdit:true});}
    if(relative==='analytics/api/center/publish'){const prior=center.recoverPublish(body);return json(res,200,{...centerState(prior||center.publish(body,auth.user,await pendingModelDetails(body),await pendingProductDetails(body))),csrf,canEdit:true});}

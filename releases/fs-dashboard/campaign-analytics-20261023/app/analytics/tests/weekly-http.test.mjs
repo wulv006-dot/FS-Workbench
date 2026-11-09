@@ -7,11 +7,17 @@ import {randomUUID} from 'node:crypto';
 
 test('weekly console uses real center fixtures, FS role, origin and CSRF without publishing',async()=>{
  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'weekly-http-')),originalFetch=globalThis.fetch;
+ let hostMode='unavailable',hostCalls=[];
  process.env.CAMPAIGN_DATA=path.join(tmp,'private');process.env.CAMPAIGN_PUBLIC_RELEASE_DIR=path.join(tmp,'public');process.env.CAMPAIGN_ORIGIN='http://localhost';
  globalThis.fetch=async(url,options)=>{
   if(String(url)==='http://127.0.0.1:8895/verify?group=dashboard'){
    const role=options.headers.Cookie==='admin'?'admin':options.headers.Cookie==='reader'?'reader':null;
    return new Response(null,{status:role?200:401,headers:role?{'x-auth-user':'fixture','x-auth-role':role}:{}});
+  }if(String(url).startsWith('http://127.0.0.1:8931/internal/hermes/campaign-recommendations')){
+   assert.equal(options.headers['X-FS-Actor'],'fixture');assert.equal(options.headers.Cookie,'admin');hostCalls.push({url:String(url),method:options.method,body:options.body});
+   if(hostMode==='pending')return new Response(JSON.stringify({status:'pending',operation_id:JSON.parse(options.body).operation_id}),{status:202});
+   if(hostMode==='completed'){const operation_id=new URL(url).searchParams.get('operation_id');return new Response(JSON.stringify({status:'completed',result:{model:'gpt-6.1-sol',source_revision:'0',sbc_update_id:'sbc-async-test',recommendations:[]},receipt:{operation_id,task_id:'task1',run_id:'run1',model:'gpt-6.1-sol'}}));}
+   return new Response(JSON.stringify({operation_id:JSON.parse(options.body).operation_id,status:'unavailable',error:'WEEKLY_HERMES_PROVIDER_UNAVAILABLE',provider_outcome:'not_dispatched'}));
   }return originalFetch(url,options);
  };
  let server;
@@ -33,6 +39,12 @@ test('weekly console uses real center fixtures, FS role, origin and CSRF without
   response=await originalFetch(url+'/recommend',{method:'POST',headers,body:JSON.stringify({revision:0,operation_id:randomUUID(),sbc_update:update})});assert.equal(response.status,200);assert.equal((await response.json()).status,'unavailable');
   const recommendations=await (await originalFetch(url+'/recommend',{headers:{Cookie:'reader'}})).json();assert.equal(recommendations.last.status,'unavailable');
   assert.equal((await originalFetch(url+'/recommend',{method:'POST',headers:{...headers,Cookie:'reader'},body:'{}'})).status,403);
+  hostMode='pending';hostCalls=[];const asyncRequest={revision:0,operation_id:randomUUID(),sbc_update:{...update,id:'sbc-async-test'}};
+  response=await originalFetch(url+'/recommend',{method:'POST',headers:{...headers,'X-FS-Actor':'forged-browser-actor'},body:JSON.stringify(asyncRequest)});assert.equal(response.status,200);assert.equal((await response.json()).status,'pending');assert.equal(hostCalls.length,1);
+  response=await originalFetch(url+'/recommend',{method:'POST',headers,body:JSON.stringify(asyncRequest)});assert.equal((await response.json()).status,'pending');assert.equal(hostCalls.length,1);
+  hostMode='completed';response=await originalFetch(url+'/reconcile',{method:'POST',headers,body:JSON.stringify({operation_id:asyncRequest.operation_id})});assert.equal(response.status,200);assert.equal((await response.json()).status,'completed');assert.deepEqual(hostCalls.map(call=>call.method),['POST','GET']);
+  response=await originalFetch(url+'/recommend',{method:'POST',headers,body:JSON.stringify({...asyncRequest,operation_id:randomUUID(),actor:'forged'})});assert.equal(response.status,400);assert.equal(hostCalls.length,2);
+  const stored=fs.readFileSync(path.join(tmp,'private/center/weekly-recommendations/weekly-recommendations.json'),'utf8');assert(!stored.includes('forged-browser-actor'));assert(!stored.includes('Cookie'));
   for(const name of ['weekly.html','weekly.js','weekly.css'])assert.equal((await originalFetch(root+name,{headers:{Cookie:'reader'}})).status,200);
  }finally{if(server)await new Promise(resolve=>server.close(resolve));globalThis.fetch=originalFetch;fs.rmSync(tmp,{recursive:true,force:true});}
 });

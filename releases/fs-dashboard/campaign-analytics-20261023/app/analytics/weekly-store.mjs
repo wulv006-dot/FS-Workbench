@@ -1,12 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import nativeHandoff from '../native-code-handoff.js';
+import {fcPlatforms} from '../runtime/model-cards.mjs';
 import {atomic} from './store.mjs';
 import {canonical,digest,fail} from '../runtime/snapshot.mjs';
 
 export const WEEKLY_PAGES = {'fc27-trio':'Player Trio','fc27-weekly':'Weekly Scout','fc27-sbc':'SBC Core'};
 export const WEEKLY_STAGES = ['planned','code_implemented','test_available','production_verified','deployed_readback','natural_weekly_run','pending','evidence_gap'];
-const fcPlatforms = {ps:'21587',xbox:'21585',pc:'21589'};
 const scopes = ['publish','coupon_write','schedule_enable','rollback'];
 const text = (value,max=2000) => {if(typeof value!=='string'||value.length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f<>]/.test(value))fail('INVALID_WEEKLY_TEXT');return value;};
 const uuid = value => {if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value||''))fail('INVALID_OPERATION_ID');return value;};

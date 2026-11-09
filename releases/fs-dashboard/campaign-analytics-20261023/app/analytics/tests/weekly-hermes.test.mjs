@@ -96,3 +96,11 @@ test('a stalled provider aborts locally with an unknown outcome and no retry',as
  const result=await recommendWeekly({...fixture(),timeout_ms:5,provider:async(request,options)=>{calls++;signal=options.signal;return new Promise(()=>{});}});
  assert.equal(calls,1);assert.equal(signal.aborted,true);assert.equal(result.status,'failed');assert.equal(result.error,'WEEKLY_HERMES_PROVIDER_TIMEOUT');assert.equal(result.provider_outcome,'unknown');
 });
+
+test('multiline SBC constraints and comparison symbols remain text, and strict schema represents absent cores as null',async()=>{
+ const input=fixture();input.sbc_update.context='Rating > 85\nMin 3 players\t< 5 leagues';delete input.draft.pages[2].product_roles;
+ const request=prepareWeeklyRequest(input),item=request.response_schema.properties.recommendations.items;
+ assert.deepEqual(new Set(item.required),new Set(Object.keys(item.properties)));assert.deepEqual(item.properties.core_product_key,{type:'null'});
+ const result=await recommendWeekly({...input,provider:async request=>reply(request,[{page_id:'fc27-weekly',product_key:'fc-player-ps',core_product_key:null,reason:'Rating > 85\nCandidate < limit',evidence_indices:[]}])});
+ assert.equal(result.status,'completed');assert.match(result.candidates[0].reason,/Rating > 85\n/);
+});

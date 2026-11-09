@@ -15,7 +15,7 @@
     {
       "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/production-server.mjs",
       "target": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
-      "sha256": "24c7bdc2c290630ed106ae81c522abfd8505f4fe7a564a50096dc0f0e85f0b70",
+      "sha256": "6131f443fab23d2775e20d93b155afcf6683641ad82e3e51da89ccc46f634562",
       "base_sha256": "d8888d3bb03f4d568c765defa5d72eb28642e4f51f408e9344098118e33fcdc8"
     },
     {
@@ -33,39 +33,104 @@
     {
       "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly.html",
       "target": "/opt/fs-campaign-dashboard/analytics/weekly.html",
-      "sha256": "80a3ad846e2e257412eb14be1748858ba3308f2fbdf9e8961505f591e10a08a6",
+      "sha256": "a173fd163891e3e409f91ca401a7959b194356d72fe781c64f59e46d6142ae34",
       "base_sha256": null
     },
     {
       "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly.js",
       "target": "/opt/fs-campaign-dashboard/analytics/weekly.js",
-      "sha256": "97560de7dec95cde3a089183de333242a9ad0f05f5443a5f98c813280e69663d",
+      "sha256": "1b7eb26a6dd3adb76da91bdef4ccc6eee2b10ef411ad60faf082f7167e0d2c0b",
       "base_sha256": null
     },
     {
       "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly.css",
       "target": "/opt/fs-campaign-dashboard/analytics/weekly.css",
-      "sha256": "20feecd496eeda127a1373364ac154f881d8bf60f2748e89cc41c640064e15cd",
+      "sha256": "7c10e6be47b5ea0f8098b96c3d4540e03e8bd63746de1277e8f9000a4558edec",
       "base_sha256": null
     },
     {
       "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly-store.mjs",
       "target": "/opt/fs-campaign-dashboard/analytics/weekly-store.mjs",
-      "sha256": "ee22b74dc555798c8d463d0b80f29a13d24e498fafccf802c0d2ae4a9f944b8e",
+      "sha256": "689ac0265ef4f732057b3e3e7ffe555f2e4ee0d8798e74eedb6756adbe96d18e",
       "base_sha256": null
     },
     {
       "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly-hermes.mjs",
       "target": "/opt/fs-campaign-dashboard/analytics/weekly-hermes.mjs",
-      "sha256": "b498df80e23a42392470784986801be3b86ae2ab201c0658b945910f97c136cb",
+      "sha256": "4a37b854e8b9aeb975724b29daf83754d359af16a8beffaa83bb3e4d72aad170",
       "base_sha256": null
     },
     {
       "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly-recommendations.mjs",
       "target": "/opt/fs-campaign-dashboard/analytics/weekly-recommendations.mjs",
-      "sha256": "1d2d15beac2a761c350e7f068d924b3fed725b80d9cd9b9bf985e4d2517fb429",
+      "sha256": "54b5e05e6726eff44984c9c616d72bb421b2d13e912ddeec11cbae33c621c8eb",
       "base_sha256": null
+    },
+    {
+      "source": "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly-hermes-provider.mjs",
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-hermes-provider.mjs",
+      "base_sha256": null,
+      "sha256": "4b6c5931fe660fcf1e1184ccaa559c1613990ff0eb24ce12fa54474a71eceb40"
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-v2-core-20261020/source/campaign_recommendations.py",
+      "target": "/opt/fs-hermes-fc/campaign_recommendations.py",
+      "base_sha256": null,
+      "component": "shared_hermes",
+      "sha256": "8dab92c73e6af38830deeea560acc841ebe5bb92e6b6b32c74d2e5e79ffeaa1d"
+    },
+    {
+      "source": "releases/fc-coins/fc-review-channel-20261026/source/fs_inprocess.py",
+      "target": "/opt/fs-hermes-fc/fs_inprocess.py",
+      "base_sha256": "7abaf6a143546f5a8b0c69eaec1643c77063a3e6689d08d07ac1f99bb78a8164",
+      "component": "shared_hermes",
+      "sha256": "e78233a4af57fd95b99072e530b23cbc8a3e547a2803d1db0c2854c1a3e16cd8"
+    },
+    {
+      "source": "releases/fc-coins/fc-review-channel-20261026/source/proxy_gateway.py",
+      "target": "/opt/fs-hermes-fc/proxy_gateway.py",
+      "base_sha256": "6c83bbddd8d6e514b97415d9e6fccf4fd8194894b89fd8c145793d0181e7ac4c",
+      "component": "shared_hermes",
+      "sha256": "fa5b2d05e2375117b3d85d0ab92f2a28e1fd6cf68fbb322fa57abb3accd41e4e"
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-v2-core-20261020/source/transport.py",
+      "target": "/opt/fs-hermes-fc/transport.py",
+      "base_sha256": "6ddf6de1abfdd323d46d3026bd8f8dd7b1bae61dd0d90341b2fa2f009e1d6fff",
+      "component": "shared_hermes",
+      "sha256": "0a897a704c2d15662ef9112d1696cf03f3d0f6dddabcf3b8e3bca1fefc83f45a"
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-v2-core-20261020/source/openai_provider.py",
+      "target": "/opt/fs-hermes-fc/openai_provider.py",
+      "base_sha256": "350e16ad4931635d8b293c99780f69374547d826d9ec2e822f0c4a31e4a19fce",
+      "component": "shared_hermes",
+      "sha256": "681afc43b0a7ce6f3664b92b31cba2092ad029ec3cdbb14ea112557f757fe19a"
+    },
+    {
+      "source": "releases/fs-dashboard/management-november-20261103/source/range_api.py",
+      "target": "/opt/fs-exact-range-20261001/range_api.py",
+      "base_sha256": "2b10d7bb1ef3dce886247163163552466103ed189fc377a29b66e62a53c7846b",
+      "component": "shared_hermes",
+      "sha256": "ffb2605bbcd196c6b01a233d37bbed088353ef0b0f54da63174a22deaec21d0c"
+    },
+    {
+      "source": "releases/fs-dashboard/hermes-admin-recovery-20261020/source/fc_daily.py",
+      "target": "/opt/fs-exact-range-20261001/fc_daily.py",
+      "base_sha256": "056e1a16fcd48cda19903e17ecdeda4d3739d54f62525edbf5ec8dfc1ad3d6fa",
+      "component": "shared_hermes",
+      "sha256": "213cca2a7a02218f67aff6ca3bf905aac9fe3ba0165017b590949b3828bac35e"
     }
   ],
-  "candidate_bytes": "git-index-export"
+  "candidate_bytes": "git-index-export",
+  "integration_base": "06265ac1158c54c39dae1622567d00e68b6176c9",
+  "activation_services": [
+    "fs-campaign-dashboard.service",
+    "fs-business-range.service"
+  ],
+  "shared_activation": "HERMES-CONTRACT.md: original admission window, wait for in-flight tasks, verify all ledger readers; no pause or downgrade of P0 scheduling",
+  "shared_rollback": "Remove campaign entry only; preserve not_dispatched-compatible readers in proxy_gateway and fc_daily once any such ledger row exists; retain all DBs and original IDs",
+  "range_source_provenance": "Production text matches management-november-20261103 source line-for-line; raw-byte newline difference retained in base_sha256. dashboard-refresh is not current.",
+  "automatic_trigger_implemented": false,
+  "model_live_verified": false
 }

@@ -345,6 +345,14 @@ if HERMES is not None:
  HERMES.native_root=Path(NATIVE_ROOT)
  HERMES.native_ownership=(9876,9876)
 CONVERSATION=ConversationService(HERMES,'/var/lib/fs-hermes-fc/fs/conversations','/run/fs-hermes-fc') if HERMES is not None else None
+CAMPAIGN_RECOMMENDATIONS=None
+CAMPAIGN_RECOMMENDATIONS_ERROR=None
+if HERMES is not None:
+ try:
+  from campaign_recommendations import CampaignRecommendations,handle as campaign_recommendations_handle
+  CAMPAIGN_RECOMMENDATIONS=CampaignRecommendations(HERMES)
+ except Exception:
+  CAMPAIGN_RECOMMENDATIONS_ERROR='campaign_initialization_failed'
 from conversation_desktop import DesktopRPC
 DESKTOP_RPC=DesktopRPC(CONVERSATION,hermes_authorizer,'/etc/fs-hermes-desktop/fs-principal.json') if CONVERSATION is not None else None
 bind_conversation_diagnostics(CONVERSATION,conversation_handle)
@@ -389,9 +397,25 @@ try:
  LIVE_ADMIN=LiveAdminAdmission(SUMMARY.pools['Admin'],maintenance_admission)
 except (ImportError,OSError,ValueError,AttributeError):pass
 
+def campaign_unavailable(handler,method,uri):
+ try:
+  if method=='POST':
+   from conversation_http import read_json
+   operation_id=read_json(handler,maximum=300000).get('operation_id')
+  else:
+   query=parse_qs(uri.query,keep_blank_values=True,max_num_fields=1)
+   operation_id=query.get('operation_id',[None])[0]
+  if not re.fullmatch(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}',operation_id or ''):raise ValueError('operation_id')
+ except (ValueError,TypeError,KeyError):handler.reply(422,{'error':'campaign_invalid_request'});return
+ handler.reply(200,{'status':'unavailable','operation_id':operation_id,'error':'WEEKLY_HERMES_PROVIDER_UNAVAILABLE','reason':CAMPAIGN_RECOMMENDATIONS_ERROR,'provider_outcome':'not_dispatched'})
+
 class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   uri=urlsplit(self.path)
+  if uri.path=='/internal/hermes/campaign-recommendations':
+   if CAMPAIGN_RECOMMENDATIONS is None:campaign_unavailable(self,'GET',uri)
+   else:campaign_recommendations_handle(self,'GET',uri,CAMPAIGN_RECOMMENDATIONS)
+   return
   if uri.path=='/health':self.reply(200,{'ok':True,'service':'fs-business-range','readonly':True,'active_customer_reports':CUSTOMER_TRACKING.active_reports() if CUSTOMER_TRACKING is not None else 0,'user_analytics_ready':USERS is not None,'user_analytics_error':USERS_ERROR});return
   if uri.path==CONVERSATION_PREFIX or uri.path.startswith(CONVERSATION_PREFIX+'/'):
    if CONVERSATION is None:conversation_respond(self,503,{'error':'hermes_not_enabled'})
@@ -469,6 +493,10 @@ class Handler(BaseHTTPRequestHandler):
   except Exception:self.reply(503,{'error':'query_unavailable'})
  def do_POST(self):
   uri=urlsplit(self.path)
+  if uri.path=='/internal/hermes/campaign-recommendations':
+   if CAMPAIGN_RECOMMENDATIONS is None:campaign_unavailable(self,'POST',uri)
+   else:campaign_recommendations_handle(self,'POST',uri,CAMPAIGN_RECOMMENDATIONS)
+   return
   if uri.path=='/users/live-orders':
    if LIVE_ADMIN is None or not callable(verify_live_session) or not callable(private_live_body):self.reply(503,{'error':'live_admission_unavailable'});return
    if uri.query or self.headers.get('Sec-Fetch-Site')!='same-origin':self.reply(403,{'error':'same_origin_required'});return
