@@ -3,6 +3,9 @@ from pathlib import Path
 
 TARGET_COUNT = 101
 
+DAILY_REPAIR_SCOPE='fc-pricing-v3-daily-repair-20261109'
+DAILY_REPAIR_NAMES=('source/hermes_pricing_bridge.py','source/fc_pricing_v3/daily.py','source/hermes-copy/fc_pricing_v3/daily.py')
+
 COLLECTION_SCOPE='fc-pricing-v3-collection-routing-20261102'
 COLLECTION_NAMES=('source/fc_pricing_v3/sources.py','source/hermes-copy/fc_pricing_v3/sources.py','source/server_quote_job.py')
 

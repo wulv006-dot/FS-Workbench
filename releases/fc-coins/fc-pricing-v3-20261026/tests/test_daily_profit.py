@@ -135,7 +135,11 @@ class DailyProfit(unittest.TestCase):
             for op in self.ops:db.put('operations',op['operation_id'],op)
             collected=dict(actual={'status':'complete'},online=self.online)
             proc=Mock(returncode=0,stdout=json.dumps(collected))
-            with patch.object(runtime,'ledger',return_value=db),patch.object(daily.subprocess,'run',return_value=proc) as read,patch.object(scheduler,'export_shadow_snapshot'),patch.object(history,'ensure_shadow',return_value=dict(status='completed',result={})),patch.object(bridge,'review',return_value=dict(phase='completed')) as review:
+            def slow_collection(command,**kwargs):
+                if kwargs['timeout']<300:
+                    raise __import__('subprocess').TimeoutExpired(command,kwargs['timeout'])
+                return proc
+            with patch.object(runtime,'ledger',return_value=db),patch.object(daily.subprocess,'run',side_effect=slow_collection) as read,patch.object(scheduler,'export_shadow_snapshot'),patch.object(history,'ensure_shadow',return_value=dict(status='completed',result={})),patch.object(bridge,'review',return_value=dict(phase='completed')) as review:
                 result=daily.run(dict(local_date='2026-11-06'))
                 report=review.call_args.args[1]['daily_report']
                 self.assertEqual(report['actual_profit_summary'],result['actual_profit_summary'])

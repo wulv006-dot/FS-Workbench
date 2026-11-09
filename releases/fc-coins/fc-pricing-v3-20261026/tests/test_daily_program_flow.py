@@ -427,6 +427,7 @@ class SavedDailyComparison(unittest.TestCase):
             p=self.producer(folder)
             p.store.set_state('wulv',p.made['conversation_id'],p.made['turn_id'],'completed')
             report={k:p.record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
+            report['large']='x'*12000  # Polling an original turn must not build a fresh prompt.
             with patch.object(hermes_pricing_bridge,'ROOT',p.root),patch.object(hermes_pricing_bridge,'FS',p.root), \
                  patch.object(pricing_operations,'native',side_effect=OSError('comparison_temporarily_unavailable')) as comparisons, \
                  patch.object(hermes_pricing_bridge,'turn_state',wraps=hermes_pricing_bridge.turn_state) as reads, \
@@ -442,6 +443,19 @@ class SavedDailyComparison(unittest.TestCase):
             reads.assert_called_once()
             comparisons.assert_not_called()
             request.assert_called_once_with('wulv','/api/hermes/conversations/pricing-reviews/'+p.made['conversation_id'])
+
+    def test_dispatch_unknown_is_reported_without_resubmitting_original_turn(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=self.producer(folder)
+            p.store.set_state('wulv',p.made['conversation_id'],p.made['turn_id'],'dispatch_unknown')
+            with patch.object(hermes_pricing_bridge,'ROOT',p.root),patch.object(hermes_pricing_bridge,'FS',p.root), \
+                 patch.object(hermes_pricing_bridge,'request',side_effect=AssertionError('must_not_resubmit')), \
+                 patch.object(hermes_pricing_bridge,'save',side_effect=lambda path,value:path.write_text(json.dumps(value),encoding='utf-8')):
+                result=hermes_pricing_bridge.review(dict(job_id=p.record['request_id']),
+                    dict(run_id=p.record['request_id'],daily_report=dict(decision_basis=p.record['decision_basis'])),mode='daily_review',wait_seconds=0)
+            self.assertEqual(result['phase'],'unknown')
+            self.assertTrue(result['do_not_replay'])
+            self.assertEqual(result['turn']['id'],p.made['turn_id'])
 
     def test_source_reference_table_initializes_concurrently_without_changing_old_columns(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -543,5 +557,20 @@ class DailyReviewBoundary(unittest.TestCase):
         quote['daily_report']['large'] = 'x' * 12000
         with self.assertRaisesRegex(ValueError, '^pricing_daily_prompt_too_long$'):
             hermes_pricing_bridge.daily_review_text(quote)
+
+    def test_large_structured_review_compacts_repeated_columns_without_losing_evidence(self):
+        quote=self.quote()
+        group=dict(status='fit',elasticity='1.123456789',elasticity_support_interval=['0.9','1.4'],
+                   causal_effect_estimated=False,orders_per_block='12',rate_window_hours='48',
+                   observed_net_usd_per_order='19.75',delivered_k_per_order='105',reference_regular_usd='7.65',training_end='2026-11-08T00:00:00+00:00')
+        quote['daily_report']['decision_basis']['demand_model']=dict(groups={str(i):dict(group) for i in range(40)})
+        before=json.loads(json.dumps(quote))
+        text=hermes_pricing_bridge.daily_review_text(quote)
+        self.assertLessEqual(len(text),12000)
+        payload=json.loads(text.split('实际及影子摘要：',1)[1])
+        model=payload['decision_basis']['demand_model']
+        self.assertEqual({name:dict(zip(model['group_columns'],row)) for name,row in model['groups'].items()},before['daily_report']['decision_basis']['demand_model']['groups'])
+        self.assertEqual(payload['actual'],before['daily_report']['actual'])
+        self.assertEqual(quote,before)
 
 if __name__=='__main__':unittest.main()

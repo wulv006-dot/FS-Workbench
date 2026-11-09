@@ -87,7 +87,11 @@ class HourlyOutcomesTest(unittest.TestCase):
         result={'state':{'cursor_at':now.isoformat()},'online':online}
         with tempfile.TemporaryDirectory() as folder:
             db=Ledger(Path(folder)/'test.db');db.put('pricing_plans','p',p);db.put('actual_price_windows','op',window)
-            with patch.object(runtime,'ledger',return_value=db),patch.object(daily.subprocess,'run',return_value=MagicMock(returncode=0,stdout=json.dumps(result))):
+            def slow_collection(command,**kwargs):
+                if kwargs['timeout']<300:
+                    raise __import__('subprocess').TimeoutExpired(command,kwargs['timeout'])
+                return MagicMock(returncode=0,stdout=json.dumps(result))
+            with patch.object(runtime,'ledger',return_value=db),patch.object(daily.subprocess,'run',side_effect=slow_collection):
                 receipt=daily.run_hourly({'plan_id':'p','revision':1})
             self.assertEqual(receipt['outcomes'],2)
             self.assertFalse(receipt['model_called'])

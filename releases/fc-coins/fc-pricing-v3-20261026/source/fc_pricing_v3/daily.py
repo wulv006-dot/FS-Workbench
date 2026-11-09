@@ -152,7 +152,7 @@ def run(body):
     if 'actual' not in record:
         process=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
             input=json.dumps(dict(local_date=date,windows=db.all('actual_price_windows'))),text=True,
-            capture_output=True,timeout=240,cwd='/opt/fc27-cloud-browser')
+            capture_output=True,timeout=600,cwd='/opt/fc27-cloud-browser')
         if process.returncode:raise ValueError('pricing_daily_outcome_collection_failed')
         outcomes=json.loads(process.stdout)
         record['actual']=outcomes['actual']
@@ -237,7 +237,7 @@ def run_hourly(body):
     key='smart-outcome-source:'+policy_suffix(plan)
     process=subprocess.run(['/opt/python39/bin/python3','-B','-m','fc_pricing_v3.daily'],
         input=json.dumps(dict(action='hourly_outcomes',windows=windows,previous=db.get('metadata',key) or {})),
-        text=True,capture_output=True,timeout=240,cwd='/opt/fc27-cloud-browser')
+        text=True,capture_output=True,timeout=600,cwd='/opt/fc27-cloud-browser')
     if process.returncode:raise ValueError('pricing_hourly_outcome_collection_failed')
     result=json.loads(process.stdout)
     online=result['online']
