@@ -3,18 +3,18 @@
   "@graph": [
     {
       "@type": "CollectionPage",
-      "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#webpage",
-      "url": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html",
+      "@id": "https://www.mmoexp.com/events/Weekly-Scout.html#webpage",
+      "url": "https://www.mmoexp.com/events/Weekly-Scout.html",
       "name": "FC 27 Weekly Player Picks & Squad Upgrades | MMOEXP",
       "description": "Explore FC 27 player picks, including Lamine Yamal. Compare exact card versions and positions, choose your platform, and review your squad upgrades. Review the exact platform and items. Any campaign code must be validated before payment and cannot be combined with coupons or member points.",
       "inLanguage": "en",
       "dateModified": "2026-10-22T13:08:02.101028+00:00",
-      "image": "https://www.mmoexp.com/Fc-27/assets/weekly-hero.webp",
+      "image": "https://www.mmoexp.com/events/assets/weekly-hero.webp",
       "mainEntity": {
-        "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#featured-players"
+        "@id": "https://www.mmoexp.com/events/Weekly-Scout.html#featured-players"
       },
       "breadcrumb": {
-        "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#breadcrumb"
+        "@id": "https://www.mmoexp.com/events/Weekly-Scout.html#breadcrumb"
       },
       "isPartOf": {
         "@type": "WebSite",
@@ -25,7 +25,7 @@
     },
     {
       "@type": "BreadcrumbList",
-      "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#breadcrumb",
+      "@id": "https://www.mmoexp.com/events/Weekly-Scout.html#breadcrumb",
       "itemListElement": [
         {
           "@type": "ListItem",
@@ -43,13 +43,13 @@
           "@type": "ListItem",
           "position": 3,
           "name": "Weekly Player Picks",
-          "item": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html"
+          "item": "https://www.mmoexp.com/events/Weekly-Scout.html"
         }
       ]
     },
     {
       "@type": "ItemList",
-      "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#featured-players",
+      "@id": "https://www.mmoexp.com/events/Weekly-Scout.html#featured-players",
       "name": "Featured players and services",
       "numberOfItems": 3,
       "itemListOrder": "https://schema.org/ItemListUnordered",
@@ -59,8 +59,8 @@
           "position": 1,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170015245",
-            "url": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170015245",
+            "@id": "https://www.mmoexp.com/events/Weekly-Scout.html#product-170015245",
+            "url": "https://www.mmoexp.com/events/Weekly-Scout.html#product-170015245",
             "name": "Lamine Yamal /90/RW++/Gold Non Rare",
             "description": "90 · RW++ · Gold Non Rare",
             "image": "https://assets.mmoexp.com/images/202610/da32dd5c4f1bcf484071f64dae22c0fcb283178f.png"
@@ -71,8 +71,8 @@
           "position": 2,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170015221",
-            "url": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170015221",
+            "@id": "https://www.mmoexp.com/events/Weekly-Scout.html#product-170015221",
+            "url": "https://www.mmoexp.com/events/Weekly-Scout.html#product-170015221",
             "name": "Harry Kane/90/ST++/Gold Non Rare",
             "description": "90 · ST++ · Gold Non Rare",
             "image": "https://assets.mmoexp.com/player/fc27/55.png"
@@ -83,8 +83,8 @@
           "position": 3,
           "item": {
             "@type": "Thing",
-            "@id": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170014925",
-            "url": "https://www.mmoexp.com/Fc-27/Weekly-Scout.html#product-170014925",
+            "@id": "https://www.mmoexp.com/events/Weekly-Scout.html#product-170014925",
+            "url": "https://www.mmoexp.com/events/Weekly-Scout.html#product-170014925",
             "name": "Alexia Putellas Segura/91/CM++/Gold Non Rare",
             "description": "91 · CM++ · Gold Non Rare",
             "image": "https://assets.mmoexp.com/player/fc27/5.png"

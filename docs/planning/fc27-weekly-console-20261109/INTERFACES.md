@@ -2,6 +2,8 @@
 
 当前部署、真实Sol草稿与计划启用回执见[真实验收](deploy/LIVE-ACCEPTANCE.md)。下文的初始禁用与审批要求描述安装/接口合同，不代表本次计划仍未启用。
 
+正式公开地址由现役`CAMPAIGN_PUBLIC_ORIGIN=https://www.mmoexp.com`及`CAMPAIGN_PUBLIC_PREFIX=/events/`组成，三页为`Weekly-Scout.html`、`Sbc-Companions.html`、`Player-Trio.html`。本轮Chrome已确认`https://www.mmoexp.com/events/Weekly-Scout.html`可达，旧published16展示实价；`/Fc-27/Weekly-Scout.html`返回404，不作正式入口或canonical。187托管经主站路径代理提供内容，浏览器在www同源同标签使用`/Cart/add.html`、`pending_discount_code`及`/Cart.html`原生自动Apply；不是跨域复制存储或客户会话。管理页“查看已发布页面”使用服务器公开origin/prefix，未保存草稿预览与配置读回仍沿原管理同源路径。新草稿20商品的价格、平台、原生绑定及优惠适用性须另行发布与验收，不能继承旧发布的结账结论。
+
 ## 已实现入口
 
 原服务前缀 `/dashboard/analytics/campaigns/analytics/`：

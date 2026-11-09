@@ -2346,16 +2346,16 @@
   },
   "seo": {
     "origin": "https://www.mmoexp.com",
-    "assetPath": "/Fc-27/",
+    "assetPath": "/events/",
     "pages": {
       "weekly": {
-        "path": "/Fc-27/Weekly-Scout.html"
+        "path": "/events/Weekly-Scout.html"
       },
       "trio": {
-        "path": "/Fc-27/Player-Trio.html"
+        "path": "/events/Player-Trio.html"
       },
       "sbc": {
-        "path": "/Fc-27/Sbc-Companions.html"
+        "path": "/events/Sbc-Companions.html"
       }
     }
   },

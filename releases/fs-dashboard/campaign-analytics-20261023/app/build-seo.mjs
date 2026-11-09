@@ -84,7 +84,7 @@ export function renderPage(config,view,lang='en',{hub=false}={}){
 }
 export function buildOutputs(config){
  assert(new URL(config.seo.origin).origin==='https://www.mmoexp.com','Unexpected site origin');
- assert(config.seo.assetPath.startsWith('/'));assert(!Number.isNaN(Date.parse(config.capturedAt)),'Invalid catalog timestamp');
+ assert(/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(config.seo.assetPath));assert(!Number.isNaN(Date.parse(config.capturedAt)),'Invalid catalog timestamp');
  assert.deepEqual([...config.pageOrder].sort(),['sbc','trio','weekly']);
  if(config.activityPricing?.enabled)core.activityPrice(100,config);
  assert(['en','zh'].includes(config.defaultLanguage));assert(new Set(config.trio.ids).size===3,'Trio must contain three distinct cards');
@@ -93,7 +93,7 @@ export function buildOutputs(config){
  const registry=analyticsSandbox.window.FC_ANALYTICS_CONFIG.registry.map(a=>({...a,path:config.seo.pages[a.view]?.path||a.path}));
  const outputs={'catalog.json':JSON.stringify(config,null,2)+'\n','analytics/activity-registry.json':JSON.stringify(registry,null,2)+'\n'};
  const paths=new Set();for(const view of ['weekly','trio','sbc']){
-  const route=config.seo.pages[view].path;assert(/^\/Fc-27\/[A-Za-z0-9-]+\.html$/.test(route),'Invalid page route');assert(!paths.has(route));paths.add(route);
+  const route=config.seo.pages[view].path,file={weekly:'Weekly-Scout.html',sbc:'Sbc-Companions.html',trio:'Player-Trio.html'}[view];assert(route===config.seo.assetPath+file,'Invalid page route');assert(!paths.has(route));paths.add(route);
   const result=renderPage(config,view);
   outputs[path.posix.basename(route)]=result.html;outputs['activity-fragment-'+view+'.html']=result.fragment;outputs['seo-head-'+view+'.html']=result.head;outputs['structured-data-'+view+'.json']=model.json(result.info.schema)+'\n';outputs['validation/'+view+'.html']=result.validation;
  }

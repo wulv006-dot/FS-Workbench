@@ -8,6 +8,15 @@ const paths=['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','seaso
 const snapshot=()=>({schema_version:1,publication_status:'published',release_id:'published-1',pages:paths.map((path,i)=>({path,page_id:'page-'+i,title:'Published title '+i,description:'Published description '+i,active:true,starts_at:'2026-10-24T09:00:00Z',ends_at:'2026-10-25T10:00:00Z',product_keys:[]}))});
 const render=(s=snapshot(),name=paths[0],now='2026-10-24T10:00:00Z')=>presentPage({name,body:source,snapshot:s,now});
 
+test('FC canonical, social URL and structured data use the configured served public base',()=>{
+ const old='https://www.mmoexp.com/Fc-27/Weekly-Scout.html';
+ const body=source.replaceAll('https://www.mmoexp.com/original',old).replace('</head>','<meta property="og:url" content="'+old+'"></head>');
+ const result=presentPage({name:paths[0],body,snapshot:snapshot(),now:'2026-10-24T10:00:00Z',publicBase:'https://www.mmoexp.com/events/'}).body;
+ assert(result.includes('<link rel="canonical" href="https://www.mmoexp.com/events/Weekly-Scout.html">'));
+ assert(result.includes('<meta property="og:url" content="https://www.mmoexp.com/events/Weekly-Scout.html">'));
+ assert(result.includes('"url":"https://www.mmoexp.com/events/Weekly-Scout.html"'));assert(!result.includes(old));
+});
+
 test('published config renders exact visible copy and metadata while retaining active design',()=>{
   const s=snapshot(),first=render(s);assert.equal(first.status,200);
   for(const name of paths){const {body}=render(s,name);assert.match(body,/class="original-design"/);assert.match(body,/<main id="offers">/);assert.match(body,/<script src="activity.js"><\/script>/);assert.equal((body.match(/<h1\b/g)||[]).length,1);}

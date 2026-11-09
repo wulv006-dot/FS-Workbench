@@ -14,7 +14,7 @@ export function applyPublicPriceCache(snapshot,cache,{now=Date.now()}={}){
  try{
   if(!exact(cache,['schema_version','status','release_id','config_hash','generated_at','products','model_contracts'])||cache.schema_version!==1||cache.status!=='ready'||cache.release_id!==base.release_id||cache.config_hash!==base.config_hash
    ||!Number.isFinite(now)||!Number.isFinite(Date.parse(cache.generated_at))||Date.parse(cache.generated_at)>now||!Array.isArray(cache.products)||!cache.products.length||cache.products.length>1000||new Set(cache.products.map(p=>p.key)).size!==cache.products.length)return result;
-  const allowed=new Set(base.pages.find(p=>p.page_id==='seasonal-vault')?.product_keys||[]),products=[];
+  const allowed=new Set(base.pages.filter(p=>['seasonal-vault','fc27-trio','fc27-weekly','fc27-sbc'].includes(p.page_id)).flatMap(p=>p.product_keys||[])),products=[];
   for(const p of cache.products){
    const original=base.products.find(x=>x.key===p.key);
    if(!original||!allowed.has(p.key)||p.product_ref?.site_id!=='266'||canonical(original.product_ref)!==canonical(p.product_ref)||canonical(original.platform)!==canonical(p.platform)||p.available!==false)return result;

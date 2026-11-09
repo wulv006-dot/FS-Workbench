@@ -48,5 +48,14 @@ export function mergeNativeCatalog(seed,catalog){
   out.seasonal_model_contracts[key]=contract;
  }
  out.pageProductKeys['seasonal-vault']=[...new Set([...(out.pageProductKeys['seasonal-vault']||[]),...catalog.products.map(p=>p.key)])];
+ out.nativeModelKeys={};
+ for(const preview of products.filter(p=>p.preview_only===true&&p.model_card_key)){
+  const matches=catalog.products.filter(p=>canonical(p.product_ref)===canonical(preview.product_ref)&&canonical(p.platform)===canonical(preview.platform));
+  if(matches.length===1)out.nativeModelKeys[preview.key]=matches[0].key;
+ }
+ for(const pageId of ['fc27-trio','fc27-weekly','fc27-sbc']){
+  const keys=out.pageProductKeys[pageId]||[];
+  out.pageProductKeys[pageId]=[...new Set([...keys,...keys.flatMap(key=>out.nativeModelKeys[key]?[out.nativeModelKeys[key]]:[])])];
+ }
  return out;
 }
