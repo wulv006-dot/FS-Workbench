@@ -1,0 +1,78 @@
+{
+  "source_commit": "cb87b4901a81ffd313e06e4882a3b33918519ea2",
+  "built_at": "2026-11-09T04:53:59.419663+00:00",
+  "files": {
+    "http/conversation_http.py": {
+      "target": "/opt/fs-exact-range-20261001/conversation_http.py",
+      "before_sha256": "ffaf84c8cba4e0bced2371b5b06f6bc5a9fb0bcc2fa91368ead68ce6262db657",
+      "after_sha256": "ae95283680627de670216cdd187e97f2b14e5cd92b345cbb32536cfe737c1898",
+      "origin": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py",
+      "origin_sha256": "5b24c8342e3dc1782ef478019b05fbcce90bd8a22c1a4c6c83b6de2a025295eb",
+      "observed_at": "2026-11-09T04:45:12.419902+00:00"
+    },
+    "http/conversation_readonly.py": {
+      "target": "/opt/fs-exact-range-20261001/conversation_readonly.py",
+      "before_sha256": null,
+      "after_sha256": "b450f3d244c89eaa6e2ce51fb1a7dfa84a0d1bf05d23d505152254576fae477b",
+      "origin": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_readonly.py",
+      "origin_sha256": "b450f3d244c89eaa6e2ce51fb1a7dfa84a0d1bf05d23d505152254576fae477b",
+      "observed_at": "2026-11-09T04:45:12.419902+00:00"
+    },
+    "runtime/tracking_controller.py": {
+      "target": "/opt/fs-hermes-fc/tracking_controller.py",
+      "before_sha256": "aca0112a5e0e66ad37cb579d143048bece12c324b1107b6a85a07b092c81ba0a",
+      "after_sha256": "57175f44ec45a5e044dd24e29d1b623a47df8e91b20e2ce2e37ce759120bcac8",
+      "origin": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/tracking_controller.py",
+      "origin_sha256": "57175f44ec45a5e044dd24e29d1b623a47df8e91b20e2ce2e37ce759120bcac8",
+      "observed_at": "2026-11-09T04:45:12.419902+00:00"
+    },
+    "runtime/tracking_readonly.py": {
+      "target": "/opt/fs-hermes-fc/tracking_readonly.py",
+      "before_sha256": null,
+      "after_sha256": "bf0c8d4c3909111eb4747811f8f15ba64bbc74085c180581e2f0bbf844a70af3",
+      "origin": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/tracking_readonly.py",
+      "origin_sha256": "bf0c8d4c3909111eb4747811f8f15ba64bbc74085c180581e2f0bbf844a70af3",
+      "observed_at": "2026-11-09T04:45:12.419902+00:00"
+    },
+    "runtime/tracking_tool.py": {
+      "target": "/opt/fs-hermes-fc/tracking_tool.py",
+      "before_sha256": "c030922096ba66c33cebf1638fc1dfa560ab79e3a5927155b59d919a722d4be9",
+      "after_sha256": "7d561f85196498e91b8be052404ce893057e31ae2eac32062f86000d4b6fc1a9",
+      "origin": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/tracking_tool.py",
+      "origin_sha256": "8ff3071e44e453b50668f6eddffdf302933fa6fa62bf9e223aa77bdbbceaf20c",
+      "observed_at": "2026-11-09T04:45:12.419902+00:00"
+    },
+    "runtime/customer_tracking.py": {
+      "target": "/opt/fs-hermes-fc/customer_tracking.py",
+      "before_sha256": "dd705535ce72f1b879a530c30323f827e6a951e8d850d9ee3f3a9da1184584ef",
+      "after_sha256": "a9ec5f24eae2e369aa6d0c05567e0db76cf349bfed7a44fabba87f8b27864094",
+      "origin": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/customer_tracking.py",
+      "origin_sha256": "93d4d92a00af4158c20b19b8b1e4d27eb93244212abb4addf861f343874a9fb3",
+      "observed_at": "2026-11-09T04:45:12.419902+00:00"
+    },
+    "runtime/pool_reports.py": {
+      "target": "/opt/fs-hermes-fc/pool_reports.py",
+      "before_sha256": "51fef33b1ebe26f16a4dba59667988b3e71f979706487d0b80707a52a4d3b52a",
+      "after_sha256": "295c082406cbeaed0658c082cdf01def18a3856699fb12776880583178eb74ad",
+      "origin": "releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/pool_reports.py",
+      "origin_sha256": "81158a7327b7413338fcd444858fd8761a737915a7492a185c1228e538b0c869",
+      "observed_at": "2026-11-09T04:45:12.419902+00:00"
+    },
+    "runtime/customer_reports.py": {
+      "target": "/opt/fs-hermes-fc/customer_reports.py",
+      "before_sha256": "2d27a418b7bf596e505528ef985be23e97b7cc0201a7cf36ca537880c0addfb8",
+      "after_sha256": "bf3fd4d7d1bcba3778ad49c257b727fd6da251960c76f881a304c88f009580cd",
+      "origin": "releases/fs-dashboard/hermes-customer-tracking-20261018/source/customer_reports.py",
+      "origin_sha256": "4649dd4ad38f0f5c35e6963fa2e8dadd131df9edff22823b598b74cb4bef78df",
+      "observed_at": "2026-11-09T04:45:12.419902+00:00"
+    },
+    "runtime/research.py": {
+      "target": "/opt/fs-hermes-fc/research.py",
+      "before_sha256": "db872850d2aa183c120476277e6976821d285045404b6ee71abb379f973d8bdc",
+      "after_sha256": "a49e5c8f881ce9a94d3064cfba9487be54dc0c5ba4deefaffe8ba3076624ee2e",
+      "origin": "releases/fs-dashboard/hermes-customer-tracking-20261018/source/research.py",
+      "origin_sha256": "340150d7ad3538d49a2fb6990e98a5ed3a09041d10babc062c41e9c87999479a",
+      "observed_at": "2026-11-09T04:45:12.419902+00:00"
+    }
+  }
+}

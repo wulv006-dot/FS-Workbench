@@ -1,8 +1,8 @@
-# FS 数据连接器（开发候选）
+# FS 数据连接器
 
 通过远程 MCP 提供 FS 只读数据。每位用户在原 FS 登录后独立授权；查询复用原网关及权限，不把管理员身份、FS Cookie 或后台凭据交给 AI 客户端。
 
-当前候选操作及逐模块剩余范围以 `catalog.json` 为准，**尚未完成全部 FS 数据验收，也未部署**。每个导航模块已有读取候选，不代表该模块全部数据已接通。详细验收见 [验收记录](../docs/planning/fs-data-connector-20261109/ACCEPTANCE.md)。
+当前目录登记113个业务读取操作、36个范围记录；精确映射及剩余范围以 `catalog.json` 为准。目录不接入Hermes会话、代理和历史生成报告；客户追踪业务明细、活动统计及获准FS知识文本保留。当前AI获得数据和方法后自主分析，不要求固定报告模板。数量不证明所有数据已完整接通；部署、真实入口与客户端证据分别见 [验收记录](../docs/planning/fs-data-connector-20261109/ACCEPTANCE.md) 和 [真实验收](../docs/planning/fs-data-connector-20261109/LIVE-ACCEPTANCE.md)。本轮目录调整须单独发布后才生效。
 
 ## 本地验证
 
@@ -39,11 +39,11 @@ MCP 地址为 `FS_CONNECTOR_ISSUER + /mcp`。浏览器授权需要同站原 FS �
 - Codex：登记同一远程 MCP 地址并完成 OAuth 登录。主机与副机各自保存授权，不能复制另一位成员的凭据。
 - DeepSeek Harness：已查阅开源主分支支持 Streamable HTTP 和 stdio；副机实际安装版本待核对。若其版本没有 OAuth 登录流程，需验证标准 OAuth 本地桥接后再提供可安装配置；不能把手工复制短期 token 当作交付。
 
-尚未生成或安装真实账号配置；不能据这些说明声称三个客户端已经接通。
+以上是接入契约；各真实客户端当前通过与未验项目以真实验收记录为准。
 
 ## 查询与扩展
 
-`fs_list_data_sources` 返回当前用户可见的操作、参数和覆盖缺项；`fs_query_data` 接受 `operation` 和 `arguments`。操作只能来自 `catalog.json`，不接受任意 URL、SQL 或身份覆盖。新增映射前核对当前源码、调用参数、现役路由、权限和是否触发写入，并补对应合同测试。
+`fs_list_data_sources` 返回当前用户可见的操作、参数、覆盖缺项与 `data_methods` 方法口径；方法中的操作引用同步按原权限过滤。月报等问题可按需发现原范围、选择汇总与补查详情，由当前AI自行分析归因，不触发Hermes任务或报告生成。`data_methods` 是可选方法导航，不强制全量拉取或固定报告结构；其中来源哈希为仓库方法版本，不是现网数据完整性证明。详见 [数据与方法](../docs/planning/fs-data-connector-20261109/DATA-METHODS.md)。`fs_query_data` 接受 `operation` 和 `arguments`。操作只能来自 `catalog.json`，不接受任意 URL、SQL 或身份覆盖。新增映射前核对当前源码、调用参数、现役路由、权限和是否触发写入，并补对应合同测试。
 
 上游分页、206、部分覆盖及错误保留；连接器不将缺失补零，不将第一页当全量。实时订单的 20 条分页、28 天单窗口及 365 天边界只应用于该接口。客户精确邮箱只允许原受限 POST 请求体，不能加入 URL 或日志。
 

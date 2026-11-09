@@ -1722,148 +1722,6 @@
       }
     },
     {
-      "name": "conversations.list",
-      "module": "hermes-conversation",
-      "path": "/api/hermes/conversations",
-      "method": "GET",
-      "permission_path": "/api/hermes/conversations",
-      "description": "仅列出当前真实用户自己的会话",
-      "input_schema": {
-        "type": "object",
-        "properties": {},
-        "required": [],
-        "additionalProperties": false
-      },
-      "fixed": {},
-      "path_parameters": [],
-      "limits": {
-        "request_bytes": 16384,
-        "response_bytes": 4194304,
-        "timeout_seconds": 25
-      },
-      "provenance": {
-        "source": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py",
-        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
-        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-        "route_prefix": "/api/hermes/conversations",
-        "route_observed_date": "2026-11-09"
-      }
-    },
-    {
-      "name": "conversations.detail",
-      "module": "hermes-conversation",
-      "path": "/api/hermes/conversations/{conversation_id}",
-      "method": "GET",
-      "permission_path": "/api/hermes/conversations",
-      "description": "原会话对象所有权校验；读取不提交任务",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "conversation_id": {
-            "type": "string",
-            "maxLength": 80,
-            "pattern": "[A-Za-z0-9_-]{8,80}"
-          }
-        },
-        "required": [
-          "conversation_id"
-        ],
-        "additionalProperties": false
-      },
-      "fixed": {},
-      "path_parameters": [
-        "conversation_id"
-      ],
-      "limits": {
-        "request_bytes": 16384,
-        "response_bytes": 4194304,
-        "timeout_seconds": 25
-      },
-      "provenance": {
-        "source": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py",
-        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
-        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-        "route_prefix": "/api/hermes/conversations/",
-        "route_observed_date": "2026-11-09"
-      }
-    },
-    {
-      "name": "conversations.files",
-      "module": "hermes-conversation",
-      "path": "/api/hermes/conversations/{conversation_id}/connector/files",
-      "method": "GET",
-      "permission_path": "/api/hermes/conversations",
-      "description": "原owned权限下只读附件元数据；保留过期/缺失状态，不创建目录或清理附件",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "conversation_id": {
-            "type": "string",
-            "maxLength": 32,
-            "pattern": "[a-f0-9]{32}"
-          }
-        },
-        "required": [
-          "conversation_id"
-        ],
-        "additionalProperties": false
-      },
-      "fixed": {},
-      "path_parameters": [
-        "conversation_id"
-      ],
-      "limits": {
-        "request_bytes": 16384,
-        "response_bytes": 4194304,
-        "timeout_seconds": 25
-      },
-      "provenance": {
-        "source": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_readonly.py; releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py",
-        "mapping_status": "new_owned_readonly_files_adapter; adapter_deployment_and_authenticated_read_not_verified",
-        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-        "route_prefix": "/api/hermes/conversations/",
-        "route_observed_date": "2026-11-09"
-      }
-    },
-    {
-      "name": "conversations.pricing_review",
-      "module": "hermes-conversation",
-      "path": "/api/hermes/conversations/pricing-reviews/{review_id}",
-      "method": "GET",
-      "permission_path": "/api/hermes/conversations",
-      "description": "原会话对象所有权校验；读取不提交任务",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "review_id": {
-            "type": "string",
-            "maxLength": 80,
-            "pattern": "[A-Za-z0-9_-]{8,80}"
-          }
-        },
-        "required": [
-          "review_id"
-        ],
-        "additionalProperties": false
-      },
-      "fixed": {},
-      "path_parameters": [
-        "review_id"
-      ],
-      "limits": {
-        "request_bytes": 16384,
-        "response_bytes": 4194304,
-        "timeout_seconds": 25
-      },
-      "provenance": {
-        "source": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_http.py",
-        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
-        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-        "route_prefix": "/api/hermes/conversations/",
-        "route_observed_date": "2026-11-09"
-      }
-    },
-    {
       "name": "game_monitor.intelligence",
       "module": "game-monitor",
       "path": "/dashboard/game-monitor/intelligence.json",
@@ -3211,288 +3069,6 @@
       }
     },
     {
-      "name": "reports.list",
-      "module": "brain",
-      "path": "/dashboard/fs-home/advisor.json",
-      "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
-      "description": "Read visible existing reports, original owner/admin and trash scope; at most 40 native rows.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "scope": {
-            "type": "string",
-            "maxLength": 160,
-            "enum": [
-              "shared",
-              "mine",
-              "trash"
-            ]
-          },
-          "before": {
-            "type": "string",
-            "maxLength": 20,
-            "pattern": "[0-9]{1,20}"
-          },
-          "q": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "start": {
-            "type": "string",
-            "maxLength": 10,
-            "pattern": "\\d{4}-\\d{2}-\\d{2}"
-          },
-          "end": {
-            "type": "string",
-            "maxLength": 10,
-            "pattern": "\\d{4}-\\d{2}-\\d{2}"
-          }
-        },
-        "required": [],
-        "additionalProperties": false
-      },
-      "fixed": {
-        "mode": "hermes"
-      },
-      "path_parameters": [],
-      "limits": {
-        "request_bytes": 16384,
-        "response_bytes": 4194304,
-        "timeout_seconds": 25
-      },
-      "provenance": {
-        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
-        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
-        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-        "route_prefix": "/dashboard/fs-home/advisor.json",
-        "route_observed_date": "2026-11-09"
-      }
-    },
-    {
-      "name": "reports.detail",
-      "module": "brain",
-      "path": "/dashboard/fs-home/advisor.json",
-      "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
-      "description": "Read one existing report request, preserving original object visibility.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "maxLength": 160,
-            "pattern": "[A-Za-z0-9_-]{1,160}"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "additionalProperties": false
-      },
-      "fixed": {
-        "mode": "hermes"
-      },
-      "path_parameters": [],
-      "limits": {
-        "request_bytes": 16384,
-        "response_bytes": 4194304,
-        "timeout_seconds": 25
-      },
-      "provenance": {
-        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
-        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
-        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-        "route_prefix": "/dashboard/fs-home/advisor.json",
-        "route_observed_date": "2026-11-09"
-      }
-    },
-    {
-      "name": "reports.thread",
-      "module": "brain",
-      "path": "/dashboard/fs-home/advisor.json",
-      "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
-      "description": "Read original report thread after visible_job ownership check; does not submit or retry.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "maxLength": 160,
-            "pattern": "[A-Za-z0-9_-]{1,160}"
-          },
-          "thread": {
-            "type": "string",
-            "maxLength": 160,
-            "enum": [
-              "1"
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "thread"
-        ],
-        "additionalProperties": false
-      },
-      "fixed": {
-        "mode": "hermes"
-      },
-      "path_parameters": [],
-      "limits": {
-        "request_bytes": 16384,
-        "response_bytes": 4194304,
-        "timeout_seconds": 25
-      },
-      "provenance": {
-        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
-        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
-        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-        "route_prefix": "/dashboard/fs-home/advisor.json",
-        "route_observed_date": "2026-11-09"
-      }
-    },
-    {
-      "name": "reports.actions",
-      "module": "brain",
-      "path": "/dashboard/fs-home/advisor.json",
-      "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
-      "description": "Read original report actions after visible_job ownership check; does not submit or retry.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "maxLength": 160,
-            "pattern": "[A-Za-z0-9_-]{1,160}"
-          },
-          "actions": {
-            "type": "string",
-            "maxLength": 160,
-            "enum": [
-              "1"
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "actions"
-        ],
-        "additionalProperties": false
-      },
-      "fixed": {
-        "mode": "hermes"
-      },
-      "path_parameters": [],
-      "limits": {
-        "request_bytes": 16384,
-        "response_bytes": 4194304,
-        "timeout_seconds": 25
-      },
-      "provenance": {
-        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
-        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
-        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-        "route_prefix": "/dashboard/fs-home/advisor.json",
-        "route_observed_date": "2026-11-09"
-      }
-    },
-    {
-      "name": "reports.evidence",
-      "module": "brain",
-      "path": "/dashboard/fs-home/advisor.json",
-      "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
-      "description": "Read original report evidence after visible_job ownership check; does not submit or retry.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "maxLength": 160,
-            "pattern": "[A-Za-z0-9_-]{1,160}"
-          },
-          "evidence": {
-            "type": "string",
-            "maxLength": 27,
-            "pattern": "ev_[a-f0-9]{24}"
-          }
-        },
-        "required": [
-          "id",
-          "evidence"
-        ],
-        "additionalProperties": false
-      },
-      "fixed": {
-        "mode": "hermes"
-      },
-      "path_parameters": [],
-      "limits": {
-        "request_bytes": 16384,
-        "response_bytes": 4194304,
-        "timeout_seconds": 25
-      },
-      "provenance": {
-        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
-        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
-        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-        "route_prefix": "/dashboard/fs-home/advisor.json",
-        "route_observed_date": "2026-11-09"
-      }
-    },
-    {
-      "name": "reports.artifact",
-      "module": "brain",
-      "path": "/dashboard/fs-home/advisor.json",
-      "method": "GET",
-      "permission_path": "/dashboard/fs-home/advisor.json",
-      "description": "Read original report artifact after visible_job ownership check; does not submit or retry.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "maxLength": 160,
-            "pattern": "[A-Za-z0-9_-]{1,160}"
-          },
-          "artifact": {
-            "type": "string",
-            "maxLength": 160,
-            "enum": [
-              "html",
-              "boss",
-              "md",
-              "json"
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "artifact"
-        ],
-        "additionalProperties": false
-      },
-      "fixed": {
-        "mode": "hermes"
-      },
-      "path_parameters": [],
-      "limits": {
-        "request_bytes": 16384,
-        "response_bytes": 4194304,
-        "timeout_seconds": 25
-      },
-      "provenance": {
-        "source": "releases/fs-dashboard/nightly-reschedule-20261025/source/controller.py",
-        "mapping_status": "current_FS_nginx_route_and_repository_source; backend_release_and_business_read_not_verified",
-        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf",
-        "route_prefix": "/dashboard/fs-home/advisor.json",
-        "route_observed_date": "2026-11-09"
-      }
-    },
-    {
       "name": "customer_tracking.config",
       "module": "customer-tracking",
       "path": "/dashboard/fs-home/advisor.json",
@@ -4461,49 +4037,6 @@
       }
     },
     {
-      "name": "conversations.material_metadata",
-      "module": "hermes-conversation",
-      "path": "/api/hermes/conversations/{conversation_id}/connector/materials/{request_id}",
-      "method": "GET",
-      "permission_path": "/api/hermes/conversations",
-      "description": "Stored material metadata only; does not reconcile, stop or renew tasks. Terminal result is not included.",
-      "input_schema": {
-        "type": "object",
-        "properties": {
-          "conversation_id": {
-            "type": "string",
-            "maxLength": 32,
-            "pattern": "[a-f0-9]{32}"
-          },
-          "request_id": {
-            "type": "string",
-            "maxLength": 80,
-            "pattern": "[A-Za-z0-9_-]{8,80}"
-          }
-        },
-        "required": [
-          "conversation_id",
-          "request_id"
-        ],
-        "additionalProperties": false
-      },
-      "fixed": {},
-      "path_parameters": [
-        "conversation_id",
-        "request_id"
-      ],
-      "limits": {
-        "request_bytes": 16384,
-        "response_bytes": 4194304,
-        "timeout_seconds": 25
-      },
-      "provenance": {
-        "source": "releases/fs-dashboard/hermes-conversation-20261018/source/conversation_readonly.py",
-        "mapping_status": "new_select_only_route_not_deployed_business_read_not_verified",
-        "route_config": "/etc/nginx/fs-navigation-formal-analytics-20261006.locations.conf"
-      }
-    },
-    {
       "name": "knowledge.index",
       "module": "knowledge",
       "adapter": "knowledge",
@@ -5337,14 +4870,6 @@
       "permission_path": "/deploy/"
     },
     {
-      "module": "weekly",
-      "status": "partially_mapped_not_live_verified",
-      "operations": 0,
-      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
-      "permission_path": "/dashboard/fs-home/brain/index.html",
-      "via_module": "brain"
-    },
-    {
       "module": "madden",
       "status": "partially_mapped_not_live_verified",
       "operations": 8,
@@ -5373,13 +4898,6 @@
       "permission_path": "/dashboard/management/"
     },
     {
-      "module": "brain",
-      "status": "partially_mapped_not_live_verified",
-      "operations": 6,
-      "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
-      "permission_path": "/dashboard/fs-home/brain/index.html"
-    },
-    {
       "module": "fc27-bundles",
       "status": "partially_mapped_not_live_verified",
       "operations": 2,
@@ -5406,13 +4924,6 @@
       "operations": 4,
       "reason": "Named candidate reads exist. Additional module reads and live/object-role acceptance remain pending.",
       "permission_path": "/bots/"
-    },
-    {
-      "module": "hermes-conversation",
-      "status": "partially_mapped_not_live_verified",
-      "operations": 5,
-      "reason": "Conversation list/detail/files/pricing review are candidates. Material detail/result have execution side effects and require an owned SELECT-only adapter; other formats remain pending.",
-      "permission_path": "/dashboard/fs-home/hermes/conversation/"
     },
     {
       "module": "customer-tracking",
@@ -5495,5 +5006,200 @@
       "reason": "Existing administrator overview/audit mapped; core account details are not exposed by the current gateway; real member/admin acceptance pending.",
       "permission_path": "/__auth/access/api/overview"
     }
-  ]
+  ],
+  "data_methods": {
+    "version": "fs-data-methods-20261109",
+    "purpose": "提供FS业务数据调取方法和现行口径，由当前AI按本次问题自主分析归因。以下为可选导航，不是固定月报模板，也不要求逐项全拉；不调用Hermes会话、代理或报告生成。",
+    "principles": [
+      "先从获准目录及原catalog选择实际网站、游戏/项目、范围ID、日期、快照；不要猜profile、snapshotId、customer_id或把历史示例数字当现值。",
+      "每次结果保留来源、原筛选、期间及开闭区间、时区、币种/单位、observed_at、覆盖、失败、pending/partial、续页和live_non_snapshot。缺失、拒绝、过期和未完成不补零，第一页不当全量；实时续页不等于冻结快照。",
+      "优先复用同范围完整归档或原生汇总；是否补详情由本次问题决定。不同来源、日期轴和人群未关联时，不拼成精确漏斗或宣称因果。只有对应详情接口受28天限制，不将其机械施加所有汇总。",
+      "知识及本文提供方法版本，不证明当前生产数据完整或业务规则已装入每条接口。实际可读性、字段、覆盖和限制以原接口结果及其来源为准；不新增业务公式。"
+    ],
+    "guides": [
+      {
+        "id": "scope_and_coverage",
+        "operations": [
+          "business.catalog",
+          "business.archives",
+          "users.catalog",
+          "business.native_range",
+          "knowledge.index",
+          "knowledge.read"
+        ],
+        "guidance": "可按问题先查看原范围/归档目录，核网站、所选游戏/项目（例如FC27）及商品身份和可用日期，再用同范围汇总。native_range的snapshotId须来自当前目录；知识只读当前真实用户获准published条目，不创建任务或借其他用户路由。月报可比较完整自然月、可比同期及必要日趋势，未完成月注明截至时点；不强制这些比较。",
+        "sources": [
+          "monthly_index",
+          "monthly_data"
+        ]
+      },
+      {
+        "id": "admin_sales_orders_customers",
+        "operations": [
+          "business.summary",
+          "business.native_range",
+          "users.summary",
+          "users.members",
+          "users.detail",
+          "users.search",
+          "analytics.user_section",
+          "orders.live",
+          "orders.customer"
+        ],
+        "guidance": "Admin销售额、订单、客户按原网站/游戏/项目、付款状态与日期范围读取，不能暗改为仅完成订单。销售USD、订单数、付费客户人数分别保留；客单价=同范围销售额/订单数；客户平均消费ARPU与客单价不同，亦不是Coins单位价。客户生命周期沿原policy/state_basis与快照，不把范围内最早购买当终生首购；UID=0的游客不自动排除。",
+        "sources": [
+          "monthly_data"
+        ]
+      },
+      {
+        "id": "order_details_pagination",
+        "operations": [
+          "orders.live",
+          "orders.customer"
+        ],
+        "guidance": "原详情每页最多20条，按返回cursor续页；单次最多28个上海自然日、最早365天边界、256KiB/10秒，跨月超限时按原日期合同分段。不据一次partial或live_non_snapshot宣称完整。精确邮箱只在orders.customer受限JSON POST请求体传入，须原private权限；不能放URL/日志。邮箱、UID、原订单号及获准明细可返回供查询。",
+        "sources": [
+          "order_pagination",
+          "monthly_data"
+        ]
+      },
+      {
+        "id": "shipping_profit",
+        "operations": [
+          "business.summary",
+          "business.profit_history",
+          "business.native_range"
+        ],
+        "guidance": "主看板Order发货毛利人民币=同一发货统计响应销售总额减采购总额；分游戏毛利率读原行，全局按总毛利/同口径总销售，不平均游戏或日百分比。按交易时间与交货记录汇总，与Admin付款日销售不是同一群体；可能含退款、申诉、欺诈记录，非净利润。不得用Admin美元销售额乘该毛利率冒充实结，零分母不适用、未知不补零、负利润保留。profit_basis按本次问题与原返回来源选择，actual不能自动等同主shipping口径。",
+        "sources": [
+          "shipping_profit",
+          "monthly_data"
+        ]
+      },
+      {
+        "id": "management_estimate",
+        "operations": [
+          "management.targets",
+          "management.daily_v2",
+          "management.daily_status"
+        ],
+        "guidance": "管理台读取已有全站目标、发布日报事实及状态，不生成报告。其已有USD利润若由全站Admin销售额乘Order同期间参考率得到，应标预估，非实结逐单利润；不能与主看板发货人民币毛利混写。既有daily_v2并非任意月范围订单明细，历史覆盖以原发布结果为准。",
+        "sources": [
+          "management_profit"
+        ]
+      },
+      {
+        "id": "ads_traffic_attribution",
+        "operations": [
+          "marketing.range",
+          "marketing.business_links",
+          "campaigns.ads",
+          "campaigns.ga4",
+          "campaigns.gsc",
+          "campaigns.origin_traffic",
+          "channels.code",
+          "channels.coupon",
+          "channels.profit"
+        ],
+        "guidance": "全营销范围优先查看marketing.range返回的period.sources、Ads账户、calculation_campaigns、时区及覆盖，保留原366日范围/来源预算。campaigns.ads/ga4/gsc固定mmoexp-seasonal活动范围、单次31日，不当作全部FC27流量。GA4页面浏览量、落地页sessions、purchase事件与Admin已付款订单不同；GSC点击/展示/CTR/平均排名保持原时区和定义。渠道码/券归因不是广告增量因果证明；CAC须同来源花费与可关联的新付费客户分母，缺归因/客户覆盖时不伪造精确CAC；短期未成熟群体不外推终生LTV。趋势支持方向性判断时说明证据与其他可能原因。",
+        "sources": [
+          "monthly_data"
+        ]
+      },
+      {
+        "id": "categories_and_actual_cost",
+        "operations": [
+          "business.native_range",
+          "orders.live",
+          "orders.customer",
+          "channels.profit"
+        ],
+        "guidance": "FC27整单归属按现行合同优先级Player Cards、SBC、Packs、其他、Coins，订单按网站+原单号去重；发货明细按原记录ID去重，不能把真实分批发货按订单号误删。分组利润不是逐SKU利润；缺失/冲突/跨平台未决保留未知，不按销售比例摊成本。逐单实际成本/ES折扣若未由当前操作提供完整同单关联与覆盖，就明确缺项，不从汇总率反推。当前字段是否已实现此合同须核返回analysis/coverage，不能仅凭指南宣称已部署。",
+        "sources": [
+          "categories",
+          "monthly_data"
+        ]
+      },
+      {
+        "id": "customer_business_details",
+        "operations": [
+          "customer_tracking.config",
+          "customer_tracking.tracked",
+          "customer_tracking.request",
+          "customer_tracking.candidates",
+          "customer_tracking.detail",
+          "orders.customer"
+        ],
+        "guidance": "客户追踪读取原存储业务数据、请求回执和候选/详情；候选/详情固定stored_only，不观察、排队扫描或生成报告。保留stored_only/refreshed/history/complete及获准email、UID、原订单号和订单明细；存储未刷新不等于实时完整。原admin/private/对象权限继续适用；实现目录或固定mode名含Hermes不代表调用代理。",
+        "sources": [
+          "monthly_data"
+        ]
+      },
+      {
+        "id": "snapshot_consistency",
+        "operations": [
+          "sales.status",
+          "sales.snapshot"
+        ],
+        "guidance": "销售系统snapshot是原已保存文件快照；按dataset与offset/limit（最多100）续页，后续页带首响应snapshot_sha256防跨版本拼接。原生成时间、覆盖和来源保留；该系统记录不自动代替Admin全站付款统计。",
+        "sources": [
+          "monthly_data"
+        ]
+      },
+      {
+        "id": "remaining_monthly_gaps",
+        "operations": [
+          "business.native_range",
+          "orders.live",
+          "orders.customer",
+          "marketing.range",
+          "campaigns.ga4",
+          "campaigns.gsc",
+          "knowledge.index"
+        ],
+        "guidance": "当前操作未提供任意SQL、任意GA4维度/过滤、独立ES逐产品折扣全量或保证同单实际采购成本完整关联。先核返回原字段/覆盖与可用冻结证据；若问题所需字段仍缺失，明确不可用及对结论影响，不把历史研究工具fc.*名称当本连接器可调用操作，也不代调用Hermes报告。",
+        "sources": [
+          "monthly_data"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "monthly_data",
+        "path": "knowledge/reporting/fc27-monthly/DATA.md",
+        "sha256": "28a08fd28d740a800b161ba98f1ca8855a56a71fd15b77056e9cdb1b6d155403",
+        "kind": "repository_method_reference_not_live_data"
+      },
+      {
+        "id": "monthly_index",
+        "path": "knowledge/reporting/fc27-monthly/README.md",
+        "sha256": "6e06c0fc201ea06a69ca2aacddc1658b3f038186dd0d5a4d016edc304d350fe8",
+        "kind": "repository_method_reference_not_live_data"
+      },
+      {
+        "id": "shipping_profit",
+        "path": "docs/planning/business-shipping-profit-20261024/CONTRACT.md",
+        "sha256": "4fe08547ffce32e6b875562cffdd73a7ba1f40ea5d4d94ac2471534d3b331f4c",
+        "kind": "repository_method_reference_not_live_data"
+      },
+      {
+        "id": "management_profit",
+        "path": "docs/planning/management-all-sites-20261025/CONTRACT.md",
+        "sha256": "0bb4e935e26a46f1a3a0597d7ed40125cac4426f2dfce8222e1250d91040d514",
+        "kind": "repository_method_reference_not_live_data"
+      },
+      {
+        "id": "order_pagination",
+        "path": "releases/fs-dashboard/tiered-data-access-20261101/LIVE-ORDER-PAGINATION.md",
+        "sha256": "f435753987c3b3d16a5349ffba46a81e805dcb7f2ffb359ffd5c50b2eafc44cc",
+        "kind": "repository_method_reference_not_live_data"
+      },
+      {
+        "id": "categories",
+        "path": "docs/planning/fc-dashboard-category-20261106/CONTRACT.md",
+        "sha256": "8f01d98bab5ad317d51c4624dce8c339e98dd2a5018f6499ec716e7d51e87ff6",
+        "kind": "repository_method_reference_not_live_data"
+      }
+    ]
+  }
 }

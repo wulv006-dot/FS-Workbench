@@ -1,0 +1,18 @@
+[Unit]
+Description=FS read-only MCP connector
+Requires=docker.service
+After=docker.service network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=30
+TimeoutStopSec=30
+ExecStart=/usr/bin/docker run --rm --name fs-data-connector --network host --read-only --cpus 1 --memory 768m --pids-limit 128 --cap-drop ALL --security-opt no-new-privileges --env FS_CONNECTOR_ISSUER=https://47.85.224.112/connector --env FS_CONNECTOR_ORIGIN=https://47.85.224.112 --env FS_CONNECTOR_PORTAL=http://127.0.0.1:8895 --env FS_CONNECTOR_PORT=8937 --env FS_CONNECTOR_DATABASE=/var/lib/fs-data-connector/oauth.sqlite3 --env FS_CONNECTOR_KNOWLEDGE_ROOT=/var/lib/fs-hermes-fc/fs --mount type=bind,src=/var/lib/fs-data-connector,dst=/var/lib/fs-data-connector --mount type=bind,src=/var/lib/fs-hermes-fc/fs,dst=/var/lib/fs-hermes-fc/fs,readonly @IMAGE_ID@
+ExecStop=/usr/bin/docker stop --time 20 fs-data-connector
+
+[Install]
+WantedBy=multi-user.target

@@ -94,7 +94,7 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -q '^fs_mcp_connector/'; then
+          if git diff --name-only "$PR_BASE" "$PR_HEAD" | grep -Eq '^(fs_mcp_connector/|docs/planning/fs-data-connector-20261109/deploy/)'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97

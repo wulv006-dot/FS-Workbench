@@ -25,13 +25,21 @@ from .consent import render_browser_error, render_consent
 LOG = logging.getLogger(__name__)
 READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 TOOLS = [
-    Tool(name="fs_list_data_sources", description="列出当前 FS 用户有权读取的数据操作、输入结构、来源及覆盖状态。先查询目录再取数。", inputSchema={"type": "object", "properties": {}, "additionalProperties": False}, annotations=READ_ONLY),
+    Tool(name="fs_list_data_sources", description="列出当前 FS 用户有权读取的业务数据、参数、来源、覆盖缺项和 data_methods 取数口径。月报等分析由当前 AI 按问题自主选取与补查，不调用 Hermes 会话或报告生成。先查询目录再取数。", inputSchema={"type": "object", "properties": {}, "additionalProperties": False}, annotations=READ_ONLY),
     Tool(name="fs_query_data", description="按目录中的 operation 读取 FS 数据；保留原始口径、来源、完整性和续页信息。partial 或 live_non_snapshot 不代表完整快照。仅允许目录声明的参数，身份由授权连接提供。", inputSchema={"type": "object", "properties": {"operation": {"type": "string", "minLength": 1}, "arguments": {"type": "object"}}, "required": ["operation", "arguments"], "additionalProperties": False}, annotations=READ_ONLY),
 ]
 
 
 def _result(data: dict, *, error: bool = False) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=json.dumps(data, ensure_ascii=False))], structuredContent=data, isError=error)
+
+
+def _oauth_values(parsed: dict) -> dict:
+    # Native clients can repeat RFC 8707 resource; its single audience must remain identical.
+    for key, values in parsed.items():
+        if len(values) != 1 and not (key == "resource" and values and all(value == values[0] for value in values)):
+            raise ValueError("invalid_request")
+    return {key: values[0] for key, values in parsed.items()}
 
 
 async def _params(request: Request) -> dict:
@@ -51,9 +59,7 @@ async def _params(request: Request) -> dict:
             raise ValueError("invalid_request")
         return result
     parsed = parse_qs(body.decode("utf-8"), keep_blank_values=True, strict_parsing=True)
-    if any(len(values) != 1 for values in parsed.values()):
-        raise ValueError("invalid_request")
-    return {key: values[0] for key, values in parsed.items()}
+    return _oauth_values(parsed)
 
 
 def create_app(*, store, portal, catalog, backend, issuer: str, resource_url: str,
@@ -94,7 +100,7 @@ def create_app(*, store, portal, catalog, backend, issuer: str, resource_url: st
     def browser_error(reason, status):
         return HTMLResponse(render_browser_error(reason=reason, asset_base=asset_base),
                             status_code=status, headers=browser_headers)
-    mcp = Server("FS data", version="1.0.0", instructions="FS 数据为只读。先查看数据目录，只调用获准操作，保留来源、口径、期间、完整性和续页信息。")
+    mcp = Server("FS data", version="1.0.0", instructions="FS 提供只读业务数据和 data_methods 取数口径，由当前 AI 按问题自主分析。先查看数据目录，只调用获准操作，保留来源、口径、期间、完整性和续页信息。方法导航不是强制报告模板；不接入 Hermes 会话、代理或报告生成。")
 
     @mcp.list_tools()
     async def list_tools():
@@ -186,9 +192,7 @@ def create_app(*, store, portal, catalog, backend, issuer: str, resource_url: st
                 raise ValueError("invalid_request")
             if request.method == "GET":
                 items = parse_qs(request.url.query, keep_blank_values=True)
-                if any(len(values) != 1 for values in items.values()):
-                    raise ValueError("invalid_request")
-                params = {key: values[0] for key, values in items.items()}
+                params = _oauth_values(items)
                 if set(params) == {"request_id"}:
                     params = await run_in_threadpool(store.consume_login_request, params["request_id"])
                 if set(params) - {"client_id", "redirect_uri", "resource", "code_challenge", "code_challenge_method", "response_type", "scope", "state"} or params.get("response_type") != "code" or params.get("code_challenge_method") != "S256":

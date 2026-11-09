@@ -453,6 +453,8 @@ def selfcheck():
     for area in ("source/customer_tracking.py","tests/test_customer_tracking.py","frontend/page.js","frontend/entry/brain.js","learning/CUSTOMER-METHOD.md","deploy/prepare_release.py"):
         if select(["releases/fs-dashboard/hermes-customer-tracking-20261018/"+area]) != ["hermes-customer-tracking"]:
             raise RuntimeError("hermes_customer_tracking_mapping_missing:"+area)
+    if select(['docs/planning/fs-data-connector-20261109/deploy/connector/install_connector_187.py']) != ['fs-connector-deployment']:
+        raise RuntimeError('connector_deployment_mapping_missing')
     print("path/structure selfcheck: HTML/CSS-only and mixed paths checked; valid/malformed examples and existing FC templates checked")
     print("coverage selfcheck: unmapped runtime formats/workflows and frontend deletions rejected; HTML non-void slash handled as open tag")
     rename_source_selfcheck()
@@ -461,6 +463,8 @@ def selfcheck():
 def select(paths):
     groups=set();unmapped=[]
     for name in paths:
+        if name.startswith('docs/planning/fs-data-connector-20261109/deploy/'):
+            groups.add('fs-connector-deployment');continue
         if name.startswith('fs_mcp_connector/'):
             groups.add('fs-mcp-connector');continue
         if name.startswith(('opt/mmoexp-fc-community/', 'opt/mmoexp-fc-quotes/', 'opt/fc27-news-fetch/')):
@@ -902,11 +906,17 @@ def main():
     # Workflow/governance-only PR still tests the stable failure gate.
     selfcheck()
     for group in groups:
+        if group == 'fs-connector-deployment':
+            python = os.environ.get('FS_CONNECTOR_PYTHON')
+            if not python:raise RuntimeError('connector_python_312_required')
+            units('docs/planning/fs-data-connector-20261109/deploy/connector', ['test_deployment'], python=python)
+            units('docs/planning/fs-data-connector-20261109/deploy/original-services', ['test_delete_old_review'], python=python)
+            continue
         if group == 'fs-mcp-connector':
             python = os.environ.get('FS_CONNECTOR_PYTHON')
             if not python:
                 raise RuntimeError('connector_python_312_required')
-            units('fs_mcp_connector/tests', ['test_auth', 'test_portal', 'test_backend', 'test_server', 'test_catalog_extended', 'test_knowledge', 'test_documents', 'test_g2g', 'test_players', 'test_gallery', 'test_accounts', 'test_consent', 'test_sales', 'test_evolutions', 'test_tracking', 'test_redaction'], python=python)
+            units('fs_mcp_connector/tests', ['test_auth', 'test_portal', 'test_backend', 'test_server', 'test_catalog_extended', 'test_knowledge', 'test_documents', 'test_g2g', 'test_players', 'test_gallery', 'test_accounts', 'test_consent', 'test_sales', 'test_evolutions', 'test_tracking', 'test_redaction', 'test_data_methods'], python=python)
             continue
         if group=='seo-daily':
             units('mmoexp_google_data/seo/tests', ['test_contracts','test_sources','test_pages','test_store','test_daily_snapshot','test_ai_policy','test_resources','test_api','test_rules','test_runtime','test_estimate','test_web','test_prepare'])

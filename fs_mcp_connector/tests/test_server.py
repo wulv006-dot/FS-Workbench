@@ -9,7 +9,7 @@ import threading
 import time
 import unittest
 import httpx
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from starlette.testclient import TestClient
 from mcp import ClientSession
@@ -152,6 +152,57 @@ class ServerTests(unittest.TestCase):
             content='{"redirect_uris":["https://client.example/callback"],"client_name":"one","client_name":"two"}',
             headers={'Content-Type': 'application/json'})
         self.assertEqual(response.status_code, 400)
+
+    def test_codex_identical_resource_query_reaches_real_consent(self):
+        self.client.cookies.set('MMOEXP_AUTH', 'alice')
+        query = list(self.params.items()) + [('resource', RESOURCE)]
+        response = self.client.get('/connector/oauth/authorize?' + urlencode(query))
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn('name="pending_id"', response.text)
+        with self.store._db(write=False) as db:
+            saved = db.execute('SELECT params FROM pending').fetchone()[0]
+        self.assertEqual(__import__('json').loads(saved)['resource'], RESOURCE)
+
+    def test_identical_resource_token_form_preserves_binding(self):
+        code = self.store.issue_code(self.cid, self.params['redirect_uri'], RESOURCE, CHALLENGE,
+            Principal('alice', 'MMOEXP_AUTH=alice'))
+        fields = [('grant_type', 'authorization_code'), ('client_id', self.cid), ('code', code),
+            ('redirect_uri', self.params['redirect_uri']), ('resource', RESOURCE),
+            ('code_verifier', VERIFIER), ('resource', RESOURCE)]
+        response = self.client.post('/connector/oauth/token', content=urlencode(fields),
+            headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn('access_token', response.json())
+
+    def test_distinct_resources_and_other_duplicate_query_keys_rejected(self):
+        self.client.cookies.set('MMOEXP_AUTH', 'alice')
+        for field, value in [('resource', RESOURCE + '/other'), ('client_id', self.cid),
+                ('state', self.params['state'])]:
+            with self.subTest(field=field):
+                response = self.client.get('/connector/oauth/authorize?' +
+                    urlencode(list(self.params.items()) + [(field, value)]))
+                self.assertEqual(response.status_code, 400)
+        with self.store._db(write=False) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM pending').fetchone()[0], 0)
+
+    def test_ambiguous_form_and_duplicate_json_resource_do_not_consume_code(self):
+        for mode in ('distinct_resource', 'duplicate_client_id', 'duplicate_json_resource'):
+            with self.subTest(mode=mode):
+                code = self.store.issue_code(self.cid, self.params['redirect_uri'], RESOURCE, CHALLENGE,
+                    Principal('alice', 'MMOEXP_AUTH=alice'))
+                params = dict(grant_type='authorization_code', client_id=self.cid, code=code,
+                    redirect_uri=self.params['redirect_uri'], resource=RESOURCE, code_verifier=VERIFIER)
+                if mode == 'duplicate_json_resource':
+                    raw = __import__('json').dumps(params)[:-1] + ',"resource":"' + RESOURCE + '"}'
+                    headers = {'Content-Type': 'application/json'}
+                else:
+                    extra = ('resource', RESOURCE + '/other') if mode == 'distinct_resource' else ('client_id', self.cid)
+                    raw = urlencode(list(params.items()) + [extra])
+                    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+                response = self.client.post('/connector/oauth/token', content=raw, headers=headers)
+                self.assertEqual(response.status_code, 400)
+                self.assertIn('access_token', self.store.exchange_code(code, self.cid,
+                    self.params['redirect_uri'], RESOURCE, VERIFIER))
 
     def test_long_oauth_request_survives_existing_login_next_limit(self):
         params = dict(self.params, state='s' * 1800)
