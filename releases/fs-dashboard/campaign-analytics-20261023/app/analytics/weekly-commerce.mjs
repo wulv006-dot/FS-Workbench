@@ -18,6 +18,18 @@ const hashDraft=draft=>digest(canonical(draft));
 const policyBytes=read=>{const raw=read();if(!Buffer.isBuffer(raw)&&typeof raw!=='string')fail('WEEKLY_COMMERCE_RAW_POLICY_REQUIRED');return Buffer.from(raw);};
 const entryKey=p=>canonical([p.model_ref,p.quantity_value,p.quantity_unit]);
 const empty=s=>s?.present===true&&s.observed&&typeof s.observed==='object'&&Object.keys(s.observed).length===0;
+function discountEvidence(detail,now){
+ const f=detail?.fields,number=(value,target)=>(typeof value==='string'||Number.isSafeInteger(value))&&/^(?:0|[1-9]\d*)(?:\.0+)?$/.test(String(value))&&Number(value)===target;
+ const ids=value=>Array.isArray(value)&&value.every(v=>typeof v==='string'||Number.isSafeInteger(v))?value.map(String):null;
+ if(detail?.kind!=='discount'||detail.native_id!=='6049'||detail.scope_status!=='exact_site'||!f||f.code!=='FCSCOUT10'||!number(f.uid,0))fail('WEEKLY_COMMERCE_DISCOUNT_IDENTITY_UNVERIFIED');
+ if(!number(f.status,1)||!number(f.type,1)||!number(f.discount,90)||!number(f.attain,0))fail('WEEKLY_COMMERCE_DISCOUNT_RULE_UNVERIFIED');
+ if(!number(f.site_id,266)||canonical(ids(f.gid))!==canonical(['1327'])||canonical(ids(f.cid))!==canonical(['2'])||!ids(f.exclude_gids)||ids(f.exclude_gids).includes('1327'))fail('WEEKLY_COMMERCE_DISCOUNT_SCOPE_UNVERIFIED');
+ const stamp=value=>{if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value))fail('WEEKLY_COMMERCE_DISCOUNT_WINDOW_UNVERIFIED');const ms=Date.parse(value.replace(' ','T')+'+08:00');if(!Number.isFinite(ms)||new Date(ms+8*3600000).toISOString().slice(0,19).replace('T',' ')!==value)fail('WEEKLY_COMMERCE_DISCOUNT_WINDOW_UNVERIFIED');return ms;};
+ const start=stamp(f.timestart),end=stamp(f.timeend);if(start>=end||now<start||now>end)fail('WEEKLY_COMMERCE_DISCOUNT_WINDOW_UNVERIFIED');
+ // aid=0 is the native unrestricted-platform value, not a missing platform ID.
+ if(f.aid!=null&&!/^(?:0|[1-9]\d*)$/.test(String(f.aid)))fail('WEEKLY_COMMERCE_DISCOUNT_SCOPE_UNVERIFIED');
+ return {native_id:'6049',code:'FCSCOUT10',before_hash:detail.before_hash,observed_at:new Date(now).toISOString(),valid_until:new Date(end).toISOString(),aid:f.aid==null?null:String(f.aid)};
+}
 async function selected(draft,catalog,policy,call){
  const l=draft?.fc_layout;if(!l||!Array.isArray(l.weekly)||!Array.isArray(l.trio)||!Array.isArray(l.sbc))fail('WEEKLY_COMMERCE_LAYOUT_REQUIRED');
  const scope={'fc27-weekly':l.weekly,'fc27-trio':[...l.trio,...(l.bundles||[])],'fc27-sbc':[...l.sbc,...l.sbc.flatMap(k=>[...(l.routes?.[k]?.picks||[]),...(l.routes?.[k]?.alternatives||[])])]};
@@ -29,7 +41,7 @@ async function selected(draft,catalog,policy,call){
    if(!mid&&legacy){const goods_id=String(legacy.platforms?.ps?.id||'');if(!/^[1-9]\d*$/.test(goods_id))fail('WEEKLY_COMMERCE_MODEL_UNVERIFIED');const row=(await call({action:'product_read',site_id:'266',game_id:'1327',goods_id}))?.product?.product_ref;if(row?.site_id!=='266'||row.game_id!=='1327'||row.goods_id!==goods_id)fail('WEEKLY_COMMERCE_MODEL_UNVERIFIED');mid=row.model_id;}
    if(!/^[1-9]\d{0,19}$/.test(mid||'')||!categories[kind])fail('WEEKLY_COMMERCE_MODEL_UNVERIFIED');
    if(models.has(mid)&&models.get(mid)!==kind)fail('WEEKLY_COMMERCE_MODEL_UNVERIFIED');models.set(mid,kind);selectedMids.push(mid);if(legacy)legacyPlatforms.set(mid,legacy.platforms);
-  }scope[page]=selectedMids;
+  }scope[page]=[...new Set(selectedMids)];
  }
  if(models.size>60)fail('WEEKLY_COMMERCE_SELECTION_LIMIT');
  return {scope,models,legacyPlatforms};
@@ -56,6 +68,7 @@ export function makeWeeklyCommerce({dir,readPolicy,catalog,call=backendRead,now=
    try{
    uuid(operation_id);if(!Number.isSafeInteger(revision)||revision<0||!draft||typeof owner!=='string'||!/^[-A-Za-z0-9_]{1,80}$/.test(owner))fail('WEEKLY_COMMERCE_REQUEST_INVALID');
    const before=policyBytes(readPolicy);let policy;try{policy=JSON.parse(before);}catch{fail('WEEKLY_COMMERCE_POLICY_INVALID');}const {scope,models,legacyPlatforms}=await selected(draft,catalog,policy,call),identities=[],normal=[];
+   const discount=discountEvidence(await call({action:'benefit_detail',kind:'discount',native_id:'6049',site_id:'266'}),now());
    // Only server-owned backend reads can resolve manual additions; no browser prices or refs.
    const rows=[...models];let cursor=0;
    await Promise.all(Array.from({length:Math.min(4,rows.length)},async()=>{while(cursor<rows.length){const [model_id,kind]=rows[cursor++];const r=await call({action:'model_resolve',site_id:'266',game_id:'1327',model_id,kind});
@@ -82,19 +95,24 @@ export function makeWeeklyCommerce({dir,readPolicy,catalog,call=backendRead,now=
    projectNativeCatalog(cat,{now:now()});
    const bindings=next.native_checkout.bindings;
    for(const b of bindings)if(pages.includes(b.page_id)){if(b.off_percent!==10||b.activity_id!=='fc27-season2')fail('WEEKLY_COMMERCE_DISCOUNT_CONFLICT');if(b.code!=='FCSCOUT10'){b.code='FCSCOUT10';replaced.bindings++;}}
+   const activeBindings=[];
    for(const [page,mids] of Object.entries(scope))for(const p of trusted.products.filter(p=>mids.includes(p.product_ref.model_id))){
     const explicit=draft.pages.find(x=>x.page_id===page)?.product_keys;
     if(Array.isArray(explicit)&&!explicit.some(key=>key===p.key||key==='fc-model-266-1327-'+p.product_ref.model_id+'-'+p.platform.code||Object.entries(catalog?.products||{}).some(([legacy,x])=>key==='fc-'+legacy+'-'+p.platform.code&&String(x.platforms?.[p.platform.code]?.id)===p.product_ref.goods_id)))continue;
     const b={activity_id:'fc27-season2',page_id:page,product_key:p.key,quantity:{value:'1',unit:'item'},attributes:[],off_percent:10,code:'FCSCOUT10',native:{category:'new_items',id:p.product_ref.goods_id,group:'1',num:'1',attr:'',aid:p.platform.attribute_id}};
+    activeBindings.push(b);
     const i=bindings.findIndex(x=>x.page_id===page&&x.product_key===p.key&&x.off_percent===10&&canonical(x.quantity)===canonical(b.quantity)&&canonical(x.attributes)===canonical(b.attributes));if(i<0){bindings.push(b);added.bindings++;}else if(canonical(bindings[i])!==canonical(b)){bindings[i]=b;replaced.bindings++;}
    }
-   const selectedBindings=bindings.filter(b=>pages.includes(b.page_id)&&trusted.products.some(p=>p.key===b.product_key));
+   const selectedBindings=activeBindings;
+   if(discount.aid&&discount.aid!=='0'&&selectedBindings.some(b=>b.native.aid!==discount.aid))fail('WEEKLY_COMMERCE_DISCOUNT_PLATFORM_SCOPE');
    const allPages=pages.map(page_id=>{const p=draft.pages.find(p=>p.page_id===page_id);if(!p)fail('WEEKLY_COMMERCE_ORIGINAL_PAGE_REQUIRED');return {...p,product_keys:selectedBindings.filter(b=>b.page_id===page_id).map(b=>b.product_key)};});
    handoff.projectConfiguration({...next.native_checkout,bindings:selectedBindings},allPages,trusted.products);
    if(next.admin_reference_prices.entries.length>300||cat.products.length>1000||bindings.length>3000)fail('WEEKLY_COMMERCE_CAPACITY_EXCEEDED');
+   if(now()>Date.parse(discount.valid_until))fail('WEEKLY_COMMERCE_DISCOUNT_WINDOW_UNVERIFIED');
    if(sha(policyBytes(readPolicy))!==sha(before))fail('WEEKLY_COMMERCE_POLICY_CHANGED');
    const proposal_id=randomUUID(),candidateBytes=Buffer.from(JSON.stringify(next)),candidate_sha=sha(candidateBytes),draft_hash=hashDraft(draft);
-   const proposal={schema_version:1,status:'prepared',proposal_id,operation_id,owner,revision,draft_hash,policy_before_sha:sha(before),candidate_sha,created_at:new Date(now()).toISOString(),valid_until:candidate.valid_until,expires_at:candidate.valid_until,models_count:models.size,policy_write_required:canonical(policy)!==canonical(next),can_publish:true,blockers:[],
+   const expires_at=new Date(Math.min(Date.parse(candidate.valid_until),Date.parse(discount.valid_until))).toISOString();
+   const proposal={schema_version:1,status:'prepared',proposal_id,operation_id,owner,revision,draft_hash,policy_before_sha:sha(before),candidate_sha,created_at:new Date(now()).toISOString(),valid_until:expires_at,expires_at,models_count:models.size,policy_write_required:canonical(policy)!==canonical(next),can_publish:true,blockers:[],discount_verification:discount,
     checks:{native_field_contract:'existing_fc_one_item',player_type:'observed_normal',price:'admin_current_reference',discount_code:'FCSCOUT10',benefit_id:'6049',coupon_write:false,publication:false},diff:{added,replaced,price_entries:next.admin_reference_prices.entries.length,native_products:cat.products.length,bindings:bindings.length},
     resolved_models:identities,preview_catalog:candidate,candidate_path:candidateFile(proposal_id),proposal_path:file(proposal_id)};
    fs.mkdirSync(dir,{recursive:true,mode:0o700});if(fs.lstatSync(dir).isSymbolicLink())fail('WEEKLY_COMMERCE_PRIVATE_FILE_REQUIRED');

@@ -49,6 +49,12 @@ class Reader:
 
 
 class BenefitTests(unittest.TestCase):
+    def test_discount_detail_projects_real_code_and_uid_without_enabling_discount_writer(self):
+        row=dict(id=6049,site_id=266,code='FCSCOUT10',uid=0,status=1,type=1,attain='0.00',discount='90.00',gid=['1327'],cid=['2'],exclude_gids=[],aid=0,repeat_qty=0,timestart='2026-10-26 00:00:00',timeend='2027-10-25 23:59:59',secret='NEVER_PROJECT')
+        reader=Reader(row);view=benefits.detail(reader,{},'discount','6049','266')
+        self.assertEqual(view['fields']['code'],'FCSCOUT10');self.assertEqual(view['fields']['uid'],0)
+        self.assertEqual(view['fields']['cid'],['2']);self.assertNotIn('NEVER_PROJECT',str(view));self.assertEqual(reader.calls,[])
+        self.assertNotIn('code',benefits.DISCOUNT_FIELDS);self.assertNotIn('uid',benefits.DISCOUNT_FIELDS)
     def test_coupon_candidates_calls_one_real_upstream_page_without_codes(self):
         from campaign_backend.adapters import AdminRead
         calls=[]
