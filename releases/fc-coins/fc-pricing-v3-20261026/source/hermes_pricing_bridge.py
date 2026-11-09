@@ -43,6 +43,14 @@ def turn_state(conversation,request_id,owner,channel='conversation'):
         db.row_factory=sqlite3.Row
         row=db.execute('SELECT t.id,t.state,t.task_id,t.run_id FROM turns t JOIN conversations c ON c.id=t.conversation_id WHERE t.conversation_id=? AND t.request_id=? AND c.owner=?',(conversation,request_id,owner)).fetchone()
         turn=dict(row) if row else None
+        if turn and turn['state'] in {'queued','running','stopping','dispatch_unknown'} and turn['run_id']:
+            terminal=db.execute("SELECT type,payload FROM events WHERE turn_id=? AND type IN ('run.completed','run.failed','run.cancelled','run.interrupted') ORDER BY seq DESC LIMIT 1",(turn['id'],)).fetchone()
+            if terminal and terminal['type']=='run.completed':
+                payload=json.loads(terminal['payload'])
+                if (payload.get('event')=='run.completed' and payload.get('run_id')==turn['run_id']
+                        and isinstance(payload.get('output'),str) and payload['output'].strip()):
+                    turn.update(stored_state=turn['state'],state='completed',state_source='original_terminal_event',
+                        terminal_event_sha256=hashlib.sha256(terminal['payload'].encode()).hexdigest())
     if turn is not None:
         path=FS/'contexts'/(turn['id']+'-dispatch-error.json')
         try:
@@ -204,7 +212,8 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
         record=json.loads(path.read_text('utf-8'))
         if record.get('owner')!=owner or record.get('run_id')!=quote['run_id'] or record.get('mode')!=mode or record.get('restore_source_execution_id')!=restore_source:
             raise ValueError('pricing_hermes_intent_conflict')
-        if record.get('phase') in {'completed','failed','timeout','unknown'}:return record
+        reconcile_original=record.get('phase')=='unknown' and record.get('reason')=='original_turn_dispatch_unknown'
+        if record.get('phase') in {'completed','failed','timeout','unknown'} and not reconcile_original:return record
         if record.get('source_quote_run'):
             basis=quote['daily_report'].get('decision_basis') or {}
             if basis.get('snapshot_id')!=record['source_quote_run'] or basis.get('snapshot_sha256')!=record['source_quote_sha256']:
@@ -253,6 +262,8 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
                 selected=None
                 record.update(phase='completed' if turn['state']=='completed' else 'failed',recommendation=selected,
                               completed_at=datetime.now(timezone.utc).isoformat(),applied=False)
+                if turn.get('state_source')=='original_terminal_event':
+                    record.update(reason='original_terminal_event_reconciled',reconciled_from_original_terminal_event=True)
                 if mode=='daily_review' and turn['state']=='completed':
                     detail=request(owner,'/api/hermes/conversations/pricing-reviews/'+record['conversation_id'])
                     record['evaluation']=detail
