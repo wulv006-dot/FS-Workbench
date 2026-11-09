@@ -38,4 +38,3 @@ class Recovery(unittest.TestCase):
   with self.assertRaises(ValueError):r.recover(self.tasks,self.budget,self.audit,expected=self.expected,proof_provider=reject,apply=True)
   self.assertEqual(r.rows(self.tasks,self.budget),self.before)
 if __name__=='__main__':unittest.main()
-
