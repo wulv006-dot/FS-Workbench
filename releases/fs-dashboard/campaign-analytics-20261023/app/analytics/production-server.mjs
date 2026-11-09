@@ -39,7 +39,7 @@ const googleTraffic=makeGoogleTraffic();
 const seasonalBox={};vm.runInNewContext(fs.readFileSync(path.join(base,'seasonal/campaign-data.js'),'utf8'),seasonalBox);
 const publicDir=process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public';
 const publicOrigin=process.env.CAMPAIGN_PUBLIC_ORIGIN||catalog.seo.origin,publicPrefix=process.env.CAMPAIGN_PUBLIC_PREFIX||catalog.seo.assetPath;
-const adminPrices=makeAdminPriceProvider({publicDir,readPolicy:()=>readAdminPricePolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))});
+export const adminPrices=makeAdminPriceProvider({publicDir,readPolicy:()=>readAdminPricePolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))});
 const validateFcLayout=(layout,models={})=>validateLayout(layout,effectiveFcCatalog(catalog,models));
 export function readNativeCheckoutPolicy(stateDir){
  return readNativeLaunchPolicy(stateDir).checkout;
@@ -94,8 +94,7 @@ export const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');if(!url.pathname.startsWith(prefix))return json(res,404,{message:'Not found'});
   const relative=decodeURIComponent(url.pathname.slice(prefix.length));
   if(['GET','HEAD','POST'].includes(req.method)&&['analytics/api/center','analytics/api/center/publish'].includes(relative)){
-   if(req.method==='POST')await adminPrices.refresh();
-   else void adminPrices.refresh().catch(()=>{});
+   if(req.method!=='POST')void adminPrices.refresh().catch(()=>{});
   }
   if(req.method!=='GET'&&req.method!=='HEAD'){
    if(req.method!=='POST'||!auth.admin)return json(res,403,{message:'仅现有管理员可保存配置'});
@@ -111,8 +110,8 @@ export const server=http.createServer(async(req,res)=>{
    if(relative==='analytics/api/weekly/reconcile')return json(res,200,await weeklyRecommendations.reconcile(body,auth.user,{provider:createWeeklyHermesProvider({cookie:req.headers.cookie||'',actor:auth.user})}));
    if(relative==='analytics/api/weekly/recommend')return json(res,200,await weeklyRecommendations.recommend(body,auth.user));
    if(relative==='analytics/api/weekly')return json(res,200,{...weekly.mutate(body,auth.user),csrf,canEdit:true});
-   if(relative==='analytics/api/center'){const prior=center.recoverSave(body);return json(res,200,{...centerState(prior||center.save(body,auth.user,await pendingModelDetails(body),await pendingProductDetails(body))),csrf,canEdit:true});}
-   if(relative==='analytics/api/center/publish'){const prior=center.recoverPublish(body);return json(res,200,{...centerState(prior||center.publish(body,auth.user,await pendingModelDetails(body),await pendingProductDetails(body))),csrf,canEdit:true});}
+   if(relative==='analytics/api/center'){const prior=center.recoverSave(body);if(!prior)await adminPrices.refresh();return json(res,200,{...centerState(prior||center.save(body,auth.user,await pendingModelDetails(body),await pendingProductDetails(body))),csrf,canEdit:true});}
+   if(relative==='analytics/api/center/publish'){const prior=center.recoverPublish(body);if(!prior)await adminPrices.refresh();return json(res,200,{...centerState(prior||center.publish(body,auth.user,await pendingModelDetails(body),await pendingProductDetails(body))),csrf,canEdit:true});}
    if(relative==='analytics/api/center/preview'){
     const snapshot=center.preview(body,await pendingModelDetails(body),await pendingProductDetails(body)),page=snapshot.pages.find(p=>p.page_id===body.page_id);if(!page)return json(res,400,{message:'INVALID_CAMPAIGN_PAGE'});
     for(const [key,value] of previews)if(value.expires<=Date.now())previews.delete(key);if(previews.size>=20)return json(res,429,{message:'PREVIEW_LIMIT'});
