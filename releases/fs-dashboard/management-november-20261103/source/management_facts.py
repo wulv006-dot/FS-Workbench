@@ -72,7 +72,7 @@ def calculate(values,targets,observed,total):
 def read_query(reader,profile,start,end,deadline,*,required=('rev','ord','prof'),sleep=time.sleep,monotonic=time.monotonic):
  from urllib.parse import urlencode
  path='/dashboard/fs-home/range.json?'+urlencode({'mode':'summary','profile':profile,'start':start,'end':end})
- local=min(deadline,monotonic()+100);best=None
+ local=min(deadline,monotonic()+100);best=None;contract_error=None
  while monotonic()<local:
   try:reply=reader(path)
   except OSError as error:
@@ -81,10 +81,15 @@ def read_query(reader,profile,start,end,deadline,*,required=('rev','ord','prof')
   code=reply.get('http_status');raw=reply.get('body') or {}
   if code in (401,403):raise ValueError('source_denied')
   if code==200:
-   row=project_summary(raw,profile,start,end)
-   if all(numeric(row['values'][k]) for k in required):return row
-   score=lambda x:sum(numeric(v) for v in x['values'].values())
-   if best is None or score(row)>=score(best):best=row
+   try:row=project_summary(raw,profile,start,end)
+   except ValueError as error:
+    if str(error) not in ('source_contract_mismatch','admin_all_sites_contract_mismatch'):raise
+    # Retry a warming source, but never accept its mismatched scope.
+    contract_error=str(error)
+   else:
+    if all(numeric(row['values'][k]) for k in required):return row
+    score=lambda x:sum(numeric(v) for v in x['values'].values())
+    if best is None or score(row)>=score(best):best=row
   elif code not in (202,429,503):
    if best is not None:return best
    raise ValueError('source_http_'+str(code))
@@ -94,16 +99,20 @@ def read_query(reader,profile,start,end,deadline,*,required=('rev','ord','prof')
   if not numeric(delay) or delay<1:delay=5
   sleep(min(delay,remaining))
  if best is not None:return best
+ if contract_error is not None:raise ValueError(contract_error)
  raise TimeoutError('source_query_deadline')
 
 def collect(at,targets,reader,*,cache=None,deadline_seconds=1800):
  if at.tzinfo is None:raise ValueError('timezone_required')
  at=at.astimezone(SH);day=at.date();period=periods(day,targets['period']);deadline=time.monotonic()+deadline_seconds
  cache=cache if cache is not None else {};errors=[]
- def query(profile,start,end,pin=False,required=('rev','ord','prof')):
-  components=targets['models'].get(profile,{}).get('components')
-  if components:
-   return aggregate_components([query(key,start,end,pin=pin,required=required) for key in components])
+ def query(profile,start,end,pin=False,required=('rev','ord','prof'),_source=False):
+  model=targets['models'].get(profile,{})
+  components=model.get('components') if not _source else None
+  if components is not None:
+   if not components:return {'values':dict.fromkeys(METRICS),'status':'unavailable','error':'source_unbound','period':{'start':start,'end':end}}
+   source_rows=[query(key,start,end,pin=pin,required=required,_source=True) for key in components]
+   return source_rows[0] if len(source_rows)==1 else aggregate_components(source_rows)
   key=fingerprint([profile,start,end,SOURCE_CONTRACT,DATA_SCOPE])
   if pin and key in cache and cache[key].get('cacheCheckedOn')==day.isoformat() and all(numeric(cache[key]['values'].get(k)) for k in required):return cache[key]
   if time.monotonic()>=deadline:return {'values':dict.fromkeys(METRICS),'status':'unavailable','error':'collection_deadline','period':{'start':start,'end':end}}
@@ -125,7 +134,10 @@ def collect(at,targets,reader,*,cache=None,deadline_seconds=1800):
  for g,current,yday,prev in zip(games,months,yesterdays,previous):
   key=g['profile'];model=targets['models'][key];tgt={x['id']:x['val'] for x in model['l1']};l2={x['id']:x['val'] for x in model['l2']}
   result={'profile':key,'name':g['name'],'group':g['grp'],'owner':g['owner'],'month':current,'yesterday':yday,'previousWeek':prev,'targets':tgt,'secondaryTargets':l2,'daily':[],'weeks':[]}
-  result.update(calculate(current['values'],tgt,period['observed'],period['month_days']));projects.append(result)
+  result.update(calculate(current['values'],tgt,period['observed'],period['month_days']))
+  if model.get('bindingKey') is not None:result['bindingKey']=model['bindingKey']
+  if model.get('forecast_enabled') is False:result['forecast']=dict.fromkeys(result['forecast'])
+  projects.append(result)
  by_key={x['profile']:x for x in projects}
  if period['active']:
   jobs=[(g['profile'],date.fromisoformat(period['end'])-timedelta(days=offset)) for offset in range(period['observed']) for g in games]
