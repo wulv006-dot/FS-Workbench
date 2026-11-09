@@ -101,4 +101,33 @@ class QueryRetryTests(unittest.TestCase):
   self.assertEqual(row['values']['rev'],2831.95);self.assertIsNone(row['values']['prof'])
   self.assertEqual(row['status'],'partial')
 
+class ConfigPreservationTests(unittest.TestCase):
+ def collect(self,components,**config):
+  from datetime import datetime
+  from unittest.mock import patch
+  targets=json.loads((ROOT/'source/targets.json').read_text(encoding='utf8'))
+  targets['overview']['games']=[g for g in targets['overview']['games'] if g['profile']=='WOW_FOREVER']
+  targets['models']['WOW_FOREVER'].update(components=components,**config)
+  self.row={'values':dict.fromkeys(facts.METRICS,10),'status':'available','freshness':'fresh','period':{'start':'2026-11-01','end':'2026-11-01'},'sources':{'Admin':{'status':'available'}},'notes':{'original':True}}
+  with patch.object(facts,'read_query',return_value=self.row) as query:
+   result=facts.collect(datetime(2026,11,2,tzinfo=facts.SH),targets,None)
+  self.profiles=[call.args[1] for call in query.call_args_list]
+  return result['projects'][0]
+ def test_unbound_does_not_query_profile(self):
+  result=self.collect([])
+  self.assertEqual(result['month']['error'],'source_unbound')
+  self.assertNotIn('WOW_FOREVER',self.profiles)
+ def test_self_binding_reads_source_without_recursion(self):
+  result=self.collect(['WOW_FOREVER'])
+  self.assertIs(result['month'],self.row)
+  self.assertIn('WOW_FOREVER',self.profiles)
+ def test_single_source_preserves_original_fields(self):
+  result=self.collect(['GTA5'])
+  self.assertIs(result['month'],self.row)
+  self.assertNotIn('WOW_FOREVER',self.profiles)
+ def test_binding_key_and_disabled_forecast(self):
+  result=self.collect(['GTA5'],bindingKey='binding-test',forecast_enabled=False)
+  self.assertEqual(result['bindingKey'],'binding-test')
+  self.assertTrue(all(value is None for value in result['forecast'].values()))
+
 if __name__=='__main__':unittest.main()

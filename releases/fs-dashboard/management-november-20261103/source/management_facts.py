@@ -106,10 +106,13 @@ def collect(at,targets,reader,*,cache=None,deadline_seconds=1800):
  if at.tzinfo is None:raise ValueError('timezone_required')
  at=at.astimezone(SH);day=at.date();period=periods(day,targets['period']);deadline=time.monotonic()+deadline_seconds
  cache=cache if cache is not None else {};errors=[]
- def query(profile,start,end,pin=False,required=('rev','ord','prof')):
-  components=targets['models'].get(profile,{}).get('components')
-  if components:
-   return aggregate_components([query(key,start,end,pin=pin,required=required) for key in components])
+ def query(profile,start,end,pin=False,required=('rev','ord','prof'),_source=False):
+  model=targets['models'].get(profile,{})
+  components=model.get('components') if not _source else None
+  if components is not None:
+   if not components:return {'values':dict.fromkeys(METRICS),'status':'unavailable','error':'source_unbound','period':{'start':start,'end':end}}
+   source_rows=[query(key,start,end,pin=pin,required=required,_source=True) for key in components]
+   return source_rows[0] if len(source_rows)==1 else aggregate_components(source_rows)
   key=fingerprint([profile,start,end,SOURCE_CONTRACT,DATA_SCOPE])
   if pin and key in cache and cache[key].get('cacheCheckedOn')==day.isoformat() and all(numeric(cache[key]['values'].get(k)) for k in required):return cache[key]
   if time.monotonic()>=deadline:return {'values':dict.fromkeys(METRICS),'status':'unavailable','error':'collection_deadline','period':{'start':start,'end':end}}
@@ -131,7 +134,10 @@ def collect(at,targets,reader,*,cache=None,deadline_seconds=1800):
  for g,current,yday,prev in zip(games,months,yesterdays,previous):
   key=g['profile'];model=targets['models'][key];tgt={x['id']:x['val'] for x in model['l1']};l2={x['id']:x['val'] for x in model['l2']}
   result={'profile':key,'name':g['name'],'group':g['grp'],'owner':g['owner'],'month':current,'yesterday':yday,'previousWeek':prev,'targets':tgt,'secondaryTargets':l2,'daily':[],'weeks':[]}
-  result.update(calculate(current['values'],tgt,period['observed'],period['month_days']));projects.append(result)
+  result.update(calculate(current['values'],tgt,period['observed'],period['month_days']))
+  if model.get('bindingKey') is not None:result['bindingKey']=model['bindingKey']
+  if model.get('forecast_enabled') is False:result['forecast']=dict.fromkeys(result['forecast'])
+  projects.append(result)
  by_key={x['profile']:x for x in projects}
  if period['active']:
   jobs=[(g['profile'],date.fromisoformat(period['end'])-timedelta(days=offset)) for offset in range(period['observed']) for g in games]
