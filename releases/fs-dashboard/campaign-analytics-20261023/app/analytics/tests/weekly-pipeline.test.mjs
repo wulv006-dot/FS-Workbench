@@ -45,4 +45,3 @@ test('later weekly refresh updates selected existing model facts with an immutab
  f.source.models[0].title='Updated real title / Card edition';f.source.models[0].platforms.pc.state='offline';const next=await f.pipeline.prepare({operation_id:randomUUID()},'fixture'),request={operation_id:next.operation_id,plan_ref:next.plan_ref,recommendation:response(next),evidence_sources:sources()};const saved=f.pipeline.apply(request,'fixture');assert.equal(saved.draft_revision,2);
  const state=JSON.parse(fs.readFileSync(path.join(f.dir,'center/state.json')));assert.equal(state.draft.fc_models['model-266-1327-11'].title,f.source.models[0].title);assert.equal(state.draft.fc_models['model-266-1327-11'].platforms.pc.state,'offline');assert.match(state.last_operation.model_refresh_digest,/^[a-f0-9]{64}$/);assert.equal(f.pipeline.apply(request,'fixture').draft_revision,2);assert.equal(state.draft.seasonal_theme,'halloween');
 });
-

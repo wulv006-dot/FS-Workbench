@@ -22,5 +22,3 @@ export function weeklyRuntime({enabledProvider=()=>true,base=path.resolve(path.d
  const center=makeCenterStore({dir:path.join(dir,'center'),publicDir,sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',validateFcLayout,seedProvider,nativeCheckoutProvider:()=>readNativeLaunchPolicy(policyDir).checkout});
  return makeWeeklyPipeline({dir:path.join(dir,'center','weekly-plans'),center,sourceProvider,enabledProvider,contextProvider:s=>({effective_fc_layout:validateFcLayout(s.draft.fc_layout??store.read().layout,s.draft.fc_models||{})})});
 }
-
-
