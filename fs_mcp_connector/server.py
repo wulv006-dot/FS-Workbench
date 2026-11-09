@@ -22,12 +22,13 @@ from starlette.routing import Route
 
 from .auth import AuthError, PortalError
 from .consent import render_browser_error, render_consent
+from .response_view import present
 
 LOG = logging.getLogger(__name__)
 READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 TOOLS = [
-    Tool(name="fs_list_data_sources", description="列出当前 FS 用户有权读取的业务数据、参数、来源、覆盖缺项和 data_methods 取数口径。月报等分析由当前 AI 按问题自主选取与补查，不调用 Hermes 会话或报告生成。先查询目录再取数。", inputSchema={"type": "object", "properties": {}, "additionalProperties": False}, annotations=READ_ONLY),
-    Tool(name="fs_query_data", description="按目录中的 operation 读取 FS 数据；保留原始口径、来源、完整性和续页信息。partial 或 live_non_snapshot 不代表完整快照。仅允许目录声明的参数，身份由授权连接提供。", inputSchema={"type": "object", "properties": {"operation": {"type": "string", "minLength": 1}, "arguments": {"type": "object"}}, "required": ["operation", "arguments"], "additionalProperties": False}, annotations=READ_ONLY),
+    Tool(name="fs_list_data_sources", description="无参数返回本人可见的简短导航，包含全部操作名、module、方法索引和覆盖状态；须再传module取得该模块完整参数schema、来源、覆盖缺项和data_methods口径后查询。由当前AI自主分析，不调用Hermes会话或报告生成。", inputSchema={"type": "object", "properties": {"module": {"type": "string", "minLength": 1, "maxLength": 80}}, "additionalProperties": False}, annotations=READ_ONLY),
+    Tool(name="fs_query_data", description="按目录operation和arguments读取原权限业务数据。小结果原形返回；大结果给response_view字段索引，按data_path(JSON Pointer，如/profile/primary)继续展开；数组用offset/limit展示分页，每页最多20，沿next_offset取全。data_context按祖先路径保留原范围/口径/覆盖/上游游标，data_context_index中的元数据须继续读取；不同来源范围可能不同。value_complete仅指展示节点，不能当业务全覆盖，实时多次读取仍非快照。超长字符串明确报response_too_large，不截断。", inputSchema={"type": "object", "properties": {"operation": {"type": "string", "minLength": 1}, "arguments": {"type": "object"}, "data_path": {"type": "string", "maxLength": 1024}, "offset": {"type": "integer", "minimum": 0}, "limit": {"type": "integer", "minimum": 1, "maximum": 20}}, "required": ["operation", "arguments"], "additionalProperties": False}, annotations=READ_ONLY),
 ]
 
 
@@ -120,9 +121,12 @@ def create_app(*, store, portal, catalog, backend, issuer: str, resource_url: st
         principal = mcp.request_context.request.state.principal
         try:
             if name == "fs_list_data_sources":
-                return _result(await run_in_threadpool(catalog.list, principal))
-            return _result(await run_in_threadpool(backend.query, principal, arguments["operation"], arguments["arguments"]))
+                return _result(await run_in_threadpool(catalog.list, principal, **arguments))
+            queried = await run_in_threadpool(backend.query, principal, arguments["operation"], arguments["arguments"])
+            return _result(present(queried, **{key: arguments[key] for key in ('data_path', 'offset', 'limit') if key in arguments}))
         except (ValueError, PermissionError, RuntimeError) as exc:
+            if getattr(exc, 'display_result', None) is not None:
+                return _result(exc.display_result, error=True)
             code = getattr(exc, "code", None) or ("permission_denied" if isinstance(exc, PermissionError) else "query_failed")
             detail = {"error": code, "status_code": getattr(exc, "status_code", 400 if isinstance(exc, ValueError) else 503)}
             if getattr(exc, 'retry_after', None) is not None:

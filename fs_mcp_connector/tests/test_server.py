@@ -9,6 +9,7 @@ import socket
 import threading
 import time
 import unittest
+from unittest.mock import patch
 import httpx
 from urllib.parse import parse_qs, urlencode, urlsplit
 
@@ -43,8 +44,8 @@ class Portal:
 
 
 class Data:
-    def list(self, principal):
-        return {'operations': [{'name': 'fixture.summary'}], 'subject': principal.subject}
+    def list(self, principal, module=None):
+        return {'operations': [{'name': 'fixture.summary'}], 'subject': principal.subject, 'module': module}
 
     def query(self, principal, operation, arguments):
         return {'status_code': 206, 'data': {'status': 'partial', 'complete': False}, 'subject': principal.subject}
@@ -55,8 +56,9 @@ class ServerTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.portal = Portal()
         self.store = AuthStore(Path(self.temp.name) / 'oauth.db', RESOURCE, self.portal)
+        self.backend = Data()
         self.client = TestClient(create_app(store=self.store, portal=self.portal, catalog=Data(),
-            backend=Data(), issuer=ISSUER, resource_url=RESOURCE), base_url=ORIGIN)
+            backend=self.backend, issuer=ISSUER, resource_url=RESOURCE), base_url=ORIGIN)
         self.client.__enter__()
         response = self.client.post('/connector/oauth/register', json={
             'redirect_uris': ['https://client.example/callback'], 'client_name': 'Fixture'})
@@ -118,6 +120,65 @@ class ServerTests(unittest.TestCase):
 
     def test_registered_member_cookie_supported(self):
         self.assertIn('access_token', self.approve('FS_ACCESS_CANDIDATE'))
+
+    def test_data_display_selection_follows_original_backend_read_without_forwarding_display_fields(self):
+        tokens = self.approve()
+        queried = {'operation': 'fixture.summary', 'status_code': 206,
+                   'provenance': {'source': 'fixture'},
+                   'data': {'rows': list(range(50)), 'complete': False, 'next_cursor': 'original-cursor'}}
+        with patch.object(self.backend, 'query', return_value=queried) as query:
+            response = self.rpc(tokens['access_token'], 'tools/call', {
+                'name': 'fs_query_data', 'arguments': {'operation': 'fixture.summary',
+                    'arguments': {'original': 'query'}, 'data_path': '/rows', 'offset': 20, 'limit': 3}})
+        result = response.json()['result']
+        self.assertFalse(result['isError'])
+        self.assertEqual(result['structuredContent']['data'], [20, 21, 22])
+        self.assertEqual(result['structuredContent']['response_view']['next_offset'], 23)
+        self.assertEqual(result['structuredContent']['data_context']['']['next_cursor'], 'original-cursor')
+        query.assert_called_once_with(Principal('alice', 'MMOEXP_AUTH=alice'), 'fixture.summary', {'original': 'query'})
+
+    def test_data_display_never_runs_before_backend_authorization_or_exposes_outside_data(self):
+        tokens = self.approve()
+        request = {'name': 'fs_query_data', 'arguments': {'operation': 'fixture.summary',
+                   'arguments': {}, 'data_path': '/provenance'}}
+        with patch.object(self.backend, 'query', side_effect=PermissionError()), patch(
+                'fs_mcp_connector.server.present', side_effect=AssertionError('must not display denied data')) as display:
+            response = self.rpc(tokens['access_token'], 'tools/call', request)
+        display.assert_not_called()
+        result = response.json()['result']
+        self.assertTrue(result['isError'])
+        self.assertEqual(result['structuredContent']['error'], 'permission_denied')
+        response = self.rpc(tokens['access_token'], 'tools/call', request)
+        self.assertEqual(response.json()['result']['structuredContent']['error'], 'invalid_arguments')
+
+    def test_oversized_text_error_preserves_original_cursor_and_source(self):
+        tokens = self.approve()
+        queried = {'operation': 'fixture.summary', 'status_code': 206, 'provenance': {'source': 'fixture'},
+                   'data': {'text': 'x' * 20000, 'next_cursor': 'original-cursor'}}
+        with patch.object(self.backend, 'query', return_value=queried):
+            response = self.rpc(tokens['access_token'], 'tools/call', {
+                'name': 'fs_query_data', 'arguments': {'operation': 'fixture.summary',
+                    'arguments': {}, 'data_path': '/text'}})
+        result = response.json()['result']
+        self.assertTrue(result['isError'])
+        self.assertEqual(result['structuredContent']['error'], 'response_too_large')
+        self.assertEqual(result['structuredContent']['data_context']['']['next_cursor'], 'original-cursor')
+        self.assertEqual(result['structuredContent']['provenance'], queried['provenance'])
+
+    def test_catalog_module_detail_argument_uses_the_authenticated_identity(self):
+        tokens = self.approve()
+        response = self.rpc(tokens['access_token'], 'tools/call', {
+            'name': 'fs_list_data_sources', 'arguments': {'module': 'user-analytics'}})
+        result = response.json()['result']
+        self.assertFalse(result['isError'])
+        self.assertEqual(result['structuredContent']['module'], 'user-analytics')
+        self.assertEqual(result['structuredContent']['subject'], 'alice')
+        for arguments in ({'module': ''}, {'module': 1}, {'module': None},
+                          {'module': 'user-analytics', 'subject': 'admin'}):
+            with self.subTest(arguments=arguments):
+                response = self.rpc(tokens['access_token'], 'tools/call', {
+                    'name': 'fs_list_data_sources', 'arguments': arguments})
+                self.assertTrue(response.json()['result']['isError'])
 
     def test_default_code_only_registration_does_not_issue_refresh(self):
         self.assertNotIn('refresh_token', self.approve())
