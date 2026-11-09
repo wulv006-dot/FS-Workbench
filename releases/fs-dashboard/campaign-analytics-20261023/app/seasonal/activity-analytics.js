@@ -162,7 +162,7 @@
   window.FCActivityAnalytics={
     offer:trackOffer,
     connect(instance){if(!instance||typeof instance.capture!=='function')throw Error('PostHog SDK required');sdk=instance;},
-    setConsent(value){consent=value===true;if(consent)restoreSession();active=0;last=performance.now();googleConsent();if(!consent){try{sdk?.opt_out_capturing();}catch{}}else if(sdk&&(formal?liveSeasonal():cfg.enabled)&&!preview){try{sdk.opt_in_capturing({captureEventName:false});}catch{}if(entry)start(state);}},
+    setConsent(value){const changed=consent!==(value===true);consent=value===true;if(consent)restoreSession();if(changed){active=0;last=performance.now();}googleConsent();if(!consent){try{sdk?.opt_out_capturing();}catch{}}else if(sdk&&(formal?liveSeasonal():cfg.enabled)&&!preview){try{sdk.opt_in_capturing({captureEventName:false});}catch{}if(changed&&entry)start(state);}},
     context(){if(!allowed()||!entry)return null;try{return {...properties(),distinct_id:sdk.get_distinct_id()};}catch{return null;}},
     sdkOptions:{api_host:cfg.apiHost,autocapture:false,capture_pageview:false,capture_pageleave:false,disable_session_recording:true,person_profiles:'never',opt_out_capturing_by_default:true,disable_surveys:true,advanced_disable_feature_flags:true,before_send(event){if(!consent||!event?.event?.startsWith('activity_'))return null;event.properties=clean(event.properties||{});return event;}},
     status(){return {preview,enabled:!!(formal?liveSeasonal():cfg.enabled),consent,connected:!!sdk,transmitting:!!allowed()};}

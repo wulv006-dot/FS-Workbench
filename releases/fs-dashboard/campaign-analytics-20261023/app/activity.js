@@ -140,7 +140,7 @@
       $('sbc-options').innerHTML=state.companions.map((key,i)=>`<div class="fca-companion-picker"><label for="companion-${i}">${escape(t('搭档 '+(i+1)+' · '+current.label.zh,'Companion '+(i+1)+' · '+current.label.en))}</label><select id="companion-${i}" data-companion-slot="${i}" name="companion${i+1}">${pool.map(option=>`<option value="${escape(option)}" ${option===key?'selected':''} ${option===state.companions[1-i]?'disabled':''}>${escape(product(option).title)}</option>`).join('')}</select></div>`).join('')+`<p class="fca-inline-note fca-pairing-note">${escape(t('这是搭配灵感，不承诺满化学。请核对游戏内位置、联赛与现有阵容。','Pairing ideas do not guarantee full chemistry. Check in-game positions, leagues and your existing lineup.'))}</p>`;
     }else {$('sbc-lineup').innerHTML='';$('sbc-options').innerHTML='';$('product-grid').innerHTML=scoped(state.view==='trio'?config.trio.ids:config.weekly.ids).map((key,i)=>card(key,{label:state.view==='trio'?config.trio.roles[i][state.lang]:config.weekly.edition[state.lang],fixed:state.view==='trio'})).join('');}
     $('bundle-heading').textContent=t('也可以选商店现有阵容包。','Or start with an existing player bundle.');
-    $('bundle-grid').innerHTML=scoped(bundleIdsForView()).map(key=>content.bundle(product(key),{lang:state.lang,price:display(offer(key)).text,originalPrice:display(offer(key)).originalText,discountPercent:config.activityPricing?.discountPercent,checked:state.bundles.has(key),platform:state.platform,...imageOptions(key)})).join('');
+    $('bundle-grid').innerHTML=scoped(bundleIdsForView()).map(key=>content.bundle(product(key),{lang:state.lang,price:display(offer(key)).text,originalPrice:display(offer(key)).originalText,discountPercent:config.activityPricing?.discountPercent,checked:state.bundles.has(key),platform:state.platform,nativeOffer:offer(key)?.native_offer??null,...imageOptions(key)})).join('');
     const items=selected(),snapshotDate=new Intl.DateTimeFormat(state.lang==='zh'?'zh-CN':'en-GB',{year:'numeric',month:'short',day:'numeric',timeZone:'Asia/Shanghai'}).format(new Date(config.capturedAt));$('summary-count').textContent=String(items.length);$('summary-total').textContent=total(items);$('summary-note').textContent=t('精确商品分别列出，已有核心不重复购买；当前展示为 '+snapshotDate+' 公开价格快照。','Exact items are listed separately. Owned cores are excluded. Public price snapshot: '+snapshotDate+'.');$('review-selection').disabled=!items.length||state.busy||state.submitted;
     $('summary-savings').innerHTML=savings(items);
     if(priced&&standalone&&!unavailableSelection)$('summary-note').textContent=t('价格按所选平台从主站实时读取；活动优惠码由原购物车自动应用，券与积分不可叠加。','Prices are read from the main store for the selected platform. The activity code is applied by the original cart; coupons and points cannot be combined.');
@@ -187,7 +187,7 @@
     catch(error){$('activity-message').hidden=false;$('activity-message').textContent=t('暂时无法确认当前商品，请到原商店核对后再试。','Unable to confirm the current items. Check the original shop before trying again.');}
     finally{state.busy=false;render();}
   }
-  const bundleIdsForView=()=>state.view==='weekly'?(config.weekly.bundleIds??config.bundles.ids):config.bundles.ids;
+  const bundleIdsForView=()=>state.view==='weekly'?(config.weekly.bundleIds??config.bundles.ids):state.view==='sbc'?(config.sbc.bundleIds??config.bundles.ids):config.bundles.ids;
 
   async function warmPrices(){
     const quoter=priceQuoter();
@@ -202,12 +202,13 @@
     if(!state.busy)render();
   }
   async function submit(){
-    if(standalone&&(pageState(state.view)!=='active'||!selected().length)){render();return;}
+    if(standalone&&(pageState(state.view)!=='active'||!review.length||scoped(review.map(item=>item.key)).length!==review.length)){render();return;}
     if(state.busy||state.submitted)return;
     if(standalone&&nativeReview){
       state.busy=true;render();
       try{
         await publishedConfig();
+        if(pageState(state.view)!=='active'||scoped(review.map(item=>item.key)).length!==review.length){nativeReview=null;status('Published product selection changed. Close this review and check the selection again. No cart request was sent.');return;}
         if(review.some(item=>item.preview_only)){const refreshed=review.map(item=>item.preview_only?offer(item.key):item);if(refreshed.some(item=>!item||item.preview_only&&!item.native_offer?.checkout_ready)||fingerprint(refreshed)!==reviewFingerprint){nativeReview=null;status('Current quote or item mapping changed. Close this review and check the selection again. No cart request was sent.');return;}review=refreshed;}
         const fresh=nativePlan(review);
         if(fresh.signature!==nativeReview.signature){nativeReview=null;status('Published configuration changed. Close this review and check the selection again. No cart request was sent.');return;}
@@ -224,7 +225,7 @@
     if(standalone){
       state.busy=true;render();
       try{
-        await publishedConfig();if(pageState(state.view)!=='active'||!selected().length){render();return;}
+        await publishedConfig();if(pageState(state.view)!=='active'||!review.length){render();return;}
         if(scoped(review.map(item=>item.key)).length!==review.length){$('review-dialog').close();$('activity-message').textContent=t('发布的商品选择已更新，请重新核对方案。','Published product selection changed. Review your lineup again.');return;}
         const pageId='fc27-'+state.view;
         if(!runtimeClient||runtimeClient.pageId!==pageId){runtimeClient=window.CampaignStandalone.create({element:document.documentElement,pageId,activityId:'fc27-season2'});runtimeClient.pageId=pageId;}

@@ -5,10 +5,10 @@ import {transientFailure} from './statistics-retry.mjs';
 export function makeDiscountRevenue(read=backendRead,clock=Date.now){
  const cache=new Map(),pending=new Map();
  return async function(params){
-  const filter=Object.fromEntries(params),allowed=new Set(['activity','mode','from','to','game','refresh']);
+  const filter=Object.fromEntries(params),fc=['fc27-weekly','fc27-trio','fc27-sbc','fc27-season2'].includes(filter.activity),allowed=new Set(['activity','mode','from','to','game','refresh']);
   const validDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(v||'')&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
-  if(Object.keys(filter).some(k=>!allowed.has(k))||filter.activity!=='mmoexp-seasonal'||filter.mode!=='live'||!validDate(filter.from)||!validDate(filter.to)||filter.from>filter.to||Date.parse(filter.to)-Date.parse(filter.from)>30*86400000||!['all','1327','891','1333','456'].includes(filter.game||'all')||filter.refresh&&!['0','1'].includes(filter.refresh))return {status:400,body:{status:'invalid',message:'活动码收入筛选无效'}};
-  const request={action:'discount_revenue',site_id:'266',from:filter.from,to:filter.to,game:filter.game||'all'},key=JSON.stringify(request),cached=cache.get(key);
+  if(Object.keys(filter).some(k=>!allowed.has(k))||(!fc&&filter.activity!=='mmoexp-seasonal')||filter.mode!=='live'||!validDate(filter.from)||!validDate(filter.to)||filter.from>filter.to||Date.parse(filter.to)-Date.parse(filter.from)>30*86400000||!['all','1327','891','1333','456'].includes(filter.game||'all')||fc&&!['all','1327'].includes(filter.game||'all')||filter.refresh&&!['0','1'].includes(filter.refresh))return {status:400,body:{status:'invalid',message:'活动码收入筛选无效'}};
+  const request={action:'discount_revenue',site_id:'266',from:filter.from,to:filter.to,game:filter.game||'all',...(fc?{activity:'fc27-season2'}:{})},key=JSON.stringify(request),cached=cache.get(key);
   if(filter.refresh!=='1'&&cached&&clock()-cached.at<600000)return {status:200,body:cached.body};
   if(pending.has(key))return pending.get(key);
   // Bound all windows together; do not make different filters queue behind an unbounded sweep.

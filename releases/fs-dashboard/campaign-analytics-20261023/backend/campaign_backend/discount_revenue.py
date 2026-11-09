@@ -1,4 +1,4 @@
-"""Read-only paid-order association for the twelve dedicated Halloween codes.
+"""Read-only paid-order association for existing dedicated campaign codes.
 
 This is order association, not a browser conversion or a product-line allocation.
 """
@@ -17,9 +17,18 @@ BINDINGS = (
     ('6091', 'HWD408', '456', 8), ('6093', 'HWD410', '456', 10), ('6085', 'HWD415', '456', 15),
 )
 
+FC_BINDINGS = (('6049', 'FCSCOUT10', '1327', 10),)
+
+def campaign_bindings(activity):
+    if activity == 'mmoexp-seasonal':
+        return BINDINGS
+    if activity == 'fc27-season2':
+        return FC_BINDINGS
+    raise ContractError('ACTIVITY_SCOPE_REQUIRED')
+
 
 def query_window(request):
-    if set(request) - {'action', 'site_id', 'from', 'to', 'game'} or request.get('site_id') != '266':
+    if set(request) - {'action', 'site_id', 'from', 'to', 'game', 'activity'} or request.get('site_id') != '266':
         raise ContractError('PROJECT_SITE_REQUIRED')
     try:
         start, end = (datetime.strptime(request[k], '%Y-%m-%d').replace(tzinfo=timezone.utc) for k in ('from', 'to'))
@@ -29,7 +38,11 @@ def query_window(request):
             raise ValueError()
     except (ValueError, TypeError, KeyError):
         raise ContractError('MAX_31_DAY_UTC_WINDOW_REQUIRED') from None
+    activity = request.get('activity', 'mmoexp-seasonal')
+    campaign_bindings(activity)
     game = request.get('game', 'all')
+    if activity == 'fc27-season2' and game not in ('all', '1327'):
+        raise ContractError('GAME_SCOPE_REQUIRED')
     if game not in ('all', '1327', '891', '1333', '456'):
         raise ContractError('GAME_SCOPE_REQUIRED')
     return start.astimezone(SOURCE_TZ), (end + timedelta(days=1)).astimezone(SOURCE_TZ), game
@@ -50,11 +63,12 @@ def amount(row):
     return usd, parts[0], Decimal(parts[1])
 
 
-def summarize(rows, start, end, game):
-    codes = {code.casefold(): (native, code, gid, off) for native, code, gid, off in BINDINGS}
+def summarize(rows, start, end, game, activity='mmoexp-seasonal'):
+    bindings = campaign_bindings(activity)
+    codes = {code.casefold(): (native, code, gid, off) for native, code, gid, off in bindings}
     buckets = {code: dict(native_id=native, code=code, game_id=gid, off_percent=off,
                           paid_orders=0, paid_usd_minor=0, refunded_orders=0)
-               for native, code, gid, off in BINDINGS if game in ('all', gid)}
+               for native, code, gid, off in bindings if game in ('all', gid)}
     currencies, seen = defaultdict(Decimal), {}
     excluded_unpaid = 0
     for row in rows:
@@ -96,7 +110,9 @@ def summarize(rows, start, end, game):
     totals = {k: sum(b[k] for b in buckets.values()) for k in ('paid_orders', 'paid_usd_minor', 'refunded_orders')}
     if totals['paid_usd_minor'] > 9007199254740991:
         raise ContractError('REPORT_MONEY_EXCEEDS_SAFE_INTEGER')
-    return dict(status='available', basis='dedicated_discount_code_paid_order', activity_id='mmoexp-seasonal',
+    return dict(status='available', basis='dedicated_discount_code_paid_order', activity_id=activity,
+                attribution_level='shared_activity_group' if activity == 'fc27-season2' else 'activity_group',
+                page_allocation='not_available',
                 totals=totals, codes=list(buckets.values()),
                 paid_currencies=[dict(currency=k, amount=format(v, 'f')) for k, v in sorted(currencies.items())],
                 refund_amount=None, net_amount=None, product_allocation='not_available', visitor_join='not_available',
@@ -108,7 +124,8 @@ def summarize(rows, start, end, game):
 
 def read_revenue(reader, request):
     start, end, game = query_window(request)
-    ids = {native: code for native, code, _, _ in BINDINGS}
+    activity = request.get('activity', 'mmoexp-seasonal')
+    ids = {native: code for native, code, _, _ in campaign_bindings(activity)}
     # Include global-site collisions; a same-code record outside the approved IDs is ambiguous.
     natives = reader.pages('discounts', [('site_id', 'IN', '0,266'), ('code', 'IN', ','.join(ids.values()))],
                            validate=lambda r: str(r.get('id')) in ids and str(r.get('site_id')) in ('0', '266'))
@@ -122,4 +139,4 @@ def read_revenue(reader, request):
         rows.extend(reader.pages('orders', [('site_id', '=', '266'), ('paytime', 'RANGE', lo + ',' + hi),
                                            ('discount_code', 'IN', ','.join(ids.values()))]))
         cursor = stop
-    return summarize(rows, start, end, game)
+    return summarize(rows, start, end, game, activity)

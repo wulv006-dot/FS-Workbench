@@ -351,3 +351,16 @@
 .analytics-choice{font:16px/1.5 Arial,system-ui,sans-serif;color:#07142f;background:#fff;padding:24px;border:1px solid #d8e4f3;border-radius:16px;width:min(540px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto}.analytics-choice[hidden],dialog.analytics-choice:not([open]){display:none}.analytics-choice::backdrop{background:#07152e99}.analytics-choice button,.fc-activity .analytics-settings{font:inherit;min-height:44px;padding:10px 16px;margin:6px;border:1px solid #d8e4f3;border-radius:8px;background:#fff;color:#07142f;cursor:pointer}.analytics-choice :focus-visible{outline:3px solid #0875ff;outline-offset:3px}
 
 @media(max-width:700px){.fca-lineup .fca-card-heading{grid-template-rows:28px 40px 38px;gap:5px}.fca-lineup .fca-card .fca-card-heading > *{margin:0;min-height:0}}
+
+/* One shared platform choice; readable campaign offer and editorial guide. */
+.fca-platforms{padding:24px 20px;margin:18px 0;background:#eef5ff;border:1px solid var(--fca-line);border-radius:12px}
+.fca-platforms legend{font-size:16px;font-weight:800;color:var(--fca-ink);padding-top:12px}
+.fca-platform > span{min-height:56px;border-width:2px;font-size:15px}
+.fca-platform input:checked + span{box-shadow:0 0 0 3px #0875ff24}
+.fca-offer-banner{padding:18px 24px;font-size:18px;line-height:1.6;background:var(--fca-navy);border-bottom:4px solid var(--fca-blue)}
+.fca-price-origin span{padding:5px 9px;background:var(--fca-blue);color:#fff;font-size:13px;font-weight:800}
+.fca-guide{max-width:none;margin:48px 0 36px;padding:32px 0;border:0;border-top:1px solid var(--fca-line);border-radius:0}
+.fca-guide h2{max-width:38ch}.fca-guide h3{font-size:18px;line-height:1.4;margin:28px 0 10px;color:var(--fca-ink)}
+.fca-guide p{max-width:82ch;font-size:16px;line-height:1.85;margin:10px 0 18px}.fca-guide .fca-guide-players{list-style:none;padding:0;margin:14px 0;max-width:82ch;display:block}
+.fca-guide-players li{padding:12px 0;border-bottom:1px solid var(--fca-line)}.fca-guide-players strong,.fca-guide-players span{display:block}.fca-guide-players strong{font-size:16px}.fca-guide-players span{font-size:14px;color:var(--fca-muted);line-height:1.7;margin-top:3px;overflow-wrap:anywhere}
+@media(max-width:700px){.fca-platforms{padding:18px 10px}.fca-platforms legend{font-size:14px}.fca-platform > span{min-height:52px;font-size:12px}.fca-offer-banner{padding:15px 16px;font-size:15px}.fca-guide{padding:24px 0;margin:32px 0}.fca-guide p{font-size:15px}.fca-guide h3{font-size:17px}.fca-guide-players strong{font-size:15px}.fca-guide-players span{font-size:13px}}
