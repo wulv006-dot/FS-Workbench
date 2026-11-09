@@ -54,3 +54,21 @@ Codex动态注册已通过实际客户端；后续授权GET携带两个完全相
 知识收尾plan `KL-20d32aff139d45d64b6ac82e`，plan SHA `8b150dd0675697a276d9adeae60fe9dcb1a09ba0aa3cff036cb20188784a4055`：affected_ids与steps均为空、无冲突，不产生Notion/业务知识发布。系统Python缺Asia/Shanghai时区数据的首次运行失败，改用已有SDK虚拟环境后104项97通过、7项Linux内核lease测试跳过；未修改原知识发布器。
 
 已停止的技能候选 `skill:094f8390` 沿原review_queue取消，request `8bba736552ee769b4da6056eced239a79fa5a55fd3a3a6fa5ef5bf7f9df0a28b` 返回completed、success=true、applied=false、rejected=true；原blocked回执字节保持，未修改技能或manager。
+
+## 113项数据与方法版本已合并发布
+
+PR #933：正式PR fast `42569578638`成功，source `153e066a8489ab1ae564857494609c8995253843`，合并 `17dd62eccfd6c0d267ef1fc6f226082fba70cb7c`。183实际派生镜像完整164/164通过、0跳过，26运行文件SHA吻合，方法教材仅测试挂载不打入运行载荷。镜像 `sha256:f24fe4a0cb68d057186b7f78e772e80b1f02e95c0f3a98985b4bff3d69ca96cc`，gzip SHA `2d5ce43d7aee45f8a6f14d4161703a69685c2f192f1cfc920273ee7e20ac92ad`。
+
+187同ID `/var/backups/fs-data-connector/data-153e066/receipt.json` 为updated_anonymous_entry_verified，原服务状态保持、nginx及OAuth目录保持。准备阶段先因清单新增外层metadata而在解包前停止，改为精确验证source/image/files后继续；解包、载入和只读预检均完成，包装shell末尾CR空行返回127，未重放；之后原runner仅apply一次并验证新镜像。
+
+ChatGPT自动发现与自动DCR仍未通过；正常UI提供的手动配置已注册一个public none客户端并成功创建FS数据插件配置（尚未授权/取数）。后续原跳转带标准ui_locales=zh-CN，被当前授权参数allowlist拒绝；正在最小兼容，未修改URL绕过或弱化FS权限。不能将配置创建成功写成连接成功。
+
+## 真实客户端授权兼容修复（待发布）
+
+ChatGPT的ui_locales语言提示经有限格式/长度检查后丢弃；不改变scope、state、PKCE、redirect或身份，原AuthStore闭合参数保持。Codex真实同意提交失败时，原pending尚未过期且未消费，code/grant/token为0；无凭据Chrome原生表单复现no-referrer导致POST Origin=null，same-origin保留精确原origin。修复只改响应Referrer-Policy为same-origin，不向外部回调发送Referrer，继续拒绝null/缺失/异源Origin。
+
+组合server/auth/portal回归65项：64通过、1项Windows POSIX权限跳过；真实ui_locales GET登录/同意路径、非法/重复提示，以及null/缺失Origin不能消费pending、随后原同源表单可成功均已覆盖。旧失败流程已停止且未发放token，不改URL或重放未知授权。
+
+Chrome无凭据回跳对照补充：同源POST正常而form-action self阻止跨源302，callback未收到；仅加入对应callback origin后页面到达成功页且callback服务器收到请求。修复只在原validate_authorization通过后，将选中的已注册callback origin加入本次同意页form-action；查询串不入策略，CSP分隔符/通配符编码，原表单action、精确redirect、Origin和CSRF保持。最新相关66项65通过、1项Windows POSIX跳过，独立复核无阻断。
+
+一次性自动发现诊断已结束：原三处location仅在90秒窗口记录time/method/无query URI/status，单次正常UI发现仍失败，限定日志为空。原include逐字节恢复、临时格式文件已移除，回执 `/var/backups/fs-data-connector/discovery-once-20261109/receipt.json` 为restored；不把空记录解释为ChatGPT未请求（未覆盖fallback/前置拒绝或服务端缓存）。无ACL、路由或鉴权变更，无常驻诊断。
