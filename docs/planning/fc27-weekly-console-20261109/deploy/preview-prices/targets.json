@@ -1,0 +1,4 @@
+{
+  "code/analytics/production-server.mjs": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
+  "code/analytics/weekly-commerce.mjs": "/opt/fs-campaign-dashboard/analytics/weekly-commerce.mjs"
+}
