@@ -1,0 +1,23 @@
+{
+  "releases/fs-dashboard/campaign-analytics-20261023/app/Player-Trio.html": "/opt/fs-campaign-dashboard/Player-Trio.html",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/Sbc-Companions.html": "/opt/fs-campaign-dashboard/Sbc-Companions.html",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/Weekly-Scout.html": "/opt/fs-campaign-dashboard/Weekly-Scout.html",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/activity-content.js": "/opt/fs-campaign-dashboard/activity-content.js",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/activity.css": "/opt/fs-campaign-dashboard/activity.css",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/activity.js": "/opt/fs-campaign-dashboard/activity.js",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/center-seed.mjs": "/opt/fs-campaign-dashboard/analytics/center-seed.mjs",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/center-store.mjs": "/opt/fs-campaign-dashboard/analytics/center-store.mjs",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/dashboard.js": "/opt/fs-campaign-dashboard/analytics/dashboard.js",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/discount-revenue.mjs": "/opt/fs-campaign-dashboard/analytics/discount-revenue.mjs",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/production-server.mjs": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly-commerce.mjs": "/opt/fs-campaign-dashboard/analytics/weekly-commerce.mjs",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly-pipeline.mjs": "/opt/fs-campaign-dashboard/analytics/weekly-pipeline.mjs",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/index.html": "/opt/fs-campaign-dashboard/index.html",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/runtime/model-cards.mjs": "/opt/fs-campaign-dashboard/runtime/model-cards.mjs",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/runtime/presentation.mjs": "/opt/fs-campaign-dashboard/runtime/presentation.mjs",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/runtime/snapshot.mjs": "/opt/fs-campaign-dashboard/runtime/snapshot.mjs",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/seasonal/activity-analytics.js": "/opt/fs-campaign-dashboard/seasonal/activity-analytics.js",
+  "releases/fs-dashboard/campaign-analytics-20261023/backend/bridge.py": "/opt/fs-campaign-dashboard/backend/bridge.py",
+  "releases/fs-dashboard/campaign-analytics-20261023/backend/campaign_backend/discount_revenue.py": "/opt/fs-campaign-dashboard/backend/campaign_backend/discount_revenue.py",
+  "releases/fs-dashboard/campaign-analytics-20261023/backend/campaign_backend/weekly.py": "/opt/fs-campaign-dashboard/backend/campaign_backend/weekly.py"
+}
