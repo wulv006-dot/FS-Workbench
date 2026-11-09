@@ -127,7 +127,7 @@ def daily_review_text(quote):
             day['groups']=[[row[k] for k in day['group_columns']] for row in day['groups']]
     if money_rendered:report['amount_display']='USD rounded to cents for display; original precision remains in the source evidence'
     profit_note=('实际成本与采购毛利见actual_profit_summary；部分覆盖不能说成没有成本。review_day按创建日归属，active_plan为截至observed_at的累计，不与全天付款销售混算。未知成本不记零，已知子群毛利不是全量毛利或净利润。' if 'actual_profit_summary' in report else '')
-    text=('FC27每日一次经营效果复盘。你负责效果判断和方案建议；正常每轮由程序定价，不等待你审核。'
+    instructions=('FC27每日一次经营效果复盘。你负责效果判断和方案建议；正常每轮由程序定价，不等待你审核。'
         '本任务只读，不推荐待执行价格、不调用recommend、不创建/执行/切换计划、不补采竞品。'
         '根据证据自主确定经营问题、比较窗口、需要补查的只读工具和呈现方式，说明预测与实绩差异及其数据覆盖。'
         '全天订单只是经营背景；只有确认价格曝光窗内按创建时间及实际价格绑定的订单可作本次策略效果样本。曝光开始前的成交不能归给V3。'
@@ -135,7 +135,30 @@ def daily_review_text(quote):
         '说明当前策略参数、基数如何核算，哪些是实际、哪些是初始弹性等假设，下一日如何追踪和反证。'
         '双20%采购毛利底线、赠送/优惠/地区/舍入由程序每轮校验，不能豁免。目标未设就说明收入优化试验。'
         '先回答最需要判断的问题，再用关键事实支持结论和行动建议；不预设固定章节。模拟收益不能叫真实增收。'
-        +profit_note+'实际及影子摘要：'+json.dumps(report,ensure_ascii=False,separators=(',',':')))
+        +profit_note+'实际及影子摘要：')
+    text=instructions+json.dumps(report,ensure_ascii=False,separators=(',',':'))
+    if len(text)>12000:
+        # Repeated field names are presentation overhead; keep every row/value.
+        model=(report.get('decision_basis') or {}).get('demand_model') or {}
+        groups=model.get('groups') or {}
+        if groups and all(isinstance(row,dict) for row in groups.values()):
+            columns=list(dict.fromkeys(k for row in groups.values() for k in row))
+            model['group_columns']=columns
+            model['groups']={name:[row.get(k) for k in columns] for name,row in groups.items()}
+        shadow=report.get('shadow') or {}
+        results=[row for period in shadow.get('periods',[]) for row in period.get('results',{}).values()]
+        forecasts=[row['forecast'] for row in results if isinstance(row.get('forecast'),dict)]
+        if forecasts:
+            columns=list(dict.fromkeys(k for row in forecasts for k in row))
+            shadow['forecast_columns']=columns
+            for row in results:
+                if isinstance(row.get('forecast'),dict):row['forecast']=[row['forecast'].get(k) for k in columns]
+        if results:
+            columns=list(dict.fromkeys(k for row in results for k in row))
+            shadow['result_columns']=columns
+            for period in shadow['periods']:
+                period['results']={mode:[row.get(k) for k in columns] for mode,row in period.get('results',{}).items()}
+        text=instructions+json.dumps(report,ensure_ascii=False,separators=(',',':'))
     if len(text)>12000:raise ValueError('pricing_daily_prompt_too_long')
     return text
 
@@ -177,7 +200,6 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
     request_id='fc_pricing_'+job['job_id'].replace('-','')
     path=ROOT/'evidence'/('hermes-pricing-'+job['job_id']+'.json')
     created=datetime.now(timezone.utc)
-    text=daily_review_text(quote)
     if path.exists():
         record=json.loads(path.read_text('utf-8'))
         if record.get('owner')!=owner or record.get('run_id')!=quote['run_id'] or record.get('mode')!=mode or record.get('restore_source_execution_id')!=restore_source:
@@ -190,6 +212,7 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
         if not record.get('conversation_id'):
             record.update(phase='unknown',reason='original_create_receipt_required');save(path,record);return record
     else:
+        text=daily_review_text(quote)
         record=dict(owner=owner,mode=mode,job_id=job['job_id'],run_id=quote['run_id'],request_id=request_id,
                     channel='pricing_review_v3',
                     phase='creating',created_at=created.isoformat(),price_write_performed=False,restore_source_execution_id=restore_source)
@@ -223,6 +246,9 @@ def review(job,quote,*,mode='automatic_review',wait_seconds=180):
         turn=turn_state(record['conversation_id'],request_id,owner,record.get('channel','conversation'))
         if turn:
             record.update(turn=turn,task_id=turn.get('task_id'),run_id=quote['run_id'])
+            if turn['state']=='dispatch_unknown':
+                record.update(phase='unknown',reason='original_turn_dispatch_unknown',do_not_replay=True,applied=False)
+                save(path,record);return record
             if turn['state'] in {'completed','failed','cancelled','interrupted'}:
                 selected=None
                 record.update(phase='completed' if turn['state']=='completed' else 'failed',recommendation=selected,

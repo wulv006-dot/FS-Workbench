@@ -21,6 +21,26 @@ def manifest(scope, mapping):
 
 
 class CollectionRelease(unittest.TestCase):
+    def test_daily_repair_scope_limits_release_to_bridge_and_both_daily_consumers(self):
+        expected={'source/hermes_pricing_bridge.py':'/opt/fc27-cloud-browser/hermes_pricing_bridge.py',
+                  'source/fc_pricing_v3/daily.py':'/opt/fc27-cloud-browser/fc_pricing_v3/daily.py',
+                  'source/hermes-copy/fc_pricing_v3/daily.py':'/opt/fs-hermes-fc/fc_pricing_v3/daily.py'}
+        self.assertEqual(adapter.DAILY_REPAIR_TARGETS,expected)
+        load=next(n for n in ast.parse((DEPLOY/'fc_v3_release_adapter.py').read_text('utf-8')).body if isinstance(n,ast.FunctionDef) and n.name=='load_base')
+        selection=next(n for n in load.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='active_targets' for t in n.targets))
+        namespace=dict(vars(adapter),scope=target_map.DAILY_REPAIR_SCOPE)
+        exec(compile(ast.Module(body=[selection],type_ignores=[]),'daily-release-targets','exec'),namespace)
+        self.assertEqual(namespace['active_targets'],expected)
+        value=manifest(target_map.DAILY_REPAIR_SCOPE,expected)
+        self.assertEqual(adapter.checked_manifest(value),value)
+        for change in ('extra','missing','new','businessWrites','timersChanged'):
+            altered=deepcopy(value)
+            if change=='extra':altered['files'].append(manifest('x',{'source/price_writer.py':'/opt/fc27-cloud-browser/price_writer.py'})['files'][0])
+            elif change=='missing':altered['files'].pop()
+            elif change=='new':altered['files'][0]['beforeSha256']=None
+            else:altered[change]=True
+            with self.subTest(change=change),self.assertRaises(ValueError):adapter.checked_manifest(altered)
+
     def test_collection_entry_is_loaded_by_fresh_processes_and_has_no_used_daemon_import(self):
         source = DEPLOY.parent/'source'
         for name, imported in (('fc27_cloud_worker.py','quote_for_run'),('fc27_cloud_api.py','preview_discount_rules')):
