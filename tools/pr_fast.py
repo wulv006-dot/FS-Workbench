@@ -1350,7 +1350,7 @@ def main():
                 str(ROOT/release)],check=True,timeout=60,cwd=ROOT/release)
         elif group=="fc-control":
             if "engine" not in groups:units(".",["test_fc27_quote_engine"])
-            units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk"])
+            units("fc27_cloud_browser",["test_automation_policy","test_coin_all_sync","test_source_confirmation","test_player_sync_recovery","test_player_sync_bulk","test_storefront_monitor"])
         elif group=="green-plan-review-fix":
             fix=ROOT/"releases/green-plan/20261009-review-fix"
             env=dict(os.environ,GREEN_AUTH_RUNTIME=str(ROOT/"registration_approval_runtime_v3_20261006"),

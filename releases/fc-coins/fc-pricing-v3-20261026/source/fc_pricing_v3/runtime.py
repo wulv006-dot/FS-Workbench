@@ -249,12 +249,13 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         evaluation['selected']=selected
     smart_assignment = None
     if mode=='smart' and plan and not control['manual_enabled'] and selected_action is None:
-        from .smart import STRATEGY_VERSION,assignment as smart_schedule, effective_key, epoch_policy, early_correction,strategy_start,policy_suffix
+        from .smart import STRATEGY_VERSION,assignment as smart_schedule, effective_key, epoch_policy, early_correction,strategy_start,policy_suffix,observe_display
         bidirectional=plan.get('smart_strategy_version')==STRATEGY_VERSION
         epoch=int((now-strategy_start(plan)).total_seconds()//(48*3600))
-        policy=epoch_policy(db,plan,now,epoch)
+        display=observe_display(db,plan,evidence,now)
+        policy=epoch_policy(db,plan,now,epoch,display=display)
         block=int((now-strategy_start(plan)).total_seconds()//(3*3600))
-        correction=early_correction(db,plan,now,block)
+        correction=early_correction(db,plan,now,block,display=display)
         schedule = smart_schedule(plan, now, policy=policy, correction=correction)
         baseline = selected
         variants,effective_probabilities,probabilities,choice=smart_choices(evidence,smart_plan,evaluation['current'],baseline,schedule,now)
@@ -503,7 +504,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
                 raise ValueError('pricing_price_control_proof_changed')
         smart_override=receipt['mode']=='smart' and (receipt.get('allocation') or {}).get('effective_choice')=='explicit_business_decision_not_new_random_draw'
         if receipt['mode']=='smart' and not receipt['price_control']['manual_enabled'] and not smart_override:
-            from .smart import STRATEGY_VERSION,assignment as smart_schedule,effective_key,policy_suffix
+            from .smart import STRATEGY_VERSION,assignment as smart_schedule,effective_key,policy_suffix,policy_key
             saved=receipt.get('smart_assignment') or {}
             bidirectional=saved.get('strategy_version')==STRATEGY_VERSION
             plan=dict(plan_id=receipt['plan_id'],revision=receipt['revision'],starts_at=saved.get('plan_starts_at'),
@@ -521,8 +522,8 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
                 actual=ledger().get('experiment_assignments',saved.get('assignment_id'))
                 if actual!=saved or saved.get('assignment_id')!=receipt.get('assignment_id'):
                     raise ValueError('pricing_smart_assignment_not_persisted')
-                policy_key='smart-policy:'+policy_suffix(plan)+':'+str(schedule['epoch'])
-                if ledger().get('metadata',policy_key)!=saved.get('policy'):
+                stored_policy_key=policy_key(plan,schedule['epoch'],saved.get('policy'))
+                if ledger().get('metadata',stored_policy_key)!=saved.get('policy'):
                     raise ValueError('pricing_smart_policy_changed')
                 live_plan=ledger().get('pricing_plans',plan['plan_id'])
                 if not live_plan or live_plan.get('baseline_plan')!=base_plan:

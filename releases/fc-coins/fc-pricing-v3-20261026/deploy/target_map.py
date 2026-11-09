@@ -3,6 +3,15 @@ from pathlib import Path
 
 TARGET_COUNT = 101
 
+COUPON_DISPLAY_SCOPE='fc-pricing-v3-coupon-display-20261109'
+COUPON_DISPLAY_SOURCE='fc27_cloud_browser/storefront_monitor.py'
+COUPON_DISPLAY_EXTRA={'source/storefront_monitor.py':'/opt/fc27-cloud-browser/storefront_monitor.py'}
+COUPON_DISPLAY_NAMES=('source/storefront_monitor.py',)+tuple(prefix+'fc_pricing_v3/'+name
+    for prefix in ('source/','source/hermes-copy/') for name in ('smart.py','runtime.py'))
+COUPON_DISPLAY_PROTECTED=('/opt/fc27-cloud-browser/local_collection.py',
+    '/opt/fs-fc-control/code/manifest.json','/opt/fs-fc-control/code/fc_collection/public_sources.py',
+    '/opt/fs-fc-control/code/fc_collection/client.py')
+
 DAILY_SUMMARY_SCOPE='fc-pricing-v3-daily-summary-v2-20261109'
 DAILY_SUMMARY_NAMES=('source/hermes_pricing_bridge.py','source/conversation_http.py','source/pricing_operations.py',
                      'source/fc_pricing_v3/api.py','source/hermes-copy/fc_pricing_v3/api.py')
