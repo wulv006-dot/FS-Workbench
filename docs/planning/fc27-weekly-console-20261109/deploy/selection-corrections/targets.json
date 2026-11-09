@@ -1,0 +1,18 @@
+{
+  "app/Player-Trio.html": "/opt/fs-campaign-dashboard/Player-Trio.html",
+  "app/Sbc-Companions.html": "/opt/fs-campaign-dashboard/Sbc-Companions.html",
+  "app/Weekly-Scout.html": "/opt/fs-campaign-dashboard/Weekly-Scout.html",
+  "app/index.html": "/opt/fs-campaign-dashboard/index.html",
+  "app/activity-content.js": "/opt/fs-campaign-dashboard/activity-content.js",
+  "app/activity.css": "/opt/fs-campaign-dashboard/activity.css",
+  "app/analytics/center-store.mjs": "/opt/fs-campaign-dashboard/analytics/center-store.mjs",
+  "app/analytics/store.mjs": "/opt/fs-campaign-dashboard/analytics/store.mjs",
+  "app/analytics/weekly-pipeline.mjs": "/opt/fs-campaign-dashboard/analytics/weekly-pipeline.mjs",
+  "app/runtime/model-cards.mjs": "/opt/fs-campaign-dashboard/runtime/model-cards.mjs",
+  "backend/bridge.py": "/opt/fs-campaign-dashboard/backend/bridge.py",
+  "backend/campaign_backend/adapters.py": "/opt/fs-campaign-dashboard/backend/campaign_backend/adapters.py",
+  "backend/campaign_backend/models.py": "/opt/fs-campaign-dashboard/backend/campaign_backend/models.py",
+  "backend/campaign_backend/weekly.py": "/opt/fs-campaign-dashboard/backend/campaign_backend/weekly.py",
+  "shared/campaign_recommendations.py": "/opt/fs-hermes-fc/campaign_recommendations.py",
+  "derived/static-manifest.json": "/opt/fs-campaign-dashboard/runtime/static-manifest.json"
+}

@@ -12,10 +12,19 @@ test('bundle ids are shared by the grid renderer and the price warmer', () => {
   assert(!/\.\.\.keys,\.\.\.bundleIds\]/.test(activity), 'warmPrices must not use a free bundleIds variable');
 });
 
-test('trio hero renders the series name instead of a code literal', () => {
+test('trio hero preserves current cross-series copy without leaking source code', async () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'Player-Trio.html'), 'utf8');
   const body = html.match(/<p id="hero-body"[^>]*>([^<]+)<\/p>/);
   assert(body, 'hero body exists');
   assert(!body[1].includes('config.trio.series'), 'no JS source may leak into the hero body');
-  assert(body[1].includes('Ultimate Scream'));
+  const expected = 'Compare the selected player cards, exact versions and current prices.';
+  assert.equal(body[1], expected);
+  const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'catalog.json'), 'utf8'));
+  config.trio.ids.forEach((key, i) => { config.products[key].version = ['Gold', 'Team of the Week', 'UCL RTTK'][i]; });
+  const {renderPage} = await import('../build-seo.mjs');
+  const mixed = renderPage(config, 'trio').html;
+  const mixedBody = mixed.match(/<p id="hero-body"[^>]*>([^<]+)<\/p>/);
+  assert(mixedBody, 'cross-series hero body exists');
+  assert.equal(mixedBody[1], expected);
+  assert(!mixedBody[1].includes('config.trio.series'), 'cross-series copy contains no JS source');
 });

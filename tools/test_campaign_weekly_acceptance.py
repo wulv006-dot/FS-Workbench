@@ -21,8 +21,14 @@ class AcceptanceHelpers(unittest.TestCase):
             root=Path(temp);tasks=root/'tasks.sqlite3';daily=root/'daily.sqlite3'
             conn=sqlite3.connect(tasks)
             try:
-                conn.execute('CREATE TABLE campaign_recommendations(owner,operation_id,state,task_id,run_id,network_started,result)')
-                conn.execute('INSERT INTO campaign_recommendations VALUES(?,?,?,?,?,?,?)',('PRIVATE_OWNER',OP,'completed','task-1','run-1',1,json.dumps({'receipt':{'model':'gpt-6.1-sol','usage':{'input_tokens':12,'output_tokens':5,'total_tokens':17}},'prompt':'SECRET_PROMPT','session':'SECRET_SESSION'})))
+                cores=['core-'+str(i) for i in range(9)];players=['player-'+str(i) for i in range(18)]
+                source=dict(source_revision='7',sbc_update={'id':OP},pages=[dict(page_id='fc27-sbc',core_product_keys=cores)],catalog=[dict(key=key,product_ref={'model_id':str(i+1)}) for i,key in enumerate(players)])
+                rows=[dict(page_id=page,product_key=players[i],core_product_key=None,reason='SECRET_MODEL_OUTPUT') for page in ('fc27-trio','fc27-weekly') for i in range(3)]+[dict(page_id='fc27-sbc',product_key=players[i],core_product_key=cores[i//2],reason='SECRET_MODEL_OUTPUT') for i in range(18)]
+                recommendation=dict(model='gpt-6.1-sol',source_revision='7',sbc_update_id=OP,recommendations=rows)
+                conn.execute('CREATE TABLE campaign_recommendations(owner,operation_id,state,task_id,run_id,network_started,result,input)')
+                conn.execute('CREATE TABLE tasks(id,owner,state,run_id)')
+                conn.execute('INSERT INTO tasks VALUES(?,?,?,?)',('task-1','PRIVATE_OWNER','SUCCEEDED','run-1'))
+                conn.execute('INSERT INTO campaign_recommendations VALUES(?,?,?,?,?,?,?,?)',('PRIVATE_OWNER',OP,'completed','task-1','run-1',1,json.dumps({'result':recommendation,'receipt':{'model':'gpt-6.1-sol','usage':{'input_tokens':12,'output_tokens':5,'total_tokens':17}},'prompt':'SECRET_PROMPT','session':'SECRET_SESSION'}),json.dumps(source)))
                 conn.commit()
             finally:conn.close()
             conn=sqlite3.connect(daily)
@@ -30,7 +36,7 @@ class AcceptanceHelpers(unittest.TestCase):
                 conn.execute('CREATE TABLE model_calls(fingerprint,state,content)')
                 conn.execute('CREATE TABLE hermes_reservations(fingerprint,owner,task,turn,policy)')
                 for fp,owner,task in [('f1','PRIVATE_OWNER','task-1'),('f2','OTHER_OWNER','other-task')]:
-                    conn.execute('INSERT INTO model_calls VALUES(?,?,?)',(fp,'succeeded',json.dumps({'model':'gpt-6.1-sol','usage':{'prompt_tokens':12,'completion_tokens':5,'total_tokens':17},'message':'SECRET_MODEL_OUTPUT','model_validation':{'status':'provider_metadata_confirmed','forwarded_verified':True,'response_model':'gpt-6.1-sol'}})))
+                    conn.execute('INSERT INTO model_calls VALUES(?,?,?)',(fp,'succeeded',json.dumps({'model':'gpt-6.1-sol','reasoning_effort':'high','finish_reason':'stop','usage':{'prompt_tokens':12,'completion_tokens':5,'total_tokens':17},'message':{'content':json.dumps(recommendation)},'model_validation':{'status':'provider_metadata_confirmed','forwarded_verified':True,'response_model':'gpt-6.1-sol'}})))
                     conn.execute('INSERT INTO hermes_reservations VALUES(?,?,?,?,?)',(fp,owner,task,0,json.dumps({'model':'gpt-6.1-sol'})))
                 conn.commit()
             finally:conn.close()
@@ -39,6 +45,8 @@ class AcceptanceHelpers(unittest.TestCase):
             result=subprocess.run(cmd,capture_output=True,text=True,check=True);value=json.loads(result.stdout)
             self.assertEqual(value['ledger_call_count'],1);self.assertEqual(value['receipt_usage']['total_tokens'],17)
             self.assertEqual(value['ledger_calls'][0]['usage']['total_tokens'],17);self.assertTrue(value['ledger_calls'][0]['forwarded_verified'])
+            self.assertEqual(value['task_state'],'SUCCEEDED');self.assertTrue(value['task_run_matches']);self.assertEqual(value['ledger_calls'][0]['finish_reason'],'stop');self.assertEqual(value['ledger_calls'][0]['reasoning_effort'],'high')
+            self.assertTrue(value['selection_counts']['nine_by_two']);self.assertEqual(value['selection_counts']['per_core_counts'],[2]*9);self.assertEqual(value['selection_counts']['distinct_companion_models'],18);self.assertEqual(value['selection_counts']['rows'],24)
             for secret in ('SECRET','PRIVATE_OWNER','OTHER_OWNER','other-task'):self.assertNotIn(secret,result.stdout+result.stderr)
             self.assertEqual(before,{p.name:p.read_bytes() for p in root.iterdir()})
             absent=cmd.copy();absent[absent.index(OP)]='12345678-1234-4234-8234-123456789abc'
