@@ -254,7 +254,7 @@
     {
       "candidate": "code/analytics/production-server.mjs",
       "target": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
-      "sha256": "ae7cd52ad1e48e2a6b2b5bc19fb2dcc4cd47325b0bf05f74ecedc40fb0f6cd93",
+      "sha256": "35039916c0b7dc65e5bee330af6065a26e582182197869b37ae9afd26dcd02b1",
       "beforeSha256": "490adf2d75b9a93045a727d0e7fb229d72b4f0ef483128c8cc635641a97c7380"
     },
     {
