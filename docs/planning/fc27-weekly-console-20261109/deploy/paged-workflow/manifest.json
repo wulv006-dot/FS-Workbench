@@ -260,7 +260,7 @@
     {
       "candidate": "code/analytics/weekly.js",
       "target": "/opt/fs-campaign-dashboard/analytics/weekly.js",
-      "sha256": "6d6b8542d9521c1e0ef1f895a478ce87e552fb30e246ae08c6b6ae2f09f5fecf",
+      "sha256": "bc8afa84d2003db1c38d93a63d46f7403426955877c05ab51793bc168b09f60d",
       "beforeSha256": "8760b66396b906c69376f017ceec728748b4dfd490fa732a3bfcf37b83d063ec"
     },
     {
