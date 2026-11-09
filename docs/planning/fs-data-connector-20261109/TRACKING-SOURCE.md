@@ -1,6 +1,6 @@
 # 客单追踪本轮来源与增量合同
 
-2026-11-09；本地实现及只读现场核验，未提交、未部署、未生成真实报告。
+2026-11-09；本地实现及只读现场核验，已提交至草稿PR #929、未部署、未生成真实报告。
 
 当前维护源为`releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/`，原README和deploy/release_scope明确目标为`/opt/fs-hermes-fc/`。20261018的SOURCE-MAP/CURRENT-SOURCE-MAP是历史首发与后续覆盖记录，不能据其旧SHA覆盖当前服务。
 
