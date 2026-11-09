@@ -21,4 +21,7 @@ html,body{overflow-x:clip}
 
 #run-result{overflow-wrap:anywhere}#run-result pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
 
-.workflow-frame{display:block;width:100%;height:720px;border:1px solid var(--fs-line);background:var(--fs-surface);border-radius:8px}#workflow-tabs button[aria-pressed=true]{border-color:var(--fs-accent);font-weight:700}#workflow-orders{display:flex;flex-wrap:wrap;gap:12px}#workflow-orders p{min-width:0;overflow-wrap:anywhere}#workflow-edit{margin-top:18px}#workflow pre{white-space:pre-wrap;overflow-wrap:anywhere}@media(max-width:650px){.workflow-frame{height:600px}}
+#workflow-orders{display:flex;flex-wrap:wrap;gap:12px}#workflow-orders p{min-width:0;overflow-wrap:anywhere}#workflow pre{white-space:pre-wrap;overflow-wrap:anywhere}
+.weekly-nav{display:flex;flex-wrap:wrap;gap:8px;padding:12px 0;border-bottom:1px solid var(--fs-line);margin-bottom:24px}.weekly-nav [aria-current=page]{background:var(--fs-brand-soft);border-color:var(--fs-brand);font-weight:600}.activity-actions{display:flex;flex-wrap:wrap;gap:8px}.workflow-page-links{padding:12px;border:1px solid var(--fs-line);border-radius:var(--fs-input-radius);flex:1;min-width:200px}.workflow-page-links strong{display:block;margin-bottom:8px}
+
+.weekly-header{padding-bottom:8px}.weekly-heading{margin:12px 0 8px}.weekly-nav{padding:8px 0;margin-bottom:16px}.overview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}.overview-head h2{margin:0}.overview-head .fs-btn{margin:0}
