@@ -187,37 +187,37 @@
       "candidate": "code/Player-Trio.html",
       "target": "/opt/fs-campaign-dashboard/Player-Trio.html",
       "beforeSha256": "bc83250c9f5f4751391d2f1124f5f01aa3243d64a9ca056e83764a015b7fbf9c",
-      "sha256": "1a4c77ef8fb9d368a960fa15d137e7da5b10a64eef685390cef525eec192ad22"
+      "sha256": "2d369937552363a523804c6372e9b63bc682c93bb5e5f9089a0d0d7526bb552c"
     },
     {
       "candidate": "code/Sbc-Companions.html",
       "target": "/opt/fs-campaign-dashboard/Sbc-Companions.html",
       "beforeSha256": "e80578dc0a5adefb0728cef69859869d60f82613c175e1061117b3ba3a2298a4",
-      "sha256": "dfecf24f30bc4d6e1cfe54822af0641a9331b2410693b317230174c00b30cee6"
+      "sha256": "5f2473e015f86c5a4110406c795b445211666c61428c6c532e443e9c22576d32"
     },
     {
       "candidate": "code/Weekly-Scout.html",
       "target": "/opt/fs-campaign-dashboard/Weekly-Scout.html",
       "beforeSha256": "3e0e4231241966b5e2a4bfa9c8cbae535031c7e5332b8b3f0c64aec8cbdb4870",
-      "sha256": "60a9b8233cc0774405f54e8b53bcfdadf9d891cfc9392688bed676aed9033e10"
+      "sha256": "922fce0d8b6ada76f0ecb8b0ad271f2d88894c070bbedd3f22ddb3cc62aa0fff"
     },
     {
       "candidate": "code/activity-content.js",
       "target": "/opt/fs-campaign-dashboard/activity-content.js",
       "beforeSha256": "15fccfc8bac9de5904e1eb7e09925d7ca7738b91472f36e076b9f8a915c10138",
-      "sha256": "f887ee999d88c4512dd6f459646de6e3c676bfdfd748bbed0630848c38f9ecd4"
+      "sha256": "b3500cbe91790d3abdbd663e1a3a427c9d97432c0114df0fb91df00ba1f15f27"
     },
     {
       "candidate": "code/activity.css",
       "target": "/opt/fs-campaign-dashboard/activity.css",
       "beforeSha256": "e7eaaa9fe46dc42ef0232d4bcc8912031cfea0e8bcaacc74f26ce7d8094c177b",
-      "sha256": "fc605be00fb135bd18c36bbdf5593b39214e42bb90c0cf55fe8c44f992561748"
+      "sha256": "0a3a5fe65b97e7e45ebf35ffd6f98ef314a5d3d5b7dec212833cfbd8ae3d7e6c"
     },
     {
       "candidate": "code/activity.js",
       "target": "/opt/fs-campaign-dashboard/activity.js",
       "beforeSha256": "00c7d5daf222c5d3a2209bc1d4d0a63d318ec2d9d48fe86953923baf509792cf",
-      "sha256": "65f61cbd155b0e0ac8c876c38e11b62be0e6fadaa5a7842288e07d2588fe7a7c"
+      "sha256": "6a513adf2073a13b2b4949095daf57c15db39d0afb03a1b44d8dfa00de2eb200"
     },
     {
       "candidate": "code/analytics/center-seed.mjs",
@@ -265,7 +265,7 @@
       "candidate": "code/index.html",
       "target": "/opt/fs-campaign-dashboard/index.html",
       "beforeSha256": "ef30ff8cd453319c73f7e3fbcc425b7f64d38ee99ca6b6357c6b311d2b66c12c",
-      "sha256": "c557f4ed84478191e11fdd44e5d74973516f6480aa45fa807ebf45d236aef311"
+      "sha256": "40bd14d95fdc6ba95ec8ef7d0a7b456b8714e0dded569c7dfd6d6d97a68d2fbb"
     },
     {
       "candidate": "code/runtime/model-cards.mjs",
@@ -319,7 +319,7 @@
       "candidate": "derived/static-manifest.json",
       "target": "/opt/fs-campaign-dashboard/runtime/static-manifest.json",
       "beforeSha256": "d067f2e2c091886fad4f86cea95776f05f7af658c593d08ef728154c30041ed4",
-      "sha256": "ec198a3a2f464e6b054b83d133f4ae11f7596d88fd5939470c697a21d6647820"
+      "sha256": "83679e28d41de890c724f9306390f88a7375973e08388b879c39afbc4fe13e0e"
     }
   ]
 }
