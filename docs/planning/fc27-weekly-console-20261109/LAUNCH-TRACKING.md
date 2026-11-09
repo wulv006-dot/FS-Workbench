@@ -1,8 +1,8 @@
 # FC 三页追踪与用码付款接入
 
-日期：2026-11-09。此文区分源码、隔离测试与生产状态；以下生产配置差异由总控沿原入口执行，本文不代表已执行。
+日期：2026-11-09。当前追踪6文件已获独立明确授权、部署并读回，三页真实测试事件与付款查询已验；其余页面、侧栏及四包业务发布尚待批准。以下分段保留准备、拒绝及新授权后的各自时点。
 
-## 当前真实观察
+## 启用前真实观察
 
 187 只读核验：正式 `campaign-preview-27` 三个 FC 页面均 active；`/opt/fs-campaign-dashboard/analytics-config.js` 的总开关仍为 `enabled:false`，允许域名为 `www.mmoexp.com`，原 PostHog 项目已配置。现役脚本 SHA256：`04bfcb6e2cb9c787ba59d0dbfa653ced169c99c4a6efc517b0a425267b0d0d2d`。不得把历史哈希用于未经重读的覆盖。
 
@@ -79,10 +79,26 @@ UUID 使用一个新生成的合法 UUID；它只是非敏感测试分组，不�
 `/dashboard/analytics/campaigns/analytics/api/report?activity=fc27-weekly&mode=test&from=YYYY-MM-DD&to=YYYY-MM-DD&testRunId=<同一UUID>&windowHours=24`
 三次分别替换 activity 为 fc27-weekly/fc27-sbc/fc27-trio。时间为 UTC。返回 `testRun.eventIds` 可与浏览器回执的 event_id 比对（原 HTTP 查询提取完整登记白名单中的本次标记，eventIds 可能含三页；diagnostics/report 再按 activity 筛选）；`diagnostics.eventCounts` 和 `report.steps` 给实际各阶段数量。原查询按 `environment=test` 与 `test_run_id` 同时过滤，正式 mode=live 固定 production，不混测试。
 
-只读服务器辅助脚本：`.agent_runtime/weekly-console/read-tracking-test.mjs`，在187上传至本次独立stage后 `/usr/local/bin/node <脚本路径> <UUID> <UTC日期>`。脚本复用现役 analytics/server.mjs 的 report、服务器本地 Query Read 密钥和原项目配置；只输出三页聚合、测试 event_id、查询状态，不导出密钥、身份或原始事件。无写入、无 Capture 请求。脚本目前仅语法检查通过，尚未查询任何新测试事件。少量供应商索引延迟可按原标记重新只读查询；不要因暂未读到就重放加购或换 ID。
+只读服务器辅助脚本：`.agent_runtime/weekly-console/read-tracking-test.mjs`，当前187实际程序为 `/usr/local/node/bin/node <脚本路径> <UUID> <UTC日期>`，执行前应按现役服务核路径。脚本复用现役 analytics/server.mjs 的 report、服务器本地 Query Read 密钥和原项目配置；只输出三页聚合、测试 event_id、查询状态，不导出密钥、身份或原始事件。无写入、无 Capture 请求。准备时仅语法检查；后续真实查询结果见下文。供应商索引延迟时按原标记只读查询，不重放加购或换ID。
 
 ## 合并与生产边界
 
 PR960已合并，CI1850成功；23目标实际apply被自动审批拒绝，未执行，故正式静态开关仍为false。拒绝理由是这批生产写入与追踪开启尚缺最终整批批准；不改用单独开关写入或其他发布方式绕过。登记revision11和查询读取已完成，与尚未完成的静态启用、真实收数分别记账。
 
 13:33 UTC，原PostHog Query三页均HTTP200/available。本轮新测试标记 `6f672eb9-f1c3-4bfc-985c-7f445cecd983` 的三页eventCount及eventIds均为空，证明读取权限和干净基线；尚未通过真实浏览器发送该标记，不能作为Capture收数成功。现役Node实际路径为 `/usr/local/node/bin/node`；辅助调用应取现役服务的真实程序，不能把历史路径当事实。
+
+## 新授权后，仅追踪6文件已部署
+
+总控按用户再次明确“允许追踪”的新授权，独立发布6个追踪目标，release/backup `nav-20261109T140059Z`，manifest `1d8d686405640c290912688f7d1a21b984a6aa51f11aaf89944fcec0f7958b5c`。原23整包没有执行，不得混称全部页面/商品改动已经上线。
+
+2026-11-09 14:03:26 UTC 只读读回：6目标after SHA全部匹配，59项原守卫全部匹配，管理/runtime/business-range三服务active，正式enabled=true，registry11及layout保持，center/public27、config/rule hash、policy和原发布operation保持。首次14:02缓存unavailable/0模型；没有主动刷新或回填，现有自然warm在14:03:13恢复ready/78模型。Weekly每平台3/3、SBC27/27有新鲜USD报价；Trio仍原3/7，余4包尚未进行新业务绑定。
+
+证据：`.agent_runtime/weekly-console/tracking-authorized-live-readback.json`，首次状态另存`tracking-authorized-live-readback-initial.json`。模型缓存Trio的3/7只表示现代模型报价覆盖，旧4包另有main_catalog实时读取通道，不可据此声称页面无价。剩余17源码+static共18目标已在`deploy/page-pending/`固定并上传独立stage，原publisher inspect通过、mutations=false，未激活，等待明确批准。
+
+## 真实浏览器与原FS面板验收
+
+14:18 UTC Query读回本轮20个唯一测试event_id：Scout8/SBC6/Trio6，三页均有view/product_view/selection，environment=test。拒绝后的切平台/刷新没有新增；恢复允许后正常收到，正式统计未混入测试。没有伪造或新增checkout/purchase。
+
+实际原FS登录面板按UTC 11月9日读取FCSCOUT10合计0笔/$0.00/退款0，更新时间14:16 UTC、最长10分钟缓存；单页付款率和收入保持未接入标记，不填假零。原购物车2件PS商品保持，未新增加购/下单/付款，故新Capture的确认加购端到端仍未验，旧27原购物车证据按原范围保留。
+
+完整摘要 `.agent_runtime/weekly-console/tracking-acceptance-summary.json`；原Query事件 `.agent_runtime/weekly-console/tracking-final-events.jsonl`；真实面板DOM与截图 `tracking-live-coupon-ui.json` / `tracking-live-coupon-report.jpg`。详见 `deploy/tracking-authorized/ACCEPTANCE.md`。
