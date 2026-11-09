@@ -137,7 +137,7 @@ function renderWorkflow(){
  $('workflow-links').innerHTML=Object.entries(names).map(([id,name])=>'<div class="workflow-page-links"><strong>'+name+'</strong>'+pageActions(id)+'</div>').join('');
  $('workflow-changes').innerHTML=(workflow.changes||[]).map(c=>'<p><strong>'+esc(names[c.page_id]||c.title)+'</strong>：'+esc((c.fields||[]).map(f=>workflowFieldNames[f]||'其他页面设置').join('、')||'无已返回差异')+'</p>').join('')+'<p>交易检查：'+esc(({prepared:'候选资料待审批',blocked:'有待处理问题',ready:'已准备'}[workflow.commerce?.status]||'待核实'))+'</p><ul>'+(workflow.blockers||[]).map(b=>'<li>'+esc(workflowMessage(b))+'</li>').join('')+'</ul><details><summary>查看原始诊断字段</summary><pre>'+esc(JSON.stringify({changes:workflow.changes,blockers:workflow.blockers},null,2))+'</pre></details>';
  const pub=workflow.publication;$('workflow-publication').textContent=pub?'发布回执：'+value(pub.release_id)+' · 版本 '+value(pub.revision)+' · operationId '+value(pub.operation_id)+' · '+publicationReadback(pub.readback):'';
- $('workflow-status').textContent='已核对保存版本 '+value(workflow.revision)+'；'+(workflow.can_publish?'可审阅后确认发布。':'尚不能发布，请查看检查结果。');
+ $('workflow-status').textContent=pub?'版本 '+value(pub.revision)+' 已发布 · '+publicationReadback(pub.readback)+'。如需更新，请修改并保存后重新核对。':'已核对保存版本 '+value(workflow.revision)+'；'+(workflow.can_publish?'可审阅后确认发布。':'尚不能发布，请查看检查结果。');
  renderWorkflowExpiry();render();renderRun();lockWorkflow();
 }
 async function reviewWorkflow(run=workflowRun,revision,automatic=false){
