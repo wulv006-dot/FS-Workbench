@@ -109,6 +109,22 @@ class CampaignTests(unittest.TestCase):
    self.service.submit(self.body,'alice','private-session');self.assertEqual(len(provider),1)
    with self.host.daily.db() as db:self.assertEqual(db.execute('SELECT state FROM model_calls').fetchone()[0],'unknown')
 
+ def test_actual_local_curl_rejection_preserves_attempt_marker_but_settles_only_own_call_not_dispatched(self):
+  with self.pipeline(failure='local_parse') as (provider,active):
+   self.service.submit(self.body,'alice','private-session');self.finish();result=self.service.lookup(self.body['operation_id'],'alice','private-session')
+   self.assertEqual(result['status'],'unavailable');self.assertEqual(result['provider_outcome'],'not_dispatched');self.assertEqual(result['diagnostic']['curl_exit_code'],2)
+   record=self.service._record(self.body['operation_id'],'alice');self.assertEqual(record['network_started'],1);self.assertEqual(self.tasks.get(record['task_id'],'alice')['state'],'FAILED')
+   with self.host.daily.db() as db:row=db.execute('SELECT state,content FROM model_calls').fetchone()
+   self.assertEqual(row['state'],'not_dispatched');self.assertEqual(json.loads(row['content'])['diagnostic']['provider_error_code'],'curl_option_invalid');self.assertEqual(len(provider),1)
+
+ def test_actual_http_rejection_retains_safe_diagnostic_without_replay_or_body(self):
+  with self.pipeline(failure='http') as (provider,active):
+   self.service.submit(self.body,'alice','private-session');self.finish()
+   self.assertEqual(self.service.lookup(self.body['operation_id'],'alice','private-session')['status'],'unknown')
+   with self.host.daily.db() as db:content=json.loads(db.execute('SELECT content FROM model_calls').fetchone()[0])
+   self.assertEqual(content['http_status'],400);self.assertEqual(content['curl_exit_code'],0);self.assertEqual(content['provider_http_request_id'],'req_fixture')
+   self.assertEqual(content['provider_status'],'http_rejected');self.assertEqual(content['provider_error_code'],'invalid_json_schema');self.assertNotIn('private',json.dumps(content));self.assertEqual(len(provider),1)
+
  def test_paid_invalid_json_is_failed_with_real_usage_instead_of_unknown_or_unavailable(self):
   with self.pipeline(failure='json') as (provider,active):
    self.service.submit(self.body,'alice','private-session');self.finish();result=self.service.lookup(self.body['operation_id'],'alice','private-session')
@@ -230,6 +246,10 @@ class CampaignTests(unittest.TestCase):
      if failure=='local':raise ValueError('configuration_missing')
      payload=json.loads(openai.prepare_request(request,approved_tools,campaign=options['campaign']));calls.append(payload);options['on_dispatch']();liveness.append(active(self.tasks))
      if failure=='transport':raise OSError('private provider diagnostic')
+     if failure=='local_parse':
+      proof=dict(network_started=False,curl_exit_code=2,provider_error_code='curl_option_invalid',transport_phase='local_validation');options['on_not_dispatched'](proof)
+      return dict(proof,status='local_rejected')
+     if failure=='http':return dict(status='http_rejected',http_status=400,curl_exit_code=0,provider_http_request_id='req_fixture',provider_error_code='invalid_json_schema')
      result=dict(model='gpt-6.1-sol',source_revision='7',sbc_update_id='update-7',recommendations=[dict(page_id='fc27-weekly',product_key='fc-player-ps',core_product_key=None,reason='Synthetic reason',evidence_indices=[])])
      return dict(id='provider_fixture',model='gpt-6.1-sol',choices=[dict(message=dict(role='assistant',content='invalid JSON' if failure=='json' else json.dumps(result)),finish_reason='stop')],usage=dict(prompt_tokens=4,completion_tokens=5,total_tokens=9))
     with patch.dict(sys.modules,{'fs_inprocess':SimpleNamespace(campaign_gateway=factory),'fc_daily':SimpleNamespace(provider_slot=slot,model_daily_limit=limit),'openai_provider':openai}),patch.object(openai,'request_model',side_effect=request),patch.dict(os.environ,{'FS_MODEL_DAILY_LIMIT':'0'}):

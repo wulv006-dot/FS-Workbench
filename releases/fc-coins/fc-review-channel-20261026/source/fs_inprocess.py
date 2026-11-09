@@ -151,7 +151,7 @@ def campaign_gateway(daily,tasks,scope,*,deadline):
     budget=UnifiedBudget(daily.db,policy,lambda:datetime.now(timezone.utc),allow_unknown_costs=True)
     budget.active_tasks=lambda:active_model_tasks(tasks)
     def provider(request):
-        response=request_model(request,[],deadline=deadline,campaign=True,on_dispatch=scope.mark_dispatch)
+        response=request_model(request,[],deadline=deadline,campaign=True,on_dispatch=scope.mark_dispatch,on_not_dispatched=scope.mark_not_dispatched)
         if not isinstance(response,dict) or response.get('model')!=MODEL:
             error=ValueError('provider_outcome_unknown');error.response=response;raise error
         return response

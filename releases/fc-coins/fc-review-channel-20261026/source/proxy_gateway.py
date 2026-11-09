@@ -346,10 +346,11 @@ def transport_trace(response):
     value=response.get('response_headers_received')
     if type(value) is bool:out['response_headers_received']=value
     value=response.get('transport_phase')
-    if value in ('opening','reading_stream','reading_body','http_rejected'):out['transport_phase']=value
+    if value in ('opening','reading_stream','reading_body','http_rejected','local_validation'):out['transport_phase']=value
     for key in ('response_bytes_received','stream_events_received'):
         value=response.get(key)
         if type(value) is int and 0<=value<=1000000000:out[key]=value
+    if type(response.get('curl_exit_code')) is int and 0<=response['curl_exit_code']<=255:out['curl_exit_code']=response['curl_exit_code']
     return out
 
 
@@ -358,6 +359,7 @@ def safe_diagnostic(response, request, reason):
     out={'status':'unknown','reason':reason if isinstance(reason,str) and re.fullmatch(r'[a-z0-9_]{3,80}',reason) else 'provider_result_unverified'}
     if not isinstance(response,dict):return out
     out.update(transport_trace(response))
+    if response.get('status') in ('local_rejected','http_rejected','unknown_transport','invalid_response','scheduled_deadline'):out['provider_status']=response['status']
     if type(response.get('http_status')) is int and 100<=response['http_status']<=599:out['http_status']=response['http_status']
     for key in ('transport_error_type','transport_reason_type'):
         if response.get(key) in ('TimeoutError','URLError','OSError','ConnectionResetError','ConnectionRefusedError','BrokenPipeError','SSLError','RemoteDisconnected','IncompleteRead'):
