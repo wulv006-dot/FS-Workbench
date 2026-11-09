@@ -127,3 +127,10 @@ source `593c1a2c1c62d4ad6c8c61647180f18e7d932ff5`，正式组合head `2c7bbaaea9
 知识收尾plan `KL-03c6a2f65d6b246bcbb5a32d`，SHA `056fdc13b928695fa7776662176cbc57cd1ac574186aef11e35fd2797f47ed4d`，affected_ids/steps为空、无冲突，无知识发布、Notion写入或额外重启。
 
 根索引中的/rangeId另补一次同arguments的原生读取，HTTP200且原生exec退出0，与首次202请求的`0653850f9be18264672bc77a22cd7a88113eacb58fe7c2f3f51038f88153b81e`一致。此后停止取数；新版真实验收合计9+1次，不更换任务或查询范围。
+
+
+## 创建者补充的网络前提与安装说明
+
+2026-11-09创建者明确：FS只对白名单IP开放。IP/UA门位于vhost的location之前，connector内auth_request off不取消该前置网络规则。此前只看map默认值和浏览器阳性对照不足以证明ChatGPT云端可达；本机Codex/Harness成功不代替云端测试。当前按“尚未具备获准云端通道”处理，未调整白名单，旧503仍没有具体某条规则的拒绝回执。
+
+CLIENTS.md补齐网络与个人账号前提、Codex步骤、DeepSeek独立patch加载命令与fs-mcp.patch.yml。配置依官方MCP client/insert模板及mcp-remote 0.1.38参数核对，只包含地址/命令。副机实机登录未执行；本地缺少YAML解析依赖，未为文档另装依赖，示例做人工结构/参数读回，正式CI范围不冒充Harness运行验收。
