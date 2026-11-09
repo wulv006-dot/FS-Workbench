@@ -241,7 +241,7 @@ def create_app(*, store, portal, catalog, backend, issuer: str, resource_url: st
             params = await _params(request)
             if request.url.path.endswith("/register"):
                 grants = params.get("grant_types", ["authorization_code"])
-                if set(params) - {"redirect_uris", "client_name", "token_endpoint_auth_method", "grant_types", "response_types", "scope"} or params.get("token_endpoint_auth_method", "none") != "none" or params.get("response_types", ["code"]) != ["code"] or params.get("scope", "fs.read") != "fs.read":
+                if set(params) - {"redirect_uris", "client_name", "token_endpoint_auth_method", "grant_types", "response_types", "scope", "application_type"} or params.get("application_type", "web") not in ("native", "web") or params.get("token_endpoint_auth_method", "none") != "none" or params.get("response_types", ["code"]) != ["code"] or params.get("scope", "fs.read") != "fs.read":
                     raise ValueError("invalid_request")
                 return JSONResponse(await run_in_threadpool(store.register_client, params["redirect_uris"], params.get("client_name", ""), grants), status_code=201, headers=secure_headers)
             if request.url.path.endswith("/revoke"):
