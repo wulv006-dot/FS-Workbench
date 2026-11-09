@@ -300,7 +300,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "fe12d35acc198b7c3e39cb622be83ea98cc45abcfb0e701416e1455e84408ccd",
+        "sha256": "4f1a0f8041cb98dede14f14a68a5b87cb7f03be1558a9a818db18761f0575a65",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -357,6 +357,12 @@
           "date": "2026-11-07",
           "decision": "docs/planning/fc-smart-bidirectional-20261107/CONTRACT.md",
           "scope": "Versioned smart strategy, core source priority and global regions; financial dual20 unchanged"
+        },
+        {
+          "kind": "direct_user_coupon_display_adaptation",
+          "date": "2026-11-09",
+          "decision": "docs/planning/fc-coupon-display-20261109/PLAN.md",
+          "scope": "Separate anonymous display evidence from base price and actual redemption; isolate observed display regimes; financial and writer rules unchanged"
         }
       ],
       "consumers": [
@@ -944,20 +950,20 @@
     },
     {
       "id": "fc.pricing.v3",
-      "revision": "20261107-bidirectional-v2",
+      "revision": "20261109-coupon-display",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FC27"
       ],
-      "effective_at": "2026-11-07",
+      "effective_at": "2026-11-09",
       "time_precision": "date_only",
       "owner": "吴律；FC模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "fe12d35acc198b7c3e39cb622be83ea98cc45abcfb0e701416e1455e84408ccd",
+        "sha256": "4f1a0f8041cb98dede14f14a68a5b87cb7f03be1558a9a818db18761f0575a65",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
@@ -969,7 +975,8 @@
         "fc.pricing.v3@20261106-current",
         "fc.pricing.v3@20261106-clean",
         "fc.pricing.v3@20261107-profit-summary",
-        "fc.pricing.v3@20261107-time-attribution"
+        "fc.pricing.v3@20261107-time-attribution",
+        "fc.pricing.v3@20261107-bidirectional-v2"
       ],
       "provenance": [
         {
@@ -1027,6 +1034,12 @@
           "date": "2026-11-07",
           "decision": "docs/planning/fc-smart-bidirectional-20261107/CONTRACT.md",
           "scope": "Versioned smart strategy, core source priority and global regions; financial dual20 unchanged"
+        },
+        {
+          "kind": "direct_user_coupon_display_adaptation",
+          "date": "2026-11-09",
+          "decision": "docs/planning/fc-coupon-display-20261109/PLAN.md",
+          "scope": "Separate anonymous display evidence from base price and actual redemption; isolate observed display regimes; financial and writer rules unchanged"
         }
       ],
       "consumers": [
