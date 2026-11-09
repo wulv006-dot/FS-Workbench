@@ -1,0 +1,15 @@
+- insert:
+    - id: mcp-fs
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: fs
+        transport: stdio
+        command: npx
+        args:
+          - '-y'
+          - 'mcp-remote@0.1.38'
+          - 'https://47.85.224.112/connector/mcp'
+          - '--resource'
+          - 'https://47.85.224.112/connector/mcp'
+          - '--transport'
+          - 'http-only'

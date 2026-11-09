@@ -2,6 +2,20 @@
 
 服务已发布：`https://47.85.224.112/connector/mcp`。2026-11-09 Codex真实OAuth登录已通过，已通过目录、客户追踪及同一月范围查询；新版导航、模块口径、月度指标及明细分页也经原生模型确认无截断；ChatGPT手动配置的授权回跳通过，但云端令牌兑换返回503，尚未接通。客户端进度见 [LIVE-ACCEPTANCE.md](LIVE-ACCEPTANCE.md)。每个成员用自己的 FS 账号授权；主机、副机各自完成登录，其他电脑不会改变服务器数据权限。
 
+## 先确认网络和账号
+
+2026-11-09创建者确认：FS仅对白名单IP开放。连接器沿用这条网络边界，安装客户端不会自动增加白名单。
+
+1. 在准备运行Codex/Harness的电脑上，用浏览器打开[FS首页](https://47.85.224.112/dashboard/)，确认能正常进入登录页或自己的工作台。网页403、无法连接或超时，先处理网络准入，不能靠重复OAuth解决；能打开登录页仍需下一步验证客户端所在进程的出口与代理配置。
+2. 每位同事需要自己的FS账号及原有业务权限；没有账号或没有某模块权限时，由FS管理员按实际工作需要分配。主机/副机分别登录，不复制他人Cookie或令牌。
+3. 本机Codex/Harness的连接请求通常由运行它的电脑发出；远程运行Harness时，则由远程Host发出，应核该Host的出口IP。ChatGPT云端发起发现、令牌兑换及工具请求，不沿用用户浏览器的出口IP。电脑和浏览器可达不证明ChatGPT可达。
+
+当前白名单前提与此前ChatGPT浏览器授权回跳成功、云端token兑换失败相符；没有取得该次请求的具体拒绝回执，不能把503精确归到某一条规则。本次未修改白名单。
+
+ChatGPT后续可选网络方案：仅对连接器及必要OAuth/发现路径允许OpenAI公布的ChatGPT连接器出口范围，保留FS逐人授权；或者评估官方Secure MCP Tunnel。前者需要具体网络规则变更，后者还需组织/工作区配置与OAuth可达性验收，均未实施。隧道不是安装后自动解决全部OAuth访问的承诺。
+
+参考：[OpenAI出口范围](https://developers.openai.com/api/docs/guides/ip-addresses)、[Secure MCP Tunnel与OAuth限制](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels#oauth)。
+
 ## Codex
 
 首次配置运行（已添加过fs则只需登录，不重复添加）：
@@ -25,28 +39,28 @@ Business/Enterprise 工作区与个人账号分别现场验收；个人账号是
 
 ## DeepSeek Harness（副机）
 
-开源 MCP 客户端支持 stdio 与 Streamable HTTP，但尚未确认副机安装版本及其 OAuth 能力。若该版本没有原生 OAuth 登录，用现成 `mcp-remote` 的 stdio/OAuth 桥接；无需新建另一套数据接口。下列是配置结构，版本应在副机安装前核定已发布版本并固定：
+副机已有Harness时无需重装FS或部署服务器，保留原模型设置，只增加FS连接。
 
-```yaml
-- id: mcp-fs
-  name: '@deepseek-ai/dsh-mcp-client'
-  config:
-    serverName: fs
-    transport: stdio
-    command: npx
-    args:
-      - '-y'
-      - 'mcp-remote@0.1.38'
-      - 'https://47.85.224.112/connector/mcp'
-      - '--resource'
-      - 'https://47.85.224.112/connector/mcp'
-      - '--transport'
-      - 'http-only'
+1. 先完成上面的网络与FS账号检查。使用当前官方npm版新装Harness时，官方源码要求Node.js >=24.9.0；已有桌面版不为本连接器强制升级。该配置还需要本机`node`和`npx`可用。
+2. 下载本目录的 [fs-mcp.patch.yml](fs-mcp.patch.yml)，放到副机一个自己能找到的目录。该文件只有服务器地址和桥接启动参数，不含账号或令牌。作为独立patch加载，不覆盖现有模型/插件配置。
+3. 在该目录启动一个使用此patch的Harness实例：
+
+```text
+npx @deepseek-ai/dsh web --patch ./fs-mcp.patch.yml
 ```
 
-这里的 `http-only` 是桥接器的 Streamable HTTP 传输选择，URL仍为HTTPS，不关闭TLS校验。首次调用会打开本机浏览器登录，OAuth令牌由桥接器保存在该电脑；不放进共享仓库。副机安装及真实登录尚未执行。
+已安装CLI的用户也可以在原启动命令追加`--patch ./fs-mcp.patch.yml`；源码版沿原`pnpm dsh web`启动方式追加该参数。不要同时再在Settings中添加同名fs，避免重复注册。
 
-参考：[DeepSeek Harness MCP 客户端](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/mcp/mcp-client/README.md)、[mcp-remote 参数](https://github.com/geelen/mcp-remote)。
+4. 第一次加载会由`mcp-remote@0.1.38`打开本机浏览器。在浏览器中使用**自己的FS账号**登录并允许读取；确认回到成功页后，再向Harness发起数据查询。必要时重载该实例以获取工具列表。远程/无浏览器Host不能直接套用此本机流程，须另核浏览器回调如何到达运行桥接的Host。
+5. 让AI先调用`mcp__fs__fs_list_data_sources`；看到导航后，再按module读取参数与口径并调用`mcp__fs__fs_query_data`。工具未出现时先查看该MCP连接的启动错误；不要把未连接当空数据。
+
+可选：当前Harness若提供MCP Settings，可新增stdio服务：名称`fs`、命令`npx`、参数按patch中的args逐项填写，作用等价；界面字段随副机实际版本核定。固定patch方案依据官方MCP client及insert模板，不依赖某个界面名称。
+
+这里`http-only`仅表示使用Streamable HTTP传输，实际地址仍是HTTPS。OAuth由本机桥接器处理，令牌保存在该电脑；不要求复制FS Cookie，也不需要共享FS服务器密钥。此路径不经过ChatGPT云端，因此不依赖ChatGPT的503先恢复。
+
+以上配置按2026-11-09官方源码核对，**副机实际安装及OAuth尚未验收**。Harness官方仍处于developer preview，旧版本的插件/启动参数需与其安装版本匹配。
+
+参考：[Harness安装](https://github.com/deepseek-ai/deepseek-harness#run)、[MCP客户端](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/mcp/mcp-client/README.md)、[官方patch模板](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/preset/agent-preset/skills/cordis-plugin-development/templates/mcp/cordis.patch.yml)、[mcp-remote](https://github.com/geelen/mcp-remote)。
 
 ## 月报等分析的用法
 
