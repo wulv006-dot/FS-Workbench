@@ -49,6 +49,10 @@ def weekly_selection(reader):
                and str(t.get('status')) == '1' and '9627' in [str(x) for x in t.get('cate_id', [])]]
     if len(matches) != 1: raise ContractError('WEEKLY_POPULAR_TAG_AMBIGUOUS')
     tag_id = str(matches[0]['id'])
+    newest_tags = [t for t in tags if str(t.get('gid')) == '1327' and t.get('name') == 'Newest'
+                   and str(t.get('status')) == '1' and '9627' in [str(x) for x in t.get('cate_id', [])]]
+    if len(newest_tags)!=1:raise ContractError('WEEKLY_NEWEST_TAG_AMBIGUOUS')
+    newest_tag_id=str(newest_tags[0]['id'])
 
     def models(cid, order, page=1, limit=200):
         rows, total = _rows(get('/admin/goods.GoodsMould/index', page=page, limit=limit,
@@ -59,7 +63,7 @@ def weekly_selection(reader):
     eligible = lambda r: str(r.get('status')) == '1' and str(r.get('auto_off')) == '0' and str(r.get('is_put')) == '1'
     players, latest, player_total, previous_id = [], [], None, None
     for latest_page in range(1, 61):
-        rows, total = models('9627', 'id,desc', page=latest_page, limit=20)
+        rows, total = models('9627', 'id,desc', page=latest_page, limit=200)
         if player_total is not None and total != player_total:raise ContractError('PAGINATION_CHANGED')
         player_total = total
         for row in rows:
@@ -68,7 +72,12 @@ def weekly_selection(reader):
             previous_id = current_id
             latest.append(row)
             if eligible(row) and player_type(row) == 'normal':players.append(row)
-        if len(players) >= 24 or len(latest) >= total:break
+        if len(latest) >= total:break
+        if not rows:raise ContractError('PAGINATION_CHANGED')
+    if len(latest)!=player_total:raise ContractError('WEEKLY_NEWEST_COVERAGE_INCOMPLETE')
+    newest_tagged=[r for r in latest if newest_tag_id in [str(x) for x in r.get('tid',[])]]
+    newest=[r for r in newest_tagged if eligible(r) and player_type(r)=='normal']
+    if len(newest)<3:raise ContractError('WEEKLY_NEWEST_POOL_INSUFFICIENT')
     players = players[:24]
     if len(players)<18:raise ContractError('WEEKLY_SBC_COMPANION_POOL_INSUFFICIENT')
     cores, core_total, core_scanned, previous_core_id = [], None, 0, None
@@ -108,7 +117,7 @@ def weekly_selection(reader):
         if not rows:raise ContractError('PAGINATION_CHANGED')
     if len(popular)!=3:raise ContractError('WEEKLY_POPULAR_TOP_THREE_UNAVAILABLE')
     if len(players) < 3 or not cores: raise ContractError('WEEKLY_SOURCE_POOL_EMPTY')
-    chosen = {str(r['id']): (r, 'player') for r in players + popular}
+    chosen = {str(r['id']): (r, 'player') for r in players + popular + newest}
     chosen.update({str(r['id']): (r, 'sbc') for r in cores})
     resolved, observations, provider_observations = [], [], []
     for mid, (row, kind) in chosen.items():
@@ -137,6 +146,7 @@ def weekly_selection(reader):
         source_roles = []
         if any(str(r['id']) == mid for r in popular): source_roles.append(dict(role='scout_popular', order='storefront_default_recommendation_priority'))
         if any(str(r['id']) == mid for r in players): source_roles.append(dict(role='latest_player', order='id,desc'))
+        if any(str(r['id']) == mid for r in newest): source_roles.append(dict(role='trio_newest', tag_id=newest_tag_id, order='id,desc', selection='model_market_judgment_not_rank'))
         if any(str(r['id']) == mid for r in cores): source_roles.append(dict(role='latest_sbc', order='id,desc'))
         observations.append(dict(model_id=mid, source_roles=source_roles, shelf_time=row.get('shelf_time'),
             created_at=None, player_type=player_type(row) if kind == 'player' else None, goods_complete=goods['total'] == len(goods['rows']),
@@ -146,9 +156,12 @@ def weekly_selection(reader):
             quote_verified=False, checkout_verified=False))
     return dict(observed_at=datetime.now(timezone.utc).isoformat(), rules_version='fc27_weekly_selection_v1',
         models=resolved, latest_player_ids=[str(r['id']) for r in players],
-        trio_player_ids=[str(r['id']) for r in players[:6]], scout_model_ids=[str(r['id']) for r in popular],
+        trio_player_ids=[str(r['id']) for r in newest], scout_model_ids=[str(r['id']) for r in popular],
         sbc_model_ids=[str(r['id']) for r in cores], observations=observations, provider_observations=provider_observations,
         evidence=dict(categories=found, popular_tag_id=tag_id, tag_count=len(tags), tags_complete=True,
+            newest_tag_id=newest_tag_id,newest_tagged_count=len(newest_tagged),newest_normal_count=len(newest),
+            newest_scanned=len(latest),newest_total=player_total,newest_complete=True,newest_order='id,desc',
+            trio_selection='model_market_judgment_from_complete_newest_normal_pool',
             popular_order='storefront_default_recommendation_priority', popular_scanned=scanned, popular_total=popular_total,
             latest_order='id,desc', latest_semantics='newest_model_identity_not_creation_timestamp',
             player_total=player_total, sbc_total=core_total, snapshot_atomic=False),

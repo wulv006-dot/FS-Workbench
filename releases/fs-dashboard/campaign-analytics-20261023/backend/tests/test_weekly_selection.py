@@ -13,8 +13,8 @@ def normal():
 
 class Reader:
     def __init__(self):
-        self.tags=[dict(id=1,name='Popular',gid=1327,cate_id=['9627'],status=1)]
-        self.players=[dict(id=i,gid=1327,cid=9627,title='Player '+str(i),status=1,auto_off=0,is_put=1,tid=['1'],shelf_time=100,more=normal()) for i in range(20,0,-1)]
+        self.tags=[dict(id=1,name='Popular',gid=1327,cate_id=['9627'],status=1),dict(id=2,name='Newest',gid=1327,cate_id=['9627'],status=1)]
+        self.players=[dict(id=i,gid=1327,cid=9627,title='Player '+str(i),status=1,auto_off=0,is_put=1,tid=['1','2'],shelf_time=100,more=normal()) for i in range(20,0,-1)]
         self.cores=[dict(self.players[0],id=i,cid=10203,title='SBC Player') for i in range(108,99,-1)]
     def begin_catalog_read(self):pass
     def catalog_model(self,model_id):
@@ -36,6 +36,23 @@ class Reader:
         return dict(self.search_goods_page('266','1327',str(mid),cid)['rows'][int(goods_id)%10],more={'saleprop':[],'skuTableSet':[]},unit_price=10,discount=100)
 
 class WeeklyTests(unittest.TestCase):
+    def test_newest_complete_scan_preserves_sixty_page_budget_beyond_1200(self):
+        reader=Reader()
+        reader.players=[dict(reader.players[0],id=i,tid=['1'] if i>330 else ['1','2']) for i in range(1600,299,-1)]
+        result=weekly_selection(reader)
+        self.assertEqual(result['evidence']['newest_scanned'],1301)
+        self.assertEqual(result['evidence']['newest_normal_count'],31)
+        self.assertTrue(result['evidence']['newest_complete'])
+        self.assertEqual(result['trio_player_ids'],[str(i) for i in range(330,299,-1)])
+    def test_trio_uses_complete_dynamic_newest_not_first_six_latest(self):
+        reader=Reader();reader.tags[1]['id']=99
+        reader.players=[dict(reader.players[0],id=i,tid=['1'] if i>330 else ['1','99']) for i in range(550,299,-1)]
+        result=weekly_selection(reader)
+        self.assertEqual(result['trio_player_ids'],[str(i) for i in range(330,299,-1)])
+        self.assertEqual(len(result['latest_player_ids']),24)
+        evidence=result['evidence'];self.assertEqual(evidence['newest_tag_id'],'99')
+        self.assertEqual(evidence['newest_scanned'],251);self.assertEqual(evidence['newest_normal_count'],31)
+        self.assertTrue(evidence['newest_complete'])
     def test_sbc_paginates_past_offline_first_page_for_ninth_core(self):
         reader=Reader()
         reader.cores=[dict(reader.cores[0],id=i,status=1 if i>192 or i==180 else 0) for i in range(200,167,-1)]
@@ -63,7 +80,7 @@ class WeeklyTests(unittest.TestCase):
         reader.players=extra+reader.players
         result=weekly_selection(reader)
         self.assertEqual(result['latest_player_ids'],[str(i) for i in range(20,0,-1)])
-        self.assertEqual(result['trio_player_ids'],['20','19','18','17','16','15'])
+        self.assertEqual(result['trio_player_ids'],[str(i) for i in range(20,0,-1)])
         self.assertEqual(result['sbc_model_ids'],[str(i) for i in range(108,99,-1)])
         self.assertIsNone(player_type({'more':{}}))
         row={'more':normal()};row['more']['baseprop'][0]['pvs'][0]['checked']=False
@@ -91,7 +108,7 @@ class WeeklyTests(unittest.TestCase):
         self.assertTrue(all(not row['available'] for row in result['models']))
         self.assertTrue(result['observations'][0]['platforms'][0]['attributes_required'])
     def test_duplicate_active_tag_is_not_silently_selected(self):
-        reader=Reader();reader.tags.append(dict(reader.tags[0],id=2))
+        reader=Reader();reader.tags.append(dict(reader.tags[0],id=3))
         with self.assertRaisesRegex(ContractError,'WEEKLY_POPULAR_TAG_AMBIGUOUS'):weekly_selection(reader)
     def test_incomplete_nine_core_or_eighteen_normal_pool_is_explicit(self):
         reader=Reader();reader.cores=reader.cores[:8]

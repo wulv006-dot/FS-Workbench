@@ -15,7 +15,7 @@
 |---|---|---|
 | SBC Core | 展示最新9个sbcplayer核心；gpt-6.1-sol为每核心分配2个普通Player，全局18个不同搭档 | 核心按真实目录顺序，默认最新核心；每核心2首选＋其余16备选组成同一个18人下拉池，写入原fc_layout.routes |
 | Weekly Scout | 主站Popular列表按默认“推荐优先”真实顺序，过滤后取前3个普通Player | 当次解析有效Popular标签并读取主站列表；不能用Admin sort倒序、is_rec、固定测试标签或模型自排替代 |
-| Player Trio | 从最新普通Player候选池中，结合社媒和垂类信息选3个不同球员，允许跨卡系列 | 当前最新依据model ID倒序，不冒称创建时间；外部资料注明来源、时间与缺口，不能虚构 |
+| Player Trio | 从真实Newest标签的普通Player候选中，结合市场信息与Sol判断选3个热门球员；不固定球员或卡系列 | 当次核Newest标签、成员及读取范围，不以全目录ID倒序冒充Newest；热门是有依据的模型判断，不冒称销量排名；外部资料注明来源、时间与缺口 |
 
 普通版依据当次Admin PlayersType事实确认（属性393，normal选项8067）；Signature（8115）及类型未知均不混入三个页面的Player候选，卡系列不同不等于Signature。SBC核心仍为原SBC Players类目。9个核心的18个首选在全局去重；消费者仍只选两位搭档，一个槽位已选的球员在另一个槽位禁选。数量或普通版证据不足要报告覆盖缺口，不能以重复球员或Signature凑齐。
 

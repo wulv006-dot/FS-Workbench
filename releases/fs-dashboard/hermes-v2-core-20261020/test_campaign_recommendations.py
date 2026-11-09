@@ -84,6 +84,7 @@ class CampaignTests(unittest.TestCase):
   value=pool_input();schema=output_schema(checked_input(value))
   self.assertEqual(schema['properties']['recommendations']['minItems'],24);self.assertEqual(schema['properties']['recommendations']['maxItems'],24)
   self.assertIn('18 different',PROMPT);self.assertIn('exactly 2',PROMPT);self.assertIn('scout_top_keys',PROMPT);self.assertNotIn('2 alternatives',PROMPT)
+  self.assertIn('complete Newest-tag pool',PROMPT);self.assertIn('External popularity is not our sales',PROMPT)
   value['sbc_update']['sources']=[dict(url='https://www.futbin.com/fixture',title='Fixture',observed_at=value['sbc_update']['observed_at'])]
   from campaign_recommendations import checked_result
   self.assertEqual(checked_result(selection(value),value)['recommendations'][-1]['page_id'],'fc27-sbc')

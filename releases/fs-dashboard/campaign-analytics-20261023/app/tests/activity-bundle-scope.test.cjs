@@ -12,7 +12,7 @@ test('bundle ids are shared by the grid renderer and the price warmer', () => {
   assert(!/\.\.\.keys,\.\.\.bundleIds\]/.test(activity), 'warmPrices must not use a free bundleIds variable');
 });
 
-test('trio hero preserves current cross-series copy without leaking source code', async () => {
+test('trio output accepts independently selected Newest candidates without a fixed card series', async () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'Player-Trio.html'), 'utf8');
   const body = html.match(/<p id="hero-body"[^>]*>([^<]+)<\/p>/);
   assert(body, 'hero body exists');
@@ -21,10 +21,18 @@ test('trio hero preserves current cross-series copy without leaking source code'
   assert.equal(body[1], expected);
   const config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'catalog.json'), 'utf8'));
   config.trio.ids.forEach((key, i) => { config.products[key].version = ['Gold', 'Team of the Week', 'UCL RTTK'][i]; });
-  const {renderPage} = await import('../build-seo.mjs');
-  const mixed = renderPage(config, 'trio').html;
+  const {buildOutputs} = await import('../build-seo.mjs');
+  // Selection is upstream: these three distinct fixture candidates carry independent versions.
+  config.trio.series = 'Obsolete fixed series';
+  const mixed = buildOutputs(config)['Player-Trio.html'];
   const mixedBody = mixed.match(/<p id="hero-body"[^>]*>([^<]+)<\/p>/);
   assert(mixedBody, 'cross-series hero body exists');
+  assert(!mixed.includes('Obsolete fixed series'), 'legacy fixed series does not control the selected cards');
+  for(const key of config.trio.ids)assert(mixed.includes('data-product="'+key+'"'), 'selected candidate remains visible');
+  const invalid=structuredClone(config);invalid.products[invalid.trio.ids[0]].kind='sbc';
+  assert.throws(()=>buildOutputs(invalid), /three existing player cards/);
+  const duplicate=structuredClone(config);duplicate.trio.ids[1]=duplicate.trio.ids[0];
+  assert.throws(()=>buildOutputs(duplicate), /three distinct cards/);
   assert.equal(mixedBody[1], expected);
   assert(!mixedBody[1].includes('config.trio.series'), 'cross-series copy contains no JS source');
 });

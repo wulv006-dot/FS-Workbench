@@ -88,7 +88,7 @@ export function buildOutputs(config){
  assert.deepEqual([...config.pageOrder].sort(),['sbc','trio','weekly']);
  if(config.activityPricing?.enabled)core.activityPrice(100,config);
  assert(['en','zh'].includes(config.defaultLanguage));assert(new Set(config.trio.ids).size===3,'Trio must contain three distinct cards');
- assert(config.trio.ids.every(id=>config.products[id]?.version===config.trio.series),'Trio card versions must match the configured series');
+ assert(config.trio.ids.length===3&&config.trio.ids.every(id=>config.products[id]?.kind==='player'),'Trio must contain three existing player cards');
  const analyticsSandbox={window:{}};vm.runInNewContext(read('analytics-config.js'),analyticsSandbox);
  const registry=analyticsSandbox.window.FC_ANALYTICS_CONFIG.registry.map(a=>({...a,path:config.seo.pages[a.view]?.path||a.path}));
  const outputs={'catalog.json':JSON.stringify(config,null,2)+'\n','analytics/activity-registry.json':JSON.stringify(registry,null,2)+'\n'};
