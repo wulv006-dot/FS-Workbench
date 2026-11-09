@@ -123,7 +123,7 @@
     }
   ],
   "candidate_bytes": "git-index-export",
-  "integration_base": "06265ac1158c54c39dae1622567d00e68b6176c9",
+  "integration_base": "cb87b4901a81ffd313e06e4882a3b33918519ea2",
   "activation_services": [
     "fs-campaign-dashboard.service",
     "fs-business-range.service"
