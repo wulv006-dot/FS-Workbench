@@ -38,6 +38,7 @@ const originTraffic=makeOriginTraffic();
 const googleTraffic=makeGoogleTraffic();
 const seasonalBox={};vm.runInNewContext(fs.readFileSync(path.join(base,'seasonal/campaign-data.js'),'utf8'),seasonalBox);
 const publicDir=process.env.CAMPAIGN_PUBLIC_RELEASE_DIR||'/var/lib/fs-campaign-public';
+const publicOrigin=process.env.CAMPAIGN_PUBLIC_ORIGIN||catalog.seo.origin,publicPrefix=process.env.CAMPAIGN_PUBLIC_PREFIX||catalog.seo.assetPath;
 const adminPrices=makeAdminPriceProvider({publicDir,readPolicy:()=>readAdminPricePolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))});
 const validateFcLayout=(layout,models={})=>validateLayout(layout,effectiveFcCatalog(catalog,models));
 export function readNativeCheckoutPolicy(stateDir){
@@ -156,6 +157,7 @@ export const server=http.createServer(async(req,res)=>{
    if([...url.searchParams.keys()].some(k=>k!=='operation_id'))return json(res,400,{message:'WEEKLY_RUN_REQUEST_INVALID'});
    return json(res,200,await weeklyRunCall({method:'GET',operation_id:url.searchParams.get('operation_id'),cookie:req.headers.cookie||'',actor:auth.user}));
   }
+  if(relative==='analytics/api/weekly/commerce-plan'){if(!auth.admin)return json(res,403,{message:'需要管理员权限'});if([...url.searchParams.keys()].some(key=>key!=='operation_id'))return json(res,400,{message:'INVALID_WEEKLY_OPERATION'});return json(res,200,weeklyPipeline.commercePlan({operation_id:url.searchParams.get('operation_id')},auth.user));}
   if(relative==='analytics/api/weekly/recommend')return json(res,200,weeklyRecommendations.read());
   if(relative==='analytics/api/weekly')return json(res,200,{...weekly.read(),csrf:auth.admin?csrf:null,canEdit:auth.admin});
   if(relative==='analytics/api/center')return json(res,200,{...centerState(center.read()),csrf:auth.admin?csrf:null,canEdit:auth.admin});
@@ -175,13 +177,18 @@ export const server=http.createServer(async(req,res)=>{
   // The historical URL is an authenticated alias, never a second editor source.
   if(relative==='analytics/center.html'){res.writeHead(302,{Location:prefix+'analytics/products.html','Cache-Control':'no-store'});return res.end();}
   let body,type;
-  if(relative==='catalog.js'){const draft=center.read().draft;body='window.FC_ACTIVITY_CONFIG='+JSON.stringify(previewCatalog(effectiveFcCatalog(catalog,draft.fc_models||{}),draft.fc_layout??store.read().layout)).replace(/</g,'\\u003c')+';';type='text/javascript';}
+  if(relative==='catalog.js'){const draft=center.read().draft,seed=pageSeed(draft.fc_layout,draft.fc_models||{}),proposal=weeklyPipeline.draftTrade(),trade={products:[...(proposal?.products||[]).filter(p=>!seed.seedProducts.some(x=>x.key===p.key)),...seed.seedProducts],seasonal_model_contracts:{...(proposal?.model_contracts||{}),...(seed.seasonal_model_contracts||{})},native_checkout:readNativeCheckoutPolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend'))};body='window.FC_ACTIVITY_CONFIG='+JSON.stringify(previewCatalog(effectiveFcCatalog(catalog,draft.fc_models||{},trade),draft.fc_layout??store.read().layout)).replace(/</g,'\\u003c')+';';type='text/javascript';}
   else if(relative==='analytics-config.js'){body='window.FC_ANALYTICS_CONFIG='+JSON.stringify({...cfg,enabled:false,localPreviewJournal:false,serverManaged:true,registry:store.read().registry}).replace(/</g,'\\u003c')+';';type='text/javascript';}
   else {
    const name=relative==='analytics/'?'analytics/index.html':relative||'index.html';if(!publicNames.has(name)&&!/^assets\/[A-Za-z0-9_.-]+\.(webp|png|svg)$/.test(name))return json(res,404,{message:'Not found'});
    const file=path.join(base,name);if(!fs.existsSync(file))return json(res,404,{message:'Not found'});
    type=({'.html':'text/html; charset=utf-8','.js':'text/javascript','.cjs':'text/javascript','.css':'text/css','.md':'text/plain; charset=utf-8','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml'})[path.extname(file)];body=fs.readFileSync(file);
    if(name.startsWith('analytics/')&&name.endsWith('.html'))body=body.toString().replace(/href="(fs-tokens|fs-ui)\.css"/g,'href="/dashboard/workspace-assets/workspace-native-20261006-561eda9b98e2/ui/$1.css"');
+   if(name==='analytics/products.html'){
+    const site=new URL(publicOrigin);
+    if(site.origin!==publicOrigin||site.protocol!=='https:'&&!(site.protocol==='http:'&&['127.0.0.1','localhost'].includes(site.hostname))||!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(publicPrefix))throw Error('公开活动地址配置无效。');
+    body=body.replace(/<html\b/i,'<html data-campaign-public-origin="'+publicOrigin+'" data-campaign-public-prefix="'+publicPrefix+'"');
+   }
    if(name==='analytics/index.html')body=body.replace(/<option value="(?:demo|local)">[^<]*<\/option>/g,'').replace('<script src="demo-data.js"></script>','');
   }
   res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'SAMEORIGIN'});res.end(req.method==='HEAD'?undefined:body);

@@ -8,6 +8,7 @@ import {deflateSync} from 'node:zlib';
 import {makeCenterStore,initialCenterDraft} from '../center-store.mjs';
 import {centerSeed,effectivePageBindings} from '../center-seed.mjs';
 import {initialLayout,validateLayout,previewCatalog} from '../store.mjs';
+import {mergeNativeCatalog} from '../native-catalog.mjs';
 import {effectiveFcCatalog,projectModelCard} from '../../runtime/model-cards.mjs';
 import {inspectImage,makeMediaStore} from '../media-store.mjs';
 import {readPublishedMedia} from '../../runtime/published-media.mjs';
@@ -185,4 +186,17 @@ test('authenticated HTTP upload and original model receipt recovery feed current
   if(publicServer)await new Promise(resolve=>publicServer.close(resolve));if(management)await new Promise(resolve=>management.close(resolve));globalThis.fetch=originalFetch;
   for(const name of names)if(previous[name]===undefined)delete process.env[name];else process.env[name]=previous[name];
  }
+});
+
+test('trusted native identity joins explicit FC model selection without changing stored model facts',t=>{
+ const {store,options}=fixture(t),card=model();store.importModel(request(store,card),'fixture',card);
+ const key='admin-266-1327-900000041-21587',native={key,title:card.title,product_ref:card.platforms.ps.product_ref,platform:{code:'ps',attribute_id:'21587'},quantity:{min:'1',max:'1',step:'1',unit:'item',group:'1'},attributes:[],available:false};
+ const seedProvider=(...args)=>mergeNativeCatalog(options.seedProvider(...args),{products:[native],model_contracts:{}});
+ const joined=makeCenterStore({...options,seedProvider});const before=structuredClone(joined.read().draft.fc_models);
+ joined.publish({revision:joined.read().revision,operation_id:randomUUID()},'fixture');
+ const release=JSON.parse(fs.readFileSync(path.join(options.publicDir,'current.json'),'utf8'));
+ assert(release.pages.find(p=>p.page_id==='fc27-weekly').product_keys.includes(key));
+ assert.deepEqual(joined.read().draft.fc_models,before);assert.equal(release.products.find(p=>p.key===key).available,false);
+ const wrong=structuredClone(native);wrong.platform.attribute_id='21589';
+ assert.deepEqual(mergeNativeCatalog(options.seedProvider(undefined,{[card.key]:card}),{products:[wrong],model_contracts:{}}).nativeModelKeys,{});
 });

@@ -1,3 +1,5 @@
+import {createRequire} from 'node:module';
+const {nativeModelOffer}=createRequire(import.meta.url)('../activity-core.js');
 // Model facts come only from the trusted backend resolver, never editor input.
 const error=code=>{throw Object.assign(new Error(code),{code,status:400});};
 const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
@@ -46,10 +48,10 @@ export function projectModels(input){
 const english=(value,fallback)=>typeof value==='string'&&!/\p{Script=Han}/u.test(value)?value:fallback;
 export function publicModels(input){return Object.fromEntries(Object.entries(projectModels(input)).map(([key,m])=>[key,{...m,title:english(m.title,'Model '+m.model_id),version_label:english(m.version_label,null),
  platforms:Object.fromEntries(Object.entries(m.platforms).map(([code,p])=>[code,{...p,...(p.observed_quantity?{observed_quantity:{...p.observed_quantity,unit:english(p.observed_quantity.unit,null)}}:{})}]))}]));}
-export function effectiveFcCatalog(original,models={}){
+export function effectiveFcCatalog(original,models={},trade={}){
  const catalog=structuredClone(original),safe=projectModels(models);catalog.fc_models=safe;
  for(const model of Object.values(safe))catalog.products[model.key]={key:model.key,title:model.title,name:model.title,kind:model.kind,version:model.version_label,
-  image:model.image_url,preview_only:true,model_id:model.model_id,platforms:Object.fromEntries(Object.entries(model.platforms).map(([code,p])=>[code,
+  image:model.image_url,preview_only:true,model_id:model.model_id,native_offers:Object.fromEntries(Object.keys(fcPlatforms).map(code=>[code,nativeModelOffer(model,code,trade)]).filter(([,offer])=>offer)),platforms:Object.fromEntries(Object.entries(model.platforms).map(([code,p])=>[code,
    {id:p.product_ref?.goods_id??null,aid:fcPlatforms[code],price:null,quantity:null,group:null,status:null,autoOff:null,binding_state:p.state,product_ref:p.product_ref}]))};
  return catalog;
 }

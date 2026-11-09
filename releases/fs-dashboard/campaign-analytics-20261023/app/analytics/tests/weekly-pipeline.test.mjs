@@ -61,3 +61,14 @@ test('later weekly refresh updates selected existing model facts with an immutab
  f.source.models[0].title='Updated real title / Card edition';f.source.models[0].platforms.pc.state='offline';const next=await f.pipeline.prepare({operation_id:randomUUID()},'fixture'),request={operation_id:next.operation_id,plan_ref:next.plan_ref,recommendation:response(next),evidence_sources:sources()};const saved=f.pipeline.apply(request,'fixture');assert.equal(saved.draft_revision,2);
  const state=JSON.parse(fs.readFileSync(path.join(f.dir,'center/state.json')));assert.equal(state.draft.fc_models['model-266-1327-11'].title,f.source.models[0].title);assert.equal(state.draft.fc_models['model-266-1327-11'].platforms.pc.state,'offline');assert.match(state.last_operation.model_refresh_digest,/^[a-f0-9]{64}$/);assert.equal(f.pipeline.apply(request,'fixture').draft_revision,2);assert.equal(state.draft.seasonal_theme,'halloween');
 });
+
+test('commerce approval bundle is original-owner read-only and never extends price expiry',async t=>{
+ const f=fixture(t),operation_id=randomUUID(),prepared=await f.pipeline.prepare({operation_id},'fixture');
+ assert.throws(()=>f.pipeline.commercePlan({operation_id},'fixture'),{code:'WEEKLY_COMMERCE_DRAFT_NOT_SAVED'});
+ const filename=path.join(f.dir,'center/weekly-plans',operation_id+'.json'),plan=JSON.parse(fs.readFileSync(filename,'utf8')),expires='2026-01-01T00:00:00Z';
+ plan.native_candidates={models:[{model_id:'11',gaps:[]}],price_policy_candidates:[{policy:{model_ref:{model_id:'11'}},approval_required:true}],native_catalog_candidate:{schema_version:1,verification_ref:'fixture',observed_at:'2025-12-31T23:59:00Z',valid_until:expires,products:[{key:'native11',product_ref:{model_id:'11'}}],model_contracts:{'11':{combinations:[]}}}};
+ fs.writeFileSync(filename,JSON.stringify(plan));f.pipeline.apply({operation_id,plan_ref:prepared.plan_ref,recommendation:response(prepared),evidence_sources:sources()},'fixture');
+ const before=fs.readFileSync(filename,'utf8'),bundle=f.pipeline.commercePlan({operation_id},'fixture');
+ assert.equal(bundle.approval_required,true);assert.equal(bundle.policy_written,false);assert.equal(bundle.stale,false);assert.equal(bundle.expired,true);assert.equal(bundle.native_catalog_candidate.valid_until,expires);assert.equal(f.pipeline.draftTrade(),null);
+ assert.throws(()=>f.pipeline.commercePlan({operation_id},'other'),{code:'WEEKLY_OPERATION_OWNER_MISMATCH'});assert.equal(fs.readFileSync(filename,'utf8'),before);
+});

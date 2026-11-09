@@ -114,7 +114,8 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
    const product=products.get(key);if(!product)fail('PAGE_PRODUCT_NOT_FOUND');
    if(page.page_id.startsWith('fc27-')&&product.product_ref?.game_id!=='1327')fail('PAGE_PRODUCT_GAME_MISMATCH');
    if(page.page_id.startsWith('fc27-')&&product.product_ref?.goods_id){const identity=canonical([product.product_ref.site_id,product.product_ref.game_id,product.product_ref.goods_id,product.platform.attribute_id||product.platform.code]);
-    const logical=/^fc-(.+)-(ps|xbox|pc)$/.exec(key)?.[1]||key;
+    const alias=Object.entries(seed.nativeModelKeys||{}).find(([,native])=>native===key)?.[0];
+    const logical=/^fc-(.+)-(ps|xbox|pc)$/.exec(alias||key)?.[1]||key;
     if(identities.has(identity)&&identities.get(identity)!==logical)fail('DUPLICATE_PAGE_PRODUCT');identities.set(identity,logical);
    }
   }
@@ -202,6 +203,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
   const release_id='campaign-preview-'+revision;
    const seed=seedNow(draft);selectionScope(draft,seed);
    const selected=Object.fromEntries(draft.pages.map(p=>[p.page_id,Object.hasOwn(p,'product_keys')?p.product_keys:seed.pageProductKeys[p.page_id]||[]]));
+   for(const pageId of ['fc27-trio','fc27-weekly','fc27-sbc']){const keys=selected[pageId]||[];selected[pageId]=[...new Set([...keys,...keys.flatMap(key=>seed.nativeModelKeys?.[key]?[seed.nativeModelKeys[key]]:[])])];}
    if(draft.halloween)selected['seasonal-vault']=[...new Set([...selected['seasonal-vault'],...halloweenProductKeys(draft.halloween,[...seed.seedProducts,...(draft.imported_products||[])])])];
    const used=new Set(Object.values(selected).flat());
    const products=seed.seedProducts.map(p=>({...p,available:false}));
@@ -214,7 +216,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
     // shape/history; no preview-only null quantity overwrites trusted options.
     if(typeof imported.title==='string'&&!/[\u3400-\u9fff]/u.test(imported.title))products[index]={...trusted,title:imported.title};
    }
-   const seasonalKeys=new Set(selected['seasonal-vault']);
+   const seasonalKeys=new Set(['seasonal-vault','fc27-trio','fc27-weekly','fc27-sbc'].flatMap(pageId=>selected[pageId]||[]));
    const scopedOptions=seed.seasonal_model_contracts?Object.fromEntries(Object.entries(seed.seasonal_model_contracts).flatMap(([id,source])=>{
     const combinations=source.combinations.filter(c=>seasonalKeys.has(c.product_key));
     if(!combinations.length)return [];

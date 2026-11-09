@@ -11,10 +11,27 @@ const same=(a,b)=>canonical(a)===canonical(b);
 export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,nativeCandidateProvider=()=>null,enabledProvider=()=>false,now=Date.now}){
  const file=id=>path.join(dir,uuid(id)+'.json');
  const read=id=>fs.existsSync(file(id))?JSON.parse(fs.readFileSync(file(id),'utf8')):null;
+ const commercePlan=(operation_id,owner)=>{
+  uuid(operation_id);const plan=read(operation_id);
+  if(!plan||plan.owner!==owner)fail('WEEKLY_OPERATION_OWNER_MISMATCH',403);
+  const current=center.read(),revision=plan.applied?.result?.draft_revision??null;
+  if(revision===null)fail('WEEKLY_COMMERCE_DRAFT_NOT_SAVED',409);
+  const layout=current.draft.fc_layout,selected=new Set([...(layout?.weekly||[]),...(layout?.trio||[]),...(layout?.sbc||[]),...Object.values(layout?.routes||{}).flatMap(r=>[...(r.picks||[]),...(r.alternatives||[])])].map(key=>current.draft.fc_models?.[key]?.model_id).filter(Boolean));
+  const proposal=plan.native_candidates,candidate=proposal?.native_catalog_candidate;
+  const models=candidate?Object.fromEntries(Object.entries(candidate.model_contracts||{}).filter(([id])=>selected.has(id))):{};
+  const products=candidate?.products.filter(p=>selected.has(p.product_ref.model_id))||[];
+  const catalog=products.length?{...structuredClone(candidate),products:structuredClone(products),model_contracts:structuredClone(models)}:null;
+  return {operation_id,plan_ref:operation_id,draft_revision:revision,current_revision:current.revision,stale:revision!==current.revision,
+   expired:!catalog||Date.parse(catalog.valid_until)<=now(),approval_required:true,policy_written:false,publication:false,
+   native_catalog_candidate:catalog,price_policy_candidates:structuredClone((proposal?.price_policy_candidates||[]).filter(p=>selected.has(p.policy.model_ref.model_id))),
+   models:structuredClone((proposal?.models||[]).filter(p=>selected.has(p.model_id)))};
+ };
  const output=plan=>({status:'prepared',operation_id:plan.operation_id,plan_ref:plan.operation_id,input:plan.input,rules_version:plan.input.rules.version,
   trio_players:plan.input.catalog.filter(p=>plan.input.pages.find(p=>p.page_id==='fc27-trio').product_keys.includes(p.key)).map(p=>({name:p.title,model_id:p.product_ref.model_id,key:p.key})),
   evidence_refs:[],source_evidence:plan.source.evidence,checks:plan.checks});
  return {
+  commercePlan({operation_id},owner){actor(owner);return commercePlan(operation_id,owner);},
+  draftTrade(){const current=center.read(),operation_id=current.last_operation?.operation_id;if(!operation_id)return null;const plan=read(operation_id);if(!plan?.applied)return null;const bundle=commercePlan(operation_id,plan.owner);return bundle.stale||bundle.expired?null:bundle.native_catalog_candidate;},
   inspect({operation_id,plan_ref},owner){
    uuid(operation_id);actor(owner);if(plan_ref!==operation_id)fail('WEEKLY_PLAN_MISMATCH');const plan=read(operation_id);
    if(!plan||plan.owner!==owner)fail('WEEKLY_OPERATION_OWNER_MISMATCH',403);

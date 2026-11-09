@@ -150,3 +150,23 @@ test('private policy reader rejects public permissions/symlink; timer cache-writ
   assert.equal(service.status().reason,'PUBLIC_PRICE_CACHE_WRITE_FAILED');service.stop();
  }finally{f.clean();}
 });
+
+test('current FC pages use the same producer and public price overlay',async()=>{
+ const f=fixture();let provider;
+ try{
+  const release=f.release(),seasonal=release.pages.find(p=>p.page_id==='seasonal-vault'),weekly=release.pages.find(p=>p.page_id==='fc27-weekly');weekly.product_keys=[...seasonal.product_keys];seasonal.product_keys=[];delete seasonal.product_roles;
+  provider=makeAdminPriceProvider({...f.options,readSnapshot:()=>release});
+  const refreshed=await provider.refresh();assert.equal(refreshed.status,'reference_price_ready_not_checkout',JSON.stringify(refreshed));
+  const projected=applyPublicPriceCache(release,readPublicPriceCache(provider.cacheFile),{now:f.now});
+  assert.equal(projected.seasonal_model_contracts[REF.model_id].combinations[0].price.base_minor,2000);
+ }finally{provider?.stop();f.clean();}
+});
+test('approved 88-model union fits bounded policy without admitting unlimited entries',async()=>{
+ const f=fixture();
+ try{
+  const entry=f.config.entries[0];f.config={schema_version:2,refresh_interval_ms:60000,entries:Array.from({length:88},(_,i)=>({...entry,model_ref:{...REF,model_id:String(1000+i)}}))};
+  assert.equal((await f.provider.refresh()).reason,'PUBLISHED_SELECTION_REQUIRED');assert.equal(f.calls,0);
+  f.config.entries=Array.from({length:101},(_,i)=>({...entry,model_ref:{...REF,model_id:String(1000+i)}}));
+  assert.equal((await f.provider.refresh()).reason,'PRIVATE_PRICE_POLICY_REQUIRED');assert.equal(f.calls,0);
+ }finally{f.clean();}
+});

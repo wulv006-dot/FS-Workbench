@@ -2,6 +2,7 @@
   'use strict';
   const $=id=>document.getElementById(id),escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const publicPrefix=document.documentElement.dataset.campaignPublicPrefix||'/events/',publicPrefixValid=/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(publicPrefix);
+  let publicBase=null;try{const origin=document.documentElement.dataset.campaignPublicOrigin||location.origin,site=new URL(origin);if(publicPrefixValid&&site.origin===origin&&(site.protocol==='https:'||site.protocol==='http:'&&['127.0.0.1','localhost'].includes(site.hostname)))publicBase=new URL(publicPrefix,site).href;}catch{}
   const storageKey='fs-center-pending:'+location.pathname.replace(/products\.html$/, 'center.html');
   let modelPreviewPlatform='ps';
   let stagedModels=[],stagedProducts=[],previewSignature=null,halloweenDirty=false,halloweenShown=new Map();
@@ -38,13 +39,13 @@
     const p=state.published;$('published-readback').textContent='尚未核对当前发布版本的公开运行时；保存记录不等于部署或真实交易启用。';
     if(!p){$('published-summary').textContent='尚无已发布版本；草稿不会进入公开运行时。';return;}
     const rows=[['发布 ID',p.release_id],['配置哈希',p.config_hash],['规则哈希',p.rule_hash],['源码版本',p.source_revision||'旧记录未保存'],['发布时间',p.published_at],['限定活动素材主题',p.seasonal_theme||'旧记录未保存'],['模式','preview · 主站交易未开放']];
-    $('published-summary').innerHTML='<dl>'+rows.map(([label,value])=>'<div><dt>'+escape(label)+'</dt><dd style="overflow-wrap:anywhere">'+escape(value)+'</dd></div>').join('')+'</dl>'+(Array.isArray(p.pages)?'<ul>'+p.pages.map(page=>'<li>'+escape(page.title+' · '+page.path+' · '+(page.preview_enabled?'允许预览':'预览关闭')+' · 默认语言 '+(page.default_language||'original')+' · 分享图 '+(page.social_image||'original')+' · UTC '+(page.starts_at||'不限')+' — '+(page.ends_at||'不限'))+(publicPrefixValid&&['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','seasonal/index.html'].includes(page.path)?' <a href="'+escape(publicPrefix+page.path)+'" target="_blank" rel="noopener">打开发布预览</a>':'')+'</li>').join('')+'</ul>':'<p>旧发布记录未保存页面摘要，请保存并发布后核对。</p>');
+    $('published-summary').innerHTML='<dl>'+rows.map(([label,value])=>'<div><dt>'+escape(label)+'</dt><dd style="overflow-wrap:anywhere">'+escape(value)+'</dd></div>').join('')+'</dl>'+(Array.isArray(p.pages)?'<ul>'+p.pages.map(page=>'<li>'+escape(page.title+' · '+page.path+' · '+(page.preview_enabled?'允许预览':'预览关闭')+' · 默认语言 '+(page.default_language||'original')+' · 分享图 '+(page.social_image||'original')+' · UTC '+(page.starts_at||'不限')+' — '+(page.ends_at||'不限'))+(publicBase&&['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','seasonal/index.html'].includes(page.path)?' <a href="'+escape(new URL(page.path,publicBase).href)+'" target="_blank" rel="noopener">打开已发布页面</a>':'')+'</li>').join('')+'</ul>':'<p>旧发布记录未保存页面摘要，请保存并发布后核对。</p>');
   }
   function renderPreview(){
     const routes={'fc27-weekly':'Weekly-Scout.html','fc27-sbc':'Sbc-Companions.html','fc27-trio':'Player-Trio.html','seasonal-vault':'seasonal/index.html'},link=$('preview-page'),route=routes[selectedPage];
-    link.hidden=!route||!publicPrefixValid;
-    if(!route||!publicPrefixValid){link.removeAttribute('href');return;}
-    link.href=publicPrefix+route;
+    link.hidden=!route||!publicBase;
+    if(!route||!publicBase){link.removeAttribute('href');return;}
+    link.href=new URL(route,publicBase).href;
     link.textContent='查看已发布页面 ↗';
   }
   function render(){

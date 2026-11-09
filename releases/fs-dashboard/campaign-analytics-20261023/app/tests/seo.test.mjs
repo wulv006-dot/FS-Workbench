@@ -5,7 +5,9 @@ const config=loadConfig();
 function extract(html){return JSON.parse(html.match(/<script id="fc-seo-jsonld" type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);}
 test('three independent static pages have absolute self-canonicals, one H1, crawlable links and matching visible cards',()=>{
  const out=buildOutputs(config),titles=new Set(),descriptions=new Set();
+ assert.equal(config.seo.assetPath,'/events/');
  for(const [view,{path}] of Object.entries(config.seo.pages)){
+  assert(path.startsWith('/events/'));
   const file=path.split('/').at(-1),html=out[file],canonical=config.seo.origin+path;
   assert.equal((html.match(/<h1\b/g)||[]).length,1);assert(html.includes('<link rel="canonical" href="'+canonical+'">'));
   assert(html.includes('content="noindex,follow"'));assert(out['seo-head-'+view+'.html'].includes('index,follow,max-image-preview:large'));

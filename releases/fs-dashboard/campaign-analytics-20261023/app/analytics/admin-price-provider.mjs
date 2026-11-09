@@ -15,10 +15,9 @@ export function readAdminPricePolicy(stateDir){
    ||process.platform!=='win32'&&((d.mode&0o077)!==0||(s.mode&0o077)!==0))throw Error('PRIVATE_PRICE_POLICY_REQUIRED');
  return JSON.parse(fs.readFileSync(file,'utf8')).admin_reference_prices??null;
 }
-// One entry per drawable model. The event pool grew past the original cap of 20,
-// so the ceiling follows the catalogue: the refresh stays inside one 60s cycle
-// because each entry is a single bounded read.
-const MAX_PRICE_ENTRIES=80;
+// Current approved union is 88 entries (59 retained + 29 new selected FC models).
+// Bounded batch transport and the existing refresh deadline remain unchanged.
+const MAX_PRICE_ENTRIES=100;
 function configuration(value,now){
  if(!value||![1,2].includes(value.schema_version)||Object.keys(value).some(k=>!['schema_version','refresh_interval_ms','entries'].includes(k))
    ||!Number.isSafeInteger(value.refresh_interval_ms)||value.refresh_interval_ms<60000||value.refresh_interval_ms>300000
@@ -60,10 +59,10 @@ export function makeAdminPriceProvider({publicDir,readPolicy,readSnapshot=()=>JS
   const current=context();
   if(current.key!==key){key=current.key;generation++;memory=[];sticky=new Map();}
   if(!current.config||!current.release){unavailable(current.release,!current.config?'PRIVATE_PRICE_POLICY_REQUIRED':'PUBLISHED_SELECTION_REQUIRED');return status;}
-  const allowed=new Set(current.release.pages.find(x=>x.page_id==='seasonal-vault')?.product_keys||[]);
+  const allowed=new Set(current.release.pages.filter(x=>['seasonal-vault','fc27-trio','fc27-weekly','fc27-sbc'].includes(x.page_id)).flatMap(x=>x.product_keys||[]));
   const selectedByModel=new Map();
   for(const p of current.config.entries){
-   const selected=current.release.products.filter(x=>allowed.has(x.key)&&Object.entries(p.model_ref).every(([k,v])=>x.product_ref?.[k]===v)&&p.verified_goods_ids.includes(x.product_ref.goods_id));
+   const selected=current.release.products.filter(x=>!x.model_card_key&&allowed.has(x.key)&&Object.entries(p.model_ref).every(([k,v])=>x.product_ref?.[k]===v)&&p.verified_goods_ids.includes(x.product_ref.goods_id));
    if(selected.length!==p.verified_goods_ids.length||new Set(selected.map(x=>x.product_ref.goods_id)).size!==selected.length){unavailable(current.release,'PUBLISHED_SELECTION_REQUIRED');return status;}
    if(current.config.schema_version===2&&!current.release.seasonal_model_contracts?.[p.model_ref.model_id]){unavailable(current.release,'PRIVATE_NATIVE_CATALOG_REQUIRED');return status;}
    selectedByModel.set(p.model_ref.model_id,selected);

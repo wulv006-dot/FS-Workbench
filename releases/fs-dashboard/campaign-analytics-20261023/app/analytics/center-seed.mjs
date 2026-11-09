@@ -74,6 +74,7 @@ export function centerSeed(fc,seasonal,{adminObservations=[],now=Date.now()}={})
 export function effectivePageBindings(draft,seed,pageId){
  const page=draft.pages.find(p=>p.page_id===pageId);if(!page)fail('INVALID_CAMPAIGN_PAGE');
  const explicit=Object.hasOwn(page,'product_keys'),product_keys=[...(explicit?page.product_keys:seed.pageProductKeys[pageId]||[])],cards={},legacy_refs=[];
+ if(pageId.startsWith('fc27-'))for(const key of [...product_keys]){const native=seed.nativeModelKeys?.[key];if(native&&!product_keys.includes(native))product_keys.push(native);}
  for(const key of product_keys){const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(key);if(match)(cards[match[1]]||=[]).push(match[2]);else legacy_refs.push(key);}
  return {source:explicit?'explicit':'inherited',product_keys,model_cards:Object.entries(cards).map(([key,platforms])=>({key,selected_platforms:[...new Set(platforms)],partial:platforms.length!==3})),legacy_refs};
 }
