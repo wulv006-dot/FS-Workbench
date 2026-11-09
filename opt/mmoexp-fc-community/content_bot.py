@@ -19,6 +19,9 @@ QUOTE_KINDS = ('sbc', 'packs', 'gallery', 'evolutions', 'boosting', 'coins')
 
 
 def validate_config(config):
+    if config.get('game_picker') is not None:
+        from game_picker import validate_game_config
+        validate_game_config(config['game_picker'])
     if config.get('player_panel') is not None:
         from player_service import validate_player_config
         validate_player_config(config['player_panel'])
@@ -181,6 +184,9 @@ class ContentClient(discord.Client):
         return routes
 
     async def setup_hook(self):
+        if self.config.get('game_picker'):
+            from game_picker import GamePickerView
+            self.add_view(GamePickerView(self.config['game_picker']))
         if self.config.get('alert_preferences'):
             from alert_panel import AlertHomeView
             self.add_view(AlertHomeView(self.config['alert_preferences']))
