@@ -30,6 +30,9 @@ TOOLS = [
     Tool(name="fs_list_data_sources", description="无参数返回本人可见的简短导航，包含全部操作名、module、方法索引和覆盖状态；须再传module取得该模块完整参数schema、来源、覆盖缺项和data_methods口径后查询。由当前AI自主分析，不调用Hermes会话或报告生成。", inputSchema={"type": "object", "properties": {"module": {"type": "string", "minLength": 1, "maxLength": 80}}, "additionalProperties": False}, annotations=READ_ONLY),
     Tool(name="fs_query_data", description="按目录operation和arguments读取原权限业务数据。小结果原形返回；大结果给response_view字段索引，按data_path(JSON Pointer，如/profile/primary)继续展开；数组用offset/limit展示分页，每页最多20，沿next_offset取全。data_context按祖先路径保留原范围/口径/覆盖/上游游标，data_context_index中的元数据须继续读取；不同来源范围可能不同。value_complete仅指展示节点，不能当业务全覆盖，实时多次读取仍非快照。超长字符串明确报response_too_large，不截断。", inputSchema={"type": "object", "properties": {"operation": {"type": "string", "minLength": 1}, "arguments": {"type": "object"}, "data_path": {"type": "string", "maxLength": 1024}, "offset": {"type": "integer", "minimum": 0}, "limit": {"type": "integer", "minimum": 1, "maximum": 20}}, "required": ["operation", "arguments"], "additionalProperties": False}, annotations=READ_ONLY),
 ]
+# Standard MCP SDKs echo these RFC 7591 client metadata fields during dynamic
+# registration. Nothing here consumes them, so they are validated and dropped.
+REGISTER_OPTIONAL_METADATA = frozenset({"client_uri", "software_id", "software_version"})
 
 
 def _result(data: dict, *, error: bool = False) -> CallToolResult:
@@ -261,7 +264,13 @@ def create_app(*, store, portal, catalog, backend, issuer: str, resource_url: st
             params = await _params(request)
             if request.url.path.endswith("/register"):
                 grants = params.get("grant_types", ["authorization_code"])
-                if set(params) - {"redirect_uris", "client_name", "token_endpoint_auth_method", "grant_types", "response_types", "scope", "application_type"} or params.get("application_type", "web") not in ("native", "web") or params.get("token_endpoint_auth_method", "none") != "none" or params.get("response_types", ["code"]) != ["code"] or params.get("scope", "fs.read") != "fs.read":
+                if (set(params) - {"redirect_uris", "client_name", "token_endpoint_auth_method", "grant_types", "response_types", "scope", "application_type"} - REGISTER_OPTIONAL_METADATA
+                        or params.get("application_type", "web") not in ("native", "web")
+                        or params.get("token_endpoint_auth_method", "none") != "none"
+                        or params.get("response_types", ["code"]) != ["code"]
+                        or params.get("scope", "fs.read") != "fs.read"
+                        or any(not isinstance(value, str) or len(value) > 512
+                               for key, value in params.items() if key in REGISTER_OPTIONAL_METADATA)):
                     raise ValueError("invalid_request")
                 return JSONResponse(await run_in_threadpool(store.register_client, params["redirect_uris"], params.get("client_name", ""), grants), status_code=201, headers=secure_headers)
             if request.url.path.endswith("/revoke"):
