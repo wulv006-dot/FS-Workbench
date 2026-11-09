@@ -110,6 +110,7 @@ class CampaignRecommendationScope:
     def __init__(self,service,owner,task_id,lease,run_id,cookie):
         self.service,self.owner,self.task_id,self.lease,self.run_id,self.cookie=service,owner,task_id,lease,run_id,cookie
         self.book=self
+        self.not_dispatched_proof=None
     def context(self,owner,task_id,lease):
         self.service.authorized(self.owner,self.cookie)
         task=self.service.host.tasks.get(self.task_id,self.owner)
@@ -121,6 +122,11 @@ class CampaignRecommendationScope:
     def mark_dispatch(self):
         self.context(self.owner,self.task_id,self.lease)
         with self.service.host.tasks.db() as db:db.execute('UPDATE campaign_recommendations SET network_started=1 WHERE task_id=? AND state=?',(self.task_id,'pending'))
+    def mark_not_dispatched(self,proof):
+        expected=dict(network_started=False,curl_exit_code=2,provider_error_code='curl_option_invalid',transport_phase='local_validation')
+        if proof!=expected:raise ValueError('campaign_not_dispatched_proof')
+        # Private transport callback only. Preserve the premature attempt marker for audit.
+        self.not_dispatched_proof=dict(expected)
 
 
 class CampaignRecommendations:
@@ -137,13 +143,15 @@ class CampaignRecommendations:
                 response=dict(status=state,operation_id=row['operation_id'],error='WEEKLY_HERMES_PROVIDER_OUTCOME_UNKNOWN' if row['network_started'] else 'WEEKLY_HERMES_PROVIDER_UNAVAILABLE',provider_outcome='unknown' if row['network_started'] else 'not_dispatched')
                 db.execute('UPDATE campaign_recommendations SET state=?,result=? WHERE task_id=?',(state,encoded(response),row['task_id']))
         for row in old:self._settle_interrupted(row['task_id'],bool(row['network_started']))
-    def _settle_interrupted(self,task_id,network_started):
+    def _settle_interrupted(self,task_id,network_started,diagnostic=None):
         daily=getattr(self.host,'daily',None)
         if daily is None:return
         with daily.db() as db:
             if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='hermes_reservations'").fetchone():return
             state='unknown' if network_started else 'not_dispatched'
-            db.execute("UPDATE model_calls SET state=?,content=? WHERE (state='started' OR (state='unknown' AND ?='not_dispatched')) AND fingerprint IN (SELECT fingerprint FROM hermes_reservations WHERE task=?)",(state,encoded({'status':state,'provider_outcome':state}),state,task_id))
+            receipt=dict(status=state,provider_outcome=state)
+            if diagnostic is not None:receipt['diagnostic']=diagnostic
+            db.execute("UPDATE model_calls SET state=?,content=? WHERE (state='started' OR (state='unknown' AND ?='not_dispatched')) AND fingerprint IN (SELECT fingerprint FROM hermes_reservations WHERE task=?)",(state,encoded(receipt),state,task_id))
     def authorized(self,owner,cookie):
         if getattr(cookie,'campaign_delegation',False) is True:
             from campaign_weekly import CampaignDelegation
@@ -220,16 +228,18 @@ class CampaignRecommendations:
             state='completed';response=dict(status=state,result=result,receipt=dict(receipt,operation_id=operation_id,task_id=task_id,run_id=run_id,model=MODEL))
         except Exception as error:
             latest=self._record(operation_id,owner)
-            if not latest['network_started']:self._settle_interrupted(task_id,False)
+            local_rejection=scope.not_dispatched_proof
+            if not latest['network_started'] or local_rejection:self._settle_interrupted(task_id,False,local_rejection)
             # Only the dispatch callback can distinguish a paid attempt from local refusal.
-            state='unknown' if latest['network_started'] else 'unavailable'
+            state='unknown' if latest['network_started'] and not local_rejection else 'unavailable'
             daily=getattr(self.host,'daily',None)
-            if latest['network_started'] and daily is not None:
+            if latest['network_started'] and not local_rejection and daily is not None:
                 with daily.db() as db:
                     settled=db.execute("SELECT m.content FROM model_calls m JOIN hermes_reservations r ON r.fingerprint=m.fingerprint WHERE r.owner=? AND r.task=? AND m.state IN ('succeeded','invalid_response') ORDER BY r.turn DESC LIMIT 1",(owner,task_id)).fetchone()
                 if settled:state='failed'
             safe_codes={'model_busy','daily_model_limit','pilot_usage_hold','configuration_missing','configuration_invalid','provider_outcome_unknown','unverified_provider_result','campaign_result_invalid','campaign_session_required','campaign_inactive'}
             diagnostic=dict(error_type=type(error).__name__,code=str(error) if type(error) in (ValueError,PermissionError) and str(error) in safe_codes else 'campaign_execution_failed')
+            if local_rejection:diagnostic.update(local_rejection,premature_dispatch_marker=True)
             response=dict(status=state,operation_id=operation_id,error={'unknown':'WEEKLY_HERMES_PROVIDER_OUTCOME_UNKNOWN','unavailable':'WEEKLY_HERMES_PROVIDER_UNAVAILABLE','failed':'WEEKLY_HERMES_RECOMMENDATION_FAILED'}[state],provider_outcome={'unknown':'unknown','unavailable':'not_dispatched','failed':'completed'}[state],diagnostic=diagnostic)
             if state=='failed':
                 usage=json.loads(settled['content']).get('usage',{})
