@@ -254,13 +254,13 @@
     {
       "candidate": "code/analytics/production-server.mjs",
       "target": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
-      "sha256": "490adf2d75b9a93045a727d0e7fb229d72b4f0ef483128c8cc635641a97c7380",
+      "sha256": "ae7cd52ad1e48e2a6b2b5bc19fb2dcc4cd47325b0bf05f74ecedc40fb0f6cd93",
       "beforeSha256": "490adf2d75b9a93045a727d0e7fb229d72b4f0ef483128c8cc635641a97c7380"
     },
     {
       "candidate": "code/analytics/weekly-commerce.mjs",
       "target": "/opt/fs-campaign-dashboard/analytics/weekly-commerce.mjs",
-      "sha256": "be943d0a048ce57c76a3c8dba5cefd8c1d72a71e58eb7ba8373d0add8d84e9bf",
+      "sha256": "6090b7057391433e9b6c20dc8ab06f971ee506e6b52ec31c411edee186ebf5be",
       "beforeSha256": "be943d0a048ce57c76a3c8dba5cefd8c1d72a71e58eb7ba8373d0add8d84e9bf"
     }
   ]
