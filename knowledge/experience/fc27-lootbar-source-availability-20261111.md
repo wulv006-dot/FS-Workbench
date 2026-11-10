@@ -1,6 +1,6 @@
 # Lootbar缺价：先区分浏览器连接、站点取价与备用节点能力
 
-记录日：2026-11-11。experience；已验证范围为本次故障定位、187原入口恢复与自然轮，以及183配套部署后一次未取得报价的shadow采价。代码部署不等于真实报价或自动接替成功，不据此认定自动补采已上线、长期稳定或经营增利。正式取价规则见[现行合同](../../docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md)，补采发布与实际使用分别验收。
+记录日：2026-11-11。experience；已验证范围为本次故障定位、187原入口恢复与自然轮，以及183的首次零报价、随后仅PC有效的shadow采价和独立弹窗诊断。代码部署不等于三平台真实报价或自动接替成功，不据此认定自动补采已上线、长期稳定或经营增利。正式取价规则见[现行合同](../../docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md)，补采发布与实际使用分别验收。
 
 ## 问题、证据与处理选择
 
@@ -18,7 +18,13 @@
 
 新代码及配套部署后，02:51:10.920621—02:51:19.506614（UTC+8）执行了一次原账本source-only验收：固定run `lootbar183-capability-20261111-01`，job `6dfde59513de350779a58793b372b9f27aa0fb9e3a0684c769fa38f4ad607b80`。约8.59秒后，来源观测为`failed / request_budget_exhausted`，没有有效报价（`offers=[]`），PS、Xbox、PC均缺价。整组预算保守计费128，浏览器记录放行128次请求；这不等于128次远端成功响应。账本job的`COMPLETED`只说明该次采集已终态，不能覆盖观测失败或写成报价成功。
 
-该次来源仍为`mode=shadow`、专用路由`off`，`blocked=false`、`cooldown_until=0`；没有新建定价周期、价格写入或模型调用。已证实的是预算耗尽，具体哪些资源消耗了预算尚未定位，不能臆称图片、脚本、登录或站点拒绝是根因。该失败作为负面证据保留；183真实报价与自动故障接替均尚未验成，不因部署成功而提升结论。
+该次来源仍为`mode=shadow`、专用路由`off`，`blocked=false`、`cooldown_until=0`；没有新建定价周期、价格写入或模型调用。当时已证实的是预算耗尽，具体哪些资源消耗了预算尚未定位，不能臆称图片、脚本、登录或站点拒绝是根因。该失败作为负面证据保留；截至该次验收，183真实报价与自动故障接替均尚未验成，不因部署成功而提升结论。
+
+后续独立RUN02 `lootbar183-capability-20261111-02`、job `a5fb0d8d5c775ba099a2cfab96a8155d6694752fde4758c5627a7414eaf00842`于03:12:48.981492—03:13:07.854973（UTC+8）取得部分有效报价。PC匿名页面已观测券后$6.60、减免$0.90及划线价$7.50，购买100K、加赠5K，实际平台核验与三个稳定读数通过；以`direct_strike`还原的无券价$7.50有效，`coupon_excluded=true`、`logged_in=false`。这证明该次PC报价分支有效，不代表已登录、客户实际结算价或我方套餐规格。PS与Xbox仍为`lootbar_page_timeout`，原观测保持`partial`，不将缺价补零或借用PC价格。
+
+RUN02浏览器实际放行83次请求，低于128上限；账本`charged=128`是整组预留预算的保守计费，不是实际请求数，也不能据此把本次平台超时说成预算耗尽。来源仍为`shadow`、专用路由`off`，没有价格写入、新定价周期或模型调用，原曝光窗口不变。RUN01的零报价失败与RUN02的PC成功分别保留，不互相覆盖。
+
+随后单独的`platform-interaction183.json`诊断观察到延迟出现的营销优惠券对话框：`ui-modal`、`aria-modal=true`下的coupon内容拦截pointer events；PS、Xbox、PC控件本身可见、启用且稳定，固定selector没有选错。该独立诊断证明所观察交互被弹窗遮挡，不能冒充RUN02原始调用日志或修后正式报价。针对已识别原因，选择只用唯一可见的`button.dialog-coupon-close`关闭该营销coupon对话框，再核实际选中平台与稳定报价；`dialog-coupon-action-confirm`是领券按钮，不点击；不强制点透、不删除DOM、不领取优惠券，也不绕过挑战。修复后的三平台报价与自动接替仍待真实验收。
 
 | 备选 | 本次选择理由 |
 | --- | --- |
@@ -26,6 +32,7 @@
 | 直接切到“已支持Lootbar”的183开关 | 现役适配未安装，不能用source枚举或历史候选冒充实际能力。 |
 | 用旧报价填充或重放原改价 | 混淆来源时效与真实执行；未采用。 |
 | 保留旧失败、核原入口恢复，再补真实备用能力 | 既恢复可用来源，又明确人工只读恢复与自动补采的证明差别；本次采用。 |
+| 平台超时后扩大超时、改selector或强制点击 | 独立交互证据指向已识别营销弹窗，选择正常关闭后核平台，不以绕过遮挡替代真实交互。 |
 
 ## 可复用的条件与边界
 
@@ -39,6 +46,6 @@
 
 原任务私有脱敏证据：`.agent_runtime/fc-platform-discount-20261110/LOOTBAR-ORIGINAL-RUN-ROOT-CAUSE.md`、`lootbar-original-run-failure.json`、`lootbar-source-only-restored-evidence.json`、`lootbar-route-audit/FINDINGS.md`。成功trace SHA256为`75aa20c71debd5b5c76dba32ddf616f6720d1794cce2ed445f4adb3babec50f0`；原失败trace `lootbar-20261110T163756Z-lavy8P.failed.jsonl`保持原样。
 
-后续原自然轮来源与执行证据见本轮新工作树`.agent_runtime/lootbar183/NATURAL-0136-SOURCE-ACCEPTANCE.json`、`NATURAL-0236-SOURCE-ACCEPTANCE.json`，读取自FS原snapshot、job和audit，不是重新生成或执行价格。183失败验收与当时模式见同目录`shadow-probe.json`、`shadow-prepared.json`；caller实际发布顺序另见`caller-after-natural.json`。
+后续原自然轮来源与执行证据见本轮新工作树`.agent_runtime/lootbar183/NATURAL-0136-SOURCE-ACCEPTANCE.json`、`NATURAL-0236-SOURCE-ACCEPTANCE.json`，读取自FS原snapshot、job和audit，不是重新生成或执行价格。183首次失败验收与当时模式见同目录`shadow-probe.json`、`shadow-prepared.json`；RUN02部分有效报价见`shadow-probe-repaired-final.json`，独立交互诊断见`platform-interaction183.json`。caller实际发布顺序另见`caller-after-natural.json`。
 
-下一动作是沿本次预算耗尽证据定位请求消耗，正在诊断哪些无关资源可削减；未定位前不预写根因、修复成功或新报价。之后仍须完成原框架内的183真实只读报价与自动接替验收，187/183无券还原按各自实际场景取证，再沿原自然轮观察。旧失败不改成功，后续新成功另记其真实时间和原ID。源版本变化、目标站展示/折扣规则变化或新出现的拒绝场景需要重新核验。
+首次预算耗尽后的动作是定位请求消耗、诊断哪些无关资源可削减；RUN02未耗尽实际请求额度，故不能沿用首次错误解释其平台超时。当前下一动作是针对已识别营销弹窗完成正常关闭与真实平台核验，再在原框架内验收183三平台只读报价和自动接替；不预写修复成功。187/183无券还原按各自实际场景取证，再沿原自然轮观察。旧失败不改成功，后续新成功另记其真实时间和原ID。源版本变化、目标站展示/折扣规则变化或新出现的拒绝场景需要重新核验。

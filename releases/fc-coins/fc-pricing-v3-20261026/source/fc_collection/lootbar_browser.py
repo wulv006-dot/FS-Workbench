@@ -121,6 +121,24 @@ def collect(task):
                     if isinstance(title,str) and any(marker in title.lower() for marker in ('just a moment','verify you are human','security verification')):
                         gate.reason = 'challenge'
                         raise ValueError('challenge')
+                def dismiss_coupon_dialog():
+                    verify_page()  # A challenge/source refusal never becomes a dismissible marketing modal.
+                    dialog = page.locator('[role="dialog"].ui-modal:visible:has(.dialog-coupon-content:visible)')
+                    count = dialog.count()
+                    if count == 0:
+                        return False
+                    if count != 1:
+                        raise ValueError('lootbar_coupon_dialog_unclosed')
+                    close = dialog.locator('button.dialog-coupon-close:visible')
+                    if close.count() != 1:
+                        raise ValueError('lootbar_coupon_dialog_unclosed')
+                    try:
+                        timeout = max(1,min(2000,int((end-time.monotonic())*1000)))
+                        close.click(timeout=timeout)
+                        dialog.wait_for(state='hidden',timeout=max(1,min(2000,int((end-time.monotonic())*1000))))
+                    except Exception as exc:
+                        raise ValueError('lootbar_coupon_dialog_unclosed') from exc
+                    return True
                 try:
                     remaining = max(1,min(15000,int((end-time.monotonic())*1000)))
                     response = page.goto(BASE,wait_until='domcontentloaded',timeout=remaining)
@@ -142,7 +160,16 @@ def collect(task):
                         selected = page.evaluate('() => { '+reader+'; return readVisibleOffer(); }')
                         if selected.get('selected') != [label]:
                             selector = {'PS':'a.icon-ps','XBOX':'a.icon-xbox','PC':'a.icon-pc'}[platform]
-                            page.locator(selector).click(timeout=max(1,min(8000,int((end-time.monotonic())*1000))))
+                            dismiss_coupon_dialog()
+                            try:
+                                page.locator(selector).click(timeout=max(1,min(8000,int((end-time.monotonic())*1000))))
+                            except Exception as exc:
+                                # This observed marketing dialog can appear after the first visibility check.
+                                if type(exc).__name__ != 'TimeoutError' or not dismiss_coupon_dialog():
+                                    raise
+                                selected = page.evaluate('() => { '+reader+'; return readVisibleOffer(); }')
+                                if selected.get('selected') != [label]:
+                                    page.locator(selector).click(timeout=max(1,min(8000,int((end-time.monotonic())*1000))))
                         verify_page()
                         previous, stable = None, 0
                         while time.monotonic() < end:
