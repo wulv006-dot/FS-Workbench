@@ -459,10 +459,14 @@ if __name__ == '__main__':
         state = read(HOME/'watch-state.json', {}) or {}
         general = read(HOME/'snapshot.json', {}) or {}
         pricing = read(HOME/'pricing-snapshot.json', {}) or {}
+        receipts = pricing.get('rpg_receipt_details') or {}
+        active_ids = [code.rsplit(':', 1)[-1] for code in (state.get('issues') or [])
+                      if code.startswith('rpg_pricing_') and ':' in code]
         print(json.dumps({'checked_at': now.isoformat(), 'alerting_issues': state.get('issues') or [],
                           'general_exported_at': general.get('exported_at'),
                           'pricing_exported_at': pricing.get('exported_at'),
                           'pricing_issues': (pricing.get('issues') or [])[:40],
+                          'rpg_receipt_details': {jid: receipts[jid] for jid in active_ids[:20] if jid in receipts},
                           'rpg_health': state.get('rpg_health'),
                           'notification_unknown_events': state.get('unknown_notification_events') or [],
                           'muted_issues': (state.get('muted_issues') or [])[:40],

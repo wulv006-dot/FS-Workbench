@@ -235,6 +235,12 @@ def collect(now, previous, baseline, raw, rows, memory, cache_receipt=None, life
         issues.append('fc_pricing_unresolved:'+operation['operation_id'])
     unresolved, legacy = classify_jobs(rows, baseline, previous.get('rpg_unresolved', {}))
     reconcile_cache(unresolved, cache_receipt or {})
+    receipt_details = {}
+    for row in rows:
+        if row['id'] in unresolved:
+            result = json.loads(row['result_json'] or '{}')
+            receipt_details[row['id']] = {key: result.get(key) for key in ('write_state', 'write_attempts')}
+            receipt_details[row['id']]['status'] = row['status']
     issues += ['rpg_pricing_'+reason+':'+jid for jid,reason in sorted(unresolved.items())]
     if not memory['running']:
         issues.append('fc_pricing_browser_stopped')
@@ -261,7 +267,7 @@ def collect(now, previous, baseline, raw, rows, memory, cache_receipt=None, life
         issues.append('fc_pricing_browser_restarted:'+recovery_event['started_at'])
     return dict(exported_at=now.isoformat(), issues=sorted(set(issues)),
                 legacy_issue_codes=sorted(legacy_codes),
-                rpg_unresolved=unresolved, legacy_unclassified=legacy,
+                rpg_unresolved=unresolved, rpg_receipt_details=receipt_details, legacy_unclassified=legacy,
                 memory=memory, browser_restart_event=recovery_event,
                 fc_job=raw.get('coin', {}).get('job', {}),
                 source_scope='original_jobs_and_receipts_only')
