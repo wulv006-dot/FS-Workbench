@@ -34,10 +34,10 @@
 | `/var/lib/fs-navigation-formal-static/workspace-native-20261006-346f59eea565/page.js` | `ba7cc477f63aa096685c8e85adc9f6721d9eac373e49ab96cccff2f96525a93a` | `dd2763ee5c34bb9e3349eaeb90718bed2e6e4458c33db04705ad6ef3c2ef38df` |
 | 同目录 `index.html` | `bcf5a1c906d1ab2075c96b5c09e158a2831858b64bf60727564637ce68cc4e8f` | `7c92e176c1ee8f7946bda98c510f72590db52854c52baefdf4e0f205ca1a9ce4` |
 
-已准备 `releases/fs-dashboard/hermes-customer-lifecycle-20261019/deploy/buyer_release.py`：绑定原固定哈希 navigation publisher，仅允许这四个现役载荷，原共享发布锁、CAS、空闲检查、备份/回滚与读回保持；额外检查追踪扫描和阶段任务无在途。旧 lifecycle bridge 的 8767 健康检查已经失效，不能原样执行。本桥本地清单静态校验通过。四文件已暂存到独立目录 `/opt/fs-release-stage/customer-buyer-tracking-20261110-pr976-998bd06`，刷新 370 个保护项后，原 publisher 的 `inspect` 只读返回 `sourceCAS=passed`、`protectedCAS=passed`、`mutations=false`；没有执行 `apply`。暂存清单绑定当时提交 `998bd064`，正式发布前须重新绑定最终 Git 版本并复核。原 publisher 的 Hermes/FS Range 重启仍在该范围内；不恢复旧会话容器、不改调度。发布前再次核原服务与 P0 任务空闲；失败保留原发布 ID 和回执核对。
+已准备 `releases/fs-dashboard/hermes-customer-lifecycle-20261019/deploy/buyer_release.py`：绑定原固定哈希 navigation publisher，仅允许这四个现役载荷，原共享发布锁、CAS、空闲检查、备份/回滚与读回保持；额外检查追踪扫描和阶段任务无在途。旧 lifecycle bridge 的 8767 健康检查已经失效，不能原样执行。本桥本地清单静态校验通过。四文件已暂存到独立目录 `/opt/fs-release-stage/customer-buyer-tracking-20261110-pr976-998bd06`；2026-11-10 曾以提交 `1e8cb540` 重绑清单并刷新 370 个保护项，原 publisher 的 `inspect` 只读返回 `sourceCAS=passed`、`protectedCAS=passed`、`mutations=false`。没有执行 `apply`；正式发布前仍须绑定合并后的 Git 版本并复核。原 publisher 的 Hermes/FS Range 重启仍在该范围内；不恢复旧会话容器、不改调度。发布前再次核原服务与 P0 任务空闲；失败保留原发布 ID 和回执核对。
 
 ## 存储与验证
 
-本改动不生成第二份 ES 原文件或客户映射表。2026-11-10 只读观察原 ES 归档 59,101,486 字节、148 文件；所在文件系统剩余 118,857,134,080 字节。现有归档源码限制 512 MiB、512 文件并保留至少 64 MiB 空闲空间；现有成功发布后的冗余件清理照旧。代码限制和这次磁盘读数不证明未来所有自然周期都不会积压。
+本改动不生成第二份 ES 原文件或客户映射表。2026-11-10 只读复查现役 `/opt/fs-hermes-fc/es_order_structure.py`：热归档写入前限制 512 MiB、512 文件，并保留至少 64 MiB 空闲空间；超过限制则返回容量错误，不继续堆积。原归档读回为 107,909,225 字节，所在文件系统剩余 118,843,346,944 字节；此前观察值 59,101,486 字节，仅说明观察间归档增长，未归因于本改造。本次不修改 ES 导出与原有归档维护；现有成功发布后的冗余件清理照旧。热归档限制和这次磁盘读数不证明包括冷归档在内的未来所有自然周期都不会积压。
 
-相关 Python 两组单测分别通过 51/33 项；页面 JavaScript 语法通过；知识收尾测试通过 104 项（当前 Windows 环境跳过 7 项 Linux 专属）。本地 pr-fast 在 Windows 共享 UI 文件 CRLF 字节哈希和缺少 Playwright/tzdata 环境处不能完成；PR #976 的 Linux 正式 CI 独立验收。真实入口候选数、Admin 调用页数、磁盘前后量、自然周期须在发布后独立读回；未执行前不得称上线验收。
+相关 Python 两组单测分别通过 51/33 项；页面 JavaScript 语法通过；知识收尾测试通过 104 项（当前 Windows 环境跳过 7 项 Linux 专属）。本地 pr-fast 在 Windows 共享 UI 文件 CRLF 字节哈希和缺少 Playwright/tzdata 环境处不能完成；PR #976 的 Linux 正式 CI 在 `1e8cb540` 提交通过，后续提交仍按最终 HEAD 的 CI 结果验收。真实入口候选数、Admin 调用页数、磁盘前后量、自然周期须在发布后独立读回；未执行前不得称上线验收。
