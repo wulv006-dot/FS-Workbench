@@ -1,5 +1,6 @@
 """Exact source-only rollout: legacy scopes, role hashes and renderer rollback."""
 import hashlib
+import io
 import json
 from pathlib import Path
 import sys
@@ -9,6 +10,7 @@ from unittest.mock import patch
 import zipfile
 import tarfile
 import os
+import subprocess
 from types import SimpleNamespace
 from unittest.mock import Mock
 from contextlib import ExitStack
@@ -25,6 +27,40 @@ import prepare_manifest as prepare
 
 
 class LootbarRelease(unittest.TestCase):
+    def test_renderer_process_query_keeps_pid_and_counts_only_actual_workers(self):
+        container=dict(Id='original-container',Image=updater.LOOTBAR_RENDERER_IMAGE,
+            State=dict(Running=True,Pid=100,StartedAt='original-start'),
+            Mounts=[dict(Source='/opt/d4follow',Destination='/app',RW=False)],
+            HostConfig=dict(updater.LOOTBAR_RENDERER_RESOURCES,
+                PortBindings={'9223/tcp':[{'HostIp':'127.0.0.1','HostPort':'9223'}]}))
+        for count in (0,2):
+            with self.subTest(workers=count):
+                rows=['PID COMMAND','100 /usr/bin/python3 /app/_qd_render/qd_render_svc.py',
+                      '101 chromium --worker-process']
+                rows += [str(200+i)+' /usr/bin/python3 /app/_qd_render/qd_render_svc.py --worker' for i in range(count)]
+                def command(args,**kwargs):
+                    if args[:2]==['docker','inspect']:return json.dumps(container)
+                    if args[:2]==['docker','top']:
+                        if args[-1]!='pid,args':
+                            raise subprocess.CalledProcessError(1,args,output="Couldn't find PID field in ps output")
+                        return '\n'.join(rows)+'\n'
+                    if args[0]=='ss':return ''
+                    if args[:2]==['systemctl','show']:return 'original timer state\n'
+                    if args[:2]==['systemctl','list-timers']:return 'Wed 2026-11-11 02:00:00 CST original timer\n'
+                    raise AssertionError('unexpected command: '+str(args))
+                body=json.dumps(dict(data=dict(tasks=[dict(id='original',status='done')])))
+                with patch.object(updater.subprocess,'check_output',side_effect=command) as calls, \
+                        patch.object(updater.urllib.request,'urlopen',side_effect=lambda *a,**k:io.StringIO(body)):
+                    state=updater._lootbar_renderer_state()
+                top=next(c for c in calls.call_args_list if c.args[0][:2]==['docker','top'])
+                self.assertEqual(top.args[0],['docker','top','qd-render','-eo','pid,args'])
+                self.assertEqual(state['workers'],count)
+                self.assertEqual(state['pid'],100)
+                if count:
+                    with self.assertRaisesRegex(ValueError,'renderer_worker_active'):
+                        updater.lootbar_renderer_window(state,'original')
+                else:updater.lootbar_renderer_window(state,'original')
+
     def role_fixture(self,folder,stack,role):
         root=Path(folder)/role;(root/'code/fc_collection').mkdir(parents=True);stage=Path(folder)/'stage';stage.mkdir()
         bundle=stage/(role+'.zip');builder.build(bundle,role)

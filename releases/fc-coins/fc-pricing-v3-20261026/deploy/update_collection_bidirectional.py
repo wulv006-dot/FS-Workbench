@@ -253,7 +253,7 @@ def _lootbar_renderer_state():
     if {k:v['HostConfig'][k] for k in LOOTBAR_RENDERER_RESOURCES}!=LOOTBAR_RENDERER_RESOURCES:raise ValueError('lootbar_renderer_resource_drift')
     with urllib.request.urlopen('http://127.0.0.1:8900/api/state',timeout=5) as reply:body=json.load(reply)
     tasks=(body.get('data') or {}).get('tasks',[])
-    lines=subprocess.check_output(['docker','top','qd-render','-eo','args'],text=True,timeout=5).splitlines()
+    lines=subprocess.check_output(['docker','top','qd-render','-eo','pid,args'],text=True,timeout=5).splitlines()
     workers=sum('qd_render_svc.py' in x and '--worker' in x for x in lines[1:])
     requests=subprocess.check_output(['ss','-Hnt','state','established','( sport = :9223 )'],text=True,timeout=5).splitlines()
     timer=subprocess.check_output(['systemctl','show','d4follow-collect.timer','--property=ActiveState,SubState,LastTriggerUSec,NextElapseUSecMonotonic,NextElapseUSecRealtime'],text=True,timeout=5)
