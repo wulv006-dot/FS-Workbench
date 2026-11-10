@@ -11,9 +11,8 @@ function welcomePayload(cfg, member) {
       description:'**Your game. Your squad. Your next adventure.** ✨\n\nGrab your game badges, meet fellow players, and make yourself at home. Your next stop is one click away! 🚀',
       color:0xF28C28,
       fields:[
-        {name:'🎭 Choose your roles',value:'Pick the games you love with our colorful game buttons. You can choose more than one!',inline:false},
+        {name:'🎭 Choose your roles',value:'Choose your games in one clean menu, then save your selection. You can pick more than one!',inline:false},
         {name:'🎧 Need a hand?',value:'Order questions or need help? Our support team is ready to assist.',inline:false},
-        {name:'🧭 Find your channels',value:'Already have game roles? Get your own list of channel shortcuts — visible only to you.',inline:false},
         {name:'📜 Before you jump in',value:`Take a moment to read <#${cfg.rulesChannelId}>. Keep it friendly and enjoy the community!`,inline:false}],
       footer:{text:'🛡️ Stay safe • Our team will never ask for your password in DMs.'}}],
     components:entries(cfg),
@@ -77,4 +76,5 @@ function install(client,{canWelcome}={}) {
   return welcome;
 }
 module.exports={welcomePayload,createWelcome,install};
+
 

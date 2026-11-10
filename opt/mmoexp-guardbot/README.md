@@ -308,10 +308,10 @@ public-welcome.js由index.js在登录前接入，仅处理Official Club的新成
 回滚：恢复本批部署前index.js并重启mmoexp-guardbot，保留全部配置/原账本/welcome-state及已发消息。正式备份：/opt/mmoexp-guardbot/backups/public-welcome-20261110/index.js。
 
 
-### 欢迎卡三入口与角色频道导航
+### 欢迎卡与紧凑游戏选择
 
-欢迎卡使用橙色Embed、表情分段和三个入口：Choose Roles、Contact Support、My Game Channels。选择角色沿用原24个游戏按钮的名称/颜色/布局，由本机器人处理；旧Deleted User面板留作历史，不作为入口。已有welcome-games.json限定游戏角色及频道，FC旧角色仅作为只读识别别名。
+欢迎卡使用橙色Embed和表情分段，只保留Choose Roles与Contact Support。游戏角色采用13项多选下拉菜单（FC27、D4、POE2、WoW、ARC、MLB、COD、GTA、AION2、NBA、Dark and Darker、MapleStory Classic World、Other Games），统一图标和简短说明；先预览，点击Save Games才应用。菜单仅本人可见，旧成员历史角色不批量迁移，MapleStory使用已有普通角色。国家／地区仅方案，未部署角色或入口。
 
-角色菜单和频道导航均为ephemeral响应。角色增删只处理当前操作者自己、目录允许的普通游戏角色；角色权限必须为0、非managed、低于机器人，频道覆写不得赋予管理权限。频道导航重新读取当前成员与频道，仅显示已有角色对应且有ViewChannel的频道；按聊天所在分区过滤旧跨游戏资讯，保留共用活动；支持多游戏分页。无DM、不自动授予角色。
+角色保存只处理目录中的普通0权限角色，校验本人、服务器、欢迎频道、Bot层级及频道覆写；保留其他身份组和历史别名，接口结果不明时先读回确认。旧按钮给出刷新提示；My Game Channels已移除，历史欢迎卡已同步为两个入口。
 
-验证：test-welcome-navigation.cjs共45项边界检查及原公开欢迎测试通过；真实Discord界面已验证24按钮私密菜单、本人角色对应频道链接及客服入口目标，未替真实成员领取/移除角色。生产此次只更新独立欢迎模块，index/config.json/d4-guard.json/welcome-config.json保持。恢复备份public-welcome.js并重启即可停用本次三入口，保留所有账本与消息；备份/opt/mmoexp-guardbot/backups/welcome-three-entries-20261110。
+验证：公开欢迎测试与36项菜单/权限边界检查通过，真实Discord菜单13项、现有角色默认选中、仅本人可见及Save Games已核；未替真实成员保存。生产index/config.json/d4-guard.json/welcome-config.json保持。恢复备份三个模块/目录文件并重启可回退；备份/opt/mmoexp-guardbot/backups/role-compact-20261110，保留账本、消息和成员后续自选角色。

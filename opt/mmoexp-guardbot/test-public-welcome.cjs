@@ -8,7 +8,7 @@ function member(extra={}){return{guild:{id:cfg.guildId},id:'123456789',user:{bot
 (async()=>{
  const e=env(),w=createWelcome(e),m=member();assert.equal(await w.joined(m),true);assert.equal(messages.length,1);
  assert(messages[0].content.includes('<@123456789>'));assert.deepEqual(messages[0].allowedMentions,{parse:[],users:[m.id]});
- assert.equal(messages[0].components[0].components.length,3);
+ assert.equal(messages[0].components[0].components.length,2);
  assert.equal(await w.joined(m),false);assert.equal(await createWelcome(e).joined(m),false);assert.equal(messages.length,1);
  assert.equal(await w.joined(member({user:{bot:true}})),false);
  assert.equal(await w.joined(member({guild:{id:'different'}})),false);

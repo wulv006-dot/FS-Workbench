@@ -1,8 +1,9 @@
 [
   {
     "key": "1",
-    "label": "FC/FIFA",
-    "style": 3,
+    "label": "FC27",
+    "emoji": "⚽",
+    "description": "EA Sports FC 27",
     "roleIds": [
       "1568664882650288159"
     ],
@@ -29,8 +30,9 @@
   },
   {
     "key": "2",
-    "label": "Diablo 4/D2R",
-    "style": 4,
+    "label": "D4",
+    "emoji": "🔥",
+    "description": "Diablo IV",
     "roleIds": [
       "1263727577613340783"
     ],
@@ -45,8 +47,9 @@
   },
   {
     "key": "3",
-    "label": "POE 2/1",
-    "style": 1,
+    "label": "POE2",
+    "emoji": "🔮",
+    "description": "Path of Exile 2",
     "roleIds": [
       "1284709495326638151"
     ],
@@ -60,9 +63,23 @@
     ]
   },
   {
+    "key": "9",
+    "label": "WoW",
+    "emoji": "🛡️",
+    "description": "World of Warcraft / Classic",
+    "roleIds": [
+      "1470243173816336405"
+    ],
+    "aliasRoleIds": [],
+    "channelIds": [
+      "1264777473283981336"
+    ]
+  },
+  {
     "key": "4",
-    "label": "ARC Raiders",
-    "style": 3,
+    "label": "ARC",
+    "emoji": "🚀",
+    "description": "ARC Raiders",
     "roleIds": [
       "1437607553063194754"
     ],
@@ -76,25 +93,10 @@
     ]
   },
   {
-    "key": "5",
-    "label": "Madden/CFB",
-    "style": 2,
-    "roleIds": [
-      "1263727018793635901"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1395564524253220925",
-      "1501762231866753034",
-      "1505124969489764373",
-      "1518795467675144242",
-      "1518795532598907041"
-    ]
-  },
-  {
     "key": "6",
     "label": "MLB",
-    "style": 4,
+    "emoji": "⚾",
+    "description": "MLB The Show",
     "roleIds": [
       "1374544421294571560"
     ],
@@ -108,8 +110,9 @@
   },
   {
     "key": "7",
-    "label": "Call of Duty",
-    "style": 1,
+    "label": "COD",
+    "emoji": "🎯",
+    "description": "Call of Duty",
     "roleIds": [
       "1309439849358561280"
     ],
@@ -124,7 +127,8 @@
   {
     "key": "8",
     "label": "GTA",
-    "style": 3,
+    "emoji": "🚗",
+    "description": "Grand Theft Auto",
     "roleIds": [
       "1420614948001808484"
     ],
@@ -136,57 +140,10 @@
     ]
   },
   {
-    "key": "9",
-    "label": "WOW/Classic",
-    "style": 2,
-    "roleIds": [
-      "1470243173816336405"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1264777473283981336"
-    ]
-  },
-  {
-    "key": "10",
-    "label": "Skull & Bones",
-    "style": 4,
-    "roleIds": [
-      "1470237552110993593"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1264777473283981336"
-    ]
-  },
-  {
-    "key": "11",
-    "label": "Legend of Ymir",
-    "style": 3,
-    "roleIds": [
-      "1470243648263164062"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1264777473283981336"
-    ]
-  },
-  {
-    "key": "12",
-    "label": "Odin",
-    "style": 1,
-    "roleIds": [
-      "1366588645619798116"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1264777473283981336"
-    ]
-  },
-  {
     "key": "13",
-    "label": "Aion 2",
-    "style": 2,
+    "label": "AION2",
+    "emoji": "🪽",
+    "description": "Aion 2",
     "roleIds": [
       "1455487202309046315"
     ],
@@ -198,60 +155,10 @@
     ]
   },
   {
-    "key": "14",
-    "label": "Elden Ring",
-    "style": 3,
-    "roleIds": [
-      "1263727181008470118"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1264777473283981336"
-    ]
-  },
-  {
-    "key": "15",
-    "label": "Dark and Darker",
-    "style": 4,
-    "roleIds": [
-      "1366573097381269555"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1264777473283981336"
-    ]
-  },
-  {
-    "key": "16",
-    "label": "Dune Awakening",
-    "style": 1,
-    "roleIds": [
-      "1384001936390619157"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1264777473283981336"
-    ]
-  },
-  {
-    "key": "17",
-    "label": "MonopolyGo",
-    "style": 2,
-    "roleIds": [
-      "1390903765166592030"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1559045707736940674",
-      "1559045995122139166",
-      "1559049223339507832",
-      "1559049567310319746"
-    ]
-  },
-  {
     "key": "18",
-    "label": "NBA 2K",
-    "style": 4,
+    "label": "NBA",
+    "emoji": "🏀",
+    "description": "NBA 2K",
     "roleIds": [
       "1470243840622460958"
     ],
@@ -262,11 +169,12 @@
     ]
   },
   {
-    "key": "19",
-    "label": "Helldivers 2",
-    "style": 3,
+    "key": "15",
+    "label": "Dark and Darker",
+    "emoji": "🗡️",
+    "description": "Dungeon adventures",
     "roleIds": [
-      "1470244018045583452"
+      "1366573097381269555"
     ],
     "aliasRoleIds": [],
     "channelIds": [
@@ -274,61 +182,40 @@
     ]
   },
   {
-    "key": "20",
-    "label": "Arena breakout",
-    "style": 2,
+    "key": "25",
+    "label": "MapleStory Classic World",
+    "emoji": "🍁",
+    "description": "Classic World community",
     "roleIds": [
-      "1470244196098244751"
+      "1565650828436447322"
     ],
     "aliasRoleIds": [],
     "channelIds": [
-      "1264777473283981336"
-    ]
-  },
-  {
-    "key": "21",
-    "label": "Throne & Liberty",
-    "style": 2,
-    "roleIds": [
-      "1263771374577647626"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1264777473283981336"
-    ]
-  },
-  {
-    "key": "23",
-    "label": "Crimson desert",
-    "style": 1,
-    "roleIds": [
-      "1487269857190875337"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1264777473283981336"
-    ]
-  },
-  {
-    "key": "22",
-    "label": "New World",
-    "style": 1,
-    "roleIds": [
-      "1302827250726731838"
-    ],
-    "aliasRoleIds": [],
-    "channelIds": [
-      "1264777473283981336"
+      "1559045296636297226"
     ]
   },
   {
     "key": "24",
-    "label": "Other games",
-    "style": 4,
+    "label": "Other Games",
+    "emoji": "🎮",
+    "description": "More games and the community lounge",
     "roleIds": [
       "1264068655000322140"
     ],
-    "aliasRoleIds": [],
+    "aliasRoleIds": [
+      "1263727018793635901",
+      "1263727181008470118",
+      "1263771374577647626",
+      "1302827250726731838",
+      "1366588645619798116",
+      "1384001936390619157",
+      "1390903765166592030",
+      "1470237552110993593",
+      "1470243648263164062",
+      "1470244018045583452",
+      "1470244196098244751",
+      "1487269857190875337"
+    ],
     "channelIds": [
       "1264777473283981336"
     ]

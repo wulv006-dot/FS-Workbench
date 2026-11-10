@@ -8,13 +8,12 @@ const ordinary=['CreateInstantInvite','ViewChannel','ReadMessageHistory','SendMe
 const mentions={parse:[]};
 function entries(cfg){return[{type:1,components:[
  {type:2,style:1,label:'Choose Roles',emoji:{name:'🎭'},custom_id:PREFIX+':roles'},
- {type:2,style:5,label:'Contact Support',emoji:{name:'🎧'},url:`https://discord.com/channels/${cfg.guildId}/${cfg.supportChannelId}`},
- {type:2,style:2,label:'My Game Channels',emoji:{name:'🧭'},custom_id:PREFIX+':channels'}]}];}
+ {type:2,style:5,label:'Contact Support',emoji:{name:'🎧'},url:`https://discord.com/channels/${cfg.guildId}/${cfg.supportChannelId}`}]}];}
 function validateGames(games){
- if(!Array.isArray(games)||games.length!==24)throw Error('Expected existing 24-game catalog');
+ if(!Array.isArray(games)||games.length!==13)throw Error('Expected approved 12 games plus Other Games');
  const keys=new Set(),roles=new Set();
  for(const g of games){
-  if(!/^\d{1,2}$/.test(g.key)||keys.has(g.key)||typeof g.label!=='string'||g.label.length>60||![1,2,3,4].includes(g.style))throw Error('Invalid game button');
+  if(!/^\d{1,2}$/.test(g.key)||keys.has(g.key)||typeof g.label!=='string'||g.label.length>60||typeof g.emoji!=='string'||typeof g.description!=='string'||g.description.length>100)throw Error('Invalid game option');
   keys.add(g.key);
   for(const k of ['roleIds','aliasRoleIds','channelIds'])if(!Array.isArray(g[k])||g[k].some(id=>typeof id!=='string'||!/^\d{17,20}$/.test(id)))throw Error('Invalid catalog IDs');
   if(!g.roleIds.length||g.roleIds.some(id=>roles.has(id)))throw Error('Ambiguous game roles');
@@ -22,10 +21,15 @@ function validateGames(games){
  }
  return games;
 }
-function rolePanel(games,member,status=''){
- const rows=[];
- for(let offset=0;offset<games.length;offset+=5)rows.push({type:1,components:games.slice(offset,offset+5).map(g=>({type:2,style:g.style,label:g.label,custom_id:`${PREFIX}:role:${member.id}:${g.key}`,...(g.roleIds.some(id=>member.roles.cache.has(id))?{emoji:{name:'✅'}}:{})}))});
- return{content:status||null,embeds:[{title:'🎭 Pick your games. Find your people.',description:'Choose as many games as you like.\n✅ = selected · Click again to remove that game role.\n\nYour existing game badges stay with you.',color:0xF28C28}],components:rows,allowedMentions:mentions};
+function rolePanel(games,member,status='',preview=null){
+ const selected=new Set(preview===null?games.filter(g=>g.roleIds.some(id=>member.roles.cache.has(id))).map(g=>g.key):preview);
+ const chosen=games.filter(g=>selected.has(g.key));const encoded=chosen.map(g=>g.key).join(',')||'none';
+ return{content:status||null,embeds:[{title:'🎮 Make it your community',description:'Choose the games you play below.\nPress **Save Games** when you’re ready — you can change this anytime.',color:0xF28C28,
+  fields:[{name:`Your selection · ${chosen.length}`,value:chosen.length?chosen.map(g=>`${g.emoji} ${g.label}`).join(' · '):'No games selected yet. Open the menu below to get started.',inline:false}],
+  footer:{text:'Only you can see this • Your choices apply after saving'}}],components:[
+   {type:1,components:[{type:3,custom_id:`${PREFIX}:pick:${member.id}`,placeholder:'Choose your games · select more than one',min_values:0,max_values:games.length,options:games.map(g=>({label:g.label,value:g.key,description:g.description,emoji:{name:g.emoji},default:selected.has(g.key)}))}]},
+   {type:1,components:[{type:2,style:1,label:'Save Games',emoji:{name:'✅'},custom_id:`${PREFIX}:save:${member.id}:${encoded}`}]}
+  ],allowedMentions:mentions};
 }
 function gameChannels(games,member,guild,page=0){
  const selected=games.filter(g=>[...g.roleIds,...g.aliasRoleIds].some(id=>member.roles.cache.has(id)));
@@ -46,42 +50,52 @@ function safeRole(role,bot,guild){return !!role&&!role.managed&&role.id!==guild.
 function createNavigation({cfg,games}){
  validateGames(games);const busy=new Set();
  async function handle(i){
-  if(!i.isButton?.()||!i.customId?.startsWith(PREFIX+':'))return false;
+  const button=!!i.isButton?.(),select=!!i.isStringSelectMenu?.();
+  if((!button&&!select)||!i.customId?.startsWith(PREFIX+':'))return false;
   if(i.guildId!==cfg.guildId||i.channelId!==cfg.channelId||i.guild?.id!==cfg.guildId||i.user?.bot)return false;
   const parts=i.customId.split(':');const action=parts[3];
-  if(!['roles','channels','role','page'].includes(action))return false;
+  if(!['roles','channels','role','page','pick','save'].includes(action))return false;
+  if((action==='pick'&&!select)||(action!=='pick'&&!button))return false;
   if((action==='roles'||action==='channels')&&parts.length!==4)return false;
-  if((action==='role'||action==='page')&&(parts.length!==6||parts[4]!==i.user.id)){
+  if(['role','page','pick','save'].includes(action)&&((parts.length!==(action==='pick'?5:6))||parts[4]!==i.user.id)){
    await i.reply({content:'Please open your own game menu using the welcome card.',flags:MessageFlags.Ephemeral,allowedMentions:mentions});return true;
   }
-  const game=action==='role'?games.find(g=>g.key===parts[5]):null;
-  if(action==='role'&&!game)return false;
+  if(['role','channels','page'].includes(action)){
+   await i.reply({content:'This game menu has been refreshed. Open Choose Roles for the new compact menu.',flags:MessageFlags.Ephemeral,components:[{type:1,components:[{type:2,style:1,label:'Choose Roles',custom_id:PREFIX+':roles'}]}],allowedMentions:mentions});return true;
+  }
   if(action==='page'&&!/^\d{1,2}$/.test(parts[5]))return false;
-  const key=`${i.user.id}:${game?.key||action}`;
+  let selected=null;
+  if(action==='pick')selected=i.values;
+  if(action==='save')selected=parts[5]==='none'?[]:parts[5].split(',');
+  if(selected!==null&&(!Array.isArray(selected)||selected.length>games.length||new Set(selected).size!==selected.length||selected.some(key=>!games.some(g=>g.key===key)))){
+   await i.reply({content:'That selection is no longer available. Please reopen Choose Roles.',flags:MessageFlags.Ephemeral,allowedMentions:mentions});return true;
+  }
+  const key=`${i.user.id}:${['roles','pick','save'].includes(action)?'roles':action}`;
   if(busy.has(key)){await i.reply({content:'Your previous choice is still being saved. Please wait a moment.',flags:MessageFlags.Ephemeral,allowedMentions:mentions});return true;}
   busy.add(key);
   try{
-   const update=action==='role'||action==='page';
+   const update=['pick','save','page'].includes(action);
    if(update)await i.deferUpdate();else await i.deferReply({flags:MessageFlags.Ephemeral});
    let member=await i.guild.members.fetch(i.user.id);
    if(member.id!==i.user.id||member.user.bot)throw Error('Member mismatch');
    if(action==='roles'){await i.editReply(rolePanel(games,member));return true;}
+   if(action==='pick'){await i.editReply(rolePanel(games,member,'Ready when you are — press Save Games to apply your selection.',selected));return true;}
    await i.guild.roles.fetch();await i.guild.channels.fetch();
    if(action==='channels'||action==='page'){await i.editReply(gameChannels(games,member,i.guild,action==='page'?Number(parts[5]):0));return true;}
    const bot=await i.guild.members.fetchMe();
-   const roles=game.roleIds.map(id=>i.guild.roles.cache.get(id));
+   const roles=games.flatMap(g=>g.roleIds).map(id=>i.guild.roles.cache.get(id));
    if(!roles.every(r=>safeRole(r,bot,i.guild)))throw Error('Game role cannot be safely assigned');
-   const remove=game.roleIds.every(id=>member.roles.cache.has(id));
+   const wanted=new Set(games.filter(g=>selected.includes(g.key)).flatMap(g=>g.roleIds));
+   const matches=actor=>roles.every(role=>actor.roles.cache.has(role.id)===wanted.has(role.id));
    try{
-    for(const role of roles){if(remove)await member.roles.remove(role,'MMOEXP self-service game role');else if(!member.roles.cache.has(role.id))await member.roles.add(role,'MMOEXP self-service game role');}
+    for(const role of roles){if(wanted.has(role.id)&&!member.roles.cache.has(role.id))await member.roles.add(role,'MMOEXP self-service game selection');else if(!wanted.has(role.id)&&member.roles.cache.has(role.id))await member.roles.remove(role,'MMOEXP self-service game selection');}
    }catch(error){
     member=await i.guild.members.fetch(i.user.id);
-    const done=game.roleIds.every(id=>member.roles.cache.has(id)!==remove);
-    if(!done)throw error;
+    if(!matches(member)){await i.editReply(rolePanel(games,member,'⚠️ Some choices could not be saved. Your current game roles are shown below. Please try again or contact support.'));return true;}
    }
    member=await i.guild.members.fetch(i.user.id);
-   if(!game.roleIds.every(id=>member.roles.cache.has(id)!==remove))throw Error('Role update not confirmed');
-   await i.editReply(rolePanel(games,member,remove?`➖ ${game.label} role removed.`:`✅ ${game.label} selected! Use **My Game Channels** on the welcome card to jump in.`));
+   if(!matches(member))throw Error('Role update not confirmed');
+   await i.editReply(rolePanel(games,member,`✅ Saved ${selected.length} game choices. Your channel shortcuts are ready.`));
    return true;
   }catch(error){
    console.warn('[WELCOME] Navigation failed:',error.code||error.message);

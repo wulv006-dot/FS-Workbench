@@ -22,42 +22,21 @@ function fixture(){
  return{member,bot,guild,writes,owned,roles,channels,interaction};
 }
 (async()=>{
- check(validateGames(games).length,24);check(entries(cfg)[0].components.length,3);
- check(entries(cfg)[0].components.map(x=>x.label),['Choose Roles','Contact Support','My Game Channels']);
- check(games.find(g=>g.key==='22').label,'New World');check(games.find(g=>g.key==='23').label,'Crimson desert');
- assert.throws(()=>validateGames([...games.slice(0,23),games[0]]));checks++;
- const f=fixture(),nav=createNavigation({cfg,games});
- let i=f.interaction(PREFIX+':roles');check(await nav.handle(i));check(i.deferFlags,64);check(i.response.components.flatMap(x=>x.components).length,24);check(f.writes.length,0);
- check(i.response.components[0].components[0].style,games[0].style);check(i.response.components[0].components[0].custom_id.includes(f.member.id));
- i=f.interaction(PREFIX+':channels');await nav.handle(i);check(i.deferFlags,64);check(i.response.embeds[0].fields.length,0);check(f.writes.length,0);
- const game=games[0],role=f.roles.get(game.roleIds[0]);
- i=f.interaction(`${PREFIX}:role:${f.member.id}:${game.key}`);check(await nav.handle(i));check(f.owned.has(role.id));check(f.owned.has('999999999999999999'));check(f.writes,[['add',role.id]]);check(i.updated);
- i=f.interaction(PREFIX+':channels');await nav.handle(i);check(i.response.embeds[0].fields.length,1);check(i.response.embeds[0].fields[0].value.includes('<#'));
- const hidden=f.channels.get(game.channelIds[0]);hidden.permissionsFor=()=>({has:()=>false});
- const blocked=f.channels.get(game.channelIds[1]);blocked.parentId='1569198228367343697';
- let guide=gameChannels(games,f.member,f.guild);check(guide.embeds[0].fields[0].value.includes(hidden.id),false);check(guide.embeds[0].fields[0].value.includes(blocked.id),false);
- const moved=f.channels.get(game.channelIds[2]);moved.parentId='another-game-category';guide=gameChannels(games,f.member,f.guild);check(guide.embeds[0].fields[0].value.includes(moved.id),false);
- i=f.interaction(`${PREFIX}:role:${f.member.id}:${game.key}`);await nav.handle(i);check(f.owned.has(role.id),false);check(f.owned.has('999999999999999999'));
- const before=f.writes.length;
- i=f.interaction(`${PREFIX}:role:222222222222222222:${game.key}`);await nav.handle(i);check(i.response.flags,64);check(f.writes.length,before);
- i=f.interaction(PREFIX+':roles');i.guildId='different';check(await nav.handle(i),false);
- i=f.interaction(PREFIX+':roles');i.channelId='different';check(await nav.handle(i),false);
- i=f.interaction(PREFIX+':roles');i.user.bot=true;check(await nav.handle(i),false);
- i=f.interaction(`${PREFIX}:role:${f.member.id}:missing`);check(await nav.handle(i),false);
- role.permissions.bitfield=P.Administrator;check(safeRole(role,f.bot,f.guild),false);
- i=f.interaction(`${PREFIX}:role:${f.member.id}:${game.key}`);await nav.handle(i);check(f.writes.length,before);
- role.permissions.bitfield=0n;role.managed=true;check(safeRole(role,f.bot,f.guild),false);role.managed=false;
- role.comparePositionTo=()=>1;check(safeRole(role,f.bot,f.guild),false);role.comparePositionTo=()=>-1;
- blocked.permissionOverwrites.cache.set(role.id,{allow:{bitfield:P.ManageChannels}});check(safeRole(role,f.bot,f.guild),false);blocked.permissionOverwrites.cache.clear();
- const f2=fixture();f2.owned.set(games[0].aliasRoleIds[0],{});check(gameChannels(games,f2.member,f2.guild).embeds[0].fields[0].name,'🎮 '+games[0].label);
- for(const g of games)f2.owned.set(g.roleIds[0],{});
- check(gameChannels(games,f2.member,f2.guild,0).embeds[0].fields.length,4);
- check(gameChannels(games,f2.member,f2.guild,999).embeds[0].footer.text.includes('Page 6/6'));
- check(gameChannels(games,f2.member,f2.guild,0).components[0].components.some(x=>x.label==='Next'));
- // An uncertain role API error is reconciled from the same member before reporting success.
- const f3=fixture();f3.member.roles.add=async r=>{f3.owned.set(r.id,r);throw{code:500};};
- i=f3.interaction(`${PREFIX}:role:${f3.member.id}:${game.key}`);await createNavigation({cfg,games}).handle(i);check(i.response.content.startsWith('✅'));
- // Real event registration persists across new welcome messages; no login or network in tests.
- const client=new EventEmitter();installNavigation(client,cfg);i=f2.interaction(PREFIX+':channels');await client.listeners(Events.InteractionCreate)[0](i);check(i.deferFlags,64);check(i.response.embeds[0].fields.length,4);
- console.log(`PASS ${checks} checks: actor isolation, ephemeral navigation, old button layout, exact role toggle, privilege denial, role aliases, visibility filtering, paging, API reconciliation, persistent event wiring.`);
-})().catch(error=>{console.error(error);process.exitCode=1;});
+ check(validateGames(games).length,13);check(entries(cfg)[0].components.map(x=>x.label),['Choose Roles','Contact Support']);
+ check(games.map(g=>g.label),['FC27','D4','POE2','WoW','ARC','MLB','COD','GTA','AION2','NBA','Dark and Darker','MapleStory Classic World','Other Games']);
+ const f=fixture(),nav=createNavigation({cfg,games});let i=f.interaction(PREFIX+':roles');await nav.handle(i);check(i.deferFlags,64);check(i.response.components[0].components[0].options.length,13);check(i.response.components[1].components.length,1);check(f.writes.length,0);
+ i=f.interaction(`${PREFIX}:pick:${f.member.id}`);i.isButton=()=>false;i.isStringSelectMenu=()=>true;i.values=['1','25'];await nav.handle(i);check(f.writes.length,0);check(i.response.components[1].components[0].custom_id.endsWith(':1,25'));check(i.updated);
+ const retired=games.at(-1).aliasRoleIds[0];f.owned.set(retired,{});
+ i=f.interaction(`${PREFIX}:save:${f.member.id}:1,25`);await nav.handle(i);check(f.writes.length,2);check(f.owned.has(games[0].roleIds[0]));check(f.owned.has(games[11].roleIds[0]));check(f.owned.has(retired));check(f.owned.has('999999999999999999'));check(i.response.content.startsWith('✅'));
+ await nav.handle(f.interaction(`${PREFIX}:save:${f.member.id}:1,25`));check(f.writes.length,2);
+ await nav.handle(f.interaction(`${PREFIX}:save:${f.member.id}:none`));check(f.writes.length,4);check(f.owned.has(retired));check(f.owned.has('999999999999999999'));
+ let before=f.writes.length;await nav.handle(f.interaction(`${PREFIX}:role:${f.member.id}:1`));check(f.writes.length,before);
+ for(const suffix of [':save:222222222222222222:1',`:save:${f.member.id}:1,1`,`:save:${f.member.id}:99`]){i=f.interaction(PREFIX+suffix);await nav.handle(i);check(i.response.flags,64);check(f.writes.length,before);}
+ for(const field of ['guildId','channelId']){i=f.interaction(PREFIX+':roles');i[field]='wrong';check(await nav.handle(i),false);}
+ const role=f.roles.get(games[0].roleIds[0]);role.permissions.bitfield=P.Administrator;await nav.handle(f.interaction(`${PREFIX}:save:${f.member.id}:1`));check(f.writes.length,before);role.permissions.bitfield=0n;
+ role.managed=true;check(safeRole(role,f.bot,f.guild),false);role.managed=false;role.comparePositionTo=()=>1;check(safeRole(role,f.bot,f.guild),false);role.comparePositionTo=()=>-1;
+ const ch=[...f.channels.values()][0];ch.permissionOverwrites.cache.set(role.id,{allow:{bitfield:P.ManageChannels}});check(safeRole(role,f.bot,f.guild),false);ch.permissionOverwrites.cache.clear();
+ const f2=fixture();f2.member.roles.add=async r=>{f2.owned.set(r.id,r);throw{code:500};};i=f2.interaction(`${PREFIX}:save:${f2.member.id}:1`);await createNavigation({cfg,games}).handle(i);check(i.response.content.startsWith('✅'));
+ const f3=fixture();f3.member.roles.add=async()=>{throw{code:500};};i=f3.interaction(`${PREFIX}:save:${f3.member.id}:1`);await createNavigation({cfg,games}).handle(i);check(i.response.content.startsWith('⚠️'));check(f3.writes.length,0);
+ console.log('PASS '+checks+' checks: compact catalog, preview without writes, explicit save, idempotence, preserved legacy roles, actor isolation, privilege boundaries, API reconciliation');
+})().catch(e=>{console.error(e);process.exitCode=1;});
