@@ -34,10 +34,18 @@
 | `/var/lib/fs-navigation-formal-static/workspace-native-20261006-346f59eea565/page.js` | `ba7cc477f63aa096685c8e85adc9f6721d9eac373e49ab96cccff2f96525a93a` | `dd2763ee5c34bb9e3349eaeb90718bed2e6e4458c33db04705ad6ef3c2ef38df` |
 | 同目录 `index.html` | `bcf5a1c906d1ab2075c96b5c09e158a2831858b64bf60727564637ce68cc4e8f` | `7c92e176c1ee8f7946bda98c510f72590db52854c52baefdf4e0f205ca1a9ce4` |
 
-已准备 `releases/fs-dashboard/hermes-customer-lifecycle-20261019/deploy/buyer_release.py`：绑定原固定哈希 navigation publisher，仅允许这四个现役载荷，原共享发布锁、CAS、空闲检查、备份/回滚与读回保持；额外检查追踪扫描和阶段任务无在途。旧 lifecycle bridge 的 8767 健康检查已经失效，不能原样执行。本桥本地清单静态校验通过。四文件已暂存到独立目录 `/opt/fs-release-stage/customer-buyer-tracking-20261110-pr976-998bd06`；2026-11-10 曾以提交 `1e8cb540` 重绑清单并刷新 370 个保护项，原 publisher 的 `inspect` 只读返回 `sourceCAS=passed`、`protectedCAS=passed`、`mutations=false`。没有执行 `apply`；正式发布前仍须绑定合并后的 Git 版本并复核。原 publisher 的 Hermes/FS Range 重启仍在该范围内；不恢复旧会话容器、不改调度。发布前再次核原服务与 P0 任务空闲；失败保留原发布 ID 和回执核对。
+发布准备时新增 `releases/fs-dashboard/hermes-customer-lifecycle-20261019/deploy/buyer_release.py`：绑定原固定哈希 navigation publisher，仅允许这四个现役载荷，原共享发布锁、CAS、空闲检查、备份/回滚与读回保持；额外检查追踪扫描和阶段任务无在途。旧 lifecycle bridge 的 8767 健康检查已经失效，不能原样执行。本桥本地清单静态校验通过。四文件暂存于独立目录 `/opt/fs-release-stage/customer-buyer-tracking-20261110-pr976-998bd06`；当时以提交 `1e8cb540` 重绑清单并刷新 370 个保护项，原 publisher 的 `inspect` 只读返回 `sourceCAS=passed`、`protectedCAS=passed`、`mutations=false`。该次准备没有执行 `apply`；随后实际发布及读回见下文。原 publisher 的 Hermes/FS Range 服务操作在本次范围内；不恢复旧会话容器、不改调度。失败保留原发布 ID 和回执核对。
 
 ## 存储与验证
 
 本改动不生成第二份 ES 原文件或客户映射表。2026-11-10 只读复查现役 `/opt/fs-hermes-fc/es_order_structure.py`：热归档写入前限制 512 MiB、512 文件，并保留至少 64 MiB 空闲空间；超过限制则返回容量错误，不继续堆积。原归档读回为 107,909,225 字节，所在文件系统剩余 118,843,346,944 字节；此前观察值 59,101,486 字节，仅说明观察间归档增长，未归因于本改造。本次不修改 ES 导出与原有归档维护；现有成功发布后的冗余件清理照旧。热归档限制和这次磁盘读数不证明包括冷归档在内的未来所有自然周期都不会积压。
 
-相关 Python 两组单测分别通过 51/33 项；页面 JavaScript 语法通过；知识收尾测试通过 104 项（当前 Windows 环境跳过 7 项 Linux 专属）。本地 pr-fast 在 Windows 共享 UI 文件 CRLF 字节哈希和缺少 Playwright/tzdata 环境处不能完成；PR #976 的 Linux 正式 CI 在 `1e8cb540` 提交通过，后续提交仍按最终 HEAD 的 CI 结果验收。真实入口候选数、Admin 调用页数、磁盘前后量、自然周期须在发布后独立读回；未执行前不得称上线验收。
+相关 Python 两组单测分别通过 51/33 项；页面 JavaScript 语法通过；知识收尾测试通过 104 项（当前 Windows 环境跳过 7 项 Linux 专属）。本地 pr-fast 在 Windows 共享 UI 文件 CRLF 字节哈希和缺少 Playwright/tzdata 环境处不能完成；PR #976 最终 HEAD `9f1489e3` 的 Linux 正式 CI 两轮均成功（run 1877、1878）。
+
+## 发布与真实入口读回（2026-11-10）
+
+吴律确认一次性清单 `KL-157678d5b4dcabdb780a9b0d` 后，[PR #976](https://github.com/wulv006-dot/FS-Workbench/pull/976) 合并至 `main`，合并提交 `4286b171664616c8ec5fd332215b0ce6c5309227`。发布清单重绑该版本，SHA256 `12035f876ca5b002f4b52f75ad79e979b5fb2eaa9e063f2f85accfffc8c06644`；原发布器 `inspect` 对四目标及 370 个保护项均通过。原发布器以 `nav-20261110T104121Z` 执行 `apply`，备份在 `/var/backups/fs-navigation-20261006/nav-20261110T104121Z`。发布回执为 `applied-awaiting-actual-http-role-acceptance`，后续四个目标哈希与上表候选值逐一一致，Hermes、FS Range 服务均 active，业务 worker 定时器操作数 0。回滚应沿同一发布 ID 和备份进行，保留客户 DB、原扫描任务和回执。
+
+已登录管理员从真实 FS 页面打开客户追踪，配置版本 2 正常加载，页面显示“候选订单金额以 ES 导出为准”；11-09 已存区间名单返回 1/1 天、0 候选。生产私有读取对原 11-09 归档重新计算：ES 839 行，符合 ES 金额门槛 0 笔，Admin 请求 0 页，结果 `available`。另一份原 10-30 归档用现役 Admin 身份只读扫描：ES 1247 行，符合 1 笔，请求 1 个订单、1 页，后台分页完整并返回 1 位候选。该旧归档没有 Buyer ID；新归档 11-09 虽有 Buyer ID，却无金额合格订单，因此真实 Buyer ID 合并量仍未获得非零样本，不能用本次零结果宣称合并效率已自然验收。两次只读验收不重写旧候选库或原任务编号。
+
+验收后原 ES 归档仍为 107,909,225 字节，暂存发布包 289,938 字节，文件系统剩余 118,838,779,904 字节（使用率 42%）。现有容量限制继续有效；冷归档长期占用和后续自然扫描效果尚未验证。两篇既有 Notion 页均以同一 `change_id` 增量追加摘要并读回，原正文与旧标识保留；见 [Notion 同步记录](NOTION-CANDIDATE.md)。正式 Git 知识版本为 `fs.customer.lifecycle@buyer-candidates-20261110-v1`；未单独发布新的 Hermes 知识加载包，也未声称模型已在自然任务中采用该条目。
