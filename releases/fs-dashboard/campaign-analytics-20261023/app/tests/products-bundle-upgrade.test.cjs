@@ -30,5 +30,12 @@ test('original editor upgrades four exact legacy bundles atomically without mate
   fs.writeFileSync(stateFile,JSON.stringify(before));duplicateCatalog=true;await open();await choose(models[0]);assert.equal(await page.locator('[data-model-card="'+models[0].key+'"]').count(),0,'ambiguous matching legacy identities never auto-upgrade');assert.equal(await page.locator('[data-model-card="'+legacy[0]+'"]').count(),1);assert.deepEqual(read(),before);duplicateCatalog=false;
   // Explicit selections retain their exact platform subset and roles during the upgrade.
   const explicit=structuredClone(before),p=explicit.draft.pages[2];p.product_keys=['fc-'+legacy[0]+'-ps'];p.product_roles={[p.product_keys[0]]:'bundle'};fs.writeFileSync(stateFile,JSON.stringify(explicit));await open();await choose(models[0]);await page.locator('#save-center').click();await page.waitForFunction(()=>document.querySelector('#center-status').textContent.includes('草稿已保存'));const selected=read().draft.pages[2];assert.deepEqual(selected.product_keys,['fc-'+models[0].key+'-ps']);assert.deepEqual(selected.product_roles,{[selected.product_keys[0]]:'bundle'});
+  // Default selection must preserve every unrelated draft field.
+  fs.writeFileSync(stateFile,JSON.stringify(before));await page.goto(base+'products.html?page=fc27-sbc');await page.waitForFunction(()=>document.querySelector('#center-status').textContent.includes('已读取'));
+  const defaultKey=before.draft.fc_layout.sbc.at(-1),order=[defaultKey,...before.draft.fc_layout.sbc.filter(k=>k!==defaultKey)],saveCount=saves.length;
+  await page.locator('#layout-default-core').selectOption(defaultKey);assert.deepEqual(read(),before);
+  await page.locator('#save-center').click();await page.waitForFunction(()=>document.querySelector('#center-status').textContent.includes('草稿已保存'));
+  assert.equal(saves.length,saveCount+1);const expected={...before.draft,fc_layout:{...before.draft.fc_layout,sbc:order,defaultCore:defaultKey}};
+  assert.deepEqual(saves.at(-1).draft,expected);assert.deepEqual(read().draft,expected);assert.deepEqual(read().published,before.published);
  }finally{await browser.close();await new Promise(r=>server.close(r));global.fetch=originalFetch;fs.rmSync(dir,{recursive:true,force:true});}
 });

@@ -61,3 +61,5 @@ test('guide uses configured short player names with separate metadata and preser
  assert(guide.includes('not chance-based packs'));assert(guide.includes('chemistry'));
  const card=content.create(next).card({...next.products[id],preview_only:true,key:id});assert(!card.includes('data-preview-platform'));assert(content.previewCard({...next.products[id],key:id}).includes('data-preview-platform'),'original editor preview keeps its own controls');
 });
+
+test('static recommendations never start with items selected for purchase',()=>{for(const name of ['Weekly-Scout.html','Player-Trio.html','Sbc-Companions.html']){const html=buildOutputs(config)[name];assert.match(html,/<span id="summary-count">0<\/span>/);assert.match(html,/<button[^>]*id="review-selection"[^>]*disabled/);assert.doesNotMatch(html,/>Selected · Remove</);assert.match(html,/data-toggle-product/);}});
