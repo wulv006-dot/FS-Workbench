@@ -1528,7 +1528,11 @@ class Handler(BaseHTTPRequestHandler):
             body = self._read_body()
             if not isinstance(body, dict) or set(body) != {'news_publish', 'revision', 'restart'}:
                 raise ValueError('Invalid request')
-            news = fc_news_module().validate_config(body['news_publish'], FC_GUILD)
+            news = body['news_publish']
+            # Browser JSON must carry Discord snowflakes as strings to avoid rounding.
+            if isinstance(news, dict) and news.get('guild_id') == str(FC_GUILD):
+                news = dict(news, guild_id=FC_GUILD)
+            news = fc_news_module().validate_config(news, FC_GUILD)
             if (not isinstance(body['revision'], str) or not re.fullmatch(r'[0-9a-f]{64}', body['revision'])
                     or type(body['restart']) is not bool):
                 raise ValueError('Invalid revision')

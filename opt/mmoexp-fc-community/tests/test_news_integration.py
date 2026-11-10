@@ -80,6 +80,17 @@ class NewsIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await self.client.flush_news()
         self.channel.send.assert_awaited_once()
 
+    async def test_client_passes_ea_switch_to_existing_queue(self):
+        from tests.test_news_rounds import row
+        store = self.client.news_store
+        store.ingest([row(1, 'ea')])
+        store.ingest([row(1)])
+        self.client.config['news_publish']['ea_enabled'] = False
+        await self.client.flush_news()
+        self.channel.send.assert_awaited_once()
+        self.assertIn('mmoexp.com', self.channel.send.await_args.kwargs['embed'].url)
+        self.assertEqual(next(item for item in store.items() if item['kind']=='ea')['status'], 'pending')
+
     def test_unapproved_news_guild_and_extra_configuration_rejected(self):
         for change in [{'guild_id': 123}, {'poll_seconds': 30}, {'channel_id': 123}, {'extra': True}]:
             with self.assertRaises(ValueError):
