@@ -296,6 +296,18 @@ class FCConsoleTests(unittest.TestCase):
         self.assertTrue((console.CFG['data_dir'] / 'backups' / result['backup']).is_file())
         self.assertEqual(self.request('POST', '/api/fc/news/config', body)[0], 409)
 
+    def test_ea_news_switch_roundtrip_and_invalid_type(self):
+        _, before = self.request('GET', '/api/fc/news/config')
+        news = {'guild_id': console.FC_GUILD, 'channel_id': '123456789012345678',
+                'enabled': True, 'ea_enabled': False, 'poll_seconds': 21600}
+        body = {'news_publish': news, 'revision': before['revision'], 'restart': False}
+        self.assertEqual(self.request('POST', '/api/fc/news/config',
+            dict(body, news_publish=dict(news, ea_enabled='false')))[0], 400)
+        self.assertEqual(self.request('POST', '/api/fc/news/config', body)[0], 200)
+        _, saved = self.request('GET', '/api/fc/news/config')
+        self.assertFalse(saved['news_publish']['ea_enabled'])
+        self.assertTrue(saved['news_publish']['enabled'])
+
     def test_news_x_submissions_are_independent_and_reads_do_not_recover_sends(self):
         module = console.fc_news_module()
         store = module.NewsStore(console.FC_NEWS_DB)

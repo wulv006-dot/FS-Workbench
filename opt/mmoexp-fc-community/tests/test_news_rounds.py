@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 from pathlib import Path
 
-from news_feed import NewsStore, publish_pending, parse_ea_listing, enqueue_article, collect_cycle
+from news_feed import NewsStore, publish_pending, parse_ea_listing, enqueue_article, collect_cycle, validate_config
 
 CHANNEL = '123456789012345678'
 
@@ -20,6 +20,44 @@ class RoundTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.path=Path(self.tmp.name)/'news.db'; self.store=NewsStore(self.path)
+
+    def test_ea_switch_is_optional_boolean_and_old_config_keeps_behavior(self):
+        config = dict(guild_id=1, channel_id=CHANNEL, enabled=True, poll_seconds=21600)
+        self.assertEqual(validate_config(config, 1), config)
+        self.assertFalse(validate_config(dict(config, ea_enabled=False), 1)['ea_enabled'])
+        for invalid in (0, 1, 'false', None):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                validate_config(dict(config, ea_enabled=invalid), 1)
+
+    def test_ea_off_skips_collection_without_disabling_mmoexp(self):
+        def collect(source, *args):
+            return [row(1, source)], {'collector': '187'}
+        with patch('collector_router.collect', side_effect=collect) as mocked:
+            result = collect_cycle(self.store, dict(poll_seconds=21600, ea_enabled=False), now=100)
+        self.assertEqual([call.args[0] for call in mocked.call_args_list], ['mmoexp'])
+        self.assertEqual(set(result), {'mmoexp'})
+        self.assertEqual([item['kind'] for item in self.store.items()], ['mmoexp'])
+
+    def test_ea_off_holds_queued_auto_but_manual_and_mmoexp_continue(self):
+        b = self.store.begin_cycle(21600, now=100)
+        self.store.ingest([row(1, 'ea')], 100, batch_id=b)
+        self.store.ingest([row(1)], 100, batch_id=b)
+        self.store.finish_cycle(b, {}, 100)
+        self.store.enqueue_article(row(2, 'ea')['url'], title='Manual EA')
+        calls = []
+        async def send(item, channel):
+            calls.append(item)
+            return str(len(calls))
+        self.assertEqual(asyncio.run(publish_pending(self.store, CHANNEL, send, limit=100,
+                                                    ea_enabled=False)), 2)
+        self.assertEqual([(v['kind'], v['delivery_mode']) for v in calls],
+                         [('ea', 'manual'), ('mmoexp', 'auto')])
+        with self.store.db() as db:
+            self.assertEqual(db.execute("SELECT claimed FROM news_batches WHERE id=?", (b,)).fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT status FROM news_items WHERE kind='ea' AND delivery_mode='auto'").fetchone()[0], 'pending')
+        self.assertEqual(asyncio.run(publish_pending(NewsStore(self.path), CHANNEL, send,
+                                                    ea_enabled=True)), 1)
+        self.assertEqual(calls[-1]['kind'], 'ea')
 
     def test_six_budget_priority_restart_and_next_round(self):
         b=self.store.begin_cycle(21600, now=100)
