@@ -1549,7 +1549,7 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/experience/fc27-lootbar-source-availability-20261111.md",
-        "sha256": "43e0923b3d7aed0a704cde1e04da5486a52667692b7efd09d51056cfa417d699",
+        "sha256": "288a90c7ec0352c56ef7a6a95fc6498be48546fb16239a5257137166040c8589",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [],
