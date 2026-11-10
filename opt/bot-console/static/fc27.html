@@ -118,7 +118,7 @@ async function loadNewsItems(){
 }
 $('#news-form').onsubmit=async event=>{
  event.preventDefault();if(!newsWritable)return;$('#news-save').disabled=true;
- try{const channel=$('#news-channel').value.trim(),hours=Number($('#news-hours').value),seconds=hours*3600,collector=$('#news-collector').value;if(!/^[1-9][0-9]{16,19}$/.test(channel)||!Number.isInteger(seconds)||seconds<900||seconds>86400||!['187','183','auto'].includes(collector))throw Error('请检查频道 ID、采集节点和 0.25–24 小时的间隔。');const result=await api('news/config',{method:'POST',body:{news_publish:{guild_id:1041923524601851914,channel_id:channel,enabled:$('#news-enabled').checked,ea_enabled:$('#news-ea-enabled').checked,poll_seconds:seconds,collector},revision:newsRevision,restart:true}});await Promise.all([loadConfig(),loadNews(),loadStatus()]);newsMessage(result.restarted?'采集配置已保存并重启。':'已保存，服务重启未确认，请核对状态。',result.restarted);}
+ try{const channel=$('#news-channel').value.trim(),hours=Number($('#news-hours').value),seconds=hours*3600,collector=$('#news-collector').value;if(!/^[1-9][0-9]{16,19}$/.test(channel)||!Number.isInteger(seconds)||seconds<900||seconds>86400||!['187','183','auto'].includes(collector))throw Error('请检查频道 ID、采集节点和 0.25–24 小时的间隔。');const result=await api('news/config',{method:'POST',body:{news_publish:{guild_id:'1041923524601851914',channel_id:channel,enabled:$('#news-enabled').checked,ea_enabled:$('#news-ea-enabled').checked,poll_seconds:seconds,collector},revision:newsRevision,restart:true}});await Promise.all([loadConfig(),loadNews(),loadStatus()]);newsMessage(result.restarted?'采集配置已保存并重启。':'已保存，服务重启未确认，请核对状态。',result.restarted);}
  catch(e){newsMessage(e.message);}finally{$('#news-save').disabled=!newsWritable;}
 };
 $('#x-form').onsubmit=async event=>{
