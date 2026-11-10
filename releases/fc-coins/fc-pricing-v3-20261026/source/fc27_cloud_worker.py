@@ -103,7 +103,7 @@ def collect_quote(job):
     from fc_pricing_v3.selective_sources import source_plan
     selection=collection_scope(ledger(),run_id)
     planned=source_plan(selection['active_mode'],selection['scope'])
-    if cfg['mode']=='server' and 'ItemD2R' in planned['required_markets']:
+    if cfg['mode']=='server' and 'ItemD2R' in planned['required_markets']+planned.get('auxiliary_markets',[]):
         reference=collect_reference_market(run_id)
         job['reference_competitors']=reference
         run_path=ROOT/'runs'/(run_id+'.json')

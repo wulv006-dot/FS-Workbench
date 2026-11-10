@@ -22,8 +22,8 @@ assert.match(mainConsole,/id="v3-execute-now"[^>]*>立即执行一轮改价/);
 assert.match(mainConsole,/id="collect"[^>]*>立即采集/);
 assert.match(mainConsole,/立即采集只查价/);
 assert(html.indexOf('id="v3-result"')<html.indexOf('id="v3-panel"'),'action result is visible beside the top controls');
-assert.match(html,/fc-pricing-v3\.js\?v=20261030-console-control/);
-assert.match(script,/双20只按购买100K、赠送5K这一档核算/);
+assert.match(html,/fc-pricing-v3\.js\?v=20261110-three-platform/);
+assert.match(script,/双20只按购买100K、实交100K这一档核算/);
 assert.match(script,/sprint_policy_version='sprint_5_10_lower_quote_floor20_v3'/,'preserve the live lower-anchor business parameter');
 assert.match(script,/D-9至D-2八个完整日真实优惠金额结构/,'preserve the live eight-day financial wording');
 
@@ -48,11 +48,11 @@ const store = new Map();
 const sessionStorage = { getItem: key => store.get(key) || null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) };
 const plan = { plan_id: 'plan-1', mode: 'daily', state: 'SUSPENDED' };
 const state = { plans: [plan], active_plans: [plan], plan, generation: 'g', captured_at: '2026-10-26T13:00:00+08:00', snapshot_id: 'snapshot-1',
-  price_control:{revision:0,manual_enabled:false,manual_prices:{console:null,pc:null},uplift_enabled:false,uplift_pct:'0'},
-  strategies: { daily: { status: 'READY', selected: { action: { base_prices: { console: '8.51', pc: '8.59' } }, score: { absolute_forecast_available: false } } }, revenue_sprint: { status: 'DATA_PENDING' } },
+  price_control:{revision:0,manual_enabled:false,manual_prices:{PS:null,XBOX:null,PC:null},uplift_enabled:false,uplift_pct:'0'},
+  strategies: { daily: { status: 'READY', selected: { action: { base_prices: { PS: '8.51', XBOX:'8.45', PC: '8.59' } }, score: { absolute_forecast_available: false } } }, revenue_sprint: { status: 'DATA_PENDING' } },
   operations: [{ operation_id: 'op-1', status: 'COMPLETED', created_at: '2026-10-26T13:05:00+08:00', bundle: { mode: 'daily', review_approved: false, decision_source: 'v3_explicit_deterministic_feasible_assignment' } }],
   target: { mtd_lower_bound: '666454.13', mtd_upper_bound: '666464.47', through_date: '2026-10-25', today: { status: 'unavailable' } }, region_rules: [], regional_controls: [], incidents: [] };
-let canWrite = true, intervalBody;
+let canWrite = true, intervalBody;const refreshIntervals=[];
 const automation = { revision: 3, can_manage_v3: true, system_enabled:true,mode:'auto',platforms:['PS','XBOX','PC'],minimum_gross_margin_pct:'20', v3: { schedule: { cycle_interval_minutes: 120, active_plan_state: 'SUSPENDED', next_cycle_at: null,
   last_cycle_at: '2026-10-26T13:00:00+08:00', last_source_checked_at: null, last_execution_stage: 'COMPLETED' } } };
 const monitor = { storefront: { rows: { PS: { package_usd: 8.51, checked_at: '2026-10-26T13:07:00+08:00' },
@@ -60,10 +60,10 @@ const monitor = { storefront: { rows: { PS: { package_usd: 8.51, checked_at: '20
 let marketError=false;
 const market={snapshot_id:'snapshot-1',global_offers:{PS:{Lootbar:{usd_price:'9.18',base_k:'100',bonus_k:'5',checked_at:new Date().toISOString()}}},reference:{offers:[{platform:'PS',gross_usd:'8.14',purchase_k:'100',bonus_k:'0',status:'valid',captured_at:'2000-01-01T00:00:00Z'}]},arab:[]};
 market.saudi_missing_price_policy='follow_global';
-market.price_basis={historical_retained_ratio:'.9',rows:{PS:{cost_usd_per_1k:'.04',cost_cny_per_1k:'.28',package_cost_usd:'4.2',delivered_k:'105',regular_floor_usd:'5.30',average_floor_usd:'5.80',current_regular_margin_pct:'40',current_average_margin_pct:'30',cost_checked_at:'2026-10-27T00:00:00Z'}}};
+market.price_basis={rows:{PS:{historical_retained_ratio:'.9',cost_usd_per_1k:'.04',cost_cny_per_1k:'.28',package_cost_usd:'4.2',delivered_k:'105',regular_floor_usd:'5.30',average_floor_usd:'5.80',current_regular_margin_pct:'40',current_average_margin_pct:'30',cost_checked_at:'2026-10-27T00:00:00Z'}}};
 
 const normalFetch = async (url, options = {}) => ({ ok: true, json: async () => url.endsWith('/pricing/v3/interval') ? (intervalBody = JSON.parse(options.body), { revision: 4 })
-  : url.endsWith('/pricing/v3/preview') ? {results:{smart:{status:'READY',selected:{action:{base_prices:{console:'10',pc:'11'}}}}}}
+  : url.endsWith('/pricing/v3/preview') ? {results:{smart:{status:'READY',selected:{action:{base_prices:{PS:'10',XBOX:'10.5',PC:'11'}}}}}}
   : url.endsWith('/pricing/v3/market') ? (marketError?Promise.reject(Error('fixture unavailable')):market)
   : url.endsWith('/pricing/collect') ? {job_id:'collect-test'} : url.endsWith('/jobs/collect-test') ? {status:'ready',result:{status:'INFEASIBLE'}}
   : url.endsWith('/pricing/v3/state') ? state : url.endsWith('/automation') ? (options.body?(intervalBody=JSON.parse(options.body),{revision:4}):{ ...automation, can_manage_v3: canWrite })
@@ -88,11 +88,12 @@ const fetch=async (url,options={})=>{
   return normalFetch(url,options);
 };
 vm.runInNewContext(script, { document, fetch, sessionStorage, crypto: { randomUUID: () => 'new-id-'+(++idSequence) }, AbortSignal: { timeout: () => null },
-  setInterval: () => {}, Intl, Date, console });
+  setInterval: (fn,ms) => {refreshIntervals.push(ms);}, Intl, Date, console });
 const tick = () => new Promise(resolve => setTimeout(resolve, 5));
 (async () => {
   await tick();
-  state.active_plans.push({mode:'revenue_sprint',resources:['base:console','base:pc'],parameters:{preferred_undercut_pct:'5'}});
+  assert.deepEqual(refreshIntervals,[300000],'background status refresh every five minutes; manual refresh stays immediate');
+  state.active_plans.push({mode:'revenue_sprint',resources:['base:PS','base:XBOX','base:PC'],parameters:{preferred_undercut_pct:'5'}});
   elements['v3-mode'].value='smart';elements['v3-mode'].events.change();
   await elements['v3-preview'].events.click();
   assert.match(elements['v3-preview-output'].textContent,/默认7\.5%.*情景/);
@@ -115,22 +116,22 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(elements['v3-source-time'].textContent, /待核/);
   assert.equal(elements['v3-strategies'].children.length, 1, 'only selected strategy is shown');
   elements['v3-mode'].value='revenue_sprint';
-  state.strategies.revenue_sprint={status:'READY',selected:{decision_type:'floor_fallback',action:{base_prices:{console:'7.15',pc:'8.31'}},score:{absolute_forecast_available:false}}};
+  state.strategies.revenue_sprint={status:'READY',selected:{decision_type:'floor_fallback',action:{base_prices:{PS:'7.15',XBOX:'7.25',PC:'8.31'}},score:{absolute_forecast_available:false}}};
   await elements['v3-refresh'].events.click();
   assert.match(JSON.stringify(elements['v3-strategies'].children),/双20可写，未达到竞争目标/);
   elements['v3-mode'].value='daily';
   await elements['v3-refresh'].events.click();
-  state.strategies.daily.selected.daily_pricing={console:{driver_platform:'XBOX',target_public_usd:'8.55',selected_base_total:'8.55',item_target_met:true,platforms:{PS:{actual_unit_100k:'8.142857',reference_source:'Lootbar',difference_pct:'-10'},XBOX:{actual_unit_100k:'8.142857',reference_source:'ItemD2R',difference_pct:'.035'}}}};
+  state.strategies.daily.selected.daily_pricing={XBOX:{driver_platform:'XBOX',target_public_usd:'8.55',selected_base_total:'8.55',item_target_met:true,platforms:{PS:{actual_unit_100k:'8.142857',reference_source:'Lootbar',difference_pct:'-10'},XBOX:{actual_unit_100k:'8.142857',reference_source:'ItemD2R',difference_pct:'.035'}}}};
   await elements['v3-refresh'].events.click();
-  assert.match(JSON.stringify(elements['v3-strategies'].children),/Console共价按ItemD2R XBOX当轮实际交付价定价/);
+  assert.match(JSON.stringify(elements['v3-strategies'].children),/Xbox按ItemD2R XBOX当轮实际交付价定价/);
   assert.match(JSON.stringify(elements['v3-strategies'].children),/达到Item目标（按公开分币舍入）/);
   assert.match(JSON.stringify(elements['v3-strategies'].children),/PS.*本平台参考 Lootbar.*价差 -10.00%/);
-  state.strategies.daily.selected.daily_pricing.console.item_target_met=false;
-  state.strategies.daily.selected.daily_pricing.console.selected_base_total='11.67';
+  state.strategies.daily.selected.daily_pricing.XBOX.item_target_met=false;
+  state.strategies.daily.selected.daily_pricing.XBOX.selected_base_total='11.67';
   await elements['v3-refresh'].events.click();
   assert.match(JSON.stringify(elements['v3-strategies'].children),/财务底价抬高，未达到Item目标/);
   assert.match(JSON.stringify(elements['v3-strategies'].children),/双20可写，未达到ItemD2R目标/);
-  state.strategies.daily.selected.daily_pricing.console.unmet_reason='public_cent_not_reachable';
+  state.strategies.daily.selected.daily_pricing.XBOX.unmet_reason='public_cent_not_reachable';
   await elements['v3-refresh'].events.click();
   assert.match(JSON.stringify(elements['v3-strategies'].children),/舍入导致目标未命中，未达到Item目标/);
   assert.doesNotMatch(JSON.stringify(elements['v3-strategies'].children),/财务底价抬高/);
@@ -146,12 +147,17 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/D-9至D-2八日平均优惠10\.0% 红线/);
   const originalRows=market.price_basis.rows;
   market.price_basis.rows=Object.fromEntries(['PS','XBOX','PC'].map(p=>[p,{...originalRows.PS,average_floor_usd:'9.16'}]));
-  for(const [retained,expected] of [['.9134','8.7%'],['.914','8.6%'],['1','0.0%'],[null,'待核'],['','待核'],['bad','待核']]){
-    market.price_basis.historical_retained_ratio=retained;
+  for(const [retained,expected] of [['.9134','8.6%'],['.914','8.6%'],['1','0.0%'],[null,'待核'],['','待核'],['bad','待核']]){
+    for(const row of Object.values(market.price_basis.rows))row.historical_retained_ratio=retained;
     await elements['v3-refresh'].events.click();
     for(const platform of ['ps','xbox','pc'])assert.equal(elements['v3-price-basis-'+platform].children[3].textContent.split(' · ')[0],`D-9至D-2八日平均优惠${expected} 红线 $9.16`);
   }
-  market.price_basis.rows=originalRows;market.price_basis.historical_retained_ratio='.9';
+  market.price_basis.rows=originalRows;
+  const distinct={PS:['.9181192335961722','8.1%'],XBOX:['.9244583833739689','7.5%'],PC:['.9105486557247720','8.9%']};
+  market.price_basis.rows=Object.fromEntries(Object.entries(distinct).map(([p,[retained]])=>[p,{...originalRows.PS,historical_retained_ratio:retained}]));
+  await elements['v3-refresh'].events.click();
+  for(const [p,[,pct]] of Object.entries(distinct))assert.match(elements['v3-price-basis-'+p.toLowerCase()].children[3].textContent,new RegExp('八日平均优惠'+pct.replace('.','\\.')));
+  market.price_basis.rows=originalRows;
   await elements['v3-refresh'].events.click();
   assert.match(elements['v3-proof-notes'].textContent,/八个完整日/);
   state.operations[0].bundle.financial_contract_version='fc27_dual20_v1';
@@ -323,20 +329,20 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(sessionStorage.getItem('fc-v3-price-control-pending'),null);
   assert.match(elements['v3-effective-control'].textContent,/临时上浮 10%/);
   assert.match(elements['v3-price-control-result'].textContent,/保存没有立即写价/);
-  plan.mode='smart';plan.smart_strategy_version='smart-bidirectional-v2';
+  plan.mode='smart';plan.smart_strategy_version='smart-three-platform-v3';
   market.snapshot_id=state.snapshot_id;
   plan.parameters={competitor_policy:'lootbar_primary_arabut_secondary_v1',region_pricing:'global'};
-  state.strategies.smart={status:'READY',smart_assignment:{strategy_version:'smart-bidirectional-v2',label:'MIXED',block:0,
-    group_labels:{console:'B',pc:'C'},group_pair_ids:{console:'0:1',pc:'0:2'},no_space_by_group:{console:true,pc:false},
-    merged_with_A_by_group:{console:true,pc:false},policy:{group_results:{console:{winner:'B'},pc:{winner:'C'}}}},
-    selected:{action:{base_prices:{console:'8.51',pc:'8.59'}},score:{absolute_forecast_available:false}}};
+  state.strategies.smart={status:'READY',smart_assignment:{strategy_version:'smart-three-platform-v3',label:'MIXED',block:0,
+    group_labels:{PS:'B',XBOX:'A',PC:'C'},group_pair_ids:{console:'0:1',pc:'0:2'},no_space_by_group:{PS:true,XBOX:false,PC:false},
+    merged_with_A_by_group:{console:true,pc:false},policy:{group_results:{PS:{winner:'B'},XBOX:{},PC:{winner:'C'}}}},
+    selected:{action:{base_prices:{PS:'8.51',XBOX:'8.45',PC:'8.59'}},score:{absolute_forecast_available:false}}};
   market.arab=[{platform:'PC',region_id:21,source_region_id:21,reference_scope:'global',delivery:'standard',
     total_usd:'9.47',purchase_k:'100',bonus_k:'0',captured_at:new Date().toISOString(),selection_verified:true}];
   elements['v3-mode'].value='smart';elements['v3-mode'].events.change();await elements['v3-refresh'].events.click();
   const smartText=JSON.stringify(elements['v3-strategies'].children);
-  assert.match(smartText,/Console.*B.*PC.*C/);
-  assert.match(smartText,/Console.*候选.*合并/);
-  assert.match(smartText,/Console.*B.*领先.*PC.*C.*领先/);
+  assert.match(smartText,/PS.*B.*XBOX.*A.*PC.*C/);
+  assert.match(smartText,/PS.*候选.*合并/);
+  assert.match(smartText,/PS.*B.*领先.*PC.*C.*领先/);
   assert.match(elements['v3-mode-purpose'].textContent,/降3%.*涨3%/);
   assert.doesNotMatch(elements['v3-mode-purpose'].textContent,/上调6%/);
   assert.match(elements['v3-proof-notes'].textContent,/Lootbar.*主.*Arab.*次.*ItemD2R.*辅助/);
@@ -344,14 +350,14 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(marketTag.textContent,/Lootbar.*主锚.*Arab.*次锚.*ItemD2R.*辅助/);
   assert.match(JSON.stringify(elements['v3-market-cards'].children[2]),/PC.*独立.*标准/);
   assert.match(JSON.stringify(elements['v3-market-cards'].children[2]),/\$9\.47/);
-  plan.mode='daily';state.strategies.daily.selected.daily_pricing={pc:{driver_source:'ArabUT',driver_platform:'PC',
+  plan.mode='daily';state.strategies.daily.selected.daily_pricing={PC:{driver_source:'ArabUT',driver_platform:'PC',
     target_public_usd:'9.94',selected_base_total:'9.94',item_target_met:true,platforms:{}}};
   elements['v3-mode'].value='daily';await elements['v3-refresh'].events.click();
   assert.match(JSON.stringify(elements['v3-strategies'].children),/PC按ArabUT PC当轮实际交付价定价/);
   assert.doesNotMatch(JSON.stringify(elements['v3-strategies'].children),/ItemD2R/);
   plan.mode='smart';delete plan.smart_strategy_version;delete plan.parameters;
   elements['v3-mode'].value='smart';elements['v3-mode'].events.change();
-  assert.match(elements['v3-mode-purpose'].textContent,/上调3%.*上调6%/,'legacy plans retain their actual policy');
+  assert.match(elements['v3-mode-purpose'].textContent,/历史智能策略.*B上调3%.*C上调6%/);
   await elements['v3-refresh'].events.click();
   assert.equal(marketTag.textContent,'Lootbar 无券 · ItemD2R · Saudi Arabia 普通发货','legacy plans keep the original market heading');
   console.log('UI contract and state smoke passed');

@@ -89,5 +89,39 @@ class HealthContract(unittest.TestCase):
         self.assertIn("unknown_operation:test", result["platforms"]["PS"]["reasons"])
 
 
+    def native_report(self):
+        return {"v3":{"enabled":True},"issues":[],
+                "coin":{"config":{"system_enabled":True,"mode":"auto","revision":38}},
+                "publication":{"status":"unavailable","platforms":[]},"unknown_operations":[]}
+
+    def test_v3_public_unobserved_does_not_block_order_admin_success(self):
+        value=self.native_report()
+        value['issues']=[{'level':'warning','code':'coin_v3_public_observation_pending'}]
+        with patch.object(hooks,'bot_ready',return_value=False):result=hooks.controls(value)
+        self.assertTrue(all(not x['reasons'] for x in result['platforms'].values()))
+
+    def test_v3_actual_public_mismatch_blocks_only_affected_platform(self):
+        value=self.native_report()
+        value['publication']={'status':'mismatch','platforms':[{'platform':'XBOX','status':'mismatch'}]}
+        with patch.object(hooks,'bot_ready',return_value=False):result=hooks.controls(value)
+        self.assertEqual(result['platforms']['XBOX']['reasons'],['published_price_unverified'])
+        self.assertEqual(result['platforms']['PS']['reasons'],[])
+        self.assertEqual(result['platforms']['PC']['reasons'],[])
+
+    def test_v3_unknown_and_stale_remain_real_blocks(self):
+        value=self.native_report();value['unknown_operations']=[{'operation_id':'original','platforms':['PS']}]
+        with patch.object(hooks,'bot_ready',return_value=False):result=hooks.controls(value)
+        self.assertEqual(result['platforms']['PS']['reasons'],['unknown_operation:original'])
+        self.assertEqual(result['platforms']['XBOX']['reasons'],[])
+        value['issues']=[{'level':'critical','code':'source_coverage_unverified'}]
+        with patch.object(hooks,'bot_ready',return_value=False):result=hooks.controls(value)
+        self.assertTrue(all('source_coverage_unverified' in x['reasons'] for x in result['platforms'].values()))
+
+    def test_legacy_public_unknown_keeps_original_gate(self):
+        value=self.native_report();value.pop('v3')
+        with patch.object(hooks,'bot_ready',return_value=False):result=hooks.controls(value)
+        self.assertTrue(all('published_price_unverified' in x['reasons'] for x in result['platforms'].values()))
+
+
 if __name__ == "__main__":
     unittest.main()

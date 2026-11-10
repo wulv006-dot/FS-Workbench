@@ -41,9 +41,9 @@ def original_restore_prices(operation_id):
         raise ValueError('pricing_restore_original_unconfirmed')
     rows=(audit.get('before') or {}).get('rows') or []
     by={r['platform']:r for r in rows if r.get('platform') in ('PS','XBOX','PC') and r.get('b2c') is not None}
-    if len(rows)!=3 or set(by)!={'PS','XBOX','PC'} or number(by['PS']['b2c'])!=number(by['XBOX']['b2c']):
+    if len(rows)!=3 or set(by)!={'PS','XBOX','PC'}:
         raise ValueError('pricing_restore_original_scope_invalid')
-    return dict(console=str(number(by['PS']['b2c'])*100),pc=str(number(by['PC']['b2c'])*100))
+    return {p:str(number(by[p]['b2c'])*100) for p in ('PS','XBOX','PC')}
 
 
 def history_view(result):
@@ -315,7 +315,7 @@ def post(path,data,actor):
         plan=db.get('pricing_plans',data['plan_id'])
         if not plan or plan['state']!='ACTIVE':raise ValueError('pricing_uk_retirement_plan_inactive')
         with db.transaction() as conn:
-            db.owns(plan,['base:console','base:pc'],conn)
+            db.owns(plan,['base:'+p for p in ('PS','XBOX','PC')],conn)
             response=dict(status='queued',job_key=key,operation_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'fc-v3-uk-retirement:'+key)))
             db.put('metadata',key,dict(request_sha256=fingerprint(data),response=response),conn)
             db.enqueue('uk_retirement',key,clock(),dict(plan_id=plan['plan_id'],revision=plan['revision'],actor=actor),conn)
@@ -336,8 +336,8 @@ def post(path,data,actor):
             return existing
         if not snapshot:
             raise ValueError('pricing_snapshot_required')
-        resources=data.get('resources',['base:console','base:pc'])
-        allowed={'base:console','base:pc'}|{r['resource'] for r in snapshot['evidence'].get('regional_controls',[])
+        resources=data.get('resources',['base:'+p for p in ('PS','XBOX','PC')])
+        allowed={'base:'+p for p in ('PS','XBOX','PC')}|{r['resource'] for r in snapshot['evidence'].get('regional_controls',[])
                                             if r.get('resource') and r.get('region_id')==21}
         if set(resources)-allowed:
             raise ValueError('pricing_plan_scope_invalid')
@@ -346,8 +346,8 @@ def post(path,data,actor):
             raise ValueError('pricing_smart_region_evidence_missing')
         if mode=='smart' and set(resources)!=allowed:
             raise ValueError('pricing_smart_scope_requires_all_owned_resources')
-        anchor={'base_prices':{g:str(max(number(snapshot['evidence']['storefront']['rows'][p]['package_usd']) for p in ps))
-                               for g,ps in {'console':('PS','XBOX'),'pc':('PC',)}.items()},
+        anchor={'base_prices':{p:str(number(snapshot['evidence']['storefront']['rows'][p]['package_usd']))
+                               for p in ('PS','XBOX','PC')},
                 'region_coefficients':{str(r['region_id'])+':'+p:str(r['factor']) for r in snapshot['evidence'].get('region_rules',[]) for p in r['platforms']}}
         if existing:
             resources,anchor=existing['resources'],existing['price_anchor']
@@ -456,7 +456,7 @@ def post(path,data,actor):
         if not plan:
             raise ValueError('pricing_plan_required')
         prices=original_restore_prices(restore_id) if restore_id else data['explicit_prices']
-        if not isinstance(prices,dict) or not prices or set(prices)-{'console','pc'}:
+        if not isinstance(prices,dict) or not prices or set(prices)-{'PS','XBOX','PC'}:
             raise ValueError('pricing_manual_price_fields')
         if restore_id:
             prices={group:value for group,value in prices.items() if 'base:'+group in plan['resources']}

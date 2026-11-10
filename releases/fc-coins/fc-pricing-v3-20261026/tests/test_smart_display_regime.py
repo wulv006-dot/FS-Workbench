@@ -156,7 +156,7 @@ class DisplayRuntime(unittest.TestCase):
         policy=first['decision_receipt']['smart_assignment']['policy']
         key=smart.policy_key(self.plan,0,policy)
         self.assertEqual(self.db.get('metadata',key),policy)
-        self.assertEqual(set(policy['display_group_keys']),{'console','pc'})
+        self.assertEqual(set(policy['display_group_keys']),{'PS','XBOX','PC'})
         self.verify(first,True)
         self.data['run_id']='next-display'
         at=NOW+timedelta(seconds=1);self.display(at,console='c')
@@ -184,8 +184,8 @@ class DisplayRuntime(unittest.TestCase):
         self.assertEqual(receipt['action'],original['action'])
         self.assertEqual(receipt['financial_proof'],original['financial_proof'])
         self.assertEqual(receipt['smart_assignment']['group_schedules'],original['smart_assignment']['group_schedules'])
-        self.assertIsNone(receipt['smart_assignment']['policy']['display_group_keys']['console'])
-        self.assertIsNotNone(receipt['smart_assignment']['policy']['display_group_keys']['pc'])
+        self.assertIsNone(receipt['smart_assignment']['policy']['display_group_keys']['PS'])
+        self.assertIsNotNone(receipt['smart_assignment']['policy']['display_group_keys']['PC'])
         runtime.verify_quote(dict(evidence=self.data,result=current),dict(minimum_gross_margin_pct='20'),
             ['PS','XBOX','PC'],now=at,for_execution=True)
         self.assertEqual(self.db.all('actual_price_windows'),[])

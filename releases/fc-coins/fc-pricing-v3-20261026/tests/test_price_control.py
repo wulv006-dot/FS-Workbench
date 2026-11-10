@@ -26,7 +26,9 @@ class PriceControlTest(unittest.TestCase):
         for cost in self.data['costs'].values():cost['cny_per_1k']=str(runtime.number(cost['cny_per_1k']))
         self.db.activate_generation('g',[])
         with patch('fc_pricing_v3.ledger.clock',return_value=NOW):
-            self.plan=self.db.create_plan('revenue_sprint',['base:console','base:pc'],engine.current_action(self.data))
+            self.plan=self.db.create_plan('revenue_sprint',['base:PS','base:XBOX','base:PC'],engine.current_action(self.data))
+            self.plan['parameters'].update(competitor_policy='lootbar_primary_arabut_secondary_v1',region_pricing='global')
+            self.db.put('pricing_plans',self.plan['plan_id'],self.plan)
             self.plan=self.db.activate_plan(self.plan['plan_id'],now=NOW)
         self.patches=[patch.object(runtime,'ledger',return_value=self.db),patch.object(runtime,'ROOT',self.root),
                       patch.object(runtime,'clock',return_value=NOW),patch.object(api,'ledger',return_value=self.db)]
@@ -50,11 +52,11 @@ class PriceControlTest(unittest.TestCase):
 
     def test_smart_plan_executes_through_existing_quote_verifier(self):
         with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
-            smart = self.db.create_plan('smart', ['base:console', 'base:pc'], engine.current_action(self.data))
+            smart = self.db.create_plan('smart', ['base:PS','base:XBOX', 'base:PC'], engine.current_action(self.data))
             self.db.activate_plan(smart['plan_id'], now=NOW)
         result = self.quote()
         self.assertEqual(result['decision_receipt']['mode'], 'smart')
-        self.assertIn(result['decision_receipt']['smart_assignment']['label'], ('A', 'B', 'C'))
+        self.assertIn(result['decision_receipt']['smart_assignment']['label'], ('A', 'B', 'C', 'MIXED'))
         self.verify(result)
         changed=deepcopy(result)
         changed['decision_receipt']['smart_assignment']['label']='Z'
@@ -67,7 +69,7 @@ class PriceControlTest(unittest.TestCase):
         self.plan['parameters']['preferred_undercut_pct']='5'
         self.db.put('pricing_plans',self.plan['plan_id'],self.plan)
         with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
-            smart=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            smart=self.db.create_plan('smart',['base:PS','base:XBOX','base:PC'],engine.current_action(self.data))
         self.assertEqual(smart['baseline_plan']['plan_id'],self.plan['plan_id'])
         self.assertEqual(smart['baseline_plan']['revision'],self.plan['revision'])
         self.assertEqual(smart['baseline_plan']['parameters']['preferred_undercut_pct'],'5')
@@ -76,7 +78,7 @@ class PriceControlTest(unittest.TestCase):
     def test_smart_p0_uses_original_sprint_assignment(self):
         previous = self.quote()['decision_receipt']
         with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
-            smart = self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            smart = self.db.create_plan('smart',['base:PS','base:XBOX','base:PC'],engine.current_action(self.data))
             self.db.activate_plan(smart['plan_id'],now=NOW)
         next_receipt = self.quote()['decision_receipt']
         self.assertEqual(next_receipt['smart_assignment']['baseline_assignment']['assignment_id'],previous['assignment_id'])
@@ -91,7 +93,7 @@ class PriceControlTest(unittest.TestCase):
         key=fingerprint([self.plan['plan_id'],self.plan['revision'],int(NOW.timestamp())//21600])
         previous=self.db.get('experiment_assignments',key)
         with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
-            smart=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            smart=self.db.create_plan('smart',['base:PS','base:XBOX','base:PC'],engine.current_action(self.data))
             self.db.activate_plan(smart['plan_id'],now=NOW)
         after=NOW+timedelta(minutes=2)
         with patch.object(runtime,'clock',return_value=after):
@@ -129,7 +131,7 @@ class PriceControlTest(unittest.TestCase):
         self.save(uplift_enabled=True,uplift_pct='5')
         previous=self.quote()['decision_receipt']
         with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
-            smart=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            smart=self.db.create_plan('smart',['base:PS','base:XBOX','base:PC'],engine.current_action(self.data))
             self.db.activate_plan(smart['plan_id'],now=NOW)
         result=self.quote()
         self.assertEqual(result['decision_receipt']['smart_assignment']['baseline_candidate']['action'],previous['action'])
@@ -137,7 +139,7 @@ class PriceControlTest(unittest.TestCase):
 
     def test_smart_execution_checks_persisted_original_assignment(self):
         with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
-            smart=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            smart=self.db.create_plan('smart',['base:PS','base:XBOX','base:PC'],engine.current_action(self.data))
             self.db.activate_plan(smart['plan_id'],now=NOW)
         result=self.quote()
         (self.root/'config').mkdir()
@@ -153,13 +155,13 @@ class PriceControlTest(unittest.TestCase):
 
     def test_smart_activation_detects_owner_change_and_is_idempotent(self):
         with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
-            smart=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
-            other=self.db.create_plan('revenue_sprint',['base:pc'],engine.current_action(self.data))
+            smart=self.db.create_plan('smart',['base:PS','base:XBOX','base:PC'],engine.current_action(self.data))
+            other=self.db.create_plan('revenue_sprint',['base:PC'],engine.current_action(self.data))
             self.db.activate_plan(other['plan_id'],now=NOW)
             with self.assertRaisesRegex(ValueError,'pricing_smart_owner_changed'):
                 self.db.activate_plan(smart['plan_id'],now=NOW)
             self.db.activate_plan(self.plan['plan_id'],now=NOW)
-            fresh=self.db.create_plan('smart',['base:console','base:pc'],engine.current_action(self.data))
+            fresh=self.db.create_plan('smart',['base:PS','base:XBOX','base:PC'],engine.current_action(self.data))
             first=self.db.activate_plan(fresh['plan_id'],now=NOW)
             self.assertEqual(self.db.activate_plan(fresh['plan_id'],now=NOW),first)
 
@@ -168,21 +170,21 @@ class PriceControlTest(unittest.TestCase):
         snapshot['regional_controls']=[dict(region_id=21,resource='region:21:PC',platforms=['PC'])]
         snapshot['region_rules']=[]
         self.db.put('pricing_snapshots','scope',dict(snapshot_id='scope',created_at=NOW.isoformat(),evidence=snapshot))
-        body=dict(request_key='smart-scope',mode='smart',resources=['base:console','base:pc'],parameters={})
+        body=dict(request_key='smart-scope',mode='smart',resources=['base:PS','base:XBOX','base:PC'],parameters={})
         with self.assertRaisesRegex(ValueError,'pricing_smart_scope_requires_all_owned_resources'):
             api.post('plans',body,'wulv')
         with patch('fc_pricing_v3.ledger.clock',return_value=NOW):
             plan=api.post('plans',dict(body,resources=body['resources']+['region:21:PC']),'wulv')
-        self.assertEqual(set(plan['resources']),{'base:console','base:pc','region:21:PC'})
+        self.assertEqual(set(plan['resources']),{'base:PS','base:XBOX','base:PC','region:21:PC'})
 
     def test_smart_invalid_uplift_preserves_baseline_cycle(self):
         from fc_pricing_v3 import smart as smart_module
         with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
-            plan = self.db.create_plan('smart', ['base:console', 'base:pc'], engine.current_action(self.data))
+            plan = self.db.create_plan('smart', ['base:PS','base:XBOX', 'base:PC'], engine.current_action(self.data))
             self.db.activate_plan(plan['plan_id'], now=NOW)
         build = smart_module.build_candidate
         def selective(evidence, plan, current, baseline, label, now):
-            if label != 'A':
+            if any(v!='A' for v in label.values()) if isinstance(label,dict) else label!='A':
                 raise ValueError('NO_SAFE_COMMIT_PATH')
             return build(evidence, plan, current, baseline, label, now)
         with patch.object(smart_module, 'build_candidate', side_effect=selective):
@@ -192,11 +194,11 @@ class PriceControlTest(unittest.TestCase):
 
     def test_excluded_uplift_arms_have_no_randomized_exposure(self):
         with patch('fc_pricing_v3.ledger.clock', return_value=NOW):
-            plan = self.db.create_plan('smart', ['base:console', 'base:pc'], engine.current_action(self.data),
+            plan = self.db.create_plan('smart', ['base:PS','base:XBOX', 'base:PC'], engine.current_action(self.data),
                                        starts_at=(NOW-timedelta(hours=48)).isoformat())
             self.db.activate_plan(plan['plan_id'], now=NOW)
-        self.db.put('metadata', 'smart-policy:'+plan['plan_id']+':1:1',
-                    {'status':'WAITING_MORE_DATA','winner':None,'excluded':['B','C']})
+        self.db.put('metadata', 'smart-policy:'+__import__('fc_pricing_v3.smart',fromlist=['policy_suffix']).policy_suffix(plan)+':1',
+                    {'group_results':{p:{'status':'WAITING_MORE_DATA','winner':None,'excluded':['B','C']} for p in engine.PLATFORMS}})
         result=self.quote()['decision_receipt']
         self.assertEqual(result['smart_assignment']['label'],'A')
         self.assertEqual(result['assignment_probability'],1)
@@ -217,13 +219,13 @@ class PriceControlTest(unittest.TestCase):
         self.assertEqual(self.quote()['decision_receipt']['action'],before)
 
     def test_manual_wins_skips_strategy_and_does_not_need_competitor(self):
-        self.save(manual_enabled=True,manual_prices=dict(console='.2',pc='.22'),uplift_enabled=True,uplift_pct='10')
+        self.save(manual_enabled=True,manual_prices=dict(PS='.2',XBOX='.2',PC='.22'),uplift_enabled=True,uplift_pct='10')
         self.data['offers']={p:{} for p in engine.PLATFORMS}
         with patch.object(runtime,'evaluate',side_effect=AssertionError('manual must not run strategies')):
             result=self.quote()
         self.verify(result)
         receipt=result['decision_receipt']
-        self.assertEqual(receipt['action']['base_prices'],dict(console='20.00',pc='22.00'))
+        self.assertEqual(receipt['action']['base_prices'],dict(PS='20.00',XBOX='20.00',PC='22.00'))
         self.assertIsNone(receipt['strategy_action']);self.assertEqual(receipt['decision_type'],'manual_intervention')
         self.assertEqual(self.db.get('pricing_plans',self.plan['plan_id']),self.plan)
         self.data['storefront']['status']='ok'
@@ -235,7 +237,7 @@ class PriceControlTest(unittest.TestCase):
 
     def test_six_percent_uplift_reproves_legal_floor_fallback_before_execution(self):
         from test_dual20_sprint import source
-        self.data=source(loot='1',item='2',cost='.35',bonus='5')
+        self.data=source(loot='1',item='2',cost='.35',bonus='0')
         self.save(uplift_enabled=True,uplift_pct='6')
         result=self.quote();receipt=result['decision_receipt']
         self.assertEqual(receipt['base_strategy_decision']['decision_type'],'floor_fallback')
@@ -246,46 +248,46 @@ class PriceControlTest(unittest.TestCase):
         (self.root/'config/v3-control.json').write_text(json.dumps(dict(generation='g',enabled=True)))
         runtime.verify_quote(dict(evidence=self.data,result=result),dict(minimum_gross_margin_pct='20'),
                              ['PS','XBOX','PC'],now=NOW,for_execution=True)
-        bad=deepcopy(result);bad['decision_receipt']['strategy_action']['base_prices']['console']='999'
+        bad=deepcopy(result);bad['decision_receipt']['strategy_action']['base_prices']['PS']='999'
         bad['decision_receipt']['sha256']=fingerprint({k:v for k,v in bad['decision_receipt'].items() if k!='sha256'})
         with self.assertRaisesRegex(ValueError,'pricing_price_control_strategy_changed'):
             self.verify(bad)
 
     def test_manual_off_resumes_strategy_then_saved_uplift(self):
         strategy=self.quote()['decision_receipt']['action']
-        self.save(manual_enabled=True,manual_prices=dict(console='.2',pc='.22'),uplift_enabled=True,uplift_pct='10')
+        self.save(manual_enabled=True,manual_prices=dict(PS='.2',XBOX='.2',PC='.22'),uplift_enabled=True,uplift_pct='10')
         self.quote();self.save(manual_enabled=False)
         receipt=self.quote()['decision_receipt']
         self.assertEqual(receipt['strategy_action'],strategy)
         self.assertEqual(receipt['decision_type'],'temporary_uplift')
 
     def test_daily_uplift_reproves_against_frozen_plan_anchor(self):
-        self.plan.update(mode='daily',parameters={},price_anchor=dict(base_prices=dict(console='16',pc='18'),region_coefficients={}))
+        self.plan.update(mode='daily',parameters={},price_anchor=dict(base_prices=dict(PS='16',XBOX='16',PC='18'),region_coefficients={}))
         self.db.put('pricing_plans',self.plan['plan_id'],self.plan)
         self.save(uplift_enabled=True,uplift_pct='10')
         self.verify(self.quote())
 
     def test_price_control_never_bypasses_financial_or_fx_freshness(self):
-        self.save(manual_enabled=True,manual_prices=dict(console='.0001',pc='.0001'))
+        self.save(manual_enabled=True,manual_prices=dict(PS='.0001',XBOX='.0001',PC='.0001'))
         with self.assertRaisesRegex(ValueError,'margin_floor'):self.quote()
-        self.save(manual_prices=dict(console='.2',pc='.22'))
+        self.save(manual_prices=dict(PS='.2',XBOX='.2',PC='.22'))
         self.data['fx']['checked_at']='2020-01-01T00:00:00+00:00'
         with self.assertRaises(ValueError):self.quote()
 
     def test_only_plan_owned_groups_are_changed(self):
-        self.plan['resources']=['base:pc'];self.db.put('pricing_plans',self.plan['plan_id'],self.plan)
-        self.save(manual_enabled=True,manual_prices=dict(console='.2',pc='.22'))
+        self.plan['resources']=['base:PC'];self.db.put('pricing_plans',self.plan['plan_id'],self.plan)
+        self.save(manual_enabled=True,manual_prices=dict(PS='.2',XBOX='.2',PC='.22'))
         receipt=self.quote()['decision_receipt']
-        self.assertEqual(receipt['action']['base_prices']['console'],receipt['before_action']['base_prices']['console'])
-        self.assertEqual(receipt['action']['base_prices']['pc'],'22.00')
+        self.assertEqual(receipt['action']['base_prices']['PS'],receipt['before_action']['base_prices']['PS'])
+        self.assertEqual(receipt['action']['base_prices']['PC'],'22.00')
 
     def test_settings_cas_idempotency_and_unknown_lease(self):
-        body=dict(request_key='one',expected_revision=0,manual_enabled=False,manual_prices=dict(console=None,pc=None),uplift_enabled=True,uplift_pct='10')
+        body=dict(request_key='one',expected_revision=0,manual_enabled=False,manual_prices=dict(PS=None,XBOX=None,PC=None),uplift_enabled=True,uplift_pct='10')
         first=api.post('price-control',body,'wulv')
         self.assertEqual(api.post('price-control',body,'wulv'),first)
         with self.assertRaisesRegex(ValueError,'payload_conflict'):api.post('price-control',dict(body,uplift_pct='20'),'wulv')
         with self.assertRaisesRegex(ValueError,'revision_changed'):api.post('price-control',dict(body,request_key='two'),'wulv')
-        with self.db.transaction() as conn:conn.execute("INSERT INTO resource_leases VALUES ('base:pc','unknown-original')")
+        with self.db.transaction() as conn:conn.execute("INSERT INTO resource_leases VALUES ('base:PC','unknown-original')")
         with self.assertRaisesRegex(ValueError,'resource_unresolved'):self.save(uplift_enabled=False)
         self.assertEqual(self.db.price_control()['revision'],1)
 
@@ -295,15 +297,15 @@ class PriceControlTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'revision_changed'):self.db.prepare(self.plan,receipt,now=NOW)
 
     def test_rehashed_action_tampering_still_fails_reproof(self):
-        self.save(manual_enabled=True,manual_prices=dict(console='.2',pc='.22'))
+        self.save(manual_enabled=True,manual_prices=dict(PS='.2',XBOX='.2',PC='.22'))
         result=deepcopy(self.quote());receipt=result['decision_receipt']
-        receipt['action']['base_prices']['console']='21.00'
+        receipt['action']['base_prices']['PS']='21.00'
         receipt['sha256']=fingerprint({k:v for k,v in receipt.items() if k!='sha256'})
         with self.assertRaisesRegex(ValueError,'price_control_proof_changed'):self.verify(result)
 
     def test_invalid_settings_do_not_change_saved_value(self):
         for changes in [dict(manual_enabled=1),dict(uplift_enabled='false'),dict(uplift_pct='NaN'),
-            dict(uplift_pct='-10'),dict(manual_enabled=True),dict(manual_prices=dict(console='.12345',pc='.2'))]:
+            dict(uplift_pct='-10'),dict(manual_enabled=True),dict(manual_prices=dict(PS='.12345',XBOX='.12345',PC='.2'))]:
             with self.subTest(changes=changes),self.assertRaises(ValueError):self.save(**changes)
         self.assertEqual(self.db.price_control()['revision'],0)
 

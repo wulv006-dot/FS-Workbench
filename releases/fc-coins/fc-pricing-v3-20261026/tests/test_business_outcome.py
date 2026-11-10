@@ -19,7 +19,8 @@ class BusinessOutcome(unittest.TestCase):
         from fc_pricing_v3 import monitoring
         from fc_pricing_v3.financial import fingerprint
         data=source();ident=data['run_id']
-        receipt=dict(status='INFEASIBLE',execution_authorized=False,snapshot_sha256=fingerprint(data),snapshot_id=ident)
+        receipt=dict(status='INFEASIBLE',execution_authorized=False,snapshot_sha256=fingerprint(data),snapshot_id=ident,
+                     action=dict(base_prices={p:'20' for p in ('PS','XBOX','PC')},region_coefficients={}))
         snapshot=dict(snapshot_id=ident,origin='live_collector',mode='production',created_at=NOW.isoformat(),evidence=data,result=dict(status='INFEASIBLE',decision_receipt=receipt))
         plan=dict(plan_id='p',mode='daily',resources=['base:console','base:pc']);receipt['plan_id']='p'
         self.assertEqual(monitoring.source_coverage([snapshot],[plan],NOW)['status'],'verified')

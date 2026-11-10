@@ -2,6 +2,8 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 from contextlib import closing
+from fc_pricing_v3.platforms import action_key
+
 import hashlib
 import json
 from pathlib import Path
@@ -160,9 +162,9 @@ def postwrite_quote(operation_id, audit, root=ROOT):
                 receipt.get('decision_bundle_id')!=operation_id or
                 receipt.get('engine_generation')!=generation['id'] or
                 receipt.get('plan_id')!=plan['plan_id'] or receipt.get('revision')!=plan['revision'] or
-                any(receipt.get('action',{}).get('base_prices',{}).get(group) is None or
-                    not same(receipt['action']['base_prices'][group],original['action']['base_prices'][group])
-                    for group in ('console','pc'))):
+                any(receipt.get('action',{}).get('base_prices',{}).get(action_key(receipt['action'],group)) is None or
+                    not same(receipt['action']['base_prices'][action_key(receipt['action'],group)],original['action']['base_prices'][action_key(original['action'],group)])
+                    for group in PLATFORMS)):
             raise ValueError('original_postwrite_action_changed')
     elif (receipt.get('action')!=original.get('action') or
             receipt.get('engine_generation')!=operation['generation'] or
@@ -172,7 +174,7 @@ def postwrite_quote(operation_id, audit, root=ROOT):
     if set(rows)!=set(PLATFORMS):
         raise ValueError('original_postwrite_order_scope_invalid')
     for platform in PLATFORMS:
-        group='pc' if platform=='PC' else 'console'
+        group=action_key(receipt['action'],platform)
         if not same(Decimal(str(rows[platform]['b2c']))*100,receipt['action']['base_prices'][group]):
             raise ValueError('original_postwrite_actual_price_changed')
     return lambda:quote

@@ -614,11 +614,11 @@ def demand_snapshot(selected, orders, storefront, provenance):
         if str(order.get('is_region_price')) == '1':
             region_buckets[(str(order.get('region_price_lang_region_id')), platform)][sn] = pair
         else:
-            buckets['pc' if platform == 'PC' else 'console'][sn] = pair
+            buckets[platform][sn] = pair
     groups = {}
     for group, entries in buckets.items():
         metrics = summarize(entries)
-        platform = 'PC' if group == 'pc' else 'PS'
+        platform = group
         complete_quantity = all(quantities[sn] is not None for sn in entries)
         quantity_totals = {key: sum((Decimal(quantities[sn][key]) for sn in entries if quantities[sn] is not None), Decimal(0)) for key in ('purchase_k', 'bonus_k', 'delivered_k')}
         groups[group] = dict(observed_orders_per_block=str(Decimal(len(entries)) / blocks),
@@ -652,7 +652,7 @@ def demand_snapshot(selected, orders, storefront, provenance):
             rate_window_hours=6, observed_window_hours=str(window_hours),
             new_customer_ratio=str(Decimal(sum(sn in entries for sn in new_assignments.values())) / len(entries)) if customer_coverage['status'] == 'complete' else None,
             metrics=metrics))
-    return dict(status='observed_rate_quantity_partial_platform' if known_platform < len(selected) else 'observed_rate_quantity_available', version='fc27-real-business-source-v1',
+    return dict(status='observed_rate_quantity_partial_platform' if known_platform < len(selected) else 'observed_rate_quantity_available', version='fc27-real-business-source-platform-v2',price_scope_contract='fc27_three_platform_v1',
         rate_window_hours=6, observed_window_hours=str(window_hours), period=period,
         groups=groups, segments=[], observed_segments=observed_segments, summary=dict(summarize(selected), **customer_coverage),
         coverage=dict(eligible_orders=len(selected), platform_known_orders=known_platform, quantity_known_orders=known_quantity,
@@ -665,7 +665,7 @@ def demand_snapshot(selected, orders, storefront, provenance):
         forecast_basis='actual_paid_order_rate_and_mixed_order_AOV_plus_delivery_K; current_100K_price_anchor; elasticity_prior_not_causal_fit')
 
 
-def historical_mix(selected, provenance, *, history_window_contract=None):
+def _amount_mix(selected, provenance, *, history_window_contract=None):
     pairs = [(amount(r.get('salesUsd')), amount(es.get('discount_usd'))) for r, es in selected.values()]
     known = [(n, d) for n, d in pairs if n is not None and d is not None and n >= 0 and d >= 0]
     net, discount = (sum((p[i] for p in known), Decimal(0)) for i in (0, 1))
@@ -680,6 +680,59 @@ def historical_mix(selected, provenance, *, history_window_contract=None):
         canonical_archive_sha256=provenance.get('canonical_archive_sha256'), ES_source_sha256=provenance.get('ES_source_sha256'))
     if history_window_contract is not None:body['history_window_contract']=history_window_contract
     return dict(body, sha256=fingerprint(body))
+
+
+def _platform_cohorts(selected, orders):
+    groups={p:{} for p in PLATFORMS};unknown=0
+    for identity,pair in selected.items():
+        platform=_platform(orders.get(identity) or {})
+        if platform is None:unknown+=1
+        else:groups[platform][identity]=pair
+    return groups,unknown
+
+
+def historical_mix(selected, provenance, *, orders=None, history_window_contract=None):
+    """Native platform identity, never Console pooling or amount-based allocation."""
+    if orders is None:raise ValueError('pricing_history_platform_identity_required')
+    from .financial import HISTORY_PLATFORM_CONTRACT,HISTORY_WINDOW_CONTRACT
+    window=history_window_contract or HISTORY_WINDOW_CONTRACT
+    groups,unknown=_platform_cohorts(selected,orders)
+    coverage=dict(ES_complete=provenance.get('ES_complete'),missing_product_identity=provenance.get('missing_product_identity'),
+        eligible_orders=len(selected),classified_orders=len(selected)-unknown,unknown_platform_orders=unknown,
+        platform_identity_complete=unknown==0,by_platform_orders={p:len(rows) for p,rows in groups.items()})
+    children={}
+    for platform,entries in groups.items():
+        child=_amount_mix(entries,provenance,history_window_contract=window)
+        child.pop('sha256')
+        child.update(platform=platform,population='identified '+platform+' main-site Coins paid nonrefund nonfraud nontest orders',
+            source_coverage=dict(coverage,eligible_orders=len(entries),classified_orders=len(entries)))
+        if not entries:
+            child.update(status='unavailable',net_order_usd=None,actual_discount_usd=None,undiscounted_order_usd=None,retained_ratio=None)
+        elif unknown:child['status']='partial'
+        child['sha256']=fingerprint(child);children[platform]=child
+    aggregate=_amount_mix(selected,provenance,history_window_contract=window)
+    aggregate={key:aggregate[key] for key in ('observed_orders','eligible_orders','net_order_usd','actual_discount_usd','undiscounted_order_usd')}
+    body=dict(platform_contract=HISTORY_PLATFORM_CONTRACT,history_window_contract=window,period=provenance['period'],
+        status='available' if not unknown and all(v['status']=='available' for v in children.values()) else 'partial',
+        by_platform=children,aggregate=aggregate,source_coverage=coverage,
+        source_times=dict(orders=provenance.get('source_generated_at')),
+        canonical_archive_sha256=provenance.get('canonical_archive_sha256'),ES_source_sha256=provenance.get('ES_source_sha256'))
+    return dict(body,sha256=fingerprint(body))
+
+
+def platform_replay(selected,orders,logs,templates,provenance,mix):
+    groups,_=_platform_cohorts(selected,orders)
+    replay={}
+    for platform,entries in groups.items():
+        value=build_replay(entries,orders,logs,templates,provenance)
+        value.update(platform=platform,source_scope='actual_platform_'+platform,
+            original_mix_sha256=mix['by_platform'][platform]['sha256'],history_window_contract=mix['history_window_contract'])
+        value['points_contract']['basis']='actual_d9_d2_eight_day_points_identity_and_existing_cart_cap'
+        replay[platform]=value
+    return dict(platform_contract=mix['platform_contract'],by_platform=replay,period=mix['period'],
+        status='verified' if all(v['status']=='verified' for v in replay.values()) else 'partial',
+        original_mix_sha256=mix['sha256'],source_sha256=fingerprint({p:v['source_sha256'] for p,v in replay.items()}),
+        provenance=dict(provenance),history_window_contract=mix['history_window_contract'])
 
 
 def historical_attachment(selected, orders, logs, provenance, observed_at):
@@ -775,7 +828,7 @@ def historical_attachment(selected, orders, logs, provenance, observed_at):
         totals={key:str(value) for key,value in totals.items()}, available_at=observed_at.isoformat(),
         availability_basis='these_Admin_and_cost_facts_verified_at_current_collection; never_backdated_to_payment_time',
         longer_window_coverage='only_this_exact_period; 14d_28d_month_require_additional_original_archives_and_traces',
-        original_mix_sha256=historical_mix(selected, provenance)['sha256'],
+        original_mix_sha256=historical_mix(selected, provenance, orders=orders)['sha256'],
         canonical_archive_sha256=provenance['canonical_archive_sha256'], ES_source_sha256=provenance['ES_source_sha256'],
         privacy='anonymous_rows_for_private_snapshot_only; no_customer_identifiers_or_raw_order_numbers')
     metadata['source_sha256'] = fingerprint(dict(rows=rows, provenance=provenance))
@@ -846,7 +899,8 @@ def _window_instant(value):
 
 
 def _window_group(window, order, platform):
-    group = 'pc' if platform == 'PC' else 'console'
+    from .platforms import action_key
+    group = action_key(window['action'],platform)
     region = str(order.get('region_price_lang_region_id')) if str(order.get('is_region_price')) == '1' else None
     mutable = window.get('mutable_resources') or []
     key = region + ':' + platform if region else group
@@ -855,27 +909,31 @@ def _window_group(window, order, platform):
     return key
 
 
-def _window_end(window, group, windows, now):
-    base_group = group if group in ('console', 'pc') else 'pc' if group.endswith(':PC') else 'console'
-    dependencies = {'base:' + base_group}
+def _window_end(window, group, windows, now, *, platform=None):
+    from .platforms import native_resources,groups_for
+    # Physical dependencies decode the original record, including old Console
+    # windows; a later native PS change must close its old combined exposure.
+    platforms=(platform,) if platform is not None else (group.rsplit(':',1)[1],) if ':' in group else groups_for(window)[group]
+    dependencies = {'base:' + platform for platform in platforms}
     if ':' in group:
         dependencies.add('region:' + group)
     ends = [now]
     resource_closures = window.get('resource_closed_at')
     if resource_closures is not None:
-        ends += [_window_instant(value) for key, value in resource_closures.items() if key in dependencies and value]
+        ends += [_window_instant(value) for key, value in resource_closures.items() if dependencies.intersection(native_resources([key])) and value]
     elif window.get('closed_at'):
         ends.append(_window_instant(window['closed_at']))
     # A later price change affects the group's effective price even when it owns another dependency.
     opened = _window_instant(window['opened_at'])
     ends += [_window_instant(other['opened_at']) for other in windows
-             if _window_instant(other['opened_at']) > opened and dependencies.intersection(other.get('mutable_resources', []))]
+             if _window_instant(other['opened_at']) > opened and dependencies.intersection(native_resources(other.get('mutable_resources', [])))]
     return min(ends)
 
 
 def _window_regular(window, action, order, platform, quantity):
     from .engine import render
-    group = 'pc' if platform == 'PC' else 'console'
+    from .platforms import action_key
+    group = action_key(action,platform)
     region = str(order.get('region_price_lang_region_id')) if str(order.get('is_region_price')) == '1' else None
     coefficient = action.get('region_coefficients', {}).get(region + ':' + platform) if region else '1'
     if coefficient is None:
@@ -905,6 +963,7 @@ def _window_regular(window, action, order, platform, quantity):
 def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None, query_complete=True,customer_keys=None):
     """Server-local anonymous settlement records and window aggregates, never customer identities."""
     from .engine import replay_promotion
+    from .platforms import action_key
     archived, coupon_logs = archived or {}, coupon_logs or {}
     orders_by_id = {str(o['order_no']): o for o in orders if o.get('order_no')}
     bound_customers = {}
@@ -947,7 +1006,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
                 gap_events.append(dict(price_window_id=window['operation_id'], group=None, occurred_at=created.isoformat(), reason='unknown_platform', amount_usd=gap_usd))
                 continue
             group = _window_group(window, order, platform)
-            if group is None or created >= _window_end(window, group, valid, now):
+            if group is None or created >= _window_end(window, group, valid, now,platform=platform):
                 continue
             if quantity is None:
                 blocked_groups.add((window['operation_id'], group))
@@ -980,7 +1039,9 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             gap_events.append(dict(price_window_id=window['operation_id'], group=group, occurred_at=created.isoformat(), reason=reason, amount_usd=gap_usd))
             continue
         coverage['created_and_actual_price_uniquely_bound'] += 1
-        counts[(window['operation_id'], group)] += 1
+        # Original combined learning stops at its combined exposure boundary;
+        # real Xbox outcomes can remain bound after only PS has changed price.
+        if created < _window_end(window,group,valid,now):counts[(window['operation_id'], group)] += 1
         sn = str(order['order_no'])
         net = amount(order.get('amount_usd_format'))
         old = (archived.get(sn) or [None])[0]
@@ -991,7 +1052,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             if old.get('status') == '已完成' and cost is not None and cost >= 0 and cny is not None and cny > 0 and amount(old.get('salesUsd')) == net:
                 contribution = str((cny - cost) * net / cny)
         actual_outcomes.append(dict(order_key=hashlib.sha256(('FC27:266:' + sn).encode()).hexdigest(),
-            price_window_id=window['operation_id'], group=group, platform=platform, occurred_at=created.isoformat(),
+            price_window_id=window['operation_id'], group=action_key(window['action'],platform), price_group=group, platform=platform, occurred_at=created.isoformat(),
             actual_net_usd=str(net) if net is not None else None, actual_contribution_usd=contribution,
             coupon_present=bool(coupon_logs.get(sn)), cost_status='same_order_confirmed' if contribution is not None else 'pending',
             cost_basis='same_order_Order_shipping_CNY_margin_at_actual_USD_receipt' if contribution is not None else None))
@@ -1022,7 +1083,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             window={key: window.get(key) for key in ('operation_id', 'action', 'budget_reference', 'catalog')}))
         settlements.append(dict(order_key=hashlib.sha256(('FC27:266:' + sn).encode()).hexdigest(),
             origin='actual_bound_order', mode='production', operation_id=window['operation_id'], price_window_id=window['operation_id'],
-            group='pc' if platform == 'PC' else 'console', price_group=group, platform=platform,
+            group=action_key(window['action'],platform), price_group=group, platform=platform,
             occurred_at=created.isoformat(), reference_net_usd=str(replay_promotion(reference_regular, path)),
             actual_net_usd=str(net), actual_contribution_usd=contribution, source_sha256=budget_source,
             refund=False, status=str(order.get('status_format') or ''),
@@ -1053,7 +1114,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
                 groups.add(resource.split(':', 1)[1])
         for key in window['action'].get('region_coefficients', {}):
             platform = key.split(':')[-1]
-            base_group = 'pc' if platform == 'PC' else 'console'
+            base_group = action_key(window['action'],platform)
             regional_identity=(Decimal(window['action']['region_coefficients'][key])!=1 or
                                'region:'+key in window.get('mutable_resources',[]) or counts[(operation,key)]>0)
             if regional_identity and platform in window.get('platforms', []) and 'base:' + base_group in window.get('mutable_resources', []):
@@ -1065,7 +1126,7 @@ def bind_price_windows(orders, windows, now, *, archived=None, coupon_logs=None,
             hours = Decimal(str((end - _window_instant(window['opened_at'])).total_seconds())) / 3600
             if hours <= 0:
                 continue
-            base_group = group if group in ('console', 'pc') else 'pc' if group.endswith(':PC') else 'console'
+            base_group = group if group in window['action']['base_prices'] else action_key(window['action'],group.rsplit(':',1)[-1])
             price = Decimal(window['action']['base_prices'][base_group])
             if ':' in group:
                 price *= Decimal(window['action']['region_coefficients'][group])
@@ -1257,10 +1318,14 @@ def collect(session, pages, storefront, products, price_windows=None):
     orders, logs, templates = _live_traces(session, pages, period, selected)
     from pricing_sources import active
     templates = {key: dict(value, _current_active=active(value, now, coupon=True)) for key, value in templates.items()}
-    replay = build_replay(selected, orders, logs, templates, provenance)
-    mix = historical_mix(selected, provenance)
-    replay['original_mix_sha256'] = mix['sha256']
-    model = demand_snapshot(selected, orders, storefront, replay['provenance'])
+    from .selective_sources import history_period,project_cached_history
+    # Full/report reads keep their seven-day learning cohort, while every current
+    # financial entry uses the same independently reconciled D-9..D-2 sources.
+    financial_cache,financial_templates=build_shared_history_cache(session,pages,storefront,products,
+        fingerprint(dict(source='uncached_full_business_collection',period=history_period(now))),now)
+    mix=financial_cache['historical_discount_mix']
+    replay=project_cached_history(financial_cache,financial_templates,now)
+    model = demand_snapshot(selected, orders, storefront, provenance)
     model['advertising_context'] = marketing_context(period)
     model['fulfillment_context'] = fulfillment_context(selected, orders, provenance)
     model['coverage']['advertising'] = model['advertising_context']['status']
@@ -1300,7 +1365,7 @@ def collect(session, pages, storefront, products, price_windows=None):
         fulfillment_estimates=fulfillment_estimates, **online)
 
 
-# Append-only candidate adapters. Existing collect() remains unchanged until owner switches caller.
+# Shared current financial cache and explicit historical attachment adapters.
 
 def history_ES_blocker(period, *, ES_root=None, receipt_root=None):
     """Observe existing export evidence before collection; never requests an export."""
@@ -1378,7 +1443,10 @@ def selective_history_signature(period, *, channel_root=None, ES_root=None):
         stat=path.stat()
         signature.append([str(path),stat.st_dev,stat.st_ino,stat.st_size,stat.st_mtime_ns])
     # Delivery costs are deliberately excluded: v15 N/D does not change merely because an old cost arrives.
-    return fingerprint(dict(period=period,files=signature,contract='amount_and_discount_sources_v3_d9_d2_eight_days_native_multiline_quantity'))
+    from .financial import FINANCIAL_CONTRACT_VERSION
+    from .selective_sources import PACKAGE_SCOPE
+    return fingerprint(dict(period=period,files=signature,contract='amount_and_discount_sources_v5_d9_d2_native_three_platform_100k',
+        financial_contract_version=FINANCIAL_CONTRACT_VERSION,package_scope=PACKAGE_SCOPE))
 
 
 def build_shared_history_cache(session,pages,storefront,products,source_signature,now,*,include_fulfillment=False,used_templates_only=False,prior_cache=None):
@@ -1404,34 +1472,40 @@ def build_shared_history_cache(session,pages,storefront,products,source_signatur
                    else {str(t['id']):t for t in pages(session,'/admin/market.Coupon/index')})
     from pricing_sources import active
     templates={key:dict(value,_current_active=active(value,now,coupon=True)) for key,value in templates.items()}
-    replay=build_replay(selected,orders,logs,templates,provenance)
-    replay['points_contract']['basis']='actual_d9_d2_eight_day_points_identity_and_existing_cart_cap'
-    replay['history_window_contract']=HISTORY_WINDOW_CONTRACT
-    mix=historical_mix(selected,provenance,history_window_contract=HISTORY_WINDOW_CONTRACT);replay['original_mix_sha256']=mix['sha256']
-    grouped={}
+    mix=historical_mix(selected,provenance,orders=orders,history_window_contract=HISTORY_WINDOW_CONTRACT)
+    replay=platform_replay(selected,orders,logs,templates,provenance,mix)
+    grouped={p:{} for p in PLATFORMS}
     for identity,(archived,es) in selected.items():
         order=orders[identity]
+        platform=_platform(order)
+        if platform is None:continue
+        net,discount=amount(archived.get('salesUsd')),amount(es.get('discount_usd'))
+        if net is None or discount is None or net<0 or discount<0:continue
         used=[logs[str(c['id'])] for c in archived.get('coupons',[])]
         scenario=dict(code_retained_ratio=str(amount(order['discount'])/100),
             points_credit_usd=str(amount(order['points'])/POINTS_PER_USD),
             coupon_template_ids=[str(log['coupon_id']) for log in used],
             region_id=int(order['region_price_lang_region_id']) if str(order.get('is_region_price'))=='1' else 0)
         key=fingerprint(scenario)
-        item=grouped.setdefault(key,dict(scenario,weight_usd='0',orders=0))
-        item['weight_usd']=str(Decimal(item['weight_usd'])+amount(archived['salesUsd'])+amount(es['discount_usd']))
+        item=grouped[platform].setdefault(key,dict(scenario,weight_usd='0',orders=0))
+        item['weight_usd']=str(Decimal(item['weight_usd'])+net+discount)
         item['orders']+=1
     # The new financial window does not redefine the independent seven-day demand baseline.
-    old_model=None
+    old_model=legacy_model=None
     if isinstance(prior_cache,dict) and prior_cache.get('cache_sha256')==fingerprint({k:v for k,v in prior_cache.items() if k!='cache_sha256'}):
         old_model=(prior_cache.get('daily_rollups') or {}).get('demand_model')
-    if old_model:
+        legacy_model=(prior_cache.get('daily_rollups') or {}).get('legacy_demand_model')
+    if old_model and old_model.get('price_scope_contract')=='fc27_three_platform_v1' and set(old_model.get('groups',{}))<=set(PLATFORMS):
         model=deepcopy(old_model);model.setdefault('history_observed_at',prior_cache['created_at'])
     else:
-        model=dict(status='not_collected_for_pricing',groups={},segments=[],observed_segments=[],history_observed_at=None,
+        legacy_model=old_model or legacy_model
+        model=dict(status='not_collected_for_pricing',price_scope_contract='fc27_three_platform_v1',groups={},segments=[],observed_segments=[],history_observed_at=None,
                    missing_context=['seven_day_demand_baseline_not_collected'],forecast_basis='relative_100k_price_prior_not_observed_orders')
     rollups=dict(demand_model=model)
+    if legacy_model:rollups['legacy_demand_model']=deepcopy(legacy_model)
     if include_fulfillment:rollups['observed_fulfillment']=fulfillment_context(selected,orders,provenance)
-    return seal_history_cache(mix,replay,[grouped[k] for k in sorted(grouped)],rollups,source_signature,now),templates
+    scenarios=dict(by_platform={p:[rows[k] for k in sorted(rows)] for p,rows in grouped.items()})
+    return seal_history_cache(mix,replay,scenarios,rollups,source_signature,now),templates
 
 
 def _selective_closed_month_rollup(now):
@@ -1463,7 +1537,7 @@ def collect_selective_business(session,pages,storefront,products,*,active_mode,s
         update=cache
     if current_templates is None:
         current_templates=(read_used_templates(session,pages,
-            [identity for scenario in cache['promotion_scenarios'] for identity in scenario['coupon_template_ids']]) if core_only
+            [identity for rows in cache['promotion_scenarios']['by_platform'].values() for scenario in rows for identity in scenario['coupon_template_ids']]) if core_only
             else {str(row['id']):row for row in pages(session,'/admin/market.Coupon/index')})
     from pricing_sources import active
     current_templates={str(key):dict(row,_current_active=active(row,now,coupon=True)) for key,row in current_templates.items()}

@@ -15,14 +15,14 @@ import hermes_pricing_bridge as bridge
 
 class DailyProfit(unittest.TestCase):
     def setUp(self):
-        self.action=dict(base_prices=dict(console='7.50',pc='8.00'))
-        self.windows=[dict(operation_id='w',plan_id='p',mode='production',opened_at='2026-11-06T00:00:00+00:00',resources=['base:console','base:pc'],action=self.action)]
-        self.ops=[dict(operation_id='w',plan_id='p',status='COMPLETED',completed_at='2026-11-06T00:00:00+00:00',resources=['base:console','base:pc'],bundle=dict(action=self.action,smart_assignment=dict(label='B')))]
+        self.action=dict(base_prices={'PS':'7.50','XBOX':'7.50','PC':'8.00'})
+        self.windows=[dict(operation_id='w',plan_id='p',mode='production',opened_at='2026-11-06T00:00:00+00:00',resources=['base:PS','base:XBOX','base:PC'],action=self.action)]
+        self.ops=[dict(operation_id='w',plan_id='p',status='COMPLETED',completed_at='2026-11-06T00:00:00+00:00',resources=['base:PS','base:XBOX','base:PC'],bundle=dict(action=self.action,smart_assignment=dict(label='B')))]
         self.rows=[dict(order_key='private-order',customer_key='private-customer',price_window_id='w',
-            occurred_at='2026-11-06T15:59:00+00:00',group='console',actual_net_usd='100',
+            occurred_at='2026-11-06T15:59:00+00:00',group='PS',platform='PS',actual_net_usd='100',
             actual_contribution_usd='25',new_customer=True),
             dict(order_key='missing',price_window_id='w',occurred_at='2026-11-06T16:01:00+00:00',
-            group='pc',actual_net_usd='50',actual_contribution_usd=None,new_customer=None)]
+            group='PC',platform='PC',actual_net_usd='50',actual_contribution_usd=None,new_customer=None)]
         self.online=dict(actual_outcomes=self.rows,learning_coverage=dict(observed_at='2026-11-07T02:20:00+08:00',query_complete=True))
 
     def continuation(self,ident,at,plan,label,resources):
@@ -31,22 +31,34 @@ class DailyProfit(unittest.TestCase):
             resources=resources,bundle=dict(action=self.action,smart_assignment=dict(label=label,starts_at='2026-11-06T14:00:00+00:00'))))
 
     def test_other_platform_price_change_still_changes_this_platform_confirmed_policy(self):
-        self.ops.append(dict(operation_id='pc-changed',plan_id='next',status='COMPLETED',completed_at='2026-11-06T15:00:00+00:00',resources=['base:pc'],
-            bundle=dict(authorized_resources=['base:console','base:pc'],action=dict(base_prices=dict(console='7.50',pc='9.00')),smart_assignment=dict(label='C'))))
-        # Console keeps the old physical window; only PC actually changed price.
+        self.ops.append(dict(operation_id='pc-changed',plan_id='next',status='COMPLETED',completed_at='2026-11-06T15:00:00+00:00',resources=['base:PC'],
+            bundle=dict(authorized_resources=['base:PS','base:XBOX','base:PC'],action=dict(base_prices={'PS':'7.50','XBOX':'7.50','PC':'9.00'}),smart_assignment=dict(label='C'))))
+        # PS keeps the old physical window; only PC actually changed price.
         result=daily.profit_summary(self.online,self.windows,self.ops,'2026-11-06','next')
         self.assertEqual((result['review_day']['groups'][0]['plan_id'],result['review_day']['groups'][0]['label']),('next','C'))
         self.assertEqual(result['active_plan']['totals']['orders'],1)
 
     def test_latest_confirmed_price_mismatch_does_not_fall_back_to_old_matching_plan(self):
-        self.ops.append(dict(operation_id='changed',plan_id='next',status='COMPLETED',completed_at='2026-11-06T15:00:00+00:00',resources=['base:console'],
-            bundle=dict(action=dict(base_prices=dict(console='9.00')),smart_assignment=dict(label='C'))))
+        self.ops.append(dict(operation_id='changed',plan_id='next',status='COMPLETED',completed_at='2026-11-06T15:00:00+00:00',resources=['base:PS'],
+            bundle=dict(action=dict(base_prices={'PS':'9.00','XBOX':'7.50','PC':'8.00'}),smart_assignment=dict(label='C'))))
         result=daily.profit_summary(self.online,self.windows,self.ops,'2026-11-06','p')
         self.assertIsNone(result['review_day']['groups'][0]['plan_id'])
         self.assertEqual(result['review_day']['totals']['procurement_gross_usd'],'25')
 
+    def test_legacy_combined_outcome_without_platform_remains_original_console_history(self):
+        action=dict(base_prices=dict(console='7.50',pc='8.00'))
+        windows=[dict(operation_id='legacy',plan_id='old',opened_at='2026-11-06T00:00:00+00:00',resources=['base:console','base:pc'],action=action)]
+        operations=[dict(operation_id='legacy',plan_id='old',status='COMPLETED',completed_at=windows[0]['opened_at'],
+            resources=['base:console','base:pc'],bundle=dict(action=action,smart_assignment=dict(label='MIXED',group_labels=dict(console='B',pc='C'))))]
+        row=dict(self.rows[0],price_window_id='legacy',group='console');row.pop('platform')
+        result=daily.profit_summary(dict(actual_outcomes=[row]),windows,operations,'2026-11-06','old')
+        group=result['review_day']['groups'][0]
+        self.assertEqual((group['plan_id'],group['group'],group['label']),('old','console','B'))
+        self.assertEqual(result['active_plan']['totals']['orders'],1)
+        self.assertNotIn('PS',json.dumps(result))
+
     def test_same_price_plan_switch_uses_confirmed_time_not_window_owner_or_planned_start(self):
-        self.continuation('next','2026-11-06T16:00:00+00:00','next-plan','A',['base:console','base:pc'])
+        self.continuation('next','2026-11-06T16:00:00+00:00','next-plan','A',['base:PS','base:XBOX','base:PC'])
         result=daily.profit_summary(self.online,self.windows,self.ops,'2026-11-06','next-plan')
         self.assertEqual(result['review_day']['groups'][0]['plan_id'],'p')
         self.assertEqual(result['active_plan']['totals']['orders'],1)
@@ -56,15 +68,15 @@ class DailyProfit(unittest.TestCase):
 
     def test_same_price_abc_boundary_includes_order_at_confirmation_and_keeps_prior_orders(self):
         self.rows.append(dict(self.rows[0],order_key='earlier',customer_key='earlier',occurred_at='2026-11-06T15:58:59+00:00'))
-        self.continuation('C','2026-11-06T15:59:00+00:00','p','C',['base:console'])
+        self.continuation('C','2026-11-06T15:59:00+00:00','p','C',['base:PS'])
         result=daily.profit_summary(self.online,self.windows,self.ops,'2026-11-06','p')
         labels={g['label']:g['orders'] for g in result['review_day']['groups']}
         self.assertEqual(labels,{'B':1,'C':1})
         self.assertEqual(result['active_plan']['totals']['orders'],3)
 
     def test_continuation_is_resource_scoped_and_future_or_unconfirmed_operations_do_not_override(self):
-        self.continuation('pc','2026-11-06T15:00:00+00:00','pc-plan','A',['base:pc'])
-        self.continuation('future','2026-11-07T01:00:00+00:00','future-plan','C',['base:console','base:pc'])
+        self.continuation('pc','2026-11-06T15:00:00+00:00','pc-plan','A',['base:PC'])
+        self.continuation('future','2026-11-07T01:00:00+00:00','future-plan','C',['base:PS','base:XBOX','base:PC'])
         self.ops.append(dict(operation_id='unconfirmed',plan_id='not-active',status='PREPARED',created_at='2026-11-06T15:30:00+00:00',bundle=dict(smart_assignment=dict(label='C'))))
         result=daily.profit_summary(self.online,self.windows,self.ops,'2026-11-06','p')
         self.assertEqual((result['review_day']['groups'][0]['plan_id'],result['review_day']['groups'][0]['label']),('p','B'))
@@ -88,15 +100,15 @@ class DailyProfit(unittest.TestCase):
 
     def test_regional_continuation_does_not_relabel_global_or_other_region_orders(self):
         self.windows[0]['resources']+=['region:21:PC','region:21:PS']
-        self.rows[0]['group']='21:PS'
-        self.rows.append(dict(self.rows[0],order_key='regional-pc',group='21:PC'))
+        self.rows[0]['price_group']='21:PS'
+        self.rows.append(dict(self.rows[0],order_key='regional-pc',group='PC',platform='PC',price_group='21:PC'))
         self.continuation('regional','2026-11-06T15:00:00+00:00','regional-plan','C',['region:21:PC'])
         result=daily.profit_summary(self.online,self.windows,self.ops,'2026-11-06','regional-plan')
         self.assertEqual(result['active_plan']['totals']['orders'],1)
-        self.assertEqual([(g['plan_id'],g['group'],g['label']) for g in result['review_day']['groups']],[('p','console','B'),('regional-plan','pc','C')])
+        self.assertEqual([(g['plan_id'],g['group'],g['label']) for g in result['review_day']['groups']],[('p','PS','B'),('regional-plan','PC','C')])
 
     def test_missing_continuation_operation_keeps_cost_but_does_not_fall_back_to_old_plan(self):
-        self.windows[0]['continuations']=[dict(operation_id='missing-operation',at='2026-11-06T15:00:00+00:00',resources=['base:console','base:pc'])]
+        self.windows[0]['continuations']=[dict(operation_id='missing-operation',at='2026-11-06T15:00:00+00:00',resources=['base:PS','base:XBOX','base:PC'])]
         result=daily.profit_summary(self.online,self.windows,self.ops,'2026-11-06','p')
         self.assertEqual(result['review_day']['totals']['procurement_gross_usd'],'25')
         self.assertIsNone(result['review_day']['groups'][0]['plan_id'])
@@ -110,7 +122,7 @@ class DailyProfit(unittest.TestCase):
         self.assertEqual(total['covered_paid_usd'],'100')
         self.assertEqual(result['review_day']['groups'][0]['label'],'B')
         self.assertEqual(result['review_day']['groups'][0]['plan_id'],'p')
-        self.assertEqual(result['review_day']['groups'][0]['group'],'console')
+        self.assertEqual(result['review_day']['groups'][0]['group'],'PS')
         self.assertNotIn('private-',json.dumps(result))
         self.assertEqual(self.rows[0]['actual_contribution_usd'],'25')
 

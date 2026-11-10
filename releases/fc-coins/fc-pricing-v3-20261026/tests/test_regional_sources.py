@@ -14,7 +14,7 @@ SOURCE = Path(__file__).resolve().parents[1] / 'source'
 sys.path.insert(0, str(SOURCE))
 from fc_pricing_v3 import regional_public, sources, business_source, region_source, engine
 from fc_pricing_v3.financial import fingerprint
-from fixtures import set_console_cost
+from fixtures import set_console_cost,fixture,NOW
 
 AIDS = {'PS': 21587, 'XBOX': 21585, 'PC': 21589}
 SKUS = {'PS': 163329311, 'XBOX': 163329277, 'PC': 163329345}
@@ -63,14 +63,13 @@ class InlinePool:
 
 class RegionalSourceEvidenceTest(unittest.TestCase):
     def context(self,rules,ar_factors=None,transform=None):
-        data=json.loads(Path(__file__).with_name('fixture.json').read_text(encoding='utf-8-sig'))
-        from datetime import datetime
-        now=datetime.fromisoformat(data['now'])
-        evidence=deepcopy(data['fixture'][0]);set_console_cost(evidence)
+        now=NOW
+        evidence=fixture()[0];set_console_cost(evidence)
         for platform in AIDS:
             evidence['storefront']['rows'][platform].update(sku_id=str(SKUS[platform]),package_usd='20')
-        history=dict(status='verified',basis_lower_bound_sufficient=True,paths=[dict(weight_usd='1',
+        child=dict(status='verified',basis_lower_bound_sufficient=True,paths=[dict(weight_usd='1',
             denominator_basis='regional_regular',promotion_path_excludes_region=True,promotion_path=dict(kind='none'))],source_sha256='a'*64)
+        history=dict(platform_contract='fc27_history_platform_v1',by_platform={p:dict(deepcopy(child),platform=p) for p in AIDS})
         auth=SimpleNamespace(Session=Mock,admin_token_from_service=lambda:('local-fixture','ok'))
         channel=SimpleNamespace(pages=lambda *args:list(products().values()),COLLECTOR='/fixture/collector')
         original_public=regional_public.collect
@@ -102,7 +101,7 @@ class RegionalSourceEvidenceTest(unittest.TestCase):
         context,evidence,now=self.context([self.rule()],{'PS':'.90'})
         self.assertIs(context['region_rules'][0]['verified'],False)
         self.assertIs(context['regional_controls'][0]['verified'],False)
-        before = dict(base_prices=dict(console='20', pc='20'), region_coefficients={'21:PS': '.9500', '21:XBOX': '1', '21:PC': '1'})
+        before = dict(base_prices={p:'20' for p in AIDS}, region_coefficients={'21:PS': '.9500', '21:XBOX': '1', '21:PC': '1'})
         after = deepcopy(before); after['region_coefficients']['21:PS'] = '.9400'
         impacted = engine.impacted_regions(evidence, before, after)
         with self.assertRaisesRegex(ValueError, 'region.*unverified|region.*mismatch'):
@@ -113,7 +112,7 @@ class RegionalSourceEvidenceTest(unittest.TestCase):
         self.assertTrue(all(c['verified'] for c in context['regional_controls']))
         self.assertEqual(context['arab_ut_status']['same_run'],'preserved')
         self.assertEqual(context['learning_coverage']['status'],'await_first_confirmed_exposure')
-        action=dict(base_prices=dict(console='20',pc='20'),region_coefficients={'21:PS':'.94','21:XBOX':'.99','21:PC':'.99'})
+        action=dict(base_prices={p:'20' for p in AIDS},region_coefficients={'21:PS':'.94','21:XBOX':'.99','21:PC':'.99'})
         result=engine.financial(evidence,action,now,regions=context['regional_controls'])
         self.assertTrue(result['pass_all'])
         self.assertIn('21:PS',result['prices'])

@@ -1,4 +1,5 @@
 """Read-only projections for the existing FC monitor and shared Hermes watchdog."""
+from .platforms import PLATFORMS, native_resources, action_key
 from contextlib import closing
 from datetime import datetime,timezone,timedelta
 import json
@@ -69,13 +70,11 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
                 if receipt.get('snapshot_sha256')!=fingerprint(evidence):failures.append('snapshot_hash_mismatch')
                 number(evidence['fx']['cny_per_usd'])
                 if abs((as_of-instant(evidence['fx']['checked_at'])).total_seconds())>3600:failures.append('fx_stale')
-                resources=(plan or {}).get('resources',['base:console','base:pc'])
+                resources=(plan or {}).get('resources',['base:'+p for p in PLATFORMS])
                 platforms=set()
-                for resource in resources:
-                    if resource=='base:console':platforms.update(('PS','XBOX'))
-                    elif resource=='base:pc':platforms.add('PC')
+                for resource in native_resources(resources):
+                    if resource.startswith('base:'):platforms.add(resource.split(':')[-1])
                     elif resource.startswith('region:'):platforms.add(resource.split(':')[-1])
-                if platforms & {'PS','XBOX'}:platforms.update(('PS','XBOX'))
                 for platform in platforms:
                     cost=evidence['costs'][platform];own=evidence['storefront']['rows'][platform]
                     number(cost['cny_per_1k']);number(own['package_usd'])
@@ -84,7 +83,7 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
                     if abs((as_of-instant(own['checked_at'])).total_seconds())>3600:failures.append('public_stale:'+platform)
                     quotes,missing=current_market_quotes(evidence,[platform],as_of)
                     available=[quote['source'] for quote in quotes]
-                    daily_pricing=receipt.get('daily_pricing',{}).get('pc' if platform=='PC' else 'console',{})
+                    daily_pricing=receipt.get('daily_pricing',{}).get(action_key(receipt['action'],platform),{})
                     competitive_sources[platform]=dict(available=available,missing=missing,margin_floor_only=not available,
                         price_driver_source=daily_pricing.get('driver_source'),price_driver_platform=daily_pricing.get('driver_platform'),
                         item_target_met=daily_pricing.get('item_target_met'),
@@ -93,7 +92,7 @@ def source_coverage(snapshots,plans,now,interval_minutes=60):
                         average_margin_target_pct='30' if mode=='daily' and not available else '20')
                     if mode=='daily' and not available and (receipt.get('daily_reference') or {}).get(platform,{}).get('average_margin_target_pct')!='30':
                         failures.append('daily_missing_market_average_30_unverified:'+platform)
-                required_history_ratio(evidence,as_of);envelope_ratio(evidence['promotion_envelope'],as_of)
+                [required_history_ratio(evidence,as_of,platform=p) for p in platforms];envelope_ratio(evidence['promotion_envelope'],as_of)
                 proof=receipt.get('financial_proof') or {}
                 infeasible=(snapshot.get('result',{}).get('status')=='INFEASIBLE' and receipt.get('status')=='INFEASIBLE' and receipt.get('execution_authorized') is False)
                 if not infeasible and (proof.get('pass_all') is not True or proof.get('execution_eligible') is not True):failures.append('financial_proof_missing')
@@ -152,7 +151,7 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
     for job in jobs:
         if job['kind'] in ('cycle','postwrite_refresh') and job['body'].get('error'):
             issues.append(dict(level='warning',code='coin_v3_dependency_retry:'+str(job['body'].get('source_failure',{}).get('code') or job['body']['error'])))
-    pending=[op for op in operations if op['status'] not in ('COMPLETED','NO_CHANGE','REJECTED_PREWRITE','CANCELLED_NOT_SENT','SUPERSEDED','KNOWN_PARTIAL_EXITED')]
+    pending=[op for op in operations if op['status'] not in ('COMPLETED','NO_CHANGE','REJECTED_PREWRITE','CANCELLED','CANCELLED_NOT_SENT','FAILED_BEFORE_WRITE','SUPERSEDED','KNOWN_PARTIAL_EXITED')]
     for op in pending:
         if op['status'] in ('UNKNOWN','PARTIALLY_APPLIED'):issues.append(dict(level='critical',code='coin_v3_original_operation_'+op['status'].lower()+':'+op['operation_id']))
     next_at=min(cycle_times,default=None)
@@ -176,5 +175,7 @@ def projection(root=Path('/var/lib/fc27-cloud'),now=None):
                               last_source_checked_at=latest_source,last_execution_stage=last_stage,
                               active_plan_state=state,background_next_at=background_next_at,
                               collection_status='v3_durable_due_queue'),
-                pending_operations=[dict(operation_id=o['operation_id'],status=o['status'],plan_id=o.get('plan_id')) for o in pending],
+                pending_operations=[dict(operation_id=o['operation_id'],status=o['status'],plan_id=o.get('plan_id'),
+                    platforms=sorted({r.split(':')[-1] for r in native_resources(o.get('mutable_resources') or o.get('resources') or [])
+                                      if r.split(':')[-1] in PLATFORMS}) or list(PLATFORMS)) for o in pending],
                 issues=issues,source_coverage=coverage,shadow=shadow,pending_count=len(pending),read_only=True)

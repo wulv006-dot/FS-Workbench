@@ -1,4 +1,5 @@
 """One daily outcome review over saved price windows and isolated shadow results."""
+from .platforms import SMART_VERSIONS, action_key, native_resources, PLATFORMS
 from datetime import datetime,timedelta,timezone
 from decimal import Decimal
 import json
@@ -88,32 +89,33 @@ def profit_summary(online,windows,operations,date,plan_id):
     rows=online.get('actual_outcomes',[])
     by_window={w['operation_id']:w for w in windows}
     contexts={o['operation_id']:dict(plan_id=o.get('plan_id'),status=o.get('status'),completed_at=o.get('completed_at'),
-        resources=(o.get('bundle') or {}).get('authorized_resources') or o.get('resources',[]),
+        resources=((o.get('bundle') or {}).get('mutable_resources',o.get('resources',[])) if ((o.get('bundle') or {}).get('smart_assignment') or {}).get('strategy_version')=='smart-three-platform-v3' else (o.get('bundle') or {}).get('authorized_resources') or o.get('resources',[])),
         action=o.get('actual_action') or (o.get('bundle') or {}).get('action') or {},catalog=(o.get('bundle') or {}).get('catalog') or {},
         assignment=(o.get('bundle') or {}).get('smart_assignment') or {}) for o in operations}
-    confirmed=[(instant(v['completed_at']),key,set(v['resources'])) for key,v in contexts.items() if v['status'] in ('COMPLETED','NO_CHANGE') and v['completed_at']]
+    confirmed=[(instant(v['completed_at']),key,set(native_resources(v['resources']))) for key,v in contexts.items() if v['status'] in ('COMPLETED','NO_CHANGE') and v['completed_at']]
     def attribution(row):
         # A policy can change while this platform's physical price window stays open.
         window=by_window.get(row['price_window_id'],{})
-        group=row['group'] if row['group'] in ('console','pc') else 'pc' if row['group'].endswith(':PC') else 'console'
-        resources={'base:'+group}
-        if ':' in row['group']:resources.add('region:'+row['group'])
+        group=row.get('platform') or (row['group'] if row['group'] in PLATFORMS else row['group'].rsplit(':',1)[-1] if ':' in row['group'] else row['group'])
+        price_group=row.get('price_group') or row['group']
+        resources=set(native_resources(['base:'+group]))
+        if ':' in price_group:resources.add('region:'+price_group)
         created=instant(row['occurred_at'])
         events=[(at,index,key) for index,(at,key,scope) in enumerate(confirmed) if at<=created and resources.intersection(scope)]
         saved=[dict(operation_id=window.get('operation_id'),at=window.get('opened_at'),resources=window.get('resources',[]))]+window.get('continuations',[])
-        events += [(instant(e['at']),len(confirmed)+index,e['operation_id']) for index,e in enumerate(saved) if e.get('at') and instant(e['at'])<=created and resources.intersection(e.get('resources',[]))]
+        events += [(instant(e['at']),len(confirmed)+index,e['operation_id']) for index,e in enumerate(saved) if e.get('at') and instant(e['at'])<=created and resources.intersection(native_resources(e.get('resources',[])))]
         if not events:return None,group,'unlabelled'
         operation_id=max(events,key=lambda item:(item[0],item[1]))[2]
         context=contexts.get(operation_id)
         if context is None:
             return (window.get('plan_id') if operation_id==window.get('operation_id') else None),group,'unlabelled'
-        actual=(window.get('action') or {}).get('base_prices',{}).get(group)
-        expected=context['action'].get('base_prices',{}).get(group)
-        regional=':' in row['group'] and Decimal((window.get('action') or {}).get('region_coefficients',{}).get(row['group'],'1'))!=Decimal(context['action'].get('region_coefficients',{}).get(row['group'],'1'))
+        actual=(window.get('action') or {}).get('base_prices',{}).get(action_key(window.get('action') or {},group) if group in PLATFORMS else group)
+        expected=context['action'].get('base_prices',{}).get(action_key(context['action'],group) if group in PLATFORMS else group)
+        regional=':' in price_group and Decimal((window.get('action') or {}).get('region_coefficients',{}).get(price_group,'1'))!=Decimal(context['action'].get('region_coefficients',{}).get(price_group,'1'))
         platform=row.get('platform')
         if actual is None or expected is None or Decimal(actual)!=Decimal(expected) or regional or platform and window.get('catalog',{}).get(platform)!=context['catalog'].get(platform):
             return None,group,'unlabelled'
-        return context['plan_id'],group,(context['assignment'].get('group_labels') or {}).get(group) or context['assignment'].get('label') or 'unlabelled'
+        return context['plan_id'],group,(context['assignment'].get('group_labels') or {}).get(action_key(context['action'],group) if group in PLATFORMS else group) or context['assignment'].get('label') or 'unlabelled'
     def totals(selected):
         paid=[r for r in selected if r.get('actual_net_usd') is not None]
         known=[r for r in paid if r.get('actual_contribution_usd') is not None]
@@ -158,7 +160,7 @@ def run(body):
         record['actual']=outcomes['actual']
         record['price_exposure']=exposure_scope(db.all('actual_price_windows'),date)
         from .smart import STRATEGY_VERSION
-        if not any(p.get('smart_strategy_version')==STRATEGY_VERSION for p in db.active_plans()):
+        if not any(p.get('smart_strategy_version') in SMART_VERSIONS for p in db.active_plans()):
             db.put('metadata','daily_online_context',outcomes['online'])
         for settlement in outcomes['online'].get('budget_settlements',[]):db.settle_order(settlement)
         record['learning_coverage']=outcomes['online'].get('learning_coverage')
@@ -184,7 +186,7 @@ def run(body):
         record['decision_basis']=dict(snapshot_id=snapshot.get('snapshot_id'),mode=plan.get('mode'),plan_state=plan.get('state'),
             snapshot_sha256=fingerprint(evidence) if snapshot.get('snapshot_id') and isinstance(snapshot.get('evidence'),dict) else None,
             parameters=plan.get('parameters'),budget_policy='none',financial_contract_version=((snapshot.get('result') or {}).get('decision_receipt') or {}).get('financial_contract_version'),
-            history={k:mix.get(k) for k in ('period','net_order_usd','discount_usd','undiscounted_order_usd','retained_ratio','sha256')},
+            history={k:mix.get(k) for k in ('period','net_order_usd','discount_usd','undiscounted_order_usd','by_platform','platform_contract','sha256')},
             demand_model={k:model.get(k) for k in ('status','elasticity','groups','observed_window_hours','rate_window_hours')},
             source_plan=evidence.get('source_plan'),basis_is_latest_saved_input=True)
     report={k:record.get(k) for k in ('local_date','actual','learning_coverage','shadow','decision_basis','price_exposure')}
@@ -222,12 +224,13 @@ def collect_hourly_outcomes(windows,previous):
 
 
 def run_hourly(body):
-    from .runtime import ledger
+    from .runtime import ledger,clock
     from .smart import STRATEGY_VERSION,policy_suffix,strategy_start
     db=ledger();plan=db.get('pricing_plans',body['plan_id'])
-    if not plan or plan['state']!='ACTIVE' or plan['revision']!=body['revision'] or plan.get('smart_strategy_version')!=STRATEGY_VERSION:
+    if not plan or plan['state']!='ACTIVE' or plan['revision']!=body['revision'] or plan.get('smart_strategy_version') not in SMART_VERSIONS:
         return dict(status='superseded')
     start=strategy_start(plan)
+    if clock()<start:return dict(status='await_strategy_start')
     # Include a physically unchanged earlier window when its confirmed continuation enters this version.
     windows=[w for w in db.all('actual_price_windows') if not w.get('closed_at') or instant(w['closed_at'])>=start]
     for window in windows:
@@ -243,7 +246,7 @@ def run_hourly(body):
     online=result['online']
     if online.get('learning_coverage',{}).get('query_complete') is not True:
         raise ValueError('pricing_hourly_outcome_coverage_incomplete')
-    online.update(smart_strategy_version=STRATEGY_VERSION,smart_plan_id=plan['plan_id'],smart_revision=plan['revision'])
+    online.update(smart_strategy_version=plan['smart_strategy_version'],smart_plan_id=plan['plan_id'],smart_revision=plan['revision'])
     with db.transaction() as conn:
         current=db.get('pricing_plans',plan['plan_id'],conn)
         if not current or current['state']!='ACTIVE' or current['revision']!=plan['revision'] or current.get('smart_started_at')!=plan.get('smart_started_at'):
@@ -251,7 +254,7 @@ def run_hourly(body):
         db.put('metadata',key,result['state'],conn)
         db.put('metadata','daily_online_context',online,conn)
     for settlement in online.get('budget_settlements',[]):db.settle_order(settlement)
-    return dict(status='updated',plan_id=plan['plan_id'],strategy_version=STRATEGY_VERSION,
+    return dict(status='updated',plan_id=plan['plan_id'],strategy_version=plan['smart_strategy_version'],
                 observed_at=online['learning_coverage']['observed_at'],outcomes=len(online.get('actual_outcomes',[])),
                 gaps=len(online['learning_coverage']['gap_events']),price_write_performed=False,model_called=False)
 

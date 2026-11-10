@@ -166,9 +166,12 @@ class AdminDcTests(unittest.TestCase):
         self.assertEqual(set(targets.DELTA_NAMES),expected)
         self.assertEqual(len(targets.DELTA_NAMES),21)
         self.assertEqual(targets.DELTA_NEW,frozenset({'source/fc_pricing_v3/smart.py','source/hermes-copy/fc_pricing_v3/smart.py'}))
-        for name in ['build_stage.py', 'prepare_manifest.py']:
-            text = (SOURCE.parent / 'deploy' / name).read_text(encoding='utf8')
-            self.assertIn('!= TARGET_COUNT', text)
+        # Default stages stay exact101; the explicit new stage adds only six
+        # mirrored modules. Both actual mappings are checked, not code spelling.
+        native = targets.three_platform_targets(SOURCE)
+        self.assertEqual(len(native), targets.THREE_PLATFORM_TARGET_COUNT)
+        self.assertEqual(set(native)-set(mapping),
+                         {name.removeprefix('source/') for name in targets.THREE_PLATFORM_NEW})
 
     def test_existing_rpg_empty_and_https_configs_keep_the_original_shared_adapter(self):
         # Production /opt/d4follow/_p2pah_srv/admin_cache_local.py uses these two configs.

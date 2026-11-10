@@ -283,6 +283,20 @@ class CodexReviewGuards(unittest.TestCase):
 
 
 class WriteFlowTests(unittest.TestCase):
+    def test_xbox_write_uses_xbox_quote_and_missing_rate_does_not_write_xbox(self):
+        store = self._store()
+        rates = json.loads(json.dumps(RATES)); rates['XBOX']['usd_per_k'] = '0.09'
+        store.cached_rates = lambda: rates
+        fake = FakeWriter(); mod.AdminWriter = lambda cred: fake
+        entry = mod.execute_write(store, actor='test')
+        calls = {pid: unit for pid, unit, dry in fake.calls}
+        self.assertNotEqual(calls[111], calls[222])
+        self.assertEqual({r['platform'] for r in entry['results']}, {'ps', 'xbox', 'pc'})
+        rates.pop('XBOX'); fake.calls.clear()
+        entry = mod.execute_write(store, actor='test')
+        self.assertEqual({pid for pid, unit, dry in fake.calls}, {111, 333})
+        self.assertEqual(next(r for r in entry['results'] if r['platform'] == 'xbox')['action'], 'skipped_incomplete')
+
     def setUp(self):
         self._orig = mod.AdminWriter
 

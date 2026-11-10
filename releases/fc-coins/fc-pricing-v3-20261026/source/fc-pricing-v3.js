@@ -1,13 +1,17 @@
 (() => {
   'use strict';
   const base='/api/fc27/cloud/pricing/v3';
+  const platforms=['PS','XBOX','PC'];
+  const pricesText=prices=>prices&&Object.keys(prices).some(p=>platforms.includes(p))?platforms.map(p=>`${p==='XBOX'?'Xbox':p} ${usd(prices?.[p])}`).join(' · '):`历史Console ${usd(prices?.console)} · PC ${usd(prices?.pc)}`;
   const names={smart:'智能决策',daily:'日常运营（备用）',revenue_sprint:'冲销售额'};
-  const purposes={smart:'每小时重算冲额基准；每3小时选择基准、上调3%或上调6%，按当轮财务和竞品上限复核。48小时后按成熟数据评价；同价合并，不视为有效价差。',daily:'Lootbar有效时保留计划锚点与采购贡献目标；Lootbar缺价时按ItemD2R当轮实际交付价定价，低于双20合法底价则用底价并标未达到Item目标。两家均缺的平台按八日实际优惠后平均30%求最低价；Console共价按较低Item目标并披露各平台差价。',revenue_sprint:'两家有效取较低价，一家缺价用另一家；两家均缺则无竞争目标，按100K双20最低合法价。竞争锚低5–10%冲额，默认偏好7.5%；沙特额外比较Arab-UT普通发货。'};
+  const purposes={smart:'三平台独立双向试验：每小时重算各平台基准，每3小时独立选择A基准、B合法降3%、C合法涨3%，受各自双20与竞品上界约束。同价合并；按同钟点累计有效对照复盘，低量不强判赢家。',daily:'PS、Xbox、PC分别按真实八日优惠核算财务底线；Lootbar为主锚、Arab-UT为次锚，双源缺失按本平台八日平均30%求最低合法价。',revenue_sprint:'三平台独立报价，Lootbar为主锚、Arab-UT为次锚，ItemD2R仅辅助。按本平台100K实交100K双20及5–10%竞争目标选价，地区继承全球。'};
   const primaryPolicy=plan=>plan?.parameters?.competitor_policy==='lootbar_primary_arabut_secondary_v1';
   function modePurpose(mode,plan){
-    if(mode==='smart'&&plan?.smart_strategy_version==='smart-bidirectional-v2')return '双向试验v2：每小时重算冲额基准；Console与PC独立选择A基准、B合法降3%、C合法涨3%，同价候选合并；48小时为检查点，成熟度按有效对照判断。程序每小时执行，Hermes每日只读复盘；月目标仅为经营背景，不接入选价。';
+    if(mode==='smart'&&plan?.smart_strategy_version==='smart-three-platform-v3')return purposes.smart;
+    if(mode==='smart'&&plan?.smart_strategy_version==='smart-bidirectional-v2')return '历史双向试验v2：每小时重算冲额基准；Console与PC独立选择A基准、B合法降3%、C合法涨3%，同价候选合并；48小时为检查点，成熟度按有效对照判断。程序每小时执行，Hermes每日只读复盘；月目标仅为经营背景，不接入选价。';
     if(primaryPolicy(plan)&&mode==='daily')return 'Lootbar有效时保留原计划锚点；缺价按同平台ArabUT当轮实际交付价，低于双20则用合法底价。两源均缺的平台按八日平均30%求最低价；ItemD2R仅辅助观察。';
     if(primaryPolicy(plan)&&mode==='revenue_sprint')return 'Lootbar为主锚；缺有效价时用同平台ArabUT，ItemD2R仅辅助观察。两源均缺按100K双20最低合法价；保留原5–10%冲额目标和计划偏好，地区继承全球。';
+    if(mode==='smart'&&plan&&!plan.smart_strategy_version)return '历史智能策略：每小时重算基准，B上调3%、C上调6%；仅按原回执解释，不能当作当前三平台策略。';
     return purposes[mode];
   }
   const $=id=>document.getElementById(id);
@@ -36,10 +40,10 @@
   function errorText(error){
     const code=error.message||String(error);
     const known={pricing_snapshot_required:'缺少本轮真实快照，请先采集并核对来源',pricing_plan_scope_invalid:'计划范围不符合当前可修改资源',
-      pricing_plan_required:'当前没有可执行的活动计划',pricing_resource_unresolved:'原操作尚未对账，此范围暂不可写',pricing_smart_scope_requires_all_owned_resources:'智能决策须同时接管Console、PC和现有Saudi范围，请刷新后重试',
+      pricing_plan_required:'当前没有可执行的活动计划',pricing_resource_unresolved:'原操作尚未对账，此范围暂不可写',pricing_smart_scope_requires_all_owned_resources:'智能决策须同时接管PS、Xbox、PC和现有Saudi范围，请刷新后重试',
       pricing_manual_preview_expired:'人工预览已过期，请重新核算',pricing_manual_infeasible:'当前明确价未通过新鲜财务或市场证明',
       pricing_operation_missing:'未找到该原操作编号',state_unavailable:'状态暂时无法读取',
-      pricing_price_control_revision_changed:'配置已被更新，请刷新状态后再保存',pricing_manual_price_required:'开启人工干预时须填写 Console 和 PC 的后台单价',
+      pricing_price_control_revision_changed:'配置已被更新，请刷新状态后再保存',pricing_manual_price_required:'开启人工干预时须填写PS、Xbox和PC的后台单价',
       pricing_manual_unit_precision:'后台单价最多保留四位小数',pricing_price_control_conflicts_with_manual_preview:'请先关闭人工干预和临时涨价，再使用单次人工预览'};
     return known[code]||(/^pricing_[a-z_]+(?::.*)?$/.test(code)?`操作未完成；请核对当前状态和原编号。技术原因：${code}`:code);
   }
@@ -50,7 +54,7 @@
   function priceControlInputs(){
     const manual=$('v3-manual-enabled').checked;
     const pending=!!sessionStorage.getItem(pendingPriceKey),blocked=!canWrite||acting||pending;
-    for(const id of ['v3-fixed-console','v3-fixed-pc']){$(id).disabled=blocked||!manual;$(id).required=manual;}
+    for(const id of ['v3-fixed-ps','v3-fixed-xbox','v3-fixed-pc']){$(id).disabled=blocked||!manual;$(id).required=manual;}
     $('v3-uplift-pct').disabled=blocked||!$('v3-uplift-enabled').checked||manual;
     $('v3-uplift-pct').required=$('v3-uplift-enabled').checked&&!manual;
     $('v3-price-control-draft').textContent=sessionStorage.getItem(pendingPriceKey)?'原保存请求待核对；再次保存沿用原编号':priceControlDirty?'有未保存修改，当前仍使用服务器配置':'已与服务器配置同步';
@@ -61,11 +65,10 @@
     if(!priceControlDirty){
       $('v3-manual-enabled').checked=settings.manual_enabled;
       $('v3-uplift-enabled').checked=settings.uplift_enabled;
-      $('v3-fixed-console').value=settings.manual_prices.console??'';
-      $('v3-fixed-pc').value=settings.manual_prices.pc??'';
+      for(const p of platforms)$('v3-fixed-'+p.toLowerCase()).value=settings.manual_prices[p]??'';
       $('v3-uplift-pct').value=settings.uplift_pct;
     }
-    $('v3-effective-control').textContent=settings.manual_enabled?`人工干预生效 · Console $${settings.manual_prices.console} / 1K · PC $${settings.manual_prices.pc} / 1K`:
+    $('v3-effective-control').textContent=settings.manual_enabled?`人工干预生效 · ${platforms.map(p=>`${p} $${settings.manual_prices[p]} / 1K`).join(' · ')}`:
       settings.uplift_enabled?`策略定价 + 临时上浮 ${settings.uplift_pct}%`:'原经营策略定价';
     priceControlInputs();
   }
@@ -86,7 +89,7 @@
     return parameters;
   }
   function saveModeDraft(){modeDrafts[displayedMode]={offsets:$('v3-offsets').value,allocation:['control','exploit','explore'].map(k=>$('v3-alloc-'+k).value),undercut:$('v3-undercut').value};}
-  function setMode(mode){const draft=modeDrafts[mode]||modeDefaults[mode],owner=(current?.active_plans||[]).find(p=>['revenue_sprint','smart'].includes(p.mode)&&p.resources?.includes('base:console')&&p.resources?.includes('base:pc')),baseline=owner?.mode==='smart'?owner.baseline_plan:owner,params=baseline?.parameters||{};$('v3-offsets').value=draft.offsets||'';['control','exploit','explore'].forEach((k,i)=>{$('v3-alloc-'+k).value=mode==='smart'?(params.allocation?.[k]??draft.allocation[i]):draft.allocation[i];$('v3-alloc-'+k).readOnly=mode==='smart';});for(const id of ['v3-console','v3-pc']){if(mode==='smart')$(id).checked=true;$(id).disabled=mode==='smart';}for(const input of $('v3-region-scopes').querySelectorAll('input')){if(mode==='smart')input.checked=true;input.disabled=mode==='smart';}$('v3-undercut').value=mode==='smart'?(baseline?(params.preferred_undercut_pct??'7.5'):''):(draft.undercut||'7.5');$('v3-undercut').readOnly=mode==='smart';$('v3-offsets-field').hidden=mode!=='daily';$('v3-undercut-field').hidden=mode==='daily';$('v3-target-section').hidden=mode!=='revenue_sprint';$('v3-allocation-legend').textContent=mode==='smart'?'继承当前冲额基准比例 · 不可在此修改':'试验分配 · 三项合计为 1';$('v3-mode-purpose').textContent=purposes[mode]+(mode==='smart'?(baseline?' 基准参数继承当前冲额计划，并一并接管全部Saudi范围。':' 当前冲额基准计划待核，不能创建。'):'');$('v3-end').required=false;$('v3-end-help').textContent='可选；留空持续运行，填写后按该时间结束。';if(current)renderDecision(current);}
+  function setMode(mode){const draft=modeDrafts[mode]||modeDefaults[mode],owner=(current?.active_plans||[]).find(p=>['revenue_sprint','smart'].includes(p.mode)&&platforms.every(g=>p.resources?.includes('base:'+g))),baseline=owner?.mode==='smart'?owner.baseline_plan:owner,params=baseline?.parameters||{};$('v3-offsets').value=draft.offsets||'';['control','exploit','explore'].forEach((k,i)=>{$('v3-alloc-'+k).value=mode==='smart'?(params.allocation?.[k]??draft.allocation[i]):draft.allocation[i];$('v3-alloc-'+k).readOnly=mode==='smart';});for(const id of ['v3-ps','v3-xbox','v3-pc']){if(mode==='smart')$(id).checked=true;$(id).disabled=mode==='smart';}for(const input of $('v3-region-scopes').querySelectorAll('input')){if(mode==='smart')input.checked=true;input.disabled=mode==='smart';}$('v3-undercut').value=mode==='smart'?(baseline?(params.preferred_undercut_pct??'7.5'):''):(draft.undercut||'7.5');$('v3-undercut').readOnly=mode==='smart';$('v3-offsets-field').hidden=mode!=='daily';$('v3-undercut-field').hidden=mode==='daily';$('v3-target-section').hidden=mode!=='revenue_sprint';$('v3-allocation-legend').textContent=mode==='smart'?'继承当前冲额基准比例 · 不可在此修改':'试验分配 · 三项合计为 1';$('v3-mode-purpose').textContent=purposes[mode]+(mode==='smart'?(baseline?' 基准参数继承当前冲额计划，并一并接管全部Saudi范围。':' 当前冲额基准计划待核，不能创建。'):'');$('v3-end').required=false;$('v3-end-help').textContent='可选；留空持续运行，填写后按该时间结束。';if(current)renderDecision(current);}
   function node(tag,text){const n=document.createElement(tag);if(text!=null)n.textContent=text;return n;}
   function value(v){return v==null?'待配置 / 待核':String(v);}
   function usd(v){return v==null?'待核':`$${Number(v).toFixed(2)}`;}
@@ -156,22 +159,25 @@
     const card=node('article');card.className='panel';card.append(node('h3',control?.manual_enabled?'人工干预':names[mode]),node('p',control?'最终价已通过双红线核算':unmet.length?`双20可写，未达到${unmetSources.join('/')}目标`:r?.selected?.decision_type==='floor_fallback'?'双20可写，未达到竞争目标':r?.status?statusText(r.status):'尚无本轮同策略决策'));
     if(mode==='smart'&&r?.smart_assignment){
       const a=r.smart_assignment;
-      if(a.strategy_version==='smart-bidirectional-v2'){
-        card.append(node('p',`双向试验v2 · 本轮计划档位 Console ${a.group_labels?.console||'待核'} / PC ${a.group_labels?.pc||'待核'}；实际开窗以写后确认回执为准。`));
-        for(const [group,title] of [['console','Console'],['pc','PC']]){
+      if(a.strategy_version==='smart-three-platform-v3'){
+        card.append(node('p',`三平台双向试验 · 本轮计划档位 ${platforms.map(p=>`${p} ${a.group_labels?.[p]||'待核'}`).join(' / ')}；实际开窗以写后确认回执为准。`));
+        for(const [group,title] of platforms.map(p=>[p,p==='XBOX'?'Xbox':p])){
           const closed=a.no_space_by_group?.[group],winner=a.policy?.group_results?.[group]?.winner;
           const excluded=[...new Set([...(a.policy?.group_results?.[group]?.excluded||[]),...Object.entries(a.correction?.groups?.[group]?.effective_blocks||{}).filter(([,n])=>n<=a.block).map(([label])=>label)])];
           card.append(node('p',`${title} · ${closed?'候选同价合并，未形成有效价差':a.merged_with_A_by_group?.[group]?'本轮候选与A合并':'保留独立价格试验'} · ${winner?`${winner}档暂定领先，保留对照和探索`:'尚无成熟赢家'}${excluded.length?` · 已撤回档位 ${excluded.join('、')}`:''}。`));
         }
+      }else if(a.strategy_version==='smart-bidirectional-v2'){
+        card.append(node('p',`历史双向试验v2 · Console ${a.group_labels?.console||'待核'} / PC ${a.group_labels?.pc||'待核'}；按原回执解释。`));
+        for(const [group,title] of [['console','Console'],['pc','PC']])card.append(node('p',`${title} · ${a.no_space_by_group?.[group]?'候选同价合并':'独立历史试验'} · ${a.policy?.group_results?.[group]?.winner||'尚无成熟赢家'}`));
       }else{
         const closed=Object.entries(a.no_space_by_group||{}).filter(([,v])=>v).map(([g])=>g==='pc'?'PC':'Console'),excluded=[...new Set([...(a.policy?.excluded||[]),...Object.entries(a.correction?.effective_blocks||{}).filter(([,n])=>n<=a.block).map(([k])=>k)])];card.append(node('p',a.no_uplift_space?'本轮缺少提价空间，候选合并；未形成有效价差。':`本轮计划档位 ${a.label}；实际价格及写后读回以执行记录为准。${closed.length?` ${closed.join('、')} 本轮缺少提价空间。`:''}`));card.append(node('p',a.policy?.winner?`观察性结果：${a.policy.winner} 档暂定领先；保留对照和探索。`:'效果数据尚未形成成熟赢家，继续按计划观察。'));if(excluded.length)card.append(node('p',`已撤回提价档：${excluded.join('、')}。`));
       }
     }
-    if(r?.selected){const s=r.selected;if(control)card.append(node('p',control.manual_enabled?'人工干预：本轮使用已保存固定价，策略和涨幅不参与。':`临时上浮 ${control.uplift_pct}%：原策略 Console ${usd(s.strategy_action?.base_prices.console)} / PC ${usd(s.strategy_action?.base_prices.pc)}。`));card.append(node('p',`本轮最终候选 100K：Console ${usd(s.action?.base_prices?.console)} · PC ${usd(s.action?.base_prices?.pc)}`),node('p',control?.manual_enabled?'人工指定价格，未运行策略收入预测。':s.score?.absolute_forecast_available?`同轮预测收入 ${usd(s.score.revenue)} · 采购贡献 ${usd(s.score.contribution)}`:'只有相对需求情景；绝对收入与新客效果待真实基线核证'));
+    if(r?.selected){const s=r.selected;if(control)card.append(node('p',control.manual_enabled?'人工干预：本轮使用已保存固定价，策略和涨幅不参与。':`临时上浮 ${control.uplift_pct}%：原策略 ${pricesText(s.strategy_action?.base_prices)}。`));card.append(node('p',`本轮最终候选 100K：${pricesText(s.action?.base_prices)}`),node('p',control?.manual_enabled?'人工指定价格，未运行策略收入预测。':s.score?.absolute_forecast_available?`同轮预测收入 ${usd(s.score.revenue)} · 采购贡献 ${usd(s.score.contribution)}`:'只有相对需求情景；绝对收入与新客效果待真实基线核证'));
       if(s.decision_type==='floor_fallback')card.append(node('p','财务底价兜底：竞争区间与双 20% 红线无交集；执行最低可写合法底价，不能视为已达到竞争降幅。'));
       for(const [group,target] of Object.entries(control?{}:s.daily_pricing||{})){
         const source=target.driver_source||'ItemD2R',label=source==='ItemD2R'?'Item':source;
-        card.append(node('p',`${group==='console'?'Console共价':'PC'}按${source} ${target.driver_platform}当轮实际交付价定价：我方100K含赠套餐目标 ${usd(target.target_public_usd)}，执行基础价 ${usd(target.selected_base_total)}。${target.item_target_met?`达到${label}目标（按公开分币舍入）`:target.unmet_reason==='public_cent_not_reachable'?`舍入导致目标未命中，未达到${label}目标`:`财务底价抬高，未达到${label}目标`}。`));
+        card.append(node('p',`${group==='XBOX'?'Xbox':group}按${source} ${target.driver_platform}当轮实际交付价定价：我方100K套餐目标 ${usd(target.target_public_usd)}，执行基础价 ${usd(target.selected_base_total)}。${target.item_target_met?`达到${label}目标（按公开分币舍入）`:target.unmet_reason==='public_cent_not_reachable'?`舍入导致目标未命中，未达到${label}目标`:`财务底价抬高，未达到${label}目标`}。`));
         for(const [platform,row] of Object.entries(target.platforms||{}))card.append(node('p',`${platform} · 每100K实际交付 ${usd(row.actual_unit_100k)} · 本平台参考 ${row.reference_source||'双源缺价'}${row.difference_pct!=null?` · 价差 ${Number(row.difference_pct)>0?'+':''}${Number(row.difference_pct).toFixed(2)}%`:''}`));
       }
       for(const [scope,platforms] of Object.entries(s.market_position||{}))for(const [platform,position] of Object.entries(platforms)){
@@ -231,15 +237,15 @@
       for(const platform of ['PS','XBOX','PC']){
         const details=$('v3-price-basis-'+platform.toLowerCase()),basis=market.price_basis?.rows?.[platform];details.replaceChildren();
         if(!basis){details.textContent='采购成本 / 双红线待核';continue;}
-        const publicPrice=lastMonitor?.storefront?.rows?.[platform]?.package_usd,cost=Number(basis.package_cost_usd),retained=Number(market.price_basis.historical_retained_ratio);
+        const publicPrice=lastMonitor?.storefront?.rows?.[platform]?.package_usd,cost=Number(basis.package_cost_usd),retained=Number(basis.historical_retained_ratio);
         const currentMargin=publicPrice>0&&Number.isFinite(cost)?((Number(publicPrice)-cost)/Number(publicPrice)*100).toFixed(1)+'%':'待核';
         const averageMargin=publicPrice>0&&retained>0&&Number.isFinite(cost)?((Number(publicPrice)*retained-cost)/(Number(publicPrice)*retained)*100).toFixed(1)+'%':'待核';
-        const averageDiscount=retained>0&&retained<=1?((1-retained)*100).toFixed(1)+'%':'待核';
+        const averageDiscount=retained>0&&retained<=1?(Math.floor((1-retained)*1000+1e-9)/10).toFixed(1)+'%':'待核';
         const averageWindow=market.price_basis.history_window_contract==='d9_d2_eight_closed_days_v1'?'D-9至D-2八日平均优惠':'历史七日平均优惠';
         details.append(node('p',`采购成本 $${Number(basis.cost_usd_per_1k).toFixed(4)} / 1K（¥${Number(basis.cost_cny_per_1k).toFixed(4)}）`),
-          node('p',`${basis.delivered_k}K 含赠套餐成本 ${usd(basis.package_cost_usd)}`),
+          node('p',`${basis.delivered_k}K 套餐成本 ${usd(basis.package_cost_usd)}`),
           node('p',`未优惠红线 ${usd(basis.regular_floor_usd)} · 当前${currentMargin}`),node('p',`${averageWindow}${averageDiscount} 红线 ${usd(basis.average_floor_usd)} · 当前${averageMargin}`),
-          node('p',`成本采集 ${when(basis.cost_checked_at)}；${market.price_basis.pricing_scope==='100k_package_only'?'双20只按购买100K、赠送5K这一档核算，地区实际售价另核。':'此为旧范围成本快照，等待100K新口径采集。'}`));
+          node('p',`成本采集 ${when(basis.cost_checked_at)}；${market.price_basis.pricing_scope==='100k_package_only'?'双20只按购买100K、实交100K这一档核算，地区实际售价另核。':'此为旧范围成本快照，等待100K新口径采集。'}`));
       }
       for(const platform of ['PS','XBOX','PC']){
         const column=node('article');column.className='market-platform';column.append(node('h3',platform==='XBOX'?'Xbox':platform));
@@ -297,8 +303,8 @@
     table('v3-regions',matrix);
     table('v3-operations',(state.operations||[]).map(o=>[o.created_at,names[o.bundle?.mode]||(o.bundle?.maintenance_purpose==='retire_uk_discount_v1'?'英国临时折扣退出':'待核'),statusText(o.status),o.operation_id,statusText(o.readback?.public?.status),statusText(o.cache_receipt?.status)]));
     table('v3-incidents',(state.incidents||[]).map(i=>[i.code,i.dependency,statusText(i.state),i.first_seen,i.last_seen,i.attempt]));
-    const sourcePolicy=primaryPolicy(plan)?'计划规则：Lootbar主锚，ArabUT次锚，ItemD2R仅辅助；Console和PC分别核价。'+(plan.parameters.region_pricing==='global'?'全球统一：地区继承全球，系数1；实际生效以已核地区证明为准。':'地区按原配置核算。'):'全球核心参考 Lootbar 与 ItemD2R；Saudi Arabia 另核 Arab 普通报价，破线时系数归1；英国系数1。';
-    $('v3-proof-notes').textContent=`双红线：购买100K、赠送5K档未优惠及D-9至D-2八个完整日真实优惠金额结构估算平均采购毛利都至少 20%。成本、竞品及汇率取本轮。小额与其他档位不作为自动定价硬门槛。${sourcePolicy}${latest?.bundle?.financial_proof?.pricing_scope!=='100k_package_only'&&latest?'下表最近原操作为旧口径历史证明，不代表100K新口径验收。':''}${matrix.length?'下表展示已获得的地区证明；缺项保持待核。':'本轮地区证明尚未取得。'}`;
+    const sourcePolicy=primaryPolicy(plan)?'计划规则：Lootbar主锚，ArabUT次锚，ItemD2R仅辅助；PS、Xbox和PC分别独立核价。'+(plan.parameters.region_pricing==='global'?'全球统一：地区继承全球，系数1；实际生效以已核地区证明为准。':'地区按原配置核算。'):'全球核心参考 Lootbar 与 ItemD2R；Saudi Arabia 另核 Arab 普通报价，破线时系数归1；英国系数1。';
+    $('v3-proof-notes').textContent=`双红线：购买100K、实交100K档未优惠及D-9至D-2八个完整日真实优惠金额结构估算平均采购毛利都至少 20%。成本、竞品及汇率取本轮。小额与其他档位不作为自动定价硬门槛。${sourcePolicy}${latest?.bundle?.financial_proof?.pricing_scope!=='100k_package_only'&&latest?'下表最近原操作为旧口径历史证明，不代表100K新口径验收。':''}${matrix.length?'下表展示已获得的地区证明；缺项保持待核。':'本轮地区证明尚未取得。'}`;
     writeControls();
     list.disabled=!plans.length;
     $('v3-plan-stop').disabled=!canWrite||!plan||['ENDED','ENDING'].includes(plan.state);
@@ -340,7 +346,7 @@
     if(current?.price_control==null)throw Error('价格控制配置尚未读回');
     const pending=sessionStorage.getItem(pendingPriceKey);
     const data=pending?JSON.parse(pending):{request_key:requestKey('price-control'),expected_revision:current.price_control.revision,
-      manual_enabled:$('v3-manual-enabled').checked,manual_prices:{console:$('v3-fixed-console').value||null,pc:$('v3-fixed-pc').value||null},
+      manual_enabled:$('v3-manual-enabled').checked,manual_prices:Object.fromEntries(platforms.map(p=>[p,$('v3-fixed-'+p.toLowerCase()).value||null])),
       uplift_enabled:$('v3-uplift-enabled').checked,uplift_pct:$('v3-uplift-pct').value||'0'};
     sessionStorage.setItem(pendingPriceKey,JSON.stringify(data));
     try{
@@ -369,7 +375,7 @@
   $('v3-plan-form').addEventListener('submit',event=>{
     event.preventDefault();action(async()=>{
       const data={request_key:requestKey('plan'),mode:$('v3-mode').value,resources:[],parameters:formParameters()};
-      if($('v3-console').checked)data.resources.push('base:console');if($('v3-pc').checked)data.resources.push('base:pc');
+      for(const p of platforms)if($('v3-'+p.toLowerCase()).checked)data.resources.push('base:'+p);
       for(const input of $('v3-region-scopes').querySelectorAll('input:checked'))data.resources.push(input.value);
       if(!data.resources.length)throw Error('至少选择一个基础价或Saudi Arabia范围');
       if($('v3-start').value)data.starts_at=new Date($('v3-start').value).toISOString();
@@ -405,21 +411,21 @@
   for(const id of ['v3-execute-now','v3-execute'])$(id).addEventListener('click',executeCurrentPlan);
   $('v3-preview').addEventListener('click',()=>action(async()=>{
     const result=await request('preview',{mode:$('v3-mode').value});
-    const owner=(current?.active_plans||[]).find(p=>['revenue_sprint','smart'].includes(p.mode)&&p.resources?.includes('base:console')&&p.resources?.includes('base:pc')),baseline=owner?.mode==='smart'?owner.baseline_plan:owner,pct=baseline?.parameters?.preferred_undercut_pct;
+    const owner=(current?.active_plans||[]).find(p=>['revenue_sprint','smart'].includes(p.mode)&&platforms.every(g=>p.resources?.includes('base:'+g))),baseline=owner?.mode==='smart'?owner.baseline_plan:owner,pct=baseline?.parameters?.preferred_undercut_pct;
     const note=$('v3-mode').value==='smart'?`默认7.5%基准候选排序的只读情景，未使用当前${pct!=null?pct+'%':'计划参数'}及真实6小时分配；不是本计划报价，不作为切换或审批依据。实际结果以启用后同轮采集和决策回执为准。\n`:'';
-    $('v3-preview-output').textContent=note+Object.entries(result.results).map(([m,r])=>`${names[m]}：${statusText(r.status)}；${r.selected?`Console ${usd(r.selected.action.base_prices.console)} / PC ${usd(r.selected.action.base_prices.pc)}`:`当前不可执行 ${[...new Set((r.failures||[]).map(f=>statusText(f.code)))].join('；')}`}`).join('\n');
+    $('v3-preview-output').textContent=note+Object.entries(result.results).map(([m,r])=>`${names[m]}：${statusText(r.status)}；${r.selected?pricesText(r.selected.action.base_prices):`当前不可执行 ${[...new Set((r.failures||[]).map(f=>statusText(f.code)))].join('；')}`}`).join('\n');
   }));
   $('v3-manual-form').addEventListener('submit',event=>{event.preventDefault();action(async()=>{
     const restore=$('v3-restore-id').value.trim();
     const data={request_key:requestKey('manual-preview'),reason:$('v3-manual-reason').value,plan_id:chosenPlan()?.plan_id};
     if(restore)data.restore_source_execution_id=restore;
-    else{data.explicit_prices={};if($('v3-manual-console').value)data.explicit_prices.console=$('v3-manual-console').value;if($('v3-manual-pc').value)data.explicit_prices.pc=$('v3-manual-pc').value;}
+    else{data.explicit_prices=Object.fromEntries(platforms.filter(p=>$('v3-manual-'+p.toLowerCase()).value).map(p=>[p,$('v3-manual-'+p.toLowerCase()).value]));}
     manualPreview=await request('manual-previews',data);clearKey('manual-preview');
     const action=manualPreview.selected?.action?.base_prices||manualPreview.explicit_prices;
     const regions=Object.entries(manualPreview.selected?.action?.region_coefficients||{}).map(([key,factor])=>`${key} 系数 ${factor}`).join('；');
-    const averageWindow=manualPreview.selected?.financial_proof?.financial_contract_version==='fc27_dual20_d9_d2_v2'?'八日金额结构':'历史七日结构';
+    const averageWindow=['fc27_dual20_d9_d2_v2','fc27_dual20_d9_d2_platform_100k_v4'].includes(manualPreview.selected?.financial_proof?.financial_contract_version)?'八日金额结构':'历史七日结构';
     const proof=Object.entries(manualPreview.selected?.financial_proof?.prices||{}).map(([key,row])=>`${key}：未优惠 ${value(row.catalog?.worst_published_margin_pct)}% / ${averageWindow} ${value(row.catalog?.minimum_estimated_average_margin_pct)}%`).join('；');
-    $('v3-manual-result').textContent=`只读财务与市场重证已完成：Console ${usd(action.console)} / PC ${usd(action.pc)}。${regions}。${proof}。预览 ${manualPreview.manual_preview_id}；有效至 ${manualPreview.valid_until}。确认后由同一新鲜采集链再次核准。`;
+    $('v3-manual-result').textContent=`只读财务与市场重证已完成：${pricesText(action)}。${regions}。${proof}。预览 ${manualPreview.manual_preview_id}；有效至 ${manualPreview.valid_until}。确认后由同一新鲜采集链再次核准。`;
   });});
   $('v3-manual-execute').addEventListener('click',()=>action(async()=>{
     if(!manualPreview||Date.now()>=Date.parse(manualPreview.valid_until))throw Error('人工预览已过期，请重新核算');
@@ -453,5 +459,5 @@
   }));
   $('v3-refresh').addEventListener('click',refresh);
   writeControls();$('v3-history-read').disabled=true;$('v3-plan-select').disabled=true;
-  setInterval(()=>{if(!document.hidden)refresh();},60000);refresh();
+  setInterval(()=>{if(!document.hidden)refresh();},300000);refresh();
 })();

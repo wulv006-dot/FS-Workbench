@@ -26,9 +26,9 @@ class OperationExecutionLock(unittest.TestCase):
                 (runtime,'write_json',lambda p,v:p.write_text(json.dumps(v))),(runtime,'clock',lambda:self.now),(scheduler,'clock',lambda:self.now)):
             self.stack.enter_context(patch.object(obj,name,value))
         self.stack.enter_context(patch('fc_pricing_v3.ledger.clock',return_value=self.now))
-        self.resources=['base:console','base:pc','region:21:PS','region:21:XBOX']
-        self.before=dict(base_prices=dict(console='7.19',pc='7.25'),region_coefficients={'21:PS':'1','21:XBOX':'1'})
-        self.action=dict(base_prices=dict(console='6.87',pc='7.46'),region_coefficients={'21:PS':'.9996','21:XBOX':'.9996'})
+        self.resources=['base:PS','base:XBOX','base:PC','region:21:PS','region:21:XBOX']
+        self.before=dict(base_prices=dict(PS='7.19',XBOX='7.19',PC='7.25'),region_coefficients={'21:PS':'1','21:XBOX':'1'})
+        self.action=dict(base_prices=dict(PS='6.87',XBOX='6.87',PC='7.46'),region_coefficients={'21:PS':'.9996','21:XBOX':'.9996'})
         self.db.put('metadata','generation',dict(id='g'))
         self.db.put('pricing_plans','plan',dict(plan_id='plan',revision=1,generation='g',state='ACTIVE',ends_at=None,resources=self.resources))
         bundle=dict(assignment_id='fixture',snapshot_id='run',action=self.action,before_action=self.before,mutable_resources=self.resources,
@@ -50,7 +50,7 @@ class OperationExecutionLock(unittest.TestCase):
             conn.execute('DELETE FROM operations');conn.execute('DELETE FROM resource_leases')
         for name in ('jobs','quotes'):(self.root/name).mkdir(exist_ok=True)
         bundle=dict(self.op['bundle'],plan_id='plan',decision_bundle_id=self.op['operation_id'],resources=self.resources,steps=[])
-        quote=dict(result=dict(decision_receipt=bundle),evidence=dict(storefront=dict(rows={p:dict(package_usd=self.action['base_prices']['pc' if p=='PC' else 'console']) for p in runtime.PLATFORMS})))
+        quote=dict(result=dict(decision_receipt=bundle),evidence=dict(storefront=dict(rows={p:dict(package_usd=self.action['base_prices'][p]) for p in runtime.PLATFORMS})))
         (self.root/'quotes/run.json').write_text(json.dumps(quote))
         (self.root/'jobs/run.json').write_text(json.dumps(dict(actor='system-automation',request={})))
         return bundle,SimpleNamespace(APP=self.root,run=Mock(return_value=(0,dict(status='review_only',preview_id='original-preview'))))

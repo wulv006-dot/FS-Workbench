@@ -63,7 +63,7 @@ class ALLRecoveryInterlock(unittest.TestCase):
         quote=self.quote();receipt=runtime.verify_quote(quote,dict(minimum_gross_margin_pct='20'),list(runtime.PLATFORMS),
                                                        now=NOW,for_execution=True,purpose=PURPOSE)
         self.assertEqual(receipt['decision_bundle_id'],OP);self.assertEqual(receipt['original_operation_id'],OP)
-        self.assertEqual(receipt['action'],self.action);self.assertEqual(receipt['steps'],[])
+        self.assertEqual(receipt['action'],__import__('fc_pricing_v3.platforms',fromlist=['native_action']).native_action(self.action));self.assertEqual(receipt['steps'],[])
         self.assertTrue(receipt['financial_proof']['pass_all'])
         self.assertEqual(self.db.get('operations',OP),self.op)
         self.assertEqual(self.db.get('pricing_plans',self.plan['plan_id']),self.plan)
@@ -76,7 +76,7 @@ class ALLRecoveryInterlock(unittest.TestCase):
     def test_old_seven_day_evidence_cannot_enter_narrow_authority(self):
         data=fixture(legacy=True)[0];data['run_id']=self.data['run_id']
         with patch.object(runtime,'calculate_postwrite',side_effect=AssertionError('old_window_must_stop_before_authority')):
-            with self.assertRaisesRegex(ValueError,'window_migration_required'):self.quote(data)
+            with self.assertRaisesRegex(ValueError,'platform_migration_required'):self.quote(data)
         self.assertEqual(self.db.get('operations',OP),self.op)
 
     def test_other_purposes_and_UK_new_write_keep_plan_migration_gate(self):
@@ -111,7 +111,7 @@ class ALLRecoveryInterlock(unittest.TestCase):
         self.audit['sync_confirmed']=False;self.save_audit()
         with self.assertRaisesRegex(ValueError,'merchant_unconfirmed'):self.quote()
         self.audit['sync_confirmed']=True;self.audit['after']['rows'][0]['b2c']='.21';self.save_audit()
-        with self.assertRaisesRegex(ValueError,'actual_scope_invalid'):self.quote()
+        with self.assertRaisesRegex(ValueError,'actual_price_changed'):self.quote()
         self.audit['after']['rows'][0]['b2c']='.2';self.save_audit()
         changed=deepcopy(self.op);changed['generation']='retired';self.db.put('operations',OP,changed)
         with self.assertRaisesRegex(ValueError,'old_generation_read_only'):self.quote()

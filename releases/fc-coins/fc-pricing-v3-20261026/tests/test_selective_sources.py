@@ -19,12 +19,15 @@ NOW=datetime(2026,10,26,13,tzinfo=timezone.utc)
 PERIOD=selective.history_period(NOW)
 
 def cache_fixture():
-    selected={'private-raw-order':(dict(salesUsd='9.50',coupons=[],customerType='新客',status='已完成',costCny='30',saleCny='65'),dict(discount_usd='.50'))}
-    orders={'private-raw-order':dict(before_discount='10',discount='95',points=0,amount_usd_format='$9.50',is_region_price=0,region_price_factor=0,discount_code='private-code')}
+    selected={key:(dict(salesUsd='9.50',coupons=[],customerType='新客',status='已完成',costCny='30',saleCny='65'),dict(discount_usd='.50'))
+              for key in ('private-raw-order','private-xbox','private-pc')}
+    orders={key:dict(order_no=key,site_id=266,gid=1327,pay_status=1,aid=aid,before_discount='10',discount='95',points=0,
+        amount_usd_format='$9.50',is_region_price=0,region_price_factor=0,discount_code='private-code')
+        for key,aid in [('private-raw-order',21587),('private-xbox',21585),('private-pc',21589)]}
     provenance=dict(status='complete',period=PERIOD,canonical_archive_sha256='a'*64,ES_source_sha256='b'*64,ES_complete=True,missing_product_identity=0)
-    mix=business.historical_mix(selected,provenance,history_window_contract=selective.HISTORY_WINDOW_CONTRACT)
-    replay=business.build_replay(selected,orders,{}, {},provenance);replay['original_mix_sha256']=mix['sha256']
-    scenarios=[dict(code_retained_ratio='.95',points_credit_usd='0',coupon_template_ids=[],region_id=0,weight_usd='10.00',orders=1)]
+    mix=business.historical_mix(selected,provenance,orders=orders,history_window_contract=selective.HISTORY_WINDOW_CONTRACT)
+    replay=business.platform_replay(selected,orders,{}, {},provenance,mix)
+    scenarios=dict(by_platform={p:[dict(code_retained_ratio='.95',points_credit_usd='0',coupon_template_ids=[],region_id=0,weight_usd='10.00',orders=1)] for p in ('PS','XBOX','PC')})
     cache=selective.seal_history_cache(mix,replay,scenarios,dict(demand_model={}), 'source-v1',NOW)
     return cache,selected,orders,provenance
 
@@ -37,7 +40,10 @@ class SelectiveSourceTest(unittest.TestCase):
             before_discount='100',discount=percent,points=0,amount_usd_format=net,
             is_region_price=0,discount_code='code' if percent==50 else '')
             for key,percent,net in [('old',100,'100'),('new',50,'50')]}
-        _,_,_,provenance=cache_fixture()
+        _,baseline,baseline_orders,provenance=cache_fixture()
+        for key in ('private-xbox','private-pc'):
+            selected[key]=baseline[key];native_selected[key]=baseline[key];orders[key]=baseline_orders[key]
+        for key in ('old','new'):orders[key]['aid']=21587
         native=dict(provenance,canonical_archive_sha256='c'*64)
         ES=SimpleNamespace(CoinsEvidence=lambda:SimpleNamespace(archive=None),GOLD='Gold',
             es_metadata=lambda *a:({hashlib.sha256(b'new').hexdigest():dict(product='Gold')},dict(complete=True)))
@@ -46,14 +52,14 @@ class SelectiveSourceTest(unittest.TestCase):
         with patch.object(business,'_period_population',return_value=(selected,provenance)),patch.object(business,'_historical_native_population',return_value=(native_selected,native,orders,{})) as refresh,patch.dict(sys.modules,{'coins_evidence':ES,'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
             cache,_=business.build_shared_history_cache(None,pages,storefront,[],'source-v1',NOW)
         refresh.assert_called_once_with(PERIOD,None,pages,native_rows=tuple(orders.values()))
-        self.assertEqual(cache['historical_discount_mix']['retained_ratio'],'0.75')
-        self.assertEqual(cache['historical_discount_mix']['observed_orders'],2)
+        self.assertEqual(cache['historical_discount_mix']['by_platform']['PS']['retained_ratio'],'0.75')
+        self.assertEqual(cache['historical_discount_mix']['by_platform']['PS']['observed_orders'],2)
         self.assertEqual(cache['original_history_replay']['original_mix_sha256'],cache['historical_discount_mix']['sha256'])
         with tempfile.TemporaryDirectory() as folder:
             store=Path(folder);db=Ledger(store/'control.sqlite3')
             db.put('metadata','seven_day_history_cache',cache)
             with patch.object(runtime,'STORE',store),patch.object(business,'selective_history_signature',return_value='source-v1'):
-                self.assertEqual(runtime.current_history_mix(NOW)['retained_ratio'],'0.75')
+                self.assertEqual(runtime.current_history_mix(NOW)['by_platform']['PS']['retained_ratio'],'0.75')
 
     def test_new_other_products_unpaid_and_other_sites_do_not_rebuild_coins(self):
         selected={'old':(dict(coupons=[]),{})}
@@ -99,7 +105,7 @@ class SelectiveSourceTest(unittest.TestCase):
         with patch.object(business,'_period_population',return_value=(selected,provenance)),patch.object(business,'_live_traces',side_effect=ValueError('history_order_state_changed_since_archive')),patch.object(business,'_historical_native_population',return_value=(selected,native,orders,{})) as refresh,patch.dict(sys.modules,{'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
             cache,_=business.build_shared_history_cache(None,lambda *a,**k:[],storefront,[],'source-v1',NOW)
         refresh.assert_called_once_with(PERIOD,None,unittest.mock.ANY)
-        self.assertEqual(cache['historical_discount_mix']['observed_orders'],1)
+        self.assertEqual(cache['historical_discount_mix']['by_platform']['PS']['observed_orders'],1)
         self.assertEqual(cache['original_history_replay']['provenance']['prior_archive_sha256'],'a'*64)
         self.assertEqual(cache['original_history_replay']['original_mix_sha256'],cache['historical_discount_mix']['sha256'])
         self.assertNotIn('private-raw-order',json.dumps(cache))
@@ -113,7 +119,7 @@ class SelectiveSourceTest(unittest.TestCase):
         storefront=dict(rows={p:dict(package_usd='10') for p in ('PS','XBOX','PC')})
         with patch.object(business,'_period_population',return_value=(selected,provenance)),patch.object(business,'_live_traces',return_value=(orders,{},{})),patch.dict(sys.modules,{'pricing_sources':SimpleNamespace(active=lambda *a,**k:True)}):
             cache,_=business.build_shared_history_cache(None,None,storefront,[],'source-v1',NOW)
-        self.assertEqual(sum(Decimal(row['weight_usd']) for row in cache['promotion_scenarios']),Decimal('10'))
+        self.assertEqual(sum(Decimal(row['weight_usd']) for rows in cache['promotion_scenarios']['by_platform'].values() for row in rows),Decimal('30'))
         self.assertNotIn('private-raw-order',json.dumps(cache));self.assertNotIn('private-code',json.dumps(cache))
         self.assertEqual(cache['original_history_replay']['original_mix_sha256'],cache['historical_discount_mix']['sha256'])
 
@@ -123,10 +129,13 @@ class SelectiveSourceTest(unittest.TestCase):
             self.assertEqual(plan['price_interval_minutes'],60)
             self.assertEqual(plan['quote_validity_seconds'],900)
             self.assertFalse(set(plan['required_markets'])&set(selective.RETIRED))
-            self.assertEqual(plan['required_markets'],['Lootbar','ItemD2R'])
-        self.assertIn('ItemD2R',selective.source_plan('daily',dict(compare_itemd2r=True))['required_markets'])
+            self.assertEqual(plan['required_markets'],['Lootbar','ArabUT'])
+            self.assertEqual(plan['auxiliary_markets'],['ItemD2R'])
+            self.assertEqual(plan['competitor_policy'],'lootbar_primary_arabut_secondary_v1')
+            self.assertEqual(plan['market_platforms']['ArabUT'],['PS','XBOX','PC'])
+        self.assertIn('ItemD2R',selective.source_plan('daily',dict(compare_itemd2r=True))['auxiliary_markets'])
         self.assertIn('ArabUT',selective.source_plan('revenue_sprint',dict(region_ids=[21]))['required_markets'])
-        self.assertNotIn('ArabUT',selective.source_plan('revenue_sprint',dict(region_ids=[21],platforms=['PC']))['required_markets'])
+        self.assertIn('ArabUT',selective.source_plan('revenue_sprint',dict(region_ids=[21],platforms=['PC']))['required_markets'])
         self.assertEqual(selective.source_plan('daily',interval_minutes=180)['price_interval_minutes'],180)
         self.assertEqual(selective.source_plan('daily',dict(interval_minutes=60))['quote_validity_seconds'],900)
 
@@ -148,7 +157,7 @@ class SelectiveSourceTest(unittest.TestCase):
         for signature,now in [('changed',NOW),('source-v1',NOW+timedelta(days=1))]:
             with self.subTest(signature=signature),self.assertRaisesRegex(ValueError,'source_or_window_changed'):
                 selective.checked_history_cache(cache,signature,now)
-        tampered=deepcopy(cache);tampered['promotion_scenarios'][0]['weight_usd']='1'
+        tampered=deepcopy(cache);tampered['promotion_scenarios']['by_platform']['PS'][0]['weight_usd']='1'
         with self.assertRaisesRegex(ValueError,'hash_changed'):selective.checked_history_cache(tampered,'source-v1',NOW)
 
     def test_provided_old_signature_cannot_bypass_real_source_watch(self):
@@ -160,18 +169,18 @@ class SelectiveSourceTest(unittest.TestCase):
     def test_current_coupon_cap_or_expiry_reprojects_cached_weights_without_historical_scan(self):
         cache,_,_,_=cache_fixture()
         body={k:deepcopy(v) for k,v in cache.items() if k!='cache_sha256'}
-        body['promotion_scenarios'][0].update(code_retained_ratio='1',coupon_template_ids=['template-business-id'])
+        body['promotion_scenarios']['by_platform']['PS'][0].update(code_retained_ratio='1',coupon_template_ids=['template-business-id'])
         cache=dict(body,cache_sha256=selective.fingerprint(body))
         terms={'template-business-id':dict(_current_active=True,mode_type=2,reduce=90,attain=10,max_reduce=2,is_open=0)}
         first=selective.project_cached_history(cache,terms,NOW)
         terms['template-business-id']['max_reduce']=1
         second=selective.project_cached_history(cache,terms,NOW)
         self.assertNotEqual(first['source_sha256'],second['source_sha256'])
-        self.assertEqual(second['paths'][0]['promotion_path']['cap_usd'],'1')
-        self.assertEqual(second['paths'][0]['weight_usd'],'10.00')
+        self.assertEqual(second['by_platform']['PS']['paths'][0]['promotion_path']['cap_usd'],'1')
+        self.assertEqual(second['by_platform']['PS']['paths'][0]['weight_usd'],'10.00')
         terms['template-business-id']['_current_active']=False
         third=selective.project_cached_history(cache,terms,NOW)
-        self.assertEqual(third['paths'][0]['promotion_path'],dict(kind='none'))
+        self.assertEqual(third['by_platform']['PS']['paths'][0]['promotion_path'],dict(kind='none'))
         self.assertEqual(third['original_mix_sha256'],cache['historical_discount_mix']['sha256'])
         same_terms_later=selective.project_cached_history(cache,terms,NOW+timedelta(hours=2))
         self.assertEqual(third['source_sha256'],same_terms_later['source_sha256'])
@@ -197,7 +206,8 @@ class SelectiveSourceTest(unittest.TestCase):
     def test_cache_hit_never_waives_current_hard_input_freshness(self):
         plan=selective.source_plan('daily')
         fresh=NOW.isoformat();stale=(NOW-timedelta(hours=3)).isoformat()
-        evidence=dict(source_plan=plan,fx=dict(checked_at=fresh),promotion_envelope=dict(checked_at=fresh),
+        evidence=dict(source_plan=plan,fx=dict(checked_at=fresh),promotion_envelope=dict(checked_at=fresh,
+            packages={p:dict(tiers=[dict(base_k='100',bonus_k='0',retained_ratio='1')]) for p in plan['platforms']}),
             costs={p:dict(checked_at=fresh) for p in plan['platforms']},storefront=dict(rows={p:dict(checked_at=fresh) for p in plan['platforms']}))
         self.assertTrue(selective.validate_current_hard_evidence(evidence,NOW))
         evidence['costs']['PC']['checked_at']=stale
@@ -217,7 +227,7 @@ class SelectiveSourceTest(unittest.TestCase):
         plan=selective.source_plan('revenue_sprint',dict(platforms=['PC']))
         base=dict(platform='PC',run_id='same-run',status='valid',currency='USD',purchase_k='100',gross_usd='10',captured_at=NOW.isoformat(),conditional=False,comparable=True)
         snapshot=dict(run_id='same-run',competitors=[dict(base,source='Lootbar')])
-        self.assertEqual(selective.planned_source_coverage(snapshot,plan,NOW)['optional_missing'],[dict(platform='PC',source='ItemD2R')])
+        self.assertEqual(selective.planned_source_coverage(snapshot,plan,NOW)['optional_missing'],[dict(platform='PC',source='ArabUT')])
         self.assertTrue(selective.planned_source_coverage(snapshot,plan,NOW,reference_market=dict(offers=[dict(base,source='ItemD2R')]))['ready'])
 
     def test_sprint_missing_ArabUT_can_follow_global_without_blocking_quote(self):
@@ -229,9 +239,9 @@ class SelectiveSourceTest(unittest.TestCase):
         coverage=selective.planned_source_coverage(snapshot,plan,NOW,reference_market=reference)
         self.assertTrue(coverage['ready'])
         self.assertEqual(coverage['required_sources'],[])
-        self.assertEqual(coverage['optional_sources'],['Lootbar','ItemD2R','ArabUT'])
+        self.assertEqual(coverage['optional_sources'],['Lootbar','ArabUT'])
         self.assertEqual(coverage['missing'],[])
-        self.assertEqual({r['platform'] for r in coverage['optional_missing']},{'PS','XBOX'})
+        self.assertEqual({r['platform'] for r in coverage['optional_missing']},{'PS','XBOX','PC'})
 
     def test_daily_replay_uses_only_same_day_immutable_stored_snapshots_and_two_pure_calls(self):
         snapshot=dict(snapshot_id='actual-stored',origin='live_collector',mode='production',evidence=dict(checked_at=NOW.isoformat(),historical_ref={'cache_sha256':'cache'}))
@@ -308,6 +318,8 @@ class SelectiveSourceTest(unittest.TestCase):
     def test_shared_runtime_collects_missing_sprint_Arab_once_and_returns_actual_quotes(self):
         from test_regional_sources import products,SKUS
         from fc_pricing_v3 import region_source,market_registry
+        import importlib
+        market_registry=importlib.import_module('fc_pricing_v3.market_registry')
         storefront=dict(rows={p:dict(sku_id=str(sku)) for p,sku in SKUS.items()})
         auth=SimpleNamespace(Session=Mock,admin_token_from_service=lambda:('fixture','ok'))
         channel=SimpleNamespace(pages=lambda *a:list(products().values()),COLLECTOR='/fixture')
@@ -317,14 +329,17 @@ class SelectiveSourceTest(unittest.TestCase):
         actual=dict(status='available',offers=[dict(source='ArabUT',platform='PS',delivery='normal')])
         with patch.dict(sys.modules,{'channel_source':channel,'p2pah_auth':auth}),patch.object(region_source,'read_rules',return_value=[]),patch.object(business,'collect_selective_business',return_value=envelope),patch.object(regional,'collect',return_value=dict(offers={})),patch.object(market_registry,'arab_normal',return_value=actual) as arab:
             result=sources.shared_context(storefront,active_mode='revenue_sprint',scope=dict(region_ids=[21]))
+        self.assertEqual(arab.call_count,1,result['context']['arab_ut_status'])
         arab.assert_called_once_with()
         self.assertEqual(result['context']['arab_ut_status'],actual)
         self.assertEqual(result['context']['arab_ut_quotes'],actual['offers'])
 
-    def test_shared_selective_context_reads_only_affected_region_platform_and_never_Arab_for_daily(self):
+    def test_shared_daily_pc_context_reads_only_affected_region_and_keeps_independent_arab(self):
         sys.path.insert(0,str(HERE))
         from test_regional_sources import products,PublicOpener,InlinePool,SKUS
         from fc_pricing_v3 import region_source,market_registry
+        import importlib
+        market_registry=importlib.import_module('fc_pricing_v3.market_registry')
         storefront=dict(rows={p:dict(sku_id=str(sku)) for p,sku in SKUS.items()})
         rule=dict(id=1,site_id=266,lang_region_id=39,goods_id=0,gid=1327,top_cid=1,cid=0,sid=7645,aid=0,factor='.9100',status=1)
         session=Mock();auth=SimpleNamespace(Session=lambda:session,admin_token_from_service=lambda:('fixture','ok'))
@@ -337,9 +352,12 @@ class SelectiveSourceTest(unittest.TestCase):
             calls.append((code,rid,kwargs.get('platforms')))
             with patch.object(regional,'build_opener',return_value=PublicOpener(code)):
                 return original(code,rid,**kwargs)
-        with patch.dict(sys.modules,{'channel_source':channel,'p2pah_auth':auth}),patch.object(region_source,'read_rules',return_value=[rule]),patch.object(business,'collect_selective_business',return_value=envelope),patch.object(regional,'collect',side_effect=public),patch('concurrent.futures.ThreadPoolExecutor',InlinePool),patch.object(market_registry,'arab_normal') as arab:
+        actual=dict(status='available',offers=[dict(source='ArabUT',platform='PC',delivery='standard')])
+        with patch.dict(sys.modules,{'channel_source':channel,'p2pah_auth':auth}),patch.object(region_source,'read_rules',return_value=[rule]),patch.object(business,'collect_selective_business',return_value=envelope),patch.object(regional,'collect',side_effect=public),patch('concurrent.futures.ThreadPoolExecutor',InlinePool),patch.object(market_registry,'arab_normal',return_value=actual) as arab:
             result=sources.shared_context(storefront,active_mode='daily',scope=dict(platforms=['PC']))
-        arab.assert_not_called()
+        self.assertEqual(arab.call_count,1,result['context']['arab_ut_status'])
+        arab.assert_called_once_with()
+        self.assertEqual(result['context']['arab_ut_quotes'],actual['offers'])
         self.assertEqual(calls,[('uk',39,['PC'])])
         self.assertEqual(result['context']['region_rules'][0]['platforms'],['PC'])
         self.assertTrue(result['context']['region_rules'][0]['verified'])

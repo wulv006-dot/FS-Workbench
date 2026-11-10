@@ -10,6 +10,7 @@ from decimal import Decimal
 
 from .financial import fingerprint, instant, number
 from . import PROGRAM_CONTRACT
+from .platforms import PLATFORMS, PRICE_SCOPE_CONTRACT, native_resources, native_action, action_key
 
 TABLES = ('pricing_plans', 'pricing_snapshots', 'strategy_decisions', 'financial_proofs',
           'market_comparisons', 'experiment_assignments', 'actual_price_windows',
@@ -137,6 +138,7 @@ class Ledger:
         if (mode not in POLICIES and mode != 'smart') or not resources:
             raise ValueError('pricing_plan_scope_invalid')
         from .smart import STRATEGY_VERSION
+        if mode=='smart' and smart_strategy_version is None:smart_strategy_version=STRATEGY_VERSION
         if smart_strategy_version is not None and (mode!='smart' or smart_strategy_version!=STRATEGY_VERSION):
             raise ValueError('pricing_smart_strategy_version_invalid')
         now = clock()
@@ -144,7 +146,7 @@ class Ledger:
         baseline_plan = None
         owner_snapshot = None
         if mode == 'smart':
-            source = next((p for p in self.active_plans() if p['state']=='ACTIVE' and {'base:console','base:pc'} <= set(p['resources']) and p['mode'] in ('revenue_sprint','smart')), None)
+            source = next((p for p in self.active_plans() if p['state']=='ACTIVE' and {'base:'+p for p in PLATFORMS} <= set(p['resources']) and p['mode'] in ('revenue_sprint','smart')), None)
             if not source:
                 raise ValueError('pricing_smart_original_base_plan_required')
             baseline_plan = source.get('baseline_plan') if source['mode']=='smart' else source
@@ -162,6 +164,7 @@ class Ledger:
             raise ValueError('pricing_plan_parameters_invalid')
         if parameters.get('competitor_policy') not in (None,'lootbar_primary_arabut_secondary_v1') or parameters.get('region_pricing') not in (None,'global'):
             raise ValueError('pricing_plan_parameters_invalid')
+        parameters.update(competitor_policy='lootbar_primary_arabut_secondary_v1',region_pricing='global')
         allocation=parameters.get('allocation')
         if allocation and (set(allocation)!={'control','exploit','explore'} or sum(number(v,zero=True) for v in allocation.values())!=1):
             raise ValueError('pricing_allocation_invalid')
@@ -193,7 +196,7 @@ class Ledger:
                     state='SCHEDULED' if start > now else 'DRAFT', actor=actor,
                     budget_policy='none', manual_locked=manual_locked,
                     parameters=parameters,request_hash=request_hash,
-                    created_at=now.isoformat(), review_contract=PROGRAM_CONTRACT,financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT)
+                    created_at=now.isoformat(), review_contract=PROGRAM_CONTRACT,financial_contract_version=FINANCIAL_CONTRACT_VERSION,price_scope_contract=PRICE_SCOPE_CONTRACT,history_window_contract=HISTORY_WINDOW_CONTRACT)
         if mode=='smart':
             plan.update(baseline_plan=baseline_plan, takeover_owners=owner_snapshot)
             if smart_strategy_version:
@@ -207,6 +210,7 @@ class Ledger:
 
     def migrate_smart_strategy(self, ident, expected_revision, actor):
         from .smart import STRATEGY_VERSION
+        from .financial import FINANCIAL_CONTRACT_VERSION,HISTORY_WINDOW_CONTRACT
         now=clock();key='smart-strategy-migration:'+ident+':'+str(expected_revision)
         with self.transaction() as conn:
             prior=self.get('metadata',key,conn)
@@ -216,31 +220,65 @@ class Ledger:
             plan=self.get('pricing_plans',ident,conn)
             if type(expected_revision) is not int or not plan or plan['revision']!=expected_revision:
                 raise ValueError('pricing_plan_revision_changed')
-            if plan['mode']!='smart' or plan['state']!='ACTIVE':raise ValueError('pricing_smart_active_plan_required')
-            self.owns(plan,plan['resources'],conn)
-            if plan.get('smart_strategy_version')==STRATEGY_VERSION:return plan
+            if plan['mode']!='smart' or plan['state'] not in ('ACTIVE','SUSPENDED','DRAFT'):raise ValueError('pricing_smart_active_plan_required')
+            if plan['state']!='DRAFT':self.owns(plan,plan['resources'],conn)
+            elif (self.get('metadata','generation',conn) or {}).get('id')!=plan['generation']:raise ValueError('pricing_generation_retired')
+            if plan.get('smart_strategy_version')==STRATEGY_VERSION and plan.get('financial_contract_version')==FINANCIAL_CONTRACT_VERSION and plan.get('price_scope_contract')==PRICE_SCOPE_CONTRACT and set(plan['resources'])==set(native_resources(plan['resources'])):return plan
             if plan.get('ends_at') and now>=instant(plan['ends_at']):raise ValueError('pricing_plan_expired')
             for row in conn.execute('SELECT body FROM operations'):
                 op=json.loads(row['body'])
-                if op['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT') and set(op['resources'])&set(plan['resources']):
+                if op['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT','FAILED_BEFORE_WRITE','KNOWN_PARTIAL_EXITED') and set(native_resources(op['resources']))&set(native_resources(plan['resources'])):
                     raise ValueError('pricing_resource_unresolved')
             for row in conn.execute("SELECT body FROM durable_jobs WHERE kind='cycle' AND state='running'"):
                 if json.loads(row['body']).get('plan_id')==ident:raise ValueError('pricing_migration_cycle_running')
+            if any(set(native_resources([row[0]]))&set(native_resources(plan['resources'])) for row in conn.execute('SELECT resource FROM resource_leases')):raise ValueError('pricing_resource_unresolved')
             before=json.loads(json.dumps(plan))
+            from .smart import strategy_start
+            from .financial import FINANCIAL_CONTRACT_VERSION,HISTORY_WINDOW_CONTRACT
+            anchor=strategy_start(plan)
+            next_slot=anchor+timedelta(hours=max(0,int((now-anchor).total_seconds()//3600)+1))
             plan.update(revision=expected_revision+1,smart_strategy_version=STRATEGY_VERSION,
-                        smart_started_at=now.isoformat(),smart_migration_id=key)
+                        smart_started_at=next_slot.isoformat(),smart_migration_id=key,
+                        resources=native_resources(plan['resources']),price_scope_contract=PRICE_SCOPE_CONTRACT,
+                        financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT)
+            for target in (plan,plan['baseline_plan']):
+                if target.get('price_anchor',{}).get('base_prices'):target['price_anchor']=native_action(target['price_anchor'])
+                if target.get('resources'):target['resources']=native_resources(target['resources'])
+                target.update(price_scope_contract=PRICE_SCOPE_CONTRACT,financial_contract_version=FINANCIAL_CONTRACT_VERSION)
+            if plan.get('takeover_owners'):
+                plan['takeover_owners']={r:owner for old,owner in plan['takeover_owners'].items() for r in native_resources([old])}
+            control=self.get('metadata','price_control',conn)
+            if control and set(control.get('manual_prices',{}))=={'console','pc'}:
+                old_control=json.loads(json.dumps(control))
+                control.update(revision=control['revision']+1,manual_prices={p:control['manual_prices']['pc' if p=='PC' else 'console'] for p in PLATFORMS},price_scope_contract=PRICE_SCOPE_CONTRACT)
+                self.put('metadata','price_control',control,conn)
+                self.put('metadata',key+':price-control',dict(before=old_control,after=control),conn)
+            if plan['state']!='DRAFT':
+                for resource in plan['resources']:
+                    owner=conn.execute('SELECT plan_id FROM plan_ownership WHERE resource=?',(resource,)).fetchone()
+                    if owner and owner[0]!=ident:raise ValueError('pricing_resource_owned')
+                conn.execute('DELETE FROM plan_ownership WHERE plan_id=? AND revision=?',(ident,expected_revision))
+                for resource in plan['resources']:conn.execute('INSERT INTO plan_ownership VALUES (?,?,?,?)',(resource,ident,plan['revision'],plan['generation']))
             for target in (plan,plan['baseline_plan']):
                 target.setdefault('parameters',{}).update(competitor_policy='lootbar_primary_arabut_secondary_v1',region_pricing='global')
             self.put('pricing_plans',ident,plan,conn)
-            conn.execute('UPDATE plan_ownership SET revision=? WHERE plan_id=? AND revision=?',(plan['revision'],ident,expected_revision))
             if plan.get('ends_at'):
                 self.enqueue('deadline','deadline:'+ident+':'+str(plan['revision']),plan['ends_at'],dict(plan_id=ident,revision=plan['revision']),conn)
-            self.enqueue('cycle',key+':initial',now,dict(plan_id=ident,revision=plan['revision'],scheduled_at=now.isoformat()),conn)
+            if plan['state']=='ACTIVE':
+                cycle_key='cycle:'+ident+':'+str(int(next_slot.timestamp()))+':r'+str(plan.get('resume_count',0))
+                cycle_body=dict(plan_id=ident,revision=plan['revision'],scheduled_at=next_slot.isoformat())
+                existing_job=conn.execute('SELECT state,body FROM durable_jobs WHERE id=?',(cycle_key,)).fetchone()
+                if existing_job:
+                    if existing_job['state']!='queued' or json.loads(existing_job['body']).get('plan_id')!=ident:raise ValueError('pricing_migration_slot_already_consumed')
+                    conn.execute('UPDATE durable_jobs SET body=?,due_at=? WHERE id=?',(json.dumps(cycle_body),next_slot.isoformat(),cycle_key))
+                else:self.enqueue('cycle',cycle_key,next_slot,cycle_body,conn)
             self.put('metadata',key,dict(actor=actor,created_at=now.isoformat(),before=before,after=plan,
                 original_operations_preserved=True,price_write_performed=False),conn)
             return plan
 
     def migrate_financial_contract(self,ident,expected_revision,actor):
+        current=self.get('pricing_plans',ident)
+        if current and current.get('mode')=='smart':return self.migrate_smart_strategy(ident,expected_revision,actor)
         from .financial import FINANCIAL_CONTRACT_VERSION,HISTORY_WINDOW_CONTRACT
         from .engine import SPRINT_POLICY_VERSION,sprint_parameters
         now=clock();key='financial-plan-migration:'+ident+':'+str(expected_revision)
@@ -256,23 +294,40 @@ class Ledger:
             if plan.get('ends_at') and now>=instant(plan['ends_at']):raise ValueError('pricing_plan_expired')
             for row in db.execute('SELECT body FROM operations'):
                 op=json.loads(row[0])
-                if op['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT') and set(op['resources'])&set(plan['resources']):raise ValueError('pricing_resource_unresolved')
+                if op['status'] not in ('COMPLETED','NO_CHANGE','CANCELLED','CANCELLED_NOT_SENT','FAILED_BEFORE_WRITE','KNOWN_PARTIAL_EXITED') and set(native_resources(op['resources']))&set(native_resources(plan['resources'])):raise ValueError('pricing_resource_unresolved')
             before=json.loads(json.dumps(plan));plan['revision']+=1
             plan['financial_contract_version']=FINANCIAL_CONTRACT_VERSION
             plan['history_window_contract']=HISTORY_WINDOW_CONTRACT
+            plan['price_scope_contract']=PRICE_SCOPE_CONTRACT
+            plan['resources']=native_resources(plan['resources'])
+            if plan.get('price_anchor',{}).get('base_prices'):plan['price_anchor']=native_action(plan['price_anchor'])
+            plan.setdefault('parameters',{}).update(competitor_policy='lootbar_primary_arabut_secondary_v1',region_pricing='global')
             plan.pop('daily_budget',None);plan.pop('total_budget',None);plan['budget_policy']='none'
             if plan['mode']=='revenue_sprint':
                 try:preferred=sprint_parameters(plan)['preferred_undercut_pct']
                 except ValueError:preferred='7.5'
                 plan.setdefault('parameters',{}).update(sprint_policy_version=SPRINT_POLICY_VERSION,preferred_undercut_pct=preferred)
+            control=self.get('metadata','price_control',db)
+            if control and set(control.get('manual_prices',{}))=={'console','pc'}:
+                if db.execute('SELECT 1 FROM resource_leases LIMIT 1').fetchone():raise ValueError('pricing_resource_unresolved')
+                old_control=json.loads(json.dumps(control))
+                control.update(revision=control['revision']+1,manual_prices={p:control['manual_prices']['pc' if p=='PC' else 'console'] for p in PLATFORMS},price_scope_contract=PRICE_SCOPE_CONTRACT)
+                self.put('metadata','price_control',control,db)
+                self.put('metadata',key+':price-control',dict(before=old_control,after=control),db)
             plan['financial_migration_id']=key
             self.put('pricing_plans',ident,plan,db)
-            db.execute('UPDATE plan_ownership SET revision=? WHERE plan_id=? AND revision=?',(plan['revision'],ident,expected_revision))
+            owned=[row[0] for row in db.execute('SELECT resource FROM plan_ownership WHERE plan_id=? AND revision=?',(ident,expected_revision))]
+            for resource in native_resources(owned):
+                other=db.execute('SELECT plan_id FROM plan_ownership WHERE resource=?',(resource,)).fetchone()
+                if other and other[0]!=ident:raise ValueError('pricing_resource_owned')
+            db.execute('DELETE FROM plan_ownership WHERE plan_id=? AND revision=?',(ident,expected_revision))
+            for resource in native_resources(owned):db.execute('INSERT INTO plan_ownership VALUES (?,?,?,?)',(resource,ident,plan['revision'],plan['generation']))
             block=int(now.timestamp())//(6*3600)
             prior=self.get('experiment_assignments',fingerprint([ident,expected_revision,block]),db)
-            if prior:self.put('experiment_assignments',fingerprint([ident,plan['revision'],block]),prior,db)
+            carried=bool(prior and set((prior.get('action') or {}).get('base_prices',{}))==set(PLATFORMS))
+            if carried:self.put('experiment_assignments',fingerprint([ident,plan['revision'],block]),prior,db)
             if plan.get('ends_at'):self.enqueue('deadline','deadline:'+ident+':'+str(plan['revision']),plan['ends_at'],dict(plan_id=ident,revision=plan['revision']),db)
-            self.put('metadata',key,dict(actor=actor,created_at=now.isoformat(),before=before,after=plan,allocation_carried=bool(prior),budget_limits_removed=True,deadline_and_original_records_preserved=True),db)
+            self.put('metadata',key,dict(actor=actor,created_at=now.isoformat(),before=before,after=plan,allocation_carried=carried,budget_limits_removed=True,deadline_and_original_records_preserved=True),db)
             return plan
 
     def activate_plan(self, ident, *, now=None):
@@ -292,6 +347,17 @@ class Ledger:
                 raise ValueError('pricing_plan_expired')
             if plan['generation'] != self.get('metadata', 'generation', db)['id']:
                 raise ValueError('pricing_generation_retired')
+            if any(resource in ('base:PS','base:XBOX','base:PC') for resource in plan['resources']):
+                for lease in db.execute('SELECT resource FROM resource_leases'):
+                    if set(native_resources([lease[0]]))&set(plan['resources']):raise ValueError('pricing_resource_unresolved')
+                for owner in db.execute('SELECT * FROM plan_ownership').fetchall():
+                    expanded=native_resources([owner['resource']])
+                    if expanded!=[owner['resource']] and set(expanded)&set(plan['resources']):
+                        for resource in expanded:
+                            other=db.execute('SELECT plan_id,revision,generation FROM plan_ownership WHERE resource=?',(resource,)).fetchone()
+                            if other and tuple(other)!=(owner['plan_id'],owner['revision'],owner['generation']):raise ValueError('pricing_resource_owned')
+                        db.execute('DELETE FROM plan_ownership WHERE resource=?',(owner['resource'],))
+                        for resource in expanded:db.execute('INSERT OR IGNORE INTO plan_ownership VALUES (?,?,?,?)',(resource,owner['plan_id'],owner['revision'],owner['generation']))
             if plan['mode']=='smart':
                 actual={row['resource']:[row['plan_id'],row['revision'],row['generation']]
                         for row in db.execute('SELECT * FROM plan_ownership') if row['resource'] in plan['resources']}
@@ -443,7 +509,7 @@ class Ledger:
 
     def price_control(self, db=None):
         return self.get('metadata','price_control',db) or dict(revision=0,manual_enabled=False,
-            manual_prices=dict(console=None,pc=None),uplift_enabled=False,uplift_pct='0')
+            manual_prices={p:None for p in PLATFORMS},uplift_enabled=False,uplift_pct='0')
 
     def save_price_control(self, data, actor, request_id):
         expected={'expected_revision','manual_enabled','manual_prices','uplift_enabled','uplift_pct','request_key'}
@@ -452,7 +518,7 @@ class Ledger:
         if type(data['manual_enabled']) is not bool or type(data['uplift_enabled']) is not bool:
             raise ValueError('pricing_price_control_switch_invalid')
         prices=data['manual_prices']
-        if not isinstance(prices,dict) or set(prices)!={'console','pc'}:
+        if not isinstance(prices,dict) or set(prices)!=set(PLATFORMS):
             raise ValueError('pricing_manual_price_fields')
         normalized={}
         for group,price in prices.items():
@@ -610,15 +676,16 @@ class Ledger:
         operation_id=op['operation_id']
         opened=clock().isoformat()
         original_resources=op['bundle'].get('mutable_resources',op['resources'])
-        remaining=set(original_resources)
+        normalize=native_resources if any(r in ('base:PS','base:XBOX','base:PC') for r in original_resources) else lambda resources:list(resources)
+        remaining=set(normalize(original_resources))
         for row in db.execute('SELECT id,body FROM actual_price_windows').fetchall():
             window=json.loads(row[1])
-            affected=(set(window.get('resources',[]))-set(window.get('resource_closed_at',{})))&remaining
+            affected=(set(normalize(window.get('resources',[])))-set(normalize(window.get('resource_closed_at',{}))))&remaining
             if not window.get('closed_at') and affected:
                 if no_change:
                     def value(action,resource):
                         kind,key=resource.split(':',1)
-                        return Decimal(action.get('base_prices' if kind=='base' else 'region_coefficients',{}).get(key,'1'))
+                        return Decimal(action.get('base_prices' if kind=='base' else 'region_coefficients',{}).get(action_key(action,key) if kind=='base' and key in PLATFORMS else key,'1'))
                     def catalog_matches(resource):
                         platforms = ('PS','XBOX') if resource == 'base:console' else ('PC',) if resource == 'base:pc' else (resource.rsplit(':',1)[-1],)
                         old, new = window.get('catalog',{}), op['bundle'].get('catalog',{})
@@ -635,12 +702,12 @@ class Ledger:
                         continue
                 closed=window.setdefault('resource_closed_at',{})
                 for resource in affected:closed.setdefault(resource,opened)
-                if all(resource in closed for resource in window.get('resources',[])):window['closed_at']=max(closed.values())
+                if all(resource in normalize(closed) for resource in normalize(window.get('resources',[]))):window['closed_at']=max(closed.values())
                 self.put('actual_price_windows',row[0],window,db)
         if not remaining:
             return
         self.put('actual_price_windows', operation_id, dict(operation_id=operation_id,plan_id=op.get('plan_id'),generation=op.get('generation'),
-                 resources=[r for r in original_resources if r in remaining],mutable_resources=[r for r in original_resources if r in remaining],
+                 resources=[r for r in normalize(original_resources) if r in remaining],mutable_resources=[r for r in normalize(original_resources) if r in remaining],
                  assignment_id=op['bundle']['assignment_id'],action=op['bundle']['action'],
                  catalog=op['bundle'].get('catalog',{}),budget_reference=op['bundle'].get('budget_reference',{}),
                  platforms=op['bundle'].get('affected_platforms',[]),assignment_probability=op['bundle'].get('assignment_probability'),

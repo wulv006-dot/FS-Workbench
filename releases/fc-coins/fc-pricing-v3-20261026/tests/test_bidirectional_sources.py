@@ -18,8 +18,17 @@ class BidirectionalSourcesTest(unittest.TestCase):
         self.assertIn('ArabUT',coverage['reference_sources']['PC'])
         self.assertNotIn('ItemD2R',coverage['optional_sources'])
 
-    def test_legacy_sources_unchanged(self):
-        self.assertEqual(source_plan('smart')['required_markets'],['Lootbar','ItemD2R'])
+    def test_new_default_uses_current_anchors_without_rewriting_saved_legacy_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db=Ledger(Path(tmp)/'db')
+            original=dict(source_plan=dict(required_markets=['Lootbar','ItemD2R'],market_platforms={'Lootbar':['PS','XBOX','PC'],'ItemD2R':['PS','XBOX','PC']}))
+            db.put('pricing_snapshots','legacy',original)
+            for mode in ('daily','revenue_sprint','smart'):
+                current=source_plan(mode)
+                self.assertEqual(current['required_markets'],['Lootbar','ArabUT'])
+                self.assertEqual(current['auxiliary_markets'],['ItemD2R'])
+                self.assertEqual(current['market_platforms']['ArabUT'],['PS','XBOX','PC'])
+            self.assertEqual(db.get('pricing_snapshots','legacy'),original)
 
     def test_auxiliary_observation_keeps_sealed_snapshot_and_is_idempotent(self):
         from fc_pricing_v3 import observations, runtime

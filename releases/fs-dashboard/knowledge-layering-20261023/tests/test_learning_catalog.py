@@ -249,9 +249,9 @@ class LearningCatalog(unittest.TestCase):
 
     def test_current_entries_cover_rules_and_reporting_and_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 25)
+        self.assertEqual(len(entries), 27)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 25)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 27)
 
     def test_retired_rules_are_removed_without_changing_current_margin_constraints(self):
         entries = catalog()['entries']
@@ -259,7 +259,7 @@ class LearningCatalog(unittest.TestCase):
         self.assertFalse(any(row['id']=='fc.pricing.reference-weighting' for row in entries))
         self.assertEqual(len([r for r in entries if r['id']=='fc.pricing.v3' and r['layer']=='current' and r['status']=='effective']), 1)
         margin = next(r for r in entries if r['id']=='fc.pricing.constraints')
-        self.assertEqual(margin['revision'], 'fc27_dual20_d9_d2_v2')
+        self.assertEqual(margin['revision'], 'fc27_dual20_d9_d2_platform_100k_v4')
         self.assertEqual(margin['source']['path'],'docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md')
 
     def test_current_dashboard_uses_native_summary_and_shipping_without_loading_retired_rules(self):
@@ -297,6 +297,9 @@ class LearningCatalog(unittest.TestCase):
             if row['id']=='fs.customer.lifecycle':
                 self.assertEqual(row['effective_at'], '2026-11-10')
                 self.assertEqual(row['effective_at_basis'], '2026-11-10 用户确认 ES 候选金额口径')
+            elif row['id']=='fs.learning.methods':
+                self.assertEqual(row['effective_at'],'2026-11-10')
+                self.assertEqual(row['revision'],'20261110-three-platform-100k')
             else:
                 self.assertEqual(row['effective_at'], '2026-10-23')
                 self.assertEqual(row['effective_at_basis'], '本知识修订截至日')

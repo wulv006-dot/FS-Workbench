@@ -1556,7 +1556,7 @@ def main():
         elif group=="fc27-pack-bundles":
             # 离线用例：定价公式与腾讯文档逐分对齐 / 写价闸门与假 transport 流程。
             # 零网络、零后台写入（CI 隔离环境已验证 23 项全绿）。
-            units("fc27_pack_bundles_20261013/tests",["test_pack_bundles_offline","test_write_flow"])
+            units("fc27_pack_bundles_20261013/tests",["test_pack_bundles_offline","test_write_flow","test_bundle_ui","test_write_admission"])
         elif group=="mlb-shelf-tool":
             # 离线用例：bat 规范化闸门 / SQLite 3.7.17 兼容 / 认证通路 / 模板发现。
             units("共享资源/MLB新卡上架/tests",["test_shelf_tool_offline"])
