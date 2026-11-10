@@ -1487,6 +1487,45 @@
         "Hermes formal knowledge entry"
       ],
       "time_precision": "date_only"
+    },
+    {
+      "id": "fc.evolutions.experience.current-state-cutover",
+      "revision": "20261111-1",
+      "layer": "experience",
+      "status": "verified",
+      "modules": [
+        "FC27",
+        "FS"
+      ],
+      "effective_at": "2026-11-11",
+      "owner": "吴律 / FC27",
+      "authority": "git",
+      "source_commit": null,
+      "source": {
+        "path": "knowledge/experience/fc27-live-cutover-20261111.md",
+        "sha256": "d31263361a716d3f7c200ef8c8f6c23894a607c49b12bf5b2d4b226cbff96b58",
+        "hash_basis": "utf8_lf"
+      },
+      "supersedes": [],
+      "provenance": [
+        {
+          "kind": "verified_formal_refresh_and_original_automatic_job",
+          "date": "2026-11-10",
+          "refresh_job_id": "27a7b255-5b3f-4fec-b827-7c0a4955e4c2",
+          "automatic_job_id": "89c61f6d-8abe-4a09-9d29-57df70a73aa8",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/9114a564b26ae1c1d91fa5dc0c063aebbfed7a6a/releases/fc-evolutions/admin-session-20261110/source/evolutions.py"
+        },
+        {
+          "kind": "verified_existing_knowledge_publisher_and_readers",
+          "date": "2026-11-11",
+          "url": "https://github.com/wulv006-dot/FS-Workbench/blob/2940951deb1f4b2040f643a8fcf120087f180b59/releases/fc-coins/fc-pricing-v3-20261026/deploy/knowledge/release.py"
+        }
+      ],
+      "consumers": [
+        "Codex",
+        "Hermes explicit experience selection"
+      ],
+      "time_precision": "date_only"
     }
   ],
   "base_commit": "0e2d02efd7c894199ab0f62ca69a9c75ed7c2578"

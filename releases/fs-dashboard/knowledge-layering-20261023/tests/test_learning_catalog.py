@@ -249,9 +249,13 @@ class LearningCatalog(unittest.TestCase):
 
     def test_current_entries_cover_rules_and_reporting_and_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 27)
+        self.assertEqual(len(entries), 28)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 27)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 28)
+        experience = next(r for r in entries if r['id'] == 'fc.evolutions.experience.current-state-cutover')
+        self.assertEqual(experience['layer'], 'experience')
+        self.assertEqual(experience['status'], 'verified')
+        self.assertNotIn(experience['id'], CURRENT_IDS)
 
     def test_retired_rules_are_removed_without_changing_current_margin_constraints(self):
         entries = catalog()['entries']
