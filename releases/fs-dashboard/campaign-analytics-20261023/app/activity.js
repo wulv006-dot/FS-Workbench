@@ -4,8 +4,8 @@
   if(!config||!core||!root)return;
   const $=id=>document.getElementById(id),escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const t=(zh,en)=>en,product=key=>config.products[key],route=key=>config.sbc.routes[key]||{picks:config.sbc.fallbackPicks,alternatives:[],label:{zh:'自选搭配方向',en:'Build your own pairing'}};
-  const state={lang:'en',view:root.dataset.defaultView||config.defaultView||'sbc',platform:'ps',core:config.sbc.defaultId,coreMode:'owned',companions:[...route(config.sbc.defaultId).picks],weekly:new Set(config.weekly.ids.slice(0,1)),bundles:new Set(),busy:false,submitted:false};
-  const standalone=window.CampaignStandalone?.enabled(document.documentElement),live=config.mode==='live'&&!standalone;let runtimeClient=null,published=null,publishedReady=!standalone;let pageTimer;let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false,nativeReview=null;const currentDisplays=new Map();
+  const state={lang:'en',view:root.dataset.defaultView||config.defaultView||'sbc',platform:'ps',core:config.sbc.defaultId,coreMode:'owned',companions:[...route(config.sbc.defaultId).picks],weekly:new Set(),trio:new Set(),chosenCompanions:new Set(),bundles:new Set(),busy:false,submitted:false};
+  const standalone=window.CampaignStandalone?.enabled(document.documentElement),live=config.mode==='live'&&!standalone;let runtimeClient=null,published=null,publishedReady=!standalone;let pageTimer,priceRetryTimer,configGeneration=0,priceRetryCount=0,priceRefreshPending=false;let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false,nativeReview=null;const currentDisplays=new Map();
   const pricing=config.activityPricing||{},priced=pricing.enabled===true;let liveQuoter;
   const content=window.FCActivityContent.create(config,live),{words,heroes}=content;
   function pageState(view){
@@ -38,21 +38,39 @@
     root.querySelectorAll('input,select,[data-toggle-product],[data-toggle-bundle]').forEach(el=>el.disabled=true);guards();
     if($('review-dialog').open)$('review-dialog').close();
   }
+  function missingNativePrices(){
+    if(!standalone||!publishedReady||pageState(state.view)!=='active')return false;
+    const keys=state.view==='sbc'?[...state.companions,...(state.coreMode==='service'?[state.core]:[])]:state.view==='trio'?config.trio.ids:config.weekly.ids;
+    return scoped([...keys,...bundleIdsForView()]).some(key=>product(key)?.preview_only&&!core.nativeModelOffer(product(key),state.platform,published,'fc27-'+state.view)?.price);
+  }
+  async function refreshPublishedPrices(){
+    if(document.hidden||state.submitted)return;
+    if(state.busy){schedulePriceRetry();return;}
+    await publishedConfig(state.view,true);if(!state.busy)render();
+  }
+  function schedulePriceRetry(){
+    clearTimeout(priceRetryTimer);priceRefreshPending=false;
+    if(!missingNativePrices()){priceRetryCount=0;return;}
+    if(document.hidden||state.submitted)return;
+    const view=state.view,platform=state.platform,generation=configGeneration,delay=[1000,3000,8000,30000][Math.min(priceRetryCount++,3)];
+    priceRefreshPending=true;priceRetryTimer=setTimeout(()=>{if(view===state.view&&platform===state.platform&&generation===configGeneration)refreshPublishedPrices();},delay);
+  }
   function scheduleBoundary(){
     clearTimeout(pageTimer);
     const dates=[...(published?.pages||[]).flatMap(p=>[p.starts_at,p.ends_at]),published?.native_checkout?.valid_until,...Object.values(published?.seasonal_model_contracts||{}).flatMap(c=>(c.combinations||[]).map(x=>x.price?.expires_at))].filter(Boolean).map(Date.parse).filter(time=>Number.isFinite(time)&&time>Date.now());
-    if(dates.length)pageTimer=setTimeout(()=>{render();scheduleBoundary();},Math.min(2147483647,Math.max(1,Math.min(...dates)-Date.now()+1)));
+    if(dates.length)pageTimer=setTimeout(()=>{if(!state.busy)render();priceRetryCount=0;refreshPublishedPrices();scheduleBoundary();},Math.min(2147483647,Math.max(1,Math.min(...dates)-Date.now()+1)));
   }
-  async function publishedConfig(view=state.view){
-    let client;
-    try{client=window.CampaignStandalone.create({element:document.documentElement,pageId:'fc27-'+view,activityId:'fc27-season2'});await client.load();published=client.config;}catch(error){published=error.code==='PAGE_UNAVAILABLE'?client?.config:null;}
+  async function publishedConfig(view=state.view,background=false){
+    const generation=++configGeneration;clearTimeout(priceRetryTimer);let client,next;
+    try{client=window.CampaignStandalone.create({element:document.documentElement,pageId:'fc27-'+view,activityId:'fc27-season2'});await client.load();next=client.config;}catch(error){next=error.code==='PAGE_UNAVAILABLE'?client?.config:background?published:null;}
+    if(generation!==configGeneration)return;published=next;
     window.dispatchEvent(new CustomEvent('fcactivity:published',{detail:published}));
     publishedReady=true;
-    scheduleBoundary();
+    scheduleBoundary();schedulePriceRetry();
   }
   function selected(){
     if(standalone&&pageState(state.view)!=='active')return [];
-    try{const keys=state.view==='sbc'?[...(state.coreMode==='service'?[state.core]:[]),...state.companions]:state.view==='trio'?config.trio.ids:[...state.weekly];const ids=[...new Set([...keys,...state.bundles])];const items=scoped(ids).map(key=>offer(key));unavailableSelection=items.some(item=>!item);return items.filter(Boolean);}catch(error){unavailableSelection=true;return [];}
+    try{const keys=state.view==='sbc'?[...(state.coreMode==='service'?[state.core]:[]),...state.companions.filter(key=>state.chosenCompanions.has(key))]:state.view==='trio'?[...state.trio]:[...state.weekly];const ids=[...new Set([...keys,...state.bundles])];const items=scoped(ids).map(key=>offer(key));unavailableSelection=items.some(item=>!item);return items.filter(Boolean);}catch(error){unavailableSelection=true;return [];}
   }
   function currentMedia(){return config.page_media?.['fc27-'+state.view]||published?.page_media?.['fc27-'+state.view]||{};}
   // The published page config carries operator-edited hero copy. Hero text is
@@ -140,11 +158,11 @@
     if(sbc){
       $('product-grid').innerHTML='';
       const select=$('core-select');select.innerHTML=scoped(config.sbc.ids,'sbc').map(key=>`<option value="${escape(key)}" ${key===state.core?'selected':''}>${escape(product(key).title)}</option>`).join('');
-      $('core-mode-help').textContent=state.coreMode==='owned'?t('核心不加入购买清单，也不计入金额。你只购买两位搭档。','Your owned core is excluded from the purchase and total. You buy the two companions only.'):t('清单包含所选 SBC 代做服务与两张搭档球员卡。服务资源与交付要求沿用原 SBC 订单说明。','Your list includes the selected SBC completion service and two player items. Existing SBC order scope, resources and delivery requirements apply.');
+      $('core-mode-help').textContent=state.coreMode==='owned'?t('核心不加入购买清单，也不计入金额。你只购买两位搭档。','Your owned core is excluded. Add the recommended companions you want to your lineup.'):t('清单包含所选 SBC 代做服务与两张搭档球员卡。服务资源与交付要求沿用原 SBC 订单说明。','SBC completion is included. Add any recommended companions you want separately. Existing SBC order scope, resources and delivery requirements apply.');
       const current=route(state.core),pool=scoped([...new Set([...current.picks,...current.alternatives])],'sbc');
-      $('sbc-lineup').innerHTML=card(state.core,{label:t('你的 SBC 核心','YOUR SBC CORE'),fixed:true,owned:state.coreMode==='owned'})+state.companions.map((key,i)=>card(key,{label:t('搭档 '+(i+1),'COMPANION '+(i+1)),fixed:true})).join('');
+      $('sbc-lineup').innerHTML=card(state.core,{label:t('你的 SBC 核心','YOUR SBC CORE'),fixed:true,owned:state.coreMode==='owned'})+state.companions.map((key,i)=>card(key,{label:t('搭档 '+(i+1),'COMPANION '+(i+1)),fixed:false})).join('');
       $('sbc-options').innerHTML=state.companions.map((key,i)=>`<div class="fca-companion-picker"><label for="companion-${i}">${escape(t('搭档 '+(i+1)+' · '+current.label.zh,'Companion '+(i+1)+' · '+current.label.en))}</label><select id="companion-${i}" data-companion-slot="${i}" name="companion${i+1}">${pool.map(option=>`<option value="${escape(option)}" ${option===key?'selected':''} ${option===state.companions[1-i]?'disabled':''}>${escape(product(option).title)}</option>`).join('')}</select></div>`).join('')+`<p class="fca-inline-note fca-pairing-note">${escape(t('这是搭配灵感，不承诺满化学。请核对游戏内位置、联赛与现有阵容。','Pairing ideas do not guarantee full chemistry. Check in-game positions, leagues and your existing lineup.'))}</p>`;
-    }else {$('sbc-lineup').innerHTML='';$('sbc-options').innerHTML='';$('product-grid').innerHTML=scoped(state.view==='trio'?config.trio.ids:config.weekly.ids).map((key,i)=>card(key,{label:state.view==='trio'?config.trio.roles[i][state.lang]:config.weekly.edition[state.lang],fixed:state.view==='trio'})).join('');}
+    }else {$('sbc-lineup').innerHTML='';$('sbc-options').innerHTML='';$('product-grid').innerHTML=scoped(state.view==='trio'?config.trio.ids:config.weekly.ids).map((key,i)=>card(key,{label:state.view==='trio'?config.trio.roles[i][state.lang]:config.weekly.edition[state.lang],fixed:false})).join('');}
     $('bundle-heading').textContent=t('也可以选商店现有阵容包。','Or start with an existing player bundle.');
     $('bundle-grid').innerHTML=scoped(bundleIdsForView()).map(key=>content.bundle(product(key),{lang:state.lang,price:display(offer(key)).text,originalPrice:display(offer(key)).originalText,discountPercent:config.activityPricing?.discountPercent,checked:state.bundles.has(key),platform:state.platform,nativeOffer:offer(key)?.native_offer??null,...imageOptions(key)})).join('');
     const items=selected(),snapshotDate=new Intl.DateTimeFormat(state.lang==='zh'?'zh-CN':'en-GB',{year:'numeric',month:'short',day:'numeric',timeZone:'Asia/Shanghai'}).format(new Date(config.capturedAt));$('summary-count').textContent=String(items.length);$('summary-total').textContent=total(items);$('summary-note').textContent=t('精确商品分别列出，已有核心不重复购买；当前展示为 '+snapshotDate+' 公开价格快照。','Exact items are listed separately. Owned cores are excluded. Public price snapshot: '+snapshotDate+'.');$('review-selection').disabled=!items.length||state.busy||state.submitted;
@@ -157,6 +175,7 @@
     root.querySelectorAll('input,select,button[data-view],button[data-toggle-product],button[data-toggle-bundle]').forEach(el=>el.disabled=state.busy||state.submitted||(el.dataset.toggleBundle!==undefined&&!offer(el.dataset.toggleBundle)));
     renderSeo();guards();
     if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=priced?t('价格按所选平台实时读取；结算在原购物车完成，活动优惠码由购物车自动应用。','Prices are read live for the selected platform. Checkout continues in the original cart, which applies the activity code; coupons and points cannot be combined.'):t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
+    if(missingNativePrices())$('activity-message').textContent=priceRefreshPending?'Checking current prices from the original store. Items without a current price cannot be purchased.':'Current prices are unavailable. Refresh this page to check again. Items without a current price cannot be purchased.';
     signal('render');
     if(focusId&&$(focusId)&&document.activeElement!==$(focusId))$(focusId).focus({preventScroll:true});
   }
@@ -264,24 +283,25 @@
     if(view&&standalone){event.preventDefault();if(pageState(view.dataset.view)!=='active'){render();return;}state.busy=true;render();await publishedConfig(view.dataset.view);state.busy=false;if(pageState(view.dataset.view)!=='active'){render();return;}if(view.tagName==='A'){window.location.href=view.href;return;}}
     if(view){state.view=view.dataset.view;state.bundles.clear();render();warmPrices();signal('view');}
     if(standalone&&pageState(state.view)!=='active'){render();return;}
-    if(pick){const key=pick.dataset.toggleProduct;if(standalone&&!scoped([key]).length)return;state.weekly.has(key)?state.weekly.delete(key):state.weekly.add(key);render();signal('selection',{ids:selected().map(item=>item.offer.id),action:'product_toggle'});}
+    if(pick){const key=pick.dataset.toggleProduct;if(standalone&&!scoped([key]).length)return;const chosen=state.view==='trio'?state.trio:state.view==='sbc'?state.chosenCompanions:state.weekly;chosen.has(key)?chosen.delete(key):chosen.add(key);render();signal('selection',{ids:selected().map(item=>item.offer.id),action:'product_toggle'});}
     if(bundle&&(!standalone||scoped([bundle.dataset.toggleBundle]).length))openReview([offer(bundle.dataset.toggleBundle)]);
   });
   root.addEventListener('change',event=>{
     if(state.busy||state.submitted)return;
     if(standalone&&pageState(state.view)!=='active'){render();return;}
     const el=event.target;
-    if(el.name==='platform'){state.platform=el.value;currentDisplays.clear();}
+    if(el.name==='platform'){state.platform=el.value;currentDisplays.clear();priceRetryCount=0;}
     if(el.name==='core-mode')state.coreMode=el.value;
-    if(el.id==='core-select'){state.core=el.value;state.companions=[...route(el.value).picks];}
-    if(el.dataset.companionSlot!==undefined)state.companions[Number(el.dataset.companionSlot)]=el.value;
+    if(el.id==='core-select'){state.core=el.value;state.companions=[...route(el.value).picks];state.chosenCompanions.clear();}
+    if(el.dataset.companionSlot!==undefined){const slot=Number(el.dataset.companionSlot),previous=state.companions[slot],chosen=state.chosenCompanions.delete(previous);state.companions[slot]=el.value;if(chosen)state.chosenCompanions.add(el.value);}
     render();
-    warmPrices();
+    warmPrices();schedulePriceRetry();
     signal('selection',{ids:selected().map(item=>item.offer.id),action:el.name||el.id||'companion',coreId:product(state.core)?.platforms?.[state.platform]?.id,includeSbc:state.coreMode==='service'});
   });
   $('review-selection').addEventListener('click',openReview);$('mobile-review').addEventListener('click',openReview);$('submit-selection').addEventListener('click',submit);
   root.querySelector('[data-close-dialog]').addEventListener('click',()=>{if(!state.busy)$('review-dialog').close();});$('review-dialog').addEventListener('cancel',event=>{if(state.busy)event.preventDefault();});
   if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=priced?t('价格按所选平台实时读取；结算在原购物车完成，活动优惠码由购物车自动应用。','Prices are read live for the selected platform. Checkout continues in the original cart, which applies the activity code; coupons and points cannot be combined.'):t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(priceRetryTimer);return;}if(missingNativePrices()){priceRetryCount=0;refreshPublishedPrices();}});
   document.querySelectorAll('.fca-language,#lang-zh,#lang-en').forEach(element=>element.remove());
   document.documentElement.lang='en';root.dataset.defaultLanguage='en';
   render();if(standalone)publishedConfig().then(()=>{render();warmPrices();signal('view');});else{warmPrices();signal('view');}

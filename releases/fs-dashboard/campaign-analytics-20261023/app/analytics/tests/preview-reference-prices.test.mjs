@@ -6,7 +6,7 @@ import path from 'node:path';
 import {halloweenFixture} from '../../runtime/tests/halloween-fixture.mjs';
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'preview-price-'));
 process.env.CAMPAIGN_DATA=dir;process.env.CAMPAIGN_PUBLIC_RELEASE_DIR=path.join(dir,'public');
-const {previewReferencePrices}=await import('../production-server.mjs');
+const {previewReferencePrices,pageSeed}=await import('../production-server.mjs');
 test.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
 function setup(){
  const now=Date.now(),published=halloweenFixture(),preview=structuredClone(published);
@@ -29,4 +29,18 @@ test('expiry, release, identity, platform and option mismatches cannot fill a pr
 test('reviewed current proposal price takes precedence',()=>{
  const f=setup(),row=f.preview.seasonal_model_contracts['41217957'].combinations[0];row.price={...f.cache.model_contracts['41217957'].combinations[0].price,base_minor:999};
  assert.equal(previewReferencePrices(f.preview,f.published,f.cache,{now:f.now}).seasonal_model_contracts['41217957'].combinations[0].price.base_minor,999);
+});
+
+test('both preview callers share normalized nine-core layout while dormant routes and 18-player pool remain in draft',async()=>{
+ const {initialLayout,validateLayout}=await import('../store.mjs'),{makeCenterStore,initialCenterDraft}=await import('../center-store.mjs'),{effectiveFcCatalog}=await import('../../runtime/model-cards.mjs');
+ const catalog=JSON.parse(fs.readFileSync(new URL('../../catalog.json',import.meta.url))),layout=structuredClone(initialLayout(catalog));
+ const model=(n,kind)=>({key:'model-266-1327-'+n,site_id:'266',game_id:'1327',model_id:String(n),kind,title:'Fixture '+n,version_label:null,image_url:null,site_association:'observed',verification_scope:'catalog_identity_only',available:false,authoritative:false,checkout_enabled:false,platforms:Object.fromEntries(['ps','xbox','pc'].map(p=>[p,{state:'unknown',product_ref:null,observed_quantity:null}]))});
+ const cores=Array.from({length:9},(_,i)=>model(990000+i,'sbc')),players=Array.from({length:18},(_,i)=>model(990100+i,'player')),models=Object.fromEntries([...cores,...players].map(m=>[m.key,m]));
+ layout.sbc=cores.map(m=>m.key);layout.defaultCore=layout.sbc[0];for(let i=0;i<9;i++){const picks=players.slice(i*2,i*2+2).map(m=>m.key);layout.routes[cores[i].key]={picks,alternatives:players.map(m=>m.key).filter(k=>!picks.includes(k))};}
+ const original=structuredClone(layout),seed=pageSeed(layout,models);
+ assert.equal(Object.keys(seed.fc_layout.routes).length,9);assert.equal(seed.fc_layout.sbc.length,9);assert(Object.values(seed.fc_layout.routes).every(r=>r.picks.length===2&&r.alternatives.length===16));assert.deepEqual(layout,original);
+ // Both workflow makePreviews and center/preview pass this same seed to the original snapshot contract.
+ const store=makeCenterStore({sourceRevision:'dormant-fixture',dir:path.join(dir,'dormant-center'),publicDir:path.join(dir,'dormant-public'),seedProvider:()=>seed,validateFcLayout:(l,m)=>validateLayout(l,effectiveFcCatalog(catalog,m))});
+ const snapshot=store.preview({revision:0,draft:initialCenterDraft()},[],[],{seed});
+ assert.equal(snapshot.fc_layout.sbc.length,9);assert.equal(Object.keys(snapshot.fc_layout.routes).length,9);assert.deepEqual(snapshot.native_checkout,{status:'unconfigured'});assert.equal(fs.existsSync(path.join(dir,'dormant-center')),false);assert.deepEqual(layout,original);
 });

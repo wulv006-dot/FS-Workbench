@@ -331,7 +331,12 @@
   $('fc-layout').addEventListener('change',event=>{
     if(busy||pending||!state?.canEdit)return;state.draft=readForm();const previous=structuredClone(layout()),d=structuredClone(previous),el=event.target;
     if(el.dataset.trio!=null){const index=Number(el.dataset.trio),other=d.trio.indexOf(el.value),old=d.trio[index];if(other>=0&&other!==index)d.trio[other]=old;d.trio[index]=el.value;}
-    else if(el.id==='layout-default-core')d.defaultCore=el.value;
+    else if(el.id==='layout-default-core'){
+      if(!d.sbc.includes(el.value))return;
+      d.defaultCore=el.value;d.sbc=[el.value,...d.sbc.filter(key=>key!==el.value)];
+      // Reordering does not change page membership, roles or companion routes.
+      state.draft.fc_layout=d;renderFcLayout();renderMaterials();lock();return;
+    }
     else{const key=el.closest('[data-layout-core]')?.dataset.layoutCore;if(!key)return;if(el.dataset.layoutPick!=null)d.routes[key].picks[Number(el.dataset.layoutPick)]=el.value;else if(el.dataset.alternative)d.routes[key].alternatives=[...el.closest('[data-layout-core]').querySelectorAll('[data-alternative]:checked')].map(x=>x.dataset.alternative);else return;}
     if(!same(d,previous))applyLayout(d,previous);
   });

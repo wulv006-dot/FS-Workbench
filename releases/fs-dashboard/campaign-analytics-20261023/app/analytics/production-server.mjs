@@ -47,7 +47,7 @@ const validateFcLayout=(layout,models={})=>validateLayout(layout,effectiveFcCata
 export function readNativeCheckoutPolicy(stateDir){
  return readNativeLaunchPolicy(stateDir).checkout;
 }
-const pageSeed=(layout,models={})=>mergeNativeCatalog(centerSeed(previewCatalog(effectiveFcCatalog(catalog,models),layout??store.read().layout),seasonalBox.SeasonalData,adminPrices.seedOptions()),readNativeLaunchPolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend')).catalog);
+export const pageSeed=(layout,models={})=>mergeNativeCatalog(centerSeed(previewCatalog(effectiveFcCatalog(catalog,models),validateFcLayout(layout??store.read().layout,models)),seasonalBox.SeasonalData,adminPrices.seedOptions()),readNativeLaunchPolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend')).catalog);
 const center=makeCenterStore({dir:path.join(dir,'center'),publicDir,nativeCheckoutProvider:()=>readNativeCheckoutPolicy(process.env.CAMPAIGN_BACKEND_STATE_DIR||path.join(dir,'backend')),sourceRevision:process.env.CAMPAIGN_SOURCE_REVISION||'unreleased',validateFcLayout,
  seedProvider:pageSeed});
 const centerState=s=>{const effective=effectiveFcCatalog(catalog,s.draft.fc_models||{}),layout=validateFcLayout(s.draft.fc_layout??store.read().layout,s.draft.fc_models||{}),seed=pageSeed(layout,s.draft.fc_models||{});return {revision:s.revision,draft:s.draft,effective_halloween:s.draft.halloween??emptyHalloween(),effective_fc_layout:layout,restore_candidate:center.restoreCandidate(s),published:s.published,updated_at:s.updated_at,updated_by:s.updated_by,admin_provider_status:adminPrices.status(),
