@@ -96,6 +96,16 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(mismatch['identity_status'],'verified')
         self.assertEqual(mismatch['admin_order_usd'],'501')
 
+    def test_same_buyer_different_admin_emails_cannot_be_tracked_as_one(self):
+        rows=[es('ORDER-1',buyer_id='buyer-a'),es('ORDER-2',buyer_id='buyer-a')]
+        admin_rows={'ORDER-1':admin('ORDER-1'),
+                    'ORDER-2':admin('ORDER-2',email='different@example.invalid')}
+        items,coverage=candidate_rows(rows,admin_rows,DEFAULT_CONFIG)
+        self.assertEqual(len(items),2)
+        self.assertEqual(coverage['buyer_email_conflicts'],1)
+        self.assertTrue(all(item['identity_status']=='unavailable' for item in items))
+        self.assertTrue(all('email' not in item for item in items))
+
     def test_unmatched_or_wrong_site_order_never_enters_main_site_candidates(self):
         rows=[es('ORDER-1'),es('ORDER-2'),es('ORDER-3')]
         items,coverage=candidate_rows(rows,{'ORDER-2':admin('ORDER-2',site_id=999),

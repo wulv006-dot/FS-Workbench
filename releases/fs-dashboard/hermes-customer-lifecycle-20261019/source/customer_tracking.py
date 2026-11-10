@@ -134,7 +134,7 @@ def classify(row,config,apply_criteria=True):
         parsed=datetime.fromisoformat(paid_at.replace('/','-'))
         if parsed.tzinfo is None:parsed=parsed.replace(tzinfo=timezone(timedelta(hours=8)))
     except ValueError:return None,'paid_at_missing'
-    buyer=row.get('buyer_id')
+    buyer=row.get('Buyer ID') or row.get('buyer_id')
     buyer=buyer.strip() if isinstance(buyer,str) and 0<len(buyer)<=160 and buyer.strip().lower() not in ('','0','null','none','n/a','nan','undefined','-') and not any(ord(c)<32 for c in buyer) else None
     return {'es_identity':dict(buyer_id=buyer,status='verified' if buyer else 'unknown',source='ES original row; Admin match pending'),
         'order_no':order,'paid_at':parsed.isoformat(),'es_order_usd':str(amount) if amount is not None else None,
@@ -197,7 +197,13 @@ def candidate_rows(es_rows,admin_by_order,config):
         if number in conflicted:
             coverage['excluded']['conflicting_order_rows']=coverage['excluded'].get('conflicting_order_rows',0)+1
             continue
-        if not money(item['discount_usd'])<Decimal(config['max_discount_usd_exclusive']) or item['customer_flag'] not in config['customer_flags']:
+        es_usd=money(item['es_order_usd'])
+        if es_usd is None or es_usd<0:
+            coverage['excluded']['order_usd_missing']=coverage['excluded'].get('order_usd_missing',0)+1
+            continue
+        if (not money(item['discount_usd'])<Decimal(config['max_discount_usd_exclusive'])
+                or item['customer_flag'] not in config['customer_flags']
+                or not es_usd>Decimal(config['min_order_usd_exclusive'])):
             coverage['excluded']['criteria_not_met']=coverage['excluded'].get('criteria_not_met',0)+1
             continue
         identity=verified_identity(item,admin_by_order.get(item['order_no']))
@@ -206,22 +212,32 @@ def candidate_rows(es_rows,admin_by_order,config):
             coverage['excluded'][reason]=coverage['excluded'].get(reason,0)+1
             continue
         item.update(identity)
-        chosen_usd=money(identity.get('admin_order_usd'))
-        amount_source='Admin'
-        if chosen_usd is None:
-            chosen_usd=money(item['es_order_usd']);amount_source='Admin_ES_export'
-        if chosen_usd is None or chosen_usd<0:
-            coverage['excluded']['order_usd_missing']=coverage['excluded'].get('order_usd_missing',0)+1
-            continue
-        item['order_usd']=str(chosen_usd);item['order_usd_source']=amount_source
+        item['order_usd']=str(es_usd);item['order_usd_source']='ES_candidate_export'
         item['amount_conflict']=identity.get('admin_order_usd') is not None and item['es_order_usd'] is not None and money(identity['admin_order_usd'])!=money(item['es_order_usd'])
-        if not chosen_usd>Decimal(config['min_order_usd_exclusive']):
-            coverage['excluded']['criteria_not_met']=coverage['excluded'].get('criteria_not_met',0)+1
-            continue
         coverage['criteria_matches']+=1
         coverage['identity_verified' if identity['identity_status']=='verified' else 'identity_unavailable']+=1
         items.append(item)
-    return items,coverage
+    grouped={};conflicts=set()
+    for item in items:
+        buyer=(item.get('es_identity') or {}).get('buyer_id')
+        if buyer and item['identity_status']=='verified':
+            key=(item['site_id'],buyer)
+            prior=grouped.setdefault(key,item)
+            if prior['email']!=item['email']:conflicts.add(key)
+    result=[]
+    for item in items:
+        buyer=(item.get('es_identity') or {}).get('buyer_id')
+        key=(item.get('site_id'),buyer) if buyer and item['identity_status']=='verified' else None
+        if key in conflicts:
+            item.pop('email',None);item['identity_status']='unavailable';item['identity_reason']='buyer_email_conflict'
+            coverage['identity_verified']-=1;coverage['identity_unavailable']+=1
+        elif key and grouped[key] is not item:
+            grouped[key]['buyer_group_order_count']=grouped[key].get('buyer_group_order_count',1)+1
+            continue
+        result.append(item)
+    coverage.update(returned_candidates=len(result),buyer_groups=len(grouped),buyer_email_conflicts=len(conflicts),
+                    buyer_grouped_orders=len(items)-len(result))
+    return result,coverage
 
 
 class Store:

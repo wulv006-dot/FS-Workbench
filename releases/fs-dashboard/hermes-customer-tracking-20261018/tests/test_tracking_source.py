@@ -75,6 +75,26 @@ class SourceTests(unittest.TestCase):
         self.assertEqual(value['orders']['ORDER-1']['uid'],0)
         self.assertNotIn('OTHER',json.dumps(value))
 
+    def test_targeted_order_batches_preserve_missing_order_coverage(self):
+        wanted={'ORDER-'+str(n) for n in range(1,22)};calls=[]
+        def request(path,timeout):
+            query=parse_qs(urlsplit(path).query);calls.append(query)
+            self.assertEqual(query['search[4][field]'],['order_no'])
+            self.assertEqual(query['search[4][operator]'],['IN'])
+            numbers=query['search[4][val]'][0].split(',')
+            self.assertLessEqual(len(numbers),20)
+            rows=[{'id':int(number.split('-')[1]),'gid':1327,'site_id':266,'pay_status':1,
+                   'paytime':'2026-10-17 12:00:00','order_no':number,'email':'guest@example.invalid',
+                   'uid':0,'amount':'501'} for number in numbers if number!='ORDER-21']
+            rows.sort(key=lambda row:row['id'],reverse=True)
+            return 200,json.dumps({'code':1,'data':{'total':len(rows),'list':rows}}).encode()
+        value=admin_paid_day(request,'2026-10-17','FC27',wanted,targeted=True)
+        self.assertEqual(value['status'],'available')
+        self.assertEqual(len(calls),2)
+        self.assertEqual(value['coverage']['candidate_orders_requested'],21)
+        self.assertEqual(value['coverage']['missing_candidate_orders'],1)
+        self.assertEqual(value['coverage']['received'],20)
+
     def test_identical_raw_source_row_duplicate_is_covered_once(self):
         order={'id':9,'gid':1327,'site_id':266,'pay_status':1,'paytime':'2026-10-17 12:00:00',
             'order_no':'ORDER-1','email':'guest@example.invalid','uid':0,'amount':'501'}
@@ -96,6 +116,78 @@ class SourceTests(unittest.TestCase):
             value=scan_day(lambda *_:None,'2026-10-17',DEFAULT_CONFIG)
         self.assertEqual(value['status'],'partial')
         self.assertNotIn('items',value)
+
+    def test_es_amount_selects_buyer_before_targeted_admin_and_groups_candidates(self):
+        rows=[dict(row('ORDER-1'),**{'Buyer ID':'buyer-a'}),
+              dict(row('ORDER-2'),**{'Buyer ID':'buyer-a','订单金额（美元）':'520'}),
+              dict(row('ORDER-3'),**{'Buyer ID':'buyer-b','订单金额（美元）':'500'})]
+        source={'status':'available','rows':rows,'captured_at':'time','source_version':'synthetic',
+                'coverage':{'file_set_complete':True,'rows':3}}
+        calls=[]
+        def request(path,timeout):
+            query=parse_qs(urlsplit(path).query);calls.append(query)
+            self.assertEqual(query['search[4][field]'],['order_no'])
+            self.assertEqual(query['search[4][operator]'],['IN'])
+            self.assertEqual(query['search[4][val]'],['ORDER-1'])
+            admin_rows=[{'id':1,'gid':1327,'site_id':266,'pay_status':1,'paytime':'2026-10-17 12:00:00',
+                         'order_no':'ORDER-1','email':'guest@example.invalid','uid':0,'amount':'400'}]
+            return 200,json.dumps({'code':1,'data':{'total':1,'list':admin_rows}}).encode()
+        with patch('tracking_source.private_es_day',return_value=source):
+            value=scan_day(request,'2026-10-17',DEFAULT_CONFIG)
+        self.assertEqual(value['status'],'available')
+        self.assertEqual(len(calls),1)
+        self.assertEqual(len(value['items']),1)
+        self.assertEqual(value['items'][0]['order_usd'],'500.01')
+        self.assertEqual(value['items'][0]['buyer_group_order_count'],2)
+        self.assertTrue(value['items'][0]['amount_conflict'])
+        self.assertEqual(value['coverage']['es_eligible_orders'],2)
+        self.assertEqual(value['coverage']['es_eligible_buyers'],1)
+        self.assertEqual(value['coverage']['admin_orders_requested'],1)
+        self.assertEqual(value['coverage']['buyer_orders_collapsed'],1)
+
+    def test_unverified_representative_tries_next_order_of_same_buyer(self):
+        source={'status':'available','rows':[dict(row('ORDER-1'),buyer_id='buyer-a'),
+            dict(row('ORDER-2'),buyer_id='buyer-a')],'captured_at':'time',
+            'source_version':'synthetic','coverage':{'file_set_complete':True}}
+        calls=[]
+        def request(path,timeout):
+            number=parse_qs(urlsplit(path).query)['search[4][val]'][0];calls.append(number)
+            rows=[{'id':1 if number=='ORDER-1' else 2,'gid':1327,'site_id':266,'pay_status':1,
+                'paytime':'2026-10-17 12:00:00','order_no':number,'email':'guest@example.invalid',
+                'uid':0,'amount':'500.01'}]
+            if number=='ORDER-1':rows[0]['email']='invalid'
+            return 200,json.dumps({'code':1,'data':{'total':len(rows),'list':rows}}).encode()
+        with patch('tracking_source.private_es_day',return_value=source):
+            value=scan_day(request,'2026-10-17',DEFAULT_CONFIG)
+        self.assertEqual(calls,['ORDER-1','ORDER-2'])
+        self.assertEqual(value['items'][0]['order_no'],'ORDER-2')
+        self.assertEqual(value['items'][0]['buyer_group_order_count'],2)
+        self.assertEqual(value['coverage']['admin_orders_requested'],2)
+
+    def test_no_es_eligible_order_skips_admin_read(self):
+        source={'status':'available','rows':[dict(row(),**{'订单金额（美元）':'500'})],
+                'captured_at':'time','source_version':'synthetic','coverage':{'file_set_complete':True}}
+        with patch('tracking_source.private_es_day',return_value=source):
+            value=scan_day(lambda *_:self.fail('Admin must not be called'),'2026-10-17',DEFAULT_CONFIG)
+        self.assertEqual(value['status'],'available')
+        self.assertEqual(value['items'],[])
+        self.assertEqual(value['coverage']['es_eligible_orders'],0)
+
+    def test_ignored_target_filter_falls_back_to_complete_day(self):
+        source={'status':'available','rows':[row()],'captured_at':'time',
+                'source_version':'synthetic','coverage':{'file_set_complete':True}}
+        calls=[]
+        def request(path,timeout):
+            query=parse_qs(urlsplit(path).query);calls.append(query)
+            order='OTHER' if 'search[4][field]' in query else 'ORDER-1'
+            admin_row={'id':1,'gid':1327,'site_id':266,'pay_status':1,'paytime':'2026-10-17 12:00:00',
+                       'order_no':order,'email':'guest@example.invalid','uid':0,'amount':'500.01'}
+            return 200,json.dumps({'code':1,'data':{'total':1,'list':[admin_row]}}).encode()
+        with patch('tracking_source.private_es_day',return_value=source):
+            value=scan_day(request,'2026-10-17',DEFAULT_CONFIG)
+        self.assertEqual(value['status'],'available')
+        self.assertEqual(len(value['items']),1)
+        self.assertEqual(len(calls),2)
 
 
 if __name__=='__main__':unittest.main()

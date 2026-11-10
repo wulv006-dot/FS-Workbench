@@ -722,30 +722,27 @@
     },
     {
       "id": "fs.customer.lifecycle",
-      "revision": "users-storage-20261029-v1",
+      "revision": "buyer-candidates-20261110-v1",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-10-23",
+      "effective_at": "2026-11-10",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
       "source_commit": null,
       "source": {
-        "path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-        "sha256": "e86fcf893fe160fc58bb84003039c4e6e8f8eac80a5d5858e755ba1819da43de",
-        "hash_basis": "utf8_lf",
-        "selector": {
-          "start": "## 9. 客户追踪与按需查证",
-          "end": "## 10. Hermes 的学习和决策方法"
-        }
+        "path": "knowledge/customer-tracking/BUYER-ID-CANDIDATES.md",
+        "sha256": "cfef599ccdaaeae09d49cfe1fdab35ac5203b1a204c8c6c4fbe4679ef5036890",
+        "hash_basis": "utf8_lf"
       },
       "supersedes": [
         "fs.customer.lifecycle@existing-contract-20261023",
-        "fs.customer.lifecycle@fc-v3-20261026"
+        "fs.customer.lifecycle@fc-v3-20261026",
+        "fs.customer.lifecycle@users-storage-20261029-v1"
       ],
       "provenance": [
         {
@@ -776,9 +773,15 @@
           "date": "2026-10-29",
           "runtime_pr": 653,
           "scope": "refresh/recovery/storage meaning; no lifecycle or finance rule change"
+        },
+        {
+          "kind": "direct_user_buyer_candidate_optimization",
+          "date": "2026-11-10",
+          "scope": "FC27 tracking candidate identity and ES amount threshold only",
+          "path": "docs/planning/customer-buyer-tracking-20261110/IMPLEMENTATION.md"
         }
       ],
-      "effective_at_basis": "本知识修订截至日",
+      "effective_at_basis": "2026-11-10 用户确认 ES 候选金额口径",
       "original_effective_at": null
     },
     {
