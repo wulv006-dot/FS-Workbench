@@ -69,9 +69,12 @@ class Receipts(unittest.TestCase):
         self.assertEqual(value['issues'],['fc_pricing_browser_memory_high','fc_pricing_unresolved:'+jid])
     def test_planned_verified_restart_is_sample_not_failure(self):
         now=datetime.now(timezone.utc)
-        mem=dict(running=True,usage_bytes=500000000,restart_count=0,started_at=now.isoformat(),oom_killed=False)
+        mem=dict(id='a'*64,running=True,usage_bytes=500000000,restart_count=0,started_at=now.isoformat(),oom_killed=False)
         old=dict(memory=dict(mem,started_at='old'))
-        life=dict(startup_source_sha256='approved',state='verified_after_unknown',reconciled_container=dict(started_at=mem['started_at']))
+        event_id='9c4fd616-9a97-45d6-990f-e8e8af598d4f'
+        life=dict(event_id=event_id,action='restart',at=now.timestamp(),state='verified_after_unknown',
+                  idle_release=dict(event_id=event_id,container_id=mem['id'],started_at=mem['started_at']),
+                  idle_release_verified_at=now.isoformat())
         value=P.collect(now,old,[],{},[],mem,lifecycle=life)
         self.assertEqual(value['issues'],[])
         self.assertTrue(value['browser_restart_event']['planned_startup_acceptance_verified'])

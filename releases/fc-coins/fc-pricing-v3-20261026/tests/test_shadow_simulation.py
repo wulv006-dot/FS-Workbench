@@ -38,6 +38,20 @@ def fake_evaluate(own, mode, **kwargs):
 
 
 class ShadowBehavior(unittest.TestCase):
+    def test_prune_pages_large_history_without_skipping_retained_rows(self):
+        now = datetime(2026, 11, 10, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as folder:
+            shadow = simulation.Shadow(Path(folder) / 'shadow.db')
+            with shadow.connect() as db:
+                for index in range(250):
+                    stamp = '2026-01-01T00:00:00+00:00' if index % 2 else now.isoformat()
+                    db.execute('INSERT INTO runs (id,body) VALUES (?,?)',
+                               (f'{index:04}', json.dumps(dict(as_of=stamp, payload='x' * 1000))))
+            self.assertEqual(shadow.prune(now)['removed'], 125)
+            with shadow.connect() as db:
+                self.assertEqual(db.execute('SELECT count(*) FROM runs').fetchone()[0], 125)
+                self.assertEqual(db.execute("SELECT count(*) FROM runs WHERE id LIKE '%1'").fetchone()[0], 0)
+
     def test_shadow_anchor_rebases_real_orders_and_aov_once(self):
         source = evidence(START)
         source['demand_model']['groups']['console'].update(orders_per_block='10',reference_regular_usd='10',

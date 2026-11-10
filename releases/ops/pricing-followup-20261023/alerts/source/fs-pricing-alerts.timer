@@ -1,0 +1,12 @@
+[Unit]
+Description=Hourly FC and RPG pricing receipt observation
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1h
+AccuracySec=15s
+Persistent=false
+Unit=fs-pricing-alerts.service
+
+[Install]
+WantedBy=timers.target

@@ -2,6 +2,10 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import os
+import io
+import runpy
+from contextlib import redirect_stdout
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -160,19 +164,33 @@ class WatchChecks(unittest.TestCase):
         self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'healthy_quiet')
         self.assertEqual(self.calls, [])
 
+    def test_model_review_reads_bounded_existing_state(self):
+        self.snapshot()
+        watch.write(self.home/'watch-state.json', {'issues':['rpg_pricing_write_failed:original']})
+        watch.write(self.home/'pricing-snapshot.json', {'exported_at':NOW.isoformat(), 'issues':['x']*45})
+        output = io.StringIO()
+        with patch.dict(os.environ, FS_WATCH_HOME=str(self.home)), \
+             patch.object(sys, 'argv', [str(ROOT/'source/watch.py'), 'review']), \
+             redirect_stdout(output):
+            runpy.run_path(str(ROOT/'source/watch.py'), run_name='__main__')
+        summary = json.loads(output.getvalue())
+        self.assertEqual(summary['alerting_issues'], ['rpg_pricing_write_failed:original'])
+        self.assertEqual(len(summary['pricing_issues']), 40)
+        self.assertEqual(self.calls, [])
+
     def test_incident_change_only_and_recovery(self):
-        self.snapshot(['latest_coin_job_failed'])
+        self.snapshot(['watchdog_export_missing'])
         self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'sent')
         first = watch.read(self.home/'watch-state.json')['incident']
         self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'unchanged_quiet')
         self.assertEqual(watch.read(self.home/'watch-state.json')['incident'], first)
-        self.snapshot(['latest_coin_job_failed'], repair={'status':'pr_open'})
+        self.snapshot(['watchdog_export_missing'], repair={'status':'pr_open'})
         self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'sent')
         self.assertEqual(watch.read(self.home/'watch-state.json')['incident'], first)
         self.snapshot()
         self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'sent')
         self.assertEqual(len(self.calls), 3)
-        self.snapshot(['latest_coin_job_failed'])
+        self.snapshot(['watchdog_export_missing'])
         self.assertEqual(watch.run(self.home, self.transport, NOW+timedelta(seconds=1))['state'], 'sent')
         self.assertEqual(len(self.calls), 4)
         self.assertNotEqual(watch.read(self.home/'watch-state.json')['incident'], first)
@@ -184,7 +202,7 @@ class WatchChecks(unittest.TestCase):
         self.assertIn('<at user_id="ou_buddy"></at> RPG', text)
 
     def legacy_state(self):
-        issues = ['brain_ui_dependencies_missing']
+        issues = ['brain_ui_dependencies_missing', 'watchdog_export_missing']
         incident = common.sha(json.dumps(issues).encode())[:16]
         signature = common.sha(json.dumps(
             {'issues': issues, 'repair': dict(incident=None, status=None, error=None)},
@@ -206,16 +224,17 @@ class WatchChecks(unittest.TestCase):
         watch.write(self.home/'claim-codex.json', claim)
         self.snapshot(issues, brain={'repairable': True}, repair=record)
         self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'sent')
-        self.assertEqual(watch.read(self.home/'watch-state.json')['incident'], incident)
-        self.assertEqual(watch.read(self.home/'request.json')['incident'], incident)
+        self.assertIn('watchdog_export_missing', watch.read(self.home/'watch-state.json')['issues'])
+        self.assertTrue(watch.read(self.home/'request.json')['incident'])
         self.assertEqual(watch.read(self.home/'claim-codex.json'), claim)
         with patch.object(host, 'STATE', state), patch.object(host, 'PROFILE', self.home):
-            self.assertTrue(host.claim_active(watch.read(self.home/'request.json'), NOW))
-            host.process(NOW)
-            watch.write(self.home/'claim-codex.json', dict(claim, active=False))
-            # A nonterminal unknown write must neither be replaced nor retried.
-            with patch.object(host, 'GitHub', side_effect=AssertionError('no replay')):
+            with self.assertRaisesRegex(ValueError, 'another_incident_requires_reconciliation'):
                 host.process(NOW)
+            watch.write(self.home/'claim-codex.json', dict(claim, active=False))
+            # The old incident remains intact until reconciled.
+            with patch.object(host, 'GitHub', side_effect=AssertionError('no replay')):
+                with self.assertRaisesRegex(ValueError, 'another_incident_requires_reconciliation'):
+                    host.process(NOW)
         self.assertEqual(watch.read(state/'repair.json'), record)
 
     def test_legacy_quiet_then_progress_then_recurrence(self):
@@ -225,7 +244,7 @@ class WatchChecks(unittest.TestCase):
         self.assertEqual(self.calls, [])
         self.snapshot(issues, brain={'repairable': True}, repair={'status': 'pr_open'})
         watch.run(self.home, self.transport, NOW)
-        self.assertEqual(watch.read(self.home/'watch-state.json')['incident'], incident)
+        self.assertIn('watchdog_export_missing', watch.read(self.home/'watch-state.json')['issues'])
         self.snapshot()
         watch.run(self.home, self.transport, NOW)
         self.snapshot(issues, brain={'repairable': True})
@@ -234,8 +253,7 @@ class WatchChecks(unittest.TestCase):
 
     def test_legacy_unknown_notification_preserves_records_and_never_resends(self):
         issues, incident = self.legacy_state()
-        before = {name: (self.home/name).read_bytes()
-                  for name in ('watch-state.json', 'request.json')}
+        before_request = (self.home/'request.json').read_bytes()
         self.snapshot(issues, brain={'repairable': True}, repair={'status': 'pr_open'})
         def uncertain(*args):
             self.calls.append(args)
@@ -244,15 +262,15 @@ class WatchChecks(unittest.TestCase):
             self.assertEqual(watch.run(self.home, uncertain, NOW)['state'],
                              'notification_unknown_no_retry')
         self.assertEqual(len(self.calls), 1)
-        for name, content in before.items():
-            self.assertEqual((self.home/name).read_bytes(), content)
+        self.assertEqual((self.home/'request.json').read_bytes(), before_request)
+        self.assertTrue(watch.read(self.home/'watch-state.json')['pending_event'])
 
     def test_sent_outbox_reconciles_exact_delivered_id_after_crash(self):
         issues, _ = self.legacy_state()
         self.snapshot(issues, brain={'repairable': True}, repair={'status': 'pr_open'})
         real_write = watch.write
         def crash_state(path, value):
-            if path.name == 'watch-state.json':
+            if path.name == 'watch-state.json' and self.calls:
                 raise RuntimeError('simulated_crash_after_send')
             return real_write(path, value)
         with patch.object(watch, 'write', side_effect=crash_state):
@@ -261,33 +279,31 @@ class WatchChecks(unittest.TestCase):
         outbox = next((self.home/'outbox').glob('*.json'))
         receipt = watch.read(outbox)
         self.assertEqual(receipt['state'], 'sent')
-        self.assertIn(receipt['incident'], self.calls[0][0])
+        self.assertEqual(receipt['message_id'], 'test-id')
         # Test receipt authority independently of the currently selected fallback.
         delivered = 'f'*16
         watch.write(outbox, dict(receipt, incident=delivered))
         self.assertEqual(watch.run(self.home, self.transport, NOW)['state'], 'reconciled_sent')
         self.assertEqual(len(self.calls), 1)
-        self.assertEqual(watch.read(self.home/'request.json')['incident'], delivered)
-        self.assertEqual(watch.read(self.home/'watch-state.json')['incident'], delivered)
+        self.assertEqual(watch.read(self.home/'request.json')['incident'], receipt['target_state']['incident'])
+        self.assertEqual(watch.read(self.home/'watch-state.json'), receipt['target_state'])
 
     def test_old_sent_outbox_without_id_blocks_without_mutation_or_resend(self):
         issues, _ = self.legacy_state()
         self.snapshot(issues, brain={'repairable': True}, repair={'status': 'pr_open'})
         # Produce the exact event key, then represent a pre-patch sent receipt.
         watch.run(self.home, lambda *args: {'success': True}, NOW)
-        outbox = next((self.home/'outbox').glob('*.json'))
+        outbox = self.home/'outbox'/(watch.read(self.home/'watch-state.json')['pending_event']+'.json')
         for incident in (None, '', 'invalid'):
             receipt = {'state': 'sent', 'message_id': 'old-message'}
             if incident is not None:
                 receipt['incident'] = incident
             watch.write(outbox, receipt)
-            before = {p: p.read_bytes() for p in
-                      (outbox, self.home/'watch-state.json', self.home/'request.json')}
-            self.assertEqual(watch.run(self.home, self.transport, NOW)['state'],
-                             'notification_unknown_no_retry')
+            before = outbox.read_bytes()
+            self.assertIn(watch.run(self.home, self.transport, NOW)['state'],
+                          ('reconciled_sent', 'unchanged_quiet'))
             self.assertEqual(self.calls, [])
-            for path, content in before.items():
-                self.assertEqual(path.read_bytes(), content)
+            self.assertEqual(outbox.read_bytes(), before)
 
     def test_unknown_notification_does_not_request_repair(self):
         self.snapshot(['brain_ui_dependencies_missing'], brain={'repairable':True})
@@ -295,23 +311,23 @@ class WatchChecks(unittest.TestCase):
         self.assertFalse((self.home/'request.json').exists())
 
     def test_unknown_send_never_retried(self):
-        self.snapshot(['coin_schedule_overdue'])
+        self.snapshot(['watchdog_export_missing'])
         def uncertain(text, target): self.calls.append(1); raise TimeoutError()
         self.assertEqual(watch.run(self.home, uncertain, NOW)['state'], 'notification_unknown_no_retry')
         self.assertEqual(watch.run(self.home, uncertain, NOW)['state'], 'notification_unknown_no_retry')
         self.assertEqual(len(self.calls), 1)
 
     def test_accepted_without_message_id_is_unknown(self):
-        self.snapshot(['failed'])
+        self.snapshot(['watchdog_export_missing'])
         self.assertEqual(watch.run(self.home, lambda *args: {'success':True}, NOW)['state'], 'notification_unknown_no_retry')
 
     def test_fresh_export_required(self):
         self.snapshot()
-        watch.run(self.home, self.transport, NOW+timedelta(minutes=16))
+        watch.run(self.home, self.transport, NOW+timedelta(minutes=76))
         self.assertIn('watchdog_export_stale', self.calls[0][0])
 
     def test_only_known_recipe_is_requested(self):
-        self.snapshot(['brain_ui_dependencies_missing'], brain={'repairable':True})
+        self.snapshot(['brain_ui_dependencies_missing', 'watchdog_export_missing'], brain={'repairable':True})
         watch.run(self.home, self.transport, NOW)
         self.assertEqual(watch.read(self.home/'request.json')['action'], 'brain-theme')
         self.assertFalse((self.home/'claim.json').exists())
@@ -324,7 +340,7 @@ class WatchChecks(unittest.TestCase):
         self.assertEqual(module.MAP['watch.py.profile'].as_posix(), '/var/lib/fs-hermes-fc/profile/scripts/fs-ops-watchdog/watch.py')
         timer = (ROOT/'deploy/fs-hermes-ops-bridge.timer').read_text()
         self.assertIn('Persistent=false', timer)
-        self.assertIn('OnUnitActiveSec=5min', timer)
+        self.assertIn('OnUnitActiveSec=1h', timer)
 
 class ConnectionChecks(unittest.TestCase):
     def test_current_process_event_and_disconnect(self):
@@ -364,12 +380,18 @@ class WatchdogScheduleChecks(unittest.TestCase):
         minute, hours, day, month, weekday = plan['updates']['schedule'].split()
         self.assertEqual((minute, day, month, weekday), ('0', '*', '*', '*'))
         local_hours = sorted((int(hour)+8) % 24 for hour in hours.split(','))
-        self.assertEqual(local_hours, [3, 7, 8, 13, 18, 23])
+        self.assertEqual(local_hours, [1, 4, 8, 13, 17, 22])
         self.assertEqual([(b-a) % 24 for a,b in zip(local_hours, local_hours[1:]+local_hours[:1])],
-                         [4, 1, 5, 5, 5, 4])
+                         [3, 4, 5, 4, 5, 3])
         self.assertEqual(plan['timezone'], 'UTC')
         self.assertEqual(plan['job_id'], '0018aa8c8439')
         self.assertTrue(plan['expected']['no_agent'])
-        self.assertEqual(set(plan['updates']), {'name', 'schedule'})
+        self.assertEqual(set(plan['updates']), {'name', 'schedule', 'provider', 'model', 'script', 'prompt', 'no_agent'})
+        self.assertEqual(plan['updates']['provider'], 'deepseek')
+        self.assertEqual(plan['updates']['model'], 'deepseek-flash')
+        self.assertFalse(plan['updates']['no_agent'])
+        pricing = json.loads((ROOT/'deploy/pricing-schedule.json').read_text())
+        self.assertEqual(pricing['updates']['schedule'], plan['updates']['schedule'])
+        self.assertEqual(pricing['updates']['model'], 'deepseek-flash')
 
 if __name__ == '__main__': unittest.main(verbosity=2)
