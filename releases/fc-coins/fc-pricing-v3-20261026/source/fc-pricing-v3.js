@@ -234,10 +234,11 @@
         const publicPrice=lastMonitor?.storefront?.rows?.[platform]?.package_usd,cost=Number(basis.package_cost_usd),retained=Number(market.price_basis.historical_retained_ratio);
         const currentMargin=publicPrice>0&&Number.isFinite(cost)?((Number(publicPrice)-cost)/Number(publicPrice)*100).toFixed(1)+'%':'待核';
         const averageMargin=publicPrice>0&&retained>0&&Number.isFinite(cost)?((Number(publicPrice)*retained-cost)/(Number(publicPrice)*retained)*100).toFixed(1)+'%':'待核';
-        const averageWindow=market.price_basis.history_window_contract==='d9_d2_eight_closed_days_v1'?'D-9至D-2八日平均红线':'历史七日平均红线';
+        const averageDiscount=retained>0&&retained<=1?(Math.floor((1-retained)*1000+1e-9)/10).toFixed(1)+'%':'待核';
+        const averageWindow=market.price_basis.history_window_contract==='d9_d2_eight_closed_days_v1'?'D-9至D-2八日平均优惠':'历史七日平均优惠';
         details.append(node('p',`采购成本 $${Number(basis.cost_usd_per_1k).toFixed(4)} / 1K（¥${Number(basis.cost_cny_per_1k).toFixed(4)}）`),
           node('p',`${basis.delivered_k}K 含赠套餐成本 ${usd(basis.package_cost_usd)}`),
-          node('p',`未优惠红线 ${usd(basis.regular_floor_usd)} · 当前${currentMargin}`),node('p',`${averageWindow} ${usd(basis.average_floor_usd)} · 当前${averageMargin}`),
+          node('p',`未优惠红线 ${usd(basis.regular_floor_usd)} · 当前${currentMargin}`),node('p',`${averageWindow}${averageDiscount} 红线 ${usd(basis.average_floor_usd)} · 当前${averageMargin}`),
           node('p',`成本采集 ${when(basis.cost_checked_at)}；${market.price_basis.pricing_scope==='100k_package_only'?'双20只按购买100K、赠送5K这一档核算，地区实际售价另核。':'此为旧范围成本快照，等待100K新口径采集。'}`));
       }
       for(const platform of ['PS','XBOX','PC']){
