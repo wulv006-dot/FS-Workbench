@@ -1,0 +1,19 @@
+{
+  "job_id": "2e60fd088da9",
+  "timezone": "UTC",
+  "display_timezone": "Asia/Shanghai",
+  "expected": {
+    "schedule_expr": "0 */3 * * *",
+    "no_agent": true,
+    "script": "fs-ops-watchdog/pricing_watch_3h.sh"
+  },
+  "updates": {
+    "name": "FC及RPG改价巡检（北京时间01/04/08/13/17/22）",
+    "schedule": "0 0,5,9,14,17,20 * * *",
+    "no_agent": false,
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "script": "fs-ops-watchdog/review-pricing.sh",
+    "prompt": "你是 FC 与 RPG 自动改价巡检复核员。脚本先用原工单及通知回执检查价格链路，再提供只读摘要。区分 FC 和 RPG、当前故障与历史未决写入；RPG 迁移后以执行器 HTTP 健康为准，不把 187 上已退役服务的 inactive 当故障。逐项说明是否阻断下轮改价、证据时间及原 ID；UNKNOWN、部分写入和通知结果不明都保留待核，不凭新一轮成功消警。正常时只输出『本轮无新增阻断问题』。不要再次发飞书消息、改价、重放任务或改配置。"
+  }
+}

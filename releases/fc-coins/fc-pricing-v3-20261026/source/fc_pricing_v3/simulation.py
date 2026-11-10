@@ -645,13 +645,18 @@ class Shadow:
         removed = 0
         with self.connect() as db:
             for table in ('runs','history','summaries'):
-                for key,raw in db.execute('SELECT id,body FROM '+table).fetchall():
-                    row = json.loads(raw)
-                    stamp = row.get('as_of') or row.get('created_at') or row.get('last_as_of')
-                    after = monthly if table=='summaries' and row.get('period')=='monthly' else cutoff
-                    if stamp and instant(stamp)<after:
-                        db.execute('DELETE FROM '+table+' WHERE id=?',(key,))
-                        removed += 1
+                cursor = ''
+                while True:
+                    batch = db.execute('SELECT id,body FROM '+table+' WHERE id>? ORDER BY id LIMIT 100',(cursor,)).fetchall()
+                    if not batch:break
+                    for key,raw in batch:
+                        row = json.loads(raw)
+                        stamp = row.get('as_of') or row.get('created_at') or row.get('last_as_of')
+                        after = monthly if table=='summaries' and row.get('period')=='monthly' else cutoff
+                        if stamp and instant(stamp)<after:
+                            db.execute('DELETE FROM '+table+' WHERE id=?',(key,))
+                            removed += 1
+                    cursor = batch[-1][0]
         return dict(removed=removed,detail_retention_days=180,monthly_retention_months=24,active_paths_preserved=True)
 
 
