@@ -90,6 +90,47 @@ class Tests(unittest.TestCase):
   self.assertEqual(coverage['identity_verified'],0)
   self.assertTrue(all(row['identity_status']=='unavailable' and 'email' not in row for row in rows))
 
+ def test_active_hermes_source_uses_lifecycle_candidate_contract(self):
+  import importlib.util
+  from customer_tracking import DEFAULT_CONFIG
+  path=Path(__file__).resolve().parents[2]/'hermes-customer-tracking-20261018/source/tracking_source.py'
+  spec=importlib.util.spec_from_file_location('active_tracking_source',path)
+  source=importlib.util.module_from_spec(spec);spec.loader.exec_module(source)
+  es={'游戏':'FC 27','产品类型':'货币(Gold)','订单号':'SYNTH-1','订单金额（美元）':'600',
+      '实付金额':'600','实付币种':'USD','折扣金额':'0','是否新客户':'是',
+      '付款时间':'2026-10-13 23:00:00','buyer_id':'opaque-buyer'}
+  archive={'status':'available','rows':[es,dict(es,**{'订单号':'SYNTH-2'})],
+           'captured_at':'synthetic','source_version':'synthetic','coverage':{'file_set_complete':True}}
+  admin={'status':'available','orders':{'SYNTH-1':dict(self.row,amount='400')},'coverage':{'complete':True}}
+  with patch.object(source,'private_es_day',return_value=archive),patch.object(source,'admin_paid_day',return_value=admin) as read:
+   result=source.scan_day(None,'2026-10-13',DEFAULT_CONFIG)
+  self.assertEqual(read.call_args.kwargs,{'targeted':True})
+  self.assertEqual(read.call_args.args[3],{'SYNTH-1'})
+  self.assertEqual(len(result['items']),1)
+  self.assertEqual(result['items'][0]['order_usd_source'],'ES_candidate_export')
+  self.assertEqual(result['items'][0]['buyer_group_order_count'],2)
+
+ def test_buyer_release_binds_only_active_files_and_committed_bytes(self):
+  import importlib.util,shutil
+  release=Path(__file__).resolve().parents[1]
+  spec=importlib.util.spec_from_file_location('buyer_release',release/'deploy/buyer_release.py')
+  buyer=importlib.util.module_from_spec(spec);spec.loader.exec_module(buyer)
+  files={'source/tracking_source.py':release.parents[0]/'hermes-customer-tracking-20261018/source/tracking_source.py',
+         'source/customer_tracking.py':release/'source/customer_tracking.py',
+         'source/page.js':release/'frontend/page.js','source/index.html':release/'frontend/index.html'}
+  for name,path in files.items():
+   self.assertEqual(hashlib.sha256(path.read_bytes().replace(b'\r\n',b'\n')).hexdigest(),buyer.AFTER[name])
+  with tempfile.TemporaryDirectory() as dirname:
+   stage=Path(dirname)
+   base=release.parents[0]/'hermes-report-repair-20261019/deploy/release_navigation_base.py'
+   shutil.copyfile(base,stage/'release_navigation_base.py')
+   (stage/'approved-manifest.json').write_text('{}',encoding='utf8')
+   publisher=buyer.load_base(stage)
+   self.assertEqual(publisher.expected_files({'scope':buyer.SCOPE}),set(files))
+   self.assertEqual(publisher.target_for('source/tracking_source.py'),'/opt/fs-hermes-fc/tracking_source.py')
+   with self.assertRaisesRegex(ValueError,'buyer_scope_only'):
+    publisher.expected_files({'scope':'old-session'})
+
  def test_first_paid_day_one_and_seven(self):
   c=lifecycle_clock([self.row],{'complete':True},NOW);self.assertEqual(c['lifecycle_day'],7);self.assertTrue(c['stage_markers'][0]['reached']);self.assertEqual(c['stage_markers'][0]['date'],'2026-10-19')
  def test_unknown_partial_invalid_unpaid(self):

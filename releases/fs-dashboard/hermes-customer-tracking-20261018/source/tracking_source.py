@@ -71,7 +71,7 @@ def admin_paid_day(request,day,profile,wanted,targeted=False):
         return {'status':'available','orders':{},'coverage':{'source_total':None,
             'received':0,'pages':[],'complete':True,'matched_candidate_orders':0,
             'candidate_orders_requested':0,'missing_candidate_orders':0,
-            'admin_read_skipped':'no ES rows pass product, discount and customer-flag prefilter'}}
+            'admin_read_skipped':'no ES rows pass candidate prefilter'}}
     found={};seen_ids={};matched_ids=set();matched_rows=0;expected_total=0;raw_count=0;pages=[];deadline=time.monotonic()+850
     excluded_scope={'gid':0,'site_id':0,'pay_status':0};excluded_rows=0
     def scope_id(row,field):
@@ -169,6 +169,9 @@ def scan_day(request,day,config,root=ARCHIVE):
     wanted={item['order_no'] for item in prelim}
     chosen={key:choices[0] for key,choices in groups.items()}
     pending=set(groups);verified={};attempts=[];requested_orders=set();fallback=False
+    def has_email(order):
+        email=(verified.get(order) or {}).get('email')
+        return isinstance(email,str) and len(email)<=254 and EMAIL.fullmatch(email.strip()) is not None
     while pending:
         requested={chosen[key] for key in pending}
         requested_orders.update(requested)
@@ -176,14 +179,12 @@ def scan_day(request,day,config,root=ARCHIVE):
         except ValueError as error:
             if str(error)!='admin_day_target_filter_ignored':raise
             admin=admin_paid_day(request,day,config['profile'],wanted);fallback=True
+            requested_orders.update(wanted)
         attempts.append(admin['coverage'])
         if admin['status']!='available':return {'status':'partial','reason':'admin_paid_day_incomplete',
             'coverage':{'es':archive['coverage'],'admin':admin['coverage'],'admin_attempts':attempts},
             'captured_at':archive['captured_at']}
         verified.update(admin['orders'])
-        def has_email(order):
-            email=(verified.get(order) or {}).get('email')
-            return isinstance(email,str) and len(email)<=254 and EMAIL.fullmatch(email.strip()) is not None
         for key in list(pending):
             if fallback:
                 chosen[key]=next((order for order in groups[key] if has_email(order)),chosen[key])

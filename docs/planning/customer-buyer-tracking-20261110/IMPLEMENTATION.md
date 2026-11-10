@@ -16,17 +16,28 @@
 
 | 维护源码 | 当前原目标 |
 | --- | --- |
-| `releases/fs-dashboard/hermes-customer-tracking-20261018/source/tracking_source.py` | `/opt/fc27-cloud/marketing-session-20261009/tracking_source.py` 及原会话镜像 |
-| 同目录 `customer_tracking.py` | 原会话镜像的同名文件 |
-| `releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/customer_tracking.py` | `/opt/fs-hermes-fc/customer_tracking.py` |
+| `releases/fs-dashboard/hermes-customer-tracking-20261018/source/tracking_source.py` | **现役** `/opt/fs-hermes-fc/tracking_source.py` |
+| 同目录 `customer_tracking.py` | 历史会话源码的兼容更新；当前入口不发布它 |
+| `releases/fs-dashboard/hermes-customer-lifecycle-20261019/source/customer_tracking.py` | **现役** `/opt/fs-hermes-fc/customer_tracking.py` |
 | 同目录 `frontend/page.js`、`frontend/index.html` | 原 FS 工作台客户追踪页面 |
 
-原 SOURCE-MAP/CURRENT-SOURCE-MAP 与 2026-10-19 读回是历史证据，不以本文件宣布新版本已部署。现役目标须在发布前重新读取 hash、publisher 保护范围及空闲状态，按原备份与回滚路径发布。不能以重启或改请求 ID 消除在途/UNKNOWN 任务。
+原 SOURCE-MAP/CURRENT-SOURCE-MAP 与 2026-10-19 读回是历史证据。2026-11-10 只读核对：`fc27-p2pah-session.service` 为 failed，容器不存在；`fs-hermes-fc.service` 与 `fs-business-range.service` 均 active。Hermes `tracking_controller.PrivateClient` 导入同目录 `tracking_private_session.direct_reads`，该适配器再导入同目录 `tracking_source.scan_day`，通过现役 HMAC Admin API 读取。现役 `/opt/fs-hermes-fc/tracking_source.py` 的 SHA256 为 `4544704459ab3681b0dd9ff2df692bfeb255ca66f4b15b4b71522c72ebc181db`，与本次仓库改动前基线一致；不重启已退役 8767 会话容器。现役目标仍须在发布前复核 hash、publisher 保护范围及任务空闲，按原备份与回滚路径发布。不能以重启或改请求 ID 消除在途/UNKNOWN 任务。
 
-本次只读读回的现役目标 SHA256：会话 `tracking_source.py` 为 `c75b68ef4c1666699d22bad3175c21d47b734473ce22fac2fb920b9552d9757a`，会话 `customer_tracking.py` 为 `ff9bca8ae386caa565a679e035e7099389148e07fe9a397828661bb156d8ec33`，Hermes `customer_tracking.py` 为 `a9ec5f24eae2e369aa6d0c05567e0db76cf349bfed7a44fabba87f8b27864094`，页面 `page.js`/`index.html` 为 `ba7cc477f63aa096685c8e85adc9f6721d9eac373e49ab96cccff2f96525a93a`/`bcf5a1c906d1ab2075c96b5c09e158a2831858b64bf60727564637ce68cc4e8f`。前两类代码与当前仓库基线有先前已提交但尚未部署的差异：会话分页 100→20，Hermes Buyer 身份证据，以及会话报告提示词的邮箱限制调整。正式发布清单需明确这些伴随差异，不以覆盖现场后再发现为验收方式。
+本次只读读回的其余现役目标 SHA256：Hermes `customer_tracking.py` 为 `a9ec5f24eae2e369aa6d0c05567e0db76cf349bfed7a44fabba87f8b27864094`，页面 `page.js`/`index.html` 为 `ba7cc477f63aa096685c8e85adc9f6721d9eac373e49ab96cccff2f96525a93a`/`bcf5a1c906d1ab2075c96b5c09e158a2831858b64bf60727564637ce68cc4e8f`。Hermes `customer_tracking.py` 的仓库基线包含尚未部署的 Buyer 身份证据；本次精确发布会一并带入。旧会话目录的源码与现役服务不同步，不以它们作为发布基线，也不触碰其邮箱报告提示词限制。
+
+计划的四个现役载荷（发布前仍须 CAS 复核）：
+
+| 目标 | 现役前值 SHA256 | 本 PR 候选值 SHA256 |
+| --- | --- | --- |
+| `/opt/fs-hermes-fc/tracking_source.py` | `4544704459ab3681b0dd9ff2df692bfeb255ca66f4b15b4b71522c72ebc181db` | `a811cb4a059eb5ca1cdf309925c2c9323b47f1cf24e1c86f4997e36bc2e79033` |
+| `/opt/fs-hermes-fc/customer_tracking.py` | `a9ec5f24eae2e369aa6d0c05567e0db76cf349bfed7a44fabba87f8b27864094` | `9cd1feffda0bfcb85eb39adb2ff6783f3fa1d81fedc738cc0d0360612f764006` |
+| `/var/lib/fs-navigation-formal-static/workspace-native-20261006-346f59eea565/page.js` | `ba7cc477f63aa096685c8e85adc9f6721d9eac373e49ab96cccff2f96525a93a` | `dd2763ee5c34bb9e3349eaeb90718bed2e6e4458c33db04705ad6ef3c2ef38df` |
+| 同目录 `index.html` | `bcf5a1c906d1ab2075c96b5c09e158a2831858b64bf60727564637ce68cc4e8f` | `7c92e176c1ee8f7946bda98c510f72590db52854c52baefdf4e0f205ca1a9ce4` |
+
+已准备 `releases/fs-dashboard/hermes-customer-lifecycle-20261019/deploy/buyer_release.py`：绑定原固定哈希 navigation publisher，仅允许这四个现役载荷，原共享发布锁、CAS、空闲检查、备份/回滚与读回保持；额外检查追踪扫描和阶段任务无在途。旧 lifecycle bridge 的 8767 健康检查已经失效，不能原样执行。本桥本地清单静态校验通过（四目标、370 个保护项）；生产 staging 的现值刷新与 `inspect` 尚未执行。原 publisher 的 Hermes/FS Range 重启仍在该范围内；不恢复旧会话容器、不改调度。发布前再次核原服务与 P0 任务空闲；失败保留原发布 ID 和回执核对。
 
 ## 存储与验证
 
 本改动不生成第二份 ES 原文件或客户映射表。2026-11-10 只读观察原 ES 归档 59,101,486 字节、148 文件；所在文件系统剩余 118,857,134,080 字节。现有归档源码限制 512 MiB、512 文件并保留至少 64 MiB 空闲空间；现有成功发布后的冗余件清理照旧。代码限制和这次磁盘读数不证明未来所有自然周期都不会积压。
 
-相关 Python 两组单测分别通过 51/31 项；页面 JavaScript 语法通过；知识收尾测试通过 104 项（当前 Windows 环境跳过 7 项 Linux 专属）。本地 pr-fast 在 Windows 共享 UI 文件 CRLF 字节哈希和缺少 Playwright/tzdata 环境处不能完成；PR #976 的 Linux 正式 CI 独立验收。真实入口候选数、Admin 调用页数、磁盘前后量、自然周期须在发布后独立读回；未执行前不得称上线验收。
+相关 Python 两组单测分别通过 51/33 项；页面 JavaScript 语法通过；知识收尾测试通过 104 项（当前 Windows 环境跳过 7 项 Linux 专属）。本地 pr-fast 在 Windows 共享 UI 文件 CRLF 字节哈希和缺少 Playwright/tzdata 环境处不能完成；PR #976 的 Linux 正式 CI 独立验收。真实入口候选数、Admin 调用页数、磁盘前后量、自然周期须在发布后独立读回；未执行前不得称上线验收。
