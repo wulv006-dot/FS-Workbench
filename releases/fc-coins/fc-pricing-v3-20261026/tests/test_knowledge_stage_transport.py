@@ -188,9 +188,12 @@ class KnowledgeStageTransportTest(unittest.TestCase):
                 catalog = json.load(bundle.extractfile(release + 'candidate/artifact/index.json'))
                 self.assertFalse(any(row['status'] == 'retired' for row in catalog['entries']))
                 self.assertEqual(len([r for r in catalog['entries'] if r['layer']=='current']),19)
+                committed_catalog=json.loads(subprocess.check_output(['git','show',commit+':knowledge/index.json'],cwd=ROOT))
                 for identity in ('fc.evolutions.experience.current-state-cutover','fc.pricing.experience.lootbar-source-availability'):
                     row=next(r for r in catalog['entries'] if r['id']==identity)
-                    self.assertEqual((row['layer'],row['status'],row['revision']),('experience','verified','20261111-1'))
+                    expected=next(r for r in committed_catalog['entries'] if r['id']==identity)
+                    self.assertEqual((row['layer'],row['status'],row['revision'],row['source']['sha256']),
+                                     ('experience','verified',expected['revision'],expected['source']['sha256']))
                     body=bundle.extractfile(release+'candidate/artifact/sources/'+row['source']['path']).read()
                     self.assertEqual(hashlib.sha256(body).hexdigest(),row['source']['sha256'])
                 self.assertEqual(next(r for r in catalog['entries'] if r['id']=='fc.pricing.v3')['revision'],'20261111-lootbar-no-coupon')
