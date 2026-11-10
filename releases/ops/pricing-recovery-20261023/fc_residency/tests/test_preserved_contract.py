@@ -21,6 +21,10 @@ class PreservedContractTests(unittest.TestCase):
                if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
         self.assertEqual(set(new) - set(old), {'_park_product_page', '_collect_product_page',
                                               '_release_product_document', '_cdp_http'})
+        metadata = ast.parse("if isinstance(snapshot.get('reconstruction'), dict):\n    result['reconstruction'] = snapshot['reconstruction']").body[0]
+        additions = [node for node in new['_offer'].body if ast.dump(node) == ast.dump(metadata)]
+        self.assertEqual(len(additions), 1)
+        new['_offer'].body.remove(additions[0])
         for name in old.keys() - {'_collect_attached', 'collect', 'main'}:
             with self.subTest(name=name):
                 self.assertEqual(ast.dump(old[name]), ast.dump(new[name]))
@@ -31,6 +35,22 @@ class PreservedContractTests(unittest.TestCase):
         collect = collect.replace('_collect_attached(single_ps=single_ps, deadline=deadline)',
                                   '_collect_attached(single_ps=single_ps)', 1)
         self.assertEqual(ast.dump(ast.parse(collect).body[0]), ast.dump(old['collect']))
+
+    def test_offer_only_adds_verified_reconstruction_evidence(self):
+        def offer(path):
+            node = next(n for n in ast.parse(path.read_text(encoding='utf-8')).body
+                        if isinstance(n, ast.FunctionDef) and n.name == '_offer')
+            namespace = {}
+            exec(compile(ast.Module(body=[node], type_ignores=[]), str(path), 'exec'), namespace)
+            return namespace['_offer']
+        old, new = offer(BASELINE), offer(SOURCE)
+        raw = {'couponState':'excluded', 'usdPrice':'10.00', 'bonusK':'5',
+               'observedCouponPrice':'8.50', 'excludedCouponDiscount':'1.50'}
+        self.assertEqual(new('PC', raw), old('PC', raw))
+        evidence = {'method':'actual_discount', 'paid_usd':'8.50', 'discount_usd':'1.50'}
+        self.assertEqual(new('PC', dict(raw, reconstruction=evidence)),
+                         dict(old('PC', raw), reconstruction=evidence))
+        self.assertEqual(new('PC', dict(raw, reconstruction='unverified')), old('PC', raw))
 
     def test_moved_read_logic_keeps_original_checks_and_ps_restore(self):
         old = BASELINE.read_text(encoding='utf-8')
