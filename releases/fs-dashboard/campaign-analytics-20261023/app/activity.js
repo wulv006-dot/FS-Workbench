@@ -5,7 +5,7 @@
   const $=id=>document.getElementById(id),escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const t=(zh,en)=>en,product=key=>config.products[key],route=key=>config.sbc.routes[key]||{picks:config.sbc.fallbackPicks,alternatives:[],label:{zh:'自选搭配方向',en:'Build your own pairing'}};
   const state={lang:'en',view:root.dataset.defaultView||config.defaultView||'sbc',platform:'ps',core:config.sbc.defaultId,coreMode:'owned',companions:[...route(config.sbc.defaultId).picks],weekly:new Set(config.weekly.ids.slice(0,1)),bundles:new Set(),busy:false,submitted:false};
-  const standalone=window.CampaignStandalone?.enabled(document.documentElement),live=config.mode==='live'&&!standalone;let runtimeClient=null,published=null,publishedReady=!standalone;let pageTimer;let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false,nativeReview=null;const currentDisplays=new Map();
+  const standalone=window.CampaignStandalone?.enabled(document.documentElement),live=config.mode==='live'&&!standalone;let runtimeClient=null,published=null,publishedReady=!standalone;let pageTimer,priceRetryTimer,configGeneration=0,priceRetryCount=0,priceRefreshPending=false;let adapter=null,review=[],reviewFingerprint='',batch=null,priceGeneration=0,unavailableSelection=false,nativeReview=null;const currentDisplays=new Map();
   const pricing=config.activityPricing||{},priced=pricing.enabled===true;let liveQuoter;
   const content=window.FCActivityContent.create(config,live),{words,heroes}=content;
   function pageState(view){
@@ -38,17 +38,35 @@
     root.querySelectorAll('input,select,[data-toggle-product],[data-toggle-bundle]').forEach(el=>el.disabled=true);guards();
     if($('review-dialog').open)$('review-dialog').close();
   }
+  function missingNativePrices(){
+    if(!standalone||!publishedReady||pageState(state.view)!=='active')return false;
+    const keys=state.view==='sbc'?[...state.companions,...(state.coreMode==='service'?[state.core]:[])]:state.view==='trio'?config.trio.ids:config.weekly.ids;
+    return scoped([...keys,...bundleIdsForView()]).some(key=>product(key)?.preview_only&&!core.nativeModelOffer(product(key),state.platform,published,'fc27-'+state.view)?.price);
+  }
+  async function refreshPublishedPrices(){
+    if(document.hidden||state.submitted)return;
+    if(state.busy){schedulePriceRetry();return;}
+    await publishedConfig(state.view,true);if(!state.busy)render();
+  }
+  function schedulePriceRetry(){
+    clearTimeout(priceRetryTimer);priceRefreshPending=false;
+    if(!missingNativePrices()){priceRetryCount=0;return;}
+    if(document.hidden||state.submitted)return;
+    const view=state.view,platform=state.platform,generation=configGeneration,delay=[1000,3000,8000,30000][Math.min(priceRetryCount++,3)];
+    priceRefreshPending=true;priceRetryTimer=setTimeout(()=>{if(view===state.view&&platform===state.platform&&generation===configGeneration)refreshPublishedPrices();},delay);
+  }
   function scheduleBoundary(){
     clearTimeout(pageTimer);
     const dates=[...(published?.pages||[]).flatMap(p=>[p.starts_at,p.ends_at]),published?.native_checkout?.valid_until,...Object.values(published?.seasonal_model_contracts||{}).flatMap(c=>(c.combinations||[]).map(x=>x.price?.expires_at))].filter(Boolean).map(Date.parse).filter(time=>Number.isFinite(time)&&time>Date.now());
-    if(dates.length)pageTimer=setTimeout(()=>{render();scheduleBoundary();},Math.min(2147483647,Math.max(1,Math.min(...dates)-Date.now()+1)));
+    if(dates.length)pageTimer=setTimeout(()=>{if(!state.busy)render();priceRetryCount=0;refreshPublishedPrices();scheduleBoundary();},Math.min(2147483647,Math.max(1,Math.min(...dates)-Date.now()+1)));
   }
-  async function publishedConfig(view=state.view){
-    let client;
-    try{client=window.CampaignStandalone.create({element:document.documentElement,pageId:'fc27-'+view,activityId:'fc27-season2'});await client.load();published=client.config;}catch(error){published=error.code==='PAGE_UNAVAILABLE'?client?.config:null;}
+  async function publishedConfig(view=state.view,background=false){
+    const generation=++configGeneration;clearTimeout(priceRetryTimer);let client,next;
+    try{client=window.CampaignStandalone.create({element:document.documentElement,pageId:'fc27-'+view,activityId:'fc27-season2'});await client.load();next=client.config;}catch(error){next=error.code==='PAGE_UNAVAILABLE'?client?.config:background?published:null;}
+    if(generation!==configGeneration)return;published=next;
     window.dispatchEvent(new CustomEvent('fcactivity:published',{detail:published}));
     publishedReady=true;
-    scheduleBoundary();
+    scheduleBoundary();schedulePriceRetry();
   }
   function selected(){
     if(standalone&&pageState(state.view)!=='active')return [];
@@ -157,6 +175,7 @@
     root.querySelectorAll('input,select,button[data-view],button[data-toggle-product],button[data-toggle-bundle]').forEach(el=>el.disabled=state.busy||state.submitted||(el.dataset.toggleBundle!==undefined&&!offer(el.dataset.toggleBundle)));
     renderSeo();guards();
     if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=priced?t('价格按所选平台实时读取；结算在原购物车完成，活动优惠码由购物车自动应用。','Prices are read live for the selected platform. Checkout continues in the original cart, which applies the activity code; coupons and points cannot be combined.'):t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
+    if(missingNativePrices())$('activity-message').textContent=priceRefreshPending?'Checking current prices from the original store. Items without a current price cannot be purchased.':'Current prices are unavailable. Refresh this page to check again. Items without a current price cannot be purchased.';
     signal('render');
     if(focusId&&$(focusId)&&document.activeElement!==$(focusId))$(focusId).focus({preventScroll:true});
   }
@@ -271,17 +290,18 @@
     if(state.busy||state.submitted)return;
     if(standalone&&pageState(state.view)!=='active'){render();return;}
     const el=event.target;
-    if(el.name==='platform'){state.platform=el.value;currentDisplays.clear();}
+    if(el.name==='platform'){state.platform=el.value;currentDisplays.clear();priceRetryCount=0;}
     if(el.name==='core-mode')state.coreMode=el.value;
     if(el.id==='core-select'){state.core=el.value;state.companions=[...route(el.value).picks];}
     if(el.dataset.companionSlot!==undefined)state.companions[Number(el.dataset.companionSlot)]=el.value;
     render();
-    warmPrices();
+    warmPrices();schedulePriceRetry();
     signal('selection',{ids:selected().map(item=>item.offer.id),action:el.name||el.id||'companion',coreId:product(state.core)?.platforms?.[state.platform]?.id,includeSbc:state.coreMode==='service'});
   });
   $('review-selection').addEventListener('click',openReview);$('mobile-review').addEventListener('click',openReview);$('submit-selection').addEventListener('click',submit);
   root.querySelector('[data-close-dialog]').addEventListener('click',()=>{if(!state.busy)$('review-dialog').close();});$('review-dialog').addEventListener('cancel',event=>{if(state.busy)event.preventDefault();});
   if(standalone){$('activity-message').hidden=false;$('activity-message').textContent=priced?t('价格按所选平台实时读取；结算在原购物车完成，活动优惠码由购物车自动应用。','Prices are read live for the selected platform. Checkout continues in the original cart, which applies the activity code; coupons and points cannot be combined.'):t('独立活动预览：主站交易接入待完成；价格及优惠为快照。','Campaign checkout is not connected. Select items for review; final prices and any code must be confirmed before payment.');}
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(priceRetryTimer);return;}if(missingNativePrices()){priceRetryCount=0;refreshPublishedPrices();}});
   document.querySelectorAll('.fca-language,#lang-zh,#lang-en').forEach(element=>element.remove());
   document.documentElement.lang='en';root.dataset.defaultLanguage='en';
   render();if(standalone)publishedConfig().then(()=>{render();warmPrices();signal('view');});else{warmPrices();signal('view');}
