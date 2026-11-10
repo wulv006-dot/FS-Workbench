@@ -1562,7 +1562,12 @@ def main():
         elif group=="fc27-pack-bundles":
             # 离线用例：定价公式与腾讯文档逐分对齐 / 写价闸门与假 transport 流程。
             # 零网络、零后台写入（CI 隔离环境已验证 23 项全绿）。
-            units("fc27_pack_bundles_20261013/tests",["test_pack_bundles_offline","test_write_flow","test_bundle_ui","test_write_admission"])
+            units("fc27_pack_bundles_20261013/tests",["test_pack_bundles_offline","test_write_flow"])
+            # These fixed tests exercise actual Node rendering and a second local lock holder.
+            subprocess.run([sys.executable,"-I","-B","-c",
+                "import sys,unittest;sys.path[:0]=sys.argv[1:3];import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in sys.argv[3:]));pr_fast.require_success(r)",
+                str(ROOT/"tools"),str(ROOT/"fc27_pack_bundles_20261013/tests"),"test_bundle_ui","test_write_admission"],
+                check=True,timeout=90,cwd=ROOT)
         elif group=="mlb-shelf-tool":
             # 离线用例：bat 规范化闸门 / SQLite 3.7.17 兼容 / 认证通路 / 模板发现。
             units("共享资源/MLB新卡上架/tests",["test_shelf_tool_offline"])
