@@ -1608,7 +1608,7 @@ class Handler(BaseHTTPRequestHandler):
                         if kind == 'article' else module.NewsStore(FC_NEWS_DB).enqueue_x(url, body['summary'], self.user))
                 fc_audit(self.user, 'enqueue_' + kind, 'item=%s status=%s' % (item['id'], item['status']))
             except (ValueError, TypeError, KeyError):
-                return self._json(400, {'ok': False, 'error': '新闻配置或摘要无效'})
+                return self._json(400, {'ok': False, 'error': '新闻链接、标题或摘要无效，请核对支持的来源与字数'})
             except Exception:
                 return self._json(503, {'ok': False, 'error': '入队未确认，请先刷新记录核对；系统不会自动重试'})
         return self._json(200, {'ok': True, 'id': item['id'], 'status': item['status'], 'url': item['url']})

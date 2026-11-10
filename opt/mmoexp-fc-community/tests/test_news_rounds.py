@@ -21,6 +21,34 @@ class RoundTests(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.path=Path(self.tmp.name)/'news.db'; self.store=NewsStore(self.path)
 
+    def test_manual_event_publishes_repeatedly_even_with_automatic_news_off(self):
+        url = 'https://www.mmoexp.com/events/Sbc-Companions.html'
+        for _ in range(2):
+            self.store.enqueue_article(url, title='Mbappe POTM', summary='YOUR SBC STAR.')
+        calls = []
+        async def send(item, channel):
+            calls.append(item)
+            return str(len(calls))
+        self.assertEqual(asyncio.run(publish_pending(self.store, CHANNEL, send, limit=100,
+                                                    auto_enabled=False, ea_enabled=False)), 2)
+        self.assertEqual([item['url'] for item in calls], [url, url])
+        self.assertTrue(all(item['delivery_mode']=='manual' for item in calls))
+        self.assertTrue(all(item['status']=='published' for item in self.store.items()))
+
+    def test_event_urls_are_manual_only_and_keep_official_origin_validation(self):
+        url = 'https://www.mmoexp.com/events/Sbc-Companions.html'
+        with self.assertRaises(ValueError):
+            self.store.ingest([dict(row(1), url=url)])
+        for invalid in ('https://evil.example/events/Sbc-Companions.html',
+                        'https://www.mmoexp.com.evil.example/events/Sbc-Companions.html',
+                        'http://www.mmoexp.com/events/Sbc-Companions.html',
+                        'https://www.mmoexp.com/events/Sbc-Companions.html?next=https://evil.example',
+                        'https://www.mmoexp.com/events/Sbc-Companions.html#fragment',
+                        'https://www.mmoexp.com/events/%2e%2e/admin.html',
+                        'https://www.mmoexp.com/admin/user/member'):
+            with self.subTest(url=invalid), self.assertRaises(ValueError):
+                self.store.enqueue_article(invalid)
+
     def test_ea_switch_is_optional_boolean_and_old_config_keeps_behavior(self):
         config = dict(guild_id=1, channel_id=CHANNEL, enabled=True, poll_seconds=21600)
         self.assertEqual(validate_config(config, 1), config)
