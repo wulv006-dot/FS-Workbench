@@ -306,3 +306,12 @@ public-welcome.js由index.js在登录前接入，仅处理Official Club的新成
 验证：node test-public-welcome.cjs。79项品牌规则与27项状态自检事件测试在活动服务器源码的隔离副本通过；历史_test_match/_test_selfcheck在未改基线也分别失败4/5项，不作为本次新回归。生产守卫源码含既有未回填变更，本PR仅添加欢迎接线及独立模块，不以仓库旧整包覆盖生产。
 
 回滚：恢复本批部署前index.js并重启mmoexp-guardbot，保留全部配置/原账本/welcome-state及已发消息。正式备份：/opt/mmoexp-guardbot/backups/public-welcome-20261110/index.js。
+
+
+### 欢迎卡三入口与角色频道导航
+
+欢迎卡使用橙色Embed、表情分段和三个入口：Choose Roles、Contact Support、My Game Channels。选择角色沿用原24个游戏按钮的名称/颜色/布局，由本机器人处理；旧Deleted User面板留作历史，不作为入口。已有welcome-games.json限定游戏角色及频道，FC旧角色仅作为只读识别别名。
+
+角色菜单和频道导航均为ephemeral响应。角色增删只处理当前操作者自己、目录允许的普通游戏角色；角色权限必须为0、非managed、低于机器人，频道覆写不得赋予管理权限。频道导航重新读取当前成员与频道，仅显示已有角色对应且有ViewChannel的频道；按聊天所在分区过滤旧跨游戏资讯，保留共用活动；支持多游戏分页。无DM、不自动授予角色。
+
+验证：test-welcome-navigation.cjs共45项边界检查及原公开欢迎测试通过；真实Discord界面已验证24按钮私密菜单、本人角色对应频道链接及客服入口目标，未替真实成员领取/移除角色。生产此次只更新独立欢迎模块，index/config.json/d4-guard.json/welcome-config.json保持。恢复备份public-welcome.js并重启即可停用本次三入口，保留所有账本与消息；备份/opt/mmoexp-guardbot/backups/welcome-three-entries-20261110。

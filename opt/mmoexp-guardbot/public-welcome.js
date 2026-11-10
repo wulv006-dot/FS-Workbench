@@ -2,19 +2,21 @@
 const fs = require('fs');
 const path = require('path');
 const {Events} = require('discord.js');
+const {entries,installNavigation} = require('./welcome-navigation.js');
 
 function welcomePayload(cfg, member) {
-  const link = id => `https://discord.com/channels/${cfg.guildId}/${id}`;
   return {
-    content: (member ? 'Welcome <@'+member.id+'> to **MMOEXP Official Club**!\n\n' : '**Welcome to MMOEXP Official Club!**\n\n') +
-      '1. Read our community rules.\n' +
-      '2. Open **Choose game roles** and select the games you play. The game buttons add your game badges.\n' +
-      '3. Expand a game section whenever you need it.\n\n' +
-      'Our team will never ask for your password or payment in an unsolicited DM.',
-    components: [{type:1,components:[
-      {type:2,style:5,label:'Choose game roles',url:link(cfg.channelId)+'/1569201629998092409'},
-      {type:2,style:5,label:'Read rules',url:link(cfg.rulesChannelId)},
-      {type:2,style:5,label:'Customer support',url:link(cfg.supportChannelId)}]}],
+    content: member ? `Hey <@${member.id}>, welcome aboard! 👋` : null,
+    embeds:[{title:'🎮 Welcome to MMOEXP Official Club!',
+      description:'**Your game. Your squad. Your next adventure.** ✨\n\nGrab your game badges, meet fellow players, and make yourself at home. Your next stop is one click away! 🚀',
+      color:0xF28C28,
+      fields:[
+        {name:'🎭 Choose your roles',value:'Pick the games you love with our colorful game buttons. You can choose more than one!',inline:false},
+        {name:'🎧 Need a hand?',value:'Order questions or need help? Our support team is ready to assist.',inline:false},
+        {name:'🧭 Find your channels',value:'Already have game roles? Get your own list of channel shortcuts — visible only to you.',inline:false},
+        {name:'📜 Before you jump in',value:`Take a moment to read <#${cfg.rulesChannelId}>. Keep it friendly and enjoy the community!`,inline:false}],
+      footer:{text:'🛡️ Stay safe • Our team will never ask for your password in DMs.'}}],
+    components:entries(cfg),
     allowedMentions:{parse:[],users:member ? [member.id] : []}
   };
 }
@@ -68,6 +70,7 @@ function createWelcome({cfg, directory, getChannel, canWelcome=()=>true, now=()=
 function install(client,{canWelcome}={}) {
   const cfg=JSON.parse(fs.readFileSync(path.join(__dirname,'welcome-config.json'),'utf8'));
   if(cfg.guildId!=='1041923524601851914' || cfg.channelId!=='1569198390107971795') throw new Error('Unapproved welcome route');
+  installNavigation(client,cfg);
   const welcome=createWelcome({cfg,directory:path.join(__dirname,'welcome-state'),canWelcome,getChannel:id=>client.channels.fetch(id)});
   client.on(Events.GuildMemberAdd,m=>welcome.joined(m).catch(e=>console.error('[WELCOME] join',e.message)));
   client.once(Events.ClientReady,()=>welcome.ensurePanel(client).catch(e=>console.error('[WELCOME] panel',e.message)));
