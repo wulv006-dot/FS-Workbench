@@ -21,6 +21,7 @@ BACKEND_FILES={'bridge.py','catalog-mapping.json','campaign_backend/__init__.py'
 BACKEND_FILES.add('statistics_refresh.py')
 BACKEND_FILES.add('google_traffic.py')
 BACKEND_FILES.add('campaign_backend/weekly.py')
+BACKEND_FILES.add('campaign_backend/order_lines.py')
 
 def target(rel):
  if rel in SPECIAL:return SPECIAL[rel]

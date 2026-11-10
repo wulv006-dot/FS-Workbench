@@ -5,6 +5,9 @@ import importlib.util
 from unittest.mock import patch
 
 class Release(unittest.TestCase):
+ def test_order_lines_exact_backend_target(self):
+  self.assertEqual(p.target('backend/campaign_backend/order_lines.py'),'/opt/fs-campaign-dashboard/backend/campaign_backend/order_lines.py')
+  with self.assertRaises(ValueError):p.target('backend/campaign_backend/order_lines_extra.py')
  def test_weekly_backend_exact_mapping_and_existing_navigation_adapter(self):
   import runpy, sys, types
   names=['backend/bridge.py','backend/campaign_backend/weekly.py','app/analytics/weekly-bridge.mjs','app/analytics/weekly-cli.mjs']

@@ -4,8 +4,10 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import {createGunzip} from 'node:zlib';
 import {createHash} from 'node:crypto';
+import core from './funnel-core.cjs';
 
 const paths=new Set(['/events/seasonal/index.html','/events/seasonal/']);
+const fcPaths=new Set(['/events/Player-Trio.html','/events/Weekly-Scout.html','/events/Sbc-Companions.html']);
 const bots=/bot|crawler|spider|headless|uptimerobot|pingdom|healthcheck/i;
 const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const linePattern=/^\S+ \S+ \S+ \[([^\]]+)\] "(\S+) ([^ ]+) HTTP\/[^\"]+" (\d{3}) \S+ "(?:\\.|[^"\\])*" "((?:\\.|[^"\\])*)"(?: |$)/;
@@ -20,8 +22,9 @@ function timestamp(value){
 export function originRange(params,now=Date.now()){
  const day=k=>{const s=params.get(k);if(!/^\d{4}-\d{2}-\d{2}$/.test(s||''))throw Object.assign(Error('INVALID_TRAFFIC_RANGE'),{status:400});const t=Date.parse(s+'T00:00:00Z');if(!Number.isFinite(t)||new Date(t).toISOString().slice(0,10)!==s)throw Object.assign(Error('INVALID_TRAFFIC_RANGE'),{status:400});return t;};
  const from=day('from'),end=day('to')+86400000;
- if(params.get('activity')!=='mmoexp-seasonal'||from>=end||end-from>31*86400000||from>now)throw Object.assign(Error('INVALID_TRAFFIC_RANGE'),{status:400});
- return {from,to:Math.min(end,now),fromDay:new Date(from).toISOString().slice(0,10),toDay:new Date(end-1).toISOString().slice(0,10)};
+ const activity=core.canonicalActivity(params.get('activity'));
+ if(!['mmoexp-seasonal','fc27-season2'].includes(activity)||from>=end||end-from>31*86400000||from>now)throw Object.assign(Error('INVALID_TRAFFIC_RANGE'),{status:400});
+ return {activity,from,to:Math.min(end,now),fromDay:new Date(from).toISOString().slice(0,10),toDay:new Date(end-1).toISOString().slice(0,10)};
 }
 const missing=reason=>({status:'unavailable',reason,pageRequests:null,observedPageRequests:null,estimatedVisitors:null,visitorReason:'UNVERIFIED_PROXY_CHAIN',source:'existing_origin_access_log'});
 const stamp=s=>s.dev+':'+s.ino;
@@ -34,7 +37,7 @@ async function inventory(logPath,maxEntries){
  names.sort((a,b)=>a.index-b.index||a.name.localeCompare(b.name));
  return Promise.all(names.slice(0,maxEntries).map(async row=>{const file=path.join(dir,row.name),stat=await fsp.lstat(file);if(stat.isSymbolicLink()||!stat.isFile())throw Error('UNSAFE_LOG_FILE');return {...row,file,stat};}));
 }
-async function readLog(row,budget,maxFileBytes){
+async function readLog(row,budget,maxFileBytes,selectedPaths){
  if(row.stat.size>maxFileBytes)throw Error('LOG_READ_LIMIT');
  const fd=await fsp.open(row.file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));
  const before=await fd.stat();if(stamp(before)!==stamp(row.stat)||before.size<row.stat.size){await fd.close();throw Error('LOG_ROTATED_DURING_READ');}
@@ -63,7 +66,7 @@ async function readLog(row,budget,maxFileBytes){
   boundary(time,line);
   if(m[2]!=='GET'||m[4]!=='200'||!m[3].startsWith('/')||m[3].startsWith('//'))return;
   let url;try{url=new URL(m[3],'http://origin.invalid');}catch{malformed++;return;}
-  if(!paths.has(url.pathname))return;
+  if(!selectedPaths.has(url.pathname))return;
   const day=new Date(time).toISOString().slice(0,10),r=days.get(day)||{successful:0,excluded:0,requests:0};
   r.successful++;if(bots.test(m[5])||url.searchParams.get('analytics_test')==='1')r.excluded++;else {r.requests++;boundary(time,line,true);}
   days.set(day,r);
@@ -96,7 +99,7 @@ export function makeOriginTraffic({logPath='/var/log/nginx/access.log',ttlMs=600
     if(files>=maxFiles){reason='LOG_FILE_LIMIT';break;}
     if(row.index!==expected){reason='LOG_ROTATION_GAP';break;}expected++;
     if(identities.has(stamp(row.stat)))continue; // rename/hard-link aliases are one physical log
-    const r=await readLog(row,budget,maxFileBytes);identities.add(stamp(row.stat));files++;
+    const r=await readLog(row,budget,maxFileBytes,range.activity==='fc27-season2'?fcPaths:paths);identities.add(stamp(row.stat));files++;
     if(hashes.has(r.hash))continue; // exact copied log, not a second request stream
     hashes.add(r.hash);
     if(r.last>previousFirst||r.last===previousFirst&&[...r.lastRecords].some(hash=>previousRecords.has(hash))){reason='OVERLAPPING_LOG_SNAPSHOTS';break;}
@@ -116,7 +119,7 @@ export function makeOriginTraffic({logPath='/var/log/nginx/access.log',ttlMs=600
   finally{clearTimeout(timer);}
  }
  return async function query(params){
-  const range=originRange(params,now()),key=range.fromDay+':'+range.toDay;
+  const range=originRange(params,now()),key=range.activity+':'+range.fromDay+':'+range.toDay;
   const force=params.get('refresh')==='1';
   while(flight)await flight;
   const old=cache.get(key);

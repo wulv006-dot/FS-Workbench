@@ -7,6 +7,8 @@ test('FS authenticated persistence and secret boundary',async()=>{
   const get=(route,cookie)=>original(url+route,{headers:{Cookie:cookie||''}});assert.equal((await get('api/config')).status,401);const state=await(await get('api/config','fixture-admin')).json();
   assert.equal((await get('api/origin-traffic?activity=mmoexp-seasonal&from=bad&to=bad')).status,401);
   assert.equal((await get('api/origin-traffic?activity=mmoexp-seasonal&from=bad&to=bad','fixture-viewer')).status,400,'existing readonly access reaches range validation without PostHog configuration or host-log reads');
+  assert.equal((await get('api/statistics-snapshot?activity=unknown&kind=today','fixture-viewer')).status,400);
+  assert.equal((await get('api/statistics-snapshot?activity=fc27-season2&kind=invalid','fixture-viewer')).status,400);
   const page=await(await get('','fixture-admin')).text();assert.doesNotMatch(page,/<option value="(?:demo|local)">|src="demo-data.js"/);assert.match(page,/<option value="live">/);assert.match(page,/<option value="test">/);
   const editor=await(await get('products.html','fixture-admin')).text();assert.match(editor,/id="page-select"/);assert.match(editor,/id="discover-search"/);assert.doesNotMatch(editor,/id="weekly-options"/);
   const originalEditor=await(await get('products.html?view=original','fixture-admin')).text();assert.match(originalEditor,/id="page-select"/);assert.doesNotMatch(originalEditor,/id="weekly-options"/);

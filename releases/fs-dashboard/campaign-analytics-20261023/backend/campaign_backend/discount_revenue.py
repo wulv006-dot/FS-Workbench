@@ -6,6 +6,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import re
+import json
+import time
 
 from .core import ContractError, Money, canonical, identity
 
@@ -123,6 +125,7 @@ def summarize(rows, start, end, game, activity='mmoexp-seasonal'):
 
 
 def read_revenue(reader, request):
+    deadline = time.monotonic() + 90
     start, end, game = query_window(request)
     activity = request.get('activity', 'mmoexp-seasonal')
     ids = {native: code for native, code, _, _ in campaign_bindings(activity)}
@@ -139,4 +142,64 @@ def read_revenue(reader, request):
         rows.extend(reader.pages('orders', [('site_id', '=', '266'), ('paytime', 'RANGE', lo + ',' + hi),
                                            ('discount_code', 'IN', ','.join(ids.values()))]))
         cursor = stop
-    return summarize(rows, start, end, game, activity)
+    result = summarize(rows, start, end, game, activity)
+    if activity == 'fc27-season2':
+        read_lines = getattr(reader, 'read_order_lines', None)
+        if read_lines is None and hasattr(reader, 'session') and result['totals']['paid_orders']:
+            from .order_lines import OrderLineReader
+            read_lines = OrderLineReader(reader.session).read
+        result['product_sales'] = product_sales(rows, read_lines, deadline=deadline)
+    return result
+
+
+def product_sales(rows, read_lines=None, *, deadline=None, clock=time.monotonic):
+    """Only code-attributed paid orders enter this reader; Order item identities stay explicit."""
+    paid = {identity(r.get('order_no')): r for r in rows if r.get('pay_status') in (1, 2, '1', '2')}
+    eligible, covered, buckets, reason = len(paid), 0, {}, None
+    for number, row in paid.items():
+        if read_lines is None:
+            reason = 'VERIFIED_ORDER_LINES_UNAVAILABLE'; break
+        remaining = (deadline - clock()) if deadline is not None else 20
+        if remaining <= 1:
+            reason = 'ORDER_LINES_TIME_BUDGET'; break
+        try:
+            lines = read_lines(number, timeout=min(remaining, 20))
+            # Validate a whole order before counting any of it, so missing lines never look complete.
+            checked = []
+            if not isinstance(lines, list): raise ContractError('ORDER_LINES_CONTRACT')
+            for line in lines:
+                if line.get('game_id') != '1322' or line.get('category_id') != '2': continue
+                pid, aid = identity(line.get('product_id')), identity(line.get('attribute_id'))
+                qty = str(line.get('quantity', ''))
+                if not re.fullmatch(r'\d{1,16}(?:\.\d{1,6})?', qty) or Decimal(qty) <= 0: raise ContractError('ORDER_LINE_QUANTITY_INVALID')
+                title, unit = line.get('title'), line.get('unit')
+                if not isinstance(title, str) or not title.strip() or len(title) > 500 or not isinstance(unit, str) or not unit or len(unit) > 40: raise ContractError('ORDER_LINES_CONTRACT')
+                checked.append((pid, aid, qty, title, unit, str(line.get('platform') or aid)))
+        except TimeoutError:
+            reason = 'ORDER_LINES_TIME_BUDGET'; break
+        except (ContractError, OSError):
+            reason = 'VERIFIED_ORDER_LINES_UNAVAILABLE'; continue
+        per_order = {}
+        for pid, aid, qty, title, unit, platform in checked:
+            key = (pid, aid, unit)
+            if key not in per_order: per_order[key] = dict(product_id=pid, attribute_id=aid, title=title, platform=platform, unit=unit, quantity=Decimal(0))
+            per_order[key]['quantity'] += Decimal(qty)
+        candidate = {key: dict(value) for key, value in buckets.items()}
+        for key, value in per_order.items():
+            bucket = candidate.setdefault(key, {**value, 'quantity': Decimal(0), 'paid_orders': 0, 'refunded_orders': 0, 'refunded_quantity': Decimal(0)})
+            bucket['paid_orders'] += 1; bucket['quantity'] += value['quantity']
+            if row['pay_status'] in (2, '2'):
+                bucket['refunded_orders'] += 1; bucket['refunded_quantity'] += value['quantity']
+        if len(json.dumps(list(candidate.values()),ensure_ascii=False,default=str).encode('utf-8')) > 1000000:
+            reason = 'ORDER_LINES_RESPONSE_LIMIT'; break
+        buckets = candidate
+        covered += 1
+    output=[]
+    for key in sorted(buckets):
+        row=buckets[key]; output.append({**row, 'quantity':format(row['quantity'],'f'), 'refunded_quantity':format(row['refunded_quantity'],'f'), 'line_amounts':[]})
+    complete=covered==eligible
+    return dict(status='available' if complete else 'partial' if covered else 'unavailable',
+        reason=None if complete else reason or 'VERIFIED_ORDER_LINES_UNAVAILABLE', identity_source='order',
+        rows=output if covered or not eligible else None,
+        coverage=dict(complete=complete,eligible_paid_orders=eligible,covered_paid_orders=covered),
+        amount_status='not_allocated', refunds_included=True)

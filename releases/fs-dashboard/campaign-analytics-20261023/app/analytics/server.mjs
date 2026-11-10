@@ -17,7 +17,9 @@ export async function report(params,options={}){
  if(!token||!/^\d+$/.test(project||''))return {status:503,body:{status:'not_configured',message:'缺少 PostHog 项目 ID 或只读查询密钥'}};
  if(!['https://us.posthog.com','https://eu.posthog.com'].includes(host))throw Error('Unsupported PostHog host');
  const filter=Object.fromEntries(params),ids=core.validateRegistry(options.registry||registry).map(a=>a.id);
- if(filter.activity!=='all'&&!ids.includes(filter.activity))return {status:400,body:{status:'invalid',message:'活动未部署到服务端白名单'}};
+ if(!ids.includes('fc27-season2')&&ids.some(id=>core.canonicalActivity(id)==='fc27-season2'))ids.push('fc27-season2');
+ filter.activity=core.canonicalActivity(filter.activity);
+ if(typeof filter.activity!=='string'||filter.activity!=='all'&&!ids.some(id=>core.activityMatches(filter.activity,id)))return {status:400,body:{status:'invalid',message:'活动未部署到服务端白名单'}};
  const validDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(v||'')&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
  if(!validDate(filter.from)||!validDate(filter.to)||filter.from>filter.to||Date.parse(filter.to)-Date.parse(filter.from)>30*86400000)return {status:400,body:{status:'invalid',message:'日期必须有效，且最多查询 31 天'}};
  const environment=filter.mode==='test'?'test':'production';
@@ -31,7 +33,7 @@ export async function report(params,options={}){
   const end=new Date(Date.parse(filter.to)+(1+Math.ceil(hours/24))*86400000).toISOString().slice(0,10),names=[...new Set(Object.values(core.templates).flatMap(t=>t.steps)),'activity_engaged','activity_click','activity_selection','activity_review','activity_cart_result'];
   // Bounded raw extraction; refuse capped results rather than display partial counts as complete.
   const fields=['distinct_id','activity_id','activity_visit_id','activity_session_id','source','device','platform','event_id','product_id','product_ids','active_seconds','include_sbc','order_key','currency','activity_paid_minor','match_id','reward_journey_id','game_id','model_id','off_percent','discount_code','slot','release_id','config_hash','server_id','quantity_value','quantity_unit','test_run_id','action','target','complete','confirmed_ids','failed_count','page_id'];
-  const query=`SELECT event, timestamp, ${fields.map(k=>k==='distinct_id'?'distinct_id':'properties.'+k).join(', ')} FROM events WHERE timestamp >= toDateTime('${filter.from} 00:00:00') AND timestamp < toDateTime('${end} 00:00:00') AND properties.environment = '${environment}' ${filter.testRunId?"AND properties.test_run_id = '"+filter.testRunId+"'":''} AND properties.activity_id IN (${ids.map(x=>"'"+x+"'").join(',')}) AND event IN (${names.map(x=>"'"+x+"'").join(',')}) ORDER BY timestamp LIMIT 50000`;
+  const query=`SELECT event, timestamp, ${fields.map(k=>k==='distinct_id'?'distinct_id':'properties.'+k).join(', ')} FROM events WHERE timestamp >= toDateTime('${filter.from} 00:00:00') AND timestamp < toDateTime('${end} 00:00:00') AND properties.environment = '${environment}' ${filter.testRunId?"AND properties.test_run_id = '"+filter.testRunId+"'":''} AND properties.activity_id IN (${ids.filter(id=>core.activityMatches(filter.activity,id)).map(x=>"'"+x+"'").join(',')}) AND event IN (${names.map(x=>"'"+x+"'").join(',')}) ORDER BY timestamp LIMIT 50000`;
   const response=await fetch(`${host}/api/projects/${project}/query/`,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query:{kind:'HogQLQuery',query},refresh:'force_blocking'}),signal:AbortSignal.timeout(15000)});
   if(!response.ok)throw Object.assign(Error('PostHog query returned '+response.status),{retryAfterMs:retryAfterMs(response.headers?.get('Retry-After'))});
   const data=await response.json();if(!Array.isArray(data.results))throw Error('Unexpected query response');

@@ -1,5 +1,8 @@
 (function(root,factory){if(typeof module==='object')module.exports=factory();else root.ActivityFunnel=factory();})(typeof globalThis==='object'?globalThis:this,function(){
   'use strict';
+  const fcActivities=['fc27-season2','fc27-weekly','fc27-sbc','fc27-trio'];
+  const canonicalActivity=id=>fcActivities.includes(id)?'fc27-season2':id;
+  const activityMatches=(selected,id)=>!selected||selected==='all'||canonicalActivity(selected)===canonicalActivity(id);
   const steps=['activity_view','activity_product_view','activity_add_to_cart','activity_begin_checkout','activity_purchase'];
   const labels=['访问活动页','看到商品','加购成功','进入结账','支付成功'];
   const templates={commerce:{name:'商品购买',steps,labels},prediction:{name:'竞猜参与',steps:['prediction_match_view','prediction_started','prediction_accepted'],labels:['看到赛事','开始预测','预测保存成功']},reward:{name:'中奖奖励核销',steps:['prediction_reward_eligible','prediction_reward_issued','prediction_coupon_redeemed'],labels:['中奖可领资格','奖励真实到账','优惠券真实核销']}};
@@ -16,7 +19,7 @@
     const counts=steps.map(()=>0),products=new Map(),sources=new Map(),daily=new Map(),visitors=new Set(),clickers=new Set();let active=0,revenue=0,orders=new Set(),reviews=0,sbcSelections=0,visits=0;
     for(const rows of groups.values()){
       rows.sort((a,b)=>a.t-b.t);const first=rows.find(r=>r.event===steps[0]);if(!first)continue;const p=first.properties,date=first.timestamp.slice(0,10);
-      if(filter.activity&&filter.activity!=='all'&&p.activity_id!==filter.activity)continue;
+      if(!activityMatches(filter.activity,p.activity_id))continue;
       if(filter.device&&filter.device!=='all'&&p.device!==filter.device)continue;
       if(filter.platform&&filter.platform!=='all'&&p.platform!==filter.platform)continue;
       if(filter.source&&filter.source!=='all'&&p.source!==filter.source)continue;
@@ -88,5 +91,5 @@
       return {id:a.id,name:a.name.trim(),path:a.path,origin,view:text(a.view)||a.id,type,status,owner:text(a.owner,60),version:text(a.version,40)||'1',startAt,endAt,windowHours,matches:normalized};
     });
   }
-  return {steps,labels,templates,summarize,validateRegistry};
+  return {steps,labels,templates,summarize,validateRegistry,canonicalActivity,activityMatches};
 });
