@@ -19,6 +19,11 @@ test('only document GET200; UTC dates, exclusions, repeated refreshes and no ide
  const r=await f.query(params());assert.equal(r.status,'available');assert.equal(r.pageRequests,4);assert.equal(r.successfulRequests,6);assert.equal(r.excludedRequests,2);assert.equal(r.estimatedVisitors,null);assert.equal(r.daily[0].date,'2026-10-30');assert.equal(r.daily[0].requests,4);
  assert(!/192\.0\.2|198\.51\.100|fixture-query|Fixture browser|access\.log/.test(JSON.stringify(r)));
 });
+test('FC paths form one group with isolated seasonal cache and compatible page aliases',async t=>{
+ const f=fixture(t,anchor+line()+line(undefined,'/events/Player-Trio.html')+line(undefined,'/events/Weekly-Scout.html')+line(undefined,'/events/Sbc-Companions.html')+line(undefined,'/events/Sbc-Companions.html?analytics_test=1'));
+ assert.equal((await f.query(params())).pageRequests,1);
+ for(const activity of ['fc27-season2','fc27-trio','fc27-weekly','fc27-sbc']){const p=params();p.set('activity',activity);const r=await f.query(p);assert.equal(r.pageRequests,3);assert.equal(r.excludedRequests,1);}
+});
 test('a genuine zero is distinct from empty, missing, malformed, unsafe or oversized logs',async t=>{
  const zero=fixture(t,anchor+line(undefined,'/health'));assert.equal((await zero.query(params())).pageRequests,0);
  for(const body of ['',anchor+'not a complete log format\n']){const f=fixture(t,body);const r=await f.query(params());assert.equal(r.pageRequests,null);assert.notEqual(r.status,'available');}

@@ -134,4 +134,45 @@ class DiscountRevenueTests(unittest.TestCase):
             with self.assertRaises(ContractError): handle(dict(self.request, **changes), reader_factory=lambda:self.fail('invalid scope must not read'))
 
 
+
+class ProductSalesTests(unittest.TestCase):
+    def rows(self):return [order(gid=1327,discount_code='FCSCOUT10'),order(order_no='refunded',gid=1327,discount_code='FCSCOUT10',pay_status=2)]
+    def line(self,**changes):return dict(dict(game_id='1322',category_id='2',product_id='6530400',attribute_id='21946',title='Actual Player',quantity='1',unit='item',platform='21946'),**changes)
+    def test_actual_paid_order_item_lines_group_and_refunds_without_whole_order_allocation(self):
+        from campaign_backend.discount_revenue import product_sales
+        calls=[]
+        def read(number,**kw):calls.append(number);return [self.line(),self.line(),self.line(category_id='1',quantity='305',unit='K'),self.line(game_id='other')]
+        rows=self.rows();r=product_sales(rows+[rows[0],order(pay_status=0)],read)
+        self.assertEqual(len(calls),2);self.assertTrue(r['coverage']['complete']);self.assertEqual(len(r['rows']),1)
+        x=r['rows'][0];self.assertEqual(x['quantity'],'4');self.assertEqual(x['paid_orders'],2);self.assertEqual(x['refunded_orders'],1);self.assertEqual(x['refunded_quantity'],'2');self.assertEqual(x['line_amounts'],[])
+        self.assertNotIn('fixture-1',str(r));self.assertNotIn('paid_usd_minor',x)
+    def test_missing_or_partial_lines_are_not_zero_and_expired_budget_stops_reads(self):
+        from campaign_backend.discount_revenue import product_sales
+        r=product_sales(self.rows());self.assertEqual(r['status'],'unavailable');self.assertIsNone(r['rows'])
+        def partial(number,**kw):
+            if number=='refunded':raise ContractError('ORDER_LINES_CONTRACT')
+            return [self.line()]
+        r=product_sales(self.rows(),partial);self.assertEqual(r['status'],'partial');self.assertEqual(r['coverage']['covered_paid_orders'],1)
+        r=product_sales(self.rows(),lambda *a,**k:self.fail('expired must not read'),deadline=9,clock=lambda:10);self.assertEqual(r['reason'],'ORDER_LINES_TIME_BUDGET')
+        calls=[]
+        def timeout(number,**kw):calls.append(number);raise TimeoutError()
+        product_sales(self.rows(),timeout);self.assertEqual(len(calls),1)
+    def test_read_revenue_completes_paid_totals_even_when_order_line_source_missing(self):
+        outer=self
+        class Reader:
+            def pages(self,resource,filters,**kw):
+                return [dict(id='6049',code='FCSCOUT10',site_id=266)] if resource=='discounts' else outer.rows()
+            def read_order_lines(self,number,**kw):raise ContractError('ORDER_LINE_ORDER_NOT_FOUND')
+        r=read_revenue(Reader(),dict(action='discount_revenue',site_id='266',activity='fc27-season2',game='all',**{'from':'2026-10-30','to':'2026-10-30'}))
+        self.assertEqual(r['status'],'available');self.assertEqual(r['totals']['paid_orders'],2);self.assertEqual(r['product_sales']['status'],'unavailable');self.assertIsNone(r['product_sales']['rows'])
+    def test_product_row_byte_budget_preserves_completed_orders_and_reports_partial(self):
+        from campaign_backend.discount_revenue import product_sales
+        rows=[order(order_no='order-'+str(i),pay_status=1) for i in range(5)]
+        def read(number,**kw):return [self.line(product_id=number+'-'+str(i),title='球'*500) for i in range(200)]
+        r=product_sales(rows,read);self.assertEqual(r['status'],'partial');self.assertEqual(r['reason'],'ORDER_LINES_RESPONSE_LIMIT');self.assertLess(r['coverage']['covered_paid_orders'],5)
+    def test_complete_zero_orders_zero_and_invalid_line_invalidates_whole_order(self):
+        from campaign_backend.discount_revenue import product_sales
+        r=product_sales([]);self.assertEqual(r['status'],'available');self.assertEqual(r['rows'],[]);self.assertTrue(r['coverage']['complete'])
+        r=product_sales(self.rows()[:1],lambda *a,**k:[self.line(),self.line(quantity='?')]);self.assertEqual(r['status'],'unavailable');self.assertIsNone(r['rows']);self.assertEqual(r['coverage']['covered_paid_orders'],0)
+
 if __name__=='__main__':unittest.main()

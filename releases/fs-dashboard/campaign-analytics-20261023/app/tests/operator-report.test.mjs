@@ -1,6 +1,15 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import core from '../analytics/funnel-core.cjs';import {eventDiagnostics,reportContext} from '../analytics/report-context.mjs';
 const row=(id,event,game,extra={},visit='v')=>({event,timestamp:'2026-10-29T07:00:00Z',properties:{activity_id:'mmoexp-seasonal',activity_visit_id:visit,activity_session_id:'s',distinct_id:'anon',event_id:id,game_id:game,device:'desktop',platform:'unknown',source:'direct',...extra}});
+test('FC three-page group deduplicates visitors, orders and event IDs without merging page journeys',()=>{
+ const pages=['fc27-weekly','fc27-sbc','fc27-trio'];
+ const rows=pages.flatMap((activity_id,i)=>[row('v'+i,'activity_view','1327',{activity_id},'visit'+i),row('p'+i,'activity_purchase','1327',{activity_id,order_key:'same-order',currency:'USD',activity_paid_minor:1234},'visit'+i)]);
+ rows.push({...rows[0]},row('unrelated','activity_view','456'));
+ for(const activity of ['fc27-season2',...pages]){
+  const result=core.summarize(rows,{activity});assert.equal(result.visits,3);assert.equal(result.visitors,1);assert.equal(result.orders,1);assert.equal(result.revenueMinor,1234);
+  assert.equal(eventDiagnostics(rows,{activity,from:'2026-10-29',to:'2026-10-29'}).eventCount,6);
+ }
+});
 test('seasonal journey separates games and deduplicates cross-game visit totals',()=>{
  const rows=[row('view','activity_view'),row('v1','activity_product_view','456'),row('r1','activity_selection','456',{action:'offer_reveal'}),row('r2','activity_selection','1327',{action:'offer_reveal'}),row('s1','activity_selection','456',{action:'product_select'}),row('cart','activity_add_to_cart','456',{complete:true}),row('cart','activity_add_to_cart','456',{complete:true})];
  const result=core.summarize(rows,{activity:'mmoexp-seasonal'});assert.equal(result.visits,1);assert.equal(result.seasonalTotals.revealed,1);assert.equal(result.seasonalGames.length,2);assert.equal(result.seasonalTotals.cart,1);
@@ -17,5 +26,11 @@ test('public report context exposes names but no checkout policy, prices or priv
   const c=reportContext(dir);assert.equal(c.models['456:111'],'Resplendent Spark');assert.equal(c.products['333'],'Resplendent Spark');assert.equal(c.games[0].name,'Diablo IV');assert.equal(c.payment,'not_integrated');assert(!JSON.stringify(c).includes('not-exposed'));assert(!JSON.stringify(c).includes('random_models'));assert(!JSON.stringify(c).includes('price'));
   assert.equal(c.traffic.status,'separate_query');assert.equal(c.traffic.source,'existing_origin_access_log');assert.equal(c.traffic.pageRequests,null);assert.equal(c.traffic.estimatedVisitors,null);assert.equal(c.traffic.visitorBasis,'unverified_proxy_chain');assert.equal(c.traffic.periodDistinct,'separate_from_daily_sum');
   fs.writeFileSync(path.join(dir,'current.json'),'bad');assert.equal(reportContext(dir),null);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('FC public context covers the group and only FC product names',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fc-report-context-'));try{
+  fs.writeFileSync(path.join(dir,'current.json'),JSON.stringify({release_id:'campaign-preview-33',config_hash:'a'.repeat(64),pages:[{page_id:'fc27-weekly',activity_id:'fc27-season2',active:false},{page_id:'fc27-sbc',activity_id:'fc27-season2',active:true}],products:[{title:'FC player',product_ref:{game_id:'1327',model_id:'1',goods_id:'2'}},{title:'Other game',product_ref:{game_id:'456',model_id:'3',goods_id:'4'}}],native_checkout:{secret:'never-expose'}}));
+  for(const activity of ['fc27-season2','fc27-sbc']){const c=reportContext(dir,activity);assert.equal(c.activityId,'fc27-season2');assert.equal(c.active,true);assert.deepEqual(c.products,{'2':'FC player'});assert.equal(c.releaseId,'campaign-preview-33');assert(!JSON.stringify(c).includes('never-expose'));}
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
