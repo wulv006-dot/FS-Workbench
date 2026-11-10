@@ -4,10 +4,10 @@
 
 ## 固定源与原发布器
 
-沿`releases/fc-coins/fc-pricing-v3-20261026/deploy/`原builder/prepare/adapter及冻结`release_navigation_base.py`。默认101与旧scope保持；`--three-platform`才包含3个新增V3模块双镜像、bundles两份显式根源与既有monitor hooks源，候选总110。实际写入只使用`target_map.THREE_PLATFORM_NAMES`的新精确scope，根在最终commit前核对全部运行源差异，不拿110个候选全量覆盖。金额/部署CAS、原FC/Hermes admission、UNKNOWN、锁、备份与回退保留。
+沿`releases/fc-coins/fc-pricing-v3-20261026/deploy/`原builder/prepare/adapter及冻结`release_navigation_base.py`。默认101与旧scope保持；`--three-platform`才包含3个新增V3模块双镜像、bundles两份显式根源与既有monitor hooks源，候选总112。实际写入只使用`target_map.THREE_PLATFORM_NAMES`的新精确scope，根在最终commit前核对全部运行源差异，不拿112个候选全量覆盖。金额/部署CAS、原FC/Hermes admission、UNKNOWN、锁、备份与回退保留。
 
 ```text
-python releases/fc-coins/fc-pricing-v3-20261026/deploy/build_stage.py <checkout> <archive.tar.gz> --three-platform
+python releases/fc-coins/fc-pricing-v3-20261026/deploy/build_stage.py <checkout> <archive.tar.gz> --three-platform --monitor-sqlite-library <private-local-libsqlite3.so.0>
 ```
 
 builder要求上述源已提交，外部bundles源也从同一Git commit读取。不要在尚有本轮dirty源时制作最终包，不复用旧prepare基线。
@@ -58,4 +58,7 @@ builder要求上述源已提交，外部bundles源也从同一Git commit读取�
 
 ## 直接验证
 
-`test_three_platform_release`包含新scope/101兼容、110候选、外部Git源、精确新文件身份、bootstrap配置/线程缺项、实际adapter改前→新PID读回→旧代码回退顺序与Linux真实flock合同。bundles `test_write_admission`用两个进程验证维护拒新请求、已接受请求在日志完成前保持锁、自动/直接同锁及异常不重复调用。Windows的平台限定skip由183/Linux实际执行补证；CI、发布与自然轮仍分开验收。
+`test_three_platform_release`包含新scope/101兼容、112候选、外部Git源、精确新文件身份、bootstrap配置/线程缺项、实际adapter改前→新PID读回→旧代码回退顺序与Linux真实flock合同。bundles `test_write_admission`用两个进程验证维护拒新请求、已接受请求在日志完成前保持锁、自动/直接同锁及异常不重复调用。Windows的平台限定skip由183/Linux实际执行补证；CI、发布与自然轮仍分开验收。
+
+
+现役monitor兼容修复：本scope另含原collector维护源（prewrite-recovery-20261012/source/monitor/collector.py）与独立runtime/sqlite-3.53.4/lib/libsqlite3.so.0；库由既有auth兼容库逐字节提供，SHA d3d896ba27628b174c67cfc6127c92f29c97b48dc3dfe70c84c5f6c28ca4c5f8，builder显式--monitor-sqlite-library私有本地路径，原库列保护不写。只给原probe子进程设置独立LD_LIBRARY_PATH，不改系统/auth库/service/timer。新scope56目标，stage112；新增7（6个模块镜像+库），已有49。无需重启oneshot monitor，下一原5分钟timer加载后另验；源码/测试通过不等于故障已恢复。

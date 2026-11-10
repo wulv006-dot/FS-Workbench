@@ -73,15 +73,22 @@ class KnowledgeStageTransportTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             metadata = json.loads(result.stdout)
             self.assertEqual(metadata['sourceCommit'], commit)
+            self.assertEqual(metadata['release'],'fc-three-platform-100k-knowledge-20261110-'+commit)
             prefix = metadata['release'] + '/deploy/'
             with tarfile.open(archive, 'r:gz') as bundle:
                 release = prefix.removesuffix('deploy/')
                 catalog = json.load(bundle.extractfile(release + 'candidate/artifact/index.json'))
                 self.assertFalse(any(row['status'] == 'retired' for row in catalog['entries']))
                 baseline = bundle.extractfile(release + 'candidate/runtime/business-baseline.md').read()
-                expected = {row['source']['sha256'] for row in catalog['entries']
-                            if row['source']['path'] == 'docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'}
-                self.assertEqual(expected, {hashlib.sha256(baseline).hexdigest()})
+                runtime='releases/fs-dashboard/fs-business-baseline-20261021/source/hermes/business-baseline.md'
+                self.assertEqual(baseline,subprocess.check_output(['git','show','HEAD:'+runtime],cwd=ROOT))
+                provenance=json.loads(subprocess.check_output(['git','show','HEAD:'+runtime.replace('.md','.provenance.json')],cwd=ROOT))
+                self.assertEqual(provenance['after_sha256'],hashlib.sha256(baseline).hexdigest())
+                expected={row['source']['sha256'] for row in catalog['entries']
+                          if row['source']['path']=='docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md'}
+                self.assertEqual(expected,{provenance['canonical_sha256']})
+                self.assertIn(b'fc27_dual20_d9_d2_platform_100k_v4',baseline)
+                self.assertIn('Xbox不继承PS售价'.encode(),baseline)
                 for name in ('release.py', 'prepare_manifest.py', 'release_navigation_base.py'):
                     relative = 'releases/fc-coins/fc-pricing-v3-20261026/deploy/knowledge/' + name
                     committed = subprocess.check_output(['git', 'show', 'HEAD:' + relative], cwd=ROOT)
@@ -92,6 +99,41 @@ class KnowledgeStageTransportTest(unittest.TestCase):
                 frozen = bundle.extractfile(prefix + 'release_navigation_base.py').read()
                 self.assertEqual(hashlib.sha256(frozen).hexdigest(),
                                  '57f4baf8db15fc791375b641fb618ef87a867901643bc0aa33f10804b8fcb840')
+
+
+class KnowledgeReleaseIdentityTest(unittest.TestCase):
+    def setUp(self):
+        spec=importlib.util.spec_from_file_location('current_full_baseline_publisher',BUILDER.parent/'release.py')
+        self.publisher=importlib.util.module_from_spec(spec);spec.loader.exec_module(self.publisher)
+        self.commit='a'*40
+        self.release='fc-three-platform-100k-knowledge-20261110-'+self.commit
+        self.prefix='/var/lib/fs-hermes-fc/fs/knowledge-releases/'+self.release+'/'
+        self.manifest=dict(scope=self.publisher.SCOPE,sourceCommit=self.commit,knowledgeRelease=self.release,
+            businessWrites=False,timersChanged=False,releaseReady=True,
+            files=[dict(candidate=name,target=target) for name,target in self.publisher.RUNTIME.items()]+
+                  [dict(candidate='artifact/index.json',target=self.prefix+'index.json')])
+
+    def test_release_identity_binds_full_source_commit_and_original_two_runtime_targets(self):
+        self.assertEqual(self.publisher.release_identity(self.commit),(self.release,self.prefix))
+        mapping=self.publisher.targets(self.manifest)
+        self.assertEqual({name:target for name,target in mapping.items() if name.startswith('runtime/')},self.publisher.RUNTIME)
+        self.assertEqual(len(self.publisher.RUNTIME),2)
+        self.assertEqual(self.publisher.BASE_SHA,'57f4baf8db15fc791375b641fb618ef87a867901643bc0aa33f10804b8fcb840')
+
+    def test_wrong_commit_old_release_or_scope_cannot_reuse_original_immutable_directory(self):
+        for key,value in [('sourceCommit','b'*40),('sourceCommit','a'*8),
+                          ('knowledgeRelease','fc-pricing-v3-20261026-12'),('scope','knowledge-layering-20261023')]:
+            with self.subTest(key=key,value=value):
+                with self.assertRaisesRegex(ValueError,'knowledge_release_identity_invalid'):
+                    self.publisher.targets(dict(self.manifest,**{key:value}))
+
+    def test_new_runtime_target_and_artifact_escape_are_rejected(self):
+        for name,target in [('runtime/business_context.py','/opt/fs-hermes-fc/business_context.py'),
+                            ('artifact/../outside.json',self.prefix+'../outside.json')]:
+            with self.subTest(name=name):
+                manifest=dict(self.manifest,files=self.manifest['files']+[dict(candidate=name,target=target)])
+                with self.assertRaisesRegex(ValueError,'knowledge_immutable_release_boundary'):
+                    self.publisher.targets(manifest)
 
 
 if __name__ == '__main__':

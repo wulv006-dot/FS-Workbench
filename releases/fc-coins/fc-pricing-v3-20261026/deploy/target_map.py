@@ -7,16 +7,24 @@ THREE_PLATFORM_SCOPE='fc-pricing-three-platform-20261110'
 THREE_PLATFORM_MODULES=('platforms.py','legacy_simulation/platform_v2_engine.py',
                         'legacy_simulation/platform_v2_financial.py')
 THREE_PLATFORM_TARGET_COUNT=TARGET_COUNT+2*len(THREE_PLATFORM_MODULES)
+MONITOR_SQLITE_CANDIDATE='source/monitor-runtime/libsqlite3.so.0'
+MONITOR_SQLITE_SOURCE='/opt/auth-portal/registration-runtime-deps/sqlite-3.53.4/lib/libsqlite3.so.3.53.4'
+MONITOR_SQLITE_SHA='d3d896ba27628b174c67cfc6127c92f29c97b48dc3dfe70c84c5f6c28ca4c5f8'
+MONITOR_SQLITE_PROVENANCE={'candidate':MONITOR_SQLITE_CANDIDATE,'source':MONITOR_SQLITE_SOURCE,'sha256':MONITOR_SQLITE_SHA}
 THREE_PLATFORM_NEW=frozenset(prefix+'fc_pricing_v3/'+name
     for prefix in ('source/','source/hermes-copy/') for name in THREE_PLATFORM_MODULES)
+THREE_PLATFORM_NEW=THREE_PLATFORM_NEW|{MONITOR_SQLITE_CANDIDATE}
 THREE_PLATFORM_REPOSITORY_SOURCES={
     'source/pack_bundles_server.py':'fc27_pack_bundles_20261013/src/pack_bundles_server.py',
     'source/pack_bundles.html':'fc27_pack_bundles_20261013/web/index.html',
-    'source/monitor-hooks.py':'releases/fc-coins/monitor-health-20261020/source/hooks.py'}
+    'source/monitor-hooks.py':'releases/fc-coins/monitor-health-20261020/source/hooks.py',
+    'source/monitor-collector.py':'releases/fc-coins/prewrite-recovery-20261012/source/monitor/collector.py'}
 THREE_PLATFORM_EXTRA={
     'source/pack_bundles_server.py':'/opt/fc27-pack-bundles/pack_bundles_server.py',
     'source/pack_bundles.html':'/var/www/dashboard/modules/sports/bundles/index.html',
-    'source/monitor-hooks.py':'/opt/fc-ops-readonly-monitor/hooks.py'}
+    'source/monitor-hooks.py':'/opt/fc-ops-readonly-monitor/hooks.py',
+    'source/monitor-collector.py':'/opt/fc-ops-readonly-monitor/collector.py',
+    MONITOR_SQLITE_CANDIDATE:'/opt/fc-ops-readonly-monitor/runtime/sqlite-3.53.4/lib/libsqlite3.so.0'}
 THREE_PLATFORM_NAMES=tuple(prefix+'fc_pricing_v3/'+name
     for prefix in ('source/','source/hermes-copy/') for name in (
         'adapters.py','api.py','business_source.py','daily.py','engine.py','financial.py','ledger.py',
@@ -24,7 +32,7 @@ THREE_PLATFORM_NAMES=tuple(prefix+'fc_pricing_v3/'+name
         'selective_sources.py','simulation.py','smart.py','sources.py','uk_retirement.py',
         *THREE_PLATFORM_MODULES))
 THREE_PLATFORM_NAMES+=tuple('source/'+name for name in ('automation_policy.py','coin_all_sync_job.py',
-    'fc-pricing-v3.js','fc27-coins.html','fc27_cloud_worker.py','player_sync_job.py','pricing_sources.py','pricing_simulation.py','read_only_status.py','reconcile_original.py'))
+    'fc-pricing-v3.js','fc27-coins.html','fc27_cloud_worker.py','player_sync_job.py','pricing_sources.py','pricing_simulation.py','read_only_status.py','probe_worker.py','reconcile_original.py'))
 THREE_PLATFORM_NAMES+=tuple(THREE_PLATFORM_EXTRA)
 
 COUPON_DISPLAY_SCOPE='fc-pricing-v3-coupon-display-20261109'

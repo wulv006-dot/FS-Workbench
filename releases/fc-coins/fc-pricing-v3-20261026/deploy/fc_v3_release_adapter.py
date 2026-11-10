@@ -14,7 +14,8 @@ from release_readiness import restart_with_hermes_readiness,fc_release_quiescent
 
 from target_map import COUPON_DISPLAY_NAMES, COUPON_DISPLAY_SCOPE, COUPON_DISPLAY_EXTRA, DAILY_SUMMARY_NAMES, DAILY_SUMMARY_SCOPE, DAILY_REPAIR_NAMES, DAILY_REPAIR_SCOPE, QUOTE_PREVIEW_NAMES, QUOTE_PREVIEW_SCOPE, QUOTE_FRAGMENT_NAMES, QUOTE_FRAGMENT_SCOPE, REPAIR_NAMES, REPAIR_SCOPE, BIDIRECTIONAL_NAMES, BIDIRECTIONAL_SCOPE, DELTA_NAMES, DELTA_SCOPE, DELTA_NEW, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, COLLECTION_SCOPE, COLLECTION_NAMES, targets
 from target_map import (THREE_PLATFORM_NAMES, THREE_PLATFORM_SCOPE, THREE_PLATFORM_EXTRA,
-                        THREE_PLATFORM_NEW, three_platform_targets)
+                        THREE_PLATFORM_NEW, three_platform_targets, MONITOR_SQLITE_CANDIDATE,
+                        MONITOR_SQLITE_SHA, MONITOR_SQLITE_SOURCE)
 
 HERE = Path(__file__).resolve().parent
 SCOPE = 'fc-pricing-v3-20261026'
@@ -225,6 +226,10 @@ def checked_manifest(value):
         raise ValueError('code_release_does_not_change_business_or_timer_state')
     if value.get('releaseReady') is not True:
         raise ValueError('reviewed_code_release_required')
+    if scope==THREE_PLATFORM_SCOPE:
+        library=next(r for r in rows if r['candidate']==MONITOR_SQLITE_CANDIDATE)
+        if library.get('sha256')!=MONITOR_SQLITE_SHA or {r.get('path'):r.get('sha256') for r in value.get('unchangedRequired',[])}.get(MONITOR_SQLITE_SOURCE)!=MONITOR_SQLITE_SHA:
+            raise ValueError('monitor_sqlite_provenance_changed')
     if scope==THREE_PLATFORM_SCOPE and value.get('bundleBootstrap') is not None:
         proof=value['bundleBootstrap']
         required={'contract','pid','processStartTicks','schedulerTid','schedulerStartTicks',

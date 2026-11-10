@@ -171,8 +171,8 @@ except ValueError as e:print(str(e))
         self.assertEqual(len(adapter.TARGETS), 101)
         self.assertEqual(target_map.TARGET_COUNT, 101)
         self.assertEqual(len(target_map.three_platform_targets(DEPLOY.parent/'source')), 107)
-        self.assertEqual(len(adapter.THREE_PLATFORM_TARGETS), 53)
-        self.assertEqual(len(target_map.THREE_PLATFORM_NEW), 6)
+        self.assertEqual(len(adapter.THREE_PLATFORM_TARGETS), 56)
+        self.assertEqual(len(target_map.THREE_PLATFORM_NEW), 7)
         self.assertEqual(len(adapter.BIDIRECTIONAL_TARGETS), 25)
         self.assertEqual(len(adapter.REPAIR_TARGETS), 4)
         self.assertEqual(len(adapter.COUPON_DISPLAY_TARGETS), 5)
@@ -196,7 +196,8 @@ except ValueError as e:print(str(e))
 
     def manifest(self):
         return dict(scope=target_map.THREE_PLATFORM_SCOPE, businessWrites=False, timersChanged=False,
-                    releaseReady=True, files=[dict(candidate=n,target=t,sha256='b'*64,
+                    releaseReady=True, unchangedRequired=[dict(path=target_map.MONITOR_SQLITE_SOURCE,sha256=target_map.MONITOR_SQLITE_SHA)],
+                    files=[dict(candidate=n,target=t,sha256=target_map.MONITOR_SQLITE_SHA if n==target_map.MONITOR_SQLITE_CANDIDATE else 'b'*64,
                         beforeSha256=None if n in target_map.THREE_PLATFORM_NEW else 'a'*64,
                         owner='0:0',mode='0o644') for n,t in adapter.THREE_PLATFORM_TARGETS.items()])
 
@@ -204,7 +205,10 @@ except ValueError as e:print(str(e))
         self.assertTrue(hasattr(target_map, 'THREE_PLATFORM_REPOSITORY_SOURCES'))
         def blob(checkout, path): return path.read_bytes().replace(b'\r\n', b'\n')
         def git(command, **kwargs): return 'a'*40 if command[1]=='rev-parse' else ''
+        library=Path('private-library-fixture')
+        library_bytes=b'\x7fELF\x02\x01fixture'
         with tempfile.TemporaryDirectory() as folder, patch.object(build_stage,'git_blob',side_effect=blob), \
+             patch.object(build_stage,'monitor_library',return_value=library_bytes), \
              patch.object(build_stage.subprocess,'check_output',side_effect=git):
             checkout=Path(folder)/'checkout'; release=checkout/'releases/fc-coins/fc-pricing-v3-20261026'
             for name in target_map.three_platform_targets(DEPLOY.parent/'source'):
@@ -217,14 +221,16 @@ except ValueError as e:print(str(e))
                 file=checkout/original; file.parent.mkdir(parents=True,exist_ok=True); file.write_text(original)
             for native in (False,True):
                 output=Path(folder)/('native.tar.gz' if native else 'old.tar.gz')
-                result=build_stage.build(checkout,output,three_platform=native)
+                result=build_stage.build(checkout,output,three_platform=native,monitor_sqlite_library=library if native else None)
                 with tarfile.open(output,'r:gz') as archive:
                     base='fc-pricing-v3-20261026/'
                     provenance=json.load(archive.extractfile(base+'source-manifest.json'))
-                    self.assertEqual(result['targets'],110 if native else 101)
-                    self.assertEqual(len(provenance['files']),110 if native else 101)
+                    self.assertEqual(result['targets'],112 if native else 101)
+                    self.assertEqual(len(provenance['files']),112 if native else 101)
                     if native:
                         self.assertEqual(provenance['repositorySources'],target_map.THREE_PLATFORM_REPOSITORY_SOURCES)
+                        self.assertEqual(provenance['externalSources'],[target_map.MONITOR_SQLITE_PROVENANCE])
+                        self.assertEqual(archive.extractfile(base+'candidate/'+target_map.MONITOR_SQLITE_CANDIDATE).read(),library_bytes)
                         for candidate, original in target_map.THREE_PLATFORM_REPOSITORY_SOURCES.items():
                             payload=archive.extractfile(base+'candidate/'+candidate).read()
                             self.assertEqual(payload,(checkout/original).read_bytes())
@@ -242,6 +248,20 @@ except ValueError as e:print(str(e))
             with self.assertRaisesRegex(ValueError,'source_tree_has_uncommitted_changes'):
                 build_stage.build(ROOT,Path(folder)/'unsafe.tar.gz',three_platform=True)
 
+    def test_monitor_library_requires_exact_existing_elf_and_protected_source(self):
+        with self.assertRaisesRegex(ValueError,'monitor_sqlite_library_required'):build_stage.monitor_library(None)
+        with tempfile.TemporaryDirectory() as folder:
+            file=Path(folder)/'library';file.write_bytes(b'not an ELF')
+            with self.assertRaisesRegex(ValueError,'monitor_sqlite_library_sha_mismatch'):build_stage.monitor_library(file)
+            payload=b'\x7fELF\x02\x01fixture';file.write_bytes(payload)
+            with self.assertRaisesRegex(ValueError,'monitor_sqlite_library_sha_mismatch'):build_stage.monitor_library(file)
+            with patch.object(build_stage,'MONITOR_SQLITE_SHA',hashlib.sha256(payload).hexdigest()):
+                self.assertEqual(build_stage.monitor_library(file),payload)
+        value=self.manifest();value['unchangedRequired']=[]
+        with self.assertRaisesRegex(ValueError,'monitor_sqlite_provenance_changed'):adapter.checked_manifest(value)
+        value=self.manifest();next(r for r in value['files'] if r['candidate']==target_map.MONITOR_SQLITE_CANDIDATE)['sha256']='a'*64
+        with self.assertRaisesRegex(ValueError,'monitor_sqlite_provenance_changed'):adapter.checked_manifest(value)
+
     def test_prepare_requires_exact_new_identities_and_keeps_collection_and_model_protection(self):
         self.assertTrue(hasattr(target_map, 'THREE_PLATFORM_NAMES'))
         with tempfile.TemporaryDirectory() as folder:
@@ -256,7 +276,7 @@ except ValueError as e:print(str(e))
                 else: mapping[name.removeprefix('source/')]=str(live)
             sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else 'a'*64
             provenance=dict(sourceCommit='a'*40,files={n:sha(stage/'candidate'/n) for n in names},
-                            repositorySources=target_map.THREE_PLATFORM_REPOSITORY_SOURCES)
+                            repositorySources=target_map.THREE_PLATFORM_REPOSITORY_SOURCES,externalSources=[target_map.MONITOR_SQLITE_PROVENANCE])
             (stage/'source-manifest.json').write_text(json.dumps(provenance))
             base=SimpleNamespace(HERMES_TARGETS={},HERMES_CAPABILITY_TARGETS={},CAP_PROTECTED_SESSION=set(),HERMES_DIRECT_TARGETS={})
             inspect=Mock(return_value={'ok':True})
@@ -264,12 +284,12 @@ except ValueError as e:print(str(e))
                  patch.object(prepare,'three_platform_targets',return_value=mapping), \
                  patch.object(prepare,'THREE_PLATFORM_TARGET_COUNT',len(mapping)), \
                  patch.object(prepare,'THREE_PLATFORM_EXTRA',extra),patch.object(prepare,'regular'), \
-                 patch.object(prepare,'sha',side_effect=sha),patch.object(prepare,'load_base',return_value=base), \
+                 patch.object(prepare,'sha',side_effect=sha),patch.object(prepare,'MONITOR_SQLITE_SHA',sha(stage/'candidate'/target_map.MONITOR_SQLITE_CANDIDATE)),patch.object(prepare,'load_base',return_value=base), \
                  patch.object(adapter,'load_base',return_value=SimpleNamespace(inspect=inspect)), \
                  patch.object(prepare.subprocess,'check_output',return_value='ActiveState=active') as system:
                 result=prepare.prepare(three_platform=True)
                 manifest=json.loads((stage/'approved-manifest.json').read_text())
-                self.assertEqual(result['files'],53);self.assertEqual(result['new'],6)
+                self.assertEqual(result['files'],56);self.assertEqual(result['new'],7)
                 self.assertEqual({r['candidate'] for r in manifest['files'] if r['beforeSha256'] is None},target_map.THREE_PLATFORM_NEW)
                 self.assertIn('fc27-pack-bundles.service',manifest['runtimeRequired'])
                 self.assertTrue(set(target_map.COUPON_DISPLAY_PROTECTED).issubset({r['path'] for r in manifest['unchangedRequired']}))

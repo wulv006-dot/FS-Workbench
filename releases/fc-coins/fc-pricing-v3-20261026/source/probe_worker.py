@@ -1,10 +1,13 @@
 """Bounded read-only probe; Player evidence covers request acceptance only."""
 import json, subprocess, re
 from datetime import datetime, timezone
+from pathlib import Path
 import urllib.error, urllib.request
 import read_only_status as source
 from report import report, unverified
 from delivery import NoRedirect
+
+RPG_CUTOVER = Path('/opt/rpg-migration-20261102/cutover.active')
 
 def state(unit):
     try:
@@ -33,9 +36,17 @@ def select(data, fields):
     return {k:data.get(k) for k in fields}
 
 def rpg_probe():
+    remote = RPG_CUTOVER.is_file()
+    units = ('rpg183-link.service',) if remote else ('d4follow.service','p2pah-srv-exec.service')
     observed = {'checked_at':datetime.now(timezone.utc).isoformat(),
                 'scope':'shared_services_and_current_runtime_tasks', 'issues':[],
-                'service_states':{u:state(u) for u in ('d4follow.service','p2pah-srv-exec.service')}}
+                'runtime_owner':'183' if remote else '187',
+                'role_basis':str(RPG_CUTOVER) if remote else 'local_services_without_cutover',
+                'service_states':{u:state(u) for u in units}}
+    if remote:
+        # The existing tunnel/API proves remote reachability, not systemd state.
+        observed['remote_service_states']={u:'unverified' for u in ('d4follow.service','p2pah-srv-exec.service')}
+        observed['issues'].append({'level':'warning','code':'rpg_remote_service_state_unverified'})
     for unit, status in observed['service_states'].items():
         if status != 'active':
             observed['issues'].append({'level':'critical','code':'rpg_dependency_unavailable:'+unit})
@@ -46,6 +57,9 @@ def rpg_probe():
         value = json.loads(raw)
         if value.get('ok') is not True or not isinstance(value.get('data',{}).get('tasks'),list):
             raise ValueError('rpg_task_state_required')
+        health=value['data'].get('health') or {}
+        observed['source_freshness']={k:health.get(k) for k in ('ourTs','ourStaleHours','qdTs','qdStaleHours','iggmTs')}
+        observed['remote_server_time']=value['data'].get('serverTime')
         tasks = value['data']['tasks']
         if len(tasks) > 12:raise ValueError('rpg_task_count_changed')
         observed['recent_task_count'] = len(tasks)
@@ -66,7 +80,7 @@ def rpg_probe():
         # shortcut: in-memory task summaries omit old-process and per-row outcomes; add a read-only receipt feed when RPG exposes one.
     except Exception:
         observed['issues'].append({'level':'critical','code':'rpg_state_unavailable'})
-    observed['status'] = 'critical' if observed['issues'] else 'healthy'
+    observed['status'] = 'critical' if any(x['level']=='critical' for x in observed['issues']) else 'warning' if observed['issues'] else 'healthy'
     return observed
 
 

@@ -11,7 +11,8 @@ import subprocess
 
 from target_map import COUPON_DISPLAY_NAMES, COUPON_DISPLAY_SCOPE, COUPON_DISPLAY_SOURCE, COUPON_DISPLAY_EXTRA, COUPON_DISPLAY_PROTECTED, DAILY_SUMMARY_NAMES, DAILY_SUMMARY_SCOPE, DAILY_REPAIR_NAMES, DAILY_REPAIR_SCOPE, QUOTE_PREVIEW_NAMES, QUOTE_PREVIEW_SCOPE, QUOTE_FRAGMENT_NAMES, QUOTE_FRAGMENT_SCOPE, REPAIR_NAMES, REPAIR_SCOPE, BIDIRECTIONAL_NAMES, BIDIRECTIONAL_SCOPE, DELTA_NAMES, DELTA_SCOPE, DELTA_NEW, SHADOW_NAMES, SHADOW_SCOPE, OPERATING_SCOPE, OPERATING_NAMES, OPERATING_NEW, COLLECTION_SCOPE, COLLECTION_NAMES, TARGET_COUNT, targets
 from target_map import (THREE_PLATFORM_SCOPE, THREE_PLATFORM_NAMES, THREE_PLATFORM_NEW,
-    THREE_PLATFORM_EXTRA, THREE_PLATFORM_REPOSITORY_SOURCES, THREE_PLATFORM_TARGET_COUNT, three_platform_targets)
+    THREE_PLATFORM_EXTRA, THREE_PLATFORM_REPOSITORY_SOURCES, THREE_PLATFORM_TARGET_COUNT, three_platform_targets,
+    MONITOR_SQLITE_CANDIDATE, MONITOR_SQLITE_SOURCE, MONITOR_SQLITE_SHA, MONITOR_SQLITE_PROVENANCE)
 
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
@@ -57,6 +58,8 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
     if len(all_expected) != (THREE_PLATFORM_TARGET_COUNT if three_platform else TARGET_COUNT):raise ValueError('staged_payload_differs_from_git_source_manifest')
     if three_platform:
         if provenance.get('repositorySources')!=THREE_PLATFORM_REPOSITORY_SOURCES:raise ValueError('three_platform_repository_source_changed')
+        if provenance.get('externalSources')!=[MONITOR_SQLITE_PROVENANCE] or sha(STAGE/'candidate'/MONITOR_SQLITE_CANDIDATE)!=MONITOR_SQLITE_SHA:
+            raise ValueError('monitor_sqlite_provenance_changed')
         all_expected.update(THREE_PLATFORM_EXTRA)
     if coupon_display:
         if provenance.get('repositorySources')!={'source/storefront_monitor.py':COUPON_DISPLAY_SOURCE}:raise ValueError('coupon_display_repository_source_changed')
@@ -84,6 +87,7 @@ def prepare(delta=False, shadow=False, operating=False, collection=False, bidire
     if three_platform:
         protected.update(COUPON_DISPLAY_PROTECTED)
         protected.add('/opt/fc27-cloud-browser/storefront_monitor.py')
+        protected.add(MONITOR_SQLITE_SOURCE)
     rows = []
     for name, target in sorted(expected.items()):
         current = Path(target)
