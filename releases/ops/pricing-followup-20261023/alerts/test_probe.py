@@ -31,6 +31,14 @@ class Receipts(unittest.TestCase):
         self.assertEqual(P.classify_jobs([row(status='failed')],[],{})[0]['J20261023140000'],'execution_unclassified')
     def test_explicit_unknown_not_hidden_by_legacy_baseline(self):
         self.assertEqual(P.classify_jobs([row(status='failed',write_state='partial')],['J20261023140000'],{})[0]['J20261023140000'],'partial')
+    def test_prewrite_receipt_detail_does_not_change_original_alert_code(self):
+        jid='J20261023140000'
+        job=row(status='failed',write_state='prewrite_failed',write_attempts=0,original_job_id=jid)
+        memory=dict(running=True,usage_bytes=0,restart_count=0,started_at='old',oom_killed=False)
+        snapshot=P.collect(datetime.now(timezone.utc),{},[],{},[job],memory)
+        self.assertIn('rpg_pricing_write_failed:'+jid,snapshot['issues'])
+        self.assertEqual(snapshot['rpg_receipt_details'][jid],
+                         dict(write_state='prewrite_failed',write_attempts=0,status='failed'))
     def test_old_done_cache_missing_is_legacy_not_new_fault(self):
         jid='J20261023140000'
         self.assertEqual(P.classify_jobs([row(clearcache_wanted=True,clearcache_ok=False)], [jid], {jid:'cache_failed'}), ({},[jid]))

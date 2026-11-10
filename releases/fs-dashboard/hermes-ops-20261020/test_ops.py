@@ -167,7 +167,8 @@ class WatchChecks(unittest.TestCase):
     def test_model_review_reads_bounded_existing_state(self):
         self.snapshot()
         watch.write(self.home/'watch-state.json', {'issues':['rpg_pricing_write_failed:original']})
-        watch.write(self.home/'pricing-snapshot.json', {'exported_at':NOW.isoformat(), 'issues':['x']*45})
+        watch.write(self.home/'pricing-snapshot.json', {'exported_at':NOW.isoformat(), 'issues':['x']*45,
+                   'rpg_receipt_details': {'original': dict(write_state='prewrite_failed',write_attempts=0)}})
         output = io.StringIO()
         with patch.dict(os.environ, FS_WATCH_HOME=str(self.home)), \
              patch.object(sys, 'argv', [str(ROOT/'source/watch.py'), 'review']), \
@@ -176,6 +177,7 @@ class WatchChecks(unittest.TestCase):
         summary = json.loads(output.getvalue())
         self.assertEqual(summary['alerting_issues'], ['rpg_pricing_write_failed:original'])
         self.assertEqual(len(summary['pricing_issues']), 40)
+        self.assertEqual(summary['rpg_receipt_details']['original']['write_attempts'], 0)
         self.assertEqual(self.calls, [])
 
     def test_incident_change_only_and_recovery(self):
