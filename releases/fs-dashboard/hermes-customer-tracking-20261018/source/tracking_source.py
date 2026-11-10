@@ -62,8 +62,8 @@ def private_es_day(day, root=ARCHIVE):
             'read_files':len(files),'parse_failures':failures,'rows':len(rows)}}
 
 
-def admin_paid_day(request,day,profile,wanted):
-    """Use the verified full-day Admin contract, then exact-match order_no locally."""
+def admin_paid_day(request,day,profile,wanted,targeted=False):
+    """Read paid orders through verified day or exact order-number IN filters."""
     gid,_=game_scope(profile)
     if date.fromisoformat(day).isoformat()!=day or not isinstance(wanted,set) or len(wanted)>MAX_ROWS:
         raise ValueError('admin_day_query')
@@ -72,67 +72,77 @@ def admin_paid_day(request,day,profile,wanted):
             'received':0,'pages':[],'complete':True,'matched_candidate_orders':0,
             'candidate_orders_requested':0,'missing_candidate_orders':0,
             'admin_read_skipped':'no ES rows pass product, discount and customer-flag prefilter'}}
-    found={};seen_ids={};matched_ids=set();matched_rows=0;previous_id=None;expected=None;raw_count=0;pages=[];deadline=time.monotonic()+850
+    found={};seen_ids={};matched_ids=set();matched_rows=0;expected_total=0;raw_count=0;pages=[];deadline=time.monotonic()+850
     excluded_scope={'gid':0,'site_id':0,'pay_status':0};excluded_rows=0
     def scope_id(row,field):
         value=row.get(field)
         if type(value) is int and 0<=value<10**10:return value
         if isinstance(value,str) and re.fullmatch(r'[0-9]{1,10}',value):return int(value)
         raise ValueError('admin_day_scope')
-    for page in range(1,DAY_MAX_PAGES+1):
-        remaining=deadline-time.monotonic()
-        if remaining<=0:break
-        filters=[('gid',gid,'='),('site_id',266,'='),('pay_status',1,'='),
-                 ('paytime',day+' 00:00:00,'+day+' 23:59:59','RANGE')]
-        params={'page':page,'limit':DAY_PAGE_SIZE,'order':'id,desc'}
-        for index,(field,value,operator) in enumerate(filters):
-            params.update({f'search[{index}][field]':field,f'search[{index}][val]':value,
-                f'search[{index}][operator]':operator})
-            if operator=='RANGE':params[f'search[{index}][render]']='datetime'
-        code,raw=request('/admin/order.Order/index?'+urlencode(params),min(10,remaining))
-        if code in (401,403):raise PermissionError('admin_identity_unavailable')
-        if code!=200 or len(raw)>8*1024*1024:raise ValueError('admin_day_response')
-        value=json.loads(raw);data=value.get('data') if value.get('code')==1 else None
-        if not isinstance(data,dict) or type(data.get('total')) is not int or not isinstance(data.get('list'),list):
-            raise ValueError('admin_day_contract')
-        total=data['total'];batch=data['list']
-        if total<0 or len(batch)>DAY_PAGE_SIZE or expected is not None and total!=expected:raise ValueError('admin_day_pagination')
-        if expected is None:expected=total
-        ids=[]
-        for row in batch:
-            ident=row.get('id');order=row.get('order_no')
-            if not str(ident).isdigit() or not isinstance(order,str):raise ValueError('admin_day_identity')
-            when=row.get('paytime')
-            if not isinstance(when,str) or not when.startswith(day+' '):raise ValueError('admin_day_time')
-            ident=int(ident);ids.append(ident)
-            row_sha=hashlib.sha256(json.dumps(row,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
-            if ident in seen_ids and seen_ids[ident]!=row_sha:raise ValueError('admin_day_duplicate_conflict')
-            seen_ids[ident]=row_sha
-            mismatches={field:value for field,value in (('gid',gid),('site_id',266),('pay_status',1))
-                if scope_id(row,field)!=value}
-            if mismatches:
-                excluded_rows+=1
-                for field in mismatches:excluded_scope[field]+=1
-                continue
-            matched_rows+=1
-            matched_ids.add(ident)
-            if order not in wanted:continue
-            projection={key:row.get(key) for key in ('order_no','gid','site_id','pay_status','email','uid','amount')}
-            if order in found and found[order]!=projection:raise ValueError('admin_order_conflict')
-            found[order]=projection
-        if ids!=sorted(ids,reverse=True) or ids and previous_id is not None and ids[0]>previous_id:
-            raise ValueError('admin_day_sort_or_duplicate')
-        if ids:previous_id=ids[-1]
-        raw_count+=len(batch);pages.append({'page':page,'rows':len(batch),'source_total':total})
-        if raw_count>=total:break
-        if not batch:raise ValueError('admin_day_empty_page')
-    complete=expected is not None and raw_count==expected and len(seen_ids)==expected
+    groups=[sorted(wanted)[i:i+DAY_PAGE_SIZE] for i in range(0,len(wanted),DAY_PAGE_SIZE)] if targeted else [None]
+    complete=True
+    for group in groups:
+        previous_id=None;expected=None;received=0
+        for page in range(1,DAY_MAX_PAGES+1):
+            remaining=deadline-time.monotonic()
+            if remaining<=0:complete=False;break
+            filters=[('gid',gid,'='),('site_id',266,'='),('pay_status',1,'='),
+                     ('paytime',day+' 00:00:00,'+day+' 23:59:59','RANGE')]
+            if group is not None:filters.append(('order_no',','.join(group),'IN'))
+            params={'page':page,'limit':DAY_PAGE_SIZE,'order':'id,desc'}
+            for index,(field,value,operator) in enumerate(filters):
+                params.update({f'search[{index}][field]':field,f'search[{index}][val]':value,
+                    f'search[{index}][operator]':operator})
+                if operator=='RANGE':params[f'search[{index}][render]']='datetime'
+            code,raw=request('/admin/order.Order/index?'+urlencode(params),min(10,remaining))
+            if code in (401,403):raise PermissionError('admin_identity_unavailable')
+            if code!=200 or len(raw)>8*1024*1024:raise ValueError('admin_day_response')
+            value=json.loads(raw);data=value.get('data') if value.get('code')==1 else None
+            if not isinstance(data,dict) or type(data.get('total')) is not int or not isinstance(data.get('list'),list):
+                raise ValueError('admin_day_contract')
+            total=data['total'];batch=data['list']
+            if total<0 or len(batch)>DAY_PAGE_SIZE or expected is not None and total!=expected:raise ValueError('admin_day_pagination')
+            if expected is None:expected=total
+            ids=[]
+            for row in batch:
+                ident=row.get('id');order=row.get('order_no')
+                if not str(ident).isdigit() or not isinstance(order,str):raise ValueError('admin_day_identity')
+                if group is not None and order not in group:raise ValueError('admin_day_target_filter_ignored')
+                when=row.get('paytime')
+                if not isinstance(when,str) or not when.startswith(day+' '):raise ValueError('admin_day_time')
+                ident=int(ident);ids.append(ident)
+                row_sha=hashlib.sha256(json.dumps(row,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+                if ident in seen_ids and seen_ids[ident]!=row_sha:raise ValueError('admin_day_duplicate_conflict')
+                seen_ids[ident]=row_sha
+                mismatches={field:value for field,value in (('gid',gid),('site_id',266),('pay_status',1))
+                    if scope_id(row,field)!=value}
+                if mismatches:
+                    excluded_rows+=1
+                    for field in mismatches:excluded_scope[field]+=1
+                    continue
+                matched_rows+=1
+                matched_ids.add(ident)
+                if order not in wanted:continue
+                projection={key:row.get(key) for key in ('order_no','gid','site_id','pay_status','email','uid','amount')}
+                if order in found and found[order]!=projection:raise ValueError('admin_order_conflict')
+                found[order]=projection
+            if ids!=sorted(ids,reverse=True) or ids and previous_id is not None and ids[0]>previous_id:
+                raise ValueError('admin_day_sort_or_duplicate')
+            if ids:previous_id=ids[-1]
+            received+=len(batch);raw_count+=len(batch)
+            pages.append({'page':page,'rows':len(batch),'source_total':total})
+            if received>=total:break
+            if not batch:raise ValueError('admin_day_empty_page')
+        if expected is None or received!=expected:complete=False
+        expected_total+=expected or 0
+        if not complete:break
+    complete=complete and len(seen_ids)==expected_total
     return {'status':'available' if complete else 'partial','orders':found,
-        'coverage':{'source_total':expected,'received':raw_count,'unique_source_ids':len(seen_ids),'pages':pages,
+        'coverage':{'source_total':expected_total,'received':raw_count,'unique_source_ids':len(seen_ids),'pages':pages,
             'complete':complete,'scope_matched_source_rows':matched_rows,
             'scope_matched_unique_ids':len(matched_ids),
             'scope_excluded_source_rows':excluded_rows,'scope_excluded_by_field':excluded_scope,
-            'source_total_basis':'complete pages of upstream returned set; only exact gid/site_id/pay_status rows enter candidate matching',
+            'source_total_basis':'complete pages of targeted order-number set' if targeted else 'complete pages of upstream returned set; only exact gid/site_id/pay_status rows enter candidate matching',
             'matched_candidate_orders':len(found),
             'candidate_orders_requested':len(wanted),
             'missing_candidate_orders':len(wanted-set(found))}}
@@ -145,16 +155,56 @@ def scan_day(request,day,config,root=ARCHIVE):
     if archive['status']=='unavailable':return archive
     if archive['status']!='available':return {'status':'partial','reason':'es_archive_incomplete',
         'coverage':archive['coverage'],'captured_at':archive['captured_at']}
-    # Filter product, discount and customer flag before the full-day Admin join.
+    # ES amount is the authorized candidate threshold; Admin still verifies each selected order.
     from customer_tracking import classify
-    prelim=[item for row in archive['rows'] if (item:=classify(row,config)[0]) is not None]
-    admin=admin_paid_day(request,day,config['profile'],{item['order_no'] for item in prelim})
-    if admin['status']!='available':return {'status':'partial','reason':'admin_paid_day_incomplete',
-        'coverage':{'es':archive['coverage'],'admin':admin['coverage']},'captured_at':archive['captured_at']}
-    items,criteria=candidate_rows(archive['rows'],admin['orders'],config)
+    threshold=money(config['min_order_usd_exclusive'])
+    prelim=[item for row in archive['rows'] if (item:=classify(row,config)[0]) is not None
+            and (amount:=money(item.get('es_order_usd'))) is not None and amount>threshold]
+    groups={}
+    for item in prelim:
+        buyer=(item.get('es_identity') or {}).get('buyer_id')
+        key=('buyer',buyer) if buyer else ('order',item['order_no'])
+        choices=groups.setdefault(key,[])
+        if item['order_no'] not in choices:choices.append(item['order_no'])
+    wanted={item['order_no'] for item in prelim}
+    chosen={key:choices[0] for key,choices in groups.items()}
+    pending=set(groups);verified={};attempts=[];requested_orders=set();fallback=False
+    while pending:
+        requested={chosen[key] for key in pending}
+        requested_orders.update(requested)
+        try:admin=admin_paid_day(request,day,config['profile'],requested,targeted=True)
+        except ValueError as error:
+            if str(error)!='admin_day_target_filter_ignored':raise
+            admin=admin_paid_day(request,day,config['profile'],wanted);fallback=True
+        attempts.append(admin['coverage'])
+        if admin['status']!='available':return {'status':'partial','reason':'admin_paid_day_incomplete',
+            'coverage':{'es':archive['coverage'],'admin':admin['coverage'],'admin_attempts':attempts},
+            'captured_at':archive['captured_at']}
+        verified.update(admin['orders'])
+        for key in list(pending):
+            if fallback:
+                chosen[key]=next((order for order in groups[key] if order in verified),chosen[key])
+                pending.remove(key)
+            elif chosen[key] in verified:
+                pending.remove(key)
+            else:
+                choices=groups[key];position=choices.index(chosen[key])+1
+                if position<len(choices):chosen[key]=choices[position]
+                else:pending.remove(key)
+    selected=set(chosen.values())
+    items,criteria=candidate_rows([row for row in archive['rows']
+        if str(row.get('订单号') or '').strip() in selected],verified,config)
+    for item in items:
+        buyer=(item.get('es_identity') or {}).get('buyer_id')
+        if buyer:item['buyer_group_order_count']=len(groups.get(('buyer',buyer),[]))
+    admin_coverage=attempts[0] if attempts else admin_paid_day(request,day,config['profile'],set())['coverage']
     return {'status':'available','date':day,'captured_at':datetime.now(timezone.utc).isoformat(),
         'source_version':archive['source_version'],'items':items,
-        'coverage':{'es':archive['coverage'],'admin':admin['coverage'],'criteria':criteria},
+        'coverage':{'es':archive['coverage'],'admin':admin_coverage,'admin_attempts':attempts,
+            'criteria':criteria,'admin_orders_requested':len(requested_orders),
+            'es_eligible_orders':len(wanted),
+            'es_eligible_buyers':len([key for key in groups if key[0]=='buyer']),
+            'buyer_orders_collapsed':sum(len(choices)-1 for key,choices in groups.items() if key[0]=='buyer')},
         'private':True}
 
 
