@@ -2,8 +2,10 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
-import subprocess
 import os
+import io
+import runpy
+from contextlib import redirect_stdout
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -166,10 +168,12 @@ class WatchChecks(unittest.TestCase):
         self.snapshot()
         watch.write(self.home/'watch-state.json', {'issues':['rpg_pricing_write_failed:original']})
         watch.write(self.home/'pricing-snapshot.json', {'exported_at':NOW.isoformat(), 'issues':['x']*45})
-        result = subprocess.run([sys.executable, '-B', str(ROOT/'source/watch.py'), 'review'],
-                                env=dict(os.environ, FS_WATCH_HOME=str(self.home)), capture_output=True,
-                                text=True, check=True)
-        summary = json.loads(result.stdout)
+        output = io.StringIO()
+        with patch.dict(os.environ, FS_WATCH_HOME=str(self.home)), \
+             patch.object(sys, 'argv', [str(ROOT/'source/watch.py'), 'review']), \
+             redirect_stdout(output):
+            runpy.run_path(str(ROOT/'source/watch.py'), run_name='__main__')
+        summary = json.loads(output.getvalue())
         self.assertEqual(summary['alerting_issues'], ['rpg_pricing_write_failed:original'])
         self.assertEqual(len(summary['pricing_issues']), 40)
         self.assertEqual(self.calls, [])
