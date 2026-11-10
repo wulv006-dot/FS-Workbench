@@ -941,6 +941,7 @@ function main() {
     console.error('[FATAL] 请先把 config.json 里的 token 填上（Discord 开发者后台 → Bot → Reset Token）。');
     process.exit(1);
   }
+  require('./public-welcome.js').install(client, { canWelcome: (member) => !assessMember(member) || Boolean(whitelisted(member)) || isProtectedAdmin(member) });
   client.login(cfg.token).catch((e) => {
     console.error('[FATAL] 登录失败：', e.message);
     console.error('常见原因：token 填错 / 没在开发者后台开启 SERVER MEMBERS INTENT。');

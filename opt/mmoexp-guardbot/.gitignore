@@ -21,3 +21,5 @@ _bak_*
 *.bak
 *.bak.*
 *.bak-*
+
+welcome-state/
