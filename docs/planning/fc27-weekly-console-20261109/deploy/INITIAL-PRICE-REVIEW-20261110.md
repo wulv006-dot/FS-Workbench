@@ -1,6 +1,6 @@
 # 首次取价与发布确认修复 · 2026-11-10
 
-当前结果：代码修复已合并、部署并核对真实入口；三页默认不选购已生效。月最佳首项及新增商品映射已在草稿32真实预览/审阅通过，等待用户最后确认正式业务发布，公开仍31。
+最终结果：代码修复已合并、部署并核对真实入口；用户明确批准草稿32后，已沿原工作流安装新映射并正式发布为33，发布回执已读回。月最佳首项、三页默认空购买清单、三平台价格与10%优惠显示均已实测。
 
 本轮修活动页面价格刷新和周更预览入口，并按用户追加要求取消三页默认购买选择、将October月最佳SBC准备为首项。保留当前公开版本31，不重新取品；仅通过原编辑器准备置顶草稿，真实交易策略安装及活动发布仍保留最终确认。优惠券、主站购物车及计划不变。
 
@@ -42,7 +42,7 @@ PR969正式CI1863成功；主分支期间前进至6830ac2，旧合并因behind�
 
 私有预览确认October已默认选中、Gabriel有新鲜参考价，但菜单顺序仍受page.product_keys影响，暴露第二处关联遗漏。`projectFcCatalog`仅将已通过page/role/platform过滤的SBC核心按fc_layout.sbc稳定前置，保留未排序的原成员和其他页面规则。私有/公开同入口及过滤反例13项回归通过；该单文件补丁的正式CI/部署和最终菜单首项须继续核实，不将默认选中冒充顺序已正确。
 
-## 菜单补丁与最终待确认版本
+## 菜单补丁与版本32审阅
 
 PR973 / 正式CI1867成功，合并39f82d0。单文件原publisher部署 `nav-20261110T092718Z`，manifest SHA `f90a55f2b8826e6a649ae9c830f0b83b8bf08402fd2e1635379aeda3131fa00b`；presentation after `97bc32d012c0bf8a35b965e010a9341d77d06f8e0a32c6ae86552b659efe5514`匹配，52/52保护项无漂移。dashboard/runtime PID26702/26721，marketing817保持，静态manifest不变。重启后第一次管理页GET超时，正常重载恢复；没有重放草稿保存、安装或发布。原producer于09:28:11 UTC自然ready并匹配公开31。
 
@@ -52,4 +52,18 @@ PR973 / 正式CI1867成功，合并39f82d0。单文件原publisher部署 `nav-20
 
 真实三页私有预览均完成加载，初始清单0/合计0/购买禁用、各4包。SBC菜单第1项且默认项均为LALIGA POTM October，核心仍9名；普通Pedri/Gabriel参考报价可读。Weekly/Trio各3张现配置球员报价可读，未更换用户本期取品。预览仍禁购，不能把原价参考显示当成实际核销成交。
 
-最终业务发布尚未执行：已向用户展示截图并请求确认草稿32的真实发布。当前公开仍31，旧策略仍506a9a…；未写优惠券、购物车、订单或付款，未触发自然周更。后续若批准，须沿原review/operation安装及发布并读回，不重跑取品或盲重放旧发布请求。证据含`draft32-sbc-ready.png`、`selection-before/after.json`、`live-sbc-cold.json`、`live-sbc-warm-no-click.json`，以及两个独立stage的inspect/apply/postdeploy结果。
+09:35前的候选阶段未执行真实发布：已向用户展示截图并请求确认草稿32，当时公开仍31、策略仍506a9a…。证据含`draft32-sbc-ready.png`、`selection-before/after.json`、`live-sbc-cold.json`、`live-sbc-warm-no-click.json`，以及两个独立stage的inspect/apply/postdeploy结果。
+
+## 用户确认后的正式发布33
+
+用户明确回复“确认发布草稿32”后，在原UI一次确认发布，未重跑取品或保存。原run仍`cb68516a-b529-4d84-9f5e-2b857559ca36`；原publish operation `ded31c86-4cc1-4045-acbe-9f162857545f`于2026-11-10 09:36:23.816 UTC成功：
+
+- release `campaign-preview-33`，center/public revision33；workflow completed、原center操作回执和发布readback verified/current一致。
+- config hash `753aad63488662a01388cef6efe903f04f77f942420787a2573c29de4e0ee75f`；rule hash仍`5411324c1cc95235b46d17b92a06ce9aaa3ac993507e7f22ec917b66269326c4`。
+- policy安装回执installed，当前SHA与已审阅候选`e514c0769b87c6f035fe8ec5eee04377860ba12d491898dd719fc1c900a26a16`完全匹配，原506策略备份SHA核对一致。绑定1650→1689，原记录不变。
+- 发布draft与保存32完全一致，64模型保持；31→32仅默认核心和SBC顺序两个字段变化。原三工作单沿本run关联至新版本和回执。
+- 原producer自然生成ready缓存33于09:37:22.987 UTC，316个fresh USD产品/77合同，release/hash匹配33；每平台Weekly7/7、SBC31/31、Trio7/7全部fresh，没有以31回填。
+
+真实公开三页×PS/Xbox/PC共9状态均0件/$0.00、核对禁用、唯一3平台控件且无横向溢出；7张可见卡每页，排除3次已拥有核心后60张价格的10%及美分舍入自检通过，没有Price unavailable。SBC三平台主动选择代做均1项，合计与该核心优惠价一致，切回已拥有后恢复0；未点击原购物车加购。正式SBC菜单第1项/默认均October，普通Pedri/Gabriel均有原价、10% OFF和优惠价。
+
+源文件无额外漂移；52保护中仅policy/center/public三处对应本次已授权原ID发布，dashboard/runtime active、marketing817保持。未新增优惠券写入、社区消息、计划调整、加购、订单或付款；自然周更仍未验。本机证据：`publish32-original-receipt-readback.json`、`postpublish33-source-price-readback.json`（sbc-order stage），以及`published33-receipt.png`、`live33-three-pages-initial.json`、`live33-platform-matrix.json`、`live33-sbc-final.png`（initial-price stage）。
