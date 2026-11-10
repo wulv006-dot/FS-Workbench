@@ -1,5 +1,7 @@
 # 首次取价与发布确认修复 · 2026-11-10
 
+当前结果：代码修复已合并、部署并核对真实入口；三页默认不选购已生效。月最佳首项及新增商品映射已在草稿32真实预览/审阅通过，等待用户最后确认正式业务发布，公开仍31。
+
 本轮修活动页面价格刷新和周更预览入口，并按用户追加要求取消三页默认购买选择、将October月最佳SBC准备为首项。保留当前公开版本31，不重新取品；仅通过原编辑器准备置顶草稿，真实交易策略安装及活动发布仍保留最终确认。优惠券、主站购物车及计划不变。
 
 ## 现场与根因
@@ -39,3 +41,15 @@ PR969正式CI1863成功；主分支期间前进至6830ac2，旧合并因behind�
 原编辑器一次保存置顶草稿32：operation `6e489e22-6888-4702-aa9d-b98b6c8bc8c0`，October第1项/defaultCore一致；64模型和其余草稿hash `770e70b80be69b1645ce18fa06060790a532aabcc5c33c5fe26dbcc212652b3a`保持，公开31/旧policy保持。原run `cb68516a-b529-4d84-9f5e-2b857559ca36` 的真实审阅现已成功，可预览三页及进入最终发布确认，未自动发布。
 
 私有预览确认October已默认选中、Gabriel有新鲜参考价，但菜单顺序仍受page.product_keys影响，暴露第二处关联遗漏。`projectFcCatalog`仅将已通过page/role/platform过滤的SBC核心按fc_layout.sbc稳定前置，保留未排序的原成员和其他页面规则。私有/公开同入口及过滤反例13项回归通过；该单文件补丁的正式CI/部署和最终菜单首项须继续核实，不将默认选中冒充顺序已正确。
+
+## 菜单补丁与最终待确认版本
+
+PR973 / 正式CI1867成功，合并39f82d0。单文件原publisher部署 `nav-20261110T092718Z`，manifest SHA `f90a55f2b8826e6a649ae9c830f0b83b8bf08402fd2e1635379aeda3131fa00b`；presentation after `97bc32d012c0bf8a35b965e010a9341d77d06f8e0a32c6ae86552b659efe5514`匹配，52/52保护项无漂移。dashboard/runtime PID26702/26721，marketing817保持，静态manifest不变。重启后第一次管理页GET超时，正常重载恢复；没有重放草稿保存、安装或发布。原producer于09:28:11 UTC自然ready并匹配公开31。
+
+原run正常重新审阅32成功：review `94351c89dff881ea3f5904e383cfe2017be27f098a77b96c7bdf0199a978abc2`，proposal `a6b1cf45-6351-494f-b099-e9dbdcedf539`，can_publish=true/blockers=[]，到期09:39:09.387 UTC。候选新增9参考价格模型、27商品、9报价合同及39绑定；旧1650绑定原序列逐项保留，新增均为FC27三页/new_items/FCSCOUT10/10%。这些是已核候选，不冒充已安装。
+
+09:34:25 UTC补充核验：旧355商品值及映射完全保留，23旧合同仅catalog_version刷新、选项与映射不变；新增9模型各有PS/Xbox/PC合同，27份USD参考价均fresh、最早到期09:43:48 UTC。政策顶层仅admin_reference_prices/native_catalog/native_checkout的上述增量，其他值不变。完整小摘要在`sbc-order-projection-20261110/review32-proposal-summary.json`，没有重新准备提案或写政策。
+
+真实三页私有预览均完成加载，初始清单0/合计0/购买禁用、各4包。SBC菜单第1项且默认项均为LALIGA POTM October，核心仍9名；普通Pedri/Gabriel参考报价可读。Weekly/Trio各3张现配置球员报价可读，未更换用户本期取品。预览仍禁购，不能把原价参考显示当成实际核销成交。
+
+最终业务发布尚未执行：已向用户展示截图并请求确认草稿32的真实发布。当前公开仍31，旧策略仍506a9a…；未写优惠券、购物车、订单或付款，未触发自然周更。后续若批准，须沿原review/operation安装及发布并读回，不重跑取品或盲重放旧发布请求。证据含`draft32-sbc-ready.png`、`selection-before/after.json`、`live-sbc-cold.json`、`live-sbc-warm-no-click.json`，以及两个独立stage的inspect/apply/postdeploy结果。
