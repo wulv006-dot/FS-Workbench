@@ -34,7 +34,7 @@
 | `/var/lib/fs-navigation-formal-static/workspace-native-20261006-346f59eea565/page.js` | `ba7cc477f63aa096685c8e85adc9f6721d9eac373e49ab96cccff2f96525a93a` | `dd2763ee5c34bb9e3349eaeb90718bed2e6e4458c33db04705ad6ef3c2ef38df` |
 | 同目录 `index.html` | `bcf5a1c906d1ab2075c96b5c09e158a2831858b64bf60727564637ce68cc4e8f` | `7c92e176c1ee8f7946bda98c510f72590db52854c52baefdf4e0f205ca1a9ce4` |
 
-已准备 `releases/fs-dashboard/hermes-customer-lifecycle-20261019/deploy/buyer_release.py`：绑定原固定哈希 navigation publisher，仅允许这四个现役载荷，原共享发布锁、CAS、空闲检查、备份/回滚与读回保持；额外检查追踪扫描和阶段任务无在途。旧 lifecycle bridge 的 8767 健康检查已经失效，不能原样执行。本桥本地清单静态校验通过（四目标、370 个保护项）；生产 staging 的现值刷新与 `inspect` 尚未执行。原 publisher 的 Hermes/FS Range 重启仍在该范围内；不恢复旧会话容器、不改调度。发布前再次核原服务与 P0 任务空闲；失败保留原发布 ID 和回执核对。
+已准备 `releases/fs-dashboard/hermes-customer-lifecycle-20261019/deploy/buyer_release.py`：绑定原固定哈希 navigation publisher，仅允许这四个现役载荷，原共享发布锁、CAS、空闲检查、备份/回滚与读回保持；额外检查追踪扫描和阶段任务无在途。旧 lifecycle bridge 的 8767 健康检查已经失效，不能原样执行。本桥本地清单静态校验通过。四文件已暂存到独立目录 `/opt/fs-release-stage/customer-buyer-tracking-20261110-pr976-998bd06`，刷新 370 个保护项后，原 publisher 的 `inspect` 只读返回 `sourceCAS=passed`、`protectedCAS=passed`、`mutations=false`；没有执行 `apply`。暂存清单绑定当时提交 `998bd064`，正式发布前须重新绑定最终 Git 版本并复核。原 publisher 的 Hermes/FS Range 重启仍在该范围内；不恢复旧会话容器、不改调度。发布前再次核原服务与 P0 任务空闲；失败保留原发布 ID 和回执核对。
 
 ## 存储与验证
 
