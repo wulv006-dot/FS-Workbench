@@ -324,7 +324,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "b23876186e0e1745e1b6628c7d32b2927cb74f9d69ee6b5e424144f4ac30b5b9",
+        "sha256": "eb3ceac8cc9f40162da2608bdb59624f4738ec4c11aac470831076cb7e279b14",
         "hash_basis": "utf8_lf",
         "selector": {
           "start": "## 财务、竞品和地区",
@@ -1028,7 +1028,7 @@
       "source_commit": null,
       "source": {
         "path": "docs/planning/fc-pricing-v3-20261026/HERMES-OPERATING-CONTRACT.md",
-        "sha256": "b23876186e0e1745e1b6628c7d32b2927cb74f9d69ee6b5e424144f4ac30b5b9",
+        "sha256": "eb3ceac8cc9f40162da2608bdb59624f4738ec4c11aac470831076cb7e279b14",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [
