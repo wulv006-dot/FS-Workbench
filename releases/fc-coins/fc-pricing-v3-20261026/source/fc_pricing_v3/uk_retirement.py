@@ -4,6 +4,7 @@ from datetime import timedelta
 import json,uuid
 
 from . import VERSION
+from .platforms import PLATFORMS, PRICE_SCOPE_CONTRACT, groups_for
 from .financial import FINANCIAL_CONTRACT_VERSION,MARGIN_BASIS,fingerprint,number,instant
 from .region_source import rule_expectations
 
@@ -27,7 +28,7 @@ def authority_resources(bundle):
         if number(before['region_coefficients']['39:'+p])!=number('.91'):raise ValueError('pricing_uk_retirement_rule_changed')
         expected['region_coefficients']['39:'+p]='1'
     if expected!=after:raise ValueError('pricing_uk_retirement_action_changed')
-    return ['base:console','base:pc']
+    return ['base:'+g for g in groups_for(bundle['action'])]
 
 
 def calculate(evidence,job,db):
@@ -35,15 +36,14 @@ def calculate(evidence,job,db):
     from .runtime import clock,render_result
     plan=db.get('pricing_plans',job['request']['v3_plan_id']);now=clock()
     if not plan or plan['state']!='ACTIVE' or plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:raise ValueError('pricing_uk_retirement_plan_inactive')
-    with db.connect() as conn:db.owns(plan,['base:console','base:pc'],conn)
+    with db.connect() as conn:db.owns(plan,['base:'+p for p in PLATFORMS],conn)
     raw=evidence['region_contract']['rules']
     matches=[r for r in raw if r['id']==1]
     if len(matches)!=1 or any(matches[0][k]!=v for k,v in SCOPE.items()) or matches[0]['status']!=1 or number(matches[0]['factor'])!=number('.91'):
         raise ValueError('pricing_uk_retirement_rule_changed')
     regions=evidence.get('region_rules',[])+evidence.get('regional_controls',[])
-    before=dict(base_prices={g:str(evidence['storefront']['rows'][p]['package_usd']) for g,p in (('console','PS'),('pc','PC'))},
+    before=dict(base_prices={g:str(evidence['storefront']['rows'][p]['package_usd']) for g,p in ((p,p) for p in PLATFORMS)},
         region_coefficients={str(r['region_id'])+':'+p:str(r['factor']) for r in regions for p in r['platforms']})
-    if number(evidence['storefront']['rows']['XBOX']['package_usd'])!=number(before['base_prices']['console']):raise ValueError('pricing_common_console_price_conflict')
     after=deepcopy(before)
     for p in ('PS','XBOX','PC'):after['region_coefficients']['39:'+p]='1'
     prior=financial(evidence,before,now,regions=regions);proof=financial(evidence,after,now,regions=regions)
@@ -56,9 +56,9 @@ def calculate(evidence,job,db):
         decision_bundle_id=operation,snapshot_id=evidence['run_id'],snapshot_sha256=fingerprint(evidence),
         plan_id=plan['plan_id'],revision=plan['revision'],engine_generation=plan['generation'],assignment_id=None,
         action=after,before_action=before,mutable_resources=RESOURCES,
-        resources=['base:console','base:pc','region_rule:1']+RESOURCES,steps=[step],
+        resources=['base:'+p for p in PLATFORMS]+['region_rule:1']+RESOURCES,steps=[step],
         created_at=now.isoformat(),valid_until=min(now+timedelta(minutes=15),instant(evidence['checked_at'])+timedelta(minutes=15)).isoformat(),
-        financial_proof=proof,before_financial_proof=prior,financial_contract_version=FINANCIAL_CONTRACT_VERSION,
+        financial_proof=proof,before_financial_proof=prior,financial_contract_version=FINANCIAL_CONTRACT_VERSION,price_scope_contract=PRICE_SCOPE_CONTRACT,
         catalog=evidence['promotion_envelope']['packages'],market_comparison={},regional_market_comparison={},
         uk_rule_expectations=rule_expectations(expected),readback_regions=[dict(region_id=r['region_id'],platforms=r['platforms']) for r in regions],
         affected_platforms=['PS','XBOX','PC'],budget_policy='none',execution_authorized=True,

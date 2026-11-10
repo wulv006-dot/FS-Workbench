@@ -221,14 +221,15 @@ def current_template_projection(cache,now):
     if not token:raise ValueError('pricing_admin_shared_source_unavailable')
     session.bind_admin_token(token)
     try:
-        templates=read_used_templates(session,pages,[identity for scenario in cache['promotion_scenarios'] for identity in scenario['coupon_template_ids']])
+        templates=read_used_templates(session,pages,[identity for scenarios in cache['promotion_scenarios']['by_platform'].values() for scenario in scenarios for identity in scenario['coupon_template_ids']])
     finally:session.close()
     templates={key:dict(row,_current_active=active(row,now,coupon=True)) for key,row in templates.items()}
     return project_cached_history(cache,templates,now)
 
 
 def refresh_before_write(request,root=ROOT):
-    from pricing_v2 import verify_quote,fresh,required_history_ratio
+    from pricing_v2 import verify_quote,fresh
+    from fc_pricing_v3.financial import required_history_ratio
     from automation_policy import load_policy
     import uuid
     if request.get('source_execution_id'):
@@ -260,15 +261,17 @@ def refresh_before_write(request,root=ROOT):
             raise ValueError('pricing_average_history_changed_since_quote')
         projection=current_template_projection(cache,now)
         quoted=quote['evidence']['history_replay']
-        if (any(projection[key]!=quoted[key] for key in ('current_coupon_terms_sha256','paths_sha256')) or
-                {k:v['paths_sha256'] for k,v in projection.get('region_layers',{}).items()}!=
-                {k:v['paths_sha256'] for k,v in quoted.get('region_layers',{}).items()}):
+        if projection.get('sha256')!=quoted.get('sha256') or any(
+                any(projection['by_platform'][p][key]!=quoted['by_platform'][p][key] for key in ('current_coupon_terms_sha256','paths_sha256')) or
+                {k:v['paths_sha256'] for k,v in projection['by_platform'][p].get('region_layers',{}).items()}!=
+                {k:v['paths_sha256'] for k,v in quoted['by_platform'][p].get('region_layers',{}).items()}
+                for p in ('PS','XBOX','PC')):
             raise ValueError('pricing_historical_coupon_terms_changed_since_quote')
     else:history=current_history_mix(now)
-    if required_history_ratio(dict(historical_discount_mix=history),now)!=required_history_ratio(quote['evidence'],now):
+    if any(required_history_ratio(dict(historical_discount_mix=history),now,platform=p)!=required_history_ratio(quote['evidence'],now,platform=p) for p in ('PS','XBOX','PC')):
         raise ValueError('pricing_average_history_changed_since_quote')
     result=dict(status='current_catalog_rechecked' if catalog_only else 'current_promotions_rechecked',promotion_sha256=current['sha256'],checked_at=current['checked_at'],historical_mix_sha256=history['sha256'],price_write_performed=False)
-    if catalog_only:result.update(current_coupon_terms_sha256=projection['current_coupon_terms_sha256'],worst_status='unknown')
+    if catalog_only:result.update(platform_projection_sha256={p:projection['by_platform'][p]['paths_sha256'] for p in ('PS','XBOX','PC')},worst_status='unknown')
     return result
 
 

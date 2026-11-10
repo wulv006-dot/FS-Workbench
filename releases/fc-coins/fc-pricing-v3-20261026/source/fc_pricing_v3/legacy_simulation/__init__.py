@@ -17,7 +17,7 @@ DUAL10_PINS = {'dual10_financial.py':'6ed1df03da6d3e667c154b76c9ab9f01d6e82bf62e
 
 def evaluate_dual10(evidence,mode,**kwargs):
     for name,expected in DUAL10_PINS.items():
-        if hashlib.sha256((Path(__file__).parent/name).read_bytes()).hexdigest()!=expected:raise ValueError('simulation_dual10_archive_changed')
+        if hashlib.sha256((Path(__file__).parent/name).read_bytes().replace(b'\r\n',b'\n')).hexdigest()!=expected:raise ValueError('simulation_dual10_archive_changed')
     from .dual10_engine import evaluate
     result=evaluate(evidence,mode,**kwargs)
     return dict(result,financial_contract_version='fc27_dual10_archived_v15',execution_authorized=False)
@@ -27,7 +27,7 @@ def replay(snapshot, name):
     """Return a frozen action or an explicit gap; never a production decision ID."""
     filename, expected = SOURCES[name]
     source = Path(__file__).parent / filename
-    if hashlib.sha256(source.read_bytes()).hexdigest() != expected:
+    if hashlib.sha256(source.read_bytes().replace(b'\r\n',b'\n')).hexdigest() != expected:
         return dict(status='legacy_source_version_mismatch', source_sha256=expected)
     evidence = deepcopy(snapshot.get('evidence') or {})
     try:
@@ -52,3 +52,18 @@ def replay(snapshot, name):
         return dict(status='legacy_replay_gap', source_sha256=expected,
                     reason=str(exc) if isinstance(exc, ValueError) else type(exc).__name__,
                     read_only=True, execution_authorized=False, training_eligible=False)
+
+
+# Original e915cce evaluator; used exclusively by historical shadow replay.
+PLATFORM_V2_PINS = {'platform_v2_financial.py': 'b44b8abecc504c0975ee1dab38aaf714112c3dd43733eb9af927cba526e25d63', 'platform_v2_engine.py': 'dc3107cd747e3a429b7d2e73d59d0ffc18a254856471b71cc70eb6386d76fa75'}
+
+def evaluate_platform_v2(evidence,mode,**kwargs):
+    context=kwargs.get('evaluation_context') or {}
+    if context.get('mode')!='shadow' or context.get('training_eligible') is not False or mode not in ('daily','revenue_sprint'):
+        raise ValueError('simulation_platform_v2_read_only_required')
+    for name,expected in PLATFORM_V2_PINS.items():
+        raw=(Path(__file__).parent/name).read_bytes().replace(b'\r\n',b'\n')
+        if hashlib.sha256(raw).hexdigest()!=expected:raise ValueError('simulation_platform_v2_archive_changed')
+    from .platform_v2_engine import evaluate
+    result=evaluate(evidence,mode,**kwargs)
+    return dict(result,financial_contract_version='fc27_dual20_d9_d2_v2',execution_authorized=False,training_eligible=False)

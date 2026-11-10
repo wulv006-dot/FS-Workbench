@@ -28,6 +28,22 @@ def all_step(platform,status):
 
 
 class OriginalReconciliation(unittest.TestCase):
+    def test_native_all_dispatch_hook_only_requests_the_actual_platform(self):
+        steps = [all_step('XBOX', 'pending')]
+        actual = deepcopy(steps[0]['before'])
+        audit = dict(execution_id=OPERATION, status='PARTIAL', sync_confirmed=True,
+                     pricing_decision_receipt=dict(price_scope_contract='fc27_three_platform_v1'))
+        record = dict(execution_id=OPERATION, status='pending', steps=steps)
+        def backend(manager, path, payload=None, observer=None):
+            nonlocal actual
+            if payload is not None: actual = deepcopy(payload)
+            return {}
+        with patch.object(all_sync, 'validate'), patch.object(all_sync, 'api', side_effect=backend), \
+             patch.object(all_sync, 'read_row', side_effect=lambda m,p,s: deepcopy(steps[0]['source'] if s==266 else actual)), \
+             patch.object(all_sync, 'verify_dispatch_readback'), patch('automation_policy.hooks_before_write') as hook:
+            all_sync.drive(object(), audit, {}, steps, record, lambda _:None, lambda _:None, lambda:{})
+        self.assertEqual(hook.call_args.args[1], ['XBOX'])
+
     def test_all_dispatching_only_gets_confirmed_and_pending_needs_current_authority(self):
         steps=[all_step('PS','dispatching'),all_step('XBOX','pending'),all_step('PC','pending')]
         record=dict(execution_id=OPERATION,status='needs_reconcile',steps=steps)

@@ -166,9 +166,26 @@ class AdminDcTests(unittest.TestCase):
         self.assertEqual(set(targets.DELTA_NAMES),expected)
         self.assertEqual(len(targets.DELTA_NAMES),21)
         self.assertEqual(targets.DELTA_NEW,frozenset({'source/fc_pricing_v3/smart.py','source/hermes-copy/fc_pricing_v3/smart.py'}))
-        for name in ['build_stage.py', 'prepare_manifest.py']:
-            text = (SOURCE.parent / 'deploy' / name).read_text(encoding='utf8')
-            self.assertIn('!= TARGET_COUNT', text)
+        # Default stages stay exact101; the explicit new stage adds only six
+        # mirrored modules. Both actual mappings are checked, not code spelling.
+        native = targets.three_platform_targets(SOURCE)
+        self.assertEqual(targets.THREE_PLATFORM_TARGET_COUNT, 107)
+        self.assertEqual(len(native), targets.THREE_PLATFORM_TARGET_COUNT)
+        runtime_new={prefix+'fc_pricing_v3/'+name for prefix in ('','hermes-copy/')
+                     for name in targets.THREE_PLATFORM_MODULES}
+        self.assertEqual(set(native)-set(mapping),
+                         runtime_new)
+        # The pinned library is an explicit external payload, not a Python module.
+        library=targets.MONITOR_SQLITE_CANDIDATE
+        self.assertEqual(targets.THREE_PLATFORM_NEW,
+                         {'source/'+name for name in runtime_new}|{library})
+        self.assertNotIn(library.removeprefix('source/'),native)
+        self.assertEqual(targets.THREE_PLATFORM_EXTRA[library],
+                         '/opt/fc-ops-readonly-monitor/runtime/sqlite-3.53.4/lib/libsqlite3.so.0')
+        stage={'source/'+name for name in native}|set(targets.THREE_PLATFORM_EXTRA)
+        self.assertEqual(len(stage),112)
+        self.assertEqual(len(targets.THREE_PLATFORM_NAMES),56)
+        self.assertTrue(set(targets.THREE_PLATFORM_NAMES)<=stage)
 
     def test_existing_rpg_empty_and_https_configs_keep_the_original_shared_adapter(self):
         # Production /opt/d4follow/_p2pah_srv/admin_cache_local.py uses these two configs.

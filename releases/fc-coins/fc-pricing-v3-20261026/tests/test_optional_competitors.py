@@ -14,6 +14,8 @@ from fc_pricing_v3.ledger import Ledger
 def missing(data,source_name,platforms=engine.PLATFORMS):
     if source_name=='Lootbar':
         for p in platforms:data['offers'][p].pop('Lootbar',None)
+    elif source_name=='ArabUT':
+        data['arab_ut_quotes']=[r for r in data['arab_ut_quotes'] if r['platform'] not in platforms]
     else:
         data['reference_market']['offers']=[r for r in data['reference_market']['offers'] if r['platform'] not in platforms]
         data['reference_market'].update(status='unavailable',reason='itemd2r_cloudflare_403',http_status=403,blocked_by='cloudflare')
@@ -27,17 +29,17 @@ class OptionalCompetitors(unittest.TestCase):
         row=next(r for r in result['rows'] if r['platform']=='PS')
         self.assertIsNone(row['lootbar_page_usd'])
         self.assertIsNone(row['lootbar_usd_per_1k'])
-        self.assertEqual(selected['market_comparison']['console']['anchors']['PS']['source'],'ItemD2R')
+        self.assertEqual(selected['market_comparison']['PS']['anchors']['PS']['source'],'ArabUT')
 
     def test_no_competitors_preserve_saudi_follow_global_and_region_30_proof(self):
-        data=source(cost='.56',bonus='5')
-        for s in ('Lootbar','ItemD2R'):missing(data,s)
-        control=dict(id=3,region_id=21,platforms=['PS'],factor='.97',resource='region:21:PS',verified=True,rounding='half_up_cent',price_semantics='regional_regular_multiplicative',history=dict(basis='pooled_other_promotions_excluding_region_verified'))
+        data=source(cost='.56',bonus='0')
+        for s in ('Lootbar','ArabUT'):missing(data,s)
+        control=dict(id=3,region_id=21,platforms=['PS'],factor='.97',resource='region:21:PS',verified=True,rounding='half_up_cent',price_semantics='regional_regular_multiplicative',history=dict(by_platform={p:dict(basis='platform_other_promotions_excluding_region_verified') for p in engine.PLATFORMS}))
         data['region_rules']=[control];data['regional_controls']=[control]
         sprint=engine.evaluate(data,'revenue_sprint',now=NOW)['selected']
         self.assertEqual(sprint['action']['region_coefficients']['21:PS'],'1')
         self.assertEqual(sprint['regional_market_comparison']['21:PS']['decision_type'],'regional_follow_global')
-        plan=dict(mode='daily',resources=['base:console','base:pc'])
+        plan=dict(mode='daily',resources=['base:PS','base:XBOX','base:PC'])
         daily=engine.evaluate(data,'daily',plan=plan,now=NOW)['selected']
         self.assertEqual(Decimal(daily['action']['region_coefficients']['21:PS']),Decimal('.97'))
         self.assertGreaterEqual(Decimal(daily['daily_average_target_proof']['PS']['scopes']['21:PS']['estimated_average_margin_pct']),30)
@@ -48,18 +50,18 @@ class OptionalCompetitors(unittest.TestCase):
             for retained in ('1','.9999','.95'):
                 for history in ('1','.9','.83456'):
                     with self.subTest(cost=cost,retained=retained,history=history):
-                        rules=deepcopy(source(bonus='5')['promotion_envelope']['packages']['PS'])
+                        rules=deepcopy(source(bonus='0')['promotion_envelope']['packages']['PS'])
                         for tier in rules['tiers']:tier['retained_ratio']=retained
                         result=financial.catalog_floor(cost,'7','1','30',rules,average_ratio=history)*100
-                        delivered_cost=Decimal(cost)/7*105
+                        delivered_cost=Decimal(cost)/7*100
                         net=lambda base:(base*Decimal(retained)).quantize(Decimal('.01'),rounding=ROUND_HALF_UP)*Decimal(history)
                         self.assertGreaterEqual(net(result)*Decimal('.7'),delivered_cost)
                         self.assertLess(net(result-Decimal('.01'))*Decimal('.7'),delivered_cost)
 
     def test_sprint_both_single_and_no_current_source(self):
-        for absent,chosen in [((), 'Lootbar'),(('ItemD2R',),'Lootbar'),(('Lootbar',),'ItemD2R'),(('Lootbar','ItemD2R'),None)]:
+        for absent,chosen in [((), 'Lootbar'),(('ArabUT',),'Lootbar'),(('Lootbar',),'ArabUT'),(('Lootbar','ArabUT'),None)]:
             with self.subTest(absent=absent):
-                data=source(cost='.35',bonus='5')
+                data=source(cost='.35',bonus='0')
                 for s in absent:missing(data,s)
                 result=engine.evaluate(data,'revenue_sprint',now=NOW)
                 self.assertEqual(result['status'],'READY')
@@ -72,24 +74,24 @@ class OptionalCompetitors(unittest.TestCase):
                         self.assertEqual(market['decision_type'],'floor_fallback')
                         self.assertEqual(market['reason'],'BOTH_COMPETITOR_QUOTES_MISSING_USE_MARGIN_FLOOR')
                 if chosen is None:
-                    self.assertEqual(set(selected['minimum_legal_price_proof']),{'console','pc'})
+                    self.assertEqual(set(selected['minimum_legal_price_proof']),{'PS','XBOX','PC'})
                     for positions in selected['market_position'].values():
                         self.assertTrue(all(not r['competitive_band_met'] for r in positions.values()))
                 self.assertTrue(selected['financial_proof']['pass_all'])
 
     def test_stale_or_invalid_offers_cannot_fill_a_current_gap(self):
-        for update in [dict(captured_at=(NOW-timedelta(seconds=901)).isoformat()),dict(gross_usd='0'),dict(currency='EUR'),dict(purchase_k='5')]:
+        for update in [dict(captured_at=(NOW-timedelta(seconds=901)).isoformat()),dict(total_usd='0'),dict(currency='EUR'),dict(purchase_k='5')]:
             data=source();missing(data,'Lootbar')
-            for row in data['reference_market']['offers']:row.update(update)
+            for row in data['arab_ut_quotes']:row.update(update)
             with self.subTest(update=update):
                 result=engine.evaluate(data,'revenue_sprint',now=NOW)
                 self.assertEqual(result['status'],'READY')
-                self.assertEqual(result['selected']['market_comparison']['console']['targets'],{})
-                self.assertTrue(result['selected']['market_comparison']['console']['source_gaps'])
+                self.assertEqual(result['selected']['market_comparison']['PS']['targets'],{})
+                self.assertTrue(result['selected']['market_comparison']['PS']['source_gaps'])
 
     def test_daily_both_missing_proves_average_30_and_previous_cent_fails(self):
-        data=source(cost='.56',bonus='5')
-        for s in ('Lootbar','ItemD2R'):missing(data,s)
+        data=source(cost='.56',bonus='0')
+        for s in ('Lootbar','ArabUT'):missing(data,s)
         selected=engine.evaluate(data,'daily',now=NOW)['selected']
         self.assertEqual(selected['decision_reason'],'DAILY_MISSING_REFERENCE_AVERAGE_MARGIN_30')
         self.assertEqual(set(selected['daily_average_target_proof']),set(engine.PLATFORMS))
@@ -107,21 +109,21 @@ class OptionalCompetitors(unittest.TestCase):
             self.assertEqual(selected['minimum_legal_price_proof'][g]['previous_cent'],previous['base_prices'][g])
 
     def test_console_shared_base_requires_30_only_for_missing_platform(self):
-        data=source(cost='.56',bonus='5')
-        for s in ('Lootbar','ItemD2R'):missing(data,s,['XBOX'])
+        data=source(cost='.56',bonus='0')
+        for s in ('Lootbar','ArabUT'):missing(data,s,['XBOX'])
         selected=engine.evaluate(data,'daily',now=NOW)['selected']
         self.assertEqual(set(selected['daily_average_target_proof']),{'XBOX'})
         self.assertEqual(selected['daily_reference']['PS']['source'],'Lootbar')
         self.assertIsNone(selected['daily_reference']['PS']['average_margin_target_pct'])
         self.assertIsNone(selected['daily_reference']['XBOX']['source'])
         self.assertEqual(selected['daily_reference']['PC']['source'],'Lootbar')
-        self.assertEqual(set(selected['minimum_legal_price_proof']),{'console'})
+        self.assertEqual(set(selected['minimum_legal_price_proof']),{'XBOX'})
 
     def test_hard_evidence_missing_still_blocks_with_no_competitors(self):
         for key in ('fx','historical_discount_mix','costs','promotion_envelope','storefront'):
             for mode in ('daily','revenue_sprint'):
                 data=source()
-                for s in ('Lootbar','ItemD2R'):missing(data,s)
+                for s in ('Lootbar','ArabUT'):missing(data,s)
                 data.pop(key)
                 with self.subTest(key=key,mode=mode),self.assertRaises((KeyError,ValueError)):
                     engine.evaluate(data,mode,now=NOW)
@@ -130,9 +132,9 @@ class OptionalCompetitors(unittest.TestCase):
         for mode in ('daily','revenue_sprint'):
             with self.subTest(mode=mode),tempfile.TemporaryDirectory() as folder,patch('fc_pricing_v3.ledger.clock',return_value=NOW):
                 root=Path(folder);db=Ledger(root/'control.db');db.activate_generation('g',[])
-                plan=db.create_plan(mode,['base:console','base:pc'],dict(base_prices=dict(console='20',pc='20'),region_coefficients={}))
-                db.activate_plan(plan['plan_id']);data=source(cost='.56',bonus='5')
-                for s in ('Lootbar','ItemD2R'):missing(data,s)
+                plan=db.create_plan(mode,['base:PS','base:XBOX','base:PC'],dict(base_prices=dict(PS='20',XBOX='20',PC='20'),region_coefficients={}))
+                db.activate_plan(plan['plan_id']);data=source(cost='.56',bonus='0')
+                for s in ('Lootbar','ArabUT'):missing(data,s)
                 with patch.object(runtime,'ledger',return_value=db),patch.object(runtime,'ROOT',root),patch.object(runtime,'clock',return_value=NOW):
                     result=runtime.calculate(data)
                     quote=dict(evidence=data,result=result)
@@ -144,17 +146,17 @@ class OptionalCompetitors(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError,'pricing_daily_average_target_proof_changed'):
                             runtime.verify_quote(bad,dict(minimum_gross_margin_pct='20'),list(engine.PLATFORMS),now=NOW)
                         lower=deepcopy(quote);receipt=lower['result']['decision_receipt']
-                        receipt['action']['base_prices']['console']=str(Decimal(receipt['action']['base_prices']['console'])-Decimal('.01'))
+                        receipt['action']['base_prices']['PS']=str(Decimal(receipt['action']['base_prices']['PS'])-Decimal('.01'))
                         receipt['financial_proof']=engine.financial(data,receipt['action'],NOW)
                         for row in lower['result']['rows']:
-                            if row['platform'] in ('PS','XBOX'):row['proposal']=str(Decimal(receipt['action']['base_prices']['console'])/100)
+                            if row['platform']=='PS':row['proposal']=str(Decimal(receipt['action']['base_prices']['PS'])/100)
                         receipt['sha256']=financial.fingerprint({k:v for k,v in receipt.items() if k!='sha256'})
                         with self.assertRaisesRegex(ValueError,'pricing_daily_missing_market_average_30'):
                             runtime.verify_quote(lower,dict(minimum_gross_margin_pct='20'),list(engine.PLATFORMS),now=NOW)
                     # Fresh source becoming stale between calculation and execution changes the decision.
-                    fresh=source(cost='.56',bonus='5')
+                    fresh=source(cost='.56',bonus='0')
                     for p in engine.PLATFORMS:fresh['offers'][p]['Lootbar']['checked_at']=(NOW-timedelta(seconds=899)).isoformat()
-                    for row in fresh['reference_market']['offers']:row['captured_at']=(NOW-timedelta(seconds=899)).isoformat()
+                    for row in fresh['arab_ut_quotes']:row['captured_at']=(NOW-timedelta(seconds=899)).isoformat()
                     quote=dict(evidence=fresh,result=runtime.calculate(fresh))
                     with self.assertRaisesRegex(ValueError,'pricing_daily_reference_changed' if mode=='daily' else 'pricing_market_proof_changed'):
                         runtime.verify_quote(quote,dict(minimum_gross_margin_pct='20'),list(engine.PLATFORMS),now=NOW+timedelta(seconds=2))

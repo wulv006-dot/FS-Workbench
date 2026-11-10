@@ -29,21 +29,22 @@ class FinancialHistoryWindow(unittest.TestCase):
             self.assertEqual((datetime.fromisoformat(end)-datetime.fromisoformat(start)).days+1,8)
         self.assertEqual(f.history_period(datetime.fromisoformat('2026-10-28T16:00:00+00:00')),dict(start='2026-10-20',end='2026-10-27'))
 
-    def test_legacy_seven_day_mix_is_readable_but_cannot_authorize_new_price(self):
+    def test_legacy_seven_day_mix_cannot_authorize_new_platform_price(self):
         legacy=fixture(legacy=True)[0];legacy['run_id']='legacy-snapshot'
-        self.assertGreater(f.required_history_ratio(legacy,NOW),0)
-        with self.assertRaisesRegex(ValueError,'window_migration_required'):
-            f.required_history_ratio(legacy,NOW,require_current=True)
-        with tempfile.TemporaryDirectory() as tmp,patch.object(runtime,'ROOT',Path(tmp)),patch.object(runtime,'ledger',return_value=Ledger(Path(tmp)/'db')),patch.object(runtime,'clock',return_value=NOW):
-            with self.assertRaisesRegex(ValueError,'window_migration_required'):runtime.calculate(legacy)
+        with self.assertRaisesRegex(ValueError,'platform_migration_required'):
+            f.required_history_ratio(legacy,NOW,platform='PS',require_current=True)
+        # Original saved results and original-ID receipts remain separate history paths.
+        self.assertNotIn('platform_contract',legacy['historical_discount_mix'])
 
     def test_new_tag_does_not_relabel_old_period_or_accept_partial_coverage(self):
-        data=fixture()[0];mix=data['historical_discount_mix']
-        self.assertEqual(f.required_history_ratio(data,NOW,require_current=True),f.number(mix['net_order_usd'])/f.number(mix['undiscounted_order_usd']))
+        data=fixture()[0];root=data['historical_discount_mix'];mix=root['by_platform']['PS']
+        self.assertEqual(f.required_history_ratio(data,NOW,platform='PS',require_current=True),f.number(mix['net_order_usd'])/f.number(mix['undiscounted_order_usd']))
         for key,value,reason in [('period',fixture(legacy=True)[0]['historical_discount_mix']['period'],'history_period'),('observed_orders',mix['eligible_orders']-1,'history_coverage')]:
-            changed=deepcopy(data);changed['historical_discount_mix'][key]=value
-            changed['historical_discount_mix']['sha256']=f.fingerprint({k:v for k,v in changed['historical_discount_mix'].items() if k!='sha256'})
-            with self.assertRaisesRegex(ValueError,reason):f.required_history_ratio(changed,NOW,require_current=True)
+            changed=deepcopy(data);r=changed['historical_discount_mix'];m=r['by_platform']['PS'];m[key]=value
+            m['sha256']=f.fingerprint({k:v for k,v in m.items() if k!='sha256'})
+            if key=='observed_orders':r['aggregate']['observed_orders']-=1
+            r['sha256']=f.fingerprint({k:v for k,v in r.items() if k!='sha256'})
+            with self.assertRaisesRegex(ValueError,reason):f.required_history_ratio(changed,NOW,platform='PS',require_current=True)
 
     def test_old_quote_execution_rejected_before_any_writer(self):
         data=fixture(legacy=True)[0]
@@ -64,14 +65,17 @@ class FinancialHistoryWindow(unittest.TestCase):
             self.assertEqual(migrated['revision'],5)
             self.assertEqual(migrated['financial_contract_version'],f.FINANCIAL_CONTRACT_VERSION)
             self.assertEqual(migrated['history_window_contract'],f.HISTORY_WINDOW_CONTRACT)
-            for field in ('plan_id','ends_at','state','resources','price_anchor','parameters','generation'):
+            for field in ('plan_id','ends_at','state','generation'):
                 self.assertEqual(migrated[field],before[field])
+            from fc_pricing_v3.platforms import native_action,native_resources
+            self.assertEqual(migrated['resources'],native_resources(before['resources']))
+            self.assertEqual(migrated['price_anchor'],native_action(before['price_anchor']))
             self.assertEqual(db.migrate_financial_contract(plan['plan_id'],4,'wulv'),migrated)
 
     def test_rebuild_keeps_original_seven_day_demand_asof_hash_and_denominator(self):
         prior,selected,orders,provenance=cache_fixture()
         model=dict(status='available',period=dict(start='2026-10-19',end='2026-10-25'),history_observed_at='2026-10-25T23:30:00+08:00',
-                   source_sha256='c'*64,groups=dict(pc=dict(orders_per_block='3',window_hours=168)))
+                   source_sha256='c'*64,price_scope_contract='fc27_three_platform_v1',groups=dict(PC=dict(orders_per_block='3',window_hours=168)))
         prior['daily_rollups']['demand_model']=model;prior['cache_sha256']=f.fingerprint({k:v for k,v in prior.items() if k!='cache_sha256'})
         with patch.object(business,'_period_population',return_value=(selected,provenance)),patch.object(business,'_live_traces',return_value=(orders,{},{})),patch.object(business,'demand_snapshot',side_effect=AssertionError('eight_day_financial_cohort_must_not_redefine_learning')):
             rebuilt,_=business.build_shared_history_cache(None,None,{},[],'new-source',CACHE_NOW,prior_cache=prior)
@@ -86,6 +90,7 @@ class FinancialHistoryWindow(unittest.TestCase):
             rebuilt,_=business.build_shared_history_cache(None,None,{},[],'new-source',CACHE_NOW)
         model=rebuilt['daily_rollups']['demand_model']
         self.assertEqual(model['groups'],{});self.assertIsNone(model['history_observed_at'])
+        self.assertEqual(model['price_scope_contract'],'fc27_three_platform_v1')
         self.assertEqual(model['forecast_basis'],'relative_100k_price_prior_not_observed_orders')
 
     def test_money_functions_frozen_with_authorized_100k_catalog_scope(self):
@@ -95,6 +100,7 @@ class FinancialHistoryWindow(unittest.TestCase):
         # Only the authorized 100K floor/proof replace the frozen catalog functions.
         expected.update(catalog_floor='581a016f029ceffb2693155bd05eb068644d9fd21275472ff20360f537c7537a',
                         prove_catalog='73c90316b2aed65864a31575c23e286d6ce764dd5cb623a1a4501240a5835763')
+        expected.pop('average_margin')
         source=(SOURCE/'fc_pricing_v3/financial.py').read_text(encoding='utf-8').replace('\r\n','\n')
         functions={node.name:hashlib.sha256(ast.get_source_segment(source,node).encode('utf-8')).hexdigest()
                    for node in ast.parse(source).body if isinstance(node,ast.FunctionDef) and node.name in expected}

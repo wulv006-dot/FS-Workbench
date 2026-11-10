@@ -69,6 +69,19 @@ def collect_context(evidence):
     return value
 
 
+def _regional_history(replay,region_id,platforms):
+    histories={}
+    for platform in platforms:
+        child=(replay.get('by_platform') or {}).get(platform,{})
+        child=(child.get('region_layers') or {}).get(str(region_id),child)
+        histories[platform]=dict(basis='historical_eligibility_current_terms_projected',
+            basis_lower_bound_sufficient=child.get('basis_lower_bound_sufficient'),
+            replay_paths=child.get('paths') if child.get('status') in ('verified','available') else None,
+            source_sha256=child.get('source_sha256'),source_scope=child.get('source_scope'),
+            original_basis_reconciliation=child.get('original_basis_reconciliation'),coverage=child.get('coverage'))
+    return dict(platform_contract=replay.get('platform_contract'),by_platform=histories)
+
+
 def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mode=None,scope=None,history_cache=None,history_signature=None,online_context=None,collection_context=None,collection_mode=None):
     from .market_registry import arab_normal
     def read_arab():
@@ -139,12 +152,9 @@ def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mo
         observed=public.get(rule['lang_region_id'],{})
         verified=all(_public_matches(observed,rule['lang_region_id'],p,product_scopes[p],rule['factor']) for p in platforms)
         replay=business.get('history_replay') or {}
-        replay=(replay.get('region_layers') or {}).get(str(rule['lang_region_id']),replay)
         matched.append(dict(rule,region_id=rule['lang_region_id'],platforms=platforms,
             factor=rule['factor'],price_semantics='regional_regular_multiplicative',
-            verified=verified,rounding='half_up_cent',history=dict(basis='historical_eligibility_current_terms_projected',basis_lower_bound_sufficient=replay.get('basis_lower_bound_sufficient'),
-                replay_paths=replay.get('paths') if replay.get('status') in ('verified','available') else None,
-                source_sha256=replay.get('source_sha256'),source_scope=replay.get('source_scope'),original_basis_reconciliation=replay.get('original_basis_reconciliation'),coverage=replay.get('coverage')),
+            verified=verified,rounding='half_up_cent',history=_regional_history(replay,rule['lang_region_id'],platforms),
             resource='region_rule:'+str(rule['id']),public_rule_trace=observed,
             verification_status='public_factor_and_unique_backend_rule_verified' if verified else 'regional_public_pending'))
     contract=dict(schema_version='fc27-region-observed-20261026-v1',rules=rules,
@@ -165,8 +175,7 @@ def shared_context(storefront,arab_ut_status=None,price_windows=None,*,active_mo
             factor=factor,scope=scope,price_semantics='regional_regular_multiplicative',
             verified=verified,rounding='half_up_cent',
             verification_status=('unique_backend_rule_and_public_scope_verified' if current else 'no_matching_backend_rule_and_public_factor_one_verified') if verified else 'regional_public_pending',
-            history=current['history'] if current else dict(basis='historical_eligibility_current_terms_projected',basis_lower_bound_sufficient=replay.get('basis_lower_bound_sufficient'),replay_paths=replay.get('paths') if replay.get('status') in ('verified','available') else None,
-                         source_sha256=replay.get('source_sha256'),source_scope=replay.get('source_scope'),original_basis_reconciliation=replay.get('original_basis_reconciliation')),public_rule_trace=observed,
+            history=current['history'] if current else _regional_history(replay,21,[p]),public_rule_trace=observed,
             expected_rule_set_sha256=fingerprint(rules)))
     result=dict(business,region_rules=matched,regional_controls=controls,region_contract=contract,
                 region_contract_sha256=fingerprint(contract),admin_products=products,

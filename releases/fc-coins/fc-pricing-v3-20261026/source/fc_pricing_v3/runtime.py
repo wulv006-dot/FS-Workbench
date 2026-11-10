@@ -1,10 +1,12 @@
 """One FC coordinator, using the existing collection and mechanical writer adapters."""
+from .platforms import PRICE_SCOPE_CONTRACT, action_key, native_action
 from copy import deepcopy
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 import hashlib
 import itertools
+from math import prod
 import json
 import os
 from pathlib import Path
@@ -171,9 +173,9 @@ def smart_choices(evidence,plan,current,baseline,schedule,now):
     """Independent group draws share one physical price/probability proof."""
     from .smart import STRATEGY_VERSION,candidate_or_baseline,effective_key
     bidirectional=plan.get('smart_strategy_version')==STRATEGY_VERSION
-    labels={a+b:dict(console=a,pc=b) for a,b in itertools.product('ABC',repeat=2)} if bidirectional else {v:v for v in 'ABC'}
+    labels={''.join(values):dict(zip(GROUPS,values)) for values in itertools.product('ABC',repeat=len(GROUPS))} if bidirectional else {v:v for v in 'ABC'}
     variants={key:candidate_or_baseline(evidence,plan,current,baseline,label,now) for key,label in labels.items()}
-    weights={key:float(Decimal(schedule['group_probabilities']['console'][key[0]])*Decimal(schedule['group_probabilities']['pc'][key[1]]))
+    weights={key:float(prod(Decimal(schedule['group_probabilities'][g][label]) for g,label in zip(GROUPS,key)))
              if bidirectional else float(schedule['marginal_probabilities'][key]) for key in variants}
     effective_probabilities={}
     for key,candidate in variants.items():
@@ -196,11 +198,11 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
     plan = db.get('pricing_plans',plan_id) if plan_id else db.active_plan()
     now = clock()
     if (job.get('request') or {}).get('v3_authorization_purpose')=='original_unsent_ALL_steps_only':
-        required_history_ratio(evidence,now,require_current=True)
+        [required_history_ratio(evidence,now,platform=p,require_current=True) for p in PLATFORMS]
         return calculate_postwrite(evidence,job,db)
     if plan and plan.get('financial_contract_version')!=FINANCIAL_CONTRACT_VERSION:
         raise ValueError('pricing_financial_plan_migration_required')
-    required_history_ratio(evidence,now,require_current=True)
+    [required_history_ratio(evidence,now,platform=p,require_current=True) for p in PLATFORMS]
     from .uk_retirement import PURPOSE as UK_RETIREMENT,calculate as calculate_uk_retirement
     if (job.get('request') or {}).get('v3_authorization_purpose')==UK_RETIREMENT:
         return calculate_uk_retirement(evidence,job,db)
@@ -222,7 +224,7 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
     if not evaluation['candidates']:
         result=dict(checked_at=evidence['checked_at'],rows=[],strategy_version=VERSION,status=evaluation['status'],
             execution_authorized=False,decision_receipt=dict(schema_version=VERSION,mode=mode,plan_id=(plan or {}).get('plan_id'),
-                financial_contract_version=FINANCIAL_CONTRACT_VERSION,review_contract=PROGRAM_CONTRACT,
+                financial_contract_version=FINANCIAL_CONTRACT_VERSION,price_scope_contract=PRICE_SCOPE_CONTRACT,review_contract=PROGRAM_CONTRACT,
                 decision_source='program_current_strategy_infeasible',per_cycle_model_required=False,execution_authorized=False,status=evaluation['status']))
         publish_snapshot(db,evidence,result,evaluations,plan,now)
         raise ValueError('pricing_v3_'+evaluation['status'].lower()+':'+','.join(sorted({e['code'] for e in evaluation['failures']}))[:250])
@@ -270,7 +272,7 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
             effective_action=selected['action'],effective_key=effective_key(evidence,selected['action']),
             group_keys={g:effective_key(evidence,selected['action'],g) for g in GROUPS},
             no_space_by_group={g:len({effective_key(evidence,c['action'],g) for c in variants.values()})==1 for g in GROUPS},
-            merged_with_A_by_group={g:effective_key(evidence,selected['action'],g)==effective_key(evidence,variants['AA' if bidirectional else 'A']['action'],g) for g in GROUPS},
+            merged_with_A_by_group={g:effective_key(evidence,selected['action'],g)==effective_key(evidence,variants['A'*len(GROUPS) if bidirectional else 'A']['action'],g) for g in GROUPS},
             effective_probabilities=effective_probabilities,no_uplift_space=len({effective_key(evidence,c['action']) for c in variants.values()})==1)
         if bidirectional:smart_assignment['smart_started_at']=plan['smart_started_at']
         db.put('experiment_assignments',ident,smart_assignment)
@@ -291,16 +293,16 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
             step.update(scope=region['scope'],expected_rule_set_sha256=region['expected_rule_set_sha256'])
     mutable_resources=sorted({'base:'+g for g in GROUPS if action['base_prices'][g]!=evaluation['current']['base_prices'][g]} |
                             {'region:'+key for key,factor in action.get('region_coefficients',{}).items() if factor!=evaluation['current'].get('region_coefficients',{}).get(key,'1')})
-    resources = sorted(set(mutable_resources or (plan or {}).get('resources') or ['base:console','base:pc']) |
+    resources = sorted(set(mutable_resources or (plan or {}).get('resources') or ['base:'+p for p in PLATFORMS]) |
                        {r.get('resource','region_rule:'+str(r['id'])) for r in relevant_regions} |
-                       {'base:'+('pc' if p=='PC' else 'console') for r in relevant_regions for p in r['platforms']
+                       {'base:'+p for r in relevant_regions for p in r['platforms']
                         if any(key.startswith('region:'+str(r['region_id'])+':') for key in mutable_resources)})
     valid = min(instant(evaluation['valid_until']),instant(allocation['ends_at']))
     bundle = dict(schema_version=VERSION,decision_bundle_id=operation_id or (job.get('request') or {}).get('v3_operation_id') or str(uuid.uuid4()),
         snapshot_id=evidence['run_id'],snapshot_sha256=fingerprint(evidence),mode=mode,
         plan_id=(plan or {}).get('plan_id'),revision=(plan or {}).get('revision'),
         engine_generation=(plan or {}).get('generation'),assignment_id=allocation['assignment_id'],
-        action=action,before_action=evaluation['current'],resources=resources,readback_regions=[dict(region_id=r['region_id'],platforms=[p for p in r['platforms'] if 'base:'+('pc' if p=='PC' else 'console') in (mutable_resources or (plan or {}).get('resources',[])) or 'region:'+str(r['region_id'])+':'+p in mutable_resources]) for r in relevant_regions],mutable_resources=mutable_resources or list((plan or {}).get('resources') or []),steps=steps,region_rule_ids=[r['id'] for r in relevant_regions],region_proof_resources=[r.get('resource','region_rule:'+str(r['id'])) for r in relevant_regions],created_at=now.isoformat(),valid_until=valid.isoformat(),
+        action=action,before_action=evaluation['current'],resources=resources,readback_regions=[dict(region_id=r['region_id'],platforms=[p for p in r['platforms'] if 'base:'+p in (mutable_resources or (plan or {}).get('resources',[])) or 'region:'+str(r['region_id'])+':'+p in mutable_resources]) for r in relevant_regions],mutable_resources=mutable_resources or list((plan or {}).get('resources') or []),steps=steps,region_rule_ids=[r['id'] for r in relevant_regions],region_proof_resources=[r.get('resource','region_rule:'+str(r['id'])) for r in relevant_regions],created_at=now.isoformat(),valid_until=valid.isoformat(),
         catalog=evidence['promotion_envelope']['packages'],budget_reference=evidence.get('budget_reference',{}),
         affected_platforms=sorted({p for g,ps in GROUPS.items() if 'base:'+g in (mutable_resources or (plan or {}).get('resources',[])) for p in ps} | {r.split(':')[-1] for r in mutable_resources if r.startswith('region:')}),
         assignment_probability=allocation.get('probabilities',{}).get(fingerprint(action),1),
@@ -309,7 +311,7 @@ def calculate(evidence, edits=None, *, selected_action=None,override_reason=None
         daily_reference=selected.get('daily_reference',{}),
         daily_pricing=selected.get('daily_pricing',{}),
         daily_average_target_proof=selected.get('daily_average_target_proof',{}),
-        financial_contract_version=FINANCIAL_CONTRACT_VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT,sprint_policy_version=SPRINT_POLICY_VERSION if mode in ('revenue_sprint','smart') else None,
+        financial_contract_version=FINANCIAL_CONTRACT_VERSION,price_scope_contract=PRICE_SCOPE_CONTRACT,history_window_contract=HISTORY_WINDOW_CONTRACT,sprint_policy_version=SPRINT_POLICY_VERSION if mode in ('revenue_sprint','smart') else None,
         strategy_parameters=dict((plan or {}).get('parameters',{}),**sprint_parameters(plan)) if mode in ('revenue_sprint','smart') else (plan or {}).get('parameters',{}),
         authorized_resources=(plan or {}).get('resources',[]),decision_type=selected.get('decision_type'),decision_reason=selected.get('decision_reason'),
         market_position=selected.get('market_position'),minimum_legal_price_proof=selected.get('minimum_legal_price_proof'),
@@ -349,7 +351,7 @@ def render_result(evidence,selected,bundle,mode):
     action=selected['action']
     rows=[]
     for p in PLATFORMS:
-        group='pc' if p=='PC' else 'console'
+        group=p
         fp=selected['financial_proof']['prices']['global:'+p]
         cost=evidence['costs'][p]
         own=evidence['storefront']['rows'][p]
@@ -369,7 +371,7 @@ def render_result(evidence,selected,bundle,mode):
             offers=offers,missing=[],proof=dict(fp['proof'],catalog=fp['catalog']),
             estimated_average_margin=fp['average'],margin_basis=MARGIN_BASIS,
             minimum_gross_margin_pct=str(HARD_MARGIN),margin_below_minimum=False,auto_blocked_reason=None,
-            decision_type=selected.get('decision_type'),financial_contract_version=FINANCIAL_CONTRACT_VERSION,
+            decision_type=selected.get('decision_type'),financial_contract_version=FINANCIAL_CONTRACT_VERSION,price_scope_contract=PRICE_SCOPE_CONTRACT,
             gross_margin_pct=fp['proof']['procurement_margin_pct'],pricing_mode=mode,pricing_tier=None,
             requested_discount_pct=None,profit_floor_applied=False,pricing_basis='page_total_100k',
             strategy_version=VERSION,quote_manual=selected.get('decision_type')=='manual_intervention',own_bonus_k=own['bonus_k'],
@@ -419,10 +421,10 @@ def calculate_postwrite(evidence,job,db):
     if audit.get('execution_id')!=operation_id or audit.get('sync_confirmed') is not True:
         raise ValueError('pricing_postwrite_merchant_unconfirmed')
     actual={row['platform']:str(number(row['b2c'])*100) for row in audit.get('after',{}).get('rows',[])}
-    if set(actual)!=set(PLATFORMS) or number(actual['PS'])!=number(actual['XBOX']):raise ValueError('pricing_postwrite_actual_scope_invalid')
-    base=dict(console=actual['PS'],pc=actual['PC'])
-    if any(number(base[g])!=number(op['bundle']['action']['base_prices'][g]) for g in GROUPS):raise ValueError('pricing_postwrite_actual_price_changed')
-    base=deepcopy(op['bundle']['action']['base_prices'])
+    if set(actual)!=set(PLATFORMS):raise ValueError('pricing_postwrite_actual_scope_invalid')
+    base={p:actual[p] for p in PLATFORMS}
+    if any(number(base[g])!=number(op['bundle']['action']['base_prices'][action_key(op['bundle']['action'],g)]) for g in GROUPS):raise ValueError('pricing_postwrite_actual_price_changed')
+    base=native_action(op['bundle']['action'])['base_prices']
     action=dict(base_prices=base,region_coefficients={str(r['region_id'])+':'+p:r['factor'] for r in evidence.get('region_rules',[])+evidence.get('regional_controls',[]) for p in r['platforms']})
     now=clock();regions=proof_regions(evidence,action,action)
     for region in evidence.get('region_rules',[]):
@@ -432,7 +434,7 @@ def calculate_postwrite(evidence,job,db):
         original_operation_id=operation_id,snapshot_id=evidence['run_id'],snapshot_sha256=fingerprint(evidence),mode='postwrite_completion',
         plan_id=plan['plan_id'],revision=plan['revision'],engine_generation=plan['generation'],assignment_id=op['bundle'].get('assignment_id'),
         action=action,before_action=action,resources=op['resources'],mutable_resources=op['bundle'].get('mutable_resources',op['resources']),
-        steps=[],created_at=now.isoformat(),valid_until=(now+timedelta(minutes=15)).isoformat(),financial_proof=proof,financial_contract_version=FINANCIAL_CONTRACT_VERSION,
+        steps=[],created_at=now.isoformat(),valid_until=(now+timedelta(minutes=15)).isoformat(),financial_proof=proof,financial_contract_version=FINANCIAL_CONTRACT_VERSION,price_scope_contract=PRICE_SCOPE_CONTRACT,
         market_comparison={},regional_market_comparison={},catalog=evidence['promotion_envelope']['packages'],
         budget_policy=op['bundle'].get('budget_policy','historical_reservation'),
         budget_reservation=op['bundle'].get('budget_reservation',{}),budget_kind='original_reservation_no_new_price_or_concession',
@@ -473,15 +475,17 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
         raise ValueError('pricing_decision_bundle_changed')
     if receipt['snapshot_sha256']!=fingerprint(quote['evidence']):
         raise ValueError('pricing_snapshot_changed')
-    if not selected or set(selected)-set(PLATFORMS) or set(selected)&{'PS','XBOX'} and not {'PS','XBOX'}<=set(selected):
-        raise ValueError('pricing_common_console_scope_required')
+    if not selected or set(selected)-set(PLATFORMS) :
+        raise ValueError('pricing_platform_scope_required')
     if number(policy['minimum_gross_margin_pct'])!=HARD_MARGIN:
         raise ValueError('pricing_margin_contract_changed')
+    if receipt.get('price_scope_contract')!=PRICE_SCOPE_CONTRACT or set(receipt['action']['base_prices'])!=set(PLATFORMS):
+        raise ValueError('pricing_platform_quote_migration_required')
     version=receipt.get('financial_contract_version')
     if version==FINANCIAL_CONTRACT_VERSION:
-        required_history_ratio(quote['evidence'],now,require_current=True)
+        [required_history_ratio(quote['evidence'],now,platform=p,require_current=True) for p in PLATFORMS]
     elif not for_execution and version==LEGACY_FINANCIAL_CONTRACT_VERSION and quote['evidence']['historical_discount_mix'].get('history_window_contract') is None:
-        required_history_ratio(quote['evidence'],now)
+        [required_history_ratio(quote['evidence'],now,platform=p) for p in PLATFORMS]
     else:
         raise ValueError('pricing_financial_quote_migration_required')
     from .uk_retirement import PURPOSE as UK_RETIREMENT,authority_resources
@@ -549,7 +553,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
                 expected=dict(probabilities=probabilities,effective_action=checked['action'],effective_key=effective_key(quote['evidence'],checked['action']),
                     group_keys={g:effective_key(quote['evidence'],checked['action'],g) for g in GROUPS},
                     no_space_by_group={g:len({effective_key(quote['evidence'],c['action'],g) for c in variants.values()})==1 for g in GROUPS},
-                    merged_with_A_by_group={g:effective_key(quote['evidence'],checked['action'],g)==effective_key(quote['evidence'],variants['AA']['action'],g) for g in GROUPS},
+                    merged_with_A_by_group={g:effective_key(quote['evidence'],checked['action'],g)==effective_key(quote['evidence'],variants['A'*len(GROUPS)]['action'],g) for g in GROUPS},
                     no_uplift_space=len({effective_key(quote['evidence'],c['action']) for c in variants.values()})==1)
                 if any(saved.get(k)!=v for k,v in expected.items()):raise ValueError('pricing_smart_group_proof_changed')
                 if receipt['allocation'].get('probabilities')!=probabilities or receipt['assignment_probability']!=probabilities.get(fingerprint(checked['action'])):
@@ -572,7 +576,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
     if proof!=receipt['financial_proof']:
         raise ValueError('pricing_financial_proof_changed')
     for row in quote['result']['rows']:
-        group='pc' if row['platform']=='PC' else 'console'
+        group=row['platform']
         if number(row['proposal'])*100!=number(receipt['action']['base_prices'][group]):
             raise ValueError('pricing_action_row_changed')
     if receipt['mode']=='daily' and not controlled and not maintenance and purpose!='original_unsent_ALL_steps_only':
@@ -609,7 +613,7 @@ def verify_quote(quote, policy, selected, *, now=None, for_execution=False,purpo
                 raise ValueError('pricing_competitive_band')
         for key,prior in receipt.get('regional_market_comparison',{}).items():
             platform=key.split(':')[1]
-            group='pc' if platform=='PC' else 'console'
+            group=platform
             market=competition(quote['evidence'],[platform],now,region=21,plan=market_plan,resolved_global=markets[group],base_total=receipt['action']['base_prices'][group])
             if market!=prior:raise ValueError('pricing_regional_market_proof_changed')
             price=number(proof['prices'][key]['price']['delivered_unit_100k'])
@@ -674,7 +678,7 @@ def execute_run(run_id):
         raise ValueError('pricing_backend_preview_failed')
     job=json.loads((ROOT/'jobs'/(run_id+'.json')).read_text())
     automatic=not job.get('request',{}).get('manual_requested')
-    selected=[p for p in PLATFORMS if number(quote['evidence']['storefront']['rows'][p]['package_usd'])!=number(bundle['action']['base_prices']['pc' if p=='PC' else 'console'])]
+    selected=[p for p in PLATFORMS if number(quote['evidence']['storefront']['rows'][p]['package_usd'])!=number(bundle['action']['base_prices'][p])]
     if set(selected)&{'PS','XBOX'}:
         selected=[p for p in PLATFORMS if p in set(selected)|{'PS','XBOX'}]
     operation=db.prepare(plan,bundle,dispatch_context=dict(preview=preview,selected=selected,automatic=automatic,

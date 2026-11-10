@@ -6,7 +6,8 @@ from decimal import Decimal, InvalidOperation
 from .financial import fingerprint, required_history_ratio, fresh, history_period as financial_history_period, HISTORY_WINDOW_CONTRACT
 from . import financial as _math
 
-VERSION='fc27-selective-source-v1'
+VERSION='fc27-selective-source-platform-100k-v3'
+PACKAGE_SCOPE=_math.PACKAGE_SCOPE
 MODES=('daily','revenue_sprint')
 RETIRED=('ELD','U4GM','IGGM','U7Buy')
 TZ=timezone(timedelta(hours=8))
@@ -63,13 +64,10 @@ def source_plan(active_mode, scope=None, *, known_region_ids=(), interval_minute
     platforms=scope.get('platforms',['PS','XBOX','PC'])
     if not platforms or set(platforms)-{'PS','XBOX','PC'}:raise ValueError('selective_platform_scope_invalid')
     regions=sorted(set(int(value) for value in known_region_ids)|set(int(value) for value in scope.get('region_ids',[])))
-    markets=['Lootbar','ItemD2R']
-    if 21 in regions and set(platforms)&{'PS','XBOX'} and (active_mode in ('revenue_sprint','smart') or scope.get('compare_saudi') is True):markets.append('ArabUT')
-    core_policy=scope.get('competitor_policy')=='lootbar_primary_arabut_secondary_v1'
-    if core_policy:markets=['Lootbar','ArabUT']
+    markets=['Lootbar','ArabUT']
     return dict(version=VERSION,active_mode=active_mode,platforms=list(platforms),region_ids=regions,
-        required_markets=markets,auxiliary_markets=['ItemD2R'] if core_policy else [],
-        market_platforms={name:([p for p in platforms if p in ('PS','XBOX')] if name=='ArabUT' and not core_policy else list(platforms)) for name in markets},
+        competitor_policy='lootbar_primary_arabut_secondary_v1',required_markets=markets,auxiliary_markets=['ItemD2R'],
+        market_platforms={name:list(platforms) for name in markets},
         retired_automatic_sources=list(RETIRED),price_interval_minutes=interval_minutes,
         quote_validity_seconds=900,hard_evidence=['current_cost','current_FX','current_catalog' if scope.get('catalog_only') is True else 'current_promotion_envelope','current_public_price','affected_region_contract'],
         history='D_minus_9_through_D_minus_2_eight_closed_days_and_original_hash_cache',
@@ -123,15 +121,35 @@ def history_period(now):
     return financial_history_period(now)
 
 
-def seal_history_cache(mix,replay,scenarios,rollups,source_signature,now):
-    required_history_ratio(dict(historical_discount_mix=mix),now,require_current=True)
-    if replay.get('status')!='verified' or replay.get('basis_lower_bound_sufficient') is not True:
-        raise ValueError('selective_region_history_not_verified')
+def _check_history_parts(mix,replay,scenarios,now):
+    from .financial import HISTORY_PLATFORM_CONTRACT
+    platforms={'PS','XBOX','PC'}
+    if (mix.get('platform_contract')!=HISTORY_PLATFORM_CONTRACT or
+            mix.get('sha256')!=fingerprint({k:v for k,v in mix.items() if k!='sha256'}) or
+            set(mix.get('by_platform',{}))!=platforms or set(replay.get('by_platform',{}))!=platforms or
+            set(scenarios.get('by_platform',{}))!=platforms):
+        raise ValueError('selective_history_platform_contract_invalid')
     if replay.get('original_mix_sha256')!=mix['sha256']:
         raise ValueError('selective_history_population_mismatch')
-    if sum((Decimal(s['weight_usd']) for s in scenarios),Decimal(0))!=Decimal(mix['undiscounted_order_usd']):
-        raise ValueError('selective_history_scenario_weight_mismatch')
-    body=dict(version=VERSION,history_window_contract=HISTORY_WINDOW_CONTRACT,period=mix['period'],created_at=now.isoformat(),source_signature=source_signature,
+    for platform in sorted(platforms):
+        child=mix['by_platform'][platform];history=replay['by_platform'][platform]
+        if child.get('platform')!=platform or child.get('sha256')!=fingerprint({k:v for k,v in child.items() if k!='sha256'}):
+            raise ValueError('selective_history_platform_mix_changed')
+        if child.get('status')=='available' and mix.get('source_coverage',{}).get('unknown_platform_orders')==0:
+            required_history_ratio(dict(historical_discount_mix=mix),now,platform=platform,require_current=True)
+        if history.get('platform')!=platform or history.get('original_mix_sha256')!=child['sha256']:
+            raise ValueError('selective_history_population_mismatch')
+        rows=scenarios['by_platform'][platform]
+        if not isinstance(rows,list) or any(Decimal(s['weight_usd'])<0 for s in rows):
+            raise ValueError('selective_history_scenario_weight_mismatch')
+        if sum((Decimal(s['weight_usd']) for s in rows),Decimal(0))!=Decimal(child['undiscounted_order_usd'] or '0'):
+            raise ValueError('selective_history_scenario_weight_mismatch')
+
+
+def seal_history_cache(mix,replay,scenarios,rollups,source_signature,now):
+    _check_history_parts(mix,replay,scenarios,now)
+    body=dict(version=VERSION,financial_contract_version=_math.FINANCIAL_CONTRACT_VERSION,package_scope=PACKAGE_SCOPE,
+        history_window_contract=HISTORY_WINDOW_CONTRACT,period=mix['period'],created_at=now.isoformat(),source_signature=source_signature,
         historical_discount_mix=deepcopy(mix),original_history_replay=deepcopy(replay),
         promotion_scenarios=deepcopy(scenarios),daily_rollups=deepcopy(rollups),
         privacy='anonymous aggregate scenarios only; no raw orders, customer identifiers or historical cost payload')
@@ -143,9 +161,11 @@ def checked_history_cache(cache,source_signature,now):
         raise ValueError('selective_history_cache_missing')
     if cache.get('cache_sha256')!=fingerprint({k:v for k,v in cache.items() if k!='cache_sha256'}):
         raise ValueError('selective_history_cache_hash_changed')
+    if cache.get('financial_contract_version')!=_math.FINANCIAL_CONTRACT_VERSION or cache.get('package_scope')!=PACKAGE_SCOPE:
+        raise ValueError('selective_history_financial_scope_changed')
     if cache.get('source_signature')!=source_signature or cache.get('period')!=history_period(now):
         raise ValueError('selective_history_cache_source_or_window_changed')
-    required_history_ratio(dict(historical_discount_mix=cache['historical_discount_mix']),now,require_current=True)
+    _check_history_parts(cache['historical_discount_mix'],cache['original_history_replay'],cache['promotion_scenarios'],now)
     return cache
 
 
@@ -179,19 +199,30 @@ def project_cached_history(cache,templates,now):
         return [grouped[key] for key in sorted(grouped)]
     projected=deepcopy(cache['original_history_replay'])
     template_fields=('mode_type','reduce','attain','max_reduce','is_open','_current_active')
-    used={identity for scenario in cache['promotion_scenarios'] for identity in scenario['coupon_template_ids']}
-    terms={identity:{key:templates.get(identity,{}).get(key) for key in template_fields} for identity in sorted(used)}
-    terms_hash=fingerprint(terms)
-    projected['paths']=paths_for(cache['promotion_scenarios'])
-    projected['paths_sha256']=fingerprint(projected['paths'])
+    for platform,scenarios in cache['promotion_scenarios']['by_platform'].items():
+        child=projected['by_platform'][platform]
+        used={identity for scenario in scenarios for identity in scenario['coupon_template_ids']}
+        terms={identity:{key:templates.get(identity,{}).get(key) for key in template_fields} for identity in sorted(used)}
+        child['paths']=paths_for(scenarios)
+        child['paths_sha256']=fingerprint(child['paths'])
+        child['projection_checked_at']=now.isoformat()
+        child['current_coupon_terms_sha256']=fingerprint(terms)
+        child['source_sha256']=fingerprint([cache['historical_discount_mix']['by_platform'][platform]['sha256'],
+            cache['original_history_replay']['by_platform'][platform]['source_sha256'],fingerprint(scenarios),
+            platform,child['current_coupon_terms_sha256'],'current_platform_terms_projection'])
+        for region,layer in child.get('region_layers',{}).items():
+            layer['paths']=paths_for([s for s in scenarios if str(s['region_id'])==str(region)])
+            layer['paths_sha256']=fingerprint(layer['paths'])
+            layer['source_sha256']=fingerprint([child['source_sha256'],region])
+            layer['projection_checked_at']=now.isoformat()
     projected['projection_checked_at']=now.isoformat()
-    projected['current_coupon_terms_sha256']=terms_hash
-    projected['source_sha256']=fingerprint([cache['cache_sha256'],terms_hash,'current_terms_projection'])
-    for region,layer in projected.get('region_layers',{}).items():
-        layer['paths']=paths_for([s for s in cache['promotion_scenarios'] if str(s['region_id'])==str(region)])
-        layer['paths_sha256']=fingerprint(layer['paths'])
-        layer['source_sha256']=fingerprint([projected['source_sha256'],region])
-        layer['projection_checked_at']=now.isoformat()
+    projected['source_sha256']=fingerprint({p:v['source_sha256'] for p,v in projected['by_platform'].items()})
+    projected['current_coupon_terms_sha256']=fingerprint({p:v['current_coupon_terms_sha256'] for p,v in projected['by_platform'].items()})
+    def stable(value):
+        if isinstance(value,dict):return {key:stable(item) for key,item in value.items() if key!='projection_checked_at'}
+        if isinstance(value,list):return [stable(item) for item in value]
+        return value
+    projected['sha256']=fingerprint(stable(projected))
     return projected
 
 
@@ -218,6 +249,7 @@ def validate_current_hard_evidence(evidence,now,*,cost_seconds=3600,market_secon
         input_ratio(evidence['promotion_envelope'],now)
     fresh(evidence['promotion_envelope']['checked_at'],now,market_seconds)
     for platform in evidence['source_plan']['platforms']:
+        _math.package_100k(evidence['promotion_envelope']['packages'][platform])
         fresh(evidence['costs'][platform]['checked_at'],now,cost_seconds)
         fresh(evidence['storefront']['rows'][platform]['checked_at'],now,cost_seconds)
     return True

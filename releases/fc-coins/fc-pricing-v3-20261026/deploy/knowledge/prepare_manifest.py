@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 
-from release import PREFIX, RELEASE, RUNTIME, SCOPE, load_base, targets
+from release import release_identity, RUNTIME, SCOPE, load_base, targets
 
 HERE = Path(__file__).resolve().parent
 STAGE = HERE.parent
@@ -44,9 +44,10 @@ def base_module():
 
 
 def prepare():
+    manifest_source = json.loads((STAGE / 'source-manifest.json').read_text(encoding='utf-8'))
+    RELEASE,PREFIX=release_identity(manifest_source['sourceCommit'])
     if Path(PREFIX).exists():
         raise ValueError('immutable_v3_release_already_exists_reconcile')
-    manifest_source = json.loads((STAGE / 'source-manifest.json').read_text(encoding='utf-8'))
     source_commit = manifest_source['sourceCommit']
     for name, expected in manifest_source['payloadSha256'].items():
         path = STAGE / 'candidate' / name
@@ -145,6 +146,7 @@ def prepare():
             raise ValueError('required_Hermes_unit_not_active:' + unit)
         runtime[unit] = {'ActiveState': 'active'}
     manifest = dict(schemaVersion=1, scope=SCOPE, releaseReady=True, sourceCommit=source_commit,
+        knowledgeRelease=RELEASE,
         businessWrites=False, timersChanged=False,
         imageId='sha256:8251bc53f66565fa9aaf2dea3292ec2ae91db7f3eb57c44f5804ebf6b6853544',
         runtimeRequired=runtime, unchangedRequired=guarded, files=rows)

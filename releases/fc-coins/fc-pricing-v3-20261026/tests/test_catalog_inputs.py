@@ -88,7 +88,7 @@ class CatalogInputs(unittest.TestCase):
         old = source(cost='.10')
         new = deepcopy(old)
         new['promotion_envelope'] = catalog(old)
-        action = dict(base_prices=dict(console='20', pc='20'), region_coefficients={})
+        action = dict(base_prices={p:'20' for p in engine.PLATFORMS}, region_coefficients={})
         before, after = engine.financial(old, action, NOW), engine.financial(new, action, NOW)
         self.assertEqual(core(before), core(after))
         for mode in engine.POLICIES:
@@ -177,7 +177,7 @@ class CatalogInputs(unittest.TestCase):
         data = source()
         plan = dict(plan_id='p', mode='daily', resources=['base:console', 'base:pc'])
         receipt = dict(plan_id='p', mode='daily', status='INFEASIBLE', execution_authorized=False,
-                       snapshot_id=data['run_id'])
+                       snapshot_id=data['run_id'],action=dict(base_prices={p:'20' for p in engine.PLATFORMS},region_coefficients={}))
         snapshot = dict(snapshot_id=data['run_id'], origin='live_collector', mode='production',
             created_at=NOW.isoformat(), evidence=data,
             result=dict(status='INFEASIBLE', decision_receipt=receipt))
@@ -208,7 +208,7 @@ class CatalogInputs(unittest.TestCase):
         period = dict(start='2026-10-21', end='2026-10-27')
         raw = [dict(order_no=n, site_id=266, gid=1327, paytime='2026-10-27 12:00:00',
             amount_usd_format='$18.00', amount_rmb_format='¥120', status_format=status, pay_status=paid,
-            game_format='FC27', discount_code='fixture', recommend_uid=0) for n, status, paid in (
+            game_format='FC27', aid=21587, discount_code='fixture', recommend_uid=0) for n, status, paid in (
                 ('gold', '已完成', '1'), ('refund', '已退款', '2'), ('fraud', '验证未通过', '1'), ('test', '已完成', '1'), ('item', '已完成', '1'))]
         logs = [dict(id='7', coupon_id='15', site_id=266, order_no='gold', use_time='2026-10-27 12:00:00', status='1')]
         metadata = {hashlib.sha256(r['order_no'].encode()).hexdigest(): dict(product='Items' if r['order_no']=='item' else 'Gold', discount_usd='2') for r in raw}
@@ -236,7 +236,7 @@ class CatalogInputs(unittest.TestCase):
             row = selected['gold'][0]
             self.assertEqual(row['coupons'][0]['templateId'], '15')
             self.assertIsNone(row['costCny'])  # uncollected cost is never invented as zero
-            mix = business_source.historical_mix(selected, proof)
+            mix = business_source.historical_mix(selected, proof,orders=native)['by_platform']['PS']
             self.assertEqual(mix['net_order_usd'], '18.0')
             self.assertEqual(mix['actual_discount_usd'], '2')
             channel.load_costs.assert_not_called()
@@ -248,7 +248,7 @@ class CatalogInputs(unittest.TestCase):
         period=inputs.history_period(NOW)
         raw=[dict(id=str(i),order_no=name,site_id=266,gid=1327,paytime=period['end']+' 12:00:00',
             amount_usd_format='$18.00',amount_rmb_format='120',status_format=status,pay_status=paid,
-            game_format='FC27',discount_code='',recommend_uid=0,before_discount='20',discount='100',points='0',is_region_price=0)
+            game_format='FC27',aid=21587,discount_code='',recommend_uid=0,before_discount='20',discount='100',points='0',is_region_price=0)
             for i,(name,status,paid) in enumerate((('old','已完成','1'),('new','已完成','1'),
                 ('refund','已退款','2'),('fraud','验证未通过','1'),('test','已完成','1'),('item','已完成','1')),1)]
         logs=[dict(id=str(i),coupon_id='15',site_id=266,order_no=name,use_time=period['end']+' 12:00:00',status=1,discount_amount='2') for i,name in ((7,'old'),(8,'new'))]
@@ -275,25 +275,28 @@ class CatalogInputs(unittest.TestCase):
             with patch.dict(sys.modules,dict(channel_source=channel,channel_effects=effects,coins_evidence=es)),patch.object(business_source,'_period_population',return_value=(prior,provenance)),patch.object(business_source,'_historical_provider_now',return_value=NOW):
                 cache,_=business_source.build_shared_history_cache(session,pages,{},[],'fixture-source',NOW,used_templates_only=True)
                 reference_session=Session()
-                reference,reference_proof,_,_=business_source._historical_native_population(period,reference_session,pages,pricing_only=True)
-                reference_mix=business_source.historical_mix(reference,reference_proof,history_window_contract=financial.HISTORY_WINDOW_CONTRACT)
+                reference,reference_proof,reference_native,_=business_source._historical_native_population(period,reference_session,pages,pricing_only=True)
+                reference_mix=business_source.historical_mix(reference,reference_proof,orders=reference_native,history_window_contract=financial.HISTORY_WINDOW_CONTRACT)['by_platform']['PS']
             orders=[call for call in session.calls if call[0].endswith('order.Order/index')]
             self.assertEqual(len(orders),3,'one complete three-page native read; changed population must not repeat it')
             self.assertEqual([p['page'] for _,p in orders],[1,2,3])
             coupon_calls=[call for call in session.calls if call[0].endswith('MemberCouponLog/index')]
             self.assertEqual(len(coupon_calls),2,'all original used-coupon log pages remain required')
             self.assertEqual(len(session.calls),6)
-            mix=cache['historical_discount_mix'];self.assertEqual(mix['observed_orders'],2);self.assertEqual(mix['eligible_orders'],2)
+            root_mix=cache['historical_discount_mix'];mix=root_mix['by_platform']['PS'];self.assertEqual(mix['observed_orders'],2);self.assertEqual(mix['eligible_orders'],2)
             for field in ('period','status','observed_orders','eligible_orders','net_order_usd','actual_discount_usd','undiscounted_order_usd','retained_ratio'):
                 self.assertEqual(mix[field],reference_mix[field])
             self.assertEqual((mix['net_order_usd'],mix['actual_discount_usd'],mix['retained_ratio']),('36.0','4','0.9'))
-            replay=cache['original_history_replay'];self.assertEqual(replay['status'],'verified')
+            self.assertEqual(root_mix['status'],'partial')
+            self.assertEqual(root_mix['by_platform']['XBOX']['status'],'unavailable')
+            self.assertEqual(root_mix['by_platform']['PC']['status'],'unavailable')
+            replay=cache['original_history_replay']['by_platform']['PS'];self.assertEqual(replay['status'],'verified')
             self.assertEqual((replay['original_net_usd'],replay['original_discount_usd']),('36.00','4'))
-            self.assertEqual(sum(row['orders'] for row in cache['promotion_scenarios']),2)
+            self.assertEqual(sum(row['orders'] for row in cache['promotion_scenarios']['by_platform']['PS']),2)
             channel.load_costs.assert_not_called()
             store=root/'v3';db=Ledger(store/'control.sqlite3');db.put('metadata','seven_day_history_cache',cache)
             with patch.object(runtime,'STORE',store),patch.object(business_source,'selective_history_signature',return_value='fixture-source'):
-                self.assertEqual(runtime.current_history_mix(NOW),mix)
+                self.assertEqual(runtime.current_history_mix(NOW),root_mix)
 
     def test_reused_native_rows_keep_original_scope_checks_and_do_not_fallback_to_http(self):
         period=inputs.history_period(NOW)
@@ -339,7 +342,8 @@ class CatalogInputs(unittest.TestCase):
         run = '00000000-0000-4000-8000-000000000001'
         preview = '00000000-0000-4000-8000-000000000002'
         cache = dict(cache_sha256='cache', source_signature='signature', historical_discount_mix=data['historical_discount_mix'])
-        data.update(historical_ref=dict(cache_sha256='cache', source_signature='signature'), history_replay=dict(current_coupon_terms_sha256='terms', paths_sha256='paths'))
+        replay=dict(sha256='projection',by_platform={p:dict(current_coupon_terms_sha256='terms',paths_sha256='paths',region_layers={}) for p in engine.PLATFORMS})
+        data.update(historical_ref=dict(cache_sha256='cache', source_signature='signature'), history_replay=replay)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for folder in ('quotes', 'previews', 'monitor'):
@@ -355,14 +359,14 @@ class CatalogInputs(unittest.TestCase):
                     patch.object(automation_policy, 'load_policy', return_value={}), \
                     patch.object(pricing_sources, 'collect', return_value=data['promotion_envelope']) as read, \
                     patch.object(runtime, 'current_history_cache', return_value=cache), \
-                    patch.object(pricing_sources, 'current_template_projection', return_value=dict(current_coupon_terms_sha256='terms', paths_sha256='paths')) as projection:
+                    patch.object(pricing_sources, 'current_template_projection', return_value=deepcopy(replay)) as projection:
                 result = pricing_sources.refresh_before_write(dict(preview_id=preview), root)
                 self.assertEqual(result['status'], 'current_catalog_rechecked')
                 self.assertFalse(result['price_write_performed'])
                 self.assertTrue(read.call_args.kwargs['catalog_only'])
                 cache['cache_sha256']='only_nonfinancial_rollups_changed'
                 self.assertEqual(pricing_sources.refresh_before_write(dict(preview_id=preview), root)['status'], 'current_catalog_rechecked')
-                projection.return_value = dict(current_coupon_terms_sha256='changed', paths_sha256='paths')
+                projection.return_value['by_platform']['XBOX']['current_coupon_terms_sha256']='changed'
                 with self.assertRaisesRegex(ValueError, 'coupon_terms_changed'):
                     pricing_sources.refresh_before_write(dict(preview_id=preview), root)
 

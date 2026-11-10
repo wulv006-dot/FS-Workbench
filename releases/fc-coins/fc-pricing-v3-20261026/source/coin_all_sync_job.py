@@ -288,7 +288,8 @@ def drive(manager, audit, policy, steps, record, save_audit, persist, read_polic
                 raise ValueError('coin_source_or_before_changed')
             if step['changed']:
                 from automation_policy import hooks_before_write
-                scope=['PS','XBOX'] if step['platform'] in ('PS','XBOX') else ['PC']
+                native = (audit.get('pricing_decision_receipt') or {}).get('price_scope_contract') == 'fc27_three_platform_v1'
+                scope = [step['platform']] if native else (['PS','XBOX'] if step['platform'] in ('PS','XBOX') else ['PC'])
                 hooks_before_write(read_policy(), scope, audit.get('automatic') is True,
                                    current_quote=current_quote)
                 item['status'] = 'dispatching'

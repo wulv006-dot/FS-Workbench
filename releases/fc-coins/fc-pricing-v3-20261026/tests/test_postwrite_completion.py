@@ -31,7 +31,7 @@ class PostwriteCompletion(unittest.TestCase):
                 result=runtime.calculate_postwrite(evidence,job,db)
                 quote=dict(evidence=evidence,result=result)
                 receipt=runtime.verify_quote(quote,dict(minimum_gross_margin_pct='20'),['PS','XBOX','PC'],now=NOW,for_execution=True,purpose='original_unsent_ALL_steps_only')
-                self.assertEqual(receipt['action']['base_prices'],action['base_prices'])
+                self.assertEqual(receipt['action']['base_prices'],__import__('fc_pricing_v3.platforms',fromlist=['native_action']).native_action(action)['base_prices'])
                 self.assertEqual(receipt['budget_reservation'],bundle['budget_reservation'])
                 self.assertEqual(receipt['budget_kind'],'original_reservation_no_new_price_or_concession')
                 with self.assertRaisesRegex(ValueError,'purpose_mismatch'):

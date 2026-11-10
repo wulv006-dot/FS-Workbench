@@ -282,6 +282,8 @@ def selfcheck():
         raise RuntimeError("order_global_affected_tests_missing")
     if select(["shared_backend_session/shared_admin.py"]) != ["admin-single-owner"]:
         raise RuntimeError("shared_admin_affected_tests_missing")
+    if select(['releases/fc-evolutions/admin-session-20261110/source/evolutions.py']) != ['fc-evo-admin-session']:
+        raise RuntimeError('evolutions_admin_session_checks_missing')
     if select(['releases/fc-sbc/security-20261015/source/webapp.py'])!=['fc-sbc-security']:
         raise RuntimeError('SBC security checks missing')
     if select(['releases/fs-dashboard/hermes-report-tracks-20261015/source/pricing_report.py'])!=['hermes-report-tracks']:
@@ -742,6 +744,8 @@ def select(paths):
             groups.add("fc-lock-gate-hardening");continue
         if name.startswith("releases/fc-coins/fc-pricing-v3-20261026/"):
             groups.add("fc-pricing-v3");continue
+        if name.startswith("releases/fc-evolutions/admin-session-20261110/"):
+            groups.add("fc-evo-admin-session");continue
         if name.startswith("releases/fc-coins/gate-cycle-20261014/"):
             groups.add("fc-cycle-gate");continue
         if name.startswith("releases/fc-coins/order-public-acceptance-20261013/"):
@@ -1191,9 +1195,11 @@ def main():
         elif group=="fc-players-cloud10":
             units("fc27_players_cloud",["tests_cloud.test_manual_existing_recommend","tests_cloud.test_model_images"])
             node("fc27_players_cloud/tests_cloud/check_manual_recommend_button.cjs")
+        elif group=="fc-evo-admin-session":
+            units("releases/fc-evolutions/admin-session-20261110/tests",["test_evolutions"])
         elif group=="fc-prewrite":
             release="releases/fc-coins/prewrite-recovery-20261012"
-            for name in ("test_monitor","test_publishers"):
+            for name in ("test_monitor","test_publishers","test_monitor_runtime"):
                 units(release+"/tests",[name])
         elif group=="fc-noncore":
             release="releases/fc-coins/noncore-emergency-20261009"
@@ -1557,6 +1563,11 @@ def main():
             # 离线用例：定价公式与腾讯文档逐分对齐 / 写价闸门与假 transport 流程。
             # 零网络、零后台写入（CI 隔离环境已验证 23 项全绿）。
             units("fc27_pack_bundles_20261013/tests",["test_pack_bundles_offline","test_write_flow"])
+            # These fixed tests exercise actual Node rendering and a second local lock holder.
+            subprocess.run([sys.executable,"-I","-B","-c",
+                "import sys,unittest;sys.path[:0]=sys.argv[1:3];import pr_fast;r=unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(n) for n in sys.argv[3:]));pr_fast.require_success(r)",
+                str(ROOT/"tools"),str(ROOT/"fc27_pack_bundles_20261013/tests"),"test_bundle_ui","test_write_admission"],
+                check=True,timeout=90,cwd=ROOT)
         elif group=="mlb-shelf-tool":
             # 离线用例：bat 规范化闸门 / SQLite 3.7.17 兼容 / 认证通路 / 模板发现。
             units("共享资源/MLB新卡上架/tests",["test_shelf_tool_offline"])

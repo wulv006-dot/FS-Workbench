@@ -28,6 +28,51 @@ def execution():
 
 
 class PlayerV3Followup(unittest.TestCase):
+    def test_three_platform_execution_requires_each_native_amount_and_contract(self):
+        audit = execution()
+        receipt = audit['pricing_decision_receipt']
+        receipt.update(price_scope_contract='fc27_three_platform_v1',
+                       financial_contract_version='fc27_dual20_d9_d2_platform_100k_v4')
+        receipt['action']['base_prices'] = dict(PS='10', XBOX='13', PC='20')
+        audit['after']['rows'][1]['b2c'] = '.13'
+        self.assertTrue(players.verified_v3_coin_execution(audit))
+        for mutate in (
+            lambda x: x['after']['rows'][1].update(b2c='.1'),
+            lambda x: x['pricing_decision_receipt']['action']['base_prices'].update(console='10'),
+            lambda x: x['pricing_decision_receipt'].pop('price_scope_contract'),
+            lambda x: x['pricing_decision_receipt'].update(financial_contract_version='fc27_dual20_v1'),
+            lambda x: x['pricing_decision_receipt'].update(financial_contract_version='fc27_dual20_d9_d2_platform_v3'),
+        ):
+            invalid = deepcopy(audit); mutate(invalid)
+            self.assertFalse(players.verified_v3_coin_execution(invalid))
+
+    def test_native_closed_operation_binds_each_admin_and_target_amount_to_original_receipt(self):
+        audit = execution(); receipt = audit['pricing_decision_receipt']
+        receipt.update(price_scope_contract='fc27_three_platform_v1',
+                       financial_contract_version='fc27_dual20_d9_d2_platform_100k_v4',
+                       sha256='a'*64, snapshot_id=JOB)
+        receipt['action']['base_prices'] = dict(PS='10', XBOX='13', PC='20')
+        audit['after']['rows'][1]['b2c'] = '.13'
+        prices = dict(PS='.1', XBOX='.13', PC='.2')
+        audit.update(status='ORDER_ADMIN_CONFIRMED', ledger_status='COMPLETED',
+                     operation_id=COIN, confirmation_scope='Order_Admin', sync_message='saved')
+        audit['close_receipt'] = dict(status=audit['status'], admin_unit_prices=prices)
+        completion = dict(operation_id=COIN, status='COMPLETED', bundle_sha256='a'*64,
+                          snapshot_id=JOB, base_prices=deepcopy(receipt['action']['base_prices']),
+                          readback=dict(operation_id=COIN, confirmation_scope='Order_Admin',
+                              status=audit['status'], admin_unit_prices=deepcopy(prices),
+                              order_feedback=dict(sync_message='saved'),
+                              targets=[dict(platform=p, quote=v) for p,v in receipt['action']['base_prices'].items()]))
+        self.assertTrue(players.verified_v3_coin_execution(audit, completion))
+        for mutate in (
+            lambda c: c['base_prices'].update(XBOX='10'),
+            lambda c: c['base_prices'].update(console='10'),
+            lambda c: c.update(operation_id=JOB),
+            lambda c: c['readback']['admin_unit_prices'].update(XBOX='.1'),
+        ):
+            invalid = deepcopy(completion); mutate(invalid)
+            self.assertFalse(players.verified_v3_coin_execution(audit, invalid))
+
     def test_original_reconcile_retains_parent_and_dispatches_category_only_once(self):
         from fc_pricing_v3 import runtime,adapters
         from fc_pricing_v3.ledger import Ledger

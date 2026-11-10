@@ -84,22 +84,22 @@ class SmartScheduleTest(unittest.TestCase):
     def test_candidate_reproves_sprint_baseline_financially(self):
         from test_dual20_sprint import source, NOW
         from fc_pricing_v3 import engine
-        data = source(loot='10', item='11', cost='.1', bonus='5')
-        plan = {'mode': 'revenue_sprint', 'resources': ['base:console', 'base:pc'],
+        data = source(loot='10', item='11', cost='.1', bonus='0')
+        plan = {'mode': 'revenue_sprint', 'resources': ['base:PS','base:XBOX','base:PC'],
                 'price_anchor': engine.current_action(data), 'parameters': {}}
         evaluation = engine.evaluate(data, 'revenue_sprint', plan=plan, now=NOW)
         baseline = evaluation['selected']
         self.assertIsNotNone(baseline, evaluation['failures'])
         selected = build_candidate(data, plan, evaluation['current'], baseline, 'B', NOW)
         self.assertTrue(selected['financial_proof']['pass_all'])
-        self.assertGreaterEqual(float(selected['action']['base_prices']['pc']),
-                                float(baseline['action']['base_prices']['pc']))
+        self.assertGreaterEqual(float(selected['action']['base_prices']['PC']),
+                                float(baseline['action']['base_prices']['PC']))
 
     def test_a_preserves_baseline_floor_fallback_reason(self):
         from test_dual20_sprint import source, NOW
         from fc_pricing_v3 import engine
-        data=source(loot='1',item='2',cost='.35',bonus='5')
-        plan={'mode':'revenue_sprint','resources':['base:console','base:pc'],
+        data=source(loot='1',item='2',cost='.35',bonus='0')
+        plan={'mode':'revenue_sprint','resources':['base:PS','base:XBOX','base:PC'],
               'price_anchor':engine.current_action(data),'parameters':{}}
         evaluation=engine.evaluate(data,'revenue_sprint',plan=plan,now=NOW)
         baseline=evaluation['selected']

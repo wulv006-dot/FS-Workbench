@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from report import unverified
 
+SQLITE_LIBRARY = Path(__file__).parent/'runtime/sqlite-3.53.4/lib/libsqlite3.so.0'
+
 def now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -28,8 +30,13 @@ def atomic(path, value):
 
 def probe():
     try:
+        if not SQLITE_LIBRARY.is_file():
+            return unverified('MonitorSQLiteRuntimeMissing')
+        environment = dict(os.environ)
+        previous = environment.get('LD_LIBRARY_PATH')
+        environment['LD_LIBRARY_PATH'] = str(SQLITE_LIBRARY.parent) + (os.pathsep + previous if previous else '')
         child = subprocess.run([sys.executable,'-B',str(Path(__file__).with_name('probe_worker.py'))],
-                               capture_output=True, text=True, timeout=40)
+                               capture_output=True, text=True, timeout=40, env=environment)
         if child.returncode:
             return unverified('ProbeProcessFailed')
         value = json.loads(child.stdout)

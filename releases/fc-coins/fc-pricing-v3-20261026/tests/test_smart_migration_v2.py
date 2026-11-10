@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import json, tempfile, unittest
 from unittest.mock import patch
@@ -10,7 +10,7 @@ class SmartMigrationTest(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.db=Ledger(Path(self.tmp.name)/'control.db')
-        self.plan=dict(plan_id='p',revision=1,mode='smart',state='ACTIVE',generation='g',resources=['base:console','base:pc'],starts_at='2026-11-05T00:00:00+00:00',ends_at=None,parameters={},baseline_plan=dict(plan_id='old',revision=1,mode='revenue_sprint',parameters={},price_anchor={}),price_anchor={})
+        self.plan=dict(plan_id='p',revision=1,mode='smart',state='ACTIVE',generation='g',resources=['base:console','base:pc'],smart_strategy_version='smart-bidirectional-v2',smart_started_at='2026-11-05T00:00:00+00:00',starts_at='2026-11-05T00:00:00+00:00',ends_at=None,parameters={},baseline_plan=dict(plan_id='old',revision=1,mode='revenue_sprint',parameters={},price_anchor={}),price_anchor={})
         self.db.put('pricing_plans','p',self.plan)
         self.db.put('metadata','generation',dict(id='g'))
         with self.db.transaction() as c:
@@ -21,15 +21,15 @@ class SmartMigrationTest(unittest.TestCase):
         with patch.object(module,'clock',return_value=NOW):result=self.db.migrate_smart_strategy('p',1,'wulv')
         self.assertEqual(result['plan_id'],'p');self.assertEqual(result['revision'],2)
         self.assertEqual(result['starts_at'],self.plan['starts_at'])
-        self.assertEqual(result['smart_started_at'],NOW.isoformat())
-        self.assertEqual(result['smart_strategy_version'],'smart-bidirectional-v2')
+        self.assertEqual(result['smart_started_at'],(NOW+timedelta(hours=1)).isoformat())
+        self.assertEqual(result['smart_strategy_version'],'smart-three-platform-v3')
         self.assertEqual(result['parameters']['region_pricing'],'global')
         self.assertEqual(result['baseline_plan']['parameters']['competitor_policy'],'lootbar_primary_arabut_secondary_v1')
         self.assertEqual(self.db.get('operations','old-op'),old)
         self.assertEqual(self.db.migrate_smart_strategy('p',1,'wulv'),result)
         with self.db.connect() as c:self.assertEqual({r[0] for r in c.execute('SELECT revision FROM plan_ownership')},{2})
         with self.db.connect() as c:jobs=[json.loads(r[0]) for r in c.execute("SELECT body FROM durable_jobs WHERE kind='cycle'")]
-        self.assertEqual(jobs,[dict(plan_id='p',revision=2,scheduled_at=NOW.isoformat())])
+        self.assertEqual(jobs,[dict(plan_id='p',revision=2,scheduled_at=(NOW+timedelta(hours=1)).isoformat())])
         self.assertEqual(self.db.migrate_smart_strategy('p',2,'wulv'),result)
     def test_unknown_or_running_cycle_cannot_be_migrated(self):
         self.db.put('operations','unknown',dict(status='UNKNOWN',resources=['base:pc']))
@@ -50,4 +50,4 @@ class SmartMigrationTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'fields_invalid'):
                 api.post('plans/p/migrate-smart-strategy',dict(expected_revision=1,extra=True),'wulv')
             result=api.post('plans/p/migrate-smart-strategy',dict(expected_revision=1),'wulv')
-        self.assertEqual(result['smart_strategy_version'],'smart-bidirectional-v2')
+        self.assertEqual(result['smart_strategy_version'],'smart-three-platform-v3')
