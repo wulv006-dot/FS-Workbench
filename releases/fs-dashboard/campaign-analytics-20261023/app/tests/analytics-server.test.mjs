@@ -1,4 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {report} from '../analytics/server.mjs';
+test('FC canonical query includes three deployed pages, excludes other activities and shares alias cache',async()=>{
+ const original=globalThis.fetch;let calls=0;
+ const registry=['fc27-weekly','fc27-sbc','fc27-trio','mmoexp-seasonal'].map(id=>({id,name:id,path:'/events/'+id+'.html'}));
+ globalThis.fetch=async(_url,options)=>{calls++;const q=JSON.parse(options.body).query.query;assert.match(q,/activity_id IN \('fc27-weekly','fc27-sbc','fc27-trio','fc27-season2'\)/);assert(!q.includes("'mmoexp-seasonal'"));return {ok:true,json:async()=>({results:[]})};};
+ try{for(const activity of ['fc27-season2','fc27-sbc','fc27-weekly','fc27-trio'])assert.equal((await report(new URLSearchParams({activity,from:'2026-11-10',to:'2026-11-10'}),{token:'fixture',project:'1',registry,revision:'fc-union'})).status,200);assert.equal(calls,1);}finally{globalThis.fetch=original;}
+});
 test('unconfigured query does not substitute sample data',async()=>{delete process.env.POSTHOG_QUERY_KEY;assert.equal((await report(new URLSearchParams())).status,503);});
 test('PostHog errors preserve only status and parsed Retry-After for scheduled retry',async()=>{
  const original=globalThis.fetch;globalThis.fetch=async()=>({ok:false,status:429,headers:new Headers({'Retry-After':'7'})});
