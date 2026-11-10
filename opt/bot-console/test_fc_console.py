@@ -308,6 +308,22 @@ class FCConsoleTests(unittest.TestCase):
         self.assertFalse(saved['news_publish']['ea_enabled'])
         self.assertTrue(saved['news_publish']['enabled'])
 
+    def test_manual_mmoexp_event_api_enqueues_without_auto_or_ea(self):
+        self.config['news_publish'] = {'guild_id': console.FC_GUILD, 'channel_id': '123456789012345678',
+                                     'enabled': False, 'ea_enabled': False, 'poll_seconds': 21600}
+        self.path.write_text(json.dumps(self.config), encoding='utf-8')
+        module = console.fc_news_module()
+        module.NewsStore(console.FC_NEWS_DB)
+        _, cfg = self.request('GET', '/api/fc/news/config')
+        body = dict(url='https://www.mmoexp.com/events/Sbc-Companions.html', title='Mbappe POTM',
+                    summary='YOUR SBC STAR.', revision=cfg['revision'])
+        for _ in range(2):
+            self.assertEqual(self.request('POST', '/api/fc/news/article', body)[0], 200)
+        self.assertEqual(len(module.NewsStore(console.FC_NEWS_DB).items()), 2)
+        status, result = self.request('POST', '/api/fc/news/article', dict(body, url='https://evil.example/events/test.html'))
+        self.assertEqual(status, 400)
+        self.assertIn('链接', result['error'])
+
     def test_browser_news_guild_id_preserves_snowflake_precision(self):
         _, before = self.request('GET', '/api/fc/news/config')
         news = {'guild_id': str(console.FC_GUILD), 'channel_id': '123456789012345678',
