@@ -171,6 +171,15 @@ LOOTBAR_RENDERER_PROTECTED=('/opt/d4follow/core_qd.py','/opt/d4follow/app.py','/
 LOOTBAR_RENDERER_IMAGE='sha256:c00943affd877dfcb937d752afbafd7c195e7b94e03d0321dc16dfbf2ae3be93'
 LOOTBAR_RENDERER_RESOURCES=dict(Memory=3221225472,NanoCpus=0,ShmSize=1073741824,RestartPolicy={'Name':'always','MaximumRetryCount':0})
 LOOTBAR_RENDERER_BEFORE='ef0679ad35a4d42d791db2cc44cd27861b52b3bde44127c9707bcb17d97670a7'
+LOOTBAR_RENDERER_INSTALLED={
+    'qd_render_svc.py':'52854d3f1eb65c4f9090be02289c510a340288a1d80db01cb2f202963718468f',
+    'fc27_lootbar.py':'61a29808656f82a2ba0f2b3ea162a74ed62f80d9693d55305e4e51a6d1e34fc2',
+    'lootbar_background.js':'e0e1946f607ae37df8547788d3252d05e02f5251ffae9c744ed9e941712e298e'}
+
+
+def _lootbar_renderer_before(before):
+    legacy={'qd_render_svc.py':LOOTBAR_RENDERER_BEFORE,'fc27_lootbar.py':None,'lootbar_background.js':None}
+    if before not in (legacy,LOOTBAR_RENDERER_INSTALLED):raise ValueError('lootbar_original_renderer_source_drift')
 LOOTBAR_PARSER_SHA='e0e1946f607ae37df8547788d3252d05e02f5251ffae9c744ed9e941712e298e'
 LOOTBAR_ACCESS=Path('/var/lib/fc27-cloud/collection-access/access.json')
 LOOTBAR_SPOOL=Path('/var/lib/fs-fc-collector/spool')
@@ -296,14 +305,14 @@ def prepare_lootbar(role,bundle,digest,release_id,source_commit,worker_digest=No
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,79}',release_id or '') or not re.fullmatch('[a-f0-9]{40}',source_commit or ''):raise ValueError('lootbar_release_identity_invalid')
     files=read_lootbar_bundle(bundle,digest,role);root=LOOTBAR_ROOTS[role];code=root if role=='renderer' else root/'code'
     before={name:_lootbar_sha(code/name) for name in files}
-    missing={'fc27_lootbar.py','lootbar_background.js'} if role=='renderer' else {'fc_collection/lootbar.py'}
-    if {k for k,v in before.items() if v is None}!=missing:raise ValueError('lootbar_exact_new_targets_changed')
     if role!='renderer':
+        missing={'fc_collection/lootbar.py'}
+        if {k for k,v in before.items() if v is None}!=missing:raise ValueError('lootbar_exact_new_targets_changed')
         if before['manifest.json']!=LOOTBAR_BEFORE_MANIFEST[role]:raise ValueError('lootbar_original_manifest_drift')
         actual={p.relative_to(code).as_posix() for p in code.rglob('*') if p.is_file()}
         if actual!=set(files)-missing:raise ValueError('lootbar_original_role_files_drift')
         _lootbar_old_role(code,role)
-    elif before['qd_render_svc.py']!=LOOTBAR_RENDERER_BEFORE:raise ValueError('lootbar_original_renderer_source_drift')
+    else:_lootbar_renderer_before(before)
     protected=LOOTBAR_RENDERER_PROTECTED if role=='renderer' else LOOTBAR_ROLE_PROTECTED[role]
     m=dict(schema_version=1,scope=LOOTBAR_SCOPE,release_id=release_id,role=role,source_commit=source_commit,
         publisher_sha256=_lootbar_sha(__file__),bundle_name=Path(bundle).name,bundle_sha256=digest,
@@ -333,12 +342,11 @@ def update_lootbar(manifest_path,apply=False,manifest_sha256=None):
     if set(m['before'])!=set(files) or m['after']!={n:hashlib.sha256(b).hexdigest() for n,b in files.items()}:raise ValueError('lootbar_exact_manifest_files_required')
     root=LOOTBAR_ROOTS[role];code=root if role=='renderer' else root/'code'
     if any(p.is_symlink() for p in (root,code,*root.parents)):raise ValueError('lootbar_role_path_link')
-    missing={'fc27_lootbar.py','lootbar_background.js'} if role=='renderer' else {'fc_collection/lootbar.py'}
-    if {n for n,h in m['before'].items() if h is None}!=missing:raise ValueError('lootbar_exact_new_targets_changed')
+    if role!='renderer' and {n for n,h in m['before'].items() if h is None}!={'fc_collection/lootbar.py'}:raise ValueError('lootbar_exact_new_targets_changed')
     expected_protected=set(LOOTBAR_RENDERER_PROTECTED) if role=='renderer' else set(LOOTBAR_ROLE_PROTECTED[role])
     if set(m['protected'])!=expected_protected or any(not re.fullmatch('[a-f0-9]{64}',h or '') for h in m['protected'].values()):raise ValueError('lootbar_exact_protection_required')
     if role!='renderer' and m['before']['manifest.json']!=LOOTBAR_BEFORE_MANIFEST[role]:raise ValueError('lootbar_original_manifest_drift')
-    if role=='renderer' and m['before']['qd_render_svc.py']!=LOOTBAR_RENDERER_BEFORE:raise ValueError('lootbar_original_renderer_source_drift')
+    if role=='renderer':_lootbar_renderer_before(m['before'])
     if not re.fullmatch('[a-f0-9]{40}',m.get('source_commit','')):raise ValueError('lootbar_source_commit_required')
     release_id=m['release_id']
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,79}',release_id):raise ValueError('lootbar_release_id_invalid')

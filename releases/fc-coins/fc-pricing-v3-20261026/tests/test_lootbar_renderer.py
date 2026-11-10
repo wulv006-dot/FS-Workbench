@@ -45,9 +45,21 @@ class RendererContract(unittest.TestCase):
     def test_browser_uses_only_own_context_and_closes_it_without_rpg_config(self):
         from test_lootbar_fallback import snapshot
         page=Mock();current=['PS']
+        routes=[]
         def navigate(url,**_):
             current[0]='PS'  # The site may ignore a platform query until its control is selected.
             page.url=url
+            handler=context.route.call_args.args[1]
+            for kind,count in [('image',200),('font',30),('media',10),('ping',10)]:
+                for i in range(count):
+                    request_route=Mock()
+                    request_route.request=types.SimpleNamespace(url='https://www.lootbar.com/assets/'+str(i),method='GET',resource_type=kind)
+                    handler(request_route);routes.append((kind,request_route))
+            for kind,path in [('document','/game-coins/fc27'),('stylesheet','/assets/site.css'),
+                              ('script','/_next/static/app.js'),('xhr','/api/goods'),('fetch','/api/account')]:
+                request_route=Mock()
+                request_route.request=types.SimpleNamespace(url='https://www.lootbar.com'+path,method='GET',resource_type=kind)
+                handler(request_route);routes.append((kind,request_route))
             return types.SimpleNamespace(status=200)
         page.goto.side_effect=navigate;page.evaluate.side_effect=lambda *_:snapshot(current[0])
         def locator(selector):
@@ -58,17 +70,45 @@ class RendererContract(unittest.TestCase):
         scope=Mock();scope.__enter__=Mock(return_value=types.SimpleNamespace(chromium=types.SimpleNamespace(launch=Mock(return_value=browser))))
         scope.__exit__=Mock(return_value=False)
         pw=types.ModuleType('playwright.sync_api');pw.sync_playwright=Mock(return_value=scope)
-        ticks=iter(range(1000))
+        ticks=iter(i/100 for i in range(10000))
         with patch.dict(sys.modules,{'playwright':types.ModuleType('playwright'),'playwright.sync_api':pw}), \
                 patch.object(lootbar_browser,'read_parser',return_value='function readVisibleOffer() {}'), \
                 patch.object(lootbar_browser.time,'monotonic',side_effect=lambda:next(ticks)):
             result=lootbar_browser.collect(TASK)
         self.assertEqual(set(result['snapshots']),{'PS','XBOX','PC'})
-        self.assertEqual(result['browser_requests_allowed'],0)
+        self.assertEqual(result['browser_requests_allowed'],5)
+        self.assertEqual(page.goto.call_count,1)
+        self.assertEqual(page.goto.call_args.args[0],lootbar_browser.BASE)
+        for kind,route in routes:
+            if kind in ('image','font','media','ping'):
+                route.abort.assert_called_once();route.continue_.assert_not_called()
+            else:route.continue_.assert_called_once()
         self.assertTrue(all('observed_at' in r for r in result['snapshots'].values()))
         context.close.assert_called_once_with();browser.close.assert_called_once_with()
         self.assertEqual(browser.new_context.call_args.kwargs,dict(locale='en-US',service_workers='block'))
         self.assertEqual([c.args[0] for c in page.locator.call_args_list],['a.icon-xbox','a.icon-pc'])
+
+    def test_request_diagnostics_are_bounded_and_omit_queries_identifiers_and_headers(self):
+        gate=lootbar_browser.RequestGate(128)
+        for i in range(200):
+            gate.allow('https://www.lootbar.com/api/coins/customer@example.com?token=secret'+str(i),'GET',resource_type='xhr')
+        summary=gate.summary()
+        self.assertEqual(summary['browser_requests_allowed'],128)
+        self.assertEqual(summary['stop_reason'],'request_budget_exhausted')
+        self.assertLessEqual(len(summary['paths']),25)
+        text=json.dumps(summary)
+        self.assertNotIn('secret',text);self.assertNotIn('@',text);self.assertNotIn('?',text)
+        self.assertIn('/api/coins/*',text)
+
+    def test_only_main_document_denial_stops_the_price_pass(self):
+        page=types.SimpleNamespace(main_frame=object());gate=lootbar_browser.RequestGate(128)
+        def response(status,kind,frame):
+            return types.SimpleNamespace(status=status,request=types.SimpleNamespace(resource_type=kind),frame=frame)
+        for status,kind,frame in [(401,'xhr',page.main_frame),(403,'image',page.main_frame),(403,'document',object())]:
+            lootbar_browser.observe_document_response(gate,page,response(status,kind,frame))
+            self.assertIsNone(gate.reason)
+        lootbar_browser.observe_document_response(gate,page,response(429,'document',page.main_frame))
+        self.assertEqual(gate.reason,'http_429')
 
     @unittest.skipUnless(os.name=='posix','real Linux flock/process contract')
     def test_original_shell_holds_source_lock_through_fallback_and_rejects_parallel_primary(self):
