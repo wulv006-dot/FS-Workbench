@@ -130,7 +130,9 @@ class BaselineTests(unittest.TestCase):
             self.assertNotIn('STALE-DESKTOP-COST-RULE',text)
             self.assertNotIn('STALE-MEMORY-COST-RULE',text)
             self.assertIn('USER-PREFERENCE-KEPT',text)
-            self.assertIn('business-baseline-20261021-v5',text)
+            for rule in ('business-baseline-fc-three-platform-100k-20261110', '100K已取消加赠',
+                         'Xbox不继承PS售价', '按金额加权', '原ID/CAS/UNKNOWN'):
+                self.assertIn(rule,text)
             self.assertIn('excluded_refunded',text)
             self.assertIn('这一投影不改写原生经营总盘',text)
             self.assertIn('/admin/order.Order/index',text)
@@ -140,7 +142,8 @@ class BaselineTests(unittest.TestCase):
             self.assertIn('/admin/orderes/orderlog',text)
             self.assertIn('/admin/market/discount',text)
             self.assertIn('不是实际折扣让利额',text)
-            self.assertIn('预算公式中的 `P` 统一指 `P1`',text)
+            self.assertNotIn('全Coins优惠结构用于各套餐条件估算',text)
+            self.assertNotIn('预算公式中的 `P` 统一指 `P1`',text)
             self.assertEqual(files[-1]['path'],'runtime/business-baseline.md')
 
 

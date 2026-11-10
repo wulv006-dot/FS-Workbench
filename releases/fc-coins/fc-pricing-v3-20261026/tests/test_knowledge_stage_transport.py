@@ -89,6 +89,9 @@ class KnowledgeStageTransportTest(unittest.TestCase):
                 self.assertEqual(expected,{provenance['canonical_sha256']})
                 self.assertIn(b'fc27_dual20_d9_d2_platform_100k_v4',baseline)
                 self.assertIn('Xbox不继承PS售价'.encode(),baseline)
+                self.assertIn('历史UNKNOWN若已由后续有效真实现态覆盖，不再阻断当前执行'.encode(),baseline)
+                self.assertIn('保留原未知回执，不冒充旧POST成功'.encode(),baseline)
+                self.assertIn('未来每笔新写仍核当轮新鲜来源、当前价及原锁/CAS/单发保护'.encode(),baseline)
                 for name in ('release.py', 'prepare_manifest.py', 'release_navigation_base.py'):
                     relative = 'releases/fc-coins/fc-pricing-v3-20261026/deploy/knowledge/' + name
                     committed = subprocess.check_output(['git', 'show', 'HEAD:' + relative], cwd=ROOT)

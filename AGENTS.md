@@ -113,6 +113,8 @@ FC27经营报告先按[字段使用与呈现规则](docs/planning/fc27-daily-tea
 
 # AI 执行入口
 
+2026-11-10用户补充：历史UNKNOWN有后续有效真实现态覆盖后退出当前阻断，保留旧记录而不冒充旧POST成功；仍在途、现态缺失或新UNKNOWN才沿原ID核验。覆盖绑定原商品身份、真实Admin现态和时间及原任务已结束的证据，理论预览不算。未来新写继续当前来源、CAS和原写后核验，不让历史记录反复卡住新逻辑。
+
 先读 [全仓唯一执行规则](docs/ops/HOTFIX.md)，据用户当前任务连续完成已授权工作。不要从其它快照重建逐SHA审批、双人Approve或全套QA前置。
 
 只再读本任务受影响的源码、模块合同、[负责人](docs/collaboration/OWNERS.json)及[来源映射](docs/collaboration/SOURCE-MAP.json)。它们提供范围和事实，不另设全局流程。Git窗口及发布串行。

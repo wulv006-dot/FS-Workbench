@@ -1,12 +1,14 @@
 {
-  "source_commit": "035174e7d7f6345507cbf13265b25ede830f5c6a",
+  "source_commit": null,
+  "canonical_base_commit": "7703d6793c60151883ca09c96a4ddf862ef562d4",
+  "source_state": "authorized_worktree_exact_sha",
   "canonical_path": "docs/planning/fs-business-baseline-20261021/BUSINESS-BASELINE.md",
-  "canonical_sha256": "11e62cf3ff0b1bb0ade192167d7925e58a41a585f4796d3cb9af897fc543974d",
+  "canonical_sha256": "8145602b0be288d4a92b1d55c048be6b137a2432d345d3fae4e0484ef6f888ea",
   "captured_at": "2026-11-10T14:33:45.332503+00:00",
   "target": "/opt/fs-hermes-fc/business-baseline.md",
   "before_sha256": "3c3777809bc3aea9eff5655cb6ab7874f7357b617d293d83da068fdeb51a991e",
-  "after_sha256": "e34240c1a14baa3b00cbd0744f3bf3b64c20a07154efbc13a063586be0eb5516",
-  "bytes": 57275,
+  "after_sha256": "0389965b78bc509243fa2e794dc5ce15e2ab304ff8ec5295446d6cf00296e372",
+  "bytes": 57754,
   "changes": [
     {
       "before_lines": [
@@ -15,10 +17,10 @@
       ],
       "canonical_lines": [
         3,
-        15
+        17
       ],
       "before_sha256": "24ca076b6e102ac9a755b6cf603c5295fa9c57e2f985aaba7b66c3c15ba9e59c",
-      "after_sha256": "750f68c5c572e02eae1b43c916e9f0cb78a93eb5518a2aaa79d7ce14a87bb61e"
+      "after_sha256": "c127441bb9be835e405b54e462c8d518f0cba9a444411a98e57b105fb0b15602"
     },
     {
       "before_lines": [
@@ -26,8 +28,8 @@
         247
       ],
       "canonical_lines": [
-        236,
-        236
+        238,
+        238
       ],
       "before_sha256": "fdd250e3b19ca19d68cf8697ba275f17712c55695726ec267be299959e3613df",
       "after_sha256": "51137e4c610780f507df759e971de5c4c1d76cae5e280c9f75cf3aa80b507805"
@@ -38,8 +40,8 @@
         414
       ],
       "canonical_lines": [
-        404,
-        404
+        406,
+        406
       ],
       "before_sha256": "027832249c457f1f3df632be3f936c5d51ff65f4ceb12cac678915ed8153f891",
       "after_sha256": "a4fbf84e83dfddb54ab7f9995a507d33b3ae226ed7ca8b67fd8add8490dad7df"
@@ -50,8 +52,8 @@
         416
       ],
       "canonical_lines": [
-        406,
-        406
+        408,
+        408
       ],
       "before_sha256": "ce60d6b9161c7fbcf531a87218ab793770cb0d278d72fa5e6081c9b71b101b09",
       "after_sha256": "84b56d33df52d1a40522b6ba49d837cd7090e87eec6a91dfed42ff953b00aad6"
@@ -62,8 +64,8 @@
         424
       ],
       "canonical_lines": [
-        414,
-        414
+        416,
+        416
       ],
       "before_sha256": "b4e0bc04aec644fe17e5854696b866ea720594098daa5151324584e4a5f46a6f",
       "after_sha256": "b33895dba5fac1aa30af4d6f7ba30624f8c276c14b52301317c826f02fc917b3"
@@ -74,8 +76,8 @@
         470
       ],
       "canonical_lines": [
-        460,
-        460
+        462,
+        462
       ],
       "before_sha256": "1d065241b881e9096de0d6f5f1acf1690861517859b383575ccbcf3fb1c329a5",
       "after_sha256": "40ec6d164e03f6e14b9ae0a62b3d79cdf3bb9b2784cec461261a04c84af98482"
@@ -86,8 +88,8 @@
         474
       ],
       "canonical_lines": [
-        464,
-        464
+        466,
+        466
       ],
       "before_sha256": "73502e95fb64639e6be4d406db2e3fbd433934a255e47064b1483701a676808f",
       "after_sha256": "ca68ef9c2257e7024e313dd18820b055a2bd199923594fa2e0c2e14d33e20e3e"
@@ -98,8 +100,8 @@
         482
       ],
       "canonical_lines": [
-        472,
-        472
+        474,
+        474
       ],
       "before_sha256": "8ef1830118d2729984862f10981ab3577d9073d013f52a75c174264be8892de9",
       "after_sha256": "569e0e0055762233361a3889596de87e600b03b0378fdc8e8a01c92117833498"
@@ -110,8 +112,8 @@
         518
       ],
       "canonical_lines": [
-        508,
-        508
+        510,
+        510
       ],
       "before_sha256": "7316d081a7381ade4c7b0eb270e7ba571cb2e12b91871a7e571da2d996e117e7",
       "after_sha256": "5baaffae2f60f1412dbe39565bc3f7fb2d6f274918463b5bdd4fe726bc128a95"
@@ -122,8 +124,8 @@
         520
       ],
       "canonical_lines": [
-        510,
-        510
+        512,
+        512
       ],
       "before_sha256": "ab8726210d39d49f217124c1258e3087c3a48602992d0f47cd7e897a81502dc2",
       "after_sha256": "e07ae64ce3599b3e5bdb11298bf0cc2700672ac23c4dfef28edec027fb3aacc6"
@@ -134,8 +136,8 @@
         522
       ],
       "canonical_lines": [
-        512,
-        512
+        514,
+        514
       ],
       "before_sha256": "832db6fa8757342866d996edeff11bdf4683023992a1d2b7be6feed95b9d5b30",
       "after_sha256": "63ae54ada3b05353342e1062ae378dd0d5c0c1d4b70bf101ef11e4f86fa81911"
@@ -146,8 +148,8 @@
         545
       ],
       "canonical_lines": [
-        535,
-        535
+        537,
+        537
       ],
       "before_sha256": "a5fa48b28550a84c9518bb4210b48cab9e2e11193bf6dc83b960309dae25cc83",
       "after_sha256": "3c401860699297cb51f02462bb6daece5fc772dbf454a0074c6bd60ea208c80a"
@@ -158,8 +160,8 @@
         551
       ],
       "canonical_lines": [
-        541,
-        541
+        543,
+        543
       ],
       "before_sha256": "bed17f963a1d5f0d88c0d68862fac9dd7ef554a8558a1f0f3f0afbc66d89256f",
       "after_sha256": "3ba42ebbd3bb3ae2ae305082090371884220b65b537f5aee1126872304670304"
@@ -170,8 +172,8 @@
         559
       ],
       "canonical_lines": [
-        549,
-        549
+        551,
+        551
       ],
       "before_sha256": "414520f33b1c66c18bb54cfac381e6934db86fc296f60ae48ccd66e4352be836",
       "after_sha256": "92ab0fe5aa312e683f80b19160144793844c9c91a26414d17368f3fbcde9559d"
@@ -308,7 +310,7 @@
       },
       "after": {
         "mode": "retain_full_baseline",
-        "sha256": "e34240c1a14baa3b00cbd0744f3bf3b64c20a07154efbc13a063586be0eb5516"
+        "sha256": "0389965b78bc509243fa2e794dc5ce15e2ab304ff8ec5295446d6cf00296e372"
       }
     }
   ],
