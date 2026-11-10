@@ -32,3 +32,16 @@
 商品行有独立剩余预算（整次90秒、单次至多20秒），超时后不追加请求；缺失订单明细单独保留覆盖缺口，原付款金额仍可显示。含退款订单中的原购买数量单列，不能解释成真实退款件数或净销量。计划快照只保存前50项并明确总商品项数/截断；完整明细通过原自选区间查询，金额不按商品分摊。新增白名单字段使原64KiB/128KiB容量在最大合法行fixture下不足，经字节断言验证后只将该聚合快照读写上限改256KiB，保留原预算、权限、行数与字段过滤。
 
 原发布器已登记新reader文件；正式pr-fast复用原固定lxml6.1.3安装步骤，仅扩到campaign模块，不增加依赖版本或关闭检查。部署只需活动dashboard服务重新载入源码，公开runtime/原站结账及其静态manifest不变。
+
+
+## 正式上线与真实入口
+
+PR979正式pr-fast1884成功，合并7c581b58f6bd46b6bf91b0f8f7b4b7d79508ec68；候选205a453与合并后模块字节一致。原publisher部署nav-20261110T131844Z，manifest SHA89b5d857705b515b87ad1489f8d1a580f7279dd84465d8b14026917f0deeff8d；11/11源码及64/64保护读回一致。仅dashboard新PID30740，公开runtime26721、marketing817保持；当前业务版本33和policy/center/public指针不变。
+
+原统计服务上次16:00北京时间已有partial结果（整期源站日志部分覆盖），没有在途进程。沿原服务只启动一次当前slot验证，run012a1743-1278-4b2a-b0b7-079359f442f5于13:20:28–31UTC完成FC汇总：today/yesterday三来源均available；整期behavior/revenue available、traffic partial。服务将partial以退出2记录为failed，这是历史日志覆盖边界，不能标为全来源成功，也没有重放或清除状态。原timer仍active/waiting，未修改时段或新建任务；下个自然周期尚未验。
+
+真实FS登录入口旧trio URL已归一显示“FC27周更活动（三页合计）”，今日快照为26访问批次、8匿名UV、后台付款0单/$0、商品行覆盖0/0；92为源站文档GET请求数，不是人数。点击更新分析沿原接口读取最新Admin付款，仍0单/$0且完整覆盖；收入不被行为查询覆盖。全期真实付款已在前述独立只读检查证实0，未借用非活动订单当成交。
+
+实际手动验收另外发现origin请求参数仍硬编码旧活动，已用红测复现后改为当前规范活动ID；隔离fixture现按活动分别返回FC92/seasonal1076，并严格核URL与页面值，避免同fixture掩盖该错误。两处旧“等待订单明细/服务端未接入”文案同步明确为商品销量看付款行、付款尚未关联逐访客。这一收尾仅改dashboard.js/index.html两个静态目标，不需重新载入服务，继续使用原publisher/回执与实际入口核对，不重跑统计或业务发布。
+
+本机证据目录 `.agent_runtime/weekly-console/activity-sales-20261110/` 保存inspect/apply/postdeploy、原run与全部汇总读回；同级独立static收尾stage记录后两目标回执。没有真实新增购物车、订单、付款、优惠券、活动发布或周更写入。知识收尾识别affected_ids=[]/steps=[]，无新增业务知识推广或Notion写入。
