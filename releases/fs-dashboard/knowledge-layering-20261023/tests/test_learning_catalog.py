@@ -249,13 +249,20 @@ class LearningCatalog(unittest.TestCase):
 
     def test_current_entries_cover_rules_and_reporting_and_preserve_history(self):
         entries = catalog()['entries']
-        self.assertEqual(len(entries), 28)
+        self.assertEqual(len(entries), 29)
         self.assertEqual({r['id'] for r in entries if r['layer']=='current' and r['status']=='effective'}, CURRENT_IDS)
-        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 28)
+        self.assertEqual(len({(r['id'], r['revision']) for r in entries}), 29)
         experience = next(r for r in entries if r['id'] == 'fc.evolutions.experience.current-state-cutover')
         self.assertEqual(experience['layer'], 'experience')
         self.assertEqual(experience['status'], 'verified')
         self.assertNotIn(experience['id'], CURRENT_IDS)
+        source_case = next(r for r in entries if r['id'] == 'fc.pricing.experience.lootbar-source-availability')
+        self.assertEqual((source_case['layer'], source_case['status']), ('experience', 'verified'))
+        self.assertNotIn(source_case['id'], CURRENT_IDS)
+        data = lf(ROOT / source_case['source']['path']).decode('utf-8')
+        self.assertIn('不据此认定自动补采已上线', data)
+        self.assertIn('browser_connection_timeout', data)
+        self.assertIn('不据此选A/B/C赢家', data)
 
     def test_retired_rules_are_removed_without_changing_current_margin_constraints(self):
         entries = catalog()['entries']
