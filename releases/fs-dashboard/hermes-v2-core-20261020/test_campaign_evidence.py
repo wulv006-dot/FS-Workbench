@@ -61,9 +61,33 @@ class EvidenceTests(unittest.TestCase):
         client=Client();players=[{'name':'Candidate '+str(i),'model_id':str(i+1)} for i in range(31)]
         client.fetch=lambda url:{'content':'FC 27 '+', '.join(p['name'] for p in players)+' market discussion, not seller sales.'}
         result=collect_player_evidence(players,AT,client)
-        self.assertEqual(len(client.queries),12);self.assertTrue(any('market price popularity' in q for q in client.queries));self.assertTrue(all(' OR ' in q for q in client.queries))
+        self.assertEqual(len(client.queries),12);self.assertTrue(any('market site:' in q for q in client.queries));self.assertTrue(any(' OR ' in q for q in client.queries))
         for player in players:self.assertTrue(any('"'+player['name']+'"' in q for q in client.queries))
         self.assertEqual(result['coverage']['players'],31);self.assertEqual(len(result['documents'][0]['model_ids']),31)
         self.assertIn('外部热度不是我方销量',result['context']);self.assertLessEqual(len(result['sources']),8)
+
+    def test_installed_search_128_character_contract_keeps_full_names_and_pool_coverage(self):
+        client=Client();search=client.search
+        def bounded_search(query):
+            if len(query.strip())>128:raise ValueError('invalid_search_query')
+            return search(query)
+        client.search=bounded_search
+        players=[{'name':'Candidate Full Name '+str(i),'model_id':str(i+1)} for i in range(31)]
+        client.fetch=lambda url:{'content':'FC 27 '+', '.join(p['name'] for p in players)+' market discussion.'}
+        result=collect_player_evidence(players,AT,client)
+        self.assertEqual(len(client.queries),12)
+        self.assertTrue(all(len(q.strip())<=128 for q in client.queries))
+        self.assertTrue(all(any('"'+p['name']+'"' in q for q in client.queries) for p in players))
+        self.assertGreater(result['coverage']['verified_documents'],0)
+        self.assertTrue(any('market' in q for q in client.queries));self.assertTrue(any('site:reddit.com' in q or 'site:x.com' in q for q in client.queries))
+
+    def test_name_and_query_budgets_are_explicit_without_silently_truncating_names(self):
+        client=Client();players=[{'name':'Very long full player name '+str(i)+'x'*60,'model_id':str(i+1)} for i in range(31)]
+        result=collect_player_evidence(players,AT,client)
+        self.assertLessEqual(len(client.queries),12);self.assertTrue(all(len(q)<=128 for q in client.queries))
+        self.assertIn('research_query_budget',result['coverage']['failures'])
+        self.assertIn('coverage_partial:31',result['coverage']['failures'])
+        client=Client();result=collect_player_evidence([{'name':'x'*120,'model_id':'1'}],AT,client)
+        self.assertEqual(client.queries,[]);self.assertIn('research_query_name_budget',result['coverage']['failures'])
 
 if __name__=='__main__':unittest.main()

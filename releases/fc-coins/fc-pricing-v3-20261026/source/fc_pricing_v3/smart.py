@@ -18,7 +18,66 @@ def policy_suffix(plan):
     return suffix + ':' + STRATEGY_VERSION if plan.get('smart_strategy_version') == STRATEGY_VERSION else suffix
 
 
-def observed_blocks(plan, operations, outcomes, windows, now, *, epoch, group=None):
+def observe_display(db, plan, evidence, now):
+    """Record observed display transitions, never a guessed launch or a financial discount."""
+    if plan.get('smart_strategy_version') != STRATEGY_VERSION:
+        return None
+    metadata_key='smart-display:'+policy_suffix(plan)
+    saved=db.get('metadata',metadata_key)
+    rows=(evidence.get('storefront') or {}).get('rows') or {}
+    if saved is None and not any('display_status' in row for row in rows.values()):
+        return None  # Original fixtures and uninstrumented historical replay retain their contract.
+    context=deepcopy(saved or dict(groups={},historical_status='historical_unobserved'))
+    def known_time(row):
+        if not (row.get('status')=='ok' and row.get('display_status')=='verified' and
+                isinstance(row.get('display_regime_key'),str) and len(row['display_regime_key'])==64):return None
+        try:
+            observed=instant(row['display_observed_at'])
+            return observed if observed==instant(row['checked_at']) and observed<=now else None
+        except (KeyError,TypeError,ValueError):
+            return None  # Invalid display evidence does not invalidate the regular price.
+    for group, platforms in {'console':('PS','XBOX'),'pc':('PC',)}.items():
+        selected=[rows.get(p,{}) for p in platforms]
+        stamps=[known_time(row) for row in selected]
+        known=all(stamps)
+        # Failed refreshes retain old row timestamps. Date unknown evidence by this
+        # frozen collection, while known terms start only at their real page observation.
+        at=max(stamps) if known else instant(evidence['checked_at']) if evidence.get('checked_at') else now
+        key=fingerprint({p:row['display_regime_key'] for p,row in zip(platforms,selected)}) if known else None
+        state=context['groups'].setdefault(group,dict(key=None,segments=[]))
+        segments=state['segments']
+        if segments and at<=instant(segments[-1]['last_seen']):
+            continue  # An older frozen quote cannot rewrite a newer observed boundary.
+        if segments and key==state['key']:
+            segments[-1]['last_seen']=at.isoformat()
+        else:
+            if segments:segments[-1]['end']=segments[-1]['last_seen']
+            segments.append(dict(key=key,start=at.isoformat(),last_seen=at.isoformat()))
+        state['key']=key
+    if context!=saved:db.put('metadata',metadata_key,context)
+    return context
+
+
+def display_intervals(display, group, begin, end):
+    if display is None:return [(begin,end)]
+    state=display['groups'][group]
+    if state['key'] is None:return []
+    return [(max(begin,instant(segment['start'])),min(end,instant(segment['end']) if segment.get('end') else end))
+            for segment in state['segments'] if segment['key']==state['key'] and
+            min(end,instant(segment['end']) if segment.get('end') else end)>max(begin,instant(segment['start']))]
+
+
+def display_suffix(plan, display, group):
+    return policy_suffix(plan)+':display:'+group+':'+(display['groups'][group]['key'] or 'unknown')
+
+
+def policy_key(plan, epoch, policy=None):
+    keys=(policy or {}).get('display_group_keys')
+    suffix=policy_suffix(plan)+(':display:'+fingerprint(keys) if keys is not None else '')
+    return 'smart-policy:'+suffix+':'+str(epoch)
+
+
+def observed_blocks(plan, operations, outcomes, windows, now, *, epoch, group=None, display=None):
     if plan.get('smart_strategy_version')==STRATEGY_VERSION and group not in ('console','pc'):
         raise ValueError('pricing_smart_platform_required')
     group_filter = group
@@ -41,6 +100,8 @@ def observed_blocks(plan, operations, outcomes, windows, now, *, epoch, group=No
                 break
         if end <= begin or instant(info['ends_at']) > now:
             continue
+        intervals=display_intervals(display,group_filter,begin,end)
+        if not intervals:continue
         slot = info['slot']
         label = (info.get('group_labels') or {}).get(group_filter, info['label'])
         block = blocks.setdefault((info['epoch'], slot), dict(slot=slot, epoch=info['epoch'], block=info.get('block',slot),
@@ -49,16 +110,17 @@ def observed_blocks(plan, operations, outcomes, windows, now, *, epoch, group=No
                     complete=True, customer_complete=True, prices=set(), intervals=[], events=[], no_space=True, has_no_space=False))
         if info.get('strategy_version') == STRATEGY_VERSION:
             block['pair_id'] = info['group_pair_ids'][group_filter]
+        if display is not None:block['display_regime_key']=display['groups'][group_filter]['key']
         if group_filter:
             block['no_space'] = block['no_space'] and (info.get('no_space_by_group') or {}).get(group_filter) is True
             if label != 'A':
                 block['has_no_space'] = block['has_no_space'] or (info.get('merged_with_A_by_group') or {}).get(group_filter) is not False
         block_start=instant(info['starts_at'])
-        block['intervals'].append([(begin-block_start).total_seconds(), (end-block_start).total_seconds()])
-        block['hours'] += Decimal(str((end - begin).total_seconds())) / Decimal(3600)
+        block['intervals'].extend([[(start-block_start).total_seconds(), (stop-block_start).total_seconds()] for start,stop in intervals])
+        block['hours'] += sum(Decimal(str((stop-start).total_seconds()))/3600 for start,stop in intervals)
         block['prices'].add(effective)
         for row in outcomes:
-            if not begin <= instant(row['occurred_at']) < end:
+            if not any(start <= instant(row['occurred_at']) < stop for start,stop in intervals):
                 continue
             window = windows_by_id.get(row.get('price_window_id'))
             group = row['group']
@@ -104,6 +166,7 @@ def observed_blocks(plan, operations, outcomes, windows, now, *, epoch, group=No
 def paired_exposure(first, second):
     for a in first:
         for b in second:
+            if a.get('display_regime_key')!=b.get('display_regime_key'):continue
             overlaps=[(max(x[0],y[0]),min(x[1],y[1])) for x in a.get('intervals',[]) for y in b.get('intervals',[])
                       if min(x[1],y[1])>max(x[0],y[0])]
             hours=sum(Decimal(str(end-start)) for start,end in overlaps)/3600
@@ -202,9 +265,9 @@ def scope_gaps(plan, rows, group, epoch, coverage):
                     row['events'].append(dict(offset=offset, gap_usd=gap['amount_usd']))
 
 
-def early_correction(db, plan, now, block):
+def early_correction(db, plan, now, block, *, display=None):
     if plan.get('smart_strategy_version') == STRATEGY_VERSION:
-        return bidirectional_correction(db, plan, now, block)
+        return bidirectional_correction(db, plan, now, block, display=display)
     suffix=plan['plan_id']+':'+str(plan['revision'])
     key='smart-correction:'+suffix
     correction=db.get('metadata',key) or dict(effective_blocks={})
@@ -235,9 +298,9 @@ def early_correction(db, plan, now, block):
     return correction
 
 
-def epoch_policy(db, plan, now, epoch):
+def epoch_policy(db, plan, now, epoch, *, display=None):
     if plan.get('smart_strategy_version') == STRATEGY_VERSION:
-        return bidirectional_policy(db, plan, now, epoch)
+        return bidirectional_policy(db, plan, now, epoch, display=display)
     suffix = plan['plan_id'] + ':' + str(plan['revision'])
     key = 'smart-policy:' + suffix + ':' + str(epoch)
     pending_key = 'smart-pending:' + suffix
@@ -512,13 +575,13 @@ def bidirectional_assignment(plan, now, *, policy=None, correction=None):
     return result
 
 
-def missing_repeats(db, plan, epoch, rows_by_group, *, excluded_by_group=None):
+def missing_repeats(db, plan, epoch, rows_by_group, *, excluded_by_group=None, cache_suffix=None):
     """Reserve same-clock retries by execution coverage only, before viewing financial results."""
     repairs = {g:{} for g in ('console','pc')}
     for group, rows in rows_by_group.items():
         expected, seen = {}, {}
         for old_epoch in range(epoch):
-            old = db.get('metadata','smart-policy:'+policy_suffix(plan)+':'+str(old_epoch))
+            old = db.get('metadata','smart-policy:'+(cache_suffix or policy_suffix(plan))+':'+str(old_epoch))
             if old is None:
                 continue
             for slot in range(16):
@@ -548,8 +611,18 @@ def missing_repeats(db, plan, epoch, rows_by_group, *, excluded_by_group=None):
     return repairs
 
 
-def bidirectional_policy(db, plan, now, epoch):
-    suffix = policy_suffix(plan)
+def bidirectional_policy(db, plan, now, epoch, *, display=None, only_group=None):
+    if display is not None and only_group is None:
+        parts={g:bidirectional_policy(db,plan,now,epoch,display=display,only_group=g) for g in ('console','pc')}
+        result=dict(strategy_version=STRATEGY_VERSION,causal_effect_estimated=False,
+            group_results={g:parts[g]['group_results'][g] for g in parts},
+            repairs_by_group={g:parts[g]['repairs_by_group'][g] for g in parts},
+            display_group_keys={g:display['groups'][g]['key'] for g in parts},
+            display_policy_keys={g:'smart-policy:'+display_suffix(plan,display,g)+':'+str(epoch) for g in parts})
+        db.put('metadata',policy_key(plan,epoch,result),result)
+        return result
+    suffix = display_suffix(plan,display,only_group) if display is not None else policy_suffix(plan)
+    selected_groups=(only_group,) if only_group else ('console','pc')
     key, pending_key = 'smart-policy:'+suffix+':'+str(epoch), 'smart-pending:'+suffix
     existing = db.get('metadata',key)
     previous = db.get('metadata','smart-policy:'+suffix+':'+str(epoch-1)) or {}
@@ -560,8 +633,8 @@ def bidirectional_policy(db, plan, now, epoch):
     checkpoint = strategy_start(plan)+timedelta(hours=48*epoch)
     operations,windows = db.all('operations'),db.all('actual_price_windows')
     cutoff=min(now,instant(observed)) if observed else now
-    groups={g:observed_blocks(plan,operations,online.get('actual_outcomes',[]),windows,cutoff,epoch=None,group=g)
-            for g in ('console','pc')}
+    groups={g:observed_blocks(plan,operations,online.get('actual_outcomes',[]),windows,cutoff,epoch=None,group=g,display=display)
+            for g in selected_groups}
     complete=(epoch>0 and coverage.get('query_complete') is True and 'gap_events' in coverage and
               coverage.get('unscoped_time_gaps') is False and observed and instant(observed)>=checkpoint)
     if complete:
@@ -583,22 +656,29 @@ def bidirectional_policy(db, plan, now, epoch):
     policy.update(strategy_version=STRATEGY_VERSION,causal_effect_estimated=False)
     correction=db.get('metadata','smart-correction:'+suffix) or {}
     policy['group_results']=deepcopy(policy.get('group_results') or {})
-    for group in ('console','pc'):
+    for group in selected_groups:
         result=policy['group_results'].setdefault(group,dict(winner=None,excluded=[],status='WAITING_MORE_DATA'))
         stops=((correction.get('groups') or {}).get(group) or {}).get('effective_blocks',{})
         result['excluded']=sorted(set(result['excluded']) | {label for label,block in stops.items() if block<=epoch*16})
         if result['winner'] in result['excluded']:
             result.update(winner=None,status='WAITING_MORE_DATA')
     # Repair eligibility uses wall-clock exposure, including when the sales feed is late.
-    execution={g:observed_blocks(plan,operations,[],windows,now,epoch=None,group=g) for g in ('console','pc')}
-    policy['repairs_by_group']=missing_repeats(db,plan,epoch,execution,
-                    excluded_by_group={g:r['excluded'] for g,r in policy['group_results'].items()})
+    execution={g:observed_blocks(plan,operations,[],windows,now,epoch=None,group=g,display=display) for g in selected_groups}
+    if display is not None and display['groups'][only_group]['key'] is None:
+        policy['repairs_by_group']={g:{} for g in selected_groups}
+    else:
+        policy['repairs_by_group']=missing_repeats(db,plan,epoch,execution,
+                        excluded_by_group={g:r['excluded'] for g,r in policy['group_results'].items()},cache_suffix=suffix)
     db.put('metadata',key,policy)
     return policy
 
 
-def bidirectional_correction(db, plan, now, block):
-    key='smart-correction:'+policy_suffix(plan)
+def bidirectional_correction(db, plan, now, block, *, display=None, only_group=None):
+    if display is not None and only_group is None:
+        parts={g:bidirectional_correction(db,plan,now,block,display=display,only_group=g) for g in ('console','pc')}
+        return dict(groups={g:parts[g].get('groups',{}).get(g,dict(effective_blocks={})) for g in parts},
+                    display_group_keys={g:display['groups'][g]['key'] for g in parts})
+    key='smart-correction:'+(display_suffix(plan,display,only_group) if display is not None else policy_suffix(plan))
     correction=deepcopy(db.get('metadata',key) or dict(groups={}))
     online=db.get('metadata','daily_online_context') or {}
     coverage=online.get('learning_coverage') or {}
@@ -608,8 +688,8 @@ def bidirectional_correction(db, plan, now, block):
         return correction
     operations,windows=db.all('operations'),db.all('actual_price_windows')
     changed=False
-    for group in ('console','pc'):
-        rows=observed_blocks(plan,operations,online.get('actual_outcomes',[]),windows,min(now,instant(observed)),epoch=None,group=group)
+    for group in ((only_group,) if only_group else ('console','pc')):
+        rows=observed_blocks(plan,operations,online.get('actual_outcomes',[]),windows,min(now,instant(observed)),epoch=None,group=group,display=display)
         scope_gaps(plan,rows,group,None,coverage)
         stops=correction['groups'].setdefault(group,dict(effective_blocks={}))['effective_blocks']
         for label in assess(rows,complete=True)['excluded']:

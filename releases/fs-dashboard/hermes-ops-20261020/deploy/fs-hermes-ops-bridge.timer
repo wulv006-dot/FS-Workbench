@@ -1,9 +1,9 @@
 [Unit]
-Description=Refresh sanitized Hermes operations facts every five minutes
+Description=Refresh sanitized Hermes operations facts every hour
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=5min
+OnUnitActiveSec=1h
 AccuracySec=15s
 Persistent=false
 Unit=fs-hermes-ops-bridge.service

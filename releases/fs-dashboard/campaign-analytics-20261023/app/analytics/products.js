@@ -2,18 +2,30 @@
   'use strict';
   const $=id=>document.getElementById(id),escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const publicPrefix=document.documentElement.dataset.campaignPublicPrefix||'/events/',publicPrefixValid=/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(publicPrefix);
-  const storageKey='fs-center-pending:'+location.pathname.replace(/products\.html$/, 'center.html');
+  let publicBase=null;try{const origin=document.documentElement.dataset.campaignPublicOrigin||location.origin,site=new URL(origin);if(publicPrefixValid&&site.origin===origin&&(site.protocol==='https:'||site.protocol==='http:'&&['127.0.0.1','localhost'].includes(site.hostname)))publicBase=new URL(publicPrefix,site).href;}catch{}
+  let storageKey='fs-center-pending:'+location.pathname.replace(/products\.html$/, 'center.html');
   let modelPreviewPlatform='ps';
   let stagedModels=[],stagedProducts=[],previewSignature=null,halloweenDirty=false,halloweenShown=new Map();
   let savedDraft=null,state=null,catalog=[],busy=false,dirty=false,pending=null,discovered=[],discoveredGame=null,selectedPage='fc27-weekly',modelDetail=null,modelSearchKind=null,uploadRecord=null,searchPage=1,hasMore=false,inspected=null;
+  const editorParams=new URLSearchParams(location.search),weeklyRun=editorParams.get('run_operation_id'),weeklyMode=editorParams.get('weekly')==='1',validWeeklyRun=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(weeklyRun||'');
+  const editorDirty=()=>dirty||stagedModels.length>0||stagedProducts.length>0||!!uploadRecord||!!pending;
+  let leaving=false;
+  if(weeklyMode){
+    storageKey+=':weekly:'+weeklyRun;
+    document.documentElement.dataset.weeklyEditor='true';$('weekly-editor-toolbar').hidden=false;
+    $('weekly-back').href='weekly.html?run_operation_id='+encodeURIComponent(weeklyRun);
+    $('weekly-review').href='weekly.html?view=publish&run_operation_id='+encodeURIComponent(weeklyRun);
+    $('weekly-run').textContent='修改三页内容，保存后审阅并确认发布。';
+  }
   const requestedPage=new URLSearchParams(location.search).get('page');if(['fc27-sbc','fc27-trio','fc27-weekly'].includes(requestedPage))selectedPage=requestedPage;
+  if(weeklyMode&&!validWeeklyRun){$('center-error').textContent='本周活动运行编号无效，请从周更活动页重新打开编辑器。';return;}
   try{pending=JSON.parse(sessionStorage.getItem(storageKey)||'null');}catch{$('center-error').textContent='无法读取原操作记录；请保留当前会话并联系维护人员核对。';return;}
   const stable=v=>JSON.stringify(v,(_k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.keys(x).sort().map(k=>[k,x[k]])):x);
   const same=(a,b)=>stable(a)===stable(b);
   function acceptedState(value){stagedModels=[];stagedProducts=[];halloweenDirty=false;state=value;if(uploadRecord?.page_id){if(state.draft.pages.some(p=>p.page_id===uploadRecord.page_id))selectedPage=uploadRecord.page_id;else $('media-status').textContent='原上传目标页不存在，已保留原操作与文件，请联系维护核对；未绑定到其他页。';}savedDraft=structuredClone(value.draft);dirty=false;if($('restore-review'))$('restore-review').hidden=true;}
   function persist(value){sessionStorage.setItem(storageKey,JSON.stringify(value));pending=value;}
-  async function request(path,body){const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...(body?{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':state.csrf},body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{throw Object.assign(Error('响应无法确认，请核对原操作。'),path==='api/center/backend-read'||path==='api/center/preview'?{status:response.status}:{});}if(!response.ok)throw Object.assign(Error(data.message||data.code||'请求失败'),{status:response.status});return data;}
-  function lock(){ $('page-select').disabled=busy||Boolean(pending)||Boolean(uploadRecord);$('upload-media').disabled=busy||!state?.canEdit||Boolean(pending)||Boolean(uploadRecord);$('recover-upload').hidden=!uploadRecord?.unknown;dirty=Boolean(state&&savedDraft&&!same(state.draft,savedDraft))||halloweenDirty;if(previewSignature&&(halloweenDirty||previewSignature!==stable({page_id:selectedPage,draft:state?.draft,model_imports:modelImports(),product_imports:productImports()}))){$('draft-preview').hidden=true;$('preview-status').textContent='配置已变化，请重新整页预览。';previewSignature=null;}renderChanges();$('restore-draft').disabled=busy||Boolean(pending)||!state?.canEdit||dirty||!state?.restore_candidate;$('confirm-restore').disabled=$('restore-draft').disabled; $('center-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('read-benefits').disabled=busy||!state?.canEdit||Boolean(pending);$('publish-center').disabled=Boolean(uploadRecord?.unknown);$('preview-draft').disabled=busy||Boolean(pending)||!state?.canEdit||Boolean(uploadRecord?.unknown);$('read-published').disabled=busy||!state?.published||Boolean(pending);$('discovery-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('discover-search').disabled=busy;$('discover-product').disabled=!discoveredGame;$('inspect-product').disabled=busy||!discoveredGame||!$('discover-product').value;$('add-product').disabled=busy||!inspected||!state?.canEdit||Boolean(pending);$('discovery-prev').disabled=busy||searchPage<=1;$('discovery-next').disabled=busy||!hasMore; }
+  async function request(path,body){const response=await fetch(path,{credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(path==='api/weekly/workflow'?300000:30000),...(body?{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':state.csrf},body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{throw Object.assign(Error('响应无法确认，请核对原操作。'),path==='api/center/backend-read'||path==='api/center/preview'?{status:response.status}:{});}if(!response.ok)throw Object.assign(Error(data.message||data.code||'请求失败'),{status:response.status});return data;}
+  function lock(){ $('page-select').disabled=busy||Boolean(pending)||Boolean(uploadRecord);$('upload-media').disabled=busy||!state?.canEdit||Boolean(pending)||Boolean(uploadRecord);$('recover-upload').hidden=!uploadRecord?.unknown;dirty=Boolean(state&&savedDraft&&!same(state.draft,savedDraft))||halloweenDirty;if(previewSignature&&(halloweenDirty||previewSignature!==stable({page_id:selectedPage,draft:state?.draft,model_imports:modelImports(),product_imports:productImports()}))){$('draft-preview').hidden=true;$('weekly-preview-link').hidden=true;$('preview-status').textContent='配置已变化，请重新整页预览。';previewSignature=null;}renderChanges();$('restore-draft').disabled=busy||Boolean(pending)||!state?.canEdit||dirty||!state?.restore_candidate;$('confirm-restore').disabled=$('restore-draft').disabled; $('center-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('read-benefits').disabled=busy||!state?.canEdit||Boolean(pending);$('publish-center').disabled=Boolean(uploadRecord?.unknown);$('preview-draft').disabled=busy||Boolean(pending)||!state?.canEdit||Boolean(uploadRecord?.unknown);$('read-published').disabled=busy||!state?.published||Boolean(pending);$('discovery-fields').disabled=busy||!state?.canEdit||Boolean(pending);$('discover-search').disabled=busy;$('discover-product').disabled=!discoveredGame;$('inspect-product').disabled=busy||!discoveredGame||!$('discover-product').value;$('add-product').disabled=busy||!inspected||!state?.canEdit||Boolean(pending);$('discovery-prev').disabled=busy||searchPage<=1;$('discovery-next').disabled=busy||!hasMore;if(weeklyMode){$('weekly-save').disabled=busy||!!pending||!state?.canEdit;$('weekly-preview').disabled=$('preview-draft').disabled;document.querySelectorAll('[data-weekly-page]').forEach(button=>{button.disabled=busy||!!pending||!!uploadRecord;button.setAttribute('aria-current',button.dataset.weeklyPage===selectedPage?'page':'false');});$('weekly-save-state').textContent=editorDirty()?'有未保存修改':'草稿修订 '+(state?.revision??'读取中');} }
   function local(value){return value?new Date(value).toISOString().slice(0,16):'';}
   function benefitLabel(ref){const item=catalog.find(x=>x.kind===ref.kind&&x.native_id===ref.native_id);return (ref.kind==='coupon'?'优惠券':'折扣')+' · '+(item?.title||ref.native_id)+(item?' · 原始状态 '+String(item.raw_status??'未知'):' · 尚未核验');}
   function bindings(page,i){return '<ul class="bindings">'+(page.benefit_refs||[]).map((ref,j)=>'<li><span>'+escape(benefitLabel(ref))+'</span><button class="fs-btn" type="button" data-remove="'+i+':'+j+'">移除绑定</button></li>').join('')+'</ul><label for="benefit-'+i+'">选择后台优惠<select id="benefit-'+i+'" data-benefit="'+i+'"><option value="">请选择原生优惠</option>'+catalog.map((ref,j)=>'<option value="'+j+'">'+escape(benefitLabel(ref))+'</option>').join('')+'</select></label><button class="fs-btn" type="button" data-add="'+i+'">添加绑定</button>';}
@@ -38,19 +50,20 @@
     const p=state.published;$('published-readback').textContent='尚未核对当前发布版本的公开运行时；保存记录不等于部署或真实交易启用。';
     if(!p){$('published-summary').textContent='尚无已发布版本；草稿不会进入公开运行时。';return;}
     const rows=[['发布 ID',p.release_id],['配置哈希',p.config_hash],['规则哈希',p.rule_hash],['源码版本',p.source_revision||'旧记录未保存'],['发布时间',p.published_at],['限定活动素材主题',p.seasonal_theme||'旧记录未保存'],['模式','preview · 主站交易未开放']];
-    $('published-summary').innerHTML='<dl>'+rows.map(([label,value])=>'<div><dt>'+escape(label)+'</dt><dd style="overflow-wrap:anywhere">'+escape(value)+'</dd></div>').join('')+'</dl>'+(Array.isArray(p.pages)?'<ul>'+p.pages.map(page=>'<li>'+escape(page.title+' · '+page.path+' · '+(page.preview_enabled?'允许预览':'预览关闭')+' · 默认语言 '+(page.default_language||'original')+' · 分享图 '+(page.social_image||'original')+' · UTC '+(page.starts_at||'不限')+' — '+(page.ends_at||'不限'))+(publicPrefixValid&&['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','seasonal/index.html'].includes(page.path)?' <a href="'+escape(publicPrefix+page.path)+'" target="_blank" rel="noopener">打开发布预览</a>':'')+'</li>').join('')+'</ul>':'<p>旧发布记录未保存页面摘要，请保存并发布后核对。</p>');
+    $('published-summary').innerHTML='<dl>'+rows.map(([label,value])=>'<div><dt>'+escape(label)+'</dt><dd style="overflow-wrap:anywhere">'+escape(value)+'</dd></div>').join('')+'</dl>'+(Array.isArray(p.pages)?'<ul>'+p.pages.map(page=>'<li>'+escape(page.title+' · '+page.path+' · '+(page.preview_enabled?'允许预览':'预览关闭')+' · 默认语言 '+(page.default_language||'original')+' · 分享图 '+(page.social_image||'original')+' · UTC '+(page.starts_at||'不限')+' — '+(page.ends_at||'不限'))+(publicBase&&['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','seasonal/index.html'].includes(page.path)?' <a href="'+escape(new URL(page.path,publicBase).href)+'" target="_blank" rel="noopener">打开已发布页面</a>':'')+'</li>').join('')+'</ul>':'<p>旧发布记录未保存页面摘要，请保存并发布后核对。</p>');
   }
   function renderPreview(){
     const routes={'fc27-weekly':'Weekly-Scout.html','fc27-sbc':'Sbc-Companions.html','fc27-trio':'Player-Trio.html','seasonal-vault':'seasonal/index.html'},link=$('preview-page'),route=routes[selectedPage];
-    link.hidden=!route||!publicPrefixValid;
-    if(!route||!publicPrefixValid){link.removeAttribute('href');return;}
-    link.href=publicPrefix+route;
+    link.hidden=!route||!publicBase;
+    if(!route||!publicBase){link.removeAttribute('href');return;}
+    link.href=new URL(route,publicBase).href;
     link.textContent='查看已发布页面 ↗';
   }
   function render(){
     if(halloweenDirty&&!collectHalloween()){$('center-error').textContent=$('halloween-status').textContent;return;}
     $('draft-state').textContent='修订 '+state.revision;$('publish-state').textContent=state.published?'已有预览发布':'尚未发布';
-    $('page-select').innerHTML=state.draft.pages.map(p=>'<option value="'+escape(p.page_id)+'" '+(p.page_id===selectedPage?'selected':'')+'>'+escape(p.title||p.page_id)+'</option>').join('');
+    const pageLabel=p=>p.page_id==='fc27-trio'&&['Star Performer Trio','Star Performer 三人组'].includes(p.title)?'Player Trio':p.title||p.page_id;
+    $('page-select').innerHTML=state.draft.pages.filter(p=>!weeklyMode||['fc27-sbc','fc27-trio','fc27-weekly'].includes(p.page_id)).map(p=>'<option value="'+escape(p.page_id)+'" '+(p.page_id===selectedPage?'selected':'')+'>'+escape(pageLabel(p))+'</option>').join('');
     $('seasonal-theme-label').hidden=selectedPage!=='seasonal-vault';$('fc-business').hidden=selectedPage==='seasonal-vault';$('discovery-fields').closest('section').hidden=selectedPage!=='seasonal-vault';
     $('page-guidance').textContent=selectedPage==='seasonal-vault'?'万圣节：四款游戏，每游戏固定模型 + 两个随机商品槽；未配置概率、商品或有效期时保持不可抽取。旧配置记录保留，不自动迁移。':'FC 页面：保留原球员、SBC搭档、三人组与捆绑包编排；新增未适配商品仅展示资料，不自动变成可买卡或组合。';
     $('center-pages').innerHTML=state.draft.pages.map((p,i)=>'<fieldset '+(p.page_id===selectedPage?'':'hidden ')+'data-page="'+i+'"><legend>'+escape(p.title||p.page_id)+'</legend><p class="muted">'+escape(p.activity_id+' / '+p.page_id+' · '+p.path)+'</p><div class="config-grid"><label for="title-'+i+'">页面标题<input id="title-'+i+'" name="title" required maxlength="160" value="'+escape(p.title)+'"></label><label class="check"><input name="preview_enabled" type="checkbox" '+(p.preview_enabled?'checked':'')+'>允许预览</label><label for="start-'+i+'">开始时间 (UTC)<input id="start-'+i+'" name="starts_at" type="datetime-local" value="'+local(p.starts_at)+'" aria-errormessage="date-error-'+i+'"><span class="error-msg" id="date-error-'+i+'">结束时间必须晚于开始时间。</span></label><label for="end-'+i+'">结束时间 (UTC)<input id="end-'+i+'" name="ends_at" type="datetime-local" value="'+local(p.ends_at)+'" aria-errormessage="end-error-'+i+'"><span class="error-msg" id="end-error-'+i+'">结束时间必须晚于开始时间。</span></label></div><label for="description-'+i+'">SEO 描述<textarea id="description-'+i+'" name="description" maxlength="320">'+escape(p.description)+'</textarea></label>'+copyControls(p,i)+presentationControls(p,i)+'<div data-bindings="'+i+'">'+bindings(p,i)+'</div></fieldset>').join('');
@@ -100,13 +113,25 @@
     $('draft-changes').innerHTML=rows.length?'<strong>整页未保存修改</strong><ul>'+rows.map(x=>'<li>'+escape(x)+'</li>').join('')+'</ul><p>统一预览可检查所有修改；保存仅保留配置，发布整页时一次验证全部修改。</p>':'未修改配置；切换页面不会固定继承数据。';
   }
   async function load(){busy=true;lock();state=null;try{acceptedState(await request('api/center'));render();if(pending){$('center-status').textContent='已重读服务器状态，正在用原操作 ID 核对结果。';await resolve();}else $('center-status').textContent=state.canEdit?'已读取服务器配置。':'当前账号为只读。';}catch(error){$('center-error').textContent=error.message;}finally{busy=false;lock();}}
-  async function resolve(){const receipt=await request(pending.path,pending.body);const refreshed=await request('api/center');persist(null);acceptedState(refreshed);render();$('center-status').textContent='原操作已确认，已重新读取服务器状态。';return receipt;}
-  async function mutate(path,draft,extra={}){if(busy||pending||!state?.canEdit)return;busy=true;lock();$('center-error').textContent='';$('center-status').textContent='正在执行本次草稿操作，请等待原操作结果。';try{persist({path,body:{revision:state.revision,operation_id:crypto.randomUUID(),...(draft?{draft}:{}),...extra}});await resolve();$('center-status').textContent=path.endsWith('/publish')?'预览配置已发布；主站交易仍待接入。':path.endsWith('/restore')?'已恢复上一份草稿的原始字段与继承；未改变公开预览。':'草稿已保存；尚未发布预览。';}catch(error){if([400,403,409,422].includes(error.status)){persist(null);const fresh=await request('api/center');if(fresh.revision===state.revision&&same(fresh.draft,savedDraft)){state.csrf=fresh.csrf;state.canEdit=fresh.canEdit;}else{acceptedState(fresh);render();}}$('center-error').textContent=error.message+(pending?' 原操作记录已保留；请点击重新读取核对，勿新建操作。':' 已重新读取服务器状态，请核对后修改。');}finally{busy=false;lock();}}
+  async function resolve(){
+    const savedPath=pending.path,operationId=pending.body.operation_id;
+    if(weeklyMode&&savedPath.endsWith('/publish'))throw Error('请在周更台审阅后确认发布');
+    const receipt=await request(pending.path,pending.body),refreshed=await request('api/center');
+    acceptedState(refreshed);render();
+    if(weeklyMode&&savedPath==='api/center'){
+      $('center-status').textContent='草稿已保存，正在关联本周工作单。';
+      const review=await request('api/weekly/workflow',{action:'review',operation_id:operationId,run_operation_id:weeklyRun,revision:state.revision});
+      if(review.operation_id!==weeklyRun||review.revision!==state.revision)throw Error('草稿已保存，周更工作单版本尚未确认');
+    }
+    persist(null);$('center-status').textContent='原操作已确认，已重新读取服务器状态。';return receipt;
+  }
+
+  async function mutate(path,draft,extra={}){if(busy||pending||!state?.canEdit)return;busy=true;lock();$('center-error').textContent='';$('center-status').textContent='正在执行本次草稿操作，请等待原操作结果。';try{persist({path,body:{revision:state.revision,operation_id:crypto.randomUUID(),...(draft?{draft}:{}),...extra}});await resolve();$('center-status').textContent=path.endsWith('/publish')?'预览配置已发布；主站交易仍待接入。':path.endsWith('/restore')?'已恢复上一份草稿的原始字段与继承；未改变公开预览。':weeklyMode?'草稿已保存，并已关联本周工作单；可前往审阅发布。':'草稿已保存；尚未发布预览。';}catch(error){if([400,403,409,422].includes(error.status)){persist(null);const fresh=await request('api/center');if(fresh.revision===state.revision&&same(fresh.draft,savedDraft)){state.csrf=fresh.csrf;state.canEdit=fresh.canEdit;}else if(weeklyMode){state.csrf=fresh.csrf;state.canEdit=fresh.canEdit;}else{acceptedState(fresh);render();}}$('center-error').textContent=error.message+(pending?' 原操作记录已保留；请点击重新读取核对，勿新建操作。':weeklyMode?' 未保存修改已保留；服务器版本可能已变化，请核对后决定是否重新读取。':' 已重新读取服务器状态，请核对后修改。');}finally{busy=false;lock();}}
   function collectPage(){
     $('center-error').textContent='';state.draft=readForm();if(!$('center-form').reportValidity())return null;
     try{if(!collectHalloween())throw Error($('halloween-status').textContent);applyPendingMedia();lock();return structuredClone(state.draft);}catch(error){$('center-error').textContent=error.message;return null;}
   }
-  function modelImports(){return stagedModels.filter(m=>state?.draft.pages.find(p=>p.page_id===m.page_id)?.product_keys?.some(key=>key.startsWith('fc-model-266-1327-'+m.model_id+'-')));}
+  function modelImports(){return stagedModels.filter(m=>layoutIds(layout(),m.page_id).includes('model-266-1327-'+m.model_id));}
   function productImports(){return stagedProducts.filter(m=>state?.draft.pages.find(p=>p.page_id===m.page_id)?.product_keys?.includes(m.key)).map(({page_id,product_ref})=>({page_id,product_ref}));}
   $('center-form').addEventListener('submit',event=>{event.preventDefault();const draft=collectPage();if(!draft)return;if(same(draft,savedDraft)){$('center-status').textContent='没有配置变化，未提交保存。';return;}mutate('api/center',draft,{model_imports:modelImports(),product_imports:productImports()});});
   $('restore-draft').addEventListener('click',()=>{
@@ -116,19 +141,33 @@
   });
   $('cancel-restore').addEventListener('click',()=>{$('restore-review').hidden=true;});
   $('confirm-restore').addEventListener('click',()=>{if(!state?.restore_candidate||dirty)return;mutate('api/center/restore',null,{restore_revision:state.restore_candidate.revision});});
-  $('publish-center').addEventListener('click',()=>{const draft=collectPage();if(draft)mutate('api/center/publish',draft,{model_imports:modelImports(),product_imports:productImports()});});
+  $('publish-center').addEventListener('click',()=>{if(weeklyMode)return;const draft=collectPage();if(draft)mutate('api/center/publish',draft,{model_imports:modelImports(),product_imports:productImports()});});
   $('preview-draft').addEventListener('click',async()=>{
     if(busy||pending||!state?.canEdit)return;const draft=collectPage();if(!draft)return;
+    const previewWindow=window.open('about:blank','_blank');if(previewWindow)previewWindow.opener=null;
     busy=true;lock();$('preview-status').textContent='正在生成整页预览；不会保存或发布。';
     try{
       const body={revision:state.revision,draft,page_id:selectedPage,model_imports:modelImports(),product_imports:productImports()},result=await request('api/center/preview',body),url=new URL(result.preview_url,location.href);
       if(url.origin!==location.origin||!url.pathname.startsWith(new URL('preview/',location.href).pathname))throw Error('整页预览地址未通过同源校验。');
-      previewSignature=stable({page_id:selectedPage,draft,model_imports:body.model_imports,product_imports:body.product_imports});$('draft-preview-frame').src=url.href;$('draft-preview').hidden=false;
-      $('preview-status').textContent='当前整页未发布预览：包含本页素材、模型编排与优惠配置；交易未启用。预览到期后可重新打开。';
-    }catch(error){$('draft-preview').hidden=true;$('preview-status').textContent=error.message+' 未保存或发布任何配置。';}finally{busy=false;lock();}
+      previewSignature=stable({page_id:selectedPage,draft,model_imports:body.model_imports,product_imports:body.product_imports});$('draft-preview-link').href=url.href;$('weekly-preview-link').href=url.href;$('weekly-preview-link').hidden=!weeklyMode||!!previewWindow;$('draft-preview').hidden=false;
+      if(previewWindow&&!previewWindow.closed)previewWindow.location.replace(url.href);
+      $('preview-status').textContent=previewWindow?'未发布预览已在新标签打开；编辑内容保留在本页。':'浏览器阻止了新标签。请点击预览链接打开；不会保存或发布。';
+    }catch(error){if(previewWindow&&!previewWindow.closed)previewWindow.close();$('draft-preview').hidden=true;$('weekly-preview-link').hidden=true;$('preview-status').textContent=error.message+' 未保存或发布任何配置。';}finally{busy=false;lock();}
   });
-  window.addEventListener('beforeunload',event=>{if(dirty||stagedModels.length||stagedProducts.length||uploadRecord){event.preventDefault();event.returnValue='';}});
-  $('reload-center').addEventListener('click',()=>{if(!busy)load();});
+
+  if(weeklyMode){
+    $('weekly-save').addEventListener('click',()=>$('save-center').click());
+    $('weekly-preview').addEventListener('click',()=>$('preview-draft').click());
+    document.querySelectorAll('[data-weekly-page]').forEach(button=>button.addEventListener('click',()=>{if(button.dataset.weeklyPage===selectedPage)return;$('page-select').value=button.dataset.weeklyPage;$('page-select').dispatchEvent(new Event('change'));}));
+    for(const id of ['weekly-back','weekly-review'])$(id).addEventListener('click',event=>{
+      if(busy||pending||uploadRecord?.unknown){event.preventDefault();$('center-error').textContent='请先核对原操作结果，再离开编辑页。';return;}
+      if(editorDirty()&&!confirm('有未保存修改。确定放弃这些修改并离开编辑页吗？')){event.preventDefault();return;}
+      leaving=event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey;
+    });
+  }
+  window.addEventListener('pageshow',()=>{leaving=false;});
+  window.addEventListener('beforeunload',event=>{if(!leaving&&editorDirty()){event.preventDefault();event.returnValue='';}});
+  $('reload-center').addEventListener('click',()=>{if(!busy&&(!weeklyMode||!editorDirty()||confirm('有未保存修改，确定放弃并重新读取吗？')))load();});
   for(const type of ['input','change'])$('center-form').addEventListener(type,event=>{if(event.target.id==='page-select'||event.target.closest('#page-products')||event.target.closest('#fc-layout'))return;state.draft=readForm();lock();});
   $('center-pages').addEventListener('click',event=>{const add=event.target.closest('[data-add]'),remove=event.target.closest('[data-remove]');if(!add&&!remove)return;state.draft=readForm();if(add){const i=Number(add.dataset.add),select=$('benefit-'+i);if(!select.value){select.setCustomValidity('请选择后台目录中的原生优惠。');select.reportValidity();select.setCustomValidity('');return;}const ref=catalog[Number(select.value)],refs=state.draft.pages[i].benefit_refs||=[];if(!refs.some(x=>x.kind===ref.kind&&x.native_id===ref.native_id))refs.push({kind:ref.kind,native_id:ref.native_id});}else{const [i,j]=remove.dataset.remove.split(':').map(Number);state.draft.pages[i].benefit_refs.splice(j,1);}dirty=true;render();});
   $('read-benefits').addEventListener('click',async()=>{if(busy)return;busy=true;lock();try{state.draft=readForm();const result=await request('api/center/backend-read',{action:'benefits_read',site_id:'266'});catalog=[...(result.data?.coupons||[]),...(result.data?.discounts||[])];$('backend-state').textContent='已读 '+catalog.length+' 项';$('catalog-status').textContent='站点 266 原始目录已读；状态语义、适用范围及有效期仍须核验，不代表优惠可用。';render();}catch(error){$('catalog-status').textContent=error.message;}finally{busy=false;lock();}});
@@ -235,7 +274,7 @@
   }
 
   function prunePairs(page){if(!page.sbc_companions)return;const keys=new Set(pageKeys(page));page.sbc_companions=Object.fromEntries(Object.entries(page.sbc_companions).filter(([key])=>keys.has(key)&&page.product_roles?.[key]==='core').map(([key,values])=>[key,values.filter(k=>keys.has(k)&&page.product_roles?.[k]==='companion')]));}
-  $('page-select').addEventListener('change',()=>{state.draft=readForm();if(!collectHalloween()){$('page-select').value=selectedPage;$('center-error').textContent=$('halloween-status').textContent;return;}selectedPage=$('page-select').value;inspected=null;modelDetail=null;render();});
+  $('page-select').addEventListener('change',()=>{if(weeklyMode&&editorDirty()&&!confirm('有未保存修改。切换页面会保留修改，仍需统一保存。继续切换吗？')){$('page-select').value=selectedPage;return;}state.draft=readForm();if(!collectHalloween()){$('page-select').value=selectedPage;$('center-error').textContent=$('halloween-status').textContent;return;}selectedPage=$('page-select').value;inspected=null;modelDetail=null;render();});
   $('page-products').addEventListener('click',event=>{const up=event.target.closest('[data-product-up]'),remove=event.target.closest('[data-product-remove]');if(!up&&!remove||busy||pending)return;state.draft=readForm();const page=state.draft.pages.find(p=>p.page_id===selectedPage);page.product_keys=[...pageKeys(page)];const i=Number(up?up.dataset.productUp:remove.dataset.productRemove);if(up&&i>0)[page.product_keys[i-1],page.product_keys[i]]=[page.product_keys[i],page.product_keys[i-1]];else if(remove){const [key]=page.product_keys.splice(i,1);if(page.product_roles)delete page.product_roles[key];prunePairs(page);}dirty=true;renderPageProducts();lock();});
   $('page-products').addEventListener('change',event=>{if(!event.target.dataset.roleKey||busy||pending)return;state.draft=readForm();const page=state.draft.pages.find(p=>p.page_id===selectedPage);page.product_keys=[...pageKeys(page)];page.product_roles||={};if(event.target.value)page.product_roles[event.target.dataset.roleKey]=event.target.value;else delete page.product_roles[event.target.dataset.roleKey];prunePairs(page);dirty=true;renderPageProducts();lock();});
   $('page-products').addEventListener('click',event=>{if(event.target.id!=='add-existing-product'||busy||pending)return;const key=$('existing-product').value;if(!key)return;state.draft=readForm();const page=state.draft.pages.find(p=>p.page_id===selectedPage);page.product_keys=[...pageKeys(page)];if(!page.product_keys.includes(key))page.product_keys.push(key);dirty=true;renderPageProducts();lock();});
@@ -248,7 +287,7 @@
   const productFor=key=>{const p=state.fc_catalog?.products?.[key];if(!p||p.platforms)return p;const variants=(state.catalog_products||[]).filter(row=>row.key.startsWith('fc-'+key+'-'));return {...p,image:p.image||variants.find(row=>row.image)?.image,platforms:Object.fromEntries(['ps','xbox','pc'].map(code=>{const row=variants.find(row=>row.key==='fc-'+key+'-'+code);return [code,{id:row?.product_ref?.goods_id??null,binding_state:row?'accepted_snapshot':'unknown'}];}))};};
   const refsFor=key=>['ps','xbox','pc'].map(platform=>'fc-'+key+'-'+platform);
   const selectedPlatforms=key=>['ps','xbox','pc'].filter(platform=>pageKeys(page()).includes('fc-'+key+'-'+platform));
-  function layoutIds(d){return selectedPage==='fc27-weekly'?d.weekly:selectedPage==='fc27-trio'?[...d.trio,...d.bundles]:[...d.sbc,...d.sbc.flatMap(key=>[...(d.routes[key]?.picks||[]),...(d.routes[key]?.alternatives||[])])];}
+  function layoutIds(d,pageId=selectedPage){return pageId==='fc27-weekly'?d.weekly:pageId==='fc27-trio'?[...d.trio,...d.bundles]:[...d.sbc,...d.sbc.flatMap(key=>[...(d.routes[key]?.picks||[]),...(d.routes[key]?.alternatives||[])])];}
   function bindingMarkup(p){return '<details><summary>三平台关联 / 当前本页选择'+(refsFor(p.key).some(ref=>page().product_roles?.[ref]==='preview')?' · 仅资料预览，不进入此业务位':'')+'</summary>'+['ps','xbox','pc'].map(code=>{const row=p.platforms?.[code],selected=selectedPlatforms(p.key).includes(code);const role=page().product_roles?.['fc-'+p.key+'-'+code];return '<p class="platform-row">'+platformNames[code]+' · '+(selected?'本页已选':'本页未选')+' · 商品 '+escape(row?.id??row?.product_ref?.goods_id??'暂无可用关联')+' · '+escape(row?.binding_state??row?.state??(row?.id?'原快照':'unknown'))+' · 原角色 '+escape(role||'继承原业务')+(role==='preview'?'（仅资料预览，不进入此业务位）':'')+'</p>';}).join('')+'</details>';}
   function modelCard(key,actions=''){
     const p=productFor(key);if(!p)return '<article class="model-card">保留的模型 '+escape(key)+'：资料暂不可读，请核对后再修改。</article>';
@@ -292,13 +331,29 @@
   $('fc-layout').addEventListener('change',event=>{
     if(busy||pending||!state?.canEdit)return;state.draft=readForm();const previous=structuredClone(layout()),d=structuredClone(previous),el=event.target;
     if(el.dataset.trio!=null){const index=Number(el.dataset.trio),other=d.trio.indexOf(el.value),old=d.trio[index];if(other>=0&&other!==index)d.trio[other]=old;d.trio[index]=el.value;}
-    else if(el.id==='layout-default-core')d.defaultCore=el.value;
+    else if(el.id==='layout-default-core'){
+      if(!d.sbc.includes(el.value))return;
+      d.defaultCore=el.value;d.sbc=[el.value,...d.sbc.filter(key=>key!==el.value)];
+      // Reordering does not change page membership, roles or companion routes.
+      state.draft.fc_layout=d;renderFcLayout();renderMaterials();lock();return;
+    }
     else{const key=el.closest('[data-layout-core]')?.dataset.layoutCore;if(!key)return;if(el.dataset.layoutPick!=null)d.routes[key].picks[Number(el.dataset.layoutPick)]=el.value;else if(el.dataset.alternative)d.routes[key].alternatives=[...el.closest('[data-layout-core]').querySelectorAll('[data-alternative]:checked')].map(x=>x.dataset.alternative);else return;}
     if(!same(d,previous))applyLayout(d,previous);
   });
 
   function modelKind(){return $('model-target').selectedOptions[0]?.dataset.kind;}
   function modelIdentity(p){return ['ps','xbox','pc'].map(code=>{const row=(p.platforms? p:productFor(p.key))?.platforms?.[code];return row?.id??row?.product_ref?.goods_id??null;});}
+  function legacyBundleUpgrade(model,d=layout()){
+    if(model.kind!=='bundle'||$('model-target').value!=='bundle'||productFor(model.key))return null;
+    const ids=modelIdentity(model);if(ids.some(x=>!x)||['ps','xbox','pc'].some(code=>model.platforms?.[code]?.state!=='verified'))return null;
+    const matches=Object.values(state.fc_catalog.products).filter(p=>p.kind==='bundle'&&!p.key.startsWith('model-')&&modelIdentity(p).every((id,i)=>id!=null&&String(id)===String(ids[i])));
+    return matches.length===1&&d.bundles.includes(matches[0].key)?matches[0].key:null;
+  }
+  function upgradeBundleSelection(p,oldKey,newKey){
+    const replacements=new Map(refsFor(oldKey).map((ref,i)=>[ref,refsFor(newKey)[i]])),rename=key=>replacements.get(key)||key;
+    if(Object.hasOwn(p,'product_keys'))p.product_keys=p.product_keys.map(rename);
+    if(p.product_roles)p.product_roles=Object.fromEntries(Object.entries(p.product_roles).map(([key,role])=>[rename(key),role]));
+  }
   function matchingKey(model){
     if(productFor(model.key))return model.key;const ids=modelIdentity(model);if(ids.some(x=>!x))return model.key;
     return Object.values(state.fc_catalog.products).find(p=>modelIdentity(p).every((id,i)=>id!=null&&String(id)===String(ids[i])))?.key||model.key;
@@ -318,8 +373,8 @@
     if(busy||pending)return;busy=true;lock();modelDetail=null;$('model-detail').hidden=true;
     try{const result=await request('api/center/backend-read',{action:'model_resolve',site_id:'266',game_id:'1327',kind:modelKind(),model_id:id});modelDetail=result.data?.model;if(!modelDetail||modelDetail.model_id!==id)throw Error('模型回执 ID 不匹配。');
       const normalized={...modelDetail,version:modelDetail.version_label,image:modelDetail.image_url,preview_only:true};
-      $('model-detail').innerHTML='<h4>'+escape(modelDetail.title||'模型标题未知')+'</h4><p>模型 '+escape(id)+' · '+escape(modelDetail.version_label||'版本未验证')+'</p><div class="fc-activity" id="resolved-preview">'+window.FCActivityContent.previewCard(normalized,{platform:modelPreviewPlatform})+'</div><p>这份回执只核对身份和平台，不是报价或成交。</p>'+(modelKind()==='sbc'?[0,1].map(i=>'<label>新核心搭档 '+(i+1)+'<select id="new-core-pick-'+i+'"><option value="">请选择已有 Player 版本</option>'+Object.values(state.fc_catalog.products).filter(p=>p.kind==='player').map(p=>'<option value="'+escape(p.key)+'">'+escape(p.title||p.name)+'</option>').join('')+'</select></label>').join(''):'')+'<button id="choose-model" class="fs-btn" type="button">'+(selectedPage==='fc27-weekly'?'添加到推荐首位':'加入当前业务位置')+(matchingKey(modelDetail)!==modelDetail.key?'（复用原卡）':'（未保存）')+'</button>';$('model-detail').hidden=false;
-      $('model-status').textContent=matchingKey(modelDetail)!==modelDetail.key?'三平台商品与已接受卡精确相同，将复用原卡，避免重复。':'请核对完整版本与三平台状态；缺图须上传本版本素材。';
+      $('model-detail').innerHTML='<h4>'+escape(modelDetail.title||'模型标题未知')+'</h4><p>模型 '+escape(id)+' · '+escape(modelDetail.version_label||'版本未验证')+'</p><div class="fc-activity" id="resolved-preview">'+window.FCActivityContent.previewCard(normalized,{platform:modelPreviewPlatform})+'</div><p>这份回执只核对身份和平台，不是报价或成交。</p>'+(modelKind()==='sbc'?[0,1].map(i=>'<label>新核心搭档 '+(i+1)+'<select id="new-core-pick-'+i+'"><option value="">请选择已有 Player 版本</option>'+Object.values(state.fc_catalog.products).filter(p=>p.kind==='player').map(p=>'<option value="'+escape(p.key)+'">'+escape(p.title||p.name)+'</option>').join('')+'</select></label>').join(''):'')+'<button id="choose-model" class="fs-btn" type="button">'+(selectedPage==='fc27-weekly'?'添加到推荐首位':'加入当前业务位置')+(legacyBundleUpgrade(modelDetail)?'（升级原固定包）':matchingKey(modelDetail)!==modelDetail.key?'（复用原卡）':'（未保存）')+'</button>';$('model-detail').hidden=false;
+      $('model-status').textContent=legacyBundleUpgrade(modelDetail)?'三平台商品与原固定包精确相同，将原位置升级为当前模型；保留页面原有平台选择，统一保存。':matchingKey(modelDetail)!==modelDetail.key?'三平台商品与已接受卡精确相同，将复用原卡，避免重复。':'请核对完整版本与三平台状态；缺图须上传本版本素材。';
     }catch(error){$('model-status').textContent=modelError(error);}finally{busy=false;lock();}
   }
   $('model-target').addEventListener('change',()=>{modelDetail=null;$('model-detail').hidden=true;$('model-results').innerHTML='';$('model-status').textContent='业务位置已变更，请重新检索对应模型类型。';});
@@ -337,8 +392,8 @@
   $('model-detail').addEventListener('click',async event=>{
     const platform=event.target.closest('[data-preview-platform]');if(platform&&modelDetail){modelPreviewPlatform=platform.dataset.previewPlatform;$('resolved-preview').innerHTML=window.FCActivityContent.previewCard({...modelDetail,version:modelDetail.version_label,image:modelDetail.image_url,preview_only:true},{platform:modelPreviewPlatform});return;}
     if(event.target.id!=='choose-model'||busy||pending||!modelDetail||!state?.canEdit)return;
-    try{state.draft=readForm();const previous=structuredClone(layout()),key=matchingKey(modelDetail),d=targetLayout(structuredClone(previous),key);if(layoutIds(previous).includes(key)&&same(previous,d)&&selectedPlatforms(key).length===3&&!refsFor(key).some(ref=>page().product_roles?.[ref]==='preview')){$('model-status').textContent='同一模型版本已在本页该结构内，未重复添加或改变旧平台选择。';return;}
-      const draft=structuredClone(state.draft);state.draft=draft;state.draft.fc_layout=d;syncLayoutSelection(page(),d,previous,[key]);
+    try{state.draft=readForm();const previous=structuredClone(layout()),upgrade=legacyBundleUpgrade(modelDetail,previous),key=upgrade?modelDetail.key:matchingKey(modelDetail),d=upgrade?{...structuredClone(previous),bundles:previous.bundles.map(id=>id===upgrade?key:id)}:targetLayout(structuredClone(previous),key);if(layoutIds(previous).includes(key)&&same(previous,d)&&selectedPlatforms(key).length===3&&!refsFor(key).some(ref=>page().product_roles?.[ref]==='preview')){$('model-status').textContent='同一模型版本已在本页该结构内，未重复添加或改变旧平台选择。';return;}
+      const draft=structuredClone(state.draft);state.draft=draft;state.draft.fc_layout=d;if(upgrade)upgradeBundleSelection(page(),upgrade,key);else syncLayoutSelection(page(),d,previous,[key]);
       if(productFor(key)&&!key.startsWith('model-')){modelDetail=null;render();return;}
       if(!productFor(key)){
         stagedModels.push({page_id:selectedPage,model_id:modelDetail.model_id,kind:modelKind()});

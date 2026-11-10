@@ -1,0 +1,26 @@
+{
+  "status": "verified",
+  "files": 3,
+  "units": {
+    "fs-campaign-dashboard.service": "active",
+    "fs-campaign-runtime.service": "active",
+    "fs-business-range.service": "active"
+  },
+  "targets": [
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/center-store.mjs",
+      "sha256": "6152bf9b60acf23ce04d872f6c709abfcc1806ee28163789df64c0b23e8e3766",
+      "expected": "6152bf9b60acf23ce04d872f6c709abfcc1806ee28163789df64c0b23e8e3766"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/activity-core.js",
+      "sha256": "532247d0c8087cf393a74295a22049fea7ca8fdd8d1649d8763a93e34a38df06",
+      "expected": "532247d0c8087cf393a74295a22049fea7ca8fdd8d1649d8763a93e34a38df06"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/runtime/static-manifest.json",
+      "sha256": "82838fa6d36809185f6aec882d20f3441392f6cd577e21546406c783671fa953",
+      "expected": "82838fa6d36809185f6aec882d20f3441392f6cd577e21546406c783671fa953"
+    }
+  ]
+}

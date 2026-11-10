@@ -1,0 +1,29 @@
+[
+  {
+    "code": "FCSCOUT10",
+    "discount": "90.00",
+    "timestart": "2026-10-26 00:00:00",
+    "timeend": "2027-10-25 23:59:59",
+    "timestamp": 0,
+    "use": 0,
+    "status": 1
+  },
+  {
+    "code": "FCSBC10",
+    "discount": "90.00",
+    "timestart": "2026-10-26 00:00:00",
+    "timeend": "2027-10-25 23:59:59",
+    "timestamp": 0,
+    "use": 0,
+    "status": 1
+  },
+  {
+    "code": "FCTRIO10",
+    "discount": "90.00",
+    "timestart": "2026-10-26 00:00:00",
+    "timeend": "2027-10-25 23:59:59",
+    "timestamp": 0,
+    "use": 1,
+    "status": 1
+  }
+]

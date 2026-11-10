@@ -1,0 +1,1 @@
+{"operation_id": "4ee6724a-5edc-4be2-b277-0967d8dd64c1", "target": "/var/lib/fs-campaign-dashboard/backend/policy.json", "before_sha256": "bff53dc730504d2a90d8af5c6451b0acb19b14f95903acc20d4790eee82d79fe", "after_sha256": "0747ef79acceeb85c494b86de01a87ac5fcf98d4e5024cd95feb7f2d8cd22a2f", "draft_revision": 20, "state": "installed", "published": false, "service_changes": false}

@@ -8,30 +8,60 @@ const pageIds=['fc27-trio','fc27-weekly','fc27-sbc'];
 const uuid=value=>{if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value||''))fail('INVALID_OPERATION_ID');return value;};
 const actor=value=>{if(typeof value!=='string'||!value.trim()||value.length>160||/[\u0000-\u001f]/.test(value))fail('WEEKLY_ACTOR_REQUIRED',403);return value;};
 const same=(a,b)=>canonical(a)===canonical(b);
-export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,nativeCandidateProvider=()=>null,enabledProvider=()=>false,now=Date.now}){
+export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,nativeCandidateProvider=()=>null,enabledProvider=()=>false,onDraftSaved=()=>{},beforeDraftSave=()=>{},now=Date.now}){
  const file=id=>path.join(dir,uuid(id)+'.json');
  const read=id=>fs.existsSync(file(id))?JSON.parse(fs.readFileSync(file(id),'utf8')):null;
+ const commercePlan=(operation_id,owner)=>{
+  uuid(operation_id);const plan=read(operation_id);
+  if(!plan||plan.owner!==owner)fail('WEEKLY_OPERATION_OWNER_MISMATCH',403);
+  const current=center.read(),revision=plan.applied?.result?.draft_revision??null;
+  if(revision===null)fail('WEEKLY_COMMERCE_DRAFT_NOT_SAVED',409);
+  const layout=current.draft.fc_layout,selected=new Set([...(layout?.weekly||[]),...(layout?.trio||[]),...(layout?.bundles||[]),...(layout?.sbc||[]),...Object.values(layout?.routes||{}).flatMap(r=>[...(r.picks||[]),...(r.alternatives||[])])].map(key=>current.draft.fc_models?.[key]?.model_id).filter(Boolean));
+  const proposal=plan.native_candidates,candidate=proposal?.native_catalog_candidate;
+  const models=candidate?Object.fromEntries(Object.entries(candidate.model_contracts||{}).filter(([id])=>selected.has(id))):{};
+  const products=candidate?.products.filter(p=>selected.has(p.product_ref.model_id))||[];
+  const catalog=products.length?{...structuredClone(candidate),products:structuredClone(products),model_contracts:structuredClone(models)}:null;
+  return {operation_id,plan_ref:operation_id,draft_revision:revision,current_revision:current.revision,stale:revision!==current.revision,
+   expired:!catalog||Date.parse(catalog.valid_until)<=now(),approval_required:true,policy_written:false,publication:false,
+   native_catalog_candidate:catalog,price_policy_candidates:structuredClone((proposal?.price_policy_candidates||[]).filter(p=>selected.has(p.policy.model_ref.model_id))),
+   models:structuredClone((proposal?.models||[]).filter(p=>selected.has(p.model_id)))};
+ };
+ const notifySaved=(plan,result)=>{onDraftSaved({operation_id:plan.operation_id,owner:plan.owner,draft_revision:result.draft_revision,trigger:plan.trigger||'unknown',created_at:plan.created_at});return result;};
  const output=plan=>({status:'prepared',operation_id:plan.operation_id,plan_ref:plan.operation_id,input:plan.input,rules_version:plan.input.rules.version,
   trio_players:plan.input.catalog.filter(p=>plan.input.pages.find(p=>p.page_id==='fc27-trio').product_keys.includes(p.key)).map(p=>({name:p.title,model_id:p.product_ref.model_id,key:p.key})),
   evidence_refs:[],source_evidence:plan.source.evidence,checks:plan.checks});
  return {
+  workflowPlan(operation_id,owner){
+   uuid(operation_id);actor(owner);const plan=read(operation_id);if(!plan||plan.owner!==owner)fail('WEEKLY_OPERATION_OWNER_MISMATCH',403);
+   const receipt=this.inspect({operation_id,plan_ref:operation_id},owner);
+   return structuredClone(receipt.status==='draft_saved'&&!plan.applied?{...plan,applied:{hash:plan.apply_hash,result:receipt}}:plan);
+  },
+  commercePlan({operation_id},owner){actor(owner);return commercePlan(operation_id,owner);},
+  draftTrade(){const current=center.read(),operation_id=current.last_operation?.operation_id;if(!operation_id)return null;const plan=read(operation_id);if(!plan?.applied)return null;const bundle=commercePlan(operation_id,plan.owner);return bundle.stale||bundle.expired?null:bundle.native_catalog_candidate;},
   inspect({operation_id,plan_ref},owner){
    uuid(operation_id);actor(owner);if(plan_ref!==operation_id)fail('WEEKLY_PLAN_MISMATCH');const plan=read(operation_id);
    if(!plan||plan.owner!==owner)fail('WEEKLY_OPERATION_OWNER_MISMATCH',403);
-   if(plan.applied)return plan.applied.result;
+   if(plan.applied)return notifySaved(plan,plan.applied.result);
    const receiptFile=path.join(path.dirname(dir),'operations',operation_id+'.json');
    if(fs.existsSync(receiptFile)){
     const receipt=JSON.parse(fs.readFileSync(receiptFile,'utf8')),last=receipt.result?.last_operation;
     const expected=plan.save_request?digest(canonical({kind:'save',revision:plan.save_request.revision,draft:plan.save_request.draft,model_imports:plan.save_request.model_imports,...(plan.save_request.model_refresh_digest?{model_refresh_digest:plan.save_request.model_refresh_digest}:{})})):null;
     if(!expected||receipt.hash!==expected||last?.hash!==expected||last?.operation_id!==operation_id||last.kind!=='save'||receipt.result.updated_by!==owner||receipt.result.revision!==plan.base_revision+1)return {status:'unknown',operation_id,plan_ref,publication:false};
-    return {status:'draft_saved',operation_id,plan_ref,base_revision:plan.base_revision,draft_revision:receipt.result.revision,readback:{status:'verified',source:'center_operation_receipt',operation_id,revision:receipt.result.revision,hash:receipt.hash},checks:plan.checks,publication:false,source_evidence:plan.source.evidence};
+    return notifySaved(plan,{status:'draft_saved',operation_id,plan_ref,base_revision:plan.base_revision,draft_revision:receipt.result.revision,readback:{status:'verified',source:'center_operation_receipt',operation_id,revision:receipt.result.revision,hash:receipt.hash},checks:plan.checks,publication:false,source_evidence:plan.source.evidence});
    }
    return {status:fs.existsSync(path.join(path.dirname(dir),'pending.json'))?'unknown':'not_found',operation_id,plan_ref,publication:false};
   },
-  async prepare({operation_id},owner){
+  async prepare({operation_id,trigger='unknown'},owner){
+   if(!['manual','scheduled','unknown'].includes(trigger))fail('INVALID_WEEKLY_TRIGGER');
    uuid(operation_id);actor(owner);if(!enabledProvider())return {status:'disabled',operation_id,reason:'hermes_disabled',publication:false};const prior=read(operation_id);
    if(prior){if(prior.owner!==owner)fail('WEEKLY_OPERATION_OWNER_MISMATCH',403);return output(prior);}
-   const current=center.read(),context=contextProvider(current),source=await sourceProvider();
+   const current=center.read(),context=contextProvider(current);
+   const bundle_refs=(context.effective_fc_layout.bundles||[]).map(key=>{
+    const stored=current.draft.fc_models?.[key];if(stored?.kind==='bundle')return {model_id:stored.model_id};
+    const product=context.catalog_products?.find(p=>p.key==='fc-'+key+'-ps');
+    if(!product?.product_ref?.goods_id)fail('WEEKLY_BUNDLE_SELECTION_UNVERIFIED');return {goods_id:product.product_ref.goods_id};
+   });
+   const source=await sourceProvider({bundle_refs});
    if(!enabledProvider())return {status:'disabled',operation_id,reason:'hermes_disabled',publication:false};if(center.read().revision!==current.revision)fail('REVISION_CONFLICT',409);
    if(source.rules_version!=='fc27_weekly_selection_v1'||!Array.isArray(source.models))fail('WEEKLY_SOURCE_INVALID');
    const models=projectModels(Object.fromEntries(source.models.map(model=>[model.key,model])));
@@ -49,7 +79,7 @@ export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,na
     pages:[{page_id:'fc27-trio',product_keys:trio},{page_id:'fc27-weekly',product_keys:scout},{page_id:'fc27-sbc',product_keys:[...cores,...players],core_product_keys:cores}],catalog,
     rules:{version:'fc27_weekly_selection_v1',scout_top_keys:scout}};
    const native_candidates=nativeCandidateProvider(source);
-   const plan={operation_id,owner,created_at:new Date(now()).toISOString(),base_revision:current.revision,draft:current.draft,layout:context.effective_fc_layout,source,models,input,native_candidates,
+   const plan={operation_id,owner,trigger,created_at:new Date(now()).toISOString(),base_revision:current.revision,draft:current.draft,layout:context.effective_fc_layout,source,models,input,native_candidates,
     checks:{goods_identity:'observed_per_platform',quote:'pending',native_checkout:'pending',coupon:'pending',publication:false,...(native_candidates?{native_candidate_status:native_candidates.status,model_mapping:native_candidates.models}:{})}};
    // First writer retains its frozen source; a duplicate prepare never replaces it.
    fs.mkdirSync(dir,{recursive:true,mode:0o700});let fd;
@@ -61,7 +91,7 @@ export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,na
    if(!plan||plan.owner!==owner)fail('WEEKLY_OPERATION_OWNER_MISMATCH',403);
    const hash=digest(canonical({recommendation,evidence_sources}));
    if(plan.apply_hash&&plan.apply_hash!==hash)fail('REQUEST_CONFLICT',409);
-   if(plan.applied){if(plan.applied.hash!==hash)fail('REQUEST_CONFLICT',409);return plan.applied.result;}
+   if(plan.applied){if(plan.applied.hash!==hash)fail('REQUEST_CONFLICT',409);return notifySaved(plan,plan.applied.result);}
    if(!enabledProvider())return {status:'disabled',operation_id,reason:'hermes_disabled',publication:false};
    if(!Array.isArray(evidence_sources)||evidence_sources.length>20||evidence_sources.some(s=>{
     try{const u=new URL(s.url);return u.protocol!=='https:'||u.username||u.password||u.search||u.hash||typeof s.title!=='string'||s.title.length>240||!Number.isFinite(Date.parse(s.observed_at))||Date.parse(s.observed_at)>now();}catch{return true;}
@@ -82,25 +112,38 @@ export function makeWeeklyPipeline({dir,center,contextProvider,sourceProvider,na
    if(input.pages.find(p=>p.page_id==='fc27-sbc').core_product_keys.length!==9||companionPool.length!==18||new Set(companionPool).size!==18)fail('WEEKLY_SELECTION_RULE_MISMATCH');
    const layout=structuredClone(plan.layout);layout.weekly=weekly.map(r=>logical(r.product_key));layout.trio=trio.map(r=>logical(r.product_key));
    layout.sbc=input.pages.find(p=>p.page_id==='fc27-sbc').core_product_keys.map(logical);layout.defaultCore=layout.sbc[0];
-   // Existing dormant routes, bundles and all other pages remain in their source draft.
+   // Old frozen plans retain their historical bundle selection. Fresh source snapshots
+   // refresh only the bundles selected in the current FS configuration, never all Packs.
+   if(Array.isArray(plan.source.bundle_model_ids)){
+    if(plan.source.evidence?.bundles_complete!==true||plan.source.bundle_model_ids.length>8||new Set(plan.source.bundle_model_ids).size!==plan.source.bundle_model_ids.length)fail('WEEKLY_BUNDLE_SELECTION_UNVERIFIED');
+    layout.bundles=plan.source.bundle_model_ids.map(mid=>{const key='model-266-1327-'+mid;if(plan.models[key]?.kind!=='bundle')fail('WEEKLY_BUNDLE_SELECTION_UNVERIFIED');return key;});
+   }
+   // Dormant routes and all non-FC configuration remain in their original draft.
    for(const core of input.pages.find(p=>p.page_id==='fc27-sbc').core_product_keys){const companions=sbc.filter(r=>r.core_product_key===core).map(r=>logical(r.product_key));
     if(companions.length!==2||new Set(companions).size!==2)fail('WEEKLY_SELECTION_RULE_MISMATCH');
     layout.routes[logical(core)]={picks:companions,alternatives:companionPool.filter(key=>!companions.includes(key))};
    }
    const draft=structuredClone(plan.draft);draft.fc_layout=layout;
-   // FC page keys inherit the real layout, replacing only these three selections.
-   for(const page of draft.pages)if(pageIds.includes(page.page_id))delete page.product_keys;
-   const used=[...new Set([...layout.weekly,...layout.trio,...layout.sbc,...layout.sbc.flatMap(k=>[...layout.routes[k].picks,...layout.routes[k].alternatives])])];
-   const imports=used.filter(key=>!same(draft.fc_models?.[key]??null,plan.models[key]??null)).map(key=>{const model=plan.models[key];if(!model)fail('WEEKLY_SOURCE_INVALID');return {page_id:layout.weekly.includes(key)?'fc27-weekly':layout.trio.includes(key)?'fc27-trio':'fc27-sbc',model_id:model.model_id,kind:model.kind};});
-   const details=imports.map(i=>plan.models['model-266-1327-'+i.model_id]);
-   const request={operation_id,revision:plan.base_revision,draft,model_imports:imports,model_refresh_digest:digest(canonical(details))};
-   if(plan.save_request&&!same(plan.save_request,request))fail('REQUEST_CONFLICT',409);
+   // One fixed-bundle selection is shared by the three pages. Materialize exact
+   // platform references/roles so explicit legacy masks cannot hide the new source.
+   const pageKeys={'fc27-weekly':[...layout.weekly,...layout.bundles],'fc27-trio':[...layout.trio,...layout.bundles],'fc27-sbc':[...layout.sbc,...layout.sbc.flatMap(k=>[...layout.routes[k].picks,...layout.routes[k].alternatives]),...layout.bundles]};
+   for(const page of draft.pages)if(pageIds.includes(page.page_id)){
+    page.product_keys=[...new Set(pageKeys[page.page_id])].flatMap(key=>['ps','xbox','pc'].map(code=>'fc-'+key+'-'+code));
+    page.product_roles=Object.fromEntries(page.product_keys.map(ref=>{const key=ref.slice(3).replace(/-(ps|xbox|pc)$/,'');return [ref,layout.bundles.includes(key)?'bundle':page.page_id==='fc27-sbc'?(layout.sbc.includes(key)?'core':'companion'):'player'];}));
+    delete page.sbc_companions;
+   }
+   const used=[...new Set([...layout.weekly,...layout.trio,...layout.sbc,...layout.sbc.flatMap(k=>[...layout.routes[k].picks,...layout.routes[k].alternatives]),...(Array.isArray(plan.source.bundle_model_ids)?layout.bundles:[])])];
+   const imports=used.filter(key=>!same(draft.fc_models?.[key]??null,plan.models[key]??null)).map(key=>{const model=plan.models[key];if(!model)fail('WEEKLY_SOURCE_INVALID');return {page_id:layout.bundles.includes(key)?'fc27-trio':layout.weekly.includes(key)?'fc27-weekly':layout.trio.includes(key)?'fc27-trio':'fc27-sbc',model_id:model.model_id,kind:model.kind};});
+   const freshDetails=imports.map(i=>plan.models['model-266-1327-'+i.model_id]);
+   // A dispatched/unknown original save keeps its exact frozen request across code upgrades.
+   const request=plan.save_request??{operation_id,revision:plan.base_revision,draft,model_imports:imports,model_refresh_digest:digest(canonical(freshDetails))};
+   const details=request.model_imports.map(i=>plan.models['model-266-1327-'+i.model_id]);
    plan.save_request=request;plan.apply_hash=hash;atomic(file(operation_id),plan);
-   const saved=center.recoverSave(request)||center.save(request,owner,details,[],{refreshModels:true});
+   let saved=center.recoverSave(request);if(!saved){beforeDraftSave();saved=center.save(request,owner,details,[],{refreshModels:true});}
    const persisted=JSON.parse(fs.readFileSync(path.join(path.dirname(dir),'operations',operation_id+'.json'),'utf8'));
    if(persisted.hash!==saved.last_operation?.hash||persisted.result?.revision!==saved.revision||persisted.result?.last_operation?.operation_id!==operation_id)fail('WEEKLY_DRAFT_READBACK_UNKNOWN',409);
    const receipt={status:'draft_saved',operation_id,plan_ref,base_revision:plan.base_revision,draft_revision:saved.revision,readback:{status:'verified',source:'center_operation_receipt',operation_id,revision:saved.revision,hash:persisted.hash},checks:plan.checks,publication:false,source_evidence:plan.source.evidence};
-   plan.applied={hash,result:receipt,evidence_sources,at:new Date(now()).toISOString()};atomic(file(operation_id),plan);return receipt;
+   plan.applied={hash,result:receipt,evidence_sources,at:new Date(now()).toISOString()};atomic(file(operation_id),plan);return notifySaved(plan,receipt);
   }
  };
 }

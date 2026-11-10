@@ -114,7 +114,8 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
    const product=products.get(key);if(!product)fail('PAGE_PRODUCT_NOT_FOUND');
    if(page.page_id.startsWith('fc27-')&&product.product_ref?.game_id!=='1327')fail('PAGE_PRODUCT_GAME_MISMATCH');
    if(page.page_id.startsWith('fc27-')&&product.product_ref?.goods_id){const identity=canonical([product.product_ref.site_id,product.product_ref.game_id,product.product_ref.goods_id,product.platform.attribute_id||product.platform.code]);
-    const logical=/^fc-(.+)-(ps|xbox|pc)$/.exec(key)?.[1]||key;
+    const alias=Object.entries(seed.nativeModelKeys||{}).find(([,native])=>native===key)?.[0];
+    const logical=/^fc-(.+)-(ps|xbox|pc)$/.exec(alias||key)?.[1]||key;
     if(identities.has(identity)&&identities.get(identity)!==logical)fail('DUPLICATE_PAGE_PRODUCT');identities.set(identity,logical);
    }
   }
@@ -176,7 +177,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
   if(Object.hasOwn(request,'model_refresh_digest')&&(!refreshModels||request.model_refresh_digest!==digest(canonical(details))))fail('MODEL_REFRESH_SERVER_OWNED');
   if(refreshModels&&!Object.hasOwn(request,'model_refresh_digest'))fail('MODEL_REFRESH_DIGEST_REQUIRED');
   preserveImports(current,request.draft);const draft=structuredClone(request.draft),imports=Object.hasOwn(request,'model_imports')?request.model_imports:[];
-  if(!Array.isArray(imports)||imports.length>33||details.length!==imports.length)fail('INVALID_MODEL_IMPORTS');
+  if(!Array.isArray(imports)||imports.length>41||details.length!==imports.length)fail('INVALID_MODEL_IMPORTS');
   const seen=new Set();for(let i=0;i<imports.length;i++){
    const entry=imports[i],model=projectModelCard(details[i]);if(!entry)fail('INVALID_MODEL_IMPORTS');const scope=entry.page_id+':'+entry.model_id;
    if(Object.keys(entry).some(k=>!['page_id','model_id','kind'].includes(k))||!['fc27-weekly','fc27-sbc','fc27-trio'].includes(entry.page_id)||entry.model_id!==model.model_id||entry.kind!==model.kind||seen.has(scope))fail('INVALID_MODEL_IMPORTS');seen.add(scope);
@@ -198,11 +199,18 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
   }
   const stored=storedDraft(draft);selectionScope(draftOf(stored),seedNow(stored));return stored;
  }
- function snapshotFor(draft,revision,native_checkout){
+ function snapshotFor(draft,revision,native_checkout,previewSeed){
   const release_id='campaign-preview-'+revision;
-   const seed=seedNow(draft);selectionScope(draft,seed);
+   const seed=previewSeed||seedNow(draft);selectionScope(draft,seed);
    const selected=Object.fromEntries(draft.pages.map(p=>[p.page_id,Object.hasOwn(p,'product_keys')?p.product_keys:seed.pageProductKeys[p.page_id]||[]]));
+   for(const pageId of ['fc27-trio','fc27-weekly','fc27-sbc']){const keys=selected[pageId]||[];selected[pageId]=[...new Set([...keys,...keys.flatMap(key=>seed.nativeModelKeys?.[key]?[seed.nativeModelKeys[key]]:[])])];}
    if(draft.halloween)selected['seasonal-vault']=[...new Set([...selected['seasonal-vault'],...halloweenProductKeys(draft.halloween,[...seed.seedProducts,...(draft.imported_products||[])])])];
+   // Private policy retains historical bindings; a release exposes only the
+   // current page selections. Remaining bindings still pass the native guard.
+   if(native_checkout?.status==='configured'&&Array.isArray(native_checkout.bindings)){
+    const bindings=native_checkout.bindings.filter(b=>selected[b.page_id]?.includes(b.product_key));
+    native_checkout=bindings.length?{...native_checkout,bindings}:{status:'unconfigured'};
+   }
    const used=new Set(Object.values(selected).flat());
    const products=seed.seedProducts.map(p=>({...p,available:false}));
    for(const imported of (draft.imported_products||[]).filter(p=>used.has(p.key))){
@@ -214,7 +222,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
     // shape/history; no preview-only null quantity overwrites trusted options.
     if(typeof imported.title==='string'&&!/[\u3400-\u9fff]/u.test(imported.title))products[index]={...trusted,title:imported.title};
    }
-   const seasonalKeys=new Set(selected['seasonal-vault']);
+   const seasonalKeys=new Set(['seasonal-vault','fc27-trio','fc27-weekly','fc27-sbc'].flatMap(pageId=>selected[pageId]||[]));
    const scopedOptions=seed.seasonal_model_contracts?Object.fromEntries(Object.entries(seed.seasonal_model_contracts).flatMap(([id,source])=>{
     const combinations=source.combinations.filter(c=>seasonalKeys.has(c.product_key));
     if(!combinations.length)return [];
@@ -231,7 +239,7 @@ export function makeCenterStore({dir,publicDir,sourceRevision,seedProducts=[],pa
  }
  return {read,recoverSave:request=>recover(request,'save'),recoverPublish:request=>recover(request,'publish'),recoverImport:request=>recover(request,'import'),recoverModel:request=>recover(request,'model-import'),restoreCandidate:state=>previousDraft(state||read())?.summary||null,
   uploadAsset:(operationId,bytes,mime,user)=>assets.stage(operationId,bytes,mime,user),readAsset:assetId=>assets.read(assetId),
-  preview(request,details=[],productDetails=[]){if(fs.existsSync(pendingFile))fail('PENDING_OPERATION_RECOVERY_REQUIRED',409);const current=rawRead();if(request.revision!==current.revision)fail('REVISION_CONFLICT',409);const draft=draftOf(candidate(current,request,details,productDetails));return snapshotFor(draft,current.revision+1,{status:'unconfigured'});},
+  preview(request,details=[],productDetails=[],{seed}={}){if(fs.existsSync(pendingFile))fail('PENDING_OPERATION_RECOVERY_REQUIRED',409);const current=rawRead();if(request.revision!==current.revision)fail('REVISION_CONFLICT',409);const draft=draftOf(candidate(current,request,details,productDetails));return snapshotFor(draft,current.revision+1,{status:'unconfigured'},seed);},
   save(request,user,details=[],productDetails=[],trustedOptions={}){return recover(request,'save')||operation(request,'save',user,current=>{
    const draft=candidate(current,request,details,productDetails,trustedOptions);
    return {result:{...current,revision:current.revision+1,draft}};

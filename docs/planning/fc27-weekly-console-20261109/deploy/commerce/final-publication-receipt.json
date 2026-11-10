@@ -1,0 +1,34 @@
+{
+  "status": "verified",
+  "revision": 24,
+  "release_id": "campaign-preview-24",
+  "operation_id": "9580fbdf-34c6-49c0-a3a2-f10729d0d51c",
+  "receipt_matches": true,
+  "shared_codes": [
+    "FCSCOUT10"
+  ],
+  "fc_benefit_refs": {
+    "fc27-weekly": [
+      {
+        "kind": "discount",
+        "native_id": "6049"
+      }
+    ],
+    "fc27-sbc": [
+      {
+        "kind": "discount",
+        "native_id": "6049"
+      }
+    ],
+    "fc27-trio": [
+      {
+        "kind": "discount",
+        "native_id": "6049"
+      }
+    ]
+  },
+  "all_other_draft_fields_unchanged": true,
+  "config_hash": "0b459836cbe61af039893e05065182aac735f719bd5d0910fb2ef1e87b5638ad",
+  "rule_hash": "5411324c1cc95235b46d17b92a06ce9aaa3ac993507e7f22ec917b66269326c4",
+  "policy_sha256": "16e1681da0b4124766dd64d7184235f03a7ae9349ee8a8f6f058804f7f569572"
+}

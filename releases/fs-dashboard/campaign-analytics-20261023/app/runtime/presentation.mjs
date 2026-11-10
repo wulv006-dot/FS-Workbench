@@ -60,6 +60,13 @@ export function seasonalSeo({snapshot,publicBase,enabled=false,mode='preview',no
 }
 function metadata(html,p,publicBase,seo) {
   const fieldsConfig=presentationFields(p);
+  const oldCanonical=(html.match(/<link\b[^>]*>/gi)||[]).find(tag=>attr(tag,'rel')?.toLowerCase()==='canonical');
+  const priorUrl=oldCanonical&&attr(oldCanonical,'href');let canonical=seo&&p.path==='seasonal/index.html'?seo.canonical:null;
+  if(publicBase&&['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html'].includes(p.path)){
+    let base;try{base=new URL(publicBase);}catch{fail('INVALID_PUBLIC_BASE',503);}
+    if(base.username||base.password||base.search||base.hash||!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(base.pathname)||(base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname))))fail('INVALID_PUBLIC_BASE',503);
+    canonical=new URL(p.path,base).href;
+  }
   if(fieldsConfig.default_language!=='original'){
     const language=fieldsConfig.default_language==='zh'?'zh-CN':'en';
     html=html.replace(/<html\b[^>]*>/i,tag=>tag.replace(/\s+lang=["'][^"']*["']/i,'').replace(/>$/,' lang="'+language+'">'));
@@ -76,21 +83,23 @@ function metadata(html,p,publicBase,seo) {
   let found=false;
   html=html.replace(/<title\b[^>]*>[\s\S]*?<\/title\s*>/gi,()=>{if(found)return '';found=true;return `<title>${title}</title>`;});
   if(!found)html=html.replace(/<\/head\s*>/i,()=>`<title>${title}</title></head>`);
-  const fields=[['property','og:title',p.title],['name','twitter:title',p.title],...(fieldsConfig.default_language!=='original'?[['property','og:locale',fieldsConfig.default_language==='zh'?'zh_CN':'en_US']]:[]),...(shareImage?[['property','og:image',shareImage],['name','twitter:image',shareImage]]:[]),...(description?[['name','description',description],['property','og:description',description],['name','twitter:description',description]]:[])];
+  const fields=[['property','og:title',p.title],['name','twitter:title',p.title],...(canonical?[['property','og:url',canonical]]:[]),...(fieldsConfig.default_language!=='original'?[['property','og:locale',fieldsConfig.default_language==='zh'?'zh_CN':'en_US']]:[]),...(shareImage?[['property','og:image',shareImage],['name','twitter:image',shareImage]]:[]),...(description?[['name','description',description],['property','og:description',description],['name','twitter:description',description]]:[])];
   for(const [kind,key,value] of fields){
     html=html.replace(/<meta\b[^>]*>/gi,tag=>attr(tag,kind)?.toLowerCase()===key?'':tag);
     html=html.replace(/<\/head\s*>/i,()=>`<meta ${kind}="${key}" content="${escape(value)}"></head>`);
   }
   if(seo&&p.path==='seasonal/index.html'){
     html=html.replace(/<meta\b[^>]*>/gi,tag=>['robots','googlebot','bingbot'].includes(attr(tag,'name')?.toLowerCase())?'':tag);
+    html=html.replace(/<\/head\s*>/i,()=>'<meta name="robots" content="index,follow"></head>');
+  }
+  if(canonical){
     html=html.replace(/<link\b[^>]*>/gi,tag=>attr(tag,'rel')?.toLowerCase()==='canonical'?'':tag);
-    html=html.replace(/<meta\b[^>]*>/gi,tag=>attr(tag,'property')?.toLowerCase()==='og:url'?'':tag);
-    html=html.replace(/<\/head\s*>/i,()=>`<meta name="robots" content="index,follow"><link rel="canonical" href="${escape(seo.canonical)}"><meta property="og:url" content="${escape(seo.canonical)}"></head>`);
+    html=html.replace(/<\/head\s*>/i,()=>`<link rel="canonical" href="${escape(canonical)}"></head>`);
   }
   // Keep collection metadata consistent without rebuilding product identities.
   return html.replace(/(<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>)([\s\S]*?)(<\/script\s*>)/gi,(all,open,raw,close)=>{
     try{
-      const data=JSON.parse(raw),update=node=>{if(!node||typeof node!=='object')return;if(node['@type']==='CollectionPage'){node.name=p.title;if(description)node.description=description;if(seo&&p.path==='seasonal/index.html')node.url=seo.canonical;if(fieldsConfig.default_language!=='original')node.inLanguage=fieldsConfig.default_language==='zh'?'zh-CN':'en';}for(const value of Object.values(node))if(value&&typeof value==='object')Array.isArray(value)?value.forEach(update):update(value);};
+      const data=JSON.parse(raw),update=node=>{if(!node||typeof node!=='object')return;if(node['@type']==='CollectionPage'){node.name=p.title;if(description)node.description=description;if(canonical)node.url=canonical;if(fieldsConfig.default_language!=='original')node.inLanguage=fieldsConfig.default_language==='zh'?'zh-CN':'en';}for(const [key,value] of Object.entries(node)){if(canonical&&priorUrl&&typeof value==='string'&&(value===priorUrl||value.startsWith(priorUrl+'#')))node[key]=canonical+value.slice(priorUrl.length);else if(value&&typeof value==='object')Array.isArray(value)?value.forEach(update):update(value);}};
       update(data);return open+JSON.stringify(data).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029')+close;
     }catch{return all;}
   });
@@ -152,7 +161,7 @@ export function presentPage({name,body,snapshot,now=Date.now(),publicBase,assetV
 
 export function projectFcCatalog(originalCatalog,snapshot) {
   snapshot=publicEnglishRelease(snapshot);
-  const source=effectiveFcCatalog(originalCatalog,snapshot?.fc_models||{}),catalog=structuredClone(source),products=source.products||{};
+  const source=effectiveFcCatalog(originalCatalog,snapshot?.fc_models||{},snapshot),catalog=structuredClone(source),products=source.products||{};
   const keys=path=>{
     const page=snapshot?.pages?.find(p=>p.active===true&&route(p.path)===path);
     return [...new Set((page?.product_keys||[]).flatMap(key=>{
@@ -170,7 +179,10 @@ export function projectFcCatalog(originalCatalog,snapshot) {
   catalog.trio.series=trioVersions.length===1?trioVersions[0]:'Player Picks';
   catalog.bundles.ids=trioKeys.filter(key=>products[key].kind==='bundle');
   catalog.weekly.bundleIds=keys('Weekly-Scout.html').filter(key=>products[key].kind==='bundle');
+  catalog.sbc.bundleIds=sbcKeys.filter(key=>products[key].kind==='bundle');
   catalog.sbc.ids=sbcKeys.filter(key=>products[key].kind==='sbc');
+  const coreOrder=snapshot?.fc_layout?.sbc||[],eligibleCores=new Set(catalog.sbc.ids);
+  catalog.sbc.ids=[...new Set([...coreOrder.filter(key=>eligibleCores.has(key)),...catalog.sbc.ids])];
   const publishedRoutes=snapshot?.fc_layout?.routes??originalCatalog.sbc.routes;
   catalog.sbc.routes=Object.fromEntries(catalog.sbc.ids.filter(key=>publishedRoutes[key]).map(key=>{
     const original=publishedRoutes[key],selected=ids=>(ids||[]).filter(id=>sbcSet.has(id)&&products[id]?.kind==='player');
@@ -180,7 +192,7 @@ export function projectFcCatalog(originalCatalog,snapshot) {
   catalog.sbc.defaultId=catalog.sbc.ids.includes(defaultCore)?defaultCore:catalog.sbc.ids[0]??null;
   catalog.sbc.fallbackPicks=[...(catalog.sbc.routes[catalog.sbc.defaultId]?.picks||[])];
   catalog.sbc.allListedIds=[...catalog.sbc.ids];
-  const selected=new Set([...weekly,...catalog.weekly.bundleIds,...catalog.trio.ids,...catalog.bundles.ids,...catalog.sbc.ids,...Object.values(catalog.sbc.routes).flatMap(r=>[...r.picks,...r.alternatives])]);
+  const selected=new Set([...weekly,...catalog.weekly.bundleIds,...catalog.trio.ids,...catalog.bundles.ids,...catalog.sbc.bundleIds,...catalog.sbc.ids,...Object.values(catalog.sbc.routes).flatMap(r=>[...r.picks,...r.alternatives])]);
   catalog.products=Object.fromEntries(Object.entries(catalog.products).filter(([key])=>selected.has(key)));
   // Imported items stay outside the original priced/SBC/trio algorithms until their
   // page-specific structure is actually verified. They are visible metadata previews.

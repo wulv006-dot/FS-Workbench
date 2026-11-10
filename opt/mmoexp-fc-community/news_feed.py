@@ -29,7 +29,8 @@ def canonical_x_url(value):
 
 def validate_config(value, guild_id=None):
     if (not isinstance(value, dict) or not {'guild_id', 'channel_id', 'enabled', 'poll_seconds'} <= set(value)
-            or set(value) - {'guild_id', 'channel_id', 'enabled', 'poll_seconds', 'collector'}
+            or set(value) - {'guild_id', 'channel_id', 'enabled', 'poll_seconds', 'collector', 'ea_enabled'}
+            or type(value.get('ea_enabled', True)) is not bool
             or value.get('collector', '187') not in ('187', '183', 'auto')
             or type(value['guild_id']) is not int or value['guild_id'] <= 0
             or (guild_id is not None and value['guild_id'] != guild_id)
@@ -41,10 +42,11 @@ def validate_config(value, guild_id=None):
     return dict(value)
 
 
-def _article_url(value):
+def _article_url(value, manual=False):
     value = urljoin(SOURCE_URL, value)
     u = urlsplit(value)
     valid = ((u.netloc == 'www.mmoexp.com' and re.fullmatch(r'/News/[a-z0-9-]*fc-27[a-z0-9-]*\.html', u.path))
+             or (manual and u.netloc == 'www.mmoexp.com' and re.fullmatch(r'/events/[A-Za-z0-9][A-Za-z0-9_-]*\.html', u.path))
              or (u.netloc == 'www.ea.com' and re.fullmatch(r'/games/ea-sports-fc/fc-27/news/[a-z0-9-]+', u.path)))
     if u.scheme != 'https' or u.query or u.fragment or not valid:
         raise ValueError('Invalid article URL.')
@@ -285,11 +287,11 @@ class NewsStore:
             return dict(row)
 
     def enqueue_article(self, url, title='', summary='', actor='admin', now=None):
-        url = _article_url(url)
+        url = _article_url(url, manual=True)
         kind = 'ea' if url.startswith('https://www.ea.com/') else 'mmoexp'
         title = title or ('EA SPORTS FC27 · Selected news' if kind == 'ea' else 'MMOEXP FC27 · Selected news')
         item = dict(kind=kind, title=title, summary=summary, source='EA SPORTS FC27' if kind == 'ea' else 'MMOEXP FC27',
-                    url=url, cover_url='', published_date='')
+                    url=url, cover_url='', published_date='', delivery_mode='manual')
         validate_item(item)
         external_id = 'manual:' + uuid.uuid4().hex
         with self.db() as db, db:
@@ -306,7 +308,7 @@ class NewsStore:
         with self.db() as db, db:
             db.execute("UPDATE news_items SET status='uncertain',error_code='process_interrupted' WHERE status='sending'")
 
-    def claim(self, channel_id, now=None, auto_enabled=True):
+    def claim(self, channel_id, now=None, auto_enabled=True, ea_enabled=True):
         if not re.fullmatch(r'[1-9][0-9]{16,19}', str(channel_id)):
             raise ValueError('Invalid channel.')
         with self.db() as db, db:
@@ -320,7 +322,9 @@ class NewsStore:
                     db.execute("""UPDATE news_items SET status='duplicate' WHERE status='pending' AND delivery_mode='auto'
                         AND EXISTS (SELECT 1 FROM news_items other WHERE other.id!=news_items.id
                           AND other.url=news_items.url AND other.status IN ('published','sending','uncertain'))""")
-                    row = db.execute("SELECT * FROM news_items WHERE status='pending' AND delivery_mode='auto' ORDER BY CASE kind WHEN 'ea' THEN 0 ELSE 1 END,published_at DESC,id DESC LIMIT 1").fetchone()
+                    row = db.execute("""SELECT * FROM news_items WHERE status='pending' AND delivery_mode='auto'
+                        AND (kind!='ea' OR ?) ORDER BY CASE kind WHEN 'ea' THEN 0 ELSE 1 END,
+                        published_at DESC,id DESC LIMIT 1""", (ea_enabled,)).fetchone()
             if row is None:
                 return None
             if row['delivery_mode'] == 'auto':
@@ -358,6 +362,8 @@ def collect_cycle(store, config, now=None):
             raise FileNotFoundError('Remote collector is not configured.')
         return parse_source(source, fetch_remote_html(source,key_path=key,known_hosts=hosts))
     for source in ('ea','mmoexp'):
+        if source == 'ea' and not config.get('ea_enabled', True):
+            continue
         try:
             rows, metadata = collect(source, config.get('collector','187'), fetch_listing, remote)
             store.ingest(rows, now, batch_id=batch)
@@ -382,7 +388,7 @@ def validate_item(item):
                 or any(ord(c) < 32 and c not in '\n\t' for c in value)):
             raise ValueError('Invalid news text.')
     url = item.get('url')
-    canonical = canonical_x_url(url) if item['kind'] == 'x' else _article_url(url)
+    canonical = canonical_x_url(url) if item['kind'] == 'x' else _article_url(url, manual=item.get('delivery_mode') == 'manual')
     if canonical != url:
         raise ValueError('Stored source URL is not canonical.')
     if item['kind'] != 'x' and (url.startswith('https://www.ea.com/') != (item['kind']=='ea')):
@@ -393,11 +399,11 @@ def validate_item(item):
     return item
 
 
-async def publish_pending(store, channel_id, sender, limit=3, auto_enabled=True):
+async def publish_pending(store, channel_id, sender, limit=3, auto_enabled=True, ea_enabled=True):
     """sender(item, channel_id) returns Discord message ID; exceptions never retry."""
     count = 0
     for _ in range(limit):
-        item = store.claim(channel_id, auto_enabled=auto_enabled)
+        item = store.claim(channel_id, auto_enabled=auto_enabled, ea_enabled=ea_enabled)
         if item is None:
             break
         try:

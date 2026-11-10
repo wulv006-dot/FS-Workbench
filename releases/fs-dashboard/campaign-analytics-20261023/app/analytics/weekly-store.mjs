@@ -41,6 +41,14 @@ export function weeklyPages(center,{now=Date.now()}={}) {
  });
 }
 
+export function shanghaiIsoWeek(value){
+ const stamp=Date.parse(value);if(!Number.isFinite(stamp))fail('INVALID_WEEKLY_DATE');
+ const local=new Date(stamp+8*3600000),day=new Date(Date.UTC(local.getUTCFullYear(),local.getUTCMonth(),local.getUTCDate()));
+ day.setUTCDate(day.getUTCDate()+4-(day.getUTCDay()||7));
+ const year=day.getUTCFullYear(),week=Math.ceil((((day-Date.UTC(year,0,1))/86400000)+1)/7);
+ return year+'-W'+String(week).padStart(2,'0');
+}
+
 export function makeWeeklyStore({dir,centerProvider,now=Date.now}) {
  const file=path.join(dir,'weekly-operations.json');
  const rawRead=()=>fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{schema_version:1,revision:0,weeks:[],operations:[],hermes:{enabled:false,model:'gpt-6.1-sol',status:'not_connected',schedule_enabled:false}};
@@ -51,7 +59,7 @@ export function makeWeeklyStore({dir,centerProvider,now=Date.now}) {
    // Human-submitted references are reports, never machine-verified production evidence.
    for(const e of w.evidence)if(e.activity_revision===w.activity_revision&&e.product_revision===w.product_revision&&e.coupon_revision===w.coupon_revision&&e.plan_operation_id===w.operationId&&e.verification!=='reported')stages[e.stage]=e.verification==='verified'?'pass':e.verification;
    return {...w,checks:page.checks,checks_scope:'current_center',stage_status:stages,change_summary:{center_revision_changed:w.activity_revision!==page.activity_revision,products_changed:w.product_revision!==page.product_revision,coupon_changed:w.coupon_revision!==page.coupon_revision},
-    approval:w.approval?{...w.approval,stale:w.approval.center_revision!==center.revision||w.approval.product_revision!==page.product_revision||w.approval.coupon_revision!==page.coupon_revision}:null};
+    approval:w.approval?{...w.approval,stale:(w.approval.center_revision+(w.approval.execution_status==='published'?1:0))!==center.revision||w.approval.product_revision!==page.product_revision||w.approval.coupon_revision!==page.coupon_revision}:null};
   })};
  }
  function mutate(body,user) {
@@ -125,5 +133,90 @@ export function makeWeeklyStore({dir,centerProvider,now=Date.now}) {
   week.execution={status:record.result==='passed'?'completed':record.result,operation_id:executionId,stage:record.stage};week.updated_at=at;
   state.revision++;state.updated_at=at;state.updated_by=record.source;state.operations.push({id:record.operation_id,hash});atomic(file,state);return view(state,center);
  }
- return {read:()=>view(rawRead()),mutate,recordEvidence};
+ function persistWorkflow(state,owner){state.revision++;state.updated_at=new Date(now()).toISOString();state.updated_by=owner;atomic(file,state);return view(state);}
+ function identity(operation_id,owner){uuid(operation_id);text(owner,160);if(!owner.trim())fail('WEEKLY_ACTOR_REQUIRED',403);}
+ function invalidate(week,at,reason){if(week.approval)(week.approval_history||=[]).push({...week.approval,invalidated_at:at,reason});week.approval=null;}
+ function syncRun({operation_id,owner,draft_revision,trigger='unknown',created_at}){
+  identity(operation_id,owner);if(!Number.isSafeInteger(draft_revision)||draft_revision<0||!['manual','scheduled','unknown'].includes(trigger))fail('INVALID_WEEKLY_RUN');
+  const state=rawRead(),existing=state.weeks.flatMap(w=>w.run_history||[]).find(r=>r.operation_id===operation_id);
+  if(existing){if(existing.owner!==owner)fail('WEEKLY_OPERATION_OWNER_MISMATCH',403);if(existing.draft_revision!==draft_revision)fail('REQUEST_CONFLICT',409);return view(state);}
+  const at=new Date(now()).toISOString(),started=created_at??at,id=shanghaiIsoWeek(started),center=centerProvider();
+  if(draft_revision>center.revision)fail('REVISION_CONFLICT',409);
+  const pages=weeklyPages(center,{now:now()});
+  for(const page of pages){
+   let week=state.weeks.find(w=>w.id===id&&w.page_id===page.page_id);
+   if(!week){week={id,page_id:page.page_id,notes:'',evidence:[],reviews:[],approval:null,approval_history:[],created_at:at};state.weeks.push(week);}
+   const historical=(week.run_history||[]).some(r=>r.latest_revision>draft_revision);
+   if(!historical)invalidate(week,at,'new_run');
+   (week.run_history||=[]).push({operation_id,owner,draft_revision,latest_revision:draft_revision,trigger,created_at:started,recorded_at:at,draft_history:[{revision:draft_revision,source:'automatic_draft',recorded_at:at}],publications:[]});
+   if(historical)continue;
+   Object.assign(week,{operationId:operation_id,status:'draft_ready',activity_revision:draft_revision,product_revision:draft_revision===center.revision?page.product_revision:null,coupon_revision:draft_revision===center.revision?page.coupon_revision:null,updated_at:at,
+    check_snapshot:{center_revision:center.revision,checked_at:at,scope:draft_revision===center.revision?'saved_draft':'current_center_not_historical',checks:structuredClone(page.checks)}});
+  }
+  return persistWorkflow(state,owner);
+ }
+ function runWeeks(state,operation_id,owner){
+  identity(operation_id,owner);const found=state.weeks.filter(w=>(w.run_history||[]).some(r=>r.operation_id===operation_id));
+  if(found.length!==3)fail('WEEKLY_RUN_NOT_FOUND',404);
+  if(found.some(w=>w.run_history.find(r=>r.operation_id===operation_id).owner!==owner))fail('WEEKLY_OPERATION_OWNER_MISMATCH',403);
+  return found;
+ }
+ function syncDraft({operation_id,owner,revision}){
+  const state=rawRead(),weeks=runWeeks(state,operation_id,owner),center=centerProvider();
+  if(!Number.isSafeInteger(revision)||revision<0)fail('INVALID_WEEKLY_REVISION');
+  if(weeks.every(w=>w.run_history.find(r=>r.operation_id===operation_id).draft_history.some(h=>h.revision===revision)))return view(state,center);
+  if(revision!==center.revision||weeks.some(w=>w.operationId!==operation_id))fail('REVISION_CONFLICT',409);
+  const pages=weeklyPages(center,{now:now()}),at=new Date(now()).toISOString();
+  for(const week of weeks){const run=week.run_history.find(r=>r.operation_id===operation_id),page=pages.find(p=>p.page_id===week.page_id);
+   if(revision<run.latest_revision)fail('REVISION_CONFLICT',409);
+   invalidate(week,at,'draft_edited');run.latest_revision=revision;run.draft_history.push({revision,source:'manual_edit',recorded_at:at,recorded_by:owner});
+   Object.assign(week,{status:'draft_ready',activity_revision:revision,product_revision:page.product_revision,coupon_revision:page.coupon_revision,updated_at:at});
+  }
+  return persistWorkflow(state,owner);
+ }
+ function recordConfirmation({run_operation_id,publication_operation_id,owner,revision,review_hash}){
+  uuid(publication_operation_id);if(!Number.isSafeInteger(revision)||revision<0||!/^([a-f0-9]{64})$/.test(review_hash||''))fail('INVALID_WEEKLY_CONFIRMATION');
+  const state=rawRead(),weeks=runWeeks(state,run_operation_id,owner);
+  const record={run_operation_id,publication_operation_id,owner,revision,review_hash};
+  const prior=(state.confirmations||[]).find(r=>r.publication_operation_id===publication_operation_id);
+  if(prior){if(canonical(prior.record)!==canonical(record))fail('REQUEST_CONFLICT',409);return view(state);}
+  const center=centerProvider();
+  if(center.revision!==revision||weeks.some(w=>w.operationId!==run_operation_id||w.run_history.find(r=>r.operation_id===run_operation_id).latest_revision!==revision))fail('APPROVAL_STALE',409);
+  const pages=weeklyPages(center,{now:now()}),at=new Date(now()).toISOString();
+  for(const week of weeks){const page=pages.find(p=>p.page_id===week.page_id);
+   invalidate(week,at,'new_publication_confirmation');
+   week.approval={status:'approved',scope:'publish',center_revision:revision,product_revision:page.product_revision,coupon_revision:page.coupon_revision,reviewed_by:owner,updated_at:at,publication_operation_id,review_hash,execution_status:'not_recorded'};
+   (week.approval_history||=[]).push(structuredClone(week.approval));week.status='approved';week.updated_at=at;
+  }
+  (state.confirmations||=[]).push({record,publication_operation_id,recorded_at:at});return persistWorkflow(state,owner);
+ }
+ function recordPublication({run_operation_id,publication_operation_id,owner,before_revision,result,readback}){
+  uuid(publication_operation_id);const state=rawRead(),weeks=runWeeks(state,run_operation_id,owner);
+  const last=result?.last_operation,published=result?.published;
+  const receipt={run_operation_id,publication_operation_id,owner,before_revision,revision:result?.revision,release_id:published?.release_id,config_hash:published?.config_hash,rule_hash:published?.rule_hash,center_operation_hash:last?.hash,readback:readback?{release_id:readback.release_id,config_hash:readback.config_hash,rule_hash:readback.rule_hash}:null};
+  const hash=digest(canonical(receipt)),prior=state.weeks.flatMap(w=>w.run_history||[]).flatMap(r=>r.publications||[]).find(p=>p.publication_operation_id===publication_operation_id);
+  if(prior){if(prior.request_hash!==hash)fail('REQUEST_CONFLICT',409);return view(state);}
+  if(!Number.isSafeInteger(before_revision)||result?.revision!==before_revision+1||last?.operation_id!==publication_operation_id||last?.kind!=='publish'||!/^[a-f0-9]{64}$/.test(last.hash||'')||result.updated_by!==owner
+    ||!published?.release_id||!published.config_hash||!published.rule_hash||!readback||['release_id','config_hash','rule_hash'].some(k=>readback[k]!==published[k]))fail('PUBLISH_RECEIPT_MISMATCH',409);
+  const center=centerProvider(),isCurrent=center.revision===result.revision&&['release_id','config_hash','rule_hash'].every(k=>center.published?.[k]===published[k]);
+  if(weeks.some(w=>!w.run_history.find(r=>r.operation_id===run_operation_id).draft_history.some(h=>h.revision===before_revision)))fail('APPROVAL_STALE',409);
+  const pages=weeklyPages(center,{now:now()}),at=new Date(now()).toISOString();
+  for(const week of weeks){const run=week.run_history.find(r=>r.operation_id===run_operation_id),page=pages.find(p=>p.page_id===week.page_id);
+   const current=isCurrent&&week.operationId===run_operation_id&&run.latest_revision===before_revision;
+   const matching=(week.approval_history||[]).filter(a=>a.publication_operation_id===publication_operation_id);
+   if(matching.some(a=>a.status!=='approved'||a.center_revision!==before_revision))fail('APPROVAL_STALE',409);
+   for(const approval of matching)Object.assign(approval,{execution_status:'published',published_revision:result.revision});
+   let approval=matching[0];
+   if(!approval){approval={status:'approved',scope:'publish',center_revision:before_revision,product_revision:current?week.product_revision:null,coupon_revision:current?week.coupon_revision:null,reviewed_by:owner,updated_at:at,publication_operation_id,execution_status:'published',published_revision:result.revision};week.approval_history.push(approval);}
+   if(current){
+    if(week.approval?.publication_operation_id!==publication_operation_id)invalidate(week,at,'explicit_publication');
+    week.approval={...approval};
+    Object.assign(week,{status:'published',activity_revision:result.revision,product_revision:page.product_revision,coupon_revision:page.coupon_revision,updated_at:at});
+   }
+   run.publications.push({...receipt,request_hash:hash,readback:{release_id:readback.release_id,config_hash:readback.config_hash,rule_hash:readback.rule_hash,current},recorded_at:at});
+   week.evidence.push({stage:'deployed_readback',reference:published.release_id,source:'center_publish_readback',verification:'verified',activity_revision:result.revision,product_revision:current?page.product_revision:approval.product_revision,coupon_revision:current?page.coupon_revision:approval.coupon_revision,plan_operation_id:run_operation_id,operationId:publication_operation_id,release_id:published.release_id,config_hash:published.config_hash,readback_current:current,recorded_at:at,recorded_by:owner});
+  }
+  return persistWorkflow(state,owner);
+ }
+ return {read:()=>view(rawRead()),mutate,recordEvidence,syncRun,syncDraft,recordConfirmation,recordPublication};
 }

@@ -26,9 +26,9 @@ POST异步返回202 pending；GET最终返回200 completed/result/receipt，已�
 
 所有新AI生成统一使用上述规则：手动run与周日计划走同一流水线，共享宿主拒绝缺少当前rules的新请求，输出固定24行；旧的独立SBC推荐表单及无rules新派发入口退出执行路径。人工商品编辑器的配置自由不构成AI生成例外。共享宿主先按owner及原operation_id核对请求hash：历史同ID同hash只返回原回执，变更请求冲突；GET/原ID对账继续保留，不重跑历史input、不改历史任务状态。规则标识沿用原版本字符串，不能仅据同名版本认定历史输入或回执已满足本轮新增数量与普通版规则。本轮统一入口修正处于代码及相关离线测试阶段，未部署；原已批准开启的周日计划保持，部署读回与新规则真实运行另行验收。
 
-当前campaign模型请求只加载本模块server-owned PROMPT与经校验的冻结input，tools为空；未加载旧报告技能、旧系列配队提示或历史手动推荐模板。实际执行链为controller tick／手动run→campaign_weekly→weekly CLI当前prepare→完整Newest候选取证→campaign_recommendations→原center唯一writer。研究器“最多6组”是覆盖完整候选池的查询预算，不是截取6个Trio候选；SBC最新核心的ID排序及Newest候选遍历顺序也不替代模型热门判断。历史脚本、回执及发布清单仅作对应版本证据，不重新接入当前自动路径。
+当前campaign模型请求只加载本模块server-owned PROMPT与经校验的冻结input，tools为空；未加载旧报告技能、旧系列配队提示或历史手动推荐模板。实际执行链为controller tick／手动run→campaign_weekly→weekly CLI当前prepare→完整Newest候选取证→campaign_recommendations→原center唯一writer。研究查询按真实搜索合同分组，不截取6个Trio候选；SBC最新核心的ID排序及Newest候选遍历顺序也不替代模型热门判断。历史脚本、回执及发布清单仅作对应版本证据，不重新接入当前自动路径。
 
-Trio取证复用 `campaign_evidence.collect_player_evidence`，懒加载现役 `/opt/fs-game-monitor-intelligence/discovery.py` 的DeepSeek.search/fetch，不调用其模型。完整Newest普通候选传入（本轮31名，沿原模型投影上限300）；按最多6组用球员姓名OR查询覆盖候选，明确检索市场价格/受欢迎度及社媒/垂类观点，保持最多12次Search、8次Fetch、180秒原总预算。正文姓名与FC27赛季匹配才接纳真实URL、观察时间和内容SHA；不能以Search摘要当已读原文，不能据组查询宣称31人均有市场证据。来源/context带入空tools Sol input，原文上下文有界。partial或无资料不阻断草稿：保留coverage/gaps，允许metadata-only模型判断及空evidence_indices，标明provisional/review_required，不虚构价格、交易量或热门排名，不伪称我方销量或社媒已核。共享模型只生成候选，最终Node仍按冻结源和页池核对。
+Trio取证复用 `campaign_evidence.collect_player_evidence`，懒加载现役 `/opt/fs-game-monitor-intelligence/discovery.py` 的DeepSeek.search/fetch，不调用其模型。完整Newest普通候选传入（本轮31名，沿原模型投影上限300）；按现役Search最多128字符的真实合同动态分组，保留完整球员姓名OR、FC27限定及market/meta词，每查询一个允许站点。先交替社媒/垂类查询每组，再以余量补另一类别；保持最多12次Search、8次Fetch、180秒原总预算。姓名过长、分组超过查询预算或资料不足明确记录缺口，不截断姓名伪称全覆盖。正文姓名与FC27赛季匹配才接纳真实URL、观察时间和内容SHA；不能以Search摘要当已读原文，不能据组查询宣称31人均有市场证据。来源/context带入空tools Sol input，原文上下文有界。partial或无资料不阻断草稿：保留coverage/gaps，允许metadata-only模型判断及空evidence_indices，标明provisional/review_required，不虚构价格、交易量或热门排名，不伪称我方销量或社媒已核。共享模型只生成候选，最终Node仍按冻结源和页池核对。
 
 原游戏情报周二/周五快照仍无campaign消费hook；本轮实现的是用户指定周日周期读取最新sbcplayer、Popular和Newest标签池，不宣称每个游戏内SBC事件即时触发。可核实范围以当次目录和证据覆盖为准；Newest新口径的代码/隔离测试与部署、真实模型验收分别记录，自然周日、长期授权撤销及外部来源稳定性仍待真实验收。
 
@@ -58,3 +58,16 @@ Trio取证复用 `campaign_evidence.collect_player_evidence`，懒加载现役 `
 依赖闭包须沿原publisher/admission锁协调安装，等待原模型/报告/native在途任务结束，不停FC每60分钟调度与writer。一起激活fs-business-range，验证reader版本及原入口；不因本任务重启官方Hermes worker。DB、tasks、usage、凭据和业务配置不进入回退包。
 
 新状态一旦入账，不得整包回退到不识别该状态的旧reader。回退撤回campaign入口/消费者，同时保留proxy对not_dispatched的兼容读取及fc_daily排除未派发计数补丁；不删除或改写账本。若额外旧reader不能同窗升级，则不启用campaign消费，保护原P0链。
+
+## 三页实价与共用码的现役来源
+
+价格、数量、平台/区服和原生加购规格由原Admin只读观察、native_catalog/model-options及native_checkout提供，完整商品身份匹配后展示参考价；购买需有效原生绑定并在原站重新核价。周更模型只选商品，不生成金额、折扣或结账参数。原operation_id的交易审批清单是候选，不自动安装生产策略。
+
+三页共用FCSCOUT10/6049，限定FC27顶级Items2；新草稿继承统一benefit_refs和现役私有策略。旧分页面码仅作受限兼容，不是未来生成模板。当前部署、实价、购物车正例/金币反例和原ID回执见[正式交易验收](deploy/commerce/ACCEPTANCE.md)。
+
+
+## 当前已选固定组合的共享刷新（2026-11-09）
+
+用户本轮选择先同步Trio现有4个固定Player Bundle到三页。范围来自每次prepare读取的FS `effective_fc_layout.bundles`，而不是硬编码四个模型、全部Packs类目或模型自行推荐。Node从已存 `fc_models` 取model_id，旧卡则从center目录取精确PS goods_id；原 `weekly_selection` 只接收这批最多8个 `bundle_refs`，核实真实goods→model、site266/game1327/Bundle类目，并记录当前在架/排除与三平台身份观察。人工改选改变下一轮输入；旧已冻结plan与原ID回执保持可核对，不重写历史请求。
+
+Bundle不进入24行Sol选品结果。apply在同一center CAS草稿内更新组合范围及三页相同的平台keys/`bundle`角色；公开投影分别消费各页范围，SBC不再借Trio的活跃状态。原商业prepare为三页生成同组合的真实报价/原生binding提案，code仍FCSCOUT10、Discount6049，仅FC27 Items。旧游戏/万圣节策略保留；是否安装与发布仍由现有明确确认端点决定。公开Bundle沿原独立审阅及原生加购动作，参考报价或仅模型身份不足时购买保持不可用。

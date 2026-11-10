@@ -39,8 +39,8 @@ const localPath = value => {
   return value;
 };
 const hash = value => { if (!/^[a-f0-9]{64}$/.test(value || '')) fail('INVALID_RELEASE'); return value; };
-export const pageRoleOptions=Object.freeze({'fc27-weekly':['preview','player'],'fc27-trio':['preview','player','bundle'],
-  'fc27-sbc':['preview','core','companion'],'seasonal-vault':['preview','pool','fixed','both']});
+export const pageRoleOptions=Object.freeze({'fc27-weekly':['preview','player','bundle'],'fc27-trio':['preview','player','bundle'],
+  'fc27-sbc':['preview','core','companion','bundle'],'seasonal-vault':['preview','pool','fixed','both']});
 const rolePageByPath={'Weekly-Scout.html':'fc27-weekly','Player-Trio.html':'fc27-trio','Sbc-Companions.html':'fc27-sbc','seasonal/index.html':'seasonal-vault'};
 // Visible hero copy (heading / intro / body) is operator-editable so a weekly
 // refresh no longer needs a code change. Public pages are English-only, so the
@@ -155,7 +155,7 @@ export function projectRelease(input) {
   if (new Set(result.products.map(p=>p.key)).size !== result.products.length || new Set(result.pages.map(p=>p.page_id)).size !== result.pages.length || result.pages.some(p=>p.product_keys.some(k=>!result.products.some(r=>r.key===k)))) fail('INVALID_RELEASE');
   if(input.seasonal_theme!=null){if(!['halloween','thanksgiving','christmas','black-friday'].includes(input.seasonal_theme))fail('INVALID_RELEASE');result.seasonal_theme=input.seasonal_theme;}
   if(input.halloween!=null){result.halloween=projectHalloween(input.halloween);const keys=halloweenProductKeys(result.halloween,result.products);const page=result.pages.find(p=>p.page_id==='seasonal-vault');if(!page||keys.some(k=>!page.product_keys.includes(k)))fail('INVALID_HALLOWEEN_CONFIG');}
-  if(input.seasonal_model_contracts!=null){result.seasonal_model_contracts=projectModelOptions(input.seasonal_model_contracts,result.products);const allowed=new Set(result.pages.find(p=>p.page_id==='seasonal-vault')?.product_keys||[]);if(Object.values(result.seasonal_model_contracts).some(c=>c.combinations.some(x=>!allowed.has(x.product_key))))fail('INVALID_MODEL_OPTIONS');}
+  if(input.seasonal_model_contracts!=null){result.seasonal_model_contracts=projectModelOptions(input.seasonal_model_contracts,result.products);const allowed=new Set(result.pages.filter(p=>['seasonal-vault','fc27-trio','fc27-weekly','fc27-sbc'].includes(p.page_id)).flatMap(p=>p.product_keys||[]));if(Object.values(result.seasonal_model_contracts).some(c=>c.combinations.some(x=>!allowed.has(x.product_key))))fail('INVALID_MODEL_OPTIONS');}
   if(input.native_checkout!=null){try{result.native_checkout=nativeHandoff.projectConfiguration(input.native_checkout,result.pages,result.products);}catch{fail('NATIVE_CONFIGURATION_INVALID');}}
   if(input.fc_layout!=null)result.fc_layout=projectFcLayout(input.fc_layout,result.products);
   if(result.pages.some(p=>p.starts_at&&p.ends_at&&p.starts_at>=p.ends_at))fail('INVALID_RELEASE');

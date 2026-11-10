@@ -16,9 +16,10 @@ class Reader:
         self.tags=[dict(id=1,name='Popular',gid=1327,cate_id=['9627'],status=1),dict(id=2,name='Newest',gid=1327,cate_id=['9627'],status=1)]
         self.players=[dict(id=i,gid=1327,cid=9627,title='Player '+str(i),status=1,auto_off=0,is_put=1,tid=['1','2'],shelf_time=100,more=normal()) for i in range(20,0,-1)]
         self.cores=[dict(self.players[0],id=i,cid=10203,title='SBC Player') for i in range(108,99,-1)]
+        self.bundles=[dict(self.players[0],id=i,cid=10255,title='Configured Bundle '+str(i)) for i in range(201,205)]
     def begin_catalog_read(self):pass
     def catalog_model(self,model_id):
-        return copy.deepcopy(next(x for x in self.players+self.cores if str(x['id'])==str(model_id)))
+        return copy.deepcopy(next(x for x in self.players+self.cores+self.bundles if str(x['id'])==str(model_id)))
     def storefront_popular_page(self,tag_id,page=1):
         rows=getattr(self,'public_order',self.players)
         return dict(total=len(rows),rows=[dict(mid=x['id'],site_id=266,gid=1327,cid=9627,aid=21587,baseprop={'393':{'code':'players_type','name':player_type(x)}}) for x in rows[(page-1)*12:page*12]])
@@ -32,10 +33,36 @@ class Reader:
     def search_goods_page(self,site,game,model_id,category_id,**kwargs):
         return {'total':3,'rows':[dict(id=int(model_id)*10+i,mid=int(model_id),cid=int(category_id),site_id=266,gid=1327,aid=aid,sid=7645,status=1,auto_off=0,num=1,min_qty=1,unit='',attr_switch=1,sku_switch=0) for i,aid in enumerate([21587,21585,21589])],'has_more':False}
     def catalog_goods(self,goods_id):
-        mid=int(goods_id)//10;cid='10203' if mid in [x['id'] for x in self.cores] else '9627'
+        mid=int(goods_id)//10;cid='10203' if mid in [x['id'] for x in self.cores] else '10255' if mid in [x['id'] for x in self.bundles] else '9627'
         return dict(self.search_goods_page('266','1327',str(mid),cid)['rows'][int(goods_id)%10],more={'saleprop':[],'skuTableSet':[]},unit_price=10,discount=100)
 
 class WeeklyTests(unittest.TestCase):
+    def test_configured_bundles_follow_real_legacy_goods_and_model_refs_not_entire_pack_category(self):
+        reader=Reader();result=weekly_selection(reader,[{'goods_id':'2010'},{'model_id':'202'}])
+        self.assertEqual(result['bundle_model_ids'],['201','202'])
+        self.assertEqual(result['evidence']['configured_bundle_model_ids'],['201','202'])
+        self.assertTrue(result['evidence']['bundles_complete'])
+        bundles=[m for m in result['models'] if m['kind']=='bundle']
+        self.assertEqual([m['model_id'] for m in bundles],['201','202'])
+        self.assertTrue(all(p['state']=='verified' for m in bundles for p in m['platforms'].values()))
+        self.assertEqual(result['scout_model_ids'],['20','19','18']);self.assertEqual(len(result['sbc_model_ids']),9)
+        reader.bundles[0]['status']=0
+        refreshed=weekly_selection(reader,[{'model_id':'201'},{'model_id':'204'}])
+        self.assertEqual(refreshed['bundle_model_ids'],['204'])
+        self.assertEqual(refreshed['evidence']['bundle_excluded'],[{'model_id':'201','reason':'not_currently_listed'}])
+    def test_existing_management_bridge_passes_only_bounded_configured_bundle_refs(self):
+        from bridge import handle
+        reader=Reader();closed=[];reader.close=lambda:closed.append(True)
+        result=handle(dict(action='weekly_selection',site_id='266',game_id='1327',bundle_refs=[{'goods_id':'2010'}]),reader_factory=lambda:reader)
+        self.assertEqual(result['bundle_model_ids'],['201']);self.assertEqual(closed,[True])
+        with self.assertRaisesRegex(ContractError,'WEEKLY_PROJECT_SCOPE_REQUIRED'):
+            handle(dict(action='weekly_selection',site_id='266',game_id='1327',bundle_refs=[],extra=True),reader_factory=lambda:reader)
+
+    def test_configured_bundle_scope_duplicate_and_shape_are_checked(self):
+        for refs,code in [([{'goods_id':'200'}],'WEEKLY_BUNDLE_SCOPE_MISMATCH'),([{'model_id':'20'}],'WEEKLY_BUNDLE_SCOPE_MISMATCH'),([{'goods_id':'2010'},{'model_id':'201'}],'WEEKLY_BUNDLE_SELECTION_DUPLICATE'),([{'model_id':'201','goods_id':'2010'}],'WEEKLY_BUNDLE_SELECTION_INVALID')]:
+            with self.subTest(code=code):
+                with self.assertRaisesRegex(ContractError,code):weekly_selection(Reader(),refs)
+
     def test_newest_complete_scan_preserves_sixty_page_budget_beyond_1200(self):
         reader=Reader()
         reader.players=[dict(reader.players[0],id=i,tid=['1'] if i>330 else ['1','2']) for i in range(1600,299,-1)]

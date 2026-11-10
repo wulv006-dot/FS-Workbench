@@ -1,0 +1,126 @@
+{
+  "status": "verified",
+  "files": 23,
+  "units": {
+    "fs-campaign-dashboard.service": "active",
+    "fs-campaign-runtime.service": "active",
+    "fs-business-range.service": "active"
+  },
+  "targets": [
+    {
+      "target": "/opt/fs-campaign-dashboard/Player-Trio.html",
+      "sha256": "ade480d9c38a9ee0f2e2c68ac080b63da004b87978ccb2edc871715ec75d1df7",
+      "expected": "ade480d9c38a9ee0f2e2c68ac080b63da004b87978ccb2edc871715ec75d1df7"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/Sbc-Companions.html",
+      "sha256": "b18b92b8bd339bec4aa7d03ccef17b56b59833838dedfadf88db4d9ce8498afe",
+      "expected": "b18b92b8bd339bec4aa7d03ccef17b56b59833838dedfadf88db4d9ce8498afe"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/Weekly-Scout.html",
+      "sha256": "d41430b35731e97a0b55ff6137bf637d52a89dde36c5fb9fbb28eec6496e4c00",
+      "expected": "d41430b35731e97a0b55ff6137bf637d52a89dde36c5fb9fbb28eec6496e4c00"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/index.html",
+      "sha256": "f5cdfe3d21dc5e94aee461b79f1acabfa46e8e18475c257ad7932354edd38435",
+      "expected": "f5cdfe3d21dc5e94aee461b79f1acabfa46e8e18475c257ad7932354edd38435"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/activity-content.js",
+      "sha256": "27188bc70003c34832457682518958f305603d1681158fe6ecc051da529f65be",
+      "expected": "27188bc70003c34832457682518958f305603d1681158fe6ecc051da529f65be"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/activity.css",
+      "sha256": "e7eaaa9fe46dc42ef0232d4bcc8912031cfea0e8bcaacc74f26ce7d8094c177b",
+      "expected": "e7eaaa9fe46dc42ef0232d4bcc8912031cfea0e8bcaacc74f26ce7d8094c177b"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/center-store.mjs",
+      "sha256": "fa3ab3667eb069e7b724c4ed32fe02b661c4469af0eae8cf51ac7b9f4ebba7b3",
+      "expected": "fa3ab3667eb069e7b724c4ed32fe02b661c4469af0eae8cf51ac7b9f4ebba7b3"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly.html",
+      "sha256": "8389f3766b63aaca644c18937770847a0d53d9af0bcae8d7551b8ac45656f8b3",
+      "expected": "8389f3766b63aaca644c18937770847a0d53d9af0bcae8d7551b8ac45656f8b3"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/production-server.mjs",
+      "sha256": "239ef86a5ddf13230c2d4f3bfcf918df974dfd74fcf33d936ba29a36e5c37505",
+      "expected": "239ef86a5ddf13230c2d4f3bfcf918df974dfd74fcf33d936ba29a36e5c37505"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-recommendations.mjs",
+      "sha256": "b0dfb0a78197da73b71a546bf4f29b5925128faf49a725448b99d533f2c69b83",
+      "expected": "b0dfb0a78197da73b71a546bf4f29b5925128faf49a725448b99d533f2c69b83"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-hermes.mjs",
+      "sha256": "bc2ff7b6f37678a96fd72c29d0ac26eaf8521b5afe2c8a7e1773ac3f391e4922",
+      "expected": "bc2ff7b6f37678a96fd72c29d0ac26eaf8521b5afe2c8a7e1773ac3f391e4922"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly.js",
+      "sha256": "d546feb7cbd067a258a657ec8d4aded7b8296995c88e9ce586cc86a2a383516d",
+      "expected": "d546feb7cbd067a258a657ec8d4aded7b8296995c88e9ce586cc86a2a383516d"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/store.mjs",
+      "sha256": "4f7ed25753d14c2a650cd5da44d5725715c2c87a326974aa243284b9fec993c3",
+      "expected": "4f7ed25753d14c2a650cd5da44d5725715c2c87a326974aa243284b9fec993c3"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/weekly-pipeline.mjs",
+      "sha256": "7be7250f58bdd62f8f799ef017f0c69e306f5c39a7f3dfaa051aa84ae7f6d164",
+      "expected": "7be7250f58bdd62f8f799ef017f0c69e306f5c39a7f3dfaa051aa84ae7f6d164"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/runtime/model-cards.mjs",
+      "sha256": "3d4dc4337cda6aeb38ef631655595762287357b97167870926b8ad3c39573dc2",
+      "expected": "3d4dc4337cda6aeb38ef631655595762287357b97167870926b8ad3c39573dc2"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/backend/bridge.py",
+      "sha256": "a08ce475ef34a9174c2dac2371061ac4357d20996a89d437801b30df0cbb3847",
+      "expected": "a08ce475ef34a9174c2dac2371061ac4357d20996a89d437801b30df0cbb3847"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/adapters.py",
+      "sha256": "a6632ab54c30797ae4763e8108d505a5df522c0545bf8069059bc477a64b0ae4",
+      "expected": "a6632ab54c30797ae4763e8108d505a5df522c0545bf8069059bc477a64b0ae4"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/models.py",
+      "sha256": "368d0cfffc7653b76333f78bed3032c236aedeec7b4402d75ce05854f6cf9185",
+      "expected": "368d0cfffc7653b76333f78bed3032c236aedeec7b4402d75ce05854f6cf9185"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/backend/campaign_backend/weekly.py",
+      "sha256": "605aa54152358fb475f70049179e0e76f406a2638c62aa6d3dce9f514e02e906",
+      "expected": "605aa54152358fb475f70049179e0e76f406a2638c62aa6d3dce9f514e02e906"
+    },
+    {
+      "target": "/opt/fs-hermes-fc/campaign_recommendations.py",
+      "sha256": "ca66d804dbe83b53169c1b5502b5dad402ea15fbdbb83ff6ad864a24cbd00ea8",
+      "expected": "ca66d804dbe83b53169c1b5502b5dad402ea15fbdbb83ff6ad864a24cbd00ea8"
+    },
+    {
+      "target": "/opt/fs-hermes-fc/campaign_evidence.py",
+      "sha256": "891d0253599824f5cafd9448d8f97c4ddbcfb23e767f60b5ae043adf4d16bb36",
+      "expected": "891d0253599824f5cafd9448d8f97c4ddbcfb23e767f60b5ae043adf4d16bb36"
+    },
+    {
+      "target": "/opt/fs-hermes-fc/campaign_weekly.py",
+      "sha256": "ce80b03009e03d741dd198e834762cebc2764516fab84be86f85cbd4dfe5a3f5",
+      "expected": "ce80b03009e03d741dd198e834762cebc2764516fab84be86f85cbd4dfe5a3f5"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/runtime/static-manifest.json",
+      "sha256": "537448ed541f5a3c460383cc6213dda283997c43e27c270f80b3a388c172c45a",
+      "expected": "537448ed541f5a3c460383cc6213dda283997c43e27c270f80b3a388c172c45a"
+    }
+  ]
+}

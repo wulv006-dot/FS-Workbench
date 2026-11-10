@@ -1,0 +1,56 @@
+{
+  "status": "verified",
+  "files": 9,
+  "units": {
+    "fs-campaign-dashboard.service": "active",
+    "fs-campaign-runtime.service": "active",
+    "fs-business-range.service": "active"
+  },
+  "targets": [
+    {
+      "target": "/opt/fs-campaign-dashboard/activity-content.js",
+      "sha256": "3cfd8a1f0f464e231e1660ae7bf07810eda773bdd2c1a24ff3e28494f047aa6a",
+      "expected": "3cfd8a1f0f464e231e1660ae7bf07810eda773bdd2c1a24ff3e28494f047aa6a"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/Sbc-Companions.html",
+      "sha256": "69b7ff1ec1136f379ee5e2b0f1191b77aed0cc5fe4716b2f077ae0b73ea685c3",
+      "expected": "69b7ff1ec1136f379ee5e2b0f1191b77aed0cc5fe4716b2f077ae0b73ea685c3"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/Weekly-Scout.html",
+      "sha256": "47d0f793fd17a76e463d2100c780ac18f4d8f02d24db9d335703b0e8909614df",
+      "expected": "47d0f793fd17a76e463d2100c780ac18f4d8f02d24db9d335703b0e8909614df"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/index.html",
+      "sha256": "9c94475d1fad1409f8aa357c2072913ae0982fa5a23e7e2aa941c454118fb1ed",
+      "expected": "9c94475d1fad1409f8aa357c2072913ae0982fa5a23e7e2aa941c454118fb1ed"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/products.js",
+      "sha256": "74b5af7d8d9b935233bcf2f42976b1019c55717b9fe59b9faa012d285a6cada6",
+      "expected": "74b5af7d8d9b935233bcf2f42976b1019c55717b9fe59b9faa012d285a6cada6"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics-config.js",
+      "sha256": "7dbe7278e45ee652a3df134c3e450fba696db35a2ab8bebce1b21156f79f1d32",
+      "expected": "7dbe7278e45ee652a3df134c3e450fba696db35a2ab8bebce1b21156f79f1d32"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/analytics/activity-registry.json",
+      "sha256": "96f7559735e86f57ca7155f2c42aab6cb96922d6561e11c8cd0fb6e8ae309f2b",
+      "expected": "96f7559735e86f57ca7155f2c42aab6cb96922d6561e11c8cd0fb6e8ae309f2b"
+    },
+    {
+      "target": "/opt/fs-hermes-fc/campaign_evidence.py",
+      "sha256": "83935163db351da1f74f6f7ea87dd12f6d48ce1022bfc783d80f88dd28c4ff89",
+      "expected": "83935163db351da1f74f6f7ea87dd12f6d48ce1022bfc783d80f88dd28c4ff89"
+    },
+    {
+      "target": "/opt/fs-campaign-dashboard/runtime/static-manifest.json",
+      "sha256": "b3f2a8bada82011516fcf77ed4bbbecedde0f1a8eea413dc0a775d86e426376e",
+      "expected": "b3f2a8bada82011516fcf77ed4bbbecedde0f1a8eea413dc0a775d86e426376e"
+    }
+  ]
+}

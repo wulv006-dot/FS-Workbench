@@ -1,0 +1,27 @@
+{
+  "operation_id": "fa02f31d-36b2-46a5-9365-ec8bf8852c2d",
+  "state": "completed",
+  "stage": "apply_draft",
+  "created_at": "2026-11-09T08:26:33.926685+00:00",
+  "source_observed_at": "2026-11-09T08:27:13.895152+00:00",
+  "stage_timestamps_available": false,
+  "note": "The current schema stores created_at and source observation time, not stage start/end times.",
+  "external_status": "partial",
+  "provisional": true,
+  "source_count": 4,
+  "coverage": {
+    "players": 31,
+    "verified_documents": 4,
+    "categories": [
+      "vertical"
+    ]
+  },
+  "failure_count": 34,
+  "failure_classes": {
+    "player_or_season_unmatched": 1,
+    "fetch_failed": 1,
+    "research_fetch_budget": 1,
+    "coverage_partial": 31
+  },
+  "trio_candidate_count": 31
+}

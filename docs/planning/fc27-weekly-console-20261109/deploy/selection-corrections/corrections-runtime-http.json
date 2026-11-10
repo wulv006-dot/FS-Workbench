@@ -1,0 +1,30 @@
+[
+  {
+    "path": "Weekly-Scout.html",
+    "status": 200,
+    "bytes": 25583,
+    "sha256": "6d3f40fa2dc543d756c669a05c8c70de72164c3c95efd9cee348d5494767cc54",
+    "shared_tracker": true
+  },
+  {
+    "path": "Sbc-Companions.html",
+    "status": 200,
+    "bytes": 26388,
+    "sha256": "1e598ebdd2124d3d89b002f0eb8560899628a5600b66595ec0801b53966b82cb",
+    "shared_tracker": true
+  },
+  {
+    "path": "Player-Trio.html",
+    "status": 200,
+    "bytes": 25387,
+    "sha256": "a8d269724959aae51bdc217d8b5f7f57406a4b6af5d604073238474bbdd946e5",
+    "shared_tracker": true
+  },
+  {
+    "path": "seasonal/activity-analytics.js",
+    "status": 200,
+    "bytes": 22593,
+    "sha256": "15a18d9c15925cb2cf778fa31c63cc8bc0f02bf01a9ab7315ed96b22cc67b199",
+    "shared_tracker": null
+  }
+]

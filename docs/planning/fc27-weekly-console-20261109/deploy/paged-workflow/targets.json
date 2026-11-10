@@ -1,0 +1,10 @@
+{
+  "code/activity.js": "/opt/fs-campaign-dashboard/activity.js",
+  "code/analytics/admin-price-provider.mjs": "/opt/fs-campaign-dashboard/analytics/admin-price-provider.mjs",
+  "code/analytics/products.html": "/opt/fs-campaign-dashboard/analytics/products.html",
+  "code/analytics/products.js": "/opt/fs-campaign-dashboard/analytics/products.js",
+  "code/analytics/weekly.html": "/opt/fs-campaign-dashboard/analytics/weekly.html",
+  "code/analytics/weekly.js": "/opt/fs-campaign-dashboard/analytics/weekly.js",
+  "code/analytics/weekly.css": "/opt/fs-campaign-dashboard/analytics/weekly.css",
+  "derived/static-manifest.json": "/opt/fs-campaign-dashboard/runtime/static-manifest.json"
+}

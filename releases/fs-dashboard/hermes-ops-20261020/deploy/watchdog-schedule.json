@@ -3,12 +3,17 @@
   "timezone": "UTC",
   "display_timezone": "Asia/Shanghai",
   "expected": {
-    "schedule_expr": "0 0,15,18,21 * * *",
+    "schedule_expr": "0 0,5,10,15,19,23 * * *",
     "no_agent": true,
     "script": "/profile/scripts/fs-ops-watchdog/watch.py"
   },
   "updates": {
-    "name": "FS业务巡检（北京时间08/13/18/23/03/07）",
-    "schedule": "0 0,5,10,15,19,23 * * *"
+    "name": "FS综合业务巡检（北京时间01/04/08/13/17/22）",
+    "schedule": "0 0,5,9,14,17,20 * * *",
+    "no_agent": false,
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "script": "fs-ops-watchdog/review-general.sh",
+    "prompt": "你是 FS 综合业务巡检复核员。脚本先按原事件 ID、去重和回执规则处理需要通知的变化，再给你只读摘要。用摘要判断 FC、RPG、FS 服务是否有未解决的阻断问题；将旧服务按设计停用、证据读取失败、真实写价失败分开写清。正常时只输出『本轮无新增阻断问题』。有问题时给出原工单、证据时间、影响与下一步；缺少原回执时写待核，不推断已恢复。不要再次发飞书消息、改价、重放任务或改配置，避免与原报警链重复。"
   }
 }

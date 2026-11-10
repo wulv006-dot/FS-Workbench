@@ -8,6 +8,15 @@ const paths=['Weekly-Scout.html','Sbc-Companions.html','Player-Trio.html','seaso
 const snapshot=()=>({schema_version:1,publication_status:'published',release_id:'published-1',pages:paths.map((path,i)=>({path,page_id:'page-'+i,title:'Published title '+i,description:'Published description '+i,active:true,starts_at:'2026-10-24T09:00:00Z',ends_at:'2026-10-25T10:00:00Z',product_keys:[]}))});
 const render=(s=snapshot(),name=paths[0],now='2026-10-24T10:00:00Z')=>presentPage({name,body:source,snapshot:s,now});
 
+test('FC canonical, social URL and structured data use the configured served public base',()=>{
+ const old='https://www.mmoexp.com/Fc-27/Weekly-Scout.html';
+ const body=source.replaceAll('https://www.mmoexp.com/original',old).replace('</head>','<meta property="og:url" content="'+old+'"></head>');
+ const result=presentPage({name:paths[0],body,snapshot:snapshot(),now:'2026-10-24T10:00:00Z',publicBase:'https://www.mmoexp.com/events/'}).body;
+ assert(result.includes('<link rel="canonical" href="https://www.mmoexp.com/events/Weekly-Scout.html">'));
+ assert(result.includes('<meta property="og:url" content="https://www.mmoexp.com/events/Weekly-Scout.html">'));
+ assert(result.includes('"url":"https://www.mmoexp.com/events/Weekly-Scout.html"'));assert(!result.includes(old));
+});
+
 test('published config renders exact visible copy and metadata while retaining active design',()=>{
   const s=snapshot(),first=render(s);assert.equal(first.status,200);
   for(const name of paths){const {body}=render(s,name);assert.match(body,/class="original-design"/);assert.match(body,/<main id="offers">/);assert.match(body,/<script src="activity.js"><\/script>/);assert.equal((body.match(/<h1\b/g)||[]).length,1);}
@@ -83,4 +92,24 @@ test('SBC projection distinguishes cores, retains only chosen original routes an
   s.pages[1].product_keys=keys([core,...picks]);const result=projectFcCatalog(catalog,s);
   assert.deepEqual(result.sbc.ids,[core]);assert.equal(result.sbc.defaultId,core);assert.deepEqual(Object.keys(result.sbc.routes),[core]);assert.deepEqual(result.sbc.routes[core].picks,picks);assert.deepEqual(result.sbc.routes[core].alternatives,[]);assert.deepEqual(result.sbc.routes[core].label,original.label);assert.deepEqual(result.sbc.fallbackPicks,picks);assert.deepEqual(result.sbc.allListedIds,[core]);
   const empty=projectFcCatalog(catalog,selection());assert.deepEqual(empty.weekly.ids,[]);assert.deepEqual(empty.trio.ids,[]);assert.deepEqual(empty.sbc.routes,{});assert.equal(empty.sbc.defaultId,null);
+});
+
+
+test('SBC and Weekly fixed bundles project from their own page bindings when Trio is inactive',()=>{
+ const s=selection(),bundle=catalog.bundles.ids[0];s.pages[2].active=false;s.pages[0].product_keys=keys([bundle]);s.pages[1].product_keys=keys([bundle]);const result=projectFcCatalog(catalog,s);
+ assert.deepEqual(result.bundles.ids,[]);assert.deepEqual(result.weekly.bundleIds,[bundle]);assert.deepEqual(result.sbc.bundleIds,[bundle]);assert(result.products[bundle]);
+ s.pages[1].product_keys=[];assert.deepEqual(projectFcCatalog(catalog,s).sbc.bundleIds,[],'explicit page removal never inherits a different page bundle pool');
+});
+
+test('private and published SBC projection honors layout order only among eligible page cores',()=>{
+ const [first,second]=catalog.sbc.ids,s=selection();s.pages[1].product_keys=keys([first,second]);
+ s.fc_layout={sbc:[second,'not-selected',first],defaultCore:second,routes:catalog.sbc.routes};
+ const before=structuredClone(s);
+ for(const publication_status of ['preview','published']){
+  const result=projectFcCatalog(catalog,{...s,publication_status});assert.deepEqual(result.sbc.ids,[second,first]);assert.equal(result.sbc.defaultId,second);assert.deepEqual(result.sbc.allListedIds,[second,first]);
+ }
+ assert.deepEqual(s,before);
+ s.fc_layout.sbc=[second];assert.deepEqual(projectFcCatalog(catalog,s).sbc.ids,[second,first],'unranked eligible members remain');
+ s.pages[1].product_roles=Object.fromEntries(keys([second]).map(key=>[key,'companion']));assert.deepEqual(projectFcCatalog(catalog,s).sbc.ids,[first],'configured order cannot bypass role filtering');
+ delete s.pages[1].product_roles;s.pages[1].product_keys=[...keys([first]),'fc-'+second+'-invalid'];assert.deepEqual(projectFcCatalog(catalog,s).sbc.ids,[first],'configured order cannot bypass platform filtering');
 });

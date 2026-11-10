@@ -1,0 +1,31 @@
+{
+  "contract": "fc27_three_discount_status_repair_v1",
+  "mode": "readonly_inspect",
+  "records": [
+    {
+      "native_id": "6049",
+      "code": "FCSCOUT10",
+      "operation_id": "c71a67a7-61be-444d-ad95-190be5a5e0eb",
+      "before_hash": "1bff500fbb2ce57862de9142f862c01896ba79e03de843dd1c14307d7e6c8a92",
+      "current_status": 0,
+      "target_status": 1
+    },
+    {
+      "native_id": "6051",
+      "code": "FCSBC10",
+      "operation_id": "984b954d-59f8-4ba9-ba93-82cf9ec6955d",
+      "before_hash": "e1c5527d7fea14a74a253fef61b77ab289e36cd35af1fff0b18e16dfcce27a55",
+      "current_status": 0,
+      "target_status": 1
+    },
+    {
+      "native_id": "6053",
+      "code": "FCTRIO10",
+      "operation_id": "a91ce023-9bd5-4268-98ff-6bfcbe961325",
+      "before_hash": "a31f8866aa6b311b8c66f9bff3bedb2fb2152f702eba0a5db2ca5b9cc25e153b",
+      "current_status": 0,
+      "target_status": 1
+    }
+  ],
+  "invariant": "Existing IDs only; preserve 10 percent, UID0, site266, game1327 and original dates. Status only."
+}

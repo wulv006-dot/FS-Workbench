@@ -17,6 +17,12 @@
 
 当前维护源在本目录source/与frontend/，不覆盖历史20261018候选包。精确活动映射、部署读回和回滚见后续验收记录。沿用既有冻结后端publisher及锁/CAS/隔离import/空闲检查/备份。
 
+## 2026-11-10 Buyer ID 候选优化
+
+用户已确认候选金额以 ES 原表订单美元金额为准；原严格门槛、商品、折扣和新老客配置不变。扫描先从完整 ES 归档筛候选，再按订单号小批量通过 Admin 精确核网站、游戏、付款和邮箱。同 Buyer ID 且邮箱一致的合格订单在日名单合并；Buyer ID 缺失保留原订单路径，邮箱冲突不自动追踪。页面按已核 Buyer ID 与邮箱在所选日期范围内再去重。首次付款历史、追踪池、人工报告与旧账本不改。
+
+本轮源码、真实接口小范围计数验证、磁盘观察及上线状态见[改造记录](../../../docs/planning/customer-buyer-tracking-20261110/IMPLEMENTATION.md)；正式业务口径见[知识条目](../../../knowledge/customer-tracking/BUYER-ID-CANDIDATES.md)。
+
 ## 明确 ES 拒权后的原请求恢复
 
 仅适用于原 `scan_jobs` 已失败且 `reason=es_export_permission_denied` 的同一天、当前配置版本。此项停止当日自动15分钟重排，旧 `retry_after=60` 也按不自动重试展示；其他失败、历史观察及以后日期保持原行为。目前尚无补权后的成功证据，以下是受控恢复操作合同，尚非真实补权成功验收。

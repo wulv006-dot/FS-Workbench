@@ -6,7 +6,7 @@ const numeric=v=>typeof v==='string'&&/^[1-9]\d{0,19}$/.test(v);
 const safe=(v,max=160)=>typeof v==='string'&&v.length>0&&v.length<=max&&!/[<>\u0000-\u001f]/u.test(v);
 const english=(v,fallback)=>safe(v)&&!/[\u3400-\u9fff]/u.test(v)?v:fallback;
 export function projectModelOptions(input,products){
- if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length>100)bad();const out={};
+ if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length>300)bad();const out={};
  for(const [id,source] of Object.entries(input)){
   if(!numeric(id)||!source||source.model_ref?.model_id!==id||source.model_ref?.site_id!=='266'||!numeric(source.model_ref?.game_id)||source.verified!==true||!safe(source.catalog_version,100)||!Array.isArray(source.fields)||source.fields.length>12||!Array.isArray(source.combinations)||source.combinations.length>1000)bad();
   const model_ref={site_id:'266',game_id:source.model_ref.game_id,model_id:id};

@@ -19,7 +19,7 @@ from campaign_backend.adapters import AdminRead
 from campaign_backend.catalog import (CatalogMapping, field, project_product, positive_id,
                                       discover_product, read_product_metadata)
 from campaign_backend.core import ContractError, source_identity
-from campaign_backend.models import request_scope, project_model, resolve_model, historical_image
+from campaign_backend.models import request_scope, project_model, resolve_model, historical_image, player_type
 from campaign_backend.provider import (scope as provider_scope, model_provider, model_provider_batch,
                                       category_pool, resolve_category_pool)
 from campaign_backend.discount_revenue import read_revenue, query_window
@@ -74,12 +74,12 @@ def benefit_projection(row, kind, site_id=None):
 def handle(request, reader_factory=AdminRead.from_shared_session, services=None):
     action = request.get('action')
     if action == 'weekly_selection':
-        if set(request) != {'action','site_id','game_id'} or str(request.get('site_id')) != '266' or str(request.get('game_id')) != '1327':
+        if set(request) - {'action','site_id','game_id','bundle_refs'} or not {'action','site_id','game_id'} <= set(request) or str(request.get('site_id')) != '266' or str(request.get('game_id')) != '1327':
             raise ContractError('WEEKLY_PROJECT_SCOPE_REQUIRED')
         from campaign_backend.weekly import weekly_selection
         reader = reader_factory()
         try:
-            return weekly_selection(reader)
+            return weekly_selection(reader, request.get('bundle_refs', []))
         finally:
             reader.close()
     if action == 'capabilities':
@@ -149,6 +149,7 @@ def handle(request, reader_factory=AdminRead.from_shared_session, services=None)
                 project_model(row,args['kind'])
                 page=reader.search_goods_page('266','1327',model_id=args['model_id'],category_id=args['category_id'],page=1,limit=10)
                 return dict(model=model_image(resolve_model(row,args['kind'],page)),resolution_complete=page['total']==len(page['rows']),
+                    player_type=player_type(row) if args['kind']=='player' else None,
                     management_only=True,authoritative=False,available=False,checkout_enabled=False)
             if 'model_id' in args:
                 row=reader.catalog_model(args['model_id'])

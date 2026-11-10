@@ -1,0 +1,8 @@
+{
+  "code/seasonal/activity-analytics.js": "/opt/fs-campaign-dashboard/seasonal/activity-analytics.js",
+  "code/analytics/dashboard.js": "/opt/fs-campaign-dashboard/analytics/dashboard.js",
+  "code/analytics/discount-revenue.mjs": "/opt/fs-campaign-dashboard/analytics/discount-revenue.mjs",
+  "code/backend/campaign_backend/discount_revenue.py": "/opt/fs-campaign-dashboard/backend/campaign_backend/discount_revenue.py",
+  "code/analytics-config.js": "/opt/fs-campaign-dashboard/analytics-config.js",
+  "derived/static-manifest.json": "/opt/fs-campaign-dashboard/runtime/static-manifest.json"
+}

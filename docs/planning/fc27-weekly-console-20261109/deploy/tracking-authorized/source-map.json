@@ -1,0 +1,8 @@
+{
+  "releases/fs-dashboard/campaign-analytics-20261023/app/seasonal/activity-analytics.js": "/opt/fs-campaign-dashboard/seasonal/activity-analytics.js",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/dashboard.js": "/opt/fs-campaign-dashboard/analytics/dashboard.js",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/discount-revenue.mjs": "/opt/fs-campaign-dashboard/analytics/discount-revenue.mjs",
+  "releases/fs-dashboard/campaign-analytics-20261023/backend/campaign_backend/discount_revenue.py": "/opt/fs-campaign-dashboard/backend/campaign_backend/discount_revenue.py",
+  "server-local:analytics-config.js enabled false->true": "/opt/fs-campaign-dashboard/analytics-config.js",
+  "derived:static-manifest(only analytics-config.js + seasonal/activity-analytics.js)": "/opt/fs-campaign-dashboard/runtime/static-manifest.json"
+}

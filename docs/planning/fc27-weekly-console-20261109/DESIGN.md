@@ -26,7 +26,7 @@
 | 已有来源 | 本批复用 | 不能据此声称 |
 |---|---|---|
 | center-store / center-seed / products | 商品映射、草稿、媒体、发布版本和原编辑入口 | 当前生产与本地一致 |
-| runtime/native-*、native-code-handoff、host-adapter | 保持既有跨域结账和自动优惠码交接 | FC三页已通过真实购物车/优惠验证 |
+| runtime/native-*、native-code-handoff、host-adapter | 复用主站`/events/`路径代理、同源同标签原生加购与自动优惠码交接 | 旧published16已有实价与原生绑定；新草稿20的商品、三平台及码绑定须单独验收 |
 | analytics/server、discount-revenue、statistics-* | 原行为分析、优惠订单归因与汇总入口 | 点击等于付款、缺失等于零 |
 | publish.py 与 prepare_g1_release.py | 原锁、CAS、备份、回执与部署准备路径 | 本批已获发布批准 |
 

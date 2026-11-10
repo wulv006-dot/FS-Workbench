@@ -294,8 +294,12 @@ class LearningCatalog(unittest.TestCase):
             'fs.customer.lifecycle', 'fs.learning.methods', 'fs.project.execution'}]
         self.assertEqual(len(rows), 6)
         for row in rows:
-            self.assertEqual(row['effective_at'], '2026-10-23')
-            self.assertEqual(row['effective_at_basis'], '本知识修订截至日')
+            if row['id']=='fs.customer.lifecycle':
+                self.assertEqual(row['effective_at'], '2026-11-10')
+                self.assertEqual(row['effective_at_basis'], '2026-11-10 用户确认 ES 候选金额口径')
+            else:
+                self.assertEqual(row['effective_at'], '2026-10-23')
+                self.assertEqual(row['effective_at_basis'], '本知识修订截至日')
             self.assertIsNone(row['original_effective_at'])
 
     def test_aion2_correction_is_current_and_prior_attribution_remains_explicit_history(self):

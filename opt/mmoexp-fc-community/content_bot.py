@@ -301,7 +301,8 @@ class ContentClient(discord.Client):
                 or settings['guild_id'] not in (TEST_GUILD, OFFICIAL_GUILD)):
             return 0
         return await publish_pending(self.news_store, settings['channel_id'], self.send_news,
-                                     auto_enabled=settings['enabled'])
+                                     auto_enabled=settings['enabled'],
+                                     ea_enabled=settings.get('ea_enabled', True))
 
     async def flush_quote_relay(self):
         from quote_panel import CategoryHomeView, category_embed

@@ -100,6 +100,24 @@
       return [...outcomes];
     }};
   }
-  const api={discountFromPayPercent,minor,line,activityPrice,selection,payload,coinsPayload,result,catalogForm,refreshLine,createBatch};
+  // Join only existing verified native options to the exact identity/platform.
+  // A reference quote is useful without a checkout binding; it never changes availability.
+  function nativeModelOffer(model,platform,trade={},pageId=null,now=Date.now()) {
+    const slot=model?.platforms?.[platform],ref=slot?.product_ref,aid={ps:'21587',xbox:'21585',pc:'21589'}[platform];
+    if(!ref||slot.state!=='verified'&&slot.binding_state!=='verified')return null;
+    const sameRef=r=>r&&['site_id','game_id','model_id','goods_id','sku_id'].every(k=>(r[k]??null)===(ref[k]??null));
+    const products=(trade.products||[]).filter(p=>p.preview_only!==true&&sameRef(p.product_ref)&&p.platform?.code===platform&&p.platform?.attribute_id===aid);
+    if(products.length!==1)return null;const product=products[0],contract=trade.seasonal_model_contracts?.[ref.model_id];
+    if(contract?.verified!==true||!['site_id','game_id','model_id'].every(k=>contract.model_ref?.[k]===ref[k]))return null;
+    const combos=(contract.combinations||[]).filter(c=>c.product_key===product.key);
+    if(combos.length!==1)return null;const combo=combos[0],q=combo.quantity,price=combo.price,group=product.quantity?.group;
+    if(!q||q.unit!=='item'||(q.group!=null&&q.group!==group)||!Array.isArray(combo.attributes)||!price||price.source!=='admin_current'||price.currency!=='USD'||price.minor_unit_scale!==2||!Number.isSafeInteger(price.base_minor)||price.base_minor<=0||!Number.isFinite(Date.parse(price.expires_at))||Date.parse(price.expires_at)<=now||!/^\d+$/.test(price.quantity_value||''))return null;
+    const value=Number(price.quantity_value);if(!Number.isSafeInteger(value)||value<1||value<Number(q.min)||value>Number(q.max)||!(Number(q.step)>0)||(value-Number(q.min))%Number(q.step)!==0)return null;
+    const stable=v=>JSON.stringify(v,(_k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.entries(x).sort(([a],[b])=>a.localeCompare(b))):x);
+    const policy=trade.native_checkout,active=policy?.status==='configured'&&policy.origin==='https://www.mmoexp.com'&&policy.consumer_behavior_confirmed===true&&Date.parse(policy.valid_from)<=now&&Date.parse(policy.valid_until)>now;
+    const bindings=active&&typeof group==='string'&&/^[1-9]\d*$/.test(group)?(policy.bindings||[]).filter(b=>b.activity_id==='fc27-season2'&&['fc27-trio','fc27-weekly','fc27-sbc'].includes(b.page_id)&&(!pageId||b.page_id===pageId)&&b.product_key===product.key&&b.off_percent===10&&b.quantity?.value===price.quantity_value&&b.quantity.unit===q.unit&&stable(b.attributes)===stable(combo.attributes)&&b.native?.id===ref.goods_id&&b.native?.aid===aid&&b.native?.group===group&&b.native?.num===price.quantity_value):[];
+    return {product_key:product.key,product_ref:{...ref},quantity:{value:price.quantity_value,unit:q.unit,group:group??null},attributes:combo.attributes.map(a=>({...a})),price:{...price},bindings:bindings.map(b=>({page_id:b.page_id,off_percent:b.off_percent})),checkout_ready:!!pageId&&bindings.length===1};
+  }
+  const api={nativeModelOffer,discountFromPayPercent,minor,line,activityPrice,selection,payload,coinsPayload,result,catalogForm,refreshLine,createBatch};
   if(typeof module==='object'&&module.exports)module.exports=api;else root.FCActivityCore=api;
 })(typeof window==='undefined'?globalThis:window);

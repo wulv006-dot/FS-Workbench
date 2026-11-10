@@ -1528,7 +1528,11 @@ class Handler(BaseHTTPRequestHandler):
             body = self._read_body()
             if not isinstance(body, dict) or set(body) != {'news_publish', 'revision', 'restart'}:
                 raise ValueError('Invalid request')
-            news = fc_news_module().validate_config(body['news_publish'], FC_GUILD)
+            news = body['news_publish']
+            # Browser JSON must carry Discord snowflakes as strings to avoid rounding.
+            if isinstance(news, dict) and news.get('guild_id') == str(FC_GUILD):
+                news = dict(news, guild_id=FC_GUILD)
+            news = fc_news_module().validate_config(news, FC_GUILD)
             if (not isinstance(body['revision'], str) or not re.fullmatch(r'[0-9a-f]{64}', body['revision'])
                     or type(body['restart']) is not bool):
                 raise ValueError('Invalid revision')
@@ -1604,7 +1608,7 @@ class Handler(BaseHTTPRequestHandler):
                         if kind == 'article' else module.NewsStore(FC_NEWS_DB).enqueue_x(url, body['summary'], self.user))
                 fc_audit(self.user, 'enqueue_' + kind, 'item=%s status=%s' % (item['id'], item['status']))
             except (ValueError, TypeError, KeyError):
-                return self._json(400, {'ok': False, 'error': '新闻配置或摘要无效'})
+                return self._json(400, {'ok': False, 'error': '新闻链接、标题或摘要无效，请核对支持的来源与字数'})
             except Exception:
                 return self._json(503, {'ok': False, 'error': '入队未确认，请先刷新记录核对；系统不会自动重试'})
         return self._json(200, {'ok': True, 'id': item['id'], 'status': item['status'], 'url': item['url']})

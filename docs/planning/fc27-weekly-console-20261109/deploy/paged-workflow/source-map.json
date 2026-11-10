@@ -1,0 +1,9 @@
+{
+  "releases/fs-dashboard/campaign-analytics-20261023/app/activity.js": "/opt/fs-campaign-dashboard/activity.js",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/admin-price-provider.mjs": "/opt/fs-campaign-dashboard/analytics/admin-price-provider.mjs",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/products.html": "/opt/fs-campaign-dashboard/analytics/products.html",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/products.js": "/opt/fs-campaign-dashboard/analytics/products.js",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly.html": "/opt/fs-campaign-dashboard/analytics/weekly.html",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly.js": "/opt/fs-campaign-dashboard/analytics/weekly.js",
+  "releases/fs-dashboard/campaign-analytics-20261023/app/analytics/weekly.css": "/opt/fs-campaign-dashboard/analytics/weekly.css"
+}

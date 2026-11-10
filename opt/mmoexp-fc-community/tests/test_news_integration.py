@@ -80,6 +80,30 @@ class NewsIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await self.client.flush_news()
         self.channel.send.assert_awaited_once()
 
+    async def test_manual_mmoexp_event_reaches_discord_with_exact_draft(self):
+        url = 'https://www.mmoexp.com/events/Sbc-Companions.html'
+        self.client.config['news_publish'].update(enabled=False, ea_enabled=False)
+        self.client.news_store.enqueue_article(url, title='Mbappe POTM', summary='YOUR SBC STAR.\nTheir perfect support.')
+        await self.client.flush_news()
+        await self.client.flush_news()
+        self.channel.send.assert_awaited_once()
+        options = self.channel.send.await_args.kwargs
+        self.assertEqual(options['embed'].url, url)
+        self.assertEqual(options['embed'].title, 'Mbappe POTM')
+        self.assertEqual(options['embed'].description, 'YOUR SBC STAR.\nTheir perfect support.')
+        self.assertFalse(options['allowed_mentions'].everyone)
+
+    async def test_client_passes_ea_switch_to_existing_queue(self):
+        from tests.test_news_rounds import row
+        store = self.client.news_store
+        store.ingest([row(1, 'ea')])
+        store.ingest([row(1)])
+        self.client.config['news_publish']['ea_enabled'] = False
+        await self.client.flush_news()
+        self.channel.send.assert_awaited_once()
+        self.assertIn('mmoexp.com', self.channel.send.await_args.kwargs['embed'].url)
+        self.assertEqual(next(item for item in store.items() if item['kind']=='ea')['status'], 'pending')
+
     def test_unapproved_news_guild_and_extra_configuration_rejected(self):
         for change in [{'guild_id': 123}, {'poll_seconds': 30}, {'channel_id': 123}, {'extra': True}]:
             with self.assertRaises(ValueError):

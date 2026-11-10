@@ -45,21 +45,33 @@ def collect_player_evidence(players,at,client=None):
     try:client=client or default_client()
     except (OSError,ImportError,AttributeError):
         return dict(status='unavailable',sources=[],context='外部资料读取器不可用；不能宣称已参考社媒或垂类原文。',documents=[],coverage=dict(players=len(players),verified_documents=0,categories=[],failures=['collector_unavailable']))
-    # Cover the complete Newest pool in at most six groups: the original maximum
-    # of twelve Search calls and eight Fetch calls is unchanged.
-    groups=[players[i::min(6,len(players))] for i in range(min(6,len(players)))];buckets=[]
-    for group in groups:
-        found_groups=[];names=' OR '.join('"'+p['name'].strip()[:60].replace('"',' ')+'"' for p in group)
-        for sites,focus in (('site:futbin.com OR site:fut.gg OR site:easysbc.io','market price popularity meta review'),('site:reddit.com OR site:x.com','community popularity meta review')):
-            if time.monotonic()>=deadline:failures.append('research_time_budget');break
-            try:
-                result=client.search('"FC 27" ('+names+') '+focus+' '+sites)
-                found=result.get('results') if isinstance(result,dict) else None
-                if not isinstance(found,list):raise ValueError('search_response')
-                found_groups.append(found[:5])
-            except Exception:failures.append('search_failed');found_groups.append([])
-        buckets.append(found_groups+[[]]*(2-len(found_groups)))
-    rows=[bucket[category][rank] for rank in range(5) for category in range(2) for bucket in buckets if len(bucket[category])>rank]
+    # The installed Search API rejects queries over 128 characters locally.
+    # Keep complete names, one site per query, and the original twelve-call budget.
+    def query(group,category,index=0):
+        sites=('futbin.com','fut.gg','easysbc.io') if category==0 else ('reddit.com','x.com')
+        names=' OR '.join('"'+p['name'].strip().replace('"',' ')+'"' for p in group)
+        return '"FC 27" ('+names+') '+('market' if category==0 else 'meta')+' site:'+sites[index%len(sites)]
+    groups=[];group=[]
+    for player in players:
+        # easysbc.io is the longest site; market is the longer focus keyword.
+        if len(query([player],0,2))>128:
+            failures.append('research_query_name_budget');continue
+        if group and len(query(group+[player],0,2))>128:groups.append(group);group=[]
+        group.append(player)
+    if group:groups.append(group)
+    # Cover each group once before spending remaining calls on the other category.
+    planned=[(g,i%2,i) for i,g in enumerate(groups)]+[(g,1-i%2,i) for i,g in enumerate(groups)]
+    if len(groups)>12:failures.append('research_query_budget')
+    buckets=[]
+    for group,category,index in planned[:12]:
+        if time.monotonic()>=deadline:failures.append('research_time_budget');break
+        try:
+            result=client.search(query(group,category,index//2))
+            found=result.get('results') if isinstance(result,dict) else None
+            if not isinstance(found,list):raise ValueError('search_response')
+            buckets.append(found[:5])
+        except Exception:failures.append('search_failed');buckets.append([])
+    rows=[bucket[rank] for rank in range(5) for bucket in buckets if len(bucket)>rank]
     covered={str(p['model_id']):set() for p in players}
     for row in rows:
             if not isinstance(row,dict):continue

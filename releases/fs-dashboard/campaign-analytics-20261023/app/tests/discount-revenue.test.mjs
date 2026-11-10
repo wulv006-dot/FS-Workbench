@@ -26,3 +26,9 @@ test('same-window callers coalesce; sync errors release pending state',async()=>
  resolve({status:'available',coverage:{complete:true}});assert.equal((await a).status,200);assert.equal((await b).status,200);
  const broken=makeDiscountRevenue(()=>{throw Error('UPSTREAM_UNAVAILABLE')});assert.equal((await broken(params())).status,502);assert.equal((await broken(params())).status,502);
 });
+
+test('all three FC pages share one paid-code query and never become per-page attribution',async()=>{
+ let calls=0;const query=makeDiscountRevenue(request=>{calls++;assert.equal(request.activity,'fc27-season2');return {status:'available',activity_id:'fc27-season2',attribution_level:'shared_activity_group',page_allocation:'not_available',coverage:{complete:true},totals:{paid_orders:2,paid_usd_minor:1000}};});
+ for(const activity of ['fc27-weekly','fc27-sbc','fc27-trio']){const p=params();p.set('activity',activity);const r=await query(p);assert.equal(r.body.attribution_level,'shared_activity_group');assert.equal(r.body.page_allocation,'not_available');}
+ assert.equal(calls,1);const invalid=params();invalid.set('activity','fc27-weekly');invalid.set('game','891');assert.equal((await query(invalid)).status,400);assert.equal(calls,1);
+});

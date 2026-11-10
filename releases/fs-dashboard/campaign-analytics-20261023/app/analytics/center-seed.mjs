@@ -64,8 +64,8 @@ export function centerSeed(fc,seasonal,{adminObservations=[],now=Date.now()}={})
  const keys=ids=>[...new Set(ids.flatMap(id=>byOriginal[id]||[]))];
  return {seedProducts:products,...(Object.keys(seasonal_model_contracts).length?{seasonal_model_contracts}:{}),admin_projection_status,...(Object.keys(fc_models).length?{fc_models}:{}),fc_layout:{weekly:[...fc.weekly.ids],trio:[...fc.trio.ids],bundles:[...fc.bundles.ids],sbc:[...fc.sbc.ids],defaultCore:fc.sbc.defaultId??null,
   routes:Object.fromEntries(Object.entries(fc.sbc.routes).map(([key,r])=>[key,{picks:[...r.picks],alternatives:[...(r.alternatives||[])],...(r.label?{label:structuredClone(r.label)}:{})}]))},pageProductKeys:{
-  'fc27-weekly':keys(fc.weekly.ids),
-  'fc27-sbc':keys([...fc.sbc.ids,...Object.values(fc.sbc.routes).flatMap(r=>[...r.picks,...r.alternatives])]),
+  'fc27-weekly':keys([...fc.weekly.ids,...fc.bundles.ids]),
+  'fc27-sbc':keys([...fc.sbc.ids,...fc.bundles.ids,...Object.values(fc.sbc.routes).flatMap(r=>[...r.picks,...r.alternatives])]),
   'fc27-trio':keys([...fc.trio.ids,...fc.bundles.ids]),
   'seasonal-vault':seasonal.products.map(p=>'seasonal-'+p.id)
  }};
@@ -74,6 +74,7 @@ export function centerSeed(fc,seasonal,{adminObservations=[],now=Date.now()}={})
 export function effectivePageBindings(draft,seed,pageId){
  const page=draft.pages.find(p=>p.page_id===pageId);if(!page)fail('INVALID_CAMPAIGN_PAGE');
  const explicit=Object.hasOwn(page,'product_keys'),product_keys=[...(explicit?page.product_keys:seed.pageProductKeys[pageId]||[])],cards={},legacy_refs=[];
+ if(pageId.startsWith('fc27-'))for(const key of [...product_keys]){const native=seed.nativeModelKeys?.[key];if(native&&!product_keys.includes(native))product_keys.push(native);}
  for(const key of product_keys){const match=/^fc-(.+)-(ps|xbox|pc)$/.exec(key);if(match)(cards[match[1]]||=[]).push(match[2]);else legacy_refs.push(key);}
  return {source:explicit?'explicit':'inherited',product_keys,model_cards:Object.entries(cards).map(([key,platforms])=>({key,selected_platforms:[...new Set(platforms)],partial:platforms.length!==3})),legacy_refs};
 }

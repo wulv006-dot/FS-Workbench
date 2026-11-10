@@ -11,7 +11,7 @@
   const uidText = uid => uid === 0 || uid === '0' ? '游客（UID 0）' : uid === null || uid === undefined || uid === '' ? 'UID 未取得' : 'UID ' + uid;
   const money = value => value === null || value === undefined || value === '' ? '未取得' : '$' + value;
   const timeText = value => { const date = new Date(value); if (!value || Number.isNaN(date.getTime())) return '时间待核对'; const parts = new Intl.DateTimeFormat('en-US', {timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(date); const get = type => parts.find(part => part.type === type)?.value; return get('year') + '-' + get('month') + '-' + get('day') + ' ' + get('hour') + ':' + get('minute'); };
-  const identityReason = value => ({email_missing_or_invalid:'客户邮箱缺失或格式异常，不能加入观察。',customer_email_conflict:'同一订单的客户邮箱不一致，请先核对。',order_no_unmatched:'订单未在 Admin 中核对，不能加入观察。',admin_scope_mismatch:'订单游戏、站点或支付状态未通过核对。'})[value] || '客户身份尚未核实，不能加入观察。';
+  const identityReason = value => ({email_missing_or_invalid:'客户邮箱缺失或格式异常，不能加入观察。',customer_email_conflict:'同一订单的客户邮箱不一致，请先核对。',buyer_email_conflict:'同一 Buyer ID 对应不同邮箱，请先核对。',order_no_unmatched:'订单未在 Admin 中核对，不能加入观察。',admin_scope_mismatch:'订单游戏、站点或支付状态未通过核对。'})[value] || '客户身份尚未核实，不能加入观察。';
   const trackingStatus = value => ({active:'观察中',paused:'已停止追踪',closed:'已结束'})[value] || asText(value);
   const orderStatus = value => ({paid:'已付款',completed:'已完成',pending:'待处理',processing:'处理中',refunded:'已退款',cancelled:'已取消'})[value] || asText(value);
   const requestId = () => crypto.randomUUID().replaceAll('-', '');
@@ -101,12 +101,13 @@
     detailRow(dl, '客户邮箱', item.email);
     detailRow(dl, '客户身份', uidText(item.uid));
     detailRow(dl, '订单金额（USD）', money(item.order_usd));
-    detailRow(dl, '金额来源', item.order_usd_source === 'Admin' ? 'Admin' : item.order_usd_source === 'Admin_ES_export' ? 'Admin 缺项，由 ES 订单补充' : item.order_usd_source);
+    detailRow(dl, '金额来源', item.order_usd_source === 'ES_candidate_export' ? 'ES 导出（候选筛选）' : item.order_usd_source === 'Admin' ? 'Admin' : item.order_usd_source === 'Admin_ES_export' ? 'Admin 缺项，由 ES 订单补充' : item.order_usd_source);
+    if (item.buyer_group_order_count > 1) detailRow(dl, '同一 Buyer ID 合格订单', item.buyer_group_order_count + ' 笔（本日）');
     detailRow(dl, '折扣（USD）', money(item.discount_usd));
     detailRow(dl, '品类', item.product_type);
     detailRow(dl, '新老客', ({new:'新客',old:'老客',unknown:'未识别'})[item.customer_flag] || '未识别');
     detailRow(dl, '支付时间（北京时间）', timeText(item.paid_at));
-    if (item.amount_conflict) node('p', 'Admin 与 ES 金额不一致，列表按 Admin 优先；请复核差异。', card, 'error');
+    if (item.amount_conflict) node('p', item.order_usd_source === 'ES_candidate_export' ? 'Admin 与 ES 金额不一致，本次按 ES 金额筛选；请复核差异。' : 'Admin 与 ES 金额不一致，列表按 Admin 优先；请复核差异。', card, 'error');
     const actions = node('div', undefined, card, 'actions');
     const add = node('button', '加入持续观察', actions, 'fs-btn fs-btn--primary'); add.type = 'button';
     const verified = item.identity_status === 'verified' && typeof item.email === 'string' && item.email.includes('@');
@@ -137,16 +138,17 @@
       else if(value.status==='partial')partial.push(day);
       else missing.push(day);
       if(['available','partial'].includes(value.status))for(const item of value.items||[]){
-        const key=item.order_no||item.candidate_id;
+        const buyer=item.identity_status==='verified' && item.es_identity?.status==='verified' && item.es_identity.buyer_id;
+        const key=buyer ? 'buyer:'+item.site_id+':'+buyer+':'+item.email : 'order:'+(item.order_no||item.candidate_id);
         if(key&&!items.has(key))items.set(key,item);
       }
     }
     const captured=[...results.values()].map(v=>v.captured_at).filter(Boolean).sort();
-    $('candidate-meta').textContent=days[0]+' 至 '+days[days.length-1]+'（北京时间，含首尾） · 已取得 '+ready.length+'/'+days.length+' 天 · 去重后 '+items.size+' 笔候选订单'+(captured.length?' · 归档时间 '+timeText(captured[0])+' ～ '+timeText(captured[captured.length-1]):'');
+    $('candidate-meta').textContent=days[0]+' 至 '+days[days.length-1]+'（北京时间，含首尾） · 已取得 '+ready.length+'/'+days.length+' 天 · 去重后 '+items.size+' 位候选客户'+(captured.length?' · 归档时间 '+timeText(captured[0])+' ～ '+timeText(captured[captured.length-1]):'');
     if(pending.length)node('p','正在读取或整理：'+pending.join('、')+'。已取得的名单先展示，完成后自动更新。',host,'empty');
     if(missing.length)node('p','以下日期未取得，不能当作零订单：'+missing.join('、')+'。可点击“扫描所选区间”补充读取。',host,'error');
     if(partial.length)node('p','以下日期覆盖不完整：'+partial.join('、')+'；当前名单不代表完整区间。',host,'error');
-    if(!items.size&&ready.length===days.length)node('p','该区间没有符合当前条件的订单。',host,'empty');
+    if(!items.size&&ready.length===days.length)node('p','该区间没有符合当前条件的客户。',host,'empty');
     for(const item of [...items.values()].sort((a,b)=>String(b.paid_at||'').localeCompare(String(a.paid_at||''))))candidateCard(item);
   }
   async function loadCandidates(date, end=$('candidate-end').value) {
