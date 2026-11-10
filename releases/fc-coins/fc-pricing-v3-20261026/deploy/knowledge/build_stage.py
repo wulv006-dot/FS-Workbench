@@ -35,7 +35,8 @@ def build(checkout, source_commit, output):
     raw_index = blob(checkout, checkout / 'knowledge/index.json')
     index = json.loads(raw_index)
     if index.get('contract') != 'fs-knowledge-index-v1' or index.get('release_state') != 'candidate' or \
-            index.get('source_commit') is not None or len([row for row in index.get('entries', []) if row.get('layer')!='candidate']) != 23:
+            index.get('source_commit') is not None or index.get('release')!='fc-three-platform-100k-20261110' or \
+            len([row for row in index.get('entries', []) if row.get('layer')!='candidate']) != 25:
         raise ValueError('exact_v3_candidate_index_required')
     current_rows = [row['id'] for row in index['entries'] if row['layer'] == 'current' and row['status'] == 'effective']
     current = set(current_rows)
@@ -46,6 +47,17 @@ def build(checkout, source_commit, output):
         'fc.reporting.report','fc.reporting.business','fc.reporting.maintenance'}
     if len(current_rows) != len(expected_current) or current != expected_current:
         raise ValueError('v3_current_knowledge_selection_invalid')
+    expected_other={'fs.experience.archive-cycle','fc.history.natural-1821','fs.decision.pmax-authority-20261023',
+        'fs.decision.aion2-distribution-20261023','fc.pricing.decision.three-platform-100k','fc.pricing.experience.platform-discount'}
+    effective=[row['id'] for row in index['entries'] if row['layer']!='candidate']
+    if len(effective)!=len(set(effective)) or set(effective)!=expected_current|expected_other:
+        raise ValueError('v3_effective_knowledge_selection_invalid')
+    revisions={'fc.pricing.constraints':'fc27_dual20_d9_d2_platform_100k_v4',
+        'fc.pricing.v3':'20261110-three-platform-100k','fs.pricing.parameter-identity':'20261110-three-platform-100k',
+        'fs.learning.methods':'20261110-three-platform-100k','fc.reporting.business':'20261110-three-platform-100k',
+        'fc.pricing.decision.three-platform-100k':'20261110-1','fc.pricing.experience.platform-discount':'20261110-1'}
+    if any(next(row for row in index['entries'] if row['id']==identity)['revision']!=revision for identity,revision in revisions.items()):
+        raise ValueError('v3_current_knowledge_revision_invalid')
     published = copy.deepcopy(index)
     published.update(release=RELEASE, release_state='published', source_commit=source_commit,
                      source_root='knowledge-releases/' + RELEASE + '/sources')

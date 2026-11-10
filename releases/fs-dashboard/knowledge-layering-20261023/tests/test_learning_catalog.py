@@ -297,9 +297,10 @@ class LearningCatalog(unittest.TestCase):
             if row['id']=='fs.customer.lifecycle':
                 self.assertEqual(row['effective_at'], '2026-11-10')
                 self.assertEqual(row['effective_at_basis'], '2026-11-10 用户确认 ES 候选金额口径')
-            elif row['id']=='fs.learning.methods':
+            elif row['id'] in {'fs.learning.methods','fs.pricing.parameter-identity'}:
                 self.assertEqual(row['effective_at'],'2026-11-10')
                 self.assertEqual(row['revision'],'20261110-three-platform-100k')
+                self.assertEqual(row['effective_at_basis'],'2026-11-10 用户确认三平台独立及100K实交基准')
             else:
                 self.assertEqual(row['effective_at'], '2026-10-23')
                 self.assertEqual(row['effective_at_basis'], '本知识修订截至日')

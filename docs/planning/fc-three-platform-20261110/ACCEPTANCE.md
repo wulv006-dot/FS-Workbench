@@ -16,7 +16,7 @@
 
 三平台优惠、财务、候选、控制项、写前校验、物理价格窗口和效果分别绑定平台；旧Console与105K仅显式历史读取。bundles原Xbox读取后误用PS美元rate已修复；无购买数量证明的含赠交付单价不能作购买基价。监测退役竞品、公开未知强阻断和已证明未派发终态误作UNKNOWN已修，真实mismatch、TTL、原ID及UNKNOWN仍保留。
 
-现役只读监测的SQLite3.7.17在只读mount读取live WAL会报OperationalError；现有现代运行时及授权读取路径正核对，未放开业务DB写权限、未伪造API身份，不能在修复和真实运行回执前称告警链健康。SBC/Packs/Evolutions已有活动源片段与来源SHA，但完整当前真实报价验证仍待入口读回；Players服务未为审计唤醒。两次源码导出被自动审核拒绝的边界保留，不以其它方式重做同一导出。
+已用与原服务相同的只读限制复现：SQLite3.7.17读取主账本的固定SELECT报OperationalError: unable to open database file，影子账本可读；正核现有兼容SQLite库的独立复用，未放开业务DB写权限、未伪造API身份，不能在修复和真实运行回执前称告警链健康。SBC/Packs/Evolutions已有活动源片段与来源SHA，但完整当前真实报价验证仍待入口读回；Players服务未为审计唤醒。两次源码导出被自动审核拒绝的边界保留，不以其它方式重做同一导出。
 
 ## 发布与后续效果
 

@@ -43,6 +43,27 @@ class KnowledgeStageTransportTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'v3_current_knowledge_selection_invalid'):
                 build_stage.build(ROOT,'a'*40,ROOT/'unused.tar.gz')
 
+    def test_current_contract_rejects_old_financial_revision_before_reading_any_payload(self):
+        sys.path.insert(0,str(BUILDER.parent))
+        spec=importlib.util.spec_from_file_location('knowledge_stage_revision',BUILDER)
+        builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
+        index=json.loads((ROOT/'knowledge/index.json').read_text(encoding='utf-8-sig'))
+        next(row for row in index['entries'] if row['id']=='fc.pricing.constraints')['revision']='fc27_dual20_d9_d2_v2'
+        with patch.object(builder.subprocess,'check_output',return_value='a'*40),patch.object(builder,'blob',return_value=json.dumps(index).encode()) as blob:
+            with self.assertRaisesRegex(ValueError,'v3_current_knowledge_revision_invalid'):
+                builder.build(ROOT,'a'*40,ROOT/'unused.tar.gz')
+        self.assertEqual(blob.call_count,1)
+
+    def test_unknown_effective_id_cannot_replace_new_platform_decision(self):
+        sys.path.insert(0,str(BUILDER.parent))
+        spec=importlib.util.spec_from_file_location('knowledge_stage_effective',BUILDER)
+        builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
+        index=json.loads((ROOT/'knowledge/index.json').read_text(encoding='utf-8-sig'))
+        next(row for row in index['entries'] if row['id']=='fc.pricing.decision.three-platform-100k')['id']='unreviewed.decision'
+        with patch.object(builder.subprocess,'check_output',return_value='a'*40),patch.object(builder,'blob',return_value=json.dumps(index).encode()):
+            with self.assertRaisesRegex(ValueError,'v3_effective_knowledge_selection_invalid'):
+                builder.build(ROOT,'a'*40,ROOT/'unused.tar.gz')
+
     def test_stage_publisher_equals_committed_blob(self):
         commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
         with tempfile.TemporaryDirectory() as temporary:

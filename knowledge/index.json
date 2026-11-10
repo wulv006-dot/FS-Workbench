@@ -657,14 +657,14 @@
     },
     {
       "id": "fs.pricing.parameter-identity",
-      "revision": "fc-v3-20261026",
+      "revision": "20261110-three-platform-100k",
       "layer": "current",
       "status": "effective",
       "modules": [
         "FS",
         "FC27"
       ],
-      "effective_at": "2026-10-23",
+      "effective_at": "2026-11-10",
       "time_precision": "date_only",
       "owner": "吴律；原模块维护者",
       "authority": "git",
@@ -712,7 +712,7 @@
           "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
-      "effective_at_basis": "本知识修订截至日",
+      "effective_at_basis": "2026-11-10 用户确认三平台独立及100K实交基准",
       "original_effective_at": null
     },
     {
@@ -897,7 +897,7 @@
           "scope": "Independent platform quotes and actual discounts; 100K delivered100K; high-tier gifts voluntary; other-source selectors repaired without changing their semantics"
         }
       ],
-      "effective_at_basis": "本知识修订截至日",
+      "effective_at_basis": "2026-11-10 用户确认三平台独立及100K实交基准",
       "original_effective_at": null
     },
     {
