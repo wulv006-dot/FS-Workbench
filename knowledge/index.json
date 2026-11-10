@@ -1536,7 +1536,7 @@
     },
     {
       "id": "fc.pricing.experience.lootbar-source-availability",
-      "revision": "20261111-1",
+      "revision": "20261111-2",
       "layer": "experience",
       "status": "verified",
       "modules": [
@@ -1549,7 +1549,7 @@
       "source_commit": null,
       "source": {
         "path": "knowledge/experience/fc27-lootbar-source-availability-20261111.md",
-        "sha256": "1e74401c151da7cfab4f57da4c1579c5c3d7fdf21c0d05332a90c8489cfbdaff",
+        "sha256": "288a90c7ec0352c56ef7a6a95fc6498be48546fb16239a5257137166040c8589",
         "hash_basis": "utf8_lf"
       },
       "supersedes": [],
@@ -1558,7 +1558,7 @@
           "kind": "verified_original_trace_and_read_only_source_recovery",
           "date": "2026-11-11",
           "decision": "knowledge/experience/fc27-lootbar-source-availability-20261111.md",
-          "scope": "Diagnosis and one source-only recovery; automatic fallback and business effects independently verified"
+          "scope": "Original 187 recovery and natural cycles; deployed 183 shadow probe failed with zero offers; automatic fallback and business effects not established"
         }
       ],
       "consumers": [
