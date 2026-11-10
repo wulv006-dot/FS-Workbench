@@ -146,7 +146,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 5));
   assert.match(JSON.stringify(elements['v3-price-basis-ps'].children),/D-9至D-2八日平均优惠10\.0% 红线/);
   const originalRows=market.price_basis.rows;
   market.price_basis.rows=Object.fromEntries(['PS','XBOX','PC'].map(p=>[p,{...originalRows.PS,average_floor_usd:'9.16'}]));
-  for(const [retained,expected] of [['.9134','8.6%'],['.914','8.6%'],['1','0.0%'],[null,'待核'],['','待核'],['bad','待核']]){
+  for(const [retained,expected] of [['.9134','8.7%'],['.914','8.6%'],['1','0.0%'],[null,'待核'],['','待核'],['bad','待核']]){
     market.price_basis.historical_retained_ratio=retained;
     await elements['v3-refresh'].events.click();
     for(const platform of ['ps','xbox','pc'])assert.equal(elements['v3-price-basis-'+platform].children[3].textContent.split(' · ')[0],`D-9至D-2八日平均优惠${expected} 红线 $9.16`);
