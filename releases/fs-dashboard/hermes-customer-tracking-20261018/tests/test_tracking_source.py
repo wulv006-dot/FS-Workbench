@@ -118,9 +118,9 @@ class SourceTests(unittest.TestCase):
         self.assertNotIn('items',value)
 
     def test_es_amount_selects_buyer_before_targeted_admin_and_groups_candidates(self):
-        rows=[dict(row('ORDER-1'),buyer_id='buyer-a'),
-              dict(row('ORDER-2'),buyer_id='buyer-a',**{'订单金额（美元）':'520'}),
-              dict(row('ORDER-3'),buyer_id='buyer-b',**{'订单金额（美元）':'500'})]
+        rows=[dict(row('ORDER-1'),**{'Buyer ID':'buyer-a'}),
+              dict(row('ORDER-2'),**{'Buyer ID':'buyer-a','订单金额（美元）':'520'}),
+              dict(row('ORDER-3'),**{'Buyer ID':'buyer-b','订单金额（美元）':'500'})]
         source={'status':'available','rows':rows,'captured_at':'time','source_version':'synthetic',
                 'coverage':{'file_set_complete':True,'rows':3}}
         calls=[]
@@ -145,16 +145,17 @@ class SourceTests(unittest.TestCase):
         self.assertEqual(value['coverage']['admin_orders_requested'],1)
         self.assertEqual(value['coverage']['buyer_orders_collapsed'],1)
 
-    def test_missing_representative_tries_next_order_of_same_buyer(self):
+    def test_unverified_representative_tries_next_order_of_same_buyer(self):
         source={'status':'available','rows':[dict(row('ORDER-1'),buyer_id='buyer-a'),
             dict(row('ORDER-2'),buyer_id='buyer-a')],'captured_at':'time',
             'source_version':'synthetic','coverage':{'file_set_complete':True}}
         calls=[]
         def request(path,timeout):
             number=parse_qs(urlsplit(path).query)['search[4][val]'][0];calls.append(number)
-            rows=[] if number=='ORDER-1' else [{'id':2,'gid':1327,'site_id':266,'pay_status':1,
+            rows=[{'id':1 if number=='ORDER-1' else 2,'gid':1327,'site_id':266,'pay_status':1,
                 'paytime':'2026-10-17 12:00:00','order_no':number,'email':'guest@example.invalid',
                 'uid':0,'amount':'500.01'}]
+            if number=='ORDER-1':rows[0]['email']='invalid'
             return 200,json.dumps({'code':1,'data':{'total':len(rows),'list':rows}}).encode()
         with patch('tracking_source.private_es_day',return_value=source):
             value=scan_day(request,'2026-10-17',DEFAULT_CONFIG)

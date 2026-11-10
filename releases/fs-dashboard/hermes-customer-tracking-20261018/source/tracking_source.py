@@ -181,11 +181,14 @@ def scan_day(request,day,config,root=ARCHIVE):
             'coverage':{'es':archive['coverage'],'admin':admin['coverage'],'admin_attempts':attempts},
             'captured_at':archive['captured_at']}
         verified.update(admin['orders'])
+        def has_email(order):
+            email=(verified.get(order) or {}).get('email')
+            return isinstance(email,str) and len(email)<=254 and EMAIL.fullmatch(email.strip()) is not None
         for key in list(pending):
             if fallback:
-                chosen[key]=next((order for order in groups[key] if order in verified),chosen[key])
+                chosen[key]=next((order for order in groups[key] if has_email(order)),chosen[key])
                 pending.remove(key)
-            elif chosen[key] in verified:
+            elif has_email(chosen[key]):
                 pending.remove(key)
             else:
                 choices=groups[key];position=choices.index(chosen[key])+1

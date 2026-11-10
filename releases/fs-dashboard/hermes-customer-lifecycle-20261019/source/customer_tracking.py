@@ -134,7 +134,7 @@ def classify(row,config,apply_criteria=True):
         parsed=datetime.fromisoformat(paid_at.replace('/','-'))
         if parsed.tzinfo is None:parsed=parsed.replace(tzinfo=timezone(timedelta(hours=8)))
     except ValueError:return None,'paid_at_missing'
-    buyer=row.get('buyer_id')
+    buyer=row.get('Buyer ID') or row.get('buyer_id')
     buyer=buyer.strip() if isinstance(buyer,str) and 0<len(buyer)<=160 and buyer.strip().lower() not in ('','0','null','none','n/a','nan','undefined','-') and not any(ord(c)<32 for c in buyer) else None
     return {'es_identity':dict(buyer_id=buyer,status='verified' if buyer else 'unknown',source='ES original row; Admin match pending'),
         'order_no':order,'paid_at':parsed.isoformat(),'es_order_usd':str(amount) if amount is not None else None,
