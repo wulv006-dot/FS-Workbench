@@ -82,7 +82,7 @@ class LootbarRelease(unittest.TestCase):
         path=stage/'manifest.json';path.write_text(json.dumps(m));digest=hashlib.sha256(path.read_bytes()).hexdigest()
         return root,path,digest,old_files,access
 
-    def renderer_fixture(self,folder,stack,installed=False):
+    def renderer_fixture(self,folder,stack,installed=False,baseline_name='LOOTBAR_RENDERER_INSTALLED'):
         root=Path(folder)/'renderer';root.mkdir();stage=Path(folder)/'stage';stage.mkdir()
         (root/'qd_render_svc.py').write_bytes(b'original renderer')
         protected=root/'protected';protected.write_bytes(b'protected source/config')
@@ -99,7 +99,7 @@ class LootbarRelease(unittest.TestCase):
         if installed:
             original={'qd_render_svc.py':b'installed renderer','fc27_lootbar.py':b'previous FC task','lootbar_background.js':b'previous parser'}
             for n,b in original.items():(root/n).write_bytes(b)
-            stack.enter_context(patch.object(updater,'LOOTBAR_RENDERER_INSTALLED',{n:hashlib.sha256(b).hexdigest() for n,b in original.items()},create=True))
+            stack.enter_context(patch.object(updater,baseline_name,{n:hashlib.sha256(b).hexdigest() for n,b in original.items()},create=True))
         stack.enter_context(patch.object(updater,'LOOTBAR_PARSER_SHA',hashlib.sha256(b'fixed parser').hexdigest()))
         stack.enter_context(patch.object(updater,'_lootbar_renderer_state',side_effect=lambda:dict(state)))
         stack.enter_context(patch.object(updater.os,'geteuid',return_value=0,create=True))
@@ -263,6 +263,28 @@ class LootbarRelease(unittest.TestCase):
             'qd_render_svc.py':'52854d3f1eb65c4f9090be02289c510a340288a1d80db01cb2f202963718468f',
             'fc27_lootbar.py':'61a29808656f82a2ba0f2b3ea162a74ed62f80d9693d55305e4e51a6d1e34fc2',
             'lootbar_background.js':'e0e1946f607ae37df8547788d3252d05e02f5251ffae9c744ed9e941712e298e'})
+
+    def test_renderer_actual_asset_budget_tuple_accepts_only_complete_known_hashes(self):
+        current=dict(updater.LOOTBAR_RENDERER_INSTALLED,**{'fc27_lootbar.py':'f10a10277cc11b8a816ff33727a8fc62612d2881776e18198aaf2012b9d56ccd'})
+        updater._lootbar_renderer_before(current)
+        for name in current:
+            with self.subTest(target=name):
+                changed=dict(current);changed[name]='0'*64
+                with self.assertRaisesRegex(ValueError,'original_renderer_source_drift'):updater._lootbar_renderer_before(changed)
+                changed[name]=None
+                with self.assertRaisesRegex(ValueError,'original_renderer_source_drift'):updater._lootbar_renderer_before(changed)
+
+    def test_renderer_asset_budget_baseline_preview_and_failed_update_restore_all_three(self):
+        with tempfile.TemporaryDirectory() as folder,ExitStack() as stack:
+            root,path,digest,state,files=self.renderer_fixture(folder,stack,installed=True,baseline_name='LOOTBAR_RENDERER_ASSET_BUDGET')
+            original={n:(root/n).read_bytes() for n in files}
+            prior=root/'lootbar-prior-budget.json';prior.write_bytes(b'{"phase":"updated"}\n')
+            reload=stack.enter_context(patch.object(updater,'_lootbar_restart_renderer',side_effect=[ValueError('failed health'),None]))
+            self.assertEqual(updater.update_lootbar(path,False,digest)['phase'],'preview')
+            with self.assertRaisesRegex(ValueError,'failed health'):updater.update_lootbar(path,True,digest)
+            self.assertEqual({n:(root/n).read_bytes() for n in files},original)
+            self.assertEqual(prior.read_bytes(),b'{"phase":"updated"}\n');self.assertEqual(reload.call_count,2)
+            self.assertEqual(json.loads((root/'lootbar-original-release.json').read_text())['phase'],'rolled_back')
 
     def test_manifest_hash_target_drift_and_missing_protection_reject_before_writes(self):
         with tempfile.TemporaryDirectory() as folder,ExitStack() as stack:

@@ -175,11 +175,13 @@ LOOTBAR_RENDERER_INSTALLED={
     'qd_render_svc.py':'52854d3f1eb65c4f9090be02289c510a340288a1d80db01cb2f202963718468f',
     'fc27_lootbar.py':'61a29808656f82a2ba0f2b3ea162a74ed62f80d9693d55305e4e51a6d1e34fc2',
     'lootbar_background.js':'e0e1946f607ae37df8547788d3252d05e02f5251ffae9c744ed9e941712e298e'}
+LOOTBAR_RENDERER_ASSET_BUDGET={**LOOTBAR_RENDERER_INSTALLED,
+    'fc27_lootbar.py':'f10a10277cc11b8a816ff33727a8fc62612d2881776e18198aaf2012b9d56ccd'}
 
 
 def _lootbar_renderer_before(before):
     legacy={'qd_render_svc.py':LOOTBAR_RENDERER_BEFORE,'fc27_lootbar.py':None,'lootbar_background.js':None}
-    if before not in (legacy,LOOTBAR_RENDERER_INSTALLED):raise ValueError('lootbar_original_renderer_source_drift')
+    if before not in (legacy,LOOTBAR_RENDERER_INSTALLED,LOOTBAR_RENDERER_ASSET_BUDGET):raise ValueError('lootbar_original_renderer_source_drift')
 LOOTBAR_PARSER_SHA='e0e1946f607ae37df8547788d3252d05e02f5251ffae9c744ed9e941712e298e'
 LOOTBAR_ACCESS=Path('/var/lib/fc27-cloud/collection-access/access.json')
 LOOTBAR_SPOOL=Path('/var/lib/fs-fc-collector/spool')

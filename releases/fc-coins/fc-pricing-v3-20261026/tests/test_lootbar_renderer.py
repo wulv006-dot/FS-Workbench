@@ -63,6 +63,7 @@ class RendererContract(unittest.TestCase):
             return types.SimpleNamespace(status=200)
         page.goto.side_effect=navigate;page.evaluate.side_effect=lambda *_:snapshot(current[0])
         def locator(selector):
+            if selector.startswith('[role="dialog"]'):return types.SimpleNamespace(count=lambda:0)
             return types.SimpleNamespace(click=lambda **_:current.__setitem__(0,{'a.icon-ps':'PS','a.icon-xbox':'XBOX','a.icon-pc':'PC'}[selector]))
         page.locator.side_effect=locator
         context=Mock();context.new_page.return_value=page
@@ -86,7 +87,98 @@ class RendererContract(unittest.TestCase):
         self.assertTrue(all('observed_at' in r for r in result['snapshots'].values()))
         context.close.assert_called_once_with();browser.close.assert_called_once_with()
         self.assertEqual(browser.new_context.call_args.kwargs,dict(locale='en-US',service_workers='block'))
-        self.assertEqual([c.args[0] for c in page.locator.call_args_list],['a.icon-xbox','a.icon-pc'])
+        self.assertEqual([c.args[0] for c in page.locator.call_args_list if c.args[0].startswith('a.')],['a.icon-xbox','a.icon-pc'])
+
+    def popup_case(self, when, *, closable=True, challenge=False, recognized=True, close_fails=False):
+        from test_lootbar_fallback import snapshot
+        page=Mock(); current=['PS']; popup=[when=='initial']; calls=[]; once=[False]
+        dialog=Mock(); close=Mock()
+        dialog.count.side_effect=lambda: int(popup[0] and recognized)
+        dialog.locator.return_value=close
+        close.count.side_effect=lambda: int(closable)
+        def close_popup(**kwargs):
+            calls.append('close')
+            if close_fails:raise TimeoutError('close did not become actionable')
+            popup[0]=False
+        close.click.side_effect=close_popup
+        def navigate(url,**kwargs):
+            page.url=url;return types.SimpleNamespace(status=200)
+        page.goto.side_effect=navigate
+        page.title.return_value='Just a moment' if challenge else 'FC27 Coins'
+        def read(*args):
+            row=snapshot(current[0])
+            if when=='after_pc' and current[0]=='PC' and not once[0]:
+                popup[0]=True;once[0]=True
+            return row
+        page.evaluate.side_effect=read
+        def locator(selector):
+            if selector.startswith('[role="dialog"]'):
+                calls.append('inspect_coupon');return dialog
+            def click(**kwargs):
+                if when=='during_click' and not once[0]:
+                    popup[0]=True;once[0]=True
+                if popup[0]:raise TimeoutError('coupon subtree intercepts pointer events')
+                current[0]={'a.icon-ps':'PS','a.icon-xbox':'XBOX','a.icon-pc':'PC'}[selector]
+                calls.append(current[0])
+            return types.SimpleNamespace(click=click)
+        page.locator.side_effect=locator
+        context=Mock();context.new_page.return_value=page
+        browser=Mock();browser.new_context.return_value=context
+        scope=Mock();scope.__enter__=Mock(return_value=types.SimpleNamespace(chromium=types.SimpleNamespace(launch=Mock(return_value=browser))))
+        scope.__exit__=Mock(return_value=False)
+        pw=types.ModuleType('playwright.sync_api');pw.sync_playwright=Mock(return_value=scope)
+        ticks=iter(i/100 for i in range(10000))
+        with patch.dict(sys.modules,{'playwright':types.ModuleType('playwright'),'playwright.sync_api':pw}), \
+                patch.object(lootbar_browser,'read_parser',return_value='function readVisibleOffer() {}'), \
+                patch.object(lootbar_browser.time,'monotonic',side_effect=lambda:next(ticks)):
+            result=lootbar_browser.collect(dict(TASK,platforms=['PC','PS','XBOX']))
+        return result,calls,dialog,close
+
+    def test_observed_coupon_dialog_is_closed_without_claiming_before_platform_click(self):
+        result,calls,dialog,close=self.popup_case('initial')
+        self.assertEqual(set(result['snapshots']),{'PC','PS','XBOX'})
+        self.assertEqual(calls.count('close'),1)
+        self.assertLess(calls.index('close'),calls.index('PC'))
+        dialog.locator.assert_called_with('button.dialog-coupon-close:visible')
+        close.click.assert_called_once()
+        self.assertNotIn('force',close.click.call_args.kwargs)
+
+    def test_delayed_coupon_dialog_during_click_is_closed_then_selection_is_verified(self):
+        result,calls,_,_=self.popup_case('during_click')
+        self.assertEqual(set(result['snapshots']),{'PC','PS','XBOX'})
+        self.assertEqual(calls.count('close'),1)
+
+    def test_coupon_dialog_can_appear_after_pc_without_losing_platforms(self):
+        result,calls,_,_=self.popup_case('after_pc')
+        self.assertEqual(set(result['snapshots']),{'PC','PS','XBOX'})
+        self.assertEqual(calls.count('close'),1)
+
+    def test_missing_coupon_close_retains_failure_instead_of_clicking_through(self):
+        result,calls,_,close=self.popup_case('initial',closable=False)
+        self.assertEqual(set(result['snapshots']),{'PS'})
+        self.assertEqual(set(result['platform_errors'].values()),{'lootbar_coupon_dialog_unclosed'})
+        close.click.assert_not_called()
+        self.assertNotIn('PC',calls)
+
+    def test_non_coupon_dialog_is_not_closed_or_force_clicked(self):
+        result,calls,_,close=self.popup_case('initial',recognized=False)
+        self.assertEqual(set(result['snapshots']),{'PS'})
+        self.assertEqual(set(result['platform_errors'].values()),{'lootbar_page_timeout'})
+        close.click.assert_not_called()
+
+    def test_coupon_close_failure_keeps_valid_current_platform_partial(self):
+        result,calls,_,close=self.popup_case('initial',close_fails=True)
+        self.assertEqual(set(result['snapshots']),{'PS'})
+        self.assertEqual(set(result['platform_errors'].values()),{'lootbar_coupon_dialog_unclosed'})
+        self.assertEqual(close.click.call_count,2)
+        self.assertNotIn('force',close.click.call_args.kwargs)
+
+    def test_challenge_does_not_close_even_an_identified_coupon_dialog(self):
+        result,calls,_,close=self.popup_case('initial',challenge=True)
+        self.assertFalse(result['snapshots'])
+        self.assertEqual(set(result['platform_errors'].values()),{'challenge'})
+        close.click.assert_not_called()
+        self.assertNotIn('close',calls)
 
     def test_request_diagnostics_are_bounded_and_omit_queries_identifiers_and_headers(self):
         gate=lootbar_browser.RequestGate(128)
